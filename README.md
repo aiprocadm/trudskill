@@ -6,3 +6,9 @@ Infrastructure configuration lives in the `infra/` directory.
 - Prometheus and Grafana for monitoring.
 - Loki and an ELK stack for logging.
 - PostgreSQL backup CronJob.
+
+A development environment is provided via `docker-compose.yml`. It starts PostgreSQL, Redis, RabbitMQ, MinIO and the `auth` service. Run it with:
+
+```bash
+docker compose up --build
+```
