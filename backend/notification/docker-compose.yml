@@ -1,0 +1,10 @@
+version: "3.9"
+
+services:
+  notification:
+    build: .
+    container_name: notification_service
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
