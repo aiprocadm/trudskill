@@ -1,3 +1,7 @@
+        codex/create-project-structure-and-initial-files
+__pycache__/
+*.pyc
+
         codex/create-initial-project-directory-structure
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -26,5 +30,6 @@ __pycache__/
         codex/create-repository-structure-and-templates
 
 .env
+        main
         main
         main
