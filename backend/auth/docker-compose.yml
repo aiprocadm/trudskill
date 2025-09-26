@@ -1,0 +1,10 @@
+version: "3.9"
+
+services:
+  auth:
+    build: .
+    container_name: auth_service
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
