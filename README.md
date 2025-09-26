@@ -1,3 +1,4 @@
+        codex/create-project-structure-and-readme
 # cdoprof-
 
 A minimal Python project scaffold with separate folders for source code, tests, and documentation.
@@ -18,3 +19,19 @@ pytest
 
 Project documentation is stored in the `docs/` directory.
 
+
+# cdoprof
+
+Infrastructure configuration lives in the `infra/` directory.
+- CI scripts for linting, testing, migrations, and Docker builds.
+- Helm chart and Kubernetes manifests for stateless deployment.
+- Prometheus and Grafana for monitoring.
+- Loki and an ELK stack for logging.
+- PostgreSQL backup CronJob.
+
+A development environment is provided via `docker-compose.yml`. It starts PostgreSQL, Redis, RabbitMQ, MinIO and the `auth` service. Run it with:
+
+```bash
+docker compose up --build
+```
+        main
