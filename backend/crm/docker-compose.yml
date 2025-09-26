@@ -1,0 +1,10 @@
+version: "3.9"
+
+services:
+  crm:
+    build: .
+    container_name: crm_service
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
