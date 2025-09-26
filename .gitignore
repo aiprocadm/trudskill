@@ -1,4 +1,8 @@
         codex/prepare-template-engine-for-document-generation
+        codex/prepare-template-engine-for-document-generation
+
+        codex/create-project-structure-and-initial-files
+        main
 __pycache__/
 *.pyc
 
