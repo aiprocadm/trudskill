@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
+        codex/create-repository-structure-and-templates
+=======
 .env
+        main
