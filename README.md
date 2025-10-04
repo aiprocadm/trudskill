@@ -1,5 +1,10 @@
 # cdoprof
 
+        codex/prepare-template-engine-for-document-generation
+This repository contains utilities for generating documents for certificates,
+protocols and acts using `python-docx` and `reportlab`. It also includes
+export helpers for FIS FRDO (Excel) and EISOT (XML).
+
 Infrastructure configuration lives in the `infra/` directory.
 - CI scripts for linting, testing, migrations, and Docker builds.
 - Helm chart and Kubernetes manifests for stateless deployment.
@@ -12,3 +17,4 @@ A development environment is provided via `docker-compose.yml`. It starts Postgr
 ```bash
 docker compose up --build
 ```
+        main
