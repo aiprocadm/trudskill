@@ -18,3 +18,9 @@ A development environment is provided via `docker-compose.yml`. It starts Postgr
 docker compose up --build
 ```
         main
+
+## Migration checklist
+
+If you plan to export the repo as a ZIP and move it to a new account, review the migration checklist:
+
+- [`docs/migration-checklist.md`](docs/migration-checklist.md)
