@@ -9,4 +9,5 @@ export * from './sorting/index';
 export * from './files/index';
 export * from './tasks/index';
 export * from './lookup/index';
+export * from './audit/index';
 export * from './helpers/index';

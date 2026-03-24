@@ -6,11 +6,17 @@
 
 - Tokens: spacing/radius/typography/z-index/semantic status.
 - Primitives: `PageContainer`, `Section`, `Stack`, `Inline`, `Card`.
-- Components: table, filter bar, form field, status chip, dialogs, pagination, search, lookup select, date range, async status, permission wrapper.
-- Patterns: registry toolbar и state handling (empty/loading/error/forbidden).
+- Components: table, filters, forms, badges/chips, dialogs, pagination, search, lookup select, date range, async status, permission wrapper.
+- Patterns: `RegistryToolbar`, `RegistryFilterBar`, table state handling (empty/loading/error/forbidden).
 
 ## Conventions
 
-- Статусы берутся из `@cdoprof/shared-types`.
-- Бизнес-логика модулей сюда не добавляется.
-- Новые компоненты должны иметь пример использования в docs/stories соответствующего app.
+- Статусы и role-aware сценарии строятся на `@cdoprof/shared-types`.
+- Компоненты UI-kit не должны содержать доменную бизнес-логику.
+- Новые компоненты должны иметь example/demo в соответствующем frontend приложении.
+
+## Как расширять
+
+1. Добавить компонент в `src/components/*` или `src/patterns/*`.
+2. Экспортировать через `src/index.tsx`.
+3. Проверить `pnpm --filter @cdoprof/ui typecheck && pnpm --filter @cdoprof/ui test`.

@@ -1,4 +1,4 @@
-import { EntityStatus, UserStatus, type TenantId } from '../../../shared-types/src/index.ts';
+import { AsyncTaskStatus, EntityStatus, UserStatus, type TenantId } from '@cdoprof/shared-types';
 
 const randomId = (): string => crypto.randomUUID();
 
@@ -9,5 +9,5 @@ export const learnerFactory = () => ({ id: randomId(), status: EntityStatus.Acti
 export const courseFactory = () => ({ id: randomId(), title: 'Course', status: EntityStatus.Active });
 export const groupFactory = () => ({ id: randomId(), title: 'Group A' });
 export const enrollmentFactory = () => ({ id: randomId(), learnerId: randomId(), courseId: randomId() });
-export const asyncTaskFactory = () => ({ id: randomId(), status: 'queued' as const });
+export const asyncTaskFactory = () => ({ id: randomId(), status: AsyncTaskStatus.Queued });
 export const documentTemplateFactory = () => ({ id: randomId(), name: 'Template 1', version: 1 });

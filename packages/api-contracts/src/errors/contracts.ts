@@ -16,9 +16,9 @@ export interface ApiErrorDetail {
   code?: string;
 }
 
-export interface ApiErrorResponse {
+export interface ErrorEnvelope<TCode extends ApiErrorCode = ApiErrorCode> {
   error: {
-    code: ApiErrorCode;
+    code: TCode;
     message: string;
     details?: ApiErrorDetail[];
   };
@@ -27,3 +27,19 @@ export interface ApiErrorResponse {
     timestamp: string;
   };
 }
+
+export type ValidationErrorResponse = ErrorEnvelope<typeof ApiErrorCodes.VALIDATION_ERROR>;
+export type ForbiddenErrorResponse = ErrorEnvelope<typeof ApiErrorCodes.FORBIDDEN>;
+export type NotFoundErrorResponse = ErrorEnvelope<typeof ApiErrorCodes.NOT_FOUND>;
+export type ConflictErrorResponse = ErrorEnvelope<typeof ApiErrorCodes.CONFLICT>;
+export type PreconditionFailedErrorResponse = ErrorEnvelope<typeof ApiErrorCodes.PRECONDITION_FAILED>;
+export type RateLimitedErrorResponse = ErrorEnvelope<typeof ApiErrorCodes.RATE_LIMITED>;
+
+export type ApiErrorResponse =
+  | ValidationErrorResponse
+  | ForbiddenErrorResponse
+  | NotFoundErrorResponse
+  | ConflictErrorResponse
+  | PreconditionFailedErrorResponse
+  | RateLimitedErrorResponse
+  | ErrorEnvelope<typeof ApiErrorCodes.INTERNAL_ERROR>;

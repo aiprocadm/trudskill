@@ -1,17 +1,22 @@
 # @cdoprof/shared-types
 
-Общий foundation-слой типов для всех приложений monorepo: frontend, backend, worker, realtime и test utilities.
+Общий foundation-слой типов для frontend, backend, worker, realtime и test-utils.
 
 ## Что внутри
 
-- Платформенные типы: ids, request/meta, pagination, filters, sorting.
-- Доменные базовые enum-статусы (user/enrollment/async/document/...).
+- Платформенные типы: ids, audit/meta, pagination, filters, sorting.
+- Доменные базовые enum-статусы (user/enrollment/async/document/...)
 - Tenant-aware типы: `TenantId`, `TenantScopedEntity`, `ActorRef`, `AuditMeta`.
 - Lookup и file/task reference модели.
 
-## Использование
+## Как добавлять типы
+
+- Новые enum/status: `src/enums/*` и `src/status/*`.
+- Новые audit/meta типы: `src/audit/*`.
+- Новые кросс-доменные модели по тематическим подпапкам (`tenant`, `pagination`, `tasks` и т.д.).
+
+## Ограничения
 
 - Импортировать только из публичного `@cdoprof/shared-types`.
-- Новые enum/status добавлять в `src/enums`.
-- Новые кросс-доменные модели добавлять по подпапкам (`core`, `tenant`, `pagination` и т.д.).
-- Не размещать здесь persistence-сущности БД и бизнес-логику модулей.
+- Не размещать здесь persistence-сущности БД.
+- Не добавлять бизнес-логику доменных модулей.
