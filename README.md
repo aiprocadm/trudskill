@@ -1,76 +1,116 @@
-# cdoprof monorepo — Stage 0 (repository architecture aligned)
+# cdoprof monorepo platform foundation (Stage 1)
 
-Монорепозиторий подготовлен под целевую архитектуру платформы дистанционного обучения: единый frontend, backend как modular monolith, выделенные worker/realtime runtime-контуры и общие пакеты контрактов/типов/UI/test-utils.
+Монорепозиторий проекта СДО с единой инженерной платформой для **contracts-first** и **monorepo-first** разработки.
 
-## Итоговая карта репозитория
+## Назначение
+
+Репозиторий подготовлен как фундамент для:
+
+- синхронной типизации frontend ↔ backend;
+- API-first контрактной разработки;
+- масштабирования modular monolith (`apps/backend`) в service-oriented контур;
+- общей тестовой и инфраструктурной платформы.
+
+## Карта директорий
 
 ```text
 apps/
-  frontend/      # Next.js + React + TypeScript
-  backend/       # NestJS modular monolith (core API/business)
-  worker/        # очереди, фоновые задачи, тяжелые async-процессы
-  realtime/      # websocket/live-notifications/realtime signaling
+  frontend/      # Next.js web app
+  backend/       # NestJS API (modular monolith baseline)
+  worker/        # async jobs / queue consumers
+  realtime/      # websocket / realtime runtime
 
 packages/
-  ui/            # shared UI primitives/components
-  api-contracts/ # API/WebSocket contracts + DTO schemas
-  shared-types/  # runtime-agnostic domain types/enums/value objects
-  test-utils/    # общие фикстуры, builders, mocks, helpers
+  shared-types/  # cross-runtime core types
+  api-contracts/ # DTO/contracts/schemas baseline
+  ui/            # shared UI primitives
+  test-utils/    # shared test helpers and fixtures
 
-docs/            # архитектура и аудит
-infra/           # инфраструктурные артефакты (docker compose и т.п.)
-scripts/         # служебные скрипты репозитория
-tooling/         # общие шаблоны/пресеты tooling (TS и т.д.)
+tooling/
+  typescript/    # shared tsconfig presets
+
+infra/
+  docker-compose.yml  # PostgreSQL, Redis, RabbitMQ, MinIO
+
+docs/
+  architecture/   # architecture notes
 ```
 
-## Архитектурная логика
-
-- `apps/frontend` — единое web-приложение (app shell + доменные модули интерфейса).
-- `apps/backend` — серверное ядро в модели modular monolith.
-- `apps/worker` — тяжелые асинхронные сценарии (jobs, imports/exports, document-heavy задачи).
-- `apps/realtime` — realtime-коммуникации, статусы, уведомления и signaling.
-- `packages/*` — общий код, не привязанный к конкретному runtime.
-
-## Базовые инженерные соглашения
-
-- **Package manager:** `pnpm` (единый для всего монорепозитория).
-- **Workspace:** `pnpm-workspace.yaml`.
-- **Task runner:** `turbo` (`turbo.json`).
-- **TypeScript:** `tsconfig.base.json` (база) + root `tsconfig.json` (references).
-- **Lint/format:** root `eslint.config.mjs` + `.prettierrc.json`.
-
-## Требования окружения
+## Stack
 
 - Node.js 22+
-- pnpm 9+
-- Docker + Docker Compose
+- pnpm workspaces
+- Turborepo
+- TypeScript (strict)
+- ESLint (flat config) + Prettier
+- Vitest
+- Husky + lint-staged
+- Docker Compose (local infra)
 
-## Быстрый старт
+## Установка зависимостей
 
 ```bash
 pnpm install
+```
+
+## Настройка окружения
+
+1. Скопируйте общий шаблон:
+
+```bash
 cp .env.example .env
+```
+
+2. Скопируйте app-level env (при необходимости локальных overrides):
+
+```bash
 cp apps/frontend/.env.example apps/frontend/.env.local
 cp apps/backend/.env.example apps/backend/.env
 cp apps/worker/.env.example apps/worker/.env
 cp apps/realtime/.env.example apps/realtime/.env
+```
 
-docker compose -f infra/docker-compose.yml up -d
+3. Проверьте env-схему:
+
+```bash
+pnpm env:check
+```
+
+## Локальная инфраструктура
+
+```bash
+pnpm docker:up
+```
+
+Поднимаются сервисы:
+
+- PostgreSQL
+- Redis
+- RabbitMQ
+- MinIO (S3-compatible)
+- MinIO bucket initializer (`cdoprof-dev`)
+
+Остановка:
+
+```bash
+pnpm docker:down
 ```
 
 ## Стандартные команды из корня
 
 ```bash
-pnpm install
 pnpm dev
-pnpm build
 pnpm lint
-pnpm test
 pnpm typecheck
-pnpm env:check
+pnpm test
+pnpm test:unit
+pnpm build
+pnpm format
+pnpm format:check
+pnpm clean
 ```
 
-## Точечный запуск runtime-контуров
+## Локальный запуск приложений
 
 ```bash
 pnpm --filter @cdoprof/frontend dev
@@ -79,32 +119,23 @@ pnpm --filter @cdoprof/worker dev
 pnpm --filter @cdoprof/realtime dev
 ```
 
-## Env/config conventions
+## API-first и общая типизация
 
-- Корневой шаблон: `.env.example`.
-- Runtime-шаблоны:
-  - `apps/frontend/.env.example`
-  - `apps/backend/.env.example`
-  - `apps/worker/.env.example`
-  - `apps/realtime/.env.example`
-- Проверка env-схемы: `pnpm env:check`.
+- `packages/shared-types` — доменно-нейтральные типы.
+- `packages/api-contracts` — DTO и API-контракты, используемые backend/frontend.
+- Внутренние зависимости подключаются через `workspace:*`.
+- TS aliases и project references настроены на уровне корня.
 
-## Что сделано в Stage 0
+## CI quality gates
 
-- Подтверждена и закреплена целевая структура `apps/*` и `packages/*`.
-- Зафиксирован единый workspace и оркестрация задач.
-- Подтверждена единая иерархия TS/ESLint/Prettier-конфигов.
-- Проверено отсутствие конкурирующих lock-файлов (`package-lock.json`, `yarn.lock`) в репозитории.
-- Обновлён аудит-отчет: `docs/repo-audit-stage-0.md`.
+GitHub Actions workflow выполняет из корня:
 
-## Правила размещения нового кода
+1. install dependencies
+2. lint
+3. typecheck
+4. unit tests
+5. build
 
-1. **Runtime-код — только в `apps/*`**.
-2. **Shared-код — только в `packages/*`**.
-3. **Без legacy-параллельных деревьев** (`frontend/`, `backend/`, `shared/` в корне запрещены).
-4. **Infra отдельно от runtime** (`infra/` не смешивать с приложениями).
-5. **Наследование root-конфигов обязательно**, локальные overrides — только при необходимости.
+## Вклад в репозиторий
 
-## Примечание по lockfile
-
-В текущем окружении не удалось сгенерировать `pnpm-lock.yaml`, потому что Corepack не может скачать pinned-версию `pnpm` из `registry.npmjs.org` (HTTP tunneling proxy 403). Сгенерируйте и закоммитьте lockfile в CI/окружении с доступом к npm registry.
+Перед изменениями прочитайте `CONTRIBUTING.md`.
