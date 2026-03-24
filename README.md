@@ -1,49 +1,51 @@
-# cdoprof monorepo (Stage 0 aligned)
+# cdoprof monorepo — Stage 0 (repository architecture aligned)
 
-Monorepo foundation for a distance-learning platform with clear runtime separation and shared contract/type layers.
+Монорепозиторий подготовлен под целевую архитектуру платформы дистанционного обучения: единый frontend, backend как modular monolith, выделенные worker/realtime runtime-контуры и общие пакеты контрактов/типов/UI/test-utils.
 
-## Final repository map
+## Итоговая карта репозитория
 
 ```text
 apps/
-  frontend/      # Next.js + React + TypeScript web app
-  backend/       # NestJS modular-monolith core API
-  worker/        # async jobs, queue consumers, heavy background processing
-  realtime/      # websocket/live notifications/realtime signaling runtime
+  frontend/      # Next.js + React + TypeScript
+  backend/       # NestJS modular monolith (core API/business)
+  worker/        # очереди, фоновые задачи, тяжелые async-процессы
+  realtime/      # websocket/live-notifications/realtime signaling
 
 packages/
   ui/            # shared UI primitives/components
-  api-contracts/ # API/WebSocket contract definitions and DTO schemas
-  shared-types/  # runtime-agnostic shared domain types/enums/value objects
-  test-utils/    # shared test fixtures/builders/helpers
+  api-contracts/ # API/WebSocket contracts + DTO schemas
+  shared-types/  # runtime-agnostic domain types/enums/value objects
+  test-utils/    # общие фикстуры, builders, mocks, helpers
 
-docs/            # architecture and audit artifacts
-infra/           # runtime-independent infrastructure configs (compose, provisioning)
-scripts/         # repository scripts/utilities
-tooling/         # shared build/TS tooling presets
+docs/            # архитектура и аудит
+infra/           # инфраструктурные артефакты (docker compose и т.п.)
+scripts/         # служебные скрипты репозитория
+tooling/         # общие шаблоны/пресеты tooling (TS и т.д.)
 ```
 
-## Architecture logic
+## Архитектурная логика
 
-- **Single frontend** (`apps/frontend`) as the main user-facing modular web client.
-- **Backend modular monolith** (`apps/backend`) as the core business/API runtime.
-- **Worker contour** (`apps/worker`) for heavy async and queue/document/integration workloads.
-- **Realtime contour** (`apps/realtime`) for websocket-based and live-status scenarios.
-- **Shared packages** (`packages/*`) hold non-runtime-specific code reused across apps.
+- `apps/frontend` — единое web-приложение (app shell + доменные модули интерфейса).
+- `apps/backend` — серверное ядро в модели modular monolith.
+- `apps/worker` — тяжелые асинхронные сценарии (jobs, imports/exports, document-heavy задачи).
+- `apps/realtime` — realtime-коммуникации, статусы, уведомления и signaling.
+- `packages/*` — общий код, не привязанный к конкретному runtime.
 
-## Package manager and workspace
+## Базовые инженерные соглашения
 
-- **Package manager**: `pnpm` (single manager for the whole repository)
-- **Workspace**: `pnpm-workspace.yaml`
-- **Task orchestration**: `turbo.json`
+- **Package manager:** `pnpm` (единый для всего монорепозитория).
+- **Workspace:** `pnpm-workspace.yaml`.
+- **Task runner:** `turbo` (`turbo.json`).
+- **TypeScript:** `tsconfig.base.json` (база) + root `tsconfig.json` (references).
+- **Lint/format:** root `eslint.config.mjs` + `.prettierrc.json`.
 
-## Requirements
+## Требования окружения
 
 - Node.js 22+
 - pnpm 9+
 - Docker + Docker Compose
 
-## Quick start
+## Быстрый старт
 
 ```bash
 pnpm install
@@ -52,10 +54,11 @@ cp apps/frontend/.env.example apps/frontend/.env.local
 cp apps/backend/.env.example apps/backend/.env
 cp apps/worker/.env.example apps/worker/.env
 cp apps/realtime/.env.example apps/realtime/.env
+
 docker compose -f infra/docker-compose.yml up -d
 ```
 
-## Standard root commands
+## Стандартные команды из корня
 
 ```bash
 pnpm install
@@ -67,7 +70,7 @@ pnpm typecheck
 pnpm env:check
 ```
 
-## Run specific runtimes
+## Точечный запуск runtime-контуров
 
 ```bash
 pnpm --filter @cdoprof/frontend dev
@@ -76,52 +79,32 @@ pnpm --filter @cdoprof/worker dev
 pnpm --filter @cdoprof/realtime dev
 ```
 
-## Environment conventions
+## Env/config conventions
 
-- Root example: `.env.example`
-- App examples:
+- Корневой шаблон: `.env.example`.
+- Runtime-шаблоны:
   - `apps/frontend/.env.example`
   - `apps/backend/.env.example`
   - `apps/worker/.env.example`
   - `apps/realtime/.env.example`
-- Root env schema check: `pnpm env:check`
-- App-level fail-fast env validation lives in each app `src/env.ts`.
+- Проверка env-схемы: `pnpm env:check`.
 
-## Local infrastructure
+## Что сделано в Stage 0
 
-```bash
-docker compose -f infra/docker-compose.yml up -d
-```
+- Подтверждена и закреплена целевая структура `apps/*` и `packages/*`.
+- Зафиксирован единый workspace и оркестрация задач.
+- Подтверждена единая иерархия TS/ESLint/Prettier-конфигов.
+- Проверено отсутствие конкурирующих lock-файлов (`package-lock.json`, `yarn.lock`) в репозитории.
+- Обновлён аудит-отчет: `docs/repo-audit-stage-0.md`.
 
-Services:
+## Правила размещения нового кода
 
-- PostgreSQL: `localhost:5432`
-- Redis: `localhost:6379`
-- RabbitMQ: `localhost:5672` (management `localhost:15672`)
-- MinIO S3 API: `localhost:9000` (console `localhost:9001`)
+1. **Runtime-код — только в `apps/*`**.
+2. **Shared-код — только в `packages/*`**.
+3. **Без legacy-параллельных деревьев** (`frontend/`, `backend/`, `shared/` в корне запрещены).
+4. **Infra отдельно от runtime** (`infra/` не смешивать с приложениями).
+5. **Наследование root-конфигов обязательно**, локальные overrides — только при необходимости.
 
-## What was consolidated in Stage 0
+## Примечание по lockfile
 
-- Confirmed and retained canonical monorepo structure under `apps/*` and `packages/*`.
-- Unified on a single package manager model (pnpm).
-- Kept one root TypeScript base hierarchy (`tsconfig.base.json` + root references `tsconfig.json`).
-- Kept one root lint/format baseline (`eslint.config.mjs`, `.prettierrc.json`).
-- Moved infrastructure bootstrap to `infra/docker-compose.yml` to keep runtime and infra concerns separated.
-- Added explicit audit report: `docs/repo-audit-stage-0.md`.
-
-## Placement rules for new code
-
-1. **Runtime code only in `apps/*`**
-   - frontend/backend/worker/realtime concerns must stay in their dedicated runtime.
-2. **Reusable code only in `packages/*`**
-   - shared UI/types/contracts/test helpers must not be duplicated in apps.
-3. **No legacy roots**
-   - do not create parallel `frontend/`, `backend/`, `shared/` trees outside `apps/*`/`packages/*`.
-4. **Infra separate from runtime**
-   - infra configs go to `infra/`; never place shared infra files inside runtime source trees.
-5. **Config hierarchy discipline**
-   - inherit from root TS/ESLint/Prettier where possible; add local overrides only when required.
-
-## Known environment note
-
-`pnpm-lock.yaml` is not yet committed because this execution environment cannot reach `registry.npmjs.org` for Corepack pnpm bootstrap. Generate and commit the lockfile in a network-enabled CI/dev environment as the first follow-up step.
+В текущем окружении не удалось сгенерировать `pnpm-lock.yaml`, потому что Corepack не может скачать pinned-версию `pnpm` из `registry.npmjs.org` (HTTP tunneling proxy 403). Сгенерируйте и закоммитьте lockfile в CI/окружении с доступом к npm registry.
