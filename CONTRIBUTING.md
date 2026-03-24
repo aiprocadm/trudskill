@@ -17,6 +17,7 @@
 
 ## Dependency policy
 
+- Prefer committing `pnpm-lock.yaml`; CI supports bootstrap fallback without lockfile but lockfile is required for deterministic installs.
 - Add shared dependencies in repo root when used by multiple apps/packages.
 - Add app-specific dependencies in the corresponding `apps/*/package.json`.
 - Add package-specific dependencies in the corresponding `packages/*/package.json`.
