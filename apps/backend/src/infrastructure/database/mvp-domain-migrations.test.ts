@@ -34,10 +34,11 @@ function expectTableBody(tableName: string, assertion: (body: string) => void): 
 }
 
 describe('SQL migration chain', () => {
-  it('keeps migrations ordered and includes MVP migration', () => {
+  it('keeps migrations ordered and includes MVP hardening migration', () => {
     expect(migrationFiles).toEqual([
       '0001_backend_foundation.sql',
-      '0002_mvp_domain_model.sql'
+      '0002_mvp_domain_model.sql',
+      '0003_mvp_domain_integrity_hardening.sql'
     ]);
   });
 
@@ -73,7 +74,7 @@ describe('tenant-awareness and audit fields', () => {
   });
 
   it('defines created_at and updated_at on mutable transactional tables', () => {
-    for (const tableName of mvpDomainTableList.filter((table) => table !== 'learning.enrollment_status_history' && table !== 'assessment.test_questions')) {
+    for (const tableName of mvpDomainTableList.filter((table) => table !== 'learning.enrollment_status_history' && table !== 'assessment.test_questions' && table !== 'storage.files')) {
       expectTableBody(tableName, (body) => {
         expect(body, `${tableName} must include created_at`).toMatch(/created_at\s+timestamptz\s+NOT\s+NULL\s+DEFAULT\s+now\(\)/i);
         expect(body, `${tableName} must include updated_at`).toMatch(/updated_at\s+timestamptz\s+NOT\s+NULL\s+DEFAULT\s+now\(\)/i);
@@ -87,6 +88,13 @@ describe('tenant-awareness and audit fields', () => {
         expect(body, `${tableName} must include deleted_at`).toMatch(/deleted_at\s+timestamptz/i);
       });
     }
+  });
+
+  it('adds tenant-bound foreign keys for cross-domain relations', () => {
+    expectSqlContains(/CONSTRAINT\s+enrollments_learner_tenant_fk\s+FOREIGN\s+KEY\s*\(tenant_id,\s*learner_id\)\s+REFERENCES\s+learning\.learners\s*\(tenant_id,\s*id\)/i, 'missing tenant-bound enrollment -> learner fk');
+    expectSqlContains(/CONSTRAINT\s+test_attempts_enrollment_tenant_fk\s+FOREIGN\s+KEY\s*\(tenant_id,\s*enrollment_id\)\s+REFERENCES\s+learning\.enrollments\s*\(tenant_id,\s*id\)/i, 'missing tenant-bound test_attempts -> enrollments fk');
+    expectSqlContains(/CONSTRAINT\s+generated_documents_template_tenant_fk\s+FOREIGN\s+KEY\s*\(tenant_id,\s*template_id\)\s+REFERENCES\s+documents\.templates\s*\(tenant_id,\s*id\)/i, 'missing tenant-bound generated_documents -> templates fk');
+    expectSqlContains(/CONSTRAINT\s+file_links_file_tenant_fk\s+FOREIGN\s+KEY\s*\(tenant_id,\s*file_id\)\s+REFERENCES\s+storage\.files\s*\(tenant_id,\s*id\)/i, 'missing tenant-bound file_links -> files fk');
   });
 });
 
@@ -102,12 +110,15 @@ describe('schema integrity constraints', () => {
     expectSqlContains(/CONSTRAINT\s+test_attempts_no_chk\s+CHECK\s*\(attempt_no\s*>\s*0\)/i, 'missing attempt_no > 0 check');
     expectSqlContains(/CONSTRAINT\s+test_attempts_score_chk\s+CHECK\s*\(score\s+IS\s+NULL\s+OR\s+score\s*>=\s*0\)/i, 'missing score >= 0 check');
     expectSqlContains(/CONSTRAINT\s+exam_results_score_chk\s+CHECK\s*\(final_score\s*>=\s*0\)/i, 'missing exam final_score >= 0 check');
+    expectSqlContains(/CONSTRAINT\s+test_attempts_submitted_state_chk\s+CHECK\s*\(status\s+NOT\s+IN\s+\('submitted',\s*'evaluated'\)\s+OR\s+submitted_at\s+IS\s+NOT\s+NULL\)/i, 'missing submitted state check');
   });
 
   it('enforces generated document finalization consistency and reservation rules', () => {
     expectSqlContains(/CONSTRAINT\s+generated_documents_final_date_chk\s+CHECK\s*\(\(is_final\s*=\s*false\)\s+OR\s+\(document_date\s+IS\s+NOT\s+NULL\)\)/i, 'missing final document date check');
     expectSqlContains(/CONSTRAINT\s+generated_documents_finalized_at_chk\s+CHECK\s*\(\(is_final\s*=\s*false\)\s+OR\s+\(finalized_at\s+IS\s+NOT\s+NULL\)\)/i, 'missing final document finalized_at check');
+    expectSqlContains(/CONSTRAINT\s+generated_documents_final_state_chk\s+CHECK\s*\(is_final\s*=\s*false\s+OR\s+status\s*=\s*'final'\)/i, 'missing final status alignment check');
     expectSqlContains(/CONSTRAINT\s+number_reservations_consumed_chk\s+CHECK\s*\(status\s*<>\s*'consumed'\s+OR\s+generated_document_id\s+IS\s+NOT\s+NULL\)/i, 'missing consumed reservation consistency check');
+    expectSqlContains(/CONSTRAINT\s+number_reservations_consumed_at_chk\s+CHECK\s*\(status\s*<>\s*'consumed'\s+OR\s+consumed_at\s+IS\s+NOT\s+NULL\)/i, 'missing consumed_at consistency check');
   });
 
   it('has tenant-aware uniqueness on core business identifiers', () => {
