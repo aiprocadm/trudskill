@@ -5,7 +5,7 @@ import type { PropsWithChildren } from 'react';
 import { useEffect } from 'react';
 import { LoadingState } from '@cdoprof/ui';
 import { useAuth } from './context';
-import { evaluateRouteAccess } from '../navigation/helpers';
+import { getRouteBootstrapState } from './use-route-bootstrap';
 
 export const ProtectedRoute = ({ children }: PropsWithChildren) => {
   const router = useRouter();
@@ -14,15 +14,15 @@ export const ProtectedRoute = ({ children }: PropsWithChildren) => {
 
   useEffect(() => {
     if (loading) return;
-    const access = evaluateRouteAccess(pathname, session);
-    if (access.kind === 'redirect-login') router.replace(`/login?next=${encodeURIComponent(pathname)}`);
-    if (access.kind === 'forbidden') router.replace('/forbidden');
-    if (access.kind === 'not-found') router.replace('/not-found');
+    const bootstrap = getRouteBootstrapState(pathname, session);
+    if (bootstrap.shouldRedirectToLogin) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+    if (bootstrap.shouldRedirectToForbidden) router.replace('/forbidden');
+    if (bootstrap.shouldRedirectToNotFound) router.replace('/not-found');
   }, [loading, pathname, router, session]);
 
   if (loading) return <LoadingState message="Проверяем сессию..." />;
-  const access = evaluateRouteAccess(pathname, session);
-  if (access.kind !== 'ok') return <LoadingState message="Перенаправление..." />;
+  const bootstrap = getRouteBootstrapState(pathname, session);
+  if (bootstrap.access.kind !== 'ok') return <LoadingState message="Перенаправление..." />;
   return <>{children}</>;
 };
 

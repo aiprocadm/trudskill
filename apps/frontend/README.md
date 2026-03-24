@@ -9,7 +9,7 @@
 - `src/lib/auth` — login/logout/bootstrap/refresh lifecycle и session storage.
 - `src/lib/rbac` — permission helpers.
 - `src/lib/query` — QueryClient и policy ретраев.
-- `src/features/auth` — auth context, guards, login form.
+- `src/features/auth` — auth context, guards, login form, route bootstrap state helper.
 - `src/features/navigation` — route metadata и RBAC-aware navigation model.
 - `src/widgets/shell` — app shell (sidebar/topbar/session area/placeholders).
 - `src/components` — foundation wrappers: page container/header, loading/empty/error, section cards, forms/registry placeholders.
@@ -44,6 +44,6 @@ pnpm --filter @cdoprof/frontend typecheck
 ## Принципы auth/session/routing
 
 - Все auth-вызовы централизованы в `src/lib/auth`.
-- Protected/public доступ вычисляется через `routeMeta` + `evaluateRouteAccess`.
+- Protected/public доступ вычисляется через route metadata patterns + `evaluateRouteAccess`/`getRouteBootstrapState`.
 - Меню строится через RBAC (`getVisibleNavigation`).
 - При невозможности refresh сессия очищается и пользователь должен повторно пройти login.

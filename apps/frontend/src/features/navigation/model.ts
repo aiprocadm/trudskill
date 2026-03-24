@@ -3,26 +3,33 @@ export interface RouteMeta {
   requiredPermissions?: string[];
 }
 
+export interface RouteMetaEntry {
+  pattern: string;
+  meta: RouteMeta;
+}
+
 export interface NavigationItem {
   href: string;
   label: string;
   requiredPermissions?: string[];
 }
 
-export const routeMeta: Record<string, RouteMeta> = {
-  '/': { public: false },
-  '/users': { public: false, requiredPermissions: ['iam.manage_roles'] },
-  '/courses': { public: false, requiredPermissions: ['tenant.read'] },
-  '/groups': { public: false, requiredPermissions: ['tenant.read'] },
-  '/documents': { public: false, requiredPermissions: ['tenant.read'] },
-  '/settings': { public: false, requiredPermissions: ['iam.manage_roles'] },
-  '/audit': { public: false, requiredPermissions: ['auth.manage_sessions'] },
-  '/registry': { public: false, requiredPermissions: ['tenant.read'] },
-  '/forms': { public: false, requiredPermissions: ['tenant.read'] },
-  '/module-empty': { public: false, requiredPermissions: ['tenant.read'] },
-  '/login': { public: true },
-  '/forbidden': { public: true }
-};
+export const routeMeta: RouteMetaEntry[] = [
+  { pattern: '/', meta: { public: false } },
+  { pattern: '/users', meta: { public: false, requiredPermissions: ['iam.manage_roles'] } },
+  { pattern: '/courses', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  { pattern: '/groups', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  { pattern: '/documents', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  { pattern: '/settings', meta: { public: false, requiredPermissions: ['iam.manage_roles'] } },
+  { pattern: '/audit', meta: { public: false, requiredPermissions: ['auth.manage_sessions'] } },
+  { pattern: '/registry', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  { pattern: '/forms', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  { pattern: '/module-empty', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  { pattern: '/login', meta: { public: true } },
+  { pattern: '/logout', meta: { public: true } },
+  { pattern: '/forbidden', meta: { public: true } },
+  { pattern: '/not-found', meta: { public: true } }
+];
 
 export const navigationModel: NavigationItem[] = [
   { href: '/', label: 'Главная' },
