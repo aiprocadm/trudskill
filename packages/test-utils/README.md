@@ -11,8 +11,21 @@
 - `contracts/*`: проверки единых response/error envelope.
 - `mocks/*`: очереди/файлы/websocket/async task моки.
 
-## Конвенции test data
+## Быстрый пример
+
+```ts
+import { authHeaders, createTestTenant } from '@cdoprof/test-utils';
+
+const tenant = createTestTenant('stage2');
+const headers = {
+  ...authHeaders('admin'),
+  'x-tenant-id': tenant.id
+};
+```
+
+## Conventions
 
 - Каждая фабрика должна по умолчанию создавать tenant-safe тестовые объекты.
 - RBAC сценарии проверяются через `authAs(role)` и `authHeaders(role)`.
 - Contract assertions используются для проверок единых DTO envelope до предметной валидации.
+- Integration/e2e тесты должны централизованно использовать helper-функции из этого пакета, а не локальные дубли.
