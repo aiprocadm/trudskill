@@ -38,6 +38,9 @@ tooling/         # shared build/TS tooling presets
 - **Package manager**: `pnpm` (single manager for the whole repository)
 - **Workspace**: `pnpm-workspace.yaml`
 - **Task orchestration**: `turbo.json`
+## Monorepo orchestration
+
+This repository uses **Turborepo** for workspace task orchestration, filtering, and caching across apps/packages.
 
 ## Requirements
 
