@@ -8,7 +8,12 @@ const backendEnvSchema = z.object({
   S3_ENDPOINT: z.string().url(),
   S3_ACCESS_KEY: z.string().min(1),
   S3_SECRET_KEY: z.string().min(1),
-  S3_BUCKET: z.string().min(1)
+  S3_BUCKET: z.string().min(1),
+  AUTH_JWT_SECRET: z.string().min(10),
+  SESSION_SECRET: z.string().min(10),
+  CORS_ORIGIN: z.string().url(),
+  PUBLIC_BASE_URL: z.string().url(),
+  REALTIME_PUBLIC_URL: z.string().url()
 });
 
 export const backendEnv = backendEnvSchema.parse(process.env);

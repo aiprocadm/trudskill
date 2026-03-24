@@ -9,15 +9,22 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:unit": "pnpm test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "clean": "rimraf .turbo \"**/dist\" \"**/coverage\" apps/frontend/.next",
+    "docker:up": "docker compose -f infra/docker-compose.yml up -d",
+    "docker:down": "docker compose -f infra/docker-compose.yml down",
     "prepare": "husky",
     "env:check": "tsx scripts/check-env.ts"
   },
   "lint-staged": {
-    "*.{js,cjs,mjs,ts,tsx,jsx,json,md,yml,yaml}": [
-      "prettier --write",
-      "eslint --max-warnings=0 --fix"
+    "*.{js,cjs,mjs,ts,tsx,jsx}": [
+      "eslint --max-warnings=0 --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
     ]
   },
   "devDependencies": {
@@ -27,9 +34,12 @@
     "eslint": "^9.22.0",
     "eslint-config-next": "15.2.2",
     "eslint-config-prettier": "^10.1.1",
+    "eslint-plugin-import": "^2.31.0",
+    "globals": "^16.0.0",
     "husky": "^9.1.7",
     "lint-staged": "^15.5.0",
     "prettier": "^3.5.3",
+    "rimraf": "^6.0.1",
     "turbo": "^2.4.4",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2",
