@@ -6,7 +6,7 @@
 
 - Tokens: spacing/radius/typography/z-index/semantic status.
 - Primitives: `PageContainer`, `Section`, `Stack`, `Inline`, `Card`.
-- Components: table, filters, forms, badges/chips (`Badge`/`StatusChip`), dialogs, pagination, search, lookup select, date range, async status, permission wrapper, demo card (`DemoCard`).
+- Components: table, filters, forms, badges/chips, dialogs, pagination, search, lookup select, date range, async status, permission wrapper.
 - Patterns: `RegistryToolbar`, `RegistryFilterBar`, table state handling (empty/loading/error/forbidden).
 
 ## Conventions
@@ -20,12 +20,3 @@
 1. Добавить компонент в `src/components/*` или `src/patterns/*`.
 2. Экспортировать через `src/index.tsx`.
 3. Проверить `pnpm --filter @cdoprof/ui typecheck && pnpm --filter @cdoprof/ui test`.
-
-## Demo usage
-
-```tsx
-import { EntityStatus } from '@cdoprof/shared-types';
-import { DemoCard } from '@cdoprof/ui';
-
-<DemoCard title="Frontend health route ready" status={EntityStatus.Active} />;
-```
