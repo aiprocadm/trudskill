@@ -3,6 +3,8 @@ import { EmptyState, ErrorState, LoadingState } from '../components/states/index
 
 export const RegistryToolbar = ({ children }: PropsWithChildren): ReactElement => <div>{children}</div>;
 
+export const RegistryFilterBar = ({ children }: PropsWithChildren): ReactElement => <div>{children}</div>;
+
 export const RegistryTableState = ({ state }: { state: 'empty' | 'loading' | 'error' | 'forbidden' | 'ready' }): ReactElement | null => {
   if (state === 'empty') return <EmptyState />;
   if (state === 'loading') return <LoadingState />;

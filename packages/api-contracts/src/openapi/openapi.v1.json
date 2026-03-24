@@ -6,6 +6,18 @@
     "description": "Versioned API contracts skeleton for /api/v1 with shared response/error/meta schemas."
   },
   "servers": [{ "url": "/api/v1" }],
+  "tags": [
+    { "name": "system" },
+    { "name": "auth" },
+    { "name": "users" },
+    { "name": "learners" },
+    { "name": "courses" },
+    { "name": "groups" },
+    { "name": "tests" },
+    { "name": "documents" },
+    { "name": "notifications" },
+    { "name": "tasks" }
+  ],
   "paths": {
     "/health": {
       "get": {
@@ -42,6 +54,34 @@
           "timestamp": { "type": "string", "format": "date-time" }
         }
       },
+      "PaginationMeta": {
+        "type": "object",
+        "required": ["total", "page", "page_size", "has_next"],
+        "properties": {
+          "total": { "type": "integer", "minimum": 0 },
+          "page": { "type": "integer", "minimum": 1 },
+          "page_size": { "type": "integer", "minimum": 1 },
+          "has_next": { "type": "boolean" },
+          "next_cursor": { "type": "string" }
+        }
+      },
+      "SortMeta": {
+        "type": "object",
+        "required": ["field", "order"],
+        "properties": {
+          "field": { "type": "string" },
+          "order": { "type": "string", "enum": ["asc", "desc"] }
+        }
+      },
+      "ErrorDetails": {
+        "type": "object",
+        "required": ["message"],
+        "properties": {
+          "field": { "type": "string" },
+          "message": { "type": "string" },
+          "code": { "type": "string" }
+        }
+      },
       "ErrorResponse": {
         "type": "object",
         "required": ["error", "meta"],
@@ -54,7 +94,62 @@
               "message": { "type": "string" },
               "details": {
                 "type": "array",
-                "items": { "type": "object" }
+                "items": { "$ref": "#/components/schemas/ErrorDetails" }
+              }
+            }
+          },
+          "meta": { "$ref": "#/components/schemas/ResponseMeta" }
+        }
+      },
+      "ListResponse": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": { "type": "object" }
+          },
+          "meta": { "$ref": "#/components/schemas/ResponseMeta" }
+        }
+      },
+      "PaginatedResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/ListResponse" },
+          {
+            "type": "object",
+            "properties": {
+              "meta": {
+                "allOf": [
+                  { "$ref": "#/components/schemas/ResponseMeta" },
+                  {
+                    "type": "object",
+                    "required": ["pagination"],
+                    "properties": {
+                      "pagination": { "$ref": "#/components/schemas/PaginationMeta" },
+                      "sort": {
+                        "type": "array",
+                        "items": { "$ref": "#/components/schemas/SortMeta" }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "AsyncTaskResponse": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": ["task_id", "status"],
+            "properties": {
+              "task_id": { "type": "string" },
+              "status": {
+                "type": "string",
+                "enum": ["queued", "running", "succeeded", "failed", "canceled"]
               }
             }
           },

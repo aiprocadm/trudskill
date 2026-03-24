@@ -3,7 +3,7 @@ export * from './meta/contracts';
 export * from './errors/contracts';
 export * from './responses/contracts';
 export * from './schemas/naming';
-export * from './domains/groups';
+export * from './domains/index';
 export * from './websocket/events';
 export * from './webhooks/contracts';
 export * from './health/contracts';

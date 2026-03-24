@@ -1,3 +1,8 @@
+export const groupsContractGroup = {
+  tag: 'groups.enrollments.progress',
+  description: 'Groups, enrollments and learning progress contract group skeleton.'
+} as const;
+
 export const ContractDomainGroups = [
   'auth',
   'users.roles.permissions',

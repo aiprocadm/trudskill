@@ -1,4 +1,4 @@
-import { asTenantId, type TenantId } from '../../../shared-types/src/index.ts';
+import { asTenantId, type TenantId } from '@cdoprof/shared-types';
 
 export const createTestTenant = (seed = 'tenant'): { id: TenantId; name: string } => ({
   id: asTenantId(`${seed}-${crypto.randomUUID()}`),

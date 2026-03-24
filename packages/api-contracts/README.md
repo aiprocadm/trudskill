@@ -2,9 +2,15 @@
 
 Единый API-first контрактный слой monorepo.
 
+## Кто потребляет
+
+- `apps/backend` как источник truth для REST/WS/webhook контрактов.
+- `apps/frontend` через generated типы и клиент.
+- `apps/worker`, `apps/realtime`, `packages/test-utils` для контрактных проверок и событий.
+
 ## Scope
 
-- Источник правды для `/api/v1` (OpenAPI skeleton).
+- Версионированный OpenAPI skeleton с префиксом `/api/v1`.
 - Общие response/error/meta контракты.
 - Конвенции DTO нейминга и error-code каталога.
 - Заготовки под REST, WebSocket и webhooks.
@@ -21,8 +27,15 @@
 - `pnpm contracts:typecheck` — проверка типов.
 - `pnpm contracts:generate` — генерация артефактов для frontend-потребления (`src/generated/*`).
 
+## Как расширять
+
+1. Добавить/обновить схемы в `src/openapi/openapi.v1.json` и/или `src/*`.
+2. Добавить доменную группу в `src/domains/*`.
+3. Запустить `pnpm contracts:generate`.
+4. Проверить `pnpm contracts:lint && pnpm contracts:typecheck`.
+
 ## Правила
 
 - Не дублировать persistence-модели БД в 1:1.
 - Доменные контракты добавлять в `src/domains/*` по группам.
-- Generated-файлы не редактировать вручную.
+- Generated-файлы в `src/generated/*` не редактировать вручную.
