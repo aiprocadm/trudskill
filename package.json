@@ -17,7 +17,11 @@
     "docker:up": "docker compose -f infra/docker-compose.yml up -d",
     "docker:down": "docker compose -f infra/docker-compose.yml down",
     "prepare": "husky",
-    "env:check": "tsx scripts/check-env.ts"
+    "env:check": "tsx scripts/check-env.ts",
+    "contracts:lint": "pnpm --filter @cdoprof/api-contracts contracts:lint",
+    "contracts:build": "pnpm --filter @cdoprof/api-contracts build",
+    "contracts:typecheck": "pnpm --filter @cdoprof/api-contracts typecheck",
+    "contracts:generate": "pnpm --filter @cdoprof/api-contracts contracts:generate && pnpm --filter @cdoprof/api-contracts contracts:check-generated"
   },
   "lint-staged": {
     "*.{js,cjs,mjs,ts,tsx,jsx}": [

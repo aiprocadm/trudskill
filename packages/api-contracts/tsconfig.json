@@ -1,4 +1,10 @@
 {
   "extends": "../../tooling/typescript/tsconfig.package.json",
-  "references": [{ "path": "../shared-types" }]
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
+  },
+  "include": [
+    "src/**/*"
+  ]
 }

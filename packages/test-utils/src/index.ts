@@ -1,9 +1,8 @@
-import type { HealthStatus } from '@cdoprof/shared-types';
-
-export const createHealthFixture = (
-  service: HealthStatus['service'] = 'backend'
-): HealthStatus => ({
-  status: 'ok',
-  timestamp: new Date().toISOString(),
-  service
-});
+export * from './factories/index';
+export * from './fixtures/index';
+export * from './auth/index';
+export * from './tenant/index';
+export * from './integration/index';
+export * from './e2e/index';
+export * from './contracts/index';
+export * from './mocks/index';

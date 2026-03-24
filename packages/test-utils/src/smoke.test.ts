@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createHealthFixture } from './index';
+import { createTestTenant, createTestUser } from './index';
 
 describe('test-utils', () => {
-  it('creates a health fixture', () => {
-    expect(createHealthFixture('worker').service).toBe('worker');
+  it('creates tenant and user fixtures', () => {
+    expect(createTestTenant().id).toBeDefined();
+    expect(createTestUser('manager').role).toBe('manager');
   });
 });

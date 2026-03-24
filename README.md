@@ -1,4 +1,4 @@
-# cdoprof monorepo platform foundation (Stage 1)
+# cdoprof monorepo platform foundation (Stage 2)
 
 Монорепозиторий проекта СДО с единой инженерной платформой для **contracts-first** и **monorepo-first** разработки.
 
@@ -15,89 +15,16 @@
 
 ```text
 apps/
-  frontend/      # Next.js web app
-  backend/       # NestJS API (modular monolith baseline)
-  worker/        # async jobs / queue consumers
-  realtime/      # websocket / realtime runtime
+  frontend/
+  backend/
+  worker/
+  realtime/
 
 packages/
-  shared-types/  # cross-runtime core types
-  api-contracts/ # DTO/contracts/schemas baseline
-  ui/            # shared UI primitives
-  test-utils/    # shared test helpers and fixtures
-
-tooling/
-  typescript/    # shared tsconfig presets (app/package/frontend)
-
-infra/
-  docker-compose.yml  # PostgreSQL, Redis, RabbitMQ, MinIO
-
-docs/
-  architecture/   # architecture notes
-```
-
-## Stack
-
-- Node.js 22+
-- pnpm workspaces
-- Turborepo
-- TypeScript (strict)
-- ESLint (flat config) + Prettier (single root config)
-- Vitest
-- Husky + lint-staged
-- Docker Compose (local infra)
-
-## Установка зависимостей
-
-```bash
-pnpm install
-```
-
-> Примечание: в CI используется безопасный fallback установки зависимостей — `--frozen-lockfile` при наличии `pnpm-lock.yaml`, иначе `--no-frozen-lockfile` для bootstrap-сценария.
-
-## Настройка окружения
-
-1. Скопируйте общий шаблон:
-
-```bash
-cp .env.example .env
-```
-
-2. Скопируйте app-level env (при необходимости локальных overrides):
-
-```bash
-cp apps/frontend/.env.example apps/frontend/.env.local
-cp apps/backend/.env.example apps/backend/.env
-cp apps/worker/.env.example apps/worker/.env
-cp apps/realtime/.env.example apps/realtime/.env
-```
-
-3. Проверьте env-схему:
-
-```bash
-pnpm env:check
-```
-
-Скрипт `env:check` автоматически подхватывает корневой `.env` (если файл существует) и валидирует обязательные переменные для всех app-контуров.
-
-## Локальная инфраструктура
-
-```bash
-pnpm docker:up
-```
-
-Поднимаются сервисы:
-
-- PostgreSQL
-- Redis
-- RabbitMQ
-- MinIO (S3-compatible)
-- MinIO bucket initializer (`cdoprof-dev`)
-
-Остановка:
-
-```bash
-pnpm docker:down
+  shared-types/  # cross-runtime platform/domain foundation types
+  api-contracts/ # versioned OpenAPI skeleton + envelope/error/meta contracts
+  ui/            # shared UI tokens/primitives/components/patterns
+  test-utils/    # shared factories/fixtures/integration/e2e/contract helpers
 ```
 
 ## Стандартные команды из корня
@@ -107,43 +34,52 @@ pnpm dev
 pnpm lint
 pnpm typecheck
 pnpm test
-pnpm test:unit
 pnpm build
-pnpm ci:check
-pnpm format
-pnpm format:check
-pnpm clean
+pnpm contracts:lint
+pnpm contracts:typecheck
+pnpm contracts:build
+pnpm contracts:generate
 ```
 
-## Локальный запуск приложений
+## Пакеты foundation-слоя
 
-```bash
-pnpm --filter @cdoprof/frontend dev
-pnpm --filter @cdoprof/backend dev
-pnpm --filter @cdoprof/worker dev
-pnpm --filter @cdoprof/realtime dev
-```
+### `@cdoprof/api-contracts`
 
-## Commit hooks and guardrails
+- источник правды для API-контрактов (`/api/v1`), response/error/meta envelope;
+- подготовка к расширению под REST + WebSocket + webhooks + async tasks;
+- generated артефакты располагаются в `packages/api-contracts/src/generated/*`.
 
-- `pre-commit` → `lint-staged` (ESLint + Prettier only on staged files).
-- `pre-push` → `pnpm typecheck`.
-- `commit-msg` → Conventional Commit format validation.
+### `@cdoprof/shared-types`
 
-## API-first и общая типизация
+- общие enum, status models, tenant-aware и audit/meta типы;
+- базовые pagination/filter/sort/file/task/lookup типы;
+- используется frontend/backend/worker/realtime и test-utils.
 
-- `packages/shared-types` — доменно-нейтральные типы (tenant-aware, id, audit, status, pagination).
-- `packages/api-contracts` — DTO и API-контракты (общие envelope контракты + domain-папки, например `health`).
-- Внутренние зависимости подключаются через `workspace:*`.
-- TS aliases и project references настроены на уровне корня.
-- ESLint запрещает deep imports из `apps/*` и `packages/*/src/*` для защиты import/export границ monorepo.
+### `@cdoprof/test-utils`
 
-## CI quality gates
+- factories/fixtures/auth helpers;
+- integration/e2e bootstrap и contract assertion helpers;
+- общие mocks/stubs для queues/files/websocket/async tasks.
 
-GitHub Actions workflow выполняет из корня:
+### `@cdoprof/ui`
 
-1. install dependencies
-2. `pnpm ci:check` (lint + typecheck + unit tests + build)
+- design tokens + layout primitives;
+- базовые reusable компоненты и registry patterns;
+- status-aware и role-aware foundation для экранов реестров/карточек/мастеров.
+
+## Слои и зависимости
+
+- `apps/*` могут зависеть от `packages/*`;
+- `packages/ui` зависит только от shared foundation (`shared-types`) и React;
+- `packages/shared-types` не зависит от app/domains logic;
+- API contracts не должны повторять persistence-модели БД 1:1.
+
+## Обновление контрактов и генерация
+
+1. Изменить OpenAPI skeleton / контракты в `packages/api-contracts/src/*`.
+2. Выполнить `pnpm contracts:generate`.
+3. Проверить `pnpm contracts:lint && pnpm contracts:typecheck`.
+4. Использовать generated артефакты централизованно из `@cdoprof/api-contracts`.
 
 ## Вклад в репозиторий
 

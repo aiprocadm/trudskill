@@ -1,0 +1,90 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CDOProf API",
+    "version": "1.0.0",
+    "description": "Versioned API contracts skeleton for /api/v1 with shared response/error/meta schemas."
+  },
+  "servers": [{ "url": "/api/v1" }],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "healthCheck",
+        "tags": ["system"],
+        "responses": {
+          "200": {
+            "description": "Health response",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthResponse" }
+              }
+            }
+          },
+          "default": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ResponseMeta": {
+        "type": "object",
+        "required": ["request_id", "timestamp"],
+        "properties": {
+          "request_id": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["error", "meta"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" },
+              "details": {
+                "type": "array",
+                "items": { "type": "object" }
+              }
+            }
+          },
+          "meta": { "$ref": "#/components/schemas/ResponseMeta" }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": ["status", "service", "timestamp"],
+            "properties": {
+              "status": { "type": "string", "enum": ["ok"] },
+              "service": {
+                "type": "string",
+                "enum": ["frontend", "backend", "worker", "realtime"]
+              },
+              "timestamp": { "type": "string", "format": "date-time" }
+            }
+          },
+          "meta": { "$ref": "#/components/schemas/ResponseMeta" }
+        }
+      }
+    }
+  },
+  "x-versioning": {
+    "strategy": "URI versioning",
+    "prefix": "/api/v1",
+    "deprecationPolicy": "announce in changelog, keep one minor release compatibility for deprecated fields"
+  }
+}
