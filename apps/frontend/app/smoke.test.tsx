@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import HomePage from './page';
+import DashboardPage from './page';
+import ForbiddenPage from './forbidden/page';
 
-describe('frontend', () => {
-  it('renders home page component', () => {
-    expect(typeof HomePage).toBe('function');
+describe('frontend routes', () => {
+  it('exports dashboard page component', () => {
+    expect(typeof DashboardPage).toBe('function');
+  });
+
+  it('renders forbidden route component', () => {
+    expect(typeof ForbiddenPage).toBe('function');
   });
 });
