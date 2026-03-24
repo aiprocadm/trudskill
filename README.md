@@ -121,8 +121,8 @@ pnpm --filter @cdoprof/realtime dev
 
 ## API-first и общая типизация
 
-- `packages/shared-types` — доменно-нейтральные типы.
-- `packages/api-contracts` — DTO и API-контракты, используемые backend/frontend.
+- `packages/shared-types` — доменно-нейтральные типы (tenant-aware, id, audit, status, pagination).
+- `packages/api-contracts` — DTO и API-контракты (общие envelope контракты + domain-папки, например `health`).
 - Внутренние зависимости подключаются через `workspace:*`.
 - TS aliases и project references настроены на уровне корня.
 
