@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "files": [],
+  "references": [
+    { "path": "./packages/shared-types" },
+    { "path": "./packages/api-contracts" },
+    { "path": "./packages/test-utils" },
+    { "path": "./packages/ui" },
+    { "path": "./apps/backend" },
+    { "path": "./apps/worker" },
+    { "path": "./apps/realtime" },
+    { "path": "./apps/frontend" }
+  ]
+}

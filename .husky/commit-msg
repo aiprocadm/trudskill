@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+msg_file="$1"
+pattern='^(feat|fix|chore|docs|refactor|test|build|ci|perf|style)(\(.+\))?: .+'
+if ! grep -Eq "$pattern" "$msg_file"; then
+  echo "Commit message must follow Conventional Commits, e.g.: feat(scope): message"
+  exit 1
+fi
