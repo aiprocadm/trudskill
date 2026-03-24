@@ -18,12 +18,10 @@ packages/
   test-utils/    # shared test fixtures/builders/helpers
 
 docs/            # architecture and audit artifacts
-infra/           # (reserved for future infra split; currently compose at root)
+infra/           # runtime-independent infrastructure configs (compose, provisioning)
 scripts/         # repository scripts/utilities
 tooling/         # shared build/TS tooling presets
 ```
-
-> Note: `infra/` is intentionally reserved as a future top-level technical folder; current infra bootstrap is kept in `docker-compose.yml`.
 
 ## Architecture logic
 
@@ -38,9 +36,6 @@ tooling/         # shared build/TS tooling presets
 - **Package manager**: `pnpm` (single manager for the whole repository)
 - **Workspace**: `pnpm-workspace.yaml`
 - **Task orchestration**: `turbo.json`
-## Monorepo orchestration
-
-This repository uses **Turborepo** for workspace task orchestration, filtering, and caching across apps/packages.
 
 ## Requirements
 
@@ -57,7 +52,7 @@ cp apps/frontend/.env.example apps/frontend/.env.local
 cp apps/backend/.env.example apps/backend/.env
 cp apps/worker/.env.example apps/worker/.env
 cp apps/realtime/.env.example apps/realtime/.env
-docker compose up -d
+docker compose -f infra/docker-compose.yml up -d
 ```
 
 ## Standard root commands
@@ -95,7 +90,7 @@ pnpm --filter @cdoprof/realtime dev
 ## Local infrastructure
 
 ```bash
-docker compose up -d
+docker compose -f infra/docker-compose.yml up -d
 ```
 
 Services:
@@ -111,7 +106,7 @@ Services:
 - Unified on a single package manager model (pnpm).
 - Kept one root TypeScript base hierarchy (`tsconfig.base.json` + root references `tsconfig.json`).
 - Kept one root lint/format baseline (`eslint.config.mjs`, `.prettierrc.json`).
-- Preserved one Compose definition (`docker-compose.yml`) without duplicate variants.
+- Moved infrastructure bootstrap to `infra/docker-compose.yml` to keep runtime and infra concerns separated.
 - Added explicit audit report: `docs/repo-audit-stage-0.md`.
 
 ## Placement rules for new code
@@ -123,10 +118,9 @@ Services:
 3. **No legacy roots**
    - do not create parallel `frontend/`, `backend/`, `shared/` trees outside `apps/*`/`packages/*`.
 4. **Infra separate from runtime**
-   - infra configs go to root compose or future `infra/`; never inside runtime source trees unless runtime-specific.
+   - infra configs go to `infra/`; never place shared infra files inside runtime source trees.
 5. **Config hierarchy discipline**
    - inherit from root TS/ESLint/Prettier where possible; add local overrides only when required.
-
 
 ## Known environment note
 

@@ -24,6 +24,7 @@ It also confirms unified engineering conventions for package management, TypeScr
 - `apps/`
 - `packages/`
 - `docs/`
+- `infra/`
 - `scripts/`
 - `tooling/`
 
@@ -43,7 +44,7 @@ It also confirms unified engineering conventions for package management, TypeScr
 
 ### Infra/config assets
 
-- `docker-compose.yml` (PostgreSQL, Redis, RabbitMQ, MinIO)
+- `infra/docker-compose.yml` (PostgreSQL, Redis, RabbitMQ, MinIO)
 - `turbo.json` (task graph)
 - `pnpm-workspace.yaml` (workspace layout)
 - `eslint.config.mjs` + `.prettierrc.json` (single root formatter/linter setup)
@@ -56,10 +57,7 @@ It also confirms unified engineering conventions for package management, TypeScr
    - Attempting to generate it failed in this environment due blocked access to `registry.npmjs.org` via Corepack/pnpm bootstrap.
    - Risk: lower reproducibility for CI and local installs until lockfile is generated in a network-enabled environment.
 
-2. **Potential ambiguity in repository navigation docs**:
-   - Existing README was concise and did not explicitly document audit outcomes, placement rules, and structural governance in one place.
-
-3. **No hard architectural blockers found**:
+2. **No hard architectural blockers found**:
    - Target `apps/*` and `packages/*` structure already existed and matched Stage 0 goals.
    - No conflicting npm/yarn lockfiles were present.
    - No duplicate root ESLint/Prettier baselines were detected.
@@ -87,7 +85,11 @@ It also confirms unified engineering conventions for package management, TypeScr
      - placement rules for future modules,
      - explicit Stage 0 cleanup summary.
 
-2. **Audit artifact added**
+2. **Infra/runtime separation tightened**
+   - Moved local infrastructure compose file from repository root to `infra/docker-compose.yml`.
+   - Added `infra/README.md` with explicit usage commands.
+
+3. **Audit artifact updated**
    - This document (`docs/repo-audit-stage-0.md`) records findings, decisions, and residual risks.
 
 ## 6) Unified conventions (final)
@@ -106,7 +108,7 @@ It also confirms unified engineering conventions for package management, TypeScr
 - **Env conventions**:
   - root `.env.example` + per-app `.env.example` files.
 - **Infra**:
-  - single `docker-compose.yml` retained.
+  - single compose definition retained at `infra/docker-compose.yml`.
 
 ## 7) Removed / merged / excluded legacy
 
@@ -134,5 +136,6 @@ It also confirms unified engineering conventions for package management, TypeScr
 
 - canonical monorepo paths are in place,
 - workspace orchestration is unified,
+- infra/runtime split is explicit,
 - documentation and audit traceability are updated,
 - lockfile generation is the only remaining environment-blocked item.
