@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { UserSession } from '../../entities/session/model';
-import { evaluateRouteAccess, getVisibleNavigation } from './helpers';
+import { evaluateRouteAccess, getVisibleNavigation, resolveRouteMeta } from './helpers';
 
 const adminSession: UserSession = {
   user: { id: 'u_tenant_admin', tenantId: 'tenant_demo', login: 'tenant_admin', email: null, status: 'active', displayName: 'Tenant Admin' },
@@ -24,5 +24,13 @@ describe('navigation helpers', () => {
     const visible = getVisibleNavigation(limited).map((item) => item.href);
     expect(visible).toContain('/courses');
     expect(visible).not.toContain('/audit');
+  });
+
+  it('resolves nested route metadata using route patterns', () => {
+    expect(resolveRouteMeta('/users/create')?.requiredPermissions).toEqual(['iam.manage_roles']);
+  });
+
+  it('normalizes route with query params and trailing slash', () => {
+    expect(evaluateRouteAccess('/courses/?tab=all', adminSession)).toEqual({ kind: 'ok' });
   });
 });
