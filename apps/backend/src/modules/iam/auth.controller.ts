@@ -6,6 +6,7 @@ import { RequirePermissions } from './permission.decorator.js';
 import { PermissionGuard } from './permission.guard.js';
 import { AuthService } from './services/auth.service.js';
 import { IamService } from './services/iam.service.js';
+import { LoginDto, LogoutDto, RefreshDto, SetUserRolesDto } from './dto/login.dto.js';
 
 @Controller()
 @UseGuards(TenantGuard)
@@ -13,17 +14,17 @@ export class AuthController {
   constructor(private readonly authService: AuthService, private readonly iamService: IamService) {}
 
   @Post('auth/login')
-  login(@CurrentContext() context: RequestContext, @Body() payload: { login: string; password: string }) {
+  login(@CurrentContext() context: RequestContext, @Body() payload: LoginDto) {
     return this.authService.login(context.tenantId!, payload, context);
   }
 
   @Post('auth/refresh')
-  refresh(@CurrentContext() context: RequestContext, @Body() payload: { refreshToken: string }) {
+  refresh(@CurrentContext() context: RequestContext, @Body() payload: RefreshDto) {
     return this.authService.refresh(context.tenantId!, payload.refreshToken, context);
   }
 
   @Post('auth/logout')
-  logout(@CurrentContext() context: RequestContext, @Body() payload: { sessionId: string }) {
+  logout(@CurrentContext() context: RequestContext, @Body() payload: LogoutDto) {
     this.authService.logout(context.tenantId!, context.userId!, payload.sessionId, context);
     return { success: true };
   }
@@ -73,7 +74,7 @@ export class AuthController {
   setRoles(
     @CurrentContext() context: RequestContext,
     @Param('id') id: string,
-    @Body() payload: { roleCodes: string[] }
+    @Body() payload: SetUserRolesDto
   ) {
     return this.iamService.setUserRoles(context.tenantId!, id, payload.roleCodes);
   }
