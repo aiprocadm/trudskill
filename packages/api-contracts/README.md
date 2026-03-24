@@ -26,6 +26,7 @@
 - `pnpm contracts:build` — сборка пакета.
 - `pnpm contracts:typecheck` — проверка типов.
 - `pnpm contracts:generate` — генерация артефактов для frontend-потребления (`src/generated/*`).
+- `pnpm --filter @cdoprof/api-contracts contracts:check-generated` — проверка целостности generated-файлов (marker + SHA256 source hash).
 
 ## Как расширять
 
@@ -38,4 +39,4 @@
 
 - Не дублировать persistence-модели БД в 1:1.
 - Доменные контракты добавлять в `src/domains/*` по группам.
-- Generated-файлы в `src/generated/*` не редактировать вручную.
+- Generated-файлы в `src/generated/*` не редактировать вручную: hash-маркер в CI проверяет актуальность после `contracts:generate`.

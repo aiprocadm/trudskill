@@ -32,6 +32,12 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "403": { "$ref": "#/components/responses/ForbiddenError" },
+          "404": { "$ref": "#/components/responses/NotFoundError" },
+          "409": { "$ref": "#/components/responses/ConflictError" },
+          "412": { "$ref": "#/components/responses/PreconditionFailedError" },
+          "429": { "$ref": "#/components/responses/RateLimitedError" },
           "default": {
             "description": "Error response",
             "content": {
@@ -175,11 +181,77 @@
           "meta": { "$ref": "#/components/schemas/ResponseMeta" }
         }
       }
+    },
+    "responses": {
+      "ValidationError": {
+        "description": "Validation error envelope",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      },
+      "ForbiddenError": {
+        "description": "Forbidden error envelope",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      },
+      "NotFoundError": {
+        "description": "Not found error envelope",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      },
+      "ConflictError": {
+        "description": "Conflict error envelope",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      },
+      "PreconditionFailedError": {
+        "description": "Precondition failed error envelope",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      },
+      "RateLimitedError": {
+        "description": "Rate limited error envelope",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      }
     }
   },
   "x-versioning": {
     "strategy": "URI versioning",
     "prefix": "/api/v1",
     "deprecationPolicy": "announce in changelog, keep one minor release compatibility for deprecated fields"
+  },
+  "x-websocket": {
+    "events": [
+      {
+        "event": "task.updated",
+        "payload": "AsyncTaskResponse"
+      }
+    ]
+  },
+  "x-webhooks": {
+    "events": [
+      {
+        "event": "document.signed",
+        "payload": "DocumentSignedWebhook"
+      }
+    ]
   }
 }
