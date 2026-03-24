@@ -4,7 +4,7 @@ import { TenantModule } from './modules/tenant/tenant.module.js';
 import { IamModule } from './modules/iam/iam.module.js';
 import { AuditModule } from './modules/audit/audit.module.js';
 import { FilesModule } from './modules/files/files.module.js';
-import { HealthModule } from './health/health.module.js';
+import { HealthModule } from './modules/health/health.module.js';
 import { InfrastructureModule } from './infrastructure/infrastructure.module.js';
 
 @Module({

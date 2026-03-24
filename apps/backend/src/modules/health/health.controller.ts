@@ -1,8 +1,8 @@
 import { Controller, Get } from '@nestjs/common';
-import { DatabaseService } from '../infrastructure/database/database.service.js';
-import { RabbitMqService } from '../infrastructure/messaging/rabbitmq.service.js';
-import { RedisService } from '../infrastructure/cache/redis.service.js';
-import { S3StorageClient } from '../infrastructure/storage/s3-storage.client.js';
+import { RedisService } from '../../infrastructure/cache/redis.service.js';
+import { DatabaseService } from '../../infrastructure/database/database.service.js';
+import { RabbitMqService } from '../../infrastructure/messaging/rabbitmq.service.js';
+import { S3StorageClient } from '../../infrastructure/storage/s3-storage.client.js';
 
 @Controller('health')
 export class HealthController {

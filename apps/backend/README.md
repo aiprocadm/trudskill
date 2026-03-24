@@ -3,7 +3,7 @@
 ## Modules
 - `core`: shared logging and core providers.
 - `tenant`: tenant context + tenant info/settings/requisites endpoints.
-- `iam`: login/logout/refresh/me, sessions, roles, permissions, user-role assignment.
+- `iam`: login/logout/refresh/me, sessions, roles, permissions, user-role assignment. Includes module split (`AuthModule`, `UsersModule`, `RolesModule`, `PermissionsModule`, `SessionsModule`) for bounded-context growth.
 - `audit`: central audit service for security-sensitive actions.
 - `files`: metadata foundation and storage abstraction readiness.
 - `health`: liveness and readiness endpoints.
