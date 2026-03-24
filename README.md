@@ -124,6 +124,12 @@ pnpm --filter @cdoprof/worker dev
 pnpm --filter @cdoprof/realtime dev
 ```
 
+## Commit hooks and guardrails
+
+- `pre-commit` → `lint-staged` (ESLint + Prettier only on staged files).
+- `pre-push` → `pnpm typecheck`.
+- `commit-msg` → Conventional Commit format validation.
+
 ## API-first и общая типизация
 
 - `packages/shared-types` — доменно-нейтральные типы (tenant-aware, id, audit, status, pagination).

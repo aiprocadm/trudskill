@@ -52,5 +52,9 @@ Forbidden without explicit need and review:
 Run from repository root:
 
 ```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
 pnpm ci:check
 ```
