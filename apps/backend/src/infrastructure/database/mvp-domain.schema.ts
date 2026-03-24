@@ -46,4 +46,19 @@ export const mvpDomainTables = {
   storage: ['files', 'file_links']
 } as const;
 
+export const mvpDomainTableList = Object.entries(mvpDomainTables).flatMap(([schema, tables]) =>
+  tables.map((table) => `${schema}.${table}`)
+);
+
+export const mvpTablesWithSoftDelete = [
+  'crm.counterparties',
+  'crm.counterparty_contacts',
+  'crm.counterparty_employees',
+  'learning.learners',
+  'learning.directions',
+  'learning.courses',
+  'learning.study_groups',
+  'storage.file_links'
+] as const;
+
 export type MvpDomainSchemaName = (typeof mvpDomainSchemas)[number];
