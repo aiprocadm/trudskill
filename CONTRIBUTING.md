@@ -34,6 +34,7 @@
 
 - Keep TypeScript strict mode enabled.
 - Reuse root/tooling configs (`tsconfig.app`, `tsconfig.package`, `tsconfig.frontend`), avoid local config duplication.
+- Import between projects only via workspace package entrypoints (e.g. `@cdoprof/shared-types`), never via `apps/*` or `packages/*/src/*` deep paths.
 - Use `type` imports where applicable.
 - Keep imports ordered and remove unused variables/imports.
 - Format code with Prettier before opening PR (`.prettierrc.json` is the single source of formatting rules).
