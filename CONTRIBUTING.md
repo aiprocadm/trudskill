@@ -56,4 +56,5 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
+pnpm ci:check
 ```

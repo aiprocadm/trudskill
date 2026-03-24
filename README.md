@@ -109,6 +109,7 @@ pnpm typecheck
 pnpm test
 pnpm test:unit
 pnpm build
+pnpm ci:check
 pnpm format
 pnpm format:check
 pnpm clean
@@ -122,6 +123,12 @@ pnpm --filter @cdoprof/backend dev
 pnpm --filter @cdoprof/worker dev
 pnpm --filter @cdoprof/realtime dev
 ```
+
+## Commit hooks and guardrails
+
+- `pre-commit` → `lint-staged` (ESLint + Prettier only on staged files).
+- `pre-push` → `pnpm typecheck`.
+- `commit-msg` → Conventional Commit format validation.
 
 ## API-first и общая типизация
 
