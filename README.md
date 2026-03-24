@@ -1,26 +1,82 @@
-# cdoprof
+# cdoprof monorepo foundation (Stage 0)
 
-        codex/prepare-template-engine-for-document-generation
-This repository contains utilities for generating documents for certificates,
-protocols and acts using `python-docx` and `reportlab`. It also includes
-export helpers for FIS FRDO (Excel) and EISOT (XML).
+TypeScript-first monorepo for distance learning platform foundation.
 
-Infrastructure configuration lives in the `infra/` directory.
-- CI scripts for linting, testing, migrations, and Docker builds.
-- Helm chart and Kubernetes manifests for stateless deployment.
-- Prometheus and Grafana for monitoring.
-- Loki and an ELK stack for logging.
-- PostgreSQL backup CronJob.
+## Structure
 
-A development environment is provided via `docker-compose.yml`. It starts PostgreSQL, Redis, RabbitMQ, MinIO and the `auth` service. Run it with:
+```text
+apps/
+  frontend/   # Next.js app
+  backend/    # NestJS API app
+  worker/     # background worker runtime
+  realtime/   # realtime NestJS runtime
+
+packages/
+  ui/
+  api-contracts/
+  shared-types/
+  test-utils/
+```
+
+## Requirements
+
+- Node.js 22+
+- pnpm 9+
+- Docker + Docker Compose
+
+## Install
 
 ```bash
-docker compose up --build
+pnpm install
+cp .env.example .env
 ```
-        main
 
-## Migration checklist
+## Local infrastructure
 
-If you plan to export the repo as a ZIP and move it to a new account, review the migration checklist:
+```bash
+docker compose up -d
+```
 
-- [`docs/migration-checklist.md`](docs/migration-checklist.md)
+Services:
+- PostgreSQL: `localhost:5432`
+- Redis: `localhost:6379`
+- RabbitMQ: `localhost:5672` (management `localhost:15672`)
+- MinIO S3 API: `localhost:9000` (console `localhost:9001`)
+
+## Env management
+
+- Root example: `.env.example`
+- Global validation: `pnpm env:check`
+- App-specific fail-fast validation:
+  - `apps/frontend/src/env.ts`
+  - `apps/backend/src/env.ts`
+  - `apps/worker/src/env.ts`
+  - `apps/realtime/src/env.ts`
+
+## Run apps
+
+```bash
+pnpm dev
+```
+
+Or separately:
+
+```bash
+pnpm --filter @cdoprof/frontend dev
+pnpm --filter @cdoprof/backend dev
+pnpm --filter @cdoprof/worker dev
+pnpm --filter @cdoprof/realtime dev
+```
+
+## Quality gates
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+## Git hooks
+
+`husky` + `lint-staged` run on pre-commit and format/lint staged files.

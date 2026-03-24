@@ -1,0 +1,4 @@
+{
+  "extends": "../../tooling/typescript/tsconfig.package.json",
+  "references": [{ "path": "../shared-types" }]
+}

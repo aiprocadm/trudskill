@@ -1,0 +1,8 @@
+{
+  "extends": "../../tooling/typescript/tsconfig.app.json",
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  },
+  "references": [{ "path": "../../packages/shared-types" }]
+}
