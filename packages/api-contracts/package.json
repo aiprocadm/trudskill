@@ -12,6 +12,9 @@
     "build": "tsc -p tsconfig.json",
     "lint": "eslint src --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "contracts:lint": "node scripts/lint-contracts.mjs",
+    "contracts:generate": "node scripts/generate.mjs",
+    "contracts:check-generated": "node scripts/check-generated.mjs"
   }
 }

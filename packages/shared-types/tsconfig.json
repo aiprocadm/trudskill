@@ -1,3 +1,10 @@
 {
-  "extends": "../../tooling/typescript/tsconfig.package.json"
+  "extends": "../../tooling/typescript/tsconfig.package.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
+  },
+  "include": [
+    "src/**/*"
+  ]
 }
