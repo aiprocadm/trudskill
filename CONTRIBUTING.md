@@ -32,10 +32,10 @@
 ## TypeScript, ESLint, Prettier standards
 
 - Keep TypeScript strict mode enabled.
-- Reuse root/tooling configs, avoid local config duplication.
+- Reuse root/tooling configs (`tsconfig.app`, `tsconfig.package`, `tsconfig.frontend`), avoid local config duplication.
 - Use `type` imports where applicable.
 - Keep imports ordered and remove unused variables/imports.
-- Format code with Prettier before opening PR.
+- Format code with Prettier before opening PR (`.prettierrc.json` is the single source of formatting rules).
 
 ## Config duplication policy
 
