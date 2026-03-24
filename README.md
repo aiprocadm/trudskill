@@ -1,21 +1,21 @@
 # cdoprof monorepo foundation (Stage 0)
 
-TypeScript-first monorepo for distance learning platform foundation.
+TypeScript-first monorepo foundation for a distance-learning platform.
 
-## Structure
+## Monorepo structure
 
 ```text
 apps/
   frontend/   # Next.js app
   backend/    # NestJS API app
-  worker/     # background worker runtime
-  realtime/   # realtime NestJS runtime
+  worker/     # background jobs runtime
+  realtime/   # websocket/realtime runtime
 
 packages/
-  ui/
-  api-contracts/
-  shared-types/
-  test-utils/
+  ui/           # shared UI building blocks
+  api-contracts/# shared transport contracts and DTO shapes
+  shared-types/ # shared domain and utility types
+  test-utils/   # shared test fixtures/helpers
 ```
 
 ## Requirements
@@ -24,11 +24,15 @@ packages/
 - pnpm 9+
 - Docker + Docker Compose
 
-## Install
+## Installation
 
 ```bash
 pnpm install
 cp .env.example .env
+cp apps/frontend/.env.example apps/frontend/.env.local
+cp apps/backend/.env.example apps/backend/.env
+cp apps/worker/.env.example apps/worker/.env
+cp apps/realtime/.env.example apps/realtime/.env
 ```
 
 ## Local infrastructure
@@ -38,28 +42,36 @@ docker compose up -d
 ```
 
 Services:
+
 - PostgreSQL: `localhost:5432`
 - Redis: `localhost:6379`
 - RabbitMQ: `localhost:5672` (management `localhost:15672`)
 - MinIO S3 API: `localhost:9000` (console `localhost:9001`)
 
-## Env management
+## Environment management
 
+- Root env schema check: `pnpm env:check`
 - Root example: `.env.example`
-- Global validation: `pnpm env:check`
-- App-specific fail-fast validation:
+- App examples:
+  - `apps/frontend/.env.example`
+  - `apps/backend/.env.example`
+  - `apps/worker/.env.example`
+  - `apps/realtime/.env.example`
+- App-level fail-fast validation:
   - `apps/frontend/src/env.ts`
   - `apps/backend/src/env.ts`
   - `apps/worker/src/env.ts`
   - `apps/realtime/src/env.ts`
 
-## Run apps
+## Run applications
+
+Run all apps in parallel:
 
 ```bash
 pnpm dev
 ```
 
-Or separately:
+Run specific app:
 
 ```bash
 pnpm --filter @cdoprof/frontend dev
@@ -79,4 +91,4 @@ pnpm build
 
 ## Git hooks
 
-`husky` + `lint-staged` run on pre-commit and format/lint staged files.
+`husky` + `lint-staged` run on pre-commit and validate conventional commits on commit-msg.
