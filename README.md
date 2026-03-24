@@ -109,6 +109,7 @@ pnpm typecheck
 pnpm test
 pnpm test:unit
 pnpm build
+pnpm ci:check
 pnpm format
 pnpm format:check
 pnpm clean
@@ -135,10 +136,7 @@ pnpm --filter @cdoprof/realtime dev
 GitHub Actions workflow выполняет из корня:
 
 1. install dependencies
-2. lint
-3. typecheck
-4. unit tests
-5. build
+2. `pnpm ci:check` (lint + typecheck + unit tests + build)
 
 ## Вклад в репозиторий
 
