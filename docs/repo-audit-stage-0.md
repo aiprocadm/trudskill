@@ -1,10 +1,10 @@
-# Stage 0 Repository Audit (Monorepo Alignment)
+# Stage 0 — Аудит репозитория и выравнивание под целевую monorepo-архитектуру
 
-_Date: 2026-03-24_
+_Дата аудита: 2026-03-24_
 
-## 1) Scope and goal
+## 1) Цель этапа
 
-This audit validates and hardens the repository for the target monorepo architecture:
+Подтвердить и зафиксировать готовность репозитория к дальнейшей разработке в целевой структуре:
 
 - `apps/frontend`
 - `apps/backend`
@@ -15,11 +15,15 @@ This audit validates and hardens the repository for the target monorepo architec
 - `packages/shared-types`
 - `packages/test-utils`
 
-It also confirms unified engineering conventions for package management, TypeScript, lint/format, workspace orchestration, and environment handling.
+С унифицированными базовыми соглашениями (package manager, workspace, TS, lint/format, scripts, env, infra).
 
-## 2) Current-state inventory (as found)
+---
 
-### Top-level directories
+## 2) Аудит «как есть»
+
+### 2.1 Верхнеуровневая структура
+
+Обнаружены и валидированы каталоги:
 
 - `apps/`
 - `packages/`
@@ -28,114 +32,110 @@ It also confirms unified engineering conventions for package management, TypeScr
 - `scripts/`
 - `tooling/`
 
-### Runtime apps (already present)
+### 2.2 Runtime-приложения
 
-- `apps/frontend` (Next.js + React)
-- `apps/backend` (NestJS)
-- `apps/worker` (background runtime)
-- `apps/realtime` (NestJS realtime runtime)
+- `apps/frontend` — Next.js/React runtime.
+- `apps/backend` — NestJS runtime.
+- `apps/worker` — worker runtime.
+- `apps/realtime` — realtime runtime.
 
-### Shared packages (already present)
+### 2.3 Shared-пакеты
 
 - `packages/ui`
 - `packages/api-contracts`
 - `packages/shared-types`
 - `packages/test-utils`
 
-### Infra/config assets
+### 2.4 Базовые конфиги и orchestration
 
-- `infra/docker-compose.yml` (PostgreSQL, Redis, RabbitMQ, MinIO)
-- `turbo.json` (task graph)
-- `pnpm-workspace.yaml` (workspace layout)
-- `eslint.config.mjs` + `.prettierrc.json` (single root formatter/linter setup)
-- `tsconfig.base.json` + root `tsconfig.json` references (single base TS hierarchy)
+- `package.json` — root scripts + `packageManager: pnpm@9.12.3`.
+- `pnpm-workspace.yaml` — workspace-модель.
+- `turbo.json` — единая оркестрация задач.
+- `tsconfig.base.json` + root `tsconfig.json` — единая TS-иерархия.
+- `eslint.config.mjs` + `.prettierrc.json` — единая lint/format база.
+- `infra/docker-compose.yml` — единая локальная инфраструктура.
 
-## 3) Problems discovered during audit
+---
 
-1. **No committed lockfile**:
-   - `packageManager` is pinned to pnpm in root `package.json`, but `pnpm-lock.yaml` is still missing.
-   - Attempting to generate it failed in this environment due blocked access to `registry.npmjs.org` via Corepack/pnpm bootstrap.
-   - Risk: lower reproducibility for CI and local installs until lockfile is generated in a network-enabled environment.
+## 3) Карта соответствия «как есть» → «как должно быть»
 
-2. **No hard architectural blockers found**:
-   - Target `apps/*` and `packages/*` structure already existed and matched Stage 0 goals.
-   - No conflicting npm/yarn lockfiles were present.
-   - No duplicate root ESLint/Prettier baselines were detected.
-
-## 4) Mapping: "as-is" → "target"
-
-| Target path | Source status | Decision |
+| Целевая сущность | Статус в репозитории | Решение |
 |---|---|---|
-| `apps/frontend` | Already present | Keep as canonical frontend runtime |
-| `apps/backend` | Already present | Keep as canonical API/core runtime |
-| `apps/worker` | Already present | Keep as canonical async/queue runtime |
-| `apps/realtime` | Already present | Keep as canonical realtime runtime |
-| `packages/ui` | Already present | Keep as shared UI layer |
-| `packages/api-contracts` | Already present | Keep as contract layer |
-| `packages/shared-types` | Already present | Keep as shared type layer |
-| `packages/test-utils` | Already present | Keep as shared test helper layer |
+| `apps/frontend` | уже существует | оставить как канонический frontend runtime |
+| `apps/backend` | уже существует | оставить как канонический backend runtime |
+| `apps/worker` | уже существует | оставить как канонический worker runtime |
+| `apps/realtime` | уже существует | оставить как канонический realtime runtime |
+| `packages/ui` | уже существует | оставить как shared UI слой |
+| `packages/api-contracts` | уже существует | оставить как контрактный слой |
+| `packages/shared-types` | уже существует | оставить как слой общих типов |
+| `packages/test-utils` | уже существует | оставить как слой общих test utilities |
 
-## 5) What was changed in Stage 0 hardening
+Итог: физическая структура уже совпадает с target architecture.
 
-1. **Repository navigation/governance documentation improved**
-   - README rewritten to include:
-     - final monorepo tree,
-     - purpose of each app/package,
-     - standard commands,
-     - placement rules for future modules,
-     - explicit Stage 0 cleanup summary.
+---
 
-2. **Infra/runtime separation tightened**
-   - Moved local infrastructure compose file from repository root to `infra/docker-compose.yml`.
-   - Added `infra/README.md` with explicit usage commands.
+## 4) Найденные проблемы и принятые решения
 
-3. **Audit artifact updated**
-   - This document (`docs/repo-audit-stage-0.md`) records findings, decisions, and residual risks.
+### 4.1 Lock-файлы и пакетный менеджер
 
-## 6) Unified conventions (final)
+- Конфликтующие lock-файлы (`package-lock.json`, `yarn.lock`) в репозитории не обнаружены.
+- Единый менеджер пакетов — `pnpm` (зафиксирован в root `package.json`).
+- Риск: `pnpm-lock.yaml` отсутствует, т.к. в текущем окружении `pnpm install` завершился ошибкой загрузки pinned pnpm через Corepack (proxy 403).
 
-- **Package manager**: pnpm (single manager), lockfile generation pending due environment network restrictions.
-- **Workspace model**: `pnpm-workspace.yaml` + Turbo tasks.
-- **TypeScript**:
-  - root base config: `tsconfig.base.json`;
-  - root references config: `tsconfig.json`;
-  - per-app/per-package tsconfig extends shared templates in `tooling/typescript`.
-- **Lint/format**:
-  - root `eslint.config.mjs` (flat config);
-  - root `.prettierrc.json`.
-- **Tests**:
-  - unified via Vitest + Turbo task orchestration.
-- **Env conventions**:
-  - root `.env.example` + per-app `.env.example` files.
-- **Infra**:
-  - single compose definition retained at `infra/docker-compose.yml`.
+**Решение:** оставить pnpm как единый стандарт; сгенерировать/закоммитить lockfile в окружении с доступом к npm registry.
 
-## 7) Removed / merged / excluded legacy
+### 4.2 Конфиги TypeScript / ESLint / Prettier
 
-- Conflicting lockfiles: **none found**.
-- Duplicate root lint/format baselines: **none found**.
-- Conflicting root TS baseline configs: **none found**.
-- Redundant compose variants: **none found**.
-- Legacy app/package trees outside target map: **none found**.
+- Дублирующих конфликтующих root-конфигов не обнаружено.
+- Сохранена единая root-база с локальными app/package `tsconfig` по необходимости.
 
-## 8) Residual risks / technical debt after Stage 0
+### 4.3 Docker / infra
 
-1. **Bootstrap maturity**:
-   - Current app/package implementations are intentionally minimal smoke scaffolds.
-   - Domain modules, transport boundaries, and production build pipelines will be expanded in subsequent stages.
+- Сохранён один канонический compose-файл: `infra/docker-compose.yml`.
+- Дублирующих compose-конфигов не выявлено.
 
-2. **Contract pipeline depth**:
-   - `packages/api-contracts` exists structurally; full OpenAPI/WS contract generation and validation pipeline still needs staged rollout.
+### 4.4 Legacy / мусор / дубли shared-кода
 
-3. **Cross-workspace constraints**:
-   - Dependency boundary rules (e.g., import constraints between app/runtime and package layers) should be enforced with additional linting/policy tooling in a later stage.
+- Параллельных legacy-деревьев вне `apps/*` и `packages/*` не обнаружено.
+- Конфликтующих дублей shared пакетов верхнего уровня не обнаружено.
 
-## 9) Readiness verdict
+---
 
-✅ Repository is Stage-0 ready for continued development against the target architecture:
+## 5) Что изменено в рамках Stage 0 в этом проходе
 
-- canonical monorepo paths are in place,
-- workspace orchestration is unified,
-- infra/runtime split is explicit,
-- documentation and audit traceability are updated,
-- lockfile generation is the only remaining environment-blocked item.
+1. Обновлён `README.md`:
+   - зафиксирована итоговая карта monorepo,
+   - зафиксированы базовые соглашения,
+   - добавлены правила дальнейшего размещения модулей,
+   - отражено состояние lockfile.
+2. Обновлён этот audit-отчёт (`docs/repo-audit-stage-0.md`) с актуальной фиксацией состояния и решений.
+
+---
+
+## 6) Итоговые соглашения репозитория
+
+- **Package manager:** pnpm.
+- **Workspace:** `pnpm-workspace.yaml`.
+- **Build/test orchestration:** Turbo.
+- **TypeScript:** `tsconfig.base.json` + root references (`tsconfig.json`).
+- **Lint/Format:** root `eslint.config.mjs` + `.prettierrc.json`.
+- **Runtime separation:** `apps/frontend|backend|worker|realtime`.
+- **Shared separation:** `packages/ui|api-contracts|shared-types|test-utils`.
+
+---
+
+## 7) Остаточные риски / technical debt
+
+1. **Отсутствует закоммиченный `pnpm-lock.yaml`** (блокер окружения, не архитектуры).
+2. Текущие runtime/package реализации — базовые scaffolds; доменные модули, контрактный пайплайн генерации и dependency-boundary policing будут наращиваться на следующих этапах.
+
+---
+
+## 8) Вердикт готовности к следующему этапу
+
+Репозиторий **готов** к дальнейшей реализации архитектуры платформы:
+
+- целевая monorepo-структура соблюдена,
+- runtime и shared-контуры разделены,
+- базовые инженерные соглашения унифицированы,
+- navigation/governance зафиксированы в README и audit-документации.
