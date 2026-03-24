@@ -1,10 +1,2 @@
-import type { HealthStatus } from '@cdoprof/shared-types';
-
-export interface HealthResponseContract {
-  data: HealthStatus;
-}
-
-export interface ErrorContract {
-  message: string;
-  code: string;
-}
+export type { ApiError, ApiSuccess } from './common/contracts';
+export type { HealthErrorContract, HealthResponseContract } from './health/contracts';
