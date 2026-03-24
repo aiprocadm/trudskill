@@ -1,23 +1,43 @@
-# cdoprof monorepo foundation (Stage 0)
+# cdoprof monorepo (Stage 0 aligned)
 
-TypeScript-first monorepo foundation for a distance-learning platform.
+Monorepo foundation for a distance-learning platform with clear runtime separation and shared contract/type layers.
 
-## Monorepo structure
+## Final repository map
 
 ```text
 apps/
-  frontend/   # Next.js app
-  backend/    # NestJS API app
-  worker/     # background jobs runtime
-  realtime/   # websocket/realtime runtime
+  frontend/      # Next.js + React + TypeScript web app
+  backend/       # NestJS modular-monolith core API
+  worker/        # async jobs, queue consumers, heavy background processing
+  realtime/      # websocket/live notifications/realtime signaling runtime
 
 packages/
-  ui/           # shared UI building blocks
-  api-contracts/# shared transport contracts and DTO shapes
-  shared-types/ # shared domain and utility types
-  test-utils/   # shared test fixtures/helpers
+  ui/            # shared UI primitives/components
+  api-contracts/ # API/WebSocket contract definitions and DTO schemas
+  shared-types/  # runtime-agnostic shared domain types/enums/value objects
+  test-utils/    # shared test fixtures/builders/helpers
+
+docs/            # architecture and audit artifacts
+infra/           # (reserved for future infra split; currently compose at root)
+scripts/         # repository scripts/utilities
+tooling/         # shared build/TS tooling presets
 ```
 
+> Note: `infra/` is intentionally reserved as a future top-level technical folder; current infra bootstrap is kept in `docker-compose.yml`.
+
+## Architecture logic
+
+- **Single frontend** (`apps/frontend`) as the main user-facing modular web client.
+- **Backend modular monolith** (`apps/backend`) as the core business/API runtime.
+- **Worker contour** (`apps/worker`) for heavy async and queue/document/integration workloads.
+- **Realtime contour** (`apps/realtime`) for websocket-based and live-status scenarios.
+- **Shared packages** (`packages/*`) hold non-runtime-specific code reused across apps.
+
+## Package manager and workspace
+
+- **Package manager**: `pnpm` (single manager for the whole repository)
+- **Workspace**: `pnpm-workspace.yaml`
+- **Task orchestration**: `turbo.json`
 ## Monorepo orchestration
 
 This repository uses **Turborepo** for workspace task orchestration, filtering, and caching across apps/packages.
@@ -28,7 +48,7 @@ This repository uses **Turborepo** for workspace task orchestration, filtering, 
 - pnpm 9+
 - Docker + Docker Compose
 
-## Installation
+## Quick start
 
 ```bash
 pnpm install
@@ -37,7 +57,40 @@ cp apps/frontend/.env.example apps/frontend/.env.local
 cp apps/backend/.env.example apps/backend/.env
 cp apps/worker/.env.example apps/worker/.env
 cp apps/realtime/.env.example apps/realtime/.env
+docker compose up -d
 ```
+
+## Standard root commands
+
+```bash
+pnpm install
+pnpm dev
+pnpm build
+pnpm lint
+pnpm test
+pnpm typecheck
+pnpm env:check
+```
+
+## Run specific runtimes
+
+```bash
+pnpm --filter @cdoprof/frontend dev
+pnpm --filter @cdoprof/backend dev
+pnpm --filter @cdoprof/worker dev
+pnpm --filter @cdoprof/realtime dev
+```
+
+## Environment conventions
+
+- Root example: `.env.example`
+- App examples:
+  - `apps/frontend/.env.example`
+  - `apps/backend/.env.example`
+  - `apps/worker/.env.example`
+  - `apps/realtime/.env.example`
+- Root env schema check: `pnpm env:check`
+- App-level fail-fast env validation lives in each app `src/env.ts`.
 
 ## Local infrastructure
 
@@ -52,47 +105,29 @@ Services:
 - RabbitMQ: `localhost:5672` (management `localhost:15672`)
 - MinIO S3 API: `localhost:9000` (console `localhost:9001`)
 
-## Environment management
+## What was consolidated in Stage 0
 
-- Root env schema check: `pnpm env:check`
-- Root example: `.env.example`
-- App examples:
-  - `apps/frontend/.env.example`
-  - `apps/backend/.env.example`
-  - `apps/worker/.env.example`
-  - `apps/realtime/.env.example`
-- App-level fail-fast validation:
-  - `apps/frontend/src/env.ts`
-  - `apps/backend/src/env.ts`
-  - `apps/worker/src/env.ts`
-  - `apps/realtime/src/env.ts`
+- Confirmed and retained canonical monorepo structure under `apps/*` and `packages/*`.
+- Unified on a single package manager model (pnpm).
+- Kept one root TypeScript base hierarchy (`tsconfig.base.json` + root references `tsconfig.json`).
+- Kept one root lint/format baseline (`eslint.config.mjs`, `.prettierrc.json`).
+- Preserved one Compose definition (`docker-compose.yml`) without duplicate variants.
+- Added explicit audit report: `docs/repo-audit-stage-0.md`.
 
-## Run applications
+## Placement rules for new code
 
-Run all apps in parallel:
+1. **Runtime code only in `apps/*`**
+   - frontend/backend/worker/realtime concerns must stay in their dedicated runtime.
+2. **Reusable code only in `packages/*`**
+   - shared UI/types/contracts/test helpers must not be duplicated in apps.
+3. **No legacy roots**
+   - do not create parallel `frontend/`, `backend/`, `shared/` trees outside `apps/*`/`packages/*`.
+4. **Infra separate from runtime**
+   - infra configs go to root compose or future `infra/`; never inside runtime source trees unless runtime-specific.
+5. **Config hierarchy discipline**
+   - inherit from root TS/ESLint/Prettier where possible; add local overrides only when required.
 
-```bash
-pnpm dev
-```
 
-Run specific app:
+## Known environment note
 
-```bash
-pnpm --filter @cdoprof/frontend dev
-pnpm --filter @cdoprof/backend dev
-pnpm --filter @cdoprof/worker dev
-pnpm --filter @cdoprof/realtime dev
-```
-
-## Quality gates
-
-```bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
-```
-
-## Git hooks
-
-`husky` + `lint-staged` run on pre-commit and validate conventional commits on commit-msg.
+`pnpm-lock.yaml` is not yet committed because this execution environment cannot reach `registry.npmjs.org` for Corepack pnpm bootstrap. Generate and commit the lockfile in a network-enabled CI/dev environment as the first follow-up step.
