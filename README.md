@@ -27,7 +27,7 @@ packages/
   test-utils/    # shared test helpers and fixtures
 
 tooling/
-  typescript/    # shared tsconfig presets
+  typescript/    # shared tsconfig presets (app/package/frontend)
 
 infra/
   docker-compose.yml  # PostgreSQL, Redis, RabbitMQ, MinIO
@@ -42,7 +42,7 @@ docs/
 - pnpm workspaces
 - Turborepo
 - TypeScript (strict)
-- ESLint (flat config) + Prettier
+- ESLint (flat config) + Prettier (single root config)
 - Vitest
 - Husky + lint-staged
 - Docker Compose (local infra)
