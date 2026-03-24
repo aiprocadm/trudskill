@@ -16,7 +16,7 @@ const context = {
 
 describe('auth foundation', () => {
   it('verifies password hash', () => {
-    const iam = new IamService();
+    const iam = new IamService(new AuditService());
     const user = iam.findUserByLogin('tenant_demo', 'tenant_admin');
     expect(user).toBeDefined();
     expect(verifyPassword('Password123!', user!.passwordHash)).toBe(true);
@@ -24,7 +24,7 @@ describe('auth foundation', () => {
 
   it('rotates refresh token and invalidates previous one', () => {
     const audit = new AuditService();
-    const iam = new IamService();
+    const iam = new IamService(audit);
     const auth = new AuthService(iam, audit);
 
     const login = auth.login('tenant_demo', { login: 'tenant_admin', password: 'Password123!' }, context);
@@ -36,7 +36,7 @@ describe('auth foundation', () => {
 
   it('rejects blocked user login', () => {
     const audit = new AuditService();
-    const iam = new IamService();
+    const iam = new IamService(audit);
     const auth = new AuthService(iam, audit);
 
     expect(() =>
@@ -46,10 +46,19 @@ describe('auth foundation', () => {
 
   it('writes audit log on login', () => {
     const audit = new AuditService();
-    const iam = new IamService();
+    const iam = new IamService(audit);
     const auth = new AuthService(iam, audit);
 
     auth.login('tenant_demo', { login: 'tenant_admin', password: 'Password123!' }, context);
     expect(audit.list().some((record) => record.action === 'auth.login')).toBe(true);
+  });
+
+  it('writes audit log on role assignment changes', () => {
+    const audit = new AuditService();
+    const iam = new IamService(audit);
+
+    iam.setUserRoles('tenant_demo', 'u_manager', ['manager', 'methodist'], 'u_tenant_admin', 'req_2');
+
+    expect(audit.list().some((record) => record.action === 'iam.user_roles_updated')).toBe(true);
   });
 });

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { AuditService } from '../../audit/audit.service.js';
 import type { Permission, Role, User } from '../iam.types.js';
 import { hashPassword } from '../crypto.util.js';
 
@@ -80,6 +81,8 @@ export class IamService {
     ['u_blocked', ['r_manager']]
   ]);
 
+  constructor(private readonly auditService: AuditService) {}
+
   findUserByLogin(tenantId: string, login: string): User | undefined {
     return this.users.find((user) => user.tenantId === tenantId && user.login === login);
   }
@@ -106,8 +109,15 @@ export class IamService {
     return roleIds.map((id) => this.roles.find((role) => role.id === id)).filter(Boolean) as Role[];
   }
 
-  setUserRoles(tenantId: string, userId: string, roleCodes: string[]): Role[] {
+  setUserRoles(
+    tenantId: string,
+    userId: string,
+    roleCodes: string[],
+    actorId?: string,
+    requestId?: string
+  ): Role[] {
     this.getUser(tenantId, userId);
+    const previousRoles = this.getUserRoles(tenantId, userId).map((role) => role.code);
     const roles = roleCodes.map((code) => {
       const role = this.roles.find((item) => item.tenantId === tenantId && item.code === code);
       if (!role) {
@@ -120,6 +130,17 @@ export class IamService {
       userId,
       roles.map((item) => item.id)
     );
+
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'iam.user_roles_updated',
+      entityType: 'iam.user',
+      entityId: userId,
+      requestId,
+      oldValues: { roleCodes: previousRoles },
+      newValues: { roleCodes }
+    });
 
     return roles;
   }

@@ -75,6 +75,12 @@ export class AuthController {
     @Param('id') id: string,
     @Body() payload: { roleCodes: string[] }
   ) {
-    return this.iamService.setUserRoles(context.tenantId!, id, payload.roleCodes);
+    return this.iamService.setUserRoles(
+      context.tenantId!,
+      id,
+      payload.roleCodes,
+      context.userId,
+      context.requestId
+    );
   }
 }
