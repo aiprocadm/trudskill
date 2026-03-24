@@ -8,6 +8,8 @@
 - `files`: metadata foundation and storage abstraction readiness.
 - `health`: liveness and readiness endpoints.
 
+See architecture note: [`docs/backend-foundation-architecture.md`](./docs/backend-foundation-architecture.md).
+
 ## Endpoint map
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/logout`
@@ -39,6 +41,17 @@ Migration `migrations/0001_backend_foundation.sql` creates:
 - `iam.auth_events`
 - `audit.audit_log`
 - `storage.files`
+
+## Seed data
+`src/seeds/dev-seed.ts` contains deterministic dev/test fixtures:
+- demo tenant + requisites/settings;
+- baseline permissions;
+- roles (`platform_admin`, `tenant_admin`, `manager`, `methodist`);
+- active + blocked users.
+
+## Local commands
+- `pnpm --filter @cdoprof/backend dev`
+- `pnpm --filter @cdoprof/backend test`
 
 ## Notes
 Current implementation provides deterministic in-memory foundation services plus SQL migration/seeds for further wiring with PostgreSQL/Redis/RabbitMQ/S3 adapters.
