@@ -22,4 +22,16 @@ describe('auth and routing e2e scenarios (logic-level)', () => {
     const session = { ...authorizedSession, permissions: ['tenant.read'] };
     expect(evaluateRouteAccess('/settings', session)).toEqual({ kind: 'forbidden' });
   });
+
+  it('returns not-found for unknown route map entry', () => {
+    expect(evaluateRouteAccess('/totally-missing-route', authorizedSession)).toEqual({ kind: 'not-found' });
+  });
+
+  it('denies access after logout when session is not available anymore', () => {
+    const accessBeforeLogout = evaluateRouteAccess('/users', authorizedSession);
+    const accessAfterLogout = evaluateRouteAccess('/users', null);
+
+    expect(accessBeforeLogout).toEqual({ kind: 'ok' });
+    expect(accessAfterLogout).toEqual({ kind: 'redirect-login' });
+  });
 });
