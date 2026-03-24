@@ -42,6 +42,18 @@ export default [
           alphabetize: { order: 'asc', caseInsensitive: true },
           'newlines-between': 'always'
         }
+      ],
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['apps/*', './apps/*', '../apps/*', '../../apps/*', 'packages/*/src/*'],
+              message:
+                'Import only through package entrypoints (workspace package names), not via app/package source paths.'
+            }
+          ]
+        }
       ]
     }
   },

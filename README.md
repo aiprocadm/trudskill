@@ -136,6 +136,7 @@ pnpm --filter @cdoprof/realtime dev
 - `packages/api-contracts` — DTO и API-контракты (общие envelope контракты + domain-папки, например `health`).
 - Внутренние зависимости подключаются через `workspace:*`.
 - TS aliases и project references настроены на уровне корня.
+- ESLint запрещает deep imports из `apps/*` и `packages/*/src/*` для защиты import/export границ monorepo.
 
 ## CI quality gates
 
