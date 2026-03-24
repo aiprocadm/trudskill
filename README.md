@@ -18,6 +18,10 @@ packages/
   test-utils/   # shared test fixtures/helpers
 ```
 
+## Monorepo orchestration
+
+This repository uses **Turborepo** for workspace task orchestration, filtering, and caching across apps/packages.
+
 ## Requirements
 
 - Node.js 22+
