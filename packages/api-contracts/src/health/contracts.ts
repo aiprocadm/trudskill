@@ -1,4 +1,4 @@
-import type { HealthStatus } from '../../../shared-types/src/index.ts';
+import type { HealthStatus } from '@cdoprof/shared-types';
 
 import type { ApiErrorResponse } from '../errors/contracts';
 import type { ApiSuccess } from '../common/contracts';
