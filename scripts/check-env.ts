@@ -1,4 +1,13 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { z } from 'zod';
+
+const rootEnvPath = resolve(process.cwd(), '.env');
+
+if (existsSync(rootEnvPath)) {
+  process.loadEnvFile(rootEnvPath);
+}
 
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
