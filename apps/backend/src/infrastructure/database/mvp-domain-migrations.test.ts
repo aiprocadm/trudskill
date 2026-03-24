@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { mvpDomainSchemas, mvpDomainTables } from './mvp-domain.schema';
+import { mvpDomainSchemas, mvpDomainTableList, mvpDomainTables, mvpTablesWithSoftDelete } from './mvp-domain.schema';
 
 const migrationsDir = join(process.cwd(), 'migrations');
 const migrationFiles = readdirSync(migrationsDir)
@@ -15,8 +15,22 @@ const migrationSqlByFile = new Map(
 
 const fullSql = migrationFiles.map((file) => migrationSqlByFile.get(file)).join('\n\n');
 
+function escapeRegex(source: string): string {
+  return source.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function expectSqlContains(pattern: RegExp, message: string): void {
   expect(fullSql, message).toMatch(pattern);
+}
+
+function expectTableBody(tableName: string, assertion: (body: string) => void): void {
+  const tablePattern = new RegExp(
+    `CREATE\\s+TABLE\\s+IF\\s+NOT\\s+EXISTS\\s+${escapeRegex(tableName)}\\s*\\(([^;]+?)\\);`,
+    'is'
+  );
+  const match = fullSql.match(tablePattern);
+  expect(match, `table definition not found for ${tableName}`).toBeTruthy();
+  assertion(match?.[1] ?? '');
 }
 
 describe('SQL migration chain', () => {
@@ -43,6 +57,37 @@ describe('SQL migration chain', () => {
       }
     }
   });
+
+  it('keeps migration idempotence primitives for existing storage.files extension', () => {
+    expectSqlContains(/ALTER\s+TABLE\s+storage\.files\s+ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS/i, 'storage.files should be evolved with IF NOT EXISTS');
+  });
+});
+
+describe('tenant-awareness and audit fields', () => {
+  it('defines tenant_id in every MVP table', () => {
+    for (const tableName of mvpDomainTableList) {
+      expectTableBody(tableName, (body) => {
+        expect(body).toMatch(/tenant_id\s+text\s+NOT\s+NULL/i);
+      });
+    }
+  });
+
+  it('defines created_at and updated_at on mutable transactional tables', () => {
+    for (const tableName of mvpDomainTableList.filter((table) => table !== 'learning.enrollment_status_history' && table !== 'assessment.test_questions')) {
+      expectTableBody(tableName, (body) => {
+        expect(body, `${tableName} must include created_at`).toMatch(/created_at\s+timestamptz\s+NOT\s+NULL\s+DEFAULT\s+now\(\)/i);
+        expect(body, `${tableName} must include updated_at`).toMatch(/updated_at\s+timestamptz\s+NOT\s+NULL\s+DEFAULT\s+now\(\)/i);
+      });
+    }
+  });
+
+  it('uses deleted_at in selected soft-delete tables', () => {
+    for (const tableName of mvpTablesWithSoftDelete) {
+      expectTableBody(tableName, (body) => {
+        expect(body, `${tableName} must include deleted_at`).toMatch(/deleted_at\s+timestamptz/i);
+      });
+    }
+  });
 });
 
 describe('schema integrity constraints', () => {
@@ -61,7 +106,15 @@ describe('schema integrity constraints', () => {
 
   it('enforces generated document finalization consistency and reservation rules', () => {
     expectSqlContains(/CONSTRAINT\s+generated_documents_final_date_chk\s+CHECK\s*\(\(is_final\s*=\s*false\)\s+OR\s+\(document_date\s+IS\s+NOT\s+NULL\)\)/i, 'missing final document date check');
+    expectSqlContains(/CONSTRAINT\s+generated_documents_finalized_at_chk\s+CHECK\s*\(\(is_final\s*=\s*false\)\s+OR\s+\(finalized_at\s+IS\s+NOT\s+NULL\)\)/i, 'missing final document finalized_at check');
     expectSqlContains(/CONSTRAINT\s+number_reservations_consumed_chk\s+CHECK\s*\(status\s*<>\s*'consumed'\s+OR\s+generated_document_id\s+IS\s+NOT\s+NULL\)/i, 'missing consumed reservation consistency check');
+  });
+
+  it('has tenant-aware uniqueness on core business identifiers', () => {
+    expectSqlContains(/CONSTRAINT\s+courses_tenant_code_uniq\s+UNIQUE\s*\(tenant_id,\s*code\)/i, 'missing courses tenant code uniqueness');
+    expectSqlContains(/CONSTRAINT\s+study_groups_tenant_code_uniq\s+UNIQUE\s*\(tenant_id,\s*code\)/i, 'missing study_groups tenant code uniqueness');
+    expectSqlContains(/CONSTRAINT\s+tests_tenant_code_uniq\s+UNIQUE\s*\(tenant_id,\s*code\)/i, 'missing tests tenant code uniqueness');
+    expectSqlContains(/CONSTRAINT\s+templates_tenant_code_uniq\s+UNIQUE\s*\(tenant_id,\s*code\)/i, 'missing templates tenant code uniqueness');
   });
 
   it('keeps storage metadata-only model with polymorphic links', () => {
@@ -69,6 +122,6 @@ describe('schema integrity constraints', () => {
     expectSqlContains(/entity_type\s+text\s+NOT\s+NULL/i, 'missing file_links.entity_type column');
     expectSqlContains(/entity_id\s+text\s+NOT\s+NULL/i, 'missing file_links.entity_id column');
     expectSqlContains(/link_role\s+text\s+NOT\s+NULL/i, 'missing file_links.link_role column');
-    expect(fullSql).not.toMatch(/bytea/i);
+    expect(fullSql).not.toMatch(/\bbytea\b/i);
   });
 });
