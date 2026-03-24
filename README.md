@@ -53,6 +53,10 @@ docs/
 pnpm install
 ```
 
+
+> Примечание: в CI используется безопасный fallback установки зависимостей — `--frozen-lockfile` при наличии `pnpm-lock.yaml`, иначе `--no-frozen-lockfile` для bootstrap-сценария.
+
+
 ## Настройка окружения
 
 1. Скопируйте общий шаблон:
