@@ -1,21 +1,21 @@
-import { Controller, Get, Module } from '@nestjs/common';
-import type { HealthResponseContract } from '@cdoprof/api-contracts';
-
-@Controller('health')
-class HealthController {
-  @Get()
-  getHealth(): HealthResponseContract {
-    return {
-      data: {
-        status: 'ok',
-        timestamp: new Date().toISOString(),
-        service: 'backend'
-      }
-    };
-  }
-}
+import { Module } from '@nestjs/common';
+import { CoreModule } from './modules/core/core.module.js';
+import { TenantModule } from './modules/tenant/tenant.module.js';
+import { IamModule } from './modules/iam/iam.module.js';
+import { AuditModule } from './modules/audit/audit.module.js';
+import { FilesModule } from './modules/files/files.module.js';
+import { HealthModule } from './health/health.module.js';
+import { InfrastructureModule } from './infrastructure/infrastructure.module.js';
 
 @Module({
-  controllers: [HealthController]
+  imports: [
+    CoreModule,
+    InfrastructureModule,
+    TenantModule,
+    IamModule,
+    AuditModule,
+    FilesModule,
+    HealthModule
+  ]
 })
 export class AppModule {}
