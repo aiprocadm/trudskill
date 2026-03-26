@@ -6,7 +6,7 @@ const adminSession: UserSession = {
   user: { id: 'u_tenant_admin', tenantId: 'tenant_demo', login: 'tenant_admin', email: null, status: 'active', displayName: 'Tenant Admin' },
   tokens: { accessToken: 'a', refreshToken: 'r', sessionId: 's1', expiresIn: 300 },
   roles: ['tenant_admin'],
-  permissions: ['auth.manage_sessions', 'iam.manage_roles', 'tenant.read']
+  permissions: ['auth.manage_sessions', 'iam.manage_roles', 'courses.read', 'counterparties.read', 'directions.read', 'groups.read', 'enrollments.read']
 };
 
 describe('navigation helpers', () => {
@@ -15,12 +15,12 @@ describe('navigation helpers', () => {
   });
 
   it('returns forbidden when user has no permission', () => {
-    const limited = { ...adminSession, permissions: ['tenant.read'] };
+    const limited = { ...adminSession, permissions: ['courses.read'] };
     expect(evaluateRouteAccess('/audit', limited)).toEqual({ kind: 'forbidden' });
   });
 
   it('filters navigation by permissions', () => {
-    const limited = { ...adminSession, permissions: ['tenant.read'] };
+    const limited = { ...adminSession, permissions: ['courses.read'] };
     const visible = getVisibleNavigation(limited).map((item) => item.href);
     expect(visible).toContain('/courses');
     expect(visible).not.toContain('/audit');
@@ -32,5 +32,10 @@ describe('navigation helpers', () => {
 
   it('normalizes route with query params and trailing slash', () => {
     expect(evaluateRouteAccess('/courses/?tab=all', adminSession)).toEqual({ kind: 'ok' });
+  });
+
+  it('allows learner cabinet routes with enrollment read permission', () => {
+    const learner = { ...adminSession, permissions: ['enrollments.read'] };
+    expect(evaluateRouteAccess('/learner/courses/abc', learner)).toEqual({ kind: 'ok' });
   });
 });

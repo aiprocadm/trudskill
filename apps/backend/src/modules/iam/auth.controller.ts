@@ -6,7 +6,7 @@ import { RequirePermissions } from './permission.decorator.js';
 import { PermissionGuard } from './permission.guard.js';
 import { AuthService } from './services/auth.service.js';
 import { IamService } from './services/iam.service.js';
-import { LoginDto, LogoutDto, RefreshDto, SetUserRolesDto } from './dto/login.dto.js';
+import { CreateUserDto, LoginDto, LogoutDto, RefreshDto, SetUserRolesDto, UpdateUserDto } from './dto/login.dto.js';
 
 @Controller()
 @UseGuards(TenantGuard)
@@ -61,6 +61,35 @@ export class AuthController {
   @Get('permissions')
   permissions() {
     return this.iamService.getPermissions();
+  }
+
+
+  @Get('users')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('iam.manage_roles')
+  users(@CurrentContext() context: RequestContext) {
+    return { items: this.iamService.listUsers(context.tenantId!), page: 1, pageSize: 100, total: this.iamService.listUsers(context.tenantId!).length };
+  }
+
+  @Get('users/:id')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('iam.manage_roles')
+  user(@CurrentContext() context: RequestContext, @Param('id') id: string) {
+    return this.iamService.getUser(context.tenantId!, id);
+  }
+
+  @Post('users')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('iam.manage_roles')
+  createUser(@CurrentContext() context: RequestContext, @Body() payload: CreateUserDto) {
+    return this.iamService.createUser(context.tenantId!, payload);
+  }
+
+  @Put('users/:id')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('iam.manage_roles')
+  updateUser(@CurrentContext() context: RequestContext, @Param('id') id: string, @Body() payload: UpdateUserDto) {
+    return this.iamService.updateUser(context.tenantId!, id, payload);
   }
 
   @Get('users/:id/roles')

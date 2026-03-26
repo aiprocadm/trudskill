@@ -147,6 +147,33 @@ export class IamService {
     return user;
   }
 
+
+  listUsers(tenantId: string): User[] {
+    return this.users.filter((user) => user.tenantId === tenantId);
+  }
+
+  createUser(tenantId: string, payload: { login: string; email?: string | null; displayName: string; status?: 'active' | 'blocked'; password?: string }): User {
+    const user: User = {
+      id: `u_${payload.login}` ,
+      tenantId,
+      login: payload.login,
+      email: payload.email ?? null,
+      passwordHash: hashPassword(payload.password ?? 'Password123!'),
+      status: payload.status ?? 'active',
+      displayName: payload.displayName
+    };
+    this.users.push(user);
+    return user;
+  }
+
+  updateUser(tenantId: string, userId: string, payload: { email?: string | null; displayName?: string; status?: 'active' | 'blocked' }): User {
+    const user = this.getUser(tenantId, userId);
+    if (payload.email !== undefined) user.email = payload.email;
+    if (payload.displayName !== undefined) user.displayName = payload.displayName;
+    if (payload.status !== undefined) user.status = payload.status;
+    return user;
+  }
+
   getRoles(tenantId: string): Role[] {
     return this.roles.filter((role) => role.tenantId === tenantId);
   }
