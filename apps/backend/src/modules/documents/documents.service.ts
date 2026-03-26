@@ -28,6 +28,16 @@ import type {
 
 @Injectable()
 export class DocumentsService {
+  private static readonly variableCategories = new Set([
+    'tenant',
+    'group',
+    'learner',
+    'counterparty',
+    'course',
+    'commission',
+    'document'
+  ]);
+
   private templates: TemplateEntity[] = [];
   private versions: TemplateVersionEntity[] = [];
   private variables: TemplateVariableEntity[] = [];
@@ -121,6 +131,9 @@ export class DocumentsService {
   }
   createTemplateVariable(tenantId: string, req: CreateTemplateVariableRequest) {
     this.getTemplateVersion(tenantId, req.templateVersionId);
+    if (!DocumentsService.variableCategories.has(req.categoryCode)) {
+      throw new BadRequestException(`Unsupported variable category ${req.categoryCode}`);
+    }
     const duplicate = this.variables.find((x) => x.tenantId === tenantId && x.templateVersionId === req.templateVersionId && x.variableCode === req.variableCode && !x.deletedAt);
     if (duplicate) throw new ConflictException('Variable code already exists');
     const entity: TemplateVariableEntity = { id: this.id('tplvar'), tenantId, templateVersionId: req.templateVersionId, variableCode: req.variableCode, displayName: req.displayName, categoryCode: req.categoryCode, dataType: req.dataType, isRequired: req.isRequired ?? false, description: req.description };
@@ -130,6 +143,9 @@ export class DocumentsService {
   getTemplateVariable(tenantId: string, id: string) { return this.must(this.variables.filter((x) => !x.deletedAt), tenantId, id); }
   updateTemplateVariable(tenantId: string, id: string, req: UpdateTemplateVariableRequest) {
     const row = this.getTemplateVariable(tenantId, id);
+    if (req.categoryCode && !DocumentsService.variableCategories.has(req.categoryCode)) {
+      throw new BadRequestException(`Unsupported variable category ${req.categoryCode}`);
+    }
     Object.assign(row, req);
     return row;
   }
@@ -183,7 +199,17 @@ export class DocumentsService {
     if (!versionId) throw new BadRequestException('No template version selected');
     this.getTemplateVersion(tenantId, versionId);
     const task: DocumentGenerationTaskEntity = {
-      id: this.id('dtask'), tenantId, templateId: template.id, templateVersionId: versionId, taskType: 'generate', sourceEntityType: req.sourceEntityType, sourceEntityId: req.sourceEntityId, status: 'queued', requestedBy: actorId, requestedAt: this.now()
+      id: this.id('dtask'),
+      tenantId,
+      templateId: template.id,
+      templateVersionId: versionId,
+      documentType: req.documentType,
+      taskType: 'generate',
+      sourceEntityType: req.sourceEntityType,
+      sourceEntityId: req.sourceEntityId,
+      status: 'queued',
+      requestedBy: actorId,
+      requestedAt: this.now()
     };
     this.tasks.push(task);
     this.idem.set(idemKey, task.id);
@@ -191,14 +217,21 @@ export class DocumentsService {
   }
 
   completeTask(tenantId: string, taskId: string, fileId: string, generatedBy?: string) {
+    this.startTask(tenantId, taskId);
     const task = this.getDocumentTask(tenantId, taskId);
     if (task.status === 'completed') return this.getDocument(tenantId, task.generatedDocumentId!);
-    if (task.status !== 'queued' && task.status !== 'running') throw new BadRequestException('Task state is not processable');
-    task.status = 'running';
-    task.startedAt = task.startedAt ?? this.now();
-    const reserved = this.reserveNumber(tenantId, 'default');
+    if (task.status !== 'running') throw new BadRequestException('Task state is not processable');
+    const reserved = task.numberReservationId
+      ? this.getReservation(tenantId, task.numberReservationId)
+      : this.reserveNumber(tenantId, task.documentType);
+    task.numberReservationId = reserved.id;
     const generated: GeneratedDocumentEntity = {
-      id: this.id('gdoc'), tenantId, templateId: task.templateId, templateVersionId: task.templateVersionId!, documentType: 'default', name: `Document ${reserved.reservedNumber}`,
+      id: this.id('gdoc'),
+      tenantId,
+      templateId: task.templateId,
+      templateVersionId: task.templateVersionId!,
+      documentType: task.documentType,
+      name: `Document ${reserved.reservedNumber}`,
       sourceEntityType: task.sourceEntityType, sourceEntityId: task.sourceEntityId, fileId, status: 'generated', documentNumber: reserved.reservedNumber, documentDate: this.now().slice(0, 10), isFinal: false, generatedBy, generatedAt: this.now()
     };
     this.generatedDocuments.push(generated);
@@ -210,12 +243,27 @@ export class DocumentsService {
     reserved.usedAt = this.now();
     return generated;
   }
+  startTask(tenantId: string, id: string) {
+    const task = this.getDocumentTask(tenantId, id);
+    if (task.status === 'completed' || task.status === 'failed') throw new BadRequestException('Terminal task cannot be started');
+    if (task.status === 'running') return task;
+    task.status = 'running';
+    task.startedAt = task.startedAt ?? this.now();
+    if (!task.numberReservationId) {
+      task.numberReservationId = this.reserveNumber(tenantId, task.documentType).id;
+    }
+    return task;
+  }
   failTask(tenantId: string, id: string, message: string) {
     const task = this.getDocumentTask(tenantId, id);
     if (task.status === 'completed') throw new BadRequestException('Completed task cannot be failed');
     task.status = 'failed';
     task.errorMessage = message;
     task.finishedAt = this.now();
+    if (task.numberReservationId) {
+      const reservation = this.getReservation(tenantId, task.numberReservationId);
+      if (reservation.status === 'reserved') reservation.status = 'failed';
+    }
     return task;
   }
   finalizeDocument(tenantId: string, id: string) {
@@ -279,6 +327,45 @@ export class DocumentsService {
     const reservation: NumberReservationEntity = { id: this.id('nres'), tenantId, ruleId: rule.id, reservedNumber: formatted, reservedAt: this.now(), status: 'reserved' };
     this.reservations.push(reservation);
     return reservation;
+  }
+  getReservation(tenantId: string, reservationId: string) {
+    return this.must(this.reservations, tenantId, reservationId);
+  }
+  resolveTemplateVariables(
+    tenantId: string,
+    templateVersionId: string,
+    payload: Record<string, unknown>
+  ): Record<string, unknown> {
+    const version = this.getTemplateVersion(tenantId, templateVersionId);
+    const variables = this.variables.filter((item) => item.tenantId === tenantId && item.templateVersionId === templateVersionId && !item.deletedAt);
+    const resolved: Record<string, unknown> = { ...payload };
+    const schemaVariables = Array.isArray(version.variablesSchema.variables)
+      ? (version.variablesSchema.variables as Array<{ code?: string; required?: boolean }>)
+      : [];
+    const missing = new Set<string>();
+
+    for (const variable of variables) {
+      if (variable.isRequired && resolved[variable.variableCode] === undefined) {
+        missing.add(variable.variableCode);
+      }
+    }
+    for (const variable of schemaVariables) {
+      if (variable.required && variable.code && resolved[variable.code] === undefined) {
+        missing.add(variable.code);
+      }
+    }
+
+    if (missing.size) {
+      throw new BadRequestException(`Required variables are missing: ${[...missing].join(', ')}`);
+    }
+
+    return {
+      ...resolved,
+      __snapshot: {
+        templateVersionId,
+        resolvedAt: this.now()
+      }
+    };
   }
 
   private periodKey(reset: 'none' | 'year' | 'month') {

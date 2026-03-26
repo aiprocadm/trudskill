@@ -87,6 +87,7 @@ describe('DocumentsService', () => {
       documentType: 'default'
     });
 
+    service.startTask('t1', task.id);
     service.failTask('t1', task.id, 'render failed');
     const retried = service.retryTask('t1', task.id);
     expect(retried.status).toBe('queued');
@@ -110,5 +111,66 @@ describe('DocumentsService', () => {
     const generated = service.completeTask('t1', task.id, 'file_generated_1');
     service.archiveDocument('t1', generated.id);
     expect(() => service.finalizeDocument('t1', generated.id)).toThrowError();
+  });
+
+  it('validates supported template variable categories', () => {
+    const service = new DocumentsService(new AuditService());
+    const template = service.createTemplate('t1', 'u1', { name: 'Tpl', templateType: 'contract' }, ctx);
+    const version = service.createTemplateVersion('t1', 'u1', { templateId: template.id, fileId: 'file_1' });
+
+    expect(() =>
+      service.createTemplateVariable('t1', {
+        templateVersionId: version.id,
+        variableCode: 'x',
+        displayName: 'X',
+        categoryCode: 'unknown',
+        dataType: 'string'
+      })
+    ).toThrowError();
+  });
+
+  it('marks number reservation as failed when task fails after start', () => {
+    const service = new DocumentsService(new AuditService());
+    service.createNumberingRule('t1', { documentType: 'default', prefix: 'DOC-' });
+    const template = service.createTemplate('t1', 'u1', { name: 'Tpl', templateType: 'contract' }, ctx);
+    const version = service.createTemplateVersion('t1', 'u1', { templateId: template.id, fileId: 'file_1' });
+    service.activateTemplateVersion('t1', version.id);
+    const task = service.generateDocument('t1', 'u1', {
+      idempotencyKey: 'failed-reservation',
+      templateId: template.id,
+      sourceEntityType: 'group',
+      sourceEntityId: 'g1',
+      documentType: 'default'
+    });
+
+    const running = service.startTask('t1', task.id);
+    service.failTask('t1', task.id, 'renderer failure');
+    const reservation = service.getReservation('t1', running.numberReservationId!);
+    expect(reservation.status).toBe('failed');
+  });
+
+  it('resolves variables with snapshot and required validation', () => {
+    const service = new DocumentsService(new AuditService());
+    const template = service.createTemplate('t1', 'u1', { name: 'Tpl', templateType: 'contract' }, ctx);
+    const version = service.createTemplateVersion('t1', 'u1', {
+      templateId: template.id,
+      fileId: 'file_1',
+      variablesSchema: { variables: [{ code: 'document.title', required: true }] }
+    });
+    service.createTemplateVariable('t1', {
+      templateVersionId: version.id,
+      variableCode: 'tenant.name',
+      displayName: 'Tenant Name',
+      categoryCode: 'tenant',
+      dataType: 'string',
+      isRequired: true
+    });
+
+    expect(() => service.resolveTemplateVariables('t1', version.id, { 'document.title': 'Doc' })).toThrowError();
+    const resolved = service.resolveTemplateVariables('t1', version.id, {
+      'document.title': 'Doc',
+      'tenant.name': 'Acme'
+    });
+    expect(resolved.__snapshot).toBeDefined();
   });
 });
