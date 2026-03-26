@@ -142,12 +142,18 @@ export class DocumentsService {
   listTemplateBindings(tenantId: string, query: BaseFilter) { return this.page(this.bindings.filter((x) => x.tenantId === tenantId), query); }
   createTemplateBinding(tenantId: string, req: CreateTemplateBindingRequest) {
     this.getTemplate(tenantId, req.templateId);
+    this.validateBindingPayload(req.bindType, req.directionId, req.courseId, req.groupId);
     const entity: TemplateBindingEntity = { id: this.id('tplbind'), tenantId, templateId: req.templateId, bindType: req.bindType, directionId: req.directionId, courseId: req.courseId, groupId: req.groupId, attachMode: req.attachMode ?? 'strict', inheritToChildren: req.inheritToChildren ?? false, priority: req.priority ?? 100, createdAt: this.now() };
     this.bindings.push(entity);
     return entity;
   }
   getTemplateBinding(tenantId: string, id: string) { return this.must(this.bindings, tenantId, id); }
-  updateTemplateBinding(tenantId: string, id: string, req: UpdateTemplateBindingRequest) { const row = this.getTemplateBinding(tenantId, id); Object.assign(row, req); return row; }
+  updateTemplateBinding(tenantId: string, id: string, req: UpdateTemplateBindingRequest) {
+    const row = this.getTemplateBinding(tenantId, id);
+    Object.assign(row, req);
+    this.validateBindingPayload(row.bindType, row.directionId, row.courseId, row.groupId);
+    return row;
+  }
   deleteTemplateBinding(tenantId: string, id: string) { this.getTemplateBinding(tenantId, id); this.bindings = this.bindings.filter((x) => !(x.tenantId === tenantId && x.id === id)); return { deleted: true }; }
 
   listDocumentTasks(tenantId: string, query: BaseFilter) { return this.page(this.tasks.filter((x) => x.tenantId === tenantId), query); }
@@ -157,6 +163,7 @@ export class DocumentsService {
     if (task.status !== 'failed') throw new BadRequestException('Retry allowed only for failed tasks');
     task.status = 'queued';
     task.errorMessage = undefined;
+    task.startedAt = undefined;
     task.finishedAt = undefined;
     return task;
   }
@@ -171,6 +178,7 @@ export class DocumentsService {
     const existingId = this.idem.get(idemKey);
     if (existingId) return this.getDocumentTask(tenantId, existingId);
     const template = this.getTemplate(tenantId, req.templateId);
+    if (template.status === 'archived') throw new BadRequestException('Cannot generate documents from archived template');
     const versionId = req.templateVersionId ?? template.currentVersionId;
     if (!versionId) throw new BadRequestException('No template version selected');
     this.getTemplateVersion(tenantId, versionId);
@@ -204,6 +212,7 @@ export class DocumentsService {
   }
   failTask(tenantId: string, id: string, message: string) {
     const task = this.getDocumentTask(tenantId, id);
+    if (task.status === 'completed') throw new BadRequestException('Completed task cannot be failed');
     task.status = 'failed';
     task.errorMessage = message;
     task.finishedAt = this.now();
@@ -211,12 +220,14 @@ export class DocumentsService {
   }
   finalizeDocument(tenantId: string, id: string) {
     const doc = this.getDocument(tenantId, id);
+    if (doc.status === 'archived') throw new BadRequestException('Archived document cannot be finalized');
     doc.status = 'final';
     doc.isFinal = true;
     return doc;
   }
   archiveDocument(tenantId: string, id: string) {
     const doc = this.getDocument(tenantId, id);
+    if (doc.status === 'archived') return doc;
     doc.status = 'archived';
     doc.archivedAt = this.now();
     return doc;
@@ -224,14 +235,34 @@ export class DocumentsService {
 
   listNumberingRules(tenantId: string, query: BaseFilter) { return this.page(this.numberingRules.filter((x) => x.tenantId === tenantId), query); }
   createNumberingRule(tenantId: string, req: CreateNumberingRuleRequest) {
+    this.numberingRules
+      .filter((x) => x.tenantId === tenantId && x.documentType === req.documentType)
+      .forEach((x) => {
+        x.isActive = false;
+        x.updatedAt = this.now();
+      });
     const entity: NumberingRuleEntity = { id: this.id('nrule'), tenantId, documentType: req.documentType, prefix: req.prefix ?? '', suffix: req.suffix ?? '', pattern: req.pattern ?? '{prefix}{counter}{suffix}', currentCounter: 0, resetPeriod: req.resetPeriod ?? 'none', isActive: true, updatedAt: this.now() };
     this.numberingRules.push(entity);
     return entity;
   }
   getNumberingRule(tenantId: string, id: string) { return this.must(this.numberingRules, tenantId, id); }
   updateNumberingRule(tenantId: string, id: string, req: UpdateNumberingRuleRequest) { const row = this.getNumberingRule(tenantId, id); Object.assign(row, req, { updatedAt: this.now() }); return row; }
-  activateNumberingRule(tenantId: string, id: string) { const row = this.getNumberingRule(tenantId, id); row.isActive = true; return row; }
-  deactivateNumberingRule(tenantId: string, id: string) { const row = this.getNumberingRule(tenantId, id); row.isActive = false; return row; }
+  activateNumberingRule(tenantId: string, id: string) {
+    const row = this.getNumberingRule(tenantId, id);
+    this.numberingRules
+      .filter((x) => x.tenantId === tenantId && x.documentType === row.documentType)
+      .forEach((x) => {
+        x.isActive = x.id === id;
+        x.updatedAt = this.now();
+      });
+    return row;
+  }
+  deactivateNumberingRule(tenantId: string, id: string) {
+    const row = this.getNumberingRule(tenantId, id);
+    row.isActive = false;
+    row.updatedAt = this.now();
+    return row;
+  }
 
   reserveNumber(tenantId: string, documentType: string) {
     const rule = this.numberingRules.find((x) => x.tenantId === tenantId && x.documentType === documentType && x.isActive);
@@ -242,6 +273,9 @@ export class DocumentsService {
     rule.currentCounter += 1;
     const counter = `${rule.currentCounter}`.padStart(6, '0');
     const formatted = rule.pattern.replace('{prefix}', rule.prefix).replace('{suffix}', rule.suffix).replace('{counter}', counter);
+    if (this.reservations.some((x) => x.tenantId === tenantId && x.reservedNumber === formatted)) {
+      throw new ConflictException(`Reservation number ${formatted} already exists`);
+    }
     const reservation: NumberReservationEntity = { id: this.id('nres'), tenantId, ruleId: rule.id, reservedNumber: formatted, reservedAt: this.now(), status: 'reserved' };
     this.reservations.push(reservation);
     return reservation;
@@ -267,4 +301,9 @@ export class DocumentsService {
   }
   private id(prefix: string) { return `${prefix}_${Math.random().toString(36).slice(2, 10)}`; }
   private now() { return new Date().toISOString(); }
+  private validateBindingPayload(bindType: 'direction' | 'course' | 'group', directionId?: string, courseId?: string, groupId?: string) {
+    if (bindType === 'direction' && !directionId) throw new BadRequestException('directionId is required for direction binding');
+    if (bindType === 'course' && !courseId) throw new BadRequestException('courseId is required for course binding');
+    if (bindType === 'group' && !groupId) throw new BadRequestException('groupId is required for group binding');
+  }
 }

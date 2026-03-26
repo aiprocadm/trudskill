@@ -16,20 +16,25 @@ export interface PipelineDeps {
 }
 
 export class DocumentGenerationPipeline {
-  private handled = new Set<string>();
+  private handled = new Map<string, { generatedDocumentId?: string }>();
 
   constructor(private readonly deps: PipelineDeps) {}
 
   async handle(task: DocumentTask): Promise<{ taskId: string; status: TaskStatus; generatedDocumentId?: string }> {
-    if (this.handled.has(task.id)) {
-      return { taskId: task.id, status: 'completed' };
+    const existing = this.handled.get(task.id);
+    if (existing) {
+      return { taskId: task.id, status: 'completed', generatedDocumentId: existing.generatedDocumentId };
     }
 
-    const number = await this.deps.reserveNumber(task.tenantId, 'default');
-    const rendered = await this.deps.render({ taskId: task.id, number, templateVersionId: task.templateVersionId });
-    const generated = await this.deps.registerGenerated({ ...task, number, fileId: rendered.fileId });
-    this.handled.add(task.id);
+    try {
+      const number = await this.deps.reserveNumber(task.tenantId, 'default');
+      const rendered = await this.deps.render({ taskId: task.id, number, templateVersionId: task.templateVersionId });
+      const generated = await this.deps.registerGenerated({ ...task, number, fileId: rendered.fileId });
+      this.handled.set(task.id, { generatedDocumentId: generated.generatedDocumentId });
 
-    return { taskId: task.id, status: 'completed', generatedDocumentId: generated.generatedDocumentId };
+      return { taskId: task.id, status: 'completed', generatedDocumentId: generated.generatedDocumentId };
+    } catch {
+      return { taskId: task.id, status: 'failed' };
+    }
   }
 }

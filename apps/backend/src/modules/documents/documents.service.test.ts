@@ -57,4 +57,58 @@ describe('DocumentsService', () => {
     const template = service.createTemplate('tenant-a', 'u1', { name: 'T', templateType: 'x' }, ctx);
     expect(() => service.getTemplate('tenant-b', template.id)).toThrowError();
   });
+
+  it('does not allow generation from archived template', () => {
+    const service = new DocumentsService(new AuditService());
+    const template = service.createTemplate('t1', 'u1', { name: 'Tpl', templateType: 'contract' }, ctx);
+    service.archiveTemplate('t1', 'u1', template.id, ctx);
+
+    expect(() =>
+      service.generateDocument('t1', 'u1', {
+        idempotencyKey: 'archived-block',
+        templateId: template.id,
+        sourceEntityType: 'group',
+        sourceEntityId: 'g1',
+        documentType: 'default'
+      })
+    ).toThrowError();
+  });
+
+  it('supports failed -> queued retry transition', () => {
+    const service = new DocumentsService(new AuditService());
+    const template = service.createTemplate('t1', 'u1', { name: 'Tpl', templateType: 'contract' }, ctx);
+    const version = service.createTemplateVersion('t1', 'u1', { templateId: template.id, fileId: 'file_1' });
+    service.activateTemplateVersion('t1', version.id);
+    const task = service.generateDocument('t1', 'u1', {
+      idempotencyKey: 'retry-1',
+      templateId: template.id,
+      sourceEntityType: 'group',
+      sourceEntityId: 'g1',
+      documentType: 'default'
+    });
+
+    service.failTask('t1', task.id, 'render failed');
+    const retried = service.retryTask('t1', task.id);
+    expect(retried.status).toBe('queued');
+    expect(retried.errorMessage).toBeUndefined();
+  });
+
+  it('keeps finalized documents immutable for finalize after archive', () => {
+    const service = new DocumentsService(new AuditService());
+    service.createNumberingRule('t1', { documentType: 'default' });
+    const template = service.createTemplate('t1', 'u1', { name: 'Tpl', templateType: 'contract' }, ctx);
+    const version = service.createTemplateVersion('t1', 'u1', { templateId: template.id, fileId: 'file_1' });
+    service.activateTemplateVersion('t1', version.id);
+    const task = service.generateDocument('t1', 'u1', {
+      idempotencyKey: 'immut-1',
+      templateId: template.id,
+      sourceEntityType: 'group',
+      sourceEntityId: 'g1',
+      documentType: 'default'
+    });
+
+    const generated = service.completeTask('t1', task.id, 'file_generated_1');
+    service.archiveDocument('t1', generated.id);
+    expect(() => service.finalizeDocument('t1', generated.id)).toThrowError();
+  });
 });
