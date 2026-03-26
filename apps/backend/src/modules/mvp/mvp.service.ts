@@ -50,6 +50,12 @@ interface ListResponse<T> {
   total: number;
 }
 
+interface LookupItem {
+  id: string;
+  label: string;
+  status: string;
+}
+
 @Injectable()
 export class MvpService {
   private counterparties: Counterparty[] = [];
@@ -78,6 +84,10 @@ export class MvpService {
 
   getCounterparty(tenantId: string, id: string): Counterparty {
     return this.getById(this.counterparties, tenantId, id);
+  }
+
+  lookupCounterparties(tenantId: string, query: BaseFilterQuery): ListResponse<LookupItem> {
+    return this.lookup(this.counterparties, tenantId, query, (item) => item.name);
   }
 
   createCounterparty(
@@ -115,6 +125,10 @@ export class MvpService {
 
   getLearner(tenantId: string, id: string): Learner {
     return this.getById(this.learners, tenantId, id);
+  }
+
+  lookupLearners(tenantId: string, query: BaseFilterQuery): ListResponse<LookupItem> {
+    return this.lookup(this.learners, tenantId, query, (item) => `${item.firstName} ${item.lastName}`.trim());
   }
 
   createLearner(tenantId: string, actorId: string | undefined, request: CreateSimpleRegistryRequest, context: RequestContext): Learner {
@@ -157,6 +171,10 @@ export class MvpService {
     return this.getById(this.directions, tenantId, id);
   }
 
+  lookupDirections(tenantId: string, query: BaseFilterQuery): ListResponse<LookupItem> {
+    return this.lookup(this.directions, tenantId, query, (item) => item.name);
+  }
+
   createDirection(tenantId: string, actorId: string | undefined, request: CreateSimpleRegistryRequest, context: RequestContext): Direction {
     const entity: Direction = { id: this.id('direction'), tenantId, code: request.code, name: request.name, status: request.status ?? 'active', createdAt: this.now(), updatedAt: this.now() };
     this.directions.push(entity);
@@ -174,6 +192,7 @@ export class MvpService {
 
   listCourses(tenantId: string, query: BaseFilterQuery): ListResponse<Course> { return this.list(this.courses, tenantId, query); }
   getCourse(tenantId: string, id: string): Course { return this.getById(this.courses, tenantId, id); }
+  lookupCourses(tenantId: string, query: BaseFilterQuery): ListResponse<LookupItem> { return this.lookup(this.courses, tenantId, query, (item) => item.title); }
 
   createCourse(tenantId: string, actorId: string | undefined, request: CreateCourseRequest, context: RequestContext): Course {
     const entity: Course = { id: this.id('course'), tenantId, code: request.code, title: request.title, description: request.description, status: 'draft', isArchived: false, createdAt: this.now(), updatedAt: this.now() };
@@ -272,6 +291,7 @@ export class MvpService {
 
   listGroups(tenantId: string, query: BaseFilterQuery): ListResponse<GroupEntity> { return this.list(this.groups, tenantId, query); }
   getGroup(tenantId: string, id: string): GroupEntity { return this.getById(this.groups, tenantId, id); }
+  lookupGroups(tenantId: string, query: BaseFilterQuery): ListResponse<LookupItem> { return this.lookup(this.groups, tenantId, query, (item) => item.name); }
   createGroup(tenantId: string, actorId: string | undefined, request: CreateSimpleRegistryRequest, context: RequestContext): GroupEntity {
     const entity: GroupEntity = { id: this.id('group'), tenantId, code: request.code, name: request.name, status: request.status ?? 'draft', createdAt: this.now(), updatedAt: this.now() };
     this.groups.push(entity);
@@ -291,6 +311,10 @@ export class MvpService {
   createGroupCourse(tenantId: string, request: CreateGroupCourseRequest): GroupCourse {
     this.getById(this.groups, tenantId, request.groupId);
     this.getById(this.courses, tenantId, request.courseId);
+    const duplicate = this.groupCourses.some((item) => item.tenantId === tenantId && item.groupId === request.groupId && item.courseId === request.courseId);
+    if (duplicate) {
+      throw new ConflictException({ code: 'conflict', message: 'Group course already exists for pair(group, course)' });
+    }
     const entity: GroupCourse = { id: this.id('gc'), tenantId, groupId: request.groupId, courseId: request.courseId, sortOrder: this.groupCourses.length, status: 'active', createdAt: this.now(), updatedAt: this.now() };
     this.groupCourses.push(entity);
     return entity;
@@ -485,10 +509,16 @@ export class MvpService {
       items = items.filter((item) => String((item as Record<string, unknown>).moduleId ?? '') === query.module_id);
     }
     if (query.created_from) {
-      items = items.filter((item) => item.createdAt >= query.created_from!);
+      const fromDate = new Date(query.created_from);
+      if (!Number.isNaN(fromDate.getTime())) {
+        items = items.filter((item) => new Date(item.createdAt) >= fromDate);
+      }
     }
     if (query.created_to) {
-      items = items.filter((item) => item.createdAt <= query.created_to!);
+      const toDate = new Date(query.created_to);
+      if (!Number.isNaN(toDate.getTime())) {
+        items = items.filter((item) => new Date(item.createdAt) <= toDate);
+      }
     }
     if (query.sort) {
       const [key, direction] = query.sort.split(':');
@@ -502,6 +532,24 @@ export class MvpService {
     const from = (page - 1) * pageSize;
     const to = from + pageSize;
     return { items: items.slice(from, to), page, pageSize, total };
+  }
+
+
+  private lookup<T extends BaseEntity>(
+    source: T[],
+    tenantId: string,
+    query: BaseFilterQuery,
+    labelResolver: (item: T) => string
+  ): ListResponse<LookupItem> {
+    const listed = this.list(source, tenantId, query);
+    return {
+      ...listed,
+      items: listed.items.map((item) => ({
+        id: item.id,
+        label: labelResolver(item),
+        status: item.status
+      }))
+    };
   }
 
   private getById<T extends BaseEntity>(source: T[], tenantId: string, id: string): T {

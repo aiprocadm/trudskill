@@ -84,6 +84,24 @@ describe('mvp service domain rules', () => {
     expect(() => service.getCourse('tenant_other', course.id)).toThrow(ForbiddenException);
   });
 
+
+
+  it('returns lookup payloads with id/label/status', () => {
+    const service = new MvpService(new TenantScopedRepository(), new AuditService());
+    service.createDirection('tenant_demo', ctx.userId, { code: 'D1', name: 'Direction 1' }, ctx);
+    const lookup = service.lookupDirections('tenant_demo', { q: 'Direction' });
+    expect(lookup.items[0]).toMatchObject({ label: 'Direction 1', status: 'active' });
+  });
+
+  it('enforces unique group-course relation by (group, course)', () => {
+    const service = new MvpService(new TenantScopedRepository(), new AuditService());
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'G1', name: 'Group' }, ctx);
+    const course = service.createCourse('tenant_demo', ctx.userId, { code: 'C1', title: 'Course' }, ctx);
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+
+    expect(() => service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id })).toThrow(ConflictException);
+  });
+
   it('writes audit events for critical actions', () => {
     const audit = new AuditService();
     const service = new MvpService(new TenantScopedRepository(), audit);
