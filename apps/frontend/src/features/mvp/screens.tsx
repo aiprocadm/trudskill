@@ -23,10 +23,13 @@ import {
   useLearnerCourses,
   useMaterials,
   useModules,
+  useQuestionBanks,
   useRoles,
+  useTests,
   useUser,
   useUserRoles,
-  useUsersList
+  useUsersList,
+  useAssignments
 } from './hooks';
 
 const STATUS_OPTIONS = ['active', 'blocked', 'draft', 'archived', 'published', 'pending', 'suspended', 'completed', 'cancelled'] as const;
@@ -673,6 +676,26 @@ export const LearnerCourseDetailsScreen = ({ id }: { id: string }) => {
       </SectionCard>
       <SectionCard title="Что продолжить">
         {nextStep ? <p>Продолжите материал {nextStep.materialId} в модуле {nextStep.moduleId}.</p> : <SectionEmpty message="Материалы для продолжения пока не найдены" />}
+      </SectionCard>
+    </PageContainer>
+  );
+};
+
+export const AssessmentDashboardScreen = () => {
+  const { data: banks } = useQuestionBanks({ page: 1, page_size: 10 });
+  const { data: tests } = useTests({ page: 1, page_size: 10 });
+  const { data: assignments } = useAssignments({ page: 1, page_size: 10 });
+  return (
+    <PageContainer>
+      <PageHeader title="Assessment" />
+      <SectionCard title="Question banks">
+        <p>Всего: {banks?.total ?? 0}</p>
+      </SectionCard>
+      <SectionCard title="Tests">
+        <p>Всего: {tests?.total ?? 0}</p>
+      </SectionCard>
+      <SectionCard title="Assignments">
+        <p>Всего: {assignments?.total ?? 0}</p>
       </SectionCard>
     </PageContainer>
   );

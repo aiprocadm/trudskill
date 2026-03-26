@@ -11,6 +11,9 @@ export interface BaseFilterQuery {
   course_id?: string;
   course_version_id?: string;
   module_id?: string;
+  test_id?: string;
+  enrollment_id?: string;
+  assignment_id?: string;
 }
 
 export interface CreateSimpleRegistryRequest {
@@ -89,6 +92,14 @@ export interface UpdateMaterialProgressRequest {
 }
 
 export interface CreateQuestionBankRequest {
+  title: string;
+  description?: string;
+  courseId?: string;
+}
+export interface UpdateQuestionBankRequest {
+  title?: string;
+  description?: string;
+  status?: string;
   code: string;
   title: string;
   description?: string;
@@ -102,6 +113,38 @@ export interface UpdateQuestionBankRequest {
 
 export interface CreateQuestionRequest {
   questionBankId: string;
+  text: string;
+  explanation?: string;
+  type: 'single_choice' | 'multiple_choice' | 'text';
+  maxScore?: number;
+  options?: { text: string; isCorrect?: boolean }[];
+}
+export interface UpdateQuestionRequest {
+  text?: string;
+  explanation?: string;
+  status?: string;
+  maxScore?: number;
+  options?: { text: string; isCorrect?: boolean }[];
+}
+
+export interface CreateTestRequest {
+  title: string;
+  courseId: string;
+  questionBankId?: string;
+  rules?: Partial<TestRulesDto>;
+}
+export interface UpdateTestRequest {
+  title?: string;
+  status?: string;
+}
+export interface TestRulesDto {
+  attemptLimit: number;
+  dailyResetEnabled: boolean;
+  randomizeQuestions: boolean;
+  questionCount?: number;
+  timeLimitMinutes?: number;
+  passingScore: number;
+}
   type: 'single_choice' | 'multiple_choice' | 'text';
   title: string;
   body: string;
@@ -143,6 +186,12 @@ export interface PatchTestRulesRequest extends CreateTestRequest['rules'] {}
 export interface StartAttemptRequest {
   testId: string;
   enrollmentId: string;
+  learnerId: string;
+}
+
+export interface SaveAnswerRequest {
+  questionId: string;
+  answerOptionIds?: string[];
 }
 
 export interface SaveAttemptAnswerRequest {
@@ -156,6 +205,15 @@ export interface CreateAssignmentRequest {
   moduleId?: string;
   title: string;
   description?: string;
+  isReviewRequired?: boolean;
+  maxScore?: number;
+}
+export interface UpdateAssignmentRequest {
+  title?: string;
+  description?: string;
+  status?: string;
+  isReviewRequired?: boolean;
+  maxScore?: number;
   maxScore: number;
   isReviewRequired?: boolean;
 }
@@ -170,6 +228,14 @@ export interface UpdateAssignmentRequest {
 export interface CreateAssignmentSubmissionRequest {
   assignmentId: string;
   enrollmentId: string;
+  learnerId: string;
+  textAnswer?: string;
+  fileId?: string;
+}
+export interface UpdateAssignmentSubmissionRequest {
+  textAnswer?: string;
+  fileId?: string;
+}
   answerText?: string;
   fileId?: string;
 }
@@ -183,4 +249,9 @@ export interface CreateAssignmentReviewRequest {
   submissionId: string;
   score?: number;
   comment?: string;
+}
+export interface UpdateAssignmentReviewRequest {
+  score?: number;
+  comment?: string;
+  reviewStatus?: 'pending' | 'in_review' | 'completed';
 }

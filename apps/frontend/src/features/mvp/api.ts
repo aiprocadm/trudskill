@@ -18,6 +18,11 @@ import type {
   ListResponse,
   Material,
   Progress,
+  QuestionBank,
+  TestEntity,
+  Attempt,
+  ExamResult,
+  Assignment,
   Question,
   QuestionBank,
   TestEntity,
@@ -123,6 +128,17 @@ export const mvpApi = {
     apiRequest<Enrollment>(`/enrollments/${id}/status`, { method: 'PATCH', body: { status }, ...withAuth(session) }),
 
   listProgress: (session: UserSession, query: BaseFilterQuery) =>
+    apiRequest<ListResponse<Progress>>(`/progress${queryString(query)}`, withAuth(session)),
+  listQuestionBanks: (session: UserSession, query: BaseFilterQuery) =>
+    apiRequest<ListResponse<QuestionBank>>(`/question-banks${queryString(query)}`, withAuth(session)),
+  listTests: (session: UserSession, query: BaseFilterQuery) =>
+    apiRequest<ListResponse<TestEntity>>(`/tests${queryString(query)}`, withAuth(session)),
+  startAttempt: (session: UserSession, payload: { testId: string; enrollmentId: string; learnerId: string }) =>
+    apiRequest<Attempt>('/attempts/start', { method: 'POST', body: payload, ...withAuth(session) }),
+  getAttemptResult: (session: UserSession, attemptId: string) =>
+    apiRequest<ExamResult>(`/attempts/${attemptId}/result`, withAuth(session)),
+  listAssignments: (session: UserSession, query: BaseFilterQuery) =>
+    apiRequest<ListResponse<Assignment>>(`/assignments${queryString(query)}`, withAuth(session))
     apiRequest<ListResponse<Progress>>(`/progress${queryString(query)}`, withAuth(session))
   ,
   listQuestionBanks: (session: UserSession, query: BaseFilterQuery) =>

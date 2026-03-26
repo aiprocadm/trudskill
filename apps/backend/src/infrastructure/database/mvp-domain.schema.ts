@@ -26,13 +26,18 @@ export const mvpDomainTables = {
     'material_progress'
   ],
   assessment: [
+    'question_banks',
     'tests',
+    'test_rules',
     'questions',
     'test_questions',
     'answer_options',
     'test_attempts',
     'attempt_answers',
-    'exam_results'
+    'exam_results',
+    'assignments',
+    'assignment_submissions',
+    'assignment_reviews'
   ],
   documents: [
     'templates',

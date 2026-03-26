@@ -111,6 +111,60 @@ describe('mvp service domain rules', () => {
     expect(audit.list().some((item) => item.action === 'learning.learner_created')).toBe(true);
   });
 
+  it('enforces attempt limit, scoring and exam result finalization', () => {
+    const service = new MvpService(new TenantScopedRepository(), new AuditService());
+    const course = service.createCourse('tenant_demo', ctx.userId, { code: 'C2', title: 'Assessment' }, ctx);
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'G2', name: 'Group 2' }, ctx);
+    const learner = service.createLearner('tenant_demo', ctx.userId, { code: 'L2', name: 'Jane Doe' }, ctx);
+    const enrollment = service.createEnrollment('tenant_demo', ctx.userId, { groupId: group.id, learnerId: learner.id }, ctx);
+    const bank = service.createQuestionBank('tenant_demo', ctx.userId, { title: 'Bank', courseId: course.id }, ctx);
+    const question = service.createQuestion('tenant_demo', ctx.userId, {
+      questionBankId: bank.id, text: '1+1?', type: 'single_choice', options: [{ text: '2', isCorrect: true }, { text: '3' }]
+    }, ctx);
+    const test = service.createTest('tenant_demo', ctx.userId, { title: 'Math', courseId: course.id, questionBankId: bank.id, rules: { attemptLimit: 1, passingScore: 1 } }, ctx);
+    service.addTestQuestions('tenant_demo', test.id, [question.id]);
+
+    const attempt = service.startAttempt('tenant_demo', ctx.userId, { testId: test.id, enrollmentId: enrollment.id, learnerId: learner.id }, ctx);
+    const option = service['answerOptions'].find((item) => item.questionId === question.id && item.isCorrect)!;
+    service.saveAttemptAnswer('tenant_demo', ctx.userId, attempt.id, { questionId: question.id, answerOptionIds: [option.id] }, ctx);
+    service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+    service.finishAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+
+    const result = service.getAttemptResult('tenant_demo', attempt.id);
+    expect(result.passed).toBe(true);
+    expect(() => service.startAttempt('tenant_demo', ctx.userId, { testId: test.id, enrollmentId: enrollment.id, learnerId: learner.id }, ctx)).toThrow(
+      PreconditionFailedException
+    );
+  });
+
+  it('keeps randomized question snapshot stable per attempt', () => {
+    const service = new MvpService(new TenantScopedRepository(), new AuditService());
+    const course = service.createCourse('tenant_demo', ctx.userId, { code: 'C3', title: 'Random' }, ctx);
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'G3', name: 'Group 3' }, ctx);
+    const learner = service.createLearner('tenant_demo', ctx.userId, { code: 'L3', name: 'User Three' }, ctx);
+    const enrollment = service.createEnrollment('tenant_demo', ctx.userId, { groupId: group.id, learnerId: learner.id }, ctx);
+    const bank = service.createQuestionBank('tenant_demo', ctx.userId, { title: 'QB', courseId: course.id }, ctx);
+    const q1 = service.createQuestion('tenant_demo', ctx.userId, { questionBankId: bank.id, text: 'Q1', type: 'text' }, ctx);
+    const q2 = service.createQuestion('tenant_demo', ctx.userId, { questionBankId: bank.id, text: 'Q2', type: 'text' }, ctx);
+    const test = service.createTest('tenant_demo', ctx.userId, { title: 'Rnd', courseId: course.id, questionBankId: bank.id, rules: { attemptLimit: 2, randomizeQuestions: true, questionCount: 2 } }, ctx);
+    service.addTestQuestions('tenant_demo', test.id, [q1.id, q2.id]);
+    const attempt = service.startAttempt('tenant_demo', ctx.userId, { testId: test.id, enrollmentId: enrollment.id, learnerId: learner.id }, ctx);
+    expect(service.getAttempt('tenant_demo', attempt.id).questionOrder).toEqual(attempt.questionOrder);
+  });
+
+  it('locks assignment submission after submit and completes review workflow', () => {
+    const service = new MvpService(new TenantScopedRepository(), new AuditService());
+    const course = service.createCourse('tenant_demo', ctx.userId, { code: 'C4', title: 'Assignments' }, ctx);
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'G4', name: 'Group 4' }, ctx);
+    const learner = service.createLearner('tenant_demo', ctx.userId, { code: 'L4', name: 'Learner Four' }, ctx);
+    const enrollment = service.createEnrollment('tenant_demo', ctx.userId, { groupId: group.id, learnerId: learner.id }, ctx);
+    const assignment = service.createAssignment('tenant_demo', ctx.userId, { courseId: course.id, title: 'HW' }, ctx);
+    const submission = service.createAssignmentSubmission('tenant_demo', ctx.userId, { assignmentId: assignment.id, enrollmentId: enrollment.id, learnerId: learner.id, textAnswer: 'draft' }, ctx);
+    service.submitAssignmentSubmission('tenant_demo', ctx.userId, submission.id, ctx);
+    expect(() => service.updateAssignmentSubmission('tenant_demo', ctx.userId, submission.id, { textAnswer: 'changed' })).toThrow(PreconditionFailedException);
+    const review = service.createAssignmentReview('tenant_demo', ctx.userId, { submissionId: submission.id, score: 80 });
+    const completed = service.completeAssignmentReview('tenant_demo', ctx.userId, review.id, ctx);
+    expect(completed.reviewStatus).toBe('completed');
   it('enforces attempt limits, computes result and keeps randomized snapshot stable', () => {
     const service = new MvpService(new TenantScopedRepository(), new AuditService());
     const course = service.createCourse('tenant_demo', ctx.userId, { code: 'C1', title: 'Course' }, ctx);

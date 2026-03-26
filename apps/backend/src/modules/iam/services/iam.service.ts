@@ -95,6 +95,8 @@ export class IamService {
     { id: 'p_assessment_results_read', code: 'assessment.results.read', description: 'Read results' },
     { id: 'p_assessment_assignments_read', code: 'assessment.assignments.read', description: 'Read assignments' },
     { id: 'p_assessment_assignments_write', code: 'assessment.assignments.write', description: 'Write assignments' },
+    { id: 'p_assessment_submissions_submit', code: 'assessment.submissions.submit', description: 'Submit assignments' },
+    { id: 'p_assessment_reviews_review', code: 'assessment.reviews.review', description: 'Review submissions' }
     { id: 'p_assessment_submissions_submit', code: 'assessment.submissions.submit', description: 'Submit assignment solutions' },
     { id: 'p_assessment_reviews_review', code: 'assessment.reviews.review', description: 'Review assignment submissions' }
   ];
@@ -119,6 +121,12 @@ export class IamService {
         'enrollments.write',
         'enrollments.change_status',
         'progress.read',
+        'assessment.tests.read',
+        'assessment.attempts.read',
+        'assessment.attempts.take',
+        'assessment.results.read',
+        'assessment.assignments.read',
+        'assessment.submissions.submit'
         'assessment.question_banks.read',
         'assessment.questions.read',
         'assessment.tests.read',
