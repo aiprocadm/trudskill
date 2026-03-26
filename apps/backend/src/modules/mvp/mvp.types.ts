@@ -53,6 +53,7 @@ export interface Material extends BaseEntity {
   sortOrder: number;
   minViewSeconds: number;
   isRequired: boolean;
+  fileId?: string;
 }
 
 export interface GroupEntity extends BaseEntity {
@@ -99,6 +100,7 @@ export interface MaterialProgress extends BaseEntity {
   progressPercent: number;
   completedAt?: string;
   lastActivityAt?: string;
+  calculatedAt?: string;
 }
 
 export interface ModuleProgress extends BaseEntity {
@@ -111,6 +113,7 @@ export interface ModuleProgress extends BaseEntity {
   progressPercent: number;
   completedAt?: string;
   lastActivityAt?: string;
+  calculatedAt?: string;
 }
 
 export interface CourseProgress extends BaseEntity {
@@ -122,4 +125,5 @@ export interface CourseProgress extends BaseEntity {
   progressPercent: number;
   completedAt?: string;
   lastActivityAt?: string;
+  calculatedAt?: string;
 }
