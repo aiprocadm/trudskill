@@ -11,3 +11,4 @@ export * from './tasks/index';
 export * from './lookup/index';
 export * from './audit/index';
 export * from './helpers/index';
+export * from './assessment/index';

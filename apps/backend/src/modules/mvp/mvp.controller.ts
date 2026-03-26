@@ -18,7 +18,21 @@ import type {
   UpdateMaterialProgressRequest,
   UpdateMaterialRequest,
   UpdateModuleRequest,
-  UpdateSimpleRegistryRequest
+  UpdateSimpleRegistryRequest,
+  CreateQuestionBankRequest,
+  UpdateQuestionBankRequest,
+  CreateQuestionRequest,
+  UpdateQuestionRequest,
+  CreateTestRequest,
+  UpdateTestRequest,
+  PatchTestRulesRequest,
+  StartAttemptRequest,
+  SaveAttemptAnswerRequest,
+  CreateAssignmentRequest,
+  UpdateAssignmentRequest,
+  CreateAssignmentSubmissionRequest,
+  UpdateAssignmentSubmissionRequest,
+  CreateAssignmentReviewRequest
 } from './mvp.dto.js';
 
 @Controller()
@@ -134,4 +148,105 @@ export class MvpController {
   getProgress(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.getProgress(c.tenantId!, id); }
   @Patch('progress/materials/:materialId') @UseGuards(PermissionGuard) @RequirePermissions('progress.recalculate')
   updateMaterialProgress(@CurrentContext() c: RequestContext, @Param('materialId') materialId: string, @Body() b: UpdateMaterialProgressRequest) { return this.mvpService.upsertMaterialProgress(c.tenantId!, c.userId, materialId, b, c); }
+
+  @Get('question-banks') @UseGuards(PermissionGuard) @RequirePermissions('assessment.question_banks.read')
+  listQuestionBanks(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) { return this.mvpService.listQuestionBanks(c.tenantId!, q); }
+  @Post('question-banks') @UseGuards(PermissionGuard) @RequirePermissions('assessment.question_banks.write')
+  createQuestionBank(@CurrentContext() c: RequestContext, @Body() b: CreateQuestionBankRequest) { return this.mvpService.createQuestionBank(c.tenantId!, c.userId, b, c); }
+  @Get('question-banks/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.question_banks.read')
+  getQuestionBank(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.getQuestionBank(c.tenantId!, id); }
+  @Patch('question-banks/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.question_banks.write')
+  updateQuestionBank(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: UpdateQuestionBankRequest) { return this.mvpService.updateQuestionBank(c.tenantId!, c.userId, id, b, c); }
+  @Post('question-banks/:id/archive') @UseGuards(PermissionGuard) @RequirePermissions('assessment.question_banks.write')
+  archiveQuestionBank(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.archiveQuestionBank(c.tenantId!, c.userId, id, c); }
+  @Get('question-banks/:id/questions') @UseGuards(PermissionGuard) @RequirePermissions('assessment.questions.read')
+  listQuestionBankQuestions(@CurrentContext() c: RequestContext, @Param('id') id: string, @Query() q: BaseFilterQuery) { return this.mvpService.listQuestionBankQuestions(c.tenantId!, id, q); }
+
+  @Get('questions') @UseGuards(PermissionGuard) @RequirePermissions('assessment.questions.read')
+  listQuestions(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) { return this.mvpService.listQuestions(c.tenantId!, q); }
+  @Post('questions') @UseGuards(PermissionGuard) @RequirePermissions('assessment.questions.write')
+  createQuestion(@CurrentContext() c: RequestContext, @Body() b: CreateQuestionRequest) { return this.mvpService.createQuestion(c.tenantId!, c.userId, b, c); }
+  @Get('questions/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.questions.read')
+  getQuestion(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.getQuestion(c.tenantId!, id); }
+  @Patch('questions/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.questions.write')
+  updateQuestion(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: UpdateQuestionRequest) { return this.mvpService.updateQuestion(c.tenantId!, c.userId, id, b, c); }
+  @Post('questions/:id/archive') @UseGuards(PermissionGuard) @RequirePermissions('assessment.questions.write')
+  archiveQuestion(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.archiveQuestion(c.tenantId!, c.userId, id, c); }
+
+  @Get('tests') @UseGuards(PermissionGuard) @RequirePermissions('assessment.tests.read')
+  listTests(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) { return this.mvpService.listTests(c.tenantId!, q); }
+  @Post('tests') @UseGuards(PermissionGuard) @RequirePermissions('assessment.tests.write')
+  createTest(@CurrentContext() c: RequestContext, @Body() b: CreateTestRequest) { return this.mvpService.createTest(c.tenantId!, c.userId, b, c); }
+  @Get('tests/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.tests.read')
+  getTest(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.getTest(c.tenantId!, id); }
+  @Patch('tests/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.tests.write')
+  updateTest(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: UpdateTestRequest) { return this.mvpService.updateTest(c.tenantId!, c.userId, id, b, c); }
+  @Post('tests/:id/publish') @UseGuards(PermissionGuard) @RequirePermissions('assessment.tests.publish')
+  publishTest(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.publishTest(c.tenantId!, c.userId, id, c); }
+  @Post('tests/:id/archive') @UseGuards(PermissionGuard) @RequirePermissions('assessment.tests.write')
+  archiveTest(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.archiveTest(c.tenantId!, c.userId, id, c); }
+  @Get('tests/:id/questions') @UseGuards(PermissionGuard) @RequirePermissions('assessment.tests.read')
+  listTestQuestions(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.listTestQuestions(c.tenantId!, id); }
+  @Post('tests/:id/questions') @UseGuards(PermissionGuard) @RequirePermissions('assessment.tests.write')
+  addTestQuestions(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: { questionIds: string[] }) { return this.mvpService.addTestQuestions(c.tenantId!, c.userId, id, b.questionIds, c); }
+  @Patch('tests/:id/rules') @UseGuards(PermissionGuard) @RequirePermissions('assessment.tests.write')
+  patchTestRules(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: PatchTestRulesRequest) { return this.mvpService.patchTestRules(c.tenantId!, c.userId, id, b, c); }
+
+  @Get('attempts') @UseGuards(PermissionGuard) @RequirePermissions('assessment.attempts.read')
+  listAttempts(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) { return this.mvpService.listAttempts(c.tenantId!, q); }
+  @Post('attempts/start') @UseGuards(PermissionGuard) @RequirePermissions('assessment.attempts.take')
+  startAttempt(@CurrentContext() c: RequestContext, @Body() b: StartAttemptRequest) { return this.mvpService.startAttempt(c.tenantId!, c.userId, b, c); }
+  @Get('attempts/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.attempts.read')
+  getAttempt(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.getAttempt(c.tenantId!, id); }
+  @Post('attempts/:id/answers') @UseGuards(PermissionGuard) @RequirePermissions('assessment.attempts.take')
+  saveAttemptAnswer(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: SaveAttemptAnswerRequest) { return this.mvpService.saveAnswer(c.tenantId!, c.userId, id, b, c); }
+  @Post('answers') @UseGuards(PermissionGuard) @RequirePermissions('assessment.attempts.take')
+  saveAnswerDirect(@CurrentContext() c: RequestContext, @Body() b: SaveAttemptAnswerRequest & { attemptId: string }) { return this.mvpService.saveAnswer(c.tenantId!, c.userId, b.attemptId, b, c); }
+  @Post('attempts/:id/submit') @UseGuards(PermissionGuard) @RequirePermissions('assessment.attempts.take')
+  submitAttempt(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.submitAttempt(c.tenantId!, c.userId, id, c); }
+  @Post('attempts/:id/finish') @UseGuards(PermissionGuard) @RequirePermissions('assessment.attempts.take')
+  finishAttempt(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.finishAttempt(c.tenantId!, c.userId, id, c); }
+  @Get('attempts/:id/result') @UseGuards(PermissionGuard) @RequirePermissions('assessment.results.read')
+  getAttemptResult(@CurrentContext() c: RequestContext, @Param('id') id: string) { const a = this.mvpService.getAttempt(c.tenantId!, id); return this.mvpService.getExamResultByEnrollment(c.tenantId!, a.enrollmentId); }
+
+  @Get('exam-results') @UseGuards(PermissionGuard) @RequirePermissions('assessment.results.read')
+  listExamResults(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) { return this.mvpService.listExamResults(c.tenantId!, q); }
+  @Get('exam-results/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.results.read')
+  getExamResult(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.getExamResult(c.tenantId!, id); }
+  @Get('exam-results/by-enrollment/:enrollmentId') @UseGuards(PermissionGuard) @RequirePermissions('assessment.results.read')
+  getExamResultByEnrollment(@CurrentContext() c: RequestContext, @Param('enrollmentId') enrollmentId: string) { return this.mvpService.getExamResultByEnrollment(c.tenantId!, enrollmentId); }
+
+  @Get('assignments') @UseGuards(PermissionGuard) @RequirePermissions('assessment.assignments.read')
+  listAssignments(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) { return this.mvpService.listAssignments(c.tenantId!, q); }
+  @Post('assignments') @UseGuards(PermissionGuard) @RequirePermissions('assessment.assignments.write')
+  createAssignment(@CurrentContext() c: RequestContext, @Body() b: CreateAssignmentRequest) { return this.mvpService.createAssignment(c.tenantId!, c.userId, b, c); }
+  @Get('assignments/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.assignments.read')
+  getAssignment(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.getAssignment(c.tenantId!, id); }
+  @Patch('assignments/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.assignments.write')
+  updateAssignment(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: UpdateAssignmentRequest) { return this.mvpService.updateAssignment(c.tenantId!, c.userId, id, b, c); }
+  @Post('assignments/:id/publish') @UseGuards(PermissionGuard) @RequirePermissions('assessment.assignments.write')
+  publishAssignment(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.publishAssignment(c.tenantId!, c.userId, id, c); }
+  @Post('assignments/:id/archive') @UseGuards(PermissionGuard) @RequirePermissions('assessment.assignments.write')
+  archiveAssignment(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.archiveAssignment(c.tenantId!, c.userId, id, c); }
+
+  @Get('assignment-submissions') @UseGuards(PermissionGuard) @RequirePermissions('assessment.assignments.read')
+  listAssignmentSubmissions(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) { return this.mvpService.listAssignmentSubmissions(c.tenantId!, q); }
+  @Post('assignment-submissions') @UseGuards(PermissionGuard) @RequirePermissions('assessment.submissions.submit')
+  createAssignmentSubmission(@CurrentContext() c: RequestContext, @Body() b: CreateAssignmentSubmissionRequest) { return this.mvpService.createAssignmentSubmission(c.tenantId!, c.userId, b, c); }
+  @Get('assignment-submissions/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.assignments.read')
+  getAssignmentSubmission(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.getAssignmentSubmission(c.tenantId!, id); }
+  @Patch('assignment-submissions/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.submissions.submit')
+  updateAssignmentSubmission(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: UpdateAssignmentSubmissionRequest) { return this.mvpService.updateAssignmentSubmission(c.tenantId!, c.userId, id, b, c); }
+  @Post('assignment-submissions/:id/submit') @UseGuards(PermissionGuard) @RequirePermissions('assessment.submissions.submit')
+  submitAssignmentSubmission(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.submitAssignmentSubmission(c.tenantId!, c.userId, id, c); }
+
+  @Get('assignment-reviews') @UseGuards(PermissionGuard) @RequirePermissions('assessment.reviews.review')
+  listAssignmentReviews(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) { return this.mvpService.listAssignmentReviews(c.tenantId!, q); }
+  @Post('assignment-reviews') @UseGuards(PermissionGuard) @RequirePermissions('assessment.reviews.review')
+  createAssignmentReview(@CurrentContext() c: RequestContext, @Body() b: CreateAssignmentReviewRequest) { return this.mvpService.createAssignmentReview(c.tenantId!, c.userId, b, c); }
+  @Get('assignment-reviews/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.reviews.review')
+  getAssignmentReview(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.getAssignmentReview(c.tenantId!, id); }
+  @Patch('assignment-reviews/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.reviews.review')
+  completeAssignmentReview(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: { score?: number; comment?: string }) { return this.mvpService.completeAssignmentReview(c.tenantId!, c.userId, id, b, c); }
+
 }

@@ -2,17 +2,25 @@ import { apiRequest } from '../../lib/api/client';
 import type { UserSession } from '../../entities/session/model';
 import type {
   BaseFilterQuery,
+  Assignment,
+  AssignmentReview,
+  AssignmentSubmission,
+  Attempt,
   Counterparty,
   Course,
   CourseModule,
   CourseVersion,
   Direction,
   Enrollment,
+  ExamResult,
   Group,
   GroupCourse,
   ListResponse,
   Material,
   Progress,
+  Question,
+  QuestionBank,
+  TestEntity,
   RoleEntity,
   UserEntity
 } from './types';
@@ -116,4 +124,36 @@ export const mvpApi = {
 
   listProgress: (session: UserSession, query: BaseFilterQuery) =>
     apiRequest<ListResponse<Progress>>(`/progress${queryString(query)}`, withAuth(session))
+  ,
+  listQuestionBanks: (session: UserSession, query: BaseFilterQuery) =>
+    apiRequest<ListResponse<QuestionBank>>(`/question-banks${queryString(query)}`, withAuth(session)),
+  saveQuestionBank: (session: UserSession, id: string | null, payload: { code?: string; title: string; description?: string }) =>
+    apiRequest<QuestionBank>(id ? `/question-banks/${id}` : '/question-banks', { method: id ? 'PATCH' : 'POST', body: payload, ...withAuth(session) }),
+  listQuestions: (session: UserSession, query: BaseFilterQuery) =>
+    apiRequest<ListResponse<Question>>(`/questions${queryString(query)}`, withAuth(session)),
+  saveQuestion: (session: UserSession, id: string | null, payload: Record<string, unknown>) =>
+    apiRequest<Question>(id ? `/questions/${id}` : '/questions', { method: id ? 'PATCH' : 'POST', body: payload, ...withAuth(session) }),
+  listTests: (session: UserSession, query: BaseFilterQuery) =>
+    apiRequest<ListResponse<TestEntity>>(`/tests${queryString(query)}`, withAuth(session)),
+  saveTest: (session: UserSession, id: string | null, payload: Record<string, unknown>) =>
+    apiRequest<TestEntity>(id ? `/tests/${id}` : '/tests', { method: id ? 'PATCH' : 'POST', body: payload, ...withAuth(session) }),
+  publishTest: (session: UserSession, id: string) => apiRequest<TestEntity>(`/tests/${id}/publish`, { method: 'POST', ...withAuth(session) }),
+  startAttempt: (session: UserSession, payload: { testId: string; enrollmentId: string }) =>
+    apiRequest<Attempt>('/attempts/start', { method: 'POST', body: payload, ...withAuth(session) }),
+  saveAttemptAnswer: (session: UserSession, attemptId: string, payload: Record<string, unknown>) =>
+    apiRequest(`/attempts/${attemptId}/answers`, { method: 'POST', body: payload, ...withAuth(session) }),
+  submitAttempt: (session: UserSession, attemptId: string) =>
+    apiRequest<Attempt>(`/attempts/${attemptId}/submit`, { method: 'POST', ...withAuth(session) }),
+  getAttemptResult: (session: UserSession, attemptId: string) =>
+    apiRequest<ExamResult[]>(`/attempts/${attemptId}/result`, withAuth(session)),
+  listAssignments: (session: UserSession, query: BaseFilterQuery) =>
+    apiRequest<ListResponse<Assignment>>(`/assignments${queryString(query)}`, withAuth(session)),
+  saveAssignment: (session: UserSession, id: string | null, payload: Record<string, unknown>) =>
+    apiRequest<Assignment>(id ? `/assignments/${id}` : '/assignments', { method: id ? 'PATCH' : 'POST', body: payload, ...withAuth(session) }),
+  createAssignmentSubmission: (session: UserSession, payload: Record<string, unknown>) =>
+    apiRequest<AssignmentSubmission>('/assignment-submissions', { method: 'POST', body: payload, ...withAuth(session) }),
+  submitAssignmentSubmission: (session: UserSession, submissionId: string) =>
+    apiRequest<AssignmentSubmission>(`/assignment-submissions/${submissionId}/submit`, { method: 'POST', ...withAuth(session) }),
+  createAssignmentReview: (session: UserSession, payload: Record<string, unknown>) =>
+    apiRequest<AssignmentReview>('/assignment-reviews', { method: 'POST', body: payload, ...withAuth(session) })
 };
