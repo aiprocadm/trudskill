@@ -35,7 +35,18 @@ import type {
   AssignmentReview,
   MaterialProgress,
   ModuleProgress,
-  ProgressStatus
+  ProgressStatus,
+  Question,
+  QuestionBank,
+  AnswerOption,
+  TestEntity,
+  TestQuestion,
+  TestAttempt,
+  AttemptAnswer,
+  ExamResult,
+  Assignment,
+  AssignmentSubmission,
+  AssignmentReview
 } from './mvp.types.js';
 import type {
   BaseFilterQuery,
@@ -65,7 +76,21 @@ import type {
   UpdateMaterialProgressRequest,
   UpdateMaterialRequest,
   UpdateModuleRequest,
-  UpdateSimpleRegistryRequest
+  UpdateSimpleRegistryRequest,
+  CreateQuestionBankRequest,
+  UpdateQuestionBankRequest,
+  CreateQuestionRequest,
+  UpdateQuestionRequest,
+  CreateTestRequest,
+  UpdateTestRequest,
+  PatchTestRulesRequest,
+  StartAttemptRequest,
+  SaveAttemptAnswerRequest,
+  CreateAssignmentRequest,
+  UpdateAssignmentRequest,
+  CreateAssignmentSubmissionRequest,
+  UpdateAssignmentSubmissionRequest,
+  CreateAssignmentReviewRequest
 } from './mvp.dto.js';
 
 interface ListResponse<T> {
@@ -103,6 +128,8 @@ export class MvpService {
   private tests: TestEntity[] = [];
   private testQuestions: { id: string; tenantId: string; testId: string; questionId: string; sortOrder: number; createdAt: string; updatedAt: string }[] = [];
   private attempts: Attempt[] = [];
+  private testQuestions: TestQuestion[] = [];
+  private attempts: TestAttempt[] = [];
   private attemptAnswers: AttemptAnswer[] = [];
   private examResults: ExamResult[] = [];
   private assignments: Assignment[] = [];
@@ -771,6 +798,292 @@ export class MvpService {
     if (!existing) this.courseProgress.push(record);
   }
 
+
+
+  listQuestionBanks(tenantId: string, query: BaseFilterQuery): ListResponse<QuestionBank> { return this.list(this.questionBanks, tenantId, query); }
+  getQuestionBank(tenantId: string, id: string): QuestionBank { return this.getById(this.questionBanks, tenantId, id); }
+  createQuestionBank(tenantId: string, actorId: string | undefined, request: CreateQuestionBankRequest, context: RequestContext): QuestionBank {
+    const entity: QuestionBank = { id: this.id('qbank'), tenantId, code: request.code, title: request.title, description: request.description, isArchived: false, status: 'draft', createdAt: this.now(), updatedAt: this.now() };
+    this.questionBanks.push(entity);
+    this.audit(tenantId, actorId, 'assessment.question_bank_created', 'assessment.question_bank', entity.id, undefined, entity, context);
+    return entity;
+  }
+  updateQuestionBank(tenantId: string, actorId: string | undefined, id: string, request: UpdateQuestionBankRequest, context: RequestContext): QuestionBank {
+    const current = this.getById(this.questionBanks, tenantId, id);
+    const oldValues = { ...current };
+    Object.assign(current, request, { updatedAt: this.now() });
+    this.audit(tenantId, actorId, 'assessment.question_bank_updated', 'assessment.question_bank', current.id, oldValues, current, context);
+    return current;
+  }
+  archiveQuestionBank(tenantId: string, actorId: string | undefined, id: string, context: RequestContext): QuestionBank {
+    const current = this.getById(this.questionBanks, tenantId, id);
+    current.status = 'archived';
+    current.isArchived = true;
+    current.updatedAt = this.now();
+    this.audit(tenantId, actorId, 'assessment.question_bank_archived', 'assessment.question_bank', current.id, undefined, current, context);
+    return current;
+  }
+
+  listQuestions(tenantId: string, query: BaseFilterQuery): ListResponse<Question> { return this.list(this.questions, tenantId, query); }
+  getQuestion(tenantId: string, id: string): Question { return this.getById(this.questions, tenantId, id); }
+  listQuestionBankQuestions(tenantId: string, questionBankId: string, query: BaseFilterQuery): ListResponse<Question> {
+    this.getById(this.questionBanks, tenantId, questionBankId);
+    return this.list(this.questions.filter((item) => item.questionBankId === questionBankId), tenantId, query);
+  }
+  createQuestion(tenantId: string, actorId: string | undefined, request: CreateQuestionRequest, context: RequestContext): Question {
+    this.getById(this.questionBanks, tenantId, request.questionBankId);
+    const entity: Question = { id: this.id('q'), tenantId, questionBankId: request.questionBankId, type: request.type, title: request.title, body: request.body, score: request.score, isArchived: false, status: 'active', createdAt: this.now(), updatedAt: this.now() };
+    this.questions.push(entity);
+    if (request.answerOptions?.length) {
+      request.answerOptions.forEach((option, idx) => this.answerOptions.push({ id: this.id('opt'), tenantId, questionId: entity.id, text: option.text, isCorrect: option.isCorrect, sortOrder: idx, status: 'active', createdAt: this.now(), updatedAt: this.now() }));
+    }
+    this.audit(tenantId, actorId, 'assessment.question_created', 'assessment.question', entity.id, undefined, entity, context);
+    return entity;
+  }
+  updateQuestion(tenantId: string, actorId: string | undefined, id: string, request: UpdateQuestionRequest, context: RequestContext): Question {
+    const current = this.getById(this.questions, tenantId, id);
+    if (current.isArchived) throw new PreconditionFailedException({ code: 'domain_rule_violation', message: 'Archived question is read-only' });
+    const oldValues = { ...current };
+    Object.assign(current, request, { updatedAt: this.now() });
+    if (request.answerOptions) {
+      this.answerOptions = this.answerOptions.filter((item) => !(item.tenantId === tenantId && item.questionId === id));
+      request.answerOptions.forEach((option, idx) => this.answerOptions.push({ id: this.id('opt'), tenantId, questionId: id, text: option.text, isCorrect: option.isCorrect, sortOrder: idx, status: 'active', createdAt: this.now(), updatedAt: this.now() }));
+    }
+    this.audit(tenantId, actorId, 'assessment.question_updated', 'assessment.question', current.id, oldValues, current, context);
+    return current;
+  }
+  archiveQuestion(tenantId: string, actorId: string | undefined, id: string, context: RequestContext): Question {
+    const current = this.getById(this.questions, tenantId, id);
+    current.status = 'archived';
+    current.isArchived = true;
+    current.updatedAt = this.now();
+    this.audit(tenantId, actorId, 'assessment.question_archived', 'assessment.question', current.id, undefined, current, context);
+    return current;
+  }
+
+  listTests(tenantId: string, query: BaseFilterQuery): ListResponse<TestEntity> { return this.list(this.tests, tenantId, query); }
+  getTest(tenantId: string, id: string): TestEntity { return this.getById(this.tests, tenantId, id); }
+  createTest(tenantId: string, actorId: string | undefined, request: CreateTestRequest, context: RequestContext): TestEntity {
+    this.getById(this.courses, tenantId, request.courseId);
+    const entity: TestEntity = { id: this.id('test'), tenantId, courseId: request.courseId, title: request.title, description: request.description, questionBankId: request.questionBankId, rules: request.rules, isArchived: false, status: 'draft', createdAt: this.now(), updatedAt: this.now() };
+    this.tests.push(entity);
+    this.audit(tenantId, actorId, 'assessment.test_created', 'assessment.test', entity.id, undefined, entity, context);
+    return entity;
+  }
+  updateTest(tenantId: string, actorId: string | undefined, id: string, request: UpdateTestRequest, context: RequestContext): TestEntity {
+    const current = this.getById(this.tests, tenantId, id);
+    const oldValues = { ...current };
+    Object.assign(current, request, { updatedAt: this.now() });
+    this.audit(tenantId, actorId, 'assessment.test_updated', 'assessment.test', current.id, oldValues, current, context);
+    return current;
+  }
+  publishTest(tenantId: string, actorId: string | undefined, id: string, context: RequestContext): TestEntity {
+    const current = this.getById(this.tests, tenantId, id);
+    current.status = 'published';
+    current.updatedAt = this.now();
+    this.audit(tenantId, actorId, 'assessment.test_published', 'assessment.test', current.id, undefined, current, context);
+    return current;
+  }
+  archiveTest(tenantId: string, actorId: string | undefined, id: string, context: RequestContext): TestEntity {
+    const current = this.getById(this.tests, tenantId, id);
+    current.status = 'archived';
+    current.isArchived = true;
+    current.updatedAt = this.now();
+    this.audit(tenantId, actorId, 'assessment.test_archived', 'assessment.test', current.id, undefined, current, context);
+    return current;
+  }
+  patchTestRules(tenantId: string, actorId: string | undefined, id: string, request: PatchTestRulesRequest, context: RequestContext): TestEntity {
+    const current = this.getById(this.tests, tenantId, id);
+    current.rules = { ...request };
+    current.updatedAt = this.now();
+    this.audit(tenantId, actorId, 'assessment.test_rules_updated', 'assessment.test', current.id, undefined, current, context);
+    return current;
+  }
+  listTestQuestions(tenantId: string, testId: string): TestQuestion[] {
+    this.getById(this.tests, tenantId, testId);
+    return this.testQuestions.filter((item) => item.tenantId === tenantId && item.testId === testId);
+  }
+  addTestQuestions(tenantId: string, actorId: string | undefined, testId: string, questionIds: string[], context: RequestContext): TestQuestion[] {
+    this.getById(this.tests, tenantId, testId);
+    questionIds.forEach((questionId) => this.getById(this.questions, tenantId, questionId));
+    questionIds.forEach((questionId) => {
+      if (!this.testQuestions.some((item) => item.tenantId === tenantId && item.testId === testId && item.questionId === questionId)) {
+        this.testQuestions.push({ id: this.id('tq'), tenantId, testId, questionId, sortOrder: this.testQuestions.length, status: 'active', createdAt: this.now(), updatedAt: this.now() });
+      }
+    });
+    this.audit(tenantId, actorId, 'assessment.test_questions_attached', 'assessment.test', testId, undefined, { testId, questionIds }, context);
+    return this.listTestQuestions(tenantId, testId);
+  }
+
+  listAttempts(tenantId: string, query: BaseFilterQuery): ListResponse<TestAttempt> { return this.list(this.attempts, tenantId, query); }
+  getAttempt(tenantId: string, id: string): TestAttempt { return this.getById(this.attempts, tenantId, id); }
+  startAttempt(tenantId: string, actorId: string | undefined, request: StartAttemptRequest, context: RequestContext): TestAttempt {
+    const test = this.getById(this.tests, tenantId, request.testId);
+    const enrollment = this.getById(this.enrollments, tenantId, request.enrollmentId);
+    const learnerId = enrollment.learnerId;
+    const now = new Date(this.now());
+    const dayKey = now.toISOString().slice(0, 10);
+    const attempts = this.attempts.filter((item) => item.tenantId === tenantId && item.testId === request.testId && item.learnerId === learnerId);
+    const bounded = test.rules.dailyResetEnabled ? attempts.filter((item) => item.startedAt.slice(0, 10) === dayKey) : attempts;
+    if (bounded.length >= test.rules.attemptLimit) throw new PreconditionFailedException({ code: 'attempt_limit_reached', message: 'Attempt limit reached' });
+    const questionPool = this.listTestQuestions(tenantId, request.testId).map((item) => item.questionId);
+    const ordered = [...questionPool];
+    if (test.rules.randomizeQuestions) ordered.sort(() => Math.random() - 0.5);
+    const snapshot = test.rules.questionCount ? ordered.slice(0, test.rules.questionCount) : ordered;
+    const maxScore = snapshot.reduce((acc, questionId) => acc + this.getById(this.questions, tenantId, questionId).score, 0);
+    const startedAt = now.toISOString();
+    const expiresAt = test.rules.timeLimitMinutes ? new Date(now.getTime() + (test.rules.timeLimitMinutes * 60000)).toISOString() : undefined;
+    const entity: TestAttempt = { id: this.id('attempt'), tenantId, testId: request.testId, enrollmentId: request.enrollmentId, learnerId, attemptNo: attempts.length + 1, status: 'in_progress', startedAt, expiresAt, score: 0, maxScore, questionOrder: snapshot, createdAt: startedAt, updatedAt: startedAt };
+    this.attempts.push(entity);
+    this.audit(tenantId, actorId, 'assessment.attempt_started', 'assessment.test_attempt', entity.id, undefined, entity, context);
+    return entity;
+  }
+  saveAnswer(tenantId: string, actorId: string | undefined, attemptId: string, request: SaveAttemptAnswerRequest, context: RequestContext): AttemptAnswer {
+    const attempt = this.getById(this.attempts, tenantId, attemptId);
+    if (!['draft', 'in_progress'].includes(attempt.status)) throw new PreconditionFailedException({ code: 'attempt_terminal', message: 'Cannot update answers in terminal state' });
+    if (attempt.expiresAt && new Date(attempt.expiresAt) <= new Date()) { attempt.status = 'expired'; throw new PreconditionFailedException({ code: 'attempt_expired', message: 'Attempt expired' }); }
+    if (!attempt.questionOrder.includes(request.questionId)) throw new BadRequestException({ code: 'domain_rule_violation', message: 'Question is not part of attempt snapshot' });
+    const existing = this.attemptAnswers.find((item) => item.tenantId === tenantId && item.attemptId === attemptId && item.questionId === request.questionId);
+    const answer = existing ?? { id: this.id('ans'), tenantId, attemptId, questionId: request.questionId, status: 'active', createdAt: this.now(), updatedAt: this.now() };
+    answer.selectedOptionIds = request.selectedOptionIds;
+    answer.textAnswer = request.textAnswer;
+    answer.updatedAt = this.now();
+    if (!existing) this.attemptAnswers.push(answer);
+    this.audit(tenantId, actorId, 'assessment.answer_saved', 'assessment.attempt_answer', answer.id, undefined, answer, context);
+    return answer;
+  }
+  submitAttempt(tenantId: string, actorId: string | undefined, attemptId: string, context: RequestContext): TestAttempt {
+    const attempt = this.getById(this.attempts, tenantId, attemptId);
+    if (['submitted', 'finished', 'expired', 'invalidated'].includes(attempt.status)) return attempt;
+    if (attempt.expiresAt && new Date(attempt.expiresAt) <= new Date()) attempt.status = 'expired';
+    const test = this.getById(this.tests, tenantId, attempt.testId);
+    const answers = this.attemptAnswers.filter((item) => item.tenantId === tenantId && item.attemptId === attempt.id);
+    let score = 0;
+    for (const qid of attempt.questionOrder) {
+      const question = this.getById(this.questions, tenantId, qid);
+      const answer = answers.find((item) => item.questionId === qid);
+      if (!answer) continue;
+      if (question.type === 'text') continue;
+      const correct = this.answerOptions.filter((item) => item.tenantId === tenantId && item.questionId === qid && item.isCorrect).map((item) => item.id).sort();
+      const selected = [...(answer.selectedOptionIds ?? [])].sort();
+      if (JSON.stringify(correct) === JSON.stringify(selected)) score += question.score;
+    }
+    attempt.score = score;
+    attempt.passed = score >= test.rules.passingScore;
+    attempt.status = 'submitted';
+    attempt.submittedAt = this.now();
+    attempt.updatedAt = this.now();
+    this.finalizeExamResult(tenantId, actorId, attempt, context);
+    this.audit(tenantId, actorId, 'assessment.attempt_submitted', 'assessment.test_attempt', attempt.id, undefined, attempt, context);
+    return attempt;
+  }
+  finishAttempt(tenantId: string, actorId: string | undefined, attemptId: string, context: RequestContext): TestAttempt {
+    const submitted = this.submitAttempt(tenantId, actorId, attemptId, context);
+    submitted.status = 'finished';
+    submitted.finishedAt = this.now();
+    submitted.updatedAt = this.now();
+    this.audit(tenantId, actorId, 'assessment.attempt_finished', 'assessment.test_attempt', submitted.id, undefined, submitted, context);
+    return submitted;
+  }
+
+  listExamResults(tenantId: string, query: BaseFilterQuery): ListResponse<ExamResult> { return this.list(this.examResults, tenantId, query); }
+  getExamResult(tenantId: string, id: string): ExamResult { return this.getById(this.examResults, tenantId, id); }
+  getExamResultByEnrollment(tenantId: string, enrollmentId: string): ExamResult[] {
+    return this.examResults.filter((item) => item.tenantId === tenantId && item.enrollmentId === enrollmentId);
+  }
+  private finalizeExamResult(tenantId: string, actorId: string | undefined, attempt: TestAttempt, context: RequestContext): void {
+    const existing = this.examResults.find((item) => item.tenantId === tenantId && item.enrollmentId === attempt.enrollmentId && item.testId === attempt.testId);
+    const attempts = this.attempts.filter((item) => item.tenantId === tenantId && item.enrollmentId === attempt.enrollmentId && item.testId === attempt.testId && ['submitted','finished'].includes(item.status));
+    const best = attempts.sort((a,b) => (b.score ?? 0) - (a.score ?? 0))[0] ?? attempt;
+    const test = this.getById(this.tests, tenantId, attempt.testId);
+    if (existing) {
+      existing.bestAttemptId = best.id;
+      existing.attemptsCount = attempts.length;
+      existing.finalScore = best.score ?? 0;
+      existing.maxScore = best.maxScore;
+      existing.passed = (best.score ?? 0) >= test.rules.passingScore;
+      existing.updatedAt = this.now();
+      this.audit(tenantId, actorId, 'assessment.exam_result_finalized', 'assessment.exam_result', existing.id, undefined, existing, context);
+      return;
+    }
+    const entity: ExamResult = { id: this.id('result'), tenantId, enrollmentId: attempt.enrollmentId, learnerId: attempt.learnerId, testId: attempt.testId, bestAttemptId: best.id, attemptsCount: attempts.length, finalScore: best.score ?? 0, maxScore: best.maxScore, passed: (best.score ?? 0) >= test.rules.passingScore, status: 'final', createdAt: this.now(), updatedAt: this.now() };
+    this.examResults.push(entity);
+    this.audit(tenantId, actorId, 'assessment.exam_result_finalized', 'assessment.exam_result', entity.id, undefined, entity, context);
+  }
+
+  listAssignments(tenantId: string, query: BaseFilterQuery): ListResponse<Assignment> { return this.list(this.assignments, tenantId, query); }
+  getAssignment(tenantId: string, id: string): Assignment { return this.getById(this.assignments, tenantId, id); }
+  createAssignment(tenantId: string, actorId: string | undefined, request: CreateAssignmentRequest, context: RequestContext): Assignment {
+    const entity: Assignment = { id: this.id('asn'), tenantId, courseId: request.courseId, moduleId: request.moduleId, title: request.title, description: request.description, maxScore: request.maxScore, isReviewRequired: request.isReviewRequired ?? true, isArchived: false, status: 'draft', createdAt: this.now(), updatedAt: this.now() };
+    this.assignments.push(entity);
+    this.audit(tenantId, actorId, 'assessment.assignment_created', 'assessment.assignment', entity.id, undefined, entity, context);
+    return entity;
+  }
+  updateAssignment(tenantId: string, actorId: string | undefined, id: string, request: UpdateAssignmentRequest, context: RequestContext): Assignment {
+    const current = this.getById(this.assignments, tenantId, id);
+    const oldValues = { ...current };
+    Object.assign(current, request, { updatedAt: this.now() });
+    this.audit(tenantId, actorId, 'assessment.assignment_updated', 'assessment.assignment', current.id, oldValues, current, context);
+    return current;
+  }
+  publishAssignment(tenantId: string, actorId: string | undefined, id: string, context: RequestContext): Assignment {
+    const current = this.getById(this.assignments, tenantId, id);
+    current.status = 'published';
+    current.updatedAt = this.now();
+    return current;
+  }
+  archiveAssignment(tenantId: string, actorId: string | undefined, id: string, context: RequestContext): Assignment {
+    const current = this.getById(this.assignments, tenantId, id);
+    current.status = 'archived';
+    current.isArchived = true;
+    current.updatedAt = this.now();
+    return current;
+  }
+  listAssignmentSubmissions(tenantId: string, query: BaseFilterQuery): ListResponse<AssignmentSubmission> { return this.list(this.assignmentSubmissions, tenantId, query); }
+  getAssignmentSubmission(tenantId: string, id: string): AssignmentSubmission { return this.getById(this.assignmentSubmissions, tenantId, id); }
+  createAssignmentSubmission(tenantId: string, actorId: string | undefined, request: CreateAssignmentSubmissionRequest, context: RequestContext): AssignmentSubmission {
+    const enrollment = this.getById(this.enrollments, tenantId, request.enrollmentId);
+    const submission: AssignmentSubmission = { id: this.id('subm'), tenantId, assignmentId: request.assignmentId, enrollmentId: request.enrollmentId, learnerId: enrollment.learnerId, answerText: request.answerText, fileId: request.fileId, status: 'draft', createdAt: this.now(), updatedAt: this.now() };
+    this.assignmentSubmissions.push(submission);
+    return submission;
+  }
+  updateAssignmentSubmission(tenantId: string, actorId: string | undefined, id: string, request: UpdateAssignmentSubmissionRequest, context: RequestContext): AssignmentSubmission {
+    const current = this.getById(this.assignmentSubmissions, tenantId, id);
+    if (['submitted','under_review','reviewed','rejected'].includes(current.status)) throw new PreconditionFailedException({ code: 'submission_terminal', message: 'Submission is not editable' });
+    Object.assign(current, request, { updatedAt: this.now() });
+    return current;
+  }
+  submitAssignmentSubmission(tenantId: string, actorId: string | undefined, id: string, context: RequestContext): AssignmentSubmission {
+    const current = this.getById(this.assignmentSubmissions, tenantId, id);
+    if (['submitted','under_review','reviewed'].includes(current.status)) return current;
+    current.status = 'submitted';
+    current.submittedAt = this.now();
+    current.updatedAt = this.now();
+    this.audit(tenantId, actorId, 'assessment.assignment_submission_submitted', 'assessment.assignment_submission', current.id, undefined, current, context);
+    return current;
+  }
+  listAssignmentReviews(tenantId: string, query: BaseFilterQuery): ListResponse<AssignmentReview> { return this.list(this.assignmentReviews, tenantId, query); }
+  getAssignmentReview(tenantId: string, id: string): AssignmentReview { return this.getById(this.assignmentReviews, tenantId, id); }
+  createAssignmentReview(tenantId: string, actorId: string | undefined, request: CreateAssignmentReviewRequest, context: RequestContext): AssignmentReview {
+    const submission = this.getById(this.assignmentSubmissions, tenantId, request.submissionId);
+    submission.status = 'under_review';
+    const review: AssignmentReview = { id: this.id('rev'), tenantId, assignmentId: submission.assignmentId, submissionId: submission.id, enrollmentId: submission.enrollmentId, reviewerId: actorId ?? 'unknown', score: request.score, comment: request.comment, status: 'in_review', createdAt: this.now(), updatedAt: this.now() };
+    this.assignmentReviews.push(review);
+    return review;
+  }
+  completeAssignmentReview(tenantId: string, actorId: string | undefined, id: string, request: { score?: number; comment?: string }, context: RequestContext): AssignmentReview {
+    const review = this.getById(this.assignmentReviews, tenantId, id);
+    review.score = request.score ?? review.score;
+    review.comment = request.comment ?? review.comment;
+    review.status = 'completed';
+    review.completedAt = this.now();
+    review.updatedAt = this.now();
+    const submission = this.getById(this.assignmentSubmissions, tenantId, review.submissionId);
+    submission.status = 'reviewed';
+    submission.updatedAt = this.now();
+    this.audit(tenantId, actorId, 'assessment.assignment_review_completed', 'assessment.assignment_review', review.id, undefined, review, context);
+    return review;
+  }
   private pushEnrollmentStatusHistory(tenantId: string, enrollmentId: string, status: EnrollmentStatus, reason?: string): void {
     this.enrollmentStatusHistory.push({ id: this.id('esh'), tenantId, enrollmentId, status, reason, changedAt: this.now() });
   }

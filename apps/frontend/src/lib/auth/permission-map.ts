@@ -14,6 +14,20 @@ export const rolePermissionMap: Record<string, string[]> = {
     'assessment.tests.read',
     'assessment.results.read',
     'assessment.assignments.read'
+    'assessment.question_banks.read',
+    'assessment.question_banks.write',
+    'assessment.questions.read',
+    'assessment.questions.write',
+    'assessment.tests.read',
+    'assessment.tests.write',
+    'assessment.tests.publish',
+    'assessment.attempts.read',
+    'assessment.attempts.take',
+    'assessment.results.read',
+    'assessment.assignments.read',
+    'assessment.assignments.write',
+    'assessment.submissions.submit',
+    'assessment.reviews.review'
   ],
   tenant_admin: [
     'auth.manage_sessions',
@@ -32,6 +46,13 @@ export const rolePermissionMap: Record<string, string[]> = {
   manager: ['users.read', 'tenant.read', 'counterparties.read', 'directions.read', 'courses.read', 'groups.read', 'enrollments.read', 'assessment.tests.read', 'assessment.attempts.take', 'assessment.submissions.submit'],
   methodist: ['users.read', 'tenant.read', 'directions.read', 'courses.read', 'groups.read', 'assessment.question_banks.write', 'assessment.tests.write'],
   learner: ['enrollments.read', 'assessment.attempts.take', 'assessment.submissions.submit']
+    'assessment.attempts.read',
+    'assessment.results.read',
+    'assessment.assignments.read'
+  ],
+  manager: ['users.read', 'tenant.read', 'counterparties.read', 'directions.read', 'courses.read', 'groups.read', 'enrollments.read', 'assessment.tests.read', 'assessment.results.read', 'assessment.assignments.read', 'assessment.reviews.review'],
+  methodist: ['users.read', 'tenant.read', 'directions.read', 'courses.read', 'groups.read', 'assessment.question_banks.read', 'assessment.question_banks.write', 'assessment.questions.read', 'assessment.questions.write', 'assessment.tests.read', 'assessment.tests.write', 'assessment.tests.publish', 'assessment.assignments.read', 'assessment.assignments.write'],
+  learner: ['enrollments.read', 'assessment.attempts.take', 'assessment.submissions.submit', 'assessment.results.read', 'assessment.assignments.read']
 };
 
 export const resolveRolePermissions = (roleCodes: string[]): string[] =>

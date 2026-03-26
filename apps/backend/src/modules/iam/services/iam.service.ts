@@ -97,6 +97,8 @@ export class IamService {
     { id: 'p_assessment_assignments_write', code: 'assessment.assignments.write', description: 'Write assignments' },
     { id: 'p_assessment_submissions_submit', code: 'assessment.submissions.submit', description: 'Submit assignments' },
     { id: 'p_assessment_reviews_review', code: 'assessment.reviews.review', description: 'Review submissions' }
+    { id: 'p_assessment_submissions_submit', code: 'assessment.submissions.submit', description: 'Submit assignment solutions' },
+    { id: 'p_assessment_reviews_review', code: 'assessment.reviews.review', description: 'Review assignment submissions' }
   ];
 
   private readonly rolePermissions = new Map<string, string[]>([
@@ -125,6 +127,13 @@ export class IamService {
         'assessment.results.read',
         'assessment.assignments.read',
         'assessment.submissions.submit'
+        'assessment.question_banks.read',
+        'assessment.questions.read',
+        'assessment.tests.read',
+        'assessment.attempts.read',
+        'assessment.results.read',
+        'assessment.assignments.read',
+        'assessment.reviews.review'
       ]
     ],
     [

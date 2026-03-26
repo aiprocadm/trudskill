@@ -100,6 +100,15 @@ export interface UpdateQuestionBankRequest {
   title?: string;
   description?: string;
   status?: string;
+  code: string;
+  title: string;
+  description?: string;
+}
+
+export interface UpdateQuestionBankRequest {
+  code?: string;
+  title?: string;
+  description?: string;
 }
 
 export interface CreateQuestionRequest {
@@ -136,6 +145,43 @@ export interface TestRulesDto {
   timeLimitMinutes?: number;
   passingScore: number;
 }
+  type: 'single_choice' | 'multiple_choice' | 'text';
+  title: string;
+  body: string;
+  score: number;
+  answerOptions?: Array<{ text: string; isCorrect: boolean }>;
+}
+
+export interface UpdateQuestionRequest {
+  title?: string;
+  body?: string;
+  score?: number;
+  status?: string;
+  answerOptions?: Array<{ text: string; isCorrect: boolean }>;
+}
+
+export interface CreateTestRequest {
+  courseId: string;
+  title: string;
+  description?: string;
+  questionBankId?: string;
+  rules: {
+    attemptLimit: number;
+    dailyResetEnabled: boolean;
+    randomizeQuestions: boolean;
+    questionCount?: number;
+    timeLimitMinutes?: number;
+    passingScore: number;
+  };
+}
+
+export interface UpdateTestRequest {
+  title?: string;
+  description?: string;
+  status?: string;
+}
+
+export interface PatchTestRulesRequest extends CreateTestRequest['rules'] {}
 
 export interface StartAttemptRequest {
   testId: string;
@@ -146,6 +192,11 @@ export interface StartAttemptRequest {
 export interface SaveAnswerRequest {
   questionId: string;
   answerOptionIds?: string[];
+}
+
+export interface SaveAttemptAnswerRequest {
+  questionId: string;
+  selectedOptionIds?: string[];
   textAnswer?: string;
 }
 
@@ -163,6 +214,15 @@ export interface UpdateAssignmentRequest {
   status?: string;
   isReviewRequired?: boolean;
   maxScore?: number;
+  maxScore: number;
+  isReviewRequired?: boolean;
+}
+
+export interface UpdateAssignmentRequest {
+  title?: string;
+  description?: string;
+  maxScore?: number;
+  status?: string;
 }
 
 export interface CreateAssignmentSubmissionRequest {
@@ -176,6 +236,15 @@ export interface UpdateAssignmentSubmissionRequest {
   textAnswer?: string;
   fileId?: string;
 }
+  answerText?: string;
+  fileId?: string;
+}
+
+export interface UpdateAssignmentSubmissionRequest {
+  answerText?: string;
+  fileId?: string;
+}
+
 export interface CreateAssignmentReviewRequest {
   submissionId: string;
   score?: number;
