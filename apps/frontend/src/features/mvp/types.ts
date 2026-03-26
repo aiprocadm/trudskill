@@ -111,3 +111,50 @@ export interface Progress extends BaseEntity {
   progressPercent: number;
   status: 'not_started' | 'in_progress' | 'completed';
 }
+
+export interface QuestionBank extends BaseEntity {
+  title: string;
+  description?: string;
+  courseId?: string;
+}
+
+export interface TestEntity extends BaseEntity {
+  title: string;
+  courseId: string;
+  questionBankId?: string;
+  rules: {
+    attemptLimit: number;
+    dailyResetEnabled: boolean;
+    randomizeQuestions: boolean;
+    questionCount?: number;
+    timeLimitMinutes?: number;
+    passingScore: number;
+  };
+}
+
+export interface Attempt extends BaseEntity {
+  testId: string;
+  enrollmentId: string;
+  learnerId: string;
+  status: string;
+  questionOrder: string[];
+  startedAt: string;
+  expiresAt?: string;
+}
+
+export interface ExamResult extends BaseEntity {
+  testId: string;
+  enrollmentId: string;
+  learnerId: string;
+  attemptsCount: number;
+  bestScore: number;
+  passingScore: number;
+  passed: boolean;
+}
+
+export interface Assignment extends BaseEntity {
+  courseId: string;
+  title: string;
+  isReviewRequired: boolean;
+  maxScore: number;
+}

@@ -10,7 +10,10 @@ export const rolePermissionMap: Record<string, string[]> = {
     'courses.publish',
     'courses.archive',
     'groups.read',
-    'enrollments.read'
+    'enrollments.read',
+    'assessment.tests.read',
+    'assessment.results.read',
+    'assessment.assignments.read'
   ],
   tenant_admin: [
     'auth.manage_sessions',
@@ -21,11 +24,14 @@ export const rolePermissionMap: Record<string, string[]> = {
     'directions.read',
     'courses.read',
     'groups.read',
-    'enrollments.read'
+    'enrollments.read',
+    'assessment.tests.read',
+    'assessment.results.read',
+    'assessment.assignments.read'
   ],
-  manager: ['users.read', 'tenant.read', 'counterparties.read', 'directions.read', 'courses.read', 'groups.read', 'enrollments.read'],
-  methodist: ['users.read', 'tenant.read', 'directions.read', 'courses.read', 'groups.read'],
-  learner: ['enrollments.read']
+  manager: ['users.read', 'tenant.read', 'counterparties.read', 'directions.read', 'courses.read', 'groups.read', 'enrollments.read', 'assessment.tests.read', 'assessment.attempts.take', 'assessment.submissions.submit'],
+  methodist: ['users.read', 'tenant.read', 'directions.read', 'courses.read', 'groups.read', 'assessment.question_banks.write', 'assessment.tests.write'],
+  learner: ['enrollments.read', 'assessment.attempts.take', 'assessment.submissions.submit']
 };
 
 export const resolveRolePermissions = (roleCodes: string[]): string[] =>

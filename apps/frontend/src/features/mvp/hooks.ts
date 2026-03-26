@@ -17,6 +17,11 @@ import type {
   ListResponse,
   Material,
   Progress,
+  QuestionBank,
+  TestEntity,
+  Attempt,
+  ExamResult,
+  Assignment,
   RoleEntity,
   UserEntity
 } from './types';
@@ -169,6 +174,21 @@ export const useLearnerCourseProgress = (courseId?: string): QueryState<ListResp
   return useQueryState(makeQueryKey('progress', courseId), session ? () => mvpApi.listProgress(session, { course_id: courseId }) : null, [session, courseId]);
 };
 
+export const useQuestionBanks = (query: BaseFilterQuery): QueryState<ListResponse<QuestionBank>> => {
+  const { session } = useAuth();
+  return useQueryState(makeQueryKey('questionBanks', query), session ? () => mvpApi.listQuestionBanks(session, query) : null, [session, JSON.stringify(query)]);
+};
+
+export const useTests = (query: BaseFilterQuery): QueryState<ListResponse<TestEntity>> => {
+  const { session } = useAuth();
+  return useQueryState(makeQueryKey('tests', query), session ? () => mvpApi.listTests(session, query) : null, [session, JSON.stringify(query)]);
+};
+
+export const useAssignments = (query: BaseFilterQuery): QueryState<ListResponse<Assignment>> => {
+  const { session } = useAuth();
+  return useQueryState(makeQueryKey('assignments', query), session ? () => mvpApi.listAssignments(session, query) : null, [session, JSON.stringify(query)]);
+};
+
 export const useDomainMutations = () => {
   const { session } = useAuth();
 
@@ -198,6 +218,9 @@ export const useDomainMutations = () => {
     createEnrollment: (payload: { groupId: string; learnerId: string }) =>
       wrap((authSession) => mvpApi.createEnrollment(authSession, payload)),
     setUserRoles: (id: string, roleCodes: string[]) =>
-      wrap((authSession) => mvpApi.setUserRoles(authSession, id, roleCodes))
+      wrap((authSession) => mvpApi.setUserRoles(authSession, id, roleCodes)),
+    startAttempt: (payload: { testId: string; enrollmentId: string; learnerId: string }) =>
+      wrap((authSession) => mvpApi.startAttempt(authSession, payload)),
+    getAttemptResult: (attemptId: string) => wrap((authSession) => mvpApi.getAttemptResult(authSession, attemptId))
   };
 };
