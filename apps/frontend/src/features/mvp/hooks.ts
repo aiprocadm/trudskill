@@ -28,15 +28,27 @@ interface QueryState<T> {
   refetch: () => Promise<void>;
 }
 
+const mvpQueryCache = new Map<string, unknown>();
+
+export const clearMvpQueryCache = () => {
+  mvpQueryCache.clear();
+};
+
+const makeQueryKey = (scope: string, args?: unknown) => `${scope}:${JSON.stringify(args ?? null)}`;
+
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof ApiClientError) return error.normalized.message;
   if (error instanceof Error) return error.message;
   return 'Не удалось выполнить запрос.';
 };
 
-const useQueryState = <T>(loader: (() => Promise<T>) | null, deps: unknown[]): QueryState<T> => {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(false);
+const useQueryState = <T>(
+  queryKey: string,
+  loader: (() => Promise<T>) | null,
+  deps: unknown[]
+): QueryState<T> => {
+  const [data, setData] = useState<T | null>(() => (mvpQueryCache.get(queryKey) as T | undefined) ?? null);
+  const [loading, setLoading] = useState(!mvpQueryCache.has(queryKey));
   const [error, setError] = useState<string | null>(null);
 
   const refetch = useCallback(async () => {
@@ -44,7 +56,9 @@ const useQueryState = <T>(loader: (() => Promise<T>) | null, deps: unknown[]): Q
     setLoading(true);
     setError(null);
     try {
-      setData(await loader());
+      const nextData = await loader();
+      setData(nextData);
+      mvpQueryCache.set(queryKey, nextData);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -53,97 +67,106 @@ const useQueryState = <T>(loader: (() => Promise<T>) | null, deps: unknown[]): Q
   }, deps); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    if (mvpQueryCache.has(queryKey)) {
+      setData((mvpQueryCache.get(queryKey) as T | undefined) ?? null);
+      setLoading(false);
+      return;
+    }
     void refetch();
-  }, [refetch]);
+  }, [queryKey, refetch]);
 
   return { data, loading, error, refetch };
 };
 
 export const useUsersList = (query: BaseFilterQuery): QueryState<ListResponse<UserEntity>> => {
   const { session } = useAuth();
-  return useQueryState(session ? () => mvpApi.listUsers(session, query) : null, [session, JSON.stringify(query)]);
+  return useQueryState(makeQueryKey('users', query), session ? () => mvpApi.listUsers(session, query) : null, [session, JSON.stringify(query)]);
 };
 
 export const useUser = (id: string): QueryState<UserEntity> => {
   const { session } = useAuth();
-  return useQueryState(session ? () => mvpApi.getUser(session, id) : null, [session, id]);
+  return useQueryState(makeQueryKey('user', id), session ? () => mvpApi.getUser(session, id) : null, [session, id]);
 };
 
 export const useRoles = (): QueryState<RoleEntity[]> => {
   const { session } = useAuth();
-  return useQueryState(session ? () => mvpApi.listRoles(session) : null, [session]);
+  return useQueryState(makeQueryKey('roles'), session ? () => mvpApi.listRoles(session) : null, [session]);
 };
 
 export const useUserRoles = (id: string): QueryState<RoleEntity[]> => {
   const { session } = useAuth();
-  return useQueryState(session ? () => mvpApi.getUserRoles(session, id) : null, [session, id]);
+  return useQueryState(makeQueryKey('userRoles', id), session ? () => mvpApi.getUserRoles(session, id) : null, [session, id]);
 };
 
 export const useCounterpartiesList = (query: BaseFilterQuery): QueryState<ListResponse<Counterparty>> => {
   const { session } = useAuth();
-  return useQueryState(session ? () => mvpApi.listCounterparties(session, query) : null, [session, JSON.stringify(query)]);
+  return useQueryState(
+    makeQueryKey('counterparties', query),
+    session ? () => mvpApi.listCounterparties(session, query) : null,
+    [session, JSON.stringify(query)]
+  );
 };
 
 export const useCounterparty = (id: string): QueryState<Counterparty> => {
   const { session } = useAuth();
-  return useQueryState(session ? () => mvpApi.getCounterparty(session, id) : null, [session, id]);
+  return useQueryState(makeQueryKey('counterparty', id), session ? () => mvpApi.getCounterparty(session, id) : null, [session, id]);
 };
 
 export const useDirectionsList = (query: BaseFilterQuery): QueryState<ListResponse<Direction>> => {
   const { session } = useAuth();
-  return useQueryState(session ? () => mvpApi.listDirections(session, query) : null, [session, JSON.stringify(query)]);
+  return useQueryState(makeQueryKey('directions', query), session ? () => mvpApi.listDirections(session, query) : null, [session, JSON.stringify(query)]);
 };
 
 export const useCoursesList = (query: BaseFilterQuery): QueryState<ListResponse<Course>> => {
   const { session } = useAuth();
-  return useQueryState(session ? () => mvpApi.listCourses(session, query) : null, [session, JSON.stringify(query)]);
+  return useQueryState(makeQueryKey('courses', query), session ? () => mvpApi.listCourses(session, query) : null, [session, JSON.stringify(query)]);
 };
 
 export const useCourse = (id: string): QueryState<Course> => {
   const { session } = useAuth();
-  return useQueryState(session ? () => mvpApi.getCourse(session, id) : null, [session, id]);
+  return useQueryState(makeQueryKey('course', id), session ? () => mvpApi.getCourse(session, id) : null, [session, id]);
 };
 
 export const useCourseVersions = (courseId: string): QueryState<ListResponse<CourseVersion>> => {
   const { session } = useAuth();
-  return useQueryState(session ? () => mvpApi.listCourseVersions(session, courseId) : null, [session, courseId]);
+  return useQueryState(makeQueryKey('courseVersions', courseId), session ? () => mvpApi.listCourseVersions(session, courseId) : null, [session, courseId]);
 };
 
 export const useModules = (courseVersionId?: string): QueryState<ListResponse<CourseModule>> => {
   const { session } = useAuth();
-  return useQueryState(session ? () => mvpApi.listModules(session, courseVersionId) : null, [session, courseVersionId]);
+  return useQueryState(makeQueryKey('modules', courseVersionId), session ? () => mvpApi.listModules(session, courseVersionId) : null, [session, courseVersionId]);
 };
 
 export const useMaterials = (moduleId?: string): QueryState<ListResponse<Material>> => {
   const { session } = useAuth();
-  return useQueryState(session ? () => mvpApi.listMaterials(session, moduleId) : null, [session, moduleId]);
+  return useQueryState(makeQueryKey('materials', moduleId), session ? () => mvpApi.listMaterials(session, moduleId) : null, [session, moduleId]);
 };
 
 export const useGroupsList = (query: BaseFilterQuery): QueryState<ListResponse<Group>> => {
   const { session } = useAuth();
-  return useQueryState(session ? () => mvpApi.listGroups(session, query) : null, [session, JSON.stringify(query)]);
+  return useQueryState(makeQueryKey('groups', query), session ? () => mvpApi.listGroups(session, query) : null, [session, JSON.stringify(query)]);
 };
 
 export const useGroup = (id: string): QueryState<Group> => {
   const { session } = useAuth();
-  return useQueryState(session ? () => mvpApi.getGroup(session, id) : null, [session, id]);
+  return useQueryState(makeQueryKey('group', id), session ? () => mvpApi.getGroup(session, id) : null, [session, id]);
 };
 
 export const useGroupCourses = (groupId: string): QueryState<ListResponse<GroupCourse>> => {
   const { session } = useAuth();
-  return useQueryState(session ? () => mvpApi.listGroupCourses(session, groupId) : null, [session, groupId]);
+  return useQueryState(makeQueryKey('groupCourses', groupId), session ? () => mvpApi.listGroupCourses(session, groupId) : null, [session, groupId]);
 };
 
 export const useEnrollments = (query: BaseFilterQuery): QueryState<ListResponse<Enrollment>> => {
   const { session } = useAuth();
-  return useQueryState(session ? () => mvpApi.listEnrollments(session, query) : null, [session, JSON.stringify(query)]);
+  return useQueryState(makeQueryKey('enrollments', query), session ? () => mvpApi.listEnrollments(session, query) : null, [session, JSON.stringify(query)]);
 };
 
 export const useLearnerCourses = (learnerId: string): QueryState<ListResponse<Enrollment>> => useEnrollments({ learner_id: learnerId });
 
 export const useLearnerCourseProgress = (courseId?: string): QueryState<ListResponse<Progress>> => {
   const { session } = useAuth();
-  return useQueryState(session ? () => mvpApi.listProgress(session, { course_id: courseId }) : null, [session, courseId]);
+  return useQueryState(makeQueryKey('progress', courseId), session ? () => mvpApi.listProgress(session, { course_id: courseId }) : null, [session, courseId]);
 };
 
 export const useDomainMutations = () => {
@@ -151,7 +174,9 @@ export const useDomainMutations = () => {
 
   const wrap = async <T>(action: (sessionValue: NonNullable<typeof session>) => Promise<T>) => {
     if (!session) throw new Error('Нет активной сессии');
-    return action(session);
+    const result = await action(session);
+    clearMvpQueryCache();
+    return result;
   };
 
   return {

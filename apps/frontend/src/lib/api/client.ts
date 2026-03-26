@@ -9,7 +9,7 @@ export class ApiClientError extends Error {
 }
 
 export interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   headers?: HeadersInit;
   auth?: { userId?: string; tenantId?: string; accessToken?: string };

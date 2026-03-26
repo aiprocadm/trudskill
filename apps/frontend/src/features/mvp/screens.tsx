@@ -30,30 +30,81 @@ import {
 
 const StatusBadge = ({ status }: { status: string }) => <span style={{ padding: '2px 8px', border: '1px solid #ccc', borderRadius: 999 }}>{status}</span>;
 
-const RegistryControls = ({ q, setQ, status, setStatus }: { q: string; setQ: (v: string) => void; status: string; setStatus: (v: string) => void }) => (
+const STATUS_OPTIONS = ['active', 'blocked', 'draft', 'archived', 'published', 'pending', 'suspended', 'completed', 'cancelled'] as const;
+
+const RegistryControls = ({
+  q,
+  setQ,
+  status,
+  setStatus
+}: {
+  q: string;
+  setQ: (v: string) => void;
+  status: string;
+  setStatus: (v: string) => void;
+}) => (
   <FilterBar>
     <input placeholder="Поиск" value={q} onChange={(event) => setQ(event.target.value)} />
     <select value={status} onChange={(event) => setStatus(event.target.value)}>
       <option value="">Все статусы</option>
-      <option value="active">active</option>
-      <option value="draft">draft</option>
-      <option value="blocked">blocked</option>
-      <option value="archived">archived</option>
-      <option value="published">published</option>
+      {STATUS_OPTIONS.map((option) => (
+        <option key={option} value={option}>
+          {option}
+        </option>
+      ))}
     </select>
   </FilterBar>
 );
 
+const PaginationControls = ({
+  page,
+  setPage,
+  total,
+  pageSize
+}: {
+  page: number;
+  setPage: (page: number) => void;
+  total?: number;
+  pageSize: number;
+}) => {
+  const canPrev = page > 1;
+  const canNext = total ? page * pageSize < total : true;
+  return (
+    <div style={{ display: 'flex', gap: 8 }}>
+      <button type="button" disabled={!canPrev} onClick={() => setPage(page - 1)}>
+        Назад
+      </button>
+      <span>Страница {page}</span>
+      <button type="button" disabled={!canNext} onClick={() => setPage(page + 1)}>
+        Далее
+      </button>
+    </div>
+  );
+};
+
 export const UsersPageScreen = () => {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
-  const { data, loading, error } = useUsersList({ q, status, page: 1, page_size: 20 });
+  const [role, setRole] = useState('');
+  const [page, setPage] = useState(1);
+  const { data, loading, error } = useUsersList({ q, status, page, page_size: 20, sort: role ? `role:${role}` : undefined });
+  const { data: roles } = useRoles();
 
   return (
     <PageContainer>
       <PageHeader title="Пользователи" />
       <SectionCard title="Реестр пользователей">
         <RegistryControls q={q} setQ={setQ} status={status} setStatus={setStatus} />
+        <FilterBar>
+          <select value={role} onChange={(event) => setRole(event.target.value)}>
+            <option value="">Все роли</option>
+            {roles?.map((item) => (
+              <option key={item.id} value={item.code}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </FilterBar>
         {loading ? <p>Загрузка...</p> : null}
         {error ? <SectionError message={error} /> : null}
         {data?.items.length ? (
@@ -70,6 +121,7 @@ export const UsersPageScreen = () => {
             </Link>
           ))}
         </div>
+        <PaginationControls page={page} setPage={setPage} total={data?.total} pageSize={20} />
       </SectionCard>
     </PageContainer>
   );
@@ -131,7 +183,8 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
 export const CounterpartiesPageScreen = () => {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
-  const { data, loading, error } = useCounterpartiesList({ q, status, page: 1, page_size: 20 });
+  const [page, setPage] = useState(1);
+  const { data, loading, error } = useCounterpartiesList({ q, status, page, page_size: 20 });
 
   return (
     <PageContainer>
@@ -147,6 +200,7 @@ export const CounterpartiesPageScreen = () => {
             </Link>
           ))}
         </div>
+        <PaginationControls page={page} setPage={setPage} total={data?.total} pageSize={20} />
       </SectionCard>
     </PageContainer>
   );
@@ -185,7 +239,8 @@ export const DirectionsPageScreen = () => {
 export const CoursesPageScreen = () => {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
-  const { data } = useCoursesList({ q, status, page: 1, page_size: 20 });
+  const [page, setPage] = useState(1);
+  const { data } = useCoursesList({ q, status, page, page_size: 20 });
 
   return (
     <PageContainer>
@@ -199,6 +254,7 @@ export const CoursesPageScreen = () => {
             </li>
           ))}
         </ul>
+        <PaginationControls page={page} setPage={setPage} total={data?.total} pageSize={20} />
       </SectionCard>
     </PageContainer>
   );
@@ -288,12 +344,14 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
 };
 
 export const GroupsPageScreen = () => {
-  const { data } = useGroupsList({ page: 1, page_size: 20 });
+  const [page, setPage] = useState(1);
+  const { data } = useGroupsList({ page, page_size: 20 });
   return (
     <PageContainer>
       <PageHeader title="Группы" actions={<Link href="/groups/new">Создать группу</Link>} />
       <SectionCard title="Реестр групп">
         <ul>{data?.items.map((group) => <li key={group.id}><Link href={`/groups/${group.id}`}>{group.name}</Link></li>)}</ul>
+        <PaginationControls page={page} setPage={setPage} total={data?.total} pageSize={20} />
       </SectionCard>
     </PageContainer>
   );
