@@ -38,6 +38,8 @@ import type {
   UpdateCourseRequest,
   UpdateEnrollmentStatusRequest,
   UpdateMaterialProgressRequest,
+  UpdateMaterialRequest,
+  UpdateModuleRequest,
   UpdateSimpleRegistryRequest
 } from './mvp.dto.js';
 
@@ -229,10 +231,20 @@ export class MvpService {
       throw new BadRequestException({ code: 'validation_error', message: 'min_view_seconds must be non-negative' });
     }
     this.getById(this.courseVersions, tenantId, request.courseVersionId);
-    const entity: CourseModuleEntity = { id: this.id('module'), tenantId, courseVersionId: request.courseVersionId, title: request.title, sortOrder: this.modules.length, minViewSeconds: request.minViewSeconds ?? 0, isRequired: true, status: 'active', createdAt: this.now(), updatedAt: this.now() };
+    const entity: CourseModuleEntity = { id: this.id('module'), tenantId, courseVersionId: request.courseVersionId, title: request.title, sortOrder: this.modules.length, minViewSeconds: request.minViewSeconds ?? 0, isRequired: request.isRequired ?? true, status: 'active', createdAt: this.now(), updatedAt: this.now() };
     this.modules.push(entity);
     this.audit(tenantId, actorId, 'learning.module_created', 'learning.module', entity.id, undefined, entity, context);
     return entity;
+  }
+  updateModule(tenantId: string, actorId: string | undefined, id: string, request: UpdateModuleRequest, context: RequestContext): CourseModuleEntity {
+    if (typeof request.minViewSeconds === 'number' && request.minViewSeconds < 0) {
+      throw new BadRequestException({ code: 'validation_error', message: 'min_view_seconds must be non-negative' });
+    }
+    const current = this.getById(this.modules, tenantId, id);
+    const oldValues = { ...current };
+    Object.assign(current, request, { updatedAt: this.now() });
+    this.audit(tenantId, actorId, 'learning.module_updated', 'learning.module', current.id, oldValues, current, context);
+    return current;
   }
 
   listMaterials(tenantId: string, query: BaseFilterQuery): ListResponse<Material> { return this.list(this.materials, tenantId, query); }
@@ -242,10 +254,20 @@ export class MvpService {
       throw new BadRequestException({ code: 'validation_error', message: 'min_view_seconds must be non-negative' });
     }
     this.getById(this.modules, tenantId, request.moduleId);
-    const entity: Material = { id: this.id('material'), tenantId, moduleId: request.moduleId, title: request.title, materialType: request.materialType, sortOrder: this.materials.length, minViewSeconds: request.minViewSeconds ?? 0, isRequired: true, status: 'active', createdAt: this.now(), updatedAt: this.now() };
+    const entity: Material = { id: this.id('material'), tenantId, moduleId: request.moduleId, title: request.title, materialType: request.materialType, sortOrder: this.materials.length, minViewSeconds: request.minViewSeconds ?? 0, isRequired: request.isRequired ?? true, fileId: request.fileId, status: 'active', createdAt: this.now(), updatedAt: this.now() };
     this.materials.push(entity);
     this.audit(tenantId, actorId, 'learning.material_created', 'learning.material', entity.id, undefined, entity, context);
     return entity;
+  }
+  updateMaterial(tenantId: string, actorId: string | undefined, id: string, request: UpdateMaterialRequest, context: RequestContext): Material {
+    if (typeof request.minViewSeconds === 'number' && request.minViewSeconds < 0) {
+      throw new BadRequestException({ code: 'validation_error', message: 'min_view_seconds must be non-negative' });
+    }
+    const current = this.getById(this.materials, tenantId, id);
+    const oldValues = { ...current };
+    Object.assign(current, request, { updatedAt: this.now() });
+    this.audit(tenantId, actorId, 'learning.material_updated', 'learning.material', current.id, oldValues, current, context);
+    return current;
   }
 
   listGroups(tenantId: string, query: BaseFilterQuery): ListResponse<GroupEntity> { return this.list(this.groups, tenantId, query); }
@@ -255,6 +277,13 @@ export class MvpService {
     this.groups.push(entity);
     this.audit(tenantId, actorId, 'learning.group_created', 'learning.group', entity.id, undefined, entity, context);
     return entity;
+  }
+  updateGroup(tenantId: string, actorId: string | undefined, id: string, request: UpdateSimpleRegistryRequest, context: RequestContext): GroupEntity {
+    const current = this.getById(this.groups, tenantId, id);
+    const oldValues = { ...current };
+    Object.assign(current, request, { updatedAt: this.now() });
+    this.audit(tenantId, actorId, 'learning.group_updated', 'learning.group', current.id, oldValues, current, context);
+    return current;
   }
 
   listGroupCourses(tenantId: string, query: BaseFilterQuery): ListResponse<GroupCourse> { return this.list(this.groupCourses, tenantId, query); }
@@ -317,7 +346,7 @@ export class MvpService {
     const moduleEntity = this.getById(this.modules, tenantId, material.moduleId);
     const courseVersion = this.getById(this.courseVersions, tenantId, moduleEntity.courseVersionId);
 
-    const enrollment = this.enrollments.find((item) => item.tenantId === tenantId);
+    const enrollment = this.enrollments.find((item) => item.tenantId === tenantId && item.id === request.enrollmentId);
     if (!enrollment) {
       throw new NotFoundException({ code: 'not_found', message: 'Enrollment not found for progress update' });
     }
@@ -332,7 +361,7 @@ export class MvpService {
 
     const studiedSeconds = Math.max(0, request.studiedSeconds);
     const ratio = requiredSeconds === 0 ? 1 : Math.min(1, studiedSeconds / requiredSeconds);
-    const percent = Math.round(ratio * 10000) / 100;
+    const percent = this.normalizePercent(ratio * 100);
     const status: ProgressStatus = percent >= 100 ? 'completed' : percent > 0 ? 'in_progress' : 'not_started';
 
     const record: MaterialProgress = existing ?? {
@@ -355,6 +384,7 @@ export class MvpService {
     record.progressPercent = percent;
     record.status = status;
     record.lastActivityAt = now;
+    record.calculatedAt = now;
     record.updatedAt = now;
     record.completedAt = status === 'completed' ? now : undefined;
 
@@ -372,7 +402,7 @@ export class MvpService {
     const requiredSeconds = moduleMaterials.reduce((acc, item) => acc + item.requiredSeconds, 0);
     const studiedSeconds = moduleMaterials.reduce((acc, item) => acc + item.studiedSeconds, 0);
     const ratio = requiredSeconds === 0 ? 1 : Math.min(1, studiedSeconds / requiredSeconds);
-    const progressPercent = Math.round(ratio * 10000) / 100;
+    const progressPercent = this.normalizePercent(ratio * 100);
     const status: ProgressStatus = progressPercent >= 100 ? 'completed' : progressPercent > 0 ? 'in_progress' : 'not_started';
     const now = this.now();
     const existing = this.moduleProgress.find((item) => item.tenantId === tenantId && item.enrollmentId === enrollmentId && item.moduleId === moduleId);
@@ -384,6 +414,7 @@ export class MvpService {
     record.requiredSeconds = requiredSeconds;
     record.studiedSeconds = studiedSeconds;
     record.lastActivityAt = now;
+    record.calculatedAt = now;
     record.updatedAt = now;
     record.completedAt = status === 'completed' ? now : undefined;
     if (!existing) this.moduleProgress.push(record);
@@ -394,7 +425,7 @@ export class MvpService {
     const requiredSeconds = moduleProgress.reduce((acc, item) => acc + item.requiredSeconds, 0);
     const studiedSeconds = moduleProgress.reduce((acc, item) => acc + item.studiedSeconds, 0);
     const ratio = requiredSeconds === 0 ? 1 : Math.min(1, studiedSeconds / requiredSeconds);
-    const progressPercent = Math.round(ratio * 10000) / 100;
+    const progressPercent = this.normalizePercent(ratio * 100);
     const status: ProgressStatus = progressPercent >= 100 ? 'completed' : progressPercent > 0 ? 'in_progress' : 'not_started';
     const now = this.now();
     const existing = this.courseProgress.find((item) => item.tenantId === tenantId && item.enrollmentId === enrollmentId && item.courseId === courseId);
@@ -406,6 +437,7 @@ export class MvpService {
     record.requiredSeconds = requiredSeconds;
     record.studiedSeconds = studiedSeconds;
     record.lastActivityAt = now;
+    record.calculatedAt = now;
     record.updatedAt = now;
     record.completedAt = status === 'completed' ? now : undefined;
     if (!existing) this.courseProgress.push(record);
@@ -436,6 +468,21 @@ export class MvpService {
     }
     if (query.status) {
       items = items.filter((item) => item.status === query.status);
+    }
+    if (query.group_id) {
+      items = items.filter((item) => String((item as Record<string, unknown>).groupId ?? '') === query.group_id);
+    }
+    if (query.learner_id) {
+      items = items.filter((item) => String((item as Record<string, unknown>).learnerId ?? '') === query.learner_id);
+    }
+    if (query.course_id) {
+      items = items.filter((item) => String((item as Record<string, unknown>).courseId ?? '') === query.course_id);
+    }
+    if (query.course_version_id) {
+      items = items.filter((item) => String((item as Record<string, unknown>).courseVersionId ?? '') === query.course_version_id);
+    }
+    if (query.module_id) {
+      items = items.filter((item) => String((item as Record<string, unknown>).moduleId ?? '') === query.module_id);
     }
     if (query.created_from) {
       items = items.filter((item) => item.createdAt >= query.created_from!);
@@ -472,6 +519,10 @@ export class MvpService {
 
   private now(): string {
     return new Date().toISOString();
+  }
+
+  private normalizePercent(value: number): number {
+    return Math.min(100, Math.max(0, Math.round(value * 100) / 100));
   }
 
   private audit(

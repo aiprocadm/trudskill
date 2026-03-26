@@ -6,6 +6,11 @@ export interface BaseFilterQuery {
   status?: string;
   created_from?: string;
   created_to?: string;
+  group_id?: string;
+  learner_id?: string;
+  course_id?: string;
+  course_version_id?: string;
+  module_id?: string;
 }
 
 export interface CreateSimpleRegistryRequest {
@@ -35,6 +40,14 @@ export interface CreateModuleRequest {
   courseVersionId: string;
   title: string;
   minViewSeconds?: number;
+  isRequired?: boolean;
+}
+
+export interface UpdateModuleRequest {
+  title?: string;
+  minViewSeconds?: number;
+  isRequired?: boolean;
+  status?: string;
 }
 
 export interface CreateMaterialRequest {
@@ -42,6 +55,17 @@ export interface CreateMaterialRequest {
   title: string;
   materialType: 'file' | 'external_url' | 'text' | 'video';
   minViewSeconds?: number;
+  isRequired?: boolean;
+  fileId?: string;
+}
+
+export interface UpdateMaterialRequest {
+  title?: string;
+  materialType?: 'file' | 'external_url' | 'text' | 'video';
+  minViewSeconds?: number;
+  isRequired?: boolean;
+  status?: string;
+  fileId?: string;
 }
 
 export interface CreateGroupCourseRequest {
@@ -60,5 +84,6 @@ export interface UpdateEnrollmentStatusRequest {
 }
 
 export interface UpdateMaterialProgressRequest {
+  enrollmentId: string;
   studiedSeconds: number;
 }

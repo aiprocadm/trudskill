@@ -101,6 +101,11 @@ describe('tenant-awareness and audit fields', () => {
 describe('schema integrity constraints', () => {
   it('enforces enrollment uniqueness and progress constraints', () => {
     expectSqlContains(/CONSTRAINT\s+enrollments_group_learner_uniq\s+UNIQUE\s*\(group_id,\s*learner_id\)/i, 'missing unique(group_id, learner_id)');
+    expectSqlContains(/CONSTRAINT\s+course_modules_min_view_chk\s+CHECK\s*\(min_view_seconds\s*>=\s*0\)/i, 'missing module min_view_seconds non-negative check');
+    expectSqlContains(/CONSTRAINT\s+materials_min_view_chk\s+CHECK\s*\(min_view_seconds\s*>=\s*0\)/i, 'missing material min_view_seconds non-negative check');
+    expectSqlContains(/CONSTRAINT\s+course_progress_seconds_chk\s+CHECK\s*\(studied_seconds\s*>=\s*0\s+AND\s+required_seconds\s*>=\s*0\)/i, 'missing course progress seconds non-negative check');
+    expectSqlContains(/CONSTRAINT\s+module_progress_seconds_chk\s+CHECK\s*\(studied_seconds\s*>=\s*0\s+AND\s+required_seconds\s*>=\s*0\)/i, 'missing module progress seconds non-negative check');
+    expectSqlContains(/CONSTRAINT\s+material_progress_seconds_chk\s+CHECK\s*\(studied_seconds\s*>=\s*0\s+AND\s+required_seconds\s*>=\s*0\)/i, 'missing material progress seconds non-negative check');
     expectSqlContains(/CONSTRAINT\s+course_progress_percent_chk\s+CHECK\s*\(progress_percent\s*>=\s*0\s+AND\s+progress_percent\s*<=\s*100\)/i, 'missing course progress range check');
     expectSqlContains(/CONSTRAINT\s+module_progress_percent_chk\s+CHECK\s*\(progress_percent\s*>=\s*0\s+AND\s+progress_percent\s*<=\s*100\)/i, 'missing module progress range check');
     expectSqlContains(/CONSTRAINT\s+material_progress_percent_chk\s+CHECK\s*\(progress_percent\s*>=\s*0\s+AND\s+progress_percent\s*<=\s*100\)/i, 'missing material progress range check');
