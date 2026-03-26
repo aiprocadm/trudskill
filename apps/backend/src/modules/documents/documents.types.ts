@@ -61,6 +61,7 @@ export interface DocumentGenerationTaskEntity {
   tenantId: string;
   templateId: string;
   templateVersionId?: string;
+  documentType: string;
   taskType: string;
   sourceEntityType: string;
   sourceEntityId: string;
@@ -71,6 +72,7 @@ export interface DocumentGenerationTaskEntity {
   finishedAt?: string;
   errorMessage?: string;
   generatedDocumentId?: string;
+  numberReservationId?: string;
 }
 
 export interface GeneratedDocumentEntity {
@@ -115,5 +117,5 @@ export interface NumberReservationEntity {
   reservedNumber: string;
   reservedAt: string;
   usedAt?: string;
-  status: 'reserved' | 'used' | 'released';
+  status: 'reserved' | 'used' | 'released' | 'failed';
 }

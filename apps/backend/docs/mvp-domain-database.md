@@ -55,6 +55,7 @@
 - `template_versions`
 - `template_variables`
 - `template_bindings`
+- `document_generation_tasks`
 - `generated_documents`
 - `numbering_rules`
 - `number_reservations`
@@ -83,8 +84,8 @@
   - finalized document requires `document_date`
   - finalized document requires `finalized_at`
 - Reservation consistency:
+  - task-scoped reservation link is stored in `document_generation_tasks.number_reservation_id`
   - consumed number reservation requires `generated_document_id`
-  - reservation expiry cannot be before reservation timestamp
 - Storage integrity:
   - unique index `(tenant_id, bucket_name, storage_key)`
   - polymorphic links with uniqueness and primary-link partial index
