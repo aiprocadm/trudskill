@@ -63,14 +63,66 @@ export class IamService {
   private readonly permissions: Permission[] = [
     { id: 'p_auth_manage_sessions', code: 'auth.manage_sessions', description: 'Manage sessions' },
     { id: 'p_iam_manage_roles', code: 'iam.manage_roles', description: 'Assign roles' },
-    { id: 'p_tenant_read', code: 'tenant.read', description: 'Read tenant' }
+    { id: 'p_tenant_read', code: 'tenant.read', description: 'Read tenant' },
+    { id: 'p_counterparties_read', code: 'counterparties.read', description: 'Read counterparties' },
+    { id: 'p_counterparties_write', code: 'counterparties.write', description: 'Write counterparties' },
+    { id: 'p_learners_read', code: 'learners.read', description: 'Read learners' },
+    { id: 'p_learners_write', code: 'learners.write', description: 'Write learners' },
+    { id: 'p_directions_read', code: 'directions.read', description: 'Read directions' },
+    { id: 'p_directions_write', code: 'directions.write', description: 'Write directions' },
+    { id: 'p_courses_read', code: 'courses.read', description: 'Read courses' },
+    { id: 'p_courses_write', code: 'courses.write', description: 'Write courses' },
+    { id: 'p_courses_publish', code: 'courses.publish', description: 'Publish courses' },
+    { id: 'p_courses_archive', code: 'courses.archive', description: 'Archive courses' },
+    { id: 'p_materials_read', code: 'materials.read', description: 'Read materials' },
+    { id: 'p_materials_write', code: 'materials.write', description: 'Write materials' },
+    { id: 'p_groups_read', code: 'groups.read', description: 'Read groups' },
+    { id: 'p_groups_write', code: 'groups.write', description: 'Write groups' },
+    { id: 'p_enrollments_read', code: 'enrollments.read', description: 'Read enrollments' },
+    { id: 'p_enrollments_write', code: 'enrollments.write', description: 'Write enrollments' },
+    { id: 'p_enrollments_change_status', code: 'enrollments.change_status', description: 'Change enrollment status' },
+    { id: 'p_progress_read', code: 'progress.read', description: 'Read progress' },
+    { id: 'p_progress_recalculate', code: 'progress.recalculate', description: 'Recalculate progress' }
   ];
 
   private readonly rolePermissions = new Map<string, string[]>([
-    ['r_platform_admin', ['auth.manage_sessions', 'iam.manage_roles', 'tenant.read']],
-    ['r_tenant_admin', ['auth.manage_sessions', 'iam.manage_roles', 'tenant.read']],
-    ['r_manager', ['tenant.read']],
-    ['r_methodist', ['tenant.read']]
+    ['r_platform_admin', this.permissions.map((permission) => permission.code)],
+    ['r_tenant_admin', this.permissions.map((permission) => permission.code)],
+    [
+      'r_manager',
+      [
+        'tenant.read',
+        'counterparties.read',
+        'counterparties.write',
+        'learners.read',
+        'learners.write',
+        'directions.read',
+        'courses.read',
+        'materials.read',
+        'groups.read',
+        'groups.write',
+        'enrollments.read',
+        'enrollments.write',
+        'enrollments.change_status',
+        'progress.read'
+      ]
+    ],
+    [
+      'r_methodist',
+      [
+        'tenant.read',
+        'directions.read',
+        'directions.write',
+        'courses.read',
+        'courses.write',
+        'courses.publish',
+        'courses.archive',
+        'materials.read',
+        'materials.write',
+        'progress.read',
+        'progress.recalculate'
+      ]
+    ]
   ]);
 
   private userRoles = new Map<string, string[]>([
