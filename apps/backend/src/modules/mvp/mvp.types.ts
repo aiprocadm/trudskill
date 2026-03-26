@@ -127,3 +127,122 @@ export interface CourseProgress extends BaseEntity {
   lastActivityAt?: string;
   calculatedAt?: string;
 }
+
+export type QuestionType = 'single_choice' | 'multiple_choice' | 'text';
+export type AttemptStatus = 'draft' | 'in_progress' | 'submitted' | 'finished' | 'expired' | 'invalidated';
+
+export interface QuestionBank extends BaseEntity {
+  code: string;
+  title: string;
+  description?: string;
+  isArchived: boolean;
+}
+
+export interface Question extends BaseEntity {
+  questionBankId: string;
+  type: QuestionType;
+  title: string;
+  body: string;
+  score: number;
+  isArchived: boolean;
+}
+
+export interface AnswerOption extends BaseEntity {
+  questionId: string;
+  text: string;
+  isCorrect: boolean;
+  sortOrder: number;
+}
+
+export interface TestRule {
+  attemptLimit: number;
+  dailyResetEnabled: boolean;
+  randomizeQuestions: boolean;
+  questionCount?: number;
+  timeLimitMinutes?: number;
+  passingScore: number;
+}
+
+export interface TestEntity extends BaseEntity {
+  courseId: string;
+  title: string;
+  description?: string;
+  questionBankId?: string;
+  isArchived: boolean;
+  rules: TestRule;
+}
+
+export interface TestQuestion extends BaseEntity {
+  testId: string;
+  questionId: string;
+  sortOrder: number;
+}
+
+export interface TestAttempt extends BaseEntity {
+  testId: string;
+  enrollmentId: string;
+  learnerId: string;
+  attemptNo: number;
+  status: AttemptStatus;
+  startedAt: string;
+  submittedAt?: string;
+  finishedAt?: string;
+  expiresAt?: string;
+  score?: number;
+  maxScore: number;
+  passed?: boolean;
+  questionOrder: string[];
+}
+
+export interface AttemptAnswer extends BaseEntity {
+  attemptId: string;
+  questionId: string;
+  selectedOptionIds?: string[];
+  textAnswer?: string;
+  score?: number;
+}
+
+export interface ExamResult extends BaseEntity {
+  enrollmentId: string;
+  learnerId: string;
+  testId: string;
+  bestAttemptId?: string;
+  attemptsCount: number;
+  finalScore: number;
+  maxScore: number;
+  passed: boolean;
+}
+
+export type AssignmentSubmissionStatus = 'draft' | 'submitted' | 'under_review' | 'reviewed' | 'returned' | 'rejected';
+export type AssignmentReviewStatus = 'pending' | 'in_review' | 'completed';
+
+export interface Assignment extends BaseEntity {
+  courseId: string;
+  moduleId?: string;
+  title: string;
+  description?: string;
+  maxScore: number;
+  isReviewRequired: boolean;
+  isArchived: boolean;
+}
+
+export interface AssignmentSubmission extends BaseEntity {
+  assignmentId: string;
+  enrollmentId: string;
+  learnerId: string;
+  answerText?: string;
+  fileId?: string;
+  status: AssignmentSubmissionStatus;
+  submittedAt?: string;
+}
+
+export interface AssignmentReview extends BaseEntity {
+  assignmentId: string;
+  submissionId: string;
+  enrollmentId: string;
+  reviewerId: string;
+  status: AssignmentReviewStatus;
+  score?: number;
+  comment?: string;
+  completedAt?: string;
+}

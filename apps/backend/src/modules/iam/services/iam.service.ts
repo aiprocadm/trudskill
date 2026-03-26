@@ -82,7 +82,21 @@ export class IamService {
     { id: 'p_enrollments_write', code: 'enrollments.write', description: 'Write enrollments' },
     { id: 'p_enrollments_change_status', code: 'enrollments.change_status', description: 'Change enrollment status' },
     { id: 'p_progress_read', code: 'progress.read', description: 'Read progress' },
-    { id: 'p_progress_recalculate', code: 'progress.recalculate', description: 'Recalculate progress' }
+    { id: 'p_progress_recalculate', code: 'progress.recalculate', description: 'Recalculate progress' },
+    { id: 'p_assessment_question_banks_read', code: 'assessment.question_banks.read', description: 'Read question banks' },
+    { id: 'p_assessment_question_banks_write', code: 'assessment.question_banks.write', description: 'Write question banks' },
+    { id: 'p_assessment_questions_read', code: 'assessment.questions.read', description: 'Read questions' },
+    { id: 'p_assessment_questions_write', code: 'assessment.questions.write', description: 'Write questions' },
+    { id: 'p_assessment_tests_read', code: 'assessment.tests.read', description: 'Read tests' },
+    { id: 'p_assessment_tests_write', code: 'assessment.tests.write', description: 'Write tests' },
+    { id: 'p_assessment_tests_publish', code: 'assessment.tests.publish', description: 'Publish tests' },
+    { id: 'p_assessment_attempts_read', code: 'assessment.attempts.read', description: 'Read attempts' },
+    { id: 'p_assessment_attempts_take', code: 'assessment.attempts.take', description: 'Take attempts' },
+    { id: 'p_assessment_results_read', code: 'assessment.results.read', description: 'Read results' },
+    { id: 'p_assessment_assignments_read', code: 'assessment.assignments.read', description: 'Read assignments' },
+    { id: 'p_assessment_assignments_write', code: 'assessment.assignments.write', description: 'Write assignments' },
+    { id: 'p_assessment_submissions_submit', code: 'assessment.submissions.submit', description: 'Submit assignment solutions' },
+    { id: 'p_assessment_reviews_review', code: 'assessment.reviews.review', description: 'Review assignment submissions' }
   ];
 
   private readonly rolePermissions = new Map<string, string[]>([
@@ -104,7 +118,14 @@ export class IamService {
         'enrollments.read',
         'enrollments.write',
         'enrollments.change_status',
-        'progress.read'
+        'progress.read',
+        'assessment.question_banks.read',
+        'assessment.questions.read',
+        'assessment.tests.read',
+        'assessment.attempts.read',
+        'assessment.results.read',
+        'assessment.assignments.read',
+        'assessment.reviews.review'
       ]
     ],
     [
@@ -120,7 +141,19 @@ export class IamService {
         'materials.read',
         'materials.write',
         'progress.read',
-        'progress.recalculate'
+        'progress.recalculate',
+        'assessment.question_banks.read',
+        'assessment.question_banks.write',
+        'assessment.questions.read',
+        'assessment.questions.write',
+        'assessment.tests.read',
+        'assessment.tests.write',
+        'assessment.tests.publish',
+        'assessment.attempts.read',
+        'assessment.results.read',
+        'assessment.assignments.read',
+        'assessment.assignments.write',
+        'assessment.reviews.review'
       ]
     ]
   ]);
