@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { DataTable, FilterBar, StatusChip } from '@cdoprof/ui';
 import { useAuth } from '../auth/context';
 import { hasPermission } from '../../lib/rbac/permissions';
@@ -94,6 +94,8 @@ const ProgressBar = ({ value }: { value: number }) => (
   </div>
 );
 
+const MutationError = ({ message }: { message: string | null }) => (message ? <SectionError message={message} /> : null);
+
 export const UsersPageScreen = () => {
   const { session } = useAuth();
   const canManage = hasPermission(session?.permissions ?? [], 'iam.manage_roles');
@@ -156,6 +158,10 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
   const { setUserRoles } = useDomainMutations();
   const [selected, setSelected] = useState<string[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelected(userRoles?.map((role) => role.code) ?? []);
+  }, [userRoles]);
 
   const onSaveRoles = async () => {
     try {
@@ -281,16 +287,23 @@ export const DirectionsPageScreen = () => {
 };
 
 export const CoursesPageScreen = () => {
+  const { session } = useAuth();
+  const canCreateCourse = hasPermission(session?.permissions ?? [], 'courses.write');
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
   const [directionId, setDirectionId] = useState('');
   const [page, setPage] = useState(1);
-  const { data } = useCoursesList({ q, status, page, page_size: 20, course_id: directionId || undefined });
+  const { data, loading, error } = useCoursesList({ q, status, page, page_size: 20, direction_id: directionId || undefined });
   const { data: directions } = useDirectionsList({ page: 1, page_size: 100 });
 
   return (
     <PageContainer>
-      <PageHeader title="Курсы" actions={<Link href="/courses/new">Создать курс</Link>} />
+      <PageHeader
+        title="Курсы"
+        actions={
+          canCreateCourse ? <Link href="/courses/new">Создать курс</Link> : <small>Недостаточно прав для создания курса</small>
+        }
+      />
       <SectionCard title="Реестр курсов">
         <RegistryControls q={q} setQ={setQ} status={status} setStatus={setStatus} />
         <FilterBar>
@@ -303,6 +316,8 @@ export const CoursesPageScreen = () => {
             ))}
           </select>
         </FilterBar>
+        {loading ? <p>Загрузка...</p> : null}
+        {error ? <SectionError message={error} /> : null}
         <ul>
           {data?.items.map((course) => (
             <li key={course.id}>
@@ -310,7 +325,7 @@ export const CoursesPageScreen = () => {
             </li>
           ))}
         </ul>
-        {!data?.items.length ? <SectionEmpty message="Нет курсов" /> : null}
+        {!loading && !error && !data?.items.length ? <SectionEmpty message="Нет курсов" /> : null}
         <PaginationControls page={page} setPage={setPage} total={data?.total} pageSize={20} />
       </SectionCard>
     </PageContainer>
@@ -367,12 +382,22 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
   const { data: versions, refetch: refetchVersions } = useCourseVersions(id);
   const latestVersionId = versions?.items[versions.items.length - 1]?.id;
   const { data: modules, refetch: refetchModules } = useModules(latestVersionId);
-  const selectedModuleId = modules?.items?.[0]?.id;
+  const [selectedModuleId, setSelectedModuleId] = useState<string>('');
   const { data: materials, refetch: refetchMaterials } = useMaterials(selectedModuleId);
   const { publishCourse, archiveCourse, createCourseVersion, saveModule, saveMaterial } = useDomainMutations();
+  const [moduleTitle, setModuleTitle] = useState('');
+  const [materialTitle, setMaterialTitle] = useState('');
+  const [materialType, setMaterialType] = useState<'text' | 'video' | 'file' | 'external_url'>('text');
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const canPublish = hasPermission(session?.permissions ?? [], 'courses.publish');
   const canArchive = hasPermission(session?.permissions ?? [], 'courses.archive');
+
+  useEffect(() => {
+    if (modules?.items?.length && !selectedModuleId) {
+      setSelectedModuleId(modules.items[0]?.id ?? '');
+    }
+  }, [modules, selectedModuleId]);
 
   return (
     <PageContainer>
@@ -381,36 +406,95 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
         <p>Код: {course?.code}</p>
         <StatusChip status={course?.status ?? 'draft'} />
         <div style={{ display: 'flex', gap: 8 }}>
-          {canPublish ? <button onClick={() => void publishCourse(id).then(refetch)}>Publish</button> : null}
-          {canArchive ? <button onClick={() => void archiveCourse(id).then(refetch)}>Archive</button> : null}
+          {canPublish ? (
+            <button
+              onClick={() =>
+                void publishCourse(id)
+                  .then(refetch)
+                  .catch((publishError) => setSaveError(readApiMessage(publishError)))
+              }
+            >
+              Publish
+            </button>
+          ) : null}
+          {canArchive ? (
+            <button
+              onClick={() =>
+                void archiveCourse(id)
+                  .then(refetch)
+                  .catch((archiveError) => setSaveError(readApiMessage(archiveError)))
+              }
+            >
+              Archive
+            </button>
+          ) : null}
         </div>
+        <MutationError message={saveError} />
       </SectionCard>
       <SectionCard title="Версии курса">
         <button onClick={() => void createCourseVersion(id).then(refetchVersions)}>Добавить версию</button>
         <ul>{versions?.items.map((item) => <li key={item.id}>v{item.versionNo} ({item.status})</li>)}</ul>
       </SectionCard>
       <SectionCard title="Модули">
-        <button
-          onClick={() =>
-            latestVersionId
-              ? void saveModule(null, { courseVersionId: latestVersionId, title: `Новый модуль ${Date.now()}`, minViewSeconds: 0, isRequired: true }).then(refetchModules)
-              : undefined
-          }
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!latestVersionId || !moduleTitle.trim()) return;
+            void saveModule(null, { courseVersionId: latestVersionId, title: moduleTitle.trim(), minViewSeconds: 0, isRequired: true })
+              .then(() => {
+                setModuleTitle('');
+                return refetchModules();
+              })
+              .catch((moduleError) => setSaveError(readApiMessage(moduleError)));
+          }}
+          style={{ display: 'flex', gap: 8, marginBottom: 8 }}
         >
-          Добавить модуль
-        </button>
+          <input value={moduleTitle} onChange={(event) => setModuleTitle(event.target.value)} placeholder="Название модуля" />
+          <button type="submit" disabled={!latestVersionId}>
+            Добавить модуль
+          </button>
+        </form>
         <ul>{modules?.items.map((item) => <li key={item.id}>{item.sortOrder + 1}. {item.title} ({item.minViewSeconds}s)</li>)}</ul>
       </SectionCard>
       <SectionCard title="Материалы модуля">
-        <button
-          onClick={() =>
-            selectedModuleId
-              ? void saveMaterial(null, { moduleId: selectedModuleId, title: `Материал ${Date.now()}`, materialType: 'text', minViewSeconds: 60, isRequired: true }).then(refetchMaterials)
-              : undefined
-          }
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!selectedModuleId || !materialTitle.trim()) return;
+            void saveMaterial(null, {
+              moduleId: selectedModuleId,
+              title: materialTitle.trim(),
+              materialType,
+              minViewSeconds: 60,
+              isRequired: true
+            })
+              .then(() => {
+                setMaterialTitle('');
+                return refetchMaterials();
+              })
+              .catch((materialError) => setSaveError(readApiMessage(materialError)));
+          }}
+          style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}
         >
-          Добавить материал
-        </button>
+          <select value={selectedModuleId} onChange={(event) => setSelectedModuleId(event.target.value)}>
+            <option value="">Выберите модуль</option>
+            {modules?.items.map((module) => (
+              <option key={module.id} value={module.id}>
+                {module.title}
+              </option>
+            ))}
+          </select>
+          <input value={materialTitle} onChange={(event) => setMaterialTitle(event.target.value)} placeholder="Название материала" />
+          <select value={materialType} onChange={(event) => setMaterialType(event.target.value as typeof materialType)}>
+            <option value="text">text</option>
+            <option value="video">video</option>
+            <option value="file">file</option>
+            <option value="external_url">external_url</option>
+          </select>
+          <button type="submit" disabled={!selectedModuleId}>
+            Добавить материал
+          </button>
+        </form>
         <ul>{materials?.items.map((item) => <li key={item.id}>{item.sortOrder + 1}. {item.title} [{item.materialType}] min_view_seconds={item.minViewSeconds}</li>)}</ul>
       </SectionCard>
     </PageContainer>
@@ -418,14 +502,21 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
 };
 
 export const GroupsPageScreen = () => {
+  const { session } = useAuth();
+  const canCreateGroup = hasPermission(session?.permissions ?? [], 'groups.write');
   const [page, setPage] = useState(1);
-  const { data } = useGroupsList({ page, page_size: 20 });
+  const { data, loading, error } = useGroupsList({ page, page_size: 20 });
   return (
     <PageContainer>
-      <PageHeader title="Группы" actions={<Link href="/groups/new">Создать группу</Link>} />
+      <PageHeader
+        title="Группы"
+        actions={canCreateGroup ? <Link href="/groups/new">Создать группу</Link> : <small>Недостаточно прав для создания группы</small>}
+      />
       <SectionCard title="Реестр групп">
+        {loading ? <p>Загрузка...</p> : null}
+        {error ? <SectionError message={error} /> : null}
         <ul>{data?.items.map((group) => <li key={group.id}><Link href={`/groups/${group.id}`}>{group.name}</Link></li>)}</ul>
-        {!data?.items.length ? <SectionEmpty message="Нет групп" /> : null}
+        {!loading && !error && !data?.items.length ? <SectionEmpty message="Нет групп" /> : null}
         <PaginationControls page={page} setPage={setPage} total={data?.total} pageSize={20} />
       </SectionCard>
     </PageContainer>
@@ -470,6 +561,9 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
   const { data: enrollments, refetch: refetchEnrollments } = useEnrollments({ group_id: id });
   const { data: progress } = useLearnerCourseProgress(groupCourses?.items[0]?.courseId);
   const { createGroupCourse, createEnrollment } = useDomainMutations();
+  const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [learnerId, setLearnerId] = useState('');
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const averageProgress = useMemo(() => {
     if (!progress?.items.length) return 0;
@@ -485,21 +579,55 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
         <StatusChip status={group?.status ?? 'draft'} />
       </SectionCard>
       <SectionCard title="Курсы группы">
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {courses?.items.map((course) => (
-            <button key={course.id} onClick={() => void createGroupCourse({ groupId: id, courseId: course.id }).then(refetchCourses)}>
-              Назначить {course.title}
-            </button>
-          ))}
-        </div>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!selectedCourseId) return;
+            void createGroupCourse({ groupId: id, courseId: selectedCourseId })
+              .then(() => {
+                setSelectedCourseId('');
+                return refetchCourses();
+              })
+              .catch((groupCourseError) => setSaveError(readApiMessage(groupCourseError)));
+          }}
+          style={{ display: 'flex', gap: 8, marginBottom: 8 }}
+        >
+          <select value={selectedCourseId} onChange={(event) => setSelectedCourseId(event.target.value)}>
+            <option value="">Выберите курс для назначения</option>
+            {courses?.items.map((course) => (
+              <option key={course.id} value={course.id}>
+                {course.title}
+              </option>
+            ))}
+          </select>
+          <button type="submit" disabled={!selectedCourseId}>
+            Назначить курс
+          </button>
+        </form>
         <ul>{groupCourses?.items.map((item) => <li key={item.id}>{item.courseId}</li>)}</ul>
       </SectionCard>
       <SectionCard title="Зачисления и прогресс">
-        <button onClick={() => void createEnrollment({ groupId: id, learnerId: 'learner-demo' }).then(refetchEnrollments)}>
-          Добавить тестовое зачисление
-        </button>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!learnerId.trim()) return;
+            void createEnrollment({ groupId: id, learnerId: learnerId.trim() })
+              .then(() => {
+                setLearnerId('');
+                return refetchEnrollments();
+              })
+              .catch((enrollmentError) => setSaveError(readApiMessage(enrollmentError)));
+          }}
+          style={{ display: 'flex', gap: 8, marginBottom: 8 }}
+        >
+          <input value={learnerId} onChange={(event) => setLearnerId(event.target.value)} placeholder="ID слушателя" />
+          <button type="submit" disabled={!learnerId.trim()}>
+            Зачислить слушателя
+          </button>
+        </form>
         <ul>{enrollments?.items.map((item) => <li key={item.id}>{item.learnerId} — {item.status}</li>)}</ul>
         <ProgressBar value={averageProgress} />
+        <MutationError message={saveError} />
       </SectionCard>
     </PageContainer>
   );
@@ -517,7 +645,7 @@ export const LearnerCoursesScreen = () => {
         <ul>
           {data?.items.map((enrollment) => (
             <li key={enrollment.id}>
-              <Link href={`/learner/courses/${enrollment.id}`}>Курс {enrollment.id}</Link> — {enrollment.status}
+              <Link href={`/learner/courses/${enrollment.courseId ?? enrollment.id}`}>Курс {enrollment.courseId ?? enrollment.id}</Link> — {enrollment.status}
             </li>
           ))}
         </ul>
