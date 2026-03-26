@@ -54,7 +54,7 @@ export const mvpApi = {
   listCourses: (session: UserSession, query: BaseFilterQuery) =>
     apiRequest<ListResponse<Course>>(`/courses${queryString(query)}`, withAuth(session)),
   getCourse: (session: UserSession, id: string) => apiRequest<Course>(`/courses/${id}`, withAuth(session)),
-  saveCourse: (session: UserSession, id: string | null, payload: { code?: string; title: string; description?: string }) =>
+  saveCourse: (session: UserSession, id: string | null, payload: { code?: string; title: string; description?: string; directionId?: string }) =>
     apiRequest<Course>(id ? `/courses/${id}` : '/courses', {
       method: id ? 'PUT' : 'POST',
       body: payload,

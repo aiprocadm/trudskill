@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useMemo, useState, type FormEvent } from 'react';
-import { DataTable, FilterBar } from '@cdoprof/ui';
+import { DataTable, FilterBar, StatusChip } from '@cdoprof/ui';
 import { useAuth } from '../auth/context';
 import { hasPermission } from '../../lib/rbac/permissions';
+import { ApiClientError } from '../../lib/api/client';
 import { PageContainer, PageHeader, SectionCard, SectionEmpty, SectionError } from '../../components/state-wrappers';
 import {
   useCounterpartiesList,
@@ -27,8 +28,6 @@ import {
   useUserRoles,
   useUsersList
 } from './hooks';
-
-const StatusBadge = ({ status }: { status: string }) => <span style={{ padding: '2px 8px', border: '1px solid #ccc', borderRadius: 999 }}>{status}</span>;
 
 const STATUS_OPTIONS = ['active', 'blocked', 'draft', 'archived', 'published', 'pending', 'suspended', 'completed', 'cancelled'] as const;
 
@@ -82,7 +81,22 @@ const PaginationControls = ({
   );
 };
 
+const readApiMessage = (error: unknown) => {
+  if (error instanceof ApiClientError) return error.normalized.message;
+  if (error instanceof Error) return error.message;
+  return 'Не удалось выполнить действие';
+};
+
+const ProgressBar = ({ value }: { value: number }) => (
+  <div style={{ display: 'grid', gap: 4 }}>
+    <progress max={100} value={value} />
+    <small>{value}%</small>
+  </div>
+);
+
 export const UsersPageScreen = () => {
+  const { session } = useAuth();
+  const canManage = hasPermission(session?.permissions ?? [], 'iam.manage_roles');
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
   const [role, setRole] = useState('');
@@ -109,16 +123,22 @@ export const UsersPageScreen = () => {
         {error ? <SectionError message={error} /> : null}
         {data?.items.length ? (
           <DataTable
-            columns={[{ key: 'displayName', title: 'ФИО' }, { key: 'login', title: 'Логин' }, { key: 'status', title: 'Статус' }]}
+            columns={[
+              { key: 'displayName', title: 'ФИО' },
+              { key: 'login', title: 'Логин' },
+              { key: 'status', title: 'Статус' }
+            ]}
             rows={data.items}
           />
         ) : null}
         {!loading && !error && !data?.items.length ? <SectionEmpty message="Нет пользователей" /> : null}
         <div style={{ display: 'grid', gap: 8 }}>
           {data?.items.map((user) => (
-            <Link key={user.id} href={`/users/${user.id}`}>
-              Открыть карточку {user.displayName}
-            </Link>
+            <div key={user.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <Link href={`/users/${user.id}`}>Открыть карточку {user.displayName}</Link>
+              <StatusChip status={user.status} />
+              {!canManage ? <small>Только просмотр</small> : null}
+            </div>
           ))}
         </div>
         <PaginationControls page={page} setPage={setPage} total={data?.total} pageSize={20} />
@@ -128,15 +148,23 @@ export const UsersPageScreen = () => {
 };
 
 export const UserDetailsScreen = ({ id }: { id: string }) => {
+  const { session } = useAuth();
+  const canManageRoles = hasPermission(session?.permissions ?? [], 'iam.manage_roles');
   const { data: user, loading, error, refetch } = useUser(id);
   const { data: userRoles } = useUserRoles(id);
   const { data: allRoles } = useRoles();
   const { setUserRoles } = useDomainMutations();
   const [selected, setSelected] = useState<string[]>([]);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const onSaveRoles = async () => {
-    await setUserRoles(id, selected);
-    await refetch();
+    try {
+      setSaveError(null);
+      await setUserRoles(id, selected);
+      await refetch();
+    } catch (saveActionError) {
+      setSaveError(readApiMessage(saveActionError));
+    }
   };
 
   return (
@@ -147,29 +175,37 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
       {user ? (
         <>
           <SectionCard title="Основные данные">
-            <p>{user.displayName} ({user.login})</p>
+            <p>
+              {user.displayName} ({user.login})
+            </p>
             <p>Tenant: {user.tenantId}</p>
-            <StatusBadge status={user.status} />
+            <StatusChip status={user.status} />
           </SectionCard>
           <SectionCard title="Роли и права">
-            <p>Текущие роли: {userRoles?.map((role) => role.code).join(', ') || '—'}</p>
+            <p>Текущие роли: {userRoles?.map((roleItem) => roleItem.code).join(', ') || '—'}</p>
             <div style={{ display: 'grid', gap: 8 }}>
-              {allRoles?.map((role) => (
-                <label key={role.id}>
+              {allRoles?.map((roleItem) => (
+                <label key={roleItem.id}>
                   <input
+                    disabled={!canManageRoles}
                     type="checkbox"
-                    checked={selected.includes(role.code)}
+                    checked={selected.includes(roleItem.code)}
                     onChange={(event) =>
                       setSelected((current) =>
-                        event.target.checked ? [...new Set([...current, role.code])] : current.filter((item) => item !== role.code)
+                        event.target.checked
+                          ? [...new Set([...current, roleItem.code])]
+                          : current.filter((item) => item !== roleItem.code)
                       )
                     }
                   />{' '}
-                  {role.name}
+                  {roleItem.name}
                 </label>
               ))}
             </div>
-            <button onClick={() => void onSaveRoles()}>Сохранить роли</button>
+            <button disabled={!canManageRoles} onClick={() => void onSaveRoles()}>
+              Сохранить роли
+            </button>
+            {saveError ? <SectionError message={saveError} /> : null}
           </SectionCard>
           <SectionCard title="Сессии">
             <SectionEmpty message="История сессий будет добавлена после расширения endpoint auth/sessions." />
@@ -184,7 +220,7 @@ export const CounterpartiesPageScreen = () => {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
-  const { data, loading, error } = useCounterpartiesList({ q, status, page, page_size: 20 });
+  const { data, loading, error } = useCounterpartiesList({ q, status, page, page_size: 20, sort: 'name:asc' });
 
   return (
     <PageContainer>
@@ -200,6 +236,7 @@ export const CounterpartiesPageScreen = () => {
             </Link>
           ))}
         </div>
+        {!loading && !error && !data?.items.length ? <SectionEmpty message="Нет контрагентов" /> : null}
         <PaginationControls page={page} setPage={setPage} total={data?.total} pageSize={20} />
       </SectionCard>
     </PageContainer>
@@ -214,22 +251,29 @@ export const CounterpartyDetailsScreen = ({ id }: { id: string }) => {
       {loading ? <p>Загрузка...</p> : null}
       {error ? <SectionError message={error} /> : null}
       {data ? (
-        <SectionCard title="Общие данные">
-          <p>{data.name}</p>
-          <p>Код: {data.code}</p>
-          <StatusBadge status={data.status} />
-        </SectionCard>
+        <>
+          <SectionCard title="Общие данные">
+            <p>{data.name}</p>
+            <p>Код: {data.code}</p>
+            <StatusChip status={data.status} />
+          </SectionCard>
+          <SectionCard title="Контакты">
+            <SectionEmpty message="Контактные данные будут отображаться при расширении API." />
+          </SectionCard>
+        </>
       ) : null}
     </PageContainer>
   );
 };
 
 export const DirectionsPageScreen = () => {
-  const { data } = useDirectionsList({ page: 1, page_size: 20 });
+  const { data, loading, error } = useDirectionsList({ page: 1, page_size: 20, sort: 'name:asc' });
   return (
     <PageContainer>
       <PageHeader title="Направления" />
       <SectionCard title="Реестр направлений">
+        {loading ? <p>Загрузка...</p> : null}
+        {error ? <SectionError message={error} /> : null}
         <ul>{data?.items.map((item) => <li key={item.id}>{item.name}</li>)}</ul>
       </SectionCard>
     </PageContainer>
@@ -239,21 +283,34 @@ export const DirectionsPageScreen = () => {
 export const CoursesPageScreen = () => {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
+  const [directionId, setDirectionId] = useState('');
   const [page, setPage] = useState(1);
-  const { data } = useCoursesList({ q, status, page, page_size: 20 });
+  const { data } = useCoursesList({ q, status, page, page_size: 20, course_id: directionId || undefined });
+  const { data: directions } = useDirectionsList({ page: 1, page_size: 100 });
 
   return (
     <PageContainer>
       <PageHeader title="Курсы" actions={<Link href="/courses/new">Создать курс</Link>} />
       <SectionCard title="Реестр курсов">
         <RegistryControls q={q} setQ={setQ} status={status} setStatus={setStatus} />
+        <FilterBar>
+          <select value={directionId} onChange={(event) => setDirectionId(event.target.value)}>
+            <option value="">Все направления</option>
+            {directions?.items.map((direction) => (
+              <option key={direction.id} value={direction.id}>
+                {direction.name}
+              </option>
+            ))}
+          </select>
+        </FilterBar>
         <ul>
           {data?.items.map((course) => (
             <li key={course.id}>
-              <Link href={`/courses/${course.id}`}>{course.title}</Link> <StatusBadge status={course.status} />
+              <Link href={`/courses/${course.id}`}>{course.title}</Link> <StatusChip status={course.status} />
             </li>
           ))}
         </ul>
+        {!data?.items.length ? <SectionEmpty message="Нет курсов" /> : null}
         <PaginationControls page={page} setPage={setPage} total={data?.total} pageSize={20} />
       </SectionCard>
     </PageContainer>
@@ -261,15 +318,23 @@ export const CoursesPageScreen = () => {
 };
 
 export const CourseCreateScreen = () => {
+  const { data: directions } = useDirectionsList({ page: 1, page_size: 100 });
   const { saveCourse } = useDomainMutations();
   const [title, setTitle] = useState('');
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
+  const [directionId, setDirectionId] = useState('');
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    const created = await saveCourse(null, { code, title, description });
-    window.location.assign(`/courses/${created.id}`);
+    try {
+      setSaveError(null);
+      const created = await saveCourse(null, { code, title, description, directionId: directionId || undefined });
+      window.location.assign(`/courses/${created.id}`);
+    } catch (createError) {
+      setSaveError(readApiMessage(createError));
+    }
   };
 
   return (
@@ -280,7 +345,16 @@ export const CourseCreateScreen = () => {
           <input required placeholder="Код" value={code} onChange={(event) => setCode(event.target.value)} />
           <input required placeholder="Название" value={title} onChange={(event) => setTitle(event.target.value)} />
           <textarea placeholder="Описание" value={description} onChange={(event) => setDescription(event.target.value)} />
+          <select value={directionId} onChange={(event) => setDirectionId(event.target.value)}>
+            <option value="">Выберите направление</option>
+            {directions?.items.map((direction) => (
+              <option key={direction.id} value={direction.id}>
+                {direction.name}
+              </option>
+            ))}
+          </select>
           <button type="submit">Создать и открыть карточку</button>
+          {saveError ? <SectionError message={saveError} /> : null}
         </form>
       </SectionCard>
     </PageContainer>
@@ -305,7 +379,7 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
       <PageHeader title={course?.title ?? 'Карточка курса'} />
       <SectionCard title="Общие данные">
         <p>Код: {course?.code}</p>
-        <StatusBadge status={course?.status ?? 'draft'} />
+        <StatusChip status={course?.status ?? 'draft'} />
         <div style={{ display: 'flex', gap: 8 }}>
           {canPublish ? <button onClick={() => void publishCourse(id).then(refetch)}>Publish</button> : null}
           {canArchive ? <button onClick={() => void archiveCourse(id).then(refetch)}>Archive</button> : null}
@@ -351,6 +425,7 @@ export const GroupsPageScreen = () => {
       <PageHeader title="Группы" actions={<Link href="/groups/new">Создать группу</Link>} />
       <SectionCard title="Реестр групп">
         <ul>{data?.items.map((group) => <li key={group.id}><Link href={`/groups/${group.id}`}>{group.name}</Link></li>)}</ul>
+        {!data?.items.length ? <SectionEmpty message="Нет групп" /> : null}
         <PaginationControls page={page} setPage={setPage} total={data?.total} pageSize={20} />
       </SectionCard>
     </PageContainer>
@@ -361,11 +436,16 @@ export const GroupCreateScreen = () => {
   const { saveGroup } = useDomainMutations();
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    const created = await saveGroup(null, { code, name, status: 'draft' });
-    window.location.assign(`/groups/${created.id}`);
+    try {
+      const created = await saveGroup(null, { code, name, status: 'draft' });
+      window.location.assign(`/groups/${created.id}`);
+    } catch (createError) {
+      setSaveError(readApiMessage(createError));
+    }
   };
 
   return (
@@ -376,6 +456,7 @@ export const GroupCreateScreen = () => {
           <input required placeholder="Код" value={code} onChange={(event) => setCode(event.target.value)} />
           <input required placeholder="Название" value={name} onChange={(event) => setName(event.target.value)} />
           <button type="submit">Создать</button>
+          {saveError ? <SectionError message={saveError} /> : null}
         </form>
       </SectionCard>
     </PageContainer>
@@ -387,14 +468,21 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
   const { data: courses } = useCoursesList({ page: 1, page_size: 20 });
   const { data: groupCourses, refetch: refetchCourses } = useGroupCourses(id);
   const { data: enrollments, refetch: refetchEnrollments } = useEnrollments({ group_id: id });
+  const { data: progress } = useLearnerCourseProgress(groupCourses?.items[0]?.courseId);
   const { createGroupCourse, createEnrollment } = useDomainMutations();
+
+  const averageProgress = useMemo(() => {
+    if (!progress?.items.length) return 0;
+    const total = progress.items.reduce((sum, item) => sum + item.progressPercent, 0);
+    return Math.round(total / progress.items.length);
+  }, [progress]);
 
   return (
     <PageContainer>
       <PageHeader title={group?.name ?? 'Карточка группы'} />
       <SectionCard title="Общая информация">
         <p>Код: {group?.code}</p>
-        <StatusBadge status={group?.status ?? 'draft'} />
+        <StatusChip status={group?.status ?? 'draft'} />
       </SectionCard>
       <SectionCard title="Курсы группы">
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -411,6 +499,7 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
           Добавить тестовое зачисление
         </button>
         <ul>{enrollments?.items.map((item) => <li key={item.id}>{item.learnerId} — {item.status}</li>)}</ul>
+        <ProgressBar value={averageProgress} />
       </SectionCard>
     </PageContainer>
   );
@@ -432,6 +521,7 @@ export const LearnerCoursesScreen = () => {
             </li>
           ))}
         </ul>
+        {!data?.items.length ? <SectionEmpty message="Нет назначенных курсов" /> : null}
       </SectionCard>
     </PageContainer>
   );
@@ -445,15 +535,16 @@ export const LearnerCourseDetailsScreen = ({ id }: { id: string }) => {
     return Math.round(sum / progress.items.length);
   }, [progress]);
 
+  const nextStep = useMemo(() => progress?.items.find((item) => item.status === 'in_progress') ?? progress?.items[0], [progress]);
+
   return (
     <PageContainer>
       <PageHeader title={`Курс слушателя ${id}`} />
       <SectionCard title="Прогресс">
-        <p>Completion: {percent}%</p>
-        <progress max={100} value={percent} />
+        <ProgressBar value={percent} />
       </SectionCard>
       <SectionCard title="Что продолжить">
-        <p>Продолжите последний материал со статусом in_progress.</p>
+        {nextStep ? <p>Продолжите материал {nextStep.materialId} в модуле {nextStep.moduleId}.</p> : <SectionEmpty message="Материалы для продолжения пока не найдены" />}
       </SectionCard>
     </PageContainer>
   );

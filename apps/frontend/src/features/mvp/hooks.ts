@@ -182,7 +182,7 @@ export const useDomainMutations = () => {
   return {
     saveCounterparty: (id: string | null, payload: { code: string; name: string; status: string }) =>
       wrap((authSession) => mvpApi.saveCounterparty(authSession, id, payload)),
-    saveCourse: (id: string | null, payload: { code?: string; title: string; description?: string }) =>
+    saveCourse: (id: string | null, payload: { code?: string; title: string; description?: string; directionId?: string }) =>
       wrap((authSession) => mvpApi.saveCourse(authSession, id, payload)),
     publishCourse: (id: string) => wrap((authSession) => mvpApi.publishCourse(authSession, id)),
     archiveCourse: (id: string) => wrap((authSession) => mvpApi.archiveCourse(authSession, id)),
