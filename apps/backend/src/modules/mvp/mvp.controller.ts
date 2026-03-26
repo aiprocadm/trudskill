@@ -34,20 +34,8 @@ import type {
   UpdateMaterialRequest,
   UpdateModuleRequest,
   UpdateSimpleRegistryRequest,
-  CreateQuestionBankRequest,
-  UpdateQuestionBankRequest,
-  CreateQuestionRequest,
-  UpdateQuestionRequest,
-  CreateTestRequest,
-  UpdateTestRequest,
   PatchTestRulesRequest,
-  StartAttemptRequest,
-  SaveAttemptAnswerRequest,
-  CreateAssignmentRequest,
-  UpdateAssignmentRequest,
-  CreateAssignmentSubmissionRequest,
-  UpdateAssignmentSubmissionRequest,
-  CreateAssignmentReviewRequest
+  SaveAttemptAnswerRequest
 } from './mvp.dto.js';
 
 @Controller()
@@ -205,9 +193,6 @@ export class MvpController {
   @Get('tests/:id/questions') @UseGuards(PermissionGuard) @RequirePermissions('assessment.tests.read')
   listTestQuestions(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.listTestQuestions(c.tenantId!, id); }
   @Post('tests/:id/questions') @UseGuards(PermissionGuard) @RequirePermissions('assessment.tests.write')
-  addTestQuestions(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: { questionIds: string[] }) { return this.mvpService.addTestQuestions(c.tenantId!, id, b.questionIds); }
-  @Patch('tests/:id/rules') @UseGuards(PermissionGuard) @RequirePermissions('assessment.tests.write')
-  updateTestRules(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: Partial<TestRulesDto>) { return this.mvpService.updateTestRules(c.tenantId!, c.userId, id, b, c); }
   addTestQuestions(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: { questionIds: string[] }) { return this.mvpService.addTestQuestions(c.tenantId!, c.userId, id, b.questionIds, c); }
   @Patch('tests/:id/rules') @UseGuards(PermissionGuard) @RequirePermissions('assessment.tests.write')
   patchTestRules(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: PatchTestRulesRequest) { return this.mvpService.patchTestRules(c.tenantId!, c.userId, id, b, c); }
@@ -219,10 +204,7 @@ export class MvpController {
   @Get('attempts/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.attempts.read')
   getAttempt(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.getAttempt(c.tenantId!, id); }
   @Post('attempts/:id/answers') @UseGuards(PermissionGuard) @RequirePermissions('assessment.attempts.take')
-  saveAttemptAnswer(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: SaveAnswerRequest) { return this.mvpService.saveAttemptAnswer(c.tenantId!, c.userId, id, b, c); }
   saveAttemptAnswer(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: SaveAttemptAnswerRequest) { return this.mvpService.saveAnswer(c.tenantId!, c.userId, id, b, c); }
-  @Post('answers') @UseGuards(PermissionGuard) @RequirePermissions('assessment.attempts.take')
-  saveAnswerDirect(@CurrentContext() c: RequestContext, @Body() b: SaveAttemptAnswerRequest & { attemptId: string }) { return this.mvpService.saveAnswer(c.tenantId!, c.userId, b.attemptId, b, c); }
   @Post('attempts/:id/submit') @UseGuards(PermissionGuard) @RequirePermissions('assessment.attempts.take')
   submitAttempt(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.submitAttempt(c.tenantId!, c.userId, id, c); }
   @Post('attempts/:id/finish') @UseGuards(PermissionGuard) @RequirePermissions('assessment.attempts.take')
@@ -234,7 +216,6 @@ export class MvpController {
   createAnswer(@CurrentContext() c: RequestContext, @Body() b: { attemptId: string } & SaveAnswerRequest) { return this.mvpService.createAnswer(c.tenantId!, c.userId, b, c); }
   @Patch('answers/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.attempts.take')
   patchAnswer(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: SaveAnswerRequest) { return this.mvpService.patchAnswer(c.tenantId!, c.userId, id, b, c); }
-  getAttemptResult(@CurrentContext() c: RequestContext, @Param('id') id: string) { const a = this.mvpService.getAttempt(c.tenantId!, id); return this.mvpService.getExamResultByEnrollment(c.tenantId!, a.enrollmentId); }
 
   @Get('exam-results') @UseGuards(PermissionGuard) @RequirePermissions('assessment.results.read')
   listExamResults(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) { return this.mvpService.listExamResults(c.tenantId!, q); }
@@ -265,7 +246,6 @@ export class MvpController {
   @Get('assignment-submissions/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.assignments.read')
   getAssignmentSubmission(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.getAssignmentSubmission(c.tenantId!, id); }
   @Patch('assignment-submissions/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.submissions.submit')
-  updateAssignmentSubmission(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: UpdateAssignmentSubmissionRequest) { return this.mvpService.updateAssignmentSubmission(c.tenantId!, c.userId, id, b); }
   updateAssignmentSubmission(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: UpdateAssignmentSubmissionRequest) { return this.mvpService.updateAssignmentSubmission(c.tenantId!, c.userId, id, b, c); }
   @Post('assignment-submissions/:id/submit') @UseGuards(PermissionGuard) @RequirePermissions('assessment.submissions.submit')
   submitAssignmentSubmission(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.submitAssignmentSubmission(c.tenantId!, c.userId, id, c); }
@@ -273,17 +253,12 @@ export class MvpController {
   @Get('assignment-reviews') @UseGuards(PermissionGuard) @RequirePermissions('assessment.reviews.review')
   listAssignmentReviews(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) { return this.mvpService.listAssignmentReviews(c.tenantId!, q); }
   @Post('assignment-reviews') @UseGuards(PermissionGuard) @RequirePermissions('assessment.reviews.review')
-  createAssignmentReview(@CurrentContext() c: RequestContext, @Body() b: CreateAssignmentReviewRequest) { return this.mvpService.createAssignmentReview(c.tenantId!, c.userId, b); }
-  @Get('assignment-reviews/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.reviews.review')
-  getAssignmentReview(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.getAssignmentReview(c.tenantId!, id); }
-  @Patch('assignment-reviews/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.reviews.review')
-  updateAssignmentReview(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: UpdateAssignmentReviewRequest) { return this.mvpService.updateAssignmentReview(c.tenantId!, c.userId, id, b); }
-  @Post('assignment-reviews/:id/complete') @UseGuards(PermissionGuard) @RequirePermissions('assessment.reviews.review')
-  completeAssignmentReview(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.completeAssignmentReview(c.tenantId!, c.userId, id, c); }
   createAssignmentReview(@CurrentContext() c: RequestContext, @Body() b: CreateAssignmentReviewRequest) { return this.mvpService.createAssignmentReview(c.tenantId!, c.userId, b, c); }
   @Get('assignment-reviews/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.reviews.review')
   getAssignmentReview(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.getAssignmentReview(c.tenantId!, id); }
   @Patch('assignment-reviews/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.reviews.review')
-  completeAssignmentReview(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: { score?: number; comment?: string }) { return this.mvpService.completeAssignmentReview(c.tenantId!, c.userId, id, b, c); }
+  updateAssignmentReview(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: UpdateAssignmentReviewRequest) { return this.mvpService.updateAssignmentReview(c.tenantId!, c.userId, id, b, c); }
+  @Post('assignment-reviews/:id/complete') @UseGuards(PermissionGuard) @RequirePermissions('assessment.reviews.review')
+  completeAssignmentReview(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.completeAssignmentReview(c.tenantId!, c.userId, id, c); }
 
 }

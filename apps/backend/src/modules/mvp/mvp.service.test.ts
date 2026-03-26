@@ -159,32 +159,12 @@ describe('mvp service domain rules', () => {
     const learner = service.createLearner('tenant_demo', ctx.userId, { code: 'L4', name: 'Learner Four' }, ctx);
     const enrollment = service.createEnrollment('tenant_demo', ctx.userId, { groupId: group.id, learnerId: learner.id }, ctx);
     const assignment = service.createAssignment('tenant_demo', ctx.userId, { courseId: course.id, title: 'HW' }, ctx);
-    const submission = service.createAssignmentSubmission('tenant_demo', ctx.userId, { assignmentId: assignment.id, enrollmentId: enrollment.id, learnerId: learner.id, textAnswer: 'draft' }, ctx);
+    const submission = service.createAssignmentSubmission('tenant_demo', ctx.userId, { assignmentId: assignment.id, enrollmentId: enrollment.id, answerText: 'draft' }, ctx);
     service.submitAssignmentSubmission('tenant_demo', ctx.userId, submission.id, ctx);
-    expect(() => service.updateAssignmentSubmission('tenant_demo', ctx.userId, submission.id, { textAnswer: 'changed' })).toThrow(PreconditionFailedException);
-    const review = service.createAssignmentReview('tenant_demo', ctx.userId, { submissionId: submission.id, score: 80 });
-    const completed = service.completeAssignmentReview('tenant_demo', ctx.userId, review.id, ctx);
-    expect(completed.reviewStatus).toBe('completed');
-  it('enforces attempt limits, computes result and keeps randomized snapshot stable', () => {
-    const service = new MvpService(new TenantScopedRepository(), new AuditService());
-    const course = service.createCourse('tenant_demo', ctx.userId, { code: 'C1', title: 'Course' }, ctx);
-    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'G1', name: 'Group' }, ctx);
-    const learner = service.createLearner('tenant_demo', ctx.userId, { code: 'L1', name: 'John Doe' }, ctx);
-    const enrollment = service.createEnrollment('tenant_demo', ctx.userId, { groupId: group.id, learnerId: learner.id }, ctx);
-    const qb = service.createQuestionBank('tenant_demo', ctx.userId, { code: 'QB1', title: 'Bank' }, ctx);
-    const q1 = service.createQuestion('tenant_demo', ctx.userId, { questionBankId: qb.id, type: 'single_choice', title: 'Q1', body: '1', score: 5, answerOptions: [{ text: 'A', isCorrect: true }] }, ctx);
-    const q2 = service.createQuestion('tenant_demo', ctx.userId, { questionBankId: qb.id, type: 'single_choice', title: 'Q2', body: '2', score: 5, answerOptions: [{ text: 'A', isCorrect: true }] }, ctx);
-    const test = service.createTest('tenant_demo', ctx.userId, { courseId: course.id, title: 'T', rules: { attemptLimit: 1, dailyResetEnabled: false, randomizeQuestions: true, passingScore: 5 } }, ctx);
-    service.addTestQuestions('tenant_demo', ctx.userId, test.id, [q1.id, q2.id], ctx);
-    const attempt = service.startAttempt('tenant_demo', ctx.userId, { testId: test.id, enrollmentId: enrollment.id }, ctx);
-    expect(service.getAttempt('tenant_demo', attempt.id).questionOrder).toEqual(attempt.questionOrder);
-    const opt = service['answerOptions'].find((item) => item.questionId === attempt.questionOrder[0])!;
-    service.saveAnswer('tenant_demo', ctx.userId, attempt.id, { questionId: attempt.questionOrder[0], selectedOptionIds: [opt.id] }, ctx);
-    const finished = service.finishAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
-    expect(finished.passed).toBe(true);
-    expect(() => service.startAttempt('tenant_demo', ctx.userId, { testId: test.id, enrollmentId: enrollment.id }, ctx)).toThrow(PreconditionFailedException);
-    const results = service.getExamResultByEnrollment('tenant_demo', enrollment.id);
-    expect(results[0]?.finalScore).toBeGreaterThan(0);
+    expect(() => service.updateAssignmentSubmission('tenant_demo', ctx.userId, submission.id, { answerText: 'changed' }, ctx)).toThrow(PreconditionFailedException);
+    const review = service.createAssignmentReview('tenant_demo', ctx.userId, { submissionId: submission.id, score: 80 }, ctx);
+    const completed = service.completeAssignmentReview('tenant_demo', ctx.userId, review.id, { comment: 'done' }, ctx);
+    expect(completed.status).toBe('completed');
   });
 
   it('locks submission edit after submit and completes review workflow', () => {
