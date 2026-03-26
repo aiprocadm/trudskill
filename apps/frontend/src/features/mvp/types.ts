@@ -11,6 +11,7 @@ export interface BaseFilterQuery {
   q?: string;
   status?: string;
   sort?: string;
+  direction_id?: string;
   course_id?: string;
   course_version_id?: string;
   module_id?: string;
@@ -97,6 +98,7 @@ export interface GroupCourse extends BaseEntity {
 export interface Enrollment extends BaseEntity {
   groupId: string;
   learnerId: string;
+  courseId?: string;
   status: 'pending' | 'active' | 'suspended' | 'completed' | 'cancelled';
   enrolledAt: string;
 }
