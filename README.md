@@ -81,6 +81,15 @@ pnpm contracts:generate
 3. Проверить `pnpm contracts:lint && pnpm contracts:typecheck`.
 4. Использовать generated артефакты централизованно из `@cdoprof/api-contracts`.
 
+## Документный контур (Stage 9)
+
+- Backend module `documents` покрывает реестры шаблонов, версий, переменных, привязок, задач генерации, сгенерированных документов и правил нумерации.
+- Генерация документов запускается через `POST /api/v1/documents/generate` и всегда работает как async task (`queued -> running -> completed|failed`).
+- Worker runtime запускается отдельно и обрабатывает очередь генерации:
+  - `pnpm --filter @cdoprof/worker dev`
+- Нумерация tenant-scoped и document-type-scoped; резервирование номера происходит до регистрации документа, номер помечается `used` только после успешного завершения пайплайна.
+- Финальные документы immutable по содержанию: повторная генерация создает новый артефакт, а не изменяет существующий.
+
 ## Вклад в репозиторий
 
 Перед изменениями прочитайте `CONTRIBUTING.md`.

@@ -37,4 +37,23 @@ describe('DocumentGenerationPipeline', () => {
 
     expect(registerGenerated).toHaveBeenCalledTimes(1);
   });
+
+  it('marks task as failed when render throws', async () => {
+    const pipeline = new DocumentGenerationPipeline({
+      reserveNumber: vi.fn().mockResolvedValue('DOC-000001'),
+      render: vi.fn().mockRejectedValue(new Error('broken renderer')),
+      registerGenerated: vi.fn()
+    });
+
+    const result = await pipeline.handle({
+      id: 't-fail',
+      tenantId: 'tenant-1',
+      status: 'queued',
+      sourceEntityType: 'group',
+      sourceEntityId: 'g1',
+      templateVersionId: 'v1'
+    });
+
+    expect(result).toEqual({ taskId: 't-fail', status: 'failed' });
+  });
 });
