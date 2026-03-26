@@ -7,6 +7,7 @@ import { FilesModule } from './modules/files/files.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { MvpModule } from './modules/mvp/mvp.module.js';
 import { InfrastructureModule } from './infrastructure/infrastructure.module.js';
+import { DocumentsModule } from './modules/documents/documents.module.js';
 
 @Module({
   imports: [
@@ -17,7 +18,8 @@ import { InfrastructureModule } from './infrastructure/infrastructure.module.js'
     AuditModule,
     FilesModule,
     HealthModule,
-    MvpModule
+    MvpModule,
+    DocumentsModule
   ]
 })
 export class AppModule {}
