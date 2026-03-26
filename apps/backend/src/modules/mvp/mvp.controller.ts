@@ -28,6 +28,8 @@ export class MvpController {
 
   @Get('counterparties') @UseGuards(PermissionGuard) @RequirePermissions('counterparties.read')
   listCounterparties(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) { return this.mvpService.listCounterparties(c.tenantId!, q); }
+  @Get('counterparties/lookup') @UseGuards(PermissionGuard) @RequirePermissions('counterparties.read')
+  counterpartiesLookup(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) { return this.mvpService.lookupCounterparties(c.tenantId!, q); }
   @Get('counterparties/:id') @UseGuards(PermissionGuard) @RequirePermissions('counterparties.read')
   getCounterparty(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.getCounterparty(c.tenantId!, id); }
   @Post('counterparties') @UseGuards(PermissionGuard) @RequirePermissions('counterparties.write')
@@ -37,6 +39,8 @@ export class MvpController {
 
   @Get('learners') @UseGuards(PermissionGuard) @RequirePermissions('learners.read')
   listLearners(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) { return this.mvpService.listLearners(c.tenantId!, q); }
+  @Get('learners/lookup') @UseGuards(PermissionGuard) @RequirePermissions('learners.read')
+  learnersLookup(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) { return this.mvpService.lookupLearners(c.tenantId!, q); }
   @Get('learners/:id') @UseGuards(PermissionGuard) @RequirePermissions('learners.read')
   getLearner(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.getLearner(c.tenantId!, id); }
   @Post('learners') @UseGuards(PermissionGuard) @RequirePermissions('learners.write')
@@ -46,6 +50,8 @@ export class MvpController {
 
   @Get('directions') @UseGuards(PermissionGuard) @RequirePermissions('directions.read')
   listDirections(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) { return this.mvpService.listDirections(c.tenantId!, q); }
+  @Get('directions/lookup') @UseGuards(PermissionGuard) @RequirePermissions('directions.read')
+  directionsLookup(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) { return this.mvpService.lookupDirections(c.tenantId!, q); }
   @Get('directions/:id') @UseGuards(PermissionGuard) @RequirePermissions('directions.read')
   getDirection(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.getDirection(c.tenantId!, id); }
   @Post('directions') @UseGuards(PermissionGuard) @RequirePermissions('directions.write')
@@ -55,6 +61,8 @@ export class MvpController {
 
   @Get('courses') @UseGuards(PermissionGuard) @RequirePermissions('courses.read')
   listCourses(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) { return this.mvpService.listCourses(c.tenantId!, q); }
+  @Get('courses/lookup') @UseGuards(PermissionGuard) @RequirePermissions('courses.read')
+  coursesLookup(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) { return this.mvpService.lookupCourses(c.tenantId!, q); }
   @Get('courses/:id') @UseGuards(PermissionGuard) @RequirePermissions('courses.read')
   getCourse(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.getCourse(c.tenantId!, id); }
   @Post('courses') @UseGuards(PermissionGuard) @RequirePermissions('courses.write')
@@ -93,6 +101,8 @@ export class MvpController {
 
   @Get('groups') @UseGuards(PermissionGuard) @RequirePermissions('groups.read')
   listGroups(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) { return this.mvpService.listGroups(c.tenantId!, q); }
+  @Get('groups/lookup') @UseGuards(PermissionGuard) @RequirePermissions('groups.read')
+  groupsLookup(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) { return this.mvpService.lookupGroups(c.tenantId!, q); }
   @Get('groups/:id') @UseGuards(PermissionGuard) @RequirePermissions('groups.read')
   getGroup(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.getGroup(c.tenantId!, id); }
   @Post('groups') @UseGuards(PermissionGuard) @RequirePermissions('groups.write')
