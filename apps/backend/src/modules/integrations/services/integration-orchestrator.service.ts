@@ -6,7 +6,7 @@ import type { CreateCredentialDto, CreateExportTaskDto, CreateProviderDto, Rotat
 import type { Credential, ExportItem, ExportTask, Provider, SyncLog } from '../integrations.types.js';
 import { IdempotencyService } from './idempotency.service.js';
 import { IntegrationCryptoService } from './integration-crypto.service.js';
-import { ProviderRegistry } from './provider-registry.service.js';
+import { AdapterResolver } from './adapter-resolver.service.js';
 
 interface ListQuery {
   q?: string;
@@ -36,7 +36,7 @@ export class IntegrationOrchestratorService {
   constructor(
     private readonly crypto: IntegrationCryptoService,
     private readonly idempotency: IdempotencyService,
-    private readonly registry: ProviderRegistry,
+    private readonly adapterResolver: AdapterResolver,
     private readonly audit: AuditService,
     private readonly realtime: RealtimeEventsService
   ) {}
@@ -100,7 +100,7 @@ export class IntegrationOrchestratorService {
   async testConnection(tenantId: string, id: string) {
     const credential = this.requireCredential(tenantId, id);
     const provider = this.requireProvider(credential.providerId);
-    const adapter = this.registry.resolve(provider.code);
+    const adapter = this.adapterResolver.resolve(provider.code);
     return adapter.testConnection({ credentials: credential.settingsJsonb });
   }
 
@@ -122,7 +122,7 @@ export class IntegrationOrchestratorService {
       const existing = this.idempotency.get<ExportTask>(key);
       if (existing) return existing;
     }
-    const adapter = this.registry.resolve(dto.providerCode);
+    const adapter = this.adapterResolver.resolve(dto.providerCode);
     const task: ExportTask = { id: this.id('exp'), tenantId, providerCode: dto.providerCode, exportType: dto.exportType, sourceFilterJsonb: dto.sourceFilterJsonb, status: 'queued', requestedBy, requestedAt: new Date().toISOString(), idempotencyKey };
     this.tasks.push(task);
     if (key) this.idempotency.remember(key, task);
@@ -168,6 +168,10 @@ export class IntegrationOrchestratorService {
   byEntity(tenantId: string, entityType: string, entityId: string) { return this.logs.filter((it) => it.tenantId === tenantId && it.entityType === entityType && it.entityId === entityId); }
   byProvider(tenantId: string, providerCode: string) { return this.logs.filter((it) => it.tenantId === tenantId && it.providerCode === providerCode); }
 
+
+  listFailedWebhookLogs(tenantId: string, providerCode?: string) {
+    return this.logs.filter((log) => log.tenantId === tenantId && log.entityType === 'webhook' && log.status === 'error' && (providerCode ? log.providerCode === providerCode : true));
+  }
   appendWebhookLog(tenantId: string, row: Omit<SyncLog, 'id' | 'tenantId' | 'createdAt'>) {
     const log: SyncLog = { ...row, id: this.id('log'), tenantId, createdAt: new Date().toISOString() };
     this.logs.push(log);
