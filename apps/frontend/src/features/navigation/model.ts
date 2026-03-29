@@ -27,6 +27,9 @@ export const routeMeta: RouteMetaEntry[] = [
   { pattern: '/notifications', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/chat', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/settings', meta: { public: false, requiredPermissions: ['iam.manage_roles'] } },
+  { pattern: '/integrations', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  { pattern: '/exports', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  { pattern: '/sync-logs', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/audit', meta: { public: false, requiredPermissions: ['auth.manage_sessions'] } },
   { pattern: '/login', meta: { public: true } },
   { pattern: '/logout', meta: { public: true } },
@@ -45,5 +48,8 @@ export const navigationModel: NavigationItem[] = [
   { href: '/learner/courses', label: 'Мои курсы', requiredPermissions: ['enrollments.read'] },
   { href: '/notifications', label: 'Уведомления', requiredPermissions: ['tenant.read'] },
   { href: '/chat', label: 'Чат', requiredPermissions: ['tenant.read'] },
-  { href: '/audit', label: 'Аудит', requiredPermissions: ['auth.manage_sessions'] }
+  { href: '/audit', label: 'Аудит', requiredPermissions: ['auth.manage_sessions'] },
+  { href: '/integrations', label: 'Интеграции', requiredPermissions: ['tenant.read'] },
+  { href: '/exports', label: 'Экспорты', requiredPermissions: ['tenant.read'] },
+  { href: '/sync-logs', label: 'Sync logs', requiredPermissions: ['tenant.read'] },
 ];
