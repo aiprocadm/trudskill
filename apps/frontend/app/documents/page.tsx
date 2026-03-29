@@ -1,19 +1,40 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 import { DataTable, StatusChip } from '@cdoprof/ui';
 import { PageContainer, PageHeader, SectionCard } from '../../src/components/state-wrappers';
+import { useTaskRealtime } from '../../src/features/communication/hooks';
 
 const templates = [
   { name: 'Договор на обучение', type: 'contract', status: 'active', currentVersion: 'v3', updatedAt: '2026-03-26' },
   { name: 'Акт оказания услуг', type: 'act', status: 'archived', currentVersion: 'v1', updatedAt: '2026-03-20' }
 ];
 
-const tasks = [
-  { id: 'task_1', status: 'queued', source: 'group:g-12' },
-  { id: 'task_2', status: 'running', source: 'learner:l-7' },
-  { id: 'task_3', status: 'completed', source: 'group:g-14' }
+const defaultTasks = [
+  { id: 'tenant_demo-task_1', status: 'queued', source: 'group:g-12' },
+  { id: 'tenant_demo-task_2', status: 'running', source: 'learner:l-7' },
+  { id: 'tenant_demo-task_3', status: 'completed', source: 'group:g-14' }
 ];
 
 export default function DocumentsPage() {
+  const [tasks, setTasks] = useState(defaultTasks);
+
+  useTaskRealtime(tasks[0]?.id, () => {
+    setTasks((current) => current.map((item) => (item.status === 'queued' ? { ...item, status: 'running' } : item)));
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTasks((current) =>
+        current.map((item) =>
+          item.status === 'running' ? { ...item, status: 'completed' } : item.status === 'queued' ? { ...item, status: 'running' } : item
+        )
+      );
+    }, 8000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <ProtectedPage>
       <PageContainer>
@@ -35,7 +56,7 @@ export default function DocumentsPage() {
           </div>
         </SectionCard>
 
-        <SectionCard title="Статусы async задач">
+        <SectionCard title="Статусы async задач (live foundation)">
           <DataTable
             columns={[
               { key: 'id', title: 'Task ID' },

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { realtimeCatalog } from '@cdoprof/api-contracts';
 
 describe('realtime', () => {
-  it('smoke', () => {
-    expect(1 + 1).toBe(2);
+  it('contains mandatory event names', () => {
+    expect(realtimeCatalog.asyncTaskStatusChanged).toBe('async_task.status_changed');
   });
 });

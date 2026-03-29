@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { AuditService } from '../audit/audit.service.js';
 import { DocumentsService } from './documents.service.js';
+import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
 const ctx = {
   requestId: 'r1',
@@ -18,7 +19,7 @@ const ctx = {
 
 describe('DocumentsService', () => {
   it('keeps generation idempotent by key', () => {
-    const service = new DocumentsService(new AuditService());
+    const service = new DocumentsService(new AuditService(), new RealtimeEventsService());
     const template = service.createTemplate('t1', 'u1', { name: 'Tpl', templateType: 'contract' }, ctx);
     const version = service.createTemplateVersion('t1', 'u1', { templateId: template.id, fileId: 'file_1' });
     service.activateTemplateVersion('t1', version.id);
@@ -43,7 +44,7 @@ describe('DocumentsService', () => {
   });
 
   it('creates unique reservations', () => {
-    const service = new DocumentsService(new AuditService());
+    const service = new DocumentsService(new AuditService(), new RealtimeEventsService());
     service.createNumberingRule('t1', { documentType: 'default', prefix: 'DOC-', suffix: '', pattern: '{prefix}{counter}{suffix}' });
     const a = service.reserveNumber('t1', 'default');
     const b = service.reserveNumber('t1', 'default');
@@ -53,13 +54,13 @@ describe('DocumentsService', () => {
   });
 
   it('prevents cross-tenant access', () => {
-    const service = new DocumentsService(new AuditService());
+    const service = new DocumentsService(new AuditService(), new RealtimeEventsService());
     const template = service.createTemplate('tenant-a', 'u1', { name: 'T', templateType: 'x' }, ctx);
     expect(() => service.getTemplate('tenant-b', template.id)).toThrowError();
   });
 
   it('does not allow generation from archived template', () => {
-    const service = new DocumentsService(new AuditService());
+    const service = new DocumentsService(new AuditService(), new RealtimeEventsService());
     const template = service.createTemplate('t1', 'u1', { name: 'Tpl', templateType: 'contract' }, ctx);
     service.archiveTemplate('t1', 'u1', template.id, ctx);
 
@@ -75,7 +76,7 @@ describe('DocumentsService', () => {
   });
 
   it('supports failed -> queued retry transition', () => {
-    const service = new DocumentsService(new AuditService());
+    const service = new DocumentsService(new AuditService(), new RealtimeEventsService());
     const template = service.createTemplate('t1', 'u1', { name: 'Tpl', templateType: 'contract' }, ctx);
     const version = service.createTemplateVersion('t1', 'u1', { templateId: template.id, fileId: 'file_1' });
     service.activateTemplateVersion('t1', version.id);
@@ -95,7 +96,7 @@ describe('DocumentsService', () => {
   });
 
   it('keeps finalized documents immutable for finalize after archive', () => {
-    const service = new DocumentsService(new AuditService());
+    const service = new DocumentsService(new AuditService(), new RealtimeEventsService());
     service.createNumberingRule('t1', { documentType: 'default' });
     const template = service.createTemplate('t1', 'u1', { name: 'Tpl', templateType: 'contract' }, ctx);
     const version = service.createTemplateVersion('t1', 'u1', { templateId: template.id, fileId: 'file_1' });
@@ -114,7 +115,7 @@ describe('DocumentsService', () => {
   });
 
   it('validates supported template variable categories', () => {
-    const service = new DocumentsService(new AuditService());
+    const service = new DocumentsService(new AuditService(), new RealtimeEventsService());
     const template = service.createTemplate('t1', 'u1', { name: 'Tpl', templateType: 'contract' }, ctx);
     const version = service.createTemplateVersion('t1', 'u1', { templateId: template.id, fileId: 'file_1' });
 
@@ -130,7 +131,7 @@ describe('DocumentsService', () => {
   });
 
   it('marks number reservation as failed when task fails after start', () => {
-    const service = new DocumentsService(new AuditService());
+    const service = new DocumentsService(new AuditService(), new RealtimeEventsService());
     service.createNumberingRule('t1', { documentType: 'default', prefix: 'DOC-' });
     const template = service.createTemplate('t1', 'u1', { name: 'Tpl', templateType: 'contract' }, ctx);
     const version = service.createTemplateVersion('t1', 'u1', { templateId: template.id, fileId: 'file_1' });
@@ -150,7 +151,7 @@ describe('DocumentsService', () => {
   });
 
   it('resolves variables with snapshot and required validation', () => {
-    const service = new DocumentsService(new AuditService());
+    const service = new DocumentsService(new AuditService(), new RealtimeEventsService());
     const template = service.createTemplate('t1', 'u1', { name: 'Tpl', templateType: 'contract' }, ctx);
     const version = service.createTemplateVersion('t1', 'u1', {
       templateId: template.id,
