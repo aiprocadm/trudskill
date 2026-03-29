@@ -10,6 +10,7 @@ import { InfrastructureModule } from './infrastructure/infrastructure.module.js'
 import { DocumentsModule } from './modules/documents/documents.module.js';
 import { CommunicationModule } from './modules/communication/communication.module.js';
 import { IntegrationsModule } from './modules/integrations/integrations.module.js';
+import { EsignModule } from './modules/esign/esign.module.js';
 
 @Module({
   imports: [
@@ -23,7 +24,8 @@ import { IntegrationsModule } from './modules/integrations/integrations.module.j
     MvpModule,
     DocumentsModule,
     CommunicationModule,
-    IntegrationsModule
+    IntegrationsModule,
+    EsignModule
   ]
 })
 export class AppModule {}
