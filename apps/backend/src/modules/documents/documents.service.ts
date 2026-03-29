@@ -1,5 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service.js';
+import { RealtimeEventsService } from '../core/realtime-events.service.js';
+import { realtimeCatalog } from '@cdoprof/api-contracts';
 import type { RequestContext } from '../../common/context/request-context.js';
 import type {
   DocumentGenerationTaskEntity,
@@ -48,7 +50,7 @@ export class DocumentsService {
   private reservations: NumberReservationEntity[] = [];
   private idem = new Map<string, string>();
 
-  constructor(private readonly auditService: AuditService) {}
+  constructor(private readonly auditService: AuditService, private readonly realtimeEvents: RealtimeEventsService) {}
 
   listTemplates(tenantId: string, query: BaseFilter) { return this.page(this.templates.filter((x) => x.tenantId === tenantId), query); }
   createTemplate(tenantId: string, actorId: string | undefined, req: CreateTemplateRequest, ctx: RequestContext) {
@@ -178,6 +180,7 @@ export class DocumentsService {
     const task = this.getDocumentTask(tenantId, id);
     if (task.status !== 'failed') throw new BadRequestException('Retry allowed only for failed tasks');
     task.status = 'queued';
+    this.publishTaskEvent(task);
     task.errorMessage = undefined;
     task.startedAt = undefined;
     task.finishedAt = undefined;
@@ -236,6 +239,7 @@ export class DocumentsService {
     };
     this.generatedDocuments.push(generated);
     task.status = 'completed';
+    this.publishTaskEvent(task);
     task.finishedAt = this.now();
     task.generatedDocumentId = generated.id;
     reserved.status = 'used';
@@ -248,6 +252,7 @@ export class DocumentsService {
     if (task.status === 'completed' || task.status === 'failed') throw new BadRequestException('Terminal task cannot be started');
     if (task.status === 'running') return task;
     task.status = 'running';
+    this.publishTaskEvent(task);
     task.startedAt = task.startedAt ?? this.now();
     if (!task.numberReservationId) {
       task.numberReservationId = this.reserveNumber(tenantId, task.documentType).id;
@@ -258,6 +263,7 @@ export class DocumentsService {
     const task = this.getDocumentTask(tenantId, id);
     if (task.status === 'completed') throw new BadRequestException('Completed task cannot be failed');
     task.status = 'failed';
+    this.publishTaskEvent(task);
     task.errorMessage = message;
     task.finishedAt = this.now();
     if (task.numberReservationId) {
@@ -388,6 +394,17 @@ export class DocumentsService {
   }
   private id(prefix: string) { return `${prefix}_${Math.random().toString(36).slice(2, 10)}`; }
   private now() { return new Date().toISOString(); }
+
+  private publishTaskEvent(task: DocumentGenerationTaskEntity) {
+    this.realtimeEvents.publish({
+      event_name: realtimeCatalog.asyncTaskStatusChanged,
+      version: 'v1',
+      tenant_id: task.tenantId,
+      occurred_at: this.now(),
+      payload: { task_id: task.id, status: task.status, source: task.sourceEntityType }
+    });
+  }
+
   private validateBindingPayload(bindType: 'direction' | 'course' | 'group', directionId?: string, courseId?: string, groupId?: string) {
     if (bindType === 'direction' && !directionId) throw new BadRequestException('directionId is required for direction binding');
     if (bindType === 'course' && !courseId) throw new BadRequestException('courseId is required for course binding');

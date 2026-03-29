@@ -1,0 +1,40 @@
+import { Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
+import type { RequestContext } from '../../common/context/request-context.js';
+import { TenantGuard } from '../../common/guards/tenant.guard.js';
+import { NotificationsService } from './notifications.service.js';
+
+@Controller('notifications')
+@UseGuards(TenantGuard)
+export class NotificationsController {
+  constructor(private readonly service: NotificationsService) {
+    if (this.service.unreadCounter('seed', 'seed') === 0) {
+      this.service.create({ tenantId: 'tenant_demo', recipientUserId: 'user_demo', channelCode: 'in_app', subjectText: 'Добро пожаловать', bodyText: 'Notification center initialized.' });
+    }
+  }
+
+  @Get()
+  list(@CurrentContext() ctx: RequestContext, @Query() query: Record<string, string | undefined>) {
+    return this.service.list(ctx.tenantId!, ctx.userId, query);
+  }
+
+  @Get('unread-counter')
+  unread(@CurrentContext() ctx: RequestContext) {
+    return { count: this.service.unreadCounter(ctx.tenantId!, ctx.userId) };
+  }
+
+  @Get(':id')
+  details(@CurrentContext() ctx: RequestContext, @Param('id') id: string) {
+    return this.service.get(ctx.tenantId!, id, ctx.userId);
+  }
+
+  @Post(':id/read')
+  markRead(@CurrentContext() ctx: RequestContext, @Param('id') id: string) {
+    return this.service.read(ctx.tenantId!, id, ctx.userId);
+  }
+
+  @Post('read-all')
+  markAll(@CurrentContext() ctx: RequestContext) {
+    return this.service.readAll(ctx.tenantId!, ctx.userId);
+  }
+}

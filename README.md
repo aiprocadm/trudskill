@@ -93,3 +93,11 @@ pnpm contracts:generate
 ## Вклад в репозиторий
 
 Перед изменениями прочитайте `CONTRIBUTING.md`.
+
+## Communication + Realtime foundation (Stage 10)
+
+- Добавлено доменное ядро `communication` в backend (`notifications`, `chat`, `webinars`) c tenant-aware REST endpoints.
+- Добавлен realtime runtime `apps/realtime` как отдельный gateway-контур с room-моделью (`user:*`, `tenant:*`, `task:*`, `dialog:*`, `webinar:*`), heartbeat и room access enforcement.
+- Введен typed event envelope в `@cdoprof/api-contracts` и базовый каталог событий `async_task.status_changed`, `notification.created`, `chat.message.created`.
+- Async document tasks публикуют realtime domain events через общий `RealtimeEventsService`.
+- Frontend получил foundation-слой realtime hooks (`useNotificationsRealtime`, `useTaskRealtime`, `useChatRealtime`) и базовые UI-экраны Notification Center + Chat Shell.

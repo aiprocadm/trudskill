@@ -1,13 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import type { PropsWithChildren } from 'react';
+import { useEffect, useState, type PropsWithChildren } from 'react';
 import { getVisibleNavigation } from '../../features/navigation/helpers';
 import { useAuth } from '../../features/auth/context';
+import { communicationApi, useNotificationsRealtime } from '../../features/communication/hooks';
 
 export const AppShell = ({ children }: PropsWithChildren) => {
   const { session, logout } = useAuth();
   const nav = getVisibleNavigation(session);
+  const [unread, setUnread] = useState(0);
+  const refreshUnread = () => session && communicationApi.unreadCounter(session).then((r) => setUnread(r.count));
+
+  useEffect(() => {
+    void refreshUnread();
+  }, [session]);
+
+  useNotificationsRealtime(() => void refreshUnread());
 
   return (
     <div style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: '240px 1fr' }}>
@@ -25,7 +34,7 @@ export const AppShell = ({ children }: PropsWithChildren) => {
         <header style={{ borderBottom: '1px solid #e4e4e7', display: 'flex', justifyContent: 'space-between', padding: '0 16px', alignItems: 'center' }}>
           <div>Breadcrumbs placeholder</div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span>Notifications placeholder</span>
+            <Link href="/notifications">Notifications ({unread})</Link>
             <span>{session?.user.displayName}</span>
             <button type="button" onClick={() => logout()}>
               Выйти

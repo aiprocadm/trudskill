@@ -24,6 +24,8 @@ export const routeMeta: RouteMetaEntry[] = [
   { pattern: '/assessment', meta: { public: false, requiredPermissions: ['assessment.tests.read'] } },
   { pattern: '/learner/courses', meta: { public: false, requiredPermissions: ['enrollments.read'] } },
   { pattern: '/documents', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  { pattern: '/notifications', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  { pattern: '/chat', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/settings', meta: { public: false, requiredPermissions: ['iam.manage_roles'] } },
   { pattern: '/audit', meta: { public: false, requiredPermissions: ['auth.manage_sessions'] } },
   { pattern: '/login', meta: { public: true } },
@@ -41,5 +43,7 @@ export const navigationModel: NavigationItem[] = [
   { href: '/groups', label: 'Группы', requiredPermissions: ['groups.read'] },
   { href: '/assessment', label: 'Assessment', requiredPermissions: ['assessment.tests.read'] },
   { href: '/learner/courses', label: 'Мои курсы', requiredPermissions: ['enrollments.read'] },
+  { href: '/notifications', label: 'Уведомления', requiredPermissions: ['tenant.read'] },
+  { href: '/chat', label: 'Чат', requiredPermissions: ['tenant.read'] },
   { href: '/audit', label: 'Аудит', requiredPermissions: ['auth.manage_sessions'] }
 ];
