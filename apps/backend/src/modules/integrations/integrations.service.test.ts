@@ -37,8 +37,19 @@ describe('integration foundation services', () => {
     const { service } = build();
     await service.createExportTask('tenant_a', 'u1', { providerCode: 'frdo', exportType: 'learners', sourceFilterJsonb: { groupId: 'g1' } }, 'idem-1');
     const second = await service.createExportTask('tenant_a', 'u1', { providerCode: 'frdo', exportType: 'learners', sourceFilterJsonb: { groupId: 'g1' } }, 'idem-1');
-    expect(service.listTasks('tenant_a')).toHaveLength(1);
-    expect(second.id).toBe(service.listTasks('tenant_a')[0]?.id);
+    const tasks = service.listTasks('tenant_a');
+    expect(tasks.items).toHaveLength(1);
+    expect(second.id).toBe(tasks.items[0]?.id);
+  });
+
+  it('supports list pagination envelopes for registries', async () => {
+    const { service } = build();
+    service.createProvider({ code: 'frdo', name: 'FRDO', providerType: 'frdo', isActive: true });
+    service.createProvider({ code: 'email', name: 'Email', providerType: 'email', isActive: true });
+    const providersPage = service.listProviders({ page: '1', page_size: '1' });
+    expect(providersPage.total).toBe(2);
+    expect(providersPage.items).toHaveLength(1);
+    expect(providersPage.pageSize).toBe(1);
   });
 
   it('validates webhook signature when secret is configured', () => {

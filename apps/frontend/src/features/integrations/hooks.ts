@@ -12,9 +12,9 @@ const useLoad = <T,>(path: string, deps: unknown[] = []) => {
     setLoading(true);
     setError(null);
     apiClient
-      .get<T>(path)
+      .get<{ items: T }>(path)
       .then((result) => {
-        if (active) setData(result);
+        if (active) setData(result.items);
       })
       .catch((err: unknown) => {
         if (active) setError(err instanceof Error ? err.message : 'Ошибка API');
