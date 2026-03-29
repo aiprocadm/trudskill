@@ -3,7 +3,8 @@ export const mvpDomainSchemas = [
   'learning',
   'assessment',
   'documents',
-  'storage'
+  'storage',
+  'esign'
 ] as const;
 
 export const mvpDomainTables = {
@@ -48,7 +49,8 @@ export const mvpDomainTables = {
     'numbering_rules',
     'number_reservations'
   ],
-  storage: ['files', 'file_links']
+  storage: ['files', 'file_links'],
+  esign: ['esign_applications', 'esign_application_files', 'signing_processes', 'signing_participants', 'signature_events', 'legal_log_entries']
 } as const;
 
 export const mvpDomainTableList = Object.entries(mvpDomainTables).flatMap(([schema, tables]) =>
