@@ -8,27 +8,18 @@ import { ProctoringAdapter } from './adapters/proctoring.adapter.js';
 import { WebinarAdapter } from './adapters/webinar.adapter.js';
 import { ExportsController, IntegrationsController, SyncLogsController } from './integrations.controller.js';
 import { WebhooksController } from './webhooks/webhooks.controller.js';
-import { IdempotencyService } from './services/idempotency.service.js';
-import { IntegrationCryptoService } from './services/integration-crypto.service.js';
 import { IntegrationOrchestratorService } from './services/integration-orchestrator.service.js';
 import { ProviderRegistry } from './services/provider-registry.service.js';
-import { WebhookSignatureVerifier } from './services/webhook-signature-verifier.service.js';
+import { CredentialsModule } from './modules/credentials.module.js';
+import { ExportsModule } from './modules/exports.module.js';
+import { ProvidersModule } from './modules/providers.module.js';
+import { SyncLogsModule } from './modules/sync-logs.module.js';
+import { WebhooksModule } from './modules/webhooks.module.js';
 
 @Module({
-  imports: [AuditModule, CoreModule],
+  imports: [AuditModule, CoreModule, ProvidersModule, CredentialsModule, ExportsModule, SyncLogsModule, WebhooksModule],
   controllers: [IntegrationsController, ExportsController, SyncLogsController, WebhooksController],
-  providers: [
-    IntegrationOrchestratorService,
-    ProviderRegistry,
-    IdempotencyService,
-    IntegrationCryptoService,
-    WebhookSignatureVerifier,
-    FrdoAdapter,
-    EisotAdapter,
-    EmailAdapter,
-    WebinarAdapter,
-    ProctoringAdapter
-  ],
+  providers: [IntegrationOrchestratorService],
   exports: [IntegrationOrchestratorService]
 })
 export class IntegrationsModule implements OnModuleInit {

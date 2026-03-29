@@ -6,7 +6,7 @@ import { WebhookDto } from '../dto/integrations.dto.js';
 import { IntegrationOrchestratorService } from '../services/integration-orchestrator.service.js';
 import { IdempotencyService } from '../services/idempotency.service.js';
 import { IntegrationCryptoService } from '../services/integration-crypto.service.js';
-import { ProviderRegistry } from '../services/provider-registry.service.js';
+import { AdapterResolver } from '../services/adapter-resolver.service.js';
 import { WebhookSignatureVerifier } from '../services/webhook-signature-verifier.service.js';
 
 @Controller('webhooks')
@@ -14,7 +14,7 @@ import { WebhookSignatureVerifier } from '../services/webhook-signature-verifier
 export class WebhooksController {
   constructor(
     private readonly orchestrator: IntegrationOrchestratorService,
-    private readonly registry: ProviderRegistry,
+    private readonly adapterResolver: AdapterResolver,
     private readonly verifier: WebhookSignatureVerifier,
     private readonly idempotency: IdempotencyService,
     private readonly crypto: IntegrationCryptoService
@@ -23,6 +23,16 @@ export class WebhooksController {
   @Post(':providerCode')
   handle(@CurrentContext() ctx: RequestContext, @Param('providerCode') providerCode: string, @Body() body: WebhookDto, @Headers('x-signature') signature?: string) {
     return this.process(ctx, providerCode, body.eventType ?? 'default', body, signature);
+  }
+
+  @Post('reprocess-failed')
+  reprocessFailed(@CurrentContext() ctx: RequestContext, @Body('providerCode') providerCode?: string) {
+    const failed = this.orchestrator.listFailedWebhookLogs(ctx.tenantId!, providerCode);
+    this.orchestrator.publishIntegrationEvent(ctx.tenantId!, 'integration.webhook.reprocess_requested', {
+      provider_code: providerCode ?? 'all',
+      failed_count: failed.length
+    });
+    return { accepted: true, queued: failed.length };
   }
 
   @Post(':providerCode/:eventType')
@@ -48,7 +58,7 @@ export class WebhooksController {
       });
       return { accepted: true, duplicate: true };
     }
-    const adapter = this.registry.resolve(providerCode);
+    const adapter = this.adapterResolver.resolve(providerCode);
     const payload = body.payload ?? {};
     try {
       const result = await adapter.handleWebhook({ eventType, payload });

@@ -7,13 +7,15 @@ import { IdempotencyService } from '../services/idempotency.service.js';
 import { IntegrationCryptoService } from '../services/integration-crypto.service.js';
 import { IntegrationOrchestratorService } from '../services/integration-orchestrator.service.js';
 import { ProviderRegistry } from '../services/provider-registry.service.js';
+import { AdapterResolver } from '../services/adapter-resolver.service.js';
 import { WebhookSignatureVerifier } from '../services/webhook-signature-verifier.service.js';
 
 const build = () => {
   const registry = new ProviderRegistry();
   registry.register(new FrdoAdapter());
-  const orchestrator = new IntegrationOrchestratorService(new IntegrationCryptoService(), new IdempotencyService(), registry, new AuditService(), new RealtimeEventsService());
-  const controller = new WebhooksController(orchestrator, registry, new WebhookSignatureVerifier(), new IdempotencyService(), new IntegrationCryptoService());
+  const resolver = new AdapterResolver(registry);
+  const orchestrator = new IntegrationOrchestratorService(new IntegrationCryptoService(), new IdempotencyService(), resolver, new AuditService(), new RealtimeEventsService());
+  const controller = new WebhooksController(orchestrator, resolver, new WebhookSignatureVerifier(), new IdempotencyService(), new IntegrationCryptoService());
   return { controller, orchestrator };
 };
 

@@ -7,6 +7,7 @@ import { IdempotencyService } from './services/idempotency.service.js';
 import { IntegrationCryptoService } from './services/integration-crypto.service.js';
 import { IntegrationOrchestratorService } from './services/integration-orchestrator.service.js';
 import { ProviderRegistry } from './services/provider-registry.service.js';
+import { AdapterResolver } from './services/adapter-resolver.service.js';
 import { WebhookSignatureVerifier } from './services/webhook-signature-verifier.service.js';
 
 const ctx = { tenantId: 'tenant_a', userId: 'u1', requestId: 'r1', correlationId: 'c1', ip: '127.0.0.1', userAgent: 'vitest', roles: [], permissions: [], method: 'POST', path: '/x', timestamp: new Date().toISOString() };
@@ -15,7 +16,7 @@ const build = () => {
   const registry = new ProviderRegistry();
   registry.register(new FrdoAdapter());
   registry.register(new EmailAdapter());
-  const service = new IntegrationOrchestratorService(new IntegrationCryptoService(), new IdempotencyService(), registry, new AuditService(), new RealtimeEventsService());
+  const service = new IntegrationOrchestratorService(new IntegrationCryptoService(), new IdempotencyService(), new AdapterResolver(registry), new AuditService(), new RealtimeEventsService());
   return { service, registry };
 };
 
