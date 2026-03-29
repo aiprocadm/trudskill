@@ -38,7 +38,8 @@ describe('SQL migration chain', () => {
     expect(migrationFiles).toEqual([
       '0001_backend_foundation.sql',
       '0002_mvp_domain_model.sql',
-      '0003_mvp_domain_integrity_hardening.sql'
+      '0003_mvp_domain_integrity_hardening.sql',
+      '0004_mvp_esign_domain.sql'
     ]);
   });
 
@@ -131,6 +132,15 @@ describe('schema integrity constraints', () => {
     expectSqlContains(/CONSTRAINT\s+study_groups_tenant_code_uniq\s+UNIQUE\s*\(tenant_id,\s*code\)/i, 'missing study_groups tenant code uniqueness');
     expectSqlContains(/CONSTRAINT\s+tests_tenant_code_uniq\s+UNIQUE\s*\(tenant_id,\s*code\)/i, 'missing tests tenant code uniqueness');
     expectSqlContains(/CONSTRAINT\s+templates_tenant_code_uniq\s+UNIQUE\s*\(tenant_id,\s*code\)/i, 'missing templates tenant code uniqueness');
+  });
+
+
+  it('enforces e-sign domain invariants and append-only logs', () => {
+    expectSqlContains(/CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+esign\.esign_applications/i, 'missing esign applications table');
+    expectSqlContains(/CONSTRAINT\s+signing_participants_signed_at_chk\s+CHECK\s*\(status\s*<>\s*'signed'\s+OR\s+signed_at\s+IS\s+NOT\s+NULL\)/i, 'missing signed_at invariant for participant signed status');
+    expectSqlContains(/CREATE\s+UNIQUE\s+INDEX\s+IF\s+NOT\s+EXISTS\s+signing_processes_tenant_signed_document_uniq/i, 'missing uniqueness for final signed artifact per generated document');
+    expectSqlContains(/CREATE\s+TRIGGER\s+legal_log_entries_no_update\s+BEFORE\s+UPDATE\s+OR\s+DELETE\s+ON\s+esign\.legal_log_entries/i, 'missing legal log append-only trigger');
+    expectSqlContains(/CREATE\s+TRIGGER\s+signature_events_no_update\s+BEFORE\s+UPDATE\s+OR\s+DELETE\s+ON\s+esign\.signature_events/i, 'missing signature events append-only trigger');
   });
 
   it('keeps storage metadata-only model with polymorphic links', () => {
