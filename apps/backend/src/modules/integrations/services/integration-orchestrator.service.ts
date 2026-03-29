@@ -8,6 +8,22 @@ import { IdempotencyService } from './idempotency.service.js';
 import { IntegrationCryptoService } from './integration-crypto.service.js';
 import { ProviderRegistry } from './provider-registry.service.js';
 
+interface ListQuery {
+  q?: string;
+  status?: string;
+  created_from?: string;
+  created_to?: string;
+  page?: string;
+  page_size?: string;
+}
+
+interface PaginatedResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 @Injectable()
 export class IntegrationOrchestratorService {
   private providers: Provider[] = [];
@@ -24,7 +40,12 @@ export class IntegrationOrchestratorService {
     private readonly realtime: RealtimeEventsService
   ) {}
 
-  listProviders() { return this.providers; }
+  listProviders(query?: ListQuery) {
+    return this.paginate(
+      this.providers.filter((item) => this.matchesText(item, query?.q)),
+      query
+    );
+  }
   getProvider(id: string) { return this.providers.find((item) => item.id === id) ?? null; }
   createProvider(dto: CreateProviderDto): Provider {
     const row: Provider = { id: this.id('prov'), code: dto.code, name: dto.name, providerType: dto.providerType, isActive: dto.isActive ?? true };
@@ -37,7 +58,15 @@ export class IntegrationOrchestratorService {
     return row;
   }
 
-  listCredentials(tenantId: string) { return this.credentials.filter((item) => item.tenantId === tenantId).map((item) => this.maskCredential(item)); }
+  listCredentials(tenantId: string, query?: ListQuery) {
+    const rows = this.credentials
+      .filter((item) => item.tenantId === tenantId)
+      .filter((item) => this.matchesText(item, query?.q))
+      .filter((item) => (query?.status ? item.status === query.status : true))
+      .map((item) => this.maskCredential(item));
+
+    return this.paginate(rows, query);
+  }
   getCredential(tenantId: string, id: string) { return this.maskCredential(this.requireCredential(tenantId, id)); }
   createCredential(tenantId: string, dto: CreateCredentialDto, ctx: RequestContext) {
     const row: Credential = {
@@ -70,7 +99,14 @@ export class IntegrationOrchestratorService {
     return adapter.testConnection({ credentials: credential.settingsJsonb });
   }
 
-  listTasks(tenantId: string) { return this.tasks.filter((item) => item.tenantId === tenantId); }
+  listTasks(tenantId: string, query?: ListQuery) {
+    const rows = this.tasks
+      .filter((item) => item.tenantId === tenantId)
+      .filter((item) => this.matchesText(item, query?.q))
+      .filter((item) => (query?.status ? item.status === query.status : true))
+      .filter((item) => this.inDateRange(item.requestedAt, query));
+    return this.paginate(rows, query);
+  }
   getTask(tenantId: string, id: string) { return this.requireTask(tenantId, id); }
   getTaskItems(tenantId: string, taskId: string) { this.requireTask(tenantId, taskId); return this.items.filter((item) => item.tenantId === tenantId && item.taskId === taskId); }
   getItem(tenantId: string, id: string) { const row = this.items.find((it) => it.id === id && it.tenantId === tenantId); if (!row) throw new NotFoundException({ code: 'not_found', message: 'Export item not found' }); return row; }
@@ -115,7 +151,14 @@ export class IntegrationOrchestratorService {
     task.status = 'cancelled'; task.finishedAt = new Date().toISOString(); return task;
   }
 
-  listSyncLogs(tenantId: string) { return this.logs.filter((item) => item.tenantId === tenantId); }
+  listSyncLogs(tenantId: string, query?: ListQuery) {
+    const rows = this.logs
+      .filter((item) => item.tenantId === tenantId)
+      .filter((item) => this.matchesText(item, query?.q))
+      .filter((item) => (query?.status ? item.status === query.status : true))
+      .filter((item) => this.inDateRange(item.createdAt, query));
+    return this.paginate(rows, query);
+  }
   getSyncLog(tenantId: string, id: string) { const row = this.logs.find((it) => it.id === id && it.tenantId === tenantId); if (!row) throw new NotFoundException({ code: 'not_found', message: 'Sync log not found' }); return row; }
   byEntity(tenantId: string, entityType: string, entityId: string) { return this.logs.filter((it) => it.tenantId === tenantId && it.entityType === entityType && it.entityId === entityId); }
   byProvider(tenantId: string, providerCode: string) { return this.logs.filter((it) => it.tenantId === tenantId && it.providerCode === providerCode); }
@@ -133,4 +176,22 @@ export class IntegrationOrchestratorService {
     return { ...item, secretMasked: this.crypto.maskSecret(this.crypto.decrypt(item.secretEncrypted)), secretEncrypted: undefined };
   }
   private id(prefix: string) { return `${prefix}_${Math.random().toString(36).slice(2, 11)}`; }
+  private matchesText(item: Record<string, unknown>, query?: string) {
+    if (!query) return true;
+    const serialized = JSON.stringify(item).toLowerCase();
+    return serialized.includes(query.toLowerCase());
+  }
+  private inDateRange(isoDate: string, query?: ListQuery) {
+    if (!query?.created_from && !query?.created_to) return true;
+    const date = new Date(isoDate).getTime();
+    const from = query.created_from ? new Date(query.created_from).getTime() : Number.NEGATIVE_INFINITY;
+    const to = query.created_to ? new Date(query.created_to).getTime() : Number.POSITIVE_INFINITY;
+    return date >= from && date <= to;
+  }
+  private paginate<T>(items: T[], query?: ListQuery): PaginatedResult<T> {
+    const page = Math.max(1, Number(query?.page ?? 1));
+    const pageSize = Math.max(1, Number(query?.page_size ?? 20));
+    const start = (page - 1) * pageSize;
+    return { items: items.slice(start, start + pageSize), total: items.length, page, pageSize };
+  }
 }
