@@ -52,6 +52,18 @@ describe('integration foundation services', () => {
     expect(providersPage.pageSize).toBe(1);
   });
 
+
+  it('supports sorting for registry responses', () => {
+    const { service } = build();
+    service.createProvider({ code: 'webinar', name: 'Webinar', providerType: 'webinar', isActive: true });
+    service.createProvider({ code: 'email', name: 'Email', providerType: 'email', isActive: true });
+    const asc = service.listProviders({ sort: 'code' });
+    const desc = service.listProviders({ sort: '-code' });
+
+    expect(asc.items[0]?.code).toBe('email');
+    expect(desc.items[0]?.code).toBe('webinar');
+  });
+
   it('validates webhook signature when secret is configured', () => {
     const verifier = new WebhookSignatureVerifier();
     expect(() => verifier.verify('abc', 'abc')).not.toThrow();
