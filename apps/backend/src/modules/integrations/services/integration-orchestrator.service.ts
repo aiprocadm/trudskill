@@ -13,6 +13,7 @@ interface ListQuery {
   status?: string;
   created_from?: string;
   created_to?: string;
+  sort?: string;
   page?: string;
   page_size?: string;
 }
@@ -41,8 +42,12 @@ export class IntegrationOrchestratorService {
   ) {}
 
   listProviders(query?: ListQuery) {
-    return this.paginate(
+    const sorted = this.sortItems(
       this.providers.filter((item) => this.matchesText(item, query?.q)),
+      query?.sort
+    );
+    return this.paginate(
+      sorted,
       query
     );
   }
@@ -65,7 +70,7 @@ export class IntegrationOrchestratorService {
       .filter((item) => (query?.status ? item.status === query.status : true))
       .map((item) => this.maskCredential(item));
 
-    return this.paginate(rows, query);
+    return this.paginate(this.sortItems(rows, query?.sort), query);
   }
   getCredential(tenantId: string, id: string) { return this.maskCredential(this.requireCredential(tenantId, id)); }
   createCredential(tenantId: string, dto: CreateCredentialDto, ctx: RequestContext) {
@@ -105,7 +110,7 @@ export class IntegrationOrchestratorService {
       .filter((item) => this.matchesText(item, query?.q))
       .filter((item) => (query?.status ? item.status === query.status : true))
       .filter((item) => this.inDateRange(item.requestedAt, query));
-    return this.paginate(rows, query);
+    return this.paginate(this.sortItems(rows, query?.sort), query);
   }
   getTask(tenantId: string, id: string) { return this.requireTask(tenantId, id); }
   getTaskItems(tenantId: string, taskId: string) { this.requireTask(tenantId, taskId); return this.items.filter((item) => item.tenantId === tenantId && item.taskId === taskId); }
@@ -157,7 +162,7 @@ export class IntegrationOrchestratorService {
       .filter((item) => this.matchesText(item, query?.q))
       .filter((item) => (query?.status ? item.status === query.status : true))
       .filter((item) => this.inDateRange(item.createdAt, query));
-    return this.paginate(rows, query);
+    return this.paginate(this.sortItems(rows, query?.sort), query);
   }
   getSyncLog(tenantId: string, id: string) { const row = this.logs.find((it) => it.id === id && it.tenantId === tenantId); if (!row) throw new NotFoundException({ code: 'not_found', message: 'Sync log not found' }); return row; }
   byEntity(tenantId: string, entityType: string, entityId: string) { return this.logs.filter((it) => it.tenantId === tenantId && it.entityType === entityType && it.entityId === entityId); }
@@ -167,6 +172,16 @@ export class IntegrationOrchestratorService {
     const log: SyncLog = { ...row, id: this.id('log'), tenantId, createdAt: new Date().toISOString() };
     this.logs.push(log);
     return log;
+  }
+
+  publishIntegrationEvent(tenantId: string, eventName: string, payload: Record<string, unknown>) {
+    this.realtime.publish({
+      event_name: eventName,
+      version: 'v1',
+      tenant_id: tenantId,
+      occurred_at: new Date().toISOString(),
+      payload
+    });
   }
 
   private requireProvider(id: string) { const row = this.getProvider(id); if (!row) throw new NotFoundException({ code: 'not_found', message: 'Provider not found' }); return row; }
@@ -193,5 +208,20 @@ export class IntegrationOrchestratorService {
     const pageSize = Math.max(1, Number(query?.page_size ?? 20));
     const start = (page - 1) * pageSize;
     return { items: items.slice(start, start + pageSize), total: items.length, page, pageSize };
+  }
+
+  private sortItems<T extends Record<string, unknown>>(items: T[], sort?: string): T[] {
+    if (!sort) return items;
+    const direction = sort.startsWith('-') ? -1 : 1;
+    const key = sort.replace(/^-/, '');
+
+    return [...items].sort((left, right) => {
+      const a = left[key];
+      const b = right[key];
+      if (a === b) return 0;
+      if (a === undefined || a === null) return 1;
+      if (b === undefined || b === null) return -1;
+      return String(a).localeCompare(String(b)) * direction;
+    });
   }
 }

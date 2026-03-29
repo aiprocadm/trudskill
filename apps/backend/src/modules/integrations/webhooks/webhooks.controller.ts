@@ -31,17 +31,48 @@ export class WebhooksController {
   }
 
   private async process(ctx: RequestContext, providerCode: string, eventType: string, body: WebhookDto, signature?: string) {
+    this.orchestrator.publishIntegrationEvent(ctx.tenantId!, 'integration.webhook.received', {
+      provider_code: providerCode,
+      event_type: eventType,
+      event_id: body.eventId ?? null
+    });
     this.verifier.verify(signature, process.env.INTEGRATION_WEBHOOK_SECRET);
     const dedupeKey = `${ctx.tenantId}:webhook:${providerCode}:${body.eventId ?? this.crypto.hashPayload(body.payload ?? body)}`;
     const duplicate = this.idempotency.get(dedupeKey);
     if (duplicate) {
       this.orchestrator.appendWebhookLog(ctx.tenantId!, { providerCode, entityType: 'webhook', entityId: body.eventId ?? 'hash', requestPayloadJsonb: body as Record<string, unknown>, responsePayloadJsonb: { duplicate: true }, statusCode: 200, status: 'duplicate' });
+      this.orchestrator.publishIntegrationEvent(ctx.tenantId!, 'integration.webhook.processed', {
+        provider_code: providerCode,
+        event_type: eventType,
+        duplicate: true
+      });
       return { accepted: true, duplicate: true };
     }
     const adapter = this.registry.resolve(providerCode);
-    const result = await adapter.handleWebhook({ eventType, payload: body.payload ?? {} });
-    this.idempotency.remember(dedupeKey, result);
-    this.orchestrator.appendWebhookLog(ctx.tenantId!, { providerCode, entityType: 'webhook', entityId: body.eventId ?? result.externalId ?? 'unknown', requestPayloadJsonb: body as Record<string, unknown>, responsePayloadJsonb: result as Record<string, unknown>, statusCode: 202, status: 'accepted' });
-    return { accepted: true, result };
+    const payload = body.payload ?? {};
+    try {
+      const result = await adapter.handleWebhook({ eventType, payload });
+      this.idempotency.remember(dedupeKey, result);
+      this.orchestrator.appendWebhookLog(ctx.tenantId!, { providerCode, entityType: 'webhook', entityId: body.eventId ?? result.externalId ?? 'unknown', requestPayloadJsonb: body as Record<string, unknown>, responsePayloadJsonb: result as Record<string, unknown>, statusCode: 202, status: 'accepted' });
+      this.orchestrator.publishIntegrationEvent(ctx.tenantId!, 'integration.webhook.processed', {
+        provider_code: providerCode,
+        event_type: eventType,
+        duplicate: false,
+        status: result.status
+      });
+      return { accepted: true, result };
+    } catch (error) {
+      const normalizedError = adapter.normalizeError(error);
+      this.orchestrator.appendWebhookLog(ctx.tenantId!, {
+        providerCode,
+        entityType: 'webhook',
+        entityId: body.eventId ?? 'unknown',
+        requestPayloadJsonb: body as Record<string, unknown>,
+        responsePayloadJsonb: normalizedError,
+        statusCode: 500,
+        status: 'error'
+      });
+      throw error;
+    }
   }
 }
