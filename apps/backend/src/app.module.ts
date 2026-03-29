@@ -9,6 +9,7 @@ import { MvpModule } from './modules/mvp/mvp.module.js';
 import { InfrastructureModule } from './infrastructure/infrastructure.module.js';
 import { DocumentsModule } from './modules/documents/documents.module.js';
 import { CommunicationModule } from './modules/communication/communication.module.js';
+import { IntegrationsModule } from './modules/integrations/integrations.module.js';
 
 @Module({
   imports: [
@@ -21,7 +22,8 @@ import { CommunicationModule } from './modules/communication/communication.modul
     HealthModule,
     MvpModule,
     DocumentsModule,
-    CommunicationModule
+    CommunicationModule,
+    IntegrationsModule
   ]
 })
 export class AppModule {}
