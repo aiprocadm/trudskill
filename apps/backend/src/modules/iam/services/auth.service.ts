@@ -59,6 +59,11 @@ export class AuthService {
       throw new UnauthorizedException({ code: 'invalid_refresh', message: 'Refresh token is invalid' });
     }
 
+    if (Date.parse(activeSession.expiresAt) <= Date.now()) {
+      activeSession.revokedAt = new Date().toISOString();
+      throw new UnauthorizedException({ code: 'session_expired', message: 'Session expired' });
+    }
+
     activeSession.revokedAt = new Date().toISOString();
     const user = this.iamService.getUser(tenantId, activeSession.userId);
     const nextTokens = this.createSession(user);
