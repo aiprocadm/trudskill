@@ -60,4 +60,18 @@ describe('auth integration foundation', () => {
 
     expect(audit.list().some((record) => record.action === 'auth.session_revoke')).toBe(true);
   });
+
+  it('rejects refresh for expired session and revokes it', () => {
+    const audit = new AuditService();
+    const iam = new IamService();
+    const auth = new AuthService(iam, audit);
+
+    const login = auth.login('tenant_demo', { login: 'tenant_admin', password: 'Password123!' }, context);
+    const session = auth.listSessions('tenant_demo', 'u_tenant_admin').find((item) => item.id === login.sessionId);
+    expect(session).toBeDefined();
+    session!.expiresAt = new Date(Date.now() - 60_000).toISOString();
+
+    expect(() => auth.refresh('tenant_demo', login.refreshToken, context)).toThrow(UnauthorizedException);
+    expect(auth.listSessions('tenant_demo', 'u_tenant_admin').find((item) => item.id === login.sessionId)?.revokedAt).toBeTruthy();
+  });
 });

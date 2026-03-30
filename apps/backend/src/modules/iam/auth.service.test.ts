@@ -61,4 +61,18 @@ describe('auth foundation', () => {
 
     expect(audit.list().some((record) => record.action === 'iam.user_roles_updated')).toBe(true);
   });
+
+  it('revokes only current session on logout', () => {
+    const audit = new AuditService();
+    const iam = new IamService(audit);
+    const auth = new AuthService(iam, audit);
+
+    const first = auth.login('tenant_demo', { login: 'tenant_admin', password: 'Password123!' }, context);
+    const second = auth.login('tenant_demo', { login: 'tenant_admin', password: 'Password123!' }, context);
+    auth.logout('tenant_demo', 'u_tenant_admin', second.sessionId, context);
+
+    const sessions = auth.listSessions('tenant_demo', 'u_tenant_admin');
+    expect(sessions.find((session) => session.id === second.sessionId)?.revokedAt).toBeTruthy();
+    expect(sessions.find((session) => session.id === first.sessionId)?.revokedAt).toBeFalsy();
+  });
 });

@@ -88,3 +88,9 @@ pnpm test:migrations
 6. `test:integration` — backend integration smoke layer.
 
 Heavy e2e/browser and containerized infra jobs remain optional follow-up jobs until dedicated runtime agents are enabled.
+
+## 10) Stage 13 delta (2026-03-30)
+
+- IAM coverage expanded for explicit **expired refresh-session rejection** with forced revocation semantics.
+- IAM coverage expanded for **logout current session** behavior to ensure only targeted session is revoked.
+- Integration-level auth coverage now validates replay/misuse branch for expired tokens in addition to cross-tenant invalidation.
