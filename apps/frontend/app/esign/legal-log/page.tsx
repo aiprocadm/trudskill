@@ -12,7 +12,7 @@ const keyEvents = [
 
 export default function EsignLegalLogPage() {
   return (
-    <ProtectedPage requiredPermissions={['esign.legal.read']}>
+    <ProtectedPage>
       <PageContainer>
         <PageHeader title="Legal log" subtitle="Append-only реестр юридически значимых событий" />
 

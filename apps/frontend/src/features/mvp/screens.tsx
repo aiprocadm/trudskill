@@ -66,7 +66,7 @@ const PaginationControls = ({
 }: {
   page: number;
   setPage: (page: number) => void;
-  total?: number;
+  total: number | undefined;
   pageSize: number;
 }) => {
   const canPrev = page > 1;
@@ -98,6 +98,8 @@ const ProgressBar = ({ value }: { value: number }) => (
 );
 
 const MutationError = ({ message }: { message: string | null }) => (message ? <SectionError message={message} /> : null);
+
+const toTableRows = <T extends object>(rows: T[]): Record<string, unknown>[] => rows as unknown as Record<string, unknown>[];
 
 export const UsersPageScreen = () => {
   const { session } = useAuth();
@@ -133,7 +135,7 @@ export const UsersPageScreen = () => {
               { key: 'login', title: 'Логин' },
               { key: 'status', title: 'Статус' }
             ]}
-            rows={data.items}
+            rows={toTableRows(data.items)}
           />
         ) : null}
         {!loading && !error && !data?.items.length ? <SectionEmpty message="Нет пользователей" /> : null}
@@ -348,7 +350,8 @@ export const CourseCreateScreen = () => {
     event.preventDefault();
     try {
       setSaveError(null);
-      const created = await saveCourse(null, { code, title, description, directionId: directionId || undefined });
+      const payload = directionId ? { code, title, description, directionId } : { code, title, description };
+      const created = await saveCourse(null, payload);
       window.location.assign(`/courses/${created.id}`);
     } catch (createError) {
       setSaveError(readApiMessage(createError));

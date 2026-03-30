@@ -1,15 +1,21 @@
 'use client';
 
 import { useEffect } from 'react';
-import { apiRequest } from '../../lib/api/client';
+import { apiRequest, type RequestOptions } from '../../lib/api/client';
 import { realtimeClient } from '../../lib/realtime/client';
 import { useAuth } from '../auth/context';
 
-const authHeaders = (session: ReturnType<typeof useAuth>['session']) => ({
-  auth: session
-    ? { userId: session.user.id, tenantId: session.user.tenantId, accessToken: session.tokens.accessToken }
-    : undefined
-});
+const authHeaders = (session: ReturnType<typeof useAuth>['session']): RequestOptions => {
+  if (!session) return {};
+
+  return {
+    auth: {
+      userId: session.user.id,
+      tenantId: session.user.tenantId,
+      accessToken: session.tokens.accessToken
+    }
+  };
+};
 
 export const useNotificationsRealtime = (onRefresh: () => void) => {
   const { session } = useAuth();

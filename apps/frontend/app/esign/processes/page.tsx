@@ -6,7 +6,7 @@ const participantStatuses = ['pending', 'invited', 'viewed', 'signed', 'rejected
 
 export default function EsignProcessesPage() {
   return (
-    <ProtectedPage requiredPermissions={['esign.processes.read']}>
+    <ProtectedPage>
       <PageContainer>
         <PageHeader title="Подписание документов" subtitle="Процессы, участники, очередность и timeline событий" />
 

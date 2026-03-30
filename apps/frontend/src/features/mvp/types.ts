@@ -6,17 +6,17 @@ export interface ListResponse<T> {
 }
 
 export interface BaseFilterQuery {
-  page?: number;
-  page_size?: number;
-  q?: string;
-  status?: string;
-  sort?: string;
-  direction_id?: string;
-  course_id?: string;
-  course_version_id?: string;
-  module_id?: string;
-  group_id?: string;
-  learner_id?: string;
+  page?: number | undefined;
+  page_size?: number | undefined;
+  q?: string | undefined;
+  status?: string | undefined;
+  sort?: string | undefined;
+  direction_id?: string | undefined;
+  course_id?: string | undefined;
+  course_version_id?: string | undefined;
+  module_id?: string | undefined;
+  group_id?: string | undefined;
+  learner_id?: string | undefined;
 }
 
 export interface BaseEntity {

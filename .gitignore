@@ -4,6 +4,7 @@ node_modules
 coverage
 dist
 .next
+*.tsbuildinfo
 .env
 .env.*.local
 !.env*.example

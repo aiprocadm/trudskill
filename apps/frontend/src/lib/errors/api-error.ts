@@ -16,12 +16,15 @@ export const normalizeApiError = (
 ): NormalizedApiError => {
   const envelope = payload as Partial<ApiErrorResponse> | undefined;
   const code = envelope?.error?.code ?? ApiErrorCodes.INTERNAL_ERROR;
+  const requestId = envelope?.meta?.request_id;
+  const details = envelope?.error?.details;
+
   return {
     status,
     code,
     message: envelope?.error?.message ?? fallbackMessage,
-    requestId: envelope?.meta?.request_id,
-    details: envelope?.error?.details,
-    isAuthError: status === 401 || code === 'auth_required' || code === 'invalid_refresh'
+    ...(requestId ? { requestId } : {}),
+    ...(details ? { details } : {}),
+    isAuthError: status === 401
   };
 };

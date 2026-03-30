@@ -31,12 +31,17 @@ export const apiRequest = async <T>(path: string, options: RequestOptions = {}):
   if (options.auth?.userId) headers.set('x-user-id', options.auth.userId);
   if (options.auth?.accessToken) headers.set('authorization', `Bearer ${options.auth.accessToken}`);
 
-  const response = await fetch(`${frontendEnv.NEXT_PUBLIC_API_BASE_URL}${path}`, {
+  const requestInit: RequestInit = {
     method: options.method ?? 'GET',
     headers,
-    body: options.body ? JSON.stringify(options.body) : undefined,
     cache: 'no-store'
-  });
+  };
+
+  if (options.body !== undefined) {
+    requestInit.body = JSON.stringify(options.body);
+  }
+
+  const response = await fetch(`${frontendEnv.NEXT_PUBLIC_API_BASE_URL}${path}`, requestInit);
 
   if (!response.ok) {
     const payload = await toJson(response);
@@ -45,4 +50,15 @@ export const apiRequest = async <T>(path: string, options: RequestOptions = {}):
 
   if (response.status === 204) return undefined as T;
   return (await toJson(response)) as T;
+};
+
+export const apiClient = {
+  get: <T>(path: string, options?: Omit<RequestOptions, 'method' | 'body'>) => apiRequest<T>(path, { ...options, method: 'GET' }),
+  post: <T>(path: string, body?: unknown, options?: Omit<RequestOptions, 'method' | 'body'>) =>
+    apiRequest<T>(path, { ...options, method: 'POST', body }),
+  put: <T>(path: string, body?: unknown, options?: Omit<RequestOptions, 'method' | 'body'>) =>
+    apiRequest<T>(path, { ...options, method: 'PUT', body }),
+  patch: <T>(path: string, body?: unknown, options?: Omit<RequestOptions, 'method' | 'body'>) =>
+    apiRequest<T>(path, { ...options, method: 'PATCH', body }),
+  delete: <T>(path: string, options?: Omit<RequestOptions, 'method' | 'body'>) => apiRequest<T>(path, { ...options, method: 'DELETE' })
 };
