@@ -11,8 +11,10 @@ import { DocumentsModule } from './modules/documents/documents.module.js';
 import { CommunicationModule } from './modules/communication/communication.module.js';
 import { IntegrationsModule } from './modules/integrations/integrations.module.js';
 import { EsignModule } from './modules/esign/esign.module.js';
+import { RequestObservabilityInterceptor } from './common/interceptors/request-observability.interceptor.js';
 
 @Module({
+  providers: [RequestObservabilityInterceptor],
   imports: [
     CoreModule,
     InfrastructureModule,

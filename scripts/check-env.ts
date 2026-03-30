@@ -11,6 +11,7 @@ if (existsSync(rootEnvPath)) {
 
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  RELEASE_VERSION: z.string().default('dev-local'),
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
   RABBITMQ_URL: z.string().url(),
@@ -30,7 +31,8 @@ const schema = z.object({
   WORKER_INTERNAL_URL: z.string().url(),
   NEXT_PUBLIC_API_BASE_URL: z.string().url(),
   NEXT_PUBLIC_REALTIME_URL: z.string().url(),
-  WORKER_CONCURRENCY: z.coerce.number().int().positive().default(5)
+  WORKER_CONCURRENCY: z.coerce.number().int().positive().default(5),
+  REALTIME_PUBLISH_KEY: z.string().min(10)
 });
 
 const parsed = schema.safeParse(process.env);

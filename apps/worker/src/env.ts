@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 const workerEnvSchema = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  RELEASE_VERSION: z.string().default('dev'),
   WORKER_CONCURRENCY: z.coerce.number().int().positive().default(5),
   DOCUMENT_GENERATION_QUEUE: z.string().default('documents.generation'),
   RABBITMQ_URL: z.string().url(),
