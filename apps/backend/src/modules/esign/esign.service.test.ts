@@ -87,6 +87,30 @@ describe('EsignService', () => {
     expect(() => service.signParticipant('t1', 'u3', second.id, { idempotencyKey: 'k3' })).toThrow(BadRequestException);
   });
 
+
+  it('fails process when participant rejects signing', () => {
+    const { service } = makeService();
+    const process = service.createProcess('t1', 'staff_1', { idempotencyKey: 'reject-1', generatedDocumentId: 'gdoc_1' });
+    const participant = service.createParticipant('t1', 'staff_1', { processId: process.id, participantType: 'employee', participantUserId: 'u2', signOrder: 1 });
+
+    service.startProcess('t1', 'staff_1', process.id, { idempotencyKey: 'reject-2' });
+    service.inviteParticipant('t1', 'staff_1', participant.id);
+    service.rejectParticipant('t1', 'u2', participant.id, { idempotencyKey: 'reject-3' });
+
+    expect(service.getProcess('t1', process.id).status).toBe('failed');
+  });
+
+  it('prevents participant actions for another user assignment', () => {
+    const { service } = makeService();
+    const process = service.createProcess('t1', 'staff_1', { idempotencyKey: 'actor-1', generatedDocumentId: 'gdoc_1' });
+    const participant = service.createParticipant('t1', 'staff_1', { processId: process.id, participantType: 'employee', participantUserId: 'u2', signOrder: 1 });
+
+    service.startProcess('t1', 'staff_1', process.id, { idempotencyKey: 'actor-2' });
+    service.inviteParticipant('t1', 'staff_1', participant.id);
+
+    expect(() => service.signParticipant('t1', 'u3', participant.id, { idempotencyKey: 'actor-3' })).toThrow();
+  });
+
   it('keeps tenant isolation for reads', () => {
     const { service } = makeService();
     service.createApplication('t1', 'u1', { learnerId: 'l1' }, ctx);

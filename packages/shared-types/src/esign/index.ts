@@ -8,6 +8,12 @@ export enum EsignApplicationStatus {
   Reused = 'reused'
 }
 
+export enum EsignApplicationFileStatus {
+  Uploaded = 'uploaded',
+  Verified = 'verified',
+  Rejected = 'rejected'
+}
+
 export enum SigningProcessStatus {
   Draft = 'draft',
   Prepared = 'prepared',
@@ -29,3 +35,143 @@ export enum SigningParticipantStatus {
 }
 
 export type SigningParticipantType = 'learner' | 'commission_member' | 'employee';
+
+export interface EsignBaseFilter {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  status?: string;
+  learnerId?: string;
+  processId?: string;
+  eventType?: string;
+}
+
+export interface CreateEsignApplicationRequest {
+  learnerId: string;
+  expiresAt?: string;
+}
+
+export interface UpdateEsignApplicationRequest {
+  expiresAt?: string;
+}
+
+export interface RejectEsignApplicationRequest {
+  reason: string;
+}
+
+export interface CreateEsignApplicationFileRequest {
+  applicationId: string;
+  fileId: string;
+}
+
+export interface RejectEsignApplicationFileRequest {
+  reason: string;
+}
+
+export interface CreateSigningProcessRequest {
+  idempotencyKey: string;
+  generatedDocumentId: string;
+  applicationId?: string;
+  sequential?: boolean;
+  snapshot?: Record<string, unknown>;
+}
+
+export interface StartSigningProcessRequest {
+  idempotencyKey: string;
+}
+
+export interface CreateSigningParticipantRequest {
+  processId: string;
+  participantType: SigningParticipantType;
+  participantUserId: string;
+  signOrder: number;
+}
+
+export interface UpdateSigningParticipantRequest {
+  signOrder?: number;
+  expiresAt?: string;
+}
+
+export interface ParticipantActionRequest {
+  idempotencyKey: string;
+  payload?: Record<string, unknown>;
+}
+
+export interface EsignApplicationListItem {
+  id: string;
+  learnerId: string;
+  status: EsignApplicationStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EsignApplicationDetails extends EsignApplicationListItem {
+  expiresAt?: string;
+  rejectionReason?: string;
+}
+
+export interface EsignApplicationFileListItem {
+  id: string;
+  applicationId: string;
+  fileId: string;
+  status: EsignApplicationFileStatus;
+  createdAt: string;
+}
+
+export interface SigningProcessListItem {
+  id: string;
+  generatedDocumentId: string;
+  applicationId?: string;
+  status: SigningProcessStatus;
+  createdAt: string;
+}
+
+export interface SigningProcessStatusView {
+  id: string;
+  status: SigningProcessStatus;
+  startedAt?: string;
+  finishedAt?: string;
+}
+
+export interface SigningParticipantListItem {
+  id: string;
+  processId: string;
+  participantType: SigningParticipantType;
+  participantUserId: string;
+  signOrder: number;
+  status: SigningParticipantStatus;
+}
+
+export interface SignatureEventListItem {
+  id: string;
+  processId: string;
+  participantId?: string;
+  eventType: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface LegalLogEntryListItem {
+  id: string;
+  actorId?: string;
+  entityType: string;
+  entityId: string;
+  eventType: string;
+  description: string;
+  createdAt: string;
+}
+
+export interface LegalLogEntryDetails extends LegalLogEntryListItem {
+  payload: Record<string, unknown>;
+}
+
+export interface ReuseCheckResponse {
+  reusable: boolean;
+  application: EsignApplicationDetails;
+}
+
+export interface EsignLookupItem {
+  id: string;
+  label: string;
+  status: string;
+}
