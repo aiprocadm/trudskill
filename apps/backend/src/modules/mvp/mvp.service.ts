@@ -248,7 +248,10 @@ export class MvpService {
   updateDirection(tenantId: string, actorId: string | undefined, id: string, request: UpdateSimpleRegistryRequest, context: RequestContext): Direction {
     const current = this.getById(this.directions, tenantId, id);
     const oldValues = { ...current };
-    Object.assign(current, request, { updatedAt: this.now() });
+    if (typeof request.code === 'string') current.code = request.code;
+    if (typeof request.name === 'string') current.name = request.name;
+    if (typeof request.status === 'string') current.status = request.status;
+    current.updatedAt = this.now();
     this.audit(tenantId, actorId, 'learning.direction_updated', 'learning.direction', current.id, oldValues, current, context);
     return current;
   }
@@ -270,7 +273,11 @@ export class MvpService {
       throw new PreconditionFailedException({ code: 'domain_rule_violation', message: 'Archived course is read-only' });
     }
     const oldValues = { ...current };
-    Object.assign(current, request, { updatedAt: this.now() });
+    if (typeof request.code === 'string') current.code = request.code;
+    if (typeof request.title === 'string') current.title = request.title;
+    if (typeof request.description === 'string' || request.description === null) current.description = request.description ?? undefined;
+    if (typeof request.status === 'string') current.status = request.status;
+    current.updatedAt = this.now();
     this.audit(tenantId, actorId, 'learning.course_updated', 'learning.course', current.id, oldValues, current, context);
     return current;
   }
@@ -324,7 +331,11 @@ export class MvpService {
     }
     const current = this.getById(this.modules, tenantId, id);
     const oldValues = { ...current };
-    Object.assign(current, request, { updatedAt: this.now() });
+    if (typeof request.title === 'string') current.title = request.title;
+    if (typeof request.minViewSeconds === 'number') current.minViewSeconds = request.minViewSeconds;
+    if (typeof request.isRequired === 'boolean') current.isRequired = request.isRequired;
+    if (typeof request.status === 'string') current.status = request.status;
+    current.updatedAt = this.now();
     this.audit(tenantId, actorId, 'learning.module_updated', 'learning.module', current.id, oldValues, current, context);
     return current;
   }
@@ -347,7 +358,12 @@ export class MvpService {
     }
     const current = this.getById(this.materials, tenantId, id);
     const oldValues = { ...current };
-    Object.assign(current, request, { updatedAt: this.now() });
+    if (typeof request.title === 'string') current.title = request.title;
+    if (typeof request.minViewSeconds === 'number') current.minViewSeconds = request.minViewSeconds;
+    if (typeof request.isRequired === 'boolean') current.isRequired = request.isRequired;
+    if (typeof request.fileId === 'string' || request.fileId === null) current.fileId = request.fileId ?? undefined;
+    if (typeof request.status === 'string') current.status = request.status;
+    current.updatedAt = this.now();
     this.audit(tenantId, actorId, 'learning.material_updated', 'learning.material', current.id, oldValues, current, context);
     return current;
   }
@@ -364,7 +380,10 @@ export class MvpService {
   updateGroup(tenantId: string, actorId: string | undefined, id: string, request: UpdateSimpleRegistryRequest, context: RequestContext): GroupEntity {
     const current = this.getById(this.groups, tenantId, id);
     const oldValues = { ...current };
-    Object.assign(current, request, { updatedAt: this.now() });
+    if (typeof request.code === 'string') current.code = request.code;
+    if (typeof request.name === 'string') current.name = request.name;
+    if (typeof request.status === 'string') current.status = request.status;
+    current.updatedAt = this.now();
     this.audit(tenantId, actorId, 'learning.group_updated', 'learning.group', current.id, oldValues, current, context);
     return current;
   }
