@@ -71,6 +71,8 @@ pnpm test:migrations
 - Added explicit concurrency-lite suite for enrollment and duplicated attempt submission semantics.
 - Added UI foundation coverage for permission wrappers, pagination controls, async status widgets, and data-table rendering.
 - Standardized deterministic fixture patterns: stable tenant IDs, fixed idempotency keys, and explicit actor/request metadata.
+- Hardened migration test harness to resolve monorepo-relative migration paths (`apps/backend/migrations`) so `test:migrations` is deterministic regardless of runner cwd.
+- Expanded contract compatibility checks to validate generated OpenAPI artifact availability plus critical endpoint catalogs for assessment/documents/esign/notifications.
 
 ## 9) Layered execution in CI (recommended jobs)
 
