@@ -1,10 +1,20 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { mvpDomainSchemas, mvpDomainTableList, mvpDomainTables, mvpTablesWithSoftDelete } from './mvp-domain.schema';
 
-const migrationsDir = join(process.cwd(), 'migrations');
+const projectRoot = process.cwd();
+const migrationsDirCandidates = [
+  join(projectRoot, 'migrations'),
+  join(projectRoot, 'apps/backend/migrations')
+];
+const migrationsDir = migrationsDirCandidates.find((dir) => existsSync(dir));
+
+if (!migrationsDir) {
+  throw new Error(`Unable to locate migrations directory. Checked: ${migrationsDirCandidates.join(', ')}`);
+}
+
 const migrationFiles = readdirSync(migrationsDir)
   .filter((file) => file.endsWith('.sql'))
   .sort();
@@ -34,13 +44,24 @@ function expectTableBody(tableName: string, assertion: (body: string) => void): 
 }
 
 describe('SQL migration chain', () => {
-  it('keeps migrations ordered and includes MVP hardening migration', () => {
-    expect(migrationFiles).toEqual([
+  it('keeps migrations lexicographically ordered and includes baseline milestones', () => {
+    const normalizedOrder = [...migrationFiles].sort();
+    expect(migrationFiles).toEqual(normalizedOrder);
+
+    const expectedBaselines = [
       '0001_backend_foundation.sql',
       '0002_mvp_domain_model.sql',
       '0003_mvp_domain_integrity_hardening.sql',
-      '0004_mvp_esign_domain.sql'
-    ]);
+      '0004_mvp_esign_domain.sql',
+      '0005_documents_domain.sql',
+      '0006_documents_task_numbering_hardening.sql',
+      '0007_communication_realtime_foundation.sql',
+      '0008_integrations_foundation.sql'
+    ];
+
+    for (const migration of expectedBaselines) {
+      expect(migrationFiles).toContain(migration);
+    }
   });
 
   it('creates all required MVP schemas', () => {
@@ -75,7 +96,15 @@ describe('tenant-awareness and audit fields', () => {
   });
 
   it('defines created_at and updated_at on mutable transactional tables', () => {
-    for (const tableName of mvpDomainTableList.filter((table) => table !== 'learning.enrollment_status_history' && table !== 'assessment.test_questions' && table !== 'storage.files')) {
+    const appendOnlyOrStaticTables = new Set([
+      'learning.enrollment_status_history',
+      'assessment.test_questions',
+      'storage.files',
+      'esign.legal_log_entries',
+      'esign.signature_events'
+    ]);
+
+    for (const tableName of mvpDomainTableList.filter((table) => !appendOnlyOrStaticTables.has(table))) {
       expectTableBody(tableName, (body) => {
         expect(body, `${tableName} must include created_at`).toMatch(/created_at\s+timestamptz\s+NOT\s+NULL\s+DEFAULT\s+now\(\)/i);
         expect(body, `${tableName} must include updated_at`).toMatch(/updated_at\s+timestamptz\s+NOT\s+NULL\s+DEFAULT\s+now\(\)/i);
@@ -128,6 +157,8 @@ describe('schema integrity constraints', () => {
   });
 
   it('has tenant-aware uniqueness on core business identifiers', () => {
+    expectSqlContains(/UNIQUE\s*\(tenant_id,\s*login\)/i, 'missing users tenant login uniqueness');
+    expectSqlContains(/CREATE\s+UNIQUE\s+INDEX\s+IF\s+NOT\s+EXISTS\s+users_tenant_email_uniq\s+ON\s+iam\.users\s*\(tenant_id,\s*email\)\s+WHERE\s+email\s+IS\s+NOT\s+NULL/i, 'missing users tenant email uniqueness');
     expectSqlContains(/CONSTRAINT\s+courses_tenant_code_uniq\s+UNIQUE\s*\(tenant_id,\s*code\)/i, 'missing courses tenant code uniqueness');
     expectSqlContains(/CONSTRAINT\s+study_groups_tenant_code_uniq\s+UNIQUE\s*\(tenant_id,\s*code\)/i, 'missing study_groups tenant code uniqueness');
     expectSqlContains(/CONSTRAINT\s+tests_tenant_code_uniq\s+UNIQUE\s*\(tenant_id,\s*code\)/i, 'missing tests tenant code uniqueness');

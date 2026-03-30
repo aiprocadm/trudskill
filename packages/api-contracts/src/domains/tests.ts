@@ -1,6 +1,5 @@
 export const testsContractGroup = {
   tag: 'tests.attempts.results',
-  description: 'Assessment domain contracts: question banks, questions, tests, attempts, results, assignments.'
   description: 'Assessment domain endpoints: question banks, questions, tests, attempts, results and assignments.',
   endpoints: [
     '/question-banks',
