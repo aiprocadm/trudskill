@@ -63,3 +63,22 @@ pnpm test:migrations
 2. Browser-level e2e with real UI driver (current suite is Vitest-driven integration tests).
 3. Dedicated load/performance stress tests beyond concurrency-lite deterministic checks.
 4. DB-level invariants enforced by real DDL constraints for all legal-domain terminal artifacts.
+
+
+## 8) Stage 13 audit normalization checklist
+
+- Removed overlap between isolated state-machine checks and domain-flow checks by keeping transitions in dedicated `*.state-machine.test.ts` files and domain invariants in service-level suites.
+- Added explicit concurrency-lite suite for enrollment and duplicated attempt submission semantics.
+- Added UI foundation coverage for permission wrappers, pagination controls, async status widgets, and data-table rendering.
+- Standardized deterministic fixture patterns: stable tenant IDs, fixed idempotency keys, and explicit actor/request metadata.
+
+## 9) Layered execution in CI (recommended jobs)
+
+1. `test:backend` — domain unit + module integration.
+2. `test:migrations` — migration chain and DB invariant assertions.
+3. `test:contracts` — OpenAPI/DTO compatibility.
+4. `test:frontend` — frontend unit/integration.
+5. `test:security` — focused high-risk security suite.
+6. `test:integration` — backend integration smoke layer.
+
+Heavy e2e/browser and containerized infra jobs remain optional follow-up jobs until dedicated runtime agents are enabled.
