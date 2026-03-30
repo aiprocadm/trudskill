@@ -17,10 +17,12 @@
 
 - **IAM/Auth:** password validation, blocked users, refresh rotation, session revoke, logout-all, token replay protection, auth audit trail.
 - **RBAC/Tenant-aware:** permission map tests + backend tenant boundary integration tests.
+- **RBAC/Tenant-aware UI:** role-driven navigation visibility, direct-route forbidden redirects, unauthenticated route bootstrap redirects.
 - **Learning core:** publish/archive preconditions, enrollment uniqueness, progress aggregation, attempt limits, assignment review workflow.
 - **Documents/Numbering:** template activation, variable validation, idempotent generation, number reservation lifecycle, terminal immutability.
 - **E-sign/Legal:** application lifecycle, sequential signing order, idempotent signing, legal log events, terminal process snapshots.
 - **Integrations/Webhooks/Outbox-like behavior:** callback deduplication, signature verification guardrails, adapter resolution tests.
+- **Security hardening:** mass-assignment protection on MVP update endpoints (group/course/module/material/direction) with regression tests.
 
 ## 3) High-risk non-regression suite
 

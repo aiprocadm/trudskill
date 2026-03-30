@@ -201,4 +201,31 @@ describe('mvp service domain rules', () => {
     expect(audit.list().some((item) => item.action === 'learning.module_updated')).toBe(true);
     expect(audit.list().some((item) => item.action === 'learning.material_updated')).toBe(true);
   });
+
+  it('rejects mass-assignment of immutable fields on update endpoints', () => {
+    const service = new MvpService(new TenantScopedRepository(), new AuditService());
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'G-MA-1', name: 'Group MA' }, ctx);
+    const course = service.createCourse('tenant_demo', ctx.userId, { code: 'C-MA-1', title: 'Course MA' }, ctx);
+
+    const updatedGroup = service.updateGroup(
+      'tenant_demo',
+      ctx.userId,
+      group.id,
+      { name: 'Group MA Updated', tenantId: 'tenant_other', id: 'group_hijacked' } as any,
+      ctx
+    );
+    const updatedCourse = service.updateCourse(
+      'tenant_demo',
+      ctx.userId,
+      course.id,
+      { title: 'Course MA Updated', tenantId: 'tenant_other', id: 'course_hijacked', isArchived: true } as any,
+      ctx
+    );
+
+    expect(updatedGroup.id).toBe(group.id);
+    expect(updatedGroup.tenantId).toBe('tenant_demo');
+    expect(updatedCourse.id).toBe(course.id);
+    expect(updatedCourse.tenantId).toBe('tenant_demo');
+    expect(updatedCourse.isArchived).toBe(false);
+  });
 });
