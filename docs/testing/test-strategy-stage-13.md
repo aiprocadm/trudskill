@@ -10,6 +10,7 @@
 | Contract | DTO/error/meta compatibility and generated OpenAPI checks | `packages/api-contracts/src/**/*.test.ts` |
 | Frontend unit | Pure UI logic, auth/session helpers, navigation helpers | `apps/frontend/src/**/*.test.ts` |
 | Frontend integration | Screen/feature tests with API mocks | `apps/frontend/src/**/*.e2e.test.ts` |
+| Backend e2e (service-level) | End-to-end business flows across auth/learning/documents/esign | `apps/backend/src/modules/mvp/business-flows.e2e.test.ts` |
 | Security | Token misuse, signature verification, cross-tenant attempts | `apps/backend/src/modules/**/*security*.test.ts` |
 | Concurrency/idempotency lite | Duplicate submissions, idempotency key reuse, number reservation uniqueness | backend domain tests (documents/esign/integrations/iam) |
 
@@ -22,6 +23,7 @@
 - **Documents/Numbering:** template activation, variable validation, idempotent generation, number reservation lifecycle, terminal immutability.
 - **E-sign/Legal:** application lifecycle, sequential signing order, idempotent signing, legal log events, terminal process snapshots.
 - **Integrations/Webhooks/Outbox-like behavior:** callback deduplication, signature verification guardrails, adapter resolution tests.
+- **Business e2e flows:** service-level end-to-end coverage for login, course/group/enrollment setup, learner progress+exam, document generation, and full e-sign completion with legal log assertions.
 - **Security hardening:** mass-assignment protection on MVP update endpoints (group/course/module/material/direction) with regression tests.
 
 ## 3) High-risk non-regression suite
