@@ -1,103 +1,18 @@
-# cdoprof monorepo platform foundation (Stage 2)
+# CDOProf platform monorepo
 
-Монорепозиторий проекта СДО с единой инженерной платформой для **contracts-first** и **monorepo-first** разработки.
+## Services
+- `apps/frontend` - Next.js UI.
+- `apps/backend` - NestJS API (JSON structured logs, health probes, metrics).
+- `apps/worker` - async processing worker.
+- `apps/realtime` - realtime delivery service.
 
-## Назначение
+## Quick start
+1. Copy env: `cp .env.example .env`.
+2. Start infra/services: `docker compose -f infra/docker-compose.yml up -d --build`.
+3. Run checks: `pnpm test`.
 
-Репозиторий подготовлен как фундамент для:
+## Operational endpoints
+- Backend: `/api/v1/health/live`, `/api/v1/health/ready`, `/api/v1/health/startup`, `/api/v1/metrics`.
+- Realtime: `/health`, `/ready`.
 
-- синхронной типизации frontend ↔ backend;
-- API-first контрактной разработки;
-- масштабирования modular monolith (`apps/backend`) в service-oriented контур;
-- общей тестовой и инфраструктурной платформы.
-
-## Карта директорий
-
-```text
-apps/
-  frontend/
-  backend/
-  worker/
-  realtime/
-
-packages/
-  shared-types/  # cross-runtime platform/domain foundation types
-  api-contracts/ # versioned OpenAPI skeleton + envelope/error/meta contracts
-  ui/            # shared UI tokens/primitives/components/patterns
-  test-utils/    # shared factories/fixtures/integration/e2e/contract helpers
-```
-
-## Стандартные команды из корня
-
-```bash
-pnpm dev
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
-pnpm contracts:lint
-pnpm contracts:typecheck
-pnpm contracts:build
-pnpm contracts:generate
-```
-
-## Пакеты foundation-слоя
-
-### `@cdoprof/api-contracts`
-
-- источник правды для API-контрактов (`/api/v1`), response/error/meta envelope;
-- подготовка к расширению под REST + WebSocket + webhooks + async tasks;
-- generated артефакты располагаются в `packages/api-contracts/src/generated/*`.
-
-### `@cdoprof/shared-types`
-
-- общие enum, status models, tenant-aware и audit/meta типы;
-- базовые pagination/filter/sort/file/task/lookup типы;
-- используется frontend/backend/worker/realtime и test-utils.
-
-### `@cdoprof/test-utils`
-
-- factories/fixtures/auth helpers;
-- integration/e2e bootstrap и contract assertion helpers;
-- общие mocks/stubs для queues/files/websocket/async tasks.
-
-### `@cdoprof/ui`
-
-- design tokens + layout primitives;
-- базовые reusable компоненты и registry patterns;
-- status-aware и role-aware foundation для экранов реестров/карточек/мастеров.
-
-## Слои и зависимости
-
-- `apps/*` могут зависеть от `packages/*`;
-- `packages/ui` зависит только от shared foundation (`shared-types`) и React;
-- `packages/shared-types` не зависит от app/domains logic;
-- API contracts не должны повторять persistence-модели БД 1:1.
-
-## Обновление контрактов и генерация
-
-1. Изменить OpenAPI skeleton / контракты в `packages/api-contracts/src/*`.
-2. Выполнить `pnpm contracts:generate`.
-3. Проверить `pnpm contracts:lint && pnpm contracts:typecheck`.
-4. Использовать generated артефакты централизованно из `@cdoprof/api-contracts`.
-
-## Документный контур (Stage 9)
-
-- Backend module `documents` покрывает реестры шаблонов, версий, переменных, привязок, задач генерации, сгенерированных документов и правил нумерации.
-- Генерация документов запускается через `POST /api/v1/documents/generate` и всегда работает как async task (`queued -> running -> completed|failed`).
-- Worker runtime запускается отдельно и обрабатывает очередь генерации:
-  - `pnpm --filter @cdoprof/worker dev`
-- Нумерация tenant-scoped и document-type-scoped; резервирование номера происходит до регистрации документа, номер помечается `used` только после успешного завершения пайплайна.
-- Финальные документы immutable по содержанию: повторная генерация создает новый артефакт, а не изменяет существующий.
-
-## Вклад в репозиторий
-
-Перед изменениями прочитайте `CONTRIBUTING.md`.
-
-## Communication + Realtime foundation (Stage 10)
-
-- Добавлено доменное ядро `communication` в backend (`notifications`, `chat`, `webinars`) c tenant-aware REST endpoints.
-- Добавлен realtime runtime `apps/realtime` как отдельный gateway-контур с room-моделью (`user:*`, `tenant:*`, `task:*`, `dialog:*`, `webinar:*`), heartbeat и room access enforcement.
-- Введен typed event envelope в `@cdoprof/api-contracts` и базовый каталог событий `async_task.status_changed`, `notification.created`, `chat.message.created`.
-- Async document tasks публикуют realtime domain events через общий `RealtimeEventsService`.
-- Frontend получил foundation-слой realtime hooks (`useNotificationsRealtime`, `useTaskRealtime`, `useChatRealtime`) и базовые UI-экраны Notification Center + Chat Shell.
+See docs in `docs/` for deployment, observability, and backup/restore runbooks.

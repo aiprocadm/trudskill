@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { RedisService } from '../../infrastructure/cache/redis.service.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import { RabbitMqService } from '../../infrastructure/messaging/rabbitmq.service.js';
@@ -18,6 +18,11 @@ export class HealthController {
     return { status: 'ok', service: 'backend' };
   }
 
+  @Get('startup')
+  startup() {
+    return { status: 'ok', started: true };
+  }
+
   @Get('ready')
   async ready() {
     const [db, redis, rabbitmq, storage] = await Promise.all([
@@ -27,8 +32,16 @@ export class HealthController {
       this.storage.ping()
     ]);
 
+    if (!db) {
+      throw new ServiceUnavailableException({
+        code: 'db_unavailable',
+        message: 'Database is unavailable',
+        checks: { database: db, redis, rabbitmq, storage }
+      });
+    }
+
     return {
-      status: db && redis && rabbitmq && storage.healthy ? 'ok' : 'degraded',
+      status: redis && rabbitmq && storage.healthy ? 'ok' : 'degraded',
       checks: {
         database: db,
         redis,

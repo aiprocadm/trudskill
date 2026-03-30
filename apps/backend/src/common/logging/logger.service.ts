@@ -1,18 +1,43 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { backendEnv } from '../../env.js';
+import { safeSerialize } from './redaction.util.js';
+
+const LEVELS = ['debug', 'info', 'warn', 'error', 'fatal'] as const;
+
+type LogLevel = (typeof LEVELS)[number];
 
 @Injectable()
 export class AppLogger {
-  private readonly logger = new Logger('Backend');
+  private write(level: LogLevel, message: string, context: Record<string, unknown> = {}) {
+    const payload = {
+      timestamp: new Date().toISOString(),
+      level,
+      service_name: 'backend',
+      environment: backendEnv.NODE_ENV,
+      version: backendEnv.RELEASE_VERSION,
+      message,
+      ...context
+    };
+    process.stdout.write(`${safeSerialize(payload)}\n`);
+  }
+
+  debug(message: string, context?: Record<string, unknown>) {
+    this.write('debug', message, context);
+  }
 
   info(message: string, context?: Record<string, unknown>) {
-    this.logger.log(`${message} ${context ? JSON.stringify(context) : ''}`);
+    this.write('info', message, context);
   }
 
   warn(message: string, context?: Record<string, unknown>) {
-    this.logger.warn(`${message} ${context ? JSON.stringify(context) : ''}`);
+    this.write('warn', message, context);
   }
 
   error(message: string, context?: Record<string, unknown>) {
-    this.logger.error(`${message} ${context ? JSON.stringify(context) : ''}`);
+    this.write('error', message, context);
+  }
+
+  fatal(message: string, context?: Record<string, unknown>) {
+    this.write('fatal', message, context);
   }
 }

@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { HttpExceptionEnvelopeFilter } from './common/filters/http-exception.filter.js';
 import { RequestContextInterceptor } from './common/interceptors/request-context.interceptor.js';
+import { RequestObservabilityInterceptor } from './common/interceptors/request-observability.interceptor.js';
 import { ResponseEnvelopeInterceptor } from './common/interceptors/response-envelope.interceptor.js';
 import { backendEnv } from './env.js';
 
@@ -17,8 +18,13 @@ async function bootstrap() {
     })
   );
   app.useGlobalFilters(new HttpExceptionEnvelopeFilter());
-  app.useGlobalInterceptors(new RequestContextInterceptor(), new ResponseEnvelopeInterceptor());
+  app.useGlobalInterceptors(
+    new RequestContextInterceptor(),
+    app.get(RequestObservabilityInterceptor),
+    new ResponseEnvelopeInterceptor()
+  );
   app.setGlobalPrefix(backendEnv.API_PREFIX.replace(/^\//, ''));
+  app.enableShutdownHooks();
   await app.listen(backendEnv.BACKEND_PORT);
 }
 

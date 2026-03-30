@@ -18,4 +18,15 @@ describe('health controller', () => {
     expect(ready.status).toBe('ok');
     expect(ready.checks.database).toBe(true);
   });
+
+  it('exposes startup check', () => {
+    const controller = new HealthController(
+      new DatabaseService(),
+      new RedisService(),
+      new RabbitMqService(),
+      new S3StorageClient()
+    );
+
+    expect(controller.startup()).toEqual({ status: 'ok', started: true });
+  });
 });
