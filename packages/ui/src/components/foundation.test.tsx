@@ -1,0 +1,65 @@
+import { describe, expect, it, vi } from 'vitest';
+import type { ReactElement } from 'react';
+
+import { AsyncStatusWidget } from './async-status/index.js';
+import { Pagination } from './pagination/index.js';
+import { PermissionWrapper } from './permission/index.js';
+import { DataTable } from './table/index.js';
+
+describe('ui foundation components', () => {
+  it('PermissionWrapper renders children only when allowed', () => {
+    const child = { type: 'span', props: { children: 'allowed' } } as ReactElement;
+    const fallback = { type: 'span', props: { children: 'blocked' } } as ReactElement;
+
+    const allowed = PermissionWrapper({ allowed: true, fallback, children: child });
+    const denied = PermissionWrapper({ allowed: false, fallback, children: child });
+
+    expect(allowed?.props.children).toBe(child);
+    expect(denied).toBe(fallback);
+  });
+
+  it('Pagination guards first/last pages and emits next page callbacks', () => {
+    const onPageChange = vi.fn();
+    const pageOne = Pagination({ page: 1, totalPages: 3, onPageChange });
+    const [prevBtnOnFirstPage] = pageOne.props.children as ReactElement[];
+    expect(prevBtnOnFirstPage.props.disabled).toBe(true);
+
+    const middlePage = Pagination({ page: 2, totalPages: 3, onPageChange });
+    const [prevBtn, , nextBtn] = middlePage.props.children as ReactElement[];
+    prevBtn.props.onClick();
+    nextBtn.props.onClick();
+
+    const lastPage = Pagination({ page: 3, totalPages: 3, onPageChange });
+    const [, , nextBtnOnLastPage] = lastPage.props.children as ReactElement[];
+
+    expect(nextBtnOnLastPage.props.disabled).toBe(true);
+    expect(onPageChange).toHaveBeenNthCalledWith(1, 1);
+    expect(onPageChange).toHaveBeenNthCalledWith(2, 3);
+  });
+
+  it('AsyncStatusWidget keeps async status visible', () => {
+    const widget = AsyncStatusWidget({ status: 'partial_success' });
+    expect(widget.props.children).toEqual(['Async task: ', 'partial_success']);
+  });
+
+  it('DataTable renders provided columns and rows', () => {
+    const table = DataTable({
+      columns: [
+        { key: 'name', title: 'Name' },
+        { key: 'status', title: 'Status' }
+      ],
+      rows: [
+        { name: 'Template A', status: 'active' },
+        { name: 'Template B', status: 'archived' }
+      ]
+    });
+
+    const [head, body] = table.props.children as ReactElement[];
+    const headRow = (head.props.children as ReactElement).props.children as ReactElement[];
+    const bodyRows = body.props.children as ReactElement[];
+
+    expect(headRow).toHaveLength(2);
+    expect(bodyRows).toHaveLength(2);
+    expect(((bodyRows[0]?.props.children as ReactElement[])[0] as ReactElement).props.children).toBe('Template A');
+  });
+});
