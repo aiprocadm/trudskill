@@ -24,22 +24,22 @@ const baseCtx = {
 } as const;
 
 describe('stage13 business e2e flows (service-level)', () => {
-  it('completes auth flow: login -> refresh -> logout and blocks blocked user', () => {
+  it('completes auth flow: login -> refresh -> logout and blocks blocked user', async () => {
     const audit = new AuditService();
     const iam = new IamService(audit);
     const auth = new AuthService(iam, audit);
 
-    const login = auth.login('tenant_demo', { login: 'tenant_admin', password: 'Password123!' }, baseCtx);
+    const login = await auth.login('tenant_demo', { login: 'tenant_admin', password: 'Password123!' }, baseCtx);
     expect(login.accessToken).toBeTruthy();
 
-    const refreshed = auth.refresh('tenant_demo', login.refreshToken, { ...baseCtx, requestId: 'req_refresh' });
+    const refreshed = await auth.refresh('tenant_demo', login.refreshToken, { ...baseCtx, requestId: 'req_refresh' });
     expect(refreshed.sessionId).not.toBe(login.sessionId);
 
-    auth.logout('tenant_demo', 'u_tenant_admin', refreshed.sessionId, { ...baseCtx, requestId: 'req_logout' });
-    const sessions = auth.listSessions('tenant_demo', 'u_tenant_admin');
+    await auth.logout('tenant_demo', 'u_tenant_admin', refreshed.sessionId, { ...baseCtx, requestId: 'req_logout' });
+    const sessions = await auth.listSessions('tenant_demo', 'u_tenant_admin');
     expect(sessions.find((s) => s.id === refreshed.sessionId)?.revokedAt).toBeTruthy();
 
-    expect(() => auth.login('tenant_demo', { login: 'blocked_user', password: 'Password123!' }, baseCtx)).toThrow();
+    await expect(auth.login('tenant_demo', { login: 'blocked_user', password: 'Password123!' }, baseCtx)).rejects.toThrow();
   });
 
   it('completes learner journey: create course/group -> enroll -> progress -> exam', () => {

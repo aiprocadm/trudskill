@@ -319,8 +319,22 @@ export class DocumentsService {
   }
 
   reserveNumber(tenantId: string, documentType: string) {
-    const rule = this.numberingRules.find((x) => x.tenantId === tenantId && x.documentType === documentType && x.isActive);
-    if (!rule) throw new NotFoundException(`No numbering rule for ${documentType}`);
+    let rule = this.numberingRules.find((x) => x.tenantId === tenantId && x.documentType === documentType && x.isActive);
+    if (!rule) {
+      rule = {
+        id: this.id('nrule'),
+        tenantId,
+        documentType,
+        prefix: '',
+        suffix: '',
+        pattern: '{prefix}{counter}{suffix}',
+        currentCounter: 0,
+        resetPeriod: 'none',
+        isActive: true,
+        updatedAt: this.now()
+      };
+      this.numberingRules.push(rule);
+    }
     const periodKey = this.periodKey(rule.resetPeriod);
     if (rule.periodKey && rule.periodKey !== periodKey) rule.currentCounter = 0;
     rule.periodKey = periodKey;

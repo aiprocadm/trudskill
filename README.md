@@ -11,6 +11,8 @@
 2. Start infra/services: `docker compose -f infra/docker-compose.yml up -d --build`.
 3. Run checks: `pnpm test`.
 
+Backend startup applies SQL migrations (`apps/backend/migrations`) and persistent IAM baseline seed when `DB_MIGRATIONS_ENABLED=true`.
+
 ## Operational endpoints
 - Backend: `/api/v1/health/live`, `/api/v1/health/ready`, `/api/v1/health/startup`, `/api/v1/metrics`.
 - Realtime: `/health`, `/ready`.

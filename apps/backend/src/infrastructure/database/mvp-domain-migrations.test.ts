@@ -57,7 +57,8 @@ describe('SQL migration chain', () => {
       '0006_documents_task_numbering_hardening.sql',
       '0007_communication_realtime_foundation.sql',
       '0008_integrations_foundation.sql',
-      '0009_assessment_extensions.sql'
+      '0009_assessment_extensions.sql',
+      '0010_iam_role_permissions_and_seed.sql'
     ];
 
     for (const migration of expectedBaselines) {

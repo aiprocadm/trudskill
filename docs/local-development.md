@@ -8,3 +8,12 @@
    - worker: `pnpm --filter @cdoprof/worker dev`
    - realtime: `pnpm --filter @cdoprof/realtime dev`
    - frontend: `pnpm --filter @cdoprof/frontend dev`
+
+## Backend migration/seed behavior
+- By default backend applies SQL migrations at startup (`DB_MIGRATIONS_ENABLED=true`).
+- Migration chain is read from `apps/backend/migrations` (or `DB_MIGRATIONS_DIR`).
+- IAM baseline seed is applied by migration `0010_iam_role_permissions_and_seed.sql`.
+- Demo login defaults:
+   - `tenant_admin` / `Password123!`
+   - `manager` / `Password123!`
+   - `methodist` / `Password123!`

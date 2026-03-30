@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const state = { session: null as any };
+const state = vi.hoisted(() => ({ session: null as any }));
 
 vi.mock('./session-store', () => ({
   sessionStore: {
@@ -14,13 +14,13 @@ vi.mock('./session-store', () => ({
   }
 }));
 
-const authApiMock = {
+const authApiMock = vi.hoisted(() => ({
   login: vi.fn(),
   me: vi.fn(),
   userRoles: vi.fn(),
   refresh: vi.fn(),
   logout: vi.fn()
-};
+}));
 
 vi.mock('./auth-api', () => ({ authApi: authApiMock }));
 

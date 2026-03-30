@@ -1,11 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 import { AuditService } from '../../audit/audit.service.js';
 import type { Permission, Role, User } from '../iam.types.js';
 import { hashPassword } from '../crypto.util.js';
 
 @Injectable()
 export class IamService {
-  private readonly users: User[] = [
+  private readonly fallbackUsers: User[] = [
     {
       id: 'u_platform_admin',
       tenantId: 'tenant_demo',
@@ -53,120 +55,20 @@ export class IamService {
     }
   ];
 
-  private readonly roles: Role[] = [
+  private readonly fallbackRoles: Role[] = [
     { id: 'r_platform_admin', tenantId: 'tenant_demo', code: 'platform_admin', name: 'Platform admin' },
     { id: 'r_tenant_admin', tenantId: 'tenant_demo', code: 'tenant_admin', name: 'Tenant admin' },
     { id: 'r_manager', tenantId: 'tenant_demo', code: 'manager', name: 'Manager' },
     { id: 'r_methodist', tenantId: 'tenant_demo', code: 'methodist', name: 'Methodist' }
   ];
 
-  private readonly permissions: Permission[] = [
+  private readonly fallbackPermissions: Permission[] = [
     { id: 'p_auth_manage_sessions', code: 'auth.manage_sessions', description: 'Manage sessions' },
     { id: 'p_iam_manage_roles', code: 'iam.manage_roles', description: 'Assign roles' },
-    { id: 'p_tenant_read', code: 'tenant.read', description: 'Read tenant' },
-    { id: 'p_counterparties_read', code: 'counterparties.read', description: 'Read counterparties' },
-    { id: 'p_counterparties_write', code: 'counterparties.write', description: 'Write counterparties' },
-    { id: 'p_learners_read', code: 'learners.read', description: 'Read learners' },
-    { id: 'p_learners_write', code: 'learners.write', description: 'Write learners' },
-    { id: 'p_directions_read', code: 'directions.read', description: 'Read directions' },
-    { id: 'p_directions_write', code: 'directions.write', description: 'Write directions' },
-    { id: 'p_courses_read', code: 'courses.read', description: 'Read courses' },
-    { id: 'p_courses_write', code: 'courses.write', description: 'Write courses' },
-    { id: 'p_courses_publish', code: 'courses.publish', description: 'Publish courses' },
-    { id: 'p_courses_archive', code: 'courses.archive', description: 'Archive courses' },
-    { id: 'p_materials_read', code: 'materials.read', description: 'Read materials' },
-    { id: 'p_materials_write', code: 'materials.write', description: 'Write materials' },
-    { id: 'p_groups_read', code: 'groups.read', description: 'Read groups' },
-    { id: 'p_groups_write', code: 'groups.write', description: 'Write groups' },
-    { id: 'p_enrollments_read', code: 'enrollments.read', description: 'Read enrollments' },
-    { id: 'p_enrollments_write', code: 'enrollments.write', description: 'Write enrollments' },
-    { id: 'p_enrollments_change_status', code: 'enrollments.change_status', description: 'Change enrollment status' },
-    { id: 'p_progress_read', code: 'progress.read', description: 'Read progress' },
-    { id: 'p_progress_recalculate', code: 'progress.recalculate', description: 'Recalculate progress' },
-    { id: 'p_assessment_question_banks_read', code: 'assessment.question_banks.read', description: 'Read question banks' },
-    { id: 'p_assessment_question_banks_write', code: 'assessment.question_banks.write', description: 'Write question banks' },
-    { id: 'p_assessment_questions_read', code: 'assessment.questions.read', description: 'Read questions' },
-    { id: 'p_assessment_questions_write', code: 'assessment.questions.write', description: 'Write questions' },
-    { id: 'p_assessment_tests_read', code: 'assessment.tests.read', description: 'Read tests' },
-    { id: 'p_assessment_tests_write', code: 'assessment.tests.write', description: 'Write tests' },
-    { id: 'p_assessment_tests_publish', code: 'assessment.tests.publish', description: 'Publish tests' },
-    { id: 'p_assessment_attempts_read', code: 'assessment.attempts.read', description: 'Read attempts' },
-    { id: 'p_assessment_attempts_take', code: 'assessment.attempts.take', description: 'Take attempts' },
-    { id: 'p_assessment_results_read', code: 'assessment.results.read', description: 'Read results' },
-    { id: 'p_assessment_assignments_read', code: 'assessment.assignments.read', description: 'Read assignments' },
-    { id: 'p_assessment_assignments_write', code: 'assessment.assignments.write', description: 'Write assignments' },
-    { id: 'p_assessment_submissions_submit', code: 'assessment.submissions.submit', description: 'Submit assignments' },
-    { id: 'p_assessment_reviews_review', code: 'assessment.reviews.review', description: 'Review submissions' }
-    { id: 'p_assessment_submissions_submit', code: 'assessment.submissions.submit', description: 'Submit assignment solutions' },
-    { id: 'p_assessment_reviews_review', code: 'assessment.reviews.review', description: 'Review assignment submissions' }
+    { id: 'p_tenant_read', code: 'tenant.read', description: 'Read tenant' }
   ];
 
-  private readonly rolePermissions = new Map<string, string[]>([
-    ['r_platform_admin', this.permissions.map((permission) => permission.code)],
-    ['r_tenant_admin', this.permissions.map((permission) => permission.code)],
-    [
-      'r_manager',
-      [
-        'tenant.read',
-        'counterparties.read',
-        'counterparties.write',
-        'learners.read',
-        'learners.write',
-        'directions.read',
-        'courses.read',
-        'materials.read',
-        'groups.read',
-        'groups.write',
-        'enrollments.read',
-        'enrollments.write',
-        'enrollments.change_status',
-        'progress.read',
-        'assessment.tests.read',
-        'assessment.attempts.read',
-        'assessment.attempts.take',
-        'assessment.results.read',
-        'assessment.assignments.read',
-        'assessment.submissions.submit'
-        'assessment.question_banks.read',
-        'assessment.questions.read',
-        'assessment.tests.read',
-        'assessment.attempts.read',
-        'assessment.results.read',
-        'assessment.assignments.read',
-        'assessment.reviews.review'
-      ]
-    ],
-    [
-      'r_methodist',
-      [
-        'tenant.read',
-        'directions.read',
-        'directions.write',
-        'courses.read',
-        'courses.write',
-        'courses.publish',
-        'courses.archive',
-        'materials.read',
-        'materials.write',
-        'progress.read',
-        'progress.recalculate',
-        'assessment.question_banks.read',
-        'assessment.question_banks.write',
-        'assessment.questions.read',
-        'assessment.questions.write',
-        'assessment.tests.read',
-        'assessment.tests.write',
-        'assessment.tests.publish',
-        'assessment.attempts.read',
-        'assessment.results.read',
-        'assessment.assignments.read',
-        'assessment.assignments.write',
-        'assessment.reviews.review'
-      ]
-    ]
-  ]);
-
-  private userRoles = new Map<string, string[]>([
+  private fallbackUserRoles = new Map<string, string[]>([
     ['u_platform_admin', ['r_platform_admin']],
     ['u_tenant_admin', ['r_tenant_admin']],
     ['u_manager', ['r_manager']],
@@ -174,82 +76,272 @@ export class IamService {
     ['u_blocked', ['r_manager']]
   ]);
 
-  constructor(private readonly auditService: AuditService) {}
+  constructor(
+    private readonly auditService: AuditService,
+    @Optional() private readonly databaseService?: DatabaseService
+  ) {}
 
-  findUserByLogin(tenantId: string, login: string): User | undefined {
-    return this.users.find((user) => user.tenantId === tenantId && user.login === login);
+  async findUserByLogin(tenantId: string, login: string): Promise<User | undefined> {
+    if (!this.databaseService) {
+      return this.fallbackUsers.find((user) => user.tenantId === tenantId && user.login === login);
+    }
+
+    const rows = await this.databaseService.query<{
+      id: string;
+      tenant_id: string;
+      login: string;
+      email: string | null;
+      password_hash: string;
+      status: 'active' | 'blocked';
+      display_name: string;
+    }>(
+      `
+        select id, tenant_id, login, email, password_hash, status, display_name
+        from iam.users
+        where tenant_id = $1 and login = $2 and deleted_at is null
+        limit 1
+      `,
+      [tenantId, login]
+    );
+
+    return rows[0] ? this.toUser(rows[0]) : undefined;
   }
 
-  getUser(tenantId: string, userId: string): User {
-    const user = this.users.find((item) => item.id === userId && item.tenantId === tenantId);
+  async getUser(tenantId: string, userId: string): Promise<User> {
+    if (!this.databaseService) {
+      const user = this.fallbackUsers.find((item) => item.id === userId && item.tenantId === tenantId);
+      if (!user) {
+        throw new NotFoundException({ code: 'user_not_found', message: 'User not found' });
+      }
+      return user;
+    }
+
+    const rows = await this.databaseService.query<{
+      id: string;
+      tenant_id: string;
+      login: string;
+      email: string | null;
+      password_hash: string;
+      status: 'active' | 'blocked';
+      display_name: string;
+    }>(
+      `
+        select id, tenant_id, login, email, password_hash, status, display_name
+        from iam.users
+        where tenant_id = $1 and id = $2 and deleted_at is null
+        limit 1
+      `,
+      [tenantId, userId]
+    );
+
+    const user = rows[0];
     if (!user) {
       throw new NotFoundException({ code: 'user_not_found', message: 'User not found' });
     }
-    return user;
+
+    return this.toUser(user);
   }
 
+  async listUsers(tenantId: string): Promise<User[]> {
+    if (!this.databaseService) {
+      return this.fallbackUsers.filter((user) => user.tenantId === tenantId);
+    }
 
-  listUsers(tenantId: string): User[] {
-    return this.users.filter((user) => user.tenantId === tenantId);
+    const rows = await this.databaseService.query<{
+      id: string;
+      tenant_id: string;
+      login: string;
+      email: string | null;
+      password_hash: string;
+      status: 'active' | 'blocked';
+      display_name: string;
+    }>(
+      `
+        select id, tenant_id, login, email, password_hash, status, display_name
+        from iam.users
+        where tenant_id = $1 and deleted_at is null
+        order by created_at desc
+      `,
+      [tenantId]
+    );
+
+    return rows.map((row) => this.toUser(row));
   }
 
-  createUser(tenantId: string, payload: { login: string; email?: string | null; displayName: string; status?: 'active' | 'blocked'; password?: string }): User {
-    const user: User = {
-      id: `u_${payload.login}` ,
-      tenantId,
-      login: payload.login,
-      email: payload.email ?? null,
-      passwordHash: hashPassword(payload.password ?? 'Password123!'),
-      status: payload.status ?? 'active',
-      displayName: payload.displayName
-    };
-    this.users.push(user);
-    return user;
+  async createUser(
+    tenantId: string,
+    payload: { login: string; email?: string | null; displayName: string; status?: 'active' | 'blocked'; password?: string }
+  ): Promise<User> {
+    if (!this.databaseService) {
+      const user: User = {
+        id: `u_${payload.login}`,
+        tenantId,
+        login: payload.login,
+        email: payload.email ?? null,
+        passwordHash: hashPassword(payload.password ?? 'Password123!'),
+        status: payload.status ?? 'active',
+        displayName: payload.displayName
+      };
+      this.fallbackUsers.push(user);
+      return user;
+    }
+
+    const id = `u_${randomUUID().replace(/-/g, '')}`;
+    await this.databaseService.query(
+      `
+        insert into iam.users (id, tenant_id, login, email, password_hash, status, display_name)
+        values ($1, $2, $3, $4, $5, $6, $7)
+      `,
+      [
+        id,
+        tenantId,
+        payload.login,
+        payload.email ?? null,
+        hashPassword(payload.password ?? 'Password123!'),
+        payload.status ?? 'active',
+        payload.displayName
+      ]
+    );
+
+    return this.getUser(tenantId, id);
   }
 
-  updateUser(tenantId: string, userId: string, payload: { email?: string | null; displayName?: string; status?: 'active' | 'blocked' }): User {
-    const user = this.getUser(tenantId, userId);
-    if (payload.email !== undefined) user.email = payload.email;
-    if (payload.displayName !== undefined) user.displayName = payload.displayName;
-    if (payload.status !== undefined) user.status = payload.status;
-    return user;
+  async updateUser(
+    tenantId: string,
+    userId: string,
+    payload: { email?: string | null; displayName?: string; status?: 'active' | 'blocked' }
+  ): Promise<User> {
+    if (!this.databaseService) {
+      const user = await this.getUser(tenantId, userId);
+      if (payload.email !== undefined) user.email = payload.email;
+      if (payload.displayName !== undefined) user.displayName = payload.displayName;
+      if (payload.status !== undefined) user.status = payload.status;
+      return user;
+    }
+
+    const current = await this.getUser(tenantId, userId);
+    await this.databaseService.query(
+      `
+        update iam.users
+        set
+          email = $3,
+          display_name = $4,
+          status = $5,
+          updated_at = now()
+        where tenant_id = $1 and id = $2 and deleted_at is null
+      `,
+      [
+        tenantId,
+        userId,
+        payload.email !== undefined ? payload.email : current.email,
+        payload.displayName ?? current.displayName,
+        payload.status ?? current.status
+      ]
+    );
+
+    return this.getUser(tenantId, userId);
   }
 
-  getRoles(tenantId: string): Role[] {
-    return this.roles.filter((role) => role.tenantId === tenantId);
+  async getRoles(tenantId: string): Promise<Role[]> {
+    if (!this.databaseService) {
+      return this.fallbackRoles.filter((role) => role.tenantId === tenantId);
+    }
+
+    const rows = await this.databaseService.query<{ id: string; tenant_id: string; code: string; name: string }>(
+      'select id, tenant_id, code, name from iam.roles where tenant_id = $1 order by code asc',
+      [tenantId]
+    );
+
+    return rows.map((row) => ({
+      id: row.id,
+      tenantId: row.tenant_id,
+      code: row.code,
+      name: row.name
+    }));
   }
 
-  getPermissions(): Permission[] {
-    return this.permissions;
+  async getPermissions(): Promise<Permission[]> {
+    if (!this.databaseService) {
+      return [...this.fallbackPermissions];
+    }
+
+    const rows = await this.databaseService.query<{ id: string; code: string; description: string }>(
+      'select id, code, description from iam.permissions order by code asc'
+    );
+
+    return rows.map((row) => ({ id: row.id, code: row.code, description: row.description }));
   }
 
-  getUserRoles(tenantId: string, userId: string): Role[] {
-    this.getUser(tenantId, userId);
-    const roleIds = this.userRoles.get(userId) ?? [];
-    return roleIds.map((id) => this.roles.find((role) => role.id === id)).filter(Boolean) as Role[];
+  async getUserRoles(tenantId: string, userId: string): Promise<Role[]> {
+    await this.getUser(tenantId, userId);
+
+    if (!this.databaseService) {
+      const roleIds = this.fallbackUserRoles.get(userId) ?? [];
+      return this.fallbackRoles.filter((role) => role.tenantId === tenantId && roleIds.includes(role.id));
+    }
+
+    const rows = await this.databaseService.query<{ id: string; tenant_id: string; code: string; name: string }>(
+      `
+        select r.id, r.tenant_id, r.code, r.name
+        from iam.user_roles ur
+        join iam.roles r on r.id = ur.role_id and r.tenant_id = ur.tenant_id
+        where ur.tenant_id = $1 and ur.user_id = $2
+        order by r.code asc
+      `,
+      [tenantId, userId]
+    );
+
+    return rows.map((row) => ({ id: row.id, tenantId: row.tenant_id, code: row.code, name: row.name }));
   }
 
-  setUserRoles(
+  async setUserRoles(
     tenantId: string,
     userId: string,
     roleCodes: string[],
     actorId?: string,
     requestId?: string
-  ): Role[] {
-    this.getUser(tenantId, userId);
-    const previousRoles = this.getUserRoles(tenantId, userId).map((role) => role.code);
-    const roles = roleCodes.map((code) => {
-      const role = this.roles.find((item) => item.tenantId === tenantId && item.code === code);
-      if (!role) {
-        throw new NotFoundException({ code: 'role_not_found', message: `Role ${code} not found` });
-      }
-      return role;
-    });
+  ): Promise<Role[]> {
+    await this.getUser(tenantId, userId);
+    const previousRoles = (await this.getUserRoles(tenantId, userId)).map((role) => role.code);
 
-    this.userRoles.set(
-      userId,
-      roles.map((item) => item.id)
+    if (!this.databaseService) {
+      const selected = this.fallbackRoles.filter((role) => role.tenantId === tenantId && roleCodes.includes(role.code));
+      if (selected.length !== roleCodes.length) {
+        throw new NotFoundException({ code: 'role_not_found', message: 'One or more roles not found' });
+      }
+      this.fallbackUserRoles.set(userId, selected.map((role) => role.id));
+      this.auditService.write({
+        tenantId,
+        actorId,
+        action: 'iam.user_roles_updated',
+        entityType: 'iam.user',
+        entityId: userId,
+        requestId,
+        oldValues: { roleCodes: previousRoles },
+        newValues: { roleCodes }
+      });
+      return selected;
+    }
+
+    const roles = await this.databaseService.query<{ id: string; tenant_id: string; code: string; name: string }>(
+      'select id, tenant_id, code, name from iam.roles where tenant_id = $1 and code = any($2::text[])',
+      [tenantId, roleCodes]
     );
+
+    if (roles.length !== roleCodes.length) {
+      throw new NotFoundException({ code: 'role_not_found', message: 'One or more roles not found' });
+    }
+
+    await this.databaseService.withTransaction(async (client) => {
+      await this.databaseService!.query('delete from iam.user_roles where tenant_id = $1 and user_id = $2', [tenantId, userId], client);
+      for (const role of roles) {
+        await this.databaseService!.query(
+          'insert into iam.user_roles (id, tenant_id, user_id, role_id) values ($1, $2, $3, $4)',
+          [`ur_${randomUUID().replace(/-/g, '')}`, tenantId, userId, role.id],
+          client
+        );
+      }
+    });
 
     this.auditService.write({
       tenantId,
@@ -262,11 +354,55 @@ export class IamService {
       newValues: { roleCodes }
     });
 
-    return roles;
+    return roles.map((role) => ({ id: role.id, tenantId: role.tenant_id, code: role.code, name: role.name }));
   }
 
-  resolvePermissions(tenantId: string, userId: string): string[] {
-    const roles = this.getUserRoles(tenantId, userId);
-    return [...new Set(roles.flatMap((role) => this.rolePermissions.get(role.id) ?? []))];
+  async resolvePermissions(tenantId: string, userId: string): Promise<string[]> {
+    await this.getUser(tenantId, userId);
+
+    if (!this.databaseService) {
+      const roleIds = this.fallbackUserRoles.get(userId) ?? [];
+      if (roleIds.includes('r_platform_admin') || roleIds.includes('r_tenant_admin')) {
+        return this.fallbackPermissions.map((permission) => permission.code);
+      }
+      return this.fallbackPermissions.map((permission) => permission.code);
+    }
+
+    const rows = await this.databaseService.query<{ code: string }>(
+      `
+        select distinct p.code
+        from iam.user_roles ur
+        join iam.role_permissions rp
+          on rp.tenant_id = ur.tenant_id
+         and rp.role_id = ur.role_id
+        join iam.permissions p
+          on p.id = rp.permission_id
+        where ur.tenant_id = $1
+          and ur.user_id = $2
+      `,
+      [tenantId, userId]
+    );
+
+    return rows.map((row) => row.code);
+  }
+
+  private toUser(row: {
+    id: string;
+    tenant_id: string;
+    login: string;
+    email: string | null;
+    password_hash: string;
+    status: 'active' | 'blocked';
+    display_name: string;
+  }): User {
+    return {
+      id: row.id,
+      tenantId: row.tenant_id,
+      login: row.login,
+      email: row.email,
+      passwordHash: row.password_hash,
+      status: row.status,
+      displayName: row.display_name
+    };
   }
 }

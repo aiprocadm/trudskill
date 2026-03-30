@@ -8,7 +8,7 @@ import { resolveRequestContext } from '../../common/utils/request.js';
 export class PermissionGuard implements CanActivate {
   constructor(private readonly reflector: Reflector, private readonly iamService: IamService) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const required = this.reflector.getAllAndOverride<string[]>(REQUIRED_PERMISSIONS, [
       context.getHandler(),
       context.getClass()
@@ -25,7 +25,7 @@ export class PermissionGuard implements CanActivate {
       throw new ForbiddenException({ code: 'auth_required', message: 'Authentication required' });
     }
 
-    const resolved = this.iamService.resolvePermissions(requestContext.tenantId, requestContext.userId);
+    const resolved = await this.iamService.resolvePermissions(requestContext.tenantId, requestContext.userId);
     const hasAll = required.every((permission) => resolved.includes(permission));
     if (!hasAll) {
       throw new ForbiddenException({ code: 'permission_denied', message: 'Permission denied' });

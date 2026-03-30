@@ -1,4 +1,20 @@
 import { z } from 'zod';
+import dotenv from 'dotenv';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+
+const envCandidates = [
+  join(process.cwd(), '.env'),
+  join(process.cwd(), '..', '.env'),
+  join(process.cwd(), '..', '..', '.env')
+];
+
+for (const candidate of envCandidates) {
+  if (existsSync(candidate)) {
+    dotenv.config({ path: candidate });
+    break;
+  }
+}
 
 export const backendEnvSchema = z
   .object({
@@ -17,6 +33,8 @@ export const backendEnvSchema = z
     SESSION_SECRET: z.string().min(10),
     ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(900),
     REFRESH_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(60 * 60 * 24 * 7),
+    DB_MIGRATIONS_ENABLED: z.coerce.boolean().default(true),
+    DB_MIGRATIONS_DIR: z.string().default('migrations'),
     CORS_ORIGIN: z.string().url(),
     PUBLIC_BASE_URL: z.string().url(),
     REALTIME_PUBLIC_URL: z.string().url()

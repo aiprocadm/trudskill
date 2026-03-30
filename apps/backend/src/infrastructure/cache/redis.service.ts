@@ -1,10 +1,27 @@
 import { Injectable } from '@nestjs/common';
+import { createClient, type RedisClientType } from 'redis';
 import { backendEnv } from '../../env.js';
-import { checkTcpEndpoint } from '../health/tcp-check.util.js';
 
 @Injectable()
 export class RedisService {
+  private client: RedisClientType | null = null;
+
   async ping(): Promise<boolean> {
-    return checkTcpEndpoint(backendEnv.REDIS_URL);
+    try {
+      const client = await this.getClient();
+      const response = await client.ping();
+      return response === 'PONG';
+    } catch {
+      return false;
+    }
+  }
+
+  private async getClient(): Promise<RedisClientType> {
+    if (!this.client) {
+      this.client = createClient({ url: backendEnv.REDIS_URL });
+      await this.client.connect();
+    }
+
+    return this.client;
   }
 }

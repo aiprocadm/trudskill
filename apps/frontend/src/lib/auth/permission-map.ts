@@ -12,8 +12,6 @@ export const rolePermissionMap: Record<string, string[]> = {
     'groups.read',
     'enrollments.read',
     'assessment.tests.read',
-    'assessment.results.read',
-    'assessment.assignments.read'
     'assessment.question_banks.read',
     'assessment.question_banks.write',
     'assessment.questions.read',
@@ -40,13 +38,6 @@ export const rolePermissionMap: Record<string, string[]> = {
     'groups.read',
     'enrollments.read',
     'assessment.tests.read',
-    'assessment.results.read',
-    'assessment.assignments.read'
-  ],
-  manager: ['users.read', 'tenant.read', 'counterparties.read', 'directions.read', 'courses.read', 'groups.read', 'enrollments.read', 'assessment.tests.read', 'assessment.attempts.take', 'assessment.submissions.submit'],
-  methodist: ['users.read', 'tenant.read', 'directions.read', 'courses.read', 'groups.read', 'assessment.question_banks.write', 'assessment.tests.write'],
-  learner: ['enrollments.read', 'assessment.attempts.take', 'assessment.submissions.submit']
-    'assessment.attempts.read',
     'assessment.results.read',
     'assessment.assignments.read'
   ],

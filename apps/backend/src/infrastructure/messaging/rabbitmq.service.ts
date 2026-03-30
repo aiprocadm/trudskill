@@ -1,16 +1,40 @@
 import { Injectable } from '@nestjs/common';
+import type { Channel, Connection } from 'amqplib';
+import * as amqp from 'amqplib';
 import { backendEnv } from '../../env.js';
-import { checkTcpEndpoint } from '../health/tcp-check.util.js';
 
 @Injectable()
 export class RabbitMqService {
+  private connection: Connection | null = null;
+  private channel: Channel | null = null;
+
   async ping(): Promise<boolean> {
-    return checkTcpEndpoint(backendEnv.RABBITMQ_URL);
+    try {
+      await this.getChannel();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async publish(exchange: string, routingKey: string, payload: unknown): Promise<void> {
-    void exchange;
-    void routingKey;
-    void payload;
+    const channel = await this.getChannel();
+    await channel.assertExchange(exchange, 'topic', { durable: true });
+    channel.publish(exchange, routingKey, Buffer.from(JSON.stringify(payload)), {
+      persistent: true,
+      contentType: 'application/json'
+    });
+  }
+
+  private async getChannel(): Promise<Channel> {
+    if (!this.connection) {
+      this.connection = await amqp.connect(backendEnv.RABBITMQ_URL);
+    }
+
+    if (!this.channel) {
+      this.channel = await this.connection.createChannel();
+    }
+
+    return this.channel;
   }
 }

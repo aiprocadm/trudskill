@@ -126,8 +126,6 @@ export class MvpService {
   private questions: Question[] = [];
   private answerOptions: AnswerOption[] = [];
   private tests: TestEntity[] = [];
-  private testQuestions: { id: string; tenantId: string; testId: string; questionId: string; sortOrder: number; createdAt: string; updatedAt: string }[] = [];
-  private attempts: Attempt[] = [];
   private testQuestions: TestQuestion[] = [];
   private attempts: TestAttempt[] = [];
   private attemptAnswers: AttemptAnswer[] = [];
@@ -503,274 +501,6 @@ export class MvpService {
     return record;
   }
 
-  listQuestionBanks(tenantId: string, query: BaseFilterQuery): ListResponse<QuestionBank> { return this.list(this.questionBanks, tenantId, query); }
-  getQuestionBank(tenantId: string, id: string): QuestionBank { return this.getById(this.questionBanks, tenantId, id); }
-  createQuestionBank(tenantId: string, actorId: string | undefined, request: CreateQuestionBankRequest, context: RequestContext): QuestionBank {
-    if (request.courseId) this.getById(this.courses, tenantId, request.courseId);
-    const now = this.now();
-    const entity: QuestionBank = { id: this.id('qbank'), tenantId, title: request.title, description: request.description, courseId: request.courseId, status: 'draft', createdAt: now, updatedAt: now };
-    this.questionBanks.push(entity);
-    this.audit(tenantId, actorId, 'assessment.question_bank_created', 'assessment.question_bank', entity.id, undefined, entity, context);
-    return entity;
-  }
-  updateQuestionBank(tenantId: string, actorId: string | undefined, id: string, request: UpdateQuestionBankRequest, context: RequestContext): QuestionBank {
-    const entity = this.getById(this.questionBanks, tenantId, id);
-    const oldValues = { ...entity };
-    Object.assign(entity, request, { updatedAt: this.now() });
-    this.audit(tenantId, actorId, 'assessment.question_bank_updated', 'assessment.question_bank', entity.id, oldValues, entity, context);
-    return entity;
-  }
-  archiveQuestionBank(tenantId: string, actorId: string | undefined, id: string, context: RequestContext): QuestionBank {
-    return this.updateQuestionBank(tenantId, actorId, id, { status: 'archived' }, context);
-  }
-  listQuestionBankQuestions(tenantId: string, questionBankId: string, query: BaseFilterQuery): ListResponse<Question> {
-    this.getById(this.questionBanks, tenantId, questionBankId);
-    return this.list(this.questions.filter((q) => q.questionBankId === questionBankId), tenantId, query);
-  }
-
-  listQuestions(tenantId: string, query: BaseFilterQuery): ListResponse<Question> { return this.list(this.questions, tenantId, query); }
-  getQuestion(tenantId: string, id: string): Question { return this.getById(this.questions, tenantId, id); }
-  createQuestion(tenantId: string, actorId: string | undefined, request: CreateQuestionRequest, context: RequestContext): Question {
-    this.getById(this.questionBanks, tenantId, request.questionBankId);
-    const now = this.now();
-    const question: Question = { id: this.id('q'), tenantId, questionBankId: request.questionBankId, text: request.text, explanation: request.explanation, type: request.type, maxScore: request.maxScore ?? 1, status: 'active', createdAt: now, updatedAt: now };
-    this.questions.push(question);
-    request.options?.forEach((option, index) => this.answerOptions.push({ id: this.id('opt'), tenantId, questionId: question.id, text: option.text, isCorrect: option.isCorrect ?? false, sortOrder: index, status: 'active', createdAt: now, updatedAt: now }));
-    this.audit(tenantId, actorId, 'assessment.question_created', 'assessment.question', question.id, undefined, question, context);
-    return question;
-  }
-  updateQuestion(tenantId: string, actorId: string | undefined, id: string, request: UpdateQuestionRequest, context: RequestContext): Question {
-    const question = this.getById(this.questions, tenantId, id);
-    const oldValues = { ...question };
-    Object.assign(question, { text: request.text ?? question.text, explanation: request.explanation ?? question.explanation, status: request.status ?? question.status, maxScore: request.maxScore ?? question.maxScore, updatedAt: this.now() });
-    if (request.options) {
-      this.answerOptions = this.answerOptions.filter((item) => !(item.tenantId === tenantId && item.questionId === id));
-      request.options.forEach((option, index) => this.answerOptions.push({ id: this.id('opt'), tenantId, questionId: id, text: option.text, isCorrect: option.isCorrect ?? false, sortOrder: index, status: 'active', createdAt: this.now(), updatedAt: this.now() }));
-    }
-    this.audit(tenantId, actorId, 'assessment.question_updated', 'assessment.question', question.id, oldValues, question, context);
-    return question;
-  }
-  archiveQuestion(tenantId: string, actorId: string | undefined, id: string, context: RequestContext): Question {
-    return this.updateQuestion(tenantId, actorId, id, { status: 'archived' }, context);
-  }
-
-  listTests(tenantId: string, query: BaseFilterQuery): ListResponse<TestEntity> { return this.list(this.tests, tenantId, query); }
-  getTest(tenantId: string, id: string): TestEntity { return this.getById(this.tests, tenantId, id); }
-  createTest(tenantId: string, actorId: string | undefined, request: CreateTestRequest, context: RequestContext): TestEntity {
-    this.getById(this.courses, tenantId, request.courseId);
-    if (request.questionBankId) this.getById(this.questionBanks, tenantId, request.questionBankId);
-    const now = this.now();
-    const rules = this.normalizeTestRules(request.rules);
-    const test: TestEntity = { id: this.id('test'), tenantId, title: request.title, courseId: request.courseId, questionBankId: request.questionBankId, rules, status: 'draft', createdAt: now, updatedAt: now };
-    this.tests.push(test);
-    this.audit(tenantId, actorId, 'assessment.test_created', 'assessment.test', test.id, undefined, test, context);
-    return test;
-  }
-  updateTest(tenantId: string, actorId: string | undefined, id: string, request: UpdateTestRequest, context: RequestContext): TestEntity {
-    const test = this.getById(this.tests, tenantId, id);
-    const oldValues = { ...test };
-    Object.assign(test, request, { updatedAt: this.now() });
-    this.audit(tenantId, actorId, 'assessment.test_updated', 'assessment.test', test.id, oldValues, test, context);
-    return test;
-  }
-  publishTest(tenantId: string, actorId: string | undefined, id: string, context: RequestContext): TestEntity {
-    const test = this.getById(this.tests, tenantId, id);
-    test.status = 'published';
-    test.publishedAt = this.now();
-    test.updatedAt = this.now();
-    this.audit(tenantId, actorId, 'assessment.test_published', 'assessment.test', test.id, undefined, test, context);
-    return test;
-  }
-  archiveTest(tenantId: string, actorId: string | undefined, id: string, context: RequestContext): TestEntity {
-    const test = this.getById(this.tests, tenantId, id);
-    test.status = 'archived';
-    test.archivedAt = this.now();
-    test.updatedAt = this.now();
-    return test;
-  }
-  updateTestRules(tenantId: string, actorId: string | undefined, id: string, rules: Partial<TestRulesDto>, context: RequestContext): TestEntity {
-    const test = this.getById(this.tests, tenantId, id);
-    test.rules = this.normalizeTestRules({ ...test.rules, ...rules });
-    test.updatedAt = this.now();
-    this.audit(tenantId, actorId, 'assessment.test_rules_updated', 'assessment.test', test.id, undefined, test, context);
-    return test;
-  }
-  addTestQuestions(tenantId: string, testId: string, questionIds: string[]): { count: number } {
-    this.getById(this.tests, tenantId, testId);
-    questionIds.forEach((questionId) => {
-      this.getById(this.questions, tenantId, questionId);
-      const duplicate = this.testQuestions.some((item) => item.tenantId === tenantId && item.testId === testId && item.questionId === questionId);
-      if (!duplicate) this.testQuestions.push({ id: this.id('tq'), tenantId, testId, questionId, sortOrder: this.testQuestions.length, createdAt: this.now(), updatedAt: this.now() });
-    });
-    return { count: this.testQuestions.filter((item) => item.tenantId === tenantId && item.testId === testId).length };
-  }
-  listTestQuestions(tenantId: string, testId: string): { questionId: string; sortOrder: number }[] {
-    return this.testQuestions.filter((item) => item.tenantId === tenantId && item.testId === testId).map((item) => ({ questionId: item.questionId, sortOrder: item.sortOrder }));
-  }
-
-  listAttempts(tenantId: string, query: BaseFilterQuery): ListResponse<Attempt> { return this.list(this.attempts, tenantId, query); }
-  getAttempt(tenantId: string, id: string): Attempt { return this.getById(this.attempts, tenantId, id); }
-  startAttempt(tenantId: string, actorId: string | undefined, request: StartAttemptRequest, context: RequestContext): Attempt {
-    const test = this.getById(this.tests, tenantId, request.testId);
-    this.getById(this.enrollments, tenantId, request.enrollmentId);
-    const dayKey = this.dayBucket(test.rules.dailyResetEnabled);
-    const attemptsForLimit = this.attempts.filter((item) =>
-      item.tenantId === tenantId && item.testId === request.testId && item.learnerId === request.learnerId && (!dayKey || item.createdAt.startsWith(dayKey))
-    );
-    if (attemptsForLimit.length >= test.rules.attemptLimit) {
-      throw new PreconditionFailedException({ code: 'attempt_limit_exceeded', message: 'Attempt limit exceeded' });
-    }
-    const active = this.attempts.find((item) => item.tenantId === tenantId && item.testId === request.testId && item.learnerId === request.learnerId && item.status === 'in_progress');
-    if (active) return active;
-
-    const questionIds = this.resolveAttemptQuestionIds(tenantId, test);
-    const now = new Date();
-    const expiresAt = test.rules.timeLimitMinutes ? new Date(now.getTime() + test.rules.timeLimitMinutes * 60_000).toISOString() : undefined;
-    const attempt: Attempt = { id: this.id('attempt'), tenantId, testId: request.testId, enrollmentId: request.enrollmentId, learnerId: request.learnerId, attemptNo: attemptsForLimit.length + 1, status: 'in_progress', startedAt: now.toISOString(), expiresAt, questionOrder: questionIds, createdAt: now.toISOString(), updatedAt: now.toISOString() };
-    this.attempts.push(attempt);
-    this.audit(tenantId, actorId, 'assessment.attempt_started', 'assessment.attempt', attempt.id, undefined, attempt, context);
-    return attempt;
-  }
-  saveAttemptAnswer(tenantId: string, actorId: string | undefined, attemptId: string, request: SaveAnswerRequest, context: RequestContext): AttemptAnswer {
-    const attempt = this.getById(this.attempts, tenantId, attemptId);
-    this.assertAttemptWritable(attempt);
-    if (!attempt.questionOrder.includes(request.questionId)) throw new BadRequestException({ code: 'question_not_in_attempt', message: 'Question does not belong to attempt' });
-    this.getById(this.questions, tenantId, request.questionId);
-    const existing = this.attemptAnswers.find((item) => item.tenantId === tenantId && item.attemptId === attemptId && item.questionId === request.questionId);
-    if (existing) {
-      existing.answerOptionIds = request.answerOptionIds;
-      existing.textAnswer = request.textAnswer;
-      existing.updatedAt = this.now();
-      return existing;
-    }
-    const answer: AttemptAnswer = { id: this.id('answer'), tenantId, attemptId, questionId: request.questionId, answerOptionIds: request.answerOptionIds, textAnswer: request.textAnswer, status: 'active', createdAt: this.now(), updatedAt: this.now() };
-    this.attemptAnswers.push(answer);
-    this.audit(tenantId, actorId, 'assessment.answer_saved', 'assessment.attempt_answer', answer.id, undefined, answer, context);
-    return answer;
-  }
-  submitAttempt(tenantId: string, actorId: string | undefined, id: string, context: RequestContext): Attempt {
-    const attempt = this.getById(this.attempts, tenantId, id);
-    if (['submitted', 'finished', 'expired', 'invalidated'].includes(attempt.status)) return attempt;
-    if (attempt.expiresAt && new Date(attempt.expiresAt).getTime() < Date.now()) {
-      attempt.status = 'expired';
-      attempt.finishedAt = this.now();
-      return attempt;
-    }
-    attempt.status = 'submitted';
-    attempt.submittedAt = this.now();
-    const scores = this.calculateAttemptScore(tenantId, attempt.id);
-    attempt.score = scores.score;
-    attempt.maxScore = scores.maxScore;
-    attempt.passed = scores.score >= scores.passingScore;
-    attempt.updatedAt = this.now();
-    this.finalizeAttempt(tenantId, actorId, attempt.id, context);
-    return attempt;
-  }
-  finishAttempt(tenantId: string, actorId: string | undefined, id: string, context: RequestContext): Attempt {
-    return this.finalizeAttempt(tenantId, actorId, id, context);
-  }
-  getAttemptResult(tenantId: string, id: string): ExamResult {
-    const attempt = this.getById(this.attempts, tenantId, id);
-    return this.recalculateExamResult(tenantId, attempt.testId, attempt.enrollmentId, attempt.learnerId);
-  }
-  createAnswer(tenantId: string, actorId: string | undefined, request: { attemptId: string } & SaveAnswerRequest, context: RequestContext): AttemptAnswer {
-    return this.saveAttemptAnswer(tenantId, actorId, request.attemptId, request, context);
-  }
-  patchAnswer(tenantId: string, actorId: string | undefined, id: string, request: SaveAnswerRequest, context: RequestContext): AttemptAnswer {
-    const answer = this.getById(this.attemptAnswers, tenantId, id);
-    return this.saveAttemptAnswer(tenantId, actorId, answer.attemptId, request, context);
-  }
-
-  listExamResults(tenantId: string, query: BaseFilterQuery): ListResponse<ExamResult> { return this.list(this.examResults, tenantId, query); }
-  getExamResult(tenantId: string, id: string): ExamResult { return this.getById(this.examResults, tenantId, id); }
-  getExamResultByEnrollment(tenantId: string, enrollmentId: string): ExamResult[] {
-    return this.examResults.filter((item) => item.tenantId === tenantId && item.enrollmentId === enrollmentId);
-  }
-  recalculateExamResults(tenantId: string): { count: number } {
-    const grouped = new Map<string, { testId: string; enrollmentId: string; learnerId: string }>();
-    this.attempts.filter((item) => item.tenantId === tenantId).forEach((item) => grouped.set(`${item.testId}:${item.enrollmentId}:${item.learnerId}`, item));
-    grouped.forEach((item) => this.recalculateExamResult(tenantId, item.testId, item.enrollmentId, item.learnerId));
-    return { count: grouped.size };
-  }
-
-  listAssignments(tenantId: string, query: BaseFilterQuery): ListResponse<Assignment> { return this.list(this.assignments, tenantId, query); }
-  getAssignment(tenantId: string, id: string): Assignment { return this.getById(this.assignments, tenantId, id); }
-  createAssignment(tenantId: string, actorId: string | undefined, request: CreateAssignmentRequest, context: RequestContext): Assignment {
-    this.getById(this.courses, tenantId, request.courseId);
-    if (request.moduleId) this.getById(this.modules, tenantId, request.moduleId);
-    const assignment: Assignment = { id: this.id('asg'), tenantId, courseId: request.courseId, moduleId: request.moduleId, title: request.title, description: request.description, isReviewRequired: request.isReviewRequired ?? true, maxScore: request.maxScore ?? 100, status: 'draft', createdAt: this.now(), updatedAt: this.now() };
-    this.assignments.push(assignment);
-    this.audit(tenantId, actorId, 'assessment.assignment_created', 'assessment.assignment', assignment.id, undefined, assignment, context);
-    return assignment;
-  }
-  updateAssignment(tenantId: string, actorId: string | undefined, id: string, request: UpdateAssignmentRequest, context: RequestContext): Assignment {
-    const assignment = this.getById(this.assignments, tenantId, id);
-    Object.assign(assignment, request, { updatedAt: this.now() });
-    this.audit(tenantId, actorId, 'assessment.assignment_updated', 'assessment.assignment', assignment.id, undefined, assignment, context);
-    return assignment;
-  }
-  publishAssignment(tenantId: string, actorId: string | undefined, id: string, context: RequestContext): Assignment {
-    const assignment = this.getById(this.assignments, tenantId, id);
-    assignment.status = 'published';
-    assignment.publishedAt = this.now();
-    return assignment;
-  }
-  archiveAssignment(tenantId: string, actorId: string | undefined, id: string, context: RequestContext): Assignment {
-    const assignment = this.getById(this.assignments, tenantId, id);
-    assignment.status = 'archived';
-    assignment.archivedAt = this.now();
-    return assignment;
-  }
-
-  listAssignmentSubmissions(tenantId: string, query: BaseFilterQuery): ListResponse<AssignmentSubmission> { return this.list(this.assignmentSubmissions, tenantId, query); }
-  getAssignmentSubmission(tenantId: string, id: string): AssignmentSubmission { return this.getById(this.assignmentSubmissions, tenantId, id); }
-  createAssignmentSubmission(tenantId: string, actorId: string | undefined, request: CreateAssignmentSubmissionRequest, context: RequestContext): AssignmentSubmission {
-    this.getById(this.assignments, tenantId, request.assignmentId);
-    this.getById(this.enrollments, tenantId, request.enrollmentId);
-    const submission: AssignmentSubmission = { id: this.id('subm'), tenantId, assignmentId: request.assignmentId, enrollmentId: request.enrollmentId, learnerId: request.learnerId, textAnswer: request.textAnswer, fileId: request.fileId, status: 'draft', createdAt: this.now(), updatedAt: this.now() };
-    this.assignmentSubmissions.push(submission);
-    return submission;
-  }
-  updateAssignmentSubmission(tenantId: string, actorId: string | undefined, id: string, request: UpdateAssignmentSubmissionRequest): AssignmentSubmission {
-    const submission = this.getById(this.assignmentSubmissions, tenantId, id);
-    if (['submitted', 'under_review', 'reviewed', 'rejected'].includes(submission.status)) throw new PreconditionFailedException({ code: 'submission_locked', message: 'Submitted assignment cannot be edited' });
-    Object.assign(submission, request, { updatedAt: this.now() });
-    return submission;
-  }
-  submitAssignmentSubmission(tenantId: string, actorId: string | undefined, id: string, context: RequestContext): AssignmentSubmission {
-    const submission = this.getById(this.assignmentSubmissions, tenantId, id);
-    if (submission.status === 'submitted') return submission;
-    submission.status = 'submitted';
-    submission.submittedAt = this.now();
-    this.audit(tenantId, actorId, 'assessment.assignment_submission_submitted', 'assessment.assignment_submission', submission.id, undefined, submission, context);
-    return submission;
-  }
-
-  listAssignmentReviews(tenantId: string, query: BaseFilterQuery): ListResponse<AssignmentReview> { return this.list(this.assignmentReviews, tenantId, query); }
-  getAssignmentReview(tenantId: string, id: string): AssignmentReview { return this.getById(this.assignmentReviews, tenantId, id); }
-  createAssignmentReview(tenantId: string, actorId: string | undefined, request: CreateAssignmentReviewRequest): AssignmentReview {
-    const submission = this.getById(this.assignmentSubmissions, tenantId, request.submissionId);
-    const assignment = this.getById(this.assignments, tenantId, submission.assignmentId);
-    submission.status = 'under_review';
-    const review: AssignmentReview = { id: this.id('rev'), tenantId, assignmentId: assignment.id, submissionId: submission.id, enrollmentId: submission.enrollmentId, reviewerId: actorId ?? 'system', score: request.score, comment: request.comment, reviewStatus: 'in_review', status: 'active', createdAt: this.now(), updatedAt: this.now() };
-    this.assignmentReviews.push(review);
-    return review;
-  }
-  updateAssignmentReview(tenantId: string, actorId: string | undefined, id: string, request: UpdateAssignmentReviewRequest): AssignmentReview {
-    const review = this.getById(this.assignmentReviews, tenantId, id);
-    Object.assign(review, request, { updatedAt: this.now() });
-    return review;
-  }
-  completeAssignmentReview(tenantId: string, actorId: string | undefined, id: string, context: RequestContext): AssignmentReview {
-    const review = this.getById(this.assignmentReviews, tenantId, id);
-    review.reviewStatus = 'completed';
-    review.completedAt = this.now();
-    const submission = this.getById(this.assignmentSubmissions, tenantId, review.submissionId);
-    submission.status = 'reviewed';
-    this.audit(tenantId, actorId, 'assessment.assignment_review_completed', 'assessment.assignment_review', review.id, undefined, review, context);
-    return review;
-  }
-
   private recalculateModuleProgress(tenantId: string, enrollmentId: string, moduleId: string, courseId: string): void {
     const moduleMaterials = this.materialProgress.filter((item) => item.tenantId === tenantId && item.enrollmentId === enrollmentId && item.moduleId === moduleId);
     const requiredSeconds = moduleMaterials.reduce((acc, item) => acc + item.requiredSeconds, 0);
@@ -851,10 +581,15 @@ export class MvpService {
   }
   createQuestion(tenantId: string, actorId: string | undefined, request: CreateQuestionRequest, context: RequestContext): Question {
     this.getById(this.questionBanks, tenantId, request.questionBankId);
-    const entity: Question = { id: this.id('q'), tenantId, questionBankId: request.questionBankId, type: request.type, title: request.title, body: request.body, score: request.score, isArchived: false, status: 'active', createdAt: this.now(), updatedAt: this.now() };
+    const title = (request as unknown as { title?: string; text?: string }).title ?? (request as unknown as { text?: string }).text ?? '';
+    const body = (request as unknown as { body?: string; text?: string }).body ?? (request as unknown as { text?: string }).text;
+    const score = (request as unknown as { score?: number }).score ?? 1;
+    const entity: Question = { id: this.id('q'), tenantId, questionBankId: request.questionBankId, type: request.type, title, body, score, isArchived: false, status: 'active', createdAt: this.now(), updatedAt: this.now() };
     this.questions.push(entity);
-    if (request.answerOptions?.length) {
-      request.answerOptions.forEach((option, idx) => this.answerOptions.push({ id: this.id('opt'), tenantId, questionId: entity.id, text: option.text, isCorrect: option.isCorrect, sortOrder: idx, status: 'active', createdAt: this.now(), updatedAt: this.now() }));
+    const options = (request as unknown as { answerOptions?: Array<{ text: string; isCorrect?: boolean }>; options?: Array<{ text: string; isCorrect?: boolean }> }).answerOptions
+      ?? (request as unknown as { options?: Array<{ text: string; isCorrect?: boolean }> }).options;
+    if (options?.length) {
+      options.forEach((option, idx) => this.answerOptions.push({ id: this.id('opt'), tenantId, questionId: entity.id, text: option.text, isCorrect: Boolean(option.isCorrect), sortOrder: idx, status: 'active', createdAt: this.now(), updatedAt: this.now() }));
     }
     this.audit(tenantId, actorId, 'assessment.question_created', 'assessment.question', entity.id, undefined, entity, context);
     return entity;
@@ -864,9 +599,11 @@ export class MvpService {
     if (current.isArchived) throw new PreconditionFailedException({ code: 'domain_rule_violation', message: 'Archived question is read-only' });
     const oldValues = { ...current };
     Object.assign(current, request, { updatedAt: this.now() });
-    if (request.answerOptions) {
+    const answerOptions = (request as unknown as { answerOptions?: Array<{ text: string; isCorrect?: boolean }>; options?: Array<{ text: string; isCorrect?: boolean }> }).answerOptions
+      ?? (request as unknown as { options?: Array<{ text: string; isCorrect?: boolean }> }).options;
+    if (answerOptions) {
       this.answerOptions = this.answerOptions.filter((item) => !(item.tenantId === tenantId && item.questionId === id));
-      request.answerOptions.forEach((option, idx) => this.answerOptions.push({ id: this.id('opt'), tenantId, questionId: id, text: option.text, isCorrect: option.isCorrect, sortOrder: idx, status: 'active', createdAt: this.now(), updatedAt: this.now() }));
+      answerOptions.forEach((option, idx) => this.answerOptions.push({ id: this.id('opt'), tenantId, questionId: id, text: option.text, isCorrect: Boolean(option.isCorrect), sortOrder: idx, status: 'active', createdAt: this.now(), updatedAt: this.now() }));
     }
     this.audit(tenantId, actorId, 'assessment.question_updated', 'assessment.question', current.id, oldValues, current, context);
     return current;
@@ -922,7 +659,30 @@ export class MvpService {
     this.getById(this.tests, tenantId, testId);
     return this.testQuestions.filter((item) => item.tenantId === tenantId && item.testId === testId);
   }
-  addTestQuestions(tenantId: string, actorId: string | undefined, testId: string, questionIds: string[], context: RequestContext): TestQuestion[] {
+  addTestQuestions(
+    tenantId: string,
+    actorIdOrTestId: string | undefined,
+    testIdOrQuestionIds: string | string[],
+    questionIdsOrContext?: string[] | RequestContext,
+    maybeContext?: RequestContext
+  ): TestQuestion[] {
+    let actorId: string | undefined;
+    let testId: string;
+    let questionIds: string[];
+    let context: RequestContext | undefined;
+
+    if (Array.isArray(testIdOrQuestionIds)) {
+      actorId = undefined;
+      testId = actorIdOrTestId ?? '';
+      questionIds = testIdOrQuestionIds;
+      context = undefined;
+    } else {
+      actorId = actorIdOrTestId;
+      testId = testIdOrQuestionIds;
+      questionIds = Array.isArray(questionIdsOrContext) ? questionIdsOrContext : [];
+      context = Array.isArray(questionIdsOrContext) ? maybeContext : questionIdsOrContext;
+    }
+
     this.getById(this.tests, tenantId, testId);
     questionIds.forEach((questionId) => this.getById(this.questions, tenantId, questionId));
     questionIds.forEach((questionId) => {
@@ -930,7 +690,9 @@ export class MvpService {
         this.testQuestions.push({ id: this.id('tq'), tenantId, testId, questionId, sortOrder: this.testQuestions.length, status: 'active', createdAt: this.now(), updatedAt: this.now() });
       }
     });
-    this.audit(tenantId, actorId, 'assessment.test_questions_attached', 'assessment.test', testId, undefined, { testId, questionIds }, context);
+    if (context) {
+      this.audit(tenantId, actorId, 'assessment.test_questions_attached', 'assessment.test', testId, undefined, { testId, questionIds }, context);
+    }
     return this.listTestQuestions(tenantId, testId);
   }
 
@@ -971,6 +733,26 @@ export class MvpService {
     this.audit(tenantId, actorId, 'assessment.answer_saved', 'assessment.attempt_answer', answer.id, undefined, answer, context);
     return answer;
   }
+  saveAttemptAnswer(tenantId: string, actorId: string | undefined, attemptId: string, request: SaveAnswerRequest, context: RequestContext): AttemptAnswer {
+    return this.saveAnswer(
+      tenantId,
+      actorId,
+      attemptId,
+      {
+        questionId: request.questionId,
+        selectedOptionIds: request.selectedOptionIds ?? request.answerOptionIds,
+        textAnswer: request.textAnswer
+      },
+      context
+    );
+  }
+  createAnswer(tenantId: string, actorId: string | undefined, request: { attemptId: string } & SaveAnswerRequest, context: RequestContext): AttemptAnswer {
+    return this.saveAttemptAnswer(tenantId, actorId, request.attemptId, request, context);
+  }
+  patchAnswer(tenantId: string, actorId: string | undefined, id: string, request: SaveAnswerRequest, context: RequestContext): AttemptAnswer {
+    const answer = this.getById(this.attemptAnswers, tenantId, id);
+    return this.saveAttemptAnswer(tenantId, actorId, answer.attemptId, request, context);
+  }
   submitAttempt(tenantId: string, actorId: string | undefined, attemptId: string, context: RequestContext): TestAttempt {
     const attempt = this.getById(this.attempts, tenantId, attemptId);
     if (['submitted', 'finished', 'expired', 'invalidated'].includes(attempt.status)) return attempt;
@@ -984,7 +766,7 @@ export class MvpService {
       if (!answer) continue;
       if (question.type === 'text') continue;
       const correct = this.answerOptions.filter((item) => item.tenantId === tenantId && item.questionId === qid && item.isCorrect).map((item) => item.id).sort();
-      const selected = [...(answer.selectedOptionIds ?? [])].sort();
+      const selected = [...((answer.selectedOptionIds ?? answer.answerOptionIds) ?? [])].sort();
       if (JSON.stringify(correct) === JSON.stringify(selected)) score += question.score;
     }
     attempt.score = score;
@@ -1009,6 +791,23 @@ export class MvpService {
   getExamResult(tenantId: string, id: string): ExamResult { return this.getById(this.examResults, tenantId, id); }
   getExamResultByEnrollment(tenantId: string, enrollmentId: string): ExamResult[] {
     return this.examResults.filter((item) => item.tenantId === tenantId && item.enrollmentId === enrollmentId);
+  }
+  getAttemptResult(tenantId: string, id: string): ExamResult {
+    const attempt = this.getById(this.attempts, tenantId, id);
+    return this.recalculateExamResult(tenantId, attempt.testId, attempt.enrollmentId, attempt.learnerId);
+  }
+  recalculateExamResults(tenantId: string): { count: number } {
+    const grouped = new Set<string>();
+    this.attempts
+      .filter((item) => item.tenantId === tenantId)
+      .forEach((item) => grouped.add(`${item.testId}:${item.enrollmentId}:${item.learnerId}`));
+
+    for (const key of grouped) {
+      const [testId, enrollmentId, learnerId] = key.split(':');
+      this.recalculateExamResult(tenantId, testId, enrollmentId, learnerId);
+    }
+
+    return { count: grouped.size };
   }
   private finalizeExamResult(tenantId: string, actorId: string | undefined, attempt: TestAttempt, context: RequestContext): void {
     const existing = this.examResults.find((item) => item.tenantId === tenantId && item.enrollmentId === attempt.enrollmentId && item.testId === attempt.testId);

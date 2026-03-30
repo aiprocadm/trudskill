@@ -1,7 +1,11 @@
 {
   "extends": "../../tooling/typescript/tsconfig.app.json",
   "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
-  }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules", "src/**/*.test.ts", "src/**/*.e2e.test.ts"]
 }

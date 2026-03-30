@@ -102,13 +102,13 @@ describe('mvp service domain rules', () => {
     expect(() => service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id })).toThrow(ConflictException);
   });
 
-  it('writes audit events for critical actions', () => {
+  it('writes audit events for critical actions', async () => {
     const audit = new AuditService();
     const service = new MvpService(new TenantScopedRepository(), audit);
     service.createCounterparty('tenant_demo', ctx.userId, { code: 'CP1', name: 'Org 1' }, ctx);
     service.createLearner('tenant_demo', ctx.userId, { code: 'L1', name: 'John Doe' }, ctx);
-    expect(audit.list().some((item) => item.action === 'crm.counterparty_created')).toBe(true);
-    expect(audit.list().some((item) => item.action === 'learning.learner_created')).toBe(true);
+    expect((await audit.list()).some((item) => item.action === 'crm.counterparty_created')).toBe(true);
+    expect((await audit.list()).some((item) => item.action === 'learning.learner_created')).toBe(true);
   });
 
   it('enforces attempt limit, scoring and exam result finalization', () => {
@@ -181,7 +181,7 @@ describe('mvp service domain rules', () => {
     expect(completed.status).toBe('completed');
   });
 
-  it('updates module/material/group and writes audit events', () => {
+  it('updates module/material/group and writes audit events', async () => {
     const audit = new AuditService();
     const service = new MvpService(new TenantScopedRepository(), audit);
     const group = service.createGroup('tenant_demo', ctx.userId, { code: 'G1', name: 'Group' }, ctx);
@@ -197,9 +197,9 @@ describe('mvp service domain rules', () => {
     expect(updatedGroup.name).toBe('Group 2');
     expect(updatedModule.minViewSeconds).toBe(15);
     expect(updatedMaterial.fileId).toBe('file_1');
-    expect(audit.list().some((item) => item.action === 'learning.group_updated')).toBe(true);
-    expect(audit.list().some((item) => item.action === 'learning.module_updated')).toBe(true);
-    expect(audit.list().some((item) => item.action === 'learning.material_updated')).toBe(true);
+    expect((await audit.list()).some((item) => item.action === 'learning.group_updated')).toBe(true);
+    expect((await audit.list()).some((item) => item.action === 'learning.module_updated')).toBe(true);
+    expect((await audit.list()).some((item) => item.action === 'learning.material_updated')).toBe(true);
   });
 
   it('rejects mass-assignment of immutable fields on update endpoints', () => {

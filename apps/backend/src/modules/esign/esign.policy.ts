@@ -53,7 +53,7 @@ export class EsignStateMachine {
   }
 
   static assertProcessMutable(process: SigningProcessEntity) {
-    if (process.status === 'signed' || process.status === 'cancelled') throw new ConflictException('Terminal process is immutable');
+    if (process.status === 'signed' || process.status === 'cancelled') throw new BadRequestException('Terminal process is immutable');
   }
 
   static assertSigningOrder(process: SigningProcessEntity, participant: SigningParticipantEntity, allParticipants: SigningParticipantEntity[]) {

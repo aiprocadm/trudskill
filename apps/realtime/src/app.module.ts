@@ -1,8 +1,24 @@
 import { Body, Controller, Get, Headers, Module, Param, Post, Query, Res } from '@nestjs/common';
-import type { Response } from 'express';
 import { z } from 'zod';
-import type { RealtimeEventEnvelope } from '@cdoprof/api-contracts';
 import { realtimeEnv } from './env.js';
+
+type RealtimeEventName =
+  | 'async_task.status_changed'
+  | 'notification.created'
+  | 'notification.read'
+  | 'chat.message.created'
+  | 'dialog.updated'
+  | 'unread.changed'
+  | 'webinar.updated';
+
+type RealtimeEventEnvelope<TPayload = unknown> = {
+  event_name: RealtimeEventName;
+  version: 'v1';
+  tenant_id: string;
+  occurred_at: string;
+  correlation_id?: string;
+  payload: TPayload;
+};
 
 const roomSchema = z.string().regex(/^(user|tenant|task|dialog|webinar):[a-zA-Z0-9_-]+$/);
 
@@ -49,7 +65,7 @@ class RealtimeController {
     @Param('room') room: string,
     @Headers('authorization') auth: string,
     @Query('since') since: string | undefined,
-    @Res() res: Response
+    @Res() res: { status: (code: number) => { json: (body: unknown) => void }; setHeader: (name: string, value: string) => void; write: (chunk: string) => void; on: (event: 'close', listener: () => void) => void }
   ) {
     const parsedRoom = roomSchema.parse(room);
     const session = this.parseSession(auth);
@@ -76,7 +92,7 @@ class RealtimeController {
   }
 
   private canAccess(session: Session, room: string): boolean {
-    const [type, id] = room.split(':');
+    const [type, id = ''] = room.split(':');
     if (!session.tenantId || !session.userId) return false;
     if (type === 'tenant') return id === session.tenantId;
     if (type === 'user') return id === session.userId;

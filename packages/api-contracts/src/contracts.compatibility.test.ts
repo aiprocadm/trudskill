@@ -2,14 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { ApiErrorCodes, type ErrorEnvelope } from './errors/contracts';
 import { type ResponseMeta } from './meta/contracts';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { assessmentEndpoints } from './domains/tests';
 import { documentsEndpoints } from './domains/documents';
 import { esignEndpoints } from './domains/esign';
 import { notificationsEndpoints } from './domains/notifications';
 
 function loadGeneratedOpenApi() {
-  const raw = readFileSync(join(process.cwd(), 'packages/api-contracts/src/generated/openapi.v1.generated.json'), 'utf8');
+  const currentDir = dirname(fileURLToPath(import.meta.url));
+  const raw = readFileSync(join(currentDir, 'generated/openapi.v1.generated.json'), 'utf8');
   const withoutBanner = raw
     .split('\n')
     .filter((line) => !line.startsWith('//'))
