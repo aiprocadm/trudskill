@@ -10,38 +10,103 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  quality-gates:
-    name: Lint / Typecheck / Test / Build
+  lint_typecheck:
+    name: Lint + Typecheck
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
         with:
           version: 9.12.3
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-
-      - name: Restore Turbo cache
-        uses: actions/cache@v4
-        with:
-          path: .turbo
-          key: ${{ runner.os }}-turbo-${{ github.ref_name }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-turbo-${{ github.ref_name }}-
-            ${{ runner.os }}-turbo-
-
       - name: Install dependencies
         run: |
           if [ -f pnpm-lock.yaml ]; then
             pnpm install --frozen-lockfile
           else
-            echo 'pnpm-lock.yaml not found; running non-frozen install for bootstrap scenario'
             pnpm install --no-frozen-lockfile
           fi
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
 
-      - name: Quality gates (lint, typecheck, unit tests, build)
-        run: pnpm ci:check
+  tests_backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    needs: lint_typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm install --frozen-lockfile
+          else
+            pnpm install --no-frozen-lockfile
+          fi
+      - name: Backend unit/integration/migrations/security
+        run: |
+          pnpm test:backend
+          pnpm test:integration
+          pnpm test:migrations
+          pnpm test:security
+
+  tests_frontend_and_contracts:
+    name: Frontend + Contract tests
+    runs-on: ubuntu-latest
+    needs: lint_typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm install --frozen-lockfile
+          else
+            pnpm install --no-frozen-lockfile
+          fi
+      - name: Frontend and API contract checks
+        run: |
+          pnpm test:frontend
+          pnpm test:contracts
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs:
+      - tests_backend
+      - tests_frontend_and_contracts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm install --frozen-lockfile
+          else
+            pnpm install --no-frozen-lockfile
+          fi
+      - name: Build all packages/apps
+        run: pnpm build

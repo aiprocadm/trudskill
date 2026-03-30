@@ -21,7 +21,13 @@
     "contracts:lint": "pnpm --filter @cdoprof/api-contracts contracts:lint",
     "contracts:build": "pnpm --filter @cdoprof/api-contracts build",
     "contracts:typecheck": "pnpm --filter @cdoprof/api-contracts typecheck",
-    "contracts:generate": "pnpm --filter @cdoprof/api-contracts contracts:generate && pnpm --filter @cdoprof/api-contracts contracts:check-generated"
+    "contracts:generate": "pnpm --filter @cdoprof/api-contracts contracts:generate && pnpm --filter @cdoprof/api-contracts contracts:check-generated",
+    "test:backend": "./node_modules/.bin/vitest run --project @cdoprof/backend",
+    "test:frontend": "./node_modules/.bin/vitest run --project @cdoprof/frontend",
+    "test:contracts": "./node_modules/.bin/vitest run --project @cdoprof/api-contracts",
+    "test:security": "./node_modules/.bin/vitest run apps/backend/src/modules/iam/auth.security.test.ts apps/backend/src/modules/integrations/services/webhook-signature-verifier.test.ts apps/backend/src/modules/documents/documents.state-machine.test.ts apps/backend/src/modules/esign/esign.state-machine.test.ts",
+    "test:integration": "./node_modules/.bin/vitest run apps/backend/src/**/*integration.test.ts",
+    "test:migrations": "./node_modules/.bin/vitest run apps/backend/src/infrastructure/database/*migrations*.test.ts"
   },
   "lint-staged": {
     "*.{js,cjs,mjs,ts,tsx,jsx}": [
