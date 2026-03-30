@@ -1,4 +1,4 @@
-# MVP Domain Database Model (Stage 5)
+# MVP Domain Database Model (Stage 5+)
 
 ## Migration chain
 
@@ -7,6 +7,12 @@ MVP domain persistence is implemented through sequential SQL migrations in `apps
 1. `0001_backend_foundation.sql` — foundational schemas (`core`, `org`, `iam`, `audit`, base `storage`) and tenant/IAM primitives.
 2. `0002_mvp_domain_model.sql` — first-wave domain schemas and tables for CRM, learning, assessment, documents, storage links.
 3. `0003_mvp_domain_integrity_hardening.sql` — tenant-bound foreign keys, status-dependent checks, and additional read indexes.
+4. `0004_mvp_esign_domain.sql` — e-sign domain foundation.
+5. `0005_documents_domain.sql` — documents pipeline foundation.
+6. `0006_documents_task_numbering_hardening.sql` — documents numbering/task invariants.
+7. `0007_communication_realtime_foundation.sql` — communication/realtime persistence foundation.
+8. `0008_integrations_foundation.sql` — integration providers/credentials/tasks/sync logs.
+9. `0009_assessment_extensions.sql` — post-baseline assessment model extensions.
 
 ## Domain schemas
 
