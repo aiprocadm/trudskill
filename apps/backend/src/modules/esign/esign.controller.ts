@@ -5,7 +5,7 @@ import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { PermissionGuard } from '../iam/permission.guard.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
 import { EsignService } from './esign.service.js';
-import type { CreateEsignApplicationFileRequest, CreateEsignApplicationRequest, CreateSigningParticipantRequest, CreateSigningProcessRequest, EsignBaseFilter, ParticipantActionRequest, RejectEsignApplicationFileRequest, RejectEsignApplicationRequest, UpdateEsignApplicationRequest, UpdateSigningParticipantRequest } from './esign.dto.js';
+import type { CreateEsignApplicationFileRequest, CreateEsignApplicationRequest, CreateSigningParticipantRequest, CreateSigningProcessRequest, EsignBaseFilter, ParticipantActionRequest, RejectEsignApplicationFileRequest, RejectEsignApplicationRequest, StartSigningProcessRequest, UpdateEsignApplicationRequest, UpdateSigningParticipantRequest } from './esign.dto.js';
 
 @Controller('esign')
 @UseGuards(TenantGuard)
@@ -25,11 +25,11 @@ export class EsignController {
   @Get('application-files/:id') @UseGuards(PermissionGuard) @RequirePermissions('esign.applications.read') getApplicationFile(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.esignService.getApplicationFile(c.tenantId!, id); }
   @Post('application-files/:id/verify') @UseGuards(PermissionGuard) @RequirePermissions('esign.applications.review') verifyApplicationFile(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.esignService.verifyApplicationFile(c.tenantId!, c.userId, id); }
   @Post('application-files/:id/reject') @UseGuards(PermissionGuard) @RequirePermissions('esign.applications.review') rejectApplicationFile(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: RejectEsignApplicationFileRequest) { return this.esignService.rejectApplicationFile(c.tenantId!, c.userId, id, b); }
-  @Delete('application-files/:id') @UseGuards(PermissionGuard) @RequirePermissions('esign.applications.write') deleteApplicationFile(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.esignService.deleteApplicationFile(c.tenantId!, id); }
+  @Delete('application-files/:id') @UseGuards(PermissionGuard) @RequirePermissions('esign.applications.write') deleteApplicationFile(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.esignService.deleteApplicationFile(c.tenantId!, id, c.userId); }
   @Get('processes') @UseGuards(PermissionGuard) @RequirePermissions('esign.processes.read') listProcesses(@CurrentContext() c: RequestContext, @Query() q: EsignBaseFilter) { return this.esignService.listProcesses(c.tenantId!, q); }
   @Post('processes') @UseGuards(PermissionGuard) @RequirePermissions('esign.processes.write') createProcess(@CurrentContext() c: RequestContext, @Body() b: CreateSigningProcessRequest) { return this.esignService.createProcess(c.tenantId!, c.userId, b); }
   @Get('processes/:id') @UseGuards(PermissionGuard) @RequirePermissions('esign.processes.read') getProcess(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.esignService.getProcess(c.tenantId!, id); }
-  @Post('processes/:id/start') @UseGuards(PermissionGuard) @RequirePermissions('esign.processes.write') startProcess(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: { idempotencyKey: string }) { return this.esignService.startProcess(c.tenantId!, c.userId, id, b); }
+  @Post('processes/:id/start') @UseGuards(PermissionGuard) @RequirePermissions('esign.processes.write') startProcess(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: StartSigningProcessRequest) { return this.esignService.startProcess(c.tenantId!, c.userId, id, b); }
   @Post('processes/:id/cancel') @UseGuards(PermissionGuard) @RequirePermissions('esign.processes.write') cancelProcess(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.esignService.cancelProcess(c.tenantId!, c.userId, id); }
   @Get('processes/:id/status') @UseGuards(PermissionGuard) @RequirePermissions('esign.processes.read') processStatus(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.esignService.getProcessStatus(c.tenantId!, id); }
   @Get('participants') @UseGuards(PermissionGuard) @RequirePermissions('esign.processes.read') listParticipants(@CurrentContext() c: RequestContext, @Query() q: EsignBaseFilter) { return this.esignService.listParticipants(c.tenantId!, q); }
