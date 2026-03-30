@@ -16,5 +16,8 @@
   },
   "dependencies": {
     "@cdoprof/shared-types": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.14"
   }
 }

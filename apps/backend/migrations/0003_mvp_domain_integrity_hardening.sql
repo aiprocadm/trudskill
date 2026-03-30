@@ -2,6 +2,14 @@ ALTER TABLE crm.counterparties
   DROP CONSTRAINT IF EXISTS counterparties_tenant_id_id_uniq,
   ADD CONSTRAINT counterparties_tenant_id_id_uniq UNIQUE (tenant_id, id);
 
+ALTER TABLE iam.users
+  DROP CONSTRAINT IF EXISTS users_tenant_id_id_uniq,
+  ADD CONSTRAINT users_tenant_id_id_uniq UNIQUE (tenant_id, id);
+
+ALTER TABLE storage.files
+  DROP CONSTRAINT IF EXISTS files_tenant_id_id_uniq,
+  ADD CONSTRAINT files_tenant_id_id_uniq UNIQUE (tenant_id, id);
+
 ALTER TABLE crm.counterparty_contacts
   DROP CONSTRAINT IF EXISTS counterparty_contacts_tenant_id_id_uniq,
   ADD CONSTRAINT counterparty_contacts_tenant_id_id_uniq UNIQUE (tenant_id, id),

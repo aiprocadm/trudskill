@@ -1,4 +1,4 @@
-import type { DateRangeFilter } from '../../../../shared-types/src/index.ts';
+import type { DateRangeFilter } from '@cdoprof/shared-types';
 import type { ReactElement } from 'react';
 
 export const DateRangeField = ({ value, onChange }: { value: DateRangeFilter; onChange: (value: DateRangeFilter) => void }): ReactElement => (

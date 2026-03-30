@@ -27,7 +27,9 @@ export class DocumentGenerationPipeline {
   async handle(task: DocumentTask): Promise<{ taskId: string; status: TaskStatus; generatedDocumentId?: string; errorMessage?: string }> {
     const existing = this.handled.get(task.id);
     if (existing) {
-      return { taskId: task.id, status: 'completed', generatedDocumentId: existing.generatedDocumentId };
+      return existing.generatedDocumentId
+        ? { taskId: task.id, status: 'completed', generatedDocumentId: existing.generatedDocumentId }
+        : { taskId: task.id, status: 'completed' };
     }
 
     try {

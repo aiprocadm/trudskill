@@ -15,10 +15,3 @@ export interface AsyncTaskResponse
     task_id: string;
     status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled';
   }> {}
-
-export type ValidationErrorResponse = import('../errors/contracts').ValidationErrorResponse;
-export type ForbiddenErrorResponse = import('../errors/contracts').ForbiddenErrorResponse;
-export type NotFoundErrorResponse = import('../errors/contracts').NotFoundErrorResponse;
-export type ConflictErrorResponse = import('../errors/contracts').ConflictErrorResponse;
-export type PreconditionFailedErrorResponse = import('../errors/contracts').PreconditionFailedErrorResponse;
-export type RateLimitedErrorResponse = import('../errors/contracts').RateLimitedErrorResponse;

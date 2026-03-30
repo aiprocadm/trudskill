@@ -259,6 +259,6 @@ export class MvpController {
   @Patch('assignment-reviews/:id') @UseGuards(PermissionGuard) @RequirePermissions('assessment.reviews.review')
   updateAssignmentReview(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: UpdateAssignmentReviewRequest) { return this.mvpService.updateAssignmentReview(c.tenantId!, c.userId, id, b, c); }
   @Post('assignment-reviews/:id/complete') @UseGuards(PermissionGuard) @RequirePermissions('assessment.reviews.review')
-  completeAssignmentReview(@CurrentContext() c: RequestContext, @Param('id') id: string) { return this.mvpService.completeAssignmentReview(c.tenantId!, c.userId, id, c); }
+  completeAssignmentReview(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() b: { score?: number; comment?: string }) { return this.mvpService.completeAssignmentReview(c.tenantId!, c.userId, id, b, c); }
 
 }

@@ -7,11 +7,7 @@ import { NotificationsService } from './notifications.service.js';
 @Controller('notifications')
 @UseGuards(TenantGuard)
 export class NotificationsController {
-  constructor(private readonly service: NotificationsService) {
-    if (this.service.unreadCounter('seed', 'seed') === 0) {
-      this.service.create({ tenantId: 'tenant_demo', recipientUserId: 'user_demo', channelCode: 'in_app', subjectText: 'Добро пожаловать', bodyText: 'Notification center initialized.' });
-    }
-  }
+  constructor(private readonly service: NotificationsService) {}
 
   @Get()
   list(@CurrentContext() ctx: RequestContext, @Query() query: Record<string, string | undefined>) {

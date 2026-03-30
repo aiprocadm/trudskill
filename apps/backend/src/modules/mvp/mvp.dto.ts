@@ -35,8 +35,10 @@ export interface CreateCourseRequest {
 }
 
 export interface UpdateCourseRequest {
+  code?: string;
   title?: string;
   description?: string;
+  status?: string;
 }
 
 export interface CreateModuleRequest {
@@ -92,51 +94,19 @@ export interface UpdateMaterialProgressRequest {
 }
 
 export interface CreateQuestionBankRequest {
+  code?: string;
   title: string;
   description?: string;
   courseId?: string;
-}
-export interface UpdateQuestionBankRequest {
-  title?: string;
-  description?: string;
-  status?: string;
-  code: string;
-  title: string;
-  description?: string;
 }
 
 export interface UpdateQuestionBankRequest {
   code?: string;
   title?: string;
   description?: string;
-}
-
-export interface CreateQuestionRequest {
-  questionBankId: string;
-  text: string;
-  explanation?: string;
-  type: 'single_choice' | 'multiple_choice' | 'text';
-  maxScore?: number;
-  options?: { text: string; isCorrect?: boolean }[];
-}
-export interface UpdateQuestionRequest {
-  text?: string;
-  explanation?: string;
-  status?: string;
-  maxScore?: number;
-  options?: { text: string; isCorrect?: boolean }[];
-}
-
-export interface CreateTestRequest {
-  title: string;
-  courseId: string;
-  questionBankId?: string;
-  rules?: Partial<TestRulesDto>;
-}
-export interface UpdateTestRequest {
-  title?: string;
   status?: string;
 }
+
 export interface TestRulesDto {
   attemptLimit: number;
   dailyResetEnabled: boolean;
@@ -145,19 +115,30 @@ export interface TestRulesDto {
   timeLimitMinutes?: number;
   passingScore: number;
 }
+
+export interface CreateQuestionRequest {
+  questionBankId: string;
   type: 'single_choice' | 'multiple_choice' | 'text';
-  title: string;
-  body: string;
-  score: number;
-  answerOptions?: Array<{ text: string; isCorrect: boolean }>;
+  title?: string;
+  body?: string;
+  score?: number;
+  text?: string;
+  explanation?: string;
+  maxScore?: number;
+  answerOptions?: Array<{ text: string; isCorrect?: boolean }>;
+  options?: Array<{ text: string; isCorrect?: boolean }>;
 }
 
 export interface UpdateQuestionRequest {
   title?: string;
   body?: string;
   score?: number;
+  text?: string;
+  explanation?: string;
+  maxScore?: number;
   status?: string;
-  answerOptions?: Array<{ text: string; isCorrect: boolean }>;
+  answerOptions?: Array<{ text: string; isCorrect?: boolean }>;
+  options?: Array<{ text: string; isCorrect?: boolean }>;
 }
 
 export interface CreateTestRequest {
@@ -165,14 +146,7 @@ export interface CreateTestRequest {
   title: string;
   description?: string;
   questionBankId?: string;
-  rules: {
-    attemptLimit: number;
-    dailyResetEnabled: boolean;
-    randomizeQuestions: boolean;
-    questionCount?: number;
-    timeLimitMinutes?: number;
-    passingScore: number;
-  };
+  rules?: Partial<TestRulesDto>;
 }
 
 export interface UpdateTestRequest {
@@ -181,7 +155,7 @@ export interface UpdateTestRequest {
   status?: string;
 }
 
-export interface PatchTestRulesRequest extends CreateTestRequest['rules'] {}
+export interface PatchTestRulesRequest extends Partial<TestRulesDto> {}
 
 export interface StartAttemptRequest {
   testId: string;
@@ -192,6 +166,8 @@ export interface StartAttemptRequest {
 export interface SaveAnswerRequest {
   questionId: string;
   answerOptionIds?: string[];
+  selectedOptionIds?: string[];
+  textAnswer?: string;
 }
 
 export interface SaveAttemptAnswerRequest {
@@ -205,16 +181,7 @@ export interface CreateAssignmentRequest {
   moduleId?: string;
   title: string;
   description?: string;
-  isReviewRequired?: boolean;
   maxScore?: number;
-}
-export interface UpdateAssignmentRequest {
-  title?: string;
-  description?: string;
-  status?: string;
-  isReviewRequired?: boolean;
-  maxScore?: number;
-  maxScore: number;
   isReviewRequired?: boolean;
 }
 
@@ -223,6 +190,7 @@ export interface UpdateAssignmentRequest {
   description?: string;
   maxScore?: number;
   status?: string;
+  isReviewRequired?: boolean;
 }
 
 export interface CreateAssignmentSubmissionRequest {
@@ -230,17 +198,12 @@ export interface CreateAssignmentSubmissionRequest {
   enrollmentId: string;
   learnerId: string;
   textAnswer?: string;
-  fileId?: string;
-}
-export interface UpdateAssignmentSubmissionRequest {
-  textAnswer?: string;
-  fileId?: string;
-}
   answerText?: string;
   fileId?: string;
 }
 
 export interface UpdateAssignmentSubmissionRequest {
+  textAnswer?: string;
   answerText?: string;
   fileId?: string;
 }
@@ -250,6 +213,7 @@ export interface CreateAssignmentReviewRequest {
   score?: number;
   comment?: string;
 }
+
 export interface UpdateAssignmentReviewRequest {
   score?: number;
   comment?: string;

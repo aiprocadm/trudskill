@@ -1,4 +1,4 @@
-import type { LookupItem } from '../../../../shared-types/src/index.ts';
+import type { LookupItem } from '@cdoprof/shared-types';
 import type { ReactElement } from 'react';
 
 export const LookupSelect = ({ items, value, onChange }: { items: LookupItem[]; value?: string; onChange: (value: string) => void }): ReactElement => (

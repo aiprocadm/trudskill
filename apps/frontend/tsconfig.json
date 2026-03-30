@@ -1,4 +1,19 @@
 {
   "extends": "../../tooling/typescript/tsconfig.frontend.json",
-  "references": [{ "path": "../../packages/ui" }]
+  "compilerOptions": {
+    "baseUrl": ".",
+    "isolatedModules": true
+  },
+  "references": [
+    {
+      "path": "../../packages/ui"
+    }
+  ],
+  "include": [
+    "../../tooling/typescript/next-env.d.ts",
+    "../../tooling/typescript/**/*.ts",
+    "../../tooling/typescript/**/*.tsx",
+    "../../tooling/typescript/.next/types/**/*.ts",
+    ".next/types/**/*.ts"
+  ]
 }

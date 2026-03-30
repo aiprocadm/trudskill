@@ -1,4 +1,4 @@
-import type { EntityStatus } from '../../../../shared-types/src/index.ts';
+import type { EntityStatus } from '@cdoprof/shared-types';
 import type { ReactElement } from 'react';
 import { semanticStatusMap } from '../../tokens/index';
 

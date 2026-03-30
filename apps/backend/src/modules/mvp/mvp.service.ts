@@ -28,6 +28,8 @@ import type {
   AnswerOption,
   TestEntity,
   Attempt,
+  TestQuestion,
+  TestAttempt,
   AttemptAnswer,
   ExamResult,
   Assignment,
@@ -35,18 +37,7 @@ import type {
   AssignmentReview,
   MaterialProgress,
   ModuleProgress,
-  ProgressStatus,
-  Question,
-  QuestionBank,
-  AnswerOption,
-  TestEntity,
-  TestQuestion,
-  TestAttempt,
-  AttemptAnswer,
-  ExamResult,
-  Assignment,
-  AssignmentSubmission,
-  AssignmentReview
+  ProgressStatus
 } from './mvp.types.js';
 import type {
   BaseFilterQuery,
@@ -62,7 +53,6 @@ import type {
   UpdateQuestionRequest,
   CreateTestRequest,
   UpdateTestRequest,
-  TestRulesDto,
   StartAttemptRequest,
   SaveAnswerRequest,
   CreateAssignmentRequest,
@@ -77,20 +67,8 @@ import type {
   UpdateMaterialRequest,
   UpdateModuleRequest,
   UpdateSimpleRegistryRequest,
-  CreateQuestionBankRequest,
-  UpdateQuestionBankRequest,
-  CreateQuestionRequest,
-  UpdateQuestionRequest,
-  CreateTestRequest,
-  UpdateTestRequest,
   PatchTestRulesRequest,
-  StartAttemptRequest,
-  SaveAttemptAnswerRequest,
-  CreateAssignmentRequest,
-  UpdateAssignmentRequest,
-  CreateAssignmentSubmissionRequest,
-  UpdateAssignmentSubmissionRequest,
-  CreateAssignmentReviewRequest
+  SaveAttemptAnswerRequest
 } from './mvp.dto.js';
 
 interface ListResponse<T> {
@@ -1129,8 +1107,8 @@ export class MvpService {
     action: string,
     entityType: string,
     entityId: string,
-    oldValues: Record<string, unknown> | undefined,
-    newValues: Record<string, unknown> | undefined,
+    oldValues: unknown,
+    newValues: unknown,
     context: RequestContext
   ): void {
     this.auditService.write({
