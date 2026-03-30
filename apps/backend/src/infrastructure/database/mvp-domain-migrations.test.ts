@@ -56,12 +56,19 @@ describe('SQL migration chain', () => {
       '0005_documents_domain.sql',
       '0006_documents_task_numbering_hardening.sql',
       '0007_communication_realtime_foundation.sql',
-      '0008_integrations_foundation.sql'
+      '0008_integrations_foundation.sql',
+      '0009_assessment_extensions.sql'
     ];
 
     for (const migration of expectedBaselines) {
       expect(migrationFiles).toContain(migration);
     }
+  });
+
+
+  it('does not contain duplicate migration numbers', () => {
+    const prefixes = migrationFiles.map((name) => name.split('_')[0]);
+    expect(new Set(prefixes).size).toBe(prefixes.length);
   });
 
   it('creates all required MVP schemas', () => {
