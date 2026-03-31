@@ -24,6 +24,7 @@ export interface RequestOptions {
   body?: unknown;
   headers?: HeadersInit;
   auth?: { accessToken?: string; tenantHint?: string; userId?: string; tenantId?: string };
+  credentials?: RequestCredentials;
 }
 
 const toJson = async (response: Response) => {
@@ -48,8 +49,18 @@ const isResponseEnvelope = <T>(payload: unknown): payload is ApiResponseEnvelope
   );
 };
 
+const getCookie = (name: string): string | null => {
+  if (typeof document === 'undefined') return null;
+  const value = document.cookie
+    .split(';')
+    .map((item) => item.trim())
+    .find((item) => item.startsWith(`${name}=`));
+  return value ? decodeURIComponent(value.slice(name.length + 1)) : null;
+};
+
 export const apiRequestEnvelope = async <T>(path: string, options: RequestOptions = {}): Promise<ApiResponseEnvelope<T>> => {
   const headers = new Headers(options.headers);
+  const method = options.method ?? 'GET';
   headers.set('content-type', 'application/json');
   headers.set('x-correlation-id', crypto.randomUUID());
   const tenantHint = options.auth?.tenantHint ?? options.auth?.tenantId ?? frontendEnv.NEXT_PUBLIC_DEFAULT_TENANT_ID;
@@ -57,12 +68,17 @@ export const apiRequestEnvelope = async <T>(path: string, options: RequestOption
     headers.set('x-tenant-id', tenantHint);
   }
   if (options.auth?.accessToken) headers.set('authorization', `Bearer ${options.auth.accessToken}`);
+  if (options.credentials === 'include' && method !== 'GET') {
+    const csrfToken = getCookie('cdoprof.csrf');
+    if (csrfToken) headers.set('x-csrf-token', csrfToken);
+  }
 
   const response = await fetch(`${frontendEnv.NEXT_PUBLIC_API_BASE_URL}${path}`, {
-    method: options.method ?? 'GET',
+    method,
     headers,
     body: options.body ? JSON.stringify(options.body) : undefined,
-    cache: 'no-store'
+    cache: 'no-store',
+    credentials: options.credentials ?? 'same-origin'
   });
 
   if (!response.ok) {

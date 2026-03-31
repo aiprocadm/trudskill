@@ -21,23 +21,27 @@ export const sessionManager = {
   },
   async bootstrap(): Promise<UserSession | null> {
     const existing = sessionStore.get();
-    if (!existing) return null;
-    try {
-      const session = await hydrateSession(existing.tokens);
-      sessionStore.set(session);
-      return session;
-    } catch (error) {
-      if (error instanceof ApiClientError && error.normalized.isAuthError) {
-        return this.tryRefresh(existing);
+    if (existing) {
+      try {
+        const session = await hydrateSession(existing.tokens);
+        sessionStore.set(session);
+        return session;
+      } catch (error) {
+        if (error instanceof ApiClientError && error.normalized.isAuthError) {
+          return this.tryRefresh(existing);
+        }
+        throw error;
       }
-      throw error;
     }
+
+    const persisted = sessionStore.hydrateFromStorage();
+    if (!persisted) return null;
+    return this.tryRefresh();
   },
   async tryRefresh(existing?: UserSession): Promise<UserSession | null> {
-    const session = existing ?? sessionStore.get();
-    if (!session) return null;
     try {
-      const tokens = await authApi.refresh({ refreshToken: session.tokens.refreshToken });
+      const session = existing ?? sessionStore.get();
+      const tokens = await authApi.refresh(session ? { refreshToken: session.tokens.refreshToken } : undefined);
       const refreshed = await hydrateSession(tokens);
       sessionStore.set(refreshed);
       return refreshed;
