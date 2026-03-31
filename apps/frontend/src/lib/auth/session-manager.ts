@@ -40,8 +40,7 @@ export const sessionManager = {
   },
   async tryRefresh(existing?: UserSession): Promise<UserSession | null> {
     try {
-      const session = existing ?? sessionStore.get();
-      const tokens = await authApi.refresh(session ? { refreshToken: session.tokens.refreshToken } : undefined);
+      const tokens = await authApi.refresh();
       const refreshed = await hydrateSession(tokens);
       sessionStore.set(refreshed);
       return refreshed;

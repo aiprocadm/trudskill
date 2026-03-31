@@ -9,7 +9,6 @@ export interface CurrentUser {
 
 export interface SessionTokens {
   accessToken: string;
-  refreshToken: string;
   sessionId: string;
   expiresIn: number;
 }
