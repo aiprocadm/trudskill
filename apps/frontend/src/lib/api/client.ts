@@ -12,7 +12,7 @@ export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   headers?: HeadersInit;
-  auth?: { userId?: string; tenantId?: string; accessToken?: string };
+  auth?: { accessToken?: string; tenantHint?: string; userId?: string; tenantId?: string };
 }
 
 const toJson = async (response: Response) => {
@@ -26,9 +26,11 @@ const toJson = async (response: Response) => {
 export const apiRequest = async <T>(path: string, options: RequestOptions = {}): Promise<T> => {
   const headers = new Headers(options.headers);
   headers.set('content-type', 'application/json');
-  headers.set('x-tenant-id', options.auth?.tenantId ?? frontendEnv.NEXT_PUBLIC_DEFAULT_TENANT_ID);
   headers.set('x-correlation-id', crypto.randomUUID());
-  if (options.auth?.userId) headers.set('x-user-id', options.auth.userId);
+  const tenantHint = options.auth?.tenantHint ?? options.auth?.tenantId ?? frontendEnv.NEXT_PUBLIC_DEFAULT_TENANT_ID;
+  if (tenantHint) {
+    headers.set('x-tenant-id', tenantHint);
+  }
   if (options.auth?.accessToken) headers.set('authorization', `Bearer ${options.auth.accessToken}`);
 
   const response = await fetch(`${frontendEnv.NEXT_PUBLIC_API_BASE_URL}${path}`, {
