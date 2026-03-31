@@ -45,7 +45,30 @@ describe('TenantGuard', () => {
       300
     );
 
-    const context = makeExecutionContext({ authorization: `Bearer ${accessToken}`, 'x-tenant-id': 'tenant_demo' });
+    const context = makeExecutionContext({
+      authorization: `Bearer ${accessToken}`,
+      'x-tenant-id': 'tenant_demo'
+    });
     expect(guard.canActivate(context as never)).toBe(true);
+  });
+
+  it('rejects expired access token', () => {
+    const guard = new TenantGuardClass();
+    const accessToken = issueSignedAccessToken(
+      {
+        sub: 'u_tenant_admin',
+        tenant_id: 'tenant_demo',
+        session_id: 's_1',
+        roles: ['iam.manage_roles']
+      },
+      'dev-jwt-secret-12345',
+      -1
+    );
+
+    const context = makeExecutionContext({
+      authorization: `Bearer ${accessToken}`,
+      'x-tenant-id': 'tenant_demo'
+    });
+    expect(() => guard.canActivate(context as never)).toThrow(UnauthorizedException);
   });
 });
