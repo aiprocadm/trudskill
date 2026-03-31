@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { apiClient } from '../../lib/api/client';
+import { apiRequest } from '../../lib/api/client';
 
 const useLoad = <T,>(path: string, deps: unknown[] = []) => {
   const [data, setData] = useState<T | null>(null);
@@ -11,8 +11,7 @@ const useLoad = <T,>(path: string, deps: unknown[] = []) => {
     let active = true;
     setLoading(true);
     setError(null);
-    apiClient
-      .get<{ items: T }>(path)
+    apiRequest<{ items: T }>(path)
       .then((result) => {
         if (active) setData(result.items);
       })
