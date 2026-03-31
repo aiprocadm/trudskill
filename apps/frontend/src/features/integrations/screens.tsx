@@ -3,7 +3,7 @@
 import { DataTable, FilterBar, StatusChip } from '@cdoprof/ui';
 import { useEffect, useState } from 'react';
 import { PageContainer, PageHeader, SectionCard, SectionEmpty, SectionError } from '../../components/state-wrappers';
-import { apiClient } from '../../lib/api/client';
+import { apiRequest } from '../../lib/api/client';
 import { useCredentials, useExportTasks, useProviders, useSyncLogs } from './hooks';
 
 export const IntegrationSettingsScreen = () => {
@@ -17,7 +17,7 @@ export const IntegrationSettingsScreen = () => {
   const onCreateCredential = async () => {
     try {
       setSaveError(null);
-      await apiClient.post('/integrations/credentials', { providerId, name, secret, settingsJsonb: {} });
+      await apiRequest('/integrations/credentials', { method: 'POST', body: { providerId, name, secret, settingsJsonb: {} } });
       window.location.reload();
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Не удалось создать credentials');

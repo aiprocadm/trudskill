@@ -108,6 +108,8 @@ jobs:
           fi
       - name: Frontend typecheck
         run: pnpm --filter @cdoprof/frontend typecheck
+      - name: Build shared UI package (frontend dependency)
+        run: pnpm --filter @cdoprof/ui build
       - name: Frontend build
         run: pnpm --filter @cdoprof/frontend build
 
