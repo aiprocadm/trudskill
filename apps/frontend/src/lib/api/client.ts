@@ -97,3 +97,21 @@ export const apiRequest = async <T>(path: string, options: RequestOptions = {}):
   const response = await apiRequestEnvelope<T>(path, options);
   return response.data;
 };
+
+export interface ApiClient {
+  get<T>(path: string, options?: Omit<RequestOptions, 'method'>): Promise<T>;
+  post<T>(path: string, body?: unknown, options?: Omit<RequestOptions, 'method' | 'body'>): Promise<T>;
+  put<T>(path: string, body?: unknown, options?: Omit<RequestOptions, 'method' | 'body'>): Promise<T>;
+  patch<T>(path: string, body?: unknown, options?: Omit<RequestOptions, 'method' | 'body'>): Promise<T>;
+  delete<T>(path: string, options?: Omit<RequestOptions, 'method'>): Promise<T>;
+}
+
+const withMethod = (method: RequestOptions['method'], options: RequestOptions = {}): RequestOptions => ({ ...options, method });
+
+export const apiClient: ApiClient = {
+  get: (path, options = {}) => apiRequest(path, withMethod('GET', options)),
+  post: (path, body, options = {}) => apiRequest(path, { ...withMethod('POST', options), body }),
+  put: (path, body, options = {}) => apiRequest(path, { ...withMethod('PUT', options), body }),
+  patch: (path, body, options = {}) => apiRequest(path, { ...withMethod('PATCH', options), body }),
+  delete: (path, options = {}) => apiRequest(path, withMethod('DELETE', options))
+};
