@@ -10,6 +10,13 @@ const toPersistedSession = (session: UserSession): PersistedSession => {
   return rest;
 };
 
+const stripLegacyTokens = (value: unknown): PersistedSession | null => {
+  if (!value || typeof value !== 'object') return null;
+  const session = value as Partial<UserSession>;
+  const { tokens: _tokens, ...rest } = session;
+  return rest as PersistedSession;
+};
+
 export const sessionStore = {
   get(): UserSession | null {
     return memorySession;
@@ -29,8 +36,15 @@ export const sessionStore = {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return null;
     try {
-      return JSON.parse(raw) as PersistedSession;
+      const persisted = stripLegacyTokens(JSON.parse(raw));
+      if (!persisted) {
+        window.localStorage.removeItem(KEY);
+        return null;
+      }
+      window.localStorage.setItem(KEY, JSON.stringify(persisted));
+      return persisted;
     } catch {
+      window.localStorage.removeItem(KEY);
       return null;
     }
   }
