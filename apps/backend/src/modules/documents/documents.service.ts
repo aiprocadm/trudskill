@@ -3,6 +3,7 @@ import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 import { realtimeCatalog } from '@cdoprof/api-contracts';
 import type { RequestContext } from '../../common/context/request-context.js';
+import { ensureInMemoryModeAllowed } from '../../common/runtime/in-memory-mode.guard.js';
 import type {
   DocumentGenerationTaskEntity,
   GeneratedDocumentEntity,
@@ -50,7 +51,9 @@ export class DocumentsService {
   private reservations: NumberReservationEntity[] = [];
   private idem = new Map<string, string>();
 
-  constructor(private readonly auditService: AuditService, private readonly realtimeEvents: RealtimeEventsService) {}
+  constructor(private readonly auditService: AuditService, private readonly realtimeEvents: RealtimeEventsService) {
+    ensureInMemoryModeAllowed('DocumentsService');
+  }
 
   listTemplates(tenantId: string, query: BaseFilter) { return this.page(this.templates.filter((x) => x.tenantId === tenantId), query); }
   createTemplate(tenantId: string, actorId: string | undefined, req: CreateTemplateRequest, ctx: RequestContext) {

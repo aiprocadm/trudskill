@@ -4,6 +4,7 @@ import { AuditService } from '../../audit/audit.service.js';
 import type { RequestContext } from '../../../common/context/request-context.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 import { backendEnv } from '../../../env.js';
+import { ensureInMemoryModeAllowed } from '../../../common/runtime/in-memory-mode.guard.js';
 import {
   hashRefreshToken,
   issueSignedAccessToken,
@@ -27,7 +28,11 @@ export class AuthService {
     private readonly iamService: IamService,
     private readonly auditService: AuditService,
     @Optional() private readonly databaseService?: DatabaseService
-  ) {}
+  ) {
+    if (!this.databaseService) {
+      ensureInMemoryModeAllowed('AuthService');
+    }
+  }
 
   async login(tenantId: string, payload: LoginPayload, context: RequestContext) {
     const user = await this.iamService.findUserByLogin(tenantId, payload.login);
