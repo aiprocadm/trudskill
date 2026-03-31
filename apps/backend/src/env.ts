@@ -37,7 +37,8 @@ export const backendEnvSchema = z
     DB_MIGRATIONS_DIR: z.string().default('migrations'),
     CORS_ORIGIN: z.string().url(),
     PUBLIC_BASE_URL: z.string().url(),
-    REALTIME_PUBLIC_URL: z.string().url()
+    REALTIME_PUBLIC_URL: z.string().url(),
+    ALLOW_IN_MEMORY_STATE: z.coerce.boolean().default(false)
   })
   .superRefine((env, ctx) => {
     const devSecrets = ['change-me-in-production', 'dev-jwt-secret-12345', 'dev-session-secret-12345'];
@@ -46,6 +47,9 @@ export const backendEnvSchema = z
     }
     if (env.NODE_ENV === 'production' && devSecrets.includes(env.SESSION_SECRET)) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'SESSION_SECRET must not use development value in production' });
+    }
+    if (env.NODE_ENV === 'production' && env.ALLOW_IN_MEMORY_STATE) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'ALLOW_IN_MEMORY_STATE must be false in production' });
     }
   });
 

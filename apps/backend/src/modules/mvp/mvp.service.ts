@@ -8,6 +8,7 @@ import {
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 import { AuditService } from '../audit/audit.service.js';
 import type { RequestContext } from '../../common/context/request-context.js';
+import { ensureInMemoryModeAllowed } from '../../common/runtime/in-memory-mode.guard.js';
 import type {
   BaseEntity,
   Counterparty,
@@ -115,7 +116,9 @@ export class MvpService {
   constructor(
     private readonly tenantScopedRepository: TenantScopedRepository,
     private readonly auditService: AuditService
-  ) {}
+  ) {
+    ensureInMemoryModeAllowed('MvpService');
+  }
 
   listCounterparties(tenantId: string, query: BaseFilterQuery): ListResponse<Counterparty> {
     return this.list(this.counterparties, tenantId, query);
