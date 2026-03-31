@@ -86,12 +86,38 @@ jobs:
           pnpm test:frontend
           pnpm test:contracts
 
+  frontend_typecheck_build:
+    name: Frontend typecheck + build gate
+    runs-on: ubuntu-latest
+    needs: lint_typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm install --frozen-lockfile
+          else
+            pnpm install --no-frozen-lockfile
+          fi
+      - name: Frontend typecheck
+        run: pnpm --filter @cdoprof/frontend typecheck
+      - name: Frontend build
+        run: pnpm --filter @cdoprof/frontend build
+
   build:
     name: Build
     runs-on: ubuntu-latest
     needs:
       - tests_backend
       - tests_frontend_and_contracts
+      - frontend_typecheck_build
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

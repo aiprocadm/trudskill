@@ -10,6 +10,10 @@ const successEnvelope = <T>(data: T) => ({
 describe('api client envelope contract', () => {
   let apiRequest: <T>(path: string) => Promise<T>;
   let apiRequestEnvelope: <T>(path: string) => Promise<{ data: T; meta: { requestId: string } }>;
+  let apiClient: {
+    get: <T>(path: string) => Promise<T>;
+    post: <T>(path: string, body?: unknown) => Promise<T>;
+  };
   let ApiClientError: new (...args: unknown[]) => Error;
 
   beforeAll(async () => {
@@ -20,6 +24,7 @@ describe('api client envelope contract', () => {
     const client = await import('./client');
     apiRequest = client.apiRequest;
     apiRequestEnvelope = client.apiRequestEnvelope;
+    apiClient = client.apiClient;
     ApiClientError = client.ApiClientError;
   });
 
@@ -57,5 +62,23 @@ describe('api client envelope contract', () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ id: 'u1' }), { status: 200 }));
 
     await expect(apiRequest<{ id: string }>('/auth/me')).rejects.toBeInstanceOf(ApiClientError);
+  });
+
+  it('supports apiClient.get helper', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify(successEnvelope({ items: ['hubspot'] })), { status: 200, headers: { 'content-type': 'application/json' } })
+    );
+
+    const payload = await apiClient.get<{ items: string[] }>('/integrations/providers');
+    expect(payload.items).toEqual(['hubspot']);
+  });
+
+  it('supports apiClient.post helper', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify(successEnvelope({ id: 'cred-1' })), { status: 200, headers: { 'content-type': 'application/json' } })
+    );
+
+    const payload = await apiClient.post<{ id: string }>('/integrations/credentials', { name: 'prod' });
+    expect(payload.id).toBe('cred-1');
   });
 });
