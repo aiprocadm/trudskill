@@ -1,6 +1,17 @@
 import { frontendEnv } from '../config/env';
 import { normalizeApiError, type NormalizedApiError } from '../errors/api-error';
 
+export interface ApiResponseMeta {
+  requestId: string;
+  correlationId: string;
+  timestamp: string;
+}
+
+export interface ApiResponseEnvelope<T> {
+  data: T;
+  meta: ApiResponseMeta;
+}
+
 export class ApiClientError extends Error {
   constructor(public readonly normalized: NormalizedApiError) {
     super(normalized.message);
@@ -23,7 +34,21 @@ const toJson = async (response: Response) => {
   }
 };
 
-export const apiRequest = async <T>(path: string, options: RequestOptions = {}): Promise<T> => {
+const isResponseEnvelope = <T>(payload: unknown): payload is ApiResponseEnvelope<T> => {
+  if (!payload || typeof payload !== 'object') return false;
+  const asRecord = payload as Record<string, unknown>;
+  const meta = asRecord.meta;
+  return (
+    'data' in asRecord &&
+    typeof meta === 'object' &&
+    meta !== null &&
+    typeof (meta as Record<string, unknown>).requestId === 'string' &&
+    typeof (meta as Record<string, unknown>).correlationId === 'string' &&
+    typeof (meta as Record<string, unknown>).timestamp === 'string'
+  );
+};
+
+export const apiRequestEnvelope = async <T>(path: string, options: RequestOptions = {}): Promise<ApiResponseEnvelope<T>> => {
   const headers = new Headers(options.headers);
   headers.set('content-type', 'application/json');
   headers.set('x-correlation-id', crypto.randomUUID());
@@ -45,6 +70,30 @@ export const apiRequest = async <T>(path: string, options: RequestOptions = {}):
     throw new ApiClientError(normalizeApiError(response.status, payload));
   }
 
-  if (response.status === 204) return undefined as T;
-  return (await toJson(response)) as T;
+  if (response.status === 204) {
+    return {
+      data: undefined as T,
+      meta: { requestId: '', correlationId: '', timestamp: new Date(0).toISOString() }
+    };
+  }
+
+  const payload = await toJson(response);
+
+  if (!isResponseEnvelope<T>(payload)) {
+    throw new ApiClientError(
+      normalizeApiError(500, {
+        error: {
+          code: 'INVALID_RESPONSE_ENVELOPE',
+          message: 'Server response does not match { data, meta } envelope contract'
+        }
+      })
+    );
+  }
+
+  return payload;
+};
+
+export const apiRequest = async <T>(path: string, options: RequestOptions = {}): Promise<T> => {
+  const response = await apiRequestEnvelope<T>(path, options);
+  return response.data;
 };
