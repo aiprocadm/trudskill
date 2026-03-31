@@ -1,9 +1,49 @@
-import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 
-export const hashPassword = (password: string): string =>
-  createHash('sha256').update(`pwd:${password}`).digest('hex');
+import { iamCryptoPolicy } from './crypto-policy.js';
 
-export const verifyPassword = (plain: string, hash: string): boolean => hashPassword(plain) === hash;
+export const hashPassword = (password: string): string => {
+  const salt = randomBytes(iamCryptoPolicy.password.saltLength);
+  const derivedKey = scryptSync(password, salt, iamCryptoPolicy.password.keyLength, {
+    N: iamCryptoPolicy.password.cost,
+    r: iamCryptoPolicy.password.blockSize,
+    p: iamCryptoPolicy.password.parallelization
+  });
+
+  return [
+    iamCryptoPolicy.password.algorithm,
+    iamCryptoPolicy.password.cost,
+    iamCryptoPolicy.password.blockSize,
+    iamCryptoPolicy.password.parallelization,
+    salt.toString('base64url'),
+    derivedKey.toString('base64url')
+  ].join('$');
+};
+
+export const verifyPassword = (plain: string, hash: string): boolean => {
+  const [algorithm, costRaw, blockSizeRaw, parallelizationRaw, encodedSalt, encodedHash] =
+    hash.split('$');
+  if (
+    algorithm !== iamCryptoPolicy.password.algorithm ||
+    !costRaw ||
+    !blockSizeRaw ||
+    !parallelizationRaw ||
+    !encodedSalt ||
+    !encodedHash
+  ) {
+    return false;
+  }
+
+  const salt = Buffer.from(encodedSalt, 'base64url');
+  const stored = Buffer.from(encodedHash, 'base64url');
+  const computed = scryptSync(plain, salt, stored.length, {
+    N: Number(costRaw),
+    r: Number(blockSizeRaw),
+    p: Number(parallelizationRaw)
+  });
+
+  return timingSafeEqual(computed, stored);
+};
 
 export interface AccessTokenClaims {
   sub: string;
@@ -15,7 +55,8 @@ export interface AccessTokenClaims {
 }
 
 const encodeBase64Url = (input: string): string => Buffer.from(input).toString('base64url');
-const decodeBase64Url = (input: string): string => Buffer.from(input, 'base64url').toString('utf-8');
+const decodeBase64Url = (input: string): string =>
+  Buffer.from(input, 'base64url').toString('utf-8');
 
 export const issueSignedAccessToken = (
   payload: Omit<AccessTokenClaims, 'iat' | 'exp'>,
@@ -24,18 +65,34 @@ export const issueSignedAccessToken = (
 ): string => {
   const now = Math.floor(Date.now() / 1000);
   const claims: AccessTokenClaims = { ...payload, iat: now, exp: now + ttlSeconds };
+  const header = encodeBase64Url(
+    JSON.stringify({
+      alg: iamCryptoPolicy.accessToken.algorithm,
+      typ: iamCryptoPolicy.accessToken.type
+    })
+  );
   const encodedClaims = encodeBase64Url(JSON.stringify(claims));
-  const signature = createHmac('sha256', secret).update(encodedClaims).digest('base64url');
-  return `${encodedClaims}.${signature}`;
+  const signingInput = `${header}.${encodedClaims}`;
+  const signature = createHmac('sha256', secret).update(signingInput).digest('base64url');
+  return `${signingInput}.${signature}`;
 };
 
 export const verifySignedAccessToken = (token: string, secret: string): AccessTokenClaims => {
-  const [encodedClaims, signature] = token.split('.');
-  if (!encodedClaims || !signature) {
+  const [encodedHeader, encodedClaims, signature] = token.split('.');
+  if (!encodedHeader || !encodedClaims || !signature) {
     throw new Error('invalid_format');
   }
 
-  const expected = createHmac('sha256', secret).update(encodedClaims).digest('base64url');
+  const parsedHeader = JSON.parse(decodeBase64Url(encodedHeader)) as { alg?: string; typ?: string };
+  if (
+    parsedHeader.alg !== iamCryptoPolicy.accessToken.algorithm ||
+    parsedHeader.typ !== iamCryptoPolicy.accessToken.type
+  ) {
+    throw new Error('invalid_header');
+  }
+
+  const signingInput = `${encodedHeader}.${encodedClaims}`;
+  const expected = createHmac('sha256', secret).update(signingInput).digest('base64url');
   if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
     throw new Error('invalid_signature');
   }
@@ -59,7 +116,8 @@ export const verifySignedAccessToken = (token: string, secret: string): AccessTo
   return claims as AccessTokenClaims;
 };
 
-export const issueToken = (): string => randomUUID();
+export const issueToken = (): string =>
+  randomBytes(iamCryptoPolicy.refreshToken.bytes).toString('base64url');
 
-export const hashRefreshToken = (token: string): string =>
-  createHash('sha256').update(`refresh:${token}`).digest('hex');
+export const hashRefreshToken = (token: string, secret: string): string =>
+  createHmac('sha256', secret).update(`refresh:${token}`).digest('hex');

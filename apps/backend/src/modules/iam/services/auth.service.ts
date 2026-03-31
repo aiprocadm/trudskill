@@ -4,7 +4,12 @@ import { AuditService } from '../../audit/audit.service.js';
 import type { RequestContext } from '../../../common/context/request-context.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 import { backendEnv } from '../../../env.js';
-import { hashRefreshToken, issueSignedAccessToken, issueToken, verifyPassword } from '../crypto.util.js';
+import {
+  hashRefreshToken,
+  issueSignedAccessToken,
+  issueToken,
+  verifyPassword
+} from '../crypto.util.js';
 import type { AuthEvent, Session, User } from '../iam.types.js';
 import { IamService } from './iam.service.js';
 
@@ -27,7 +32,10 @@ export class AuthService {
   async login(tenantId: string, payload: LoginPayload, context: RequestContext) {
     const user = await this.iamService.findUserByLogin(tenantId, payload.login);
     if (!user) {
-      throw new UnauthorizedException({ code: 'invalid_credentials', message: 'Invalid credentials' });
+      throw new UnauthorizedException({
+        code: 'invalid_credentials',
+        message: 'Invalid credentials'
+      });
     }
 
     if (user.status === 'blocked') {
@@ -35,7 +43,10 @@ export class AuthService {
     }
 
     if (!verifyPassword(payload.password, user.passwordHash)) {
-      throw new UnauthorizedException({ code: 'invalid_credentials', message: 'Invalid credentials' });
+      throw new UnauthorizedException({
+        code: 'invalid_credentials',
+        message: 'Invalid credentials'
+      });
     }
 
     const tokens = await this.createSession(user);
@@ -55,11 +66,14 @@ export class AuthService {
   }
 
   async refresh(tenantId: string, refreshToken: string, context: RequestContext) {
-    const tokenHash = hashRefreshToken(refreshToken);
+    const tokenHash = hashRefreshToken(refreshToken, backendEnv.AUTH_JWT_SECRET);
     const activeSession = await this.findActiveSessionByRefreshHash(tenantId, tokenHash);
 
     if (!activeSession) {
-      throw new UnauthorizedException({ code: 'invalid_refresh', message: 'Refresh token is invalid' });
+      throw new UnauthorizedException({
+        code: 'invalid_refresh',
+        message: 'Refresh token is invalid'
+      });
     }
 
     if (Date.parse(activeSession.expiresAt) <= Date.now()) {
@@ -87,7 +101,12 @@ export class AuthService {
     return nextTokens;
   }
 
-  async logout(tenantId: string, userId: string, sessionId: string, context: RequestContext): Promise<void> {
+  async logout(
+    tenantId: string,
+    userId: string,
+    sessionId: string,
+    context: RequestContext
+  ): Promise<void> {
     const session = await this.findSession(sessionId, tenantId, userId);
     if (!session) {
       return;
@@ -107,7 +126,9 @@ export class AuthService {
 
   async listSessions(tenantId: string, userId: string): Promise<Session[]> {
     if (!this.databaseService) {
-      return this.sessions.filter((session) => session.tenantId === tenantId && session.userId === userId);
+      return this.sessions.filter(
+        (session) => session.tenantId === tenantId && session.userId === userId
+      );
     }
 
     const rows = await this.databaseService.query<{
@@ -137,7 +158,12 @@ export class AuthService {
     }));
   }
 
-  async revokeSession(tenantId: string, actorId: string, sessionId: string, context: RequestContext): Promise<void> {
+  async revokeSession(
+    tenantId: string,
+    actorId: string,
+    sessionId: string,
+    context: RequestContext
+  ): Promise<void> {
     const session = await this.findSession(sessionId, tenantId);
     if (!session || session.revokedAt) {
       return;
@@ -231,7 +257,7 @@ export class AuthService {
       id: `s_${randomUUID().replace(/-/g, '')}`,
       tenantId: user.tenantId,
       userId: user.id,
-      refreshTokenHash: hashRefreshToken(refreshToken),
+      refreshTokenHash: hashRefreshToken(refreshToken, backendEnv.AUTH_JWT_SECRET),
       expiresAt: new Date(Date.now() + backendEnv.REFRESH_TOKEN_TTL_SECONDS * 1000).toISOString()
     };
 
@@ -267,7 +293,11 @@ export class AuthService {
     };
   }
 
-  private async pushAuthEvent(tenantId: string, userId: string, type: AuthEvent['type']): Promise<void> {
+  private async pushAuthEvent(
+    tenantId: string,
+    userId: string,
+    type: AuthEvent['type']
+  ): Promise<void> {
     const event: AuthEvent = {
       id: `ae_${randomUUID().replace(/-/g, '')}`,
       tenantId,
@@ -290,10 +320,15 @@ export class AuthService {
     );
   }
 
-  private async findSession(sessionId: string, tenantId: string, userId?: string): Promise<Session | undefined> {
+  private async findSession(
+    sessionId: string,
+    tenantId: string,
+    userId?: string
+  ): Promise<Session | undefined> {
     if (!this.databaseService) {
       return this.sessions.find(
-        (item) => item.id === sessionId && item.tenantId === tenantId && (!userId || item.userId === userId)
+        (item) =>
+          item.id === sessionId && item.tenantId === tenantId && (!userId || item.userId === userId)
       );
     }
 
@@ -329,10 +364,16 @@ export class AuthService {
     };
   }
 
-  private async findActiveSessionByRefreshHash(tenantId: string, refreshTokenHash: string): Promise<Session | undefined> {
+  private async findActiveSessionByRefreshHash(
+    tenantId: string,
+    refreshTokenHash: string
+  ): Promise<Session | undefined> {
     if (!this.databaseService) {
       return this.sessions.find(
-        (session) => session.tenantId === tenantId && !session.revokedAt && session.refreshTokenHash === refreshTokenHash
+        (session) =>
+          session.tenantId === tenantId &&
+          !session.revokedAt &&
+          session.refreshTokenHash === refreshTokenHash
       );
     }
 
@@ -369,10 +410,18 @@ export class AuthService {
     };
   }
 
-  private async revokeSessionInternal(sessionId: string, tenantId: string, userId: string): Promise<void> {
+  private async revokeSessionInternal(
+    sessionId: string,
+    tenantId: string,
+    userId: string
+  ): Promise<void> {
     if (!this.databaseService) {
       this.sessions = this.sessions.map((session) => {
-        if (session.id === sessionId && session.tenantId === tenantId && session.userId === userId) {
+        if (
+          session.id === sessionId &&
+          session.tenantId === tenantId &&
+          session.userId === userId
+        ) {
           return { ...session, revokedAt: new Date().toISOString() };
         }
         return session;
