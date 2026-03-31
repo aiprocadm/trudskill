@@ -10,6 +10,15 @@ export interface User {
   displayName: string;
 }
 
+export interface UserPublicDto {
+  id: string;
+  tenantId: string;
+  login: string;
+  email: string | null;
+  status: UserStatus;
+  displayName: string;
+}
+
 export interface Role {
   id: string;
   tenantId: string;
@@ -28,6 +37,14 @@ export interface Session {
   tenantId: string;
   userId: string;
   refreshTokenHash: string;
+  expiresAt: string;
+  revokedAt?: string;
+}
+
+export interface SessionPublicDto {
+  id: string;
+  tenantId: string;
+  userId: string;
   expiresAt: string;
   revokedAt?: string;
 }
