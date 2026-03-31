@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 import { AuditService } from '../../audit/audit.service.js';
-import type { Permission, Role, User } from '../iam.types.js';
+import type { Permission, Role, User, UserPublicDto } from '../iam.types.js';
 import { hashPassword } from '../crypto.util.js';
 
 @Injectable()
@@ -384,6 +384,21 @@ export class IamService {
     );
 
     return rows.map((row) => row.code);
+  }
+
+  toPublicUser(user: User): UserPublicDto {
+    return {
+      id: user.id,
+      tenantId: user.tenantId,
+      login: user.login,
+      email: user.email,
+      status: user.status,
+      displayName: user.displayName
+    };
+  }
+
+  toPublicUsers(users: User[]): UserPublicDto[] {
+    return users.map((user) => this.toPublicUser(user));
   }
 
   private toUser(row: {

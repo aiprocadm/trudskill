@@ -7,6 +7,7 @@ import { PermissionGuard } from './permission.guard.js';
 import { AuthService } from './services/auth.service.js';
 import { IamService } from './services/iam.service.js';
 import { CreateUserDto, LoginDto, LogoutDto, RefreshDto, SetUserRolesDto, UpdateUserDto } from './dto/login.dto.js';
+import type { Session, SessionPublicDto } from './iam.types.js';
 
 @Controller()
 @UseGuards(TenantGuard)
@@ -37,12 +38,14 @@ export class AuthController {
 
   @Get('auth/me')
   async me(@CurrentContext() context: RequestContext) {
-    return this.iamService.getUser(context.tenantId!, context.userId!);
+    const user = await this.iamService.getUser(context.tenantId!, context.userId!);
+    return this.iamService.toPublicUser(user);
   }
 
   @Get('auth/sessions')
   async sessions(@CurrentContext() context: RequestContext) {
-    return this.authService.listSessions(context.tenantId!, context.userId!);
+    const sessions = await this.authService.listSessions(context.tenantId!, context.userId!);
+    return sessions.map((session) => this.toPublicSession(session));
   }
 
   @Delete('auth/sessions/:id')
@@ -69,28 +72,31 @@ export class AuthController {
   @RequirePermissions('iam.manage_roles')
   async users(@CurrentContext() context: RequestContext) {
     const items = await this.iamService.listUsers(context.tenantId!);
-    return { items, page: 1, pageSize: 100, total: items.length };
+    return { items: this.iamService.toPublicUsers(items), page: 1, pageSize: 100, total: items.length };
   }
 
   @Get('users/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('iam.manage_roles')
   async user(@CurrentContext() context: RequestContext, @Param('id') id: string) {
-    return this.iamService.getUser(context.tenantId!, id);
+    const user = await this.iamService.getUser(context.tenantId!, id);
+    return this.iamService.toPublicUser(user);
   }
 
   @Post('users')
   @UseGuards(PermissionGuard)
   @RequirePermissions('iam.manage_roles')
   async createUser(@CurrentContext() context: RequestContext, @Body() payload: CreateUserDto) {
-    return this.iamService.createUser(context.tenantId!, payload);
+    const user = await this.iamService.createUser(context.tenantId!, payload);
+    return this.iamService.toPublicUser(user);
   }
 
   @Put('users/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('iam.manage_roles')
   async updateUser(@CurrentContext() context: RequestContext, @Param('id') id: string, @Body() payload: UpdateUserDto) {
-    return this.iamService.updateUser(context.tenantId!, id, payload);
+    const user = await this.iamService.updateUser(context.tenantId!, id, payload);
+    return this.iamService.toPublicUser(user);
   }
 
   @Get('users/:id/roles')
@@ -113,5 +119,15 @@ export class AuthController {
       context.userId,
       context.requestId
     );
+  }
+
+  private toPublicSession(session: Session): SessionPublicDto {
+    return {
+      id: session.id,
+      tenantId: session.tenantId,
+      userId: session.userId,
+      expiresAt: session.expiresAt,
+      revokedAt: session.revokedAt
+    };
   }
 }
