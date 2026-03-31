@@ -4,7 +4,7 @@ import { AuditService } from '../../audit/audit.service.js';
 import type { RequestContext } from '../../../common/context/request-context.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 import { backendEnv } from '../../../env.js';
-import { hashRefreshToken, issueToken, verifyPassword } from '../crypto.util.js';
+import { hashRefreshToken, issueSignedAccessToken, issueToken, verifyPassword } from '../crypto.util.js';
 import type { AuthEvent, Session, User } from '../iam.types.js';
 import { IamService } from './iam.service.js';
 
@@ -157,6 +157,14 @@ export class AuthService {
     });
   }
 
+  async isSessionActive(tenantId: string, userId: string, sessionId: string): Promise<boolean> {
+    const session = await this.findSession(sessionId, tenantId, userId);
+    if (!session || session.revokedAt) {
+      return false;
+    }
+    return Date.parse(session.expiresAt) > Date.now();
+  }
+
   async logoutAll(tenantId: string, userId: string, context: RequestContext): Promise<void> {
     if (!this.databaseService) {
       this.sessions = this.sessions.map((session) => {
@@ -218,7 +226,6 @@ export class AuthService {
   }
 
   private async createSession(user: User) {
-    const accessToken = issueToken();
     const refreshToken = issueToken();
     const session: Session = {
       id: `s_${randomUUID().replace(/-/g, '')}`,
@@ -239,6 +246,18 @@ export class AuthService {
         [session.id, session.tenantId, session.userId, session.refreshTokenHash, session.expiresAt]
       );
     }
+
+    const userRoles = await this.iamService.getUserRoles(user.tenantId, user.id);
+    const accessToken = issueSignedAccessToken(
+      {
+        sub: user.id,
+        tenant_id: user.tenantId,
+        session_id: session.id,
+        roles: userRoles.map((role) => role.code)
+      },
+      backendEnv.AUTH_JWT_SECRET,
+      backendEnv.ACCESS_TOKEN_TTL_SECONDS
+    );
 
     return {
       accessToken,

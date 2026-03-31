@@ -9,8 +9,7 @@ export const resolveRequestContext = (req: RequestWithContext): RequestContext =
     req.context = {
       requestId: randomUUID(),
       correlationId: req.header('x-correlation-id') ?? randomUUID(),
-      tenantId: req.header('x-tenant-id') ?? undefined,
-      userId: req.header('x-user-id') ?? undefined,
+      requestedTenantId: req.header('x-tenant-id') ?? undefined,
       ip: req.ip,
       userAgent: req.header('user-agent') ?? undefined
     };
