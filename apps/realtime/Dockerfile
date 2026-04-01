@@ -5,7 +5,7 @@ RUN corepack enable
 FROM base AS deps
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY apps/realtime/package.json apps/realtime/package.json
-RUN pnpm install --filter @cdoprof/realtime... --frozen-lockfile=false
+RUN pnpm install --filter @cdoprof/realtime... --frozen-lockfile
 
 FROM deps AS build
 COPY . .
