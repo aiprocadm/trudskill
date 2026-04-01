@@ -19,8 +19,61 @@ export interface PipelineDeps {
   setFailed: (taskId: string, errorMessage: string) => Promise<void>;
 }
 
+export type RetryDecision = 'retry' | 'fail';
+
+export interface RetryPolicy {
+  decide: (error: unknown) => RetryDecision;
+}
+
+export class ErrorNameRetryPolicy implements RetryPolicy {
+  private readonly retryableNames = new Set(['TimeoutError', 'ServiceUnavailableError', 'RateLimitError']);
+
+  decide(error: unknown): RetryDecision {
+    if (error instanceof Error && this.retryableNames.has(error.name)) {
+      return 'retry';
+    }
+
+    return 'fail';
+  }
+}
+
+export class DocumentGenerationOrchestrator {
+  constructor(
+    private readonly deps: PipelineDeps,
+    private readonly retryPolicy: RetryPolicy
+  ) {}
+
+  async execute(task: DocumentTask): Promise<{ taskId: string; status: TaskStatus; generatedDocumentId?: string; errorMessage?: string }> {
+    const number = await this.deps.reserveNumber(task.tenantId, task.documentType);
+    const rendered = await this.deps.render({ taskId: task.id, number, templateVersionId: task.templateVersionId });
+    const generated = await this.deps.registerGenerated({ ...task, number, fileId: rendered.fileId });
+    await this.deps.setCompleted(task.id, generated.generatedDocumentId);
+
+    return { taskId: task.id, status: 'completed', generatedDocumentId: generated.generatedDocumentId };
+  }
+
+  async handleFailure(task: DocumentTask, error: unknown): Promise<{ taskId: string; status: TaskStatus; errorMessage: string }> {
+    const errorMessage = error instanceof Error ? error.message : 'unknown worker error';
+    const retryDecision = this.retryPolicy.decide(error);
+
+    if (retryDecision === 'retry') {
+      return { taskId: task.id, status: 'queued', errorMessage };
+    }
+
+    await this.deps.setFailed(task.id, errorMessage);
+    return { taskId: task.id, status: 'failed', errorMessage };
+  }
+}
+
 export class DocumentGenerationPipeline {
-  constructor(private readonly deps: PipelineDeps) {}
+  private readonly orchestrator: DocumentGenerationOrchestrator;
+
+  constructor(
+    private readonly deps: PipelineDeps,
+    retryPolicy: RetryPolicy = new ErrorNameRetryPolicy()
+  ) {
+    this.orchestrator = new DocumentGenerationOrchestrator(deps, retryPolicy);
+  }
 
   async handle(task: DocumentTask): Promise<{ taskId: string; status: TaskStatus; generatedDocumentId?: string; errorMessage?: string }> {
     const claimed = await this.deps.setRunning(task.id);
@@ -29,16 +82,9 @@ export class DocumentGenerationPipeline {
     }
 
     try {
-      const number = await this.deps.reserveNumber(task.tenantId, task.documentType);
-      const rendered = await this.deps.render({ taskId: task.id, number, templateVersionId: task.templateVersionId });
-      const generated = await this.deps.registerGenerated({ ...task, number, fileId: rendered.fileId });
-      await this.deps.setCompleted(task.id, generated.generatedDocumentId);
-
-      return { taskId: task.id, status: 'completed', generatedDocumentId: generated.generatedDocumentId };
+      return await this.orchestrator.execute(task);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'unknown worker error';
-      await this.deps.setFailed(task.id, errorMessage);
-      return { taskId: task.id, status: 'failed', errorMessage };
+      return this.orchestrator.handleFailure(task, error);
     }
   }
 }
