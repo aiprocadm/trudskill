@@ -72,21 +72,10 @@ export class AuthService {
 
   async refresh(tenantId: string, refreshToken: string, context: RequestContext) {
     const tokenHash = hashRefreshToken(refreshToken, backendEnv.AUTH_JWT_SECRET);
-    const activeSession = await this.findActiveSessionByRefreshHash(tenantId, tokenHash);
-
-    if (!activeSession) {
-      throw new UnauthorizedException({
-        code: 'invalid_refresh',
-        message: 'Refresh token is invalid'
-      });
-    }
-
+    const activeSession = await this.consumeRefreshSession(tenantId, tokenHash);
     if (Date.parse(activeSession.expiresAt) <= Date.now()) {
-      await this.revokeSessionInternal(activeSession.id, tenantId, activeSession.userId);
       throw new UnauthorizedException({ code: 'session_expired', message: 'Session expired' });
     }
-
-    await this.revokeSessionInternal(activeSession.id, tenantId, activeSession.userId);
     const user = await this.iamService.getUser(tenantId, activeSession.userId);
     const nextTokens = await this.createSession(user);
     await this.pushAuthEvent(tenantId, user.id, 'refresh');
@@ -369,50 +358,83 @@ export class AuthService {
     };
   }
 
-  private async findActiveSessionByRefreshHash(
+  private async consumeRefreshSession(
     tenantId: string,
     refreshTokenHash: string
-  ): Promise<Session | undefined> {
+  ): Promise<Session> {
     if (!this.databaseService) {
-      return this.sessions.find(
+      const activeSession = this.sessions.find(
         (session) =>
           session.tenantId === tenantId &&
           !session.revokedAt &&
           session.refreshTokenHash === refreshTokenHash
       );
+      if (!activeSession) {
+        throw new UnauthorizedException({
+          code: 'invalid_refresh',
+          message: 'Refresh token is invalid'
+        });
+      }
+      activeSession.revokedAt = new Date().toISOString();
+      return activeSession;
     }
 
-    const rows = await this.databaseService.query<{
-      id: string;
-      tenant_id: string;
-      user_id: string;
-      refresh_token_hash: string;
-      expires_at: string;
-      revoked_at: string | null;
-    }>(
-      `
-        select id, tenant_id, user_id, refresh_token_hash, expires_at::text as expires_at, revoked_at::text as revoked_at
-        from iam.sessions
-        where tenant_id = $1 and refresh_token_hash = $2 and revoked_at is null
-        order by created_at desc
-        limit 1
-      `,
-      [tenantId, refreshTokenHash]
-    );
+    const consumed = await this.databaseService.withTransaction(async (client) => {
+      const rows = await this.databaseService!.query<{
+        id: string;
+        tenant_id: string;
+        user_id: string;
+        refresh_token_hash: string;
+        expires_at: string;
+      }>(
+        `
+          select id, tenant_id, user_id, refresh_token_hash, expires_at::text as expires_at
+          from iam.sessions
+          where tenant_id = $1 and refresh_token_hash = $2 and revoked_at is null
+          order by created_at desc
+          for update skip locked
+          limit 1
+        `,
+        [tenantId, refreshTokenHash],
+        client
+      );
 
-    const row = rows[0];
-    if (!row) {
-      return undefined;
+      const row = rows[0];
+      if (!row) {
+        return null;
+      }
+
+      const revokedRows = await this.databaseService!.query<{ id: string }>(
+        `
+          update iam.sessions
+          set revoked_at = now(), updated_at = now()
+          where id = $1 and revoked_at is null
+          returning id
+        `,
+        [row.id],
+        client
+      );
+      if (!revokedRows.length) {
+        return null;
+      }
+
+      return {
+        id: row.id,
+        tenantId: row.tenant_id,
+        userId: row.user_id,
+        refreshTokenHash: row.refresh_token_hash,
+        expiresAt: row.expires_at
+      } as Session;
+    });
+
+    if (!consumed) {
+      throw new UnauthorizedException({
+        code: 'invalid_refresh',
+        message: 'Refresh token is invalid'
+      });
     }
 
-    return {
-      id: row.id,
-      tenantId: row.tenant_id,
-      userId: row.user_id,
-      refreshTokenHash: row.refresh_token_hash,
-      expiresAt: row.expires_at,
-      revokedAt: row.revoked_at ?? undefined
-    };
+    return consumed;
   }
 
   private async revokeSessionInternal(

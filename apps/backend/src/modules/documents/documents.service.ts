@@ -49,7 +49,7 @@ export class DocumentsService {
   private generatedDocuments: GeneratedDocumentEntity[] = [];
   private numberingRules: NumberingRuleEntity[] = [];
   private reservations: NumberReservationEntity[] = [];
-  private idem = new Map<string, string>();
+  private idem = new Map<string, { taskId: string; expiresAt: number }>();
 
   constructor(private readonly auditService: AuditService, private readonly realtimeEvents: RealtimeEventsService) {
     ensureInMemoryModeAllowed('DocumentsService');
@@ -196,9 +196,10 @@ export class DocumentsService {
   }
   getDocument(tenantId: string, id: string) { return this.must(this.generatedDocuments, tenantId, id); }
   generateDocument(tenantId: string, actorId: string | undefined, req: GenerateDocumentRequest) {
+    this.cleanupIdempotencyCache();
     const idemKey = `${tenantId}:${req.idempotencyKey}`;
-    const existingId = this.idem.get(idemKey);
-    if (existingId) return this.getDocumentTask(tenantId, existingId);
+    const existing = this.idem.get(idemKey);
+    if (existing && existing.expiresAt > Date.now()) return this.getDocumentTask(tenantId, existing.taskId);
     const template = this.getTemplate(tenantId, req.templateId);
     if (template.status === 'archived') throw new BadRequestException('Cannot generate documents from archived template');
     const versionId = req.templateVersionId ?? template.currentVersionId;
@@ -218,7 +219,7 @@ export class DocumentsService {
       requestedAt: this.now()
     };
     this.tasks.push(task);
-    this.idem.set(idemKey, task.id);
+    this.idem.set(idemKey, { taskId: task.id, expiresAt: Date.now() + 24 * 60 * 60 * 1000 });
     return task;
   }
 
@@ -420,6 +421,13 @@ export class DocumentsService {
       occurred_at: this.now(),
       payload: { task_id: task.id, status: task.status, source: task.sourceEntityType }
     });
+  }
+
+  private cleanupIdempotencyCache() {
+    const now = Date.now();
+    for (const [key, value] of this.idem.entries()) {
+      if (value.expiresAt <= now) this.idem.delete(key);
+    }
   }
 
   private validateBindingPayload(bindType: 'direction' | 'course' | 'group', directionId?: string, courseId?: string, groupId?: string) {

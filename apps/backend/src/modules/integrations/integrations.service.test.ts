@@ -43,6 +43,24 @@ describe('integration foundation services', () => {
     expect(second.id).toBe(tasks.items[0]?.id);
   });
 
+  it('keeps one side effect for concurrent idempotent export requests', async () => {
+    const { service } = build();
+    const responses = await Promise.all(
+      Array.from({ length: 25 }, () =>
+        service.createExportTask(
+          'tenant_a',
+          'u1',
+          { providerCode: 'frdo', exportType: 'learners', sourceFilterJsonb: { groupId: 'g1' } },
+          'idem-concurrent'
+        )
+      )
+    );
+
+    const uniqueTaskIds = new Set(responses.map((task) => task.id));
+    expect(uniqueTaskIds.size).toBe(1);
+    expect(service.listTasks('tenant_a').items).toHaveLength(1);
+  });
+
   it('supports list pagination envelopes for registries', async () => {
     const { service } = build();
     service.createProvider({ code: 'frdo', name: 'FRDO', providerType: 'frdo', isActive: true });

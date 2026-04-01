@@ -75,4 +75,20 @@ describe('auth foundation', () => {
     expect(sessions.find((session) => session.id === second.sessionId)?.revokedAt).toBeTruthy();
     expect(sessions.find((session) => session.id === first.sessionId)?.revokedAt).toBeFalsy();
   });
+
+  it('allows only one successful refresh under concurrent replay attempts', async () => {
+    const audit = new AuditService();
+    const iam = new IamService(audit);
+    const auth = new AuthService(iam, audit);
+    const login = await auth.login('tenant_demo', { login: 'tenant_admin', password: 'Password123!' }, context);
+
+    const results = await Promise.allSettled(
+      Array.from({ length: 20 }, () => auth.refresh('tenant_demo', login.refreshToken, context))
+    );
+    const success = results.filter((result) => result.status === 'fulfilled');
+    const failed = results.filter((result) => result.status === 'rejected');
+
+    expect(success).toHaveLength(1);
+    expect(failed).toHaveLength(19);
+  });
 });
