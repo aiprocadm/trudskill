@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DocumentGenerationPipeline } from './document-pipeline.js';
+import { DocumentGenerationPipeline, ErrorNameRetryPolicy } from './document-pipeline.js';
 
 describe('DocumentGenerationPipeline', () => {
   it('processes one job to one generated document', async () => {
@@ -60,7 +60,7 @@ describe('DocumentGenerationPipeline', () => {
     expect(setRunning).toHaveBeenCalledTimes(2);
   });
 
-  it('marks task as failed when render throws', async () => {
+  it('marks task as failed when non-retryable render failure happens', async () => {
     const setFailed = vi.fn().mockResolvedValue(undefined);
     const pipeline = new DocumentGenerationPipeline({
       setRunning: vi.fn().mockResolvedValue(undefined),
@@ -83,5 +83,37 @@ describe('DocumentGenerationPipeline', () => {
 
     expect(result.status).toEqual('failed');
     expect(setFailed).toHaveBeenCalledWith('t-fail', 'broken renderer');
+  });
+
+  it('returns queued for retryable failures and does not emit failed side effect', async () => {
+    const setFailed = vi.fn().mockResolvedValue(undefined);
+    const retryableError = new Error('renderer timeout');
+    retryableError.name = 'TimeoutError';
+
+    const pipeline = new DocumentGenerationPipeline(
+      {
+        setRunning: vi.fn().mockResolvedValue(undefined),
+        reserveNumber: vi.fn().mockResolvedValue('DOC-000001'),
+        render: vi.fn().mockRejectedValue(retryableError),
+        registerGenerated: vi.fn(),
+        setCompleted: vi.fn().mockResolvedValue(undefined),
+        setFailed
+      },
+      new ErrorNameRetryPolicy()
+    );
+
+    const result = await pipeline.handle({
+      id: 't-retry',
+      tenantId: 'tenant-1',
+      status: 'queued',
+      documentType: 'default',
+      sourceEntityType: 'group',
+      sourceEntityId: 'g1',
+      templateVersionId: 'v1'
+    });
+
+    expect(result.status).toBe('queued');
+    expect(result.errorMessage).toBe('renderer timeout');
+    expect(setFailed).not.toHaveBeenCalled();
   });
 });

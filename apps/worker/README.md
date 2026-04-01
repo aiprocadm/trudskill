@@ -20,3 +20,10 @@
 - Numbering rule is tenant scoped and document-type scoped.
 - Reservation row is created before final registration.
 - Reservation marked `used` only after successful generated document registration.
+
+
+## Pipeline layering
+- `DocumentGenerationPipeline` is a thin task entrypoint: claim task + delegate.
+- `DocumentGenerationOrchestrator` owns orchestration steps for generation flow.
+- `ErrorNameRetryPolicy` centralizes retry/fail decisions by error type.
+- Tests validate orchestration and retry semantics without any queue/Celery runtime.
