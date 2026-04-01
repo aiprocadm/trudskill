@@ -5,7 +5,7 @@ RUN corepack enable
 FROM base AS deps
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY apps/worker/package.json apps/worker/package.json
-RUN pnpm install --filter @cdoprof/worker... --frozen-lockfile=false
+RUN pnpm install --filter @cdoprof/worker... --frozen-lockfile
 
 FROM deps AS build
 COPY . .
