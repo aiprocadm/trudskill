@@ -195,7 +195,7 @@ export class IntegrationOrchestratorService {
   private requireCredential(tenantId: string, id: string) { const row = this.credentials.find((item) => item.id === id && item.tenantId === tenantId); if (!row) throw new NotFoundException({ code: 'not_found', message: 'Credential not found' }); return row; }
   private requireTask(tenantId: string, id: string) { const row = this.tasks.find((item) => item.id === id && item.tenantId === tenantId); if (!row) throw new NotFoundException({ code: 'not_found', message: 'Export task not found' }); return row; }
   private maskCredential(item: Credential) {
-    return { ...item, secretMasked: this.crypto.maskSecret(this.crypto.decrypt(item.secretEncrypted)), secretEncrypted: undefined };
+    return { ...item, secretMasked: this.crypto.maskEncryptedSecret(item.secretEncrypted), secretEncrypted: undefined };
   }
   private id(prefix: string) { return `${prefix}_${Math.random().toString(36).slice(2, 11)}`; }
   private matchesText(item: Record<string, unknown>, query?: string) {
