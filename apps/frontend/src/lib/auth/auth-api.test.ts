@@ -39,4 +39,13 @@ describe('auth api envelope compatibility', () => {
     expect(me.id).toBe('u1');
     expect(me.login).toBe('tenant_admin');
   });
+
+
+  it('me fails on invalid response envelope', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ id: 'u1', login: 'tenant_admin' }), { status: 200 }));
+
+    await expect(authApi.me('token')).rejects.toMatchObject({
+      normalized: { code: 'INVALID_RESPONSE_ENVELOPE' }
+    });
+  });
 });
