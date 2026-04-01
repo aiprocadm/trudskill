@@ -43,6 +43,30 @@ describe('DocumentsService', () => {
     expect(service.listDocumentTasks('t1', {}).total).toBe(1);
   });
 
+  it('keeps one task for 30 parallel idempotent submissions', async () => {
+    const service = new DocumentsService(new AuditService(), new RealtimeEventsService());
+    const template = service.createTemplate('t1', 'u1', { name: 'Tpl', templateType: 'contract' }, ctx);
+    const version = service.createTemplateVersion('t1', 'u1', { templateId: template.id, fileId: 'file_1' });
+    service.activateTemplateVersion('t1', version.id);
+
+    const tasks = await Promise.all(
+      Array.from({ length: 30 }, () =>
+        Promise.resolve(
+          service.generateDocument('t1', 'u1', {
+            idempotencyKey: 'abc-parallel',
+            templateId: template.id,
+            sourceEntityType: 'group',
+            sourceEntityId: 'g1',
+            documentType: 'default'
+          })
+        )
+      )
+    );
+
+    expect(new Set(tasks.map((task) => task.id)).size).toBe(1);
+    expect(service.listDocumentTasks('t1', {}).total).toBe(1);
+  });
+
   it('creates unique reservations', () => {
     const service = new DocumentsService(new AuditService(), new RealtimeEventsService());
     service.createNumberingRule('t1', { documentType: 'default', prefix: 'DOC-', suffix: '', pattern: '{prefix}{counter}{suffix}' });

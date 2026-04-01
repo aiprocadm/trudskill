@@ -11,7 +11,7 @@ export interface DocumentTask {
 }
 
 export interface PipelineDeps {
-  setRunning: (taskId: string) => Promise<void>;
+  setRunning: (taskId: string) => Promise<boolean | void>;
   reserveNumber: (tenantId: string, documentType: string) => Promise<string>;
   render: (payload: Record<string, unknown>) => Promise<{ fileId: string }>;
   registerGenerated: (payload: Record<string, unknown>) => Promise<{ generatedDocumentId: string }>;
@@ -20,25 +20,19 @@ export interface PipelineDeps {
 }
 
 export class DocumentGenerationPipeline {
-  private handled = new Map<string, { generatedDocumentId?: string }>();
-
   constructor(private readonly deps: PipelineDeps) {}
 
   async handle(task: DocumentTask): Promise<{ taskId: string; status: TaskStatus; generatedDocumentId?: string; errorMessage?: string }> {
-    const existing = this.handled.get(task.id);
-    if (existing) {
-      return existing.generatedDocumentId
-        ? { taskId: task.id, status: 'completed', generatedDocumentId: existing.generatedDocumentId }
-        : { taskId: task.id, status: 'completed' };
+    const claimed = await this.deps.setRunning(task.id);
+    if (claimed === false) {
+      return { taskId: task.id, status: 'queued' };
     }
 
     try {
-      await this.deps.setRunning(task.id);
       const number = await this.deps.reserveNumber(task.tenantId, task.documentType);
       const rendered = await this.deps.render({ taskId: task.id, number, templateVersionId: task.templateVersionId });
       const generated = await this.deps.registerGenerated({ ...task, number, fileId: rendered.fileId });
       await this.deps.setCompleted(task.id, generated.generatedDocumentId);
-      this.handled.set(task.id, { generatedDocumentId: generated.generatedDocumentId });
 
       return { taskId: task.id, status: 'completed', generatedDocumentId: generated.generatedDocumentId };
     } catch (error) {

@@ -27,10 +27,14 @@ describe('DocumentGenerationPipeline', () => {
     expect(registerGenerated).toHaveBeenCalledTimes(1);
   });
 
-  it('is idempotent for duplicate delivery', async () => {
+  it('does not execute side effects for duplicate delivery when task is already claimed', async () => {
     const registerGenerated = vi.fn().mockResolvedValue({ generatedDocumentId: 'g1' });
+    const setRunning = vi
+      .fn()
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
     const pipeline = new DocumentGenerationPipeline({
-      setRunning: vi.fn().mockResolvedValue(undefined),
+      setRunning,
       reserveNumber: vi.fn().mockResolvedValue('DOC-000001'),
       render: vi.fn().mockResolvedValue({ fileId: 'file_1' }),
       registerGenerated,
@@ -47,10 +51,13 @@ describe('DocumentGenerationPipeline', () => {
       templateVersionId: 'v1'
     };
 
-    await pipeline.handle(task);
-    await pipeline.handle(task);
+    const first = await pipeline.handle(task);
+    const second = await pipeline.handle(task);
 
     expect(registerGenerated).toHaveBeenCalledTimes(1);
+    expect(first.status).toBe('completed');
+    expect(second.status).toBe('queued');
+    expect(setRunning).toHaveBeenCalledTimes(2);
   });
 
   it('marks task as failed when render throws', async () => {
