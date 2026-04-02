@@ -1,3 +1,4 @@
+import type { AuthTokensContract } from '@cdoprof/api-contracts';
 import type { CurrentUser } from '../../entities/session/model';
 
 export interface LoginRequest {
@@ -5,11 +6,7 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface LoginResponse {
-  accessToken: string;
-  sessionId: string;
-  expiresIn: number;
-}
+export type LoginResponse = AuthTokensContract;
 
 export interface LogoutRequest {
   sessionId: string;

@@ -36,11 +36,16 @@ export const sessionManager = {
 
     const persisted = sessionStore.hydrateFromStorage();
     if (!persisted) return null;
-    return this.tryRefresh();
+    return this.tryRefresh(persisted);
   },
   async tryRefresh(existing?: UserSession): Promise<UserSession | null> {
     try {
-      const tokens = await authApi.refresh();
+      const source = existing ?? sessionStore.get();
+      if (!source?.tokens.refreshToken) {
+        this.clear();
+        return null;
+      }
+      const tokens = await authApi.refresh({ refreshToken: source.tokens.refreshToken });
       const refreshed = await hydrateSession(tokens);
       sessionStore.set(refreshed);
       return refreshed;
