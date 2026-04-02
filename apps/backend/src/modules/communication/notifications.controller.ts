@@ -15,8 +15,8 @@ export class NotificationsController {
   }
 
   @Get('unread-counter')
-  unread(@CurrentContext() ctx: RequestContext) {
-    return { count: this.service.unreadCounter(ctx.tenantId!, ctx.userId) };
+  async unread(@CurrentContext() ctx: RequestContext) {
+    return { count: await this.service.unreadCounter(ctx.tenantId!, ctx.userId) };
   }
 
   @Get(':id')

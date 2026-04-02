@@ -45,7 +45,7 @@ export class ChatService {
     this.messages.push(message);
     this.participants.filter((item) => item.tenantId === tenantId && item.dialogId === dialogId && item.userId !== senderUserId).forEach((item) => {
       item.unreadCount += 1;
-      this.notifications.create({ tenantId, recipientUserId: item.userId, channelCode: 'in_app', subjectText: 'Новое сообщение', bodyText: textBody.slice(0, 80), relatedEntityType: 'chat_dialog', relatedEntityId: dialogId });
+      void this.notifications.create({ tenantId, recipientUserId: item.userId, channelCode: 'in_app', subjectText: 'Новое сообщение', bodyText: textBody.slice(0, 80), relatedEntityType: 'chat_dialog', relatedEntityId: dialogId });
     });
     this.realtime.publish({ event_name: realtimeCatalog.chatMessageCreated, version: 'v1', tenant_id: tenantId, occurred_at: new Date().toISOString(), payload: { dialog_id: dialogId, message_id: message.id, sender_user_id: senderUserId, message_type: message.messageType } });
     return message;
