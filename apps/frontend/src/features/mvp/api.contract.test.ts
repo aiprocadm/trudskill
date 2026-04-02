@@ -12,7 +12,7 @@ const session: UserSession = {
     displayName: 'Demo',
     status: 'active'
   },
-  tokens: { accessToken: 'token', refreshToken: 'refresh', sessionId: 's1', expiresIn: 300 },
+  tokens: { accessToken: 'token', sessionId: 's1', expiresIn: 300 },
   roles: ['tenant_admin'],
   permissions: ['users.read']
 };

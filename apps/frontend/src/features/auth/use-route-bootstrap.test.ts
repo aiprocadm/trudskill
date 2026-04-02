@@ -4,7 +4,7 @@ import { getRouteBootstrapState } from './use-route-bootstrap';
 
 const session: UserSession = {
   user: { id: 'u_tenant_admin', tenantId: 'tenant_demo', login: 'tenant_admin', email: null, status: 'active', displayName: 'Tenant Admin' },
-  tokens: { accessToken: 'a', refreshToken: 'r', sessionId: 's1', expiresIn: 300 },
+  tokens: { accessToken: 'a', sessionId: 's1', expiresIn: 300 },
   roles: ['tenant_admin'],
   permissions: ['tenant.read']
 };

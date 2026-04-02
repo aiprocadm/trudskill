@@ -1,6 +1,5 @@
 import { apiRequest } from '../api/client';
 import type { LoginRequest, LoginResponse, LogoutRequest, MeResponse } from '../api/types';
-import type { RefreshRequestContract } from '@cdoprof/api-contracts';
 
 export interface RoleDto {
   code: string;
@@ -9,8 +8,7 @@ export interface RoleDto {
 export const authApi = {
   login: (payload: LoginRequest) =>
     apiRequest<LoginResponse>('/auth/login', { method: 'POST', body: payload, credentials: 'include' }),
-  refresh: (payload: RefreshRequestContract) =>
-    apiRequest<LoginResponse>('/auth/refresh', { method: 'POST', body: payload, credentials: 'include' }),
+  refresh: () => apiRequest<LoginResponse>('/auth/refresh', { method: 'POST', credentials: 'include' }),
   logout: (payload: LogoutRequest, accessToken: string) =>
     apiRequest<{ success: boolean }>('/auth/logout', {
       method: 'POST',

@@ -40,7 +40,7 @@ describe('session store', () => {
     window.localStorage.clear();
   });
 
-  it('persists tokens to localStorage for refresh flow after reload', () => {
+  it('persists only non-sensitive session data to localStorage', () => {
     sessionStore.set({
       user: {
         id: 'u_tenant_admin',
@@ -50,15 +50,16 @@ describe('session store', () => {
         status: 'active',
         displayName: 'Tenant Admin'
       },
-      tokens: { accessToken: 'access', refreshToken: 'refresh', sessionId: 'session', expiresIn: 300 },
+      tokens: { accessToken: 'access', sessionId: 'session', expiresIn: 300 },
       roles: ['tenant_admin'],
       permissions: ['iam.manage_roles']
     });
 
     const raw = window.localStorage.getItem(KEY);
     expect(raw).toBeTruthy();
-    expect(raw).toContain('access');
-    expect(raw).toContain('refresh');
+    expect(raw).not.toContain('access');
+    expect(raw).not.toContain('refresh');
+    expect(raw).toContain('tenant_admin');
   });
 
   it('drops malformed persisted payload', () => {
@@ -73,8 +74,7 @@ describe('session store', () => {
           status: 'active',
           displayName: 'Tenant Admin'
         },
-        roles: ['tenant_admin'],
-        permissions: ['iam.manage_roles']
+        roles: ['tenant_admin']
       })
     );
 
