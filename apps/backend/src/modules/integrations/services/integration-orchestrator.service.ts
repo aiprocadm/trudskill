@@ -2,7 +2,6 @@ import { Injectable, NotFoundException, PreconditionFailedException } from '@nes
 import { AuditService } from '../../audit/audit.service.js';
 import { RealtimeEventsService } from '../../core/realtime-events.service.js';
 import type { RequestContext } from '../../../common/context/request-context.js';
-import { ensureInMemoryModeAllowed } from '../../../common/runtime/in-memory-mode.guard.js';
 import type { CreateCredentialDto, CreateExportTaskDto, CreateProviderDto, RotateSecretDto, UpdateCredentialDto, UpdateProviderDto } from '../dto/integrations.dto.js';
 import type { Credential, ExportItem, ExportTask, Provider, SyncLog } from '../integrations.types.js';
 import { IdempotencyService } from './idempotency.service.js';
@@ -41,9 +40,7 @@ export class IntegrationOrchestratorService {
     private readonly adapterResolver: AdapterResolver,
     private readonly audit: AuditService,
     private readonly realtime: RealtimeEventsService
-  ) {
-    ensureInMemoryModeAllowed('IntegrationOrchestratorService');
-  }
+  ) {}
 
   listProviders(query?: ListQuery) {
     const sorted = this.sortItems(
