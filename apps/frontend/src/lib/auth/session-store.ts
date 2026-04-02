@@ -1,20 +1,19 @@
 import type { UserSession } from '../../entities/session/model';
 
 const KEY = 'cdoprof.session.v1';
-type PersistedSession = Omit<UserSession, 'tokens'>;
+
+type PersistedSession = UserSession;
 
 let memorySession: UserSession | null = null;
 
-const toPersistedSession = (session: UserSession): PersistedSession => {
-  const { tokens: _tokens, ...rest } = session;
-  return rest;
-};
+const toPersistedSession = (session: UserSession): PersistedSession => session;
 
-const stripLegacyTokens = (value: unknown): PersistedSession | null => {
+const parsePersistedSession = (value: unknown): PersistedSession | null => {
   if (!value || typeof value !== 'object') return null;
   const session = value as Partial<UserSession>;
-  const { tokens: _tokens, ...rest } = session;
-  return rest as PersistedSession;
+  if (!session.user || !session.tokens || !session.roles || !session.permissions) return null;
+  if (!session.tokens.accessToken || !session.tokens.refreshToken || !session.tokens.sessionId) return null;
+  return session as PersistedSession;
 };
 
 export const sessionStore = {
@@ -36,12 +35,11 @@ export const sessionStore = {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return null;
     try {
-      const persisted = stripLegacyTokens(JSON.parse(raw));
+      const persisted = parsePersistedSession(JSON.parse(raw));
       if (!persisted) {
         window.localStorage.removeItem(KEY);
         return null;
       }
-      window.localStorage.setItem(KEY, JSON.stringify(persisted));
       return persisted;
     } catch {
       window.localStorage.removeItem(KEY);
