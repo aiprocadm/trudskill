@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { realtimeCatalog, type RealtimeEventEnvelope } from '@cdoprof/api-contracts';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
+import { DatabaseService } from '../../infrastructure/database/database.service.js';
 
 export interface NotificationEntity {
   id: string;
@@ -23,9 +24,29 @@ export interface NotificationEntity {
 export class NotificationsService {
   private notifications: NotificationEntity[] = [];
 
-  constructor(private readonly realtime: RealtimeEventsService) {}
+  constructor(
+    private readonly realtime: RealtimeEventsService,
+    @Optional() private readonly databaseService?: DatabaseService
+  ) {}
 
-  list(tenantId: string, userId: string | undefined, query: Record<string, string | undefined>) {
+  async list(tenantId: string, userId: string | undefined, query: Record<string, string | undefined>) {
+    if (this.databaseService) {
+      const rows = await this.databaseService.query<{
+        id: string; tenant_id: string; recipient_user_id: string | null; recipient_learner_id: string | null; channel_code: 'in_app'; subject_text: string; body_text: string; status: 'unread' | 'read'; related_entity_type: string | null; related_entity_id: string | null; metadata_jsonb: Record<string, unknown> | null; created_at: string; read_at: string | null; sent_at: string | null;
+      }>(
+        `select id, tenant_id, recipient_user_id, recipient_learner_id, channel_code, subject_text, body_text, status, related_entity_type, related_entity_id, metadata_jsonb, created_at, read_at, sent_at
+         from communication.notifications
+         where tenant_id = $1
+           and ($2::text is null or recipient_user_id is null or recipient_user_id = $2)
+           and ($3::text is null or channel_code = $3)
+           and ($4::text is null or related_entity_type = $4)
+           and ($5::text <> 'unread' or status = 'unread')
+         order by created_at desc`,
+        [tenantId, userId ?? null, query.channel ?? null, query.related_entity_type ?? null, query.filter ?? null]
+      );
+      return rows.map((row) => this.mapRow(row));
+    }
+
     return this.notifications.filter(
       (item) =>
         item.tenantId === tenantId &&
@@ -36,9 +57,18 @@ export class NotificationsService {
     );
   }
 
-  create(seed: Omit<NotificationEntity, 'id' | 'createdAt' | 'status'>) {
+  async create(seed: Omit<NotificationEntity, 'id' | 'createdAt' | 'status'>) {
     const item: NotificationEntity = { ...seed, id: this.id(), createdAt: new Date().toISOString(), status: 'unread' };
-    this.notifications.unshift(item);
+    if (this.databaseService) {
+      await this.databaseService.query(
+        `insert into communication.notifications (
+          id, tenant_id, recipient_user_id, recipient_learner_id, channel_code, subject_text, body_text, status, related_entity_type, related_entity_id, metadata_jsonb, created_at
+        ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12::timestamptz)`,
+        [item.id, item.tenantId, item.recipientUserId ?? null, item.recipientLearnerId ?? null, item.channelCode, item.subjectText, item.bodyText, item.status, item.relatedEntityType ?? null, item.relatedEntityId ?? null, JSON.stringify(item.metadata ?? {}), item.createdAt]
+      );
+    } else {
+      this.notifications.unshift(item);
+    }
     this.publish(item.tenantId, realtimeCatalog.notificationCreated, {
       notification_id: item.id,
       recipient_user_id: item.recipientUserId,
@@ -48,28 +78,64 @@ export class NotificationsService {
     return item;
   }
 
-  get(tenantId: string, id: string, userId?: string) {
+  async get(tenantId: string, id: string, userId?: string) {
+    if (this.databaseService) {
+      const rows = await this.databaseService.query<{
+        id: string; tenant_id: string; recipient_user_id: string | null; recipient_learner_id: string | null; channel_code: 'in_app'; subject_text: string; body_text: string; status: 'unread' | 'read'; related_entity_type: string | null; related_entity_id: string | null; metadata_jsonb: Record<string, unknown> | null; created_at: string; read_at: string | null; sent_at: string | null;
+      }>(
+        `select id, tenant_id, recipient_user_id, recipient_learner_id, channel_code, subject_text, body_text, status, related_entity_type, related_entity_id, metadata_jsonb, created_at, read_at, sent_at
+         from communication.notifications
+         where tenant_id = $1 and id = $2`,
+        [tenantId, id]
+      );
+      const row = rows[0];
+      if (!row || (row.recipient_user_id && row.recipient_user_id !== userId)) throw new NotFoundException('Notification not found');
+      return this.mapRow(row);
+    }
     const item = this.notifications.find((entry) => entry.id === id && entry.tenantId === tenantId);
     if (!item || (item.recipientUserId && item.recipientUserId !== userId)) throw new NotFoundException('Notification not found');
     return item;
   }
 
-  read(tenantId: string, id: string, userId?: string) {
-    const item = this.get(tenantId, id, userId);
+  async read(tenantId: string, id: string, userId?: string) {
+    const item = await this.get(tenantId, id, userId);
     item.status = 'read';
     item.readAt = new Date().toISOString();
+    if (this.databaseService) {
+      await this.databaseService.query(
+        'update communication.notifications set status = $1, read_at = $2::timestamptz where tenant_id = $3 and id = $4',
+        [item.status, item.readAt, tenantId, id]
+      );
+    }
     this.publish(tenantId, realtimeCatalog.notificationRead, { notification_id: item.id });
     return item;
   }
 
-  readAll(tenantId: string, userId?: string) {
+  async readAll(tenantId: string, userId?: string) {
+    if (this.databaseService) {
+      await this.databaseService.query(
+        `update communication.notifications
+         set status = 'read', read_at = now()
+         where tenant_id = $1 and recipient_user_id = $2 and status = 'unread'`,
+        [tenantId, userId ?? null]
+      );
+      return { updated: true };
+    }
+
     this.notifications
       .filter((item) => item.tenantId === tenantId && item.recipientUserId === userId && item.status === 'unread')
-      .forEach((item) => this.read(tenantId, item.id, userId));
+      .forEach((item) => void this.read(tenantId, item.id, userId));
     return { updated: true };
   }
 
-  unreadCounter(tenantId: string, userId?: string) {
+  async unreadCounter(tenantId: string, userId?: string) {
+    if (this.databaseService) {
+      const rows = await this.databaseService.query<{ count: string }>(
+        'select count(*)::text as count from communication.notifications where tenant_id = $1 and recipient_user_id = $2 and status = $3',
+        [tenantId, userId ?? null, 'unread']
+      );
+      return Number(rows[0]?.count ?? 0);
+    }
     return this.notifications.filter((item) => item.tenantId === tenantId && item.recipientUserId === userId && item.status === 'unread').length;
   }
 
@@ -79,5 +145,26 @@ export class NotificationsService {
 
   private id() {
     return `notif_${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  private mapRow(row: {
+    id: string; tenant_id: string; recipient_user_id: string | null; recipient_learner_id: string | null; channel_code: 'in_app'; subject_text: string; body_text: string; status: 'unread' | 'read'; related_entity_type: string | null; related_entity_id: string | null; metadata_jsonb: Record<string, unknown> | null; created_at: string; read_at: string | null; sent_at: string | null;
+  }): NotificationEntity {
+    return {
+      id: row.id,
+      tenantId: row.tenant_id,
+      recipientUserId: row.recipient_user_id ?? undefined,
+      recipientLearnerId: row.recipient_learner_id ?? undefined,
+      channelCode: row.channel_code,
+      subjectText: row.subject_text,
+      bodyText: row.body_text,
+      status: row.status,
+      relatedEntityType: row.related_entity_type ?? undefined,
+      relatedEntityId: row.related_entity_id ?? undefined,
+      metadata: row.metadata_jsonb ?? undefined,
+      createdAt: row.created_at,
+      readAt: row.read_at ?? undefined,
+      sentAt: row.sent_at ?? undefined
+    };
   }
 }
