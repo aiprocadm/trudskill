@@ -4,7 +4,7 @@ import { evaluateRouteAccess } from '../features/navigation/helpers';
 
 const authorizedSession: UserSession = {
   user: { id: 'u_tenant_admin', tenantId: 'tenant_demo', login: 'tenant_admin', email: null, status: 'active', displayName: 'Tenant Admin' },
-  tokens: { accessToken: 'a', refreshToken: 'r', sessionId: 's1', expiresIn: 100 },
+  tokens: { accessToken: 'a', sessionId: 's1', expiresIn: 100 },
   roles: ['tenant_admin'],
   permissions: ['tenant.read', 'iam.manage_roles', 'auth.manage_sessions']
 };

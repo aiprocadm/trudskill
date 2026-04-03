@@ -28,7 +28,7 @@ export const sessionManager = {
         return session;
       } catch (error) {
         if (error instanceof ApiClientError && error.normalized.isAuthError) {
-          return this.tryRefresh(existing);
+          return this.tryRefresh();
         }
         throw error;
       }
@@ -36,16 +36,11 @@ export const sessionManager = {
 
     const persisted = sessionStore.hydrateFromStorage();
     if (!persisted) return null;
-    return this.tryRefresh(persisted);
+    return this.tryRefresh();
   },
-  async tryRefresh(existing?: UserSession): Promise<UserSession | null> {
+  async tryRefresh(): Promise<UserSession | null> {
     try {
-      const source = existing ?? sessionStore.get();
-      if (!source?.tokens.refreshToken) {
-        this.clear();
-        return null;
-      }
-      const tokens = await authApi.refresh({ refreshToken: source.tokens.refreshToken });
+      const tokens = await authApi.refresh();
       const refreshed = await hydrateSession(tokens);
       sessionStore.set(refreshed);
       return refreshed;

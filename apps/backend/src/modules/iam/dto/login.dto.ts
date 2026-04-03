@@ -1,4 +1,3 @@
-import type { RefreshRequestContract } from '@cdoprof/api-contracts';
 import {
   IsArray,
   IsEmail,
@@ -19,11 +18,7 @@ export class LoginDto {
   password!: string;
 }
 
-export class RefreshDto implements RefreshRequestContract {
-  @IsString()
-  @IsNotEmpty()
-  refreshToken!: string;
-}
+export class RefreshDto {}
 
 export class LogoutDto {
   @IsString()

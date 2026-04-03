@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
@@ -8,6 +9,7 @@ import { AuthService } from './services/auth.service.js';
 import { IamService } from './services/iam.service.js';
 import { CreateUserDto, LoginDto, LogoutDto, RefreshDto, SetUserRolesDto, UpdateUserDto } from './dto/login.dto.js';
 import type { Session, SessionPublicDto } from './iam.types.js';
+import { authCookie } from './auth-cookie.util.js';
 
 @Controller()
 @UseGuards(TenantGuard)
@@ -15,25 +17,55 @@ export class AuthController {
   constructor(private readonly authService: AuthService, private readonly iamService: IamService) {}
 
   @Post('auth/login')
-  async login(@CurrentContext() context: RequestContext, @Body() payload: LoginDto) {
-    return this.authService.login(context.tenantId!, payload, context);
+  async login(
+    @CurrentContext() context: RequestContext,
+    @Body() payload: LoginDto,
+    @Res({ passthrough: true }) response: Response
+  ) {
+    const tokens = await this.authService.login(context.tenantId!, payload, context);
+    authCookie.attachRefreshCookie(response, tokens.refreshToken);
+    return authCookie.toPublicTokens(tokens);
   }
 
   @Post('auth/refresh')
-  async refresh(@CurrentContext() context: RequestContext, @Body() payload: RefreshDto) {
-    return this.authService.refresh(context.tenantId!, payload.refreshToken, context);
+  async refresh(
+    @CurrentContext() context: RequestContext,
+    @Body() _payload: RefreshDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response
+  ) {
+    const refreshToken = authCookie.readRefreshCookie(request.headers);
+    if (!refreshToken) {
+      authCookie.clearRefreshCookie(response);
+      throw new UnauthorizedException({ code: 'invalid_refresh', message: 'Invalid refresh token' });
+    }
+    const tokens = await this.authService.refresh(context.tenantId!, refreshToken, context);
+    authCookie.attachRefreshCookie(response, tokens.refreshToken);
+    return authCookie.toPublicTokens(tokens);
   }
 
   @Post('auth/logout')
-  async logout(@CurrentContext() context: RequestContext, @Body() payload: LogoutDto) {
-    await this.authService.logout(context.tenantId!, context.userId!, payload.sessionId, context);
-    return { success: true };
+  async logout(
+    @CurrentContext() context: RequestContext,
+    @Body() payload: LogoutDto,
+    @Res({ passthrough: true }) response: Response
+  ) {
+    try {
+      await this.authService.logout(context.tenantId!, context.userId!, payload.sessionId, context);
+      return { success: true };
+    } finally {
+      authCookie.clearRefreshCookie(response);
+    }
   }
 
   @Post('auth/logout-all')
-  async logoutAll(@CurrentContext() context: RequestContext) {
-    await this.authService.logoutAll(context.tenantId!, context.userId!, context);
-    return { success: true };
+  async logoutAll(@CurrentContext() context: RequestContext, @Res({ passthrough: true }) response: Response) {
+    try {
+      await this.authService.logoutAll(context.tenantId!, context.userId!, context);
+      return { success: true };
+    } finally {
+      authCookie.clearRefreshCookie(response);
+    }
   }
 
   @Get('auth/me')

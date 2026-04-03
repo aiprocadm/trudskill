@@ -20,10 +20,10 @@ describe('IAM DTO validation', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('rejects refresh payload without refreshToken', async () => {
+  it('accepts empty refresh payload because refresh token comes from cookie', async () => {
     await expect(
       validationPipe.transform({}, { type: 'body', metatype: RefreshDto, data: 'payload' })
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).resolves.toEqual({});
   });
 
   it('rejects payloads with non-whitelisted fields', async () => {
