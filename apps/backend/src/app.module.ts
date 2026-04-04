@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { backendEnv } from './env.js';
 import { CoreModule } from './modules/core/core.module.js';
 import { TenantModule } from './modules/tenant/tenant.module.js';
@@ -15,6 +16,9 @@ import { EsignModule } from './modules/esign/esign.module.js';
 import { RequestObservabilityInterceptor } from './common/interceptors/request-observability.interceptor.js';
 
 const baseModules = [
+  ThrottlerModule.forRoot({
+    throttlers: [{ ttl: 60_000, limit: 300 }]
+  }),
   CoreModule,
   InfrastructureModule,
   TenantModule,

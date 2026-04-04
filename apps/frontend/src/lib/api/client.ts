@@ -49,15 +49,6 @@ const isResponseEnvelope = <T>(payload: unknown): payload is ApiResponseEnvelope
   );
 };
 
-const getCookie = (name: string): string | null => {
-  if (typeof document === 'undefined') return null;
-  const value = document.cookie
-    .split(';')
-    .map((item) => item.trim())
-    .find((item) => item.startsWith(`${name}=`));
-  return value ? decodeURIComponent(value.slice(name.length + 1)) : null;
-};
-
 export const apiRequestEnvelope = async <T>(path: string, options: RequestOptions = {}): Promise<ApiResponseEnvelope<T>> => {
   const headers = new Headers(options.headers);
   const method = options.method ?? 'GET';
@@ -68,10 +59,6 @@ export const apiRequestEnvelope = async <T>(path: string, options: RequestOption
     headers.set('x-tenant-id', tenantHint);
   }
   if (options.auth?.accessToken) headers.set('authorization', `Bearer ${options.auth.accessToken}`);
-  if (options.credentials === 'include' && method !== 'GET') {
-    const csrfToken = getCookie('cdoprof.csrf');
-    if (csrfToken) headers.set('x-csrf-token', csrfToken);
-  }
 
   const response = await fetch(`${frontendEnv.NEXT_PUBLIC_API_BASE_URL}${path}`, {
     method,

@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import type { RequestContext } from '../../common/context/request-context.js';
@@ -17,6 +18,8 @@ export class AuthController {
   constructor(private readonly authService: AuthService, private readonly iamService: IamService) {}
 
   @Post('auth/login')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 25, ttl: 60_000 } })
   async login(
     @CurrentContext() context: RequestContext,
     @Body() payload: LoginDto,
@@ -28,6 +31,8 @@ export class AuthController {
   }
 
   @Post('auth/refresh')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
   async refresh(
     @CurrentContext() context: RequestContext,
     @Body() _payload: RefreshDto,
