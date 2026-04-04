@@ -16,6 +16,7 @@ const requiredEnv: Record<string, string> = {
   CORS_ORIGIN: 'http://localhost:3000',
   PUBLIC_BASE_URL: 'http://localhost:3000',
   REALTIME_PUBLIC_URL: 'ws://localhost:3000',
+  REALTIME_PUBLISH_KEY: 'test-realtime-publish-key',
   DB_MIGRATIONS_ENABLED: '',
   ALLOW_IN_MEMORY_STATE: 'true'
 };
@@ -39,6 +40,7 @@ describe('IAM HTTP regressions (integration/e2e)', () => {
     const [
       nestjsCore,
       nestjsCommon,
+      throttlerImport,
       coreModuleImport,
       httpFilterImport,
       contextInterceptorImport,
@@ -52,6 +54,7 @@ describe('IAM HTTP regressions (integration/e2e)', () => {
       await Promise.all([
         import('@nestjs/core'),
         import('@nestjs/common'),
+        import('@nestjs/throttler'),
         import('../core/core.module.js'),
         import('../../common/filters/http-exception.filter.js'),
         import('../../common/interceptors/request-context.interceptor.js'),
@@ -65,6 +68,7 @@ describe('IAM HTTP regressions (integration/e2e)', () => {
 
     const { NestFactory } = nestjsCore;
     const { Controller, Get, Module, ValidationPipe } = nestjsCommon;
+    const { ThrottlerModule } = throttlerImport;
     const { CoreModule } = coreModuleImport;
     const { HttpExceptionEnvelopeFilter } = httpFilterImport;
     const { RequestContextInterceptor } = contextInterceptorImport;
@@ -84,7 +88,7 @@ describe('IAM HTTP regressions (integration/e2e)', () => {
     }
 
     @Module({
-      imports: [CoreModule],
+      imports: [ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: 300 }] }), CoreModule],
       controllers: [AuthController, TestEnvelopeController],
       providers: [AuditService, IamService, AuthService, PermissionGuard]
     })

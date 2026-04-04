@@ -12,7 +12,7 @@ export class RealtimeEventsService {
     roomTargets.forEach((room) => {
       void fetch(`${backendEnv.REALTIME_PUBLIC_URL}/publish/${room}`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-realtime-key': 'dev-realtime-key' },
+        headers: { 'content-type': 'application/json', 'x-realtime-key': backendEnv.REALTIME_PUBLISH_KEY },
         body: JSON.stringify(event)
       }).catch(() => undefined);
     });
@@ -26,9 +26,9 @@ export class RealtimeEventsService {
     const rooms = [`tenant:${event.tenant_id}`];
     const payload = event.payload as Record<string, unknown>;
     if (typeof payload.recipient_user_id === 'string') rooms.push(`user:${payload.recipient_user_id}`);
-    if (typeof payload.task_id === 'string') rooms.push(`task:${payload.task_id}`);
-    if (typeof payload.dialog_id === 'string') rooms.push(`dialog:${payload.dialog_id}`);
-    if (typeof payload.webinar_id === 'string') rooms.push(`webinar:${payload.webinar_id}`);
+    if (typeof payload.task_id === 'string') rooms.push(`task:${event.tenant_id}:${payload.task_id}`);
+    if (typeof payload.dialog_id === 'string') rooms.push(`dialog:${event.tenant_id}:${payload.dialog_id}`);
+    if (typeof payload.webinar_id === 'string') rooms.push(`webinar:${event.tenant_id}:${payload.webinar_id}`);
     return rooms;
   }
 }

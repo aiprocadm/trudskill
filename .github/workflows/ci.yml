@@ -146,6 +146,7 @@ jobs:
             -e CORS_ORIGIN=http://localhost:3000 \
             -e PUBLIC_BASE_URL=http://localhost:3000 \
             -e REALTIME_PUBLIC_URL=http://localhost:3002 \
+            -e REALTIME_PUBLISH_KEY=ci-smoke-realtime-publish-key \
             -e ALLOW_IN_MEMORY_STATE=false \
             -e INTEGRATION_WEBHOOK_SECRET=ci-smoke-webhook-secret \
             cdoprof-backend-smoke:${{ github.sha }}

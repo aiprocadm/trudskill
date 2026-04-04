@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { backendEnvSchema } from './env.js';
+import { backendEnvSchema } from './env.schema.js';
 
 describe('backend env production hardening', () => {
   it('rejects development auth secret in production', () => {
@@ -21,6 +21,7 @@ describe('backend env production hardening', () => {
         CORS_ORIGIN: 'http://localhost:3000',
         PUBLIC_BASE_URL: 'http://localhost:3001',
         REALTIME_PUBLIC_URL: 'http://localhost:3002',
+        REALTIME_PUBLISH_KEY: 'prod-realtime-publish-key',
         INTEGRATION_WEBHOOK_SECRET: 'prod-webhook-secret-ok'
       })
     ).toThrow();
@@ -44,7 +45,8 @@ describe('backend env production hardening', () => {
         SESSION_SECRET: 'very-secure-session-min-10-chars',
         CORS_ORIGIN: 'http://localhost:3000',
         PUBLIC_BASE_URL: 'http://localhost:3001',
-        REALTIME_PUBLIC_URL: 'http://localhost:3002'
+        REALTIME_PUBLIC_URL: 'http://localhost:3002',
+        REALTIME_PUBLISH_KEY: 'prod-realtime-publish-key'
       })
     ).toThrow();
   });

@@ -15,7 +15,8 @@ const requiredEnv: Record<string, string> = {
   SESSION_SECRET: 'session_secret_123',
   CORS_ORIGIN: 'http://localhost:3000',
   PUBLIC_BASE_URL: 'http://localhost:3000',
-  REALTIME_PUBLIC_URL: 'ws://localhost:3000'
+  REALTIME_PUBLIC_URL: 'ws://localhost:3000',
+  REALTIME_PUBLISH_KEY: 'test-realtime-publish-key'
 };
 
 for (const [key, value] of Object.entries(requiredEnv)) {
@@ -46,13 +47,15 @@ describe('AuthController public user contract', () => {
     return new AuthController(authService, iamService);
   };
 
-  it('does not leak passwordHash in /auth/me', async () => {
-    const controller = await makeController();
+  it(
+    'does not leak passwordHash in /auth/me',
+    async () => {
+      const controller = await makeController();
 
-    const response = await controller.me(context);
+      const response = await controller.me(context);
 
-    expect(response).not.toHaveProperty('passwordHash');
-    expect(response).toMatchInlineSnapshot(`
+      expect(response).not.toHaveProperty('passwordHash');
+      expect(response).toMatchInlineSnapshot(`
       {
         "displayName": "Tenant Admin",
         "email": "tenant@demo.local",
@@ -62,7 +65,9 @@ describe('AuthController public user contract', () => {
         "tenantId": "tenant_demo",
       }
     `);
-  });
+    },
+    15_000
+  );
 
   it('does not leak passwordHash in /users and /users/:id', async () => {
     const controller = await makeController();

@@ -7,5 +7,8 @@ export default defineConfig({
 			'@cdoprof/api-contracts': path.resolve(__dirname, '../../packages/api-contracts/src/index.ts')
 		}
 	},
-	test: { include: ['src/**/*.test.ts'] }
+	test: {
+		include: ['src/**/*.test.ts'],
+		setupFiles: ['./vitest.setup-env.ts']
+	}
 });

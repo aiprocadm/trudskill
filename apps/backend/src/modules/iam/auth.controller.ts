@@ -1,4 +1,17 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  Param,
+  Post,
+  Put,
+  Req,
+  Res,
+  UnauthorizedException,
+  UseGuards
+} from '@nestjs/common';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
@@ -138,6 +151,12 @@ export class AuthController {
 
   @Get('users/:id/roles')
   async userRoles(@CurrentContext() context: RequestContext, @Param('id') id: string) {
+    if (context.userId !== id) {
+      const resolved = await this.iamService.resolvePermissions(context.tenantId!, context.userId!);
+      if (!resolved.includes('iam.manage_roles')) {
+        throw new ForbiddenException({ code: 'permission_denied', message: 'Permission denied' });
+      }
+    }
     return this.iamService.getUserRoles(context.tenantId!, id);
   }
 

@@ -21,7 +21,9 @@ type RealtimeEventEnvelope<TPayload = unknown> = {
   payload: TPayload;
 };
 
-const roomSchema = z.string().regex(/^(user|tenant|task|dialog|webinar):[a-zA-Z0-9_-]+$/);
+const roomSchema = z
+  .string()
+  .regex(/^(user|tenant):[a-zA-Z0-9_-]+$|^(task|dialog|webinar):[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/);
 
 type Session = { tenantId: string; userId: string; roles: string[]; sessionId: string };
 
@@ -113,11 +115,16 @@ class RealtimeController {
   }
 
   private canAccess(session: Session, room: string): boolean {
-    const [type, id = ''] = room.split(':');
     if (!session.tenantId || !session.userId) return false;
-    if (type === 'tenant') return id === session.tenantId;
-    if (type === 'user') return id === session.userId;
-    return id.startsWith(session.tenantId) || session.roles.includes('admin');
+    const parts = room.split(':');
+    const type = parts[0];
+    if (type === 'tenant') return parts[1] === session.tenantId;
+    if (type === 'user') return parts[1] === session.userId;
+    if (type === 'task' || type === 'dialog' || type === 'webinar') {
+      const tenantInRoom = parts[1];
+      return Boolean(tenantInRoom && tenantInRoom === session.tenantId);
+    }
+    return false;
   }
 }
 
