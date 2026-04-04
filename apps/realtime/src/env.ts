@@ -22,7 +22,9 @@ const realtimeEnvSchema = z.object({
   REDIS_URL: z.string().url(),
   CORS_ORIGIN: z.string().url(),
   BACKEND_PUBLIC_URL: z.string().url(),
-  REALTIME_PUBLISH_KEY: z.string().min(10)
+  REALTIME_PUBLISH_KEY: z.string().min(10),
+  /** Тот же секрет, что `AUTH_JWT_SECRET` у backend (проверка access token в SSE). */
+  AUTH_JWT_SECRET: z.string().min(10)
 });
 
 export const realtimeEnv = realtimeEnvSchema.parse(process.env);

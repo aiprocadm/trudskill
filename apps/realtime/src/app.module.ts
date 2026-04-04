@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Headers, Module, Param, Post, Query, Res } from '@nestjs/common';
 import { z } from 'zod';
+import { verifySignedAccessToken } from './access-token.util.js';
 import { realtimeEnv } from './env.js';
 
 type RealtimeEventName =
@@ -23,6 +24,12 @@ type RealtimeEventEnvelope<TPayload = unknown> = {
 const roomSchema = z.string().regex(/^(user|tenant|task|dialog|webinar):[a-zA-Z0-9_-]+$/);
 
 type Session = { tenantId: string; userId: string; roles: string[]; sessionId: string };
+
+function extractBearerToken(header?: string): string | undefined {
+  if (!header?.startsWith('Bearer ')) return undefined;
+  const t = header.slice('Bearer '.length).trim();
+  return t || undefined;
+}
 
 class RealtimeHub {
   private roomEvents = new Map<string, RealtimeEventEnvelope[]>();
@@ -63,14 +70,34 @@ class RealtimeController {
   @Get('stream/:room')
   stream(
     @Param('room') room: string,
-    @Headers('authorization') auth: string,
+    @Headers('authorization') auth: string | undefined,
+    @Query('access_token') accessTokenQuery: string | undefined,
     @Query('since') since: string | undefined,
     @Res() res: { status: (code: number) => { json: (body: unknown) => void }; setHeader: (name: string, value: string) => void; write: (chunk: string) => void; on: (event: 'close', listener: () => void) => void }
   ) {
     const parsedRoom = roomSchema.parse(room);
-    const session = this.parseSession(auth);
+    const rawToken = extractBearerToken(auth) ?? accessTokenQuery?.trim();
+    if (!rawToken) {
+      res.status(401).json({ code: 'auth_required', message: 'Access token is required' });
+      return;
+    }
+
+    let session: Session;
+    try {
+      const claims = verifySignedAccessToken(rawToken, realtimeEnv.AUTH_JWT_SECRET);
+      session = {
+        tenantId: claims.tenant_id,
+        userId: claims.sub,
+        roles: claims.roles,
+        sessionId: claims.session_id
+      };
+    } catch {
+      res.status(401).json({ code: 'invalid_token', message: 'Access token is invalid or expired' });
+      return;
+    }
+
     if (!this.canAccess(session, parsedRoom)) {
-      res.status(403).json({ message: 'Forbidden room access' });
+      res.status(403).json({ code: 'forbidden', message: 'Forbidden room access' });
       return;
     }
     res.setHeader('Content-Type', 'text/event-stream');
@@ -83,12 +110,6 @@ class RealtimeController {
     send();
     const timer = setInterval(send, 5000);
     res.on('close', () => clearInterval(timer));
-  }
-
-  private parseSession(auth?: string): Session {
-    const token = auth?.replace(/^Bearer\s+/i, '') ?? '';
-    const [tenantId = '', userId = '', rolesCsv = ''] = token.split('|');
-    return { tenantId, userId, roles: rolesCsv ? rolesCsv.split(',') : [], sessionId: `${tenantId}:${userId}` };
   }
 
   private canAccess(session: Session, room: string): boolean {

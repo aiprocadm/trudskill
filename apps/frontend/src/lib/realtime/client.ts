@@ -9,8 +9,12 @@ export class RealtimeClient {
   private sources = new Map<string, EventSource>();
 
   subscribe(room: string, token: string, handler: RealtimeHandler) {
-    const url = `${frontendEnv.NEXT_PUBLIC_REALTIME_URL}/stream/${room}?since=${encodeURIComponent(new Date(Date.now() - 60_000).toISOString())}`;
-    const source = new EventSource(url, { withCredentials: false });
+    // EventSource не поддерживает Authorization; тот же access JWT передаётся в query (как договорено с realtime).
+    const base = frontendEnv.NEXT_PUBLIC_REALTIME_URL.replace(/^ws:/i, 'http:').replace(/^wss:/i, 'https:');
+    const url = new URL(`${base.replace(/\/$/, '')}/stream/${encodeURIComponent(room)}`);
+    url.searchParams.set('since', new Date(Date.now() - 60_000).toISOString());
+    if (token) url.searchParams.set('access_token', token);
+    const source = new EventSource(url.toString(), { withCredentials: false });
     source.onmessage = (message) => {
       try {
         handler(JSON.parse(message.data) as RealtimeEventEnvelope);

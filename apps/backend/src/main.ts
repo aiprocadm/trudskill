@@ -9,7 +9,9 @@ import { ResponseEnvelopeInterceptor } from './common/interceptors/response-enve
 import { backendEnv } from './env.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { cors: { origin: backendEnv.CORS_ORIGIN } });
+  const app = await NestFactory.create(AppModule, {
+    cors: { origin: backendEnv.CORS_ORIGIN, credentials: true }
+  });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

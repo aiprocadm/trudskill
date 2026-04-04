@@ -75,25 +75,31 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       .filter((file) => file.endsWith('.sql'))
       .sort();
 
-    const appliedRows = await this.query<{ id: string }>(`select id from ${this.migrationsTable}`);
-    const applied = new Set(appliedRows.map((row) => row.id));
+    const appliedRows = await this.query<{ id: string; checksum: string }>(
+      `select id, checksum from ${this.migrationsTable}`
+    );
+    const appliedChecksumById = new Map(appliedRows.map((row) => [row.id, row.checksum]));
 
     for (const file of migrationFiles) {
-      if (applied.has(file)) {
-        continue;
-      }
-
       const sql = readFileSync(join(migrationsDir, file), 'utf8');
       const checksum = Buffer.from(sql).toString('base64url');
 
+      const previous = appliedChecksumById.get(file);
+      if (previous !== undefined) {
+        if (previous !== checksum) {
+          throw new Error(
+            `Migration "${file}" was already applied with a different checksum. Refusing to start: do not edit applied migration files; add a new migration instead.`
+          );
+        }
+        continue;
+      }
+
       await this.withTransaction(async (client) => {
         await client.query(sql);
-        await client.query(
-          `insert into ${this.migrationsTable} (id, checksum) values ($1, $2) on conflict (id) do nothing`,
-          [file, checksum]
-        );
+        await client.query(`insert into ${this.migrationsTable} (id, checksum) values ($1, $2)`, [file, checksum]);
       });
 
+      appliedChecksumById.set(file, checksum);
       this.logger.log(`Applied migration ${file}`);
     }
   }

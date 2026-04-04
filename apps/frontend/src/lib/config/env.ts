@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 const frontendEnvSchema = z.object({
+  /** Origin + префикс API (например http://localhost:3001/api/v1), как у Nest setGlobalPrefix(API_PREFIX) */
   NEXT_PUBLIC_API_BASE_URL: z.string().url(),
   NEXT_PUBLIC_REALTIME_URL: z.string().url(),
   PUBLIC_BASE_URL: z.string().url(),

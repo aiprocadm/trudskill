@@ -22,8 +22,7 @@ export const useNotificationsRealtime = (onRefresh: () => void) => {
   useEffect(() => {
     if (!session) return;
     const room = `user:${session.user.id}`;
-    const token = `${session.user.tenantId}|${session.user.id}|${session.roles.join(',')}`;
-    return realtimeClient.subscribe(room, token, () => onRefresh());
+    return realtimeClient.subscribe(room, session.tokens.accessToken, () => onRefresh());
   }, [onRefresh, session]);
 };
 
@@ -31,8 +30,7 @@ export const useTaskRealtime = (taskId: string | undefined, onRefresh: () => voi
   const { session } = useAuth();
   useEffect(() => {
     if (!session || !taskId) return;
-    const token = `${session.user.tenantId}|${session.user.id}|${session.roles.join(',')}`;
-    return realtimeClient.subscribe(`task:${taskId}`, token, () => onRefresh());
+    return realtimeClient.subscribe(`task:${taskId}`, session.tokens.accessToken, () => onRefresh());
   }, [onRefresh, session, taskId]);
 };
 
@@ -40,8 +38,7 @@ export const useChatRealtime = (dialogId: string | undefined, onRefresh: () => v
   const { session } = useAuth();
   useEffect(() => {
     if (!session || !dialogId) return;
-    const token = `${session.user.tenantId}|${session.user.id}|${session.roles.join(',')}`;
-    return realtimeClient.subscribe(`dialog:${dialogId}`, token, () => onRefresh());
+    return realtimeClient.subscribe(`dialog:${dialogId}`, session.tokens.accessToken, () => onRefresh());
   }, [dialogId, onRefresh, session]);
 };
 

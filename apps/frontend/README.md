@@ -18,7 +18,7 @@
 
 Используются переменные:
 
-- `NEXT_PUBLIC_API_BASE_URL`
+- `NEXT_PUBLIC_API_BASE_URL` — полный базовый URL API **включая** префикс версии бэкенда (`/api/v1` по умолчанию), например `http://localhost:3001/api/v1`. Если указать только `http://localhost:3001`, запросы пойдут мимо Nest (`/auth/...` вместо `/api/v1/auth/...`).
 - `NEXT_PUBLIC_REALTIME_URL`
 - `PUBLIC_BASE_URL`
 - `NEXT_PUBLIC_DEFAULT_TENANT_ID` (опционально, по умолчанию `tenant_demo`)

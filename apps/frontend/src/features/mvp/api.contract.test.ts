@@ -27,7 +27,7 @@ describe('mvp api envelope compatibility', () => {
   };
 
   beforeAll(async () => {
-    process.env.NEXT_PUBLIC_API_BASE_URL ??= 'http://localhost:3001';
+    process.env.NEXT_PUBLIC_API_BASE_URL ??= 'http://localhost:3001/api/v1';
     process.env.NEXT_PUBLIC_REALTIME_URL ??= 'ws://localhost:3002';
     process.env.PUBLIC_BASE_URL ??= 'http://localhost:3000';
 
