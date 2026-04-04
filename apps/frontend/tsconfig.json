@@ -2,7 +2,8 @@
   "extends": "../../tooling/typescript/tsconfig.frontend.json",
   "compilerOptions": {
     "baseUrl": ".",
-    "isolatedModules": true
+    "isolatedModules": true,
+    "tsBuildInfoFile": ".turbo/tsconfig.tsbuildinfo"
   },
   "references": [
     {
@@ -10,10 +11,11 @@
     }
   ],
   "include": [
-    "../../tooling/typescript/next-env.d.ts",
-    "../../tooling/typescript/**/*.ts",
-    "../../tooling/typescript/**/*.tsx",
-    "../../tooling/typescript/.next/types/**/*.ts",
+    "next-env.d.ts",
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
     ".next/types/**/*.ts"
   ]
 }

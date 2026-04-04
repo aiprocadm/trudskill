@@ -76,7 +76,7 @@ export const apiRequestEnvelope = async <T>(path: string, options: RequestOption
   const response = await fetch(`${frontendEnv.NEXT_PUBLIC_API_BASE_URL}${path}`, {
     method,
     headers,
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
     cache: 'no-store',
     credentials: options.credentials ?? 'same-origin'
   });

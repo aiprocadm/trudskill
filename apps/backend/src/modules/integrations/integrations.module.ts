@@ -1,4 +1,4 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Module, OnModuleInit } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module.js';
 import { CoreModule } from '../core/core.module.js';
 import { EisotAdapter } from './adapters/eisot.adapter.js';
@@ -16,19 +16,20 @@ import { ProvidersModule } from './modules/providers.module.js';
 import { SyncLogsModule } from './modules/sync-logs.module.js';
 import { WebhooksModule } from './modules/webhooks.module.js';
 
-@Module({
-  imports: [AuditModule, CoreModule, ProvidersModule, CredentialsModule, ExportsModule, SyncLogsModule, WebhooksModule],
-  controllers: [IntegrationsController, ExportsController, SyncLogsController, WebhooksController],
-  providers: [IntegrationOrchestratorService],
-  exports: [IntegrationOrchestratorService]
-})
-export class IntegrationsModule implements OnModuleInit {
+@Injectable()
+class IntegrationsProviderRegistryBootstrap implements OnModuleInit {
   constructor(
+    @Inject(ProviderRegistry)
     private readonly registry: ProviderRegistry,
+    @Inject(FrdoAdapter)
     private readonly frdo: FrdoAdapter,
+    @Inject(EisotAdapter)
     private readonly eisot: EisotAdapter,
+    @Inject(EmailAdapter)
     private readonly email: EmailAdapter,
+    @Inject(WebinarAdapter)
     private readonly webinar: WebinarAdapter,
+    @Inject(ProctoringAdapter)
     private readonly proctoring: ProctoringAdapter
   ) {}
 
@@ -36,3 +37,11 @@ export class IntegrationsModule implements OnModuleInit {
     [this.frdo, this.eisot, this.email, this.webinar, this.proctoring].forEach((adapter) => this.registry.register(adapter));
   }
 }
+
+@Module({
+  imports: [AuditModule, CoreModule, ProvidersModule, CredentialsModule, ExportsModule, SyncLogsModule, WebhooksModule],
+  controllers: [IntegrationsController, ExportsController, SyncLogsController, WebhooksController],
+  providers: [IntegrationOrchestratorService, IntegrationsProviderRegistryBootstrap],
+  exports: [IntegrationOrchestratorService]
+})
+export class IntegrationsModule {}

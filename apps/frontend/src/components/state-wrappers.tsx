@@ -21,10 +21,13 @@ export const SectionCard = ({ title, children }: PropsWithChildren<{ title: stri
   </section>
 );
 
-export const PageHeader = ({ title, actions }: { title: string; actions?: ReactNode }) => (
-  <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-    <h1 style={{ margin: 0 }}>{title}</h1>
-    <div>{actions}</div>
+export const PageHeader = ({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) => (
+  <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+    <div style={{ display: 'grid', gap: 4 }}>
+      <h1 style={{ margin: 0 }}>{title}</h1>
+      {subtitle ? <p style={{ margin: 0, color: '#52525b' }}>{subtitle}</p> : null}
+    </div>
+    {actions ? <div>{actions}</div> : null}
   </header>
 );
 

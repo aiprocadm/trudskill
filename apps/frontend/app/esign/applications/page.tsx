@@ -20,7 +20,7 @@ const statuses = ['draft', 'submitted', 'under_review', 'approved', 'rejected', 
 
 export default function EsignApplicationsPage() {
   return (
-    <ProtectedPage requiredPermissions={['esign.applications.read']}>
+    <ProtectedPage>
       <PageContainer>
         <PageHeader title="НЭП — заявки" subtitle="Learner и staff контуры в юридически значимом процессе" />
 
