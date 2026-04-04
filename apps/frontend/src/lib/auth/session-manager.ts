@@ -4,18 +4,9 @@ import { authApi } from './auth-api';
 import { resolveRolePermissions } from './permission-map';
 import { sessionStore } from './session-store';
 
-const loginToUserIdMap: Record<string, string> = {
-  platform_admin: 'u_platform_admin',
-  tenant_admin: 'u_tenant_admin',
-  manager: 'u_manager',
-  methodist: 'u_methodist',
-  blocked_user: 'u_blocked'
-};
-
-const resolveUserId = (login: string, fallback?: string) => loginToUserIdMap[login] ?? fallback ?? '';
-
-const hydrateSession = async (userId: string, tokens: UserSession['tokens']): Promise<UserSession> => {
-  const [user, roles] = await Promise.all([authApi.me(userId), authApi.userRoles(userId)]);
+const hydrateSession = async (tokens: UserSession['tokens']): Promise<UserSession> => {
+  const user = await authApi.me(tokens.accessToken);
+  const roles = await authApi.userRoles(user.id, tokens.accessToken);
   const roleCodes = roles.map((item) => item.code);
   return { user, tokens, roles: roleCodes, permissions: resolveRolePermissions(roleCodes) };
 };
@@ -24,31 +15,33 @@ export const sessionManager = {
   getCurrentSession: () => sessionStore.get(),
   async login(login: string, password: string): Promise<UserSession> {
     const tokens = await authApi.login({ login, password });
-    const userId = resolveUserId(login);
-    const session = await hydrateSession(userId, tokens);
+    const session = await hydrateSession(tokens);
     sessionStore.set(session);
     return session;
   },
   async bootstrap(): Promise<UserSession | null> {
     const existing = sessionStore.get();
-    if (!existing) return null;
-    try {
-      const session = await hydrateSession(existing.user.id, existing.tokens);
-      sessionStore.set(session);
-      return session;
-    } catch (error) {
-      if (error instanceof ApiClientError && error.normalized.isAuthError) {
-        return this.tryRefresh(existing);
+    if (existing) {
+      try {
+        const session = await hydrateSession(existing.tokens);
+        sessionStore.set(session);
+        return session;
+      } catch (error) {
+        if (error instanceof ApiClientError && error.normalized.isAuthError) {
+          return this.tryRefresh();
+        }
+        throw error;
       }
-      throw error;
     }
+
+    const persisted = sessionStore.hydrateFromStorage();
+    if (!persisted) return null;
+    return this.tryRefresh();
   },
-  async tryRefresh(existing?: UserSession): Promise<UserSession | null> {
-    const session = existing ?? sessionStore.get();
-    if (!session) return null;
+  async tryRefresh(): Promise<UserSession | null> {
     try {
-      const tokens = await authApi.refresh({ refreshToken: session.tokens.refreshToken }, session.user.id);
-      const refreshed = await hydrateSession(session.user.id, tokens);
+      const tokens = await authApi.refresh();
+      const refreshed = await hydrateSession(tokens);
       sessionStore.set(refreshed);
       return refreshed;
     } catch {
@@ -60,7 +53,7 @@ export const sessionManager = {
     const session = sessionStore.get();
     if (!session) return;
     try {
-      await authApi.logout({ sessionId: session.tokens.sessionId }, session.user.id);
+      await authApi.logout({ sessionId: session.tokens.sessionId }, session.tokens.accessToken);
     } finally {
       this.clear();
     }

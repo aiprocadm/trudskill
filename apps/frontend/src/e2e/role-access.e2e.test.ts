@@ -14,7 +14,6 @@ const methodistSession: UserSession = {
   },
   tokens: {
     accessToken: 'access',
-    refreshToken: 'refresh',
     sessionId: 'session',
     expiresIn: 300
   },

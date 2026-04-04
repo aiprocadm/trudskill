@@ -5,6 +5,7 @@ const state = vi.hoisted(() => ({ session: null as any }));
 vi.mock('./session-store', () => ({
   sessionStore: {
     get: vi.fn(() => state.session),
+    hydrateFromStorage: vi.fn(() => null),
     set: vi.fn((session) => {
       state.session = session;
     }),
@@ -35,7 +36,7 @@ describe('session manager', () => {
   it('bootstraps an existing session', async () => {
     state.session = {
       user: { id: 'u_tenant_admin' },
-      tokens: { accessToken: 'a', refreshToken: 'r', sessionId: 's1', expiresIn: 10 },
+      tokens: { accessToken: 'a', sessionId: 's1', expiresIn: 10 },
       roles: [],
       permissions: []
     };
@@ -49,16 +50,17 @@ describe('session manager', () => {
   it('refreshes session tokens and keeps user hydrated', async () => {
     state.session = {
       user: { id: 'u_tenant_admin' },
-      tokens: { accessToken: 'a', refreshToken: 'r', sessionId: 's1', expiresIn: 10 },
+      tokens: { accessToken: 'a', sessionId: 's1', expiresIn: 10 },
       roles: [],
       permissions: []
     };
-    authApiMock.refresh.mockResolvedValue({ accessToken: 'a2', refreshToken: 'r2', sessionId: 's2', expiresIn: 20 });
+    authApiMock.refresh.mockResolvedValue({ accessToken: 'a2', sessionId: 's2', expiresIn: 20 });
     authApiMock.me.mockResolvedValue({ id: 'u_tenant_admin', tenantId: 'tenant_demo', login: 'tenant_admin', email: null, status: 'active', displayName: 'Tenant Admin' });
     authApiMock.userRoles.mockResolvedValue([{ code: 'tenant_admin' }]);
 
     const refreshed = await sessionManager.tryRefresh();
 
+    expect(authApiMock.refresh).toHaveBeenCalledWith();
     expect(refreshed?.tokens.accessToken).toBe('a2');
     expect(state.session?.tokens.sessionId).toBe('s2');
     expect(refreshed?.permissions).toContain('iam.manage_roles');
@@ -67,7 +69,7 @@ describe('session manager', () => {
   it('refresh failure clears session', async () => {
     state.session = {
       user: { id: 'u_tenant_admin' },
-      tokens: { accessToken: 'a', refreshToken: 'r', sessionId: 's1', expiresIn: 10 },
+      tokens: { accessToken: 'a', sessionId: 's1', expiresIn: 10 },
       roles: [],
       permissions: []
     };

@@ -5,13 +5,13 @@ import { ChatService } from './chat.service.js';
 import { WebinarsService } from './webinars.service.js';
 
 describe('Communication foundations', () => {
-  it('creates notification and unread/read flow', () => {
+  it('creates notification and unread/read flow', async () => {
     const realtime = new RealtimeEventsService();
     const notifications = new NotificationsService(realtime);
-    const created = notifications.create({ tenantId: 't1', recipientUserId: 'u2', channelCode: 'in_app', subjectText: 'S', bodyText: 'B' });
-    expect(notifications.unreadCounter('t1', 'u2')).toBe(1);
-    notifications.read('t1', created.id, 'u2');
-    expect(notifications.unreadCounter('t1', 'u2')).toBe(0);
+    const created = await notifications.create({ tenantId: 't1', recipientUserId: 'u2', channelCode: 'in_app', subjectText: 'S', bodyText: 'B' });
+    expect(await notifications.unreadCounter('t1', 'u2')).toBe(1);
+    await notifications.read('t1', created.id, 'u2');
+    expect(await notifications.unreadCounter('t1', 'u2')).toBe(0);
   });
 
   it('enforces chat access by participant', () => {

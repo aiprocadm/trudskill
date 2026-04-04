@@ -32,6 +32,7 @@ export class IntegrationOrchestratorService {
   private tasks: ExportTask[] = [];
   private items: ExportItem[] = [];
   private logs: SyncLog[] = [];
+  private idempotencyInFlight = new Set<string>();
 
   constructor(
     private readonly crypto: IntegrationCryptoService,
@@ -119,30 +120,42 @@ export class IntegrationOrchestratorService {
   async createExportTask(tenantId: string, requestedBy: string, dto: CreateExportTaskDto, idempotencyKey?: string) {
     const key = idempotencyKey ? `${tenantId}:export:${idempotencyKey}` : undefined;
     if (key) {
+      if (this.idempotencyInFlight.has(key)) {
+        return this.waitForIdempotentResult(key);
+      }
       const existing = this.idempotency.get<ExportTask>(key);
       if (existing) return existing;
+      this.idempotencyInFlight.add(key);
     }
-    const adapter = this.adapterResolver.resolve(dto.providerCode);
-    const task: ExportTask = { id: this.id('exp'), tenantId, providerCode: dto.providerCode, exportType: dto.exportType, sourceFilterJsonb: dto.sourceFilterJsonb, status: 'queued', requestedBy, requestedAt: new Date().toISOString(), idempotencyKey };
-    this.tasks.push(task);
-    if (key) this.idempotency.remember(key, task);
-    this.realtime.publish({ event_name: 'integration.export.requested', version: 'v1', tenant_id: tenantId, occurred_at: new Date().toISOString(), payload: { task_id: task.id, provider_code: task.providerCode } });
+    try {
+      const adapter = this.adapterResolver.resolve(dto.providerCode);
+      const task: ExportTask = { id: this.id('exp'), tenantId, providerCode: dto.providerCode, exportType: dto.exportType, sourceFilterJsonb: dto.sourceFilterJsonb, status: 'queued', requestedBy, requestedAt: new Date().toISOString(), idempotencyKey };
+      this.tasks.push(task);
+      if (key) this.idempotency.remember(key, task);
+      this.realtime.publish({ event_name: 'integration.export.requested', version: 'v1', tenant_id: tenantId, occurred_at: new Date().toISOString(), payload: { task_id: task.id, provider_code: task.providerCode } });
 
-    task.status = 'running';
-    task.startedAt = new Date().toISOString();
-    this.realtime.publish({ event_name: 'integration.export.started', version: 'v1', tenant_id: tenantId, occurred_at: new Date().toISOString(), payload: { task_id: task.id } });
-    const payload = await adapter.prepareExportPayload({ exportType: dto.exportType, sourceFilter: dto.sourceFilterJsonb });
-    const sent = await adapter.sendExportBatch({ payload });
+      this.transitionTask(task, 'queued', 'running');
+      task.startedAt = new Date().toISOString();
+      this.realtime.publish({ event_name: 'integration.export.started', version: 'v1', tenant_id: tenantId, occurred_at: new Date().toISOString(), payload: { task_id: task.id } });
+      const payload = await adapter.prepareExportPayload({ exportType: dto.exportType, sourceFilter: dto.sourceFilterJsonb });
+      const sent = await adapter.sendExportBatch({ payload });
 
-    const item: ExportItem = { id: this.id('item'), tenantId, taskId: task.id, entityType: 'export_entity', entityId: `${dto.exportType}:${task.id}`, status: sent.status };
-    this.items.push(item);
-    task.status = sent.status;
-    task.finishedAt = new Date().toISOString();
-    task.resultFileId = sent.status === 'completed' ? `file_${task.id}` : undefined;
-    task.responsePayloadJsonb = { externalBatchId: sent.externalBatchId };
-    this.logs.push({ id: this.id('log'), tenantId, providerCode: dto.providerCode, entityType: 'export_task', entityId: task.id, requestPayloadJsonb: payload, responsePayloadJsonb: task.responsePayloadJsonb, statusCode: 200, status: 'success', createdAt: new Date().toISOString(), taskId: task.id });
-    this.realtime.publish({ event_name: `integration.export.${task.status === 'failed' ? 'failed' : 'completed'}`, version: 'v1', tenant_id: tenantId, occurred_at: new Date().toISOString(), payload: { task_id: task.id, status: task.status } });
-    return task;
+      const item: ExportItem = { id: this.id('item'), tenantId, taskId: task.id, entityType: 'export_entity', entityId: `${dto.exportType}:${task.id}`, status: sent.status };
+      this.items.push(item);
+      if (sent.status === 'failed') {
+        this.transitionTask(task, 'running', 'failed');
+      } else {
+        this.transitionTask(task, 'running', 'completed');
+      }
+      task.finishedAt = new Date().toISOString();
+      task.resultFileId = sent.status === 'completed' ? `file_${task.id}` : undefined;
+      task.responsePayloadJsonb = { externalBatchId: sent.externalBatchId };
+      this.logs.push({ id: this.id('log'), tenantId, providerCode: dto.providerCode, entityType: 'export_task', entityId: task.id, requestPayloadJsonb: payload, responsePayloadJsonb: task.responsePayloadJsonb, statusCode: 200, status: 'success', createdAt: new Date().toISOString(), taskId: task.id });
+      this.realtime.publish({ event_name: `integration.export.${task.status === 'failed' ? 'failed' : 'completed'}`, version: 'v1', tenant_id: tenantId, occurred_at: new Date().toISOString(), payload: { task_id: task.id, status: task.status } });
+      return task;
+    } finally {
+      if (key) this.idempotencyInFlight.delete(key);
+    }
   }
 
   retryTask(tenantId: string, id: string) {
@@ -192,7 +205,7 @@ export class IntegrationOrchestratorService {
   private requireCredential(tenantId: string, id: string) { const row = this.credentials.find((item) => item.id === id && item.tenantId === tenantId); if (!row) throw new NotFoundException({ code: 'not_found', message: 'Credential not found' }); return row; }
   private requireTask(tenantId: string, id: string) { const row = this.tasks.find((item) => item.id === id && item.tenantId === tenantId); if (!row) throw new NotFoundException({ code: 'not_found', message: 'Export task not found' }); return row; }
   private maskCredential(item: Credential) {
-    return { ...item, secretMasked: this.crypto.maskSecret(this.crypto.decrypt(item.secretEncrypted)), secretEncrypted: undefined };
+    return { ...item, secretMasked: this.crypto.maskEncryptedSecret(item.secretEncrypted), secretEncrypted: undefined };
   }
   private id(prefix: string) { return `${prefix}_${Math.random().toString(36).slice(2, 11)}`; }
   private matchesText(item: Record<string, unknown>, query?: string) {
@@ -227,5 +240,22 @@ export class IntegrationOrchestratorService {
       if (b === undefined || b === null) return -1;
       return String(a).localeCompare(String(b)) * direction;
     });
+  }
+
+  private transitionTask(task: ExportTask, from: ExportTask['status'], to: ExportTask['status']) {
+    if (task.status !== from) {
+      throw new PreconditionFailedException({ code: 'precondition_failed', message: `Invalid transition ${task.status} -> ${to}` });
+    }
+    task.status = to;
+  }
+
+  private async waitForIdempotentResult(key: string) {
+    const attempts = 30;
+    for (let i = 0; i < attempts; i += 1) {
+      const existing = this.idempotency.get<ExportTask>(key);
+      if (existing) return existing;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    throw new PreconditionFailedException({ code: 'precondition_failed', message: 'Idempotent operation timeout' });
   }
 }

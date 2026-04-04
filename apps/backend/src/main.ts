@@ -14,7 +14,8 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true,
       transform: true,
-      forbidUnknownValues: false
+      forbidUnknownValues: false,
+      forbidNonWhitelisted: true
     })
   );
   app.useGlobalFilters(new HttpExceptionEnvelopeFilter());

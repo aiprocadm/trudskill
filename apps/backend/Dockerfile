@@ -6,7 +6,7 @@ FROM base AS deps
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY apps/backend/package.json apps/backend/package.json
 COPY tooling tooling
-RUN pnpm install --filter @cdoprof/backend... --frozen-lockfile=false
+RUN pnpm install --filter @cdoprof/backend... --frozen-lockfile
 
 FROM deps AS build
 COPY . .

@@ -1,3 +1,4 @@
+import type { AuthTokensContract } from '@cdoprof/api-contracts';
 export interface CurrentUser {
   id: string;
   tenantId: string;
@@ -7,12 +8,7 @@ export interface CurrentUser {
   displayName: string;
 }
 
-export interface SessionTokens {
-  accessToken: string;
-  refreshToken: string;
-  sessionId: string;
-  expiresIn: number;
-}
+export type SessionTokens = AuthTokensContract;
 
 export interface UserSession {
   user: CurrentUser;
