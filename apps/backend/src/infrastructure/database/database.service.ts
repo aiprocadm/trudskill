@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Pool, type PoolClient, type QueryResultRow } from 'pg';
 import { backendEnv } from '../../env.js';
+import { assertAppliedMigrationUnchanged, computeMigrationSqlChecksum } from './migration-integrity.js';
 
 @Injectable()
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {
@@ -82,15 +83,11 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
     for (const file of migrationFiles) {
       const sql = readFileSync(join(migrationsDir, file), 'utf8');
-      const checksum = Buffer.from(sql).toString('base64url');
-
+      const checksum = computeMigrationSqlChecksum(sql);
       const previous = appliedChecksumById.get(file);
+
+      assertAppliedMigrationUnchanged(previous, sql);
       if (previous !== undefined) {
-        if (previous !== checksum) {
-          throw new Error(
-            `Migration "${file}" was already applied with a different checksum. Refusing to start: do not edit applied migration files; add a new migration instead.`
-          );
-        }
         continue;
       }
 
