@@ -20,4 +20,7 @@ async function bootstrap() {
   );
 }
 
-void bootstrap();
+bootstrap().catch((err: unknown) => {
+  console.error('Realtime bootstrap failed', err);
+  process.exit(1);
+});

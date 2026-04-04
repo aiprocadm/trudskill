@@ -1,4 +1,19 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { z } from 'zod';
+
+const envCandidates = [
+  join(process.cwd(), '.env'),
+  join(process.cwd(), '..', '.env'),
+  join(process.cwd(), '..', '..', '.env')
+];
+
+for (const candidate of envCandidates) {
+  if (existsSync(candidate)) {
+    process.loadEnvFile(candidate);
+    break;
+  }
+}
 
 const workerEnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),

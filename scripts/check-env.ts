@@ -9,31 +9,42 @@ if (existsSync(rootEnvPath)) {
   process.loadEnvFile(rootEnvPath);
 }
 
-const schema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  RELEASE_VERSION: z.string().default('dev-local'),
-  DATABASE_URL: z.string().url(),
-  REDIS_URL: z.string().url(),
-  RABBITMQ_URL: z.string().url(),
-  S3_ENDPOINT: z.string().url(),
-  S3_ACCESS_KEY: z.string().min(1),
-  S3_SECRET_KEY: z.string().min(1),
-  S3_BUCKET: z.string().min(1),
-  AUTH_JWT_SECRET: z.string().min(10),
-  SESSION_SECRET: z.string().min(10),
-  CORS_ORIGIN: z.string().url(),
-  PUBLIC_BASE_URL: z.string().url(),
-  FRONTEND_PORT: z.coerce.number().int().positive().default(3000),
-  BACKEND_PORT: z.coerce.number().int().positive().default(3001),
-  REALTIME_PORT: z.coerce.number().int().positive().default(3002),
-  BACKEND_PUBLIC_URL: z.string().url(),
-  REALTIME_PUBLIC_URL: z.string().url(),
-  WORKER_INTERNAL_URL: z.string().url(),
-  NEXT_PUBLIC_API_BASE_URL: z.string().url(),
-  NEXT_PUBLIC_REALTIME_URL: z.string().url(),
-  WORKER_CONCURRENCY: z.coerce.number().int().positive().default(5),
-  REALTIME_PUBLISH_KEY: z.string().min(10)
-});
+const schema = z
+  .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    RELEASE_VERSION: z.string().default('dev-local'),
+    DATABASE_URL: z.string().url(),
+    REDIS_URL: z.string().url(),
+    RABBITMQ_URL: z.string().url(),
+    S3_ENDPOINT: z.string().url(),
+    S3_ACCESS_KEY: z.string().min(1),
+    S3_SECRET_KEY: z.string().min(1),
+    S3_BUCKET: z.string().min(1),
+    AUTH_JWT_SECRET: z.string().min(10),
+    SESSION_SECRET: z.string().min(10),
+    CORS_ORIGIN: z.string().url(),
+    PUBLIC_BASE_URL: z.string().url(),
+    FRONTEND_PORT: z.coerce.number().int().positive().default(3000),
+    BACKEND_PORT: z.coerce.number().int().positive().default(3001),
+    REALTIME_PORT: z.coerce.number().int().positive().default(3002),
+    BACKEND_PUBLIC_URL: z.string().url(),
+    REALTIME_PUBLIC_URL: z.string().url(),
+    WORKER_INTERNAL_URL: z.string().url(),
+    NEXT_PUBLIC_API_BASE_URL: z.string().url(),
+    NEXT_PUBLIC_REALTIME_URL: z.string().url(),
+    WORKER_CONCURRENCY: z.coerce.number().int().positive().default(5),
+    REALTIME_PUBLISH_KEY: z.string().min(10),
+    INTEGRATION_WEBHOOK_SECRET: z.string().min(10).optional()
+  })
+  .superRefine((env, ctx) => {
+    if (env.NODE_ENV === 'production' && !env.INTEGRATION_WEBHOOK_SECRET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'INTEGRATION_WEBHOOK_SECRET is required in production',
+        path: ['INTEGRATION_WEBHOOK_SECRET']
+      });
+    }
+  });
 
 const parsed = schema.safeParse(process.env);
 

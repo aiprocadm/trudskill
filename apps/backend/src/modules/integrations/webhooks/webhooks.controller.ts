@@ -8,6 +8,7 @@ import { IdempotencyService } from '../services/idempotency.service.js';
 import { IntegrationCryptoService } from '../services/integration-crypto.service.js';
 import { AdapterResolver } from '../services/adapter-resolver.service.js';
 import { WebhookSignatureVerifier } from '../services/webhook-signature-verifier.service.js';
+import { backendEnv } from '../../../env.js';
 
 @Controller('webhooks')
 @UseGuards(TenantGuard)
@@ -46,7 +47,7 @@ export class WebhooksController {
       event_type: eventType,
       event_id: body.eventId ?? null
     });
-    this.verifier.verify(signature, process.env.INTEGRATION_WEBHOOK_SECRET);
+    this.verifier.verify(signature, backendEnv.INTEGRATION_WEBHOOK_SECRET);
     const dedupeKey = `${ctx.tenantId}:webhook:${providerCode}:${body.eventId ?? this.crypto.hashPayload(body.payload ?? body)}`;
     const duplicate = this.idempotency.get(dedupeKey);
     if (duplicate) {

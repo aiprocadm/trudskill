@@ -29,4 +29,7 @@ async function bootstrap() {
   await app.listen(backendEnv.BACKEND_PORT);
 }
 
-void bootstrap();
+bootstrap().catch((err: unknown) => {
+  console.error('Backend bootstrap failed', err);
+  process.exit(1);
+});

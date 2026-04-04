@@ -4,7 +4,8 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
-  Injectable
+  Injectable,
+  Logger
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { resolveRequestContext } from '../utils/request.js';
@@ -12,6 +13,8 @@ import { resolveRequestContext } from '../utils/request.js';
 @Injectable()
 @Catch()
 export class HttpExceptionEnvelopeFilter implements ExceptionFilter {
+  private readonly logger = new Logger(HttpExceptionEnvelopeFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
@@ -28,6 +31,14 @@ export class HttpExceptionEnvelopeFilter implements ExceptionFilter {
             code: 'internal_error',
             message: 'Unexpected server error'
           };
+
+    if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      if (exception instanceof Error) {
+        this.logger.error(exception.message, exception.stack);
+      } else {
+        this.logger.error(String(exception));
+      }
+    }
 
     response.status(status).json({
       error: typeof payload === 'string' ? { code: 'error', message: payload } : payload,
