@@ -49,6 +49,13 @@ export interface Counterparty extends BaseEntity {
   legalName?: string;
 }
 
+export interface Learner extends BaseEntity {
+  learnerNo?: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+}
+
 export interface Direction extends BaseEntity {
   code: string;
   name: string;

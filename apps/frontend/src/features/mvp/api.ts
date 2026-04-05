@@ -7,6 +7,7 @@ import type {
   AssignmentSubmission,
   Attempt,
   Counterparty,
+  Learner,
   Course,
   CourseModule,
   CourseVersion,
@@ -45,6 +46,10 @@ export const mvpApi = {
   listRoles: (session: UserSession) => apiRequest<RoleEntity[]>('/roles', withAuth(session)),
   setUserRoles: (session: UserSession, id: string, roleCodes: string[]) =>
     apiRequest<RoleEntity[]>(`/users/${id}/roles`, { method: 'PUT', body: { roleCodes }, ...withAuth(session) }),
+
+  listLearners: (session: UserSession, query: BaseFilterQuery) =>
+    apiRequest<ListResponse<Learner>>(`/learners${queryString(query)}`, withAuth(session)),
+  getLearner: (session: UserSession, id: string) => apiRequest<Learner>(`/learners/${id}`, withAuth(session)),
 
   listCounterparties: (session: UserSession, query: BaseFilterQuery) =>
     apiRequest<ListResponse<Counterparty>>(`/counterparties${queryString(query)}`, withAuth(session)),

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
-import type { Tenant, TenantRequisites, TenantSettings } from './tenant.types.js';
+import type { CommissionMember, Tenant, TenantCommission, TenantRequisites, TenantSettings } from './tenant.types.js';
 
 @Injectable()
 export class TenantService {
@@ -26,6 +26,8 @@ export class TenantService {
       payload: { address: 'Москва' }
     }
   ];
+
+  private readonly commissions = new Map<string, TenantCommission>();
 
   constructor(
     private readonly tenantScopedRepository: TenantScopedRepository,
@@ -118,5 +120,33 @@ export class TenantService {
 
     this.tenantScopedRepository.enforceTenantScope(tenantId, requisites.tenantId);
     return requisites;
+  }
+
+  async getCommission(tenantId: string): Promise<TenantCommission> {
+    const cached = this.commissions.get(tenantId);
+    if (cached) {
+      this.tenantScopedRepository.enforceTenantScope(tenantId, cached.tenantId);
+      return cached;
+    }
+
+    if (this.databaseService) {
+      const empty: TenantCommission = { tenantId, members: [] };
+      this.commissions.set(tenantId, empty);
+      return empty;
+    }
+
+    const demoMembers: CommissionMember[] = [
+      { id: 'cm_demo_1', tenantId, displayName: 'Иванов И.И.', position: 'Председатель (пример)', userId: 'u_tenant_admin' },
+      { id: 'cm_demo_2', tenantId, displayName: 'Петров П.П.', position: 'Член комиссии (пример)' }
+    ];
+    const commission: TenantCommission = {
+      tenantId,
+      chairMemberId: 'cm_demo_1',
+      secretaryMemberId: 'cm_demo_2',
+      members: demoMembers
+    };
+    this.commissions.set(tenantId, commission);
+    this.tenantScopedRepository.enforceTenantScope(tenantId, commission.tenantId);
+    return commission;
   }
 }

@@ -11,5 +11,8 @@ export default defineConfig({
 			'@cdoprof/ui': path.resolve(__dirname, '../../packages/ui/src/index.tsx')
 		}
 	},
-	test: { include: ['app/**/*.test.tsx', 'src/**/*.test.ts'] }
+	test: {
+		include: ['app/**/*.test.tsx', 'src/**/*.test.ts'],
+		setupFiles: ['./vitest.setup-env.ts']
+	}
 });

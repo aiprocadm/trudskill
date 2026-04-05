@@ -23,4 +23,9 @@ export class TenantController {
   async requisites(@CurrentContext() context: RequestContext) {
     return this.tenantService.getRequisites(context.tenantId!);
   }
+
+  @Get('commission')
+  async commission(@CurrentContext() context: RequestContext) {
+    return this.tenantService.getCommission(context.tenantId!);
+  }
 }
