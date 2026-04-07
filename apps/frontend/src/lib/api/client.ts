@@ -1,5 +1,5 @@
 import { frontendEnv } from '../config/env';
-import { normalizeApiError, type NormalizedApiError } from '../errors/api-error';
+import { type NormalizedApiError, normalizeApiError } from '../errors/api-error';
 
 export interface ApiResponseMeta {
   requestId: string;
@@ -20,12 +20,13 @@ export class ApiClientError extends Error {
 }
 
 export interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  method?: HttpMethod;
   body?: unknown;
   headers?: HeadersInit;
   auth?: { accessToken?: string; tenantHint?: string; userId?: string; tenantId?: string };
   credentials?: RequestCredentials;
 }
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 const toJson = async (response: Response) => {
   try {
@@ -49,24 +50,31 @@ const isResponseEnvelope = <T>(payload: unknown): payload is ApiResponseEnvelope
   );
 };
 
-export const apiRequestEnvelope = async <T>(path: string, options: RequestOptions = {}): Promise<ApiResponseEnvelope<T>> => {
+export const apiRequestEnvelope = async <T>(
+  path: string,
+  options: RequestOptions = {}
+): Promise<ApiResponseEnvelope<T>> => {
   const headers = new Headers(options.headers);
   const method = options.method ?? 'GET';
   headers.set('content-type', 'application/json');
   headers.set('x-correlation-id', crypto.randomUUID());
-  const tenantHint = options.auth?.tenantHint ?? options.auth?.tenantId ?? frontendEnv.NEXT_PUBLIC_DEFAULT_TENANT_ID;
+  const tenantHint =
+    options.auth?.tenantHint ?? options.auth?.tenantId ?? frontendEnv.NEXT_PUBLIC_DEFAULT_TENANT_ID;
   if (tenantHint) {
     headers.set('x-tenant-id', tenantHint);
   }
   if (options.auth?.accessToken) headers.set('authorization', `Bearer ${options.auth.accessToken}`);
 
-  const response = await fetch(`${frontendEnv.NEXT_PUBLIC_API_BASE_URL}${path}`, {
+  const requestInit: RequestInit = {
     method,
     headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
     cache: 'no-store',
     credentials: options.credentials ?? 'same-origin'
-  });
+  };
+  if (options.body !== undefined) {
+    requestInit.body = JSON.stringify(options.body);
+  }
+  const response = await fetch(`${frontendEnv.NEXT_PUBLIC_API_BASE_URL}${path}`, requestInit);
 
   if (!response.ok) {
     const payload = await toJson(response);
@@ -103,13 +111,31 @@ export const apiRequest = async <T>(path: string, options: RequestOptions = {}):
 
 export interface ApiClient {
   get<T>(path: string, options?: Omit<RequestOptions, 'method'>): Promise<T>;
-  post<T>(path: string, body?: unknown, options?: Omit<RequestOptions, 'method' | 'body'>): Promise<T>;
-  put<T>(path: string, body?: unknown, options?: Omit<RequestOptions, 'method' | 'body'>): Promise<T>;
-  patch<T>(path: string, body?: unknown, options?: Omit<RequestOptions, 'method' | 'body'>): Promise<T>;
+  post<T>(
+    path: string,
+    body?: unknown,
+    options?: Omit<RequestOptions, 'method' | 'body'>
+  ): Promise<T>;
+  put<T>(
+    path: string,
+    body?: unknown,
+    options?: Omit<RequestOptions, 'method' | 'body'>
+  ): Promise<T>;
+  patch<T>(
+    path: string,
+    body?: unknown,
+    options?: Omit<RequestOptions, 'method' | 'body'>
+  ): Promise<T>;
   delete<T>(path: string, options?: Omit<RequestOptions, 'method'>): Promise<T>;
 }
 
-const withMethod = (method: RequestOptions['method'], options: RequestOptions = {}): RequestOptions => ({ ...options, method });
+const withMethod = (
+  method: HttpMethod,
+  options: Omit<RequestOptions, 'method'> = {}
+): RequestOptions => ({
+  ...options,
+  method
+});
 
 export const apiClient: ApiClient = {
   get: (path, options = {}) => apiRequest(path, withMethod('GET', options)),
