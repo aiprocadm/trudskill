@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import type { Channel, Connection } from 'amqplib';
 import * as amqp from 'amqplib';
+
 import { backendEnv } from '../../env.js';
+
+import type { Channel, ChannelModel } from 'amqplib';
 
 @Injectable()
 export class RabbitMqService {
-  private connection: Connection | null = null;
+  private connection: ChannelModel | null = null;
   private channel: Channel | null = null;
 
   async ping(): Promise<boolean> {

@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException, Optional } from '@nestjs/common';
-import { realtimeCatalog, type RealtimeEventEnvelope } from '@cdoprof/api-contracts';
-import { RealtimeEventsService } from '../core/realtime-events.service.js';
-import { DatabaseService } from '../../infrastructure/database/database.service.js';
+
+import { type DatabaseService } from '../../infrastructure/database/database.service.js';
+import { type RealtimeEventsService } from '../core/realtime-events.service.js';
+
+const NOTIFICATION_CREATED_EVENT = 'notification.created';
+const NOTIFICATION_READ_EVENT = 'notification.read';
 
 export interface NotificationEntity {
   id: string;
@@ -29,10 +32,27 @@ export class NotificationsService {
     @Optional() private readonly databaseService?: DatabaseService
   ) {}
 
-  async list(tenantId: string, userId: string | undefined, query: Record<string, string | undefined>) {
+  async list(
+    tenantId: string,
+    userId: string | undefined,
+    query: Record<string, string | undefined>
+  ) {
     if (this.databaseService) {
       const rows = await this.databaseService.query<{
-        id: string; tenant_id: string; recipient_user_id: string | null; recipient_learner_id: string | null; channel_code: 'in_app'; subject_text: string; body_text: string; status: 'unread' | 'read'; related_entity_type: string | null; related_entity_id: string | null; metadata_jsonb: Record<string, unknown> | null; created_at: string; read_at: string | null; sent_at: string | null;
+        id: string;
+        tenant_id: string;
+        recipient_user_id: string | null;
+        recipient_learner_id: string | null;
+        channel_code: 'in_app';
+        subject_text: string;
+        body_text: string;
+        status: 'unread' | 'read';
+        related_entity_type: string | null;
+        related_entity_id: string | null;
+        metadata_jsonb: Record<string, unknown> | null;
+        created_at: string;
+        read_at: string | null;
+        sent_at: string | null;
       }>(
         `select id, tenant_id, recipient_user_id, recipient_learner_id, channel_code, subject_text, body_text, status, related_entity_type, related_entity_id, metadata_jsonb, created_at, read_at, sent_at
          from communication.notifications
@@ -42,7 +62,13 @@ export class NotificationsService {
            and ($4::text is null or related_entity_type = $4)
            and ($5::text <> 'unread' or status = 'unread')
          order by created_at desc`,
-        [tenantId, userId ?? null, query.channel ?? null, query.related_entity_type ?? null, query.filter ?? null]
+        [
+          tenantId,
+          userId ?? null,
+          query.channel ?? null,
+          query.related_entity_type ?? null,
+          query.filter ?? null
+        ]
       );
       return rows.map((row) => this.mapRow(row));
     }
@@ -58,18 +84,36 @@ export class NotificationsService {
   }
 
   async create(seed: Omit<NotificationEntity, 'id' | 'createdAt' | 'status'>) {
-    const item: NotificationEntity = { ...seed, id: this.id(), createdAt: new Date().toISOString(), status: 'unread' };
+    const item: NotificationEntity = {
+      ...seed,
+      id: this.id(),
+      createdAt: new Date().toISOString(),
+      status: 'unread'
+    };
     if (this.databaseService) {
       await this.databaseService.query(
         `insert into communication.notifications (
           id, tenant_id, recipient_user_id, recipient_learner_id, channel_code, subject_text, body_text, status, related_entity_type, related_entity_id, metadata_jsonb, created_at
         ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12::timestamptz)`,
-        [item.id, item.tenantId, item.recipientUserId ?? null, item.recipientLearnerId ?? null, item.channelCode, item.subjectText, item.bodyText, item.status, item.relatedEntityType ?? null, item.relatedEntityId ?? null, JSON.stringify(item.metadata ?? {}), item.createdAt]
+        [
+          item.id,
+          item.tenantId,
+          item.recipientUserId ?? null,
+          item.recipientLearnerId ?? null,
+          item.channelCode,
+          item.subjectText,
+          item.bodyText,
+          item.status,
+          item.relatedEntityType ?? null,
+          item.relatedEntityId ?? null,
+          JSON.stringify(item.metadata ?? {}),
+          item.createdAt
+        ]
       );
     } else {
       this.notifications.unshift(item);
     }
-    this.publish(item.tenantId, realtimeCatalog.notificationCreated, {
+    this.publish(item.tenantId, NOTIFICATION_CREATED_EVENT, {
       notification_id: item.id,
       recipient_user_id: item.recipientUserId,
       status: item.status,
@@ -81,7 +125,20 @@ export class NotificationsService {
   async get(tenantId: string, id: string, userId?: string) {
     if (this.databaseService) {
       const rows = await this.databaseService.query<{
-        id: string; tenant_id: string; recipient_user_id: string | null; recipient_learner_id: string | null; channel_code: 'in_app'; subject_text: string; body_text: string; status: 'unread' | 'read'; related_entity_type: string | null; related_entity_id: string | null; metadata_jsonb: Record<string, unknown> | null; created_at: string; read_at: string | null; sent_at: string | null;
+        id: string;
+        tenant_id: string;
+        recipient_user_id: string | null;
+        recipient_learner_id: string | null;
+        channel_code: 'in_app';
+        subject_text: string;
+        body_text: string;
+        status: 'unread' | 'read';
+        related_entity_type: string | null;
+        related_entity_id: string | null;
+        metadata_jsonb: Record<string, unknown> | null;
+        created_at: string;
+        read_at: string | null;
+        sent_at: string | null;
       }>(
         `select id, tenant_id, recipient_user_id, recipient_learner_id, channel_code, subject_text, body_text, status, related_entity_type, related_entity_id, metadata_jsonb, created_at, read_at, sent_at
          from communication.notifications
@@ -89,11 +146,13 @@ export class NotificationsService {
         [tenantId, id]
       );
       const row = rows[0];
-      if (!row || (row.recipient_user_id && row.recipient_user_id !== userId)) throw new NotFoundException('Notification not found');
+      if (!row || (row.recipient_user_id && row.recipient_user_id !== userId))
+        throw new NotFoundException('Notification not found');
       return this.mapRow(row);
     }
     const item = this.notifications.find((entry) => entry.id === id && entry.tenantId === tenantId);
-    if (!item || (item.recipientUserId && item.recipientUserId !== userId)) throw new NotFoundException('Notification not found');
+    if (!item || (item.recipientUserId && item.recipientUserId !== userId))
+      throw new NotFoundException('Notification not found');
     return item;
   }
 
@@ -107,7 +166,7 @@ export class NotificationsService {
         [item.status, item.readAt, tenantId, id]
       );
     }
-    this.publish(tenantId, realtimeCatalog.notificationRead, { notification_id: item.id });
+    this.publish(tenantId, NOTIFICATION_READ_EVENT, { notification_id: item.id });
     return item;
   }
 
@@ -123,7 +182,10 @@ export class NotificationsService {
     }
 
     this.notifications
-      .filter((item) => item.tenantId === tenantId && item.recipientUserId === userId && item.status === 'unread')
+      .filter(
+        (item) =>
+          item.tenantId === tenantId && item.recipientUserId === userId && item.status === 'unread'
+      )
       .forEach((item) => void this.read(tenantId, item.id, userId));
     return { updated: true };
   }
@@ -136,11 +198,20 @@ export class NotificationsService {
       );
       return Number(rows[0]?.count ?? 0);
     }
-    return this.notifications.filter((item) => item.tenantId === tenantId && item.recipientUserId === userId && item.status === 'unread').length;
+    return this.notifications.filter(
+      (item) =>
+        item.tenantId === tenantId && item.recipientUserId === userId && item.status === 'unread'
+    ).length;
   }
 
-  private publish(tenantId: string, eventName: RealtimeEventEnvelope['event_name'], payload: Record<string, unknown>) {
-    this.realtime.publish({ event_name: eventName, version: 'v1', tenant_id: tenantId, occurred_at: new Date().toISOString(), payload });
+  private publish(tenantId: string, eventName: string, payload: Record<string, unknown>) {
+    this.realtime.publish({
+      event_name: eventName,
+      version: 'v1',
+      tenant_id: tenantId,
+      occurred_at: new Date().toISOString(),
+      payload
+    });
   }
 
   private id() {
@@ -148,7 +219,20 @@ export class NotificationsService {
   }
 
   private mapRow(row: {
-    id: string; tenant_id: string; recipient_user_id: string | null; recipient_learner_id: string | null; channel_code: 'in_app'; subject_text: string; body_text: string; status: 'unread' | 'read'; related_entity_type: string | null; related_entity_id: string | null; metadata_jsonb: Record<string, unknown> | null; created_at: string; read_at: string | null; sent_at: string | null;
+    id: string;
+    tenant_id: string;
+    recipient_user_id: string | null;
+    recipient_learner_id: string | null;
+    channel_code: 'in_app';
+    subject_text: string;
+    body_text: string;
+    status: 'unread' | 'read';
+    related_entity_type: string | null;
+    related_entity_id: string | null;
+    metadata_jsonb: Record<string, unknown> | null;
+    created_at: string;
+    read_at: string | null;
+    sent_at: string | null;
   }): NotificationEntity {
     return {
       id: row.id,

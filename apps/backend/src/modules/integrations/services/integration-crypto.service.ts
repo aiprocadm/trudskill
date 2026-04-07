@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+
+import { Injectable } from '@nestjs/common';
 
 type Keyring = {
   activeVersion: string;
@@ -21,7 +22,9 @@ export class IntegrationCryptoService {
   encrypt(raw: string): string {
     const key = this.keyring.keys.get(this.keyring.activeVersion);
     if (!key) {
-      throw new Error(`Active integration key version \"${this.keyring.activeVersion}\" is not configured`);
+      throw new Error(
+        `Active integration key version \"${this.keyring.activeVersion}\" is not configured`
+      );
     }
 
     const iv = randomBytes(IV_LENGTH_BYTES);
@@ -67,7 +70,9 @@ export class IntegrationCryptoService {
     return this.maskSecret(this.decrypt(encrypted));
   }
 
-  hashPayload(payload: unknown): string { return createHash('sha256').update(JSON.stringify(payload)).digest('hex'); }
+  hashPayload(payload: unknown): string {
+    return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+  }
 
   private loadKeyring(): Keyring {
     const keysRaw = process.env.INTEGRATION_CRYPTO_KEYS;
@@ -83,7 +88,10 @@ export class IntegrationCryptoService {
     }
 
     const keys = new Map<string, Buffer>();
-    for (const entry of keysRaw.split(',').map((part) => part.trim()).filter(Boolean)) {
+    for (const entry of keysRaw
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean)) {
       const [version, encoded] = entry.split(':');
       if (!version || !encoded) {
         throw new Error('INTEGRATION_CRYPTO_KEYS must be provided as "version:base64key" CSV list');
@@ -99,19 +107,26 @@ export class IntegrationCryptoService {
 
     const chosenActiveVersion = activeVersion ?? [...keys.keys()][0];
     if (!chosenActiveVersion || !keys.has(chosenActiveVersion)) {
-      throw new Error('INTEGRATION_CRYPTO_ACTIVE_KEY_VERSION must match one of INTEGRATION_CRYPTO_KEYS versions');
+      throw new Error(
+        'INTEGRATION_CRYPTO_ACTIVE_KEY_VERSION must match one of INTEGRATION_CRYPTO_KEYS versions'
+      );
     }
 
     return { activeVersion: chosenActiveVersion, keys };
   }
 
-  private parseCiphertext(encrypted: string): { version: string; iv: Buffer; authTag: Buffer; ciphertext: Buffer } | null {
+  private parseCiphertext(
+    encrypted: string
+  ): { version: string; iv: Buffer; authTag: Buffer; ciphertext: Buffer } | null {
     const parts = encrypted.split(':');
     if (parts.length !== 5 || parts[0] !== ENCRYPTION_PREFIX) {
       return null;
     }
 
     const [, version, iv, authTag, ciphertext] = parts;
+    if (!version || !iv || !authTag || !ciphertext) {
+      return null;
+    }
     return {
       version,
       iv: Buffer.from(iv, 'base64url'),

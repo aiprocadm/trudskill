@@ -1,5 +1,10 @@
-import type { AuthTokensContract } from '@cdoprof/api-contracts';
 import { backendEnv } from '../../env.js';
+
+interface AuthTokensContract {
+  accessToken: string;
+  sessionId: string;
+  expiresIn: number;
+}
 
 const REFRESH_COOKIE_NAME = 'cdoprof_refresh_token';
 
@@ -16,7 +21,10 @@ const cookieAttributes = () =>
 
 export const authCookie = {
   refreshCookieName: REFRESH_COOKIE_NAME,
-  attachRefreshCookie(response: { setHeader: (name: string, value: string) => void }, refreshToken: string) {
+  attachRefreshCookie(
+    response: { setHeader: (name: string, value: string) => void },
+    refreshToken: string
+  ) {
     response.setHeader(
       'Set-Cookie',
       [`${REFRESH_COOKIE_NAME}=${encodeURIComponent(refreshToken)}`, cookieAttributes()].join('; ')
@@ -25,13 +33,21 @@ export const authCookie = {
   clearRefreshCookie(response: { setHeader: (name: string, value: string) => void }) {
     response.setHeader(
       'Set-Cookie',
-      [`${REFRESH_COOKIE_NAME}=`, 'Path=/', 'HttpOnly', 'SameSite=Lax', 'Max-Age=0', 'Expires=Thu, 01 Jan 1970 00:00:00 GMT']
-        .join('; ')
+      [
+        `${REFRESH_COOKIE_NAME}=`,
+        'Path=/',
+        'HttpOnly',
+        'SameSite=Lax',
+        'Max-Age=0',
+        'Expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      ].join('; ')
     );
   },
   readRefreshCookie(headers: Record<string, string | string[] | undefined>): string | null {
     const rawCookieHeader = headers.cookie;
-    const cookieHeader = Array.isArray(rawCookieHeader) ? rawCookieHeader.join('; ') : rawCookieHeader;
+    const cookieHeader = Array.isArray(rawCookieHeader)
+      ? rawCookieHeader.join('; ')
+      : rawCookieHeader;
     if (!cookieHeader) return null;
     const item = cookieHeader
       .split(';')
