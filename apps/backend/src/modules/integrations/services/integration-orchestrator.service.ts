@@ -237,7 +237,13 @@ export class IntegrationOrchestratorService {
         status: sent.status
       };
       this.items.push(item);
-      this.transitionTask(task, 'running', 'completed');
+      if (sent.status === 'completed') {
+        this.transitionTask(task, 'running', 'completed');
+      } else if (sent.status === 'partial_success') {
+        this.transitionTask(task, 'running', 'partial_success');
+      } else {
+        this.transitionTask(task, 'running', 'failed');
+      }
       task.finishedAt = new Date().toISOString();
       task.resultFileId = sent.status === 'completed' ? `file_${task.id}` : undefined;
       task.responsePayloadJsonb = { externalBatchId: sent.externalBatchId };

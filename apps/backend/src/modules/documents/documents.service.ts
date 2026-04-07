@@ -34,7 +34,7 @@ import type {
 } from './documents.types.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 
-const ASYNC_TASK_STATUS_CHANGED_EVENT = 'task.status.changed';
+const ASYNC_TASK_STATUS_CHANGED_EVENT = 'async_task.status_changed';
 
 @Injectable()
 export class DocumentsService {
