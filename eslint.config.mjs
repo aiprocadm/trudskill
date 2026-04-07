@@ -1,26 +1,18 @@
 import tseslint from '@typescript-eslint/eslint-plugin';
 import parser from '@typescript-eslint/parser';
-import nextPlugin from 'eslint-config-next';
+import prettier from 'eslint-config-prettier';
 import eslintPluginImport from 'eslint-plugin-import';
 import globals from 'globals';
-import prettier from 'eslint-config-prettier';
 
 export default [
   {
-    ignores: [
-      '**/dist/**',
-      '**/.next/**',
-      '**/node_modules/**',
-      '**/coverage/**',
-      '**/*.d.ts'
-    ]
+    ignores: ['**/dist/**', '**/.next/**', '**/node_modules/**', '**/coverage/**', '**/*.d.ts']
   },
   {
     files: ['**/*.{ts,tsx,js,jsx,mjs,cjs}'],
     languageOptions: {
       parser,
       parserOptions: {
-        projectService: true,
         tsconfigRootDir: import.meta.dirname
       }
     },
@@ -76,6 +68,5 @@ export default [
       '@typescript-eslint/no-explicit-any': 'off'
     }
   },
-  ...nextPlugin,
   prettier
 ];
