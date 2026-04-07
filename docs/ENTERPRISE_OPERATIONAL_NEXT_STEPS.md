@@ -37,10 +37,10 @@
 
 ### 4) Operational pilot surface
 
-- [ ] `GET /api/workspace/summary` (minimal projection).
-- [ ] `GET /api/tasks/inbox` (minimal projection).
-- [ ] `GET /api/blockers` (minimal projection).
-- [ ] Frontend workspace page with next actions/deep links.
+- [x] `GET /api/workspace/summary` (minimal projection).
+- [x] `GET /api/tasks/inbox` (minimal projection).
+- [x] `GET /api/blockers` (minimal projection).
+- [x] Frontend workspace page with next actions/deep links.
 
 ### 5) Tests and quality gates
 
