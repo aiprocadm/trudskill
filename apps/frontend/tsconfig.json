@@ -2,14 +2,15 @@
   "extends": "../../tooling/typescript/tsconfig.frontend.json",
   "compilerOptions": {
     "baseUrl": ".",
+    "paths": {
+      "@cdoprof/shared-types": ["../../packages/shared-types/src/index.ts"],
+      "@cdoprof/api-contracts": ["../../packages/api-contracts/src/index.ts"],
+      "@cdoprof/test-utils": ["../../packages/test-utils/src/index.ts"],
+      "@cdoprof/ui": ["../../packages/ui/src/index.tsx"]
+    },
     "isolatedModules": true,
     "tsBuildInfoFile": ".turbo/tsconfig.tsbuildinfo"
   },
-  "references": [
-    {
-      "path": "../../packages/ui"
-    }
-  ],
   "include": [
     "next-env.d.ts",
     "app/**/*.ts",
