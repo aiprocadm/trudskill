@@ -1,9 +1,15 @@
-import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 
-import { type DatabaseService } from '../../infrastructure/database/database.service.js';
-import { type TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
+import { DatabaseService } from '../../infrastructure/database/database.service.js';
+import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 
-import type { CommissionMember, Tenant, TenantCommission, TenantRequisites, TenantSettings } from './tenant.types.js';
+import type {
+  CommissionMember,
+  Tenant,
+  TenantCommission,
+  TenantRequisites,
+  TenantSettings
+} from './tenant.types.js';
 
 @Injectable()
 export class TenantService {
@@ -32,8 +38,8 @@ export class TenantService {
   private readonly commissions = new Map<string, TenantCommission>();
 
   constructor(
-    private readonly tenantScopedRepository: TenantScopedRepository,
-    @Optional() private readonly databaseService?: DatabaseService
+    @Inject(TenantScopedRepository) private readonly tenantScopedRepository: TenantScopedRepository,
+    @Optional() @Inject(DatabaseService) private readonly databaseService?: DatabaseService
   ) {}
 
   async getTenantById(tenantId: string): Promise<Tenant> {
@@ -61,13 +67,16 @@ export class TenantService {
 
   async getSettings(tenantId: string): Promise<TenantSettings> {
     if (this.databaseService) {
-      const rows = await this.databaseService.query<{ tenant_id: string; payload: Record<string, unknown> }>(
-        'select tenant_id, payload from org.tenant_settings where tenant_id = $1',
-        [tenantId]
-      );
+      const rows = await this.databaseService.query<{
+        tenant_id: string;
+        payload: Record<string, unknown>;
+      }>('select tenant_id, payload from org.tenant_settings where tenant_id = $1', [tenantId]);
       const settingsRow = rows[0];
       if (!settingsRow) {
-        throw new NotFoundException({ code: 'tenant_settings_not_found', message: 'Tenant settings not found' });
+        throw new NotFoundException({
+          code: 'tenant_settings_not_found',
+          message: 'Tenant settings not found'
+        });
       }
 
       this.tenantScopedRepository.enforceTenantScope(tenantId, settingsRow.tenant_id);
@@ -82,7 +91,10 @@ export class TenantService {
 
     const settings = this.settings.find((item) => item.tenantId === tenantId);
     if (!settings) {
-      throw new NotFoundException({ code: 'tenant_settings_not_found', message: 'Tenant settings not found' });
+      throw new NotFoundException({
+        code: 'tenant_settings_not_found',
+        message: 'Tenant settings not found'
+      });
     }
 
     this.tenantScopedRepository.enforceTenantScope(tenantId, settings.tenantId);
@@ -103,7 +115,10 @@ export class TenantService {
 
       const requisitesRow = rows[0];
       if (!requisitesRow) {
-        throw new NotFoundException({ code: 'tenant_requisites_not_found', message: 'Tenant requisites not found' });
+        throw new NotFoundException({
+          code: 'tenant_requisites_not_found',
+          message: 'Tenant requisites not found'
+        });
       }
 
       this.tenantScopedRepository.enforceTenantScope(tenantId, requisitesRow.tenant_id);
@@ -117,7 +132,10 @@ export class TenantService {
 
     const requisites = this.requisites.find((item) => item.tenantId === tenantId);
     if (!requisites) {
-      throw new NotFoundException({ code: 'tenant_requisites_not_found', message: 'Tenant requisites not found' });
+      throw new NotFoundException({
+        code: 'tenant_requisites_not_found',
+        message: 'Tenant requisites not found'
+      });
     }
 
     this.tenantScopedRepository.enforceTenantScope(tenantId, requisites.tenantId);
@@ -138,7 +156,13 @@ export class TenantService {
     }
 
     const demoMembers: CommissionMember[] = [
-      { id: 'cm_demo_1', tenantId, displayName: 'Иванов И.И.', position: 'Председатель (пример)', userId: 'u_tenant_admin' },
+      {
+        id: 'cm_demo_1',
+        tenantId,
+        displayName: 'Иванов И.И.',
+        position: 'Председатель (пример)',
+        userId: 'u_tenant_admin'
+      },
       { id: 'cm_demo_2', tenantId, displayName: 'Петров П.П.', position: 'Член комиссии (пример)' }
     ];
     const commission: TenantCommission = {

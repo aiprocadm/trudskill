@@ -1,6 +1,6 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Inject, UseGuards } from '@nestjs/common';
 
-import { type TenantService } from './tenant.service.js';
+import { TenantService } from './tenant.service.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
 
@@ -9,7 +9,7 @@ import type { RequestContext } from '../../common/context/request-context.js';
 @Controller('tenant')
 @UseGuards(TenantGuard)
 export class TenantController {
-  constructor(private readonly tenantService: TenantService) {}
+  constructor(@Inject(TenantService) private readonly tenantService: TenantService) {}
 
   @Get('me')
   async me(@CurrentContext() context: RequestContext) {
