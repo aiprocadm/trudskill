@@ -13,3 +13,6 @@ dist
 # Случайный вывод tsc в исходниках shared-types (должен быть только dist/)
 packages/shared-types/src/**/*.js
 packages/shared-types/src/**/*.d.ts
+
+.cursor/
+
