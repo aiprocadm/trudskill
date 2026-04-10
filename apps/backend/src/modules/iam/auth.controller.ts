@@ -4,6 +4,7 @@ import {
   Delete,
   ForbiddenException,
   Get,
+  Inject,
   Param,
   Post,
   Put,
@@ -25,8 +26,8 @@ import {
 } from './dto/login.dto.js';
 import { RequirePermissions } from './permission.decorator.js';
 import { PermissionGuard } from './permission.guard.js';
-import { type AuthService } from './services/auth.service.js';
-import { type IamService } from './services/iam.service.js';
+import { AuthService } from './services/auth.service.js';
+import { IamService } from './services/iam.service.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
 
@@ -38,7 +39,9 @@ import type { Request, Response } from 'express';
 @UseGuards(TenantGuard)
 export class AuthController {
   constructor(
+    @Inject(AuthService)
     private readonly authService: AuthService,
+    @Inject(IamService)
     private readonly iamService: IamService
   ) {}
 
@@ -48,9 +51,17 @@ export class AuthController {
   async login(
     @CurrentContext() context: RequestContext,
     @Body() payload: LoginDto,
+    @Req() request: Request,
     @Res({ passthrough: true }) response: Response
   ) {
-    const tokens = await this.authService.login(context.tenantId!, payload, context);
+    const loginPayload = payload ?? (request.body as LoginDto | undefined);
+    if (!loginPayload) {
+      throw new UnauthorizedException({
+        code: 'invalid_credentials',
+        message: 'Invalid credentials'
+      });
+    }
+    const tokens = await this.authService.login(context.tenantId!, loginPayload, context);
     authCookie.attachRefreshCookie(response, tokens.refreshToken);
     return authCookie.toPublicTokens(tokens);
   }

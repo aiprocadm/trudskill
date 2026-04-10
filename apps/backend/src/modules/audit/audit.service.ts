@@ -1,6 +1,8 @@
-import { Injectable, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { DatabaseService } from '../../infrastructure/database/database.service.js';
+
+import { Injectable, Optional } from '@nestjs/common';
+
+import { type DatabaseService } from '../../infrastructure/database/database.service.js';
 
 export interface AuditLogRecord {
   id: string;
@@ -23,7 +25,10 @@ export class AuditService {
 
   constructor(@Optional() private readonly databaseService?: DatabaseService) {}
 
-  write(record: Omit<AuditLogRecord, 'id' | 'createdAt'>): AuditLogRecord {
+  write(
+    record: Omit<AuditLogRecord, 'id' | 'createdAt'>,
+    options?: { skipDatabase?: boolean }
+  ): AuditLogRecord {
     const result: AuditLogRecord = {
       ...record,
       id: `audit_${randomUUID().replace(/-/g, '')}`,
@@ -32,7 +37,7 @@ export class AuditService {
 
     this.records.push(result);
 
-    if (this.databaseService) {
+    if (this.databaseService && !options?.skipDatabase) {
       void this.databaseService.query(
         `
           insert into audit.audit_log
@@ -62,7 +67,9 @@ export class AuditService {
 
   async list(tenantId?: string): Promise<AuditLogRecord[]> {
     if (!this.databaseService) {
-      return tenantId ? this.records.filter((record) => record.tenantId === tenantId) : [...this.records];
+      return tenantId
+        ? this.records.filter((record) => record.tenantId === tenantId)
+        : [...this.records];
     }
 
     const rows = await this.databaseService.query<{
