@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import { BaseAdapter } from './base.adapter.js';
 
 @Injectable()

@@ -1,6 +1,6 @@
-import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 import { ConfirmDialogFoundation } from '../../src/components/foundation';
 import { PageContainer, PageHeader, SectionCard } from '../../src/components/state-wrappers';
+import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
 export default function ModulePage() {
   return (

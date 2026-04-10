@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { EmailAdapter } from '../adapters/email.adapter.js';
-import { ProviderRegistry } from './provider-registry.service.js';
+
 import { AdapterResolver } from './adapter-resolver.service.js';
+import { ProviderRegistry } from './provider-registry.service.js';
+import { EmailAdapter } from '../adapters/email.adapter.js';
 
 describe('AdapterResolver', () => {
   it('resolves adapters via provider registry', () => {

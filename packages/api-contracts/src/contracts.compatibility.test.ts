@@ -1,13 +1,15 @@
-import { describe, expect, it } from 'vitest';
-import { ApiErrorCodes, type ErrorEnvelope } from './errors/contracts';
-import { type ResponseMeta } from './meta/contracts';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { assessmentEndpoints } from './domains/tests';
+
+import { describe, expect, it } from 'vitest';
+
 import { documentsEndpoints } from './domains/documents';
 import { esignEndpoints } from './domains/esign';
 import { notificationsEndpoints } from './domains/notifications';
+import { assessmentEndpoints } from './domains/tests';
+import { ApiErrorCodes, type ErrorEnvelope } from './errors/contracts';
+import { type ResponseMeta } from './meta/contracts';
 
 function loadGeneratedOpenApi() {
   const currentDir = dirname(fileURLToPath(import.meta.url));

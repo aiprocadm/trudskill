@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ProtectedPage } from '../../src/widgets/shell/protected-page';
+
 import { useAuth } from '../../src/features/auth/context';
 import { communicationApi, useNotificationsRealtime } from '../../src/features/communication/hooks';
+import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
 export default function NotificationsPage() {
   const { session } = useAuth();

@@ -1,8 +1,9 @@
 'use client';
 
-import type { PropsWithChildren } from 'react';
-import { ProtectedRoute } from '../../features/auth/guards';
 import { AppShell } from './app-shell';
+import { ProtectedRoute } from '../../features/auth/guards';
+
+import type { PropsWithChildren } from 'react';
 
 export const ProtectedPage = ({ children }: PropsWithChildren) => (
   <ProtectedRoute>

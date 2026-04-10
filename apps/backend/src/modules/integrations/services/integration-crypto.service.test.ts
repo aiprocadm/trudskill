@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+
 import { IntegrationCryptoService } from './integration-crypto.service.js';
 
 const ORIGINAL_ENV = { ...process.env };

@@ -1,4 +1,5 @@
-import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
+import { type ExecutionContext, createParamDecorator } from '@nestjs/common';
+
 import { resolveRequestContext } from '../utils/request.js';
 
 export const CurrentContext = createParamDecorator((_data: unknown, ctx: ExecutionContext) => {

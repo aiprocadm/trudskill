@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
 import { realtimeCatalog } from '@cdoprof/api-contracts';
+import { describe, expect, it } from 'vitest';
 
 describe('realtime', () => {
   it('contains mandatory event names', () => {

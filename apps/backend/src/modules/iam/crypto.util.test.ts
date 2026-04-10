@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
+
 import { describe, expect, it } from 'vitest';
-import { hashRefreshToken, issueToken, verifyPassword, hashPassword } from './crypto.util.js';
+
+import { hashPassword, hashRefreshToken, issueToken, verifyPassword } from './crypto.util.js';
 
 describe('crypto util', () => {
   it('verifies password hash', () => {

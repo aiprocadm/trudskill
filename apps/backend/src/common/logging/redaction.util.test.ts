@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { redactValue } from './redaction.util.js';
 
 describe('redaction util', () => {

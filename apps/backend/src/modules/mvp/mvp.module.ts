@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
-import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
+
 import { MvpController } from './mvp.controller.js';
 import { MvpService } from './mvp.service.js';
+import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 
 @Module({
   controllers: [MvpController],

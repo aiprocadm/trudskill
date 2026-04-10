@@ -1,4 +1,5 @@
-import { Inject, Injectable, Module, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Module, type OnModuleInit } from '@nestjs/common';
+
 import { AuditModule } from '../audit/audit.module.js';
 import { CoreModule } from '../core/core.module.js';
 import { EisotAdapter } from './adapters/eisot.adapter.js';
@@ -7,14 +8,14 @@ import { FrdoAdapter } from './adapters/frdo.adapter.js';
 import { ProctoringAdapter } from './adapters/proctoring.adapter.js';
 import { WebinarAdapter } from './adapters/webinar.adapter.js';
 import { ExportsController, IntegrationsController, SyncLogsController } from './integrations.controller.js';
-import { WebhooksController } from './webhooks/webhooks.controller.js';
-import { IntegrationOrchestratorService } from './services/integration-orchestrator.service.js';
-import { ProviderRegistry } from './services/provider-registry.service.js';
 import { CredentialsModule } from './modules/credentials.module.js';
 import { ExportsModule } from './modules/exports.module.js';
 import { ProvidersModule } from './modules/providers.module.js';
 import { SyncLogsModule } from './modules/sync-logs.module.js';
 import { WebhooksModule } from './modules/webhooks.module.js';
+import { IntegrationOrchestratorService } from './services/integration-orchestrator.service.js';
+import { ProviderRegistry } from './services/provider-registry.service.js';
+import { WebhooksController } from './webhooks/webhooks.controller.js';
 
 @Injectable()
 class IntegrationsProviderRegistryBootstrap implements OnModuleInit {

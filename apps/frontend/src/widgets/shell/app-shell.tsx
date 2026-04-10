@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState, type PropsWithChildren } from 'react';
-import { getVisibleNavigation } from '../../features/navigation/helpers';
+import { type PropsWithChildren, useEffect, useState } from 'react';
+
 import { useAuth } from '../../features/auth/context';
 import { communicationApi, useNotificationsRealtime } from '../../features/communication/hooks';
+import { getVisibleNavigation } from '../../features/navigation/helpers';
 
 export const AppShell = ({ children }: PropsWithChildren) => {
   const { session, logout } = useAuth();

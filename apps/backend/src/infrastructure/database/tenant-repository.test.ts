@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
 import { ForbiddenException } from '@nestjs/common';
+import { describe, expect, it } from 'vitest';
+
 import { TenantScopedRepository } from './tenant-repository.js';
 
 describe('tenant scoped repository', () => {

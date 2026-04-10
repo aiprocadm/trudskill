@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { ApiClientError } from '../../lib/api/client';
 
 describe('login form error mapping', () => {

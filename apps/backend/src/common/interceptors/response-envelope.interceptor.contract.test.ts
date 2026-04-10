@@ -1,5 +1,6 @@
+import { firstValueFrom, of } from 'rxjs';
 import { describe, expect, it } from 'vitest';
-import { of, firstValueFrom } from 'rxjs';
+
 import { ResponseEnvelopeInterceptor } from './response-envelope.interceptor.js';
 
 describe('ResponseEnvelopeInterceptor contract', () => {

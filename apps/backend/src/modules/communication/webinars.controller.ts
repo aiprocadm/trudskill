@@ -1,8 +1,10 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+
+import { type WebinarsService } from './webinars.service.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
-import type { RequestContext } from '../../common/context/request-context.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
-import { WebinarsService } from './webinars.service.js';
+
+import type { RequestContext } from '../../common/context/request-context.js';
 
 @Controller('webinars')
 @UseGuards(TenantGuard)

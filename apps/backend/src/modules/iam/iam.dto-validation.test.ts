@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
+
 import { LoginDto, RefreshDto } from './dto/login.dto.js';
 
 const validationPipe = new ValidationPipe({

@@ -1,8 +1,9 @@
-import type { UserSession } from '../../entities/session/model';
-import { ApiClientError } from '../api/client';
 import { authApi } from './auth-api';
 import { resolveRolePermissions } from './permission-map';
 import { sessionStore } from './session-store';
+import { ApiClientError } from '../api/client';
+
+import type { UserSession } from '../../entities/session/model';
 
 const hydrateSession = async (tokens: UserSession['tokens']): Promise<UserSession> => {
   const user = await authApi.me(tokens.accessToken);

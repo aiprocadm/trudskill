@@ -1,4 +1,5 @@
 import { EmptyState, ErrorState, LoadingState } from '@cdoprof/ui';
+
 import type { PropsWithChildren, ReactNode } from 'react';
 
 export const GlobalLoading = ({ message }: { message?: string }) => <LoadingState message={message ?? 'Загрузка приложения...'} />;

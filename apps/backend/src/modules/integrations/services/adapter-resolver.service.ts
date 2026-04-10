@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
+
+import { type ProviderRegistry } from './provider-registry.service.js';
+
 import type { IntegrationAdapter } from '../adapters/adapter.interface.js';
-import { ProviderRegistry } from './provider-registry.service.js';
 
 @Injectable()
 export class AdapterResolver {

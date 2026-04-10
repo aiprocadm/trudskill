@@ -1,8 +1,10 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+
+import { type ChatService } from './chat.service.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
-import type { RequestContext } from '../../common/context/request-context.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
-import { ChatService } from './chat.service.js';
+
+import type { RequestContext } from '../../common/context/request-context.js';
 
 @Controller('chat/dialogs')
 @UseGuards(TenantGuard)

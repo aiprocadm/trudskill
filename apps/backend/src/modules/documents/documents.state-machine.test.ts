@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
 import { BadRequestException } from '@nestjs/common';
+import { describe, expect, it } from 'vitest';
+
+import { DocumentsService } from './documents.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
-import { DocumentsService } from './documents.service.js';
 
 const ctx = {
   requestId: 'r-sm-1',

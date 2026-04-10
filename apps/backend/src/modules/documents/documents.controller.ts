@@ -1,10 +1,11 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+
+import { type DocumentsService } from './documents.service.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
-import type { RequestContext } from '../../common/context/request-context.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
-import { PermissionGuard } from '../iam/permission.guard.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
-import { DocumentsService } from './documents.service.js';
+import { PermissionGuard } from '../iam/permission.guard.js';
+
 import type {
   BaseFilter,
   CreateNumberingRuleRequest,
@@ -19,6 +20,7 @@ import type {
   UpdateTemplateVariableRequest,
   UpdateTemplateVersionRequest
 } from './documents.dto.js';
+import type { RequestContext } from '../../common/context/request-context.js';
 
 @Controller()
 @UseGuards(TenantGuard)

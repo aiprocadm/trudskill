@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
 import { UnauthorizedException } from '@nestjs/common';
+import { describe, expect, it } from 'vitest';
+
 import { AuditService } from '../audit/audit.service.js';
 import { AuthService } from './services/auth.service.js';
 import { IamService } from './services/iam.service.js';

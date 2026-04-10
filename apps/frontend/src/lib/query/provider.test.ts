@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { defaultQueryPolicy } from './provider';
 
 describe('query policy', () => {

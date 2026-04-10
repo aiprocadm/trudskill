@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 import { DataTable, StatusChip } from '@cdoprof/ui';
+import { useEffect, useState } from 'react';
+
 import { PageContainer, PageHeader, SectionCard } from '../../src/components/state-wrappers';
 import { useTaskRealtime } from '../../src/features/communication/hooks';
+import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
 const templates = [
   { name: 'Договор на обучение', type: 'contract', status: 'active', currentVersion: 'v3', updatedAt: '2026-03-26' },

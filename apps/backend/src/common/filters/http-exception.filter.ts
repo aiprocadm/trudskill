@@ -1,14 +1,16 @@
 import {
-  ArgumentsHost,
+  type ArgumentsHost,
   Catch,
-  ExceptionFilter,
+  type ExceptionFilter,
   HttpException,
   HttpStatus,
   Injectable,
   Logger
 } from '@nestjs/common';
-import type { Response } from 'express';
+
 import { resolveRequestContext } from '../utils/request.js';
+
+import type { Response } from 'express';
 
 @Injectable()
 @Catch()

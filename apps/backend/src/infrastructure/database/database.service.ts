@@ -1,9 +1,11 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+
+import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool, type PoolClient, type QueryResultRow } from 'pg';
-import { backendEnv } from '../../env.js';
+
 import { assertAppliedMigrationUnchanged, computeMigrationSqlChecksum } from './migration-integrity.js';
+import { backendEnv } from '../../env.js';
 
 @Injectable()
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {

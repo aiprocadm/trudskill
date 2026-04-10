@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { issueSignedAccessToken, verifySignedAccessToken } from './access-token.util.js';
 
 const secret = 'test-jwt-secret-min-10-chars';

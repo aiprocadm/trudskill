@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import DashboardPage from './page';
+
 import ForbiddenPage from './forbidden/page';
+import DashboardPage from './page';
 
 describe('frontend routes', () => {
   it('exports dashboard page component', () => {

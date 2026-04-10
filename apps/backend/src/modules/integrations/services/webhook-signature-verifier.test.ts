@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
 import { ForbiddenException } from '@nestjs/common';
+import { describe, expect, it } from 'vitest';
+
 import { WebhookSignatureVerifier } from './webhook-signature-verifier.service.js';
 
 describe('WebhookSignatureVerifier', () => {

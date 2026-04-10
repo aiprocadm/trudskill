@@ -1,5 +1,6 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import { mvpDomainSchemas, mvpDomainTableList, mvpDomainTables, mvpTablesWithSoftDelete } from './mvp-domain.schema';

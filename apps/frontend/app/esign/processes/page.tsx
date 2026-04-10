@@ -1,5 +1,5 @@
-import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
 import { PageContainer, PageHeader, SectionCard } from '../../../src/components/state-wrappers';
+import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
 
 const processStatuses = ['draft', 'prepared', 'awaiting_participants', 'in_signing', 'signed', 'failed', 'cancelled'];
 const participantStatuses = ['pending', 'invited', 'viewed', 'signed', 'rejected', 'skipped', 'expired'];

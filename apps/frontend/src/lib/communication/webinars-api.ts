@@ -1,4 +1,5 @@
 import { apiRequest } from '../api/client';
+
 import type { UserSession } from '../../entities/session/model';
 
 const auth = (session: UserSession) => ({

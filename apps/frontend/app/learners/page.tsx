@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ProtectedPage } from '../../src/widgets/shell/protected-page';
+
 import { PageContainer, PageHeader, SectionCard, SectionEmpty, SectionError } from '../../src/components/state-wrappers';
 import { useAuth } from '../../src/features/auth/context';
 import { mvpApi } from '../../src/features/mvp/api';
+import { ProtectedPage } from '../../src/widgets/shell/protected-page';
+
 import type { Learner } from '../../src/features/mvp/types';
 
 export default function LearnersRegistryPage() {

@@ -1,5 +1,6 @@
-import type { PropsWithChildren, ReactElement } from 'react';
 import { EmptyState, ErrorState, LoadingState } from '../components/states/index';
+
+import type { PropsWithChildren, ReactElement } from 'react';
 
 export const RegistryToolbar = ({ children }: PropsWithChildren): ReactElement => <div>{children}</div>;
 

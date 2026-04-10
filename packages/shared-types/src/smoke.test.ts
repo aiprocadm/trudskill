@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import type { HealthStatus } from './index';
 
 describe('shared-types', () => {

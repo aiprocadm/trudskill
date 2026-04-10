@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
-import { apiRequest, type RequestOptions } from '../../lib/api/client';
+
+import { type RequestOptions, apiRequest } from '../../lib/api/client';
 import { realtimeClient } from '../../lib/realtime/client';
 import { useAuth } from '../auth/context';
 

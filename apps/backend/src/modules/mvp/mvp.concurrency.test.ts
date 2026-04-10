@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest';
 import { ConflictException } from '@nestjs/common';
+import { describe, expect, it } from 'vitest';
 
-import { AuditService } from '../audit/audit.service.js';
-import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 import { MvpService } from './mvp.service.js';
+import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
+import { AuditService } from '../audit/audit.service.js';
 
 const ctx = {
   requestId: 'req_concurrency_1',

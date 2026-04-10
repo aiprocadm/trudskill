@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { AuditService } from '../audit/audit.service.js';
+
 import { DocumentsService } from './documents.service.js';
+import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
 const ctx = {

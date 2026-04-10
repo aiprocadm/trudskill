@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { ProtectedPage } from '../../src/widgets/shell/protected-page';
+
 import { PageContainer, PageHeader, SectionCard } from '../../src/components/state-wrappers';
 import { TzLinks } from '../../src/components/tz/tz-links';
+import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
 export default function AcademyHubPage() {
   return (

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import type { Enrollment, Progress } from './types';
 
 describe('mvp domain typings', () => {

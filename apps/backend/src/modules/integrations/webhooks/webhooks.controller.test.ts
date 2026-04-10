@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
+
+import { WebhooksController } from './webhooks.controller.js';
 import { AuditService } from '../../audit/audit.service.js';
 import { RealtimeEventsService } from '../../core/realtime-events.service.js';
 import { FrdoAdapter } from '../adapters/frdo.adapter.js';
-import { WebhooksController } from './webhooks.controller.js';
+import { AdapterResolver } from '../services/adapter-resolver.service.js';
 import { IdempotencyService } from '../services/idempotency.service.js';
 import { IntegrationCryptoService } from '../services/integration-crypto.service.js';
 import { IntegrationOrchestratorService } from '../services/integration-orchestrator.service.js';
 import { ProviderRegistry } from '../services/provider-registry.service.js';
-import { AdapterResolver } from '../services/adapter-resolver.service.js';
 import { WebhookSignatureVerifier } from '../services/webhook-signature-verifier.service.js';
 
 const build = () => {

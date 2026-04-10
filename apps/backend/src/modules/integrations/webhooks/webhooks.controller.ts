@@ -1,14 +1,17 @@
 import { Body, Controller, Headers, Param, Post, UseGuards } from '@nestjs/common';
-import { TenantGuard } from '../../../common/guards/tenant.guard.js';
+
 import { CurrentContext } from '../../../common/decorators/current-context.decorator.js';
-import type { RequestContext } from '../../../common/context/request-context.js';
-import { WebhookDto } from '../dto/integrations.dto.js';
-import { IntegrationOrchestratorService } from '../services/integration-orchestrator.service.js';
-import { IdempotencyService } from '../services/idempotency.service.js';
-import { IntegrationCryptoService } from '../services/integration-crypto.service.js';
-import { AdapterResolver } from '../services/adapter-resolver.service.js';
-import { WebhookSignatureVerifier } from '../services/webhook-signature-verifier.service.js';
+import { TenantGuard } from '../../../common/guards/tenant.guard.js';
 import { backendEnv } from '../../../env.js';
+import { type WebhookDto } from '../dto/integrations.dto.js';
+import { type AdapterResolver } from '../services/adapter-resolver.service.js';
+import { type IdempotencyService } from '../services/idempotency.service.js';
+import { type IntegrationCryptoService } from '../services/integration-crypto.service.js';
+import { type IntegrationOrchestratorService } from '../services/integration-orchestrator.service.js';
+import { type WebhookSignatureVerifier } from '../services/webhook-signature-verifier.service.js';
+
+import type { RequestContext } from '../../../common/context/request-context.js';
+
 
 @Controller('webhooks')
 @UseGuards(TenantGuard)

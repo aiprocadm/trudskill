@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { UserSession } from '../../entities/session/model';
+
 import { mvpApi } from './api';
+
+import type { UserSession } from '../../entities/session/model';
 
 const apiRequestMock = vi.fn();
 
