@@ -191,9 +191,28 @@ export class IamService {
     throw new NotFoundException({ code: 'user_not_found', message: 'User not found' });
   }
 
-  async listUsers(tenantId: string): Promise<User[]> {
+  async listUsers(
+    tenantId: string,
+    query?: { q?: string; status?: string; page?: number; pageSize?: number; sort?: string }
+  ): Promise<{ items: User[]; total: number; page: number; pageSize: number }> {
+    const page = Math.max(1, query?.page ?? 1);
+    const pageSize = Math.min(100, Math.max(1, query?.pageSize ?? 20));
+
     if (!this.databaseService) {
-      return this.fallbackUsers.filter((user) => user.tenantId === tenantId);
+      let rows = this.fallbackUsers.filter((user) => user.tenantId === tenantId);
+      if (query?.q) {
+        const value = query.q.toLowerCase();
+        rows = rows.filter(
+          (user) =>
+            user.displayName.toLowerCase().includes(value) ||
+            user.login.toLowerCase().includes(value) ||
+            (user.email ?? '').toLowerCase().includes(value)
+        );
+      }
+      if (query?.status) rows = rows.filter((user) => user.status === query.status);
+      const sorted = [...rows].sort((a, b) => a.displayName.localeCompare(b.displayName));
+      const start = (page - 1) * pageSize;
+      return { items: sorted.slice(start, start + pageSize), total: sorted.length, page, pageSize };
     }
 
     const rows = await this.databaseService.query<{
@@ -214,7 +233,23 @@ export class IamService {
       [tenantId]
     );
 
-    return rows.map((row) => this.toUser(row));
+    const normalized = rows.map((row) => this.toUser(row));
+    const filtered = normalized
+      .filter((user) => (query?.status ? user.status === query.status : true))
+      .filter((user) =>
+        query?.q
+          ? `${user.displayName} ${user.login} ${user.email ?? ''}`
+              .toLowerCase()
+              .includes(query.q.toLowerCase())
+          : true
+      );
+    const start = (page - 1) * pageSize;
+    return {
+      items: filtered.slice(start, start + pageSize),
+      total: filtered.length,
+      page,
+      pageSize
+    };
   }
 
   async createUser(

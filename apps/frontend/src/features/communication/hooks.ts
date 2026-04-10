@@ -1,16 +1,18 @@
 'use client';
 
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
 import { type RequestOptions, apiRequest } from '../../lib/api/client';
 import { realtimeClient } from '../../lib/realtime/client';
 import { useAuth } from '../auth/context';
 
-interface NotificationDto {
+export interface NotificationDto {
   id: string;
   subjectText: string;
   bodyText: string;
   status: string;
+  createdAt: string;
 }
 interface DialogDto {
   id: string;
@@ -21,6 +23,13 @@ interface MessageDto {
   textBody: string;
   authorUserId: string;
   createdAt: string;
+}
+
+interface ListResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 const authHeaders = (session: ReturnType<typeof useAuth>['session']): RequestOptions => {
@@ -37,11 +46,15 @@ const authHeaders = (session: ReturnType<typeof useAuth>['session']): RequestOpt
 
 export const useNotificationsRealtime = (onRefresh: () => void) => {
   const { session } = useAuth();
+  const queryClient = useQueryClient();
   useEffect(() => {
     if (!session) return;
     const room = `user:${session.user.id}`;
-    return realtimeClient.subscribe(room, session.tokens.accessToken, () => onRefresh());
-  }, [onRefresh, session]);
+    return realtimeClient.subscribe(room, session.tokens.accessToken, () => {
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      onRefresh();
+    });
+  }, [onRefresh, queryClient, session]);
 };
 
 export const useTaskRealtime = (taskId: string | undefined, onRefresh: () => void) => {
@@ -68,9 +81,34 @@ export const useChatRealtime = (dialogId: string | undefined, onRefresh: () => v
   }, [dialogId, onRefresh, session]);
 };
 
+export const useNotificationsList = (page = 1, pageSize = 20, filter = '') => {
+  const { session } = useAuth();
+  const query = useQuery({
+    queryKey: ['notifications', page, pageSize, filter],
+    enabled: Boolean(session),
+    queryFn: () =>
+      communicationApi.listNotifications(session, { page, page_size: pageSize, filter })
+  });
+
+  return {
+    data: query.data,
+    loading: query.isLoading,
+    error: query.error instanceof Error ? query.error.message : null,
+    refetch: async () => {
+      await query.refetch();
+    }
+  };
+};
+
 export const communicationApi = {
-  listNotifications: (session: ReturnType<typeof useAuth>['session']) =>
-    apiRequest<NotificationDto[]>('/notifications', authHeaders(session)),
+  listNotifications: (
+    session: ReturnType<typeof useAuth>['session'],
+    query?: { page?: number; page_size?: number; filter?: string }
+  ) =>
+    apiRequest<ListResponse<NotificationDto>>(
+      `/notifications?page=${query?.page ?? 1}&page_size=${query?.page_size ?? 20}&filter=${query?.filter ?? ''}`,
+      authHeaders(session)
+    ),
   unreadCounter: (session: ReturnType<typeof useAuth>['session']) =>
     apiRequest<{ count: number }>('/notifications/unread-counter', authHeaders(session)),
   markRead: (session: ReturnType<typeof useAuth>['session'], id: string) =>

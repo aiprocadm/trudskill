@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 import { apiRequest } from '../../lib/api/client';
-import { useQueryCache } from '../../lib/query/provider';
+import { useAuth } from '../auth/context';
 
 export interface IntegrationProviderDto {
   id: string;
@@ -31,42 +32,40 @@ export interface SyncLogDto {
   status: string;
 }
 
-const useLoad = <T>(key: string, path: string, liveInterval?: number) => {
-  const cache = useQueryCache();
-  const [data, setData] = useState<T[]>(() => cache.get<T[]>(key)?.data ?? []);
-  const [loading, setLoading] = useState(!cache.get<T[]>(key));
-  const [error, setError] = useState<string | null>(null);
+const useIntegrationList = <T>(key: string, path: string, liveInterval?: number) => {
+  const { session } = useAuth();
+  const queryClient = useQueryClient();
 
-  const refetch = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
+  const query = useQuery({
+    queryKey: ['integrations', key],
+    enabled: Boolean(session),
+    queryFn: async () => {
       const result = await apiRequest<{ items: T[] }>(path);
-      cache.set(key, { data: result.items, updatedAt: Date.now() });
-      setData(result.items);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка API');
-    } finally {
-      setLoading(false);
+      return result.items;
+    },
+    refetchInterval: liveInterval
+  });
+
+  useEffect(() => {
+    if (!session) {
+      void queryClient.invalidateQueries({ queryKey: ['integrations'] });
     }
-  }, [cache, key, path]);
+  }, [queryClient, session]);
 
-  useEffect(() => {
-    void refetch();
-  }, [refetch]);
-  useEffect(() => {
-    if (!liveInterval) return;
-    const timer = setInterval(() => void refetch(), liveInterval);
-    return () => clearInterval(timer);
-  }, [liveInterval, refetch]);
-
-  return { data, loading, error, refetch };
+  return {
+    data: query.data ?? [],
+    loading: query.isLoading,
+    error: query.error instanceof Error ? query.error.message : null,
+    refetch: async () => {
+      await query.refetch();
+    }
+  };
 };
 
 export const useProviders = () =>
-  useLoad<IntegrationProviderDto>('integrations.providers', '/integrations/providers');
+  useIntegrationList<IntegrationProviderDto>('providers', '/integrations/providers');
 export const useCredentials = () =>
-  useLoad<IntegrationCredentialDto>('integrations.credentials', '/integrations/credentials');
+  useIntegrationList<IntegrationCredentialDto>('credentials', '/integrations/credentials');
 export const useExportTasks = (live = false) =>
-  useLoad<ExportTaskDto>('integrations.exportTasks', '/exports/tasks', live ? 15000 : undefined);
-export const useSyncLogs = () => useLoad<SyncLogDto>('integrations.syncLogs', '/sync-logs');
+  useIntegrationList<ExportTaskDto>('exportTasks', '/exports/tasks', live ? 15_000 : undefined);
+export const useSyncLogs = () => useIntegrationList<SyncLogDto>('syncLogs', '/sync-logs');

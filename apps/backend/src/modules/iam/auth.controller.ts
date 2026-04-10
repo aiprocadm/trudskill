@@ -8,6 +8,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   Req,
   Res,
   UnauthorizedException,
@@ -148,13 +149,26 @@ export class AuthController {
   @Get('users')
   @UseGuards(PermissionGuard)
   @RequirePermissions('iam.manage_roles')
-  async users(@CurrentContext() context: RequestContext) {
-    const items = await this.iamService.listUsers(context.tenantId!);
+  async users(
+    @CurrentContext() context: RequestContext,
+    @Query('q') q?: string,
+    @Query('status') status?: 'active' | 'blocked',
+    @Query('page') page = '1',
+    @Query('page_size') pageSize = '20',
+    @Query('sort') sort?: string
+  ) {
+    const result = await this.iamService.listUsers(context.tenantId!, {
+      q,
+      status,
+      sort,
+      page: Number(page),
+      pageSize: Number(pageSize)
+    });
     return {
-      items: this.iamService.toPublicUsers(items),
-      page: 1,
-      pageSize: 100,
-      total: items.length
+      items: this.iamService.toPublicUsers(result.items),
+      page: result.page,
+      pageSize: result.pageSize,
+      total: result.total
     };
   }
 

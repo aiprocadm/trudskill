@@ -27,8 +27,20 @@ import type {
 } from './types';
 import type { UserSession } from '../../entities/session/model';
 
+export interface SessionDto {
+  id: string;
+  tenantId: string;
+  userId: string;
+  expiresAt: string;
+  revokedAt?: string;
+}
+
 const withAuth = (session: UserSession) => ({
-  auth: { userId: session.user.id, tenantId: session.user.tenantId, accessToken: session.tokens.accessToken }
+  auth: {
+    userId: session.user.id,
+    tenantId: session.user.tenantId,
+    accessToken: session.tokens.accessToken
+  }
 });
 
 const queryString = (query: BaseFilterQuery = {}) => {
@@ -42,20 +54,45 @@ const queryString = (query: BaseFilterQuery = {}) => {
 export const mvpApi = {
   listUsers: (session: UserSession, query: BaseFilterQuery) =>
     apiRequest<ListResponse<UserEntity>>(`/users${queryString(query)}`, withAuth(session)),
-  getUser: (session: UserSession, id: string) => apiRequest<UserEntity>(`/users/${id}`, withAuth(session)),
-  getUserRoles: (session: UserSession, id: string) => apiRequest<RoleEntity[]>(`/users/${id}/roles`, withAuth(session)),
+  getUser: (session: UserSession, id: string) =>
+    apiRequest<UserEntity>(`/users/${id}`, withAuth(session)),
+  getUserRoles: (session: UserSession, id: string) =>
+    apiRequest<RoleEntity[]>(`/users/${id}/roles`, withAuth(session)),
+
+  listUserSessions: (session: UserSession, userId: string) =>
+    apiRequest<SessionDto[]>('/auth/sessions', withAuth(session)).then((items) =>
+      items.filter((item) => item.userId === userId)
+    ),
+  revokeSession: (session: UserSession, sessionId: string) =>
+    apiRequest<{ success: boolean }>(`/auth/sessions/${sessionId}`, {
+      method: 'DELETE',
+      ...withAuth(session)
+    }),
   listRoles: (session: UserSession) => apiRequest<RoleEntity[]>('/roles', withAuth(session)),
   setUserRoles: (session: UserSession, id: string, roleCodes: string[]) =>
-    apiRequest<RoleEntity[]>(`/users/${id}/roles`, { method: 'PUT', body: { roleCodes }, ...withAuth(session) }),
+    apiRequest<RoleEntity[]>(`/users/${id}/roles`, {
+      method: 'PUT',
+      body: { roleCodes },
+      ...withAuth(session)
+    }),
 
   listLearners: (session: UserSession, query: BaseFilterQuery) =>
     apiRequest<ListResponse<Learner>>(`/learners${queryString(query)}`, withAuth(session)),
-  getLearner: (session: UserSession, id: string) => apiRequest<Learner>(`/learners/${id}`, withAuth(session)),
+  getLearner: (session: UserSession, id: string) =>
+    apiRequest<Learner>(`/learners/${id}`, withAuth(session)),
 
   listCounterparties: (session: UserSession, query: BaseFilterQuery) =>
-    apiRequest<ListResponse<Counterparty>>(`/counterparties${queryString(query)}`, withAuth(session)),
-  getCounterparty: (session: UserSession, id: string) => apiRequest<Counterparty>(`/counterparties/${id}`, withAuth(session)),
-  saveCounterparty: (session: UserSession, id: string | null, payload: { code: string; name: string; status: string }) =>
+    apiRequest<ListResponse<Counterparty>>(
+      `/counterparties${queryString(query)}`,
+      withAuth(session)
+    ),
+  getCounterparty: (session: UserSession, id: string) =>
+    apiRequest<Counterparty>(`/counterparties/${id}`, withAuth(session)),
+  saveCounterparty: (
+    session: UserSession,
+    id: string | null,
+    payload: { code: string; name: string; status: string }
+  ) =>
     apiRequest<Counterparty>(id ? `/counterparties/${id}` : '/counterparties', {
       method: id ? 'PUT' : 'POST',
       body: payload,
@@ -67,8 +104,13 @@ export const mvpApi = {
 
   listCourses: (session: UserSession, query: BaseFilterQuery) =>
     apiRequest<ListResponse<Course>>(`/courses${queryString(query)}`, withAuth(session)),
-  getCourse: (session: UserSession, id: string) => apiRequest<Course>(`/courses/${id}`, withAuth(session)),
-  saveCourse: (session: UserSession, id: string | null, payload: { code?: string; title: string; description?: string; directionId?: string }) =>
+  getCourse: (session: UserSession, id: string) =>
+    apiRequest<Course>(`/courses/${id}`, withAuth(session)),
+  saveCourse: (
+    session: UserSession,
+    id: string | null,
+    payload: { code?: string; title: string; description?: string; directionId?: string }
+  ) =>
     apiRequest<Course>(id ? `/courses/${id}` : '/courses', {
       method: id ? 'PUT' : 'POST',
       body: payload,
@@ -79,16 +121,30 @@ export const mvpApi = {
   archiveCourse: (session: UserSession, id: string) =>
     apiRequest<Course>(`/courses/${id}/archive`, { method: 'POST', ...withAuth(session) }),
   listCourseVersions: (session: UserSession, courseId: string) =>
-    apiRequest<ListResponse<CourseVersion>>(`/course-versions${queryString({ course_id: courseId })}`, withAuth(session)),
+    apiRequest<ListResponse<CourseVersion>>(
+      `/course-versions${queryString({ course_id: courseId })}`,
+      withAuth(session)
+    ),
   createCourseVersion: (session: UserSession, courseId: string) =>
-    apiRequest<CourseVersion>(`/course-versions/${courseId}`, { method: 'POST', ...withAuth(session) }),
+    apiRequest<CourseVersion>(`/course-versions/${courseId}`, {
+      method: 'POST',
+      ...withAuth(session)
+    }),
 
   listModules: (session: UserSession, courseVersionId?: string) =>
-    apiRequest<ListResponse<CourseModule>>(`/modules${queryString({ course_version_id: courseVersionId })}`, withAuth(session)),
+    apiRequest<ListResponse<CourseModule>>(
+      `/modules${queryString({ course_version_id: courseVersionId })}`,
+      withAuth(session)
+    ),
   saveModule: (
     session: UserSession,
     id: string | null,
-    payload: { courseVersionId?: string; title: string; minViewSeconds?: number; isRequired?: boolean }
+    payload: {
+      courseVersionId?: string;
+      title: string;
+      minViewSeconds?: number;
+      isRequired?: boolean;
+    }
   ) =>
     apiRequest<CourseModule>(id ? `/modules/${id}` : '/modules', {
       method: id ? 'PUT' : 'POST',
@@ -96,11 +152,20 @@ export const mvpApi = {
       ...withAuth(session)
     }),
   listMaterials: (session: UserSession, moduleId?: string) =>
-    apiRequest<ListResponse<Material>>(`/materials${queryString({ module_id: moduleId })}`, withAuth(session)),
+    apiRequest<ListResponse<Material>>(
+      `/materials${queryString({ module_id: moduleId })}`,
+      withAuth(session)
+    ),
   saveMaterial: (
     session: UserSession,
     id: string | null,
-    payload: { moduleId?: string; title: string; materialType: string; minViewSeconds?: number; isRequired?: boolean }
+    payload: {
+      moduleId?: string;
+      title: string;
+      materialType: string;
+      minViewSeconds?: number;
+      isRequired?: boolean;
+    }
   ) =>
     apiRequest<Material>(id ? `/materials/${id}` : '/materials', {
       method: id ? 'PUT' : 'POST',
@@ -110,55 +175,113 @@ export const mvpApi = {
 
   listGroups: (session: UserSession, query: BaseFilterQuery) =>
     apiRequest<ListResponse<Group>>(`/groups${queryString(query)}`, withAuth(session)),
-  getGroup: (session: UserSession, id: string) => apiRequest<Group>(`/groups/${id}`, withAuth(session)),
-  saveGroup: (session: UserSession, id: string | null, payload: { code: string; name: string; status: string }) =>
+  getGroup: (session: UserSession, id: string) =>
+    apiRequest<Group>(`/groups/${id}`, withAuth(session)),
+  saveGroup: (
+    session: UserSession,
+    id: string | null,
+    payload: { code: string; name: string; status: string }
+  ) =>
     apiRequest<Group>(id ? `/groups/${id}` : '/groups', {
       method: id ? 'PUT' : 'POST',
       body: payload,
       ...withAuth(session)
     }),
   listGroupCourses: (session: UserSession, groupId: string) =>
-    apiRequest<ListResponse<GroupCourse>>(`/group-courses${queryString({ group_id: groupId })}`, withAuth(session)),
+    apiRequest<ListResponse<GroupCourse>>(
+      `/group-courses${queryString({ group_id: groupId })}`,
+      withAuth(session)
+    ),
   createGroupCourse: (session: UserSession, payload: { groupId: string; courseId: string }) =>
-    apiRequest<GroupCourse>('/group-courses', { method: 'POST', body: payload, ...withAuth(session) }),
+    apiRequest<GroupCourse>('/group-courses', {
+      method: 'POST',
+      body: payload,
+      ...withAuth(session)
+    }),
   listEnrollments: (session: UserSession, query: BaseFilterQuery) =>
     apiRequest<ListResponse<Enrollment>>(`/enrollments${queryString(query)}`, withAuth(session)),
   createEnrollment: (session: UserSession, payload: { groupId: string; learnerId: string }) =>
     apiRequest<Enrollment>('/enrollments', { method: 'POST', body: payload, ...withAuth(session) }),
   updateEnrollmentStatus: (session: UserSession, id: string, status: Enrollment['status']) =>
-    apiRequest<Enrollment>(`/enrollments/${id}/status`, { method: 'PATCH', body: { status }, ...withAuth(session) }),
+    apiRequest<Enrollment>(`/enrollments/${id}/status`, {
+      method: 'PATCH',
+      body: { status },
+      ...withAuth(session)
+    }),
 
   listProgress: (session: UserSession, query: BaseFilterQuery) =>
     apiRequest<ListResponse<Progress>>(`/progress${queryString(query)}`, withAuth(session)),
   listQuestionBanks: (session: UserSession, query: BaseFilterQuery) =>
-    apiRequest<ListResponse<QuestionBank>>(`/question-banks${queryString(query)}`, withAuth(session)),
+    apiRequest<ListResponse<QuestionBank>>(
+      `/question-banks${queryString(query)}`,
+      withAuth(session)
+    ),
   listTests: (session: UserSession, query: BaseFilterQuery) =>
     apiRequest<ListResponse<TestEntity>>(`/tests${queryString(query)}`, withAuth(session)),
-  startAttempt: (session: UserSession, payload: { testId: string; enrollmentId: string; learnerId: string }) =>
+  startAttempt: (
+    session: UserSession,
+    payload: { testId: string; enrollmentId: string; learnerId: string }
+  ) =>
     apiRequest<Attempt>('/attempts/start', { method: 'POST', body: payload, ...withAuth(session) }),
   getAttemptResult: (session: UserSession, attemptId: string) =>
     apiRequest<ExamResult>(`/attempts/${attemptId}/result`, withAuth(session)),
   listAssignments: (session: UserSession, query: BaseFilterQuery) =>
     apiRequest<ListResponse<Assignment>>(`/assignments${queryString(query)}`, withAuth(session)),
-  saveQuestionBank: (session: UserSession, id: string | null, payload: { code?: string; title: string; description?: string }) =>
-    apiRequest<QuestionBank>(id ? `/question-banks/${id}` : '/question-banks', { method: id ? 'PATCH' : 'POST', body: payload, ...withAuth(session) }),
+  saveQuestionBank: (
+    session: UserSession,
+    id: string | null,
+    payload: { code?: string; title: string; description?: string }
+  ) =>
+    apiRequest<QuestionBank>(id ? `/question-banks/${id}` : '/question-banks', {
+      method: id ? 'PATCH' : 'POST',
+      body: payload,
+      ...withAuth(session)
+    }),
   listQuestions: (session: UserSession, query: BaseFilterQuery) =>
     apiRequest<ListResponse<Question>>(`/questions${queryString(query)}`, withAuth(session)),
   saveQuestion: (session: UserSession, id: string | null, payload: Record<string, unknown>) =>
-    apiRequest<Question>(id ? `/questions/${id}` : '/questions', { method: id ? 'PATCH' : 'POST', body: payload, ...withAuth(session) }),
+    apiRequest<Question>(id ? `/questions/${id}` : '/questions', {
+      method: id ? 'PATCH' : 'POST',
+      body: payload,
+      ...withAuth(session)
+    }),
   saveTest: (session: UserSession, id: string | null, payload: Record<string, unknown>) =>
-    apiRequest<TestEntity>(id ? `/tests/${id}` : '/tests', { method: id ? 'PATCH' : 'POST', body: payload, ...withAuth(session) }),
-  publishTest: (session: UserSession, id: string) => apiRequest<TestEntity>(`/tests/${id}/publish`, { method: 'POST', ...withAuth(session) }),
+    apiRequest<TestEntity>(id ? `/tests/${id}` : '/tests', {
+      method: id ? 'PATCH' : 'POST',
+      body: payload,
+      ...withAuth(session)
+    }),
+  publishTest: (session: UserSession, id: string) =>
+    apiRequest<TestEntity>(`/tests/${id}/publish`, { method: 'POST', ...withAuth(session) }),
   saveAttemptAnswer: (session: UserSession, attemptId: string, payload: Record<string, unknown>) =>
-    apiRequest(`/attempts/${attemptId}/answers`, { method: 'POST', body: payload, ...withAuth(session) }),
+    apiRequest(`/attempts/${attemptId}/answers`, {
+      method: 'POST',
+      body: payload,
+      ...withAuth(session)
+    }),
   submitAttempt: (session: UserSession, attemptId: string) =>
     apiRequest<Attempt>(`/attempts/${attemptId}/submit`, { method: 'POST', ...withAuth(session) }),
   saveAssignment: (session: UserSession, id: string | null, payload: Record<string, unknown>) =>
-    apiRequest<Assignment>(id ? `/assignments/${id}` : '/assignments', { method: id ? 'PATCH' : 'POST', body: payload, ...withAuth(session) }),
+    apiRequest<Assignment>(id ? `/assignments/${id}` : '/assignments', {
+      method: id ? 'PATCH' : 'POST',
+      body: payload,
+      ...withAuth(session)
+    }),
   createAssignmentSubmission: (session: UserSession, payload: Record<string, unknown>) =>
-    apiRequest<AssignmentSubmission>('/assignment-submissions', { method: 'POST', body: payload, ...withAuth(session) }),
+    apiRequest<AssignmentSubmission>('/assignment-submissions', {
+      method: 'POST',
+      body: payload,
+      ...withAuth(session)
+    }),
   submitAssignmentSubmission: (session: UserSession, submissionId: string) =>
-    apiRequest<AssignmentSubmission>(`/assignment-submissions/${submissionId}/submit`, { method: 'POST', ...withAuth(session) }),
+    apiRequest<AssignmentSubmission>(`/assignment-submissions/${submissionId}/submit`, {
+      method: 'POST',
+      ...withAuth(session)
+    }),
   createAssignmentReview: (session: UserSession, payload: Record<string, unknown>) =>
-    apiRequest<AssignmentReview>('/assignment-reviews', { method: 'POST', body: payload, ...withAuth(session) })
+    apiRequest<AssignmentReview>('/assignment-reviews', {
+      method: 'POST',
+      body: payload,
+      ...withAuth(session)
+    })
 };

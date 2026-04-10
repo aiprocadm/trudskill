@@ -1,7 +1,7 @@
 'use client';
 
 import { DataTable, StatusChip } from '@cdoprof/ui';
-import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   PageContainer,
@@ -30,83 +30,65 @@ interface TaskDto {
 
 export default function DocumentsPage() {
   const { session } = useAuth();
-  const [templates, setTemplates] = useState<TemplateDto[]>([]);
-  const [tasks, setTasks] = useState<TaskDto[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const auth = session
-    ? {
+  const queryClient = useQueryClient();
+  const data = useQuery({
+    queryKey: ['documents', session?.user.id],
+    enabled: Boolean(session),
+    queryFn: async () => {
+      const auth = {
         auth: {
-          accessToken: session.tokens.accessToken,
-          tenantId: session.user.tenantId,
-          userId: session.user.id
+          accessToken: session!.tokens.accessToken,
+          tenantId: session!.user.tenantId,
+          userId: session!.user.id
         }
-      }
-    : {};
-
-  const refresh = async () => {
-    if (!session) return;
-    setLoading(true);
-    setError(null);
-    try {
+      };
       const [templatesResp, tasksResp] = await Promise.all([
         apiRequest<{ items: TemplateDto[] }>('/templates', auth),
         apiRequest<{ items: TaskDto[] }>('/document-tasks', auth)
       ]);
-      setTemplates(templatesResp.items);
-      setTasks(tasksResp.items);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось загрузить документы');
-    } finally {
-      setLoading(false);
+      return { templates: templatesResp.items, tasks: tasksResp.items };
     }
-  };
+  });
 
-  useEffect(() => {
-    void refresh();
-  }, [session]);
-  useTaskRealtime(tasks[0]?.id, () => void refresh());
+  useTaskRealtime(
+    data.data?.tasks[0]?.id,
+    () => void queryClient.invalidateQueries({ queryKey: ['documents'] })
+  );
 
   return (
     <ProtectedPage>
       <PageContainer>
-        <PageHeader title="Документы" />
+        <PageHeader
+          title="Документы"
+          actions={<button onClick={() => void data.refetch()}>Обновить</button>}
+        />
         <SectionCard title="Реестр шаблонов">
-          {loading ? <p>Загрузка...</p> : null}
-          {error ? <SectionError message={error} /> : null}
-          {templates.length ? (
+          {data.error ? (
+            <SectionError
+              message={
+                data.error instanceof Error ? data.error.message : 'Не удалось загрузить документы'
+              }
+            />
+          ) : null}
+          {data.data?.templates.length ? (
             <>
               <DataTable
                 columns={[
                   { key: 'name', title: 'Шаблон' },
                   { key: 'type', title: 'Тип' },
-                  { key: 'currentVersion', title: 'Текущая версия' },
+                  { key: 'currentVersion', title: 'Версия' },
                   { key: 'updatedAt', title: 'Обновлен' }
                 ]}
-                rows={templates}
+                rows={data.data.templates}
               />
-              <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-                {templates.map((item) => (
+              <div className="ui-inline">
+                {data.data.templates.map((item) => (
                   <StatusChip key={item.name} status={item.status} />
                 ))}
               </div>
             </>
-          ) : null}
-          {!loading && !templates.length ? <SectionEmpty message="Шаблоны не найдены" /> : null}
-        </SectionCard>
-        <SectionCard title="Статусы async задач">
-          {tasks.length ? (
-            <DataTable
-              columns={[
-                { key: 'id', title: 'Task ID' },
-                { key: 'source', title: 'Источник' },
-                { key: 'status', title: 'Статус' }
-              ]}
-              rows={tasks}
-            />
           ) : (
-            <SectionEmpty message="Нет задач" />
+            <SectionEmpty message="Шаблоны не найдены" />
           )}
         </SectionCard>
       </PageContainer>
