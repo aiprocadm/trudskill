@@ -2,6 +2,7 @@
 
 import { DataTable, FilterBar, StatusChip } from '@cdoprof/ui';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 
 import {
@@ -28,12 +29,28 @@ import {
   useUserRoles,
   useUsersList
 } from './hooks';
-import { PageContainer, PageHeader, SectionCard, SectionEmpty, SectionError } from '../../components/state-wrappers';
+import {
+  PageContainer,
+  PageHeader,
+  SectionCard,
+  SectionEmpty,
+  SectionError
+} from '../../components/state-wrappers';
 import { ApiClientError } from '../../lib/api/client';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 
-const STATUS_OPTIONS = ['active', 'blocked', 'draft', 'archived', 'published', 'pending', 'suspended', 'completed', 'cancelled'] as const;
+const STATUS_OPTIONS = [
+  'active',
+  'blocked',
+  'draft',
+  'archived',
+  'published',
+  'pending',
+  'suspended',
+  'completed',
+  'cancelled'
+] as const;
 
 const RegistryControls = ({
   q,
@@ -98,9 +115,11 @@ const ProgressBar = ({ value }: { value: number }) => (
   </div>
 );
 
-const MutationError = ({ message }: { message: string | null }) => (message ? <SectionError message={message} /> : null);
+const MutationError = ({ message }: { message: string | null }) =>
+  message ? <SectionError message={message} /> : null;
 
-const toTableRows = <T extends object>(rows: T[]): Record<string, unknown>[] => rows as unknown as Record<string, unknown>[];
+const toTableRows = <T extends object>(rows: T[]): Record<string, unknown>[] =>
+  rows as unknown as Record<string, unknown>[];
 
 export const UsersPageScreen = () => {
   const { session } = useAuth();
@@ -109,7 +128,13 @@ export const UsersPageScreen = () => {
   const [status, setStatus] = useState('');
   const [role, setRole] = useState('');
   const [page, setPage] = useState(1);
-  const { data, loading, error } = useUsersList({ q, status, page, page_size: 20, sort: role ? `role:${role}` : undefined });
+  const { data, loading, error } = useUsersList({
+    q,
+    status,
+    page,
+    page_size: 20,
+    sort: role ? `role:${role}` : undefined
+  });
   const { data: roles } = useRoles();
 
   return (
@@ -139,7 +164,9 @@ export const UsersPageScreen = () => {
             rows={toTableRows(data.items)}
           />
         ) : null}
-        {!loading && !error && !data?.items.length ? <SectionEmpty message="Нет пользователей" /> : null}
+        {!loading && !error && !data?.items.length ? (
+          <SectionEmpty message="Нет пользователей" />
+        ) : null}
         <div style={{ display: 'grid', gap: 8 }}>
           {data?.items.map((user) => (
             <div key={user.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -232,7 +259,13 @@ export const CounterpartiesPageScreen = () => {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
-  const { data, loading, error } = useCounterpartiesList({ q, status, page, page_size: 20, sort: 'name:asc' });
+  const { data, loading, error } = useCounterpartiesList({
+    q,
+    status,
+    page,
+    page_size: 20,
+    sort: 'name:asc'
+  });
 
   return (
     <PageContainer>
@@ -248,7 +281,9 @@ export const CounterpartiesPageScreen = () => {
             </Link>
           ))}
         </div>
-        {!loading && !error && !data?.items.length ? <SectionEmpty message="Нет контрагентов" /> : null}
+        {!loading && !error && !data?.items.length ? (
+          <SectionEmpty message="Нет контрагентов" />
+        ) : null}
         <PaginationControls page={page} setPage={setPage} total={data?.total} pageSize={20} />
       </SectionCard>
     </PageContainer>
@@ -286,7 +321,11 @@ export const DirectionsPageScreen = () => {
       <SectionCard title="Реестр направлений">
         {loading ? <p>Загрузка...</p> : null}
         {error ? <SectionError message={error} /> : null}
-        <ul>{data?.items.map((item) => <li key={item.id}>{item.name}</li>)}</ul>
+        <ul>
+          {data?.items.map((item) => (
+            <li key={item.id}>{item.name}</li>
+          ))}
+        </ul>
       </SectionCard>
     </PageContainer>
   );
@@ -299,7 +338,13 @@ export const CoursesPageScreen = () => {
   const [status, setStatus] = useState('');
   const [directionId, setDirectionId] = useState('');
   const [page, setPage] = useState(1);
-  const { data, loading, error } = useCoursesList({ q, status, page, page_size: 20, direction_id: directionId || undefined });
+  const { data, loading, error } = useCoursesList({
+    q,
+    status,
+    page,
+    page_size: 20,
+    direction_id: directionId || undefined
+  });
   const { data: directions } = useDirectionsList({ page: 1, page_size: 100 });
 
   return (
@@ -307,7 +352,11 @@ export const CoursesPageScreen = () => {
       <PageHeader
         title="Курсы"
         actions={
-          canCreateCourse ? <Link href="/courses/new">Создать курс</Link> : <small>Недостаточно прав для создания курса</small>
+          canCreateCourse ? (
+            <Link href="/courses/new">Создать курс</Link>
+          ) : (
+            <small>Недостаточно прав для создания курса</small>
+          )
         }
       />
       <SectionCard title="Реестр курсов">
@@ -327,7 +376,8 @@ export const CoursesPageScreen = () => {
         <ul>
           {data?.items.map((course) => (
             <li key={course.id}>
-              <Link href={`/courses/${course.id}`}>{course.title}</Link> <StatusChip status={course.status} />
+              <Link href={`/courses/${course.id}`}>{course.title}</Link>{' '}
+              <StatusChip status={course.status} />
             </li>
           ))}
         </ul>
@@ -339,6 +389,7 @@ export const CoursesPageScreen = () => {
 };
 
 export const CourseCreateScreen = () => {
+  const router = useRouter();
   const { data: directions } = useDirectionsList({ page: 1, page_size: 100 });
   const { saveCourse } = useDomainMutations();
   const [title, setTitle] = useState('');
@@ -351,9 +402,11 @@ export const CourseCreateScreen = () => {
     event.preventDefault();
     try {
       setSaveError(null);
-      const payload = directionId ? { code, title, description, directionId } : { code, title, description };
+      const payload = directionId
+        ? { code, title, description, directionId }
+        : { code, title, description };
       const created = await saveCourse(null, payload);
-      window.location.assign(`/courses/${created.id}`);
+      router.push(`/courses/${created.id}`);
     } catch (createError) {
       setSaveError(readApiMessage(createError));
     }
@@ -363,10 +416,27 @@ export const CourseCreateScreen = () => {
     <PageContainer>
       <PageHeader title="Создание курса" />
       <SectionCard title="Мастер создания">
-        <form onSubmit={(event) => void onSubmit(event)} style={{ display: 'grid', gap: 8, maxWidth: 480 }}>
-          <input required placeholder="Код" value={code} onChange={(event) => setCode(event.target.value)} />
-          <input required placeholder="Название" value={title} onChange={(event) => setTitle(event.target.value)} />
-          <textarea placeholder="Описание" value={description} onChange={(event) => setDescription(event.target.value)} />
+        <form
+          onSubmit={(event) => void onSubmit(event)}
+          style={{ display: 'grid', gap: 8, maxWidth: 480 }}
+        >
+          <input
+            required
+            placeholder="Код"
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+          />
+          <input
+            required
+            placeholder="Название"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+          />
+          <textarea
+            placeholder="Описание"
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+          />
           <select value={directionId} onChange={(event) => setDirectionId(event.target.value)}>
             <option value="">Выберите направление</option>
             {directions?.items.map((direction) => (
@@ -391,10 +461,13 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
   const { data: modules, refetch: refetchModules } = useModules(latestVersionId);
   const [selectedModuleId, setSelectedModuleId] = useState<string>('');
   const { data: materials, refetch: refetchMaterials } = useMaterials(selectedModuleId);
-  const { publishCourse, archiveCourse, createCourseVersion, saveModule, saveMaterial } = useDomainMutations();
+  const { publishCourse, archiveCourse, createCourseVersion, saveModule, saveMaterial } =
+    useDomainMutations();
   const [moduleTitle, setModuleTitle] = useState('');
   const [materialTitle, setMaterialTitle] = useState('');
-  const [materialType, setMaterialType] = useState<'text' | 'video' | 'file' | 'external_url'>('text');
+  const [materialType, setMaterialType] = useState<'text' | 'video' | 'file' | 'external_url'>(
+    'text'
+  );
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const canPublish = hasPermission(session?.permissions ?? [], 'courses.publish');
@@ -439,15 +512,28 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
         <MutationError message={saveError} />
       </SectionCard>
       <SectionCard title="Версии курса">
-        <button onClick={() => void createCourseVersion(id).then(refetchVersions)}>Добавить версию</button>
-        <ul>{versions?.items.map((item) => <li key={item.id}>v{item.versionNo} ({item.status})</li>)}</ul>
+        <button onClick={() => void createCourseVersion(id).then(refetchVersions)}>
+          Добавить версию
+        </button>
+        <ul>
+          {versions?.items.map((item) => (
+            <li key={item.id}>
+              v{item.versionNo} ({item.status})
+            </li>
+          ))}
+        </ul>
       </SectionCard>
       <SectionCard title="Модули">
         <form
           onSubmit={(event) => {
             event.preventDefault();
             if (!latestVersionId || !moduleTitle.trim()) return;
-            void saveModule(null, { courseVersionId: latestVersionId, title: moduleTitle.trim(), minViewSeconds: 0, isRequired: true })
+            void saveModule(null, {
+              courseVersionId: latestVersionId,
+              title: moduleTitle.trim(),
+              minViewSeconds: 0,
+              isRequired: true
+            })
               .then(() => {
                 setModuleTitle('');
                 return refetchModules();
@@ -456,12 +542,22 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
           }}
           style={{ display: 'flex', gap: 8, marginBottom: 8 }}
         >
-          <input value={moduleTitle} onChange={(event) => setModuleTitle(event.target.value)} placeholder="Название модуля" />
+          <input
+            value={moduleTitle}
+            onChange={(event) => setModuleTitle(event.target.value)}
+            placeholder="Название модуля"
+          />
           <button type="submit" disabled={!latestVersionId}>
             Добавить модуль
           </button>
         </form>
-        <ul>{modules?.items.map((item) => <li key={item.id}>{item.sortOrder + 1}. {item.title} ({item.minViewSeconds}s)</li>)}</ul>
+        <ul>
+          {modules?.items.map((item) => (
+            <li key={item.id}>
+              {item.sortOrder + 1}. {item.title} ({item.minViewSeconds}s)
+            </li>
+          ))}
+        </ul>
       </SectionCard>
       <SectionCard title="Материалы модуля">
         <form
@@ -483,7 +579,10 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
           }}
           style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}
         >
-          <select value={selectedModuleId} onChange={(event) => setSelectedModuleId(event.target.value)}>
+          <select
+            value={selectedModuleId}
+            onChange={(event) => setSelectedModuleId(event.target.value)}
+          >
             <option value="">Выберите модуль</option>
             {modules?.items.map((module) => (
               <option key={module.id} value={module.id}>
@@ -491,8 +590,15 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
               </option>
             ))}
           </select>
-          <input value={materialTitle} onChange={(event) => setMaterialTitle(event.target.value)} placeholder="Название материала" />
-          <select value={materialType} onChange={(event) => setMaterialType(event.target.value as typeof materialType)}>
+          <input
+            value={materialTitle}
+            onChange={(event) => setMaterialTitle(event.target.value)}
+            placeholder="Название материала"
+          />
+          <select
+            value={materialType}
+            onChange={(event) => setMaterialType(event.target.value as typeof materialType)}
+          >
             <option value="text">text</option>
             <option value="video">video</option>
             <option value="file">file</option>
@@ -502,7 +608,14 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
             Добавить материал
           </button>
         </form>
-        <ul>{materials?.items.map((item) => <li key={item.id}>{item.sortOrder + 1}. {item.title} [{item.materialType}] min_view_seconds={item.minViewSeconds}</li>)}</ul>
+        <ul>
+          {materials?.items.map((item) => (
+            <li key={item.id}>
+              {item.sortOrder + 1}. {item.title} [{item.materialType}] min_view_seconds=
+              {item.minViewSeconds}
+            </li>
+          ))}
+        </ul>
       </SectionCard>
     </PageContainer>
   );
@@ -517,12 +630,24 @@ export const GroupsPageScreen = () => {
     <PageContainer>
       <PageHeader
         title="Группы"
-        actions={canCreateGroup ? <Link href="/groups/new">Создать группу</Link> : <small>Недостаточно прав для создания группы</small>}
+        actions={
+          canCreateGroup ? (
+            <Link href="/groups/new">Создать группу</Link>
+          ) : (
+            <small>Недостаточно прав для создания группы</small>
+          )
+        }
       />
       <SectionCard title="Реестр групп">
         {loading ? <p>Загрузка...</p> : null}
         {error ? <SectionError message={error} /> : null}
-        <ul>{data?.items.map((group) => <li key={group.id}><Link href={`/groups/${group.id}`}>{group.name}</Link></li>)}</ul>
+        <ul>
+          {data?.items.map((group) => (
+            <li key={group.id}>
+              <Link href={`/groups/${group.id}`}>{group.name}</Link>
+            </li>
+          ))}
+        </ul>
         {!loading && !error && !data?.items.length ? <SectionEmpty message="Нет групп" /> : null}
         <PaginationControls page={page} setPage={setPage} total={data?.total} pageSize={20} />
       </SectionCard>
@@ -531,6 +656,7 @@ export const GroupsPageScreen = () => {
 };
 
 export const GroupCreateScreen = () => {
+  const router = useRouter();
   const { saveGroup } = useDomainMutations();
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
@@ -540,7 +666,7 @@ export const GroupCreateScreen = () => {
     event.preventDefault();
     try {
       const created = await saveGroup(null, { code, name, status: 'draft' });
-      window.location.assign(`/groups/${created.id}`);
+      router.push(`/groups/${created.id}`);
     } catch (createError) {
       setSaveError(readApiMessage(createError));
     }
@@ -550,9 +676,22 @@ export const GroupCreateScreen = () => {
     <PageContainer>
       <PageHeader title="Мастер создания группы" />
       <SectionCard title="Основные атрибуты">
-        <form onSubmit={(event) => void onSubmit(event)} style={{ display: 'grid', gap: 8, maxWidth: 480 }}>
-          <input required placeholder="Код" value={code} onChange={(event) => setCode(event.target.value)} />
-          <input required placeholder="Название" value={name} onChange={(event) => setName(event.target.value)} />
+        <form
+          onSubmit={(event) => void onSubmit(event)}
+          style={{ display: 'grid', gap: 8, maxWidth: 480 }}
+        >
+          <input
+            required
+            placeholder="Код"
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+          />
+          <input
+            required
+            placeholder="Название"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
           <button type="submit">Создать</button>
           {saveError ? <SectionError message={saveError} /> : null}
         </form>
@@ -599,7 +738,10 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
           }}
           style={{ display: 'flex', gap: 8, marginBottom: 8 }}
         >
-          <select value={selectedCourseId} onChange={(event) => setSelectedCourseId(event.target.value)}>
+          <select
+            value={selectedCourseId}
+            onChange={(event) => setSelectedCourseId(event.target.value)}
+          >
             <option value="">Выберите курс для назначения</option>
             {courses?.items.map((course) => (
               <option key={course.id} value={course.id}>
@@ -611,7 +753,11 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
             Назначить курс
           </button>
         </form>
-        <ul>{groupCourses?.items.map((item) => <li key={item.id}>{item.courseId}</li>)}</ul>
+        <ul>
+          {groupCourses?.items.map((item) => (
+            <li key={item.id}>{item.courseId}</li>
+          ))}
+        </ul>
       </SectionCard>
       <SectionCard title="Зачисления и прогресс">
         <form
@@ -627,12 +773,22 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
           }}
           style={{ display: 'flex', gap: 8, marginBottom: 8 }}
         >
-          <input value={learnerId} onChange={(event) => setLearnerId(event.target.value)} placeholder="ID слушателя" />
+          <input
+            value={learnerId}
+            onChange={(event) => setLearnerId(event.target.value)}
+            placeholder="ID слушателя"
+          />
           <button type="submit" disabled={!learnerId.trim()}>
             Зачислить слушателя
           </button>
         </form>
-        <ul>{enrollments?.items.map((item) => <li key={item.id}>{item.learnerId} — {item.status}</li>)}</ul>
+        <ul>
+          {enrollments?.items.map((item) => (
+            <li key={item.id}>
+              {item.learnerId} — {item.status}
+            </li>
+          ))}
+        </ul>
         <ProgressBar value={averageProgress} />
         <MutationError message={saveError} />
       </SectionCard>
@@ -652,7 +808,10 @@ export const LearnerCoursesScreen = () => {
         <ul>
           {data?.items.map((enrollment) => (
             <li key={enrollment.id}>
-              <Link href={`/learner/courses/${enrollment.courseId ?? enrollment.id}`}>Курс {enrollment.courseId ?? enrollment.id}</Link> — {enrollment.status}
+              <Link href={`/learner/courses/${enrollment.courseId ?? enrollment.id}`}>
+                Курс {enrollment.courseId ?? enrollment.id}
+              </Link>{' '}
+              — {enrollment.status}
             </li>
           ))}
         </ul>
@@ -670,7 +829,10 @@ export const LearnerCourseDetailsScreen = ({ id }: { id: string }) => {
     return Math.round(sum / progress.items.length);
   }, [progress]);
 
-  const nextStep = useMemo(() => progress?.items.find((item) => item.status === 'in_progress') ?? progress?.items[0], [progress]);
+  const nextStep = useMemo(
+    () => progress?.items.find((item) => item.status === 'in_progress') ?? progress?.items[0],
+    [progress]
+  );
 
   return (
     <PageContainer>
@@ -679,7 +841,13 @@ export const LearnerCourseDetailsScreen = ({ id }: { id: string }) => {
         <ProgressBar value={percent} />
       </SectionCard>
       <SectionCard title="Что продолжить">
-        {nextStep ? <p>Продолжите материал {nextStep.materialId} в модуле {nextStep.moduleId}.</p> : <SectionEmpty message="Материалы для продолжения пока не найдены" />}
+        {nextStep ? (
+          <p>
+            Продолжите материал {nextStep.materialId} в модуле {nextStep.moduleId}.
+          </p>
+        ) : (
+          <SectionEmpty message="Материалы для продолжения пока не найдены" />
+        )}
       </SectionCard>
     </PageContainer>
   );

@@ -4,7 +4,14 @@ import type { EntityStatus } from '@cdoprof/shared-types';
 import type { ReactElement } from 'react';
 
 export const StatusChip = ({ status }: { status: EntityStatus | string }): ReactElement => (
-  <span style={{ background: semanticStatusMap[(status as keyof typeof semanticStatusMap) ?? 'inactive'] ?? '#6b7280', color: '#fff', borderRadius: 999, padding: '2px 8px' }}>
+  <span
+    className="ui-badge"
+    style={{
+      background:
+        semanticStatusMap[(status as keyof typeof semanticStatusMap) ?? 'inactive'] ??
+        'var(--ui-neutral-500)'
+    }}
+  >
     {status}
   </span>
 );
