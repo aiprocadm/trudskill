@@ -3,69 +3,111 @@
 import { DataTable, StatusChip } from '@cdoprof/ui';
 import { useEffect, useState } from 'react';
 
-import { PageContainer, PageHeader, SectionCard } from '../../src/components/state-wrappers';
+import {
+  PageContainer,
+  PageHeader,
+  SectionCard,
+  SectionEmpty,
+  SectionError
+} from '../../src/components/state-wrappers';
+import { useAuth } from '../../src/features/auth/context';
 import { useTaskRealtime } from '../../src/features/communication/hooks';
+import { apiRequest } from '../../src/lib/api/client';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
-const templates = [
-  { name: 'Договор на обучение', type: 'contract', status: 'active', currentVersion: 'v3', updatedAt: '2026-03-26' },
-  { name: 'Акт оказания услуг', type: 'act', status: 'archived', currentVersion: 'v1', updatedAt: '2026-03-20' }
-];
-
-const defaultTasks = [
-  { id: 'tenant_demo-task_1', status: 'queued', source: 'group:g-12' },
-  { id: 'tenant_demo-task_2', status: 'running', source: 'learner:l-7' },
-  { id: 'tenant_demo-task_3', status: 'completed', source: 'group:g-14' }
-];
+interface TemplateDto {
+  name: string;
+  type: string;
+  status: string;
+  currentVersion: string;
+  updatedAt: string;
+}
+interface TaskDto {
+  id: string;
+  status: string;
+  source: string;
+}
 
 export default function DocumentsPage() {
-  const [tasks, setTasks] = useState(defaultTasks);
+  const { session } = useAuth();
+  const [templates, setTemplates] = useState<TemplateDto[]>([]);
+  const [tasks, setTasks] = useState<TaskDto[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useTaskRealtime(tasks[0]?.id, () => {
-    setTasks((current) => current.map((item) => (item.status === 'queued' ? { ...item, status: 'running' } : item)));
-  });
+  const auth = session
+    ? {
+        auth: {
+          accessToken: session.tokens.accessToken,
+          tenantId: session.user.tenantId,
+          userId: session.user.id
+        }
+      }
+    : {};
+
+  const refresh = async () => {
+    if (!session) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const [templatesResp, tasksResp] = await Promise.all([
+        apiRequest<{ items: TemplateDto[] }>('/templates', auth),
+        apiRequest<{ items: TaskDto[] }>('/document-tasks', auth)
+      ]);
+      setTemplates(templatesResp.items);
+      setTasks(tasksResp.items);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось загрузить документы');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTasks((current) =>
-        current.map((item) =>
-          item.status === 'running' ? { ...item, status: 'completed' } : item.status === 'queued' ? { ...item, status: 'running' } : item
-        )
-      );
-    }, 8000);
-    return () => clearInterval(timer);
-  }, []);
+    void refresh();
+  }, [session]);
+  useTaskRealtime(tasks[0]?.id, () => void refresh());
 
   return (
     <ProtectedPage>
       <PageContainer>
         <PageHeader title="Документы" />
         <SectionCard title="Реестр шаблонов">
-          <DataTable
-            columns={[
-              { key: 'name', title: 'Шаблон' },
-              { key: 'type', title: 'Тип' },
-              { key: 'currentVersion', title: 'Текущая версия' },
-              { key: 'updatedAt', title: 'Обновлен' }
-            ]}
-            rows={templates}
-          />
-          <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-            {templates.map((item) => (
-              <StatusChip key={item.name} status={item.status} />
-            ))}
-          </div>
+          {loading ? <p>Загрузка...</p> : null}
+          {error ? <SectionError message={error} /> : null}
+          {templates.length ? (
+            <>
+              <DataTable
+                columns={[
+                  { key: 'name', title: 'Шаблон' },
+                  { key: 'type', title: 'Тип' },
+                  { key: 'currentVersion', title: 'Текущая версия' },
+                  { key: 'updatedAt', title: 'Обновлен' }
+                ]}
+                rows={templates}
+              />
+              <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+                {templates.map((item) => (
+                  <StatusChip key={item.name} status={item.status} />
+                ))}
+              </div>
+            </>
+          ) : null}
+          {!loading && !templates.length ? <SectionEmpty message="Шаблоны не найдены" /> : null}
         </SectionCard>
-
-        <SectionCard title="Статусы async задач (live foundation)">
-          <DataTable
-            columns={[
-              { key: 'id', title: 'Task ID' },
-              { key: 'source', title: 'Источник' },
-              { key: 'status', title: 'Статус' }
-            ]}
-            rows={tasks}
-          />
+        <SectionCard title="Статусы async задач">
+          {tasks.length ? (
+            <DataTable
+              columns={[
+                { key: 'id', title: 'Task ID' },
+                { key: 'source', title: 'Источник' },
+                { key: 'status', title: 'Статус' }
+              ]}
+              rows={tasks}
+            />
+          ) : (
+            <SectionEmpty message="Нет задач" />
+          )}
         </SectionCard>
       </PageContainer>
     </ProtectedPage>

@@ -39,10 +39,10 @@ export const LoginForm = () => {
   return (
     <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12, width: 320 }}>
       <h1>Вход</h1>
-      <FormField label="Логин" name="login" defaultValue="tenant_admin" required />
-      <FormField label="Пароль" name="password" type="password" defaultValue="Password123!" required />
+      <FormField label="Логин" name="login" required />
+      <FormField label="Пароль" name="password" type="password" required />
       {error ? <p role="alert">{error}</p> : null}
-      <button type="submit" disabled={pending}>
+      <button className="ui-button ui-button--primary" type="submit" disabled={pending}>
         {pending ? 'Входим...' : 'Войти'}
       </button>
     </form>
