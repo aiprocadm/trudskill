@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
 import { ConflictException, ForbiddenException, PreconditionFailedException } from '@nestjs/common';
-import { AuditService } from '../audit/audit.service.js';
-import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
+import { describe, expect, it } from 'vitest';
+
 import { MvpService } from './mvp.service.js';
+import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
+import { AuditService } from '../audit/audit.service.js';
 
 const ctx = {
   requestId: 'req_1',

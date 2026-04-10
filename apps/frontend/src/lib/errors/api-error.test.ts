@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { normalizeApiError } from './api-error';
 
 describe('api error normalization', () => {

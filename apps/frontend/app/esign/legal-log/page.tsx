@@ -1,5 +1,5 @@
-import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
 import { PageContainer, PageHeader, SectionCard } from '../../../src/components/state-wrappers';
+import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
 
 const filters = ['entity_type/entity_id', 'actor', 'event_type', 'date range'];
 const keyEvents = [

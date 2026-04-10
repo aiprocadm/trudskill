@@ -1,6 +1,7 @@
 'use client';
 
 import { frontendEnv } from '../config/env';
+
 import type { RealtimeEventEnvelope } from '@cdoprof/api-contracts';
 
 export type RealtimeHandler = (event: RealtimeEventEnvelope) => void;

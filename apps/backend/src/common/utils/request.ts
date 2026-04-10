@@ -1,6 +1,7 @@
-import type { Request } from 'express';
 import { randomUUID } from 'node:crypto';
+
 import type { RequestContext } from '../context/request-context.js';
+import type { Request } from 'express';
 
 export type RequestWithContext = Request & { context?: RequestContext };
 

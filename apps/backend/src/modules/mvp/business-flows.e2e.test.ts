@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { MvpService } from './mvp.service.js';
+import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 import { DocumentsService } from '../documents/documents.service.js';
 import { EsignService } from '../esign/esign.service.js';
-import { IamService } from '../iam/services/iam.service.js';
 import { AuthService } from '../iam/services/auth.service.js';
-import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
-import { MvpService } from './mvp.service.js';
+import { IamService } from '../iam/services/iam.service.js';
 
 const baseCtx = {
   requestId: 'req_stage13_e2e',

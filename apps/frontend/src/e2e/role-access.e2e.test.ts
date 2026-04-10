@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { UserSession } from '../entities/session/model';
-import { getVisibleNavigation, evaluateRouteAccess } from '../features/navigation/helpers';
+
 import { getRouteBootstrapState } from '../features/auth/use-route-bootstrap';
+import { evaluateRouteAccess, getVisibleNavigation } from '../features/navigation/helpers';
+
+import type { UserSession } from '../entities/session/model';
 
 const methodistSession: UserSession = {
   user: {

@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ProtectedPage } from '../../src/widgets/shell/protected-page';
+
 import { useAuth } from '../../src/features/auth/context';
 import { communicationApi, useChatRealtime } from '../../src/features/communication/hooks';
+import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
 export default function ChatPage() {
   const { session } = useAuth();

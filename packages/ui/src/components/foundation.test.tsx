@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ReactElement } from 'react';
+
 
 import { AsyncStatusWidget } from './async-status/index.js';
 import { Pagination } from './pagination/index.js';
 import { PermissionWrapper } from './permission/index.js';
 import { DataTable } from './table/index.js';
+
+import type { ReactElement } from 'react';
 
 describe('ui foundation components', () => {
   it('PermissionWrapper renders children only when allowed', () => {

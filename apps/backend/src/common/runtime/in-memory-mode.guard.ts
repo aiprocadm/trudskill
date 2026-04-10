@@ -1,4 +1,5 @@
 import { ServiceUnavailableException } from '@nestjs/common';
+
 import { backendEnv } from '../../env.js';
 
 export function isInMemoryStateEnabled(): boolean {

@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ProtectedPage } from '../../src/widgets/shell/protected-page';
+
 import { PageContainer, PageHeader, SectionCard, SectionEmpty, SectionError } from '../../src/components/state-wrappers';
 import { useAuth } from '../../src/features/auth/context';
-import { webinarsApi, type WebinarDto } from '../../src/lib/communication/webinars-api';
+import { type WebinarDto, webinarsApi } from '../../src/lib/communication/webinars-api';
+import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
 export default function WebinarsPage() {
   const { session } = useAuth();

@@ -1,4 +1,5 @@
 import { IsBoolean, IsIn, IsObject, IsOptional, IsString } from 'class-validator';
+
 import type { ProviderType } from '../integrations.types.js';
 
 export class ListQueryDto {

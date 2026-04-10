@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { RealtimeEventsService } from '../core/realtime-events.service.js';
-import { NotificationsService } from './notifications.service.js';
+
 import { ChatService } from './chat.service.js';
+import { NotificationsService } from './notifications.service.js';
 import { WebinarsService } from './webinars.service.js';
+import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
 describe('Communication foundations', () => {
   it('creates notification and unread/read flow', async () => {

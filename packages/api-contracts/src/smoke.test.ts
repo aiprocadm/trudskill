@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import type { HealthResponseContract } from './index';
 
 describe('api-contracts', () => {

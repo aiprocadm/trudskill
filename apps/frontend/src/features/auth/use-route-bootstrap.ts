@@ -1,5 +1,6 @@
-import type { UserSession } from '../../entities/session/model';
 import { evaluateRouteAccess } from '../navigation/helpers';
+
+import type { UserSession } from '../../entities/session/model';
 
 export const getRouteBootstrapState = (path: string, session: UserSession | null) => {
   const access = evaluateRouteAccess(path, session);

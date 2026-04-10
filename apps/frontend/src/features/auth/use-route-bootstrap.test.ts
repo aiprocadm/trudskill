@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { UserSession } from '../../entities/session/model';
+
 import { getRouteBootstrapState } from './use-route-bootstrap';
+
+import type { UserSession } from '../../entities/session/model';
 
 const session: UserSession = {
   user: { id: 'u_tenant_admin', tenantId: 'tenant_demo', login: 'tenant_admin', email: null, status: 'active', displayName: 'Tenant Admin' },

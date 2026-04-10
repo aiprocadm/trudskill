@@ -1,4 +1,4 @@
-import { AsyncTaskStatus, EntityStatus, UserStatus, type TenantId } from '@cdoprof/shared-types';
+import { AsyncTaskStatus, EntityStatus, type TenantId, UserStatus } from '@cdoprof/shared-types';
 
 const randomId = (): string => crypto.randomUUID();
 

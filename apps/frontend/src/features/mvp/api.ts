@@ -1,13 +1,12 @@
 import { apiRequest } from '../../lib/api/client';
-import type { UserSession } from '../../entities/session/model';
+
 import type {
-  BaseFilterQuery,
   Assignment,
   AssignmentReview,
   AssignmentSubmission,
   Attempt,
+  BaseFilterQuery,
   Counterparty,
-  Learner,
   Course,
   CourseModule,
   CourseVersion,
@@ -16,15 +15,17 @@ import type {
   ExamResult,
   Group,
   GroupCourse,
+  Learner,
   ListResponse,
   Material,
   Progress,
   Question,
   QuestionBank,
-  TestEntity,
   RoleEntity,
+  TestEntity,
   UserEntity
 } from './types';
+import type { UserSession } from '../../entities/session/model';
 
 const withAuth = (session: UserSession) => ({
   auth: { userId: session.user.id, tenantId: session.user.tenantId, accessToken: session.tokens.accessToken }

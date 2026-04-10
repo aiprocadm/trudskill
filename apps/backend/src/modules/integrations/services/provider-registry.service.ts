@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+
 import type { IntegrationAdapter } from '../adapters/adapter.interface.js';
 
 @Injectable()

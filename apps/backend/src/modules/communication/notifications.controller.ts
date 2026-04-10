@@ -1,8 +1,10 @@
 import { Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+
+import { type NotificationsService } from './notifications.service.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
-import type { RequestContext } from '../../common/context/request-context.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
-import { NotificationsService } from './notifications.service.js';
+
+import type { RequestContext } from '../../common/context/request-context.js';
 
 @Controller('notifications')
 @UseGuards(TenantGuard)

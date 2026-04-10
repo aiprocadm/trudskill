@@ -1,9 +1,11 @@
 'use client';
 
-import type { PropsWithChildren } from 'react';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import type { UserSession } from '../../entities/session/model';
+
 import { sessionManager } from '../../lib/auth/session-manager';
+
+import type { UserSession } from '../../entities/session/model';
+import type { PropsWithChildren } from 'react';
 
 interface AuthContextValue {
   session: UserSession | null;

@@ -1,6 +1,7 @@
+import { type RouteMeta, navigationModel, routeMeta } from './model';
 import { hasPermission } from '../../lib/rbac/permissions';
+
 import type { UserSession } from '../../entities/session/model';
-import { navigationModel, routeMeta, type RouteMeta } from './model';
 
 const normalizePath = (path: string) => {
   const withoutQuery = path.split('?')[0] ?? '/';

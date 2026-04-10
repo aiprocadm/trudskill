@@ -1,11 +1,13 @@
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
-import type { PropsWithChildren } from 'react';
-import { useEffect } from 'react';
 import { LoadingState } from '@cdoprof/ui';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+
 import { useAuth } from './context';
 import { getRouteBootstrapState } from './use-route-bootstrap';
+
+import type { PropsWithChildren } from 'react';
 
 export const ProtectedRoute = ({ children }: PropsWithChildren) => {
   const router = useRouter();

@@ -1,13 +1,11 @@
 'use client';
 
-import Link from 'next/link';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { DataTable, FilterBar, StatusChip } from '@cdoprof/ui';
-import { useAuth } from '../auth/context';
-import { hasPermission } from '../../lib/rbac/permissions';
-import { ApiClientError } from '../../lib/api/client';
-import { PageContainer, PageHeader, SectionCard, SectionEmpty, SectionError } from '../../components/state-wrappers';
+import Link from 'next/link';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
+
 import {
+  useAssignments,
   useCounterpartiesList,
   useCounterparty,
   useCourse,
@@ -28,9 +26,12 @@ import {
   useTests,
   useUser,
   useUserRoles,
-  useUsersList,
-  useAssignments
+  useUsersList
 } from './hooks';
+import { PageContainer, PageHeader, SectionCard, SectionEmpty, SectionError } from '../../components/state-wrappers';
+import { ApiClientError } from '../../lib/api/client';
+import { hasPermission } from '../../lib/rbac/permissions';
+import { useAuth } from '../auth/context';
 
 const STATUS_OPTIONS = ['active', 'blocked', 'draft', 'archived', 'published', 'pending', 'suspended', 'completed', 'cancelled'] as const;
 

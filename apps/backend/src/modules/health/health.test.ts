@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
+
+import { HealthController } from './health.controller.js';
 import { RedisService } from '../../infrastructure/cache/redis.service.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import { RabbitMqService } from '../../infrastructure/messaging/rabbitmq.service.js';
 import { S3StorageClient } from '../../infrastructure/storage/s3-storage.client.js';
-import { HealthController } from './health.controller.js';
 
 describe('health controller', () => {
   it('reports ready status with dependency checks', async () => {

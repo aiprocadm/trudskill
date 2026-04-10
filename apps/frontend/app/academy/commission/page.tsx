@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
-import { PageContainer, PageHeader, SectionCard, SectionError, SectionEmpty } from '../../../src/components/state-wrappers';
+
+import { PageContainer, PageHeader, SectionCard, SectionEmpty, SectionError } from '../../../src/components/state-wrappers';
 import { useAuth } from '../../../src/features/auth/context';
-import { tenantApi, type TenantCommissionDto } from '../../../src/lib/tenant/tenant-api';
+import { type TenantCommissionDto, tenantApi } from '../../../src/lib/tenant/tenant-api';
+import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
 
 export default function AcademyCommissionPage() {
   const { session } = useAuth();

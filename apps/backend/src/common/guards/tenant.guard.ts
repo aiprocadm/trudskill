@@ -1,4 +1,5 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { type CanActivate, type ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+
 import { backendEnv } from '../../env.js';
 import { verifySignedAccessToken } from '../../modules/iam/crypto.util.js';
 import { resolveRequestContext } from '../utils/request.js';

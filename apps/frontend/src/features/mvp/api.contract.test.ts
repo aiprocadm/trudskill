@@ -1,4 +1,5 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import type { UserSession } from '../../entities/session/model';
 
 const fetchMock = vi.fn();

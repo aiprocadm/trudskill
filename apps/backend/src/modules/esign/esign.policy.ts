@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
+
 import type { EsignApplicationStatus, SigningParticipantEntity, SigningParticipantStatus, SigningProcessEntity, SigningProcessStatus } from './esign.types.js';
 
 const appTransitions: Record<EsignApplicationStatus, ReadonlyArray<EsignApplicationStatus>> = {

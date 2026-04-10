@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { devSeed } from './dev-seed.js';
 
 describe('dev seed', () => {

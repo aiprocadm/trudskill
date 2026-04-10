@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException, Optional } from '@nestjs/common';
-import { DatabaseService } from '../../infrastructure/database/database.service.js';
-import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
+
+import { type DatabaseService } from '../../infrastructure/database/database.service.js';
+import { type TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
+
 import type { CommissionMember, Tenant, TenantCommission, TenantRequisites, TenantSettings } from './tenant.types.js';
 
 @Injectable()

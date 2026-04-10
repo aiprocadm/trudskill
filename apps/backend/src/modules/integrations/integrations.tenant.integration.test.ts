@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 import { FrdoAdapter } from './adapters/frdo.adapter.js';

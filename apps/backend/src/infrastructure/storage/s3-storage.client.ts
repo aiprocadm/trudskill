@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
 import { ListBucketsCommand, S3Client } from '@aws-sdk/client-s3';
+import { Injectable } from '@nestjs/common';
+
 import { backendEnv } from '../../env.js';
+
 import type { StorageClient, StorageReadiness } from './storage.client.js';
 
 @Injectable()

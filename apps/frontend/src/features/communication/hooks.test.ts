@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
 import { realtimeCatalog } from '@cdoprof/api-contracts';
+import { describe, expect, it } from 'vitest';
 
 describe('communication foundations', () => {
   it('keeps required realtime catalog names stable', () => {

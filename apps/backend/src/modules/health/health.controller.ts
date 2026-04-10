@@ -1,8 +1,9 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
-import { RedisService } from '../../infrastructure/cache/redis.service.js';
-import { DatabaseService } from '../../infrastructure/database/database.service.js';
-import { RabbitMqService } from '../../infrastructure/messaging/rabbitmq.service.js';
-import { S3StorageClient } from '../../infrastructure/storage/s3-storage.client.js';
+
+import { type RedisService } from '../../infrastructure/cache/redis.service.js';
+import { type DatabaseService } from '../../infrastructure/database/database.service.js';
+import { type RabbitMqService } from '../../infrastructure/messaging/rabbitmq.service.js';
+import { type S3StorageClient } from '../../infrastructure/storage/s3-storage.client.js';
 
 @Controller('health')
 export class HealthController {

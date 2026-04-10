@@ -2,9 +2,10 @@
 
 import { DataTable, FilterBar, StatusChip } from '@cdoprof/ui';
 import { useEffect, useState } from 'react';
+
+import { useCredentials, useExportTasks, useProviders, useSyncLogs } from './hooks';
 import { PageContainer, PageHeader, SectionCard, SectionEmpty, SectionError } from '../../components/state-wrappers';
 import { apiRequest } from '../../lib/api/client';
-import { useCredentials, useExportTasks, useProviders, useSyncLogs } from './hooks';
 
 export const IntegrationSettingsScreen = () => {
   const { data: providers, loading: providersLoading, error: providersError } = useProviders();

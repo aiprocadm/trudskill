@@ -1,10 +1,11 @@
 'use client';
 
-import { ApiClientError } from '../../lib/api/client';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { FormEvent, useState } from 'react';
 import { FormField } from '@cdoprof/ui';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { type FormEvent, useState } from 'react';
+
 import { useAuth } from './context';
+import { ApiClientError } from '../../lib/api/client';
 
 export const LoginForm = () => {
   const router = useRouter();

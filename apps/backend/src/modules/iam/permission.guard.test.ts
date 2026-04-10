@@ -1,6 +1,7 @@
 import { ForbiddenException } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import { type Reflector } from '@nestjs/core';
 import { describe, expect, it, vi } from 'vitest';
+
 import { REQUIRED_PERMISSIONS } from './permission.decorator.js';
 import { PermissionGuard } from './permission.guard.js';
 
