@@ -9,6 +9,19 @@ describe('api error normalization', () => {
       meta: { request_id: 'req_1', timestamp: '2025-01-01T00:00:00.000Z' }
     });
 
-    expect(result).toMatchObject({ status: 403, code: 'FORBIDDEN', message: 'Denied', requestId: 'req_1' });
+    expect(result).toMatchObject({
+      status: 403,
+      code: 'FORBIDDEN',
+      message: 'Denied',
+      requestId: 'req_1'
+    });
+  });
+
+  it('reads requestId from camelCase meta (Nest envelope)', () => {
+    const result = normalizeApiError(500, {
+      error: { code: 'internal_error', message: 'Unexpected server error' },
+      meta: { requestId: 'req_camel', timestamp: '2025-01-01T00:00:00.000Z' }
+    });
+    expect(result.requestId).toBe('req_camel');
   });
 });

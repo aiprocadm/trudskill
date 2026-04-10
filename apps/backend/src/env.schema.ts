@@ -16,7 +16,11 @@ export const backendEnvSchema = z
     AUTH_JWT_SECRET: z.string().min(10),
     SESSION_SECRET: z.string().min(10),
     ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(900),
-    REFRESH_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(60 * 60 * 24 * 7),
+    REFRESH_TOKEN_TTL_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(60 * 60 * 24 * 7),
     DB_MIGRATIONS_ENABLED: z.coerce.boolean().default(true),
     DB_MIGRATIONS_DIR: z.string().default('migrations'),
     CORS_ORIGIN: z.string().url(),
@@ -25,23 +29,39 @@ export const backendEnvSchema = z
     /** Должен совпадать с REALTIME_PUBLISH_KEY у сервиса realtime (заголовок x-realtime-key). */
     REALTIME_PUBLISH_KEY: z.string().min(10),
     ALLOW_IN_MEMORY_STATE: z.coerce.boolean().default(false),
+    /** `memory` — текущая реализация; `postgres` — заглушка под будущее SQL-хранилище документов (сейчас то же in-memory поведение). */
+    DOCUMENTS_PERSISTENCE_DRIVER: z.enum(['memory', 'postgres']).default('memory'),
     INTEGRATION_WEBHOOK_SECRET: z.string().min(10).optional()
   })
   .superRefine((env, ctx) => {
-    const devSecrets = ['change-me-in-production', 'dev-jwt-secret-12345', 'dev-session-secret-12345'];
+    const devSecrets = [
+      'change-me-in-production',
+      'dev-jwt-secret-12345',
+      'dev-session-secret-12345'
+    ];
     if (env.NODE_ENV === 'production' && devSecrets.includes(env.AUTH_JWT_SECRET)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'AUTH_JWT_SECRET must not use development value in production' });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'AUTH_JWT_SECRET must not use development value in production'
+      });
     }
     if (env.NODE_ENV === 'production' && devSecrets.includes(env.SESSION_SECRET)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'SESSION_SECRET must not use development value in production' });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'SESSION_SECRET must not use development value in production'
+      });
     }
     if (env.NODE_ENV === 'production' && env.ALLOW_IN_MEMORY_STATE) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'ALLOW_IN_MEMORY_STATE must be false in production' });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'ALLOW_IN_MEMORY_STATE must be false in production'
+      });
     }
     if (env.NODE_ENV === 'production' && !env.INTEGRATION_WEBHOOK_SECRET) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'INTEGRATION_WEBHOOK_SECRET is required in production to authenticate integration webhooks'
+        message:
+          'INTEGRATION_WEBHOOK_SECRET is required in production to authenticate integration webhooks'
       });
     }
   });

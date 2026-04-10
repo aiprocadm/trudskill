@@ -4,6 +4,7 @@ import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 import { EmailAdapter } from './adapters/email.adapter.js';
 import { FrdoAdapter } from './adapters/frdo.adapter.js';
+import { InMemoryIntegrationOrchestratorState } from './infrastructure/in-memory-integration-orchestrator.state.js';
 import { AdapterResolver } from './services/adapter-resolver.service.js';
 import { IdempotencyService } from './services/idempotency.service.js';
 import { IntegrationCryptoService } from './services/integration-crypto.service.js';
@@ -11,13 +12,32 @@ import { IntegrationOrchestratorService } from './services/integration-orchestra
 import { ProviderRegistry } from './services/provider-registry.service.js';
 import { WebhookSignatureVerifier } from './services/webhook-signature-verifier.service.js';
 
-const ctx = { tenantId: 'tenant_a', userId: 'u1', requestId: 'r1', correlationId: 'c1', ip: '127.0.0.1', userAgent: 'vitest', roles: [], permissions: [], method: 'POST', path: '/x', timestamp: new Date().toISOString() };
+const ctx = {
+  tenantId: 'tenant_a',
+  userId: 'u1',
+  requestId: 'r1',
+  correlationId: 'c1',
+  ip: '127.0.0.1',
+  userAgent: 'vitest',
+  roles: [],
+  permissions: [],
+  method: 'POST',
+  path: '/x',
+  timestamp: new Date().toISOString()
+};
 
 const build = () => {
   const registry = new ProviderRegistry();
   registry.register(new FrdoAdapter());
   registry.register(new EmailAdapter());
-  const service = new IntegrationOrchestratorService(new IntegrationCryptoService(), new IdempotencyService(), new AdapterResolver(registry), new AuditService(), new RealtimeEventsService());
+  const service = new IntegrationOrchestratorService(
+    new InMemoryIntegrationOrchestratorState(),
+    new IntegrationCryptoService(),
+    new IdempotencyService(),
+    new AdapterResolver(registry),
+    new AuditService(),
+    new RealtimeEventsService()
+  );
   return { service, registry };
 };
 
@@ -29,16 +49,40 @@ describe('integration foundation services', () => {
 
   it('masks and encrypts credential secret', () => {
     const { service } = build();
-    const provider = service.createProvider({ code: 'frdo', name: 'FRDO', providerType: 'frdo', isActive: true });
-    const cred = service.createCredential('tenant_a', { providerId: provider.id, name: 'main', settingsJsonb: { endpoint: 'x' }, secret: 's3cr3t-key' }, ctx as any);
+    const provider = service.createProvider({
+      code: 'frdo',
+      name: 'FRDO',
+      providerType: 'frdo',
+      isActive: true
+    });
+    const cred = service.createCredential(
+      'tenant_a',
+      {
+        providerId: provider.id,
+        name: 'main',
+        settingsJsonb: { endpoint: 'x' },
+        secret: 's3cr3t-key'
+      },
+      ctx as any
+    );
     expect(cred.secretMasked).toContain('***');
     expect(JSON.stringify(cred)).not.toContain('s3cr3t-key');
   });
 
   it('keeps export creation idempotent', async () => {
     const { service } = build();
-    await service.createExportTask('tenant_a', 'u1', { providerCode: 'frdo', exportType: 'learners', sourceFilterJsonb: { groupId: 'g1' } }, 'idem-1');
-    const second = await service.createExportTask('tenant_a', 'u1', { providerCode: 'frdo', exportType: 'learners', sourceFilterJsonb: { groupId: 'g1' } }, 'idem-1');
+    await service.createExportTask(
+      'tenant_a',
+      'u1',
+      { providerCode: 'frdo', exportType: 'learners', sourceFilterJsonb: { groupId: 'g1' } },
+      'idem-1'
+    );
+    const second = await service.createExportTask(
+      'tenant_a',
+      'u1',
+      { providerCode: 'frdo', exportType: 'learners', sourceFilterJsonb: { groupId: 'g1' } },
+      'idem-1'
+    );
     const tasks = service.listTasks('tenant_a');
     expect(tasks.items).toHaveLength(1);
     expect(second.id).toBe(tasks.items[0]?.id);
@@ -72,10 +116,14 @@ describe('integration foundation services', () => {
     expect(providersPage.pageSize).toBe(1);
   });
 
-
   it('supports sorting for registry responses', () => {
     const { service } = build();
-    service.createProvider({ code: 'webinar', name: 'Webinar', providerType: 'webinar', isActive: true });
+    service.createProvider({
+      code: 'webinar',
+      name: 'Webinar',
+      providerType: 'webinar',
+      isActive: true
+    });
     service.createProvider({ code: 'email', name: 'Email', providerType: 'email', isActive: true });
     const asc = service.listProviders({ sort: 'code' });
     const desc = service.listProviders({ sort: '-code' });

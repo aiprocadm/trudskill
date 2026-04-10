@@ -7,6 +7,8 @@ import {
   PreconditionFailedException
 } from '@nestjs/common';
 
+import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
+import { MVP_STATE } from './infrastructure/mvp-state.token.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 import { AuditService } from '../audit/audit.service.js';
 
@@ -43,7 +45,6 @@ import type {
   UpdateTestRequest
 } from './mvp.dto.js';
 import type {
-  AnswerOption,
   Assignment,
   AssignmentReview,
   AssignmentSubmission,
@@ -90,47 +91,22 @@ interface LookupItem {
 
 @Injectable()
 export class MvpService {
-  private counterparties: Counterparty[] = [];
-  private learners: Learner[] = [];
-  private directions: Direction[] = [];
-  private courses: Course[] = [];
-  private courseVersions: CourseVersion[] = [];
-  private modules: CourseModuleEntity[] = [];
-  private materials: Material[] = [];
-  private groups: GroupEntity[] = [];
-  private groupCourses: GroupCourse[] = [];
-  private enrollments: Enrollment[] = [];
-  private enrollmentStatusHistory: EnrollmentStatusHistory[] = [];
-  private materialProgress: MaterialProgress[] = [];
-  private moduleProgress: ModuleProgress[] = [];
-  private courseProgress: CourseProgress[] = [];
-  private questionBanks: QuestionBank[] = [];
-  private questions: Question[] = [];
-  private answerOptions: AnswerOption[] = [];
-  private tests: TestEntity[] = [];
-  private testQuestions: TestQuestion[] = [];
-  private attempts: TestAttempt[] = [];
-  private attemptAnswers: AttemptAnswer[] = [];
-  private examResults: ExamResult[] = [];
-  private assignments: Assignment[] = [];
-  private assignmentSubmissions: AssignmentSubmission[] = [];
-  private assignmentReviews: AssignmentReview[] = [];
-
   constructor(
+    @Inject(MVP_STATE) private readonly state: InMemoryMvpState,
     @Inject(TenantScopedRepository) private readonly tenantScopedRepository: TenantScopedRepository,
     @Inject(AuditService) private readonly auditService: AuditService
   ) {}
 
   listCounterparties(tenantId: string, query: BaseFilterQuery): ListResponse<Counterparty> {
-    return this.list(this.counterparties, tenantId, query);
+    return this.list(this.state.counterparties, tenantId, query);
   }
 
   getCounterparty(tenantId: string, id: string): Counterparty {
-    return this.getById(this.counterparties, tenantId, id);
+    return this.getById(this.state.counterparties, tenantId, id);
   }
 
   lookupCounterparties(tenantId: string, query: BaseFilterQuery): ListResponse<LookupItem> {
-    return this.lookup(this.counterparties, tenantId, query, (item) => item.name);
+    return this.lookup(this.state.counterparties, tenantId, query, (item) => item.name);
   }
 
   createCounterparty(
@@ -149,7 +125,7 @@ export class MvpService {
       createdAt: this.now(),
       updatedAt: this.now()
     };
-    this.counterparties.push(entity);
+    this.state.counterparties.push(entity);
     this.audit(
       tenantId,
       actorId,
@@ -170,7 +146,7 @@ export class MvpService {
     request: UpdateSimpleRegistryRequest,
     context: RequestContext
   ): Counterparty {
-    const current = this.getById(this.counterparties, tenantId, id);
+    const current = this.getById(this.state.counterparties, tenantId, id);
     const oldValues = { ...current };
     Object.assign(current, request, { updatedAt: this.now() });
     this.audit(
@@ -187,15 +163,15 @@ export class MvpService {
   }
 
   listLearners(tenantId: string, query: BaseFilterQuery): ListResponse<Learner> {
-    return this.list(this.learners, tenantId, query);
+    return this.list(this.state.learners, tenantId, query);
   }
 
   getLearner(tenantId: string, id: string): Learner {
-    return this.getById(this.learners, tenantId, id);
+    return this.getById(this.state.learners, tenantId, id);
   }
 
   lookupLearners(tenantId: string, query: BaseFilterQuery): ListResponse<LookupItem> {
-    return this.lookup(this.learners, tenantId, query, (item) =>
+    return this.lookup(this.state.learners, tenantId, query, (item) =>
       `${item.firstName} ${item.lastName}`.trim()
     );
   }
@@ -218,7 +194,7 @@ export class MvpService {
       createdAt: this.now(),
       updatedAt: this.now()
     };
-    this.learners.push(entity);
+    this.state.learners.push(entity);
     this.audit(
       tenantId,
       actorId,
@@ -239,7 +215,7 @@ export class MvpService {
     request: UpdateSimpleRegistryRequest,
     context: RequestContext
   ): Learner {
-    const current = this.getById(this.learners, tenantId, id);
+    const current = this.getById(this.state.learners, tenantId, id);
     const oldValues = { ...current };
     if (request.name) {
       const [firstName, lastName] = request.name.split(' ');
@@ -262,15 +238,15 @@ export class MvpService {
   }
 
   listDirections(tenantId: string, query: BaseFilterQuery): ListResponse<Direction> {
-    return this.list(this.directions, tenantId, query);
+    return this.list(this.state.directions, tenantId, query);
   }
 
   getDirection(tenantId: string, id: string): Direction {
-    return this.getById(this.directions, tenantId, id);
+    return this.getById(this.state.directions, tenantId, id);
   }
 
   lookupDirections(tenantId: string, query: BaseFilterQuery): ListResponse<LookupItem> {
-    return this.lookup(this.directions, tenantId, query, (item) => item.name);
+    return this.lookup(this.state.directions, tenantId, query, (item) => item.name);
   }
 
   createDirection(
@@ -288,7 +264,7 @@ export class MvpService {
       createdAt: this.now(),
       updatedAt: this.now()
     };
-    this.directions.push(entity);
+    this.state.directions.push(entity);
     this.audit(
       tenantId,
       actorId,
@@ -309,7 +285,7 @@ export class MvpService {
     request: UpdateSimpleRegistryRequest,
     context: RequestContext
   ): Direction {
-    const current = this.getById(this.directions, tenantId, id);
+    const current = this.getById(this.state.directions, tenantId, id);
     const oldValues = { ...current };
     if (typeof request.code === 'string') current.code = request.code;
     if (typeof request.name === 'string') current.name = request.name;
@@ -329,13 +305,13 @@ export class MvpService {
   }
 
   listCourses(tenantId: string, query: BaseFilterQuery): ListResponse<Course> {
-    return this.list(this.courses, tenantId, query);
+    return this.list(this.state.courses, tenantId, query);
   }
   getCourse(tenantId: string, id: string): Course {
-    return this.getById(this.courses, tenantId, id);
+    return this.getById(this.state.courses, tenantId, id);
   }
   lookupCourses(tenantId: string, query: BaseFilterQuery): ListResponse<LookupItem> {
-    return this.lookup(this.courses, tenantId, query, (item) => item.title);
+    return this.lookup(this.state.courses, tenantId, query, (item) => item.title);
   }
 
   createCourse(
@@ -355,7 +331,7 @@ export class MvpService {
       createdAt: this.now(),
       updatedAt: this.now()
     };
-    this.courses.push(entity);
+    this.state.courses.push(entity);
     this.audit(
       tenantId,
       actorId,
@@ -376,7 +352,7 @@ export class MvpService {
     request: UpdateCourseRequest,
     context: RequestContext
   ): Course {
-    const current = this.getById(this.courses, tenantId, id);
+    const current = this.getById(this.state.courses, tenantId, id);
     if (current.status === 'archived') {
       throw new PreconditionFailedException({
         code: 'domain_rule_violation',
@@ -409,8 +385,8 @@ export class MvpService {
     id: string,
     context: RequestContext
   ): Course {
-    const course = this.getById(this.courses, tenantId, id);
-    const versions = this.courseVersions.filter(
+    const course = this.getById(this.state.courses, tenantId, id);
+    const versions = this.state.courseVersions.filter(
       (item) => item.tenantId === tenantId && item.courseId === id
     );
     if (versions.length === 0) {
@@ -440,7 +416,7 @@ export class MvpService {
     id: string,
     context: RequestContext
   ): Course {
-    const course = this.getById(this.courses, tenantId, id);
+    const course = this.getById(this.state.courses, tenantId, id);
     course.status = 'archived';
     course.isArchived = true;
     course.updatedAt = this.now();
@@ -458,16 +434,17 @@ export class MvpService {
   }
 
   listCourseVersions(tenantId: string, query: BaseFilterQuery): ListResponse<CourseVersion> {
-    return this.list(this.courseVersions, tenantId, query);
+    return this.list(this.state.courseVersions, tenantId, query);
   }
   getCourseVersion(tenantId: string, id: string): CourseVersion {
-    return this.getById(this.courseVersions, tenantId, id);
+    return this.getById(this.state.courseVersions, tenantId, id);
   }
   createCourseVersion(tenantId: string, courseId: string): CourseVersion {
-    this.getById(this.courses, tenantId, courseId);
+    this.getById(this.state.courses, tenantId, courseId);
     const versionNo =
-      this.courseVersions.filter((item) => item.courseId === courseId && item.tenantId === tenantId)
-        .length + 1;
+      this.state.courseVersions.filter(
+        (item) => item.courseId === courseId && item.tenantId === tenantId
+      ).length + 1;
     const entity: CourseVersion = {
       id: this.id('cver'),
       tenantId,
@@ -477,15 +454,15 @@ export class MvpService {
       createdAt: this.now(),
       updatedAt: this.now()
     };
-    this.courseVersions.push(entity);
+    this.state.courseVersions.push(entity);
     return entity;
   }
 
   listModules(tenantId: string, query: BaseFilterQuery): ListResponse<CourseModuleEntity> {
-    return this.list(this.modules, tenantId, query);
+    return this.list(this.state.modules, tenantId, query);
   }
   getModule(tenantId: string, id: string): CourseModuleEntity {
-    return this.getById(this.modules, tenantId, id);
+    return this.getById(this.state.modules, tenantId, id);
   }
   createModule(
     tenantId: string,
@@ -499,20 +476,20 @@ export class MvpService {
         message: 'min_view_seconds must be non-negative'
       });
     }
-    this.getById(this.courseVersions, tenantId, request.courseVersionId);
+    this.getById(this.state.courseVersions, tenantId, request.courseVersionId);
     const entity: CourseModuleEntity = {
       id: this.id('module'),
       tenantId,
       courseVersionId: request.courseVersionId,
       title: request.title,
-      sortOrder: this.modules.length,
+      sortOrder: this.state.modules.length,
       minViewSeconds: request.minViewSeconds ?? 0,
       isRequired: request.isRequired ?? true,
       status: 'active',
       createdAt: this.now(),
       updatedAt: this.now()
     };
-    this.modules.push(entity);
+    this.state.modules.push(entity);
     this.audit(
       tenantId,
       actorId,
@@ -538,7 +515,7 @@ export class MvpService {
         message: 'min_view_seconds must be non-negative'
       });
     }
-    const current = this.getById(this.modules, tenantId, id);
+    const current = this.getById(this.state.modules, tenantId, id);
     const oldValues = { ...current };
     if (typeof request.title === 'string') current.title = request.title;
     if (typeof request.minViewSeconds === 'number') current.minViewSeconds = request.minViewSeconds;
@@ -559,10 +536,10 @@ export class MvpService {
   }
 
   listMaterials(tenantId: string, query: BaseFilterQuery): ListResponse<Material> {
-    return this.list(this.materials, tenantId, query);
+    return this.list(this.state.materials, tenantId, query);
   }
   getMaterial(tenantId: string, id: string): Material {
-    return this.getById(this.materials, tenantId, id);
+    return this.getById(this.state.materials, tenantId, id);
   }
   createMaterial(
     tenantId: string,
@@ -576,14 +553,14 @@ export class MvpService {
         message: 'min_view_seconds must be non-negative'
       });
     }
-    this.getById(this.modules, tenantId, request.moduleId);
+    this.getById(this.state.modules, tenantId, request.moduleId);
     const entity: Material = {
       id: this.id('material'),
       tenantId,
       moduleId: request.moduleId,
       title: request.title,
       materialType: request.materialType,
-      sortOrder: this.materials.length,
+      sortOrder: this.state.materials.length,
       minViewSeconds: request.minViewSeconds ?? 0,
       isRequired: request.isRequired ?? true,
       fileId: request.fileId,
@@ -591,7 +568,7 @@ export class MvpService {
       createdAt: this.now(),
       updatedAt: this.now()
     };
-    this.materials.push(entity);
+    this.state.materials.push(entity);
     this.audit(
       tenantId,
       actorId,
@@ -617,7 +594,7 @@ export class MvpService {
         message: 'min_view_seconds must be non-negative'
       });
     }
-    const current = this.getById(this.materials, tenantId, id);
+    const current = this.getById(this.state.materials, tenantId, id);
     const oldValues = { ...current };
     if (typeof request.title === 'string') current.title = request.title;
     if (typeof request.minViewSeconds === 'number') current.minViewSeconds = request.minViewSeconds;
@@ -640,13 +617,13 @@ export class MvpService {
   }
 
   listGroups(tenantId: string, query: BaseFilterQuery): ListResponse<GroupEntity> {
-    return this.list(this.groups, tenantId, query);
+    return this.list(this.state.groups, tenantId, query);
   }
   getGroup(tenantId: string, id: string): GroupEntity {
-    return this.getById(this.groups, tenantId, id);
+    return this.getById(this.state.groups, tenantId, id);
   }
   lookupGroups(tenantId: string, query: BaseFilterQuery): ListResponse<LookupItem> {
-    return this.lookup(this.groups, tenantId, query, (item) => item.name);
+    return this.lookup(this.state.groups, tenantId, query, (item) => item.name);
   }
   createGroup(
     tenantId: string,
@@ -663,7 +640,7 @@ export class MvpService {
       createdAt: this.now(),
       updatedAt: this.now()
     };
-    this.groups.push(entity);
+    this.state.groups.push(entity);
     this.audit(
       tenantId,
       actorId,
@@ -683,7 +660,7 @@ export class MvpService {
     request: UpdateSimpleRegistryRequest,
     context: RequestContext
   ): GroupEntity {
-    const current = this.getById(this.groups, tenantId, id);
+    const current = this.getById(this.state.groups, tenantId, id);
     const oldValues = { ...current };
     if (typeof request.code === 'string') current.code = request.code;
     if (typeof request.name === 'string') current.name = request.name;
@@ -703,15 +680,15 @@ export class MvpService {
   }
 
   listGroupCourses(tenantId: string, query: BaseFilterQuery): ListResponse<GroupCourse> {
-    return this.list(this.groupCourses, tenantId, query);
+    return this.list(this.state.groupCourses, tenantId, query);
   }
   getGroupCourse(tenantId: string, id: string): GroupCourse {
-    return this.getById(this.groupCourses, tenantId, id);
+    return this.getById(this.state.groupCourses, tenantId, id);
   }
   createGroupCourse(tenantId: string, request: CreateGroupCourseRequest): GroupCourse {
-    this.getById(this.groups, tenantId, request.groupId);
-    this.getById(this.courses, tenantId, request.courseId);
-    const duplicate = this.groupCourses.some(
+    this.getById(this.state.groups, tenantId, request.groupId);
+    this.getById(this.state.courses, tenantId, request.courseId);
+    const duplicate = this.state.groupCourses.some(
       (item) =>
         item.tenantId === tenantId &&
         item.groupId === request.groupId &&
@@ -728,20 +705,20 @@ export class MvpService {
       tenantId,
       groupId: request.groupId,
       courseId: request.courseId,
-      sortOrder: this.groupCourses.length,
+      sortOrder: this.state.groupCourses.length,
       status: 'active',
       createdAt: this.now(),
       updatedAt: this.now()
     };
-    this.groupCourses.push(entity);
+    this.state.groupCourses.push(entity);
     return entity;
   }
 
   listEnrollments(tenantId: string, query: BaseFilterQuery): ListResponse<Enrollment> {
-    return this.list(this.enrollments, tenantId, query);
+    return this.list(this.state.enrollments, tenantId, query);
   }
   getEnrollment(tenantId: string, id: string): Enrollment {
-    return this.getById(this.enrollments, tenantId, id);
+    return this.getById(this.state.enrollments, tenantId, id);
   }
 
   createEnrollment(
@@ -750,9 +727,9 @@ export class MvpService {
     request: CreateEnrollmentRequest,
     context: RequestContext
   ): Enrollment {
-    this.getById(this.groups, tenantId, request.groupId);
-    this.getById(this.learners, tenantId, request.learnerId);
-    const duplicate = this.enrollments.some(
+    this.getById(this.state.groups, tenantId, request.groupId);
+    this.getById(this.state.learners, tenantId, request.learnerId);
+    const duplicate = this.state.enrollments.some(
       (item) =>
         item.tenantId === tenantId &&
         item.groupId === request.groupId &&
@@ -775,7 +752,7 @@ export class MvpService {
       createdAt: now,
       updatedAt: now
     };
-    this.enrollments.push(entity);
+    this.state.enrollments.push(entity);
     this.pushEnrollmentStatusHistory(tenantId, entity.id, entity.status, undefined);
     this.audit(
       tenantId,
@@ -797,7 +774,7 @@ export class MvpService {
     request: UpdateEnrollmentStatusRequest,
     context: RequestContext
   ): Enrollment {
-    const enrollment = this.getById(this.enrollments, tenantId, enrollmentId);
+    const enrollment = this.getById(this.state.enrollments, tenantId, enrollmentId);
     const allowed = this.canTransitionEnrollment(enrollment.status, request.status);
     if (!allowed) {
       throw new PreconditionFailedException({
@@ -824,15 +801,15 @@ export class MvpService {
   }
 
   listProgress(tenantId: string, query: BaseFilterQuery): ListResponse<CourseProgress> {
-    return this.list(this.courseProgress, tenantId, query);
+    return this.list(this.state.courseProgress, tenantId, query);
   }
 
   getProgress(tenantId: string, id: string): CourseProgress {
-    return this.getById(this.courseProgress, tenantId, id);
+    return this.getById(this.state.courseProgress, tenantId, id);
   }
 
   listEnrollmentStatusHistory(tenantId: string, enrollmentId: string): EnrollmentStatusHistory[] {
-    return this.enrollmentStatusHistory.filter(
+    return this.state.enrollmentStatusHistory.filter(
       (item) => item.tenantId === tenantId && item.enrollmentId === enrollmentId
     );
   }
@@ -844,11 +821,15 @@ export class MvpService {
     request: UpdateMaterialProgressRequest,
     context: RequestContext
   ): MaterialProgress {
-    const material = this.getById(this.materials, tenantId, materialId);
-    const moduleEntity = this.getById(this.modules, tenantId, material.moduleId);
-    const courseVersion = this.getById(this.courseVersions, tenantId, moduleEntity.courseVersionId);
+    const material = this.getById(this.state.materials, tenantId, materialId);
+    const moduleEntity = this.getById(this.state.modules, tenantId, material.moduleId);
+    const courseVersion = this.getById(
+      this.state.courseVersions,
+      tenantId,
+      moduleEntity.courseVersionId
+    );
 
-    const enrollment = this.enrollments.find(
+    const enrollment = this.state.enrollments.find(
       (item) => item.tenantId === tenantId && item.id === request.enrollmentId
     );
     if (!enrollment) {
@@ -867,7 +848,7 @@ export class MvpService {
 
     const now = this.now();
     const requiredSeconds = material.minViewSeconds;
-    const existing = this.materialProgress.find(
+    const existing = this.state.materialProgress.find(
       (item) =>
         item.tenantId === tenantId &&
         item.materialId === materialId &&
@@ -904,7 +885,7 @@ export class MvpService {
     record.updatedAt = now;
     record.completedAt = status === 'completed' ? now : undefined;
 
-    if (!existing) this.materialProgress.push(record);
+    if (!existing) this.state.materialProgress.push(record);
 
     this.recalculateModuleProgress(
       tenantId,
@@ -933,7 +914,7 @@ export class MvpService {
     moduleId: string,
     courseId: string
   ): void {
-    const moduleMaterials = this.materialProgress.filter(
+    const moduleMaterials = this.state.materialProgress.filter(
       (item) =>
         item.tenantId === tenantId &&
         item.enrollmentId === enrollmentId &&
@@ -946,7 +927,7 @@ export class MvpService {
     const status: ProgressStatus =
       progressPercent >= 100 ? 'completed' : progressPercent > 0 ? 'in_progress' : 'not_started';
     const now = this.now();
-    const existing = this.moduleProgress.find(
+    const existing = this.state.moduleProgress.find(
       (item) =>
         item.tenantId === tenantId &&
         item.enrollmentId === enrollmentId &&
@@ -973,7 +954,7 @@ export class MvpService {
     record.calculatedAt = now;
     record.updatedAt = now;
     record.completedAt = status === 'completed' ? now : undefined;
-    if (!existing) this.moduleProgress.push(record);
+    if (!existing) this.state.moduleProgress.push(record);
   }
 
   private recalculateCourseProgress(
@@ -981,7 +962,7 @@ export class MvpService {
     enrollmentId: string,
     courseId: string
   ): void {
-    const moduleProgress = this.moduleProgress.filter(
+    const moduleProgress = this.state.moduleProgress.filter(
       (item) =>
         item.tenantId === tenantId &&
         item.enrollmentId === enrollmentId &&
@@ -994,7 +975,7 @@ export class MvpService {
     const status: ProgressStatus =
       progressPercent >= 100 ? 'completed' : progressPercent > 0 ? 'in_progress' : 'not_started';
     const now = this.now();
-    const existing = this.courseProgress.find(
+    const existing = this.state.courseProgress.find(
       (item) =>
         item.tenantId === tenantId &&
         item.enrollmentId === enrollmentId &&
@@ -1020,14 +1001,14 @@ export class MvpService {
     record.calculatedAt = now;
     record.updatedAt = now;
     record.completedAt = status === 'completed' ? now : undefined;
-    if (!existing) this.courseProgress.push(record);
+    if (!existing) this.state.courseProgress.push(record);
   }
 
   listQuestionBanks(tenantId: string, query: BaseFilterQuery): ListResponse<QuestionBank> {
-    return this.list(this.questionBanks, tenantId, query);
+    return this.list(this.state.questionBanks, tenantId, query);
   }
   getQuestionBank(tenantId: string, id: string): QuestionBank {
-    return this.getById(this.questionBanks, tenantId, id);
+    return this.getById(this.state.questionBanks, tenantId, id);
   }
   createQuestionBank(
     tenantId: string,
@@ -1046,7 +1027,7 @@ export class MvpService {
       createdAt: this.now(),
       updatedAt: this.now()
     };
-    this.questionBanks.push(entity);
+    this.state.questionBanks.push(entity);
     this.audit(
       tenantId,
       actorId,
@@ -1066,7 +1047,7 @@ export class MvpService {
     request: UpdateQuestionBankRequest,
     context: RequestContext
   ): QuestionBank {
-    const current = this.getById(this.questionBanks, tenantId, id);
+    const current = this.getById(this.state.questionBanks, tenantId, id);
     const oldValues = { ...current };
     Object.assign(current, request, { updatedAt: this.now() });
     this.audit(
@@ -1087,7 +1068,7 @@ export class MvpService {
     id: string,
     context: RequestContext
   ): QuestionBank {
-    const current = this.getById(this.questionBanks, tenantId, id);
+    const current = this.getById(this.state.questionBanks, tenantId, id);
     current.status = 'archived';
     current.isArchived = true;
     current.updatedAt = this.now();
@@ -1105,19 +1086,19 @@ export class MvpService {
   }
 
   listQuestions(tenantId: string, query: BaseFilterQuery): ListResponse<Question> {
-    return this.list(this.questions, tenantId, query);
+    return this.list(this.state.questions, tenantId, query);
   }
   getQuestion(tenantId: string, id: string): Question {
-    return this.getById(this.questions, tenantId, id);
+    return this.getById(this.state.questions, tenantId, id);
   }
   listQuestionBankQuestions(
     tenantId: string,
     questionBankId: string,
     query: BaseFilterQuery
   ): ListResponse<Question> {
-    this.getById(this.questionBanks, tenantId, questionBankId);
+    this.getById(this.state.questionBanks, tenantId, questionBankId);
     return this.list(
-      this.questions.filter((item) => item.questionBankId === questionBankId),
+      this.state.questions.filter((item) => item.questionBankId === questionBankId),
       tenantId,
       query
     );
@@ -1128,7 +1109,7 @@ export class MvpService {
     request: CreateQuestionRequest,
     context: RequestContext
   ): Question {
-    this.getById(this.questionBanks, tenantId, request.questionBankId);
+    this.getById(this.state.questionBanks, tenantId, request.questionBankId);
     const title =
       (request as unknown as { title?: string; text?: string }).title ??
       (request as unknown as { text?: string }).text ??
@@ -1150,7 +1131,7 @@ export class MvpService {
       createdAt: this.now(),
       updatedAt: this.now()
     };
-    this.questions.push(entity);
+    this.state.questions.push(entity);
     const options =
       (
         request as unknown as {
@@ -1161,7 +1142,7 @@ export class MvpService {
       (request as unknown as { options?: Array<{ text: string; isCorrect?: boolean }> }).options;
     if (options?.length) {
       options.forEach((option, idx) =>
-        this.answerOptions.push({
+        this.state.answerOptions.push({
           id: this.id('opt'),
           tenantId,
           questionId: entity.id,
@@ -1193,7 +1174,7 @@ export class MvpService {
     request: UpdateQuestionRequest,
     context: RequestContext
   ): Question {
-    const current = this.getById(this.questions, tenantId, id);
+    const current = this.getById(this.state.questions, tenantId, id);
     if (current.isArchived)
       throw new PreconditionFailedException({
         code: 'domain_rule_violation',
@@ -1210,11 +1191,11 @@ export class MvpService {
       ).answerOptions ??
       (request as unknown as { options?: Array<{ text: string; isCorrect?: boolean }> }).options;
     if (answerOptions) {
-      this.answerOptions = this.answerOptions.filter(
+      this.state.answerOptions = this.state.answerOptions.filter(
         (item) => !(item.tenantId === tenantId && item.questionId === id)
       );
       answerOptions.forEach((option, idx) =>
-        this.answerOptions.push({
+        this.state.answerOptions.push({
           id: this.id('opt'),
           tenantId,
           questionId: id,
@@ -1245,7 +1226,7 @@ export class MvpService {
     id: string,
     context: RequestContext
   ): Question {
-    const current = this.getById(this.questions, tenantId, id);
+    const current = this.getById(this.state.questions, tenantId, id);
     current.status = 'archived';
     current.isArchived = true;
     current.updatedAt = this.now();
@@ -1263,10 +1244,10 @@ export class MvpService {
   }
 
   listTests(tenantId: string, query: BaseFilterQuery): ListResponse<TestEntity> {
-    return this.list(this.tests, tenantId, query);
+    return this.list(this.state.tests, tenantId, query);
   }
   getTest(tenantId: string, id: string): TestEntity {
-    return this.getById(this.tests, tenantId, id);
+    return this.getById(this.state.tests, tenantId, id);
   }
   createTest(
     tenantId: string,
@@ -1274,7 +1255,7 @@ export class MvpService {
     request: CreateTestRequest,
     context: RequestContext
   ): TestEntity {
-    this.getById(this.courses, tenantId, request.courseId);
+    this.getById(this.state.courses, tenantId, request.courseId);
     const entity: TestEntity = {
       id: this.id('test'),
       tenantId,
@@ -1288,7 +1269,7 @@ export class MvpService {
       createdAt: this.now(),
       updatedAt: this.now()
     };
-    this.tests.push(entity);
+    this.state.tests.push(entity);
     this.audit(
       tenantId,
       actorId,
@@ -1308,7 +1289,7 @@ export class MvpService {
     request: UpdateTestRequest,
     context: RequestContext
   ): TestEntity {
-    const current = this.getById(this.tests, tenantId, id);
+    const current = this.getById(this.state.tests, tenantId, id);
     const oldValues = { ...current };
     Object.assign(current, request, { updatedAt: this.now() });
     this.audit(
@@ -1329,7 +1310,7 @@ export class MvpService {
     id: string,
     context: RequestContext
   ): TestEntity {
-    const current = this.getById(this.tests, tenantId, id);
+    const current = this.getById(this.state.tests, tenantId, id);
     current.status = 'published';
     current.updatedAt = this.now();
     this.audit(
@@ -1350,7 +1331,7 @@ export class MvpService {
     id: string,
     context: RequestContext
   ): TestEntity {
-    const current = this.getById(this.tests, tenantId, id);
+    const current = this.getById(this.state.tests, tenantId, id);
     current.status = 'archived';
     current.isArchived = true;
     current.updatedAt = this.now();
@@ -1373,7 +1354,7 @@ export class MvpService {
     request: PatchTestRulesRequest,
     context: RequestContext
   ): TestEntity {
-    const current = this.getById(this.tests, tenantId, id);
+    const current = this.getById(this.state.tests, tenantId, id);
     current.rules = this.normalizeTestRules(request);
     current.updatedAt = this.now();
     this.audit(
@@ -1389,8 +1370,8 @@ export class MvpService {
     return current;
   }
   listTestQuestions(tenantId: string, testId: string): TestQuestion[] {
-    this.getById(this.tests, tenantId, testId);
-    return this.testQuestions.filter(
+    this.getById(this.state.tests, tenantId, testId);
+    return this.state.testQuestions.filter(
       (item) => item.tenantId === tenantId && item.testId === testId
     );
   }
@@ -1418,21 +1399,21 @@ export class MvpService {
       context = Array.isArray(questionIdsOrContext) ? maybeContext : questionIdsOrContext;
     }
 
-    this.getById(this.tests, tenantId, testId);
-    questionIds.forEach((questionId) => this.getById(this.questions, tenantId, questionId));
+    this.getById(this.state.tests, tenantId, testId);
+    questionIds.forEach((questionId) => this.getById(this.state.questions, tenantId, questionId));
     questionIds.forEach((questionId) => {
       if (
-        !this.testQuestions.some(
+        !this.state.testQuestions.some(
           (item) =>
             item.tenantId === tenantId && item.testId === testId && item.questionId === questionId
         )
       ) {
-        this.testQuestions.push({
+        this.state.testQuestions.push({
           id: this.id('tq'),
           tenantId,
           testId,
           questionId,
-          sortOrder: this.testQuestions.length,
+          sortOrder: this.state.testQuestions.length,
           status: 'active',
           createdAt: this.now(),
           updatedAt: this.now()
@@ -1455,10 +1436,10 @@ export class MvpService {
   }
 
   listAttempts(tenantId: string, query: BaseFilterQuery): ListResponse<TestAttempt> {
-    return this.list(this.attempts, tenantId, query);
+    return this.list(this.state.attempts, tenantId, query);
   }
   getAttempt(tenantId: string, id: string): TestAttempt {
-    return this.getById(this.attempts, tenantId, id);
+    return this.getById(this.state.attempts, tenantId, id);
   }
   startAttempt(
     tenantId: string,
@@ -1466,12 +1447,12 @@ export class MvpService {
     request: StartAttemptRequest,
     context: RequestContext
   ): TestAttempt {
-    const test = this.getById(this.tests, tenantId, request.testId);
-    const enrollment = this.getById(this.enrollments, tenantId, request.enrollmentId);
+    const test = this.getById(this.state.tests, tenantId, request.testId);
+    const enrollment = this.getById(this.state.enrollments, tenantId, request.enrollmentId);
     const learnerId = enrollment.learnerId;
     const now = new Date(this.now());
     const dayKey = now.toISOString().slice(0, 10);
-    const attempts = this.attempts.filter(
+    const attempts = this.state.attempts.filter(
       (item) =>
         item.tenantId === tenantId && item.testId === request.testId && item.learnerId === learnerId
     );
@@ -1492,7 +1473,7 @@ export class MvpService {
       ? ordered.slice(0, test.rules.questionCount)
       : ordered;
     const maxScore = snapshot.reduce(
-      (acc, questionId) => acc + this.getById(this.questions, tenantId, questionId).score,
+      (acc, questionId) => acc + this.getById(this.state.questions, tenantId, questionId).score,
       0
     );
     const startedAt = now.toISOString();
@@ -1515,7 +1496,7 @@ export class MvpService {
       createdAt: startedAt,
       updatedAt: startedAt
     };
-    this.attempts.push(entity);
+    this.state.attempts.push(entity);
     this.audit(
       tenantId,
       actorId,
@@ -1535,7 +1516,7 @@ export class MvpService {
     request: SaveAttemptAnswerRequest,
     context: RequestContext
   ): AttemptAnswer {
-    const attempt = this.getById(this.attempts, tenantId, attemptId);
+    const attempt = this.getById(this.state.attempts, tenantId, attemptId);
     if (!['draft', 'in_progress'].includes(attempt.status))
       throw new PreconditionFailedException({
         code: 'attempt_terminal',
@@ -1553,7 +1534,7 @@ export class MvpService {
         code: 'domain_rule_violation',
         message: 'Question is not part of attempt snapshot'
       });
-    const existing = this.attemptAnswers.find(
+    const existing = this.state.attemptAnswers.find(
       (item) =>
         item.tenantId === tenantId &&
         item.attemptId === attemptId &&
@@ -1571,7 +1552,7 @@ export class MvpService {
     answer.selectedOptionIds = request.selectedOptionIds;
     answer.textAnswer = request.textAnswer;
     answer.updatedAt = this.now();
-    if (!existing) this.attemptAnswers.push(answer);
+    if (!existing) this.state.attemptAnswers.push(answer);
     this.audit(
       tenantId,
       actorId,
@@ -1618,7 +1599,7 @@ export class MvpService {
     request: SaveAnswerRequest,
     context: RequestContext
   ): AttemptAnswer {
-    const answer = this.getById(this.attemptAnswers, tenantId, id);
+    const answer = this.getById(this.state.attemptAnswers, tenantId, id);
     return this.saveAttemptAnswer(tenantId, actorId, answer.attemptId, request, context);
   }
   submitAttempt(
@@ -1627,21 +1608,21 @@ export class MvpService {
     attemptId: string,
     context: RequestContext
   ): TestAttempt {
-    const attempt = this.getById(this.attempts, tenantId, attemptId);
+    const attempt = this.getById(this.state.attempts, tenantId, attemptId);
     if (['submitted', 'finished', 'expired', 'invalidated'].includes(attempt.status))
       return attempt;
     if (attempt.expiresAt && new Date(attempt.expiresAt) <= new Date()) attempt.status = 'expired';
-    const test = this.getById(this.tests, tenantId, attempt.testId);
-    const answers = this.attemptAnswers.filter(
+    const test = this.getById(this.state.tests, tenantId, attempt.testId);
+    const answers = this.state.attemptAnswers.filter(
       (item) => item.tenantId === tenantId && item.attemptId === attempt.id
     );
     let score = 0;
     for (const qid of attempt.questionOrder) {
-      const question = this.getById(this.questions, tenantId, qid);
+      const question = this.getById(this.state.questions, tenantId, qid);
       const answer = answers.find((item) => item.questionId === qid);
       if (!answer) continue;
       if (question.type === 'text') continue;
-      const correct = this.answerOptions
+      const correct = this.state.answerOptions
         .filter((item) => item.tenantId === tenantId && item.questionId === qid && item.isCorrect)
         .map((item) => item.id)
         .sort();
@@ -1690,18 +1671,18 @@ export class MvpService {
   }
 
   listExamResults(tenantId: string, query: BaseFilterQuery): ListResponse<ExamResult> {
-    return this.list(this.examResults, tenantId, query);
+    return this.list(this.state.examResults, tenantId, query);
   }
   getExamResult(tenantId: string, id: string): ExamResult {
-    return this.getById(this.examResults, tenantId, id);
+    return this.getById(this.state.examResults, tenantId, id);
   }
   getExamResultByEnrollment(tenantId: string, enrollmentId: string): ExamResult[] {
-    return this.examResults.filter(
+    return this.state.examResults.filter(
       (item) => item.tenantId === tenantId && item.enrollmentId === enrollmentId
     );
   }
   getAttemptResult(tenantId: string, id: string): ExamResult {
-    const attempt = this.getById(this.attempts, tenantId, id);
+    const attempt = this.getById(this.state.attempts, tenantId, id);
     return this.recalculateExamResult(
       tenantId,
       attempt.testId,
@@ -1711,7 +1692,7 @@ export class MvpService {
   }
   recalculateExamResults(tenantId: string): { count: number } {
     const grouped = new Set<string>();
-    this.attempts
+    this.state.attempts
       .filter((item) => item.tenantId === tenantId)
       .forEach((item) => grouped.add(`${item.testId}:${item.enrollmentId}:${item.learnerId}`));
 
@@ -1731,13 +1712,13 @@ export class MvpService {
     attempt: TestAttempt,
     context: RequestContext
   ): void {
-    const existing = this.examResults.find(
+    const existing = this.state.examResults.find(
       (item) =>
         item.tenantId === tenantId &&
         item.enrollmentId === attempt.enrollmentId &&
         item.testId === attempt.testId
     );
-    const attempts = this.attempts.filter(
+    const attempts = this.state.attempts.filter(
       (item) =>
         item.tenantId === tenantId &&
         item.enrollmentId === attempt.enrollmentId &&
@@ -1745,7 +1726,7 @@ export class MvpService {
         ['submitted', 'finished'].includes(item.status)
     );
     const best = attempts.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0] ?? attempt;
-    const test = this.getById(this.tests, tenantId, attempt.testId);
+    const test = this.getById(this.state.tests, tenantId, attempt.testId);
     if (existing) {
       existing.bestAttemptId = best.id;
       existing.attemptsCount = attempts.length;
@@ -1780,7 +1761,7 @@ export class MvpService {
       createdAt: this.now(),
       updatedAt: this.now()
     };
-    this.examResults.push(entity);
+    this.state.examResults.push(entity);
     this.audit(
       tenantId,
       actorId,
@@ -1794,10 +1775,10 @@ export class MvpService {
   }
 
   listAssignments(tenantId: string, query: BaseFilterQuery): ListResponse<Assignment> {
-    return this.list(this.assignments, tenantId, query);
+    return this.list(this.state.assignments, tenantId, query);
   }
   getAssignment(tenantId: string, id: string): Assignment {
-    return this.getById(this.assignments, tenantId, id);
+    return this.getById(this.state.assignments, tenantId, id);
   }
   createAssignment(
     tenantId: string,
@@ -1819,7 +1800,7 @@ export class MvpService {
       createdAt: this.now(),
       updatedAt: this.now()
     };
-    this.assignments.push(entity);
+    this.state.assignments.push(entity);
     this.audit(
       tenantId,
       actorId,
@@ -1839,7 +1820,7 @@ export class MvpService {
     request: UpdateAssignmentRequest,
     context: RequestContext
   ): Assignment {
-    const current = this.getById(this.assignments, tenantId, id);
+    const current = this.getById(this.state.assignments, tenantId, id);
     const oldValues = { ...current };
     Object.assign(current, request, { updatedAt: this.now() });
     this.audit(
@@ -1860,7 +1841,7 @@ export class MvpService {
     id: string,
     _context: RequestContext
   ): Assignment {
-    const current = this.getById(this.assignments, tenantId, id);
+    const current = this.getById(this.state.assignments, tenantId, id);
     current.status = 'published';
     current.updatedAt = this.now();
     return current;
@@ -1871,7 +1852,7 @@ export class MvpService {
     id: string,
     _context: RequestContext
   ): Assignment {
-    const current = this.getById(this.assignments, tenantId, id);
+    const current = this.getById(this.state.assignments, tenantId, id);
     current.status = 'archived';
     current.isArchived = true;
     current.updatedAt = this.now();
@@ -1881,10 +1862,10 @@ export class MvpService {
     tenantId: string,
     query: BaseFilterQuery
   ): ListResponse<AssignmentSubmission> {
-    return this.list(this.assignmentSubmissions, tenantId, query);
+    return this.list(this.state.assignmentSubmissions, tenantId, query);
   }
   getAssignmentSubmission(tenantId: string, id: string): AssignmentSubmission {
-    return this.getById(this.assignmentSubmissions, tenantId, id);
+    return this.getById(this.state.assignmentSubmissions, tenantId, id);
   }
   createAssignmentSubmission(
     tenantId: string,
@@ -1892,7 +1873,7 @@ export class MvpService {
     request: CreateAssignmentSubmissionRequest,
     _context: RequestContext
   ): AssignmentSubmission {
-    const enrollment = this.getById(this.enrollments, tenantId, request.enrollmentId);
+    const enrollment = this.getById(this.state.enrollments, tenantId, request.enrollmentId);
     const submission: AssignmentSubmission = {
       id: this.id('subm'),
       tenantId,
@@ -1905,7 +1886,7 @@ export class MvpService {
       createdAt: this.now(),
       updatedAt: this.now()
     };
-    this.assignmentSubmissions.push(submission);
+    this.state.assignmentSubmissions.push(submission);
     return submission;
   }
   updateAssignmentSubmission(
@@ -1915,7 +1896,7 @@ export class MvpService {
     request: UpdateAssignmentSubmissionRequest,
     _context: RequestContext
   ): AssignmentSubmission {
-    const current = this.getById(this.assignmentSubmissions, tenantId, id);
+    const current = this.getById(this.state.assignmentSubmissions, tenantId, id);
     if (['submitted', 'under_review', 'reviewed', 'rejected'].includes(current.status))
       throw new PreconditionFailedException({
         code: 'submission_terminal',
@@ -1930,7 +1911,7 @@ export class MvpService {
     id: string,
     context: RequestContext
   ): AssignmentSubmission {
-    const current = this.getById(this.assignmentSubmissions, tenantId, id);
+    const current = this.getById(this.state.assignmentSubmissions, tenantId, id);
     if (['submitted', 'under_review', 'reviewed'].includes(current.status)) return current;
     current.status = 'submitted';
     current.submittedAt = this.now();
@@ -1948,10 +1929,10 @@ export class MvpService {
     return current;
   }
   listAssignmentReviews(tenantId: string, query: BaseFilterQuery): ListResponse<AssignmentReview> {
-    return this.list(this.assignmentReviews, tenantId, query);
+    return this.list(this.state.assignmentReviews, tenantId, query);
   }
   getAssignmentReview(tenantId: string, id: string): AssignmentReview {
-    return this.getById(this.assignmentReviews, tenantId, id);
+    return this.getById(this.state.assignmentReviews, tenantId, id);
   }
   createAssignmentReview(
     tenantId: string,
@@ -1959,7 +1940,11 @@ export class MvpService {
     request: CreateAssignmentReviewRequest,
     _context: RequestContext
   ): AssignmentReview {
-    const submission = this.getById(this.assignmentSubmissions, tenantId, request.submissionId);
+    const submission = this.getById(
+      this.state.assignmentSubmissions,
+      tenantId,
+      request.submissionId
+    );
     submission.status = 'under_review';
     const review: AssignmentReview = {
       id: this.id('rev'),
@@ -1974,7 +1959,7 @@ export class MvpService {
       createdAt: this.now(),
       updatedAt: this.now()
     };
-    this.assignmentReviews.push(review);
+    this.state.assignmentReviews.push(review);
     return review;
   }
   updateAssignmentReview(
@@ -1984,7 +1969,7 @@ export class MvpService {
     request: UpdateAssignmentReviewRequest,
     context: RequestContext
   ): AssignmentReview {
-    const review = this.getById(this.assignmentReviews, tenantId, id);
+    const review = this.getById(this.state.assignmentReviews, tenantId, id);
     const oldValues = { ...review };
     if (request.score !== undefined) review.score = request.score;
     if (request.comment !== undefined) review.comment = request.comment;
@@ -2008,13 +1993,17 @@ export class MvpService {
     request: { score?: number; comment?: string },
     context: RequestContext
   ): AssignmentReview {
-    const review = this.getById(this.assignmentReviews, tenantId, id);
+    const review = this.getById(this.state.assignmentReviews, tenantId, id);
     review.score = request.score ?? review.score;
     review.comment = request.comment ?? review.comment;
     review.status = 'completed';
     review.completedAt = this.now();
     review.updatedAt = this.now();
-    const submission = this.getById(this.assignmentSubmissions, tenantId, review.submissionId);
+    const submission = this.getById(
+      this.state.assignmentSubmissions,
+      tenantId,
+      review.submissionId
+    );
     submission.status = 'reviewed';
     submission.updatedAt = this.now();
     this.audit(
@@ -2035,7 +2024,7 @@ export class MvpService {
     status: EnrollmentStatus,
     reason?: string
   ): void {
-    this.enrollmentStatusHistory.push({
+    this.state.enrollmentStatusHistory.push({
       id: this.id('esh'),
       tenantId,
       enrollmentId,
@@ -2070,12 +2059,12 @@ export class MvpService {
   }
 
   private resolveAttemptQuestionIds(tenantId: string, test: TestEntity): string[] {
-    const linked = this.testQuestions
+    const linked = this.state.testQuestions
       .filter((item) => item.tenantId === tenantId && item.testId === test.id)
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((item) => item.questionId);
     const bankIds = test.questionBankId
-      ? this.questions
+      ? this.state.questions
           .filter(
             (item) => item.tenantId === tenantId && item.questionBankId === test.questionBankId
           )
@@ -2105,16 +2094,18 @@ export class MvpService {
     tenantId: string,
     attemptId: string
   ): { score: number; maxScore: number; passingScore: number } {
-    const attempt = this.getById(this.attempts, tenantId, attemptId);
-    const test = this.getById(this.tests, tenantId, attempt.testId);
-    const questions = attempt.questionOrder.map((id) => this.getById(this.questions, tenantId, id));
-    const answers = this.attemptAnswers.filter(
+    const attempt = this.getById(this.state.attempts, tenantId, attemptId);
+    const test = this.getById(this.state.tests, tenantId, attempt.testId);
+    const questions = attempt.questionOrder.map((id) =>
+      this.getById(this.state.questions, tenantId, id)
+    );
+    const answers = this.state.attemptAnswers.filter(
       (item) => item.tenantId === tenantId && item.attemptId === attemptId
     );
     let score = 0;
     questions.forEach((question) => {
       const answer = answers.find((item) => item.questionId === question.id);
-      const options = this.answerOptions.filter(
+      const options = this.state.answerOptions.filter(
         (item) => item.tenantId === tenantId && item.questionId === question.id
       );
       if (!answer) return;
@@ -2142,7 +2133,7 @@ export class MvpService {
     id: string,
     context: RequestContext
   ): Attempt {
-    const attempt = this.getById(this.attempts, tenantId, id);
+    const attempt = this.getById(this.state.attempts, tenantId, id);
     if (attempt.status === 'finished') return attempt;
     if (attempt.status === 'in_progress') this.submitAttempt(tenantId, actorId, id, context);
     attempt.status = attempt.status === 'expired' ? 'expired' : 'finished';
@@ -2168,7 +2159,7 @@ export class MvpService {
     enrollmentId: string,
     learnerId: string
   ): ExamResult {
-    const attempts = this.attempts.filter(
+    const attempts = this.state.attempts.filter(
       (item) =>
         item.tenantId === tenantId &&
         item.testId === testId &&
@@ -2177,8 +2168,8 @@ export class MvpService {
         item.status === 'finished'
     );
     const best = [...attempts].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0];
-    const test = this.getById(this.tests, tenantId, testId);
-    const existing = this.examResults.find(
+    const test = this.getById(this.state.tests, tenantId, testId);
+    const existing = this.state.examResults.find(
       (item) =>
         item.tenantId === tenantId &&
         item.testId === testId &&
@@ -2207,7 +2198,7 @@ export class MvpService {
     record.passingScore = test.rules.passingScore;
     record.passed = record.bestScore >= record.passingScore;
     record.updatedAt = this.now();
-    if (!existing) this.examResults.push(record);
+    if (!existing) this.state.examResults.push(record);
     return record;
   }
 

@@ -58,6 +58,18 @@ export default [
     }
   },
   {
+    files: [
+      'apps/backend/src/**/*.module.ts',
+      'apps/backend/src/**/*.controller.ts',
+      'apps/backend/src/**/*guard*.ts',
+      'apps/backend/src/**/*interceptor*.ts',
+      'apps/backend/src/**/*.service.ts'
+    ],
+    rules: {
+      '@typescript-eslint/consistent-type-imports': 'off'
+    }
+  },
+  {
     files: ['**/*.test.{ts,tsx,js,jsx}', '**/vitest.config.ts'],
     languageOptions: {
       globals: {

@@ -5,7 +5,9 @@ export const ApiErrorCodes = {
   CONFLICT: 'CONFLICT',
   PRECONDITION_FAILED: 'PRECONDITION_FAILED',
   RATE_LIMITED: 'RATE_LIMITED',
-  INTERNAL_ERROR: 'INTERNAL_ERROR'
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+  /** Согласовано с HttpExceptionEnvelopeFilter для необработанных исключений. */
+  internal_error_snake: 'internal_error'
 } as const;
 
 export type ApiErrorCode = (typeof ApiErrorCodes)[keyof typeof ApiErrorCodes];
@@ -32,7 +34,9 @@ export type ValidationErrorResponse = ErrorEnvelope<typeof ApiErrorCodes.VALIDAT
 export type ForbiddenErrorResponse = ErrorEnvelope<typeof ApiErrorCodes.FORBIDDEN>;
 export type NotFoundErrorResponse = ErrorEnvelope<typeof ApiErrorCodes.NOT_FOUND>;
 export type ConflictErrorResponse = ErrorEnvelope<typeof ApiErrorCodes.CONFLICT>;
-export type PreconditionFailedErrorResponse = ErrorEnvelope<typeof ApiErrorCodes.PRECONDITION_FAILED>;
+export type PreconditionFailedErrorResponse = ErrorEnvelope<
+  typeof ApiErrorCodes.PRECONDITION_FAILED
+>;
 export type RateLimitedErrorResponse = ErrorEnvelope<typeof ApiErrorCodes.RATE_LIMITED>;
 
 export type ApiErrorResponse =

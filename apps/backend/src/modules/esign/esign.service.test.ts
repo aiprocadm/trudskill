@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import { EsignService } from './esign.service.js';
+import { InMemoryEsignState } from './in-memory-esign.state.js';
 
 function makeService() {
   const auditService = { write: vi.fn() } as any;
@@ -12,14 +13,25 @@ function makeService() {
   const realtimeEvents = { publish: vi.fn() } as any;
 
   return {
-    service: new EsignService(auditService, documentsService, realtimeEvents),
+    service: new EsignService(
+      new InMemoryEsignState(),
+      auditService,
+      documentsService,
+      realtimeEvents
+    ),
     auditService,
     documentsService,
     realtimeEvents
   };
 }
 
-const ctx = { tenantId: 't1', requestId: 'r1', ip: '127.0.0.1', userAgent: 'vitest', userId: 'u1' } as any;
+const ctx = {
+  tenantId: 't1',
+  requestId: 'r1',
+  ip: '127.0.0.1',
+  userAgent: 'vitest',
+  userId: 'u1'
+} as any;
 
 describe('EsignService', () => {
   it('enforces verified file before submit and review lifecycle', () => {
@@ -28,7 +40,10 @@ describe('EsignService', () => {
 
     expect(() => service.submitApplication('t1', 'learner_1', app.id)).toThrow(BadRequestException);
 
-    const file = service.createApplicationFile('t1', 'learner_1', { applicationId: app.id, fileId: 'file_1' });
+    const file = service.createApplicationFile('t1', 'learner_1', {
+      applicationId: app.id,
+      fileId: 'file_1'
+    });
     service.verifyApplicationFile('t1', 'staff_1', file.id);
     service.submitApplication('t1', 'learner_1', app.id);
     service.startReview('t1', 'staff_1', app.id);
@@ -60,8 +75,12 @@ describe('EsignService', () => {
       signOrder: 1
     });
 
-    const started = service.startProcess('t1', 'staff_1', process.id, { idempotencyKey: 'start-1' });
-    const startedAgain = service.startProcess('t1', 'staff_1', process.id, { idempotencyKey: 'start-1' });
+    const started = service.startProcess('t1', 'staff_1', process.id, {
+      idempotencyKey: 'start-1'
+    });
+    const startedAgain = service.startProcess('t1', 'staff_1', process.id, {
+      idempotencyKey: 'start-1'
+    });
 
     expect(started.status).toBe('in_signing');
     expect(startedAgain.id).toBe(started.id);
@@ -77,22 +96,44 @@ describe('EsignService', () => {
 
   it('blocks out-of-order signature for sequential process', () => {
     const { service } = makeService();
-    const process = service.createProcess('t1', 'staff_1', { idempotencyKey: 'k1', generatedDocumentId: 'gdoc_1' });
-    const first = service.createParticipant('t1', 'staff_1', { processId: process.id, participantType: 'employee', participantUserId: 'u2', signOrder: 1 });
-    const second = service.createParticipant('t1', 'staff_1', { processId: process.id, participantType: 'employee', participantUserId: 'u3', signOrder: 2 });
+    const process = service.createProcess('t1', 'staff_1', {
+      idempotencyKey: 'k1',
+      generatedDocumentId: 'gdoc_1'
+    });
+    const first = service.createParticipant('t1', 'staff_1', {
+      processId: process.id,
+      participantType: 'employee',
+      participantUserId: 'u2',
+      signOrder: 1
+    });
+    const second = service.createParticipant('t1', 'staff_1', {
+      processId: process.id,
+      participantType: 'employee',
+      participantUserId: 'u3',
+      signOrder: 2
+    });
 
     service.startProcess('t1', 'staff_1', process.id, { idempotencyKey: 'k2' });
     service.inviteParticipant('t1', 'staff_1', first.id);
     service.inviteParticipant('t1', 'staff_1', second.id);
 
-    expect(() => service.signParticipant('t1', 'u3', second.id, { idempotencyKey: 'k3' })).toThrow(BadRequestException);
+    expect(() => service.signParticipant('t1', 'u3', second.id, { idempotencyKey: 'k3' })).toThrow(
+      BadRequestException
+    );
   });
-
 
   it('fails process when participant rejects signing', () => {
     const { service } = makeService();
-    const process = service.createProcess('t1', 'staff_1', { idempotencyKey: 'reject-1', generatedDocumentId: 'gdoc_1' });
-    const participant = service.createParticipant('t1', 'staff_1', { processId: process.id, participantType: 'employee', participantUserId: 'u2', signOrder: 1 });
+    const process = service.createProcess('t1', 'staff_1', {
+      idempotencyKey: 'reject-1',
+      generatedDocumentId: 'gdoc_1'
+    });
+    const participant = service.createParticipant('t1', 'staff_1', {
+      processId: process.id,
+      participantType: 'employee',
+      participantUserId: 'u2',
+      signOrder: 1
+    });
 
     service.startProcess('t1', 'staff_1', process.id, { idempotencyKey: 'reject-2' });
     service.inviteParticipant('t1', 'staff_1', participant.id);
@@ -103,19 +144,34 @@ describe('EsignService', () => {
 
   it('prevents participant actions for another user assignment', () => {
     const { service } = makeService();
-    const process = service.createProcess('t1', 'staff_1', { idempotencyKey: 'actor-1', generatedDocumentId: 'gdoc_1' });
-    const participant = service.createParticipant('t1', 'staff_1', { processId: process.id, participantType: 'employee', participantUserId: 'u2', signOrder: 1 });
+    const process = service.createProcess('t1', 'staff_1', {
+      idempotencyKey: 'actor-1',
+      generatedDocumentId: 'gdoc_1'
+    });
+    const participant = service.createParticipant('t1', 'staff_1', {
+      processId: process.id,
+      participantType: 'employee',
+      participantUserId: 'u2',
+      signOrder: 1
+    });
 
     service.startProcess('t1', 'staff_1', process.id, { idempotencyKey: 'actor-2' });
     service.inviteParticipant('t1', 'staff_1', participant.id);
 
-    expect(() => service.signParticipant('t1', 'u3', participant.id, { idempotencyKey: 'actor-3' })).toThrow();
+    expect(() =>
+      service.signParticipant('t1', 'u3', participant.id, { idempotencyKey: 'actor-3' })
+    ).toThrow();
   });
 
   it('keeps tenant isolation for reads', () => {
     const { service } = makeService();
     service.createApplication('t1', 'u1', { learnerId: 'l1' }, ctx);
-    service.createApplication('t2', 'u2', { learnerId: 'l2' }, { ...ctx, tenantId: 't2', userId: 'u2' });
+    service.createApplication(
+      't2',
+      'u2',
+      { learnerId: 'l2' },
+      { ...ctx, tenantId: 't2', userId: 'u2' }
+    );
 
     expect(service.listApplications('t1', {}).items).toHaveLength(1);
     expect(service.listApplications('t2', {}).items).toHaveLength(1);

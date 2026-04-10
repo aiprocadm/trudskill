@@ -1,6 +1,8 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 
+import { ESIGN_STATE } from './esign-state.token.js';
 import { EsignStateMachine } from './esign.policy.js';
+import { InMemoryEsignState } from './in-memory-esign.state.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 import { DocumentsService } from '../documents/documents.service.js';
@@ -21,8 +23,6 @@ import type {
 import type {
   EsignApplicationEntity,
   EsignApplicationFileEntity,
-  LegalLogEntryEntity,
-  SignatureEventEntity,
   SigningParticipantEntity,
   SigningProcessEntity
 } from './esign.types.js';
@@ -30,15 +30,8 @@ import type { RequestContext } from '../../common/context/request-context.js';
 
 @Injectable()
 export class EsignService {
-  private applications: EsignApplicationEntity[] = [];
-  private applicationFiles: EsignApplicationFileEntity[] = [];
-  private processes: SigningProcessEntity[] = [];
-  private participants: SigningParticipantEntity[] = [];
-  private signatureEvents: SignatureEventEntity[] = [];
-  private legalLogEntries: LegalLogEntryEntity[] = [];
-  private idempotency = new Map<string, string>();
-
   constructor(
+    @Inject(ESIGN_STATE) private readonly state: InMemoryEsignState,
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(DocumentsService) private readonly documentsService: DocumentsService,
     @Inject(RealtimeEventsService) private readonly realtimeEvents: RealtimeEventsService
@@ -46,12 +39,12 @@ export class EsignService {
 
   listApplications(tenantId: string, q: EsignBaseFilter) {
     return this.page(
-      this.applications.filter((x) => x.tenantId === tenantId),
+      this.state.applications.filter((x) => x.tenantId === tenantId),
       q
     );
   }
   getApplication(tenantId: string, id: string) {
-    return this.must(this.applications, tenantId, id);
+    return this.must(this.state.applications, tenantId, id);
   }
   createApplication(
     tenantId: string,
@@ -71,7 +64,7 @@ export class EsignService {
       createdAt: now,
       updatedAt: now
     };
-    this.applications.push(entity);
+    this.state.applications.push(entity);
     this.writeLegal(
       tenantId,
       actorId,
@@ -110,7 +103,7 @@ export class EsignService {
     const app = this.getApplication(tenantId, id);
     EsignStateMachine.transitionApplication(app.status, 'submitted');
     if (
-      !this.applicationFiles.some(
+      !this.state.applicationFiles.some(
         (file) =>
           file.tenantId === tenantId && file.applicationId === app.id && file.status === 'verified'
       )
@@ -209,12 +202,12 @@ export class EsignService {
 
   listApplicationFiles(tenantId: string, q: EsignBaseFilter) {
     return this.page(
-      this.applicationFiles.filter((x) => x.tenantId === tenantId),
+      this.state.applicationFiles.filter((x) => x.tenantId === tenantId),
       q
     );
   }
   getApplicationFile(tenantId: string, id: string) {
-    return this.must(this.applicationFiles, tenantId, id);
+    return this.must(this.state.applicationFiles, tenantId, id);
   }
   createApplicationFile(
     tenantId: string,
@@ -236,7 +229,7 @@ export class EsignService {
       createdAt: now,
       updatedAt: now
     };
-    this.applicationFiles.push(row);
+    this.state.applicationFiles.push(row);
     this.writeLegal(
       tenantId,
       actorId,
@@ -298,7 +291,7 @@ export class EsignService {
     const app = this.getApplication(tenantId, row.applicationId);
     if (app.status !== 'draft')
       throw new BadRequestException('Can only delete files for draft application');
-    this.applicationFiles = this.applicationFiles.filter(
+    this.state.applicationFiles = this.state.applicationFiles.filter(
       (x) => !(x.tenantId === tenantId && x.id === id)
     );
     this.writeLegal(
@@ -315,16 +308,16 @@ export class EsignService {
 
   listProcesses(tenantId: string, q: EsignBaseFilter) {
     return this.page(
-      this.processes.filter((x) => x.tenantId === tenantId),
+      this.state.processes.filter((x) => x.tenantId === tenantId),
       q
     );
   }
   getProcess(tenantId: string, id: string) {
-    return this.must(this.processes, tenantId, id);
+    return this.must(this.state.processes, tenantId, id);
   }
   createProcess(tenantId: string, actorId: string | undefined, req: CreateSigningProcessRequest) {
     const idem = `${tenantId}:proc-create:${req.idempotencyKey}`;
-    const existing = this.idempotency.get(idem);
+    const existing = this.state.idempotency.get(idem);
     if (existing) return this.getProcess(tenantId, existing);
     this.documentsService.getDocument(tenantId, req.generatedDocumentId);
     if (req.applicationId)
@@ -332,7 +325,7 @@ export class EsignService {
         this.getApplication(tenantId, req.applicationId).status
       );
     if (
-      this.processes.some(
+      this.state.processes.some(
         (x) =>
           x.tenantId === tenantId &&
           x.generatedDocumentId === req.generatedDocumentId &&
@@ -354,8 +347,8 @@ export class EsignService {
       createdAt: now,
       updatedAt: now
     };
-    this.processes.push(row);
-    this.idempotency.set(idem, row.id);
+    this.state.processes.push(row);
+    this.state.idempotency.set(idem, row.id);
     this.writeLegal(
       tenantId,
       actorId,
@@ -374,11 +367,11 @@ export class EsignService {
     req: StartSigningProcessRequest
   ) {
     const idem = `${tenantId}:proc-start:${id}:${req.idempotencyKey}`;
-    if (this.idempotency.has(idem)) return this.getProcess(tenantId, id);
+    if (this.state.idempotency.has(idem)) return this.getProcess(tenantId, id);
     const process = this.getProcess(tenantId, id);
     EsignStateMachine.transitionProcess(process.status, 'prepared');
     process.status = 'prepared';
-    const hasParticipants = this.participants.some(
+    const hasParticipants = this.state.participants.some(
       (x) => x.tenantId === tenantId && x.processId === process.id
     );
     if (!hasParticipants)
@@ -389,7 +382,7 @@ export class EsignService {
     process.status = 'in_signing';
     process.startedAt = this.now();
     process.updatedAt = this.now();
-    this.idempotency.set(idem, process.id);
+    this.state.idempotency.set(idem, process.id);
     this.writeSignatureEvent(tenantId, process.id, undefined, 'signature.requested', {
       processId: process.id
     });
@@ -428,7 +421,7 @@ export class EsignService {
 
   listParticipants(tenantId: string, q: EsignBaseFilter) {
     return this.page(
-      this.participants.filter(
+      this.state.participants.filter(
         (x) => x.tenantId === tenantId && (!q.processId || x.processId === q.processId)
       ),
       q
@@ -442,7 +435,7 @@ export class EsignService {
     const process = this.getProcess(tenantId, req.processId);
     EsignStateMachine.assertProcessMutable(process);
     if (
-      this.participants.some(
+      this.state.participants.some(
         (x) =>
           x.tenantId === tenantId && x.processId === req.processId && x.signOrder === req.signOrder
       )
@@ -462,11 +455,11 @@ export class EsignService {
       createdAt: now,
       updatedAt: now
     };
-    this.participants.push(row);
+    this.state.participants.push(row);
     return row;
   }
   updateParticipant(tenantId: string, id: string, req: UpdateSigningParticipantRequest) {
-    const p = this.must(this.participants, tenantId, id);
+    const p = this.must(this.state.participants, tenantId, id);
     EsignStateMachine.assertProcessMutable(this.getProcess(tenantId, p.processId));
     if (req.signOrder !== undefined) p.signOrder = req.signOrder;
     if (req.expiresAt !== undefined) p.expiresAt = req.expiresAt;
@@ -474,7 +467,7 @@ export class EsignService {
     return p;
   }
   inviteParticipant(tenantId: string, actorId: string | undefined, id: string) {
-    const p = this.must(this.participants, tenantId, id);
+    const p = this.must(this.state.participants, tenantId, id);
     EsignStateMachine.transitionParticipant(p.status, 'invited');
     p.status = 'invited';
     p.invitedAt = this.now();
@@ -493,7 +486,7 @@ export class EsignService {
     return p;
   }
   markViewed(tenantId: string, actorId: string | undefined, id: string) {
-    const p = this.must(this.participants, tenantId, id);
+    const p = this.must(this.state.participants, tenantId, id);
     EsignStateMachine.assertParticipantActor(p.participantUserId, actorId);
     EsignStateMachine.transitionParticipant(p.status, 'viewed');
     p.status = 'viewed';
@@ -515,17 +508,17 @@ export class EsignService {
     id: string,
     req: ParticipantActionRequest
   ) {
-    const p = this.must(this.participants, tenantId, id);
+    const p = this.must(this.state.participants, tenantId, id);
     EsignStateMachine.assertParticipantActor(p.participantUserId, actorId);
     const idem = `${tenantId}:participant-sign:${id}:${req.idempotencyKey}`;
-    if (this.idempotency.has(idem)) return p;
+    if (this.state.idempotency.has(idem)) return p;
     if (p.status === 'signed') return p;
     const process = this.getProcess(tenantId, p.processId);
     EsignStateMachine.assertProcessMutable(process);
     EsignStateMachine.assertSigningOrder(
       process,
       p,
-      this.participants.filter((x) => x.tenantId === tenantId && x.processId === p.processId)
+      this.state.participants.filter((x) => x.tenantId === tenantId && x.processId === p.processId)
     );
     EsignStateMachine.transitionParticipant(p.status, 'signed');
     p.status = 'signed';
@@ -545,7 +538,7 @@ export class EsignService {
       'Participant signed',
       { processId: p.processId }
     );
-    this.idempotency.set(idem, p.id);
+    this.state.idempotency.set(idem, p.id);
     this.tryCompleteProcess(tenantId, actorId, p.processId);
     return p;
   }
@@ -555,7 +548,7 @@ export class EsignService {
     id: string,
     req: ParticipantActionRequest
   ) {
-    const p = this.must(this.participants, tenantId, id);
+    const p = this.must(this.state.participants, tenantId, id);
     EsignStateMachine.assertParticipantActor(p.participantUserId, actorId);
     EsignStateMachine.transitionParticipant(p.status, 'rejected');
     p.status = 'rejected';
@@ -579,7 +572,7 @@ export class EsignService {
     id: string,
     req: ParticipantActionRequest
   ) {
-    const p = this.must(this.participants, tenantId, id);
+    const p = this.must(this.state.participants, tenantId, id);
     EsignStateMachine.transitionParticipant(p.status, 'skipped');
     p.status = 'skipped';
     p.skippedAt = this.now();
@@ -598,30 +591,30 @@ export class EsignService {
 
   listEvents(tenantId: string, q: EsignBaseFilter) {
     return this.page(
-      this.signatureEvents.filter(
+      this.state.signatureEvents.filter(
         (x) => x.tenantId === tenantId && (!q.processId || x.processId === q.processId)
       ),
       q
     );
   }
   getEvent(tenantId: string, id: string) {
-    return this.must(this.signatureEvents, tenantId, id);
+    return this.must(this.state.signatureEvents, tenantId, id);
   }
   listLegalLog(tenantId: string, q: EsignBaseFilter) {
     return this.page(
-      this.legalLogEntries.filter(
+      this.state.legalLogEntries.filter(
         (x) => x.tenantId === tenantId && (!q.eventType || x.eventType === q.eventType)
       ),
       q
     );
   }
   getLegalLogEntry(tenantId: string, id: string) {
-    return this.must(this.legalLogEntries, tenantId, id);
+    return this.must(this.state.legalLogEntries, tenantId, id);
   }
 
   private tryCompleteProcess(tenantId: string, actorId: string | undefined, processId: string) {
     const process = this.getProcess(tenantId, processId);
-    const participants = this.participants.filter(
+    const participants = this.state.participants.filter(
       (x) => x.tenantId === tenantId && x.processId === processId
     );
     if (participants.some((x) => !['signed', 'skipped'].includes(x.status))) return;
@@ -678,7 +671,7 @@ export class EsignService {
     eventType: string,
     payload: unknown
   ) {
-    this.signatureEvents.push({
+    this.state.signatureEvents.push({
       id: this.id('esevent'),
       tenantId,
       processId,
@@ -697,7 +690,7 @@ export class EsignService {
     description: string,
     payload: unknown
   ) {
-    this.legalLogEntries.push({
+    this.state.legalLogEntries.push({
       id: this.id('eslegal'),
       tenantId,
       actorId,

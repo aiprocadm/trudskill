@@ -1,3 +1,4 @@
+import { BackendHttpErrorCodes } from '@cdoprof/api-contracts';
 import {
   type ArgumentsHost,
   Catch,
@@ -30,7 +31,7 @@ export class HttpExceptionEnvelopeFilter implements ExceptionFilter {
       exception instanceof HttpException
         ? exception.getResponse()
         : {
-            code: 'internal_error',
+            code: BackendHttpErrorCodes.internal_error,
             message: 'Unexpected server error'
           };
 

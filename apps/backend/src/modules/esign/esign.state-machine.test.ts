@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import { EsignService } from './esign.service.js';
+import { InMemoryEsignState } from './in-memory-esign.state.js';
 
 const makeService = () => {
   const auditService = { write: vi.fn() } as any;
@@ -11,10 +12,16 @@ const makeService = () => {
   } as any;
   const realtimeEvents = { publish: vi.fn() } as any;
 
-  return new EsignService(auditService, documentsService, realtimeEvents);
+  return new EsignService(new InMemoryEsignState(), auditService, documentsService, realtimeEvents);
 };
 
-const ctx = { tenantId: 't1', requestId: 'r1', ip: '127.0.0.1', userAgent: 'vitest', userId: 'u1' } as any;
+const ctx = {
+  tenantId: 't1',
+  requestId: 'r1',
+  ip: '127.0.0.1',
+  userAgent: 'vitest',
+  userId: 'u1'
+} as any;
 
 describe('EsignService state machine', () => {
   it('blocks process start when there are no participants', () => {
@@ -25,7 +32,9 @@ describe('EsignService state machine', () => {
       sequential: true
     });
 
-    expect(() => service.startProcess('t1', 'staff_1', process.id, { idempotencyKey: 'start-no-participants' })).toThrow(BadRequestException);
+    expect(() =>
+      service.startProcess('t1', 'staff_1', process.id, { idempotencyKey: 'start-no-participants' })
+    ).toThrow(BadRequestException);
   });
 
   it('prevents process mutation after terminal signed state', () => {
@@ -74,7 +83,9 @@ describe('EsignService state machine', () => {
 
     service.startProcess('t1', 'staff_1', process.id, { idempotencyKey: 'proc-fail-start' });
     service.inviteParticipant('t1', 'staff_1', participant.id);
-    service.rejectParticipant('t1', 'u_signer', participant.id, { idempotencyKey: 'proc-fail-reject' });
+    service.rejectParticipant('t1', 'u_signer', participant.id, {
+      idempotencyKey: 'proc-fail-reject'
+    });
 
     const failed = service.getProcess('t1', process.id);
     expect(failed.status).toBe('failed');
@@ -83,8 +94,16 @@ describe('EsignService state machine', () => {
 
   it('writes legal log entries for application lifecycle transitions', () => {
     const service = makeService();
-    const application = service.createApplication('t1', 'learner_1', { learnerId: 'learner_1' }, ctx);
-    const file = service.createApplicationFile('t1', 'learner_1', { applicationId: application.id, fileId: 'file_1' });
+    const application = service.createApplication(
+      't1',
+      'learner_1',
+      { learnerId: 'learner_1' },
+      ctx
+    );
+    const file = service.createApplicationFile('t1', 'learner_1', {
+      applicationId: application.id,
+      fileId: 'file_1'
+    });
 
     service.verifyApplicationFile('t1', 'staff_1', file.id);
     service.submitApplication('t1', 'learner_1', application.id);

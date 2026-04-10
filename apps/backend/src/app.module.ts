@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { ThrottlerModule } from '@nestjs/throttler';
 
 import { RequestObservabilityInterceptor } from './common/interceptors/request-observability.interceptor.js';
-import { backendEnv } from './env.js';
 import { InfrastructureModule } from './infrastructure/infrastructure.module.js';
 import { AuditModule } from './modules/audit/audit.module.js';
 import { CommunicationModule } from './modules/communication/communication.module.js';
@@ -33,13 +32,8 @@ const baseModules = [
   WorkspaceModule
 ];
 
-const inMemoryDomainModules = [MvpModule, DocumentsModule, IntegrationsModule];
-const persistentDomainModules = [MvpModule, DocumentsModule, IntegrationsModule];
-
-const domainModules =
-  backendEnv.NODE_ENV === 'test' || backendEnv.ALLOW_IN_MEMORY_STATE
-    ? inMemoryDomainModules
-    : persistentDomainModules;
+/** Доменные модули; переключение реализаций хранения — внутри модулей (провайдеры/DynamicModule), а не дублированием списка. */
+const domainModules = [MvpModule, DocumentsModule, IntegrationsModule];
 
 @Module({
   providers: [RequestObservabilityInterceptor],

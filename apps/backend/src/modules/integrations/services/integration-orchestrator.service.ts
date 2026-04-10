@@ -5,6 +5,9 @@ import { IdempotencyService } from './idempotency.service.js';
 import { IntegrationCryptoService } from './integration-crypto.service.js';
 import { AuditService } from '../../audit/audit.service.js';
 import { RealtimeEventsService } from '../../core/realtime-events.service.js';
+import { IntegrationExportRealtimeEvents } from '../domain/integration-realtime-events.js';
+import { InMemoryIntegrationOrchestratorState } from '../infrastructure/in-memory-integration-orchestrator.state.js';
+import { INTEGRATION_ORCHESTRATOR_STATE } from '../infrastructure/integration-orchestrator-state.token.js';
 
 import type { RequestContext } from '../../../common/context/request-context.js';
 import type {
@@ -42,14 +45,9 @@ interface PaginatedResult<T> {
 
 @Injectable()
 export class IntegrationOrchestratorService {
-  private providers: Provider[] = [];
-  private credentials: Credential[] = [];
-  private tasks: ExportTask[] = [];
-  private items: ExportItem[] = [];
-  private logs: SyncLog[] = [];
-  private idempotencyInFlight = new Set<string>();
-
   constructor(
+    @Inject(INTEGRATION_ORCHESTRATOR_STATE)
+    private readonly state: InMemoryIntegrationOrchestratorState,
     @Inject(IntegrationCryptoService) private readonly crypto: IntegrationCryptoService,
     @Inject(IdempotencyService) private readonly idempotency: IdempotencyService,
     @Inject(AdapterResolver) private readonly adapterResolver: AdapterResolver,
@@ -59,13 +57,13 @@ export class IntegrationOrchestratorService {
 
   listProviders(query?: ListQuery) {
     const sorted = this.sortItems(
-      this.providers.filter((item) => this.matchesText(item, query?.q)),
+      this.state.providers.filter((item) => this.matchesText(item, query?.q)),
       query?.sort
     );
     return this.paginate(sorted, query);
   }
   getProvider(id: string) {
-    return this.providers.find((item) => item.id === id) ?? null;
+    return this.state.providers.find((item) => item.id === id) ?? null;
   }
   createProvider(dto: CreateProviderDto): Provider {
     const row: Provider = {
@@ -75,7 +73,7 @@ export class IntegrationOrchestratorService {
       providerType: dto.providerType,
       isActive: dto.isActive ?? true
     };
-    this.providers.push(row);
+    this.state.providers.push(row);
     return row;
   }
   patchProvider(id: string, dto: UpdateProviderDto): Provider {
@@ -85,7 +83,7 @@ export class IntegrationOrchestratorService {
   }
 
   listCredentials(tenantId: string, query?: ListQuery) {
-    const rows = this.credentials
+    const rows = this.state.credentials
       .filter((item) => item.tenantId === tenantId)
       .filter((item) => this.matchesText(item, query?.q))
       .filter((item) => (query?.status ? item.status === query.status : true))
@@ -109,7 +107,7 @@ export class IntegrationOrchestratorService {
       updatedAt: new Date().toISOString(),
       secretVersion: 1
     };
-    this.credentials.push(row);
+    this.state.credentials.push(row);
     this.audit.write({
       tenantId,
       actorId: ctx.userId ?? 'system',
@@ -155,7 +153,7 @@ export class IntegrationOrchestratorService {
   }
 
   listTasks(tenantId: string, query?: ListQuery) {
-    const rows = this.tasks
+    const rows = this.state.tasks
       .filter((item) => item.tenantId === tenantId)
       .filter((item) => this.matchesText(item, query?.q))
       .filter((item) => (query?.status ? item.status === query.status : true))
@@ -167,10 +165,10 @@ export class IntegrationOrchestratorService {
   }
   getTaskItems(tenantId: string, taskId: string) {
     this.requireTask(tenantId, taskId);
-    return this.items.filter((item) => item.tenantId === tenantId && item.taskId === taskId);
+    return this.state.items.filter((item) => item.tenantId === tenantId && item.taskId === taskId);
   }
   getItem(tenantId: string, id: string) {
-    const row = this.items.find((it) => it.id === id && it.tenantId === tenantId);
+    const row = this.state.items.find((it) => it.id === id && it.tenantId === tenantId);
     if (!row) throw new NotFoundException({ code: 'not_found', message: 'Export item not found' });
     return row;
   }
@@ -183,12 +181,12 @@ export class IntegrationOrchestratorService {
   ) {
     const key = idempotencyKey ? `${tenantId}:export:${idempotencyKey}` : undefined;
     if (key) {
-      if (this.idempotencyInFlight.has(key)) {
+      if (this.state.idempotencyInFlight.has(key)) {
         return this.waitForIdempotentResult(key);
       }
       const existing = this.idempotency.get<ExportTask>(key);
       if (existing) return existing;
-      this.idempotencyInFlight.add(key);
+      this.state.idempotencyInFlight.add(key);
     }
     try {
       const adapter = this.adapterResolver.resolve(dto.providerCode);
@@ -203,10 +201,10 @@ export class IntegrationOrchestratorService {
         requestedAt: new Date().toISOString(),
         idempotencyKey
       };
-      this.tasks.push(task);
+      this.state.tasks.push(task);
       if (key) this.idempotency.remember(key, task);
       this.realtime.publish({
-        event_name: 'integration.export.requested',
+        event_name: IntegrationExportRealtimeEvents.requested,
         version: 'v1',
         tenant_id: tenantId,
         occurred_at: new Date().toISOString(),
@@ -216,7 +214,7 @@ export class IntegrationOrchestratorService {
       this.transitionTask(task, 'queued', 'running');
       task.startedAt = new Date().toISOString();
       this.realtime.publish({
-        event_name: 'integration.export.started',
+        event_name: IntegrationExportRealtimeEvents.started,
         version: 'v1',
         tenant_id: tenantId,
         occurred_at: new Date().toISOString(),
@@ -236,7 +234,7 @@ export class IntegrationOrchestratorService {
         entityId: `${dto.exportType}:${task.id}`,
         status: sent.status
       };
-      this.items.push(item);
+      this.state.items.push(item);
       if (sent.status === 'completed') {
         this.transitionTask(task, 'running', 'completed');
       } else if (sent.status === 'partial_success') {
@@ -247,7 +245,7 @@ export class IntegrationOrchestratorService {
       task.finishedAt = new Date().toISOString();
       task.resultFileId = sent.status === 'completed' ? `file_${task.id}` : undefined;
       task.responsePayloadJsonb = { externalBatchId: sent.externalBatchId };
-      this.logs.push({
+      this.state.logs.push({
         id: this.id('log'),
         tenantId,
         providerCode: dto.providerCode,
@@ -261,7 +259,10 @@ export class IntegrationOrchestratorService {
         taskId: task.id
       });
       this.realtime.publish({
-        event_name: `integration.export.${task.status === 'failed' ? 'failed' : 'completed'}`,
+        event_name:
+          task.status === 'failed'
+            ? IntegrationExportRealtimeEvents.failed
+            : IntegrationExportRealtimeEvents.completed,
         version: 'v1',
         tenant_id: tenantId,
         occurred_at: new Date().toISOString(),
@@ -269,7 +270,7 @@ export class IntegrationOrchestratorService {
       });
       return task;
     } finally {
-      if (key) this.idempotencyInFlight.delete(key);
+      if (key) this.state.idempotencyInFlight.delete(key);
     }
   }
 
@@ -298,7 +299,7 @@ export class IntegrationOrchestratorService {
   }
 
   listSyncLogs(tenantId: string, query?: ListQuery) {
-    const rows = this.logs
+    const rows = this.state.logs
       .filter((item) => item.tenantId === tenantId)
       .filter((item) => this.matchesText(item, query?.q))
       .filter((item) => (query?.status ? item.status === query.status : true))
@@ -306,21 +307,23 @@ export class IntegrationOrchestratorService {
     return this.paginate(this.sortItems(rows, query?.sort), query);
   }
   getSyncLog(tenantId: string, id: string) {
-    const row = this.logs.find((it) => it.id === id && it.tenantId === tenantId);
+    const row = this.state.logs.find((it) => it.id === id && it.tenantId === tenantId);
     if (!row) throw new NotFoundException({ code: 'not_found', message: 'Sync log not found' });
     return row;
   }
   byEntity(tenantId: string, entityType: string, entityId: string) {
-    return this.logs.filter(
+    return this.state.logs.filter(
       (it) => it.tenantId === tenantId && it.entityType === entityType && it.entityId === entityId
     );
   }
   byProvider(tenantId: string, providerCode: string) {
-    return this.logs.filter((it) => it.tenantId === tenantId && it.providerCode === providerCode);
+    return this.state.logs.filter(
+      (it) => it.tenantId === tenantId && it.providerCode === providerCode
+    );
   }
 
   listFailedWebhookLogs(tenantId: string, providerCode?: string) {
-    return this.logs.filter(
+    return this.state.logs.filter(
       (log) =>
         log.tenantId === tenantId &&
         log.entityType === 'webhook' &&
@@ -335,7 +338,7 @@ export class IntegrationOrchestratorService {
       tenantId,
       createdAt: new Date().toISOString()
     };
-    this.logs.push(log);
+    this.state.logs.push(log);
     return log;
   }
 
@@ -355,12 +358,12 @@ export class IntegrationOrchestratorService {
     return row;
   }
   private requireCredential(tenantId: string, id: string) {
-    const row = this.credentials.find((item) => item.id === id && item.tenantId === tenantId);
+    const row = this.state.credentials.find((item) => item.id === id && item.tenantId === tenantId);
     if (!row) throw new NotFoundException({ code: 'not_found', message: 'Credential not found' });
     return row;
   }
   private requireTask(tenantId: string, id: string) {
-    const row = this.tasks.find((item) => item.id === id && item.tenantId === tenantId);
+    const row = this.state.tasks.find((item) => item.id === id && item.tenantId === tenantId);
     if (!row) throw new NotFoundException({ code: 'not_found', message: 'Export task not found' });
     return row;
   }

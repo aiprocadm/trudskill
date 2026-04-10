@@ -1,5 +1,7 @@
 import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 
+import { InMemoryNotificationsState } from './in-memory-notifications.state.js';
+import { NOTIFICATIONS_STATE } from './notifications-state.token.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
@@ -25,9 +27,8 @@ export interface NotificationEntity {
 
 @Injectable()
 export class NotificationsService {
-  private notifications: NotificationEntity[] = [];
-
   constructor(
+    @Inject(NOTIFICATIONS_STATE) private readonly notificationStore: InMemoryNotificationsState,
     @Inject(RealtimeEventsService) private readonly realtime: RealtimeEventsService,
     @Optional() @Inject(DatabaseService) private readonly databaseService?: DatabaseService
   ) {}
@@ -74,7 +75,7 @@ export class NotificationsService {
       return this.toListResponse(mapped, query);
     }
 
-    const mapped = this.notifications.filter(
+    const mapped = this.notificationStore.notifications.filter(
       (item) =>
         item.tenantId === tenantId &&
         (!item.recipientUserId || item.recipientUserId === userId) &&
@@ -113,7 +114,7 @@ export class NotificationsService {
         ]
       );
     } else {
-      this.notifications.unshift(item);
+      this.notificationStore.notifications.unshift(item);
     }
     this.publish(item.tenantId, NOTIFICATION_CREATED_EVENT, {
       notification_id: item.id,
@@ -152,7 +153,9 @@ export class NotificationsService {
         throw new NotFoundException('Notification not found');
       return this.mapRow(row);
     }
-    const item = this.notifications.find((entry) => entry.id === id && entry.tenantId === tenantId);
+    const item = this.notificationStore.notifications.find(
+      (entry) => entry.id === id && entry.tenantId === tenantId
+    );
     if (!item || (item.recipientUserId && item.recipientUserId !== userId))
       throw new NotFoundException('Notification not found');
     return item;
@@ -183,7 +186,7 @@ export class NotificationsService {
       return { updated: true };
     }
 
-    this.notifications
+    this.notificationStore.notifications
       .filter(
         (item) =>
           item.tenantId === tenantId && item.recipientUserId === userId && item.status === 'unread'
@@ -200,7 +203,7 @@ export class NotificationsService {
       );
       return Number(rows[0]?.count ?? 0);
     }
-    return this.notifications.filter(
+    return this.notificationStore.notifications.filter(
       (item) =>
         item.tenantId === tenantId && item.recipientUserId === userId && item.status === 'unread'
     ).length;

@@ -6,6 +6,8 @@ import {
   NotFoundException
 } from '@nestjs/common';
 
+import { DOCUMENTS_STATE } from './documents-state.token.js';
+import { InMemoryDocumentsState } from './in-memory-documents.state.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
@@ -49,24 +51,15 @@ export class DocumentsService {
     'document'
   ]);
 
-  private templates: TemplateEntity[] = [];
-  private versions: TemplateVersionEntity[] = [];
-  private variables: TemplateVariableEntity[] = [];
-  private bindings: TemplateBindingEntity[] = [];
-  private tasks: DocumentGenerationTaskEntity[] = [];
-  private generatedDocuments: GeneratedDocumentEntity[] = [];
-  private numberingRules: NumberingRuleEntity[] = [];
-  private reservations: NumberReservationEntity[] = [];
-  private idem = new Map<string, { taskId: string; expiresAt: number }>();
-
   constructor(
+    @Inject(DOCUMENTS_STATE) private readonly state: InMemoryDocumentsState,
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(RealtimeEventsService) private readonly realtimeEvents: RealtimeEventsService
   ) {}
 
   listTemplates(tenantId: string, query: BaseFilter) {
     return this.page(
-      this.templates.filter((x) => x.tenantId === tenantId),
+      this.state.templates.filter((x) => x.tenantId === tenantId),
       query
     );
   }
@@ -88,7 +81,7 @@ export class DocumentsService {
       createdAt: now,
       updatedAt: now
     };
-    this.templates.push(entity);
+    this.state.templates.push(entity);
     this.auditService.write({
       tenantId,
       actorId,
@@ -103,7 +96,7 @@ export class DocumentsService {
     return entity;
   }
   getTemplate(tenantId: string, id: string) {
-    return this.must(this.templates, tenantId, id);
+    return this.must(this.state.templates, tenantId, id);
   }
   updateTemplate(
     tenantId: string,
@@ -142,7 +135,7 @@ export class DocumentsService {
   }
   setCurrentVersion(tenantId: string, id: string, versionId: string) {
     const tpl = this.getTemplate(tenantId, id);
-    const version = this.must(this.versions, tenantId, versionId);
+    const version = this.must(this.state.versions, tenantId, versionId);
     if (version.templateId !== id) throw new BadRequestException('Template version mismatch');
     tpl.currentVersionId = version.id;
     tpl.updatedAt = this.now();
@@ -150,7 +143,7 @@ export class DocumentsService {
   }
 
   listTemplateVersions(tenantId: string, query: BaseFilter) {
-    const rows = this.versions.filter(
+    const rows = this.state.versions.filter(
       (x) => x.tenantId === tenantId && (!query.templateId || query.templateId === x.templateId)
     );
     return this.page(rows, query);
@@ -165,18 +158,18 @@ export class DocumentsService {
       id: this.id('tplv'),
       tenantId,
       templateId: req.templateId,
-      versionNo: this.versions.filter((x) => x.templateId === req.templateId).length + 1,
+      versionNo: this.state.versions.filter((x) => x.templateId === req.templateId).length + 1,
       fileId: req.fileId,
       variablesSchema: req.variablesSchema ?? {},
       isActive: false,
       createdBy: actorId,
       createdAt: this.now()
     };
-    this.versions.push(entity);
+    this.state.versions.push(entity);
     return entity;
   }
   getTemplateVersion(tenantId: string, id: string) {
-    return this.must(this.versions, tenantId, id);
+    return this.must(this.state.versions, tenantId, id);
   }
   updateTemplateVersion(tenantId: string, id: string, req: UpdateTemplateVersionRequest) {
     const v = this.getTemplateVersion(tenantId, id);
@@ -186,7 +179,7 @@ export class DocumentsService {
   }
   activateTemplateVersion(tenantId: string, id: string) {
     const version = this.getTemplateVersion(tenantId, id);
-    this.versions
+    this.state.versions
       .filter((x) => x.tenantId === tenantId && x.templateId === version.templateId)
       .forEach((x) => {
         x.isActive = x.id === id;
@@ -196,7 +189,7 @@ export class DocumentsService {
   }
 
   listTemplateVariables(tenantId: string, query: BaseFilter) {
-    const rows = this.variables.filter(
+    const rows = this.state.variables.filter(
       (x) =>
         x.tenantId === tenantId &&
         !x.deletedAt &&
@@ -209,7 +202,7 @@ export class DocumentsService {
     if (!DocumentsService.variableCategories.has(req.categoryCode)) {
       throw new BadRequestException(`Unsupported variable category ${req.categoryCode}`);
     }
-    const duplicate = this.variables.find(
+    const duplicate = this.state.variables.find(
       (x) =>
         x.tenantId === tenantId &&
         x.templateVersionId === req.templateVersionId &&
@@ -228,12 +221,12 @@ export class DocumentsService {
       isRequired: req.isRequired ?? false,
       description: req.description
     };
-    this.variables.push(entity);
+    this.state.variables.push(entity);
     return entity;
   }
   getTemplateVariable(tenantId: string, id: string) {
     return this.must(
-      this.variables.filter((x) => !x.deletedAt),
+      this.state.variables.filter((x) => !x.deletedAt),
       tenantId,
       id
     );
@@ -254,7 +247,7 @@ export class DocumentsService {
 
   listTemplateBindings(tenantId: string, query: BaseFilter) {
     return this.page(
-      this.bindings.filter((x) => x.tenantId === tenantId),
+      this.state.bindings.filter((x) => x.tenantId === tenantId),
       query
     );
   }
@@ -274,11 +267,11 @@ export class DocumentsService {
       priority: req.priority ?? 100,
       createdAt: this.now()
     };
-    this.bindings.push(entity);
+    this.state.bindings.push(entity);
     return entity;
   }
   getTemplateBinding(tenantId: string, id: string) {
-    return this.must(this.bindings, tenantId, id);
+    return this.must(this.state.bindings, tenantId, id);
   }
   updateTemplateBinding(tenantId: string, id: string, req: UpdateTemplateBindingRequest) {
     const row = this.getTemplateBinding(tenantId, id);
@@ -288,18 +281,20 @@ export class DocumentsService {
   }
   deleteTemplateBinding(tenantId: string, id: string) {
     this.getTemplateBinding(tenantId, id);
-    this.bindings = this.bindings.filter((x) => !(x.tenantId === tenantId && x.id === id));
+    this.state.bindings = this.state.bindings.filter(
+      (x) => !(x.tenantId === tenantId && x.id === id)
+    );
     return { deleted: true };
   }
 
   listDocumentTasks(tenantId: string, query: BaseFilter) {
     return this.page(
-      this.tasks.filter((x) => x.tenantId === tenantId),
+      this.state.tasks.filter((x) => x.tenantId === tenantId),
       query
     );
   }
   getDocumentTask(tenantId: string, id: string) {
-    return this.must(this.tasks, tenantId, id);
+    return this.must(this.state.tasks, tenantId, id);
   }
   retryTask(tenantId: string, id: string) {
     const task = this.getDocumentTask(tenantId, id);
@@ -314,19 +309,19 @@ export class DocumentsService {
   }
 
   listDocuments(tenantId: string, query: BaseFilter) {
-    const rows = this.generatedDocuments.filter(
+    const rows = this.state.generatedDocuments.filter(
       (x) =>
         x.tenantId === tenantId && (!query.documentType || x.documentType === query.documentType)
     );
     return this.page(rows, query);
   }
   getDocument(tenantId: string, id: string) {
-    return this.must(this.generatedDocuments, tenantId, id);
+    return this.must(this.state.generatedDocuments, tenantId, id);
   }
   generateDocument(tenantId: string, actorId: string | undefined, req: GenerateDocumentRequest) {
     this.cleanupIdempotencyCache();
     const idemKey = `${tenantId}:${req.idempotencyKey}`;
-    const existing = this.idem.get(idemKey);
+    const existing = this.state.idem.get(idemKey);
     if (existing && existing.expiresAt > Date.now())
       return this.getDocumentTask(tenantId, existing.taskId);
     const template = this.getTemplate(tenantId, req.templateId);
@@ -348,8 +343,8 @@ export class DocumentsService {
       requestedBy: actorId,
       requestedAt: this.now()
     };
-    this.tasks.push(task);
-    this.idem.set(idemKey, { taskId: task.id, expiresAt: Date.now() + 24 * 60 * 60 * 1000 });
+    this.state.tasks.push(task);
+    this.state.idem.set(idemKey, { taskId: task.id, expiresAt: Date.now() + 24 * 60 * 60 * 1000 });
     return task;
   }
 
@@ -379,7 +374,7 @@ export class DocumentsService {
       generatedBy,
       generatedAt: this.now()
     };
-    this.generatedDocuments.push(generated);
+    this.state.generatedDocuments.push(generated);
     task.status = 'completed';
     this.publishTaskEvent(task);
     task.finishedAt = this.now();
@@ -434,12 +429,12 @@ export class DocumentsService {
 
   listNumberingRules(tenantId: string, query: BaseFilter) {
     return this.page(
-      this.numberingRules.filter((x) => x.tenantId === tenantId),
+      this.state.numberingRules.filter((x) => x.tenantId === tenantId),
       query
     );
   }
   createNumberingRule(tenantId: string, req: CreateNumberingRuleRequest) {
-    this.numberingRules
+    this.state.numberingRules
       .filter((x) => x.tenantId === tenantId && x.documentType === req.documentType)
       .forEach((x) => {
         x.isActive = false;
@@ -457,11 +452,11 @@ export class DocumentsService {
       isActive: true,
       updatedAt: this.now()
     };
-    this.numberingRules.push(entity);
+    this.state.numberingRules.push(entity);
     return entity;
   }
   getNumberingRule(tenantId: string, id: string) {
-    return this.must(this.numberingRules, tenantId, id);
+    return this.must(this.state.numberingRules, tenantId, id);
   }
   updateNumberingRule(tenantId: string, id: string, req: UpdateNumberingRuleRequest) {
     const row = this.getNumberingRule(tenantId, id);
@@ -470,7 +465,7 @@ export class DocumentsService {
   }
   activateNumberingRule(tenantId: string, id: string) {
     const row = this.getNumberingRule(tenantId, id);
-    this.numberingRules
+    this.state.numberingRules
       .filter((x) => x.tenantId === tenantId && x.documentType === row.documentType)
       .forEach((x) => {
         x.isActive = x.id === id;
@@ -486,7 +481,7 @@ export class DocumentsService {
   }
 
   reserveNumber(tenantId: string, documentType: string) {
-    let rule = this.numberingRules.find(
+    let rule = this.state.numberingRules.find(
       (x) => x.tenantId === tenantId && x.documentType === documentType && x.isActive
     );
     if (!rule) {
@@ -502,7 +497,7 @@ export class DocumentsService {
         isActive: true,
         updatedAt: this.now()
       };
-      this.numberingRules.push(rule);
+      this.state.numberingRules.push(rule);
     }
     const periodKey = this.periodKey(rule.resetPeriod);
     if (rule.periodKey && rule.periodKey !== periodKey) rule.currentCounter = 0;
@@ -513,7 +508,9 @@ export class DocumentsService {
       .replace('{prefix}', rule.prefix)
       .replace('{suffix}', rule.suffix)
       .replace('{counter}', counter);
-    if (this.reservations.some((x) => x.tenantId === tenantId && x.reservedNumber === formatted)) {
+    if (
+      this.state.reservations.some((x) => x.tenantId === tenantId && x.reservedNumber === formatted)
+    ) {
       throw new ConflictException(`Reservation number ${formatted} already exists`);
     }
     const reservation: NumberReservationEntity = {
@@ -524,11 +521,11 @@ export class DocumentsService {
       reservedAt: this.now(),
       status: 'reserved'
     };
-    this.reservations.push(reservation);
+    this.state.reservations.push(reservation);
     return reservation;
   }
   getReservation(tenantId: string, reservationId: string) {
-    return this.must(this.reservations, tenantId, reservationId);
+    return this.must(this.state.reservations, tenantId, reservationId);
   }
   resolveTemplateVariables(
     tenantId: string,
@@ -536,7 +533,7 @@ export class DocumentsService {
     payload: Record<string, unknown>
   ): Record<string, unknown> {
     const version = this.getTemplateVersion(tenantId, templateVersionId);
-    const variables = this.variables.filter(
+    const variables = this.state.variables.filter(
       (item) =>
         item.tenantId === tenantId &&
         item.templateVersionId === templateVersionId &&
@@ -617,8 +614,8 @@ export class DocumentsService {
 
   private cleanupIdempotencyCache() {
     const now = Date.now();
-    for (const [key, value] of this.idem.entries()) {
-      if (value.expiresAt <= now) this.idem.delete(key);
+    for (const [key, value] of this.state.idem.entries()) {
+      if (value.expiresAt <= now) this.state.idem.delete(key);
     }
   }
 

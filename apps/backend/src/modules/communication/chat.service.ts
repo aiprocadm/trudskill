@@ -1,57 +1,31 @@
 import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 
+import { CHAT_STATE } from './chat-state.token.js';
+import {
+  type ChatDialogRow,
+  type ChatMessageRow,
+  InMemoryChatState
+} from './in-memory-chat.state.js';
 import { NotificationsService } from './notifications.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
 const CHAT_MESSAGE_CREATED_EVENT = 'chat.message.created';
 
-interface Dialog {
-  id: string;
-  tenantId: string;
-  type: 'direct' | 'entity_linked' | 'support';
-  relatedEntityType?: string;
-  relatedEntityId?: string;
-  assignedUserId?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-interface Participant {
-  dialogId: string;
-  tenantId: string;
-  userId: string;
-  role: string;
-  unreadCount: number;
-}
-interface Message {
-  id: string;
-  dialogId: string;
-  tenantId: string;
-  senderUserId: string;
-  messageType: 'text' | 'system';
-  textBody: string;
-  sentAt: string;
-  editedAt?: string;
-  deletedAt?: string;
-}
-
 @Injectable()
 export class ChatService {
-  private dialogs: Dialog[] = [];
-  private participants: Participant[] = [];
-  private messages: Message[] = [];
-
   constructor(
+    @Inject(CHAT_STATE) private readonly state: InMemoryChatState,
     @Inject(RealtimeEventsService) private readonly realtime: RealtimeEventsService,
     @Inject(NotificationsService) private readonly notifications: NotificationsService
   ) {}
 
   listDialogs(tenantId: string, userId?: string) {
     const permitted = new Set(
-      this.participants
+      this.state.participants
         .filter((p) => p.tenantId === tenantId && p.userId === userId)
         .map((p) => p.dialogId)
     );
-    return this.dialogs.filter(
+    return this.state.dialogs.filter(
       (dialog) => dialog.tenantId === tenantId && permitted.has(dialog.id)
     );
   }
@@ -60,7 +34,7 @@ export class ChatService {
     tenantId: string,
     creatorUserId: string,
     body: {
-      type: Dialog['type'];
+      type: ChatDialogRow['type'];
       participantUserIds: string[];
       relatedEntityType?: string;
       relatedEntityId?: string;
@@ -69,7 +43,7 @@ export class ChatService {
   ) {
     if (body.type === 'direct' && body.participantUserIds.length !== 2)
       throw new ForbiddenException('Direct dialog must have exactly 2 participants');
-    const dialog: Dialog = {
+    const dialog: ChatDialogRow = {
       id: this.id('dlg'),
       tenantId,
       type: body.type,
@@ -79,10 +53,10 @@ export class ChatService {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    this.dialogs.push(dialog);
+    this.state.dialogs.push(dialog);
     const uniqueParticipants = [...new Set([...body.participantUserIds, creatorUserId])];
     uniqueParticipants.forEach((userId) =>
-      this.participants.push({
+      this.state.participants.push({
         dialogId: dialog.id,
         tenantId,
         userId,
@@ -95,19 +69,19 @@ export class ChatService {
 
   getDialog(tenantId: string, dialogId: string, userId?: string) {
     this.assertDialogAccess(tenantId, dialogId, userId);
-    return this.dialogs.find((item) => item.id === dialogId)!;
+    return this.state.dialogs.find((item) => item.id === dialogId)!;
   }
 
   listMessages(tenantId: string, dialogId: string, userId?: string) {
     this.assertDialogAccess(tenantId, dialogId, userId);
-    return this.messages.filter(
+    return this.state.messages.filter(
       (message) => message.tenantId === tenantId && message.dialogId === dialogId
     );
   }
 
   postMessage(tenantId: string, dialogId: string, senderUserId: string, textBody: string) {
     this.assertDialogAccess(tenantId, dialogId, senderUserId);
-    const message: Message = {
+    const message: ChatMessageRow = {
       id: this.id('msg'),
       dialogId,
       tenantId,
@@ -116,8 +90,8 @@ export class ChatService {
       textBody,
       sentAt: new Date().toISOString()
     };
-    this.messages.push(message);
-    this.participants
+    this.state.messages.push(message);
+    this.state.participants
       .filter(
         (item) =>
           item.tenantId === tenantId && item.dialogId === dialogId && item.userId !== senderUserId
@@ -151,7 +125,7 @@ export class ChatService {
 
   markRead(tenantId: string, dialogId: string, userId: string) {
     this.assertDialogAccess(tenantId, dialogId, userId);
-    const participant = this.participants.find(
+    const participant = this.state.participants.find(
       (item) => item.dialogId === dialogId && item.userId === userId && item.tenantId === tenantId
     )!;
     participant.unreadCount = 0;
@@ -159,9 +133,11 @@ export class ChatService {
   }
 
   private assertDialogAccess(tenantId: string, dialogId: string, userId?: string) {
-    const dialog = this.dialogs.find((item) => item.id === dialogId && item.tenantId === tenantId);
+    const dialog = this.state.dialogs.find(
+      (item) => item.id === dialogId && item.tenantId === tenantId
+    );
     if (!dialog) throw new NotFoundException('Dialog not found');
-    const participant = this.participants.find(
+    const participant = this.state.participants.find(
       (item) => item.dialogId === dialogId && item.userId === userId && item.tenantId === tenantId
     );
     if (!participant) throw new ForbiddenException('Dialog access denied');

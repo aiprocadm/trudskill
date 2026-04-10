@@ -10,7 +10,7 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:unit": "pnpm test",
-    "ci:check": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm build",
+    "ci:check": "pnpm lint && pnpm typecheck && pnpm contracts:lint && pnpm contracts:typecheck && pnpm test:unit && pnpm build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "clean": "rimraf .turbo \"**/.turbo\" \"**/dist\" \"**/coverage\" \"**/*.tsbuildinfo\" apps/frontend/.next",
