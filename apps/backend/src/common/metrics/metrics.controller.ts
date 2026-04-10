@@ -1,10 +1,10 @@
-import { Controller, Get, Header } from '@nestjs/common';
+import { Controller, Get, Header, Inject } from '@nestjs/common';
 
-import { type MetricsService } from './metrics.service.js';
+import { MetricsService } from './metrics.service.js';
 
 @Controller()
 export class MetricsController {
-  constructor(private readonly metrics: MetricsService) {}
+  constructor(@Inject(MetricsService) private readonly metrics: MetricsService) {}
 
   @Get('metrics')
   @Header('content-type', 'text/plain; version=0.0.4; charset=utf-8')

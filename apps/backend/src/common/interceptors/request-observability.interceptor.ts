@@ -1,20 +1,21 @@
 import {
   type CallHandler,
   type ExecutionContext,
+  Inject,
   Injectable,
   type NestInterceptor
 } from '@nestjs/common';
 import { type Observable, tap } from 'rxjs';
 
-import { type AppLogger } from '../logging/logger.service.js';
-import { type MetricsService } from '../metrics/metrics.service.js';
+import { AppLogger } from '../logging/logger.service.js';
+import { MetricsService } from '../metrics/metrics.service.js';
 import { resolveRequestContext } from '../utils/request.js';
 
 @Injectable()
 export class RequestObservabilityInterceptor implements NestInterceptor {
   constructor(
-    private readonly logger: AppLogger,
-    private readonly metrics: MetricsService
+    @Inject(AppLogger) private readonly logger: AppLogger,
+    @Inject(MetricsService) private readonly metrics: MetricsService
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {

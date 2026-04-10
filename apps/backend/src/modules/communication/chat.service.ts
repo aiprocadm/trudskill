@@ -1,7 +1,7 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 
-import { type NotificationsService } from './notifications.service.js';
-import { type RealtimeEventsService } from '../core/realtime-events.service.js';
+import { NotificationsService } from './notifications.service.js';
+import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
 const CHAT_MESSAGE_CREATED_EVENT = 'chat.message.created';
 
@@ -41,8 +41,8 @@ export class ChatService {
   private messages: Message[] = [];
 
   constructor(
-    private readonly realtime: RealtimeEventsService,
-    private readonly notifications: NotificationsService
+    @Inject(RealtimeEventsService) private readonly realtime: RealtimeEventsService,
+    @Inject(NotificationsService) private readonly notifications: NotificationsService
   ) {}
 
   listDialogs(tenantId: string, userId?: string) {

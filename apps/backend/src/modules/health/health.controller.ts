@@ -1,17 +1,17 @@
-import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import { Controller, Get, Inject, ServiceUnavailableException } from '@nestjs/common';
 
-import { type RedisService } from '../../infrastructure/cache/redis.service.js';
-import { type DatabaseService } from '../../infrastructure/database/database.service.js';
-import { type RabbitMqService } from '../../infrastructure/messaging/rabbitmq.service.js';
-import { type S3StorageClient } from '../../infrastructure/storage/s3-storage.client.js';
+import { RedisService } from '../../infrastructure/cache/redis.service.js';
+import { DatabaseService } from '../../infrastructure/database/database.service.js';
+import { RabbitMqService } from '../../infrastructure/messaging/rabbitmq.service.js';
+import { S3StorageClient } from '../../infrastructure/storage/s3-storage.client.js';
 
 @Controller('health')
 export class HealthController {
   constructor(
-    private readonly db: DatabaseService,
-    private readonly redis: RedisService,
-    private readonly rabbit: RabbitMqService,
-    private readonly storage: S3StorageClient
+    @Inject(DatabaseService) private readonly db: DatabaseService,
+    @Inject(RedisService) private readonly redis: RedisService,
+    @Inject(RabbitMqService) private readonly rabbit: RabbitMqService,
+    @Inject(S3StorageClient) private readonly storage: S3StorageClient
   ) {}
 
   @Get('live')

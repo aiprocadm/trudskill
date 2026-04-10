@@ -1,6 +1,17 @@
-import { Body, Controller, Get, Param, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+  UseGuards
+} from '@nestjs/common';
 
-import { type MvpService } from './mvp.service.js';
+import { MvpService } from './mvp.service.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
@@ -42,7 +53,7 @@ import type { RequestContext } from '../../common/context/request-context.js';
 @Controller()
 @UseGuards(TenantGuard)
 export class MvpController {
-  constructor(private readonly mvpService: MvpService) {}
+  constructor(@Inject(MvpService) private readonly mvpService: MvpService) {}
 
   @Get('counterparties')
   @UseGuards(PermissionGuard)

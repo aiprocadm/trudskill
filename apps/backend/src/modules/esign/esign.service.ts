@@ -1,9 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import { EsignStateMachine } from './esign.policy.js';
-import { type AuditService } from '../audit/audit.service.js';
-import { type RealtimeEventsService } from '../core/realtime-events.service.js';
-import { type DocumentsService } from '../documents/documents.service.js';
+import { AuditService } from '../audit/audit.service.js';
+import { RealtimeEventsService } from '../core/realtime-events.service.js';
+import { DocumentsService } from '../documents/documents.service.js';
 
 import type {
   CreateEsignApplicationFileRequest,
@@ -39,9 +39,9 @@ export class EsignService {
   private idempotency = new Map<string, string>();
 
   constructor(
-    private readonly auditService: AuditService,
-    private readonly documentsService: DocumentsService,
-    private readonly realtimeEvents: RealtimeEventsService
+    @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DocumentsService) private readonly documentsService: DocumentsService,
+    @Inject(RealtimeEventsService) private readonly realtimeEvents: RealtimeEventsService
   ) {}
 
   listApplications(tenantId: string, q: EsignBaseFilter) {

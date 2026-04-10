@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
-import { type RealtimeEventsService } from '../core/realtime-events.service.js';
+import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
 const WEBINAR_UPDATED_EVENT = 'webinar.updated';
 
@@ -39,7 +39,7 @@ export class WebinarsService {
   private webinars: Webinar[] = [];
   private participants: WebinarParticipant[] = [];
 
-  constructor(private readonly realtime: RealtimeEventsService) {}
+  constructor(@Inject(RealtimeEventsService) private readonly realtime: RealtimeEventsService) {}
 
   list(tenantId: string) {
     return this.webinars.filter((item) => item.tenantId === tenantId);

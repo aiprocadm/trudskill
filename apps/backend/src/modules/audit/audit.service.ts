@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
-import { Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 
-import { type DatabaseService } from '../../infrastructure/database/database.service.js';
+import { DatabaseService } from '../../infrastructure/database/database.service.js';
 
 export interface AuditLogRecord {
   id: string;
@@ -23,7 +23,9 @@ export interface AuditLogRecord {
 export class AuditService {
   private readonly records: AuditLogRecord[] = [];
 
-  constructor(@Optional() private readonly databaseService?: DatabaseService) {}
+  constructor(
+    @Optional() @Inject(DatabaseService) private readonly databaseService?: DatabaseService
+  ) {}
 
   write(
     record: Omit<AuditLogRecord, 'id' | 'createdAt'>,

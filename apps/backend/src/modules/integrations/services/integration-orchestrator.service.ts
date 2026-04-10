@@ -1,10 +1,10 @@
-import { Injectable, NotFoundException, PreconditionFailedException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, PreconditionFailedException } from '@nestjs/common';
 
-import { type AdapterResolver } from './adapter-resolver.service.js';
-import { type IdempotencyService } from './idempotency.service.js';
-import { type IntegrationCryptoService } from './integration-crypto.service.js';
-import { type AuditService } from '../../audit/audit.service.js';
-import { type RealtimeEventsService } from '../../core/realtime-events.service.js';
+import { AdapterResolver } from './adapter-resolver.service.js';
+import { IdempotencyService } from './idempotency.service.js';
+import { IntegrationCryptoService } from './integration-crypto.service.js';
+import { AuditService } from '../../audit/audit.service.js';
+import { RealtimeEventsService } from '../../core/realtime-events.service.js';
 
 import type { RequestContext } from '../../../common/context/request-context.js';
 import type {
@@ -50,11 +50,11 @@ export class IntegrationOrchestratorService {
   private idempotencyInFlight = new Set<string>();
 
   constructor(
-    private readonly crypto: IntegrationCryptoService,
-    private readonly idempotency: IdempotencyService,
-    private readonly adapterResolver: AdapterResolver,
-    private readonly audit: AuditService,
-    private readonly realtime: RealtimeEventsService
+    @Inject(IntegrationCryptoService) private readonly crypto: IntegrationCryptoService,
+    @Inject(IdempotencyService) private readonly idempotency: IdempotencyService,
+    @Inject(AdapterResolver) private readonly adapterResolver: AdapterResolver,
+    @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(RealtimeEventsService) private readonly realtime: RealtimeEventsService
   ) {}
 
   listProviders(query?: ListQuery) {

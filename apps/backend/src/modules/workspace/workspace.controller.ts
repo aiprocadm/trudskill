@@ -1,6 +1,6 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Inject, UseGuards } from '@nestjs/common';
 
-import { type WorkspaceService } from './workspace.service.js';
+import { WorkspaceService } from './workspace.service.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
@@ -11,7 +11,7 @@ import type { RequestContext } from '../../common/context/request-context.js';
 @Controller()
 @UseGuards(TenantGuard, PermissionGuard)
 export class WorkspaceController {
-  constructor(private readonly workspaceService: WorkspaceService) {}
+  constructor(@Inject(WorkspaceService) private readonly workspaceService: WorkspaceService) {}
 
   @Get('workspace/summary')
   @RequirePermissions('tenant.read')

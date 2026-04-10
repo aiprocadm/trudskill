@@ -1,13 +1,14 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
   PreconditionFailedException
 } from '@nestjs/common';
 
-import { type TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
-import { type AuditService } from '../audit/audit.service.js';
+import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
+import { AuditService } from '../audit/audit.service.js';
 
 import type {
   BaseFilterQuery,
@@ -116,8 +117,8 @@ export class MvpService {
   private assignmentReviews: AssignmentReview[] = [];
 
   constructor(
-    private readonly tenantScopedRepository: TenantScopedRepository,
-    private readonly auditService: AuditService
+    @Inject(TenantScopedRepository) private readonly tenantScopedRepository: TenantScopedRepository,
+    @Inject(AuditService) private readonly auditService: AuditService
   ) {}
 
   listCounterparties(tenantId: string, query: BaseFilterQuery): ListResponse<Counterparty> {

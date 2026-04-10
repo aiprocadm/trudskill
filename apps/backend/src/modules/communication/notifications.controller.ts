@@ -1,6 +1,6 @@
-import { Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Inject, Param, Post, Query, UseGuards } from '@nestjs/common';
 
-import { type NotificationsService } from './notifications.service.js';
+import { NotificationsService } from './notifications.service.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
 
@@ -9,7 +9,7 @@ import type { RequestContext } from '../../common/context/request-context.js';
 @Controller('notifications')
 @UseGuards(TenantGuard)
 export class NotificationsController {
-  constructor(private readonly service: NotificationsService) {}
+  constructor(@Inject(NotificationsService) private readonly service: NotificationsService) {}
 
   @Get()
   list(@CurrentContext() ctx: RequestContext, @Query() query: Record<string, string | undefined>) {

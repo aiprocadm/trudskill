@@ -1,12 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException
 } from '@nestjs/common';
 
-import { type AuditService } from '../audit/audit.service.js';
-import { type RealtimeEventsService } from '../core/realtime-events.service.js';
+import { AuditService } from '../audit/audit.service.js';
+import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
 import type {
   BaseFilter,
@@ -59,8 +60,8 @@ export class DocumentsService {
   private idem = new Map<string, { taskId: string; expiresAt: number }>();
 
   constructor(
-    private readonly auditService: AuditService,
-    private readonly realtimeEvents: RealtimeEventsService
+    @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(RealtimeEventsService) private readonly realtimeEvents: RealtimeEventsService
   ) {}
 
   listTemplates(tenantId: string, query: BaseFilter) {

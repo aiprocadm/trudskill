@@ -1,7 +1,7 @@
-import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 
-import { type DatabaseService } from '../../infrastructure/database/database.service.js';
-import { type RealtimeEventsService } from '../core/realtime-events.service.js';
+import { DatabaseService } from '../../infrastructure/database/database.service.js';
+import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
 const NOTIFICATION_CREATED_EVENT = 'notification.created';
 const NOTIFICATION_READ_EVENT = 'notification.read';
@@ -28,8 +28,8 @@ export class NotificationsService {
   private notifications: NotificationEntity[] = [];
 
   constructor(
-    private readonly realtime: RealtimeEventsService,
-    @Optional() private readonly databaseService?: DatabaseService
+    @Inject(RealtimeEventsService) private readonly realtime: RealtimeEventsService,
+    @Optional() @Inject(DatabaseService) private readonly databaseService?: DatabaseService
   ) {}
 
   async list(
