@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
 import { UnauthorizedException } from '@nestjs/common';
-import { AuditService } from '../audit/audit.service.js';
+import { describe, expect, it } from 'vitest';
+
 import { verifyPassword } from './crypto.util.js';
+import { AuditService } from '../audit/audit.service.js';
 import { AuthService } from './services/auth.service.js';
 import { IamService } from './services/iam.service.js';
 
@@ -17,9 +18,9 @@ const context = {
 describe('auth foundation', () => {
   it('verifies password hash', async () => {
     const iam = new IamService(new AuditService());
-    const user = await iam.findUserByLogin('tenant_demo', 'tenant_admin');
-    expect(user).toBeDefined();
-    expect(verifyPassword('Password123!', user!.passwordHash)).toBe(true);
+    const resolved = await iam.findUserByLogin('tenant_demo', 'tenant_admin');
+    expect(resolved).toBeDefined();
+    expect(verifyPassword('Password123!', resolved!.user.passwordHash)).toBe(true);
   });
 
   it('rotates refresh token and invalidates previous one', async () => {
@@ -27,11 +28,17 @@ describe('auth foundation', () => {
     const iam = new IamService(audit);
     const auth = new AuthService(iam, audit);
 
-    const login = await auth.login('tenant_demo', { login: 'tenant_admin', password: 'Password123!' }, context);
+    const login = await auth.login(
+      'tenant_demo',
+      { login: 'tenant_admin', password: 'Password123!' },
+      context
+    );
     const rotated = await auth.refresh('tenant_demo', login.refreshToken, context);
 
     expect(rotated.refreshToken).not.toEqual(login.refreshToken);
-    await expect(auth.refresh('tenant_demo', login.refreshToken, context)).rejects.toThrow(UnauthorizedException);
+    await expect(auth.refresh('tenant_demo', login.refreshToken, context)).rejects.toThrow(
+      UnauthorizedException
+    );
   });
 
   it('rejects blocked user login', async () => {
@@ -57,9 +64,17 @@ describe('auth foundation', () => {
     const audit = new AuditService();
     const iam = new IamService(audit);
 
-    await iam.setUserRoles('tenant_demo', 'u_manager', ['manager', 'methodist'], 'u_tenant_admin', 'req_2');
+    await iam.setUserRoles(
+      'tenant_demo',
+      'u_manager',
+      ['manager', 'methodist'],
+      'u_tenant_admin',
+      'req_2'
+    );
 
-    expect((await audit.list()).some((record) => record.action === 'iam.user_roles_updated')).toBe(true);
+    expect((await audit.list()).some((record) => record.action === 'iam.user_roles_updated')).toBe(
+      true
+    );
   });
 
   it('revokes only current session on logout', async () => {
@@ -67,8 +82,16 @@ describe('auth foundation', () => {
     const iam = new IamService(audit);
     const auth = new AuthService(iam, audit);
 
-    const first = await auth.login('tenant_demo', { login: 'tenant_admin', password: 'Password123!' }, context);
-    const second = await auth.login('tenant_demo', { login: 'tenant_admin', password: 'Password123!' }, context);
+    const first = await auth.login(
+      'tenant_demo',
+      { login: 'tenant_admin', password: 'Password123!' },
+      context
+    );
+    const second = await auth.login(
+      'tenant_demo',
+      { login: 'tenant_admin', password: 'Password123!' },
+      context
+    );
     await auth.logout('tenant_demo', 'u_tenant_admin', second.sessionId, context);
 
     const sessions = await auth.listSessions('tenant_demo', 'u_tenant_admin');
@@ -80,7 +103,11 @@ describe('auth foundation', () => {
     const audit = new AuditService();
     const iam = new IamService(audit);
     const auth = new AuthService(iam, audit);
-    const login = await auth.login('tenant_demo', { login: 'tenant_admin', password: 'Password123!' }, context);
+    const login = await auth.login(
+      'tenant_demo',
+      { login: 'tenant_admin', password: 'Password123!' },
+      context
+    );
 
     const results = await Promise.allSettled(
       Array.from({ length: 20 }, () => auth.refresh('tenant_demo', login.refreshToken, context))

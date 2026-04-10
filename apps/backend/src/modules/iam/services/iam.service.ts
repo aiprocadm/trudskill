@@ -1,9 +1,14 @@
-import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+
+import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
+
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 import { AuditService } from '../../audit/audit.service.js';
-import type { Permission, Role, User, UserPublicDto } from '../iam.types.js';
 import { hashPassword } from '../crypto.util.js';
+
+import type { Permission, Role, User, UserPublicDto } from '../iam.types.js';
+
+export type ResolvedLoginUser = { user: User; databaseBacked: boolean };
 
 @Injectable()
 export class IamService {
@@ -56,7 +61,12 @@ export class IamService {
   ];
 
   private readonly fallbackRoles: Role[] = [
-    { id: 'r_platform_admin', tenantId: 'tenant_demo', code: 'platform_admin', name: 'Platform admin' },
+    {
+      id: 'r_platform_admin',
+      tenantId: 'tenant_demo',
+      code: 'platform_admin',
+      name: 'Platform admin'
+    },
     { id: 'r_tenant_admin', tenantId: 'tenant_demo', code: 'tenant_admin', name: 'Tenant admin' },
     { id: 'r_manager', tenantId: 'tenant_demo', code: 'manager', name: 'Manager' },
     { id: 'r_methodist', tenantId: 'tenant_demo', code: 'methodist', name: 'Methodist' }
@@ -77,13 +87,17 @@ export class IamService {
   ]);
 
   constructor(
+    @Inject(AuditService)
     private readonly auditService: AuditService,
-    @Optional() private readonly databaseService?: DatabaseService
+    @Inject(DatabaseService)
+    @Optional()
+    private readonly databaseService?: DatabaseService
   ) {}
 
-  async findUserByLogin(tenantId: string, login: string): Promise<User | undefined> {
+  async findUserByLogin(tenantId: string, login: string): Promise<ResolvedLoginUser | undefined> {
     if (!this.databaseService) {
-      return this.fallbackUsers.find((user) => user.tenantId === tenantId && user.login === login);
+      const user = this.fallbackUsers.find((u) => u.tenantId === tenantId && u.login === login);
+      return user ? { user, databaseBacked: false } : undefined;
     }
 
     const rows = await this.databaseService.query<{
@@ -104,12 +118,40 @@ export class IamService {
       [tenantId, login]
     );
 
-    return rows[0] ? this.toUser(rows[0]) : undefined;
+    if (rows[0]) {
+      return { user: this.toUser(rows[0]), databaseBacked: true };
+    }
+
+    const fallback = this.fallbackUsers.find(
+      (user) => user.tenantId === tenantId && user.login === login
+    );
+    return fallback ? { user: fallback, databaseBacked: false } : undefined;
+  }
+
+  /** Пользователь есть в БД (не только dev-fallback в памяти). */
+  async isUserPersistedInDatabase(tenantId: string, userId: string): Promise<boolean> {
+    if (!this.databaseService) {
+      return false;
+    }
+
+    const rows = await this.databaseService.query<{ one: number }>(
+      `
+        select 1 as one
+        from iam.users
+        where tenant_id = $1 and id = $2 and deleted_at is null
+        limit 1
+      `,
+      [tenantId, userId]
+    );
+
+    return rows.length > 0;
   }
 
   async getUser(tenantId: string, userId: string): Promise<User> {
     if (!this.databaseService) {
-      const user = this.fallbackUsers.find((item) => item.id === userId && item.tenantId === tenantId);
+      const user = this.fallbackUsers.find(
+        (item) => item.id === userId && item.tenantId === tenantId
+      );
       if (!user) {
         throw new NotFoundException({ code: 'user_not_found', message: 'User not found' });
       }
@@ -135,11 +177,18 @@ export class IamService {
     );
 
     const user = rows[0];
-    if (!user) {
-      throw new NotFoundException({ code: 'user_not_found', message: 'User not found' });
+    if (user) {
+      return this.toUser(user);
     }
 
-    return this.toUser(user);
+    const fallbackUser = this.fallbackUsers.find(
+      (item) => item.id === userId && item.tenantId === tenantId
+    );
+    if (fallbackUser) {
+      return fallbackUser;
+    }
+
+    throw new NotFoundException({ code: 'user_not_found', message: 'User not found' });
   }
 
   async listUsers(tenantId: string): Promise<User[]> {
@@ -170,7 +219,13 @@ export class IamService {
 
   async createUser(
     tenantId: string,
-    payload: { login: string; email?: string | null; displayName: string; status?: 'active' | 'blocked'; password?: string }
+    payload: {
+      login: string;
+      email?: string | null;
+      displayName: string;
+      status?: 'active' | 'blocked';
+      password?: string;
+    }
   ): Promise<User> {
     if (!this.databaseService) {
       const user: User = {
@@ -247,10 +302,14 @@ export class IamService {
       return this.fallbackRoles.filter((role) => role.tenantId === tenantId);
     }
 
-    const rows = await this.databaseService.query<{ id: string; tenant_id: string; code: string; name: string }>(
-      'select id, tenant_id, code, name from iam.roles where tenant_id = $1 order by code asc',
-      [tenantId]
-    );
+    const rows = await this.databaseService.query<{
+      id: string;
+      tenant_id: string;
+      code: string;
+      name: string;
+    }>('select id, tenant_id, code, name from iam.roles where tenant_id = $1 order by code asc', [
+      tenantId
+    ]);
 
     return rows.map((row) => ({
       id: row.id,
@@ -265,9 +324,11 @@ export class IamService {
       return [...this.fallbackPermissions];
     }
 
-    const rows = await this.databaseService.query<{ id: string; code: string; description: string }>(
-      'select id, code, description from iam.permissions order by code asc'
-    );
+    const rows = await this.databaseService.query<{
+      id: string;
+      code: string;
+      description: string;
+    }>('select id, code, description from iam.permissions order by code asc');
 
     return rows.map((row) => ({ id: row.id, code: row.code, description: row.description }));
   }
@@ -277,10 +338,17 @@ export class IamService {
 
     if (!this.databaseService) {
       const roleIds = this.fallbackUserRoles.get(userId) ?? [];
-      return this.fallbackRoles.filter((role) => role.tenantId === tenantId && roleIds.includes(role.id));
+      return this.fallbackRoles.filter(
+        (role) => role.tenantId === tenantId && roleIds.includes(role.id)
+      );
     }
 
-    const rows = await this.databaseService.query<{ id: string; tenant_id: string; code: string; name: string }>(
+    const rows = await this.databaseService.query<{
+      id: string;
+      tenant_id: string;
+      code: string;
+      name: string;
+    }>(
       `
         select r.id, r.tenant_id, r.code, r.name
         from iam.user_roles ur
@@ -291,7 +359,19 @@ export class IamService {
       [tenantId, userId]
     );
 
-    return rows.map((row) => ({ id: row.id, tenantId: row.tenant_id, code: row.code, name: row.name }));
+    if (rows.length > 0) {
+      return rows.map((row) => ({
+        id: row.id,
+        tenantId: row.tenant_id,
+        code: row.code,
+        name: row.name
+      }));
+    }
+
+    const roleIds = this.fallbackUserRoles.get(userId) ?? [];
+    return this.fallbackRoles.filter(
+      (role) => role.tenantId === tenantId && roleIds.includes(role.id)
+    );
   }
 
   async setUserRoles(
@@ -305,11 +385,19 @@ export class IamService {
     const previousRoles = (await this.getUserRoles(tenantId, userId)).map((role) => role.code);
 
     if (!this.databaseService) {
-      const selected = this.fallbackRoles.filter((role) => role.tenantId === tenantId && roleCodes.includes(role.code));
+      const selected = this.fallbackRoles.filter(
+        (role) => role.tenantId === tenantId && roleCodes.includes(role.code)
+      );
       if (selected.length !== roleCodes.length) {
-        throw new NotFoundException({ code: 'role_not_found', message: 'One or more roles not found' });
+        throw new NotFoundException({
+          code: 'role_not_found',
+          message: 'One or more roles not found'
+        });
       }
-      this.fallbackUserRoles.set(userId, selected.map((role) => role.id));
+      this.fallbackUserRoles.set(
+        userId,
+        selected.map((role) => role.id)
+      );
       this.auditService.write({
         tenantId,
         actorId,
@@ -323,17 +411,29 @@ export class IamService {
       return selected;
     }
 
-    const roles = await this.databaseService.query<{ id: string; tenant_id: string; code: string; name: string }>(
+    const roles = await this.databaseService.query<{
+      id: string;
+      tenant_id: string;
+      code: string;
+      name: string;
+    }>(
       'select id, tenant_id, code, name from iam.roles where tenant_id = $1 and code = any($2::text[])',
       [tenantId, roleCodes]
     );
 
     if (roles.length !== roleCodes.length) {
-      throw new NotFoundException({ code: 'role_not_found', message: 'One or more roles not found' });
+      throw new NotFoundException({
+        code: 'role_not_found',
+        message: 'One or more roles not found'
+      });
     }
 
     await this.databaseService.withTransaction(async (client) => {
-      await this.databaseService!.query('delete from iam.user_roles where tenant_id = $1 and user_id = $2', [tenantId, userId], client);
+      await this.databaseService!.query(
+        'delete from iam.user_roles where tenant_id = $1 and user_id = $2',
+        [tenantId, userId],
+        client
+      );
       for (const role of roles) {
         await this.databaseService!.query(
           'insert into iam.user_roles (id, tenant_id, user_id, role_id) values ($1, $2, $3, $4)',
@@ -354,7 +454,12 @@ export class IamService {
       newValues: { roleCodes }
     });
 
-    return roles.map((role) => ({ id: role.id, tenantId: role.tenant_id, code: role.code, name: role.name }));
+    return roles.map((role) => ({
+      id: role.id,
+      tenantId: role.tenant_id,
+      code: role.code,
+      name: role.name
+    }));
   }
 
   async resolvePermissions(tenantId: string, userId: string): Promise<string[]> {

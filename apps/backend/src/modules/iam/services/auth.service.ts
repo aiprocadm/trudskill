@@ -1,18 +1,21 @@
-import { Injectable, Optional, UnauthorizedException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { AuditService } from '../../audit/audit.service.js';
-import type { RequestContext } from '../../../common/context/request-context.js';
-import { DatabaseService } from '../../../infrastructure/database/database.service.js';
-import { backendEnv } from '../../../env.js';
+
+import { Inject, Injectable, Optional, UnauthorizedException } from '@nestjs/common';
+
 import { ensureInMemoryModeAllowed } from '../../../common/runtime/in-memory-mode.guard.js';
+import { backendEnv } from '../../../env.js';
+import { DatabaseService } from '../../../infrastructure/database/database.service.js';
+import { AuditService } from '../../audit/audit.service.js';
 import {
   hashRefreshToken,
   issueSignedAccessToken,
   issueToken,
   verifyPassword
 } from '../crypto.util.js';
-import type { AuthEvent, Session, User } from '../iam.types.js';
 import { IamService } from './iam.service.js';
+
+import type { RequestContext } from '../../../common/context/request-context.js';
+import type { AuthEvent, Session, User } from '../iam.types.js';
 
 export interface LoginPayload {
   login: string;
@@ -25,9 +28,13 @@ export class AuthService {
   private authEvents: AuthEvent[] = [];
 
   constructor(
+    @Inject(IamService)
     private readonly iamService: IamService,
+    @Inject(AuditService)
     private readonly auditService: AuditService,
-    @Optional() private readonly databaseService?: DatabaseService
+    @Inject(DatabaseService)
+    @Optional()
+    private readonly databaseService?: DatabaseService
   ) {
     if (!this.databaseService) {
       ensureInMemoryModeAllowed('AuthService');
@@ -35,13 +42,15 @@ export class AuthService {
   }
 
   async login(tenantId: string, payload: LoginPayload, context: RequestContext) {
-    const user = await this.iamService.findUserByLogin(tenantId, payload.login);
-    if (!user) {
+    const resolved = await this.iamService.findUserByLogin(tenantId, payload.login);
+    if (!resolved) {
       throw new UnauthorizedException({
         code: 'invalid_credentials',
         message: 'Invalid credentials'
       });
     }
+
+    const { user, databaseBacked } = resolved;
 
     if (user.status === 'blocked') {
       throw new UnauthorizedException({ code: 'user_blocked', message: 'User is blocked' });
@@ -54,18 +63,22 @@ export class AuthService {
       });
     }
 
-    const tokens = await this.createSession(user);
-    await this.pushAuthEvent(tenantId, user.id, 'login');
-    this.auditService.write({
-      tenantId,
-      actorId: user.id,
-      action: 'auth.login',
-      entityType: 'iam.user',
-      entityId: user.id,
-      requestId: context.requestId,
-      ip: context.ip,
-      userAgent: context.userAgent
-    });
+    const persistRelational = !this.databaseService || databaseBacked;
+    const tokens = await this.createSession(user, persistRelational);
+    await this.pushAuthEvent(tenantId, user.id, 'login', persistRelational);
+    this.auditService.write(
+      {
+        tenantId,
+        actorId: user.id,
+        action: 'auth.login',
+        entityType: 'iam.user',
+        entityId: user.id,
+        requestId: context.requestId,
+        ip: context.ip,
+        userAgent: context.userAgent
+      },
+      { skipDatabase: !persistRelational }
+    );
 
     return tokens;
   }
@@ -77,20 +90,24 @@ export class AuthService {
       throw new UnauthorizedException({ code: 'session_expired', message: 'Session expired' });
     }
     const user = await this.iamService.getUser(tenantId, activeSession.userId);
-    const nextTokens = await this.createSession(user);
-    await this.pushAuthEvent(tenantId, user.id, 'refresh');
-    this.auditService.write({
-      tenantId,
-      actorId: user.id,
-      action: 'auth.refresh',
-      entityType: 'iam.session',
-      entityId: activeSession.id,
-      requestId: context.requestId,
-      ip: context.ip,
-      userAgent: context.userAgent,
-      oldValues: { revokedAt: null },
-      newValues: { revokedAt: new Date().toISOString() }
-    });
+    const persistRelational = await this.shouldPersistRelationalSideEffects(tenantId, user.id);
+    const nextTokens = await this.createSession(user, persistRelational);
+    await this.pushAuthEvent(tenantId, user.id, 'refresh', persistRelational);
+    this.auditService.write(
+      {
+        tenantId,
+        actorId: user.id,
+        action: 'auth.refresh',
+        entityType: 'iam.session',
+        entityId: activeSession.id,
+        requestId: context.requestId,
+        ip: context.ip,
+        userAgent: context.userAgent,
+        oldValues: { revokedAt: null },
+        newValues: { revokedAt: new Date().toISOString() }
+      },
+      { skipDatabase: !persistRelational }
+    );
 
     return nextTokens;
   }
@@ -107,15 +124,19 @@ export class AuthService {
     }
 
     await this.revokeSessionInternal(session.id, tenantId, userId);
-    await this.pushAuthEvent(tenantId, userId, 'logout');
-    this.auditService.write({
-      tenantId,
-      actorId: userId,
-      action: 'auth.logout',
-      entityType: 'iam.session',
-      entityId: session.id,
-      requestId: context.requestId
-    });
+    const persistRelational = await this.shouldPersistRelationalSideEffects(tenantId, userId);
+    await this.pushAuthEvent(tenantId, userId, 'logout', persistRelational);
+    this.auditService.write(
+      {
+        tenantId,
+        actorId: userId,
+        action: 'auth.logout',
+        entityType: 'iam.session',
+        entityId: session.id,
+        requestId: context.requestId
+      },
+      { skipDatabase: !persistRelational }
+    );
   }
 
   async listSessions(tenantId: string, userId: string): Promise<Session[]> {
@@ -142,14 +163,27 @@ export class AuthService {
       [tenantId, userId]
     );
 
-    return rows.map((row) => ({
-      id: row.id,
-      tenantId: row.tenant_id,
-      userId: row.user_id,
-      refreshTokenHash: row.refresh_token_hash,
-      expiresAt: row.expires_at,
-      revokedAt: row.revoked_at ?? undefined
-    }));
+    const fromDb = new Map<string, Session>(
+      rows.map((row) => [
+        row.id,
+        {
+          id: row.id,
+          tenantId: row.tenant_id,
+          userId: row.user_id,
+          refreshTokenHash: row.refresh_token_hash,
+          expiresAt: row.expires_at,
+          revokedAt: row.revoked_at ?? undefined
+        }
+      ])
+    );
+
+    for (const session of this.sessions) {
+      if (session.tenantId === tenantId && session.userId === userId && !fromDb.has(session.id)) {
+        fromDb.set(session.id, session);
+      }
+    }
+
+    return [...fromDb.values()].sort((a, b) => Date.parse(b.expiresAt) - Date.parse(a.expiresAt));
   }
 
   async revokeSession(
@@ -164,17 +198,21 @@ export class AuthService {
     }
 
     await this.revokeSessionInternal(session.id, tenantId, session.userId);
-    await this.pushAuthEvent(tenantId, actorId, 'session_revoke');
-    this.auditService.write({
-      tenantId,
-      actorId,
-      action: 'auth.session_revoke',
-      entityType: 'iam.session',
-      entityId: session.id,
-      requestId: context.requestId,
-      oldValues: { revokedAt: null },
-      newValues: { revokedAt: new Date().toISOString() }
-    });
+    const persistRelational = await this.shouldPersistRelationalSideEffects(tenantId, actorId);
+    await this.pushAuthEvent(tenantId, actorId, 'session_revoke', persistRelational);
+    this.auditService.write(
+      {
+        tenantId,
+        actorId,
+        action: 'auth.session_revoke',
+        entityType: 'iam.session',
+        entityId: session.id,
+        requestId: context.requestId,
+        oldValues: { revokedAt: null },
+        newValues: { revokedAt: new Date().toISOString() }
+      },
+      { skipDatabase: !persistRelational }
+    );
   }
 
   async isSessionActive(tenantId: string, userId: string, sessionId: string): Promise<boolean> {
@@ -202,17 +240,27 @@ export class AuthService {
         `,
         [tenantId, userId]
       );
+      this.sessions = this.sessions.map((session) => {
+        if (session.tenantId === tenantId && session.userId === userId && !session.revokedAt) {
+          return { ...session, revokedAt: new Date().toISOString() };
+        }
+        return session;
+      });
     }
 
-    await this.pushAuthEvent(tenantId, userId, 'logout_all');
-    this.auditService.write({
-      tenantId,
-      actorId: userId,
-      action: 'auth.logout_all',
-      entityType: 'iam.session',
-      entityId: userId,
-      requestId: context.requestId
-    });
+    const persistRelational = await this.shouldPersistRelationalSideEffects(tenantId, userId);
+    await this.pushAuthEvent(tenantId, userId, 'logout_all', persistRelational);
+    this.auditService.write(
+      {
+        tenantId,
+        actorId: userId,
+        action: 'auth.logout_all',
+        entityType: 'iam.session',
+        entityId: userId,
+        requestId: context.requestId
+      },
+      { skipDatabase: !persistRelational }
+    );
   }
 
   async getAuthEvents(tenantId: string): Promise<AuthEvent[]> {
@@ -236,16 +284,30 @@ export class AuthService {
       [tenantId]
     );
 
-    return rows.map((row) => ({
+    const fromDb = rows.map((row) => ({
       id: row.id,
       tenantId: row.tenant_id,
       userId: row.user_id,
       type: row.type,
       createdAt: row.created_at
     }));
+
+    const fromMemory = this.authEvents.filter((event) => event.tenantId === tenantId);
+    return [...fromMemory, ...fromDb].sort(
+      (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)
+    );
   }
 
-  private async createSession(user: User) {
+  private async shouldPersistRelationalSideEffects(
+    tenantId: string,
+    userId: string
+  ): Promise<boolean> {
+    return (
+      !this.databaseService || (await this.iamService.isUserPersistedInDatabase(tenantId, userId))
+    );
+  }
+
+  private async createSession(user: User, persistRelational: boolean) {
     const refreshToken = issueToken();
     const session: Session = {
       id: `s_${randomUUID().replace(/-/g, '')}`,
@@ -255,7 +317,7 @@ export class AuthService {
       expiresAt: new Date(Date.now() + backendEnv.REFRESH_TOKEN_TTL_SECONDS * 1000).toISOString()
     };
 
-    if (!this.databaseService) {
+    if (!this.databaseService || !persistRelational) {
       this.sessions.push(session);
     } else {
       await this.databaseService.query(
@@ -290,7 +352,8 @@ export class AuthService {
   private async pushAuthEvent(
     tenantId: string,
     userId: string,
-    type: AuthEvent['type']
+    type: AuthEvent['type'],
+    persistRelational: boolean
   ): Promise<void> {
     const event: AuthEvent = {
       id: `ae_${randomUUID().replace(/-/g, '')}`,
@@ -300,7 +363,7 @@ export class AuthService {
       createdAt: new Date().toISOString()
     };
 
-    if (!this.databaseService) {
+    if (!this.databaseService || !persistRelational) {
       this.authEvents.push(event);
       return;
     }
@@ -344,18 +407,21 @@ export class AuthService {
     );
 
     const row = rows[0];
-    if (!row) {
-      return undefined;
+    if (row) {
+      return {
+        id: row.id,
+        tenantId: row.tenant_id,
+        userId: row.user_id,
+        refreshTokenHash: row.refresh_token_hash,
+        expiresAt: row.expires_at,
+        revokedAt: row.revoked_at ?? undefined
+      };
     }
 
-    return {
-      id: row.id,
-      tenantId: row.tenant_id,
-      userId: row.user_id,
-      refreshTokenHash: row.refresh_token_hash,
-      expiresAt: row.expires_at,
-      revokedAt: row.revoked_at ?? undefined
-    };
+    return this.sessions.find(
+      (item) =>
+        item.id === sessionId && item.tenantId === tenantId && (!userId || item.userId === userId)
+    );
   }
 
   private async consumeRefreshSession(
@@ -427,14 +493,24 @@ export class AuthService {
       } as Session;
     });
 
-    if (!consumed) {
+    if (consumed) {
+      return consumed;
+    }
+
+    const activeSession = this.sessions.find(
+      (session) =>
+        session.tenantId === tenantId &&
+        !session.revokedAt &&
+        session.refreshTokenHash === refreshTokenHash
+    );
+    if (!activeSession) {
       throw new UnauthorizedException({
         code: 'invalid_refresh',
         message: 'Refresh token is invalid'
       });
     }
-
-    return consumed;
+    activeSession.revokedAt = new Date().toISOString();
+    return activeSession;
   }
 
   private async revokeSessionInternal(
@@ -464,5 +540,11 @@ export class AuthService {
       `,
       [sessionId, tenantId, userId]
     );
+    this.sessions = this.sessions.map((session) => {
+      if (session.id === sessionId && session.tenantId === tenantId && session.userId === userId) {
+        return { ...session, revokedAt: new Date().toISOString() };
+      }
+      return session;
+    });
   }
 }
