@@ -56,6 +56,38 @@ export class WorkspaceService {
           }
         ]
       }
+    ],
+    [
+      't1',
+      {
+        tasks: [
+          {
+            id: 'task_review_sign_t1',
+            tenantId: 't1',
+            title: 'Проверить пакет документов на подпись',
+            status: 'in_progress',
+            dueAt: '2099-01-01T10:00:00.000Z',
+            route: '/esign'
+          },
+          {
+            id: 'task_publish_course_t1',
+            tenantId: 't1',
+            title: 'Опубликовать обновленный учебный курс',
+            status: 'open',
+            dueAt: '2099-01-02T12:00:00.000Z',
+            route: '/courses'
+          }
+        ],
+        blockers: [
+          {
+            id: 'blocker_integration_token_t1',
+            tenantId: 't1',
+            title: 'Требуется обновление токена интеграции',
+            severity: 'high',
+            route: '/integrations'
+          }
+        ]
+      }
     ]
   ]);
 

@@ -1,6 +1,9 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+
 import { issueSignedAccessToken } from '../../modules/iam/crypto.util.js';
+
+import type { TenantGuard } from './tenant.guard.js';
 
 vi.mock('../../env.js', () => ({
   backendEnv: {
@@ -8,7 +11,7 @@ vi.mock('../../env.js', () => ({
   }
 }));
 
-let TenantGuardClass: typeof import('./tenant.guard.js').TenantGuard;
+let TenantGuardClass: { new (): TenantGuard };
 
 const makeExecutionContext = (headers: Record<string, string>, path = '/api/v1/documents') => ({
   switchToHttp: () => ({

@@ -1,13 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
+
 import { DocumentGenerationPipeline, ErrorNameRetryPolicy } from './document-pipeline.js';
 
 describe('DocumentGenerationPipeline', () => {
   it('processes one job to one generated document', async () => {
     const registerGenerated = vi.fn().mockResolvedValue({ generatedDocumentId: 'g1' });
+    const render = vi.fn().mockResolvedValue({ fileId: 'file_1' });
     const pipeline = new DocumentGenerationPipeline({
       setRunning: vi.fn().mockResolvedValue(undefined),
       reserveNumber: vi.fn().mockResolvedValue('DOC-000001'),
-      render: vi.fn().mockResolvedValue({ fileId: 'file_1' }),
+      render,
       registerGenerated,
       setCompleted: vi.fn().mockResolvedValue(undefined),
       setFailed: vi.fn().mockResolvedValue(undefined)
@@ -16,6 +18,8 @@ describe('DocumentGenerationPipeline', () => {
     const result = await pipeline.handle({
       id: 't1',
       tenantId: 'tenant-1',
+      correlationId: 'corr-1',
+      actorId: 'user-1',
       status: 'queued',
       documentType: 'default',
       sourceEntityType: 'group',
@@ -25,14 +29,19 @@ describe('DocumentGenerationPipeline', () => {
 
     expect(result.status).toBe('completed');
     expect(registerGenerated).toHaveBeenCalledTimes(1);
+    expect(render).toHaveBeenCalledWith({
+      taskId: 't1',
+      tenantId: 'tenant-1',
+      correlationId: 'corr-1',
+      actorId: 'user-1',
+      number: 'DOC-000001',
+      templateVersionId: 'v1'
+    });
   });
 
   it('does not execute side effects for duplicate delivery when task is already claimed', async () => {
     const registerGenerated = vi.fn().mockResolvedValue({ generatedDocumentId: 'g1' });
-    const setRunning = vi
-      .fn()
-      .mockResolvedValueOnce(true)
-      .mockResolvedValueOnce(false);
+    const setRunning = vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false);
     const pipeline = new DocumentGenerationPipeline({
       setRunning,
       reserveNumber: vi.fn().mockResolvedValue('DOC-000001'),
@@ -44,6 +53,8 @@ describe('DocumentGenerationPipeline', () => {
     const task = {
       id: 'same',
       tenantId: 'tenant-1',
+      correlationId: 'corr-1',
+      actorId: 'user-1',
       status: 'queued' as const,
       documentType: 'default',
       sourceEntityType: 'group',
@@ -74,6 +85,8 @@ describe('DocumentGenerationPipeline', () => {
     const result = await pipeline.handle({
       id: 't-fail',
       tenantId: 'tenant-1',
+      correlationId: 'corr-1',
+      actorId: 'user-1',
       status: 'queued',
       documentType: 'default',
       sourceEntityType: 'group',
@@ -82,7 +95,11 @@ describe('DocumentGenerationPipeline', () => {
     });
 
     expect(result.status).toEqual('failed');
-    expect(setFailed).toHaveBeenCalledWith('t-fail', 'broken renderer');
+    expect(setFailed).toHaveBeenCalledWith('t-fail', {
+      message: 'broken renderer',
+      errorName: 'Error',
+      retryDecision: 'fail'
+    });
   });
 
   it('returns queued for retryable failures and does not emit failed side effect', async () => {
@@ -105,6 +122,8 @@ describe('DocumentGenerationPipeline', () => {
     const result = await pipeline.handle({
       id: 't-retry',
       tenantId: 'tenant-1',
+      correlationId: 'corr-1',
+      actorId: 'user-1',
       status: 'queued',
       documentType: 'default',
       sourceEntityType: 'group',
@@ -114,6 +133,11 @@ describe('DocumentGenerationPipeline', () => {
 
     expect(result.status).toBe('queued');
     expect(result.errorMessage).toBe('renderer timeout');
+    expect(result.failureDiagnostics).toEqual({
+      message: 'renderer timeout',
+      errorName: 'TimeoutError',
+      retryDecision: 'retry'
+    });
     expect(setFailed).not.toHaveBeenCalled();
   });
 });

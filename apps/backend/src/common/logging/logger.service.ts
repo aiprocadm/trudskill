@@ -1,10 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { backendEnv } from '../../env.js';
+
 import { safeSerialize } from './redaction.util.js';
+import { backendEnv } from '../../env.js';
 
-const LEVELS = ['debug', 'info', 'warn', 'error', 'fatal'] as const;
-
-type LogLevel = (typeof LEVELS)[number];
+type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal';
 
 @Injectable()
 export class AppLogger {

@@ -3,11 +3,19 @@ export type TaskStatus = 'queued' | 'running' | 'completed' | 'failed';
 export interface DocumentTask {
   id: string;
   tenantId: string;
+  correlationId: string;
+  actorId: string;
   status: TaskStatus;
   documentType: string;
   sourceEntityType: string;
   sourceEntityId: string;
   templateVersionId: string;
+}
+
+export interface FailureDiagnostics {
+  message: string;
+  errorName: string;
+  retryDecision: RetryDecision;
 }
 
 export interface PipelineDeps {
@@ -16,7 +24,7 @@ export interface PipelineDeps {
   render: (payload: Record<string, unknown>) => Promise<{ fileId: string }>;
   registerGenerated: (payload: Record<string, unknown>) => Promise<{ generatedDocumentId: string }>;
   setCompleted: (taskId: string, generatedDocumentId: string) => Promise<void>;
-  setFailed: (taskId: string, errorMessage: string) => Promise<void>;
+  setFailed: (taskId: string, diagnostics: FailureDiagnostics) => Promise<void>;
 }
 
 export type RetryDecision = 'retry' | 'fail';
@@ -26,7 +34,11 @@ export interface RetryPolicy {
 }
 
 export class ErrorNameRetryPolicy implements RetryPolicy {
-  private readonly retryableNames = new Set(['TimeoutError', 'ServiceUnavailableError', 'RateLimitError']);
+  private readonly retryableNames = new Set([
+    'TimeoutError',
+    'ServiceUnavailableError',
+    'RateLimitError'
+  ]);
 
   decide(error: unknown): RetryDecision {
     if (error instanceof Error && this.retryableNames.has(error.name)) {
@@ -43,25 +55,60 @@ export class DocumentGenerationOrchestrator {
     private readonly retryPolicy: RetryPolicy
   ) {}
 
-  async execute(task: DocumentTask): Promise<{ taskId: string; status: TaskStatus; generatedDocumentId?: string; errorMessage?: string }> {
+  async execute(task: DocumentTask): Promise<{
+    taskId: string;
+    status: TaskStatus;
+    generatedDocumentId?: string;
+    errorMessage?: string;
+    failureDiagnostics?: FailureDiagnostics;
+  }> {
     const number = await this.deps.reserveNumber(task.tenantId, task.documentType);
-    const rendered = await this.deps.render({ taskId: task.id, number, templateVersionId: task.templateVersionId });
-    const generated = await this.deps.registerGenerated({ ...task, number, fileId: rendered.fileId });
+    const rendered = await this.deps.render({
+      taskId: task.id,
+      tenantId: task.tenantId,
+      correlationId: task.correlationId,
+      actorId: task.actorId,
+      number,
+      templateVersionId: task.templateVersionId
+    });
+    const generated = await this.deps.registerGenerated({
+      ...task,
+      number,
+      fileId: rendered.fileId
+    });
     await this.deps.setCompleted(task.id, generated.generatedDocumentId);
 
-    return { taskId: task.id, status: 'completed', generatedDocumentId: generated.generatedDocumentId };
+    return {
+      taskId: task.id,
+      status: 'completed',
+      generatedDocumentId: generated.generatedDocumentId
+    };
   }
 
-  async handleFailure(task: DocumentTask, error: unknown): Promise<{ taskId: string; status: TaskStatus; errorMessage: string }> {
+  async handleFailure(
+    task: DocumentTask,
+    error: unknown
+  ): Promise<{
+    taskId: string;
+    status: TaskStatus;
+    errorMessage: string;
+    failureDiagnostics: FailureDiagnostics;
+  }> {
     const errorMessage = error instanceof Error ? error.message : 'unknown worker error';
+    const errorName = error instanceof Error ? error.name : 'UnknownError';
     const retryDecision = this.retryPolicy.decide(error);
+    const failureDiagnostics: FailureDiagnostics = {
+      message: errorMessage,
+      errorName,
+      retryDecision
+    };
 
     if (retryDecision === 'retry') {
-      return { taskId: task.id, status: 'queued', errorMessage };
+      return { taskId: task.id, status: 'queued', errorMessage, failureDiagnostics };
     }
 
-    await this.deps.setFailed(task.id, errorMessage);
-    return { taskId: task.id, status: 'failed', errorMessage };
+    await this.deps.setFailed(task.id, failureDiagnostics);
+    return { taskId: task.id, status: 'failed', errorMessage, failureDiagnostics };
   }
 }
 
@@ -75,7 +122,13 @@ export class DocumentGenerationPipeline {
     this.orchestrator = new DocumentGenerationOrchestrator(deps, retryPolicy);
   }
 
-  async handle(task: DocumentTask): Promise<{ taskId: string; status: TaskStatus; generatedDocumentId?: string; errorMessage?: string }> {
+  async handle(task: DocumentTask): Promise<{
+    taskId: string;
+    status: TaskStatus;
+    generatedDocumentId?: string;
+    errorMessage?: string;
+    failureDiagnostics?: FailureDiagnostics;
+  }> {
     const claimed = await this.deps.setRunning(task.id);
     if (claimed === false) {
       return { taskId: task.id, status: 'queued' };
