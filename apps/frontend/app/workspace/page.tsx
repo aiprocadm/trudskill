@@ -36,6 +36,41 @@ interface WorkspaceBlockerItem {
   route: string;
 }
 
+export function resolveWorkspaceErrorMessage(err: unknown): string {
+  return err instanceof ApiClientError
+    ? err.normalized.message
+    : 'Не удалось загрузить рабочую сводку';
+}
+
+export function resolveWorkspaceState(params: {
+  sessionPresent: boolean;
+  loading: boolean;
+  error: string | null;
+  summary: WorkspaceSummary | null;
+  tasks: WorkspaceTaskItem[];
+  blockers: WorkspaceBlockerItem[];
+}) {
+  if (!params.sessionPresent || params.loading) {
+    return {
+      kind: 'loading' as const,
+      showSummary: false,
+      showNextActionsEmpty: false,
+      showTasksEmpty: false,
+      showBlockersEmpty: false
+    };
+  }
+
+  const hasSummary = Boolean(params.summary);
+  const hasNextActions = Boolean(params.summary?.nextActions?.length);
+  return {
+    kind: params.error ? ('error' as const) : ('ready' as const),
+    showSummary: !params.error && hasSummary,
+    showNextActionsEmpty: !hasNextActions,
+    showTasksEmpty: params.tasks.length === 0,
+    showBlockersEmpty: params.blockers.length === 0
+  };
+}
+
 export default function WorkspacePage() {
   const { session } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -62,11 +97,7 @@ export default function WorkspacePage() {
       setTasks(tasksInbox.items);
       setBlockers(blockersProjection.items);
     } catch (err) {
-      const message =
-        err instanceof ApiClientError
-          ? err.normalized.message
-          : 'Не удалось загрузить рабочую сводку';
-      setError(message);
+      setError(resolveWorkspaceErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -76,7 +107,16 @@ export default function WorkspacePage() {
     void reload();
   }, [session?.tokens.accessToken, session?.user.tenantId]);
 
-  if (!session || loading) {
+  const state = resolveWorkspaceState({
+    sessionPresent: Boolean(session),
+    loading,
+    error,
+    summary,
+    tasks,
+    blockers
+  });
+
+  if (state.kind === 'loading') {
     return (
       <ProtectedPage>
         <GlobalLoading message="Загружаем workspace..." />
@@ -93,23 +133,23 @@ export default function WorkspacePage() {
           actions={<button onClick={() => void reload()}>Обновить</button>}
         />
         {error ? <SectionError message={error} onRetry={() => void reload()} /> : null}
-        {!error && summary ? (
+        {state.showSummary ? (
           <SectionCard title="Ключевые показатели">
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              <strong>Overdue: {summary.overdueCount}</strong>
-              <strong>Blockers: {summary.blockersCount}</strong>
+              <strong>Overdue: {summary?.overdueCount ?? 0}</strong>
+              <strong>Blockers: {summary?.blockersCount ?? 0}</strong>
             </div>
           </SectionCard>
         ) : null}
 
         <SectionCard title="Следующие действия">
-          {summary?.nextActions?.length ? (
+          {!state.showNextActionsEmpty ? (
             <ul style={{ margin: 0, paddingLeft: 18 }}>
-              {summary.nextActions.map((item) => (
+              {summary?.nextActions.map((item) => (
                 <li key={item.id}>
                   {item.title} ({item.route})
                 </li>
-              ))}
+              )) ?? null}
             </ul>
           ) : (
             <SectionEmpty message="Нет следующих действий" />
@@ -117,7 +157,7 @@ export default function WorkspacePage() {
         </SectionCard>
 
         <SectionCard title="Task inbox">
-          {tasks.length ? (
+          {!state.showTasksEmpty ? (
             <ul style={{ margin: 0, paddingLeft: 18 }}>
               {tasks.map((task) => (
                 <li key={task.id}>
@@ -131,7 +171,7 @@ export default function WorkspacePage() {
         </SectionCard>
 
         <SectionCard title="Blockers">
-          {blockers.length ? (
+          {!state.showBlockersEmpty ? (
             <ul style={{ margin: 0, paddingLeft: 18 }}>
               {blockers.map((item) => (
                 <li key={item.id}>

@@ -1,6 +1,6 @@
 # ENTERPRISE OPERATIONAL NEXT STEPS (Wave 1 Proposal)
 
-Дата: 2026-03-24
+Дата: 2026-04-10
 
 ## Objective of Wave 1
 
@@ -17,6 +17,8 @@
 
 ### 1) Backend guardrails
 
+Статус: частично реализовано в runtime (tenant/authz/error/correlation/audit baseline), но не закрыто end-to-end для всех контуров.
+
 - [ ] Tenant context middleware/interceptor.
 - [ ] Permission guard + policy helper.
 - [ ] Global exception filter with normalized error envelope.
@@ -25,10 +27,12 @@
 
 ### 2) Worker/job context
 
-- [ ] Standard job envelope: `tenantId`, `correlationId`, `actorId`.
-- [ ] Retry policy baseline + failure diagnostics payload.
+- [x] Standard job envelope: `tenantId`, `correlationId`, `actorId`.
+- [x] Retry policy baseline + failure diagnostics payload.
 
 ### 3) Frontend consistency
+
+Статус: частично реализовано для workspace маршрута и state UX, остается масштабирование на остальные доменные экраны.
 
 - [ ] Route guard helper (`requiresPermissions[]`).
 - [ ] Action guard component/hook with hidden/disabled policy.
@@ -44,10 +48,10 @@
 
 ### 5) Tests and quality gates
 
-- [ ] Backend unit tests (tenant/authz/error/audit).
-- [ ] Backend integration tests (permission boundaries).
-- [ ] Frontend tests (route/action guards, state UX).
-- [ ] Contract tests для новых projection API.
+- [x] Backend unit tests (tenant/authz/error/audit).
+- [x] Backend integration tests (permission boundaries).
+- [x] Frontend tests (route/action guards, state UX).
+- [x] Contract tests для новых projection API.
 
 ## Definition of Done (Wave 1)
 

@@ -1,7 +1,6 @@
-import Link from 'next/link';
-import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 import { PageContainer, PageHeader, SectionCard } from '../../src/components/state-wrappers';
 import { TzLinks } from '../../src/components/tz/tz-links';
+import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
 export default function MaterialsHubPage() {
   return (
@@ -26,7 +25,9 @@ export default function MaterialsHubPage() {
         </SectionCard>
         <SectionCard title="API">
           <p style={{ margin: 0, color: '#52525b', lineHeight: 1.5 }}>
-            Список модулей: <code>GET /modules</code>, материалов: <code>GET /materials</code> (права <code>materials.read</code>). Минимальное время просмотра и обязательность — поля сущностей на бэкенде MVP.
+            Список модулей: <code>GET /modules</code>, материалов: <code>GET /materials</code>{' '}
+            (права <code>materials.read</code>). Минимальное время просмотра и обязательность — поля
+            сущностей на бэкенде MVP.
           </p>
         </SectionCard>
       </PageContainer>

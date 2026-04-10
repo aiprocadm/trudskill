@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+
 import { apiRequest } from '../../lib/api/client';
 
-const useLoad = <T,>(path: string, deps: unknown[] = []) => {
+const useLoad = <T>(path: string, deps: unknown[] = []) => {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +25,6 @@ const useLoad = <T,>(path: string, deps: unknown[] = []) => {
     return () => {
       active = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
   return { data, loading, error };
