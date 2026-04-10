@@ -1,0 +1,1 @@
+export const NOTIFICATIONS_STATE = Symbol('NOTIFICATIONS_STATE');
