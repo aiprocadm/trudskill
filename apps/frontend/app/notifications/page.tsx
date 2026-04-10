@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { DataTable, FilterBar } from '@cdoprof/ui';
+import { useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 
 import {
   PageContainer,
@@ -10,35 +12,33 @@ import {
   SectionError
 } from '../../src/components/state-wrappers';
 import { useAuth } from '../../src/features/auth/context';
-import { communicationApi, useNotificationsRealtime } from '../../src/features/communication/hooks';
+import {
+  communicationApi,
+  useNotificationsList,
+  useNotificationsRealtime
+} from '../../src/features/communication/hooks';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
 export default function NotificationsPage() {
   const { session } = useAuth();
-  const [items, setItems] = useState<
-    Awaited<ReturnType<typeof communicationApi.listNotifications>>
-  >([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
+  const [filter, setFilter] = useState('');
+  const { data, loading, error, refetch } = useNotificationsList(page, 20, filter);
 
-  const refresh = async () => {
+  useNotificationsRealtime(() => void refetch());
+
+  const markAllRead = async () => {
     if (!session) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const rows = await communicationApi.listNotifications(session);
-      setItems(rows);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось загрузить уведомления');
-    } finally {
-      setLoading(false);
-    }
+    await communicationApi.markAllRead(session);
+    await queryClient.invalidateQueries({ queryKey: ['notifications'] });
   };
 
-  useEffect(() => {
-    void refresh();
-  }, [session]);
-  useNotificationsRealtime(() => void refresh());
+  const markRead = async (id: string) => {
+    if (!session) return;
+    await communicationApi.markRead(session, id);
+    await queryClient.invalidateQueries({ queryKey: ['notifications'] });
+  };
 
   return (
     <ProtectedPage>
@@ -47,36 +47,58 @@ export default function NotificationsPage() {
           title="Notification center"
           actions={
             <button
-              onClick={() =>
-                session && communicationApi.markAllRead(session).then(() => void refresh())
-              }
+              type="button"
+              className="ui-button ui-button--primary"
+              onClick={() => void markAllRead()}
             >
               Mark all as read
             </button>
           }
         />
         <SectionCard title="Уведомления">
+          <FilterBar>
+            <select value={filter} onChange={(event) => setFilter(event.target.value)}>
+              <option value="">Все</option>
+              <option value="unread">Непрочитанные</option>
+            </select>
+          </FilterBar>
           {loading ? <p>Загрузка...</p> : null}
           {error ? <SectionError message={error} /> : null}
-          {!loading && !items.length ? <SectionEmpty message="Уведомления отсутствуют" /> : null}
-          <div className="ui-stack" style={{ gap: 10 }}>
-            {items.map((item) => (
-              <article key={item.id} className="ui-section-card">
-                <strong>{item.subjectText}</strong>
-                <p>{item.bodyText}</p>
-                <small>{item.status}</small>
-                <div>
-                  <button
-                    onClick={() =>
-                      session &&
-                      communicationApi.markRead(session, item.id).then(() => void refresh())
-                    }
-                  >
-                    Mark as read
-                  </button>
-                </div>
-              </article>
-            ))}
+          {!loading && !data?.items.length ? (
+            <SectionEmpty message="Уведомления отсутствуют" />
+          ) : null}
+          {data?.items.length ? (
+            <DataTable
+              columns={[
+                { key: 'subjectText', title: 'Тема' },
+                { key: 'bodyText', title: 'Текст' },
+                { key: 'status', title: 'Статус' },
+                { key: 'createdAt', title: 'Создано' }
+              ]}
+              rows={data.items}
+            />
+          ) : null}
+          <div className="ui-inline">
+            <button type="button" disabled={page <= 1} onClick={() => setPage((curr) => curr - 1)}>
+              Назад
+            </button>
+            <span>Стр. {data?.page ?? page}</span>
+            <button
+              type="button"
+              disabled={Boolean(data && data.page * data.pageSize >= data.total)}
+              onClick={() => setPage((curr) => curr + 1)}
+            >
+              Далее
+            </button>
+          </div>
+          <div className="ui-stack">
+            {data?.items
+              .filter((item) => item.status !== 'read')
+              .map((item) => (
+                <button key={item.id} type="button" onClick={() => void markRead(item.id)}>
+                  Отметить «{item.subjectText}» как прочитанное
+                </button>
+              ))}
           </div>
         </SectionCard>
       </PageContainer>

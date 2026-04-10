@@ -11,9 +11,13 @@ export const GlobalError = ({ message }: { message?: string }) => (
 );
 
 export const SectionError = ({ message, onRetry }: { message?: string; onRetry?: () => void }) => (
-  <div className="ui-stack" style={{ gap: 8 }}>
+  <div className="ui-stack">
     <ErrorState message={message ?? 'Не удалось загрузить секцию'} />
-    {onRetry ? <button onClick={onRetry}>Повторить</button> : null}
+    {onRetry ? (
+      <button type="button" className="ui-button" onClick={onRetry}>
+        Повторить
+      </button>
+    ) : null}
   </div>
 );
 
@@ -37,14 +41,12 @@ export const PageHeader = ({
   subtitle?: string;
   actions?: ReactNode;
 }) => (
-  <header
-    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}
-  >
-    <div className="ui-stack" style={{ gap: 4 }}>
-      <h1 style={{ margin: 0 }}>{title}</h1>
-      {subtitle ? <p style={{ margin: 0, color: 'var(--ui-text-muted)' }}>{subtitle}</p> : null}
+  <header className="ui-page-header">
+    <div>
+      <h1 className="ui-page-title">{title}</h1>
+      {subtitle ? <p className="ui-page-subtitle">{subtitle}</p> : null}
     </div>
-    {actions ? <div>{actions}</div> : null}
+    {actions ? <div className="ui-inline">{actions}</div> : null}
   </header>
 );
 

@@ -27,6 +27,7 @@ import {
   useTests,
   useUser,
   useUserRoles,
+  useUserSessions,
   useUsersList
 } from './hooks';
 import {
@@ -188,7 +189,8 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
   const { data: user, loading, error, refetch } = useUser(id);
   const { data: userRoles } = useUserRoles(id);
   const { data: allRoles } = useRoles();
-  const { setUserRoles } = useDomainMutations();
+  const { data: sessions } = useUserSessions(id);
+  const { setUserRoles, revokeSession } = useDomainMutations();
   const [selected, setSelected] = useState<string[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -247,7 +249,29 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
             {saveError ? <SectionError message={saveError} /> : null}
           </SectionCard>
           <SectionCard title="Сессии">
-            <SectionEmpty message="История сессий будет добавлена после расширения endpoint auth/sessions." />
+            {sessions?.length ? (
+              <DataTable
+                columns={[
+                  { key: 'id', title: 'Session ID' },
+                  { key: 'expiresAt', title: 'Истекает' },
+                  { key: 'revokedAt', title: 'Отозвана' }
+                ]}
+                rows={sessions}
+              />
+            ) : (
+              <SectionEmpty message="Активные сессии не найдены" />
+            )}
+            {canManageRoles ? (
+              <div className="ui-inline">
+                {sessions
+                  ?.filter((row) => !row.revokedAt)
+                  .map((row) => (
+                    <button key={row.id} type="button" onClick={() => void revokeSession(row.id)}>
+                      Revoke {row.id}
+                    </button>
+                  ))}
+              </div>
+            ) : null}
           </SectionCard>
         </>
       ) : null}

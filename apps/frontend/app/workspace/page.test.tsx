@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveWorkspaceErrorMessage, resolveWorkspaceState } from './page';
+import { resolveWorkspaceErrorMessage, resolveWorkspaceState } from './page.utils';
 import { ApiClientError } from '../../src/lib/api/client';
 
 describe('workspace page state helpers', () => {

@@ -70,10 +70,11 @@ export class NotificationsService {
           query.filter ?? null
         ]
       );
-      return rows.map((row) => this.mapRow(row));
+      const mapped = rows.map((row) => this.mapRow(row));
+      return this.toListResponse(mapped, query);
     }
 
-    return this.notifications.filter(
+    const mapped = this.notifications.filter(
       (item) =>
         item.tenantId === tenantId &&
         (!item.recipientUserId || item.recipientUserId === userId) &&
@@ -81,6 +82,7 @@ export class NotificationsService {
         (!query.related_entity_type || item.relatedEntityType === query.related_entity_type) &&
         (query.filter !== 'unread' || item.status === 'unread')
     );
+    return this.toListResponse(mapped, query);
   }
 
   async create(seed: Omit<NotificationEntity, 'id' | 'createdAt' | 'status'>) {
@@ -202,6 +204,19 @@ export class NotificationsService {
       (item) =>
         item.tenantId === tenantId && item.recipientUserId === userId && item.status === 'unread'
     ).length;
+  }
+
+  private toListResponse(items: NotificationEntity[], query: Record<string, string | undefined>) {
+    const page = Math.max(1, Number(query.page ?? '1'));
+    const pageSize = Math.min(100, Math.max(1, Number(query.page_size ?? '20')));
+    const sort = query.sort ?? 'createdAt:desc';
+    const sorted = [...items].sort((a, b) =>
+      sort === 'createdAt:asc'
+        ? a.createdAt.localeCompare(b.createdAt)
+        : b.createdAt.localeCompare(a.createdAt)
+    );
+    const start = (page - 1) * pageSize;
+    return { items: sorted.slice(start, start + pageSize), total: sorted.length, page, pageSize };
   }
 
   private publish(tenantId: string, eventName: string, payload: Record<string, unknown>) {

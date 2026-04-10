@@ -26,25 +26,32 @@ export const LoginForm = () => {
       await login(loginValue, password);
       router.replace(searchParams.get('next') ?? '/');
     } catch (submitError) {
-      if (submitError instanceof ApiClientError) {
-        setError(submitError.normalized.message);
-      } else {
-        setError('Не удалось войти в систему');
-      }
+      setError(
+        submitError instanceof ApiClientError
+          ? submitError.normalized.message
+          : 'Не удалось войти в систему'
+      );
     } finally {
       setPending(false);
     }
   };
 
   return (
-    <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12, width: 320 }}>
-      <h1>Вход</h1>
-      <FormField label="Логин" name="login" required />
-      <FormField label="Пароль" name="password" type="password" required />
-      {error ? <p role="alert">{error}</p> : null}
-      <button className="ui-button ui-button--primary" type="submit" disabled={pending}>
-        {pending ? 'Входим...' : 'Войти'}
-      </button>
-    </form>
+    <div className="ui-page" style={{ minHeight: '100vh', placeItems: 'center' }}>
+      <form onSubmit={onSubmit} className="ui-section-card" style={{ width: 360 }}>
+        <h1 className="ui-page-title">Вход</h1>
+        <p className="ui-page-subtitle">Используйте корпоративный логин и пароль.</p>
+        <FormField label="Логин" name="login" required />
+        <FormField label="Пароль" name="password" type="password" required />
+        {error ? (
+          <p role="alert" className="ui-error">
+            {error}
+          </p>
+        ) : null}
+        <button className="ui-button ui-button--primary" type="submit" disabled={pending}>
+          {pending ? 'Входим...' : 'Войти'}
+        </button>
+      </form>
+    </div>
   );
 };
