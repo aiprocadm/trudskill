@@ -21,9 +21,13 @@ export const SectionError = ({ message, onRetry }: { message?: string; onRetry?:
   </div>
 );
 
-export const SectionEmpty = ({ message }: { message?: string }) => (
-  <EmptyState message={message ?? 'Пока нет данных'} />
-);
+export const SectionEmpty = ({ message, hint }: { message?: string; hint?: string }) => {
+  const resolvedMessage = message ?? 'Пока нет данных';
+  if (hint !== undefined && hint !== '') {
+    return <EmptyState message={resolvedMessage} hint={hint} />;
+  }
+  return <EmptyState message={resolvedMessage} />;
+};
 
 export const SectionCard = ({ title, children }: PropsWithChildren<{ title: string }>) => (
   <section className="ui-section-card">

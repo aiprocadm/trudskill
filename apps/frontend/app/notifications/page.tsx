@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, FilterBar } from '@cdoprof/ui';
+import { DataTable, FilterBar, LoadingState } from '@cdoprof/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
@@ -62,9 +62,9 @@ export default function NotificationsPage() {
               <option value="unread">Непрочитанные</option>
             </select>
           </FilterBar>
-          {loading ? <p>Загрузка...</p> : null}
+          {loading ? <LoadingState message="Загрузка уведомлений…" /> : null}
           {error ? <SectionError message={error} /> : null}
-          {!loading && !data?.items.length ? (
+          {!loading && !error && !data?.items.length ? (
             <SectionEmpty message="Уведомления отсутствуют" />
           ) : null}
           {data?.items.length ? (

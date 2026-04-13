@@ -37,8 +37,8 @@ export const LoginForm = () => {
   };
 
   return (
-    <div className="ui-page" style={{ minHeight: '100vh', placeItems: 'center' }}>
-      <form onSubmit={onSubmit} className="ui-section-card" style={{ width: 360 }}>
+    <div className="ui-login-center">
+      <form onSubmit={onSubmit} className="ui-section-card ui-login-card">
         <h1 className="ui-page-title">Вход</h1>
         <p className="ui-page-subtitle">Используйте корпоративный логин и пароль.</p>
         <FormField label="Логин" name="login" required />

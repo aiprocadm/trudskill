@@ -7,13 +7,18 @@ export interface Column<T extends object> {
 
 export function DataTable<T extends object>({
   columns,
-  rows
+  rows,
+  stickyFirstColumn = false
 }: {
   columns: Column<T>[];
   rows: T[];
+  /** Закрепляет первую колонку при горизонтальном скролле широких таблиц. */
+  stickyFirstColumn?: boolean;
 }): ReactElement {
+  const wrapClass = stickyFirstColumn ? 'ui-table-wrap ui-table-wrap--sticky-first' : 'ui-table-wrap';
   return (
-    <table className="ui-table">
+    <div className={wrapClass}>
+      <table className="ui-table">
       <thead>
         <tr>
           {columns.map((c) => (
@@ -31,5 +36,6 @@ export function DataTable<T extends object>({
         ))}
       </tbody>
     </table>
+    </div>
   );
 }

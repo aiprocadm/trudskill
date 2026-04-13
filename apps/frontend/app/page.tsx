@@ -32,34 +32,17 @@ export default function DashboardPage() {
           subtitle="Сводка по разделам ТЗ; доступ к пунктам меню зависит от ролей (RBAC)"
         />
         <SectionCard title="Быстрый переход">
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-              gap: 12
-            }}
-          >
+          <div className="ui-dashboard-grid">
             {quickLinks.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                style={{
-                  display: 'block',
-                  padding: 14,
-                  border: '1px solid #e4e4e7',
-                  borderRadius: 8,
-                  textDecoration: 'none',
-                  color: '#18181b'
-                }}
-              >
-                <div style={{ fontWeight: 600, marginBottom: 6 }}>{item.title}</div>
-                <div style={{ fontSize: 13, color: '#52525b', lineHeight: 1.4 }}>{item.note}</div>
+              <Link key={item.href} href={item.href} className="ui-dashboard-tile">
+                <div className="ui-dashboard-tile-title">{item.title}</div>
+                <div className="ui-dashboard-tile-note">{item.note}</div>
               </Link>
             ))}
           </div>
         </SectionCard>
         <SectionCard title="Охват ТЗ">
-          <p style={{ margin: 0, color: '#52525b', lineHeight: 1.55 }}>
+          <p className="ui-text-muted" style={{ margin: 0, lineHeight: 1.55 }}>
             Реализованы каркас API (MVP), IAM, мультитенантность, документы (частично),
             коммуникации, НЭП (этап сценариев), интеграции и учебный контур в объёме текущего
             спринта. Прокторинг, полный SCORM, ФРДО/ЕИСОТ, телефония и промышленные отчёты отмечены

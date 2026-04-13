@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, StatusChip } from '@cdoprof/ui';
+import { DataTable, LoadingState, StatusChip } from '@cdoprof/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -70,7 +70,8 @@ export default function DocumentsPage() {
               }
             />
           ) : null}
-          {data.data?.templates.length ? (
+          {data.isLoading ? <LoadingState message="Загрузка шаблонов…" /> : null}
+          {!data.isLoading && data.data?.templates.length ? (
             <>
               <DataTable
                 columns={[
@@ -87,9 +88,10 @@ export default function DocumentsPage() {
                 ))}
               </div>
             </>
-          ) : (
+          ) : null}
+          {!data.isLoading && !data.data?.templates.length && !data.error ? (
             <SectionEmpty message="Шаблоны не найдены" />
-          )}
+          ) : null}
         </SectionCard>
       </PageContainer>
     </ProtectedPage>

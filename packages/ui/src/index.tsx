@@ -14,3 +14,4 @@ export * from './components/async-status/index';
 export * from './components/permission/index';
 export * from './patterns/registry';
 export * from './providers/theme-provider';
+export { useUiTheme, UI_THEME_STORAGE_KEY, type UiThemeChoice, type UiThemeContextValue } from './providers/theme-context';

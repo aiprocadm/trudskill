@@ -2,32 +2,61 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { type PropsWithChildren, useMemo } from 'react';
+import { type PropsWithChildren, useEffect, useMemo, useState } from 'react';
 
 import { useAuth } from '../../features/auth/context';
+import { buildBreadcrumbs } from '../../features/navigation/breadcrumbs';
 import { useNotificationsList, useNotificationsRealtime } from '../../features/communication/hooks';
 import { getVisibleNavigation } from '../../features/navigation/helpers';
 
-const toBreadcrumbs = (pathname: string) => {
-  const segments = pathname.split('/').filter(Boolean);
-  if (!segments.length) return ['dashboard'];
-  return ['dashboard', ...segments];
+const formatUnreadBadge = (total: number | undefined) => {
+  const n = total ?? 0;
+  if (n <= 0) return null;
+  if (n > 9) return '9+';
+  return String(n);
 };
 
 export const AppShell = ({ children }: PropsWithChildren) => {
   const pathname = usePathname();
   const { session, logout } = useAuth();
   const nav = getVisibleNavigation(session);
-  const breadcrumbs = useMemo(() => toBreadcrumbs(pathname), [pathname]);
+  const breadcrumbItems = useMemo(() => buildBreadcrumbs(pathname), [pathname]);
   const unread = useNotificationsList(1, 1, 'unread');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useNotificationsRealtime(() => void unread.refetch());
 
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
+  const unreadLabel = formatUnreadBadge(unread.data?.total);
+
   return (
     <div className="app-shell">
-      <aside className="app-shell__sidebar">
+      <button
+        type="button"
+        className="app-shell__menu-toggle"
+        aria-expanded={mobileNavOpen}
+        aria-controls="app-shell-nav"
+        onClick={() => setMobileNavOpen((open) => !open)}
+      >
+        Меню
+      </button>
+      {mobileNavOpen ? (
+        <button
+          type="button"
+          className="app-shell__backdrop"
+          aria-label="Закрыть меню"
+          onClick={() => setMobileNavOpen(false)}
+        />
+      ) : null}
+      <aside
+        id="app-shell-nav"
+        className={`app-shell__sidebar ${mobileNavOpen ? 'is-drawer-open' : ''}`}
+      >
         <h2 className="app-shell__brand">cdoprof</h2>
-        <nav className="ui-stack">
+        <nav className="ui-stack" aria-label="Основные разделы">
           {nav.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
@@ -35,6 +64,7 @@ export const AppShell = ({ children }: PropsWithChildren) => {
                 key={item.href}
                 href={item.href}
                 className={`app-shell__link ${isActive ? 'is-active' : ''}`}
+                aria-current={isActive ? 'page' : undefined}
               >
                 {item.label}
               </Link>
@@ -44,28 +74,55 @@ export const AppShell = ({ children }: PropsWithChildren) => {
       </aside>
       <div className="app-shell__content">
         <header className="app-shell__topbar">
-          <div className="app-shell__breadcrumbs">{breadcrumbs.join(' / ')}</div>
-          <div className="ui-inline">
+          <nav className="app-shell__breadcrumbs" aria-label="Хлебные крошки">
+            {breadcrumbItems.map((crumb, index) => {
+              const isLast = index === breadcrumbItems.length - 1;
+              return (
+                <span key={crumb.href} className="app-shell__crumb">
+                  {index > 0 ? <span className="app-shell__crumb-sep"> / </span> : null}
+                  {isLast ? (
+                    <span className="app-shell__crumb-current">{crumb.label}</span>
+                  ) : (
+                    <Link href={crumb.href} className="app-shell__crumb-link">
+                      {crumb.label}
+                    </Link>
+                  )}
+                </span>
+              );
+            })}
+          </nav>
+          <div className="app-shell__userbar ui-inline">
             <Link href="/notifications" className="app-shell__notif-link">
-              Уведомления{' '}
-              <span className="ui-badge" style={{ background: 'var(--ui-brand-600)' }}>
-                {unread.data?.total ?? 0}
-              </span>
+              Уведомления
+              {unreadLabel ? (
+                <span className="ui-badge ui-badge--brand" aria-label={`Непрочитано: ${unread.data?.total ?? 0}`}>
+                  {unreadLabel}
+                </span>
+              ) : null}
             </Link>
-            <span>{session?.user.tenantId}</span>
-            <span>{session?.user.displayName}</span>
-            <button type="button" onClick={() => logout()}>
+            <span className="app-shell__meta" title="Тенант">
+              {session?.user.tenantId}
+            </span>
+            <span className="app-shell__meta">{session?.user.displayName}</span>
+            <button type="button" className="ui-button" onClick={() => logout()}>
               Выйти
             </button>
           </div>
         </header>
-        <div style={{ minWidth: 0 }}>{children}</div>
+        <div className="ui-app-shell-main">{children}</div>
       </div>
       <style jsx>{`
         .app-shell {
           min-height: 100vh;
           display: grid;
           grid-template-columns: 260px 1fr;
+          position: relative;
+        }
+        .app-shell__menu-toggle {
+          display: none;
+        }
+        .app-shell__backdrop {
+          display: none;
         }
         .app-shell__sidebar {
           border-right: 1px solid var(--ui-border);
@@ -87,7 +144,7 @@ export const AppShell = ({ children }: PropsWithChildren) => {
         }
         .app-shell__link.is-active {
           color: var(--ui-brand-700);
-          background: rgba(37, 99, 235, 0.1);
+          background: var(--ui-nav-active-bg);
         }
         .app-shell__content {
           display: grid;
@@ -100,16 +157,47 @@ export const AppShell = ({ children }: PropsWithChildren) => {
           justify-content: space-between;
           align-items: center;
           padding: 0 16px;
+          gap: 12px;
           background: var(--ui-surface);
+          flex-wrap: wrap;
         }
         .app-shell__breadcrumbs {
           color: var(--ui-text-muted);
           font-size: 14px;
+          min-width: 0;
+          flex: 1 1 200px;
+        }
+        .app-shell__crumb {
+          white-space: nowrap;
+        }
+        .app-shell__crumb-link {
+          color: var(--ui-text-muted);
+          text-decoration: none;
+        }
+        .app-shell__crumb-link:hover {
+          color: var(--ui-brand-700);
+          text-decoration: underline;
+        }
+        .app-shell__crumb-current {
+          color: var(--ui-text);
+          font-weight: 500;
+        }
+        .app-shell__userbar {
+          flex: 0 1 auto;
+          justify-content: flex-end;
+        }
+        .app-shell__meta {
+          font-size: 13px;
+          color: var(--ui-text-muted);
+          max-width: 140px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .app-shell__notif-link {
           text-decoration: none;
           color: inherit;
-          display: flex;
+          display: inline-flex;
           align-items: center;
           gap: 6px;
         }
@@ -117,22 +205,61 @@ export const AppShell = ({ children }: PropsWithChildren) => {
           .app-shell {
             grid-template-columns: 1fr;
           }
+          .app-shell__menu-toggle {
+            display: inline-flex;
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            z-index: 10001;
+            align-items: center;
+            height: 40px;
+            padding: 0 14px;
+            border-radius: 10px;
+            border: 1px solid var(--ui-border);
+            background: var(--ui-surface);
+            color: var(--ui-text);
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: var(--ui-shadow);
+          }
+          .app-shell__backdrop {
+            display: block;
+            position: fixed;
+            inset: 0;
+            z-index: 9998;
+            border: none;
+            padding: 0;
+            margin: 0;
+            background: rgba(15, 23, 42, 0.45);
+            cursor: pointer;
+          }
           .app-shell__sidebar {
-            border-right: 0;
-            border-bottom: 1px solid var(--ui-border);
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: min(300px, 88vw);
+            z-index: 10000;
+            transform: translateX(-102%);
+            transition: transform 0.2s ease;
+            box-shadow: var(--ui-shadow-strong);
+            overflow-y: auto;
+            border-right: 1px solid var(--ui-border);
+          }
+          .app-shell__sidebar.is-drawer-open {
+            transform: translateX(0);
           }
           .app-shell__sidebar .ui-stack {
-            display: flex;
-            flex-direction: row;
-            flex-wrap: nowrap;
-            gap: 8px;
-            overflow-x: auto;
-            padding-bottom: 6px;
-            -webkit-overflow-scrolling: touch;
+            flex-direction: column;
+            flex-wrap: unset;
+            overflow-x: visible;
+            padding-bottom: 0;
+          }
+          .app-shell__content {
+            padding-top: 56px;
           }
           .app-shell__link {
-            white-space: nowrap;
-            flex: 0 0 auto;
+            white-space: normal;
           }
         }
       `}</style>
