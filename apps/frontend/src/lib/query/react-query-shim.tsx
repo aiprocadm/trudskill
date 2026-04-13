@@ -4,13 +4,28 @@ import type { PropsWithChildren } from 'react';
 
 type QueryKey = readonly unknown[];
 
+export type QueryMeta = { suppressGlobalErrorToast?: boolean };
+
 interface QueryOptions<T> {
   // shim
   queryKey: QueryKey;
   queryFn: () => Promise<T>;
   enabled?: boolean;
   refetchInterval?: number | undefined;
+  meta?: QueryMeta;
 }
+
+type QueryErrorListener = (error: unknown, queryKey: QueryKey) => void;
+
+const queryErrorListeners = new Set<QueryErrorListener>();
+
+/** Подписка на ошибки запросов (для глобальных тостов и т.п.). */
+export const subscribeQueryErrors = (listener: QueryErrorListener) => {
+  queryErrorListeners.add(listener);
+  return () => {
+    queryErrorListeners.delete(listener);
+  };
+};
 
 export class QueryClient {
   constructor(_options?: unknown) {}
@@ -56,6 +71,15 @@ export const useQuery = <T,>(options: QueryOptions<T>) => {
       if (mounted.current) setData(result);
     } catch (err) {
       if (mounted.current) setError(err);
+      if (!options.meta?.suppressGlobalErrorToast) {
+        queryErrorListeners.forEach((fn) => {
+          try {
+            fn(err, options.queryKey);
+          } catch {
+            /* ignore listener errors */
+          }
+        });
+      }
     } finally {
       if (mounted.current) setLoading(false);
     }

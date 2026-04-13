@@ -1,7 +1,16 @@
 import type { ReactElement } from 'react';
 
-export const EmptyState = ({ message = 'No data yet' }: { message?: string }): ReactElement => (
-  <div className="ui-empty">{message}</div>
+export const EmptyState = ({
+  message = 'No data yet',
+  hint
+}: {
+  message?: string;
+  hint?: string;
+}): ReactElement => (
+  <div className="ui-empty">
+    {message}
+    {hint ? <p className="ui-empty-hint">{hint}</p> : null}
+  </div>
 );
 export const ErrorState = ({
   message = 'Something went wrong'

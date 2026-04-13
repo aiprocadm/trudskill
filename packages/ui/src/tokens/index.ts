@@ -37,5 +37,28 @@ export const lightThemeVars = {
   '--ui-neutral-500': '#64748b',
   '--ui-focus': '#93c5fd',
   '--ui-shadow': shadows.sm,
-  '--ui-shadow-strong': shadows.md
+  '--ui-shadow-strong': shadows.md,
+  '--ui-nav-active-bg': 'rgba(37, 99, 235, 0.1)',
+  '--ui-error-border': '#fecaca'
+} as const;
+
+export const darkThemeVars = {
+  '--ui-bg': '#0f172a',
+  '--ui-surface': '#1e293b',
+  '--ui-surface-muted': '#334155',
+  '--ui-border': '#475569',
+  '--ui-text': '#f8fafc',
+  '--ui-text-muted': '#94a3b8',
+  '--ui-brand-600': '#3b82f6',
+  '--ui-brand-700': '#60a5fa',
+  '--ui-success-600': '#22c55e',
+  '--ui-warning-600': '#fbbf24',
+  '--ui-warning-700': '#f59e0b',
+  '--ui-danger-600': '#f87171',
+  '--ui-neutral-500': '#94a3b8',
+  '--ui-focus': '#60a5fa',
+  '--ui-shadow': '0 1px 2px rgba(0, 0, 0, 0.35)',
+  '--ui-shadow-strong': '0 10px 30px rgba(0, 0, 0, 0.45)',
+  '--ui-nav-active-bg': 'rgba(59, 130, 246, 0.22)',
+  '--ui-error-border': '#7f1d1d'
 } as const;

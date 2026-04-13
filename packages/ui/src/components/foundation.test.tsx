@@ -45,7 +45,7 @@ describe('ui foundation components', () => {
   });
 
   it('DataTable renders provided columns and rows', () => {
-    const table = DataTable({
+    const wrap = DataTable({
       columns: [
         { key: 'name', title: 'Name' },
         { key: 'status', title: 'Status' }
@@ -56,6 +56,7 @@ describe('ui foundation components', () => {
       ]
     });
 
+    const table = wrap.props.children as ReactElement;
     const [head, body] = table.props.children as ReactElement[];
     const headRow = (head.props.children as ReactElement).props.children as ReactElement[];
     const bodyRows = body.props.children as ReactElement[];

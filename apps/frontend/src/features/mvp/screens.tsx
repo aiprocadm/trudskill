@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, FilterBar, StatusChip } from '@cdoprof/ui';
+import { DataTable, FilterBar, LoadingState, StatusChip } from '@cdoprof/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
@@ -65,8 +65,8 @@ const RegistryControls = ({
   setStatus: (v: string) => void;
 }) => (
   <FilterBar>
-    <input placeholder="Поиск" value={q} onChange={(event) => setQ(event.target.value)} />
-    <select value={status} onChange={(event) => setStatus(event.target.value)}>
+    <input placeholder="Поиск" value={q} onChange={(event) => setQ(event.target.value)} aria-label="Поиск" />
+    <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Статус">
       <option value="">Все статусы</option>
       {STATUS_OPTIONS.map((option) => (
         <option key={option} value={option}>
@@ -75,6 +75,46 @@ const RegistryControls = ({
       ))}
     </select>
   </FilterBar>
+);
+
+const UsersFilterBar = ({
+  q,
+  setQ,
+  status,
+  setStatus,
+  role,
+  setRole,
+  roles
+}: {
+  q: string;
+  setQ: (v: string) => void;
+  status: string;
+  setStatus: (v: string) => void;
+  role: string;
+  setRole: (v: string) => void;
+  roles: { id: string; code: string; name: string }[] | null | undefined;
+}) => (
+  <div className="ui-toolbar">
+    <FilterBar>
+      <input placeholder="Поиск" value={q} onChange={(event) => setQ(event.target.value)} aria-label="Поиск" />
+      <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Статус">
+        <option value="">Все статусы</option>
+        {STATUS_OPTIONS.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+      <select value={role} onChange={(event) => setRole(event.target.value)} aria-label="Роль">
+        <option value="">Все роли</option>
+        {roles?.map((item) => (
+          <option key={item.id} value={item.code}>
+            {item.name}
+          </option>
+        ))}
+      </select>
+    </FilterBar>
+  </div>
 );
 
 const PaginationControls = ({
@@ -91,7 +131,7 @@ const PaginationControls = ({
   const canPrev = page > 1;
   const canNext = total ? page * pageSize < total : true;
   return (
-    <div style={{ display: 'flex', gap: 8 }}>
+    <div className="ui-inline">
       <button type="button" disabled={!canPrev} onClick={() => setPage(page - 1)}>
         Назад
       </button>
@@ -110,9 +150,17 @@ const readApiMessage = (error: unknown) => {
 };
 
 const ProgressBar = ({ value }: { value: number }) => (
-  <div style={{ display: 'grid', gap: 4 }}>
+  <div className="ui-stack" style={{ gap: 4 }}>
     <progress max={100} value={value} />
-    <small>{value}%</small>
+    <small className="ui-text-muted">{value}%</small>
+  </div>
+);
+
+const ListSkeleton = ({ lines = 4 }: { lines?: number }) => (
+  <div className="ui-skeleton-block" aria-hidden>
+    {Array.from({ length: lines }, (_, i) => (
+      <div key={i} className="ui-skeleton-line" style={{ width: `${70 + (i % 3) * 10}%` }} />
+    ))}
   </div>
 );
 
@@ -142,21 +190,20 @@ export const UsersPageScreen = () => {
     <PageContainer>
       <PageHeader title="Пользователи" />
       <SectionCard title="Реестр пользователей">
-        <RegistryControls q={q} setQ={setQ} status={status} setStatus={setStatus} />
-        <FilterBar>
-          <select value={role} onChange={(event) => setRole(event.target.value)}>
-            <option value="">Все роли</option>
-            {roles?.map((item) => (
-              <option key={item.id} value={item.code}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-        </FilterBar>
-        {loading ? <p>Загрузка...</p> : null}
+        <UsersFilterBar
+          q={q}
+          setQ={setQ}
+          status={status}
+          setStatus={setStatus}
+          role={role}
+          setRole={setRole}
+          roles={roles}
+        />
+        {loading ? <LoadingState message="Загрузка списка пользователей…" /> : null}
         {error ? <SectionError message={error} /> : null}
         {data?.items.length ? (
           <DataTable
+            stickyFirstColumn
             columns={[
               { key: 'displayName', title: 'ФИО' },
               { key: 'login', title: 'Логин' },
@@ -168,9 +215,9 @@ export const UsersPageScreen = () => {
         {!loading && !error && !data?.items.length ? (
           <SectionEmpty message="Нет пользователей" />
         ) : null}
-        <div style={{ display: 'grid', gap: 8 }}>
+        <div className="ui-stack" style={{ gap: 8 }}>
           {data?.items.map((user) => (
-            <div key={user.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div key={user.id} className="ui-inline">
               <Link href={`/users/${user.id}`}>Открыть карточку {user.displayName}</Link>
               <StatusChip status={user.status} />
               {!canManage ? <small>Только просмотр</small> : null}
@@ -211,7 +258,7 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
   return (
     <PageContainer>
       <PageHeader title="Карточка пользователя" />
-      {loading ? <p>Загрузка...</p> : null}
+      {loading ? <LoadingState message="Загрузка…" /> : null}
       {error ? <SectionError message={error} onRetry={() => void refetch()} /> : null}
       {user ? (
         <>
@@ -224,7 +271,7 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
           </SectionCard>
           <SectionCard title="Роли и права">
             <p>Текущие роли: {userRoles?.map((roleItem) => roleItem.code).join(', ') || '—'}</p>
-            <div style={{ display: 'grid', gap: 8 }}>
+            <div className="ui-stack" style={{ gap: 8 }}>
               {allRoles?.map((roleItem) => (
                 <label key={roleItem.id}>
                   <input
@@ -296,7 +343,7 @@ export const CounterpartiesPageScreen = () => {
       <PageHeader title="Контрагенты" />
       <SectionCard title="Реестр контрагентов">
         <RegistryControls q={q} setQ={setQ} status={status} setStatus={setStatus} />
-        {loading ? <p>Загрузка...</p> : null}
+        {loading ? <LoadingState message="Загрузка…" /> : null}
         {error ? <SectionError message={error} /> : null}
         <div style={{ display: 'grid', gap: 8 }}>
           {data?.items.map((item) => (
@@ -319,7 +366,7 @@ export const CounterpartyDetailsScreen = ({ id }: { id: string }) => {
   return (
     <PageContainer>
       <PageHeader title="Карточка контрагента" />
-      {loading ? <p>Загрузка...</p> : null}
+      {loading ? <LoadingState message="Загрузка…" /> : null}
       {error ? <SectionError message={error} /> : null}
       {data ? (
         <>
@@ -343,7 +390,7 @@ export const DirectionsPageScreen = () => {
     <PageContainer>
       <PageHeader title="Направления" />
       <SectionCard title="Реестр направлений">
-        {loading ? <p>Загрузка...</p> : null}
+        {loading ? <LoadingState message="Загрузка…" /> : null}
         {error ? <SectionError message={error} /> : null}
         <ul>
           {data?.items.map((item) => (
@@ -395,7 +442,7 @@ export const CoursesPageScreen = () => {
             ))}
           </select>
         </FilterBar>
-        {loading ? <p>Загрузка...</p> : null}
+        {loading ? <LoadingState message="Загрузка…" /> : null}
         {error ? <SectionError message={error} /> : null}
         <ul>
           {data?.items.map((course) => (
@@ -673,7 +720,7 @@ export const GroupsPageScreen = () => {
         }
       />
       <SectionCard title="Реестр групп">
-        {loading ? <p>Загрузка...</p> : null}
+        {loading ? <LoadingState message="Загрузка…" /> : null}
         {error ? <SectionError message={error} /> : null}
         <ul>
           {data?.items.map((group) => (
@@ -833,23 +880,32 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
 export const LearnerCoursesScreen = () => {
   const { session } = useAuth();
   const learnerId = session?.user.id ?? '';
-  const { data } = useLearnerCourses(learnerId);
+  const { data, loading, error } = useLearnerCourses(learnerId);
 
   return (
     <PageContainer>
-      <PageHeader title="Мои курсы" />
+      <PageHeader title="Мои курсы" subtitle="Упрощённый сценарий слушателя: только ваши назначения" />
       <SectionCard title="Назначенные курсы">
-        <ul>
-          {data?.items.map((enrollment) => (
-            <li key={enrollment.id}>
-              <Link href={`/learner/courses/${enrollment.courseId ?? enrollment.id}`}>
-                Курс {enrollment.courseId ?? enrollment.id}
-              </Link>{' '}
-              — {enrollment.status}
-            </li>
-          ))}
-        </ul>
-        {!data?.items.length ? <SectionEmpty message="Нет назначенных курсов" /> : null}
+        {error ? <SectionError message={error} /> : null}
+        {loading ? <ListSkeleton lines={5} /> : null}
+        {!loading && !error && data?.items.length ? (
+          <ul>
+            {data.items.map((enrollment) => (
+              <li key={enrollment.id}>
+                <Link href={`/learner/courses/${enrollment.courseId ?? enrollment.id}`}>
+                  Курс {enrollment.courseId ?? enrollment.id}
+                </Link>{' '}
+                — {enrollment.status}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {!loading && !error && !data?.items.length ? (
+          <SectionEmpty
+            message="Нет назначенных курсов"
+            hint="Если вы ожидаете обучение, обратитесь к куратору или администратору учебного центра — вас ещё не зачислили в группу или курс."
+          />
+        ) : null}
       </SectionCard>
     </PageContainer>
   );
@@ -893,8 +949,8 @@ export const LearnerCourseDetailsScreen = ({ id }: { id: string }) => {
       />
       {error ? <SectionError message={error} /> : null}
       <SectionCard title="Прогресс">
-        {loading ? <p style={{ margin: 0, color: '#71717a' }}>Загрузка…</p> : null}
-        <ProgressBar value={percent} />
+        {loading ? <LoadingState message="Загрузка курса и прогресса…" /> : null}
+        {!loading ? <ProgressBar value={percent} /> : null}
       </SectionCard>
       <SectionCard title="Что продолжить">
         {nextStep ? (
@@ -902,12 +958,18 @@ export const LearnerCourseDetailsScreen = ({ id }: { id: string }) => {
             Продолжите материал {nextStep.materialId} в модуле {nextStep.moduleId}.
           </p>
         ) : (
-          <SectionEmpty message="Материалы для продолжения пока не найдены" />
+          <SectionEmpty
+            message="Материалы для продолжения пока не найдены"
+            hint="Когда методист откроет доступ к модулям, здесь появится следующий шаг."
+          />
         )}
       </SectionCard>
       <SectionCard title="Дорожка материалов">
         {!orderedSteps.length && !loading ? (
-          <SectionEmpty message="Нет записей прогресса по этому курсу" />
+          <SectionEmpty
+            message="Нет записей прогресса по этому курсу"
+            hint="Прогресс появится после первого просмотра материалов в LMS."
+          />
         ) : null}
         <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
           {orderedSteps.map((item) => (

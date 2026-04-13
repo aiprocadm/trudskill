@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, FilterBar, StatusChip } from '@cdoprof/ui';
+import { DataTable, FilterBar, LoadingState, StatusChip } from '@cdoprof/ui';
 import { useMemo, useState } from 'react';
 
 import { useCredentials, useExportTasks, useProviders, useSyncLogs } from './hooks';
@@ -45,7 +45,7 @@ export const IntegrationSettingsScreen = () => {
     <PageContainer>
       <PageHeader title="Integration settings" />
       <SectionCard title="Providers registry">
-        {providersLoading ? <p>Загрузка...</p> : null}
+        {providersLoading ? <LoadingState message="Загрузка провайдеров…" /> : null}
         {providersError ? <SectionError message={providersError} /> : null}
         {providers.length ? (
           <DataTable
@@ -61,7 +61,7 @@ export const IntegrationSettingsScreen = () => {
         )}
       </SectionCard>
       <SectionCard title="Tenant credentials">
-        {credentialsLoading ? <p>Загрузка...</p> : null}
+        {credentialsLoading ? <LoadingState message="Загрузка учётных данных…" /> : null}
         {credentialsError ? <SectionError message={credentialsError} /> : null}
         {credentials.length ? (
           <DataTable
@@ -123,7 +123,7 @@ export const ExportTasksScreen = () => {
         }
       />
       <SectionCard title="Реестр задач выгрузки">
-        {loading ? <p>Загрузка...</p> : null}
+        {loading ? <LoadingState message="Загрузка…" /> : null}
         {error ? <SectionError message={error} /> : null}
         {data.length ? (
           <DataTable
@@ -167,7 +167,7 @@ export const SyncLogsScreen = () => {
             onChange={(event) => setProvider(event.target.value)}
           />
         </FilterBar>
-        {loading ? <p>Загрузка...</p> : null}
+        {loading ? <LoadingState message="Загрузка…" /> : null}
         {error ? <SectionError message={error} /> : null}
         {filtered.length ? (
           <DataTable
