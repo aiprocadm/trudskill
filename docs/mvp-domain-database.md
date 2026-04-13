@@ -13,6 +13,8 @@ MVP domain persistence is implemented through sequential SQL migrations in `apps
 7. `0007_communication_realtime_foundation.sql` — communication/realtime persistence foundation.
 8. `0008_integrations_foundation.sql` — integration providers/credentials/tasks/sync logs.
 9. `0009_assessment_extensions.sql` — post-baseline assessment model extensions.
+10. `0011_mvp_runtime_json.sql` — runtime JSON persistence table for MVP bounded context.
+11. `0012_documents_runtime_json.sql` — runtime JSON persistence table for documents bounded context.
 
 ## Domain schemas
 
@@ -30,6 +32,20 @@ Every domain table includes:
 - `tenant_id` as mandatory tenant discriminator,
 - timestamp fields (`created_at`, `updated_at`) and soft-delete where relevant,
 - explicit FK/UNIQUE/CHECK constraints aligned with MVP invariants.
+
+## Runtime JSON persistence layer
+
+For gradual migration from pure in-memory service state to PostgreSQL-backed runtime state:
+
+- `learning.mvp_runtime_documents` stores per-tenant, per-collection entity JSON for MVP module.
+- `documents.runtime_documents` stores per-tenant, per-collection entity JSON for documents module.
+- request-scoped interceptors load state at request start and persist at request end.
+- tenant serialization gateway prevents lost updates on concurrent requests for the same tenant.
+
+Production requirement:
+
+- `MVP_PERSISTENCE_DRIVER=postgres`
+- `DOCUMENTS_PERSISTENCE_DRIVER=postgres`
 
 ## Key integrity decisions
 

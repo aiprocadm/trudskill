@@ -11,6 +11,7 @@ import { type Observable, defaultIfEmpty, defer, from, lastValueFrom, mergeMap, 
 import { InMemoryMvpState } from './in-memory-mvp.state.js';
 import { MVP_PERSISTENCE_BACKEND } from './mvp-persistence.token.js';
 import { MVP_STATE } from './mvp-state.token.js';
+import { MetricsService } from '../../../common/metrics/metrics.service.js';
 import { resolveRequestContext } from '../../../common/utils/request.js';
 import { TenantSerialGateway } from '../../../infrastructure/request/tenant-serial.gateway.js';
 
@@ -20,6 +21,7 @@ import type { MvpPersistenceBackend } from './mvp-persistence.backend.js';
 export class MvpRequestPersistenceInterceptor implements NestInterceptor {
   constructor(
     @Inject(MVP_STATE) private readonly state: InMemoryMvpState,
+    @Inject(MetricsService) private readonly metrics: MetricsService,
     @Inject(MVP_PERSISTENCE_BACKEND) private readonly persistence: MvpPersistenceBackend,
     private readonly tenantGateway: TenantSerialGateway
   ) {}
@@ -34,15 +36,57 @@ export class MvpRequestPersistenceInterceptor implements NestInterceptor {
     if (!tenantId) {
       return next.handle();
     }
+    const enqueuedAt = Date.now();
+    const backend = this.persistence.constructor.name;
 
     return defer(() =>
       from(
         this.tenantGateway.runExclusive(tenantId, async () => {
-          await this.persistence.loadIntoState(tenantId, this.state);
+          this.metrics.observeDuration('mvp_persistence_queue_wait_ms', Date.now() - enqueuedAt, {
+            backend
+          });
+
+          const loadStarted = Date.now();
+          try {
+            await this.persistence.loadIntoState(tenantId, this.state);
+            this.metrics.incrementCounter('mvp_persistence_load_total', { backend, result: 'ok' });
+          } catch (error) {
+            this.metrics.incrementCounter('mvp_persistence_load_total', {
+              backend,
+              result: 'error'
+            });
+            throw error;
+          } finally {
+            this.metrics.observeDuration(
+              'mvp_persistence_load_duration_ms',
+              Date.now() - loadStarted,
+              { backend }
+            );
+          }
+
           try {
             return await lastValueFrom(next.handle().pipe(defaultIfEmpty(null)));
           } finally {
-            await this.persistence.saveFromState(tenantId, this.state);
+            const saveStarted = Date.now();
+            try {
+              await this.persistence.saveFromState(tenantId, this.state);
+              this.metrics.incrementCounter('mvp_persistence_save_total', {
+                backend,
+                result: 'ok'
+              });
+            } catch (error) {
+              this.metrics.incrementCounter('mvp_persistence_save_total', {
+                backend,
+                result: 'error'
+              });
+              throw error;
+            } finally {
+              this.metrics.observeDuration(
+                'mvp_persistence_save_duration_ms',
+                Date.now() - saveStarted,
+                { backend }
+              );
+            }
           }
         })
       ).pipe(mergeMap((v) => of(v)))

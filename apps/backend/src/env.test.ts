@@ -2,28 +2,36 @@ import { describe, expect, it } from 'vitest';
 
 import { backendEnvSchema } from './env.schema.js';
 
+const baseProductionEnv = {
+  NODE_ENV: 'production',
+  RELEASE_VERSION: '1.0.0',
+  BACKEND_PORT: 3001,
+  API_PREFIX: '/api/v1',
+  DATABASE_URL: 'http://postgres.local',
+  REDIS_URL: 'http://redis.local',
+  RABBITMQ_URL: 'http://rabbit.local',
+  S3_ENDPOINT: 'http://s3.local',
+  S3_ACCESS_KEY: 'key',
+  S3_SECRET_KEY: 'secret',
+  S3_BUCKET: 'bucket',
+  AUTH_JWT_SECRET: 'very-secure-jwt-secret-min-10',
+  SESSION_SECRET: 'very-secure-session-min-10-chars',
+  CORS_ORIGIN: 'http://localhost:3000',
+  PUBLIC_BASE_URL: 'http://localhost:3001',
+  REALTIME_PUBLIC_URL: 'http://localhost:3002',
+  REALTIME_PUBLISH_KEY: 'prod-realtime-publish-key',
+  INTEGRATION_WEBHOOK_SECRET: 'prod-webhook-secret-ok',
+  MVP_PERSISTENCE_DRIVER: 'postgres',
+  DOCUMENTS_PERSISTENCE_DRIVER: 'postgres',
+  ALLOW_IN_MEMORY_STATE: false
+} as const;
+
 describe('backend env production hardening', () => {
   it('rejects development auth secret in production', () => {
     expect(() =>
       backendEnvSchema.parse({
-        NODE_ENV: 'production',
-        RELEASE_VERSION: '1.0.0',
-        BACKEND_PORT: 3001,
-        API_PREFIX: '/api/v1',
-        DATABASE_URL: 'http://postgres.local',
-        REDIS_URL: 'http://redis.local',
-        RABBITMQ_URL: 'http://rabbit.local',
-        S3_ENDPOINT: 'http://s3.local',
-        S3_ACCESS_KEY: 'key',
-        S3_SECRET_KEY: 'secret',
-        S3_BUCKET: 'bucket',
-        AUTH_JWT_SECRET: 'change-me-in-production',
-        SESSION_SECRET: 'very-secure-session',
-        CORS_ORIGIN: 'http://localhost:3000',
-        PUBLIC_BASE_URL: 'http://localhost:3001',
-        REALTIME_PUBLIC_URL: 'http://localhost:3002',
-        REALTIME_PUBLISH_KEY: 'prod-realtime-publish-key',
-        INTEGRATION_WEBHOOK_SECRET: 'prod-webhook-secret-ok'
+        ...baseProductionEnv,
+        AUTH_JWT_SECRET: 'change-me-in-production'
       })
     ).toThrow();
   });
@@ -31,23 +39,26 @@ describe('backend env production hardening', () => {
   it('rejects production without integration webhook secret', () => {
     expect(() =>
       backendEnvSchema.parse({
-        NODE_ENV: 'production',
-        RELEASE_VERSION: '1.0.0',
-        BACKEND_PORT: 3001,
-        API_PREFIX: '/api/v1',
-        DATABASE_URL: 'http://postgres.local',
-        REDIS_URL: 'http://redis.local',
-        RABBITMQ_URL: 'http://rabbit.local',
-        S3_ENDPOINT: 'http://s3.local',
-        S3_ACCESS_KEY: 'key',
-        S3_SECRET_KEY: 'secret',
-        S3_BUCKET: 'bucket',
-        AUTH_JWT_SECRET: 'very-secure-jwt-secret-min-10',
-        SESSION_SECRET: 'very-secure-session-min-10-chars',
-        CORS_ORIGIN: 'http://localhost:3000',
-        PUBLIC_BASE_URL: 'http://localhost:3001',
-        REALTIME_PUBLIC_URL: 'http://localhost:3002',
-        REALTIME_PUBLISH_KEY: 'prod-realtime-publish-key'
+        ...baseProductionEnv,
+        INTEGRATION_WEBHOOK_SECRET: undefined
+      })
+    ).toThrow();
+  });
+
+  it('rejects non-postgres MVP driver in production', () => {
+    expect(() =>
+      backendEnvSchema.parse({
+        ...baseProductionEnv,
+        MVP_PERSISTENCE_DRIVER: 'memory'
+      })
+    ).toThrow();
+  });
+
+  it('rejects non-postgres documents driver in production', () => {
+    expect(() =>
+      backendEnvSchema.parse({
+        ...baseProductionEnv,
+        DOCUMENTS_PERSISTENCE_DRIVER: 'memory'
       })
     ).toThrow();
   });

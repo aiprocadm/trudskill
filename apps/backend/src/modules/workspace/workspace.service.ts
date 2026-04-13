@@ -117,19 +117,26 @@ export class WorkspaceService {
   }
 
   async getTasksInbox(tenantId: string): Promise<WorkspaceTaskItem[]> {
-    const fromDb = await this.tasksFromMvpRuntime(tenantId);
-    if (fromDb.length > 0) return fromDb;
+    const runtimeTasks = [
+      ...(await this.tasksFromMvpRuntime(tenantId)),
+      ...(await this.tasksFromDocumentsRuntime(tenantId))
+    ];
+
+    if (runtimeTasks.length > 0) {
+      return this.normalizeTaskStatus(runtimeTasks).slice(0, 30);
+    }
 
     const seed = this.fallbackByTenant.get(tenantId);
     if (!seed) return [];
-    const now = Date.now();
-    return seed.tasks.map((task) => ({
-      ...task,
-      status: task.dueAt && new Date(task.dueAt).getTime() < now ? 'overdue' : task.status
-    }));
+    return this.normalizeTaskStatus(seed.tasks);
   }
 
   async getBlockers(tenantId: string): Promise<WorkspaceBlockerItem[]> {
+    const runtimeBlockers = await this.blockersFromDocumentsRuntime(tenantId);
+    if (runtimeBlockers.length > 0) {
+      return runtimeBlockers;
+    }
+
     const seed = this.fallbackByTenant.get(tenantId);
     if (!seed) return [];
     return [...seed.blockers];
@@ -138,7 +145,7 @@ export class WorkspaceService {
   /** Draft courses stored in MVP JSON runtime (postgres driver). */
   private async tasksFromMvpRuntime(tenantId: string): Promise<WorkspaceTaskItem[]> {
     if (backendEnv.MVP_PERSISTENCE_DRIVER !== 'postgres') return [];
-    const rows = await this.db.query<{ id: string; data: { title?: string; status?: string } }>(
+    const rows = await this.db.query<{ id: string; data: { title?: string } }>(
       `select id, data from learning.mvp_runtime_documents
        where tenant_id = $1 and collection = 'courses' and data->>'status' = 'draft'
        order by updated_at desc
@@ -152,5 +159,69 @@ export class WorkspaceService {
       status: 'open' as const,
       route: `/courses/${row.id}`
     }));
+  }
+
+  /** Active documents generation tasks from runtime store. */
+  private async tasksFromDocumentsRuntime(tenantId: string): Promise<WorkspaceTaskItem[]> {
+    if (backendEnv.DOCUMENTS_PERSISTENCE_DRIVER !== 'postgres') return [];
+    const rows = await this.db.query<{
+      id: string;
+      data: {
+        status?: 'queued' | 'running' | 'completed' | 'failed';
+        documentType?: string;
+        requestedAt?: string;
+      };
+    }>(
+      `select id, data from documents.runtime_documents
+       where tenant_id = $1 and collection = 'tasks' and data->>'status' in ('queued', 'running')
+       order by updated_at desc
+       limit 15`,
+      [tenantId]
+    );
+
+    return rows.map((row) => ({
+      id: `ws_doc_task_${row.id}`,
+      tenantId,
+      title: `Генерация документа: ${row.data.documentType ?? 'document'}`,
+      status: row.data.status === 'running' ? 'in_progress' : 'open',
+      dueAt: row.data.requestedAt,
+      route: '/documents'
+    }));
+  }
+
+  /** Failed documents tasks mapped to high-severity blockers. */
+  private async blockersFromDocumentsRuntime(tenantId: string): Promise<WorkspaceBlockerItem[]> {
+    if (backendEnv.DOCUMENTS_PERSISTENCE_DRIVER !== 'postgres') return [];
+    const rows = await this.db.query<{
+      id: string;
+      data: { documentType?: string; errorMessage?: string };
+    }>(
+      `select id, data from documents.runtime_documents
+       where tenant_id = $1 and collection = 'tasks' and data->>'status' = 'failed'
+       order by updated_at desc
+       limit 10`,
+      [tenantId]
+    );
+
+    return rows.map((row) => ({
+      id: `ws_doc_blocker_${row.id}`,
+      tenantId,
+      title: `Сбой генерации документа: ${row.data.documentType ?? 'document'}${
+        row.data.errorMessage ? ` (${row.data.errorMessage})` : ''
+      }`,
+      severity: 'high',
+      route: '/documents'
+    }));
+  }
+
+  private normalizeTaskStatus(tasks: WorkspaceTaskItem[]): WorkspaceTaskItem[] {
+    const now = Date.now();
+    return tasks.map((task) => {
+      const isOverdue = task.dueAt ? new Date(task.dueAt).getTime() < now : false;
+      return {
+        ...task,
+        status: isOverdue ? 'overdue' : task.status
+      };
+    });
   }
 }
