@@ -8,9 +8,11 @@ import {
   Post,
   Put,
   Query,
-  UseGuards
+  UseGuards,
+  UseInterceptors
 } from '@nestjs/common';
 
+import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
 import { MvpService } from './mvp.service.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
@@ -51,6 +53,7 @@ import type {
 import type { RequestContext } from '../../common/context/request-context.js';
 
 @Controller()
+@UseInterceptors(MvpRequestPersistenceInterceptor)
 @UseGuards(TenantGuard)
 export class MvpController {
   constructor(@Inject(MvpService) private readonly mvpService: MvpService) {}

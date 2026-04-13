@@ -6,6 +6,12 @@ import { MvpService } from './mvp.service.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 import { AuditService } from '../audit/audit.service.js';
 
+import type { FilesService } from '../files/files.service.js';
+
+const noopFilesService = {
+  ensureMaterialLink: async () => undefined
+} as unknown as FilesService;
+
 const ctx = {
   requestId: 'req_concurrency_1',
   correlationId: 'corr_concurrency_1',
@@ -20,7 +26,8 @@ describe('mvp service concurrency-lite invariants', () => {
     const service = new MvpService(
       new InMemoryMvpState(),
       new TenantScopedRepository(),
-      new AuditService()
+      new AuditService(),
+      noopFilesService
     );
     const group = service.createGroup(
       'tenant_demo',
@@ -70,7 +77,8 @@ describe('mvp service concurrency-lite invariants', () => {
     const service = new MvpService(
       new InMemoryMvpState(),
       new TenantScopedRepository(),
-      new AuditService()
+      new AuditService(),
+      noopFilesService
     );
     const course = service.createCourse(
       'tenant_demo',

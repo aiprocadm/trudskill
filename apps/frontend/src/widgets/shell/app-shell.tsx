@@ -121,6 +121,19 @@ export const AppShell = ({ children }: PropsWithChildren) => {
             border-right: 0;
             border-bottom: 1px solid var(--ui-border);
           }
+          .app-shell__sidebar .ui-stack {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: nowrap;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 6px;
+            -webkit-overflow-scrolling: touch;
+          }
+          .app-shell__link {
+            white-space: nowrap;
+            flex: 0 0 auto;
+          }
         }
       `}</style>
     </div>

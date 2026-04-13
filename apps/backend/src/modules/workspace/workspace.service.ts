@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
 
+import { backendEnv } from '../../env.js';
+import { DatabaseService } from '../../infrastructure/database/database.service.js';
+
 export interface WorkspaceTaskItem {
   id: string;
   tenantId: string;
@@ -24,6 +27,8 @@ interface WorkspaceSeed {
 
 @Injectable()
 export class WorkspaceService {
+  constructor(private readonly db: DatabaseService) {}
+
   private readonly fallbackByTenant = new Map<string, WorkspaceSeed>([
     [
       'tenant_demo',
@@ -91,9 +96,9 @@ export class WorkspaceService {
     ]
   ]);
 
-  getWorkspaceSummary(tenantId: string) {
-    const tasks = this.getTasksInbox(tenantId);
-    const blockers = this.getBlockers(tenantId);
+  async getWorkspaceSummary(tenantId: string) {
+    const tasks = await this.getTasksInbox(tenantId);
+    const blockers = await this.getBlockers(tenantId);
     const overdue = tasks.filter((item) => item.status === 'overdue').length;
 
     return {
@@ -111,7 +116,10 @@ export class WorkspaceService {
     };
   }
 
-  getTasksInbox(tenantId: string): WorkspaceTaskItem[] {
+  async getTasksInbox(tenantId: string): Promise<WorkspaceTaskItem[]> {
+    const fromDb = await this.tasksFromMvpRuntime(tenantId);
+    if (fromDb.length > 0) return fromDb;
+
     const seed = this.fallbackByTenant.get(tenantId);
     if (!seed) return [];
     const now = Date.now();
@@ -121,9 +129,28 @@ export class WorkspaceService {
     }));
   }
 
-  getBlockers(tenantId: string): WorkspaceBlockerItem[] {
+  async getBlockers(tenantId: string): Promise<WorkspaceBlockerItem[]> {
     const seed = this.fallbackByTenant.get(tenantId);
     if (!seed) return [];
     return [...seed.blockers];
+  }
+
+  /** Draft courses stored in MVP JSON runtime (postgres driver). */
+  private async tasksFromMvpRuntime(tenantId: string): Promise<WorkspaceTaskItem[]> {
+    if (backendEnv.MVP_PERSISTENCE_DRIVER !== 'postgres') return [];
+    const rows = await this.db.query<{ id: string; data: { title?: string; status?: string } }>(
+      `select id, data from learning.mvp_runtime_documents
+       where tenant_id = $1 and collection = 'courses' and data->>'status' = 'draft'
+       order by updated_at desc
+       limit 15`,
+      [tenantId]
+    );
+    return rows.map((row) => ({
+      id: `ws_draft_course_${row.id}`,
+      tenantId,
+      title: `Черновик курса: ${row.data.title ?? row.id}`,
+      status: 'open' as const,
+      route: `/courses/${row.id}`
+    }));
   }
 }

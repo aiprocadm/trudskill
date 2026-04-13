@@ -426,9 +426,19 @@ export const CourseCreateScreen = () => {
     event.preventDefault();
     try {
       setSaveError(null);
+      const trimmedCode = code.trim();
+      const trimmedTitle = title.trim();
+      if (trimmedCode.length < 2) {
+        setSaveError('Код курса: минимум 2 символа');
+        return;
+      }
+      if (trimmedTitle.length < 3) {
+        setSaveError('Название: минимум 3 символа');
+        return;
+      }
       const payload = directionId
-        ? { code, title, description, directionId }
-        : { code, title, description };
+        ? { code: trimmedCode, title: trimmedTitle, description, directionId }
+        : { code: trimmedCode, title: trimmedTitle, description };
       const created = await saveCourse(null, payload);
       router.push(`/courses/${created.id}`);
     } catch (createError) {
@@ -846,7 +856,12 @@ export const LearnerCoursesScreen = () => {
 };
 
 export const LearnerCourseDetailsScreen = ({ id }: { id: string }) => {
-  const { data: progress } = useLearnerCourseProgress(id);
+  const { data: course, loading: courseLoading, error: courseError } = useCourse(id);
+  const {
+    data: progress,
+    loading: progressLoading,
+    error: progressError
+  } = useLearnerCourseProgress(id);
   const percent = useMemo(() => {
     if (!progress?.items.length) return 0;
     const sum = progress.items.reduce((acc, item) => acc + item.progressPercent, 0);
@@ -858,10 +873,27 @@ export const LearnerCourseDetailsScreen = ({ id }: { id: string }) => {
     [progress]
   );
 
+  const orderedSteps = useMemo(() => {
+    if (!progress?.items.length) return [];
+    return [...progress.items].sort((a, b) => {
+      const m = a.moduleId.localeCompare(b.moduleId);
+      if (m !== 0) return m;
+      return a.materialId.localeCompare(b.materialId);
+    });
+  }, [progress]);
+
+  const loading = courseLoading || progressLoading;
+  const error = courseError ?? progressError;
+
   return (
     <PageContainer>
-      <PageHeader title={`Курс слушателя ${id}`} />
+      <PageHeader
+        title={course ? course.title : `Курс ${id}`}
+        {...(course ? { subtitle: `Код: ${course.code}` } : {})}
+      />
+      {error ? <SectionError message={error} /> : null}
       <SectionCard title="Прогресс">
+        {loading ? <p style={{ margin: 0, color: '#71717a' }}>Загрузка…</p> : null}
         <ProgressBar value={percent} />
       </SectionCard>
       <SectionCard title="Что продолжить">
@@ -872,6 +904,19 @@ export const LearnerCourseDetailsScreen = ({ id }: { id: string }) => {
         ) : (
           <SectionEmpty message="Материалы для продолжения пока не найдены" />
         )}
+      </SectionCard>
+      <SectionCard title="Дорожка материалов">
+        {!orderedSteps.length && !loading ? (
+          <SectionEmpty message="Нет записей прогресса по этому курсу" />
+        ) : null}
+        <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
+          {orderedSteps.map((item) => (
+            <li key={`${item.moduleId}-${item.materialId}`}>
+              Модуль {item.moduleId} · материал {item.materialId}{' '}
+              <StatusChip status={item.status} /> · {item.progressPercent}%
+            </li>
+          ))}
+        </ul>
       </SectionCard>
     </PageContainer>
   );

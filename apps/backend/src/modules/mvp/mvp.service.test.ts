@@ -6,6 +6,12 @@ import { MvpService } from './mvp.service.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 import { AuditService } from '../audit/audit.service.js';
 
+import type { FilesService } from '../files/files.service.js';
+
+const noopFilesService = {
+  ensureMaterialLink: async () => undefined
+} as unknown as FilesService;
+
 const ctx = {
   requestId: 'req_1',
   correlationId: 'corr_1',
@@ -20,7 +26,8 @@ describe('mvp service domain rules', () => {
     const service = new MvpService(
       new InMemoryMvpState(),
       new TenantScopedRepository(),
-      new AuditService()
+      new AuditService(),
+      noopFilesService
     );
     const course = service.createCourse(
       'tenant_demo',
@@ -41,7 +48,8 @@ describe('mvp service domain rules', () => {
     const service = new MvpService(
       new InMemoryMvpState(),
       new TenantScopedRepository(),
-      new AuditService()
+      new AuditService(),
+      noopFilesService
     );
     const group = service.createGroup(
       'tenant_demo',
@@ -76,7 +84,8 @@ describe('mvp service domain rules', () => {
     const service = new MvpService(
       new InMemoryMvpState(),
       new TenantScopedRepository(),
-      new AuditService()
+      new AuditService(),
+      noopFilesService
     );
     const group = service.createGroup(
       'tenant_demo',
@@ -124,7 +133,8 @@ describe('mvp service domain rules', () => {
     const service = new MvpService(
       new InMemoryMvpState(),
       new TenantScopedRepository(),
-      new AuditService()
+      new AuditService(),
+      noopFilesService
     );
     const course = service.createCourse(
       'tenant_demo',
@@ -191,7 +201,8 @@ describe('mvp service domain rules', () => {
     const service = new MvpService(
       new InMemoryMvpState(),
       new TenantScopedRepository(),
-      new AuditService()
+      new AuditService(),
+      noopFilesService
     );
     const course = service.createCourse(
       'tenant_demo',
@@ -206,7 +217,8 @@ describe('mvp service domain rules', () => {
     const service = new MvpService(
       new InMemoryMvpState(),
       new TenantScopedRepository(),
-      new AuditService()
+      new AuditService(),
+      noopFilesService
     );
     service.createDirection('tenant_demo', ctx.userId, { code: 'D1', name: 'Direction 1' }, ctx);
     const lookup = service.lookupDirections('tenant_demo', { q: 'Direction' });
@@ -217,7 +229,8 @@ describe('mvp service domain rules', () => {
     const service = new MvpService(
       new InMemoryMvpState(),
       new TenantScopedRepository(),
-      new AuditService()
+      new AuditService(),
+      noopFilesService
     );
     const group = service.createGroup(
       'tenant_demo',
@@ -240,7 +253,12 @@ describe('mvp service domain rules', () => {
 
   it('writes audit events for critical actions', async () => {
     const audit = new AuditService();
-    const service = new MvpService(new InMemoryMvpState(), new TenantScopedRepository(), audit);
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      audit,
+      noopFilesService
+    );
     service.createCounterparty('tenant_demo', ctx.userId, { code: 'CP1', name: 'Org 1' }, ctx);
     service.createLearner('tenant_demo', ctx.userId, { code: 'L1', name: 'John Doe' }, ctx);
     expect((await audit.list()).some((item) => item.action === 'crm.counterparty_created')).toBe(
@@ -255,7 +273,8 @@ describe('mvp service domain rules', () => {
     const service = new MvpService(
       new InMemoryMvpState(),
       new TenantScopedRepository(),
-      new AuditService()
+      new AuditService(),
+      noopFilesService
     );
     const course = service.createCourse(
       'tenant_demo',
@@ -346,7 +365,8 @@ describe('mvp service domain rules', () => {
     const service = new MvpService(
       new InMemoryMvpState(),
       new TenantScopedRepository(),
-      new AuditService()
+      new AuditService(),
+      noopFilesService
     );
     const course = service.createCourse(
       'tenant_demo',
@@ -417,7 +437,8 @@ describe('mvp service domain rules', () => {
     const service = new MvpService(
       new InMemoryMvpState(),
       new TenantScopedRepository(),
-      new AuditService()
+      new AuditService(),
+      noopFilesService
     );
     const course = service.createCourse(
       'tenant_demo',
@@ -485,7 +506,8 @@ describe('mvp service domain rules', () => {
     const service = new MvpService(
       new InMemoryMvpState(),
       new TenantScopedRepository(),
-      new AuditService()
+      new AuditService(),
+      noopFilesService
     );
     const assignment = service.createAssignment(
       'tenant_demo',
@@ -545,7 +567,12 @@ describe('mvp service domain rules', () => {
 
   it('updates module/material/group and writes audit events', async () => {
     const audit = new AuditService();
-    const service = new MvpService(new InMemoryMvpState(), new TenantScopedRepository(), audit);
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      audit,
+      noopFilesService
+    );
     const group = service.createGroup(
       'tenant_demo',
       ctx.userId,
@@ -612,7 +639,8 @@ describe('mvp service domain rules', () => {
     const service = new MvpService(
       new InMemoryMvpState(),
       new TenantScopedRepository(),
-      new AuditService()
+      new AuditService(),
+      noopFilesService
     );
     const group = service.createGroup(
       'tenant_demo',

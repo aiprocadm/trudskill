@@ -24,7 +24,8 @@ export const mvpDomainTables = {
     'enrollment_status_history',
     'course_progress',
     'module_progress',
-    'material_progress'
+    'material_progress',
+    'mvp_runtime_documents'
   ],
   assessment: [
     'question_banks',
@@ -47,10 +48,18 @@ export const mvpDomainTables = {
     'template_bindings',
     'generated_documents',
     'numbering_rules',
-    'number_reservations'
+    'number_reservations',
+    'runtime_documents'
   ],
   storage: ['files', 'file_links'],
-  esign: ['esign_applications', 'esign_application_files', 'signing_processes', 'signing_participants', 'signature_events', 'legal_log_entries']
+  esign: [
+    'esign_applications',
+    'esign_application_files',
+    'signing_processes',
+    'signing_participants',
+    'signature_events',
+    'legal_log_entries'
+  ]
 } as const;
 
 export const mvpDomainTableList = Object.entries(mvpDomainTables).flatMap(([schema, tables]) =>

@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MvpService } from './mvp.service.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -9,8 +8,15 @@ import { DocumentsService } from '../documents/documents.service.js';
 import { InMemoryDocumentsState } from '../documents/in-memory-documents.state.js';
 import { EsignService } from '../esign/esign.service.js';
 import { InMemoryEsignState } from '../esign/in-memory-esign.state.js';
+import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { AuthService } from '../iam/services/auth.service.js';
 import { IamService } from '../iam/services/iam.service.js';
+
+import type { FilesService } from '../files/files.service.js';
+
+const noopFilesService = {
+  ensureMaterialLink: async () => undefined
+} as unknown as FilesService;
 
 const baseCtx = {
   requestId: 'req_stage13_e2e',
@@ -61,7 +67,8 @@ describe('stage13 business e2e flows (service-level)', () => {
     const service = new MvpService(
       new InMemoryMvpState(),
       new TenantScopedRepository(),
-      new AuditService()
+      new AuditService(),
+      noopFilesService
     );
 
     const course = service.createCourse(

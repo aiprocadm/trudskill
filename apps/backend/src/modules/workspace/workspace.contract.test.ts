@@ -102,7 +102,8 @@ describe('Workspace API contract', () => {
     const { WorkspaceService } = workspaceServiceImport;
     const { CurrentContext } = currentContextDecoratorImport;
 
-    const workspaceService = new WorkspaceService();
+    const { workspaceTestDatabaseStub } = await import('./workspace.test-db.stub.js');
+    const workspaceService = new WorkspaceService(workspaceTestDatabaseStub);
 
     @Controller()
     class TestWorkspaceController {
@@ -112,20 +113,20 @@ describe('Workspace API contract', () => {
       }
 
       @Get('tasks/inbox')
-      getTasksInbox(@CurrentContext() context: { tenantId?: string }) {
-        return { items: workspaceService.getTasksInbox(context.tenantId!) };
+      async getTasksInbox(@CurrentContext() context: { tenantId?: string }) {
+        return { items: await workspaceService.getTasksInbox(context.tenantId!) };
       }
 
       @Get('blockers')
-      getBlockers(@CurrentContext() context: { tenantId?: string }) {
-        return { items: workspaceService.getBlockers(context.tenantId!) };
+      async getBlockers(@CurrentContext() context: { tenantId?: string }) {
+        return { items: await workspaceService.getBlockers(context.tenantId!) };
       }
     }
 
     @Module({
       imports: [ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: 300 }] })],
       controllers: [TestWorkspaceController],
-      providers: [WorkspaceService]
+      providers: []
     })
     class TestAppModule {}
 

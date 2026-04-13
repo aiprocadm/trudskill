@@ -29,7 +29,9 @@ export const backendEnvSchema = z
     /** Должен совпадать с REALTIME_PUBLISH_KEY у сервиса realtime (заголовок x-realtime-key). */
     REALTIME_PUBLISH_KEY: z.string().min(10),
     ALLOW_IN_MEMORY_STATE: z.coerce.boolean().default(false),
-    /** `memory` — текущая реализация; `postgres` — заглушка под будущее SQL-хранилище документов (сейчас то же in-memory поведение). */
+    /** `memory` — in-process arrays; `postgres` — learning.mvp_runtime_documents (JSON per entity). */
+    MVP_PERSISTENCE_DRIVER: z.enum(['memory', 'postgres']).default('memory'),
+    /** `memory` — снимок в процессе на запрос; `postgres` — documents.runtime_documents + JSON по сущности. */
     DOCUMENTS_PERSISTENCE_DRIVER: z.enum(['memory', 'postgres']).default('memory'),
     INTEGRATION_WEBHOOK_SECRET: z.string().min(10).optional()
   })
@@ -55,6 +57,18 @@ export const backendEnvSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'ALLOW_IN_MEMORY_STATE must be false in production'
+      });
+    }
+    if (env.NODE_ENV === 'production' && env.MVP_PERSISTENCE_DRIVER !== 'postgres') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'MVP_PERSISTENCE_DRIVER must be postgres in production'
+      });
+    }
+    if (env.NODE_ENV === 'production' && env.DOCUMENTS_PERSISTENCE_DRIVER !== 'postgres') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'DOCUMENTS_PERSISTENCE_DRIVER must be postgres in production'
       });
     }
     if (env.NODE_ENV === 'production' && !env.INTEGRATION_WEBHOOK_SECRET) {

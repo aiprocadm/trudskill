@@ -25,14 +25,17 @@ export const normalizeApiError = (
   const code = envelope?.error?.code ?? BackendHttpErrorCodes.internal_error;
   const meta = envelope?.meta as { request_id?: string; requestId?: string } | undefined;
   const requestId = meta?.request_id ?? meta?.requestId;
-  const details = envelope?.error?.details;
+  const rawDetails = envelope?.error?.details;
+  const details = Array.isArray(rawDetails)
+    ? (rawDetails as Array<{ field?: string; message: string; code?: string }>)
+    : undefined;
 
   return {
     status,
     code,
     message: envelope?.error?.message ?? fallbackMessage,
     ...(requestId ? { requestId } : {}),
-    ...(details ? { details } : {}),
+    ...(details?.length ? { details } : {}),
     isAuthError: status === 401
   };
 };

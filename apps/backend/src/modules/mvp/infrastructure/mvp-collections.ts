@@ -1,0 +1,30 @@
+/** Keys match InMemoryMvpState property names (JSON store collections). */
+export const MVP_COLLECTIONS = [
+  'counterparties',
+  'learners',
+  'directions',
+  'courses',
+  'courseVersions',
+  'modules',
+  'materials',
+  'groups',
+  'groupCourses',
+  'enrollments',
+  'enrollmentStatusHistory',
+  'materialProgress',
+  'moduleProgress',
+  'courseProgress',
+  'questionBanks',
+  'questions',
+  'answerOptions',
+  'tests',
+  'testQuestions',
+  'attempts',
+  'attemptAnswers',
+  'examResults',
+  'assignments',
+  'assignmentSubmissions',
+  'assignmentReviews'
+] as const;
+
+export type MvpCollection = (typeof MVP_COLLECTIONS)[number];

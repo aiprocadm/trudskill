@@ -8,10 +8,12 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards
+  UseGuards,
+  UseInterceptors
 } from '@nestjs/common';
 
 import { DocumentsService } from './documents.service.js';
+import { DocumentsRequestPersistenceInterceptor } from './infrastructure/documents-request-persistence.interceptor.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
@@ -34,6 +36,7 @@ import type {
 import type { RequestContext } from '../../common/context/request-context.js';
 
 @Controller()
+@UseInterceptors(DocumentsRequestPersistenceInterceptor)
 @UseGuards(TenantGuard)
 export class DocumentsController {
   constructor(@Inject(DocumentsService) private readonly documentsService: DocumentsService) {}

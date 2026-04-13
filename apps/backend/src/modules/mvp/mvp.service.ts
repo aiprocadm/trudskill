@@ -11,6 +11,7 @@ import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from './infrastructure/mvp-state.token.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 import { AuditService } from '../audit/audit.service.js';
+import { FilesService } from '../files/files.service.js';
 
 import type {
   BaseFilterQuery,
@@ -94,7 +95,8 @@ export class MvpService {
   constructor(
     @Inject(MVP_STATE) private readonly state: InMemoryMvpState,
     @Inject(TenantScopedRepository) private readonly tenantScopedRepository: TenantScopedRepository,
-    @Inject(AuditService) private readonly auditService: AuditService
+    @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(FilesService) private readonly filesService: FilesService
   ) {}
 
   listCounterparties(tenantId: string, query: BaseFilterQuery): ListResponse<Counterparty> {
@@ -579,6 +581,11 @@ export class MvpService {
       entity,
       context
     );
+    if (entity.fileId) {
+      void this.filesService
+        .ensureMaterialLink(tenantId, entity.id, entity.fileId)
+        .catch(() => undefined);
+    }
     return entity;
   }
   updateMaterial(
@@ -613,6 +620,11 @@ export class MvpService {
       current,
       context
     );
+    if (request.fileId !== undefined && current.fileId) {
+      void this.filesService
+        .ensureMaterialLink(tenantId, current.id, current.fileId)
+        .catch(() => undefined);
+    }
     return current;
   }
 
