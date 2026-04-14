@@ -1,4 +1,5 @@
 import { ConflictException, ForbiddenException, PreconditionFailedException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { describe, expect, it } from 'vitest';
 
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
@@ -11,6 +12,8 @@ import type { FilesService } from '../files/files.service.js';
 const noopFilesService = {
   ensureMaterialLink: async () => undefined
 } as unknown as FilesService;
+
+const testEmitter = new EventEmitter2();
 
 const ctx = {
   requestId: 'req_1',
@@ -27,7 +30,8 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
-      noopFilesService
+      noopFilesService,
+      testEmitter
     );
     const course = service.createCourse(
       'tenant_demo',
@@ -49,7 +53,8 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
-      noopFilesService
+      noopFilesService,
+      testEmitter
     );
     const group = service.createGroup(
       'tenant_demo',
@@ -85,7 +90,8 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
-      noopFilesService
+      noopFilesService,
+      testEmitter
     );
     const group = service.createGroup(
       'tenant_demo',
@@ -134,7 +140,8 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
-      noopFilesService
+      noopFilesService,
+      testEmitter
     );
     const course = service.createCourse(
       'tenant_demo',
@@ -202,7 +209,8 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
-      noopFilesService
+      noopFilesService,
+      testEmitter
     );
     const course = service.createCourse(
       'tenant_demo',
@@ -218,7 +226,8 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
-      noopFilesService
+      noopFilesService,
+      testEmitter
     );
     service.createDirection('tenant_demo', ctx.userId, { code: 'D1', name: 'Direction 1' }, ctx);
     const lookup = service.lookupDirections('tenant_demo', { q: 'Direction' });
@@ -230,7 +239,8 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
-      noopFilesService
+      noopFilesService,
+      testEmitter
     );
     const group = service.createGroup(
       'tenant_demo',
@@ -257,7 +267,8 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       audit,
-      noopFilesService
+      noopFilesService,
+      testEmitter
     );
     service.createCounterparty('tenant_demo', ctx.userId, { code: 'CP1', name: 'Org 1' }, ctx);
     service.createLearner('tenant_demo', ctx.userId, { code: 'L1', name: 'John Doe' }, ctx);
@@ -274,7 +285,8 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
-      noopFilesService
+      noopFilesService,
+      testEmitter
     );
     const course = service.createCourse(
       'tenant_demo',
@@ -366,7 +378,8 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
-      noopFilesService
+      noopFilesService,
+      testEmitter
     );
     const course = service.createCourse(
       'tenant_demo',
@@ -438,7 +451,8 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
-      noopFilesService
+      noopFilesService,
+      testEmitter
     );
     const course = service.createCourse(
       'tenant_demo',
@@ -507,7 +521,8 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
-      noopFilesService
+      noopFilesService,
+      testEmitter
     );
     const assignment = service.createAssignment(
       'tenant_demo',
@@ -571,7 +586,8 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       audit,
-      noopFilesService
+      noopFilesService,
+      testEmitter
     );
     const group = service.createGroup(
       'tenant_demo',
@@ -640,7 +656,8 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
-      noopFilesService
+      noopFilesService,
+      testEmitter
     );
     const group = service.createGroup(
       'tenant_demo',
@@ -680,5 +697,52 @@ describe('mvp service domain rules', () => {
     expect(updatedCourse.id).toBe(course.id);
     expect(updatedCourse.tenantId).toBe('tenant_demo');
     expect(updatedCourse.isArchived).toBe(false);
+  });
+
+  it('computes plannedEndAt from group course durations and filters by planned_end range', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopFilesService,
+      testEmitter
+    );
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'C-PLAN', title: 'Plan course' },
+      ctx
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G-PLAN', name: 'Plan group' },
+      ctx
+    );
+    service.createGroupCourse('tenant_demo', {
+      groupId: group.id,
+      courseId: course.id,
+      durationDays: 7
+    });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'L-PLAN', name: 'Plan learner' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    expect(enrollment.plannedEndAt).toBeDefined();
+    const from = new Date(Date.parse(enrollment.enrolledAt) - 86_400_000).toISOString();
+    const to = new Date(Date.parse(enrollment.plannedEndAt!) + 86_400_000).toISOString();
+    const listed = service.listEnrollments('tenant_demo', {
+      planned_end_from: from,
+      planned_end_to: to
+    });
+    expect(listed.items.some((x) => x.id === enrollment.id)).toBe(true);
   });
 });

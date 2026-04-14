@@ -6,6 +6,10 @@ export interface BaseFilterQuery {
   status?: string;
   created_from?: string;
   created_to?: string;
+  /** ISO: зачисления с planned_end_at >= from */
+  planned_end_from?: string;
+  /** ISO: зачисления с planned_end_at <= to */
+  planned_end_to?: string;
   group_id?: string;
   learner_id?: string;
   course_id?: string;
@@ -76,6 +80,12 @@ export interface UpdateMaterialRequest {
 export interface CreateGroupCourseRequest {
   groupId: string;
   courseId: string;
+  /** Дней на прохождение курса в программе; по умолчанию 90 при расчёте planned_end. */
+  durationDays?: number;
+}
+
+export interface UpdateGroupCourseRequest {
+  durationDays?: number | null;
 }
 
 export interface CreateEnrollmentRequest {

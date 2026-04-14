@@ -68,7 +68,8 @@ describe('SQL migration chain', () => {
       '0009_assessment_extensions.sql',
       '0010_iam_role_permissions_and_seed.sql',
       '0011_mvp_runtime_json.sql',
-      '0012_documents_runtime_json.sql'
+      '0012_documents_runtime_json.sql',
+      '0013_learning_duration_planned_end.sql'
     ];
 
     for (const migration of expectedBaselines) {

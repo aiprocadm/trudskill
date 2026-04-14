@@ -6,7 +6,9 @@ import {
   NotFoundException,
   PreconditionFailedException
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
+import { ENROLLMENT_COMPLETED_EVENT } from './enrollment-completed.event.js';
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from './infrastructure/mvp-state.token.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
@@ -37,6 +39,7 @@ import type {
   UpdateAssignmentSubmissionRequest,
   UpdateCourseRequest,
   UpdateEnrollmentStatusRequest,
+  UpdateGroupCourseRequest,
   UpdateMaterialProgressRequest,
   UpdateMaterialRequest,
   UpdateModuleRequest,
@@ -90,13 +93,16 @@ interface LookupItem {
   status: string;
 }
 
+const DEFAULT_GROUP_COURSE_DURATION_DAYS = 90;
+
 @Injectable()
 export class MvpService {
   constructor(
     @Inject(MVP_STATE) private readonly state: InMemoryMvpState,
     @Inject(TenantScopedRepository) private readonly tenantScopedRepository: TenantScopedRepository,
     @Inject(AuditService) private readonly auditService: AuditService,
-    @Inject(FilesService) private readonly filesService: FilesService
+    @Inject(FilesService) private readonly filesService: FilesService,
+    @Inject(EventEmitter2) private readonly events: EventEmitter2
   ) {}
 
   listCounterparties(tenantId: string, query: BaseFilterQuery): ListResponse<Counterparty> {
@@ -720,10 +726,39 @@ export class MvpService {
       sortOrder: this.state.groupCourses.length,
       status: 'active',
       createdAt: this.now(),
-      updatedAt: this.now()
+      updatedAt: this.now(),
+      durationDays: this.normalizeDurationDays(request.durationDays)
     };
     this.state.groupCourses.push(entity);
     return entity;
+  }
+
+  updateGroupCourse(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    request: UpdateGroupCourseRequest,
+    context: RequestContext
+  ): GroupCourse {
+    const current = this.getById(this.state.groupCourses, tenantId, id);
+    const oldValues = { ...current };
+    if (request.durationDays === null) {
+      current.durationDays = undefined;
+    } else if (typeof request.durationDays === 'number') {
+      current.durationDays = this.normalizeDurationDays(request.durationDays);
+    }
+    current.updatedAt = this.now();
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.group_course_updated',
+      'learning.group_course',
+      current.id,
+      oldValues,
+      current,
+      context
+    );
+    return current;
   }
 
   listEnrollments(tenantId: string, query: BaseFilterQuery): ListResponse<Enrollment> {
@@ -761,6 +796,7 @@ export class MvpService {
       learnerId: request.learnerId,
       status: 'pending',
       enrolledAt: now,
+      plannedEndAt: this.computePlannedEndAt(tenantId, request.groupId, now),
       createdAt: now,
       updatedAt: now
     };
@@ -809,6 +845,19 @@ export class MvpService {
       enrollment,
       context
     );
+    if (request.status === 'completed') {
+      const courseIds = this.state.groupCourses
+        .filter((gc) => gc.tenantId === tenantId && gc.groupId === enrollment.groupId)
+        .map((gc) => gc.courseId);
+      this.events.emit(ENROLLMENT_COMPLETED_EVENT, {
+        tenantId,
+        enrollmentId: enrollment.id,
+        learnerId: enrollment.learnerId,
+        groupId: enrollment.groupId,
+        groupCourseIds: courseIds,
+        actorId
+      });
+    }
     return enrollment;
   }
 
@@ -2214,6 +2263,33 @@ export class MvpService {
     return record;
   }
 
+  private normalizeDurationDays(value: number | undefined): number | undefined {
+    if (value === undefined || value === null || Number.isNaN(value)) return undefined;
+    const n = Math.floor(Number(value));
+    if (n < 1) return undefined;
+    return Math.min(n, 3650);
+  }
+
+  private computePlannedEndAt(
+    tenantId: string,
+    groupId: string,
+    enrolledAt: string
+  ): string | undefined {
+    const links = this.state.groupCourses.filter(
+      (gc) => gc.tenantId === tenantId && gc.groupId === groupId
+    );
+    if (!links.length) return undefined;
+    const base = Date.parse(enrolledAt);
+    if (Number.isNaN(base)) return undefined;
+    let maxEnd = base;
+    for (const gc of links) {
+      const days = gc.durationDays ?? DEFAULT_GROUP_COURSE_DURATION_DAYS;
+      const end = base + days * 86_400_000;
+      if (end > maxEnd) maxEnd = end;
+    }
+    return new Date(maxEnd).toISOString();
+  }
+
   private dayBucket(enabled: boolean): string | undefined {
     if (!enabled) return undefined;
     return new Date().toISOString().slice(0, 10);
@@ -2288,6 +2364,26 @@ export class MvpService {
       const toDate = new Date(query.created_to);
       if (!Number.isNaN(toDate.getTime())) {
         items = items.filter((item) => new Date(item.createdAt) <= toDate);
+      }
+    }
+    if (query.planned_end_from) {
+      const fromTs = Date.parse(query.planned_end_from);
+      if (!Number.isNaN(fromTs)) {
+        items = items.filter((item) => {
+          const p = (item as Record<string, unknown>).plannedEndAt;
+          if (!p || typeof p !== 'string') return false;
+          return Date.parse(p) >= fromTs;
+        });
+      }
+    }
+    if (query.planned_end_to) {
+      const toTs = Date.parse(query.planned_end_to);
+      if (!Number.isNaN(toTs)) {
+        items = items.filter((item) => {
+          const p = (item as Record<string, unknown>).plannedEndAt;
+          if (!p || typeof p !== 'string') return false;
+          return Date.parse(p) <= toTs;
+        });
       }
     }
     if (query.sort) {

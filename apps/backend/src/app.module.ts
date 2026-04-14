@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerModule } from '@nestjs/throttler';
 
 import { RequestObservabilityInterceptor } from './common/interceptors/request-observability.interceptor.js';
@@ -17,6 +18,7 @@ import { TenantModule } from './modules/tenant/tenant.module.js';
 import { WorkspaceModule } from './modules/workspace/workspace.module.js';
 
 const baseModules = [
+  EventEmitterModule.forRoot(),
   ThrottlerModule.forRoot({
     throttlers: [{ ttl: 60_000, limit: 300 }]
   }),

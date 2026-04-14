@@ -30,7 +30,7 @@ const roleBlueprints: RoleBlueprint[] = [
       'Передавать курс на публикацию',
       'Контролировать качество материалов'
     ],
-    primaryNav: ['/', '/courses', '/materials', '/assessment', '/reports']
+    primaryNav: ['/', '/courses', '/learning/calendar', '/materials', '/assessment', '/reports']
   },
   {
     role: 'teacher',
@@ -42,7 +42,7 @@ const roleBlueprints: RoleBlueprint[] = [
       'Отвечать на сообщения студентов',
       'Планировать обучение по дедлайнам'
     ],
-    primaryNav: ['/', '/groups', '/assessment', '/courses', '/notifications']
+    primaryNav: ['/', '/groups', '/learning/calendar', '/assessment', '/courses', '/notifications']
   },
   {
     role: 'tenant_admin',

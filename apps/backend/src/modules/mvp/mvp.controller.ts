@@ -42,6 +42,7 @@ import type {
   UpdateAssignmentSubmissionRequest,
   UpdateCourseRequest,
   UpdateEnrollmentStatusRequest,
+  UpdateGroupCourseRequest,
   UpdateMaterialProgressRequest,
   UpdateMaterialRequest,
   UpdateModuleRequest,
@@ -339,6 +340,16 @@ export class MvpController {
   @RequirePermissions('groups.write')
   createGroupCourse(@CurrentContext() c: RequestContext, @Body() b: CreateGroupCourseRequest) {
     return this.mvpService.createGroupCourse(c.tenantId!, b);
+  }
+  @Patch('group-courses/:id')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('groups.write')
+  updateGroupCourse(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() b: UpdateGroupCourseRequest
+  ) {
+    return this.mvpService.updateGroupCourse(c.tenantId!, c.userId, id, b, c);
   }
 
   @Get('enrollments')

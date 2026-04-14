@@ -1,4 +1,5 @@
 import { ConflictException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { describe, expect, it } from 'vitest';
 
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
@@ -11,6 +12,8 @@ import type { FilesService } from '../files/files.service.js';
 const noopFilesService = {
   ensureMaterialLink: async () => undefined
 } as unknown as FilesService;
+
+const testEmitter = new EventEmitter2();
 
 const ctx = {
   requestId: 'req_concurrency_1',
@@ -27,7 +30,8 @@ describe('mvp service concurrency-lite invariants', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
-      noopFilesService
+      noopFilesService,
+      testEmitter
     );
     const group = service.createGroup(
       'tenant_demo',
@@ -78,7 +82,8 @@ describe('mvp service concurrency-lite invariants', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
-      noopFilesService
+      noopFilesService,
+      testEmitter
     );
     const course = service.createCourse(
       'tenant_demo',

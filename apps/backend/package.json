@@ -16,6 +16,7 @@
     "@cdoprof/api-contracts": "workspace:*",
     "@nestjs/common": "^11.0.11",
     "@nestjs/core": "^11.0.11",
+    "@nestjs/event-emitter": "^3.0.0",
     "@nestjs/throttler": "^6.4.0",
     "amqplib": "^1.0.2",
     "class-transformer": "^0.5.1",

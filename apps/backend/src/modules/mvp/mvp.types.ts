@@ -66,6 +66,8 @@ export interface GroupCourse extends BaseEntity {
   courseId: string;
   courseVersionId?: string;
   sortOrder: number;
+  /** Срок прохождения курса в рамках группы (дней от даты зачисления). */
+  durationDays?: number;
 }
 
 export type EnrollmentStatus = 'pending' | 'active' | 'suspended' | 'completed' | 'cancelled';
@@ -76,6 +78,8 @@ export interface Enrollment extends BaseEntity {
   status: EnrollmentStatus;
   enrolledAt: string;
   completedAt?: string;
+  /** Плановая дата окончания (по максимуму сроков курсов программы). */
+  plannedEndAt?: string;
 }
 
 export interface EnrollmentStatusHistory {
@@ -184,7 +188,13 @@ export interface TestQuestion extends BaseEntity {
   sortOrder: number;
 }
 
-export type AttemptStatus = 'draft' | 'in_progress' | 'submitted' | 'finished' | 'expired' | 'invalidated';
+export type AttemptStatus =
+  | 'draft'
+  | 'in_progress'
+  | 'submitted'
+  | 'finished'
+  | 'expired'
+  | 'invalidated';
 
 export interface TestAttempt extends BaseEntity {
   testId: string;
@@ -238,7 +248,13 @@ export interface Assignment extends BaseEntity {
   archivedAt?: string;
 }
 
-export type AssignmentSubmissionStatus = 'draft' | 'submitted' | 'under_review' | 'reviewed' | 'returned' | 'rejected';
+export type AssignmentSubmissionStatus =
+  | 'draft'
+  | 'submitted'
+  | 'under_review'
+  | 'reviewed'
+  | 'returned'
+  | 'rejected';
 
 export interface AssignmentSubmission extends BaseEntity {
   assignmentId: string;

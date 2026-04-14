@@ -42,7 +42,9 @@ const segmentLabels: Record<string, string> = {
   'module-empty': 'Пустой модуль',
   esign: 'НЭП',
   learners: 'Слушатели',
-  crm: 'CRM'
+  crm: 'CRM',
+  learning: 'Обучение',
+  calendar: 'Календарь'
 };
 
 const looksLikeId = (segment: string) =>

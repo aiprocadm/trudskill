@@ -53,6 +53,10 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['assessment.tests.read'] }
   },
   {
+    pattern: '/learning/calendar',
+    meta: { public: false, requiredPermissions: ['enrollments.read'] }
+  },
+  {
     pattern: '/learner/courses',
     meta: { public: false, requiredPermissions: ['enrollments.read'] }
   },
@@ -92,6 +96,11 @@ export const navigationModel: NavigationItem[] = [
   { href: '/notifications', label: 'Сообщения', requiredPermissions: ['tenant.read'] },
   { href: '/users', label: 'Пользователи', requiredPermissions: ['iam.manage_roles'] },
   { href: '/groups', label: 'Группы', requiredPermissions: ['groups.read'] },
+  {
+    href: '/learning/calendar',
+    label: 'Календарь',
+    requiredPermissions: ['enrollments.read']
+  },
   { href: '/reports', label: 'Отчеты', requiredPermissions: ['tenant.read'] },
   { href: '/settings', label: 'Настройки', requiredPermissions: ['iam.manage_roles'] },
   {

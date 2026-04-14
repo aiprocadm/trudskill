@@ -1,3 +1,4 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { describe, expect, it, vi } from 'vitest';
 
 import { MvpService } from './mvp.service.js';
@@ -68,7 +69,8 @@ describe('stage13 business e2e flows (service-level)', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
-      noopFilesService
+      noopFilesService,
+      new EventEmitter2()
     );
 
     const course = service.createCourse(
