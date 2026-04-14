@@ -142,6 +142,68 @@ export class TenantService {
     return requisites;
   }
 
+  async updateSettings(
+    tenantId: string,
+    patch: { locale?: string; timezone?: string; payload?: Record<string, unknown> }
+  ): Promise<TenantSettings> {
+    const current = await this.getSettings(tenantId);
+    const next: TenantSettings = {
+      tenantId,
+      locale: patch.locale ?? current.locale,
+      timezone: patch.timezone ?? current.timezone,
+      payload: { ...current.payload, ...(patch.payload ?? {}) }
+    };
+    if (this.databaseService) {
+      await this.databaseService.query(
+        `insert into org.tenant_settings (tenant_id, payload)
+         values ($1, $2::jsonb)
+         on conflict (tenant_id) do update set payload = excluded.payload`,
+        [
+          tenantId,
+          JSON.stringify({ ...next.payload, locale: next.locale, timezone: next.timezone })
+        ]
+      );
+      return this.getSettings(tenantId);
+    }
+    const idx = this.settings.findIndex((item) => item.tenantId === tenantId);
+    if (idx >= 0) {
+      this.settings[idx] = next;
+    } else {
+      this.settings.push(next);
+    }
+    return next;
+  }
+
+  async updateRequisites(
+    tenantId: string,
+    patch: { legalName?: string; taxNumber?: string; payload?: Record<string, unknown> }
+  ): Promise<TenantRequisites> {
+    const current = await this.getRequisites(tenantId);
+    const next: TenantRequisites = {
+      tenantId,
+      legalName: patch.legalName ?? current.legalName,
+      taxNumber: patch.taxNumber ?? current.taxNumber,
+      payload: { ...current.payload, ...(patch.payload ?? {}) }
+    };
+    if (this.databaseService) {
+      await this.databaseService.query(
+        `insert into org.tenant_requisites (tenant_id, legal_name, tax_number, payload)
+         values ($1, $2, $3, $4::jsonb)
+         on conflict (tenant_id)
+         do update set legal_name = excluded.legal_name, tax_number = excluded.tax_number, payload = excluded.payload`,
+        [tenantId, next.legalName, next.taxNumber, JSON.stringify(next.payload)]
+      );
+      return this.getRequisites(tenantId);
+    }
+    const idx = this.requisites.findIndex((item) => item.tenantId === tenantId);
+    if (idx >= 0) {
+      this.requisites[idx] = next;
+    } else {
+      this.requisites.push(next);
+    }
+    return next;
+  }
+
   async getCommission(tenantId: string): Promise<TenantCommission> {
     const cached = this.commissions.get(tenantId);
     if (cached) {
