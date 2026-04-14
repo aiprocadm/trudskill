@@ -1,6 +1,19 @@
-export type ProviderType = 'frdo' | 'eisot' | 'email' | 'webinar' | 'proctoring' | 'scorm' | 'trainer';
+export type ProviderType =
+  | 'frdo'
+  | 'eisot'
+  | 'email'
+  | 'webinar'
+  | 'proctoring'
+  | 'scorm'
+  | 'trainer';
 export type CredentialStatus = 'active' | 'inactive';
-export type ExportTaskStatus = 'queued' | 'running' | 'completed' | 'failed' | 'partial_success' | 'cancelled';
+export type ExportTaskStatus =
+  | 'queued'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'partial_success'
+  | 'cancelled';
 
 export interface Provider {
   id: string;
@@ -62,4 +75,14 @@ export interface SyncLog {
   status: 'success' | 'error' | 'accepted' | 'duplicate';
   createdAt: string;
   taskId?: string;
+}
+
+export interface DeadLetterEntry {
+  id: string;
+  tenantId: string;
+  taskId?: string;
+  providerCode: string;
+  reason: string;
+  payload?: Record<string, unknown>;
+  createdAt: string;
 }

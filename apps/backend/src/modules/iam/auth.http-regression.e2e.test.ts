@@ -25,15 +25,22 @@ for (const [key, value] of Object.entries(requiredEnv)) {
   process.env[key] = value;
 }
 
-const parseErrorEnvelope = async (response: Response): Promise<{ error: { code: string; message: string } }> => {
-  const payload = (await response.json()) as { error: { code: string; message: string }; meta: { requestId: string } };
+const parseErrorEnvelope = async (
+  response: Response
+): Promise<{ error: { code: string; message: string } }> => {
+  const payload = (await response.json()) as {
+    error: { code: string; message: string };
+    meta: { requestId: string };
+  };
   expect(payload).toHaveProperty('error.code');
   expect(payload).toHaveProperty('meta.requestId');
   return payload;
 };
 
 describe('IAM HTTP regressions (integration/e2e)', () => {
-  let app: { close: () => Promise<void>; getHttpServer: () => { address: () => { port: number } } } | undefined;
+  let app:
+    | { close: () => Promise<void>; getHttpServer: () => { address: () => { port: number } } }
+    | undefined;
   let apiBaseUrl = '';
 
   beforeAll(async () => {
@@ -50,21 +57,20 @@ describe('IAM HTTP regressions (integration/e2e)', () => {
       iamServiceImport,
       permissionGuardImport,
       auditServiceImport
-    ] =
-      await Promise.all([
-        import('@nestjs/core'),
-        import('@nestjs/common'),
-        import('@nestjs/throttler'),
-        import('../core/core.module.js'),
-        import('../../common/filters/http-exception.filter.js'),
-        import('../../common/interceptors/request-context.interceptor.js'),
-        import('../../common/interceptors/response-envelope.interceptor.js'),
-        import('./auth.controller.js'),
-        import('./services/auth.service.js'),
-        import('./services/iam.service.js'),
-        import('./permission.guard.js'),
-        import('../audit/audit.service.js')
-      ]);
+    ] = await Promise.all([
+      import('@nestjs/core'),
+      import('@nestjs/common'),
+      import('@nestjs/throttler'),
+      import('../core/core.module.js'),
+      import('../../common/filters/http-exception.filter.js'),
+      import('../../common/interceptors/request-context.interceptor.js'),
+      import('../../common/interceptors/response-envelope.interceptor.js'),
+      import('./auth.controller.js'),
+      import('./services/auth.service.js'),
+      import('./services/iam.service.js'),
+      import('./permission.guard.js'),
+      import('../audit/audit.service.js')
+    ]);
 
     const { NestFactory } = nestjsCore;
     const { Controller, Get, Module, ValidationPipe } = nestjsCommon;
@@ -95,16 +101,21 @@ describe('IAM HTTP regressions (integration/e2e)', () => {
     class TestAppModule {}
 
     const created = await NestFactory.create(TestAppModule);
-    created.useGlobalPipes(new ValidationPipe({ whitelist: false, transform: true, forbidUnknownValues: false }));
+    created.useGlobalPipes(
+      new ValidationPipe({ whitelist: false, transform: true, forbidUnknownValues: false })
+    );
     created.useGlobalFilters(new HttpExceptionEnvelopeFilter());
-    created.useGlobalInterceptors(new RequestContextInterceptor(), new ResponseEnvelopeInterceptor());
+    created.useGlobalInterceptors(
+      new RequestContextInterceptor(),
+      new ResponseEnvelopeInterceptor()
+    );
     created.setGlobalPrefix((process.env.API_PREFIX ?? '/api/v1').replace(/^\//, ''));
     await created.listen(0, '127.0.0.1');
 
     const address = created.getHttpServer().address() as { port: number };
     apiBaseUrl = `http://127.0.0.1:${address.port}${process.env.API_PREFIX ?? '/api/v1'}`;
     app = created;
-  });
+  }, 30_000);
 
   afterAll(async () => {
     if (app) await app.close();

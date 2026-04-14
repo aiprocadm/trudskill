@@ -154,6 +154,9 @@ export class ExportsController {
   @Get('items/:id') getItem(@CurrentContext() ctx: RequestContext, @Param('id') id: string) {
     return this.orchestrator.getItem(ctx.tenantId!, id);
   }
+  @Get('dead-letters') listDeadLetters(@CurrentContext() ctx: RequestContext) {
+    return { items: this.orchestrator.listDeadLetters(ctx.tenantId!) };
+  }
 }
 
 @Controller('sync-logs')

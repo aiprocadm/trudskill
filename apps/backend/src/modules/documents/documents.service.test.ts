@@ -184,6 +184,50 @@ describe('DocumentsService', () => {
     expect(retried.errorMessage).toBeUndefined();
   });
 
+  it('writes deterministic audit trail for task lifecycle', async () => {
+    const auditService = new AuditService();
+    const service = new DocumentsService(
+      new InMemoryDocumentsState(),
+      auditService,
+      new RealtimeEventsService()
+    );
+    const template = service.createTemplate(
+      't1',
+      'u1',
+      { name: 'Tpl', templateType: 'contract' },
+      ctx
+    );
+    const version = service.createTemplateVersion('t1', 'u1', {
+      templateId: template.id,
+      fileId: 'file_1'
+    });
+    service.activateTemplateVersion('t1', version.id);
+    const task = service.generateDocument('t1', 'u1', {
+      idempotencyKey: 'audit-lifecycle-1',
+      templateId: template.id,
+      sourceEntityType: 'group',
+      sourceEntityId: 'g1',
+      documentType: 'default'
+    });
+
+    service.startTask('t1', task.id);
+    service.failTask('t1', task.id, 'render failed');
+    service.retryTask('t1', task.id);
+    service.cancelTask('t1', task.id);
+
+    const actions = (await auditService.list('t1'))
+      .filter((entry) => entry.entityType === 'document_task' && entry.entityId === task.id)
+      .map((entry) => entry.action);
+
+    expect(actions).toEqual([
+      'documents.task.created',
+      'documents.task.started',
+      'documents.task.failed',
+      'documents.task.retried',
+      'documents.task.cancelled'
+    ]);
+  });
+
   it('keeps finalized documents immutable for finalize after archive', () => {
     const service = new DocumentsService(
       new InMemoryDocumentsState(),

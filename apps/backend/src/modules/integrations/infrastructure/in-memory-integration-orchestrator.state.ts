@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import type {
   Credential,
+  DeadLetterEntry,
   ExportItem,
   ExportTask,
   Provider,
@@ -15,5 +16,6 @@ export class InMemoryIntegrationOrchestratorState {
   tasks: ExportTask[] = [];
   items: ExportItem[] = [];
   logs: SyncLog[] = [];
+  deadLetters: DeadLetterEntry[] = [];
   idempotencyInFlight = new Set<string>();
 }

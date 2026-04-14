@@ -20,6 +20,7 @@ import type {
 } from '../dto/integrations.dto.js';
 import type {
   Credential,
+  DeadLetterEntry,
   ExportItem,
   ExportTask,
   Provider,
@@ -232,63 +233,99 @@ export class IntegrationOrchestratorService {
         payload: { task_id: task.id, provider_code: task.providerCode }
       });
 
-      this.transitionTask(task, 'queued', 'running');
-      task.startedAt = new Date().toISOString();
-      this.realtime.publish({
-        event_name: IntegrationExportRealtimeEvents.started,
-        version: 'v1',
-        tenant_id: tenantId,
-        occurred_at: new Date().toISOString(),
-        payload: { task_id: task.id }
-      });
-      const payload = await adapter.prepareExportPayload({
-        exportType: dto.exportType,
-        sourceFilter: dto.sourceFilterJsonb
-      });
-      const sent = await adapter.sendExportBatch({ payload });
+      try {
+        this.transitionTask(task, 'queued', 'running');
+        task.startedAt = new Date().toISOString();
+        this.realtime.publish({
+          event_name: IntegrationExportRealtimeEvents.started,
+          version: 'v1',
+          tenant_id: tenantId,
+          occurred_at: new Date().toISOString(),
+          payload: { task_id: task.id }
+        });
+        const payload = await adapter.prepareExportPayload({
+          exportType: dto.exportType,
+          sourceFilter: dto.sourceFilterJsonb
+        });
+        const sent = await adapter.sendExportBatch({ payload });
 
-      const item: ExportItem = {
-        id: this.id('item'),
-        tenantId,
-        taskId: task.id,
-        entityType: 'export_entity',
-        entityId: `${dto.exportType}:${task.id}`,
-        status: sent.status
-      };
-      this.state.items.push(item);
-      if (sent.status === 'completed') {
-        this.transitionTask(task, 'running', 'completed');
-      } else if (sent.status === 'partial_success') {
-        this.transitionTask(task, 'running', 'partial_success');
-      } else {
-        this.transitionTask(task, 'running', 'failed');
+        const item: ExportItem = {
+          id: this.id('item'),
+          tenantId,
+          taskId: task.id,
+          entityType: 'export_entity',
+          entityId: `${dto.exportType}:${task.id}`,
+          status: sent.status
+        };
+        this.state.items.push(item);
+        if (sent.status === 'completed') {
+          this.transitionTask(task, 'running', 'completed');
+        } else if (sent.status === 'partial_success') {
+          this.transitionTask(task, 'running', 'partial_success');
+        } else {
+          this.transitionTask(task, 'running', 'failed');
+        }
+        task.finishedAt = new Date().toISOString();
+        task.resultFileId = sent.status === 'completed' ? `file_${task.id}` : undefined;
+        task.responsePayloadJsonb = { externalBatchId: sent.externalBatchId };
+        this.state.logs.push({
+          id: this.id('log'),
+          tenantId,
+          providerCode: dto.providerCode,
+          entityType: 'export_task',
+          entityId: task.id,
+          requestPayloadJsonb: payload,
+          responsePayloadJsonb: task.responsePayloadJsonb,
+          statusCode: 200,
+          status: 'success',
+          createdAt: new Date().toISOString(),
+          taskId: task.id
+        });
+        this.realtime.publish({
+          event_name:
+            task.status === 'failed'
+              ? IntegrationExportRealtimeEvents.failed
+              : IntegrationExportRealtimeEvents.completed,
+          version: 'v1',
+          tenant_id: tenantId,
+          occurred_at: new Date().toISOString(),
+          payload: { task_id: task.id, status: task.status }
+        });
+      } catch (error) {
+        task.status = 'failed';
+        task.finishedAt = new Date().toISOString();
+        const reason = error instanceof Error ? error.message : 'Unknown export error';
+        const deadLetter: DeadLetterEntry = {
+          id: this.id('dlq'),
+          tenantId,
+          taskId: task.id,
+          providerCode: dto.providerCode,
+          reason,
+          payload: dto.sourceFilterJsonb,
+          createdAt: new Date().toISOString()
+        };
+        this.state.deadLetters.push(deadLetter);
+        this.state.logs.push({
+          id: this.id('log'),
+          tenantId,
+          providerCode: dto.providerCode,
+          entityType: 'export_task',
+          entityId: task.id,
+          requestPayloadJsonb: dto.sourceFilterJsonb,
+          responsePayloadJsonb: { reason, deadLetterId: deadLetter.id },
+          statusCode: 500,
+          status: 'error',
+          createdAt: new Date().toISOString(),
+          taskId: task.id
+        });
+        this.realtime.publish({
+          event_name: IntegrationExportRealtimeEvents.failed,
+          version: 'v1',
+          tenant_id: tenantId,
+          occurred_at: new Date().toISOString(),
+          payload: { task_id: task.id, status: task.status, reason }
+        });
       }
-      task.finishedAt = new Date().toISOString();
-      task.resultFileId = sent.status === 'completed' ? `file_${task.id}` : undefined;
-      task.responsePayloadJsonb = { externalBatchId: sent.externalBatchId };
-      this.state.logs.push({
-        id: this.id('log'),
-        tenantId,
-        providerCode: dto.providerCode,
-        entityType: 'export_task',
-        entityId: task.id,
-        requestPayloadJsonb: payload,
-        responsePayloadJsonb: task.responsePayloadJsonb,
-        statusCode: 200,
-        status: 'success',
-        createdAt: new Date().toISOString(),
-        taskId: task.id
-      });
-      this.realtime.publish({
-        event_name:
-          task.status === 'failed'
-            ? IntegrationExportRealtimeEvents.failed
-            : IntegrationExportRealtimeEvents.completed,
-        version: 'v1',
-        tenant_id: tenantId,
-        occurred_at: new Date().toISOString(),
-        payload: { task_id: task.id, status: task.status }
-      });
       return task;
     } finally {
       if (key) this.state.idempotencyInFlight.delete(key);
@@ -341,6 +378,9 @@ export class IntegrationOrchestratorService {
     return this.state.logs.filter(
       (it) => it.tenantId === tenantId && it.providerCode === providerCode
     );
+  }
+  listDeadLetters(tenantId: string) {
+    return this.state.deadLetters.filter((item) => item.tenantId === tenantId);
   }
 
   listFailedWebhookLogs(tenantId: string, providerCode?: string) {

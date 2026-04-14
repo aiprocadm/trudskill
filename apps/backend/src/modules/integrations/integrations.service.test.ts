@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
+import { BaseAdapter } from './adapters/base.adapter.js';
 import { EmailAdapter } from './adapters/email.adapter.js';
 import { FrdoAdapter } from './adapters/frdo.adapter.js';
 import { InMemoryIntegrationOrchestratorState } from './infrastructure/in-memory-integration-orchestrator.state.js';
@@ -104,6 +105,40 @@ describe('integration foundation services', () => {
     const uniqueTaskIds = new Set(responses.map((task) => task.id));
     expect(uniqueTaskIds.size).toBe(1);
     expect(service.listTasks('tenant_a').items).toHaveLength(1);
+  });
+
+  it('writes dead letter when adapter export fails', async () => {
+    class FailingAdapter extends BaseAdapter {
+      readonly providerCode = 'broken';
+      override async sendExportBatch(): Promise<{
+        status: 'completed' | 'partial_success';
+        externalBatchId: string;
+      }> {
+        throw new Error('Upstream timeout');
+      }
+    }
+
+    const registry = new ProviderRegistry();
+    registry.register(new FailingAdapter());
+    const service = new IntegrationOrchestratorService(
+      new InMemoryIntegrationOrchestratorState(),
+      new IntegrationCryptoService(),
+      new IdempotencyService(),
+      new AdapterResolver(registry),
+      new AuditService(),
+      new RealtimeEventsService()
+    );
+
+    const task = await service.createExportTask(
+      'tenant_a',
+      'u1',
+      { providerCode: 'broken', exportType: 'learners', sourceFilterJsonb: { groupId: 'g1' } },
+      'idem-broken'
+    );
+    const deadLetters = service.listDeadLetters('tenant_a');
+    expect(task.status).toBe('failed');
+    expect(deadLetters).toHaveLength(1);
+    expect(deadLetters[0]?.reason).toContain('Upstream timeout');
   });
 
   it('supports list pagination envelopes for registries', async () => {

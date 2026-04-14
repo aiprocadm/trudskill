@@ -305,6 +305,7 @@ export class DocumentsService {
     task.errorMessage = undefined;
     task.startedAt = undefined;
     task.finishedAt = undefined;
+    this.writeTaskAudit(task, 'documents.task.retried');
     return task;
   }
   cancelTask(tenantId: string, id: string) {
@@ -315,6 +316,7 @@ export class DocumentsService {
     task.status = 'cancelled';
     this.publishTaskEvent(task);
     task.finishedAt = this.now();
+    this.writeTaskAudit(task, 'documents.task.cancelled');
     return task;
   }
 
@@ -355,6 +357,7 @@ export class DocumentsService {
     };
     this.state.tasks.push(task);
     this.state.idem.set(idemKey, { taskId: task.id, expiresAt: Date.now() + 24 * 60 * 60 * 1000 });
+    this.writeTaskAudit(task, 'documents.task.created');
     return task;
   }
 
@@ -392,6 +395,7 @@ export class DocumentsService {
     reserved.status = 'used';
     reserved.documentId = generated.id;
     reserved.usedAt = this.now();
+    this.writeTaskAudit(task, 'documents.task.completed', { generatedDocumentId: generated.id });
     return generated;
   }
   startTask(tenantId: string, id: string) {
@@ -405,6 +409,7 @@ export class DocumentsService {
     if (!task.numberReservationId) {
       task.numberReservationId = this.reserveNumber(tenantId, task.documentType).id;
     }
+    this.writeTaskAudit(task, 'documents.task.started');
     return task;
   }
   failTask(tenantId: string, id: string, message: string) {
@@ -419,6 +424,7 @@ export class DocumentsService {
       const reservation = this.getReservation(tenantId, task.numberReservationId);
       if (reservation.status === 'reserved') reservation.status = 'failed';
     }
+    this.writeTaskAudit(task, 'documents.task.failed', { errorMessage: message });
     return task;
   }
   finalizeDocument(tenantId: string, id: string) {
@@ -619,6 +625,25 @@ export class DocumentsService {
       tenant_id: task.tenantId,
       occurred_at: this.now(),
       payload: { task_id: task.id, status: task.status, source: task.sourceEntityType }
+    });
+  }
+  private writeTaskAudit(
+    task: DocumentGenerationTaskEntity,
+    action: string,
+    extras?: Record<string, unknown>
+  ) {
+    this.auditService.write({
+      tenantId: task.tenantId,
+      actorId: task.requestedBy,
+      action,
+      entityType: 'document_task',
+      entityId: task.id,
+      newValues: {
+        status: task.status,
+        startedAt: task.startedAt,
+        finishedAt: task.finishedAt,
+        ...extras
+      }
     });
   }
 
