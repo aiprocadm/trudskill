@@ -120,15 +120,27 @@ export interface Progress extends BaseEntity {
 }
 
 export interface QuestionBank extends BaseEntity {
+  code: string;
   title: string;
   description?: string;
+  isArchived: boolean;
   courseId?: string;
+}
+
+export interface Question extends BaseEntity {
+  questionBankId: string;
+  type: 'single_choice' | 'multiple_choice' | 'text';
+  title: string;
+  body: string;
+  score: number;
+  isArchived: boolean;
 }
 
 export interface TestEntity extends BaseEntity {
   title: string;
   courseId: string;
   questionBankId?: string;
+  description?: string;
   rules: {
     attemptLimit: number;
     dailyResetEnabled: boolean;
@@ -143,7 +155,11 @@ export interface Attempt extends BaseEntity {
   testId: string;
   enrollmentId: string;
   learnerId: string;
+  attemptNo: number;
   status: string;
+  score?: number;
+  maxScore: number;
+  passed?: boolean;
   questionOrder: string[];
   startedAt: string;
   expiresAt?: string;
@@ -153,23 +169,38 @@ export interface ExamResult extends BaseEntity {
   testId: string;
   enrollmentId: string;
   learnerId: string;
-  attemptsCount: number;
-  bestScore: number;
-  passingScore: number;
+  finalScore: number;
+  maxScore: number;
   passed: boolean;
+  attemptsCount: number;
 }
 
 export interface Assignment extends BaseEntity {
   courseId: string;
+  moduleId?: string;
   title: string;
+  description?: string;
   isReviewRequired: boolean;
   maxScore: number;
+  isArchived: boolean;
 }
-export interface QuestionBank extends BaseEntity { code: string; title: string; description?: string; isArchived: boolean; }
-export interface Question extends BaseEntity { questionBankId: string; type: 'single_choice' | 'multiple_choice' | 'text'; title: string; body: string; score: number; isArchived: boolean; }
-export interface TestEntity extends BaseEntity { courseId: string; title: string; description?: string; rules: { attemptLimit: number; dailyResetEnabled: boolean; randomizeQuestions: boolean; questionCount?: number; timeLimitMinutes?: number; passingScore: number }; }
-export interface Attempt extends BaseEntity { testId: string; enrollmentId: string; learnerId: string; attemptNo: number; status: string; startedAt: string; expiresAt?: string; score?: number; maxScore: number; passed?: boolean; questionOrder: string[]; }
-export interface ExamResult extends BaseEntity { testId: string; enrollmentId: string; learnerId: string; finalScore: number; maxScore: number; passed: boolean; attemptsCount: number; }
-export interface Assignment extends BaseEntity { courseId: string; moduleId?: string; title: string; description?: string; maxScore: number; isReviewRequired: boolean; isArchived: boolean; }
-export interface AssignmentSubmission extends BaseEntity { assignmentId: string; enrollmentId: string; learnerId: string; answerText?: string; fileId?: string; status: string; submittedAt?: string; }
-export interface AssignmentReview extends BaseEntity { assignmentId: string; submissionId: string; enrollmentId: string; reviewerId: string; status: string; score?: number; comment?: string; }
+
+export interface AssignmentSubmission extends BaseEntity {
+  assignmentId: string;
+  enrollmentId: string;
+  learnerId: string;
+  answerText?: string;
+  fileId?: string;
+  status: string;
+  submittedAt?: string;
+}
+
+export interface AssignmentReview extends BaseEntity {
+  assignmentId: string;
+  submissionId: string;
+  enrollmentId: string;
+  reviewerId: string;
+  status: string;
+  score?: number;
+  comment?: string;
+}
