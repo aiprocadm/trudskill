@@ -18,12 +18,14 @@ export default function AcademyHubPage() {
               {
                 href: '/academy/requisites',
                 label: 'Данные учебного заведения и реквизиты',
-                description: 'Наименование, адреса, ИНН, контакты, часовой пояс, расширяемый payload из API /tenant/*'
+                description:
+                  'Наименование, адреса, ИНН, контакты, часовой пояс, расширяемый payload из API /tenant/*'
               },
               {
                 href: '/academy/commission',
                 label: 'Члены комиссии, председатель и секретарь',
-                description: 'Справочник комиссии; привязка к протоколам и приказам — в развитии документооборота'
+                description:
+                  'Справочник комиссии; привязка к протоколам и приказам — в развитии документооборота'
               },
               {
                 href: '/documents',
@@ -39,9 +41,9 @@ export default function AcademyHubPage() {
           />
         </SectionCard>
         <SectionCard title="Связанные модули">
-          <p style={{ margin: 0, color: '#52525b', lineHeight: 1.5 }}>
-            Нумерация приказов и протоколов: см. модуль документов и бэкенд <code>documents</code>. Массовая выгрузка логинов: раздел{' '}
-            <Link href="/users">Пользователи</Link>, API IAM.
+          <p className="ui-prose-muted">
+            Нумерация приказов и протоколов: см. модуль документов и бэкенд <code>documents</code>.
+            Массовая выгрузка логинов: раздел <Link href="/users">Пользователи</Link>, API IAM.
           </p>
         </SectionCard>
       </PageContainer>

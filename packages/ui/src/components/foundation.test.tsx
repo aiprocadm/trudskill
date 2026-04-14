@@ -1,5 +1,5 @@
+import { AsyncTaskStatus } from '@cdoprof/shared-types';
 import { describe, expect, it, vi } from 'vitest';
-
 
 import { AsyncStatusWidget } from './async-status/index.js';
 import { Pagination } from './pagination/index.js';
@@ -39,9 +39,11 @@ describe('ui foundation components', () => {
     expect(onPageChange).toHaveBeenNthCalledWith(2, 3);
   });
 
-  it('AsyncStatusWidget keeps async status visible', () => {
-    const widget = AsyncStatusWidget({ status: 'partial_success' });
-    expect(widget.props.children).toEqual(['Async task: ', 'partial_success']);
+  it('AsyncStatusWidget renders localized async task label', () => {
+    const widget = AsyncStatusWidget({ status: AsyncTaskStatus.Queued });
+    const children = widget.props.children as ReactElement[];
+    const badge = children[0] as ReactElement;
+    expect(String(badge.props.children)).toContain('В очереди');
   });
 
   it('DataTable renders provided columns and rows', () => {
@@ -63,6 +65,8 @@ describe('ui foundation components', () => {
 
     expect(headRow).toHaveLength(2);
     expect(bodyRows).toHaveLength(2);
-    expect(((bodyRows[0]?.props.children as ReactElement[])[0] as ReactElement).props.children).toBe('Template A');
+    expect(
+      ((bodyRows[0]?.props.children as ReactElement[])[0] as ReactElement).props.children
+    ).toBe('Template A');
   });
 });

@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from 'react';
 
-import { PageContainer, PageHeader, SectionCard, SectionEmpty, SectionError } from '../../../src/components/state-wrappers';
+import {
+  PageContainer,
+  PageHeader,
+  SectionCard,
+  SectionEmpty,
+  SectionError
+} from '../../../src/components/state-wrappers';
 import { useAuth } from '../../../src/features/auth/context';
 import { type TenantCommissionDto, tenantApi } from '../../../src/lib/tenant/tenant-api';
 import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
@@ -31,12 +37,17 @@ export default function AcademyCommissionPage() {
   return (
     <ProtectedPage>
       <PageContainer>
-        <PageHeader title="Комиссия учебного центра" subtitle="GET /tenant/commission — состав, председатель, секретарь (п. 5.1, 5.15 ТЗ)" />
+        <PageHeader
+          title="Комиссия учебного центра"
+          subtitle="GET /tenant/commission — состав, председатель, секретарь (п. 5.1, 5.15 ТЗ)"
+        />
         <SectionCard title="Состав">
           {err ? <SectionError message={err} /> : null}
-          {data && data.members.length === 0 ? <SectionEmpty message="Члены комиссии не заведены (режим БД)" /> : null}
+          {data && data.members.length === 0 ? (
+            <SectionEmpty message="Члены комиссии не заведены (режим БД)" />
+          ) : null}
           {data && data.members.length > 0 ? (
-            <ul style={{ margin: 0, paddingLeft: 20 }}>
+            <ul className="ui-ordered-list" style={{ listStyleType: 'disc' }}>
               {data.members.map((m) => (
                 <li key={m.id}>
                   <strong>{m.displayName}</strong>

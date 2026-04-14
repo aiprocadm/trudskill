@@ -6,7 +6,10 @@ export default function CounterpartyPortalPage() {
   return (
     <ProtectedPage>
       <PageContainer>
-        <PageHeader title="Кабинет контрагента (обзор для персонала)" subtitle="П. 5.11 ТЗ — отдельный контур для юрлица; здесь — навигация к данным" />
+        <PageHeader
+          title="Кабинет контрагента (обзор для персонала)"
+          subtitle="П. 5.11 ТЗ — отдельный контур для юрлица; здесь — навигация к данным"
+        />
         <SectionCard title="Связанные данные">
           <TzLinks
             items={[
@@ -17,8 +20,9 @@ export default function CounterpartyPortalPage() {
           />
         </SectionCard>
         <SectionCard title="Примечание">
-          <p style={{ margin: 0, color: '#52525b', lineHeight: 1.55 }}>
-            Полноценный изолированный ЛК контрагента потребует отдельной роли и маршрутов; текущая страница помогает методисту быстро перейти к связанным реестрам.
+          <p className="ui-prose-muted">
+            Полноценный изолированный ЛК контрагента потребует отдельной роли и маршрутов; текущая
+            страница помогает методисту быстро перейти к связанным реестрам.
           </p>
         </SectionCard>
       </PageContainer>

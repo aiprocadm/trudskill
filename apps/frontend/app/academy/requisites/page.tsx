@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from 'react';
 
-import { PageContainer, PageHeader, SectionCard, SectionError } from '../../../src/components/state-wrappers';
+import {
+  PageContainer,
+  PageHeader,
+  SectionCard,
+  SectionError
+} from '../../../src/components/state-wrappers';
 import { useAuth } from '../../../src/features/auth/context';
 import { tenantApi } from '../../../src/lib/tenant/tenant-api';
 import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
@@ -35,15 +40,14 @@ export default function AcademyRequisitesPage() {
   return (
     <ProtectedPage>
       <PageContainer>
-        <PageHeader title="Данные учебного заведения" subtitle="Чтение из API tenant/me, tenant/settings, tenant/requisites" />
+        <PageHeader
+          title="Данные учебного заведения"
+          subtitle="Чтение из API tenant/me, tenant/settings, tenant/requisites"
+        />
         <SectionCard title="Состояние">
           {!session ? <p>Нет сессии</p> : null}
           {err ? <SectionError message={err} /> : null}
-          {json ? (
-            <pre style={{ margin: 0, overflow: 'auto', fontSize: 13, background: '#fafafa', padding: 12, borderRadius: 8 }}>
-              {JSON.stringify(json, null, 2)}
-            </pre>
-          ) : null}
+          {json ? <pre className="ui-code-block">{JSON.stringify(json, null, 2)}</pre> : null}
         </SectionCard>
       </PageContainer>
     </ProtectedPage>

@@ -24,7 +24,7 @@ export default function MaterialsHubPage() {
           />
         </SectionCard>
         <SectionCard title="API">
-          <p style={{ margin: 0, color: '#52525b', lineHeight: 1.5 }}>
+          <p className="ui-prose-muted">
             Список модулей: <code>GET /modules</code>, материалов: <code>GET /materials</code>{' '}
             (права <code>materials.read</code>). Минимальное время просмотра и обязательность — поля
             сущностей на бэкенде MVP.

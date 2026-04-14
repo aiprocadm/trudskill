@@ -13,5 +13,9 @@ export default function LogoutPage() {
     logout().finally(() => router.replace('/login'));
   }, [logout, router]);
 
-  return <main style={{ padding: 20 }}>Выход...</main>;
+  return (
+    <main className="ui-centered-page">
+      <p className="ui-prose-muted">Выход из системы…</p>
+    </main>
+  );
 }

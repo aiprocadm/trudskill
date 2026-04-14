@@ -1,6 +1,14 @@
 'use client';
 
-import { ConfirmDialog, DataTable, FilterBar, FormField, RegistryFilterBar, RegistryTableState, RegistryToolbar } from '@cdoprof/ui';
+import {
+  ConfirmDialog,
+  DataTable,
+  FilterBar,
+  FormField,
+  RegistryFilterBar,
+  RegistryTableState,
+  RegistryToolbar
+} from '@cdoprof/ui';
 import { useState } from 'react';
 
 export const FormFoundation = () => (
@@ -22,7 +30,13 @@ export const RegistryFoundation = () => (
         <button type="button">Архив</button>
       </FilterBar>
     </RegistryFilterBar>
-    <DataTable columns={[{ key: 'id', title: 'ID' }, { key: 'name', title: 'Название' }]} rows={[]} />
+    <DataTable
+      columns={[
+        { key: 'id', title: 'ID' },
+        { key: 'name', title: 'Название' }
+      ]}
+      rows={[]}
+    />
     <RegistryTableState state="empty" />
   </section>
 );
@@ -34,7 +48,16 @@ export const ConfirmDialogFoundation = () => {
       <button type="button" onClick={() => setOpen(true)}>
         Открыть confirm dialog
       </button>
-      {open ? <ConfirmDialog title="Подтверждение" onConfirm={() => setOpen(false)} /> : null}
+      {open ? (
+        <ConfirmDialog
+          title="Подтверждение"
+          message="Подтвердите действие для демонстрации модального окна."
+          confirmLabel="ОК"
+          cancelLabel="Отмена"
+          onConfirm={() => setOpen(false)}
+          onCancel={() => setOpen(false)}
+        />
+      ) : null}
     </div>
   );
 };

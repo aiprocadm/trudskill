@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from 'react';
 
-import { PageContainer, PageHeader, SectionCard, SectionEmpty, SectionError } from '../../src/components/state-wrappers';
+import {
+  PageContainer,
+  PageHeader,
+  SectionCard,
+  SectionEmpty,
+  SectionError
+} from '../../src/components/state-wrappers';
 import { useAuth } from '../../src/features/auth/context';
 import { type WebinarDto, webinarsApi } from '../../src/lib/communication/webinars-api';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
@@ -31,15 +37,21 @@ export default function WebinarsPage() {
   return (
     <ProtectedPage>
       <PageContainer>
-        <PageHeader title="Вебинары" subtitle="П. 5.17 ТЗ — создание, участники, приглашения (база: GET /webinars)" />
+        <PageHeader
+          title="Вебинары"
+          subtitle="П. 5.17 ТЗ — создание, участники, приглашения (база: GET /webinars)"
+        />
         <SectionCard title="Список">
           {err ? <SectionError message={err} /> : null}
-          {rows.length === 0 && !err ? <SectionEmpty message="Вебинаров пока нет. Создание через POST /webinars." /> : null}
+          {rows.length === 0 && !err ? (
+            <SectionEmpty message="Вебинаров пока нет. Создание через POST /webinars." />
+          ) : null}
           {rows.map((w) => (
-            <div key={w.id} style={{ padding: '10px 0', borderBottom: '1px solid #f4f4f5' }}>
+            <div key={w.id} className="ui-list-row">
               <strong>{w.title}</strong>
-              <div style={{ fontSize: 13, color: '#52525b' }}>
-                {w.status} · {new Date(w.plannedStartAt).toLocaleString('ru-RU')} — {new Date(w.plannedEndAt).toLocaleString('ru-RU')}
+              <div className="ui-list-row-meta">
+                {w.status} · {new Date(w.plannedStartAt).toLocaleString('ru-RU')} —{' '}
+                {new Date(w.plannedEndAt).toLocaleString('ru-RU')}
               </div>
             </div>
           ))}

@@ -3,6 +3,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { mvpApi } from './api';
+import { pushGlobalSuccessToast } from '../../lib/toast/global-handlers';
 import { useAuth } from '../auth/context';
 
 import type { BaseFilterQuery } from './types';
@@ -73,9 +74,15 @@ export const useDomainMutations = () => {
   const { session } = useAuth();
   const queryClient = useQueryClient();
 
-  const wrap = async <T>(action: (sessionValue: NonNullable<typeof session>) => Promise<T>) => {
+  const wrap = async <T>(
+    action: (sessionValue: NonNullable<typeof session>) => Promise<T>,
+    silentSuccessToast = false
+  ) => {
     if (!session) throw new Error('Нет активной сессии');
     const result = await action(session);
+    if (!silentSuccessToast) {
+      pushGlobalSuccessToast('Готово', 'Изменения сохранены');
+    }
     await queryClient.invalidateQueries({ queryKey: ['mvp'] });
     return result;
   };
@@ -125,6 +132,6 @@ export const useDomainMutations = () => {
     startAttempt: (payload: { testId: string; enrollmentId: string; learnerId: string }) =>
       wrap((authSession) => mvpApi.startAttempt(authSession, payload)),
     getAttemptResult: (attemptId: string) =>
-      wrap((authSession) => mvpApi.getAttemptResult(authSession, attemptId))
+      wrap((authSession) => mvpApi.getAttemptResult(authSession, attemptId), true)
   };
 };

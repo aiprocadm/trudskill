@@ -44,14 +44,14 @@ export default function NotificationsPage() {
     <ProtectedPage>
       <PageContainer>
         <PageHeader
-          title="Notification center"
+          title="Центр уведомлений"
           actions={
             <button
               type="button"
               className="ui-button ui-button--primary"
               onClick={() => void markAllRead()}
             >
-              Mark all as read
+              Отметить все прочитанными
             </button>
           }
         />
@@ -68,15 +68,17 @@ export default function NotificationsPage() {
             <SectionEmpty message="Уведомления отсутствуют" />
           ) : null}
           {data?.items.length ? (
-            <DataTable
-              columns={[
-                { key: 'subjectText', title: 'Тема' },
-                { key: 'bodyText', title: 'Текст' },
-                { key: 'status', title: 'Статус' },
-                { key: 'createdAt', title: 'Создано' }
-              ]}
-              rows={data.items}
-            />
+            <div className="ui-table-wrap">
+              <DataTable
+                columns={[
+                  { key: 'subjectText', title: 'Тема' },
+                  { key: 'bodyText', title: 'Текст' },
+                  { key: 'status', title: 'Статус' },
+                  { key: 'createdAt', title: 'Создано' }
+                ]}
+                rows={data.items}
+              />
+            </div>
           ) : null}
           <div className="ui-inline">
             <button type="button" disabled={page <= 1} onClick={() => setPage((curr) => curr - 1)}>
