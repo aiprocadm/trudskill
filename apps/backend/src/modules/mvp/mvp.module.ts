@@ -11,6 +11,7 @@ import { MvpController } from './mvp.controller.js';
 import { MvpService } from './mvp.service.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { FilesModule } from '../files/files.module.js';
+import { IamModule } from '../iam/iam.module.js';
 
 const persistenceBackendClass =
   backendEnv.MVP_PERSISTENCE_DRIVER === 'postgres'
@@ -18,7 +19,7 @@ const persistenceBackendClass =
     : MemoryMvpPersistenceBackend;
 
 @Module({
-  imports: [InfrastructureModule, FilesModule],
+  imports: [InfrastructureModule, FilesModule, IamModule],
   controllers: [MvpController],
   providers: [
     { provide: MVP_PERSISTENCE_BACKEND, useClass: persistenceBackendClass },

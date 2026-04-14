@@ -7,9 +7,10 @@ import { InMemoryEsignState } from './in-memory-esign.state.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { CoreModule } from '../core/core.module.js';
 import { DocumentsModule } from '../documents/documents.module.js';
+import { IamModule } from '../iam/iam.module.js';
 
 @Module({
-  imports: [AuditModule, DocumentsModule, CoreModule],
+  imports: [AuditModule, DocumentsModule, CoreModule, IamModule],
   controllers: [EsignController],
   providers: [EsignService, { provide: ESIGN_STATE, useClass: InMemoryEsignState }],
   exports: [EsignService]

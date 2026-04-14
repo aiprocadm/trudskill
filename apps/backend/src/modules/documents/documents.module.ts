@@ -11,6 +11,7 @@ import { DOCUMENTS_PERSISTENCE_BACKEND } from './infrastructure/documents-persis
 import { DocumentsRequestPersistenceInterceptor } from './infrastructure/documents-request-persistence.interceptor.js';
 import { MemoryDocumentsPersistenceBackend } from './infrastructure/memory-documents-persistence.backend.js';
 import { PostgresDocumentsPersistenceBackend } from './infrastructure/postgres-documents-persistence.backend.js';
+import { IamModule } from '../iam/iam.module.js';
 
 const persistenceBackendClass =
   backendEnv.DOCUMENTS_PERSISTENCE_DRIVER === 'postgres'
@@ -18,7 +19,7 @@ const persistenceBackendClass =
     : MemoryDocumentsPersistenceBackend;
 
 @Module({
-  imports: [AuditModule, InfrastructureModule],
+  imports: [AuditModule, InfrastructureModule, IamModule],
   controllers: [DocumentsController],
   providers: [
     { provide: DOCUMENTS_PERSISTENCE_BACKEND, useClass: persistenceBackendClass },
