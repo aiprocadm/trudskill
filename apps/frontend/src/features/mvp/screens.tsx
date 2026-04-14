@@ -37,6 +37,11 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import {
+  completeMetricTimer,
+  recordMetric,
+  startMetricTimer
+} from '../../lib/analytics/ux-metrics';
 import { ApiClientError } from '../../lib/api/client';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
@@ -491,10 +496,12 @@ export const CourseCreateScreen = () => {
       const trimmedTitle = title.trim();
       if (trimmedCode.length < 2) {
         setSaveError('Код курса: минимум 2 символа');
+        recordMetric('form_error_rate', 1, { form: 'course_create', field: 'code' });
         return;
       }
       if (trimmedTitle.length < 3) {
         setSaveError('Название: минимум 3 символа');
+        recordMetric('form_error_rate', 1, { form: 'course_create', field: 'title' });
         return;
       }
       const payload = directionId
@@ -958,6 +965,10 @@ export const LearnerCourseDetailsScreen = ({ id }: { id: string }) => {
   const loading = courseLoading || progressLoading;
   const error = courseError ?? progressError;
 
+  useEffect(() => {
+    startMetricTimer('time_to_start_learning');
+  }, []);
+
   return (
     <PageContainer>
       <PageHeader
@@ -968,12 +979,45 @@ export const LearnerCourseDetailsScreen = ({ id }: { id: string }) => {
       <SectionCard title="Прогресс">
         {loading ? <LoadingState message="Загрузка курса и прогресса…" /> : null}
         {!loading ? <ProgressBar value={percent} /> : null}
+        {!loading ? (
+          <div className="ui-inline">
+            <span className="ui-text-muted">Оцените удобство просмотра прогресса:</span>
+            <button
+              type="button"
+              className="ui-button ui-button--secondary"
+              onClick={() => recordMetric('csat_after_grade_view', 5, { courseId: id })}
+            >
+              Удобно
+            </button>
+            <button
+              type="button"
+              className="ui-button"
+              onClick={() => recordMetric('csat_after_grade_view', 2, { courseId: id })}
+            >
+              Неудобно
+            </button>
+          </div>
+        ) : null}
       </SectionCard>
       <SectionCard title="Что продолжить">
         {nextStep ? (
-          <p>
-            Продолжите материал {nextStep.materialId} в модуле {nextStep.moduleId}.
-          </p>
+          <div className="ui-stack" style={{ gap: 8 }}>
+            <p style={{ margin: 0 }}>
+              Продолжите материал {nextStep.materialId} в модуле {nextStep.moduleId}.
+            </p>
+            <button
+              type="button"
+              className="ui-button ui-button--primary"
+              onClick={() =>
+                completeMetricTimer('time_to_start_learning', {
+                  source: 'learner_course_details',
+                  courseId: id
+                })
+              }
+            >
+              Продолжить обучение
+            </button>
+          </div>
         ) : (
           <SectionEmpty
             message="Материалы для продолжения пока не найдены"
@@ -1053,6 +1097,7 @@ export const AssessmentDashboardScreen = () => {
     }
     setSaveError(null);
     setAttemptResult(null);
+    startMetricTimer('time_to_submit_assignment');
     try {
       const attempt = await startAttempt({
         testId: selectedTestId,
@@ -1063,10 +1108,14 @@ export const AssessmentDashboardScreen = () => {
       setAttemptResult(
         `Попытка ${attempt.id}: score=${result.finalScore}/${result.maxScore}, passed=${result.passed ? 'да' : 'нет'}`
       );
+      completeMetricTimer('time_to_submit_assignment', { flow: 'assessment_attempt' });
     } catch (error) {
       setSaveError(readApiMessage(error));
+      recordMetric('assignment_submit_dropoff', 1, { flow: 'assessment_attempt' });
     }
   };
+
+  const flowStep = !selectedTestId ? 1 : !selectedEnrollmentId ? 2 : !attemptResult ? 3 : 4;
 
   return (
     <PageContainer>
@@ -1150,7 +1199,27 @@ export const AssessmentDashboardScreen = () => {
           />
         ) : null}
       </SectionCard>
-      <SectionCard title="Запуск попытки (learner)">
+      <SectionCard title="Сценарий сдачи задания">
+        <ol className="ui-stepper">
+          <li className={`ui-step ${flowStep > 1 ? 'ui-step--done' : 'ui-step--active'}`}>
+            1. Открыть задание
+          </li>
+          <li
+            className={`ui-step ${
+              flowStep > 2 ? 'ui-step--done' : flowStep === 2 ? 'ui-step--active' : ''
+            }`}
+          >
+            2. Проверить данные
+          </li>
+          <li
+            className={`ui-step ${
+              flowStep > 3 ? 'ui-step--done' : flowStep === 3 ? 'ui-step--active' : ''
+            }`}
+          >
+            3. Отправить
+          </li>
+          <li className={`ui-step ${flowStep === 4 ? 'ui-step--active' : ''}`}>4. Подтверждение</li>
+        </ol>
         <FilterBar>
           <select
             value={selectedEnrollmentId}
@@ -1170,6 +1239,29 @@ export const AssessmentDashboardScreen = () => {
         </FilterBar>
         <MutationError message={saveError} />
         {attemptResult ? <p>{attemptResult}</p> : null}
+        {attemptResult ? (
+          <div className="ui-inline">
+            <span className="ui-text-muted">Оцените удобство отправки:</span>
+            <button
+              type="button"
+              className="ui-button ui-button--secondary"
+              onClick={() =>
+                recordMetric('csat_after_submission', 5, { flow: 'assessment_attempt' })
+              }
+            >
+              Хорошо
+            </button>
+            <button
+              type="button"
+              className="ui-button"
+              onClick={() =>
+                recordMetric('csat_after_submission', 2, { flow: 'assessment_attempt' })
+              }
+            >
+              Нужно улучшить
+            </button>
+          </div>
+        ) : null}
       </SectionCard>
     </PageContainer>
   );

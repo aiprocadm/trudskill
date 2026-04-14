@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { evaluateRouteAccess, getVisibleNavigation, resolveRouteMeta } from './helpers';
+import {
+  evaluateRouteAccess,
+  getNavigationView,
+  getVisibleNavigation,
+  resolveRouteMeta
+} from './helpers';
 
 import type { UserSession } from '../../entities/session/model';
 
@@ -64,5 +69,11 @@ describe('navigation helpers', () => {
     const tenantViewer = { ...adminSession, permissions: ['tenant.read'] };
     const visible = getVisibleNavigation(tenantViewer).map((item) => item.href);
     expect(visible).toContain('/workspace');
+  });
+
+  it('builds compact main menu with extra items in "more"', () => {
+    const nav = getNavigationView(adminSession);
+    expect(nav.main.length).toBeLessThanOrEqual(7);
+    expect(nav.more.length).toBeGreaterThan(0);
   });
 });

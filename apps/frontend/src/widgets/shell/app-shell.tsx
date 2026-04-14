@@ -5,9 +5,10 @@ import { usePathname } from 'next/navigation';
 import { type PropsWithChildren, useEffect, useMemo, useState } from 'react';
 
 import { useAuth } from '../../features/auth/context';
-import { buildBreadcrumbs } from '../../features/navigation/breadcrumbs';
 import { useNotificationsList, useNotificationsRealtime } from '../../features/communication/hooks';
-import { getVisibleNavigation } from '../../features/navigation/helpers';
+import { buildBreadcrumbs } from '../../features/navigation/breadcrumbs';
+import { getNavigationView } from '../../features/navigation/helpers';
+import { getPrimaryRoleBlueprint } from '../../features/navigation/role-blueprints';
 
 const formatUnreadBadge = (total: number | undefined) => {
   const n = total ?? 0;
@@ -19,7 +20,8 @@ const formatUnreadBadge = (total: number | undefined) => {
 export const AppShell = ({ children }: PropsWithChildren) => {
   const pathname = usePathname();
   const { session, logout } = useAuth();
-  const nav = getVisibleNavigation(session);
+  const navView = getNavigationView(session);
+  const primaryRole = getPrimaryRoleBlueprint(session);
   const breadcrumbItems = useMemo(() => buildBreadcrumbs(pathname), [pathname]);
   const unread = useNotificationsList(1, 1, 'unread');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -56,8 +58,9 @@ export const AppShell = ({ children }: PropsWithChildren) => {
         className={`app-shell__sidebar ${mobileNavOpen ? 'is-drawer-open' : ''}`}
       >
         <h2 className="app-shell__brand">cdoprof</h2>
+        {primaryRole ? <p className="app-shell__role">Роль: {primaryRole.displayName}</p> : null}
         <nav className="ui-stack" aria-label="Основные разделы">
-          {nav.map((item) => {
+          {navView.main.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <Link
@@ -70,6 +73,26 @@ export const AppShell = ({ children }: PropsWithChildren) => {
               </Link>
             );
           })}
+          {navView.more.length ? (
+            <details className="app-shell__more">
+              <summary>Еще разделы</summary>
+              <div className="ui-stack" style={{ gap: 6 }}>
+                {navView.more.map((item) => {
+                  const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`app-shell__link app-shell__link--more ${isActive ? 'is-active' : ''}`}
+                      aria-current={isActive ? 'page' : undefined}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </details>
+          ) : null}
         </nav>
       </aside>
       <div className="app-shell__content">
@@ -95,7 +118,10 @@ export const AppShell = ({ children }: PropsWithChildren) => {
             <Link href="/notifications" className="app-shell__notif-link">
               Уведомления
               {unreadLabel ? (
-                <span className="ui-badge ui-badge--brand" aria-label={`Непрочитано: ${unread.data?.total ?? 0}`}>
+                <span
+                  className="ui-badge ui-badge--brand"
+                  aria-label={`Непрочитано: ${unread.data?.total ?? 0}`}
+                >
                   {unreadLabel}
                 </span>
               ) : null}
@@ -132,6 +158,11 @@ export const AppShell = ({ children }: PropsWithChildren) => {
         .app-shell__brand {
           margin: 0 0 14px;
         }
+        .app-shell__role {
+          margin: 0 0 16px;
+          font-size: 13px;
+          color: var(--ui-text-muted);
+        }
         .app-shell__link {
           text-decoration: none;
           color: var(--ui-text);
@@ -145,6 +176,21 @@ export const AppShell = ({ children }: PropsWithChildren) => {
         .app-shell__link.is-active {
           color: var(--ui-brand-700);
           background: var(--ui-nav-active-bg);
+        }
+        .app-shell__link--more {
+          font-weight: 400;
+          padding: 8px 10px;
+        }
+        .app-shell__more {
+          border-top: 1px solid var(--ui-border);
+          margin-top: 8px;
+          padding-top: 10px;
+        }
+        .app-shell__more > summary {
+          cursor: pointer;
+          color: var(--ui-text-muted);
+          font-size: 14px;
+          margin-bottom: 8px;
         }
         .app-shell__content {
           display: grid;

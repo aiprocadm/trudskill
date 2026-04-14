@@ -11,8 +11,7 @@ import {
 } from 'react';
 
 import { darkThemeVars, lightThemeVars } from '../tokens';
-
-import { UI_THEME_STORAGE_KEY, UiThemeContextProvider, type UiThemeChoice } from './theme-context';
+import { UI_THEME_STORAGE_KEY, type UiThemeChoice, UiThemeContextProvider } from './theme-context';
 
 const css = `
 [data-ui-theme] { background: var(--ui-bg); color: var(--ui-text); min-height: 100vh; }
@@ -31,12 +30,30 @@ const css = `
 .ui-stack { display:flex; flex-direction:column; gap:12px; }
 .ui-input,.ui-select,.ui-textarea,input,select,textarea { height: 38px; border: 1px solid var(--ui-border); border-radius: 10px; padding: 0 10px; background: var(--ui-surface); color: var(--ui-text); }
 textarea,.ui-textarea { min-height: 84px; padding: 8px 10px; }
+.ui-field { display: grid; gap: 6px; }
+.ui-field-label { font-size: 13px; font-weight: 600; color: var(--ui-text-muted); }
+.ui-field-hint { font-size: 12px; color: var(--ui-text-muted); margin: 0; }
+.ui-field-error { font-size: 12px; color: var(--ui-danger-600); margin: 0; }
 button,.ui-button { height: 38px; border: 1px solid var(--ui-border); border-radius: 10px; background: var(--ui-surface); padding: 0 12px; cursor: pointer; transition: background .15s ease, border-color .15s ease; color: var(--ui-text); }
 button:hover,.ui-button:hover { background: var(--ui-surface-muted); }
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 .ui-button--primary { background: var(--ui-brand-600); border-color: var(--ui-brand-600); color:#fff; }
 .ui-button--primary:hover { background: var(--ui-brand-700); }
+.ui-button--secondary { background: var(--ui-surface-accent); border-color: var(--ui-border); color: var(--ui-text); }
+.ui-button--ghost { background: transparent; border-color: transparent; color: var(--ui-brand-700); }
+.ui-button--danger { background: var(--ui-danger-600); border-color: var(--ui-danger-600); color: #fff; }
+.ui-button--loading { position: relative; color: transparent; pointer-events: none; }
+.ui-button--loading::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  animation: ui-spin 0.75s linear infinite;
+}
 .ui-table-wrap { border: 1px solid var(--ui-border); border-radius: 12px; overflow-x: auto; }
 .ui-table-wrap--sticky-first { overflow-x: auto; }
 .ui-table-wrap--sticky-first .ui-table th:first-child,
@@ -77,6 +94,10 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .ui-dashboard-tile:hover { border-color: var(--ui-brand-600); box-shadow: var(--ui-shadow); }
 .ui-dashboard-tile-title { font-weight: 600; margin-bottom: 6px; }
 .ui-dashboard-tile-note { font-size: 13px; color: var(--ui-text-muted); line-height: 1.4; }
+.ui-stepper { display: flex; gap: 8px; flex-wrap: wrap; margin: 0; padding: 0; list-style: none; }
+.ui-step { border: 1px solid var(--ui-border); border-radius: 999px; padding: 4px 10px; font-size: 12px; color: var(--ui-text-muted); background: var(--ui-surface-muted); }
+.ui-step--active { color: #fff; border-color: var(--ui-brand-600); background: var(--ui-brand-600); }
+.ui-step--done { color: #fff; border-color: var(--ui-success-600); background: var(--ui-success-600); }
 .ui-skeleton-line {
   height: 12px;
   border-radius: 6px;
@@ -89,6 +110,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+@keyframes ui-spin { to { transform: rotate(360deg); } }
 .ui-app-shell-main { min-width: 0; }
 .ui-ordered-list { margin: 0; padding-left: 20px; color: var(--ui-text-muted); line-height: 1.65; }
 .ui-code-block { margin: 0; overflow: auto; font-size: 13px; background: var(--ui-surface-muted); padding: 12px; border-radius: 10px; border: 1px solid var(--ui-border); color: var(--ui-text); }
@@ -146,8 +168,13 @@ export const UiThemeProvider = ({ children }: PropsWithChildren): ReactElement =
     return () => mq.removeEventListener('change', onChange);
   }, []);
 
-  const resolved: 'light' | 'dark' =
-    !mounted ? 'light' : choice === 'system' ? (systemDark ? 'dark' : 'light') : choice;
+  const resolved: 'light' | 'dark' = !mounted
+    ? 'light'
+    : choice === 'system'
+      ? systemDark
+        ? 'dark'
+        : 'light'
+      : choice;
 
   const setChoice = useCallback((value: UiThemeChoice) => {
     setChoiceState(value);

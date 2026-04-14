@@ -12,6 +12,7 @@ export interface NavigationItem {
   href: string;
   label: string;
   requiredPermissions?: string[];
+  navSlot?: 'main' | 'more';
 }
 
 /** Более специфичные пути должны идти раньше (первое совпадение в evaluateRouteAccess). */
@@ -85,63 +86,124 @@ export const routeMeta: RouteMetaEntry[] = [
 /** Порядок — логические блоки по ТЗ СДО. */
 export const navigationModel: NavigationItem[] = [
   { href: '/', label: 'Главная' },
-  { href: '/academy', label: 'Учебный центр', requiredPermissions: ['tenant.read'] },
-  { href: '/academy/requisites', label: '··· Реквизиты УЦ', requiredPermissions: ['tenant.read'] },
-  { href: '/academy/commission', label: '··· Комиссия', requiredPermissions: ['tenant.read'] },
-  { href: '/users', label: 'Пользователи и доступы', requiredPermissions: ['iam.manage_roles'] },
-  { href: '/learners', label: 'Слушатели', requiredPermissions: ['learners.read'] },
-  { href: '/counterparties', label: 'Контрагенты', requiredPermissions: ['counterparties.read'] },
+  { href: '/learner/courses', label: 'Мои курсы', requiredPermissions: ['enrollments.read'] },
+  { href: '/courses', label: 'Курсы', requiredPermissions: ['courses.read'] },
+  { href: '/assessment', label: 'Задания и тесты', requiredPermissions: ['assessment.tests.read'] },
+  { href: '/notifications', label: 'Сообщения', requiredPermissions: ['tenant.read'] },
+  { href: '/users', label: 'Пользователи', requiredPermissions: ['iam.manage_roles'] },
+  { href: '/groups', label: 'Группы', requiredPermissions: ['groups.read'] },
+  { href: '/reports', label: 'Отчеты', requiredPermissions: ['tenant.read'] },
+  { href: '/settings', label: 'Настройки', requiredPermissions: ['iam.manage_roles'] },
+  {
+    href: '/academy',
+    label: 'Учебный центр',
+    requiredPermissions: ['tenant.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/academy/requisites',
+    label: 'Реквизиты учебного центра',
+    requiredPermissions: ['tenant.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/academy/commission',
+    label: 'Комиссия',
+    requiredPermissions: ['tenant.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/learners',
+    label: 'Слушатели',
+    requiredPermissions: ['learners.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/counterparties',
+    label: 'Контрагенты',
+    requiredPermissions: ['counterparties.read'],
+    navSlot: 'more'
+  },
   {
     href: '/counterparty-portal',
-    label: 'Контур контрагента',
-    requiredPermissions: ['counterparties.read']
+    label: 'Кабинет контрагента',
+    requiredPermissions: ['counterparties.read'],
+    navSlot: 'more'
   },
-  { href: '/directions', label: 'Направления', requiredPermissions: ['directions.read'] },
-  { href: '/courses', label: 'Курсы', requiredPermissions: ['courses.read'] },
-  { href: '/materials', label: 'Контент (модули)', requiredPermissions: ['materials.read'] },
-  { href: '/groups', label: 'Группы', requiredPermissions: ['groups.read'] },
   {
-    href: '/assessment',
-    label: 'Тесты и экзамены',
-    requiredPermissions: ['assessment.tests.read']
+    href: '/directions',
+    label: 'Направления',
+    requiredPermissions: ['directions.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/materials',
+    label: 'Материалы',
+    requiredPermissions: ['materials.read'],
+    navSlot: 'more'
   },
   {
     href: '/question-import',
     label: 'Импорт вопросов',
-    requiredPermissions: ['assessment.questions.write']
+    requiredPermissions: ['assessment.questions.write'],
+    navSlot: 'more'
   },
-  {
-    href: '/learner/courses',
-    label: 'Мои курсы (слушатель)',
-    requiredPermissions: ['enrollments.read']
-  },
-  { href: '/documents', label: 'Документы (beta)', requiredPermissions: ['tenant.read'] },
+  { href: '/documents', label: 'Документы', requiredPermissions: ['tenant.read'], navSlot: 'more' },
   {
     href: '/esign/applications',
     label: 'НЭП заявки',
-    requiredPermissions: ['esign.applications.read']
+    requiredPermissions: ['esign.applications.read'],
+    navSlot: 'more'
   },
   {
     href: '/esign/processes',
     label: 'НЭП подписание',
-    requiredPermissions: ['esign.processes.read']
+    requiredPermissions: ['esign.processes.read'],
+    navSlot: 'more'
   },
-  { href: '/esign/legal-log', label: 'НЭП legal log', requiredPermissions: ['esign.legal.read'] },
-  { href: '/webinars', label: 'Вебинары (beta)', requiredPermissions: ['tenant.read'] },
-  { href: '/proctoring', label: 'Прокторинг (soon)', requiredPermissions: ['tenant.read'] },
-  { href: '/scorm', label: 'SCORM / тренажёры', requiredPermissions: ['materials.read'] },
-  { href: '/mailings', label: 'Рассылки', requiredPermissions: ['tenant.read'] },
-  { href: '/notifications', label: 'Уведомления', requiredPermissions: ['tenant.read'] },
-  { href: '/chat', label: 'Чат', requiredPermissions: ['tenant.read'] },
-  { href: '/crm/deals', label: 'CRM · Сделки (soon)', requiredPermissions: ['tenant.read'] },
-  { href: '/gov-export', label: 'ФРДО / ЕИСОТ (soon)', requiredPermissions: ['tenant.read'] },
-  { href: '/integrations', label: 'Интеграции', requiredPermissions: ['tenant.read'] },
-  { href: '/exports', label: 'Экспорты', requiredPermissions: ['tenant.read'] },
-  { href: '/sync-logs', label: 'Sync logs', requiredPermissions: ['tenant.read'] },
-  { href: '/reports', label: 'Отчёты (beta)', requiredPermissions: ['tenant.read'] },
-  { href: '/telephony', label: 'Телефония (soon)', requiredPermissions: ['tenant.read'] },
-  { href: '/workspace', label: 'Operational workspace', requiredPermissions: ['tenant.read'] },
-  { href: '/registry', label: 'Registry (UI)', requiredPermissions: ['tenant.read'] },
-  { href: '/settings', label: 'Настройки', requiredPermissions: ['iam.manage_roles'] },
-  { href: '/audit', label: 'Аудит', requiredPermissions: ['auth.manage_sessions'] }
+  {
+    href: '/esign/legal-log',
+    label: 'НЭП журнал',
+    requiredPermissions: ['esign.legal.read'],
+    navSlot: 'more'
+  },
+  { href: '/webinars', label: 'Вебинары', requiredPermissions: ['tenant.read'], navSlot: 'more' },
+  {
+    href: '/proctoring',
+    label: 'Прокторинг',
+    requiredPermissions: ['tenant.read'],
+    navSlot: 'more'
+  },
+  { href: '/scorm', label: 'SCORM', requiredPermissions: ['materials.read'], navSlot: 'more' },
+  { href: '/mailings', label: 'Рассылки', requiredPermissions: ['tenant.read'], navSlot: 'more' },
+  { href: '/chat', label: 'Чат', requiredPermissions: ['tenant.read'], navSlot: 'more' },
+  { href: '/crm/deals', label: 'Сделки', requiredPermissions: ['tenant.read'], navSlot: 'more' },
+  {
+    href: '/gov-export',
+    label: 'Госвыгрузки',
+    requiredPermissions: ['tenant.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/integrations',
+    label: 'Интеграции',
+    requiredPermissions: ['tenant.read'],
+    navSlot: 'more'
+  },
+  { href: '/exports', label: 'Экспорт', requiredPermissions: ['tenant.read'], navSlot: 'more' },
+  {
+    href: '/sync-logs',
+    label: 'Журнал синхронизации',
+    requiredPermissions: ['tenant.read'],
+    navSlot: 'more'
+  },
+  { href: '/telephony', label: 'Телефония', requiredPermissions: ['tenant.read'], navSlot: 'more' },
+  {
+    href: '/workspace',
+    label: 'Оперативная панель',
+    requiredPermissions: ['tenant.read'],
+    navSlot: 'more'
+  },
+  { href: '/registry', label: 'Реестр', requiredPermissions: ['tenant.read'], navSlot: 'more' },
+  { href: '/audit', label: 'Аудит', requiredPermissions: ['auth.manage_sessions'], navSlot: 'more' }
 ];
