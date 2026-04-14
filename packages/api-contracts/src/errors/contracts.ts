@@ -10,6 +10,22 @@ export const ApiErrorCodes = {
   internal_error_snake: 'internal_error'
 } as const;
 
+// #region agent log
+void fetch('http://127.0.0.1:7784/ingest/208359c6-33bf-4bcf-bd6c-d5a3e4d89734', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '940dad' },
+  body: JSON.stringify({
+    sessionId: '940dad',
+    runId: 'pre-fix',
+    hypothesisId: 'H1',
+    location: 'packages/api-contracts/src/errors/contracts.ts:12',
+    message: 'ApiErrorCodes exported values snapshot',
+    data: { values: Object.values(ApiErrorCodes), keys: Object.keys(ApiErrorCodes) },
+    timestamp: Date.now()
+  })
+}).catch(() => {});
+// #endregion
+
 export type ApiErrorCode = (typeof ApiErrorCodes)[keyof typeof ApiErrorCodes];
 
 export interface ApiErrorDetail {
