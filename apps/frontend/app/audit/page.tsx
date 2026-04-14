@@ -29,6 +29,10 @@ export default function ModulePage() {
   const [actor, setActor] = useState('');
   const [entity, setEntity] = useState('');
   const [action, setAction] = useState('');
+  const [entityId, setEntityId] = useState('');
+  const [requestId, setRequestId] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<AuditEvent[]>([]);
@@ -42,6 +46,10 @@ export default function ModulePage() {
       if (actor) query.set('actor', actor);
       if (entity) query.set('entity', entity);
       if (action) query.set('action', action);
+      if (entityId) query.set('entity_id', entityId);
+      if (requestId) query.set('request_id', requestId);
+      if (from) query.set('created_from', from);
+      if (to) query.set('created_to', to);
       const result = await apiRequest<{ items: AuditEvent[] }>(
         `/audit/events?${query.toString()}`,
         {
@@ -93,6 +101,18 @@ export default function ModulePage() {
               onChange={(event) => setAction(event.target.value)}
               placeholder="action"
             />
+            <input
+              value={entityId}
+              onChange={(event) => setEntityId(event.target.value)}
+              placeholder="entity id"
+            />
+            <input
+              value={requestId}
+              onChange={(event) => setRequestId(event.target.value)}
+              placeholder="request id"
+            />
+            <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
+            <input type="date" value={to} onChange={(event) => setTo(event.target.value)} />
             <button type="button" onClick={() => void load()}>
               Применить
             </button>

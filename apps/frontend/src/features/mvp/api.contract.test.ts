@@ -19,12 +19,26 @@ const session: UserSession = {
 };
 
 const envelope = <T>(data: T) =>
-  JSON.stringify({ data, meta: { requestId: 'req-1', correlationId: 'corr-1', timestamp: '2026-01-01T00:00:00.000Z' } });
+  JSON.stringify({
+    data,
+    meta: { requestId: 'req-1', correlationId: 'corr-1', timestamp: '2026-01-01T00:00:00.000Z' }
+  });
 
 describe('mvp api envelope compatibility', () => {
   let mvpApi: {
     listUsers: (session: UserSession, query: { page: number }) => Promise<{ items: unknown[] }>;
-    listCounterparties: (session: UserSession, query: { page: number }) => Promise<{ items: Array<{ id: string }> }>;
+    listCounterparties: (
+      session: UserSession,
+      query: { page: number }
+    ) => Promise<{ items: Array<{ id: string }> }>;
+    listTests: (
+      session: UserSession,
+      query: { page: number }
+    ) => Promise<{ items: Array<{ id: string }> }>;
+    getAttemptResult: (
+      session: UserSession,
+      attemptId: string
+    ) => Promise<{ finalScore: number; maxScore: number; passed: boolean }>;
   };
 
   beforeAll(async () => {
@@ -46,7 +60,11 @@ describe('mvp api envelope compatibility', () => {
   });
 
   it('listUsers reads data from envelope', async () => {
-    fetchMock.mockResolvedValueOnce(new Response(envelope({ items: [{ id: 'u1' }], page: 1, pageSize: 20, total: 1 }), { status: 200 }));
+    fetchMock.mockResolvedValueOnce(
+      new Response(envelope({ items: [{ id: 'u1' }], page: 1, pageSize: 20, total: 1 }), {
+        status: 200
+      })
+    );
 
     const result = await mvpApi.listUsers(session, { page: 1 });
 
@@ -54,10 +72,37 @@ describe('mvp api envelope compatibility', () => {
   });
 
   it('listCounterparties reads data from envelope', async () => {
-    fetchMock.mockResolvedValueOnce(new Response(envelope({ items: [{ id: 'c1' }], page: 1, pageSize: 20, total: 1 }), { status: 200 }));
+    fetchMock.mockResolvedValueOnce(
+      new Response(envelope({ items: [{ id: 'c1' }], page: 1, pageSize: 20, total: 1 }), {
+        status: 200
+      })
+    );
 
     const result = await mvpApi.listCounterparties(session, { page: 1 });
 
     expect(result.items[0]?.id).toBe('c1');
+  });
+
+  it('listTests reads data from envelope', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(envelope({ items: [{ id: 't1' }], page: 1, pageSize: 20, total: 1 }), {
+        status: 200
+      })
+    );
+
+    const result = await mvpApi.listTests(session, { page: 1 });
+
+    expect(result.items[0]?.id).toBe('t1');
+  });
+
+  it('getAttemptResult reads result payload from envelope', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(envelope({ finalScore: 88, maxScore: 100, passed: true }), { status: 200 })
+    );
+
+    const result = await mvpApi.getAttemptResult(session, 'att_1');
+
+    expect(result.finalScore).toBe(88);
+    expect(result.passed).toBe(true);
   });
 });

@@ -307,6 +307,16 @@ export class DocumentsService {
     task.finishedAt = undefined;
     return task;
   }
+  cancelTask(tenantId: string, id: string) {
+    const task = this.getDocumentTask(tenantId, id);
+    if (!['queued', 'running'].includes(task.status)) {
+      throw new BadRequestException('Cancel allowed only for queued or running tasks');
+    }
+    task.status = 'cancelled';
+    this.publishTaskEvent(task);
+    task.finishedAt = this.now();
+    return task;
+  }
 
   listDocuments(tenantId: string, query: BaseFilter) {
     const rows = this.state.generatedDocuments.filter(

@@ -268,6 +268,12 @@ export class DocumentsController {
   retryTask(@CurrentContext() c: RequestContext, @Param('id') id: string) {
     return this.documentsService.retryTask(c.tenantId!, id);
   }
+  @Post('document-tasks/:id/cancel')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.write')
+  cancelTask(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.documentsService.cancelTask(c.tenantId!, id);
+  }
 
   @Get('numbering-rules')
   @UseGuards(PermissionGuard)

@@ -19,7 +19,11 @@ export class AuditController {
     @CurrentContext() context: RequestContext,
     @Query('actor') actor?: string,
     @Query('entity') entity?: string,
-    @Query('action') action?: string
+    @Query('action') action?: string,
+    @Query('entity_id') entityId?: string,
+    @Query('request_id') requestId?: string,
+    @Query('created_from') createdFrom?: string,
+    @Query('created_to') createdTo?: string
   ) {
     const rows = await this.auditService.list(context.tenantId);
     return {
@@ -27,6 +31,12 @@ export class AuditController {
         if (actor && !row.actorId?.includes(actor)) return false;
         if (entity && !row.entityType.includes(entity)) return false;
         if (action && !row.action.includes(action)) return false;
+        if (entityId && !row.entityId?.includes(entityId)) return false;
+        if (requestId && !row.requestId?.includes(requestId)) return false;
+        if (createdFrom && new Date(row.createdAt).getTime() < new Date(createdFrom).getTime())
+          return false;
+        if (createdTo && new Date(row.createdAt).getTime() > new Date(createdTo).getTime())
+          return false;
         return true;
       })
     };

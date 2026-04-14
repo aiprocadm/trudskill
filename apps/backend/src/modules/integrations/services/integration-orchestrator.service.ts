@@ -152,6 +152,27 @@ export class IntegrationOrchestratorService {
     return adapter.testConnection({ credentials: credential.settingsJsonb });
   }
 
+  diagnostics(tenantId: string) {
+    return this.state.providers.map((provider) => {
+      const providerCredentials = this.state.credentials.filter(
+        (item) => item.tenantId === tenantId && item.providerId === provider.id
+      );
+      const lastLog = this.state.logs
+        .filter((item) => item.tenantId === tenantId && item.providerCode === provider.code)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+      return {
+        providerId: provider.id,
+        providerCode: provider.code,
+        providerType: provider.providerType,
+        providerActive: provider.isActive,
+        credentialsCount: providerCredentials.length,
+        activeCredentials: providerCredentials.filter((item) => item.status === 'active').length,
+        lastSyncStatus: lastLog?.status ?? 'no_data',
+        lastSyncAt: lastLog?.createdAt ?? null
+      };
+    });
+  }
+
   listTasks(tenantId: string, query?: ListQuery) {
     const rows = this.state.tasks
       .filter((item) => item.tenantId === tenantId)

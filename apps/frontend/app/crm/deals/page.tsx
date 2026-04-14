@@ -1,8 +1,57 @@
-import { FeatureComingSoon } from '../../../src/components/feature-coming-soon';
-import { PageContainer, PageHeader } from '../../../src/components/state-wrappers';
+'use client';
+
+import { DataTable, FilterBar, LoadingState } from '@cdoprof/ui';
+import { useMemo, useState } from 'react';
+
+import {
+  PageContainer,
+  PageHeader,
+  SectionCard,
+  SectionEmpty,
+  SectionError
+} from '../../../src/components/state-wrappers';
+import { useCounterpartiesList, useGroupsList } from '../../../src/features/mvp/hooks';
 import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
 
+type Deal = {
+  id: string;
+  counterparty: string;
+  groupId: string;
+  amount: number;
+  stage: 'lead' | 'proposal' | 'won' | 'lost';
+};
+
 export default function CrmDealsPage() {
+  const counterparties = useCounterpartiesList({ page: 1, page_size: 50 });
+  const groups = useGroupsList({ page: 1, page_size: 50 });
+  const [counterparty, setCounterparty] = useState('');
+  const [groupId, setGroupId] = useState('');
+  const [amount, setAmount] = useState('0');
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const stats = useMemo(
+    () => ({
+      won: deals.filter((d) => d.stage === 'won').length,
+      inProgress: deals.filter((d) => d.stage === 'lead' || d.stage === 'proposal').length
+    }),
+    [deals]
+  );
+
+  const createDeal = () => {
+    if (!counterparty || !groupId) return;
+    const deal: Deal = {
+      id: `deal_${Date.now()}`,
+      counterparty,
+      groupId,
+      amount: Number(amount) || 0,
+      stage: 'lead'
+    };
+    setDeals((curr) => [deal, ...curr]);
+  };
+
+  const moveDeal = (id: string, stage: Deal['stage']) => {
+    setDeals((curr) => curr.map((item) => (item.id === id ? { ...item, stage } : item)));
+  };
+
   return (
     <ProtectedPage>
       <PageContainer>
@@ -10,17 +59,75 @@ export default function CrmDealsPage() {
           title="CRM · Сделки"
           subtitle="П. 5.21 ТЗ — стадии, контрагенты, промокоды, договоры"
         />
-        <FeatureComingSoon
-          progress={40}
-          eta="Спринт 3"
-          roles={['admin', 'sales_manager', 'methodist']}
-          availableNow={['Реестр контрагентов', 'Группы и назначения', 'Курсы и статусы обучения']}
-          links={[
-            { href: '/counterparties', label: 'Открыть Контрагенты' },
-            { href: '/groups', label: 'Открыть Группы' },
-            { href: '/courses', label: 'Открыть Курсы' }
-          ]}
-        />
+        <SectionCard title="Создать сделку">
+          {counterparties.loading || groups.loading ? (
+            <LoadingState message="Загрузка справочников..." />
+          ) : null}
+          {counterparties.error ? <SectionError message={counterparties.error} /> : null}
+          {groups.error ? <SectionError message={groups.error} /> : null}
+          <FilterBar>
+            <select value={counterparty} onChange={(event) => setCounterparty(event.target.value)}>
+              <option value="">Контрагент</option>
+              {counterparties.data?.items.map((item) => (
+                <option key={item.id} value={item.name}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+            <select value={groupId} onChange={(event) => setGroupId(event.target.value)}>
+              <option value="">Группа</option>
+              {groups.data?.items.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+            <input
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              placeholder="Сумма"
+            />
+            <button type="button" onClick={createDeal} disabled={!counterparty || !groupId}>
+              Добавить
+            </button>
+          </FilterBar>
+          <p>
+            В работе: {stats.inProgress} · Успешно: {stats.won}
+          </p>
+        </SectionCard>
+        <SectionCard title="Реестр сделок">
+          {deals.length ? (
+            <>
+              <DataTable
+                columns={[
+                  { key: 'counterparty', title: 'Контрагент' },
+                  { key: 'groupId', title: 'Группа' },
+                  { key: 'amount', title: 'Сумма' },
+                  { key: 'stage', title: 'Стадия' }
+                ]}
+                rows={deals}
+              />
+              <div className="ui-stack">
+                {deals.map((deal) => (
+                  <div key={deal.id} className="ui-inline">
+                    <span>{deal.id}</span>
+                    <button type="button" onClick={() => moveDeal(deal.id, 'proposal')}>
+                      proposal
+                    </button>
+                    <button type="button" onClick={() => moveDeal(deal.id, 'won')}>
+                      won
+                    </button>
+                    <button type="button" onClick={() => moveDeal(deal.id, 'lost')}>
+                      lost
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <SectionEmpty message="Сделки не созданы" />
+          )}
+        </SectionCard>
       </PageContainer>
     </ProtectedPage>
   );

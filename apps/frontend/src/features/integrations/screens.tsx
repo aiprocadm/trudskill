@@ -3,7 +3,13 @@
 import { DataTable, FilterBar, LoadingState, StatusChip } from '@cdoprof/ui';
 import { useMemo, useState } from 'react';
 
-import { useCredentials, useExportTasks, useProviders, useSyncLogs } from './hooks';
+import {
+  useCredentials,
+  useExportTasks,
+  useIntegrationDiagnostics,
+  useProviders,
+  useSyncLogs
+} from './hooks';
 import {
   PageContainer,
   PageHeader,
@@ -25,6 +31,7 @@ export const IntegrationSettingsScreen = () => {
   const [name, setName] = useState('');
   const [secret, setSecret] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
+  const diagnostics = useIntegrationDiagnostics();
 
   const onCreateCredential = async () => {
     try {
@@ -104,6 +111,25 @@ export const IntegrationSettingsScreen = () => {
           </button>
         </FilterBar>
         {saveError ? <SectionError message={saveError} /> : null}
+      </SectionCard>
+      <SectionCard title="Provider diagnostics">
+        {diagnostics.loading ? <LoadingState message="Загрузка диагностики..." /> : null}
+        {diagnostics.error ? <SectionError message={diagnostics.error} /> : null}
+        {diagnostics.data.length ? (
+          <DataTable
+            columns={[
+              { key: 'providerCode', title: 'Provider' },
+              { key: 'providerType', title: 'Type' },
+              { key: 'credentialsCount', title: 'Creds' },
+              { key: 'activeCredentials', title: 'Active creds' },
+              { key: 'lastSyncStatus', title: 'Last sync' },
+              { key: 'lastSyncAt', title: 'Last sync at' }
+            ]}
+            rows={diagnostics.data}
+          />
+        ) : (
+          <SectionEmpty message="Диагностика провайдеров недоступна" />
+        )}
       </SectionCard>
     </PageContainer>
   );

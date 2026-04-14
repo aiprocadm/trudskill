@@ -103,6 +103,10 @@ export class IntegrationsController {
   ) {
     return this.orchestrator.testConnection(ctx.tenantId!, id);
   }
+  @Get('diagnostics')
+  diagnostics(@CurrentContext() ctx: RequestContext) {
+    return { items: this.orchestrator.diagnostics(ctx.tenantId!) };
+  }
 }
 
 @Controller('exports')

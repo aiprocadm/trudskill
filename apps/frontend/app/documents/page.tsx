@@ -28,6 +28,9 @@ interface TaskDto {
   id: string;
   status: string;
   source: string;
+  errorMessage?: string;
+  requestedAt?: string;
+  finishedAt?: string;
 }
 
 export default function DocumentsPage() {
@@ -39,6 +42,7 @@ export default function DocumentsPage() {
   const [entityType, setEntityType] = useState('course');
   const [entityId, setEntityId] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
+  const [selectedTask, setSelectedTask] = useState<TaskDto | null>(null);
   const data = useQuery({
     queryKey: ['documents', session?.user.id],
     enabled: Boolean(session),
@@ -69,7 +73,7 @@ export default function DocumentsPage() {
       setActionError(null);
       await apiRequest('/templates', {
         method: 'POST',
-        body: { name: templateName.trim(), type: templateType },
+        body: { name: templateName.trim(), templateType },
         auth: {
           accessToken: session.tokens.accessToken,
           tenantId: session.user.tenantId,
@@ -105,6 +109,42 @@ export default function DocumentsPage() {
       await data.refetch();
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Не удалось запустить генерацию');
+    }
+  };
+
+  const retryTask = async (taskId: string) => {
+    if (!session) return;
+    try {
+      setActionError(null);
+      await apiRequest(`/document-tasks/${taskId}/retry`, {
+        method: 'POST',
+        auth: {
+          accessToken: session.tokens.accessToken,
+          tenantId: session.user.tenantId,
+          userId: session.user.id
+        }
+      });
+      await data.refetch();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Не удалось повторить задачу');
+    }
+  };
+
+  const cancelTask = async (taskId: string) => {
+    if (!session) return;
+    try {
+      setActionError(null);
+      await apiRequest(`/document-tasks/${taskId}/cancel`, {
+        method: 'POST',
+        auth: {
+          accessToken: session.tokens.accessToken,
+          tenantId: session.user.tenantId,
+          userId: session.user.id
+        }
+      });
+      await data.refetch();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Не удалось отменить задачу');
     }
   };
 
@@ -203,17 +243,47 @@ export default function DocumentsPage() {
             </button>
           </div>
           {data.data?.tasks.length ? (
-            <DataTable
-              columns={[
-                { key: 'id', title: 'Task ID' },
-                { key: 'status', title: 'Статус' },
-                { key: 'source', title: 'Источник' }
-              ]}
-              rows={data.data.tasks}
-            />
+            <>
+              <DataTable
+                columns={[
+                  { key: 'id', title: 'Task ID' },
+                  { key: 'status', title: 'Статус' },
+                  { key: 'source', title: 'Источник' },
+                  { key: 'requestedAt', title: 'Запрошена' },
+                  { key: 'finishedAt', title: 'Завершена' }
+                ]}
+                rows={data.data.tasks}
+              />
+              <div className="ui-stack">
+                {data.data.tasks.map((task) => (
+                  <div key={task.id} className="ui-inline">
+                    <button type="button" onClick={() => setSelectedTask(task)}>
+                      Детали {task.id}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void retryTask(task.id)}
+                      disabled={task.status !== 'failed'}
+                    >
+                      Retry
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void cancelTask(task.id)}
+                      disabled={!['queued', 'running'].includes(task.status)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
           ) : (
             <SectionEmpty message="Задачи генерации отсутствуют" />
           )}
+          {selectedTask ? (
+            <div className="ui-code-block">{JSON.stringify(selectedTask, null, 2)}</div>
+          ) : null}
           {actionError ? <SectionError message={actionError} /> : null}
         </SectionCard>
       </PageContainer>

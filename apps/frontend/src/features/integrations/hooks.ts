@@ -31,6 +31,16 @@ export interface SyncLogDto {
   statusCode: number;
   status: string;
 }
+export interface IntegrationDiagnosticDto {
+  providerId: string;
+  providerCode: string;
+  providerType: string;
+  providerActive: boolean;
+  credentialsCount: number;
+  activeCredentials: number;
+  lastSyncStatus: string;
+  lastSyncAt: string | null;
+}
 
 const useIntegrationList = <T>(key: string, path: string, liveInterval?: number) => {
   const { session } = useAuth();
@@ -69,3 +79,5 @@ export const useCredentials = () =>
 export const useExportTasks = (live = false) =>
   useIntegrationList<ExportTaskDto>('exportTasks', '/exports/tasks', live ? 15_000 : undefined);
 export const useSyncLogs = () => useIntegrationList<SyncLogDto>('syncLogs', '/sync-logs');
+export const useIntegrationDiagnostics = () =>
+  useIntegrationList<IntegrationDiagnosticDto>('diagnostics', '/integrations/diagnostics');
