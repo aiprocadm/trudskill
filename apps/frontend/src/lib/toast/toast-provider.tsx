@@ -1,8 +1,8 @@
 'use client';
 
 import {
-  createContext,
   type PropsWithChildren,
+  createContext,
   useCallback,
   useContext,
   useEffect,
@@ -109,7 +109,9 @@ export const ToastProvider = ({ children }: PropsWithChildren) => {
           >
             <div style={{ fontWeight: 600, fontSize: 14 }}>{t.title}</div>
             {t.message ? (
-              <div style={{ fontSize: 13, marginTop: 4, color: 'var(--ui-text-muted)' }}>{t.message}</div>
+              <div style={{ fontSize: 13, marginTop: 4, color: 'var(--ui-text-muted)' }}>
+                {t.message}
+              </div>
             ) : null}
             <button
               type="button"

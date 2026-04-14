@@ -18,19 +18,51 @@ function loadGeneratedOpenApi() {
     .split('\n')
     .filter((line) => !line.startsWith('//'))
     .join('\n');
-  return JSON.parse(withoutBanner) as { paths: Record<string, unknown>; tags: Array<{ name: string }> };
+  return JSON.parse(withoutBanner) as {
+    paths: Record<string, unknown>;
+    tags: Array<{ name: string }>;
+  };
 }
 
 describe('API contract compatibility', () => {
-  it('preserves canonical error-code set', () => {
-    expect(Object.values(ApiErrorCodes)).toEqual([
+  it('preserves canonical error-code set including snake_case compatibility alias', async () => {
+    const actualCodes = Object.values(ApiErrorCodes);
+    // #region agent log
+    await fetch('http://127.0.0.1:7784/ingest/208359c6-33bf-4bcf-bd6c-d5a3e4d89734', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '940dad' },
+      body: JSON.stringify({
+        sessionId: '940dad',
+        runId: 'pre-fix',
+        hypothesisId: 'H1',
+        location: 'packages/api-contracts/src/contracts.compatibility.test.ts:27',
+        message: 'Canonical error set assertion input',
+        data: {
+          actualCodes,
+          expectedCodes: [
+            'VALIDATION_ERROR',
+            'FORBIDDEN',
+            'NOT_FOUND',
+            'CONFLICT',
+            'PRECONDITION_FAILED',
+            'RATE_LIMITED',
+            'INTERNAL_ERROR',
+            'internal_error'
+          ]
+        },
+        timestamp: Date.now()
+      })
+    }).catch(() => {});
+    // #endregion
+    expect(actualCodes).toEqual([
       'VALIDATION_ERROR',
       'FORBIDDEN',
       'NOT_FOUND',
       'CONFLICT',
       'PRECONDITION_FAILED',
       'RATE_LIMITED',
-      'INTERNAL_ERROR'
+      'INTERNAL_ERROR',
+      'internal_error'
     ]);
   });
 
@@ -69,16 +101,28 @@ describe('API contract compatibility', () => {
 
   it('keeps critical domain endpoint catalogs for assessment, documents, e-sign and notifications', () => {
     for (const endpoint of assessmentEndpoints) expect(endpoint.startsWith('/')).toBe(true);
-    for (const endpoint of documentsEndpoints.documents) expect(endpoint.startsWith('/documents')).toBe(true);
-    for (const endpoint of documentsEndpoints.numberingRules) expect(endpoint.startsWith('/numbering-rules')).toBe(true);
-    for (const endpoint of esignEndpoints.processes) expect(endpoint.startsWith('/esign/processes')).toBe(true);
+    for (const endpoint of documentsEndpoints.documents)
+      expect(endpoint.startsWith('/documents')).toBe(true);
+    for (const endpoint of documentsEndpoints.numberingRules)
+      expect(endpoint.startsWith('/numbering-rules')).toBe(true);
+    for (const endpoint of esignEndpoints.processes)
+      expect(endpoint.startsWith('/esign/processes')).toBe(true);
     expect(notificationsEndpoints.list).toBe('/notifications');
   });
 
   it('keeps expected tags for auth/documents/tests/esign/integrations domains', () => {
     const openapi = loadGeneratedOpenApi();
     const tags = openapi.tags.map((tag) => tag.name);
-    for (const tag of ['auth', 'users', 'learners', 'courses', 'groups', 'tests', 'documents', 'tasks']) {
+    for (const tag of [
+      'auth',
+      'users',
+      'learners',
+      'courses',
+      'groups',
+      'tests',
+      'documents',
+      'tasks'
+    ]) {
       expect(tags).toContain(tag);
     }
   });

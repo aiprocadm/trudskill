@@ -2,9 +2,8 @@
 
 import { type PropsWithChildren, useEffect, useRef } from 'react';
 
-import { useToast } from '../toast/toast-provider';
-
 import { subscribeQueryErrors } from './react-query-shim';
+import { useToast } from '../toast/toast-provider';
 
 const DEDUPE_MS = 4500;
 
