@@ -1,6 +1,6 @@
 export type TemplateStatus = 'active' | 'archived';
 export type TemplateBindingType = 'direction' | 'course' | 'group';
-export type TaskStatus = 'queued' | 'running' | 'completed' | 'failed';
+export type TaskStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 export type GeneratedDocumentStatus = 'generated' | 'final' | 'archived';
 export type NumberResetPeriod = 'none' | 'year' | 'month';
 
