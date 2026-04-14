@@ -1,4 +1,5 @@
-import { PageContainer, PageHeader, SectionCard } from '../../src/components/state-wrappers';
+import { FeatureComingSoon } from '../../src/components/feature-coming-soon';
+import { PageContainer, PageHeader } from '../../src/components/state-wrappers';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
 export default function TelephonyPage() {
@@ -9,12 +10,16 @@ export default function TelephonyPage() {
           title="Телефония"
           subtitle="П. 5.20 ТЗ (опционально II–III этап) — облачная АТС, внутренние номера, CRM"
         />
-        <SectionCard title="Статус">
-          <p className="ui-prose-muted">
-            Модуль не подключён. Параметры интеграции будут храниться в настройках учебного центра и
-            шифроваться как секреты.
-          </p>
-        </SectionCard>
+        <FeatureComingSoon
+          progress={20}
+          eta="Спринт 3"
+          roles={['admin', 'sales_manager']}
+          availableNow={['Реестр контрагентов', 'CRM-блок навигации', 'Интеграционные credentials']}
+          links={[
+            { href: '/crm/deals', label: 'Открыть CRM · Сделки' },
+            { href: '/integrations', label: 'Открыть Интеграции' }
+          ]}
+        />
       </PageContainer>
     </ProtectedPage>
   );

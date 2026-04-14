@@ -1,26 +1,80 @@
-import { PageContainer, PageHeader, SectionCard } from '../../../src/components/state-wrappers';
+'use client';
+
+import { DataTable, LoadingState } from '@cdoprof/ui';
+import { useEffect, useState } from 'react';
+
+import {
+  PageContainer,
+  PageHeader,
+  SectionCard,
+  SectionEmpty,
+  SectionError
+} from '../../../src/components/state-wrappers';
+import { useAuth } from '../../../src/features/auth/context';
+import { apiRequest } from '../../../src/lib/api/client';
 import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
 
-const processStatuses = ['draft', 'prepared', 'awaiting_participants', 'in_signing', 'signed', 'failed', 'cancelled'];
-const participantStatuses = ['pending', 'invited', 'viewed', 'signed', 'rejected', 'skipped', 'expired'];
+type EsignProcess = {
+  id: string;
+  status: string;
+  mode?: string;
+  createdAt?: string;
+};
 
 export default function EsignProcessesPage() {
+  const { session } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [rows, setRows] = useState<EsignProcess[]>([]);
+
+  const load = async () => {
+    if (!session) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await apiRequest<{ items: EsignProcess[] }>('/esign/processes', {
+        auth: {
+          accessToken: session.tokens.accessToken,
+          tenantId: session.user.tenantId,
+          userId: session.user.id
+        }
+      });
+      setRows(result.items);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Ошибка загрузки процессов');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, [session]);
+
   return (
     <ProtectedPage>
       <PageContainer>
-        <PageHeader title="Подписание документов" subtitle="Процессы, участники, очередность и timeline событий" />
-
-        <SectionCard title="Статусы процесса">
-          <ul>{processStatuses.map((status) => <li key={status}>{status}</li>)}</ul>
-        </SectionCard>
-
-        <SectionCard title="Статусы участников">
-          <ul>{participantStatuses.map((status) => <li key={status}>{status}</li>)}</ul>
-          <p>Для sequential-процессов подписание вне очереди блокируется backend-правилами.</p>
-        </SectionCard>
-
-        <SectionCard title="Иммутабельность артефакта">
-          <p>После статуса signed финальный артефакт фиксируется и больше не может быть перезаписан.</p>
+        <PageHeader
+          title="Подписание документов"
+          subtitle="Реестр процессов и участников подписания"
+        />
+        <SectionCard title="Процессы подписания">
+          {loading ? <LoadingState message="Загрузка процессов..." /> : null}
+          {error ? <SectionError message={error} /> : null}
+          {!loading && !error && !rows.length ? (
+            <SectionEmpty message="Процессы не найдены" />
+          ) : null}
+          {rows.length ? (
+            <DataTable
+              columns={[
+                { key: 'id', title: 'ID' },
+                { key: 'mode', title: 'Режим' },
+                { key: 'status', title: 'Статус' },
+                { key: 'createdAt', title: 'Создано' }
+              ]}
+              rows={rows}
+            />
+          ) : null}
         </SectionCard>
       </PageContainer>
     </ProtectedPage>

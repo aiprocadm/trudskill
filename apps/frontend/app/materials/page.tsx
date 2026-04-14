@@ -1,34 +1,55 @@
-import { PageContainer, PageHeader, SectionCard } from '../../src/components/state-wrappers';
-import { TzLinks } from '../../src/components/tz/tz-links';
+'use client';
+
+import { DataTable, FilterBar, LoadingState } from '@cdoprof/ui';
+import Link from 'next/link';
+import { useState } from 'react';
+
+import {
+  PageContainer,
+  PageHeader,
+  SectionCard,
+  SectionEmpty,
+  SectionError
+} from '../../src/components/state-wrappers';
+import { useMaterials } from '../../src/features/mvp/hooks';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
 export default function MaterialsHubPage() {
+  const [moduleId, setModuleId] = useState('');
+  const { data, loading, error } = useMaterials(moduleId || undefined);
+
   return (
     <ProtectedPage>
       <PageContainer>
         <PageHeader title="Учебный контент" subtitle="Модули и материалы курса (п. 5.5 ТЗ)" />
-        <SectionCard title="Навигация">
-          <TzLinks
-            items={[
-              {
-                href: '/courses',
-                label: 'Курсы и версии',
-                description: 'Создание версии курса и привязка модулей через карточку курса'
-              },
-              {
-                href: '/directions',
-                label: 'Направления',
-                description: 'Иерархия «направление — курс» (п. 5.4 ТЗ)'
-              }
-            ]}
-          />
-        </SectionCard>
-        <SectionCard title="API">
-          <p className="ui-prose-muted">
-            Список модулей: <code>GET /modules</code>, материалов: <code>GET /materials</code>{' '}
-            (права <code>materials.read</code>). Минимальное время просмотра и обязательность — поля
-            сущностей на бэкенде MVP.
-          </p>
+        <SectionCard title="Реестр материалов">
+          <FilterBar>
+            <input
+              value={moduleId}
+              onChange={(event) => setModuleId(event.target.value)}
+              placeholder="Фильтр по module_id"
+            />
+            <Link href="/courses">Открыть карточки курсов</Link>
+          </FilterBar>
+          {loading ? <LoadingState message="Загрузка материалов..." /> : null}
+          {error ? <SectionError message={error} /> : null}
+          {!loading && !error && !data?.items.length ? (
+            <SectionEmpty
+              message="Материалы не найдены"
+              hint="Добавьте материалы в карточке курса."
+            />
+          ) : null}
+          {data?.items.length ? (
+            <DataTable
+              columns={[
+                { key: 'title', title: 'Название' },
+                { key: 'materialType', title: 'Тип' },
+                { key: 'moduleId', title: 'Модуль' },
+                { key: 'minViewSeconds', title: 'Мин. просмотр (сек)' }
+              ]}
+              rows={data.items}
+            />
+          ) : null}
         </SectionCard>
       </PageContainer>
     </ProtectedPage>

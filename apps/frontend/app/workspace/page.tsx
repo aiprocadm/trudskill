@@ -2,6 +2,8 @@
 
 import { DataTable } from '@cdoprof/ui';
 import { useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
+import { useMemo, useState } from 'react';
 
 import { type WorkspaceSummary, resolveWorkspaceErrorMessage } from './page.utils';
 import {
@@ -32,6 +34,10 @@ interface WorkspaceBlockerItem {
 
 export default function WorkspacePage() {
   const { session } = useAuth();
+  const [taskStatus, setTaskStatus] = useState<'all' | WorkspaceTaskItem['status']>('all');
+  const [blockerSeverity, setBlockerSeverity] = useState<'all' | WorkspaceBlockerItem['severity']>(
+    'all'
+  );
 
   const workspace = useQuery({
     queryKey: ['workspace', session?.user.id],
@@ -54,6 +60,21 @@ export default function WorkspacePage() {
       </ProtectedPage>
     );
   }
+
+  const filteredTasks = useMemo(
+    () =>
+      workspace.data?.tasks.filter((item) =>
+        taskStatus === 'all' ? true : item.status === taskStatus
+      ) ?? [],
+    [taskStatus, workspace.data?.tasks]
+  );
+  const filteredBlockers = useMemo(
+    () =>
+      workspace.data?.blockers.filter((item) =>
+        blockerSeverity === 'all' ? true : item.severity === blockerSeverity
+      ) ?? [],
+    [blockerSeverity, workspace.data?.blockers]
+  );
 
   return (
     <ProtectedPage>
@@ -88,6 +109,56 @@ export default function WorkspacePage() {
           ) : (
             <SectionEmpty message="Нет следующих действий" />
           )}
+        </SectionCard>
+        <SectionCard title="Inbox задач">
+          <div className="ui-inline">
+            <select
+              value={taskStatus}
+              onChange={(event) => setTaskStatus(event.target.value as typeof taskStatus)}
+            >
+              <option value="all">Все статусы</option>
+              <option value="open">open</option>
+              <option value="in_progress">in_progress</option>
+              <option value="overdue">overdue</option>
+            </select>
+          </div>
+          <DataTable
+            columns={[
+              { key: 'title', title: 'Задача' },
+              { key: 'status', title: 'Статус' },
+              { key: 'dueAt', title: 'Срок' },
+              { key: 'route', title: 'Маршрут' }
+            ]}
+            rows={filteredTasks}
+          />
+        </SectionCard>
+        <SectionCard title="Blockers">
+          <div className="ui-inline">
+            <select
+              value={blockerSeverity}
+              onChange={(event) => setBlockerSeverity(event.target.value as typeof blockerSeverity)}
+            >
+              <option value="all">Все severity</option>
+              <option value="low">low</option>
+              <option value="medium">medium</option>
+              <option value="high">high</option>
+            </select>
+          </div>
+          <DataTable
+            columns={[
+              { key: 'title', title: 'Блокер' },
+              { key: 'severity', title: 'Severity' },
+              { key: 'route', title: 'Маршрут' }
+            ]}
+            rows={filteredBlockers}
+          />
+          <div className="ui-stack">
+            {filteredBlockers.slice(0, 5).map((item) => (
+              <Link key={item.id} href={item.route}>
+                Перейти: {item.title}
+              </Link>
+            ))}
+          </div>
         </SectionCard>
       </PageContainer>
     </ProtectedPage>

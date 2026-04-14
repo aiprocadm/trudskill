@@ -65,7 +65,12 @@ const RegistryControls = ({
   setStatus: (v: string) => void;
 }) => (
   <FilterBar>
-    <input placeholder="Поиск" value={q} onChange={(event) => setQ(event.target.value)} aria-label="Поиск" />
+    <input
+      placeholder="Поиск"
+      value={q}
+      onChange={(event) => setQ(event.target.value)}
+      aria-label="Поиск"
+    />
     <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Статус">
       <option value="">Все статусы</option>
       {STATUS_OPTIONS.map((option) => (
@@ -96,8 +101,17 @@ const UsersFilterBar = ({
 }) => (
   <div className="ui-toolbar">
     <FilterBar>
-      <input placeholder="Поиск" value={q} onChange={(event) => setQ(event.target.value)} aria-label="Поиск" />
-      <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Статус">
+      <input
+        placeholder="Поиск"
+        value={q}
+        onChange={(event) => setQ(event.target.value)}
+        aria-label="Поиск"
+      />
+      <select
+        value={status}
+        onChange={(event) => setStatus(event.target.value)}
+        aria-label="Статус"
+      >
         <option value="">Все статусы</option>
         {STATUS_OPTIONS.map((option) => (
           <option key={option} value={option}>
@@ -884,7 +898,10 @@ export const LearnerCoursesScreen = () => {
 
   return (
     <PageContainer>
-      <PageHeader title="Мои курсы" subtitle="Упрощённый сценарий слушателя: только ваши назначения" />
+      <PageHeader
+        title="Мои курсы"
+        subtitle="Упрощённый сценарий слушателя: только ваши назначения"
+      />
       <SectionCard title="Назначенные курсы">
         {error ? <SectionError message={error} /> : null}
         {loading ? <ListSkeleton lines={5} /> : null}
@@ -985,20 +1002,174 @@ export const LearnerCourseDetailsScreen = ({ id }: { id: string }) => {
 };
 
 export const AssessmentDashboardScreen = () => {
-  const { data: banks } = useQuestionBanks({ page: 1, page_size: 10 });
-  const { data: tests } = useTests({ page: 1, page_size: 10 });
-  const { data: assignments } = useAssignments({ page: 1, page_size: 10 });
+  const { session } = useAuth();
+  const [q, setQ] = useState('');
+  const [status, setStatus] = useState('');
+  const [groupId, setGroupId] = useState('');
+  const [selectedTestId, setSelectedTestId] = useState('');
+  const [selectedEnrollmentId, setSelectedEnrollmentId] = useState('');
+  const [attemptResult, setAttemptResult] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const { startAttempt, getAttemptResult } = useDomainMutations();
+  const {
+    data: banks,
+    loading: banksLoading,
+    error: banksError
+  } = useQuestionBanks({
+    page: 1,
+    page_size: 20,
+    q,
+    status
+  });
+  const {
+    data: tests,
+    loading: testsLoading,
+    error: testsError
+  } = useTests({
+    page: 1,
+    page_size: 20,
+    q,
+    status
+  });
+  const {
+    data: assignments,
+    loading: assignmentsLoading,
+    error: assignmentsError
+  } = useAssignments({
+    page: 1,
+    page_size: 20,
+    group_id: groupId || undefined
+  });
+  const { data: enrollments } = useEnrollments({
+    group_id: groupId || undefined,
+    page: 1,
+    page_size: 20
+  });
+
+  const onStartAttempt = async () => {
+    if (!selectedTestId || !selectedEnrollmentId || !session) {
+      setSaveError('Выберите тест и зачисление');
+      return;
+    }
+    setSaveError(null);
+    setAttemptResult(null);
+    try {
+      const attempt = await startAttempt({
+        testId: selectedTestId,
+        enrollmentId: selectedEnrollmentId,
+        learnerId: session.user.id
+      });
+      const result = await getAttemptResult(attempt.id);
+      setAttemptResult(
+        `Попытка ${attempt.id}: score=${result.finalScore}/${result.maxScore}, passed=${result.passed ? 'да' : 'нет'}`
+      );
+    } catch (error) {
+      setSaveError(readApiMessage(error));
+    }
+  };
+
   return (
     <PageContainer>
       <PageHeader title="Assessment" />
+      <SectionCard title="Фильтры">
+        <FilterBar>
+          <input value={q} onChange={(event) => setQ(event.target.value)} placeholder="Поиск" />
+          <select value={status} onChange={(event) => setStatus(event.target.value)}>
+            <option value="">Все статусы</option>
+            {STATUS_OPTIONS.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+          <input
+            value={groupId}
+            onChange={(event) => setGroupId(event.target.value)}
+            placeholder="Фильтр по group_id"
+          />
+        </FilterBar>
+      </SectionCard>
       <SectionCard title="Question banks">
+        {banksLoading ? <LoadingState message="Загрузка банков вопросов..." /> : null}
+        {banksError ? <SectionError message={banksError} /> : null}
         <p>Всего: {banks?.total ?? 0}</p>
+        {banks?.items.length ? (
+          <DataTable
+            columns={[
+              { key: 'code', title: 'Код' },
+              { key: 'title', title: 'Название' }
+            ]}
+            rows={toTableRows(banks.items)}
+          />
+        ) : null}
       </SectionCard>
       <SectionCard title="Tests">
+        {testsLoading ? <LoadingState message="Загрузка тестов..." /> : null}
+        {testsError ? <SectionError message={testsError} /> : null}
         <p>Всего: {tests?.total ?? 0}</p>
+        {tests?.items.length ? (
+          <>
+            <DataTable
+              columns={[
+                { key: 'code', title: 'Код' },
+                { key: 'title', title: 'Название' },
+                { key: 'status', title: 'Статус' }
+              ]}
+              rows={toTableRows(tests.items)}
+            />
+            <FilterBar>
+              <select
+                value={selectedTestId}
+                onChange={(event) => setSelectedTestId(event.target.value)}
+                aria-label="Выберите тест"
+              >
+                <option value="">Выберите тест для запуска попытки</option>
+                {tests.items.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.title}
+                  </option>
+                ))}
+              </select>
+            </FilterBar>
+          </>
+        ) : null}
       </SectionCard>
       <SectionCard title="Assignments">
+        {assignmentsLoading ? <LoadingState message="Загрузка назначений..." /> : null}
+        {assignmentsError ? <SectionError message={assignmentsError} /> : null}
         <p>Всего: {assignments?.total ?? 0}</p>
+        {assignments?.items.length ? (
+          <DataTable
+            columns={[
+              { key: 'id', title: 'ID' },
+              { key: 'testId', title: 'Тест' },
+              { key: 'groupId', title: 'Группа' },
+              { key: 'status', title: 'Статус' }
+            ]}
+            rows={toTableRows(assignments.items)}
+          />
+        ) : null}
+      </SectionCard>
+      <SectionCard title="Запуск попытки (learner)">
+        <FilterBar>
+          <select
+            value={selectedEnrollmentId}
+            onChange={(event) => setSelectedEnrollmentId(event.target.value)}
+            aria-label="Выберите зачисление"
+          >
+            <option value="">Выберите зачисление</option>
+            {enrollments?.items.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.id} ({item.status})
+              </option>
+            ))}
+          </select>
+          <button type="button" onClick={() => void onStartAttempt()}>
+            Запустить попытку и получить результат
+          </button>
+        </FilterBar>
+        <MutationError message={saveError} />
+        {attemptResult ? <p>{attemptResult}</p> : null}
       </SectionCard>
     </PageContainer>
   );

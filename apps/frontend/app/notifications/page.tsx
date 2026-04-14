@@ -4,6 +4,7 @@ import { DataTable, FilterBar, LoadingState } from '@cdoprof/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
+import { SimplePagination } from '../../src/components/list-controls';
 import {
   PageContainer,
   PageHeader,
@@ -80,19 +81,12 @@ export default function NotificationsPage() {
               />
             </div>
           ) : null}
-          <div className="ui-inline">
-            <button type="button" disabled={page <= 1} onClick={() => setPage((curr) => curr - 1)}>
-              Назад
-            </button>
-            <span>Стр. {data?.page ?? page}</span>
-            <button
-              type="button"
-              disabled={Boolean(data && data.page * data.pageSize >= data.total)}
-              onClick={() => setPage((curr) => curr + 1)}
-            >
-              Далее
-            </button>
-          </div>
+          <SimplePagination
+            page={data?.page ?? page}
+            canNext={!(data && data.page * data.pageSize >= data.total)}
+            onPrev={() => setPage((curr) => curr - 1)}
+            onNext={() => setPage((curr) => curr + 1)}
+          />
           <div className="ui-stack">
             {data?.items
               .filter((item) => item.status !== 'read')

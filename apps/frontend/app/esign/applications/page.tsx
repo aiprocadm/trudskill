@@ -1,40 +1,77 @@
-import { PageContainer, PageHeader, SectionCard } from '../../../src/components/state-wrappers';
+'use client';
+
+import { DataTable, LoadingState } from '@cdoprof/ui';
+import { useEffect, useState } from 'react';
+
+import {
+  PageContainer,
+  PageHeader,
+  SectionCard,
+  SectionEmpty,
+  SectionError
+} from '../../../src/components/state-wrappers';
+import { useAuth } from '../../../src/features/auth/context';
+import { apiRequest } from '../../../src/lib/api/client';
 import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
 
-const learnerActions = [
-  'Создать и редактировать draft-заявку',
-  'Загрузить и проверить комплект файлов',
-  'Подать заявку на НЭП',
-  'Отслеживать статусы и причины отклонения',
-  'Запросить reuse ранее approved-заявки'
-];
-
-const staffActions = [
-  'Принять заявку в review',
-  'Верифицировать файлы и метаданные',
-  'Approve / reject c юридически значимым предупреждением',
-  'Перейти к запуску signing process по связанному документу'
-];
-
-const statuses = ['draft', 'submitted', 'under_review', 'approved', 'rejected', 'expired', 'reused'];
+type EsignApplication = {
+  id: string;
+  applicantId?: string;
+  status: string;
+  createdAt?: string;
+};
 
 export default function EsignApplicationsPage() {
+  const { session } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [rows, setRows] = useState<EsignApplication[]>([]);
+
+  const load = async () => {
+    if (!session) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await apiRequest<{ items: EsignApplication[] }>('/esign/applications', {
+        auth: {
+          accessToken: session.tokens.accessToken,
+          tenantId: session.user.tenantId,
+          userId: session.user.id
+        }
+      });
+      setRows(result.items);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Ошибка загрузки заявок');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, [session]);
+
   return (
     <ProtectedPage>
       <PageContainer>
-        <PageHeader title="НЭП — заявки" subtitle="Learner и staff контуры в юридически значимом процессе" />
-
-        <SectionCard title="Жизненный цикл заявки">
-          <ul>{statuses.map((status) => <li key={status}>{status}</li>)}</ul>
-          <p>Все переходы проверяются на backend state machine, UI показывает только доступные действия.</p>
-        </SectionCard>
-
-        <SectionCard title="Сценарий слушателя">
-          <ul>{learnerActions.map((action) => <li key={action}>{action}</li>)}</ul>
-        </SectionCard>
-
-        <SectionCard title="Сценарий сотрудника">
-          <ul>{staffActions.map((action) => <li key={action}>{action}</li>)}</ul>
+        <PageHeader title="НЭП — заявки" subtitle="Реестр заявок и workflow согласования" />
+        <SectionCard title="Заявки">
+          {loading ? <LoadingState message="Загрузка заявок..." /> : null}
+          {error ? <SectionError message={error} /> : null}
+          {!loading && !error && !rows.length ? (
+            <SectionEmpty message="Заявки НЭП не найдены" />
+          ) : null}
+          {rows.length ? (
+            <DataTable
+              columns={[
+                { key: 'id', title: 'ID' },
+                { key: 'applicantId', title: 'Заявитель' },
+                { key: 'status', title: 'Статус' },
+                { key: 'createdAt', title: 'Создано' }
+              ]}
+              rows={rows}
+            />
+          ) : null}
         </SectionCard>
       </PageContainer>
     </ProtectedPage>

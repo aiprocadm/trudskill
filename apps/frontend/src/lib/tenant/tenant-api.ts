@@ -3,7 +3,11 @@ import { apiRequest } from '../api/client';
 import type { UserSession } from '../../entities/session/model';
 
 const auth = (session: UserSession) => ({
-  auth: { userId: session.user.id, tenantId: session.user.tenantId, accessToken: session.tokens.accessToken }
+  auth: {
+    userId: session.user.id,
+    tenantId: session.user.tenantId,
+    accessToken: session.tokens.accessToken
+  }
 });
 
 export interface TenantMe {
@@ -44,7 +48,28 @@ export interface TenantCommissionDto {
 
 export const tenantApi = {
   me: (session: UserSession) => apiRequest<TenantMe>('/tenant/me', auth(session)),
-  settings: (session: UserSession) => apiRequest<TenantSettingsDto>('/tenant/settings', auth(session)),
-  requisites: (session: UserSession) => apiRequest<TenantRequisitesDto>('/tenant/requisites', auth(session)),
-  commission: (session: UserSession) => apiRequest<TenantCommissionDto>('/tenant/commission', auth(session))
+  settings: (session: UserSession) =>
+    apiRequest<TenantSettingsDto>('/tenant/settings', auth(session)),
+  requisites: (session: UserSession) =>
+    apiRequest<TenantRequisitesDto>('/tenant/requisites', auth(session)),
+  updateSettings: (
+    session: UserSession,
+    payload: { locale?: string; timezone?: string; payload?: Record<string, unknown> }
+  ) =>
+    apiRequest<TenantSettingsDto>('/tenant/settings', {
+      method: 'PUT',
+      body: payload,
+      ...auth(session)
+    }),
+  updateRequisites: (
+    session: UserSession,
+    payload: { legalName?: string; taxNumber?: string; payload?: Record<string, unknown> }
+  ) =>
+    apiRequest<TenantRequisitesDto>('/tenant/requisites', {
+      method: 'PUT',
+      body: payload,
+      ...auth(session)
+    }),
+  commission: (session: UserSession) =>
+    apiRequest<TenantCommissionDto>('/tenant/commission', auth(session))
 };

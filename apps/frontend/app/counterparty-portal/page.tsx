@@ -1,5 +1,5 @@
-import { PageContainer, PageHeader, SectionCard } from '../../src/components/state-wrappers';
-import { TzLinks } from '../../src/components/tz/tz-links';
+import { FeatureComingSoon } from '../../src/components/feature-coming-soon';
+import { PageContainer, PageHeader } from '../../src/components/state-wrappers';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
 export default function CounterpartyPortalPage() {
@@ -10,21 +10,17 @@ export default function CounterpartyPortalPage() {
           title="Кабинет контрагента (обзор для персонала)"
           subtitle="П. 5.11 ТЗ — отдельный контур для юрлица; здесь — навигация к данным"
         />
-        <SectionCard title="Связанные данные">
-          <TzLinks
-            items={[
-              { href: '/counterparties', label: 'Карточки контрагентов' },
-              { href: '/learners', label: 'Слушатели' },
-              { href: '/groups', label: 'Группы и зачисления' }
-            ]}
-          />
-        </SectionCard>
-        <SectionCard title="Примечание">
-          <p className="ui-prose-muted">
-            Полноценный изолированный ЛК контрагента потребует отдельной роли и маршрутов; текущая
-            страница помогает методисту быстро перейти к связанным реестрам.
-          </p>
-        </SectionCard>
+        <FeatureComingSoon
+          progress={45}
+          eta="Спринт 3"
+          roles={['counterparty_manager', 'methodist', 'admin']}
+          availableNow={['Реестр контрагентов', 'Слушатели и их статусы', 'Группы и зачисления']}
+          links={[
+            { href: '/counterparties', label: 'Открыть Контрагенты' },
+            { href: '/learners', label: 'Открыть Слушатели' },
+            { href: '/groups', label: 'Открыть Группы' }
+          ]}
+        />
       </PageContainer>
     </ProtectedPage>
   );

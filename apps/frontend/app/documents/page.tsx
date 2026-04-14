@@ -2,6 +2,7 @@
 
 import { DataTable, LoadingState, StatusChip } from '@cdoprof/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 
 import {
   PageContainer,
@@ -16,6 +17,7 @@ import { apiRequest } from '../../src/lib/api/client';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
 interface TemplateDto {
+  id?: string;
   name: string;
   type: string;
   status: string;
@@ -31,6 +33,12 @@ interface TaskDto {
 export default function DocumentsPage() {
   const { session } = useAuth();
   const queryClient = useQueryClient();
+  const [templateName, setTemplateName] = useState('');
+  const [templateType, setTemplateType] = useState('certificate');
+  const [generateTemplateId, setGenerateTemplateId] = useState('');
+  const [entityType, setEntityType] = useState('course');
+  const [entityId, setEntityId] = useState('');
+  const [actionError, setActionError] = useState<string | null>(null);
   const data = useQuery({
     queryKey: ['documents', session?.user.id],
     enabled: Boolean(session),
@@ -54,6 +62,51 @@ export default function DocumentsPage() {
     data.data?.tasks[0]?.id,
     () => void queryClient.invalidateQueries({ queryKey: ['documents'] })
   );
+
+  const createTemplate = async () => {
+    if (!session || !templateName.trim()) return;
+    try {
+      setActionError(null);
+      await apiRequest('/templates', {
+        method: 'POST',
+        body: { name: templateName.trim(), type: templateType },
+        auth: {
+          accessToken: session.tokens.accessToken,
+          tenantId: session.user.tenantId,
+          userId: session.user.id
+        }
+      });
+      setTemplateName('');
+      await data.refetch();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Не удалось создать шаблон');
+    }
+  };
+
+  const generateTask = async () => {
+    if (!session || !generateTemplateId || !entityId.trim()) return;
+    try {
+      setActionError(null);
+      await apiRequest('/documents/generate', {
+        method: 'POST',
+        body: {
+          templateId: generateTemplateId,
+          entityType,
+          entityId: entityId.trim(),
+          payload: {}
+        },
+        auth: {
+          accessToken: session.tokens.accessToken,
+          tenantId: session.user.tenantId,
+          userId: session.user.id
+        }
+      });
+      setEntityId('');
+      await data.refetch();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Не удалось запустить генерацию');
+    }
+  };
 
   return (
     <ProtectedPage>
@@ -92,6 +145,76 @@ export default function DocumentsPage() {
           {!data.isLoading && !data.data?.templates.length && !data.error ? (
             <SectionEmpty message="Шаблоны не найдены" />
           ) : null}
+          <div className="ui-stack" style={{ marginTop: 12 }}>
+            <strong>Создать шаблон</strong>
+            <div className="ui-inline">
+              <input
+                value={templateName}
+                onChange={(event) => setTemplateName(event.target.value)}
+                placeholder="Название шаблона"
+              />
+              <select
+                value={templateType}
+                onChange={(event) => setTemplateType(event.target.value)}
+              >
+                <option value="certificate">certificate</option>
+                <option value="protocol">protocol</option>
+                <option value="order">order</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => void createTemplate()}
+                disabled={!templateName.trim()}
+              >
+                Создать шаблон
+              </button>
+            </div>
+          </div>
+        </SectionCard>
+        <SectionCard title="Генерация и задачи">
+          <div className="ui-inline">
+            <select
+              value={generateTemplateId}
+              onChange={(event) => setGenerateTemplateId(event.target.value)}
+            >
+              <option value="">Выберите шаблон</option>
+              {data.data?.templates.map((item) => (
+                <option key={item.id ?? item.name} value={item.id ?? item.name}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+            <select value={entityType} onChange={(event) => setEntityType(event.target.value)}>
+              <option value="course">course</option>
+              <option value="group">group</option>
+              <option value="learner">learner</option>
+            </select>
+            <input
+              value={entityId}
+              onChange={(event) => setEntityId(event.target.value)}
+              placeholder="entity_id"
+            />
+            <button
+              type="button"
+              onClick={() => void generateTask()}
+              disabled={!generateTemplateId || !entityId.trim()}
+            >
+              Запустить генерацию
+            </button>
+          </div>
+          {data.data?.tasks.length ? (
+            <DataTable
+              columns={[
+                { key: 'id', title: 'Task ID' },
+                { key: 'status', title: 'Статус' },
+                { key: 'source', title: 'Источник' }
+              ]}
+              rows={data.data.tasks}
+            />
+          ) : (
+            <SectionEmpty message="Задачи генерации отсутствуют" />
+          )}
+          {actionError ? <SectionError message={actionError} /> : null}
         </SectionCard>
       </PageContainer>
     </ProtectedPage>
