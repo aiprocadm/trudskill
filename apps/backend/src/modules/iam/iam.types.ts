@@ -36,9 +36,15 @@ export interface Session {
   id: string;
   tenantId: string;
   userId: string;
+  jti: string;
+  parentJti?: string;
   refreshTokenHash: string;
+  csrfTokenHash?: string;
   expiresAt: string;
+  rotatedAt?: string;
+  consumedAt?: string;
   revokedAt?: string;
+  revokeReason?: string;
 }
 
 export interface SessionPublicDto {

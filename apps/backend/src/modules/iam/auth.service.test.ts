@@ -33,12 +33,12 @@ describe('auth foundation', () => {
       { login: 'tenant_admin', password: 'Password123!' },
       context
     );
-    const rotated = await auth.refresh('tenant_demo', login.refreshToken, context);
+    const rotated = await auth.refresh('tenant_demo', login.refreshToken, login.csrfToken, context);
 
     expect(rotated.refreshToken).not.toEqual(login.refreshToken);
-    await expect(auth.refresh('tenant_demo', login.refreshToken, context)).rejects.toThrow(
-      UnauthorizedException
-    );
+    await expect(
+      auth.refresh('tenant_demo', login.refreshToken, login.csrfToken, context)
+    ).rejects.toThrow(UnauthorizedException);
   });
 
   it('rejects blocked user login', async () => {
@@ -110,7 +110,9 @@ describe('auth foundation', () => {
     );
 
     const results = await Promise.allSettled(
-      Array.from({ length: 20 }, () => auth.refresh('tenant_demo', login.refreshToken, context))
+      Array.from({ length: 20 }, () =>
+        auth.refresh('tenant_demo', login.refreshToken, login.csrfToken, context)
+      )
     );
     const success = results.filter((result) => result.status === 'fulfilled');
     const failed = results.filter((result) => result.status === 'rejected');

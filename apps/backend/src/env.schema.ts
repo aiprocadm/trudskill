@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const backendEnvSchema = z
   .object({
-    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    NODE_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
     RELEASE_VERSION: z.string().default('dev'),
     BACKEND_PORT: z.coerce.number().int().positive().default(3001),
     API_PREFIX: z.string().default('/api/v1'),
@@ -45,37 +45,55 @@ export const backendEnvSchema = z
       'dev-jwt-secret-12345',
       'dev-session-secret-12345'
     ];
-    if (env.NODE_ENV === 'production' && devSecrets.includes(env.AUTH_JWT_SECRET)) {
+    if (
+      (env.NODE_ENV === 'production' || env.NODE_ENV === 'staging') &&
+      devSecrets.includes(env.AUTH_JWT_SECRET)
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'AUTH_JWT_SECRET must not use development value in production'
       });
     }
-    if (env.NODE_ENV === 'production' && devSecrets.includes(env.SESSION_SECRET)) {
+    if (
+      (env.NODE_ENV === 'production' || env.NODE_ENV === 'staging') &&
+      devSecrets.includes(env.SESSION_SECRET)
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'SESSION_SECRET must not use development value in production'
       });
     }
-    if (env.NODE_ENV === 'production' && env.ALLOW_IN_MEMORY_STATE) {
+    if (
+      (env.NODE_ENV === 'production' || env.NODE_ENV === 'staging') &&
+      env.ALLOW_IN_MEMORY_STATE
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'ALLOW_IN_MEMORY_STATE must be false in production'
       });
     }
-    if (env.NODE_ENV === 'production' && env.MVP_PERSISTENCE_DRIVER !== 'postgres') {
+    if (
+      (env.NODE_ENV === 'production' || env.NODE_ENV === 'staging') &&
+      env.MVP_PERSISTENCE_DRIVER !== 'postgres'
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'MVP_PERSISTENCE_DRIVER must be postgres in production'
       });
     }
-    if (env.NODE_ENV === 'production' && env.DOCUMENTS_PERSISTENCE_DRIVER !== 'postgres') {
+    if (
+      (env.NODE_ENV === 'production' || env.NODE_ENV === 'staging') &&
+      env.DOCUMENTS_PERSISTENCE_DRIVER !== 'postgres'
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'DOCUMENTS_PERSISTENCE_DRIVER must be postgres in production'
       });
     }
-    if (env.NODE_ENV === 'production' && !env.INTEGRATION_WEBHOOK_SECRET) {
+    if (
+      (env.NODE_ENV === 'production' || env.NODE_ENV === 'staging') &&
+      !env.INTEGRATION_WEBHOOK_SECRET
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message:

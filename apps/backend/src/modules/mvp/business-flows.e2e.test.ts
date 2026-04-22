@@ -46,7 +46,7 @@ describe('stage13 business e2e flows (service-level)', () => {
     );
     expect(login.accessToken).toBeTruthy();
 
-    const refreshed = await auth.refresh('tenant_demo', login.refreshToken, {
+    const refreshed = await auth.refresh('tenant_demo', login.refreshToken, login.csrfToken, {
       ...baseCtx,
       requestId: 'req_refresh'
     });
