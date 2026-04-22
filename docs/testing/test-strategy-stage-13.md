@@ -2,17 +2,17 @@
 
 ## 1) Target test matrix
 
-| Layer | Scope | Location |
-| --- | --- | --- |
-| Backend unit | Domain rules, state machines, isolation, idempotency | `apps/backend/src/**/*.test.ts` |
-| Backend integration | Module-level integration with in-memory adapters and tenant boundaries | `apps/backend/src/**/*integration.test.ts` |
-| DB/migrations | Schema consistency and migration snapshots | `apps/backend/src/infrastructure/database/*.test.ts` |
-| Contract | DTO/error/meta compatibility and generated OpenAPI checks | `packages/api-contracts/src/**/*.test.ts` |
-| Frontend unit | Pure UI logic, auth/session helpers, navigation helpers | `apps/frontend/src/**/*.test.ts` |
-| Frontend integration | Screen/feature tests with API mocks | `apps/frontend/src/**/*.e2e.test.ts` |
-| Backend e2e (service-level) | End-to-end business flows across auth/learning/documents/esign | `apps/backend/src/modules/mvp/business-flows.e2e.test.ts` |
-| Security | Token misuse, signature verification, cross-tenant attempts | `apps/backend/src/modules/**/*security*.test.ts` |
-| Concurrency/idempotency lite | Duplicate submissions, idempotency key reuse, number reservation uniqueness | backend domain tests (documents/esign/integrations/iam) |
+| Layer                        | Scope                                                                       | Location                                                  |
+| ---------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Backend unit                 | Domain rules, state machines, isolation, idempotency                        | `apps/backend/src/**/*.test.ts`                           |
+| Backend integration          | Module-level integration with in-memory adapters and tenant boundaries      | `apps/backend/src/**/*integration.test.ts`                |
+| DB/migrations                | Schema consistency and migration snapshots                                  | `apps/backend/src/infrastructure/database/*.test.ts`      |
+| Contract                     | DTO/error/meta compatibility and generated OpenAPI checks                   | `packages/api-contracts/src/**/*.test.ts`                 |
+| Frontend unit                | Pure UI logic, auth/session helpers, navigation helpers                     | `apps/frontend/src/**/*.test.ts`                          |
+| Frontend integration         | Screen/feature tests with API mocks                                         | `apps/frontend/src/**/*.e2e.test.ts`                      |
+| Backend e2e (service-level)  | End-to-end business flows across auth/learning/documents/esign              | `apps/backend/src/modules/mvp/business-flows.e2e.test.ts` |
+| Security                     | Token misuse, signature verification, cross-tenant attempts                 | `apps/backend/src/modules/**/*security*.test.ts`          |
+| Concurrency/idempotency lite | Duplicate submissions, idempotency key reuse, number reservation uniqueness | backend domain tests (documents/esign/integrations/iam)   |
 
 ## 2) Current coverage map (normalized)
 
@@ -68,7 +68,6 @@ pnpm test:migrations
 3. Dedicated load/performance stress tests beyond concurrency-lite deterministic checks.
 4. DB-level invariants enforced by real DDL constraints for all legal-domain terminal artifacts.
 
-
 ## 8) Stage 13 audit normalization checklist
 
 - Removed overlap between isolated state-machine checks and domain-flow checks by keeping transitions in dedicated `*.state-machine.test.ts` files and domain invariants in service-level suites.
@@ -94,3 +93,29 @@ Heavy e2e/browser and containerized infra jobs remain optional follow-up jobs un
 - IAM coverage expanded for explicit **expired refresh-session rejection** with forced revocation semantics.
 - IAM coverage expanded for **logout current session** behavior to ensure only targeted session is revoked.
 - Integration-level auth coverage now validates replay/misuse branch for expired tokens in addition to cross-tenant invalidation.
+
+## 11) Added regression focus set (2026-04-22)
+
+The following scenarios are now explicitly required in the regression baseline and mapped to existing suites:
+
+1. **Unit**
+   - Domain rules (state transitions and guardrails).
+   - Grade/completion invariants for learner attempts/progress.
+   - Idempotency helpers (same key => same outcome, concurrency-safe).
+   - Token/session helpers (refresh rotation, replay block, session revoke semantics).
+2. **Integration**
+   - Repository + migration compatibility checks.
+   - Dual-write/backfill/reconciliation controls.
+   - Outbox-like publish/consume behavior with ack/nack-safe retries.
+3. **E2E**
+   - `login -> refresh -> me -> logout`.
+   - Course lifecycle through completion artifact issuance.
+   - Teacher review flow.
+   - Failed integration replay path.
+4. **Production-profile**
+   - Startup checks in production env.
+   - Dependency outages (DB/Rabbit/S3 unavailable).
+   - Replayed webhook deduplication.
+   - Worker restart/replay during in-flight job processing.
+5. **Risk policy**
+   - Any risky behavior change must include a mandatory regression test in one of the layers above.
