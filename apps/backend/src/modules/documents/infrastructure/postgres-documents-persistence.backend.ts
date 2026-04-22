@@ -4,6 +4,7 @@ import {
   DOCUMENTS_ARRAY_COLLECTIONS,
   type DocumentsArrayCollection
 } from './documents-collections.js';
+import { DocumentsWriteOrchestrator } from './documents-write.orchestrator.js';
 import { backendEnv } from '../../../env.js';
 import { type DatabaseService } from '../../../infrastructure/database/database.service.js';
 
@@ -25,6 +26,7 @@ type DocumentsSnapshot = {
 @Injectable()
 export class PostgresDocumentsPersistenceBackend implements DocumentsPersistenceBackend {
   private readonly logger = new Logger(PostgresDocumentsPersistenceBackend.name);
+  private readonly writeOrchestrator = new DocumentsWriteOrchestrator(this.logger);
 
   constructor(private readonly db: DatabaseService) {}
 
@@ -52,48 +54,19 @@ export class PostgresDocumentsPersistenceBackend implements DocumentsPersistence
   }
 
   async saveFromState(tenantId: string, state: InMemoryDocumentsState): Promise<void> {
-    if (!backendEnv.DOCUMENTS_DUAL_WRITE_ENABLED) {
-      await this.writeLegacy(tenantId, state);
-      return;
-    }
-
-    await this.writeNormalized(tenantId, state);
-    try {
-      await this.writeLegacy(tenantId, state);
-    } catch (error) {
-      this.logger.error(
-        `Legacy write failed after normalized write for tenant=${tenantId}; running compensation`,
-        error instanceof Error ? error.stack : undefined
-      );
-      await this.logReconciliationIssue(tenantId, {
-        issueType: 'dual_write_partial_failure',
-        collection: 'all',
-        entityId: null,
-        details: {
-          phase: 'legacy_write',
-          message: this.stringifyError(error)
-        }
-      });
-
-      try {
-        await this.compensateNormalizedWrite(tenantId);
-      } catch (compensationError) {
-        this.logger.error(
-          `Compensation failed for tenant=${tenantId}`,
-          compensationError instanceof Error ? compensationError.stack : undefined
-        );
-        await this.logReconciliationIssue(tenantId, {
-          issueType: 'dual_write_compensation_failed',
-          collection: 'all',
-          entityId: null,
-          details: {
-            message: this.stringifyError(compensationError)
-          }
-        });
-      }
-
-      throw error;
-    }
+    await this.writeOrchestrator.persist({
+      tenantId,
+      state,
+      dualWriteEnabled: backendEnv.DOCUMENTS_DUAL_WRITE_ENABLED,
+      writeLegacy: (currentTenantId, currentState) =>
+        this.writeLegacy(currentTenantId, currentState),
+      writeNormalized: (currentTenantId, currentState) =>
+        this.writeNormalized(currentTenantId, currentState),
+      compensateNormalizedWrite: (currentTenantId) =>
+        this.compensateNormalizedWrite(currentTenantId),
+      logReconciliationIssue: (currentTenantId, payload) =>
+        this.logReconciliationIssue(currentTenantId, payload)
+    });
   }
 
   async writeLegacy(tenantId: string, state: InMemoryDocumentsState): Promise<void> {
@@ -275,11 +248,6 @@ export class PostgresDocumentsPersistenceBackend implements DocumentsPersistence
       ]
     );
   }
-
-  private stringifyError(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
-  }
-
   private pick(state: InMemoryDocumentsState, col: DocumentsArrayCollection): unknown[] {
     return (state as unknown as Record<DocumentsArrayCollection, unknown[]>)[col];
   }
