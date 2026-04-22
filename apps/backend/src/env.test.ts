@@ -4,6 +4,7 @@ import { backendEnvSchema } from './env.schema.js';
 
 const baseProductionEnv = {
   NODE_ENV: 'production',
+  DEPLOYMENT_PROFILE: 'prod',
   RELEASE_VERSION: '1.0.0',
   BACKEND_PORT: 3001,
   API_PREFIX: '/api/v1',
@@ -14,8 +15,11 @@ const baseProductionEnv = {
   S3_ACCESS_KEY: 'key',
   S3_SECRET_KEY: 'secret',
   S3_BUCKET: 'bucket',
-  AUTH_JWT_SECRET: 'very-secure-jwt-secret-min-10',
-  SESSION_SECRET: 'very-secure-session-min-10-chars',
+  SECRETS_PROVIDER: 'vault',
+  AUTH_JWT_SECRET_KEY_REF: 'auth.jwt',
+  SESSION_SECRET_KEY_REF: 'session.cookie',
+  VAULT_ADDR: 'https://vault.internal',
+  VAULT_TOKEN: 'vault-token-123456',
   CORS_ORIGIN: 'http://localhost:3000',
   PUBLIC_BASE_URL: 'http://localhost:3001',
   REALTIME_PUBLIC_URL: 'http://localhost:3002',
@@ -27,11 +31,13 @@ const baseProductionEnv = {
 } as const;
 
 describe('backend env production hardening', () => {
-  it('rejects development auth secret in production', () => {
+  it('rejects plain env secrets provider in production', () => {
     expect(() =>
       backendEnvSchema.parse({
         ...baseProductionEnv,
-        AUTH_JWT_SECRET: 'change-me-in-production'
+        SECRETS_PROVIDER: 'env',
+        AUTH_JWT_SECRET: 'change-me-in-production',
+        SESSION_SECRET: 'change-me-in-production'
       })
     ).toThrow();
   });

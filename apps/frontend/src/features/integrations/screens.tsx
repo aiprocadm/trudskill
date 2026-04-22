@@ -1,7 +1,7 @@
 'use client';
 
 import { DataTable, FilterBar, LoadingState, StatusChip } from '@cdoprof/ui';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import {
   useCredentials,
@@ -10,6 +10,12 @@ import {
   useProviders,
   useSyncLogs
 } from './hooks';
+import {
+  FieldError,
+  FieldHelp,
+  FormErrorSummary,
+  useFocusFirstError
+} from '../../components/form-feedback';
 import {
   PageContainer,
   PageHeader,
@@ -31,9 +37,38 @@ export const IntegrationSettingsScreen = () => {
   const [name, setName] = useState('');
   const [secret, setSecret] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{
+    providerId?: string;
+    name?: string;
+    secret?: string;
+  }>({});
+  const providerRef = useRef<HTMLSelectElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const secretRef = useRef<HTMLInputElement>(null);
   const diagnostics = useIntegrationDiagnostics();
 
+  const summaryErrors = useMemo(
+    () =>
+      Object.entries(fieldErrors).map(([field, message]) => ({
+        field,
+        message: message ?? ''
+      })),
+    [fieldErrors]
+  );
+
+  useFocusFirstError(summaryErrors, {
+    providerId: providerRef.current,
+    name: nameRef.current,
+    secret: secretRef.current
+  });
+
   const onCreateCredential = async () => {
+    const nextFieldErrors: typeof fieldErrors = {};
+    if (!providerId) nextFieldErrors.providerId = 'Выберите провайдера.';
+    if (!name.trim()) nextFieldErrors.name = 'Введите название credentials.';
+    if (!secret.trim()) nextFieldErrors.secret = 'Введите секрет.';
+    setFieldErrors(nextFieldErrors);
+    if (Object.keys(nextFieldErrors).length) return;
     try {
       setSaveError(null);
       await apiRequest('/integrations/credentials', {
@@ -82,30 +117,75 @@ export const IntegrationSettingsScreen = () => {
         ) : (
           <SectionEmpty message="Нет credentials" />
         )}
+        <FormErrorSummary
+          id="integration-credential-summary"
+          title="Заполните обязательные поля"
+          errors={summaryErrors}
+        />
         <FilterBar>
-          <select value={providerId} onChange={(event) => setProviderId(event.target.value)}>
-            <option value="">Провайдер</option>
-            {providers.map((provider) => (
-              <option key={provider.id} value={provider.id}>
-                {provider.name}
-              </option>
-            ))}
-          </select>
-          <input
-            placeholder="Название"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-          <input
-            placeholder="Секрет"
-            value={secret}
-            onChange={(event) => setSecret(event.target.value)}
-          />
+          <label htmlFor="providerId" className="ui-field" style={{ minWidth: 220 }}>
+            <span className="ui-field-label">Провайдер</span>
+            <select
+              id="providerId"
+              ref={providerRef}
+              value={providerId}
+              onChange={(event) => setProviderId(event.target.value)}
+              aria-invalid={Boolean(fieldErrors.providerId)}
+              aria-describedby={fieldErrors.providerId ? 'provider-error' : undefined}
+            >
+              <option value="">Провайдер</option>
+              {providers.map((provider) => (
+                <option key={provider.id} value={provider.id}>
+                  {provider.name}
+                </option>
+              ))}
+            </select>
+            <FieldError id="provider-error" message={fieldErrors.providerId} />
+          </label>
+          <label htmlFor="credential-name" className="ui-field" style={{ minWidth: 220 }}>
+            <span className="ui-field-label">Название</span>
+            <input
+              id="credential-name"
+              ref={nameRef}
+              placeholder="Название"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              aria-invalid={Boolean(fieldErrors.name)}
+              aria-describedby={[
+                'credential-name-help',
+                fieldErrors.name ? 'credential-name-error' : ''
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            />
+            <FieldHelp id="credential-name-help">Например, «Moodle PROD».</FieldHelp>
+            <FieldError id="credential-name-error" message={fieldErrors.name} />
+          </label>
+          <label htmlFor="credential-secret" className="ui-field" style={{ minWidth: 220 }}>
+            <span className="ui-field-label">Секрет</span>
+            <input
+              id="credential-secret"
+              ref={secretRef}
+              placeholder="Секрет"
+              value={secret}
+              onChange={(event) => setSecret(event.target.value)}
+              aria-invalid={Boolean(fieldErrors.secret)}
+              aria-describedby={[
+                'credential-secret-help',
+                fieldErrors.secret ? 'credential-secret-error' : ''
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            />
+            <FieldHelp id="credential-secret-help">
+              Хранится в masked-виде после сохранения.
+            </FieldHelp>
+            <FieldError id="credential-secret-error" message={fieldErrors.secret} />
+          </label>
           <button
             className="ui-button ui-button--primary"
             onClick={() => void onCreateCredential()}
             type="button"
-            disabled={!providerId || !name || !secret}
           >
             Создать
           </button>

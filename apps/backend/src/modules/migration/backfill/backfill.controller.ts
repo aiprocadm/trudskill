@@ -13,9 +13,19 @@ export class BackfillController {
     return this.backfill.createRun(body.domain, body.batchSize);
   }
 
+  @Post('runs/start')
+  createAndRun(@Body() body: { domain: BackfillDomain; batchSize?: number; maxBatches?: number }) {
+    return this.backfill.createAndRun(body.domain, body.batchSize, body.maxBatches);
+  }
+
   @Post('runs/:runId/process')
   processBatch(@Param('runId') runId: string) {
     return this.backfill.processNextBatch(runId);
+  }
+
+  @Post('runs/:runId/run')
+  runUntilComplete(@Param('runId') runId: string, @Query('maxBatches') maxBatches?: string) {
+    return this.backfill.runUntilComplete(runId, maxBatches ? Number(maxBatches) : undefined);
   }
 
   @Get('runs/:runId')

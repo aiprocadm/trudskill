@@ -141,6 +141,13 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   .ui-chat-layout { grid-template-columns: 1fr; min-height: auto; }
   .ui-chat-sidebar { border-right: 0; border-bottom: 1px solid var(--ui-border); max-height: 40vh; }
 }
+@media (max-width: 768px) {
+  .ui-page-header { flex-direction: column; align-items: flex-start; }
+  .ui-dashboard-grid { grid-template-columns: 1fr; }
+  .ui-filter-bar,.ui-inline,.ui-toolbar { align-items: stretch; }
+  .ui-filter-bar > *,
+  .ui-toolbar > * { width: 100%; }
+}
 `;
 
 export const UiThemeProvider = ({ children }: PropsWithChildren): ReactElement => {

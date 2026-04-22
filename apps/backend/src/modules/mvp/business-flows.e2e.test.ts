@@ -34,7 +34,7 @@ const baseCtx = {
 } as const;
 
 describe('stage13 business e2e flows (service-level)', () => {
-  it('completes auth flow: login -> refresh -> logout and blocks blocked user', async () => {
+  it('completes auth flow: login -> refresh -> me -> logout and blocks blocked user', async () => {
     const audit = new AuditService();
     const iam = new IamService(audit);
     const auth = new AuthService(iam, audit);
@@ -51,6 +51,8 @@ describe('stage13 business e2e flows (service-level)', () => {
       requestId: 'req_refresh'
     });
     expect(refreshed.sessionId).not.toBe(login.sessionId);
+    const me = await iam.getUser('tenant_demo', 'u_tenant_admin');
+    expect(me.login).toBe('tenant_admin');
 
     await auth.logout('tenant_demo', 'u_tenant_admin', refreshed.sessionId, {
       ...baseCtx,

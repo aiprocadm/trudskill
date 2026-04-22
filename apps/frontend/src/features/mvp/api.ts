@@ -22,18 +22,11 @@ import type {
   Question,
   QuestionBank,
   RoleEntity,
+  SessionDto,
   TestEntity,
   UserEntity
 } from './types';
 import type { UserSession } from '../../entities/session/model';
-
-export interface SessionDto {
-  id: string;
-  tenantId: string;
-  userId: string;
-  expiresAt: string;
-  revokedAt?: string;
-}
 
 const withAuth = (session: UserSession) => ({
   auth: {

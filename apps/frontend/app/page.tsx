@@ -5,84 +5,85 @@ import { useEffect, useMemo } from 'react';
 
 import { PageContainer, PageHeader, SectionCard } from '../src/components/state-wrappers';
 import { useAuth } from '../src/features/auth/context';
-import { getPrimaryRoleBlueprint } from '../src/features/navigation/role-blueprints';
 import { getMetricBaseline, startMetricTimer } from '../src/lib/analytics/ux-metrics';
 import { ProtectedPage } from '../src/widgets/shell/protected-page';
 
-const roleCards = {
-  default: [
-    {
-      title: 'Ближайшие дедлайны',
-      note: 'Соберите задачи со сроком до 7 дней',
-      href: '/assessment'
-    },
-    {
-      title: 'Прогресс по курсам',
-      note: 'Показывайте прогресс по активным потокам',
-      href: '/courses'
-    },
-    { title: 'Новые сообщения', note: 'Непрочитанные уведомления и чат', href: '/notifications' },
-    { title: 'Продолжить работу', note: 'Откройте последний активный сценарий', href: '/workspace' }
-  ],
-  learner: [
-    {
-      title: 'Ближайшие дедлайны',
-      note: 'Проверить задания и тесты на этой неделе',
-      href: '/assessment'
-    },
-    {
-      title: 'Прогресс по курсам',
-      note: 'Следите за прогрессом обучения',
-      href: '/learner/courses'
-    },
-    {
-      title: 'Новые сообщения',
-      note: 'Сообщения от куратора и преподавателей',
-      href: '/notifications'
-    },
-    {
-      title: 'Продолжить обучение',
-      note: 'Вернуться к последнему материалу',
-      href: '/learner/courses'
-    }
-  ],
-  teacher: [
-    {
-      title: 'Работы на проверке',
-      note: 'Проверить новые задания и дать обратную связь',
-      href: '/assessment'
-    },
-    { title: 'Прогресс групп', note: 'Проблемные места по активным группам', href: '/groups' },
-    { title: 'Сообщения студентов', note: 'Ответить на новые вопросы', href: '/notifications' },
-    { title: 'Опубликовать материалы', note: 'Обновить учебный контент', href: '/courses' }
-  ],
-  methodist: [
-    { title: 'План публикаций', note: 'Курсы, готовые к релизу', href: '/courses' },
-    { title: 'Состояние контента', note: 'Материалы, требующие обновления', href: '/materials' },
-    { title: 'Проверка заданий', note: 'Соответствие программы и оценивания', href: '/assessment' },
-    { title: 'Следующий шаг', note: 'Отправить курс на публикацию', href: '/reports' }
-  ],
-  tenant_admin: [
-    { title: 'Новые пользователи', note: 'Назначить роли и доступы', href: '/users' },
-    { title: 'Системные риски', note: 'Проверить аудит и критичные события', href: '/audit' },
-    { title: 'Операционная сводка', note: 'Блокеры и зоны просадки', href: '/workspace' },
-    { title: 'Следующее действие', note: 'Обновить настройки и права', href: '/settings' }
-  ]
-} as const;
+type RoleCode = 'learner' | 'teacher' | 'tenant_admin' | 'platform_admin';
+
+const normalizeRole = (role: string): string => {
+  const lowered = role.toLowerCase();
+  if (lowered === 'student') return 'learner';
+  if (lowered === 'admin') return 'tenant_admin';
+  return lowered;
+};
+
+const widgetCatalog: Array<{
+  title: string;
+  note: string;
+  href: string;
+  roles: RoleCode[];
+}> = [
+  {
+    title: 'Continue',
+    note: 'Вернуться к последнему модулю обучения',
+    href: '/learner/courses',
+    roles: ['learner']
+  },
+  {
+    title: 'Deadlines',
+    note: 'Проверить задания и тесты на неделе',
+    href: '/assessment',
+    roles: ['learner']
+  },
+  {
+    title: 'Attempts',
+    note: 'История попыток и результаты',
+    href: '/assessment',
+    roles: ['learner']
+  },
+  {
+    title: 'Docs',
+    note: 'Учебные документы и регламенты',
+    href: '/documents',
+    roles: ['learner']
+  },
+  {
+    title: 'Notifications',
+    note: 'Непрочитанные сообщения и объявления',
+    href: '/notifications',
+    roles: ['learner']
+  },
+  {
+    title: 'Webinar',
+    note: 'Предстоящие вебинары и эфиры',
+    href: '/webinars',
+    roles: ['learner']
+  },
+  {
+    title: 'Teacher grading center',
+    note: 'Проверка работ, rubric и обратная связь',
+    href: '/teacher/grading-center',
+    roles: ['teacher']
+  },
+  {
+    title: 'Admin cockpit',
+    note: 'Sessions, queue, integrations, audit health',
+    href: '/admin/cockpit',
+    roles: ['tenant_admin', 'platform_admin']
+  }
+];
 
 export default function DashboardPage() {
   const { session } = useAuth();
-  const role = getPrimaryRoleBlueprint(session);
 
   useEffect(() => {
     startMetricTimer('time_to_start_learning');
   }, []);
 
-  const cards = useMemo(() => {
-    const key = role?.role as keyof typeof roleCards | undefined;
-    if (key && roleCards[key]) return roleCards[key];
-    return roleCards.default;
-  }, [role]);
+  const visibleCards = useMemo(() => {
+    const roles = new Set((session?.roles ?? []).map(normalizeRole));
+    return widgetCatalog.filter((widget) => widget.roles.some((role) => roles.has(role)));
+  }, [session?.roles]);
 
   const baselineCount = getMetricBaseline().length;
 
@@ -91,23 +92,17 @@ export default function DashboardPage() {
       <PageContainer>
         <PageHeader
           title="Панель LMS"
-          subtitle="4 ключевых блока для быстрого старта: дедлайны, прогресс, сообщения и следующее действие"
+          subtitle="RBAC-видимость: student dashboard, teacher grading center и admin cockpit"
         />
         <SectionCard title="Приоритеты на сегодня">
           <div className="ui-dashboard-grid">
-            {cards.map((item) => (
+            {visibleCards.map((item) => (
               <Link key={item.title} href={item.href} className="ui-dashboard-tile">
                 <div className="ui-dashboard-tile-title">{item.title}</div>
                 <div className="ui-dashboard-tile-note">{item.note}</div>
               </Link>
             ))}
           </div>
-        </SectionCard>
-        <SectionCard title="Текущий фокус роли">
-          <p className="ui-prose-muted">
-            {role ? `Роль: ${role.displayName}.` : 'Роль не определена.'}{' '}
-            {role ? `Ключевые задачи: ${role.topJobs.join('; ')}.` : 'Назначьте роль пользователю.'}
-          </p>
         </SectionCard>
         <SectionCard title="Baseline метрик UX">
           <p className="ui-prose-muted">
