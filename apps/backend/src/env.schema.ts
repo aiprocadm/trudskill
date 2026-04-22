@@ -5,6 +5,7 @@ const secretsProviderSchema = z.enum(['env', 'vault', 'kms']);
 
 export const backendEnvSchema = z
   .object({
+    NODE_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     DEPLOYMENT_PROFILE: deploymentProfileSchema.default('dev'),
     RELEASE_VERSION: z.string().default('dev'),
@@ -67,6 +68,10 @@ export const backendEnvSchema = z
       'dev-jwt-secret-12345',
       'dev-session-secret-12345'
     ];
+    if (
+      (env.NODE_ENV === 'production' || env.NODE_ENV === 'staging') &&
+      devSecrets.includes(env.AUTH_JWT_SECRET)
+    ) {
 
     if (env.DEPLOYMENT_PROFILE === 'prod' && env.NODE_ENV !== 'production') {
       ctx.addIssue({
@@ -74,6 +79,10 @@ export const backendEnvSchema = z
         message: 'DEPLOYMENT_PROFILE=prod requires NODE_ENV=production'
       });
     }
+    if (
+      (env.NODE_ENV === 'production' || env.NODE_ENV === 'staging') &&
+      devSecrets.includes(env.SESSION_SECRET)
+    ) {
 
     if (env.DEPLOYMENT_PROFILE !== 'prod' && env.NODE_ENV === 'production') {
       ctx.addIssue({
@@ -81,6 +90,42 @@ export const backendEnvSchema = z
         message: 'NODE_ENV=production requires DEPLOYMENT_PROFILE=prod'
       });
     }
+    if (
+      (env.NODE_ENV === 'production' || env.NODE_ENV === 'staging') &&
+      env.ALLOW_IN_MEMORY_STATE
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'ALLOW_IN_MEMORY_STATE must be false in production'
+      });
+    }
+    if (
+      (env.NODE_ENV === 'production' || env.NODE_ENV === 'staging') &&
+      env.MVP_PERSISTENCE_DRIVER !== 'postgres'
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'MVP_PERSISTENCE_DRIVER must be postgres in production'
+      });
+    }
+    if (
+      (env.NODE_ENV === 'production' || env.NODE_ENV === 'staging') &&
+      env.DOCUMENTS_PERSISTENCE_DRIVER !== 'postgres'
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'DOCUMENTS_PERSISTENCE_DRIVER must be postgres in production'
+      });
+    }
+    if (
+      (env.NODE_ENV === 'production' || env.NODE_ENV === 'staging') &&
+      !env.INTEGRATION_WEBHOOK_SECRET
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'INTEGRATION_WEBHOOK_SECRET is required in production to authenticate integration webhooks'
+      });
 
     if (env.SECRETS_PROVIDER === 'env') {
       if (!env.AUTH_JWT_SECRET) {
