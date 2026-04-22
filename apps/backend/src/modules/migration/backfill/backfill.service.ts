@@ -5,7 +5,11 @@ import { Injectable } from '@nestjs/common';
 import {
   BACKFILL_DOMAIN_TABLES,
   type BackfillDomain,
-  type BackfillRunRecord
+  type BackfillRunRecord,
+  type ReconciliationCount,
+  type ReconciliationMismatch,
+  type ReconciliationReport,
+  type ReconciliationStatusDistribution
 } from './backfill.types.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 
@@ -37,81 +41,135 @@ export class BackfillService {
     return run;
   }
 
+  async createAndRun(
+    domain: BackfillDomain,
+    batchSize = 500,
+    maxBatches?: number
+  ): Promise<{ run: BackfillRunRecord; processed: number; completed: boolean }> {
+    const run = await this.createRun(domain, batchSize);
+    const result = await this.runUntilComplete(run.id, maxBatches);
+    const finalRun = await this.getRunOrThrow(run.id);
+    return { run: finalRun, ...result };
+  }
+
+  async runUntilComplete(
+    runId: string,
+    maxBatches = 10_000
+  ): Promise<{ processed: number; completed: boolean }> {
+    let totalProcessed = 0;
+
+    for (let i = 0; i < Math.max(1, maxBatches); i += 1) {
+      const result = await this.processNextBatch(runId);
+      totalProcessed += result.processed;
+      if (result.completed) {
+        return { processed: totalProcessed, completed: true };
+      }
+    }
+
+    return { processed: totalProcessed, completed: false };
+  }
+
   async processNextBatch(runId: string): Promise<{ processed: number; completed: boolean }> {
     const run = await this.getRunOrThrow(runId);
-    const tables = BACKFILL_DOMAIN_TABLES[run.domain];
-
-    await this.db.query(
-      `update migration.backfill_runs set status = 'running', updated_at = now() where id = $1 and status in ('pending', 'running')`,
-      [runId]
-    );
-
-    const rows = await this.loadBatch(tables.sourceTable, run, run.batch_size);
-    if (rows.length === 0) {
-      await this.db.query(
-        `update migration.backfill_runs
-         set status = 'completed', completed_at = now(), updated_at = now()
-         where id = $1`,
-        [runId]
-      );
-      await this.generateReport(runId);
+    if (run.status === 'completed') {
       return { processed: 0, completed: true };
     }
 
-    await this.db.withTransaction(async (client) => {
-      for (const row of rows) {
-        const sourceHash = this.hashBusinessPayload(row.data);
-        await client.query(
-          `insert into ${tables.targetTable} (tenant_id, collection, id, data, created_at, updated_at)
-           values ($1, $2, $3, $4::jsonb, now(), now())
-           on conflict (tenant_id, collection, id)
-           do update set data = excluded.data, updated_at = now()`,
-          [row.tenant_id, row.collection, row.id, JSON.stringify(row.data)]
-        );
+    if (run.status === 'failed') {
+      await this.db.query(
+        `update migration.backfill_runs
+         set status = 'running', error = null, updated_at = now()
+         where id = $1`,
+        [runId]
+      );
+    } else {
+      await this.db.query(
+        `update migration.backfill_runs
+         set status = 'running', updated_at = now()
+         where id = $1 and status in ('pending', 'running')`,
+        [runId]
+      );
+    }
 
-        const targetResult = await client.query<{ hash: string }>(
-          `select md5(data::text) as hash
-             from ${tables.targetTable}
-            where tenant_id = $1 and collection = $2 and id = $3`,
-          [row.tenant_id, row.collection, row.id]
+    try {
+      const tables = BACKFILL_DOMAIN_TABLES[run.domain];
+      const rows = await this.loadBatch(tables.sourceTable, run, run.batch_size);
+      if (rows.length === 0) {
+        await this.db.query(
+          `update migration.backfill_runs
+           set status = 'completed', completed_at = now(), updated_at = now()
+           where id = $1`,
+          [runId]
         );
-        const target = targetResult.rows[0];
-
-        await client.query(
-          `insert into migration.backfill_items
-           (run_id, domain, tenant_id, collection, entity_id, source_hash, target_hash, status, created_at, updated_at)
-           values ($1, $2, $3, $4, $5, $6, $7, 'processed', now(), now())
-           on conflict (run_id, domain, tenant_id, collection, entity_id)
-           do update set source_hash = excluded.source_hash,
-                         target_hash = excluded.target_hash,
-                         status = excluded.status,
-                         updated_at = now()`,
-          [
-            run.id,
-            run.domain,
-            row.tenant_id,
-            row.collection,
-            row.id,
-            sourceHash,
-            target?.hash ?? null
-          ]
-        );
+        await this.generateReport(runId);
+        return { processed: 0, completed: true };
       }
 
-      const last = rows[rows.length - 1]!;
-      await client.query(
+      await this.db.withTransaction(async (client) => {
+        for (const row of rows) {
+          const sourceHash = this.hashBusinessPayload(row.data);
+          await client.query(
+            `insert into ${tables.targetTable} (tenant_id, collection, id, data, created_at, updated_at)
+             values ($1, $2, $3, $4::jsonb, now(), now())
+             on conflict (tenant_id, collection, id)
+             do update set data = excluded.data, updated_at = now()`,
+            [row.tenant_id, row.collection, row.id, JSON.stringify(row.data)]
+          );
+
+          const targetResult = await client.query<{ hash: string }>(
+            `select md5((data - array['createdAt','updatedAt','created_at','updated_at','syncedAt','synced_at'])::text) as hash
+               from ${tables.targetTable}
+              where tenant_id = $1 and collection = $2 and id = $3`,
+            [row.tenant_id, row.collection, row.id]
+          );
+          const target = targetResult.rows[0];
+
+          await client.query(
+            `insert into migration.backfill_items
+             (run_id, domain, tenant_id, collection, entity_id, source_hash, target_hash, status, created_at, updated_at)
+             values ($1, $2, $3, $4, $5, $6, $7, 'processed', now(), now())
+             on conflict (run_id, domain, tenant_id, collection, entity_id)
+             do update set source_hash = excluded.source_hash,
+                           target_hash = excluded.target_hash,
+                           status = excluded.status,
+                           updated_at = now()`,
+            [
+              run.id,
+              run.domain,
+              row.tenant_id,
+              row.collection,
+              row.id,
+              sourceHash,
+              target?.hash ?? null
+            ]
+          );
+        }
+
+        const last = rows[rows.length - 1]!;
+        await client.query(
+          `update migration.backfill_runs
+           set checkpoint_tenant_id = $2,
+               checkpoint_collection = $3,
+               checkpoint_id = $4,
+               processed_count = processed_count + $5,
+               updated_at = now()
+           where id = $1`,
+          [runId, last.tenant_id, last.collection, last.id, rows.length]
+        );
+      });
+
+      return { processed: rows.length, completed: false };
+    } catch (error) {
+      await this.db.query(
         `update migration.backfill_runs
-         set checkpoint_tenant_id = $2,
-             checkpoint_collection = $3,
-             checkpoint_id = $4,
-             processed_count = processed_count + $5,
+         set status = 'failed',
+             error = $2,
              updated_at = now()
          where id = $1`,
-        [runId, last.tenant_id, last.collection, last.id, rows.length]
+        [runId, this.toErrorMessage(error)]
       );
-    });
-
-    return { processed: rows.length, completed: false };
+      throw error;
+    }
   }
 
   async getRun(runId: string): Promise<BackfillRunRecord | null> {
@@ -135,9 +193,9 @@ export class BackfillService {
 
   async getReport(
     runId: string
-  ): Promise<{ run: BackfillRunRecord | null; report: unknown | null }> {
+  ): Promise<{ run: BackfillRunRecord | null; report: ReconciliationReport | null }> {
     const run = await this.getRun(runId);
-    const reports = await this.db.query<{ report_json: unknown }>(
+    const reports = await this.db.query<{ report_json: ReconciliationReport }>(
       'select report_json from migration.reconciliation_reports where run_id = $1',
       [runId]
     );
@@ -147,17 +205,21 @@ export class BackfillService {
   async exportReport(
     runId: string,
     format: 'json' | 'csv'
-  ): Promise<string | Record<string, unknown>> {
-    const report = await this.getReport(runId);
-    if (format === 'json') {
-      return report as unknown as Record<string, unknown>;
+  ): Promise<string | ReconciliationReport> {
+    const reportResult = await this.getReport(runId);
+    const report = reportResult.report;
+
+    if (!report) {
+      throw new Error(`Reconciliation report for run ${runId} not found`);
     }
 
-    const payload = (report.report ?? {}) as Record<string, unknown>;
-    const counts = (payload.counts as Array<Record<string, unknown>> | undefined) ?? [];
-    const dist = (payload.statusDistributions as Array<Record<string, unknown>> | undefined) ?? [];
-    const mismatches =
-      (payload.missingOrMismatchedRecords as Array<Record<string, unknown>> | undefined) ?? [];
+    if (format === 'json') {
+      return report;
+    }
+
+    const counts = report.counts ?? [];
+    const dist = report.statusDistributions ?? [];
+    const mismatches = report.missingOrMismatchedRecords ?? [];
 
     const lines: string[] = [];
     lines.push(
@@ -245,35 +307,35 @@ export class BackfillService {
     const run = await this.getRunOrThrow(runId);
     const tables = BACKFILL_DOMAIN_TABLES[run.domain];
 
-    const counts = await this.db.query(
+    const counts = await this.db.query<ReconciliationCount>(
       `with source_counts as (
-         select tenant_id, collection, count(*)::bigint as source_count
+         select tenant_id, collection, count(*)::integer as source_count
            from ${tables.sourceTable}
           group by tenant_id, collection
        ),
        target_counts as (
-         select tenant_id, collection, count(*)::bigint as target_count
+         select tenant_id, collection, count(*)::integer as target_count
            from ${tables.targetTable}
           group by tenant_id, collection
        )
        select
          coalesce(s.tenant_id, t.tenant_id) as tenant_id,
          coalesce(s.collection, t.collection) as collection,
-         coalesce(s.source_count, 0) as source_count,
-         coalesce(t.target_count, 0) as target_count
+         coalesce(s.source_count, 0)::integer as source_count,
+         coalesce(t.target_count, 0)::integer as target_count
        from source_counts s
        full join target_counts t using (tenant_id, collection)
        order by 1, 2`
     );
 
-    const statusDistributions = await this.db.query(
+    const statusDistributions = await this.db.query<ReconciliationStatusDistribution>(
       `with source_status as (
-         select tenant_id, collection, coalesce(data->>'status', '__null__') as status, count(*)::bigint as source_status_count
+         select tenant_id, collection, coalesce(data->>'status', '__null__') as status, count(*)::integer as source_status_count
            from ${tables.sourceTable}
           group by tenant_id, collection, coalesce(data->>'status', '__null__')
        ),
        target_status as (
-         select tenant_id, collection, coalesce(data->>'status', '__null__') as status, count(*)::bigint as target_status_count
+         select tenant_id, collection, coalesce(data->>'status', '__null__') as status, count(*)::integer as target_status_count
            from ${tables.targetTable}
           group by tenant_id, collection, coalesce(data->>'status', '__null__')
        )
@@ -281,20 +343,28 @@ export class BackfillService {
          coalesce(s.tenant_id, t.tenant_id) as tenant_id,
          coalesce(s.collection, t.collection) as collection,
          coalesce(s.status, t.status) as status,
-         coalesce(s.source_status_count, 0) as source_status_count,
-         coalesce(t.target_status_count, 0) as target_status_count
+         coalesce(s.source_status_count, 0)::integer as source_status_count,
+         coalesce(t.target_status_count, 0)::integer as target_status_count
        from source_status s
        full join target_status t using (tenant_id, collection, status)
        order by 1, 2, 3`
     );
 
-    const missingOrMismatchedRecords = await this.db.query(
+    const missingOrMismatchedRecords = await this.db.query<ReconciliationMismatch>(
       `with source_rows as (
-         select tenant_id, collection, id, md5(data::text) as source_hash
+         select
+           tenant_id,
+           collection,
+           id,
+           md5((data - array['createdAt','updatedAt','created_at','updated_at','syncedAt','synced_at'])::text) as source_hash
            from ${tables.sourceTable}
        ),
        target_rows as (
-         select tenant_id, collection, id, md5(data::text) as target_hash
+         select
+           tenant_id,
+           collection,
+           id,
+           md5((data - array['createdAt','updatedAt','created_at','updated_at','syncedAt','synced_at'])::text) as target_hash
            from ${tables.targetTable}
        )
        select
@@ -307,7 +377,6 @@ export class BackfillService {
            when s.id is null then 'missing_in_source'
            when t.id is null then 'missing_in_target'
            when s.source_hash <> t.target_hash then 'hash_mismatch'
-           else 'match'
          end as reason
        from source_rows s
        full join target_rows t using (tenant_id, collection, id)
@@ -315,10 +384,15 @@ export class BackfillService {
        order by 1, 2, 3`
     );
 
-    const report = {
+    const report: ReconciliationReport = {
       generatedAt: new Date().toISOString(),
       runId,
       domain: run.domain,
+      summary: {
+        totalCountPartitions: counts.length,
+        totalStatusPartitions: statusDistributions.length,
+        totalMismatches: missingOrMismatchedRecords.length
+      },
       counts,
       statusDistributions,
       missingOrMismatchedRecords
@@ -396,5 +470,17 @@ export class BackfillService {
       return `"${str.replaceAll('"', '""')}"`;
     }
     return str;
+  }
+
+  private toErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return String(error);
+    }
   }
 }
