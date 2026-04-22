@@ -108,12 +108,14 @@ export class AuthService {
     csrfToken: string,
     context: RequestContext
   ) {
-    const tokenHash = hashRefreshToken(refreshToken, backendEnv.AUTH_JWT_SECRET);
-    const csrfTokenHash = hashRefreshToken(`csrf:${csrfToken}`, backendEnv.AUTH_JWT_SECRET);
+    if (!csrfToken) {
+      this.metrics?.incrementAuthFailure({ reason: 'invalid_csrf', phase: 'refresh' });
+      throw new UnauthorizedException({ code: 'invalid_csrf', message: 'Invalid CSRF token' });
+    }
+
+    const tokenHash = this.hashSessionToken(refreshToken);
+    const csrfTokenHash = this.hashCsrfToken(csrfToken);
     const activeSession = await this.consumeRefreshSession(tenantId, tokenHash, csrfTokenHash);
-  async refresh(tenantId: string, refreshToken: string, context: RequestContext) {
-    const tokenHash = hashRefreshToken(refreshToken, this.secretsService.getJwtSigningSecret());
-    const activeSession = await this.consumeRefreshSession(tenantId, tokenHash);
     if (Date.parse(activeSession.expiresAt) <= Date.now()) {
       this.metrics?.incrementAuthFailure({ reason: 'session_expired', phase: 'refresh' });
       throw new UnauthorizedException({ code: 'session_expired', message: 'Session expired' });
@@ -267,29 +269,7 @@ export class AuthService {
   }
 
   async logoutAll(tenantId: string, userId: string, context: RequestContext): Promise<void> {
-    if (!this.databaseService) {
-      this.sessions = this.sessions.map((session) => {
-        if (session.tenantId === tenantId && session.userId === userId && !session.revokedAt) {
-          return { ...session, revokedAt: new Date().toISOString() };
-        }
-        return session;
-      });
-    } else {
-      await this.databaseService.query(
-        `
-          update iam.sessions
-          set revoked_at = now(), updated_at = now()
-          where tenant_id = $1 and user_id = $2 and revoked_at is null
-        `,
-        [tenantId, userId]
-      );
-      this.sessions = this.sessions.map((session) => {
-        if (session.tenantId === tenantId && session.userId === userId && !session.revokedAt) {
-          return { ...session, revokedAt: new Date().toISOString() };
-        }
-        return session;
-      });
-    }
+    await this.revokeAllSessionsForUserInternal(tenantId, userId);
 
     const persistRelational = await this.shouldPersistRelationalSideEffects(tenantId, userId);
     await this.pushAuthEvent(tenantId, userId, 'logout_all', persistRelational);
@@ -359,9 +339,8 @@ export class AuthService {
       userId: user.id,
       jti: `jti_${randomUUID().replace(/-/g, '')}`,
       parentJti,
-      refreshTokenHash: hashRefreshToken(refreshToken, backendEnv.AUTH_JWT_SECRET),
-      csrfTokenHash: hashRefreshToken(`csrf:${csrfToken}`, backendEnv.AUTH_JWT_SECRET),
-      refreshTokenHash: hashRefreshToken(refreshToken, this.secretsService.getJwtSigningSecret()),
+      refreshTokenHash: this.hashSessionToken(refreshToken),
+      csrfTokenHash: this.hashCsrfToken(csrfToken),
       expiresAt: new Date(Date.now() + backendEnv.REFRESH_TOKEN_TTL_SECONDS * 1000).toISOString()
     };
 
@@ -720,5 +699,33 @@ export class AuthService {
       }
       return session;
     });
+  }
+
+  private async revokeAllSessionsForUserInternal(tenantId: string, userId: string): Promise<void> {
+    if (this.databaseService) {
+      await this.databaseService.query(
+        `
+          update iam.sessions
+          set revoked_at = now(), updated_at = now()
+          where tenant_id = $1 and user_id = $2 and revoked_at is null
+        `,
+        [tenantId, userId]
+      );
+    }
+
+    this.sessions = this.sessions.map((session) => {
+      if (session.tenantId === tenantId && session.userId === userId && !session.revokedAt) {
+        return { ...session, revokedAt: new Date().toISOString() };
+      }
+      return session;
+    });
+  }
+
+  private hashSessionToken(token: string): string {
+    return hashRefreshToken(token, this.secretsService.getJwtSigningSecret());
+  }
+
+  private hashCsrfToken(csrfToken: string): string {
+    return this.hashSessionToken(`csrf:${csrfToken}`);
   }
 }
