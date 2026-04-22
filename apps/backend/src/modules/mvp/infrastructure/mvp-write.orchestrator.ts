@@ -35,13 +35,19 @@ export class MvpWriteOrchestrator {
     } = params;
 
     if (!dualWriteEnabled) {
-      await writeLegacy(tenantId, state);
+      await this.writeLegacy(tenantId, state, writeLegacy);
       return;
     }
 
-    await writeNormalized(tenantId, state);
     try {
-      await writeLegacy(tenantId, state);
+      await this.writeNormalized(tenantId, state, writeNormalized);
+    } catch (error) {
+      await this.logNormalizedFailure(tenantId, error, logReconciliationIssue);
+      throw error;
+    }
+
+    try {
+      await this.writeLegacy(tenantId, state, writeLegacy);
     } catch (error) {
       this.logger.error(
         `Legacy write failed after normalized write for tenant=${tenantId}; running compensation`,
@@ -77,6 +83,43 @@ export class MvpWriteOrchestrator {
 
       throw error;
     }
+  }
+
+  private async writeLegacy(
+    tenantId: string,
+    state: InMemoryMvpState,
+    writeLegacy: WriteCallback
+  ): Promise<void> {
+    await writeLegacy(tenantId, state);
+  }
+
+  private async writeNormalized(
+    tenantId: string,
+    state: InMemoryMvpState,
+    writeNormalized: WriteCallback
+  ): Promise<void> {
+    await writeNormalized(tenantId, state);
+  }
+
+  private async logNormalizedFailure(
+    tenantId: string,
+    error: unknown,
+    logReconciliationIssue: ReconciliationLogger
+  ): Promise<void> {
+    this.logger.error(
+      `Normalized write failed for tenant=${tenantId}`,
+      error instanceof Error ? error.stack : undefined
+    );
+
+    await logReconciliationIssue(tenantId, {
+      issueType: 'dual_write_normalized_failed',
+      collection: 'all',
+      entityId: null,
+      details: {
+        phase: 'normalized_write',
+        message: this.stringifyError(error)
+      }
+    });
   }
 
   private stringifyError(error: unknown): string {

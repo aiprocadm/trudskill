@@ -39,6 +39,18 @@ export const routeMeta: RouteMetaEntry[] = [
   { pattern: '/mailings', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/telephony', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/workspace', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  {
+    pattern: '/student/dashboard',
+    meta: { public: false, requiredPermissions: ['enrollments.read'] }
+  },
+  {
+    pattern: '/teacher/grading-center',
+    meta: { public: false, requiredPermissions: ['assessment.reviews.review'] }
+  },
+  {
+    pattern: '/admin/cockpit',
+    meta: { public: false, requiredPermissions: ['auth.manage_sessions'] }
+  },
   { pattern: '/', meta: { public: false } },
   { pattern: '/users', meta: { public: false, requiredPermissions: ['iam.manage_roles'] } },
   {
@@ -214,5 +226,28 @@ export const navigationModel: NavigationItem[] = [
     navSlot: 'more'
   },
   { href: '/registry', label: 'Реестр', requiredPermissions: ['tenant.read'], navSlot: 'more' },
-  { href: '/audit', label: 'Аудит', requiredPermissions: ['auth.manage_sessions'], navSlot: 'more' }
+  {
+    href: '/audit',
+    label: 'Аудит',
+    requiredPermissions: ['auth.manage_sessions'],
+    navSlot: 'more'
+  },
+  {
+    href: '/student/dashboard',
+    label: 'Student dashboard',
+    requiredPermissions: ['enrollments.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/teacher/grading-center',
+    label: 'Teacher grading center',
+    requiredPermissions: ['assessment.reviews.review'],
+    navSlot: 'more'
+  },
+  {
+    href: '/admin/cockpit',
+    label: 'Admin cockpit',
+    requiredPermissions: ['auth.manage_sessions'],
+    navSlot: 'more'
+  }
 ];
