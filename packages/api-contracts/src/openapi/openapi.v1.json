@@ -3,231 +3,2357 @@
   "info": {
     "title": "CDOProf API",
     "version": "1.0.0",
-    "description": "Versioned API contracts skeleton for /api/v1 with shared response/error/meta schemas."
+    "description": "Versioned API contracts for /api/v1 with envelope/meta and critical route coverage."
   },
-  "servers": [{ "url": "/api/v1" }],
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
   "tags": [
-    { "name": "system" },
-    { "name": "auth" },
-    { "name": "users" },
-    { "name": "learners" },
-    { "name": "courses" },
-    { "name": "groups" },
-    { "name": "tests" },
-    { "name": "documents" },
-    { "name": "notifications" },
-    { "name": "tasks" }
+    {
+      "name": "system"
+    },
+    {
+      "name": "auth"
+    },
+    {
+      "name": "courses"
+    },
+    {
+      "name": "enrollments"
+    },
+    {
+      "name": "assessment"
+    },
+    {
+      "name": "documents"
+    },
+    {
+      "name": "files"
+    },
+    {
+      "name": "users"
+    },
+    {
+      "name": "learners"
+    },
+    {
+      "name": "groups"
+    },
+    {
+      "name": "tests"
+    },
+    {
+      "name": "tasks"
+    },
+    {
+      "name": "notifications"
+    }
   ],
   "paths": {
     "/health": {
       "get": {
         "operationId": "healthCheck",
-        "tags": ["system"],
+        "tags": [
+          "system"
+        ],
         "responses": {
           "200": {
             "description": "Health response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HealthResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/ValidationError" },
-          "403": { "$ref": "#/components/responses/ForbiddenError" },
-          "404": { "$ref": "#/components/responses/NotFoundError" },
-          "409": { "$ref": "#/components/responses/ConflictError" },
-          "412": { "$ref": "#/components/responses/PreconditionFailedError" },
-          "429": { "$ref": "#/components/responses/RateLimitedError" },
           "default": {
-            "description": "Error response",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "authLogin",
+        "tags": [
+          "auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
               }
             }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthTokensResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "operationId": "authRefresh",
+        "tags": [
+          "auth"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthTokensResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "authLogout",
+        "tags": [
+          "auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogoutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SuccessFlagResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "operationId": "authMe",
+        "tags": [
+          "auth"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/UserResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/auth/sessions": {
+      "get": {
+        "operationId": "authListSessions",
+        "tags": [
+          "auth"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SessionListResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/auth/sessions/{id}": {
+      "delete": {
+        "operationId": "authRevokeSession",
+        "tags": [
+          "auth"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPathParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SuccessFlagResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/courses": {
+      "get": {
+        "operationId": "listCourses",
+        "tags": [
+          "courses"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PageParam"
+          },
+          {
+            "$ref": "#/components/parameters/PageSizeParam"
+          },
+          {
+            "$ref": "#/components/parameters/QParam"
+          },
+          {
+            "$ref": "#/components/parameters/SortParam"
+          },
+          {
+            "$ref": "#/components/parameters/DirectionIdParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CourseListResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createCourse",
+        "tags": [
+          "courses"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CourseMutationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CourseResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/courses/{id}": {
+      "get": {
+        "operationId": "getCourse",
+        "tags": [
+          "courses"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPathParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CourseResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateCourse",
+        "tags": [
+          "courses"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPathParam"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CourseMutationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CourseResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/courses/{id}/publish": {
+      "post": {
+        "operationId": "publishCourse",
+        "tags": [
+          "courses"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPathParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CourseResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/courses/{id}/archive": {
+      "post": {
+        "operationId": "archiveCourse",
+        "tags": [
+          "courses"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPathParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CourseResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/enrollments": {
+      "get": {
+        "operationId": "listEnrollments",
+        "tags": [
+          "enrollments"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PageParam"
+          },
+          {
+            "$ref": "#/components/parameters/PageSizeParam"
+          },
+          {
+            "$ref": "#/components/parameters/LearnerIdParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/EnrollmentListResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createEnrollment",
+        "tags": [
+          "enrollments"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnrollmentCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/EnrollmentResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/enrollments/{id}": {
+      "get": {
+        "operationId": "getEnrollment",
+        "tags": [
+          "enrollments"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPathParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/EnrollmentResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/enrollments/{id}/status": {
+      "patch": {
+        "operationId": "changeEnrollmentStatus",
+        "tags": [
+          "enrollments"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPathParam"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnrollmentStatusUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/EnrollmentResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/question-banks": {
+      "get": {
+        "operationId": "listQuestionBanks",
+        "tags": [
+          "assessment"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/QuestionBankListResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createQuestionBank",
+        "tags": [
+          "assessment"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionBankMutationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/QuestionBankResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/tests": {
+      "get": {
+        "operationId": "listTests",
+        "tags": [
+          "assessment"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/TestListResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createTest",
+        "tags": [
+          "assessment"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestMutationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/TestResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/tests/{id}": {
+      "patch": {
+        "operationId": "updateTest",
+        "tags": [
+          "assessment"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPathParam"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestMutationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/TestResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/tests/{id}/publish": {
+      "post": {
+        "operationId": "publishTest",
+        "tags": [
+          "assessment"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPathParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/TestResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/attempts/start": {
+      "post": {
+        "operationId": "startAttempt",
+        "tags": [
+          "assessment"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartAttemptRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AttemptResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/attempts/{id}/answers": {
+      "post": {
+        "operationId": "saveAttemptAnswer",
+        "tags": [
+          "assessment"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPathParam"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AttemptResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/attempts/{id}/submit": {
+      "post": {
+        "operationId": "submitAttempt",
+        "tags": [
+          "assessment"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPathParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AttemptResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/attempts/{id}/result": {
+      "get": {
+        "operationId": "getAttemptResult",
+        "tags": [
+          "assessment"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPathParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ExamResultResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/assignments": {
+      "get": {
+        "operationId": "listAssignments",
+        "tags": [
+          "assessment"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AssignmentListResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createAssignment",
+        "tags": [
+          "assessment"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AssignmentResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/assignments/{id}": {
+      "patch": {
+        "operationId": "updateAssignment",
+        "tags": [
+          "assessment"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPathParam"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AssignmentResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/assignment-submissions": {
+      "post": {
+        "operationId": "createAssignmentSubmission",
+        "tags": [
+          "assessment"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AssignmentSubmissionResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/assignment-submissions/{id}/submit": {
+      "post": {
+        "operationId": "submitAssignmentSubmission",
+        "tags": [
+          "assessment"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPathParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AssignmentSubmissionResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/assignment-reviews": {
+      "post": {
+        "operationId": "createAssignmentReview",
+        "tags": [
+          "assessment"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AssignmentReviewResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/documents": {
+      "get": {
+        "operationId": "listDocuments",
+        "tags": [
+          "documents"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DocumentListResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/documents/{id}": {
+      "get": {
+        "operationId": "getDocument",
+        "tags": [
+          "documents"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPathParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DocumentResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/documents/generate": {
+      "post": {
+        "operationId": "generateDocument",
+        "tags": [
+          "documents"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DocumentTaskResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/documents/{id}/download": {
+      "get": {
+        "operationId": "documentDownloadLink",
+        "tags": [
+          "documents"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPathParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DownloadLinkResponse"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
+          }
+        }
+      }
+    },
+    "/files/{id}/download": {
+      "get": {
+        "operationId": "fileDownload",
+        "tags": [
+          "files"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPathParam"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to storage object"
+          },
+          "default": {
+            "$ref": "#/components/responses/DefaultError"
           }
         }
       }
     }
   },
   "components": {
+    "parameters": {
+      "IdPathParam": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "PageParam": {
+        "name": "page",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "PageSizeParam": {
+        "name": "page_size",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "QParam": {
+        "name": "q",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "SortParam": {
+        "name": "sort",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "DirectionIdParam": {
+        "name": "direction_id",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "LearnerIdParam": {
+        "name": "learner_id",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
     "schemas": {
-      "ResponseMeta": {
+      "ApiMeta": {
         "type": "object",
-        "required": ["request_id", "timestamp"],
+        "required": [
+          "requestId",
+          "correlationId",
+          "timestamp"
+        ],
         "properties": {
-          "request_id": { "type": "string" },
-          "timestamp": { "type": "string", "format": "date-time" }
-        }
-      },
-      "PaginationMeta": {
-        "type": "object",
-        "required": ["total", "page", "page_size", "has_next"],
-        "properties": {
-          "total": { "type": "integer", "minimum": 0 },
-          "page": { "type": "integer", "minimum": 1 },
-          "page_size": { "type": "integer", "minimum": 1 },
-          "has_next": { "type": "boolean" },
-          "next_cursor": { "type": "string" }
-        }
-      },
-      "SortMeta": {
-        "type": "object",
-        "required": ["field", "order"],
-        "properties": {
-          "field": { "type": "string" },
-          "order": { "type": "string", "enum": ["asc", "desc"] }
+          "requestId": {
+            "type": "string"
+          },
+          "correlationId": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "ErrorDetails": {
         "type": "object",
-        "required": ["message"],
+        "required": [
+          "message"
+        ],
         "properties": {
-          "field": { "type": "string" },
-          "message": { "type": "string" },
-          "code": { "type": "string" }
+          "field": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiError": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "VALIDATION_ERROR",
+              "FORBIDDEN",
+              "NOT_FOUND",
+              "CONFLICT",
+              "PRECONDITION_FAILED",
+              "RATE_LIMITED",
+              "INTERNAL_ERROR",
+              "internal_error",
+              "error",
+              "forbidden",
+              "not_found",
+              "precondition_failed",
+              "invalid_credentials",
+              "invalid_refresh"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "details": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ErrorDetails"
+            }
+          }
         }
       },
       "ErrorResponse": {
         "type": "object",
-        "required": ["error", "meta"],
+        "required": [
+          "error",
+          "meta"
+        ],
         "properties": {
           "error": {
-            "type": "object",
-            "required": ["code", "message"],
-            "properties": {
-              "code": { "type": "string" },
-              "message": { "type": "string" },
-              "details": {
-                "type": "array",
-                "items": { "$ref": "#/components/schemas/ErrorDetails" }
-              }
-            }
+            "$ref": "#/components/schemas/ApiError"
           },
-          "meta": { "$ref": "#/components/schemas/ResponseMeta" }
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
         }
       },
-      "ListResponse": {
+      "SuccessFlag": {
         "type": "object",
-        "required": ["data", "meta"],
+        "required": [
+          "success"
+        ],
         "properties": {
-          "data": {
-            "type": "array",
-            "items": { "type": "object" }
-          },
-          "meta": { "$ref": "#/components/schemas/ResponseMeta" }
+          "success": {
+            "type": "boolean"
+          }
         }
       },
-      "PaginatedResponse": {
+      "AuthTokens": {
+        "type": "object",
+        "required": [
+          "accessToken",
+          "sessionId",
+          "expiresIn"
+        ],
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "expiresIn": {
+            "type": "integer"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "login",
+          "password"
+        ],
+        "properties": {
+          "login": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "LogoutRequest": {
+        "type": "object",
+        "required": [
+          "sessionId"
+        ],
+        "properties": {
+          "sessionId": {
+            "type": "string"
+          }
+        }
+      },
+      "UserPublic": {
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "login",
+          "status",
+          "displayName"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "login": {
+            "type": "string"
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          }
+        }
+      },
+      "SessionPublic": {
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "userId",
+          "expiresAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revokedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "BaseEntity": {
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Course": {
         "allOf": [
-          { "$ref": "#/components/schemas/ListResponse" },
+          {
+            "$ref": "#/components/schemas/BaseEntity"
+          },
           {
             "type": "object",
+            "required": [
+              "code",
+              "title",
+              "isArchived"
+            ],
             "properties": {
-              "meta": {
-                "allOf": [
-                  { "$ref": "#/components/schemas/ResponseMeta" },
-                  {
-                    "type": "object",
-                    "required": ["pagination"],
-                    "properties": {
-                      "pagination": { "$ref": "#/components/schemas/PaginationMeta" },
-                      "sort": {
-                        "type": "array",
-                        "items": { "$ref": "#/components/schemas/SortMeta" }
-                      }
-                    }
-                  }
-                ]
+              "code": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "isArchived": {
+                "type": "boolean"
               }
             }
           }
         ]
       },
-      "AsyncTaskResponse": {
-        "type": "object",
-        "required": ["data", "meta"],
-        "properties": {
-          "data": {
+      "Enrollment": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseEntity"
+          },
+          {
             "type": "object",
-            "required": ["task_id", "status"],
+            "required": [
+              "groupId",
+              "learnerId",
+              "status",
+              "enrolledAt"
+            ],
             "properties": {
-              "task_id": { "type": "string" },
+              "groupId": {
+                "type": "string"
+              },
+              "learnerId": {
+                "type": "string"
+              },
+              "courseId": {
+                "type": "string"
+              },
               "status": {
+                "type": "string"
+              },
+              "enrolledAt": {
                 "type": "string",
-                "enum": ["queued", "running", "succeeded", "failed", "canceled"]
+                "format": "date-time"
               }
             }
+          }
+        ]
+      },
+      "QuestionBank": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseEntity"
           },
-          "meta": { "$ref": "#/components/schemas/ResponseMeta" }
+          {
+            "type": "object",
+            "required": [
+              "code",
+              "title",
+              "isArchived"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "isArchived": {
+                "type": "boolean"
+              },
+              "courseId": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "TestEntity": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseEntity"
+          },
+          {
+            "type": "object",
+            "required": [
+              "title",
+              "courseId",
+              "rules"
+            ],
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "courseId": {
+                "type": "string"
+              },
+              "questionBankId": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "rules": {
+                "type": "object",
+                "required": [
+                  "attemptLimit",
+                  "dailyResetEnabled",
+                  "randomizeQuestions",
+                  "passingScore"
+                ],
+                "properties": {
+                  "attemptLimit": {
+                    "type": "integer"
+                  },
+                  "dailyResetEnabled": {
+                    "type": "boolean"
+                  },
+                  "randomizeQuestions": {
+                    "type": "boolean"
+                  },
+                  "questionCount": {
+                    "type": "integer"
+                  },
+                  "timeLimitMinutes": {
+                    "type": "integer"
+                  },
+                  "passingScore": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Attempt": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseEntity"
+          },
+          {
+            "type": "object",
+            "required": [
+              "testId",
+              "enrollmentId",
+              "learnerId",
+              "attemptNo",
+              "questionOrder",
+              "maxScore",
+              "startedAt"
+            ],
+            "properties": {
+              "testId": {
+                "type": "string"
+              },
+              "enrollmentId": {
+                "type": "string"
+              },
+              "learnerId": {
+                "type": "string"
+              },
+              "attemptNo": {
+                "type": "integer"
+              },
+              "score": {
+                "type": "number"
+              },
+              "maxScore": {
+                "type": "number"
+              },
+              "passed": {
+                "type": "boolean"
+              },
+              "questionOrder": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "startedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "expiresAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        ]
+      },
+      "ExamResult": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseEntity"
+          },
+          {
+            "type": "object",
+            "required": [
+              "testId",
+              "enrollmentId",
+              "learnerId",
+              "finalScore",
+              "maxScore",
+              "passed",
+              "attemptsCount"
+            ],
+            "properties": {
+              "testId": {
+                "type": "string"
+              },
+              "enrollmentId": {
+                "type": "string"
+              },
+              "learnerId": {
+                "type": "string"
+              },
+              "finalScore": {
+                "type": "number"
+              },
+              "maxScore": {
+                "type": "number"
+              },
+              "passed": {
+                "type": "boolean"
+              },
+              "attemptsCount": {
+                "type": "integer"
+              }
+            }
+          }
+        ]
+      },
+      "Assignment": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseEntity"
+          },
+          {
+            "type": "object",
+            "required": [
+              "courseId",
+              "title",
+              "isReviewRequired",
+              "maxScore",
+              "isArchived"
+            ],
+            "properties": {
+              "courseId": {
+                "type": "string"
+              },
+              "moduleId": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "isReviewRequired": {
+                "type": "boolean"
+              },
+              "maxScore": {
+                "type": "number"
+              },
+              "isArchived": {
+                "type": "boolean"
+              }
+            }
+          }
+        ]
+      },
+      "AssignmentSubmission": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseEntity"
+          },
+          {
+            "type": "object",
+            "required": [
+              "assignmentId",
+              "enrollmentId",
+              "learnerId",
+              "status"
+            ],
+            "properties": {
+              "assignmentId": {
+                "type": "string"
+              },
+              "enrollmentId": {
+                "type": "string"
+              },
+              "learnerId": {
+                "type": "string"
+              },
+              "answerText": {
+                "type": "string"
+              },
+              "fileId": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "submittedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        ]
+      },
+      "AssignmentReview": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseEntity"
+          },
+          {
+            "type": "object",
+            "required": [
+              "assignmentId",
+              "submissionId",
+              "enrollmentId",
+              "reviewerId",
+              "status"
+            ],
+            "properties": {
+              "assignmentId": {
+                "type": "string"
+              },
+              "submissionId": {
+                "type": "string"
+              },
+              "enrollmentId": {
+                "type": "string"
+              },
+              "reviewerId": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "score": {
+                "type": "number"
+              },
+              "comment": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "Document": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "templateId": {
+            "type": "string"
+          },
+          "fileId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      },
+      "DocumentTask": {
+        "type": "object",
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      },
+      "DownloadLink": {
+        "type": "object",
+        "required": [
+          "downloadUrl"
+        ],
+        "properties": {
+          "downloadUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "CourseMutationRequest": {
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "directionId": {
+            "type": "string"
+          }
+        }
+      },
+      "EnrollmentCreateRequest": {
+        "type": "object",
+        "required": [
+          "groupId",
+          "learnerId"
+        ],
+        "properties": {
+          "groupId": {
+            "type": "string"
+          },
+          "learnerId": {
+            "type": "string"
+          }
+        }
+      },
+      "EnrollmentStatusUpdateRequest": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "QuestionBankMutationRequest": {
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "TestMutationRequest": {
+        "type": "object",
+        "required": [
+          "title",
+          "courseId"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "courseId": {
+            "type": "string"
+          },
+          "questionBankId": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "rules": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "StartAttemptRequest": {
+        "type": "object",
+        "required": [
+          "testId",
+          "enrollmentId",
+          "learnerId"
+        ],
+        "properties": {
+          "testId": {
+            "type": "string"
+          },
+          "enrollmentId": {
+            "type": "string"
+          },
+          "learnerId": {
+            "type": "string"
+          }
         }
       },
       "HealthResponse": {
         "type": "object",
-        "required": ["data", "meta"],
+        "required": [
+          "data",
+          "meta"
+        ],
         "properties": {
           "data": {
             "type": "object",
-            "required": ["status", "service", "timestamp"],
+            "required": [
+              "status",
+              "service",
+              "timestamp"
+            ],
             "properties": {
-              "status": { "type": "string", "enum": ["ok"] },
-              "service": {
+              "status": {
                 "type": "string",
-                "enum": ["frontend", "backend", "worker", "realtime"]
+                "enum": [
+                  "ok"
+                ]
               },
-              "timestamp": { "type": "string", "format": "date-time" }
+              "service": {
+                "type": "string"
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time"
+              }
             }
           },
-          "meta": { "$ref": "#/components/schemas/ResponseMeta" }
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "Envelope": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
         }
       }
     },
     "responses": {
-      "ValidationError": {
-        "description": "Validation error envelope",
+      "DefaultError": {
+        "description": "Default error response envelope",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
           }
         }
       },
-      "ForbiddenError": {
-        "description": "Forbidden error envelope",
+      "UnauthorizedError": {
+        "description": "Unauthorized error",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
-          }
-        }
-      },
-      "NotFoundError": {
-        "description": "Not found error envelope",
-        "content": {
-          "application/json": {
-            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
-          }
-        }
-      },
-      "ConflictError": {
-        "description": "Conflict error envelope",
-        "content": {
-          "application/json": {
-            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
-          }
-        }
-      },
-      "PreconditionFailedError": {
-        "description": "Precondition failed error envelope",
-        "content": {
-          "application/json": {
-            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
           }
         }
       },
       "RateLimitedError": {
-        "description": "Rate limited error envelope",
+        "description": "Rate limited error",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "AuthTokensResponse": {
+        "description": "Auth tokens envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AuthTokens"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "SuccessFlagResponse": {
+        "description": "Boolean success envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SuccessFlag"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "UserResponse": {
+        "description": "User envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/UserPublic"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "SessionListResponse": {
+        "description": "Sessions envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SessionPublic"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "CourseResponse": {
+        "description": "Course envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Course"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "CourseListResponse": {
+        "description": "Course list envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Course"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "EnrollmentResponse": {
+        "description": "Enrollment envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Enrollment"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "EnrollmentListResponse": {
+        "description": "Enrollment list envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Enrollment"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "QuestionBankResponse": {
+        "description": "Question bank envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/QuestionBank"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "QuestionBankListResponse": {
+        "description": "Question bank list envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/QuestionBank"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "TestResponse": {
+        "description": "Test envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/TestEntity"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "TestListResponse": {
+        "description": "Test list envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TestEntity"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "AttemptResponse": {
+        "description": "Attempt envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Attempt"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "ExamResultResponse": {
+        "description": "Exam result envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ExamResult"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "AssignmentResponse": {
+        "description": "Assignment envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Assignment"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "AssignmentListResponse": {
+        "description": "Assignment list envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Assignment"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "AssignmentSubmissionResponse": {
+        "description": "Assignment submission envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AssignmentSubmission"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "AssignmentReviewResponse": {
+        "description": "Assignment review envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AssignmentReview"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "DocumentResponse": {
+        "description": "Document envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Document"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "DocumentListResponse": {
+        "description": "Document list envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Document"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "DocumentTaskResponse": {
+        "description": "Document task envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DocumentTask"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "DownloadLinkResponse": {
+        "description": "Download link envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Envelope"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DownloadLink"
+                    }
+                  }
+                }
+              ]
+            }
           }
         }
       }
