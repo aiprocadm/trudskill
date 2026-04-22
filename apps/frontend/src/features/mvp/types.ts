@@ -1,22 +1,15 @@
+import type {
+  GeneratedBaseFilterQuery as BaseFilterQuery,
+  GeneratedSessionDto as SessionDto
+} from '@cdoprof/api-contracts/src/generated/contracts.generated';
+
+export type { BaseFilterQuery, SessionDto };
+
 export interface ListResponse<T> {
   items: T[];
   page: number;
   pageSize: number;
   total: number;
-}
-
-export interface BaseFilterQuery {
-  page?: number | undefined;
-  page_size?: number | undefined;
-  q?: string | undefined;
-  status?: string | undefined;
-  sort?: string | undefined;
-  direction_id?: string | undefined;
-  course_id?: string | undefined;
-  course_version_id?: string | undefined;
-  module_id?: string | undefined;
-  group_id?: string | undefined;
-  learner_id?: string | undefined;
 }
 
 export interface BaseEntity {

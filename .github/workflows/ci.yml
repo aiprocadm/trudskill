@@ -71,6 +71,25 @@ jobs:
           pnpm test:frontend
           pnpm test:contracts
 
+
+  contract_drift_check:
+    name: Contract drift check (required)
+    runs-on: ubuntu-latest
+    needs: lint_typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify generated API contract artifacts are up-to-date
+        run: pnpm --filter @cdoprof/api-contracts contracts:check-generated
+
   frontend_typecheck_build:
     name: Frontend typecheck + build gate
     runs-on: ubuntu-latest
@@ -100,6 +119,7 @@ jobs:
       - tests_backend
       - tests_frontend_and_contracts
       - frontend_typecheck_build
+      - contract_drift_check
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
