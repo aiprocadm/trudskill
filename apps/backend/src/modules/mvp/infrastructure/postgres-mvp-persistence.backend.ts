@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 import { MVP_COLLECTIONS, type MvpCollection } from './mvp-collections.js';
+import { MvpWriteOrchestrator } from './mvp-write.orchestrator.js';
 import { backendEnv } from '../../../env.js';
 import { type DatabaseService } from '../../../infrastructure/database/database.service.js';
 
@@ -15,6 +16,7 @@ const RECONCILIATION_TABLE = 'learning.mvp_reconciliation_log';
 @Injectable()
 export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
   private readonly logger = new Logger(PostgresMvpPersistenceBackend.name);
+  private readonly writeOrchestrator = new MvpWriteOrchestrator(this.logger);
 
   constructor(private readonly db: DatabaseService) {}
 
@@ -40,49 +42,19 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
   }
 
   async saveFromState(tenantId: string, state: InMemoryMvpState): Promise<void> {
-    if (!backendEnv.LMS_DUAL_WRITE_ENABLED) {
-      await this.writeLegacy(tenantId, state);
-      return;
-    }
-
-    await this.writeNormalized(tenantId, state);
-    try {
-      await this.writeLegacy(tenantId, state);
-    } catch (error) {
-      this.logger.error(
-        `Legacy write failed after normalized write for tenant=${tenantId}; running compensation`,
-        error instanceof Error ? error.stack : undefined
-      );
-
-      await this.logReconciliationIssue(tenantId, {
-        issueType: 'dual_write_partial_failure',
-        collection: 'all',
-        entityId: null,
-        details: {
-          phase: 'legacy_write',
-          message: this.stringifyError(error)
-        }
-      });
-
-      try {
-        await this.compensateNormalizedWrite(tenantId);
-      } catch (compensationError) {
-        this.logger.error(
-          `Compensation failed for tenant=${tenantId}`,
-          compensationError instanceof Error ? compensationError.stack : undefined
-        );
-        await this.logReconciliationIssue(tenantId, {
-          issueType: 'dual_write_compensation_failed',
-          collection: 'all',
-          entityId: null,
-          details: {
-            message: this.stringifyError(compensationError)
-          }
-        });
-      }
-
-      throw error;
-    }
+    await this.writeOrchestrator.persist({
+      tenantId,
+      state,
+      dualWriteEnabled: backendEnv.LMS_DUAL_WRITE_ENABLED,
+      writeLegacy: (currentTenantId, currentState) =>
+        this.writeLegacy(currentTenantId, currentState),
+      writeNormalized: (currentTenantId, currentState) =>
+        this.writeNormalized(currentTenantId, currentState),
+      compensateNormalizedWrite: (currentTenantId) =>
+        this.compensateNormalizedWrite(currentTenantId),
+      logReconciliationIssue: (currentTenantId, payload) =>
+        this.logReconciliationIssue(currentTenantId, payload)
+    });
   }
 
   async writeLegacy(tenantId: string, state: InMemoryMvpState): Promise<void> {
@@ -244,11 +216,6 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
       ]
     );
   }
-
-  private stringifyError(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
-  }
-
   private pick(state: InMemoryMvpState, col: MvpCollection): unknown[] {
     return (state as unknown as Record<MvpCollection, unknown[]>)[col];
   }
