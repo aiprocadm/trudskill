@@ -3,7 +3,7 @@
 import { DataTable, FilterBar, LoadingState, StatusChip } from '@cdoprof/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   useAssignments,
@@ -30,6 +30,7 @@ import {
   useUserSessions,
   useUsersList
 } from './hooks';
+import { FieldError, FormErrorSummary, useFocusFirstError } from '../../components/form-feedback';
 import {
   PageContainer,
   PageHeader,
@@ -487,6 +488,23 @@ export const CourseCreateScreen = () => {
   const [description, setDescription] = useState('');
   const [directionId, setDirectionId] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ code?: string; title?: string }>({});
+  const codeRef = useRef<HTMLInputElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+
+  const formErrors = useMemo(
+    () =>
+      Object.entries(fieldErrors).map(([field, message]) => ({
+        field,
+        message: message ?? ''
+      })),
+    [fieldErrors]
+  );
+
+  useFocusFirstError(formErrors, {
+    code: codeRef.current,
+    title: titleRef.current
+  });
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -495,15 +513,18 @@ export const CourseCreateScreen = () => {
       const trimmedCode = code.trim();
       const trimmedTitle = title.trim();
       if (trimmedCode.length < 2) {
+        setFieldErrors({ code: 'Код курса: минимум 2 символа' });
         setSaveError('Код курса: минимум 2 символа');
         recordMetric('form_error_rate', 1, { form: 'course_create', field: 'code' });
         return;
       }
       if (trimmedTitle.length < 3) {
+        setFieldErrors({ title: 'Название: минимум 3 символа' });
         setSaveError('Название: минимум 3 символа');
         recordMetric('form_error_rate', 1, { form: 'course_create', field: 'title' });
         return;
       }
+      setFieldErrors({});
       const payload = directionId
         ? { code: trimmedCode, title: trimmedTitle, description, directionId }
         : { code: trimmedCode, title: trimmedTitle, description };
@@ -521,19 +542,37 @@ export const CourseCreateScreen = () => {
         <form
           onSubmit={(event) => void onSubmit(event)}
           style={{ display: 'grid', gap: 8, maxWidth: 480 }}
+          noValidate
         >
-          <input
-            required
-            placeholder="Код"
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
-          />
-          <input
-            required
-            placeholder="Название"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-          />
+          <FormErrorSummary id="course-create-summary" errors={formErrors} />
+          <label htmlFor="course-code" className="ui-field">
+            <span className="ui-field-label">Код</span>
+            <input
+              id="course-code"
+              ref={codeRef}
+              required
+              placeholder="Код"
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              aria-invalid={Boolean(fieldErrors.code)}
+              aria-describedby={fieldErrors.code ? 'course-code-error' : undefined}
+            />
+            <FieldError id="course-code-error" message={fieldErrors.code} />
+          </label>
+          <label htmlFor="course-title" className="ui-field">
+            <span className="ui-field-label">Название</span>
+            <input
+              id="course-title"
+              ref={titleRef}
+              required
+              placeholder="Название"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              aria-invalid={Boolean(fieldErrors.title)}
+              aria-describedby={fieldErrors.title ? 'course-title-error' : undefined}
+            />
+            <FieldError id="course-title-error" message={fieldErrors.title} />
+          </label>
           <textarea
             placeholder="Описание"
             value={description}
@@ -763,11 +802,38 @@ export const GroupCreateScreen = () => {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ code?: string; name?: string }>({});
+  const codeRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+
+  const formErrors = useMemo(
+    () =>
+      Object.entries(fieldErrors).map(([field, message]) => ({
+        field,
+        message: message ?? ''
+      })),
+    [fieldErrors]
+  );
+
+  useFocusFirstError(formErrors, {
+    code: codeRef.current,
+    name: nameRef.current
+  });
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    const nextFieldErrors: typeof fieldErrors = {};
+    if (code.trim().length < 2) nextFieldErrors.code = 'Код группы: минимум 2 символа.';
+    if (name.trim().length < 3) nextFieldErrors.name = 'Название: минимум 3 символа.';
+    setFieldErrors(nextFieldErrors);
+    if (Object.keys(nextFieldErrors).length) return;
+
     try {
-      const created = await saveGroup(null, { code, name, status: 'draft' });
+      const created = await saveGroup(null, {
+        code: code.trim(),
+        name: name.trim(),
+        status: 'draft'
+      });
       router.push(`/groups/${created.id}`);
     } catch (createError) {
       setSaveError(readApiMessage(createError));
@@ -781,19 +847,37 @@ export const GroupCreateScreen = () => {
         <form
           onSubmit={(event) => void onSubmit(event)}
           style={{ display: 'grid', gap: 8, maxWidth: 480 }}
+          noValidate
         >
-          <input
-            required
-            placeholder="Код"
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
-          />
-          <input
-            required
-            placeholder="Название"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
+          <FormErrorSummary id="group-create-summary" errors={formErrors} />
+          <label htmlFor="group-code" className="ui-field">
+            <span className="ui-field-label">Код</span>
+            <input
+              id="group-code"
+              ref={codeRef}
+              required
+              placeholder="Код"
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              aria-invalid={Boolean(fieldErrors.code)}
+              aria-describedby={fieldErrors.code ? 'group-code-error' : undefined}
+            />
+            <FieldError id="group-code-error" message={fieldErrors.code} />
+          </label>
+          <label htmlFor="group-name" className="ui-field">
+            <span className="ui-field-label">Название</span>
+            <input
+              id="group-name"
+              ref={nameRef}
+              required
+              placeholder="Название"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              aria-invalid={Boolean(fieldErrors.name)}
+              aria-describedby={fieldErrors.name ? 'group-name-error' : undefined}
+            />
+            <FieldError id="group-name-error" message={fieldErrors.name} />
+          </label>
           <button type="submit">Создать</button>
           {saveError ? <SectionError message={saveError} /> : null}
         </form>
@@ -1044,6 +1128,170 @@ export const LearnerCourseDetailsScreen = ({ id }: { id: string }) => {
     </PageContainer>
   );
 };
+
+const normalizeRoleCode = (role: string) => {
+  const lowered = role.toLowerCase();
+  if (lowered === 'student') return 'learner';
+  if (lowered === 'admin') return 'tenant_admin';
+  return lowered;
+};
+
+const hasAnyRole = (roles: string[] | undefined, allowed: string[]) => {
+  if (!roles?.length) return false;
+  const normalized = new Set(roles.map((role) => normalizeRoleCode(role)));
+  return allowed.some((role) => normalized.has(role));
+};
+
+interface RoleWidget {
+  title: string;
+  note: string;
+  href: string;
+  allowedRoles: string[];
+}
+
+const roleWidgets: RoleWidget[] = [
+  {
+    title: 'Continue learning',
+    note: 'Вернуться к последнему модулю и материалу.',
+    href: '/learner/courses',
+    allowedRoles: ['learner']
+  },
+  {
+    title: 'Deadlines',
+    note: 'Проверить задания и тесты на ближайшие 7 дней.',
+    href: '/assessment',
+    allowedRoles: ['learner']
+  },
+  {
+    title: 'Attempts',
+    note: 'История попыток и результаты оценивания.',
+    href: '/assessment',
+    allowedRoles: ['learner']
+  },
+  {
+    title: 'Docs',
+    note: 'Быстрый доступ к учебным и правовым документам.',
+    href: '/documents',
+    allowedRoles: ['learner']
+  },
+  {
+    title: 'Notifications',
+    note: 'Новые сообщения, объявления и напоминания.',
+    href: '/notifications',
+    allowedRoles: ['learner']
+  },
+  {
+    title: 'Webinar',
+    note: 'Запланированные онлайн-занятия и ссылки на эфир.',
+    href: '/webinars',
+    allowedRoles: ['learner']
+  },
+  {
+    title: 'Submission queue',
+    note: 'Очередь работ студентов, требующих проверки.',
+    href: '/assessment',
+    allowedRoles: ['teacher']
+  },
+  {
+    title: 'Rubrics',
+    note: 'Критерии оценивания и шаблоны комментариев.',
+    href: '/assessment',
+    allowedRoles: ['teacher']
+  },
+  {
+    title: 'At risk learners',
+    note: 'Студенты с низким прогрессом и просрочками.',
+    href: '/groups',
+    allowedRoles: ['teacher']
+  },
+  {
+    title: 'Sessions',
+    note: 'Активные сессии пользователей и подозрительные входы.',
+    href: '/users',
+    allowedRoles: ['tenant_admin', 'platform_admin']
+  },
+  {
+    title: 'Queue',
+    note: 'Очереди задач и интеграционных джобов.',
+    href: '/exports',
+    allowedRoles: ['tenant_admin', 'platform_admin']
+  },
+  {
+    title: 'Integrations',
+    note: 'Статус коннекторов и диагностика синхронизаций.',
+    href: '/integrations',
+    allowedRoles: ['tenant_admin', 'platform_admin']
+  },
+  {
+    title: 'Audit health',
+    note: 'Покрытие аудита, ошибки и деградация логов.',
+    href: '/audit',
+    allowedRoles: ['tenant_admin', 'platform_admin']
+  }
+];
+
+const RoleWidgetGrid = ({
+  roles,
+  title,
+  subtitle
+}: {
+  roles: string[];
+  title: string;
+  subtitle: string;
+}) => {
+  const visibleWidgets = roleWidgets.filter((widget) => hasAnyRole(roles, widget.allowedRoles));
+
+  return (
+    <PageContainer>
+      <PageHeader title={title} subtitle={subtitle} />
+      <SectionCard title="Виджеты по роли (RBAC)">
+        {visibleWidgets.length ? (
+          <div className="ui-dashboard-grid" data-testid="rbac-widget-grid">
+            {visibleWidgets.map((widget) => (
+              <Link
+                key={`${widget.title}-${widget.href}`}
+                href={widget.href}
+                className="ui-dashboard-tile"
+              >
+                <div className="ui-dashboard-tile-title">{widget.title}</div>
+                <div className="ui-dashboard-tile-note">{widget.note}</div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <SectionEmpty
+            message="Нет видимых виджетов для текущей роли"
+            hint="Проверьте назначенные роли пользователя и матрицу RBAC."
+          />
+        )}
+      </SectionCard>
+    </PageContainer>
+  );
+};
+
+export const StudentDashboardScreen = () => (
+  <RoleWidgetGrid
+    roles={['learner']}
+    title="Student dashboard"
+    subtitle="Continue / deadlines / attempts / docs / notifications / webinar"
+  />
+);
+
+export const TeacherGradingCenterScreen = () => (
+  <RoleWidgetGrid
+    roles={['teacher']}
+    title="Teacher grading center"
+    subtitle="Очередь проверок, рубрики и контроль отстающих студентов"
+  />
+);
+
+export const AdminCockpitScreen = () => (
+  <RoleWidgetGrid
+    roles={['tenant_admin', 'platform_admin']}
+    title="Admin cockpit"
+    subtitle="Sessions / queue / integration / audit health"
+  />
+);
 
 export const AssessmentDashboardScreen = () => {
   const { session } = useAuth();
