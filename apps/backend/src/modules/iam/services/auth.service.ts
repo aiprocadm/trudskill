@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { Inject, Injectable, Optional, UnauthorizedException } from '@nestjs/common';
 
+import { MetricsService } from '../../../common/metrics/metrics.service.js';
 import { ensureInMemoryModeAllowed } from '../../../common/runtime/in-memory-mode.guard.js';
 import { backendEnv } from '../../../env.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
@@ -32,6 +33,9 @@ export class AuthService {
     private readonly iamService: IamService,
     @Inject(AuditService)
     private readonly auditService: AuditService,
+    @Inject(MetricsService)
+    @Optional()
+    private readonly metrics?: MetricsService,
     @Inject(DatabaseService)
     @Optional()
     private readonly databaseService?: DatabaseService
@@ -44,6 +48,7 @@ export class AuthService {
   async login(tenantId: string, payload: LoginPayload, context: RequestContext) {
     const resolved = await this.iamService.findUserByLogin(tenantId, payload.login);
     if (!resolved) {
+      this.metrics?.incrementAuthFailure({ reason: 'invalid_credentials', phase: 'login_lookup' });
       throw new UnauthorizedException({
         code: 'invalid_credentials',
         message: 'Invalid credentials'
@@ -53,10 +58,15 @@ export class AuthService {
     const { user, databaseBacked } = resolved;
 
     if (user.status === 'blocked') {
+      this.metrics?.incrementAuthFailure({ reason: 'user_blocked', phase: 'login_status' });
       throw new UnauthorizedException({ code: 'user_blocked', message: 'User is blocked' });
     }
 
     if (!verifyPassword(payload.password, user.passwordHash)) {
+      this.metrics?.incrementAuthFailure({
+        reason: 'invalid_credentials',
+        phase: 'login_password'
+      });
       throw new UnauthorizedException({
         code: 'invalid_credentials',
         message: 'Invalid credentials'
@@ -66,7 +76,7 @@ export class AuthService {
     const persistRelational = !this.databaseService || databaseBacked;
     const tokens = await this.createSession(user, persistRelational);
     await this.pushAuthEvent(tenantId, user.id, 'login', persistRelational);
-    this.auditService.write(
+    await this.auditService.writeCritical(
       {
         tenantId,
         actorId: user.id,
@@ -87,13 +97,14 @@ export class AuthService {
     const tokenHash = hashRefreshToken(refreshToken, backendEnv.AUTH_JWT_SECRET);
     const activeSession = await this.consumeRefreshSession(tenantId, tokenHash);
     if (Date.parse(activeSession.expiresAt) <= Date.now()) {
+      this.metrics?.incrementAuthFailure({ reason: 'session_expired', phase: 'refresh' });
       throw new UnauthorizedException({ code: 'session_expired', message: 'Session expired' });
     }
     const user = await this.iamService.getUser(tenantId, activeSession.userId);
     const persistRelational = await this.shouldPersistRelationalSideEffects(tenantId, user.id);
     const nextTokens = await this.createSession(user, persistRelational);
     await this.pushAuthEvent(tenantId, user.id, 'refresh', persistRelational);
-    this.auditService.write(
+    await this.auditService.writeCritical(
       {
         tenantId,
         actorId: user.id,
@@ -126,7 +137,7 @@ export class AuthService {
     await this.revokeSessionInternal(session.id, tenantId, userId);
     const persistRelational = await this.shouldPersistRelationalSideEffects(tenantId, userId);
     await this.pushAuthEvent(tenantId, userId, 'logout', persistRelational);
-    this.auditService.write(
+    await this.auditService.writeCritical(
       {
         tenantId,
         actorId: userId,
@@ -200,7 +211,7 @@ export class AuthService {
     await this.revokeSessionInternal(session.id, tenantId, session.userId);
     const persistRelational = await this.shouldPersistRelationalSideEffects(tenantId, actorId);
     await this.pushAuthEvent(tenantId, actorId, 'session_revoke', persistRelational);
-    this.auditService.write(
+    await this.auditService.writeCritical(
       {
         tenantId,
         actorId,
@@ -250,7 +261,7 @@ export class AuthService {
 
     const persistRelational = await this.shouldPersistRelationalSideEffects(tenantId, userId);
     await this.pushAuthEvent(tenantId, userId, 'logout_all', persistRelational);
-    this.auditService.write(
+    await this.auditService.writeCritical(
       {
         tenantId,
         actorId: userId,

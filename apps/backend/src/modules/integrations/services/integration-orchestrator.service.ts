@@ -1,8 +1,15 @@
-import { Inject, Injectable, NotFoundException, PreconditionFailedException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional,
+  PreconditionFailedException
+} from '@nestjs/common';
 
 import { AdapterResolver } from './adapter-resolver.service.js';
 import { IdempotencyService } from './idempotency.service.js';
 import { IntegrationCryptoService } from './integration-crypto.service.js';
+import { MetricsService } from '../../../common/metrics/metrics.service.js';
 import { AuditService } from '../../audit/audit.service.js';
 import { RealtimeEventsService } from '../../core/realtime-events.service.js';
 import { IntegrationExportRealtimeEvents } from '../domain/integration-realtime-events.js';
@@ -53,7 +60,8 @@ export class IntegrationOrchestratorService {
     @Inject(IdempotencyService) private readonly idempotency: IdempotencyService,
     @Inject(AdapterResolver) private readonly adapterResolver: AdapterResolver,
     @Inject(AuditService) private readonly audit: AuditService,
-    @Inject(RealtimeEventsService) private readonly realtime: RealtimeEventsService
+    @Inject(RealtimeEventsService) private readonly realtime: RealtimeEventsService,
+    @Inject(MetricsService) @Optional() private readonly metrics?: MetricsService
   ) {}
 
   listProviders(query?: ListQuery) {
@@ -305,6 +313,10 @@ export class IntegrationOrchestratorService {
           createdAt: new Date().toISOString()
         };
         this.state.deadLetters.push(deadLetter);
+        this.metrics?.setDlqSize(
+          this.state.deadLetters.filter((entry) => entry.tenantId === tenantId).length,
+          { queue: 'integrations_export', tenant_id: tenantId }
+        );
         this.state.logs.push({
           id: this.id('log'),
           tenantId,

@@ -19,12 +19,31 @@ export class RabbitMqService {
     }
   }
 
-  async publish(exchange: string, routingKey: string, payload: unknown): Promise<void> {
+  async publish(
+    exchange: string,
+    routingKey: string,
+    payload: unknown,
+    options?: { requestId?: string; correlationId?: string; headers?: Record<string, string> }
+  ): Promise<void> {
     const channel = await this.getChannel();
     await channel.assertExchange(exchange, 'topic', { durable: true });
-    channel.publish(exchange, routingKey, Buffer.from(JSON.stringify(payload)), {
+    const enrichedPayload =
+      payload && typeof payload === 'object'
+        ? {
+            ...(payload as Record<string, unknown>),
+            request_id: options?.requestId,
+            correlation_id: options?.correlationId
+          }
+        : payload;
+    channel.publish(exchange, routingKey, Buffer.from(JSON.stringify(enrichedPayload)), {
       persistent: true,
-      contentType: 'application/json'
+      contentType: 'application/json',
+      correlationId: options?.correlationId,
+      headers: {
+        ...(options?.headers ?? {}),
+        'x-request-id': options?.requestId,
+        'x-correlation-id': options?.correlationId
+      }
     });
   }
 

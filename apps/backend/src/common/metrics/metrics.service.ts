@@ -16,6 +16,11 @@ export class MetricsService {
     string,
     { name: string; labels: Record<string, string> }
   >();
+  private readonly customGauges = new Map<string, number>();
+  private readonly customGaugeMeta = new Map<
+    string,
+    { name: string; labels: Record<string, string> }
+  >();
 
   private activeRequests = 0;
 
@@ -48,6 +53,32 @@ export class MetricsService {
     this.customDurationBuckets.set(key, durations.slice(-1000));
   }
 
+  setGauge(name: string, value: number, labels: Record<string, string> = {}) {
+    const { key, normalized } = this.seriesKey(name, labels);
+    this.customGaugeMeta.set(key, { name, labels: normalized });
+    this.customGauges.set(key, value);
+  }
+
+  observeQueueLag(lagMs: number, labels: Record<string, string> = {}) {
+    this.observeDuration('queue_lag_ms', lagMs, labels);
+  }
+
+  incrementJobRetry(labels: Record<string, string> = {}) {
+    this.incrementCounter('job_retries_total', labels);
+  }
+
+  setDlqSize(size: number, labels: Record<string, string> = {}) {
+    this.setGauge('dlq_size', size, labels);
+  }
+
+  incrementAuthFailure(labels: Record<string, string> = {}) {
+    this.incrementCounter('auth_failures_total', labels);
+  }
+
+  incrementDocumentGenerationFailure(labels: Record<string, string> = {}) {
+    this.incrementCounter('document_generation_failures_total', labels);
+  }
+
   renderPrometheus() {
     const lines = [
       '# HELP http_requests_total Total HTTP requests',
@@ -78,6 +109,7 @@ export class MetricsService {
 
     this.renderCustomCounters(lines);
     this.renderCustomDurations(lines);
+    this.renderCustomGauges(lines);
 
     return `${lines.join('\n')}\n`;
   }
@@ -108,6 +140,20 @@ export class MetricsService {
       }
       const avg = values.length ? values.reduce((acc, curr) => acc + curr, 0) / values.length : 0;
       lines.push(`${meta.name}${this.labelSet(meta.labels)} ${avg.toFixed(2)}`);
+    }
+  }
+
+  private renderCustomGauges(lines: string[]) {
+    const announced = new Set<string>();
+    for (const [key, value] of this.customGauges) {
+      const meta = this.customGaugeMeta.get(key);
+      if (!meta) continue;
+      if (!announced.has(meta.name)) {
+        lines.push(`# HELP ${meta.name} Custom gauge metric ${meta.name}`);
+        lines.push(`# TYPE ${meta.name} gauge`);
+        announced.add(meta.name);
+      }
+      lines.push(`${meta.name}${this.labelSet(meta.labels)} ${value}`);
     }
   }
 

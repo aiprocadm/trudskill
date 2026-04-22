@@ -228,7 +228,7 @@ export class DocumentsController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.generate')
   generateDocument(@CurrentContext() c: RequestContext, @Body() b: GenerateDocumentRequest) {
-    return this.documentsService.generateDocument(c.tenantId!, c.userId, b);
+    return this.documentsService.generateDocument(c.tenantId!, c.userId, b, c);
   }
   @Post('documents/:id/finalize')
   @UseGuards(PermissionGuard)
