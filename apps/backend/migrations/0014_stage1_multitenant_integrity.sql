@@ -76,6 +76,81 @@ create unique index comm_webinar_attendees_tenant_webinar_learner_role_uniq
   where learner_id is not null;
 
 -- ---------------------------------------------------------------------------
+-- Stage-1 auth/session expansion in core
+-- Keep legacy iam.* tables working; dual-write is introduced in Stage-2.
+-- ---------------------------------------------------------------------------
+alter table core.sessions
+  add column if not exists session_id text;
+
+alter table core.sessions
+  add column if not exists issued_at timestamptz;
+
+alter table core.sessions
+  add column if not exists user_agent text;
+
+alter table core.sessions
+  add column if not exists ip text;
+
+alter table core.sessions
+  add column if not exists rotated_from text;
+
+update core.sessions
+set
+  session_id = coalesce(session_id, id),
+  issued_at = coalesce(issued_at, created_at)
+where session_id is null
+   or issued_at is null;
+
+alter table core.sessions
+  alter column session_id set not null;
+
+alter table core.sessions
+  alter column issued_at set not null;
+
+alter table core.sessions
+  add constraint core_sessions_session_id_uniq
+  unique (session_id);
+
+alter table core.refresh_tokens
+  add column if not exists token_hash text;
+
+alter table core.refresh_tokens
+  add column if not exists jti text;
+
+alter table core.refresh_tokens
+  add column if not exists nonce text;
+
+alter table core.refresh_tokens
+  add column if not exists consumed_at timestamptz;
+
+alter table core.refresh_tokens
+  add column if not exists reason text;
+
+update core.refresh_tokens
+set token_hash = coalesce(token_hash, refresh_token_hash)
+where token_hash is null;
+
+alter table core.refresh_tokens
+  alter column token_hash set not null;
+
+create index if not exists core_sessions_active_user_idx
+  on core.sessions (tenant_id, user_id, expires_at desc)
+  where revoked_at is null;
+
+create index if not exists core_sessions_expires_at_cleanup_idx
+  on core.sessions (expires_at);
+
+create index if not exists core_refresh_tokens_hash_lookup_idx
+  on core.refresh_tokens (tenant_id, token_hash);
+
+create index if not exists core_refresh_tokens_jti_lookup_idx
+  on core.refresh_tokens (tenant_id, jti)
+  where jti is not null;
+
+create index if not exists core_refresh_tokens_expires_at_cleanup_idx
+  on core.refresh_tokens (expires_at);
+
+-- ---------------------------------------------------------------------------
 -- CHECK constraints: enum-like statuses
 -- ---------------------------------------------------------------------------
 alter table learning.courses
@@ -180,6 +255,18 @@ alter table core.refresh_tokens
 alter table core.refresh_tokens
   add constraint core_refresh_tokens_revoked_after_created_chk
   check (revoked_at is null or revoked_at >= created_at) not valid;
+
+alter table core.sessions
+  add constraint core_sessions_expires_after_issued_chk
+  check (expires_at > issued_at) not valid;
+
+alter table core.sessions
+  add constraint core_sessions_revoked_after_issued_chk
+  check (revoked_at is null or revoked_at >= issued_at) not valid;
+
+alter table core.refresh_tokens
+  add constraint core_refresh_tokens_consumed_after_created_chk
+  check (consumed_at is null or consumed_at >= created_at) not valid;
 
 alter table learning.groups
   add constraint learning_groups_starts_before_ends_chk
