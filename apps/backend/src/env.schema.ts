@@ -33,6 +33,10 @@ export const backendEnvSchema = z
     MVP_PERSISTENCE_DRIVER: z.enum(['memory', 'postgres']).default('memory'),
     /** `memory` — снимок в процессе на запрос; `postgres` — documents.runtime_documents + JSON по сущности. */
     DOCUMENTS_PERSISTENCE_DRIVER: z.enum(['memory', 'postgres']).default('memory'),
+    LMS_READ_MODEL: z.enum(['legacy', 'normalized', 'shadow']).default('legacy'),
+    DOCUMENTS_READ_MODEL: z.enum(['legacy', 'normalized', 'shadow']).default('legacy'),
+    LMS_DUAL_WRITE_ENABLED: z.coerce.boolean().default(false),
+    DOCUMENTS_DUAL_WRITE_ENABLED: z.coerce.boolean().default(false),
     INTEGRATION_WEBHOOK_SECRET: z.string().min(10).optional()
   })
   .superRefine((env, ctx) => {

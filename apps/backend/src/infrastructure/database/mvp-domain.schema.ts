@@ -25,7 +25,9 @@ export const mvpDomainTables = {
     'course_progress',
     'module_progress',
     'material_progress',
-    'mvp_runtime_documents'
+    'mvp_runtime_documents',
+    'mvp_stage1_runtime_documents',
+    'mvp_reconciliation_log'
   ],
   assessment: [
     'question_banks',
@@ -49,7 +51,9 @@ export const mvpDomainTables = {
     'generated_documents',
     'numbering_rules',
     'number_reservations',
-    'runtime_documents'
+    'runtime_documents',
+    'stage1_runtime_documents',
+    'reconciliation_log'
   ],
   storage: ['files', 'file_links'],
   esign: [
