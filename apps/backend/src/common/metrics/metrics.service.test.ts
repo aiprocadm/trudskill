@@ -24,4 +24,20 @@ describe('metrics service', () => {
     expect(snapshot).toContain('mvp_persistence_load_total{backend="postgres",result="ok"} 1');
     expect(snapshot).toContain('mvp_persistence_load_duration_ms{backend="postgres"} 20.00');
   });
+
+  it('renders domain metrics for queue lag, retries, dlq size and failures', () => {
+    const service = new MetricsService();
+    service.observeQueueLag(250, { queue: 'documents' });
+    service.incrementJobRetry({ queue: 'documents' });
+    service.setDlqSize(3, { queue: 'integrations' });
+    service.incrementAuthFailure({ reason: 'invalid_credentials' });
+    service.incrementDocumentGenerationFailure({ stage: 'render' });
+
+    const snapshot = service.renderPrometheus();
+    expect(snapshot).toContain('queue_lag_ms{queue="documents"} 250.00');
+    expect(snapshot).toContain('job_retries_total{queue="documents"} 1');
+    expect(snapshot).toContain('dlq_size{queue="integrations"} 3');
+    expect(snapshot).toContain('auth_failures_total{reason="invalid_credentials"} 1');
+    expect(snapshot).toContain('document_generation_failures_total{stage="render"} 1');
+  });
 });

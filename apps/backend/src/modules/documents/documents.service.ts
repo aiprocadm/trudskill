@@ -3,11 +3,13 @@ import {
   ConflictException,
   Inject,
   Injectable,
-  NotFoundException
+  NotFoundException,
+  Optional
 } from '@nestjs/common';
 
 import { DOCUMENTS_STATE } from './documents-state.token.js';
 import { InMemoryDocumentsState } from './in-memory-documents.state.js';
+import { MetricsService } from '../../common/metrics/metrics.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
@@ -54,7 +56,8 @@ export class DocumentsService {
   constructor(
     @Inject(DOCUMENTS_STATE) private readonly state: InMemoryDocumentsState,
     @Inject(AuditService) private readonly auditService: AuditService,
-    @Inject(RealtimeEventsService) private readonly realtimeEvents: RealtimeEventsService
+    @Inject(RealtimeEventsService) private readonly realtimeEvents: RealtimeEventsService,
+    @Inject(MetricsService) @Optional() private readonly metrics?: MetricsService
   ) {}
 
   listTemplates(tenantId: string, query: BaseFilter) {
@@ -305,6 +308,7 @@ export class DocumentsService {
     task.errorMessage = undefined;
     task.startedAt = undefined;
     task.finishedAt = undefined;
+    this.metrics?.incrementJobRetry({ queue: 'documents_generation' });
     this.writeTaskAudit(task, 'documents.task.retried');
     return task;
   }
@@ -330,7 +334,12 @@ export class DocumentsService {
   getDocument(tenantId: string, id: string) {
     return this.must(this.state.generatedDocuments, tenantId, id);
   }
-  generateDocument(tenantId: string, actorId: string | undefined, req: GenerateDocumentRequest) {
+  generateDocument(
+    tenantId: string,
+    actorId: string | undefined,
+    req: GenerateDocumentRequest,
+    ctx?: RequestContext
+  ) {
     this.cleanupIdempotencyCache();
     const idemKey = `${tenantId}:${req.idempotencyKey}`;
     const existing = this.state.idem.get(idemKey);
@@ -353,7 +362,14 @@ export class DocumentsService {
       sourceEntityId: req.sourceEntityId,
       status: 'queued',
       requestedBy: actorId,
-      requestedAt: this.now()
+      requestedAt: this.now(),
+      requestId: ctx?.requestId,
+      correlationId: ctx?.correlationId,
+      outboxPayload: {
+        request_id: ctx?.requestId,
+        correlation_id: ctx?.correlationId,
+        enqueued_at: this.now()
+      }
     };
     this.state.tasks.push(task);
     this.state.idem.set(idemKey, { taskId: task.id, expiresAt: Date.now() + 24 * 60 * 60 * 1000 });
@@ -406,6 +422,9 @@ export class DocumentsService {
     task.status = 'running';
     this.publishTaskEvent(task);
     task.startedAt = task.startedAt ?? this.now();
+    this.metrics?.observeQueueLag(Date.now() - Date.parse(task.requestedAt), {
+      queue: 'documents_generation'
+    });
     if (!task.numberReservationId) {
       task.numberReservationId = this.reserveNumber(tenantId, task.documentType).id;
     }
@@ -424,6 +443,7 @@ export class DocumentsService {
       const reservation = this.getReservation(tenantId, task.numberReservationId);
       if (reservation.status === 'reserved') reservation.status = 'failed';
     }
+    this.metrics?.incrementDocumentGenerationFailure({ queue: 'documents_generation' });
     this.writeTaskAudit(task, 'documents.task.failed', { errorMessage: message });
     return task;
   }
@@ -624,7 +644,13 @@ export class DocumentsService {
       version: 'v1',
       tenant_id: task.tenantId,
       occurred_at: this.now(),
-      payload: { task_id: task.id, status: task.status, source: task.sourceEntityType }
+      payload: {
+        task_id: task.id,
+        status: task.status,
+        source: task.sourceEntityType,
+        request_id: task.requestId,
+        correlation_id: task.correlationId
+      }
     });
   }
   private writeTaskAudit(
@@ -642,8 +668,11 @@ export class DocumentsService {
         status: task.status,
         startedAt: task.startedAt,
         finishedAt: task.finishedAt,
+        requestId: task.requestId,
+        correlationId: task.correlationId,
         ...extras
-      }
+      },
+      requestId: task.requestId
     });
   }
 

@@ -68,6 +68,13 @@ export interface DocumentGenerationTaskEntity {
   status: TaskStatus;
   requestedBy?: string;
   requestedAt: string;
+  requestId?: string;
+  correlationId?: string;
+  outboxPayload?: {
+    request_id?: string;
+    correlation_id?: string;
+    enqueued_at: string;
+  };
   startedAt?: string;
   finishedAt?: string;
   errorMessage?: string;

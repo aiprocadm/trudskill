@@ -140,4 +140,46 @@ describe('DocumentGenerationPipeline', () => {
     });
     expect(setFailed).not.toHaveBeenCalled();
   });
+
+  it('reprocesses successfully after retryable failure (worker restart/replay regression)', async () => {
+    const setFailed = vi.fn().mockResolvedValue(undefined);
+    const registerGenerated = vi.fn().mockResolvedValue({ generatedDocumentId: 'g-replayed' });
+    const render = vi
+      .fn()
+      .mockRejectedValueOnce(
+        Object.assign(new Error('temporary broker outage'), { name: 'ServiceUnavailableError' })
+      )
+      .mockResolvedValueOnce({ fileId: 'file_after_retry' });
+    const pipeline = new DocumentGenerationPipeline(
+      {
+        setRunning: vi.fn().mockResolvedValue(true),
+        reserveNumber: vi.fn().mockResolvedValue('DOC-000777'),
+        render,
+        registerGenerated,
+        setCompleted: vi.fn().mockResolvedValue(undefined),
+        setFailed
+      },
+      new ErrorNameRetryPolicy()
+    );
+    const task = {
+      id: 't-replay',
+      tenantId: 'tenant-1',
+      correlationId: 'corr-replay',
+      actorId: 'user-1',
+      status: 'queued' as const,
+      documentType: 'default',
+      sourceEntityType: 'group',
+      sourceEntityId: 'g1',
+      templateVersionId: 'v1'
+    };
+
+    const first = await pipeline.handle(task);
+    const second = await pipeline.handle(task);
+
+    expect(first.status).toBe('queued');
+    expect(first.failureDiagnostics?.retryDecision).toBe('retry');
+    expect(second.status).toBe('completed');
+    expect(registerGenerated).toHaveBeenCalledTimes(1);
+    expect(setFailed).not.toHaveBeenCalled();
+  });
 });
