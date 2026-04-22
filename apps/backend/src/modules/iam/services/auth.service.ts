@@ -5,6 +5,7 @@ import { Inject, Injectable, Optional, UnauthorizedException } from '@nestjs/com
 import { ensureInMemoryModeAllowed } from '../../../common/runtime/in-memory-mode.guard.js';
 import { backendEnv } from '../../../env.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
+import { SecretsService } from '../../../infrastructure/secrets/secrets.service.js';
 import { AuditService } from '../../audit/audit.service.js';
 import {
   hashRefreshToken,
@@ -32,6 +33,8 @@ export class AuthService {
     private readonly iamService: IamService,
     @Inject(AuditService)
     private readonly auditService: AuditService,
+    @Inject(SecretsService)
+    private readonly secretsService: SecretsService,
     @Inject(DatabaseService)
     @Optional()
     private readonly databaseService?: DatabaseService
@@ -84,7 +87,7 @@ export class AuthService {
   }
 
   async refresh(tenantId: string, refreshToken: string, context: RequestContext) {
-    const tokenHash = hashRefreshToken(refreshToken, backendEnv.AUTH_JWT_SECRET);
+    const tokenHash = hashRefreshToken(refreshToken, this.secretsService.getJwtSigningSecret());
     const activeSession = await this.consumeRefreshSession(tenantId, tokenHash);
     if (Date.parse(activeSession.expiresAt) <= Date.now()) {
       throw new UnauthorizedException({ code: 'session_expired', message: 'Session expired' });
@@ -313,7 +316,7 @@ export class AuthService {
       id: `s_${randomUUID().replace(/-/g, '')}`,
       tenantId: user.tenantId,
       userId: user.id,
-      refreshTokenHash: hashRefreshToken(refreshToken, backendEnv.AUTH_JWT_SECRET),
+      refreshTokenHash: hashRefreshToken(refreshToken, this.secretsService.getJwtSigningSecret()),
       expiresAt: new Date(Date.now() + backendEnv.REFRESH_TOKEN_TTL_SECONDS * 1000).toISOString()
     };
 
@@ -337,7 +340,7 @@ export class AuthService {
         session_id: session.id,
         roles: userRoles.map((role) => role.code)
       },
-      backendEnv.AUTH_JWT_SECRET,
+      this.secretsService.getJwtSigningSecret(),
       backendEnv.ACCESS_TOKEN_TTL_SECONDS
     );
 

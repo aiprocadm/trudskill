@@ -29,14 +29,18 @@ describe('TenantGuard', () => {
   });
 
   it('rejects spoofed x-user-id/x-tenant-id headers without bearer token', () => {
-    const guard = new TenantGuardClass();
+    const guard = new TenantGuardClass({
+      getJwtSigningSecret: () => 'dev-jwt-secret-12345'
+    } as never);
     const context = makeExecutionContext({ 'x-user-id': 'u_admin', 'x-tenant-id': 'tenant_demo' });
 
     expect(() => guard.canActivate(context as never)).toThrow(UnauthorizedException);
   });
 
   it('resolves tenant and user only from a signed bearer token', () => {
-    const guard = new TenantGuardClass();
+    const guard = new TenantGuardClass({
+      getJwtSigningSecret: () => 'dev-jwt-secret-12345'
+    } as never);
     const accessToken = issueSignedAccessToken(
       {
         sub: 'u_tenant_admin',
@@ -56,7 +60,9 @@ describe('TenantGuard', () => {
   });
 
   it('rejects expired access token', () => {
-    const guard = new TenantGuardClass();
+    const guard = new TenantGuardClass({
+      getJwtSigningSecret: () => 'dev-jwt-secret-12345'
+    } as never);
     const accessToken = issueSignedAccessToken(
       {
         sub: 'u_tenant_admin',
