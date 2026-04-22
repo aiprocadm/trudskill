@@ -60,3 +60,15 @@ The foundation is prepared for future domain modules without breaking boundaries
 - `FilesModule` supports adding upload intent/presigned URL flows;
 - RabbitMQ abstraction provides base for outbox/event processing;
 - request context and tenant enforcement can be reused by all bounded contexts.
+
+## Outbox and restart-safe messaging
+
+- Added `core.outbox_events` (status machine: `pending|published|failed`, retry metadata `retry_count`, `next_attempt_at`).
+- `OutboxPublisherService` polls batches and claims rows with `FOR UPDATE SKIP LOCKED`, publishes to RabbitMQ and updates status atomically per event.
+- Publisher uses confirm channel (`createConfirmChannel` + `waitForConfirms`) to avoid losing events on broker/network race.
+- For consumer idempotency introduced `core.processed_message_ids` (`consumer_name + message_id` primary key).
+- Processing contract for document/integration/notification workers:
+  - manual `ack/nack`;
+  - bounded retry with exponential backoff via retry exchange/queue;
+  - terminal routing to DLQ via DLX;
+  - duplicate messages are acknowledged without repeating side effects.

@@ -37,7 +37,11 @@ export const backendEnvSchema = z
     DOCUMENTS_READ_MODEL: z.enum(['legacy', 'normalized', 'shadow']).default('legacy'),
     LMS_DUAL_WRITE_ENABLED: z.coerce.boolean().default(false),
     DOCUMENTS_DUAL_WRITE_ENABLED: z.coerce.boolean().default(false),
-    INTEGRATION_WEBHOOK_SECRET: z.string().min(10).optional()
+    INTEGRATION_WEBHOOK_SECRET: z.string().min(10).optional(),
+    OUTBOX_PUBLISHER_ENABLED: z.coerce.boolean().default(true),
+    OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(1_000),
+    OUTBOX_BATCH_SIZE: z.coerce.number().int().positive().max(500).default(50),
+    OUTBOX_MAX_RETRIES: z.coerce.number().int().nonnegative().default(10)
   })
   .superRefine((env, ctx) => {
     const devSecrets = [

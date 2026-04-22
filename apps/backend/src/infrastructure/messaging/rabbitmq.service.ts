@@ -3,12 +3,12 @@ import * as amqp from 'amqplib';
 
 import { backendEnv } from '../../env.js';
 
-import type { Channel, ChannelModel } from 'amqplib';
+import type { ChannelModel, ConfirmChannel } from 'amqplib';
 
 @Injectable()
 export class RabbitMqService {
   private connection: ChannelModel | null = null;
-  private channel: Channel | null = null;
+  private channel: ConfirmChannel | null = null;
 
   async ping(): Promise<boolean> {
     try {
@@ -26,17 +26,36 @@ export class RabbitMqService {
       persistent: true,
       contentType: 'application/json'
     });
+    await this.waitForConfirms(channel, 5_000);
   }
 
-  private async getChannel(): Promise<Channel> {
+  private async getChannel(): Promise<ConfirmChannel> {
     if (!this.connection) {
       this.connection = await amqp.connect(backendEnv.RABBITMQ_URL);
     }
 
     if (!this.channel) {
-      this.channel = await this.connection.createChannel();
+      this.channel = await this.connection.createConfirmChannel();
     }
 
     return this.channel;
+  }
+
+  private async waitForConfirms(channel: ConfirmChannel, timeoutMs: number): Promise<void> {
+    let timeoutHandle: NodeJS.Timeout | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutHandle = setTimeout(
+        () => reject(new Error(`RabbitMQ publish confirm timeout after ${timeoutMs}ms`)),
+        timeoutMs
+      );
+    });
+
+    try {
+      await Promise.race([channel.waitForConfirms(), timeout]);
+    } finally {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+    }
   }
 }
