@@ -3,6 +3,7 @@ export type TaskStatus = 'queued' | 'running' | 'completed' | 'failed';
 export interface DocumentTask {
   id: string;
   tenantId: string;
+  requestId?: string;
   correlationId: string;
   actorId: string;
   status: TaskStatus;
@@ -66,6 +67,7 @@ export class DocumentGenerationOrchestrator {
     const rendered = await this.deps.render({
       taskId: task.id,
       tenantId: task.tenantId,
+      requestId: task.requestId,
       correlationId: task.correlationId,
       actorId: task.actorId,
       number,
