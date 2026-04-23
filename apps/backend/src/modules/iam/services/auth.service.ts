@@ -375,12 +375,14 @@ export class AuthService {
     }
 
     const userRoles = await this.iamService.getUserRoles(user.tenantId, user.id);
+    const permissionCodes = await this.iamService.resolvePermissions(user.tenantId, user.id);
+    const roleCodes = userRoles.map((role) => role.code);
     const accessToken = issueSignedAccessToken(
       {
         sub: user.id,
         tenant_id: user.tenantId,
         session_id: session.id,
-        roles: userRoles.map((role) => role.code)
+        roles: roleCodes
       },
       this.secretsService.getJwtSigningSecret(),
       backendEnv.ACCESS_TOKEN_TTL_SECONDS
@@ -391,7 +393,13 @@ export class AuthService {
       refreshToken,
       csrfToken,
       sessionId: session.id,
-      expiresIn: backendEnv.ACCESS_TOKEN_TTL_SECONDS
+      expiresIn: backendEnv.ACCESS_TOKEN_TTL_SECONDS,
+      claims: {
+        tenant_id: user.tenantId,
+        role_codes: roleCodes,
+        permission_codes: permissionCodes,
+        session_id: session.id
+      }
     };
   }
 

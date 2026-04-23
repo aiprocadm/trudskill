@@ -72,6 +72,26 @@ services:
       mc mb --ignore-existing local/cdoprof-dev
       "
 
+  supertokens:
+    image: registry.supertokens.io/supertokens/supertokens-postgresql:9.3
+    environment:
+      POSTGRESQL_CONNECTION_URI: postgresql://postgres:postgres@postgres:5432/cdoprof
+      API_KEYS: ${SUPERTOKENS_API_KEY:-change-me-supertokens-api-key}
+      PASSWORD_HASHING_ALG: argon2
+      ARGON2_ITERATIONS: '4'
+      ARGON2_MEMORY_KB: '32768'
+      ARGON2_PARALLELISM: '2'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '3567:3567'
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3567/hello']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ..
@@ -86,6 +106,8 @@ services:
       rabbitmq:
         condition: service_healthy
       minio:
+        condition: service_healthy
+      supertokens:
         condition: service_healthy
     ports:
       - '3001:3001'
