@@ -9,6 +9,14 @@ import { hashPassword } from '../crypto.util.js';
 import type { Permission, Role, User, UserPublicDto } from '../iam.types.js';
 
 export type ResolvedLoginUser = { user: User; databaseBacked: boolean };
+export interface SuperTokensUserBridge {
+  id: string;
+  tenantId: string;
+  userId: string;
+  supertokensUserId: string;
+  passwordMigrationStatus: 'pending' | 'imported' | 'rehash_completed' | 'failed';
+  rehashRequired: boolean;
+}
 
 @Injectable()
 export class IamService {
@@ -189,6 +197,104 @@ export class IamService {
     }
 
     throw new NotFoundException({ code: 'user_not_found', message: 'User not found' });
+  }
+
+  async findSuperTokensBridgeByUserId(
+    tenantId: string,
+    userId: string
+  ): Promise<SuperTokensUserBridge | null> {
+    if (!this.databaseService) {
+      return null;
+    }
+
+    const rows = await this.databaseService.query<{
+      id: string;
+      tenant_id: string;
+      user_id: string;
+      supertokens_user_id: string;
+      password_migration_status: 'pending' | 'imported' | 'rehash_completed' | 'failed';
+      rehash_required: boolean;
+    }>(
+      `
+        select id, tenant_id, user_id, supertokens_user_id, password_migration_status, rehash_required
+        from iam.supertokens_user_bridge
+        where tenant_id = $1 and user_id = $2 and deleted_at is null
+        limit 1
+      `,
+      [tenantId, userId]
+    );
+
+    const row = rows[0];
+    if (!row) {
+      return null;
+    }
+
+    return {
+      id: row.id,
+      tenantId: row.tenant_id,
+      userId: row.user_id,
+      supertokensUserId: row.supertokens_user_id,
+      passwordMigrationStatus: row.password_migration_status,
+      rehashRequired: row.rehash_required
+    };
+  }
+
+  async upsertSuperTokensBridge(params: {
+    tenantId: string;
+    userId: string;
+    supertokensUserId: string;
+    passwordMigrationStatus?: 'pending' | 'imported' | 'rehash_completed' | 'failed';
+    rehashRequired?: boolean;
+  }): Promise<SuperTokensUserBridge | null> {
+    if (!this.databaseService) {
+      return null;
+    }
+
+    const rows = await this.databaseService.query<{
+      id: string;
+      tenant_id: string;
+      user_id: string;
+      supertokens_user_id: string;
+      password_migration_status: 'pending' | 'imported' | 'rehash_completed' | 'failed';
+      rehash_required: boolean;
+    }>(
+      `
+        insert into iam.supertokens_user_bridge (
+          id,
+          tenant_id,
+          user_id,
+          supertokens_user_id,
+          password_migration_status,
+          rehash_required
+        )
+        values ($1, $2, $3, $4, $5, $6)
+        on conflict (tenant_id, user_id)
+        do update set
+          supertokens_user_id = excluded.supertokens_user_id,
+          password_migration_status = excluded.password_migration_status,
+          rehash_required = excluded.rehash_required,
+          deleted_at = null
+        returning id, tenant_id, user_id, supertokens_user_id, password_migration_status, rehash_required
+      `,
+      [
+        `stb_${randomUUID().replace(/-/g, '')}`,
+        params.tenantId,
+        params.userId,
+        params.supertokensUserId,
+        params.passwordMigrationStatus ?? 'pending',
+        params.rehashRequired ?? true
+      ]
+    );
+
+    const row = rows[0];
+    return {
+      id: row.id,
+      tenantId: row.tenant_id,
+      userId: row.user_id,
+      supertokensUserId: row.supertokens_user_id,
+      passwordMigrationStatus: row.password_migration_status,
+      rehashRequired: row.rehash_required
+    };
   }
 
   async listUsers(

@@ -4,6 +4,12 @@ interface AuthTokensContract {
   accessToken: string;
   sessionId: string;
   expiresIn: number;
+  claims?: {
+    tenant_id: string;
+    role_codes: string[];
+    permission_codes: string[];
+    session_id: string;
+  };
   csrfToken?: string;
 }
 
@@ -124,7 +130,7 @@ export const authCookie = {
     return readCookie(headers, CSRF_COOKIE_NAME);
   },
   toPublicTokens(tokens: AuthTokensContract & { refreshToken?: string }): AuthTokensContract {
-    const { accessToken, sessionId, expiresIn } = tokens;
-    return { accessToken, sessionId, expiresIn };
+    const { accessToken, sessionId, expiresIn, claims } = tokens;
+    return { accessToken, sessionId, expiresIn, claims };
   }
 };

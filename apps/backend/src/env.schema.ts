@@ -59,7 +59,13 @@ export const backendEnvSchema = z
     OUTBOX_PUBLISHER_ENABLED: z.coerce.boolean().default(true),
     OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(1_000),
     OUTBOX_BATCH_SIZE: z.coerce.number().int().positive().max(500).default(50),
-    OUTBOX_MAX_RETRIES: z.coerce.number().int().nonnegative().default(10)
+    OUTBOX_MAX_RETRIES: z.coerce.number().int().nonnegative().default(10),
+    AUTH_PROVIDER: z.enum(['legacy', 'supertokens']).default('legacy'),
+    SUPERTOKENS_CORE_URI: z.string().url().default('http://localhost:3567'),
+    SUPERTOKENS_API_KEY: z.string().min(8).optional(),
+    SUPERTOKENS_APP_NAME: z.string().min(1).default('cdoprof'),
+    SUPERTOKENS_API_DOMAIN: z.string().url().optional(),
+    SUPERTOKENS_WEBSITE_DOMAIN: z.string().url().optional()
   })
   .superRefine((env, ctx) => {
     const devSecrets = [
