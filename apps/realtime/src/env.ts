@@ -25,7 +25,20 @@ const realtimeEnvSchema = z.object({
   BACKEND_PUBLIC_URL: z.string().url(),
   REALTIME_PUBLISH_KEY: z.string().min(10),
   /** Тот же секрет, что `AUTH_JWT_SECRET` у backend (проверка access token в SSE). */
-  AUTH_JWT_SECRET: z.string().min(10)
+  AUTH_JWT_SECRET: z.string().min(10),
+  REALTIME_STREAM_MAXLEN: z.coerce.number().int().positive().default(5000),
+  REALTIME_STREAM_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60 * 60 * 24),
+  REALTIME_STREAM_READ_BATCH: z.coerce.number().int().positive().default(200),
+  REALTIME_DIAGNOSTICS_MAX_ITEMS: z.coerce.number().int().positive().default(1000),
+  REALTIME_DIAGNOSTICS_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60 * 60 * 24 * 7)
 });
 
 export const realtimeEnv = realtimeEnvSchema.parse(process.env);
