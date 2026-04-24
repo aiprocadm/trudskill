@@ -1,26 +1,25 @@
-import { Body, Controller, Get, Headers, Module, Param, Post, Query, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Inject,
+  Module,
+  Param,
+  Post,
+  Query,
+  Res
+} from '@nestjs/common';
 import { z } from 'zod';
 
 import { verifySignedAccessToken } from './access-token.util.js';
 import { realtimeEnv } from './env.js';
-
-type RealtimeEventName =
-  | 'async_task.status_changed'
-  | 'notification.created'
-  | 'notification.read'
-  | 'chat.message.created'
-  | 'dialog.updated'
-  | 'unread.changed'
-  | 'webinar.updated';
-
-type RealtimeEventEnvelope<TPayload = unknown> = {
-  event_name: RealtimeEventName;
-  version: 'v1';
-  tenant_id: string;
-  occurred_at: string;
-  correlation_id?: string;
-  payload: TPayload;
-};
+import {
+  type RealtimeEventEnvelope,
+  type RealtimePubSub,
+  RedisRealtimeEventStore,
+  RedisStreamsRealtimePubSub
+} from './realtime-backend.js';
 
 const roomSchema = z
   .string()
@@ -34,24 +33,9 @@ function extractBearerToken(header?: string): string | undefined {
   return t || undefined;
 }
 
-class RealtimeHub {
-  private roomEvents = new Map<string, RealtimeEventEnvelope[]>();
-
-  publish(room: string, event: RealtimeEventEnvelope) {
-    const current = this.roomEvents.get(room) ?? [];
-    current.push(event);
-    this.roomEvents.set(room, current.slice(-500));
-  }
-
-  get(room: string, since?: string) {
-    const events = this.roomEvents.get(room) ?? [];
-    return since ? events.filter((item) => item.occurred_at > since) : events;
-  }
-}
-
 @Controller()
 class RealtimeController {
-  constructor(private readonly hub: RealtimeHub) {}
+  constructor(@Inject('RealtimePubSub') private readonly realtimePubSub: RealtimePubSub) {}
 
   @Get('health')
   health() {
@@ -64,19 +48,30 @@ class RealtimeController {
   }
 
   @Post('publish/:room')
-  publish(@Param('room') room: string, @Headers('x-realtime-key') key: string, @Body() body: RealtimeEventEnvelope) {
+  async publish(
+    @Param('room') room: string,
+    @Headers('x-realtime-key') key: string,
+    @Body() body: RealtimeEventEnvelope
+  ) {
     if (key !== realtimeEnv.REALTIME_PUBLISH_KEY) return { accepted: false };
-    this.hub.publish(roomSchema.parse(room), body);
+    await this.realtimePubSub.publish(roomSchema.parse(room), body);
     return { accepted: true };
   }
 
   @Get('stream/:room')
-  stream(
+  async stream(
     @Param('room') room: string,
     @Headers('authorization') auth: string | undefined,
     @Query('access_token') accessTokenQuery: string | undefined,
     @Query('since') since: string | undefined,
-    @Res() res: { status: (code: number) => { json: (body: unknown) => void }; setHeader: (name: string, value: string) => void; write: (chunk: string) => void; on: (event: 'close', listener: () => void) => void }
+    @Query('cursor') cursor: string | undefined,
+    @Res()
+    res: {
+      status: (code: number) => { json: (body: unknown) => void };
+      setHeader: (name: string, value: string) => void;
+      write: (chunk: string) => void;
+      on: (event: 'close', listener: () => void) => void;
+    }
   ) {
     const parsedRoom = roomSchema.parse(room);
     const rawToken = extractBearerToken(auth) ?? accessTokenQuery?.trim();
@@ -95,7 +90,9 @@ class RealtimeController {
         sessionId: claims.session_id
       };
     } catch {
-      res.status(401).json({ code: 'invalid_token', message: 'Access token is invalid or expired' });
+      res
+        .status(401)
+        .json({ code: 'invalid_token', message: 'Access token is invalid or expired' });
       return;
     }
 
@@ -103,15 +100,34 @@ class RealtimeController {
       res.status(403).json({ code: 'forbidden', message: 'Forbidden room access' });
       return;
     }
+
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
-    const send = () => {
-      this.hub.get(parsedRoom, since).forEach((event) => res.write(`data: ${JSON.stringify(event)}\n\n`));
-      res.write(`event: heartbeat\ndata: ${JSON.stringify({ ts: new Date().toISOString() })}\n\n`);
+
+    let currentCursor = cursor;
+    const send = async () => {
+      const events = await this.realtimePubSub.read(parsedRoom, {
+        ...(since ? { since } : {}),
+        ...(currentCursor ? { cursor: currentCursor } : {}),
+        limit: realtimeEnv.REALTIME_STREAM_READ_BATCH
+      });
+
+      for (const event of events) {
+        currentCursor = event.cursor;
+        res.write(`id: ${event.cursor}\n`);
+        res.write(`data: ${JSON.stringify(event.event)}\n\n`);
+      }
+
+      res.write(
+        `event: heartbeat\ndata: ${JSON.stringify({ ts: new Date().toISOString(), cursor: currentCursor ?? null })}\n\n`
+      );
     };
-    send();
-    const timer = setInterval(send, 5000);
+
+    await send();
+    const timer = setInterval(() => {
+      void send();
+    }, 5000);
     res.on('close', () => clearInterval(timer));
   }
 
@@ -129,7 +145,12 @@ class RealtimeController {
   }
 }
 
-
-@Module({ controllers: [RealtimeController], providers: [RealtimeHub] })
+@Module({
+  controllers: [RealtimeController],
+  providers: [
+    RedisRealtimeEventStore,
+    RedisStreamsRealtimePubSub,
+    { provide: 'RealtimePubSub', useExisting: RedisStreamsRealtimePubSub }
+  ]
+})
 export class AppModule {}
-
