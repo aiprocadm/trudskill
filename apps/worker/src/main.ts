@@ -17,11 +17,6 @@ interface WorkerEnvelope {
   payload: Record<string, unknown>;
 }
 
-const log = (
-  level: 'info' | 'warn' | 'error',
-  message: string,
-  context: Record<string, unknown>
-) => {
 const REDACTED = '[REDACTED]';
 const SENSITIVE_KEY_PATTERNS = [
   /password/i,
@@ -35,6 +30,7 @@ const SENSITIVE_KEY_PATTERNS = [
 ];
 
 const isSensitiveKey = (key: string) => SENSITIVE_KEY_PATTERNS.some((pattern) => pattern.test(key));
+
 const redactValue = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.map((item) => redactValue(item));
   if (value && typeof value === 'object') {
@@ -48,7 +44,11 @@ const redactValue = (value: unknown): unknown => {
   return value;
 };
 
-const log = (level: 'info' | 'error', message: string, context: Record<string, unknown>) => {
+const log = (
+  level: 'info' | 'warn' | 'error',
+  message: string,
+  context: Record<string, unknown>
+) => {
   process.stdout.write(
     `${JSON.stringify(
       redactValue({
