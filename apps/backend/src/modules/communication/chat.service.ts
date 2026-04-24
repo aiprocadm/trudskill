@@ -1,11 +1,12 @@
 import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 
-import { CHAT_STATE } from './chat-state.token.js';
 import {
-  type ChatDialogRow,
-  type ChatMessageRow,
-  InMemoryChatState
-} from './in-memory-chat.state.js';
+  CHAT_REPOSITORY,
+  type ChatDialogsQuery,
+  type ChatMessagesQuery,
+  type ChatRepository
+} from './chat.repository.js';
+import { type ChatDialogRow, type ChatMessageRow } from './in-memory-chat.state.js';
 import { NotificationsService } from './notifications.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
@@ -14,23 +15,16 @@ const CHAT_MESSAGE_CREATED_EVENT = 'chat.message.created';
 @Injectable()
 export class ChatService {
   constructor(
-    @Inject(CHAT_STATE) private readonly state: InMemoryChatState,
+    @Inject(CHAT_REPOSITORY) private readonly repository: ChatRepository,
     @Inject(RealtimeEventsService) private readonly realtime: RealtimeEventsService,
     @Inject(NotificationsService) private readonly notifications: NotificationsService
   ) {}
 
-  listDialogs(tenantId: string, userId?: string) {
-    const permitted = new Set(
-      this.state.participants
-        .filter((p) => p.tenantId === tenantId && p.userId === userId)
-        .map((p) => p.dialogId)
-    );
-    return this.state.dialogs.filter(
-      (dialog) => dialog.tenantId === tenantId && permitted.has(dialog.id)
-    );
+  async listDialogs(tenantId: string, userId: string | undefined, query: ChatDialogsQuery) {
+    return this.repository.listDialogs(tenantId, userId, query);
   }
 
-  createDialog(
+  async createDialog(
     tenantId: string,
     creatorUserId: string,
     body: {
@@ -53,34 +47,37 @@ export class ChatService {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    this.state.dialogs.push(dialog);
     const uniqueParticipants = [...new Set([...body.participantUserIds, creatorUserId])];
-    uniqueParticipants.forEach((userId) =>
-      this.state.participants.push({
+    await this.repository.createDialog(
+      dialog,
+      uniqueParticipants.map((userId) => ({
         dialogId: dialog.id,
         tenantId,
         userId,
         role: userId === creatorUserId ? 'owner' : 'member',
         unreadCount: 0
-      })
+      }))
     );
     return dialog;
   }
 
-  getDialog(tenantId: string, dialogId: string, userId?: string) {
-    this.assertDialogAccess(tenantId, dialogId, userId);
-    return this.state.dialogs.find((item) => item.id === dialogId)!;
+  async getDialog(tenantId: string, dialogId: string, userId?: string) {
+    await this.assertDialogAccess(tenantId, dialogId, userId);
+    return this.repository.getDialog(tenantId, dialogId);
   }
 
-  listMessages(tenantId: string, dialogId: string, userId?: string) {
-    this.assertDialogAccess(tenantId, dialogId, userId);
-    return this.state.messages.filter(
-      (message) => message.tenantId === tenantId && message.dialogId === dialogId
-    );
+  async listMessages(
+    tenantId: string,
+    dialogId: string,
+    userId: string | undefined,
+    query: ChatMessagesQuery
+  ) {
+    await this.assertDialogAccess(tenantId, dialogId, userId);
+    return this.repository.listMessages(tenantId, dialogId, query);
   }
 
-  postMessage(tenantId: string, dialogId: string, senderUserId: string, textBody: string) {
-    this.assertDialogAccess(tenantId, dialogId, senderUserId);
+  async postMessage(tenantId: string, dialogId: string, senderUserId: string, textBody: string) {
+    await this.assertDialogAccess(tenantId, dialogId, senderUserId);
     const message: ChatMessageRow = {
       id: this.id('msg'),
       dialogId,
@@ -90,24 +87,23 @@ export class ChatService {
       textBody,
       sentAt: new Date().toISOString()
     };
-    this.state.messages.push(message);
-    this.state.participants
-      .filter(
-        (item) =>
-          item.tenantId === tenantId && item.dialogId === dialogId && item.userId !== senderUserId
-      )
-      .forEach((item) => {
-        item.unreadCount += 1;
-        void this.notifications.create({
-          tenantId,
-          recipientUserId: item.userId,
-          channelCode: 'in_app',
-          subjectText: 'Новое сообщение',
-          bodyText: textBody.slice(0, 80),
-          relatedEntityType: 'chat_dialog',
-          relatedEntityId: dialogId
-        });
+    await this.repository.createMessage(message);
+    const recipientUserIds = await this.repository.incrementUnreadForOtherParticipants(
+      tenantId,
+      dialogId,
+      senderUserId
+    );
+    recipientUserIds.forEach((userId) => {
+      void this.notifications.create({
+        tenantId,
+        recipientUserId: userId,
+        channelCode: 'in_app',
+        subjectText: 'Новое сообщение',
+        bodyText: textBody.slice(0, 80),
+        relatedEntityType: 'chat_dialog',
+        relatedEntityId: dialogId
       });
+    });
     this.realtime.publish({
       event_name: CHAT_MESSAGE_CREATED_EVENT,
       version: 'v1',
@@ -123,23 +119,16 @@ export class ChatService {
     return message;
   }
 
-  markRead(tenantId: string, dialogId: string, userId: string) {
-    this.assertDialogAccess(tenantId, dialogId, userId);
-    const participant = this.state.participants.find(
-      (item) => item.dialogId === dialogId && item.userId === userId && item.tenantId === tenantId
-    )!;
-    participant.unreadCount = 0;
+  async markRead(tenantId: string, dialogId: string, userId: string) {
+    await this.assertDialogAccess(tenantId, dialogId, userId);
+    await this.repository.resetUnreadCount(tenantId, dialogId, userId);
     return { updated: true };
   }
 
-  private assertDialogAccess(tenantId: string, dialogId: string, userId?: string) {
-    const dialog = this.state.dialogs.find(
-      (item) => item.id === dialogId && item.tenantId === tenantId
-    );
+  private async assertDialogAccess(tenantId: string, dialogId: string, userId?: string) {
+    const dialog = await this.repository.getDialog(tenantId, dialogId);
     if (!dialog) throw new NotFoundException('Dialog not found');
-    const participant = this.state.participants.find(
-      (item) => item.dialogId === dialogId && item.userId === userId && item.tenantId === tenantId
-    );
+    const participant = await this.repository.isParticipant(tenantId, dialogId, userId);
     if (!participant) throw new ForbiddenException('Dialog access denied');
   }
 

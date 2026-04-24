@@ -24,28 +24,30 @@ describe('Communication foundations', () => {
     expect(await notifications.unreadCounter('t1', 'u2')).toBe(0);
   });
 
-  it('enforces chat access by participant', () => {
+  it('enforces chat access by participant', async () => {
     const realtime = new RealtimeEventsService();
     const notifications = new NotificationsService(new InMemoryNotificationsState(), realtime);
     const chat = new ChatService(new InMemoryChatState(), realtime, notifications);
-    const dialog = chat.createDialog('t1', 'u1', {
+    const dialog = await chat.createDialog('t1', 'u1', {
       type: 'support',
       participantUserIds: ['u1', 'u2']
     });
-    expect(chat.listDialogs('t1', 'u3')).toHaveLength(0);
-    const message = chat.postMessage('t1', dialog.id, 'u1', 'hello');
+    const dialogs = await chat.listDialogs('t1', 'u3', {});
+    expect(dialogs.items).toHaveLength(0);
+    const message = await chat.postMessage('t1', dialog.id, 'u1', 'hello');
     expect(message.textBody).toBe('hello');
   });
 
-  it('supports webinar CRUD foundation', () => {
+  it('supports webinar CRUD foundation', async () => {
     const webinars = new WebinarsService(new InMemoryWebinarsState(), new RealtimeEventsService());
-    const webinar = webinars.create('t1', 'u1', {
+    const webinar = await webinars.create('t1', 'u1', {
       title: 'W1',
       status: 'planned',
       plannedStartAt: new Date().toISOString(),
       plannedEndAt: new Date(Date.now() + 3600_000).toISOString()
     });
-    webinars.patch('t1', webinar.id, { status: 'live' });
-    expect(webinars.get('t1', webinar.id).status).toBe('live');
+    await webinars.patch('t1', webinar.id, { status: 'live' });
+    const saved = await webinars.get('t1', webinar.id);
+    expect(saved.status).toBe('live');
   });
 });

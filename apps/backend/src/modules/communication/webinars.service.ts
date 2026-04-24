@@ -1,11 +1,12 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
+import { type WebinarParticipantRow, type WebinarRow } from './in-memory-webinars.state.js';
 import {
-  InMemoryWebinarsState,
-  type WebinarParticipantRow,
-  type WebinarRow
-} from './in-memory-webinars.state.js';
-import { WEBINARS_STATE } from './webinars-state.token.js';
+  WEBINARS_REPOSITORY,
+  type WebinarParticipantsQuery,
+  type WebinarsQuery,
+  type WebinarsRepository
+} from './webinars.repository.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
 const WEBINAR_UPDATED_EVENT = 'webinar.updated';
@@ -13,14 +14,14 @@ const WEBINAR_UPDATED_EVENT = 'webinar.updated';
 @Injectable()
 export class WebinarsService {
   constructor(
-    @Inject(WEBINARS_STATE) private readonly state: InMemoryWebinarsState,
+    @Inject(WEBINARS_REPOSITORY) private readonly repository: WebinarsRepository,
     @Inject(RealtimeEventsService) private readonly realtime: RealtimeEventsService
   ) {}
 
-  list(tenantId: string) {
-    return this.state.webinars.filter((item) => item.tenantId === tenantId);
+  async list(tenantId: string, query: WebinarsQuery) {
+    return this.repository.list(tenantId, query);
   }
-  create(
+  async create(
     tenantId: string,
     createdBy: string,
     body: Omit<WebinarRow, 'id' | 'tenantId' | 'createdAt' | 'updatedAt' | 'createdBy'>
@@ -33,17 +34,22 @@ export class WebinarsService {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    this.state.webinars.push(webinar);
+    await this.repository.create(webinar);
     return webinar;
   }
-  get(tenantId: string, id: string) {
-    const row = this.state.webinars.find((item) => item.id === id && item.tenantId === tenantId);
+  async get(tenantId: string, id: string) {
+    const row = await this.repository.get(tenantId, id);
     if (!row) throw new NotFoundException('Webinar not found');
     return row;
   }
-  patch(tenantId: string, id: string, body: Partial<WebinarRow>) {
-    const row = this.get(tenantId, id);
-    Object.assign(row, body, { updatedAt: new Date().toISOString() });
+  async patch(tenantId: string, id: string, body: Partial<WebinarRow>) {
+    const current = await this.get(tenantId, id);
+    const row = await this.repository.patch(tenantId, id, {
+      ...current,
+      ...body,
+      updatedAt: new Date().toISOString()
+    });
+    if (!row) throw new NotFoundException('Webinar not found');
     this.realtime.publish({
       event_name: WEBINAR_UPDATED_EVENT,
       version: 'v1',
@@ -53,20 +59,18 @@ export class WebinarsService {
     });
     return row;
   }
-  listParticipants(tenantId: string, webinarId: string) {
-    this.get(tenantId, webinarId);
-    return this.state.participants.filter(
-      (item) => item.tenantId === tenantId && item.webinarId === webinarId
-    );
+  async listParticipants(tenantId: string, webinarId: string, query: WebinarParticipantsQuery) {
+    await this.get(tenantId, webinarId);
+    return this.repository.listParticipants(tenantId, webinarId, query);
   }
-  addParticipant(
+  async addParticipant(
     tenantId: string,
     webinarId: string,
     body: Omit<WebinarParticipantRow, 'tenantId' | 'webinarId'>
   ) {
-    this.get(tenantId, webinarId);
+    await this.get(tenantId, webinarId);
     const row: WebinarParticipantRow = { ...body, tenantId, webinarId };
-    this.state.participants.push(row);
+    await this.repository.addParticipant(row);
     return row;
   }
   private id(prefix: string) {
