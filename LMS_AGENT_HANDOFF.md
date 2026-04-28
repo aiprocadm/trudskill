@@ -12,9 +12,19 @@ LMS/СДО монорепозиторий на `pnpm` workspace + Turborepo.
 
 ## Current goal / Текущая цель
 
-Зафиксировать результаты целевой IAM/role-access regression итерации (frontend smoke + backend IAM) и передать следующий приоритет.
+Зафиксировать результаты consolidated IAM/role-access regression итерации (frontend + backend IAM + backend HTTP integration) и передать следующий приоритет.
 
 ## Completed / Уже сделано
+
+- [x] Выполнен consolidated regression-run: frontend role-access smoke + backend IAM + backend HTTP integration
+  - Изменённые файлы:
+    - `README.md`
+    - `LMS_AGENT_HANDOFF.md`
+  - Что изменено:
+    - прогнан объединённый набор `auth-routing`/`role-access`/`lms-role-flows` + `permission.guard`/`auth.security` + HTTP integration `workspace`/`documents`;
+    - зафиксирован обновлённый статус и следующий шаг в README/handoff.
+  - Проверки:
+    - `pnpm exec vitest run apps/frontend/src/e2e/lms-role-flows.e2e.test.ts apps/frontend/src/e2e/role-access.e2e.test.ts apps/frontend/src/e2e/auth-routing.e2e.test.ts apps/backend/src/modules/iam/permission.guard.test.ts apps/backend/src/modules/iam/auth.security.test.ts apps/backend/src/modules/workspace/workspace.http.integration.test.ts apps/backend/src/modules/documents/documents.http.integration.test.ts` — success (7 files, 23 tests).
 
 - [x] Закрыт migration-chain блокер в `mvp-domain-migrations.test.ts` и подтверждён полностью зелёный `pnpm test:backend`
   - Изменённые файлы:
@@ -77,17 +87,17 @@ LMS/СДО монорепозиторий на `pnpm` workspace + Turborepo.
 
 ## In progress / В процессе
 
-- [ ] Следующая итерация IAM/role-access regression (backend + frontend smoke)
+- [ ] Следующая итерация permission-boundary regression hardening
   - Что уже сделано:
-    - определён и прогнан целевой scope: frontend role-access/auth smoke + backend IAM security/permission tests (все зелёные).
+    - собран и подтверждён consolidated regression-набор по текущему приоритету (frontend + backend IAM + backend HTTP integration).
   - Что осталось:
-    - расширить пакет до HTTP integration сценариев (`workspace/documents`) и зафиксировать consolidated regression-run.
+    - приоритизировать и добавить следующие HTTP сценарии, если потребуется расширить покрытие permission boundaries.
 
 ## Next tasks / Что делать дальше
 
-- [ ] Добавить к текущему IAM/role-access smoke-прогону backend HTTP integration тесты (`workspace`, `documents`) для полного permission-boundary среза.
+- [ ] Определить следующий целевой список backend HTTP integration сценариев для расширения permission-boundary regression.
 - [ ] При необходимости точечно исправить найденные дефекты в permission boundaries без изменения public API.
-- [ ] Обновить README/hand-off после consolidated regression-run (frontend + backend IAM + backend HTTP integration).
+- [ ] После следующего прогона синхронизировать README/handoff с новыми результатами и рисками.
 
 ## Important decisions / Важные решения
 
@@ -112,6 +122,8 @@ LMS/СДО монорепозиторий на `pnpm` workspace + Turborepo.
 
 ## Changed files / Изменённые файлы
 
+- `README.md` — обновлён `AI Agent State` и `Test Status` под consolidated regression-run (7 files / 23 tests).
+- `LMS_AGENT_HANDOFF.md` — зафиксирован результат consolidated regression-run и обновлён следующий приоритет.
 - `apps/backend/src/infrastructure/database/mvp-domain-migrations.test.ts` — обновлены ожидания baseline и duplicate-prefix проверки.
 - `README.md` — синхронизирован блок `AI Agent State` под текущий статус.
 - `LMS_AGENT_HANDOFF.md` — зафиксирован результат итерации и новые next steps.
@@ -160,9 +172,12 @@ LMS/СДО монорепозиторий на `pnpm` workspace + Turborepo.
 - `pnpm exec vitest run apps/frontend/src/e2e/lms-role-flows.e2e.test.ts apps/frontend/src/e2e/role-access.e2e.test.ts apps/frontend/src/e2e/auth-routing.e2e.test.ts apps/backend/src/modules/iam/permission.guard.test.ts apps/backend/src/modules/iam/auth.security.test.ts`
   - Result: success
   - Notes: 5 files, 16 tests passed (frontend role-access smoke + backend IAM).
+- `pnpm exec vitest run apps/frontend/src/e2e/lms-role-flows.e2e.test.ts apps/frontend/src/e2e/role-access.e2e.test.ts apps/frontend/src/e2e/auth-routing.e2e.test.ts apps/backend/src/modules/iam/permission.guard.test.ts apps/backend/src/modules/iam/auth.security.test.ts apps/backend/src/modules/workspace/workspace.http.integration.test.ts apps/backend/src/modules/documents/documents.http.integration.test.ts`
+  - Result: success
+  - Notes: 7 files, 23 tests passed (consolidated frontend+backend IAM+backend HTTP integration).
 
 ## How to continue / Как продолжить
 
-1. Добрать backend HTTP integration (`workspace`/`documents`) к текущему smoke-набору IAM/role-access.
-2. Если появятся регрессии — исправлять точечно на уровне guard/policy без расширения scope.
-3. После consolidated run синхронизировать README и handoff с финальным статусом.
+1. Сформировать следующий расширенный permission-boundary scope (какие backend HTTP сценарии добираем после `workspace/documents`).
+2. Прогнать выбранный набор вместе с текущим consolidated smoke/regression baseline.
+3. При регрессиях — вносить точечные изменения без изменения public API, затем снова синхронизировать README и handoff.

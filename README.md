@@ -63,19 +63,19 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 ### Current Goal
 
-Зафиксировать результаты целевой IAM/role-access regression итерации и подготовить следующий consolidated прогон (frontend + backend IAM + backend HTTP integration).
+Зафиксировать результаты consolidated IAM/role-access regression-прогона (frontend + backend IAM + backend HTTP integration) и передать следующий приоритет.
 
 ### Last Completed Task
 
-Прогнан целевой IAM/role-access smoke-набор: frontend (`auth-routing`, `role-access`, `lms-role-flows`) + backend IAM (`permission.guard`, `auth.security`) — все тесты зелёные (5 files, 16 tests).
+Прогнан consolidated regression-набор: frontend (`auth-routing`, `role-access`, `lms-role-flows`) + backend IAM (`permission.guard`, `auth.security`) + backend HTTP integration (`workspace`, `documents`) — все тесты зелёные (7 files, 23 tests).
 
 ### Current Task
 
-Расширить текущий role-access smoke до consolidated regression-run с backend HTTP integration (`workspace`/`documents`).
+Обновить и синхронизировать документацию состояния (README + handoff) после успешного consolidated regression-run.
 
 ### Next Task
 
-Прогнать объединённый набор frontend role-access + backend IAM + backend HTTP integration и зафиксировать финальный статус/риски в README и handoff.
+Подготовить следующую итерацию: расширить permission-boundary regression до дополнительных backend HTTP сценариев по мере приоритизации (без изменения public API).
 
 ### Do Not Touch
 
@@ -100,7 +100,7 @@ AI Agent
 
 ### Last Updated At
 
-2026-04-28 19:52 UTC
+2026-04-28 20:00 UTC
 
 ## 3. Current Project Status
 
@@ -162,9 +162,9 @@ AI Agent
 
 ### Статус текущей итерации
 
-- Запущен целевой regression smoke для IAM/role-access:
-  - `pnpm exec vitest run apps/frontend/src/e2e/lms-role-flows.e2e.test.ts apps/frontend/src/e2e/role-access.e2e.test.ts apps/frontend/src/e2e/auth-routing.e2e.test.ts apps/backend/src/modules/iam/permission.guard.test.ts apps/backend/src/modules/iam/auth.security.test.ts`
-  - Результат: success, 5 files / 16 tests passed.
+- Запущен consolidated regression для IAM/role-access + permission-boundary HTTP integration:
+  - `pnpm exec vitest run apps/frontend/src/e2e/lms-role-flows.e2e.test.ts apps/frontend/src/e2e/role-access.e2e.test.ts apps/frontend/src/e2e/auth-routing.e2e.test.ts apps/backend/src/modules/iam/permission.guard.test.ts apps/backend/src/modules/iam/auth.security.test.ts apps/backend/src/modules/workspace/workspace.http.integration.test.ts apps/backend/src/modules/documents/documents.http.integration.test.ts`
+  - Результат: success, 7 files / 23 tests passed.
 
 ## 7. Known Issues / Open Errors
 
