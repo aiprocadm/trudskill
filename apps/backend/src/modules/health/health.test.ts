@@ -120,48 +120,104 @@ describe('health controller', () => {
     expect(controller.startup()).toEqual({ status: 'ok', started: true });
   });
 
-  it('reports degraded when non-critical infra is unavailable', async () => {
+  it('reports degraded when redis is unavailable but critical dependencies are healthy', async () => {
     vi.spyOn(DatabaseService.prototype, 'ping').mockResolvedValue(true);
+    vi.spyOn(DatabaseService.prototype, 'getMigrationReadiness').mockResolvedValue({
+      healthy: true,
+      appliedCount: 3,
+      pendingCount: 0,
+      pending: []
+    });
+    vi.spyOn(DatabaseService.prototype, 'getQueueReadiness').mockResolvedValue({
+      connected: true,
+      backlog: 0,
+      lagSeconds: 0,
+      backlogThreshold: 100,
+      lagThresholdSeconds: 30,
+      healthy: true
+    });
+    vi.spyOn(DatabaseService.prototype, 'getOutboxReadiness').mockResolvedValue({
+      backlog: 0,
+      backlogThreshold: 50,
+      healthy: true
+    });
     vi.spyOn(RedisService.prototype, 'ping').mockResolvedValue(false);
-    vi.spyOn(RabbitMqService.prototype, 'ping').mockResolvedValue(false);
+    vi.spyOn(RabbitMqService.prototype, 'ping').mockResolvedValue(true);
     vi.spyOn(S3StorageClient.prototype, 'ping').mockResolvedValue({
       provider: 's3-compatible',
-      healthy: false
+      healthy: true
+    });
+    vi.spyOn(SecretsService.prototype, 'getRotationPolicy').mockReturnValue({
+      provider: 'env',
+      maxAgeDays: 30,
+      keyRefs: { authJwt: 'auth.jwt', session: 'session.cookie' }
     });
 
     const controller = new HealthController(
       new DatabaseService(),
       new RedisService(),
       new RabbitMqService(),
-      new S3StorageClient()
+      new S3StorageClient(),
+      new SecretsService()
     );
 
     const ready = await controller.ready();
     expect(ready.status).toBe('degraded');
-    expect(ready.checks.database).toBe(true);
-    expect(ready.checks.rabbitmq).toBe(false);
-    expect(ready.checks.storage.healthy).toBe(false);
+    expect(ready.checks.database.connected).toBe(true);
+    expect(ready.checks.queue.connected).toBe(true);
+    expect(ready.checks.storage.healthy).toBe(true);
+    expect(ready.checks.redis).toBe(false);
   });
 
   it('fails readiness when database is unavailable', async () => {
     vi.spyOn(DatabaseService.prototype, 'ping').mockResolvedValue(false);
+    vi.spyOn(DatabaseService.prototype, 'getMigrationReadiness').mockResolvedValue({
+      healthy: true,
+      appliedCount: 3,
+      pendingCount: 0,
+      pending: []
+    });
+    vi.spyOn(DatabaseService.prototype, 'getQueueReadiness').mockResolvedValue({
+      connected: true,
+      backlog: 0,
+      lagSeconds: 0,
+      backlogThreshold: 100,
+      lagThresholdSeconds: 30,
+      healthy: true
+    });
+    vi.spyOn(DatabaseService.prototype, 'getOutboxReadiness').mockResolvedValue({
+      backlog: 0,
+      backlogThreshold: 50,
+      healthy: true
+    });
     vi.spyOn(RedisService.prototype, 'ping').mockResolvedValue(true);
     vi.spyOn(RabbitMqService.prototype, 'ping').mockResolvedValue(true);
     vi.spyOn(S3StorageClient.prototype, 'ping').mockResolvedValue({
       provider: 's3-compatible',
       healthy: true
     });
+    vi.spyOn(SecretsService.prototype, 'getRotationPolicy').mockReturnValue({
+      provider: 'env',
+      maxAgeDays: 30,
+      keyRefs: { authJwt: 'auth.jwt', session: 'session.cookie' }
+    });
 
     const controller = new HealthController(
       new DatabaseService(),
       new RedisService(),
       new RabbitMqService(),
-      new S3StorageClient()
+      new S3StorageClient(),
+      new SecretsService()
     );
 
     await expect(controller.ready()).rejects.toMatchObject({
       response: {
-        code: 'db_unavailable'
+        code: 'readiness_failed',
+        checks: {
+          database: {
+            connected: false
+          }
+        }
       }
     });
   });
