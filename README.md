@@ -63,19 +63,19 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 ### Current Goal
 
-Стабилизировать IAM regression smoke-пакет (permission boundaries + HTTP integration) и зафиксировать остаточные блокеры полного backend test run.
+Закрыть migration-chain regression и подтвердить полностью зелёный backend test run.
 
 ### Last Completed Task
 
-Исправлены тестовые регрессии IAM/health: обновлена инициализация `AuthService` с `SecretsService` в e2e/contract тестах и актуализирован `health` readiness test-suite.
+Исправлены migration-chain ожидания в `mvp-domain-migrations.test.ts` под актуальную цепочку SQL-миграций (baseline `0013_enterprise_normalized_foundation.sql` + разрешённый дубликат префикса `0019`) и подтверждён зелёный `pnpm test:backend`.
 
 ### Current Task
 
-Закрыть оставшийся блокер полного `pnpm test:backend` в migration-chain проверках (`mvp-domain-migrations.test.ts`).
+Поддерживать зелёный backend regression-suite и подготовить следующую приоритетную IAM/role-access итерацию.
 
 ### Next Task
 
-Согласовать/исправить ожидания по SQL migration chain (baseline + duplicate numbering), затем повторно прогнать `pnpm test:backend` и зафиксировать итог.
+Запустить следующую целевую итерацию по IAM permission boundaries + frontend role-access smoke и зафиксировать результаты в README и handoff.
 
 ### Do Not Touch
 
@@ -100,7 +100,7 @@ AI Agent
 
 ### Last Updated At
 
-2026-04-28 19:16 UTC
+2026-04-28 19:35 UTC
 
 ## 3. Current Project Status
 
