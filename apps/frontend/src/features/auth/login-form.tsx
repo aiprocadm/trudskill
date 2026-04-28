@@ -12,6 +12,19 @@ import {
 } from '../../components/form-feedback';
 import { ApiClientError } from '../../lib/api/client';
 
+export const resolveSafeNextPath = (next: string | null): string => {
+  if (!next) {
+    return '/';
+  }
+
+  const trimmed = next.trim();
+  if (!trimmed.startsWith('/') || trimmed.startsWith('//')) {
+    return '/';
+  }
+
+  return trimmed;
+};
+
 export const LoginForm = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -51,7 +64,7 @@ export const LoginForm = () => {
 
     try {
       await login(loginValue, password);
-      router.replace(searchParams.get('next') ?? '/');
+      router.replace(resolveSafeNextPath(searchParams.get('next')));
     } catch (submitError) {
       setError(
         submitError instanceof ApiClientError
