@@ -63,19 +63,19 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 ### Current Goal
 
-Зафиксировать результаты consolidated IAM/role-access regression-прогона (frontend + backend IAM + backend HTTP integration) и передать следующий приоритет.
+Расширить backend HTTP permission-boundary regression дополнительными сценариями `session_inactive` и зафиксировать результаты.
 
 ### Last Completed Task
 
-Прогнан consolidated regression-набор: frontend (`auth-routing`, `role-access`, `lms-role-flows`) + backend IAM (`permission.guard`, `auth.security`) + backend HTTP integration (`workspace`, `documents`) — все тесты зелёные (7 files, 23 tests).
+Добавлены `session_inactive` HTTP integration сценарии для `workspace` и `documents`; целевой прогон `vitest` зелёный (2 files, 9 tests).
 
 ### Current Task
 
-Обновить и синхронизировать документацию состояния (README + handoff) после успешного consolidated regression-run.
+Синхронизировать handoff/README после расширения permission-boundary regression.
 
 ### Next Task
 
-Подготовить следующую итерацию: расширить permission-boundary regression до дополнительных backend HTTP сценариев по мере приоритизации (без изменения public API).
+Определить следующий приоритетный backend HTTP scope (например, auth/session edge-cases для новых модулей) и добавить точечные integration-тесты без изменения public API.
 
 ### Do Not Touch
 

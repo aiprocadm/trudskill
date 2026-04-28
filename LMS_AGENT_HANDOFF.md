@@ -12,9 +12,22 @@ LMS/СДО монорепозиторий на `pnpm` workspace + Turborepo.
 
 ## Current goal / Текущая цель
 
-Зафиксировать результаты consolidated IAM/role-access regression итерации (frontend + backend IAM + backend HTTP integration) и передать следующий приоритет.
+Расширить permission-boundary HTTP regression сценариями `session_inactive` для существующих integration suites и зафиксировать результаты.
 
 ## Completed / Уже сделано
+
+- [x] Расширен backend HTTP permission-boundary regression сценариями `session_inactive`
+  - Изменённые файлы:
+    - `apps/backend/src/modules/workspace/workspace.http.integration.test.ts`
+    - `apps/backend/src/modules/documents/documents.http.integration.test.ts`
+    - `README.md`
+    - `LMS_AGENT_HANDOFF.md`
+  - Что изменено:
+    - в `workspace` добавлен HTTP integration кейс revoked session => `session_inactive`;
+    - в `documents` добавлен HTTP integration кейс revoked session => `session_inactive`;
+    - синхронизирован статус текущей итерации в README/handoff.
+  - Проверки:
+    - `pnpm exec vitest run apps/backend/src/modules/workspace/workspace.http.integration.test.ts apps/backend/src/modules/documents/documents.http.integration.test.ts` — success (2 files, 9 tests).
 
 - [x] Выполнен consolidated regression-run: frontend role-access smoke + backend IAM + backend HTTP integration
   - Изменённые файлы:
@@ -89,13 +102,14 @@ LMS/СДО монорепозиторий на `pnpm` workspace + Turborepo.
 
 - [ ] Следующая итерация permission-boundary regression hardening
   - Что уже сделано:
-    - собран и подтверждён consolidated regression-набор по текущему приоритету (frontend + backend IAM + backend HTTP integration).
+    - добавлены `session_inactive` сценарии в текущие backend HTTP integration suites (`workspace`, `documents`);
+    - подтверждён локальный целевой прогон по backend HTTP permission boundaries.
   - Что осталось:
-    - приоритизировать и добавить следующие HTTP сценарии, если потребуется расширить покрытие permission boundaries.
+    - определить следующий модуль/endpoint для новых backend HTTP integration сценариев и расширить покрытие permission boundaries.
 
 ## Next tasks / Что делать дальше
 
-- [ ] Определить следующий целевой список backend HTTP integration сценариев для расширения permission-boundary regression.
+- [ ] Определить следующий целевой список backend HTTP integration сценариев для расширения permission-boundary regression (кроме уже покрытых `workspace/documents/session_inactive`).
 - [ ] При необходимости точечно исправить найденные дефекты в permission boundaries без изменения public API.
 - [ ] После следующего прогона синхронизировать README/handoff с новыми результатами и рисками.
 
@@ -122,6 +136,10 @@ LMS/СДО монорепозиторий на `pnpm` workspace + Turborepo.
 
 ## Changed files / Изменённые файлы
 
+- `apps/backend/src/modules/workspace/workspace.http.integration.test.ts` — добавлен HTTP integration тест revoked session => `session_inactive`.
+- `apps/backend/src/modules/documents/documents.http.integration.test.ts` — добавлен HTTP integration тест revoked session => `session_inactive`.
+- `README.md` — обновлён `AI Agent State` под текущую regression-итерацию.
+- `LMS_AGENT_HANDOFF.md` — зафиксированы результаты итерации и следующий приоритет.
 - `README.md` — обновлён `AI Agent State` и `Test Status` под consolidated regression-run (7 files / 23 tests).
 - `LMS_AGENT_HANDOFF.md` — зафиксирован результат consolidated regression-run и обновлён следующий приоритет.
 - `apps/backend/src/infrastructure/database/mvp-domain-migrations.test.ts` — обновлены ожидания baseline и duplicate-prefix проверки.
@@ -175,9 +193,12 @@ LMS/СДО монорепозиторий на `pnpm` workspace + Turborepo.
 - `pnpm exec vitest run apps/frontend/src/e2e/lms-role-flows.e2e.test.ts apps/frontend/src/e2e/role-access.e2e.test.ts apps/frontend/src/e2e/auth-routing.e2e.test.ts apps/backend/src/modules/iam/permission.guard.test.ts apps/backend/src/modules/iam/auth.security.test.ts apps/backend/src/modules/workspace/workspace.http.integration.test.ts apps/backend/src/modules/documents/documents.http.integration.test.ts`
   - Result: success
   - Notes: 7 files, 23 tests passed (consolidated frontend+backend IAM+backend HTTP integration).
+- `pnpm exec vitest run apps/backend/src/modules/workspace/workspace.http.integration.test.ts apps/backend/src/modules/documents/documents.http.integration.test.ts`
+  - Result: success
+  - Notes: 2 files, 9 tests passed (добавлены `session_inactive` permission-boundary сценарии).
 
 ## How to continue / Как продолжить
 
 1. Сформировать следующий расширенный permission-boundary scope (какие backend HTTP сценарии добираем после `workspace/documents`).
-2. Прогнать выбранный набор вместе с текущим consolidated smoke/regression baseline.
+2. Прогнать выбранный набор вместе с текущим baseline (`workspace/documents`, включая `session_inactive`) и при необходимости расширенным IAM/frontend smoke.
 3. При регрессиях — вносить точечные изменения без изменения public API, затем снова синхронизировать README и handoff.

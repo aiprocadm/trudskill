@@ -218,6 +218,35 @@ describe('Workspace HTTP integration', () => {
     expect(payload.meta.requestId).toBeTruthy();
   });
 
+  it('returns session_inactive envelope when session is revoked', async () => {
+    authServiceMock.isSessionActive.mockResolvedValueOnce(false);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_tenant_admin',
+        tenant_id: 'tenant_demo',
+        session_id: 's_revoked',
+        roles: ['tenant_admin']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/workspace/summary`, {
+      headers: {
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      }
+    });
+
+    expect(response.status).toBe(403);
+    const payload = (await response.json()) as {
+      error: { code: string; message: string };
+      meta: { requestId: string };
+    };
+    expect(payload.error.code).toBe('session_inactive');
+    expect(payload.meta.requestId).toBeTruthy();
+  });
+
   it('returns success envelope with workspace data for allowed user', async () => {
     iamServiceMock.resolvePermissions.mockResolvedValueOnce(['tenant.read']);
     const token = issueSignedAccessToken(
