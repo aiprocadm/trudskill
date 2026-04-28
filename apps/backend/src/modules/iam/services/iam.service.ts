@@ -287,6 +287,10 @@ export class IamService {
     );
 
     const row = rows[0];
+    if (!row) {
+      throw new Error('Failed to upsert SuperTokens user bridge record');
+    }
+
     return {
       id: row.id,
       tenantId: row.tenant_id,

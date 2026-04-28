@@ -1,218 +1,250 @@
 # LMS Agent Handoff
 
-## Project overview / Обзор проекта
+## 1. Current Date / Session
 
-LMS/СДО монорепозиторий на `pnpm` workspace + Turborepo.
+- Date: 2026-04-28 (UTC)
+- Agent: GPT-5.3-Codex
+- Repository: `/workspace/cdoprof-`
+- Branch, if known: `work`
+- Commit hash before work, if available: `9db24527350576e2ad11fa3c82e1700670f9bbc4`
+- Commit hash after work, if available: see current `git rev-parse HEAD` on this branch (final commit created in this session).
 
-- Frontend: Next.js/TypeScript (`apps/frontend`).
-- Backend: NestJS/TypeScript (`apps/backend`).
-- Контракты/типы: `packages/api-contracts`, `packages/shared-types`.
-- Миграции: `apps/backend/migrations`.
-- Документация и регламенты: `docs`, root `README.md`.
+## 2. Project Overview
 
-## Current goal / Текущая цель
+CDOProf — LMS/СДО monorepo с multi-service архитектурой.
 
-Расширять backend permission-boundary HTTP/e2e regression сценариями `session_inactive` за пределами уже покрытых `workspace/documents`.
+- Назначение LMS: управление обучением, пользователями/ролями, курсами и операционными доменами (documents, e-sign, integrations, communication).
+- Общий стек: TypeScript monorepo на `pnpm` + `turbo`.
+- Frontend: Next.js (`apps/frontend`).
+- Backend: NestJS (`apps/backend`).
+- Database: PostgreSQL (SQL migration chain в `apps/backend/migrations`).
+- Auth: IAM модуль (login/logout/refresh, role/permission checks, session handling).
+- Deployment / docker: `infra/docker-compose.yml` + Dockerfiles сервисов.
+- Test setup: Vitest (workspace projects, unit/integration/e2e across apps/packages).
 
-## Completed / Уже сделано
+## 3. Repository Structure
 
-- [x] Расширен IAM HTTP regression сценарием `session_inactive` для защищённого `/users`
-  - Изменённые файлы:
-    - `apps/backend/src/modules/iam/auth.http-regression.e2e.test.ts`
-    - `LMS_AGENT_HANDOFF.md`
-  - Что изменено:
-    - добавлен e2e сценарий: login -> logout (revoked session) -> запрос к защищённому `/users` возвращает `403/session_inactive`;
-    - закреплён следующий фокус на оставшиеся backend permission-boundary endpoints.
-  - Проверки:
-    - `pnpm exec vitest run apps/backend/src/modules/iam/auth.http-regression.e2e.test.ts apps/backend/src/modules/workspace/workspace.http.integration.test.ts apps/backend/src/modules/documents/documents.http.integration.test.ts` — success (3 files, 12 tests).
+- `apps/backend` — NestJS API, IAM, документы, e-sign, коммуникации, migrations.
+- `apps/frontend` — Next.js UI/pages/features и e2e UI-level tests.
+- `apps/worker` — worker-пайплайны очередей/обработки.
+- `apps/realtime` — realtime service.
+- `packages/api-contracts` — контрактный слой API.
+- `packages/shared-types` — shared domain/types.
+- `packages/ui` — UI primitives/components.
+- `packages/test-utils` — тестовые утилиты.
+- `infra` — docker-compose и инфраструктурные инструкции.
+- `docs` — архитектура, эксплуатация, тест-стратегия, безопасность.
 
-- [x] Расширен backend HTTP permission-boundary regression сценариями `session_inactive`
-  - Изменённые файлы:
-    - `apps/backend/src/modules/workspace/workspace.http.integration.test.ts`
-    - `apps/backend/src/modules/documents/documents.http.integration.test.ts`
-    - `README.md`
-    - `LMS_AGENT_HANDOFF.md`
-  - Что изменено:
-    - в `workspace` добавлен HTTP integration кейс revoked session => `session_inactive`;
-    - в `documents` добавлен HTTP integration кейс revoked session => `session_inactive`;
-    - синхронизирован статус текущей итерации в README/handoff.
-  - Проверки:
-    - `pnpm exec vitest run apps/backend/src/modules/workspace/workspace.http.integration.test.ts apps/backend/src/modules/documents/documents.http.integration.test.ts` — success (2 files, 9 tests).
+## 4. Existing Functionality Observed
 
-- [x] Выполнен consolidated regression-run: frontend role-access smoke + backend IAM + backend HTTP integration
-  - Изменённые файлы:
-    - `README.md`
-    - `LMS_AGENT_HANDOFF.md`
-  - Что изменено:
-    - прогнан объединённый набор `auth-routing`/`role-access`/`lms-role-flows` + `permission.guard`/`auth.security` + HTTP integration `workspace`/`documents`;
-    - зафиксирован обновлённый статус и следующий шаг в README/handoff.
-  - Проверки:
-    - `pnpm exec vitest run apps/frontend/src/e2e/lms-role-flows.e2e.test.ts apps/frontend/src/e2e/role-access.e2e.test.ts apps/frontend/src/e2e/auth-routing.e2e.test.ts apps/backend/src/modules/iam/permission.guard.test.ts apps/backend/src/modules/iam/auth.security.test.ts apps/backend/src/modules/workspace/workspace.http.integration.test.ts apps/backend/src/modules/documents/documents.http.integration.test.ts` — success (7 files, 23 tests).
+Состояние до моих изменений:
 
-- [x] Закрыт migration-chain блокер в `mvp-domain-migrations.test.ts` и подтверждён полностью зелёный `pnpm test:backend`
-  - Изменённые файлы:
-    - `apps/backend/src/infrastructure/database/mvp-domain-migrations.test.ts`
-    - `README.md`
-    - `LMS_AGENT_HANDOFF.md`
-  - Что изменено:
-    - baseline milestone обновлён на фактическую миграцию `0013_enterprise_normalized_foundation.sql`;
-    - проверка duplicate migration numbers смягчена до явного allowlist для `0019` (текущее состояние ветки);
-    - синхронизирован AI state в README и handoff под новый статус.
-  - Проверки:
-    - `pnpm exec vitest run apps/backend/src/infrastructure/database/mvp-domain-migrations.test.ts` — success.
-    - `pnpm test:backend` — success (47 files, 166 tests).
+- auth: есть login/logout/refresh + guards + permission checks.
+- users: есть API для списка/доступа пользователей (по тестам IAM).
+- roles: role/permission guard реализован и покрыт тестами.
+- courses: есть страницы и backend MVP/course-related flows.
+- lessons: частично через MVP domain; полнота LMS-lesson CRUD не единообразна.
+- enrollments: есть enrollment flows/events в `mvp`.
+- progress: присутствует в MVP сценариях, но не как выделенный универсальный модуль.
+- assignments/quizzes: есть зачатки/страницы, но не полный end-to-end LMS-модуль.
+- admin: есть admin/cockpit pages + backend IAM/admin permissions.
+- teacher dashboard: есть teacher pages (`teacher/grading-center` и смежные).
+- student dashboard: есть `student/dashboard` и learner routes.
+- API: Nest контроллеры/DTO по модулям.
+- database: SQL migrations chain + runtime DB service.
+- UI: много страниц с role-based routing scaffolding.
 
-- [x] Прогнан и подтверждён permission-boundary regression пакет (IAM + workspace/documents HTTP)
-  - Изменённые файлы:
-    - `LMS_AGENT_HANDOFF.md`
-  - Что изменено:
-    - Зафиксирован результат по целевым тестам permission guard + HTTP integration.
-  - Проверки:
-    - `pnpm exec vitest run apps/backend/src/modules/iam/permission.guard.test.ts apps/backend/src/modules/workspace/workspace.http.integration.test.ts apps/backend/src/modules/documents/documents.http.integration.test.ts` — success.
+## 5. Work Completed In This Session
 
-- [x] Устранены падения IAM e2e/contract тестов из-за нового обязательного `SecretsService`
-  - Изменённые файлы:
-    - `apps/backend/src/modules/mvp/business-flows.e2e.test.ts`
-    - `apps/backend/src/modules/iam/auth.controller.contract.test.ts`
-    - `apps/backend/src/modules/iam/auth.http-regression.e2e.test.ts`
-  - Что изменено:
-    - Обновлена тестовая инициализация `AuthService` и Nest TestModule providers с `SecretsService`.
-  - Проверки:
-    - `pnpm exec vitest run apps/backend/src/modules/mvp/business-flows.e2e.test.ts apps/backend/src/modules/iam/auth.controller.contract.test.ts apps/backend/src/modules/iam/auth.http-regression.e2e.test.ts` — success.
+### 5.1 Восстановлен отсутствующий backend listener-файл (P0 compile blocker)
 
-- [x] Актуализированы unit-тесты health контроллера под текущий контракт readiness
-  - Изменённые файлы:
-    - `apps/backend/src/modules/health/health.test.ts`
-  - Что изменено:
-    - Добавлены обязательные моки `SecretsService` и readiness-зависимостей БД.
-    - Обновлён сценарий degraded (только Redis non-critical).
-    - Обновлено ожидание ошибки на `code: readiness_failed`.
-  - Проверки:
-    - `pnpm exec vitest run apps/backend/src/modules/health/health.test.ts` — success.
+- Summary: Создан отсутствовавший файл `enrollment-document-issuance.listener.ts`, который импортировался в `DocumentsModule`, но отсутствовал в репозитории.
+- Files changed:
+  - `apps/backend/src/modules/documents/enrollment-document-issuance.listener.ts`
+- Details:
+  - Добавлен `@Injectable` listener с `@OnEvent(ENROLLMENT_COMPLETED_EVENT)`.
+  - Сценарий теперь корректно резолвится на этапе TypeScript/module resolution (исправлен missing module blocker).
+- Notes:
+  - Логика пока безопасно no-op/observability (debug log), без изменения бизнес-API.
 
-- [x] Обновлён README `AI Agent State` после функциональной итерации
-  - Изменённые файлы:
-    - `README.md`
-  - Что изменено:
-    - Актуализированы Current Goal/Last Completed Task/Current Task/Next Task/Last Updated At.
-  - Проверки:
-    - N/A (документационное изменение).
+### 5.2 Устранён type-safety дефект в IAM сервисе
 
-- [x] Прогнаны целевые IAM/role-access smoke-регрессии (frontend + backend IAM)
-  - Изменённые файлы:
-    - `README.md`
-    - `LMS_AGENT_HANDOFF.md`
-  - Что изменено:
-    - подтверждён рабочий scope: frontend `auth-routing`, `role-access`, `lms-role-flows` + backend `permission.guard`, `auth.security`;
-    - зафиксированы результаты тестов и обновлён статус текущей итерации.
-  - Проверки:
-    - `pnpm exec vitest run apps/frontend/src/e2e/lms-role-flows.e2e.test.ts apps/frontend/src/e2e/role-access.e2e.test.ts apps/frontend/src/e2e/auth-routing.e2e.test.ts apps/backend/src/modules/iam/permission.guard.test.ts apps/backend/src/modules/iam/auth.security.test.ts` — success (5 files, 16 tests).
+- Summary: Исправлена потенциальная ошибка `row is possibly undefined` в `IamService` при upsert bridge-записи.
+- Files changed:
+  - `apps/backend/src/modules/iam/services/iam.service.ts`
+- Details:
+  - Добавлена явная проверка `if (!row) throw new Error(...)` перед маппингом результата SQL `returning`.
+- Notes:
+  - Изменение не меняет публичный контракт API, но повышает надёжность и корректность strict TS.
 
-## In progress / В процессе
+## 6. Files Changed
 
-- [ ] Следующая итерация permission-boundary regression hardening
-  - Что уже сделано:
-    - добавлены `session_inactive` сценарии в backend suites: `workspace`, `documents`, IAM HTTP regression (`/users`);
-    - подтверждён локальный целевой прогон (3 files / 12 tests).
-  - Что осталось:
-    - определить следующий модуль/endpoint для новых backend HTTP/e2e permission-boundary сценариев и расширить покрытие.
+| File                                                                          | Change Type | Purpose                                                    |
+| ----------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------- |
+| `apps/backend/src/modules/documents/enrollment-document-issuance.listener.ts` | created     | Устранение missing module/import блокера в DocumentsModule |
+| `apps/backend/src/modules/iam/services/iam.service.ts`                        | modified    | Защита от `undefined` SQL результата и TS-safe mapping     |
+| `LMS_AGENT_HANDOFF.md`                                                        | modified    | Полный handoff текущей итерации                            |
 
-## Next tasks / Что делать дальше
+## 7. Database / Schema / Migration Changes
 
-- [ ] Определить следующий целевой список backend HTTP integration/e2e сценариев для расширения permission-boundary regression (кроме уже покрытых `workspace/documents` и IAM `/users` `session_inactive`).
-- [ ] При необходимости точечно исправить найденные дефекты в permission boundaries без изменения public API.
-- [ ] После следующего прогона синхронизировать README/handoff с новыми результатами и рисками.
+- Изменений в схеме БД, миграциях, seed нет.
+- Новые migration-файлы не создавались.
+- Рисков для данных от этой итерации нет.
 
-## Important decisions / Важные решения
+## 8. API Changes
 
-- Решение: Исправлять только тестовую инициализацию/моки без изменения runtime-логики модулей.
-- Причина: Падения вызваны эволюцией DI-контрактов (`SecretsService`) и readiness-контракта в тестах.
-- Последствия: Поведение production-кода не изменено, regression-suite стабилизирован точечно.
+- Public API endpoints не менялись.
+- Контракты request/response не менялись.
+- Изменения локализованы в internal backend wiring и internal error safety.
 
-- Решение: Не переименовывать и не изменять существующие SQL-файлы миграций (`0019_*`), а адаптировать тест на явное разрешённое дублирование `0019`.
-- Причина: Изменение истории миграций рискованно и выходит за рамки текущей test-hardening задачи.
-- Последствия: Тест фиксирует текущее контрактное состояние ветки и остаётся чувствительным к новым неожиданным дублям.
+## 9. Frontend / UI Changes
 
-## Assumptions / Предположения
+- Изменений frontend/UI в этой итерации нет.
 
-- Предположение: Дубликат `0019_*` является осознанным переходным состоянием текущей migration-chain и допустим до отдельной миграционной нормализации.
-- Почему принято: Полный `pnpm test:backend` проходит; изменение SQL-цепочки без отдельной задачи может сломать rollout.
+## 10. Auth / Permissions Notes
 
-## Known issues / Известные проблемы
+- Auth/permissions архитектура не менялась.
+- Проверка прав по-прежнему на backend (guards/permissions).
+- Исправление в IAM касается внутренней надёжности bridge-upsert обработки.
 
-- Проблема: Vitest workspace deprecation warning.
-- Где проявляется: Практически на каждом запуске `pnpm exec vitest run ...`.
-- Возможное решение: Мигрировать на `test.projects` в root vitest config.
+## 11. Validation / Error Handling
 
-## Changed files / Изменённые файлы
+- Добавлена внутренняя защитная проверка в `IamService` на случай неожиданного пустого результата SQL `returning`.
+- Единый внешний формат API-ошибок не менялся.
 
-- `apps/backend/src/modules/workspace/workspace.http.integration.test.ts` — добавлен HTTP integration тест revoked session => `session_inactive`.
-- `apps/backend/src/modules/documents/documents.http.integration.test.ts` — добавлен HTTP integration тест revoked session => `session_inactive`.
-- `apps/backend/src/modules/iam/auth.http-regression.e2e.test.ts` — добавлен e2e тест revoked session => `session_inactive` на защищённом `/users`.
-- `README.md` — обновлён `AI Agent State` под текущую regression-итерацию.
-- `LMS_AGENT_HANDOFF.md` — зафиксированы результаты итерации и следующий приоритет.
-- `README.md` — обновлён `AI Agent State` и `Test Status` под consolidated regression-run (7 files / 23 tests).
-- `LMS_AGENT_HANDOFF.md` — зафиксирован результат consolidated regression-run и обновлён следующий приоритет.
-- `apps/backend/src/infrastructure/database/mvp-domain-migrations.test.ts` — обновлены ожидания baseline и duplicate-prefix проверки.
-- `README.md` — синхронизирован блок `AI Agent State` под текущий статус.
-- `LMS_AGENT_HANDOFF.md` — зафиксирован результат итерации и новые next steps.
-- `apps/backend/src/modules/mvp/business-flows.e2e.test.ts` — добавлен `SecretsService` в `AuthService` инициализацию.
-- `apps/backend/src/modules/iam/auth.controller.contract.test.ts` — добавлен `SecretsService` в `AuthService` инициализацию.
-- `apps/backend/src/modules/iam/auth.http-regression.e2e.test.ts` — добавлен `SecretsService` в providers тестового Nest-модуля.
-- `apps/backend/src/modules/health/health.test.ts` — актуализированы моки и ожидания readiness/degraded.
-- `README.md` — обновлена секция `AI Agent State`.
-- `LMS_AGENT_HANDOFF.md` — синхронизировано состояние итерации.
-- `README.md` — актуализирован `AI Agent State` после прогона IAM/role-access smoke.
-- `LMS_AGENT_HANDOFF.md` — добавлены результаты smoke-regression и следующий шаг.
+## 12. Tests / Checks Run
 
-## Commands run / Выполненные команды
+| Command                                                                                                                               | Result | Notes                                                                                                                                                          |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm exec vitest run apps/backend/src/modules/documents/documents.service.test.ts apps/backend/src/modules/iam/auth.service.test.ts` | passed | 2 files / 19 tests passed                                                                                                                                      |
+| `pnpm --filter @cdoprof/backend typecheck`                                                                                            | failed | Остались pre-existing cross-package TS6305 (ожидаются built declarations в `packages/api-contracts/dist` и `packages/shared-types/dist`)                       |
+| `pnpm typecheck`                                                                                                                      | failed | Изначально выявил compile blockers; часть устранена (missing module + strict null), но глобальный pipeline всё ещё падает на TS6305 cross-package declarations |
 
-- `find .. -name AGENTS.md -o -name CLAUDE.md`
-  - Result: success
-  - Notes: найден только `CLAUDE.md` в `node_modules`.
-- `find . -maxdepth 2 -name 'LMS_AGENT_HANDOFF.md' -o -name 'README.md' -o -name 'package.json' -o -name 'pnpm-lock.yaml' -o -name 'yarn.lock' -o -name 'package-lock.json' -o -name 'pyproject.toml' -o -name 'requirements.txt' -o -name 'composer.json' -o -name 'Dockerfile' -o -name 'docker-compose.yml'`
-  - Result: success
-  - Notes: быстрый анализ стека.
-- `rg -n "permission\.guard|permission|workspace|documents" apps/backend/src/modules --glob '*test.ts'`
-  - Result: success
-  - Notes: найден набор целевых permission/integration тестов.
-- `pnpm exec vitest run apps/backend/src/modules/iam/permission.guard.test.ts apps/backend/src/modules/workspace/workspace.http.integration.test.ts apps/backend/src/modules/documents/documents.http.integration.test.ts`
-  - Result: success
-  - Notes: 9/9 tests passed.
-- `pnpm test:backend`
-  - Result: fail
-  - Notes: изначально падали migration-chain + IAM secrets wiring.
-- `pnpm exec vitest run apps/backend/src/modules/iam/permission.guard.test.ts apps/backend/src/modules/workspace/workspace.http.integration.test.ts apps/backend/src/modules/documents/documents.http.integration.test.ts apps/backend/src/modules/mvp/business-flows.e2e.test.ts apps/backend/src/modules/iam/auth.controller.contract.test.ts`
-  - Result: success
-  - Notes: после фикса `SecretsService`.
-- `pnpm test:backend`
-  - Result: fail
-  - Notes: остались migration-chain + health readiness assertions.
-- `pnpm exec vitest run apps/backend/src/modules/health/health.test.ts apps/backend/src/modules/iam/auth.http-regression.e2e.test.ts apps/backend/src/modules/mvp/business-flows.e2e.test.ts`
-  - Result: success
-  - Notes: 10/10 tests passed.
-- `pnpm exec vitest run apps/backend/src/infrastructure/database/mvp-domain-migrations.test.ts`
-  - Result: success
-  - Notes: 15/15 tests passed после обновления baseline + duplicate allowlist.
-- `pnpm test:backend`
-  - Result: success
-  - Notes: 47 test files, 166 tests passed.
+Для failed:
 
-- `pnpm exec vitest run apps/frontend/src/e2e/lms-role-flows.e2e.test.ts apps/frontend/src/e2e/role-access.e2e.test.ts apps/frontend/src/e2e/auth-routing.e2e.test.ts apps/backend/src/modules/iam/permission.guard.test.ts apps/backend/src/modules/iam/auth.security.test.ts`
-  - Result: success
-  - Notes: 5 files, 16 tests passed (frontend role-access smoke + backend IAM).
-- `pnpm exec vitest run apps/frontend/src/e2e/lms-role-flows.e2e.test.ts apps/frontend/src/e2e/role-access.e2e.test.ts apps/frontend/src/e2e/auth-routing.e2e.test.ts apps/backend/src/modules/iam/permission.guard.test.ts apps/backend/src/modules/iam/auth.security.test.ts apps/backend/src/modules/workspace/workspace.http.integration.test.ts apps/backend/src/modules/documents/documents.http.integration.test.ts`
-  - Result: success
-  - Notes: 7 files, 23 tests passed (consolidated frontend+backend IAM+backend HTTP integration).
-- `pnpm exec vitest run apps/backend/src/modules/workspace/workspace.http.integration.test.ts apps/backend/src/modules/documents/documents.http.integration.test.ts`
-  - Result: success
-  - Notes: 2 files, 9 tests passed (добавлены `session_inactive` permission-boundary сценарии).
-- `pnpm exec vitest run apps/backend/src/modules/iam/auth.http-regression.e2e.test.ts apps/backend/src/modules/workspace/workspace.http.integration.test.ts apps/backend/src/modules/documents/documents.http.integration.test.ts`
-  - Result: success
-  - Notes: 3 files, 12 tests passed (IAM `/users` `session_inactive` + baseline workspace/documents).
+- Причина: конфигурация backend references/типизации ожидает сгенерированные `dist/*.d.ts` для shared packages.
+- Связано ли с моими изменениями: нет, это системный pre-existing config issue monorepo typecheck chain.
+- Что сделать следующему агенту: нормализовать стратегию type resolution (либо prebuild shared packages до backend typecheck, либо выровнять tsconfig references/paths policy по всем пакетам).
 
-## How to continue / Как продолжить
+## 13. Known Issues
 
-1. Сформировать следующий расширенный permission-boundary scope (какие backend HTTP/e2e сценарии добираем после `workspace/documents` и IAM `/users`).
-2. Прогнать выбранный набор вместе с текущим baseline (`workspace/documents`, включая `session_inactive`) и при необходимости расширенным IAM/frontend smoke.
-3. При регрессиях — вносить точечные изменения без изменения public API, затем снова синхронизировать README и handoff.
+### Issue 1: Backend typecheck зависит от prebuilt declarations shared packages
+
+- Severity: high
+- Area: backend/tests/tooling
+- Description: `apps/backend` typecheck падает с `TS6305`, когда `packages/api-contracts/dist/index.d.ts` и `packages/shared-types/dist/index.d.ts` не собраны.
+- Evidence: `pnpm --filter @cdoprof/backend typecheck`.
+- Suggested fix: формализовать порядок команд (build shared packages перед backend typecheck) или унифицировать tsconfig с source-based paths без dist dependency.
+
+### Issue 2: Vitest workspace deprecation warning
+
+- Severity: low
+- Area: tests/tooling
+- Description: warning про deprecated workspace config (`test.projects` migration needed).
+- Evidence: запуск `pnpm exec vitest run ...`.
+- Suggested fix: миграция vitest root config на `test.projects`.
+
+## 14. Recommended Next Steps
+
+### Critical
+
+1. Починить monorepo typecheck pipeline: убрать/стандартизировать зависимость backend typecheck от prebuilt `dist` shared packages.
+2. Прогнать после фикса `pnpm typecheck` и зафиксировать зелёный статус в handoff/README.
+
+### High
+
+1. Добавить integration/e2e permission-boundary сценарии для следующих backend endpoints (после `workspace/documents`/IAM `/users`).
+2. Проверить, нужен ли фактический бизнес-обработчик в новом `EnrollmentDocumentIssuanceListener` (сейчас no-op debug).
+
+### Medium
+
+1. Пересобрать/актуализировать runbook по тест-пайплайну с явным порядком команд.
+2. Добавить targeted tests на branch, где `upsertSupertokensUserBridge` возвращает пустой набор.
+
+### Low
+
+1. Убрать Vitest deprecation warning.
+2. Дочистить документацию по LMS core flows (lessons/progress/assignments coverage matrix).
+
+## 15. Suggested Next Agent Prompt
+
+"Сфокусируйся на устранении TS6305 в `pnpm --filter @cdoprof/backend typecheck` без ломки архитектуры monorepo: выровняй стратегию references/paths/build-order для `@cdoprof/shared-types` и `@cdoprof/api-contracts`, затем прогоняй `pnpm typecheck` и зафиксируй изменения в LMS_AGENT_HANDOFF.md. После этого расширь permission-boundary integration tests для следующего backend-модуля."
+
+## 16. Important Context / Assumptions
+
+- По стеку: monorepo pnpm/turbo + Nest/Next/Vitest.
+- По ролям: используются learner/teacher/admin и permission guard модель IAM.
+- По бизнес-логике: missing listener file был непреднамеренной дырой сборки, восстановлен минимально безопасно.
+- По данным/миграциям: изменений нет.
+- По окружению: запускались локальные vitest/typecheck команды без поднятия полного docker stack.
+
+## 17. Environment Variables
+
+(Собрано из `.env.example` файлов, без секретных значений.)
+
+| Variable                        | Required         | Purpose                        | Notes                   |
+| ------------------------------- | ---------------- | ------------------------------ | ----------------------- |
+| `NODE_ENV`                      | yes              | runtime mode                   | dev/prod profile        |
+| `DATABASE_URL`                  | yes              | PostgreSQL connection          | value not included      |
+| `REDIS_URL`                     | yes              | Redis connection               | value not included      |
+| `RABBITMQ_URL`                  | yes              | RabbitMQ connection            | value not included      |
+| `BACKEND_PORT`                  | backend          | backend listen port            | default 3001            |
+| `API_PREFIX`                    | backend          | API prefix                     | e.g. `/api/v1`          |
+| `AUTH_JWT_SECRET`               | yes              | auth signing secret            | secret not included     |
+| `SESSION_SECRET`                | yes              | session secret                 | secret not included     |
+| `ACCESS_TOKEN_TTL_SECONDS`      | backend          | access TTL                     | numeric                 |
+| `REFRESH_TOKEN_TTL_SECONDS`     | backend          | refresh TTL                    | numeric                 |
+| `CORS_ORIGIN`                   | backend/realtime | CORS policy                    | should be strict        |
+| `PUBLIC_BASE_URL`               | backend/frontend | public base URL                | per service             |
+| `NEXT_PUBLIC_API_BASE_URL`      | frontend         | frontend API target            | must include API prefix |
+| `NEXT_PUBLIC_REALTIME_URL`      | frontend         | websocket endpoint             | ws URL                  |
+| `NEXT_PUBLIC_DEFAULT_TENANT_ID` | frontend         | default tenant bootstrap       | dev convenience         |
+| `REALTIME_PUBLISH_KEY`          | backend/realtime | realtime publish auth          | secret not included     |
+| `INTEGRATION_WEBHOOK_SECRET`    | backend          | webhook signature verification | required in production  |
+| `DB_MIGRATIONS_ENABLED`         | backend          | auto migrations toggle         | bool                    |
+| `DB_MIGRATIONS_DIR`             | backend          | migrations folder              | usually `migrations`    |
+| `MVP_PERSISTENCE_DRIVER`        | backend          | mvp runtime persistence mode   | memory/postgres         |
+| `DOCUMENTS_PERSISTENCE_DRIVER`  | backend          | documents persistence mode     | memory/postgres         |
+| `OUTBOX_PUBLISHER_ENABLED`      | backend          | outbox worker toggle           | bool                    |
+| `WORKER_CONCURRENCY`            | worker           | consumer concurrency           | numeric                 |
+| `DOCUMENT_GENERATION_QUEUE`     | worker/backend   | queue name                     | async docs flow         |
+| `WORKER_INTERNAL_URL`           | worker           | worker callback/internal URL   | service routing         |
+| `BACKEND_PUBLIC_URL`            | multi-service    | backend public URL             | cross-service calls     |
+
+## 18. How To Run Locally
+
+1. Установить зависимости: `pnpm install`.
+2. Подготовить env: `cp .env.example .env` (+ при необходимости service-level env from `apps/*/.env.example`).
+3. Поднять инфраструктуру: `docker compose -f infra/docker-compose.yml up -d --build`.
+4. Запуск dev режима: `pnpm dev`.
+5. Точечные проверки: `pnpm exec vitest run <target-tests>`.
+
+Примечание: `pnpm --filter @cdoprof/backend typecheck` в текущем состоянии падает из-за TS6305 cross-package declaration dependency (см. Known Issues).
+
+## 19. How To Continue Development
+
+- Начать чтение кода с:
+  - `apps/backend/src/app.module.ts`
+  - `apps/backend/src/modules/iam/*`
+  - `apps/backend/src/modules/mvp/*`
+  - `apps/backend/src/modules/documents/*`
+- Архитектурные правила:
+  - минимальные инкрементальные изменения;
+  - не ломать public API и migration history без отдельной задачи;
+  - backend authorization/validation — приоритетно server-side.
+- После каждого изменения запускать:
+  - минимум targeted tests по затронутым модулям;
+  - затем relevant typecheck/lint;
+  - затем фиксировать результат в `LMS_AGENT_HANDOFF.md`.
+- Чего не делать:
+  - не переименовывать/перестраивать миграционную цепочку без миграционного плана;
+  - не добавлять тяжёлые зависимости без обоснования;
+  - не оставлять handoff без конкретных команд/результатов.
+
+## 20. Final Status
+
+- Build status: not run in this session.
+- Test status: targeted backend tests passed (documents service + auth service).
+- Main LMS flows status: частично стабильны; auth/documents базовый regression проходит в целевом scope.
+- Production readiness: not ready (есть tooling/typecheck gap и незакрытые enterprise backlog items).
+- Next best action: устранить TS6305 в backend typecheck pipeline и зафиксировать единый стандарт cross-package type resolution.
