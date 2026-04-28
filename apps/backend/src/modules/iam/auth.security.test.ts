@@ -1,6 +1,7 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 
+import { SecretsService } from '../../infrastructure/secrets/secrets.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { AuthService } from './services/auth.service.js';
 import { IamService } from './services/iam.service.js';
@@ -16,7 +17,7 @@ const context = {
 
 describe('AuthService security flows', () => {
   it('blocks refresh token replay after rotation', async () => {
-    const auth = new AuthService(new IamService(), new AuditService());
+    const auth = new AuthService(new IamService(), new AuditService(), new SecretsService());
     const login = await auth.login(
       'tenant_demo',
       { login: 'tenant_admin', password: 'Password123!' },
@@ -32,7 +33,7 @@ describe('AuthService security flows', () => {
   });
 
   it('blocks refresh after explicit session logout', async () => {
-    const auth = new AuthService(new IamService(), new AuditService());
+    const auth = new AuthService(new IamService(), new AuditService(), new SecretsService());
     const login = await auth.login(
       'tenant_demo',
       { login: 'tenant_admin', password: 'Password123!' },
@@ -48,7 +49,7 @@ describe('AuthService security flows', () => {
 
   it('revokes all active sessions and logs the auth event', async () => {
     const audit = new AuditService();
-    const auth = new AuthService(new IamService(), audit);
+    const auth = new AuthService(new IamService(), audit, new SecretsService());
 
     await auth.login('tenant_demo', { login: 'tenant_admin', password: 'Password123!' }, context);
     await auth.login('tenant_demo', { login: 'tenant_admin', password: 'Password123!' }, context);

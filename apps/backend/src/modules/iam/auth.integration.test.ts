@@ -1,6 +1,7 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 
+import { SecretsService } from '../../infrastructure/secrets/secrets.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { AuthService } from './services/auth.service.js';
 import { IamService } from './services/iam.service.js';
@@ -18,7 +19,7 @@ describe('auth integration foundation', () => {
   it('supports logout-all and revokes all active sessions for user', async () => {
     const audit = new AuditService();
     const iam = new IamService();
-    const auth = new AuthService(iam, audit);
+    const auth = new AuthService(iam, audit, new SecretsService());
 
     await auth.login('tenant_demo', { login: 'tenant_admin', password: 'Password123!' }, context);
     await auth.login('tenant_demo', { login: 'tenant_admin', password: 'Password123!' }, context);
@@ -39,7 +40,7 @@ describe('auth integration foundation', () => {
   it('revokes selected session', async () => {
     const audit = new AuditService();
     const iam = new IamService();
-    const auth = new AuthService(iam, audit);
+    const auth = new AuthService(iam, audit, new SecretsService());
 
     const login = await auth.login(
       'tenant_demo',
@@ -54,7 +55,7 @@ describe('auth integration foundation', () => {
   it('does not refresh with token from another tenant', async () => {
     const audit = new AuditService();
     const iam = new IamService();
-    const auth = new AuthService(iam, audit);
+    const auth = new AuthService(iam, audit, new SecretsService());
 
     const login = await auth.login(
       'tenant_demo',
@@ -70,7 +71,7 @@ describe('auth integration foundation', () => {
   it('writes audit event on session revoke', async () => {
     const audit = new AuditService();
     const iam = new IamService();
-    const auth = new AuthService(iam, audit);
+    const auth = new AuthService(iam, audit, new SecretsService());
 
     const login = await auth.login(
       'tenant_demo',
@@ -87,7 +88,7 @@ describe('auth integration foundation', () => {
   it('rejects refresh for expired session and revokes it', async () => {
     const audit = new AuditService();
     const iam = new IamService();
-    const auth = new AuthService(iam, audit);
+    const auth = new AuthService(iam, audit, new SecretsService());
 
     const login = await auth.login(
       'tenant_demo',
