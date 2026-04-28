@@ -63,19 +63,19 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 ### Current Goal
 
-Закрыть migration-chain regression и подтвердить полностью зелёный backend test run.
+Зафиксировать результаты целевой IAM/role-access regression итерации и подготовить следующий consolidated прогон (frontend + backend IAM + backend HTTP integration).
 
 ### Last Completed Task
 
-Исправлены migration-chain ожидания в `mvp-domain-migrations.test.ts` под актуальную цепочку SQL-миграций (baseline `0013_enterprise_normalized_foundation.sql` + разрешённый дубликат префикса `0019`) и подтверждён зелёный `pnpm test:backend`.
+Прогнан целевой IAM/role-access smoke-набор: frontend (`auth-routing`, `role-access`, `lms-role-flows`) + backend IAM (`permission.guard`, `auth.security`) — все тесты зелёные (5 files, 16 tests).
 
 ### Current Task
 
-Поддерживать зелёный backend regression-suite и подготовить следующую приоритетную IAM/role-access итерацию.
+Расширить текущий role-access smoke до consolidated regression-run с backend HTTP integration (`workspace`/`documents`).
 
 ### Next Task
 
-Запустить следующую целевую итерацию по IAM permission boundaries + frontend role-access smoke и зафиксировать результаты в README и handoff.
+Прогнать объединённый набор frontend role-access + backend IAM + backend HTTP integration и зафиксировать финальный статус/риски в README и handoff.
 
 ### Do Not Touch
 
@@ -100,7 +100,7 @@ AI Agent
 
 ### Last Updated At
 
-2026-04-28 19:35 UTC
+2026-04-28 19:52 UTC
 
 ## 3. Current Project Status
 
@@ -162,7 +162,9 @@ AI Agent
 
 ### Статус текущей итерации
 
-- В этой итерации функциональные тесты не запускались (изменялась только документация).
+- Запущен целевой regression smoke для IAM/role-access:
+  - `pnpm exec vitest run apps/frontend/src/e2e/lms-role-flows.e2e.test.ts apps/frontend/src/e2e/role-access.e2e.test.ts apps/frontend/src/e2e/auth-routing.e2e.test.ts apps/backend/src/modules/iam/permission.guard.test.ts apps/backend/src/modules/iam/auth.security.test.ts`
+  - Результат: success, 5 files / 16 tests passed.
 
 ## 7. Known Issues / Open Errors
 

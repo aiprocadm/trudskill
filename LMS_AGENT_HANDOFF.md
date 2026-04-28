@@ -12,7 +12,7 @@ LMS/СДО монорепозиторий на `pnpm` workspace + Turborepo.
 
 ## Current goal / Текущая цель
 
-Зафиксировать закрытие migration-chain блокера и полностью зелёный `pnpm test:backend`, затем передать контекст для следующей IAM/role-access итерации.
+Зафиксировать результаты целевой IAM/role-access regression итерации (frontend smoke + backend IAM) и передать следующий приоритет.
 
 ## Completed / Уже сделано
 
@@ -65,19 +65,29 @@ LMS/СДО монорепозиторий на `pnpm` workspace + Turborepo.
   - Проверки:
     - N/A (документационное изменение).
 
+- [x] Прогнаны целевые IAM/role-access smoke-регрессии (frontend + backend IAM)
+  - Изменённые файлы:
+    - `README.md`
+    - `LMS_AGENT_HANDOFF.md`
+  - Что изменено:
+    - подтверждён рабочий scope: frontend `auth-routing`, `role-access`, `lms-role-flows` + backend `permission.guard`, `auth.security`;
+    - зафиксированы результаты тестов и обновлён статус текущей итерации.
+  - Проверки:
+    - `pnpm exec vitest run apps/frontend/src/e2e/lms-role-flows.e2e.test.ts apps/frontend/src/e2e/role-access.e2e.test.ts apps/frontend/src/e2e/auth-routing.e2e.test.ts apps/backend/src/modules/iam/permission.guard.test.ts apps/backend/src/modules/iam/auth.security.test.ts` — success (5 files, 16 tests).
+
 ## In progress / В процессе
 
 - [ ] Следующая итерация IAM/role-access regression (backend + frontend smoke)
   - Что уже сделано:
-    - backend regression-suite стабилизирован, `pnpm test:backend` зелёный.
+    - определён и прогнан целевой scope: frontend role-access/auth smoke + backend IAM security/permission tests (все зелёные).
   - Что осталось:
-    - выбрать и прогнать целевой набор frontend role-access smoke и связанные backend IAM проверки.
+    - расширить пакет до HTTP integration сценариев (`workspace/documents`) и зафиксировать consolidated regression-run.
 
 ## Next tasks / Что делать дальше
 
-- [ ] Согласовать scope следующей IAM/role-access итерации (какие frontend smoke-сценарии включаем первыми).
-- [ ] Прогнать целевые frontend role-access smoke + связанные backend IAM regression команды.
-- [ ] Зафиксировать результаты в README и handoff с конкретными командами/датой.
+- [ ] Добавить к текущему IAM/role-access smoke-прогону backend HTTP integration тесты (`workspace`, `documents`) для полного permission-boundary среза.
+- [ ] При необходимости точечно исправить найденные дефекты в permission boundaries без изменения public API.
+- [ ] Обновить README/hand-off после consolidated regression-run (frontend + backend IAM + backend HTTP integration).
 
 ## Important decisions / Важные решения
 
@@ -111,6 +121,8 @@ LMS/СДО монорепозиторий на `pnpm` workspace + Turborepo.
 - `apps/backend/src/modules/health/health.test.ts` — актуализированы моки и ожидания readiness/degraded.
 - `README.md` — обновлена секция `AI Agent State`.
 - `LMS_AGENT_HANDOFF.md` — синхронизировано состояние итерации.
+- `README.md` — актуализирован `AI Agent State` после прогона IAM/role-access smoke.
+- `LMS_AGENT_HANDOFF.md` — добавлены результаты smoke-regression и следующий шаг.
 
 ## Commands run / Выполненные команды
 
@@ -145,8 +157,12 @@ LMS/СДО монорепозиторий на `pnpm` workspace + Turborepo.
   - Result: success
   - Notes: 47 test files, 166 tests passed.
 
+- `pnpm exec vitest run apps/frontend/src/e2e/lms-role-flows.e2e.test.ts apps/frontend/src/e2e/role-access.e2e.test.ts apps/frontend/src/e2e/auth-routing.e2e.test.ts apps/backend/src/modules/iam/permission.guard.test.ts apps/backend/src/modules/iam/auth.security.test.ts`
+  - Result: success
+  - Notes: 5 files, 16 tests passed (frontend role-access smoke + backend IAM).
+
 ## How to continue / Как продолжить
 
-1. Начать с планирования следующего scope IAM/role-access regression (frontend smoke + backend IAM).
-2. Прогнать выбранные целевые тесты/смоки и зафиксировать дифф в поведении.
-3. Обновить README и handoff с конкретными результатами и оставшимися рисками.
+1. Добрать backend HTTP integration (`workspace`/`documents`) к текущему smoke-набору IAM/role-access.
+2. Если появятся регрессии — исправлять точечно на уровне guard/policy без расширения scope.
+3. После consolidated run синхронизировать README и handoff с финальным статусом.
