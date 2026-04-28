@@ -2,92 +2,131 @@
 
 ## Project overview / Обзор проекта
 
-LMS/СДО монорепозиторий на pnpm workspace + Turborepo. Основной стек: Next.js (frontend), NestJS (backend), TypeScript, Vitest, SQL-миграции в backend.
+LMS/СДО монорепозиторий на `pnpm` workspace + Turborepo.
 
-Важные директории:
-
-- `apps/frontend` — UI, auth/navigation фичи, e2e logic-level тесты.
-- `apps/backend` — модули IAM, документы, интеграции, health, audit.
-- `apps/backend/migrations` — SQL-миграции.
-- `packages/api-contracts`, `packages/shared-types` — контракты и общие типы.
-- `docs` — архитектура, тестовые и операционные регламенты.
+- Frontend: Next.js/TypeScript (`apps/frontend`).
+- Backend: NestJS/TypeScript (`apps/backend`).
+- Контракты/типы: `packages/api-contracts`, `packages/shared-types`.
+- Миграции: `apps/backend/migrations`.
+- Документация и регламенты: `docs`, root `README.md`.
 
 ## Current goal / Текущая цель
 
-Продолжить P0 итерацию IAM hardening: стабилизировать regression-пакет login/refresh/logout + role access и зафиксировать текущее состояние для следующего агента.
+Закрыть текущую IAM hardening-итерацию по regression smoke (permission boundary + HTTP integration) и зафиксировать оставшиеся блокеры полного `test:backend`.
 
 ## Completed / Уже сделано
 
-- [x] Проведён целевой прогон IAM + frontend role-access тестов и устранена регрессия в backend IAM тестах
+- [x] Прогнан и подтверждён permission-boundary regression пакет (IAM + workspace/documents HTTP)
   - Изменённые файлы:
-    - `apps/backend/src/modules/iam/auth.integration.test.ts`
-    - `apps/backend/src/modules/iam/auth.security.test.ts`
+    - `LMS_AGENT_HANDOFF.md`
   - Что изменено:
-    - В тестах добавлена явная передача `SecretsService` в `AuthService`, чтобы соответствовать актуальному конструктору сервиса и убрать падение `getJwtSigningSecret`.
+    - Зафиксирован результат по целевым тестам permission guard + HTTP integration.
   - Проверки:
-    - `pnpm exec vitest run apps/backend/src/modules/iam/auth.service.test.ts apps/backend/src/modules/iam/auth.integration.test.ts apps/backend/src/modules/iam/auth.security.test.ts apps/frontend/src/e2e/role-access.e2e.test.ts apps/frontend/src/e2e/auth-routing.e2e.test.ts` — success (24/24 tests passed).
+    - `pnpm exec vitest run apps/backend/src/modules/iam/permission.guard.test.ts apps/backend/src/modules/workspace/workspace.http.integration.test.ts apps/backend/src/modules/documents/documents.http.integration.test.ts` — success.
+
+- [x] Устранены падения IAM e2e/contract тестов из-за нового обязательного `SecretsService`
+  - Изменённые файлы:
+    - `apps/backend/src/modules/mvp/business-flows.e2e.test.ts`
+    - `apps/backend/src/modules/iam/auth.controller.contract.test.ts`
+    - `apps/backend/src/modules/iam/auth.http-regression.e2e.test.ts`
+  - Что изменено:
+    - Обновлена тестовая инициализация `AuthService` и Nest TestModule providers с `SecretsService`.
+  - Проверки:
+    - `pnpm exec vitest run apps/backend/src/modules/mvp/business-flows.e2e.test.ts apps/backend/src/modules/iam/auth.controller.contract.test.ts apps/backend/src/modules/iam/auth.http-regression.e2e.test.ts` — success.
+
+- [x] Актуализированы unit-тесты health контроллера под текущий контракт readiness
+  - Изменённые файлы:
+    - `apps/backend/src/modules/health/health.test.ts`
+  - Что изменено:
+    - Добавлены обязательные моки `SecretsService` и readiness-зависимостей БД.
+    - Обновлён сценарий degraded (только Redis non-critical).
+    - Обновлено ожидание ошибки на `code: readiness_failed`.
+  - Проверки:
+    - `pnpm exec vitest run apps/backend/src/modules/health/health.test.ts` — success.
+
+- [x] Обновлён README `AI Agent State` после функциональной итерации
+  - Изменённые файлы:
+    - `README.md`
+  - Что изменено:
+    - Актуализированы Current Goal/Last Completed Task/Current Task/Next Task/Last Updated At.
+  - Проверки:
+    - N/A (документационное изменение).
 
 ## In progress / В процессе
 
-- [ ] Расширить regression-пакет IAM до полного smoke (включая permission guard и связанные integration сценарии HTTP-границ)
+- [ ] Добить полный `pnpm test:backend` до полностью зелёного статуса
   - Что уже сделано:
-    - Базовый auth flow (login/refresh/logout/logoutAll/revokeSession) и frontend role access подтверждены зелёными прогонами.
+    - Исправлены IAM/health падения, ранее ронявшие тест-раннер.
   - Что осталось:
-    - Добавить/прогнать смежные guard/integration тесты и сверить покрытие по критическим permission-boundary маршрутам.
+    - Разобрать и закрыть миграционный блокер в `mvp-domain-migrations.test.ts`.
 
 ## Next tasks / Что делать дальше
 
-- [ ] Прогнать и при необходимости стабилизировать `apps/backend/src/modules/iam/permission.guard.test.ts` + HTTP integration тесты, завязанные на permission checks.
-- [ ] Выполнить более широкий `pnpm test:backend` (или эквивалентный поднабор IAM/authorization) и зафиксировать статус/ошибки.
-- [ ] Обновить README `AI Agent State` после следующей функциональной итерации с датой и списком проверок.
+- [ ] Согласовать и исправить конфликт migration-chain expectations в `apps/backend/src/infrastructure/database/mvp-domain-migrations.test.ts`:
+  - отсутствующий baseline `0013_learning_duration_planned_end.sql`;
+  - дублирующийся migration prefix `0019_*`.
+- [ ] После фикса migration-chain снова выполнить полный `pnpm test:backend` и зафиксировать итог.
+- [ ] При необходимости синхронизировать `README.md` и этот handoff после устранения миграционного блока.
 
 ## Important decisions / Важные решения
 
-- Решение: Исправление сделано только в тестах, без изменения runtime-кода IAM.
-- Причина: Ошибка была в несоответствии тестовой инициализации (`AuthService` требует `SecretsService`).
-- Последствия: Поведение production-кода не изменено, regression-пакет снова валиден.
+- Решение: Исправлять только тестовую инициализацию/моки без изменения runtime-логики модулей.
+- Причина: Падения вызваны эволюцией DI-контрактов (`SecretsService`) и readiness-контракта в тестах.
+- Последствия: Поведение production-кода не изменено, regression-suite стабилизирован точечно.
 
 ## Assumptions / Предположения
 
-- Предположение: Цель текущей итерации — сначала восстановить стабильность тестового набора IAM/role-access, а не менять бизнес-логику auth.
-- Почему принято: `README` в `Next Task` указывает на приоритет запуска и hardening IAM regression-проверок.
+- Предположение: Дубликат миграционного префикса `0019_*` может быть временным состоянием ветки и требует отдельного решения (не в рамках IAM hardening).
+- Почему принято: Запрет на нецелевые изменения схем/миграций без явной необходимости и контекста бизнес-задачи.
 
 ## Known issues / Известные проблемы
 
-- Проблема: Vitest печатает deprecation warning по workspace-конфигурации.
-- Где проявляется: На запуске `pnpm exec vitest run ...`.
-- Возможное решение: Перенести конфигурацию на `test.projects` в root vitest config в отдельной техдолг-итерации.
+- Проблема: `pnpm test:backend` всё ещё падает на `mvp-domain-migrations.test.ts` (2 assertions).
+- Где проявляется: `apps/backend/src/infrastructure/database/mvp-domain-migrations.test.ts`.
+- Возможное решение: Обновить baseline expectations под фактическую цепочку миграций и/или устранить дубль migration number.
+
+- Проблема: Vitest workspace deprecation warning.
+- Где проявляется: Практически на каждом запуске `pnpm exec vitest run ...`.
+- Возможное решение: Мигрировать на `test.projects` в root vitest config.
 
 ## Changed files / Изменённые файлы
 
-- `apps/backend/src/modules/iam/auth.integration.test.ts` — передача `SecretsService` в `AuthService`.
-- `apps/backend/src/modules/iam/auth.security.test.ts` — передача `SecretsService` в `AuthService`.
-- `LMS_AGENT_HANDOFF.md` — создан и заполнен актуальным состоянием итерации.
+- `apps/backend/src/modules/mvp/business-flows.e2e.test.ts` — добавлен `SecretsService` в `AuthService` инициализацию.
+- `apps/backend/src/modules/iam/auth.controller.contract.test.ts` — добавлен `SecretsService` в `AuthService` инициализацию.
+- `apps/backend/src/modules/iam/auth.http-regression.e2e.test.ts` — добавлен `SecretsService` в providers тестового Nest-модуля.
+- `apps/backend/src/modules/health/health.test.ts` — актуализированы моки и ожидания readiness/degraded.
+- `README.md` — обновлена секция `AI Agent State`.
+- `LMS_AGENT_HANDOFF.md` — синхронизировано состояние итерации.
 
 ## Commands run / Выполненные команды
 
-- `pwd && rg --files -g 'AGENTS.md' -g 'LMS_AGENT_HANDOFF.md' -g 'README.md'`
+- `find .. -name AGENTS.md -o -name CLAUDE.md`
   - Result: success
-  - Notes: Быстрая проверка наличия ключевых файлов.
-- `find .. -name AGENTS.md -o -name LMS_AGENT_HANDOFF.md`
+  - Notes: найден только `CLAUDE.md` в `node_modules`.
+- `find . -maxdepth 2 -name 'LMS_AGENT_HANDOFF.md' -o -name 'README.md' -o -name 'package.json' -o -name 'pnpm-lock.yaml' -o -name 'yarn.lock' -o -name 'package-lock.json' -o -name 'pyproject.toml' -o -name 'requirements.txt' -o -name 'composer.json' -o -name 'Dockerfile' -o -name 'docker-compose.yml'`
   - Result: success
-  - Notes: `LMS_AGENT_HANDOFF.md` отсутствовал до текущей итерации.
-- `find . -maxdepth 2 -type f (package/lock/readme/docker...)`
+  - Notes: быстрый анализ стека.
+- `rg -n "permission\.guard|permission|workspace|documents" apps/backend/src/modules --glob '*test.ts'`
   - Result: success
-  - Notes: Определены стек и артефакты окружения.
-- `find . -maxdepth 2 -type d (frontend/backend/api/database/migrations/components/pages/routes/tests/docs)`
+  - Notes: найден набор целевых permission/integration тестов.
+- `pnpm exec vitest run apps/backend/src/modules/iam/permission.guard.test.ts apps/backend/src/modules/workspace/workspace.http.integration.test.ts apps/backend/src/modules/documents/documents.http.integration.test.ts`
   - Result: success
-  - Notes: Определены основные директории.
-- `rg -n "iam|auth|login|refresh|logout|role access|permission" apps/backend apps/frontend --glob '*test*' --glob '*spec*'`
-  - Result: success
-  - Notes: Найдены целевые тесты для P0 IAM/role access.
-- `pnpm exec vitest run ...` (целевой набор IAM+frontend)
+  - Notes: 9/9 tests passed.
+- `pnpm test:backend`
   - Result: fail
-  - Notes: 8 backend тестов падали с `Cannot read properties of undefined (reading 'getJwtSigningSecret')`.
-- `pnpm exec vitest run ...` (повторный целевой набор IAM+frontend)
+  - Notes: изначально падали migration-chain + IAM secrets wiring.
+- `pnpm exec vitest run apps/backend/src/modules/iam/permission.guard.test.ts apps/backend/src/modules/workspace/workspace.http.integration.test.ts apps/backend/src/modules/documents/documents.http.integration.test.ts apps/backend/src/modules/mvp/business-flows.e2e.test.ts apps/backend/src/modules/iam/auth.controller.contract.test.ts`
   - Result: success
-  - Notes: 24/24 тестов прошли после точечного фикса тестовой инициализации.
+  - Notes: после фикса `SecretsService`.
+- `pnpm test:backend`
+  - Result: fail
+  - Notes: остались migration-chain + health readiness assertions.
+- `pnpm exec vitest run apps/backend/src/modules/health/health.test.ts apps/backend/src/modules/iam/auth.http-regression.e2e.test.ts apps/backend/src/modules/mvp/business-flows.e2e.test.ts`
+  - Result: success
+  - Notes: 10/10 tests passed.
 
 ## How to continue / Как продолжить
 
-Стартовать с `apps/backend/src/modules/iam/permission.guard.test.ts` и связанных HTTP integration тестов (`documents/workspace`) для подтверждения permission boundaries. После прогона обновить этот handoff + `README` секцию `AI Agent State` и явно зафиксировать команду/результат следующей regression-итерации.
+1. Начать с `apps/backend/src/infrastructure/database/mvp-domain-migrations.test.ts`.
+2. Сверить ожидания теста с реальным списком `apps/backend/migrations/*` и решить конфликт по `0019` префиксу.
+3. Перезапустить `pnpm test:backend` и зафиксировать новый статус в handoff + README.

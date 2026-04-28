@@ -35,28 +35,33 @@ const context: RequestContext = {
 
 describe('AuthController public user contract', () => {
   const makeController = async () => {
-    const [{ AuditService }, { AuthController }, { AuthService }, { IamService }] = await Promise.all([
+    const [
+      { AuditService },
+      { AuthController },
+      { AuthService },
+      { IamService },
+      { SecretsService }
+    ] = await Promise.all([
       import('../audit/audit.service.js'),
       import('./auth.controller.js'),
       import('./services/auth.service.js'),
-      import('./services/iam.service.js')
+      import('./services/iam.service.js'),
+      import('../../infrastructure/secrets/secrets.service.js')
     ]);
     const audit = new AuditService();
     const iamService = new IamService(audit);
-    const authService = new AuthService(iamService, audit);
+    const authService = new AuthService(iamService, audit, new SecretsService());
 
     return new AuthController(authService, iamService);
   };
 
-  it(
-    'does not leak passwordHash in /auth/me',
-    async () => {
-      const controller = await makeController();
+  it('does not leak passwordHash in /auth/me', async () => {
+    const controller = await makeController();
 
-      const response = await controller.me(context);
+    const response = await controller.me(context);
 
-      expect(response).not.toHaveProperty('passwordHash');
-      expect(response).toMatchInlineSnapshot(`
+    expect(response).not.toHaveProperty('passwordHash');
+    expect(response).toMatchInlineSnapshot(`
       {
         "displayName": "Tenant Admin",
         "email": "tenant@demo.local",
@@ -66,9 +71,7 @@ describe('AuthController public user contract', () => {
         "tenantId": "tenant_demo",
       }
     `);
-    },
-    15_000
-  );
+  }, 15_000);
 
   it('does not leak passwordHash in /users and /users/:id', async () => {
     const controller = await makeController();

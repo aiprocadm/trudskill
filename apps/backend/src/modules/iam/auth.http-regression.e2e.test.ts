@@ -56,7 +56,8 @@ describe('IAM HTTP regressions (integration/e2e)', () => {
       authServiceImport,
       iamServiceImport,
       permissionGuardImport,
-      auditServiceImport
+      auditServiceImport,
+      secretsServiceImport
     ] = await Promise.all([
       import('@nestjs/core'),
       import('@nestjs/common'),
@@ -69,7 +70,8 @@ describe('IAM HTTP regressions (integration/e2e)', () => {
       import('./services/auth.service.js'),
       import('./services/iam.service.js'),
       import('./permission.guard.js'),
-      import('../audit/audit.service.js')
+      import('../audit/audit.service.js'),
+      import('../../infrastructure/secrets/secrets.service.js')
     ]);
 
     const { NestFactory } = nestjsCore;
@@ -84,6 +86,7 @@ describe('IAM HTTP regressions (integration/e2e)', () => {
     const { IamService } = iamServiceImport;
     const { PermissionGuard } = permissionGuardImport;
     const { AuditService } = auditServiceImport;
+    const { SecretsService } = secretsServiceImport;
 
     @Controller('__test')
     class TestEnvelopeController {
@@ -96,7 +99,7 @@ describe('IAM HTTP regressions (integration/e2e)', () => {
     @Module({
       imports: [ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: 300 }] }), CoreModule],
       controllers: [AuthController, TestEnvelopeController],
-      providers: [AuditService, IamService, AuthService, PermissionGuard]
+      providers: [AuditService, IamService, AuthService, PermissionGuard, SecretsService]
     })
     class TestAppModule {}
 

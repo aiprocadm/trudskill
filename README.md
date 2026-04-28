@@ -63,19 +63,19 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 ### Current Goal
 
-Привести README к обязательной структуре и зафиксировать актуальное состояние проекта, backlog, риски и следующий приоритетный шаг.
+Стабилизировать IAM regression smoke-пакет (permission boundaries + HTTP integration) и зафиксировать остаточные блокеры полного backend test run.
 
 ### Last Completed Task
 
-Репозиторий содержит рабочую монорепо-структуру сервисов (frontend/backend/worker/realtime), миграции БД, пакеты контрактов/типов и набор документации по эксплуатации и тестам.
+Исправлены тестовые регрессии IAM/health: обновлена инициализация `AuthService` с `SecretsService` в e2e/contract тестах и актуализирован `health` readiness test-suite.
 
 ### Current Task
 
-Обновление `README.md` до формата LMS/СДО SSOT и синхронизация секций состояния проекта.
+Закрыть оставшийся блокер полного `pnpm test:backend` в migration-chain проверках (`mvp-domain-migrations.test.ts`).
 
 ### Next Task
 
-Выполнить приоритетную функциональную итерацию: hardening критического сценария IAM (логин/refresh/logout + проверка role access на frontend) с запуском и фиксацией целевых тестов.
+Согласовать/исправить ожидания по SQL migration chain (baseline + duplicate numbering), затем повторно прогнать `pnpm test:backend` и зафиксировать итог.
 
 ### Do Not Touch
 
@@ -100,7 +100,7 @@ AI Agent
 
 ### Last Updated At
 
-2026-04-28 00:00 UTC
+2026-04-28 19:16 UTC
 
 ## 3. Current Project Status
 
