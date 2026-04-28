@@ -1,11 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import { AuditService } from '../audit/audit.service.js';
-import { RealtimeEventsService } from '../core/realtime-events.service.js';
-import { TenantSerialGateway } from '../../infrastructure/request/tenant-serial.gateway.js';
-import { DOCUMENTS_PERSISTENCE_BACKEND } from './infrastructure/documents-persistence.token.js';
 import { DocumentsService } from './documents.service.js';
 import { InMemoryDocumentsState } from './in-memory-documents.state.js';
+import { TenantSerialGateway } from '../../infrastructure/request/tenant-serial.gateway.js';
+import { AuditService } from '../audit/audit.service.js';
+import { RealtimeEventsService } from '../core/realtime-events.service.js';
+import { DOCUMENTS_PERSISTENCE_BACKEND } from './infrastructure/documents-persistence.token.js';
 
 import type { DocumentsPersistenceBackend } from './infrastructure/documents-persistence.backend.js';
 
