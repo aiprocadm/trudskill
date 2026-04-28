@@ -160,4 +160,46 @@ describe('IAM HTTP regressions (integration/e2e)', () => {
     expect(unauthorizedEnvelope).toHaveProperty('meta.requestId');
     expect(unauthorizedEnvelope.data).toBeUndefined();
   });
+
+  it('returns session_inactive when session is revoked and protected route is requested', async () => {
+    const loginResponse = await fetch(`${apiBaseUrl}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo'
+      },
+      body: JSON.stringify({ login: 'tenant_admin', password: 'Password123!' })
+    });
+    expect(loginResponse.status).toBe(201);
+    const loginPayload = (await loginResponse.json()) as {
+      data: { accessToken: string };
+    };
+
+    const { verifySignedAccessToken } = await import('./crypto.util.js');
+    const claims = verifySignedAccessToken(
+      loginPayload.data.accessToken,
+      process.env.AUTH_JWT_SECRET!
+    );
+
+    const logoutResponse = await fetch(`${apiBaseUrl}/auth/logout`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${loginPayload.data.accessToken}`
+      },
+      body: JSON.stringify({ sessionId: claims.session_id })
+    });
+    expect(logoutResponse.status).toBe(201);
+
+    const forbiddenResponse = await fetch(`${apiBaseUrl}/users`, {
+      headers: {
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${loginPayload.data.accessToken}`
+      }
+    });
+    expect(forbiddenResponse.status).toBe(403);
+    const forbiddenEnvelope = await parseErrorEnvelope(forbiddenResponse);
+    expect(forbiddenEnvelope.error.code).toBe('session_inactive');
+  });
 });
