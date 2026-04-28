@@ -6,8 +6,8 @@
 - Agent: GPT-5.3-Codex
 - Repository: `/workspace/cdoprof-`
 - Branch, if known: `work`
-- Commit hash before work, if available: `88f06515b38114c256ddffaa2814b76d3e85db08`
-- Commit hash after work, if available: see current `git rev-parse HEAD` (finalized in this session).
+- Commit hash before work, if available: `63e3da6bd21c2881234261ddad9944a94de62cd5`
+- Commit hash after work, if available: будет доступен после коммита этой сессии.
 
 ## 2. Project Overview
 
@@ -15,86 +15,81 @@
 
 - Назначение LMS: monorepo LMS/СДО с модулями IAM, курсов/обучения (MVP domain), документов/e-sign, коммуникаций и интеграций.
 - Общий стек: TypeScript + pnpm workspace + Turborepo.
-- Frontend: Next.js (`apps/frontend`).
-- Backend: NestJS (`apps/backend`).
-- Database: PostgreSQL, SQL migrations (`apps/backend/migrations`).
-- Auth: backend IAM module (session/token + permissions).
-- Deployment / docker: `infra/docker-compose.yml`, сервисные Dockerfile.
-- Test setup: Vitest workspace (apps + packages).
+- frontend: Next.js (`apps/frontend`).
+- backend: NestJS (`apps/backend`).
+- database: PostgreSQL, SQL migrations (`apps/backend/migrations`).
+- auth: IAM модуль backend (JWT access + refresh/session checks + permissions).
+- deployment / docker: `infra/docker-compose.yml`, Dockerfile в сервисах.
+- test setup: Vitest workspace (apps + packages), unit/integration/e2e test наборы.
 
 ## 3. Repository Structure
 
-- `apps/backend` — NestJS API, IAM, документы, e-sign, workspace, integrations, migrations.
-- `apps/frontend` — Next.js UI (кабинеты, роли, курсы, коммуникации).
-- `apps/worker` — фоновые джобы/пайплайны.
-- `apps/realtime` — realtime service.
-- `packages/shared-types` — shared типы/доменные модели.
-- `packages/api-contracts` — контракты API.
+- `apps/backend` — NestJS API (iam, workspace, documents, esign, integrations, communication, health, audit).
+- `apps/frontend` — Next.js UI (role-based routes, LMS pages, auth/navigation/features).
+- `apps/worker` — фоновые процессы и документный pipeline.
+- `apps/realtime` — realtime сервис.
+- `packages/shared-types` — общие типы доменов.
+- `packages/api-contracts` — API контракты и генерация OpenAPI-артефактов.
 - `packages/ui` — UI primitives/components.
-- `docs` — архитектура, эксплуатация, тестовая стратегия.
-- `infra` — docker-compose и infra docs.
+- `docs` — архитектурные и operational документы.
+- `infra` — локальная инфраструктура и docker-compose.
 
 ## 4. Existing Functionality Observed
 
 Что уже было в проекте до моих изменений:
 
-- auth: login/logout/refresh, permission guard и security tests.
+- auth: login/logout/refresh, session guard, permission guard и security tests.
 - users: IAM users/session flows присутствуют.
-- roles: role/permission model реализована (learner/teacher/admin и permissions).
-- courses: есть backend/frontend course-related MVP сценарии.
-- lessons: присутствуют как часть learning MVP, но не полностью изолированный модуль LMS-уроков.
-- enrollments: присутствуют enrollment flows/events.
-- progress: базовые прогресс-сценарии есть в MVP, без отдельного полноценного progress bounded context.
-- assignments/quizzes: частичное покрытие, не полный сквозной production-grade модуль.
-- admin: есть admin/cockpit pages + backend auth checks.
-- teacher dashboard: присутствуют teacher/grading related routes.
-- student dashboard: learner/student dashboard routes есть.
+- roles: role/permission model реализована (learner/teacher/admin + granular permissions).
+- courses: есть backend/frontend учебные сценарии в MVP/domain pages.
+- lessons: присутствуют в рамках LMS/MVP страниц и backend domain.
+- enrollments: есть enrollment flows/events.
+- progress: базовые progress-сценарии в MVP есть.
+- assignments/quizzes: частичное покрытие (assessment/task pages + backend extensions), не полный сквозной production модуль.
+- admin: admin cockpit и admin-related маршруты есть.
+- teacher dashboard: teacher/grading маршруты есть.
+- student dashboard: student/learner dashboard маршруты есть.
 - API: Nest controllers/DTO/services по доменам.
-- database: SQL migrations chain + database infrastructure layer.
-- UI: role-based pages/navigation; тесты на role-access/auth-routing.
+- database: цепочка SQL migration + тесты миграционной целостности.
+- UI: role-based routing и e2e тесты доступа.
 
 ## 5. Work Completed In This Session
 
-### 5.1 Stabilized backend typecheck flow (P0 build-blocker class)
+### 5.1 Fix backend lint blocker in documents tenant-runner
 
-- Summary: Устранена системная причина падения `@cdoprof/backend typecheck` (TS6305 из-за не-собранных workspace dependencies).
+- Summary: Исправлен реальный блокер качества сборочного пайплайна — падение backend lint из-за неправильного порядка импортов.
 - Files changed:
-  - `apps/backend/package.json`
+  - `apps/backend/src/modules/documents/documents-tenant-runner.service.ts`
 - Details:
-  - Скрипт `typecheck` изменён с прямого `tsc -p tsconfig.json --noEmit` на последовательность:
-    1. `pnpm --filter @cdoprof/shared-types build`
-    2. `pnpm --filter @cdoprof/api-contracts build`
-    3. `tsc -p tsconfig.json --noEmit`
-  - Это сохраняет текущую архитектуру с project references и устраняет runtime/CI race, когда backend typecheck запускался до build shared packages.
+  - Упорядочены импорты согласно `eslint-plugin-import/order` правилам проекта.
+  - Это устранило падение `pnpm --filter @cdoprof/backend lint`.
 - Notes:
-  - Публичный API, schema, migrations и auth-flow не менялись.
+  - Бизнес-логика, API контракты, БД и auth-flow не менялись.
 
 ### 5.2 Handoff synchronization
 
-- Summary: Полностью обновлён `LMS_AGENT_HANDOFF.md` по итогам фактической сессии и результатов проверок.
+- Summary: Обновлён `LMS_AGENT_HANDOFF.md` с фактическими результатами текущей итерации.
 - Files changed:
   - `LMS_AGENT_HANDOFF.md`
 - Details:
-  - Зафиксированы: стек, структура, фактические команды/результаты, текущие ограничения, точные next steps.
-- Notes:
-  - Документ ориентирован на продолжение следующей итерации без потери контекста.
+  - Обновлены команды проверок, статусы, known issues и дальнейшие шаги.
 
 ## 6. Files Changed
 
-| File                        | Change Type | Purpose                                                                        |
-| --------------------------- | ----------- | ------------------------------------------------------------------------------ |
-| `apps/backend/package.json` | modified    | Сделан устойчивый `typecheck` backend через prebuild shared workspace packages |
-| `LMS_AGENT_HANDOFF.md`      | modified    | Обновлён подробный handoff текущей сессии                                      |
+| File                                                                    | Change Type | Purpose                                                   |
+| ----------------------------------------------------------------------- | ----------- | --------------------------------------------------------- |
+| `apps/backend/src/modules/documents/documents-tenant-runner.service.ts` | modified    | Исправление порядка импортов для прохождения backend lint |
+| `LMS_AGENT_HANDOFF.md`                                                  | modified    | Актуализация контекста и результатов сессии               |
 
 ## 7. Database / Schema / Migration Changes
 
-- Изменений в schema/migrations/seed не было.
+- Изменений schema/migrations/seed не было.
 - Новые миграции не создавались.
-- Рисков для данных от этой итерации нет.
+- Риск для данных отсутствует.
 
 ## 8. API Changes
 
-- API endpoints/контракты не менялись.
+API endpoints/контракты не менялись.
 
 | Method | Path | Change                         | Auth Required | Roles |
 | ------ | ---- | ------------------------------ | ------------- | ----- |
@@ -104,117 +99,122 @@
 
 - новые request body: нет;
 - новые response formats: нет;
-- error behavior: нет изменений на API уровне;
-- validation: нет изменений схем валидации.
+- error behavior: без изменений;
+- validation: без изменений.
 
 ## 9. Frontend / UI Changes
 
 - Frontend/UI файлы не менялись.
-- Новые loading/error/empty states в этой сессии не добавлялись.
+- Новые loading/error/empty states в этой итерации не добавлялись.
 
 ## 10. Auth / Permissions Notes
 
 - Auth/permissions модель не менялась.
-- Backend permission checks остаются в guards/services IAM.
-- Security gaps, отмеченные ранее, сохраняются в backlog (см. секцию Known Issues/Next Steps).
+- Backend permission checks по-прежнему выполняются через guards/services в IAM и модульных тестовых сценариях.
+- Основной security focus на следующую итерацию: расширение permission-boundary regression по дополнительным модулям.
 
 ## 11. Validation / Error Handling
 
-- Новой backend input validation в этой сессии не добавлялось.
+- Новая backend валидация не добавлялась.
 - Формат ошибок API не менялся.
-- Основное улучшение — устойчивость toolchain/typecheck pipeline.
+- В этой сессии улучшалась инженерная устойчивость (lint gate).
 
 ## 12. Tests / Checks Run
 
-| Command                                                                                                                               | Result | Notes                                                                                              |
-| ------------------------------------------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------- |
-| `pnpm --filter @cdoprof/backend typecheck`                                                                                            | passed | После обновления скрипта backend typecheck выполняется успешно (включая prebuild shared packages). |
-| `pnpm exec vitest run apps/backend/src/modules/iam/auth.service.test.ts apps/backend/src/modules/documents/documents.service.test.ts` | passed | 2 files / 19 tests passed.                                                                         |
+| Command                                                                                                                                                   | Result             | Notes                                                                                   |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | --------------------------------------------------------------------------------------- |
+| `pnpm --filter @cdoprof/frontend typecheck`                                                                                                               | passed             | Frontend TS typecheck зелёный.                                                          |
+| `pnpm --filter @cdoprof/backend lint`                                                                                                                     | failed (first run) | Падал на import/order в `documents-tenant-runner.service.ts`; исправлено в этой сессии. |
+| `pnpm --filter @cdoprof/backend exec eslint src/modules/documents/documents-tenant-runner.service.ts --fix`                                               | passed             | Автофикс порядка импортов по линтеру.                                                   |
+| `pnpm --filter @cdoprof/backend lint`                                                                                                                     | passed             | После фикса import order.                                                               |
+| `pnpm --filter @cdoprof/backend typecheck`                                                                                                                | passed             | Включает prebuild shared packages; успешно.                                             |
+| `pnpm exec vitest run apps/backend/src/modules/documents/documents.service.test.ts apps/backend/src/modules/workspace/workspace.http.integration.test.ts` | passed             | 2 test files / 15 tests passed.                                                         |
 
 Для failed:
 
-- failed checks в этой сессии отсутствуют после внесённого фикса.
+- initial lint failure был связан с текущим кодом и закрыт в этой же сессии.
 
 ## 13. Known Issues
 
-### Issue 1: Root `pnpm typecheck` не верифицирован в этой сессии
+### Issue 1: Полные workspace проверки не прогонялись
 
 - Severity: medium
-- Area: tooling/tests
-- Description: Проверен только backend scope; полный workspace typecheck не запускался в этой итерации.
-- Evidence: запускалась только команда `pnpm --filter @cdoprof/backend typecheck`.
-- Suggested fix: запустить `pnpm typecheck` целиком и зафиксировать remaining failures (если есть).
+- Area: tests/tooling
+- Description: Не запускались root `pnpm lint`, `pnpm typecheck`, `pnpm test` для всех пакетов.
+- Evidence: в сессии выполнялись целевые backend/frontend команды.
+- Suggested fix: сделать полный CI-like прогон и устранить найденные дефекты по приоритету.
 
 ### Issue 2: Vitest workspace deprecation warning
 
 - Severity: low
 - Area: tests/tooling
-- Description: Vitest предупреждает, что workspace-file подход deprecated, рекомендуется `test.projects`.
-- Evidence: предупреждение при запуске `pnpm exec vitest run ...`.
+- Description: Vitest предупреждает о deprecation workspace файла, рекомендуется `test.projects` в root config.
+- Evidence: warning при запуске `pnpm exec vitest run ...`.
 - Suggested fix: мигрировать root vitest config на `test.projects`.
 
 ## 14. Recommended Next Steps
 
 ### Critical
 
-1. Прогнать полный `pnpm typecheck` (root) и устранить остаточные ошибки, если появятся.
-2. Прогнать минимум `pnpm lint` и целевые integration tests backend IAM/workspace/documents.
+1. Прогнать `pnpm lint && pnpm typecheck` на root и закрыть P0/P1 ошибки.
+2. Прогнать минимум `pnpm test:backend` или таргетные integration suites для IAM/documents/workspace.
 
 ### High
 
-1. Добавить/расширить permission-boundary HTTP integration tests для дополнительных модулей (по аналогии с workspace/documents).
-2. Проверить consistency role-based access между frontend route guards и backend permissions.
+1. Расширить permission/session boundary integration tests на дополнительные backend модули.
+2. Проверить согласованность frontend role guards и backend permission checks на ключевых LMS маршрутах.
 
 ### Medium
 
-1. Обновить `docs/run-tests.md` с явным порядком команд для reproducible CI-like local checks.
-2. Убрать Vitest deprecation warning через обновление конфигурации.
+1. Актуализировать `docs/run-tests.md` с минимальным обязательным check-list для локального CI-like прогона.
+2. Убрать Vitest deprecation warning через обновление root конфигурации.
 
 ### Low
 
-1. Подчистить backlog-документы, оставить короткий operational summary и single source ссылок.
-2. Добавить targeted smoke test на root workspace typecheck pipeline (скриптовый).
+1. Консолидировать операционные документы (оставить короткий source-of-truth summary + ссылки).
 
 ## 15. Suggested Next Agent Prompt
 
-"Сделай следующую итерацию по P0/P1: запусти полный `pnpm typecheck`, `pnpm lint`, и целевые backend integration tests; исправь найденные реальные блокеры (без изменения public API без необходимости), после чего обнови LMS_AGENT_HANDOFF.md с точными результатами и рисками."
+"Сделай следующую итерацию P0/P1: запусти root `pnpm lint`, `pnpm typecheck`, и целевые backend integration тесты (IAM/documents/workspace). Исправь реальные блокеры без изменения public API и обнови `LMS_AGENT_HANDOFF.md` с точными результатами и остаточными рисками."
 
 ## 16. Important Context / Assumptions
 
 - Стек: pnpm/turbo monorepo, NestJS backend, Next.js frontend.
-- Роли: learner/teacher/admin + permissions.
-- Бизнес-логика: текущая сессия не меняла доменные сценарии LMS напрямую; только стабилизация инженерного pipeline backend typecheck.
-- Миграции/данные: без изменений.
-- Окружение: проверки выполнялись локально без полного docker runtime подъёма всех сервисов.
+- Роли: learner/teacher/admin + permission model.
+- В этой сессии выполнялся минимально достаточный fix без изменений domain behavior.
+- БД/миграции не трогались.
+- Проверки выполнялись в локальном окружении без полного docker stack e2e прогона.
 
 ## 17. Environment Variables
 
-(На основе `.env.example` и service examples; значения секретов не указываются.)
+(Собрано по `.env.example` и service examples; без секретных значений.)
 
-| Variable                   | Required   | Purpose                   | Notes              |
-| -------------------------- | ---------- | ------------------------- | ------------------ |
-| `NODE_ENV`                 | yes        | runtime mode              | dev/prod           |
-| `DATABASE_URL`             | yes        | PostgreSQL connection     | no value included  |
-| `REDIS_URL`                | yes        | Redis connection          | no value included  |
-| `RABBITMQ_URL`             | yes        | MQ connection             | no value included  |
-| `AUTH_JWT_SECRET`          | yes        | auth signing secret       | no value included  |
-| `SESSION_SECRET`           | yes        | session secret            | no value included  |
-| `CORS_ORIGIN`              | yes (prod) | CORS policy               | keep restrictive   |
-| `BACKEND_PORT`             | backend    | backend listen port       | default per env    |
-| `API_PREFIX`               | backend    | HTTP API prefix           | e.g. `/api/v1`     |
-| `NEXT_PUBLIC_API_BASE_URL` | frontend   | frontend→backend base URL | include API prefix |
-| `NEXT_PUBLIC_REALTIME_URL` | frontend   | realtime endpoint         | ws/wss URL         |
-| `DB_MIGRATIONS_ENABLED`    | backend    | migrations toggle         | bool               |
+| Variable                   | Required   | Purpose                      | Notes              |
+| -------------------------- | ---------- | ---------------------------- | ------------------ |
+| `NODE_ENV`                 | yes        | runtime mode                 | dev/test/prod      |
+| `DATABASE_URL`             | yes        | PostgreSQL connection        | value not included |
+| `REDIS_URL`                | yes        | Redis connection             | value not included |
+| `RABBITMQ_URL`             | yes        | MQ connection                | value not included |
+| `AUTH_JWT_SECRET`          | yes        | access token signing         | value not included |
+| `SESSION_SECRET`           | yes        | session signing/protection   | value not included |
+| `CORS_ORIGIN`              | yes (prod) | CORS policy                  | keep restrictive   |
+| `BACKEND_PORT`             | backend    | backend listen port          | default by env     |
+| `API_PREFIX`               | backend    | API namespace prefix         | e.g. `/api/v1`     |
+| `NEXT_PUBLIC_API_BASE_URL` | frontend   | frontend -> backend base URL | include prefix     |
+| `NEXT_PUBLIC_REALTIME_URL` | frontend   | realtime endpoint            | ws/wss URL         |
+| `DB_MIGRATIONS_ENABLED`    | backend    | migrations toggle            | bool               |
 
 ## 18. How To Run Locally
 
 1. `pnpm install`
-2. `cp .env.example .env` (+ при необходимости service `.env` из `apps/*/.env.example`)
-3. `docker compose -f infra/docker-compose.yml up -d --build` (инфраструктура)
-4. `pnpm dev` (monorepo dev)
-5. Проверки:
+2. `cp .env.example .env` (и при необходимости `.env` для `apps/*` из их `.env.example`)
+3. `docker compose -f infra/docker-compose.yml up -d --build` (если нужны внешние сервисы)
+4. `pnpm dev`
+5. Проверки после изменений:
+   - `pnpm --filter @cdoprof/backend lint`
    - `pnpm --filter @cdoprof/backend typecheck`
-   - `pnpm exec vitest run apps/backend/src/modules/iam/auth.service.test.ts apps/backend/src/modules/documents/documents.service.test.ts`
+   - `pnpm --filter @cdoprof/frontend typecheck`
+   - `pnpm exec vitest run <target-tests>`
 
 ## 19. How To Continue Development
 
@@ -222,15 +222,15 @@
   - `apps/backend/src/modules/iam/*`
   - `apps/backend/src/modules/workspace/*`
   - `apps/backend/src/modules/documents/*`
-  - `apps/frontend/src/features/auth/*` и role-access e2e tests.
-- Соблюдать текущий стиль: модульная Nest архитектура, минимальные изменения, без резкой смены паттернов.
-- После любого изменения запускать минимум: typecheck затронутого scope + релевантные tests.
-- Не делать разрушительные schema/API/auth изменения без явной необходимости и документации в handoff.
+  - `apps/frontend/src/features/auth/*` и frontend e2e role tests.
+- Соблюдать архитектуру Nest modules/services/guards + минимальные инкрементальные изменения.
+- После каждого change-set запускать минимум lint + typecheck затронутого scope и 1-2 релевантных теста.
+- Не делать разрушительные изменения schema/API/auth без отдельной задачи и документирования.
 
 ## 20. Final Status
 
-- Build status: partial verified (backend typecheck fixed/passing).
-- Test status: targeted backend tests passing (2 files / 19 tests).
-- Main LMS flows status: не изменялись функционально в этой сессии.
-- Production readiness: частичная; требуется full workspace verification (`pnpm typecheck/lint/test`).
-- Next best action: выполнить full workspace checks и закрыть оставшиеся P0/P1 дефекты по факту результатов.
+- Build status: частично верифицирован (backend/frontend typecheck в green).
+- Test status: целевые backend tests green (2 files / 15 tests).
+- Main LMS flows status: функционально не изменялись в этой сессии.
+- Production readiness: частичная, нужен full root CI-like прогон.
+- Next best action: root lint/typecheck/test проход + устранение найденных P0/P1 дефектов.
