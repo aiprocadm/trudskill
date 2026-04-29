@@ -261,3 +261,28 @@
 - Test status: **green**
 - Main LMS flows status: **baseline stable** (по текущему покрытию unit/integration/e2e тестами)
 - Production readiness: **staging-ready baseline** (нужны продуктовые доработки по roadmap, но базовые quality gates проходят)
+
+## Session Update — 2026-04-29 (query shim test hardening)
+
+### Что сделано в этой итерации
+
+- Добавлен отсутствующий целевой unit/smoke test для `react-query-shim`, чтобы закрыть зафиксированный гэп по отсутствию тестов на этот модуль.
+- Проверено, что новый тест проходит локально и не требует изменения production-кода.
+
+### Измененные файлы
+
+- `apps/frontend/src/lib/query/react-query-shim.test.ts` (new)
+- `LMS_AGENT_HANDOFF.md` (updated)
+
+### Команды и результаты (фактически выполнены)
+
+| Command                                                                          | Result | Notes                                                                             |
+| -------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------- |
+| `pnpm -s ci:check`                                                               | passed | Полный quality-gate монорепозитория: lint + typecheck + contracts + test + build. |
+| `pnpm --filter @cdoprof/frontend test -- src/lib/query/react-query-shim.test.ts` | passed | Новый тестовый файл: 1 file / 2 tests passed.                                     |
+
+### Обновлённый статус
+
+- Build status: **green**
+- Test status: **green**
+- Main LMS flows status: **stable baseline**, дополнительная устойчивость test-coverage в query-layer frontend.
