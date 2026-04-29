@@ -6,285 +6,168 @@
 - Agent: GPT-5.3-Codex
 - Repository: `/workspace/cdoprof-`
 - Branch, if known: `work`
-- Commit hash before work, if available: `5d78065a166dedbaedbb0e94e6653939a277715e`
-- Commit hash after work, if available: pending commit in this session (update after commit)
+- Commit hash before work, if available: `3490d643955a91be1a2430055fdf34f506302544`
+- Commit hash after work, if available: `TO_BE_FILLED_AFTER_COMMIT`
 
 ## 2. Project Overview
 
-- Назначение LMS: enterprise LMS/СДО с ролями learner/teacher/admin и набором бизнес-модулей (курсы, документы, e-sign, коммуникации, интеграции).
-- Общий стек: TypeScript monorepo, pnpm workspace, Turborepo.
-- Frontend: Next.js App Router (`apps/frontend`).
-- Backend: NestJS (`apps/backend`).
-- Database: PostgreSQL + SQL migrations (`apps/backend/migrations`).
-- Auth: IAM модуль backend + frontend session/auth контекст.
+- Назначение LMS: корпоративная LMS/СДО платформа с ролевым доступом, каталогом учебных сущностей и enterprise-модулями (документы, e-sign, коммуникации, интеграции).
+- Общий стек: TypeScript monorepo, pnpm workspaces, Turborepo.
+- Frontend: Next.js (App Router) в `apps/frontend`.
+- Backend: NestJS в `apps/backend`.
+- Database: PostgreSQL + SQL migrations в `apps/backend/migrations`.
+- Auth: backend IAM + frontend session/context.
 - Deployment / Docker: `infra/docker-compose.yml`.
-- Test setup: Vitest (multi-project), ESLint, TypeScript typecheck.
+- Test setup: Vitest (multi-package), ESLint, TypeScript typecheck, full pipeline `ci:check`.
 
 ## 3. Repository Structure
 
-- `apps/frontend` — пользовательский UI (chat, esign, courses, learner/admin flows).
-- `apps/backend` — API и доменные модули (IAM, workspace, documents, esign, integrations).
-- `apps/realtime` — realtime сервис.
-- `apps/worker` — фоновые задачи.
-- `packages/api-contracts` — API контракты/типизация.
-- `packages/shared-types` — разделяемые типы.
-- `docs` — архитектура, эксплуатация, тестирование, troubleshooting.
+- `apps/frontend` — UI (страницы LMS/enterprise, auth routing, role-based access).
+- `apps/backend` — API и доменные модули (IAM, MVP LMS flows, documents, integrations, esign).
+- `apps/realtime` — realtime backend.
+- `apps/worker` — background processing.
+- `packages/api-contracts` — API type contracts.
+- `packages/shared-types` — shared type primitives.
+- `packages/ui` — shared UI components/styles.
+- `docs` — архитектурные/операционные документы.
 - `infra` — docker-compose и инфраструктурные файлы.
 
 ## 4. Existing Functionality Observed
 
-- auth: есть login/refresh/logout/me/sessions и security-тесты.
-- users: есть user management endpoints и frontend страницы.
-- roles: role-based доступ реализован backend+frontend.
-- courses/lessons/progress: присутствуют learner/courses страницы и backend MVP модуль.
-- enrollments: присутствуют в доменной модели проекта.
-- assignments/quizzes: есть базовый функциональный каркас и тесты в репозитории.
-- admin/teacher/student dashboards: есть role-based страницы и protected routing.
-- API: модульная NestJS архитектура.
-- database: SQL migration-driven.
-- UI: shared components + state wrappers.
+- auth: login/logout/refresh/me/sessions, включая security regression tests.
+- users: CRUD и role management endpoints + UI страницы.
+- roles: permission/role guards на backend + route-access logic на frontend.
+- courses: list/detail/create/edit страницы и соответствующие backend MVP endpoints.
+- lessons/materials/modules: базовые сущности и API доступны через MVP module.
+- enrollments/progress: базовый функциональный каркас и тесты присутствуют.
+- assignments/quizzes: присутствуют DTO/domain элементы и тестовый baseline.
+- admin/teacher/student dashboards: есть ролевые страницы и проверка доступа.
+- API: модульная NestJS архитектура с guard/interceptor/filter слоями.
+- database: migration-driven структура, integrity/compatibility тесты.
+- UI: shared component library + состояние loading/error/boundaries.
 
 ## 5. Work Completed In This Session
 
-### 5.1 Полный quality-gate прогон и аудит актуального состояния
+### 5.1 Full quality-gate verification and handoff normalization
 
-- Summary: выполнен полный `ci:check` (lint + typecheck + contracts + tests + build) по всей монорепе для проверки блокеров запуска/сборки/основных сценариев.
+- Summary: выполнен полный сквозной прогон `pnpm -s ci:check` (lint, typecheck, contracts checks, tests, build) для подтверждения отсутствия блокеров запуска/сборки/основных LMS flow. Дополнительно обновлён и структурирован handoff-файл.
 - Files changed:
   - `LMS_AGENT_HANDOFF.md`
 - Details:
-  - Критичных блокеров не найдено: все этапы `ci:check` завершились успешно.
-  - Подтверждена работоспособность backend/frontend тестов (включая IAM/security/permission и LMS role-flows).
-  - Подтверждена production-сборка frontend (`next build`) и backend/packages.
-- Notes: кодовые изменения в приложении не потребовались; приоритетные блокеры отсутствуют.
+  - Все quality gates прошли успешно без runtime/code regressions.
+  - Критичных проблем, требующих немедленного исправления кода, не выявлено.
+  - Устранена накопившаяся неструктурированность и дубли в handoff-документации.
+- Notes:
+  - Изменения в production-код не вносились, т.к. objective блокеров не найдено.
 
 ## 6. Files Changed
 
-| File                   | Change Type | Purpose                                                  |
-| ---------------------- | ----------- | -------------------------------------------------------- |
-| `LMS_AGENT_HANDOFF.md` | modified    | Актуализация handoff после полного прогона quality gates |
+| File                   | Change Type | Purpose                                                                    |
+| ---------------------- | ----------- | -------------------------------------------------------------------------- |
+| `LMS_AGENT_HANDOFF.md` | modified    | Обновление актуального технического handoff по результатам полной проверки |
 
 ## 7. Database / Schema / Migration Changes
 
-- БД/схема/миграции не менялись.
+- БД/схема/миграции в этой сессии не менялись.
+- Команды миграций не запускались (не требовалось кодовыми изменениями).
 
 ## 8. API Changes
 
-- API endpoints, request/response contracts не менялись.
+- API endpoints, request/response contracts и auth flow не менялись.
 
 ## 9. Frontend / UI Changes
 
-- В этой сессии UI-код не менялся.
-- Проверена успешная сборка и тесты frontend.
+- Frontend runtime-код не изменялся.
+- Подтверждена корректность сборки/тестов frontend в составе `ci:check`.
 
 ## 10. Auth / Permissions Notes
 
-- Auth/perms логика не модифицировалась.
-- Актуальные регрессии auth/permission в тестах зелёные (`auth.security`, `permission.guard`, frontend role-access e2e).
-- Security gap этой сессии: не проводился внешний pentest/DAST, только репозиторные automated checks.
+- Auth/perms код не модифицировался.
+- Проверки access/security остаются зелёными по existing test suite.
+- Потенциальный остаточный риск: для части LMS предметной области (course/lesson/progress) полезно продолжать углублять authz/IDOR regression coverage.
 
 ## 11. Validation / Error Handling
 
-- Новые схемы валидации не добавлялись.
-- Error handling код не модифицировался.
+- Новых схем валидации и изменений error-handling не добавлено.
+- Текущие contract/validation тесты проходят в рамках общего пайплайна.
 
 ## 12. Tests / Checks Run
 
-| Command            | Result | Notes                                                                                 |
-| ------------------ | ------ | ------------------------------------------------------------------------------------- |
-| `pnpm -s ci:check` | passed | Полный pipeline: lint → typecheck → contracts checks → unit/integration tests → build |
+| Command            | Result | Notes                                                                             |
+| ------------------ | ------ | --------------------------------------------------------------------------------- |
+| `pnpm -s ci:check` | passed | Полный monorepo quality-gate: lint + typecheck + contracts checks + tests + build |
 
 ## 13. Known Issues
 
-### Issue 1: README и HANDOFF частично дублируют контекст
+### Issue 1: Нужны более глубокие предметные регрессии для LMS authorization
 
-- Severity: low
-- Area: docs
-- Description: часть статуса и планов одновременно ведётся в `README.md` и `LMS_AGENT_HANDOFF.md`.
-- Evidence: оба файла содержат блоки с состоянием итерации.
-- Suggested fix: оставить high-level в README и подробный итерационный log только в handoff.
+- Severity: medium
+- Area: backend/auth/tests
+- Description: текущий coverage хорош для foundation/security, но для отдельных course/lesson/progress authorization-граней можно добавить целевые интеграционные кейсы.
+- Evidence: в текущей сессии критичных падений нет, но roadmap/tests указывают на потенциал усиления именно domain-guard coverage.
+- Suggested fix: добавить integration tests на role boundaries и IDOR кейсы по course/lesson endpoints.
 
 ## 14. Recommended Next Steps
 
 ### Critical
 
-1. Сохранить дисциплину прогона `pnpm -s ci:check` перед каждым merge.
-2. При первом красном падении чинить в порядке: auth/security → backend startup → frontend build.
+1. Сохранять `pnpm -s ci:check` обязательным гейтом перед merge.
+2. При первом регрессе чинить в порядке: auth/security -> backend startup -> frontend build.
 
 ### High
 
-1. Добавить целевые тесты на основные LMS сценарии курсов/уроков/прогресса (CRUD + access control), если покрытие недостаточно.
-2. Проверить и усилить backend authorization на course/lesson endpoints (IDOR-риски).
+1. Добавить integration tests для course/lesson/progress authorization boundaries.
+2. Пройтись по LMS API на предмет object-level permission checks (IDOR hardening).
 
 ### Medium
 
-1. Унифицировать документацию статуса между README и handoff (single-source per level).
-2. Добавить smoke-playbook для ручной проверки learner/teacher/admin flows в `docs/run-tests.md`.
+1. Добавить/актуализировать docs-playbook для ручной проверки learner/teacher/admin сценариев.
+2. Приоритизировать UX polish для пустых/ошибочных состояний ключевых LMS страниц.
 
 ### Low
 
-1. Снизить шум test-логов Nest в Vitest (если мешает CI читаемости).
+1. Снизить шум Nest logs в тестах (опционально, для CI readability).
 
 ## 15. Suggested Next Agent Prompt
 
-"Сфокусируйся на LMS course/lesson/progress backend authorization regression: добавь/усиль integration tests на role boundaries и IDOR, исправь найденные дефекты минимальными изменениями, прогони `pnpm -s ci:check`, затем обнови `LMS_AGENT_HANDOFF.md`."
+"Сфокусируйся на backend LMS authorization hardening для course/lesson/progress: добавь integration tests на role boundaries и IDOR, внеси минимальные правки в guards/service checks при необходимости, прогони `pnpm -s ci:check`, затем обнови `LMS_AGENT_HANDOFF.md`."
 
 ## 16. Important Context / Assumptions
 
-- Предположение: текущий baseline архитектуры стабилен, поэтому в этой итерации приоритет — верификация, а не рефакторинг.
-- Изменения сделаны минимально-инвазивно: только документация handoff.
-- Не изменялись миграции, auth-flow и API контракты из-за отсутствия новых блокеров.
+- Предположение: текущий baseline проекта стабилен, поэтому в этой итерации приоритетом была полная верификация quality gates.
+- Изменения ограничены документацией (handoff), так как объективных build/runtime блокеров не найдено.
+- Архитектура monorepo и текущие role naming/concepts не изменялись.
 
 ## 17. Environment Variables
 
-| Variable                   | Required                | Purpose                               | Notes              |
-| -------------------------- | ----------------------- | ------------------------------------- | ------------------ |
-| `DATABASE_URL`             | yes (backend runtime)   | PostgreSQL connection                 | value not included |
-| `DB_MIGRATIONS_ENABLED`    | optional                | apply migrations at backend startup   | boolean-like flag  |
-| `NEXT_PUBLIC_API_BASE_URL` | yes (frontend)          | API base URL                          | public env         |
-| `NEXT_PUBLIC_REALTIME_URL` | yes (frontend realtime) | realtime endpoint                     | public env         |
-| `PUBLIC_BASE_URL`          | optional/tests          | app base URL for test/runtime helpers | public env         |
+| Variable                   | Required                | Purpose                        | Notes                     |
+| -------------------------- | ----------------------- | ------------------------------ | ------------------------- |
+| `DATABASE_URL`             | yes (backend runtime)   | PostgreSQL connection          | secret value not included |
+| `DB_MIGRATIONS_ENABLED`    | optional                | apply migrations on startup    | boolean-like              |
+| `NEXT_PUBLIC_API_BASE_URL` | yes (frontend)          | API base URL                   | public env                |
+| `NEXT_PUBLIC_REALTIME_URL` | yes (frontend realtime) | realtime endpoint URL          | public env                |
+| `PUBLIC_BASE_URL`          | optional/tests          | app base URL for helpers/tests | public env                |
 
 ## 18. How To Run Locally
 
 1. `pnpm install`
-2. `cp .env.example .env` и заполнить переменные (и app-level env при необходимости)
-3. (опционально) `docker compose -f infra/docker-compose.yml up -d --build`
-4. `pnpm dev` для запуска всех сервисов в dev-режиме
-5. Полная проверка качества: `pnpm -s ci:check`
+2. Скопировать `.env.example` в `.env` и заполнить значения (плюс app-specific `.env.example` при необходимости).
+3. При необходимости поднять инфраструктуру: `docker compose -f infra/docker-compose.yml up -d --build`.
+4. Запуск dev-окружения: `pnpm dev`.
+5. Полный quality gate: `pnpm -s ci:check`.
 
 ## 19. How To Continue Development
 
-- Читать сначала: `README.md` → `LMS_AGENT_HANDOFF.md` → `docs/architecture-overview.md`.
-- Фокус по LMS: `apps/backend/src/modules/mvp`, `apps/frontend/app/courses*`, `apps/frontend/app/learner*`, IAM guards/policies.
-- Сохранять модульный стиль monorepo, не смешивать domain/UI слои.
-- После каждого изменения минимум запускать `pnpm -s ci:check` или целевые lint/typecheck/tests + build.
-- Избегать массовых рефакторингов без явной продуктовой/технической причины.
+- Начать с чтения: `README.md` -> `LMS_AGENT_HANDOFF.md` -> `docs/architecture-overview.md`.
+- Ключевые зоны LMS: `apps/backend/src/modules/mvp`, `apps/frontend/app/courses*`, `apps/frontend/app/learner*`, IAM guards/policies.
+- Соблюдать текущий архитектурный стиль (модульность NestJS, shared contracts/types).
+- После изменений запускать минимум `pnpm -s ci:check` (или целевые lint/typecheck/test + build с эквивалентным покрытием).
+- Не вносить разрушительные API/DB/auth изменения без миграций/документации/тестов.
 
 ## 20. Final Status
 
-- Build status: **green** (в составе `ci:check`).
-- Test status: **green** (в составе `ci:check`).
-- Main LMS flows status: **baseline stable** по текущему automated coverage.
-- Production readiness: **stабильный development/staging baseline**; нужно продолжать domain-specific regression по courses/lessons/progress.
-- Next best action: усилить authorization/IDOR regression-покрытие для LMS course/lesson flows.
-- Build status: full monorepo build не запускался в этой сессии.
-- Test status: целевые regression tests passed; один запуск failed только из-за отсутствующих test files.
-- Main LMS flows status: функционально без расширения, но frontend stability/maintainability улучшена (hooks dependency fixes).
-- Production readiness: повышена локально по качеству frontend, но требуется полный `ci:check`.
-- Next best action: полный прогон `pnpm ci:check` + добавление тестов на измененные hook paths.
-
----
-
-## Session Update — 2026-04-29 (stabilization pass)
-
-### Что сделано в этой итерации
-
-- Выполнен повторный инженерный прогон репозитория после предыдущих правок, чтобы убедиться в отсутствии регрессий в ключевых LMS/enterprise сценариях.
-- Подтверждено, что критичных блокеров по сборке/линтингу/тестам нет: monorepo полностью проходит `lint`, `build`, `test`.
-- Кодовые изменения в этой итерации не потребовались: текущая база находится в рабочем состоянии по основным quality-gates.
-
-### Команды и результаты (фактически выполнены)
-
-| Command         | Result | Notes                                                                                 |
-| --------------- | ------ | ------------------------------------------------------------------------------------- |
-| `pnpm -s lint`  | passed | Все 8 workspace-пакетов прошли lint, включая Next.js frontend.                        |
-| `pnpm -s build` | passed | Успешная production-сборка всех пакетов; frontend (`next build`) завершен без ошибок. |
-| `pnpm -s test`  | passed | Полный test-run монорепо: backend/frontend/shared пакеты зелёные.                     |
-
-### Обновлённый статус
-
-- Build status: **green**
-- Test status: **green**
-- Main LMS flows status: **baseline stable** (по текущему покрытию тестами и контрактами)
-- Production readiness: **staging-ready baseline**, требуется дальнейшее функциональное развитие по roadmap из `docs/`.
-- Next best action: расширять прикладные LMS-сценарии (course/lesson/progress UX + deeper API authz checks) с сохранением текущего зелёного quality-gate.
-
-## Session Update — 2026-04-29 (full CI validation pass)
-
-### Что сделано в этой итерации
-
-- Выполнен полный сквозной quality-gate `pnpm -s ci:check` (lint → typecheck → contracts lint/typecheck → tests → build) для всего монорепо.
-- Подтверждено отсутствие блокеров запуска/сборки/основных LMS путей на текущей ревизии: все стадии прошли успешно.
-- Кодовые правки приложения не вносились, так как по результатам проверки критичных дефектов, требующих немедленного исправления, не обнаружено.
-
-### Команды и результаты (фактически выполнены)
-
-| Command            | Result | Notes                                                                                         |
-| ------------------ | ------ | --------------------------------------------------------------------------------------------- |
-| `pnpm -s ci:check` | passed | Полный end-to-end прогон quality gates монорепо: lint/typecheck/contracts/test/build зелёные. |
-
-### Обновлённый статус
-
-- Build status: **green**
-- Test status: **green**
-- Main LMS flows status: **stable baseline** (по текущему покрытию backend/frontend/e2e тестами)
-- Production readiness: **staging-ready baseline**; дальнейшие улучшения — по roadmap из `docs/` и блоку Known Issues.
-
-## Session Update — 2026-04-29 (full CI verification)
-
-### Что сделано в этой итерации
-
-- Выполнен полный quality-gate прогон `ci:check` (lint + typecheck + contracts checks + tests + build) для проверки, что репозиторий находится в запускаемом и собираемом состоянии без скрытых регрессий.
-- Подтверждено, что при текущем коде критичных блокеров для базовых LMS-сценариев на уровне CI-воркфлоу нет.
-- Кодовые изменения в runtime-модулях не потребовались; основной результат итерации — верификация стабильности и обновление handoff с фактическими командами/статусом.
-
-### Команды и результаты (фактически выполнены)
-
-| Command            | Result | Notes                                                                                                                                                           |
-| ------------------ | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm -s ci:check` | passed | Выполнены последовательно: `pnpm lint`, `pnpm typecheck`, `pnpm contracts:lint`, `pnpm contracts:typecheck`, `pnpm test:unit`, `pnpm build`; все этапы зелёные. |
-
-### Обновлённый статус
-
-- Build status: **green**
-- Test status: **green**
-- Main LMS flows status: **baseline stable** (по текущему покрытию unit/integration/e2e тестами)
-- Production readiness: **staging-ready baseline** (нужны продуктовые доработки по roadmap, но базовые quality gates проходят)
-
-## Session Update — 2026-04-29 (query shim test hardening)
-
-### Что сделано в этой итерации
-
-- Добавлен отсутствующий целевой unit/smoke test для `react-query-shim`, чтобы закрыть зафиксированный гэп по отсутствию тестов на этот модуль.
-- Проверено, что новый тест проходит локально и не требует изменения production-кода.
-
-### Измененные файлы
-
-- `apps/frontend/src/lib/query/react-query-shim.test.ts` (new)
-- `LMS_AGENT_HANDOFF.md` (updated)
-
-### Команды и результаты (фактически выполнены)
-
-| Command                                                                          | Result | Notes                                                                             |
-| -------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------- |
-| `pnpm -s ci:check`                                                               | passed | Полный quality-gate монорепозитория: lint + typecheck + contracts + test + build. |
-| `pnpm --filter @cdoprof/frontend test -- src/lib/query/react-query-shim.test.ts` | passed | Новый тестовый файл: 1 file / 2 tests passed.                                     |
-
-### Обновлённый статус
-
-- Build status: **green**
-- Test status: **green**
-- Main LMS flows status: **stable baseline**, дополнительная устойчивость test-coverage в query-layer frontend.
-
-## Session Update — 2026-04-29 (full audit + CI confirmation)
-
-### Что сделано в этой итерации
-
-- Проведен первичный аудит структуры репозитория и обязательного контекста (`README.md`, `docs/*`, root scripts).
-- Проверены ключевые quality-gates для блокеров запуска/сборки/LMS-флоу через полный прогон `pnpm -s ci:check`.
-- Критичных дефектов, требующих немедленного hotfix в коде, не обнаружено; кодовые изменения runtime-модулей не вносились.
-- Обновлен handoff с фактическими результатами проверки для следующего агента.
-
-### Команды и результаты (фактически выполнены)
-
-| Command            | Result | Notes                                                                                                            |
-| ------------------ | ------ | ---------------------------------------------------------------------------------------------------------------- |
-| `pnpm -s ci:check` | passed | Полный прогон `lint -> typecheck -> contracts:* -> test:unit -> build` прошел успешно на всех workspace-пакетах. |
-
-### Обновлённый статус
-
-- Build status: **green**
-- Test status: **green**
-- Main LMS flows status: **stable baseline** (по текущему покрытию unit/integration/e2e и успешной сборке frontend/backend)
-- Production readiness: **staging-ready baseline**
-- Next best action: перейти к целевым функциональным доработкам LMS (course/lesson/progress UX и глубинный аудит authz на API) при сохранении зеленого `ci:check`.
+- Build status: green (в составе `pnpm -s ci:check`).
+- Test status: green (в составе `pnpm -s ci:check`).
+- Main LMS flows status: stable baseline (по текущему automated coverage).
+- Production readiness: staging-ready baseline.
+- Next best action: domain-level authorization hardening + targeted integration tests для course/lesson/progress.
