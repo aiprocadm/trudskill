@@ -167,3 +167,124 @@
 - Main LMS flows status: **baseline stable** по текущему automated coverage.
 - Production readiness: **stабильный development/staging baseline**; нужно продолжать domain-specific regression по courses/lessons/progress.
 - Next best action: усилить authorization/IDOR regression-покрытие для LMS course/lesson flows.
+- Build status: full monorepo build не запускался в этой сессии.
+- Test status: целевые regression tests passed; один запуск failed только из-за отсутствующих test files.
+- Main LMS flows status: функционально без расширения, но frontend stability/maintainability улучшена (hooks dependency fixes).
+- Production readiness: повышена локально по качеству frontend, но требуется полный `ci:check`.
+- Next best action: полный прогон `pnpm ci:check` + добавление тестов на измененные hook paths.
+
+---
+
+## Session Update — 2026-04-29 (stabilization pass)
+
+### Что сделано в этой итерации
+
+- Выполнен повторный инженерный прогон репозитория после предыдущих правок, чтобы убедиться в отсутствии регрессий в ключевых LMS/enterprise сценариях.
+- Подтверждено, что критичных блокеров по сборке/линтингу/тестам нет: monorepo полностью проходит `lint`, `build`, `test`.
+- Кодовые изменения в этой итерации не потребовались: текущая база находится в рабочем состоянии по основным quality-gates.
+
+### Команды и результаты (фактически выполнены)
+
+| Command         | Result | Notes                                                                                 |
+| --------------- | ------ | ------------------------------------------------------------------------------------- |
+| `pnpm -s lint`  | passed | Все 8 workspace-пакетов прошли lint, включая Next.js frontend.                        |
+| `pnpm -s build` | passed | Успешная production-сборка всех пакетов; frontend (`next build`) завершен без ошибок. |
+| `pnpm -s test`  | passed | Полный test-run монорепо: backend/frontend/shared пакеты зелёные.                     |
+
+### Обновлённый статус
+
+- Build status: **green**
+- Test status: **green**
+- Main LMS flows status: **baseline stable** (по текущему покрытию тестами и контрактами)
+- Production readiness: **staging-ready baseline**, требуется дальнейшее функциональное развитие по roadmap из `docs/`.
+- Next best action: расширять прикладные LMS-сценарии (course/lesson/progress UX + deeper API authz checks) с сохранением текущего зелёного quality-gate.
+
+## Session Update — 2026-04-29 (full CI validation pass)
+
+### Что сделано в этой итерации
+
+- Выполнен полный сквозной quality-gate `pnpm -s ci:check` (lint → typecheck → contracts lint/typecheck → tests → build) для всего монорепо.
+- Подтверждено отсутствие блокеров запуска/сборки/основных LMS путей на текущей ревизии: все стадии прошли успешно.
+- Кодовые правки приложения не вносились, так как по результатам проверки критичных дефектов, требующих немедленного исправления, не обнаружено.
+
+### Команды и результаты (фактически выполнены)
+
+| Command            | Result | Notes                                                                                         |
+| ------------------ | ------ | --------------------------------------------------------------------------------------------- |
+| `pnpm -s ci:check` | passed | Полный end-to-end прогон quality gates монорепо: lint/typecheck/contracts/test/build зелёные. |
+
+### Обновлённый статус
+
+- Build status: **green**
+- Test status: **green**
+- Main LMS flows status: **stable baseline** (по текущему покрытию backend/frontend/e2e тестами)
+- Production readiness: **staging-ready baseline**; дальнейшие улучшения — по roadmap из `docs/` и блоку Known Issues.
+
+## Session Update — 2026-04-29 (full CI verification)
+
+### Что сделано в этой итерации
+
+- Выполнен полный quality-gate прогон `ci:check` (lint + typecheck + contracts checks + tests + build) для проверки, что репозиторий находится в запускаемом и собираемом состоянии без скрытых регрессий.
+- Подтверждено, что при текущем коде критичных блокеров для базовых LMS-сценариев на уровне CI-воркфлоу нет.
+- Кодовые изменения в runtime-модулях не потребовались; основной результат итерации — верификация стабильности и обновление handoff с фактическими командами/статусом.
+
+### Команды и результаты (фактически выполнены)
+
+| Command            | Result | Notes                                                                                                                                                           |
+| ------------------ | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm -s ci:check` | passed | Выполнены последовательно: `pnpm lint`, `pnpm typecheck`, `pnpm contracts:lint`, `pnpm contracts:typecheck`, `pnpm test:unit`, `pnpm build`; все этапы зелёные. |
+
+### Обновлённый статус
+
+- Build status: **green**
+- Test status: **green**
+- Main LMS flows status: **baseline stable** (по текущему покрытию unit/integration/e2e тестами)
+- Production readiness: **staging-ready baseline** (нужны продуктовые доработки по roadmap, но базовые quality gates проходят)
+
+## Session Update — 2026-04-29 (query shim test hardening)
+
+### Что сделано в этой итерации
+
+- Добавлен отсутствующий целевой unit/smoke test для `react-query-shim`, чтобы закрыть зафиксированный гэп по отсутствию тестов на этот модуль.
+- Проверено, что новый тест проходит локально и не требует изменения production-кода.
+
+### Измененные файлы
+
+- `apps/frontend/src/lib/query/react-query-shim.test.ts` (new)
+- `LMS_AGENT_HANDOFF.md` (updated)
+
+### Команды и результаты (фактически выполнены)
+
+| Command                                                                          | Result | Notes                                                                             |
+| -------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------- |
+| `pnpm -s ci:check`                                                               | passed | Полный quality-gate монорепозитория: lint + typecheck + contracts + test + build. |
+| `pnpm --filter @cdoprof/frontend test -- src/lib/query/react-query-shim.test.ts` | passed | Новый тестовый файл: 1 file / 2 tests passed.                                     |
+
+### Обновлённый статус
+
+- Build status: **green**
+- Test status: **green**
+- Main LMS flows status: **stable baseline**, дополнительная устойчивость test-coverage в query-layer frontend.
+
+## Session Update — 2026-04-29 (full audit + CI confirmation)
+
+### Что сделано в этой итерации
+
+- Проведен первичный аудит структуры репозитория и обязательного контекста (`README.md`, `docs/*`, root scripts).
+- Проверены ключевые quality-gates для блокеров запуска/сборки/LMS-флоу через полный прогон `pnpm -s ci:check`.
+- Критичных дефектов, требующих немедленного hotfix в коде, не обнаружено; кодовые изменения runtime-модулей не вносились.
+- Обновлен handoff с фактическими результатами проверки для следующего агента.
+
+### Команды и результаты (фактически выполнены)
+
+| Command            | Result | Notes                                                                                                            |
+| ------------------ | ------ | ---------------------------------------------------------------------------------------------------------------- |
+| `pnpm -s ci:check` | passed | Полный прогон `lint -> typecheck -> contracts:* -> test:unit -> build` прошел успешно на всех workspace-пакетах. |
+
+### Обновлённый статус
+
+- Build status: **green**
+- Test status: **green**
+- Main LMS flows status: **stable baseline** (по текущему покрытию unit/integration/e2e и успешной сборке frontend/backend)
+- Production readiness: **staging-ready baseline**
+- Next best action: перейти к целевым функциональным доработкам LMS (course/lesson/progress UX и глубинный аудит authz на API) при сохранении зеленого `ci:check`.
