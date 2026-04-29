@@ -27,6 +27,7 @@ import type {
   CreateTemplateVariableRequest,
   CreateTemplateVersionRequest,
   GenerateDocumentRequest,
+  GenerateDocumentsBatchRequest,
   UpdateNumberingRuleRequest,
   UpdateTemplateBindingRequest,
   UpdateTemplateRequest,
@@ -229,6 +230,15 @@ export class DocumentsController {
   @RequirePermissions('documents.generate')
   generateDocument(@CurrentContext() c: RequestContext, @Body() b: GenerateDocumentRequest) {
     return this.documentsService.generateDocument(c.tenantId!, c.userId, b, c);
+  }
+  @Post('documents/generate/batch')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.generate')
+  generateDocumentsBatch(
+    @CurrentContext() c: RequestContext,
+    @Body() b: GenerateDocumentsBatchRequest
+  ) {
+    return this.documentsService.generateDocumentsBatch(c.tenantId!, c.userId, b);
   }
   @Post('documents/:id/finalize')
   @UseGuards(PermissionGuard)

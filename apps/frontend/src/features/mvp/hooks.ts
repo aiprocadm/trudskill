@@ -69,6 +69,10 @@ export const useTests = (query: BaseFilterQuery) =>
   useMvpQuery('tests', query, (s) => mvpApi.listTests(s, query));
 export const useAssignments = (query: BaseFilterQuery) =>
   useMvpQuery('assignments', query, (s) => mvpApi.listAssignments(s, query));
+export const useAssignmentSubmissions = (query: BaseFilterQuery) =>
+  useMvpQuery('assignmentSubmissions', query, (s) => mvpApi.listAssignmentSubmissions(s, query));
+export const useAssignmentReviews = (query: BaseFilterQuery) =>
+  useMvpQuery('assignmentReviews', query, (s) => mvpApi.listAssignmentReviews(s, query));
 
 export const useDomainMutations = () => {
   const { session } = useAuth();
@@ -132,6 +136,14 @@ export const useDomainMutations = () => {
     startAttempt: (payload: { testId: string; enrollmentId: string; learnerId: string }) =>
       wrap((authSession) => mvpApi.startAttempt(authSession, payload)),
     getAttemptResult: (attemptId: string) =>
-      wrap((authSession) => mvpApi.getAttemptResult(authSession, attemptId), true)
+      wrap((authSession) => mvpApi.getAttemptResult(authSession, attemptId), true),
+    createAssignmentReview: (payload: Record<string, unknown>) =>
+      wrap((authSession) => mvpApi.createAssignmentReview(authSession, payload)),
+    updateAssignmentReview: (
+      reviewId: string,
+      payload: { score?: number; comment?: string; reviewStatus?: 'pending' | 'in_review' | 'completed' }
+    ) => wrap((authSession) => mvpApi.updateAssignmentReview(authSession, reviewId, payload)),
+    completeAssignmentReview: (reviewId: string, payload: { score?: number; comment?: string }) =>
+      wrap((authSession) => mvpApi.completeAssignmentReview(authSession, reviewId, payload))
   };
 };

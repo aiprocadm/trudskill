@@ -36,6 +36,9 @@ export const AppShell = ({ children }: PropsWithChildren) => {
 
   return (
     <div className="app-shell">
+      <a href="#app-shell-main" className="app-shell__skip-link">
+        Перейти к основному содержимому
+      </a>
       <button
         type="button"
         className="app-shell__menu-toggle"
@@ -43,7 +46,7 @@ export const AppShell = ({ children }: PropsWithChildren) => {
         aria-controls="app-shell-nav"
         onClick={() => setMobileNavOpen((open) => !open)}
       >
-        Меню
+        {mobileNavOpen ? 'Закрыть меню' : 'Меню'}
       </button>
       {mobileNavOpen ? (
         <button
@@ -75,7 +78,7 @@ export const AppShell = ({ children }: PropsWithChildren) => {
           })}
           {navView.more.length ? (
             <details className="app-shell__more">
-              <summary>Еще разделы</summary>
+            <summary aria-label="Показать дополнительные разделы">Еще разделы</summary>
               <div className="ui-stack" style={{ gap: 6 }}>
                 {navView.more.map((item) => {
                   const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -95,7 +98,7 @@ export const AppShell = ({ children }: PropsWithChildren) => {
           ) : null}
         </nav>
       </aside>
-      <div className="app-shell__content">
+      <div className="app-shell__content" id="app-shell-main" tabIndex={-1}>
         <header className="app-shell__topbar">
           <nav className="app-shell__breadcrumbs" aria-label="Хлебные крошки">
             {breadcrumbItems.map((crumb, index) => {
@@ -147,13 +150,28 @@ export const AppShell = ({ children }: PropsWithChildren) => {
         .app-shell__menu-toggle {
           display: none;
         }
+        .app-shell__skip-link {
+          position: absolute;
+          top: -40px;
+          left: 12px;
+          z-index: 12000;
+          background: var(--ui-surface);
+          color: var(--ui-text);
+          padding: 8px 10px;
+          border: 1px solid var(--ui-border);
+          border-radius: 8px;
+          text-decoration: none;
+        }
+        .app-shell__skip-link:focus {
+          top: 12px;
+        }
         .app-shell__backdrop {
           display: none;
         }
         .app-shell__sidebar {
           border-right: 1px solid var(--ui-border);
           padding: 16px;
-          background: var(--ui-surface);
+          background: var(--ui-nav-sidebar-bg, var(--ui-surface));
         }
         .app-shell__brand {
           margin: 0 0 14px;
@@ -171,10 +189,10 @@ export const AppShell = ({ children }: PropsWithChildren) => {
           font-weight: 500;
         }
         .app-shell__link:hover {
-          background: var(--ui-surface-muted);
+          background: var(--ui-nav-hover-bg, var(--ui-surface-muted));
         }
         .app-shell__link.is-active {
-          color: var(--ui-brand-700);
+          color: var(--ui-nav-active-text, var(--ui-brand-700));
           background: var(--ui-nav-active-bg);
         }
         .app-shell__link--more {

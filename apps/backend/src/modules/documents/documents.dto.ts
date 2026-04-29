@@ -64,6 +64,14 @@ export interface GenerateDocumentRequest {
   documentType: string;
 }
 
+export interface GenerateDocumentsBatchRequest {
+  templateId: string;
+  templateVersionId?: string;
+  sourceEntityType: string;
+  sourceEntityIds: string[];
+  documentType: string;
+}
+
 export interface CreateNumberingRuleRequest {
   documentType: string;
   prefix?: string;

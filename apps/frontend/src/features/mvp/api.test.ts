@@ -46,4 +46,20 @@ describe('mvp api query composition', () => {
       expect.objectContaining({ auth: expect.objectContaining({ userId: 'u1' }) })
     );
   });
+
+  it('builds assignment review queue query and completion payload', async () => {
+    apiRequestMock.mockResolvedValueOnce({ items: [], page: 1, pageSize: 20, total: 0 });
+    await mvpApi.listAssignmentReviews(session, { status: 'in_review', page: 2 });
+    expect(apiRequestMock).toHaveBeenCalledWith(
+      '/assignment-reviews?status=in_review&page=2',
+      expect.objectContaining({ auth: expect.objectContaining({ tenantId: 'tenant_demo' }) })
+    );
+
+    apiRequestMock.mockResolvedValueOnce({ id: 'ar_1', status: 'completed' });
+    await mvpApi.completeAssignmentReview(session, 'ar_1', { score: 91, comment: 'ok' });
+    expect(apiRequestMock).toHaveBeenCalledWith(
+      '/assignment-reviews/ar_1/complete',
+      expect.objectContaining({ method: 'POST', body: { score: 91, comment: 'ok' } })
+    );
+  });
 });

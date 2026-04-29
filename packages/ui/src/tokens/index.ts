@@ -46,7 +46,10 @@ export const lightThemeVars = {
   '--ui-focus': '#93c5fd',
   '--ui-shadow': shadows.sm,
   '--ui-shadow-strong': shadows.md,
+  '--ui-nav-sidebar-bg': '#f8fbff',
+  '--ui-nav-hover-bg': '#eaf1ff',
   '--ui-nav-active-bg': 'rgba(37, 99, 235, 0.1)',
+  '--ui-nav-active-text': '#1e40af',
   '--ui-error-border': '#fecaca'
 } as const;
 
@@ -75,6 +78,9 @@ export const darkThemeVars = {
   '--ui-focus': '#60a5fa',
   '--ui-shadow': '0 1px 2px rgba(0, 0, 0, 0.35)',
   '--ui-shadow-strong': '0 10px 30px rgba(0, 0, 0, 0.45)',
+  '--ui-nav-sidebar-bg': '#172033',
+  '--ui-nav-hover-bg': '#24344f',
   '--ui-nav-active-bg': 'rgba(59, 130, 246, 0.22)',
+  '--ui-nav-active-text': '#bfdbfe',
   '--ui-error-border': '#7f1d1d'
 } as const;

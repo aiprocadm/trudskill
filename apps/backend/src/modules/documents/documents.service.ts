@@ -15,6 +15,7 @@ import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
 import type {
   BaseFilter,
+  GenerateDocumentsBatchRequest,
   CreateNumberingRuleRequest,
   CreateTemplateBindingRequest,
   CreateTemplateRequest,
@@ -377,6 +378,28 @@ export class DocumentsService {
     return task;
   }
 
+  generateDocumentsBatch(
+    tenantId: string,
+    actorId: string | undefined,
+    req: GenerateDocumentsBatchRequest
+  ) {
+    const sourceIds = req.sourceEntityIds
+      .map((item) => item.trim())
+      .filter(Boolean);
+    return {
+      items: sourceIds.map((sourceEntityId) =>
+        this.generateDocument(tenantId, actorId, {
+          templateId: req.templateId,
+          templateVersionId: req.templateVersionId,
+          sourceEntityType: req.sourceEntityType,
+          sourceEntityId,
+          documentType: req.documentType,
+          idempotencyKey: `${sourceEntityId}-${Date.now()}`
+        })
+      )
+    };
+  }
+
   completeTask(tenantId: string, taskId: string, fileId: string, generatedBy?: string) {
     this.startTask(tenantId, taskId);
     const task = this.getDocumentTask(tenantId, taskId);
@@ -563,6 +586,45 @@ export class DocumentsService {
   getReservation(tenantId: string, reservationId: string) {
     return this.must(this.state.reservations, tenantId, reservationId);
   }
+  /** Подбор шаблона сертификата: сначала привязки к курсам программы, затем к группе. */
+  resolveAutoCertificateTemplateBinding(
+    tenantId: string,
+    groupId: string,
+    courseIdsInGroup: string[]
+  ): { templateId: string } | null {
+    const courseBindings = this.state.bindings.filter(
+      (b) =>
+        b.tenantId === tenantId &&
+        b.bindType === 'course' &&
+        b.courseId &&
+        courseIdsInGroup.includes(b.courseId)
+    );
+    const coursePick = this.pickBestCertificateBinding(tenantId, courseBindings);
+    if (coursePick) return { templateId: coursePick.templateId };
+    const groupBindings = this.state.bindings.filter(
+      (b) => b.tenantId === tenantId && b.bindType === 'group' && b.groupId === groupId
+    );
+    const groupPick = this.pickBestCertificateBinding(tenantId, groupBindings);
+    return groupPick ? { templateId: groupPick.templateId } : null;
+  }
+
+  private pickBestCertificateBinding(
+    tenantId: string,
+    candidates: TemplateBindingEntity[]
+  ): TemplateBindingEntity | null {
+    let best: TemplateBindingEntity | null = null;
+    let bestPriority = -Infinity;
+    for (const b of candidates) {
+      const tpl = this.state.templates.find((t) => t.tenantId === tenantId && t.id === b.templateId);
+      if (!tpl || tpl.status !== 'active' || tpl.templateType !== 'certificate') continue;
+      if (b.priority > bestPriority) {
+        bestPriority = b.priority;
+        best = b;
+      }
+    }
+    return best;
+  }
+
   resolveTemplateVariables(
     tenantId: string,
     templateVersionId: string,
