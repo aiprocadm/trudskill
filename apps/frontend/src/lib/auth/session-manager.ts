@@ -1,7 +1,6 @@
 import { authApi } from './auth-api';
 import { resolveRolePermissions } from './permission-map';
 import { sessionStore } from './session-store';
-import { ApiClientError } from '../api/client';
 
 import type { UserSession } from '../../entities/session/model';
 
@@ -21,22 +20,7 @@ export const sessionManager = {
     return session;
   },
   async bootstrap(): Promise<UserSession | null> {
-    const existing = sessionStore.get();
-    if (existing) {
-      try {
-        const session = await hydrateSession(existing.tokens);
-        sessionStore.set(session);
-        return session;
-      } catch (error) {
-        if (error instanceof ApiClientError && error.normalized.isAuthError) {
-          return this.tryRefresh();
-        }
-        throw error;
-      }
-    }
-
-    const persisted = sessionStore.hydrateFromStorage();
-    if (!persisted) return null;
+    sessionStore.hydrateFromStorage();
     return this.tryRefresh();
   },
   async tryRefresh(): Promise<UserSession | null> {

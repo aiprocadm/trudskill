@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post, Query, UseGuards } from '@nestjs/common';
 
 import { ChatService } from './chat.service.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
@@ -12,8 +12,12 @@ export class ChatController {
   constructor(@Inject(ChatService) private readonly service: ChatService) {}
 
   @Get()
-  list(@CurrentContext() ctx: RequestContext) {
-    return this.service.listDialogs(ctx.tenantId!, ctx.userId);
+  list(@CurrentContext() ctx: RequestContext, @Query() query: Record<string, string | undefined>) {
+    return this.service.listDialogs(ctx.tenantId!, ctx.userId, {
+      page: Number(query.page ?? '1'),
+      pageSize: Math.min(100, Math.max(1, Number(query.page_size ?? '20'))),
+      sort: query.sort === 'updatedAt:asc' ? 'updatedAt:asc' : 'updatedAt:desc'
+    });
   }
 
   @Post()
@@ -37,8 +41,16 @@ export class ChatController {
   }
 
   @Get(':id/messages')
-  messages(@CurrentContext() ctx: RequestContext, @Param('id') id: string) {
-    return this.service.listMessages(ctx.tenantId!, id, ctx.userId);
+  messages(
+    @CurrentContext() ctx: RequestContext,
+    @Param('id') id: string,
+    @Query() query: Record<string, string | undefined>
+  ) {
+    return this.service.listMessages(ctx.tenantId!, id, ctx.userId, {
+      page: Number(query.page ?? '1'),
+      pageSize: Math.min(100, Math.max(1, Number(query.page_size ?? '20'))),
+      sort: query.sort === 'sentAt:asc' ? 'sentAt:asc' : 'sentAt:desc'
+    });
   }
 
   @Post(':id/messages')

@@ -1,16 +1,10 @@
 import { frontendEnv } from '../config/env';
 import { type NormalizedApiError, normalizeApiError } from '../errors/api-error';
 
-export interface ApiResponseMeta {
-  requestId: string;
-  correlationId: string;
-  timestamp: string;
-}
-
-export interface ApiResponseEnvelope<T> {
-  data: T;
-  meta: ApiResponseMeta;
-}
+import type {
+  GeneratedApiResponseEnvelope as ApiResponseEnvelope,
+  GeneratedApiPath
+} from '@cdoprof/api-contracts/src/generated/contracts.generated';
 
 export class ApiClientError extends Error {
   constructor(public readonly normalized: NormalizedApiError) {
@@ -51,7 +45,7 @@ const isResponseEnvelope = <T>(payload: unknown): payload is ApiResponseEnvelope
 };
 
 export const apiRequestEnvelope = async <T>(
-  path: string,
+  path: GeneratedApiPath | string,
   options: RequestOptions = {}
 ): Promise<ApiResponseEnvelope<T>> => {
   const headers = new Headers(options.headers);
@@ -104,29 +98,32 @@ export const apiRequestEnvelope = async <T>(
   return payload;
 };
 
-export const apiRequest = async <T>(path: string, options: RequestOptions = {}): Promise<T> => {
+export const apiRequest = async <T>(
+  path: GeneratedApiPath | string,
+  options: RequestOptions = {}
+): Promise<T> => {
   const response = await apiRequestEnvelope<T>(path, options);
   return response.data;
 };
 
 export interface ApiClient {
-  get<T>(path: string, options?: Omit<RequestOptions, 'method'>): Promise<T>;
+  get<T>(path: GeneratedApiPath | string, options?: Omit<RequestOptions, 'method'>): Promise<T>;
   post<T>(
-    path: string,
+    path: GeneratedApiPath | string,
     body?: unknown,
     options?: Omit<RequestOptions, 'method' | 'body'>
   ): Promise<T>;
   put<T>(
-    path: string,
+    path: GeneratedApiPath | string,
     body?: unknown,
     options?: Omit<RequestOptions, 'method' | 'body'>
   ): Promise<T>;
   patch<T>(
-    path: string,
+    path: GeneratedApiPath | string,
     body?: unknown,
     options?: Omit<RequestOptions, 'method' | 'body'>
   ): Promise<T>;
-  delete<T>(path: string, options?: Omit<RequestOptions, 'method'>): Promise<T>;
+  delete<T>(path: GeneratedApiPath | string, options?: Omit<RequestOptions, 'method'>): Promise<T>;
 }
 
 const withMethod = (

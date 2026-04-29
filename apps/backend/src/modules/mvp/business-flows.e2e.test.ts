@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { MvpService } from './mvp.service.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
+import { SecretsService } from '../../infrastructure/secrets/secrets.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 import { DocumentsService } from '../documents/documents.service.js';
@@ -34,10 +35,10 @@ const baseCtx = {
 } as const;
 
 describe('stage13 business e2e flows (service-level)', () => {
-  it('completes auth flow: login -> refresh -> logout and blocks blocked user', async () => {
+  it('completes auth flow: login -> refresh -> me -> logout and blocks blocked user', async () => {
     const audit = new AuditService();
     const iam = new IamService(audit);
-    const auth = new AuthService(iam, audit);
+    const auth = new AuthService(iam, audit, new SecretsService());
 
     const login = await auth.login(
       'tenant_demo',
@@ -46,11 +47,13 @@ describe('stage13 business e2e flows (service-level)', () => {
     );
     expect(login.accessToken).toBeTruthy();
 
-    const refreshed = await auth.refresh('tenant_demo', login.refreshToken, {
+    const refreshed = await auth.refresh('tenant_demo', login.refreshToken, login.csrfToken, {
       ...baseCtx,
       requestId: 'req_refresh'
     });
     expect(refreshed.sessionId).not.toBe(login.sessionId);
+    const me = await iam.getUser('tenant_demo', 'u_tenant_admin');
+    expect(me.login).toBe('tenant_admin');
 
     await auth.logout('tenant_demo', 'u_tenant_admin', refreshed.sessionId, {
       ...baseCtx,

@@ -4,8 +4,33 @@ import { join } from 'node:path';
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool, type PoolClient, type QueryResultRow } from 'pg';
 
-import { assertAppliedMigrationUnchanged, computeMigrationSqlChecksum } from './migration-integrity.js';
+import {
+  assertAppliedMigrationUnchanged,
+  computeMigrationSqlChecksum
+} from './migration-integrity.js';
 import { backendEnv } from '../../env.js';
+
+export interface MigrationReadiness {
+  healthy: boolean;
+  appliedCount: number;
+  pendingCount: number;
+  pending: string[];
+}
+
+export interface QueueReadiness {
+  connected: boolean;
+  backlog: number;
+  lagSeconds: number;
+  backlogThreshold: number;
+  lagThresholdSeconds: number;
+  healthy: boolean;
+}
+
+export interface OutboxReadiness {
+  backlog: number;
+  backlogThreshold: number;
+  healthy: boolean;
+}
 
 @Injectable()
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {
@@ -33,6 +58,100 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  async getMigrationReadiness(): Promise<MigrationReadiness> {
+    const migrationsDir = this.resolveMigrationsDir();
+    const migrationFiles = readdirSync(migrationsDir)
+      .filter((file) => file.endsWith('.sql'))
+      .sort();
+
+    const tableRows = await this.query<{ exists: string | null }>(
+      'select to_regclass($1) as exists',
+      [this.migrationsTable]
+    );
+    const tableExists = Boolean(tableRows[0]?.exists);
+    if (!tableExists) {
+      return {
+        healthy: false,
+        appliedCount: 0,
+        pendingCount: migrationFiles.length,
+        pending: migrationFiles
+      };
+    }
+
+    const appliedRows = await this.query<{ id: string }>(`select id from ${this.migrationsTable}`);
+    const applied = new Set(appliedRows.map((row) => row.id));
+    const pending = migrationFiles.filter((file) => !applied.has(file));
+
+    return {
+      healthy: pending.length === 0,
+      appliedCount: appliedRows.length,
+      pendingCount: pending.length,
+      pending
+    };
+  }
+
+  async getQueueReadiness(thresholds: {
+    backlogThreshold: number;
+    lagThresholdSeconds: number;
+  }): Promise<QueueReadiness> {
+    try {
+      const rows = await this.query<{ backlog: number; lag_seconds: number | null }>(
+        `
+          select
+            count(*)::int as backlog,
+            coalesce(extract(epoch from now() - min(requested_at)), 0)::int as lag_seconds
+          from integrations.sync_jobs
+          where status in ('queued', 'retry')
+        `
+      );
+      const backlog = Number(rows[0]?.backlog ?? 0);
+      const lagSeconds = Number(rows[0]?.lag_seconds ?? 0);
+
+      return {
+        connected: true,
+        backlog,
+        lagSeconds,
+        backlogThreshold: thresholds.backlogThreshold,
+        lagThresholdSeconds: thresholds.lagThresholdSeconds,
+        healthy:
+          backlog <= thresholds.backlogThreshold && lagSeconds <= thresholds.lagThresholdSeconds
+      };
+    } catch {
+      return {
+        connected: false,
+        backlog: Number.POSITIVE_INFINITY,
+        lagSeconds: Number.POSITIVE_INFINITY,
+        backlogThreshold: thresholds.backlogThreshold,
+        lagThresholdSeconds: thresholds.lagThresholdSeconds,
+        healthy: false
+      };
+    }
+  }
+
+  async getOutboxReadiness(backlogThreshold: number): Promise<OutboxReadiness> {
+    try {
+      const rows = await this.query<{ backlog: number }>(
+        `
+          select count(*)::int as backlog
+          from integrations.dead_letters
+          where status in ('queued', 'retry')
+        `
+      );
+      const backlog = Number(rows[0]?.backlog ?? 0);
+      return {
+        backlog,
+        backlogThreshold,
+        healthy: backlog <= backlogThreshold
+      };
+    } catch {
+      return {
+        backlog: Number.POSITIVE_INFINITY,
+        backlogThreshold,
+        healthy: false
+      };
     }
   }
 
@@ -95,7 +214,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
       await this.withTransaction(async (client) => {
         await client.query(sql);
-        await client.query(`insert into ${this.migrationsTable} (id, checksum) values ($1, $2)`, [file, checksum]);
+        await client.query(`insert into ${this.migrationsTable} (id, checksum) values ($1, $2)`, [
+          file,
+          checksum
+        ]);
       });
 
       appliedChecksumById.set(file, checksum);

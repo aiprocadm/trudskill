@@ -2,9 +2,11 @@ import { randomUUID } from 'node:crypto';
 
 import { Inject, Injectable, Optional, UnauthorizedException } from '@nestjs/common';
 
+import { MetricsService } from '../../../common/metrics/metrics.service.js';
 import { ensureInMemoryModeAllowed } from '../../../common/runtime/in-memory-mode.guard.js';
 import { backendEnv } from '../../../env.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
+import { SecretsService } from '../../../infrastructure/secrets/secrets.service.js';
 import { AuditService } from '../../audit/audit.service.js';
 import {
   hashRefreshToken,
@@ -32,6 +34,11 @@ export class AuthService {
     private readonly iamService: IamService,
     @Inject(AuditService)
     private readonly auditService: AuditService,
+    @Inject(SecretsService)
+    private readonly secretsService: SecretsService,
+    @Inject(MetricsService)
+    @Optional()
+    private readonly metrics?: MetricsService,
     @Inject(DatabaseService)
     @Optional()
     private readonly databaseService?: DatabaseService
@@ -39,11 +46,18 @@ export class AuthService {
     if (!this.databaseService) {
       ensureInMemoryModeAllowed('AuthService');
     }
+    if (
+      (backendEnv.NODE_ENV === 'production' || backendEnv.NODE_ENV === 'staging') &&
+      !this.databaseService
+    ) {
+      throw new Error('AuthService requires DatabaseService in production/staging');
+    }
   }
 
   async login(tenantId: string, payload: LoginPayload, context: RequestContext) {
     const resolved = await this.iamService.findUserByLogin(tenantId, payload.login);
     if (!resolved) {
+      this.metrics?.incrementAuthFailure({ reason: 'invalid_credentials', phase: 'login_lookup' });
       throw new UnauthorizedException({
         code: 'invalid_credentials',
         message: 'Invalid credentials'
@@ -53,10 +67,15 @@ export class AuthService {
     const { user, databaseBacked } = resolved;
 
     if (user.status === 'blocked') {
+      this.metrics?.incrementAuthFailure({ reason: 'user_blocked', phase: 'login_status' });
       throw new UnauthorizedException({ code: 'user_blocked', message: 'User is blocked' });
     }
 
     if (!verifyPassword(payload.password, user.passwordHash)) {
+      this.metrics?.incrementAuthFailure({
+        reason: 'invalid_credentials',
+        phase: 'login_password'
+      });
       throw new UnauthorizedException({
         code: 'invalid_credentials',
         message: 'Invalid credentials'
@@ -66,7 +85,7 @@ export class AuthService {
     const persistRelational = !this.databaseService || databaseBacked;
     const tokens = await this.createSession(user, persistRelational);
     await this.pushAuthEvent(tenantId, user.id, 'login', persistRelational);
-    this.auditService.write(
+    await this.auditService.writeCritical(
       {
         tenantId,
         actorId: user.id,
@@ -83,17 +102,29 @@ export class AuthService {
     return tokens;
   }
 
-  async refresh(tenantId: string, refreshToken: string, context: RequestContext) {
-    const tokenHash = hashRefreshToken(refreshToken, backendEnv.AUTH_JWT_SECRET);
-    const activeSession = await this.consumeRefreshSession(tenantId, tokenHash);
+  async refresh(
+    tenantId: string,
+    refreshToken: string,
+    csrfToken: string,
+    context: RequestContext
+  ) {
+    if (!csrfToken) {
+      this.metrics?.incrementAuthFailure({ reason: 'invalid_csrf', phase: 'refresh' });
+      throw new UnauthorizedException({ code: 'invalid_csrf', message: 'Invalid CSRF token' });
+    }
+
+    const tokenHash = this.hashSessionToken(refreshToken);
+    const csrfTokenHash = this.hashCsrfToken(csrfToken);
+    const activeSession = await this.consumeRefreshSession(tenantId, tokenHash, csrfTokenHash);
     if (Date.parse(activeSession.expiresAt) <= Date.now()) {
+      this.metrics?.incrementAuthFailure({ reason: 'session_expired', phase: 'refresh' });
       throw new UnauthorizedException({ code: 'session_expired', message: 'Session expired' });
     }
     const user = await this.iamService.getUser(tenantId, activeSession.userId);
     const persistRelational = await this.shouldPersistRelationalSideEffects(tenantId, user.id);
-    const nextTokens = await this.createSession(user, persistRelational);
+    const nextTokens = await this.createSession(user, persistRelational, activeSession.jti);
     await this.pushAuthEvent(tenantId, user.id, 'refresh', persistRelational);
-    this.auditService.write(
+    await this.auditService.writeCritical(
       {
         tenantId,
         actorId: user.id,
@@ -126,7 +157,7 @@ export class AuthService {
     await this.revokeSessionInternal(session.id, tenantId, userId);
     const persistRelational = await this.shouldPersistRelationalSideEffects(tenantId, userId);
     await this.pushAuthEvent(tenantId, userId, 'logout', persistRelational);
-    this.auditService.write(
+    await this.auditService.writeCritical(
       {
         tenantId,
         actorId: userId,
@@ -150,12 +181,20 @@ export class AuthService {
       id: string;
       tenant_id: string;
       user_id: string;
+      jti: string;
+      parent_jti: string | null;
       refresh_token_hash: string;
+      csrf_token_hash: string | null;
       expires_at: string;
       revoked_at: string | null;
+      rotated_at: string | null;
+      consumed_at: string | null;
+      revoke_reason: string | null;
     }>(
       `
-        select id, tenant_id, user_id, refresh_token_hash, expires_at::text as expires_at, revoked_at::text as revoked_at
+        select id, tenant_id, user_id, jti, parent_jti, refresh_token_hash, csrf_token_hash,
+               expires_at::text as expires_at, revoked_at::text as revoked_at,
+               rotated_at::text as rotated_at, consumed_at::text as consumed_at, revoke_reason
         from iam.sessions
         where tenant_id = $1 and user_id = $2
         order by created_at desc
@@ -170,9 +209,15 @@ export class AuthService {
           id: row.id,
           tenantId: row.tenant_id,
           userId: row.user_id,
+          jti: row.jti,
+          parentJti: row.parent_jti ?? undefined,
           refreshTokenHash: row.refresh_token_hash,
+          csrfTokenHash: row.csrf_token_hash ?? undefined,
           expiresAt: row.expires_at,
-          revokedAt: row.revoked_at ?? undefined
+          revokedAt: row.revoked_at ?? undefined,
+          rotatedAt: row.rotated_at ?? undefined,
+          consumedAt: row.consumed_at ?? undefined,
+          revokeReason: row.revoke_reason ?? undefined
         }
       ])
     );
@@ -200,7 +245,7 @@ export class AuthService {
     await this.revokeSessionInternal(session.id, tenantId, session.userId);
     const persistRelational = await this.shouldPersistRelationalSideEffects(tenantId, actorId);
     await this.pushAuthEvent(tenantId, actorId, 'session_revoke', persistRelational);
-    this.auditService.write(
+    await this.auditService.writeCritical(
       {
         tenantId,
         actorId,
@@ -224,33 +269,11 @@ export class AuthService {
   }
 
   async logoutAll(tenantId: string, userId: string, context: RequestContext): Promise<void> {
-    if (!this.databaseService) {
-      this.sessions = this.sessions.map((session) => {
-        if (session.tenantId === tenantId && session.userId === userId && !session.revokedAt) {
-          return { ...session, revokedAt: new Date().toISOString() };
-        }
-        return session;
-      });
-    } else {
-      await this.databaseService.query(
-        `
-          update iam.sessions
-          set revoked_at = now(), updated_at = now()
-          where tenant_id = $1 and user_id = $2 and revoked_at is null
-        `,
-        [tenantId, userId]
-      );
-      this.sessions = this.sessions.map((session) => {
-        if (session.tenantId === tenantId && session.userId === userId && !session.revokedAt) {
-          return { ...session, revokedAt: new Date().toISOString() };
-        }
-        return session;
-      });
-    }
+    await this.revokeAllSessionsForUserInternal(tenantId, userId);
 
     const persistRelational = await this.shouldPersistRelationalSideEffects(tenantId, userId);
     await this.pushAuthEvent(tenantId, userId, 'logout_all', persistRelational);
-    this.auditService.write(
+    await this.auditService.writeCritical(
       {
         tenantId,
         actorId: userId,
@@ -307,13 +330,17 @@ export class AuthService {
     );
   }
 
-  private async createSession(user: User, persistRelational: boolean) {
+  private async createSession(user: User, persistRelational: boolean, parentJti?: string) {
     const refreshToken = issueToken();
+    const csrfToken = issueToken();
     const session: Session = {
       id: `s_${randomUUID().replace(/-/g, '')}`,
       tenantId: user.tenantId,
       userId: user.id,
-      refreshTokenHash: hashRefreshToken(refreshToken, backendEnv.AUTH_JWT_SECRET),
+      jti: `jti_${randomUUID().replace(/-/g, '')}`,
+      parentJti,
+      refreshTokenHash: this.hashSessionToken(refreshToken),
+      csrfTokenHash: this.hashCsrfToken(csrfToken),
       expiresAt: new Date(Date.now() + backendEnv.REFRESH_TOKEN_TTL_SECONDS * 1000).toISOString()
     };
 
@@ -322,30 +349,57 @@ export class AuthService {
     } else {
       await this.databaseService.query(
         `
-          insert into iam.sessions (id, tenant_id, user_id, refresh_token_hash, expires_at)
-          values ($1, $2, $3, $4, $5::timestamptz)
+          insert into iam.sessions (
+            id,
+            tenant_id,
+            user_id,
+            jti,
+            parent_jti,
+            refresh_token_hash,
+            csrf_token_hash,
+            expires_at
+          )
+          values ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz)
         `,
-        [session.id, session.tenantId, session.userId, session.refreshTokenHash, session.expiresAt]
+        [
+          session.id,
+          session.tenantId,
+          session.userId,
+          session.jti,
+          session.parentJti ?? null,
+          session.refreshTokenHash,
+          session.csrfTokenHash!,
+          session.expiresAt
+        ]
       );
     }
 
     const userRoles = await this.iamService.getUserRoles(user.tenantId, user.id);
+    const permissionCodes = await this.iamService.resolvePermissions(user.tenantId, user.id);
+    const roleCodes = userRoles.map((role) => role.code);
     const accessToken = issueSignedAccessToken(
       {
         sub: user.id,
         tenant_id: user.tenantId,
         session_id: session.id,
-        roles: userRoles.map((role) => role.code)
+        roles: roleCodes
       },
-      backendEnv.AUTH_JWT_SECRET,
+      this.secretsService.getJwtSigningSecret(),
       backendEnv.ACCESS_TOKEN_TTL_SECONDS
     );
 
     return {
       accessToken,
       refreshToken,
+      csrfToken,
       sessionId: session.id,
-      expiresIn: backendEnv.ACCESS_TOKEN_TTL_SECONDS
+      expiresIn: backendEnv.ACCESS_TOKEN_TTL_SECONDS,
+      claims: {
+        tenant_id: user.tenantId,
+        role_codes: roleCodes,
+        permission_codes: permissionCodes,
+        session_id: session.id
+      }
     };
   }
 
@@ -393,12 +447,20 @@ export class AuthService {
       id: string;
       tenant_id: string;
       user_id: string;
+      jti: string;
+      parent_jti: string | null;
       refresh_token_hash: string;
+      csrf_token_hash: string | null;
       expires_at: string;
       revoked_at: string | null;
+      rotated_at: string | null;
+      consumed_at: string | null;
+      revoke_reason: string | null;
     }>(
       `
-        select id, tenant_id, user_id, refresh_token_hash, expires_at::text as expires_at, revoked_at::text as revoked_at
+        select id, tenant_id, user_id, jti, parent_jti, refresh_token_hash, csrf_token_hash,
+               expires_at::text as expires_at, revoked_at::text as revoked_at,
+               rotated_at::text as rotated_at, consumed_at::text as consumed_at, revoke_reason
         from iam.sessions
         where id = $1 and tenant_id = $2 and ($3::text is null or user_id = $3)
         limit 1
@@ -412,9 +474,15 @@ export class AuthService {
         id: row.id,
         tenantId: row.tenant_id,
         userId: row.user_id,
+        jti: row.jti,
+        parentJti: row.parent_jti ?? undefined,
         refreshTokenHash: row.refresh_token_hash,
+        csrfTokenHash: row.csrf_token_hash ?? undefined,
         expiresAt: row.expires_at,
-        revokedAt: row.revoked_at ?? undefined
+        revokedAt: row.revoked_at ?? undefined,
+        rotatedAt: row.rotated_at ?? undefined,
+        consumedAt: row.consumed_at ?? undefined,
+        revokeReason: row.revoke_reason ?? undefined
       };
     }
 
@@ -426,14 +494,12 @@ export class AuthService {
 
   private async consumeRefreshSession(
     tenantId: string,
-    refreshTokenHash: string
+    refreshTokenHash: string,
+    csrfTokenHash: string
   ): Promise<Session> {
     if (!this.databaseService) {
       const activeSession = this.sessions.find(
-        (session) =>
-          session.tenantId === tenantId &&
-          !session.revokedAt &&
-          session.refreshTokenHash === refreshTokenHash
+        (session) => session.tenantId === tenantId && session.refreshTokenHash === refreshTokenHash
       );
       if (!activeSession) {
         throw new UnauthorizedException({
@@ -441,7 +507,21 @@ export class AuthService {
           message: 'Refresh token is invalid'
         });
       }
-      activeSession.revokedAt = new Date().toISOString();
+      if (activeSession.csrfTokenHash !== csrfTokenHash) {
+        throw new UnauthorizedException({ code: 'invalid_csrf', message: 'Invalid CSRF token' });
+      }
+      if (activeSession.consumedAt || activeSession.revokedAt) {
+        this.revokeFamilyInMemory(tenantId, activeSession.jti, 'refresh_replay_detected');
+        throw new UnauthorizedException({
+          code: 'refresh_replay',
+          message: 'Refresh token replay detected'
+        });
+      }
+      const now = new Date().toISOString();
+      activeSession.consumedAt = now;
+      activeSession.rotatedAt = now;
+      activeSession.revokedAt = now;
+      activeSession.revokeReason = 'rotated';
       return activeSession;
     }
 
@@ -450,13 +530,19 @@ export class AuthService {
         id: string;
         tenant_id: string;
         user_id: string;
+        jti: string;
+        parent_jti: string | null;
         refresh_token_hash: string;
+        csrf_token_hash: string | null;
         expires_at: string;
+        consumed_at: string | null;
+        revoked_at: string | null;
       }>(
         `
-          select id, tenant_id, user_id, refresh_token_hash, expires_at::text as expires_at
+          select id, tenant_id, user_id, jti, parent_jti, refresh_token_hash, csrf_token_hash,
+                 expires_at::text as expires_at, consumed_at::text as consumed_at, revoked_at::text as revoked_at
           from iam.sessions
-          where tenant_id = $1 and refresh_token_hash = $2 and revoked_at is null
+          where tenant_id = $1 and refresh_token_hash = $2
           order by created_at desc
           for update skip locked
           limit 1
@@ -469,11 +555,41 @@ export class AuthService {
       if (!row) {
         return null;
       }
+      if (row.csrf_token_hash !== csrfTokenHash) {
+        throw new UnauthorizedException({ code: 'invalid_csrf', message: 'Invalid CSRF token' });
+      }
+      if (row.consumed_at || row.revoked_at) {
+        await this.databaseService!.query(
+          `
+            with recursive family as (
+              select id, tenant_id, jti
+              from iam.sessions
+              where tenant_id = $1 and jti = $2
+              union all
+              select s.id, s.tenant_id, s.jti
+              from iam.sessions s
+              join family f on s.tenant_id = f.tenant_id and s.parent_jti = f.jti
+            )
+            update iam.sessions target
+            set revoked_at = coalesce(target.revoked_at, now()),
+                revoke_reason = coalesce(target.revoke_reason, 'refresh_replay_detected'),
+                updated_at = now()
+            from family
+            where target.id = family.id
+          `,
+          [tenantId, row.jti],
+          client
+        );
+        throw new UnauthorizedException({
+          code: 'refresh_replay',
+          message: 'Refresh token replay detected'
+        });
+      }
 
       const revokedRows = await this.databaseService!.query<{ id: string }>(
         `
           update iam.sessions
-          set revoked_at = now(), updated_at = now()
+          set consumed_at = now(), rotated_at = now(), revoked_at = now(), revoke_reason = 'rotated', updated_at = now()
           where id = $1 and revoked_at is null
           returning id
         `,
@@ -488,7 +604,10 @@ export class AuthService {
         id: row.id,
         tenantId: row.tenant_id,
         userId: row.user_id,
+        jti: row.jti,
+        parentJti: row.parent_jti ?? undefined,
         refreshTokenHash: row.refresh_token_hash,
+        csrfTokenHash: row.csrf_token_hash ?? undefined,
         expiresAt: row.expires_at
       } as Session;
     });
@@ -498,10 +617,7 @@ export class AuthService {
     }
 
     const activeSession = this.sessions.find(
-      (session) =>
-        session.tenantId === tenantId &&
-        !session.revokedAt &&
-        session.refreshTokenHash === refreshTokenHash
+      (session) => session.tenantId === tenantId && session.refreshTokenHash === refreshTokenHash
     );
     if (!activeSession) {
       throw new UnauthorizedException({
@@ -509,8 +625,53 @@ export class AuthService {
         message: 'Refresh token is invalid'
       });
     }
-    activeSession.revokedAt = new Date().toISOString();
+    if (activeSession.csrfTokenHash !== csrfTokenHash) {
+      throw new UnauthorizedException({ code: 'invalid_csrf', message: 'Invalid CSRF token' });
+    }
+    if (activeSession.consumedAt || activeSession.revokedAt) {
+      this.revokeFamilyInMemory(tenantId, activeSession.jti, 'refresh_replay_detected');
+      throw new UnauthorizedException({
+        code: 'refresh_replay',
+        message: 'Refresh token replay detected'
+      });
+    }
+    const now = new Date().toISOString();
+    activeSession.consumedAt = now;
+    activeSession.rotatedAt = now;
+    activeSession.revokedAt = now;
+    activeSession.revokeReason = 'rotated';
     return activeSession;
+  }
+
+  private revokeFamilyInMemory(tenantId: string, rootJti: string, reason: string): void {
+    const family = new Set<string>([rootJti]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const session of this.sessions) {
+        if (
+          session.tenantId === tenantId &&
+          session.parentJti &&
+          family.has(session.parentJti) &&
+          !family.has(session.jti)
+        ) {
+          family.add(session.jti);
+          changed = true;
+        }
+      }
+    }
+
+    const now = new Date().toISOString();
+    this.sessions = this.sessions.map((session) => {
+      if (session.tenantId !== tenantId || !family.has(session.jti)) {
+        return session;
+      }
+      return {
+        ...session,
+        revokedAt: session.revokedAt ?? now,
+        revokeReason: session.revokeReason ?? reason
+      };
+    });
   }
 
   private async revokeSessionInternal(
@@ -546,5 +707,33 @@ export class AuthService {
       }
       return session;
     });
+  }
+
+  private async revokeAllSessionsForUserInternal(tenantId: string, userId: string): Promise<void> {
+    if (this.databaseService) {
+      await this.databaseService.query(
+        `
+          update iam.sessions
+          set revoked_at = now(), updated_at = now()
+          where tenant_id = $1 and user_id = $2 and revoked_at is null
+        `,
+        [tenantId, userId]
+      );
+    }
+
+    this.sessions = this.sessions.map((session) => {
+      if (session.tenantId === tenantId && session.userId === userId && !session.revokedAt) {
+        return { ...session, revokedAt: new Date().toISOString() };
+      }
+      return session;
+    });
+  }
+
+  private hashSessionToken(token: string): string {
+    return hashRefreshToken(token, this.secretsService.getJwtSigningSecret());
+  }
+
+  private hashCsrfToken(csrfToken: string): string {
+    return this.hashSessionToken(`csrf:${csrfToken}`);
   }
 }

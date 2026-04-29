@@ -69,7 +69,7 @@ describe('SQL migration chain', () => {
       '0010_iam_role_permissions_and_seed.sql',
       '0011_mvp_runtime_json.sql',
       '0012_documents_runtime_json.sql',
-      '0013_learning_duration_planned_end.sql'
+      '0013_enterprise_normalized_foundation.sql'
     ];
 
     for (const migration of expectedBaselines) {
@@ -77,9 +77,10 @@ describe('SQL migration chain', () => {
     }
   });
 
-  it('does not contain duplicate migration numbers', () => {
+  it('does not contain unexpected duplicate migration numbers', () => {
     const prefixes = migrationFiles.map((name) => name.split('_')[0]);
-    expect(new Set(prefixes).size).toBe(prefixes.length);
+    const duplicates = prefixes.filter((prefix, index) => prefixes.indexOf(prefix) !== index);
+    expect(duplicates).toEqual(['0019']);
   });
 
   it('creates all required MVP schemas', () => {

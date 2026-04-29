@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react';
 
 import type { PropsWithChildren } from 'react';
 
@@ -62,7 +70,9 @@ export const useQuery = <T,>(options: QueryOptions<T>) => {
   const [error, setError] = useState<unknown>(null);
   const [isLoading, setLoading] = useState(Boolean(options.enabled ?? true));
 
-  const refetch = async () => {
+  const queryKeyHash = JSON.stringify(options.queryKey);
+
+  const refetch = useCallback(async () => {
     if (options.enabled === false) return;
     setLoading(true);
     setError(null);
@@ -83,7 +93,7 @@ export const useQuery = <T,>(options: QueryOptions<T>) => {
     } finally {
       if (mounted.current) setLoading(false);
     }
-  };
+  }, [options]);
 
   useEffect(() => {
     mounted.current = true;
@@ -91,20 +101,20 @@ export const useQuery = <T,>(options: QueryOptions<T>) => {
     return () => {
       mounted.current = false;
     };
-  }, [JSON.stringify(options.queryKey), options.enabled]);
+  }, [queryKeyHash, options.enabled, refetch]);
 
   useEffect(() => {
     const unsubscribe = client.subscribe(() => void refetch());
     return () => {
       unsubscribe();
     };
-  }, [client, JSON.stringify(options.queryKey)]);
+  }, [client, queryKeyHash, refetch]);
 
   useEffect(() => {
     if (!options.refetchInterval) return;
     const timer = setInterval(() => void refetch(), options.refetchInterval);
     return () => clearInterval(timer);
-  }, [options.refetchInterval, JSON.stringify(options.queryKey)]);
+  }, [options.refetchInterval, queryKeyHash, refetch]);
 
-  return useMemo(() => ({ data, error, isLoading, refetch }), [data, error, isLoading]);
+  return useMemo(() => ({ data, error, isLoading, refetch }), [data, error, isLoading, refetch]);
 };

@@ -4,6 +4,7 @@ import {
   Delete,
   ForbiddenException,
   Get,
+  Headers,
   Inject,
   Param,
   Post,
@@ -63,8 +64,18 @@ export class AuthController {
       });
     }
     const tokens = await this.authService.login(context.tenantId!, loginPayload, context);
-    authCookie.attachRefreshCookie(response, tokens.refreshToken);
+    authCookie.attachRefreshAndCsrfCookies(response, tokens.refreshToken, tokens.csrfToken);
     return authCookie.toPublicTokens(tokens);
+  }
+
+  @Get('auth/csrf')
+  async csrf(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
+    const csrfToken = authCookie.readCsrfCookie(request.headers);
+    if (!csrfToken) {
+      throw new UnauthorizedException({ code: 'missing_csrf', message: 'CSRF token is missing' });
+    }
+    authCookie.attachCsrfCookie(response, csrfToken);
+    return { csrfToken };
   }
 
   @Post('auth/refresh')
@@ -74,18 +85,29 @@ export class AuthController {
     @CurrentContext() context: RequestContext,
     @Body() _payload: RefreshDto,
     @Req() request: Request,
+    @Headers('x-csrf-token') csrfHeaderToken: string | undefined,
     @Res({ passthrough: true }) response: Response
   ) {
     const refreshToken = authCookie.readRefreshCookie(request.headers);
+    const csrfCookieToken = authCookie.readCsrfCookie(request.headers);
+    if (!csrfHeaderToken || !csrfCookieToken || csrfHeaderToken !== csrfCookieToken) {
+      authCookie.clearAuthCookies(response);
+      throw new UnauthorizedException({ code: 'invalid_csrf', message: 'Invalid CSRF token' });
+    }
     if (!refreshToken) {
-      authCookie.clearRefreshCookie(response);
+      authCookie.clearAuthCookies(response);
       throw new UnauthorizedException({
         code: 'invalid_refresh',
         message: 'Invalid refresh token'
       });
     }
-    const tokens = await this.authService.refresh(context.tenantId!, refreshToken, context);
-    authCookie.attachRefreshCookie(response, tokens.refreshToken);
+    const tokens = await this.authService.refresh(
+      context.tenantId!,
+      refreshToken,
+      csrfHeaderToken,
+      context
+    );
+    authCookie.attachRefreshAndCsrfCookies(response, tokens.refreshToken, tokens.csrfToken);
     return authCookie.toPublicTokens(tokens);
   }
 
@@ -99,7 +121,7 @@ export class AuthController {
       await this.authService.logout(context.tenantId!, context.userId!, payload.sessionId, context);
       return { success: true };
     } finally {
-      authCookie.clearRefreshCookie(response);
+      authCookie.clearAuthCookies(response);
     }
   }
 
@@ -112,7 +134,7 @@ export class AuthController {
       await this.authService.logoutAll(context.tenantId!, context.userId!, context);
       return { success: true };
     } finally {
-      authCookie.clearRefreshCookie(response);
+      authCookie.clearAuthCookies(response);
     }
   }
 

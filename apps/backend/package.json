@@ -7,7 +7,7 @@
     "dev": "tsx watch src/main.ts",
     "build": "tsc -p tsconfig.json",
     "lint": "eslint src --max-warnings=0",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "pnpm --filter @cdoprof/shared-types build && pnpm --filter @cdoprof/api-contracts build && tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },
   "dependencies": {

@@ -53,6 +53,21 @@ export default function WorkspacePage() {
     }
   });
 
+  const filteredTasks = useMemo(
+    () =>
+      (workspace.data?.tasks ?? []).filter((item) =>
+        taskStatus === 'all' ? true : item.status === taskStatus
+      ),
+    [taskStatus, workspace.data?.tasks]
+  );
+  const filteredBlockers = useMemo(
+    () =>
+      (workspace.data?.blockers ?? []).filter((item) =>
+        blockerSeverity === 'all' ? true : item.severity === blockerSeverity
+      ),
+    [blockerSeverity, workspace.data?.blockers]
+  );
+
   if (!session || workspace.isLoading) {
     return (
       <ProtectedPage>
@@ -60,21 +75,6 @@ export default function WorkspacePage() {
       </ProtectedPage>
     );
   }
-
-  const filteredTasks = useMemo(
-    () =>
-      workspace.data?.tasks.filter((item) =>
-        taskStatus === 'all' ? true : item.status === taskStatus
-      ) ?? [],
-    [taskStatus, workspace.data?.tasks]
-  );
-  const filteredBlockers = useMemo(
-    () =>
-      workspace.data?.blockers.filter((item) =>
-        blockerSeverity === 'all' ? true : item.severity === blockerSeverity
-      ) ?? [],
-    [blockerSeverity, workspace.data?.blockers]
-  );
 
   return (
     <ProtectedPage>

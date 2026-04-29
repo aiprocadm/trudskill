@@ -33,17 +33,26 @@ describe('session manager', () => {
     vi.clearAllMocks();
   });
 
-  it('bootstraps an existing session', async () => {
+  it('bootstraps only through refresh endpoint', async () => {
     state.session = {
       user: { id: 'u_tenant_admin' },
       tokens: { accessToken: 'a', sessionId: 's1', expiresIn: 10 },
       roles: [],
       permissions: []
     };
-    authApiMock.me.mockResolvedValue({ id: 'u_tenant_admin', tenantId: 'tenant_demo', login: 'tenant_admin', email: null, status: 'active', displayName: 'Tenant Admin' });
+    authApiMock.refresh.mockResolvedValue({ accessToken: 'a2', sessionId: 's2', expiresIn: 20 });
+    authApiMock.me.mockResolvedValue({
+      id: 'u_tenant_admin',
+      tenantId: 'tenant_demo',
+      login: 'tenant_admin',
+      email: null,
+      status: 'active',
+      displayName: 'Tenant Admin'
+    });
     authApiMock.userRoles.mockResolvedValue([{ code: 'tenant_admin' }]);
 
     const session = await sessionManager.bootstrap();
+    expect(authApiMock.refresh).toHaveBeenCalledTimes(1);
     expect(session?.permissions).toContain('iam.manage_roles');
   });
 
@@ -55,7 +64,14 @@ describe('session manager', () => {
       permissions: []
     };
     authApiMock.refresh.mockResolvedValue({ accessToken: 'a2', sessionId: 's2', expiresIn: 20 });
-    authApiMock.me.mockResolvedValue({ id: 'u_tenant_admin', tenantId: 'tenant_demo', login: 'tenant_admin', email: null, status: 'active', displayName: 'Tenant Admin' });
+    authApiMock.me.mockResolvedValue({
+      id: 'u_tenant_admin',
+      tenantId: 'tenant_demo',
+      login: 'tenant_admin',
+      email: null,
+      status: 'active',
+      displayName: 'Tenant Admin'
+    });
     authApiMock.userRoles.mockResolvedValue([{ code: 'tenant_admin' }]);
 
     const refreshed = await sessionManager.tryRefresh();

@@ -46,8 +46,8 @@ describe('mvp api envelope compatibility', () => {
     process.env.NEXT_PUBLIC_REALTIME_URL ??= 'ws://localhost:3002';
     process.env.PUBLIC_BASE_URL ??= 'http://localhost:3000';
 
-    const module = await import('./api');
-    mvpApi = module.mvpApi;
+    const importedModule = await import('./api');
+    mvpApi = importedModule.mvpApi;
   });
 
   beforeEach(() => {

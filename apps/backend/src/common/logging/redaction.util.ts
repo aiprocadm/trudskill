@@ -8,7 +8,10 @@ const SENSITIVE_KEY_PATTERNS = [
   /authorization/i,
   /cookie/i,
   /presigned/i,
-  /signature/i
+  /signature/i,
+  /email/i,
+  /phone/i,
+  /pii/i
 ];
 
 const isSensitiveKey = (key: string) => SENSITIVE_KEY_PATTERNS.some((pattern) => pattern.test(key));

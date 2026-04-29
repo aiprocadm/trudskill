@@ -31,12 +31,7 @@ export class AuditService {
     record: Omit<AuditLogRecord, 'id' | 'createdAt'>,
     options?: { skipDatabase?: boolean }
   ): AuditLogRecord {
-    const result: AuditLogRecord = {
-      ...record,
-      id: `audit_${randomUUID().replace(/-/g, '')}`,
-      createdAt: new Date().toISOString()
-    };
-
+    const result = this.buildRecord(record);
     this.records.push(result);
 
     if (this.databaseService && !options?.skipDatabase) {
@@ -64,6 +59,50 @@ export class AuditService {
       );
     }
 
+    return result;
+  }
+
+  async writeCritical(
+    record: Omit<AuditLogRecord, 'id' | 'createdAt'>,
+    options?: { skipDatabase?: boolean }
+  ): Promise<AuditLogRecord> {
+    const result = this.buildRecord(record);
+    this.records.push(result);
+
+    if (this.databaseService && !options?.skipDatabase) {
+      await this.databaseService.query(
+        `
+          insert into audit.audit_log
+            (id, tenant_id, actor_id, action, entity_type, entity_id, old_values, new_values, request_id, ip, user_agent, created_at)
+          values
+            ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $11, $12::timestamptz)
+        `,
+        [
+          result.id,
+          result.tenantId,
+          result.actorId ?? null,
+          result.action,
+          result.entityType,
+          result.entityId ?? null,
+          result.oldValues ? JSON.stringify(result.oldValues) : null,
+          result.newValues ? JSON.stringify(result.newValues) : null,
+          result.requestId ?? null,
+          result.ip ?? null,
+          result.userAgent ?? null,
+          result.createdAt
+        ]
+      );
+    }
+
+    return result;
+  }
+
+  private buildRecord(record: Omit<AuditLogRecord, 'id' | 'createdAt'>): AuditLogRecord {
+    const result: AuditLogRecord = {
+      ...record,
+      id: `audit_${randomUUID().replace(/-/g, '')}`,
+      createdAt: new Date().toISOString()
+    };
     return result;
   }
 

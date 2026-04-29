@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { PageHeader } from '../../src/components/state-wrappers';
 import { useAuth } from '../../src/features/auth/context';
@@ -20,25 +20,31 @@ export default function ChatPage() {
     [dialogs, selectedDialogId]
   );
 
-  const refreshDialogs = () =>
-    session &&
-    communicationApi.listDialogs(session).then((rows) => {
-      setDialogs(rows);
-      if (!selectedDialogId && rows[0]?.id) setSelectedDialogId(rows[0].id);
-    });
+  const refreshDialogs = useCallback(
+    () =>
+      session &&
+      communicationApi.listDialogs(session).then((rows) => {
+        setDialogs(rows);
+        if (!selectedDialogId && rows[0]?.id) setSelectedDialogId(rows[0].id);
+      }),
+    [selectedDialogId, session]
+  );
 
-  const refreshMessages = () =>
-    session &&
-    selectedDialogId &&
-    communicationApi.listMessages(session, selectedDialogId).then((rows) => setMessages(rows));
+  const refreshMessages = useCallback(
+    () =>
+      session &&
+      selectedDialogId &&
+      communicationApi.listMessages(session, selectedDialogId).then((rows) => setMessages(rows)),
+    [selectedDialogId, session]
+  );
 
   useEffect(() => {
     void refreshDialogs();
-  }, [session]);
+  }, [refreshDialogs]);
 
   useEffect(() => {
     void refreshMessages();
-  }, [selectedDialogId, session]);
+  }, [refreshMessages]);
 
   useChatRealtime(selectedDialogId, () => void refreshMessages());
 
