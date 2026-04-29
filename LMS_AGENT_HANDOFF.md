@@ -6,200 +6,153 @@
 - Agent: GPT-5.3-Codex
 - Repository: `/workspace/cdoprof-`
 - Branch, if known: `work`
-- Commit hash before work, if available: `e0fbd65468e701d88b023042eca62f9c3fa4cb16`
-- Commit hash after work, if available: `e0fbd65468e701d88b023042eca62f9c3fa4cb16` (code changes not required in this session)
+- Commit hash before work, if available: `584be23c38d97c82bbd46a097af6e5a6611d656c`
+- Commit hash after work, if available: _TBD after commit in this session_
 
 ## 2. Project Overview
 
-- Назначение LMS: enterprise LMS/СДО monorepo (auth/IAM, курсы, рабочие процессы, документы/e-sign, коммуникации, интеграции).
-- Общий стек: TypeScript monorepo (pnpm workspace + Turborepo).
-- Frontend: Next.js App Router (`apps/frontend`).
+- Enterprise LMS/СДО monorepo (courses, learners, teachers, auth/IAM, documents/e-sign, integrations).
+- Stack: TypeScript + pnpm workspace + Turborepo.
+- Frontend: Next.js 15 App Router (`apps/frontend`).
 - Backend: NestJS (`apps/backend`).
-- Database: PostgreSQL (SQL migrations в backend).
-- Auth: access/refresh/session flow + permission/role guards.
-- Deployment / docker: `infra/docker-compose.yml` + app Dockerfiles.
-- Test setup: Vitest по пакетам + integration/e2e тесты.
+- Database: PostgreSQL + SQL migrations (`apps/backend/migrations`).
+- Auth: IAM module with sessions/roles/permissions.
+- Infra: Dockerfiles per app + `infra/docker-compose.yml`.
+- Tests: Vitest across apps/packages, integration/e2e coverage.
 
 ## 3. Repository Structure
 
-- `apps/backend` — API, IAM, workspace, documents, esign, integrations, communication, health.
-- `apps/frontend` — web UI + role-based pages/flows.
-- `apps/realtime` — realtime service.
-- `apps/worker` — background worker pipelines.
-- `packages/shared-types` — shared contracts/types.
-- `packages/api-contracts` — API contracts/OpenAPI artifacts.
-- `packages/ui` — UI kit/components.
-- `packages/test-utils` — cross-package test helpers.
-- `docs` — архитектура/операционные документы.
-- `infra` — docker-compose и infra notes.
+- `apps/frontend` — UI routes, auth guards, LMS pages.
+- `apps/backend` — API modules (iam/workspace/mvp/documents/esign/integrations).
+- `apps/realtime`, `apps/worker` — supporting services.
+- `packages/*` — shared UI/types/contracts/test utilities.
+- `docs/*` — architecture/runbooks/audits.
 
 ## 4. Existing Functionality Observed
 
-- auth: login/refresh/logout/logout-all/me/sessions flows присутствуют.
-- users: CRUD/read, role binding endpoints присутствуют.
-- roles: role/permission model присутствует.
-- courses: frontend маршруты и backend MVP/workspace покрытие присутствуют (частично enterprise-модули).
-- lessons: есть LMS UI маршруты и domain tests в backend (через mvp/workspace контекст).
-- enrollments: базовые role/LMS scenarios присутствуют в e2e.
-- progress: присутствуют learner/role-flow сценарии (frontend e2e + backend business flows).
-- assignments/quizzes: частично (teacher grading center, assessment/proctoring направления, не полный модуль).
-- admin: admin cockpit route и IAM endpoints присутствуют.
-- teacher dashboard: teacher route(s) присутствуют.
-- student dashboard: learner/student routes присутствуют.
-- API: Nest controllers + DTO/guards + contracts.
-- database: миграции и migration integrity tests присутствуют.
-- UI: страницы и smoke/e2e regression тесты присутствуют.
+- Auth/roles/permissions implemented.
+- Course/learner/teacher/admin routes exist in frontend.
+- Workspace/task/blocker operational screen exists.
+- Backend has modular domain services + DTO/tests.
 
 ## 5. Work Completed In This Session
 
-### 5.1 Full CI-like verification pass
+### 5.1 Fixed React Hooks rules-of-hooks blocker on Workspace page
 
-- Summary: Выполнен полный `pnpm ci:check` (lint + typecheck + contracts checks + tests + build).
+- Summary: removed conditional hook execution risk by computing filtered datasets before early return, preserving hook order.
 - Files changed:
-  - `LMS_AGENT_HANDOFF.md`
+  - `apps/frontend/app/workspace/page.tsx`
 - Details:
-  - Подтверждено, что репозиторий в текущем состоянии проходит quality gates без новых code fixes.
-  - Подтвержден успешный прогон тестов по backend/frontend/packages.
-  - Подтвержден production build для всех workspace-пакетов, включая Next.js frontend.
+  - `useMemo` hooks now always execute before `if (!session || workspace.isLoading)` return.
+  - Filtering still uses identical business logic for task status and blocker severity.
 - Notes:
-  - В логах остаётся warning от Next.js ESLint plugin detection; это не блокирует сборку.
+  - This resolves previous hard lint error (`react-hooks/rules-of-hooks`) on that page.
 
-### 5.2 Audit refresh and actionable next steps
+### 5.2 Added session documentation update
 
-- Summary: Обновлён handoff на базе фактических результатов проверок этой сессии.
+- Summary: refreshed handoff with audit + current state + known remaining frontend lint blockers.
 - Files changed:
   - `LMS_AGENT_HANDOFF.md`
-- Details:
-  - Зафиксированы реальные команды, результаты и остаточные риски.
 
 ## 6. Files Changed
 
-| File                   | Change Type | Purpose                                                        |
-| ---------------------- | ----------- | -------------------------------------------------------------- |
-| `LMS_AGENT_HANDOFF.md` | modified    | Актуализация статуса репозитория и результатов полной проверки |
+| File                                   | Change Type | Purpose                                                          |
+| -------------------------------------- | ----------- | ---------------------------------------------------------------- |
+| `apps/frontend/app/workspace/page.tsx` | modified    | Fix hook ordering bug that could break lint/React hooks contract |
+| `LMS_AGENT_HANDOFF.md`                 | modified    | Updated technical handoff for next agent                         |
 
 ## 7. Database / Schema / Migration Changes
 
-- Изменений схемы БД не было.
-- Новые миграции не создавались.
-- Seed scripts не менялись.
-- Рисков для данных от этой сессии нет.
+- No DB/schema/migration changes in this session.
 
 ## 8. API Changes
 
-- API endpoints/контракты не менялись.
-
-| Method | Path | Change                         | Auth Required | Roles |
-| ------ | ---- | ------------------------------ | ------------- | ----- |
-| —      | —    | No API changes in this session | —             | —     |
+- No API endpoint contract changes.
 
 ## 9. Frontend / UI Changes
 
-- Функциональные изменения UI не вносились.
-- Подтверждено, что существующие страницы/маршруты успешно проходят build/test pipeline.
-- Role-based UI проверки остаются покрыты существующими e2e/unit тестами.
+- Updated `/workspace` page internal hook structure.
+- No route additions/removals.
+- Existing loading/error states kept.
 
 ## 10. Auth / Permissions Notes
 
-- Auth модель: session + JWT/refresh + role/permission mapping.
-- Права проверяются на backend (guards/services), frontend использует role-aware routing.
-- Оставшийся gap: точечный security review для tenant-boundary across all modules (не блокирует текущую сборку).
+- Auth model unchanged.
+- Protected route behavior on workspace page unchanged.
 
 ## 11. Validation / Error Handling
 
-- Новых схем валидации не добавлялось.
-- Формат ошибок и текущий exception handling не менялись.
-- По тестам контракты и базовые error/security сценарии остаются зелёными.
+- No validation schema changes.
+- No backend error format changes.
 
 ## 12. Tests / Checks Run
 
-| Command         | Result | Notes                                                                             |
-| --------------- | ------ | --------------------------------------------------------------------------------- |
-| `pnpm ci:check` | passed | Полный pipeline успешен: lint, typecheck, contracts lint/typecheck, tests, build. |
+| Command                                | Result | Notes                                                                                                                                                         |
+| -------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm --filter @cdoprof/frontend lint` | failed | Workspace hooks error fixed, but lint still fails due pre-existing frontend issues (`no-assign-module-variable` in tests, multiple exhaustive-deps warnings). |
 
 ## 13. Known Issues
 
-### Issue 1: Next.js ESLint plugin warning
+### Issue 1: Frontend lint still red after enabling stricter Next lint visibility
 
-- Severity: low
-- Area: frontend/tooling
-- Description: Next build/lint выводит warning, что Next plugin не детектирован в ESLint config.
-- Evidence: `pnpm ci:check` logs during frontend lint/build.
-- Suggested fix: проверить и при необходимости harmonize ESLint config для явного Next plugin integration.
-
-### Issue 2: Large integration scope may hide deeper domain gaps
-
-- Severity: medium
-- Area: backend/auth/tenant
-- Description: Базовые security/auth тесты зелёные, но нужен отдельный targeted audit по IDOR/tenant-boundary на всех domain endpoints.
-- Evidence: текущая сессия была focused на стабильность CI gates, не на полный manual pentest.
-- Suggested fix: отдельная итерация security hardening с checklist по критичным эндпоинтам.
+- Severity: high
+- Area: frontend/tests/hooks
+- Description: `next lint` reports two blocking errors in tests and multiple hook-deps warnings.
+- Evidence: `pnpm --filter @cdoprof/frontend lint` output.
+- Suggested fix:
+  1. Rename local `module` variables in test files that violate `@next/next/no-assign-module-variable`.
+  2. Address high-signal `react-hooks/exhaustive-deps` warnings (especially production code pages and query shim).
 
 ## 14. Recommended Next Steps
 
 ### Critical
 
-1. Выполнить targeted security audit по tenant isolation и object-level authorization (documents/workspace/mvp/integrations).
-2. Добавить regression tests на найденные authorization edge-cases.
+1. Fix `@next/next/no-assign-module-variable` in:
+   - `apps/frontend/src/features/mvp/api.contract.test.ts`
+   - `apps/frontend/src/lib/auth/auth-api.test.ts`
+2. Re-run `pnpm --filter @cdoprof/frontend lint` until green.
 
 ### High
 
-1. Уточнить/стандартизовать course/lesson/enrollment/progress API coverage в отдельных integration tests (если есть пробелы по ролям).
-2. Пройтись по фронтовым LMS страницам на consistency loading/error/empty states для learner/teacher/admin путей.
+1. Triage and fix `react-hooks/exhaustive-deps` warnings in `app/chat`, `app/esign/*`, `app/reports`, `src/lib/query/react-query-shim.tsx`.
 
 ### Medium
 
-1. Закрыть warning по Next ESLint plugin detection.
-2. Актуализировать `docs/run-tests.md` под подтверждённый `pnpm ci:check` workflow.
+1. Run full `pnpm ci:check` after frontend lint cleanup.
 
 ### Low
 
-1. Консолидировать длинный набор enterprise-отчётов в docs в единый индекс source-of-truth.
+1. Add focused regression test for workspace page filter behavior if not covered.
 
 ## 15. Suggested Next Agent Prompt
 
-"Сделай security-focused итерацию: проверь tenant-boundary и object-level authorization в backend endpoints (documents/workspace/mvp/integrations), добавь regression tests на обнаруженные edge-cases, затем прогони `pnpm ci:check` и обнови `LMS_AGENT_HANDOFF.md` с точными результатами и рисками."
+"Исправь оставшиеся frontend lint-блокеры (`@next/next/no-assign-module-variable` и приоритетные `react-hooks/exhaustive-deps`), затем прогони `pnpm --filter @cdoprof/frontend lint` и `pnpm ci:check`, обнови LMS_AGENT_HANDOFF.md с результатами."
 
 ## 16. Important Context / Assumptions
 
-- Предположение: локально доступно окружение, достаточное для in-memory/integration прогонов test suite.
-- Изменения этой сессии не затрагивали бизнес-логику и публичные API.
-- Внешние секреты/production env не использовались.
+- Work done without external secrets/services.
+- Main change targeted frontend stability/lint correctness in existing architecture.
 
 ## 17. Environment Variables
 
-| Variable                   | Required | Purpose                 | Notes              |
-| -------------------------- | -------- | ----------------------- | ------------------ |
-| `NODE_ENV`                 | yes      | runtime mode            | dev/test/prod      |
-| `DATABASE_URL`             | yes      | PostgreSQL connection   | value not included |
-| `REDIS_URL`                | yes      | Redis connection        | value not included |
-| `RABBITMQ_URL`             | yes      | broker connection       | value not included |
-| `AUTH_JWT_SECRET`          | yes      | token signing           | value not included |
-| `SESSION_SECRET`           | yes      | session/cookie security | value not included |
-| `CORS_ORIGIN`              | prod yes | CORS policy             | keep restrictive   |
-| `NEXT_PUBLIC_API_BASE_URL` | frontend | API base url            | not secret         |
-| `NEXT_PUBLIC_REALTIME_URL` | frontend | realtime endpoint       | not secret         |
+- See `.env.example` (root + app-level examples). No secrets exposed in this session.
 
 ## 18. How To Run Locally
 
 1. `pnpm install`
-2. Скопировать env шаблоны (`.env.example`, `apps/*/.env.example`) и заполнить values.
-3. При необходимости поднять инфраструктуру: `docker compose -f infra/docker-compose.yml up -d --build`.
-4. Запуск разработки: `pnpm dev`.
-5. Полная проверка качества: `pnpm ci:check`.
+2. Configure env files from examples.
+3. `pnpm dev` (or app-specific scripts)
+4. `pnpm --filter @cdoprof/frontend lint` and `pnpm ci:check` for verification.
 
 ## 19. How To Continue Development
 
-- Точка входа backend: `apps/backend/src/modules/*` (IAM/workspace/documents/mvp).
-- Точка входа frontend: `apps/frontend/app/*` + `apps/frontend/src/features/*`.
-- Сохранять текущий стиль: Nest modules/services/guards/DTO, без ломки public contracts.
-- После изменений обязательно: `pnpm ci:check`.
-- Не вносить schema/API/auth breaking changes без явной миграции и документации.
+- Start with frontend lint blockers, then run full pipeline.
+- Preserve module/service/feature organization; avoid breaking contracts.
 
 ## 20. Final Status
 
-- Build status: passed (`pnpm ci:check` включает `pnpm build`).
-- Test status: passed (full workspace tests inside `pnpm ci:check`).
-- Main LMS flows status: базовые auth/role/LMS regression сценарии подтверждены тестами.
-- Production readiness: good for current baseline; нужен отдельный security-hardening pass.
-- Next best action: security-focused authorization/tenant audit + targeted regression tests.
+- Build status: not re-run in full this session.
+- Test status: not re-run in full this session.
+- Main LMS flows status: unchanged functionally; workspace hook-order bug fixed.
+- Production readiness: partial; frontend lint still blocking strict quality gate.
+- Next best action: close remaining frontend lint errors and re-run full CI checks.
