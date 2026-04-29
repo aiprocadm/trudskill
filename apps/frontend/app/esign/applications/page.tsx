@@ -1,7 +1,7 @@
 'use client';
 
 import { DataTable, LoadingState } from '@cdoprof/ui';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import {
   PageContainer,
@@ -27,7 +27,7 @@ export default function EsignApplicationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<EsignApplication[]>([]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!session) return;
     setLoading(true);
     setError(null);
@@ -45,11 +45,11 @@ export default function EsignApplicationsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [session]);
 
   useEffect(() => {
     void load();
-  }, [session]);
+  }, [load]);
 
   return (
     <ProtectedPage>

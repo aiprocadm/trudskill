@@ -1,7 +1,7 @@
 'use client';
 
 import { DataTable, FilterBar, LoadingState } from '@cdoprof/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   PageContainer,
@@ -29,7 +29,7 @@ export default function EsignLegalLogPage() {
   const [actorFilter, setActorFilter] = useState('');
   const [rows, setRows] = useState<EsignEvent[]>([]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!session) return;
     setLoading(true);
     setError(null);
@@ -47,11 +47,11 @@ export default function EsignLegalLogPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [session]);
 
   useEffect(() => {
     void load();
-  }, [session]);
+  }, [load]);
 
   const filtered = useMemo(
     () => rows.filter((item) => (actorFilter ? item.actorId?.includes(actorFilter) : true)),
