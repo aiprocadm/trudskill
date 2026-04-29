@@ -34,6 +34,7 @@ export const IntegrationSettingsScreen = () => {
     refetch: refetchCredentials
   } = useCredentials();
   const [providerId, setProviderId] = useState('');
+  const [providerSort, setProviderSort] = useState<'asc' | 'desc'>('asc');
   const [name, setName] = useState('');
   const [secret, setSecret] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -46,6 +47,13 @@ export const IntegrationSettingsScreen = () => {
   const nameRef = useRef<HTMLInputElement>(null);
   const secretRef = useRef<HTMLInputElement>(null);
   const diagnostics = useIntegrationDiagnostics();
+  const providersRows = useMemo(() => {
+    const source = [...providers];
+    source.sort((a, b) =>
+      providerSort === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name)
+    );
+    return source;
+  }, [providerSort, providers]);
 
   const summaryErrors = useMemo(
     () =>
@@ -85,24 +93,27 @@ export const IntegrationSettingsScreen = () => {
 
   return (
     <PageContainer>
-      <PageHeader title="Integration settings" />
-      <SectionCard title="Providers registry">
+      <PageHeader title="Настройки интеграций" />
+      <SectionCard title="Реестр провайдеров">
         {providersLoading ? <LoadingState message="Загрузка провайдеров…" /> : null}
         {providersError ? <SectionError message={providersError} /> : null}
-        {providers.length ? (
+        {providersRows.length ? (
           <DataTable
+            sortBy="name"
+            sortDir={providerSort}
+            onSort={({ dir }) => setProviderSort(dir)}
             columns={[
-              { key: 'code', title: 'Code' },
-              { key: 'name', title: 'Name' },
-              { key: 'providerType', title: 'Type' }
+              { key: 'code', title: 'Код' },
+              { key: 'name', title: 'Провайдер', sortable: true },
+              { key: 'providerType', title: 'Тип' }
             ]}
-            rows={providers}
+            rows={providersRows}
           />
         ) : (
           <SectionEmpty message="Провайдеры не найдены" />
         )}
       </SectionCard>
-      <SectionCard title="Tenant credentials">
+      <SectionCard title="Подключения тенанта">
         {credentialsLoading ? <LoadingState message="Загрузка учётных данных…" /> : null}
         {credentialsError ? <SectionError message={credentialsError} /> : null}
         {credentials.length ? (
@@ -192,7 +203,7 @@ export const IntegrationSettingsScreen = () => {
         </FilterBar>
         {saveError ? <SectionError message={saveError} /> : null}
       </SectionCard>
-      <SectionCard title="Provider diagnostics">
+      <SectionCard title="Диагностика провайдеров">
         {diagnostics.loading ? <LoadingState message="Загрузка диагностики..." /> : null}
         {diagnostics.error ? <SectionError message={diagnostics.error} /> : null}
         {diagnostics.data.length ? (
@@ -221,10 +232,10 @@ export const ExportTasksScreen = () => {
   return (
     <PageContainer>
       <PageHeader
-        title="Export tasks"
+        title="Задачи выгрузки"
         actions={
-          <button onClick={() => setLive((c) => !c)}>
-            {live ? 'Stop live refresh' : 'Start live refresh'}
+          <button onClick={() => setLive((c) => !c)} aria-pressed={live}>
+            {live ? 'Остановить live-обновление' : 'Включить live-обновление'}
           </button>
         }
       />
@@ -264,7 +275,7 @@ export const SyncLogsScreen = () => {
 
   return (
     <PageContainer>
-      <PageHeader title="Sync logs" />
+      <PageHeader title="Журнал синхронизации" />
       <SectionCard title="Журнал синхронизации">
         <FilterBar>
           <input

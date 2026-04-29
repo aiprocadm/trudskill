@@ -5,7 +5,13 @@ import { useEffect, useMemo } from 'react';
 
 import { PageContainer, PageHeader, SectionCard } from '../src/components/state-wrappers';
 import { useAuth } from '../src/features/auth/context';
-import { getMetricBaseline, startMetricTimer } from '../src/lib/analytics/ux-metrics';
+import { getPrimaryRoleBlueprint } from '../src/features/navigation/role-blueprints';
+import { getJourneyByRole } from '../src/features/navigation/role-journeys';
+import {
+  getMetricBaseline,
+  recordJourneyStep,
+  startMetricTimer
+} from '../src/lib/analytics/ux-metrics';
 import { ProtectedPage } from '../src/widgets/shell/protected-page';
 
 type RoleCode = 'learner' | 'teacher' | 'tenant_admin' | 'platform_admin';
@@ -80,10 +86,14 @@ export default function DashboardPage() {
     startMetricTimer('time_to_start_learning');
   }, []);
 
+  const role = useMemo(() => getPrimaryRoleBlueprint(session ?? null), [session]);
+
   const visibleCards = useMemo(() => {
     const roles = new Set((session?.roles ?? []).map(normalizeRole));
-    return widgetCatalog.filter((widget) => widget.roles.some((role) => roles.has(role)));
+    return widgetCatalog.filter((widget) => widget.roles.some((r) => roles.has(r)));
   }, [session?.roles]);
+
+  const journey = useMemo(() => getJourneyByRole(role?.role), [role]);
 
   const baselineCount = getMetricBaseline().length;
 
@@ -104,6 +114,36 @@ export default function DashboardPage() {
             ))}
           </div>
         </SectionCard>
+        <SectionCard title="Текущий фокус роли">
+          <p className="ui-prose-muted">
+            {role ? `Роль: ${role.displayName}.` : 'Роль не определена.'}{' '}
+            {role ? `Ключевые задачи: ${role.topJobs.join('; ')}.` : 'Назначьте роль пользователю.'}
+          </p>
+        </SectionCard>
+        {journey ? (
+          <SectionCard title={journey.title}>
+            <p className="ui-prose-muted ui-prose-muted--tight">{journey.description}</p>
+            <ol className="ui-ordered-list">
+              {journey.steps.map((step) => (
+                <li key={step.id}>
+                  <Link
+                    href={step.href}
+                    onClick={() =>
+                      recordJourneyStep(
+                        role?.role ?? 'learner',
+                        'primary_flow',
+                        step.metricStep,
+                        'success'
+                      )
+                    }
+                  >
+                    {step.label}
+                  </Link>
+                </li>
+              ))}
+            </ol>
+          </SectionCard>
+        ) : null}
         <SectionCard title="Baseline метрик UX">
           <p className="ui-prose-muted">
             Зафиксировано событий для baseline: {baselineCount}. Метрики используются для оценки

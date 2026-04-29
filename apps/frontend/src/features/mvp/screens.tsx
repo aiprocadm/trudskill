@@ -7,6 +7,8 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   useAssignments,
+  useAssignmentReviews,
+  useAssignmentSubmissions,
   useCounterpartiesList,
   useCounterparty,
   useCourse,
@@ -483,6 +485,8 @@ export const CourseCreateScreen = () => {
   const router = useRouter();
   const { data: directions } = useDirectionsList({ page: 1, page_size: 100 });
   const { saveCourse } = useDomainMutations();
+  const DRAFT_KEY = 'lms.course.create.draft.v1';
+  const [step, setStep] = useState(1);
   const [title, setTitle] = useState('');
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
@@ -505,6 +509,36 @@ export const CourseCreateScreen = () => {
     code: codeRef.current,
     title: titleRef.current
   });
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as {
+        title?: string;
+        code?: string;
+        description?: string;
+        directionId?: string;
+      };
+      if (parsed.title) setTitle(parsed.title);
+      if (parsed.code) setCode(parsed.code);
+      if (parsed.description) setDescription(parsed.description);
+      if (parsed.directionId) setDirectionId(parsed.directionId);
+    } catch {
+      // ignore invalid draft
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({ title, code, description, directionId, savedAt: Date.now() })
+      );
+    } catch {
+      // ignore storage errors
+    }
+  }, [title, code, description, directionId]);
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -529,6 +563,7 @@ export const CourseCreateScreen = () => {
         ? { code: trimmedCode, title: trimmedTitle, description, directionId }
         : { code: trimmedCode, title: trimmedTitle, description };
       const created = await saveCourse(null, payload);
+      localStorage.removeItem(DRAFT_KEY);
       router.push(`/courses/${created.id}`);
     } catch (createError) {
       setSaveError(readApiMessage(createError));
@@ -537,8 +572,16 @@ export const CourseCreateScreen = () => {
 
   return (
     <PageContainer>
-      <PageHeader title="Создание курса" />
+      <PageHeader
+        title="Создание курса"
+        subtitle="Шаги: карточка курса -> описание и направление -> проверка -> создание"
+      />
       <SectionCard title="Мастер создания">
+        <ul className="ui-stepper" aria-label="Этапы создания курса">
+          <li className={`ui-step ${step >= 1 ? 'ui-step--active' : ''}`}>Карточка</li>
+          <li className={`ui-step ${step >= 2 ? 'ui-step--active' : ''}`}>Описание</li>
+          <li className={`ui-step ${step >= 3 ? 'ui-step--active' : ''}`}>Проверка</li>
+        </ul>
         <form
           onSubmit={(event) => void onSubmit(event)}
           style={{ display: 'grid', gap: 8, maxWidth: 480 }}
@@ -553,7 +596,10 @@ export const CourseCreateScreen = () => {
               required
               placeholder="Код"
               value={code}
-              onChange={(event) => setCode(event.target.value)}
+              onChange={(event) => {
+                setCode(event.target.value);
+                setStep((curr) => Math.max(curr, 1));
+              }}
               aria-invalid={Boolean(fieldErrors.code)}
               aria-describedby={fieldErrors.code ? 'course-code-error' : undefined}
             />
@@ -567,7 +613,10 @@ export const CourseCreateScreen = () => {
               required
               placeholder="Название"
               value={title}
-              onChange={(event) => setTitle(event.target.value)}
+              onChange={(event) => {
+                setTitle(event.target.value);
+                setStep((curr) => Math.max(curr, 1));
+              }}
               aria-invalid={Boolean(fieldErrors.title)}
               aria-describedby={fieldErrors.title ? 'course-title-error' : undefined}
             />
@@ -576,9 +625,18 @@ export const CourseCreateScreen = () => {
           <textarea
             placeholder="Описание"
             value={description}
-            onChange={(event) => setDescription(event.target.value)}
+            onChange={(event) => {
+              setDescription(event.target.value);
+              setStep((curr) => Math.max(curr, 2));
+            }}
           />
-          <select value={directionId} onChange={(event) => setDirectionId(event.target.value)}>
+          <select
+            value={directionId}
+            onChange={(event) => {
+              setDirectionId(event.target.value);
+              setStep((curr) => Math.max(curr, 2));
+            }}
+          >
             <option value="">Выберите направление</option>
             {directions?.items.map((direction) => (
               <option key={direction.id} value={direction.id}>
@@ -586,6 +644,21 @@ export const CourseCreateScreen = () => {
               </option>
             ))}
           </select>
+          <small className="ui-text-muted">Черновик сохраняется автоматически.</small>
+          <button
+            type="button"
+            className="ui-button ui-button--secondary"
+            disabled={!title.trim() || !code.trim()}
+            onClick={() => setStep(3)}
+          >
+            Проверить полноту
+          </button>
+          {step >= 3 ? (
+            <div className="ui-empty">
+              Проверка: {title.trim() ? 'название ок' : 'нет названия'}, {code.trim() ? 'код ок' : 'нет кода'}
+              {directionId ? ', направление выбрано' : ', направление не выбрано'}
+            </div>
+          ) : null}
           <button type="submit">Создать и открыть карточку</button>
           {saveError ? <SectionError message={saveError} /> : null}
         </form>
@@ -629,13 +702,14 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
         <div style={{ display: 'flex', gap: 8 }}>
           {canPublish ? (
             <button
+              disabled={!latestVersionId || !modules?.items?.length || !materials?.items?.length}
               onClick={() =>
                 void publishCourse(id)
                   .then(refetch)
                   .catch((publishError) => setSaveError(readApiMessage(publishError)))
               }
             >
-              Publish
+              Опубликовать
             </button>
           ) : null}
           {canArchive ? (
@@ -646,10 +720,15 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
                   .catch((archiveError) => setSaveError(readApiMessage(archiveError)))
               }
             >
-              Archive
+              Архивировать
             </button>
           ) : null}
         </div>
+        {!latestVersionId || !modules?.items?.length || !materials?.items?.length ? (
+          <p className="ui-text-muted">
+            Для публикации курса требуется минимум 1 версия, 1 модуль и 1 материал.
+          </p>
+        ) : null}
         <MutationError message={saveError} />
       </SectionCard>
       <SectionCard title="Версии курса">
@@ -1302,7 +1381,8 @@ export const AssessmentDashboardScreen = () => {
   const [selectedEnrollmentId, setSelectedEnrollmentId] = useState('');
   const [attemptResult, setAttemptResult] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const { startAttempt, getAttemptResult } = useDomainMutations();
+  const { startAttempt, getAttemptResult, completeAssignmentReview, updateAssignmentReview } =
+    useDomainMutations();
   const {
     data: banks,
     loading: banksLoading,
@@ -1337,6 +1417,12 @@ export const AssessmentDashboardScreen = () => {
     page: 1,
     page_size: 20
   });
+  const { data: submissions } = useAssignmentSubmissions({
+    page: 1,
+    page_size: 50,
+    status: 'submitted'
+  });
+  const { data: reviews } = useAssignmentReviews({ page: 1, page_size: 50 });
 
   const onStartAttempt = async () => {
     if (!selectedTestId || !selectedEnrollmentId || !session) {
@@ -1367,7 +1453,7 @@ export const AssessmentDashboardScreen = () => {
 
   return (
     <PageContainer>
-      <PageHeader title="Assessment" />
+      <PageHeader title="Оценивание и контроль знаний" />
       <SectionCard title="Фильтры">
         <FilterBar>
           <input value={q} onChange={(event) => setQ(event.target.value)} placeholder="Поиск" />
@@ -1386,7 +1472,7 @@ export const AssessmentDashboardScreen = () => {
           />
         </FilterBar>
       </SectionCard>
-      <SectionCard title="Question banks">
+      <SectionCard title="Банки вопросов">
         {banksLoading ? <LoadingState message="Загрузка банков вопросов..." /> : null}
         {banksError ? <SectionError message={banksError} /> : null}
         <p>Всего: {banks?.total ?? 0}</p>
@@ -1400,7 +1486,7 @@ export const AssessmentDashboardScreen = () => {
           />
         ) : null}
       </SectionCard>
-      <SectionCard title="Tests">
+      <SectionCard title="Тесты">
         {testsLoading ? <LoadingState message="Загрузка тестов..." /> : null}
         {testsError ? <SectionError message={testsError} /> : null}
         <p>Всего: {tests?.total ?? 0}</p>
@@ -1431,7 +1517,7 @@ export const AssessmentDashboardScreen = () => {
           </>
         ) : null}
       </SectionCard>
-      <SectionCard title="Assignments">
+      <SectionCard title="Назначенные задания">
         {assignmentsLoading ? <LoadingState message="Загрузка назначений..." /> : null}
         {assignmentsError ? <SectionError message={assignmentsError} /> : null}
         <p>Всего: {assignments?.total ?? 0}</p>
@@ -1510,6 +1596,78 @@ export const AssessmentDashboardScreen = () => {
             </button>
           </div>
         ) : null}
+      </SectionCard>
+      <SectionCard title="Очередь проверок преподавателя">
+        <p className="ui-text-muted">
+          SLA проверки: 48 часов. Заявок в очереди: {submissions?.items.length ?? 0}
+        </p>
+        {submissions?.items.length ? (
+          <DataTable
+            columns={[
+              { key: 'id', title: 'Submission ID' },
+              { key: 'assignmentId', title: 'Задание' },
+              { key: 'status', title: 'Статус' },
+              { key: 'submittedAt', title: 'Отправлено' }
+            ]}
+            rows={toTableRows(submissions.items)}
+          />
+        ) : (
+          <SectionEmpty message="Новых submissions на проверку нет" />
+        )}
+      </SectionCard>
+      <SectionCard title="Завершение проверок и SLA">
+        {reviews?.items.length ? (
+          <div className="ui-stack">
+            {reviews.items.slice(0, 10).map((review) => (
+              <div key={review.id} className="ui-inline">
+                <StatusChip status={review.status} />
+                <span>{review.id}</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void completeAssignmentReview(review.id, {
+                      score: review.score ?? 80,
+                      comment: review.comment ?? 'Проверка завершена в рамках SLA'
+                    }).catch((error) => setSaveError(readApiMessage(error)))
+                  }
+                  disabled={review.status === 'completed'}
+                >
+                  Завершить
+                </button>
+                <button
+                  type="button"
+                  className="ui-button ui-button--secondary"
+                  onClick={() =>
+                    void updateAssignmentReview(review.id, {
+                      reviewStatus: 'in_review',
+                      comment: `Апелляция зарегистрирована: ${new Date().toISOString()}`
+                    }).catch((error) => setSaveError(readApiMessage(error)))
+                  }
+                >
+                  Зарегистрировать апелляцию
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <SectionEmpty message="Проверки отсутствуют" />
+        )}
+      </SectionCard>
+      <SectionCard title="История изменений оценивания">
+        {reviews?.items.length ? (
+          <DataTable
+            columns={[
+              { key: 'id', title: 'Review ID' },
+              { key: 'status', title: 'Статус' },
+              { key: 'score', title: 'Балл' },
+              { key: 'comment', title: 'Комментарий' },
+              { key: 'updatedAt', title: 'Обновлено' }
+            ]}
+            rows={toTableRows(reviews.items)}
+          />
+        ) : (
+          <SectionEmpty message="История проверок пока пуста" />
+        )}
       </SectionCard>
     </PageContainer>
   );

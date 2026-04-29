@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 
 import { AuthController } from './auth.controller.js';
 import { PermissionGuard } from './permission.guard.js';
@@ -13,7 +13,15 @@ import { IamService } from './services/iam.service.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 
 @Module({
-  imports: [InfrastructureModule, AuditModule, AuthModule, UsersModule, RolesModule, PermissionsModule, SessionsModule],
+  imports: [
+    InfrastructureModule,
+    forwardRef(() => AuditModule),
+    AuthModule,
+    UsersModule,
+    RolesModule,
+    PermissionsModule,
+    SessionsModule
+  ],
   controllers: [AuthController],
   providers: [IamService, AuthService, PermissionGuard],
   exports: [IamService, AuthService]

@@ -69,4 +69,26 @@ describe('ui foundation components', () => {
       ((bodyRows[0]?.props.children as ReactElement[])[0] as ReactElement).props.children
     ).toBe('Template A');
   });
+
+  it('DataTable supports sortable headers and empty state', () => {
+    const onSort = vi.fn();
+    const wrap = DataTable({
+      columns: [{ key: 'name', title: 'Название', sortable: true }],
+      rows: [],
+      sortBy: 'name',
+      sortDir: 'asc',
+      onSort,
+      emptyMessage: 'Пусто'
+    });
+    const table = wrap.props.children as ReactElement;
+    const [head, body] = table.props.children as ReactElement[];
+    const headRow = (head.props.children as ReactElement).props.children as ReactElement[];
+    const sortButton = (headRow[0] as ReactElement).props.children as ReactElement;
+    sortButton.props.onClick();
+    expect(onSort).toHaveBeenCalledWith({ key: 'name', dir: 'desc' });
+
+    const emptyRow = body.props.children as ReactElement;
+    const emptyCell = emptyRow.props.children as ReactElement;
+    expect(emptyCell.props.children).toBe('Пусто');
+  });
 });

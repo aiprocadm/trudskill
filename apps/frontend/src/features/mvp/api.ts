@@ -220,6 +220,13 @@ export const mvpApi = {
     apiRequest<ExamResult>(`/attempts/${attemptId}/result`, withAuth(session)),
   listAssignments: (session: UserSession, query: BaseFilterQuery) =>
     apiRequest<ListResponse<Assignment>>(`/assignments${queryString(query)}`, withAuth(session)),
+  listAssignmentSubmissions: (session: UserSession, query: BaseFilterQuery) =>
+    apiRequest<ListResponse<AssignmentSubmission>>(
+      `/assignment-submissions${queryString(query)}`,
+      withAuth(session)
+    ),
+  listAssignmentReviews: (session: UserSession, query: BaseFilterQuery) =>
+    apiRequest<ListResponse<AssignmentReview>>(`/assignment-reviews${queryString(query)}`, withAuth(session)),
   saveQuestionBank: (
     session: UserSession,
     id: string | null,
@@ -273,6 +280,26 @@ export const mvpApi = {
     }),
   createAssignmentReview: (session: UserSession, payload: Record<string, unknown>) =>
     apiRequest<AssignmentReview>('/assignment-reviews', {
+      method: 'POST',
+      body: payload,
+      ...withAuth(session)
+    }),
+  updateAssignmentReview: (
+    session: UserSession,
+    reviewId: string,
+    payload: { score?: number; comment?: string; reviewStatus?: 'pending' | 'in_review' | 'completed' }
+  ) =>
+    apiRequest<AssignmentReview>(`/assignment-reviews/${reviewId}`, {
+      method: 'PATCH',
+      body: payload,
+      ...withAuth(session)
+    }),
+  completeAssignmentReview: (
+    session: UserSession,
+    reviewId: string,
+    payload: { score?: number; comment?: string }
+  ) =>
+    apiRequest<AssignmentReview>(`/assignment-reviews/${reviewId}/complete`, {
       method: 'POST',
       body: payload,
       ...withAuth(session)

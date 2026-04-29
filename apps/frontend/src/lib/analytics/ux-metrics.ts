@@ -6,7 +6,9 @@ type MetricName =
   | 'assignment_submit_dropoff'
   | 'form_error_rate'
   | 'csat_after_submission'
-  | 'csat_after_grade_view';
+  | 'csat_after_grade_view'
+  | 'journey_step_success'
+  | 'journey_step_dropoff';
 
 type MetricEvent = {
   name: MetricName;
@@ -75,3 +77,17 @@ export const recordMetric = (
 };
 
 export const getMetricBaseline = () => readJson<MetricEvent[]>(STORAGE_KEY, []);
+
+export const recordJourneyStep = (
+  role: string,
+  journey: string,
+  step: string,
+  status: 'success' | 'dropoff'
+) => {
+  recordMetric(status === 'success' ? 'journey_step_success' : 'journey_step_dropoff', 1, {
+    role,
+    journey,
+    step,
+    status
+  });
+};

@@ -15,6 +15,9 @@ import {
   SectionError
 } from '../../src/components/state-wrappers';
 import { useAuth } from '../../src/features/auth/context';
+import { getJourneyByRole } from '../../src/features/navigation/role-journeys';
+import { getPrimaryRoleBlueprint } from '../../src/features/navigation/role-blueprints';
+import { recordJourneyStep } from '../../src/lib/analytics/ux-metrics';
 import { apiClient } from '../../src/lib/api/client';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
@@ -34,6 +37,9 @@ interface WorkspaceBlockerItem {
 
 export default function WorkspacePage() {
   const { session } = useAuth();
+  const role = getPrimaryRoleBlueprint(session);
+  const journey = getJourneyByRole(role?.role);
+
   const [taskStatus, setTaskStatus] = useState<'all' | WorkspaceTaskItem['status']>('all');
   const [blockerSeverity, setBlockerSeverity] = useState<'all' | WorkspaceBlockerItem['severity']>(
     'all'
@@ -80,10 +86,10 @@ export default function WorkspacePage() {
     <ProtectedPage>
       <PageContainer>
         <PageHeader
-          title="Operational workspace"
-          subtitle="Сводка overdue задач, блокеров и следующих действий"
+          title="Оперативная панель"
+          subtitle="Приоритеты роли, блокеры и следующие действия для текущей смены"
           actions={
-            <button type="button" onClick={() => void workspace.refetch()}>
+            <button type="button" className="ui-button ui-button--primary" onClick={() => void workspace.refetch()}>
               Обновить
             </button>
           }
@@ -93,10 +99,29 @@ export default function WorkspacePage() {
         ) : null}
         <SectionCard title="Ключевые показатели">
           <div className="ui-inline">
-            <strong>Overdue: {workspace.data?.summary.overdueCount ?? 0}</strong>
-            <strong>Blockers: {workspace.data?.summary.blockersCount ?? 0}</strong>
+            <strong>Просрочено: {workspace.data?.summary.overdueCount ?? 0}</strong>
+            <strong>Блокеров: {workspace.data?.summary.blockersCount ?? 0}</strong>
+            {role ? <strong>Роль: {role.displayName}</strong> : null}
           </div>
         </SectionCard>
+        {journey ? (
+          <SectionCard title={`Сценарий роли: ${journey.title}`}>
+            <p className="ui-prose-muted ui-prose-muted--tight">{journey.description}</p>
+            <div className="ui-stack">
+              {journey.steps.slice(0, 3).map((step) => (
+                <Link
+                  key={step.id}
+                  href={step.href}
+                  onClick={() =>
+                    recordJourneyStep(role?.role ?? 'learner', 'workspace_flow', step.metricStep, 'success')
+                  }
+                >
+                  {step.label}
+                </Link>
+              ))}
+            </div>
+          </SectionCard>
+        ) : null}
         <SectionCard title="Следующие действия">
           {workspace.data?.summary.nextActions.length ? (
             <DataTable
@@ -105,21 +130,22 @@ export default function WorkspacePage() {
                 { key: 'route', title: 'Маршрут' }
               ]}
               rows={workspace.data.summary.nextActions}
+              emptyMessage="Нет следующих действий"
             />
           ) : (
             <SectionEmpty message="Нет следующих действий" />
           )}
         </SectionCard>
-        <SectionCard title="Inbox задач">
+        <SectionCard title="Задачи inbox">
           <div className="ui-inline">
             <select
               value={taskStatus}
               onChange={(event) => setTaskStatus(event.target.value as typeof taskStatus)}
             >
               <option value="all">Все статусы</option>
-              <option value="open">open</option>
-              <option value="in_progress">in_progress</option>
-              <option value="overdue">overdue</option>
+              <option value="open">Открыта</option>
+              <option value="in_progress">В работе</option>
+              <option value="overdue">Просрочена</option>
             </select>
           </div>
           <DataTable
@@ -130,27 +156,29 @@ export default function WorkspacePage() {
               { key: 'route', title: 'Маршрут' }
             ]}
             rows={filteredTasks}
+            emptyMessage="Нет задач для выбранного фильтра"
           />
         </SectionCard>
-        <SectionCard title="Blockers">
+        <SectionCard title="Блокеры">
           <div className="ui-inline">
             <select
               value={blockerSeverity}
               onChange={(event) => setBlockerSeverity(event.target.value as typeof blockerSeverity)}
             >
               <option value="all">Все severity</option>
-              <option value="low">low</option>
-              <option value="medium">medium</option>
-              <option value="high">high</option>
+              <option value="low">Низкий</option>
+              <option value="medium">Средний</option>
+              <option value="high">Высокий</option>
             </select>
           </div>
           <DataTable
             columns={[
               { key: 'title', title: 'Блокер' },
-              { key: 'severity', title: 'Severity' },
+              { key: 'severity', title: 'Критичность' },
               { key: 'route', title: 'Маршрут' }
             ]}
             rows={filteredBlockers}
+            emptyMessage="Нет блокеров для выбранного фильтра"
           />
           <div className="ui-stack">
             {filteredBlockers.slice(0, 5).map((item) => (

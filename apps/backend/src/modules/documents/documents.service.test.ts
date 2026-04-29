@@ -184,6 +184,35 @@ describe('DocumentsService', () => {
     expect(retried.errorMessage).toBeUndefined();
   });
 
+  it('creates multiple generation tasks for batch request', () => {
+    const service = new DocumentsService(
+      new InMemoryDocumentsState(),
+      new AuditService(),
+      new RealtimeEventsService()
+    );
+    const template = service.createTemplate(
+      't1',
+      'u1',
+      { name: 'Tpl', templateType: 'contract' },
+      ctx
+    );
+    const version = service.createTemplateVersion('t1', 'u1', {
+      templateId: template.id,
+      fileId: 'file_1'
+    });
+    service.activateTemplateVersion('t1', version.id);
+
+    const batch = service.generateDocumentsBatch('t1', 'u1', {
+      templateId: template.id,
+      sourceEntityType: 'enrollment',
+      sourceEntityIds: ['e1', 'e2', 'e3'],
+      documentType: 'certificate'
+    });
+
+    expect(batch.items).toHaveLength(3);
+    expect(service.listDocumentTasks('t1', {}).total).toBe(3);
+  });
+
   it('writes deterministic audit trail for task lifecycle', async () => {
     const auditService = new AuditService();
     const service = new DocumentsService(
@@ -353,5 +382,47 @@ describe('DocumentsService', () => {
       'tenant.name': 'Acme'
     });
     expect(resolved.__snapshot).toBeDefined();
+  });
+
+  it('resolves auto certificate binding with course match before group fallback', () => {
+    const service = new DocumentsService(
+      new InMemoryDocumentsState(),
+      new AuditService(),
+      new RealtimeEventsService()
+    );
+    const tplCert = service.createTemplate(
+      't1',
+      'u1',
+      { name: 'Cert', templateType: 'certificate' },
+      ctx
+    );
+    const tplOther = service.createTemplate(
+      't1',
+      'u1',
+      { name: 'Other', templateType: 'protocol' },
+      ctx
+    );
+    const v = service.createTemplateVersion('t1', 'u1', { templateId: tplCert.id, fileId: 'f1' });
+    service.activateTemplateVersion('t1', v.id);
+    service.createTemplateBinding('t1', {
+      templateId: tplCert.id,
+      bindType: 'group',
+      groupId: 'g1',
+      priority: 900
+    });
+    service.createTemplateBinding('t1', {
+      templateId: tplOther.id,
+      bindType: 'course',
+      courseId: 'c1',
+      priority: 1000
+    });
+    void service.createTemplateBinding('t1', {
+      templateId: tplCert.id,
+      bindType: 'course',
+      courseId: 'c1',
+      priority: 10
+    });
+    const resolved = service.resolveAutoCertificateTemplateBinding('t1', 'g1', ['c1']);
+    expect(resolved?.templateId).toBe(tplCert.id);
   });
 });

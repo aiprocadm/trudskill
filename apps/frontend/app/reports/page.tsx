@@ -7,13 +7,17 @@ import { PageContainer, PageHeader, SectionCard } from '../../src/components/sta
 import {
   useAssignments,
   useCoursesList,
+  useEnrollments,
   useGroupsList,
+  useLearnerCourses,
   useQuestionBanks,
   useTests
 } from '../../src/features/mvp/hooks';
+import { useAuth } from '../../src/features/auth/context';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
 export default function ReportsPage() {
+  const { session } = useAuth();
   const [status, setStatus] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -22,6 +26,17 @@ export default function ReportsPage() {
   const tests = useTests({ page: 1, page_size: 1 });
   const banks = useQuestionBanks({ page: 1, page_size: 1 });
   const assignments = useAssignments({ page: 1, page_size: 1 });
+  const enrollments = useEnrollments({ page: 1, page_size: 200 });
+  const learnerCourses = useLearnerCourses(session?.user.id ?? '');
+  const progressCounters = useMemo(() => {
+    const items = enrollments.data?.items ?? [];
+    return {
+      pending: items.filter((item) => item.status === 'pending').length,
+      active: items.filter((item) => item.status === 'active').length,
+      completed: items.filter((item) => item.status === 'completed').length,
+      suspended: items.filter((item) => item.status === 'suspended').length
+    };
+  }, [enrollments.data?.items]);
   const reportRows = useMemo(
     () =>
       [
@@ -96,6 +111,26 @@ export default function ReportsPage() {
               { key: 'export', title: 'Выгрузка' }
             ]}
             rows={reportRows}
+          />
+        </SectionCard>
+        <SectionCard title="Прогресс по обучению (роль + статусы)">
+          <DataTable
+            columns={[
+              { key: 'role', title: 'Роль' },
+              { key: 'assigned', title: 'Назначено' },
+              { key: 'active', title: 'В процессе' },
+              { key: 'completed', title: 'Завершено' },
+              { key: 'suspended', title: 'Проблемные' }
+            ]}
+            rows={[
+              {
+                role: 'Слушатель',
+                assigned: learnerCourses.data?.total ?? 0,
+                active: progressCounters.active,
+                completed: progressCounters.completed,
+                suspended: progressCounters.suspended + progressCounters.pending
+              }
+            ]}
           />
         </SectionCard>
       </PageContainer>
