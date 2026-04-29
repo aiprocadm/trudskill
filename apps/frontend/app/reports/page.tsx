@@ -22,21 +22,27 @@ export default function ReportsPage() {
   const tests = useTests({ page: 1, page_size: 1 });
   const banks = useQuestionBanks({ page: 1, page_size: 1 });
   const assignments = useAssignments({ page: 1, page_size: 1 });
-  const baseRows = [
-    { report: 'Курсы', total: courses.data?.total ?? 0, export: 'CSV/XLSX' },
-    { report: 'Группы', total: groups.data?.total ?? 0, export: 'CSV/XLSX' },
-    { report: 'Тесты', total: tests.data?.total ?? 0, export: 'CSV/XLSX' },
-    { report: 'Банки вопросов', total: banks.data?.total ?? 0, export: 'CSV/XLSX' },
-    { report: 'Назначения', total: assignments.data?.total ?? 0, export: 'CSV/XLSX' }
-  ];
   const reportRows = useMemo(
     () =>
-      baseRows.filter((row) => {
+      [
+        { report: 'Курсы', total: courses.data?.total ?? 0, export: 'CSV/XLSX' },
+        { report: 'Группы', total: groups.data?.total ?? 0, export: 'CSV/XLSX' },
+        { report: 'Тесты', total: tests.data?.total ?? 0, export: 'CSV/XLSX' },
+        { report: 'Банки вопросов', total: banks.data?.total ?? 0, export: 'CSV/XLSX' },
+        { report: 'Назначения', total: assignments.data?.total ?? 0, export: 'CSV/XLSX' }
+      ].filter((row) => {
         if (!status) return true;
         if (status === 'active') return row.total > 0;
         return row.total === 0;
       }),
-    [baseRows, status]
+    [
+      assignments.data?.total,
+      banks.data?.total,
+      courses.data?.total,
+      groups.data?.total,
+      status,
+      tests.data?.total
+    ]
   );
 
   const exportCsv = () => {
