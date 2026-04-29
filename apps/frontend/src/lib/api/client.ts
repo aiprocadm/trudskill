@@ -2,8 +2,8 @@ import { frontendEnv } from '../config/env';
 import { type NormalizedApiError, normalizeApiError } from '../errors/api-error';
 
 import type {
-  GeneratedApiPath,
-  GeneratedApiResponseEnvelope as ApiResponseEnvelope
+  GeneratedApiResponseEnvelope as ApiResponseEnvelope,
+  GeneratedApiPath
 } from '@cdoprof/api-contracts/src/generated/contracts.generated';
 
 export class ApiClientError extends Error {
@@ -98,7 +98,10 @@ export const apiRequestEnvelope = async <T>(
   return payload;
 };
 
-export const apiRequest = async <T>(path: GeneratedApiPath | string, options: RequestOptions = {}): Promise<T> => {
+export const apiRequest = async <T>(
+  path: GeneratedApiPath | string,
+  options: RequestOptions = {}
+): Promise<T> => {
   const response = await apiRequestEnvelope<T>(path, options);
   return response.data;
 };
