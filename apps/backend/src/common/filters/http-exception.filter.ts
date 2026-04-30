@@ -56,9 +56,16 @@ export class HttpExceptionEnvelopeFilter implements ExceptionFilter {
     let status =
       exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
 
+    const normalizeHttpPayload = (value: string | object): string | Record<string, unknown> => {
+      if (typeof value === 'string') {
+        return value;
+      }
+      return value as Record<string, unknown>;
+    };
+
     let payload: string | Record<string, unknown> =
       exception instanceof HttpException
-        ? exception.getResponse()
+        ? normalizeHttpPayload(exception.getResponse())
         : {
             code: BackendHttpErrorCodes.internal_error,
             message: INTERNAL_ERROR_FALLBACK_MESSAGE
