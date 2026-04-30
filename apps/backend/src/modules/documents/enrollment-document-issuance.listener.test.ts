@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { DocumentsTenantRunner } from './documents-tenant-runner.service.js';
+import { DocumentsService } from './documents.service.js';
+import { EnrollmentDocumentIssuanceListener } from './enrollment-document-issuance.listener.js';
+import { InMemoryDocumentsState } from './in-memory-documents.state.js';
+import { MemoryDocumentsPersistenceBackend } from './infrastructure/memory-documents-persistence.backend.js';
+import { TenantSerialGateway } from '../../infrastructure/request/tenant-serial.gateway.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
-import { TenantSerialGateway } from '../../infrastructure/request/tenant-serial.gateway.js';
-import { DocumentsTenantRunner } from './documents-tenant-runner.service.js';
-import { EnrollmentDocumentIssuanceListener } from './enrollment-document-issuance.listener.js';
-import { MemoryDocumentsPersistenceBackend } from './infrastructure/memory-documents-persistence.backend.js';
-import { InMemoryDocumentsState } from './in-memory-documents.state.js';
-import { DocumentsService } from './documents.service.js';
 
 const flushDeferred = async () => {
   await new Promise<void>((resolve) => setImmediate(() => resolve()));
