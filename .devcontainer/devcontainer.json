@@ -1,0 +1,35 @@
+{
+  "name": "CDOProf LMS",
+  "dockerComposeFile": ["docker-compose.yml"],
+  "service": "app",
+  "workspaceFolder": "/workspaces/cdoprof",
+  "shutdownAction": "stopCompose",
+
+  "forwardPorts": [3000, 3001, 3002],
+  "portsAttributes": {
+    "3000": {
+      "label": "Frontend (Next.js)"
+    },
+    "3001": {
+      "label": "Backend (Nest)"
+    },
+    "3002": {
+      "label": "Realtime"
+    }
+  },
+
+  "containerEnv": {
+    "DATABASE_URL": "postgresql://postgres:postgres@postgres:5432/cdoprof",
+    "REDIS_URL": "redis://redis:6379",
+    "RABBITMQ_URL": "amqp://guest:guest@rabbitmq:5672",
+    "S3_ENDPOINT": "http://minio:9000"
+  },
+
+  "postCreateCommand": "bash scripts/devcontainer-init.sh",
+
+  "customizations": {
+    "vscode": {
+      "extensions": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode"]
+    }
+  }
+}
