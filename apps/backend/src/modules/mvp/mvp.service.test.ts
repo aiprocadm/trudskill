@@ -1,4 +1,9 @@
-import { ConflictException, ForbiddenException, PreconditionFailedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  PreconditionFailedException
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { describe, expect, it } from 'vitest';
 
@@ -168,6 +173,7 @@ describe('mvp service domain rules', () => {
       { code: 'G1', name: 'Group' },
       ctx
     );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
     const learner = service.createLearner(
       'tenant_demo',
       ctx.userId,
@@ -202,6 +208,63 @@ describe('mvp service domain rules', () => {
     expect(courseProgress.status).toBe('completed');
     expect(courseProgress.progressPercent).toBe(100);
     expect(courseProgress.calculatedAt).toBeDefined();
+  });
+
+  it('rejects progress update when enrollment group is not linked to material course', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopFilesService,
+      testEmitter
+    );
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'C1', title: 'Course' },
+      ctx
+    );
+    const version = service.createCourseVersion('tenant_demo', course.id);
+    const module = service.createModule(
+      'tenant_demo',
+      ctx.userId,
+      { courseVersionId: version.id, title: 'M1' },
+      ctx
+    );
+    const material = service.createMaterial(
+      'tenant_demo',
+      ctx.userId,
+      { moduleId: module.id, title: 'Mat', materialType: 'video', minViewSeconds: 30 },
+      ctx
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G1', name: 'Group' },
+      ctx
+    );
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'L1', name: 'John Doe' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+
+    expect(() =>
+      service.upsertMaterialProgress(
+        'tenant_demo',
+        ctx.userId,
+        material.id,
+        { enrollmentId: enrollment.id, studiedSeconds: 10 },
+        ctx
+      )
+    ).toThrow(PreconditionFailedException);
   });
 
   it('enforces tenant isolation', () => {
@@ -300,6 +363,7 @@ describe('mvp service domain rules', () => {
       { code: 'G2', name: 'Group 2' },
       ctx
     );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
     const learner = service.createLearner(
       'tenant_demo',
       ctx.userId,
@@ -393,6 +457,7 @@ describe('mvp service domain rules', () => {
       { code: 'G3', name: 'Group 3' },
       ctx
     );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
     const learner = service.createLearner(
       'tenant_demo',
       ctx.userId,
@@ -466,6 +531,7 @@ describe('mvp service domain rules', () => {
       { code: 'G4', name: 'Group 4' },
       ctx
     );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
     const learner = service.createLearner(
       'tenant_demo',
       ctx.userId,
@@ -481,7 +547,7 @@ describe('mvp service domain rules', () => {
     const assignment = service.createAssignment(
       'tenant_demo',
       ctx.userId,
-      { courseId: course.id, title: 'HW' },
+      { courseId: course.id, title: 'HW', maxScore: 100 },
       ctx
     );
     const submission = service.createAssignmentSubmission(
@@ -524,16 +590,23 @@ describe('mvp service domain rules', () => {
       noopFilesService,
       testEmitter
     );
-    const assignment = service.createAssignment(
+    const course = service.createCourse(
       'tenant_demo',
       ctx.userId,
-      { courseId: 'course_x', title: 'HW', maxScore: 100 },
+      { code: 'C5', title: 'Assignments 2' },
       ctx
     );
     const group = service.createGroup(
       'tenant_demo',
       ctx.userId,
       { code: 'G1', name: 'Group' },
+      ctx
+    );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const assignment = service.createAssignment(
+      'tenant_demo',
+      ctx.userId,
+      { courseId: course.id, title: 'HW', maxScore: 100 },
       ctx
     );
     const learner = service.createLearner(
@@ -578,6 +651,361 @@ describe('mvp service domain rules', () => {
       ctx
     );
     expect(completed.status).toBe('completed');
+  });
+
+  it('rejects assignment submission when enrollment group is not linked to assignment course', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopFilesService,
+      testEmitter
+    );
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'C6', title: 'Assignments 3' },
+      ctx
+    );
+    const assignment = service.createAssignment(
+      'tenant_demo',
+      ctx.userId,
+      { courseId: course.id, title: 'HW', maxScore: 100 },
+      ctx
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G6', name: 'Group 6' },
+      ctx
+    );
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'L6', name: 'Learner Six' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+
+    expect(() =>
+      service.createAssignmentSubmission(
+        'tenant_demo',
+        ctx.userId,
+        { assignmentId: assignment.id, enrollmentId: enrollment.id, answerText: 'draft' },
+        ctx
+      )
+    ).toThrow(PreconditionFailedException);
+  });
+
+  it('rejects review creation for draft submission and duplicate review creation', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopFilesService,
+      testEmitter
+    );
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'C8', title: 'Assignments 5' },
+      ctx
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G8', name: 'Group 8' },
+      ctx
+    );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'L8', name: 'Learner Eight' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const assignment = service.createAssignment(
+      'tenant_demo',
+      ctx.userId,
+      { courseId: course.id, title: 'HW 8', maxScore: 100 },
+      ctx
+    );
+    const submission = service.createAssignmentSubmission(
+      'tenant_demo',
+      ctx.userId,
+      { assignmentId: assignment.id, enrollmentId: enrollment.id, answerText: 'draft' },
+      ctx
+    );
+
+    expect(() =>
+      service.createAssignmentReview(
+        'tenant_demo',
+        ctx.userId,
+        { submissionId: submission.id, score: 50 },
+        ctx
+      )
+    ).toThrow(PreconditionFailedException);
+
+    service.submitAssignmentSubmission('tenant_demo', ctx.userId, submission.id, ctx);
+    service.createAssignmentReview(
+      'tenant_demo',
+      ctx.userId,
+      { submissionId: submission.id, score: 80 },
+      ctx
+    );
+
+    expect(() =>
+      service.createAssignmentReview(
+        'tenant_demo',
+        ctx.userId,
+        { submissionId: submission.id, score: 90 },
+        ctx
+      )
+    ).toThrow(ConflictException);
+  });
+
+  it('rejects review update and second completion after review is completed', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopFilesService,
+      testEmitter
+    );
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'C9', title: 'Assignments 6' },
+      ctx
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G9', name: 'Group 9' },
+      ctx
+    );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'L9', name: 'Learner Nine' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const assignment = service.createAssignment(
+      'tenant_demo',
+      ctx.userId,
+      { courseId: course.id, title: 'HW 9', maxScore: 100 },
+      ctx
+    );
+    const submission = service.createAssignmentSubmission(
+      'tenant_demo',
+      ctx.userId,
+      { assignmentId: assignment.id, enrollmentId: enrollment.id, answerText: 'submitted' },
+      ctx
+    );
+    service.submitAssignmentSubmission('tenant_demo', ctx.userId, submission.id, ctx);
+    const review = service.createAssignmentReview(
+      'tenant_demo',
+      ctx.userId,
+      { submissionId: submission.id, score: 77 },
+      ctx
+    );
+    service.completeAssignmentReview('tenant_demo', ctx.userId, review.id, { comment: 'ok' }, ctx);
+
+    expect(() =>
+      service.updateAssignmentReview(
+        'tenant_demo',
+        ctx.userId,
+        review.id,
+        { comment: 'edited after complete' },
+        ctx
+      )
+    ).toThrow(PreconditionFailedException);
+
+    expect(() =>
+      service.completeAssignmentReview(
+        'tenant_demo',
+        ctx.userId,
+        review.id,
+        { comment: 'complete twice' },
+        ctx
+      )
+    ).toThrow(PreconditionFailedException);
+  });
+
+  it('validates assignment review score boundaries against assignment maxScore', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopFilesService,
+      testEmitter
+    );
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'C10', title: 'Assignments 10' },
+      ctx
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G10', name: 'Group 10' },
+      ctx
+    );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'L10', name: 'Learner Ten' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const assignment = service.createAssignment(
+      'tenant_demo',
+      ctx.userId,
+      { courseId: course.id, title: 'HW 10', maxScore: 80 },
+      ctx
+    );
+    const submission = service.createAssignmentSubmission(
+      'tenant_demo',
+      ctx.userId,
+      { assignmentId: assignment.id, enrollmentId: enrollment.id, answerText: 'submitted' },
+      ctx
+    );
+    service.submitAssignmentSubmission('tenant_demo', ctx.userId, submission.id, ctx);
+
+    expect(() =>
+      service.createAssignmentReview(
+        'tenant_demo',
+        ctx.userId,
+        { submissionId: submission.id, score: -1 },
+        ctx
+      )
+    ).toThrow(BadRequestException);
+
+    expect(() =>
+      service.createAssignmentReview(
+        'tenant_demo',
+        ctx.userId,
+        { submissionId: submission.id, score: 81 },
+        ctx
+      )
+    ).toThrow(BadRequestException);
+
+    const review = service.createAssignmentReview(
+      'tenant_demo',
+      ctx.userId,
+      { submissionId: submission.id, score: 70 },
+      ctx
+    );
+
+    expect(() =>
+      service.updateAssignmentReview('tenant_demo', ctx.userId, review.id, { score: -5 }, ctx)
+    ).toThrow(BadRequestException);
+
+    expect(() =>
+      service.updateAssignmentReview('tenant_demo', ctx.userId, review.id, { score: 100 }, ctx)
+    ).toThrow(BadRequestException);
+
+    expect(() =>
+      service.completeAssignmentReview(
+        'tenant_demo',
+        ctx.userId,
+        review.id,
+        { score: -2, comment: 'invalid score' },
+        ctx
+      )
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects attempt start when enrollment group is not linked to test course', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopFilesService,
+      testEmitter
+    );
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'C7', title: 'Assessments 4' },
+      ctx
+    );
+    const bank = service.createQuestionBank(
+      'tenant_demo',
+      ctx.userId,
+      { title: 'Bank 7', courseId: course.id },
+      ctx
+    );
+    const question = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      {
+        questionBankId: bank.id,
+        text: 'Q7',
+        type: 'single_choice',
+        options: [{ text: 'A', isCorrect: true }, { text: 'B' }]
+      },
+      ctx
+    );
+    const test = service.createTest(
+      'tenant_demo',
+      ctx.userId,
+      { title: 'Test 7', courseId: course.id, questionBankId: bank.id },
+      ctx
+    );
+    service.addTestQuestions('tenant_demo', test.id, [question.id]);
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G7', name: 'Group 7' },
+      ctx
+    );
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'L7', name: 'Learner Seven' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+
+    expect(() =>
+      service.startAttempt(
+        'tenant_demo',
+        ctx.userId,
+        { testId: test.id, enrollmentId: enrollment.id, learnerId: learner.id },
+        ctx
+      )
+    ).toThrow(PreconditionFailedException);
   });
 
   it('updates module/material/group and writes audit events', async () => {

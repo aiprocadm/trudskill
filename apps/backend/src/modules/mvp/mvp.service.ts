@@ -899,6 +899,18 @@ export class MvpService {
         message: 'Enrollment not found for progress update'
       });
     }
+    const hasGroupCourseAccess = this.state.groupCourses.some(
+      (item) =>
+        item.tenantId === tenantId &&
+        item.groupId === enrollment.groupId &&
+        item.courseId === courseVersion.courseId
+    );
+    if (!hasGroupCourseAccess) {
+      throw new PreconditionFailedException({
+        code: 'domain_rule_violation',
+        message: 'Enrollment is not linked to the course for this material'
+      });
+    }
 
     if (request.studiedSeconds < 0) {
       throw new BadRequestException({
@@ -1510,6 +1522,18 @@ export class MvpService {
   ): TestAttempt {
     const test = this.getById(this.state.tests, tenantId, request.testId);
     const enrollment = this.getById(this.state.enrollments, tenantId, request.enrollmentId);
+    const hasGroupCourseAccess = this.state.groupCourses.some(
+      (item) =>
+        item.tenantId === tenantId &&
+        item.groupId === enrollment.groupId &&
+        item.courseId === test.courseId
+    );
+    if (!hasGroupCourseAccess) {
+      throw new PreconditionFailedException({
+        code: 'domain_rule_violation',
+        message: 'Enrollment is not linked to the test course'
+      });
+    }
     const learnerId = enrollment.learnerId;
     const now = new Date(this.now());
     const dayKey = now.toISOString().slice(0, 10);
@@ -1934,7 +1958,20 @@ export class MvpService {
     request: CreateAssignmentSubmissionRequest,
     _context: RequestContext
   ): AssignmentSubmission {
+    const assignment = this.getById(this.state.assignments, tenantId, request.assignmentId);
     const enrollment = this.getById(this.state.enrollments, tenantId, request.enrollmentId);
+    const hasGroupCourseAccess = this.state.groupCourses.some(
+      (item) =>
+        item.tenantId === tenantId &&
+        item.groupId === enrollment.groupId &&
+        item.courseId === assignment.courseId
+    );
+    if (!hasGroupCourseAccess) {
+      throw new PreconditionFailedException({
+        code: 'domain_rule_violation',
+        message: 'Enrollment is not linked to the assignment course'
+      });
+    }
     const submission: AssignmentSubmission = {
       id: this.id('subm'),
       tenantId,
@@ -2006,6 +2043,22 @@ export class MvpService {
       tenantId,
       request.submissionId
     );
+    if (!['submitted', 'under_review'].includes(submission.status)) {
+      throw new PreconditionFailedException({
+        code: 'domain_rule_violation',
+        message: 'Submission must be submitted before review'
+      });
+    }
+    const existingReview = this.state.assignmentReviews.find(
+      (item) => item.tenantId === tenantId && item.submissionId === submission.id
+    );
+    if (existingReview) {
+      throw new ConflictException({
+        code: 'conflict',
+        message: 'Assignment review already exists for submission'
+      });
+    }
+    this.validateAssignmentReviewScore(tenantId, submission.assignmentId, request.score);
     submission.status = 'under_review';
     const review: AssignmentReview = {
       id: this.id('rev'),
@@ -2031,6 +2084,13 @@ export class MvpService {
     context: RequestContext
   ): AssignmentReview {
     const review = this.getById(this.state.assignmentReviews, tenantId, id);
+    if (review.status === 'completed') {
+      throw new PreconditionFailedException({
+        code: 'domain_rule_violation',
+        message: 'Completed review is read-only'
+      });
+    }
+    this.validateAssignmentReviewScore(tenantId, review.assignmentId, request.score);
     const oldValues = { ...review };
     if (request.score !== undefined) review.score = request.score;
     if (request.comment !== undefined) review.comment = request.comment;
@@ -2055,6 +2115,19 @@ export class MvpService {
     context: RequestContext
   ): AssignmentReview {
     const review = this.getById(this.state.assignmentReviews, tenantId, id);
+    if (review.status === 'completed') {
+      throw new PreconditionFailedException({
+        code: 'domain_rule_violation',
+        message: 'Review is already completed'
+      });
+    }
+    if (review.status !== 'in_review') {
+      throw new PreconditionFailedException({
+        code: 'domain_rule_violation',
+        message: 'Only in_review assignment review can be completed'
+      });
+    }
+    this.validateAssignmentReviewScore(tenantId, review.assignmentId, request.score);
     review.score = request.score ?? review.score;
     review.comment = request.comment ?? review.comment;
     review.status = 'completed';
@@ -2268,6 +2341,29 @@ export class MvpService {
     const n = Math.floor(Number(value));
     if (n < 1) return undefined;
     return Math.min(n, 3650);
+  }
+
+  private validateAssignmentReviewScore(
+    tenantId: string,
+    assignmentId: string,
+    score: number | undefined
+  ): void {
+    if (score === undefined) {
+      return;
+    }
+    if (score < 0) {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'score must be non-negative'
+      });
+    }
+    const assignment = this.getById(this.state.assignments, tenantId, assignmentId);
+    if (score > assignment.maxScore) {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'score exceeds assignment maxScore'
+      });
+    }
   }
 
   private computePlannedEndAt(

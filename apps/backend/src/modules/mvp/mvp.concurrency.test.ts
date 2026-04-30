@@ -97,6 +97,7 @@ describe('mvp service concurrency-lite invariants', () => {
       { code: 'G-CNC-2', name: 'Group race' },
       ctx
     );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
     const learner = service.createLearner(
       'tenant_demo',
       ctx.userId,
