@@ -20,8 +20,32 @@ const buildContext = (headers: Record<string, string>) => {
 };
 
 describe('PermissionGuard session checks', () => {
+  it('blocks request when required LMS permission is missing', async () => {
+    const reflector = {
+      getAllAndOverride: vi.fn().mockReturnValue(['courses.write'])
+    } as unknown as Reflector;
+    const iamService = { resolvePermissions: vi.fn().mockResolvedValue(['courses.read']) };
+    const authService = { isSessionActive: vi.fn().mockResolvedValue(true) };
+    const guard = new PermissionGuard(reflector, iamService as never, authService as never);
+
+    const context = buildContext({}) as never;
+    const request = context.switchToHttp().getRequest();
+    request.context = {
+      requestId: 'req_missing_perm',
+      correlationId: 'corr_missing_perm',
+      tenantId: 'tenant_demo',
+      userId: 'u_learner_1',
+      sessionId: 's_active_1'
+    };
+
+    await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+    expect(iamService.resolvePermissions).toHaveBeenCalledWith('tenant_demo', 'u_learner_1');
+  });
+
   it('blocks request when token session is revoked', async () => {
-    const reflector = { getAllAndOverride: vi.fn().mockReturnValue(['documents.read']) } as unknown as Reflector;
+    const reflector = {
+      getAllAndOverride: vi.fn().mockReturnValue(['documents.read'])
+    } as unknown as Reflector;
     const iamService = { resolvePermissions: vi.fn().mockResolvedValue(['documents.read']) };
     const authService = { isSessionActive: vi.fn().mockResolvedValue(false) };
     const guard = new PermissionGuard(reflector, iamService as never, authService as never);
@@ -37,12 +61,20 @@ describe('PermissionGuard session checks', () => {
     };
 
     await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
-    expect(authService.isSessionActive).toHaveBeenCalledWith('tenant_demo', 'u_tenant_admin', 's_revoked');
+    expect(authService.isSessionActive).toHaveBeenCalledWith(
+      'tenant_demo',
+      'u_tenant_admin',
+      's_revoked'
+    );
   });
 
   it('allows request with active session and required permissions', async () => {
     const reflector = {
-      getAllAndOverride: vi.fn().mockImplementation((key: string) => (key === REQUIRED_PERMISSIONS ? ['documents.read'] : []))
+      getAllAndOverride: vi
+        .fn()
+        .mockImplementation((key: string) =>
+          key === REQUIRED_PERMISSIONS ? ['documents.read'] : []
+        )
     } as unknown as Reflector;
     const iamService = { resolvePermissions: vi.fn().mockResolvedValue(['documents.read']) };
     const authService = { isSessionActive: vi.fn().mockResolvedValue(true) };
@@ -59,5 +91,25 @@ describe('PermissionGuard session checks', () => {
     };
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
+  it('blocks unauthenticated request before permission checks', async () => {
+    const reflector = {
+      getAllAndOverride: vi.fn().mockReturnValue(['courses.read'])
+    } as unknown as Reflector;
+    const iamService = { resolvePermissions: vi.fn() };
+    const authService = { isSessionActive: vi.fn() };
+    const guard = new PermissionGuard(reflector, iamService as never, authService as never);
+
+    const context = buildContext({}) as never;
+    const request = context.switchToHttp().getRequest();
+    request.context = {
+      requestId: 'req_auth_required',
+      correlationId: 'corr_auth_required'
+    };
+
+    await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+    expect(authService.isSessionActive).not.toHaveBeenCalled();
+    expect(iamService.resolvePermissions).not.toHaveBeenCalled();
   });
 });

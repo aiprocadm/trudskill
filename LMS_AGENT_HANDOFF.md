@@ -6,222 +6,234 @@
 - Agent: Codex (GPT-5.3)
 - Repository: `D:/Создание LMS/Cursor LMS/cdoprof-`
 - Branch, if known: `main`
-- Commit hash before work, if available: `29af6693fbb460b844d1a1d3386bd48617373709`
-- Commit hash after work, if available: `29af6693fbb460b844d1a1d3386bd48617373709` (новый commit не создавался в этой сессии)
+- Commit hash before work, if available: `fa41766bd341d60919ddc8af860b2ee5211a27f4`
+- Commit hash after work, if available: `fa41766bd341d60919ddc8af860b2ee5211a27f4` (commit не создавался)
 
 ## 2. Project Overview
 
 Краткое описание проекта:
 
-- назначение LMS: корпоративная LMS/СДО платформа с ролевым доступом, курсами, учебными потоками и enterprise-модулями;
-- общий стек: TypeScript monorepo на `pnpm` + `turbo`;
+- назначение LMS: корпоративная LMS/СДО платформа с RBAC, курсами, прогрессом, assessment и enterprise-модулями;
+- общий стек: TypeScript monorepo (`pnpm` + `turbo`);
 - frontend: Next.js (`apps/frontend`);
 - backend: NestJS (`apps/backend`);
-- database: PostgreSQL (SQL-миграции в `apps/backend/migrations`);
-- auth: IAM модуль backend + frontend role-based routing/guards;
-- deployment / docker: `infra/docker-compose.yml` и Dockerfile для сервисов;
-- test setup: Vitest, ESLint, TypeScript typecheck, monorepo scripts в root `package.json`.
+- database: PostgreSQL + SQL migrations (`apps/backend/migrations`);
+- auth: IAM permissions/roles + session validation;
+- deployment / docker: `infra/docker-compose.yml`, Dockerfile в сервисах;
+- test setup: Vitest, ESLint, TypeScript, полный пайплайн `pnpm -s ci:check`.
 
 ## 3. Repository Structure
 
 Ключевые директории и файлы:
 
-- `apps/frontend` — Next.js UI (страницы LMS/enterprise, role-based navigation, auth flows)
-- `apps/backend` — NestJS API, IAM, LMS/enterprise домены, SQL-миграции
-- `apps/realtime` — realtime сервис
-- `apps/worker` — фоновые задачи/пайплайны
-- `packages/api-contracts` — контрактный слой API
-- `packages/shared-types` — общие типы
-- `packages/ui` — общие UI-компоненты/стили
-- `docs` — архитектурная и операционная документация
-- `infra` — инфраструктурные артефакты и compose-конфиги
-- `README.md` — общий контекст проекта
+- `apps/frontend` — Next.js UI и роль-ориентированные страницы LMS
+- `apps/backend` — NestJS API, IAM, MVP/LMS домены, миграции
+- `apps/realtime` — realtime service
+- `apps/worker` — background processing
+- `packages/api-contracts` — API контракты
+- `packages/shared-types` — shared types
+- `packages/ui` — UI библиотека
+- `docs` — документация по архитектуре/операциям/тестам
+- `infra` — docker-compose и инфраструктурный слой
+- `README.md` — проектный контекст
 
 ## 4. Existing Functionality Observed
 
-Что уже было в проекте до изменений этой сессии:
+Что уже было в проекте до изменений:
 
-- auth: login/logout/me/refresh и security-oriented test coverage присутствуют
-- users: страницы/эндпоинты управления пользователями есть
-- roles: role/permission подход реализован на backend и frontend
-- courses: есть страницы/маршруты и MVP backend-слой для курса/обучения
-- lessons: базовая структура присутствует в MVP-домене
-- enrollments: базовые сущности и сценарии есть
-- progress: есть каркас отслеживания прогресса
-- assignments/quizzes: присутствует частичная функциональная база
-- admin: есть admin-роуты/страницы
-- teacher dashboard: есть teacher-ориентированные маршруты
-- student dashboard: есть learner/student маршруты
-- API: модульный NestJS backend с guards/filters/services
-- database: SQL migration-based схема
-- UI: Next.js страницы с разделением по ролям, общая UI-библиотека
+- auth: login/logout/refresh/me/sessions + security checks
+- users: управление пользователями и ролями
+- roles: permission-driven access на backend и frontend
+- courses: list/detail/create/update + publish/archive
+- lessons/materials/modules: базовая LMS структура реализована
+- enrollments: создание и lifecycle статусов
+- progress: учёт прогресса по материалам
+- assignments/quizzes: базовые assessment сущности/flows
+- admin: admin маршруты и страницы
+- teacher dashboard: teacher-related маршруты есть
+- student dashboard: learner/student маршруты есть
+- API: модульный NestJS с guards/interceptors/filters
+- database: migration-based SQL структура
+- UI: Next.js App Router + shared UI package
 
 ## 5. Work Completed In This Session
 
-### 5.1 Исправлен блокер монорепо lint (documents module)
+### 5.1 Усиление guard-level security regression для LMS прав доступа
 
-- Summary: устранены ошибки порядка/сортировки импортов, из-за которых падал `pnpm -s lint` (P0 quality gate blocker).
+- Summary: расширены unit-тесты `PermissionGuard` для ключевых authz границ.
 - Files changed:
-  - `apps/backend/src/modules/documents/documents.service.ts`
-  - `apps/backend/src/modules/documents/enrollment-document-issuance.listener.test.ts`
+  - `apps/backend/src/modules/iam/permission.guard.test.ts`
 - Details:
-  - Исправлена сортировка type-import members в `documents.service.ts`.
-  - Исправлен порядок imports в `enrollment-document-issuance.listener.test.ts` (включая финальный auto-fix через ESLint для соответствия правилам `import/order`).
-  - После правок monorepo lint проходит полностью.
+  - Добавлен сценарий `permission_denied` при отсутствии нужного permission (`courses.write`).
+  - Добавлен сценарий `auth_required` для неаутентифицированного запроса с проверкой, что не вызываются session/permission сервисы.
+  - Сохранены и подтверждены текущие сценарии `session_inactive` и success.
 - Notes:
-  - Функциональная логика не менялась; изменения безопасные и направлены на восстановление стабильного quality gate.
+  - Runtime auth-flow не менялся, добавлено только тестовое покрытие.
 
-### 5.2 Проведены проверки сборки и целевого тестового сценария
+### 5.2 Добавлен HTTP integration regression suite для LMS `mvp` permission boundaries
 
-- Summary: подтверждена работоспособность typecheck/build и затронутого backend-теста.
+- Summary: добавлен новый HTTP integration тест для `mvp`-эндпоинтов (`courses`, `progress/materials`).
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.http.integration.test.ts`
+- Details:
+  - Покрыты сценарии:
+    - `auth_required` без bearer token;
+    - `permission_denied` при PATCH прогресса без `progress.recalculate`;
+    - `session_inactive` при отозванной сессии;
+    - успешный PATCH при наличии нужного permission.
+  - Тест использует тестовый Nest app с envelope/filter/interceptor, близко к реальному HTTP поведению.
+- Notes:
+  - Public API и бизнес-логика не изменялись; добавлен безопасный regression coverage.
+
+### 5.3 Полная валидация quality gates после изменений
+
+- Summary: выполнен полный прогон `ci:check`, статус зелёный.
 - Files changed:
   - `LMS_AGENT_HANDOFF.md`
 - Details:
-  - Прогнан `pnpm -s typecheck` (passed).
-  - Прогнан `pnpm -s build` (passed, включая `next build` frontend).
-  - Прогнан `pnpm exec vitest run apps/backend/src/modules/documents/enrollment-document-issuance.listener.test.ts` (passed, 2 tests).
-  - Зафиксирован полный журнал проверок и результатов в этом handoff.
+  - Успешно пройдены lint/typecheck/contracts/tests/build.
+  - Целевые проверки нового тестового покрытия также прошли.
 - Notes:
-  - Полный `pnpm -s test` в сессии не запускался (ограничился целевым тестом по затронутому модулю).
+  - На момент завершения итерации build/test blockers отсутствуют.
 
 ## 6. Files Changed
 
-| File                                                                               | Change Type        | Purpose                                                 |
-| ---------------------------------------------------------------------------------- | ------------------ | ------------------------------------------------------- |
-| `apps/backend/src/modules/documents/documents.service.ts`                          | modified           | Исправление сортировки импортов для прохождения линтера |
-| `apps/backend/src/modules/documents/enrollment-document-issuance.listener.test.ts` | modified           | Исправление порядка импортов для прохождения линтера    |
-| `LMS_AGENT_HANDOFF.md`                                                             | recreated/modified | Актуализированный технический handoff этой сессии       |
+| File                                                        | Change Type        | Purpose                                                           |
+| ----------------------------------------------------------- | ------------------ | ----------------------------------------------------------------- |
+| `apps/backend/src/modules/iam/permission.guard.test.ts`     | modified           | Дополнительные authz regression unit tests                        |
+| `apps/backend/src/modules/mvp/mvp.http.integration.test.ts` | created            | HTTP integration regression для LMS permission/session boundaries |
+| `LMS_AGENT_HANDOFF.md`                                      | recreated/modified | Актуальный handoff по текущему состоянию                          |
 
 ## 7. Database / Schema / Migration Changes
 
-- Изменений БД/схемы/миграций нет.
-- Новые миграции не создавались.
-- Команды миграций не запускались (не требовалось для текущих правок).
-- Риски для данных отсутствуют.
-- Backward compatibility сохранена.
+- БД/схема/миграции в этой итерации не менялись.
+- Миграции не создавались и не выполнялись.
+- Рисков данных и backward compatibility рисков от изменений нет.
 
 ## 8. API Changes
 
-- API endpoints не менялись.
-- Форматы request/response не менялись.
-- Изменений в auth requirements и role matrix для API нет.
+- API endpoints не изменялись.
+- Новых request/response контрактов не добавлено.
+- Изменения только в тестовом покрытии.
 
-| Method | Path | Change                       | Auth Required | Roles |
-| ------ | ---- | ---------------------------- | ------------- | ----- |
-| N/A    | N/A  | API в этой сессии не менялся | N/A           | N/A   |
+| Method | Path | Change                 | Auth Required | Roles |
+| ------ | ---- | ---------------------- | ------------- | ----- |
+| N/A    | N/A  | API runtime не менялся | N/A           | N/A   |
 
 ## 9. Frontend / UI Changes
 
 - Frontend-код не менялся.
-- Проверена сборка frontend в составе `pnpm -s build` (успешно).
-- Новые loading/error/empty states не добавлялись в этой сессии.
-- Маршруты UI и role-based отображение не изменялись.
+- В рамках `ci:check` подтверждён успешный `next build`.
+- Ролевые UI решения и маршруты не изменялись.
 
 ## 10. Auth / Permissions Notes
 
-- Механика auth и permissions в коде не менялась.
-- В этой сессии фокус был на восстановлении green quality gates (lint/build/typecheck + целевой test).
-- Security gap, требующий следующей итерации: усиление integration coverage для authorization boundaries (course/lesson/progress/object-level checks).
+- Auth опирается на backend `PermissionGuard` + session activity checks.
+- Roles/permissions резолвятся через IAM.
+- Protected routes проверяются на backend через permissions.
+- В этой итерации усилены:
+  - guard-level unit regression;
+  - HTTP integration regression на `mvp` LMS permission boundaries.
+- Оставшийся security gap: полезно добавить object-level IDOR integration coverage для course/progress сущностей с реальными state transitions.
 
 ## 11. Validation / Error Handling
 
-- Новая backend-валидация не добавлялась.
+- Новая runtime валидация не добавлялась.
+- Error envelope поведение проверено в HTTP integration тестах (`auth_required`, `permission_denied`, `session_inactive`).
 - Формат ошибок API не менялся.
-- Изменения касались только style/quality (imports), без изменения runtime error behavior.
 
 ## 12. Tests / Checks Run
 
-| Command                                                                                                   | Result | Notes                                                          |
-| --------------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------- |
-| `git status --short`                                                                                      | passed | До правок рабочее дерево было чистым                           |
-| `pnpm -s typecheck`                                                                                       | passed | Monorepo typecheck успешен                                     |
-| `pnpm -s lint` (первый запуск)                                                                            | failed | Блокер в `documents` imports (`sort-imports` + `import/order`) |
-| `pnpm -s build`                                                                                           | passed | Monorepo build успешен, включая `next build`                   |
-| `pnpm exec vitest run apps/backend/src/modules/documents/enrollment-document-issuance.listener.test.ts`   | passed | 1 file / 2 tests passed                                        |
-| `pnpm exec eslint apps/backend/src/modules/documents/enrollment-document-issuance.listener.test.ts --fix` | passed | Автоисправление порядка импортов                               |
-| `pnpm -s lint` (финальный запуск)                                                                         | passed | После правок quality gate восстановлен                         |
+| Command                                                                                          | Result | Notes                                                               |
+| ------------------------------------------------------------------------------------------------ | ------ | ------------------------------------------------------------------- |
+| `pnpm exec eslint apps/backend/src/modules/iam/permission.guard.test.ts`                         | passed | Линт guard unit test                                                |
+| `pnpm exec vitest run apps/backend/src/modules/iam/permission.guard.test.ts`                     | passed | 1 file / 4 tests                                                    |
+| `pnpm exec eslint apps/backend/src/modules/mvp/mvp.http.integration.test.ts`                     | passed | Линт нового integration test файла                                  |
+| `pnpm exec vitest run apps/backend/src/modules/mvp/mvp.http.integration.test.ts` (первый запуск) | failed | Ошибка реализации тестового guard, исправлена в этой итерации       |
+| `pnpm exec vitest run apps/backend/src/modules/mvp/mvp.http.integration.test.ts` (финальный)     | passed | 1 file / 4 tests                                                    |
+| `pnpm -s ci:check`                                                                               | passed | Полный monorepo quality gate (lint/typecheck/contracts/tests/build) |
 
 ## 13. Known Issues
 
-### Issue 1: Не запускался полный набор тестов монорепо в этой сессии
+### Issue 1: Нет object-level authz/IDOR regression suite для LMS сущностей
 
 - Severity: medium
-- Area: tests
-- Description: выполнен только целевой тест затронутого backend-модуля, но не полный `pnpm -s test` / `pnpm -s ci:check`.
-- Evidence: в журнале проверок отсутствует полный прогон `test`/`ci:check`.
-- Suggested fix: в следующей сессии запустить `pnpm -s ci:check` и задокументировать полный статус.
+- Area: backend/auth/tests
+- Description: permission/session boundaries покрыты, но object-level access checks для отдельных course/progress entity scenarios не полностью отражены integration-тестами.
+- Evidence: текущий новый suite фокусируется на permission/session, не на cross-entity ownership/IDOR.
+- Suggested fix: добавить integration кейсы на доступ к чужим enrollment/progress/course данным.
 
-### Issue 2: Нужен дальнейший authz hardening по LMS-домену
+### Issue 2: Предупреждение о deprecated Vitest workspace config
 
-- Severity: medium
-- Area: backend/auth
-- Description: текущая сессия устранила блокер lint, но не расширяла предметные authorization/IDOR проверки.
-- Evidence: изменений в guards/policies/integration auth tests не было.
-- Suggested fix: добавить integration tests на object-level access для course/lesson/progress.
+- Severity: low
+- Area: tests/docs
+- Description: при запуске тестов выводится deprecation warning.
+- Evidence: `The workspace file is deprecated... use test.projects`.
+- Suggested fix: мигрировать конфиг Vitest на `test.projects` в root config.
 
 ## 14. Recommended Next Steps
 
 ### Critical
 
-1. Прогнать полный `pnpm -s ci:check` и зафиксировать фактический статус всех quality gates.
-2. Если в `ci:check` появятся падения, чинить в порядке приоритета: auth/security -> backend startup/build -> frontend build.
+1. Сохранять `pnpm -s ci:check` обязательным финальным шагом каждой инженерной итерации.
+2. Любые новые auth/security регрессии чинить до feature-работ.
 
 ### High
 
-1. Добавить integration tests на role/object-level доступ к course/lesson/progress endpoints.
-2. Проверить, что frontend скрывает недоступные действия синхронно с backend authorization.
+1. Добавить object-level/IDOR integration tests для `mvp` (courses/enrollments/progress).
+2. Проверить согласованность backend authz и frontend role-based скрытия действий в ключевых LMS экранах.
 
 ### Medium
 
-1. Пройти по ключевым LMS сценариям вручную (login -> learner courses -> lesson/progress; teacher/admin areas).
-2. Обновить README/операционные docs, если выявятся расхождения с фактическим запуском.
+1. Добавить минимальный manual smoke checklist по основным LMS маршрутам (learner/teacher/admin).
+2. Синхронизировать README/документацию с новым integration coverage.
 
 ### Low
 
-1. Снизить шум deprecated-предупреждений в test-конфигурации Vitest workspace.
-2. Продолжить улучшение документации по regression-наборам тестов.
+1. Убрать deprecation warning в Vitest конфигурации.
+2. Продолжить расширение security regression coverage без изменения API.
 
 ## 15. Suggested Next Agent Prompt
 
-«Запусти полный `pnpm -s ci:check`, исправь найденные блокеры без изменения архитектуры, затем усили backend authorization integration coverage для course/lesson/progress (включая IDOR-сценарии), и обнови `LMS_AGENT_HANDOFF.md` с точными результатами команд.»
+«Добавь object-level authorization/IDOR integration тесты для `mvp`-сценариев (`courses`/`enrollments`/`progress`), исправь только необходимые security проверки при необходимости, затем прогони `pnpm -s ci:check` и обнови `LMS_AGENT_HANDOFF.md` с результатами.»
 
 ## 16. Important Context / Assumptions
 
-- Предположение: проект работает как pnpm monorepo с preconfigured env в локальной среде.
-- Предположение: текущие роли (`admin`/`teacher|curator`/`learner|student`) уже поддерживаются существующей IAM моделью, менять naming не требовалось.
-- Предположение: правка импортов не влияет на бизнес-логику и runtime поведение.
-- Предположение: отсутствие полного `ci:check` в сессии допустимо при наличии частичной, но релевантной валидации затронутого кода.
+- Проект стабильно собирается и тестируется в текущем локальном окружении (`pnpm` monorepo).
+- Ролевая модель и permission naming не менялись.
+- Изменения ограничены тестами и документацией; runtime API/auth/business logic не модифицировались.
+- `ci:check` используется как основной индикатор готовности итерации.
 
 ## 17. Environment Variables
 
-| Variable                   | Required                | Purpose                             | Notes                |
-| -------------------------- | ----------------------- | ----------------------------------- | -------------------- |
-| `DATABASE_URL`             | yes (backend runtime)   | Подключение к PostgreSQL            | Значение не включено |
-| `DB_MIGRATIONS_ENABLED`    | optional                | Управление автоприменением миграций | Boolean-like         |
-| `NEXT_PUBLIC_API_BASE_URL` | yes (frontend)          | Базовый URL backend API             | Public variable      |
-| `NEXT_PUBLIC_REALTIME_URL` | yes (frontend realtime) | URL realtime сервиса                | Public variable      |
-| `PUBLIC_BASE_URL`          | optional/tests          | Базовый URL для утилит/тестов       | Без секрета          |
+| Variable                   | Required                | Purpose                      | Notes              |
+| -------------------------- | ----------------------- | ---------------------------- | ------------------ |
+| `DATABASE_URL`             | yes (backend runtime)   | PostgreSQL connection        | value not included |
+| `DB_MIGRATIONS_ENABLED`    | optional                | Enable migrations on startup | boolean-like       |
+| `NEXT_PUBLIC_API_BASE_URL` | yes (frontend)          | Backend API URL              | public env         |
+| `NEXT_PUBLIC_REALTIME_URL` | yes (frontend realtime) | Realtime endpoint URL        | public env         |
+| `PUBLIC_BASE_URL`          | optional/tests          | Base URL in tests/helpers    | no secrets         |
 
 ## 18. How To Run Locally
 
-1. Установить зависимости: `pnpm install`.
-2. Подготовить env-файлы из `.env.example` (и app-specific `.env.example`, если есть).
-3. При необходимости поднять инфраструктуру: `docker compose -f infra/docker-compose.yml up -d`.
-4. Запустить dev: `pnpm dev` (или `pnpm dev:web` для backend+frontend).
-5. Проверки качества: `pnpm -s lint`, `pnpm -s typecheck`, `pnpm -s build`, затем `pnpm -s ci:check`.
+1. `pnpm install`
+2. Создать `.env` из `.env.example` (и app-specific env templates при необходимости)
+3. (Опционально) поднять инфраструктуру: `docker compose -f infra/docker-compose.yml up -d`
+4. Запустить dev: `pnpm dev` или `pnpm dev:web`
+5. Проверить качество: `pnpm -s lint && pnpm -s typecheck && pnpm -s build && pnpm -s ci:check`
 
 ## 19. How To Continue Development
 
-- Начать с чтения: `README.md` -> `LMS_AGENT_HANDOFF.md` -> ключевые docs в `docs/`.
-- Для LMS backend сначала смотреть `apps/backend/src/modules/iam` и `apps/backend/src/modules/mvp`.
-- Для frontend LMS флоу смотреть `apps/frontend/app/learner/*`, `apps/frontend/app/courses*`, `apps/frontend/src/features/auth`.
-- После любых изменений запускать минимум `pnpm -s lint && pnpm -s typecheck`, а перед завершением — `pnpm -s ci:check`.
-- Не делать разрушительных изменений в миграциях/auth/API без явной необходимости и документации.
+- Начать с `README.md` и этого `LMS_AGENT_HANDOFF.md`.
+- Backend приоритет: `apps/backend/src/modules/iam`, `apps/backend/src/modules/mvp`.
+- Frontend приоритет: `apps/frontend/app/learner/*`, `apps/frontend/app/courses*`, `apps/frontend/src/features/auth`.
+- После каждого изменения запускать минимум `lint + typecheck`, перед завершением — `ci:check`.
+- Избегать разрушительных DB/API/auth изменений без миграций, тестов и документации.
 
 ## 20. Final Status
 
-- Build status: passed (`pnpm -s build`)
-- Test status: частично подтвержден (целевой test passed; полный monorepo test не запускался в этой сессии)
-- Main LMS flows status: косвенно стабильны по build/typecheck; runtime end-to-end ручная проверка не выполнялась в этой сессии
-- Production readiness: условно staging-ready по quality gates этой итерации (кроме полного `ci:check`)
-- Next best action: выполнить полный `pnpm -s ci:check` и перейти к authz/IDOR hardening для course/lesson/progress
+- Build status: passed (в составе `pnpm -s ci:check`)
+- Test status: passed (в составе `pnpm -s ci:check` + новые целевые integration/unit проверки)
+- Main LMS flows status: стабильный baseline по текущим automated quality gates
+- Production readiness: staging-ready baseline; рекомендуется дальнейший IDOR/object-level hardening
+- Next best action: добавить object-level authz integration regression для LMS сущностей
