@@ -15,13 +15,13 @@ import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
 import type {
   BaseFilter,
-  GenerateDocumentsBatchRequest,
   CreateNumberingRuleRequest,
   CreateTemplateBindingRequest,
   CreateTemplateRequest,
   CreateTemplateVariableRequest,
   CreateTemplateVersionRequest,
   GenerateDocumentRequest,
+  GenerateDocumentsBatchRequest,
   UpdateNumberingRuleRequest,
   UpdateTemplateBindingRequest,
   UpdateTemplateRequest,
@@ -383,9 +383,7 @@ export class DocumentsService {
     actorId: string | undefined,
     req: GenerateDocumentsBatchRequest
   ) {
-    const sourceIds = req.sourceEntityIds
-      .map((item) => item.trim())
-      .filter(Boolean);
+    const sourceIds = req.sourceEntityIds.map((item) => item.trim()).filter(Boolean);
     return {
       items: sourceIds.map((sourceEntityId) =>
         this.generateDocument(tenantId, actorId, {
@@ -615,7 +613,9 @@ export class DocumentsService {
     let best: TemplateBindingEntity | null = null;
     let bestPriority = -Infinity;
     for (const b of candidates) {
-      const tpl = this.state.templates.find((t) => t.tenantId === tenantId && t.id === b.templateId);
+      const tpl = this.state.templates.find(
+        (t) => t.tenantId === tenantId && t.id === b.templateId
+      );
       if (!tpl || tpl.status !== 'active' || tpl.templateType !== 'certificate') continue;
       if (b.priority > bestPriority) {
         bestPriority = b.priority;
