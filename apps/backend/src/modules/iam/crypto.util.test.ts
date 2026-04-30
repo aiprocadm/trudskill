@@ -10,6 +10,18 @@ describe('crypto util', () => {
     expect(verifyPassword('Password123!', hash)).toBe(true);
   });
 
+  it('verifies legacy IAM seed sha256(pwd:plain) hashes from SQL migrations', () => {
+    expect(
+      verifyPassword(
+        'Password123!',
+        'd845591b855ba5b9a20db65eee522f76ed85858551b8f813ef146725e1a59264'
+      )
+    ).toBe(true);
+    expect(
+      verifyPassword('wrong', 'd845591b855ba5b9a20db65eee522f76ed85858551b8f813ef146725e1a59264')
+    ).toBe(false);
+  });
+
   it('does not use deterministic sha256 password hashing', () => {
     const plain = 'Password123!';
     const legacySha256 = createHash('sha256').update(`pwd:${plain}`).digest('hex');

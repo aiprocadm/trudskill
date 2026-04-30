@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 
 import { iamCryptoPolicy } from './crypto-policy.js';
 
@@ -20,7 +20,20 @@ export const hashPassword = (password: string): string => {
   ].join('$');
 };
 
+/** SQL seed `0010_iam_role_permissions_and_seed.sql` uses sha256(hex) of `pwd:${password}`. */
 export const verifyPassword = (plain: string, hash: string): boolean => {
+  if (!hash.includes('$')) {
+    if (/^[a-f0-9]{64}$/i.test(hash)) {
+      const computed = createHash('sha256').update(`pwd:${plain}`, 'utf8').digest('hex');
+      try {
+        return timingSafeEqual(Buffer.from(computed, 'hex'), Buffer.from(hash, 'hex'));
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  }
+
   const [algorithm, costRaw, blockSizeRaw, parallelizationRaw, encodedSalt, encodedHash] =
     hash.split('$');
   if (

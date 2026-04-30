@@ -1,4 +1,10 @@
-import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  type OnModuleDestroy,
+  type OnModuleInit
+} from '@nestjs/common';
 
 import { RabbitMqService } from './rabbitmq.service.js';
 import { backendEnv } from '../../env.js';
@@ -22,8 +28,8 @@ export class OutboxPublisherService implements OnModuleInit, OnModuleDestroy {
   private readonly claimToken = `backend-${process.pid}`;
 
   constructor(
-    private readonly db: DatabaseService,
-    private readonly rabbitMq: RabbitMqService
+    @Inject(DatabaseService) private readonly db: DatabaseService,
+    @Inject(RabbitMqService) private readonly rabbitMq: RabbitMqService
   ) {}
 
   async onModuleInit(): Promise<void> {

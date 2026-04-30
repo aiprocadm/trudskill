@@ -80,7 +80,7 @@ describe('SQL migration chain', () => {
   it('does not contain unexpected duplicate migration numbers', () => {
     const prefixes = migrationFiles.map((name) => name.split('_')[0]);
     const duplicates = prefixes.filter((prefix, index) => prefixes.indexOf(prefix) !== index);
-    expect(duplicates).toEqual(['0019']);
+    expect([...duplicates].sort()).toEqual(['0019']);
   });
 
   it('creates all required MVP schemas', () => {

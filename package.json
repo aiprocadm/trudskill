@@ -5,6 +5,8 @@
   "packageManager": "pnpm@9.12.3",
   "scripts": {
     "dev": "turbo run dev --parallel",
+    "dev:web": "turbo run dev --parallel --filter=@cdoprof/backend --filter=@cdoprof/frontend",
+    "docker:infra": "docker compose -f infra/docker-compose.yml up -d postgres redis rabbitmq minio minio-init",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
