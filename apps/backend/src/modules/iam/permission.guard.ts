@@ -56,6 +56,8 @@ export class PermissionGuard implements CanActivate {
       requestContext.tenantId,
       requestContext.userId
     );
+    requestContext.permissions = resolved;
+
     const hasAll = required.every((permission) => resolved.includes(permission));
     if (!hasAll) {
       throw new ForbiddenException({ code: 'permission_denied', message: 'Permission denied' });

@@ -2,12 +2,12 @@
 
 ## 1. Current Date / Session
 
-- Date: 2026-04-30 (UTC+3)
+- Date: 2026-05-01 (UTC+3)
 - Agent: Codex (GPT-5.3)
 - Repository: `D:/Создание LMS/Cursor LMS/cdoprof-`
 - Branch, if known: `main`
-- Commit hash before work, if available: `3904be9536a71dd6acc5f94f21f91c10842c8cea`
-- Commit hash after work, if available: `3904be9536a71dd6acc5f94f21f91c10842c8cea` (commit не создавался)
+- Commit hash before work, if available: `8157adc74c9fadba6f076bcfa0e2e84f93394b1d` (базовый HEAD; при появлении коммита после правок — дополнить вручную)
+- Commit hash after work, if available: не создавался в git; последняя проверка на рабочей копии после правок
 
 ## 2. Project Overview
 
@@ -250,29 +250,92 @@
 - Notes:
   - Runtime-код не менялся в этой подитерации; усилено тестовое покрытие доменной валидации.
 
+### 5.13 Соответствие ТЗ §38 (Security/Integration tests) и BL-010: HTTP regression по доменным инвариантам MVP
+
+- Summary: добавлены интеграционные HTTP-тесты против **реального** `MvpController` + in-memory persistence; исправлен DI-баг в `MvpRequestPersistenceInterceptor` (Nest не внедрял `TenantSerialGateway` в request-scoped interceptor без явного `@Inject`).
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts` (новый)
+  - `apps/backend/src/modules/mvp/infrastructure/mvp-request-persistence.interceptor.ts`
+  - `LMS_AGENT_HANDOFF.md`
+- Details (связь с `SDOPROF_TZ_FINAL.md`):
+  - §13 / этап 4–5 LMS: проверка доступа к assessment и целостность enrollment↔course через `group_courses` на **HTTP-уровне** (`412` + `domain_rule_violation` для submission/attempt без связи; запрет review для draft; `400` + `validation_error` при score > `maxScore`).
+  - §38 «Security» / BL-010 «API hardening»: фиксируем инварианты **object-level / cross-course leakage** для ключевых POST-эндпоинтов, уже реализованных в `MvpService`.
+- Notes:
+  - В тестовом Nest-приложении `ValidationPipe` с `whitelist: false` (MVP DTO — TS-интерфейсы без class-validator; иначе тело запроса обнуляется при `whitelist: true` — это ограничение тестового harness, не изменение прод-конфига).
+  - Исправление `@Inject(TenantSerialGateway)` — **боевой runtime-фикс**: без него `tenantGateway` был `undefined`, что потенциально давало 500 на защищённых MVP-маршрутах при определённом порядке DI.
+
+### 5.14 ТЗ §6/§12/BL-010: привязка слушателя к IAM и анти-IDOR на мутациях learner-контекста
+
+- Summary: добавлено опциональное поле профиля слушателя **`linkedIamUserId`** (соответствие `JWT.sub`); при его наличии мутации прогресса, субмиссий и попыток в контексте этого слушателя разрешены только совпадающему пользователю. Ужесточена консистентность тела **`learnerId`** с зачислением. Добавлены unit + HTTP regression тесты; HTTP — сценарий **PATCH progress без group-course**.
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.types.ts`
+  - `apps/backend/src/modules/mvp/mvp.dto.ts`
+  - `apps/backend/src/modules/mvp/mvp.service.ts`
+  - `apps/backend/src/modules/mvp/mvp.service.test.ts`
+  - `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`
+  - `LMS_AGENT_HANDOFF.md`
+- Details:
+  - `POST/PATCH`-поток learner: необязательные `linkedIamUserId` на create/update (registry DTO общий со справочниками → поле безопасно игнорируется не-learners кодом).
+  - `createAssignmentSubmission`: обязателен `learnerId` в теле; должен совпадать с `enrollment.learnerId`; при `linkedIamUserId` дополнительно `actorId` (JWT sub) должен совпадать.
+  - Аналогично: `upsertMaterialProgress`, `startAttempt` (валидируется непустой `learnerId` в теле + соответствие enrollment), обновление/сабмит субмиссии, сохранение/сабмит попытки.
+- Notes:
+  - **Breaking (контракт клиента):** `POST /assignment-submissions` без `learnerId` теперь даёт **`400`** `validation_error` (поле уже было в DTO типов, но ранее фактически не требовалось).
+  - Пока `linkedIamUserId` не задан у слушателя, поведение как раньше (опора только на RBAC permission).
+
+### 5.15 Анти-IDOR на чтение assessment (GET + list scoped)
+
+- Summary: из HTTP передаются `userId` и список **`permissions`**, который **`PermissionGuard`** кладёт в `RequestContext` после `resolvePermissions`. Для строк с **`linkedIamUserId`**: **GET**/`list` сужены к своему слушателю. Обход сужения **только чтения** — IAM permission **`assessment.read.cross_learner`** (миграция `0025_…`, роли `platform_admin` / `tenant_admin` / `manager` / `methodist` в `tenant_demo`). Мутации без этого bypass.
+- Files changed:
+  - `apps/backend/src/common/context/request-context.ts`
+  - `apps/backend/src/modules/iam/permission.guard.ts`
+  - `apps/backend/src/modules/iam/services/iam.service.ts` (fallback permission в in-memory)
+  - `apps/backend/migrations/0025_assessment_read_cross_learner_permission.sql`
+  - `apps/frontend/src/lib/auth/permission-map.ts`
+  - `apps/backend/src/modules/mvp/mvp.service.ts`
+  - `apps/backend/src/modules/mvp/mvp.controller.ts`
+  - `apps/backend/src/modules/mvp/mvp.service.test.ts`
+  - `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`
+  - `LMS_AGENT_HANDOFF.md`
+- Notes:
+  - Сервисные вызовы без `access` ведут себя как раньше на уровне домена (нет дополнительного gate).
+  - HTTP integration: `assessment.read.cross_learner` выдаётся только для `sub=u_domain_http_actor`, не для токенов «студентов» в IDOR-сценарии.
+  - Делегирование «действовать за слушателя» на **мутациях** — отдельная задача (§13 Issue 1).
+
 ## 6. Files Changed
 
-| File                                                        | Change Type        | Purpose                                                                                                                        |
-| ----------------------------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `apps/backend/src/modules/iam/permission.guard.test.ts`     | modified           | Дополнительные authz regression unit tests                                                                                     |
-| `apps/backend/src/modules/mvp/mvp.http.integration.test.ts` | created            | HTTP integration regression для LMS permission/session boundaries                                                              |
-| `apps/backend/src/modules/mvp/mvp.service.ts`               | modified           | Защита progress update: enrollment должен быть связан с course через group-course                                              |
-| `apps/backend/src/modules/mvp/mvp.service.test.ts`          | modified           | Regression coverage доменных проверок progress/submissions/attempts/reviews + lifecycle/score (включая отрицательные значения) |
-| `apps/backend/src/modules/mvp/mvp.concurrency.test.ts`      | modified           | Актуализация concurrency regression под новые domain invariants                                                                |
-| `apps/backend/vitest.config.ts`                             | modified           | Увеличены test/hook timeout для стабильного backend CI прогона                                                                 |
-| `SDOPROF_TZ_FINAL.md`                                       | created            | Финальное структурированное ТЗ LMS/СДО Проф                                                                                    |
-| `LMS_AGENT_HANDOFF.md`                                      | recreated/modified | Актуальный handoff по текущему состоянию                                                                                       |
+| File                                                                                 | Change Type        | Purpose                                                                                                                        |
+| ------------------------------------------------------------------------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/backend/src/modules/iam/permission.guard.test.ts`                              | modified           | Дополнительные authz regression unit tests                                                                                     |
+| `apps/backend/src/modules/mvp/mvp.http.integration.test.ts`                          | created            | HTTP integration regression для LMS permission/session boundaries                                                              |
+| `apps/backend/src/modules/mvp/mvp.service.ts`                                        | modified           | Защита progress update: enrollment должен быть связан с course через group-course                                              |
+| `apps/backend/src/modules/mvp/mvp.service.test.ts`                                   | modified           | Regression coverage доменных проверок progress/submissions/attempts/reviews + lifecycle/score (включая отрицательные значения) |
+| `apps/backend/src/modules/mvp/mvp.concurrency.test.ts`                               | modified           | Актуализация concurrency regression под новые domain invariants                                                                |
+| `apps/backend/vitest.config.ts`                                                      | modified           | Увеличены test/hook timeout для стабильного backend CI прогона                                                                 |
+| `SDOPROF_TZ_FINAL.md`                                                                | created            | Финальное структурированное ТЗ LMS/СДО Проф                                                                                    |
+| `LMS_AGENT_HANDOFF.md`                                                               | recreated/modified | Актуальный handoff по текущему состоянию                                                                                       |
+| `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`                  | created            | HTTP integration: доменные инварианты submissions / attempts / reviews + score bounds                                          |
+| `apps/backend/src/modules/mvp/infrastructure/mvp-request-persistence.interceptor.ts` | modified           | Явный `@Inject(TenantSerialGateway)` для корректного DI                                                                        |
+| `apps/backend/src/modules/mvp/mvp.types.ts`                                          | modified           | `Learner.linkedIamUserId?: string`                                                                                             |
+| `apps/backend/src/modules/mvp/mvp.dto.ts`                                            | modified           | Опциональные `linkedIamUserId` в simple registry requests                                                                      |
+| `apps/backend/src/modules/mvp/mvp.controller.ts`                                     | modified           | Прокидка `{ actorId, permissions }` в list/get attempts, submissions, exam-results                                             |
+| `apps/backend/src/modules/mvp/mvp.service.ts`                                        | modified           | Bypass чтения по `assessment.read.cross_learner`; анти-IDOR мутаций + scoped read                                              |
+| `apps/backend/src/modules/mvp/mvp.service.test.ts`                                   | modified           | linkedIam GET/list + bypass по permission                                                                                      |
+| `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`                  | modified           | mock `resolvePermissions` по `userId`; cross_learner только staff sub                                                          |
+| `apps/backend/src/modules/iam/permission.guard.ts`                                   | modified           | `requestContext.permissions := resolved`                                                                                       |
+| `apps/backend/migrations/0025_assessment_read_cross_learner_permission.sql`          | created            | Permission + role_permissions для staff ролей                                                                                  |
+| `apps/frontend/src/lib/auth/permission-map.ts`                                       | modified           | Staff-роли: `assessment.read.cross_learner`                                                                                    |
 
 ## 7. Database / Schema / Migration Changes
 
-- БД/схема/миграции в этой итерации не менялись.
-- Миграции не создавались и не выполнялись.
-- Рисков данных и backward compatibility рисков от изменений нет.
+- Добавлена миграция **`0025_assessment_read_cross_learner_permission.sql`**: permission `assessment.read.cross_learner` и привязка к ролям `platform_admin`, `tenant_admin`, `manager`, `methodist` в `tenant_demo`.
+- На существующих БД применить прогон миграций; иначе staff без новой строки в `role_permissions` не получит полный read-scope по чужим слушателям при `linkedIamUserId`.
 
 ## 8. API Changes
 
-- Пути/методы API не менялись.
-- Новых request/response контрактов не добавлено.
+- Пути/методов смены нет.
+- Расширены **необязательные** поля JSON для записи learner: `linkedIamUserId` (camelCase).
+- **`POST /assignment-submissions`** и **`POST /attempts/start`**: **`learnerId` обязателен и должен совпадать с фактическим слушателем зачисления** (`400 validation_error` при нарушении). Ранее клиент мог опускать или подменять без проверки.
+- Исправление работы пайплайна persistence: корректная сериализация по tenant через `TenantSerialGateway` в `MvpRequestPersistenceInterceptor` (устранены потенциальные **500 Internal** при успешном auth/permission path).
 - Изменено runtime поведение endpoint-ов:
   - `PATCH /progress/materials/:materialId`:
   - теперь update прогресса отклоняется, если enrollment не связан с курсом материала через `group_courses`.
@@ -291,6 +354,8 @@
   - `POST /assignment-reviews/:id/complete`:
   - повторный complete отклоняется (`domain_rule_violation`, HTTP 412);
   - complete разрешён только для `in_review`.
+  - Если у слушателя задан **`linkedIamUserId`**, мутации **прогресса / черновых субмиссий / сабмита субмиссии / ответов в попытке / сабмита попытки** от другого `JWT.sub` возвращают **`403`** `forbidden`.
+  - Если у слушателя задан **`linkedIamUserId`**, **чтение** связанных сущностей (в т.ч. `GET assignment-submissions/:id`, `GET attempts/:id`, `GET attempts/:id/result`, `GET exam-results` / `.../by-enrollment/...`) от другого **`JWT.sub`** — **`403`** `forbidden`. Списки **`GET attempts`**, **`GET assignment-submissions`**, **`GET exam-results`** для пользователя с привязкой к профилю слушателя ограничены строками этого слушателя; **исключение (только чтение):** IAM permission **`assessment.read.cross_learner`** (см. миграцию `0025`).
 
 | Method | Path                               | Change                                                                                       | Auth Required | Roles                           |
 | ------ | ---------------------------------- | -------------------------------------------------------------------------------------------- | ------------- | ------------------------------- |
@@ -314,8 +379,10 @@
 - Protected routes проверяются на backend через permissions.
 - В этой итерации усилены:
   - guard-level unit regression;
-  - HTTP integration regression на `mvp` LMS permission boundaries.
-- Оставшийся security gap: полезно добавить object-level IDOR integration coverage для course/progress сущностей с реальными state transitions.
+  - HTTP integration regression на `mvp` LMS permission boundaries;
+  - HTTP regression доменных инвариантов assessment (`mvp.domains.http.integration.test.ts`).
+  - HTTP + unit: связка **`linkedIamUserId`** против чужого JWT; HTTP `PATCH progress` без группа↔курс.
+- Оставшийся security gap: read/list IDOR без смены модели прав; cross-tenant сценарии; явный bypass permission для преподавателя «действует от имени слушателя» (отдельный permission/feature).
 
 ## 11. Validation / Error Handling
 
@@ -332,7 +399,8 @@
   - `MvpService.updateAssignmentReview()` запрещает изменения completed review;
   - `MvpService.completeAssignmentReview()` запрещает повторный complete и complete вне статуса `in_review`.
 - Error envelope поведение проверено в HTTP integration тестах (`auth_required`, `permission_denied`, `session_inactive`).
-- Формат ошибок API не менялся; добавлен ещё один сценарий `domain_rule_violation`.
+- Дополнительно на HTTP уровне зафиксированы коды **`domain_rule_violation`** (412) и **`validation_error`** (400) для assessment/review цепочки в `mvp.domains.http.integration.test.ts`; **`forbidden`** (403) для IDOR при `linkedIamUserId`; обязательный **`learnerId`** на создании субмишена через `BadRequest`.
+- Для слушателя: опционально `linkedIamUserId` при создании/обновлении записи в `learners` (общий контракт `CreateSimpleRegistryRequest`/`Update`).
 
 ## 12. Tests / Checks Run
 
@@ -365,6 +433,11 @@
 | `pnpm --filter @cdoprof/backend test && pnpm -s ci:check` (после score-валидации)                                                                                         | passed | Финальный полный прогон зелёный                                                                            |
 | `pnpm exec vitest run apps/backend/src/modules/mvp/mvp.service.test.ts apps/backend/src/modules/mvp/mvp.concurrency.test.ts` (после расширения negative-score regression) | passed | 2 files / 23 tests                                                                                         |
 | `pnpm --filter @cdoprof/backend test && pnpm -s ci:check` (после расширения negative-score regression)                                                                    | passed | Повторный полный прогон зелёный                                                                            |
+| `pnpm exec vitest run apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`                                                                                  | passed | 3 HTTP-теста реального `MvpController` + memory persistence                                                |
+| `pnpm --filter @cdoprof/backend test` (после 5.13)                                                                                                                        | passed | 50 files / 189 tests (+3 к прошлому отчёту 180 — пересчитано по актуальному прогону)                       |
+| `pnpm -s ci:check` (после 5.13)                                                                                                                                           | passed | Полный monorepo quality gate зелёный (~74s)                                                                |
+| `pnpm --filter @cdoprof/backend test && pnpm -s ci:check` (после 5.14 анти-IDOR)                                                                                          | passed | 193 тестов; включая расширенный `mvp.domains.http.integration`                                             |
+| `pnpm --filter @cdoprof/backend test && pnpm -s ci:check` (после 5.15 read/list IDOR)                                                                                     | passed | 193 тестов; `mvp.domains.http` + unit read-scope                                                           |
 
 ## 13. Known Issues
 
@@ -376,13 +449,13 @@
 - Evidence: `<<<ВСТАВИТЬ СЮДА СУЩЕСТВУЮЩЕЕ ТЗ ДЛЯ СДО ПРОФ>>>`.
 - Suggested fix: предоставить полный исходный текст ТЗ для точной трассировки «взято/изменено/добавлено» без допущений.
 
-### Issue 1: Неполное HTTP-level object access/validation покрытие для assessment ownership
+### Issue 1: Делегирование «за слушателя» на мутациях
 
 - Severity: medium
-- Area: backend/auth/tests
-- Description: ownership/lifecycle/score validations защищены на service-level, но аналогичные проверки не полностью покрыты HTTP integration suite.
-- Evidence: новые проверки добавлены в runtime и unit/regression tests; dedicated HTTP integration coverage для assessment ownership/lifecycle/score частично отсутствует.
-- Suggested fix: добавить HTTP integration кейсы на доступ к чужим attempt/submission/review данным.
+- Area: backend/auth/product
+- Description: обход сужения **чтения** вынесен в **`assessment.read.cross_learner`** (§5.15 + миграция 0025). **Мутации** прогресса/субмиссий/попыток по-прежнему без impersonation: чужой JWT vs `linkedIamUserId` → **403**. Нужен контракт **`learners.act_as`** / delegation для сценариев «преподаватель сдаёт за слушателя». Субъекты без `linkedIamUserId` — как раньше по RBAC.
+- Evidence: `mvp.service.ts` (`assertActorMatchesLearnerIamLink` на мутациях).
+- Suggested fix: отдельное permission + аудит на delegation; опционально заголовок/claim с целевым `learnerId`.
 
 ### Issue 2: Длительные backend integration тесты при ограниченных ресурсах CI
 
@@ -410,8 +483,10 @@
 
 ### High
 
-1. Добавить object-level/IDOR HTTP integration tests для `mvp` (attempts/submissions/reviews + расширить progress/assignment/attempt/review linkage, lifecycle и score validation checks до HTTP-level).
-2. Проверить согласованность backend authz и frontend role-based скрытия действий в ключевых LMS экранах.
+1. Delegation / **`learners.act_as`** для **мутаций** в контексте чужого `linkedIamUserId` (преподаватель/L&D).
+2. По желанию: HTTP-негативы на **`GET attempts/:id`** / **`exam-results`** для второго JWT (аналог §5.15 submissions).
+3. Проверить согласованность backend authz и frontend role-based скрытия действий в ключевых LMS экранах.
+4. Долгосрочно: ввести class-validator DTO для критичных MVP POST/PATCH и вернуть безопасный `whitelist: true` на проде без обнуления body.
 
 ### Medium
 
@@ -425,13 +500,13 @@
 
 ## 15. Suggested Next Agent Prompt
 
-«Сверь `SDOPROF_TZ_FINAL.md` с фактическим исходным ТЗ СДО Проф (после предоставления полного текста), подготовь матрицу трассировки требований (исходное → финальное), затем закрой оставшиеся backend HTTP integration gaps по ownership/lifecycle/score validation (`attempts`, `assignment-submissions`, `assignment-reviews`) и прогони `pnpm --filter @cdoprof/backend test` + `pnpm -s ci:check`.»
+«По `SDOPROF_TZ_FINAL.md`: **мутационное** delegation (`learners.act_as` / audited impersonation). Синхронизируй клиент/`api-contracts` с `learnerId` на submissions/attempts. Class-validator + `whitelist: true` для критичных MVP body на проде. Прогоны тестов и `ci:check`, обнови `LMS_AGENT_HANDOFF.md`.»
 
 ## 16. Important Context / Assumptions
 
 - Проект стабильно собирается и тестируется в текущем локальном окружении (`pnpm` monorepo).
 - Ролевая модель и permission naming не менялись.
-- Изменения затронули test-конфигурацию и одну runtime domain-проверку в `mvp` progress flow.
+- Изменения затронули `mvp` security (linkedIamUserId / learnerId consistency) и расширенный HTTP regression suite.
 - Для ветки подготовки ТЗ использован контекст репозитория (`README.md`, `LMS_AGENT_HANDOFF.md`, структура модулей), так как исходное ТЗ в сессии не предоставлено.
 - `ci:check` используется как основной индикатор готовности итерации.
 
@@ -463,8 +538,8 @@
 
 ## 20. Final Status
 
-- Build status: passed (финальный `pnpm -s ci:check`)
-- Test status: passed (включая новые domain regressions в `mvp.service` для progress, assignment submissions, attempts, reviews, review lifecycle lock и score validation)
-- Main LMS flows status: стабильный baseline по текущим automated quality gates
-- Production readiness: staging-ready baseline; progress/assignment submission/attempt/review flows стали строже по доменной целостности, lifecycle-ограничениям и корректности score
-- Next best action: (1) подтвердить `SDOPROF_TZ_FINAL.md` на основе исходного полного ТЗ; (2) расширить object-level HTTP integration coverage на assessment/enrollment ownership сценарии
+- Build status: passed (финальный `pnpm -s ci:check`, ~2026-05-01)
+- Test status: passed (`@cdoprof/backend`: 50 files / **193 tests**): анти-IDOR на мутациях при `linkedIamUserId`; обязательный `learnerId` для субмисси/старта попытки; HTTP regression progress без group-course и 403 чужому JWT.
+- Main LMS flows status: для связанных с IAM слушателей узкое прохождение assessment/progress становится объектно-привязанным к `JWT.sub`.
+- Production readiness: клиентам нужно отправлять `learnerId` на `POST assignment-submissions` и пустые `attempts/start`; при включении связки — заполнять `linkedIamUserId` у learners.
+- Next best action: (1) исходное ТЗ; (2) read/list фильтры и permission «действует за слушателя»; (3) отдельные DTO + class-validator под prod `whitelist: true`.

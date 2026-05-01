@@ -553,7 +553,12 @@ describe('mvp service domain rules', () => {
     const submission = service.createAssignmentSubmission(
       'tenant_demo',
       ctx.userId,
-      { assignmentId: assignment.id, enrollmentId: enrollment.id, answerText: 'draft' },
+      {
+        assignmentId: assignment.id,
+        enrollmentId: enrollment.id,
+        learnerId: learner.id,
+        answerText: 'draft'
+      },
       ctx
     );
     service.submitAssignmentSubmission('tenant_demo', ctx.userId, submission.id, ctx);
@@ -624,7 +629,12 @@ describe('mvp service domain rules', () => {
     const submission = service.createAssignmentSubmission(
       'tenant_demo',
       ctx.userId,
-      { assignmentId: assignment.id, enrollmentId: enrollment.id, answerText: 'draft' },
+      {
+        assignmentId: assignment.id,
+        enrollmentId: enrollment.id,
+        learnerId: learner.id,
+        answerText: 'draft'
+      },
       ctx
     );
     service.submitAssignmentSubmission('tenant_demo', ctx.userId, submission.id, ctx);
@@ -696,10 +706,188 @@ describe('mvp service domain rules', () => {
       service.createAssignmentSubmission(
         'tenant_demo',
         ctx.userId,
-        { assignmentId: assignment.id, enrollmentId: enrollment.id, answerText: 'draft' },
+        {
+          assignmentId: assignment.id,
+          enrollmentId: enrollment.id,
+          learnerId: learner.id,
+          answerText: 'draft'
+        },
         ctx
       )
     ).toThrow(PreconditionFailedException);
+  });
+
+  it('rejects createAssignmentSubmission when claimed learnerId does not match enrollment', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopFilesService,
+      testEmitter
+    );
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'CID1', title: 'IDOR Course' },
+      ctx
+    );
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'GID1', name: 'G1' }, ctx);
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const la = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'LA', name: 'Learner A' },
+      ctx
+    );
+    const lb = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'LB', name: 'Learner B' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: la.id },
+      ctx
+    );
+    const assignment = service.createAssignment(
+      'tenant_demo',
+      ctx.userId,
+      { courseId: course.id, title: 'HW', maxScore: 100 },
+      ctx
+    );
+
+    expect(() =>
+      service.createAssignmentSubmission(
+        'tenant_demo',
+        ctx.userId,
+        {
+          assignmentId: assignment.id,
+          enrollmentId: enrollment.id,
+          learnerId: lb.id,
+          answerText: 'draft'
+        },
+        ctx
+      )
+    ).toThrow(BadRequestException);
+  });
+
+  it('forbids assignment submission when IAM actor does not match learner linkedIamUserId', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopFilesService,
+      testEmitter
+    );
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'CID2', title: 'Link Course' },
+      ctx
+    );
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'GID2', name: 'G2' }, ctx);
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'L_OWN', name: 'Alice A', linkedIamUserId: 'u_owner' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const assignment = service.createAssignment(
+      'tenant_demo',
+      ctx.userId,
+      { courseId: course.id, title: 'HW', maxScore: 100 },
+      ctx
+    );
+
+    expect(() =>
+      service.createAssignmentSubmission(
+        'tenant_demo',
+        'u_intruder',
+        {
+          assignmentId: assignment.id,
+          enrollmentId: enrollment.id,
+          learnerId: learner.id,
+          answerText: 'draft'
+        },
+        ctx
+      )
+    ).toThrow(ForbiddenException);
+
+    const submission = service.createAssignmentSubmission(
+      'tenant_demo',
+      'u_owner',
+      {
+        assignmentId: assignment.id,
+        enrollmentId: enrollment.id,
+        learnerId: learner.id,
+        answerText: 'draft'
+      },
+      ctx
+    );
+    expect(submission.learnerId).toBe(learner.id);
+
+    expect(() =>
+      service.getAssignmentSubmission('tenant_demo', submission.id, {
+        actorId: 'u_intruder'
+      })
+    ).toThrow(ForbiddenException);
+    expect(
+      service.getAssignmentSubmission('tenant_demo', submission.id, {
+        actorId: 'u_owner'
+      }).id
+    ).toBe(submission.id);
+
+    const other = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'L_OTH', name: 'Other', linkedIamUserId: 'u_other' },
+      ctx
+    );
+    const enrollmentOther = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: other.id },
+      ctx
+    );
+    service.createAssignmentSubmission(
+      'tenant_demo',
+      'u_other',
+      {
+        assignmentId: assignment.id,
+        enrollmentId: enrollmentOther.id,
+        learnerId: other.id,
+        answerText: 'b'
+      },
+      ctx
+    );
+    const scoped = service.listAssignmentSubmissions(
+      'tenant_demo',
+      {},
+      {
+        actorId: 'u_owner'
+      }
+    );
+    expect(scoped.items).toHaveLength(1);
+    expect(scoped.items[0]!.id).toBe(submission.id);
+
+    const bypass = service.listAssignmentSubmissions(
+      'tenant_demo',
+      {},
+      {
+        actorId: 'u_owner',
+        permissions: ['assessment.read.cross_learner']
+      }
+    );
+    expect(bypass.total).toBe(2);
   });
 
   it('rejects review creation for draft submission and duplicate review creation', () => {
@@ -744,7 +932,12 @@ describe('mvp service domain rules', () => {
     const submission = service.createAssignmentSubmission(
       'tenant_demo',
       ctx.userId,
-      { assignmentId: assignment.id, enrollmentId: enrollment.id, answerText: 'draft' },
+      {
+        assignmentId: assignment.id,
+        enrollmentId: enrollment.id,
+        learnerId: learner.id,
+        answerText: 'draft'
+      },
       ctx
     );
 
@@ -817,7 +1010,12 @@ describe('mvp service domain rules', () => {
     const submission = service.createAssignmentSubmission(
       'tenant_demo',
       ctx.userId,
-      { assignmentId: assignment.id, enrollmentId: enrollment.id, answerText: 'submitted' },
+      {
+        assignmentId: assignment.id,
+        enrollmentId: enrollment.id,
+        learnerId: learner.id,
+        answerText: 'submitted'
+      },
       ctx
     );
     service.submitAssignmentSubmission('tenant_demo', ctx.userId, submission.id, ctx);
@@ -892,7 +1090,12 @@ describe('mvp service domain rules', () => {
     const submission = service.createAssignmentSubmission(
       'tenant_demo',
       ctx.userId,
-      { assignmentId: assignment.id, enrollmentId: enrollment.id, answerText: 'submitted' },
+      {
+        assignmentId: assignment.id,
+        enrollmentId: enrollment.id,
+        learnerId: learner.id,
+        answerText: 'submitted'
+      },
       ctx
     );
     service.submitAssignmentSubmission('tenant_demo', ctx.userId, submission.id, ctx);

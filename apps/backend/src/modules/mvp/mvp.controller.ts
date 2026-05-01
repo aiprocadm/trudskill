@@ -572,7 +572,10 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('assessment.attempts.read')
   listAttempts(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    return this.mvpService.listAttempts(c.tenantId!, q);
+    return this.mvpService.listAttempts(c.tenantId!, q, {
+      actorId: c.userId,
+      permissions: c.permissions
+    });
   }
   @Post('attempts/start')
   @UseGuards(PermissionGuard)
@@ -584,7 +587,10 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('assessment.attempts.read')
   getAttempt(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.mvpService.getAttempt(c.tenantId!, id);
+    return this.mvpService.getAttempt(c.tenantId!, id, {
+      actorId: c.userId,
+      permissions: c.permissions
+    });
   }
   @Post('attempts/:id/answers')
   @UseGuards(PermissionGuard)
@@ -612,7 +618,10 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('assessment.results.read')
   getAttemptResult(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.mvpService.getAttemptResult(c.tenantId!, id);
+    return this.mvpService.getAttemptResult(c.tenantId!, id, {
+      actorId: c.userId,
+      permissions: c.permissions
+    });
   }
 
   @Post('answers')
@@ -639,13 +648,19 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('assessment.results.read')
   listExamResults(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    return this.mvpService.listExamResults(c.tenantId!, q);
+    return this.mvpService.listExamResults(c.tenantId!, q, {
+      actorId: c.userId,
+      permissions: c.permissions
+    });
   }
   @Get('exam-results/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('assessment.results.read')
   getExamResult(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.mvpService.getExamResult(c.tenantId!, id);
+    return this.mvpService.getExamResult(c.tenantId!, id, {
+      actorId: c.userId,
+      permissions: c.permissions
+    });
   }
   @Get('exam-results/by-enrollment/:enrollmentId')
   @UseGuards(PermissionGuard)
@@ -654,7 +669,10 @@ export class MvpController {
     @CurrentContext() c: RequestContext,
     @Param('enrollmentId') enrollmentId: string
   ) {
-    return this.mvpService.getExamResultByEnrollment(c.tenantId!, enrollmentId);
+    return this.mvpService.getExamResultByEnrollment(c.tenantId!, enrollmentId, {
+      actorId: c.userId,
+      permissions: c.permissions
+    });
   }
   @Post('exam-results/recalculate')
   @UseGuards(PermissionGuard)
@@ -708,7 +726,10 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('assessment.assignments.read')
   listAssignmentSubmissions(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    return this.mvpService.listAssignmentSubmissions(c.tenantId!, q);
+    return this.mvpService.listAssignmentSubmissions(c.tenantId!, q, {
+      actorId: c.userId,
+      permissions: c.permissions
+    });
   }
   @Post('assignment-submissions')
   @UseGuards(PermissionGuard)
@@ -723,7 +744,10 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('assessment.assignments.read')
   getAssignmentSubmission(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.mvpService.getAssignmentSubmission(c.tenantId!, id);
+    return this.mvpService.getAssignmentSubmission(c.tenantId!, id, {
+      actorId: c.userId,
+      permissions: c.permissions
+    });
   }
   @Patch('assignment-submissions/:id')
   @UseGuards(PermissionGuard)

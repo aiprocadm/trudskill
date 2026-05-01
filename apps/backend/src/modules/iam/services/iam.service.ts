@@ -83,7 +83,12 @@ export class IamService {
   private readonly fallbackPermissions: Permission[] = [
     { id: 'p_auth_manage_sessions', code: 'auth.manage_sessions', description: 'Manage sessions' },
     { id: 'p_iam_manage_roles', code: 'iam.manage_roles', description: 'Assign roles' },
-    { id: 'p_tenant_read', code: 'tenant.read', description: 'Read tenant' }
+    { id: 'p_tenant_read', code: 'tenant.read', description: 'Read tenant' },
+    {
+      id: 'p_assessment_read_cross_learner',
+      code: 'assessment.read.cross_learner',
+      description: 'Read assessment rows for any learner (bypass IAM-linked row scope on GET/list)'
+    }
   ];
 
   private fallbackUserRoles = new Map<string, string[]>([

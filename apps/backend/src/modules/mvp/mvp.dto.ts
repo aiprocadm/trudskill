@@ -24,12 +24,15 @@ export interface CreateSimpleRegistryRequest {
   code: string;
   name: string;
   status?: string;
+  /** Для записи learners: связь профиля с IAM user id (`JWT sub`). Игнорируется другими простыми справочниками. */
+  linkedIamUserId?: string;
 }
 
 export interface UpdateSimpleRegistryRequest {
   code?: string;
   name?: string;
   status?: string;
+  linkedIamUserId?: string | null;
 }
 
 export interface CreateCourseRequest {

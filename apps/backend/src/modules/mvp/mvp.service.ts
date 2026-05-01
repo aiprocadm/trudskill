@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -93,7 +94,16 @@ interface LookupItem {
   status: string;
 }
 
+/** Контекст для GET/list assessment: ограничение по linkedIamUserId для слушателя. */
+interface MvpAssessmentReadAccess {
+  actorId?: string;
+  permissions?: string[];
+}
+
 const DEFAULT_GROUP_COURSE_DURATION_DAYS = 90;
+
+/** Обход ограничения linkedIam/list-scope для GET/list assessment — только через IAM permission. */
+const ASSESSMENT_READ_CROSS_LEARNER_PERMISSION = 'assessment.read.cross_learner';
 
 @Injectable()
 export class MvpService {
@@ -198,6 +208,7 @@ export class MvpService {
       firstName: firstName ?? request.name,
       lastName: lastName ?? '',
       email: undefined,
+      linkedIamUserId: request.linkedIamUserId?.trim() || undefined,
       status: request.status ?? 'active',
       createdAt: this.now(),
       updatedAt: this.now()
@@ -231,6 +242,11 @@ export class MvpService {
       current.lastName = lastName ?? '';
     }
     if (request.status) current.status = request.status;
+    if (request.linkedIamUserId !== undefined && request.linkedIamUserId !== null) {
+      current.linkedIamUserId = request.linkedIamUserId.trim() || undefined;
+    } else if (request.linkedIamUserId === null) {
+      current.linkedIamUserId = undefined;
+    }
     current.updatedAt = this.now();
     this.audit(
       tenantId,
@@ -912,6 +928,8 @@ export class MvpService {
       });
     }
 
+    this.assertActorMatchesLearnerIamLink(tenantId, actorId, enrollment.learnerId);
+
     if (request.studiedSeconds < 0) {
       throw new BadRequestException({
         code: 'validation_error',
@@ -1508,11 +1526,22 @@ export class MvpService {
     return this.listTestQuestions(tenantId, testId);
   }
 
-  listAttempts(tenantId: string, query: BaseFilterQuery): ListResponse<TestAttempt> {
-    return this.list(this.state.attempts, tenantId, query);
+  listAttempts(
+    tenantId: string,
+    query: BaseFilterQuery,
+    access?: MvpAssessmentReadAccess
+  ): ListResponse<TestAttempt> {
+    const scope = this.restrictLearnerIdsForAssessmentList(tenantId, access);
+    const source =
+      scope === null
+        ? this.state.attempts
+        : this.state.attempts.filter((a) => a.tenantId === tenantId && scope.includes(a.learnerId));
+    return this.list(source, tenantId, query);
   }
-  getAttempt(tenantId: string, id: string): TestAttempt {
-    return this.getById(this.state.attempts, tenantId, id);
+  getAttempt(tenantId: string, id: string, access?: MvpAssessmentReadAccess): TestAttempt {
+    const attempt = this.getById(this.state.attempts, tenantId, id);
+    this.assertAssessmentReadAllowedForLearner(tenantId, attempt.learnerId, access);
+    return attempt;
   }
   startAttempt(
     tenantId: string,
@@ -1534,6 +1563,13 @@ export class MvpService {
         message: 'Enrollment is not linked to the test course'
       });
     }
+    const claimedLearner = request.learnerId?.trim();
+    if (!claimedLearner) {
+      throw new BadRequestException({ code: 'validation_error', message: 'learnerId is required' });
+    }
+    this.ensureClaimedLearnerMatchesEnrollment(enrollment.learnerId, claimedLearner);
+    this.assertActorMatchesLearnerIamLink(tenantId, actorId, enrollment.learnerId);
+
     const learnerId = enrollment.learnerId;
     const now = new Date(this.now());
     const dayKey = now.toISOString().slice(0, 10);
@@ -1602,6 +1638,8 @@ export class MvpService {
     context: RequestContext
   ): AttemptAnswer {
     const attempt = this.getById(this.state.attempts, tenantId, attemptId);
+    this.assertActorMatchesLearnerIamLink(tenantId, actorId, attempt.learnerId);
+
     if (!['draft', 'in_progress'].includes(attempt.status))
       throw new PreconditionFailedException({
         code: 'attempt_terminal',
@@ -1694,6 +1732,8 @@ export class MvpService {
     context: RequestContext
   ): TestAttempt {
     const attempt = this.getById(this.state.attempts, tenantId, attemptId);
+    this.assertActorMatchesLearnerIamLink(tenantId, actorId, attempt.learnerId);
+
     if (['submitted', 'finished', 'expired', 'invalidated'].includes(attempt.status))
       return attempt;
     if (attempt.expiresAt && new Date(attempt.expiresAt) <= new Date()) attempt.status = 'expired';
@@ -1755,19 +1795,39 @@ export class MvpService {
     return submitted;
   }
 
-  listExamResults(tenantId: string, query: BaseFilterQuery): ListResponse<ExamResult> {
-    return this.list(this.state.examResults, tenantId, query);
+  listExamResults(
+    tenantId: string,
+    query: BaseFilterQuery,
+    access?: MvpAssessmentReadAccess
+  ): ListResponse<ExamResult> {
+    const scope = this.restrictLearnerIdsForAssessmentList(tenantId, access);
+    const source =
+      scope === null
+        ? this.state.examResults
+        : this.state.examResults.filter(
+            (r) => r.tenantId === tenantId && scope.includes(r.learnerId)
+          );
+    return this.list(source, tenantId, query);
   }
-  getExamResult(tenantId: string, id: string): ExamResult {
-    return this.getById(this.state.examResults, tenantId, id);
+  getExamResult(tenantId: string, id: string, access?: MvpAssessmentReadAccess): ExamResult {
+    const result = this.getById(this.state.examResults, tenantId, id);
+    this.assertAssessmentReadAllowedForLearner(tenantId, result.learnerId, access);
+    return result;
   }
-  getExamResultByEnrollment(tenantId: string, enrollmentId: string): ExamResult[] {
+  getExamResultByEnrollment(
+    tenantId: string,
+    enrollmentId: string,
+    access?: MvpAssessmentReadAccess
+  ): ExamResult[] {
+    const enrollment = this.getById(this.state.enrollments, tenantId, enrollmentId);
+    this.assertAssessmentReadAllowedForLearner(tenantId, enrollment.learnerId, access);
     return this.state.examResults.filter(
       (item) => item.tenantId === tenantId && item.enrollmentId === enrollmentId
     );
   }
-  getAttemptResult(tenantId: string, id: string): ExamResult {
+  getAttemptResult(tenantId: string, id: string, access?: MvpAssessmentReadAccess): ExamResult {
     const attempt = this.getById(this.state.attempts, tenantId, id);
+    this.assertAssessmentReadAllowedForLearner(tenantId, attempt.learnerId, access);
     return this.recalculateExamResult(
       tenantId,
       attempt.testId,
@@ -1945,12 +2005,26 @@ export class MvpService {
   }
   listAssignmentSubmissions(
     tenantId: string,
-    query: BaseFilterQuery
+    query: BaseFilterQuery,
+    access?: MvpAssessmentReadAccess
   ): ListResponse<AssignmentSubmission> {
-    return this.list(this.state.assignmentSubmissions, tenantId, query);
+    const scope = this.restrictLearnerIdsForAssessmentList(tenantId, access);
+    const source =
+      scope === null
+        ? this.state.assignmentSubmissions
+        : this.state.assignmentSubmissions.filter(
+            (s) => s.tenantId === tenantId && scope.includes(s.learnerId)
+          );
+    return this.list(source, tenantId, query);
   }
-  getAssignmentSubmission(tenantId: string, id: string): AssignmentSubmission {
-    return this.getById(this.state.assignmentSubmissions, tenantId, id);
+  getAssignmentSubmission(
+    tenantId: string,
+    id: string,
+    access?: MvpAssessmentReadAccess
+  ): AssignmentSubmission {
+    const submission = this.getById(this.state.assignmentSubmissions, tenantId, id);
+    this.assertAssessmentReadAllowedForLearner(tenantId, submission.learnerId, access);
+    return submission;
   }
   createAssignmentSubmission(
     tenantId: string,
@@ -1958,6 +2032,10 @@ export class MvpService {
     request: CreateAssignmentSubmissionRequest,
     _context: RequestContext
   ): AssignmentSubmission {
+    const claimedLearner = request.learnerId?.trim();
+    if (!claimedLearner) {
+      throw new BadRequestException({ code: 'validation_error', message: 'learnerId is required' });
+    }
     const assignment = this.getById(this.state.assignments, tenantId, request.assignmentId);
     const enrollment = this.getById(this.state.enrollments, tenantId, request.enrollmentId);
     const hasGroupCourseAccess = this.state.groupCourses.some(
@@ -1972,6 +2050,9 @@ export class MvpService {
         message: 'Enrollment is not linked to the assignment course'
       });
     }
+    this.ensureClaimedLearnerMatchesEnrollment(enrollment.learnerId, claimedLearner);
+    this.assertActorMatchesLearnerIamLink(tenantId, actorId, enrollment.learnerId);
+
     const submission: AssignmentSubmission = {
       id: this.id('subm'),
       tenantId,
@@ -1995,6 +2076,9 @@ export class MvpService {
     _context: RequestContext
   ): AssignmentSubmission {
     const current = this.getById(this.state.assignmentSubmissions, tenantId, id);
+    const enrollment = this.getById(this.state.enrollments, tenantId, current.enrollmentId);
+    this.assertActorMatchesLearnerIamLink(tenantId, actorId, enrollment.learnerId);
+
     if (['submitted', 'under_review', 'reviewed', 'rejected'].includes(current.status))
       throw new PreconditionFailedException({
         code: 'submission_terminal',
@@ -2010,6 +2094,9 @@ export class MvpService {
     context: RequestContext
   ): AssignmentSubmission {
     const current = this.getById(this.state.assignmentSubmissions, tenantId, id);
+    const enrollment = this.getById(this.state.enrollments, tenantId, current.enrollmentId);
+    this.assertActorMatchesLearnerIamLink(tenantId, actorId, enrollment.learnerId);
+
     if (['submitted', 'under_review', 'reviewed'].includes(current.status)) return current;
     current.status = 'submitted';
     current.submittedAt = this.now();
@@ -2341,6 +2428,75 @@ export class MvpService {
     const n = Math.floor(Number(value));
     if (n < 1) return undefined;
     return Math.min(n, 3650);
+  }
+
+  private learnerIdsBoundToIamActor(
+    tenantId: string,
+    actorId: string | undefined
+  ): string[] | null {
+    if (!actorId) return null;
+    const ids = this.state.learners
+      .filter((l) => l.tenantId === tenantId && l.linkedIamUserId === actorId)
+      .map((l) => l.id);
+    return ids.length > 0 ? ids : null;
+  }
+
+  private hasAssessmentReadBypass(access: MvpAssessmentReadAccess | undefined): boolean {
+    return !!access?.permissions?.includes(ASSESSMENT_READ_CROSS_LEARNER_PERMISSION);
+  }
+
+  /** Ограничение list-эндпойнтов строками слушателя, привязанного к JWT (кроме админских ролей). */
+  private restrictLearnerIdsForAssessmentList(
+    tenantId: string,
+    access: MvpAssessmentReadAccess | undefined
+  ): string[] | null {
+    if (!access?.actorId) return null;
+    const bound = this.learnerIdsBoundToIamActor(tenantId, access.actorId);
+    if (!bound) return null;
+    if (this.hasAssessmentReadBypass(access)) return null;
+    return bound;
+  }
+
+  /** GET по сущности слушателя с linkedIamUserId: свой JWT или bypass-роль. */
+  private assertAssessmentReadAllowedForLearner(
+    tenantId: string,
+    learnerId: string,
+    access: MvpAssessmentReadAccess | undefined
+  ): void {
+    if (!access?.actorId) return;
+    if (this.hasAssessmentReadBypass(access)) return;
+    this.assertActorMatchesLearnerIamLink(tenantId, access.actorId, learnerId);
+  }
+
+  /**
+   * Когда слушатель привязан к IAM-пользователю, мутации в его контексте недоступны другим пользователям
+   * (соответствие anti-IDOR для прогресса, субмиссий и попытек).
+   */
+  private assertActorMatchesLearnerIamLink(
+    tenantId: string,
+    actorId: string | undefined,
+    learnerId: string
+  ): void {
+    const learner = this.getById(this.state.learners, tenantId, learnerId);
+    if (!learner.linkedIamUserId) return;
+    if (!actorId || actorId !== learner.linkedIamUserId) {
+      throw new ForbiddenException({
+        code: 'forbidden',
+        message: 'Access denied for this learner enrollment or attempt context'
+      });
+    }
+  }
+
+  private ensureClaimedLearnerMatchesEnrollment(
+    enrollmentLearnerId: string,
+    claimedLearnerId: string
+  ): void {
+    if (claimedLearnerId !== enrollmentLearnerId) {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'learnerId does not match enrollment learner'
+      });
+    }
   }
 
   private validateAssignmentReviewScore(

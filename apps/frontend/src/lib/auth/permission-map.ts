@@ -25,7 +25,8 @@ export const rolePermissionMap: Record<string, string[]> = {
     'assessment.assignments.read',
     'assessment.assignments.write',
     'assessment.submissions.submit',
-    'assessment.reviews.review'
+    'assessment.reviews.review',
+    'assessment.read.cross_learner'
   ],
   tenant_admin: [
     'auth.manage_sessions',
@@ -39,12 +40,49 @@ export const rolePermissionMap: Record<string, string[]> = {
     'enrollments.read',
     'assessment.tests.read',
     'assessment.results.read',
-    'assessment.assignments.read'
+    'assessment.assignments.read',
+    'assessment.read.cross_learner'
   ],
-  manager: ['users.read', 'tenant.read', 'counterparties.read', 'directions.read', 'courses.read', 'groups.read', 'enrollments.read', 'assessment.tests.read', 'assessment.results.read', 'assessment.assignments.read', 'assessment.reviews.review'],
-  methodist: ['users.read', 'tenant.read', 'directions.read', 'courses.read', 'groups.read', 'assessment.question_banks.read', 'assessment.question_banks.write', 'assessment.questions.read', 'assessment.questions.write', 'assessment.tests.read', 'assessment.tests.write', 'assessment.tests.publish', 'assessment.assignments.read', 'assessment.assignments.write'],
-  learner: ['enrollments.read', 'assessment.attempts.take', 'assessment.submissions.submit', 'assessment.results.read', 'assessment.assignments.read']
+  manager: [
+    'users.read',
+    'tenant.read',
+    'counterparties.read',
+    'directions.read',
+    'courses.read',
+    'groups.read',
+    'enrollments.read',
+    'assessment.tests.read',
+    'assessment.results.read',
+    'assessment.assignments.read',
+    'assessment.reviews.review',
+    'assessment.read.cross_learner'
+  ],
+  methodist: [
+    'users.read',
+    'tenant.read',
+    'directions.read',
+    'courses.read',
+    'groups.read',
+    'assessment.question_banks.read',
+    'assessment.question_banks.write',
+    'assessment.questions.read',
+    'assessment.questions.write',
+    'assessment.tests.read',
+    'assessment.tests.write',
+    'assessment.tests.publish',
+    'assessment.assignments.read',
+    'assessment.assignments.write',
+    'assessment.read.cross_learner'
+  ],
+  learner: [
+    'enrollments.read',
+    'assessment.attempts.take',
+    'assessment.submissions.submit',
+    'assessment.results.read',
+    'assessment.assignments.read'
+  ]
 };
 
-export const resolveRolePermissions = (roleCodes: string[]): string[] =>
-  [...new Set(roleCodes.flatMap((roleCode) => rolePermissionMap[roleCode] ?? []))];
+export const resolveRolePermissions = (roleCodes: string[]): string[] => [
+  ...new Set(roleCodes.flatMap((roleCode) => rolePermissionMap[roleCode] ?? []))
+];

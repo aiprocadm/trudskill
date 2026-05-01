@@ -23,7 +23,7 @@ export class MvpRequestPersistenceInterceptor implements NestInterceptor {
     @Inject(MVP_STATE) private readonly state: InMemoryMvpState,
     @Inject(MetricsService) private readonly metrics: MetricsService,
     @Inject(MVP_PERSISTENCE_BACKEND) private readonly persistence: MvpPersistenceBackend,
-    private readonly tenantGateway: TenantSerialGateway
+    @Inject(TenantSerialGateway) private readonly tenantGateway: TenantSerialGateway
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {

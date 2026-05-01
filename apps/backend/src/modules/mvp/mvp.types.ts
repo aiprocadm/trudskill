@@ -19,6 +19,8 @@ export interface Learner extends BaseEntity {
   firstName: string;
   lastName: string;
   email?: string;
+  /** Если задан — мутации прогресса/субмиссий/попыток в контексте этого слушателя разрешены только этому IAM-пользователю (антивор IDOR). */
+  linkedIamUserId?: string;
 }
 
 export interface Direction extends BaseEntity {
