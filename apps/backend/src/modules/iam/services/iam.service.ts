@@ -88,6 +88,12 @@ export class IamService {
       id: 'p_assessment_read_cross_learner',
       code: 'assessment.read.cross_learner',
       description: 'Read assessment rows for any learner (bypass IAM-linked row scope on GET/list)'
+    },
+    {
+      id: 'p_learners_act_as',
+      code: 'learners.act_as',
+      description:
+        'Mutate learner-linked progress/submissions/attempts on behalf of delegated staff'
     }
   ];
 

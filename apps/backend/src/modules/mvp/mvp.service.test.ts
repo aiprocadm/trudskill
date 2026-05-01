@@ -12,6 +12,7 @@ import { MvpService } from './mvp.service.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 import { AuditService } from '../audit/audit.service.js';
 
+import type { RequestContext } from '../../common/context/request-context.js';
 import type { FilesService } from '../files/files.service.js';
 
 const noopFilesService = {
@@ -888,6 +889,61 @@ describe('mvp service domain rules', () => {
       }
     );
     expect(bypass.total).toBe(2);
+  });
+
+  it('allows assignment submission for linked learner when actor has learners.act_as', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopFilesService,
+      testEmitter
+    );
+    const actAsCtx = { ...ctx, permissions: ['learners.act_as'] } as RequestContext;
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'CACT', title: 'ActAs Course' },
+      ctx
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'GACT', name: 'G act' },
+      ctx
+    );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'LACT', name: 'Linked', linkedIamUserId: 'u_alice_only' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const assignment = service.createAssignment(
+      'tenant_demo',
+      ctx.userId,
+      { courseId: course.id, title: 'HW', maxScore: 10 },
+      ctx
+    );
+
+    const sub = service.createAssignmentSubmission(
+      'tenant_demo',
+      'u_teacher_delegate',
+      {
+        assignmentId: assignment.id,
+        enrollmentId: enrollment.id,
+        learnerId: learner.id,
+        answerText: 'teacher filed'
+      },
+      actAsCtx
+    );
+    expect(sub.learnerId).toBe(learner.id);
   });
 
   it('rejects review creation for draft submission and duplicate review creation', () => {

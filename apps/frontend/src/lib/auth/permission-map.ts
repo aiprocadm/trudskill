@@ -26,7 +26,8 @@ export const rolePermissionMap: Record<string, string[]> = {
     'assessment.assignments.write',
     'assessment.submissions.submit',
     'assessment.reviews.review',
-    'assessment.read.cross_learner'
+    'assessment.read.cross_learner',
+    'learners.act_as'
   ],
   tenant_admin: [
     'auth.manage_sessions',
@@ -41,7 +42,8 @@ export const rolePermissionMap: Record<string, string[]> = {
     'assessment.tests.read',
     'assessment.results.read',
     'assessment.assignments.read',
-    'assessment.read.cross_learner'
+    'assessment.read.cross_learner',
+    'learners.act_as'
   ],
   manager: [
     'users.read',
@@ -55,7 +57,8 @@ export const rolePermissionMap: Record<string, string[]> = {
     'assessment.results.read',
     'assessment.assignments.read',
     'assessment.reviews.review',
-    'assessment.read.cross_learner'
+    'assessment.read.cross_learner',
+    'learners.act_as'
   ],
   methodist: [
     'users.read',
@@ -72,7 +75,8 @@ export const rolePermissionMap: Record<string, string[]> = {
     'assessment.tests.publish',
     'assessment.assignments.read',
     'assessment.assignments.write',
-    'assessment.read.cross_learner'
+    'assessment.read.cross_learner',
+    'learners.act_as'
   ],
   learner: [
     'enrollments.read',

@@ -104,6 +104,8 @@ const DEFAULT_GROUP_COURSE_DURATION_DAYS = 90;
 
 /** Обход ограничения linkedIam/list-scope для GET/list assessment — только через IAM permission. */
 const ASSESSMENT_READ_CROSS_LEARNER_PERMISSION = 'assessment.read.cross_learner';
+/** Делегирование: мутации прогресса/субмиссий/попыток для слушателя с linkedIamUserId от имени преподавателя/L&D. */
+const LEARNERS_ACT_AS_PERMISSION = 'learners.act_as';
 
 @Injectable()
 export class MvpService {
@@ -928,7 +930,12 @@ export class MvpService {
       });
     }
 
-    this.assertActorMatchesLearnerIamLink(tenantId, actorId, enrollment.learnerId);
+    this.assertActorMatchesLearnerIamLink(
+      tenantId,
+      actorId,
+      enrollment.learnerId,
+      context.permissions
+    );
 
     if (request.studiedSeconds < 0) {
       throw new BadRequestException({
@@ -1568,7 +1575,12 @@ export class MvpService {
       throw new BadRequestException({ code: 'validation_error', message: 'learnerId is required' });
     }
     this.ensureClaimedLearnerMatchesEnrollment(enrollment.learnerId, claimedLearner);
-    this.assertActorMatchesLearnerIamLink(tenantId, actorId, enrollment.learnerId);
+    this.assertActorMatchesLearnerIamLink(
+      tenantId,
+      actorId,
+      enrollment.learnerId,
+      context.permissions
+    );
 
     const learnerId = enrollment.learnerId;
     const now = new Date(this.now());
@@ -1638,7 +1650,12 @@ export class MvpService {
     context: RequestContext
   ): AttemptAnswer {
     const attempt = this.getById(this.state.attempts, tenantId, attemptId);
-    this.assertActorMatchesLearnerIamLink(tenantId, actorId, attempt.learnerId);
+    this.assertActorMatchesLearnerIamLink(
+      tenantId,
+      actorId,
+      attempt.learnerId,
+      context.permissions
+    );
 
     if (!['draft', 'in_progress'].includes(attempt.status))
       throw new PreconditionFailedException({
@@ -1732,7 +1749,12 @@ export class MvpService {
     context: RequestContext
   ): TestAttempt {
     const attempt = this.getById(this.state.attempts, tenantId, attemptId);
-    this.assertActorMatchesLearnerIamLink(tenantId, actorId, attempt.learnerId);
+    this.assertActorMatchesLearnerIamLink(
+      tenantId,
+      actorId,
+      attempt.learnerId,
+      context.permissions
+    );
 
     if (['submitted', 'finished', 'expired', 'invalidated'].includes(attempt.status))
       return attempt;
@@ -2030,7 +2052,7 @@ export class MvpService {
     tenantId: string,
     actorId: string | undefined,
     request: CreateAssignmentSubmissionRequest,
-    _context: RequestContext
+    context: RequestContext
   ): AssignmentSubmission {
     const claimedLearner = request.learnerId?.trim();
     if (!claimedLearner) {
@@ -2051,7 +2073,12 @@ export class MvpService {
       });
     }
     this.ensureClaimedLearnerMatchesEnrollment(enrollment.learnerId, claimedLearner);
-    this.assertActorMatchesLearnerIamLink(tenantId, actorId, enrollment.learnerId);
+    this.assertActorMatchesLearnerIamLink(
+      tenantId,
+      actorId,
+      enrollment.learnerId,
+      context.permissions
+    );
 
     const submission: AssignmentSubmission = {
       id: this.id('subm'),
@@ -2073,11 +2100,16 @@ export class MvpService {
     actorId: string | undefined,
     id: string,
     request: UpdateAssignmentSubmissionRequest,
-    _context: RequestContext
+    context: RequestContext
   ): AssignmentSubmission {
     const current = this.getById(this.state.assignmentSubmissions, tenantId, id);
     const enrollment = this.getById(this.state.enrollments, tenantId, current.enrollmentId);
-    this.assertActorMatchesLearnerIamLink(tenantId, actorId, enrollment.learnerId);
+    this.assertActorMatchesLearnerIamLink(
+      tenantId,
+      actorId,
+      enrollment.learnerId,
+      context.permissions
+    );
 
     if (['submitted', 'under_review', 'reviewed', 'rejected'].includes(current.status))
       throw new PreconditionFailedException({
@@ -2095,7 +2127,12 @@ export class MvpService {
   ): AssignmentSubmission {
     const current = this.getById(this.state.assignmentSubmissions, tenantId, id);
     const enrollment = this.getById(this.state.enrollments, tenantId, current.enrollmentId);
-    this.assertActorMatchesLearnerIamLink(tenantId, actorId, enrollment.learnerId);
+    this.assertActorMatchesLearnerIamLink(
+      tenantId,
+      actorId,
+      enrollment.learnerId,
+      context.permissions
+    );
 
     if (['submitted', 'under_review', 'reviewed'].includes(current.status)) return current;
     current.status = 'submitted';
@@ -2442,7 +2479,11 @@ export class MvpService {
   }
 
   private hasAssessmentReadBypass(access: MvpAssessmentReadAccess | undefined): boolean {
-    return !!access?.permissions?.includes(ASSESSMENT_READ_CROSS_LEARNER_PERMISSION);
+    const p = access?.permissions;
+    if (!p?.length) return false;
+    return (
+      p.includes(ASSESSMENT_READ_CROSS_LEARNER_PERMISSION) || p.includes(LEARNERS_ACT_AS_PERMISSION)
+    );
   }
 
   /** Ограничение list-эндпойнтов строками слушателя, привязанного к JWT (кроме админских ролей). */
@@ -2465,20 +2506,22 @@ export class MvpService {
   ): void {
     if (!access?.actorId) return;
     if (this.hasAssessmentReadBypass(access)) return;
-    this.assertActorMatchesLearnerIamLink(tenantId, access.actorId, learnerId);
+    this.assertActorMatchesLearnerIamLink(tenantId, access.actorId, learnerId, access.permissions);
   }
 
   /**
    * Когда слушатель привязан к IAM-пользователю, мутации в его контексте недоступны другим пользователям
-   * (соответствие anti-IDOR для прогресса, субмиссий и попытек).
+   * (соответствие anti-IDOR для прогресса, субмиссий и попытек). Исключение: право `learners.act_as`.
    */
   private assertActorMatchesLearnerIamLink(
     tenantId: string,
     actorId: string | undefined,
-    learnerId: string
+    learnerId: string,
+    permissions?: string[]
   ): void {
     const learner = this.getById(this.state.learners, tenantId, learnerId);
     if (!learner.linkedIamUserId) return;
+    if (permissions?.includes(LEARNERS_ACT_AS_PERMISSION)) return;
     if (!actorId || actorId !== learner.linkedIamUserId) {
       throw new ForbiddenException({
         code: 'forbidden',

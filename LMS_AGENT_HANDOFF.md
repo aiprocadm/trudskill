@@ -299,7 +299,22 @@
 - Notes:
   - Сервисные вызовы без `access` ведут себя как раньше на уровне домена (нет дополнительного gate).
   - HTTP integration: `assessment.read.cross_learner` выдаётся только для `sub=u_domain_http_actor`, не для токенов «студентов» в IDOR-сценарии.
-  - Делегирование «действовать за слушателя» на **мутациях** — отдельная задача (§13 Issue 1).
+  - **`learners.act_as`** расширяет обход сужения **чтения** так же как `cross_learner`; см. §5.16.
+
+### 5.16 Делегирование мутаций: `learners.act_as`
+
+- Summary: IAM permission **`learners.act_as`** (миграция **`0026_…`**) снимает проверку «`JWT.sub` = `linkedIamUserId`» для мутаций: **`upsertMaterialProgress`**, **`startAttempt`**, **`saveAnswer`/attempt answers**, **`submitAttempt`**, **`createAssignmentSubmission`**, **`updateAssignmentSubmission`**, **`submitAssignmentSubmission`**. Доменные инварианты (`learnerId` vs enrollment, `group_courses`) сохраняются. В HTTP permissions приходят из **`PermissionGuard`** → **`context.permissions`**.
+- Files changed:
+  - `apps/backend/migrations/0026_learners_act_as_permission.sql`
+  - `apps/backend/src/modules/iam/services/iam.service.ts` (fallback permission)
+  - `apps/backend/src/modules/mvp/mvp.service.ts`
+  - `apps/backend/src/modules/mvp/mvp.service.test.ts`
+  - `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts` (staff sub + право в mock)
+  - `apps/frontend/src/lib/auth/permission-map.ts` (+ tests)
+  - `LMS_AGENT_HANDOFF.md`
+- Notes:
+  - Отдельный аудит-событий «delegated by …» пока не пишется (§13 Issue 1 — усиление прослеживаемости).
+  - HTTP suite: **`learners.act_as`** добавляется в mock только вместе с staff `sub` (`u_domain_http_actor`).
 
 ## 6. Files Changed
 
@@ -323,12 +338,14 @@
 | `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`                  | modified           | mock `resolvePermissions` по `userId`; cross_learner только staff sub                                                          |
 | `apps/backend/src/modules/iam/permission.guard.ts`                                   | modified           | `requestContext.permissions := resolved`                                                                                       |
 | `apps/backend/migrations/0025_assessment_read_cross_learner_permission.sql`          | created            | Permission + role_permissions для staff ролей                                                                                  |
-| `apps/frontend/src/lib/auth/permission-map.ts`                                       | modified           | Staff-роли: `assessment.read.cross_learner`                                                                                    |
+| `apps/frontend/src/lib/auth/permission-map.ts`                                       | modified           | Staff: `assessment.read.cross_learner`, `learners.act_as`                                                                      |
+| `apps/backend/migrations/0026_learners_act_as_permission.sql`                        | created            | `learners.act_as` + staff `role_permissions`                                                                                   |
 
 ## 7. Database / Schema / Migration Changes
 
-- Добавлена миграция **`0025_assessment_read_cross_learner_permission.sql`**: permission `assessment.read.cross_learner` и привязка к ролям `platform_admin`, `tenant_admin`, `manager`, `methodist` в `tenant_demo`.
-- На существующих БД применить прогон миграций; иначе staff без новой строки в `role_permissions` не получит полный read-scope по чужим слушателям при `linkedIamUserId`.
+- **`0025`**: `assessment.read.cross_learner` — см. §5.15.
+- **`0026`**: `learners.act_as` и привязка к тем же staff-ролям в `tenant_demo`.
+- Прогон миграций обязателен для выдачи прав в PostgreSQL.
 
 ## 8. API Changes
 
@@ -354,8 +371,8 @@
   - `POST /assignment-reviews/:id/complete`:
   - повторный complete отклоняется (`domain_rule_violation`, HTTP 412);
   - complete разрешён только для `in_review`.
-  - Если у слушателя задан **`linkedIamUserId`**, мутации **прогресса / черновых субмиссий / сабмита субмиссии / ответов в попытке / сабмита попытки** от другого `JWT.sub` возвращают **`403`** `forbidden`.
-  - Если у слушателя задан **`linkedIamUserId`**, **чтение** связанных сущностей (в т.ч. `GET assignment-submissions/:id`, `GET attempts/:id`, `GET attempts/:id/result`, `GET exam-results` / `.../by-enrollment/...`) от другого **`JWT.sub`** — **`403`** `forbidden`. Списки **`GET attempts`**, **`GET assignment-submissions`**, **`GET exam-results`** для пользователя с привязкой к профилю слушателя ограничены строками этого слушателя; **исключение (только чтение):** IAM permission **`assessment.read.cross_learner`** (см. миграцию `0025`).
+  - Если у слушателя задан **`linkedIamUserId`**, мутации **прогресса / черновых субмиссий / сабмита субмиссии / ответов в попытке / сабмита попытки** от другого **`JWT.sub`** возвращают **`403`** `forbidden`, **если у актора нет** **`learners.act_as`** (миграция `0026`; иначе — разрешено при сохранении `learnerId`/enrollment/group-course).
+  - **Чтение** при **`linkedIamUserId`**: обход только с **`assessment.read.cross_learner`** или **`learners.act_as`** (списки/GET assessment — см. §5.15–5.16).
 
 | Method | Path                               | Change                                                                                       | Auth Required | Roles                           |
 | ------ | ---------------------------------- | -------------------------------------------------------------------------------------------- | ------------- | ------------------------------- |
@@ -368,7 +385,7 @@
 
 ## 9. Frontend / UI Changes
 
-- Frontend-код не менялся.
+- **`permission-map`** (dev/эвристика ролей): staff-роли дополнены **`learners.act_as`** для согласованности с backend seed.
 - В рамках `ci:check` подтверждён успешный `next build`.
 - Ролевые UI решения и маршруты не изменялись.
 
@@ -438,6 +455,7 @@
 | `pnpm -s ci:check` (после 5.13)                                                                                                                                           | passed | Полный monorepo quality gate зелёный (~74s)                                                                |
 | `pnpm --filter @cdoprof/backend test && pnpm -s ci:check` (после 5.14 анти-IDOR)                                                                                          | passed | 193 тестов; включая расширенный `mvp.domains.http.integration`                                             |
 | `pnpm --filter @cdoprof/backend test && pnpm -s ci:check` (после 5.15 read/list IDOR)                                                                                     | passed | 193 тестов; `mvp.domains.http` + unit read-scope                                                           |
+| `pnpm --filter @cdoprof/backend test` (после 5.16 `learners.act_as`)                                                                                                      | passed | 195 тестов (+ unit + HTTP act-as delegation)                                                               |
 
 ## 13. Known Issues
 
@@ -449,13 +467,13 @@
 - Evidence: `<<<ВСТАВИТЬ СЮДА СУЩЕСТВУЮЩЕЕ ТЗ ДЛЯ СДО ПРОФ>>>`.
 - Suggested fix: предоставить полный исходный текст ТЗ для точной трассировки «взято/изменено/добавлено» без допущений.
 
-### Issue 1: Делегирование «за слушателя» на мутациях
+### Issue 1: Аудит и трассируемость `learners.act_as`
 
-- Severity: medium
-- Area: backend/auth/product
-- Description: обход сужения **чтения** вынесен в **`assessment.read.cross_learner`** (§5.15 + миграция 0025). **Мутации** прогресса/субмиссий/попыток по-прежнему без impersonation: чужой JWT vs `linkedIamUserId` → **403**. Нужен контракт **`learners.act_as`** / delegation для сценариев «преподаватель сдаёт за слушателя». Субъекты без `linkedIamUserId` — как раньше по RBAC.
-- Evidence: `mvp.service.ts` (`assertActorMatchesLearnerIamLink` на мутациях).
-- Suggested fix: отдельное permission + аудит на delegation; опционально заголовок/claim с целевым `learnerId`.
+- Severity: low
+- Area: backend/audit
+- Description: право **`learners.act_as`** реализовано (§5.16); мутации логируются существующим **`audit`** с **`actorId` = JWT sub**, но отдельного флага/поля «выполнено от имени слушателя …» нет.
+- Evidence: отсутствие `delegatedLearnerId` в audit payloads по сравнению с требованиями аудита ТЗ §6 для критичных действий.
+- Suggested fix: расширить audit metadata при срабатывании bypass или ввести обязательный claim/заголовок с явным целевым `learnerId` для replay-расследований.
 
 ### Issue 2: Длительные backend integration тесты при ограниченных ресурсах CI
 
@@ -483,10 +501,10 @@
 
 ### High
 
-1. Delegation / **`learners.act_as`** для **мутаций** в контексте чужого `linkedIamUserId` (преподаватель/L&D).
-2. По желанию: HTTP-негативы на **`GET attempts/:id`** / **`exam-results`** для второго JWT (аналог §5.15 submissions).
-3. Проверить согласованность backend authz и frontend role-based скрытия действий в ключевых LMS экранах.
-4. Долгосрочно: ввести class-validator DTO для критичных MVP POST/PATCH и вернуть безопасный `whitelist: true` на проде без обнуления body.
+1. Аудитируемое делегирование: явная метка в audit при **`learners.act_as`** (§13 Issue 1).
+2. По желанию: HTTP-негативы **`GET attempts/:id`** / **`exam-results`** для второго JWT.
+3. Согласованность LMS UI и фактических IAM permissions после расширения staff-прав.
+4. Class-validator для критичных MVP POST/PATCH + **`whitelist: true`** на проде.
 
 ### Medium
 
@@ -500,12 +518,12 @@
 
 ## 15. Suggested Next Agent Prompt
 
-«По `SDOPROF_TZ_FINAL.md`: **мутационное** delegation (`learners.act_as` / audited impersonation). Синхронизируй клиент/`api-contracts` с `learnerId` на submissions/attempts. Class-validator + `whitelist: true` для критичных MVP body на проде. Прогоны тестов и `ci:check`, обнови `LMS_AGENT_HANDOFF.md`.»
+«По `SDOPROF_TZ_FINAL.md`: аудит **`learners.act_as`** в `AuditService`; синхронизация **`api-contracts`/клиента** (`learnerId`, новые коды прав). Class-validator + `whitelist: true` для критичных MVP body. Прогоны и `ci:check`, обнови `LMS_AGENT_HANDOFF.md`.»
 
 ## 16. Important Context / Assumptions
 
 - Проект стабильно собирается и тестируется в текущем локальном окружении (`pnpm` monorepo).
-- Ролевая модель и permission naming не менялись.
+- В IAM добавлены permissions **`assessment.read.cross_learner`** (0025), **`learners.act_as`** (0026); staff-роли в seed получают их автоматически после миграций.
 - Изменения затронули `mvp` security (linkedIamUserId / learnerId consistency) и расширенный HTTP regression suite.
 - Для ветки подготовки ТЗ использован контекст репозитория (`README.md`, `LMS_AGENT_HANDOFF.md`, структура модулей), так как исходное ТЗ в сессии не предоставлено.
 - `ci:check` используется как основной индикатор готовности итерации.
