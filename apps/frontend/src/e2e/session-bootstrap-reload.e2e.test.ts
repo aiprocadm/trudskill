@@ -81,6 +81,33 @@ describe('session bootstrap after hard reload (e2e logic)', () => {
     expect(session?.permissions).toContain('iam.manage_roles');
   });
 
+  it('clears in-memory access token and persisted session on logout', async () => {
+    authApiMock.login.mockResolvedValue({ accessToken: 'a1', sessionId: 's1', expiresIn: 20 });
+    authApiMock.me.mockResolvedValue({
+      id: 'u_tenant_admin',
+      tenantId: 'tenant_demo',
+      login: 'tenant_admin',
+      email: null,
+      status: 'active',
+      displayName: 'Tenant Admin'
+    });
+    authApiMock.userRoles.mockResolvedValue([{ code: 'tenant_admin' }]);
+    authApiMock.logout.mockResolvedValue({ success: true });
+
+    await sessionManager.login('tenant_admin', 'password');
+
+    const beforeLogout = window.localStorage.getItem(KEY);
+    expect(beforeLogout).toBeTruthy();
+    expect(beforeLogout).not.toContain('accessToken');
+    expect(beforeLogout).not.toContain('refreshToken');
+
+    await sessionManager.logout();
+
+    expect(sessionManager.getCurrentSession()).toBeNull();
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+    expect(authApiMock.logout).toHaveBeenCalledTimes(1);
+  });
+
   it('predictably logs out when refresh cannot restore a reloaded session', async () => {
     window.localStorage.setItem(
       KEY,
