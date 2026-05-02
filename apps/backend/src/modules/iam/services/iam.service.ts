@@ -5,6 +5,7 @@ import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common'
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 import { AuditService } from '../../audit/audit.service.js';
 import { hashPassword } from '../crypto.util.js';
+import { toUserResponse } from '../iam-response.mapper.js';
 
 import type { Permission, Role, User, UserPublicDto } from '../iam.types.js';
 
@@ -648,14 +649,7 @@ export class IamService {
   }
 
   toPublicUser(user: User): UserPublicDto {
-    return {
-      id: user.id,
-      tenantId: user.tenantId,
-      login: user.login,
-      email: user.email,
-      status: user.status,
-      displayName: user.displayName
-    };
+    return toUserResponse(user);
   }
 
   toPublicUsers(users: User[]): UserPublicDto[] {

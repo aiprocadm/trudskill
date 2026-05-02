@@ -1,3 +1,5 @@
+import type { SessionResponseContract, UserResponseContract } from '@cdoprof/api-contracts';
+
 export type UserStatus = 'active' | 'blocked';
 
 export interface User {
@@ -10,14 +12,7 @@ export interface User {
   displayName: string;
 }
 
-export interface UserPublicDto {
-  id: string;
-  tenantId: string;
-  login: string;
-  email: string | null;
-  status: UserStatus;
-  displayName: string;
-}
+export type UserPublicDto = UserResponseContract;
 
 export interface Role {
   id: string;
@@ -47,13 +42,7 @@ export interface Session {
   revokeReason?: string;
 }
 
-export interface SessionPublicDto {
-  id: string;
-  tenantId: string;
-  userId: string;
-  expiresAt: string;
-  revokedAt?: string;
-}
+export type SessionPublicDto = SessionResponseContract;
 
 export interface AuthEvent {
   id: string;

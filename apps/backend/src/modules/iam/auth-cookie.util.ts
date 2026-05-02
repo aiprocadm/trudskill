@@ -1,17 +1,7 @@
+import { toAuthResponse } from './iam-response.mapper.js';
 import { backendEnv } from '../../env.js';
 
-interface AuthTokensContract {
-  accessToken: string;
-  sessionId: string;
-  expiresIn: number;
-  claims?: {
-    tenant_id: string;
-    role_codes: string[];
-    permission_codes: string[];
-    session_id: string;
-  };
-  csrfToken?: string;
-}
+import type { AuthTokensContract } from '@cdoprof/api-contracts';
 
 const REFRESH_COOKIE_NAME = 'cdoprof_refresh_token';
 const CSRF_COOKIE_NAME = 'cdoprof_csrf_token';
@@ -130,7 +120,6 @@ export const authCookie = {
     return readCookie(headers, CSRF_COOKIE_NAME);
   },
   toPublicTokens(tokens: AuthTokensContract & { refreshToken?: string }): AuthTokensContract {
-    const { accessToken, sessionId, expiresIn, claims } = tokens;
-    return { accessToken, sessionId, expiresIn, claims };
+    return toAuthResponse(tokens);
   }
 };

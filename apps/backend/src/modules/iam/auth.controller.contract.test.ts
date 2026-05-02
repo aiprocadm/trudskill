@@ -73,6 +73,48 @@ describe('AuthController public user contract', () => {
     `);
   }, 15_000);
 
+  it('does not leak refresh/session internals in /auth/sessions', async () => {
+    const controller = await makeController();
+
+    const sessions = await controller.sessions(context);
+
+    for (const session of sessions) {
+      expect(session).not.toHaveProperty('refreshTokenHash');
+      expect(session).not.toHaveProperty('csrfTokenHash');
+      expect(session).not.toHaveProperty('jti');
+      expect(session).not.toHaveProperty('parentJti');
+      expect(session).not.toHaveProperty('rotatedAt');
+      expect(session).not.toHaveProperty('consumedAt');
+      expect(session).not.toHaveProperty('revokeReason');
+    }
+  });
+
+  it('does not leak refresh token in auth response payload', async () => {
+    const [{ authCookie }] = await Promise.all([import('./auth-cookie.util.js')]);
+
+    const response = authCookie.toPublicTokens({
+      accessToken: 'access',
+      sessionId: 'session',
+      expiresIn: 900,
+      refreshToken: 'refresh-secret',
+      csrfToken: 'csrf-secret',
+      claims: {
+        tenant_id: 'tenant_demo',
+        role_codes: ['tenant_admin'],
+        permission_codes: ['iam.manage_roles'],
+        session_id: 'session'
+      }
+    });
+
+    expect(response).not.toHaveProperty('refreshToken');
+    expect(response).not.toHaveProperty('csrfToken');
+    expect(response).toMatchObject({
+      accessToken: 'access',
+      sessionId: 'session',
+      expiresIn: 900
+    });
+  });
+
   it('does not leak passwordHash in /users and /users/:id', async () => {
     const controller = await makeController();
 

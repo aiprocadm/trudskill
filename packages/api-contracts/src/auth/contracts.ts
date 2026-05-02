@@ -13,3 +13,20 @@ export interface AuthTokensContract {
 }
 
 export type RefreshRequestContract = Record<string, never>;
+
+export interface UserResponseContract {
+  id: string;
+  tenantId: string;
+  login: string;
+  email: string | null;
+  status: 'active' | 'blocked';
+  displayName: string;
+}
+
+export interface SessionResponseContract {
+  id: string;
+  tenantId: string;
+  userId: string;
+  expiresAt: string;
+  revokedAt?: string;
+}
