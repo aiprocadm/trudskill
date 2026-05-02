@@ -54,7 +54,8 @@ describe('TenantGuard', () => {
 
     const context = makeExecutionContext({
       authorization: `Bearer ${accessToken}`,
-      'x-tenant-id': 'tenant_demo'
+      'x-tenant-id': 'tenant_spoofed',
+      'x-user-id': 'u_spoofed'
     });
     expect(guard.canActivate(context as never)).toBe(true);
   });

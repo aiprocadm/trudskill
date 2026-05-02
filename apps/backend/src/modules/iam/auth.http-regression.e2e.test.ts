@@ -134,6 +134,49 @@ describe('IAM HTTP regressions (integration/e2e)', () => {
     expect(payload.error.code).toBe('auth_required');
   });
 
+  it('ignores spoofed identity headers when Bearer token is valid', async () => {
+    const loginResponse = await fetch(`${apiBaseUrl}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo'
+      },
+      body: JSON.stringify({ login: 'tenant_admin', password: 'Password123!' })
+    });
+    expect(loginResponse.status).toBe(201);
+    const loginPayload = (await loginResponse.json()) as {
+      data: { accessToken: string };
+    };
+
+    const response = await fetch(`${apiBaseUrl}/auth/me`, {
+      headers: {
+        authorization: `Bearer ${loginPayload.data.accessToken}`,
+        'x-tenant-id': 'tenant_spoofed',
+        'x-user-id': 'u_spoofed'
+      }
+    });
+    expect(response.status).toBe(200);
+    const envelope = (await response.json()) as {
+      data: { id: string; tenantId: string };
+    };
+    expect(envelope.data.id).toBe('u_tenant_admin');
+    expect(envelope.data.tenantId).toBe('tenant_demo');
+  });
+
+  it('returns invalid_token for malformed bearer token', async () => {
+    const response = await fetch(`${apiBaseUrl}/auth/me`, {
+      headers: {
+        authorization: 'Bearer malformed.jwt.token',
+        'x-tenant-id': 'tenant_demo',
+        'x-user-id': 'u_tenant_admin'
+      }
+    });
+
+    expect(response.status).toBe(401);
+    const payload = await parseErrorEnvelope(response);
+    expect(payload.error.code).toBe('invalid_token');
+  });
+
   it('keeps success and error envelopes compliant with API contract', async () => {
     const pingResponse = await fetch(`${apiBaseUrl}/__test/ping`);
     expect(pingResponse.status).toBe(200);
