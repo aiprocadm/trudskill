@@ -26,6 +26,7 @@ import {
   type SetUserRolesDto,
   type UpdateUserDto
 } from './dto/login.dto.js';
+import { toSessionResponse } from './iam-response.mapper.js';
 import { RequirePermissions } from './permission.decorator.js';
 import { PermissionGuard } from './permission.guard.js';
 import { AuthService } from './services/auth.service.js';
@@ -33,7 +34,6 @@ import { IamService } from './services/iam.service.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
 
-import type { Session, SessionPublicDto } from './iam.types.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 import type { Request, Response } from 'express';
 
@@ -147,7 +147,7 @@ export class AuthController {
   @Get('auth/sessions')
   async sessions(@CurrentContext() context: RequestContext) {
     const sessions = await this.authService.listSessions(context.tenantId!, context.userId!);
-    return sessions.map((session) => this.toPublicSession(session));
+    return sessions.map((session) => toSessionResponse(session));
   }
 
   @Delete('auth/sessions/:id')
@@ -248,15 +248,5 @@ export class AuthController {
       context.userId,
       context.requestId
     );
-  }
-
-  private toPublicSession(session: Session): SessionPublicDto {
-    return {
-      id: session.id,
-      tenantId: session.tenantId,
-      userId: session.userId,
-      expiresAt: session.expiresAt,
-      revokedAt: session.revokedAt
-    };
   }
 }
