@@ -28,15 +28,6 @@ export class TenantGuard implements CanActivate {
         requestContext.tenantId = claims.tenant_id;
         requestContext.sessionId = claims.session_id;
         requestContext.roles = claims.roles;
-        if (
-          requestContext.requestedTenantId &&
-          requestContext.requestedTenantId !== claims.tenant_id
-        ) {
-          throw new UnauthorizedException({
-            code: 'tenant_mismatch',
-            message: 'Tenant header does not match access token'
-          });
-        }
         return true;
       } catch (error) {
         if (error instanceof UnauthorizedException) {
