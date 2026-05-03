@@ -316,6 +316,64 @@ describe('DocumentsService', () => {
     ).toThrowError();
   });
 
+  it('listDocuments scopes by tenantId and enrollment source filters', () => {
+    const state = new InMemoryDocumentsState();
+    state.generatedDocuments.push(
+      {
+        id: 'g_ta',
+        tenantId: 'ta',
+        templateId: 'tpl',
+        templateVersionId: 'ver',
+        documentType: 'certificate',
+        name: 'A',
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'enr_1',
+        fileId: 'f_a',
+        status: 'generated',
+        isFinal: false,
+        generatedAt: '2020-01-01T00:00:00.000Z',
+        archivedAt: undefined,
+        pdfFileId: undefined,
+        documentNumber: undefined,
+        documentDate: undefined,
+        generatedBy: undefined
+      },
+      {
+        id: 'g_tb',
+        tenantId: 'tb',
+        templateId: 'tpl',
+        templateVersionId: 'ver',
+        documentType: 'certificate',
+        name: 'B',
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'enr_other',
+        fileId: 'f_b',
+        status: 'generated',
+        isFinal: false,
+        generatedAt: '2020-01-01T00:00:00.000Z',
+        archivedAt: undefined,
+        pdfFileId: undefined,
+        documentNumber: undefined,
+        documentDate: undefined,
+        generatedBy: undefined
+      }
+    );
+
+    const service = new DocumentsService(state, new AuditService(), new RealtimeEventsService());
+
+    const taAll = service.listDocuments('ta', {});
+    expect(taAll.total).toBe(1);
+
+    const bySource = service.listDocuments('ta', {
+      sourceEntityType: 'enrollment',
+      sourceEntityId: 'enr_1'
+    });
+    expect(bySource.total).toBe(1);
+    expect(bySource.items[0]!.id).toBe('g_ta');
+
+    expect(service.listDocuments('tb', {}).total).toBe(1);
+  });
+
   it('marks number reservation as failed when task fails after start', () => {
     const service = new DocumentsService(
       new InMemoryDocumentsState(),

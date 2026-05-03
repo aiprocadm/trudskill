@@ -4,23 +4,28 @@ import { DataTable, FilterBar } from '@cdoprof/ui';
 import { useMemo, useState } from 'react';
 
 import { PageContainer, PageHeader, SectionCard } from '../../src/components/state-wrappers';
+import { useAuth } from '../../src/features/auth/context';
 import {
   useAssignments,
   useCoursesList,
   useEnrollments,
   useGroupsList,
+  useKpiSnapshot,
   useLearnerCourses,
   useQuestionBanks,
   useTests
 } from '../../src/features/mvp/hooks';
-import { useAuth } from '../../src/features/auth/context';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
+
+import type { KpiFilterQuery } from '../../src/features/mvp/types';
 
 export default function ReportsPage() {
   const { session } = useAuth();
   const [status, setStatus] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [kpiCourseId, setKpiCourseId] = useState('');
+  const [kpiGroupId, setKpiGroupId] = useState('');
   const courses = useCoursesList({ page: 1, page_size: 1 });
   const groups = useGroupsList({ page: 1, page_size: 1 });
   const tests = useTests({ page: 1, page_size: 1 });
@@ -28,6 +33,13 @@ export default function ReportsPage() {
   const assignments = useAssignments({ page: 1, page_size: 1 });
   const enrollments = useEnrollments({ page: 1, page_size: 200 });
   const learnerCourses = useLearnerCourses(session?.user.id ?? '');
+  const kpiQuery: KpiFilterQuery = {
+    ...(from ? { created_from: from } : {}),
+    ...(to ? { created_to: to } : {}),
+    ...(kpiCourseId.trim() ? { course_id: kpiCourseId.trim() } : {}),
+    ...(kpiGroupId.trim() ? { group_id: kpiGroupId.trim() } : {})
+  };
+  const kpi = useKpiSnapshot(kpiQuery);
   const progressCounters = useMemo(() => {
     const items = enrollments.data?.items ?? [];
     return {
@@ -96,12 +108,52 @@ export default function ReportsPage() {
               По
               <input type="date" value={to} onChange={(event) => setTo(event.target.value)} />
             </label>
+            <label>
+              KPI: курс (id)
+              <input
+                placeholder="course_id опционально"
+                value={kpiCourseId}
+                onChange={(event) => setKpiCourseId(event.target.value)}
+              />
+            </label>
+            <label>
+              KPI: группа (id)
+              <input
+                placeholder="group_id опционально"
+                value={kpiGroupId}
+                onChange={(event) => setKpiGroupId(event.target.value)}
+              />
+            </label>
             <select value={status} onChange={(event) => setStatus(event.target.value)}>
               <option value="">Все</option>
               <option value="active">Только с данными</option>
               <option value="empty">Только пустые</option>
             </select>
           </FilterBar>
+        </SectionCard>
+        <SectionCard title="KPI обучения (BL-008)">
+          {kpi.error ? (
+            <p className="ui-text-muted">Не удалось загрузить KPI: {kpi.error}</p>
+          ) : null}
+          {kpi.loading ? <p className="ui-text-muted">Загрузка KPI…</p> : null}
+          {!kpi.loading && !kpi.error && kpi.data ? (
+            <dl className="ui-stack">
+              <div>
+                <dt>Назначения в фильтре</dt>
+                <dd>
+                  всего {kpi.data.enrollmentsTotal}, завершено {kpi.data.enrollmentsCompleted} (
+                  {(kpi.data.enrollmentCompletionRate * 100).toFixed(1)} %)
+                </dd>
+              </div>
+              <div>
+                <dt>Экзамены в фильтре</dt>
+                <dd>
+                  итогов {kpi.data.examResultsInScopeTotal}, сдано {kpi.data.examResultsPassed} (
+                  {(kpi.data.examPassRate * 100).toFixed(1)} %)
+                </dd>
+              </div>
+            </dl>
+          ) : null}
         </SectionCard>
         <SectionCard title="Операционные отчёты">
           <DataTable

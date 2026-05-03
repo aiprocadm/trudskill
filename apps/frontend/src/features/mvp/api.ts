@@ -6,15 +6,19 @@ import type {
   AssignmentSubmission,
   Attempt,
   BaseFilterQuery,
+  BulkEnrollmentsOutcome,
   Counterparty,
   Course,
   CourseModule,
   CourseVersion,
   Direction,
   Enrollment,
+  EnrollmentCertificateRow,
   ExamResult,
   Group,
   GroupCourse,
+  KpiFilterQuery,
+  KpiSnapshot,
   Learner,
   ListResponse,
   Material,
@@ -195,6 +199,22 @@ export const mvpApi = {
     apiRequest<ListResponse<Enrollment>>(`/enrollments${queryString(query)}`, withAuth(session)),
   createEnrollment: (session: UserSession, payload: { groupId: string; learnerId: string }) =>
     apiRequest<Enrollment>('/enrollments', { method: 'POST', body: payload, ...withAuth(session) }),
+  createBulkEnrollments: (
+    session: UserSession,
+    payload: { idempotencyKey: string; groupId: string; learnerIds: string[] }
+  ) =>
+    apiRequest<BulkEnrollmentsOutcome>('/enrollments/bulk', {
+      method: 'POST',
+      body: payload,
+      ...withAuth(session)
+    }),
+  getKpiSnapshot: (session: UserSession, query: KpiFilterQuery) =>
+    apiRequest<KpiSnapshot>(`/reports/kpi-snapshot${queryString(query)}`, withAuth(session)),
+  listEnrollmentCertificates: (session: UserSession, enrollmentId: string) =>
+    apiRequest<{ items: EnrollmentCertificateRow[] }>(
+      `/enrollments/${enrollmentId}/certificates`,
+      withAuth(session)
+    ),
   updateEnrollmentStatus: (session: UserSession, id: string, status: Enrollment['status']) =>
     apiRequest<Enrollment>(`/enrollments/${id}/status`, {
       method: 'PATCH',

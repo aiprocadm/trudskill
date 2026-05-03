@@ -5,6 +5,12 @@ import type {
 
 export type { BaseFilterQuery, SessionDto };
 
+/** Параметры `GET /reports/kpi-snapshot` (расширяет тип спискового фильтра). */
+export type KpiFilterQuery = BaseFilterQuery & {
+  created_from?: string;
+  created_to?: string;
+};
+
 export interface ListResponse<T> {
   items: T[];
   page: number;
@@ -196,4 +202,37 @@ export interface AssignmentReview extends BaseEntity {
   status: string;
   score?: number;
   comment?: string;
+}
+
+/** Ответ `GET /reports/kpi-snapshot` (BL-008). */
+export interface KpiSnapshot {
+  scope: {
+    courseId?: string;
+    groupId?: string;
+    enrolledFrom?: string;
+    enrolledTo?: string;
+  };
+  enrollmentsTotal: number;
+  enrollmentsCompleted: number;
+  enrollmentCompletionRate: number;
+  examResultsInScopeTotal: number;
+  examResultsPassed: number;
+  examPassRate: number;
+}
+
+/** Ответ `POST /enrollments/bulk` (BL-003). */
+export interface BulkEnrollmentsOutcome {
+  idempotencyKey: string;
+  groupId: string;
+  created: Enrollment[];
+  skippedExisting: Array<{ learnerId: string; enrollmentId: string }>;
+  errors: Array<{ learnerId: string; code: string; message: string }>;
+}
+
+export interface EnrollmentCertificateRow {
+  id: string;
+  documentType: string;
+  name: string;
+  /** Путь относительно origin backend, начинается с `/api/...` */
+  downloadUrl: string;
 }

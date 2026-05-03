@@ -6,7 +6,30 @@ import { mvpApi } from './api';
 import { pushGlobalSuccessToast } from '../../lib/toast/global-handlers';
 import { useAuth } from '../auth/context';
 
-import type { BaseFilterQuery } from './types';
+import type { BaseFilterQuery, EnrollmentCertificateRow, KpiFilterQuery } from './types';
+
+export interface EnrollmentCertsBundle {
+  enrollmentId: string;
+  items: EnrollmentCertificateRow[];
+}
+
+export const useEnrollmentCertificatesForCompleted = (enrollmentIds: string[]) => {
+  const { session } = useAuth();
+  const sortedIds = [...enrollmentIds].sort().join(',');
+  return useQuery({
+    queryKey: ['mvp', 'enrollmentCertsBulk', sortedIds],
+    enabled: Boolean(session) && enrollmentIds.length > 0,
+    queryFn: async (): Promise<EnrollmentCertsBundle[]> => {
+      const rows = await Promise.all(
+        enrollmentIds.map(async (enrollmentId) => ({
+          enrollmentId,
+          items: (await mvpApi.listEnrollmentCertificates(session!, enrollmentId)).items
+        }))
+      );
+      return rows;
+    }
+  });
+};
 
 const useMvpQuery = <T>(
   scope: string,
@@ -60,6 +83,9 @@ export const useGroupCourses = (groupId: string) =>
   useMvpQuery('groupCourses', groupId, (s) => mvpApi.listGroupCourses(s, groupId));
 export const useEnrollments = (query: BaseFilterQuery) =>
   useMvpQuery('enrollments', query, (s) => mvpApi.listEnrollments(s, query));
+
+export const useKpiSnapshot = (query: KpiFilterQuery) =>
+  useMvpQuery('kpiSnapshot', query, (s) => mvpApi.getKpiSnapshot(s, query));
 export const useLearnerCourses = (learnerId: string) => useEnrollments({ learner_id: learnerId });
 export const useLearnerCourseProgress = (courseId?: string) =>
   useMvpQuery('progress', courseId, (s) => mvpApi.listProgress(s, { course_id: courseId }));
@@ -133,6 +159,11 @@ export const useDomainMutations = () => {
       wrap((authSession) => mvpApi.createGroupCourse(authSession, payload)),
     createEnrollment: (payload: { groupId: string; learnerId: string }) =>
       wrap((authSession) => mvpApi.createEnrollment(authSession, payload)),
+    createBulkEnrollments: (payload: {
+      idempotencyKey: string;
+      groupId: string;
+      learnerIds: string[];
+    }) => wrap((authSession) => mvpApi.createBulkEnrollments(authSession, payload)),
     setUserRoles: (id: string, roleCodes: string[]) =>
       wrap((authSession) => mvpApi.setUserRoles(authSession, id, roleCodes)),
     revokeSession: (sessionId: string) =>

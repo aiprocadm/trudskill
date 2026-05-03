@@ -7,6 +7,7 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { showActAsLearnerAction, showOpenLearnerRegistryAction } from './assessment-permissions';
 import {
+  type EnrollmentCertsBundle,
   useAssignmentReviews,
   useAssignmentSubmissions,
   useAssignments,
@@ -18,6 +19,7 @@ import {
   useCoursesList,
   useDirectionsList,
   useDomainMutations,
+  useEnrollmentCertificatesForCompleted,
   useEnrollments,
   useExamResults,
   useGroup,
@@ -49,11 +51,21 @@ import {
   startMetricTimer
 } from '../../lib/analytics/ux-metrics';
 import { ApiClientError } from '../../lib/api/client';
+import { frontendEnv } from '../../lib/config/env';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 
-import type { AssignmentSubmission, Attempt, ExamResult } from './types';
+import type { AssignmentSubmission, Attempt, EnrollmentCertificateRow, ExamResult } from './types';
 import type { Column } from '@cdoprof/ui';
+
+const resolveCertificateDownloadHref = (downloadPath: string): string => {
+  try {
+    const apiRoot = new URL(frontendEnv.NEXT_PUBLIC_API_BASE_URL);
+    return `${apiRoot.origin}${downloadPath}`;
+  } catch {
+    return downloadPath;
+  }
+};
 
 const STATUS_OPTIONS = [
   'active',
@@ -1073,6 +1085,14 @@ export const LearnerCoursesScreen = () => {
   const learnerId = session?.user.id ?? '';
   const { data, loading, error } = useLearnerCourses(learnerId);
 
+  const completedEnrollmentIds = useMemo(
+    () => (data?.items ?? []).filter((e) => e.status === 'completed').map((e) => e.id),
+    [data?.items]
+  );
+
+  const certsQuery = useEnrollmentCertificatesForCompleted(completedEnrollmentIds);
+  const certLoading = certsQuery.isLoading;
+
   return (
     <PageContainer>
       <PageHeader
@@ -1099,6 +1119,42 @@ export const LearnerCoursesScreen = () => {
             message="Нет назначенных курсов"
             hint="Если вы ожидаете обучение, обратитесь к куратору или администратору учебного центра — вас ещё не зачислили в группу или курс."
           />
+        ) : null}
+      </SectionCard>
+      <SectionCard title="Сертификаты по завершённым программам">
+        {!completedEnrollmentIds.length ? (
+          <SectionEmpty message="Завершите обучение, чтобы получить выпуск документа" />
+        ) : null}
+        {certLoading ? <LoadingState message="Загрузка списка документов…" /> : null}
+        {!certLoading && completedEnrollmentIds.length ? (
+          <ul className="ui-stack">
+            {(certsQuery.data ?? []).map((row: EnrollmentCertsBundle) =>
+              row.items.length ? (
+                <li key={row.enrollmentId}>
+                  <span className="ui-text-muted">Назначение {row.enrollmentId}</span>
+                  <ul>
+                    {row.items.map((doc: EnrollmentCertificateRow) => (
+                      <li key={doc.id}>
+                        <a
+                          href={resolveCertificateDownloadHref(doc.downloadUrl)}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {doc.name}
+                        </a>{' '}
+                        ({doc.documentType})
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ) : (
+                <li key={row.enrollmentId}>
+                  Назначение {row.enrollmentId}: документов пока нет (проверьте привязку шаблона в
+                  разделе «Документы»).
+                </li>
+              )
+            )}
+          </ul>
         ) : null}
       </SectionCard>
     </PageContainer>

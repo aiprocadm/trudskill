@@ -6,6 +6,8 @@ export interface BaseFilter {
   templateId?: string;
   templateVersionId?: string;
   documentType?: string;
+  sourceEntityType?: string;
+  sourceEntityId?: string;
 }
 
 export interface CreateTemplateRequest {
@@ -13,14 +15,21 @@ export interface CreateTemplateRequest {
   templateType: string;
   description?: string;
 }
-export interface UpdateTemplateRequest { name?: string; description?: string; status?: 'active' | 'archived' }
+export interface UpdateTemplateRequest {
+  name?: string;
+  description?: string;
+  status?: 'active' | 'archived';
+}
 
 export interface CreateTemplateVersionRequest {
   templateId: string;
   fileId: string;
   variablesSchema?: Record<string, unknown>;
 }
-export interface UpdateTemplateVersionRequest { isActive?: boolean; variablesSchema?: Record<string, unknown> }
+export interface UpdateTemplateVersionRequest {
+  isActive?: boolean;
+  variablesSchema?: Record<string, unknown>;
+}
 
 export interface CreateTemplateVariableRequest {
   templateVersionId: string;
