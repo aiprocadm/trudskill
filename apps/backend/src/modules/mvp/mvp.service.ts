@@ -12,8 +12,10 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ENROLLMENT_COMPLETED_EVENT } from './enrollment-completed.event.js';
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from './infrastructure/mvp-state.token.js';
+import { backendEnv } from '../../env.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 import { AuditService } from '../audit/audit.service.js';
+import { DocumentsService } from '../documents/documents.service.js';
 import { FilesService } from '../files/files.service.js';
 
 import type {
@@ -21,6 +23,7 @@ import type {
   CreateAssignmentRequest,
   CreateAssignmentReviewRequest,
   CreateAssignmentSubmissionRequest,
+  CreateBulkEnrollmentsRequest,
   CreateCourseRequest,
   CreateEnrollmentRequest,
   CreateGroupCourseRequest,
@@ -56,6 +59,8 @@ import type {
   Attempt,
   AttemptAnswer,
   BaseEntity,
+  BulkEnrollmentItemError,
+  BulkEnrollmentsOutcome,
   Counterparty,
   Course,
   CourseModuleEntity,
@@ -68,6 +73,7 @@ import type {
   ExamResult,
   GroupCourse,
   GroupEntity,
+  KpiSnapshotDto,
   Learner,
   Material,
   MaterialProgress,
@@ -113,6 +119,7 @@ export class MvpService {
     @Inject(MVP_STATE) private readonly state: InMemoryMvpState,
     @Inject(TenantScopedRepository) private readonly tenantScopedRepository: TenantScopedRepository,
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DocumentsService) private readonly documentsService: DocumentsService,
     @Inject(FilesService) private readonly filesService: FilesService,
     @Inject(EventEmitter2) private readonly events: EventEmitter2
   ) {}
@@ -782,8 +789,100 @@ export class MvpService {
   listEnrollments(tenantId: string, query: BaseFilterQuery): ListResponse<Enrollment> {
     return this.list(this.state.enrollments, tenantId, query);
   }
+
+  getKpiSnapshot(tenantId: string, query: BaseFilterQuery): KpiSnapshotDto {
+    const courseId = query.course_id;
+    const groupId = query.group_id;
+    const enrolledFrom = query.enrolled_from ?? query.created_from;
+    let enrolledTo = query.enrolled_to ?? query.created_to;
+    if (enrolledTo && enrolledTo.length === 10 && !enrolledTo.includes('T'))
+      enrolledTo = `${enrolledTo}T23:59:59.999Z`;
+
+    const enrollmentInScope = (e: Enrollment): boolean => {
+      if (groupId && e.groupId !== groupId) return false;
+      if (courseId) {
+        const linked = this.state.groupCourses.some(
+          (gc) => gc.tenantId === tenantId && gc.groupId === e.groupId && gc.courseId === courseId
+        );
+        if (!linked) return false;
+      }
+      if (enrolledFrom && e.enrolledAt < enrolledFrom) return false;
+      if (enrolledTo && e.enrolledAt > enrolledTo) return false;
+      return true;
+    };
+
+    const scopedEnrollments = this.state.enrollments.filter(
+      (e) => e.tenantId === tenantId && enrollmentInScope(e)
+    );
+    const completed = scopedEnrollments.filter((e) => e.status === 'completed').length;
+    const total = scopedEnrollments.length;
+    const completionRate = total === 0 ? 0 : completed / total;
+
+    const examScoped = this.state.examResults.filter((er) => {
+      if (er.tenantId !== tenantId) return false;
+      const en = this.state.enrollments.find(
+        (x) => x.id === er.enrollmentId && x.tenantId === tenantId
+      );
+      if (!en || !enrollmentInScope(en)) return false;
+      if (courseId) {
+        const test = this.state.tests.find((t) => t.id === er.testId && t.tenantId === tenantId);
+        if (!test || test.courseId !== courseId) return false;
+      }
+      return true;
+    });
+    const passed = examScoped.filter((er) => er.passed).length;
+    const examTotal = examScoped.length;
+    const examPassRate = examTotal === 0 ? 0 : passed / examTotal;
+
+    return {
+      scope: {
+        courseId: courseId ?? undefined,
+        groupId: groupId ?? undefined,
+        enrolledFrom: enrolledFrom ?? undefined,
+        enrolledTo: enrolledTo ?? undefined
+      },
+      enrollmentsTotal: total,
+      enrollmentsCompleted: completed,
+      enrollmentCompletionRate: completionRate,
+      examResultsInScopeTotal: examTotal,
+      examResultsPassed: passed,
+      examPassRate
+    };
+  }
+
   getEnrollment(tenantId: string, id: string): Enrollment {
     return this.getById(this.state.enrollments, tenantId, id);
+  }
+
+  listEnrollmentCertificates(
+    tenantId: string,
+    enrollmentId: string,
+    access?: MvpAssessmentReadAccess
+  ): {
+    items: Array<{
+      id: string;
+      documentType: string;
+      name: string;
+      downloadUrl: string;
+    }>;
+  } {
+    const enrollment = this.getEnrollment(tenantId, enrollmentId);
+    this.assertAssessmentReadAllowedForLearner(tenantId, enrollment.learnerId, access);
+    const page = this.documentsService.listDocuments(tenantId, {
+      documentType: 'certificate',
+      sourceEntityType: 'enrollment',
+      sourceEntityId: enrollmentId,
+      pageSize: 200
+    });
+    const prefix = backendEnv.API_PREFIX.replace(/\/$/, '');
+    return {
+      items: page.items.map((d) => ({
+        id: d.id,
+        documentType: d.documentType,
+        name: d.name,
+        downloadUrl: `${prefix}/files/${d.fileId}/download`
+      }))
+    };
   }
 
   createEnrollment(
@@ -831,6 +930,97 @@ export class MvpService {
       context
     );
     return entity;
+  }
+
+  createBulkEnrollments(
+    tenantId: string,
+    actorId: string | undefined,
+    request: CreateBulkEnrollmentsRequest,
+    context: RequestContext
+  ): BulkEnrollmentsOutcome {
+    const duplicateIdem = this.state.bulkEnrollmentIdempotency.find(
+      (r) => r.tenantId === tenantId && r.idempotencyKey === request.idempotencyKey
+    );
+    if (duplicateIdem) {
+      return duplicateIdem.outcome;
+    }
+
+    const uniqueLearnerIds = [
+      ...new Set(request.learnerIds.map((lid) => lid.trim()).filter((id) => id.length > 0))
+    ];
+    const created: Enrollment[] = [];
+    const skippedExisting: Array<{ learnerId: string; enrollmentId: string }> = [];
+    const errors: BulkEnrollmentItemError[] = [];
+
+    for (const learnerId of uniqueLearnerIds) {
+      try {
+        const entity = this.createEnrollment(
+          tenantId,
+          actorId,
+          { groupId: request.groupId, learnerId },
+          context
+        );
+        created.push(entity);
+      } catch (err: unknown) {
+        if (err instanceof ConflictException) {
+          const dup = this.state.enrollments.find(
+            (item) =>
+              item.tenantId === tenantId &&
+              item.groupId === request.groupId &&
+              item.learnerId === learnerId
+          );
+          if (dup) skippedExisting.push({ learnerId, enrollmentId: dup.id });
+          else
+            errors.push({
+              learnerId,
+              code: 'conflict',
+              message: 'Enrollment conflict without matching existing row'
+            });
+          continue;
+        }
+        if (err instanceof NotFoundException) {
+          errors.push({
+            learnerId,
+            code: 'not_found',
+            message: err instanceof Error ? err.message : String(err)
+          });
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    const outcome: BulkEnrollmentsOutcome = {
+      idempotencyKey: request.idempotencyKey,
+      groupId: request.groupId,
+      created,
+      skippedExisting,
+      errors
+    };
+    this.state.bulkEnrollmentIdempotency.push({
+      id: this.id('bulkidem'),
+      tenantId,
+      idempotencyKey: request.idempotencyKey,
+      outcome,
+      createdAt: this.now()
+    });
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.enrollments_bulk',
+      'learning.group',
+      request.groupId,
+      undefined,
+      {
+        idempotencyKey: request.idempotencyKey,
+        requestedLearners: uniqueLearnerIds.length,
+        createdCount: created.length,
+        skippedCount: skippedExisting.length,
+        errorCount: errors.length
+      },
+      context
+    );
+    return outcome;
   }
 
   changeEnrollmentStatus(

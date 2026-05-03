@@ -6,6 +6,7 @@ import type {
   AssignmentReview,
   AssignmentSubmission,
   AttemptAnswer,
+  BulkEnrollmentIdempotencyRecord,
   Counterparty,
   Course,
   CourseModuleEntity,
@@ -55,4 +56,6 @@ export class InMemoryMvpState {
   assignments: Assignment[] = [];
   assignmentSubmissions: AssignmentSubmission[] = [];
   assignmentReviews: AssignmentReview[] = [];
+  /** Upserted записи идемпотентности массовых назначений (персистятся в MVP snapshot). */
+  bulkEnrollmentIdempotency: BulkEnrollmentIdempotencyRecord[] = [];
 }

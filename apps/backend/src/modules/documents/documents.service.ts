@@ -328,7 +328,10 @@ export class DocumentsService {
   listDocuments(tenantId: string, query: BaseFilter) {
     const rows = this.state.generatedDocuments.filter(
       (x) =>
-        x.tenantId === tenantId && (!query.documentType || x.documentType === query.documentType)
+        x.tenantId === tenantId &&
+        (!query.documentType || x.documentType === query.documentType) &&
+        (!query.sourceEntityType || x.sourceEntityType === query.sourceEntityType) &&
+        (!query.sourceEntityId || x.sourceEntityId === query.sourceEntityId)
     );
     return this.page(rows, query);
   }

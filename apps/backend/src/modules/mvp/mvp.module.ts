@@ -9,11 +9,12 @@ import { PostgresMvpPersistenceBackend } from './infrastructure/postgres-mvp-per
 import { MvpController } from './mvp.controller.js';
 import { MvpService } from './mvp.service.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
+import { DocumentsModule } from '../documents/documents.module.js';
 import { FilesModule } from '../files/files.module.js';
 import { IamModule } from '../iam/iam.module.js';
 
 @Module({
-  imports: [InfrastructureModule, FilesModule, IamModule],
+  imports: [InfrastructureModule, FilesModule, IamModule, DocumentsModule],
   controllers: [MvpController],
   providers: [
     PostgresMvpPersistenceBackend,

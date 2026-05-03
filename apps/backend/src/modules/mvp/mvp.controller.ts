@@ -14,11 +14,19 @@ import {
 
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
 import {
+  CreateAssignmentRequest,
+  CreateAssignmentReviewRequest,
   CreateAssignmentSubmissionRequest,
+  CreateBulkEnrollmentsRequest,
+  CreateCourseRequest,
+  CreateEnrollmentRequest,
+  CreateGroupCourseRequest,
   CreateSimpleRegistryRequest,
+  CreateTestRequest,
   SaveAttemptAnswerRequest,
   StartAttemptRequest,
   UpdateAssignmentSubmissionRequest,
+  UpdateEnrollmentStatusRequest,
   UpdateMaterialProgressRequest
 } from './mvp.dto.js';
 import { MvpService } from './mvp.service.js';
@@ -30,22 +38,15 @@ import { PermissionGuard } from '../iam/permission.guard.js';
 
 import type {
   BaseFilterQuery,
-  CreateAssignmentRequest,
-  CreateAssignmentReviewRequest,
-  CreateCourseRequest,
-  CreateEnrollmentRequest,
-  CreateGroupCourseRequest,
   CreateMaterialRequest,
   CreateModuleRequest,
   CreateQuestionBankRequest,
   CreateQuestionRequest,
-  CreateTestRequest,
   PatchTestRulesRequest,
   SaveAnswerRequest,
   UpdateAssignmentRequest,
   UpdateAssignmentReviewRequest,
   UpdateCourseRequest,
-  UpdateEnrollmentStatusRequest,
   UpdateGroupCourseRequest,
   UpdateMaterialRequest,
   UpdateModuleRequest,
@@ -191,7 +192,8 @@ export class MvpController {
   @Post('courses')
   @UseGuards(PermissionGuard)
   @RequirePermissions('courses.write')
-  createCourse(@CurrentContext() c: RequestContext, @Body() b: CreateCourseRequest) {
+  createCourse(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateCourseRequest, raw);
     return this.mvpService.createCourse(c.tenantId!, c.userId, b, c);
   }
   @Put('courses/:id')
@@ -345,7 +347,8 @@ export class MvpController {
   @Post('group-courses')
   @UseGuards(PermissionGuard)
   @RequirePermissions('groups.write')
-  createGroupCourse(@CurrentContext() c: RequestContext, @Body() b: CreateGroupCourseRequest) {
+  createGroupCourse(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateGroupCourseRequest, raw);
     return this.mvpService.createGroupCourse(c.tenantId!, b);
   }
   @Patch('group-courses/:id')
@@ -365,16 +368,42 @@ export class MvpController {
   listEnrollments(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
     return this.mvpService.listEnrollments(c.tenantId!, q);
   }
+  @Get('reports/kpi-snapshot')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('enrollments.read')
+  getKpiSnapshot(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
+    return this.mvpService.getKpiSnapshot(c.tenantId!, q);
+  }
+  @Get('enrollments/:id/certificates')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('enrollments.read')
+  listEnrollmentCertificates(
+    @CurrentContext() c: RequestContext,
+    @Param('id') enrollmentId: string
+  ) {
+    return this.mvpService.listEnrollmentCertificates(c.tenantId!, enrollmentId, {
+      actorId: c.userId,
+      permissions: c.permissions
+    });
+  }
   @Get('enrollments/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('enrollments.read')
   getEnrollment(@CurrentContext() c: RequestContext, @Param('id') id: string) {
     return this.mvpService.getEnrollment(c.tenantId!, id);
   }
+  @Post('enrollments/bulk')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('enrollments.write')
+  createBulkEnrollments(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateBulkEnrollmentsRequest, raw);
+    return this.mvpService.createBulkEnrollments(c.tenantId!, c.userId, b, c);
+  }
   @Post('enrollments')
   @UseGuards(PermissionGuard)
   @RequirePermissions('enrollments.write')
-  createEnrollment(@CurrentContext() c: RequestContext, @Body() b: CreateEnrollmentRequest) {
+  createEnrollment(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateEnrollmentRequest, raw);
     return this.mvpService.createEnrollment(c.tenantId!, c.userId, b, c);
   }
   @Patch('enrollments/:id/status')
@@ -383,8 +412,9 @@ export class MvpController {
   changeEnrollmentStatus(
     @CurrentContext() c: RequestContext,
     @Param('id') id: string,
-    @Body() b: UpdateEnrollmentStatusRequest
+    @Body() raw: unknown
   ) {
+    const b = assertValidDto(UpdateEnrollmentStatusRequest, raw);
     return this.mvpService.changeEnrollmentStatus(c.tenantId!, c.userId, id, b, c);
   }
   @Get('enrollments/:id/status-history')
@@ -518,7 +548,8 @@ export class MvpController {
   @Post('tests')
   @UseGuards(PermissionGuard)
   @RequirePermissions('assessment.tests.write')
-  createTest(@CurrentContext() c: RequestContext, @Body() b: CreateTestRequest) {
+  createTest(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateTestRequest, raw);
     return this.mvpService.createTest(c.tenantId!, c.userId, b, c);
   }
   @Get('tests/:id')
@@ -700,7 +731,8 @@ export class MvpController {
   @Post('assignments')
   @UseGuards(PermissionGuard)
   @RequirePermissions('assessment.assignments.write')
-  createAssignment(@CurrentContext() c: RequestContext, @Body() b: CreateAssignmentRequest) {
+  createAssignment(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateAssignmentRequest, raw);
     return this.mvpService.createAssignment(c.tenantId!, c.userId, b, c);
   }
   @Get('assignments/:id')
@@ -784,10 +816,8 @@ export class MvpController {
   @Post('assignment-reviews')
   @UseGuards(PermissionGuard)
   @RequirePermissions('assessment.reviews.review')
-  createAssignmentReview(
-    @CurrentContext() c: RequestContext,
-    @Body() b: CreateAssignmentReviewRequest
-  ) {
+  createAssignmentReview(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateAssignmentReviewRequest, raw);
     return this.mvpService.createAssignmentReview(c.tenantId!, c.userId, b, c);
   }
   @Get('assignment-reviews/:id')

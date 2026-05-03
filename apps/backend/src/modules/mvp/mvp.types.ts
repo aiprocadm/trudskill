@@ -84,6 +84,49 @@ export interface Enrollment extends BaseEntity {
   plannedEndAt?: string;
 }
 
+/** Результат одной операции массового назначения (`POST /enrollments/bulk`). */
+export interface BulkEnrollmentItemError {
+  learnerId: string;
+  code: string;
+  message: string;
+}
+
+export interface BulkEnrollmentsOutcome {
+  groupId: string;
+  /** Ключ клиентской идемпотентности (дубликат операции вернёт тот же снимок). */
+  idempotencyKey: string;
+  created: Enrollment[];
+  skippedExisting: Array<{ learnerId: string; enrollmentId: string }>;
+  errors: BulkEnrollmentItemError[];
+}
+
+/** Персист в коллекции `bulkEnrollmentIdempotency` MVP snapshot. */
+export interface BulkEnrollmentIdempotencyRecord {
+  id: string;
+  tenantId: string;
+  idempotencyKey: string;
+  outcome: BulkEnrollmentsOutcome;
+  createdAt: string;
+}
+
+/** Сводка KPI обучения (BL-008). */
+export interface KpiSnapshotDto {
+  scope: {
+    courseId?: string;
+    groupId?: string;
+    enrolledFrom?: string;
+    enrolledTo?: string;
+  };
+  enrollmentsTotal: number;
+  enrollmentsCompleted: number;
+  /** 0..1 */
+  enrollmentCompletionRate: number;
+  examResultsInScopeTotal: number;
+  examResultsPassed: number;
+  /** 0..1 */
+  examPassRate: number;
+}
+
 export interface EnrollmentStatusHistory {
   id: string;
   tenantId: string;

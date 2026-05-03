@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { createAppValidationPipe } from '../../common/app-validation.pipe.js';
 import { AuditService } from '../audit/audit.service.js';
+import { DocumentsService } from '../documents/documents.service.js';
 import { FilesService } from '../files/files.service.js';
 import { PermissionGuard } from '../iam/permission.guard.js';
 import { AuthService } from '../iam/services/auth.service.js';
@@ -82,6 +83,9 @@ describe('MVP HTTP integration (domain invariants)', () => {
   const noopFilesService = {
     ensureMaterialLink: async (): Promise<undefined> => undefined
   } as unknown as FilesService;
+  const noopDocumentsService = {
+    listDocuments: () => ({ items: [], page: 1, pageSize: 200, total: 0 })
+  } as unknown as DocumentsService;
 
   beforeAll(async () => {
     const requiredEnv: Record<string, string> = {
@@ -166,7 +170,8 @@ describe('MVP HTTP integration (domain invariants)', () => {
         PermissionGuard,
         { provide: AuthService, useValue: authServiceMock },
         { provide: IamService, useValue: iamServiceMock },
-        { provide: FilesService, useValue: noopFilesService }
+        { provide: FilesService, useValue: noopFilesService },
+        { provide: DocumentsService, useValue: noopDocumentsService }
       ]
     })
     class MvpDomainsHttpIntegrationRootModule {}

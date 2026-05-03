@@ -1,5 +1,17 @@
 import { Type } from 'class-transformer';
-import { IsDefined, IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsBoolean,
+  IsDefined,
+  IsIn,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  MinLength
+} from 'class-validator';
 
 export interface BaseFilterQuery {
   page?: number;
@@ -9,6 +21,10 @@ export interface BaseFilterQuery {
   status?: string;
   created_from?: string;
   created_to?: string;
+  /** ISO: зачисления с enrolled_at >= from (KPI и отчёты). */
+  enrolled_from?: string;
+  /** ISO: зачисления с enrolled_at <= to (конец дня, если только дата YYYY-MM-DD). */
+  enrolled_to?: string;
   /** ISO: зачисления с planned_end_at >= from */
   planned_end_from?: string;
   /** ISO: зачисления с planned_end_at <= to */
@@ -49,9 +65,17 @@ export interface UpdateSimpleRegistryRequest {
   linkedIamUserId?: string | null;
 }
 
-export interface CreateCourseRequest {
-  code: string;
-  title: string;
+export class CreateCourseRequest {
+  @IsString()
+  @MinLength(1)
+  code!: string;
+
+  @IsString()
+  @MinLength(1)
+  title!: string;
+
+  @IsOptional()
+  @IsString()
   description?: string;
 }
 
@@ -94,10 +118,20 @@ export interface UpdateMaterialRequest {
   fileId?: string;
 }
 
-export interface CreateGroupCourseRequest {
-  groupId: string;
-  courseId: string;
+export class CreateGroupCourseRequest {
+  @IsString()
+  @MinLength(1)
+  groupId!: string;
+
+  @IsString()
+  @MinLength(1)
+  courseId!: string;
+
   /** Дней на прохождение курса в программе; по умолчанию 90 при расчёте planned_end. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   durationDays?: number;
 }
 
@@ -105,14 +139,46 @@ export interface UpdateGroupCourseRequest {
   durationDays?: number | null;
 }
 
-export interface CreateEnrollmentRequest {
-  groupId: string;
-  learnerId: string;
+export class CreateEnrollmentRequest {
+  @IsString()
+  @MinLength(1)
+  groupId!: string;
+
+  @IsString()
+  @MinLength(1)
+  learnerId!: string;
 }
 
-export interface UpdateEnrollmentStatusRequest {
-  status: 'pending' | 'active' | 'suspended' | 'completed' | 'cancelled';
+const enrollmentStatusValues = [
+  'pending',
+  'active',
+  'suspended',
+  'completed',
+  'cancelled'
+] as const;
+
+export class UpdateEnrollmentStatusRequest {
+  @IsIn(enrollmentStatusValues)
+  status!: (typeof enrollmentStatusValues)[number];
+
+  @IsOptional()
+  @IsString()
   reason?: string;
+}
+
+export class CreateBulkEnrollmentsRequest {
+  @IsString()
+  @MinLength(1)
+  idempotencyKey!: string;
+
+  @IsString()
+  @MinLength(1)
+  groupId!: string;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  learnerIds!: string[];
 }
 
 export class UpdateMaterialProgressRequest {
@@ -177,11 +243,24 @@ export interface UpdateQuestionRequest {
   options?: Array<{ text: string; isCorrect?: boolean }>;
 }
 
-export interface CreateTestRequest {
-  courseId: string;
-  title: string;
+export class CreateTestRequest {
+  @IsString()
+  @MinLength(1)
+  courseId!: string;
+
+  @IsString()
+  @MinLength(1)
+  title!: string;
+
+  @IsOptional()
+  @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsString()
   questionBankId?: string;
+
+  @IsOptional()
   rules?: Partial<TestRulesDto>;
 }
 
@@ -227,12 +306,30 @@ export class SaveAttemptAnswerRequest {
   textAnswer?: string;
 }
 
-export interface CreateAssignmentRequest {
-  courseId: string;
+export class CreateAssignmentRequest {
+  @IsString()
+  @MinLength(1)
+  courseId!: string;
+
+  @IsOptional()
+  @IsString()
   moduleId?: string;
-  title: string;
+
+  @IsString()
+  @MinLength(1)
+  title!: string;
+
+  @IsOptional()
+  @IsString()
   description?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   maxScore?: number;
+
+  @IsOptional()
+  @IsBoolean()
   isReviewRequired?: boolean;
 }
 
@@ -285,9 +382,18 @@ export class UpdateAssignmentSubmissionRequest {
   fileId?: string;
 }
 
-export interface CreateAssignmentReviewRequest {
-  submissionId: string;
+export class CreateAssignmentReviewRequest {
+  @IsString()
+  @MinLength(1)
+  submissionId!: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   score?: number;
+
+  @IsOptional()
+  @IsString()
   comment?: string;
 }
 

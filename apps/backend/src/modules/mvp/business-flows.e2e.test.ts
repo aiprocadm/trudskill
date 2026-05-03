@@ -14,7 +14,12 @@ import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { AuthService } from '../iam/services/auth.service.js';
 import { IamService } from '../iam/services/iam.service.js';
 
+import type { DocumentsService } from '../documents/documents.service.js';
 import type { FilesService } from '../files/files.service.js';
+
+const noopDocumentsService = {
+  listDocuments: () => ({ items: [], page: 1, pageSize: 50, total: 0 })
+} as unknown as DocumentsService;
 
 const noopFilesService = {
   ensureMaterialLink: async () => undefined
@@ -72,6 +77,7 @@ describe('stage13 business e2e flows (service-level)', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       new EventEmitter2()
     );
@@ -189,6 +195,65 @@ describe('stage13 business e2e flows (service-level)', () => {
 
     const result = service.getAttemptResult('tenant_demo', attempt.id);
     expect(result.passed).toBe(true);
+  });
+
+  it('bulk enrolls learners with idempotent replay and exposes KPI totals for group scope', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      new EventEmitter2()
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      baseCtx.userId,
+      { code: 'G-E2E-BULK', name: 'Bulk group' },
+      baseCtx
+    );
+    const learnerA = service.createLearner(
+      'tenant_demo',
+      baseCtx.userId,
+      { code: 'LR-E2E-A', name: 'Learner A' },
+      baseCtx
+    );
+    const learnerB = service.createLearner(
+      'tenant_demo',
+      baseCtx.userId,
+      { code: 'LR-E2E-B', name: 'Learner B' },
+      baseCtx
+    );
+
+    const first = service.createBulkEnrollments(
+      'tenant_demo',
+      baseCtx.userId,
+      {
+        idempotencyKey: 'bulk-idem-demo',
+        groupId: group.id,
+        learnerIds: [learnerA.id, learnerB.id, learnerA.id]
+      },
+      baseCtx
+    );
+    expect(first.created).toHaveLength(2);
+
+    const second = service.createBulkEnrollments(
+      'tenant_demo',
+      baseCtx.userId,
+      {
+        idempotencyKey: 'bulk-idem-demo',
+        groupId: group.id,
+        learnerIds: [learnerA.id]
+      },
+      baseCtx
+    );
+    expect(second.created).toHaveLength(first.created.length);
+    expect(second.skippedExisting).toEqual(first.skippedExisting);
+    expect(second.errors).toEqual(first.errors);
+
+    const kpi = service.getKpiSnapshot('tenant_demo', { group_id: group.id });
+    expect(kpi.enrollmentsTotal).toBe(2);
+    expect(kpi.enrollmentsCompleted).toBe(0);
   });
 
   it('completes document generation and e-sign signing flow with legal log artifacts', () => {
