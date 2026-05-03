@@ -7,7 +7,12 @@ import { MvpService } from './mvp.service.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 import { AuditService } from '../audit/audit.service.js';
 
+import type { DocumentsService } from '../documents/documents.service.js';
 import type { FilesService } from '../files/files.service.js';
+
+const noopDocumentsService = {
+  listDocuments: () => ({ items: [], page: 1, pageSize: 50, total: 0 })
+} as unknown as DocumentsService;
 
 const noopFilesService = {
   ensureMaterialLink: async () => undefined
@@ -30,6 +35,7 @@ describe('mvp service concurrency-lite invariants', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -82,6 +88,7 @@ describe('mvp service concurrency-lite invariants', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );

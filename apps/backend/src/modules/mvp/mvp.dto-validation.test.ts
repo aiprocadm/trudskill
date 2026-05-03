@@ -3,7 +3,11 @@ import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import { describe, expect, it } from 'vitest';
 
-import { CreateAssignmentSubmissionRequest, UpdateMaterialProgressRequest } from './mvp.dto.js';
+import {
+  CreateAssignmentSubmissionRequest,
+  CreateBulkEnrollmentsRequest,
+  UpdateMaterialProgressRequest
+} from './mvp.dto.js';
 
 describe('MVP critical DTO (class-validator)', () => {
   it('отклоняет отрицательный studiedSeconds', () => {
@@ -28,6 +32,16 @@ describe('MVP critical DTO (class-validator)', () => {
     const inst = plainToInstance(UpdateMaterialProgressRequest, {
       enrollmentId: '',
       studiedSeconds: 0
+    });
+    const errs = validateSync(inst, { whitelist: true, forbidNonWhitelisted: true });
+    expect(errs.length).toBeGreaterThan(0);
+  });
+
+  it('отклоняет массовое назначение без learnerIds', () => {
+    const inst = plainToInstance(CreateBulkEnrollmentsRequest, {
+      idempotencyKey: 'k',
+      groupId: 'g1',
+      learnerIds: []
     });
     const errs = validateSync(inst, { whitelist: true, forbidNonWhitelisted: true });
     expect(errs.length).toBeGreaterThan(0);

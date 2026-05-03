@@ -13,7 +13,12 @@ import { TenantScopedRepository } from '../../infrastructure/database/tenant-rep
 import { AuditService } from '../audit/audit.service.js';
 
 import type { RequestContext } from '../../common/context/request-context.js';
+import type { DocumentsService } from '../documents/documents.service.js';
 import type { FilesService } from '../files/files.service.js';
+
+const noopDocumentsService = {
+  listDocuments: () => ({ items: [], page: 1, pageSize: 50, total: 0 })
+} as unknown as DocumentsService;
 
 const noopFilesService = {
   ensureMaterialLink: async () => undefined
@@ -36,6 +41,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -59,6 +65,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -96,6 +103,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -146,6 +154,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -216,6 +225,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -273,6 +283,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -290,6 +301,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -303,6 +315,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -331,6 +344,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       audit,
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -349,6 +363,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -443,6 +458,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -517,6 +533,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -593,6 +610,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -669,6 +687,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -723,6 +742,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -779,6 +799,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -897,6 +918,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       auditService,
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -960,6 +982,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -1038,6 +1061,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -1118,6 +1142,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -1214,6 +1239,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -1282,6 +1308,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       audit,
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -1352,6 +1379,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -1400,6 +1428,7 @@ describe('mvp service domain rules', () => {
       new InMemoryMvpState(),
       new TenantScopedRepository(),
       new AuditService(),
+      noopDocumentsService,
       noopFilesService,
       testEmitter
     );
@@ -1440,5 +1469,54 @@ describe('mvp service domain rules', () => {
       planned_end_to: to
     });
     expect(listed.items.some((x) => x.id === enrollment.id)).toBe(true);
+  });
+
+  it('creates bulk enrollments with idempotency key, errors for missing learners', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G-BLK', name: 'Bulk G' },
+      ctx
+    );
+    const l1 = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'L-BLK1', name: 'One' },
+      ctx
+    );
+
+    const first = service.createBulkEnrollments(
+      'tenant_demo',
+      ctx.userId,
+      {
+        idempotencyKey: 'idem-bulk-1',
+        groupId: group.id,
+        learnerIds: [l1.id, 'no_such_learner', l1.id]
+      },
+      ctx
+    );
+
+    expect(first.created).toHaveLength(1);
+    expect(first.errors).toHaveLength(1);
+
+    const second = service.createBulkEnrollments(
+      'tenant_demo',
+      ctx.userId,
+      {
+        idempotencyKey: 'idem-bulk-1',
+        groupId: group.id,
+        learnerIds: [l1.id]
+      },
+      ctx
+    );
+    expect(second).toEqual(first);
   });
 });

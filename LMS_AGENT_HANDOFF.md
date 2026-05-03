@@ -571,4 +571,13 @@
 
 - Build status: после правок этого плана выполните `pnpm -s ci:check`.
 - Backend: аудит делегирования (`metadata`), HTTP IDOR для **GET attempts / exam-results by enrollment**, class-validator MVP + общий **`createAppValidationPipe`**, frontend guard по **`cross_learner` / `learners.act_as`**, корневой Vitest **`test.projects`** и последовательный прогон backend-тестов.
-- Next best action: (1) исходное ТЗ (Issue 0); (2) по желанию — расширить class-validator на остальные MVP body; (3) прогон миграций **`0027`** на всех окружениях перед релизом.
+- Итерация «план к ТЗ/запуску»: добавлены **`POST /enrollments/bulk`** с идемпотентностью в коллекции snapshot **`bulkEnrollmentIdempotency`**, **`GET /reports/kpi-snapshot`**, **`GET /enrollments/:id/certificates`** с проверкой `linkedIamUserId`; UI — KPI на **`/reports`**, сертификаты слушателя в **`LearnerCoursesScreen`**; эксплуатационные заготовки **`docs/LAUNCH_RUNBOOK.md`**, **`docs/BACKUP_ROLLBACK.md`**, трассировка **`docs/TZ_MVP_TRACEABILITY.md`**, NFR-снимок **`docs/NFR_LAUNCH_V1.md`**; доп. контракты в **`packages/api-contracts/src/domains/mvp-metrics/contracts.ts`**.
+- Next best action: (1) исходное ТЗ (Issue 0); (2) прогон миграций **`0027`** на всех окружениях перед релизом; (3) асинхронная очередь для очень больших bulk (worker) при необходимости масштаба.
+
+## 21. Новые MVP API (быстрый справочник)
+
+| Method | Path                            | Permission          | Назначение                                        |
+| ------ | ------------------------------- | ------------------- | ------------------------------------------------- |
+| POST   | `/enrollments/bulk`             | `enrollments.write` | BL-003 массовое зачисление + лог ошибок           |
+| GET    | `/reports/kpi-snapshot`         | `enrollments.read`  | BL-008 KPI completion / exam pass rate            |
+| GET    | `/enrollments/:id/certificates` | `enrollments.read`  | BL-007 выдача ссылок на сертификаты по завершении |
