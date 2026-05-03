@@ -8,7 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "lint": "eslint src --max-warnings=0",
     "typecheck": "pnpm --filter @cdoprof/shared-types build && pnpm --filter @cdoprof/api-contracts build && tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --no-file-parallelism"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1019.0",

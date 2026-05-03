@@ -13,6 +13,7 @@ export interface AuditLogRecord {
   entityId?: string;
   oldValues?: Record<string, unknown>;
   newValues?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
   requestId?: string;
   ip?: string;
   userAgent?: string;
@@ -38,9 +39,9 @@ export class AuditService {
       void this.databaseService.query(
         `
           insert into audit.audit_log
-            (id, tenant_id, actor_id, action, entity_type, entity_id, old_values, new_values, request_id, ip, user_agent, created_at)
+            (id, tenant_id, actor_id, action, entity_type, entity_id, old_values, new_values, metadata, request_id, ip, user_agent, created_at)
           values
-            ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $11, $12::timestamptz)
+            ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9::jsonb, $10, $11, $12, $13::timestamptz)
         `,
         [
           result.id,
@@ -51,6 +52,7 @@ export class AuditService {
           result.entityId ?? null,
           result.oldValues ? JSON.stringify(result.oldValues) : null,
           result.newValues ? JSON.stringify(result.newValues) : null,
+          result.metadata ? JSON.stringify(result.metadata) : null,
           result.requestId ?? null,
           result.ip ?? null,
           result.userAgent ?? null,
@@ -73,9 +75,9 @@ export class AuditService {
       await this.databaseService.query(
         `
           insert into audit.audit_log
-            (id, tenant_id, actor_id, action, entity_type, entity_id, old_values, new_values, request_id, ip, user_agent, created_at)
+            (id, tenant_id, actor_id, action, entity_type, entity_id, old_values, new_values, metadata, request_id, ip, user_agent, created_at)
           values
-            ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $11, $12::timestamptz)
+            ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9::jsonb, $10, $11, $12, $13::timestamptz)
         `,
         [
           result.id,
@@ -86,6 +88,7 @@ export class AuditService {
           result.entityId ?? null,
           result.oldValues ? JSON.stringify(result.oldValues) : null,
           result.newValues ? JSON.stringify(result.newValues) : null,
+          result.metadata ? JSON.stringify(result.metadata) : null,
           result.requestId ?? null,
           result.ip ?? null,
           result.userAgent ?? null,
@@ -122,6 +125,7 @@ export class AuditService {
       entity_id: string | null;
       old_values: Record<string, unknown> | null;
       new_values: Record<string, unknown> | null;
+      metadata: Record<string, unknown> | null;
       request_id: string | null;
       ip: string | null;
       user_agent: string | null;
@@ -137,6 +141,7 @@ export class AuditService {
           entity_id,
           old_values,
           new_values,
+          metadata,
           request_id,
           ip,
           user_agent,
@@ -157,6 +162,7 @@ export class AuditService {
       entityId: row.entity_id ?? undefined,
       oldValues: row.old_values ?? undefined,
       newValues: row.new_values ?? undefined,
+      metadata: row.metadata ?? undefined,
       requestId: row.request_id ?? undefined,
       ip: row.ip ?? undefined,
       userAgent: row.user_agent ?? undefined,

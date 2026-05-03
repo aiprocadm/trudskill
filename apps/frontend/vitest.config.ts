@@ -17,6 +17,7 @@ export default defineConfig({
     }
   },
   test: {
+    name: '@cdoprof/frontend',
     include: ['app/**/*.test.tsx', 'src/**/*.test.ts'],
     setupFiles: ['./vitest.setup-env.ts']
   }

@@ -1,9 +1,10 @@
 import 'reflect-metadata';
-import { Module, Scope, ValidationPipe } from '@nestjs/common';
+import { Module, Scope } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { createAppValidationPipe } from '../../common/app-validation.pipe.js';
 import { AuditService } from '../audit/audit.service.js';
 import { FilesService } from '../files/files.service.js';
 import { PermissionGuard } from '../iam/permission.guard.js';
@@ -173,10 +174,7 @@ describe('MVP HTTP integration (domain invariants)', () => {
     const created = await NestFactory.create(MvpDomainsHttpIntegrationRootModule, {
       logger: false
     });
-    /** `whitelist: true` срезает поля MVP JSON-body: DTO заданы как TS-интерфейсы без class-validator. */
-    created.useGlobalPipes(
-      new ValidationPipe({ whitelist: false, transform: true, forbidUnknownValues: false })
-    );
+    created.useGlobalPipes(createAppValidationPipe());
     created.useGlobalFilters(new HttpExceptionEnvelopeFilter());
     created.useGlobalInterceptors(
       new RequestContextInterceptor(),
@@ -275,6 +273,130 @@ describe('MVP HTTP integration (domain invariants)', () => {
     expect(res.status).toBe(412);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe('domain_rule_violation');
+  });
+
+  it('HTTP: class-validator — submissions без learnerId, progress studiedSeconds<0, forbidNonWhitelisted', async () => {
+    const ts = Date.now();
+    const t = tokenFor(`sess_http_cval_${ts}`);
+
+    const noLearnerRes = await fetch(`${apiBaseUrl}/assignment-submissions`, {
+      method: 'POST',
+      headers: hdr(t),
+      body: JSON.stringify({
+        assignmentId: 'asg_dummy',
+        enrollmentId: 'enr_dummy',
+        answerText: 'x'
+      })
+    });
+    expect(noLearnerRes.status).toBe(400);
+    expect(((await noLearnerRes.json()) as { error: { code: string } }).error.code).toBe(
+      'validation_error'
+    );
+
+    const course = (await (
+      await fetch(`${apiBaseUrl}/courses`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({ code: `CVAL_${ts}`, title: 'Validator progress course' })
+      })
+    ).json()) as { data: { id: string } };
+
+    const ver = (await (
+      await fetch(`${apiBaseUrl}/course-versions/${course.data.id}`, {
+        method: 'POST',
+        headers: hdr(t)
+      })
+    ).json()) as { data: { id: string } };
+
+    await fetch(`${apiBaseUrl}/courses/${course.data.id}/publish`, {
+      method: 'POST',
+      headers: hdr(t)
+    });
+
+    const mod = (await (
+      await fetch(`${apiBaseUrl}/modules`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({
+          courseVersionId: ver.data.id,
+          title: 'Module V',
+          minViewSeconds: 0
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    const mat = (await (
+      await fetch(`${apiBaseUrl}/materials`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({
+          moduleId: mod.data.id,
+          title: 'Material V',
+          materialType: 'text',
+          minViewSeconds: 30
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    const groupWrap = (await (
+      await fetch(`${apiBaseUrl}/groups`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({ code: `GVAL_${ts}`, name: 'Group V' })
+      })
+    ).json()) as { data: { id: string } };
+
+    const learner = (await (
+      await fetch(`${apiBaseUrl}/learners`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({ code: `LVAL_${ts}`, name: 'Learner V' })
+      })
+    ).json()) as { data: { id: string } };
+
+    const enrollment = (await (
+      await fetch(`${apiBaseUrl}/enrollments`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({
+          groupId: groupWrap.data.id,
+          learnerId: learner.data.id
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    await fetch(`${apiBaseUrl}/group-courses`, {
+      method: 'POST',
+      headers: hdr(t),
+      body: JSON.stringify({ groupId: groupWrap.data.id, courseId: course.data.id })
+    });
+
+    const negSeconds = await fetch(`${apiBaseUrl}/progress/materials/${mat.data.id}`, {
+      method: 'PATCH',
+      headers: hdr(t),
+      body: JSON.stringify({
+        enrollmentId: enrollment.data.id,
+        studiedSeconds: -1
+      })
+    });
+    expect(negSeconds.status).toBe(400);
+    expect(((await negSeconds.json()) as { error: { code: string } }).error.code).toBe(
+      'validation_error'
+    );
+
+    const nonWhitelisted = await fetch(`${apiBaseUrl}/progress/materials/${mat.data.id}`, {
+      method: 'PATCH',
+      headers: hdr(t),
+      body: JSON.stringify({
+        enrollmentId: enrollment.data.id,
+        studiedSeconds: 0,
+        unexpectedFieldShouldReject: true
+      })
+    });
+    expect(nonWhitelisted.status).toBe(400);
+    expect(((await nonWhitelisted.json()) as { error: { code: string } }).error.code).toBe(
+      'validation_error'
+    );
   });
 
   it('HTTP: rejects test attempt start when enrollment is not linked to test course', async () => {
@@ -682,6 +804,164 @@ describe('MVP HTTP integration (domain invariants)', () => {
       { headers: hdr(tokenAlice) }
     );
     expect(aliceGetSubmission.ok).toBe(true);
+  });
+
+  it('HTTP: 403 когда чужой JWT читает attempt и exam-results по enrollment без cross_learner', async () => {
+    const ts = Date.now();
+    const admin = tokenFor(`sess_http_idor_reads_${ts}`);
+
+    const course = (await (
+      await fetch(`${apiBaseUrl}/courses`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({
+          code: `CIRD_${ts}`,
+          title: 'IDOR reads course'
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    const groupWrap = (await (
+      await fetch(`${apiBaseUrl}/groups`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({ code: `GIRD_${ts}`, name: 'IDOR reads group' })
+      })
+    ).json()) as { data: { id: string } };
+
+    await fetch(`${apiBaseUrl}/group-courses`, {
+      method: 'POST',
+      headers: hdr(admin),
+      body: JSON.stringify({ groupId: groupWrap.data.id, courseId: course.data.id })
+    });
+
+    const bank = (await (
+      await fetch(`${apiBaseUrl}/question-banks`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({ title: `BankIRD_${ts}`, courseId: course.data.id })
+      })
+    ).json()) as { data: { id: string } };
+
+    const q = (await (
+      await fetch(`${apiBaseUrl}/questions`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({
+          questionBankId: bank.data.id,
+          type: 'text',
+          text: `QIRD_${ts}`,
+          score: 1
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    const test = (await (
+      await fetch(`${apiBaseUrl}/tests`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({
+          title: `ExamIRD_${ts}`,
+          courseId: course.data.id,
+          questionBankId: bank.data.id,
+          rules: { attemptLimit: 3 }
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    await fetch(`${apiBaseUrl}/tests/${test.data.id}/questions`, {
+      method: 'POST',
+      headers: hdr(admin),
+      body: JSON.stringify({ questionIds: [q.data.id] })
+    });
+
+    const iamAlice = `u_alice_reads_${ts}`;
+    const learner = (await (
+      await fetch(`${apiBaseUrl}/learners`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({
+          code: `LAIRD_${ts}`,
+          name: 'Alice reads',
+          linkedIamUserId: iamAlice
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    const enrollment = (await (
+      await fetch(`${apiBaseUrl}/enrollments`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({
+          groupId: groupWrap.data.id,
+          learnerId: learner.data.id
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    const tokenAlice = issueSignedAccessToken(
+      {
+        sub: iamAlice,
+        tenant_id: 'tenant_demo',
+        session_id: `sess_idor_reads_alice_${ts}`,
+        roles: ['student']
+      },
+      process.env.AUTH_JWT_SECRET ?? 'secret_value_123',
+      3600
+    );
+
+    const started = (await (
+      await fetch(`${apiBaseUrl}/attempts/start`, {
+        method: 'POST',
+        headers: hdr(tokenAlice),
+        body: JSON.stringify({
+          testId: test.data.id,
+          enrollmentId: enrollment.data.id,
+          learnerId: learner.data.id
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    expect(started.data.id).toBeTruthy();
+
+    const tokenBob = issueSignedAccessToken(
+      {
+        sub: 'u_bob_intruder',
+        tenant_id: 'tenant_demo',
+        session_id: `sess_idor_reads_bob_${ts}`,
+        roles: ['student']
+      },
+      process.env.AUTH_JWT_SECRET ?? 'secret_value_123',
+      3600
+    );
+
+    const bobGetAttempt = await fetch(`${apiBaseUrl}/attempts/${started.data.id}`, {
+      headers: hdr(tokenBob)
+    });
+    expect(bobGetAttempt.status).toBe(403);
+    expect(((await bobGetAttempt.json()) as { error: { code: string } }).error.code).toBe(
+      'forbidden'
+    );
+
+    const aliceGetAttempt = await fetch(`${apiBaseUrl}/attempts/${started.data.id}`, {
+      headers: hdr(tokenAlice)
+    });
+    expect(aliceGetAttempt.ok).toBe(true);
+
+    const bobByEnrollment = await fetch(
+      `${apiBaseUrl}/exam-results/by-enrollment/${enrollment.data.id}`,
+      { headers: hdr(tokenBob) }
+    );
+    expect(bobByEnrollment.status).toBe(403);
+    expect(((await bobByEnrollment.json()) as { error: { code: string } }).error.code).toBe(
+      'forbidden'
+    );
+
+    const staffByEnrollment = await fetch(
+      `${apiBaseUrl}/exam-results/by-enrollment/${enrollment.data.id}`,
+      { headers: hdr(admin) }
+    );
+    expect(staffByEnrollment.ok).toBe(true);
   });
 
   it('HTTP: staff с learners.act_as создаёт submission за IAM-связанного слушателя', async () => {

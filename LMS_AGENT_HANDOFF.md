@@ -313,8 +313,36 @@
   - `apps/frontend/src/lib/auth/permission-map.ts` (+ tests)
   - `LMS_AGENT_HANDOFF.md`
 - Notes:
-  - Отдельный аудит-событий «delegated by …» пока не пишется (§13 Issue 1 — усиление прослеживаемости).
   - HTTP suite: **`learners.act_as`** добавляется в mock только вместе с staff `sub` (`u_domain_http_actor`).
+
+### 5.17 Аудит: `metadata.delegated` при `learners.act_as`
+
+- Summary: колонка **`audit.audit_log.metadata`** (jsonb) + запись **`{ delegated: true, learnerId, viaPermission: 'learners.act_as' }`** в audit-метод **`MvpService`** для мутаций, где действительно сработало делегирование (есть **`linkedIamUserId`**, у актора есть право **`learners.act_as`**, **`actorId`** не равен **`linkedIamUserId`** слушателя).
+- Files changed:
+  - `apps/backend/migrations/0027_audit_log_metadata.sql`
+  - `apps/backend/src/modules/audit/audit.service.ts`
+  - `apps/backend/src/modules/mvp/mvp.service.ts`
+  - `apps/backend/src/modules/mvp/mvp.service.test.ts` (submit submission + assert metadata)
+
+### 5.18 HTTP-негативы IDOR (чтение), class-validator MVP, общий ValidationPipe
+
+- Summary: добавлены HTTP-кейсы **`GET /attempts/:id`** и **`GET /exam-results/by-enrollment/:id`** без **`cross_learner`/`learners.act_as`** (403 для чужого JWT). Ключевые MVP body переведены в **class-validator**-классы; доменный HTTP harness использует **`createAppValidationPipe()`** как прод. Вынесено **`apps/backend/src/common/app-validation.pipe.ts`** (`createAppValidationPipe` + **`assertValidDto`**: явный `validateSync` в **`MvpController`** для критичных DTO, т.к. в Vitest/Nest цепочке `emitDecoratorMetadata` на параметрах не всегда доходит до глобального `ValidationPipe`). **`main.ts`** подключён через `createAppValidationPipe`.
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.dto.ts`, `mvp.controller.ts`
+  - `apps/backend/src/main.ts`, `apps/backend/src/common/app-validation.pipe.ts`
+  - `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`, `mvp.dto-validation.test.ts`
+
+### 5.19 Frontend: guard действий по `assessment.read.cross_learner` и `learners.act_as`
+
+- Summary: **`AssessmentDashboardScreen`** — колонки «Слушатель и доступ»: ссылки/подсказки делегирования только при соответствующих правах; списки **attempts** / **exam-results** через **`mvpApi`**; попытки запускаются с **`learnerId`** выбранного зачисления. Вынесены **`assessment-permissions.ts`** + unit-тест.
+- Files changed:
+  - `apps/frontend/src/features/mvp/assessment-permissions.ts`
+  - `apps/frontend/src/features/mvp/assessment-permissions.test.ts`
+  - `apps/frontend/src/features/mvp/api.ts`, `hooks.ts`, `screens.tsx`
+
+### 5.20 Vitest: `test.projects` вместо workspace; смягчение флейка backend
+
+- Summary: удалён **`vitest.workspace.ts`**, добавлен корневой **`vitest.config.ts`** с **`test.projects`**; во все подпроекты добавлено **`test.name`** для фильтров. Backend: **`fileParallelism: false`** и скрипт **`vitest run --no-file-parallelism`** для снижения гонки при Nest bootstrap в CI.
 
 ## 6. Files Changed
 
@@ -345,7 +373,8 @@
 
 - **`0025`**: `assessment.read.cross_learner` — см. §5.15.
 - **`0026`**: `learners.act_as` и привязка к тем же staff-ролям в `tenant_demo`.
-- Прогон миграций обязателен для выдачи прав в PostgreSQL.
+- **`0027`**: `audit.audit_log.metadata jsonb NULL` — см. §5.17.
+- Прогон миграций обязателен для выдачи прав и новой колонки audit в PostgreSQL.
 
 ## 8. API Changes
 
@@ -387,7 +416,7 @@
 
 - **`permission-map`** (dev/эвристика ролей): staff-роли дополнены **`learners.act_as`** для согласованности с backend seed.
 - В рамках `ci:check` подтверждён успешный `next build`.
-- Ролевые UI решения и маршруты не изменялись.
+- Страница **`/assessment`**: действия для слушателя (ссылка в реестр / подсказка делегирования) условно по **`assessment.read.cross_learner`** и **`learners.act_as`**; см. §5.19.
 
 ## 10. Auth / Permissions Notes
 
@@ -403,6 +432,8 @@
 
 ## 11. Validation / Error Handling
 
+- **`createAppValidationPipe()`**: глобальный Nest pipe — **`whitelist: true`**, **`forbidNonWhitelisted: true`**, ответ ошибок класса **`BadRequest`** с **`code: 'validation_error'`** (согласование prod и HTTP harness).
+- Class-validator-классы для части **`mvp.dto`**: см. §5.18 (`UpdateMaterialProgressRequest`, попытки, субмиссии, `CreateSimpleRegistryRequest`).
 - Добавлена новая backend domain validation в `MvpService.upsertMaterialProgress()`:
   - enrollment должен быть связан с course материала через `group_courses`.
 - Добавлена backend domain validation в `MvpService.createAssignmentSubmission()`:
@@ -467,29 +498,13 @@
 - Evidence: `<<<ВСТАВИТЬ СЮДА СУЩЕСТВУЮЩЕЕ ТЗ ДЛЯ СДО ПРОФ>>>`.
 - Suggested fix: предоставить полный исходный текст ТЗ для точной трассировки «взято/изменено/добавлено» без допущений.
 
-### Issue 1: Аудит и трассируемость `learners.act_as`
-
-- Severity: low
-- Area: backend/audit
-- Description: право **`learners.act_as`** реализовано (§5.16); мутации логируются существующим **`audit`** с **`actorId` = JWT sub**, но отдельного флага/поля «выполнено от имени слушателя …» нет.
-- Evidence: отсутствие `delegatedLearnerId` в audit payloads по сравнению с требованиями аудита ТЗ §6 для критичных действий.
-- Suggested fix: расширить audit metadata при срабатывании bypass или ввести обязательный claim/заголовок с явным целевым `learnerId` для replay-расследований.
-
 ### Issue 2: Длительные backend integration тесты при ограниченных ресурсах CI
 
 - Severity: low
 - Area: backend/tests
-- Description: даже после фикса таймаутов backend contract/integration тесты остаются относительно тяжёлыми и чувствительными к деградации среды.
-- Evidence: длительность backend тестов ~25s+ с множеством поднятий Nest app.
-- Suggested fix: по мере возможности уменьшать дублирование bootstrap логики и частично переводить suite на более лёгкие тестовые harness.
-
-### Issue 3: Предупреждение о deprecated Vitest workspace config
-
-- Severity: low
-- Area: tests/docs
-- Description: при запуске тестов выводится deprecation warning.
-- Evidence: `The workspace file is deprecated... use test.projects`.
-- Suggested fix: мигрировать конфиг Vitest на `test.projects` в root config.
+- Description: даже после фикса таймаутов и отключения file-parallelism backend integration/contract suite остаётся заметным по времени.
+- Evidence: множественные bootstrap Nest приложения в монорепо `turbo` + Vitest.
+- Suggested fix: по мере возможности уменьшать дублирование bootstrap и выносить тяжёлые кейсы в облегчённые harness без полного приложения там, где достаточно unit.
 
 ## 14. Recommended Next Steps
 
@@ -501,10 +516,9 @@
 
 ### High
 
-1. Аудитируемое делегирование: явная метка в audit при **`learners.act_as`** (§13 Issue 1).
-2. По желанию: HTTP-негативы **`GET attempts/:id`** / **`exam-results`** для второго JWT.
-3. Согласованность LMS UI и фактических IAM permissions после расширения staff-прав.
-4. Class-validator для критичных MVP POST/PATCH + **`whitelist: true`** на проде.
+1. По желанию: расширить class-validator на остальные MVP DTO/`@Body()`, где ещё остаются TS-типы без декораторов.
+2. Миграции: прогон **`0027_audit_log_metadata`** на всех окружениях перед деплоем с новым insert в **`audit.audit_log`**.
+3. По желанию: отдельная карточка слушателя в UI (deeplink `/learners/:id`) вместо ссылки на общий реестр.
 
 ### Medium
 
@@ -513,12 +527,11 @@
 
 ### Low
 
-1. Убрать deprecation warning в Vitest конфигурации.
-2. Оптимизировать backend test bootstrap для снижения времени прогонов.
+1. Дальнейшая оптимизация backend test bootstrap после §5.20 (forks последовательно — trade-off времени пайплайна).
 
 ## 15. Suggested Next Agent Prompt
 
-«По `SDOPROF_TZ_FINAL.md`: аудит **`learners.act_as`** в `AuditService`; синхронизация **`api-contracts`/клиента** (`learnerId`, новые коды прав). Class-validator + `whitelist: true` для критичных MVP body. Прогоны и `ci:check`, обнови `LMS_AGENT_HANDOFF.md`.»
+«По `SDOPROF_TZ_FINAL.md`: довести class-validator на оставшиеся MVP `@Body` DTO при необходимости; проверить клиент **`api-contracts`** на новые поля audit при чтении логов. Прогоны `ci:check` после миграции **`0027`**. Обновить `LMS_AGENT_HANDOFF.md` при новых изменениях.»
 
 ## 16. Important Context / Assumptions
 
@@ -556,8 +569,6 @@
 
 ## 20. Final Status
 
-- Build status: passed (финальный `pnpm -s ci:check`, ~2026-05-01)
-- Test status: passed (`@cdoprof/backend`: 50 files / **193 tests**): анти-IDOR на мутациях при `linkedIamUserId`; обязательный `learnerId` для субмисси/старта попытки; HTTP regression progress без group-course и 403 чужому JWT.
-- Main LMS flows status: для связанных с IAM слушателей узкое прохождение assessment/progress становится объектно-привязанным к `JWT.sub`.
-- Production readiness: клиентам нужно отправлять `learnerId` на `POST assignment-submissions` и пустые `attempts/start`; при включении связки — заполнять `linkedIamUserId` у learners.
-- Next best action: (1) исходное ТЗ; (2) read/list фильтры и permission «действует за слушателя»; (3) отдельные DTO + class-validator под prod `whitelist: true`.
+- Build status: после правок этого плана выполните `pnpm -s ci:check`.
+- Backend: аудит делегирования (`metadata`), HTTP IDOR для **GET attempts / exam-results by enrollment**, class-validator MVP + общий **`createAppValidationPipe`**, frontend guard по **`cross_learner` / `learners.act_as`**, корневой Vitest **`test.projects`** и последовательный прогон backend-тестов.
+- Next best action: (1) исходное ТЗ (Issue 0); (2) по желанию — расширить class-validator на остальные MVP body; (3) прогон миграций **`0027`** на всех окружениях перед релизом.

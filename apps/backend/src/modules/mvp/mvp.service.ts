@@ -936,6 +936,12 @@ export class MvpService {
       enrollment.learnerId,
       context.permissions
     );
+    const delegationAuditMetadata = this.delegatedLearningAuditMetadata(
+      tenantId,
+      actorId,
+      enrollment.learnerId,
+      context.permissions
+    );
 
     if (request.studiedSeconds < 0) {
       throw new BadRequestException({
@@ -1001,7 +1007,8 @@ export class MvpService {
       record.id,
       undefined,
       record,
-      context
+      context,
+      delegationAuditMetadata
     );
     return record;
   }
@@ -1581,6 +1588,12 @@ export class MvpService {
       enrollment.learnerId,
       context.permissions
     );
+    const delegationAuditMetadata = this.delegatedLearningAuditMetadata(
+      tenantId,
+      actorId,
+      enrollment.learnerId,
+      context.permissions
+    );
 
     const learnerId = enrollment.learnerId;
     const now = new Date(this.now());
@@ -1638,7 +1651,8 @@ export class MvpService {
       entity.id,
       undefined,
       entity,
-      context
+      context,
+      delegationAuditMetadata
     );
     return entity;
   }
@@ -1651,6 +1665,12 @@ export class MvpService {
   ): AttemptAnswer {
     const attempt = this.getById(this.state.attempts, tenantId, attemptId);
     this.assertActorMatchesLearnerIamLink(
+      tenantId,
+      actorId,
+      attempt.learnerId,
+      context.permissions
+    );
+    const delegationAuditMetadata = this.delegatedLearningAuditMetadata(
       tenantId,
       actorId,
       attempt.learnerId,
@@ -1701,7 +1721,8 @@ export class MvpService {
       answer.id,
       undefined,
       answer,
-      context
+      context,
+      delegationAuditMetadata
     );
     return answer;
   }
@@ -1755,6 +1776,12 @@ export class MvpService {
       attempt.learnerId,
       context.permissions
     );
+    const delegationAuditMetadata = this.delegatedLearningAuditMetadata(
+      tenantId,
+      actorId,
+      attempt.learnerId,
+      context.permissions
+    );
 
     if (['submitted', 'finished', 'expired', 'invalidated'].includes(attempt.status))
       return attempt;
@@ -1781,7 +1808,7 @@ export class MvpService {
     attempt.status = 'submitted';
     attempt.submittedAt = this.now();
     attempt.updatedAt = this.now();
-    this.finalizeExamResult(tenantId, actorId, attempt, context);
+    this.finalizeExamResult(tenantId, actorId, attempt, context, delegationAuditMetadata);
     this.audit(
       tenantId,
       actorId,
@@ -1790,7 +1817,8 @@ export class MvpService {
       attempt.id,
       undefined,
       attempt,
-      context
+      context,
+      delegationAuditMetadata
     );
     return attempt;
   }
@@ -1804,6 +1832,12 @@ export class MvpService {
     submitted.status = 'finished';
     submitted.finishedAt = this.now();
     submitted.updatedAt = this.now();
+    const delegationAuditMetadata = this.delegatedLearningAuditMetadata(
+      tenantId,
+      actorId,
+      submitted.learnerId,
+      context.permissions
+    );
     this.audit(
       tenantId,
       actorId,
@@ -1812,7 +1846,8 @@ export class MvpService {
       submitted.id,
       undefined,
       submitted,
-      context
+      context,
+      delegationAuditMetadata
     );
     return submitted;
   }
@@ -1877,7 +1912,8 @@ export class MvpService {
     tenantId: string,
     actorId: string | undefined,
     attempt: TestAttempt,
-    context: RequestContext
+    context: RequestContext,
+    delegationAuditMetadata?: Record<string, unknown>
   ): void {
     const existing = this.state.examResults.find(
       (item) =>
@@ -1909,7 +1945,8 @@ export class MvpService {
         existing.id,
         undefined,
         existing,
-        context
+        context,
+        delegationAuditMetadata
       );
       return;
     }
@@ -1937,7 +1974,8 @@ export class MvpService {
       entity.id,
       undefined,
       entity,
-      context
+      context,
+      delegationAuditMetadata
     );
   }
 
@@ -2133,6 +2171,12 @@ export class MvpService {
       enrollment.learnerId,
       context.permissions
     );
+    const delegationAuditMetadata = this.delegatedLearningAuditMetadata(
+      tenantId,
+      actorId,
+      enrollment.learnerId,
+      context.permissions
+    );
 
     if (['submitted', 'under_review', 'reviewed'].includes(current.status)) return current;
     current.status = 'submitted';
@@ -2146,7 +2190,8 @@ export class MvpService {
       current.id,
       undefined,
       current,
-      context
+      context,
+      delegationAuditMetadata
     );
     return current;
   }
@@ -2510,6 +2555,26 @@ export class MvpService {
   }
 
   /**
+   * Метаданные аудита для сценария «за слушателя» через IAM-право `learners.act_as`.
+   */
+  private delegatedLearningAuditMetadata(
+    tenantId: string,
+    actorId: string | undefined,
+    learnerId: string,
+    permissions?: string[]
+  ): Record<string, unknown> | undefined {
+    const learner = this.getById(this.state.learners, tenantId, learnerId);
+    if (!learner.linkedIamUserId) return undefined;
+    if (!permissions?.includes(LEARNERS_ACT_AS_PERMISSION)) return undefined;
+    if (actorId && actorId === learner.linkedIamUserId) return undefined;
+    return {
+      delegated: true,
+      learnerId,
+      viaPermission: LEARNERS_ACT_AS_PERMISSION
+    };
+  }
+
+  /**
    * Когда слушатель привязан к IAM-пользователю, мутации в его контексте недоступны другим пользователям
    * (соответствие anti-IDOR для прогресса, субмиссий и попытек). Исключение: право `learners.act_as`.
    */
@@ -2742,7 +2807,8 @@ export class MvpService {
     entityId: string,
     oldValues: unknown,
     newValues: unknown,
-    context: RequestContext
+    context: RequestContext,
+    metadata?: Record<string, unknown>
   ): void {
     this.auditService.write({
       tenantId,
@@ -2752,6 +2818,7 @@ export class MvpService {
       entityId,
       oldValues: oldValues as Record<string, unknown> | undefined,
       newValues: newValues as Record<string, unknown> | undefined,
+      metadata,
       requestId: context.requestId,
       ip: context.ip,
       userAgent: context.userAgent

@@ -1,8 +1,8 @@
 import 'reflect-metadata';
-import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from './app.module.js';
+import { createAppValidationPipe } from './common/app-validation.pipe.js';
 import { HttpExceptionEnvelopeFilter } from './common/filters/http-exception.filter.js';
 import { RequestContextInterceptor } from './common/interceptors/request-context.interceptor.js';
 import { RequestObservabilityInterceptor } from './common/interceptors/request-observability.interceptor.js';
@@ -13,14 +13,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     cors: { origin: backendEnv.CORS_ORIGIN, credentials: true }
   });
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-      forbidUnknownValues: false,
-      forbidNonWhitelisted: true
-    })
-  );
+  app.useGlobalPipes(createAppValidationPipe());
   app.useGlobalFilters(new HttpExceptionEnvelopeFilter());
   app.useGlobalInterceptors(
     new RequestContextInterceptor(),

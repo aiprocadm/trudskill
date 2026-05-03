@@ -13,7 +13,16 @@ import {
 } from '@nestjs/common';
 
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
+import {
+  CreateAssignmentSubmissionRequest,
+  CreateSimpleRegistryRequest,
+  SaveAttemptAnswerRequest,
+  StartAttemptRequest,
+  UpdateAssignmentSubmissionRequest,
+  UpdateMaterialProgressRequest
+} from './mvp.dto.js';
 import { MvpService } from './mvp.service.js';
+import { assertValidDto } from '../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
@@ -23,7 +32,6 @@ import type {
   BaseFilterQuery,
   CreateAssignmentRequest,
   CreateAssignmentReviewRequest,
-  CreateAssignmentSubmissionRequest,
   CreateCourseRequest,
   CreateEnrollmentRequest,
   CreateGroupCourseRequest,
@@ -31,19 +39,14 @@ import type {
   CreateModuleRequest,
   CreateQuestionBankRequest,
   CreateQuestionRequest,
-  CreateSimpleRegistryRequest,
   CreateTestRequest,
   PatchTestRulesRequest,
   SaveAnswerRequest,
-  SaveAttemptAnswerRequest,
-  StartAttemptRequest,
   UpdateAssignmentRequest,
   UpdateAssignmentReviewRequest,
-  UpdateAssignmentSubmissionRequest,
   UpdateCourseRequest,
   UpdateEnrollmentStatusRequest,
   UpdateGroupCourseRequest,
-  UpdateMaterialProgressRequest,
   UpdateMaterialRequest,
   UpdateModuleRequest,
   UpdateQuestionBankRequest,
@@ -80,7 +83,8 @@ export class MvpController {
   @Post('counterparties')
   @UseGuards(PermissionGuard)
   @RequirePermissions('counterparties.write')
-  createCounterparty(@CurrentContext() c: RequestContext, @Body() b: CreateSimpleRegistryRequest) {
+  createCounterparty(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateSimpleRegistryRequest, raw);
     return this.mvpService.createCounterparty(c.tenantId!, c.userId, b, c);
   }
   @Put('counterparties/:id')
@@ -115,7 +119,8 @@ export class MvpController {
   @Post('learners')
   @UseGuards(PermissionGuard)
   @RequirePermissions('learners.write')
-  createLearner(@CurrentContext() c: RequestContext, @Body() b: CreateSimpleRegistryRequest) {
+  createLearner(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateSimpleRegistryRequest, raw);
     return this.mvpService.createLearner(c.tenantId!, c.userId, b, c);
   }
   @Put('learners/:id')
@@ -150,7 +155,8 @@ export class MvpController {
   @Post('directions')
   @UseGuards(PermissionGuard)
   @RequirePermissions('directions.write')
-  createDirection(@CurrentContext() c: RequestContext, @Body() b: CreateSimpleRegistryRequest) {
+  createDirection(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateSimpleRegistryRequest, raw);
     return this.mvpService.createDirection(c.tenantId!, c.userId, b, c);
   }
   @Put('directions/:id')
@@ -309,7 +315,8 @@ export class MvpController {
   @Post('groups')
   @UseGuards(PermissionGuard)
   @RequirePermissions('groups.write')
-  createGroup(@CurrentContext() c: RequestContext, @Body() b: CreateSimpleRegistryRequest) {
+  createGroup(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateSimpleRegistryRequest, raw);
     return this.mvpService.createGroup(c.tenantId!, c.userId, b, c);
   }
   @Put('groups/:id')
@@ -405,8 +412,9 @@ export class MvpController {
   updateMaterialProgress(
     @CurrentContext() c: RequestContext,
     @Param('materialId') materialId: string,
-    @Body() b: UpdateMaterialProgressRequest
+    @Body() raw: unknown
   ) {
+    const b = assertValidDto(UpdateMaterialProgressRequest, raw);
     return this.mvpService.upsertMaterialProgress(c.tenantId!, c.userId, materialId, b, c);
   }
 
@@ -580,7 +588,8 @@ export class MvpController {
   @Post('attempts/start')
   @UseGuards(PermissionGuard)
   @RequirePermissions('assessment.attempts.take')
-  startAttempt(@CurrentContext() c: RequestContext, @Body() b: StartAttemptRequest) {
+  startAttempt(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(StartAttemptRequest, raw);
     return this.mvpService.startAttempt(c.tenantId!, c.userId, b, c);
   }
   @Get('attempts/:id')
@@ -598,8 +607,9 @@ export class MvpController {
   saveAttemptAnswer(
     @CurrentContext() c: RequestContext,
     @Param('id') id: string,
-    @Body() b: SaveAttemptAnswerRequest
+    @Body() raw: unknown
   ) {
+    const b = assertValidDto(SaveAttemptAnswerRequest, raw);
     return this.mvpService.saveAnswer(c.tenantId!, c.userId, id, b, c);
   }
   @Post('attempts/:id/submit')
@@ -734,10 +744,8 @@ export class MvpController {
   @Post('assignment-submissions')
   @UseGuards(PermissionGuard)
   @RequirePermissions('assessment.submissions.submit')
-  createAssignmentSubmission(
-    @CurrentContext() c: RequestContext,
-    @Body() b: CreateAssignmentSubmissionRequest
-  ) {
+  createAssignmentSubmission(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateAssignmentSubmissionRequest, raw);
     return this.mvpService.createAssignmentSubmission(c.tenantId!, c.userId, b, c);
   }
   @Get('assignment-submissions/:id')
@@ -755,8 +763,9 @@ export class MvpController {
   updateAssignmentSubmission(
     @CurrentContext() c: RequestContext,
     @Param('id') id: string,
-    @Body() b: UpdateAssignmentSubmissionRequest
+    @Body() raw: unknown
   ) {
+    const b = assertValidDto(UpdateAssignmentSubmissionRequest, raw);
     return this.mvpService.updateAssignmentSubmission(c.tenantId!, c.userId, id, b, c);
   }
   @Post('assignment-submissions/:id/submit')

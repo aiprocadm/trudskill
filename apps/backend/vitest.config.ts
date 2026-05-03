@@ -9,9 +9,11 @@ export default defineConfig({
     }
   },
   test: {
+    name: '@cdoprof/backend',
     include: ['src/**/*.test.ts'],
     setupFiles: ['./vitest.setup-env.ts'],
     hookTimeout: 60000,
-    testTimeout: 30000
+    testTimeout: 30000,
+    fileParallelism: false
   }
 });

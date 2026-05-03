@@ -1,3 +1,6 @@
+import { Type } from 'class-transformer';
+import { IsDefined, IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
+
 export interface BaseFilterQuery {
   page?: number;
   page_size?: number;
@@ -20,11 +23,22 @@ export interface BaseFilterQuery {
   assignment_id?: string;
 }
 
-export interface CreateSimpleRegistryRequest {
-  code: string;
-  name: string;
+export class CreateSimpleRegistryRequest {
+  @IsString()
+  @MinLength(1)
+  code!: string;
+
+  @IsString()
+  @MinLength(1)
+  name!: string;
+
+  @IsOptional()
+  @IsString()
   status?: string;
+
   /** Для записи learners: связь профиля с IAM user id (`JWT sub`). Игнорируется другими простыми справочниками. */
+  @IsOptional()
+  @IsString()
   linkedIamUserId?: string;
 }
 
@@ -101,9 +115,18 @@ export interface UpdateEnrollmentStatusRequest {
   reason?: string;
 }
 
-export interface UpdateMaterialProgressRequest {
-  enrollmentId: string;
-  studiedSeconds: number;
+export class UpdateMaterialProgressRequest {
+  /** Идентификатор зачисления MVP (может быть не UUID коротким id). Пустые / не строки отсекаются. */
+  @IsDefined()
+  @IsString()
+  @MinLength(1)
+  enrollmentId!: string;
+
+  @IsDefined()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  studiedSeconds!: number;
 }
 
 export interface CreateQuestionBankRequest {
@@ -170,10 +193,18 @@ export interface UpdateTestRequest {
 
 export interface PatchTestRulesRequest extends Partial<TestRulesDto> {}
 
-export interface StartAttemptRequest {
-  testId: string;
-  enrollmentId: string;
-  learnerId: string;
+export class StartAttemptRequest {
+  @IsString()
+  @MinLength(1)
+  testId!: string;
+
+  @IsString()
+  @MinLength(1)
+  enrollmentId!: string;
+
+  @IsString()
+  @MinLength(1)
+  learnerId!: string;
 }
 
 export interface SaveAnswerRequest {
@@ -183,9 +214,16 @@ export interface SaveAnswerRequest {
   textAnswer?: string;
 }
 
-export interface SaveAttemptAnswerRequest {
-  questionId: string;
+export class SaveAttemptAnswerRequest {
+  @IsString()
+  @MinLength(1)
+  questionId!: string;
+
+  @IsOptional()
   selectedOptionIds?: string[];
+
+  @IsOptional()
+  @IsString()
   textAnswer?: string;
 }
 
@@ -206,18 +244,44 @@ export interface UpdateAssignmentRequest {
   isReviewRequired?: boolean;
 }
 
-export interface CreateAssignmentSubmissionRequest {
-  assignmentId: string;
-  enrollmentId: string;
-  learnerId: string;
+export class CreateAssignmentSubmissionRequest {
+  @IsString()
+  @MinLength(1)
+  assignmentId!: string;
+
+  @IsString()
+  @MinLength(1)
+  enrollmentId!: string;
+
+  @IsDefined()
+  @IsString()
+  @MinLength(1)
+  learnerId!: string;
+
+  @IsOptional()
+  @IsString()
   textAnswer?: string;
+
+  @IsOptional()
+  @IsString()
   answerText?: string;
+
+  @IsOptional()
+  @IsString()
   fileId?: string;
 }
 
-export interface UpdateAssignmentSubmissionRequest {
+export class UpdateAssignmentSubmissionRequest {
+  @IsOptional()
+  @IsString()
   textAnswer?: string;
+
+  @IsOptional()
+  @IsString()
   answerText?: string;
+
+  @IsOptional()
+  @IsString()
   fileId?: string;
 }
 

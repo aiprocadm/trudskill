@@ -891,11 +891,12 @@ describe('mvp service domain rules', () => {
     expect(bypass.total).toBe(2);
   });
 
-  it('allows assignment submission for linked learner when actor has learners.act_as', () => {
+  it('allows assignment submission for linked learner when actor has learners.act_as', async () => {
+    const auditService = new AuditService();
     const service = new MvpService(
       new InMemoryMvpState(),
       new TenantScopedRepository(),
-      new AuditService(),
+      auditService,
       noopFilesService,
       testEmitter
     );
@@ -944,6 +945,14 @@ describe('mvp service domain rules', () => {
       actAsCtx
     );
     expect(sub.learnerId).toBe(learner.id);
+    service.submitAssignmentSubmission('tenant_demo', 'u_teacher_delegate', sub.id, actAsCtx);
+    const auditRows = await auditService.list('tenant_demo');
+    const submitLog = auditRows.find(
+      (r) => r.action === 'assessment.assignment_submission_submitted'
+    );
+    expect(submitLog?.metadata?.delegated).toBe(true);
+    expect(submitLog?.metadata?.viaPermission).toBe('learners.act_as');
+    expect(submitLog?.metadata?.learnerId).toBe(learner.id);
   });
 
   it('rejects review creation for draft submission and duplicate review creation', () => {
