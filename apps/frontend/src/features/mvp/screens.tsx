@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
+import { showActAsLearnerAction, showOpenLearnerRegistryAction } from './assessment-permissions';
 import {
-  useAssignments,
   useAssignmentReviews,
   useAssignmentSubmissions,
+  useAssignments,
+  useAttempts,
   useCounterpartiesList,
   useCounterparty,
   useCourse,
@@ -17,6 +19,7 @@ import {
   useDirectionsList,
   useDomainMutations,
   useEnrollments,
+  useExamResults,
   useGroup,
   useGroupCourses,
   useGroupsList,
@@ -48,6 +51,9 @@ import {
 import { ApiClientError } from '../../lib/api/client';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
+
+import type { AssignmentSubmission, Attempt, ExamResult } from './types';
+import type { Column } from '@cdoprof/ui';
 
 const STATUS_OPTIONS = [
   'active',
@@ -655,7 +661,8 @@ export const CourseCreateScreen = () => {
           </button>
           {step >= 3 ? (
             <div className="ui-empty">
-              Проверка: {title.trim() ? 'название ок' : 'нет названия'}, {code.trim() ? 'код ок' : 'нет кода'}
+              Проверка: {title.trim() ? 'название ок' : 'нет названия'},{' '}
+              {code.trim() ? 'код ок' : 'нет кода'}
               {directionId ? ', направление выбрано' : ', направление не выбрано'}
             </div>
           ) : null}
@@ -1422,11 +1429,123 @@ export const AssessmentDashboardScreen = () => {
     page_size: 50,
     status: 'submitted'
   });
+  const {
+    data: attempts,
+    loading: attemptsLoading,
+    error: attemptsError
+  } = useAttempts({ page: 1, page_size: 20 });
+  const {
+    data: examResults,
+    loading: examResultsLoading,
+    error: examResultsError
+  } = useExamResults({ page: 1, page_size: 20 });
   const { data: reviews } = useAssignmentReviews({ page: 1, page_size: 50 });
+  const canCrossLearner = showOpenLearnerRegistryAction(session?.permissions);
+  const canActAsLearner = showActAsLearnerAction(session?.permissions);
+
+  const submissionColumns: Column<AssignmentSubmission>[] = [
+    { key: 'id', title: 'Submission ID' },
+    { key: 'assignmentId', title: 'Задание' },
+    {
+      key: 'learnerId',
+      title: 'Слушатель и доступ',
+      render: (row) => (
+        <span className="ui-stack" style={{ gap: 4 }}>
+          <code>{row.learnerId}</code>
+          {canCrossLearner ? (
+            <Link
+              href="/learners"
+              data-testid={`assessment-open-learner-sub-${row.id}`}
+              title={`ID слушателя: ${row.learnerId}`}
+            >
+              Реестр слушателя
+            </Link>
+          ) : null}
+          {canActAsLearner ? (
+            <span className="ui-text-muted" data-testid={`assessment-act-as-learner-sub-${row.id}`}>
+              Отметить за слушателя: запуск попытки / субмиты с learnerId этого зачисления (IAM:
+              learners.act_as).
+            </span>
+          ) : null}
+        </span>
+      )
+    },
+    { key: 'status', title: 'Статус' },
+    { key: 'submittedAt', title: 'Отправлено' }
+  ];
+
+  const attemptsColumns: Column<Attempt>[] = [
+    { key: 'id', title: 'Попытка' },
+    { key: 'testId', title: 'Тест' },
+    { key: 'enrollmentId', title: 'Зачисление' },
+    {
+      key: 'learnerId',
+      title: 'Слушатель и доступ',
+      render: (row) => (
+        <span className="ui-stack" style={{ gap: 4 }}>
+          <code>{row.learnerId}</code>
+          {canCrossLearner ? (
+            <Link
+              href="/learners"
+              data-testid={`assessment-open-learner-att-${row.id}`}
+              title={`ID слушателя: ${row.learnerId}`}
+            >
+              Реестр слушателя
+            </Link>
+          ) : null}
+          {canActAsLearner ? (
+            <span className="ui-text-muted" data-testid={`assessment-act-as-learner-att-${row.id}`}>
+              Сценарий сдачи: выберите зачисление с этим learnerId.
+            </span>
+          ) : null}
+        </span>
+      )
+    },
+    { key: 'status', title: 'Статус' },
+    { key: 'startedAt', title: 'Начато' }
+  ];
+
+  const examResultColumns: Column<ExamResult>[] = [
+    { key: 'id', title: 'Результат' },
+    { key: 'testId', title: 'Тест' },
+    {
+      key: 'learnerId',
+      title: 'Слушатель и доступ',
+      render: (row) => (
+        <span className="ui-stack" style={{ gap: 4 }}>
+          <code>{row.learnerId}</code>
+          {canCrossLearner ? (
+            <Link
+              href="/learners"
+              data-testid={`assessment-open-learner-exam-${row.id}`}
+              title={`ID слушателя: ${row.learnerId}`}
+            >
+              Реестр слушателя
+            </Link>
+          ) : null}
+          {canActAsLearner ? (
+            <span
+              className="ui-text-muted"
+              data-testid={`assessment-act-as-learner-exam-${row.id}`}
+            >
+              Результат по строке; делегируйте мутации через актуальное зачисление слушателя.
+            </span>
+          ) : null}
+        </span>
+      )
+    },
+    { key: 'finalScore', title: 'Балл' },
+    { key: 'passed', title: 'Зачёт' }
+  ];
 
   const onStartAttempt = async () => {
     if (!selectedTestId || !selectedEnrollmentId || !session) {
       setSaveError('Выберите тест и зачисление');
+      return;
+    }
+    const enrollmentRecord = enrollments?.items.find((e) => e.id === selectedEnrollmentId);
+    if (!enrollmentRecord) {
+      setSaveError('Не найдено выбранное зачисление (проверьте фильтр group_id)');
       return;
     }
     setSaveError(null);
@@ -1436,7 +1555,7 @@ export const AssessmentDashboardScreen = () => {
       const attempt = await startAttempt({
         testId: selectedTestId,
         enrollmentId: selectedEnrollmentId,
-        learnerId: session.user.id
+        learnerId: enrollmentRecord.learnerId
       });
       const result = await getAttemptResult(attempt.id);
       setAttemptResult(
@@ -1597,20 +1716,32 @@ export const AssessmentDashboardScreen = () => {
           </div>
         ) : null}
       </SectionCard>
+      <SectionCard title="Попытки">
+        {attemptsLoading ? <LoadingState message="Загрузка попыток…" /> : null}
+        {attemptsError ? <SectionError message={attemptsError} /> : null}
+        {!attemptsLoading && !attempts?.items?.length ? (
+          <SectionEmpty message="Нет попыток в выборке" />
+        ) : null}
+        {attempts?.items.length ? (
+          <DataTable<Attempt> columns={attemptsColumns} rows={attempts.items} />
+        ) : null}
+      </SectionCard>
+      <SectionCard title="Результаты экзаменов">
+        {examResultsLoading ? <LoadingState message="Загрузка результатов…" /> : null}
+        {examResultsError ? <SectionError message={examResultsError} /> : null}
+        {!examResultsLoading && !examResults?.items?.length ? (
+          <SectionEmpty message="Нет результатов в выборке" />
+        ) : null}
+        {examResults?.items.length ? (
+          <DataTable<ExamResult> columns={examResultColumns} rows={examResults.items} />
+        ) : null}
+      </SectionCard>
       <SectionCard title="Очередь проверок преподавателя">
         <p className="ui-text-muted">
           SLA проверки: 48 часов. Заявок в очереди: {submissions?.items.length ?? 0}
         </p>
         {submissions?.items.length ? (
-          <DataTable
-            columns={[
-              { key: 'id', title: 'Submission ID' },
-              { key: 'assignmentId', title: 'Задание' },
-              { key: 'status', title: 'Статус' },
-              { key: 'submittedAt', title: 'Отправлено' }
-            ]}
-            rows={toTableRows(submissions.items)}
-          />
+          <DataTable<AssignmentSubmission> columns={submissionColumns} rows={submissions.items} />
         ) : (
           <SectionEmpty message="Новых submissions на проверку нет" />
         )}
