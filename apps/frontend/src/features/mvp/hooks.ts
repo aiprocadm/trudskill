@@ -162,7 +162,9 @@ export const useDomainMutations = () => {
     createBulkEnrollments: (payload: {
       idempotencyKey: string;
       groupId: string;
-      learnerIds: string[];
+      learnerIds?: string[];
+      organizationUnitId?: string;
+      deliveryMode?: 'immediate' | 'queued';
     }) => wrap((authSession) => mvpApi.createBulkEnrollments(authSession, payload)),
     setUserRoles: (id: string, roleCodes: string[]) =>
       wrap((authSession) => mvpApi.setUserRoles(authSession, id, roleCodes)),

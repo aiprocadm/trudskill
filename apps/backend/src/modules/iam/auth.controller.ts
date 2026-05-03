@@ -206,7 +206,10 @@ export class AuthController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('iam.manage_roles')
   async createUser(@CurrentContext() context: RequestContext, @Body() payload: CreateUserDto) {
-    const user = await this.iamService.createUser(context.tenantId!, payload);
+    const user = await this.iamService.createUser(context.tenantId!, payload, {
+      actorId: context.userId,
+      requestId: context.requestId
+    });
     return this.iamService.toPublicUser(user);
   }
 
