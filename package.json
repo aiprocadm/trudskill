@@ -29,7 +29,8 @@
     "test:contracts": "pnpm exec vitest run --project @cdoprof/api-contracts",
     "test:security": "pnpm exec vitest run apps/backend/src/modules/iam/auth.security.test.ts apps/backend/src/modules/integrations/services/webhook-signature-verifier.test.ts apps/backend/src/modules/documents/documents.state-machine.test.ts apps/backend/src/modules/esign/esign.state-machine.test.ts",
     "test:integration": "pnpm exec vitest run apps/backend/src/**/*integration.test.ts",
-    "test:migrations": "pnpm exec vitest run apps/backend/src/infrastructure/database/*migrations*.test.ts"
+    "test:migrations": "pnpm exec vitest run apps/backend/src/infrastructure/database/*migrations*.test.ts",
+    "test:python": "python -m pytest"
   },
   "lint-staged": {
     "*.{js,cjs,mjs,ts,tsx,jsx}": [

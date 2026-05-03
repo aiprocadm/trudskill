@@ -10,6 +10,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  tests_python:
+    name: Python (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: python_tests/requirements.txt
+      - name: Install pytest
+        run: pip install -r python_tests/requirements.txt
+      - name: Run pytest
+        run: python -m pytest
+
   lint_typecheck:
     name: Lint + Typecheck
     runs-on: ubuntu-latest
@@ -71,7 +86,6 @@ jobs:
           pnpm test:frontend
           pnpm test:contracts
 
-
   contract_drift_check:
     name: Contract drift check (required)
     runs-on: ubuntu-latest
@@ -120,6 +134,7 @@ jobs:
       - tests_frontend_and_contracts
       - frontend_typecheck_build
       - contract_drift_check
+      - tests_python
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
