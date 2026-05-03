@@ -19,6 +19,8 @@
 
 Подробнее о целевых NFR см. [NFR_LAUNCH_V1.md](./NFR_LAUNCH_V1.md). Резервы и откат — [BACKUP_ROLLBACK.md](./BACKUP_ROLLBACK.md).
 
+Регулярные проверки persistence и здоровья сервисов в эксплуатации — [operations-runbook.md](./operations-runbook.md).
+
 ## Мониторинг и наблюдаемость
 
 - **Health / readiness:** используйте эндпоинты модуля health backend; в Docker задайте `depends_on` и политику перезапуска для `postgres`, `redis`, `rabbitmq`.
