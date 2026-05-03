@@ -217,6 +217,7 @@ export class MvpService {
       firstName: firstName ?? request.name,
       lastName: lastName ?? '',
       email: undefined,
+      organizationUnitId: request.organizationUnitId?.trim() || undefined,
       linkedIamUserId: request.linkedIamUserId?.trim() || undefined,
       status: request.status ?? 'active',
       createdAt: this.now(),
@@ -255,6 +256,11 @@ export class MvpService {
       current.linkedIamUserId = request.linkedIamUserId.trim() || undefined;
     } else if (request.linkedIamUserId === null) {
       current.linkedIamUserId = undefined;
+    }
+    if (request.organizationUnitId !== undefined && request.organizationUnitId !== null) {
+      current.organizationUnitId = request.organizationUnitId.trim() || undefined;
+    } else if (request.organizationUnitId === null) {
+      current.organizationUnitId = undefined;
     }
     current.updatedAt = this.now();
     this.audit(
@@ -834,6 +840,9 @@ export class MvpService {
     const examTotal = examScoped.length;
     const examPassRate = examTotal === 0 ? 0 : passed / examTotal;
 
+    const wantBreakdown =
+      query.include_enrollment_breakdown === '1' || query.include_enrollment_breakdown === 'true';
+
     return {
       scope: {
         courseId: courseId ?? undefined,
@@ -846,7 +855,18 @@ export class MvpService {
       enrollmentCompletionRate: completionRate,
       examResultsInScopeTotal: examTotal,
       examResultsPassed: passed,
-      examPassRate
+      examPassRate,
+      ...(wantBreakdown
+        ? {
+            enrollmentBreakdown: scopedEnrollments.map((e) => ({
+              enrollmentId: e.id,
+              learnerId: e.learnerId,
+              groupId: e.groupId,
+              status: e.status,
+              enrolledAt: e.enrolledAt
+            }))
+          }
+        : {})
     };
   }
 
@@ -932,6 +952,16 @@ export class MvpService {
     return entity;
   }
 
+  getBulkEnrollmentOutcomeIfAny(
+    tenantId: string,
+    idempotencyKey: string
+  ): BulkEnrollmentsOutcome | undefined {
+    const rec = this.state.bulkEnrollmentIdempotency.find(
+      (r) => r.tenantId === tenantId && r.idempotencyKey === idempotencyKey
+    );
+    return rec?.outcome;
+  }
+
   createBulkEnrollments(
     tenantId: string,
     actorId: string | undefined,
@@ -945,9 +975,27 @@ export class MvpService {
       return duplicateIdem.outcome;
     }
 
-    const uniqueLearnerIds = [
-      ...new Set(request.learnerIds.map((lid) => lid.trim()).filter((id) => id.length > 0))
-    ];
+    const explicit = (request.learnerIds ?? [])
+      .map((lid) => String(lid).trim())
+      .filter((id) => id.length > 0);
+
+    const orgKey = request.organizationUnitId?.trim();
+    let fromOrg: string[] = [];
+    if (orgKey) {
+      fromOrg = this.state.learners
+        .filter((l) => l.tenantId === tenantId && l.organizationUnitId === orgKey)
+        .map((l) => l.id);
+    }
+
+    const uniqueLearnerIds = [...new Set([...explicit, ...fromOrg])];
+
+    if (uniqueLearnerIds.length === 0) {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message:
+          'No learner targets resolved: provide non-empty learnerIds and/or organizationUnitId with matching learners'
+      });
+    }
     const created: Enrollment[] = [];
     const skippedExisting: Array<{ learnerId: string; enrollmentId: string }> = [];
     const errors: BulkEnrollmentItemError[] = [];

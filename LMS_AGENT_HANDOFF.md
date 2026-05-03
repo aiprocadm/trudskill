@@ -543,13 +543,15 @@
 
 ## 17. Environment Variables
 
-| Variable                   | Required                | Purpose                      | Notes              |
-| -------------------------- | ----------------------- | ---------------------------- | ------------------ |
-| `DATABASE_URL`             | yes (backend runtime)   | PostgreSQL connection        | value not included |
-| `DB_MIGRATIONS_ENABLED`    | optional                | Enable migrations on startup | boolean-like       |
-| `NEXT_PUBLIC_API_BASE_URL` | yes (frontend)          | Backend API URL              | public env         |
-| `NEXT_PUBLIC_REALTIME_URL` | yes (frontend realtime) | Realtime endpoint URL        | public env         |
-| `PUBLIC_BASE_URL`          | optional/tests          | Base URL in tests/helpers    | no secrets         |
+| Variable                   | Required                | Purpose                             | Notes                             |
+| -------------------------- | ----------------------- | ----------------------------------- | --------------------------------- |
+| `DATABASE_URL`             | yes (backend runtime)   | PostgreSQL connection               | value not included                |
+| `DB_MIGRATIONS_ENABLED`    | optional                | Enable migrations on startup        | boolean-like                      |
+| `NEXT_PUBLIC_API_BASE_URL` | yes (frontend)          | Backend API URL                     | public env                        |
+| `NEXT_PUBLIC_REALTIME_URL` | yes (frontend realtime) | Realtime endpoint URL               | public env                        |
+| `PUBLIC_BASE_URL`          | optional/tests          | Base URL in tests/helpers           | no secrets                        |
+| `WORKER_CALLBACK_SECRET`   | optional                | Защита `POST .../internal/worker/*` | Должен совпадать с токеном worker |
+| `WORKER_CALLBACK_TOKEN`    | optional (worker)       | Заголовок к backend internal API    | См. `apps/worker/.env.example`    |
 
 ## 18. How To Run Locally
 
@@ -572,12 +574,14 @@
 - Build status: после правок этого плана выполните `pnpm -s ci:check`.
 - Backend: аудит делегирования (`metadata`), HTTP IDOR для **GET attempts / exam-results by enrollment**, class-validator MVP + общий **`createAppValidationPipe`**, frontend guard по **`cross_learner` / `learners.act_as`**, корневой Vitest **`test.projects`** и последовательный прогон backend-тестов.
 - Итерация «план к ТЗ/запуску»: добавлены **`POST /enrollments/bulk`** с идемпотентностью в коллекции snapshot **`bulkEnrollmentIdempotency`**, **`GET /reports/kpi-snapshot`**, **`GET /enrollments/:id/certificates`** с проверкой `linkedIamUserId`; UI — KPI на **`/reports`**, сертификаты слушателя в **`LearnerCoursesScreen`**; эксплуатационные заготовки **`docs/LAUNCH_RUNBOOK.md`**, **`docs/BACKUP_ROLLBACK.md`**, трассировка **`docs/TZ_MVP_TRACEABILITY.md`**, NFR-снимок **`docs/NFR_LAUNCH_V1.md`**; доп. контракты в **`packages/api-contracts/src/domains/mvp-metrics/contracts.ts`**.
-- Next best action: (1) исходное ТЗ (Issue 0); (2) прогон миграций **`0027`** на всех окружениях перед релизом; (3) асинхронная очередь для очень больших bulk (worker) при необходимости масштаба.
+- Бэклог «полный MVP»: **очередь bulk** — `deliveryMode: queued` публикует в RabbitMQ, **worker** вызывает **`POST /api/v1/internal/worker/mvp/bulk-enrollments`** (`WORKER_CALLBACK_SECRET` / `WORKER_CALLBACK_TOKEN`); **organizationUnitId** у learner и массовые назначения по подразделению; **KPI drill-down** — query `include_enrollment_breakdown=1`; аудит **`iam.user_created`**; регресс **BL-007** listener; class-validator **`CreateModuleRequest`/`CreateMaterialRequest`**; см. **`docs/security-remediation-roadmap.md`** (статус JWT vs заголовки).
+- Next best action: (1) исходное ТЗ (Issue 0); (2) прогон миграций **`0027`** на всех окружениях перед релизом; (3) при пилоте с очередью — проверить пары секретов и потребление `documents.generation`.
 
 ## 21. Новые MVP API (быстрый справочник)
 
-| Method | Path                            | Permission          | Назначение                                        |
-| ------ | ------------------------------- | ------------------- | ------------------------------------------------- |
-| POST   | `/enrollments/bulk`             | `enrollments.write` | BL-003 массовое зачисление + лог ошибок           |
-| GET    | `/reports/kpi-snapshot`         | `enrollments.read`  | BL-008 KPI completion / exam pass rate            |
-| GET    | `/enrollments/:id/certificates` | `enrollments.read`  | BL-007 выдача ссылок на сертификаты по завершении |
+| Method | Path                                    | Permission                | Назначение                                                                     |
+| ------ | --------------------------------------- | ------------------------- | ------------------------------------------------------------------------------ |
+| POST   | `/enrollments/bulk`                     | `enrollments.write`       | BL-003: sync или `deliveryMode: queued`; org unit см. **`organizationUnitId`** |
+| POST   | `/internal/worker/mvp/bulk-enrollments` | `x-worker-callback-token` | Только worker: завершение queued bulk                                          |
+| GET    | `/reports/kpi-snapshot`                 | `enrollments.read`        | BL-008 KPI; опционально `include_enrollment_breakdown=1`                       |
+| GET    | `/enrollments/:id/certificates`         | `enrollments.read`        | BL-007 выдача ссылок на сертификаты по завершении                              |

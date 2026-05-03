@@ -19,6 +19,8 @@ export interface Learner extends BaseEntity {
   firstName: string;
   lastName: string;
   email?: string;
+  /** Произвольный ключ подразделения в рамках tenant (BL-003: массовые назначения по org unit). */
+  organizationUnitId?: string;
   /** Если задан — мутации прогресса/субмиссий/попыток в контексте этого слушателя разрешены только этому IAM-пользователю (антивор IDOR). */
   linkedIamUserId?: string;
 }
@@ -125,6 +127,14 @@ export interface KpiSnapshotDto {
   examResultsPassed: number;
   /** 0..1 */
   examPassRate: number;
+  /** При `include_enrollment_breakdown=1` — построчный drill-down по зачислениям в фильтре. */
+  enrollmentBreakdown?: Array<{
+    enrollmentId: string;
+    learnerId: string;
+    groupId: string;
+    status: EnrollmentStatus;
+    enrolledAt: string;
+  }>;
 }
 
 export interface EnrollmentStatusHistory {

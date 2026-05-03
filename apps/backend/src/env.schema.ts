@@ -65,7 +65,13 @@ export const backendEnvSchema = z
     SUPERTOKENS_API_KEY: z.string().min(8).optional(),
     SUPERTOKENS_APP_NAME: z.string().min(1).default('cdoprof'),
     SUPERTOKENS_API_DOMAIN: z.string().url().optional(),
-    SUPERTOKENS_WEBSITE_DOMAIN: z.string().url().optional()
+    SUPERTOKENS_WEBSITE_DOMAIN: z.string().url().optional(),
+    /** Общий секрет worker → backend для `POST .../internal/worker/*` (очередь массовых назначений). */
+    WORKER_CALLBACK_SECRET: z.string().min(8).optional(),
+    /** Exchange RabbitMQ для фоновых job (совпадает с `WORKER_EXCHANGE` в apps/worker). */
+    JOB_EXCHANGE: z.string().min(1).default('jobs.topic'),
+    /** Routing key публикации задачи массового зачисления. */
+    JOB_ROUTING_BULK_ENROLLMENT: z.string().min(1).default('lms.bulk_enrollment')
   })
   .superRefine((env, ctx) => {
     const devSecrets = [

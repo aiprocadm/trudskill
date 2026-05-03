@@ -6,6 +6,8 @@ import { MVP_PERSISTENCE_BACKEND } from './infrastructure/mvp-persistence.token.
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
 import { MVP_STATE } from './infrastructure/mvp-state.token.js';
 import { PostgresMvpPersistenceBackend } from './infrastructure/postgres-mvp-persistence.backend.js';
+import { MvpBulkEnqueueService } from './mvp-bulk-enqueue.service.js';
+import { MvpInternalWorkerController } from './mvp-internal-worker.controller.js';
 import { MvpController } from './mvp.controller.js';
 import { MvpService } from './mvp.service.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
@@ -15,8 +17,9 @@ import { IamModule } from '../iam/iam.module.js';
 
 @Module({
   imports: [InfrastructureModule, FilesModule, IamModule, DocumentsModule],
-  controllers: [MvpController],
+  controllers: [MvpController, MvpInternalWorkerController],
   providers: [
+    MvpBulkEnqueueService,
     PostgresMvpPersistenceBackend,
     { provide: MVP_PERSISTENCE_BACKEND, useClass: MvpPersistenceRepositoryAdapter },
     { provide: MVP_STATE, scope: Scope.REQUEST, useClass: InMemoryMvpState },

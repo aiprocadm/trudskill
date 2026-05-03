@@ -15,7 +15,8 @@ const defaults: Record<string, string> = {
   CORS_ORIGIN: 'http://127.0.0.1:3000',
   PUBLIC_BASE_URL: 'http://127.0.0.1:3000',
   REALTIME_PUBLIC_URL: 'http://127.0.0.1:3002',
-  REALTIME_PUBLISH_KEY: 'test-realtime-publish-key'
+  REALTIME_PUBLISH_KEY: 'test-realtime-publish-key',
+  WORKER_CALLBACK_SECRET: 'test-worker-callback-secret-16'
 };
 
 for (const [key, value] of Object.entries(defaults)) {

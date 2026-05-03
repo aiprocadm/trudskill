@@ -382,7 +382,8 @@ export class IamService {
       displayName: string;
       status?: 'active' | 'blocked';
       password?: string;
-    }
+    },
+    auditMeta?: { actorId?: string; requestId?: string }
   ): Promise<User> {
     if (!this.databaseService) {
       const user: User = {
@@ -395,6 +396,15 @@ export class IamService {
         displayName: payload.displayName
       };
       this.fallbackUsers.push(user);
+      this.auditService.write({
+        tenantId,
+        actorId: auditMeta?.actorId,
+        requestId: auditMeta?.requestId,
+        action: 'iam.user_created',
+        entityType: 'iam.user',
+        entityId: user.id,
+        newValues: { login: user.login, displayName: user.displayName, status: user.status }
+      });
       return user;
     }
 
@@ -415,7 +425,17 @@ export class IamService {
       ]
     );
 
-    return this.getUser(tenantId, id);
+    const created = await this.getUser(tenantId, id);
+    this.auditService.write({
+      tenantId,
+      actorId: auditMeta?.actorId,
+      requestId: auditMeta?.requestId,
+      action: 'iam.user_created',
+      entityType: 'iam.user',
+      entityId: created.id,
+      newValues: { login: created.login, displayName: created.displayName, status: created.status }
+    });
+    return created;
   }
 
   async updateUser(

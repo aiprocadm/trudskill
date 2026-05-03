@@ -254,6 +254,13 @@ describe('stage13 business e2e flows (service-level)', () => {
     const kpi = service.getKpiSnapshot('tenant_demo', { group_id: group.id });
     expect(kpi.enrollmentsTotal).toBe(2);
     expect(kpi.enrollmentsCompleted).toBe(0);
+
+    const kpiDrilldown = service.getKpiSnapshot('tenant_demo', {
+      group_id: group.id,
+      include_enrollment_breakdown: '1'
+    });
+    expect(kpiDrilldown.enrollmentBreakdown).toHaveLength(2);
+    expect(kpiDrilldown.enrollmentBreakdown?.every((r) => r.groupId === group.id)).toBe(true);
   });
 
   it('completes document generation and e-sign signing flow with legal log artifacts', () => {

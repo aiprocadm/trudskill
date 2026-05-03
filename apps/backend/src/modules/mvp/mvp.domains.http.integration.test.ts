@@ -118,6 +118,7 @@ describe('MVP HTTP integration (domain invariants)', () => {
       { MVP_STATE },
       { MvpRequestPersistenceInterceptor },
       { MemoryMvpPersistenceBackend },
+      { MvpBulkEnqueueService },
       { MvpController },
       { MvpService },
       { InMemoryMvpState }
@@ -137,6 +138,7 @@ describe('MVP HTTP integration (domain invariants)', () => {
       import('./infrastructure/mvp-state.token.js'),
       import('./infrastructure/mvp-request-persistence.interceptor.js'),
       import('./infrastructure/memory-mvp-persistence.backend.js'),
+      import('./mvp-bulk-enqueue.service.js'),
       import('./mvp.controller.js'),
       import('./mvp.service.js'),
       import('./infrastructure/in-memory-mvp.state.js')
@@ -168,6 +170,16 @@ describe('MVP HTTP integration (domain invariants)', () => {
           useClass: MvpRequestPersistenceInterceptor
         },
         PermissionGuard,
+        {
+          provide: MvpBulkEnqueueService,
+          useValue: {
+            publishBulkJob: vi.fn().mockResolvedValue({
+              status: 'queued',
+              messageId: 'test_worker_message',
+              idempotencyKey: 'test'
+            })
+          }
+        },
         { provide: AuthService, useValue: authServiceMock },
         { provide: IamService, useValue: iamServiceMock },
         { provide: FilesService, useValue: noopFilesService },

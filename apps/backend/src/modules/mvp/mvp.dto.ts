@@ -1,6 +1,5 @@
 import { Type } from 'class-transformer';
 import {
-  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsDefined,
@@ -37,6 +36,8 @@ export interface BaseFilterQuery {
   test_id?: string;
   enrollment_id?: string;
   assignment_id?: string;
+  /** Если `1` или `true` — KPI snapshot включает `enrollmentBreakdown`. */
+  include_enrollment_breakdown?: string;
 }
 
 export class CreateSimpleRegistryRequest {
@@ -56,6 +57,12 @@ export class CreateSimpleRegistryRequest {
   @IsOptional()
   @IsString()
   linkedIamUserId?: string;
+
+  /** Для записи learners: произвольный идентификатор орг-подразделения (сквозной ключ в рамках tenant). Игнорируется контрагентами/направлениями. */
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  organizationUnitId?: string;
 }
 
 export interface UpdateSimpleRegistryRequest {
@@ -63,6 +70,8 @@ export interface UpdateSimpleRegistryRequest {
   name?: string;
   status?: string;
   linkedIamUserId?: string | null;
+  /** Только для learners: код/ключ орг-подразделения. */
+  organizationUnitId?: string | null;
 }
 
 export class CreateCourseRequest {
@@ -86,10 +95,23 @@ export interface UpdateCourseRequest {
   status?: string;
 }
 
-export interface CreateModuleRequest {
-  courseVersionId: string;
-  title: string;
+export class CreateModuleRequest {
+  @IsString()
+  @MinLength(1)
+  courseVersionId!: string;
+
+  @IsString()
+  @MinLength(1)
+  title!: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
   minViewSeconds?: number;
+
+  @IsOptional()
+  @IsBoolean()
   isRequired?: boolean;
 }
 
@@ -100,18 +122,38 @@ export interface UpdateModuleRequest {
   status?: string;
 }
 
-export interface CreateMaterialRequest {
-  moduleId: string;
-  title: string;
-  materialType: 'file' | 'external_url' | 'text' | 'video';
+const materialTypeValues = ['file', 'external_url', 'text', 'video'] as const;
+
+export class CreateMaterialRequest {
+  @IsString()
+  @MinLength(1)
+  moduleId!: string;
+
+  @IsString()
+  @MinLength(1)
+  title!: string;
+
+  @IsIn(materialTypeValues)
+  materialType!: (typeof materialTypeValues)[number];
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
   minViewSeconds?: number;
+
+  @IsOptional()
+  @IsBoolean()
   isRequired?: boolean;
+
+  @IsOptional()
+  @IsString()
   fileId?: string;
 }
 
 export interface UpdateMaterialRequest {
   title?: string;
-  materialType?: 'file' | 'external_url' | 'text' | 'video';
+  materialType?: (typeof materialTypeValues)[number];
   minViewSeconds?: number;
   isRequired?: boolean;
   status?: string;
@@ -166,6 +208,8 @@ export class UpdateEnrollmentStatusRequest {
   reason?: string;
 }
 
+const bulkDeliveryModes = ['immediate', 'queued'] as const;
+
 export class CreateBulkEnrollmentsRequest {
   @IsString()
   @MinLength(1)
@@ -175,10 +219,22 @@ export class CreateBulkEnrollmentsRequest {
   @MinLength(1)
   groupId!: string;
 
+  /** Список слушателей; может быть дополнен выборкой по organizationUnitId. */
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @IsString({ each: true })
-  learnerIds!: string[];
+  learnerIds?: string[];
+
+  /** Если задан — к списку learnerIds добавляются все слушатели этого подразделения (tenant-scoped). */
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  organizationUnitId?: string;
+
+  /** По умолчанию синхронное выполнение; `queued` — публикация в RabbitMQ и обработка в apps/worker. */
+  @IsOptional()
+  @IsIn(bulkDeliveryModes)
+  deliveryMode?: (typeof bulkDeliveryModes)[number];
 }
 
 export class UpdateMaterialProgressRequest {

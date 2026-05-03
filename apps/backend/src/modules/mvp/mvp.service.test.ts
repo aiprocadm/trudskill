@@ -1519,4 +1519,72 @@ describe('mvp service domain rules', () => {
     );
     expect(second).toEqual(first);
   });
+
+  it('bulk enroll merges organizationUnitId with explicit learner ids', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G-ORG', name: 'Org G' },
+      ctx
+    );
+    const la = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      {
+        code: 'L-OA',
+        name: 'A Alpha',
+        organizationUnitId: 'unit_sales'
+      },
+      ctx
+    );
+    service.createLearner('tenant_demo', ctx.userId, { code: 'L-OB', name: 'B Beta' }, ctx);
+
+    const bulk = service.createBulkEnrollments(
+      'tenant_demo',
+      ctx.userId,
+      {
+        idempotencyKey: 'idem-org-1',
+        groupId: group.id,
+        organizationUnitId: 'unit_sales',
+        learnerIds: []
+      },
+      ctx
+    );
+    expect(bulk.created.map((e) => e.learnerId)).toEqual([la.id]);
+  });
+
+  it('lists learners only for requested tenant', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const ctxB = {
+      ...ctx,
+      tenantId: 'tenant_b',
+      roles: [],
+      permissions: ['*']
+    } as typeof ctx;
+
+    service.createLearner('tenant_demo', ctx.userId, { code: 'L-TA', name: 'On A' }, ctx);
+    service.createLearner('tenant_b', ctx.userId, { code: 'L-TB', name: 'On B' }, ctxB);
+
+    const onA = service.listLearners('tenant_demo', {});
+    expect(onA.items).toHaveLength(1);
+    expect(onA.items[0]?.tenantId).toBe('tenant_demo');
+    const onB = service.listLearners('tenant_b', {});
+    expect(onB.items).toHaveLength(1);
+    expect(onB.items[0]?.tenantId).toBe('tenant_b');
+  });
 });

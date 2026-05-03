@@ -62,6 +62,8 @@
 
 ### 1) Доверенная аутентификация по токену
 
+**Статус (MVP-бэклог):** в HTTP API идентичность задаётся в [`TenantGuard`](../apps/backend/src/common/guards/tenant.guard.ts) только из успешной верификации Bearer JWT; заголовки `x-user-id` / `x-tenant-id` в [`resolveRequestContext`](../apps/backend/src/common/utils/request.ts) попадают в `requestedTenantId` для bootstrap-путей входа и **не** становятся `userId`/`tenantId` без токена. Оставшиеся задачи: убедиться, что ни один модуль для production не читает «сырой» spoof-заголовок как авторитетный источник, и добавить регресс на все исключения.
+
 **Цель:** исключить подмену пользователя и tenant.
 
 **Изменения:**
