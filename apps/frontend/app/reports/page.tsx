@@ -26,6 +26,7 @@ export default function ReportsPage() {
   const [to, setTo] = useState('');
   const [kpiCourseId, setKpiCourseId] = useState('');
   const [kpiGroupId, setKpiGroupId] = useState('');
+  const [kpiDrilldown, setKpiDrilldown] = useState(false);
   const courses = useCoursesList({ page: 1, page_size: 1 });
   const groups = useGroupsList({ page: 1, page_size: 1 });
   const tests = useTests({ page: 1, page_size: 1 });
@@ -37,7 +38,8 @@ export default function ReportsPage() {
     ...(from ? { created_from: from } : {}),
     ...(to ? { created_to: to } : {}),
     ...(kpiCourseId.trim() ? { course_id: kpiCourseId.trim() } : {}),
-    ...(kpiGroupId.trim() ? { group_id: kpiGroupId.trim() } : {})
+    ...(kpiGroupId.trim() ? { group_id: kpiGroupId.trim() } : {}),
+    ...(kpiDrilldown ? { include_enrollment_breakdown: '1' } : {})
   };
   const kpi = useKpiSnapshot(kpiQuery);
   const progressCounters = useMemo(() => {
@@ -72,6 +74,36 @@ export default function ReportsPage() {
     ]
   );
 
+  const exportKpiCsv = () => {
+    if (!kpi.data) return;
+    const d = kpi.data;
+    const lines = [
+      'metric,value',
+      `enrollmentsTotal,${d.enrollmentsTotal}`,
+      `enrollmentsCompleted,${d.enrollmentsCompleted}`,
+      `enrollmentCompletionRate,${d.enrollmentCompletionRate}`,
+      `examResultsInScopeTotal,${d.examResultsInScopeTotal}`,
+      `examResultsPassed,${d.examResultsPassed}`,
+      `examPassRate,${d.examPassRate}`
+    ];
+    if (d.enrollmentBreakdown?.length) {
+      lines.push('');
+      lines.push('enrollmentId,learnerId,groupId,status,enrolledAt');
+      for (const row of d.enrollmentBreakdown) {
+        lines.push(
+          `${row.enrollmentId},${row.learnerId},${row.groupId},${row.status},${row.enrolledAt}`
+        );
+      }
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `kpi_snapshot_${Date.now()}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const exportCsv = () => {
     const lines = ['report,total,from,to,status'];
     reportRows.forEach((row) =>
@@ -93,9 +125,14 @@ export default function ReportsPage() {
           title="Отчётность"
           subtitle="П. 5.24 ТЗ — выгрузки по курсам, группам, экзаменам, НЭП, прокторингу"
           actions={
-            <button type="button" className="ui-button ui-button--primary" onClick={exportCsv}>
-              Выгрузить CSV
-            </button>
+            <>
+              <button type="button" className="ui-button ui-button--secondary" onClick={exportKpiCsv}>
+                KPI → CSV
+              </button>
+              <button type="button" className="ui-button ui-button--primary" onClick={exportCsv}>
+                Табличные отчёты CSV
+              </button>
+            </>
           }
         />
         <SectionCard title="Параметры отчёта">
@@ -129,6 +166,14 @@ export default function ReportsPage() {
               <option value="active">Только с данными</option>
               <option value="empty">Только пустые</option>
             </select>
+            <label className="ui-stack">
+              <input
+                type="checkbox"
+                checked={kpiDrilldown}
+                onChange={(event) => setKpiDrilldown(event.target.checked)}
+              />
+              KPI: детализация зачислений (drill-down)
+            </label>
           </FilterBar>
         </SectionCard>
         <SectionCard title="KPI обучения (BL-008)">
@@ -153,6 +198,21 @@ export default function ReportsPage() {
                 </dd>
               </div>
             </dl>
+          ) : null}
+          {!kpi.loading && !kpi.error && kpi.data?.enrollmentBreakdown?.length ? (
+            <div className="ui-stack">
+              <p className="ui-text-muted">Зачисления в фильтре KPI</p>
+              <DataTable
+                columns={[
+                  { key: 'enrollmentId', title: 'Зачисление' },
+                  { key: 'learnerId', title: 'Слушатель' },
+                  { key: 'groupId', title: 'Группа' },
+                  { key: 'status', title: 'Статус' },
+                  { key: 'enrolledAt', title: 'Назначено' }
+                ]}
+                rows={kpi.data.enrollmentBreakdown}
+              />
+            </div>
           ) : null}
         </SectionCard>
         <SectionCard title="Операционные отчёты">

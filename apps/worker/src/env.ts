@@ -33,6 +33,8 @@ const workerEnvSchema = z.object({
   RABBITMQ_URL: z.string().url(),
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
+  /** Тот же секрет, что `WORKER_CALLBACK_SECRET` у backend — для колбэка после bulk enrollment. */
+  WORKER_CALLBACK_TOKEN: z.string().min(8).optional(),
   WORKER_INTERNAL_URL: z.string().url(),
   BACKEND_PUBLIC_URL: z.string().url(),
   DOCUMENTS_STORAGE_BUCKET: z.string().default('cdoprof-dev')

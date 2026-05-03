@@ -7,6 +7,7 @@ import type {
   Attempt,
   BaseFilterQuery,
   BulkEnrollmentsOutcome,
+  BulkEnrollmentsQueuedResponse,
   Counterparty,
   Course,
   CourseModule,
@@ -201,9 +202,15 @@ export const mvpApi = {
     apiRequest<Enrollment>('/enrollments', { method: 'POST', body: payload, ...withAuth(session) }),
   createBulkEnrollments: (
     session: UserSession,
-    payload: { idempotencyKey: string; groupId: string; learnerIds: string[] }
+    payload: {
+      idempotencyKey: string;
+      groupId: string;
+      learnerIds?: string[];
+      organizationUnitId?: string;
+      deliveryMode?: 'immediate' | 'queued';
+    }
   ) =>
-    apiRequest<BulkEnrollmentsOutcome>('/enrollments/bulk', {
+    apiRequest<BulkEnrollmentsOutcome | BulkEnrollmentsQueuedResponse>('/enrollments/bulk', {
       method: 'POST',
       body: payload,
       ...withAuth(session)

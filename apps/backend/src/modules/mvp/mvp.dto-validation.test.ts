@@ -37,14 +37,13 @@ describe('MVP critical DTO (class-validator)', () => {
     expect(errs.length).toBeGreaterThan(0);
   });
 
-  it('отклоняет массовое назначение без learnerIds', () => {
+  it('принимает массовое назначение по organizationUnitId без явного learnerIds', () => {
     const inst = plainToInstance(CreateBulkEnrollmentsRequest, {
       idempotencyKey: 'k',
       groupId: 'g1',
-      learnerIds: []
+      organizationUnitId: 'hr_1'
     });
-    const errs = validateSync(inst, { whitelist: true, forbidNonWhitelisted: true });
-    expect(errs.length).toBeGreaterThan(0);
+    expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
   });
 
   it('отклоняет не-строковый enrollmentId в UpdateMaterialProgressRequest', () => {

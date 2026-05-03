@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
+import { MvpBulkEnqueueService } from './mvp-bulk-enqueue.service.js';
 import {
   CreateAssignmentRequest,
   CreateAssignmentReviewRequest,
@@ -21,6 +22,8 @@ import {
   CreateCourseRequest,
   CreateEnrollmentRequest,
   CreateGroupCourseRequest,
+  CreateMaterialRequest,
+  CreateModuleRequest,
   CreateSimpleRegistryRequest,
   CreateTestRequest,
   SaveAttemptAnswerRequest,
@@ -38,8 +41,6 @@ import { PermissionGuard } from '../iam/permission.guard.js';
 
 import type {
   BaseFilterQuery,
-  CreateMaterialRequest,
-  CreateModuleRequest,
   CreateQuestionBankRequest,
   CreateQuestionRequest,
   PatchTestRulesRequest,
@@ -61,7 +62,10 @@ import type { RequestContext } from '../../common/context/request-context.js';
 @UseInterceptors(MvpRequestPersistenceInterceptor)
 @UseGuards(TenantGuard)
 export class MvpController {
-  constructor(@Inject(MvpService) private readonly mvpService: MvpService) {}
+  constructor(
+    @Inject(MvpService) private readonly mvpService: MvpService,
+    @Inject(MvpBulkEnqueueService) private readonly mvpBulkEnqueue: MvpBulkEnqueueService
+  ) {}
 
   @Get('counterparties')
   @UseGuards(PermissionGuard)
@@ -253,7 +257,8 @@ export class MvpController {
   @Post('modules')
   @UseGuards(PermissionGuard)
   @RequirePermissions('materials.write')
-  createModule(@CurrentContext() c: RequestContext, @Body() b: CreateModuleRequest) {
+  createModule(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateModuleRequest, raw);
     return this.mvpService.createModule(c.tenantId!, c.userId, b, c);
   }
   @Put('modules/:id')
@@ -282,7 +287,8 @@ export class MvpController {
   @Post('materials')
   @UseGuards(PermissionGuard)
   @RequirePermissions('materials.write')
-  createMaterial(@CurrentContext() c: RequestContext, @Body() b: CreateMaterialRequest) {
+  createMaterial(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateMaterialRequest, raw);
     return this.mvpService.createMaterial(c.tenantId!, c.userId, b, c);
   }
   @Put('materials/:id')
@@ -395,8 +401,22 @@ export class MvpController {
   @Post('enrollments/bulk')
   @UseGuards(PermissionGuard)
   @RequirePermissions('enrollments.write')
-  createBulkEnrollments(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+  async createBulkEnrollments(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
     const b = assertValidDto(CreateBulkEnrollmentsRequest, raw);
+    const mode = b.deliveryMode ?? 'immediate';
+    if (mode === 'queued') {
+      const existing = this.mvpService.getBulkEnrollmentOutcomeIfAny(c.tenantId!, b.idempotencyKey);
+      if (existing) {
+        return existing;
+      }
+      return this.mvpBulkEnqueue.publishBulkJob(
+        c.tenantId!,
+        c.userId,
+        b,
+        c.requestId,
+        c.correlationId
+      );
+    }
     return this.mvpService.createBulkEnrollments(c.tenantId!, c.userId, b, c);
   }
   @Post('enrollments')

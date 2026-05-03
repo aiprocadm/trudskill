@@ -6,7 +6,7 @@ const require = createRequire(import.meta.url);
 const amqp = require('amqplib') as any;
 const { Pool } = require('pg') as any;
 
-type WorkerJobType = 'document' | 'integration' | 'notification';
+type WorkerJobType = 'document' | 'integration' | 'notification' | 'bulk_enrollment';
 
 type RetryDecision = 'retry' | 'dead-letter';
 
@@ -43,6 +43,13 @@ const redactValue = (value: unknown): unknown => {
   }
   return value;
 };
+
+class NonRetryableJobError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'NonRetryableJobError';
+  }
+}
 
 const log = (
   level: 'info' | 'warn' | 'error',
@@ -107,6 +114,65 @@ async function markProcessed(messageId: string, queueName: string): Promise<bool
   return result.rowCount > 0;
 }
 
+async function invokeBackendBulkEnrollment(parsed: WorkerEnvelope): Promise<void> {
+  const token = workerEnv.WORKER_CALLBACK_TOKEN;
+  if (!token) {
+    throw new NonRetryableJobError(
+      'WORKER_CALLBACK_TOKEN is not set — cannot finalize bulk enrollment'
+    );
+  }
+  const base = workerEnv.BACKEND_PUBLIC_URL.replace(/\/$/, '');
+  const path = `/api/v1/internal/worker/mvp/bulk-enrollments`;
+  const url = `${base}${path}`;
+  const payload = parsed.payload as {
+    actorId?: string;
+    idempotencyKey: string;
+    groupId: string;
+    learnerIds?: string[];
+    organizationUnitId?: string;
+  };
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-worker-callback-token': token
+    },
+    body: JSON.stringify({
+      tenantId: parsed.tenantId,
+      requestId: parsed.messageId,
+      correlationId: (parsed as { correlation_id?: string }).correlation_id,
+      payload
+    })
+  });
+  const text = await res.text();
+  let bodyUnknown: unknown;
+  try {
+    bodyUnknown = text ? JSON.parse(text) : null;
+  } catch {
+    bodyUnknown = text;
+  }
+  const top = bodyUnknown as { data?: unknown; error?: { code?: string } } | null;
+
+  if (!res.ok) {
+    const errCode = top?.error?.code ? String(top.error.code) : '';
+    if (
+      [
+        'validation_error',
+        'auth_required',
+        'permission_denied',
+        'forbidden',
+        'worker_callback_disabled',
+        'worker_callback_invalid'
+      ].includes(errCode)
+    ) {
+      throw new NonRetryableJobError(`bulk callback rejected: ${errCode || 'unknown'}`);
+    }
+    throw new Error(
+      `bulk_enrollment callback failed http=${res.status} body=${String(text).slice(0, 500)}`
+    );
+  }
+}
+
 async function processJob(envelope: WorkerEnvelope): Promise<void> {
   switch (envelope.jobType) {
     case 'document':
@@ -114,6 +180,9 @@ async function processJob(envelope: WorkerEnvelope): Promise<void> {
     case 'integration':
       return;
     case 'notification':
+      return;
+    case 'bulk_enrollment':
+      await invokeBackendBulkEnrollment(envelope);
       return;
     default:
       throw new Error(`Unknown job type: ${String((envelope as { jobType?: unknown }).jobType)}`);

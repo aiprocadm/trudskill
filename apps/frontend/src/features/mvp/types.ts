@@ -9,6 +9,8 @@ export type { BaseFilterQuery, SessionDto };
 export type KpiFilterQuery = BaseFilterQuery & {
   created_from?: string;
   created_to?: string;
+  /** `1` или `true` — в ответе появится `enrollmentBreakdown`. */
+  include_enrollment_breakdown?: string;
 };
 
 export interface ListResponse<T> {
@@ -53,6 +55,7 @@ export interface Learner extends BaseEntity {
   firstName: string;
   lastName: string;
   email?: string;
+  organizationUnitId?: string;
 }
 
 export interface Direction extends BaseEntity {
@@ -218,6 +221,13 @@ export interface KpiSnapshot {
   examResultsInScopeTotal: number;
   examResultsPassed: number;
   examPassRate: number;
+  enrollmentBreakdown?: Array<{
+    enrollmentId: string;
+    learnerId: string;
+    groupId: string;
+    status: string;
+    enrolledAt: string;
+  }>;
 }
 
 /** Ответ `POST /enrollments/bulk` (BL-003). */
@@ -227,6 +237,13 @@ export interface BulkEnrollmentsOutcome {
   created: Enrollment[];
   skippedExisting: Array<{ learnerId: string; enrollmentId: string }>;
   errors: Array<{ learnerId: string; code: string; message: string }>;
+}
+
+/** Если body содержит `deliveryMode: "queued"`. */
+export interface BulkEnrollmentsQueuedResponse {
+  status: 'queued';
+  messageId: string;
+  idempotencyKey: string;
 }
 
 export interface EnrollmentCertificateRow {

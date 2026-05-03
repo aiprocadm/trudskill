@@ -1,5 +1,13 @@
 /** Ручное дополнение к generated-контрактам под новые MVP-метрики (BL-008) и массовые зачисления (BL-003). */
 
+export interface KpiEnrollmentBreakdownRow {
+  enrollmentId: string;
+  learnerId: string;
+  groupId: string;
+  status: string;
+  enrolledAt: string;
+}
+
 export interface KpiSnapshotDto {
   scope: {
     courseId?: string;
@@ -13,6 +21,15 @@ export interface KpiSnapshotDto {
   examResultsInScopeTotal: number;
   examResultsPassed: number;
   examPassRate: number;
+  /** При запросе с `include_enrollment_breakdown=1`. */
+  enrollmentBreakdown?: KpiEnrollmentBreakdownRow[];
+}
+
+/** Ответ POST enrollments/bulk при `deliveryMode: "queued"`. */
+export interface BulkEnrollmentsQueuedDto {
+  status: 'queued';
+  messageId: string;
+  idempotencyKey: string;
 }
 
 export interface BulkEnrollmentItemErrorDto {
