@@ -34,8 +34,9 @@
 - `packages/shared-types` — shared types
 - `packages/ui` — UI библиотека
 - `docs` — документация по архитектуре/операциям/тестам
+- `docs/DOCUMENTATION_MAP.md` — карта источников правды (ТЗ / трассировка / README / operational docs), чтобы не противоречить друг другу и не размножать дубли
 - `infra` — docker-compose и инфраструктурный слой
-- `README.md` — проектный контекст
+- `README.md` — точка входа и AI Agent State
 
 ## 4. Existing Functionality Observed
 
