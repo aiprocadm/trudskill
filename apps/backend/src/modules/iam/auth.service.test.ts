@@ -58,7 +58,9 @@ describe('auth foundation', () => {
     const auth = new AuthService(iam, audit, new SecretsService());
 
     await auth.login('tenant_demo', { login: 'tenant_admin', password: 'Password123!' }, context);
-    expect((await audit.list()).some((record) => record.action === 'auth.login')).toBe(true);
+    expect((await audit.list('tenant_demo')).some((record) => record.action === 'auth.login')).toBe(
+      true
+    );
   });
 
   it('returns claims payload with tenant, roles, permissions and session id', async () => {
@@ -91,9 +93,9 @@ describe('auth foundation', () => {
       'req_2'
     );
 
-    expect((await audit.list()).some((record) => record.action === 'iam.user_roles_updated')).toBe(
-      true
-    );
+    expect(
+      (await audit.list('tenant_demo')).some((record) => record.action === 'iam.user_roles_updated')
+    ).toBe(true);
   });
 
   it('revokes only current session on logout', async () => {

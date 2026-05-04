@@ -64,6 +64,8 @@ describe('AuthService security flows', () => {
     expect(
       (await auth.getAuthEvents('tenant_demo')).some((event) => event.type === 'logout_all')
     ).toBe(true);
-    expect((await audit.list()).some((record) => record.action === 'auth.logout_all')).toBe(true);
+    expect(
+      (await audit.list('tenant_demo')).some((record) => record.action === 'auth.logout_all')
+    ).toBe(true);
   });
 });

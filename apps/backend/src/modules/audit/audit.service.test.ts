@@ -45,4 +45,47 @@ describe('AuditService', () => {
     expect(args[1]).toBe('tenant_demo');
     expect(args[3]).toBe('documents.template_updated');
   });
+
+  it('scopes list to tenantId and returns empty when tenant is omitted', async () => {
+    const service = new AuditService();
+    service.write({
+      tenantId: 'tenant_a',
+      actorId: 'u1',
+      action: 'test.action_a',
+      entityType: 'x',
+      entityId: '1'
+    });
+    service.write({
+      tenantId: 'tenant_b',
+      actorId: 'u2',
+      action: 'test.action_b',
+      entityType: 'x',
+      entityId: '2'
+    });
+
+    const a = await service.list('tenant_a');
+    expect(a).toHaveLength(1);
+    expect(a[0]?.action).toBe('test.action_a');
+
+    const b = await service.list('tenant_b');
+    expect(b).toHaveLength(1);
+    expect(b[0]?.action).toBe('test.action_b');
+
+    expect(await service.list()).toEqual([]);
+    expect(await service.list('')).toEqual([]);
+    expect(await service.list('   ')).toEqual([]);
+  });
+
+  it('uses strict tenant filter in SQL path', async () => {
+    const query = vi.fn().mockResolvedValue([]);
+    const service = new AuditService({ query } as never);
+
+    await service.list('tenant_demo');
+
+    expect(query).toHaveBeenCalledTimes(1);
+    const sql = String(query.mock.calls[0]?.[0] ?? '');
+    expect(sql).toContain('tenant_id = $1');
+    expect(sql).not.toMatch(/\$\s*1::\s*text\s+is\s+null/i);
+    expect((query.mock.calls[0]?.[1] as unknown[])[0]).toBe('tenant_demo');
+  });
 });
