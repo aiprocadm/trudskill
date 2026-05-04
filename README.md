@@ -83,15 +83,15 @@ MVP backend/frontend (IAM, assessment, bulk enrollments, KPI, сертифика
 
 ### Last Completed Task
 
-Синхронизация README с [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md): устранены противоречия (в т.ч. устаревший блок про «только» workspace/documents vs фактическое состояние MVP в handoff §5.5–§5.20, §20). Полный перечень закрытых задач сессий Codex — в handoff §5.
+Синхронизация **Issue 0** в [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) и блока **Current Task** здесь с **SDOPROF_TZ_FINAL.md** v1.6 §44.1 (внешний эталон заказчика не блокирует пилот; MVP-TZ-01 / протокол §47). Ранее в той же ветке работ: BL-010, `assertValidDto`, audit-контракты — handoff §5.21.
 
 ### Current Task
 
-По согласованию с владельцем продукта: получить исходный текст ТЗ (handoff §13 Issue 0); прогнать миграции включая **0027** на целевых средах перед релизом.
+Эксплуатация: прогнать миграции включая **0027** на целевых средах перед релизом. По документам: при поступлении эталона от заказчика — матрица **MVP-TZ-01** в [docs/TZ_MVP_TRACEABILITY.md](docs/TZ_MVP_TRACEABILITY.md) и при необходимости протокол к §47 `SDOPROF_TZ_FINAL.md` (см. [§44.1](SDOPROF_TZ_FINAL.md#441-исходное-тз-заказчика), handoff §13 Issue 0).
 
 ### Next Task
 
-Из [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §14/§20: class-validator на оставшихся MVP DTO при необходимости; проверка `api-contracts` на поля audit; расширение HTTP regression при смене public API.
+Из [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §14/§20: cross-tenant и политика JWT vs заголовки ([docs/security-remediation-roadmap.md](docs/security-remediation-roadmap.md)); расширение HTTP regression при смене public API; manual smoke по ролям.
 
 ### Do Not Touch
 
@@ -112,11 +112,11 @@ MVP backend/frontend (IAM, assessment, bulk enrollments, KPI, сертифика
 
 ### Last Updated By
 
-AI Agent (синхронизация документации)
+AI Agent (инженерная итерация по ТЗ / BL-010)
 
 ### Last Updated At
 
-2026-05-04 (документация; время UTC не фиксировалось)
+2026-05-05 (синхронизация handoff/README с SDOPROF v1.6 §44.1 / Issue 0)
 
 ## 3. Current Project Status
 

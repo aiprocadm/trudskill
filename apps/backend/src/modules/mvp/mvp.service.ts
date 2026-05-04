@@ -20,6 +20,7 @@ import { FilesService } from '../files/files.service.js';
 
 import type {
   BaseFilterQuery,
+  CreateAnswerHttpRequest,
   CreateAssignmentRequest,
   CreateAssignmentReviewRequest,
   CreateAssignmentSubmissionRequest,
@@ -1986,7 +1987,7 @@ export class MvpService {
   createAnswer(
     tenantId: string,
     actorId: string | undefined,
-    request: { attemptId: string } & SaveAnswerRequest,
+    request: CreateAnswerHttpRequest,
     context: RequestContext
   ): AttemptAnswer {
     return this.saveAttemptAnswer(tenantId, actorId, request.attemptId, request, context);

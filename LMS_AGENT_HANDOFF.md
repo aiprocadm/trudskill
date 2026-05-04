@@ -4,8 +4,8 @@
 
 ## 1. Current Date / Session
 
-- Date: 2026-05-04 (UTC+3)
-- Agent: Codex (GPT-5.3)
+- Date: 2026-05-05 (UTC+3)
+- Agent: Cursor Agent (Composer)
 - Repository: `D:/Создание LMS/Cursor LMS/cdoprof-`
 - Branch, if known: `main`
 - Commit hash before work, if available: `8157adc74c9fadba6f076bcfa0e2e84f93394b1d` (базовый HEAD; при появлении коммита после правок — дополнить вручную)
@@ -347,6 +347,22 @@
 
 - Summary: удалён **`vitest.workspace.ts`**, добавлен корневой **`vitest.config.ts`** с **`test.projects`**; во все подпроекты добавлено **`test.name`** для фильтров. Backend: **`fileParallelism: false`** и скрипт **`vitest run --no-file-parallelism`** для снижения гонки при Nest bootstrap в CI.
 
+### 5.21 BL-010 / handoff §14: полный `assertValidDto` на MVP `@Body` + контракты аудита в api-contracts
+
+- Summary: все оставшиеся тела запросов **`MvpController`** (PUT/PATCH/POST), которые раньше шли как «сырые» интерфейсы или inline-типы, переведены на **`@Body() raw: unknown` + `assertValidDto(...)`** в паре с уже существующими class-validator-классами в **`mvp.dto.ts`** (в т.ч. **`PATCH answers`**, **`PATCH assignments`**, **`PATCH/complete assignment-reviews`**, ранее уже покрытые справочники/курсы/тесты/импорт вопросов). В **`packages/api-contracts`** добавлен модуль **`domains/audit.ts`**: **`AuditLogDelegatedLearningMetadata`**, **`AuditLogRecordContract`** для клиентов, читающих **`audit.audit_log.metadata`** (делегирование **`learners.act_as`**). **`MvpService.createAnswer`** типизирован **`CreateAnswerHttpRequest`**. Трассировка **`docs/TZ_MVP_TRACEABILITY.md`** (строка BL-010) обновлена ссылкой на audit-контракты.
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.controller.ts`
+  - `apps/backend/src/modules/mvp/mvp.service.ts` (импорт/сигнатура `createAnswer`)
+  - `packages/api-contracts/src/domains/audit.ts`, `packages/api-contracts/src/domains/index.ts`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes:
+  - **`pnpm -s ci:check`** — зелёный на рабочей копии после правок.
+
+### 5.22 Синхронизация §13 Issue 0 с `SDOPROF_TZ_FINAL.md` v1.6 (§44.1)
+
+- Summary: **Issue 0** переформулирован: внешний эталон заказчика — **medium**, не блокирует пилот; назначение — матрица **MVP-TZ-01** в `TZ_MVP_TRACEABILITY.md` и протокол к §47, без расширения scope без согласования. Обновлены §14 critical #3, §15, §16, §20 next best action.
+- Files changed: `LMS_AGENT_HANDOFF.md`, `README.md` (блок AI Agent State).
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |
@@ -434,7 +450,6 @@
 - **Оставшиеся риски / не закрыто этой веткой работ** (не путать с закрытыми в §5.15–5.17: там уже есть **`assessment.read.cross_learner`**, **`learners.act_as`**, аудит **`metadata.delegated`**):
   - изоляция и сценарии **cross-tenant** на всех маршрутах;
   - политика **JWT vs заголовки** и прочие пункты [docs/security-remediation-roadmap.md](docs/security-remediation-roadmap.md);
-  - **class-validator** на оставшихся MVP `@Body`, где ещё нет декораторов;
   - ручной смок по ролям; отсутствие полного исходного ТЗ заказчика (§13 Issue 0).
 
 ## 11. Validation / Error Handling
@@ -497,13 +512,13 @@
 
 ## 13. Known Issues
 
-### Issue 0: Отсутствует исходный эталонный текст ТЗ в сессии
+### Issue 0: Внешний эталонный документ заказчика (не в репозитории)
 
-- Severity: high
+- Severity: medium (не блокирует пилот и приёмку в объёме [SDOPROF_TZ_FINAL.md](SDOPROF_TZ_FINAL.md) [§47](SDOPROF_TZ_FINAL.md#47-приложение-б-фиксация-границ-пилота-must--вне-scope))
 - Area: docs/product
-- Description: пользователь запросил объединение с исходным ТЗ, но в сообщении передан placeholder без фактического текста.
-- Evidence: `<<<ВСТАВИТЬ СЮДА СУЩЕСТВУЮЩЕЕ ТЗ ДЛЯ СДО ПРОФ>>>`.
-- Suggested fix: предоставить полный исходный текст ТЗ для точной трассировки «взято/изменено/добавлено» без допущений.
+- Description: отдельный файл «исходного ТЗ заказчика» (DOCX/PDF и т.п.) в репозиторий может **не входить**; продуктовый каркас консолидирован в **SDOPROF_TZ_FINAL.md** (см. v1.6+ и [§44.1](SDOPROF_TZ_FINAL.md#441-исходное-тз-заказчика)). Эталон заказчика нужен для **матрицы расхождений** в [docs/TZ_MVP_TRACEABILITY.md](docs/TZ_MVP_TRACEABILITY.md) (блок **MVP-TZ-01**), а не для расширения пилота без протокола.
+- Evidence: исторически в сессии использовался placeholder вместо вложения; в ТЗ зафиксирована иерархия источников правды.
+- Suggested fix: при появлении документа от заказчика — заполнить строки MVP-TZ-01 и при необходимости протокол к **§47**; не трактовать отсутствие внешнего файла как «дыру» в обязательном scope пилота.
 
 ### Issue 2: Длительные backend integration тесты при ограниченных ресурсах CI
 
@@ -519,12 +534,12 @@
 
 1. Сохранять `pnpm -s ci:check` обязательным финальным шагом каждой инженерной итерации.
 2. Любые новые auth/security регрессии чинить до feature-работ.
-3. Получить и приложить исходный полный текст ТЗ СДО Проф для финальной валидации `SDOPROF_TZ_FINAL.md`.
+3. При поступлении от заказчика: приложить эталонный документ и обновить **MVP-TZ-01** в [docs/TZ_MVP_TRACEABILITY.md](docs/TZ_MVP_TRACEABILITY.md); границы пилота меняются только протоколом к **§47** `SDOPROF_TZ_FINAL.md` ([§44.1](SDOPROF_TZ_FINAL.md#441-исходное-тз-заказчика)).
 
 ### High
 
-1. По желанию: расширить class-validator на остальные MVP DTO/`@Body()`, где ещё остаются TS-типы без декораторов.
-2. Миграции: прогон **`0027_audit_log_metadata`** на всех окружениях перед деплоем с новым insert в **`audit.audit_log`**.
+1. Миграции: прогон **`0027_audit_log_metadata`** на всех окружениях перед деплоем с новым insert в **`audit.audit_log`**.
+2. При появлении новых MVP-эндпоинтов: сразу добавлять DTO-класс и **`assertValidDto`** (см. §5.21).
 3. По желанию: отдельная карточка слушателя в UI (deeplink `/learners/:id`) вместо ссылки на общий реестр.
 
 ### Medium
@@ -538,14 +553,14 @@
 
 ## 15. Suggested Next Agent Prompt
 
-«По `SDOPROF_TZ_FINAL.md`: довести class-validator на оставшиеся MVP `@Body` DTO при необходимости; проверить клиент **`api-contracts`** на новые поля audit при чтении логов. Прогоны `ci:check` после миграции **`0027`**. Обновить `LMS_AGENT_HANDOFF.md` при новых изменениях.»
+«По `SDOPROF_TZ_FINAL.md` / security roadmap: cross-tenant и JWT vs заголовки; прогон миграции **`0027`** на целевых средах; при чтении аудита из UI — типы из **`@cdoprof/api-contracts`** (`AuditLogRecordContract`). При появлении эталона заказчика — блок **MVP-TZ-01** в `TZ_MVP_TRACEABILITY.md` (§13 Issue 0). Финал итерации: **`pnpm -s ci:check`**.»
 
 ## 16. Important Context / Assumptions
 
 - Проект стабильно собирается и тестируется в текущем локальном окружении (`pnpm` monorepo).
 - В IAM добавлены permissions **`assessment.read.cross_learner`** (0025), **`learners.act_as`** (0026); staff-роли в seed получают их автоматически после миграций.
 - Изменения затронули `mvp` security (linkedIamUserId / learnerId consistency) и расширенный HTTP regression suite.
-- Для ветки подготовки ТЗ использован контекст репозитория (`README.md`, `LMS_AGENT_HANDOFF.md`, структура модулей), так как исходное ТЗ в сессии не предоставлено.
+- Консолидированное ТЗ — `SDOPROF_TZ_FINAL.md` (в т.ч. §44.1: внешний эталон заказчика не расширяет пилот без протокола); внешний DOCX/PDF при наличии — только матрица расхождений в `TZ_MVP_TRACEABILITY.md`.
 - `ci:check` используется как основной индикатор готовности итерации.
 
 ## 17. Environment Variables
@@ -582,7 +597,8 @@
 - Backend: аудит делегирования (`metadata`), HTTP IDOR для **GET attempts / exam-results by enrollment**, class-validator MVP + общий **`createAppValidationPipe`**, frontend guard по **`cross_learner` / `learners.act_as`**, корневой Vitest **`test.projects`** и последовательный прогон backend-тестов.
 - Итерация «план к ТЗ/запуску»: добавлены **`POST /enrollments/bulk`** с идемпотентностью в коллекции snapshot **`bulkEnrollmentIdempotency`**, **`GET /reports/kpi-snapshot`**, **`GET /enrollments/:id/certificates`** с проверкой `linkedIamUserId`; UI — KPI на **`/reports`**, сертификаты слушателя в **`LearnerCoursesScreen`**; эксплуатационные заготовки **`docs/LAUNCH_RUNBOOK.md`**, **`docs/BACKUP_ROLLBACK.md`**, трассировка **`docs/TZ_MVP_TRACEABILITY.md`**, NFR-снимок **`docs/NFR_LAUNCH_V1.md`**; доп. контракты в **`packages/api-contracts/src/domains/mvp-metrics/contracts.ts`**.
 - Бэклог «полный MVP»: **очередь bulk** — `deliveryMode: queued` публикует в RabbitMQ, **worker** вызывает **`POST /api/v1/internal/worker/mvp/bulk-enrollments`** (`WORKER_CALLBACK_SECRET` / `WORKER_CALLBACK_TOKEN`); **organizationUnitId** у learner и массовые назначения по подразделению; **KPI drill-down** — query `include_enrollment_breakdown=1`; аудит **`iam.user_created`**; регресс **BL-007** listener; class-validator **`CreateModuleRequest`/`CreateMaterialRequest`**; см. **`docs/security-remediation-roadmap.md`** (статус JWT vs заголовки).
-- Next best action: (1) исходное ТЗ (Issue 0); (2) прогон миграций **`0027`** на всех окружениях перед релизом; (3) при пилоте с очередью — проверить пары секретов и потребление `documents.generation`.
+- Next best action: (1) прогон миграций **`0027`** на всех окружениях перед релизом; (2) security roadmap: cross-tenant, JWT vs заголовки; (3) при пилоте с очередью — проверить пары секретов и потребление `documents.generation`; (4) при поступлении эталона заказчика — **MVP-TZ-01** / протокол к §47 (Issue 0).
+- Закрыто в §5.21: все текущие MVP **`@Body`** в **`MvpController`** проходят **`assertValidDto`**; контракты чтения аудита — **`packages/api-contracts/src/domains/audit.ts`**.
 
 ## 21. Новые MVP API (быстрый справочник)
 
