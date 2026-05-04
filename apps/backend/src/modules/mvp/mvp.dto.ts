@@ -9,7 +9,9 @@ import {
   IsOptional,
   IsString,
   Min,
-  MinLength
+  MinLength,
+  ValidateIf,
+  ValidateNested
 } from 'class-validator';
 
 export interface BaseFilterQuery {
@@ -65,12 +67,31 @@ export class CreateSimpleRegistryRequest {
   organizationUnitId?: string;
 }
 
-export interface UpdateSimpleRegistryRequest {
+export class UpdateSimpleRegistryRequest {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
   code?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
   name?: string;
+
+  @IsOptional()
+  @IsString()
   status?: string;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
   linkedIamUserId?: string | null;
+
   /** Только для learners: код/ключ орг-подразделения. */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MinLength(1)
   organizationUnitId?: string | null;
 }
 
@@ -88,10 +109,23 @@ export class CreateCourseRequest {
   description?: string;
 }
 
-export interface UpdateCourseRequest {
+export class UpdateCourseRequest {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
   code?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
   title?: string;
+
+  @IsOptional()
+  @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsString()
   status?: string;
 }
 
@@ -115,10 +149,24 @@ export class CreateModuleRequest {
   isRequired?: boolean;
 }
 
-export interface UpdateModuleRequest {
+export class UpdateModuleRequest {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
   title?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
   minViewSeconds?: number;
+
+  @IsOptional()
+  @IsBoolean()
   isRequired?: boolean;
+
+  @IsOptional()
+  @IsString()
   status?: string;
 }
 
@@ -151,12 +199,32 @@ export class CreateMaterialRequest {
   fileId?: string;
 }
 
-export interface UpdateMaterialRequest {
+export class UpdateMaterialRequest {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
   title?: string;
+
+  @IsOptional()
+  @IsIn(materialTypeValues)
   materialType?: (typeof materialTypeValues)[number];
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
   minViewSeconds?: number;
+
+  @IsOptional()
+  @IsBoolean()
   isRequired?: boolean;
+
+  @IsOptional()
+  @IsString()
   status?: string;
+
+  @IsOptional()
+  @IsString()
   fileId?: string;
 }
 
@@ -177,7 +245,12 @@ export class CreateGroupCourseRequest {
   durationDays?: number;
 }
 
-export interface UpdateGroupCourseRequest {
+export class UpdateGroupCourseRequest {
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   durationDays?: number | null;
 }
 
@@ -251,17 +324,40 @@ export class UpdateMaterialProgressRequest {
   studiedSeconds!: number;
 }
 
-export interface CreateQuestionBankRequest {
+export class CreateQuestionBankRequest {
+  @IsOptional()
+  @IsString()
   code?: string;
-  title: string;
+
+  @IsString()
+  @MinLength(1)
+  title!: string;
+
+  @IsOptional()
+  @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsString()
   courseId?: string;
 }
 
-export interface UpdateQuestionBankRequest {
+export class UpdateQuestionBankRequest {
+  @IsOptional()
+  @IsString()
   code?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
   title?: string;
+
+  @IsOptional()
+  @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsString()
   status?: string;
 }
 
@@ -274,29 +370,141 @@ export interface TestRulesDto {
   passingScore: number;
 }
 
-export interface CreateQuestionRequest {
-  questionBankId: string;
-  type: 'single_choice' | 'multiple_choice' | 'text';
-  title?: string;
-  body?: string;
-  score?: number;
-  text?: string;
-  explanation?: string;
-  maxScore?: number;
-  answerOptions?: Array<{ text: string; isCorrect?: boolean }>;
-  options?: Array<{ text: string; isCorrect?: boolean }>;
+const questionTypeValues = ['single_choice', 'multiple_choice', 'text'] as const;
+
+export class QuestionAnswerOptionDto {
+  @IsString()
+  @MinLength(1)
+  text!: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isCorrect?: boolean;
 }
 
-export interface UpdateQuestionRequest {
+export class CreateQuestionRequest {
+  @IsString()
+  @MinLength(1)
+  questionBankId!: string;
+
+  @IsIn(questionTypeValues)
+  type!: (typeof questionTypeValues)[number];
+
+  @IsOptional()
+  @IsString()
   title?: string;
+
+  @IsOptional()
+  @IsString()
   body?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   score?: number;
+
+  @IsOptional()
+  @IsString()
   text?: string;
+
+  @IsOptional()
+  @IsString()
   explanation?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   maxScore?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => QuestionAnswerOptionDto)
+  answerOptions?: QuestionAnswerOptionDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => QuestionAnswerOptionDto)
+  options?: QuestionAnswerOptionDto[];
+}
+
+export class UpdateQuestionRequest {
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  body?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  score?: number;
+
+  @IsOptional()
+  @IsString()
+  text?: string;
+
+  @IsOptional()
+  @IsString()
+  explanation?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  maxScore?: number;
+
+  @IsOptional()
+  @IsString()
   status?: string;
-  answerOptions?: Array<{ text: string; isCorrect?: boolean }>;
-  options?: Array<{ text: string; isCorrect?: boolean }>;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => QuestionAnswerOptionDto)
+  answerOptions?: QuestionAnswerOptionDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => QuestionAnswerOptionDto)
+  options?: QuestionAnswerOptionDto[];
+}
+
+/** Частичные правила теста (create / patch); совместимо с `normalizeTestRules`. */
+export class TestRulesPartialDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  attemptLimit?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  dailyResetEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  randomizeQuestions?: boolean;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  questionCount?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  timeLimitMinutes?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  passingScore?: number;
 }
 
 export class CreateTestRequest {
@@ -317,16 +525,27 @@ export class CreateTestRequest {
   questionBankId?: string;
 
   @IsOptional()
-  rules?: Partial<TestRulesDto>;
+  @ValidateNested()
+  @Type(() => TestRulesPartialDto)
+  rules?: TestRulesPartialDto;
 }
 
-export interface UpdateTestRequest {
+export class UpdateTestRequest {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
   title?: string;
+
+  @IsOptional()
+  @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsString()
   status?: string;
 }
 
-export interface PatchTestRulesRequest extends Partial<TestRulesDto> {}
+export class PatchTestRulesRequest extends TestRulesPartialDto {}
 
 export class StartAttemptRequest {
   @IsString()
@@ -342,10 +561,23 @@ export class StartAttemptRequest {
   learnerId!: string;
 }
 
-export interface SaveAnswerRequest {
-  questionId: string;
+export class SaveAnswerRequest {
+  @IsString()
+  @MinLength(1)
+  questionId!: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   answerOptionIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   selectedOptionIds?: string[];
+
+  @IsOptional()
+  @IsString()
   textAnswer?: string;
 }
 
@@ -355,6 +587,8 @@ export class SaveAttemptAnswerRequest {
   questionId!: string;
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   selectedOptionIds?: string[];
 
   @IsOptional()
@@ -389,11 +623,27 @@ export class CreateAssignmentRequest {
   isReviewRequired?: boolean;
 }
 
-export interface UpdateAssignmentRequest {
+export class UpdateAssignmentRequest {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
   title?: string;
+
+  @IsOptional()
+  @IsString()
   description?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   maxScore?: number;
+
+  @IsOptional()
+  @IsString()
   status?: string;
+
+  @IsOptional()
+  @IsBoolean()
   isReviewRequired?: boolean;
 }
 
@@ -453,8 +703,68 @@ export class CreateAssignmentReviewRequest {
   comment?: string;
 }
 
-export interface UpdateAssignmentReviewRequest {
+const assignmentReviewStatusValues = ['pending', 'in_review', 'completed'] as const;
+
+export class UpdateAssignmentReviewRequest {
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   score?: number;
+
+  @IsOptional()
+  @IsString()
   comment?: string;
-  reviewStatus?: 'pending' | 'in_review' | 'completed';
+
+  @IsOptional()
+  @IsIn(assignmentReviewStatusValues)
+  reviewStatus?: (typeof assignmentReviewStatusValues)[number];
+}
+
+export class CompleteAssignmentReviewRequest {
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  score?: number;
+
+  @IsOptional()
+  @IsString()
+  comment?: string;
+}
+
+export class AddTestQuestionsRequest {
+  @IsArray()
+  @IsString({ each: true })
+  questionIds!: string[];
+}
+
+export class ImportQuestionsRequest {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateQuestionRequest)
+  items!: CreateQuestionRequest[];
+}
+
+/** Тело `POST /answers`: попытка + поля ответа. */
+export class CreateAnswerHttpRequest {
+  @IsString()
+  @MinLength(1)
+  attemptId!: string;
+
+  @IsString()
+  @MinLength(1)
+  questionId!: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  answerOptionIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  selectedOptionIds?: string[];
+
+  @IsOptional()
+  @IsString()
+  textAnswer?: string;
 }

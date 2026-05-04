@@ -12,3 +12,4 @@ export * from './webinars';
 
 export * from './esign';
 export * from './mvp-metrics/contracts';
+export * from './audit';
