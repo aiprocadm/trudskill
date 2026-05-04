@@ -1,8 +1,10 @@
 # LMS Agent Handoff
 
+> **Связка с другими агентами:** порядок «продолжай по ТЗ» и что обновлять после сессии — [docs/DOCUMENTATION_MAP.md — протокол передачи](docs/DOCUMENTATION_MAP.md#agent-handoff-protocol). Краткое операционное состояние дублируйте в [README.md](README.md) (блок **AI Agent State**).
+
 ## 1. Current Date / Session
 
-- Date: 2026-05-01 (UTC+3)
+- Date: 2026-05-04 (UTC+3)
 - Agent: Codex (GPT-5.3)
 - Repository: `D:/Создание LMS/Cursor LMS/cdoprof-`
 - Branch, if known: `main`
@@ -429,7 +431,11 @@
   - HTTP integration regression на `mvp` LMS permission boundaries;
   - HTTP regression доменных инвариантов assessment (`mvp.domains.http.integration.test.ts`).
   - HTTP + unit: связка **`linkedIamUserId`** против чужого JWT; HTTP `PATCH progress` без группа↔курс.
-- Оставшийся security gap: read/list IDOR без смены модели прав; cross-tenant сценарии; явный bypass permission для преподавателя «действует от имени слушателя» (отдельный permission/feature).
+- **Оставшиеся риски / не закрыто этой веткой работ** (не путать с закрытыми в §5.15–5.17: там уже есть **`assessment.read.cross_learner`**, **`learners.act_as`**, аудит **`metadata.delegated`**):
+  - изоляция и сценарии **cross-tenant** на всех маршрутах;
+  - политика **JWT vs заголовки** и прочие пункты [docs/security-remediation-roadmap.md](docs/security-remediation-roadmap.md);
+  - **class-validator** на оставшихся MVP `@Body`, где ещё нет декораторов;
+  - ручной смок по ролям; отсутствие полного исходного ТЗ заказчика (§13 Issue 0).
 
 ## 11. Validation / Error Handling
 
@@ -564,7 +570,7 @@
 
 ## 19. How To Continue Development
 
-- Начать с `README.md` и этого `LMS_AGENT_HANDOFF.md`.
+- Начать с [docs/DOCUMENTATION_MAP.md](docs/DOCUMENTATION_MAP.md#agent-handoff-protocol), затем `README.md` (AI Agent State) и этот `LMS_AGENT_HANDOFF.md`.
 - Backend приоритет: `apps/backend/src/modules/iam`, `apps/backend/src/modules/mvp`.
 - Frontend приоритет: `apps/frontend/app/learner/*`, `apps/frontend/app/courses*`, `apps/frontend/src/features/auth`.
 - После каждого изменения запускать минимум `lint + typecheck`, перед завершением — `ci:check`.

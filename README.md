@@ -32,11 +32,15 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 ### Важные ограничения
 
 - Работать итеративно и минимальными безопасными изменениями.
-- **`README.md` — канон по точке входа в репозиторий:** актуальный **AI Agent State**, команды и ссылки на E2E/CI (см. [docs/DOCUMENTATION_MAP.md](docs/DOCUMENTATION_MAP.md) — кто главный для ТЗ, трассировки и handoff).
+- **`README.md` — канон по точке входа в репозиторий:** актуальный **AI Agent State**, команды и ссылки на E2E/CI (см. [docs/DOCUMENTATION_MAP.md](docs/DOCUMENTATION_MAP.md) — кто главный для ТЗ, трассировки и handoff; **несколько агентов** — [протокол передачи](docs/DOCUMENTATION_MAP.md#agent-handoff-protocol)).
 - Перед следующими крупными изменениями нужно валидировать критические сценарии IAM/доступов и multitenancy.
 
 ### Ссылки на обязательные документы
 
+- Агенты (несколько сессий, «продолжай по ТЗ»):
+  - [`AGENTS.md`](AGENTS.md)
+  - [`.cursor/rules/lms-multi-agent-handoff.mdc`](.cursor/rules/lms-multi-agent-handoff.mdc) (правило Cursor, `alwaysApply`)
+  - [`docs/DOCUMENTATION_MAP.md` — протокол передачи](docs/DOCUMENTATION_MAP.md#agent-handoff-protocol)
 - Требования и пилот (продуктовый канон и приёмка):
   - [`SDOPROF_TZ_FINAL.md`](SDOPROF_TZ_FINAL.md)
   - [`docs/TZ_MVP_TRACEABILITY.md`](docs/TZ_MVP_TRACEABILITY.md)
@@ -67,25 +71,27 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 ## 2. AI Agent State
 
+Состояние ниже должно совпадать по смыслу с [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) (факты сессии, файлы, тесты). Подробный лог — там §5–§20; здесь — краткий ориентир для следующего агента.
+
 ### Current Stage
 
-Стабилизация документации и эксплуатационной готовности (README как SSOT + подготовка к следующей backend/frontend итерации).
+MVP backend/frontend (IAM, assessment, bulk enrollments, KPI, сертификаты), стабильный quality gate `pnpm -s ci:check`; документация согласована под многоагентную передачу.
 
 ### Current Goal
 
-Расширить backend HTTP permission-boundary regression дополнительными сценариями `session_inactive` и зафиксировать результаты.
+Следовать приоритетам [SDOPROF_TZ_FINAL.md](SDOPROF_TZ_FINAL.md) §41 и [docs/TZ_MVP_TRACEABILITY.md](docs/TZ_MVP_TRACEABILITY.md); перед новой фичей — зелёный `ci:check` и актуальный handoff.
 
 ### Last Completed Task
 
-Добавлены `session_inactive` HTTP integration сценарии для `workspace` и `documents`; целевой прогон `vitest` зелёный (2 files, 9 tests).
+Синхронизация README с [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md): устранены противоречия (в т.ч. устаревший блок про «только» workspace/documents vs фактическое состояние MVP в handoff §5.5–§5.20, §20). Полный перечень закрытых задач сессий Codex — в handoff §5.
 
 ### Current Task
 
-Синхронизировать handoff/README после расширения permission-boundary regression.
+По согласованию с владельцем продукта: получить исходный текст ТЗ (handoff §13 Issue 0); прогнать миграции включая **0027** на целевых средах перед релизом.
 
 ### Next Task
 
-Определить следующий приоритетный backend HTTP scope (например, auth/session edge-cases для новых модулей) и добавить точечные integration-тесты без изменения public API.
+Из [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §14/§20: class-validator на оставшихся MVP DTO при необходимости; проверка `api-contracts` на поля audit; расширение HTTP regression при смене public API.
 
 ### Do Not Touch
 
@@ -94,7 +100,7 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 ### Important Decisions
 
-- Репозиторий: единый **операционный** конспект между агентами — блок `README` + передача сессии в `LMS_AGENT_HANDOFF.md`. Продуктовый канон — `SDOPROF_TZ_FINAL.md`; роли см. [docs/DOCUMENTATION_MAP.md](docs/DOCUMENTATION_MAP.md).
+- Репозиторий: единый **операционный** конспект между агентами — блок `README` + передача сессии в `LMS_AGENT_HANDOFF.md`. Продуктовый канон — `SDOPROF_TZ_FINAL.md`; роли и порядок чтения при фразе «продолжай по ТЗ» — [docs/DOCUMENTATION_MAP.md](docs/DOCUMENTATION_MAP.md#agent-handoff-protocol).
 - Изменения вносятся малыми итерациями с обязательной фиксацией тестового статуса и рисков.
 - Следующий высокий приоритет: безопасность и устойчивость IAM + контроль доступа по ролям.
 
@@ -106,11 +112,11 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 ### Last Updated By
 
-AI Agent
+AI Agent (синхронизация документации)
 
 ### Last Updated At
 
-2026-04-28 20:00 UTC
+2026-05-04 (документация; время UTC не фиксировалось)
 
 ## 3. Current Project Status
 
@@ -130,38 +136,37 @@ AI Agent
 
 ### Какие задачи в работе
 
-- Нормализация процесса передачи контекста между агентами через README SSOT.
-- Подготовка следующей приоритетной итерации по IAM hardening и role-access regression.
+- Поддержание синхронности README ↔ `LMS_AGENT_HANDOFF.md` после каждой инженерной сессии ([протокол](docs/DOCUMENTATION_MAP.md#agent-handoff-protocol)).
 
 ### Что делать следующим шагом
 
-1. Запустить целевые тесты IAM и frontend role access.
-2. Исправить найденные дефекты в минимальном объеме.
-3. Обновить README: решения, риски, test status, измененные файлы.
+1. Открыть [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §14 Recommended Next Steps и §20 Final Status.
+2. Сверить с [docs/TZ_MVP_TRACEABILITY.md](docs/TZ_MVP_TRACEABILITY.md) и при необходимости с §41 [SDOPROF_TZ_FINAL.md](SDOPROF_TZ_FINAL.md).
+3. Запустить `pnpm -s ci:check` перед и после значимых изменений; обновить этот README и handoff.
 
 ## 4. Iteration Log (текущая итерация)
 
 ### Измененные файлы
 
-- `README.md`
+- `README.md`, `docs/DOCUMENTATION_MAP.md`, `LMS_AGENT_HANDOFF.md`, `SDOPROF_TZ_FINAL.md`, `AGENTS.md`, `.cursor/rules/lms-multi-agent-handoff.mdc` (протокол многоагентной передачи, Cursor rule `alwaysApply`, устранение противоречий README vs handoff).
 
 ### Принятые решения в итерации
 
-- Применен обязательный шаблон README для LMS/СДО.
-- Зафиксирован явный `AI Agent State` для старта следующего агента.
+- Один смысл «где остановились»: детали в `LMS_AGENT_HANDOFF.md`, краткое резюме в `README` §2; фраза «продолжай по ТЗ» → порядок в [DOCUMENTATION_MAP.md](docs/DOCUMENTATION_MAP.md#agent-handoff-protocol).
 
 ### Проверки в итерации
 
-- Проверка наличия структуры репозитория и исходных файлов через `rg --files`.
-- Проверка текущего содержимого README перед обновлением.
+- Сверка содержимого README, handoff и карты документации на логическую согласованность (без обязательного полного `ci:check` только для правок markdown).
 
 ## 5. Backlog (приоритезированный)
 
-1. **P0 Security/Auth:** regression-пакет и hardening для login/refresh/logout + permission guard consistency.
-2. **P0 Reliability:** проверка health/readiness/metrics цепочки для backend и realtime + runbook-валидация.
-3. **P1 UX Learning Flow:** улучшение UX состояний загрузки/ошибок в курсах/уроках/кабинете.
-4. **P1 Reporting:** валидация сценариев отчетности и выгрузок.
-5. **P2 Integrations:** усиление idempotency/observability для webhook flows.
+Укрупнённый продуктовый backlog и BL — только в [SDOPROF_TZ_FINAL.md](SDOPROF_TZ_FINAL.md) §41 и матрице [docs/TZ_MVP_TRACEABILITY.md](docs/TZ_MVP_TRACEABILITY.md). Ниже — **репозиторные** приоритеты, если не задан иной порядок:
+
+1. **P0 Security/Auth:** см. [docs/security-remediation-roadmap.md](docs/security-remediation-roadmap.md) и handoff §10.
+2. **P0 Reliability:** health/readiness/metrics, [docs/operations-runbook.md](docs/operations-runbook.md).
+3. **P1 UX Learning Flow:** состояния загрузки/ошибок в learning flow.
+4. **P1 Reporting:** сценарии KPI/экспорта (см. BL-008 в трассировке).
+5. **P2 Integrations:** idempotency/observability webhooks.
 
 ## 6. Test Status
 
@@ -178,8 +183,8 @@ AI Agent
 
 ## 7. Known Issues / Open Errors
 
-- Нужна фактическая актуализация статуса тестов по последнему зеленому прогону (дата, набор команд, результаты).
-- Нужна регулярная синхронизация `AI Agent State` после каждой инженерной итерации, чтобы исключить потерю контекста.
+- Для полной картины по тестам и командам см. таблицу в [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §12; здесь держите только краткое резюме после крупных прогонов.
+- Регулярно синхронизировать `AI Agent State` с handoff ([протокол](docs/DOCUMENTATION_MAP.md#agent-handoff-protocol)).
 
 ## 8. Quick Start
 
