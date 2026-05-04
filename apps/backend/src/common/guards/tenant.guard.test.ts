@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { issueSignedAccessToken } from '../../modules/iam/crypto.util.js';
@@ -37,7 +37,7 @@ describe('TenantGuard', () => {
     expect(() => guard.canActivate(context as never)).toThrow(UnauthorizedException);
   });
 
-  it('resolves tenant and user only from a signed bearer token', () => {
+  it('resolves tenant and user only from a signed bearer token (optional x-tenant-id must match)', () => {
     const guard = new TenantGuardClass({
       getJwtSigningSecret: () => 'dev-jwt-secret-12345'
     } as never);
@@ -52,12 +52,23 @@ describe('TenantGuard', () => {
       300
     );
 
-    const context = makeExecutionContext({
+    const contextOk = makeExecutionContext({
+      authorization: `Bearer ${accessToken}`,
+      'x-tenant-id': 'tenant_demo'
+    });
+    expect(guard.canActivate(contextOk as never)).toBe(true);
+
+    const contextBearerOnly = makeExecutionContext({
+      authorization: `Bearer ${accessToken}`
+    });
+    expect(guard.canActivate(contextBearerOnly as never)).toBe(true);
+
+    const contextSpoof = makeExecutionContext({
       authorization: `Bearer ${accessToken}`,
       'x-tenant-id': 'tenant_spoofed',
       'x-user-id': 'u_spoofed'
     });
-    expect(guard.canActivate(context as never)).toBe(true);
+    expect(() => guard.canActivate(contextSpoof as never)).toThrow(BadRequestException);
   });
 
   it('rejects expired access token', () => {

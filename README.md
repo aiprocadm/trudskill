@@ -83,7 +83,7 @@ MVP backend/frontend (IAM, assessment, bulk enrollments, KPI, сертифика
 
 ### Last Completed Task
 
-Синхронизация **Issue 0** в [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) и блока **Current Task** здесь с **SDOPROF_TZ_FINAL.md** v1.6 §44.1 (внешний эталон заказчика не блокирует пилот; MVP-TZ-01 / протокол §47). Ранее в той же ветке работ: BL-010, `assertValidDto`, audit-контракты — handoff §5.21.
+**Integrations cross-tenant регресс:** подтверждено, что **`getTask`** / **`requireTask`** ищут по **`id` + `tenantId`**; добавлен unit-тест на коллизию `id` export-task между tenant — `integrations.service.test.ts`, handoff §5.27. **`pnpm -s ci:check`** — зелёный.
 
 ### Current Task
 
@@ -91,7 +91,7 @@ MVP backend/frontend (IAM, assessment, bulk enrollments, KPI, сертифика
 
 ### Next Task
 
-Из [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §14/§20: cross-tenant и политика JWT vs заголовки ([docs/security-remediation-roadmap.md](docs/security-remediation-roadmap.md)); расширение HTTP regression при смене public API; manual smoke по ролям.
+Из [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §14/§20: оставшиеся пункты [docs/security-remediation-roadmap.md](docs/security-remediation-roadmap.md) (P0/P1 по приоритету); расширение HTTP regression при смене public API; **manual smoke** по ролям; эксплуатация — миграция **0027** на целевых средах.
 
 ### Do Not Touch
 
@@ -112,11 +112,11 @@ MVP backend/frontend (IAM, assessment, bulk enrollments, KPI, сертифика
 
 ### Last Updated By
 
-AI Agent (инженерная итерация по ТЗ / BL-010)
+AI Agent (инженерная итерация по ТЗ / security roadmap)
 
 ### Last Updated At
 
-2026-05-05 (синхронизация handoff/README с SDOPROF v1.6 §44.1 / Issue 0)
+2026-05-05 (integrations `getTask` tenant regression, handoff §5.27)
 
 ## 3. Current Project Status
 

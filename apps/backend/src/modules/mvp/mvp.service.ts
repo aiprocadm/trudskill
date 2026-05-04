@@ -3018,7 +3018,7 @@ export class MvpService {
   }
 
   private getById<T extends BaseEntity>(source: T[], tenantId: string, id: string): T {
-    const result = source.find((item) => item.id === id);
+    const result = source.find((item) => item.id === id && item.tenantId === tenantId);
     if (!result) {
       throw new NotFoundException({ code: 'not_found', message: 'Entity not found' });
     }

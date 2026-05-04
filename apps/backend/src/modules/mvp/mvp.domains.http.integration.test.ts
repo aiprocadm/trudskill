@@ -4,6 +4,7 @@ import { Reflector } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { MVP_COLLECTIONS, type MvpCollection } from './infrastructure/mvp-collections.js';
 import { createAppValidationPipe } from '../../common/app-validation.pipe.js';
 import { AuditService } from '../audit/audit.service.js';
 import { DocumentsService } from '../documents/documents.service.js';
@@ -11,6 +12,8 @@ import { FilesService } from '../files/files.service.js';
 import { PermissionGuard } from '../iam/permission.guard.js';
 import { AuthService } from '../iam/services/auth.service.js';
 import { IamService } from '../iam/services/iam.service.js';
+
+import type { MemoryMvpPersistenceBackend } from './infrastructure/memory-mvp-persistence.backend.js';
 
 /** Права для полного охвата `mvp`-маршрутов, используемых в этом HTTP suite. */
 const MVP_DOMAIN_HTTP_PERMS: readonly string[] = [
@@ -67,6 +70,8 @@ describe('MVP HTTP integration (domain invariants)', () => {
         getHttpServer: () => { address: () => { port: number } | string | null };
       }
     | undefined;
+  /** Для сидирования изолированного snapshot другого tenant в HTTP cross-tenant тесте. */
+  let memoryMvpPersistenceRef: MemoryMvpPersistenceBackend | undefined;
 
   const authServiceMock = { isSessionActive: vi.fn().mockResolvedValue(true) };
   /** Токены `tokenFor()` используют `sub=u_domain_http_actor` — ему нужен bypass list/GET для staff-сценариев. */
@@ -204,6 +209,7 @@ describe('MVP HTTP integration (domain invariants)', () => {
     const address = created.getHttpServer().address() as Socket | { port: number };
     const port = typeof address === 'object' && address && 'port' in address ? address.port : 0;
     apiBaseUrl = `http://127.0.0.1:${port}${process.env.API_PREFIX ?? '/api/v1'}`;
+    memoryMvpPersistenceRef = created.get(MemoryMvpPersistenceBackend);
     app = created;
   }, 120_000);
 
@@ -228,6 +234,41 @@ describe('MVP HTTP integration (domain invariants)', () => {
       process.env.AUTH_JWT_SECRET ?? 'secret_value_123',
       3600
     );
+
+  it('HTTP GET /courses/:id: tenant_demo JWT cannot read course stored only under tenant_other', async () => {
+    expect(memoryMvpPersistenceRef).toBeDefined();
+    const snap = {} as Record<MvpCollection, unknown[]>;
+    for (const col of MVP_COLLECTIONS) {
+      snap[col] = [];
+    }
+    const now = new Date().toISOString();
+    snap.courses = [
+      {
+        id: 'c_http_cross_tenant_only_other',
+        tenantId: 'tenant_other',
+        code: 'ISO',
+        title: 'Other-tenant only',
+        status: 'draft',
+        isArchived: false,
+        createdAt: now,
+        updatedAt: now
+      }
+    ];
+    const snapshots = (
+      memoryMvpPersistenceRef as unknown as {
+        snapshots: Map<string, Record<MvpCollection, unknown[]>>;
+      }
+    ).snapshots;
+    snapshots.set('tenant_other', snap);
+
+    const t = tokenFor('sess_http_cross_tenant_course');
+    const res = await fetch(`${apiBaseUrl}/courses/c_http_cross_tenant_only_other`, {
+      headers: hdr(t)
+    });
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('not_found');
+  });
 
   it('HTTP: rejects assignment submission when group is not linked to assignment course', async () => {
     const t = tokenFor('sess_http_submissions_1');

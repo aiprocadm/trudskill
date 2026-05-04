@@ -134,7 +134,7 @@ describe('IAM HTTP regressions (integration/e2e)', () => {
     expect(payload.error.code).toBe('auth_required');
   });
 
-  it('ignores spoofed identity headers when Bearer token is valid', async () => {
+  it('rejects mismatched x-tenant-id when Bearer token is valid (JWT is authoritative)', async () => {
     const loginResponse = await fetch(`${apiBaseUrl}/auth/login`, {
       method: 'POST',
       headers: {
@@ -155,10 +155,30 @@ describe('IAM HTTP regressions (integration/e2e)', () => {
         'x-user-id': 'u_spoofed'
       }
     });
-    expect(response.status).toBe(200);
-    const envelope = (await response.json()) as {
-      data: { id: string; tenantId: string };
+    expect(response.status).toBe(400);
+    const payload = await parseErrorEnvelope(response);
+    expect(payload.error.code).toBe('tenant_header_mismatch');
+  });
+
+  it('allows auth/me with valid Bearer and no x-tenant-id header', async () => {
+    const loginResponse = await fetch(`${apiBaseUrl}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo'
+      },
+      body: JSON.stringify({ login: 'tenant_admin', password: 'Password123!' })
+    });
+    expect(loginResponse.status).toBe(201);
+    const loginPayload = (await loginResponse.json()) as {
+      data: { accessToken: string };
     };
+
+    const response = await fetch(`${apiBaseUrl}/auth/me`, {
+      headers: { authorization: `Bearer ${loginPayload.data.accessToken}` }
+    });
+    expect(response.status).toBe(200);
+    const envelope = (await response.json()) as { data: { id: string; tenantId: string } };
     expect(envelope.data.id).toBe('u_tenant_admin');
     expect(envelope.data.tenantId).toBe('tenant_demo');
   });

@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 
 import { DocumentsService } from './documents.service.js';
@@ -482,5 +483,38 @@ describe('DocumentsService', () => {
     });
     const resolved = service.resolveAutoCertificateTemplateBinding('t1', 'g1', ['c1']);
     expect(resolved?.templateId).toBe(tplCert.id);
+  });
+
+  it('getTemplate resolves by tenant when duplicate template ids exist (must is tenant-scoped)', () => {
+    const state = new InMemoryDocumentsState();
+    const service = new DocumentsService(
+      state,
+      new AuditService(),
+      new RealtimeEventsService()
+    );
+    const now = new Date().toISOString();
+    const sharedId = 'tpl_duplicate_id_cross_tenant';
+    state.templates.push({
+      id: sharedId,
+      tenantId: 'tenant_a',
+      name: 'On A',
+      templateType: 'contract',
+      status: 'active',
+      createdAt: now,
+      updatedAt: now
+    });
+    state.templates.push({
+      id: sharedId,
+      tenantId: 'tenant_b',
+      name: 'On B',
+      templateType: 'contract',
+      status: 'active',
+      createdAt: now,
+      updatedAt: now
+    });
+
+    expect(service.getTemplate('tenant_a', sharedId).name).toBe('On A');
+    expect(service.getTemplate('tenant_b', sharedId).name).toBe('On B');
+    expect(() => service.getTemplate('tenant_a', 'tpl_only_other_tenant')).toThrow(NotFoundException);
   });
 });

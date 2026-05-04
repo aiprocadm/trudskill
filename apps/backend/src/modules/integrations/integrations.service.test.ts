@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 
 import { AuditService } from '../audit/audit.service.js';
@@ -171,5 +172,45 @@ describe('integration foundation services', () => {
     const verifier = new WebhookSignatureVerifier();
     expect(() => verifier.verify('abc', 'abc')).not.toThrow();
     expect(() => verifier.verify('bad', 'abc')).toThrowError();
+  });
+
+  it('getTask resolves by tenant when duplicate task ids exist (tenant-scoped lookup)', () => {
+    const registry = new ProviderRegistry();
+    registry.register(new FrdoAdapter());
+    const state = new InMemoryIntegrationOrchestratorState();
+    const service = new IntegrationOrchestratorService(
+      state,
+      new IntegrationCryptoService(),
+      new IdempotencyService(),
+      new AdapterResolver(registry),
+      new AuditService(),
+      new RealtimeEventsService()
+    );
+    const requestedAt = new Date().toISOString();
+    const sharedId = 'exp_duplicate_id_cross_tenant';
+    state.tasks.push({
+      id: sharedId,
+      tenantId: 'tenant_a',
+      providerCode: 'frdo',
+      exportType: 'learners',
+      sourceFilterJsonb: { k: 'a' },
+      status: 'queued',
+      requestedBy: 'u1',
+      requestedAt
+    });
+    state.tasks.push({
+      id: sharedId,
+      tenantId: 'tenant_b',
+      providerCode: 'frdo',
+      exportType: 'courses',
+      sourceFilterJsonb: { k: 'b' },
+      status: 'queued',
+      requestedBy: 'u2',
+      requestedAt
+    });
+
+    expect(service.getTask('tenant_a', sharedId).exportType).toBe('learners');
+    expect(service.getTask('tenant_b', sharedId).exportType).toBe('courses');
+    expect(() => service.getTask('tenant_a', 'exp_only_other_tenant')).toThrow(NotFoundException);
   });
 });
