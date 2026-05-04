@@ -80,9 +80,9 @@ describe('auth integration foundation', () => {
     );
     await auth.revokeSession('tenant_demo', 'u_tenant_admin', login.sessionId, context);
 
-    expect((await audit.list()).some((record) => record.action === 'auth.session_revoke')).toBe(
-      true
-    );
+    expect(
+      (await audit.list('tenant_demo')).some((record) => record.action === 'auth.session_revoke')
+    ).toBe(true);
   });
 
   it('rejects refresh for expired session and revokes it', async () => {

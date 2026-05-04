@@ -406,6 +406,41 @@
   - `docs/security-remediation-roadmap.md`
 - Notes: **`pnpm -s ci:check`** — зелёный после правок.
 
+### 5.28 Communication: регресс tenant-scoped `get` / `getDialog` (коллизия `id` между tenant)
+
+- Summary: **`NotificationsService.get`**, **`WebinarsService.get`**, **`ChatService.getDialog`** уже сопоставляют сущность по паре **`tenantId` + `id`** (in-memory и SQL-пути). Добавлены unit-тесты на два объекта с одним `id` и разными `tenantId` — **`communication.service.test.ts`**. **`docs/security-remediation-roadmap.md`** (блок регрессий cross-tenant).
+- Files changed:
+  - `apps/backend/src/modules/communication/communication.service.test.ts`
+  - `docs/security-remediation-roadmap.md`
+- Notes: **`pnpm -s ci:check`** — зелёный после правок.
+
+### 5.29 Эксплуатация: smoke по ролям в LAUNCH_RUNBOOK
+
+- Summary: в **`docs/LAUNCH_RUNBOOK.md`** после блока «После деплоя (smoke)» добавлена таблица **минимального ручного smoke** (слушатель / преподаватель / администратор / общие маршруты), согласованная с handoff §14 Medium и маршрутами фронтенда (`/learner/*`, `/teacher/*`, `/reports` и др.).
+- Files changed:
+  - `docs/LAUNCH_RUNBOOK.md`
+- Notes: только документация; **`pnpm -s ci:check`** — зелёный после правок.
+
+### 5.30 README: указатель на backend HTTP integration coverage
+
+- Summary: в **`README.md`** (раздел «Канонический E2E для приёмки ТЗ») добавлена отдельная строка со ссылками на Vitest **HTTP integration** наборы (`mvp` ×2, `documents`, `workspace`, `integrations`, IAM `auth.http-regression`), чтобы закрыть handoff §14 Medium п.2 «синхронизация README с integration coverage» без дублирования полного списка в handoff.
+- Files changed:
+  - `README.md`
+- Notes: только документация; **`pnpm -s ci:check`** — зелёный после правок.
+
+### 5.31 Audit: `list` только с непустым `tenantId` (anti cross-tenant read)
+
+- Summary: **`AuditService.list`** больше не возвращает все in-memory записи и не выполняет SQL «все tenant» при отсутствии фильтра: без непустого **`tenantId`** — **`[]`**; в PostgreSQL только **`where tenant_id = $1`**. Обновлены тесты, вызывавшие **`audit.list()`** без аргумента (**`auth.*.test`**, **`mvp.service.test`**). Unit-покрытие изоляции и SQL-формы — **`audit.service.test.ts`**. **`docs/security-remediation-roadmap.md`**.
+- Files changed:
+  - `apps/backend/src/modules/audit/audit.service.ts`
+  - `apps/backend/src/modules/audit/audit.service.test.ts`
+  - `apps/backend/src/modules/iam/auth.service.test.ts`
+  - `apps/backend/src/modules/iam/auth.integration.test.ts`
+  - `apps/backend/src/modules/iam/auth.security.test.ts`
+  - `apps/backend/src/modules/mvp/mvp.service.test.ts`
+  - `docs/security-remediation-roadmap.md`
+- Notes: **`pnpm -s ci:check`** — зелёный после правок.
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |
@@ -491,7 +526,7 @@
   - HTTP regression доменных инвариантов assessment (`mvp.domains.http.integration.test.ts`).
   - HTTP + unit: связка **`linkedIamUserId`** против чужого JWT; HTTP `PATCH progress` без группа↔курс.
 - **Оставшиеся риски / не закрыто этой веткой работ** (не путать с закрытыми в §5.15–5.17: там уже есть **`assessment.read.cross_learner`**, **`learners.act_as`**, аудит **`metadata.delegated`**):
-  - изоляция **cross-tenant**: unit-регрессии **MVP** §5.24, **documents** §5.25, **e-sign** §5.26, **integrations** §5.27; **`Provider`** без tenant — по дизайну; IAM SQL уже с `tenant_id`;
+  - изоляция **cross-tenant**: unit-регрессии **MVP** §5.24, **documents** §5.25, **e-sign** §5.26, **integrations** §5.27, **communication** §5.28, **audit** §5.31; **`Provider`** без tenant — по дизайну; IAM SQL уже с `tenant_id`;
   - политика **JWT vs заголовки**: частично закрыто в §5.23 (`x-tenant-id` vs JWT, проброс `HttpException`); остальное — [docs/security-remediation-roadmap.md](docs/security-remediation-roadmap.md);
   - ручной смок по ролям; отсутствие полного исходного ТЗ заказчика (§13 Issue 0).
 
@@ -558,6 +593,11 @@
 | `pnpm -s ci:check` (после 5.25 documents `must` regression)                                                                                                               | passed | Полный monorepo quality gate зелёный                                                                       |
 | `pnpm -s ci:check` (после 5.26 esign `must` regression)                                                                                                                   | passed | Полный monorepo quality gate зелёный                                                                       |
 | `pnpm -s ci:check` (после 5.27 integrations `getTask` regression)                                                                                                         | passed | Полный monorepo quality gate зелёный                                                                       |
+| `pnpm exec vitest run apps/backend/src/modules/communication/communication.service.test.ts`                                                                               | passed | 6 tests, tenant collision regression для notifications/webinars/chat                                       |
+| `pnpm -s ci:check` (после 5.28 communication tenant regression)                                                                                                           | passed | Полный monorepo quality gate зелёный                                                                       |
+| `pnpm -s ci:check` (после 5.29 LAUNCH_RUNBOOK smoke-таблица)                                                                                                              | passed | Документация; полный quality gate зелёный                                                                  |
+| `pnpm -s ci:check` (после 5.30 README integration links)                                                                                                                  | passed | Документация; полный quality gate зелёный                                                                  |
+| `pnpm -s ci:check` (после 5.31 AuditService.list tenant hardening)                                                                                                        | passed | Полный quality gate зелёный                                                                                |
 
 ## 13. Known Issues
 
@@ -593,8 +633,8 @@
 
 ### Medium
 
-1. Добавить минимальный manual smoke checklist по основным LMS маршрутам (learner/teacher/admin).
-2. Синхронизировать README/документацию с новым integration coverage.
+1. Минимальный manual smoke по ролям: таблица в **`docs/LAUNCH_RUNBOOK.md`** (см. §5.29 в этом handoff).
+2. Синхронизация README с integration coverage: указатель HTTP integration в **`README.md`** (§5.30).
 
 ### Low
 
@@ -653,6 +693,10 @@
 - Закрыто в §5.25: **documents** — регресс на tenant-scoped **`must`** для шаблонов.
 - Закрыто в §5.26: **e-sign** — регресс на tenant-scoped **`must`** для заявок.
 - Закрыто в §5.27: **integrations** — регресс на tenant-scoped **`getTask`** для export-task.
+- Закрыто в §5.28: **communication** — регресс на tenant-scoped **`get` / `getDialog`** при коллизии `id` между tenant.
+- Закрыто в §5.29: **LAUNCH_RUNBOOK** — минимальный **smoke по ролям** (таблица маршрутов и проверок после деплоя).
+- Закрыто в §5.30: **README** — перечень **backend HTTP integration** регрессий рядом с каноническим E2E.
+- Закрыто в §5.31: **audit** — **`AuditService.list`** без пустого tenant; строгий SQL-фильтр.
 
 ## 21. Новые MVP API (быстрый справочник)
 

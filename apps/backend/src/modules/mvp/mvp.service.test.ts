@@ -351,12 +351,12 @@ describe('mvp service domain rules', () => {
     );
     service.createCounterparty('tenant_demo', ctx.userId, { code: 'CP1', name: 'Org 1' }, ctx);
     service.createLearner('tenant_demo', ctx.userId, { code: 'L1', name: 'John Doe' }, ctx);
-    expect((await audit.list()).some((item) => item.action === 'crm.counterparty_created')).toBe(
-      true
-    );
-    expect((await audit.list()).some((item) => item.action === 'learning.learner_created')).toBe(
-      true
-    );
+    expect(
+      (await audit.list('tenant_demo')).some((item) => item.action === 'crm.counterparty_created')
+    ).toBe(true);
+    expect(
+      (await audit.list('tenant_demo')).some((item) => item.action === 'learning.learner_created')
+    ).toBe(true);
   });
 
   it('enforces attempt limit, scoring and exam result finalization', () => {
@@ -1364,15 +1364,15 @@ describe('mvp service domain rules', () => {
     expect(updatedGroup.name).toBe('Group 2');
     expect(updatedModule.minViewSeconds).toBe(15);
     expect(updatedMaterial.fileId).toBe('file_1');
-    expect((await audit.list()).some((item) => item.action === 'learning.group_updated')).toBe(
-      true
-    );
-    expect((await audit.list()).some((item) => item.action === 'learning.module_updated')).toBe(
-      true
-    );
-    expect((await audit.list()).some((item) => item.action === 'learning.material_updated')).toBe(
-      true
-    );
+    expect(
+      (await audit.list('tenant_demo')).some((item) => item.action === 'learning.group_updated')
+    ).toBe(true);
+    expect(
+      (await audit.list('tenant_demo')).some((item) => item.action === 'learning.module_updated')
+    ).toBe(true);
+    expect(
+      (await audit.list('tenant_demo')).some((item) => item.action === 'learning.material_updated')
+    ).toBe(true);
   });
 
   it('rejects mass-assignment of immutable fields on update endpoints', () => {

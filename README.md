@@ -66,6 +66,7 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 ### Канонический E2E для приёмки §39 ТЗ
 
 - Backend (бизнес-потоки без браузера): [`apps/backend/src/modules/mvp/business-flows.e2e.test.ts`](apps/backend/src/modules/mvp/business-flows.e2e.test.ts), сертификат по завершению: [`apps/backend/src/modules/documents/enrollment-certificate-flow.service.test.ts`](apps/backend/src/modules/documents/enrollment-certificate-flow.service.test.ts).
+- Backend HTTP integration (envelope, `TenantGuard`, permission boundaries, доменные инварианты assessment; дополняют BL-010 в CI): [`mvp.http.integration.test.ts`](apps/backend/src/modules/mvp/mvp.http.integration.test.ts), [`mvp.domains.http.integration.test.ts`](apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts), [`documents.http.integration.test.ts`](apps/backend/src/modules/documents/documents.http.integration.test.ts), [`workspace.http.integration.test.ts`](apps/backend/src/modules/workspace/workspace.http.integration.test.ts), [`integrations.http.integration.test.ts`](apps/backend/src/modules/integrations/integrations.http.integration.test.ts); IAM: [`auth.http-regression.e2e.test.ts`](apps/backend/src/modules/iam/auth.http-regression.e2e.test.ts).
 - Frontend (маршруты / роли): [`apps/frontend/src/e2e/lms-role-flows.e2e.test.ts`](apps/frontend/src/e2e/lms-role-flows.e2e.test.ts), при необходимости — [`apps/frontend/src/e2e/canonical-e2e-readiness.e2e.test.ts`](apps/frontend/src/e2e/canonical-e2e-readiness.e2e.test.ts).
 - Регресс качества: `pnpm -s ci:check`. Отдельный Playwright/Cypress при появлении требования — не заменяет указанные Vitest-наборы до явного решения команды.
 
@@ -83,7 +84,7 @@ MVP backend/frontend (IAM, assessment, bulk enrollments, KPI, сертифика
 
 ### Last Completed Task
 
-**Integrations cross-tenant регресс:** подтверждено, что **`getTask`** / **`requireTask`** ищут по **`id` + `tenantId`**; добавлен unit-тест на коллизию `id` export-task между tenant — `integrations.service.test.ts`, handoff §5.27. **`pnpm -s ci:check`** — зелёный.
+**Audit `list` и tenant:** **`AuditService.list`** без непустого `tenantId` возвращает пустой список; SQL только по `tenant_id = $1`. Тесты **`audit.service.test.ts`**, правки вызовов **`audit.list('tenant_demo')`** в IAM/MVP тестах; handoff §5.31, **`docs/security-remediation-roadmap.md`**. **`pnpm -s ci:check`** — зелёный.
 
 ### Current Task
 
@@ -91,7 +92,7 @@ MVP backend/frontend (IAM, assessment, bulk enrollments, KPI, сертифика
 
 ### Next Task
 
-Из [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §14/§20: оставшиеся пункты [docs/security-remediation-roadmap.md](docs/security-remediation-roadmap.md) (P0/P1 по приоритету); расширение HTTP regression при смене public API; **manual smoke** по ролям; эксплуатация — миграция **0027** на целевых средах.
+Из [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §14/§20: оставшиеся пункты [docs/security-remediation-roadmap.md](docs/security-remediation-roadmap.md) (P0/P1 по приоритету); расширение HTTP regression при смене public API; выполнить **manual smoke** по таблице в [docs/LAUNCH_RUNBOOK.md](docs/LAUNCH_RUNBOOK.md); эксплуатация — миграция **0027** на целевых средах.
 
 ### Do Not Touch
 
@@ -116,7 +117,7 @@ AI Agent (инженерная итерация по ТЗ / security roadmap)
 
 ### Last Updated At
 
-2026-05-05 (integrations `getTask` tenant regression, handoff §5.27)
+2026-05-05 (AuditService.list tenant hardening, handoff §5.31)
 
 ## 3. Current Project Status
 

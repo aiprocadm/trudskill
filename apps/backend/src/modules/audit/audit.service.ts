@@ -109,11 +109,15 @@ export class AuditService {
     return result;
   }
 
+  /** Без непустого `tenantId` возвращает `[]` (защита от cross-tenant read). */
   async list(tenantId?: string): Promise<AuditLogRecord[]> {
+    const tid = tenantId?.trim();
+    if (!tid) {
+      return [];
+    }
+
     if (!this.databaseService) {
-      return tenantId
-        ? this.records.filter((record) => record.tenantId === tenantId)
-        : [...this.records];
+      return this.records.filter((record) => record.tenantId === tid);
     }
 
     const rows = await this.databaseService.query<{
@@ -147,10 +151,10 @@ export class AuditService {
           user_agent,
           created_at::text as created_at
         from audit.audit_log
-        where ($1::text is null or tenant_id = $1)
+        where tenant_id = $1
         order by created_at desc
       `,
-      [tenantId ?? null]
+      [tid]
     );
 
     return rows.map((row) => ({
