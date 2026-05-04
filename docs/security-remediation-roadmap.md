@@ -51,7 +51,7 @@
 ## Риски регрессии (обязательное покрытие тестами)
 
 - Аутентификация/сессии/разрешения: риск поломки login/refresh/logout/access.
-- Изоляция арендаторов: риск кросс-tenant утечки данных.
+- Изоляция арендаторов: риск кросс-tenant утечки данных (в MVP `MvpService.getById` ищет по паре `id` + `tenantId`; регресс в `mvp.service.test` и HTTP в `mvp.domains.http.integration.test`). Модуль **documents**: все пути через приватный **`must(arr, tenantId, id)`** уже фильтруют по паре; добавлен unit-regression в **`documents.service.test.ts`** на коллизию `id` между tenant. Модуль **e-sign**: **`EsignService.must`** — та же пара `(tenantId, id)`; unit-regression в **`esign.service.test.ts`** на коллизию `id` заявки между tenant. Модуль **integrations**: **`requireTask` / `getItem`** и др. уже по **`id` + `tenantId`**; unit-regression в **`integrations.service.test.ts`** на коллизию `id` export-task между tenant (`Provider` остаётся глобальным справочником без `tenantId`).
 - Документы/нумерация/состояния задач: риск дублей и зависших статусов.
 - Оценка (попытки/результаты): риск нарушения инвариантов лимитов и финализации.
 - Интеграции/вебхуки/идемпотентность: риск повторных побочных эффектов.
@@ -62,7 +62,7 @@
 
 ### 1) Доверенная аутентификация по токену
 
-**Статус (MVP-бэклог):** в HTTP API идентичность задаётся в [`TenantGuard`](../apps/backend/src/common/guards/tenant.guard.ts) только из успешной верификации Bearer JWT; заголовки `x-user-id` / `x-tenant-id` в [`resolveRequestContext`](../apps/backend/src/common/utils/request.ts) попадают в `requestedTenantId` для bootstrap-путей входа и **не** становятся `userId`/`tenantId` без токена. Оставшиеся задачи: убедиться, что ни один модуль для production не читает «сырой» spoof-заголовок как авторитетный источник, и добавить регресс на все исключения.
+**Статус (MVP-бэклог):** в HTTP API идентичность задаётся в [`TenantGuard`](../apps/backend/src/common/guards/tenant.guard.ts) только из успешной верификации Bearer JWT; заголовки `x-user-id` / `x-tenant-id` в [`resolveRequestContext`](../apps/backend/src/common/utils/request.ts) попадают в `requestedTenantId` для bootstrap-путей входа и **не** становятся `userId`/`tenantId` без токена. При наличии Bearer, если клиент передаёт `x-tenant-id`, он **должен совпадать** с `tenant_id` в токене — иначе `400` с кодом `tenant_header_mismatch`. В `catch` ветки верификации токена пробрасываются все `HttpException`, чтобы не маскировать `BadRequest` под `invalid_token`. Оставшиеся задачи: убедиться, что ни один модуль для production не читает «сырой» spoof-заголовок как авторитетный источник, и добавить регресс на все исключения.
 
 **Цель:** исключить подмену пользователя и tenant.
 

@@ -1,6 +1,8 @@
 import {
+  BadRequestException,
   type CanActivate,
   type ExecutionContext,
+  HttpException,
   Injectable,
   UnauthorizedException
 } from '@nestjs/common';
@@ -24,13 +26,20 @@ export class TenantGuard implements CanActivate {
     if (token) {
       try {
         const claims = verifySignedAccessToken(token, this.secretsService.getJwtSigningSecret());
+        const headerTenant = requestContext.requestedTenantId;
+        if (headerTenant && headerTenant !== claims.tenant_id) {
+          throw new BadRequestException({
+            code: 'tenant_header_mismatch',
+            message: 'x-tenant-id does not match the tenant in the access token'
+          });
+        }
         requestContext.userId = claims.sub;
         requestContext.tenantId = claims.tenant_id;
         requestContext.sessionId = claims.session_id;
         requestContext.roles = claims.roles;
         return true;
       } catch (error) {
-        if (error instanceof UnauthorizedException) {
+        if (error instanceof HttpException) {
           throw error;
         }
         throw new UnauthorizedException({

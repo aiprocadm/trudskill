@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  NotFoundException,
   PreconditionFailedException
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -278,7 +279,7 @@ describe('mvp service domain rules', () => {
     ).toThrow(PreconditionFailedException);
   });
 
-  it('enforces tenant isolation', () => {
+  it('enforces tenant isolation (getCourse is tenant-scoped → not_found for foreign tenant)', () => {
     const service = new MvpService(
       new InMemoryMvpState(),
       new TenantScopedRepository(),
@@ -293,7 +294,7 @@ describe('mvp service domain rules', () => {
       { code: 'C1', title: 'Course' },
       ctx
     );
-    expect(() => service.getCourse('tenant_other', course.id)).toThrow(ForbiddenException);
+    expect(() => service.getCourse('tenant_other', course.id)).toThrow(NotFoundException);
   });
 
   it('returns lookup payloads with id/label/status', () => {
@@ -1586,5 +1587,48 @@ describe('mvp service domain rules', () => {
     const onB = service.listLearners('tenant_b', {});
     expect(onB.items).toHaveLength(1);
     expect(onB.items[0]?.tenantId).toBe('tenant_b');
+  });
+
+  it('getById is tenant-scoped: duplicate ids across tenants resolve correctly; foreign id is not_found', () => {
+    const state = new InMemoryMvpState();
+    const service = new MvpService(
+      state,
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const now = new Date().toISOString();
+    const sharedId = 'course_shared_cross_tenant';
+    state.courses.push({
+      id: sharedId,
+      tenantId: 'tenant_demo',
+      code: 'ON_DEMO',
+      title: 'Demo',
+      description: undefined,
+      status: 'draft',
+      isArchived: false,
+      createdAt: now,
+      updatedAt: now
+    });
+    state.courses.push({
+      id: sharedId,
+      tenantId: 'tenant_other',
+      code: 'ON_OTHER',
+      title: 'Other',
+      description: undefined,
+      status: 'draft',
+      isArchived: false,
+      createdAt: now,
+      updatedAt: now
+    });
+
+    expect(service.getCourse('tenant_demo', sharedId).code).toBe('ON_DEMO');
+    expect(service.getCourse('tenant_other', sharedId).code).toBe('ON_OTHER');
+
+    expect(() => service.getCourse('tenant_demo', 'course_only_other_tenant')).toThrow(
+      NotFoundException
+    );
   });
 });

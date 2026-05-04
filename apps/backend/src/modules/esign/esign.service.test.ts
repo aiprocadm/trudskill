@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import { EsignService } from './esign.service.js';
@@ -175,5 +175,41 @@ describe('EsignService', () => {
 
     expect(service.listApplications('t1', {}).items).toHaveLength(1);
     expect(service.listApplications('t2', {}).items).toHaveLength(1);
+  });
+
+  it('getApplication resolves by tenant when duplicate application ids exist (must is tenant-scoped)', () => {
+    const state = new InMemoryEsignState();
+    const auditService = { write: vi.fn() } as any;
+    const documentsService = {
+      getDocument: vi.fn().mockReturnValue({ id: 'gdoc_1' }),
+      finalizeDocument: vi.fn()
+    } as any;
+    const realtimeEvents = { publish: vi.fn() } as any;
+    const service = new EsignService(state, auditService, documentsService, realtimeEvents);
+
+    const now = new Date().toISOString();
+    const sharedId = 'esapp_duplicate_id_cross_tenant';
+    state.applications.push({
+      id: sharedId,
+      tenantId: 'tenant_a',
+      learnerId: 'learner_a',
+      status: 'draft',
+      createdAt: now,
+      updatedAt: now
+    });
+    state.applications.push({
+      id: sharedId,
+      tenantId: 'tenant_b',
+      learnerId: 'learner_b',
+      status: 'draft',
+      createdAt: now,
+      updatedAt: now
+    });
+
+    expect(service.getApplication('tenant_a', sharedId).learnerId).toBe('learner_a');
+    expect(service.getApplication('tenant_b', sharedId).learnerId).toBe('learner_b');
+    expect(() => service.getApplication('tenant_a', 'esapp_only_other_tenant')).toThrow(
+      NotFoundException
+    );
   });
 });
