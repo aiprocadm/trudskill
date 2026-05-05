@@ -78,7 +78,7 @@ export const AppShell = ({ children }: PropsWithChildren) => {
           })}
           {navView.more.length ? (
             <details className="app-shell__more">
-            <summary aria-label="Показать дополнительные разделы">Еще разделы</summary>
+              <summary aria-label="Показать дополнительные разделы">Еще разделы</summary>
               <div className="ui-stack" style={{ gap: 6 }}>
                 {navView.more.map((item) => {
                   const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -175,21 +175,23 @@ export const AppShell = ({ children }: PropsWithChildren) => {
         }
         .app-shell__brand {
           margin: 0 0 14px;
+          color: var(--ui-nav-text, var(--ui-text));
         }
         .app-shell__role {
           margin: 0 0 16px;
           font-size: 13px;
-          color: var(--ui-text-muted);
+          color: var(--ui-nav-text-muted, var(--ui-text-muted));
         }
         .app-shell__link {
           text-decoration: none;
-          color: var(--ui-text);
+          color: var(--ui-nav-text, var(--ui-text));
           padding: 10px 12px;
           border-radius: 10px;
-          font-weight: 500;
+          font-weight: 600;
         }
         .app-shell__link:hover {
           background: var(--ui-nav-hover-bg, var(--ui-surface-muted));
+          color: var(--ui-nav-text, var(--ui-text));
         }
         .app-shell__link.is-active {
           color: var(--ui-nav-active-text, var(--ui-brand-700));
@@ -206,7 +208,7 @@ export const AppShell = ({ children }: PropsWithChildren) => {
         }
         .app-shell__more > summary {
           cursor: pointer;
-          color: var(--ui-text-muted);
+          color: var(--ui-nav-text-muted, var(--ui-text-muted));
           font-size: 14px;
           margin-bottom: 8px;
         }
