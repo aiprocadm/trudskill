@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Inject, Post, UseGuards } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import { IsArray, IsOptional, IsString, MinLength, ValidateNested } from 'class-validator';
 
@@ -55,7 +55,7 @@ class WorkerBulkEnrollmentBodyDto {
 @Controller('internal/worker')
 @UseGuards(WorkerCallbackGuard)
 export class MvpInternalWorkerController {
-  constructor(private readonly mvpService: MvpService) {}
+  constructor(@Inject(MvpService) private readonly mvpService: MvpService) {}
 
   @Post('mvp/bulk-enrollments')
   processBulkEnrollment(@Body() raw: unknown) {
@@ -67,12 +67,17 @@ export class MvpInternalWorkerController {
       tenantId: body.tenantId,
       userId: p.actorId
     };
-    return this.mvpService.createBulkEnrollments(body.tenantId, p.actorId, {
-      idempotencyKey: p.idempotencyKey,
-      groupId: p.groupId,
-      learnerIds: p.learnerIds ?? [],
-      organizationUnitId: p.organizationUnitId,
-      deliveryMode: 'immediate'
-    }, ctx);
+    return this.mvpService.createBulkEnrollments(
+      body.tenantId,
+      p.actorId,
+      {
+        idempotencyKey: p.idempotencyKey,
+        groupId: p.groupId,
+        learnerIds: p.learnerIds ?? [],
+        organizationUnitId: p.organizationUnitId,
+        deliveryMode: 'immediate'
+      },
+      ctx
+    );
   }
 }

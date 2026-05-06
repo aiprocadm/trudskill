@@ -1,26 +1,12 @@
 import { ApiClientError } from '../../src/lib/api/client';
 
-export interface WorkspaceSummary {
-  overdueCount: number;
-  blockersCount: number;
-  nextActions: Array<{ id: string; title: string; route: string }>;
-  deepLinks?: Array<{ key: string; route: string }>;
-}
+import type {
+  WorkspaceBlockerItem,
+  WorkspaceSummary,
+  WorkspaceTaskItem
+} from '../../src/features/workspace/types';
 
-export interface WorkspaceTaskItem {
-  id: string;
-  title: string;
-  status: 'open' | 'in_progress' | 'overdue';
-  dueAt?: string;
-  route: string;
-}
-
-export interface WorkspaceBlockerItem {
-  id: string;
-  title: string;
-  severity: 'low' | 'medium' | 'high';
-  route: string;
-}
+export type { WorkspaceBlockerItem, WorkspaceSummary, WorkspaceTaskItem };
 
 export function resolveWorkspaceErrorMessage(err: unknown): string {
   return err instanceof ApiClientError

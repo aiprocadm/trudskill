@@ -56,6 +56,7 @@ export interface Learner extends BaseEntity {
   lastName: string;
   email?: string;
   organizationUnitId?: string;
+  linkedIamUserId?: string;
 }
 
 export interface Direction extends BaseEntity {

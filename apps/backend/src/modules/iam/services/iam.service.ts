@@ -474,6 +474,33 @@ export class IamService {
     return this.getUser(tenantId, userId);
   }
 
+  /**
+   * Replace stored password hash after successful verify (e.g. migrate legacy SQL seed SHA-256 to scrypt).
+   */
+  async upgradePasswordHash(
+    tenantId: string,
+    userId: string,
+    newPasswordHash: string
+  ): Promise<void> {
+    if (!this.databaseService) {
+      const user = this.fallbackUsers.find((u) => u.tenantId === tenantId && u.id === userId);
+      if (!user) {
+        throw new NotFoundException({ code: 'user_not_found', message: 'User not found' });
+      }
+      user.passwordHash = newPasswordHash;
+      return;
+    }
+
+    await this.databaseService.query(
+      `
+        update iam.users
+        set password_hash = $3, updated_at = now()
+        where tenant_id = $1 and id = $2 and deleted_at is null
+      `,
+      [tenantId, userId, newPasswordHash]
+    );
+  }
+
   async getRoles(tenantId: string): Promise<Role[]> {
     if (!this.databaseService) {
       return this.fallbackRoles.filter((role) => role.tenantId === tenantId);

@@ -2,10 +2,12 @@ import { UnauthorizedException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 
 import { verifyPassword } from './crypto.util.js';
-import { SecretsService } from '../../infrastructure/secrets/secrets.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { AuthService } from './services/auth.service.js';
 import { IamService } from './services/iam.service.js';
+import { SecretsService } from '../../infrastructure/secrets/secrets.service.js';
+
+import type { User } from './iam.types.js';
 
 const context = {
   requestId: 'req_1',
@@ -16,7 +18,41 @@ const context = {
   userAgent: 'vitest'
 };
 
+const LEGACY_SEED_PASSWORD_HASH =
+  'd845591b855ba5b9a20db65eee522f76ed85858551b8f813ef146725e1a59264';
+
+function forceLegacyPasswordHashForTest(iam: IamService, userId: string) {
+  const store = iam as unknown as { fallbackUsers: User[] };
+  const user = store.fallbackUsers.find((u) => u.tenantId === 'tenant_demo' && u.id === userId);
+  if (!user) {
+    throw new Error(`test user ${userId} not found`);
+  }
+  user.passwordHash = LEGACY_SEED_PASSWORD_HASH;
+}
+
 describe('auth foundation', () => {
+  it('rehashes legacy sha256 password to scrypt on successful login', async () => {
+    const audit = new AuditService();
+    const iam = new IamService(audit);
+    const auth = new AuthService(iam, audit, new SecretsService());
+
+    forceLegacyPasswordHashForTest(iam, 'u_tenant_admin');
+    await auth.login('tenant_demo', { login: 'tenant_admin', password: 'Password123!' }, context);
+
+    expect(
+      (await audit.list('tenant_demo')).some(
+        (r) =>
+          r.action === 'iam.password_rehashed' &&
+          r.entityId === 'u_tenant_admin' &&
+          r.metadata?.reason === 'legacy_sha256_seed'
+      )
+    ).toBe(true);
+
+    const resolved = await iam.findUserByLogin('tenant_demo', 'tenant_admin');
+    expect(resolved!.user.passwordHash.startsWith('scrypt$')).toBe(true);
+    expect(verifyPassword('Password123!', resolved!.user.passwordHash)).toBe(true);
+  });
+
   it('verifies password hash', async () => {
     const iam = new IamService(new AuditService());
     const resolved = await iam.findUserByLogin('tenant_demo', 'tenant_admin');

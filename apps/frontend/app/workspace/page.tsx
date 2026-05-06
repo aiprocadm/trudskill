@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
-import { type WorkspaceSummary, resolveWorkspaceErrorMessage } from './page.utils';
+import { resolveWorkspaceErrorMessage } from './page.utils';
 import {
   GlobalLoading,
   PageContainer,
@@ -15,25 +15,13 @@ import {
   SectionError
 } from '../../src/components/state-wrappers';
 import { useAuth } from '../../src/features/auth/context';
-import { getJourneyByRole } from '../../src/features/navigation/role-journeys';
 import { getPrimaryRoleBlueprint } from '../../src/features/navigation/role-blueprints';
+import { getJourneyByRole } from '../../src/features/navigation/role-journeys';
+import { workspaceApi } from '../../src/features/workspace/api';
 import { recordJourneyStep } from '../../src/lib/analytics/ux-metrics';
-import { apiClient } from '../../src/lib/api/client';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
-interface WorkspaceTaskItem {
-  id: string;
-  title: string;
-  status: 'open' | 'in_progress' | 'overdue';
-  dueAt?: string;
-  route: string;
-}
-interface WorkspaceBlockerItem {
-  id: string;
-  title: string;
-  severity: 'low' | 'medium' | 'high';
-  route: string;
-}
+import type { WorkspaceBlockerItem, WorkspaceTaskItem } from '../../src/features/workspace/types';
 
 export default function WorkspacePage() {
   const { session } = useAuth();
@@ -48,15 +36,7 @@ export default function WorkspacePage() {
   const workspace = useQuery({
     queryKey: ['workspace', session?.user.id],
     enabled: Boolean(session),
-    queryFn: async () => {
-      const auth = { accessToken: session!.tokens.accessToken, tenantId: session!.user.tenantId };
-      const [summary, tasksInbox, blockersProjection] = await Promise.all([
-        apiClient.get<WorkspaceSummary>('/workspace/summary', { auth }),
-        apiClient.get<{ items: WorkspaceTaskItem[] }>('/tasks/inbox', { auth }),
-        apiClient.get<{ items: WorkspaceBlockerItem[] }>('/blockers', { auth })
-      ]);
-      return { summary, tasks: tasksInbox.items, blockers: blockersProjection.items };
-    }
+    queryFn: async () => workspaceApi.loadDashboard(session!)
   });
 
   const filteredTasks = useMemo(

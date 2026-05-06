@@ -9,7 +9,9 @@ import { DatabaseService } from '../../../infrastructure/database/database.servi
 import { SecretsService } from '../../../infrastructure/secrets/secrets.service.js';
 import { AuditService } from '../../audit/audit.service.js';
 import {
+  hashPassword,
   hashRefreshToken,
+  isLegacyPwdSha256Hash,
   issueSignedAccessToken,
   issueToken,
   verifyPassword
@@ -83,6 +85,27 @@ export class AuthService {
     }
 
     const persistRelational = !this.databaseService || databaseBacked;
+
+    if (isLegacyPwdSha256Hash(user.passwordHash)) {
+      await this.iamService.upgradePasswordHash(tenantId, user.id, hashPassword(payload.password));
+      await this.auditService.writeCritical(
+        {
+          tenantId,
+          actorId: user.id,
+          action: 'iam.password_rehashed',
+          entityType: 'iam.user',
+          entityId: user.id,
+          metadata: {
+            reason: 'legacy_sha256_seed',
+            algorithm: 'scrypt'
+          },
+          requestId: context.requestId,
+          ip: context.ip,
+          userAgent: context.userAgent
+        },
+        { skipDatabase: !persistRelational }
+      );
+    }
     const tokens = await this.createSession(user, persistRelational);
     await this.pushAuthEvent(tenantId, user.id, 'login', persistRelational);
     await this.auditService.writeCritical(

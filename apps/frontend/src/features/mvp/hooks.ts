@@ -83,6 +83,8 @@ export const useGroupCourses = (groupId: string) =>
   useMvpQuery('groupCourses', groupId, (s) => mvpApi.listGroupCourses(s, groupId));
 export const useEnrollments = (query: BaseFilterQuery) =>
   useMvpQuery('enrollments', query, (s) => mvpApi.listEnrollments(s, query));
+export const useLearner = (id: string) =>
+  useMvpQuery('learner', id, (s) => mvpApi.getLearner(s, id));
 
 export const useKpiSnapshot = (query: KpiFilterQuery) =>
   useMvpQuery('kpiSnapshot', query, (s) => mvpApi.getKpiSnapshot(s, query));

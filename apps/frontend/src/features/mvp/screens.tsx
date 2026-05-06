@@ -25,6 +25,7 @@ import {
   useGroup,
   useGroupCourses,
   useGroupsList,
+  useLearner,
   useLearnerCourseProgress,
   useLearnerCourses,
   useMaterials,
@@ -358,6 +359,62 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
                     </button>
                   ))}
               </div>
+            ) : null}
+          </SectionCard>
+        </>
+      ) : null}
+    </PageContainer>
+  );
+};
+
+export const LearnerDetailsScreen = ({ id }: { id: string }) => {
+  const { data: learner, loading, error, refetch } = useLearner(id);
+  const { data: enrollmentPage, loading: enrollmentsLoading } = useLearnerCourses(id);
+  const enrollments = enrollmentPage?.items ?? [];
+
+  return (
+    <PageContainer>
+      <PageHeader
+        title="Карточка слушателя"
+        actions={<Link href="/learners">← Реестр слушателей</Link>}
+      />
+      {loading ? <LoadingState message="Загрузка…" /> : null}
+      {error ? <SectionError message={error} onRetry={() => void refetch()} /> : null}
+      {learner ? (
+        <>
+          <SectionCard title="Основные данные">
+            <p>
+              <small>ID: {learner.id}</small>
+            </p>
+            <p>
+              <strong>{`${learner.lastName} ${learner.firstName}`.trim()}</strong>
+            </p>
+            <p>Код (learnerNo): {learner.learnerNo ?? '—'}</p>
+            <p>Email: {learner.email ?? '—'}</p>
+            <p>Подразделение: {learner.organizationUnitId ?? '—'}</p>
+            <p>Связанный IAM user: {learner.linkedIamUserId ?? '—'}</p>
+            <StatusChip status={learner.status} />
+          </SectionCard>
+          <SectionCard title="Зачисления">
+            {enrollmentsLoading ? <LoadingState message="Загрузка зачислений…" /> : null}
+            {!enrollmentsLoading && enrollments.length === 0 ? (
+              <SectionEmpty message="Нет зачислений для этого слушателя" />
+            ) : null}
+            {!enrollmentsLoading && enrollments.length > 0 ? (
+              <DataTable
+                columns={[
+                  { key: 'courseId', title: 'Курс (id)' },
+                  { key: 'groupId', title: 'Группа' },
+                  { key: 'status', title: 'Статус' },
+                  { key: 'enrolledAt', title: 'Зачислен' }
+                ]}
+                rows={enrollments.map((e) => ({
+                  courseId: e.courseId ?? '—',
+                  groupId: e.groupId,
+                  status: e.status,
+                  enrolledAt: e.enrolledAt
+                }))}
+              />
             ) : null}
           </SectionCard>
         </>

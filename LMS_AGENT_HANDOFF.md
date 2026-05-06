@@ -4,12 +4,12 @@
 
 ## 1. Current Date / Session
 
-- Date: 2026-05-05 (UTC+3)
+- Date: 2026-05-06 (UTC+3)
 - Agent: Cursor Agent (Composer)
 - Repository: `D:/Создание LMS/Cursor LMS/cdoprof-`
 - Branch, if known: `main`
 - Commit hash before work, if available: `8157adc74c9fadba6f076bcfa0e2e84f93394b1d` (базовый HEAD; при появлении коммита после правок — дополнить вручную)
-- Commit hash after work, if available: не создавался в git; последняя проверка на рабочей копии после правок
+- Commit hash after work, if available: не создавался в git; рабочая копия после §5.59
 
 ## 2. Project Overview
 
@@ -441,6 +441,283 @@
   - `docs/security-remediation-roadmap.md`
 - Notes: **`pnpm -s ci:check`** — зелёный после правок.
 
+### 5.32 BL-001 / security roadmap: контракт на `iam.user_created` и спуф-заголовки
+
+- Summary: закреплена приёмка ТЗ по аудиту создания пользователя; уточнён статус задачи 1 roadmap (**`x-user-id`** не используется в production для identity).
+- Files changed:
+  - `apps/backend/src/modules/iam/auth.controller.contract.test.ts`
+  - `docs/TZ_MVP_TRACEABILITY.md` (строка **BL-001**)
+  - `docs/security-remediation-roadmap.md` (задача **1**, блок статуса)
+- Details:
+  - `makeController` возвращает `{ controller, audit }`; новый кейс проверяет запись **`iam.user_created`** и отсутствие **`passwordHash`** в публичном ответе `createUser`.
+  - Таймаут первого контракт-теста **`/auth/me`** увеличен до **45s** (флейк при холодном импорте).
+- Notes: **`pnpm -s ci:check`** — зелёный после правок.
+
+### 5.33 Security roadmap P0.3: контракт IAM на `updateUser` и роли
+
+- Summary: расширены контрактные тесты отсутствия утечек **`passwordHash`** / refresh / CSRF в ответах **`AuthController`** для **`PUT users/:id`**, **`GET users/:id/roles`**, **`PUT users/:id/roles`**.
+- Files changed:
+  - `apps/backend/src/modules/iam/auth.controller.contract.test.ts`
+  - `docs/security-remediation-roadmap.md` (задача **3**, статус)
+  - `docs/TZ_MVP_TRACEABILITY.md` (строка **BL-010**)
+- Notes: **`pnpm -s ci:check`** — зелёный после правок.
+
+### 5.34 Security roadmap P0.2: rehash legacy SHA-256 пароля → scrypt при login
+
+- Summary: после успешной **`verifyPassword`** для формата SQL-seed (**64 hex**, без `$`) выполняется **`IamService.upgradePasswordHash`** с **`hashPassword(plain)`**; добавлены **`isLegacyPwdSha256Hash`** в **`crypto.util.ts`**.
+- Files changed:
+  - `apps/backend/src/modules/iam/crypto.util.ts`
+  - `apps/backend/src/modules/iam/crypto.util.test.ts`
+  - `apps/backend/src/modules/iam/services/auth.service.ts`
+  - `apps/backend/src/modules/iam/services/iam.service.ts`
+  - `apps/backend/src/modules/iam/auth.service.test.ts`
+  - `docs/security-remediation-roadmap.md` (задача **2**)
+  - `docs/TZ_MVP_TRACEABILITY.md` (**BL-001**)
+- Notes: **`pnpm -s ci:check`** — зелёный после правок.
+
+### 5.35 BL-001: аудит `iam.password_rehashed` при миграции пароля login → scrypt
+
+- Summary: при **`upgradePasswordHash`** после legacy **SHA-256** seed пишется **`AuditService.writeCritical`** с действием **`iam.password_rehashed`** и **`metadata`** (`legacy_sha256_seed`, `algorithm: scrypt`); порядок: сначала **`persistRelational`**, затем rehash + аудит.
+- Files changed:
+  - `apps/backend/src/modules/iam/services/auth.service.ts`
+  - `apps/backend/src/modules/iam/auth.service.test.ts`
+  - `docs/security-remediation-roadmap.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный после правок.
+
+### 5.36 BL-010 / roadmap §6: контракт `iam.password_rehashed` metadata + статус токенов MVP + liveness
+
+- Summary: в **`@cdoprof/api-contracts`** добавлен **`AuditLogPasswordRehashedMetadata`** для чтения **`metadata`** записей **`iam.password_rehashed`**; в **roadmap** задача **6** помечена как соответствующая критериям на MVP-контуре (cookie refresh + `session-store` без токенов в `localStorage`); в **`health.test.ts`** — явный регресс **`HealthController.live`**. Обновлена **`TZ_MVP_TRACEABILITY`** (**BL-010**).
+- Files changed:
+  - `packages/api-contracts/src/domains/audit.ts`
+  - `docs/security-remediation-roadmap.md` (**§6** статус)
+  - `apps/backend/src/modules/health/health.test.ts`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный после правок.
+
+### 5.37 Roadmap P0 §7: зафиксировано шифрование секретов интеграций + env / тест
+
+- Summary: в коде уже есть **AES-256-GCM** и маскирование ответов; обновлены **roadmap** (пункт **7**, строка приоритетов **P0.7**) со ссылками на сервисы и env; **`apps/backend/.env.example`** — комментарии **`INTEGRATION_CRYPTO_KEYS`** / **`INTEGRATION_CRYPTO_ACTIVE_KEY_VERSION`**; **`integrations.service.test.ts`** — проверки, что в выдаче credential нет ни plaintext, ни **`enc:`** ciphertext; **`TZ_MVP_TRACEABILITY` BL-010** — указатель на контур интеграций.
+- Files changed:
+  - `docs/security-remediation-roadmap.md`
+  - `apps/backend/.env.example`
+  - `apps/backend/src/modules/integrations/integrations.service.test.ts`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный (таблица §10).
+
+### 5.38 UI: deeplink карточки слушателя `/learners/[id]` (handoff §14 High)
+
+- Summary: страница **`app/learners/[id]/page.tsx`** + **`LearnerDetailsScreen`** (**`mvpApi.getLearner`**, **`useLearner`**, зачисления через **`useLearnerCourses`**); ссылки из реестра **`/learners`**; тип **`Learner`** дополнен **`linkedIamUserId`**; **LAUNCH_RUNBOOK** (smoke администратора); **BL-003** в **`TZ_MVP_TRACEABILITY`**.
+- Files changed:
+  - `apps/frontend/app/learners/[id]/page.tsx`
+  - `apps/frontend/app/learners/page.tsx`
+  - `apps/frontend/src/features/mvp/screens.tsx`
+  - `apps/frontend/src/features/mvp/hooks.ts`
+  - `apps/frontend/src/features/mvp/types.ts`
+  - `docs/LAUNCH_RUNBOOK.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный (таблица §10).
+
+### 5.39 Roadmap P0 §4–5: `workspaceApi` на `apiRequest`, типы workspace, статус envelope
+
+- Summary: вынесены типы в **`src/features/workspace/types.ts`**, модуль **`workspaceApi`** (**`loadDashboard`**) на **`apiRequest`**; **`app/workspace/page.tsx`** без прямого **`apiClient`**; **`page.utils`** реэкспорт типов; регресс **`workspace/api.test.ts`**; roadmap **§4**, **§5**, строки приоритетов **P0.5–P0.6**; **`TZ_MVP_TRACEABILITY` BL-010** — указатель на **`workspaceApi`**.
+- Files changed:
+  - `apps/frontend/src/features/workspace/types.ts`
+  - `apps/frontend/src/features/workspace/api.ts`
+  - `apps/frontend/src/features/workspace/api.test.ts`
+  - `apps/frontend/app/workspace/page.tsx`
+  - `apps/frontend/app/workspace/page.utils.ts`
+  - `docs/security-remediation-roadmap.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный (таблица §10).
+
+### 5.40 BL-010 / roadmap P1 §10: workspace HTTP — tenant scope и `tenant_header_mismatch`
+
+- Summary: в **`workspace.http.integration.test.ts`** добавлены сценарии: **`GET /blockers`** с JWT **`tenant_id: t1`** возвращает seed **`blocker_integration_token_t1`**, без **`blocker_integration_token`** (**`tenant_demo`**); при расхождении **`x-tenant-id`** и токена — **`400`** **`tenant_header_mismatch`**. Обновлены **`docs/security-remediation-roadmap.md`** (§**10** статус), **`TZ_MVP_TRACEABILITY` (BL-010)**.
+- Files changed:
+  - `apps/backend/src/modules/workspace/workspace.http.integration.test.ts`
+  - `docs/security-remediation-roadmap.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный (таблица §10).
+
+### 5.41 SDOPROF §36 / roadmap P1 §10: HTTP regress `GET /health/live` (liveness + envelope)
+
+- Summary: файл **`health.http.integration.test.ts`** — подъём минимального Nest-приложения с **`HealthController`**, глобальный envelope + **`RequestContextInterceptor`**; **`fetch GET …/health/live`** без Bearer — **200**, **`data.status`**, заголовки **`x-request-id`**; обновлены **README** (перечень HTTP integration), **roadmap §10**, **TZ BL-010**.
+- Files changed:
+  - `apps/backend/src/modules/health/health.http.integration.test.ts`
+  - `README.md`
+  - `docs/security-remediation-roadmap.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный (таблица §10).
+
+### 5.42 Roadmap §10: HTTP regress `GET /health/ready` (readiness envelope)
+
+- Summary: в **`health.http.integration.test.ts`** моки зависимостей **`HealthController`** (как в успешном кейсе **`health.test.ts`**); **`fetch GET …/health/ready`** без Bearer — **200**, envelope **`data.status` / `checks.database.connected`**, заголовки **`x-request-id`**; дополняет liveness **§5.41** для публичного readiness-контура (**SDOPROF §36**, **BL-010**).
+- Files changed:
+  - `apps/backend/src/modules/health/health.http.integration.test.ts`
+  - `README.md`
+  - `docs/security-remediation-roadmap.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный (таблица §10).
+
+### 5.43 Roadmap §10 / §42 риски: HTTP regress неуспешный `GET /health/ready` (503 + error envelope)
+
+- Summary: **`health.http.integration.test.ts`** — общая функция **`bootstrapHealthHttpApp`** (`migrationReadinessHealthy`); второй **`describe`**: **`/health/live`** по-прежнему **200** при «сломанном» readiness; **`GET …/health/ready`** при **`getMigrationReadiness.healthy: false`** — **503**, тело **`{ error: { code: readiness_failed, checks… }, meta }`** (без требования **`x-request-id`** в заголовке на error-path).
+- Files changed:
+  - `apps/backend/src/modules/health/health.http.integration.test.ts`
+  - `README.md`
+  - `docs/security-remediation-roadmap.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный (таблица §10).
+
+### 5.44 BL-003 / Handoff §20: unit-тест `MvpBulkEnqueueService` (Rabbit envelope)
+
+- Summary: файл **`mvp-bulk-enqueue.service.test.ts`** — мок **`RabbitMqService.publish`**; проверка **`JOB_EXCHANGE`** / **`JOB_ROUTING_BULK_ENROLLMENT`** (через **`vi.mock('../../env.js')`**), полей **`tenantId`**, **`jobType`**, **`payload`** (в т.ч. **`organizationUnitId`**), передачи **`requestId`** / **`correlationId`**; возврат **`status: queued`**, **`messageId`**. Дополняет HTTP-мок **`mvp.domains.http.integration.test.ts`** точечной регрессией очереди bulk.
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp-bulk-enqueue.service.test.ts`
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный (таблица §10).
+
+### 5.45 BL-003: HTTP regressions для queued bulk и duplicate idempotency
+
+- Summary: в **`mvp.domains.http.integration.test.ts`** добавлены HTTP-кейсы для **`POST /enrollments/bulk`**: (1) **`deliveryMode: queued`** возвращает **`status=queued`** и вызывает **`MvpBulkEnqueueService.publishBulkJob`**; (2) duplicate **`idempotencyKey`** после immediate-выполнения возвращает сохранённый outcome и **не** публикует задачу повторно. Это закрывает API-level регрессию BL-003 сверх unit-теста enqueue-сервиса.
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный (таблица §10).
+
+### 5.46 BL-010: расширение DTO-validation регрессий для MVP module/material
+
+- Summary: в **`mvp.dto-validation.test.ts`** добавлены сценарии class-validator для **`CreateModuleRequest`** и **`CreateMaterialRequest`**: отрицательный `minViewSeconds` отклоняется, неизвестный `materialType` отклоняется, валидный payload принимается. Это закрывает пункт handoff §20 по валидации `CreateModuleRequest`/`CreateMaterialRequest` на регрессионном уровне.
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.dto-validation.test.ts`
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный (таблица §10).
+
+### 5.47 BL-007: listener regression на идемпотентность и failure-аудит
+
+- Summary: в **`enrollment-document-issuance.listener.test.ts`** добавлены регрессии: (1) duplicate completion event для одного enrollment создаёт ровно одну задачу сертификата (идемпотентность); (2) при исключении в `DocumentsTenantRunner` listener пишет аудит **`documents.enrollment_certificate_failed`**. Runtime-логика listener не менялась.
+- Files changed:
+  - `apps/backend/src/modules/documents/enrollment-document-issuance.listener.test.ts`
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный (таблица §10).
+
+### 5.48 BL-008: KPI snapshot HTTP regressions для drill-down флага
+
+- Summary: в **`mvp.domains.http.integration.test.ts`** добавлены HTTP-кейсы `GET /reports/kpi-snapshot`: `include_enrollment_breakdown=true` возвращает `enrollmentBreakdown` (tenant/group-scoped), а запрос без флага не включает breakdown. Это фиксирует API-контракт drill-down на уровне HTTP.
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный (таблица §10).
+
+### 5.49 BL-008: KPI drill-down flag variant `include_enrollment_breakdown=1`
+
+- Summary: в **`mvp.domains.http.integration.test.ts`** добавлен HTTP-кейс для числового флага `include_enrollment_breakdown=1`; подтверждено, что API возвращает `enrollmentBreakdown` (как и для `true`) и сохраняет tenant/group scope.
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный (таблица §10).
+
+### 5.50 BL-008: KPI drill-down negative variant `include_enrollment_breakdown=0`
+
+- Summary: в **`mvp.domains.http.integration.test.ts`** добавлен HTTP-кейс для `include_enrollment_breakdown=0`; подтверждено, что breakdown в ответ не включается (как и при отсутствии параметра). Это закрепляет семантику флага по всем основным вариантам (`true` / `1` / `0` / default).
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный (таблица §10).
+
+### 5.51 BL-003: HTTP validation regression для `deliveryMode`
+
+- Summary: в **`mvp.domains.http.integration.test.ts`** добавлен кейс `POST /enrollments/bulk` с `deliveryMode='async'` (вне допустимых `immediate|queued`): API возвращает **400** с `validation_error`, `MvpBulkEnqueueService.publishBulkJob` не вызывается.
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный (таблица §10).
+
+### 5.52 BL-007: listener tenant isolation regression
+
+- Summary: в **`enrollment-document-issuance.listener.test.ts`** добавлен кейс изоляции арендаторов: certificate binding, созданный в `tenant_other`, не используется при `enrollment completed` в `tenant_demo`; задача документа не создаётся, аудит фиксирует `documents.enrollment_certificate_skipped`.
+- Files changed:
+  - `apps/backend/src/modules/documents/enrollment-document-issuance.listener.test.ts`
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный (таблица §10).
+
+### 5.53 BL-003: strict validation для `deliveryMode` (uppercase)
+
+- Summary: в **`mvp.domains.http.integration.test.ts`** добавлен кейс `POST /enrollments/bulk` с `deliveryMode='QUEUED'`: API возвращает **400** `validation_error`, enqueue не вызывается. Это фиксирует строгую чувствительность к регистру для enum-значения (`queued` только в lower-case).
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный (таблица §10).
+
+### 5.54 BL-010: стабилизация health HTTP integration в полном CI
+
+- Summary: устранён флапающий failure `Hook timed out in 30000ms` в `health.http.integration.test.ts` (beforeAll startup). Для обоих `describe` timeout `beforeAll` увеличен с `30_000` до `60_000`. Это не меняет runtime API, только стабилизирует regression suite под нагрузкой монорепо `ci:check`.
+- Files changed:
+  - `apps/backend/src/modules/health/health.http.integration.test.ts`
+  - `README.md`
+- Notes: локально воспроизведён флап в полном `ci:check`, после правки — целевой и полный прогон зелёные.
+
+### 5.55 BL-003: regression на default `deliveryMode` (immediate path)
+
+- Summary: в **`mvp.domains.http.integration.test.ts`** добавлен HTTP-кейс `POST /enrollments/bulk` без `deliveryMode`: API создаёт enrollment через immediate-path и не вызывает `MvpBulkEnqueueService.publishBulkJob`.
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: таргетный suite (19 tests) и полный `pnpm -s ci:check` — зелёные.
+
+### 5.56 BL-003: strict validation для `deliveryMode` со whitespace
+
+- Summary: в **`mvp.domains.http.integration.test.ts`** добавлен кейс `POST /enrollments/bulk` с `deliveryMode=' queued '`: API возвращает **400** `validation_error`, enqueue не вызывается. Это фиксирует отсутствие implicit trim для enum-значения.
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: таргетный suite и полный `pnpm -s ci:check` — зелёные.
+
+### 5.57 BL-008: strict regression для mixed-case KPI breakdown flag
+
+- Summary: в **`mvp.domains.http.integration.test.ts`** добавлен HTTP-кейс `GET /reports/kpi-snapshot?include_enrollment_breakdown=TrUe`: breakdown не возвращается, т.к. поддерживаются только `true` и `1`.
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: таргетный suite и полный `pnpm -s ci:check` — зелёные.
+
+### 5.58 BL-003: HTTP regress для worker callback массовых зачислений и явный DI
+
+- Summary: регрессия **`POST /api/v1/internal/worker/mvp/bulk-enrollments`** (`WorkerCallbackGuard`, невалидный/отсутствующий **`x-worker-callback-token`** → **403**, валидация тела **`400 validation_error`**, успешный вызов с заголовком проксируется в **`MvpService.createBulkEnrollments`** с **`deliveryMode: 'immediate'`**). В **`MvpInternalWorkerController`** добавлен **`@Inject(MvpService)`** — без этого в Vitest/harness без `emitDecoratorMetadata` Nest не инжектит сервис (**`mvpService`** = `undefined`).
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp-internal-worker.http.integration.test.ts` (новый)
+  - `apps/backend/src/modules/mvp/mvp-internal-worker.controller.ts`
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+  - `LMS_AGENT_HANDOFF.md`
+- Notes: полный **`pnpm -s ci:check`** — зелёный на рабочей копии после правок.
+
+### 5.59 BL-003: worker — модуль колбэка bulk + unit regress
+
+- Summary: логика **`invokeBackendBulkEnrollment`** вынесена из **`apps/worker/src/main.ts`** в **`bulk-enrollment-callback.ts`**; добавлены unit-тесты (**`bulk-enrollment-callback.test.ts`**) без RabbitMQ: URL (**trim** базы + путь **`/api/v1/internal/worker/mvp/bulk-enrollments`**), заголовок **`x-worker-callback-token`**, тело **`tenantId` / requestId / correlationId / payload`**, классификация ответов (**`NonRetryableJobError`** для `forbidden` / `validation_error`; обычный **`Error`** для **500**, чтобы сохранился retry consumer).
+- Files changed:
+  - `apps/worker/src/main.ts`
+  - `apps/worker/src/bulk-enrollment-callback.ts` (новый)
+  - `apps/worker/src/bulk-enrollment-callback.test.ts` (новый)
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+  - `LMS_AGENT_HANDOFF.md`
+- Notes: **`pnpm -s ci:check`** — зелёный на рабочей копии.
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |
@@ -598,6 +875,34 @@
 | `pnpm -s ci:check` (после 5.29 LAUNCH_RUNBOOK smoke-таблица)                                                                                                              | passed | Документация; полный quality gate зелёный                                                                  |
 | `pnpm -s ci:check` (после 5.30 README integration links)                                                                                                                  | passed | Документация; полный quality gate зелёный                                                                  |
 | `pnpm -s ci:check` (после 5.31 AuditService.list tenant hardening)                                                                                                        | passed | Полный quality gate зелёный                                                                                |
+| `pnpm -s ci:check` (после 5.32 BL-001 createUser audit contract)                                                                                                          | passed | Полный quality gate зелёный                                                                                |
+| `pnpm -s ci:check` (после 5.33 IAM P0.3 updateUser/roles contract)                                                                                                        | passed | Полный quality gate зелёный                                                                                |
+| `pnpm -s ci:check` (после 5.34 legacy password rehash on login)                                                                                                         | passed | Полный quality gate зелёный                                                                                |
+| `pnpm -s ci:check` (после 5.35 audit iam.password_rehashed)                                                                                                                 | passed | Полный quality gate зелёный                                                                                |
+| `pnpm -s ci:check` (после 5.36 audit contract + roadmap §6 + health live)                                                                                                  | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.37 roadmap §7 integrations crypto docs + credential leak test)                                                                               | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.38 learners `[id]` UI + runbook)                                                                                                                | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.39 workspaceApi + roadmap §4–5)                                                                                                                 | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.40 workspace HTTP tenant regression)                                                                                                            | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.41 health live HTTP integration)                                                                                                                | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.42 health ready HTTP integration)                                                                                                                | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.43 health ready 503 HTTP integration)                                                                                                               | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.44 `MvpBulkEnqueueService` unit)                                                                                                                           | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.45 BL-003 queued bulk HTTP regressions)                                                                                                                    | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.46 MVP DTO validation regressions)                                                                                                                          | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.47 BL-007 listener regressions)                                                                                                                             | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.48 BL-008 KPI snapshot HTTP regressions)                                                                                                                   | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.49 BL-008 KPI breakdown flag `=1`)                                                                                                                         | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.50 BL-008 KPI breakdown flag `=0`)                                                                                                                         | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.51 BL-003 invalid deliveryMode HTTP regression)                                                                                                            | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.52 BL-007 listener tenant isolation regression)                                                                                                            | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.53 BL-003 uppercase deliveryMode regression)                                                                                                               | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.54 health HTTP hook-timeout stabilization)                                                                                                                 | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.55 BL-003 default deliveryMode regression)                                                                                                                 | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.56 BL-003 spaced deliveryMode regression)                                                                                                                  | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.57 BL-008 mixed-case KPI breakdown flag regression)                                                                                                         | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.58 BL-003 internal worker HTTP + `@Inject(MvpService)`)                                                                                                    | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.59 BL-003 worker bulk callback unit + вынос из `main`)                                                                                                      | passed | Полный quality gate зелёный                                                                            |
 
 ## 13. Known Issues
 
@@ -629,7 +934,7 @@
 
 1. Миграции: прогон **`0027_audit_log_metadata`** на всех окружениях перед деплоем с новым insert в **`audit.audit_log`**.
 2. При появлении новых MVP-эндпоинтов: сразу добавлять DTO-класс и **`assertValidDto`** (см. §5.21).
-3. По желанию: отдельная карточка слушателя в UI (deeplink `/learners/:id`) вместо ссылки на общий реестр.
+3. Карточка слушателя в UI: **`/learners/[id]`** (сделано §5.38).
 
 ### Medium
 
@@ -697,6 +1002,34 @@
 - Закрыто в §5.29: **LAUNCH_RUNBOOK** — минимальный **smoke по ролям** (таблица маршрутов и проверок после деплоя).
 - Закрыто в §5.30: **README** — перечень **backend HTTP integration** регрессий рядом с каноническим E2E.
 - Закрыто в §5.31: **audit** — **`AuditService.list`** без пустого tenant; строгий SQL-фильтр.
+- Закрыто в §5.32: **BL-001** — контракт-тест на **`iam.user_created`** при **`createUser`**; roadmap задача **1** — зафиксировано отсутствие чтения **`x-user-id`** в production identity path.
+- Закрыто в §5.33: roadmap **P0.3** — контракт **`updateUser`** / **`userRoles`** / **`setRoles`** без утечек хэшей и секретов сессии.
+- Закрыто в §5.34: roadmap **P0.2** (часть) — **rehash on login** legacy **SHA-256(seed)** → **scrypt**; **`upgradePasswordHash`** в **`IamService`**.
+- Закрыто в §5.35: **BL-001** — аудит **`iam.password_rehashed`** при миграции пароля на **scrypt**.
+- Закрыто в §5.36: **BL-010** — тип **`AuditLogPasswordRehashedMetadata`**; roadmap **§6** — зафиксировано выполнение критериев на MVP (cookie refresh, localStorage без токенов); **liveness** — unit-регресс **`live`**.
+- Закрыто в §5.37: roadmap **P0.7 / §7** — задокументировано **шифрование секретов интеграций** (реализация + env); регресс на отсутствие **`enc:`** в публичном credential DTO.
+- Закрыто в §5.38: **UI карточка слушателя** `/learners/[id]` (**`LearnerDetailsScreen`**), ссылки из реестра; smoke — **LAUNCH_RUNBOOK**.
+- Закрыто в §5.39: roadmap **P0 §4–5** — **`workspaceApi`**; единый путь доменных вызовов через **`apiRequest`** (оперативная панель).
+- Закрыто в §5.40: **BL-010** — HTTP regress **workspace** по tenant JWT + **`tenant_header_mismatch`**; roadmap **§10** статус дополнен.
+- Закрыто в §5.41: **`GET /health/live`** HTTP + envelope (**SDOPROF §36** liveness контур); см. **`health.http.integration.test.ts`**.
+- Закрыто в §5.42: **`GET /health/ready`** HTTP + envelope при успешных проверках зависимостей (моки); см. **`health.http.integration.test.ts`**.
+- Закрыто в §5.43: **`GET /health/ready`** при отказе миграций (**503**, **`readiness_failed`**, **`error` + `meta`**); liveness независим (**200**).
+- Закрыто в §5.44: **BL-003** — unit-регресс публикации bulk job в RabbitMQ (**`MvpBulkEnqueueService`**); см. **`mvp-bulk-enqueue.service.test.ts`**.
+- Закрыто в §5.45: **BL-003** — HTTP-регрессии `POST /enrollments/bulk` для `deliveryMode: queued` и duplicate `idempotencyKey` (без повторной публикации).
+- Закрыто в §5.46: **BL-010** — class-validator регрессии для **`CreateModuleRequest`** / **`CreateMaterialRequest`** в **`mvp.dto-validation.test.ts`**.
+- Закрыто в §5.47: **BL-007** — listener регрессии: duplicate completion event идемпотентен, failure path пишет аудит **`documents.enrollment_certificate_failed`**.
+- Закрыто в §5.48: **BL-008** — HTTP-регресс `GET /reports/kpi-snapshot` для `include_enrollment_breakdown=true` и default ответа без breakdown.
+- Закрыто в §5.49: **BL-008** — HTTP-регресс `GET /reports/kpi-snapshot` для `include_enrollment_breakdown=1` (числовой флаг).
+- Закрыто в §5.50: **BL-008** — HTTP-регресс `GET /reports/kpi-snapshot` для `include_enrollment_breakdown=0` (breakdown не возвращается).
+- Закрыто в §5.51: **BL-003** — HTTP-регресс валидации `deliveryMode` (`async` → `400 validation_error`, без enqueue).
+- Закрыто в §5.52: **BL-007** — listener регресс tenant isolation (binding другого tenant не приводит к генерации сертификата).
+- Закрыто в §5.53: **BL-003** — HTTP-регресс строгой валидации `deliveryMode='QUEUED'` (`400 validation_error`, без enqueue).
+- Закрыто в §5.54: **BL-010** — стабилизация `health.http.integration.test.ts` (beforeAll timeout `60_000`) для надёжного полного `ci:check`.
+- Закрыто в §5.55: **BL-003** — HTTP-регресс default поведения bulk без `deliveryMode` (immediate path, без enqueue).
+- Закрыто в §5.56: **BL-003** — HTTP-регресс строгой валидации `deliveryMode=' queued '` (`400 validation_error`, без enqueue).
+- Закрыто в §5.57: **BL-008** — HTTP-регресс для mixed-case `include_enrollment_breakdown=TrUe` (breakdown не возвращается).
+- Закрыто в §5.58: **BL-003** — HTTP-регресс worker callback `POST …/internal/worker/mvp/bulk-enrollments` + явный `@Inject(MvpService)` в internal controller.
+- Закрыто в §5.59: **BL-003** — модуль **`apps/worker`** `bulk-enrollment-callback.ts` + unit regress (`bulk-enrollment-callback.test.ts`): контракт URL/headers/body и non-retry vs retry по HTTP-коду.
 
 ## 21. Новые MVP API (быстрый справочник)
 

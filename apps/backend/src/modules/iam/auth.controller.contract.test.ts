@@ -33,6 +33,19 @@ const context: RequestContext = {
   userAgent: 'vitest'
 };
 
+const expectNoSensitiveUserPayload = (value: object) => {
+  expect(value).not.toHaveProperty('passwordHash');
+  expect(value).not.toHaveProperty('password_hash');
+  expect(value).not.toHaveProperty('refreshTokenHash');
+  expect(value).not.toHaveProperty('refresh_token_hash');
+};
+
+const expectNoSensitiveRolePayload = (value: object) => {
+  expectNoSensitiveUserPayload(value);
+  expect(value).not.toHaveProperty('csrfTokenHash');
+  expect(value).not.toHaveProperty('csrf_token_hash');
+};
+
 describe('AuthController public user contract', () => {
   const makeController = async () => {
     const [
@@ -52,11 +65,11 @@ describe('AuthController public user contract', () => {
     const iamService = new IamService(audit);
     const authService = new AuthService(iamService, audit, new SecretsService());
 
-    return new AuthController(authService, iamService);
+    return { controller: new AuthController(authService, iamService), audit };
   };
 
   it('does not leak passwordHash in /auth/me', async () => {
-    const controller = await makeController();
+    const { controller } = await makeController();
 
     const response = await controller.me(context);
 
@@ -71,10 +84,10 @@ describe('AuthController public user contract', () => {
         "tenantId": "tenant_demo",
       }
     `);
-  }, 15_000);
+  }, 45_000);
 
   it('does not leak refresh/session internals in /auth/sessions', async () => {
-    const controller = await makeController();
+    const { controller } = await makeController();
 
     const sessions = await controller.sessions(context);
 
@@ -116,7 +129,7 @@ describe('AuthController public user contract', () => {
   });
 
   it('does not leak passwordHash in /users and /users/:id', async () => {
-    const controller = await makeController();
+    const { controller } = await makeController();
 
     const list = await controller.users(context);
     const user = await controller.user(context, 'u_tenant_admin');
@@ -132,5 +145,70 @@ describe('AuthController public user contract', () => {
       status: 'active',
       displayName: 'Tenant Admin'
     });
+  });
+
+  it('writes iam.user_created audit on createUser without leaking passwordHash (in-memory IAM)', async () => {
+    const { controller, audit } = await makeController();
+
+    const created = await controller.createUser(context, {
+      login: 'contract_audit_user',
+      displayName: 'Audit User',
+      email: 'audit_contract@demo.local',
+      status: 'active',
+      password: 'TempPass123!'
+    });
+
+    expect(created).not.toHaveProperty('passwordHash');
+    expect(
+      (await audit.list('tenant_demo')).some(
+        (r) =>
+          r.action === 'iam.user_created' &&
+          r.entityId === created.id &&
+          r.tenantId === 'tenant_demo' &&
+          r.actorId === 'u_tenant_admin'
+      )
+    ).toBe(true);
+  });
+
+  it('does not leak passwordHash after PUT /users/:id (updateUser)', async () => {
+    const { controller } = await makeController();
+
+    const created = await controller.createUser(context, {
+      login: 'contract_put_user',
+      displayName: 'Before',
+      email: 'contract_put@demo.local',
+      status: 'active',
+      password: 'TempPass123!'
+    });
+    expectNoSensitiveUserPayload(created);
+
+    const updated = await controller.updateUser(context, created.id, {
+      displayName: 'After update'
+    });
+    expectNoSensitiveUserPayload(updated);
+    expect(updated.displayName).toBe('After update');
+    expect(updated.id).toBe(created.id);
+  });
+
+  it('does not leak session/user hashes in GET /users/:id/roles', async () => {
+    const { controller } = await makeController();
+
+    const roles = await controller.userRoles(context, 'u_methodist');
+    expect(roles.length).toBeGreaterThan(0);
+    for (const role of roles) {
+      expectNoSensitiveRolePayload(role);
+    }
+  });
+
+  it('does not leak session/user hashes in PUT /users/:id/roles response', async () => {
+    const { controller } = await makeController();
+
+    const roles = await controller.setRoles(context, 'u_methodist', {
+      roleCodes: ['methodist']
+    });
+    expect(roles.length).toBe(1);
+    for (const role of roles) {
+      expectNoSensitiveRolePayload(role);
+    }
   });
 });

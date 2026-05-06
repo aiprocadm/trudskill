@@ -10,7 +10,16 @@ export interface AuditLogDelegatedLearningMetadata {
   viaPermission: 'learners.act_as';
 }
 
-export type AuditLogMetadata = AuditLogDelegatedLearningMetadata | Record<string, unknown>;
+/** Запись миграции пароля с legacy seed (`iam.password_rehashed`). */
+export interface AuditLogPasswordRehashedMetadata {
+  reason: 'legacy_sha256_seed';
+  algorithm: 'scrypt';
+}
+
+export type AuditLogMetadata =
+  | AuditLogDelegatedLearningMetadata
+  | AuditLogPasswordRehashedMetadata
+  | Record<string, unknown>;
 
 /** Обобщённая строка лога для клиентов, читающих аудит из API. */
 export interface AuditLogRecordContract {
