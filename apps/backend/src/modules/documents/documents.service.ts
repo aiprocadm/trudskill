@@ -94,6 +94,7 @@ export class DocumentsService {
       entityId: entity.id,
       newValues: entity as unknown as Record<string, unknown>,
       requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
       ip: ctx.ip,
       userAgent: ctx.userAgent
     });
@@ -121,6 +122,7 @@ export class DocumentsService {
       oldValues,
       newValues: current as unknown as Record<string, unknown>,
       requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
       ip: ctx.ip,
       userAgent: ctx.userAgent
     });
@@ -384,19 +386,26 @@ export class DocumentsService {
   generateDocumentsBatch(
     tenantId: string,
     actorId: string | undefined,
-    req: GenerateDocumentsBatchRequest
+    req: GenerateDocumentsBatchRequest,
+    ctx?: RequestContext
   ) {
     const sourceIds = req.sourceEntityIds.map((item) => item.trim()).filter(Boolean);
+    const batchBaseTime = Date.now();
     return {
-      items: sourceIds.map((sourceEntityId) =>
-        this.generateDocument(tenantId, actorId, {
-          templateId: req.templateId,
-          templateVersionId: req.templateVersionId,
-          sourceEntityType: req.sourceEntityType,
-          sourceEntityId,
-          documentType: req.documentType,
-          idempotencyKey: `${sourceEntityId}-${Date.now()}`
-        })
+      items: sourceIds.map((sourceEntityId, index) =>
+        this.generateDocument(
+          tenantId,
+          actorId,
+          {
+            templateId: req.templateId,
+            templateVersionId: req.templateVersionId,
+            sourceEntityType: req.sourceEntityType,
+            sourceEntityId,
+            documentType: req.documentType,
+            idempotencyKey: `${sourceEntityId}-${batchBaseTime}-${index}`
+          },
+          ctx
+        )
       )
     };
   }
@@ -737,7 +746,8 @@ export class DocumentsService {
         correlationId: task.correlationId,
         ...extras
       },
-      requestId: task.requestId
+      requestId: task.requestId,
+      correlationId: task.correlationId
     });
   }
 

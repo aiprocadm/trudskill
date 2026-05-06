@@ -21,6 +21,21 @@ describe('AuditService', () => {
     expect(created.action).toBe('documents.template_created');
   });
 
+  it('merges correlationId into metadata.correlation_id without dropping existing metadata', () => {
+    const service = new AuditService();
+
+    const created = service.write({
+      tenantId: 'tenant_demo',
+      action: 'test.action',
+      entityType: 'x',
+      entityId: '1',
+      metadata: { k: 'v' },
+      correlationId: 'corr_abc'
+    });
+
+    expect(created.metadata).toEqual({ k: 'v', correlation_id: 'corr_abc' });
+  });
+
   it('persists audit row through database adapter when provided', async () => {
     const query = vi.fn().mockResolvedValue([]);
     const service = new AuditService({ query } as never);
@@ -34,6 +49,7 @@ describe('AuditService', () => {
       oldValues: { name: 'old' },
       newValues: { name: 'new' },
       requestId: 'req_2',
+      correlationId: 'corr_persist_test',
       ip: '127.0.0.1',
       userAgent: 'vitest'
     });
@@ -44,6 +60,9 @@ describe('AuditService', () => {
     expect(args[0]).toBe(created.id);
     expect(args[1]).toBe('tenant_demo');
     expect(args[3]).toBe('documents.template_updated');
+    expect(JSON.parse(args[8] as string)).toMatchObject({
+      correlation_id: 'corr_persist_test'
+    });
   });
 
   it('scopes list to tenantId and returns empty when tenant is omitted', async () => {

@@ -20,6 +20,11 @@ export interface AuditLogRecord {
   createdAt: string;
 }
 
+/** Поля записи до материализации `id` / `createdAt`; `correlationId` вкладывается в `metadata.correlation_id`. */
+export type AuditWritePayload = Omit<AuditLogRecord, 'id' | 'createdAt'> & {
+  correlationId?: string;
+};
+
 @Injectable()
 export class AuditService {
   private readonly records: AuditLogRecord[] = [];
@@ -28,10 +33,7 @@ export class AuditService {
     @Optional() @Inject(DatabaseService) private readonly databaseService?: DatabaseService
   ) {}
 
-  write(
-    record: Omit<AuditLogRecord, 'id' | 'createdAt'>,
-    options?: { skipDatabase?: boolean }
-  ): AuditLogRecord {
+  write(record: AuditWritePayload, options?: { skipDatabase?: boolean }): AuditLogRecord {
     const result = this.buildRecord(record);
     this.records.push(result);
 
@@ -65,7 +67,7 @@ export class AuditService {
   }
 
   async writeCritical(
-    record: Omit<AuditLogRecord, 'id' | 'createdAt'>,
+    record: AuditWritePayload,
     options?: { skipDatabase?: boolean }
   ): Promise<AuditLogRecord> {
     const result = this.buildRecord(record);
@@ -100,9 +102,19 @@ export class AuditService {
     return result;
   }
 
-  private buildRecord(record: Omit<AuditLogRecord, 'id' | 'createdAt'>): AuditLogRecord {
+  private buildRecord(record: AuditWritePayload): AuditLogRecord {
+    const { correlationId, metadata: incomingMetadata, ...base } = record;
+    const metadata: Record<string, unknown> | undefined = (() => {
+      const merged: Record<string, unknown> = {
+        ...(incomingMetadata ?? {}),
+        ...(correlationId ? { correlation_id: correlationId } : {})
+      };
+      return Object.keys(merged).length ? merged : undefined;
+    })();
+
     const result: AuditLogRecord = {
-      ...record,
+      ...base,
+      metadata,
       id: `audit_${randomUUID().replace(/-/g, '')}`,
       createdAt: new Date().toISOString()
     };

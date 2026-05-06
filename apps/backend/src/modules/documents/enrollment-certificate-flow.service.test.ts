@@ -18,9 +18,12 @@ describe('EnrollmentDocumentIssuanceListener (BL-007)', () => {
       }
     };
     const auditWrite = vi.fn();
-    const listener = new EnrollmentDocumentIssuanceListener(runner as any, {
-      write: auditWrite
-    } as any);
+    const listener = new EnrollmentDocumentIssuanceListener(
+      runner as any,
+      {
+        write: auditWrite
+      } as any
+    );
 
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
@@ -42,7 +45,8 @@ describe('EnrollmentDocumentIssuanceListener (BL-007)', () => {
         sourceEntityType: 'enrollment',
         sourceEntityId: 'enr_99',
         documentType: 'certificate'
-      })
+      }),
+      undefined
     );
   });
 
@@ -57,9 +61,12 @@ describe('EnrollmentDocumentIssuanceListener (BL-007)', () => {
         await fn(docs);
       }
     };
-    const listener = new EnrollmentDocumentIssuanceListener(runner as any, {
-      write: vi.fn()
-    } as any);
+    const listener = new EnrollmentDocumentIssuanceListener(
+      runner as any,
+      {
+        write: vi.fn()
+      } as any
+    );
 
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',

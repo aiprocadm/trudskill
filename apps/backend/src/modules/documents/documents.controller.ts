@@ -238,7 +238,7 @@ export class DocumentsController {
     @CurrentContext() c: RequestContext,
     @Body() b: GenerateDocumentsBatchRequest
   ) {
-    return this.documentsService.generateDocumentsBatch(c.tenantId!, c.userId, b);
+    return this.documentsService.generateDocumentsBatch(c.tenantId!, c.userId, b, c);
   }
   @Post('documents/:id/finalize')
   @UseGuards(PermissionGuard)

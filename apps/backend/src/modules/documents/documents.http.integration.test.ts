@@ -106,12 +106,22 @@ describe('Documents HTTP integration (permission boundaries)', () => {
           };
         };
       }) {
-        const request = context.switchToHttp().getRequest();
+        const request = context.switchToHttp().getRequest() as {
+          method?: string;
+          url?: string;
+          originalUrl?: string;
+          context?: { tenantId?: string; userId?: string; sessionId?: string };
+        };
+        const routePath = request.originalUrl ?? request.url ?? '';
+        const isDocumentsGenerate =
+          request.method === 'POST' && routePath.includes('/documents/generate');
         const required =
-          request.method === 'POST'
-            ? ['documents.write']
-            : request.method === 'GET'
-              ? ['documents.read']
+          request.method === 'GET'
+            ? ['documents.read']
+            : request.method === 'POST'
+              ? isDocumentsGenerate
+                ? ['documents.generate']
+                : ['documents.write']
               : [];
         if (required.length === 0) return true;
 
@@ -169,6 +179,22 @@ describe('Documents HTTP integration (permission boundaries)', () => {
           tenantId: context.tenantId,
           createdBy: context.userId,
           name: body.name
+        };
+      }
+
+      @Post('documents/generate')
+      @UseGuards(TestPermissionGuard)
+      @RequirePermissions('documents.generate')
+      generateOne(@CurrentContext() context: { tenantId?: string }) {
+        return { id: 'dtask_stub_single', tenantId: context.tenantId };
+      }
+
+      @Post('documents/generate/batch')
+      @UseGuards(TestPermissionGuard)
+      @RequirePermissions('documents.generate')
+      generateBatch(@CurrentContext() context: { tenantId?: string }) {
+        return {
+          items: [{ id: 'dtask_stub_batch', tenantId: context.tenantId }]
         };
       }
     }
@@ -338,6 +364,168 @@ describe('Documents HTTP integration (permission boundaries)', () => {
     expect(payload.data.tenantId).toBe('tenant_demo');
     expect(payload.data.createdBy).toBe('u_doc_admin');
     expect(payload.data.name).toBe('Новый шаблон');
+    expect(payload.meta.requestId).toBeTruthy();
+    expect(payload.meta.correlationId).toBeTruthy();
+  });
+
+  it('returns permission_denied for POST …/documents/generate without documents.generate', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['documents.read', 'documents.write']);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_doc_operator',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: ['tenant_admin']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/documents/generate`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        idempotencyKey: 'idem-single-1',
+        templateId: 'tpl_x',
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'e1',
+        documentType: 'certificate'
+      })
+    });
+
+    expect(response.status).toBe(403);
+    const payload = (await response.json()) as {
+      error: { code: string; message: string };
+      meta: { requestId: string };
+    };
+    expect(payload.error.code).toBe('permission_denied');
+    expect(payload.meta.requestId).toBeTruthy();
+  });
+
+  it('returns success envelope for POST …/documents/generate with documents.generate', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce([
+      'documents.read',
+      'documents.write',
+      'documents.generate'
+    ]);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_doc_gen_single',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: ['tenant_admin']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/documents/generate`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        idempotencyKey: 'idem-single-2',
+        templateId: 'tpl_one',
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'e1',
+        documentType: 'certificate'
+      })
+    });
+
+    expect(response.status).toBe(201);
+    const payload = (await response.json()) as {
+      data: { id: string; tenantId?: string };
+      meta: { requestId: string; correlationId: string; timestamp: string };
+    };
+    expect(payload.data.id).toBe('dtask_stub_single');
+    expect(payload.data.tenantId).toBe('tenant_demo');
+    expect(payload.meta.requestId).toBeTruthy();
+    expect(payload.meta.correlationId).toBeTruthy();
+  });
+
+  it('returns permission_denied for POST …/documents/generate/batch without documents.generate', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['documents.read', 'documents.write']);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_doc_operator',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: ['tenant_admin']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/documents/generate/batch`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        templateId: 'tpl_x',
+        sourceEntityType: 'enrollment',
+        sourceEntityIds: ['e1', 'e2'],
+        documentType: 'certificate'
+      })
+    });
+
+    expect(response.status).toBe(403);
+    const payload = (await response.json()) as {
+      error: { code: string; message: string };
+      meta: { requestId: string };
+    };
+    expect(payload.error.code).toBe('permission_denied');
+    expect(payload.meta.requestId).toBeTruthy();
+  });
+
+  it('returns success envelope for POST …/documents/generate/batch with documents.generate', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce([
+      'documents.read',
+      'documents.write',
+      'documents.generate'
+    ]);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_doc_gen',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: ['tenant_admin']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/documents/generate/batch`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        templateId: 'tpl_batch',
+        sourceEntityType: 'enrollment',
+        sourceEntityIds: ['e1'],
+        documentType: 'certificate'
+      })
+    });
+
+    expect(response.status).toBe(201);
+    const payload = (await response.json()) as {
+      data: { items: Array<{ id: string; tenantId?: string }> };
+      meta: { requestId: string; correlationId: string; timestamp: string };
+    };
+    expect(payload.data.items).toHaveLength(1);
+    expect(payload.data.items[0]?.tenantId).toBe('tenant_demo');
     expect(payload.meta.requestId).toBeTruthy();
     expect(payload.meta.correlationId).toBeTruthy();
   });

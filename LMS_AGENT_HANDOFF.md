@@ -9,7 +9,7 @@
 - Repository: `D:/Создание LMS/Cursor LMS/cdoprof-`
 - Branch, if known: `main`
 - Commit hash before work, if available: `8157adc74c9fadba6f076bcfa0e2e84f93394b1d` (базовый HEAD; при появлении коммита после правок — дополнить вручную)
-- Commit hash after work, if available: не создавался в git; рабочая копия после §5.66
+- Commit hash after work, if available: `c22736127d100c06a38a8ff222e34c6d25cf8c21` (HEAD до коммита правок §5.73–§5.81; после коммита уточнить `git rev-parse HEAD`)
 
 ## 2. Project Overview
 
@@ -788,6 +788,148 @@
   - `LMS_AGENT_HANDOFF.md`
 - Notes: **`pnpm -s ci:check`** — зелёный на рабочей копии после прогона.
 
+### 5.67 Корреляция IAM-аудита с HTTP (`metadata.correlation_id`)
+
+- Summary: в **`AuditService`** введён тип **`AuditWritePayload`**, поле **`correlationId`** при записи вкладывается в **`metadata.correlation_id`** (новая колонка БД не нужна). **`AuthService`** передаёт **`context.correlationId`** во все **`writeCritical`**; **`IamService.createUser`** / **`setUserRoles`** и **`AuthController`** прокидывают **`correlationId`** из **`RequestContext`**. Регресс: **`audit.service.test.ts`**, **`auth.controller.contract.test.ts`**, **`auth.service.test.ts`**; комментарий в **`packages/api-contracts`** и уточнение в **`docs/security-remediation-roadmap.md`** (задача 10).
+- Files changed:
+  - `apps/backend/src/modules/audit/audit.service.ts`
+  - `apps/backend/src/modules/audit/audit.service.test.ts`
+  - `apps/backend/src/modules/iam/services/auth.service.ts`
+  - `apps/backend/src/modules/iam/services/iam.service.ts`
+  - `apps/backend/src/modules/iam/auth.controller.ts`
+  - `apps/backend/src/modules/iam/auth.controller.contract.test.ts`
+  - `apps/backend/src/modules/iam/auth.service.test.ts`
+  - `packages/api-contracts/src/domains/audit.ts`
+  - `docs/security-remediation-roadmap.md`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`
+- Notes: **`pnpm -s ci:check`** — зелёный.
+
+### 5.68 `correlation_id` в аудите documents / MVP / e-sign / integrations
+
+- Summary: после §5.67 IAM — **`correlationId`** из **`RequestContext`** прокидывается в **`AuditWritePayload`** для записей аудита в **`DocumentsService`** (создание/обновление шаблона, **`writeTaskAudit`**), **`MvpService.audit`**, **`EsignService.writeAudit`**, **`IntegrationOrchestratorService`** (**`createCredential`**, **`rotateSecret`**, плюс **`requestId`**, **`ip`**, **`userAgent`** для интеграций). Дополнено в **§5.69**: трассировка через событие **`learning.enrollment_completed`** → **`EnrollmentDocumentIssuanceListener`**. Регресс: **`documents.service.test.ts`**, **`mvp.service.test.ts`**, **`integrations.service.test.ts`**; комментарий в **`api-contracts`** (`audit.ts`).
+- Files changed:
+  - `apps/backend/src/modules/documents/documents.service.ts`
+  - `apps/backend/src/modules/mvp/mvp.service.ts`
+  - `apps/backend/src/modules/esign/esign.service.ts`
+  - `apps/backend/src/modules/integrations/services/integration-orchestrator.service.ts`
+  - `apps/backend/src/modules/documents/documents.service.test.ts`
+  - `apps/backend/src/modules/mvp/mvp.service.test.ts`
+  - `apps/backend/src/modules/integrations/integrations.service.test.ts`
+  - `packages/api-contracts/src/domains/audit.ts`
+  - `docs/security-remediation-roadmap.md`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`
+- Notes: **`pnpm -s ci:check`** — зелёный.
+
+### 5.69 BL-007: трассировка `requestId` / `correlationId` при завершении enrollment → сертификат
+
+- Summary: расширен **`EnrollmentCompletedPayload`** (**`requestId`**, **`correlationId`**). При **`status: completed`** в **`MvpService.changeEnrollmentStatus`** в событие передаются значения из **`RequestContext`**. **`EnrollmentDocumentIssuanceListener`**: аудит **skipped/failed** с **`requestId`/`correlationId`**; **`generateDocument`** вызывается с **`RequestContext`**, если в payload есть хотя бы одно поле трассировки (иначе прежнее поведение). Регресс: **`enrollment-document-issuance.listener.test.ts`**, **`enrollment-certificate-flow.service.test.ts`**.
+- Files changed:
+  - `apps/backend/src/modules/mvp/enrollment-completed.event.ts`
+  - `apps/backend/src/modules/mvp/mvp.service.ts`
+  - `apps/backend/src/modules/documents/enrollment-document-issuance.listener.ts`
+  - `apps/backend/src/modules/documents/enrollment-document-issuance.listener.test.ts`
+  - `apps/backend/src/modules/documents/enrollment-certificate-flow.service.test.ts`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`
+- Notes: **`pnpm -s ci:check`** — зелёный.
+
+### 5.70 Documents: трассировка **`POST …/documents/generate/batch`**
+
+- Summary: **`DocumentsService.generateDocumentsBatch`** принимает опциональный **`RequestContext`** и передаёт его в каждый вызов **`generateDocument`** (**`DocumentsController`** прокидывает **`CurrentContext`**). Ключи идемпотентности для элементов батча стабилизированы: один **`batchBaseTime`** + индекс (меньше случайных коллизий в одной миллисекунде). Регресс в **`documents.service.test.ts`** (**`requestId`/`correlationId`** на задачах).
+- Files changed:
+  - `apps/backend/src/modules/documents/documents.service.ts`
+  - `apps/backend/src/modules/documents/documents.controller.ts`
+  - `apps/backend/src/modules/documents/documents.service.test.ts`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`
+- Notes: **`pnpm -s ci:check`** — зелёный.
+
+### 5.71 BL-010: HTTP regress — **`POST …/documents/generate/batch`** граница **`documents.generate`**
+
+- Summary: harness **`documents.http.integration.test.ts`**: mock-guard учитывает путь (`/documents/generate` → нужен **`documents.generate`**, иначе **`documents.write`** как раньше для **`/templates`**). Добавлен stub-эндпоинт **`POST /documents/generate/batch`**, сценарии **403** без **`documents.generate`** при наличии **read+write** и **201** при **read+write+generate**.
+- Files changed:
+  - `apps/backend/src/modules/documents/documents.http.integration.test.ts`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`
+- Notes: **`pnpm -s ci:check`** — зелёный.
+
+### 5.72 BL-010: HTTP regress — **`POST …/documents/generate`** граница **`documents.generate`**
+
+- Summary: в **`documents.http.integration.test.ts`** добавлен stub **`POST /documents/generate`** (одиночная генерация); те же сценарии, что для батча: **403** при **read+write** без **`documents.generate`**, **201** при наличии **`documents.generate`**. Подтверждён прогон файла и полный **`pnpm -s ci:check`**.
+- Files changed:
+  - `apps/backend/src/modules/documents/documents.http.integration.test.ts`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`
+- Notes: **`pnpm --filter @cdoprof/backend exec vitest run`** на `documents.http.integration.test.ts` + **`pnpm -s ci:check`** — зелёный.
+
+### 5.73 BL-010: HTTP regress — e-sign **`POST …/applications/:id/submit`** vs **`esign.applications.write`**
+
+- Summary: файл **`esign.http.integration.test.ts`**: лёгкий Nest harness с тем же контуром, что **`documents`** / **`integrations`** (envelope, **`TenantGuard`**, mock **`resolvePermissions`**). Guard по URL различает **`POST …/esign/applications`** (**`esign.applications.write`**) и **`POST …/esign/applications/:id/submit`** (**`esign.applications.submit`**). Сценарии: **403** при **read+write** без **submit**, **201** при **read+write+submit** (соответствует **`EsignController.submitApplication`**).
+- Files changed:
+  - `apps/backend/src/modules/esign/esign.http.integration.test.ts` (новый)
+  - `README.md`, `LMS_AGENT_HANDOFF.md`, `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный.
+
+### 5.74 BL-010: HTTP regress — e-sign **`POST …/applications/:id/start-review`** (**`esign.applications.review`**)
+
+- Summary: расширение **`esign.http.integration.test.ts`**: guard по пути отличает **`POST …/start-review`** (**`esign.applications.review`**) от **`submit`** / **`POST …/applications`** (**write**). Сценарии: **403**, если есть **read+write+submit**, но нет **review**; **201** при **read+write+review** (соответствует **`EsignController.startReview`**).
+- Files changed:
+  - `apps/backend/src/modules/esign/esign.http.integration.test.ts`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`, `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный.
+
+### 5.75 BL-010: HTTP regress — e-sign **`POST …/participants/:id/sign`** (**`esign.participants.sign`**)
+
+- Summary: в **`esign.http.integration.test.ts`** guard добавляет ветку для **`POST …/esign/participants/:id/sign`** — только **`esign.participants.sign`** (отдельно от **`esign.processes.write`**). Сценарии: **403** при **processes.read+write** без **sign**; **201** при **processes.read+sign** (соответствует **`EsignController.sign`**).
+- Files changed:
+  - `apps/backend/src/modules/esign/esign.http.integration.test.ts`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`, `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный.
+
+### 5.76 BL-010: HTTP regress — e-sign **`GET …/legal-log`** (**`esign.legal.read`**)
+
+- Summary: в **`esign.http.integration.test.ts`** для **GET** различаются пути **`/esign/legal-log`** и **`/esign/legal-log/:id`** (**`esign.legal.read`**) и остальной **GET** контур заявок (**`esign.applications.read`**). Stub **`GET …/legal-log`**, сценарии **403** при только **applications.read+write** без **legal.read** и **200** при **`esign.legal.read`** (соответствует **`EsignController.listLegalLog`**).
+- Files changed:
+  - `apps/backend/src/modules/esign/esign.http.integration.test.ts`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`, `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный.
+
+### 5.77 BL-010: HTTP regress — e-sign **`GET …/processes`** (**`esign.processes.read`**)
+
+- Summary: **`esign.http.integration.test.ts`**: stub **`GET …/esign/processes`**; guard для **GET** распознаёт контур **`processes` / `events` / списка `participants`** как **`esign.processes.read`** (см. **`EsignController`**). Сценарии: **403**, если есть только **`esign.applications.read`+`write`**, без **`processes.read`**; **200** при **`esign.processes.read`**.
+- Files changed:
+  - `apps/backend/src/modules/esign/esign.http.integration.test.ts`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`, `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный.
+
+### 5.78 BL-010: HTTP regress — e-sign **`GET …/application-files`** (**`esign.applications.read`**)
+
+- Summary: **`esign.http.integration.test.ts`**: stub **`GET …/esign/application-files`** (как **`EsignController.listApplicationFiles`**). Сценарии: **403**, если у актора только **`esign.processes.read`** (наблюдатель процессов не читает файлы заявок); **200** при **`esign.applications.read`**.
+- Files changed:
+  - `apps/backend/src/modules/esign/esign.http.integration.test.ts`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`, `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный.
+
+### 5.79 BL-010: HTTP regress — e-sign **`POST …/application-files`** (**`esign.applications.write`**)
+
+- Summary: **`esign.http.integration.test.ts`**: stub **`POST …/esign/application-files`** (как **`EsignController.createApplicationFile`**). Guard считает этот путь мутацией **`esign.applications.write`**. Сценарии: **403** при только **`esign.applications.read`**; **201** при **read+write**.
+- Files changed:
+  - `apps/backend/src/modules/esign/esign.http.integration.test.ts`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`, `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный.
+
+### 5.80 BL-010: HTTP regress — e-sign **`POST …/application-files/:id/verify`** (**`esign.applications.review`**)
+
+- Summary: **`esign.http.integration.test.ts`**: stub **`POST …/application-files/:id/verify`** (как **`EsignController.verifyApplicationFile`**). Сценарии: **403** при **read+write** без **`esign.applications.review`**; **201** при **read+write+review**.
+- Files changed:
+  - `apps/backend/src/modules/esign/esign.http.integration.test.ts`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`, `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный.
+
+### 5.81 BL-010: HTTP regress — e-sign **`POST …/application-files/:id/reject`** (**`esign.applications.review`**)
+
+- Summary: **`esign.http.integration.test.ts`**: stub **`POST …/application-files/:id/reject`** (как **`EsignController.rejectApplicationFile`**). В guard **verify** и **reject** объединены в один шаблон **`/(verify|reject)$`**. Сценарии: **403** при **read+write** без **review**; **201** при **read+write+review**.
+- Files changed:
+  - `apps/backend/src/modules/esign/esign.http.integration.test.ts`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`, `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный.
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |
@@ -980,6 +1122,21 @@
 | `pnpm -s ci:check` (после 5.64 BL-006 PATCH submitted assignment submission HTTP regression)                                                                                               | passed | Полный quality gate зелёный                                                                            |
 | `pnpm -s ci:check` (после 5.65 BL-010 assignment submission PATCH/submit intruder JWT HTTP regression)                                                                                  | passed | Полный quality gate зелёный                                                                            |
 | `pnpm -s ci:check` (после 5.66 BL-010 assignment-submissions list learner scope HTTP regression)                                                                                        | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.67 audit correlation_id в IAM + `AuditWritePayload`)                                                                                                       | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.68 correlation_id в audit: documents/MVP/e-sign/integrations)                                                                                               | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.69 enrollment_completed trace → certificate listener + BL-007 flow test)                                                                                    | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.70 documents generate/batch `RequestContext` + idempotency key)                                                                                              | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.71 documents HTTP regress `documents.generate` на batch)                                                                                                    | passed | Полный quality gate зелёный                                                                            |
+| `pnpm --filter @cdoprof/backend exec vitest run .../documents.http.integration.test.ts` + `pnpm -s ci:check` (после 5.72 single generate)                                              | passed | Регресс **403/201** для **`POST …/documents/generate`**; полный monorepo gate                            |
+| `pnpm -s ci:check` (после 5.73 esign HTTP submit vs write boundary)                                                                                                                    | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.74 esign HTTP start-review / `esign.applications.review`)                                                                                                     | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.75 esign HTTP participants/sign / `esign.participants.sign`)                                                                                                | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.76 esign HTTP GET legal-log / `esign.legal.read`)                                                                                                            | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.77 esign HTTP GET processes / `esign.processes.read`)                                                                                                        | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.78 esign HTTP GET application-files / `esign.applications.read`)                                                                                          | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.79 esign HTTP POST application-files / `esign.applications.write`)                                                                                         | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.80 esign HTTP POST application-files verify / `esign.applications.review`)                                                                                 | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.81 esign HTTP POST application-files reject / `esign.applications.review`)                                                                                 | passed | Полный quality gate зелёный                                                                            |
 
 ## 13. Known Issues
 
@@ -1064,7 +1221,7 @@
 
 ## 20. Final Status
 
-- Build status: после правок этого плана выполните `pnpm -s ci:check`.
+- Build status: последний прогон после §5.81 — `pnpm -s ci:check` зелёный.
 - Backend: аудит делегирования (`metadata`), HTTP IDOR для **GET attempts / exam-results by enrollment**, class-validator MVP + общий **`createAppValidationPipe`**, frontend guard по **`cross_learner` / `learners.act_as`**, корневой Vitest **`test.projects`** и последовательный прогон backend-тестов.
 - Итерация «план к ТЗ/запуску»: добавлены **`POST /enrollments/bulk`** с идемпотентностью в коллекции snapshot **`bulkEnrollmentIdempotency`**, **`GET /reports/kpi-snapshot`**, **`GET /enrollments/:id/certificates`** с проверкой `linkedIamUserId`; UI — KPI на **`/reports`**, сертификаты слушателя в **`LearnerCoursesScreen`**; эксплуатационные заготовки **`docs/LAUNCH_RUNBOOK.md`**, **`docs/BACKUP_ROLLBACK.md`**, трассировка **`docs/TZ_MVP_TRACEABILITY.md`**, NFR-снимок **`docs/NFR_LAUNCH_V1.md`**; доп. контракты в **`packages/api-contracts/src/domains/mvp-metrics/contracts.ts`**.
 - Бэклог «полный MVP»: **очередь bulk** — `deliveryMode: queued` публикует в RabbitMQ, **worker** вызывает **`POST /api/v1/internal/worker/mvp/bulk-enrollments`** (`WORKER_CALLBACK_SECRET` / `WORKER_CALLBACK_TOKEN`); **organizationUnitId** у learner и массовые назначения по подразделению; **KPI drill-down** — query `include_enrollment_breakdown=1`; аудит **`iam.user_created`**; регресс **BL-007** listener; class-validator **`CreateModuleRequest`/`CreateMaterialRequest`**; см. **`docs/security-remediation-roadmap.md`** (статус JWT vs заголовки).
@@ -1114,6 +1271,21 @@
 - Закрыто в §5.64: **BL-006** — HTTP-регресс **`PATCH /assignment-submissions/:id`** после **`submit`** (**412** **`submission_terminal`**, сдача не редактируется).
 - Закрыто в §5.65: **BL-010** — тот же HTTP-сценарий с **`linkedIamUserId`**: чужой JWT — **403** на **`PATCH`** и **`submit`** чужой субмиссии (ранее — создание и **GET**).
 - Закрыто в §5.66: **BL-010** — **`GET /assignment-submissions`** (list): два разных **`linkedIamUserId`** — каждый JWT видит только свои строки (**`restrictLearnerIdsForAssessmentList`**).
+- Закрыто в §5.67: roadmap **§10** — **`metadata.correlation_id`** в IAM-аудите для связки с HTTP-логами (**`RequestObservabilityInterceptor`** / заголовок **`x-correlation-id`**).
+- Закрыто в §5.68: **`metadata.correlation_id`** в аудите **documents / MVP / e-sign / integrations** (HTTP-контуры); слушатель сертификатов по событию — без **`RequestContext`** до §5.69.
+- Закрыто в §5.69: **`learning.enrollment_completed`** несёт **`requestId`/`correlationId`** из **`changeEnrollmentStatus`**; слушатель сертификатов пробрасывает в аудит задачи и **`generateDocument`**.
+- Закрыто в §5.70: **`POST /documents/generate/batch`** сохраняет **`requestId`/`correlationId`** на задачах генерации (как одиночный **`generate`**).
+- Закрыто в §5.71: HTTP integration — граница разрешения **`documents.generate`** для пакетной генерации (отдельно от **`documents.write`**).
+- Закрыто в §5.72: HTTP integration — та же граница **`documents.generate`** для одиночной **`POST …/documents/generate`**.
+- Закрыто в §5.73: HTTP integration — e-sign **`POST …/applications/:id/submit`** требует **`esign.applications.submit`**, отдельно от **`esign.applications.write`**.
+- Закрыто в §5.74: HTTP integration — e-sign **`POST …/applications/:id/start-review`** требует **`esign.applications.review`** (не удовлетворяется одним только **submit+write**).
+- Закрыто в §5.75: HTTP integration — e-sign **`POST …/participants/:id/sign`** требует **`esign.participants.sign`**, а не только **`esign.processes.write`**.
+- Закрыто в §5.76: HTTP integration — e-sign **`GET …/legal-log`** (и симметрично путь **`…/legal-log/:id`** в guard) требует **`esign.legal.read`**, отдельно от **`esign.applications.read`**.
+- Закрыто в §5.77: HTTP integration — **`GET`** по контуру процессов (в harness — **`GET …/processes`**; в guard также **`…/events`**, **`GET …/participants`**) отделён от заявок: **`esign.processes.read`**, без **`esign.applications.read`**.
+- Закрыто в §5.78: HTTP integration — **`GET …/application-files`** требует **`esign.applications.read`**; одного **`esign.processes.read`** недостаточно.
+- Закрыто в §5.79: HTTP integration — **`POST …/application-files`** требует **`esign.applications.write`**, не только **`esign.applications.read`**.
+- Закрыто в §5.80: HTTP integration — **`POST …/application-files/:id/verify`** требует **`esign.applications.review`**, не только **read+write** на заявках.
+- Закрыто в §5.81: HTTP integration — **`POST …/application-files/:id/reject`** тот же контур **`esign.applications.review`** (общий паттерн в guard с verify).
 
 ## 21. Новые MVP API (быстрый справочник)
 

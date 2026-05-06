@@ -123,7 +123,11 @@ export class IntegrationOrchestratorService {
       action: 'integration.credentials.created',
       entityType: 'integration_credential',
       entityId: row.id,
-      newValues: { providerId: row.providerId }
+      newValues: { providerId: row.providerId },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
     });
     return this.maskCredential(row);
   }
@@ -143,7 +147,11 @@ export class IntegrationOrchestratorService {
       action: 'integration.credentials.secret_rotated',
       entityType: 'integration_credential',
       entityId: row.id,
-      newValues: { secretVersion: row.secretVersion }
+      newValues: { secretVersion: row.secretVersion },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
     });
     return this.maskCredential(row);
   }

@@ -203,15 +203,24 @@ describe('DocumentsService', () => {
     });
     service.activateTemplateVersion('t1', version.id);
 
-    const batch = service.generateDocumentsBatch('t1', 'u1', {
-      templateId: template.id,
-      sourceEntityType: 'enrollment',
-      sourceEntityIds: ['e1', 'e2', 'e3'],
-      documentType: 'certificate'
-    });
+    const batch = service.generateDocumentsBatch(
+      't1',
+      'u1',
+      {
+        templateId: template.id,
+        sourceEntityType: 'enrollment',
+        sourceEntityIds: ['e1', 'e2', 'e3'],
+        documentType: 'certificate'
+      },
+      ctx
+    );
 
     expect(batch.items).toHaveLength(3);
     expect(service.listDocumentTasks('t1', {}).total).toBe(3);
+    for (const task of batch.items) {
+      expect(task.requestId).toBe(ctx.requestId);
+      expect(task.correlationId).toBe(ctx.correlationId);
+    }
   });
 
   it('writes deterministic audit trail for task lifecycle', async () => {
@@ -232,13 +241,18 @@ describe('DocumentsService', () => {
       fileId: 'file_1'
     });
     service.activateTemplateVersion('t1', version.id);
-    const task = service.generateDocument('t1', 'u1', {
-      idempotencyKey: 'audit-lifecycle-1',
-      templateId: template.id,
-      sourceEntityType: 'group',
-      sourceEntityId: 'g1',
-      documentType: 'default'
-    });
+    const task = service.generateDocument(
+      't1',
+      'u1',
+      {
+        idempotencyKey: 'audit-lifecycle-1',
+        templateId: template.id,
+        sourceEntityType: 'group',
+        sourceEntityId: 'g1',
+        documentType: 'default'
+      },
+      ctx
+    );
 
     service.startTask('t1', task.id);
     service.failTask('t1', task.id, 'render failed');
@@ -256,6 +270,10 @@ describe('DocumentsService', () => {
       'documents.task.retried',
       'documents.task.cancelled'
     ]);
+    const createdEntry = (await auditService.list('t1')).find(
+      (entry) => entry.action === 'documents.task.created' && entry.entityId === task.id
+    );
+    expect(createdEntry?.metadata?.correlation_id).toBe('c1');
   });
 
   it('keeps finalized documents immutable for finalize after archive', () => {

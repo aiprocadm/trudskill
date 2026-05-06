@@ -976,6 +976,7 @@ describe('mvp service domain rules', () => {
     expect(submitLog?.metadata?.delegated).toBe(true);
     expect(submitLog?.metadata?.viaPermission).toBe('learners.act_as');
     expect(submitLog?.metadata?.learnerId).toBe(learner.id);
+    expect(submitLog?.metadata?.correlation_id).toBe(ctx.correlationId);
   });
 
   it('rejects review creation for draft submission and duplicate review creation', () => {

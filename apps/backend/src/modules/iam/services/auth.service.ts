@@ -100,6 +100,7 @@ export class AuthService {
             algorithm: 'scrypt'
           },
           requestId: context.requestId,
+          correlationId: context.correlationId,
           ip: context.ip,
           userAgent: context.userAgent
         },
@@ -116,6 +117,7 @@ export class AuthService {
         entityType: 'iam.user',
         entityId: user.id,
         requestId: context.requestId,
+        correlationId: context.correlationId,
         ip: context.ip,
         userAgent: context.userAgent
       },
@@ -155,6 +157,7 @@ export class AuthService {
         entityType: 'iam.session',
         entityId: activeSession.id,
         requestId: context.requestId,
+        correlationId: context.correlationId,
         ip: context.ip,
         userAgent: context.userAgent,
         oldValues: { revokedAt: null },
@@ -187,7 +190,8 @@ export class AuthService {
         action: 'auth.logout',
         entityType: 'iam.session',
         entityId: session.id,
-        requestId: context.requestId
+        requestId: context.requestId,
+        correlationId: context.correlationId
       },
       { skipDatabase: !persistRelational }
     );
@@ -276,6 +280,7 @@ export class AuthService {
         entityType: 'iam.session',
         entityId: session.id,
         requestId: context.requestId,
+        correlationId: context.correlationId,
         oldValues: { revokedAt: null },
         newValues: { revokedAt: new Date().toISOString() }
       },
@@ -303,7 +308,8 @@ export class AuthService {
         action: 'auth.logout_all',
         entityType: 'iam.session',
         entityId: userId,
-        requestId: context.requestId
+        requestId: context.requestId,
+        correlationId: context.correlationId
       },
       { skipDatabase: !persistRelational }
     );

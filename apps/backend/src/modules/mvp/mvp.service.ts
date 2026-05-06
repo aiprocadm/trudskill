@@ -1112,7 +1112,9 @@ export class MvpService {
         learnerId: enrollment.learnerId,
         groupId: enrollment.groupId,
         groupCourseIds: courseIds,
-        actorId
+        actorId,
+        requestId: context.requestId,
+        correlationId: context.correlationId
       });
     }
     return enrollment;
@@ -3059,6 +3061,7 @@ export class MvpService {
       newValues: newValues as Record<string, unknown> | undefined,
       metadata,
       requestId: context.requestId,
+      correlationId: context.correlationId,
       ip: context.ip,
       userAgent: context.userAgent
     });

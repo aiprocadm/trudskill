@@ -32,15 +32,16 @@ const build = () => {
   const registry = new ProviderRegistry();
   registry.register(new FrdoAdapter());
   registry.register(new EmailAdapter());
+  const audit = new AuditService();
   const service = new IntegrationOrchestratorService(
     new InMemoryIntegrationOrchestratorState(),
     new IntegrationCryptoService(),
     new IdempotencyService(),
     new AdapterResolver(registry),
-    new AuditService(),
+    audit,
     new RealtimeEventsService()
   );
-  return { service, registry };
+  return { service, registry, audit };
 };
 
 describe('integration foundation services', () => {
@@ -49,8 +50,8 @@ describe('integration foundation services', () => {
     expect(registry.resolve('frdo').providerCode).toBe('frdo');
   });
 
-  it('masks and encrypts credential secret', () => {
-    const { service } = build();
+  it('masks and encrypts credential secret', async () => {
+    const { service, audit } = build();
     const provider = service.createProvider({
       code: 'frdo',
       name: 'FRDO',
@@ -71,6 +72,11 @@ describe('integration foundation services', () => {
     expect(cred.secretEncrypted).toBeUndefined();
     expect(JSON.stringify(cred)).not.toContain('s3cr3t-key');
     expect(JSON.stringify(cred)).not.toContain('enc:');
+    const auditRow = (await audit.list('tenant_a')).find(
+      (r) => r.action === 'integration.credentials.created' && r.entityId === cred.id
+    );
+    expect(auditRow?.metadata?.correlation_id).toBe('c1');
+    expect(auditRow?.requestId).toBe('r1');
   });
 
   it('keeps export creation idempotent', async () => {

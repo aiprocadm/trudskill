@@ -66,7 +66,7 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 ### Канонический E2E для приёмки §39 ТЗ
 
 - Backend (бизнес-потоки без браузера): [`apps/backend/src/modules/mvp/business-flows.e2e.test.ts`](apps/backend/src/modules/mvp/business-flows.e2e.test.ts), сертификат по завершению: [`apps/backend/src/modules/documents/enrollment-certificate-flow.service.test.ts`](apps/backend/src/modules/documents/enrollment-certificate-flow.service.test.ts).
-- Backend HTTP integration (envelope, `TenantGuard`, permission boundaries, доменные инварианты assessment; дополняют BL-010 в CI): [`mvp.http.integration.test.ts`](apps/backend/src/modules/mvp/mvp.http.integration.test.ts), [`mvp.domains.http.integration.test.ts`](apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts), [`mvp-internal-worker.http.integration.test.ts`](apps/backend/src/modules/mvp/mvp-internal-worker.http.integration.test.ts) (worker callback `…/internal/worker/mvp/bulk-enrollments`, BL-003), [`documents.http.integration.test.ts`](apps/backend/src/modules/documents/documents.http.integration.test.ts), [`workspace.http.integration.test.ts`](apps/backend/src/modules/workspace/workspace.http.integration.test.ts), [`integrations.http.integration.test.ts`](apps/backend/src/modules/integrations/integrations.http.integration.test.ts); liveness (**без auth**): [`health.http.integration.test.ts`](apps/backend/src/modules/health/health.http.integration.test.ts); IAM: [`auth.http-regression.e2e.test.ts`](apps/backend/src/modules/iam/auth.http-regression.e2e.test.ts).
+- Backend HTTP integration (envelope, `TenantGuard`, permission boundaries, доменные инварианты assessment; дополняют BL-010 в CI): [`mvp.http.integration.test.ts`](apps/backend/src/modules/mvp/mvp.http.integration.test.ts), [`mvp.domains.http.integration.test.ts`](apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts), [`mvp-internal-worker.http.integration.test.ts`](apps/backend/src/modules/mvp/mvp-internal-worker.http.integration.test.ts) (worker callback `…/internal/worker/mvp/bulk-enrollments`, BL-003), [`documents.http.integration.test.ts`](apps/backend/src/modules/documents/documents.http.integration.test.ts), [`esign.http.integration.test.ts`](apps/backend/src/modules/esign/esign.http.integration.test.ts) (**POST:** submit, start-review, participant sign, application-files, **application-files/(verify|reject)**; **GET:** legal-log, processes, application-files), [`workspace.http.integration.test.ts`](apps/backend/src/modules/workspace/workspace.http.integration.test.ts), [`integrations.http.integration.test.ts`](apps/backend/src/modules/integrations/integrations.http.integration.test.ts); liveness (**без auth**): [`health.http.integration.test.ts`](apps/backend/src/modules/health/health.http.integration.test.ts); IAM: [`auth.http-regression.e2e.test.ts`](apps/backend/src/modules/iam/auth.http-regression.e2e.test.ts).
 - Frontend (маршруты / роли): [`apps/frontend/src/e2e/lms-role-flows.e2e.test.ts`](apps/frontend/src/e2e/lms-role-flows.e2e.test.ts), при необходимости — [`apps/frontend/src/e2e/canonical-e2e-readiness.e2e.test.ts`](apps/frontend/src/e2e/canonical-e2e-readiness.e2e.test.ts).
 - Регресс качества: `pnpm -s ci:check`. Отдельный Playwright/Cypress при появлении требования — не заменяет указанные Vitest-наборы до явного решения команды.
 
@@ -84,7 +84,7 @@ MVP backend/frontend (IAM, assessment, bulk enrollments, KPI, сертифика
 
 ### Last Completed Task
 
-**BL-010 — список субмиссий по scope слушателя:** в [`mvp.domains.http.integration.test.ts`](apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts) **`GET /assignment-submissions`** под JWT пользователя возвращает только субмиссии с **`learnerId`**, привязанным к **`sub`** (два слушателя — пересечения нет). **`pnpm -s ci:check`** — зелёный; handoff **5.66**.
+**BL-010 HTTP regress:** **`documents.http.integration.test.ts`** — **`documents.write`** vs **`documents.generate`** (§5.71–5.72). **`esign.http.integration.test.ts`** — e-sign §5.73–§5.81: в т.ч. **`POST …/application-files/:id/reject`** с **`esign.applications.review`** (§5.81). **`pnpm -s ci:check`** — зелёный; handoff **5.81**.
 
 ### Current Task
 
@@ -92,7 +92,7 @@ MVP backend/frontend (IAM, assessment, bulk enrollments, KPI, сертифика
 
 ### Next Task
 
-Из [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §14/§20: [docs/security-remediation-roadmap.md](docs/security-remediation-roadmap.md) **§8** persistence и P1; расширение HTTP regression при смене public API; **manual smoke** по [docs/LAUNCH_RUNBOOK.md](docs/LAUNCH_RUNBOOK.md); миграция **0027** на целевых средах.
+Из [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §14/§20: [docs/security-remediation-roadmap.md](docs/security-remediation-roadmap.md) **§8** persistence (MVP state → БД) и P1; расширение HTTP regression при смене public API; **manual smoke** по [docs/LAUNCH_RUNBOOK.md](docs/LAUNCH_RUNBOOK.md); миграция **0027** на целевых средах.
 
 ### Do Not Touch
 
@@ -117,7 +117,7 @@ AI Agent (инженерная итерация по ТЗ / security roadmap)
 
 ### Last Updated At
 
-2026-05-06 (BL-010 GET assignment-submissions list learner scope, handoff 5.66)
+2026-05-06 (BL-010 esign application-file reject, handoff 5.81)
 
 ## 3. Current Project Status
 

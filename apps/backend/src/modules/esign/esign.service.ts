@@ -719,6 +719,7 @@ export class EsignService {
       entityId,
       newValues: (newValues as Record<string, unknown>) ?? {},
       requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
       ip: ctx.ip,
       userAgent: ctx.userAgent
     });
