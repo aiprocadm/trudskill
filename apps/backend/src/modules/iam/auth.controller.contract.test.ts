@@ -159,15 +159,16 @@ describe('AuthController public user contract', () => {
     });
 
     expect(created).not.toHaveProperty('passwordHash');
-    expect(
-      (await audit.list('tenant_demo')).some(
-        (r) =>
-          r.action === 'iam.user_created' &&
-          r.entityId === created.id &&
-          r.tenantId === 'tenant_demo' &&
-          r.actorId === 'u_tenant_admin'
-      )
-    ).toBe(true);
+    const row = (await audit.list('tenant_demo')).find(
+      (r) =>
+        r.action === 'iam.user_created' &&
+        r.entityId === created.id &&
+        r.tenantId === 'tenant_demo' &&
+        r.actorId === 'u_tenant_admin'
+    );
+    expect(row).toBeDefined();
+    expect(row?.metadata?.correlation_id).toBe('corr_contract_1');
+    expect(row?.requestId).toBe('req_contract_1');
   });
 
   it('does not leak passwordHash after PUT /users/:id (updateUser)', async () => {

@@ -1,6 +1,7 @@
 /**
  * Контракты для чтения журнала аудита (см. `audit.audit_log` в backend).
  * Поле `metadata` после миграции 0027 — jsonb; известные ключи фиксируем типом.
+ * Дополнительно backend вкладывает **`correlation_id`** (из `RequestContext.correlationId`) в IAM, documents, MVP, e-sign и integrations при записи аудита из HTTP-контуров.
  */
 
 /** Запись делегированного действия от имени слушателя (`learners.act_as`). */

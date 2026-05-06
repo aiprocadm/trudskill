@@ -383,7 +383,7 @@ export class IamService {
       status?: 'active' | 'blocked';
       password?: string;
     },
-    auditMeta?: { actorId?: string; requestId?: string }
+    auditMeta?: { actorId?: string; requestId?: string; correlationId?: string }
   ): Promise<User> {
     if (!this.databaseService) {
       const user: User = {
@@ -400,6 +400,7 @@ export class IamService {
         tenantId,
         actorId: auditMeta?.actorId,
         requestId: auditMeta?.requestId,
+        correlationId: auditMeta?.correlationId,
         action: 'iam.user_created',
         entityType: 'iam.user',
         entityId: user.id,
@@ -430,6 +431,7 @@ export class IamService {
       tenantId,
       actorId: auditMeta?.actorId,
       requestId: auditMeta?.requestId,
+      correlationId: auditMeta?.correlationId,
       action: 'iam.user_created',
       entityType: 'iam.user',
       entityId: created.id,
@@ -583,7 +585,8 @@ export class IamService {
     userId: string,
     roleCodes: string[],
     actorId?: string,
-    requestId?: string
+    requestId?: string,
+    correlationId?: string
   ): Promise<Role[]> {
     await this.getUser(tenantId, userId);
     const previousRoles = (await this.getUserRoles(tenantId, userId)).map((role) => role.code);
@@ -609,6 +612,7 @@ export class IamService {
         entityType: 'iam.user',
         entityId: userId,
         requestId,
+        correlationId,
         oldValues: { roleCodes: previousRoles },
         newValues: { roleCodes }
       });
@@ -654,6 +658,7 @@ export class IamService {
       entityType: 'iam.user',
       entityId: userId,
       requestId,
+      correlationId,
       oldValues: { roleCodes: previousRoles },
       newValues: { roleCodes }
     });

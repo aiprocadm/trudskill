@@ -62,7 +62,9 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       learnerId: 'learner_x',
       groupId: 'group_x',
       groupCourseIds: ['course_a'],
-      actorId: 'u1'
+      actorId: 'u1',
+      requestId: 'req_cert_ok',
+      correlationId: 'corr_cert_ok'
     });
     await flushDeferred();
 
@@ -72,6 +74,10 @@ describe('EnrollmentDocumentIssuanceListener', () => {
     const tasks = docs.listDocumentTasks('tenant_demo', {});
     expect(tasks.total).toBe(1);
     expect(tasks.items[0]?.sourceEntityId).toBe('enrollment_x');
+    const createdAudit = (await audit.list('tenant_demo')).find(
+      (x) => x.action === 'documents.task.created' && x.entityId === tasks.items[0]?.id
+    );
+    expect(createdAudit?.metadata?.correlation_id).toBe('corr_cert_ok');
   });
 
   it('skips generation when no certificate binding (audit only)', async () => {
@@ -110,7 +116,9 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       learnerId: 'learner_y',
       groupId: 'group_y',
       groupCourseIds: [],
-      actorId: 'u1'
+      actorId: 'u1',
+      requestId: 'req_cert_skip',
+      correlationId: 'corr_cert_skip'
     });
     await flushDeferred();
 
@@ -118,7 +126,10 @@ describe('EnrollmentDocumentIssuanceListener', () => {
     await persistence.loadIntoState('tenant_demo', state);
     expect(state.tasks.length).toBe(0);
     const logs = await audit.list('tenant_demo');
-    expect(logs.some((x) => x.action === 'documents.enrollment_certificate_skipped')).toBe(true);
+    const skipped = logs.find((x) => x.action === 'documents.enrollment_certificate_skipped');
+    expect(skipped).toBeDefined();
+    expect(skipped?.metadata?.correlation_id).toBe('corr_cert_skip');
+    expect(skipped?.requestId).toBe('req_cert_skip');
   });
 
   it('is idempotent for duplicate enrollment completed events', async () => {

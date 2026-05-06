@@ -208,7 +208,8 @@ export class AuthController {
   async createUser(@CurrentContext() context: RequestContext, @Body() payload: CreateUserDto) {
     const user = await this.iamService.createUser(context.tenantId!, payload, {
       actorId: context.userId,
-      requestId: context.requestId
+      requestId: context.requestId,
+      correlationId: context.correlationId
     });
     return this.iamService.toPublicUser(user);
   }
@@ -249,7 +250,8 @@ export class AuthController {
       id,
       payload.roleCodes,
       context.userId,
-      context.requestId
+      context.requestId,
+      context.correlationId
     );
   }
 }

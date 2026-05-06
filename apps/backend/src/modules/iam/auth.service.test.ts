@@ -126,12 +126,15 @@ describe('auth foundation', () => {
       'u_manager',
       ['manager', 'methodist'],
       'u_tenant_admin',
-      'req_2'
+      'req_2',
+      'corr_roles_1'
     );
 
-    expect(
-      (await audit.list('tenant_demo')).some((record) => record.action === 'iam.user_roles_updated')
-    ).toBe(true);
+    const updated = (await audit.list('tenant_demo')).filter(
+      (record) => record.action === 'iam.user_roles_updated'
+    );
+    expect(updated.length).toBeGreaterThan(0);
+    expect(updated.some((r) => r.metadata?.correlation_id === 'corr_roles_1')).toBe(true);
   });
 
   it('revokes only current session on logout', async () => {
