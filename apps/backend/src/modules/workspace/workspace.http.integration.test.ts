@@ -277,4 +277,62 @@ describe('Workspace HTTP integration', () => {
     expect(payload.meta.requestId).toBeTruthy();
     expect(payload.meta.correlationId).toBeTruthy();
   });
+
+  it('returns blockers for JWT tenant scope (tenant t1 seed, not tenant_demo)', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['tenant.read']);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_other',
+        tenant_id: 't1',
+        session_id: 's_active_t1',
+        roles: []
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/blockers`, {
+      headers: {
+        'x-tenant-id': 't1',
+        authorization: `Bearer ${token}`
+      }
+    });
+
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      data: { items: Array<{ id: string; tenantId?: string }> };
+      meta: { requestId: string };
+    };
+    expect(payload.data.items.some((b) => b.id === 'blocker_integration_token_t1')).toBe(true);
+    expect(payload.data.items.some((b) => b.id === 'blocker_integration_token')).toBe(false);
+    expect(payload.meta.requestId).toBeTruthy();
+  });
+
+  it('returns tenant_header_mismatch when x-tenant-id disagrees with token tenant_id', async () => {
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_tenant_admin',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: []
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/workspace/summary`, {
+      headers: {
+        'x-tenant-id': 't1',
+        authorization: `Bearer ${token}`
+      }
+    });
+
+    expect(response.status).toBe(400);
+    const payload = (await response.json()) as {
+      error: { code: string };
+      meta: { requestId: string };
+    };
+    expect(payload.error.code).toBe('tenant_header_mismatch');
+    expect(payload.meta.requestId).toBeTruthy();
+  });
 });

@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 import {
   CreateAssignmentSubmissionRequest,
   CreateBulkEnrollmentsRequest,
+  CreateMaterialRequest,
+  CreateModuleRequest,
   UpdateMaterialProgressRequest
 } from './mvp.dto.js';
 
@@ -53,5 +55,36 @@ describe('MVP critical DTO (class-validator)', () => {
     } as unknown as UpdateMaterialProgressRequest);
     const errs = validateSync(inst, { whitelist: true, forbidNonWhitelisted: true });
     expect(errs.length).toBeGreaterThan(0);
+  });
+
+  it('отклоняет CreateModuleRequest с отрицательным minViewSeconds', () => {
+    const inst = plainToInstance(CreateModuleRequest, {
+      courseVersionId: 'cv_1',
+      title: 'Module',
+      minViewSeconds: -10
+    });
+    const errs = validateSync(inst, { whitelist: true, forbidNonWhitelisted: true });
+    expect(errs.length).toBeGreaterThan(0);
+  });
+
+  it('отклоняет CreateMaterialRequest с неизвестным materialType', () => {
+    const inst = plainToInstance(CreateMaterialRequest, {
+      moduleId: 'm_1',
+      title: 'Material',
+      materialType: 'zip'
+    });
+    const errs = validateSync(inst, { whitelist: true, forbidNonWhitelisted: true });
+    expect(errs.length).toBeGreaterThan(0);
+  });
+
+  it('принимает валидный CreateMaterialRequest', () => {
+    const inst = plainToInstance(CreateMaterialRequest, {
+      moduleId: 'm_2',
+      title: 'Video material',
+      materialType: 'video',
+      minViewSeconds: 120,
+      isRequired: true
+    });
+    expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
   });
 });

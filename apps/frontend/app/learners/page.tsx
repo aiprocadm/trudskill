@@ -1,6 +1,7 @@
 'use client';
 
 import { DataTable, LoadingState } from '@cdoprof/ui';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import {
@@ -82,6 +83,14 @@ export default function LearnersRegistryPage() {
                 ]}
                 rows={toRows(rows)}
               />
+              <div className="ui-stack" style={{ gap: 8, marginTop: 12 }}>
+                {rows.map((learner) => (
+                  <Link key={learner.id} href={`/learners/${learner.id}`}>
+                    Открыть карточку {learner.learnerNo ?? learner.id.slice(0, 8)} —{' '}
+                    {`${learner.lastName} ${learner.firstName}`.trim()}
+                  </Link>
+                ))}
+              </div>
             </div>
           ) : null}
         </SectionCard>

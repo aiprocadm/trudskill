@@ -68,7 +68,9 @@ describe('integration foundation services', () => {
       ctx as any
     );
     expect(cred.secretMasked).toContain('***');
+    expect(cred.secretEncrypted).toBeUndefined();
     expect(JSON.stringify(cred)).not.toContain('s3cr3t-key');
+    expect(JSON.stringify(cred)).not.toContain('enc:');
   });
 
   it('keeps export creation idempotent', async () => {

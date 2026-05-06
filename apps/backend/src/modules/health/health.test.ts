@@ -120,6 +120,18 @@ describe('health controller', () => {
     expect(controller.startup()).toEqual({ status: 'ok', started: true });
   });
 
+  it('exposes liveness check', () => {
+    const controller = new HealthController(
+      new DatabaseService(),
+      new RedisService(),
+      new RabbitMqService(),
+      new S3StorageClient(),
+      new SecretsService()
+    );
+
+    expect(controller.live()).toEqual({ status: 'ok', service: 'backend' });
+  });
+
   it('reports degraded when redis is unavailable but critical dependencies are healthy', async () => {
     vi.spyOn(DatabaseService.prototype, 'ping').mockResolvedValue(true);
     vi.spyOn(DatabaseService.prototype, 'getMigrationReadiness').mockResolvedValue({

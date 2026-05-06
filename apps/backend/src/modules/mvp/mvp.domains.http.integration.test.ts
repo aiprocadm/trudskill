@@ -74,6 +74,11 @@ describe('MVP HTTP integration (domain invariants)', () => {
   let memoryMvpPersistenceRef: MemoryMvpPersistenceBackend | undefined;
 
   const authServiceMock = { isSessionActive: vi.fn().mockResolvedValue(true) };
+  const publishBulkJobMock = vi.fn().mockResolvedValue({
+    status: 'queued',
+    messageId: 'test_worker_message',
+    idempotencyKey: 'test'
+  });
   /** Токены `tokenFor()` используют `sub=u_domain_http_actor` — ему нужен bypass list/GET для staff-сценариев. */
   const MVP_HTTP_STAFF_SUB = 'u_domain_http_actor';
   const iamServiceMock = {
@@ -178,11 +183,7 @@ describe('MVP HTTP integration (domain invariants)', () => {
         {
           provide: MvpBulkEnqueueService,
           useValue: {
-            publishBulkJob: vi.fn().mockResolvedValue({
-              status: 'queued',
-              messageId: 'test_worker_message',
-              idempotencyKey: 'test'
-            })
+            publishBulkJob: publishBulkJobMock
           }
         },
         { provide: AuthService, useValue: authServiceMock },
@@ -1097,5 +1098,357 @@ describe('MVP HTTP integration (domain invariants)', () => {
     expect(staffRes.ok).toBe(true);
     const body = (await staffRes.json()) as { data: { id: string } };
     expect(body.data.id).toBeTruthy();
+  });
+
+  it('HTTP POST /enrollments/bulk with deliveryMode=queued publishes RabbitMQ job', async () => {
+    publishBulkJobMock.mockClear();
+    publishBulkJobMock.mockResolvedValue({
+      status: 'queued',
+      messageId: 'mq_job_1',
+      idempotencyKey: 'idem_queued_1'
+    });
+    const admin = tokenFor(`sess_http_bulk_queued_${Date.now()}`);
+
+    const group = (await (
+      await fetch(`${apiBaseUrl}/groups`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({ code: `GBQ_${Date.now()}`, name: 'Bulk Queued Group' })
+      })
+    ).json()) as { data: { id: string } };
+
+    const queued = await fetch(`${apiBaseUrl}/enrollments/bulk`, {
+      method: 'POST',
+      headers: hdr(admin),
+      body: JSON.stringify({
+        idempotencyKey: 'idem_queued_1',
+        groupId: group.data.id,
+        learnerIds: ['learner_queued_1'],
+        deliveryMode: 'queued'
+      })
+    });
+
+    expect(queued.status).toBe(201);
+    const body = (await queued.json()) as {
+      data: { status: string; messageId: string; idempotencyKey: string };
+    };
+    expect(body.data.status).toBe('queued');
+    expect(body.data.idempotencyKey).toBe('idem_queued_1');
+    expect(body.data.messageId).toBe('mq_job_1');
+    expect(publishBulkJobMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('HTTP queued bulk with duplicate idempotency returns stored outcome and skips publish', async () => {
+    publishBulkJobMock.mockClear();
+    const admin = tokenFor(`sess_http_bulk_dup_${Date.now()}`);
+    const ts = Date.now();
+
+    const group = (await (
+      await fetch(`${apiBaseUrl}/groups`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({ code: `GBD_${ts}`, name: 'Bulk Duplicate Group' })
+      })
+    ).json()) as { data: { id: string } };
+
+    const learner = (await (
+      await fetch(`${apiBaseUrl}/learners`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({ code: `LBD_${ts}`, name: 'Bulk Duplicate Learner' })
+      })
+    ).json()) as { data: { id: string } };
+
+    const immediateRes = await fetch(`${apiBaseUrl}/enrollments/bulk`, {
+      method: 'POST',
+      headers: hdr(admin),
+      body: JSON.stringify({
+        idempotencyKey: 'idem_dup_1',
+        groupId: group.data.id,
+        learnerIds: [learner.data.id]
+      })
+    });
+    expect(immediateRes.status).toBe(201);
+
+    const queuedDupRes = await fetch(`${apiBaseUrl}/enrollments/bulk`, {
+      method: 'POST',
+      headers: hdr(admin),
+      body: JSON.stringify({
+        idempotencyKey: 'idem_dup_1',
+        groupId: group.data.id,
+        learnerIds: [learner.data.id],
+        deliveryMode: 'queued'
+      })
+    });
+    expect(queuedDupRes.status).toBe(201);
+    const queuedDupBody = (await queuedDupRes.json()) as {
+      data: { idempotencyKey: string; created: Array<{ learnerId: string }> };
+    };
+    expect(queuedDupBody.data.idempotencyKey).toBe('idem_dup_1');
+    expect(queuedDupBody.data.created).toHaveLength(1);
+    expect(queuedDupBody.data.created[0]?.learnerId).toBe(learner.data.id);
+    expect(publishBulkJobMock).not.toHaveBeenCalled();
+  });
+
+  it('HTTP POST /enrollments/bulk rejects invalid deliveryMode', async () => {
+    publishBulkJobMock.mockClear();
+    const admin = tokenFor(`sess_http_bulk_invalid_mode_${Date.now()}`);
+
+    const group = (await (
+      await fetch(`${apiBaseUrl}/groups`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({ code: `GBM_${Date.now()}`, name: 'Bulk Invalid Mode Group' })
+      })
+    ).json()) as { data: { id: string } };
+
+    const res = await fetch(`${apiBaseUrl}/enrollments/bulk`, {
+      method: 'POST',
+      headers: hdr(admin),
+      body: JSON.stringify({
+        idempotencyKey: 'idem_invalid_mode',
+        groupId: group.data.id,
+        learnerIds: ['learner_x'],
+        deliveryMode: 'async'
+      })
+    });
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('validation_error');
+    expect(publishBulkJobMock).not.toHaveBeenCalled();
+  });
+
+  it('HTTP POST /enrollments/bulk rejects uppercase QUEUED deliveryMode', async () => {
+    publishBulkJobMock.mockClear();
+    const admin = tokenFor(`sess_http_bulk_upper_mode_${Date.now()}`);
+
+    const group = (await (
+      await fetch(`${apiBaseUrl}/groups`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({ code: `GBU_${Date.now()}`, name: 'Bulk Uppercase Mode Group' })
+      })
+    ).json()) as { data: { id: string } };
+
+    const res = await fetch(`${apiBaseUrl}/enrollments/bulk`, {
+      method: 'POST',
+      headers: hdr(admin),
+      body: JSON.stringify({
+        idempotencyKey: 'idem_upper_mode',
+        groupId: group.data.id,
+        learnerIds: ['learner_upper'],
+        deliveryMode: 'QUEUED'
+      })
+    });
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('validation_error');
+    expect(publishBulkJobMock).not.toHaveBeenCalled();
+  });
+
+  it('HTTP POST /enrollments/bulk uses immediate mode by default when deliveryMode omitted', async () => {
+    publishBulkJobMock.mockClear();
+    const admin = tokenFor(`sess_http_bulk_default_mode_${Date.now()}`);
+    const ts = Date.now();
+
+    const group = (await (
+      await fetch(`${apiBaseUrl}/groups`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({ code: `GBD0_${ts}`, name: 'Bulk Default Mode Group' })
+      })
+    ).json()) as { data: { id: string } };
+
+    const learner = (await (
+      await fetch(`${apiBaseUrl}/learners`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({ code: `LBD0_${ts}`, name: 'Bulk Default Mode Learner' })
+      })
+    ).json()) as { data: { id: string } };
+
+    const res = await fetch(`${apiBaseUrl}/enrollments/bulk`, {
+      method: 'POST',
+      headers: hdr(admin),
+      body: JSON.stringify({
+        idempotencyKey: 'idem_default_mode',
+        groupId: group.data.id,
+        learnerIds: [learner.data.id]
+      })
+    });
+
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as {
+      data: { idempotencyKey: string; created: Array<{ learnerId: string }> };
+    };
+    expect(body.data.idempotencyKey).toBe('idem_default_mode');
+    expect(body.data.created).toHaveLength(1);
+    expect(body.data.created[0]?.learnerId).toBe(learner.data.id);
+    expect(publishBulkJobMock).not.toHaveBeenCalled();
+  });
+
+  it('HTTP POST /enrollments/bulk rejects deliveryMode with surrounding spaces', async () => {
+    publishBulkJobMock.mockClear();
+    const admin = tokenFor(`sess_http_bulk_spaced_mode_${Date.now()}`);
+
+    const group = (await (
+      await fetch(`${apiBaseUrl}/groups`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({ code: `GBS_${Date.now()}`, name: 'Bulk Spaced Mode Group' })
+      })
+    ).json()) as { data: { id: string } };
+
+    const res = await fetch(`${apiBaseUrl}/enrollments/bulk`, {
+      method: 'POST',
+      headers: hdr(admin),
+      body: JSON.stringify({
+        idempotencyKey: 'idem_spaced_mode',
+        groupId: group.data.id,
+        learnerIds: ['learner_spaced'],
+        deliveryMode: ' queued '
+      })
+    });
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('validation_error');
+    expect(publishBulkJobMock).not.toHaveBeenCalled();
+  });
+
+  it('HTTP GET /reports/kpi-snapshot includes enrollmentBreakdown when include_enrollment_breakdown=true', async () => {
+    const ts = Date.now();
+    const admin = tokenFor(`sess_http_kpi_breakdown_${ts}`);
+
+    const group = (await (
+      await fetch(`${apiBaseUrl}/groups`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({ code: `GKB_${ts}`, name: 'KPI Breakdown Group' })
+      })
+    ).json()) as { data: { id: string } };
+
+    const learner = (await (
+      await fetch(`${apiBaseUrl}/learners`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({ code: `LKB_${ts}`, name: 'KPI Breakdown Learner' })
+      })
+    ).json()) as { data: { id: string } };
+
+    const enrollment = (await (
+      await fetch(`${apiBaseUrl}/enrollments`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({ groupId: group.data.id, learnerId: learner.data.id })
+      })
+    ).json()) as { data: { id: string } };
+
+    const res = await fetch(
+      `${apiBaseUrl}/reports/kpi-snapshot?group_id=${encodeURIComponent(group.data.id)}&include_enrollment_breakdown=true`,
+      { headers: hdr(admin) }
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: { enrollmentBreakdown?: Array<{ enrollmentId: string; groupId: string }> };
+    };
+    expect(body.data.enrollmentBreakdown).toBeDefined();
+    expect(
+      body.data.enrollmentBreakdown?.some((row) => row.enrollmentId === enrollment.data.id)
+    ).toBe(true);
+    expect(body.data.enrollmentBreakdown?.every((row) => row.groupId === group.data.id)).toBe(true);
+  });
+
+  it('HTTP GET /reports/kpi-snapshot omits enrollmentBreakdown by default', async () => {
+    const admin = tokenFor(`sess_http_kpi_no_breakdown_${Date.now()}`);
+    const res = await fetch(`${apiBaseUrl}/reports/kpi-snapshot`, { headers: hdr(admin) });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: { enrollmentBreakdown?: unknown };
+    };
+    expect(body.data.enrollmentBreakdown).toBeUndefined();
+  });
+
+  it('HTTP GET /reports/kpi-snapshot includes enrollmentBreakdown when include_enrollment_breakdown=1', async () => {
+    const ts = Date.now();
+    const admin = tokenFor(`sess_http_kpi_breakdown_numeric_${ts}`);
+
+    const group = (await (
+      await fetch(`${apiBaseUrl}/groups`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({ code: `GKN_${ts}`, name: 'KPI Numeric Group' })
+      })
+    ).json()) as { data: { id: string } };
+
+    const learner = (await (
+      await fetch(`${apiBaseUrl}/learners`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({ code: `LKN_${ts}`, name: 'KPI Numeric Learner' })
+      })
+    ).json()) as { data: { id: string } };
+
+    await fetch(`${apiBaseUrl}/enrollments`, {
+      method: 'POST',
+      headers: hdr(admin),
+      body: JSON.stringify({ groupId: group.data.id, learnerId: learner.data.id })
+    });
+
+    const res = await fetch(
+      `${apiBaseUrl}/reports/kpi-snapshot?group_id=${encodeURIComponent(group.data.id)}&include_enrollment_breakdown=1`,
+      { headers: hdr(admin) }
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: { enrollmentBreakdown?: Array<{ groupId: string }> };
+    };
+    expect(body.data.enrollmentBreakdown).toBeDefined();
+    expect(body.data.enrollmentBreakdown?.length).toBeGreaterThan(0);
+    expect(body.data.enrollmentBreakdown?.every((row) => row.groupId === group.data.id)).toBe(true);
+  });
+
+  it('HTTP GET /reports/kpi-snapshot omits enrollmentBreakdown when include_enrollment_breakdown=0', async () => {
+    const admin = tokenFor(`sess_http_kpi_breakdown_zero_${Date.now()}`);
+    const res = await fetch(`${apiBaseUrl}/reports/kpi-snapshot?include_enrollment_breakdown=0`, {
+      headers: hdr(admin)
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: { enrollmentBreakdown?: unknown };
+    };
+    expect(body.data.enrollmentBreakdown).toBeUndefined();
+  });
+
+  it('HTTP GET /reports/kpi-snapshot omits enrollmentBreakdown when include_enrollment_breakdown=TRUE', async () => {
+    const admin = tokenFor(`sess_http_kpi_breakdown_upper_${Date.now()}`);
+    const res = await fetch(
+      `${apiBaseUrl}/reports/kpi-snapshot?include_enrollment_breakdown=TRUE`,
+      {
+        headers: hdr(admin)
+      }
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: { enrollmentBreakdown?: unknown };
+    };
+    expect(body.data.enrollmentBreakdown).toBeUndefined();
+  });
+
+  it('HTTP GET /reports/kpi-snapshot omits enrollmentBreakdown when include_enrollment_breakdown=TrUe', async () => {
+    const admin = tokenFor(`sess_http_kpi_breakdown_mixed_${Date.now()}`);
+    const res = await fetch(
+      `${apiBaseUrl}/reports/kpi-snapshot?include_enrollment_breakdown=TrUe`,
+      {
+        headers: hdr(admin)
+      }
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: { enrollmentBreakdown?: unknown };
+    };
+    expect(body.data.enrollmentBreakdown).toBeUndefined();
   });
 });

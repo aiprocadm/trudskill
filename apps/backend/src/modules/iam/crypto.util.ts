@@ -20,7 +20,10 @@ export const hashPassword = (password: string): string => {
   ].join('$');
 };
 
-/** SQL seed `0010_iam_role_permissions_and_seed.sql` uses sha256(hex) of `pwd:${password}`. */
+/** Detects legacy SQL-seed format: sha256(hex) of `pwd:${password}` (see `0010_iam_role_permissions_and_seed.sql`). */
+export const isLegacyPwdSha256Hash = (hash: string): boolean =>
+  !hash.includes('$') && /^[a-f0-9]{64}$/i.test(hash);
+
 export const verifyPassword = (plain: string, hash: string): boolean => {
   if (!hash.includes('$')) {
     if (/^[a-f0-9]{64}$/i.test(hash)) {

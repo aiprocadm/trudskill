@@ -2,9 +2,23 @@ import { createHash } from 'node:crypto';
 
 import { describe, expect, it } from 'vitest';
 
-import { hashPassword, hashRefreshToken, issueToken, verifyPassword } from './crypto.util.js';
+import {
+  hashPassword,
+  hashRefreshToken,
+  isLegacyPwdSha256Hash,
+  issueToken,
+  verifyPassword
+} from './crypto.util.js';
 
 describe('crypto util', () => {
+  it('detects legacy IAM seed hashes', () => {
+    expect(
+      isLegacyPwdSha256Hash('d845591b855ba5b9a20db65eee522f76ed85858551b8f813ef146725e1a59264')
+    ).toBe(true);
+    expect(isLegacyPwdSha256Hash(hashPassword('x'))).toBe(false);
+    expect(isLegacyPwdSha256Hash('not-hex')).toBe(false);
+  });
+
   it('verifies password hash', () => {
     const hash = hashPassword('Password123!');
     expect(verifyPassword('Password123!', hash)).toBe(true);

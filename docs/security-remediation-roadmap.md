@@ -12,9 +12,9 @@
 2. Переработать контур аутентификации/токена/сессии.
 3. Исключить `passwordHash` и другие конфиденциальные поля из API-ответов.
 4. Убрать хранение access/refresh токенов в `localStorage`.
-5. Устранить расхождение между frontend и backend в формате API-ответов.
-6. Исправить ошибки сборки/выполнения, связанные с `apiClient`.
-7. Заменить Base64-представление секретов интеграций на реальное шифрование.
+5. Устранить расхождение между frontend и backend в формате API-ответов. **Статус (MVP):** клиент **`apiRequest`** жёстко ожидает **`{ data, meta }`**; см. задача **[§4](#4-синхронизация-frontendbackend-api-контракта)**.
+6. Исправить ошибки сборки/выполнения, связанные с `apiClient`. **Статус (MVP):** доменные вызовы через **`apiRequest`**; **`workspaceApi`** вместо прямого **`apiClient`** на **`/workspace`**; см. **[§5](#5-починка-неработающей-api-абстракции-frontend)**.
+7. Заменить Base64-представление секретов интеграций на реальное шифрование. **Статус (MVP):** в **`IntegrationCryptoService`** — **AES-256-GCM**, префикс **`enc`**, версии ключей из **`INTEGRATION_CRYPTO_KEYS`**; **`IntegrationOrchestratorService`** шифрует при **`createCredential`** / **`rotateSecret`**; **`decrypt`** поддерживает legacy **Base64**; в ответах API **`secretEncrypted`** маскируется (**`maskCredential`**). В **production** без **`INTEGRATION_CRYPTO_KEYS`** сервис падает при старте (см. код). Операционно: задать ключи в env (пример в **`apps/backend/.env.example`**).
 
 ### Следующий этап (P1)
 
@@ -62,7 +62,7 @@
 
 ### 1) Доверенная аутентификация по токену
 
-**Статус (MVP-бэклог):** в HTTP API идентичность задаётся в [`TenantGuard`](../apps/backend/src/common/guards/tenant.guard.ts) только из успешной верификации Bearer JWT; заголовки `x-user-id` / `x-tenant-id` в [`resolveRequestContext`](../apps/backend/src/common/utils/request.ts) попадают в `requestedTenantId` для bootstrap-путей входа и **не** становятся `userId`/`tenantId` без токена. При наличии Bearer, если клиент передаёт `x-tenant-id`, он **должен совпадать** с `tenant_id` в токене — иначе `400` с кодом `tenant_header_mismatch`. В `catch` ветки верификации токена пробрасываются все `HttpException`, чтобы не маскировать `BadRequest` под `invalid_token`. Оставшиеся задачи: убедиться, что ни один модуль для production не читает «сырой» spoof-заголовок как авторитетный источник, и добавить регресс на все исключения.
+**Статус (MVP-бэклог):** в HTTP API идентичность задаётся в [`TenantGuard`](../apps/backend/src/common/guards/tenant.guard.ts) только из успешной верификации Bearer JWT; заголовки `x-user-id` / `x-tenant-id` в [`resolveRequestContext`](../apps/backend/src/common/utils/request.ts) попадают в `requestedTenantId` для bootstrap-путей входа и **не** становятся `userId`/`tenantId` без токена (`x-user-id` в production-коде **не читается**). При наличии Bearer, если клиент передаёт `x-tenant-id`, он **должен совпадать** с `tenant_id` в токене — иначе `400` с кодом `tenant_header_mismatch`. В `catch` ветки верификации токена пробрасываются все `HttpException`, чтобы не маскировать `BadRequest` под `invalid_token`. Оставшиеся задачи: периодически подтверждать отсутствие новых путей, трактующих заголовки как полномочия; расширять регресс при смене guard.
 
 **Цель:** исключить подмену пользователя и tenant.
 
@@ -80,6 +80,8 @@
 
 ### 2) Переход на Argon2/Bcrypt для паролей
 
+**Статус (MVP):** новые пароли и автоматическая миграция при входе используют **scrypt** (Node `crypto.scryptSync`, параметры в [`crypto-policy.ts`](../apps/backend/src/modules/iam/crypto-policy.ts)); формат строки — префикс `scrypt$…`. Поддерживается верификация **legacy SHA-256(hex)** из [`0010_iam_role_permissions_and_seed.sql`](../apps/backend/migrations/0010_iam_role_permissions_and_seed.sql) (`verifyPassword`). После успешного **`AuthService.login`** для legacy-хэша вызывается **`IamService.upgradePasswordHash`** (PostgreSQL и in-memory) и пишется аудит **`iam.password_rehashed`** (`metadata.reason: legacy_sha256_seed`, `algorithm: scrypt`). Тесты: **`crypto.util.test.ts`**, **`auth.service.test.ts`**. Отдельный переход на Argon2id/bcrypt — по политике заказчика (post-MVP).
+
 **Цель:** безопасное хранение паролей.
 
 **Изменения:**
@@ -95,6 +97,8 @@
 - метрики миграции доступны в мониторинге.
 
 ### 3) Удаление конфиденциальных полей из IAM API
+
+**Статус (MVP):** публичные ответы пользователя идут через **`toUserResponse`** / **`IamService.toPublicUser`**; сессии — **`toSessionResponse`**; токены — **`authCookie.toPublicTokens`**. Контрактные тесты **`auth.controller.contract.test.ts`**: `/auth/me`, список и карточка пользователя, **`createUser`**, **`updateUser`**, **`GET/PUT users/:id/roles`**, список сессий — без **`passwordHash`**, хэшей refresh/CSRF и прочих внутренних полей сессии.
 
 **Цель:** устранить утечку security-sensitive данных.
 
@@ -122,6 +126,8 @@
 - frontend корректно обрабатывает все backend ответы;
 - нет runtime-ошибок из-за несовпадения shape.
 
+**Статус (MVP, 2026-05-05):** transport-слой **`apiRequest`** / **`apiRequestEnvelope`** в [`apps/frontend/src/lib/api/client.ts`](../apps/frontend/src/lib/api/client.ts) проверяют ответ на envelope **`{ data, meta }`** и отдают **`data`**; доменные модули (**`mvpApi`**, **`authApi`**, **`workspaceApi`**) строятся на **`apiRequest`**. Дальнейшая унификация с OpenAPI/codegen — пост-MVP.
+
 ### 5) Починка неработающей API-абстракции frontend
 
 **Цель:** восстановить typecheck/build/runtime интеграцию экранов.
@@ -135,6 +141,8 @@
 
 - frontend `typecheck` и `build` проходят;
 - ключевые экраны работают на едином API-клиенте.
+
+**Статус (MVP, 2026-05-05):** **`apiClient`** — тонкий фасад над **`apiRequest`** (тот же envelope); прямые вызовы **`apiClient`** с экранов сведены к нулю: оперативная панель переведена на **`workspaceApi`** ([`apps/frontend/src/features/workspace/api.ts`](../apps/frontend/src/features/workspace/api.ts), [`api.test.ts`](../apps/frontend/src/features/workspace/api.test.ts)). Остальной UI уже на **`apiRequest`** через фиче-модули (`mvp`, `integrations`, `auth`, communication).
 
 ### 6) Уход от localStorage для токенов
 
@@ -151,6 +159,8 @@
 - токены отсутствуют в `window.localStorage`;
 - refresh работает через cookie transport.
 
+**Статус (MVP, 2026-05-05):** на текущем контуре **критерии приёмки по сути выполнены**: refresh и CSRF для ротации сессии идут через **httpOnly / cookie** и заголовок (`apps/backend/src/modules/iam/auth.controller.ts`, `authCookie`); во **frontend** `session-store` в `localStorage` сохраняет только профиль без `tokens` (`Omit<UserSession, 'tokens'>`, `apps/frontend/src/lib/auth/session-store.ts`). Дальнейшее усиление (SameSite/доменные политики, ревизия всех путей bootstrap, pen-test) — по отдельным карточкам.
+
 ### 7) Реальное шифрование секретов интеграций
 
 **Цель:** криптографическая защита provider credentials.
@@ -165,6 +175,8 @@
 
 - секреты в БД не хранятся в открытом виде/простом Base64;
 - decrypt доступен только через сервис с ключами корректной версии.
+
+**Статус (MVP, 2026-05-05):** реализовано в [`integration-crypto.service.ts`](../apps/backend/src/modules/integrations/services/integration-crypto.service.ts) и используется в [`integration-orchestrator.service.ts`](../apps/backend/src/modules/integrations/services/integration-orchestrator.service.ts). Новые и ротированные секреты хранятся как **`enc:<version>:<iv>:<tag>:<ciphertext>`** (base64url). Для строк без префикса **`enc`** сохраняется ветка **legacy Base64** при **`decrypt`** (до выравнивания данных). Инфраструктура: **`INTEGRATION_CRYPTO_KEYS`** (`version:base64(32-byte-key)` через запятую), **`INTEGRATION_CRYPTO_ACTIVE_KEY_VERSION`** — обязательны в production. Регресс: **`integration-crypto.service.test.ts`**, **`integrations.service.test.ts`**.
 
 ### 8) Перенос состояния из памяти в БД
 
@@ -207,6 +219,8 @@
 
 - деградация диагностируется заранее;
 - аудит полон и непротиворечив.
+
+**Статус (MVP, 2026-05-05):** **liveness** — unit-регресс **`HealthController.live`** (**`health.test.ts`**); HTTP-регресс публичного **`GET …/health/live`** с envelope и заголовками **`x-request-id`** / **`x-correlation-id`** — **`health.http.integration.test.ts`**; **readiness** — unit-регресс **`HealthController.ready`** в **`health.test.ts`**; HTTP-регресс **`GET …/health/ready`** (успешный сценарий и **503** / **`readiness_failed`** / **`error`+`meta`** при нездоровых миграциях в моках) — **`health.http.integration.test.ts`**; **tenant + workspace API** — **`workspace.http.integration.test.ts`** (JWT tenant scope, **`tenant_header_mismatch`**).
 
 ### 11) Очистка репозитория и унификация package manager
 
