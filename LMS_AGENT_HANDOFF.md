@@ -9,7 +9,7 @@
 - Repository: `D:/Создание LMS/Cursor LMS/cdoprof-`
 - Branch, if known: `main`
 - Commit hash before work, if available: `8157adc74c9fadba6f076bcfa0e2e84f93394b1d` (базовый HEAD; при появлении коммита после правок — дополнить вручную)
-- Commit hash after work, if available: не создавался в git; рабочая копия после §5.59
+- Commit hash after work, if available: не создавался в git; рабочая копия после §5.66
 
 ## 2. Project Overview
 
@@ -718,6 +718,76 @@
   - `LMS_AGENT_HANDOFF.md`
 - Notes: **`pnpm -s ci:check`** — зелёный на рабочей копии.
 
+### 5.60 BL-005: HTTP regress — лимит попыток теста
+
+- Summary: в **`mvp.domains.http.integration.test.ts`** добавлен сценарий: при **`rules.attemptLimit: 2`** и **`dailyResetEnabled: false`** третий **`POST …/attempts/start`** для той же связки learner/test/enrollment возвращает **412** и **`attempt_limit_reached`**.
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+  - `LMS_AGENT_HANDOFF.md`
+- Notes: **`pnpm -s ci:check`** — зелёный на рабочей копии после прогона.
+
+### 5.61 BL-006: HTTP regress — второй review на один submission запрещён
+
+- Summary: в **`mvp.domains.http.integration.test.ts`** добавлен кейс: после успешного **`POST /assignment-reviews`** повторный **`POST`** с тем же **`submissionId`** возвращает **409** и **`conflict`** (дубликат ревью на одну сдачу).
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+  - `LMS_AGENT_HANDOFF.md`
+- Notes: **`pnpm -s ci:check`** — зелёный на рабочей копии после прогона.
+
+### 5.62 BL-006: HTTP regress — повторный complete завершённого review
+
+- Summary: в **`mvp.domains.http.integration.test.ts`** добавлен кейс: после **`POST …/assignment-reviews/:id/complete`** повторный **`POST`** на тот же **`id`** возвращает **412** и **`domain_rule_violation`** (**Review is already completed**).
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+  - `LMS_AGENT_HANDOFF.md`
+- Notes: **`pnpm -s ci:check`** — зелёный на рабочей копии после прогона.
+
+### 5.63 BL-006: HTTP regress — **`PATCH`** завершённого review read-only
+
+- Summary: расширен тот же сценарий (**`it`** переименован в **`HTTP: PATCH completed review and second complete are rejected`**): между первым **`complete`** и проверкой повторного **`complete`** добавлено **`PATCH /assignment-reviews/:id`** — ожидание **412** **`domain_rule_violation`** (**Completed review is read-only**, **`updateAssignmentReview`** в **`mvp.service.ts`**).
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+  - `LMS_AGENT_HANDOFF.md`
+- Notes: **`pnpm -s ci:check`** — зелёный на рабочей копии после прогона.
+
+### 5.64 BL-006: HTTP regress — **`PATCH`** сдачи после **`submit`** запрещён (**`submission_terminal`**)
+
+- Summary: в **`mvp.domains.http.integration.test.ts`** добавлен отдельный кейс: после **`POST …/assignment-submissions/:id/submit`** попытка **`PATCH …/assignment-submissions/:id`** с **`answerText`** возвращает **412** и **`submission_terminal`** (**`updateAssignmentSubmission`** в **`mvp.service.ts`**).
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+  - `LMS_AGENT_HANDOFF.md`
+- Notes: **`pnpm -s ci:check`** — зелёный на рабочей копии после прогона.
+
+### 5.65 BL-010: HTTP regress — **`PATCH`** и **`submit`** чужой субмиссии при **`linkedIamUserId`**
+
+- Summary: расширен сценарий в **`mvp.domains.http.integration.test.ts`** (переименованный **`it`**): для слушателя с **`linkedIamUserId`** чужой JWT получает **403** **`forbidden`** не только на **`GET …/assignment-submissions/:id`**, но и на **`PATCH`** и **`POST …/submit`** (дополнение к уже покрытому **`POST`** создания).
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+  - `LMS_AGENT_HANDOFF.md`
+- Notes: **`pnpm -s ci:check`** — зелёный на рабочей копии после прогона.
+
+### 5.66 BL-010: HTTP regress — список **`GET /assignment-submissions`** ограничен привязкой JWT → слушатель
+
+- Summary: в **`mvp.domains.http.integration.test.ts`** добавлен кейс: два слушателя с разными **`linkedIamUserId`**, две субмиссии (создание от staff); под JWT Алисы список содержит только её **`learnerId`**, идентификатор субмиссии Боба отсутствует; симметрично для Боба (**`listAssignmentSubmissions`** / **`restrictLearnerIdsForAssessmentList`**).
+- Files changed:
+  - `apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts`
+  - `README.md`
+  - `docs/TZ_MVP_TRACEABILITY.md`
+  - `LMS_AGENT_HANDOFF.md`
+- Notes: **`pnpm -s ci:check`** — зелёный на рабочей копии после прогона.
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |
@@ -903,6 +973,13 @@
 | `pnpm -s ci:check` (после 5.57 BL-008 mixed-case KPI breakdown flag regression)                                                                                                         | passed | Полный quality gate зелёный                                                                            |
 | `pnpm -s ci:check` (после 5.58 BL-003 internal worker HTTP + `@Inject(MvpService)`)                                                                                                    | passed | Полный quality gate зелёный                                                                            |
 | `pnpm -s ci:check` (после 5.59 BL-003 worker bulk callback unit + вынос из `main`)                                                                                                      | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.60 BL-005 attempt limit HTTP regression)                                                                                                                    | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.61 BL-006 duplicate assignment review HTTP regression)                                                                                                      | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.62 BL-006 duplicate complete assignment review HTTP regression)                                                                                               | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.63 BL-006 PATCH completed review read-only HTTP regression)                                                                                                     | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.64 BL-006 PATCH submitted assignment submission HTTP regression)                                                                                               | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.65 BL-010 assignment submission PATCH/submit intruder JWT HTTP regression)                                                                                  | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.66 BL-010 assignment-submissions list learner scope HTTP regression)                                                                                        | passed | Полный quality gate зелёный                                                                            |
 
 ## 13. Known Issues
 
@@ -1030,6 +1107,13 @@
 - Закрыто в §5.57: **BL-008** — HTTP-регресс для mixed-case `include_enrollment_breakdown=TrUe` (breakdown не возвращается).
 - Закрыто в §5.58: **BL-003** — HTTP-регресс worker callback `POST …/internal/worker/mvp/bulk-enrollments` + явный `@Inject(MvpService)` в internal controller.
 - Закрыто в §5.59: **BL-003** — модуль **`apps/worker`** `bulk-enrollment-callback.ts` + unit regress (`bulk-enrollment-callback.test.ts`): контракт URL/headers/body и non-retry vs retry по HTTP-коду.
+- Закрыто в §5.60: **BL-005** — HTTP-регресс лимита попыток (`attempt_limit_reached` после исчерпания **`attemptLimit`**).
+- Закрыто в §5.61: **BL-006** — HTTP-регресс запрета второго **`assignment-reviews`** на один **`submissionId`** (**409 conflict**).
+- Закрыто в §5.62: **BL-006** — HTTP-регресс запрета второго **`assignment-reviews/:id/complete`** для уже **`completed`** (**412 domain_rule_violation**).
+- Закрыто в §5.63: **BL-006** — в том же HTTP-сценарии регресс **`PATCH /assignment-reviews/:id`** после **`completed`** (**412**, read-only).
+- Закрыто в §5.64: **BL-006** — HTTP-регресс **`PATCH /assignment-submissions/:id`** после **`submit`** (**412** **`submission_terminal`**, сдача не редактируется).
+- Закрыто в §5.65: **BL-010** — тот же HTTP-сценарий с **`linkedIamUserId`**: чужой JWT — **403** на **`PATCH`** и **`submit`** чужой субмиссии (ранее — создание и **GET**).
+- Закрыто в §5.66: **BL-010** — **`GET /assignment-submissions`** (list): два разных **`linkedIamUserId`** — каждый JWT видит только свои строки (**`restrictLearnerIdsForAssessmentList`**).
 
 ## 21. Новые MVP API (быстрый справочник)
 

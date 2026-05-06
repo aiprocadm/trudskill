@@ -84,7 +84,7 @@ MVP backend/frontend (IAM, assessment, bulk enrollments, KPI, сертифика
 
 ### Last Completed Task
 
-**BL-003 — очередь и worker для bulk:** в **`apps/worker`** колбэк в backend вынесен в [`bulk-enrollment-callback.ts`](apps/worker/src/bulk-enrollment-callback.ts); unit regress [`bulk-enrollment-callback.test.ts`](apps/worker/src/bulk-enrollment-callback.test.ts) проверяет URL (`/api/v1/internal/worker/mvp/bulk-enrollments`), заголовок **`x-worker-callback-token`**, тело **`tenantId` / requestId / correlationId / payload`**, классификацию **`NonRetryableJobError`** (forbidden / validation_error) и обычный **`Error`** при **500** (ретраи очереди). Backend internal worker см. ранее handoff **5.58**. **`pnpm -s ci:check`** — зелёный; handoff **5.59**.
+**BL-010 — список субмиссий по scope слушателя:** в [`mvp.domains.http.integration.test.ts`](apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts) **`GET /assignment-submissions`** под JWT пользователя возвращает только субмиссии с **`learnerId`**, привязанным к **`sub`** (два слушателя — пересечения нет). **`pnpm -s ci:check`** — зелёный; handoff **5.66**.
 
 ### Current Task
 
@@ -117,7 +117,7 @@ AI Agent (инженерная итерация по ТЗ / security roadmap)
 
 ### Last Updated At
 
-2026-05-06 (BL-003 apps/worker bulk callback module + tests, handoff §5.59)
+2026-05-06 (BL-010 GET assignment-submissions list learner scope, handoff 5.66)
 
 ## 3. Current Project Status
 
