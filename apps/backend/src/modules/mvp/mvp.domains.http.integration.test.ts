@@ -548,6 +548,136 @@ describe('MVP HTTP integration (domain invariants)', () => {
     expect(payload.error.code).toBe('domain_rule_violation');
   });
 
+  it('HTTP: rejects test attempt start when attempt limit reached (BL-005)', async () => {
+    const ts = Date.now();
+    const admin = tokenFor(`sess_http_attempt_limit_${ts}`);
+
+    const course = (await (
+      await fetch(`${apiBaseUrl}/courses`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({
+          code: `CLIM_${ts}`,
+          title: 'Attempt limit course'
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    const groupWrap = (await (
+      await fetch(`${apiBaseUrl}/groups`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({ code: `GLIM_${ts}`, name: 'Attempt limit group' })
+      })
+    ).json()) as { data: { id: string } };
+
+    await fetch(`${apiBaseUrl}/group-courses`, {
+      method: 'POST',
+      headers: hdr(admin),
+      body: JSON.stringify({ groupId: groupWrap.data.id, courseId: course.data.id })
+    });
+
+    const bank = (await (
+      await fetch(`${apiBaseUrl}/question-banks`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({ title: `BLIM_${ts}`, courseId: course.data.id })
+      })
+    ).json()) as { data: { id: string } };
+
+    const q = (await (
+      await fetch(`${apiBaseUrl}/questions`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({
+          questionBankId: bank.data.id,
+          type: 'text',
+          text: `QLIM_${ts}`,
+          score: 1
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    const test = (await (
+      await fetch(`${apiBaseUrl}/tests`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({
+          title: `ExamLIM_${ts}`,
+          courseId: course.data.id,
+          questionBankId: bank.data.id,
+          rules: { attemptLimit: 2, dailyResetEnabled: false }
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    await fetch(`${apiBaseUrl}/tests/${test.data.id}/questions`, {
+      method: 'POST',
+      headers: hdr(admin),
+      body: JSON.stringify({ questionIds: [q.data.id] })
+    });
+
+    const iamLearner = `u_attempt_limit_${ts}`;
+    const learner = (await (
+      await fetch(`${apiBaseUrl}/learners`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({
+          code: `LLIM_${ts}`,
+          name: 'Limit learner',
+          linkedIamUserId: iamLearner
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    const enrollment = (await (
+      await fetch(`${apiBaseUrl}/enrollments`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({
+          groupId: groupWrap.data.id,
+          learnerId: learner.data.id
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    const learnerToken = issueSignedAccessToken(
+      {
+        sub: iamLearner,
+        tenant_id: 'tenant_demo',
+        session_id: `sess_attempt_limit_${ts}`,
+        roles: ['student']
+      },
+      process.env.AUTH_JWT_SECRET ?? 'secret_value_123',
+      3600
+    );
+
+    const startPayload = JSON.stringify({
+      testId: test.data.id,
+      enrollmentId: enrollment.data.id,
+      learnerId: learner.data.id
+    });
+
+    for (let i = 0; i < 2; i++) {
+      const ok = await fetch(`${apiBaseUrl}/attempts/start`, {
+        method: 'POST',
+        headers: hdr(learnerToken),
+        body: startPayload
+      });
+      expect(ok.status, `start ${i + 1} of 2 should succeed`).toBe(201);
+    }
+
+    const blocked = await fetch(`${apiBaseUrl}/attempts/start`, {
+      method: 'POST',
+      headers: hdr(learnerToken),
+      body: startPayload
+    });
+    expect(blocked.status).toBe(412);
+    expect(((await blocked.json()) as { error: { code: string } }).error.code).toBe(
+      'attempt_limit_reached'
+    );
+  });
+
   it('HTTP: rejects assignment review on draft submission and score above maxScore', async () => {
     const t = tokenFor('sess_http_reviews_1');
 
@@ -650,6 +780,295 @@ describe('MVP HTTP integration (domain invariants)', () => {
     expect(envelope.meta?.requestId).toBeTruthy();
   });
 
+  it('HTTP: rejects duplicate assignment review for same submission (BL-006)', async () => {
+    const ts = Date.now();
+    const t = tokenFor(`sess_http_dup_review_${ts}`);
+
+    const course = (await (
+      await fetch(`${apiBaseUrl}/courses`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({ code: `CDHDR_${ts}`, title: 'Dup review course' })
+      })
+    ).json()) as { data: { id: string } };
+
+    const groupWrap = (await (
+      await fetch(`${apiBaseUrl}/groups`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({ code: `GDHDR_${ts}`, name: 'Dup review group' })
+      })
+    ).json()) as { data: { id: string } };
+    const groupId = groupWrap.data.id;
+
+    await fetch(`${apiBaseUrl}/group-courses`, {
+      method: 'POST',
+      headers: hdr(t),
+      body: JSON.stringify({ groupId, courseId: course.data.id })
+    });
+
+    const learner = (await (
+      await fetch(`${apiBaseUrl}/learners`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({ code: `LDHDR_${ts}`, name: 'Learner dup review' })
+      })
+    ).json()) as { data: { id: string } };
+
+    const enrollment = (await (
+      await fetch(`${apiBaseUrl}/enrollments`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({ groupId, learnerId: learner.data.id })
+      })
+    ).json()) as { data: { id: string } };
+
+    const assignment = (await (
+      await fetch(`${apiBaseUrl}/assignments`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({
+          courseId: course.data.id,
+          title: `HW dup rev ${ts}`,
+          maxScore: 10
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    const submission = (await (
+      await fetch(`${apiBaseUrl}/assignment-submissions`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({
+          assignmentId: assignment.data.id,
+          enrollmentId: enrollment.data.id,
+          learnerId: learner.data.id,
+          answerText: 'answer once'
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    await fetch(`${apiBaseUrl}/assignment-submissions/${submission.data.id}/submit`, {
+      method: 'POST',
+      headers: hdr(t)
+    });
+
+    const first = await fetch(`${apiBaseUrl}/assignment-reviews`, {
+      method: 'POST',
+      headers: hdr(t),
+      body: JSON.stringify({ submissionId: submission.data.id, score: 7 })
+    });
+    expect(first.ok).toBe(true);
+
+    const dup = await fetch(`${apiBaseUrl}/assignment-reviews`, {
+      method: 'POST',
+      headers: hdr(t),
+      body: JSON.stringify({ submissionId: submission.data.id, score: 8 })
+    });
+    expect(dup.status).toBe(409);
+    expect(((await dup.json()) as { error: { code: string } }).error.code).toBe('conflict');
+  });
+
+  it('HTTP: PATCH assignment submission after submit is rejected submission_terminal (BL-006)', async () => {
+    const ts = Date.now();
+    const t = tokenFor(`sess_http_sub_terminal_${ts}`);
+
+    const course = (await (
+      await fetch(`${apiBaseUrl}/courses`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({ code: `CTERM_${ts}`, title: 'Submission terminal course' })
+      })
+    ).json()) as { data: { id: string } };
+
+    const groupWrap = (await (
+      await fetch(`${apiBaseUrl}/groups`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({ code: `GTERM_${ts}`, name: 'Submission terminal group' })
+      })
+    ).json()) as { data: { id: string } };
+    const groupId = groupWrap.data.id;
+
+    await fetch(`${apiBaseUrl}/group-courses`, {
+      method: 'POST',
+      headers: hdr(t),
+      body: JSON.stringify({ groupId, courseId: course.data.id })
+    });
+
+    const learner = (await (
+      await fetch(`${apiBaseUrl}/learners`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({ code: `LTERM_${ts}`, name: 'Learner submission terminal' })
+      })
+    ).json()) as { data: { id: string } };
+
+    const enrollment = (await (
+      await fetch(`${apiBaseUrl}/enrollments`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({ groupId, learnerId: learner.data.id })
+      })
+    ).json()) as { data: { id: string } };
+
+    const assignment = (await (
+      await fetch(`${apiBaseUrl}/assignments`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({
+          courseId: course.data.id,
+          title: `HW submission terminal ${ts}`,
+          maxScore: 10
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    const submission = (await (
+      await fetch(`${apiBaseUrl}/assignment-submissions`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({
+          assignmentId: assignment.data.id,
+          enrollmentId: enrollment.data.id,
+          learnerId: learner.data.id,
+          answerText: 'draft before submit'
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    const submitRes = await fetch(
+      `${apiBaseUrl}/assignment-submissions/${submission.data.id}/submit`,
+      {
+        method: 'POST',
+        headers: hdr(t)
+      }
+    );
+    expect(submitRes.ok).toBe(true);
+
+    const patchAfterSubmit = await fetch(
+      `${apiBaseUrl}/assignment-submissions/${submission.data.id}`,
+      {
+        method: 'PATCH',
+        headers: hdr(t),
+        body: JSON.stringify({ answerText: 'must not persist' })
+      }
+    );
+    expect(patchAfterSubmit.status).toBe(412);
+    expect(((await patchAfterSubmit.json()) as { error: { code: string } }).error.code).toBe(
+      'submission_terminal'
+    );
+  });
+
+  it('HTTP: PATCH completed review and second complete are rejected (BL-006)', async () => {
+    const ts = Date.now();
+    const t = tokenFor(`sess_http_complete_twice_${ts}`);
+
+    const course = (await (
+      await fetch(`${apiBaseUrl}/courses`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({ code: `CACMP_${ts}`, title: 'Complete-twice course' })
+      })
+    ).json()) as { data: { id: string } };
+
+    const groupWrap = (await (
+      await fetch(`${apiBaseUrl}/groups`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({ code: `GACMP_${ts}`, name: 'Complete-twice group' })
+      })
+    ).json()) as { data: { id: string } };
+    const groupId = groupWrap.data.id;
+
+    await fetch(`${apiBaseUrl}/group-courses`, {
+      method: 'POST',
+      headers: hdr(t),
+      body: JSON.stringify({ groupId, courseId: course.data.id })
+    });
+
+    const learner = (await (
+      await fetch(`${apiBaseUrl}/learners`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({ code: `LACMP_${ts}`, name: 'Learner complete twice' })
+      })
+    ).json()) as { data: { id: string } };
+
+    const enrollment = (await (
+      await fetch(`${apiBaseUrl}/enrollments`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({ groupId, learnerId: learner.data.id })
+      })
+    ).json()) as { data: { id: string } };
+
+    const assignment = (await (
+      await fetch(`${apiBaseUrl}/assignments`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({
+          courseId: course.data.id,
+          title: `HW complete twice ${ts}`,
+          maxScore: 10
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    const submission = (await (
+      await fetch(`${apiBaseUrl}/assignment-submissions`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({
+          assignmentId: assignment.data.id,
+          enrollmentId: enrollment.data.id,
+          learnerId: learner.data.id,
+          answerText: 'hand in'
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    await fetch(`${apiBaseUrl}/assignment-submissions/${submission.data.id}/submit`, {
+      method: 'POST',
+      headers: hdr(t)
+    });
+
+    const created = await fetch(`${apiBaseUrl}/assignment-reviews`, {
+      method: 'POST',
+      headers: hdr(t),
+      body: JSON.stringify({ submissionId: submission.data.id, score: 6 })
+    });
+    expect(created.ok).toBe(true);
+    const rev = (await created.json()) as { data: { id: string } };
+
+    const complete1 = await fetch(`${apiBaseUrl}/assignment-reviews/${rev.data.id}/complete`, {
+      method: 'POST',
+      headers: hdr(t),
+      body: JSON.stringify({})
+    });
+    expect(complete1.ok).toBe(true);
+
+    const patchAfterComplete = await fetch(`${apiBaseUrl}/assignment-reviews/${rev.data.id}`, {
+      method: 'PATCH',
+      headers: hdr(t),
+      body: JSON.stringify({ score: 9, comment: 'must not apply' })
+    });
+    expect(patchAfterComplete.status).toBe(412);
+    expect(((await patchAfterComplete.json()) as { error: { code: string } }).error.code).toBe(
+      'domain_rule_violation'
+    );
+
+    const complete2 = await fetch(`${apiBaseUrl}/assignment-reviews/${rev.data.id}/complete`, {
+      method: 'POST',
+      headers: hdr(t),
+      body: JSON.stringify({})
+    });
+    expect(complete2.status).toBe(412);
+    expect(((await complete2.json()) as { error: { code: string } }).error.code).toBe(
+      'domain_rule_violation'
+    );
+  });
+
   it('HTTP: PATCH progress/materials без group-course → 412 domain_rule_violation', async () => {
     const t = tokenFor('sess_http_prog_nlink');
     const ts = Date.now();
@@ -740,7 +1159,7 @@ describe('MVP HTTP integration (domain invariants)', () => {
     expect(body.error.code).toBe('domain_rule_violation');
   });
 
-  it('HTTP: 403 когда слушатель с linkedIamUserId, а JWT — другой пользователь', async () => {
+  it('HTTP: 403 чужой JWT vs субмиссия слушателя с linkedIamUserId — POST/GET/PATCH/submit (BL-010)', async () => {
     const ts = Date.now();
     const admin = tokenFor(`sess_http_idor_${ts}`);
 
@@ -858,11 +1277,184 @@ describe('MVP HTTP integration (domain invariants)', () => {
     );
     expect(bobGetSubmission.status).toBe(403);
 
+    const bobPatchSubmission = await fetch(
+      `${apiBaseUrl}/assignment-submissions/${envelope.data.id}`,
+      {
+        method: 'PATCH',
+        headers: hdr(tokenBob),
+        body: JSON.stringify({ answerText: 'intruder patch' })
+      }
+    );
+    expect(bobPatchSubmission.status).toBe(403);
+    expect(((await bobPatchSubmission.json()) as { error: { code: string } }).error.code).toBe(
+      'forbidden'
+    );
+
+    const bobSubmitIntruder = await fetch(
+      `${apiBaseUrl}/assignment-submissions/${envelope.data.id}/submit`,
+      { method: 'POST', headers: hdr(tokenBob) }
+    );
+    expect(bobSubmitIntruder.status).toBe(403);
+    expect(((await bobSubmitIntruder.json()) as { error: { code: string } }).error.code).toBe(
+      'forbidden'
+    );
+
     const aliceGetSubmission = await fetch(
       `${apiBaseUrl}/assignment-submissions/${envelope.data.id}`,
       { headers: hdr(tokenAlice) }
     );
     expect(aliceGetSubmission.ok).toBe(true);
+  });
+
+  it('HTTP: GET /assignment-submissions list scoped to JWT-linked learner only (BL-010)', async () => {
+    const ts = Date.now();
+    const admin = tokenFor(`sess_http_subm_list_scope_${ts}`);
+
+    const course = (await (
+      await fetch(`${apiBaseUrl}/courses`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({ code: `CLST_${ts}`, title: 'Submission list scope course' })
+      })
+    ).json()) as { data: { id: string } };
+
+    const groupWrap = (await (
+      await fetch(`${apiBaseUrl}/groups`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({ code: `GLST_${ts}`, name: 'Submission list scope group' })
+      })
+    ).json()) as { data: { id: string } };
+
+    await fetch(`${apiBaseUrl}/group-courses`, {
+      method: 'POST',
+      headers: hdr(admin),
+      body: JSON.stringify({ groupId: groupWrap.data.id, courseId: course.data.id })
+    });
+
+    const learnerA = (await (
+      await fetch(`${apiBaseUrl}/learners`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({
+          code: `LALST_${ts}`,
+          name: 'Learner A list scope',
+          linkedIamUserId: 'u_alice_subm_list'
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    const learnerB = (await (
+      await fetch(`${apiBaseUrl}/learners`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({
+          code: `LBLST_${ts}`,
+          name: 'Learner B list scope',
+          linkedIamUserId: 'u_bob_subm_list'
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    const enrA = (await (
+      await fetch(`${apiBaseUrl}/enrollments`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({ groupId: groupWrap.data.id, learnerId: learnerA.data.id })
+      })
+    ).json()) as { data: { id: string } };
+
+    const enrB = (await (
+      await fetch(`${apiBaseUrl}/enrollments`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({ groupId: groupWrap.data.id, learnerId: learnerB.data.id })
+      })
+    ).json()) as { data: { id: string } };
+
+    const assignment = (await (
+      await fetch(`${apiBaseUrl}/assignments`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({
+          courseId: course.data.id,
+          title: `HW list scope ${ts}`,
+          maxScore: 10
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    const createdA = (await (
+      await fetch(`${apiBaseUrl}/assignment-submissions`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({
+          assignmentId: assignment.data.id,
+          enrollmentId: enrA.data.id,
+          learnerId: learnerA.data.id,
+          answerText: 'from A'
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    const createdB = (await (
+      await fetch(`${apiBaseUrl}/assignment-submissions`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({
+          assignmentId: assignment.data.id,
+          enrollmentId: enrB.data.id,
+          learnerId: learnerB.data.id,
+          answerText: 'from B'
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    const secret = process.env.AUTH_JWT_SECRET ?? 'secret_value_123';
+    const tokenAlice = issueSignedAccessToken(
+      {
+        sub: 'u_alice_subm_list',
+        tenant_id: 'tenant_demo',
+        session_id: `sess_alice_subm_list_${ts}`,
+        roles: ['student']
+      },
+      secret,
+      3600
+    );
+    const tokenBob = issueSignedAccessToken(
+      {
+        sub: 'u_bob_subm_list',
+        tenant_id: 'tenant_demo',
+        session_id: `sess_bob_subm_list_${ts}`,
+        roles: ['student']
+      },
+      secret,
+      3600
+    );
+
+    const aliceList = await fetch(`${apiBaseUrl}/assignment-submissions`, {
+      headers: hdr(tokenAlice)
+    });
+    expect(aliceList.ok).toBe(true);
+    const aliceBody = (await aliceList.json()) as {
+      data: { items: Array<{ id: string; learnerId: string }> };
+    };
+    const aliceIds = new Set(aliceBody.data.items.map((i) => i.id));
+    expect(aliceIds.has(createdA.data.id)).toBe(true);
+    expect(aliceIds.has(createdB.data.id)).toBe(false);
+    expect(aliceBody.data.items.every((i) => i.learnerId === learnerA.data.id)).toBe(true);
+
+    const bobList = await fetch(`${apiBaseUrl}/assignment-submissions`, {
+      headers: hdr(tokenBob)
+    });
+    expect(bobList.ok).toBe(true);
+    const bobBody = (await bobList.json()) as {
+      data: { items: Array<{ id: string; learnerId: string }> };
+    };
+    const bobIds = new Set(bobBody.data.items.map((i) => i.id));
+    expect(bobIds.has(createdB.data.id)).toBe(true);
+    expect(bobIds.has(createdA.data.id)).toBe(false);
+    expect(bobBody.data.items.every((i) => i.learnerId === learnerB.data.id)).toBe(true);
   });
 
   it('HTTP: 403 когда чужой JWT читает attempt и exam-results по enrollment без cross_learner', async () => {
