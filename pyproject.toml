@@ -3,3 +3,6 @@ testpaths = ["python_tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_functions = ["test_*"]
 addopts = ["-ra"]
+# Совместимо с pytest-asyncio (в т.ч. если он установлен только глобально у разработчика)
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
