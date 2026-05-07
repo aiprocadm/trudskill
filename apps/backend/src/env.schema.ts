@@ -1,5 +1,21 @@
 import { z } from 'zod';
 
+/** См. AggregateError [::1 vs 127.0.0.1]: Postgres/Redis из Docker часто слушает только IPv4, а Node разрешает `localhost` в ::1 первым. */
+function localhostToIpv4LoopbackUrl(urlString: string): string {
+  try {
+    const parsed = new URL(urlString);
+    if (parsed.hostname !== 'localhost') {
+      return urlString;
+    }
+    parsed.hostname = '127.0.0.1';
+    return parsed.toString();
+  } catch {
+    return urlString;
+  }
+}
+
+const loopbackNormalizedUrlSchema = z.string().url().transform(localhostToIpv4LoopbackUrl);
+
 const deploymentProfileSchema = z.enum(['dev', 'staging', 'prod']);
 const secretsProviderSchema = z.enum(['env', 'vault', 'kms']);
 
@@ -10,10 +26,10 @@ export const backendEnvSchema = z
     RELEASE_VERSION: z.string().default('dev'),
     BACKEND_PORT: z.coerce.number().int().positive().default(3001),
     API_PREFIX: z.string().default('/api/v1'),
-    DATABASE_URL: z.string().url(),
-    REDIS_URL: z.string().url(),
-    RABBITMQ_URL: z.string().url(),
-    S3_ENDPOINT: z.string().url(),
+    DATABASE_URL: loopbackNormalizedUrlSchema,
+    REDIS_URL: loopbackNormalizedUrlSchema,
+    RABBITMQ_URL: loopbackNormalizedUrlSchema,
+    S3_ENDPOINT: loopbackNormalizedUrlSchema,
     S3_ACCESS_KEY: z.string().min(1),
     S3_SECRET_KEY: z.string().min(1),
     S3_BUCKET: z.string().min(1),
@@ -61,7 +77,11 @@ export const backendEnvSchema = z
     OUTBOX_BATCH_SIZE: z.coerce.number().int().positive().max(500).default(50),
     OUTBOX_MAX_RETRIES: z.coerce.number().int().nonnegative().default(10),
     AUTH_PROVIDER: z.enum(['legacy', 'supertokens']).default('legacy'),
-    SUPERTOKENS_CORE_URI: z.string().url().default('http://localhost:3567'),
+    SUPERTOKENS_CORE_URI: z
+      .string()
+      .url()
+      .default('http://localhost:3567')
+      .transform(localhostToIpv4LoopbackUrl),
     SUPERTOKENS_API_KEY: z.string().min(8).optional(),
     SUPERTOKENS_APP_NAME: z.string().min(1).default('cdoprof'),
     SUPERTOKENS_API_DOMAIN: z.string().url().optional(),
