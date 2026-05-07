@@ -4,7 +4,7 @@
 
 ## 1. Current Date / Session
 
-- Date: 2026-05-06 (UTC+3)
+- Date: 2026-05-07 (UTC+3)
 - Agent: Cursor Agent (Composer)
 - Repository: `D:/Создание LMS/Cursor LMS/cdoprof-`
 - Branch, if known: `main`
@@ -930,6 +930,70 @@
   - `README.md`, `LMS_AGENT_HANDOFF.md`, `docs/TZ_MVP_TRACEABILITY.md`
 - Notes: **`pnpm -s ci:check`** — зелёный.
 
+### 5.82 BL-010: HTTP regress — e-sign **`POST …/applications/:id/(approve|reject)`** и **`DELETE …/application-files/:id`**
+
+- Summary: **`esign.http.integration.test.ts`**: в harness добавлены стабы **`POST …/applications/:id/approve`**, **`POST …/applications/:id/reject`**, **`DELETE …/application-files/:id`** (как **`EsignController`**). В guard мутации заявки **`start-review` / approve / reject** сведены к **`esign.applications.review`**; **DELETE** файла заявки — **`esign.applications.write`**. Сценарии: **403** на **approve/reject** при **read+write+submit** без **review**; **201** на **approve** с **review**; **403** на **DELETE** при только **read**; **200** на **DELETE** при **read+write**.
+- Files changed:
+  - `apps/backend/src/modules/esign/esign.http.integration.test.ts`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`, `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный после §5.82.
+
+### 5.83 BL-010: HTTP regress — e-sign **processes.write** vs **participants.sign** (процессы и действия участника)
+
+- Summary: **`esign.http.integration.test.ts`**: стабы **`POST …/processes`**, **`POST …/processes/:id/start`**, **`POST …/participants/:id/skip`**, **`POST …/participants/:id/mark-viewed`** (как **`EsignController`**). В **TestPermissionGuard**: создание процесса и **start|cancel** — **`esign.processes.write`**; **skip** участника — **`esign.processes.write`** (отдельно от подписанта); **`sign|mark-viewed|reject`** на участника — **`esign.participants.sign`**. Регрессии: **403**/**201** для перечисленных комбинаций прав.
+- Files changed:
+  - `apps/backend/src/modules/esign/esign.http.integration.test.ts`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`, `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный после §5.83.
+
+### 5.84 BL-010: HTTP regress — **integrations**: **PATCH** и позитивные **GET/POST** (**`integrations.write`** для мутаций)
+
+- Summary: **`integrations.http.integration.test.ts`**: **TestPermissionGuard** — **`POST`** и **`PATCH`** требуют **`integrations.write`** (не только **POST**); стаб **`PATCH …/integrations/providers/:id`** по аналогии с реальным **`IntegrationsController.patchProvider`**. Добавлены: успех **GET** при **`integrations.read`**; успех **POST …/sync** при **read+write**; **403** и **200** для **PATCH** при read-only / write.
+- Files changed:
+  - `apps/backend/src/modules/integrations/integrations.http.integration.test.ts`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`, `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: harness остаётся упрощённой моделью **read vs write** до появления granular permissions на реальном **`IntegrationsController`**; **`pnpm -s ci:check`** — зелёный после §5.84.
+
+### 5.85 BL-010: HTTP regress — **documents**: **PATCH**/ **PUT**/ **DELETE** → **`documents.write`** (исправление guard)
+
+- Summary: **`documents.http.integration.test.ts`**: **TestPermissionGuard** ранее для методов вне **GET**/**POST** возвращал пустой **`required`** и фактически пропускал запросы без проверки прав. Добавлено: **PATCH**, **PUT**, **DELETE** требуют **`documents.write`**; нормализация пути (**без query**). Стабы **`PATCH …/templates/:id`**, **`DELETE …/templates/:id`** (harness; **DELETE** шаблона в **`DocumentsController`** может отличаться — цель регресса **write**). Сценарии **403** при **`documents.read`** и успех при **read+write**.
+- Files changed:
+  - `apps/backend/src/modules/documents/documents.http.integration.test.ts`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`, `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный после §5.85.
+
+### 5.86 BL-010: HTTP regress — **integrations**: **PUT**/ **DELETE** → **`integrations.write`** (parity с **documents** harness)
+
+- Summary: **`integrations.http.integration.test.ts`**: без **PUT**/ **DELETE** в условии guard эти методы попадали в ветку **read**. Добавлены **PUT** и **DELETE** к мутациям (**`integrations.write`**). Стабы **`PUT …/integrations/providers/:id`**, **`DELETE …/integrations/providers/:id`** (harness для регресса прав; боевой контроллер провайдеров **DELETE** может не экспонировать — цель модель **write**).
+- Files changed:
+  - `apps/backend/src/modules/integrations/integrations.http.integration.test.ts`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`, `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный после §5.86.
+
+### 5.87 BL-010: HTTP regress — **e-sign** **PATCH** заявки/участника и **POST reuse-check** (закрытие пустого **`required`**)
+
+- Summary: **`esign.http.integration.test.ts`**: **TestPermissionGuard** — **`PATCH …/applications/:id`** → **`esign.applications.write`**; **`PATCH …/participants/:id`** → **`esign.processes.write`** (ранее **PATCH** не обрабатывался → **`required`** пустой). **`POST …/applications/:id/reuse-check`** → **`esign.applications.read`** (ранее попадало в открытый **`return true`**). Стабы **`patchApplication`**, **`reuseCheckStub`**, **`patchParticipantStub`**; регрессии **403**/успех.
+- Files changed:
+  - `apps/backend/src/modules/esign/esign.http.integration.test.ts`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`, `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный после §5.87.
+
+### 5.88 BL-010: HTTP regress — **e-sign** оставшиеся маршруты (**POST participants/invite**, **POST processes/…/cancel**, **GET events/legal-log/:id**/…)
+
+- Summary: **`esign.http.integration.test.ts`**: **TestPermissionGuard** — **`POST /esign/participants`** и **`POST …/participants/:id/invite`** → **`esign.processes.write`** (ранее **`POST …/participants`** не попадал в матрицу → открытый **`return true`**). Стабы и регрессии **403**/успех для **create participant**, **invite**, **`POST …/processes/:id/cancel`**, **`POST …/participants/:id/reject`** (**sign**); **GET** **`/esign/events`**, **`/esign/applications/:id`**, **`/esign/legal-log/:id`**; доп. стабы **GET** **application-files/:id**, **processes/:id**, **processes/:id/status**, **participants**, **events/:id** (покрытие guard без отдельных кейсов на каждый).
+- Files changed:
+  - `apps/backend/src/modules/esign/esign.http.integration.test.ts`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`, `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: **`pnpm -s ci:check`** — зелёный после §5.88.
+
+### 5.89 BL-010: HTTP regress — **e-sign GET parity** (**processes/:id**, **participants**, **application-files/:id**, **events/:id**)
+
+- Summary: расширен `esign.http.integration.test.ts` для симметричного покрытия `EsignController` по GET-контуру: добавлены `deny/success` для **`GET /esign/processes/:id`**, **`GET /esign/participants`**, **`GET /esign/application-files/:id`**; `success` для **`GET /esign/processes/:id/status`** и **`GET /esign/events/:id`**. Это закрывает «только stub без отдельной регрессии» из §5.88 и фиксирует permission-модель **`esign.processes.read`** / **`esign.applications.read`** на object-level маршрутах.
+- Files changed:
+  - `apps/backend/src/modules/esign/esign.http.integration.test.ts`
+  - `README.md`, `LMS_AGENT_HANDOFF.md`, `docs/TZ_MVP_TRACEABILITY.md`
+- Notes: `pnpm --filter @cdoprof/backend exec vitest run src/modules/esign/esign.http.integration.test.ts` (**58 tests**) и **`pnpm -s ci:check`** — зелёные после §5.89.
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |
@@ -1137,6 +1201,14 @@
 | `pnpm -s ci:check` (после 5.79 esign HTTP POST application-files / `esign.applications.write`)                                                                                         | passed | Полный quality gate зелёный                                                                            |
 | `pnpm -s ci:check` (после 5.80 esign HTTP POST application-files verify / `esign.applications.review`)                                                                                 | passed | Полный quality gate зелёный                                                                            |
 | `pnpm -s ci:check` (после 5.81 esign HTTP POST application-files reject / `esign.applications.review`)                                                                                 | passed | Полный quality gate зелёный                                                                            |
+| `pnpm -s ci:check` (после 5.82 esign HTTP approve/reject application + DELETE application-file)                                                                                          | passed | Регресс **BL-010** e-sign; полный quality gate зелёный                                                  |
+| `pnpm -s ci:check` (после 5.83 esign HTTP processes POST/start + participant skip/mark-viewed)                                                                                          | passed | Регресс **BL-010** e-sign **processes.write** / **participants.sign**; полный gate зелёный               |
+| `pnpm -s ci:check` (после 5.84 integrations HTTP PATCH + позитивные GET/POST sync)                                                                                                         | passed | Регресс **BL-010** integrations harness **read/write**; полный gate зелёный                             |
+| `pnpm -s ci:check` (после 5.85 documents HTTP guard PATCH PUT DELETE → write + regress templates/:id)                                                                                     | passed | Регресс **BL-010** documents harness; полный gate зелёный                                                |
+| `pnpm -s ci:check` (после 5.86 integrations HTTP PUT DELETE → write + regress providers/:id)                                                                                              | passed | Регресс **BL-010** integrations harness; полный gate зелёный                                           |
+| `pnpm -s ci:check` (после 5.87 esign PATCH applications/participants + POST reuse-check)                                                                                                  | passed | Регресс **BL-010** e-sign harness; полный gate зелёный                                                 |
+| `pnpm -s ci:check` (после 5.88 esign POST participants/invite/cancel/events/legal-log entry)                                                                                           | passed | Регресс **BL-010** e-sign harness parity с **`EsignController`**; полный gate зелёный                |
+| `pnpm -s ci:check` (после 5.89 esign GET parity: processes/:id, participants, application-files/:id, events/:id)                                                                        | passed | Регресс **BL-010** e-sign object-level GET permission boundaries; полный gate зелёный                 |
 
 ## 13. Known Issues
 
@@ -1221,7 +1293,7 @@
 
 ## 20. Final Status
 
-- Build status: последний прогон после §5.81 — `pnpm -s ci:check` зелёный.
+- Build status: последний прогон после §5.89 — `pnpm -s ci:check` зелёный.
 - Backend: аудит делегирования (`metadata`), HTTP IDOR для **GET attempts / exam-results by enrollment**, class-validator MVP + общий **`createAppValidationPipe`**, frontend guard по **`cross_learner` / `learners.act_as`**, корневой Vitest **`test.projects`** и последовательный прогон backend-тестов.
 - Итерация «план к ТЗ/запуску»: добавлены **`POST /enrollments/bulk`** с идемпотентностью в коллекции snapshot **`bulkEnrollmentIdempotency`**, **`GET /reports/kpi-snapshot`**, **`GET /enrollments/:id/certificates`** с проверкой `linkedIamUserId`; UI — KPI на **`/reports`**, сертификаты слушателя в **`LearnerCoursesScreen`**; эксплуатационные заготовки **`docs/LAUNCH_RUNBOOK.md`**, **`docs/BACKUP_ROLLBACK.md`**, трассировка **`docs/TZ_MVP_TRACEABILITY.md`**, NFR-снимок **`docs/NFR_LAUNCH_V1.md`**; доп. контракты в **`packages/api-contracts/src/domains/mvp-metrics/contracts.ts`**.
 - Бэклог «полный MVP»: **очередь bulk** — `deliveryMode: queued` публикует в RabbitMQ, **worker** вызывает **`POST /api/v1/internal/worker/mvp/bulk-enrollments`** (`WORKER_CALLBACK_SECRET` / `WORKER_CALLBACK_TOKEN`); **organizationUnitId** у learner и массовые назначения по подразделению; **KPI drill-down** — query `include_enrollment_breakdown=1`; аудит **`iam.user_created`**; регресс **BL-007** listener; class-validator **`CreateModuleRequest`/`CreateMaterialRequest`**; см. **`docs/security-remediation-roadmap.md`** (статус JWT vs заголовки).
@@ -1286,6 +1358,14 @@
 - Закрыто в §5.79: HTTP integration — **`POST …/application-files`** требует **`esign.applications.write`**, не только **`esign.applications.read`**.
 - Закрыто в §5.80: HTTP integration — **`POST …/application-files/:id/verify`** требует **`esign.applications.review`**, не только **read+write** на заявках.
 - Закрыто в §5.81: HTTP integration — **`POST …/application-files/:id/reject`** тот же контур **`esign.applications.review`** (общий паттерн в guard с verify).
+- Закрыто в §5.82: HTTP integration — **`POST …/applications/:id/approve`** и **`POST …/applications/:id/reject`** требуют **`esign.applications.review`** (не **submit+write**); **`DELETE …/application-files/:id`** требует **`esign.applications.write`**.
+- Закрыто в §5.83: HTTP integration — **`POST …/processes`** и **`POST …/processes/:id/(start|cancel)`** (в harness — **start**) — **`esign.processes.write`**; **`POST …/participants/:id/skip`** — **`esign.processes.write`**, не **`participants.sign`**; **`POST …/participants/:id/(sign|mark-viewed|reject)`** — **`esign.participants.sign`**.
+- Закрыто в §5.84: HTTP integration — **integrations** harness: **`PATCH`** мутации к **`integrations.write`** (регресс от модели «только **POST** = write»); позитивные **GET**/**POST sync** с envelope.
+- Закрыто в §5.85: HTTP integration — **documents** harness: **PATCH**/ **PUT**/ **DELETE** требуют **`documents.write`**; регресс **templates/:id**.
+- Закрыто в §5.86: HTTP integration — **integrations** harness: **PUT**/ **DELETE** → **`integrations.write`** (до правки ошибочно **read**); регресс **providers/:id**.
+- Закрыто в §5.87: HTTP integration — **e-sign**: **PATCH …/applications/:id** — **`esign.applications.write`**; **POST …/reuse-check** — **`esign.applications.read`**; **PATCH …/participants/:id** — **`esign.processes.write`**.
+- Закрыто в §5.88: HTTP integration — **e-sign**: **POST …/participants** и **POST …/participants/:id/invite** — **`esign.processes.write`** (закрыт «дырявый» harness без **`required`**); регресс **POST …/processes/:id/cancel**, **POST …/participants/:id/reject** (**sign**), **GET …/events** (**processes.read**); **GET …/applications/:id**, **GET …/legal-log/:id**; стабы read по **application-files/:id**, **processes/:id**, **participants**, **events/:id**.
+- Закрыто в §5.89: HTTP integration — **e-sign GET parity**: object-level **`GET …/processes/:id`**, **`GET …/participants`**, **`GET …/application-files/:id`** получили отдельные **403/200** регрессии; добавлены success-кейсы для **`GET …/processes/:id/status`** и **`GET …/events/:id`**.
 
 ## 21. Новые MVP API (быстрый справочник)
 
@@ -1295,3 +1375,6 @@
 | POST   | `/internal/worker/mvp/bulk-enrollments` | `x-worker-callback-token` | Только worker: завершение queued bulk                                          |
 | GET    | `/reports/kpi-snapshot`                 | `enrollments.read`        | BL-008 KPI; опционально `include_enrollment_breakdown=1`                       |
 | GET    | `/enrollments/:id/certificates`         | `enrollments.read`        | BL-007 выдача ссылок на сертификаты по завершении                              |
+
+
+

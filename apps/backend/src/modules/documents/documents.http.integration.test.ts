@@ -80,10 +80,13 @@ describe('Documents HTTP integration (permission boundaries)', () => {
     const {
       Body,
       Controller,
+      Delete,
       ForbiddenException,
       Get,
       Injectable,
       Module,
+      Param,
+      Patch,
       Post,
       UseGuards,
       ValidationPipe
@@ -112,18 +115,20 @@ describe('Documents HTTP integration (permission boundaries)', () => {
           originalUrl?: string;
           context?: { tenantId?: string; userId?: string; sessionId?: string };
         };
-        const routePath = request.originalUrl ?? request.url ?? '';
-        const isDocumentsGenerate =
-          request.method === 'POST' && routePath.includes('/documents/generate');
-        const required =
-          request.method === 'GET'
-            ? ['documents.read']
-            : request.method === 'POST'
-              ? isDocumentsGenerate
-                ? ['documents.generate']
-                : ['documents.write']
-              : [];
-        if (required.length === 0) return true;
+        const routePath = (request.originalUrl ?? request.url ?? '').split('?')[0] ?? '';
+        const method = request.method ?? '';
+        const isDocumentsGenerate = method === 'POST' && routePath.includes('/documents/generate');
+
+        let required: string[];
+        if (method === 'GET') {
+          required = ['documents.read'];
+        } else if (method === 'POST') {
+          required = isDocumentsGenerate ? ['documents.generate'] : ['documents.write'];
+        } else if (method === 'PATCH' || method === 'PUT' || method === 'DELETE') {
+          required = ['documents.write'];
+        } else {
+          return true;
+        }
 
         const requestContext = request.context;
         if (!requestContext?.tenantId || !requestContext.userId || !requestContext.sessionId) {
@@ -180,6 +185,28 @@ describe('Documents HTTP integration (permission boundaries)', () => {
           createdBy: context.userId,
           name: body.name
         };
+      }
+
+      @Patch('templates/:id')
+      @UseGuards(TestPermissionGuard)
+      @RequirePermissions('documents.write')
+      patchTemplate(
+        @CurrentContext() context: { tenantId?: string },
+        @Param('id') id: string,
+        @Body() body: { name?: string }
+      ) {
+        return {
+          id,
+          tenantId: context.tenantId,
+          name: body.name ?? 'patched_tpl'
+        };
+      }
+
+      @Delete('templates/:id')
+      @UseGuards(TestPermissionGuard)
+      @RequirePermissions('documents.write')
+      deleteTemplate(@CurrentContext() context: { tenantId?: string }, @Param('id') id: string) {
+        return { id, tenantId: context.tenantId, deleted: true };
       }
 
       @Post('documents/generate')
@@ -366,6 +393,134 @@ describe('Documents HTTP integration (permission boundaries)', () => {
     expect(payload.data.name).toBe('Новый шаблон');
     expect(payload.meta.requestId).toBeTruthy();
     expect(payload.meta.correlationId).toBeTruthy();
+  });
+
+  it('returns permission_denied for PATCH templates/:id with read-only permissions', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['documents.read']);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_doc_patch_ro',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: ['tenant_admin']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/templates/tpl_p1`, {
+      method: 'PATCH',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ name: 'Renamed' })
+    });
+
+    expect(response.status).toBe(403);
+    const payload = (await response.json()) as {
+      error: { code: string };
+      meta: { requestId: string };
+    };
+    expect(payload.error.code).toBe('permission_denied');
+    expect(payload.meta.requestId).toBeTruthy();
+  });
+
+  it('returns success envelope for PATCH templates/:id with documents.write permission', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['documents.read', 'documents.write']);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_doc_patch_wr',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: ['tenant_admin']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/templates/tpl_p2`, {
+      method: 'PATCH',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ name: 'Updated title' })
+    });
+
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      data: { id: string; tenantId?: string; name: string };
+      meta: { requestId: string };
+    };
+    expect(payload.data.id).toBe('tpl_p2');
+    expect(payload.data.tenantId).toBe('tenant_demo');
+    expect(payload.data.name).toBe('Updated title');
+    expect(payload.meta.requestId).toBeTruthy();
+  });
+
+  it('returns permission_denied for DELETE templates/:id with read-only permissions', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['documents.read']);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_doc_del_ro',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: ['tenant_admin']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/templates/tpl_d1`, {
+      method: 'DELETE',
+      headers: {
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      }
+    });
+
+    expect(response.status).toBe(403);
+    const payload = (await response.json()) as {
+      error: { code: string };
+      meta: { requestId: string };
+    };
+    expect(payload.error.code).toBe('permission_denied');
+    expect(payload.meta.requestId).toBeTruthy();
+  });
+
+  it('returns success envelope for DELETE templates/:id with documents.write permission', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['documents.read', 'documents.write']);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_doc_del_wr',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: ['tenant_admin']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/templates/tpl_d2`, {
+      method: 'DELETE',
+      headers: {
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      }
+    });
+
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      data: { id: string; tenantId?: string; deleted: boolean };
+      meta: { requestId: string };
+    };
+    expect(payload.data.id).toBe('tpl_d2');
+    expect(payload.data.tenantId).toBe('tenant_demo');
+    expect(payload.data.deleted).toBe(true);
+    expect(payload.meta.requestId).toBeTruthy();
   });
 
   it('returns permission_denied for POST …/documents/generate without documents.generate', async () => {
