@@ -67,12 +67,17 @@ describe('Integrations HTTP integration (permission boundaries)', () => {
 
     const { NestFactory } = nestjsCore;
     const {
+      Body,
       Controller,
+      Delete,
       ForbiddenException,
       Get,
       Injectable,
       Module,
+      Param,
+      Patch,
       Post,
+      Put,
       UseGuards,
       ValidationPipe
     } = nestjsCommon;
@@ -95,7 +100,11 @@ describe('Integrations HTTP integration (permission boundaries)', () => {
         };
       }) {
         const request = context.switchToHttp().getRequest();
-        const required = request.method === 'POST' ? ['integrations.write'] : ['integrations.read'];
+        const method = request.method ?? '';
+        const required =
+          method === 'POST' || method === 'PATCH' || method === 'PUT' || method === 'DELETE'
+            ? ['integrations.write']
+            : ['integrations.read'];
         const requestContext = request.context;
         if (!requestContext?.tenantId || !requestContext.userId || !requestContext.sessionId) {
           throw new ForbiddenException({
@@ -141,6 +150,35 @@ describe('Integrations HTTP integration (permission boundaries)', () => {
       sync() {
         return { status: 'queued' };
       }
+
+      @Patch('integrations/providers/:id')
+      @UseGuards(TestPermissionGuard)
+      @RequirePermissions('integrations.write')
+      patchProvider(
+        @CurrentContext() context: { tenantId?: string },
+        @Param('id') id: string,
+        @Body() body: { name?: string }
+      ) {
+        return { id, tenantId: context.tenantId, name: body.name ?? 'patched' };
+      }
+
+      @Put('integrations/providers/:id')
+      @UseGuards(TestPermissionGuard)
+      @RequirePermissions('integrations.write')
+      putProvider(
+        @CurrentContext() context: { tenantId?: string },
+        @Param('id') id: string,
+        @Body() body: { name?: string }
+      ) {
+        return { id, tenantId: context.tenantId, name: body.name ?? 'put_stub' };
+      }
+
+      @Delete('integrations/providers/:id')
+      @UseGuards(TestPermissionGuard)
+      @RequirePermissions('integrations.write')
+      deleteProvider(@CurrentContext() context: { tenantId?: string }, @Param('id') id: string) {
+        return { id, tenantId: context.tenantId, deleted: true };
+      }
     }
 
     @Module({
@@ -184,6 +222,33 @@ describe('Integrations HTTP integration (permission boundaries)', () => {
     expect(payload.meta.requestId).toBeTruthy();
   });
 
+  it('returns success envelope for GET integrations/providers with integrations.read', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['integrations.read']);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_integrator_read',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: ['tenant_admin']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/integrations/providers`, {
+      headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+    });
+
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      data: { items: Array<{ code?: string; tenantId?: string; name?: string }> };
+      meta: { requestId: string; correlationId?: string };
+    };
+    expect(payload.data.items[0]?.code).toBe('sbis');
+    expect(payload.data.items[0]?.tenantId).toBe('tenant_demo');
+    expect(payload.meta.requestId).toBeTruthy();
+  });
+
   it('returns permission_denied for write endpoint with read-only permissions', async () => {
     iamServiceMock.resolvePermissions.mockResolvedValueOnce(['integrations.read']);
     const token = issueSignedAccessToken(
@@ -208,6 +273,237 @@ describe('Integrations HTTP integration (permission boundaries)', () => {
       meta: { requestId: string };
     };
     expect(payload.error.code).toBe('permission_denied');
+    expect(payload.meta.requestId).toBeTruthy();
+  });
+
+  it('returns success envelope for POST integrations/providers/.../sync with integrations.write', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce([
+      'integrations.read',
+      'integrations.write'
+    ]);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_integrator_write',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: ['tenant_admin']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/integrations/providers/sbis/sync`, {
+      method: 'POST',
+      headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+    });
+
+    expect(response.status).toBe(201);
+    const payload = (await response.json()) as {
+      data: { status: string };
+      meta: { requestId: string };
+    };
+    expect(payload.data.status).toBe('queued');
+    expect(payload.meta.requestId).toBeTruthy();
+  });
+
+  it('returns permission_denied for PATCH integrations/providers/:id with read-only permissions', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['integrations.read']);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_integrator_patch_readonly',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: ['tenant_admin']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/integrations/providers/prv_patch_1`, {
+      method: 'PATCH',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ name: 'X' })
+    });
+
+    expect(response.status).toBe(403);
+    const payload = (await response.json()) as {
+      error: { code: string };
+      meta: { requestId: string };
+    };
+    expect(payload.error.code).toBe('permission_denied');
+    expect(payload.meta.requestId).toBeTruthy();
+  });
+
+  it('returns success envelope for PATCH integrations/providers/:id with integrations.write', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce([
+      'integrations.read',
+      'integrations.write'
+    ]);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_integrator_patch',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: ['tenant_admin']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/integrations/providers/prv_patch_2`, {
+      method: 'PATCH',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ name: 'Updated' })
+    });
+
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      data: { id: string; tenantId?: string; name: string };
+      meta: { requestId: string };
+    };
+    expect(payload.data.id).toBe('prv_patch_2');
+    expect(payload.data.tenantId).toBe('tenant_demo');
+    expect(payload.data.name).toBe('Updated');
+    expect(payload.meta.requestId).toBeTruthy();
+  });
+
+  it('returns permission_denied for PUT integrations/providers/:id with read-only permissions', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['integrations.read']);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_integrator_put_ro',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: ['tenant_admin']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/integrations/providers/prv_put_1`, {
+      method: 'PUT',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ name: 'Full' })
+    });
+
+    expect(response.status).toBe(403);
+    const payload = (await response.json()) as {
+      error: { code: string };
+      meta: { requestId: string };
+    };
+    expect(payload.error.code).toBe('permission_denied');
+    expect(payload.meta.requestId).toBeTruthy();
+  });
+
+  it('returns success envelope for PUT integrations/providers/:id with integrations.write', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce([
+      'integrations.read',
+      'integrations.write'
+    ]);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_integrator_put',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: ['tenant_admin']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/integrations/providers/prv_put_2`, {
+      method: 'PUT',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ name: 'Replaced' })
+    });
+
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      data: { id: string; tenantId?: string; name: string };
+      meta: { requestId: string };
+    };
+    expect(payload.data.id).toBe('prv_put_2');
+    expect(payload.data.name).toBe('Replaced');
+    expect(payload.meta.requestId).toBeTruthy();
+  });
+
+  it('returns permission_denied for DELETE integrations/providers/:id with read-only permissions', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['integrations.read']);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_integrator_del_ro',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: ['tenant_admin']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/integrations/providers/prv_del_1`, {
+      method: 'DELETE',
+      headers: {
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      }
+    });
+
+    expect(response.status).toBe(403);
+    const payload = (await response.json()) as {
+      error: { code: string };
+      meta: { requestId: string };
+    };
+    expect(payload.error.code).toBe('permission_denied');
+    expect(payload.meta.requestId).toBeTruthy();
+  });
+
+  it('returns success envelope for DELETE integrations/providers/:id with integrations.write', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce([
+      'integrations.read',
+      'integrations.write'
+    ]);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_integrator_del',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: ['tenant_admin']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/integrations/providers/prv_del_2`, {
+      method: 'DELETE',
+      headers: {
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      }
+    });
+
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      data: { id: string; tenantId?: string; deleted: boolean };
+      meta: { requestId: string };
+    };
+    expect(payload.data.id).toBe('prv_del_2');
+    expect(payload.data.deleted).toBe(true);
     expect(payload.meta.requestId).toBeTruthy();
   });
 
