@@ -1,7 +1,14 @@
 #!/usr/bin/env sh
 msg_file="$1"
-pattern='^(feat|fix|chore|docs|refactor|test|build|ci|perf|style)(\(.+\))?: .+'
+# Conventional Commits, плюс стандартные сообщения merge/revert (git их не пропускает сам).
+pattern='^(feat|fix|chore|docs|refactor|test|build|ci|perf|style)(\(.+\))?: .+|^Merge .+|^Revert ".+"'
 if ! grep -Eq "$pattern" "$msg_file"; then
+  first=$(sed -n '1p' "$msg_file" | tr -d '\r')
   echo "Commit message must follow Conventional Commits, e.g.: feat(scope): message"
+  if [ -n "$first" ]; then
+    echo "Your first line was: $first"
+  else
+    echo "Your first line was empty — add a subject after the type, e.g. feat(api): описание"
+  fi
   exit 1
 fi
