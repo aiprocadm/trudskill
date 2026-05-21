@@ -12,7 +12,9 @@ RUN pnpm install --filter @cdoprof/backend... --frozen-lockfile
 
 FROM deps AS build
 COPY . .
-RUN pnpm --filter @cdoprof/backend build
+RUN pnpm --filter @cdoprof/shared-types build \
+ && pnpm --filter @cdoprof/api-contracts build \
+ && pnpm --filter @cdoprof/backend build
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
