@@ -12,6 +12,7 @@ export default defineConfig({
         __dirname,
         '../../packages/api-contracts/src/index.ts'
       ),
+      '@cdoprof/shared-types': path.resolve(__dirname, '../../packages/shared-types/src/index.ts'),
       '@cdoprof/ui': path.resolve(__dirname, '../../packages/ui/src/index.tsx'),
       '@tanstack/react-query': path.resolve(__dirname, './src/lib/query/react-query-shim.tsx')
     }
