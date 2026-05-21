@@ -17,4 +17,5 @@ packages/shared-types/src/**/*.js
 packages/shared-types/src/**/*.d.ts
 
 .cursor/
+.superpowers/
 
