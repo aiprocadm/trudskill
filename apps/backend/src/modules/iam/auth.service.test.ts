@@ -181,3 +181,79 @@ describe('auth foundation', () => {
     expect(failed).toHaveLength(19);
   });
 });
+
+describe('AuthService.issueSessionForUser', () => {
+  it('returns valid session tokens for a user without password verification', async () => {
+    const audit = new AuditService();
+    const iam = new IamService(audit);
+    const auth = new AuthService(iam, audit, new SecretsService());
+
+    const resolved = await iam.findUserByLogin('tenant_demo', 'tenant_admin');
+    const tokens = await auth.issueSessionForUser(resolved!.user, context, {
+      authMethod: 'magic_link',
+      databaseBacked: false
+    });
+
+    expect(tokens.accessToken).toBeTypeOf('string');
+    expect(tokens.refreshToken).toBeTypeOf('string');
+    expect(tokens.csrfToken).toBeTypeOf('string');
+    expect(tokens.sessionId).toMatch(/^s_/);
+    expect(tokens.claims?.session_id).toBe(tokens.sessionId);
+    expect(tokens.claims?.tenant_id).toBe('tenant_demo');
+    expect(tokens.claims?.role_codes).toContain('tenant_admin');
+  });
+
+  it('records magic_link_login auth event when authMethod is magic_link', async () => {
+    const audit = new AuditService();
+    const iam = new IamService(audit);
+    const auth = new AuthService(iam, audit, new SecretsService());
+
+    const resolved = await iam.findUserByLogin('tenant_demo', 'tenant_admin');
+    await auth.issueSessionForUser(resolved!.user, context, {
+      authMethod: 'magic_link',
+      databaseBacked: false
+    });
+
+    const events = await auth.getAuthEvents('tenant_demo');
+    expect(events.some((e) => e.userId === 'u_tenant_admin' && e.type === 'magic_link_login')).toBe(
+      true
+    );
+  });
+
+  it('writes auth.magic_link_login audit record', async () => {
+    const audit = new AuditService();
+    const iam = new IamService(audit);
+    const auth = new AuthService(iam, audit, new SecretsService());
+
+    const resolved = await iam.findUserByLogin('tenant_demo', 'tenant_admin');
+    await auth.issueSessionForUser(resolved!.user, context, {
+      authMethod: 'magic_link',
+      databaseBacked: false
+    });
+
+    const records = await audit.list('tenant_demo');
+    expect(
+      records.some((r) => r.action === 'auth.magic_link_login' && r.entityId === 'u_tenant_admin')
+    ).toBe(true);
+  });
+
+  it('issued session can be rotated by refresh', async () => {
+    const audit = new AuditService();
+    const iam = new IamService(audit);
+    const auth = new AuthService(iam, audit, new SecretsService());
+
+    const resolved = await iam.findUserByLogin('tenant_demo', 'tenant_admin');
+    const issued = await auth.issueSessionForUser(resolved!.user, context, {
+      authMethod: 'magic_link',
+      databaseBacked: false
+    });
+
+    const rotated = await auth.refresh(
+      'tenant_demo',
+      issued.refreshToken,
+      issued.csrfToken,
+      context
+    );
+    expect(rotated.refreshToken).not.toEqual(issued.refreshToken);
+  });
+});

@@ -26,6 +26,13 @@ export interface LoginPayload {
   password: string;
 }
 
+export type AuthMethod = 'password' | 'magic_link';
+
+export interface IssueSessionOptions {
+  authMethod: AuthMethod;
+  databaseBacked: boolean;
+}
+
 @Injectable()
 export class AuthService {
   private sessions: Session[] = [];
@@ -107,13 +114,28 @@ export class AuthService {
         { skipDatabase: !persistRelational }
       );
     }
+    return this.issueSessionForUser(user, context, {
+      authMethod: 'password',
+      databaseBacked
+    });
+  }
+
+  async issueSessionForUser(
+    user: User,
+    context: RequestContext,
+    options: IssueSessionOptions
+  ): Promise<Awaited<ReturnType<AuthService['createSession']>>> {
+    const persistRelational = !this.databaseService || options.databaseBacked;
     const tokens = await this.createSession(user, persistRelational);
-    await this.pushAuthEvent(tenantId, user.id, 'login', persistRelational);
+    const eventType = options.authMethod === 'magic_link' ? 'magic_link_login' : 'login';
+    const auditAction =
+      options.authMethod === 'magic_link' ? 'auth.magic_link_login' : 'auth.login';
+    await this.pushAuthEvent(user.tenantId, user.id, eventType, persistRelational);
     await this.auditService.writeCritical(
       {
-        tenantId,
+        tenantId: user.tenantId,
         actorId: user.id,
-        action: 'auth.login',
+        action: auditAction,
         entityType: 'iam.user',
         entityId: user.id,
         requestId: context.requestId,

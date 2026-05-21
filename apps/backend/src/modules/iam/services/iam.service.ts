@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 
 import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 
@@ -113,6 +113,67 @@ export class IamService {
     @Optional()
     private readonly databaseService?: DatabaseService
   ) {}
+
+  async findOrCreateByEmail(tenantId: string, rawEmail: string): Promise<ResolvedLoginUser> {
+    const email = rawEmail.toLowerCase().trim();
+
+    if (!this.databaseService) {
+      const existing = this.fallbackUsers.find(
+        (u) => u.tenantId === tenantId && (u.email ?? '').toLowerCase() === email
+      );
+      if (existing) {
+        return { user: existing, databaseBacked: false };
+      }
+      const user: User = {
+        id: `u_${randomUUID().replace(/-/g, '')}`,
+        tenantId,
+        login: `magic_${randomUUID().replace(/-/g, '')}`,
+        email,
+        passwordHash: hashPassword(randomBytes(32).toString('hex')),
+        status: 'active',
+        displayName: email.split('@')[0] || email
+      };
+      this.fallbackUsers.push(user);
+      return { user, databaseBacked: false };
+    }
+
+    const rows = await this.databaseService.query<{
+      id: string;
+      tenant_id: string;
+      login: string;
+      email: string | null;
+      password_hash: string;
+      status: 'active' | 'blocked';
+      display_name: string;
+    }>(
+      `
+        select id, tenant_id, login, email, password_hash, status, display_name
+        from iam.users
+        where tenant_id = $1 and lower(email) = $2 and deleted_at is null
+        limit 1
+      `,
+      [tenantId, email]
+    );
+
+    if (rows[0]) {
+      return { user: this.toUser(rows[0]), databaseBacked: true };
+    }
+
+    const id = `u_${randomUUID().replace(/-/g, '')}`;
+    const login = `magic_${randomUUID().replace(/-/g, '')}`;
+    const passwordHash = hashPassword(randomBytes(32).toString('hex'));
+    const displayName = email.split('@')[0] || email;
+
+    await this.databaseService.query(
+      `
+        insert into iam.users (id, tenant_id, login, email, password_hash, status, display_name)
+        values ($1, $2, $3, $4, $5, 'active', $6)
+      `,
+      [id, tenantId, login, email, passwordHash, displayName]
+    );
+
+    return { user: await this.getUser(tenantId, id), databaseBacked: true };
+  }
 
   async findUserByLogin(tenantId: string, login: string): Promise<ResolvedLoginUser | undefined> {
     if (!this.databaseService) {
