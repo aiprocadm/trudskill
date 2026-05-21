@@ -23,14 +23,10 @@ function createInMemoryRepo(): InMemoryMagicLinkTokenRepo {
         consumedAt: null
       });
     },
-    async findByHash(tenantId, tokenHash) {
-      return (
-        saved.find(
-          (r) => r.tenantId === tenantId && r.tokenHash === tokenHash
-        ) ?? null
-      );
+    async findByHash(tenantId: string, tokenHash: string): Promise<PersistedMagicLinkToken | null> {
+      return saved.find((r) => r.tenantId === tenantId && r.tokenHash === tokenHash) ?? null;
     },
-    async markConsumed(tenantId, id, redeemedUserId) {
+    async markConsumed(tenantId: string, id: string, redeemedUserId: string): Promise<void> {
       const record = saved.find((r) => r.id === id && r.tenantId === tenantId);
       if (record) {
         record.consumedAt = new Date();
@@ -209,8 +205,8 @@ describe('MagicLinkService.peekEmail', () => {
   });
 
   it('throws MagicLinkInvalidError for an unknown token', async () => {
-    await expect(
-      service.peekEmail({ tenantId: 't1', rawToken: 'fake' })
-    ).rejects.toBeInstanceOf(MagicLinkInvalidError);
+    await expect(service.peekEmail({ tenantId: 't1', rawToken: 'fake' })).rejects.toBeInstanceOf(
+      MagicLinkInvalidError
+    );
   });
 });
