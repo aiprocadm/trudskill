@@ -53,19 +53,37 @@ describe('AuthController public user contract', () => {
       { AuthController },
       { AuthService },
       { IamService },
-      { SecretsService }
+      { SecretsService },
+      { InMemoryMagicLinkTokenRepo },
+      { LoggingMagicLinkEmailSender },
+      { MagicLinkService }
     ] = await Promise.all([
       import('../audit/audit.service.js'),
       import('./auth.controller.js'),
       import('./services/auth.service.js'),
       import('./services/iam.service.js'),
-      import('../../infrastructure/secrets/secrets.service.js')
+      import('../../infrastructure/secrets/secrets.service.js'),
+      import('./services/in-memory-magic-link-token-repo.js'),
+      import('./services/magic-link-email-sender.js'),
+      import('./services/magic-link.service.js')
     ]);
     const audit = new AuditService();
     const iamService = new IamService(audit);
     const authService = new AuthService(iamService, audit, new SecretsService());
+    const magicLinkService = new MagicLinkService(new InMemoryMagicLinkTokenRepo(), {
+      ttlMs: 15 * 60 * 1000
+    });
+    const magicLinkEmailSender = new LoggingMagicLinkEmailSender();
 
-    return { controller: new AuthController(authService, iamService), audit };
+    return {
+      controller: new AuthController(
+        authService,
+        iamService,
+        magicLinkService,
+        magicLinkEmailSender
+      ),
+      audit
+    };
   };
 
   it('does not leak passwordHash in /auth/me', async () => {

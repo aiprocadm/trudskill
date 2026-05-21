@@ -48,6 +48,6 @@ export interface AuthEvent {
   id: string;
   tenantId: string;
   userId: string;
-  type: 'login' | 'logout' | 'refresh' | 'session_revoke' | 'logout_all';
+  type: 'login' | 'logout' | 'refresh' | 'session_revoke' | 'logout_all' | 'magic_link_login';
   createdAt: string;
 }

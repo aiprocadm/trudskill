@@ -57,7 +57,10 @@ describe('IAM HTTP regressions (integration/e2e)', () => {
       iamServiceImport,
       permissionGuardImport,
       auditServiceImport,
-      secretsServiceImport
+      secretsServiceImport,
+      magicLinkServiceImport,
+      inMemoryMagicLinkTokenRepoImport,
+      magicLinkEmailSenderImport
     ] = await Promise.all([
       import('@nestjs/core'),
       import('@nestjs/common'),
@@ -71,7 +74,10 @@ describe('IAM HTTP regressions (integration/e2e)', () => {
       import('./services/iam.service.js'),
       import('./permission.guard.js'),
       import('../audit/audit.service.js'),
-      import('../../infrastructure/secrets/secrets.service.js')
+      import('../../infrastructure/secrets/secrets.service.js'),
+      import('./services/magic-link.service.js'),
+      import('./services/in-memory-magic-link-token-repo.js'),
+      import('./services/magic-link-email-sender.js')
     ]);
 
     const { NestFactory } = nestjsCore;
@@ -87,6 +93,10 @@ describe('IAM HTTP regressions (integration/e2e)', () => {
     const { PermissionGuard } = permissionGuardImport;
     const { AuditService } = auditServiceImport;
     const { SecretsService } = secretsServiceImport;
+    const { MAGIC_LINK_SERVICE_CONFIG, MAGIC_LINK_TOKEN_REPO, MagicLinkService } =
+      magicLinkServiceImport;
+    const { InMemoryMagicLinkTokenRepo } = inMemoryMagicLinkTokenRepoImport;
+    const { LoggingMagicLinkEmailSender, MAGIC_LINK_EMAIL_SENDER } = magicLinkEmailSenderImport;
 
     @Controller('__test')
     class TestEnvelopeController {
@@ -99,7 +109,26 @@ describe('IAM HTTP regressions (integration/e2e)', () => {
     @Module({
       imports: [ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: 300 }] }), CoreModule],
       controllers: [AuthController, TestEnvelopeController],
-      providers: [AuditService, IamService, AuthService, PermissionGuard, SecretsService]
+      providers: [
+        AuditService,
+        IamService,
+        AuthService,
+        PermissionGuard,
+        SecretsService,
+        {
+          provide: MAGIC_LINK_SERVICE_CONFIG,
+          useValue: { ttlMs: 15 * 60 * 1000 }
+        },
+        {
+          provide: MAGIC_LINK_TOKEN_REPO,
+          useClass: InMemoryMagicLinkTokenRepo
+        },
+        {
+          provide: MAGIC_LINK_EMAIL_SENDER,
+          useClass: LoggingMagicLinkEmailSender
+        },
+        MagicLinkService
+      ]
     })
     class TestAppModule {}
 
