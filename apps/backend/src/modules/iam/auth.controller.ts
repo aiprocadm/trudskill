@@ -26,11 +26,17 @@ import {
   type SetUserRolesDto,
   type UpdateUserDto
 } from './dto/login.dto.js';
+import { type MagicLinkRedeemDto, type MagicLinkRequestDto } from './dto/magic-link.dto.js';
 import { toSessionResponse } from './iam-response.mapper.js';
 import { RequirePermissions } from './permission.decorator.js';
 import { PermissionGuard } from './permission.guard.js';
 import { AuthService } from './services/auth.service.js';
 import { IamService } from './services/iam.service.js';
+import {
+  MAGIC_LINK_EMAIL_SENDER,
+  type MagicLinkEmailSender
+} from './services/magic-link-email-sender.js';
+import { MagicLinkInvalidError, MagicLinkService } from './services/magic-link.service.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
 
@@ -44,7 +50,11 @@ export class AuthController {
     @Inject(AuthService)
     private readonly authService: AuthService,
     @Inject(IamService)
-    private readonly iamService: IamService
+    private readonly iamService: IamService,
+    @Inject(MagicLinkService)
+    private readonly magicLinkService: MagicLinkService,
+    @Inject(MAGIC_LINK_EMAIL_SENDER)
+    private readonly magicLinkEmailSender: MagicLinkEmailSender
   ) {}
 
   @Post('auth/login')
@@ -66,6 +76,77 @@ export class AuthController {
     const tokens = await this.authService.login(context.tenantId!, loginPayload, context);
     authCookie.attachRefreshAndCsrfCookies(response, tokens.refreshToken, tokens.csrfToken);
     return authCookie.toPublicTokens(tokens);
+  }
+
+  @Post('auth/magic-link/request')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async requestMagicLink(
+    @CurrentContext() context: RequestContext,
+    @Body() payload: MagicLinkRequestDto
+  ): Promise<{ status: 'sent' }> {
+    if (!context.tenantId) {
+      throw new UnauthorizedException({ code: 'no_tenant', message: 'Tenant not resolved' });
+    }
+
+    const { rawToken } = await this.magicLinkService.requestLink({
+      tenantId: context.tenantId,
+      email: payload.email,
+      ip: context.ip,
+      userAgent: context.userAgent
+    });
+    await this.magicLinkEmailSender.sendMagicLink({ email: payload.email, rawToken });
+
+    return { status: 'sent' };
+  }
+
+  @Post('auth/magic-link/redeem')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async redeemMagicLink(
+    @CurrentContext() context: RequestContext,
+    @Body() payload: MagicLinkRedeemDto,
+    @Res({ passthrough: true }) response: Response
+  ) {
+    if (!context.tenantId) {
+      throw new UnauthorizedException({ code: 'no_tenant', message: 'Tenant not resolved' });
+    }
+
+    try {
+      const { email } = await this.magicLinkService.peekEmail({
+        tenantId: context.tenantId,
+        rawToken: payload.token
+      });
+
+      const { user, databaseBacked } = await this.iamService.findOrCreateByEmail(
+        context.tenantId,
+        email
+      );
+
+      await this.magicLinkService.redeemLink({
+        tenantId: context.tenantId,
+        rawToken: payload.token,
+        userId: user.id,
+        ip: context.ip,
+        userAgent: context.userAgent
+      });
+
+      const tokens = await this.authService.issueSessionForUser(user, context, {
+        authMethod: 'magic_link',
+        databaseBacked
+      });
+
+      authCookie.attachRefreshAndCsrfCookies(response, tokens.refreshToken, tokens.csrfToken);
+      return authCookie.toPublicTokens(tokens);
+    } catch (err) {
+      if (err instanceof MagicLinkInvalidError) {
+        throw new UnauthorizedException({
+          code: 'invalid_magic_link',
+          message: 'Magic link is invalid or expired'
+        });
+      }
+      throw err;
+    }
   }
 
   @Get('auth/csrf')
