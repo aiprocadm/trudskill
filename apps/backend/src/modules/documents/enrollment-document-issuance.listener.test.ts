@@ -275,4 +275,361 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       true
     );
   });
+
+  // === Plan A §5.3: multi-doc package from course_document_sets ===
+
+  it('issues every auto-issue entry from documentSet, sorted by position', async () => {
+    const audit = new AuditService();
+    const realtime = new RealtimeEventsService();
+    const persistence = new MemoryDocumentsPersistenceBackend();
+    const gateway = new TenantSerialGateway();
+    const runner = new DocumentsTenantRunner(persistence, gateway, audit, realtime);
+
+    let templateProtocolId = '';
+    let templateCertId = '';
+    await runner.runWithTenantDocuments('tenant_demo', async (documents) => {
+      const ctx = {
+        requestId: 'r_set_1',
+        correlationId: 'c_set_1',
+        ip: '127.0.0.1',
+        userAgent: 'vitest',
+        tenantId: 'tenant_demo',
+        userId: 'u1',
+        roles: [],
+        permissions: [],
+        method: 'POST',
+        path: '/api/v1/documents',
+        timestamp: new Date().toISOString()
+      };
+      const protocol = documents.createTemplate(
+        'tenant_demo',
+        'u1',
+        { name: 'Protocol', templateType: 'protocol' },
+        ctx
+      );
+      const protocolVersion = documents.createTemplateVersion('tenant_demo', 'u1', {
+        templateId: protocol.id,
+        fileId: 'file_proto'
+      });
+      documents.activateTemplateVersion('tenant_demo', protocolVersion.id);
+      templateProtocolId = protocol.id;
+
+      const cert = documents.createTemplate(
+        'tenant_demo',
+        'u1',
+        { name: 'Cert', templateType: 'certificate' },
+        ctx
+      );
+      const certVersion = documents.createTemplateVersion('tenant_demo', 'u1', {
+        templateId: cert.id,
+        fileId: 'file_cert_set'
+      });
+      documents.activateTemplateVersion('tenant_demo', certVersion.id);
+      templateCertId = cert.id;
+    });
+
+    const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
+    listener.handleEnrollmentCompleted({
+      tenantId: 'tenant_demo',
+      enrollmentId: 'enrollment_set_1',
+      learnerId: 'learner_set_1',
+      groupId: 'group_set_1',
+      groupCourseIds: ['course_set_1'],
+      actorId: 'u1',
+      requestId: 'req_set_1',
+      correlationId: 'corr_set_1',
+      documentSet: [
+        {
+          courseVersionId: 'cver_1',
+          templateId: templateCertId,
+          position: 1,
+          isRequired: true,
+          autoIssueOnCompletion: true
+        },
+        {
+          courseVersionId: 'cver_1',
+          templateId: templateProtocolId,
+          position: 0,
+          isRequired: true,
+          autoIssueOnCompletion: true
+        }
+      ]
+    });
+    await flushDeferred();
+
+    const state = new InMemoryDocumentsState();
+    await persistence.loadIntoState('tenant_demo', state);
+    const docs = new DocumentsService(state, audit, realtime);
+    const tasks = docs.listDocumentTasks('tenant_demo', {});
+    expect(tasks.total).toBe(2);
+    expect(tasks.items.map((t) => t.templateId)).toEqual(
+      expect.arrayContaining([templateProtocolId, templateCertId])
+    );
+
+    const logs = await audit.list('tenant_demo');
+    const issued = logs.find((x) => x.action === 'documents.enrollment_document_set_issued');
+    expect(issued).toBeDefined();
+    expect(issued?.newValues?.count).toBe(2);
+    expect(issued?.metadata?.correlation_id).toBe('corr_set_1');
+
+    expect(logs.some((x) => x.action === 'documents.enrollment_certificate_skipped')).toBe(false);
+  });
+
+  it('skips entries with autoIssueOnCompletion=false from documentSet', async () => {
+    const audit = new AuditService();
+    const realtime = new RealtimeEventsService();
+    const persistence = new MemoryDocumentsPersistenceBackend();
+    const gateway = new TenantSerialGateway();
+    const runner = new DocumentsTenantRunner(persistence, gateway, audit, realtime);
+
+    let templateAutoId = '';
+    let templateManualId = '';
+    await runner.runWithTenantDocuments('tenant_demo', async (documents) => {
+      const ctx = {
+        requestId: 'r_set_2',
+        correlationId: 'c_set_2',
+        ip: '127.0.0.1',
+        userAgent: 'vitest',
+        tenantId: 'tenant_demo',
+        userId: 'u1',
+        roles: [],
+        permissions: [],
+        method: 'POST',
+        path: '/api/v1/documents',
+        timestamp: new Date().toISOString()
+      };
+      const autoTpl = documents.createTemplate(
+        'tenant_demo',
+        'u1',
+        { name: 'AutoCert', templateType: 'certificate' },
+        ctx
+      );
+      const autoVersion = documents.createTemplateVersion('tenant_demo', 'u1', {
+        templateId: autoTpl.id,
+        fileId: 'file_auto'
+      });
+      documents.activateTemplateVersion('tenant_demo', autoVersion.id);
+      templateAutoId = autoTpl.id;
+
+      const manualTpl = documents.createTemplate(
+        'tenant_demo',
+        'u1',
+        { name: 'ManualCert', templateType: 'certificate' },
+        ctx
+      );
+      templateManualId = manualTpl.id;
+    });
+
+    const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
+    listener.handleEnrollmentCompleted({
+      tenantId: 'tenant_demo',
+      enrollmentId: 'enrollment_set_2',
+      learnerId: 'learner_set_2',
+      groupId: 'group_set_2',
+      groupCourseIds: [],
+      actorId: 'u1',
+      documentSet: [
+        {
+          courseVersionId: 'cver_2',
+          templateId: templateAutoId,
+          position: 0,
+          isRequired: true,
+          autoIssueOnCompletion: true
+        },
+        {
+          courseVersionId: 'cver_2',
+          templateId: templateManualId,
+          position: 1,
+          isRequired: false,
+          autoIssueOnCompletion: false
+        }
+      ]
+    });
+    await flushDeferred();
+
+    const state = new InMemoryDocumentsState();
+    await persistence.loadIntoState('tenant_demo', state);
+    const docs = new DocumentsService(state, audit, realtime);
+    const tasks = docs.listDocumentTasks('tenant_demo', {});
+    expect(tasks.total).toBe(1);
+    expect(tasks.items[0]?.templateId).toBe(templateAutoId);
+  });
+
+  it('is idempotent across multi-doc set (no duplicates on repeated event)', async () => {
+    const audit = new AuditService();
+    const realtime = new RealtimeEventsService();
+    const persistence = new MemoryDocumentsPersistenceBackend();
+    const gateway = new TenantSerialGateway();
+    const runner = new DocumentsTenantRunner(persistence, gateway, audit, realtime);
+
+    let templateAId = '';
+    let templateBId = '';
+    await runner.runWithTenantDocuments('tenant_demo', async (documents) => {
+      const ctx = {
+        requestId: 'r_set_3',
+        correlationId: 'c_set_3',
+        ip: '127.0.0.1',
+        userAgent: 'vitest',
+        tenantId: 'tenant_demo',
+        userId: 'u1',
+        roles: [],
+        permissions: [],
+        method: 'POST',
+        path: '/api/v1/documents',
+        timestamp: new Date().toISOString()
+      };
+      const a = documents.createTemplate(
+        'tenant_demo',
+        'u1',
+        { name: 'A', templateType: 'certificate' },
+        ctx
+      );
+      const aV = documents.createTemplateVersion('tenant_demo', 'u1', {
+        templateId: a.id,
+        fileId: 'file_a'
+      });
+      documents.activateTemplateVersion('tenant_demo', aV.id);
+      templateAId = a.id;
+
+      const b = documents.createTemplate(
+        'tenant_demo',
+        'u1',
+        { name: 'B', templateType: 'certificate' },
+        ctx
+      );
+      const bV = documents.createTemplateVersion('tenant_demo', 'u1', {
+        templateId: b.id,
+        fileId: 'file_b'
+      });
+      documents.activateTemplateVersion('tenant_demo', bV.id);
+      templateBId = b.id;
+    });
+
+    const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
+    const payload = {
+      tenantId: 'tenant_demo',
+      enrollmentId: 'enrollment_set_3',
+      learnerId: 'learner_set_3',
+      groupId: 'group_set_3',
+      groupCourseIds: [],
+      actorId: 'u1',
+      documentSet: [
+        {
+          courseVersionId: 'cver_3',
+          templateId: templateAId,
+          position: 0,
+          isRequired: true,
+          autoIssueOnCompletion: true
+        },
+        {
+          courseVersionId: 'cver_3',
+          templateId: templateBId,
+          position: 1,
+          isRequired: true,
+          autoIssueOnCompletion: true
+        }
+      ]
+    };
+    listener.handleEnrollmentCompleted(payload);
+    listener.handleEnrollmentCompleted(payload);
+    await flushDeferred();
+
+    const state = new InMemoryDocumentsState();
+    await persistence.loadIntoState('tenant_demo', state);
+    const docs = new DocumentsService(state, audit, realtime);
+    const tasks = docs.listDocumentTasks('tenant_demo', {});
+    expect(tasks.total).toBe(2);
+  });
+
+  it('writes document_set_failed audit when runner throws', async () => {
+    const audit = new AuditService();
+    const runner = {
+      runWithTenantDocuments: async () => {
+        throw new Error('tenant runner unavailable');
+      }
+    } as unknown as DocumentsTenantRunner;
+    const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
+
+    listener.handleEnrollmentCompleted({
+      tenantId: 'tenant_demo',
+      enrollmentId: 'enrollment_set_fail',
+      learnerId: 'learner_set_fail',
+      groupId: 'group_set_fail',
+      groupCourseIds: [],
+      actorId: 'u1',
+      documentSet: [
+        {
+          courseVersionId: 'cver_x',
+          templateId: 'tpl_x',
+          position: 0,
+          isRequired: true,
+          autoIssueOnCompletion: true
+        }
+      ]
+    });
+    await flushDeferred();
+
+    const logs = await audit.list('tenant_demo');
+    expect(logs.some((x) => x.action === 'documents.enrollment_document_set_failed')).toBe(true);
+    expect(logs.some((x) => x.action === 'documents.enrollment_certificate_failed')).toBe(false);
+  });
+
+  it('falls back to legacy single-cert flow when documentSet is empty', async () => {
+    const audit = new AuditService();
+    const realtime = new RealtimeEventsService();
+    const persistence = new MemoryDocumentsPersistenceBackend();
+    const gateway = new TenantSerialGateway();
+    const runner = new DocumentsTenantRunner(persistence, gateway, audit, realtime);
+
+    await runner.runWithTenantDocuments('tenant_demo', async (documents) => {
+      const ctx = {
+        requestId: 'r_fallback',
+        correlationId: 'c_fallback',
+        ip: '127.0.0.1',
+        userAgent: 'vitest',
+        tenantId: 'tenant_demo',
+        userId: 'u1',
+        roles: [],
+        permissions: [],
+        method: 'POST',
+        path: '/api/v1/documents',
+        timestamp: new Date().toISOString()
+      };
+      const tpl = documents.createTemplate(
+        'tenant_demo',
+        'u1',
+        { name: 'Legacy', templateType: 'certificate' },
+        ctx
+      );
+      const v = documents.createTemplateVersion('tenant_demo', 'u1', {
+        templateId: tpl.id,
+        fileId: 'file_legacy'
+      });
+      documents.activateTemplateVersion('tenant_demo', v.id);
+      documents.createTemplateBinding('tenant_demo', {
+        templateId: tpl.id,
+        bindType: 'group',
+        groupId: 'group_fallback',
+        priority: 100
+      });
+    });
+
+    const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
+    listener.handleEnrollmentCompleted({
+      tenantId: 'tenant_demo',
+      enrollmentId: 'enrollment_fallback',
+      learnerId: 'learner_fallback',
+      groupId: 'group_fallback',
+      groupCourseIds: ['course_fallback'],
+      actorId: 'u1',
+      documentSet: []
+    });
+    await flushDeferred();
+
+    const state = new InMemoryDocumentsState();
+    await persistence.loadIntoState('tenant_demo', state);
+    const docs = new DocumentsService(state, audit, realtime);
+    const tasks = docs.listDocumentTasks('tenant_demo', {});
+    expect(tasks.total).toBe(1);
+  });
 });

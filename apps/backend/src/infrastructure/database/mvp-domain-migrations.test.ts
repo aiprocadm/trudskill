@@ -311,3 +311,168 @@ describe('schema integrity constraints', () => {
     expect(fullSql).not.toMatch(/\bbytea\b/i);
   });
 });
+
+describe('Plan A — attestation commissions (migration 0029)', () => {
+  it('creates learning.commissions with unique code per tenant and status check', () => {
+    expectTableBody('learning.commissions', (body) => {
+      expect(body).toMatch(/code\s+text\s+NOT\s+NULL/i);
+      expect(body).toMatch(/name\s+text\s+NOT\s+NULL/i);
+      expect(body).toMatch(/description\s+text/i);
+      expect(body).toMatch(/status\s+text\s+NOT\s+NULL\s+DEFAULT\s+'active'/i);
+    });
+    expectSqlContains(
+      /CONSTRAINT\s+commissions_status_chk\s+CHECK\s*\(status\s+IN\s*\('active',\s*'archived'\)\)/i,
+      'missing commissions status check'
+    );
+    expectSqlContains(
+      /CONSTRAINT\s+commissions_tenant_code_uniq\s+UNIQUE\s*\(tenant_id,\s*code\)/i,
+      'missing commissions tenant_id+code uniqueness'
+    );
+    expectSqlContains(
+      /CONSTRAINT\s+commissions_tenant_id_uniq\s+UNIQUE\s*\(tenant_id,\s*id\)/i,
+      'missing commissions tenant_id+id uniqueness (required for composite FK from course_versions)'
+    );
+  });
+
+  it('creates learning.commission_members with role check and identity constraint', () => {
+    expectTableBody('learning.commission_members', (body) => {
+      expect(body).toMatch(/commission_id\s+text\s+NOT\s+NULL/i);
+      expect(body).toMatch(/role\s+text\s+NOT\s+NULL/i);
+      expect(body).toMatch(/user_id\s+text\s+REFERENCES\s+iam\.users\(id\)/i);
+      expect(body).toMatch(/external_full_name\s+text/i);
+      expect(body).toMatch(/external_position\s+text/i);
+      expect(body).toMatch(/signature_file_id\s+text\s+REFERENCES\s+storage\.files\(id\)/i);
+      expect(body).toMatch(/position_in_order\s+smallint\s+NOT\s+NULL/i);
+    });
+    expectSqlContains(
+      /CONSTRAINT\s+commission_members_role_chk\s+CHECK\s*\(role\s+IN\s*\('chairman',\s*'deputy_chairman',\s*'member',\s*'secretary',\s*'external_expert'\)\)/i,
+      'missing commission_members role check'
+    );
+    expectSqlContains(
+      /CONSTRAINT\s+commission_member_identity_chk\s+CHECK\s*\(user_id\s+IS\s+NOT\s+NULL\s+OR\s+external_full_name\s+IS\s+NOT\s+NULL\)/i,
+      'missing commission_member identity check (user_id OR external_full_name)'
+    );
+    expectSqlContains(
+      /CONSTRAINT\s+commission_members_commission_tenant_fk\s+FOREIGN\s+KEY\s*\(tenant_id,\s*commission_id\)\s+REFERENCES\s+learning\.commissions\s*\(tenant_id,\s*id\)\s+ON\s+DELETE\s+CASCADE/i,
+      'missing tenant-bound commission_members -> commissions fk with cascade delete'
+    );
+  });
+});
+
+describe('Plan A — program meta on course_versions (migration 0030)', () => {
+  it('adds 8 program meta columns to learning.course_versions', () => {
+    expectSqlContains(
+      /ALTER\s+TABLE\s+learning\.course_versions\s+ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+academic_hours\s+integer/i,
+      'missing academic_hours column'
+    );
+    expectSqlContains(
+      /ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+training_type\s+text/i,
+      'missing training_type column'
+    );
+    expectSqlContains(
+      /ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+learner_category\s+text/i,
+      'missing learner_category column'
+    );
+    expectSqlContains(
+      /ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+study_form\s+text/i,
+      'missing study_form column'
+    );
+    expectSqlContains(
+      /ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+final_assessment_form\s+text/i,
+      'missing final_assessment_form column'
+    );
+    expectSqlContains(
+      /ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+regulatory_basis_codes\s+text\[\]/i,
+      'missing regulatory_basis_codes column'
+    );
+    expectSqlContains(
+      /ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+program_attachment_file_id\s+text/i,
+      'missing program_attachment_file_id column'
+    );
+    expectSqlContains(
+      /ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+commission_id\s+text/i,
+      'missing commission_id column on course_versions'
+    );
+  });
+
+  it('enforces enum check constraints on program meta columns', () => {
+    expectSqlContains(
+      /CONSTRAINT\s+course_versions_training_type_chk\s+CHECK\s*\(training_type\s+IS\s+NULL\s+OR\s+training_type\s+IN\s*\('primary',\s*'repeat',\s*'target',\s*'extraordinary'\)\)/i,
+      'missing training_type check'
+    );
+    expectSqlContains(
+      /CONSTRAINT\s+course_versions_learner_category_chk\s+CHECK\s*\(learner_category\s+IS\s+NULL\s+OR\s+learner_category\s+IN\s*\('worker',\s*'specialist',\s*'manager',\s*'mixed'\)\)/i,
+      'missing learner_category check'
+    );
+    expectSqlContains(
+      /CONSTRAINT\s+course_versions_study_form_chk\s+CHECK\s*\(study_form\s+IS\s+NULL\s+OR\s+study_form\s+IN\s*\('in_person',\s*'distance',\s*'blended'\)\)/i,
+      'missing study_form check'
+    );
+    expectSqlContains(
+      /CONSTRAINT\s+course_versions_final_assessment_chk\s+CHECK\s*\(final_assessment_form\s+IS\s+NULL\s+OR\s+final_assessment_form\s+IN\s*\('test',\s*'exam',\s*'defense',\s*'interview'\)\)/i,
+      'missing final_assessment_form check'
+    );
+    expectSqlContains(
+      /CONSTRAINT\s+course_versions_academic_hours_chk\s+CHECK\s*\(academic_hours\s+IS\s+NULL\s+OR\s+academic_hours\s*>\s*0\)/i,
+      'missing academic_hours > 0 check'
+    );
+  });
+
+  it('binds course_versions.commission_id to commissions via composite FK', () => {
+    expectSqlContains(
+      /CONSTRAINT\s+course_versions_commission_tenant_fk\s+FOREIGN\s+KEY\s*\(tenant_id,\s*commission_id\)\s+REFERENCES\s+learning\.commissions\s*\(tenant_id,\s*id\)/i,
+      'missing tenant-bound course_versions -> commissions fk'
+    );
+  });
+
+  it('binds course_versions.program_attachment_file_id to storage.files via composite FK', () => {
+    expectSqlContains(
+      /CONSTRAINT\s+course_versions_program_attachment_file_fk\s+FOREIGN\s+KEY\s*\(tenant_id,\s*program_attachment_file_id\)\s+REFERENCES\s+storage\.files\s*\(tenant_id,\s*id\)/i,
+      'missing tenant-bound course_versions -> storage.files fk for program attachment'
+    );
+  });
+
+  it('creates lookup.regulatory_acts with 6 seeded rows', () => {
+    expectSqlContains(/CREATE\s+SCHEMA\s+IF\s+NOT\s+EXISTS\s+lookup/i, 'missing lookup schema');
+    expectSqlContains(
+      /CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+lookup\.regulatory_acts/i,
+      'missing lookup.regulatory_acts table'
+    );
+    for (const code of [
+      'PP_2464_2022',
+      'PRIKAZ_26N_2024',
+      'FZ_116_1997',
+      'PP_2168_2022',
+      'PRIKAZ_707N_2015',
+      'FZ_273_2012_ART_196'
+    ]) {
+      expectSqlContains(new RegExp(`'${code}'`), `missing regulatory_act seed for ${code}`);
+    }
+  });
+
+  it('creates learning.course_document_sets with composite FKs and position uniqueness', () => {
+    expectTableBody('learning.course_document_sets', (body) => {
+      expect(body).toMatch(/course_version_id\s+text\s+NOT\s+NULL/i);
+      expect(body).toMatch(/template_id\s+text\s+NOT\s+NULL/i);
+      expect(body).toMatch(/position\s+smallint\s+NOT\s+NULL/i);
+      expect(body).toMatch(/is_required\s+boolean\s+NOT\s+NULL\s+DEFAULT\s+true/i);
+      expect(body).toMatch(/auto_issue_on_completion\s+boolean\s+NOT\s+NULL\s+DEFAULT\s+true/i);
+    });
+    expectSqlContains(
+      /CONSTRAINT\s+course_doc_sets_course_tenant_fk\s+FOREIGN\s+KEY\s*\(tenant_id,\s*course_version_id\)\s+REFERENCES\s+learning\.course_versions\s*\(tenant_id,\s*id\)\s+ON\s+DELETE\s+CASCADE/i,
+      'missing course_doc_sets -> course_versions fk with cascade'
+    );
+    expectSqlContains(
+      /CONSTRAINT\s+course_doc_sets_template_tenant_fk\s+FOREIGN\s+KEY\s*\(tenant_id,\s*template_id\)\s+REFERENCES\s+documents\.templates\s*\(tenant_id,\s*id\)/i,
+      'missing course_doc_sets -> documents.templates fk'
+    );
+    expectSqlContains(
+      /CONSTRAINT\s+course_doc_sets_position_uniq\s+UNIQUE\s*\(tenant_id,\s*course_version_id,\s*position\)/i,
+      'missing course_doc_sets position uniqueness'
+    );
+    expectSqlContains(
+      /CONSTRAINT\s+course_doc_sets_position_chk\s+CHECK\s*\(position\s*>=\s*0\)/i,
+      'missing course_doc_sets position >= 0 check'
+    );
+  });
+});

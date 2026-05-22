@@ -7,8 +7,11 @@ import type {
   AssignmentSubmission,
   AttemptAnswer,
   BulkEnrollmentIdempotencyRecord,
+  Commission,
+  CommissionMember,
   Counterparty,
   Course,
+  CourseDocumentSetEntry,
   CourseModuleEntity,
   CourseProgress,
   CourseVersion,
@@ -58,4 +61,8 @@ export class InMemoryMvpState {
   assignmentReviews: AssignmentReview[] = [];
   /** Upserted записи идемпотентности массовых назначений (персистятся в MVP snapshot). */
   bulkEnrollmentIdempotency: BulkEnrollmentIdempotencyRecord[] = [];
+  // Pillar A — Plan A collections (§5.2, §5.3)
+  commissions: Commission[] = [];
+  commissionMembers: CommissionMember[] = [];
+  courseDocumentSets: CourseDocumentSetEntry[] = [];
 }

@@ -19,12 +19,14 @@ import { DocumentsService } from '../documents/documents.service.js';
 import { FilesService } from '../files/files.service.js';
 
 import type {
+  AddCommissionMemberRequest,
   BaseFilterQuery,
   CreateAnswerHttpRequest,
   CreateAssignmentRequest,
   CreateAssignmentReviewRequest,
   CreateAssignmentSubmissionRequest,
   CreateBulkEnrollmentsRequest,
+  CreateCommissionRequest,
   CreateCourseRequest,
   CreateEnrollmentRequest,
   CreateGroupCourseRequest,
@@ -35,6 +37,7 @@ import type {
   CreateSimpleRegistryRequest,
   CreateTestRequest,
   PatchTestRulesRequest,
+  PutCourseDocumentSetRequest,
   SaveAnswerRequest,
   SaveAttemptAnswerRequest,
   StartAttemptRequest,
@@ -42,12 +45,14 @@ import type {
   UpdateAssignmentRequest,
   UpdateAssignmentReviewRequest,
   UpdateAssignmentSubmissionRequest,
+  UpdateCommissionRequest,
   UpdateCourseRequest,
   UpdateEnrollmentStatusRequest,
   UpdateGroupCourseRequest,
   UpdateMaterialProgressRequest,
   UpdateMaterialRequest,
   UpdateModuleRequest,
+  UpdateProgramMetaRequest,
   UpdateQuestionBankRequest,
   UpdateQuestionRequest,
   UpdateSimpleRegistryRequest,
@@ -62,8 +67,12 @@ import type {
   BaseEntity,
   BulkEnrollmentItemError,
   BulkEnrollmentsOutcome,
+  Commission,
+  CommissionMember,
+  CommissionStatus,
   Counterparty,
   Course,
+  CourseDocumentSetEntry,
   CourseModuleEntity,
   CourseProgress,
   CourseVersion,
@@ -1103,9 +1112,21 @@ export class MvpService {
       context
     );
     if (request.status === 'completed') {
-      const courseIds = this.state.groupCourses
-        .filter((gc) => gc.tenantId === tenantId && gc.groupId === enrollment.groupId)
-        .map((gc) => gc.courseId);
+      const groupCourses = this.state.groupCourses.filter(
+        (gc) => gc.tenantId === tenantId && gc.groupId === enrollment.groupId
+      );
+      const courseIds = groupCourses.map((gc) => gc.courseId);
+      const documentSet = groupCourses
+        .filter((gc) => gc.courseVersionId)
+        .flatMap((gc) =>
+          this.getCourseDocumentSet(tenantId, gc.courseVersionId as string).map((entry) => ({
+            courseVersionId: gc.courseVersionId as string,
+            templateId: entry.templateId,
+            position: entry.position,
+            isRequired: entry.isRequired,
+            autoIssueOnCompletion: entry.autoIssueOnCompletion
+          }))
+        );
       this.events.emit(ENROLLMENT_COMPLETED_EVENT, {
         tenantId,
         enrollmentId: enrollment.id,
@@ -1114,7 +1135,8 @@ export class MvpService {
         groupCourseIds: courseIds,
         actorId,
         requestId: context.requestId,
-        correlationId: context.correlationId
+        correlationId: context.correlationId,
+        documentSet
       });
     }
     return enrollment;
@@ -3017,6 +3039,380 @@ export class MvpService {
         status: item.status
       }))
     };
+  }
+
+  // === Pillar A — Plan A (§5.2): commissions ===
+
+  listCommissions(tenantId: string, status?: CommissionStatus): Commission[] {
+    return this.state.commissions
+      .filter((c) => c.tenantId === tenantId && (!status || c.status === status))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  getCommission(tenantId: string, id: string): Commission {
+    return this.getById(this.state.commissions, tenantId, id);
+  }
+
+  createCommission(
+    tenantId: string,
+    actorId: string | undefined,
+    request: CreateCommissionRequest,
+    context: RequestContext
+  ): Commission {
+    const duplicate = this.state.commissions.find(
+      (c) => c.tenantId === tenantId && c.code === request.code
+    );
+    if (duplicate) {
+      throw new ConflictException({
+        code: 'commission_code_conflict',
+        message: `Commission with code ${request.code} already exists in tenant`
+      });
+    }
+    const entity: Commission = {
+      id: this.id('commission'),
+      tenantId,
+      code: request.code,
+      name: request.name,
+      description: request.description,
+      status: 'active',
+      createdAt: this.now(),
+      updatedAt: this.now()
+    };
+    this.state.commissions.push(entity);
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.commission_created',
+      'learning.commission',
+      entity.id,
+      undefined,
+      entity,
+      context
+    );
+    return entity;
+  }
+
+  updateCommission(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    request: UpdateCommissionRequest,
+    context: RequestContext
+  ): Commission {
+    const current = this.getById(this.state.commissions, tenantId, id);
+    const oldValues = { ...current };
+    if (request.name !== undefined) current.name = request.name;
+    if (request.description !== undefined) current.description = request.description;
+    current.updatedAt = this.now();
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.commission_updated',
+      'learning.commission',
+      current.id,
+      oldValues,
+      current,
+      context
+    );
+    return current;
+  }
+
+  archiveCommission(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    context: RequestContext
+  ): Commission {
+    const current = this.getById(this.state.commissions, tenantId, id);
+    if (current.status === 'archived') return current;
+    const oldValues = { ...current };
+    current.status = 'archived';
+    current.updatedAt = this.now();
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.commission_archived',
+      'learning.commission',
+      current.id,
+      oldValues,
+      current,
+      context
+    );
+    return current;
+  }
+
+  listCommissionMembers(tenantId: string, commissionId: string): CommissionMember[] {
+    return this.state.commissionMembers
+      .filter((m) => m.tenantId === tenantId && m.commissionId === commissionId)
+      .sort((a, b) => a.positionInOrder - b.positionInOrder);
+  }
+
+  addCommissionMember(
+    tenantId: string,
+    actorId: string | undefined,
+    commissionId: string,
+    request: AddCommissionMemberRequest,
+    context: RequestContext
+  ): CommissionMember {
+    const commission = this.getById(this.state.commissions, tenantId, commissionId);
+    if (commission.status === 'archived') {
+      throw new BadRequestException({
+        code: 'commission_archived',
+        message: 'Cannot add member to archived commission'
+      });
+    }
+    if (!request.userId && !request.externalFullName) {
+      throw new BadRequestException({
+        code: 'commission_member_identity_required',
+        message: 'Either userId or externalFullName is required'
+      });
+    }
+    const entity: CommissionMember = {
+      id: this.id('commission_member'),
+      tenantId,
+      commissionId,
+      role: request.role,
+      userId: request.userId,
+      externalFullName: request.externalFullName,
+      externalPosition: request.externalPosition,
+      signatureFileId: request.signatureFileId,
+      positionInOrder: request.positionInOrder,
+      createdAt: this.now(),
+      updatedAt: this.now()
+    };
+    this.state.commissionMembers.push(entity);
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.commission_member_added',
+      'learning.commission_member',
+      entity.id,
+      undefined,
+      entity,
+      context
+    );
+    return entity;
+  }
+
+  removeCommissionMember(
+    tenantId: string,
+    actorId: string | undefined,
+    commissionId: string,
+    memberId: string,
+    context: RequestContext
+  ): void {
+    this.getById(this.state.commissions, tenantId, commissionId);
+    const idx = this.state.commissionMembers.findIndex(
+      (m) => m.id === memberId && m.tenantId === tenantId && m.commissionId === commissionId
+    );
+    if (idx === -1) {
+      throw new NotFoundException({
+        code: 'not_found',
+        message: 'Commission member not found'
+      });
+    }
+    const [removed] = this.state.commissionMembers.splice(idx, 1);
+    if (!removed) return;
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.commission_member_removed',
+      'learning.commission_member',
+      removed.id,
+      removed,
+      undefined,
+      context
+    );
+  }
+
+  // === Pillar A — Plan A (§5.1): program meta + publish course version ===
+
+  updateProgramMeta(
+    tenantId: string,
+    actorId: string | undefined,
+    courseVersionId: string,
+    request: UpdateProgramMetaRequest,
+    context: RequestContext
+  ): CourseVersion {
+    const cv = this.getById(this.state.courseVersions, tenantId, courseVersionId);
+    if (cv.status !== 'draft') {
+      throw new BadRequestException({
+        code: 'course_version_not_editable',
+        message: 'Cannot edit program meta of a non-draft course version'
+      });
+    }
+    if (request.commissionId !== undefined) {
+      const commission = this.state.commissions.find(
+        (c) => c.tenantId === tenantId && c.id === request.commissionId
+      );
+      if (!commission) {
+        throw new BadRequestException({
+          code: 'commission_not_found',
+          message: `Commission ${request.commissionId} not found`
+        });
+      }
+      if (commission.status === 'archived') {
+        throw new BadRequestException({
+          code: 'commission_archived',
+          message: 'Cannot attach archived commission'
+        });
+      }
+    }
+
+    const oldValues = { ...cv };
+    if (request.academicHours !== undefined) cv.academicHours = request.academicHours;
+    if (request.trainingType !== undefined) cv.trainingType = request.trainingType;
+    if (request.learnerCategory !== undefined) cv.learnerCategory = request.learnerCategory;
+    if (request.studyForm !== undefined) cv.studyForm = request.studyForm;
+    if (request.finalAssessmentForm !== undefined) {
+      cv.finalAssessmentForm = request.finalAssessmentForm;
+    }
+    if (request.regulatoryBasisCodes !== undefined) {
+      cv.regulatoryBasisCodes = request.regulatoryBasisCodes;
+    }
+    if (request.programAttachmentFileId !== undefined) {
+      cv.programAttachmentFileId = request.programAttachmentFileId;
+    }
+    if (request.commissionId !== undefined) cv.commissionId = request.commissionId;
+    cv.updatedAt = this.now();
+
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.course_version_program_meta_updated',
+      'learning.course_version',
+      cv.id,
+      oldValues,
+      cv,
+      context
+    );
+    return cv;
+  }
+
+  // === Pillar A — Plan A (§5.3): course document sets ===
+
+  getCourseDocumentSet(tenantId: string, courseVersionId: string): CourseDocumentSetEntry[] {
+    return this.state.courseDocumentSets
+      .filter((e) => e.tenantId === tenantId && e.courseVersionId === courseVersionId)
+      .sort((a, b) => a.position - b.position);
+  }
+
+  setCourseDocumentSet(
+    tenantId: string,
+    actorId: string | undefined,
+    courseVersionId: string,
+    request: PutCourseDocumentSetRequest,
+    context: RequestContext
+  ): CourseDocumentSetEntry[] {
+    this.getById(this.state.courseVersions, tenantId, courseVersionId);
+
+    const positions = request.entries.map((e) => e.position).sort((a, b) => a - b);
+    for (let i = 0; i < positions.length; i++) {
+      if (positions[i] !== i) {
+        throw new BadRequestException({
+          code: 'course_document_set_positions_invalid',
+          message: `Positions must be sequential 0..N-1, got [${positions.join(',')}]`
+        });
+      }
+    }
+
+    for (const entry of request.entries) {
+      try {
+        this.documentsService.getTemplate(tenantId, entry.templateId);
+      } catch {
+        throw new BadRequestException({
+          code: 'template_not_found',
+          message: `Template ${entry.templateId} not found in tenant`
+        });
+      }
+    }
+
+    const oldEntries = this.getCourseDocumentSet(tenantId, courseVersionId);
+    this.state.courseDocumentSets = this.state.courseDocumentSets.filter(
+      (e) => !(e.tenantId === tenantId && e.courseVersionId === courseVersionId)
+    );
+
+    const created: CourseDocumentSetEntry[] = [];
+    for (const e of request.entries) {
+      const entity: CourseDocumentSetEntry = {
+        id: this.id('course_doc_set'),
+        tenantId,
+        courseVersionId,
+        templateId: e.templateId,
+        position: e.position,
+        isRequired: e.isRequired,
+        autoIssueOnCompletion: e.autoIssueOnCompletion,
+        createdAt: this.now(),
+        updatedAt: this.now()
+      };
+      this.state.courseDocumentSets.push(entity);
+      created.push(entity);
+    }
+
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.course_document_set_updated',
+      'learning.course_version',
+      courseVersionId,
+      { entries: oldEntries.length },
+      { entries: created.length },
+      context
+    );
+
+    return created.sort((a, b) => a.position - b.position);
+  }
+
+  publishCourseVersion(
+    tenantId: string,
+    actorId: string | undefined,
+    courseVersionId: string,
+    context: RequestContext
+  ): CourseVersion {
+    const cv = this.getById(this.state.courseVersions, tenantId, courseVersionId);
+    if (cv.status === 'published') return cv;
+
+    const missing: string[] = [];
+    if (cv.academicHours == null) missing.push('academicHours');
+    if (!cv.trainingType) missing.push('trainingType');
+    if (!cv.learnerCategory) missing.push('learnerCategory');
+    if (!cv.studyForm) missing.push('studyForm');
+    if (!cv.finalAssessmentForm) missing.push('finalAssessmentForm');
+    if (!cv.regulatoryBasisCodes || cv.regulatoryBasisCodes.length === 0) {
+      missing.push('regulatoryBasisCodes');
+    }
+    if (!cv.commissionId) missing.push('commissionId');
+    if (missing.length > 0) {
+      throw new BadRequestException({
+        code: 'program_meta_incomplete',
+        message: `Cannot publish: missing required fields ${missing.join(', ')}`
+      });
+    }
+
+    const commission = this.state.commissions.find(
+      (c) => c.tenantId === tenantId && c.id === cv.commissionId
+    );
+    if (!commission || commission.status !== 'active') {
+      throw new BadRequestException({
+        code: 'commission_not_active',
+        message: 'Attached commission is not active'
+      });
+    }
+
+    const oldValues = { ...cv };
+    cv.status = 'published';
+    cv.updatedAt = this.now();
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.course_version_published',
+      'learning.course_version',
+      cv.id,
+      oldValues,
+      cv,
+      context
+    );
+    return cv;
   }
 
   private getById<T extends BaseEntity>(source: T[], tenantId: string, id: string): T {

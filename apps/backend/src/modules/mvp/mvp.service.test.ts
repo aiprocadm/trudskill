@@ -1633,3 +1633,764 @@ describe('mvp service domain rules', () => {
     );
   });
 });
+
+// === Pillar A — Plan A (§5.1, §5.2, §5.3) ===
+
+function makeService(): MvpService {
+  return new MvpService(
+    new InMemoryMvpState(),
+    new TenantScopedRepository(),
+    new AuditService(),
+    noopDocumentsService,
+    noopFilesService,
+    new EventEmitter2()
+  );
+}
+
+describe('MvpService — commissions (Plan A §5.2)', () => {
+  describe('createCommission', () => {
+    it('creates active commission with provided code and name', () => {
+      const service = makeService();
+      const commission = service.createCommission(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'OT_2026', name: 'Аттестационная комиссия ОТ 2026', description: 'desc' },
+        ctx
+      );
+      expect(commission.code).toBe('OT_2026');
+      expect(commission.name).toBe('Аттестационная комиссия ОТ 2026');
+      expect(commission.description).toBe('desc');
+      expect(commission.status).toBe('active');
+      expect(commission.tenantId).toBe('tenant_demo');
+      expect(commission.id).toMatch(/^commission_/);
+    });
+
+    it('throws ConflictException on duplicate code within tenant', () => {
+      const service = makeService();
+      service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'First' }, ctx);
+      expect(() =>
+        service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'Duplicate' }, ctx)
+      ).toThrow(ConflictException);
+    });
+
+    it('allows same code in different tenants', () => {
+      const service = makeService();
+      service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'T1' }, ctx);
+      const t2 = service.createCommission(
+        'tenant_other',
+        ctx.userId,
+        { code: 'C1', name: 'T2' },
+        ctx
+      );
+      expect(t2.tenantId).toBe('tenant_other');
+    });
+  });
+
+  describe('archiveCommission', () => {
+    it('archives an active commission', () => {
+      const service = makeService();
+      const c = service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'C' }, ctx);
+      const archived = service.archiveCommission('tenant_demo', ctx.userId, c.id, ctx);
+      expect(archived.status).toBe('archived');
+    });
+
+    it('is idempotent — re-archiving stays archived without error', () => {
+      const service = makeService();
+      const c = service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'C' }, ctx);
+      service.archiveCommission('tenant_demo', ctx.userId, c.id, ctx);
+      const again = service.archiveCommission('tenant_demo', ctx.userId, c.id, ctx);
+      expect(again.status).toBe('archived');
+    });
+
+    it('rejects archive of foreign-tenant commission with NotFoundException', () => {
+      const service = makeService();
+      const c = service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'C' }, ctx);
+      expect(() => service.archiveCommission('tenant_other', ctx.userId, c.id, ctx)).toThrow(
+        NotFoundException
+      );
+    });
+  });
+
+  describe('updateCommission', () => {
+    it('updates name and description, preserves code', () => {
+      const service = makeService();
+      const c = service.createCommission(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'C1', name: 'Old' },
+        ctx
+      );
+      const updated = service.updateCommission(
+        'tenant_demo',
+        ctx.userId,
+        c.id,
+        { name: 'New', description: 'd2' },
+        ctx
+      );
+      expect(updated.name).toBe('New');
+      expect(updated.description).toBe('d2');
+      expect(updated.code).toBe('C1');
+    });
+  });
+
+  describe('addCommissionMember', () => {
+    it('adds chairman as internal user', () => {
+      const service = makeService();
+      const c = service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'C' }, ctx);
+      const m = service.addCommissionMember(
+        'tenant_demo',
+        ctx.userId,
+        c.id,
+        { role: 'chairman', userId: 'u_chair', positionInOrder: 0 },
+        ctx
+      );
+      expect(m.role).toBe('chairman');
+      expect(m.userId).toBe('u_chair');
+      expect(m.externalFullName).toBeUndefined();
+      expect(m.positionInOrder).toBe(0);
+    });
+
+    it('adds external_expert without userId', () => {
+      const service = makeService();
+      const c = service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'C' }, ctx);
+      const m = service.addCommissionMember(
+        'tenant_demo',
+        ctx.userId,
+        c.id,
+        {
+          role: 'external_expert',
+          externalFullName: 'Иванов И.И.',
+          externalPosition: 'Эксперт',
+          positionInOrder: 1
+        },
+        ctx
+      );
+      expect(m.externalFullName).toBe('Иванов И.И.');
+      expect(m.userId).toBeUndefined();
+    });
+
+    it('rejects when neither userId nor externalFullName provided (BadRequestException)', () => {
+      const service = makeService();
+      const c = service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'C' }, ctx);
+      expect(() =>
+        service.addCommissionMember(
+          'tenant_demo',
+          ctx.userId,
+          c.id,
+          { role: 'member', positionInOrder: 0 },
+          ctx
+        )
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects adding member to archived commission', () => {
+      const service = makeService();
+      const c = service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'C' }, ctx);
+      service.archiveCommission('tenant_demo', ctx.userId, c.id, ctx);
+      expect(() =>
+        service.addCommissionMember(
+          'tenant_demo',
+          ctx.userId,
+          c.id,
+          { role: 'member', userId: 'u_1', positionInOrder: 0 },
+          ctx
+        )
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects adding member to non-existent commission', () => {
+      const service = makeService();
+      expect(() =>
+        service.addCommissionMember(
+          'tenant_demo',
+          ctx.userId,
+          'commission_nonexistent',
+          { role: 'member', userId: 'u_1', positionInOrder: 0 },
+          ctx
+        )
+      ).toThrow(NotFoundException);
+    });
+  });
+
+  describe('removeCommissionMember', () => {
+    it('removes member by id', () => {
+      const service = makeService();
+      const c = service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'C' }, ctx);
+      const m = service.addCommissionMember(
+        'tenant_demo',
+        ctx.userId,
+        c.id,
+        { role: 'member', userId: 'u_1', positionInOrder: 0 },
+        ctx
+      );
+      service.removeCommissionMember('tenant_demo', ctx.userId, c.id, m.id, ctx);
+      expect(service.listCommissionMembers('tenant_demo', c.id)).toHaveLength(0);
+    });
+
+    it('throws NotFoundException for unknown member id', () => {
+      const service = makeService();
+      const c = service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'C' }, ctx);
+      expect(() =>
+        service.removeCommissionMember('tenant_demo', ctx.userId, c.id, 'member_nope', ctx)
+      ).toThrow(NotFoundException);
+    });
+  });
+
+  describe('listCommissions and getCommission', () => {
+    it('filters by status when provided', () => {
+      const service = makeService();
+      const a = service.createCommission('tenant_demo', ctx.userId, { code: 'A', name: 'A' }, ctx);
+      const b = service.createCommission('tenant_demo', ctx.userId, { code: 'B', name: 'B' }, ctx);
+      service.archiveCommission('tenant_demo', ctx.userId, b.id, ctx);
+      const active = service.listCommissions('tenant_demo', 'active');
+      const archived = service.listCommissions('tenant_demo', 'archived');
+      expect(active.map((c) => c.id)).toEqual([a.id]);
+      expect(archived.map((c) => c.id)).toEqual([b.id]);
+    });
+
+    it('lists all when status filter omitted', () => {
+      const service = makeService();
+      service.createCommission('tenant_demo', ctx.userId, { code: 'A', name: 'A' }, ctx);
+      const b = service.createCommission('tenant_demo', ctx.userId, { code: 'B', name: 'B' }, ctx);
+      service.archiveCommission('tenant_demo', ctx.userId, b.id, ctx);
+      expect(service.listCommissions('tenant_demo')).toHaveLength(2);
+    });
+
+    it('does not return commissions from other tenants', () => {
+      const service = makeService();
+      service.createCommission('tenant_demo', ctx.userId, { code: 'A', name: 'A' }, ctx);
+      service.createCommission('tenant_other', ctx.userId, { code: 'A', name: 'A2' }, ctx);
+      const items = service.listCommissions('tenant_demo');
+      expect(items).toHaveLength(1);
+      expect(items[0].tenantId).toBe('tenant_demo');
+    });
+
+    it('listCommissionMembers returns members sorted by positionInOrder', () => {
+      const service = makeService();
+      const c = service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'C' }, ctx);
+      service.addCommissionMember(
+        'tenant_demo',
+        ctx.userId,
+        c.id,
+        { role: 'member', userId: 'u_2', positionInOrder: 2 },
+        ctx
+      );
+      service.addCommissionMember(
+        'tenant_demo',
+        ctx.userId,
+        c.id,
+        { role: 'chairman', userId: 'u_0', positionInOrder: 0 },
+        ctx
+      );
+      service.addCommissionMember(
+        'tenant_demo',
+        ctx.userId,
+        c.id,
+        { role: 'secretary', userId: 'u_1', positionInOrder: 1 },
+        ctx
+      );
+      const members = service.listCommissionMembers('tenant_demo', c.id);
+      expect(members.map((m) => m.role)).toEqual(['chairman', 'secretary', 'member']);
+    });
+  });
+});
+
+describe('MvpService — program meta and publish (Plan A §5.1)', () => {
+  function seedCourseVersionAndCommission(service: MvpService) {
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'C1', title: 'Курс' },
+      ctx
+    );
+    const cv = service.createCourseVersion('tenant_demo', course.id);
+    const commission = service.createCommission(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'CM1', name: 'C' },
+      ctx
+    );
+    return { courseId: course.id, courseVersionId: cv.id, commissionId: commission.id };
+  }
+
+  const completeMeta = (commissionId: string) => ({
+    academicHours: 40,
+    trainingType: 'primary' as const,
+    learnerCategory: 'worker' as const,
+    studyForm: 'distance' as const,
+    finalAssessmentForm: 'test' as const,
+    regulatoryBasisCodes: ['PP_2464_2022'],
+    commissionId
+  });
+
+  describe('updateProgramMeta', () => {
+    it('sets program meta fields on a draft course version', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+
+      const updated = service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+
+      expect(updated.academicHours).toBe(40);
+      expect(updated.trainingType).toBe('primary');
+      expect(updated.commissionId).toBe(commissionId);
+      expect(updated.regulatoryBasisCodes).toEqual(['PP_2464_2022']);
+    });
+
+    it('rejects update on a published version', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+      service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx);
+
+      expect(() =>
+        service.updateProgramMeta(
+          'tenant_demo',
+          ctx.userId,
+          courseVersionId,
+          { academicHours: 32 },
+          ctx
+        )
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects unknown commissionId', () => {
+      const service = makeService();
+      const { courseVersionId } = seedCourseVersionAndCommission(service);
+      expect(() =>
+        service.updateProgramMeta(
+          'tenant_demo',
+          ctx.userId,
+          courseVersionId,
+          { commissionId: 'commission_nope' },
+          ctx
+        )
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects archived commission', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.archiveCommission('tenant_demo', ctx.userId, commissionId, ctx);
+      expect(() =>
+        service.updateProgramMeta('tenant_demo', ctx.userId, courseVersionId, { commissionId }, ctx)
+      ).toThrow(BadRequestException);
+    });
+
+    it('preserves existing fields when patch omits them', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        { academicHours: 16, trainingType: 'primary' },
+        ctx
+      );
+      const updated = service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        { commissionId },
+        ctx
+      );
+      expect(updated.academicHours).toBe(16);
+      expect(updated.trainingType).toBe('primary');
+      expect(updated.commissionId).toBe(commissionId);
+    });
+  });
+
+  describe('publishCourseVersion', () => {
+    it('publishes when all required meta set and commission active', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+      const published = service.publishCourseVersion(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        ctx
+      );
+      expect(published.status).toBe('published');
+    });
+
+    it('returns same entity when already published (idempotent)', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+      service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx);
+      const again = service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx);
+      expect(again.status).toBe('published');
+    });
+
+    it('rejects publish without academic_hours', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      const { academicHours: _omit, ...withoutHours } = completeMeta(commissionId);
+      void _omit;
+      service.updateProgramMeta('tenant_demo', ctx.userId, courseVersionId, withoutHours, ctx);
+      expect(() =>
+        service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx)
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects publish without training_type', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      const { trainingType: _omit, ...withoutType } = completeMeta(commissionId);
+      void _omit;
+      service.updateProgramMeta('tenant_demo', ctx.userId, courseVersionId, withoutType, ctx);
+      expect(() =>
+        service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx)
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects publish without regulatory_basis', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        { ...completeMeta(commissionId), regulatoryBasisCodes: [] },
+        ctx
+      );
+      expect(() =>
+        service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx)
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects publish without commission attached', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      const { commissionId: _omit, ...withoutCommission } = completeMeta(commissionId);
+      void _omit;
+      service.updateProgramMeta('tenant_demo', ctx.userId, courseVersionId, withoutCommission, ctx);
+      expect(() =>
+        service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx)
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects publish when attached commission was archived after attach', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+      service.archiveCommission('tenant_demo', ctx.userId, commissionId, ctx);
+      expect(() =>
+        service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx)
+      ).toThrow(BadRequestException);
+    });
+
+    it('throws NotFoundException for unknown courseVersionId', () => {
+      const service = makeService();
+      expect(() =>
+        service.publishCourseVersion('tenant_demo', ctx.userId, 'cver_nope', ctx)
+      ).toThrow(NotFoundException);
+    });
+  });
+});
+
+describe('MvpService — course document sets (Plan A §5.3)', () => {
+  function makeServiceWithTemplates(
+    templates: Array<{ id: string; tenantId: string; name?: string; templateType?: string }>
+  ): MvpService {
+    const docs = {
+      listDocuments: () => ({ items: [], page: 1, pageSize: 50, total: 0 }),
+      getTemplate: (tenantId: string, id: string) => {
+        const t = templates.find((x) => x.tenantId === tenantId && x.id === id);
+        if (!t) throw new NotFoundException(`Template ${id} not found`);
+        return t;
+      }
+    } as unknown as DocumentsService;
+    return new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      docs,
+      noopFilesService,
+      new EventEmitter2()
+    );
+  }
+
+  function seed(service: MvpService): { courseVersionId: string } {
+    const course = service.createCourse('tenant_demo', ctx.userId, { code: 'C1', title: 'C' }, ctx);
+    const cv = service.createCourseVersion('tenant_demo', course.id);
+    return { courseVersionId: cv.id };
+  }
+
+  it('creates entries with sequential positions 0..N-1', () => {
+    const service = makeServiceWithTemplates([
+      { id: 'tpl_protocol', tenantId: 'tenant_demo' },
+      { id: 'tpl_cert', tenantId: 'tenant_demo' }
+    ]);
+    const { courseVersionId } = seed(service);
+
+    const result = service.setCourseDocumentSet(
+      'tenant_demo',
+      ctx.userId,
+      courseVersionId,
+      {
+        entries: [
+          {
+            templateId: 'tpl_protocol',
+            position: 0,
+            isRequired: true,
+            autoIssueOnCompletion: true
+          },
+          { templateId: 'tpl_cert', position: 1, isRequired: true, autoIssueOnCompletion: true }
+        ]
+      },
+      ctx
+    );
+
+    expect(result).toHaveLength(2);
+    expect(result.map((e) => e.templateId)).toEqual(['tpl_protocol', 'tpl_cert']);
+    expect(result.map((e) => e.position)).toEqual([0, 1]);
+  });
+
+  it('replaces existing set on second call (PUT semantics)', () => {
+    const service = makeServiceWithTemplates([
+      { id: 'tpl_a', tenantId: 'tenant_demo' },
+      { id: 'tpl_b', tenantId: 'tenant_demo' }
+    ]);
+    const { courseVersionId } = seed(service);
+
+    service.setCourseDocumentSet(
+      'tenant_demo',
+      ctx.userId,
+      courseVersionId,
+      {
+        entries: [
+          { templateId: 'tpl_a', position: 0, isRequired: true, autoIssueOnCompletion: true }
+        ]
+      },
+      ctx
+    );
+    service.setCourseDocumentSet(
+      'tenant_demo',
+      ctx.userId,
+      courseVersionId,
+      {
+        entries: [
+          { templateId: 'tpl_b', position: 0, isRequired: true, autoIssueOnCompletion: true }
+        ]
+      },
+      ctx
+    );
+
+    const set = service.getCourseDocumentSet('tenant_demo', courseVersionId);
+    expect(set).toHaveLength(1);
+    expect(set[0].templateId).toBe('tpl_b');
+  });
+
+  it('allows clearing the set by passing empty entries', () => {
+    const service = makeServiceWithTemplates([{ id: 'tpl_a', tenantId: 'tenant_demo' }]);
+    const { courseVersionId } = seed(service);
+
+    service.setCourseDocumentSet(
+      'tenant_demo',
+      ctx.userId,
+      courseVersionId,
+      {
+        entries: [
+          { templateId: 'tpl_a', position: 0, isRequired: true, autoIssueOnCompletion: true }
+        ]
+      },
+      ctx
+    );
+    service.setCourseDocumentSet('tenant_demo', ctx.userId, courseVersionId, { entries: [] }, ctx);
+
+    expect(service.getCourseDocumentSet('tenant_demo', courseVersionId)).toHaveLength(0);
+  });
+
+  it('rejects non-sequential positions (gap 0, 2)', () => {
+    const service = makeServiceWithTemplates([
+      { id: 'tpl_a', tenantId: 'tenant_demo' },
+      { id: 'tpl_b', tenantId: 'tenant_demo' }
+    ]);
+    const { courseVersionId } = seed(service);
+
+    expect(() =>
+      service.setCourseDocumentSet(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        {
+          entries: [
+            { templateId: 'tpl_a', position: 0, isRequired: true, autoIssueOnCompletion: true },
+            { templateId: 'tpl_b', position: 2, isRequired: true, autoIssueOnCompletion: true }
+          ]
+        },
+        ctx
+      )
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects duplicate positions', () => {
+    const service = makeServiceWithTemplates([
+      { id: 'tpl_a', tenantId: 'tenant_demo' },
+      { id: 'tpl_b', tenantId: 'tenant_demo' }
+    ]);
+    const { courseVersionId } = seed(service);
+
+    expect(() =>
+      service.setCourseDocumentSet(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        {
+          entries: [
+            { templateId: 'tpl_a', position: 0, isRequired: true, autoIssueOnCompletion: true },
+            { templateId: 'tpl_b', position: 0, isRequired: false, autoIssueOnCompletion: false }
+          ]
+        },
+        ctx
+      )
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects unknown templateId', () => {
+    const service = makeServiceWithTemplates([]);
+    const { courseVersionId } = seed(service);
+
+    expect(() =>
+      service.setCourseDocumentSet(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        {
+          entries: [
+            {
+              templateId: 'tpl_nope',
+              position: 0,
+              isRequired: true,
+              autoIssueOnCompletion: true
+            }
+          ]
+        },
+        ctx
+      )
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects unknown courseVersionId', () => {
+    const service = makeServiceWithTemplates([{ id: 'tpl_a', tenantId: 'tenant_demo' }]);
+    expect(() =>
+      service.setCourseDocumentSet(
+        'tenant_demo',
+        ctx.userId,
+        'cver_nope',
+        {
+          entries: [
+            { templateId: 'tpl_a', position: 0, isRequired: true, autoIssueOnCompletion: true }
+          ]
+        },
+        ctx
+      )
+    ).toThrow(NotFoundException);
+  });
+
+  it('rejects template from another tenant', () => {
+    const service = makeServiceWithTemplates([{ id: 'tpl_other', tenantId: 'tenant_other' }]);
+    const { courseVersionId } = seed(service);
+    expect(() =>
+      service.setCourseDocumentSet(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        {
+          entries: [
+            {
+              templateId: 'tpl_other',
+              position: 0,
+              isRequired: true,
+              autoIssueOnCompletion: true
+            }
+          ]
+        },
+        ctx
+      )
+    ).toThrow(BadRequestException);
+  });
+
+  it('getCourseDocumentSet returns entries sorted by position', () => {
+    const service = makeServiceWithTemplates([
+      { id: 'tpl_a', tenantId: 'tenant_demo' },
+      { id: 'tpl_b', tenantId: 'tenant_demo' },
+      { id: 'tpl_c', tenantId: 'tenant_demo' }
+    ]);
+    const { courseVersionId } = seed(service);
+
+    service.setCourseDocumentSet(
+      'tenant_demo',
+      ctx.userId,
+      courseVersionId,
+      {
+        entries: [
+          { templateId: 'tpl_c', position: 2, isRequired: true, autoIssueOnCompletion: true },
+          { templateId: 'tpl_a', position: 0, isRequired: true, autoIssueOnCompletion: true },
+          { templateId: 'tpl_b', position: 1, isRequired: true, autoIssueOnCompletion: true }
+        ]
+      },
+      ctx
+    );
+
+    const set = service.getCourseDocumentSet('tenant_demo', courseVersionId);
+    expect(set.map((e) => e.templateId)).toEqual(['tpl_a', 'tpl_b', 'tpl_c']);
+  });
+
+  it('does not leak entries across tenants', () => {
+    const service = makeServiceWithTemplates([
+      { id: 'tpl_a', tenantId: 'tenant_demo' },
+      { id: 'tpl_b', tenantId: 'tenant_other' }
+    ]);
+    const c1 = service.createCourse('tenant_demo', ctx.userId, { code: 'C1', title: 'C' }, ctx);
+    const cv1 = service.createCourseVersion('tenant_demo', c1.id);
+    const c2 = service.createCourse('tenant_other', ctx.userId, { code: 'C2', title: 'C' }, ctx);
+    const cv2 = service.createCourseVersion('tenant_other', c2.id);
+
+    service.setCourseDocumentSet(
+      'tenant_demo',
+      ctx.userId,
+      cv1.id,
+      {
+        entries: [
+          { templateId: 'tpl_a', position: 0, isRequired: true, autoIssueOnCompletion: true }
+        ]
+      },
+      ctx
+    );
+
+    expect(service.getCourseDocumentSet('tenant_other', cv2.id)).toHaveLength(0);
+    expect(service.getCourseDocumentSet('tenant_demo', cv1.id)).toHaveLength(1);
+  });
+});

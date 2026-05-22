@@ -1,0 +1,212 @@
+/**
+ * Resolver для категорий переменных `program.*` и `commission.*` (Plan A §5.5).
+ *
+ * Контракт: pure-function. Caller (background worker / task processor) собирает
+ * данные из MVP state (`course_versions`, `commissions`, `commission_members`,
+ * `lookup.regulatory_acts`) и передаёт сюда снимки. Resolver возвращает плоский
+ * словарь `{ 'program.academic_hours': 40, 'program.training_type_label': '...' }`.
+ *
+ * Почему pure functions, а не methods на DocumentsService с MvpAdapter port:
+ * - codebase pattern: `resolveTemplateVariables` тоже не лезет в чужие state'ы,
+ *   payload passed in.
+ * - избегаем module-level циклической зависимости documents ↔ mvp.
+ * - легко тестируется без DI.
+ */
+import type {
+  Commission,
+  CommissionMember,
+  CourseVersion,
+  RegulatoryAct
+} from '../mvp/mvp.types.js';
+
+/** Русские лейблы для регулируемых enum'ов (Plan A §5.1). */
+export const TRAINING_TYPE_LABELS = {
+  primary: 'Первичное обучение',
+  repeat: 'Повторное обучение',
+  target: 'Целевое обучение',
+  extraordinary: 'Внеочередное обучение'
+} as const;
+
+export const LEARNER_CATEGORY_LABELS = {
+  worker: 'Рабочие',
+  specialist: 'Специалисты',
+  manager: 'Руководители',
+  mixed: 'Смешанная категория'
+} as const;
+
+export const STUDY_FORM_LABELS = {
+  in_person: 'Очная',
+  distance: 'Дистанционная',
+  blended: 'Смешанная'
+} as const;
+
+export const FINAL_ASSESSMENT_FORM_LABELS = {
+  test: 'Тестирование',
+  exam: 'Экзамен',
+  defense: 'Защита проекта',
+  interview: 'Собеседование'
+} as const;
+
+export interface ProgramVariableContext {
+  courseVersion: CourseVersion;
+  regulatoryActs: RegulatoryAct[];
+  /** Опциональная привязанная комиссия — для `{program.commission_*}` подвыборки. */
+  commission?: Commission;
+}
+
+/**
+ * Разрешает запрошенные переменные категории `program.*`. Неизвестные ключи
+ * возвращаются как пустая строка (consistent с шаблонным engine pattern).
+ */
+export function resolveProgramVariables(
+  ctx: ProgramVariableContext,
+  varNames: string[]
+): Record<string, unknown> {
+  const { courseVersion: cv, regulatoryActs, commission } = ctx;
+  const result: Record<string, unknown> = {};
+
+  for (const fullName of varNames) {
+    if (!fullName.startsWith('program.')) {
+      result[fullName] = '';
+      continue;
+    }
+    const key = fullName.slice('program.'.length);
+    result[fullName] = resolveProgramKey(key, cv, regulatoryActs, commission);
+  }
+  return result;
+}
+
+function resolveProgramKey(
+  key: string,
+  cv: CourseVersion,
+  acts: RegulatoryAct[],
+  commission: Commission | undefined
+): unknown {
+  switch (key) {
+    case 'academic_hours':
+      return cv.academicHours ?? '';
+    case 'training_type':
+      return cv.trainingType ?? '';
+    case 'training_type_label':
+      return cv.trainingType ? TRAINING_TYPE_LABELS[cv.trainingType] : '';
+    case 'learner_category':
+      return cv.learnerCategory ?? '';
+    case 'learner_category_label':
+      return cv.learnerCategory ? LEARNER_CATEGORY_LABELS[cv.learnerCategory] : '';
+    case 'study_form':
+      return cv.studyForm ?? '';
+    case 'study_form_label':
+      return cv.studyForm ? STUDY_FORM_LABELS[cv.studyForm] : '';
+    case 'final_assessment_form':
+      return cv.finalAssessmentForm ?? '';
+    case 'final_assessment_form_label':
+      return cv.finalAssessmentForm ? FINAL_ASSESSMENT_FORM_LABELS[cv.finalAssessmentForm] : '';
+    case 'regulatory_basis':
+      // CSV из short_name актов в порядке, в котором они указаны в course_versions.regulatory_basis_codes.
+      return resolveRegulatoryBasisCsv(cv, acts);
+    case 'commission_name':
+      return commission?.name ?? '';
+    case 'commission_code':
+      return commission?.code ?? '';
+    default:
+      return '';
+  }
+}
+
+function resolveRegulatoryBasisCsv(cv: CourseVersion, acts: RegulatoryAct[]): string {
+  const codes = cv.regulatoryBasisCodes ?? [];
+  if (codes.length === 0) return '';
+  const byCode = new Map(acts.map((a) => [a.code, a]));
+  return codes
+    .map((code) => byCode.get(code)?.shortName)
+    .filter((name): name is string => Boolean(name))
+    .join(', ');
+}
+
+export interface CommissionVariableContext {
+  commission: Commission;
+  members: CommissionMember[];
+}
+
+/** Информация об одном члене для `{commission.members}` JSON-массива. */
+export interface CommissionMemberView {
+  fullName: string;
+  role: CommissionMember['role'];
+  position: string;
+  signatureFileId?: string;
+  positionInOrder: number;
+}
+
+/**
+ * Разрешает переменные категории `commission.*`. Источник имени и должности:
+ * `external_full_name`/`external_position` для внешних экспертов; для
+ * внутренних пользователей caller отвечает за резолв через IAM (передаёт
+ * имя в `member.externalFullName` как override, либо ожидает что resolver
+ * вернёт пустое значение — внутренние имена не хранятся в `commission_members`).
+ *
+ * Это compromise: связь с IAM хранится только id, реальные ФИО — отдельный
+ * lookup. До Plan B (full IAM resolver) тенант должен либо использовать
+ * external_full_name, либо принимать пустые поля для internal users.
+ */
+export function resolveCommissionVariables(
+  ctx: CommissionVariableContext,
+  varNames: string[]
+): Record<string, unknown> {
+  const { commission, members } = ctx;
+  const sorted = [...members].sort((a, b) => a.positionInOrder - b.positionInOrder);
+  const chairman = sorted.find((m) => m.role === 'chairman');
+  const secretary = sorted.find((m) => m.role === 'secretary');
+
+  const result: Record<string, unknown> = {};
+  for (const fullName of varNames) {
+    if (!fullName.startsWith('commission.')) {
+      result[fullName] = '';
+      continue;
+    }
+    const key = fullName.slice('commission.'.length);
+    result[fullName] = resolveCommissionKey(key, commission, sorted, chairman, secretary);
+  }
+  return result;
+}
+
+function resolveCommissionKey(
+  key: string,
+  commission: Commission,
+  members: CommissionMember[],
+  chairman: CommissionMember | undefined,
+  secretary: CommissionMember | undefined
+): unknown {
+  switch (key) {
+    case 'code':
+      return commission.code;
+    case 'name':
+      return commission.name;
+    case 'description':
+      return commission.description ?? '';
+    case 'chairman.name':
+      return chairman?.externalFullName ?? '';
+    case 'chairman.position':
+      return chairman?.externalPosition ?? '';
+    case 'chairman.signature_file_id':
+      return chairman?.signatureFileId ?? '';
+    case 'secretary.name':
+      return secretary?.externalFullName ?? '';
+    case 'secretary.position':
+      return secretary?.externalPosition ?? '';
+    case 'secretary.signature_file_id':
+      return secretary?.signatureFileId ?? '';
+    case 'members':
+      // JSON-сериализуемый массив для таблиц в шаблонах.
+      return members.map(
+        (m): CommissionMemberView => ({
+          fullName: m.externalFullName ?? '',
+          role: m.role,
+          position: m.externalPosition ?? '',
+          signatureFileId: m.signatureFileId,
+          positionInOrder: m.positionInOrder
+        })
+      );
+    default:
+      return '';
+  }
+}

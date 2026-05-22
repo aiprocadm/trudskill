@@ -4,11 +4,15 @@ import { validateSync } from 'class-validator';
 import { describe, expect, it } from 'vitest';
 
 import {
+  AddCommissionMemberRequest,
   CreateAssignmentSubmissionRequest,
   CreateBulkEnrollmentsRequest,
+  CreateCommissionRequest,
   CreateMaterialRequest,
   CreateModuleRequest,
-  UpdateMaterialProgressRequest
+  PutCourseDocumentSetRequest,
+  UpdateMaterialProgressRequest,
+  UpdateProgramMetaRequest
 } from './mvp.dto.js';
 
 describe('MVP critical DTO (class-validator)', () => {
@@ -85,6 +89,165 @@ describe('MVP critical DTO (class-validator)', () => {
       minViewSeconds: 120,
       isRequired: true
     });
+    expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+  });
+});
+
+describe('Pillar A — CreateCommissionRequest', () => {
+  it('отклоняет пустой code', () => {
+    const inst = plainToInstance(CreateCommissionRequest, { code: '', name: 'ok' });
+    const errs = validateSync(inst, { whitelist: true, forbidNonWhitelisted: true });
+    expect(errs.find((e) => e.property === 'code')?.constraints).toMatchObject({
+      isNotEmpty: expect.any(String)
+    });
+  });
+
+  it('отклоняет code длиннее 100', () => {
+    const inst = plainToInstance(CreateCommissionRequest, {
+      code: 'x'.repeat(101),
+      name: 'ok'
+    });
+    const errs = validateSync(inst, { whitelist: true, forbidNonWhitelisted: true });
+    expect(errs.find((e) => e.property === 'code')?.constraints).toMatchObject({
+      maxLength: expect.any(String)
+    });
+  });
+
+  it('принимает минимально валидное тело', () => {
+    const inst = plainToInstance(CreateCommissionRequest, {
+      code: 'OT_2026',
+      name: 'Аттестационная комиссия ОТ'
+    });
+    expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+  });
+});
+
+describe('Pillar A — AddCommissionMemberRequest', () => {
+  it('отклоняет неизвестный role', () => {
+    const inst = plainToInstance(AddCommissionMemberRequest, {
+      role: 'unknown',
+      userId: 'u1',
+      positionInOrder: 0
+    });
+    const errs = validateSync(inst, { whitelist: true, forbidNonWhitelisted: true });
+    expect(errs.find((e) => e.property === 'role')?.constraints).toMatchObject({
+      isIn: expect.any(String)
+    });
+  });
+
+  it('принимает внешнего эксперта без userId', () => {
+    const inst = plainToInstance(AddCommissionMemberRequest, {
+      role: 'external_expert',
+      externalFullName: 'Иванов И.И.',
+      externalPosition: 'Эксперт Ростехнадзора',
+      positionInOrder: 0
+    });
+    expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+  });
+
+  it('принимает internal user без externalFullName', () => {
+    const inst = plainToInstance(AddCommissionMemberRequest, {
+      role: 'chairman',
+      userId: 'u_chairman',
+      positionInOrder: 0
+    });
+    expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+  });
+
+  it('отклоняет positionInOrder < 0', () => {
+    const inst = plainToInstance(AddCommissionMemberRequest, {
+      role: 'member',
+      userId: 'u_1',
+      positionInOrder: -1
+    });
+    const errs = validateSync(inst, { whitelist: true, forbidNonWhitelisted: true });
+    expect(errs.find((e) => e.property === 'positionInOrder')?.constraints).toMatchObject({
+      min: expect.any(String)
+    });
+  });
+});
+
+describe('Pillar A — UpdateProgramMetaRequest', () => {
+  it('отклоняет academicHours = 0', () => {
+    const inst = plainToInstance(UpdateProgramMetaRequest, { academicHours: 0 });
+    const errs = validateSync(inst, { whitelist: true, forbidNonWhitelisted: true });
+    expect(errs.find((e) => e.property === 'academicHours')?.constraints).toMatchObject({
+      min: expect.any(String)
+    });
+  });
+
+  it('отклоняет неизвестный trainingType', () => {
+    const inst = plainToInstance(UpdateProgramMetaRequest, { trainingType: 'unknown' });
+    const errs = validateSync(inst, { whitelist: true, forbidNonWhitelisted: true });
+    expect(errs.find((e) => e.property === 'trainingType')?.constraints).toMatchObject({
+      isIn: expect.any(String)
+    });
+  });
+
+  it('отклоняет regulatoryBasisCodes длиннее 20 элементов', () => {
+    const inst = plainToInstance(UpdateProgramMetaRequest, {
+      regulatoryBasisCodes: Array(21).fill('CODE')
+    });
+    const errs = validateSync(inst, { whitelist: true, forbidNonWhitelisted: true });
+    expect(errs.find((e) => e.property === 'regulatoryBasisCodes')?.constraints).toMatchObject({
+      arrayMaxSize: expect.any(String)
+    });
+  });
+
+  it('принимает полностью валидную мету', () => {
+    const inst = plainToInstance(UpdateProgramMetaRequest, {
+      academicHours: 40,
+      trainingType: 'primary',
+      learnerCategory: 'worker',
+      studyForm: 'distance',
+      finalAssessmentForm: 'test',
+      regulatoryBasisCodes: ['PP_2464_2022', 'PRIKAZ_26N_2024'],
+      commissionId: 'cm_1'
+    });
+    expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+  });
+
+  it('принимает пустое тело (все поля optional на patch)', () => {
+    const inst = plainToInstance(UpdateProgramMetaRequest, {});
+    expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+  });
+});
+
+describe('Pillar A — PutCourseDocumentSetRequest', () => {
+  it('отклоняет entry с пустым templateId', () => {
+    const inst = plainToInstance(PutCourseDocumentSetRequest, {
+      entries: [{ templateId: '', position: 0, isRequired: true, autoIssueOnCompletion: true }]
+    });
+    const errs = validateSync(inst, { whitelist: true, forbidNonWhitelisted: true });
+    expect(errs.length).toBeGreaterThan(0);
+  });
+
+  it('отклоняет entries длиной > 20', () => {
+    const tooMany = Array.from({ length: 21 }, (_, i) => ({
+      templateId: `tpl_${i}`,
+      position: i,
+      isRequired: true,
+      autoIssueOnCompletion: true
+    }));
+    const inst = plainToInstance(PutCourseDocumentSetRequest, { entries: tooMany });
+    const errs = validateSync(inst, { whitelist: true, forbidNonWhitelisted: true });
+    expect(errs.find((e) => e.property === 'entries')?.constraints).toMatchObject({
+      arrayMaxSize: expect.any(String)
+    });
+  });
+
+  it('принимает валидный массив entries', () => {
+    const inst = plainToInstance(PutCourseDocumentSetRequest, {
+      entries: [
+        { templateId: 'tpl_1', position: 0, isRequired: true, autoIssueOnCompletion: true },
+        { templateId: 'tpl_2', position: 1, isRequired: false, autoIssueOnCompletion: false }
+      ]
+    });
+    expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+  });
+
+  it('принимает пустой массив entries (очистить пакет)', () => {
+    const inst = plainToInstance(PutCourseDocumentSetRequest, { entries: [] });
     expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
   });
 });
