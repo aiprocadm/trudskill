@@ -505,11 +505,7 @@ describe('DocumentsService', () => {
 
   it('getTemplate resolves by tenant when duplicate template ids exist (must is tenant-scoped)', () => {
     const state = new InMemoryDocumentsState();
-    const service = new DocumentsService(
-      state,
-      new AuditService(),
-      new RealtimeEventsService()
-    );
+    const service = new DocumentsService(state, new AuditService(), new RealtimeEventsService());
     const now = new Date().toISOString();
     const sharedId = 'tpl_duplicate_id_cross_tenant';
     state.templates.push({
@@ -533,6 +529,64 @@ describe('DocumentsService', () => {
 
     expect(service.getTemplate('tenant_a', sharedId).name).toBe('On A');
     expect(service.getTemplate('tenant_b', sharedId).name).toBe('On B');
-    expect(() => service.getTemplate('tenant_a', 'tpl_only_other_tenant')).toThrow(NotFoundException);
+    expect(() => service.getTemplate('tenant_a', 'tpl_only_other_tenant')).toThrow(
+      NotFoundException
+    );
+  });
+
+  // Plan A §5.5 — variable categories program/commission
+  it('accepts program category for template variables (Plan A §5.5)', () => {
+    const service = new DocumentsService(
+      new InMemoryDocumentsState(),
+      new AuditService(),
+      new RealtimeEventsService()
+    );
+    const template = service.createTemplate(
+      't1',
+      'u1',
+      { name: 'Cert with program', templateType: 'certificate' },
+      ctx
+    );
+    const version = service.createTemplateVersion('t1', 'u1', {
+      templateId: template.id,
+      fileId: 'file_p'
+    });
+    const created = service.createTemplateVariable('t1', {
+      templateVersionId: version.id,
+      variableCode: 'program.academic_hours',
+      displayName: 'Часы',
+      categoryCode: 'program',
+      dataType: 'number',
+      isRequired: true
+    });
+    expect(created.categoryCode).toBe('program');
+    expect(created.variableCode).toBe('program.academic_hours');
+  });
+
+  it('accepts commission category for template variables (Plan A §5.5)', () => {
+    const service = new DocumentsService(
+      new InMemoryDocumentsState(),
+      new AuditService(),
+      new RealtimeEventsService()
+    );
+    const template = service.createTemplate(
+      't1',
+      'u1',
+      { name: 'Protocol with commission', templateType: 'protocol' },
+      ctx
+    );
+    const version = service.createTemplateVersion('t1', 'u1', {
+      templateId: template.id,
+      fileId: 'file_p2'
+    });
+    const created = service.createTemplateVariable('t1', {
+      templateVersionId: version.id,
+      variableCode: 'commission.chairman.name',
+      displayName: 'ФИО председателя',
+      categoryCode: 'commission',
+      dataType: 'string',
+      isRequired: true
+    });
+    expect(created.categoryCode).toBe('commission');
   });
 });

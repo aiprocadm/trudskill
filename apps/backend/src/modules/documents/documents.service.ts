@@ -51,7 +51,9 @@ export class DocumentsService {
     'counterparty',
     'course',
     'commission',
-    'document'
+    'document',
+    // Pillar A — Plan A §5.5: program meta переменные (academic_hours, training_type, ...)
+    'program'
   ]);
 
   constructor(
