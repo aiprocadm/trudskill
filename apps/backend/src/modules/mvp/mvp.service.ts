@@ -51,6 +51,7 @@ import type {
   UpdateMaterialProgressRequest,
   UpdateMaterialRequest,
   UpdateModuleRequest,
+  UpdateProgramMetaRequest,
   UpdateQuestionBankRequest,
   UpdateQuestionRequest,
   UpdateSimpleRegistryRequest,
@@ -3206,6 +3207,122 @@ export class MvpService {
       undefined,
       context
     );
+  }
+
+  // === Pillar A — Plan A (§5.1): program meta + publish course version ===
+
+  updateProgramMeta(
+    tenantId: string,
+    actorId: string | undefined,
+    courseVersionId: string,
+    request: UpdateProgramMetaRequest,
+    context: RequestContext
+  ): CourseVersion {
+    const cv = this.getById(this.state.courseVersions, tenantId, courseVersionId);
+    if (cv.status !== 'draft') {
+      throw new BadRequestException({
+        code: 'course_version_not_editable',
+        message: 'Cannot edit program meta of a non-draft course version'
+      });
+    }
+    if (request.commissionId !== undefined) {
+      const commission = this.state.commissions.find(
+        (c) => c.tenantId === tenantId && c.id === request.commissionId
+      );
+      if (!commission) {
+        throw new BadRequestException({
+          code: 'commission_not_found',
+          message: `Commission ${request.commissionId} not found`
+        });
+      }
+      if (commission.status === 'archived') {
+        throw new BadRequestException({
+          code: 'commission_archived',
+          message: 'Cannot attach archived commission'
+        });
+      }
+    }
+
+    const oldValues = { ...cv };
+    if (request.academicHours !== undefined) cv.academicHours = request.academicHours;
+    if (request.trainingType !== undefined) cv.trainingType = request.trainingType;
+    if (request.learnerCategory !== undefined) cv.learnerCategory = request.learnerCategory;
+    if (request.studyForm !== undefined) cv.studyForm = request.studyForm;
+    if (request.finalAssessmentForm !== undefined) {
+      cv.finalAssessmentForm = request.finalAssessmentForm;
+    }
+    if (request.regulatoryBasisCodes !== undefined) {
+      cv.regulatoryBasisCodes = request.regulatoryBasisCodes;
+    }
+    if (request.programAttachmentFileId !== undefined) {
+      cv.programAttachmentFileId = request.programAttachmentFileId;
+    }
+    if (request.commissionId !== undefined) cv.commissionId = request.commissionId;
+    cv.updatedAt = this.now();
+
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.course_version_program_meta_updated',
+      'learning.course_version',
+      cv.id,
+      oldValues,
+      cv,
+      context
+    );
+    return cv;
+  }
+
+  publishCourseVersion(
+    tenantId: string,
+    actorId: string | undefined,
+    courseVersionId: string,
+    context: RequestContext
+  ): CourseVersion {
+    const cv = this.getById(this.state.courseVersions, tenantId, courseVersionId);
+    if (cv.status === 'published') return cv;
+
+    const missing: string[] = [];
+    if (cv.academicHours == null) missing.push('academicHours');
+    if (!cv.trainingType) missing.push('trainingType');
+    if (!cv.learnerCategory) missing.push('learnerCategory');
+    if (!cv.studyForm) missing.push('studyForm');
+    if (!cv.finalAssessmentForm) missing.push('finalAssessmentForm');
+    if (!cv.regulatoryBasisCodes || cv.regulatoryBasisCodes.length === 0) {
+      missing.push('regulatoryBasisCodes');
+    }
+    if (!cv.commissionId) missing.push('commissionId');
+    if (missing.length > 0) {
+      throw new BadRequestException({
+        code: 'program_meta_incomplete',
+        message: `Cannot publish: missing required fields ${missing.join(', ')}`
+      });
+    }
+
+    const commission = this.state.commissions.find(
+      (c) => c.tenantId === tenantId && c.id === cv.commissionId
+    );
+    if (!commission || commission.status !== 'active') {
+      throw new BadRequestException({
+        code: 'commission_not_active',
+        message: 'Attached commission is not active'
+      });
+    }
+
+    const oldValues = { ...cv };
+    cv.status = 'published';
+    cv.updatedAt = this.now();
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.course_version_published',
+      'learning.course_version',
+      cv.id,
+      oldValues,
+      cv,
+      context
+    );
+    return cv;
   }
 
   private getById<T extends BaseEntity>(source: T[], tenantId: string, id: string): T {

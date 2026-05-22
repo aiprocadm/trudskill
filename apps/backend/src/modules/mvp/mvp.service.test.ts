@@ -1894,3 +1894,227 @@ describe('MvpService — commissions (Plan A §5.2)', () => {
     });
   });
 });
+
+describe('MvpService — program meta and publish (Plan A §5.1)', () => {
+  function seedCourseVersionAndCommission(service: MvpService) {
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'C1', title: 'Курс' },
+      ctx
+    );
+    const cv = service.createCourseVersion('tenant_demo', course.id);
+    const commission = service.createCommission(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'CM1', name: 'C' },
+      ctx
+    );
+    return { courseId: course.id, courseVersionId: cv.id, commissionId: commission.id };
+  }
+
+  const completeMeta = (commissionId: string) => ({
+    academicHours: 40,
+    trainingType: 'primary' as const,
+    learnerCategory: 'worker' as const,
+    studyForm: 'distance' as const,
+    finalAssessmentForm: 'test' as const,
+    regulatoryBasisCodes: ['PP_2464_2022'],
+    commissionId
+  });
+
+  describe('updateProgramMeta', () => {
+    it('sets program meta fields on a draft course version', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+
+      const updated = service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+
+      expect(updated.academicHours).toBe(40);
+      expect(updated.trainingType).toBe('primary');
+      expect(updated.commissionId).toBe(commissionId);
+      expect(updated.regulatoryBasisCodes).toEqual(['PP_2464_2022']);
+    });
+
+    it('rejects update on a published version', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+      service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx);
+
+      expect(() =>
+        service.updateProgramMeta(
+          'tenant_demo',
+          ctx.userId,
+          courseVersionId,
+          { academicHours: 32 },
+          ctx
+        )
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects unknown commissionId', () => {
+      const service = makeService();
+      const { courseVersionId } = seedCourseVersionAndCommission(service);
+      expect(() =>
+        service.updateProgramMeta(
+          'tenant_demo',
+          ctx.userId,
+          courseVersionId,
+          { commissionId: 'commission_nope' },
+          ctx
+        )
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects archived commission', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.archiveCommission('tenant_demo', ctx.userId, commissionId, ctx);
+      expect(() =>
+        service.updateProgramMeta('tenant_demo', ctx.userId, courseVersionId, { commissionId }, ctx)
+      ).toThrow(BadRequestException);
+    });
+
+    it('preserves existing fields when patch omits them', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        { academicHours: 16, trainingType: 'primary' },
+        ctx
+      );
+      const updated = service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        { commissionId },
+        ctx
+      );
+      expect(updated.academicHours).toBe(16);
+      expect(updated.trainingType).toBe('primary');
+      expect(updated.commissionId).toBe(commissionId);
+    });
+  });
+
+  describe('publishCourseVersion', () => {
+    it('publishes when all required meta set and commission active', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+      const published = service.publishCourseVersion(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        ctx
+      );
+      expect(published.status).toBe('published');
+    });
+
+    it('returns same entity when already published (idempotent)', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+      service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx);
+      const again = service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx);
+      expect(again.status).toBe('published');
+    });
+
+    it('rejects publish without academic_hours', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      const { academicHours: _omit, ...withoutHours } = completeMeta(commissionId);
+      void _omit;
+      service.updateProgramMeta('tenant_demo', ctx.userId, courseVersionId, withoutHours, ctx);
+      expect(() =>
+        service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx)
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects publish without training_type', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      const { trainingType: _omit, ...withoutType } = completeMeta(commissionId);
+      void _omit;
+      service.updateProgramMeta('tenant_demo', ctx.userId, courseVersionId, withoutType, ctx);
+      expect(() =>
+        service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx)
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects publish without regulatory_basis', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        { ...completeMeta(commissionId), regulatoryBasisCodes: [] },
+        ctx
+      );
+      expect(() =>
+        service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx)
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects publish without commission attached', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      const { commissionId: _omit, ...withoutCommission } = completeMeta(commissionId);
+      void _omit;
+      service.updateProgramMeta('tenant_demo', ctx.userId, courseVersionId, withoutCommission, ctx);
+      expect(() =>
+        service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx)
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects publish when attached commission was archived after attach', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+      service.archiveCommission('tenant_demo', ctx.userId, commissionId, ctx);
+      expect(() =>
+        service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx)
+      ).toThrow(BadRequestException);
+    });
+
+    it('throws NotFoundException for unknown courseVersionId', () => {
+      const service = makeService();
+      expect(() =>
+        service.publishCourseVersion('tenant_demo', ctx.userId, 'cver_nope', ctx)
+      ).toThrow(NotFoundException);
+    });
+  });
+});
