@@ -27,7 +27,9 @@ export const mvpDomainTables = {
     'material_progress',
     'mvp_runtime_documents',
     'mvp_stage1_runtime_documents',
-    'mvp_reconciliation_log'
+    'mvp_reconciliation_log',
+    'commissions',
+    'commission_members'
   ],
   assessment: [
     'question_banks',

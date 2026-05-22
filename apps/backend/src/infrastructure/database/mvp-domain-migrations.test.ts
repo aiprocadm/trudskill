@@ -311,3 +311,50 @@ describe('schema integrity constraints', () => {
     expect(fullSql).not.toMatch(/\bbytea\b/i);
   });
 });
+
+describe('Plan A — attestation commissions (migration 0029)', () => {
+  it('creates learning.commissions with unique code per tenant and status check', () => {
+    expectTableBody('learning.commissions', (body) => {
+      expect(body).toMatch(/code\s+text\s+NOT\s+NULL/i);
+      expect(body).toMatch(/name\s+text\s+NOT\s+NULL/i);
+      expect(body).toMatch(/description\s+text/i);
+      expect(body).toMatch(/status\s+text\s+NOT\s+NULL\s+DEFAULT\s+'active'/i);
+    });
+    expectSqlContains(
+      /CONSTRAINT\s+commissions_status_chk\s+CHECK\s*\(status\s+IN\s*\('active',\s*'archived'\)\)/i,
+      'missing commissions status check'
+    );
+    expectSqlContains(
+      /CONSTRAINT\s+commissions_tenant_code_uniq\s+UNIQUE\s*\(tenant_id,\s*code\)/i,
+      'missing commissions tenant_id+code uniqueness'
+    );
+    expectSqlContains(
+      /CONSTRAINT\s+commissions_tenant_id_uniq\s+UNIQUE\s*\(tenant_id,\s*id\)/i,
+      'missing commissions tenant_id+id uniqueness (required for composite FK from course_versions)'
+    );
+  });
+
+  it('creates learning.commission_members with role check and identity constraint', () => {
+    expectTableBody('learning.commission_members', (body) => {
+      expect(body).toMatch(/commission_id\s+text\s+NOT\s+NULL/i);
+      expect(body).toMatch(/role\s+text\s+NOT\s+NULL/i);
+      expect(body).toMatch(/user_id\s+text\s+REFERENCES\s+iam\.users\(id\)/i);
+      expect(body).toMatch(/external_full_name\s+text/i);
+      expect(body).toMatch(/external_position\s+text/i);
+      expect(body).toMatch(/signature_file_id\s+text\s+REFERENCES\s+storage\.files\(id\)/i);
+      expect(body).toMatch(/position_in_order\s+smallint\s+NOT\s+NULL/i);
+    });
+    expectSqlContains(
+      /CONSTRAINT\s+commission_members_role_chk\s+CHECK\s*\(role\s+IN\s*\('chairman',\s*'deputy_chairman',\s*'member',\s*'secretary',\s*'external_expert'\)\)/i,
+      'missing commission_members role check'
+    );
+    expectSqlContains(
+      /CONSTRAINT\s+commission_member_identity_chk\s+CHECK\s*\(user_id\s+IS\s+NOT\s+NULL\s+OR\s+external_full_name\s+IS\s+NOT\s+NULL\)/i,
+      'missing commission_member identity check (user_id OR external_full_name)'
+    );
+    expectSqlContains(
+      /CONSTRAINT\s+commission_members_commission_tenant_fk\s+FOREIGN\s+KEY\s*\(tenant_id,\s*commission_id\)\s+REFERENCES\s+learning\.commissions\s*\(tenant_id,\s*id\)\s+ON\s+DELETE\s+CASCADE/i,
+      'missing tenant-bound commission_members -> commissions fk with cascade delete'
+    );
+  });
+});
