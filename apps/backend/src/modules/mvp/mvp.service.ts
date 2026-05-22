@@ -1112,9 +1112,21 @@ export class MvpService {
       context
     );
     if (request.status === 'completed') {
-      const courseIds = this.state.groupCourses
-        .filter((gc) => gc.tenantId === tenantId && gc.groupId === enrollment.groupId)
-        .map((gc) => gc.courseId);
+      const groupCourses = this.state.groupCourses.filter(
+        (gc) => gc.tenantId === tenantId && gc.groupId === enrollment.groupId
+      );
+      const courseIds = groupCourses.map((gc) => gc.courseId);
+      const documentSet = groupCourses
+        .filter((gc) => gc.courseVersionId)
+        .flatMap((gc) =>
+          this.getCourseDocumentSet(tenantId, gc.courseVersionId as string).map((entry) => ({
+            courseVersionId: gc.courseVersionId as string,
+            templateId: entry.templateId,
+            position: entry.position,
+            isRequired: entry.isRequired,
+            autoIssueOnCompletion: entry.autoIssueOnCompletion
+          }))
+        );
       this.events.emit(ENROLLMENT_COMPLETED_EVENT, {
         tenantId,
         enrollmentId: enrollment.id,
@@ -1123,7 +1135,8 @@ export class MvpService {
         groupCourseIds: courseIds,
         actorId,
         requestId: context.requestId,
-        correlationId: context.correlationId
+        correlationId: context.correlationId,
+        documentSet
       });
     }
     return enrollment;
@@ -3198,7 +3211,8 @@ export class MvpService {
         message: 'Commission member not found'
       });
     }
-    const removed = this.state.commissionMembers.splice(idx, 1)[0];
+    const [removed] = this.state.commissionMembers.splice(idx, 1);
+    if (!removed) return;
     this.audit(
       tenantId,
       actorId,
