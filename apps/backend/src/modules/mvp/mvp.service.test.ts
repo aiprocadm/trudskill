@@ -1633,3 +1633,264 @@ describe('mvp service domain rules', () => {
     );
   });
 });
+
+// === Pillar A — Plan A (§5.1, §5.2, §5.3) ===
+
+function makeService(): MvpService {
+  return new MvpService(
+    new InMemoryMvpState(),
+    new TenantScopedRepository(),
+    new AuditService(),
+    noopDocumentsService,
+    noopFilesService,
+    new EventEmitter2()
+  );
+}
+
+describe('MvpService — commissions (Plan A §5.2)', () => {
+  describe('createCommission', () => {
+    it('creates active commission with provided code and name', () => {
+      const service = makeService();
+      const commission = service.createCommission(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'OT_2026', name: 'Аттестационная комиссия ОТ 2026', description: 'desc' },
+        ctx
+      );
+      expect(commission.code).toBe('OT_2026');
+      expect(commission.name).toBe('Аттестационная комиссия ОТ 2026');
+      expect(commission.description).toBe('desc');
+      expect(commission.status).toBe('active');
+      expect(commission.tenantId).toBe('tenant_demo');
+      expect(commission.id).toMatch(/^commission_/);
+    });
+
+    it('throws ConflictException on duplicate code within tenant', () => {
+      const service = makeService();
+      service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'First' }, ctx);
+      expect(() =>
+        service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'Duplicate' }, ctx)
+      ).toThrow(ConflictException);
+    });
+
+    it('allows same code in different tenants', () => {
+      const service = makeService();
+      service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'T1' }, ctx);
+      const t2 = service.createCommission(
+        'tenant_other',
+        ctx.userId,
+        { code: 'C1', name: 'T2' },
+        ctx
+      );
+      expect(t2.tenantId).toBe('tenant_other');
+    });
+  });
+
+  describe('archiveCommission', () => {
+    it('archives an active commission', () => {
+      const service = makeService();
+      const c = service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'C' }, ctx);
+      const archived = service.archiveCommission('tenant_demo', ctx.userId, c.id, ctx);
+      expect(archived.status).toBe('archived');
+    });
+
+    it('is idempotent — re-archiving stays archived without error', () => {
+      const service = makeService();
+      const c = service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'C' }, ctx);
+      service.archiveCommission('tenant_demo', ctx.userId, c.id, ctx);
+      const again = service.archiveCommission('tenant_demo', ctx.userId, c.id, ctx);
+      expect(again.status).toBe('archived');
+    });
+
+    it('rejects archive of foreign-tenant commission with NotFoundException', () => {
+      const service = makeService();
+      const c = service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'C' }, ctx);
+      expect(() => service.archiveCommission('tenant_other', ctx.userId, c.id, ctx)).toThrow(
+        NotFoundException
+      );
+    });
+  });
+
+  describe('updateCommission', () => {
+    it('updates name and description, preserves code', () => {
+      const service = makeService();
+      const c = service.createCommission(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'C1', name: 'Old' },
+        ctx
+      );
+      const updated = service.updateCommission(
+        'tenant_demo',
+        ctx.userId,
+        c.id,
+        { name: 'New', description: 'd2' },
+        ctx
+      );
+      expect(updated.name).toBe('New');
+      expect(updated.description).toBe('d2');
+      expect(updated.code).toBe('C1');
+    });
+  });
+
+  describe('addCommissionMember', () => {
+    it('adds chairman as internal user', () => {
+      const service = makeService();
+      const c = service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'C' }, ctx);
+      const m = service.addCommissionMember(
+        'tenant_demo',
+        ctx.userId,
+        c.id,
+        { role: 'chairman', userId: 'u_chair', positionInOrder: 0 },
+        ctx
+      );
+      expect(m.role).toBe('chairman');
+      expect(m.userId).toBe('u_chair');
+      expect(m.externalFullName).toBeUndefined();
+      expect(m.positionInOrder).toBe(0);
+    });
+
+    it('adds external_expert without userId', () => {
+      const service = makeService();
+      const c = service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'C' }, ctx);
+      const m = service.addCommissionMember(
+        'tenant_demo',
+        ctx.userId,
+        c.id,
+        {
+          role: 'external_expert',
+          externalFullName: 'Иванов И.И.',
+          externalPosition: 'Эксперт',
+          positionInOrder: 1
+        },
+        ctx
+      );
+      expect(m.externalFullName).toBe('Иванов И.И.');
+      expect(m.userId).toBeUndefined();
+    });
+
+    it('rejects when neither userId nor externalFullName provided (BadRequestException)', () => {
+      const service = makeService();
+      const c = service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'C' }, ctx);
+      expect(() =>
+        service.addCommissionMember(
+          'tenant_demo',
+          ctx.userId,
+          c.id,
+          { role: 'member', positionInOrder: 0 },
+          ctx
+        )
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects adding member to archived commission', () => {
+      const service = makeService();
+      const c = service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'C' }, ctx);
+      service.archiveCommission('tenant_demo', ctx.userId, c.id, ctx);
+      expect(() =>
+        service.addCommissionMember(
+          'tenant_demo',
+          ctx.userId,
+          c.id,
+          { role: 'member', userId: 'u_1', positionInOrder: 0 },
+          ctx
+        )
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects adding member to non-existent commission', () => {
+      const service = makeService();
+      expect(() =>
+        service.addCommissionMember(
+          'tenant_demo',
+          ctx.userId,
+          'commission_nonexistent',
+          { role: 'member', userId: 'u_1', positionInOrder: 0 },
+          ctx
+        )
+      ).toThrow(NotFoundException);
+    });
+  });
+
+  describe('removeCommissionMember', () => {
+    it('removes member by id', () => {
+      const service = makeService();
+      const c = service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'C' }, ctx);
+      const m = service.addCommissionMember(
+        'tenant_demo',
+        ctx.userId,
+        c.id,
+        { role: 'member', userId: 'u_1', positionInOrder: 0 },
+        ctx
+      );
+      service.removeCommissionMember('tenant_demo', ctx.userId, c.id, m.id, ctx);
+      expect(service.listCommissionMembers('tenant_demo', c.id)).toHaveLength(0);
+    });
+
+    it('throws NotFoundException for unknown member id', () => {
+      const service = makeService();
+      const c = service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'C' }, ctx);
+      expect(() =>
+        service.removeCommissionMember('tenant_demo', ctx.userId, c.id, 'member_nope', ctx)
+      ).toThrow(NotFoundException);
+    });
+  });
+
+  describe('listCommissions and getCommission', () => {
+    it('filters by status when provided', () => {
+      const service = makeService();
+      const a = service.createCommission('tenant_demo', ctx.userId, { code: 'A', name: 'A' }, ctx);
+      const b = service.createCommission('tenant_demo', ctx.userId, { code: 'B', name: 'B' }, ctx);
+      service.archiveCommission('tenant_demo', ctx.userId, b.id, ctx);
+      const active = service.listCommissions('tenant_demo', 'active');
+      const archived = service.listCommissions('tenant_demo', 'archived');
+      expect(active.map((c) => c.id)).toEqual([a.id]);
+      expect(archived.map((c) => c.id)).toEqual([b.id]);
+    });
+
+    it('lists all when status filter omitted', () => {
+      const service = makeService();
+      service.createCommission('tenant_demo', ctx.userId, { code: 'A', name: 'A' }, ctx);
+      const b = service.createCommission('tenant_demo', ctx.userId, { code: 'B', name: 'B' }, ctx);
+      service.archiveCommission('tenant_demo', ctx.userId, b.id, ctx);
+      expect(service.listCommissions('tenant_demo')).toHaveLength(2);
+    });
+
+    it('does not return commissions from other tenants', () => {
+      const service = makeService();
+      service.createCommission('tenant_demo', ctx.userId, { code: 'A', name: 'A' }, ctx);
+      service.createCommission('tenant_other', ctx.userId, { code: 'A', name: 'A2' }, ctx);
+      const items = service.listCommissions('tenant_demo');
+      expect(items).toHaveLength(1);
+      expect(items[0].tenantId).toBe('tenant_demo');
+    });
+
+    it('listCommissionMembers returns members sorted by positionInOrder', () => {
+      const service = makeService();
+      const c = service.createCommission('tenant_demo', ctx.userId, { code: 'C1', name: 'C' }, ctx);
+      service.addCommissionMember(
+        'tenant_demo',
+        ctx.userId,
+        c.id,
+        { role: 'member', userId: 'u_2', positionInOrder: 2 },
+        ctx
+      );
+      service.addCommissionMember(
+        'tenant_demo',
+        ctx.userId,
+        c.id,
+        { role: 'chairman', userId: 'u_0', positionInOrder: 0 },
+        ctx
+      );
+      service.addCommissionMember(
+        'tenant_demo',
+        ctx.userId,
+        c.id,
+        { role: 'secretary', userId: 'u_1', positionInOrder: 1 },
+        ctx
+      );
+      const members = service.listCommissionMembers('tenant_demo', c.id);
+      expect(members.map((m) => m.role)).toEqual(['chairman', 'secretary', 'member']);
+    });
+  });
+});

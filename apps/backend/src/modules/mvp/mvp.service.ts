@@ -19,12 +19,14 @@ import { DocumentsService } from '../documents/documents.service.js';
 import { FilesService } from '../files/files.service.js';
 
 import type {
+  AddCommissionMemberRequest,
   BaseFilterQuery,
   CreateAnswerHttpRequest,
   CreateAssignmentRequest,
   CreateAssignmentReviewRequest,
   CreateAssignmentSubmissionRequest,
   CreateBulkEnrollmentsRequest,
+  CreateCommissionRequest,
   CreateCourseRequest,
   CreateEnrollmentRequest,
   CreateGroupCourseRequest,
@@ -42,6 +44,7 @@ import type {
   UpdateAssignmentRequest,
   UpdateAssignmentReviewRequest,
   UpdateAssignmentSubmissionRequest,
+  UpdateCommissionRequest,
   UpdateCourseRequest,
   UpdateEnrollmentStatusRequest,
   UpdateGroupCourseRequest,
@@ -62,6 +65,9 @@ import type {
   BaseEntity,
   BulkEnrollmentItemError,
   BulkEnrollmentsOutcome,
+  Commission,
+  CommissionMember,
+  CommissionStatus,
   Counterparty,
   Course,
   CourseModuleEntity,
@@ -3017,6 +3023,189 @@ export class MvpService {
         status: item.status
       }))
     };
+  }
+
+  // === Pillar A — Plan A (§5.2): commissions ===
+
+  listCommissions(tenantId: string, status?: CommissionStatus): Commission[] {
+    return this.state.commissions
+      .filter((c) => c.tenantId === tenantId && (!status || c.status === status))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  getCommission(tenantId: string, id: string): Commission {
+    return this.getById(this.state.commissions, tenantId, id);
+  }
+
+  createCommission(
+    tenantId: string,
+    actorId: string | undefined,
+    request: CreateCommissionRequest,
+    context: RequestContext
+  ): Commission {
+    const duplicate = this.state.commissions.find(
+      (c) => c.tenantId === tenantId && c.code === request.code
+    );
+    if (duplicate) {
+      throw new ConflictException({
+        code: 'commission_code_conflict',
+        message: `Commission with code ${request.code} already exists in tenant`
+      });
+    }
+    const entity: Commission = {
+      id: this.id('commission'),
+      tenantId,
+      code: request.code,
+      name: request.name,
+      description: request.description,
+      status: 'active',
+      createdAt: this.now(),
+      updatedAt: this.now()
+    };
+    this.state.commissions.push(entity);
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.commission_created',
+      'learning.commission',
+      entity.id,
+      undefined,
+      entity,
+      context
+    );
+    return entity;
+  }
+
+  updateCommission(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    request: UpdateCommissionRequest,
+    context: RequestContext
+  ): Commission {
+    const current = this.getById(this.state.commissions, tenantId, id);
+    const oldValues = { ...current };
+    if (request.name !== undefined) current.name = request.name;
+    if (request.description !== undefined) current.description = request.description;
+    current.updatedAt = this.now();
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.commission_updated',
+      'learning.commission',
+      current.id,
+      oldValues,
+      current,
+      context
+    );
+    return current;
+  }
+
+  archiveCommission(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    context: RequestContext
+  ): Commission {
+    const current = this.getById(this.state.commissions, tenantId, id);
+    if (current.status === 'archived') return current;
+    const oldValues = { ...current };
+    current.status = 'archived';
+    current.updatedAt = this.now();
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.commission_archived',
+      'learning.commission',
+      current.id,
+      oldValues,
+      current,
+      context
+    );
+    return current;
+  }
+
+  listCommissionMembers(tenantId: string, commissionId: string): CommissionMember[] {
+    return this.state.commissionMembers
+      .filter((m) => m.tenantId === tenantId && m.commissionId === commissionId)
+      .sort((a, b) => a.positionInOrder - b.positionInOrder);
+  }
+
+  addCommissionMember(
+    tenantId: string,
+    actorId: string | undefined,
+    commissionId: string,
+    request: AddCommissionMemberRequest,
+    context: RequestContext
+  ): CommissionMember {
+    const commission = this.getById(this.state.commissions, tenantId, commissionId);
+    if (commission.status === 'archived') {
+      throw new BadRequestException({
+        code: 'commission_archived',
+        message: 'Cannot add member to archived commission'
+      });
+    }
+    if (!request.userId && !request.externalFullName) {
+      throw new BadRequestException({
+        code: 'commission_member_identity_required',
+        message: 'Either userId or externalFullName is required'
+      });
+    }
+    const entity: CommissionMember = {
+      id: this.id('commission_member'),
+      tenantId,
+      commissionId,
+      role: request.role,
+      userId: request.userId,
+      externalFullName: request.externalFullName,
+      externalPosition: request.externalPosition,
+      signatureFileId: request.signatureFileId,
+      positionInOrder: request.positionInOrder,
+      createdAt: this.now(),
+      updatedAt: this.now()
+    };
+    this.state.commissionMembers.push(entity);
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.commission_member_added',
+      'learning.commission_member',
+      entity.id,
+      undefined,
+      entity,
+      context
+    );
+    return entity;
+  }
+
+  removeCommissionMember(
+    tenantId: string,
+    actorId: string | undefined,
+    commissionId: string,
+    memberId: string,
+    context: RequestContext
+  ): void {
+    this.getById(this.state.commissions, tenantId, commissionId);
+    const idx = this.state.commissionMembers.findIndex(
+      (m) => m.id === memberId && m.tenantId === tenantId && m.commissionId === commissionId
+    );
+    if (idx === -1) {
+      throw new NotFoundException({
+        code: 'not_found',
+        message: 'Commission member not found'
+      });
+    }
+    const removed = this.state.commissionMembers.splice(idx, 1)[0];
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.commission_member_removed',
+      'learning.commission_member',
+      removed.id,
+      removed,
+      undefined,
+      context
+    );
   }
 
   private getById<T extends BaseEntity>(source: T[], tenantId: string, id: string): T {
