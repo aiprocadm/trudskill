@@ -37,6 +37,7 @@ import type {
   CreateSimpleRegistryRequest,
   CreateTestRequest,
   PatchTestRulesRequest,
+  PutCourseDocumentSetRequest,
   SaveAnswerRequest,
   SaveAttemptAnswerRequest,
   StartAttemptRequest,
@@ -71,6 +72,7 @@ import type {
   CommissionStatus,
   Counterparty,
   Course,
+  CourseDocumentSetEntry,
   CourseModuleEntity,
   CourseProgress,
   CourseVersion,
@@ -3271,6 +3273,80 @@ export class MvpService {
       context
     );
     return cv;
+  }
+
+  // === Pillar A — Plan A (§5.3): course document sets ===
+
+  getCourseDocumentSet(tenantId: string, courseVersionId: string): CourseDocumentSetEntry[] {
+    return this.state.courseDocumentSets
+      .filter((e) => e.tenantId === tenantId && e.courseVersionId === courseVersionId)
+      .sort((a, b) => a.position - b.position);
+  }
+
+  setCourseDocumentSet(
+    tenantId: string,
+    actorId: string | undefined,
+    courseVersionId: string,
+    request: PutCourseDocumentSetRequest,
+    context: RequestContext
+  ): CourseDocumentSetEntry[] {
+    this.getById(this.state.courseVersions, tenantId, courseVersionId);
+
+    const positions = request.entries.map((e) => e.position).sort((a, b) => a - b);
+    for (let i = 0; i < positions.length; i++) {
+      if (positions[i] !== i) {
+        throw new BadRequestException({
+          code: 'course_document_set_positions_invalid',
+          message: `Positions must be sequential 0..N-1, got [${positions.join(',')}]`
+        });
+      }
+    }
+
+    for (const entry of request.entries) {
+      try {
+        this.documentsService.getTemplate(tenantId, entry.templateId);
+      } catch {
+        throw new BadRequestException({
+          code: 'template_not_found',
+          message: `Template ${entry.templateId} not found in tenant`
+        });
+      }
+    }
+
+    const oldEntries = this.getCourseDocumentSet(tenantId, courseVersionId);
+    this.state.courseDocumentSets = this.state.courseDocumentSets.filter(
+      (e) => !(e.tenantId === tenantId && e.courseVersionId === courseVersionId)
+    );
+
+    const created: CourseDocumentSetEntry[] = [];
+    for (const e of request.entries) {
+      const entity: CourseDocumentSetEntry = {
+        id: this.id('course_doc_set'),
+        tenantId,
+        courseVersionId,
+        templateId: e.templateId,
+        position: e.position,
+        isRequired: e.isRequired,
+        autoIssueOnCompletion: e.autoIssueOnCompletion,
+        createdAt: this.now(),
+        updatedAt: this.now()
+      };
+      this.state.courseDocumentSets.push(entity);
+      created.push(entity);
+    }
+
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.course_document_set_updated',
+      'learning.course_version',
+      courseVersionId,
+      { entries: oldEntries.length },
+      { entries: created.length },
+      context
+    );
+
+    return created.sort((a, b) => a.position - b.position);
   }
 
   publishCourseVersion(

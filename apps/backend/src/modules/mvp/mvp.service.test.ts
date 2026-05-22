@@ -2118,3 +2118,279 @@ describe('MvpService — program meta and publish (Plan A §5.1)', () => {
     });
   });
 });
+
+describe('MvpService — course document sets (Plan A §5.3)', () => {
+  function makeServiceWithTemplates(
+    templates: Array<{ id: string; tenantId: string; name?: string; templateType?: string }>
+  ): MvpService {
+    const docs = {
+      listDocuments: () => ({ items: [], page: 1, pageSize: 50, total: 0 }),
+      getTemplate: (tenantId: string, id: string) => {
+        const t = templates.find((x) => x.tenantId === tenantId && x.id === id);
+        if (!t) throw new NotFoundException(`Template ${id} not found`);
+        return t;
+      }
+    } as unknown as DocumentsService;
+    return new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      docs,
+      noopFilesService,
+      new EventEmitter2()
+    );
+  }
+
+  function seed(service: MvpService): { courseVersionId: string } {
+    const course = service.createCourse('tenant_demo', ctx.userId, { code: 'C1', title: 'C' }, ctx);
+    const cv = service.createCourseVersion('tenant_demo', course.id);
+    return { courseVersionId: cv.id };
+  }
+
+  it('creates entries with sequential positions 0..N-1', () => {
+    const service = makeServiceWithTemplates([
+      { id: 'tpl_protocol', tenantId: 'tenant_demo' },
+      { id: 'tpl_cert', tenantId: 'tenant_demo' }
+    ]);
+    const { courseVersionId } = seed(service);
+
+    const result = service.setCourseDocumentSet(
+      'tenant_demo',
+      ctx.userId,
+      courseVersionId,
+      {
+        entries: [
+          {
+            templateId: 'tpl_protocol',
+            position: 0,
+            isRequired: true,
+            autoIssueOnCompletion: true
+          },
+          { templateId: 'tpl_cert', position: 1, isRequired: true, autoIssueOnCompletion: true }
+        ]
+      },
+      ctx
+    );
+
+    expect(result).toHaveLength(2);
+    expect(result.map((e) => e.templateId)).toEqual(['tpl_protocol', 'tpl_cert']);
+    expect(result.map((e) => e.position)).toEqual([0, 1]);
+  });
+
+  it('replaces existing set on second call (PUT semantics)', () => {
+    const service = makeServiceWithTemplates([
+      { id: 'tpl_a', tenantId: 'tenant_demo' },
+      { id: 'tpl_b', tenantId: 'tenant_demo' }
+    ]);
+    const { courseVersionId } = seed(service);
+
+    service.setCourseDocumentSet(
+      'tenant_demo',
+      ctx.userId,
+      courseVersionId,
+      {
+        entries: [
+          { templateId: 'tpl_a', position: 0, isRequired: true, autoIssueOnCompletion: true }
+        ]
+      },
+      ctx
+    );
+    service.setCourseDocumentSet(
+      'tenant_demo',
+      ctx.userId,
+      courseVersionId,
+      {
+        entries: [
+          { templateId: 'tpl_b', position: 0, isRequired: true, autoIssueOnCompletion: true }
+        ]
+      },
+      ctx
+    );
+
+    const set = service.getCourseDocumentSet('tenant_demo', courseVersionId);
+    expect(set).toHaveLength(1);
+    expect(set[0].templateId).toBe('tpl_b');
+  });
+
+  it('allows clearing the set by passing empty entries', () => {
+    const service = makeServiceWithTemplates([{ id: 'tpl_a', tenantId: 'tenant_demo' }]);
+    const { courseVersionId } = seed(service);
+
+    service.setCourseDocumentSet(
+      'tenant_demo',
+      ctx.userId,
+      courseVersionId,
+      {
+        entries: [
+          { templateId: 'tpl_a', position: 0, isRequired: true, autoIssueOnCompletion: true }
+        ]
+      },
+      ctx
+    );
+    service.setCourseDocumentSet('tenant_demo', ctx.userId, courseVersionId, { entries: [] }, ctx);
+
+    expect(service.getCourseDocumentSet('tenant_demo', courseVersionId)).toHaveLength(0);
+  });
+
+  it('rejects non-sequential positions (gap 0, 2)', () => {
+    const service = makeServiceWithTemplates([
+      { id: 'tpl_a', tenantId: 'tenant_demo' },
+      { id: 'tpl_b', tenantId: 'tenant_demo' }
+    ]);
+    const { courseVersionId } = seed(service);
+
+    expect(() =>
+      service.setCourseDocumentSet(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        {
+          entries: [
+            { templateId: 'tpl_a', position: 0, isRequired: true, autoIssueOnCompletion: true },
+            { templateId: 'tpl_b', position: 2, isRequired: true, autoIssueOnCompletion: true }
+          ]
+        },
+        ctx
+      )
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects duplicate positions', () => {
+    const service = makeServiceWithTemplates([
+      { id: 'tpl_a', tenantId: 'tenant_demo' },
+      { id: 'tpl_b', tenantId: 'tenant_demo' }
+    ]);
+    const { courseVersionId } = seed(service);
+
+    expect(() =>
+      service.setCourseDocumentSet(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        {
+          entries: [
+            { templateId: 'tpl_a', position: 0, isRequired: true, autoIssueOnCompletion: true },
+            { templateId: 'tpl_b', position: 0, isRequired: false, autoIssueOnCompletion: false }
+          ]
+        },
+        ctx
+      )
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects unknown templateId', () => {
+    const service = makeServiceWithTemplates([]);
+    const { courseVersionId } = seed(service);
+
+    expect(() =>
+      service.setCourseDocumentSet(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        {
+          entries: [
+            {
+              templateId: 'tpl_nope',
+              position: 0,
+              isRequired: true,
+              autoIssueOnCompletion: true
+            }
+          ]
+        },
+        ctx
+      )
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects unknown courseVersionId', () => {
+    const service = makeServiceWithTemplates([{ id: 'tpl_a', tenantId: 'tenant_demo' }]);
+    expect(() =>
+      service.setCourseDocumentSet(
+        'tenant_demo',
+        ctx.userId,
+        'cver_nope',
+        {
+          entries: [
+            { templateId: 'tpl_a', position: 0, isRequired: true, autoIssueOnCompletion: true }
+          ]
+        },
+        ctx
+      )
+    ).toThrow(NotFoundException);
+  });
+
+  it('rejects template from another tenant', () => {
+    const service = makeServiceWithTemplates([{ id: 'tpl_other', tenantId: 'tenant_other' }]);
+    const { courseVersionId } = seed(service);
+    expect(() =>
+      service.setCourseDocumentSet(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        {
+          entries: [
+            {
+              templateId: 'tpl_other',
+              position: 0,
+              isRequired: true,
+              autoIssueOnCompletion: true
+            }
+          ]
+        },
+        ctx
+      )
+    ).toThrow(BadRequestException);
+  });
+
+  it('getCourseDocumentSet returns entries sorted by position', () => {
+    const service = makeServiceWithTemplates([
+      { id: 'tpl_a', tenantId: 'tenant_demo' },
+      { id: 'tpl_b', tenantId: 'tenant_demo' },
+      { id: 'tpl_c', tenantId: 'tenant_demo' }
+    ]);
+    const { courseVersionId } = seed(service);
+
+    service.setCourseDocumentSet(
+      'tenant_demo',
+      ctx.userId,
+      courseVersionId,
+      {
+        entries: [
+          { templateId: 'tpl_c', position: 2, isRequired: true, autoIssueOnCompletion: true },
+          { templateId: 'tpl_a', position: 0, isRequired: true, autoIssueOnCompletion: true },
+          { templateId: 'tpl_b', position: 1, isRequired: true, autoIssueOnCompletion: true }
+        ]
+      },
+      ctx
+    );
+
+    const set = service.getCourseDocumentSet('tenant_demo', courseVersionId);
+    expect(set.map((e) => e.templateId)).toEqual(['tpl_a', 'tpl_b', 'tpl_c']);
+  });
+
+  it('does not leak entries across tenants', () => {
+    const service = makeServiceWithTemplates([
+      { id: 'tpl_a', tenantId: 'tenant_demo' },
+      { id: 'tpl_b', tenantId: 'tenant_other' }
+    ]);
+    const c1 = service.createCourse('tenant_demo', ctx.userId, { code: 'C1', title: 'C' }, ctx);
+    const cv1 = service.createCourseVersion('tenant_demo', c1.id);
+    const c2 = service.createCourse('tenant_other', ctx.userId, { code: 'C2', title: 'C' }, ctx);
+    const cv2 = service.createCourseVersion('tenant_other', c2.id);
+
+    service.setCourseDocumentSet(
+      'tenant_demo',
+      ctx.userId,
+      cv1.id,
+      {
+        entries: [
+          { templateId: 'tpl_a', position: 0, isRequired: true, autoIssueOnCompletion: true }
+        ]
+      },
+      ctx
+    );
+
+    expect(service.getCourseDocumentSet('tenant_other', cv2.id)).toHaveLength(0);
+    expect(service.getCourseDocumentSet('tenant_demo', cv1.id)).toHaveLength(1);
+  });
+});
