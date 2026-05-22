@@ -1,6 +1,6 @@
 'use client';
 
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 
 import { useAuth } from '../auth/context';
 import { mvpApi } from '../mvp/api';
@@ -22,6 +22,11 @@ export const assembleHomeData = (input: AssembleInput): EnrollmentWithDetails[] 
     return { enrollment, course, progress };
   });
 
+interface CourseDetailsBundle {
+  coursesByCourseId: Record<string, Course | null>;
+  progressByCourseId: Record<string, Progress[]>;
+}
+
 export const useLearnerHomeData = () => {
   const { session } = useAuth();
   const learnerId = session?.user.id ?? '';
@@ -36,45 +41,46 @@ export const useLearnerHomeData = () => {
   const enrollments = (enrollmentsQuery.data as ListResponse<Enrollment> | undefined)?.items ?? [];
   const courseIds = Array.from(
     new Set(enrollments.map((e) => e.courseId).filter((id): id is string => Boolean(id)))
-  );
+  ).sort();
 
-  const courseQueries = useQueries({
-    queries: courseIds.map((courseId) => ({
-      queryKey: ['mvp', 'learnerHomeCourse', courseId],
-      enabled: Boolean(session),
-      queryFn: () => mvpApi.getCourse(session!, courseId)
-    }))
+  const detailsQuery = useQuery({
+    queryKey: ['mvp', 'learnerHomeDetails', courseIds.join(',')],
+    enabled: Boolean(session) && courseIds.length > 0,
+    queryFn: async (): Promise<CourseDetailsBundle> => {
+      const courseResults = await Promise.allSettled(
+        courseIds.map((courseId) => mvpApi.getCourse(session!, courseId))
+      );
+      const progressResults = await Promise.allSettled(
+        courseIds.map((courseId) => mvpApi.listProgress(session!, { course_id: courseId }))
+      );
+      const coursesByCourseId: Record<string, Course | null> = {};
+      const progressByCourseId: Record<string, Progress[]> = {};
+      courseIds.forEach((courseId, index) => {
+        const courseResult = courseResults[index];
+        coursesByCourseId[courseId] =
+          courseResult?.status === 'fulfilled' ? courseResult.value : null;
+        const progressResult = progressResults[index];
+        progressByCourseId[courseId] =
+          progressResult?.status === 'fulfilled' ? progressResult.value.items : [];
+      });
+      return { coursesByCourseId, progressByCourseId };
+    }
   });
 
-  const progressQueries = useQueries({
-    queries: courseIds.map((courseId) => ({
-      queryKey: ['mvp', 'learnerHomeProgress', courseId],
-      enabled: Boolean(session),
-      queryFn: () => mvpApi.listProgress(session!, { course_id: courseId })
-    }))
+  const data = assembleHomeData({
+    enrollments,
+    coursesByCourseId: detailsQuery.data?.coursesByCourseId ?? {},
+    progressByCourseId: detailsQuery.data?.progressByCourseId ?? {}
   });
 
-  const coursesByCourseId: Record<string, Course | null> = {};
-  courseIds.forEach((courseId, index) => {
-    const result = courseQueries[index];
-    coursesByCourseId[courseId] = (result?.data as Course | undefined) ?? null;
-  });
+  const isLoading = enrollmentsQuery.isLoading || (courseIds.length > 0 && detailsQuery.isLoading);
 
-  const progressByCourseId: Record<string, Progress[]> = {};
-  courseIds.forEach((courseId, index) => {
-    const result = progressQueries[index];
-    const items = (result?.data as ListResponse<Progress> | undefined)?.items ?? [];
-    progressByCourseId[courseId] = items;
-  });
-
-  const data = assembleHomeData({ enrollments, coursesByCourseId, progressByCourseId });
-
-  const isLoading =
-    enrollmentsQuery.isLoading ||
-    courseQueries.some((q) => q.isLoading) ||
-    progressQueries.some((q) => q.isLoading);
-
-  const error = enrollmentsQuery.error instanceof Error ? enrollmentsQuery.error.message : null;
+  const error =
+    enrollmentsQuery.error instanceof Error
+      ? enrollmentsQuery.error.message
+      : detailsQuery.error instanceof Error
+        ? detailsQuery.error.message
+        : null;
 
   return { data, isLoading, error };
 };
