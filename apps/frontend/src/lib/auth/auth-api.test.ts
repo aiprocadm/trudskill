@@ -3,7 +3,11 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 const fetchMock = vi.fn();
 
 describe('auth api envelope compatibility', () => {
-  let authApi: { me: (accessToken: string) => Promise<{ id: string; login: string }> };
+  let authApi: {
+    me: (accessToken: string) => Promise<{ id: string; login: string }>;
+    magicLinkRequest: (payload: { email: string }) => Promise<{ status: 'sent' }>;
+    magicLinkRedeem: (payload: { token: string }) => Promise<{ accessToken: string }>;
+  };
 
   beforeAll(async () => {
     process.env.NEXT_PUBLIC_API_BASE_URL ??= 'http://localhost:3001/api/v1';
@@ -59,5 +63,55 @@ describe('auth api envelope compatibility', () => {
     await expect(authApi.me('token')).rejects.toMatchObject({
       normalized: { code: 'INVALID_RESPONSE_ENVELOPE' }
     });
+  });
+
+  it('magicLinkRequest posts to /auth/magic-link/request and unwraps envelope', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: { status: 'sent' },
+          meta: {
+            requestId: 'req-ml-1',
+            correlationId: 'corr-ml-1',
+            timestamp: '2026-05-22T00:00:00.000Z'
+          }
+        }),
+        { status: 201 }
+      )
+    );
+
+    const result = await authApi.magicLinkRequest({ email: 'user@example.ru' });
+
+    expect(result).toEqual({ status: 'sent' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [requestUrl, requestInit] = fetchMock.mock.calls[0] ?? [];
+    expect(String(requestUrl)).toContain('/auth/magic-link/request');
+    expect(requestInit?.method).toBe('POST');
+    expect(requestInit?.credentials).toBe('include');
+    expect(JSON.parse(requestInit?.body as string)).toEqual({ email: 'user@example.ru' });
+  });
+
+  it('magicLinkRedeem unwraps token envelope', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: { accessToken: 'at-1', sessionId: 's-1', expiresIn: 900 },
+          meta: {
+            requestId: 'req-ml-2',
+            correlationId: 'corr-ml-2',
+            timestamp: '2026-05-22T00:00:00.000Z'
+          }
+        }),
+        { status: 201 }
+      )
+    );
+
+    const tokens = await authApi.magicLinkRedeem({ token: 'raw-token-123' });
+
+    expect(tokens.accessToken).toBe('at-1');
+    const [, requestInit] = fetchMock.mock.calls[0] ?? [];
+    expect(requestInit?.method).toBe('POST');
+    expect(requestInit?.credentials).toBe('include');
+    expect(JSON.parse(requestInit?.body as string)).toEqual({ token: 'raw-token-123' });
   });
 });

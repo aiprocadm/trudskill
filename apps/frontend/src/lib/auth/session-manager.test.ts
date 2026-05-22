@@ -20,7 +20,9 @@ const authApiMock = vi.hoisted(() => ({
   me: vi.fn(),
   userRoles: vi.fn(),
   refresh: vi.fn(),
-  logout: vi.fn()
+  logout: vi.fn(),
+  magicLinkRequest: vi.fn(),
+  magicLinkRedeem: vi.fn()
 }));
 
 vi.mock('./auth-api', () => ({ authApi: authApiMock }));
@@ -80,6 +82,40 @@ describe('session manager', () => {
     expect(refreshed?.tokens.accessToken).toBe('a2');
     expect(state.session?.tokens.sessionId).toBe('s2');
     expect(refreshed?.permissions).toContain('iam.manage_roles');
+  });
+
+  it('loginWithMagicLink exchanges token for session and stores it', async () => {
+    authApiMock.magicLinkRedeem.mockResolvedValue({
+      accessToken: 'ml-access',
+      sessionId: 'ml-session',
+      expiresIn: 900
+    });
+    authApiMock.me.mockResolvedValue({
+      id: 'u_magic',
+      tenantId: 'tenant_demo',
+      login: 'magic_abc',
+      email: 'magic@example.ru',
+      status: 'active',
+      displayName: 'Magic User'
+    });
+    authApiMock.userRoles.mockResolvedValue([{ code: 'student' }]);
+
+    const session = await sessionManager.loginWithMagicLink('raw-token-xyz');
+
+    expect(authApiMock.magicLinkRedeem).toHaveBeenCalledWith({ token: 'raw-token-xyz' });
+    expect(session.tokens.accessToken).toBe('ml-access');
+    expect(session.user.id).toBe('u_magic');
+    expect(state.session?.tokens.sessionId).toBe('ml-session');
+  });
+
+  it('loginWithMagicLink does not store session if redeem fails', async () => {
+    authApiMock.magicLinkRedeem.mockRejectedValue(new Error('invalid_magic_link'));
+
+    await expect(sessionManager.loginWithMagicLink('bad-token')).rejects.toThrow(
+      'invalid_magic_link'
+    );
+    expect(authApiMock.me).not.toHaveBeenCalled();
+    expect(state.session).toBeNull();
   });
 
   it('refresh failure clears session', async () => {

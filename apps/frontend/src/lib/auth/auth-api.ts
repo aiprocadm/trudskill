@@ -6,6 +6,20 @@ export interface RoleDto {
   code: string;
 }
 
+export interface MagicLinkRequestPayload {
+  email: string;
+}
+
+export interface MagicLinkRequestResponse {
+  status: 'sent';
+}
+
+export interface MagicLinkRedeemPayload {
+  token: string;
+}
+
+export type MagicLinkRedeemResponse = LoginResponse;
+
 export const authApi = {
   login: (payload: LoginRequest) =>
     apiRequest<LoginResponse>('/auth/login', {
@@ -36,6 +50,18 @@ export const authApi = {
   userRoles: (userId: string, accessToken: string) =>
     apiRequest<RoleDto[]>(`/users/${userId}/roles`, {
       auth: { accessToken },
+      credentials: 'include'
+    }),
+  magicLinkRequest: (payload: MagicLinkRequestPayload) =>
+    apiRequest<MagicLinkRequestResponse>('/auth/magic-link/request', {
+      method: 'POST',
+      body: payload,
+      credentials: 'include'
+    }),
+  magicLinkRedeem: (payload: MagicLinkRedeemPayload) =>
+    apiRequest<MagicLinkRedeemResponse>('/auth/magic-link/redeem', {
+      method: 'POST',
+      body: payload,
       credentials: 'include'
     })
 };

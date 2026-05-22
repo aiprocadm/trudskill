@@ -19,6 +19,12 @@ export const sessionManager = {
     sessionStore.set(session);
     return session;
   },
+  async loginWithMagicLink(token: string): Promise<UserSession> {
+    const tokens = await authApi.magicLinkRedeem({ token });
+    const session = await hydrateSession(tokens);
+    sessionStore.set(session);
+    return session;
+  },
   async bootstrap(): Promise<UserSession | null> {
     sessionStore.hydrateFromStorage();
     return this.tryRefresh();

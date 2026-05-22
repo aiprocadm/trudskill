@@ -11,6 +11,7 @@ interface AuthContextValue {
   session: UserSession | null;
   loading: boolean;
   login: (login: string, password: string) => Promise<UserSession>;
+  loginWithMagicLink: (token: string) => Promise<UserSession>;
   logout: () => Promise<void>;
   refresh: () => Promise<UserSession | null>;
 }
@@ -34,6 +35,11 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       loading,
       login: async (login, password) => {
         const nextSession = await sessionManager.login(login, password);
+        setSession(nextSession);
+        return nextSession;
+      },
+      loginWithMagicLink: async (token) => {
+        const nextSession = await sessionManager.loginWithMagicLink(token);
         setSession(nextSession);
         return nextSession;
       },
