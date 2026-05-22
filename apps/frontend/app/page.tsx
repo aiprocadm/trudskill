@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
 
 import { PageContainer, PageHeader, SectionCard } from '../src/components/state-wrappers';
@@ -80,11 +81,20 @@ const widgetCatalog: Array<{
 ];
 
 export default function DashboardPage() {
-  const { session } = useAuth();
+  const { session, loading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     startMetricTimer('time_to_start_learning');
   }, []);
+
+  useEffect(() => {
+    if (loading || !session) return;
+    const roles = new Set((session.roles ?? []).map(normalizeRole));
+    if (roles.has('learner')) {
+      router.replace('/learner');
+    }
+  }, [loading, router, session]);
 
   const role = useMemo(() => getPrimaryRoleBlueprint(session ?? null), [session]);
 
