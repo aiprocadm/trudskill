@@ -37,7 +37,7 @@ export interface Course extends BaseEntity {
   isArchived: boolean;
 }
 
-export interface CourseVersion extends BaseEntity {
+export interface CourseVersion extends BaseEntity, ProgramMeta {
   courseId: string;
   versionNo: number;
 }
@@ -334,4 +334,86 @@ export interface AssignmentReview extends BaseEntity {
   score?: number;
   comment?: string;
   completedAt?: string;
+}
+
+// === Pillar A — Plan A types (§5.1, §5.2, §5.3) ===
+
+export type CommissionStatus = 'active' | 'archived';
+
+/** Аттестационная комиссия. status наследуется из BaseEntity, значения active/archived. */
+export interface Commission extends BaseEntity {
+  code: string;
+  name: string;
+  description?: string;
+}
+
+export type CommissionMemberRole =
+  | 'chairman'
+  | 'deputy_chairman'
+  | 'member'
+  | 'secretary'
+  | 'external_expert';
+
+/**
+ * Член комиссии. Либо userId (внутренний IAM-пользователь), либо externalFullName
+ * (внешний эксперт). Domain treats как append-only: добавили/удалили, без update.
+ */
+export interface CommissionMember {
+  id: string;
+  tenantId: string;
+  commissionId: string;
+  role: CommissionMemberRole;
+  userId?: string;
+  externalFullName?: string;
+  externalPosition?: string;
+  signatureFileId?: string;
+  positionInOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TrainingType = 'primary' | 'repeat' | 'target' | 'extraordinary';
+export type LearnerCategory = 'worker' | 'specialist' | 'manager' | 'mixed';
+export type StudyForm = 'in_person' | 'distance' | 'blended';
+export type FinalAssessmentForm = 'test' | 'exam' | 'defense' | 'interview';
+
+/**
+ * Регуляторная мета программы — поля на course_versions из §5.1 спеки.
+ * Опциональны на черновике, обязательны для публикации (валидируется в publishCourseVersion).
+ */
+export interface ProgramMeta {
+  academicHours?: number;
+  trainingType?: TrainingType;
+  learnerCategory?: LearnerCategory;
+  studyForm?: StudyForm;
+  finalAssessmentForm?: FinalAssessmentForm;
+  regulatoryBasisCodes?: string[];
+  programAttachmentFileId?: string;
+  commissionId?: string;
+}
+
+/** Global lookup из lookup.regulatory_acts. Не tenant-scoped, неизменяемый каталог. */
+export interface RegulatoryAct {
+  code: string;
+  shortName: string;
+  fullName: string;
+  issuingAuthority: string;
+  issuedAt?: string;
+  url?: string;
+  appliesToVerticals: string[];
+  isActive: boolean;
+  createdAt: string;
+}
+
+/** Запись в пакете выходных документов курса (§5.3). PUT-семантика: replace all on save. */
+export interface CourseDocumentSetEntry {
+  id: string;
+  tenantId: string;
+  courseVersionId: string;
+  templateId: string;
+  position: number;
+  isRequired: boolean;
+  autoIssueOnCompletion: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
