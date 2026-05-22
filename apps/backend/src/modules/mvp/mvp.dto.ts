@@ -1,18 +1,29 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsDefined,
   IsIn,
   IsInt,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
   MinLength,
   ValidateIf,
   ValidateNested
 } from 'class-validator';
+
+import type {
+  CommissionMemberRole,
+  FinalAssessmentForm,
+  LearnerCategory,
+  StudyForm,
+  TrainingType
+} from './mvp.types.js';
 
 export interface BaseFilterQuery {
   page?: number;
@@ -767,4 +778,164 @@ export class CreateAnswerHttpRequest {
   @IsOptional()
   @IsString()
   textAnswer?: string;
+}
+
+// === Pillar A — Plan A DTOs (§5.1, §5.2, §5.3) ===
+
+const COMMISSION_MEMBER_ROLES = [
+  'chairman',
+  'deputy_chairman',
+  'member',
+  'secretary',
+  'external_expert'
+] as const satisfies readonly CommissionMemberRole[];
+
+const TRAINING_TYPES = [
+  'primary',
+  'repeat',
+  'target',
+  'extraordinary'
+] as const satisfies readonly TrainingType[];
+
+const LEARNER_CATEGORIES = [
+  'worker',
+  'specialist',
+  'manager',
+  'mixed'
+] as const satisfies readonly LearnerCategory[];
+
+const STUDY_FORMS = ['in_person', 'distance', 'blended'] as const satisfies readonly StudyForm[];
+
+const FINAL_ASSESSMENT_FORMS = [
+  'test',
+  'exam',
+  'defense',
+  'interview'
+] as const satisfies readonly FinalAssessmentForm[];
+
+/** `POST /commissions` — создание аттестационной комиссии. */
+export class CreateCommissionRequest {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  code!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
+  name!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  description?: string;
+}
+
+/** `PATCH /commissions/:id` — обновление name/description (code immutable). */
+export class UpdateCommissionRequest {
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  description?: string;
+}
+
+/**
+ * `POST /commissions/:id/members` — добавить члена. Либо `userId` (внутренний),
+ * либо `externalFullName` (внешний эксперт) — DB CHECK enforces, сервис проверит до insert.
+ */
+export class AddCommissionMemberRequest {
+  @IsString()
+  @IsIn(COMMISSION_MEMBER_ROLES)
+  role!: CommissionMemberRole;
+
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  externalFullName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  externalPosition?: string;
+
+  @IsOptional()
+  @IsString()
+  signatureFileId?: string;
+
+  @IsInt()
+  @Min(0)
+  positionInOrder!: number;
+}
+
+/** `PATCH /course-versions/:id/program-meta` — patch программных полей черновика. */
+export class UpdateProgramMetaRequest {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  academicHours?: number;
+
+  @IsOptional()
+  @IsIn(TRAINING_TYPES)
+  trainingType?: TrainingType;
+
+  @IsOptional()
+  @IsIn(LEARNER_CATEGORIES)
+  learnerCategory?: LearnerCategory;
+
+  @IsOptional()
+  @IsIn(STUDY_FORMS)
+  studyForm?: StudyForm;
+
+  @IsOptional()
+  @IsIn(FINAL_ASSESSMENT_FORMS)
+  finalAssessmentForm?: FinalAssessmentForm;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  regulatoryBasisCodes?: string[];
+
+  @IsOptional()
+  @IsString()
+  programAttachmentFileId?: string;
+
+  @IsOptional()
+  @IsString()
+  commissionId?: string;
+}
+
+/** Одна строка пакета документов (внутри `PutCourseDocumentSetRequest.entries`). */
+export class CourseDocumentSetEntryRequest {
+  @IsString()
+  @IsNotEmpty()
+  templateId!: string;
+
+  @IsInt()
+  @Min(0)
+  position!: number;
+
+  @IsBoolean()
+  isRequired!: boolean;
+
+  @IsBoolean()
+  autoIssueOnCompletion!: boolean;
+}
+
+/** `PUT /course-versions/:id/document-set` — replace-all семантика. */
+export class PutCourseDocumentSetRequest {
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => CourseDocumentSetEntryRequest)
+  entries!: CourseDocumentSetEntryRequest[];
 }
