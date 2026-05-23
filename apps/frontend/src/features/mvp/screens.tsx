@@ -3,7 +3,7 @@
 import { DataTable, FilterBar, LoadingState, StatusChip } from '@cdoprof/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, type ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 
 import { showActAsLearnerAction, showOpenLearnerRegistryAction } from './assessment-permissions';
 import {
@@ -12,12 +12,16 @@ import {
   useAssignmentSubmissions,
   useAssignments,
   useAttempts,
+  useCommission,
+  useCommissions,
   useCounterpartiesList,
   useCounterparty,
   useCourse,
+  useCourseDocumentSet,
   useCourseVersions,
   useCoursesList,
   useDirectionsList,
+  useDocumentTemplates,
   useDomainMutations,
   useEnrollmentCertificatesForCompleted,
   useEnrollments,
@@ -31,6 +35,7 @@ import {
   useMaterials,
   useModules,
   useQuestionBanks,
+  useRegulatoryActs,
   useRoles,
   useTests,
   useUser,
@@ -56,7 +61,23 @@ import { frontendEnv } from '../../lib/config/env';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 
-import type { AssignmentSubmission, Attempt, EnrollmentCertificateRow, ExamResult } from './types';
+import type {
+  AssignmentSubmission,
+  Attempt,
+  Commission,
+  CommissionMember,
+  CommissionMemberRole,
+  CommissionStatus,
+  CourseDocumentSetEntryDraft,
+  CourseVersion,
+  EnrollmentCertificateRow,
+  ExamResult,
+  FinalAssessmentForm,
+  LearnerCategory,
+  ProgramMetaPatch,
+  StudyForm,
+  TrainingType
+} from './types';
 import type { Column } from '@cdoprof/ui';
 
 const resolveCertificateDownloadHref = (downloadPath: string): string => {
@@ -743,11 +764,440 @@ export const CourseCreateScreen = () => {
   );
 };
 
+const TRAINING_TYPE_OPTIONS: Array<{ value: TrainingType; label: string }> = [
+  { value: 'primary', label: 'Первичная' },
+  { value: 'repeat', label: 'Повторная' },
+  { value: 'target', label: 'Целевая' },
+  { value: 'extraordinary', label: 'Внеочередная' }
+];
+const LEARNER_CATEGORY_OPTIONS: Array<{ value: LearnerCategory; label: string }> = [
+  { value: 'worker', label: 'Рабочие' },
+  { value: 'specialist', label: 'Специалисты' },
+  { value: 'manager', label: 'Руководители' },
+  { value: 'mixed', label: 'Смешанная' }
+];
+const STUDY_FORM_OPTIONS: Array<{ value: StudyForm; label: string }> = [
+  { value: 'in_person', label: 'Очная' },
+  { value: 'distance', label: 'Дистанционная' },
+  { value: 'blended', label: 'Смешанная' }
+];
+const FINAL_ASSESSMENT_OPTIONS: Array<{ value: FinalAssessmentForm; label: string }> = [
+  { value: 'test', label: 'Тест' },
+  { value: 'exam', label: 'Экзамен' },
+  { value: 'defense', label: 'Защита' },
+  { value: 'interview', label: 'Собеседование' }
+];
+
+const ProgramMetaSection = ({
+  courseVersion,
+  onUpdated
+}: {
+  courseVersion: CourseVersion;
+  onUpdated: () => void | Promise<void>;
+}) => {
+  const { data: acts } = useRegulatoryActs();
+  const { data: commissions } = useCommissions('active');
+  const { updateCourseVersionProgramMeta, publishCourseVersion } = useDomainMutations();
+  const readOnly = courseVersion.status !== 'draft';
+
+  const [academicHours, setAcademicHours] = useState<string>(
+    courseVersion.academicHours != null ? String(courseVersion.academicHours) : ''
+  );
+  const [trainingType, setTrainingType] = useState<TrainingType | ''>(
+    courseVersion.trainingType ?? ''
+  );
+  const [learnerCategory, setLearnerCategory] = useState<LearnerCategory | ''>(
+    courseVersion.learnerCategory ?? ''
+  );
+  const [studyForm, setStudyForm] = useState<StudyForm | ''>(courseVersion.studyForm ?? '');
+  const [finalAssessmentForm, setFinalAssessmentForm] = useState<FinalAssessmentForm | ''>(
+    courseVersion.finalAssessmentForm ?? ''
+  );
+  const [regulatoryBasisCodes, setRegulatoryBasisCodes] = useState<string[]>(
+    courseVersion.regulatoryBasisCodes ?? []
+  );
+  const [commissionId, setCommissionId] = useState<string>(courseVersion.commissionId ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setAcademicHours(
+      courseVersion.academicHours != null ? String(courseVersion.academicHours) : ''
+    );
+    setTrainingType(courseVersion.trainingType ?? '');
+    setLearnerCategory(courseVersion.learnerCategory ?? '');
+    setStudyForm(courseVersion.studyForm ?? '');
+    setFinalAssessmentForm(courseVersion.finalAssessmentForm ?? '');
+    setRegulatoryBasisCodes(courseVersion.regulatoryBasisCodes ?? []);
+    setCommissionId(courseVersion.commissionId ?? '');
+  }, [courseVersion]);
+
+  const buildPayload = (): ProgramMetaPatch => {
+    const payload: ProgramMetaPatch = {};
+    const hoursNum = Number(academicHours);
+    if (academicHours && Number.isFinite(hoursNum) && hoursNum > 0) {
+      payload.academicHours = hoursNum;
+    }
+    if (trainingType) payload.trainingType = trainingType;
+    if (learnerCategory) payload.learnerCategory = learnerCategory;
+    if (studyForm) payload.studyForm = studyForm;
+    if (finalAssessmentForm) payload.finalAssessmentForm = finalAssessmentForm;
+    if (regulatoryBasisCodes.length > 0) payload.regulatoryBasisCodes = regulatoryBasisCodes;
+    if (commissionId) payload.commissionId = commissionId;
+    return payload;
+  };
+
+  const onSave = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await updateCourseVersionProgramMeta(courseVersion.id, buildPayload());
+      await onUpdated();
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : 'Не удалось сохранить параметры');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onPublish = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await updateCourseVersionProgramMeta(courseVersion.id, buildPayload());
+      await publishCourseVersion(courseVersion.id);
+      await onUpdated();
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : 'Не удалось опубликовать');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <SectionCard title="Нормативные параметры программы (Pillar A)">
+      {readOnly ? (
+        <p className="ui-text-muted">
+          Версия опубликована — параметры доступны только для просмотра.
+        </p>
+      ) : null}
+      <div className="ui-stack" style={{ gap: 12 }}>
+        <label>
+          Часы (академические)
+          <input
+            type="number"
+            min={1}
+            value={academicHours}
+            onChange={(e) => setAcademicHours(e.target.value)}
+            disabled={readOnly}
+          />
+        </label>
+        <label>
+          Вид подготовки
+          <select
+            value={trainingType}
+            onChange={(e) => setTrainingType(e.target.value as TrainingType | '')}
+            disabled={readOnly}
+          >
+            <option value="">— выберите —</option>
+            {TRAINING_TYPE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Категория обучаемых
+          <select
+            value={learnerCategory}
+            onChange={(e) => setLearnerCategory(e.target.value as LearnerCategory | '')}
+            disabled={readOnly}
+          >
+            <option value="">— выберите —</option>
+            {LEARNER_CATEGORY_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Форма обучения
+          <select
+            value={studyForm}
+            onChange={(e) => setStudyForm(e.target.value as StudyForm | '')}
+            disabled={readOnly}
+          >
+            <option value="">— выберите —</option>
+            {STUDY_FORM_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Форма аттестации
+          <select
+            value={finalAssessmentForm}
+            onChange={(e) => setFinalAssessmentForm(e.target.value as FinalAssessmentForm | '')}
+            disabled={readOnly}
+          >
+            <option value="">— выберите —</option>
+            {FINAL_ASSESSMENT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Нормативные акты (множественный выбор)
+          <select
+            multiple
+            value={regulatoryBasisCodes}
+            onChange={(e) =>
+              setRegulatoryBasisCodes(Array.from(e.target.selectedOptions, (o) => o.value))
+            }
+            disabled={readOnly}
+            size={6}
+          >
+            {acts?.items.map((a) => (
+              <option key={a.code} value={a.code}>
+                {a.shortName} — {a.fullName}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Аттестационная комиссия
+          <select
+            value={commissionId}
+            onChange={(e) => setCommissionId(e.target.value)}
+            disabled={readOnly}
+          >
+            <option value="">— выберите комиссию —</option>
+            {commissions?.items.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.code} — {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {error ? <FieldError id="program-meta-error" message={error} /> : null}
+        {!readOnly ? (
+          <div className="ui-inline" style={{ gap: 8 }}>
+            <button
+              type="button"
+              className="ui-button"
+              disabled={busy}
+              onClick={() => void onSave()}
+            >
+              Сохранить черновик
+            </button>
+            <button
+              type="button"
+              className="ui-button"
+              disabled={busy}
+              onClick={() => void onPublish()}
+            >
+              Опубликовать версию
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </SectionCard>
+  );
+};
+
+const DocumentSetSection = ({
+  courseVersion,
+  onUpdated
+}: {
+  courseVersion: CourseVersion;
+  onUpdated: () => void | Promise<void>;
+}) => {
+  const { data: existing, refetch: refetchSet } = useCourseDocumentSet(courseVersion.id);
+  const { data: templates } = useDocumentTemplates();
+  const { setCourseDocumentSet } = useDomainMutations();
+
+  const [draft, setDraft] = useState<CourseDocumentSetEntryDraft[]>([]);
+  const [nextTemplate, setNextTemplate] = useState<string>('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (existing) {
+      setDraft(
+        existing.items
+          .slice()
+          .sort((a, b) => a.position - b.position)
+          .map((e) => ({
+            templateId: e.templateId,
+            position: e.position,
+            isRequired: e.isRequired,
+            autoIssueOnCompletion: e.autoIssueOnCompletion
+          }))
+      );
+    }
+  }, [existing]);
+
+  const renumber = (arr: CourseDocumentSetEntryDraft[]): CourseDocumentSetEntryDraft[] =>
+    arr.map((e, i) => ({ ...e, position: i }));
+
+  const addEntry = (templateId: string) => {
+    if (!templateId) return;
+    setDraft((prev) =>
+      renumber([
+        ...prev,
+        {
+          templateId,
+          position: prev.length,
+          isRequired: true,
+          autoIssueOnCompletion: true
+        }
+      ])
+    );
+  };
+
+  const move = (idx: number, delta: number) => {
+    setDraft((prev) => {
+      const newIdx = idx + delta;
+      if (newIdx < 0 || newIdx >= prev.length) return prev;
+      const arr = [...prev];
+      const cur = arr[idx];
+      const target = arr[newIdx];
+      if (!cur || !target) return prev;
+      arr[idx] = target;
+      arr[newIdx] = cur;
+      return renumber(arr);
+    });
+  };
+
+  const removeEntry = (idx: number) => {
+    setDraft((prev) => renumber(prev.filter((_, i) => i !== idx)));
+  };
+
+  const toggleField = (idx: number, field: 'isRequired' | 'autoIssueOnCompletion') => {
+    setDraft((prev) => prev.map((e, i) => (i === idx ? { ...e, [field]: !e[field] } : e)));
+  };
+
+  const onSave = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await setCourseDocumentSet(courseVersion.id, draft);
+      await refetchSet();
+      await onUpdated();
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : 'Не удалось сохранить пакет');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const templateNameById: Record<string, { name: string; templateType: string }> = {};
+  templates?.items.forEach((t) => {
+    templateNameById[t.id] = { name: t.name, templateType: t.templateType };
+  });
+
+  return (
+    <SectionCard title="Выходные документы курса (пакет, Pillar A)">
+      <p className="ui-text-muted" style={{ marginBottom: 8 }}>
+        Документы выпускаются по порядку при завершении зачисления. Шаблоны привязаны к tenant.
+      </p>
+      {draft.length === 0 ? <SectionEmpty message="Пакет ещё не настроен" /> : null}
+      {draft.map((entry, idx) => {
+        const info = templateNameById[entry.templateId];
+        return (
+          <div
+            key={`${entry.templateId}_${idx}`}
+            className="ui-inline"
+            style={{ gap: 8, padding: '6px 0', borderBottom: '1px solid var(--ui-border, #eee)' }}
+          >
+            <strong>{idx + 1}.</strong>
+            <span>{info?.name ?? `(${entry.templateId} — не найден)`}</span>
+            <span className="ui-text-muted">{info?.templateType}</span>
+            <label>
+              <input
+                type="checkbox"
+                checked={entry.isRequired}
+                onChange={() => toggleField(idx, 'isRequired')}
+              />{' '}
+              Обязательный
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={entry.autoIssueOnCompletion}
+                onChange={() => toggleField(idx, 'autoIssueOnCompletion')}
+              />{' '}
+              Авто-выпуск
+            </label>
+            <button
+              type="button"
+              className="ui-button-link"
+              onClick={() => move(idx, -1)}
+              disabled={idx === 0}
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              className="ui-button-link"
+              onClick={() => move(idx, 1)}
+              disabled={idx === draft.length - 1}
+            >
+              ↓
+            </button>
+            <button type="button" className="ui-button-link" onClick={() => removeEntry(idx)}>
+              Удалить
+            </button>
+          </div>
+        );
+      })}
+
+      <div className="ui-inline" style={{ gap: 8, marginTop: 8 }}>
+        <select value={nextTemplate} onChange={(e) => setNextTemplate(e.target.value)}>
+          <option value="">— выберите шаблон —</option>
+          {templates?.items.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name} ({t.templateType})
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          className="ui-button"
+          onClick={() => {
+            if (nextTemplate) {
+              addEntry(nextTemplate);
+              setNextTemplate('');
+            }
+          }}
+          disabled={!nextTemplate}
+        >
+          Добавить в пакет
+        </button>
+      </div>
+
+      {error ? <FieldError id="document-set-error" message={error} /> : null}
+      <div className="ui-inline" style={{ gap: 8, marginTop: 12 }}>
+        <button type="button" className="ui-button" disabled={busy} onClick={() => void onSave()}>
+          Сохранить пакет
+        </button>
+      </div>
+    </SectionCard>
+  );
+};
+
 export const CourseDetailsScreen = ({ id }: { id: string }) => {
   const { session } = useAuth();
   const { data: course, refetch } = useCourse(id);
   const { data: versions, refetch: refetchVersions } = useCourseVersions(id);
   const latestVersionId = versions?.items[versions.items.length - 1]?.id;
+  const latestVersion = versions?.items[versions.items.length - 1];
   const { data: modules, refetch: refetchModules } = useModules(latestVersionId);
   const [selectedModuleId, setSelectedModuleId] = useState<string>('');
   const { data: materials, refetch: refetchMaterials } = useMaterials(selectedModuleId);
@@ -819,6 +1269,22 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
           ))}
         </ul>
       </SectionCard>
+      {latestVersion ? (
+        <>
+          <ProgramMetaSection
+            courseVersion={latestVersion}
+            onUpdated={async () => {
+              await refetchVersions();
+            }}
+          />
+          <DocumentSetSection
+            courseVersion={latestVersion}
+            onUpdated={async () => {
+              await refetchVersions();
+            }}
+          />
+        </>
+      ) : null}
       <SectionCard title="Модули">
         <form
           onSubmit={(event) => {
@@ -1913,6 +2379,288 @@ export const AssessmentDashboardScreen = () => {
           <SectionEmpty message="История проверок пока пуста" />
         )}
       </SectionCard>
+    </PageContainer>
+  );
+};
+
+// === Pillar A — Plan A: commissions admin screens ===
+
+const COMMISSION_MEMBER_ROLE_LABELS: Record<CommissionMemberRole, string> = {
+  chairman: 'Председатель',
+  deputy_chairman: 'Зам. председателя',
+  member: 'Член',
+  secretary: 'Секретарь',
+  external_expert: 'Внешний эксперт'
+};
+
+export const CommissionsPageScreen = () => {
+  const router = useRouter();
+  const [status, setStatus] = useState<CommissionStatus | ''>('active');
+  const filterStatus: CommissionStatus | undefined = status === '' ? undefined : status;
+  const { data, loading, error, refetch } = useCommissions(filterStatus);
+  const { createCommission } = useDomainMutations();
+
+  const [code, setCode] = useState('');
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const onCreate = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!code.trim() || !name.trim()) {
+      setSaveError('Код и название обязательны');
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const trimmedDescription = description.trim();
+      const payload: { code: string; name: string; description?: string } = {
+        code: code.trim(),
+        name: name.trim()
+      };
+      if (trimmedDescription) payload.description = trimmedDescription;
+      const created = await createCommission(payload);
+      setCode('');
+      setName('');
+      setDescription('');
+      router.push(`/admin/commissions/${created.id}`);
+    } catch (err) {
+      setSaveError(err instanceof ApiClientError ? err.message : 'Не удалось создать комиссию');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const commissionColumns: Column<Commission>[] = [
+    { key: 'code', title: 'Код' },
+    { key: 'name', title: 'Название' },
+    {
+      key: 'status',
+      title: 'Статус',
+      render: (row) => <StatusChip status={row.status} />
+    },
+    {
+      key: 'id',
+      title: '',
+      render: (row) => <Link href={`/admin/commissions/${row.id}`}>Открыть</Link>
+    }
+  ];
+
+  return (
+    <PageContainer>
+      <PageHeader
+        title="Аттестационные комиссии"
+        subtitle="Составы для регулируемого ДПО — подписывают пакеты выходных документов"
+      />
+      <SectionCard title="Реестр комиссий">
+        <div className="ui-inline" style={{ marginBottom: 12 }}>
+          <label>
+            Статус:&nbsp;
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as CommissionStatus | '')}
+            >
+              <option value="active">Активные</option>
+              <option value="archived">Архивные</option>
+              <option value="">Все</option>
+            </select>
+          </label>
+          <button type="button" className="ui-button" onClick={() => void refetch()}>
+            Обновить
+          </button>
+        </div>
+        {loading ? <LoadingState message="Загрузка…" /> : null}
+        {error ? <SectionError message={error} /> : null}
+        {data && data.items.length > 0 ? (
+          <DataTable columns={commissionColumns} rows={data.items} />
+        ) : null}
+        {data && data.items.length === 0 && !loading ? (
+          <SectionEmpty message="Комиссии не созданы" hint="Создайте первую комиссию ниже" />
+        ) : null}
+      </SectionCard>
+
+      <SectionCard title="Создать новую комиссию">
+        <form onSubmit={(e) => void onCreate(e)} className="ui-stack">
+          <label>
+            Код
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="например, OT_2026"
+              required
+            />
+          </label>
+          <label>
+            Название
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Комиссия по охране труда"
+              required
+            />
+          </label>
+          <label>
+            Описание (необязательно)
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} />
+          </label>
+          {saveError ? <FieldError id="commission-create-error" message={saveError} /> : null}
+          <button type="submit" className="ui-button" disabled={saving}>
+            {saving ? 'Создаём…' : 'Создать комиссию'}
+          </button>
+        </form>
+      </SectionCard>
+    </PageContainer>
+  );
+};
+
+export const CommissionDetailsScreen = ({ id }: { id: string }) => {
+  const { data, loading, error, refetch } = useCommission(id);
+  const { archiveCommission, addCommissionMember, removeCommissionMember } = useDomainMutations();
+
+  const [role, setRole] = useState<CommissionMemberRole>('member');
+  const [externalFullName, setExternalFullName] = useState('');
+  const [externalPosition, setExternalPosition] = useState('');
+  const [addError, setAddError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+
+  const onAddMember = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!externalFullName.trim()) {
+      setAddError('Введите ФИО члена комиссии');
+      return;
+    }
+    setAdding(true);
+    setAddError(null);
+    try {
+      const nextPosition = data?.members.length ?? 0;
+      const trimmedPosition = externalPosition.trim();
+      const payload: {
+        role: CommissionMemberRole;
+        externalFullName: string;
+        externalPosition?: string;
+        positionInOrder: number;
+      } = {
+        role,
+        externalFullName: externalFullName.trim(),
+        positionInOrder: nextPosition
+      };
+      if (trimmedPosition) payload.externalPosition = trimmedPosition;
+      await addCommissionMember(id, payload);
+      setExternalFullName('');
+      setExternalPosition('');
+      await refetch();
+    } catch (err) {
+      setAddError(err instanceof ApiClientError ? err.message : 'Не удалось добавить члена');
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const onArchive = async () => {
+    if (!confirm('Заархивировать комиссию? Её нельзя будет привязать к новым курсам.')) return;
+    await archiveCommission(id);
+    await refetch();
+  };
+
+  const onRemove = async (memberId: string) => {
+    if (!confirm('Удалить члена комиссии?')) return;
+    await removeCommissionMember(id, memberId);
+    await refetch();
+  };
+
+  const memberColumns: Column<CommissionMember>[] = [
+    { key: 'positionInOrder', title: '#' },
+    {
+      key: 'role',
+      title: 'Роль',
+      render: (row) => COMMISSION_MEMBER_ROLE_LABELS[row.role]
+    },
+    { key: 'externalFullName', title: 'ФИО' },
+    { key: 'externalPosition', title: 'Должность' },
+    {
+      key: 'id',
+      title: '',
+      render: (row) => (
+        <button type="button" className="ui-button-link" onClick={() => void onRemove(row.id)}>
+          Удалить
+        </button>
+      )
+    }
+  ];
+
+  const headerProps: { title: string; subtitle?: string; actions?: ReactElement } = {
+    title: data ? data.name : 'Комиссия'
+  };
+  if (data) headerProps.subtitle = `Код: ${data.code}`;
+  if (data && data.status === 'active') {
+    headerProps.actions = (
+      <button type="button" className="ui-button" onClick={() => void onArchive()}>
+        Заархивировать
+      </button>
+    );
+  }
+
+  return (
+    <PageContainer>
+      <PageHeader {...headerProps} />
+      {loading ? <LoadingState message="Загрузка…" /> : null}
+      {error ? <SectionError message={error} /> : null}
+      {data ? (
+        <>
+          <SectionCard title="Состав комиссии">
+            {data.members.length > 0 ? (
+              <DataTable columns={memberColumns} rows={data.members} />
+            ) : (
+              <SectionEmpty message="Члены комиссии не добавлены" />
+            )}
+          </SectionCard>
+
+          {data.status === 'active' ? (
+            <SectionCard title="Добавить члена">
+              <form onSubmit={(e) => void onAddMember(e)} className="ui-stack">
+                <label>
+                  Роль
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value as CommissionMemberRole)}
+                  >
+                    {Object.entries(COMMISSION_MEMBER_ROLE_LABELS).map(([key, label]) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  ФИО
+                  <input
+                    value={externalFullName}
+                    onChange={(e) => setExternalFullName(e.target.value)}
+                    placeholder="Иванов Иван Иванович"
+                    required
+                  />
+                </label>
+                <label>
+                  Должность (необязательно)
+                  <input
+                    value={externalPosition}
+                    onChange={(e) => setExternalPosition(e.target.value)}
+                    placeholder="Главный специалист"
+                  />
+                </label>
+                {addError ? (
+                  <FieldError id="commission-add-member-error" message={addError} />
+                ) : null}
+                <button type="submit" className="ui-button" disabled={adding}>
+                  {adding ? 'Добавляем…' : 'Добавить'}
+                </button>
+              </form>
+            </SectionCard>
+          ) : null}
+        </>
+      ) : null}
     </PageContainer>
   );
 };

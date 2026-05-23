@@ -74,6 +74,15 @@ export interface Course extends BaseEntity {
 export interface CourseVersion extends BaseEntity {
   courseId: string;
   versionNo: number;
+  // Pillar A program meta (§5.1) — optional fields, filled before publish
+  academicHours?: number;
+  trainingType?: TrainingType;
+  learnerCategory?: LearnerCategory;
+  studyForm?: StudyForm;
+  finalAssessmentForm?: FinalAssessmentForm;
+  regulatoryBasisCodes?: string[];
+  programAttachmentFileId?: string;
+  commissionId?: string;
 }
 
 export interface CourseModule extends BaseEntity {
@@ -253,4 +262,87 @@ export interface EnrollmentCertificateRow {
   name: string;
   /** Путь относительно origin backend, начинается с `/api/...` */
   downloadUrl: string;
+}
+
+// === Pillar A — Plan A (§5.1, §5.2, §5.3) ===
+
+export type CommissionStatus = 'active' | 'archived';
+export type CommissionMemberRole =
+  | 'chairman'
+  | 'deputy_chairman'
+  | 'member'
+  | 'secretary'
+  | 'external_expert';
+export type TrainingType = 'primary' | 'repeat' | 'target' | 'extraordinary';
+export type LearnerCategory = 'worker' | 'specialist' | 'manager' | 'mixed';
+export type StudyForm = 'in_person' | 'distance' | 'blended';
+export type FinalAssessmentForm = 'test' | 'exam' | 'defense' | 'interview';
+
+export interface Commission {
+  id: string;
+  tenantId: string;
+  code: string;
+  name: string;
+  description?: string;
+  status: CommissionStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommissionMember {
+  id: string;
+  tenantId: string;
+  commissionId: string;
+  role: CommissionMemberRole;
+  userId?: string;
+  externalFullName?: string;
+  externalPosition?: string;
+  signatureFileId?: string;
+  positionInOrder: number;
+}
+
+export interface CommissionWithMembers extends Commission {
+  members: CommissionMember[];
+}
+
+export interface ProgramMetaPatch {
+  academicHours?: number;
+  trainingType?: TrainingType;
+  learnerCategory?: LearnerCategory;
+  studyForm?: StudyForm;
+  finalAssessmentForm?: FinalAssessmentForm;
+  regulatoryBasisCodes?: string[];
+  programAttachmentFileId?: string;
+  commissionId?: string;
+}
+
+export interface CourseDocumentSetEntry {
+  id: string;
+  tenantId: string;
+  courseVersionId: string;
+  templateId: string;
+  position: number;
+  isRequired: boolean;
+  autoIssueOnCompletion: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CourseDocumentSetEntryDraft {
+  templateId: string;
+  position: number;
+  isRequired: boolean;
+  autoIssueOnCompletion: boolean;
+}
+
+export interface RegulatoryAct {
+  code: string;
+  shortName: string;
+  fullName: string;
+  issuingAuthority: string;
+  issuedAt?: string;
+  url?: string;
+  appliesToVerticals: string[];
+  isActive: boolean;
+  createdAt: string;
 }

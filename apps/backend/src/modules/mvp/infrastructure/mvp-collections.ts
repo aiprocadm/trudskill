@@ -25,7 +25,10 @@ export const MVP_COLLECTIONS = [
   'assignments',
   'assignmentSubmissions',
   'assignmentReviews',
-  'bulkEnrollmentIdempotency'
+  'bulkEnrollmentIdempotency',
+  'commissions',
+  'commissionMembers',
+  'courseDocumentSets'
 ] as const;
 
 export type MvpCollection = (typeof MVP_COLLECTIONS)[number];

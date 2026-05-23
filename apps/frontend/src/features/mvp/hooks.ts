@@ -6,7 +6,15 @@ import { mvpApi } from './api';
 import { pushGlobalSuccessToast } from '../../lib/toast/global-handlers';
 import { useAuth } from '../auth/context';
 
-import type { BaseFilterQuery, EnrollmentCertificateRow, KpiFilterQuery } from './types';
+import type {
+  BaseFilterQuery,
+  CommissionMemberRole,
+  CommissionStatus,
+  CourseDocumentSetEntryDraft,
+  EnrollmentCertificateRow,
+  KpiFilterQuery,
+  ProgramMetaPatch
+} from './types';
 
 export interface EnrollmentCertsBundle {
   enrollmentId: string;
@@ -99,6 +107,20 @@ export const useAssignments = (query: BaseFilterQuery) =>
   useMvpQuery('assignments', query, (s) => mvpApi.listAssignments(s, query));
 export const useAttempts = (query: BaseFilterQuery) =>
   useMvpQuery('attempts', query, (s) => mvpApi.listAttempts(s, query));
+
+// === Pillar A — Plan A queries ===
+export const useCommissions = (status?: CommissionStatus) =>
+  useMvpQuery('commissions', status ?? null, (s) => mvpApi.listCommissions(s, status));
+export const useCommission = (id: string) =>
+  useMvpQuery('commission', id, (s) => mvpApi.getCommission(s, id));
+export const useCourseDocumentSet = (courseVersionId: string) =>
+  useMvpQuery('courseDocumentSet', courseVersionId, (s) =>
+    mvpApi.getCourseDocumentSet(s, courseVersionId)
+  );
+export const useRegulatoryActs = () =>
+  useMvpQuery('regulatoryActs', null, (s) => mvpApi.listRegulatoryActs(s));
+export const useDocumentTemplates = () =>
+  useMvpQuery('documentTemplates', null, (s) => mvpApi.listDocumentTemplates(s));
 export const useExamResults = (query: BaseFilterQuery) =>
   useMvpQuery('examResults', query, (s) => mvpApi.listExamResults(s, query));
 export const useAssignmentSubmissions = (query: BaseFilterQuery) =>
@@ -187,6 +209,35 @@ export const useDomainMutations = () => {
       }
     ) => wrap((authSession) => mvpApi.updateAssignmentReview(authSession, reviewId, payload)),
     completeAssignmentReview: (reviewId: string, payload: { score?: number; comment?: string }) =>
-      wrap((authSession) => mvpApi.completeAssignmentReview(authSession, reviewId, payload))
+      wrap((authSession) => mvpApi.completeAssignmentReview(authSession, reviewId, payload)),
+
+    // === Pillar A — Plan A mutations ===
+    createCommission: (payload: { code: string; name: string; description?: string }) =>
+      wrap((authSession) => mvpApi.createCommission(authSession, payload)),
+    updateCommission: (id: string, payload: { name?: string; description?: string }) =>
+      wrap((authSession) => mvpApi.updateCommission(authSession, id, payload)),
+    archiveCommission: (id: string) =>
+      wrap((authSession) => mvpApi.archiveCommission(authSession, id)),
+    addCommissionMember: (
+      commissionId: string,
+      payload: {
+        role: CommissionMemberRole;
+        userId?: string;
+        externalFullName?: string;
+        externalPosition?: string;
+        signatureFileId?: string;
+        positionInOrder: number;
+      }
+    ) => wrap((authSession) => mvpApi.addCommissionMember(authSession, commissionId, payload)),
+    removeCommissionMember: (commissionId: string, memberId: string) =>
+      wrap((authSession) => mvpApi.removeCommissionMember(authSession, commissionId, memberId)),
+    updateCourseVersionProgramMeta: (courseVersionId: string, payload: ProgramMetaPatch) =>
+      wrap((authSession) =>
+        mvpApi.updateCourseVersionProgramMeta(authSession, courseVersionId, payload)
+      ),
+    publishCourseVersion: (courseVersionId: string) =>
+      wrap((authSession) => mvpApi.publishCourseVersion(authSession, courseVersionId)),
+    setCourseDocumentSet: (courseVersionId: string, entries: CourseDocumentSetEntryDraft[]) =>
+      wrap((authSession) => mvpApi.setCourseDocumentSet(authSession, courseVersionId, entries))
   };
 };
