@@ -2289,6 +2289,19 @@ describe('MVP HTTP integration (domain invariants)', () => {
     });
   });
 
+  describe('Pillar A — regulatory acts lookup (Plan A §5.5)', () => {
+    it('GET /regulatory-acts returns 6 seed acts with codes', async () => {
+      const t = tokenFor(`sess_pillar_a_acts_${Date.now()}`);
+      const res = await fetch(`${apiBaseUrl}/regulatory-acts`, { headers: hdr(t) });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        data: { items: Array<{ code: string; shortName: string }> };
+      };
+      expect(body.data.items.length).toBeGreaterThanOrEqual(6);
+      expect(body.data.items.find((a) => a.code === 'PP_2464_2022')).toBeDefined();
+    });
+  });
+
   describe('Pillar A — course document set HTTP (Plan A §5.3)', () => {
     async function makeCourseVersionForDocSet(t: string, codePrefix: string): Promise<string> {
       const course = (await (

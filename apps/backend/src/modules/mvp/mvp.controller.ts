@@ -962,6 +962,15 @@ export class MvpController {
   getCourseDocumentSet(@CurrentContext() c: RequestContext, @Param('id') id: string) {
     return { items: this.mvpService.getCourseDocumentSet(c.tenantId!, id) };
   }
+
+  // === Pillar A — Plan A (§5.5): regulatory acts lookup ===
+
+  @Get('regulatory-acts')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('courses.read')
+  listRegulatoryActs() {
+    return { items: this.mvpService.listRegulatoryActs() };
+  }
   @Put('course-versions/:id/document-set')
   @UseGuards(PermissionGuard)
   @RequirePermissions('learning.course_document_sets.write')

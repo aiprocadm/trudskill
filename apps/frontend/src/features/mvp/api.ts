@@ -34,6 +34,7 @@ import type {
   Progress,
   Question,
   QuestionBank,
+  RegulatoryAct,
   RoleEntity,
   SessionDto,
   TestEntity,
@@ -441,5 +442,9 @@ export const mvpApi = {
         body: { entries },
         ...withAuth(session)
       }
-    )
+    ),
+
+  // === Pillar A — Plan A (§5.5): regulatory acts lookup ===
+  listRegulatoryActs: (session: UserSession) =>
+    apiRequest<{ items: RegulatoryAct[] }>('/regulatory-acts', withAuth(session))
 };

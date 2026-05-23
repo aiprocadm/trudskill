@@ -33,6 +33,7 @@ import {
   useMaterials,
   useModules,
   useQuestionBanks,
+  useRegulatoryActs,
   useRoles,
   useTests,
   useUser,
@@ -65,8 +66,14 @@ import type {
   CommissionMember,
   CommissionMemberRole,
   CommissionStatus,
+  CourseVersion,
   EnrollmentCertificateRow,
-  ExamResult
+  ExamResult,
+  FinalAssessmentForm,
+  LearnerCategory,
+  ProgramMetaPatch,
+  StudyForm,
+  TrainingType
 } from './types';
 import type { Column } from '@cdoprof/ui';
 
@@ -754,11 +761,259 @@ export const CourseCreateScreen = () => {
   );
 };
 
+const TRAINING_TYPE_OPTIONS: Array<{ value: TrainingType; label: string }> = [
+  { value: 'primary', label: 'Первичная' },
+  { value: 'repeat', label: 'Повторная' },
+  { value: 'target', label: 'Целевая' },
+  { value: 'extraordinary', label: 'Внеочередная' }
+];
+const LEARNER_CATEGORY_OPTIONS: Array<{ value: LearnerCategory; label: string }> = [
+  { value: 'worker', label: 'Рабочие' },
+  { value: 'specialist', label: 'Специалисты' },
+  { value: 'manager', label: 'Руководители' },
+  { value: 'mixed', label: 'Смешанная' }
+];
+const STUDY_FORM_OPTIONS: Array<{ value: StudyForm; label: string }> = [
+  { value: 'in_person', label: 'Очная' },
+  { value: 'distance', label: 'Дистанционная' },
+  { value: 'blended', label: 'Смешанная' }
+];
+const FINAL_ASSESSMENT_OPTIONS: Array<{ value: FinalAssessmentForm; label: string }> = [
+  { value: 'test', label: 'Тест' },
+  { value: 'exam', label: 'Экзамен' },
+  { value: 'defense', label: 'Защита' },
+  { value: 'interview', label: 'Собеседование' }
+];
+
+const ProgramMetaSection = ({
+  courseVersion,
+  onUpdated
+}: {
+  courseVersion: CourseVersion;
+  onUpdated: () => void | Promise<void>;
+}) => {
+  const { data: acts } = useRegulatoryActs();
+  const { data: commissions } = useCommissions('active');
+  const { updateCourseVersionProgramMeta, publishCourseVersion } = useDomainMutations();
+  const readOnly = courseVersion.status !== 'draft';
+
+  const [academicHours, setAcademicHours] = useState<string>(
+    courseVersion.academicHours != null ? String(courseVersion.academicHours) : ''
+  );
+  const [trainingType, setTrainingType] = useState<TrainingType | ''>(
+    courseVersion.trainingType ?? ''
+  );
+  const [learnerCategory, setLearnerCategory] = useState<LearnerCategory | ''>(
+    courseVersion.learnerCategory ?? ''
+  );
+  const [studyForm, setStudyForm] = useState<StudyForm | ''>(courseVersion.studyForm ?? '');
+  const [finalAssessmentForm, setFinalAssessmentForm] = useState<FinalAssessmentForm | ''>(
+    courseVersion.finalAssessmentForm ?? ''
+  );
+  const [regulatoryBasisCodes, setRegulatoryBasisCodes] = useState<string[]>(
+    courseVersion.regulatoryBasisCodes ?? []
+  );
+  const [commissionId, setCommissionId] = useState<string>(courseVersion.commissionId ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setAcademicHours(
+      courseVersion.academicHours != null ? String(courseVersion.academicHours) : ''
+    );
+    setTrainingType(courseVersion.trainingType ?? '');
+    setLearnerCategory(courseVersion.learnerCategory ?? '');
+    setStudyForm(courseVersion.studyForm ?? '');
+    setFinalAssessmentForm(courseVersion.finalAssessmentForm ?? '');
+    setRegulatoryBasisCodes(courseVersion.regulatoryBasisCodes ?? []);
+    setCommissionId(courseVersion.commissionId ?? '');
+  }, [courseVersion]);
+
+  const buildPayload = (): ProgramMetaPatch => {
+    const payload: ProgramMetaPatch = {};
+    const hoursNum = Number(academicHours);
+    if (academicHours && Number.isFinite(hoursNum) && hoursNum > 0) {
+      payload.academicHours = hoursNum;
+    }
+    if (trainingType) payload.trainingType = trainingType;
+    if (learnerCategory) payload.learnerCategory = learnerCategory;
+    if (studyForm) payload.studyForm = studyForm;
+    if (finalAssessmentForm) payload.finalAssessmentForm = finalAssessmentForm;
+    if (regulatoryBasisCodes.length > 0) payload.regulatoryBasisCodes = regulatoryBasisCodes;
+    if (commissionId) payload.commissionId = commissionId;
+    return payload;
+  };
+
+  const onSave = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await updateCourseVersionProgramMeta(courseVersion.id, buildPayload());
+      await onUpdated();
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : 'Не удалось сохранить параметры');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onPublish = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await updateCourseVersionProgramMeta(courseVersion.id, buildPayload());
+      await publishCourseVersion(courseVersion.id);
+      await onUpdated();
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : 'Не удалось опубликовать');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <SectionCard title="Нормативные параметры программы (Pillar A)">
+      {readOnly ? (
+        <p className="ui-text-muted">
+          Версия опубликована — параметры доступны только для просмотра.
+        </p>
+      ) : null}
+      <div className="ui-stack" style={{ gap: 12 }}>
+        <label>
+          Часы (академические)
+          <input
+            type="number"
+            min={1}
+            value={academicHours}
+            onChange={(e) => setAcademicHours(e.target.value)}
+            disabled={readOnly}
+          />
+        </label>
+        <label>
+          Вид подготовки
+          <select
+            value={trainingType}
+            onChange={(e) => setTrainingType(e.target.value as TrainingType | '')}
+            disabled={readOnly}
+          >
+            <option value="">— выберите —</option>
+            {TRAINING_TYPE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Категория обучаемых
+          <select
+            value={learnerCategory}
+            onChange={(e) => setLearnerCategory(e.target.value as LearnerCategory | '')}
+            disabled={readOnly}
+          >
+            <option value="">— выберите —</option>
+            {LEARNER_CATEGORY_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Форма обучения
+          <select
+            value={studyForm}
+            onChange={(e) => setStudyForm(e.target.value as StudyForm | '')}
+            disabled={readOnly}
+          >
+            <option value="">— выберите —</option>
+            {STUDY_FORM_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Форма аттестации
+          <select
+            value={finalAssessmentForm}
+            onChange={(e) => setFinalAssessmentForm(e.target.value as FinalAssessmentForm | '')}
+            disabled={readOnly}
+          >
+            <option value="">— выберите —</option>
+            {FINAL_ASSESSMENT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Нормативные акты (множественный выбор)
+          <select
+            multiple
+            value={regulatoryBasisCodes}
+            onChange={(e) =>
+              setRegulatoryBasisCodes(Array.from(e.target.selectedOptions, (o) => o.value))
+            }
+            disabled={readOnly}
+            size={6}
+          >
+            {acts?.items.map((a) => (
+              <option key={a.code} value={a.code}>
+                {a.shortName} — {a.fullName}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Аттестационная комиссия
+          <select
+            value={commissionId}
+            onChange={(e) => setCommissionId(e.target.value)}
+            disabled={readOnly}
+          >
+            <option value="">— выберите комиссию —</option>
+            {commissions?.items.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.code} — {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {error ? <FieldError id="program-meta-error" message={error} /> : null}
+        {!readOnly ? (
+          <div className="ui-inline" style={{ gap: 8 }}>
+            <button
+              type="button"
+              className="ui-button"
+              disabled={busy}
+              onClick={() => void onSave()}
+            >
+              Сохранить черновик
+            </button>
+            <button
+              type="button"
+              className="ui-button"
+              disabled={busy}
+              onClick={() => void onPublish()}
+            >
+              Опубликовать версию
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </SectionCard>
+  );
+};
+
 export const CourseDetailsScreen = ({ id }: { id: string }) => {
   const { session } = useAuth();
   const { data: course, refetch } = useCourse(id);
   const { data: versions, refetch: refetchVersions } = useCourseVersions(id);
   const latestVersionId = versions?.items[versions.items.length - 1]?.id;
+  const latestVersion = versions?.items[versions.items.length - 1];
   const { data: modules, refetch: refetchModules } = useModules(latestVersionId);
   const [selectedModuleId, setSelectedModuleId] = useState<string>('');
   const { data: materials, refetch: refetchMaterials } = useMaterials(selectedModuleId);
@@ -830,6 +1085,14 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
           ))}
         </ul>
       </SectionCard>
+      {latestVersion ? (
+        <ProgramMetaSection
+          courseVersion={latestVersion}
+          onUpdated={async () => {
+            await refetchVersions();
+          }}
+        />
+      ) : null}
       <SectionCard title="Модули">
         <form
           onSubmit={(event) => {

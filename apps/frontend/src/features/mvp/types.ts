@@ -74,6 +74,15 @@ export interface Course extends BaseEntity {
 export interface CourseVersion extends BaseEntity {
   courseId: string;
   versionNo: number;
+  // Pillar A program meta (§5.1) — optional fields, filled before publish
+  academicHours?: number;
+  trainingType?: TrainingType;
+  learnerCategory?: LearnerCategory;
+  studyForm?: StudyForm;
+  finalAssessmentForm?: FinalAssessmentForm;
+  regulatoryBasisCodes?: string[];
+  programAttachmentFileId?: string;
+  commissionId?: string;
 }
 
 export interface CourseModule extends BaseEntity {
@@ -324,4 +333,16 @@ export interface CourseDocumentSetEntryDraft {
   position: number;
   isRequired: boolean;
   autoIssueOnCompletion: boolean;
+}
+
+export interface RegulatoryAct {
+  code: string;
+  shortName: string;
+  fullName: string;
+  issuingAuthority: string;
+  issuedAt?: string;
+  url?: string;
+  appliesToVerticals: string[];
+  isActive: boolean;
+  createdAt: string;
 }

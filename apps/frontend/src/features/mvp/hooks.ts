@@ -117,6 +117,8 @@ export const useCourseDocumentSet = (courseVersionId: string) =>
   useMvpQuery('courseDocumentSet', courseVersionId, (s) =>
     mvpApi.getCourseDocumentSet(s, courseVersionId)
   );
+export const useRegulatoryActs = () =>
+  useMvpQuery('regulatoryActs', null, (s) => mvpApi.listRegulatoryActs(s));
 export const useExamResults = (query: BaseFilterQuery) =>
   useMvpQuery('examResults', query, (s) => mvpApi.listExamResults(s, query));
 export const useAssignmentSubmissions = (query: BaseFilterQuery) =>
