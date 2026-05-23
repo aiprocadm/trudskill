@@ -17,9 +17,11 @@ import {
   useCounterpartiesList,
   useCounterparty,
   useCourse,
+  useCourseDocumentSet,
   useCourseVersions,
   useCoursesList,
   useDirectionsList,
+  useDocumentTemplates,
   useDomainMutations,
   useEnrollmentCertificatesForCompleted,
   useEnrollments,
@@ -66,6 +68,7 @@ import type {
   CommissionMember,
   CommissionMemberRole,
   CommissionStatus,
+  CourseDocumentSetEntryDraft,
   CourseVersion,
   EnrollmentCertificateRow,
   ExamResult,
@@ -1008,6 +1011,187 @@ const ProgramMetaSection = ({
   );
 };
 
+const DocumentSetSection = ({
+  courseVersion,
+  onUpdated
+}: {
+  courseVersion: CourseVersion;
+  onUpdated: () => void | Promise<void>;
+}) => {
+  const { data: existing, refetch: refetchSet } = useCourseDocumentSet(courseVersion.id);
+  const { data: templates } = useDocumentTemplates();
+  const { setCourseDocumentSet } = useDomainMutations();
+
+  const [draft, setDraft] = useState<CourseDocumentSetEntryDraft[]>([]);
+  const [nextTemplate, setNextTemplate] = useState<string>('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (existing) {
+      setDraft(
+        existing.items
+          .slice()
+          .sort((a, b) => a.position - b.position)
+          .map((e) => ({
+            templateId: e.templateId,
+            position: e.position,
+            isRequired: e.isRequired,
+            autoIssueOnCompletion: e.autoIssueOnCompletion
+          }))
+      );
+    }
+  }, [existing]);
+
+  const renumber = (arr: CourseDocumentSetEntryDraft[]): CourseDocumentSetEntryDraft[] =>
+    arr.map((e, i) => ({ ...e, position: i }));
+
+  const addEntry = (templateId: string) => {
+    if (!templateId) return;
+    setDraft((prev) =>
+      renumber([
+        ...prev,
+        {
+          templateId,
+          position: prev.length,
+          isRequired: true,
+          autoIssueOnCompletion: true
+        }
+      ])
+    );
+  };
+
+  const move = (idx: number, delta: number) => {
+    setDraft((prev) => {
+      const newIdx = idx + delta;
+      if (newIdx < 0 || newIdx >= prev.length) return prev;
+      const arr = [...prev];
+      const cur = arr[idx];
+      const target = arr[newIdx];
+      if (!cur || !target) return prev;
+      arr[idx] = target;
+      arr[newIdx] = cur;
+      return renumber(arr);
+    });
+  };
+
+  const removeEntry = (idx: number) => {
+    setDraft((prev) => renumber(prev.filter((_, i) => i !== idx)));
+  };
+
+  const toggleField = (idx: number, field: 'isRequired' | 'autoIssueOnCompletion') => {
+    setDraft((prev) => prev.map((e, i) => (i === idx ? { ...e, [field]: !e[field] } : e)));
+  };
+
+  const onSave = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await setCourseDocumentSet(courseVersion.id, draft);
+      await refetchSet();
+      await onUpdated();
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : 'Не удалось сохранить пакет');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const templateNameById: Record<string, { name: string; templateType: string }> = {};
+  templates?.items.forEach((t) => {
+    templateNameById[t.id] = { name: t.name, templateType: t.templateType };
+  });
+
+  return (
+    <SectionCard title="Выходные документы курса (пакет, Pillar A)">
+      <p className="ui-text-muted" style={{ marginBottom: 8 }}>
+        Документы выпускаются по порядку при завершении зачисления. Шаблоны привязаны к tenant.
+      </p>
+      {draft.length === 0 ? <SectionEmpty message="Пакет ещё не настроен" /> : null}
+      {draft.map((entry, idx) => {
+        const info = templateNameById[entry.templateId];
+        return (
+          <div
+            key={`${entry.templateId}_${idx}`}
+            className="ui-inline"
+            style={{ gap: 8, padding: '6px 0', borderBottom: '1px solid var(--ui-border, #eee)' }}
+          >
+            <strong>{idx + 1}.</strong>
+            <span>{info?.name ?? `(${entry.templateId} — не найден)`}</span>
+            <span className="ui-text-muted">{info?.templateType}</span>
+            <label>
+              <input
+                type="checkbox"
+                checked={entry.isRequired}
+                onChange={() => toggleField(idx, 'isRequired')}
+              />{' '}
+              Обязательный
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={entry.autoIssueOnCompletion}
+                onChange={() => toggleField(idx, 'autoIssueOnCompletion')}
+              />{' '}
+              Авто-выпуск
+            </label>
+            <button
+              type="button"
+              className="ui-button-link"
+              onClick={() => move(idx, -1)}
+              disabled={idx === 0}
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              className="ui-button-link"
+              onClick={() => move(idx, 1)}
+              disabled={idx === draft.length - 1}
+            >
+              ↓
+            </button>
+            <button type="button" className="ui-button-link" onClick={() => removeEntry(idx)}>
+              Удалить
+            </button>
+          </div>
+        );
+      })}
+
+      <div className="ui-inline" style={{ gap: 8, marginTop: 8 }}>
+        <select value={nextTemplate} onChange={(e) => setNextTemplate(e.target.value)}>
+          <option value="">— выберите шаблон —</option>
+          {templates?.items.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name} ({t.templateType})
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          className="ui-button"
+          onClick={() => {
+            if (nextTemplate) {
+              addEntry(nextTemplate);
+              setNextTemplate('');
+            }
+          }}
+          disabled={!nextTemplate}
+        >
+          Добавить в пакет
+        </button>
+      </div>
+
+      {error ? <FieldError id="document-set-error" message={error} /> : null}
+      <div className="ui-inline" style={{ gap: 8, marginTop: 12 }}>
+        <button type="button" className="ui-button" disabled={busy} onClick={() => void onSave()}>
+          Сохранить пакет
+        </button>
+      </div>
+    </SectionCard>
+  );
+};
+
 export const CourseDetailsScreen = ({ id }: { id: string }) => {
   const { session } = useAuth();
   const { data: course, refetch } = useCourse(id);
@@ -1086,12 +1270,20 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
         </ul>
       </SectionCard>
       {latestVersion ? (
-        <ProgramMetaSection
-          courseVersion={latestVersion}
-          onUpdated={async () => {
-            await refetchVersions();
-          }}
-        />
+        <>
+          <ProgramMetaSection
+            courseVersion={latestVersion}
+            onUpdated={async () => {
+              await refetchVersions();
+            }}
+          />
+          <DocumentSetSection
+            courseVersion={latestVersion}
+            onUpdated={async () => {
+              await refetchVersions();
+            }}
+          />
+        </>
       ) : null}
       <SectionCard title="Модули">
         <form

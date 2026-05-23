@@ -446,5 +446,17 @@ export const mvpApi = {
 
   // === Pillar A — Plan A (§5.5): regulatory acts lookup ===
   listRegulatoryActs: (session: UserSession) =>
-    apiRequest<{ items: RegulatoryAct[] }>('/regulatory-acts', withAuth(session))
+    apiRequest<{ items: RegulatoryAct[] }>('/regulatory-acts', withAuth(session)),
+
+  // === Document templates (используется в Pillar A document-set tab) ===
+  listDocumentTemplates: (session: UserSession) =>
+    apiRequest<
+      ListResponse<{
+        id: string;
+        name: string;
+        templateType: string;
+        description?: string;
+        status: string;
+      }>
+    >('/templates', withAuth(session))
 };
