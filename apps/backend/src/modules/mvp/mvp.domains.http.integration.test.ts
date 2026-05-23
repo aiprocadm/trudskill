@@ -49,7 +49,12 @@ const MVP_DOMAIN_HTTP_PERMS: readonly string[] = [
   'assessment.assignments.read',
   'assessment.assignments.write',
   'assessment.submissions.submit',
-  'assessment.reviews.review'
+  'assessment.reviews.review',
+  'learning.commissions.read',
+  'learning.commissions.write',
+  'learning.courses.publish',
+  'learning.course_document_sets.read',
+  'learning.course_document_sets.write'
 ];
 
 describe('MVP HTTP integration (domain invariants)', () => {
@@ -93,8 +98,16 @@ describe('MVP HTTP integration (domain invariants)', () => {
   const noopFilesService = {
     ensureMaterialLink: async (): Promise<undefined> => undefined
   } as unknown as FilesService;
+  const documentTemplates: Array<{ id: string; tenantId: string; name: string }> = [];
   const noopDocumentsService = {
-    listDocuments: () => ({ items: [], page: 1, pageSize: 200, total: 0 })
+    listDocuments: () => ({ items: [], page: 1, pageSize: 200, total: 0 }),
+    getTemplate: (tenantId: string, id: string) => {
+      const tpl = documentTemplates.find((t) => t.tenantId === tenantId && t.id === id);
+      if (!tpl) {
+        throw new Error(`template ${id} not found in ${tenantId}`);
+      }
+      return tpl;
+    }
   } as unknown as DocumentsService;
 
   beforeAll(async () => {
@@ -2042,5 +2055,333 @@ describe('MVP HTTP integration (domain invariants)', () => {
       data: { enrollmentBreakdown?: unknown };
     };
     expect(body.data.enrollmentBreakdown).toBeUndefined();
+  });
+
+  describe('Pillar A — commissions HTTP (Plan A §5.2)', () => {
+    it('POST /commissions creates entity with code/name', async () => {
+      const t = tokenFor(`sess_pillar_a_commission_create_${Date.now()}`);
+      const code = `OT_${Date.now()}`;
+      const res = await fetch(`${apiBaseUrl}/commissions`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({ code, name: 'Охрана труда' })
+      });
+      expect(res.status).toBe(201);
+      const body = (await res.json()) as { data: { code: string; status: string } };
+      expect(body.data.code).toBe(code);
+      expect(body.data.status).toBe('active');
+    });
+
+    it('GET /commissions/:id returns entity with members array', async () => {
+      const t = tokenFor(`sess_pillar_a_commission_get_${Date.now()}`);
+      const code = `GET_${Date.now()}`;
+      const created = (await (
+        await fetch(`${apiBaseUrl}/commissions`, {
+          method: 'POST',
+          headers: hdr(t),
+          body: JSON.stringify({ code, name: 'C' })
+        })
+      ).json()) as { data: { id: string } };
+      const commissionId = created.data.id;
+
+      await fetch(`${apiBaseUrl}/commissions/${commissionId}/members`, {
+        method: 'POST',
+        headers: hdr(t),
+        body: JSON.stringify({
+          role: 'chairman',
+          externalFullName: 'Иванов И.И.',
+          positionInOrder: 0
+        })
+      });
+
+      const res = await fetch(`${apiBaseUrl}/commissions/${commissionId}`, {
+        headers: hdr(t)
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        data: { id: string; members: Array<{ role: string; externalFullName?: string }> };
+      };
+      expect(body.data.id).toBe(commissionId);
+      expect(body.data.members).toHaveLength(1);
+      expect(body.data.members[0]?.role).toBe('chairman');
+    });
+
+    it('POST /commissions/:id/archive flips status to archived', async () => {
+      const t = tokenFor(`sess_pillar_a_commission_archive_${Date.now()}`);
+      const created = (await (
+        await fetch(`${apiBaseUrl}/commissions`, {
+          method: 'POST',
+          headers: hdr(t),
+          body: JSON.stringify({ code: `ARCH_${Date.now()}`, name: 'A' })
+        })
+      ).json()) as { data: { id: string } };
+
+      const res = await fetch(`${apiBaseUrl}/commissions/${created.data.id}/archive`, {
+        method: 'POST',
+        headers: hdr(t)
+      });
+      expect(res.status).toBe(201);
+      const body = (await res.json()) as { data: { status: string } };
+      expect(body.data.status).toBe('archived');
+    });
+
+    it('DELETE /commissions/:id/members/:memberId removes the member', async () => {
+      const t = tokenFor(`sess_pillar_a_commission_del_member_${Date.now()}`);
+      const created = (await (
+        await fetch(`${apiBaseUrl}/commissions`, {
+          method: 'POST',
+          headers: hdr(t),
+          body: JSON.stringify({ code: `DEL_${Date.now()}`, name: 'D' })
+        })
+      ).json()) as { data: { id: string } };
+      const commissionId = created.data.id;
+
+      const member = (await (
+        await fetch(`${apiBaseUrl}/commissions/${commissionId}/members`, {
+          method: 'POST',
+          headers: hdr(t),
+          body: JSON.stringify({
+            role: 'member',
+            externalFullName: 'Петров П.П.',
+            positionInOrder: 0
+          })
+        })
+      ).json()) as { data: { id: string } };
+
+      const res = await fetch(
+        `${apiBaseUrl}/commissions/${commissionId}/members/${member.data.id}`,
+        { method: 'DELETE', headers: hdr(t) }
+      );
+      expect(res.status).toBe(200);
+
+      const after = (await (
+        await fetch(`${apiBaseUrl}/commissions/${commissionId}`, { headers: hdr(t) })
+      ).json()) as { data: { members: unknown[] } };
+      expect(after.data.members).toHaveLength(0);
+    });
+
+    it('GET /commissions list scoped to tenant — other tenant snapshot is invisible', async () => {
+      expect(memoryMvpPersistenceRef).toBeDefined();
+      const snap = {} as Record<MvpCollection, unknown[]>;
+      for (const col of MVP_COLLECTIONS) snap[col] = [];
+      const now = new Date().toISOString();
+      snap.commissions = [
+        {
+          id: 'commission_other_tenant_only',
+          tenantId: 'tenant_other',
+          code: 'OT_ISO',
+          name: 'Other-tenant only',
+          status: 'active',
+          createdAt: now,
+          updatedAt: now
+        }
+      ];
+      const snapshots = (
+        memoryMvpPersistenceRef as unknown as {
+          snapshots: Map<string, Record<MvpCollection, unknown[]>>;
+        }
+      ).snapshots;
+      snapshots.set('tenant_other', snap);
+
+      const t = tokenFor(`sess_pillar_a_commissions_tenant_${Date.now()}`);
+      const res = await fetch(`${apiBaseUrl}/commissions`, { headers: hdr(t) });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { data: { items: Array<{ id: string }> } };
+      expect(body.data.items.find((i) => i.id === 'commission_other_tenant_only')).toBeUndefined();
+    });
+  });
+
+  describe('Pillar A — program meta + publish HTTP (Plan A §5.1)', () => {
+    async function makeCourseVersion(t: string): Promise<string> {
+      const course = (await (
+        await fetch(`${apiBaseUrl}/courses`, {
+          method: 'POST',
+          headers: hdr(t),
+          body: JSON.stringify({ code: `PA_${Date.now()}_${Math.random()}`, title: 'P' })
+        })
+      ).json()) as { data: { id: string } };
+      const cv = (await (
+        await fetch(`${apiBaseUrl}/course-versions/${course.data.id}`, {
+          method: 'POST',
+          headers: hdr(t)
+        })
+      ).json()) as { data: { id: string } };
+      return cv.data.id;
+    }
+
+    async function makeActiveCommission(t: string): Promise<string> {
+      const created = (await (
+        await fetch(`${apiBaseUrl}/commissions`, {
+          method: 'POST',
+          headers: hdr(t),
+          body: JSON.stringify({
+            code: `PUB_${Date.now()}_${Math.random()}`,
+            name: 'Publish'
+          })
+        })
+      ).json()) as { data: { id: string } };
+      return created.data.id;
+    }
+
+    it('PATCH /course-versions/:id/program-meta updates fields on draft', async () => {
+      const t = tokenFor(`sess_pillar_a_meta_${Date.now()}`);
+      const cvId = await makeCourseVersion(t);
+      expect(cvId).toBeTruthy();
+
+      const res = await fetch(`${apiBaseUrl}/course-versions/${cvId}/program-meta`, {
+        method: 'PATCH',
+        headers: hdr(t),
+        body: JSON.stringify({
+          academicHours: 72,
+          trainingType: 'primary',
+          learnerCategory: 'specialist',
+          studyForm: 'distance',
+          finalAssessmentForm: 'test'
+        })
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        data: { academicHours: number; trainingType: string };
+      };
+      expect(body.data.academicHours).toBe(72);
+      expect(body.data.trainingType).toBe('primary');
+    });
+
+    it('POST /course-versions/:id/publish 400 when required program fields are missing', async () => {
+      const t = tokenFor(`sess_pillar_a_publish_missing_${Date.now()}`);
+      const cvId = await makeCourseVersion(t);
+
+      const res = await fetch(`${apiBaseUrl}/course-versions/${cvId}/publish`, {
+        method: 'POST',
+        headers: hdr(t)
+      });
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: { code: string } };
+      expect(body.error.code).toBe('program_meta_incomplete');
+    });
+
+    it('POST /course-versions/:id/publish 200 when all required fields set', async () => {
+      const t = tokenFor(`sess_pillar_a_publish_ok_${Date.now()}`);
+      const cvId = await makeCourseVersion(t);
+      const commissionId = await makeActiveCommission(t);
+
+      await fetch(`${apiBaseUrl}/course-versions/${cvId}/program-meta`, {
+        method: 'PATCH',
+        headers: hdr(t),
+        body: JSON.stringify({
+          academicHours: 16,
+          trainingType: 'repeat',
+          learnerCategory: 'worker',
+          studyForm: 'in_person',
+          finalAssessmentForm: 'test',
+          regulatoryBasisCodes: ['act_tk_rf'],
+          commissionId
+        })
+      });
+
+      const res = await fetch(`${apiBaseUrl}/course-versions/${cvId}/publish`, {
+        method: 'POST',
+        headers: hdr(t)
+      });
+      expect(res.status).toBe(201);
+      const body = (await res.json()) as { data: { status: string } };
+      expect(body.data.status).toBe('published');
+    });
+  });
+
+  describe('Pillar A — course document set HTTP (Plan A §5.3)', () => {
+    async function makeCourseVersionForDocSet(t: string, codePrefix: string): Promise<string> {
+      const course = (await (
+        await fetch(`${apiBaseUrl}/courses`, {
+          method: 'POST',
+          headers: hdr(t),
+          body: JSON.stringify({ code: `${codePrefix}_${Date.now()}`, title: 'DS' })
+        })
+      ).json()) as { data: { id: string } };
+      const cv = (await (
+        await fetch(`${apiBaseUrl}/course-versions/${course.data.id}`, {
+          method: 'POST',
+          headers: hdr(t)
+        })
+      ).json()) as { data: { id: string } };
+      return cv.data.id;
+    }
+
+    it('PUT /course-versions/:id/document-set 400 on non-sequential positions', async () => {
+      const t = tokenFor(`sess_pillar_a_docset_seq_${Date.now()}`);
+      const cvId = await makeCourseVersionForDocSet(t, 'DSEQ');
+
+      documentTemplates.push(
+        { id: 'tpl_pa_proto', tenantId: 'tenant_demo', name: 'Protocol' },
+        { id: 'tpl_pa_cert', tenantId: 'tenant_demo', name: 'Certificate' }
+      );
+
+      const res = await fetch(`${apiBaseUrl}/course-versions/${cvId}/document-set`, {
+        method: 'PUT',
+        headers: hdr(t),
+        body: JSON.stringify({
+          entries: [
+            {
+              templateId: 'tpl_pa_proto',
+              position: 0,
+              isRequired: true,
+              autoIssueOnCompletion: true
+            },
+            {
+              templateId: 'tpl_pa_cert',
+              position: 2,
+              isRequired: true,
+              autoIssueOnCompletion: true
+            }
+          ]
+        })
+      });
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: { code: string } };
+      expect(body.error.code).toBe('course_document_set_positions_invalid');
+    });
+
+    it('PUT + GET /course-versions/:id/document-set roundtrip with valid entries', async () => {
+      const t = tokenFor(`sess_pillar_a_docset_ok_${Date.now()}`);
+      const cvId = await makeCourseVersionForDocSet(t, 'DOK');
+
+      documentTemplates.push(
+        { id: 'tpl_pa_ok_proto', tenantId: 'tenant_demo', name: 'Protocol' },
+        { id: 'tpl_pa_ok_cert', tenantId: 'tenant_demo', name: 'Certificate' }
+      );
+
+      const putRes = await fetch(`${apiBaseUrl}/course-versions/${cvId}/document-set`, {
+        method: 'PUT',
+        headers: hdr(t),
+        body: JSON.stringify({
+          entries: [
+            {
+              templateId: 'tpl_pa_ok_proto',
+              position: 0,
+              isRequired: true,
+              autoIssueOnCompletion: true
+            },
+            {
+              templateId: 'tpl_pa_ok_cert',
+              position: 1,
+              isRequired: true,
+              autoIssueOnCompletion: false
+            }
+          ]
+        })
+      });
+      expect(putRes.status).toBe(200);
+
+      const getRes = await fetch(`${apiBaseUrl}/course-versions/${cvId}/document-set`, {
+        headers: hdr(t)
+      });
+      expect(getRes.status).toBe(200);
+      const body = (await getRes.json()) as {
+        data: { items: Array<{ templateId: string; position: number }> };
+      };
+      expect(body.data.items).toHaveLength(2);
+      expect(body.data.items[0]?.position).toBe(0);
+      expect(body.data.items[1]?.position).toBe(1);
+    });
   });
 });

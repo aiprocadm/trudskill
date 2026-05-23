@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Inject,
   Param,
@@ -15,6 +16,7 @@ import {
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
 import { MvpBulkEnqueueService } from './mvp-bulk-enqueue.service.js';
 import {
+  AddCommissionMemberRequest,
   AddTestQuestionsRequest,
   CompleteAssignmentReviewRequest,
   CreateAnswerHttpRequest,
@@ -22,6 +24,7 @@ import {
   CreateAssignmentReviewRequest,
   CreateAssignmentSubmissionRequest,
   CreateBulkEnrollmentsRequest,
+  CreateCommissionRequest,
   CreateCourseRequest,
   CreateEnrollmentRequest,
   CreateGroupCourseRequest,
@@ -33,18 +36,21 @@ import {
   CreateTestRequest,
   ImportQuestionsRequest,
   PatchTestRulesRequest,
+  PutCourseDocumentSetRequest,
   SaveAnswerRequest,
   SaveAttemptAnswerRequest,
   StartAttemptRequest,
   UpdateAssignmentRequest,
   UpdateAssignmentReviewRequest,
   UpdateAssignmentSubmissionRequest,
+  UpdateCommissionRequest,
   UpdateCourseRequest,
   UpdateEnrollmentStatusRequest,
   UpdateGroupCourseRequest,
   UpdateMaterialProgressRequest,
   UpdateMaterialRequest,
   UpdateModuleRequest,
+  UpdateProgramMetaRequest,
   UpdateQuestionBankRequest,
   UpdateQuestionRequest,
   UpdateSimpleRegistryRequest,
@@ -58,6 +64,7 @@ import { RequirePermissions } from '../iam/permission.decorator.js';
 import { PermissionGuard } from '../iam/permission.guard.js';
 
 import type { BaseFilterQuery } from './mvp.dto.js';
+import type { CommissionStatus } from './mvp.types.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 
 @Controller()
@@ -862,5 +869,108 @@ export class MvpController {
   ) {
     const b = assertValidDto(CompleteAssignmentReviewRequest, raw);
     return this.mvpService.completeAssignmentReview(c.tenantId!, c.userId, id, b, c);
+  }
+
+  // === Pillar A — Plan A (§5.2): commissions HTTP ===
+
+  @Get('commissions')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learning.commissions.read')
+  listCommissions(@CurrentContext() c: RequestContext, @Query('status') status?: CommissionStatus) {
+    return { items: this.mvpService.listCommissions(c.tenantId!, status) };
+  }
+  @Get('commissions/:id')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learning.commissions.read')
+  getCommission(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    const commission = this.mvpService.getCommission(c.tenantId!, id);
+    const members = this.mvpService.listCommissionMembers(c.tenantId!, id);
+    return { ...commission, members };
+  }
+  @Post('commissions')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learning.commissions.write')
+  createCommission(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateCommissionRequest, raw);
+    return this.mvpService.createCommission(c.tenantId!, c.userId, b, c);
+  }
+  @Patch('commissions/:id')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learning.commissions.write')
+  updateCommission(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(UpdateCommissionRequest, raw);
+    return this.mvpService.updateCommission(c.tenantId!, c.userId, id, b, c);
+  }
+  @Post('commissions/:id/archive')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learning.commissions.write')
+  archiveCommission(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.mvpService.archiveCommission(c.tenantId!, c.userId, id, c);
+  }
+  @Post('commissions/:id/members')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learning.commissions.write')
+  addCommissionMember(
+    @CurrentContext() c: RequestContext,
+    @Param('id') commissionId: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(AddCommissionMemberRequest, raw);
+    return this.mvpService.addCommissionMember(c.tenantId!, c.userId, commissionId, b, c);
+  }
+  @Delete('commissions/:id/members/:memberId')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learning.commissions.write')
+  removeCommissionMember(
+    @CurrentContext() c: RequestContext,
+    @Param('id') commissionId: string,
+    @Param('memberId') memberId: string
+  ) {
+    this.mvpService.removeCommissionMember(c.tenantId!, c.userId, commissionId, memberId, c);
+    return { ok: true };
+  }
+
+  // === Pillar A — Plan A (§5.1): program meta + course version publish ===
+
+  @Patch('course-versions/:id/program-meta')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('courses.write')
+  updateProgramMeta(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(UpdateProgramMetaRequest, raw);
+    return this.mvpService.updateProgramMeta(c.tenantId!, c.userId, id, b, c);
+  }
+  @Post('course-versions/:id/publish')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learning.courses.publish')
+  publishCourseVersion(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.mvpService.publishCourseVersion(c.tenantId!, c.userId, id, c);
+  }
+
+  // === Pillar A — Plan A (§5.3): course document sets ===
+
+  @Get('course-versions/:id/document-set')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learning.course_document_sets.read')
+  getCourseDocumentSet(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return { items: this.mvpService.getCourseDocumentSet(c.tenantId!, id) };
+  }
+  @Put('course-versions/:id/document-set')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learning.course_document_sets.write')
+  setCourseDocumentSet(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(PutCourseDocumentSetRequest, raw);
+    return { items: this.mvpService.setCourseDocumentSet(c.tenantId!, c.userId, id, b, c) };
   }
 }
