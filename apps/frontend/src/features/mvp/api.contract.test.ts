@@ -39,6 +39,18 @@ describe('mvp api envelope compatibility', () => {
       session: UserSession,
       attemptId: string
     ) => Promise<{ finalScore: number; maxScore: number; passed: boolean }>;
+    listCommissions: (
+      session: UserSession,
+      status?: 'active' | 'archived'
+    ) => Promise<{ items: Array<{ id: string; code: string }> }>;
+    getCommission: (
+      session: UserSession,
+      id: string
+    ) => Promise<{ id: string; members: Array<{ id: string }> }>;
+    createCommission: (
+      session: UserSession,
+      payload: { code: string; name: string }
+    ) => Promise<{ id: string; code: string }>;
   };
 
   beforeAll(async () => {
@@ -104,5 +116,40 @@ describe('mvp api envelope compatibility', () => {
 
     expect(result.finalScore).toBe(88);
     expect(result.passed).toBe(true);
+  });
+
+  it('listCommissions appends status query when provided', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(envelope({ items: [{ id: 'commission_1', code: 'OT_2026' }] }), { status: 200 })
+    );
+
+    const result = await mvpApi.listCommissions(session, 'active');
+
+    expect(result.items[0]?.code).toBe('OT_2026');
+    const [calledUrl] = fetchMock.mock.calls[0] as [string];
+    expect(calledUrl).toContain('/commissions?status=active');
+  });
+
+  it('getCommission unwraps members from envelope', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(envelope({ id: 'commission_1', members: [{ id: 'cm_1' }] }), { status: 200 })
+    );
+
+    const result = await mvpApi.getCommission(session, 'commission_1');
+
+    expect(result.members[0]?.id).toBe('cm_1');
+  });
+
+  it('createCommission sends POST with payload', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(envelope({ id: 'commission_new', code: 'PA_1' }), { status: 201 })
+    );
+
+    const result = await mvpApi.createCommission(session, { code: 'PA_1', name: 'Test' });
+
+    expect(result.id).toBe('commission_new');
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ code: 'PA_1', name: 'Test' });
   });
 });

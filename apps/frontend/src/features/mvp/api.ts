@@ -8,8 +8,15 @@ import type {
   BaseFilterQuery,
   BulkEnrollmentsOutcome,
   BulkEnrollmentsQueuedResponse,
+  Commission,
+  CommissionMember,
+  CommissionMemberRole,
+  CommissionStatus,
+  CommissionWithMembers,
   Counterparty,
   Course,
+  CourseDocumentSetEntry,
+  CourseDocumentSetEntryDraft,
   CourseModule,
   CourseVersion,
   Direction,
@@ -23,6 +30,7 @@ import type {
   Learner,
   ListResponse,
   Material,
+  ProgramMetaPatch,
   Progress,
   Question,
   QuestionBank,
@@ -341,5 +349,97 @@ export const mvpApi = {
       method: 'POST',
       body: payload,
       ...withAuth(session)
-    })
+    }),
+
+  // === Pillar A — Plan A (§5.2): commissions ===
+  listCommissions: (session: UserSession, status?: CommissionStatus) =>
+    apiRequest<{ items: Commission[] }>(
+      `/commissions${status ? `?status=${status}` : ''}`,
+      withAuth(session)
+    ),
+  getCommission: (session: UserSession, id: string) =>
+    apiRequest<CommissionWithMembers>(`/commissions/${id}`, withAuth(session)),
+  createCommission: (
+    session: UserSession,
+    payload: { code: string; name: string; description?: string }
+  ) =>
+    apiRequest<Commission>('/commissions', {
+      method: 'POST',
+      body: payload,
+      ...withAuth(session)
+    }),
+  updateCommission: (
+    session: UserSession,
+    id: string,
+    payload: { name?: string; description?: string }
+  ) =>
+    apiRequest<Commission>(`/commissions/${id}`, {
+      method: 'PATCH',
+      body: payload,
+      ...withAuth(session)
+    }),
+  archiveCommission: (session: UserSession, id: string) =>
+    apiRequest<Commission>(`/commissions/${id}/archive`, {
+      method: 'POST',
+      ...withAuth(session)
+    }),
+  addCommissionMember: (
+    session: UserSession,
+    commissionId: string,
+    payload: {
+      role: CommissionMemberRole;
+      userId?: string;
+      externalFullName?: string;
+      externalPosition?: string;
+      signatureFileId?: string;
+      positionInOrder: number;
+    }
+  ) =>
+    apiRequest<CommissionMember>(`/commissions/${commissionId}/members`, {
+      method: 'POST',
+      body: payload,
+      ...withAuth(session)
+    }),
+  removeCommissionMember: (session: UserSession, commissionId: string, memberId: string) =>
+    apiRequest<{ ok: true }>(`/commissions/${commissionId}/members/${memberId}`, {
+      method: 'DELETE',
+      ...withAuth(session)
+    }),
+
+  // === Pillar A — Plan A (§5.1): program meta + course version publish ===
+  updateCourseVersionProgramMeta: (
+    session: UserSession,
+    courseVersionId: string,
+    payload: ProgramMetaPatch
+  ) =>
+    apiRequest<CourseVersion>(`/course-versions/${courseVersionId}/program-meta`, {
+      method: 'PATCH',
+      body: payload,
+      ...withAuth(session)
+    }),
+  publishCourseVersion: (session: UserSession, courseVersionId: string) =>
+    apiRequest<CourseVersion>(`/course-versions/${courseVersionId}/publish`, {
+      method: 'POST',
+      ...withAuth(session)
+    }),
+
+  // === Pillar A — Plan A (§5.3): course document sets ===
+  getCourseDocumentSet: (session: UserSession, courseVersionId: string) =>
+    apiRequest<{ items: CourseDocumentSetEntry[] }>(
+      `/course-versions/${courseVersionId}/document-set`,
+      withAuth(session)
+    ),
+  setCourseDocumentSet: (
+    session: UserSession,
+    courseVersionId: string,
+    entries: CourseDocumentSetEntryDraft[]
+  ) =>
+    apiRequest<{ items: CourseDocumentSetEntry[] }>(
+      `/course-versions/${courseVersionId}/document-set`,
+      {
+        method: 'PUT',
+        body: { entries },
+        ...withAuth(session)
+      }
+    )
 };

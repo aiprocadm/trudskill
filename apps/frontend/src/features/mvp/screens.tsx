@@ -3,7 +3,7 @@
 import { DataTable, FilterBar, LoadingState, StatusChip } from '@cdoprof/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, type ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 
 import { showActAsLearnerAction, showOpenLearnerRegistryAction } from './assessment-permissions';
 import {
@@ -12,6 +12,8 @@ import {
   useAssignmentSubmissions,
   useAssignments,
   useAttempts,
+  useCommission,
+  useCommissions,
   useCounterpartiesList,
   useCounterparty,
   useCourse,
@@ -56,7 +58,16 @@ import { frontendEnv } from '../../lib/config/env';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 
-import type { AssignmentSubmission, Attempt, EnrollmentCertificateRow, ExamResult } from './types';
+import type {
+  AssignmentSubmission,
+  Attempt,
+  Commission,
+  CommissionMember,
+  CommissionMemberRole,
+  CommissionStatus,
+  EnrollmentCertificateRow,
+  ExamResult
+} from './types';
 import type { Column } from '@cdoprof/ui';
 
 const resolveCertificateDownloadHref = (downloadPath: string): string => {
@@ -1913,6 +1924,288 @@ export const AssessmentDashboardScreen = () => {
           <SectionEmpty message="История проверок пока пуста" />
         )}
       </SectionCard>
+    </PageContainer>
+  );
+};
+
+// === Pillar A — Plan A: commissions admin screens ===
+
+const COMMISSION_MEMBER_ROLE_LABELS: Record<CommissionMemberRole, string> = {
+  chairman: 'Председатель',
+  deputy_chairman: 'Зам. председателя',
+  member: 'Член',
+  secretary: 'Секретарь',
+  external_expert: 'Внешний эксперт'
+};
+
+export const CommissionsPageScreen = () => {
+  const router = useRouter();
+  const [status, setStatus] = useState<CommissionStatus | ''>('active');
+  const filterStatus: CommissionStatus | undefined = status === '' ? undefined : status;
+  const { data, loading, error, refetch } = useCommissions(filterStatus);
+  const { createCommission } = useDomainMutations();
+
+  const [code, setCode] = useState('');
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const onCreate = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!code.trim() || !name.trim()) {
+      setSaveError('Код и название обязательны');
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const trimmedDescription = description.trim();
+      const payload: { code: string; name: string; description?: string } = {
+        code: code.trim(),
+        name: name.trim()
+      };
+      if (trimmedDescription) payload.description = trimmedDescription;
+      const created = await createCommission(payload);
+      setCode('');
+      setName('');
+      setDescription('');
+      router.push(`/admin/commissions/${created.id}`);
+    } catch (err) {
+      setSaveError(err instanceof ApiClientError ? err.message : 'Не удалось создать комиссию');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const commissionColumns: Column<Commission>[] = [
+    { key: 'code', title: 'Код' },
+    { key: 'name', title: 'Название' },
+    {
+      key: 'status',
+      title: 'Статус',
+      render: (row) => <StatusChip status={row.status} />
+    },
+    {
+      key: 'id',
+      title: '',
+      render: (row) => <Link href={`/admin/commissions/${row.id}`}>Открыть</Link>
+    }
+  ];
+
+  return (
+    <PageContainer>
+      <PageHeader
+        title="Аттестационные комиссии"
+        subtitle="Составы для регулируемого ДПО — подписывают пакеты выходных документов"
+      />
+      <SectionCard title="Реестр комиссий">
+        <div className="ui-inline" style={{ marginBottom: 12 }}>
+          <label>
+            Статус:&nbsp;
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as CommissionStatus | '')}
+            >
+              <option value="active">Активные</option>
+              <option value="archived">Архивные</option>
+              <option value="">Все</option>
+            </select>
+          </label>
+          <button type="button" className="ui-button" onClick={() => void refetch()}>
+            Обновить
+          </button>
+        </div>
+        {loading ? <LoadingState message="Загрузка…" /> : null}
+        {error ? <SectionError message={error} /> : null}
+        {data && data.items.length > 0 ? (
+          <DataTable columns={commissionColumns} rows={data.items} />
+        ) : null}
+        {data && data.items.length === 0 && !loading ? (
+          <SectionEmpty message="Комиссии не созданы" hint="Создайте первую комиссию ниже" />
+        ) : null}
+      </SectionCard>
+
+      <SectionCard title="Создать новую комиссию">
+        <form onSubmit={(e) => void onCreate(e)} className="ui-stack">
+          <label>
+            Код
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="например, OT_2026"
+              required
+            />
+          </label>
+          <label>
+            Название
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Комиссия по охране труда"
+              required
+            />
+          </label>
+          <label>
+            Описание (необязательно)
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} />
+          </label>
+          {saveError ? <FieldError id="commission-create-error" message={saveError} /> : null}
+          <button type="submit" className="ui-button" disabled={saving}>
+            {saving ? 'Создаём…' : 'Создать комиссию'}
+          </button>
+        </form>
+      </SectionCard>
+    </PageContainer>
+  );
+};
+
+export const CommissionDetailsScreen = ({ id }: { id: string }) => {
+  const { data, loading, error, refetch } = useCommission(id);
+  const { archiveCommission, addCommissionMember, removeCommissionMember } = useDomainMutations();
+
+  const [role, setRole] = useState<CommissionMemberRole>('member');
+  const [externalFullName, setExternalFullName] = useState('');
+  const [externalPosition, setExternalPosition] = useState('');
+  const [addError, setAddError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+
+  const onAddMember = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!externalFullName.trim()) {
+      setAddError('Введите ФИО члена комиссии');
+      return;
+    }
+    setAdding(true);
+    setAddError(null);
+    try {
+      const nextPosition = data?.members.length ?? 0;
+      const trimmedPosition = externalPosition.trim();
+      const payload: {
+        role: CommissionMemberRole;
+        externalFullName: string;
+        externalPosition?: string;
+        positionInOrder: number;
+      } = {
+        role,
+        externalFullName: externalFullName.trim(),
+        positionInOrder: nextPosition
+      };
+      if (trimmedPosition) payload.externalPosition = trimmedPosition;
+      await addCommissionMember(id, payload);
+      setExternalFullName('');
+      setExternalPosition('');
+      await refetch();
+    } catch (err) {
+      setAddError(err instanceof ApiClientError ? err.message : 'Не удалось добавить члена');
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const onArchive = async () => {
+    if (!confirm('Заархивировать комиссию? Её нельзя будет привязать к новым курсам.')) return;
+    await archiveCommission(id);
+    await refetch();
+  };
+
+  const onRemove = async (memberId: string) => {
+    if (!confirm('Удалить члена комиссии?')) return;
+    await removeCommissionMember(id, memberId);
+    await refetch();
+  };
+
+  const memberColumns: Column<CommissionMember>[] = [
+    { key: 'positionInOrder', title: '#' },
+    {
+      key: 'role',
+      title: 'Роль',
+      render: (row) => COMMISSION_MEMBER_ROLE_LABELS[row.role]
+    },
+    { key: 'externalFullName', title: 'ФИО' },
+    { key: 'externalPosition', title: 'Должность' },
+    {
+      key: 'id',
+      title: '',
+      render: (row) => (
+        <button type="button" className="ui-button-link" onClick={() => void onRemove(row.id)}>
+          Удалить
+        </button>
+      )
+    }
+  ];
+
+  const headerProps: { title: string; subtitle?: string; actions?: ReactElement } = {
+    title: data ? data.name : 'Комиссия'
+  };
+  if (data) headerProps.subtitle = `Код: ${data.code}`;
+  if (data && data.status === 'active') {
+    headerProps.actions = (
+      <button type="button" className="ui-button" onClick={() => void onArchive()}>
+        Заархивировать
+      </button>
+    );
+  }
+
+  return (
+    <PageContainer>
+      <PageHeader {...headerProps} />
+      {loading ? <LoadingState message="Загрузка…" /> : null}
+      {error ? <SectionError message={error} /> : null}
+      {data ? (
+        <>
+          <SectionCard title="Состав комиссии">
+            {data.members.length > 0 ? (
+              <DataTable columns={memberColumns} rows={data.members} />
+            ) : (
+              <SectionEmpty message="Члены комиссии не добавлены" />
+            )}
+          </SectionCard>
+
+          {data.status === 'active' ? (
+            <SectionCard title="Добавить члена">
+              <form onSubmit={(e) => void onAddMember(e)} className="ui-stack">
+                <label>
+                  Роль
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value as CommissionMemberRole)}
+                  >
+                    {Object.entries(COMMISSION_MEMBER_ROLE_LABELS).map(([key, label]) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  ФИО
+                  <input
+                    value={externalFullName}
+                    onChange={(e) => setExternalFullName(e.target.value)}
+                    placeholder="Иванов Иван Иванович"
+                    required
+                  />
+                </label>
+                <label>
+                  Должность (необязательно)
+                  <input
+                    value={externalPosition}
+                    onChange={(e) => setExternalPosition(e.target.value)}
+                    placeholder="Главный специалист"
+                  />
+                </label>
+                {addError ? (
+                  <FieldError id="commission-add-member-error" message={addError} />
+                ) : null}
+                <button type="submit" className="ui-button" disabled={adding}>
+                  {adding ? 'Добавляем…' : 'Добавить'}
+                </button>
+              </form>
+            </SectionCard>
+          ) : null}
+        </>
+      ) : null}
     </PageContainer>
   );
 };
