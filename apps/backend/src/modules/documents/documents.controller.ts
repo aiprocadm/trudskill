@@ -13,7 +13,11 @@ import {
   UseInterceptors
 } from '@nestjs/common';
 
-import { DocumentsService, type IssuedDocumentFilter } from './documents.service.js';
+import {
+  DocumentsService,
+  type IssueGroupOrderRequest,
+  type IssuedDocumentFilter
+} from './documents.service.js';
 import { DocumentsRequestPersistenceInterceptor } from './infrastructure/documents-request-persistence.interceptor.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
@@ -364,6 +368,17 @@ export class DocumentsController {
       offset: 0
     });
     return renderIssuanceJournalCsv(page.items);
+  }
+
+  // ==========================================================================
+  // Pillar A Plan B §5.7 — групповые приказы (issueGroupOrder).
+  // ==========================================================================
+
+  @Post('admin/documents/group-orders')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.write')
+  issueGroupOrder(@CurrentContext() c: RequestContext, @Body() b: IssueGroupOrderRequest) {
+    return this.documentsService.issueGroupOrder(c.tenantId!, c.userId, b, c);
   }
 }
 

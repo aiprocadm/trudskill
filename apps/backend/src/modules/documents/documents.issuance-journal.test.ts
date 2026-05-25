@@ -150,3 +150,86 @@ describe('DocumentsController issuance journal endpoints', () => {
     expect(ISSUANCE_JOURNAL_CSV_HARD_CAP).toBeGreaterThanOrEqual(1000);
   });
 });
+
+describe('DocumentsController.issueGroupOrder (Plan B §5.7)', () => {
+  function makeController() {
+    const state = new InMemoryDocumentsState();
+    const service = new DocumentsService(state, new AuditService(), new RealtimeEventsService());
+    const controller = new DocumentsController(service);
+    state.templates.push(
+      {
+        id: 'tpl_order',
+        tenantId: 't1',
+        name: 'Приказ',
+        templateType: 'order',
+        status: 'active',
+        currentVersionId: 'tplv_order',
+        createdAt: '2026-05-01T00:00:00.000Z',
+        updatedAt: '2026-05-01T00:00:00.000Z'
+      },
+      {
+        id: 'tpl_cert',
+        tenantId: 't1',
+        name: 'Удостоверение',
+        templateType: 'certificate',
+        status: 'active',
+        currentVersionId: 'tplv_cert',
+        createdAt: '2026-05-01T00:00:00.000Z',
+        updatedAt: '2026-05-01T00:00:00.000Z'
+      }
+    );
+    state.versions.push(
+      {
+        id: 'tplv_order',
+        tenantId: 't1',
+        templateId: 'tpl_order',
+        versionNo: 1,
+        fileId: 'f_o',
+        variablesSchema: {},
+        isActive: true,
+        createdAt: '2026-05-01T00:00:00.000Z'
+      },
+      {
+        id: 'tplv_cert',
+        tenantId: 't1',
+        templateId: 'tpl_cert',
+        versionNo: 1,
+        fileId: 'f_c',
+        variablesSchema: {},
+        isActive: true,
+        createdAt: '2026-05-01T00:00:00.000Z'
+      }
+    );
+    return { state, service, controller };
+  }
+
+  it('returns IssueGroupOrderResult with order + cascaded certificates', () => {
+    const { controller } = makeController();
+    const res = controller.issueGroupOrder(ctx, {
+      groupId: 'g_1',
+      templateId: 'tpl_order',
+      enrollmentIds: ['enr_a'],
+      certificateTemplateId: 'tpl_cert'
+    });
+    expect(res.order.documentType).toBe('order');
+    expect(res.certificates).toHaveLength(1);
+    expect(res.certificates[0].groupOrderDocumentId).toBe(res.order.id);
+    expect(res.alreadyExisted).toBe(false);
+  });
+
+  it('is idempotent across repeated POSTs', () => {
+    const { controller } = makeController();
+    const first = controller.issueGroupOrder(ctx, {
+      groupId: 'g_1',
+      templateId: 'tpl_order',
+      enrollmentIds: []
+    });
+    const second = controller.issueGroupOrder(ctx, {
+      groupId: 'g_1',
+      templateId: 'tpl_order',
+      enrollmentIds: []
+    });
+    expect(second.order.id).toBe(first.order.id);
+    expect(second.alreadyExisted).toBe(true);
+  });
+});
