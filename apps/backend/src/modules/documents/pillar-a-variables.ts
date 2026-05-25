@@ -12,10 +12,12 @@
  * - избегаем module-level циклической зависимости documents ↔ mvp.
  * - легко тестируется без DI.
  */
+import type { GeneratedDocumentEntity } from './documents.types.js';
 import type {
   Commission,
   CommissionMember,
   CourseVersion,
+  Enrollment,
   RegulatoryAct
 } from '../mvp/mvp.types.js';
 
@@ -206,6 +208,104 @@ function resolveCommissionKey(
           positionInOrder: m.positionInOrder
         })
       );
+    default:
+      return '';
+  }
+}
+
+// ============================================================================
+// Plan B §5.5 — категории `enrollment.*` и `document.*`.
+// ============================================================================
+
+export interface EnrollmentVariableContext {
+  enrollment: Enrollment;
+}
+
+/**
+ * Разрешает переменные категории `enrollment.*`. Даты возвращаются как
+ * `YYYY-MM-DD` (срез ISO-таймстампа); отсутствующие значения — пустая строка.
+ *
+ * `enrollment.end_date` — спека говорит "фактическая дата окончания". В нашей
+ * модели это `completedAt`; для незавершённых учеников fallback на `plannedEndAt`
+ * (последний даёт ожидаемую дату завершения — нужно для приказов о повторном
+ * обучении до фактического завершения курса).
+ */
+export function resolveEnrollmentVariables(
+  ctx: EnrollmentVariableContext,
+  varNames: string[]
+): Record<string, unknown> {
+  const e = ctx.enrollment;
+  const result: Record<string, unknown> = {};
+  for (const fullName of varNames) {
+    if (!fullName.startsWith('enrollment.')) {
+      result[fullName] = '';
+      continue;
+    }
+    const key = fullName.slice('enrollment.'.length);
+    result[fullName] = resolveEnrollmentKey(key, e);
+  }
+  return result;
+}
+
+function resolveEnrollmentKey(key: string, e: Enrollment): unknown {
+  switch (key) {
+    case 'id':
+      return e.id;
+    case 'status':
+      return e.status ?? '';
+    case 'start_date':
+      return e.enrolledAt ? e.enrolledAt.slice(0, 10) : '';
+    case 'end_date':
+      if (e.completedAt) return e.completedAt.slice(0, 10);
+      if (e.plannedEndAt) return e.plannedEndAt.slice(0, 10);
+      return '';
+    case 'completion_date':
+      return e.completedAt ? e.completedAt.slice(0, 10) : '';
+    default:
+      return '';
+  }
+}
+
+export interface DocumentVariableContext {
+  document: GeneratedDocumentEntity;
+}
+
+/**
+ * Разрешает переменные категории `document.*`. `document.qr_url` — placeholder
+ * (пустая строка) в Plan B; активируется в Plan C §5.8 (qr_token + публичный
+ * verify endpoint).
+ */
+export function resolveDocumentVariables(
+  ctx: DocumentVariableContext,
+  varNames: string[]
+): Record<string, unknown> {
+  const d = ctx.document;
+  const result: Record<string, unknown> = {};
+  for (const fullName of varNames) {
+    if (!fullName.startsWith('document.')) {
+      result[fullName] = '';
+      continue;
+    }
+    const key = fullName.slice('document.'.length);
+    result[fullName] = resolveDocumentKey(key, d);
+  }
+  return result;
+}
+
+function resolveDocumentKey(key: string, d: GeneratedDocumentEntity): unknown {
+  switch (key) {
+    case 'id':
+      return d.id;
+    case 'number':
+      return d.documentNumber ?? '';
+    case 'issue_date':
+      if (d.documentDate) return d.documentDate;
+      if (d.generatedAt) return d.generatedAt.slice(0, 10);
+      return '';
+    case 'type':
+      return d.documentType ?? '';
+    case 'qr_url':
+      return '';
     default:
       return '';
   }
