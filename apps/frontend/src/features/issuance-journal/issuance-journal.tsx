@@ -5,6 +5,7 @@ import { type ReactElement, useState } from 'react';
 
 import { issuanceJournalApi } from './api';
 import { useIssuanceJournal } from './hooks';
+import { type RevokeReissueAction, RevokeReissueModal } from './revoke-reissue-modal';
 import {
   ALL_TEMPLATE_TYPES,
   type IssuanceJournalFilter,
@@ -30,12 +31,20 @@ interface JournalRow extends IssuedDocument {
   documentNumberView: string;
   documentTypeView: string;
   statusView: ReactElement;
+  actionsView: ReactElement;
+}
+
+interface ModalState {
+  action: RevokeReissueAction;
+  documentId: string;
+  documentNumber: string | undefined;
 }
 
 export function IssuanceJournalView() {
   const { session } = useAuth();
   const [filter, setFilter] = useState<IssuanceJournalFilter>({ limit: PAGE_SIZE, offset: 0 });
   const { data, isLoading, error } = useIssuanceJournal(filter);
+  const [modal, setModal] = useState<ModalState | null>(null);
 
   // exactOptionalPropertyTypes: explicit undefined запрещён в Partial<T>.
   // Patcher принимает только nullable, и сам решает удалить или установить ключ.
@@ -168,7 +177,8 @@ export function IssuanceJournalView() {
               { key: 'documentDateView', title: 'Дата' },
               { key: 'documentNumberView', title: '№ документа' },
               { key: 'documentTypeView', title: 'Тип' },
-              { key: 'statusView', title: 'Статус', render: (row) => row.statusView }
+              { key: 'statusView', title: 'Статус', render: (row) => row.statusView },
+              { key: 'actionsView', title: 'Действия', render: (row) => row.actionsView }
             ]}
             rows={data.items.map(
               (doc, idx): JournalRow => ({
@@ -177,9 +187,53 @@ export function IssuanceJournalView() {
                 documentDateView: doc.documentDate ?? '—',
                 documentNumberView: doc.documentNumber ?? '—',
                 documentTypeView: TEMPLATE_TYPE_LABELS[doc.documentType] ?? doc.documentType,
-                statusView: <StatusChip status={doc.status} />
+                statusView: <StatusChip status={doc.status} />,
+                actionsView:
+                  doc.status === 'revoked' ? (
+                    <span style={{ color: '#888' }}>—</span>
+                  ) : (
+                    <span className="ui-inline" style={{ gap: 6 }}>
+                      <button
+                        type="button"
+                        className="ui-button"
+                        onClick={() =>
+                          setModal({
+                            action: 'revoke',
+                            documentId: doc.id,
+                            documentNumber: doc.documentNumber
+                          })
+                        }
+                      >
+                        Аннулировать
+                      </button>
+                      <button
+                        type="button"
+                        className="ui-button"
+                        onClick={() =>
+                          setModal({
+                            action: 'reissue',
+                            documentId: doc.id,
+                            documentNumber: doc.documentNumber
+                          })
+                        }
+                      >
+                        Перевыпустить
+                      </button>
+                    </span>
+                  )
               })
             )}
+          />
+        ) : null}
+        {modal ? (
+          <RevokeReissueModal
+            open={true}
+            action={modal.action}
+            documentId={modal.documentId}
+            {...(modal.documentNumber !== undefined
+              ? { documentNumber: modal.documentNumber }
+              : {})}
+            onClose={() => setModal(null)}
           />
         ) : null}
         {data && data.total > PAGE_SIZE ? (

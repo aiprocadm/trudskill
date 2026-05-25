@@ -25,12 +25,38 @@ const withAuth = (session: UserSession) => ({
   }
 });
 
+export interface RevokeReissueResponse {
+  status: string;
+  id: string;
+  revokedAt?: string;
+  revocationReason?: string;
+}
+
+export interface ReissueResult {
+  original: RevokeReissueResponse;
+  replacement: RevokeReissueResponse;
+}
+
 export const issuanceJournalApi = {
   list: (session: UserSession, filter: IssuanceJournalFilter) =>
     apiRequest<IssuanceJournalPage>(
       `/admin/documents/issuance-journal${buildQuery(filter)}`,
       withAuth(session)
     ),
+
+  revoke: (session: UserSession, documentId: string, reason: string) =>
+    apiRequest<RevokeReissueResponse>(`/admin/documents/${documentId}/revoke`, {
+      method: 'POST',
+      body: { reason },
+      ...withAuth(session)
+    }),
+
+  reissue: (session: UserSession, documentId: string, reason: string) =>
+    apiRequest<ReissueResult>(`/admin/documents/${documentId}/reissue`, {
+      method: 'POST',
+      body: { reason },
+      ...withAuth(session)
+    }),
 
   /**
    * Скачивает CSV в браузере. Не использует apiRequest (тот делает JSON-envelope),

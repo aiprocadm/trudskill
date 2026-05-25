@@ -1,7 +1,7 @@
 export type TemplateStatus = 'active' | 'archived';
 export type TemplateBindingType = 'direction' | 'course' | 'group';
 export type TaskStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
-export type GeneratedDocumentStatus = 'generated' | 'final' | 'archived';
+export type GeneratedDocumentStatus = 'generated' | 'final' | 'archived' | 'revoked';
 export type NumberResetPeriod = 'none' | 'year' | 'month';
 
 /**
@@ -135,6 +135,16 @@ export interface GeneratedDocumentEntity {
   groupOrderDocumentId?: string;
   /** §5.8 — публичный токен для QR-проверки подлинности. ≥22 chars base64url (~128 бит). */
   qrToken?: string;
+  /** §5.9 — момент аннулирования (ISO timestamp). */
+  revokedAt?: string;
+  /** §5.9 — кто аннулировал. */
+  revokedBy?: string;
+  /** §5.9 — обязательная причина (валидируется на уровне сервиса). */
+  revocationReason?: string;
+  /** §5.9 — если этот документ — перевыпуск, ссылка на оригинал. */
+  replacesDocumentId?: string;
+  /** §5.9 — если этот документ был перевыпущен, ссылка на перевыпуск. */
+  replacedByDocumentId?: string;
 }
 
 export interface NumberingRuleEntity {

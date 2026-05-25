@@ -1064,3 +1064,179 @@ describe('DocumentsService qrToken generation (Plan C §5.8)', () => {
     }
   });
 });
+
+describe('DocumentsService.revokeDocument (Plan C §5.9)', () => {
+  function seed() {
+    const state = new InMemoryDocumentsState();
+    const audit = new AuditService();
+    const service = new DocumentsService(state, audit, new RealtimeEventsService());
+    state.generatedDocuments.push({
+      id: 'gdoc_revtest',
+      tenantId: 't1',
+      templateId: 'tpl',
+      templateVersionId: 'tplv',
+      documentType: 'certificate',
+      name: 'Doc',
+      sourceEntityType: 'enrollment',
+      sourceEntityId: 'enr',
+      fileId: 'f',
+      status: 'generated',
+      documentNumber: 'N-1',
+      documentDate: '2026-05-26',
+      isFinal: false,
+      generatedAt: '2026-05-26T00:00:00.000Z',
+      qrToken: 'rev_qrtoken1234567890ab'
+    });
+    return { state, audit, service };
+  }
+
+  it('revokes a generated document and sets revokedAt/revokedBy/reason', () => {
+    const { service } = seed();
+    const result = service.revokeDocument('t1', 'admin_1', 'gdoc_revtest', 'Ошибка в ФИО', ctx);
+    expect(result.status).toBe('revoked');
+    expect(result.revokedAt).toBeDefined();
+    expect(result.revokedBy).toBe('admin_1');
+    expect(result.revocationReason).toBe('Ошибка в ФИО');
+  });
+
+  it('throws ConflictException when revoking an already-revoked document', () => {
+    const { service } = seed();
+    service.revokeDocument('t1', 'admin_1', 'gdoc_revtest', 'r1', ctx);
+    expect(() => service.revokeDocument('t1', 'admin_1', 'gdoc_revtest', 'r2', ctx)).toThrowError(
+      /уже аннулирован/
+    );
+  });
+
+  it('throws BadRequestException when reason is empty', () => {
+    const { service } = seed();
+    expect(() => service.revokeDocument('t1', 'admin_1', 'gdoc_revtest', '', ctx)).toThrowError(
+      /Причина аннулирования/
+    );
+    expect(() => service.revokeDocument('t1', 'admin_1', 'gdoc_revtest', '   ', ctx)).toThrowError(
+      /Причина аннулирования/
+    );
+  });
+
+  it('cross-tenant: cannot revoke document from another tenant', () => {
+    const { service } = seed();
+    expect(() =>
+      service.revokeDocument('t2', 'admin_1', 'gdoc_revtest', 'reason', ctx)
+    ).toThrowError(NotFoundException);
+  });
+
+  it('writes audit entry documents.revoked', () => {
+    const { service, audit } = seed();
+    const spy = vi.spyOn(audit, 'write');
+    service.revokeDocument('t1', 'admin_1', 'gdoc_revtest', 'reason', ctx);
+    const actions = spy.mock.calls.map((c) => c[0].action);
+    expect(actions).toContain('documents.revoked');
+  });
+});
+
+describe('DocumentsService.reissueDocument (Plan C §5.9)', () => {
+  function seed() {
+    const state = new InMemoryDocumentsState();
+    const audit = new AuditService();
+    const service = new DocumentsService(state, audit, new RealtimeEventsService());
+    state.generatedDocuments.push({
+      id: 'gdoc_orig',
+      tenantId: 't1',
+      templateId: 'tpl',
+      templateVersionId: 'tplv',
+      documentType: 'certificate',
+      name: 'Original',
+      sourceEntityType: 'enrollment',
+      sourceEntityId: 'enr',
+      fileId: 'f',
+      status: 'generated',
+      documentNumber: 'ORIG-N1',
+      documentDate: '2026-05-01',
+      isFinal: false,
+      generatedAt: '2026-05-01T00:00:00.000Z',
+      qrToken: 'orig_qrtoken12345678ab'
+    });
+    return { state, audit, service };
+  }
+
+  it('creates a replacement with new number + new qr_token, links replaces/replaced_by, revokes original', () => {
+    const { service } = seed();
+    const { original, replacement } = service.reissueDocument(
+      't1',
+      'admin_1',
+      'gdoc_orig',
+      'Опечатка',
+      ctx
+    );
+    expect(replacement.id).not.toBe(original.id);
+    expect(replacement.replacesDocumentId).toBe('gdoc_orig');
+    expect(replacement.documentNumber).not.toBe('ORIG-N1');
+    expect(replacement.qrToken).toBeDefined();
+    expect(replacement.qrToken).not.toBe('orig_qrtoken12345678ab');
+    expect(original.replacedByDocumentId).toBe(replacement.id);
+    expect(original.status).toBe('revoked');
+    expect(original.revocationReason).toContain('Опечатка');
+  });
+
+  it('is idempotent — second reissue returns same replacement (cached pair)', () => {
+    const { service } = seed();
+    const first = service.reissueDocument('t1', 'admin_1', 'gdoc_orig', 'reason', ctx);
+    const second = service.reissueDocument('t1', 'admin_1', 'gdoc_orig', 'reason', ctx);
+    expect(second.replacement.id).toBe(first.replacement.id);
+    expect(second.original.id).toBe(first.original.id);
+  });
+
+  it('rejects reissue on document that was manually revoked (without prior reissue)', () => {
+    const { service } = seed();
+    service.revokeDocument('t1', 'admin_1', 'gdoc_orig', 'Manual revoke', ctx);
+    expect(() =>
+      service.reissueDocument('t1', 'admin_1', 'gdoc_orig', 'reissue?', ctx)
+    ).toThrowError(/аннулирован вручную/);
+  });
+
+  it('cross-tenant: cannot reissue from another tenant', () => {
+    const { service } = seed();
+    expect(() => service.reissueDocument('t2', 'admin_1', 'gdoc_orig', 'reason', ctx)).toThrowError(
+      NotFoundException
+    );
+  });
+
+  it('writes both documents.reissued + documents.revoked audit entries', () => {
+    const { service, audit } = seed();
+    const spy = vi.spyOn(audit, 'write');
+    service.reissueDocument('t1', 'admin_1', 'gdoc_orig', 'reason', ctx);
+    const actions = spy.mock.calls.map((c) => c[0].action);
+    expect(actions).toContain('documents.reissued');
+    expect(actions).toContain('documents.revoked');
+  });
+});
+
+describe('DocumentsService.verifyDocumentByQrToken — revoked path (Plan C §5.8 + §5.9 integration)', () => {
+  it('returns revokedAt and revocationReason for revoked documents', () => {
+    const state = new InMemoryDocumentsState();
+    const service = new DocumentsService(state, new AuditService(), new RealtimeEventsService());
+    state.generatedDocuments.push({
+      id: 'gdoc_rev_verify',
+      tenantId: 't1',
+      templateId: 'tpl',
+      templateVersionId: 'tplv',
+      documentType: 'certificate',
+      name: 'Doc',
+      sourceEntityType: 'enrollment',
+      sourceEntityId: 'enr',
+      fileId: 'f',
+      status: 'revoked',
+      documentNumber: 'N-rev',
+      documentDate: '2026-05-26',
+      isFinal: false,
+      generatedAt: '2026-05-26T00:00:00.000Z',
+      qrToken: 'verify_rev_token12345',
+      revokedAt: '2026-05-27T10:00:00.000Z',
+      revokedBy: 'admin_x',
+      revocationReason: 'Опечатка в ФИО'
+    });
+    const result = service.verifyDocumentByQrToken('verify_rev_token12345');
+    expect(result.status).toBe('revoked');
+    expect(result.revokedAt).toBe('2026-05-27T10:00:00.000Z');
+    expect(result.revocationReason).toBe('Опечатка в ФИО');
+  });
+});
