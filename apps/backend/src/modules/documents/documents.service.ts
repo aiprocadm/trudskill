@@ -44,6 +44,29 @@ import type { RequestContext } from '../../common/context/request-context.js';
 
 const ASYNC_TASK_STATUS_CHANGED_EVENT = 'async_task.status_changed';
 
+/** Pillar A Plan B §5.6 — фильтры книги выдачи документов. */
+export interface IssuedDocumentFilter {
+  /** ISO date (YYYY-MM-DD), inclusive. */
+  from?: string;
+  /** ISO date (YYYY-MM-DD), inclusive. */
+  to?: string;
+  /** documentType filter (multi). Пустой массив трактуется как «без фильтра». */
+  types?: string[];
+  /** exact status match. */
+  status?: string;
+  /** Все удостоверения, выпущенные по одному групповому приказу. */
+  groupOrderDocumentId?: string;
+  /** Лимит на страницу (default — все строки). */
+  limit?: number;
+  /** Смещение в отсортированном списке. */
+  offset?: number;
+}
+
+export interface IssuedDocumentsPage {
+  items: GeneratedDocumentEntity[];
+  total: number;
+}
+
 @Injectable()
 export class DocumentsService {
   constructor(
@@ -328,6 +351,53 @@ export class DocumentsService {
     );
     return this.page(rows, query);
   }
+
+  /**
+   * Pillar A Plan B §5.6 — книга выдачи документов. Возвращает GeneratedDocumentEntity
+   * прямо из state (без обогащения join'ами), отсортированные по documentDate desc.
+   *
+   * Caller (controller или frontend) при необходимости обогащает строки именами
+   * учеников/программ через mvpService — это не coupling-free, но соответствует
+   * принятому паттерну в codebase: documents-сервис не знает о mvp-state.
+   */
+  listIssuedDocuments(tenantId: string, filter: IssuedDocumentFilter): IssuedDocumentsPage {
+    let rows = this.state.generatedDocuments.filter((d) => d.tenantId === tenantId);
+
+    if (filter.from) {
+      const from = filter.from;
+      rows = rows.filter((d) => d.documentDate !== undefined && d.documentDate >= from);
+    }
+    if (filter.to) {
+      const to = filter.to;
+      rows = rows.filter((d) => d.documentDate !== undefined && d.documentDate <= to);
+    }
+    if (filter.types && filter.types.length > 0) {
+      const set = new Set(filter.types);
+      rows = rows.filter((d) => set.has(d.documentType));
+    }
+    if (filter.status) {
+      rows = rows.filter((d) => d.status === filter.status);
+    }
+    if (filter.groupOrderDocumentId) {
+      rows = rows.filter((d) => d.groupOrderDocumentId === filter.groupOrderDocumentId);
+    }
+
+    rows.sort((a, b) => {
+      const aDate = a.documentDate ?? '';
+      const bDate = b.documentDate ?? '';
+      if (aDate !== bDate) return aDate < bDate ? 1 : -1;
+      return a.id < b.id ? 1 : -1;
+    });
+
+    const total = rows.length;
+    const offset = Math.max(0, filter.offset ?? 0);
+    const limit = filter.limit !== undefined && filter.limit > 0 ? filter.limit : total;
+    return {
+      items: rows.slice(offset, offset + limit),
+      total
+    };
+  }
+
   getDocument(tenantId: string, id: string) {
     return this.must(this.state.generatedDocuments, tenantId, id);
   }

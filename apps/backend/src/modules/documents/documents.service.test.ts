@@ -590,3 +590,158 @@ describe('DocumentsService', () => {
     expect(created.categoryCode).toBe('commission');
   });
 });
+
+describe('DocumentsService.listIssuedDocuments (Plan B §5.6)', () => {
+  function seedService() {
+    const state = new InMemoryDocumentsState();
+    const service = new DocumentsService(state, new AuditService(), new RealtimeEventsService());
+    state.templates.push({
+      id: 'tpl_cert',
+      tenantId: 't1',
+      name: 'Удостоверение',
+      templateType: 'certificate',
+      status: 'active',
+      createdAt: '2026-05-20T00:00:00.000Z',
+      updatedAt: '2026-05-20T00:00:00.000Z'
+    });
+    state.generatedDocuments.push(
+      {
+        id: 'gdoc_1',
+        tenantId: 't1',
+        templateId: 'tpl_cert',
+        templateVersionId: 'tplv_1',
+        documentType: 'certificate',
+        name: 'Doc 1',
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'enr_1',
+        fileId: 'f_1',
+        status: 'generated',
+        documentNumber: 'N-1',
+        documentDate: '2026-05-01',
+        isFinal: false,
+        generatedAt: '2026-05-01T00:00:00.000Z'
+      },
+      {
+        id: 'gdoc_2',
+        tenantId: 't1',
+        templateId: 'tpl_cert',
+        templateVersionId: 'tplv_1',
+        documentType: 'certificate',
+        name: 'Doc 2',
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'enr_2',
+        fileId: 'f_2',
+        status: 'final',
+        documentNumber: 'N-2',
+        documentDate: '2026-05-15',
+        isFinal: true,
+        generatedAt: '2026-05-15T00:00:00.000Z'
+      },
+      {
+        id: 'gdoc_otherTenant',
+        tenantId: 't2',
+        templateId: 'tpl_cert',
+        templateVersionId: 'tplv_1',
+        documentType: 'certificate',
+        name: 'Doc OT',
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'enr_x',
+        fileId: 'f_x',
+        status: 'generated',
+        documentNumber: 'N-X',
+        documentDate: '2026-05-10',
+        isFinal: false,
+        generatedAt: '2026-05-10T00:00:00.000Z'
+      }
+    );
+    return { service, state };
+  }
+
+  it('returns only current tenant rows', () => {
+    const { service } = seedService();
+    const res = service.listIssuedDocuments('t1', {});
+    expect(res.total).toBe(2);
+    expect(res.items.every((d) => d.tenantId === 't1')).toBe(true);
+  });
+
+  it('filters by inclusive date range', () => {
+    const { service } = seedService();
+    const res = service.listIssuedDocuments('t1', { from: '2026-05-10', to: '2026-05-31' });
+    expect(res.total).toBe(1);
+    expect(res.items[0].id).toBe('gdoc_2');
+  });
+
+  it('filters by document types (multi)', () => {
+    const { service, state } = seedService();
+    state.generatedDocuments.push({
+      id: 'gdoc_order',
+      tenantId: 't1',
+      templateId: 'tpl_cert',
+      templateVersionId: 'tplv_1',
+      documentType: 'order',
+      name: 'Order',
+      sourceEntityType: 'group',
+      sourceEntityId: 'g_1',
+      fileId: 'f_o',
+      status: 'generated',
+      documentNumber: 'O-1',
+      documentDate: '2026-05-20',
+      isFinal: false,
+      generatedAt: '2026-05-20T00:00:00.000Z'
+    });
+    const res = service.listIssuedDocuments('t1', { types: ['order'] });
+    expect(res.total).toBe(1);
+    expect(res.items[0].documentType).toBe('order');
+  });
+
+  it('filters by status', () => {
+    const { service } = seedService();
+    const res = service.listIssuedDocuments('t1', { status: 'final' });
+    expect(res.total).toBe(1);
+    expect(res.items[0].id).toBe('gdoc_2');
+  });
+
+  it('sorts by documentDate desc by default (newest first)', () => {
+    const { service } = seedService();
+    const res = service.listIssuedDocuments('t1', {});
+    expect(res.items.map((d) => d.id)).toEqual(['gdoc_2', 'gdoc_1']);
+  });
+
+  it('paginates with limit and offset', () => {
+    const { service } = seedService();
+    const res = service.listIssuedDocuments('t1', { limit: 1, offset: 1 });
+    expect(res.total).toBe(2);
+    expect(res.items).toHaveLength(1);
+    expect(res.items[0].id).toBe('gdoc_1');
+  });
+
+  it('filters by groupOrderDocumentId for tracing cascade', () => {
+    const { service, state } = seedService();
+    state.generatedDocuments.push({
+      id: 'gdoc_in_order',
+      tenantId: 't1',
+      templateId: 'tpl_cert',
+      templateVersionId: 'tplv_1',
+      documentType: 'certificate',
+      name: 'Doc in order',
+      sourceEntityType: 'enrollment',
+      sourceEntityId: 'enr_3',
+      fileId: 'f_3',
+      status: 'generated',
+      documentNumber: 'N-3',
+      documentDate: '2026-05-22',
+      isFinal: false,
+      generatedAt: '2026-05-22T00:00:00.000Z',
+      groupOrderDocumentId: 'gdoc_order_parent'
+    });
+    const res = service.listIssuedDocuments('t1', { groupOrderDocumentId: 'gdoc_order_parent' });
+    expect(res.total).toBe(1);
+    expect(res.items[0].id).toBe('gdoc_in_order');
+  });
+
+  it('clamps offset and limit to safe values', () => {
+    const { service } = seedService();
+    const negative = service.listIssuedDocuments('t1', { offset: -10, limit: -5 });
+    expect(negative.items.length).toBeGreaterThan(0);
+  });
+});
