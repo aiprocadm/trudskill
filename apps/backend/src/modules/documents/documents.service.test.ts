@@ -962,3 +962,105 @@ describe('DocumentsService.issueGroupOrder (Plan B §5.7)', () => {
     expect(actions).toContain('documents.certificate_issued_via_order');
   });
 });
+
+describe('DocumentsService qrToken generation (Plan C §5.8)', () => {
+  it('issueGroupOrder generates qrToken on order document', () => {
+    const state = new InMemoryDocumentsState();
+    const service = new DocumentsService(state, new AuditService(), new RealtimeEventsService());
+    state.templates.push({
+      id: 'tpl_order',
+      tenantId: 't1',
+      name: 'Приказ',
+      templateType: 'order',
+      status: 'active',
+      currentVersionId: 'tplv_order',
+      createdAt: '2026-05-01T00:00:00.000Z',
+      updatedAt: '2026-05-01T00:00:00.000Z'
+    });
+    state.versions.push({
+      id: 'tplv_order',
+      tenantId: 't1',
+      templateId: 'tpl_order',
+      versionNo: 1,
+      fileId: 'f_o',
+      variablesSchema: {},
+      isActive: true,
+      createdAt: '2026-05-01T00:00:00.000Z'
+    });
+    const res = service.issueGroupOrder(
+      't1',
+      'actor_1',
+      { groupId: 'g_1', templateId: 'tpl_order', enrollmentIds: [] },
+      ctx
+    );
+    expect(res.order.qrToken).toBeDefined();
+    expect(res.order.qrToken!.length).toBeGreaterThanOrEqual(22);
+    expect(res.order.qrToken!).toMatch(/^[A-Za-z0-9_-]+$/);
+  });
+
+  it('issueGroupOrder generates unique qrToken for order + each cascaded certificate', () => {
+    const state = new InMemoryDocumentsState();
+    const service = new DocumentsService(state, new AuditService(), new RealtimeEventsService());
+    state.templates.push(
+      {
+        id: 'tpl_order',
+        tenantId: 't1',
+        name: 'Приказ',
+        templateType: 'order',
+        status: 'active',
+        currentVersionId: 'tplv_order',
+        createdAt: '2026-05-01T00:00:00.000Z',
+        updatedAt: '2026-05-01T00:00:00.000Z'
+      },
+      {
+        id: 'tpl_cert',
+        tenantId: 't1',
+        name: 'Удостоверение',
+        templateType: 'certificate',
+        status: 'active',
+        currentVersionId: 'tplv_cert',
+        createdAt: '2026-05-01T00:00:00.000Z',
+        updatedAt: '2026-05-01T00:00:00.000Z'
+      }
+    );
+    state.versions.push(
+      {
+        id: 'tplv_order',
+        tenantId: 't1',
+        templateId: 'tpl_order',
+        versionNo: 1,
+        fileId: 'f_o',
+        variablesSchema: {},
+        isActive: true,
+        createdAt: '2026-05-01T00:00:00.000Z'
+      },
+      {
+        id: 'tplv_cert',
+        tenantId: 't1',
+        templateId: 'tpl_cert',
+        versionNo: 1,
+        fileId: 'f_c',
+        variablesSchema: {},
+        isActive: true,
+        createdAt: '2026-05-01T00:00:00.000Z'
+      }
+    );
+    const res = service.issueGroupOrder(
+      't1',
+      'actor_1',
+      {
+        groupId: 'g_1',
+        templateId: 'tpl_order',
+        enrollmentIds: ['enr_a', 'enr_b', 'enr_c'],
+        certificateTemplateId: 'tpl_cert'
+      },
+      ctx
+    );
+    const tokens = [res.order.qrToken, ...res.certificates.map((c) => c.qrToken)];
+    const unique = new Set(tokens);
+    expect(unique.size).toBe(4);
+    for (const t of tokens) {
+      expect(t).toMatch(/^[A-Za-z0-9_-]{22,}$/);
+    }
+  });
+});

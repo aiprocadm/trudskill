@@ -133,6 +133,8 @@ export interface GeneratedDocumentEntity {
   archivedAt?: string;
   /** §5.7 — id документа-приказа, по которому выпущено это удостоверение (для трассировки каскада). */
   groupOrderDocumentId?: string;
+  /** §5.8 — публичный токен для QR-проверки подлинности. ≥22 chars base64url (~128 бит). */
+  qrToken?: string;
 }
 
 export interface NumberingRuleEntity {

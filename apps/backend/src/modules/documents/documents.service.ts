@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+
 import {
   BadRequestException,
   ConflictException,
@@ -513,7 +515,8 @@ export class DocumentsService {
       documentDate: this.now().slice(0, 10),
       isFinal: false,
       generatedBy,
-      generatedAt: this.now()
+      generatedAt: this.now(),
+      qrToken: this.generateQrToken()
     };
     this.state.generatedDocuments.push(generated);
     task.status = 'completed';
@@ -795,6 +798,16 @@ export class DocumentsService {
     return new Date().toISOString();
   }
 
+  /**
+   * Pillar A Plan C §5.8 — генерация публичного токена для QR-проверки.
+   * 16 байт = 128 бит энтропии, base64url ≈ 22 символа без =-паддинга.
+   * Уникальность гарантируется partial unique index (migration 0033) + 128 бит
+   * делают коллизию практически невозможной (≈10^38 пар нужно для 50% chance).
+   */
+  private generateQrToken(): string {
+    return randomBytes(16).toString('base64url');
+  }
+
   private publishTaskEvent(task: DocumentGenerationTaskEntity) {
     this.realtimeEvents.publish({
       event_name: ASYNC_TASK_STATUS_CHANGED_EVENT,
@@ -928,7 +941,8 @@ export class DocumentsService {
       documentDate: now.slice(0, 10),
       isFinal: false,
       generatedBy: actorId,
-      generatedAt: now
+      generatedAt: now,
+      qrToken: this.generateQrToken()
     };
     this.state.generatedDocuments.push(order);
     this.auditService.write({
@@ -992,7 +1006,8 @@ export class DocumentsService {
           isFinal: false,
           generatedBy: actorId,
           generatedAt: now,
-          groupOrderDocumentId: order.id
+          groupOrderDocumentId: order.id,
+          qrToken: this.generateQrToken()
         };
         this.state.generatedDocuments.push(cert);
         certificates.push(cert);
