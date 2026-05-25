@@ -60,6 +60,7 @@ import { ApiClientError } from '../../lib/api/client';
 import { frontendEnv } from '../../lib/config/env';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
+import { IssueOrderModal } from '../group-orders/issue-order-modal';
 
 import type {
   AssignmentSubmission,
@@ -1517,6 +1518,13 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [learnerId, setLearnerId] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [issueOrderOpen, setIssueOrderOpen] = useState(false);
+
+  // Pillar A Plan B §5.7: caller отвечает за фильтрацию только completed-enrollment'ов.
+  const completedEnrollmentIds = useMemo(
+    () => (enrollments?.items ?? []).filter((e) => e.status === 'completed').map((e) => e.id),
+    [enrollments]
+  );
 
   const averageProgress = useMemo(() => {
     if (!progress?.items.length) return 0;
@@ -1526,7 +1534,14 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
 
   return (
     <PageContainer>
-      <PageHeader title={group?.name ?? 'Карточка группы'} />
+      <PageHeader
+        title={group?.name ?? 'Карточка группы'}
+        actions={
+          <button type="button" className="ui-button" onClick={() => setIssueOrderOpen(true)}>
+            Сгенерировать приказ
+          </button>
+        }
+      />
       <SectionCard title="Общая информация">
         <p>Код: {group?.code}</p>
         <StatusChip status={group?.status ?? 'draft'} />
@@ -1599,6 +1614,12 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
         <ProgressBar value={averageProgress} />
         <MutationError message={saveError} />
       </SectionCard>
+      <IssueOrderModal
+        open={issueOrderOpen}
+        groupId={id}
+        enrollmentIds={completedEnrollmentIds}
+        onClose={() => setIssueOrderOpen(false)}
+      />
     </PageContainer>
   );
 };
