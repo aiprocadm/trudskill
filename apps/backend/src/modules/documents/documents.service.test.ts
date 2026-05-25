@@ -122,7 +122,7 @@ describe('DocumentsService', () => {
     const template = service.createTemplate(
       'tenant-a',
       'u1',
-      { name: 'T', templateType: 'x' },
+      { name: 'T', templateType: 'certificate' },
       ctx
     );
     expect(() => service.getTemplate('tenant-b', template.id)).toThrowError();

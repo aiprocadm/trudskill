@@ -8,26 +8,28 @@ import {
 } from '@nestjs/common';
 
 import { DOCUMENTS_STATE } from './documents-state.token.js';
+import {
+  type BaseFilter,
+  type CreateNumberingRuleRequest,
+  type CreateTemplateBindingRequest,
+  type CreateTemplateRequest,
+  type CreateTemplateVariableRequest,
+  type CreateTemplateVersionRequest,
+  type GenerateDocumentRequest,
+  type GenerateDocumentsBatchRequest,
+  type UpdateNumberingRuleRequest,
+  type UpdateTemplateBindingRequest,
+  type UpdateTemplateRequest,
+  type UpdateTemplateVariableRequest,
+  type UpdateTemplateVersionRequest,
+  assertTemplateType,
+  assertVariableCategoryCode
+} from './documents.dto.js';
 import { InMemoryDocumentsState } from './in-memory-documents.state.js';
 import { MetricsService } from '../../common/metrics/metrics.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
-import type {
-  BaseFilter,
-  CreateNumberingRuleRequest,
-  CreateTemplateBindingRequest,
-  CreateTemplateRequest,
-  CreateTemplateVariableRequest,
-  CreateTemplateVersionRequest,
-  GenerateDocumentRequest,
-  GenerateDocumentsBatchRequest,
-  UpdateNumberingRuleRequest,
-  UpdateTemplateBindingRequest,
-  UpdateTemplateRequest,
-  UpdateTemplateVariableRequest,
-  UpdateTemplateVersionRequest
-} from './documents.dto.js';
 import type {
   DocumentGenerationTaskEntity,
   GeneratedDocumentEntity,
@@ -44,18 +46,6 @@ const ASYNC_TASK_STATUS_CHANGED_EVENT = 'async_task.status_changed';
 
 @Injectable()
 export class DocumentsService {
-  private static readonly variableCategories = new Set([
-    'tenant',
-    'group',
-    'learner',
-    'counterparty',
-    'course',
-    'commission',
-    'document',
-    // Pillar A — Plan A §5.5: program meta переменные (academic_hours, training_type, ...)
-    'program'
-  ]);
-
   constructor(
     @Inject(DOCUMENTS_STATE) private readonly state: InMemoryDocumentsState,
     @Inject(AuditService) private readonly auditService: AuditService,
@@ -75,6 +65,7 @@ export class DocumentsService {
     req: CreateTemplateRequest,
     ctx: RequestContext
   ) {
+    assertTemplateType(req.templateType);
     const now = this.now();
     const entity: TemplateEntity = {
       id: this.id('tpl'),
@@ -207,9 +198,7 @@ export class DocumentsService {
   }
   createTemplateVariable(tenantId: string, req: CreateTemplateVariableRequest) {
     this.getTemplateVersion(tenantId, req.templateVersionId);
-    if (!DocumentsService.variableCategories.has(req.categoryCode)) {
-      throw new BadRequestException(`Unsupported variable category ${req.categoryCode}`);
-    }
+    assertVariableCategoryCode(req.categoryCode);
     const duplicate = this.state.variables.find(
       (x) =>
         x.tenantId === tenantId &&
@@ -241,8 +230,8 @@ export class DocumentsService {
   }
   updateTemplateVariable(tenantId: string, id: string, req: UpdateTemplateVariableRequest) {
     const row = this.getTemplateVariable(tenantId, id);
-    if (req.categoryCode && !DocumentsService.variableCategories.has(req.categoryCode)) {
-      throw new BadRequestException(`Unsupported variable category ${req.categoryCode}`);
+    if (req.categoryCode !== undefined) {
+      assertVariableCategoryCode(req.categoryCode);
     }
     Object.assign(row, req);
     return row;
