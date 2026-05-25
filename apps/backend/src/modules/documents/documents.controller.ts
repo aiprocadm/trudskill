@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   Inject,
   Param,
   Patch,
@@ -12,7 +13,7 @@ import {
   UseInterceptors
 } from '@nestjs/common';
 
-import { DocumentsService } from './documents.service.js';
+import { DocumentsService, type IssuedDocumentFilter } from './documents.service.js';
 import { DocumentsRequestPersistenceInterceptor } from './infrastructure/documents-request-persistence.interceptor.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
@@ -35,6 +36,13 @@ import type {
   UpdateTemplateVersionRequest
 } from './documents.dto.js';
 import type { RequestContext } from '../../common/context/request-context.js';
+
+/** Hard cap для CSV-экспорта книги выдачи — защита от DoS на больших тенантах. */
+export const ISSUANCE_JOURNAL_CSV_HARD_CAP = 10000;
+
+/** Заголовки CSV в книге выдачи (точный порядок столбцов). */
+export const ISSUANCE_JOURNAL_CSV_HEADER =
+  '№;Дата выдачи;№ документа;Тип документа;Статус;ID документа;ID группового приказа';
 
 @Controller()
 @UseInterceptors(DocumentsRequestPersistenceInterceptor)
@@ -325,4 +333,102 @@ export class DocumentsController {
   deactivateRule(@CurrentContext() c: RequestContext, @Param('id') id: string) {
     return this.documentsService.deactivateNumberingRule(c.tenantId!, id);
   }
+
+  // ==========================================================================
+  // Pillar A Plan B §5.6 — книга выдачи документов (issuance journal).
+  // ==========================================================================
+
+  @Get('admin/documents/issuance-journal')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.read')
+  listIssuanceJournal(
+    @CurrentContext() c: RequestContext,
+    @Query() q: Record<string, string | string[] | undefined>
+  ) {
+    return this.documentsService.listIssuedDocuments(c.tenantId!, parseIssuanceFilter(q));
+  }
+
+  @Get('admin/documents/issuance-journal.csv')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.read')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="issuance-journal.csv"')
+  exportIssuanceJournalCsv(
+    @CurrentContext() c: RequestContext,
+    @Query() q: Record<string, string | string[] | undefined>
+  ): string {
+    const filter = parseIssuanceFilter(q);
+    const page = this.documentsService.listIssuedDocuments(c.tenantId!, {
+      ...filter,
+      limit: ISSUANCE_JOURNAL_CSV_HARD_CAP,
+      offset: 0
+    });
+    return renderIssuanceJournalCsv(page.items);
+  }
+}
+
+// ============================================================================
+// Pillar A Plan B §5.6 — utilities для книги выдачи. Экспортируются для
+// использования в unit-тестах CSV-рендеринга.
+// ============================================================================
+
+function parseIssuanceFilter(
+  query: Record<string, string | string[] | undefined>
+): IssuedDocumentFilter {
+  const asArray = (v: string | string[] | undefined): string[] | undefined =>
+    v === undefined ? undefined : Array.isArray(v) ? v : [v];
+  const asString = (v: string | string[] | undefined): string | undefined =>
+    v === undefined ? undefined : Array.isArray(v) ? v[0] : v;
+  const asInt = (v: string | string[] | undefined): number | undefined => {
+    const s = asString(v);
+    if (s === undefined) return undefined;
+    const n = Number.parseInt(s, 10);
+    return Number.isFinite(n) ? n : undefined;
+  };
+  return {
+    from: asString(query.from),
+    to: asString(query.to),
+    types: asArray(query.types),
+    status: asString(query.status),
+    groupOrderDocumentId: asString(query.groupOrderDocumentId),
+    limit: asInt(query.limit),
+    offset: asInt(query.offset)
+  };
+}
+
+function csvEscape(value: string): string {
+  if (value.includes(';') || value.includes('"') || value.includes('\n')) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+/**
+ * Рендерит CSV для книги выдачи с UTF-8 BOM и `;`-разделителем — формат,
+ * который Excel в русской локали корректно открывает без manual import wizard'а.
+ */
+export function renderIssuanceJournalCsv(
+  rows: Array<{
+    id: string;
+    documentNumber?: string;
+    documentType?: string;
+    status?: string;
+    documentDate?: string;
+    groupOrderDocumentId?: string;
+  }>
+): string {
+  const body = rows.map((d, idx) =>
+    [
+      String(idx + 1),
+      d.documentDate ?? '',
+      csvEscape(d.documentNumber ?? ''),
+      d.documentType ?? '',
+      d.status ?? '',
+      d.id,
+      d.groupOrderDocumentId ?? ''
+    ].join(';')
+  );
+  // ﻿ — UTF-8 BOM. Excel в русской локали без BOM по умолчанию пытается
+  // декодировать как Windows-1251 и ломает кириллицу.
+  return '﻿' + [ISSUANCE_JOURNAL_CSV_HEADER, ...body].join('\r\n');
 }
