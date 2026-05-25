@@ -1,5 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { DocumentsService } from './documents.service.js';
 import { InMemoryDocumentsState } from './in-memory-documents.state.js';
@@ -743,5 +743,222 @@ describe('DocumentsService.listIssuedDocuments (Plan B §5.6)', () => {
     const { service } = seedService();
     const negative = service.listIssuedDocuments('t1', { offset: -10, limit: -5 });
     expect(negative.items.length).toBeGreaterThan(0);
+  });
+});
+
+describe('DocumentsService.issueGroupOrder (Plan B §5.7)', () => {
+  function seedService() {
+    const state = new InMemoryDocumentsState();
+    const service = new DocumentsService(state, new AuditService(), new RealtimeEventsService());
+    state.templates.push(
+      {
+        id: 'tpl_order',
+        tenantId: 't1',
+        name: 'Приказ',
+        templateType: 'order',
+        status: 'active',
+        currentVersionId: 'tplv_order',
+        createdAt: '2026-05-01T00:00:00.000Z',
+        updatedAt: '2026-05-01T00:00:00.000Z'
+      },
+      {
+        id: 'tpl_cert',
+        tenantId: 't1',
+        name: 'Удостоверение',
+        templateType: 'certificate',
+        status: 'active',
+        currentVersionId: 'tplv_cert',
+        createdAt: '2026-05-01T00:00:00.000Z',
+        updatedAt: '2026-05-01T00:00:00.000Z'
+      }
+    );
+    state.versions.push(
+      {
+        id: 'tplv_order',
+        tenantId: 't1',
+        templateId: 'tpl_order',
+        versionNo: 1,
+        fileId: 'f_o',
+        variablesSchema: {},
+        isActive: true,
+        createdAt: '2026-05-01T00:00:00.000Z'
+      },
+      {
+        id: 'tplv_cert',
+        tenantId: 't1',
+        templateId: 'tpl_cert',
+        versionNo: 1,
+        fileId: 'f_c',
+        variablesSchema: {},
+        isActive: true,
+        createdAt: '2026-05-01T00:00:00.000Z'
+      }
+    );
+    return { service, state };
+  }
+
+  it('creates an order document of type "order" tied to the group', () => {
+    const { service } = seedService();
+    const res = service.issueGroupOrder(
+      't1',
+      'actor_1',
+      { groupId: 'g_1', templateId: 'tpl_order', enrollmentIds: [] },
+      ctx
+    );
+    expect(res.order.documentType).toBe('order');
+    expect(res.order.sourceEntityType).toBe('group');
+    expect(res.order.sourceEntityId).toBe('g_1');
+    expect(res.certificates).toEqual([]);
+    expect(res.alreadyExisted).toBe(false);
+  });
+
+  it('cascades certificates and links them to the order via groupOrderDocumentId', () => {
+    const { service } = seedService();
+    const res = service.issueGroupOrder(
+      't1',
+      'actor_1',
+      {
+        groupId: 'g_1',
+        templateId: 'tpl_order',
+        enrollmentIds: ['enr_a', 'enr_b'],
+        certificateTemplateId: 'tpl_cert'
+      },
+      ctx
+    );
+    expect(res.certificates).toHaveLength(2);
+    for (const cert of res.certificates) {
+      expect(cert.documentType).toBe('certificate');
+      expect(cert.sourceEntityType).toBe('enrollment');
+      expect(cert.groupOrderDocumentId).toBe(res.order.id);
+    }
+  });
+
+  it('is idempotent — second call with same groupId+templateId returns existing order', () => {
+    const { service, state } = seedService();
+    const first = service.issueGroupOrder(
+      't1',
+      'actor_1',
+      {
+        groupId: 'g_1',
+        templateId: 'tpl_order',
+        enrollmentIds: ['enr_a'],
+        certificateTemplateId: 'tpl_cert'
+      },
+      ctx
+    );
+    const second = service.issueGroupOrder(
+      't1',
+      'actor_1',
+      {
+        groupId: 'g_1',
+        templateId: 'tpl_order',
+        enrollmentIds: ['enr_a'],
+        certificateTemplateId: 'tpl_cert'
+      },
+      ctx
+    );
+    expect(second.order.id).toBe(first.order.id);
+    expect(second.alreadyExisted).toBe(true);
+    // Сертификаты не задублированы.
+    const allCerts = state.generatedDocuments.filter(
+      (d) => d.groupOrderDocumentId === first.order.id
+    );
+    expect(allCerts).toHaveLength(1);
+  });
+
+  it('rejects when the order template is not of type "order"', () => {
+    const { service } = seedService();
+    expect(() =>
+      service.issueGroupOrder(
+        't1',
+        'actor_1',
+        { groupId: 'g_1', templateId: 'tpl_cert', enrollmentIds: [] },
+        ctx
+      )
+    ).toThrow(/template_type/);
+  });
+
+  it('rejects template from another tenant (cross-tenant isolation)', () => {
+    const { service, state } = seedService();
+    state.templates.push({
+      id: 'tpl_order_t2',
+      tenantId: 't2',
+      name: 'Приказ T2',
+      templateType: 'order',
+      status: 'active',
+      createdAt: '2026-05-01T00:00:00.000Z',
+      updatedAt: '2026-05-01T00:00:00.000Z'
+    });
+    expect(() =>
+      service.issueGroupOrder(
+        't1',
+        'actor_1',
+        { groupId: 'g_1', templateId: 'tpl_order_t2', enrollmentIds: [] },
+        ctx
+      )
+    ).toThrow(NotFoundException);
+  });
+
+  it('writes audit entries for order and each cascaded certificate', () => {
+    const state = new InMemoryDocumentsState();
+    const audit = new AuditService();
+    const auditSpy = vi.spyOn(audit, 'write');
+    const service = new DocumentsService(state, audit, new RealtimeEventsService());
+    state.templates.push(
+      {
+        id: 'tpl_order',
+        tenantId: 't1',
+        name: 'Приказ',
+        templateType: 'order',
+        status: 'active',
+        createdAt: '2026-05-01T00:00:00.000Z',
+        updatedAt: '2026-05-01T00:00:00.000Z'
+      },
+      {
+        id: 'tpl_cert',
+        tenantId: 't1',
+        name: 'Удостоверение',
+        templateType: 'certificate',
+        status: 'active',
+        createdAt: '2026-05-01T00:00:00.000Z',
+        updatedAt: '2026-05-01T00:00:00.000Z'
+      }
+    );
+    state.versions.push(
+      {
+        id: 'tplv_order',
+        tenantId: 't1',
+        templateId: 'tpl_order',
+        versionNo: 1,
+        fileId: 'f_o',
+        variablesSchema: {},
+        isActive: true,
+        createdAt: '2026-05-01T00:00:00.000Z'
+      },
+      {
+        id: 'tplv_cert',
+        tenantId: 't1',
+        templateId: 'tpl_cert',
+        versionNo: 1,
+        fileId: 'f_c',
+        variablesSchema: {},
+        isActive: true,
+        createdAt: '2026-05-01T00:00:00.000Z'
+      }
+    );
+    service.issueGroupOrder(
+      't1',
+      'actor_1',
+      {
+        groupId: 'g_1',
+        templateId: 'tpl_order',
+        enrollmentIds: ['enr_a'],
+        certificateTemplateId: 'tpl_cert'
+      },
+      ctx
+    );
+    const actions = auditSpy.mock.calls.map((call) => call[0].action);
+    expect(actions).toContain('documents.group_order_issued');
+    expect(actions).toContain('documents.certificate_issued_via_order');
   });
 });
