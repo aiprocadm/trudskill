@@ -4,12 +4,15 @@ import {
   type DocumentVariableContext,
   type EnrollmentVariableContext,
   FINAL_ASSESSMENT_FORM_LABELS,
+  type GroupLearnerView,
+  type GroupLearnersVariableContext,
   LEARNER_CATEGORY_LABELS,
   STUDY_FORM_LABELS,
   TRAINING_TYPE_LABELS,
   resolveCommissionVariables,
   resolveDocumentVariables,
   resolveEnrollmentVariables,
+  resolveGroupLearnersVariables,
   resolveProgramVariables
 } from './pillar-a-variables.js';
 
@@ -19,6 +22,7 @@ import type {
   CommissionMember,
   CourseVersion,
   Enrollment,
+  Learner,
   RegulatoryAct
 } from '../mvp/mvp.types.js';
 
@@ -475,5 +479,114 @@ describe('resolveDocumentVariables (Plan B §5.5)', () => {
     expect(resolveDocumentVariables(ctx, ['enrollment.id'])).toEqual({
       'enrollment.id': ''
     });
+  });
+});
+
+describe('resolveGroupLearnersVariables (Plan B §5.7)', () => {
+  const learnerA: Learner = {
+    id: 'l_a',
+    tenantId: 't1',
+    status: 'active',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+    firstName: 'Иван',
+    lastName: 'Иванов',
+    learnerNo: 'L-001'
+  };
+  const learnerB: Learner = {
+    id: 'l_b',
+    tenantId: 't1',
+    status: 'active',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+    firstName: 'Пётр',
+    lastName: 'Петров',
+    learnerNo: 'L-002'
+  };
+  const enrollmentA: Enrollment = {
+    id: 'enr_a',
+    tenantId: 't1',
+    status: 'completed',
+    createdAt: '2026-04-01T00:00:00.000Z',
+    updatedAt: '2026-05-10T00:00:00.000Z',
+    groupId: 'g_1',
+    learnerId: 'l_a',
+    enrolledAt: '2026-04-01T00:00:00.000Z',
+    completedAt: '2026-05-10T00:00:00.000Z'
+  };
+  const enrollmentB: Enrollment = {
+    id: 'enr_b',
+    tenantId: 't1',
+    status: 'completed',
+    createdAt: '2026-04-02T00:00:00.000Z',
+    updatedAt: '2026-05-11T00:00:00.000Z',
+    groupId: 'g_1',
+    learnerId: 'l_b',
+    enrolledAt: '2026-04-02T00:00:00.000Z',
+    completedAt: '2026-05-11T00:00:00.000Z'
+  };
+
+  it('group_learners returns array sorted by fullName ASC (ru locale)', () => {
+    const ctx: GroupLearnersVariableContext = {
+      learners: [learnerB, learnerA],
+      enrollments: [enrollmentB, enrollmentA]
+    };
+    const result = resolveGroupLearnersVariables(ctx, ['group_learners']);
+    const arr = result['group_learners'] as GroupLearnerView[];
+    expect(arr).toHaveLength(2);
+    expect(arr[0].fullName).toBe('Иванов Иван');
+    expect(arr[1].fullName).toBe('Петров Пётр');
+  });
+
+  it('each item has expected fields (fullName, snils/position placeholders, enrolledAt, status, learnerNo)', () => {
+    const ctx: GroupLearnersVariableContext = {
+      learners: [learnerA],
+      enrollments: [enrollmentA]
+    };
+    const result = resolveGroupLearnersVariables(ctx, ['group_learners']);
+    const arr = result['group_learners'] as GroupLearnerView[];
+    expect(arr[0]).toEqual({
+      fullName: 'Иванов Иван',
+      snils: '',
+      position: '',
+      enrolledAt: '2026-04-01',
+      status: 'completed',
+      learnerNo: 'L-001'
+    });
+  });
+
+  it('group_learners_count returns numeric count', () => {
+    const ctx: GroupLearnersVariableContext = {
+      learners: [learnerA, learnerB],
+      enrollments: [enrollmentA, enrollmentB]
+    };
+    expect(resolveGroupLearnersVariables(ctx, ['group_learners_count'])).toEqual({
+      group_learners_count: 2
+    });
+  });
+
+  it('returns empty array when learners list is empty', () => {
+    const ctx: GroupLearnersVariableContext = { learners: [], enrollments: [] };
+    expect(resolveGroupLearnersVariables(ctx, ['group_learners'])).toEqual({
+      group_learners: []
+    });
+  });
+
+  it('ignores keys outside group_learners namespace', () => {
+    const ctx: GroupLearnersVariableContext = { learners: [], enrollments: [] };
+    expect(resolveGroupLearnersVariables(ctx, ['enrollment.id'])).toEqual({
+      'enrollment.id': ''
+    });
+  });
+
+  it('drops learners without matching enrollment (defensive)', () => {
+    const ctx: GroupLearnersVariableContext = {
+      learners: [learnerA, learnerB],
+      enrollments: [enrollmentA]
+    };
+    const result = resolveGroupLearnersVariables(ctx, ['group_learners']);
+    const arr = result['group_learners'] as GroupLearnerView[];
+    expect(arr).toHaveLength(1);
+    expect(arr[0].fullName).toBe('Иванов Иван');
   });
 });

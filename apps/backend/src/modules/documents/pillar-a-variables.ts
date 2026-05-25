@@ -18,6 +18,7 @@ import type {
   CommissionMember,
   CourseVersion,
   Enrollment,
+  Learner,
   RegulatoryAct
 } from '../mvp/mvp.types.js';
 
@@ -309,4 +310,76 @@ function resolveDocumentKey(key: string, d: GeneratedDocumentEntity): unknown {
     default:
       return '';
   }
+}
+
+// ============================================================================
+// Plan B §5.7 — категория `group_learners` для приказов по группе.
+// ============================================================================
+
+/**
+ * View для одного ученика в `group_learners` массиве. `snils` и `position` —
+ * placeholder-строки: поля отсутствуют на текущем типе `Learner`. Когда базовая
+ * сущность будет расширена (Plan C или follow-up), resolver надо обновить.
+ */
+export interface GroupLearnerView {
+  fullName: string;
+  snils: string;
+  position: string;
+  enrolledAt: string;
+  status: string;
+  learnerNo: string;
+}
+
+export interface GroupLearnersVariableContext {
+  learners: Learner[];
+  enrollments: Enrollment[];
+}
+
+/**
+ * Разрешает переменную `group_learners` (массив учеников группы) и скаляр
+ * `group_learners_count` (число записей). Используется в приказах по группе —
+ * шаблон рендерит таблицу учеников.
+ *
+ * Особенности:
+ * - Сортировка по `lastName firstName` в русской локали — стабильный порядок
+ *   в приказах независимо от order вставки.
+ * - Учеников без matching enrollment отбрасывает (defensive — caller обязан
+ *   передавать pair'ы, но если pipeline сломан, не падаем, а молча скипаем).
+ * - `snils`/`position` — пустые строки (см. комментарий к `GroupLearnerView`).
+ */
+export function resolveGroupLearnersVariables(
+  ctx: GroupLearnersVariableContext,
+  varNames: string[]
+): Record<string, unknown> {
+  const byLearnerId = new Map(ctx.enrollments.map((e) => [e.learnerId, e]));
+  const views: GroupLearnerView[] = ctx.learners
+    .map((l): GroupLearnerView | undefined => {
+      const enr = byLearnerId.get(l.id);
+      if (!enr) return undefined;
+      const fullName = `${l.lastName ?? ''} ${l.firstName ?? ''}`.trim();
+      return {
+        fullName,
+        snils: '',
+        position: '',
+        enrolledAt: enr.enrolledAt ? enr.enrolledAt.slice(0, 10) : '',
+        status: enr.status ?? '',
+        learnerNo: l.learnerNo ?? ''
+      };
+    })
+    .filter((v): v is GroupLearnerView => v !== undefined)
+    .sort((a, b) => a.fullName.localeCompare(b.fullName, 'ru'));
+
+  const result: Record<string, unknown> = {};
+  for (const name of varNames) {
+    if (name === 'group_learners') {
+      result[name] = views;
+      continue;
+    }
+    if (name === 'group_learners_count') {
+      result[name] = views.length;
+      continue;
+    }
+    result[name] = '';
+  }
+  return result;
 }
