@@ -417,3 +417,6 @@ export interface CourseDocumentSetEntry {
   createdAt: string;
   updatedAt: string;
 }
+
+/** Re-exported from documents module — single source of truth for template_type and category_code unions. */
+export type { TemplateType, VariableCategoryCode } from '../documents/documents.types.js';

@@ -4,6 +4,37 @@ export type TaskStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancel
 export type GeneratedDocumentStatus = 'generated' | 'final' | 'archived';
 export type NumberResetPeriod = 'none' | 'year' | 'month';
 
+/**
+ * §5.4 — все типы документных шаблонов в Pillar A.
+ * 7 регулируемых (certificate/protocol/order/diploma/attestation/reference/report)
+ * + 'contract' grandfathered из существующих seed-данных (см. migration 0032 comment).
+ */
+export type TemplateType =
+  | 'certificate'
+  | 'protocol'
+  | 'order'
+  | 'diploma'
+  | 'attestation'
+  | 'reference'
+  | 'report'
+  | 'contract';
+
+/**
+ * §5.5 — все категории переменных, поддерживаемые DocumentsService resolver'ом.
+ * Зафиксированы CHECK-constraint'ом в migration 0032.
+ */
+export type VariableCategoryCode =
+  | 'tenant'
+  | 'group'
+  | 'learner'
+  | 'counterparty'
+  | 'course'
+  | 'commission'
+  | 'document'
+  | 'program'
+  | 'enrollment'
+  | 'group_learners';
+
 export interface TemplateEntity {
   id: string;
   tenantId: string;
@@ -100,6 +131,8 @@ export interface GeneratedDocumentEntity {
   generatedBy?: string;
   generatedAt: string;
   archivedAt?: string;
+  /** §5.7 — id документа-приказа, по которому выпущено это удостоверение (для трассировки каскада). */
+  groupOrderDocumentId?: string;
 }
 
 export interface NumberingRuleEntity {

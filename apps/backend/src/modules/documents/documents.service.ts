@@ -8,26 +8,28 @@ import {
 } from '@nestjs/common';
 
 import { DOCUMENTS_STATE } from './documents-state.token.js';
+import {
+  type BaseFilter,
+  type CreateNumberingRuleRequest,
+  type CreateTemplateBindingRequest,
+  type CreateTemplateRequest,
+  type CreateTemplateVariableRequest,
+  type CreateTemplateVersionRequest,
+  type GenerateDocumentRequest,
+  type GenerateDocumentsBatchRequest,
+  type UpdateNumberingRuleRequest,
+  type UpdateTemplateBindingRequest,
+  type UpdateTemplateRequest,
+  type UpdateTemplateVariableRequest,
+  type UpdateTemplateVersionRequest,
+  assertTemplateType,
+  assertVariableCategoryCode
+} from './documents.dto.js';
 import { InMemoryDocumentsState } from './in-memory-documents.state.js';
 import { MetricsService } from '../../common/metrics/metrics.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
-import type {
-  BaseFilter,
-  CreateNumberingRuleRequest,
-  CreateTemplateBindingRequest,
-  CreateTemplateRequest,
-  CreateTemplateVariableRequest,
-  CreateTemplateVersionRequest,
-  GenerateDocumentRequest,
-  GenerateDocumentsBatchRequest,
-  UpdateNumberingRuleRequest,
-  UpdateTemplateBindingRequest,
-  UpdateTemplateRequest,
-  UpdateTemplateVariableRequest,
-  UpdateTemplateVersionRequest
-} from './documents.dto.js';
 import type {
   DocumentGenerationTaskEntity,
   GeneratedDocumentEntity,
@@ -42,20 +44,49 @@ import type { RequestContext } from '../../common/context/request-context.js';
 
 const ASYNC_TASK_STATUS_CHANGED_EVENT = 'async_task.status_changed';
 
+/** Pillar A Plan B §5.6 — фильтры книги выдачи документов. */
+export interface IssuedDocumentFilter {
+  /** ISO date (YYYY-MM-DD), inclusive. */
+  from?: string;
+  /** ISO date (YYYY-MM-DD), inclusive. */
+  to?: string;
+  /** documentType filter (multi). Пустой массив трактуется как «без фильтра». */
+  types?: string[];
+  /** exact status match. */
+  status?: string;
+  /** Все удостоверения, выпущенные по одному групповому приказу. */
+  groupOrderDocumentId?: string;
+  /** Лимит на страницу (default — все строки). */
+  limit?: number;
+  /** Смещение в отсортированном списке. */
+  offset?: number;
+}
+
+export interface IssuedDocumentsPage {
+  items: GeneratedDocumentEntity[];
+  total: number;
+}
+
+/** Pillar A Plan B §5.7 — атомарный выпуск группового приказа + каскад удостоверений. */
+export interface IssueGroupOrderRequest {
+  groupId: string;
+  /** Шаблон приказа — должен быть templateType='order'. */
+  templateId: string;
+  /** Enrollment-ы, для которых нужно выпустить удостоверение. Caller отвечает за фильтрацию по status='completed'. */
+  enrollmentIds: string[];
+  /** Опциональный шаблон удостоверения; если не задан — только приказ без каскада. */
+  certificateTemplateId?: string;
+}
+
+export interface IssueGroupOrderResult {
+  order: GeneratedDocumentEntity;
+  certificates: GeneratedDocumentEntity[];
+  /** true если ордер уже существовал (идемпотентный повтор). */
+  alreadyExisted: boolean;
+}
+
 @Injectable()
 export class DocumentsService {
-  private static readonly variableCategories = new Set([
-    'tenant',
-    'group',
-    'learner',
-    'counterparty',
-    'course',
-    'commission',
-    'document',
-    // Pillar A — Plan A §5.5: program meta переменные (academic_hours, training_type, ...)
-    'program'
-  ]);
-
   constructor(
     @Inject(DOCUMENTS_STATE) private readonly state: InMemoryDocumentsState,
     @Inject(AuditService) private readonly auditService: AuditService,
@@ -75,6 +106,7 @@ export class DocumentsService {
     req: CreateTemplateRequest,
     ctx: RequestContext
   ) {
+    assertTemplateType(req.templateType);
     const now = this.now();
     const entity: TemplateEntity = {
       id: this.id('tpl'),
@@ -207,9 +239,7 @@ export class DocumentsService {
   }
   createTemplateVariable(tenantId: string, req: CreateTemplateVariableRequest) {
     this.getTemplateVersion(tenantId, req.templateVersionId);
-    if (!DocumentsService.variableCategories.has(req.categoryCode)) {
-      throw new BadRequestException(`Unsupported variable category ${req.categoryCode}`);
-    }
+    assertVariableCategoryCode(req.categoryCode);
     const duplicate = this.state.variables.find(
       (x) =>
         x.tenantId === tenantId &&
@@ -241,8 +271,8 @@ export class DocumentsService {
   }
   updateTemplateVariable(tenantId: string, id: string, req: UpdateTemplateVariableRequest) {
     const row = this.getTemplateVariable(tenantId, id);
-    if (req.categoryCode && !DocumentsService.variableCategories.has(req.categoryCode)) {
-      throw new BadRequestException(`Unsupported variable category ${req.categoryCode}`);
+    if (req.categoryCode !== undefined) {
+      assertVariableCategoryCode(req.categoryCode);
     }
     Object.assign(row, req);
     return row;
@@ -339,6 +369,53 @@ export class DocumentsService {
     );
     return this.page(rows, query);
   }
+
+  /**
+   * Pillar A Plan B §5.6 — книга выдачи документов. Возвращает GeneratedDocumentEntity
+   * прямо из state (без обогащения join'ами), отсортированные по documentDate desc.
+   *
+   * Caller (controller или frontend) при необходимости обогащает строки именами
+   * учеников/программ через mvpService — это не coupling-free, но соответствует
+   * принятому паттерну в codebase: documents-сервис не знает о mvp-state.
+   */
+  listIssuedDocuments(tenantId: string, filter: IssuedDocumentFilter): IssuedDocumentsPage {
+    let rows = this.state.generatedDocuments.filter((d) => d.tenantId === tenantId);
+
+    if (filter.from) {
+      const from = filter.from;
+      rows = rows.filter((d) => d.documentDate !== undefined && d.documentDate >= from);
+    }
+    if (filter.to) {
+      const to = filter.to;
+      rows = rows.filter((d) => d.documentDate !== undefined && d.documentDate <= to);
+    }
+    if (filter.types && filter.types.length > 0) {
+      const set = new Set(filter.types);
+      rows = rows.filter((d) => set.has(d.documentType));
+    }
+    if (filter.status) {
+      rows = rows.filter((d) => d.status === filter.status);
+    }
+    if (filter.groupOrderDocumentId) {
+      rows = rows.filter((d) => d.groupOrderDocumentId === filter.groupOrderDocumentId);
+    }
+
+    rows.sort((a, b) => {
+      const aDate = a.documentDate ?? '';
+      const bDate = b.documentDate ?? '';
+      if (aDate !== bDate) return aDate < bDate ? 1 : -1;
+      return a.id < b.id ? 1 : -1;
+    });
+
+    const total = rows.length;
+    const offset = Math.max(0, filter.offset ?? 0);
+    const limit = filter.limit !== undefined && filter.limit > 0 ? filter.limit : total;
+    return {
+      items: rows.slice(offset, offset + limit),
+      total
+    };
+  }
+
   getDocument(tenantId: string, id: string) {
     return this.must(this.state.generatedDocuments, tenantId, id);
   }
@@ -556,11 +633,15 @@ export class DocumentsService {
       (x) => x.tenantId === tenantId && x.documentType === documentType && x.isActive
     );
     if (!rule) {
+      // Default-rule с documentType в префиксе — иначе разные типы документов
+      // в рамках одного tenant'а коллидируют по reservedNumber ('000001').
+      // Pillar A Plan B §5.7: issueGroupOrder выпускает order + certificate
+      // в одной операции, и оба нуждаются в номере — без префикса всё ломается.
       rule = {
         id: this.id('nrule'),
         tenantId,
         documentType,
-        prefix: '',
+        prefix: `${documentType.toUpperCase()}-`,
         suffix: '',
         pattern: '{prefix}{counter}{suffix}',
         currentCounter: 0,
@@ -772,5 +853,167 @@ export class DocumentsService {
       throw new BadRequestException('courseId is required for course binding');
     if (bindType === 'group' && !groupId)
       throw new BadRequestException('groupId is required for group binding');
+  }
+
+  // ==========================================================================
+  // Pillar A Plan B §5.7 — приказы по группам (issueGroupOrder).
+  // ==========================================================================
+
+  /**
+   * Атомарная операция: создаёт документ типа `order` и опционально каскадно
+   * выпускает удостоверения для каждого enrollment-а в `enrollmentIds`,
+   * связывая их с приказом через `groupOrderDocumentId`.
+   *
+   * Идемпотентность: повторный вызов с тем же `(groupId, templateId)` пары
+   * возвращает существующий неархивированный приказ (`alreadyExisted=true`)
+   * и НЕ создаёт дубликат. Это важно для UI: пользователь нажимает «Сгенерировать»
+   * дважды — мы не должны выпускать два приказа.
+   */
+  issueGroupOrder(
+    tenantId: string,
+    actorId: string | undefined,
+    req: IssueGroupOrderRequest,
+    ctx: RequestContext
+  ): IssueGroupOrderResult {
+    const orderTpl = this.state.templates.find(
+      (t) => t.tenantId === tenantId && t.id === req.templateId
+    );
+    if (!orderTpl) {
+      throw new NotFoundException(`Template ${req.templateId} not found`);
+    }
+    if (orderTpl.templateType !== 'order') {
+      throw new BadRequestException({
+        code: 'invalid_template_type',
+        message: `Group order requires template of template_type='order' (got '${orderTpl.templateType}')`
+      });
+    }
+
+    // Idempotency: уже есть активный приказ для этой пары?
+    const existing = this.state.generatedDocuments.find(
+      (d) =>
+        d.tenantId === tenantId &&
+        d.sourceEntityType === 'group' &&
+        d.sourceEntityId === req.groupId &&
+        d.templateId === req.templateId &&
+        d.documentType === 'order' &&
+        d.status !== 'archived'
+    );
+    if (existing) {
+      const certificates = this.state.generatedDocuments.filter(
+        (d) => d.tenantId === tenantId && d.groupOrderDocumentId === existing.id
+      );
+      return { order: existing, certificates, alreadyExisted: true };
+    }
+
+    const now = this.now();
+    const orderVersionId =
+      orderTpl.currentVersionId ??
+      this.state.versions.find(
+        (v) => v.tenantId === tenantId && v.templateId === req.templateId && v.isActive
+      )?.id ??
+      '';
+    const orderNumber = this.reserveNumber(tenantId, 'order').reservedNumber;
+    const order: GeneratedDocumentEntity = {
+      id: this.id('gdoc'),
+      tenantId,
+      templateId: req.templateId,
+      templateVersionId: orderVersionId,
+      documentType: 'order',
+      name: `Приказ ${orderNumber}`,
+      sourceEntityType: 'group',
+      sourceEntityId: req.groupId,
+      fileId: '',
+      status: 'generated',
+      documentNumber: orderNumber,
+      documentDate: now.slice(0, 10),
+      isFinal: false,
+      generatedBy: actorId,
+      generatedAt: now
+    };
+    this.state.generatedDocuments.push(order);
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.group_order_issued',
+      entityType: 'documents.generated',
+      entityId: order.id,
+      newValues: { groupId: req.groupId, templateId: req.templateId } as unknown as Record<
+        string,
+        unknown
+      >,
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
+
+    const certificates: GeneratedDocumentEntity[] = [];
+    if (req.certificateTemplateId && req.enrollmentIds.length > 0) {
+      const certTpl = this.state.templates.find(
+        (t) => t.tenantId === tenantId && t.id === req.certificateTemplateId
+      );
+      if (!certTpl) {
+        throw new NotFoundException(`Template ${req.certificateTemplateId} not found`);
+      }
+      const certVersionId =
+        certTpl.currentVersionId ??
+        this.state.versions.find(
+          (v) => v.tenantId === tenantId && v.templateId === req.certificateTemplateId && v.isActive
+        )?.id ??
+        '';
+      for (const enrId of req.enrollmentIds) {
+        // Within-order idempotency: тот же enrollment не выпускается дважды.
+        const dup = this.state.generatedDocuments.find(
+          (d) =>
+            d.tenantId === tenantId &&
+            d.sourceEntityType === 'enrollment' &&
+            d.sourceEntityId === enrId &&
+            d.templateId === req.certificateTemplateId &&
+            d.groupOrderDocumentId === order.id
+        );
+        if (dup) {
+          certificates.push(dup);
+          continue;
+        }
+        const certNumber = this.reserveNumber(tenantId, certTpl.templateType).reservedNumber;
+        const cert: GeneratedDocumentEntity = {
+          id: this.id('gdoc'),
+          tenantId,
+          templateId: req.certificateTemplateId,
+          templateVersionId: certVersionId,
+          documentType: certTpl.templateType,
+          name: `${certTpl.name} ${certNumber}`,
+          sourceEntityType: 'enrollment',
+          sourceEntityId: enrId,
+          fileId: '',
+          status: 'generated',
+          documentNumber: certNumber,
+          documentDate: now.slice(0, 10),
+          isFinal: false,
+          generatedBy: actorId,
+          generatedAt: now,
+          groupOrderDocumentId: order.id
+        };
+        this.state.generatedDocuments.push(cert);
+        certificates.push(cert);
+        this.auditService.write({
+          tenantId,
+          actorId,
+          action: 'documents.certificate_issued_via_order',
+          entityType: 'documents.generated',
+          entityId: cert.id,
+          newValues: { enrollmentId: enrId, orderId: order.id } as unknown as Record<
+            string,
+            unknown
+          >,
+          requestId: ctx.requestId,
+          correlationId: ctx.correlationId,
+          ip: ctx.ip,
+          userAgent: ctx.userAgent
+        });
+      }
+    }
+
+    return { order, certificates, alreadyExisted: false };
   }
 }

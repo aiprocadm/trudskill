@@ -83,16 +83,15 @@ export default function DocumentsPage() {
     enabled: Boolean(session && generateTemplateId),
     queryFn: async () => {
       const qs = new URLSearchParams({ templateId: generateTemplateId });
-      return apiRequest<{ items: { id: string; versionNo: number; fileId: string; isActive: boolean }[] }>(
-        `/template-versions?${qs.toString()}`,
-        {
-          auth: {
-            accessToken: session!.tokens.accessToken,
-            tenantId: session!.user.tenantId,
-            userId: session!.user.id
-          }
+      return apiRequest<{
+        items: { id: string; versionNo: number; fileId: string; isActive: boolean }[];
+      }>(`/template-versions?${qs.toString()}`, {
+        auth: {
+          accessToken: session!.tokens.accessToken,
+          tenantId: session!.user.tenantId,
+          userId: session!.user.id
         }
-      );
+      });
     }
   });
 
@@ -108,16 +107,15 @@ export default function DocumentsPage() {
     queryFn: async () => {
       const vId = activeTemplateVersionId!;
       const qs = new URLSearchParams({ templateVersionId: vId });
-      return apiRequest<{ items: { id: string; variableCode: string; displayName: string; categoryCode: string }[] }>(
-        `/template-variables?${qs.toString()}`,
-        {
-          auth: {
-            accessToken: session!.tokens.accessToken,
-            tenantId: session!.user.tenantId,
-            userId: session!.user.id
-          }
+      return apiRequest<{
+        items: { id: string; variableCode: string; displayName: string; categoryCode: string }[];
+      }>(`/template-variables?${qs.toString()}`, {
+        auth: {
+          accessToken: session!.tokens.accessToken,
+          tenantId: session!.user.tenantId,
+          userId: session!.user.id
         }
-      );
+      });
     }
   });
 
@@ -126,16 +124,15 @@ export default function DocumentsPage() {
     enabled: Boolean(session && generateTemplateId),
     queryFn: async () => {
       const qs = new URLSearchParams({ templateId: generateTemplateId });
-      return apiRequest<{ items: { id: string; bindType: string; groupId?: string; courseId?: string }[] }>(
-        `/template-bindings?${qs.toString()}`,
-        {
-          auth: {
-            accessToken: session!.tokens.accessToken,
-            tenantId: session!.user.tenantId,
-            userId: session!.user.id
-          }
+      return apiRequest<{
+        items: { id: string; bindType: string; groupId?: string; courseId?: string }[];
+      }>(`/template-bindings?${qs.toString()}`, {
+        auth: {
+          accessToken: session!.tokens.accessToken,
+          tenantId: session!.user.tenantId,
+          userId: session!.user.id
         }
-      );
+      });
     }
   });
 
@@ -234,7 +231,9 @@ export default function DocumentsPage() {
       setBulkEntityIds('');
       await data.refetch();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Не удалось выполнить пакетную генерацию');
+      setActionError(
+        error instanceof Error ? error.message : 'Не удалось выполнить пакетную генерацию'
+      );
     }
   };
 
@@ -398,9 +397,15 @@ export default function DocumentsPage() {
                 value={templateType}
                 onChange={(event) => setTemplateType(event.target.value)}
               >
-                <option value="certificate">Сертификат</option>
+                {/* Pillar A Plan B §5.4: 7 регулируемых типов + contract grandfathered. */}
+                <option value="certificate">Удостоверение</option>
                 <option value="protocol">Протокол</option>
                 <option value="order">Приказ</option>
+                <option value="diploma">Диплом</option>
+                <option value="attestation">Свидетельство об аттестации</option>
+                <option value="reference">Справка</option>
+                <option value="report">Отчёт</option>
+                <option value="contract">Договор</option>
               </select>
               <button
                 type="button"
@@ -415,10 +420,12 @@ export default function DocumentsPage() {
         <SectionCard title="Версия шаблона, переменные и привязки">
           <p className="ui-text-muted">
             Выберите шаблон в списке ниже (поле «Выберите шаблон» в блоке генерации). Укажите{' '}
-            <code>fileId</code> из хранилища файлов и создайте версию, затем добавьте переменные и привязку к
-            курсу или группе для автоматической выдачи сертификата.
+            <code>fileId</code> из хранилища файлов и создайте версию, затем добавьте переменные и
+            привязку к курсу или группе для автоматической выдачи сертификата.
           </p>
-          {!generateTemplateId ? <SectionEmpty message="Сначала выберите шаблон в блоке генерации" /> : null}
+          {!generateTemplateId ? (
+            <SectionEmpty message="Сначала выберите шаблон в блоке генерации" />
+          ) : null}
           {generateTemplateId ? (
             <div className="ui-stack">
               <strong>Версии</strong>
@@ -441,7 +448,11 @@ export default function DocumentsPage() {
                   onChange={(event) => setFileIdForVersion(event.target.value)}
                   placeholder="fileId (из backend файлов)"
                 />
-                <button type="button" onClick={() => void createVersionAndActivate()} disabled={!fileIdForVersion.trim()}>
+                <button
+                  type="button"
+                  onClick={() => void createVersionAndActivate()}
+                  disabled={!fileIdForVersion.trim()}
+                >
                   Создать и активировать версию
                 </button>
               </div>
@@ -460,20 +471,39 @@ export default function DocumentsPage() {
                 <SectionEmpty message="Переменных нет — добавьте ниже" />
               )}
               <div className="ui-inline">
-                <input value={varCode} onChange={(e) => setVarCode(e.target.value)} placeholder="variable_code" />
+                <input
+                  value={varCode}
+                  onChange={(e) => setVarCode(e.target.value)}
+                  placeholder="variable_code"
+                />
                 <input
                   value={varDisplayName}
                   onChange={(e) => setVarDisplayName(e.target.value)}
                   placeholder="Подпись"
                 />
                 <select value={varCategory} onChange={(e) => setVarCategory(e.target.value)}>
-                  <option value="learner">learner</option>
-                  <option value="course">course</option>
-                  <option value="group">group</option>
-                  <option value="tenant">tenant</option>
+                  {/* Pillar A Plan B §5.5: все 10 категорий, фиксированных CHECK migration 0032. */}
+                  <option value="tenant">Организация (tenant)</option>
+                  <option value="group">Группа (group)</option>
+                  <option value="learner">Ученик (learner)</option>
+                  <option value="counterparty">Контрагент (counterparty)</option>
+                  <option value="course">Курс (course)</option>
+                  <option value="commission">Комиссия (commission)</option>
+                  <option value="document">Документ (document)</option>
+                  <option value="program">Программа (program)</option>
+                  <option value="enrollment">Зачисление (enrollment)</option>
+                  <option value="group_learners">Ученики группы (group_learners)</option>
                 </select>
-                <input value={varDataType} onChange={(e) => setVarDataType(e.target.value)} placeholder="string" />
-                <button type="button" onClick={() => void addVariable()} disabled={!varCode.trim() || !varDisplayName.trim()}>
+                <input
+                  value={varDataType}
+                  onChange={(e) => setVarDataType(e.target.value)}
+                  placeholder="string"
+                />
+                <button
+                  type="button"
+                  onClick={() => void addVariable()}
+                  disabled={!varCode.trim() || !varDisplayName.trim()}
+                >
                   Добавить переменную
                 </button>
               </div>
@@ -491,7 +521,10 @@ export default function DocumentsPage() {
                 <SectionEmpty message="Привязок нет" />
               )}
               <div className="ui-inline">
-                <select value={bindType} onChange={(e) => setBindType(e.target.value as typeof bindType)}>
+                <select
+                  value={bindType}
+                  onChange={(e) => setBindType(e.target.value as typeof bindType)}
+                >
                   <option value="group">group</option>
                   <option value="course">course</option>
                   <option value="direction">direction</option>
