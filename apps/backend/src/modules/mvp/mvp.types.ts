@@ -18,11 +18,17 @@ export interface Learner extends BaseEntity {
   learnerNo?: string;
   firstName: string;
   lastName: string;
+  /** Pillar A Plan C §5.11 — отчество для построения ФИО в шаблонах документов. */
+  middleName?: string;
   email?: string;
   /** Произвольный ключ подразделения в рамках tenant (BL-003: массовые назначения по org unit). */
   organizationUnitId?: string;
   /** Если задан — мутации прогресса/субмиссий/попыток в контексте этого слушателя разрешены только этому IAM-пользователю (антивор IDOR). */
   linkedIamUserId?: string;
+  /** Pillar A Plan C §5.11 — СНИЛС (формат XXX-XXX-XXX YY). */
+  snils?: string;
+  /** Pillar A Plan C §5.11 — должность ученика (для протоколов, удостоверений). */
+  position?: string;
 }
 
 export interface Direction extends BaseEntity {

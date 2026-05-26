@@ -324,9 +324,9 @@ function resolveDocumentKey(
 // ============================================================================
 
 /**
- * View для одного ученика в `group_learners` массиве. `snils` и `position` —
- * placeholder-строки: поля отсутствуют на текущем типе `Learner`. Когда базовая
- * сущность будет расширена (Plan C или follow-up), resolver надо обновить.
+ * View для одного ученика в `group_learners` массиве. Pillar A Plan C §5.11
+ * подключил реальные поля `snils`/`position`/`middleName` на `Learner`; теперь
+ * используются вместо пустых строк.
  */
 export interface GroupLearnerView {
   fullName: string;
@@ -363,11 +363,14 @@ export function resolveGroupLearnersVariables(
     .map((l): GroupLearnerView | undefined => {
       const enr = byLearnerId.get(l.id);
       if (!enr) return undefined;
-      const fullName = `${l.lastName ?? ''} ${l.firstName ?? ''}`.trim();
+      const namePieces = [l.lastName, l.firstName, l.middleName].filter((piece): piece is string =>
+        Boolean(piece && piece.trim())
+      );
+      const fullName = namePieces.join(' ').trim();
       return {
         fullName,
-        snils: '',
-        position: '',
+        snils: l.snils ?? '',
+        position: l.position ?? '',
         enrolledAt: enr.enrolledAt ? enr.enrolledAt.slice(0, 10) : '',
         status: enr.status ?? '',
         learnerNo: l.learnerNo ?? ''
