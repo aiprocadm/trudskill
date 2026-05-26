@@ -5,6 +5,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Optional,
   PreconditionFailedException
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -17,6 +18,7 @@ import { TenantScopedRepository } from '../../infrastructure/database/tenant-rep
 import { AuditService } from '../audit/audit.service.js';
 import { DocumentsService } from '../documents/documents.service.js';
 import { FilesService } from '../files/files.service.js';
+import { LicensesService } from '../org/licenses.service.js';
 
 import type {
   AddCommissionMemberRequest,
@@ -204,7 +206,8 @@ export class MvpService {
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(DocumentsService) private readonly documentsService: DocumentsService,
     @Inject(FilesService) private readonly filesService: FilesService,
-    @Inject(EventEmitter2) private readonly events: EventEmitter2
+    @Inject(EventEmitter2) private readonly events: EventEmitter2,
+    @Optional() @Inject(LicensesService) private readonly licensesService?: LicensesService
   ) {}
 
   listCounterparties(tenantId: string, query: BaseFilterQuery): ListResponse<Counterparty> {
@@ -3476,6 +3479,18 @@ export class MvpService {
         code: 'commission_not_active',
         message: 'Attached commission is not active'
       });
+    }
+
+    // Pillar A Plan C §5.10 — публикация blocked, если нет matching active license.
+    // Optional injection: in legacy/unit tests без OrgModule валидация лицензии skipped.
+    if (this.licensesService && cv.trainingType) {
+      const matching = this.licensesService.findActiveLicensesFor(tenantId, cv.trainingType);
+      if (matching.length === 0) {
+        throw new BadRequestException({
+          code: 'no_matching_license',
+          message: 'У центра нет активной лицензии на этот вид подготовки'
+        });
+      }
     }
 
     const oldValues = { ...cv };

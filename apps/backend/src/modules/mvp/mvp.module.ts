@@ -14,9 +14,10 @@ import { InfrastructureModule } from '../../infrastructure/infrastructure.module
 import { DocumentsModule } from '../documents/documents.module.js';
 import { FilesModule } from '../files/files.module.js';
 import { IamModule } from '../iam/iam.module.js';
+import { OrgModule } from '../org/org.module.js';
 
 @Module({
-  imports: [InfrastructureModule, FilesModule, IamModule, DocumentsModule],
+  imports: [InfrastructureModule, FilesModule, IamModule, DocumentsModule, OrgModule],
   controllers: [MvpController, MvpInternalWorkerController],
   providers: [
     MvpBulkEnqueueService,

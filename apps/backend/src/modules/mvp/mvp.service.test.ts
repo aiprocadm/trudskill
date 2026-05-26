@@ -2116,6 +2116,57 @@ describe('MvpService — program meta and publish (Plan A §5.1)', () => {
         service.publishCourseVersion('tenant_demo', ctx.userId, 'cver_nope', ctx)
       ).toThrow(NotFoundException);
     });
+
+    it('rejects publish when no active license matches trainingType (Plan C §5.10)', async () => {
+      const { LicensesService } = await import('../org/licenses.service.js');
+      const { InMemoryOrgState } = await import('../org/in-memory-org.state.js');
+      const orgState = new InMemoryOrgState();
+      const licensesService = new LicensesService(orgState, new AuditService());
+
+      const service = new MvpService(
+        new InMemoryMvpState(),
+        new TenantScopedRepository(),
+        new AuditService(),
+        noopDocumentsService,
+        noopFilesService,
+        new EventEmitter2(),
+        licensesService
+      );
+
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+
+      // No licenses created — publish must fail.
+      expect(() =>
+        service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx)
+      ).toThrow(/no_matching_license|нет активной лицензии/);
+
+      // Create a permissive license — publish must succeed.
+      licensesService.create(
+        'tenant_demo',
+        ctx.userId,
+        {
+          licenseType: 'education_license',
+          licenseNumber: 'L-001',
+          issuerName: 'Рособрнадзор',
+          issuedAt: '2024-01-01'
+        },
+        ctx
+      );
+      const published = service.publishCourseVersion(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        ctx
+      );
+      expect(published.status).toBe('published');
+    });
   });
 });
 
