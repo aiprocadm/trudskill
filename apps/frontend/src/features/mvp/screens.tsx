@@ -61,6 +61,7 @@ import { frontendEnv } from '../../lib/config/env';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 import { IssueOrderModal } from '../group-orders/issue-order-modal';
+import { LearnerPdfCardSections } from '../learner-pdf-card/learner-pdf-card-sections';
 
 import type {
   AssignmentSubmission,
@@ -417,7 +418,7 @@ export const LearnerDetailsScreen = ({ id }: { id: string }) => {
             <p>Связанный IAM user: {learner.linkedIamUserId ?? '—'}</p>
             <StatusChip status={learner.status} />
           </SectionCard>
-          <SectionCard title="Зачисления">
+          <SectionCard title="Зачисления (черновик)">
             {enrollmentsLoading ? <LoadingState message="Загрузка зачислений…" /> : null}
             {!enrollmentsLoading && enrollments.length === 0 ? (
               <SectionEmpty message="Нет зачислений для этого слушателя" />
@@ -439,6 +440,8 @@ export const LearnerDetailsScreen = ({ id }: { id: string }) => {
               />
             ) : null}
           </SectionCard>
+          {/* Pillar A Plan C §5.11 — личное дело: учебная история + документы + PDF stub */}
+          <LearnerPdfCardSections learnerId={id} />
         </>
       ) : null}
     </PageContainer>

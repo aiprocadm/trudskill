@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
+import { LearnerPdfCardService } from './learner-pdf-card.service.js';
 import { MvpBulkEnqueueService } from './mvp-bulk-enqueue.service.js';
 import {
   AddCommissionMemberRequest,
@@ -73,7 +74,8 @@ import type { RequestContext } from '../../common/context/request-context.js';
 export class MvpController {
   constructor(
     @Inject(MvpService) private readonly mvpService: MvpService,
-    @Inject(MvpBulkEnqueueService) private readonly mvpBulkEnqueue: MvpBulkEnqueueService
+    @Inject(MvpBulkEnqueueService) private readonly mvpBulkEnqueue: MvpBulkEnqueueService,
+    @Inject(LearnerPdfCardService) private readonly learnerPdfCardService: LearnerPdfCardService
   ) {}
 
   @Get('counterparties')
@@ -130,6 +132,16 @@ export class MvpController {
   @RequirePermissions('learners.read')
   getLearner(@CurrentContext() c: RequestContext, @Param('id') id: string) {
     return this.mvpService.getLearner(c.tenantId!, id);
+  }
+  /**
+   * Pillar A Plan C §5.11 — JSON-агрегат для PDF-карточки ученика.
+   * Реальный binary PDF — Phase 5; сейчас фронт рендерит секции из этого JSON.
+   */
+  @Get('learners/:id/pdf-card')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learners.read')
+  getLearnerPdfCard(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.learnerPdfCardService.composeData(c.tenantId!, id);
   }
   @Post('learners')
   @UseGuards(PermissionGuard)

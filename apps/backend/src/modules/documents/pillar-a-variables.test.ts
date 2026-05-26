@@ -460,8 +460,37 @@ describe('resolveDocumentVariables (Plan B §5.5)', () => {
     });
   });
 
-  it('document.qr_url returns empty string in Plan B (placeholder for §5.8 / Plan C)', () => {
+  it('document.qr_url returns empty string when qrToken absent (legacy doc)', () => {
     const ctx: DocumentVariableContext = { document: baseDoc };
+    expect(resolveDocumentVariables(ctx, ['document.qr_url'])).toEqual({
+      'document.qr_url': ''
+    });
+  });
+
+  it('document.qr_url returns full verify URL when qrToken + publicBaseUrl provided (Plan C §5.8)', () => {
+    const ctx: DocumentVariableContext = {
+      document: { ...baseDoc, qrToken: 'AbC123XyZ_-token456789' },
+      publicBaseUrl: 'https://school.example.ru'
+    };
+    expect(resolveDocumentVariables(ctx, ['document.qr_url'])).toEqual({
+      'document.qr_url': 'https://school.example.ru/verify/AbC123XyZ_-token456789'
+    });
+  });
+
+  it('document.qr_url trims trailing slash from publicBaseUrl', () => {
+    const ctx: DocumentVariableContext = {
+      document: { ...baseDoc, qrToken: 'tokenXYZ' },
+      publicBaseUrl: 'https://school.example.ru///'
+    };
+    expect(resolveDocumentVariables(ctx, ['document.qr_url'])).toEqual({
+      'document.qr_url': 'https://school.example.ru/verify/tokenXYZ'
+    });
+  });
+
+  it('document.qr_url returns empty when publicBaseUrl absent (caller forgot to pass)', () => {
+    const ctx: DocumentVariableContext = {
+      document: { ...baseDoc, qrToken: 'tokenXYZ' }
+    };
     expect(resolveDocumentVariables(ctx, ['document.qr_url'])).toEqual({
       'document.qr_url': ''
     });
@@ -491,6 +520,9 @@ describe('resolveGroupLearnersVariables (Plan B §5.7)', () => {
     updatedAt: '2026-01-01T00:00:00Z',
     firstName: 'Иван',
     lastName: 'Иванов',
+    middleName: 'Сергеевич',
+    snils: '123-456-789 00',
+    position: 'Электромонтёр',
     learnerNo: 'L-001'
   };
   const learnerB: Learner = {
@@ -534,11 +566,11 @@ describe('resolveGroupLearnersVariables (Plan B §5.7)', () => {
     const result = resolveGroupLearnersVariables(ctx, ['group_learners']);
     const arr = result['group_learners'] as GroupLearnerView[];
     expect(arr).toHaveLength(2);
-    expect(arr[0].fullName).toBe('Иванов Иван');
+    expect(arr[0].fullName).toBe('Иванов Иван Сергеевич');
     expect(arr[1].fullName).toBe('Петров Пётр');
   });
 
-  it('each item has expected fields (fullName, snils/position placeholders, enrolledAt, status, learnerNo)', () => {
+  it('each item has real snils/position/middleName when set on Learner (Plan C §5.11)', () => {
     const ctx: GroupLearnersVariableContext = {
       learners: [learnerA],
       enrollments: [enrollmentA]
@@ -546,12 +578,29 @@ describe('resolveGroupLearnersVariables (Plan B §5.7)', () => {
     const result = resolveGroupLearnersVariables(ctx, ['group_learners']);
     const arr = result['group_learners'] as GroupLearnerView[];
     expect(arr[0]).toEqual({
-      fullName: 'Иванов Иван',
-      snils: '',
-      position: '',
+      fullName: 'Иванов Иван Сергеевич',
+      snils: '123-456-789 00',
+      position: 'Электромонтёр',
       enrolledAt: '2026-04-01',
       status: 'completed',
       learnerNo: 'L-001'
+    });
+  });
+
+  it('keeps snils/position as empty strings when learner does not have them set', () => {
+    const ctx: GroupLearnersVariableContext = {
+      learners: [learnerB],
+      enrollments: [enrollmentB]
+    };
+    const result = resolveGroupLearnersVariables(ctx, ['group_learners']);
+    const arr = result['group_learners'] as GroupLearnerView[];
+    expect(arr[0]).toEqual({
+      fullName: 'Петров Пётр',
+      snils: '',
+      position: '',
+      enrolledAt: '2026-04-02',
+      status: 'completed',
+      learnerNo: 'L-002'
     });
   });
 
@@ -587,6 +636,6 @@ describe('resolveGroupLearnersVariables (Plan B §5.7)', () => {
     const result = resolveGroupLearnersVariables(ctx, ['group_learners']);
     const arr = result['group_learners'] as GroupLearnerView[];
     expect(arr).toHaveLength(1);
-    expect(arr[0].fullName).toBe('Иванов Иван');
+    expect(arr[0].fullName).toBe('Иванов Иван Сергеевич');
   });
 });

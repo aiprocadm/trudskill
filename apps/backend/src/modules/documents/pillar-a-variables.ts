@@ -269,12 +269,14 @@ function resolveEnrollmentKey(key: string, e: Enrollment): unknown {
 
 export interface DocumentVariableContext {
   document: GeneratedDocumentEntity;
+  /** §5.8 — публичный base URL для построения document.qr_url. Caller передаёт frontendEnv.PUBLIC_BASE_URL. */
+  publicBaseUrl?: string;
 }
 
 /**
- * Разрешает переменные категории `document.*`. `document.qr_url` — placeholder
- * (пустая строка) в Plan B; активируется в Plan C §5.8 (qr_token + публичный
- * verify endpoint).
+ * Разрешает переменные категории `document.*`. С Plan C §5.8 `document.qr_url`
+ * возвращает реальный URL `${publicBaseUrl}/verify/${qrToken}`; для legacy
+ * документов без qrToken (Plan A/B) — пустая строка.
  */
 export function resolveDocumentVariables(
   ctx: DocumentVariableContext,
@@ -288,12 +290,16 @@ export function resolveDocumentVariables(
       continue;
     }
     const key = fullName.slice('document.'.length);
-    result[fullName] = resolveDocumentKey(key, d);
+    result[fullName] = resolveDocumentKey(key, d, ctx.publicBaseUrl);
   }
   return result;
 }
 
-function resolveDocumentKey(key: string, d: GeneratedDocumentEntity): unknown {
+function resolveDocumentKey(
+  key: string,
+  d: GeneratedDocumentEntity,
+  publicBaseUrl: string | undefined
+): unknown {
   switch (key) {
     case 'id':
       return d.id;
@@ -306,7 +312,8 @@ function resolveDocumentKey(key: string, d: GeneratedDocumentEntity): unknown {
     case 'type':
       return d.documentType ?? '';
     case 'qr_url':
-      return '';
+      if (!d.qrToken || !publicBaseUrl) return '';
+      return `${publicBaseUrl.replace(/\/+$/, '')}/verify/${d.qrToken}`;
     default:
       return '';
   }
@@ -317,9 +324,9 @@ function resolveDocumentKey(key: string, d: GeneratedDocumentEntity): unknown {
 // ============================================================================
 
 /**
- * View для одного ученика в `group_learners` массиве. `snils` и `position` —
- * placeholder-строки: поля отсутствуют на текущем типе `Learner`. Когда базовая
- * сущность будет расширена (Plan C или follow-up), resolver надо обновить.
+ * View для одного ученика в `group_learners` массиве. Pillar A Plan C §5.11
+ * подключил реальные поля `snils`/`position`/`middleName` на `Learner`; теперь
+ * используются вместо пустых строк.
  */
 export interface GroupLearnerView {
   fullName: string;
@@ -356,11 +363,14 @@ export function resolveGroupLearnersVariables(
     .map((l): GroupLearnerView | undefined => {
       const enr = byLearnerId.get(l.id);
       if (!enr) return undefined;
-      const fullName = `${l.lastName ?? ''} ${l.firstName ?? ''}`.trim();
+      const namePieces = [l.lastName, l.firstName, l.middleName].filter((piece): piece is string =>
+        Boolean(piece && piece.trim())
+      );
+      const fullName = namePieces.join(' ').trim();
       return {
         fullName,
-        snils: '',
-        position: '',
+        snils: l.snils ?? '',
+        position: l.position ?? '',
         enrolledAt: enr.enrolledAt ? enr.enrolledAt.slice(0, 10) : '',
         status: enr.status ?? '',
         learnerNo: l.learnerNo ?? ''

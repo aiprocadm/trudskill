@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+
 import {
   BadRequestException,
   ConflictException,
@@ -65,6 +67,29 @@ export interface IssuedDocumentFilter {
 export interface IssuedDocumentsPage {
   items: GeneratedDocumentEntity[];
   total: number;
+}
+
+/**
+ * Pillar A Plan C §5.8 — результат публичной QR-проверки.
+ * Не раскрывает tenantId / СНИЛС / другие чувствительные поля — только то,
+ * что есть на бумажном удостоверении: ФИО, программа, часы, № и дата.
+ */
+export interface PublicVerifyResult {
+  status: 'valid' | 'revoked' | 'not_found';
+  documentId?: string;
+  documentNumber?: string;
+  documentType?: string;
+  issueDate?: string;
+  /** Из source enrollment → mvp.learners. Резолвится caller'ом / адаптером (Plan C MVP — заглушка). */
+  learnerFullName?: string;
+  /** Из source enrollment → group → course → program meta. Caller adapter. */
+  programTitle?: string;
+  academicHours?: number;
+  /** Краткое имя выдавшей организации (без tenant_id). */
+  issuerName?: string;
+  /** Заполнены только для status='revoked'. */
+  revokedAt?: string;
+  revocationReason?: string;
 }
 
 /** Pillar A Plan B §5.7 — атомарный выпуск группового приказа + каскад удостоверений. */
@@ -513,7 +538,8 @@ export class DocumentsService {
       documentDate: this.now().slice(0, 10),
       isFinal: false,
       generatedBy,
-      generatedAt: this.now()
+      generatedAt: this.now(),
+      qrToken: this.generateQrToken()
     };
     this.state.generatedDocuments.push(generated);
     task.status = 'completed';
@@ -795,6 +821,16 @@ export class DocumentsService {
     return new Date().toISOString();
   }
 
+  /**
+   * Pillar A Plan C §5.8 — генерация публичного токена для QR-проверки.
+   * 16 байт = 128 бит энтропии, base64url ≈ 22 символа без =-паддинга.
+   * Уникальность гарантируется partial unique index (migration 0033) + 128 бит
+   * делают коллизию практически невозможной (≈10^38 пар нужно для 50% chance).
+   */
+  private generateQrToken(): string {
+    return randomBytes(16).toString('base64url');
+  }
+
   private publishTaskEvent(task: DocumentGenerationTaskEntity) {
     this.realtimeEvents.publish({
       event_name: ASYNC_TASK_STATUS_CHANGED_EVENT,
@@ -853,6 +889,201 @@ export class DocumentsService {
       throw new BadRequestException('courseId is required for course binding');
     if (bindType === 'group' && !groupId)
       throw new BadRequestException('groupId is required for group binding');
+  }
+
+  // ==========================================================================
+  // Pillar A Plan C §5.9 — аннулирование и перевыпуск.
+  // ==========================================================================
+
+  /**
+   * Аннулирует документ. State-machine: generated/final → revoked; повтор → 409.
+   * archived → 422 (no-op revoke на архивных — недопустимо без отдельного бизнес-кейса).
+   * Reason обязательна (валидируется здесь — UI тоже проверяет, но defence in depth).
+   */
+  revokeDocument(
+    tenantId: string,
+    actorId: string | undefined,
+    documentId: string,
+    reason: string,
+    ctx: RequestContext
+  ): GeneratedDocumentEntity {
+    if (!reason || reason.trim().length === 0) {
+      throw new BadRequestException({
+        code: 'revocation_reason_required',
+        message: 'Причина аннулирования обязательна'
+      });
+    }
+    const doc = this.must(this.state.generatedDocuments, tenantId, documentId);
+    if (doc.status === 'revoked') {
+      throw new ConflictException({
+        code: 'already_revoked',
+        message: 'Документ уже аннулирован'
+      });
+    }
+    if (doc.status === 'archived') {
+      throw new BadRequestException({
+        code: 'cannot_revoke_archived',
+        message: 'Нельзя аннулировать архивированный документ'
+      });
+    }
+    const oldStatus = doc.status;
+    doc.status = 'revoked';
+    doc.revokedAt = this.now();
+    doc.revokedBy = actorId;
+    doc.revocationReason = reason.trim();
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.revoked',
+      entityType: 'documents.generated',
+      entityId: documentId,
+      oldValues: { status: oldStatus } as unknown as Record<string, unknown>,
+      newValues: {
+        status: 'revoked',
+        revocationReason: doc.revocationReason
+      } as unknown as Record<string, unknown>,
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
+    return doc;
+  }
+
+  /**
+   * Перевыпускает документ: создаёт новый документ с теми же template/source,
+   * новым номером + новым qr_token, связывает replaces/replaced_by, и аннулирует
+   * оригинал с reason "Перевыпуск: ${reason}".
+   *
+   * Idempotency: если оригинал уже имеет replacedByDocumentId — возвращает
+   * cached pair (replacement = существующий) без создания нового документа.
+   * Если оригинал revoked но без replacedByDocumentId — означает был просто
+   * revoke без reissue; reissue в этом случае запрещён (409).
+   */
+  reissueDocument(
+    tenantId: string,
+    actorId: string | undefined,
+    originalId: string,
+    reason: string,
+    ctx: RequestContext
+  ): { original: GeneratedDocumentEntity; replacement: GeneratedDocumentEntity } {
+    if (!reason || reason.trim().length === 0) {
+      throw new BadRequestException({
+        code: 'reissue_reason_required',
+        message: 'Причина перевыпуска обязательна'
+      });
+    }
+    const original = this.must(this.state.generatedDocuments, tenantId, originalId);
+    if (original.replacedByDocumentId) {
+      const cached = this.state.generatedDocuments.find(
+        (d) => d.tenantId === tenantId && d.id === original.replacedByDocumentId
+      );
+      if (cached) {
+        return { original, replacement: cached };
+      }
+    }
+    if (original.status === 'revoked') {
+      throw new ConflictException({
+        code: 'cannot_reissue_revoked',
+        message: 'Документ был аннулирован вручную и не может быть перевыпущен'
+      });
+    }
+    const now = this.now();
+    const newNumber = this.reserveNumber(tenantId, original.documentType).reservedNumber;
+    const replacement: GeneratedDocumentEntity = {
+      id: this.id('gdoc'),
+      tenantId,
+      templateId: original.templateId,
+      templateVersionId: original.templateVersionId,
+      documentType: original.documentType,
+      name: `${original.documentType} ${newNumber}`,
+      sourceEntityType: original.sourceEntityType,
+      sourceEntityId: original.sourceEntityId,
+      fileId: '',
+      status: 'generated',
+      documentNumber: newNumber,
+      documentDate: now.slice(0, 10),
+      isFinal: false,
+      generatedBy: actorId,
+      generatedAt: now,
+      qrToken: this.generateQrToken(),
+      replacesDocumentId: originalId
+    };
+    this.state.generatedDocuments.push(replacement);
+
+    // Link original ← replacement и аннулируем оригинал.
+    original.replacedByDocumentId = replacement.id;
+    original.status = 'revoked';
+    original.revokedAt = now;
+    original.revokedBy = actorId;
+    original.revocationReason = `Перевыпуск: ${reason.trim()}`;
+
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.reissued',
+      entityType: 'documents.generated',
+      entityId: replacement.id,
+      newValues: {
+        replacesDocumentId: originalId,
+        originalNumber: original.documentNumber
+      } as unknown as Record<string, unknown>,
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.revoked',
+      entityType: 'documents.generated',
+      entityId: originalId,
+      newValues: {
+        status: 'revoked',
+        revocationReason: original.revocationReason,
+        replacedByDocumentId: replacement.id
+      } as unknown as Record<string, unknown>,
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
+    return { original, replacement };
+  }
+
+  // ==========================================================================
+  // Pillar A Plan C §5.8 — публичная QR-проверка подлинности.
+  // ==========================================================================
+
+  /**
+   * Global lookup по qrToken across ALL tenants — endpoint публичный без auth.
+   * Возвращает агрегат для public response. Не раскрывает tenantId.
+   *
+   * Caller (controller) отвечает за rate-limiting и audit. Resolver не лезет
+   * в mvp state — caller / адаптер обогащает learnerFullName / programTitle
+   * через mvpService (или оставляет пустыми если нет).
+   */
+  verifyDocumentByQrToken(token: string): PublicVerifyResult {
+    if (!token || token.length < 8) {
+      return { status: 'not_found' };
+    }
+    const doc = this.state.generatedDocuments.find((d) => d.qrToken === token);
+    if (!doc) {
+      return { status: 'not_found' };
+    }
+    const result: PublicVerifyResult = {
+      status: doc.status === 'revoked' ? 'revoked' : 'valid',
+      documentId: doc.id,
+      documentType: doc.documentType
+    };
+    if (doc.documentNumber) result.documentNumber = doc.documentNumber;
+    if (doc.documentDate) result.issueDate = doc.documentDate;
+    if (doc.status === 'revoked') {
+      if (doc.revokedAt) result.revokedAt = doc.revokedAt;
+      if (doc.revocationReason) result.revocationReason = doc.revocationReason;
+    }
+    return result;
   }
 
   // ==========================================================================
@@ -928,7 +1159,8 @@ export class DocumentsService {
       documentDate: now.slice(0, 10),
       isFinal: false,
       generatedBy: actorId,
-      generatedAt: now
+      generatedAt: now,
+      qrToken: this.generateQrToken()
     };
     this.state.generatedDocuments.push(order);
     this.auditService.write({
@@ -992,7 +1224,8 @@ export class DocumentsService {
           isFinal: false,
           generatedBy: actorId,
           generatedAt: now,
-          groupOrderDocumentId: order.id
+          groupOrderDocumentId: order.id,
+          qrToken: this.generateQrToken()
         };
         this.state.generatedDocuments.push(cert);
         certificates.push(cert);

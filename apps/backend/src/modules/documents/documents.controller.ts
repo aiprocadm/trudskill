@@ -380,6 +380,32 @@ export class DocumentsController {
   issueGroupOrder(@CurrentContext() c: RequestContext, @Body() b: IssueGroupOrderRequest) {
     return this.documentsService.issueGroupOrder(c.tenantId!, c.userId, b, c);
   }
+
+  // ==========================================================================
+  // Pillar A Plan C §5.9 — аннулирование и перевыпуск.
+  // ==========================================================================
+
+  @Post('admin/documents/:id/revoke')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.write')
+  revokeDocument(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() b: { reason: string }
+  ) {
+    return this.documentsService.revokeDocument(c.tenantId!, c.userId, id, b.reason, c);
+  }
+
+  @Post('admin/documents/:id/reissue')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.write')
+  reissueDocument(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() b: { reason: string }
+  ) {
+    return this.documentsService.reissueDocument(c.tenantId!, c.userId, id, b.reason, c);
+  }
 }
 
 // ============================================================================

@@ -14,6 +14,7 @@ import { AuditModule } from '../audit/audit.module.js';
 import { DocumentsRequestPersistenceInterceptor } from './infrastructure/documents-request-persistence.interceptor.js';
 import { MemoryDocumentsPersistenceBackend } from './infrastructure/memory-documents-persistence.backend.js';
 import { PostgresDocumentsPersistenceBackend } from './infrastructure/postgres-documents-persistence.backend.js';
+import { PublicVerifyController } from './public-verify.controller.js';
 import { IamModule } from '../iam/iam.module.js';
 
 const persistenceBackendClass =
@@ -23,7 +24,7 @@ const persistenceBackendClass =
 
 @Module({
   imports: [AuditModule, InfrastructureModule, IamModule],
-  controllers: [DocumentsController],
+  controllers: [DocumentsController, PublicVerifyController],
   providers: [
     PostgresDocumentsPersistenceBackend,
     { provide: DOCUMENTS_PERSISTENCE_BACKEND, useClass: persistenceBackendClass },
