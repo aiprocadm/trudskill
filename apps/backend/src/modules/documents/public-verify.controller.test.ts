@@ -39,10 +39,10 @@ function makeDoc(overrides: Partial<GeneratedDocumentEntity> = {}): GeneratedDoc
 }
 
 describe('PublicVerifyController (Plan C §5.8)', () => {
-  it('returns valid result for a known qr_token', () => {
+  it('returns valid result for a known qr_token', async () => {
     const { state, controller } = makeService();
     state.generatedDocuments.push(makeDoc({ id: 'gdoc_real', qrToken: 'realtoken1234567890ab' }));
-    const result = controller.verify('realtoken1234567890ab');
+    const result = await controller.verify('realtoken1234567890ab');
     expect(result.status).toBe('valid');
     expect(result.documentId).toBe('gdoc_real');
     expect(result.documentNumber).toBe('N-1');
@@ -50,33 +50,31 @@ describe('PublicVerifyController (Plan C §5.8)', () => {
     expect(result.issueDate).toBe('2026-05-26');
   });
 
-  it('throws NotFoundException with document_not_found code for unknown token', () => {
+  it('throws NotFoundException with document_not_found code for unknown token', async () => {
     const { controller } = makeService();
-    try {
-      controller.verify('unknown_token_aaaaaaaaa');
-      expect.fail('should have thrown');
-    } catch (caught) {
-      expect(caught).toBeInstanceOf(NotFoundException);
-      const response = (caught as NotFoundException).getResponse() as Record<string, unknown>;
-      expect(response.code).toBe('document_not_found');
-    }
+    await expect(controller.verify('unknown_token_aaaaaaaaa')).rejects.toBeInstanceOf(
+      NotFoundException
+    );
+    const caught = await controller.verify('unknown_token_aaaaaaaaa').catch((e: unknown) => e);
+    const response = (caught as NotFoundException).getResponse() as Record<string, unknown>;
+    expect(response.code).toBe('document_not_found');
   });
 
-  it('does NOT leak tenantId in response', () => {
+  it('does NOT leak tenantId in response', async () => {
     const { state, controller } = makeService();
     state.generatedDocuments.push(
       makeDoc({ id: 'gdoc_t2', tenantId: 'secret_tenant', qrToken: 'tt_token_1234567890ab' })
     );
-    const result = controller.verify('tt_token_1234567890ab');
+    const result = await controller.verify('tt_token_1234567890ab');
     expect(Object.keys(result)).not.toContain('tenantId');
     expect(JSON.stringify(result)).not.toContain('secret_tenant');
   });
 
-  it('writes audit entry with partial token (first 4 chars)', () => {
+  it('writes audit entry via writeCritical (awaited)', async () => {
     const { audit, controller, state } = makeService();
-    const spy = vi.spyOn(audit, 'write');
+    const spy = vi.spyOn(audit, 'writeCritical');
     state.generatedDocuments.push(makeDoc({ qrToken: 'AbCdEFGhIJKLMNOPQRSTUV' }));
-    controller.verify('AbCdEFGhIJKLMNOPQRSTUV');
+    await controller.verify('AbCdEFGhIJKLMNOPQRSTUV');
     expect(spy).toHaveBeenCalledWith(
       expect.objectContaining({
         tenantId: 'public',
@@ -88,18 +86,18 @@ describe('PublicVerifyController (Plan C §5.8)', () => {
     expect(call?.entityId).not.toContain('IJKL');
   });
 
-  it('returns status="revoked" for revoked documents (Plan C §5.9 wiring)', () => {
+  it('returns status="revoked" for revoked documents (Plan C §5.9 wiring)', async () => {
     const { state, controller } = makeService();
     state.generatedDocuments.push(
       makeDoc({ id: 'gdoc_rev', qrToken: 'rev_token_1234567890ab', status: 'revoked' as never })
     );
-    const result = controller.verify('rev_token_1234567890ab');
+    const result = await controller.verify('rev_token_1234567890ab');
     expect(result.status).toBe('revoked');
   });
 
-  it('rejects empty / too-short tokens as not_found', () => {
+  it('rejects empty / too-short tokens as not_found', async () => {
     const { controller } = makeService();
-    expect(() => controller.verify('')).toThrow(NotFoundException);
-    expect(() => controller.verify('abc')).toThrow(NotFoundException);
+    await expect(controller.verify('')).rejects.toThrow(NotFoundException);
+    await expect(controller.verify('abc')).rejects.toThrow(NotFoundException);
   });
 });

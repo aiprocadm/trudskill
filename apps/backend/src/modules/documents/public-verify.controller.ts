@@ -22,12 +22,12 @@ export class PublicVerifyController {
 
   @Get('verify/:token')
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
-  verify(@Param('token') token: string) {
+  async verify(@Param('token') token: string) {
     // Audit пишется с tenantId='public' для трассировки — не раскрывает
     // tenant документа (это сделает service-level если расширим).
     // entityId — partial token (первые 4 символа) для расследований:
     // полный token = доступ к документу, не должен светиться в audit-логе.
-    this.auditService.write({
+    await this.auditService.writeCritical({
       tenantId: 'public',
       action: 'documents.qr_verification_requested',
       entityType: 'documents.generated',
