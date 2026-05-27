@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "frontend",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@cdoprof/frontend", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@cdoprof/backend", "dev"],
+      "port": 3001
+    },
+    {
+      "name": "realtime",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@cdoprof/realtime", "dev"],
+      "port": 3002
+    }
+  ]
+}
