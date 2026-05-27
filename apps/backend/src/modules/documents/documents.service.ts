@@ -620,6 +620,8 @@ export class DocumentsService {
       requestedAt: this.now(),
       requestId: ctx?.requestId,
       correlationId: ctx?.correlationId,
+      ip: ctx?.ip,
+      userAgent: ctx?.userAgent,
       outboxPayload: {
         request_id: ctx?.requestId,
         correlation_id: ctx?.correlationId,
@@ -1083,7 +1085,9 @@ export class DocumentsService {
         ...extras
       },
       requestId: task.requestId,
-      correlationId: task.correlationId
+      correlationId: task.correlationId,
+      ip: task.ip,
+      userAgent: task.userAgent
     });
   }
 

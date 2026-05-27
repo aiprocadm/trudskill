@@ -295,3 +295,13 @@ describe('Audit completeness — template bindings', () => {
     expect(actions).toContain('documents.template_binding_deleted');
   });
 });
+
+describe('Audit completeness — task audit includes ip/userAgent', () => {
+  it('writeTaskAudit on completeTask includes ip/userAgent from original request', async () => {
+    const { audit } = makeServiceWithDoc();
+    const events = audit['records'].filter((e) => e.action === 'documents.task.completed');
+    expect(events).toHaveLength(1);
+    expect(events[0].ip).toBe('127.0.0.1');
+    expect(events[0].userAgent).toBe('vitest');
+  });
+});

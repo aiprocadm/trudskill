@@ -101,6 +101,9 @@ export interface DocumentGenerationTaskEntity {
   requestedAt: string;
   requestId?: string;
   correlationId?: string;
+  /** Pillar A hardening — HTTP context оригинального запроса для audit. */
+  ip?: string;
+  userAgent?: string;
   outboxPayload?: {
     request_id?: string;
     correlation_id?: string;
