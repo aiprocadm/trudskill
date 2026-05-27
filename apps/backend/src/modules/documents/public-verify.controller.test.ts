@@ -101,3 +101,41 @@ describe('PublicVerifyController (Plan C §5.8)', () => {
     await expect(controller.verify('abc')).rejects.toThrow(NotFoundException);
   });
 });
+
+describe('PublicVerifyController PII protection', () => {
+  it('response does NOT include learnerFullName, snils, programTitle, issuerName, academicHours', async () => {
+    const { state, controller } = makeService();
+    state.generatedDocuments.push(
+      makeDoc({
+        id: 'gdoc_pii',
+        qrToken: 'pii_token_1234567890ab'
+        // даже если что-то в state есть, оно НЕ должно попасть в response
+      })
+    );
+    const result = await controller.verify('pii_token_1234567890ab');
+    const keys = Object.keys(result);
+    expect(keys).not.toContain('learnerFullName');
+    expect(keys).not.toContain('snils');
+    expect(keys).not.toContain('programTitle');
+    expect(keys).not.toContain('issuerName');
+    expect(keys).not.toContain('academicHours');
+  });
+
+  it('revoked response — НЕ раскрывает revokedBy (actor)', async () => {
+    const { state, controller } = makeService();
+    state.generatedDocuments.push(
+      makeDoc({
+        id: 'gdoc_revoked',
+        qrToken: 'rev_pii_1234567890ab',
+        status: 'revoked' as never,
+        revokedBy: 'secret_admin_id',
+        revokedAt: '2026-05-01T00:00:00.000Z',
+        revocationReason: 'причина'
+      } as never)
+    );
+    const result = await controller.verify('rev_pii_1234567890ab');
+    expect(result.status).toBe('revoked');
+    expect(result).not.toHaveProperty('revokedBy');
+    expect(JSON.stringify(result)).not.toContain('secret_admin_id');
+  });
+});
