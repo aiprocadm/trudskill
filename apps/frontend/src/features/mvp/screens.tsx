@@ -60,6 +60,7 @@ import { ApiClientError } from '../../lib/api/client';
 import { frontendEnv } from '../../lib/config/env';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
+import { CourseViewerScreen } from '../course-viewer/course-viewer-screen';
 import { IssueOrderModal } from '../group-orders/issue-order-modal';
 import { LearnerPdfCardSections } from '../learner-pdf-card/learner-pdf-card-sections';
 
@@ -1709,113 +1710,15 @@ export const LearnerCoursesScreen = () => {
 };
 
 export const LearnerCourseDetailsScreen = ({ id }: { id: string }) => {
-  const { data: course, loading: courseLoading, error: courseError } = useCourse(id);
-  const {
-    data: progress,
-    loading: progressLoading,
-    error: progressError
-  } = useLearnerCourseProgress(id);
-  const percent = useMemo(() => {
-    if (!progress?.items.length) return 0;
-    const sum = progress.items.reduce((acc, item) => acc + item.progressPercent, 0);
-    return Math.round(sum / progress.items.length);
-  }, [progress]);
-
-  const nextStep = useMemo(
-    () => progress?.items.find((item) => item.status === 'in_progress') ?? progress?.items[0],
-    [progress]
-  );
-
-  const orderedSteps = useMemo(() => {
-    if (!progress?.items.length) return [];
-    return [...progress.items].sort((a, b) => {
-      const m = a.moduleId.localeCompare(b.moduleId);
-      if (m !== 0) return m;
-      return a.materialId.localeCompare(b.materialId);
-    });
-  }, [progress]);
-
-  const loading = courseLoading || progressLoading;
-  const error = courseError ?? progressError;
-
   useEffect(() => {
     startMetricTimer('time_to_start_learning');
-  }, []);
+    completeMetricTimer('time_to_start_learning', {
+      source: 'learner_course_viewer',
+      courseId: id
+    });
+  }, [id]);
 
-  return (
-    <PageContainer>
-      <PageHeader
-        title={course ? course.title : `Курс ${id}`}
-        {...(course ? { subtitle: `Код: ${course.code}` } : {})}
-      />
-      {error ? <SectionError message={error} /> : null}
-      <SectionCard title="Прогресс">
-        {loading ? <LoadingState message="Загрузка курса и прогресса…" /> : null}
-        {!loading ? <ProgressBar value={percent} /> : null}
-        {!loading ? (
-          <div className="ui-inline">
-            <span className="ui-text-muted">Оцените удобство просмотра прогресса:</span>
-            <button
-              type="button"
-              className="ui-button ui-button--secondary"
-              onClick={() => recordMetric('csat_after_grade_view', 5, { courseId: id })}
-            >
-              Удобно
-            </button>
-            <button
-              type="button"
-              className="ui-button"
-              onClick={() => recordMetric('csat_after_grade_view', 2, { courseId: id })}
-            >
-              Неудобно
-            </button>
-          </div>
-        ) : null}
-      </SectionCard>
-      <SectionCard title="Что продолжить">
-        {nextStep ? (
-          <div className="ui-stack" style={{ gap: 8 }}>
-            <p style={{ margin: 0 }}>
-              Продолжите материал {nextStep.materialId} в модуле {nextStep.moduleId}.
-            </p>
-            <button
-              type="button"
-              className="ui-button ui-button--primary"
-              onClick={() =>
-                completeMetricTimer('time_to_start_learning', {
-                  source: 'learner_course_details',
-                  courseId: id
-                })
-              }
-            >
-              Продолжить обучение
-            </button>
-          </div>
-        ) : (
-          <SectionEmpty
-            message="Материалы для продолжения пока не найдены"
-            hint="Когда методист откроет доступ к модулям, здесь появится следующий шаг."
-          />
-        )}
-      </SectionCard>
-      <SectionCard title="Дорожка материалов">
-        {!orderedSteps.length && !loading ? (
-          <SectionEmpty
-            message="Нет записей прогресса по этому курсу"
-            hint="Прогресс появится после первого просмотра материалов в LMS."
-          />
-        ) : null}
-        <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
-          {orderedSteps.map((item) => (
-            <li key={`${item.moduleId}-${item.materialId}`}>
-              Модуль {item.moduleId} · материал {item.materialId}{' '}
-              <StatusChip status={item.status} /> · {item.progressPercent}%
-            </li>
-          ))}
-        </ul>
-      </SectionCard>
-    </PageContainer>
-  );
+  return <CourseViewerScreen courseId={id} />;
 };
 
 const normalizeRoleCode = (role: string) => {
