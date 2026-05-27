@@ -139,3 +139,16 @@ describe('PublicVerifyController PII protection', () => {
     expect(JSON.stringify(result)).not.toContain('secret_admin_id');
   });
 });
+
+describe('PublicVerifyController rate-limit configuration', () => {
+  it('verify method has @Throttle decorator with limit=30 ttl=60s', () => {
+    // @nestjs/throttler v6.x stores metadata per throttler name.
+    // For @Throttle({ default: { limit: 30, ttl: 60_000 } }) applied to a
+    // method the keys are 'THROTTLER:TTLdefault' and 'THROTTLER:LIMITdefault'.
+    const verifyFn = PublicVerifyController.prototype.verify;
+    const ttl = Reflect.getMetadata('THROTTLER:TTLdefault', verifyFn) as number | undefined;
+    const limit = Reflect.getMetadata('THROTTLER:LIMITdefault', verifyFn) as number | undefined;
+    expect(ttl).toBe(60_000);
+    expect(limit).toBe(30);
+  });
+});
