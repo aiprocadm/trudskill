@@ -66,3 +66,39 @@ describe('Idempotency — issueGroupOrder concurrent calls', () => {
     expect(a.order.id).not.toBe(b.order.id);
   });
 });
+
+describe('Idempotency — concurrent revoke on same document', () => {
+  it('2 parallel revoke calls → один успешный, второй ConflictException', async () => {
+    const state = new InMemoryDocumentsState();
+    const audit = new AuditService();
+    const service = new DocumentsService(state, audit, new RealtimeEventsService());
+    const tpl = service.createTemplate('t1', 'u1', { name: 'X', templateType: 'contract' }, ctx);
+    const v = service.createTemplateVersion('t1', 'u1', { templateId: tpl.id, fileId: 'f' });
+    service.activateTemplateVersion('t1', 'u1', v.id, ctx);
+    const task = service.generateDocument(
+      't1',
+      'u1',
+      {
+        idempotencyKey: 'k',
+        templateId: tpl.id,
+        sourceEntityType: 'group',
+        sourceEntityId: 'g',
+        documentType: 'd'
+      },
+      ctx
+    );
+    const doc = service.completeTask('t1', task.id, 'f2', 'u1');
+
+    const results = await Promise.allSettled([
+      service.revokeDocument('t1', 'u1', doc.id, 'first', ctx),
+      service.revokeDocument('t1', 'u1', doc.id, 'second', ctx)
+    ]);
+    const fulfilled = results.filter((r) => r.status === 'fulfilled');
+    const rejected = results.filter((r) => r.status === 'rejected');
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0] as PromiseRejectedResult).reason.constructor.name).toBe(
+      'ConflictException'
+    );
+  });
+});
