@@ -102,7 +102,13 @@ export class DocumentsController {
     @Param('id') id: string,
     @Body() b: { templateVersionId: string }
   ) {
-    return this.documentsService.setCurrentVersion(c.tenantId!, id, b.templateVersionId);
+    return this.documentsService.setCurrentVersion(
+      c.tenantId!,
+      c.userId,
+      id,
+      b.templateVersionId,
+      c
+    );
   }
 
   @Get('template-versions')
@@ -140,7 +146,7 @@ export class DocumentsController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
   activateVersion(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.documentsService.activateTemplateVersion(c.tenantId!, id);
+    return this.documentsService.activateTemplateVersion(c.tenantId!, c.userId, id, c);
   }
   @Post('template-versions/:id/parse-variables')
   @UseGuards(PermissionGuard)

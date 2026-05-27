@@ -46,7 +46,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
         templateId: template.id,
         fileId: 'file_cert'
       });
-      documents.activateTemplateVersion('tenant_demo', version.id);
+      documents.activateTemplateVersion('tenant_demo', 'u1', version.id, ctx);
       documents.createTemplateBinding('tenant_demo', {
         templateId: template.id,
         bindType: 'group',
@@ -163,7 +163,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
         templateId: template.id,
         fileId: 'file_cert_dup'
       });
-      documents.activateTemplateVersion('tenant_demo', version.id);
+      documents.activateTemplateVersion('tenant_demo', 'u1', version.id, ctx);
       documents.createTemplateBinding('tenant_demo', {
         templateId: template.id,
         bindType: 'group',
@@ -247,7 +247,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
         templateId: template.id,
         fileId: 'file_other_cert'
       });
-      documents.activateTemplateVersion('tenant_other', version.id);
+      documents.activateTemplateVersion('tenant_other', 'u1', version.id, ctx);
       documents.createTemplateBinding('tenant_other', {
         templateId: template.id,
         bindType: 'group',
@@ -311,7 +311,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
         templateId: protocol.id,
         fileId: 'file_proto'
       });
-      documents.activateTemplateVersion('tenant_demo', protocolVersion.id);
+      documents.activateTemplateVersion('tenant_demo', 'u1', protocolVersion.id, ctx);
       templateProtocolId = protocol.id;
 
       const cert = documents.createTemplate(
@@ -324,7 +324,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
         templateId: cert.id,
         fileId: 'file_cert_set'
       });
-      documents.activateTemplateVersion('tenant_demo', certVersion.id);
+      documents.activateTemplateVersion('tenant_demo', 'u1', certVersion.id, ctx);
       templateCertId = cert.id;
     });
 
@@ -408,7 +408,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
         templateId: autoTpl.id,
         fileId: 'file_auto'
       });
-      documents.activateTemplateVersion('tenant_demo', autoVersion.id);
+      documents.activateTemplateVersion('tenant_demo', 'u1', autoVersion.id, ctx);
       templateAutoId = autoTpl.id;
 
       const manualTpl = documents.createTemplate(
@@ -488,7 +488,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
         templateId: a.id,
         fileId: 'file_a'
       });
-      documents.activateTemplateVersion('tenant_demo', aV.id);
+      documents.activateTemplateVersion('tenant_demo', 'u1', aV.id, ctx);
       templateAId = a.id;
 
       const b = documents.createTemplate(
@@ -501,7 +501,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
         templateId: b.id,
         fileId: 'file_b'
       });
-      documents.activateTemplateVersion('tenant_demo', bV.id);
+      documents.activateTemplateVersion('tenant_demo', 'u1', bV.id, ctx);
       templateBId = b.id;
     });
 
@@ -605,7 +605,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
         templateId: tpl.id,
         fileId: 'file_legacy'
       });
-      documents.activateTemplateVersion('tenant_demo', v.id);
+      documents.activateTemplateVersion('tenant_demo', 'u1', v.id, ctx);
       documents.createTemplateBinding('tenant_demo', {
         templateId: tpl.id,
         bindType: 'group',

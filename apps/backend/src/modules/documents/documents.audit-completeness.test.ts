@@ -30,7 +30,7 @@ function makeServiceWithDoc() {
     templateId: template.id,
     fileId: 'file_1'
   });
-  service.activateTemplateVersion('t1', version.id);
+  service.activateTemplateVersion('t1', 'u1', version.id, ctx);
   const task = service.generateDocument(
     't1',
     'u1',
@@ -144,7 +144,7 @@ describe('Audit completeness — issueGroupOrder uses writeCritical', () => {
       templateId: orderTpl.id,
       fileId: 'f_o'
     });
-    service.activateTemplateVersion('t1', orderV.id);
+    service.activateTemplateVersion('t1', 'u1', orderV.id, ctx);
     const certTpl = service.createTemplate(
       't1',
       'u1',
@@ -155,7 +155,7 @@ describe('Audit completeness — issueGroupOrder uses writeCritical', () => {
       templateId: certTpl.id,
       fileId: 'f_c'
     });
-    service.activateTemplateVersion('t1', certV.id);
+    service.activateTemplateVersion('t1', 'u1', certV.id, ctx);
     const result = await service.issueGroupOrder(
       't1',
       'u1',
@@ -174,5 +174,50 @@ describe('Audit completeness — issueGroupOrder uses writeCritical', () => {
     expect(orderEvent).toBeDefined();
     const certEvents = events.filter((e) => e.action === 'documents.certificate_issued_via_order');
     expect(certEvents).toHaveLength(2);
+  });
+});
+
+describe('Audit completeness — template version mutations', () => {
+  it('emits audit on setCurrentVersion', () => {
+    const state = new InMemoryDocumentsState();
+    const audit = new AuditService();
+    const service = new DocumentsService(state, audit, new RealtimeEventsService());
+    const tpl = service.createTemplate('t1', 'u1', { name: 'X', templateType: 'contract' }, ctx);
+    const v = service.createTemplateVersion('t1', 'u1', {
+      templateId: tpl.id,
+      fileId: 'f'
+    });
+    service.setCurrentVersion('t1', 'u1', tpl.id, v.id, ctx);
+    const events = audit['records'].filter(
+      (e) => e.action === 'documents.template_version_set_current'
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      entityType: 'documents.template',
+      entityId: tpl.id,
+      actorId: 'u1',
+      newValues: { currentVersionId: v.id }
+    });
+  });
+
+  it('emits audit on activateTemplateVersion', () => {
+    const state = new InMemoryDocumentsState();
+    const audit = new AuditService();
+    const service = new DocumentsService(state, audit, new RealtimeEventsService());
+    const tpl = service.createTemplate('t1', 'u1', { name: 'X', templateType: 'contract' }, ctx);
+    const v = service.createTemplateVersion('t1', 'u1', {
+      templateId: tpl.id,
+      fileId: 'f'
+    });
+    service.activateTemplateVersion('t1', 'u1', v.id, ctx);
+    const events = audit['records'].filter(
+      (e) => e.action === 'documents.template_version_activated'
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      entityType: 'documents.template_version',
+      entityId: v.id,
+      actorId: 'u1'
+    });
   });
 });

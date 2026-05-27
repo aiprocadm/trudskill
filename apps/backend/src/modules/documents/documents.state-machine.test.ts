@@ -32,7 +32,7 @@ const prepareTask = (service: DocumentsService) => {
     templateId: template.id,
     fileId: 'file_template_v1'
   });
-  service.activateTemplateVersion('tenant_demo', version.id);
+  service.activateTemplateVersion('tenant_demo', 'u_tenant_admin', version.id, ctx);
 
   return service.generateDocument('tenant_demo', 'u_tenant_admin', {
     idempotencyKey: 'sm-key-1',

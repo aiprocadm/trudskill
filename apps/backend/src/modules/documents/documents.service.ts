@@ -198,12 +198,32 @@ export class DocumentsService {
   ) {
     return this.updateTemplate(tenantId, actorId, id, { status: 'active' }, ctx);
   }
-  setCurrentVersion(tenantId: string, id: string, versionId: string) {
+  setCurrentVersion(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    versionId: string,
+    ctx: RequestContext
+  ) {
     const tpl = this.getTemplate(tenantId, id);
     const version = this.must(this.state.versions, tenantId, versionId);
     if (version.templateId !== id) throw new BadRequestException('Template version mismatch');
+    const oldVersion = tpl.currentVersionId;
     tpl.currentVersionId = version.id;
     tpl.updatedAt = this.now();
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.template_version_set_current',
+      entityType: 'documents.template',
+      entityId: id,
+      oldValues: { currentVersionId: oldVersion },
+      newValues: { currentVersionId: version.id },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return tpl;
   }
 
@@ -242,14 +262,31 @@ export class DocumentsService {
     if (typeof req.isActive === 'boolean') v.isActive = req.isActive;
     return v;
   }
-  activateTemplateVersion(tenantId: string, id: string) {
+  activateTemplateVersion(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    ctx: RequestContext
+  ) {
     const version = this.getTemplateVersion(tenantId, id);
     this.state.versions
       .filter((x) => x.tenantId === tenantId && x.templateId === version.templateId)
       .forEach((x) => {
         x.isActive = x.id === id;
       });
-    this.setCurrentVersion(tenantId, version.templateId, id);
+    this.setCurrentVersion(tenantId, actorId, version.templateId, id, ctx);
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.template_version_activated',
+      entityType: 'documents.template_version',
+      entityId: id,
+      newValues: { templateId: version.templateId, isActive: true },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return version;
   }
 

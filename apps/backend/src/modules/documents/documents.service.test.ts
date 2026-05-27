@@ -37,7 +37,7 @@ describe('DocumentsService', () => {
       templateId: template.id,
       fileId: 'file_1'
     });
-    service.activateTemplateVersion('t1', version.id);
+    service.activateTemplateVersion('t1', 'u1', version.id, ctx);
 
     const one = service.generateDocument('t1', 'u1', {
       idempotencyKey: 'abc',
@@ -74,7 +74,7 @@ describe('DocumentsService', () => {
       templateId: template.id,
       fileId: 'file_1'
     });
-    service.activateTemplateVersion('t1', version.id);
+    service.activateTemplateVersion('t1', 'u1', version.id, ctx);
 
     const tasks = await Promise.all(
       Array.from({ length: 30 }, () =>
@@ -169,7 +169,7 @@ describe('DocumentsService', () => {
       templateId: template.id,
       fileId: 'file_1'
     });
-    service.activateTemplateVersion('t1', version.id);
+    service.activateTemplateVersion('t1', 'u1', version.id, ctx);
     const task = service.generateDocument('t1', 'u1', {
       idempotencyKey: 'retry-1',
       templateId: template.id,
@@ -201,7 +201,7 @@ describe('DocumentsService', () => {
       templateId: template.id,
       fileId: 'file_1'
     });
-    service.activateTemplateVersion('t1', version.id);
+    service.activateTemplateVersion('t1', 'u1', version.id, ctx);
 
     const batch = service.generateDocumentsBatch(
       't1',
@@ -240,7 +240,7 @@ describe('DocumentsService', () => {
       templateId: template.id,
       fileId: 'file_1'
     });
-    service.activateTemplateVersion('t1', version.id);
+    service.activateTemplateVersion('t1', 'u1', version.id, ctx);
     const task = service.generateDocument(
       't1',
       'u1',
@@ -293,7 +293,7 @@ describe('DocumentsService', () => {
       templateId: template.id,
       fileId: 'file_1'
     });
-    service.activateTemplateVersion('t1', version.id);
+    service.activateTemplateVersion('t1', 'u1', version.id, ctx);
     const task = service.generateDocument('t1', 'u1', {
       idempotencyKey: 'immut-1',
       templateId: template.id,
@@ -410,7 +410,7 @@ describe('DocumentsService', () => {
       templateId: template.id,
       fileId: 'file_1'
     });
-    service.activateTemplateVersion('t1', version.id);
+    service.activateTemplateVersion('t1', 'u1', version.id, ctx);
     const task = service.generateDocument('t1', 'u1', {
       idempotencyKey: 'failed-reservation',
       templateId: template.id,
@@ -480,7 +480,7 @@ describe('DocumentsService', () => {
       ctx
     );
     const v = service.createTemplateVersion('t1', 'u1', { templateId: tplCert.id, fileId: 'f1' });
-    service.activateTemplateVersion('t1', v.id);
+    service.activateTemplateVersion('t1', 'u1', v.id, ctx);
     service.createTemplateBinding('t1', {
       templateId: tplCert.id,
       bindType: 'group',
