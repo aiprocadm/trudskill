@@ -263,7 +263,7 @@ describe('stage13 business e2e flows (service-level)', () => {
     expect(kpiDrilldown.enrollmentBreakdown?.every((r) => r.groupId === group.id)).toBe(true);
   });
 
-  it('completes document generation and e-sign signing flow with legal log artifacts', () => {
+  it('completes document generation and e-sign signing flow with legal log artifacts', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: true } as Response);
 
     const audit = new AuditService();
@@ -283,7 +283,7 @@ describe('stage13 business e2e flows (service-level)', () => {
       templateId: template.id,
       fileId: 'file_template_1'
     });
-    documents.activateTemplateVersion('tenant_demo', version.id);
+    documents.activateTemplateVersion('tenant_demo', baseCtx.userId, version.id, baseCtx);
 
     const task = documents.generateDocument('tenant_demo', baseCtx.userId, {
       idempotencyKey: 'stage13-doc-e2e',
@@ -332,7 +332,7 @@ describe('stage13 business e2e flows (service-level)', () => {
       idempotencyKey: 'stage13-proc-start'
     });
     esign.inviteParticipant('tenant_demo', 'u_staff_1', participant.id);
-    esign.signParticipant('tenant_demo', 'u_signer_1', participant.id, {
+    await esign.signParticipant('tenant_demo', 'u_signer_1', participant.id, {
       idempotencyKey: 'stage13-sign'
     });
 

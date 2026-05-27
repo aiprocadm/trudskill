@@ -53,7 +53,7 @@ describe('EsignService', () => {
     expect(service.reuseCheck('t1', 'staff_1', app.id).reusable).toBe(true);
   });
 
-  it('is idempotent for process creation/start and participant sign', () => {
+  it('is idempotent for process creation/start and participant sign', async () => {
     const { service, documentsService } = makeService();
     const process = service.createProcess('t1', 'staff_1', {
       idempotencyKey: 'create-key',
@@ -86,15 +86,25 @@ describe('EsignService', () => {
     expect(startedAgain.id).toBe(started.id);
 
     service.inviteParticipant('t1', 'staff_1', p1.id);
-    const signed = service.signParticipant('t1', 'u2', p1.id, { idempotencyKey: 'sign-1' });
-    const signedAgain = service.signParticipant('t1', 'u2', p1.id, { idempotencyKey: 'sign-1' });
+    const signed = await service.signParticipant('t1', 'u2', p1.id, { idempotencyKey: 'sign-1' });
+    const signedAgain = await service.signParticipant('t1', 'u2', p1.id, {
+      idempotencyKey: 'sign-1'
+    });
 
     expect(signedAgain.id).toBe(signed.id);
     expect(service.getProcess('t1', process.id).status).toBe('signed');
-    expect(documentsService.finalizeDocument).toHaveBeenCalledWith('t1', 'gdoc_1');
+    // actorId здесь = 'u2' (последний подписант, который и триггерит auto-finalize),
+    // а не 'staff_1' (создатель процесса). Это семантически верно: audit-event
+    // должен указывать на пользователя, чьё действие завершило процесс.
+    expect(documentsService.finalizeDocument).toHaveBeenCalledWith(
+      't1',
+      'u2',
+      'gdoc_1',
+      expect.objectContaining({ requestId: 'internal-esign' })
+    );
   });
 
-  it('blocks out-of-order signature for sequential process', () => {
+  it('blocks out-of-order signature for sequential process', async () => {
     const { service } = makeService();
     const process = service.createProcess('t1', 'staff_1', {
       idempotencyKey: 'k1',
@@ -117,9 +127,9 @@ describe('EsignService', () => {
     service.inviteParticipant('t1', 'staff_1', first.id);
     service.inviteParticipant('t1', 'staff_1', second.id);
 
-    expect(() => service.signParticipant('t1', 'u3', second.id, { idempotencyKey: 'k3' })).toThrow(
-      BadRequestException
-    );
+    await expect(
+      service.signParticipant('t1', 'u3', second.id, { idempotencyKey: 'k3' })
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('fails process when participant rejects signing', () => {
@@ -142,7 +152,7 @@ describe('EsignService', () => {
     expect(service.getProcess('t1', process.id).status).toBe('failed');
   });
 
-  it('prevents participant actions for another user assignment', () => {
+  it('prevents participant actions for another user assignment', async () => {
     const { service } = makeService();
     const process = service.createProcess('t1', 'staff_1', {
       idempotencyKey: 'actor-1',
@@ -158,9 +168,9 @@ describe('EsignService', () => {
     service.startProcess('t1', 'staff_1', process.id, { idempotencyKey: 'actor-2' });
     service.inviteParticipant('t1', 'staff_1', participant.id);
 
-    expect(() =>
+    await expect(
       service.signParticipant('t1', 'u3', participant.id, { idempotencyKey: 'actor-3' })
-    ).toThrow();
+    ).rejects.toThrow();
   });
 
   it('keeps tenant isolation for reads', () => {
