@@ -32,7 +32,7 @@ const prepareTask = (service: DocumentsService) => {
     templateId: template.id,
     fileId: 'file_template_v1'
   });
-  service.activateTemplateVersion('tenant_demo', version.id);
+  service.activateTemplateVersion('tenant_demo', 'u_tenant_admin', version.id, ctx);
 
   return service.generateDocument('tenant_demo', 'u_tenant_admin', {
     idempotencyKey: 'sm-key-1',
@@ -58,7 +58,7 @@ describe('DocumentsService state transitions', () => {
     expect(() => service.startTask('tenant_demo', task.id)).toThrow(BadRequestException);
   });
 
-  it('keeps final document immutable after archive transition', () => {
+  it('keeps final document immutable after archive transition', async () => {
     const service = new DocumentsService(
       new InMemoryDocumentsState(),
       new AuditService(),
@@ -68,12 +68,12 @@ describe('DocumentsService state transitions', () => {
 
     service.startTask('tenant_demo', task.id);
     const generated = service.completeTask('tenant_demo', task.id, 'file_generated_1');
-    service.finalizeDocument('tenant_demo', generated.id);
-    service.archiveDocument('tenant_demo', generated.id);
+    await service.finalizeDocument('tenant_demo', 'u_tenant_admin', generated.id, ctx);
+    await service.archiveDocument('tenant_demo', 'u_tenant_admin', generated.id, ctx);
 
-    expect(() => service.finalizeDocument('tenant_demo', generated.id)).toThrow(
-      BadRequestException
-    );
+    await expect(
+      service.finalizeDocument('tenant_demo', 'u_tenant_admin', generated.id, ctx)
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('marks number reservation as failed when running task fails', () => {

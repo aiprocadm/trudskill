@@ -33,6 +33,15 @@ export class AuditService {
     @Optional() @Inject(DatabaseService) private readonly databaseService?: DatabaseService
   ) {}
 
+  /**
+   * Fire-and-forget запись audit-события. Используется для CRUD по справочникам
+   * (шаблоны, переменные, биндинги, numbering rules), где потеря одной записи
+   * не делает невозможной forensic-реконструкцию.
+   *
+   * Для критичных мутаций (revoke/reissue/finalize/group_order/license CRUD,
+   * выпуск документа, доступ к ПДн, публичные эндпоинты) используй
+   * `writeCritical()` — он awaited и пробрасывает ошибку БД наверх.
+   */
   write(record: AuditWritePayload, options?: { skipDatabase?: boolean }): AuditLogRecord {
     const result = this.buildRecord(record);
     this.records.push(result);
@@ -66,6 +75,18 @@ export class AuditService {
     return result;
   }
 
+  /**
+   * Awaited запись audit-события. Используется для:
+   *   - мутаций выданных документов (revoke, reissue, finalize, archive);
+   *   - массовых операций (group order, batch generate);
+   *   - изменения прав (org licenses CRUD, iam permission changes);
+   *   - доступа к ПДн (`learner.personal_data_accessed`);
+   *   - публичных эндпоинтов (`/public/verify/:token`).
+   *
+   * При падении БД промис rejects — caller обязан либо обработать, либо дать
+   * упасть на уровне http-фильтра. Это важно: потеря audit-записи для этих
+   * категорий нарушает forensic-реконструкцию и/или 152-ФЗ.
+   */
   async writeCritical(
     record: AuditWritePayload,
     options?: { skipDatabase?: boolean }

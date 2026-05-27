@@ -29,9 +29,9 @@ const baseRequest = {
 };
 
 describe('LicensesController — HTTP (Plan C §5.10)', () => {
-  it('POST /admin/licenses creates license and returns entity', () => {
+  it('POST /admin/licenses creates license and returns entity', async () => {
     const controller = makeController();
-    const created = controller.create(ctx, baseRequest);
+    const created = await controller.create(ctx, baseRequest);
     expect(created.id).toBeDefined();
     expect(created.status).toBe('active');
   });
@@ -43,39 +43,39 @@ describe('LicensesController — HTTP (Plan C §5.10)', () => {
     ).toThrow();
   });
 
-  it('GET /admin/licenses returns items array', () => {
+  it('GET /admin/licenses returns items array', async () => {
     const controller = makeController();
-    controller.create(ctx, baseRequest);
+    await controller.create(ctx, baseRequest);
     const list = controller.list(ctx);
     expect(list.items).toHaveLength(1);
   });
 
-  it('GET /admin/licenses filters by status query', () => {
+  it('GET /admin/licenses filters by status query', async () => {
     const controller = makeController();
-    const created = controller.create(ctx, baseRequest);
-    controller.revoke(ctx, created.id);
+    const created = await controller.create(ctx, baseRequest);
+    await controller.revoke(ctx, created.id);
     expect(controller.list(ctx, 'active').items).toHaveLength(0);
     expect(controller.list(ctx, 'revoked').items).toHaveLength(1);
   });
 
-  it('GET /admin/licenses/:id returns license', () => {
+  it('GET /admin/licenses/:id returns license', async () => {
     const controller = makeController();
-    const created = controller.create(ctx, baseRequest);
+    const created = await controller.create(ctx, baseRequest);
     const fetched = controller.get(ctx, created.id);
     expect(fetched.id).toBe(created.id);
   });
 
-  it('PATCH /admin/licenses/:id updates fields', () => {
+  it('PATCH /admin/licenses/:id updates fields', async () => {
     const controller = makeController();
-    const created = controller.create(ctx, baseRequest);
-    const updated = controller.update(ctx, created.id, { notes: 'review pending' });
+    const created = await controller.create(ctx, baseRequest);
+    const updated = await controller.update(ctx, created.id, { notes: 'review pending' });
     expect(updated.notes).toBe('review pending');
   });
 
-  it('POST /admin/licenses/:id/revoke transitions status to revoked', () => {
+  it('POST /admin/licenses/:id/revoke transitions status to revoked', async () => {
     const controller = makeController();
-    const created = controller.create(ctx, baseRequest);
-    const revoked = controller.revoke(ctx, created.id);
+    const created = await controller.create(ctx, baseRequest);
+    const revoked = await controller.revoke(ctx, created.id);
     expect(revoked.status).toBe('revoked');
   });
 });

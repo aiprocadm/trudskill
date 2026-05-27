@@ -198,12 +198,32 @@ export class DocumentsService {
   ) {
     return this.updateTemplate(tenantId, actorId, id, { status: 'active' }, ctx);
   }
-  setCurrentVersion(tenantId: string, id: string, versionId: string) {
+  setCurrentVersion(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    versionId: string,
+    ctx: RequestContext
+  ) {
     const tpl = this.getTemplate(tenantId, id);
     const version = this.must(this.state.versions, tenantId, versionId);
     if (version.templateId !== id) throw new BadRequestException('Template version mismatch');
+    const oldVersion = tpl.currentVersionId;
     tpl.currentVersionId = version.id;
     tpl.updatedAt = this.now();
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.template_version_set_current',
+      entityType: 'documents.template',
+      entityId: id,
+      oldValues: { currentVersionId: oldVersion },
+      newValues: { currentVersionId: version.id },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return tpl;
   }
 
@@ -242,14 +262,31 @@ export class DocumentsService {
     if (typeof req.isActive === 'boolean') v.isActive = req.isActive;
     return v;
   }
-  activateTemplateVersion(tenantId: string, id: string) {
+  activateTemplateVersion(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    ctx: RequestContext
+  ) {
     const version = this.getTemplateVersion(tenantId, id);
     this.state.versions
       .filter((x) => x.tenantId === tenantId && x.templateId === version.templateId)
       .forEach((x) => {
         x.isActive = x.id === id;
       });
-    this.setCurrentVersion(tenantId, version.templateId, id);
+    this.setCurrentVersion(tenantId, actorId, version.templateId, id, ctx);
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.template_version_activated',
+      entityType: 'documents.template_version',
+      entityId: id,
+      newValues: { templateId: version.templateId, isActive: true },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return version;
   }
 
@@ -262,7 +299,12 @@ export class DocumentsService {
     );
     return this.page(rows, query);
   }
-  createTemplateVariable(tenantId: string, req: CreateTemplateVariableRequest) {
+  createTemplateVariable(
+    tenantId: string,
+    actorId: string | undefined,
+    req: CreateTemplateVariableRequest,
+    ctx: RequestContext
+  ) {
     this.getTemplateVersion(tenantId, req.templateVersionId);
     assertVariableCategoryCode(req.categoryCode);
     const duplicate = this.state.variables.find(
@@ -285,6 +327,18 @@ export class DocumentsService {
       description: req.description
     };
     this.state.variables.push(entity);
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.template_variable_created',
+      entityType: 'documents.template_variable',
+      entityId: entity.id,
+      newValues: entity as unknown as Record<string, unknown>,
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return entity;
   }
   getTemplateVariable(tenantId: string, id: string) {
@@ -294,17 +348,54 @@ export class DocumentsService {
       id
     );
   }
-  updateTemplateVariable(tenantId: string, id: string, req: UpdateTemplateVariableRequest) {
+  updateTemplateVariable(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    req: UpdateTemplateVariableRequest,
+    ctx: RequestContext
+  ) {
     const row = this.getTemplateVariable(tenantId, id);
+    const oldValues = { ...row };
     if (req.categoryCode !== undefined) {
       assertVariableCategoryCode(req.categoryCode);
     }
     Object.assign(row, req);
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.template_variable_updated',
+      entityType: 'documents.template_variable',
+      entityId: id,
+      oldValues: oldValues as unknown as Record<string, unknown>,
+      newValues: row as unknown as Record<string, unknown>,
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return row;
   }
-  deleteTemplateVariable(tenantId: string, id: string) {
+  deleteTemplateVariable(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    ctx: RequestContext
+  ) {
     const row = this.getTemplateVariable(tenantId, id);
     row.deletedAt = this.now();
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.template_variable_deleted',
+      entityType: 'documents.template_variable',
+      entityId: id,
+      newValues: { deletedAt: row.deletedAt },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return { deleted: true };
   }
 
@@ -314,7 +405,12 @@ export class DocumentsService {
       query
     );
   }
-  createTemplateBinding(tenantId: string, req: CreateTemplateBindingRequest) {
+  createTemplateBinding(
+    tenantId: string,
+    actorId: string | undefined,
+    req: CreateTemplateBindingRequest,
+    ctx: RequestContext
+  ) {
     this.getTemplate(tenantId, req.templateId);
     this.validateBindingPayload(req.bindType, req.directionId, req.courseId, req.groupId);
     const entity: TemplateBindingEntity = {
@@ -331,22 +427,71 @@ export class DocumentsService {
       createdAt: this.now()
     };
     this.state.bindings.push(entity);
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.template_binding_created',
+      entityType: 'documents.template_binding',
+      entityId: entity.id,
+      newValues: entity as unknown as Record<string, unknown>,
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return entity;
   }
   getTemplateBinding(tenantId: string, id: string) {
     return this.must(this.state.bindings, tenantId, id);
   }
-  updateTemplateBinding(tenantId: string, id: string, req: UpdateTemplateBindingRequest) {
+  updateTemplateBinding(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    req: UpdateTemplateBindingRequest,
+    ctx: RequestContext
+  ) {
     const row = this.getTemplateBinding(tenantId, id);
+    const oldValues = { ...row };
     Object.assign(row, req);
     this.validateBindingPayload(row.bindType, row.directionId, row.courseId, row.groupId);
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.template_binding_updated',
+      entityType: 'documents.template_binding',
+      entityId: id,
+      oldValues: oldValues as unknown as Record<string, unknown>,
+      newValues: row as unknown as Record<string, unknown>,
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return row;
   }
-  deleteTemplateBinding(tenantId: string, id: string) {
-    this.getTemplateBinding(tenantId, id);
+  deleteTemplateBinding(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    ctx: RequestContext
+  ) {
+    const row = this.getTemplateBinding(tenantId, id);
     this.state.bindings = this.state.bindings.filter(
       (x) => !(x.tenantId === tenantId && x.id === id)
     );
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.template_binding_deleted',
+      entityType: 'documents.template_binding',
+      entityId: id,
+      oldValues: row as unknown as Record<string, unknown>,
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return { deleted: true };
   }
 
@@ -475,6 +620,8 @@ export class DocumentsService {
       requestedAt: this.now(),
       requestId: ctx?.requestId,
       correlationId: ctx?.correlationId,
+      ip: ctx?.ip,
+      userAgent: ctx?.userAgent,
       outboxPayload: {
         request_id: ctx?.requestId,
         correlation_id: ctx?.correlationId,
@@ -585,19 +732,57 @@ export class DocumentsService {
     this.writeTaskAudit(task, 'documents.task.failed', { errorMessage: message });
     return task;
   }
-  finalizeDocument(tenantId: string, id: string) {
+  async finalizeDocument(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    ctx: RequestContext
+  ) {
     const doc = this.getDocument(tenantId, id);
     if (doc.status === 'archived')
       throw new BadRequestException('Archived document cannot be finalized');
+    const oldValues = { status: doc.status, isFinal: doc.isFinal };
     doc.status = 'final';
     doc.isFinal = true;
+    await this.auditService.writeCritical({
+      tenantId,
+      actorId,
+      action: 'documents.finalized',
+      entityType: 'documents.generated',
+      entityId: id,
+      oldValues,
+      newValues: { status: doc.status, isFinal: doc.isFinal },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return doc;
   }
-  archiveDocument(tenantId: string, id: string) {
+  async archiveDocument(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    ctx: RequestContext
+  ) {
     const doc = this.getDocument(tenantId, id);
     if (doc.status === 'archived') return doc;
+    const oldStatus = doc.status;
     doc.status = 'archived';
     doc.archivedAt = this.now();
+    await this.auditService.writeCritical({
+      tenantId,
+      actorId,
+      action: 'documents.archived',
+      entityType: 'documents.generated',
+      entityId: id,
+      oldValues: { status: oldStatus },
+      newValues: { status: 'archived', archivedAt: doc.archivedAt },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return doc;
   }
 
@@ -637,7 +822,12 @@ export class DocumentsService {
     Object.assign(row, req, { updatedAt: this.now() });
     return row;
   }
-  activateNumberingRule(tenantId: string, id: string) {
+  activateNumberingRule(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    ctx: RequestContext
+  ) {
     const row = this.getNumberingRule(tenantId, id);
     this.state.numberingRules
       .filter((x) => x.tenantId === tenantId && x.documentType === row.documentType)
@@ -645,12 +835,41 @@ export class DocumentsService {
         x.isActive = x.id === id;
         x.updatedAt = this.now();
       });
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.numbering_rule_activated',
+      entityType: 'documents.numbering_rule',
+      entityId: id,
+      newValues: { documentType: row.documentType, isActive: true },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return row;
   }
-  deactivateNumberingRule(tenantId: string, id: string) {
+  deactivateNumberingRule(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    ctx: RequestContext
+  ) {
     const row = this.getNumberingRule(tenantId, id);
     row.isActive = false;
     row.updatedAt = this.now();
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.numbering_rule_deactivated',
+      entityType: 'documents.numbering_rule',
+      entityId: id,
+      newValues: { isActive: false },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return row;
   }
 
@@ -866,7 +1085,9 @@ export class DocumentsService {
         ...extras
       },
       requestId: task.requestId,
-      correlationId: task.correlationId
+      correlationId: task.correlationId,
+      ip: task.ip,
+      userAgent: task.userAgent
     });
   }
 
@@ -900,13 +1121,13 @@ export class DocumentsService {
    * archived → 422 (no-op revoke на архивных — недопустимо без отдельного бизнес-кейса).
    * Reason обязательна (валидируется здесь — UI тоже проверяет, но defence in depth).
    */
-  revokeDocument(
+  async revokeDocument(
     tenantId: string,
     actorId: string | undefined,
     documentId: string,
     reason: string,
     ctx: RequestContext
-  ): GeneratedDocumentEntity {
+  ): Promise<GeneratedDocumentEntity> {
     if (!reason || reason.trim().length === 0) {
       throw new BadRequestException({
         code: 'revocation_reason_required',
@@ -931,7 +1152,7 @@ export class DocumentsService {
     doc.revokedAt = this.now();
     doc.revokedBy = actorId;
     doc.revocationReason = reason.trim();
-    this.auditService.write({
+    await this.auditService.writeCritical({
       tenantId,
       actorId,
       action: 'documents.revoked',
@@ -960,13 +1181,13 @@ export class DocumentsService {
    * Если оригинал revoked но без replacedByDocumentId — означает был просто
    * revoke без reissue; reissue в этом случае запрещён (409).
    */
-  reissueDocument(
+  async reissueDocument(
     tenantId: string,
     actorId: string | undefined,
     originalId: string,
     reason: string,
     ctx: RequestContext
-  ): { original: GeneratedDocumentEntity; replacement: GeneratedDocumentEntity } {
+  ): Promise<{ original: GeneratedDocumentEntity; replacement: GeneratedDocumentEntity }> {
     if (!reason || reason.trim().length === 0) {
       throw new BadRequestException({
         code: 'reissue_reason_required',
@@ -1018,7 +1239,7 @@ export class DocumentsService {
     original.revokedBy = actorId;
     original.revocationReason = `Перевыпуск: ${reason.trim()}`;
 
-    this.auditService.write({
+    await this.auditService.writeCritical({
       tenantId,
       actorId,
       action: 'documents.reissued',
@@ -1033,7 +1254,7 @@ export class DocumentsService {
       ip: ctx.ip,
       userAgent: ctx.userAgent
     });
-    this.auditService.write({
+    await this.auditService.writeCritical({
       tenantId,
       actorId,
       action: 'documents.revoked',
@@ -1100,12 +1321,12 @@ export class DocumentsService {
    * и НЕ создаёт дубликат. Это важно для UI: пользователь нажимает «Сгенерировать»
    * дважды — мы не должны выпускать два приказа.
    */
-  issueGroupOrder(
+  async issueGroupOrder(
     tenantId: string,
     actorId: string | undefined,
     req: IssueGroupOrderRequest,
     ctx: RequestContext
-  ): IssueGroupOrderResult {
+  ): Promise<IssueGroupOrderResult> {
     const orderTpl = this.state.templates.find(
       (t) => t.tenantId === tenantId && t.id === req.templateId
     );
@@ -1163,7 +1384,7 @@ export class DocumentsService {
       qrToken: this.generateQrToken()
     };
     this.state.generatedDocuments.push(order);
-    this.auditService.write({
+    await this.auditService.writeCritical({
       tenantId,
       actorId,
       action: 'documents.group_order_issued',
@@ -1229,7 +1450,7 @@ export class DocumentsService {
         };
         this.state.generatedDocuments.push(cert);
         certificates.push(cert);
-        this.auditService.write({
+        await this.auditService.writeCritical({
           tenantId,
           actorId,
           action: 'documents.certificate_issued_via_order',

@@ -203,9 +203,9 @@ describe('DocumentsController.issueGroupOrder (Plan B §5.7)', () => {
     return { state, service, controller };
   }
 
-  it('returns IssueGroupOrderResult with order + cascaded certificates', () => {
+  it('returns IssueGroupOrderResult with order + cascaded certificates', async () => {
     const { controller } = makeController();
-    const res = controller.issueGroupOrder(ctx, {
+    const res = await controller.issueGroupOrder(ctx, {
       groupId: 'g_1',
       templateId: 'tpl_order',
       enrollmentIds: ['enr_a'],
@@ -217,14 +217,14 @@ describe('DocumentsController.issueGroupOrder (Plan B §5.7)', () => {
     expect(res.alreadyExisted).toBe(false);
   });
 
-  it('is idempotent across repeated POSTs', () => {
+  it('is idempotent across repeated POSTs', async () => {
     const { controller } = makeController();
-    const first = controller.issueGroupOrder(ctx, {
+    const first = await controller.issueGroupOrder(ctx, {
       groupId: 'g_1',
       templateId: 'tpl_order',
       enrollmentIds: []
     });
-    const second = controller.issueGroupOrder(ctx, {
+    const second = await controller.issueGroupOrder(ctx, {
       groupId: 'g_1',
       templateId: 'tpl_order',
       enrollmentIds: []

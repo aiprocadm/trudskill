@@ -502,7 +502,7 @@ export class EsignService {
     );
     return p;
   }
-  signParticipant(
+  async signParticipant(
     tenantId: string,
     actorId: string | undefined,
     id: string,
@@ -539,7 +539,7 @@ export class EsignService {
       { processId: p.processId }
     );
     this.state.idempotency.set(idem, p.id);
-    this.tryCompleteProcess(tenantId, actorId, p.processId);
+    await this.tryCompleteProcess(tenantId, actorId, p.processId);
     return p;
   }
   rejectParticipant(
@@ -566,7 +566,7 @@ export class EsignService {
     this.failProcess(tenantId, actorId, p.processId, 'Participant rejected signing');
     return p;
   }
-  skipParticipant(
+  async skipParticipant(
     tenantId: string,
     actorId: string | undefined,
     id: string,
@@ -585,7 +585,7 @@ export class EsignService {
       'Participant skipped',
       req.payload ?? {}
     );
-    this.tryCompleteProcess(tenantId, actorId, p.processId);
+    await this.tryCompleteProcess(tenantId, actorId, p.processId);
     return p;
   }
 
@@ -612,7 +612,11 @@ export class EsignService {
     return this.must(this.state.legalLogEntries, tenantId, id);
   }
 
-  private tryCompleteProcess(tenantId: string, actorId: string | undefined, processId: string) {
+  private async tryCompleteProcess(
+    tenantId: string,
+    actorId: string | undefined,
+    processId: string
+  ) {
     const process = this.getProcess(tenantId, processId);
     const participants = this.state.participants.filter(
       (x) => x.tenantId === tenantId && x.processId === processId
@@ -636,7 +640,16 @@ export class EsignService {
       { finishedAt: process.finishedAt }
     );
     this.publishRealtime(tenantId, 'signing.process.completed', { processId: process.id });
-    this.documentsService.finalizeDocument(tenantId, process.generatedDocumentId);
+    // Pillar A hardening: finalizeDocument теперь async + требует ctx. Esign-service
+    // вызывает finalize изнутри (после успешного подписания) — HTTP context здесь
+    // отсутствует, поэтому синтезируем минимальный ctx с маркером 'internal-esign'
+    // в correlationId — чтобы в audit-логе было видно, что это автозавершение.
+    await this.documentsService.finalizeDocument(tenantId, actorId, process.generatedDocumentId, {
+      requestId: 'internal-esign',
+      correlationId: process.id,
+      tenantId,
+      userId: actorId
+    });
   }
 
   private failProcess(

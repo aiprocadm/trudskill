@@ -102,7 +102,13 @@ export class DocumentsController {
     @Param('id') id: string,
     @Body() b: { templateVersionId: string }
   ) {
-    return this.documentsService.setCurrentVersion(c.tenantId!, id, b.templateVersionId);
+    return this.documentsService.setCurrentVersion(
+      c.tenantId!,
+      c.userId,
+      id,
+      b.templateVersionId,
+      c
+    );
   }
 
   @Get('template-versions')
@@ -140,7 +146,7 @@ export class DocumentsController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
   activateVersion(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.documentsService.activateTemplateVersion(c.tenantId!, id);
+    return this.documentsService.activateTemplateVersion(c.tenantId!, c.userId, id, c);
   }
   @Post('template-versions/:id/parse-variables')
   @UseGuards(PermissionGuard)
@@ -162,7 +168,7 @@ export class DocumentsController {
     @CurrentContext() c: RequestContext,
     @Body() b: CreateTemplateVariableRequest
   ) {
-    return this.documentsService.createTemplateVariable(c.tenantId!, b);
+    return this.documentsService.createTemplateVariable(c.tenantId!, c.userId, b, c);
   }
   @Get('template-variables/:id')
   @UseGuards(PermissionGuard)
@@ -178,13 +184,13 @@ export class DocumentsController {
     @Param('id') id: string,
     @Body() b: UpdateTemplateVariableRequest
   ) {
-    return this.documentsService.updateTemplateVariable(c.tenantId!, id, b);
+    return this.documentsService.updateTemplateVariable(c.tenantId!, c.userId, id, b, c);
   }
   @Delete('template-variables/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
   deleteTemplateVariable(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.documentsService.deleteTemplateVariable(c.tenantId!, id);
+    return this.documentsService.deleteTemplateVariable(c.tenantId!, c.userId, id, c);
   }
 
   @Get('template-bindings')
@@ -200,7 +206,7 @@ export class DocumentsController {
     @CurrentContext() c: RequestContext,
     @Body() b: CreateTemplateBindingRequest
   ) {
-    return this.documentsService.createTemplateBinding(c.tenantId!, b);
+    return this.documentsService.createTemplateBinding(c.tenantId!, c.userId, b, c);
   }
   @Get('template-bindings/:id')
   @UseGuards(PermissionGuard)
@@ -216,13 +222,13 @@ export class DocumentsController {
     @Param('id') id: string,
     @Body() b: UpdateTemplateBindingRequest
   ) {
-    return this.documentsService.updateTemplateBinding(c.tenantId!, id, b);
+    return this.documentsService.updateTemplateBinding(c.tenantId!, c.userId, id, b, c);
   }
   @Delete('template-bindings/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
   deleteTemplateBinding(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.documentsService.deleteTemplateBinding(c.tenantId!, id);
+    return this.documentsService.deleteTemplateBinding(c.tenantId!, c.userId, id, c);
   }
 
   @Get('documents')
@@ -256,13 +262,13 @@ export class DocumentsController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
   finalizeDocument(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.documentsService.finalizeDocument(c.tenantId!, id);
+    return this.documentsService.finalizeDocument(c.tenantId!, c.userId, id, c);
   }
   @Post('documents/:id/archive')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
   archiveDocument(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.documentsService.archiveDocument(c.tenantId!, id);
+    return this.documentsService.archiveDocument(c.tenantId!, c.userId, id, c);
   }
   @Get('documents/:id/download')
   @UseGuards(PermissionGuard)
@@ -329,13 +335,13 @@ export class DocumentsController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
   activateRule(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.documentsService.activateNumberingRule(c.tenantId!, id);
+    return this.documentsService.activateNumberingRule(c.tenantId!, c.userId, id, c);
   }
   @Post('numbering-rules/:id/deactivate')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
   deactivateRule(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.documentsService.deactivateNumberingRule(c.tenantId!, id);
+    return this.documentsService.deactivateNumberingRule(c.tenantId!, c.userId, id, c);
   }
 
   // ==========================================================================
