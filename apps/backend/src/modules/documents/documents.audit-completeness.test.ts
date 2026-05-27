@@ -274,3 +274,24 @@ describe('Audit completeness — template variables', () => {
     expect(actions).toContain('documents.template_variable_deleted');
   });
 });
+
+describe('Audit completeness — template bindings', () => {
+  it('emits audit on create/update/delete binding', () => {
+    const state = new InMemoryDocumentsState();
+    const audit = new AuditService();
+    const service = new DocumentsService(state, audit, new RealtimeEventsService());
+    const tpl = service.createTemplate('t1', 'u1', { name: 'X', templateType: 'certificate' }, ctx);
+    const b = service.createTemplateBinding(
+      't1',
+      'u1',
+      { templateId: tpl.id, bindType: 'course', courseId: 'c1' },
+      ctx
+    );
+    service.updateTemplateBinding('t1', 'u1', b.id, { priority: 200 }, ctx);
+    service.deleteTemplateBinding('t1', 'u1', b.id, ctx);
+    const actions = audit['records'].map((e) => e.action);
+    expect(actions).toContain('documents.template_binding_created');
+    expect(actions).toContain('documents.template_binding_updated');
+    expect(actions).toContain('documents.template_binding_deleted');
+  });
+});

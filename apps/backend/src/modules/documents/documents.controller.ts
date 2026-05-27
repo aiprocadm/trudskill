@@ -206,7 +206,7 @@ export class DocumentsController {
     @CurrentContext() c: RequestContext,
     @Body() b: CreateTemplateBindingRequest
   ) {
-    return this.documentsService.createTemplateBinding(c.tenantId!, b);
+    return this.documentsService.createTemplateBinding(c.tenantId!, c.userId, b, c);
   }
   @Get('template-bindings/:id')
   @UseGuards(PermissionGuard)
@@ -222,13 +222,13 @@ export class DocumentsController {
     @Param('id') id: string,
     @Body() b: UpdateTemplateBindingRequest
   ) {
-    return this.documentsService.updateTemplateBinding(c.tenantId!, id, b);
+    return this.documentsService.updateTemplateBinding(c.tenantId!, c.userId, id, b, c);
   }
   @Delete('template-bindings/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
   deleteTemplateBinding(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.documentsService.deleteTemplateBinding(c.tenantId!, id);
+    return this.documentsService.deleteTemplateBinding(c.tenantId!, c.userId, id, c);
   }
 
   @Get('documents')

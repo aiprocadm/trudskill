@@ -491,24 +491,39 @@ describe('DocumentsService', () => {
     );
     const v = service.createTemplateVersion('t1', 'u1', { templateId: tplCert.id, fileId: 'f1' });
     service.activateTemplateVersion('t1', 'u1', v.id, ctx);
-    service.createTemplateBinding('t1', {
-      templateId: tplCert.id,
-      bindType: 'group',
-      groupId: 'g1',
-      priority: 900
-    });
-    service.createTemplateBinding('t1', {
-      templateId: tplOther.id,
-      bindType: 'course',
-      courseId: 'c1',
-      priority: 1000
-    });
-    void service.createTemplateBinding('t1', {
-      templateId: tplCert.id,
-      bindType: 'course',
-      courseId: 'c1',
-      priority: 10
-    });
+    service.createTemplateBinding(
+      't1',
+      undefined,
+      {
+        templateId: tplCert.id,
+        bindType: 'group',
+        groupId: 'g1',
+        priority: 900
+      },
+      ctx
+    );
+    service.createTemplateBinding(
+      't1',
+      undefined,
+      {
+        templateId: tplOther.id,
+        bindType: 'course',
+        courseId: 'c1',
+        priority: 1000
+      },
+      ctx
+    );
+    service.createTemplateBinding(
+      't1',
+      undefined,
+      {
+        templateId: tplCert.id,
+        bindType: 'course',
+        courseId: 'c1',
+        priority: 10
+      },
+      ctx
+    );
     const resolved = service.resolveAutoCertificateTemplateBinding('t1', 'g1', ['c1']);
     expect(resolved?.templateId).toBe(tplCert.id);
   });

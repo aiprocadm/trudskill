@@ -47,12 +47,17 @@ describe('EnrollmentDocumentIssuanceListener', () => {
         fileId: 'file_cert'
       });
       documents.activateTemplateVersion('tenant_demo', 'u1', version.id, ctx);
-      documents.createTemplateBinding('tenant_demo', {
-        templateId: template.id,
-        bindType: 'group',
-        groupId: 'group_x',
-        priority: 100
-      });
+      documents.createTemplateBinding(
+        'tenant_demo',
+        undefined,
+        {
+          templateId: template.id,
+          bindType: 'group',
+          groupId: 'group_x',
+          priority: 100
+        },
+        ctx
+      );
     });
 
     const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
@@ -164,12 +169,17 @@ describe('EnrollmentDocumentIssuanceListener', () => {
         fileId: 'file_cert_dup'
       });
       documents.activateTemplateVersion('tenant_demo', 'u1', version.id, ctx);
-      documents.createTemplateBinding('tenant_demo', {
-        templateId: template.id,
-        bindType: 'group',
-        groupId: 'group_dup',
-        priority: 100
-      });
+      documents.createTemplateBinding(
+        'tenant_demo',
+        undefined,
+        {
+          templateId: template.id,
+          bindType: 'group',
+          groupId: 'group_dup',
+          priority: 100
+        },
+        ctx
+      );
     });
 
     const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
@@ -248,12 +258,17 @@ describe('EnrollmentDocumentIssuanceListener', () => {
         fileId: 'file_other_cert'
       });
       documents.activateTemplateVersion('tenant_other', 'u1', version.id, ctx);
-      documents.createTemplateBinding('tenant_other', {
-        templateId: template.id,
-        bindType: 'group',
-        groupId: 'group_shared',
-        priority: 100
-      });
+      documents.createTemplateBinding(
+        'tenant_other',
+        undefined,
+        {
+          templateId: template.id,
+          bindType: 'group',
+          groupId: 'group_shared',
+          priority: 100
+        },
+        ctx
+      );
     });
 
     const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
@@ -606,12 +621,17 @@ describe('EnrollmentDocumentIssuanceListener', () => {
         fileId: 'file_legacy'
       });
       documents.activateTemplateVersion('tenant_demo', 'u1', v.id, ctx);
-      documents.createTemplateBinding('tenant_demo', {
-        templateId: tpl.id,
-        bindType: 'group',
-        groupId: 'group_fallback',
-        priority: 100
-      });
+      documents.createTemplateBinding(
+        'tenant_demo',
+        undefined,
+        {
+          templateId: tpl.id,
+          bindType: 'group',
+          groupId: 'group_fallback',
+          priority: 100
+        },
+        ctx
+      );
     });
 
     const listener = new EnrollmentDocumentIssuanceListener(runner, audit);

@@ -405,7 +405,12 @@ export class DocumentsService {
       query
     );
   }
-  createTemplateBinding(tenantId: string, req: CreateTemplateBindingRequest) {
+  createTemplateBinding(
+    tenantId: string,
+    actorId: string | undefined,
+    req: CreateTemplateBindingRequest,
+    ctx: RequestContext
+  ) {
     this.getTemplate(tenantId, req.templateId);
     this.validateBindingPayload(req.bindType, req.directionId, req.courseId, req.groupId);
     const entity: TemplateBindingEntity = {
@@ -422,22 +427,71 @@ export class DocumentsService {
       createdAt: this.now()
     };
     this.state.bindings.push(entity);
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.template_binding_created',
+      entityType: 'documents.template_binding',
+      entityId: entity.id,
+      newValues: entity as unknown as Record<string, unknown>,
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return entity;
   }
   getTemplateBinding(tenantId: string, id: string) {
     return this.must(this.state.bindings, tenantId, id);
   }
-  updateTemplateBinding(tenantId: string, id: string, req: UpdateTemplateBindingRequest) {
+  updateTemplateBinding(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    req: UpdateTemplateBindingRequest,
+    ctx: RequestContext
+  ) {
     const row = this.getTemplateBinding(tenantId, id);
+    const oldValues = { ...row };
     Object.assign(row, req);
     this.validateBindingPayload(row.bindType, row.directionId, row.courseId, row.groupId);
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.template_binding_updated',
+      entityType: 'documents.template_binding',
+      entityId: id,
+      oldValues: oldValues as unknown as Record<string, unknown>,
+      newValues: row as unknown as Record<string, unknown>,
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return row;
   }
-  deleteTemplateBinding(tenantId: string, id: string) {
-    this.getTemplateBinding(tenantId, id);
+  deleteTemplateBinding(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    ctx: RequestContext
+  ) {
+    const row = this.getTemplateBinding(tenantId, id);
     this.state.bindings = this.state.bindings.filter(
       (x) => !(x.tenantId === tenantId && x.id === id)
     );
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.template_binding_deleted',
+      entityType: 'documents.template_binding',
+      entityId: id,
+      oldValues: row as unknown as Record<string, unknown>,
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return { deleted: true };
   }
 
