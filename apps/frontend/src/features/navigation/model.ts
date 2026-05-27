@@ -111,6 +111,11 @@ export const routeMeta: RouteMetaEntry[] = [
 export const navigationModel: NavigationItem[] = [
   { href: '/', label: 'Главная' },
   { href: '/learner/courses', label: 'Мои курсы', requiredPermissions: ['enrollments.read'] },
+  {
+    href: '/learner/documents',
+    label: 'Мои документы',
+    requiredPermissions: ['enrollments.read']
+  },
   { href: '/courses', label: 'Курсы', requiredPermissions: ['courses.read'] },
   { href: '/assessment', label: 'Задания и тесты', requiredPermissions: ['assessment.tests.read'] },
   { href: '/notifications', label: 'Сообщения', requiredPermissions: ['tenant.read'] },

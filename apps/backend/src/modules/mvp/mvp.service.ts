@@ -99,6 +99,7 @@ import type {
   TestQuestion
 } from './mvp.types.js';
 import type { RequestContext } from '../../common/context/request-context.js';
+import type { GeneratedDocumentEntity } from '../documents/documents.types.js';
 
 interface ListResponse<T> {
   items: T[];
@@ -117,6 +118,64 @@ interface LookupItem {
 interface MvpAssessmentReadAccess {
   actorId?: string;
   permissions?: string[];
+}
+
+/**
+ * Phase 1 §4.3 — DTO выданного документа в кабинете слушателя.
+ *
+ * Намеренно компактный набор полей: всё, что нужно UI для «карточки документа»
+ * + ссылка на QR-проверку + stub URL для будущего PDF-стрима. Полная entity
+ * `GeneratedDocumentEntity` содержит служебные поля (templateVersionId, fileId,
+ * isFinal и т.п.), которые слушателю не нужны и могут утечь имплементацию.
+ */
+export interface LearnerDocumentDto {
+  id: string;
+  documentType: string;
+  name: string;
+  documentNumber?: string;
+  documentDate?: string;
+  status: string;
+  qrToken?: string;
+  enrollmentId: string;
+  /** Доступно, если зачисление удалось связать с курсом через groupCourse. */
+  courseId?: string;
+  courseTitle: string;
+  /** URL потокового PDF; до Phase 5 фронт показывает stub при клике. */
+  downloadUrl: string;
+  /** Подсказка фронту: рендерить ли кнопку Download активной. До Phase 5 — false. */
+  isDownloadable: boolean;
+  /** §5.9 — если документ аннулирован, показать причину под номером. */
+  revocationReason?: string;
+  /** §5.9 — если перевыпущен, ссылка на новый документ. */
+  replacedByDocumentId?: string;
+}
+
+function mapDocumentToLearnerDto(
+  doc: GeneratedDocumentEntity,
+  apiPrefix: string,
+  enrollmentId: string,
+  courseTitle: string,
+  courseId?: string
+): LearnerDocumentDto {
+  // Phase 5: реальный stream PDF. Сейчас fileId='' у всех свежих документов
+  // (см. documents.service.generateDocument), поэтому download выключен.
+  const hasFile = Boolean(doc.fileId);
+  return {
+    id: doc.id,
+    documentType: doc.documentType,
+    name: doc.name,
+    documentNumber: doc.documentNumber,
+    documentDate: doc.documentDate,
+    status: doc.status,
+    qrToken: doc.qrToken,
+    enrollmentId,
+    courseId,
+    courseTitle,
+    downloadUrl: hasFile ? `${apiPrefix}/files/${doc.fileId}/download` : '',
+    isDownloadable: hasFile,
+    revocationReason: doc.revocationReason,
+    replacedByDocumentId: doc.replacedByDocumentId
+  };
 }
 
 const DEFAULT_GROUP_COURSE_DURATION_DAYS = 90;
@@ -989,6 +1048,125 @@ export class MvpService {
         downloadUrl: `${prefix}/files/${d.fileId}/download`
       }))
     };
+  }
+
+  /**
+   * Phase 1 §4.3 — конец пути ученика: «закончил курс → увидел документы».
+   *
+   * В отличие от `listEnrollmentCertificates`, возвращает **все** типы документов
+   * (certificate / diploma / attestation / reference / …), выпущенные через
+   * `course_document_sets` (Pillar A §5.3). Скрывает архивные.
+   *
+   * Аннулированные (`status='revoked'`) возвращаем — учащийся должен видеть,
+   * что документ был отозван, и причину (без расширенных полей в этом DTO).
+   * Перевыпуск (`replacesDocumentId`) виден через ссылку на оригинал.
+   *
+   * `qrToken` отдаём — это публичная часть, ссылается на `/verify/[token]`
+   * (см. PublicVerifyController) и нужна для UX «показать QR в кабинете».
+   *
+   * `downloadUrl` указывает на `/files/:id/download` (тот же путь, что у
+   * админских certificates) — реальный stream PDF появится в Phase 5, когда
+   * подключится document generation pipeline; до тех пор фронт показывает
+   * stub-сообщение.
+   */
+  listEnrollmentDocuments(
+    tenantId: string,
+    enrollmentId: string,
+    access?: MvpAssessmentReadAccess
+  ): {
+    items: LearnerDocumentDto[];
+  } {
+    const enrollment = this.getEnrollment(tenantId, enrollmentId);
+    this.assertAssessmentReadAllowedForLearner(tenantId, enrollment.learnerId, access);
+    const page = this.documentsService.listDocuments(tenantId, {
+      sourceEntityType: 'enrollment',
+      sourceEntityId: enrollmentId,
+      pageSize: 200
+    });
+    const course = this.resolveEnrollmentCourse(tenantId, enrollment);
+    const prefix = backendEnv.API_PREFIX.replace(/\/$/, '');
+    return {
+      items: page.items
+        .filter((d) => d.status !== 'archived')
+        .map((d) => mapDocumentToLearnerDto(d, prefix, enrollment.id, course.title, course.id))
+    };
+  }
+
+  /**
+   * Phase 1 §4.3 — агрегированный список документов для текущего IAM-пользователя.
+   *
+   * Поведение:
+   * - Резолвит всех `learners` с `linkedIamUserId === actorId` в этом тенанте
+   *   (учащийся может быть привязан к нескольким записям при миграции данных).
+   * - Если ни один не привязан — возвращает пустой массив (НЕ 403): admin/teacher
+   *   с `enrollments.read` без привязки видит просто пустоту здесь, отдельные
+   *   админские роуты дают им полный доступ.
+   * - Документы фильтруются как в `listEnrollmentDocuments` (без архивных).
+   * - Сортировка — по дате выпуска (свежие сверху), затем по id.
+   */
+  listMyDocuments(
+    tenantId: string,
+    actorId: string | undefined
+  ): {
+    items: LearnerDocumentDto[];
+  } {
+    if (!actorId) {
+      return { items: [] };
+    }
+    const learnerIds = new Set(
+      this.state.learners
+        .filter((l) => l.tenantId === tenantId && l.linkedIamUserId === actorId)
+        .map((l) => l.id)
+    );
+    if (learnerIds.size === 0) {
+      return { items: [] };
+    }
+    const enrollments = this.state.enrollments.filter(
+      (e) => e.tenantId === tenantId && learnerIds.has(e.learnerId)
+    );
+    if (enrollments.length === 0) {
+      return { items: [] };
+    }
+    const enrollmentById = new Map(enrollments.map((e) => [e.id, e]));
+    const courseByEnrollment = new Map(
+      enrollments.map((e) => [e.id, this.resolveEnrollmentCourse(tenantId, e)])
+    );
+    const prefix = backendEnv.API_PREFIX.replace(/\/$/, '');
+    const page = this.documentsService.listDocuments(tenantId, {
+      sourceEntityType: 'enrollment',
+      pageSize: 1000
+    });
+    const items = page.items
+      .filter((d) => d.status !== 'archived')
+      .filter((d) => d.sourceEntityId !== undefined && enrollmentById.has(d.sourceEntityId))
+      .map((d) => {
+        const enrollmentId = d.sourceEntityId as string;
+        const course = courseByEnrollment.get(enrollmentId) ?? { id: undefined, title: '' };
+        return mapDocumentToLearnerDto(d, prefix, enrollmentId, course.title, course.id);
+      })
+      .sort((a, b) => {
+        const aKey = a.documentDate ?? '';
+        const bKey = b.documentDate ?? '';
+        if (aKey !== bKey) return bKey.localeCompare(aKey);
+        return b.id.localeCompare(a.id);
+      });
+    return { items };
+  }
+
+  private resolveEnrollmentCourse(
+    tenantId: string,
+    enrollment: Enrollment
+  ): { id?: string; title: string } {
+    // Enrollment связан с курсом через groupCourse (group -> course).
+    const groupCourse = this.state.groupCourses.find(
+      (gc) => gc.tenantId === tenantId && gc.groupId === enrollment.groupId
+    );
+    if (!groupCourse) return { title: '' };
+    const course = this.state.courses.find(
+      (c) => c.tenantId === tenantId && c.id === groupCourse.courseId
+    );
+    if (!course) return { title: '' };
+    return { id: course.id, title: course.title };
   }
 
   createEnrollment(

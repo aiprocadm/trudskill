@@ -409,6 +409,32 @@ export class MvpController {
       permissions: c.permissions
     });
   }
+  /**
+   * Phase 1 §4.3 — расширенный listing документов для зачисления:
+   * все типы (certificate / diploma / attestation / …), не только certificate.
+   * Ownership-check тот же, что у /certificates — учащийся видит только свои.
+   */
+  @Get('enrollments/:id/documents')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('enrollments.read')
+  listEnrollmentDocuments(@CurrentContext() c: RequestContext, @Param('id') enrollmentId: string) {
+    return this.mvpService.listEnrollmentDocuments(c.tenantId!, enrollmentId, {
+      actorId: c.userId,
+      permissions: c.permissions
+    });
+  }
+  /**
+   * Phase 1 §4.3 — агрегированный список «мои документы» для текущего IAM-актора.
+   * Сервис сам резолвит learner-ы, привязанные к актору (linkedIamUserId).
+   * Если ни одной привязки нет (admin/teacher), возвращает пустой массив —
+   * это НЕ ошибка, а корректное «у вас нет документов как у слушателя».
+   */
+  @Get('me/documents')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('enrollments.read')
+  listMyDocuments(@CurrentContext() c: RequestContext) {
+    return this.mvpService.listMyDocuments(c.tenantId!, c.userId);
+  }
   @Get('enrollments/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('enrollments.read')
