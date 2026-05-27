@@ -1,5 +1,9 @@
 # Operations runbook
 
+## Доменные runbook'и
+
+- [Pillar A — выдача документов](runbooks/pillar-a-incidents.md) — инциденты по выдаче, отзыву, QR-верификации, 152-ФЗ.
+
 ## Daily checks
 
 - health endpoints for backend and realtime.
