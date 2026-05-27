@@ -3,10 +3,21 @@ import { describe, expect, it } from 'vitest';
 
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { LearnerPdfCardService } from './learner-pdf-card.service.js';
+import { AuditService } from '../audit/audit.service.js';
 
 import type { Course, CourseVersion, Enrollment, GroupCourse, Learner } from './mvp.types.js';
+import type { RequestContext } from '../../common/context/request-context.js';
 import type { DocumentsService } from '../documents/documents.service.js';
 import type { GeneratedDocumentEntity } from '../documents/documents.types.js';
+
+const ctx: RequestContext = {
+  requestId: 'r0',
+  correlationId: 'c0',
+  tenantId: 'tenant_demo',
+  userId: 'admin',
+  ip: '127.0.0.1',
+  userAgent: 'vitest'
+};
 
 function makeServiceWithFixtures() {
   const state = new InMemoryMvpState();
@@ -116,14 +127,14 @@ function makeServiceWithFixtures() {
     }
   } as unknown as DocumentsService;
 
-  const service = new LearnerPdfCardService(state, fakeDocumentsService);
+  const service = new LearnerPdfCardService(state, fakeDocumentsService, new AuditService());
   return { service };
 }
 
 describe('LearnerPdfCardService (Plan C §5.11)', () => {
-  it('composes aggregate with learner core, enrollments, documents', () => {
+  it('composes aggregate with learner core, enrollments, documents', async () => {
     const { service } = makeServiceWithFixtures();
-    const aggregate = service.composeData('tenant_demo', 'l_1');
+    const aggregate = await service.composeData('tenant_demo', 'admin', 'l_1', ctx);
 
     expect(aggregate.learner.fullName).toBe('Иванов Иван Сергеевич');
     expect(aggregate.learner.snils).toBe('111-222-333 44');
@@ -147,28 +158,31 @@ describe('LearnerPdfCardService (Plan C §5.11)', () => {
     });
   });
 
-  it('throws NotFoundException when learner not in tenant', () => {
+  it('throws NotFoundException when learner not in tenant', async () => {
     const { service } = makeServiceWithFixtures();
-    expect(() => service.composeData('tenant_other', 'l_1')).toThrow(NotFoundException);
+    await expect(service.composeData('tenant_other', 'admin', 'l_1', ctx)).rejects.toThrow(
+      NotFoundException
+    );
   });
 
-  it('returns no documents from other tenants (tenant isolation)', () => {
+  it('returns no documents from other tenants (tenant isolation)', async () => {
     const { service } = makeServiceWithFixtures();
-    const aggregate = service.composeData('tenant_demo', 'l_1');
+    const aggregate = await service.composeData('tenant_demo', 'admin', 'l_1', ctx);
     expect(aggregate.documents.every((d) => d.id !== 'doc_other_tenant')).toBe(true);
   });
 
-  it('handles learner without middleName/snils/position gracefully', () => {
+  it('handles learner without middleName/snils/position gracefully', async () => {
     const { service } = makeServiceWithFixtures();
     // Add a second learner without optional fields
-    const aggregate = service.composeData('tenant_demo', 'l_1');
+    const aggregate = await service.composeData('tenant_demo', 'admin', 'l_1', ctx);
     expect(aggregate.learner.fullName.trim().length).toBeGreaterThan(0);
   });
 
-  it('returns empty enrollments and documents arrays when learner has no enrollments', () => {
+  it('returns empty enrollments and documents arrays when learner has no enrollments', async () => {
     const { service } = makeServiceWithFixtures();
     // Use l_2 from tenant_other but query in tenant_other context, which doesn't have enrollments.
-    const aggregate = service.composeData('tenant_other', 'l_2');
+    const ctxOther: RequestContext = { ...ctx, tenantId: 'tenant_other' };
+    const aggregate = await service.composeData('tenant_other', 'admin', 'l_2', ctxOther);
     expect(aggregate.enrollments).toEqual([]);
     expect(aggregate.documents).toEqual([]);
   });

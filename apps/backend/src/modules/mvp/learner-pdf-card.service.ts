@@ -2,9 +2,11 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from './infrastructure/mvp-state.token.js';
+import { AuditService } from '../audit/audit.service.js';
 import { DocumentsService } from '../documents/documents.service.js';
 
 import type { Course, CourseVersion, Enrollment, Learner } from './mvp.types.js';
+import type { RequestContext } from '../../common/context/request-context.js';
 import type { GeneratedDocumentEntity } from '../documents/documents.types.js';
 
 export interface LearnerPdfCardEnrollment {
@@ -53,14 +55,34 @@ export interface LearnerPdfCardAggregate {
 export class LearnerPdfCardService {
   constructor(
     @Inject(MVP_STATE) private readonly state: InMemoryMvpState,
-    @Inject(DocumentsService) private readonly documentsService: DocumentsService
+    @Inject(DocumentsService) private readonly documentsService: DocumentsService,
+    @Inject(AuditService) private readonly auditService: AuditService
   ) {}
 
-  composeData(tenantId: string, learnerId: string): LearnerPdfCardAggregate {
+  async composeData(
+    tenantId: string,
+    actorId: string | undefined,
+    learnerId: string,
+    ctx: RequestContext
+  ): Promise<LearnerPdfCardAggregate> {
     const learner = this.state.learners.find((l) => l.tenantId === tenantId && l.id === learnerId);
     if (!learner) {
       throw new NotFoundException({ code: 'learner_not_found', message: 'Ученик не найден' });
     }
+
+    // 152-ФЗ access-log. Пишем ТОЛЬКО entityId — никаких ФИО/СНИЛС/email в audit.
+    await this.auditService.writeCritical({
+      tenantId,
+      actorId,
+      action: 'learner.personal_data_accessed',
+      entityType: 'mvp.learner',
+      entityId: learnerId,
+      newValues: { accessedVia: 'learner_pdf_card' },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
 
     const enrollments = this.state.enrollments.filter(
       (e) => e.tenantId === tenantId && e.learnerId === learnerId

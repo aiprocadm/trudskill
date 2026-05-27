@@ -141,7 +141,7 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('learners.read')
   getLearnerPdfCard(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.learnerPdfCardService.composeData(c.tenantId!, id);
+    return this.learnerPdfCardService.composeData(c.tenantId!, c.userId, id, c);
   }
   @Post('learners')
   @UseGuards(PermissionGuard)
