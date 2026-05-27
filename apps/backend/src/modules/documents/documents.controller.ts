@@ -168,7 +168,7 @@ export class DocumentsController {
     @CurrentContext() c: RequestContext,
     @Body() b: CreateTemplateVariableRequest
   ) {
-    return this.documentsService.createTemplateVariable(c.tenantId!, b);
+    return this.documentsService.createTemplateVariable(c.tenantId!, c.userId, b, c);
   }
   @Get('template-variables/:id')
   @UseGuards(PermissionGuard)
@@ -184,13 +184,13 @@ export class DocumentsController {
     @Param('id') id: string,
     @Body() b: UpdateTemplateVariableRequest
   ) {
-    return this.documentsService.updateTemplateVariable(c.tenantId!, id, b);
+    return this.documentsService.updateTemplateVariable(c.tenantId!, c.userId, id, b, c);
   }
   @Delete('template-variables/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
   deleteTemplateVariable(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.documentsService.deleteTemplateVariable(c.tenantId!, id);
+    return this.documentsService.deleteTemplateVariable(c.tenantId!, c.userId, id, c);
   }
 
   @Get('template-bindings')

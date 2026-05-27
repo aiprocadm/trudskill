@@ -243,3 +243,34 @@ describe('Audit completeness — template version mutations', () => {
     });
   });
 });
+
+describe('Audit completeness — template variables', () => {
+  it('emits audit on create/update/delete variable', () => {
+    const state = new InMemoryDocumentsState();
+    const audit = new AuditService();
+    const service = new DocumentsService(state, audit, new RealtimeEventsService());
+    const tpl = service.createTemplate('t1', 'u1', { name: 'X', templateType: 'contract' }, ctx);
+    const v = service.createTemplateVersion('t1', 'u1', {
+      templateId: tpl.id,
+      fileId: 'f'
+    });
+    const variable = service.createTemplateVariable(
+      't1',
+      'u1',
+      {
+        templateVersionId: v.id,
+        variableCode: 'fio',
+        displayName: 'ФИО',
+        categoryCode: 'learner',
+        dataType: 'string'
+      },
+      ctx
+    );
+    service.updateTemplateVariable('t1', 'u1', variable.id, { displayName: 'Имя' }, ctx);
+    service.deleteTemplateVariable('t1', 'u1', variable.id, ctx);
+    const actions = audit['records'].map((e) => e.action);
+    expect(actions).toContain('documents.template_variable_created');
+    expect(actions).toContain('documents.template_variable_updated');
+    expect(actions).toContain('documents.template_variable_deleted');
+  });
+});

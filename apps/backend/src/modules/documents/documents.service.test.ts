@@ -325,13 +325,18 @@ describe('DocumentsService', () => {
     });
 
     expect(() =>
-      service.createTemplateVariable('t1', {
-        templateVersionId: version.id,
-        variableCode: 'x',
-        displayName: 'X',
-        categoryCode: 'unknown',
-        dataType: 'string'
-      })
+      service.createTemplateVariable(
+        't1',
+        'u1',
+        {
+          templateVersionId: version.id,
+          variableCode: 'x',
+          displayName: 'X',
+          categoryCode: 'unknown',
+          dataType: 'string'
+        },
+        ctx
+      )
     ).toThrowError();
   });
 
@@ -442,14 +447,19 @@ describe('DocumentsService', () => {
       fileId: 'file_1',
       variablesSchema: { variables: [{ code: 'document.title', required: true }] }
     });
-    service.createTemplateVariable('t1', {
-      templateVersionId: version.id,
-      variableCode: 'tenant.name',
-      displayName: 'Tenant Name',
-      categoryCode: 'tenant',
-      dataType: 'string',
-      isRequired: true
-    });
+    service.createTemplateVariable(
+      't1',
+      'u1',
+      {
+        templateVersionId: version.id,
+        variableCode: 'tenant.name',
+        displayName: 'Tenant Name',
+        categoryCode: 'tenant',
+        dataType: 'string',
+        isRequired: true
+      },
+      ctx
+    );
 
     expect(() =>
       service.resolveTemplateVariables('t1', version.id, { 'document.title': 'Doc' })
@@ -551,14 +561,19 @@ describe('DocumentsService', () => {
       templateId: template.id,
       fileId: 'file_p'
     });
-    const created = service.createTemplateVariable('t1', {
-      templateVersionId: version.id,
-      variableCode: 'program.academic_hours',
-      displayName: 'Часы',
-      categoryCode: 'program',
-      dataType: 'number',
-      isRequired: true
-    });
+    const created = service.createTemplateVariable(
+      't1',
+      'u1',
+      {
+        templateVersionId: version.id,
+        variableCode: 'program.academic_hours',
+        displayName: 'Часы',
+        categoryCode: 'program',
+        dataType: 'number',
+        isRequired: true
+      },
+      ctx
+    );
     expect(created.categoryCode).toBe('program');
     expect(created.variableCode).toBe('program.academic_hours');
   });
@@ -579,14 +594,19 @@ describe('DocumentsService', () => {
       templateId: template.id,
       fileId: 'file_p2'
     });
-    const created = service.createTemplateVariable('t1', {
-      templateVersionId: version.id,
-      variableCode: 'commission.chairman.name',
-      displayName: 'ФИО председателя',
-      categoryCode: 'commission',
-      dataType: 'string',
-      isRequired: true
-    });
+    const created = service.createTemplateVariable(
+      't1',
+      'u1',
+      {
+        templateVersionId: version.id,
+        variableCode: 'commission.chairman.name',
+        displayName: 'ФИО председателя',
+        categoryCode: 'commission',
+        dataType: 'string',
+        isRequired: true
+      },
+      ctx
+    );
     expect(created.categoryCode).toBe('commission');
   });
 });

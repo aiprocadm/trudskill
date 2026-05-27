@@ -299,7 +299,12 @@ export class DocumentsService {
     );
     return this.page(rows, query);
   }
-  createTemplateVariable(tenantId: string, req: CreateTemplateVariableRequest) {
+  createTemplateVariable(
+    tenantId: string,
+    actorId: string | undefined,
+    req: CreateTemplateVariableRequest,
+    ctx: RequestContext
+  ) {
     this.getTemplateVersion(tenantId, req.templateVersionId);
     assertVariableCategoryCode(req.categoryCode);
     const duplicate = this.state.variables.find(
@@ -322,6 +327,18 @@ export class DocumentsService {
       description: req.description
     };
     this.state.variables.push(entity);
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.template_variable_created',
+      entityType: 'documents.template_variable',
+      entityId: entity.id,
+      newValues: entity as unknown as Record<string, unknown>,
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return entity;
   }
   getTemplateVariable(tenantId: string, id: string) {
@@ -331,17 +348,54 @@ export class DocumentsService {
       id
     );
   }
-  updateTemplateVariable(tenantId: string, id: string, req: UpdateTemplateVariableRequest) {
+  updateTemplateVariable(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    req: UpdateTemplateVariableRequest,
+    ctx: RequestContext
+  ) {
     const row = this.getTemplateVariable(tenantId, id);
+    const oldValues = { ...row };
     if (req.categoryCode !== undefined) {
       assertVariableCategoryCode(req.categoryCode);
     }
     Object.assign(row, req);
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.template_variable_updated',
+      entityType: 'documents.template_variable',
+      entityId: id,
+      oldValues: oldValues as unknown as Record<string, unknown>,
+      newValues: row as unknown as Record<string, unknown>,
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return row;
   }
-  deleteTemplateVariable(tenantId: string, id: string) {
+  deleteTemplateVariable(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    ctx: RequestContext
+  ) {
     const row = this.getTemplateVariable(tenantId, id);
     row.deletedAt = this.now();
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.template_variable_deleted',
+      entityType: 'documents.template_variable',
+      entityId: id,
+      newValues: { deletedAt: row.deletedAt },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return { deleted: true };
   }
 
