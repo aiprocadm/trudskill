@@ -1,4 +1,5 @@
 import { chatStyles } from './chat';
+import { courseViewerStyles } from './course-viewer';
 import { formStyles } from './forms';
 import { foundationStyles } from './foundation';
 import { layoutStyles } from './layout';
@@ -11,7 +12,8 @@ export const uiStyleLayers = {
   tables: tableStyles,
   layout: layoutStyles,
   chat: chatStyles,
-  modal: modalStyles
+  modal: modalStyles,
+  courseViewer: courseViewerStyles
 } as const;
 
 export const uiGlobalStyles = Object.values(uiStyleLayers).join('\n');
