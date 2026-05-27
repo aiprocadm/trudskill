@@ -797,9 +797,9 @@ describe('DocumentsService.issueGroupOrder (Plan B §5.7)', () => {
     return { service, state };
   }
 
-  it('creates an order document of type "order" tied to the group', () => {
+  it('creates an order document of type "order" tied to the group', async () => {
     const { service } = seedService();
-    const res = service.issueGroupOrder(
+    const res = await service.issueGroupOrder(
       't1',
       'actor_1',
       { groupId: 'g_1', templateId: 'tpl_order', enrollmentIds: [] },
@@ -812,9 +812,9 @@ describe('DocumentsService.issueGroupOrder (Plan B §5.7)', () => {
     expect(res.alreadyExisted).toBe(false);
   });
 
-  it('cascades certificates and links them to the order via groupOrderDocumentId', () => {
+  it('cascades certificates and links them to the order via groupOrderDocumentId', async () => {
     const { service } = seedService();
-    const res = service.issueGroupOrder(
+    const res = await service.issueGroupOrder(
       't1',
       'actor_1',
       {
@@ -833,9 +833,9 @@ describe('DocumentsService.issueGroupOrder (Plan B §5.7)', () => {
     }
   });
 
-  it('is idempotent — second call with same groupId+templateId returns existing order', () => {
+  it('is idempotent — second call with same groupId+templateId returns existing order', async () => {
     const { service, state } = seedService();
-    const first = service.issueGroupOrder(
+    const first = await service.issueGroupOrder(
       't1',
       'actor_1',
       {
@@ -846,7 +846,7 @@ describe('DocumentsService.issueGroupOrder (Plan B §5.7)', () => {
       },
       ctx
     );
-    const second = service.issueGroupOrder(
+    const second = await service.issueGroupOrder(
       't1',
       'actor_1',
       {
@@ -866,19 +866,19 @@ describe('DocumentsService.issueGroupOrder (Plan B §5.7)', () => {
     expect(allCerts).toHaveLength(1);
   });
 
-  it('rejects when the order template is not of type "order"', () => {
+  it('rejects when the order template is not of type "order"', async () => {
     const { service } = seedService();
-    expect(() =>
+    await expect(
       service.issueGroupOrder(
         't1',
         'actor_1',
         { groupId: 'g_1', templateId: 'tpl_cert', enrollmentIds: [] },
         ctx
       )
-    ).toThrow(/template_type/);
+    ).rejects.toThrow(/template_type/);
   });
 
-  it('rejects template from another tenant (cross-tenant isolation)', () => {
+  it('rejects template from another tenant (cross-tenant isolation)', async () => {
     const { service, state } = seedService();
     state.templates.push({
       id: 'tpl_order_t2',
@@ -889,20 +889,20 @@ describe('DocumentsService.issueGroupOrder (Plan B §5.7)', () => {
       createdAt: '2026-05-01T00:00:00.000Z',
       updatedAt: '2026-05-01T00:00:00.000Z'
     });
-    expect(() =>
+    await expect(
       service.issueGroupOrder(
         't1',
         'actor_1',
         { groupId: 'g_1', templateId: 'tpl_order_t2', enrollmentIds: [] },
         ctx
       )
-    ).toThrow(NotFoundException);
+    ).rejects.toThrow(NotFoundException);
   });
 
-  it('writes audit entries for order and each cascaded certificate', () => {
+  it('writes audit entries for order and each cascaded certificate', async () => {
     const state = new InMemoryDocumentsState();
     const audit = new AuditService();
-    const auditSpy = vi.spyOn(audit, 'write');
+    const auditSpy = vi.spyOn(audit, 'writeCritical');
     const service = new DocumentsService(state, audit, new RealtimeEventsService());
     state.templates.push(
       {
@@ -946,7 +946,7 @@ describe('DocumentsService.issueGroupOrder (Plan B §5.7)', () => {
         createdAt: '2026-05-01T00:00:00.000Z'
       }
     );
-    service.issueGroupOrder(
+    await service.issueGroupOrder(
       't1',
       'actor_1',
       {
@@ -964,7 +964,7 @@ describe('DocumentsService.issueGroupOrder (Plan B §5.7)', () => {
 });
 
 describe('DocumentsService qrToken generation (Plan C §5.8)', () => {
-  it('issueGroupOrder generates qrToken on order document', () => {
+  it('issueGroupOrder generates qrToken on order document', async () => {
     const state = new InMemoryDocumentsState();
     const service = new DocumentsService(state, new AuditService(), new RealtimeEventsService());
     state.templates.push({
@@ -987,7 +987,7 @@ describe('DocumentsService qrToken generation (Plan C §5.8)', () => {
       isActive: true,
       createdAt: '2026-05-01T00:00:00.000Z'
     });
-    const res = service.issueGroupOrder(
+    const res = await service.issueGroupOrder(
       't1',
       'actor_1',
       { groupId: 'g_1', templateId: 'tpl_order', enrollmentIds: [] },
@@ -998,7 +998,7 @@ describe('DocumentsService qrToken generation (Plan C §5.8)', () => {
     expect(res.order.qrToken!).toMatch(/^[A-Za-z0-9_-]+$/);
   });
 
-  it('issueGroupOrder generates unique qrToken for order + each cascaded certificate', () => {
+  it('issueGroupOrder generates unique qrToken for order + each cascaded certificate', async () => {
     const state = new InMemoryDocumentsState();
     const service = new DocumentsService(state, new AuditService(), new RealtimeEventsService());
     state.templates.push(
@@ -1045,7 +1045,7 @@ describe('DocumentsService qrToken generation (Plan C §5.8)', () => {
         createdAt: '2026-05-01T00:00:00.000Z'
       }
     );
-    const res = service.issueGroupOrder(
+    const res = await service.issueGroupOrder(
       't1',
       'actor_1',
       {
@@ -1090,44 +1090,50 @@ describe('DocumentsService.revokeDocument (Plan C §5.9)', () => {
     return { state, audit, service };
   }
 
-  it('revokes a generated document and sets revokedAt/revokedBy/reason', () => {
+  it('revokes a generated document and sets revokedAt/revokedBy/reason', async () => {
     const { service } = seed();
-    const result = service.revokeDocument('t1', 'admin_1', 'gdoc_revtest', 'Ошибка в ФИО', ctx);
+    const result = await service.revokeDocument(
+      't1',
+      'admin_1',
+      'gdoc_revtest',
+      'Ошибка в ФИО',
+      ctx
+    );
     expect(result.status).toBe('revoked');
     expect(result.revokedAt).toBeDefined();
     expect(result.revokedBy).toBe('admin_1');
     expect(result.revocationReason).toBe('Ошибка в ФИО');
   });
 
-  it('throws ConflictException when revoking an already-revoked document', () => {
+  it('throws ConflictException when revoking an already-revoked document', async () => {
     const { service } = seed();
-    service.revokeDocument('t1', 'admin_1', 'gdoc_revtest', 'r1', ctx);
-    expect(() => service.revokeDocument('t1', 'admin_1', 'gdoc_revtest', 'r2', ctx)).toThrowError(
-      /уже аннулирован/
-    );
+    await service.revokeDocument('t1', 'admin_1', 'gdoc_revtest', 'r1', ctx);
+    await expect(
+      service.revokeDocument('t1', 'admin_1', 'gdoc_revtest', 'r2', ctx)
+    ).rejects.toThrowError(/уже аннулирован/);
   });
 
-  it('throws BadRequestException when reason is empty', () => {
+  it('throws BadRequestException when reason is empty', async () => {
     const { service } = seed();
-    expect(() => service.revokeDocument('t1', 'admin_1', 'gdoc_revtest', '', ctx)).toThrowError(
-      /Причина аннулирования/
-    );
-    expect(() => service.revokeDocument('t1', 'admin_1', 'gdoc_revtest', '   ', ctx)).toThrowError(
-      /Причина аннулирования/
-    );
+    await expect(
+      service.revokeDocument('t1', 'admin_1', 'gdoc_revtest', '', ctx)
+    ).rejects.toThrowError(/Причина аннулирования/);
+    await expect(
+      service.revokeDocument('t1', 'admin_1', 'gdoc_revtest', '   ', ctx)
+    ).rejects.toThrowError(/Причина аннулирования/);
   });
 
-  it('cross-tenant: cannot revoke document from another tenant', () => {
+  it('cross-tenant: cannot revoke document from another tenant', async () => {
     const { service } = seed();
-    expect(() =>
+    await expect(
       service.revokeDocument('t2', 'admin_1', 'gdoc_revtest', 'reason', ctx)
-    ).toThrowError(NotFoundException);
+    ).rejects.toThrowError(NotFoundException);
   });
 
-  it('writes audit entry documents.revoked', () => {
+  it('writes audit entry documents.revoked', async () => {
     const { service, audit } = seed();
-    const spy = vi.spyOn(audit, 'write');
-    service.revokeDocument('t1', 'admin_1', 'gdoc_revtest', 'reason', ctx);
+    const spy = vi.spyOn(audit, 'writeCritical');
+    await service.revokeDocument('t1', 'admin_1', 'gdoc_revtest', 'reason', ctx);
     const actions = spy.mock.calls.map((c) => c[0].action);
     expect(actions).toContain('documents.revoked');
   });
@@ -1158,9 +1164,9 @@ describe('DocumentsService.reissueDocument (Plan C §5.9)', () => {
     return { state, audit, service };
   }
 
-  it('creates a replacement with new number + new qr_token, links replaces/replaced_by, revokes original', () => {
+  it('creates a replacement with new number + new qr_token, links replaces/replaced_by, revokes original', async () => {
     const { service } = seed();
-    const { original, replacement } = service.reissueDocument(
+    const { original, replacement } = await service.reissueDocument(
       't1',
       'admin_1',
       'gdoc_orig',
@@ -1177,33 +1183,33 @@ describe('DocumentsService.reissueDocument (Plan C §5.9)', () => {
     expect(original.revocationReason).toContain('Опечатка');
   });
 
-  it('is idempotent — second reissue returns same replacement (cached pair)', () => {
+  it('is idempotent — second reissue returns same replacement (cached pair)', async () => {
     const { service } = seed();
-    const first = service.reissueDocument('t1', 'admin_1', 'gdoc_orig', 'reason', ctx);
-    const second = service.reissueDocument('t1', 'admin_1', 'gdoc_orig', 'reason', ctx);
+    const first = await service.reissueDocument('t1', 'admin_1', 'gdoc_orig', 'reason', ctx);
+    const second = await service.reissueDocument('t1', 'admin_1', 'gdoc_orig', 'reason', ctx);
     expect(second.replacement.id).toBe(first.replacement.id);
     expect(second.original.id).toBe(first.original.id);
   });
 
-  it('rejects reissue on document that was manually revoked (without prior reissue)', () => {
+  it('rejects reissue on document that was manually revoked (without prior reissue)', async () => {
     const { service } = seed();
-    service.revokeDocument('t1', 'admin_1', 'gdoc_orig', 'Manual revoke', ctx);
-    expect(() =>
+    await service.revokeDocument('t1', 'admin_1', 'gdoc_orig', 'Manual revoke', ctx);
+    await expect(
       service.reissueDocument('t1', 'admin_1', 'gdoc_orig', 'reissue?', ctx)
-    ).toThrowError(/аннулирован вручную/);
+    ).rejects.toThrowError(/аннулирован вручную/);
   });
 
-  it('cross-tenant: cannot reissue from another tenant', () => {
+  it('cross-tenant: cannot reissue from another tenant', async () => {
     const { service } = seed();
-    expect(() => service.reissueDocument('t2', 'admin_1', 'gdoc_orig', 'reason', ctx)).toThrowError(
-      NotFoundException
-    );
+    await expect(
+      service.reissueDocument('t2', 'admin_1', 'gdoc_orig', 'reason', ctx)
+    ).rejects.toThrowError(NotFoundException);
   });
 
-  it('writes both documents.reissued + documents.revoked audit entries', () => {
+  it('writes both documents.reissued + documents.revoked audit entries', async () => {
     const { service, audit } = seed();
-    const spy = vi.spyOn(audit, 'write');
-    service.reissueDocument('t1', 'admin_1', 'gdoc_orig', 'reason', ctx);
+    const spy = vi.spyOn(audit, 'writeCritical');
+    await service.reissueDocument('t1', 'admin_1', 'gdoc_orig', 'reason', ctx);
     const actions = spy.mock.calls.map((c) => c[0].action);
     expect(actions).toContain('documents.reissued');
     expect(actions).toContain('documents.revoked');

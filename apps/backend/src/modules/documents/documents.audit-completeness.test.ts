@@ -94,3 +94,85 @@ describe('Audit completeness — archiveDocument', () => {
     expect(events.filter((e) => e.action === 'documents.archived')).toHaveLength(1);
   });
 });
+
+describe('Audit completeness — revoke uses writeCritical', () => {
+  it('awaits audit write before returning revoked document', async () => {
+    const { audit, service, generated } = makeServiceWithDoc();
+    let auditAwaited = false;
+    const original = audit.writeCritical.bind(audit);
+    audit.writeCritical = async (...args: Parameters<typeof original>) => {
+      // имитируем задержку, чтобы убедиться что caller awaits
+      await new Promise((r) => setTimeout(r, 5));
+      auditAwaited = true;
+      return original(...args);
+    };
+    await service.revokeDocument('t1', 'u1', generated.id, 'mistake', ctx);
+    expect(auditAwaited).toBe(true);
+    const events = await audit.list('t1');
+    expect(events.find((e) => e.action === 'documents.revoked')).toBeDefined();
+  });
+});
+
+describe('Audit completeness — reissue uses writeCritical', () => {
+  it('emits TWO writeCritical events (reissued + revoked of original)', async () => {
+    const { audit, service, generated } = makeServiceWithDoc();
+    const { replacement } = await service.reissueDocument('t1', 'u1', generated.id, 'fix', ctx);
+    const events = await audit.list('t1');
+    const reissued = events.find(
+      (e) => e.action === 'documents.reissued' && e.entityId === replacement.id
+    );
+    const revoked = events.find(
+      (e) => e.action === 'documents.revoked' && e.entityId === generated.id
+    );
+    expect(reissued).toBeDefined();
+    expect(revoked).toBeDefined();
+  });
+});
+
+describe('Audit completeness — issueGroupOrder uses writeCritical', () => {
+  it('awaits audit write for order + cascade certificates', async () => {
+    const state = new InMemoryDocumentsState();
+    const audit = new AuditService();
+    const service = new DocumentsService(state, audit, new RealtimeEventsService());
+    const orderTpl = service.createTemplate(
+      't1',
+      'u1',
+      { name: 'Order', templateType: 'order' },
+      ctx
+    );
+    const orderV = service.createTemplateVersion('t1', 'u1', {
+      templateId: orderTpl.id,
+      fileId: 'f_o'
+    });
+    service.activateTemplateVersion('t1', orderV.id);
+    const certTpl = service.createTemplate(
+      't1',
+      'u1',
+      { name: 'Cert', templateType: 'certificate' },
+      ctx
+    );
+    const certV = service.createTemplateVersion('t1', 'u1', {
+      templateId: certTpl.id,
+      fileId: 'f_c'
+    });
+    service.activateTemplateVersion('t1', certV.id);
+    const result = await service.issueGroupOrder(
+      't1',
+      'u1',
+      {
+        groupId: 'g1',
+        templateId: orderTpl.id,
+        certificateTemplateId: certTpl.id,
+        enrollmentIds: ['e1', 'e2']
+      },
+      ctx
+    );
+    const events = await audit.list('t1');
+    const orderEvent = events.find(
+      (e) => e.action === 'documents.group_order_issued' && e.entityId === result.order.id
+    );
+    expect(orderEvent).toBeDefined();
+    const certEvents = events.filter((e) => e.action === 'documents.certificate_issued_via_order');
+    expect(certEvents).toHaveLength(2);
+  });
+});

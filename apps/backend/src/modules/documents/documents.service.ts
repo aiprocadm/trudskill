@@ -938,13 +938,13 @@ export class DocumentsService {
    * archived → 422 (no-op revoke на архивных — недопустимо без отдельного бизнес-кейса).
    * Reason обязательна (валидируется здесь — UI тоже проверяет, но defence in depth).
    */
-  revokeDocument(
+  async revokeDocument(
     tenantId: string,
     actorId: string | undefined,
     documentId: string,
     reason: string,
     ctx: RequestContext
-  ): GeneratedDocumentEntity {
+  ): Promise<GeneratedDocumentEntity> {
     if (!reason || reason.trim().length === 0) {
       throw new BadRequestException({
         code: 'revocation_reason_required',
@@ -969,7 +969,7 @@ export class DocumentsService {
     doc.revokedAt = this.now();
     doc.revokedBy = actorId;
     doc.revocationReason = reason.trim();
-    this.auditService.write({
+    await this.auditService.writeCritical({
       tenantId,
       actorId,
       action: 'documents.revoked',
@@ -998,13 +998,13 @@ export class DocumentsService {
    * Если оригинал revoked но без replacedByDocumentId — означает был просто
    * revoke без reissue; reissue в этом случае запрещён (409).
    */
-  reissueDocument(
+  async reissueDocument(
     tenantId: string,
     actorId: string | undefined,
     originalId: string,
     reason: string,
     ctx: RequestContext
-  ): { original: GeneratedDocumentEntity; replacement: GeneratedDocumentEntity } {
+  ): Promise<{ original: GeneratedDocumentEntity; replacement: GeneratedDocumentEntity }> {
     if (!reason || reason.trim().length === 0) {
       throw new BadRequestException({
         code: 'reissue_reason_required',
@@ -1056,7 +1056,7 @@ export class DocumentsService {
     original.revokedBy = actorId;
     original.revocationReason = `Перевыпуск: ${reason.trim()}`;
 
-    this.auditService.write({
+    await this.auditService.writeCritical({
       tenantId,
       actorId,
       action: 'documents.reissued',
@@ -1071,7 +1071,7 @@ export class DocumentsService {
       ip: ctx.ip,
       userAgent: ctx.userAgent
     });
-    this.auditService.write({
+    await this.auditService.writeCritical({
       tenantId,
       actorId,
       action: 'documents.revoked',
@@ -1138,12 +1138,12 @@ export class DocumentsService {
    * и НЕ создаёт дубликат. Это важно для UI: пользователь нажимает «Сгенерировать»
    * дважды — мы не должны выпускать два приказа.
    */
-  issueGroupOrder(
+  async issueGroupOrder(
     tenantId: string,
     actorId: string | undefined,
     req: IssueGroupOrderRequest,
     ctx: RequestContext
-  ): IssueGroupOrderResult {
+  ): Promise<IssueGroupOrderResult> {
     const orderTpl = this.state.templates.find(
       (t) => t.tenantId === tenantId && t.id === req.templateId
     );
@@ -1201,7 +1201,7 @@ export class DocumentsService {
       qrToken: this.generateQrToken()
     };
     this.state.generatedDocuments.push(order);
-    this.auditService.write({
+    await this.auditService.writeCritical({
       tenantId,
       actorId,
       action: 'documents.group_order_issued',
@@ -1267,7 +1267,7 @@ export class DocumentsService {
         };
         this.state.generatedDocuments.push(cert);
         certificates.push(cert);
-        this.auditService.write({
+        await this.auditService.writeCritical({
           tenantId,
           actorId,
           action: 'documents.certificate_issued_via_order',
