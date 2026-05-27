@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import { MyCoursesList } from './my-courses-list';
 import { pickNextStep } from './next-step';
 import { NextStepCard } from './next-step-card';
+import { RecentDocumentsCard } from './recent-documents-card';
 import { RoleSwitcher } from './role-switcher-tabs';
 import { useLearnerHomeData } from './use-learner-home-data';
 import { PageContainer, PageHeader, SectionError } from '../../components/state-wrappers';
@@ -25,6 +26,7 @@ export const LearnerHomeScreen = () => {
       {error ? <SectionError message={error} /> : null}
       <NextStepCard step={nextStep} loading={isLoading} />
       <MyCoursesList entries={data} loading={isLoading} />
+      <RecentDocumentsCard />
     </PageContainer>
   );
 };

@@ -19,6 +19,8 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import { LearnerDocumentsList } from '../learner-documents/documents-list';
+import { useMyDocuments } from '../learner-documents/hooks';
 import { useCourse, useLearnerCourseProgress } from '../mvp/hooks';
 
 import type { Material } from '../mvp/types';
@@ -110,6 +112,12 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
   const error = courseError ?? treeError ?? progressError ?? enrollmentError;
   const title = course?.title ?? `Курс ${courseId}`;
 
+  // Phase 1 §4.3 — end-of-learning: документы по этому курсу для текущего
+  // учащегося. `useMyDocuments` сам ограничивает выдачу записями, привязанными
+  // к learner.linkedIamUserId — то есть фронт получает только свои документы.
+  const { data: myDocuments } = useMyDocuments();
+  const courseDocuments = myDocuments?.items.filter((doc) => doc.courseId === courseId) ?? [];
+
   return (
     <PageContainer>
       <PageHeader
@@ -150,6 +158,13 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
             )}
           </section>
         </div>
+      ) : null}
+      {courseDocuments.length > 0 ? (
+        <LearnerDocumentsList
+          title="Документы по этому курсу"
+          showCourse={false}
+          documents={courseDocuments}
+        />
       ) : null}
     </PageContainer>
   );
