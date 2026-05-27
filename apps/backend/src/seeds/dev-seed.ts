@@ -16,12 +16,13 @@ export const devSeed = {
     { id: 'perm_2', code: 'iam.manage_roles' },
     { id: 'perm_3', code: 'tenant.read' }
   ],
-  roles: ['platform_admin', 'tenant_admin', 'manager', 'methodist'],
+  roles: ['platform_admin', 'tenant_admin', 'manager', 'methodist', 'learner'],
   users: [
     { login: 'platform_admin', status: 'active', passwordHash: hashPassword('Password123!') },
     { login: 'tenant_admin', status: 'active', passwordHash: hashPassword('Password123!') },
     { login: 'manager', status: 'active', passwordHash: hashPassword('Password123!') },
     { login: 'methodist', status: 'active', passwordHash: hashPassword('Password123!') },
+    { login: 'learner', status: 'active', passwordHash: hashPassword('Password123!') },
     { login: 'blocked_user', status: 'blocked', passwordHash: hashPassword('Password123!') }
   ]
 };
