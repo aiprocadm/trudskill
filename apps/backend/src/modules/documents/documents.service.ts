@@ -585,12 +585,31 @@ export class DocumentsService {
     this.writeTaskAudit(task, 'documents.task.failed', { errorMessage: message });
     return task;
   }
-  finalizeDocument(tenantId: string, id: string) {
+  async finalizeDocument(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    ctx: RequestContext
+  ) {
     const doc = this.getDocument(tenantId, id);
     if (doc.status === 'archived')
       throw new BadRequestException('Archived document cannot be finalized');
+    const oldValues = { status: doc.status, isFinal: doc.isFinal };
     doc.status = 'final';
     doc.isFinal = true;
+    await this.auditService.writeCritical({
+      tenantId,
+      actorId,
+      action: 'documents.finalized',
+      entityType: 'documents.generated',
+      entityId: id,
+      oldValues,
+      newValues: { status: doc.status, isFinal: doc.isFinal },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return doc;
   }
   archiveDocument(tenantId: string, id: string) {

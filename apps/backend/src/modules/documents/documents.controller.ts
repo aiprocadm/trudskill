@@ -256,7 +256,7 @@ export class DocumentsController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
   finalizeDocument(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.documentsService.finalizeDocument(c.tenantId!, id);
+    return this.documentsService.finalizeDocument(c.tenantId!, c.userId, id, c);
   }
   @Post('documents/:id/archive')
   @UseGuards(PermissionGuard)

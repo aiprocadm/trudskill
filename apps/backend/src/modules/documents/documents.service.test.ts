@@ -276,7 +276,7 @@ describe('DocumentsService', () => {
     expect(createdEntry?.metadata?.correlation_id).toBe('c1');
   });
 
-  it('keeps finalized documents immutable for finalize after archive', () => {
+  it('keeps finalized documents immutable for finalize after archive', async () => {
     const service = new DocumentsService(
       new InMemoryDocumentsState(),
       new AuditService(),
@@ -304,7 +304,7 @@ describe('DocumentsService', () => {
 
     const generated = service.completeTask('t1', task.id, 'file_generated_1');
     service.archiveDocument('t1', generated.id);
-    expect(() => service.finalizeDocument('t1', generated.id)).toThrowError();
+    await expect(service.finalizeDocument('t1', 'u1', generated.id, ctx)).rejects.toThrowError();
   });
 
   it('validates supported template variable categories', () => {
