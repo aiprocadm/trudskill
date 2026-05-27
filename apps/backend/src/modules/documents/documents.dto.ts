@@ -76,6 +76,8 @@ export interface GenerateDocumentRequest {
 }
 
 export interface GenerateDocumentsBatchRequest {
+  /** Pillar A hardening — caller-provided, чтобы retry того же batch не плодил tasks. */
+  idempotencyKey: string;
   templateId: string;
   templateVersionId?: string;
   sourceEntityType: string;

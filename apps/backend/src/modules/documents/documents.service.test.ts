@@ -207,6 +207,7 @@ describe('DocumentsService', () => {
       't1',
       'u1',
       {
+        idempotencyKey: 'test-key',
         templateId: template.id,
         sourceEntityType: 'enrollment',
         sourceEntityIds: ['e1', 'e2', 'e3'],

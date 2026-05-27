@@ -4,6 +4,38 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 
+/**
+ * Поля, которые НИКОГДА не должны попадать в audit_log в чистом виде —
+ * по 152-ФЗ и здравому смыслу. Если caller передал такое поле в
+ * newValues/oldValues, мы заменяем значение на '***'.
+ *
+ * Это defence in depth: каждый emitter должен сам решать, что класть
+ * в audit, но при ошибке здесь — последняя линия защиты.
+ */
+const SENSITIVE_FIELDS = new Set([
+  'snils',
+  'email',
+  'firstName',
+  'lastName',
+  'middleName',
+  'fullName',
+  'passportSeriesNumber',
+  'passport',
+  'phoneNumber',
+  'phone',
+  'birthDate',
+  'birth_date'
+]);
+
+function maskPii(values: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  if (!values) return values;
+  const masked: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(values)) {
+    masked[key] = SENSITIVE_FIELDS.has(key) ? '***' : value;
+  }
+  return masked;
+}
+
 export interface AuditLogRecord {
   id: string;
   tenantId: string;
@@ -124,7 +156,7 @@ export class AuditService {
   }
 
   private buildRecord(record: AuditWritePayload): AuditLogRecord {
-    const { correlationId, metadata: incomingMetadata, ...base } = record;
+    const { correlationId, metadata: incomingMetadata, oldValues, newValues, ...base } = record;
     const metadata: Record<string, unknown> | undefined = (() => {
       const merged: Record<string, unknown> = {
         ...(incomingMetadata ?? {}),
@@ -135,6 +167,8 @@ export class AuditService {
 
     const result: AuditLogRecord = {
       ...base,
+      oldValues: maskPii(oldValues),
+      newValues: maskPii(newValues),
       metadata,
       id: `audit_${randomUUID().replace(/-/g, '')}`,
       createdAt: new Date().toISOString()
