@@ -1,6 +1,7 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 
 import { loadCourseTree } from './api';
 import { useAuth } from '../auth/context';
@@ -29,6 +30,29 @@ const fetchCourseTreeForCourse = async (
   return { tree, courseVersionId: published.id };
 };
 
+export const useLearnerEnrollmentForCourse = (courseId: string) => {
+  const { session } = useAuth();
+  const learnerId = session?.user.id ?? '';
+  const query = useQuery({
+    queryKey: ['mvp', 'learnerEnrollmentsForCourse', learnerId, courseId],
+    enabled: Boolean(session) && learnerId.length > 0 && courseId.length > 0,
+    queryFn: () =>
+      mvpApi.listEnrollments(session!, {
+        learner_id: learnerId,
+        course_id: courseId,
+        page: 1,
+        page_size: 20
+      })
+  });
+  const items = query.data?.items ?? [];
+  const enrollment = items.find((e) => e.status === 'active') ?? items[0] ?? null;
+  return {
+    enrollmentId: enrollment?.id ?? null,
+    loading: query.isLoading,
+    error: query.error instanceof Error ? query.error.message : null
+  };
+};
+
 export const useCourseTree = (courseId: string) => {
   const { session } = useAuth();
   const query = useQuery({
@@ -51,4 +75,23 @@ export const buildProgressMap = (progressList: Progress[] | null): ProgressByMat
     map.set(item.materialId, item);
   }
   return map;
+};
+
+interface UpsertMaterialProgressArgs {
+  materialId: string;
+  enrollmentId: string;
+  studiedSeconds: number;
+}
+
+export const useUpsertMaterialProgress = (courseId: string) => {
+  const { session } = useAuth();
+  const queryClient = useQueryClient();
+  return useCallback(
+    async ({ materialId, enrollmentId, studiedSeconds }: UpsertMaterialProgressArgs) => {
+      if (!session) return;
+      await mvpApi.updateMaterialProgress(session, materialId, { enrollmentId, studiedSeconds });
+      await queryClient.invalidateQueries({ queryKey: ['mvp', 'progress', courseId] });
+    },
+    [session, queryClient, courseId]
+  );
 };

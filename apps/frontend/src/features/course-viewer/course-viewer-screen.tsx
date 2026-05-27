@@ -1,8 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { buildProgressMap, useCourseTree } from './hooks';
+import {
+  buildProgressMap,
+  useCourseTree,
+  useLearnerEnrollmentForCourse,
+  useUpsertMaterialProgress
+} from './hooks';
 import { computeUnlockedMaterials } from './lock-logic';
 import { MaterialPlayer } from './material-player';
 import { TableOfContents } from './table-of-contents';
@@ -46,6 +51,8 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
     loading: progressLoading,
     error: progressError
   } = useLearnerCourseProgress(courseId);
+  const { enrollmentId, error: enrollmentError } = useLearnerEnrollmentForCourse(courseId);
+  const upsertProgress = useUpsertMaterialProgress(courseId);
 
   const progressByMaterial = useMemo(() => buildProgressMap(progress?.items ?? null), [progress]);
   const lockState = useMemo(
@@ -85,13 +92,22 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
   }, [progressByMaterial]);
   const completionPercent = totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
 
+  const handleFlush = useCallback(
+    (studiedSeconds: number) => {
+      if (!currentMaterialId || !enrollmentId) return;
+      void upsertProgress({ materialId: currentMaterialId, enrollmentId, studiedSeconds });
+    },
+    [currentMaterialId, enrollmentId, upsertProgress]
+  );
+
   useWatchTracker({
-    materialId: currentMaterialId,
-    minViewSeconds: currentMaterial?.minViewSeconds ?? 30
+    materialId: enrollmentId ? currentMaterialId : null,
+    minViewSeconds: currentMaterial?.minViewSeconds ?? 30,
+    onFlush: handleFlush
   });
 
   const loading = courseLoading || treeLoading || progressLoading;
-  const error = courseError ?? treeError ?? progressError;
+  const error = courseError ?? treeError ?? progressError ?? enrollmentError;
   const title = course?.title ?? `Курс ${courseId}`;
 
   return (
