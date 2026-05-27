@@ -359,6 +359,47 @@ describe('Plan A — attestation commissions (migration 0029)', () => {
   });
 });
 
+describe('IAM learner role seed (migration 0038)', () => {
+  const learnerSeedSql = migrationSqlByFile.get('0038_iam_learner_role_and_seed.sql') ?? '';
+
+  it('migration file exists in the chain', () => {
+    expect(migrationFiles).toContain('0038_iam_learner_role_and_seed.sql');
+    expect(learnerSeedSql.length).toBeGreaterThan(0);
+  });
+
+  it('inserts the learner role for tenant_demo', () => {
+    expect(learnerSeedSql).toMatch(/INSERT\s+INTO\s+iam\.roles[\s\S]*'r_learner'/i);
+    expect(learnerSeedSql).toMatch(/'learner'/);
+  });
+
+  it('grants progress.read + progress.recalculate to the learner role', () => {
+    expect(learnerSeedSql).toMatch(/'progress\.read'/);
+    expect(learnerSeedSql).toMatch(/'progress\.recalculate'/);
+  });
+
+  it('grants learner the core read permissions needed for the course viewer', () => {
+    for (const code of ['enrollments.read', 'courses.read', 'materials.read']) {
+      expect(learnerSeedSql, `learner should be granted ${code}`).toContain(`'${code}'`);
+    }
+  });
+
+  it('grants learner the assessment-taking permissions', () => {
+    for (const code of [
+      'assessment.attempts.take',
+      'assessment.attempts.read',
+      'assessment.results.read',
+      'assessment.submissions.submit',
+      'assessment.assignments.read'
+    ]) {
+      expect(learnerSeedSql, `learner should be granted ${code}`).toContain(`'${code}'`);
+    }
+  });
+
+  it('uses idempotent INSERT ... ON CONFLICT DO NOTHING', () => {
+    expect(learnerSeedSql).toMatch(/ON\s+CONFLICT[\s\S]+DO\s+NOTHING/i);
+  });
+});
+
 describe('Plan A — program meta on course_versions (migration 0030)', () => {
   it('adds 8 program meta columns to learning.course_versions', () => {
     expectSqlContains(
