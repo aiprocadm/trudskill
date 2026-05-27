@@ -68,3 +68,29 @@ describe('Audit completeness — finalizeDocument', () => {
     expect(finalized[0].requestId).toBe('r1');
   });
 });
+
+describe('Audit completeness — archiveDocument', () => {
+  it('emits writeCritical audit-event on archive', async () => {
+    const { audit, service, generated } = makeServiceWithDoc();
+    await service.archiveDocument('t1', 'u1', generated.id, ctx);
+    const events = await audit.list('t1');
+    const archived = events.filter((e) => e.action === 'documents.archived');
+    expect(archived).toHaveLength(1);
+    expect(archived[0]).toMatchObject({
+      entityType: 'documents.generated',
+      entityId: generated.id,
+      actorId: 'u1',
+      tenantId: 't1'
+    });
+    expect(archived[0].newValues).toMatchObject({ status: 'archived' });
+    expect(archived[0].oldValues).toMatchObject({ status: 'generated' });
+  });
+
+  it('idempotent — повторный archive не пишет второй audit-event', async () => {
+    const { audit, service, generated } = makeServiceWithDoc();
+    await service.archiveDocument('t1', 'u1', generated.id, ctx);
+    await service.archiveDocument('t1', 'u1', generated.id, ctx);
+    const events = await audit.list('t1');
+    expect(events.filter((e) => e.action === 'documents.archived')).toHaveLength(1);
+  });
+});

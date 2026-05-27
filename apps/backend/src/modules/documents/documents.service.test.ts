@@ -303,7 +303,7 @@ describe('DocumentsService', () => {
     });
 
     const generated = service.completeTask('t1', task.id, 'file_generated_1');
-    service.archiveDocument('t1', generated.id);
+    await service.archiveDocument('t1', 'u1', generated.id, ctx);
     await expect(service.finalizeDocument('t1', 'u1', generated.id, ctx)).rejects.toThrowError();
   });
 

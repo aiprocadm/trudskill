@@ -612,11 +612,30 @@ export class DocumentsService {
     });
     return doc;
   }
-  archiveDocument(tenantId: string, id: string) {
+  async archiveDocument(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    ctx: RequestContext
+  ) {
     const doc = this.getDocument(tenantId, id);
     if (doc.status === 'archived') return doc;
+    const oldStatus = doc.status;
     doc.status = 'archived';
     doc.archivedAt = this.now();
+    await this.auditService.writeCritical({
+      tenantId,
+      actorId,
+      action: 'documents.archived',
+      entityType: 'documents.generated',
+      entityId: id,
+      oldValues: { status: oldStatus },
+      newValues: { status: 'archived', archivedAt: doc.archivedAt },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return doc;
   }
 

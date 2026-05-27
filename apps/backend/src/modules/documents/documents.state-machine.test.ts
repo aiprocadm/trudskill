@@ -69,7 +69,7 @@ describe('DocumentsService state transitions', () => {
     service.startTask('tenant_demo', task.id);
     const generated = service.completeTask('tenant_demo', task.id, 'file_generated_1');
     await service.finalizeDocument('tenant_demo', 'u_tenant_admin', generated.id, ctx);
-    service.archiveDocument('tenant_demo', generated.id);
+    await service.archiveDocument('tenant_demo', 'u_tenant_admin', generated.id, ctx);
 
     await expect(
       service.finalizeDocument('tenant_demo', 'u_tenant_admin', generated.id, ctx)

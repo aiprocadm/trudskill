@@ -262,7 +262,7 @@ export class DocumentsController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
   archiveDocument(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.documentsService.archiveDocument(c.tenantId!, id);
+    return this.documentsService.archiveDocument(c.tenantId!, c.userId, id, c);
   }
   @Get('documents/:id/download')
   @UseGuards(PermissionGuard)
