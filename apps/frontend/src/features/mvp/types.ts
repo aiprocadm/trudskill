@@ -100,6 +100,7 @@ export interface Material extends BaseEntity {
   sortOrder: number;
   minViewSeconds: number;
   isRequired: boolean;
+  fileId?: string;
 }
 
 export interface Group extends BaseEntity {
