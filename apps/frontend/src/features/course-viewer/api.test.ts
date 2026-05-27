@@ -69,6 +69,54 @@ describe('loadCourseTree', () => {
   });
 });
 
+describe('mvpApi.updateMaterialProgress', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('PATCH /progress/materials/:id с enrollmentId + studiedSeconds', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            id: 'p_x',
+            tenantId: 't1',
+            status: 'in_progress',
+            createdAt: '2026-05-01T00:00:00.000Z',
+            updatedAt: '2026-05-01T00:00:00.000Z',
+            enrollmentId: 'e1',
+            courseId: 'c1',
+            moduleId: 'm1',
+            materialId: 'mat1',
+            progressPercent: 42
+          },
+          meta: {
+            requestId: 'req-1',
+            correlationId: 'corr-1',
+            timestamp: '2026-05-27T00:00:00.000Z'
+          }
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+    const liveSession = {
+      tokens: { accessToken: 'tk' },
+      user: { id: 'u1' }
+    } as unknown as UserSession;
+    await mvpApi.updateMaterialProgress(liveSession, 'mat1', {
+      enrollmentId: 'e1',
+      studiedSeconds: 12
+    });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0]!;
+    expect(String(url)).toContain('/progress/materials/mat1');
+    expect((init as RequestInit).method).toBe('PATCH');
+    expect((init as RequestInit).body).toBe(
+      JSON.stringify({ enrollmentId: 'e1', studiedSeconds: 12 })
+    );
+  });
+});
+
 describe('buildProgressMap', () => {
   it('возвращает пустой Map для null', () => {
     expect(buildProgressMap(null).size).toBe(0);

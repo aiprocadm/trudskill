@@ -240,6 +240,16 @@ export const mvpApi = {
 
   listProgress: (session: UserSession, query: BaseFilterQuery) =>
     apiRequest<ListResponse<Progress>>(`/progress${queryString(query)}`, withAuth(session)),
+  updateMaterialProgress: (
+    session: UserSession,
+    materialId: string,
+    payload: { enrollmentId: string; studiedSeconds: number }
+  ) =>
+    apiRequest<Progress>(`/progress/materials/${materialId}`, {
+      method: 'PATCH',
+      body: payload,
+      ...withAuth(session)
+    }),
   listQuestionBanks: (session: UserSession, query: BaseFilterQuery) =>
     apiRequest<ListResponse<QuestionBank>>(
       `/question-banks${queryString(query)}`,
