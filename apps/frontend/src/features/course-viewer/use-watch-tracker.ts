@@ -4,14 +4,14 @@ import { useEffect, useRef } from 'react';
 
 export interface WatchTrackerOptions {
   minViewSeconds: number;
-  flushIntervalMs?: number;
-  getVisibility?: () => DocumentVisibilityState;
+  flushIntervalMs?: number | undefined;
+  getVisibility?: (() => DocumentVisibilityState) | undefined;
 }
 
 export interface WatchTrackerCallbacks {
-  onTick?: (studiedSeconds: number) => void;
-  onFlush?: (studiedSeconds: number) => void;
-  onMinimumReached?: () => void;
+  onTick?: ((studiedSeconds: number) => void) | undefined;
+  onFlush?: ((studiedSeconds: number) => void) | undefined;
+  onMinimumReached?: (() => void) | undefined;
 }
 
 export interface WatchTracker {
@@ -77,9 +77,9 @@ export const createWatchTracker = (
 interface UseWatchTrackerArgs {
   materialId: string | null;
   minViewSeconds: number;
-  flushIntervalMs?: number;
-  onFlush?: (studiedSeconds: number) => void;
-  onMinimumReached?: () => void;
+  flushIntervalMs?: number | undefined;
+  onFlush?: ((studiedSeconds: number) => void) | undefined;
+  onMinimumReached?: (() => void) | undefined;
 }
 
 export const useWatchTracker = ({
