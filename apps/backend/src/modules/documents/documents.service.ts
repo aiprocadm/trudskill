@@ -712,7 +712,12 @@ export class DocumentsService {
     Object.assign(row, req, { updatedAt: this.now() });
     return row;
   }
-  activateNumberingRule(tenantId: string, id: string) {
+  activateNumberingRule(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    ctx: RequestContext
+  ) {
     const row = this.getNumberingRule(tenantId, id);
     this.state.numberingRules
       .filter((x) => x.tenantId === tenantId && x.documentType === row.documentType)
@@ -720,12 +725,41 @@ export class DocumentsService {
         x.isActive = x.id === id;
         x.updatedAt = this.now();
       });
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.numbering_rule_activated',
+      entityType: 'documents.numbering_rule',
+      entityId: id,
+      newValues: { documentType: row.documentType, isActive: true },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return row;
   }
-  deactivateNumberingRule(tenantId: string, id: string) {
+  deactivateNumberingRule(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    ctx: RequestContext
+  ) {
     const row = this.getNumberingRule(tenantId, id);
     row.isActive = false;
     row.updatedAt = this.now();
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.numbering_rule_deactivated',
+      entityType: 'documents.numbering_rule',
+      entityId: id,
+      newValues: { isActive: false },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
     return row;
   }
 

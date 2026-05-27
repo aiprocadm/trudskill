@@ -177,6 +177,28 @@ describe('Audit completeness — issueGroupOrder uses writeCritical', () => {
   });
 });
 
+describe('Audit completeness — numbering rules', () => {
+  it('emits audit on activate/deactivate', () => {
+    const state = new InMemoryDocumentsState();
+    const audit = new AuditService();
+    const service = new DocumentsService(state, audit, new RealtimeEventsService());
+    const rule = service.createNumberingRule('t1', { documentType: 'certificate' });
+    service.deactivateNumberingRule('t1', 'u1', rule.id, ctx);
+    service.activateNumberingRule('t1', 'u1', rule.id, ctx);
+    const deact = audit['records'].filter(
+      (e) => e.action === 'documents.numbering_rule_deactivated'
+    );
+    const act = audit['records'].filter((e) => e.action === 'documents.numbering_rule_activated');
+    expect(deact).toHaveLength(1);
+    expect(act).toHaveLength(1);
+    expect(act[0]).toMatchObject({
+      entityType: 'documents.numbering_rule',
+      entityId: rule.id,
+      actorId: 'u1'
+    });
+  });
+});
+
 describe('Audit completeness — template version mutations', () => {
   it('emits audit on setCurrentVersion', () => {
     const state = new InMemoryDocumentsState();

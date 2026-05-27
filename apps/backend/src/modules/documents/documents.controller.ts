@@ -335,13 +335,13 @@ export class DocumentsController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
   activateRule(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.documentsService.activateNumberingRule(c.tenantId!, id);
+    return this.documentsService.activateNumberingRule(c.tenantId!, c.userId, id, c);
   }
   @Post('numbering-rules/:id/deactivate')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
   deactivateRule(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.documentsService.deactivateNumberingRule(c.tenantId!, id);
+    return this.documentsService.deactivateNumberingRule(c.tenantId!, c.userId, id, c);
   }
 
   // ==========================================================================
