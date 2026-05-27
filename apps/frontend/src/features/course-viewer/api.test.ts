@@ -4,9 +4,10 @@ import { loadCourseTree } from './api';
 import { buildProgressMap } from './hooks';
 import { mvpApi } from '../mvp/api';
 
-import type { CourseModule, Material, Progress, SessionDto } from '../mvp/types';
+import type { UserSession } from '../../entities/session/model';
+import type { CourseModule, Material, Progress } from '../mvp/types';
 
-const session = { userId: 'u1' } as unknown as SessionDto;
+const session = { userId: 'u1' } as unknown as UserSession;
 
 const baseEntity = {
   tenantId: 't1',
@@ -63,8 +64,8 @@ describe('loadCourseTree', () => {
 
     const tree = await loadCourseTree(session, 'cv1');
     expect(tree.map((n) => n.module.id)).toEqual(['m1', 'm2']);
-    expect(tree[0].materials.map((m) => m.id)).toEqual(['mat1', 'mat2']);
-    expect(tree[1].materials.map((m) => m.id)).toEqual(['mat3']);
+    expect(tree[0]?.materials.map((m) => m.id)).toEqual(['mat1', 'mat2']);
+    expect(tree[1]?.materials.map((m) => m.id)).toEqual(['mat3']);
   });
 });
 

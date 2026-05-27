@@ -7,7 +7,8 @@ import { useAuth } from '../auth/context';
 import { mvpApi } from '../mvp/api';
 
 import type { CourseTree, ProgressByMaterial } from './types';
-import type { CourseVersion, Progress, SessionDto } from '../mvp/types';
+import type { UserSession } from '../../entities/session/model';
+import type { CourseVersion, Progress } from '../mvp/types';
 
 const pickPublishedVersion = (versions: CourseVersion[]): CourseVersion | null => {
   const published = versions.filter((v) => v.status === 'published');
@@ -18,7 +19,7 @@ const pickPublishedVersion = (versions: CourseVersion[]): CourseVersion | null =
 };
 
 const fetchCourseTreeForCourse = async (
-  session: SessionDto,
+  session: UserSession,
   courseId: string
 ): Promise<{ tree: CourseTree; courseVersionId: string | null }> => {
   const versionsResp = await mvpApi.listCourseVersions(session, courseId);

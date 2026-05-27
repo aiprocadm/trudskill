@@ -1,10 +1,10 @@
 import { mvpApi } from '../mvp/api';
 
 import type { CourseTree } from './types';
-import type { SessionDto } from '../mvp/types';
+import type { UserSession } from '../../entities/session/model';
 
 export const loadCourseTree = async (
-  session: SessionDto,
+  session: UserSession,
   courseVersionId: string
 ): Promise<CourseTree> => {
   const modulesResp = await mvpApi.listModules(session, courseVersionId);
@@ -14,6 +14,6 @@ export const loadCourseTree = async (
   );
   return modules.map((module, idx) => ({
     module,
-    materials: [...materialsByModule[idx].items].sort((a, b) => a.sortOrder - b.sortOrder)
+    materials: [...(materialsByModule[idx]?.items ?? [])].sort((a, b) => a.sortOrder - b.sortOrder)
   }));
 };
