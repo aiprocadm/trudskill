@@ -45,12 +45,12 @@ export class LicensesService {
     return license;
   }
 
-  create(
+  async create(
     tenantId: string,
     actorId: string | undefined,
     request: CreateLicenseRequest,
     context: RequestContext
-  ): TrainingLicense {
+  ): Promise<TrainingLicense> {
     if (request.validUntil && request.validUntil < request.issuedAt) {
       throw new BadRequestException({
         code: 'license_valid_until_before_issued_at',
@@ -92,7 +92,7 @@ export class LicensesService {
       updatedAt: this.now()
     };
     this.state.licenses.push(entity);
-    this.auditService.write({
+    await this.auditService.writeCritical({
       tenantId,
       actorId,
       action: 'org.license_created',
@@ -107,13 +107,13 @@ export class LicensesService {
     return entity;
   }
 
-  update(
+  async update(
     tenantId: string,
     actorId: string | undefined,
     id: string,
     request: UpdateLicenseRequest,
     context: RequestContext
-  ): TrainingLicense {
+  ): Promise<TrainingLicense> {
     const license = this.get(tenantId, id);
     if (license.status !== 'active') {
       throw new BadRequestException({
@@ -142,7 +142,7 @@ export class LicensesService {
       });
     }
     license.updatedAt = this.now();
-    this.auditService.write({
+    await this.auditService.writeCritical({
       tenantId,
       actorId,
       action: 'org.license_updated',
@@ -158,18 +158,18 @@ export class LicensesService {
     return license;
   }
 
-  revoke(
+  async revoke(
     tenantId: string,
     actorId: string | undefined,
     id: string,
     context: RequestContext
-  ): TrainingLicense {
+  ): Promise<TrainingLicense> {
     const license = this.get(tenantId, id);
     if (license.status === 'revoked') return license;
     const oldValues = { ...license };
     license.status = 'revoked';
     license.updatedAt = this.now();
-    this.auditService.write({
+    await this.auditService.writeCritical({
       tenantId,
       actorId,
       action: 'org.license_revoked',

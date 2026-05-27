@@ -28,9 +28,9 @@ const baseRequest = {
 };
 
 describe('LicensesService — CRUD (Plan C §5.10)', () => {
-  it('creates active license with required fields only', () => {
+  it('creates active license with required fields only', async () => {
     const service = makeService();
-    const license = service.create('tenant_demo', ctx.userId, baseRequest, ctx);
+    const license = await service.create('tenant_demo', ctx.userId, baseRequest, ctx);
     expect(license.status).toBe('active');
     expect(license.tenantId).toBe('tenant_demo');
     expect(license.licenseNumber).toBe('L-001');
@@ -38,9 +38,9 @@ describe('LicensesService — CRUD (Plan C §5.10)', () => {
     expect(license.permittedDirections).toBeUndefined();
   });
 
-  it('persists permittedTrainingTypes and permittedDirections when supplied', () => {
+  it('persists permittedTrainingTypes and permittedDirections when supplied', async () => {
     const service = makeService();
-    const license = service.create(
+    const license = await service.create(
       'tenant_demo',
       ctx.userId,
       {
@@ -54,9 +54,9 @@ describe('LicensesService — CRUD (Plan C §5.10)', () => {
     expect(license.permittedDirections).toEqual(['dir_ot']);
   });
 
-  it('normalizes empty permitted arrays to undefined (universal license)', () => {
+  it('normalizes empty permitted arrays to undefined (universal license)', async () => {
     const service = makeService();
-    const license = service.create(
+    const license = await service.create(
       'tenant_demo',
       ctx.userId,
       { ...baseRequest, permittedTrainingTypes: [], permittedDirections: [] },
@@ -66,41 +66,46 @@ describe('LicensesService — CRUD (Plan C §5.10)', () => {
     expect(license.permittedDirections).toBeUndefined();
   });
 
-  it('rejects duplicate (licenseType, licenseNumber) within tenant', () => {
+  it('rejects duplicate (licenseType, licenseNumber) within tenant', async () => {
     const service = makeService();
-    service.create('tenant_demo', ctx.userId, baseRequest, ctx);
-    expect(() => service.create('tenant_demo', ctx.userId, baseRequest, ctx)).toThrow(
+    await service.create('tenant_demo', ctx.userId, baseRequest, ctx);
+    await expect(service.create('tenant_demo', ctx.userId, baseRequest, ctx)).rejects.toThrow(
       ConflictException
     );
   });
 
-  it('allows same (licenseType, licenseNumber) in different tenants', () => {
+  it('allows same (licenseType, licenseNumber) in different tenants', async () => {
     const service = makeService();
-    service.create('tenant_a', ctx.userId, baseRequest, ctx);
-    const second = service.create('tenant_b', ctx.userId, baseRequest, ctx);
+    await service.create('tenant_a', ctx.userId, baseRequest, ctx);
+    const second = await service.create('tenant_b', ctx.userId, baseRequest, ctx);
     expect(second.tenantId).toBe('tenant_b');
   });
 
-  it('rejects validUntil earlier than issuedAt at create', () => {
+  it('rejects validUntil earlier than issuedAt at create', async () => {
     const service = makeService();
-    expect(() =>
+    await expect(
       service.create('tenant_demo', ctx.userId, { ...baseRequest, validUntil: '2023-12-31' }, ctx)
-    ).toThrow(BadRequestException);
+    ).rejects.toThrow(BadRequestException);
   });
 
-  it('list returns only licenses of the requesting tenant', () => {
+  it('list returns only licenses of the requesting tenant', async () => {
     const service = makeService();
-    service.create('tenant_a', ctx.userId, baseRequest, ctx);
-    service.create('tenant_b', ctx.userId, baseRequest, ctx);
+    await service.create('tenant_a', ctx.userId, baseRequest, ctx);
+    await service.create('tenant_b', ctx.userId, baseRequest, ctx);
     expect(service.list('tenant_a')).toHaveLength(1);
     expect(service.list('tenant_a')[0].tenantId).toBe('tenant_a');
   });
 
-  it('list filters by status when provided', () => {
+  it('list filters by status when provided', async () => {
     const service = makeService();
-    const a = service.create('tenant_demo', ctx.userId, baseRequest, ctx);
-    service.create('tenant_demo', ctx.userId, { ...baseRequest, licenseNumber: 'L-002' }, ctx);
-    service.revoke('tenant_demo', ctx.userId, a.id, ctx);
+    const a = await service.create('tenant_demo', ctx.userId, baseRequest, ctx);
+    await service.create(
+      'tenant_demo',
+      ctx.userId,
+      { ...baseRequest, licenseNumber: 'L-002' },
+      ctx
+    );
+    await service.revoke('tenant_demo', ctx.userId, a.id, ctx);
     expect(service.list('tenant_demo', 'active')).toHaveLength(1);
     expect(service.list('tenant_demo', 'revoked')).toHaveLength(1);
   });
@@ -110,16 +115,16 @@ describe('LicensesService — CRUD (Plan C §5.10)', () => {
     expect(() => service.get('tenant_demo', 'license_nope')).toThrow(NotFoundException);
   });
 
-  it('get throws NotFoundException when license belongs to other tenant (no cross-tenant read)', () => {
+  it('get throws NotFoundException when license belongs to other tenant (no cross-tenant read)', async () => {
     const service = makeService();
-    const license = service.create('tenant_a', ctx.userId, baseRequest, ctx);
+    const license = await service.create('tenant_a', ctx.userId, baseRequest, ctx);
     expect(() => service.get('tenant_b', license.id)).toThrow(NotFoundException);
   });
 
-  it('update patches editable fields', () => {
+  it('update patches editable fields', async () => {
     const service = makeService();
-    const license = service.create('tenant_demo', ctx.userId, baseRequest, ctx);
-    const updated = service.update(
+    const license = await service.create('tenant_demo', ctx.userId, baseRequest, ctx);
+    const updated = await service.update(
       'tenant_demo',
       ctx.userId,
       license.id,
@@ -130,45 +135,45 @@ describe('LicensesService — CRUD (Plan C §5.10)', () => {
     expect(updated.notes).toBe('продлено');
   });
 
-  it('update rejects on revoked license', () => {
+  it('update rejects on revoked license', async () => {
     const service = makeService();
-    const license = service.create('tenant_demo', ctx.userId, baseRequest, ctx);
-    service.revoke('tenant_demo', ctx.userId, license.id, ctx);
-    expect(() =>
+    const license = await service.create('tenant_demo', ctx.userId, baseRequest, ctx);
+    await service.revoke('tenant_demo', ctx.userId, license.id, ctx);
+    await expect(
       service.update('tenant_demo', ctx.userId, license.id, { notes: 'nope' }, ctx)
-    ).toThrow(BadRequestException);
+    ).rejects.toThrow(BadRequestException);
   });
 
-  it('revoke is idempotent', () => {
+  it('revoke is idempotent', async () => {
     const service = makeService();
-    const license = service.create('tenant_demo', ctx.userId, baseRequest, ctx);
-    const first = service.revoke('tenant_demo', ctx.userId, license.id, ctx);
-    const second = service.revoke('tenant_demo', ctx.userId, license.id, ctx);
+    const license = await service.create('tenant_demo', ctx.userId, baseRequest, ctx);
+    const first = await service.revoke('tenant_demo', ctx.userId, license.id, ctx);
+    const second = await service.revoke('tenant_demo', ctx.userId, license.id, ctx);
     expect(first.status).toBe('revoked');
     expect(second.status).toBe('revoked');
     expect(second.updatedAt).toBe(first.updatedAt);
   });
 
-  it('revoke is tenant-scoped', () => {
+  it('revoke is tenant-scoped', async () => {
     const service = makeService();
-    const license = service.create('tenant_a', ctx.userId, baseRequest, ctx);
-    expect(() => service.revoke('tenant_b', ctx.userId, license.id, ctx)).toThrow(
+    const license = await service.create('tenant_a', ctx.userId, baseRequest, ctx);
+    await expect(service.revoke('tenant_b', ctx.userId, license.id, ctx)).rejects.toThrow(
       NotFoundException
     );
   });
 });
 
 describe('LicensesService.findActiveLicensesFor (Plan C §5.10)', () => {
-  it('returns universal license (no permitted lists) for any training type', () => {
+  it('returns universal license (no permitted lists) for any training type', async () => {
     const service = makeService();
-    service.create('tenant_demo', ctx.userId, baseRequest, ctx);
+    await service.create('tenant_demo', ctx.userId, baseRequest, ctx);
     expect(service.findActiveLicensesFor('tenant_demo', 'primary')).toHaveLength(1);
     expect(service.findActiveLicensesFor('tenant_demo', 'extraordinary', 'dir_x')).toHaveLength(1);
   });
 
-  it('filters by permittedTrainingTypes whitelist', () => {
+  it('filters by permittedTrainingTypes whitelist', async () => {
     const service = makeService();
-    service.create(
+    await service.create(
       'tenant_demo',
       ctx.userId,
       { ...baseRequest, permittedTrainingTypes: ['primary'] },
@@ -178,9 +183,9 @@ describe('LicensesService.findActiveLicensesFor (Plan C §5.10)', () => {
     expect(service.findActiveLicensesFor('tenant_demo', 'repeat')).toHaveLength(0);
   });
 
-  it('filters by permittedDirections whitelist when directionId provided', () => {
+  it('filters by permittedDirections whitelist when directionId provided', async () => {
     const service = makeService();
-    service.create(
+    await service.create(
       'tenant_demo',
       ctx.userId,
       { ...baseRequest, permittedDirections: ['dir_ot'] },
@@ -190,9 +195,9 @@ describe('LicensesService.findActiveLicensesFor (Plan C §5.10)', () => {
     expect(service.findActiveLicensesFor('tenant_demo', 'primary', 'dir_pb')).toHaveLength(0);
   });
 
-  it('rejects when permittedDirections set but directionId not provided', () => {
+  it('rejects when permittedDirections set but directionId not provided', async () => {
     const service = makeService();
-    service.create(
+    await service.create(
       'tenant_demo',
       ctx.userId,
       { ...baseRequest, permittedDirections: ['dir_ot'] },
@@ -201,16 +206,16 @@ describe('LicensesService.findActiveLicensesFor (Plan C §5.10)', () => {
     expect(service.findActiveLicensesFor('tenant_demo', 'primary')).toHaveLength(0);
   });
 
-  it('excludes revoked licenses', () => {
+  it('excludes revoked licenses', async () => {
     const service = makeService();
-    const l = service.create('tenant_demo', ctx.userId, baseRequest, ctx);
-    service.revoke('tenant_demo', ctx.userId, l.id, ctx);
+    const l = await service.create('tenant_demo', ctx.userId, baseRequest, ctx);
+    await service.revoke('tenant_demo', ctx.userId, l.id, ctx);
     expect(service.findActiveLicensesFor('tenant_demo', 'primary')).toHaveLength(0);
   });
 
-  it('is tenant-scoped — other tenant license never matches', () => {
+  it('is tenant-scoped — other tenant license never matches', async () => {
     const service = makeService();
-    service.create('tenant_a', ctx.userId, baseRequest, ctx);
+    await service.create('tenant_a', ctx.userId, baseRequest, ctx);
     expect(service.findActiveLicensesFor('tenant_b', 'primary')).toHaveLength(0);
   });
 });

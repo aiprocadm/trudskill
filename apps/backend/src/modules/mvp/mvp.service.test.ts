@@ -2148,7 +2148,7 @@ describe('MvpService — program meta and publish (Plan A §5.1)', () => {
       ).toThrow(/no_matching_license|нет активной лицензии/);
 
       // Create a permissive license — publish must succeed.
-      licensesService.create(
+      await licensesService.create(
         'tenant_demo',
         ctx.userId,
         {
