@@ -102,3 +102,44 @@ describe('Idempotency — concurrent revoke on same document', () => {
     );
   });
 });
+
+describe('Idempotency — generateDocumentsBatch retry', () => {
+  it('повторный вызов с тем же batch.idempotencyKey + sourceEntityIds → те же tasks', async () => {
+    const state = new InMemoryDocumentsState();
+    const audit = new AuditService();
+    const service = new DocumentsService(state, audit, new RealtimeEventsService());
+    const tpl = service.createTemplate('t1', 'u1', { name: 'X', templateType: 'contract' }, ctx);
+    const v = service.createTemplateVersion('t1', 'u1', { templateId: tpl.id, fileId: 'f' });
+    service.activateTemplateVersion('t1', 'u1', v.id, ctx);
+
+    const first = service.generateDocumentsBatch(
+      't1',
+      'u1',
+      {
+        idempotencyKey: 'batch-42',
+        templateId: tpl.id,
+        sourceEntityType: 'group',
+        sourceEntityIds: ['g1', 'g2'],
+        documentType: 'd'
+      },
+      ctx
+    );
+
+    const second = service.generateDocumentsBatch(
+      't1',
+      'u1',
+      {
+        idempotencyKey: 'batch-42',
+        templateId: tpl.id,
+        sourceEntityType: 'group',
+        sourceEntityIds: ['g1', 'g2'],
+        documentType: 'd'
+      },
+      ctx
+    );
+
+    expect(first.items[0].id).toBe(second.items[0].id);
+    expect(first.items[1].id).toBe(second.items[1].id);
+    expect(service.listDocumentTasks('t1', {}).total).toBe(2);
+  });
+});

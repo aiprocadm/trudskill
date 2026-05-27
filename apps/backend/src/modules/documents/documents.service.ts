@@ -641,7 +641,6 @@ export class DocumentsService {
     ctx?: RequestContext
   ) {
     const sourceIds = req.sourceEntityIds.map((item) => item.trim()).filter(Boolean);
-    const batchBaseTime = Date.now();
     return {
       items: sourceIds.map((sourceEntityId, index) =>
         this.generateDocument(
@@ -653,7 +652,9 @@ export class DocumentsService {
             sourceEntityType: req.sourceEntityType,
             sourceEntityId,
             documentType: req.documentType,
-            idempotencyKey: `${sourceEntityId}-${batchBaseTime}-${index}`
+            // Idempotency: derived from caller-provided key + sourceEntityId.
+            // Retry того же batch с теми же sourceEntityIds → те же per-item keys.
+            idempotencyKey: `${req.idempotencyKey}:${sourceEntityId}:${index}`
           },
           ctx
         )
