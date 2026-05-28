@@ -471,6 +471,79 @@ export class MvpService {
     return current;
   }
 
+  /**
+   * Phase 2 Plan B — PATCH ученика с полным набором полей (firstName/lastName/middleName/email/snils/position).
+   * Старый `updateLearner` остаётся для совместимости с существующим UI (counterparties-style).
+   *
+   * Семантика:
+   *  - undefined поле → не трогаем;
+   *  - null для clearable полей (email/snils/middleName/position/organizationUnitId/learnerNo/linkedIamUserId) → очищаем;
+   *  - linkedIamUserId защищён анти-IDOR: если уже задан и приходит другое непустое значение — 409 conflict.
+   *    Чтобы сменить владельца профиля, сначала очистить `linkedIamUserId: null`, потом задать заново.
+   */
+  updateLearnerExtended(
+    tenantId: string,
+    actorId: string | undefined,
+    learnerId: string,
+    request: {
+      firstName?: string;
+      lastName?: string;
+      middleName?: string | null;
+      email?: string | null;
+      snils?: string | null;
+      position?: string | null;
+      organizationUnitId?: string | null;
+      learnerNo?: string | null;
+      status?: string;
+      linkedIamUserId?: string | null;
+    },
+    context: RequestContext
+  ): Learner {
+    const current = this.getById(this.state.learners, tenantId, learnerId);
+    const oldValues: Learner = { ...current };
+
+    // Anti-IDOR: смена linkedIamUserId на другой непустой → conflict.
+    if (
+      request.linkedIamUserId !== undefined &&
+      request.linkedIamUserId !== null &&
+      current.linkedIamUserId &&
+      current.linkedIamUserId !== request.linkedIamUserId
+    ) {
+      throw new ConflictException({
+        code: 'conflict',
+        message: 'linkedIamUserId already bound; clear (null) before reassigning'
+      });
+    }
+
+    if (request.firstName !== undefined) current.firstName = request.firstName.trim();
+    if (request.lastName !== undefined) current.lastName = request.lastName.trim();
+    if (request.middleName !== undefined)
+      current.middleName = request.middleName?.trim() || undefined;
+    if (request.email !== undefined) current.email = request.email?.trim() || undefined;
+    if (request.snils !== undefined) current.snils = request.snils?.trim() || undefined;
+    if (request.position !== undefined) current.position = request.position?.trim() || undefined;
+    if (request.organizationUnitId !== undefined)
+      current.organizationUnitId = request.organizationUnitId?.trim() || undefined;
+    if (request.learnerNo !== undefined) current.learnerNo = request.learnerNo?.trim() || undefined;
+    if (request.status !== undefined) current.status = request.status;
+    if (request.linkedIamUserId !== undefined)
+      current.linkedIamUserId = request.linkedIamUserId ?? undefined;
+
+    current.updatedAt = this.now();
+
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.learner_updated',
+      'learning.learner',
+      current.id,
+      oldValues,
+      current,
+      context
+    );
+    return current;
+  }
+
   listDirections(tenantId: string, query: BaseFilterQuery): ListResponse<Direction> {
     return this.list(this.state.directions, tenantId, query);
   }

@@ -60,6 +60,7 @@ import {
   UpdateTestRequest
 } from './mvp.dto.js';
 import { MvpService } from './mvp.service.js';
+import { UpdateLearnerExtendedRequest } from './update-learner-extended.dto.js';
 import { assertValidDto } from '../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
@@ -176,6 +177,22 @@ export class MvpController {
   ) {
     const b = assertValidDto(UpdateSimpleRegistryRequest, raw);
     return this.mvpService.updateLearner(c.tenantId!, c.userId, id, b, c);
+  }
+  /**
+   * Phase 2 Plan B — PATCH расширенных полей учётки (ФИО, email, СНИЛС, должность, status).
+   * Отдельный путь от `PUT /learners/:id`, который остаётся под `UpdateSimpleRegistryRequest`
+   * (старый шейп: code+name+linkedIamUserId+organizationUnitId).
+   */
+  @Patch('learners/:id/profile')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learners.write')
+  updateLearnerExtended(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(UpdateLearnerExtendedRequest, raw);
+    return this.mvpService.updateLearnerExtended(c.tenantId!, c.userId, id, b, c);
   }
 
   @Get('directions')
