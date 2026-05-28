@@ -3,6 +3,7 @@ import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import { describe, expect, it } from 'vitest';
 
+import { CreateCounterpartyExtendedRequest } from './create-counterparty-extended.dto.js';
 import { BulkImportLearnersRequest } from './learners-bulk-import.dto.js';
 import {
   AddCommissionMemberRequest,
@@ -15,6 +16,7 @@ import {
   UpdateMaterialProgressRequest,
   UpdateProgramMetaRequest
 } from './mvp.dto.js';
+import { UpdateCounterpartyExtendedRequest } from './update-counterparty-extended.dto.js';
 import { UpdateLearnerExtendedRequest } from './update-learner-extended.dto.js';
 
 describe('MVP critical DTO (class-validator)', () => {
@@ -400,5 +402,114 @@ describe('UpdateLearnerExtendedRequest', () => {
     const errors = validate({ firstName: 'x'.repeat(121) });
     expect(errors).toHaveLength(1);
     expect(errors[0]!.property).toBe('firstName');
+  });
+});
+
+describe('CreateCounterpartyExtendedRequest (Phase 2 Plan C)', () => {
+  const validate = (raw: unknown) => {
+    const instance = plainToInstance(CreateCounterpartyExtendedRequest, raw);
+    return validateSync(instance, { whitelist: true, forbidNonWhitelisted: true });
+  };
+
+  it('accepts minimal happy path (code + name only)', () => {
+    expect(validate({ code: 'OOO-IVANOV', name: 'ООО Иванов' })).toHaveLength(0);
+  });
+
+  it('accepts full happy path with all extended fields', () => {
+    expect(
+      validate({
+        code: 'OOO-IVANOV',
+        name: 'ООО Иванов',
+        legalName: 'Общество с ограниченной ответственностью «Иванов»',
+        inn: '7707083893',
+        kpp: '770701001',
+        contactEmail: 'hr@ivanov.ru',
+        contactPhone: '+7 (495) 123-45-67',
+        legalAddress: 'Москва, ул. Тверская, 1',
+        note: 'Постоянный клиент с 2024 года.'
+      })
+    ).toHaveLength(0);
+  });
+
+  it('accepts 12-digit ИНН (ИП)', () => {
+    expect(validate({ code: 'IP-1', name: 'ИП Иванов', inn: '770708389365' })).toHaveLength(0);
+  });
+
+  it('rejects 11-digit ИНН (invalid length)', () => {
+    const errors = validate({ code: 'X', name: 'X', inn: '12345678901' });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.property).toBe('inn');
+  });
+
+  it('rejects non-digit ИНН', () => {
+    const errors = validate({ code: 'X', name: 'X', inn: '770A083893' });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.property).toBe('inn');
+  });
+
+  it('rejects КПП wrong length', () => {
+    const errors = validate({ code: 'X', name: 'X', kpp: '12345678' });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.property).toBe('kpp');
+  });
+
+  it('rejects invalid email', () => {
+    const errors = validate({ code: 'X', name: 'X', contactEmail: 'not-an-email' });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.property).toBe('contactEmail');
+  });
+
+  it('rejects empty code', () => {
+    const errors = validate({ code: '', name: 'X' });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.property).toBe('code');
+  });
+
+  it('rejects oversized note', () => {
+    const errors = validate({ code: 'X', name: 'X', note: 'x'.repeat(2001) });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.property).toBe('note');
+  });
+});
+
+describe('UpdateCounterpartyExtendedRequest (Phase 2 Plan C)', () => {
+  const validate = (raw: unknown) => {
+    const instance = plainToInstance(UpdateCounterpartyExtendedRequest, raw);
+    return validateSync(instance, { whitelist: true, forbidNonWhitelisted: true });
+  };
+
+  it('accepts empty payload (no-op patch)', () => {
+    expect(validate({})).toHaveLength(0);
+  });
+
+  it('accepts null for clearable fields', () => {
+    expect(
+      validate({
+        legalName: null,
+        inn: null,
+        kpp: null,
+        contactEmail: null,
+        contactPhone: null,
+        legalAddress: null,
+        note: null
+      })
+    ).toHaveLength(0);
+  });
+
+  it('rejects invalid status', () => {
+    const errors = validate({ status: 'banned' });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.property).toBe('status');
+  });
+
+  it('accepts both archived and active status', () => {
+    expect(validate({ status: 'archived' })).toHaveLength(0);
+    expect(validate({ status: 'active' })).toHaveLength(0);
+  });
+
+  it('rejects invalid ИНН format on patch', () => {
+    const errors = validate({ inn: '123' });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.property).toBe('inn');
   });
 });
