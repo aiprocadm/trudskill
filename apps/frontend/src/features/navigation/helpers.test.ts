@@ -76,4 +76,33 @@ describe('navigation helpers', () => {
     expect(nav.main.length).toBeLessThanOrEqual(7);
     expect(nav.more.length).toBeGreaterThan(0);
   });
+
+  // === Phase 2 Plan A — /admin/bulk-enrollments wiring ===
+
+  it('allows /admin/bulk-enrollments with both learners.write and enrollments.write', () => {
+    const session = {
+      ...adminSession,
+      permissions: ['learners.write', 'enrollments.write']
+    };
+    expect(evaluateRouteAccess('/admin/bulk-enrollments', session)).toEqual({ kind: 'ok' });
+  });
+
+  it('forbids /admin/bulk-enrollments without learners.write', () => {
+    const session = { ...adminSession, permissions: ['enrollments.write'] };
+    expect(evaluateRouteAccess('/admin/bulk-enrollments', session)).toEqual({ kind: 'forbidden' });
+  });
+
+  it('forbids /admin/bulk-enrollments without enrollments.write', () => {
+    const session = { ...adminSession, permissions: ['learners.write'] };
+    expect(evaluateRouteAccess('/admin/bulk-enrollments', session)).toEqual({ kind: 'forbidden' });
+  });
+
+  it('shows /admin/bulk-enrollments in nav only when both permissions present', () => {
+    const session = {
+      ...adminSession,
+      permissions: ['learners.write', 'enrollments.write']
+    };
+    const visible = getVisibleNavigation(session).map((item) => item.href);
+    expect(visible).toContain('/admin/bulk-enrollments');
+  });
 });
