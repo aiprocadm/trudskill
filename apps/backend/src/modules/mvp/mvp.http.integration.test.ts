@@ -86,6 +86,7 @@ describe('MVP HTTP integration (permission boundaries)', () => {
       Injectable,
       Module,
       Patch,
+      Post,
       UseGuards,
       ValidationPipe
     } = nestjsCommon;
@@ -175,6 +176,22 @@ describe('MVP HTTP integration (permission boundaries)', () => {
           enrollmentId: body.enrollmentId,
           studiedSeconds: body.studiedSeconds,
           status: body.studiedSeconds >= 60 ? 'completed' : 'in_progress'
+        };
+      }
+
+      // Phase 2 Plan A — bulk-import permission boundary
+      @Post('learners/bulk-import')
+      @RequirePermissions('learners.write', 'enrollments.write')
+      bulkImportLearners(
+        @CurrentContext() context: { tenantId?: string; userId?: string },
+        @Body() body: { idempotencyKey: string; groupId: string; rows: Array<unknown> }
+      ) {
+        return {
+          tenantId: context.tenantId,
+          actorId: context.userId,
+          idempotencyKey: body.idempotencyKey,
+          groupId: body.groupId,
+          total: body.rows.length
         };
       }
     }
@@ -319,5 +336,122 @@ describe('MVP HTTP integration (permission boundaries)', () => {
     expect(payload.data.studiedSeconds).toBe(120);
     expect(payload.meta.requestId).toBeTruthy();
     expect(payload.meta.correlationId).toBeTruthy();
+  });
+
+  // === Phase 2 Plan A — POST /learners/bulk-import permission boundary ===
+
+  const bulkImportBody = {
+    idempotencyKey: 'idem_x',
+    groupId: 'group_x',
+    rows: [{ rowNumber: 2, fullName: 'Иванов Иван', email: 'a@x.ru' }]
+  };
+
+  it('POST /learners/bulk-import: returns auth_required without bearer token', async () => {
+    const response = await fetch(`${apiBaseUrl}/learners/bulk-import`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-tenant-id': 'tenant_demo' },
+      body: JSON.stringify(bulkImportBody)
+    });
+    expect(response.status).toBe(401);
+    const payload = (await response.json()) as { error: { code: string } };
+    expect(payload.error.code).toBe('auth_required');
+  });
+
+  it('POST /learners/bulk-import: 403 permission_denied without learners.write', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['enrollments.write']);
+    const token = issueSignedAccessToken(
+      { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['admin'] },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+    const response = await fetch(`${apiBaseUrl}/learners/bulk-import`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(bulkImportBody)
+    });
+    expect(response.status).toBe(403);
+    const payload = (await response.json()) as { error: { code: string } };
+    expect(payload.error.code).toBe('permission_denied');
+  });
+
+  it('POST /learners/bulk-import: 403 permission_denied without enrollments.write', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['learners.write']);
+    const token = issueSignedAccessToken(
+      { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['admin'] },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+    const response = await fetch(`${apiBaseUrl}/learners/bulk-import`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(bulkImportBody)
+    });
+    expect(response.status).toBe(403);
+    const payload = (await response.json()) as { error: { code: string } };
+    expect(payload.error.code).toBe('permission_denied');
+  });
+
+  it('POST /learners/bulk-import: 403 session_inactive when session revoked', async () => {
+    authServiceMock.isSessionActive.mockResolvedValueOnce(false);
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce([
+      'learners.write',
+      'enrollments.write'
+    ]);
+    const token = issueSignedAccessToken(
+      { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's_revoked', roles: ['admin'] },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+    const response = await fetch(`${apiBaseUrl}/learners/bulk-import`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(bulkImportBody)
+    });
+    expect(response.status).toBe(403);
+    const payload = (await response.json()) as { error: { code: string } };
+    expect(payload.error.code).toBe('session_inactive');
+  });
+
+  it('POST /learners/bulk-import: 200 success with both permissions', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce([
+      'learners.write',
+      'enrollments.write'
+    ]);
+    const token = issueSignedAccessToken(
+      { sub: 'u_admin', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['admin'] },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+    const response = await fetch(`${apiBaseUrl}/learners/bulk-import`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(bulkImportBody)
+    });
+    expect(response.status).toBe(201);
+    const payload = (await response.json()) as {
+      data: { tenantId: string; actorId: string; idempotencyKey: string; total: number };
+      meta: { requestId: string };
+    };
+    expect(payload.data.tenantId).toBe('tenant_demo');
+    expect(payload.data.actorId).toBe('u_admin');
+    expect(payload.data.idempotencyKey).toBe('idem_x');
+    expect(payload.data.total).toBe(1);
+    expect(payload.meta.requestId).toBeTruthy();
   });
 });
