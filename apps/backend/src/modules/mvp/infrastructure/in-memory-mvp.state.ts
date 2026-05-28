@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
+import type { BulkImportIdempotencyRecord } from '../learners-bulk-import.types.js';
 import type {
   AnswerOption,
   Assignment,
@@ -61,6 +62,8 @@ export class InMemoryMvpState {
   assignmentReviews: AssignmentReview[] = [];
   /** Upserted записи идемпотентности массовых назначений (персистятся в MVP snapshot). */
   bulkEnrollmentIdempotency: BulkEnrollmentIdempotencyRecord[] = [];
+  /** Phase 2 Plan A — idempotency для bulk-import учеников из Excel. */
+  bulkImportIdempotency: BulkImportIdempotencyRecord[] = [];
   // Pillar A — Plan A collections (§5.2, §5.3)
   commissions: Commission[] = [];
   commissionMembers: CommissionMember[] = [];

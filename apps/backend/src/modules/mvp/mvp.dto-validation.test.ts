@@ -3,6 +3,7 @@ import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import { describe, expect, it } from 'vitest';
 
+import { BulkImportLearnersRequest } from './learners-bulk-import.dto.js';
 import {
   AddCommissionMemberRequest,
   CreateAssignmentSubmissionRequest,
@@ -249,5 +250,88 @@ describe('Pillar A — PutCourseDocumentSetRequest', () => {
   it('принимает пустой массив entries (очистить пакет)', () => {
     const inst = plainToInstance(PutCourseDocumentSetRequest, { entries: [] });
     expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+  });
+
+  // === Phase 2 Plan A — BulkImportLearnersRequest ===
+
+  it('BulkImportLearnersRequest: принимает 3 валидные строки', () => {
+    const inst = plainToInstance(BulkImportLearnersRequest, {
+      idempotencyKey: 'idem_1',
+      groupId: 'grp_1',
+      rows: [
+        { rowNumber: 2, fullName: 'Иванов Иван Иванович', email: 'a@b.ru' },
+        { rowNumber: 3, fullName: 'Петрова Анна', email: 'c@d.ru', snils: '111-222-333 44' },
+        { rowNumber: 4, fullName: 'Сидоров', email: 'e@f.ru', position: 'Главный специалист' }
+      ]
+    });
+    expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+  });
+
+  it('BulkImportLearnersRequest: отклоняет пустой rows', () => {
+    const inst = plainToInstance(BulkImportLearnersRequest, {
+      idempotencyKey: 'k',
+      groupId: 'g',
+      rows: []
+    });
+    expect(validateSync(inst).length).toBeGreaterThan(0);
+  });
+
+  it('BulkImportLearnersRequest: отклоняет rows > 1000', () => {
+    const rows = Array.from({ length: 1001 }, (_, i) => ({
+      rowNumber: i + 2,
+      fullName: `Фамилия Имя${i}`,
+      email: `u${i}@x.ru`
+    }));
+    const inst = plainToInstance(BulkImportLearnersRequest, {
+      idempotencyKey: 'k',
+      groupId: 'g',
+      rows
+    });
+    expect(validateSync(inst).length).toBeGreaterThan(0);
+  });
+
+  it('BulkImportLearnersRequest: отклоняет пустой idempotencyKey', () => {
+    const inst = plainToInstance(BulkImportLearnersRequest, {
+      idempotencyKey: '',
+      groupId: 'g',
+      rows: [{ rowNumber: 2, fullName: 'X Y', email: 'a@b.ru' }]
+    });
+    expect(validateSync(inst).length).toBeGreaterThan(0);
+  });
+
+  it('BulkImportLearnersRequest: отклоняет пустой groupId', () => {
+    const inst = plainToInstance(BulkImportLearnersRequest, {
+      idempotencyKey: 'k',
+      groupId: '',
+      rows: [{ rowNumber: 2, fullName: 'X Y', email: 'a@b.ru' }]
+    });
+    expect(validateSync(inst).length).toBeGreaterThan(0);
+  });
+
+  it('BulkImportLearnersRequest: отклоняет row без fullName', () => {
+    const inst = plainToInstance(BulkImportLearnersRequest, {
+      idempotencyKey: 'k',
+      groupId: 'g',
+      rows: [{ rowNumber: 2, fullName: '', email: 'a@b.ru' }]
+    });
+    expect(validateSync(inst).length).toBeGreaterThan(0);
+  });
+
+  it('BulkImportLearnersRequest: отклоняет row без email', () => {
+    const inst = plainToInstance(BulkImportLearnersRequest, {
+      idempotencyKey: 'k',
+      groupId: 'g',
+      rows: [{ rowNumber: 2, fullName: 'X Y', email: '' }]
+    });
+    expect(validateSync(inst).length).toBeGreaterThan(0);
+  });
+
+  it('BulkImportLearnersRequest: отклоняет rowNumber < 1', () => {
+    const inst = plainToInstance(BulkImportLearnersRequest, {
+      idempotencyKey: 'k',
+      groupId: 'g',
+      rows: [{ rowNumber: 0, fullName: 'X Y', email: 'a@b.ru' }]
+    });
+    expect(validateSync(inst).length).toBeGreaterThan(0);
   });
 });

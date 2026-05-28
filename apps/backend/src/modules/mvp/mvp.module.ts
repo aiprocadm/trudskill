@@ -7,6 +7,7 @@ import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-p
 import { MVP_STATE } from './infrastructure/mvp-state.token.js';
 import { PostgresMvpPersistenceBackend } from './infrastructure/postgres-mvp-persistence.backend.js';
 import { LearnerPdfCardService } from './learner-pdf-card.service.js';
+import { LearnersBulkImportService } from './learners-bulk-import.service.js';
 import { MvpBulkEnqueueService } from './mvp-bulk-enqueue.service.js';
 import { MvpInternalWorkerController } from './mvp-internal-worker.controller.js';
 import { MvpController } from './mvp.controller.js';
@@ -27,6 +28,11 @@ import { OrgModule } from '../org/org.module.js';
     { provide: MVP_STATE, scope: Scope.REQUEST, useClass: InMemoryMvpState },
     { provide: MvpService, scope: Scope.REQUEST, useClass: MvpService },
     { provide: LearnerPdfCardService, scope: Scope.REQUEST, useClass: LearnerPdfCardService },
+    {
+      provide: LearnersBulkImportService,
+      scope: Scope.REQUEST,
+      useClass: LearnersBulkImportService
+    },
     {
       provide: MvpRequestPersistenceInterceptor,
       scope: Scope.REQUEST,

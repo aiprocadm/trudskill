@@ -15,6 +15,8 @@ import {
 
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
 import { LearnerPdfCardService } from './learner-pdf-card.service.js';
+import { BulkImportLearnersRequest } from './learners-bulk-import.dto.js';
+import { LearnersBulkImportService } from './learners-bulk-import.service.js';
 import { MvpBulkEnqueueService } from './mvp-bulk-enqueue.service.js';
 import {
   AddCommissionMemberRequest,
@@ -75,7 +77,9 @@ export class MvpController {
   constructor(
     @Inject(MvpService) private readonly mvpService: MvpService,
     @Inject(MvpBulkEnqueueService) private readonly mvpBulkEnqueue: MvpBulkEnqueueService,
-    @Inject(LearnerPdfCardService) private readonly learnerPdfCardService: LearnerPdfCardService
+    @Inject(LearnerPdfCardService) private readonly learnerPdfCardService: LearnerPdfCardService,
+    @Inject(LearnersBulkImportService)
+    private readonly learnersBulkImport: LearnersBulkImportService
   ) {}
 
   @Get('counterparties')
@@ -149,6 +153,18 @@ export class MvpController {
   createLearner(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
     const b = assertValidDto(CreateSimpleRegistryRequest, raw);
     return this.mvpService.createLearner(c.tenantId!, c.userId, b, c);
+  }
+  /**
+   * Phase 2 Plan A — bulk-import учеников из Excel.
+   * Создаёт недостающих + зачисляет всех валидных в группу одной операцией.
+   * Требует обе permission: `learners.write` (создание) + `enrollments.write` (зачисление).
+   */
+  @Post('learners/bulk-import')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learners.write', 'enrollments.write')
+  bulkImportLearners(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(BulkImportLearnersRequest, raw);
+    return this.learnersBulkImport.bulkImportLearners(c.tenantId!, c.userId, b, c);
   }
   @Put('learners/:id')
   @UseGuards(PermissionGuard)

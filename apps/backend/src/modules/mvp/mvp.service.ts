@@ -20,6 +20,7 @@ import { DocumentsService } from '../documents/documents.service.js';
 import { FilesService } from '../files/files.service.js';
 import { LicensesService } from '../org/licenses.service.js';
 
+import type { BulkImportOutcome } from './learners-bulk-import.types.js';
 import type {
   AddCommissionMemberRequest,
   BaseFilterQuery,
@@ -368,6 +369,55 @@ export class MvpService {
       createdAt: this.now(),
       updatedAt: this.now()
     };
+    this.state.learners.push(entity);
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.learner_created',
+      'learning.learner',
+      entity.id,
+      undefined,
+      entity,
+      context
+    );
+    return entity;
+  }
+
+  /**
+   * Phase 2 Plan A — создание учётка с полным набором полей (email/snils/middleName/position).
+   * `createLearner` не принимает эти поля (только firstName+lastName из `name.split`).
+   * Этот метод используется `LearnersBulkImportService` при импорте из Excel.
+   */
+  createLearnerExtended(
+    tenantId: string,
+    actorId: string | undefined,
+    request: {
+      firstName: string;
+      lastName: string;
+      middleName?: string;
+      email?: string;
+      snils?: string;
+      position?: string;
+      organizationUnitId?: string;
+      learnerNo?: string;
+    },
+    context: RequestContext
+  ): Learner {
+    const entity: Learner = {
+      id: this.id('learner'),
+      tenantId,
+      firstName: request.firstName,
+      lastName: request.lastName,
+      status: 'active',
+      createdAt: this.now(),
+      updatedAt: this.now()
+    };
+    if (request.middleName) entity.middleName = request.middleName;
+    if (request.email) entity.email = request.email;
+    if (request.snils) entity.snils = request.snils;
+    if (request.position) entity.position = request.position;
+    if (request.organizationUnitId) entity.organizationUnitId = request.organizationUnitId;
+    if (request.learnerNo) entity.learnerNo = request.learnerNo;
     this.state.learners.push(entity);
     this.audit(
       tenantId,
@@ -1224,6 +1274,31 @@ export class MvpService {
       (r) => r.tenantId === tenantId && r.idempotencyKey === idempotencyKey
     );
     return rec?.outcome;
+  }
+
+  /** Phase 2 Plan A — idempotency lookup для bulk-import учеников. */
+  getBulkImportOutcomeIfAny(
+    tenantId: string,
+    idempotencyKey: string
+  ): BulkImportOutcome | undefined {
+    const rec = this.state.bulkImportIdempotency.find(
+      (r) => r.tenantId === tenantId && r.idempotencyKey === idempotencyKey
+    );
+    return rec?.outcome;
+  }
+
+  /** Phase 2 Plan A — сохранение outcome bulk-import в idempotency store. */
+  saveBulkImportOutcome(
+    tenantId: string,
+    idempotencyKey: string,
+    outcome: BulkImportOutcome
+  ): void {
+    this.state.bulkImportIdempotency.push({
+      tenantId,
+      idempotencyKey,
+      outcome,
+      createdAt: this.now()
+    });
   }
 
   createBulkEnrollments(
