@@ -1026,6 +1026,34 @@
 - Quality gates: `pnpm typecheck` зелёный, frontend 198 тестов + backend 42 новых (всё через изолированные прогоны; full `pnpm test:backend` падает на pre-existing tinypool/Windows IPC crash на пути с кириллицей — проверено против origin/main, не вызвано этим изменением).
 - Что осталось до Phase 2 целиком: Plan B (учётки CRUD UI поверх существующего `GET /learners`) и Plan C (компании-клиенты + view прогресса по группе). Plan A — главный процесс из спеки, ~10-15% общего объёма Phase 2.
 
+### 5.91 Phase 2 §3.2 — Plan B: учётки учеников (list/search/filter/edit UI)
+
+- Summary: реализована вторая фича Phase 2 — admin-страница `/admin/learners` для CRUD-просмотра/редактирования учёток слушателей + расширенный backend-PATCH через `PATCH /learners/:id/profile` (симметрично `createLearnerExtended` Plan A). Закрывает 11 задач Plan B в трёх PR'ах: backend (#198), frontend (#199), closeout (этот §5.91, PR будет открыт после).
+- Plan: `docs/superpowers/plans/2026-05-29-phase-2-admin-learners-management-b.md`.
+- Backend (PR #198, Tasks 1-4, 22 теста):
+  - `apps/backend/src/modules/mvp/update-learner-extended.dto.ts` — `UpdateLearnerExtendedRequest` с 10 опциональными полями, PATCH-семантика (null → clear, undefined → no-op).
+  - `apps/backend/src/modules/mvp/mvp.service.ts` — `updateLearnerExtended` метод: load → IDOR check → apply delta → bump updatedAt → audit `learning.learner_updated`.
+  - `apps/backend/src/modules/mvp/mvp.controller.ts` — `@Patch('learners/:id/profile')` под `learners.write`.
+  - DTO validation 7 кейсов + service unit 6 кейсов + HTTP integration 3 кейса (auth/perm/success).
+  - Bonus: implementer нашёл и починил stale `mockResolvedValueOnce` в preceding `bulk-import` HTTP integration.
+- Frontend (PR #199, Tasks 5-10, 12 новых тестов):
+  - `apps/frontend/src/features/learners/` — фича-папка: `types.ts`, `api.ts` (`learnersApi.list` + `updateProfile`), `hooks.ts` (`useLearnersList` через React Query, `useUpdateLearnerProfile` через useState — convention), `format.ts` + 9 unit-кейсов, `learner-edit-drawer.tsx`, `learners-list-screen.tsx`.
+  - `apps/frontend/app/admin/learners/page.tsx` — Next.js route в `ProtectedPage`.
+  - `apps/frontend/src/features/navigation/model.ts` — routeMeta + navigationModel запись `/admin/learners` под `learners.read`, navSlot `'more'`.
+  - API contract test 3 кейса.
+- Closeout (этот PR, Task 11): `src/e2e/admin-learners-management.e2e.test.ts` (11 кейсов: routing x3 + nav visibility x2 + pipeline integration x4 + module smoke x2) + handoff §5.91 + README sync.
+- Plan B deviations (адаптации к реальному коду):
+  1. `apiRequest(path, options)` сигнатура, не `(session, { method, path, body })` — следует Plan A pattern. Session через `options.auth = { userId, tenantId, accessToken }`.
+  2. Session hook `useAuth()` + `UserSession` (не `useSession()`/`SessionInfo`).
+  3. `@tanstack/react-query` — custom shim в `src/lib/query/react-query-shim.tsx`. `useQuery` возвращает `isLoading`, не `isPending`.
+  4. `Column<T>.title` (не `header`); `Pagination` через `totalPages`/`onPageChange`; `SectionError.message?: string`; `SectionCard.title` обязательный; `SearchInput` без `placeholder`/`aria-label`.
+  5. `Select` нет в `@cdoprof/ui` — фильтр статуса через native `<select className="ui-select">`.
+  6. `ProtectedPage` без props (permission enforcement через `routeMeta`).
+  7. Tasks 8+9 объединены в одну subagent-диспатч (Task 9 drawer коммитится первым, чтобы Task 8 screen прошёл typecheck при импорте).
+- Email-приглашения после редактирования профиля не предусмотрены — Plan B только UI редактирования, без триггеров.
+- Что осталось до Phase 2 целиком: **Plan C** (компании-клиенты `core.tenants_clients` или аналог + view прогресса по группе). Plan B + Plan A покрывают ~70-80% Phase 2 по объёму.
+- Quality gates: `pnpm typecheck` зелёный; frontend 217 тестов зелёные (38 в e2e/ включая 11 новых); backend 22 новых теста зелёные через изолированные прогоны (`mvp.dto-validation.test.ts` 39, `mvp.service.test.ts` 76, `mvp.http.integration.test.ts` 12).
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |

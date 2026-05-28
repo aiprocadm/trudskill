@@ -84,15 +84,15 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Completed Task
 
-**Phase 1 §4.3 — learner-facing documents end-to-end** (PR #189, 2026-05-27): ученик видит выданные документы в кабинете. Совместно с предшествующими PR #184 (Course viewer + TOC), #185/#186 (PATCH progress wire), #187 (seed learner IAM role), #188 (course viewer integration) закрывает §4.3 спеки. **Pillar A Plan C** (QR-проверка, аннулирование/перевыпуск, лицензии центра, личное дело ученика) смержен ранее тем же днём.
+**Phase 2 Plan B — admin learners management** (2026-05-29): backend `PATCH /learners/:id/profile` (`updateLearnerExtended`) + frontend `/admin/learners` (list, фильтры, edit drawer). См. PR #197 (doc), #198 (backend), #199 (frontend), и closeout PR этой сессии. Совместно с Plan A (PRs #191-#196) закрывает ~70-80% Phase 2.
 
 ### Current Task
 
-Итеративные улучшения: UI-полировка Pillar A (commission edit form, drag-n-drop, PDF render), подготовка к Phase 2. Перед каждой фичей — зелёный `ci:check` и обновлённый handoff.
+Smoke на стейдже после merge Plan B PRs; подготовка плана Phase 2 Plan C (компании-клиенты).
 
 ### Next Task
 
-**Phase 2 plan + implementation start** (см. roadmap §«Phase 2»): админ-layout с навигацией, парсер Excel/CSV, валидаторы (ФИО, СНИЛС, email, дубликаты), UI массовой загрузки с предпросмотром ошибок поверх существующего `MvpBulkEnqueueService` + worker callback (BL-003). Параллельно — known TODO по Pillar A: Postgres-адаптер для `regulatoryActs`, drag-n-drop сортировка комиссий и document set, загрузка PNG-подписей в storage.files, реальный PDF-рендер карточки ученика (отложен до Phase 5).
+**Phase 2 Plan C — компании-клиенты + прогресс по группе** (`core.tenants_clients` CRUD + read-only view прогресса). Параллельно — backlog Pillar A: drag-n-drop сортировка комиссий и document set, загрузка PNG-подписей в storage.files, реальный PDF-рендер личного дела (отложен до Phase 5 notifications).
 
 ### Do Not Touch
 
@@ -113,11 +113,11 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Updated By
 
-AI Agent (Phase 1 + Pillar A завершены, добавлен commission edit UI)
+AI Agent (Phase 2 Plan B implemented — admin learners list/edit UI + backend PATCH profile)
 
 ### Last Updated At
 
-2026-05-28 (Phase 1 §4.3 done; Pillar A Plan A/B/C merged; commission name/description PATCH UI добавлен; previous: BL-010 e-sign GET parity, 2026-05-07)
+2026-05-29 (Phase 2 Plan B implemented; previous: Plan A merged 2026-05-28; BL-010 e-sign GET parity 2026-05-07)
 
 ## 3. Current Project Status
 
