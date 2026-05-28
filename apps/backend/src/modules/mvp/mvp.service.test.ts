@@ -2445,3 +2445,200 @@ describe('MvpService — course document sets (Plan A §5.3)', () => {
     expect(service.getCourseDocumentSet('tenant_demo', cv1.id)).toHaveLength(1);
   });
 });
+
+describe('MvpService — updateLearnerExtended (Phase 2 Plan B §Task2)', () => {
+  it('updates all extended fields and writes audit', async () => {
+    const audit = new AuditService();
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      audit,
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+
+    const learner = service.createLearnerExtended(
+      'tenant_demo',
+      'admin-1',
+      { firstName: 'Иван', lastName: 'Иванов', email: 'old@x.ru' },
+      ctx
+    );
+
+    const updated = service.updateLearnerExtended(
+      'tenant_demo',
+      'admin-1',
+      learner.id,
+      {
+        firstName: 'Пётр',
+        middleName: 'Сергеевич',
+        email: 'new@x.ru',
+        snils: '123-456-789 01',
+        position: 'инженер',
+        status: 'archived'
+      },
+      ctx
+    );
+
+    expect(updated.firstName).toBe('Пётр');
+    expect(updated.lastName).toBe('Иванов'); // не трогали
+    expect(updated.middleName).toBe('Сергеевич');
+    expect(updated.email).toBe('new@x.ru');
+    expect(updated.snils).toBe('123-456-789 01');
+    expect(updated.position).toBe('инженер');
+    expect(updated.status).toBe('archived');
+    expect(
+      (await audit.list('tenant_demo')).some(
+        (item) => item.action === 'learning.learner_updated' && item.entityId === learner.id
+      )
+    ).toBe(true);
+  });
+
+  it('clears nullable fields when null is provided', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const learner = service.createLearnerExtended(
+      'tenant_demo',
+      'admin-1',
+      {
+        firstName: 'A',
+        lastName: 'B',
+        middleName: 'C',
+        email: 'a@b.ru',
+        snils: '111-111-111 02',
+        position: 'p'
+      },
+      ctx
+    );
+    const updated = service.updateLearnerExtended(
+      'tenant_demo',
+      'admin-1',
+      learner.id,
+      { middleName: null, email: null, snils: null, position: null },
+      ctx
+    );
+    expect(updated.middleName).toBeUndefined();
+    expect(updated.email).toBeUndefined();
+    expect(updated.snils).toBeUndefined();
+    expect(updated.position).toBeUndefined();
+  });
+
+  it('throws NotFoundException for unknown learner', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    expect(() =>
+      service.updateLearnerExtended(
+        'tenant_demo',
+        'admin-1',
+        'learner-nope',
+        { firstName: 'X' },
+        ctx
+      )
+    ).toThrow(/not found/i);
+  });
+
+  it('refuses to overwrite linkedIamUserId with a different value', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const learner = service.createLearnerExtended(
+      'tenant_demo',
+      'admin-1',
+      { firstName: 'A', lastName: 'B' },
+      ctx
+    );
+    service.updateLearnerExtended(
+      'tenant_demo',
+      'admin-1',
+      learner.id,
+      { linkedIamUserId: 'user-1' },
+      ctx
+    );
+    expect(() =>
+      service.updateLearnerExtended(
+        'tenant_demo',
+        'admin-1',
+        learner.id,
+        { linkedIamUserId: 'user-2' },
+        ctx
+      )
+    ).toThrow(/already bound/i);
+  });
+
+  it('allows clear-then-reassign of linkedIamUserId', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const learner = service.createLearnerExtended(
+      'tenant_demo',
+      'admin-1',
+      { firstName: 'A', lastName: 'B' },
+      ctx
+    );
+    service.updateLearnerExtended(
+      'tenant_demo',
+      'admin-1',
+      learner.id,
+      { linkedIamUserId: 'user-1' },
+      ctx
+    );
+    service.updateLearnerExtended(
+      'tenant_demo',
+      'admin-1',
+      learner.id,
+      { linkedIamUserId: null },
+      ctx
+    );
+    const reassigned = service.updateLearnerExtended(
+      'tenant_demo',
+      'admin-1',
+      learner.id,
+      { linkedIamUserId: 'user-2' },
+      ctx
+    );
+    expect(reassigned.linkedIamUserId).toBe('user-2');
+  });
+
+  it('no-op patch (empty payload) just bumps updatedAt', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const learner = service.createLearnerExtended(
+      'tenant_demo',
+      'admin-1',
+      { firstName: 'A', lastName: 'B' },
+      ctx
+    );
+    const before = learner.updatedAt;
+    const updated = service.updateLearnerExtended('tenant_demo', 'admin-1', learner.id, {}, ctx);
+    expect(updated.firstName).toBe('A');
+    expect(updated.updatedAt >= before).toBe(true);
+  });
+});
