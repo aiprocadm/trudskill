@@ -2444,13 +2444,56 @@ export const CommissionsPageScreen = () => {
 
 export const CommissionDetailsScreen = ({ id }: { id: string }) => {
   const { data, loading, error, refetch } = useCommission(id);
-  const { archiveCommission, addCommissionMember, removeCommissionMember } = useDomainMutations();
+  const { updateCommission, archiveCommission, addCommissionMember, removeCommissionMember } =
+    useDomainMutations();
 
   const [role, setRole] = useState<CommissionMemberRole>('member');
   const [externalFullName, setExternalFullName] = useState('');
   const [externalPosition, setExternalPosition] = useState('');
   const [addError, setAddError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+
+  const [editingInfo, setEditingInfo] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const onStartEditInfo = () => {
+    if (!data) return;
+    setEditName(data.name);
+    setEditDescription(data.description ?? '');
+    setEditError(null);
+    setEditingInfo(true);
+  };
+
+  const onCancelEditInfo = () => {
+    setEditingInfo(false);
+    setEditError(null);
+  };
+
+  const onSaveEditInfo = async (e: FormEvent) => {
+    e.preventDefault();
+    const trimmedName = editName.trim();
+    if (!trimmedName) {
+      setEditError('Название не может быть пустым');
+      return;
+    }
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      const trimmedDescription = editDescription.trim();
+      const payload: { name: string; description?: string } = { name: trimmedName };
+      if (trimmedDescription) payload.description = trimmedDescription;
+      await updateCommission(id, payload);
+      await refetch();
+      setEditingInfo(false);
+    } catch (err) {
+      setEditError(err instanceof ApiClientError ? err.message : 'Не удалось сохранить изменения');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   const onAddMember = async (e: FormEvent) => {
     e.preventDefault();
@@ -2536,6 +2579,64 @@ export const CommissionDetailsScreen = ({ id }: { id: string }) => {
       {error ? <SectionError message={error} /> : null}
       {data ? (
         <>
+          <SectionCard title="Информация">
+            {editingInfo ? (
+              <form onSubmit={(e) => void onSaveEditInfo(e)} className="ui-stack">
+                <label>
+                  Название
+                  <input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="Постоянно действующая аттестационная комиссия"
+                    required
+                  />
+                </label>
+                <label>
+                  Описание (необязательно)
+                  <textarea
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    placeholder="Назначение, область компетенции, особенности работы"
+                    rows={3}
+                  />
+                </label>
+                {editError ? (
+                  <FieldError id="commission-edit-info-error" message={editError} />
+                ) : null}
+                <div className="ui-stack" style={{ flexDirection: 'row', gap: '0.5rem' }}>
+                  <button type="submit" className="ui-button" disabled={savingEdit}>
+                    {savingEdit ? 'Сохранение…' : 'Сохранить'}
+                  </button>
+                  <button
+                    type="button"
+                    className="ui-button-link"
+                    onClick={onCancelEditInfo}
+                    disabled={savingEdit}
+                  >
+                    Отмена
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="ui-stack">
+                <div>
+                  <strong>Код:</strong> {data.code}
+                </div>
+                <div>
+                  <strong>Описание:</strong>{' '}
+                  {data.description ? data.description : <em>не задано</em>}
+                </div>
+                {data.status === 'active' ? (
+                  <div>
+                    <button type="button" className="ui-button" onClick={onStartEditInfo}>
+                      Изменить
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </SectionCard>
+
           <SectionCard title="Состав комиссии">
             {data.members.length > 0 ? (
               <DataTable columns={memberColumns} rows={data.members} />
