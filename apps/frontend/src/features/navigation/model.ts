@@ -63,6 +63,10 @@ export const routeMeta: RouteMetaEntry[] = [
     pattern: '/admin/bulk-enrollments',
     meta: { public: false, requiredPermissions: ['learners.write', 'enrollments.write'] }
   },
+  {
+    pattern: '/admin/learners',
+    meta: { public: false, requiredPermissions: ['learners.read'] }
+  },
   { pattern: '/', meta: { public: false } },
   { pattern: '/users', meta: { public: false, requiredPermissions: ['iam.manage_roles'] } },
   {
@@ -277,6 +281,12 @@ export const navigationModel: NavigationItem[] = [
     href: '/admin/bulk-enrollments',
     label: 'Массовая загрузка',
     requiredPermissions: ['learners.write', 'enrollments.write'],
+    navSlot: 'more'
+  },
+  {
+    href: '/admin/learners',
+    label: 'Ученики',
+    requiredPermissions: ['learners.read'],
     navSlot: 'more'
   }
 ];
