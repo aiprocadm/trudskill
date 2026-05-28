@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const requiredEnv: Record<string, string> = {
   NODE_ENV: 'test',
@@ -192,6 +192,23 @@ describe('MVP HTTP integration (permission boundaries)', () => {
           idempotencyKey: body.idempotencyKey,
           groupId: body.groupId,
           total: body.rows.length
+        };
+      }
+
+      // Phase 2 Plan B — updateLearnerExtended permission boundary
+      @Patch('learners/:id/profile')
+      @RequirePermissions('learners.write')
+      updateLearnerExtended(
+        @CurrentContext() context: { tenantId?: string; userId?: string },
+        @Body() body: { firstName?: string; lastName?: string; email?: string }
+      ) {
+        return {
+          id: 'learner-1',
+          tenantId: context.tenantId,
+          updatedBy: context.userId,
+          firstName: body.firstName,
+          lastName: body.lastName,
+          email: body.email
         };
       }
     }
@@ -454,4 +471,86 @@ describe('MVP HTTP integration (permission boundaries)', () => {
     expect(payload.data.total).toBe(1);
     expect(payload.meta.requestId).toBeTruthy();
   });
+
+  // === Phase 2 Plan B — PATCH /learners/:id/profile permission boundary ===
+
+  describe('PATCH /learners/:id/profile (Plan B)', () => {
+    // Reset mock queue before each test to avoid leakage from prior session_inactive
+    // tests that set iamServiceMock.resolvePermissions.mockResolvedValueOnce but the
+    // guard short-circuits before calling resolvePermissions, leaving a stale once-mock.
+    beforeEach(() => {
+      iamServiceMock.resolvePermissions.mockReset();
+      iamServiceMock.resolvePermissions.mockResolvedValue(['courses.read']);
+    });
+
+    it('returns 401 auth_required when no Authorization header', async () => {
+      const response = await fetch(`${apiBaseUrl}/learners/learner-1/profile`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', 'x-tenant-id': 'tenant_demo' },
+        body: JSON.stringify({ firstName: 'X' })
+      });
+      expect(response.status).toBe(401);
+      const payload = (await response.json()) as {
+        error: { code: string };
+        meta: { requestId: string };
+      };
+      expect(payload.error.code).toBe('auth_required');
+      expect(payload.meta.requestId).toBeTruthy();
+    });
+
+    it('returns 403 permission_denied when actor lacks learners.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['learners.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['learner'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/learners/learner-1/profile`, {
+        method: 'PATCH',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ firstName: 'X' })
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as {
+        error: { code: string };
+        meta: { requestId: string };
+      };
+      expect(payload.error.code).toBe('permission_denied');
+      expect(payload.meta.requestId).toBeTruthy();
+    });
+
+    it('returns 200 + envelope on success with learners.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['learners.read', 'learners.write']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_admin', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/learners/learner-1/profile`, {
+        method: 'PATCH',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ firstName: 'Иван', email: 'ivan@example.com' })
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as {
+        data: { firstName?: string; email?: string };
+        meta: { requestId: string; correlationId: string };
+      };
+      expect(payload.data.firstName).toBe('Иван');
+      expect(payload.data.email).toBe('ivan@example.com');
+      expect(payload.meta.requestId).toBeTruthy();
+      expect(payload.meta.correlationId).toBeTruthy();
+    });
+  });
+  // NOTE: 400 validation_error case intentionally omitted — the stub controller does not
+  // call assertValidDto (matches Plan A bulk-import pattern), so DTO validation is not
+  // exercised at the HTTP integration layer. Covered by update-learner-extended.dto-validation.test.ts.
 });
