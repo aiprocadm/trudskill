@@ -76,23 +76,23 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 ### Current Stage
 
-MVP backend/frontend (IAM, assessment, bulk enrollments, KPI, сертификаты), стабильный quality gate `pnpm -s ci:check`; документация согласована под многоагентную передачу.
+V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md)) — **Phase 1 (минимальный путь ученика) полностью завершена**: магическая ссылка, кабинет ученика с «Следующий шаг», course viewer с TOC, выдача документов по завершению (см. PR #171, #172, #184–#189). **Pillar A (фундамент регулируемого ДПО)** также завершён — Plan A+B+C смержены (PR #174–#183). Стабильный quality gate `pnpm -s ci:check`; миграции до **0038** на main.
 
 ### Current Goal
 
-Следовать приоритетам [SDOPROF_TZ_FINAL.md](SDOPROF_TZ_FINAL.md) §41 и [docs/TZ_MVP_TRACEABILITY.md](docs/TZ_MVP_TRACEABILITY.md); перед новой фичей — зелёный `ci:check` и актуальный handoff.
+Продолжать V1 по [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md). Следующий крупный блок — **Phase 2 (админка центра + массовые операции)**: загрузка Excel, валидация ФИО/СНИЛС/email, bulk-enrollment UI поверх существующего backend (`MvpBulkEnqueueService`).
 
 ### Last Completed Task
 
-**BL-010 HTTP regress (e-sign, §5.89):** **`esign.http.integration.test.ts`** — добита GET-parity с **`EsignController`**: отдельные **403/200** регрессии для **`GET …/processes/:id`**, **`GET …/participants`**, **`GET …/application-files/:id`**, плюс success для **`GET …/processes/:id/status`** и **`GET …/events/:id`**.
+**Phase 1 §4.3 — learner-facing documents end-to-end** (PR #189, 2026-05-27): ученик видит выданные документы в кабинете. Совместно с предшествующими PR #184 (Course viewer + TOC), #185/#186 (PATCH progress wire), #187 (seed learner IAM role), #188 (course viewer integration) закрывает §4.3 спеки. **Pillar A Plan C** (QR-проверка, аннулирование/перевыпуск, лицензии центра, личное дело ученика) смержен ранее тем же днём.
 
 ### Current Task
 
-Эксплуатация: прогнать миграции включая **0027** на целевых средах перед релизом. По документам: при поступлении эталона от заказчика — матрица **MVP-TZ-01** в [docs/TZ_MVP_TRACEABILITY.md](docs/TZ_MVP_TRACEABILITY.md) и при необходимости протокол к §47 `SDOPROF_TZ_FINAL.md` (см. [§44.1](SDOPROF_TZ_FINAL.md#441-исходное-тз-заказчика), handoff §13 Issue 0).
+Итеративные улучшения: UI-полировка Pillar A (commission edit form, drag-n-drop, PDF render), подготовка к Phase 2. Перед каждой фичей — зелёный `ci:check` и обновлённый handoff.
 
 ### Next Task
 
-Из [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §14/§20: [docs/security-remediation-roadmap.md](docs/security-remediation-roadmap.md) **§8** persistence (MVP state → БД) и P1; расширение HTTP regression при смене public API; **manual smoke** по [docs/LAUNCH_RUNBOOK.md](docs/LAUNCH_RUNBOOK.md); миграция **0027** на целевых средах.
+**Phase 2 plan + implementation start** (см. roadmap §«Phase 2»): админ-layout с навигацией, парсер Excel/CSV, валидаторы (ФИО, СНИЛС, email, дубликаты), UI массовой загрузки с предпросмотром ошибок поверх существующего `MvpBulkEnqueueService` + worker callback (BL-003). Параллельно — known TODO по Pillar A: Postgres-адаптер для `regulatoryActs`, drag-n-drop сортировка комиссий и document set, загрузка PNG-подписей в storage.files, реальный PDF-рендер карточки ученика (отложен до Phase 5).
 
 ### Do Not Touch
 
@@ -113,11 +113,11 @@ MVP backend/frontend (IAM, assessment, bulk enrollments, KPI, сертифика
 
 ### Last Updated By
 
-AI Agent (инженерная итерация по ТЗ / security roadmap)
+AI Agent (Phase 1 + Pillar A завершены, добавлен commission edit UI)
 
 ### Last Updated At
 
-2026-05-07 (BL-010 e-sign GET parity processes/:id + participants + application-files/:id + events/:id, handoff 5.89)
+2026-05-28 (Phase 1 §4.3 done; Pillar A Plan A/B/C merged; commission name/description PATCH UI добавлен; previous: BL-010 e-sign GET parity, 2026-05-07)
 
 ## 3. Current Project Status
 
@@ -199,4 +199,3 @@ Backend при старте применяет SQL миграции (`apps/backe
 
 - Backend: `/api/v1/health/live`, `/api/v1/health/ready`, `/api/v1/health/startup`, `/api/v1/metrics`.
 - Realtime: `/health`, `/ready`.
-
