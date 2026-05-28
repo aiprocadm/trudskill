@@ -15,6 +15,7 @@ import {
   UpdateMaterialProgressRequest,
   UpdateProgramMetaRequest
 } from './mvp.dto.js';
+import { UpdateLearnerExtendedRequest } from './update-learner-extended.dto.js';
 
 describe('MVP critical DTO (class-validator)', () => {
   it('отклоняет отрицательный studiedSeconds', () => {
@@ -333,5 +334,71 @@ describe('Pillar A — PutCourseDocumentSetRequest', () => {
       rows: [{ rowNumber: 0, fullName: 'X Y', email: 'a@b.ru' }]
     });
     expect(validateSync(inst).length).toBeGreaterThan(0);
+  });
+});
+
+describe('UpdateLearnerExtendedRequest', () => {
+  const validate = (raw: unknown) => {
+    const instance = plainToInstance(UpdateLearnerExtendedRequest, raw);
+    return validateSync(instance, { whitelist: true, forbidNonWhitelisted: true });
+  };
+
+  it('accepts empty payload (no-op patch)', () => {
+    expect(validate({})).toHaveLength(0);
+  });
+
+  it('accepts full happy path', () => {
+    expect(
+      validate({
+        firstName: 'Иван',
+        lastName: 'Иванов',
+        middleName: 'Петрович',
+        email: 'ivan@example.com',
+        snils: '123-456-789 01',
+        position: 'инженер',
+        organizationUnitId: 'unit-1',
+        learnerNo: '0000123',
+        status: 'active',
+        linkedIamUserId: 'user-abc'
+      })
+    ).toHaveLength(0);
+  });
+
+  it('rejects invalid email', () => {
+    const errors = validate({ email: 'not-an-email' });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.property).toBe('email');
+  });
+
+  it('accepts null for clearable strings', () => {
+    expect(
+      validate({
+        middleName: null,
+        email: null,
+        snils: null,
+        position: null,
+        organizationUnitId: null,
+        learnerNo: null,
+        linkedIamUserId: null
+      })
+    ).toHaveLength(0);
+  });
+
+  it('rejects invalid status', () => {
+    const errors = validate({ status: 'banned' });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.property).toBe('status');
+  });
+
+  it('rejects empty firstName (MinLength)', () => {
+    const errors = validate({ firstName: '' });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.property).toBe('firstName');
+  });
+
+  it('rejects oversized field', () => {
+    const errors = validate({ firstName: 'x'.repeat(121) });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.property).toBe('firstName');
   });
 });
