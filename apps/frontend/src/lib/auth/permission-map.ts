@@ -80,6 +80,8 @@ export const rolePermissionMap: Record<string, string[]> = {
   ],
   learner: [
     'enrollments.read',
+    'assessment.tests.read',
+    'assessment.attempts.read',
     'assessment.attempts.take',
     'assessment.submissions.submit',
     'assessment.results.read',

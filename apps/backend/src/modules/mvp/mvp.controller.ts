@@ -538,6 +538,17 @@ export class MvpController {
   listMyDocuments(@CurrentContext() c: RequestContext) {
     return this.mvpService.listMyDocuments(c.tenantId!, c.userId);
   }
+  /**
+   * Phase 3 Plan B — агрегированный список тестов для текущего IAM-актора (слушатель).
+   * Как и `me/documents`: сервис резолвит привязанных learner-ов, без привязки — пустой
+   * массив (НЕ 403).
+   */
+  @Get('me/tests')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('assessment.tests.read')
+  listMyTests(@CurrentContext() c: RequestContext) {
+    return this.mvpService.listMyTests(c.tenantId!, c.userId);
+  }
   @Get('enrollments/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('enrollments.read')
@@ -860,6 +871,18 @@ export class MvpController {
       actorId: c.userId,
       permissions: c.permissions
     });
+  }
+  /**
+   * Answer-safe вопросы попытки для плеера прохождения теста: возвращает
+   * проекцию `AttemptQuestionView` без ключей ответа (isCorrect / numericExpected /
+   * numericTolerance / expectedAnswer / explanation). Доступ — только владелец
+   * попытки (assertActorMatchesLearnerIamLink в сервисе).
+   */
+  @Get('attempts/:id/questions')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('assessment.attempts.take')
+  getAttemptQuestions(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.mvpService.getAttemptQuestions(c.tenantId!, c.userId, id, c);
   }
   @Post('attempts/:id/answers')
   @UseGuards(PermissionGuard)
