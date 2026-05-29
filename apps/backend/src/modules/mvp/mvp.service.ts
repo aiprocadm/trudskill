@@ -80,6 +80,7 @@ import type {
   Commission,
   CommissionMember,
   CommissionStatus,
+  CompleteAttemptReviewInput,
   Counterparty,
   Course,
   CourseDocumentSetEntry,
@@ -2964,6 +2965,70 @@ export class MvpService {
       delegationAuditMetadata
     );
     return submitted;
+  }
+
+  completeAttemptReview(
+    tenantId: string,
+    actorId: string | undefined,
+    attemptId: string,
+    input: CompleteAttemptReviewInput,
+    context: RequestContext
+  ): TestAttempt {
+    const attempt = this.getById(this.state.attempts, tenantId, attemptId);
+    if (attempt.status !== 'submitted') {
+      throw new PreconditionFailedException({
+        code: 'domain_rule_violation',
+        message: 'Only submitted attempts can be reviewed'
+      });
+    }
+    const answers = this.state.attemptAnswers.filter(
+      (a) => a.tenantId === tenantId && a.attemptId === attempt.id
+    );
+    for (const item of input.answerScores) {
+      const answer = answers.find((a) => a.questionId === item.questionId);
+      if (!answer) {
+        throw new BadRequestException({
+          code: 'validation_error',
+          message: `No answer recorded for question ${item.questionId}`
+        });
+      }
+      if (answer.autoGraded !== false) {
+        throw new PreconditionFailedException({
+          code: 'domain_rule_violation',
+          message: 'Only manually-gradable (non-auto-graded) answers can be scored'
+        });
+      }
+      const question = this.getById(this.state.questions, tenantId, item.questionId);
+      if (item.score < 0 || item.score > question.score) {
+        throw new BadRequestException({
+          code: 'validation_error',
+          message: 'Score must be within [0, question.score]'
+        });
+      }
+      answer.score = item.score;
+      answer.updatedAt = this.now();
+    }
+    const total = answers.reduce((sum, a) => sum + (a.score ?? 0), 0);
+    const test = this.getById(this.state.tests, tenantId, attempt.testId);
+    attempt.score = total;
+    attempt.passed = total >= test.rules.passingScore;
+    attempt.status = 'finished';
+    attempt.finishedAt = this.now();
+    attempt.reviewedBy = actorId;
+    if (input.reviewComment !== undefined) attempt.reviewComment = input.reviewComment;
+    attempt.updatedAt = this.now();
+    this.finalizeExamResult(tenantId, actorId, attempt, context);
+    this.audit(
+      tenantId,
+      actorId,
+      'assessment.attempt_review_completed',
+      'assessment.test_attempt',
+      attempt.id,
+      undefined,
+      attempt,
+      context
+    );
+    return attempt;
   }
 
   listExamResults(

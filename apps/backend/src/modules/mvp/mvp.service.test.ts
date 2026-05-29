@@ -2824,3 +2824,129 @@ describe('MvpService — Counterparty extended + group linking (Phase 2 Plan C �
     ).toThrow(NotFoundException);
   });
 });
+
+describe('Plan C — completeAttemptReview', () => {
+  function makeEssayAttempt(passingScore: number) {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'CC', title: 'PlanC' },
+      ctx
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'GC', name: 'GroupC' },
+      ctx
+    );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'LC', name: 'Essay Learner' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const bank = service.createQuestionBank(
+      'tenant_demo',
+      ctx.userId,
+      { title: 'BankC', courseId: course.id },
+      ctx
+    );
+    const essayQ = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      { questionBankId: bank.id, text: 'Discuss safety', type: 'essay', score: 5 },
+      ctx
+    );
+    const test = service.createTest(
+      'tenant_demo',
+      ctx.userId,
+      {
+        title: 'EssayTest',
+        courseId: course.id,
+        questionBankId: bank.id,
+        rules: { attemptLimit: 1, passingScore }
+      },
+      ctx
+    );
+    service.addTestQuestions('tenant_demo', test.id, [essayQ.id]);
+    const attempt = service.startAttempt(
+      'tenant_demo',
+      ctx.userId,
+      { testId: test.id, enrollmentId: enrollment.id, learnerId: learner.id },
+      ctx
+    );
+    service.saveAttemptAnswer(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { questionId: essayQ.id, textAnswer: 'a thoughtful essay' },
+      ctx
+    );
+    return { service, essayQ, attempt };
+  }
+
+  it('scores the essay, recomputes score/passed, finishes, updates ExamResult', () => {
+    const { service, essayQ, attempt } = makeEssayAttempt(3);
+    const submitted = service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+    expect(submitted.score).toBe(0); // essay abstains at submit
+    expect(submitted.status).toBe('submitted');
+
+    const reviewed = service.completeAttemptReview(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { answerScores: [{ questionId: essayQ.id, score: 4 }], reviewComment: 'good' },
+      ctx
+    );
+    expect(reviewed.score).toBe(4);
+    expect(reviewed.passed).toBe(true);
+    expect(reviewed.status).toBe('finished');
+    expect(reviewed.reviewComment).toBe('good');
+
+    const result = service.getAttemptResult('tenant_demo', attempt.id);
+    expect(result.finalScore).toBe(4);
+    expect(result.passed).toBe(true);
+  });
+
+  it('rejects an out-of-range score', () => {
+    const { service, essayQ, attempt } = makeEssayAttempt(3);
+    service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+    expect(() =>
+      service.completeAttemptReview(
+        'tenant_demo',
+        ctx.userId,
+        attempt.id,
+        { answerScores: [{ questionId: essayQ.id, score: 99 }] },
+        ctx
+      )
+    ).toThrow(BadRequestException);
+  });
+
+  it('refuses to review an attempt that is not submitted', () => {
+    const { service, essayQ, attempt } = makeEssayAttempt(3);
+    expect(() =>
+      service.completeAttemptReview(
+        'tenant_demo',
+        ctx.userId,
+        attempt.id,
+        { answerScores: [{ questionId: essayQ.id, score: 1 }] },
+        ctx
+      )
+    ).toThrow(PreconditionFailedException); // still in_progress
+  });
+});

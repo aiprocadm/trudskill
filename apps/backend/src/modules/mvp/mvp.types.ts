@@ -304,6 +304,8 @@ export interface TestAttempt extends BaseEntity {
   maxScore: number;
   passed?: boolean;
   questionOrder: string[];
+  reviewComment?: string; // Plan C: reviewer note from manual essay grading
+  reviewedBy?: string; // Plan C: actorId who completed the manual review
 }
 
 export type Attempt = TestAttempt;
@@ -329,6 +331,16 @@ export interface ExamResult extends BaseEntity {
   maxScore: number;
   passingScore?: number;
   passed: boolean;
+}
+
+export interface AttemptAnswerScoreInput {
+  questionId: string;
+  score: number;
+}
+
+export interface CompleteAttemptReviewInput {
+  answerScores: AttemptAnswerScoreInput[];
+  reviewComment?: string;
 }
 
 /**
