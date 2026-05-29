@@ -76,23 +76,23 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 ### Current Stage
 
-V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md)) — **Phase 1 (минимальный путь ученика) полностью завершена**: магическая ссылка, кабинет ученика с «Следующий шаг», course viewer с TOC, выдача документов по завершению (см. PR #171, #172, #184–#189). **Pillar A (фундамент регулируемого ДПО)** также завершён — Plan A+B+C смержены (PR #174–#183). Стабильный quality gate `pnpm -s ci:check`; миграции до **0038** на main.
+V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md)) — **Phase 1 + Pillar A + Phase 2 (все три плана A+B+C)** завершены. Phase 2 покрыта объёмно на ~95%: bulk Excel import (Plan A, PRs #191-#196), учётки учеников list/search/filter/edit (Plan B, PRs #197-#200), компании-клиенты + group progress (Plan C, PRs #201-#203 + closeout). Стабильный quality gate `pnpm -s ci:check`; миграции до **0039** на этой ветке.
 
 ### Current Goal
 
-Продолжать V1 по [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md). Следующий крупный блок — **Phase 2 (админка центра + массовые операции)**: загрузка Excel, валидация ФИО/СНИЛС/email, bulk-enrollment UI поверх существующего backend (`MvpBulkEnqueueService`).
+Закрыть Phase 2 финально (merge PRs Plan C), затем стартовать **Phase 3 (тестирование и оценивание)** по roadmap: банк вопросов, конструктор тестов, плеер теста, автогрейдинг single/multi/number, UI ручной проверки эссе, загрузка практических работ.
 
 ### Last Completed Task
 
-**Phase 1 §4.3 — learner-facing documents end-to-end** (PR #189, 2026-05-27): ученик видит выданные документы в кабинете. Совместно с предшествующими PR #184 (Course viewer + TOC), #185/#186 (PATCH progress wire), #187 (seed learner IAM role), #188 (course viewer integration) закрывает §4.3 спеки. **Pillar A Plan C** (QR-проверка, аннулирование/перевыпуск, лицензии центра, личное дело ученика) смержен ранее тем же днём.
+**Phase 2 Plan C — admin clients management + group progress** (2026-05-30, PRs #202/#203 + closeout): backend расширенный `crm.counterparties` (ИНН/КПП/контакты + nullable composite FK `learning.groups.counterparty_id` через migration 0039) + 3 service метода + pure-function `GroupProgressSummary` aggregator + 5 endpoints (POST extended, PATCH profile, PATCH groups counterparty, GET group + counterparty progress-summary). Frontend `/admin/clients` (list + detail + create/edit drawer) + group-progress-section + standalone group-counterparty-picker. Совместно с Plan A (#191-#196) и Plan B (#197-#200) полностью закрывает Phase 2 «Админка центра + массовые операции».
 
 ### Current Task
 
-Итеративные улучшения: UI-полировка Pillar A (commission edit form, drag-n-drop, PDF render), подготовка к Phase 2. Перед каждой фичей — зелёный `ci:check` и обновлённый handoff.
+Дождаться merge Plan C PR-ов (#202 backend + #203 frontend + closeout), затем зафиксировать Phase 2 closed и переходить к Phase 3. Параллельно — known V1.1 polish: GroupCounterpartyPicker integration в GroupDetailsScreen (Plan C D4), granular 0..1 progress rate (Plan C D3), real course name в progress section, фильтр `counterpartyId` в `GET /groups`.
 
 ### Next Task
 
-**Phase 2 plan + implementation start** (см. roadmap §«Phase 2»): админ-layout с навигацией, парсер Excel/CSV, валидаторы (ФИО, СНИЛС, email, дубликаты), UI массовой загрузки с предпросмотром ошибок поверх существующего `MvpBulkEnqueueService` + worker callback (BL-003). Параллельно — known TODO по Pillar A: Postgres-адаптер для `regulatoryActs`, drag-n-drop сортировка комиссий и document set, загрузка PNG-подписей в storage.files, реальный PDF-рендер карточки ученика (отложен до Phase 5).
+**Phase 3 — тестирование и оценивание** (см. roadmap): банк вопросов, конструктор тестов, плеер теста для ученика, автогрейдинг single/multi/number, UI ручной проверки эссе, загрузка практических работ. Параллельно — Pillar A polish backlog (drag-n-drop сортировки, PNG-подписи, реальный PDF render отложен до Phase 5), V1.1 follow-ups из Plan C deviations (D3 granular rate, D4 picker integration).
 
 ### Do Not Touch
 
@@ -113,11 +113,11 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Updated By
 
-AI Agent (Phase 1 + Pillar A завершены, добавлен commission edit UI)
+AI Agent (Phase 2 Plan C implemented end-to-end — backend + frontend + closeout in 3 stacked PRs)
 
 ### Last Updated At
 
-2026-05-28 (Phase 1 §4.3 done; Pillar A Plan A/B/C merged; commission name/description PATCH UI добавлен; previous: BL-010 e-sign GET parity, 2026-05-07)
+2026-05-30 (Phase 2 Plan C done — PRs #202/#203 + closeout; Phase 2 ~95% complete; previous: Plan B 2026-05-29, Plan A 2026-05-28, Phase 1 §4.3 + Pillar A 2026-05-27)
 
 ## 3. Current Project Status
 

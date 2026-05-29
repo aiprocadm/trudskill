@@ -1026,6 +1026,49 @@
 - Quality gates: `pnpm typecheck` зелёный, frontend 198 тестов + backend 42 новых (всё через изолированные прогоны; full `pnpm test:backend` падает на pre-existing tinypool/Windows IPC crash на пути с кириллицей — проверено против origin/main, не вызвано этим изменением).
 - Что осталось до Phase 2 целиком: Plan B (учётки CRUD UI поверх существующего `GET /learners`) и Plan C (компании-клиенты + view прогресса по группе). Plan A — главный процесс из спеки, ~10-15% общего объёма Phase 2.
 
+### 5.91 Phase 2 §3.2 — Plan B: admin учётки учеников (list/search/filter/edit UI)
+
+- Summary: реализована вторая фича Phase 2 «учётки учеников» — `/admin/learners` со списком/поиском/фильтром по статусу/пагинацией + drawer для редактирования профиля (имя/email/СНИЛС/должность/подразделение/статус/IAM-привязка). Закрывает 11 задач Plan B в 3 PR'ах (#198 backend, #199 frontend, #200 closeout).
+- Plan: `docs/superpowers/plans/2026-05-29-phase-2-admin-learners-management-b.md`.
+- Backend (PR #198, Tasks 1-4): `UpdateLearnerExtendedRequest` DTO с PATCH-семантикой (undefined = skip, null = clear), `MvpService.updateLearnerExtended` + 6 unit-кейсов с anti-IDOR правилом на `linkedIamUserId` (смена непустого на другое непустое → 409 ConflictException; чтобы сменить — двухшаговый null → reassign). `@Patch('learners/:id/profile')` endpoint под `learners.write`. HTTP integration 3 кейса в `mvp.http.integration.test.ts`.
+- Frontend (PR #199, Tasks 5-10): фича-папка `src/features/learners/` (types/api/api.contract/hooks/format/learner-edit-drawer/learners-list-screen), route `app/admin/learners/page.tsx`, navigation entry `/admin/learners` под `learners.read` в navSlot 'more'.
+- Closeout (PR #200, Task 11): E2E smoke в `src/e2e/admin-learners-management.e2e.test.ts` (11 кейсов: routing + nav + pipeline integration форматтеров + module smoke).
+- Plan B deviations (адаптации к реальному коду):
+  1. `apiRequest(path, options)` сигнатура — не `(session, { method, path, body })`. Session через `options.auth`.
+  2. Hook `useAuth()` + `UserSession` — не `useSession()`.
+  3. React Query из `@tanstack/react-query` напрямую (план ошибочно говорил про «shim»; shim существует только для compat-слоя в других местах).
+  4. `@cdoprof/ui` сигнатуры: `Column<T>.title` не `header`, `Pagination` через `page`/`totalPages`/`onPageChange`, `SectionError.onRetry`, `SectionEmpty.message`/`hint`, `SearchInput` без `placeholder`/`aria-label`, `LoadingState.message`.
+  5. `Select` не существует в `@cdoprof/ui` (только `LookupSelect` для `LookupItem[]`) — фильтр статуса через native `<select className="ui-select">`.
+  6. `ProtectedPage` без props — auth/permission через `routeMeta`.
+  7. Tasks 8+9 объединены в один коммит drawer-first, чтобы typecheck не падал при импорте drawer'а из screen'а.
+- Что осталось до Phase 2: Plan C — компании-клиенты + view прогресса по группе (последний крупный блок).
+- Quality gates: `pnpm typecheck` зелёный, frontend 217 тестов, backend +22 (39 dto-validation + 76 service + 12 HTTP integration в изоляции).
+
+### 5.92 Phase 2 §3.2 — Plan C: компании-клиенты + прогресс по группе
+
+- Summary: реализована заключительная фича Phase 2 — admin-страница `/admin/clients` (list + detail + create/edit drawer) + связь группа↔компания + агрегатный прогресс по группе и по компании. Закрывает 14 задач Plan C в 3 PR'ах. Phase 2 после Plan C объёмно ~95% покрыта (остаётся V1.1 polish — см. ниже).
+- Plan: `docs/superpowers/plans/2026-05-29-phase-2-admin-clients-management-c.md`.
+- Backend (PR #202, Tasks 1-6, +56 тестов):
+  - Migration 0039 (`crm.counterparties` +6 nullable колонок inn/kpp/contact_email/contact_phone/legal_address/note + INN format CHECK; `learning.groups` +nullable `counterparty_id` с composite FK `(tenant_id, counterparty_id) → crm.counterparties (tenant_id, id)` + partial index). 7 regex-тестов в `migrations.0039.test.ts`.
+  - `mvp.types.ts` — `Counterparty` +6 опциональных полей, `GroupEntity` +`counterpartyId?`.
+  - 2 новых DTO (`CreateCounterpartyExtendedRequest` + `UpdateCounterpartyExtendedRequest`) + 14 dto-validation кейсов.
+  - 3 service метода (`createCounterpartyExtended`, `updateCounterpartyExtended`, `setGroupCounterparty`) + аудит на каждую мутацию (`crm.counterparty_created/updated`, `learning.group_counterparty_linked/unlinked`) + 9 unit-кейсов.
+  - `group-progress-summary.service.ts` — pure-function aggregator (`summarizeGroupProgress` + `summarizeCounterpartyProgress`) с binary completion signal (status='completed') + per-course breakdown через groupCourses join. 9 unit-кейсов.
+  - `MvpService.getGroupProgressSummary` + `getCounterpartyProgressSummary` wiring с tenant-scoped state filter + anti-IDOR через `getById`.
+  - 5 новых endpoints в `mvp.controller.ts`: `POST /counterparties/extended` (counterparties.write), `PATCH /counterparties/:id/profile` (counterparties.write), `PATCH /groups/:id/counterparty` (counterparties.write), `GET /groups/:id/progress-summary` (enrollments.read), `GET /counterparties/:id/progress-summary` (counterparties.read + enrollments.read). 7 HTTP integration кейсов.
+- Frontend (PR #203, Tasks 7-13, +42 теста):
+  - Фича-папка `src/features/clients/` — `types.ts`, `api.ts`, `hooks.ts` (React Query + useState mutations), `format.ts` (+18 unit-кейсов), `api.contract.test.ts` (9 кейсов envelope unwrap + URL/method/body), `clients-list-screen.tsx`, `client-edit-drawer.tsx` (create + edit единый компонент через optional `client` prop), `client-detail-screen.tsx`, `group-progress-section.tsx`, `group-counterparty-picker.tsx` (standalone, awaits V1.1 integration).
+  - Routes `app/admin/clients/page.tsx` + `app/admin/clients/[id]/page.tsx` (ProtectedPage).
+  - Navigation entry `/admin/clients` + `/admin/clients/[id]` под `counterparties.read`, navSlot 'more'.
+- Closeout (этот PR, Task 14): `src/e2e/admin-clients-management.e2e.test.ts` (15 кейсов: routing + nav + pipeline integration + 5 module smoke), §5.91 retrospective (Plan B closeout пропустил handoff entry) + §5.92, README §2 sync.
+- Plan C deviations (4):
+  1. **D1**: план говорил `mvp.counterparties`, реальная таблица — `crm.counterparties` (схема crm, не mvp; см. 0002_mvp_domain_model.sql). Миграция и сервисы корректно адресуют `crm`.
+  2. **D2**: план указывал `ON DELETE SET NULL` на composite FK. PostgreSQL для composite FK SET NULL обнулит обе колонки `(tenant_id, counterparty_id)`, ломая multitenancy. Заменено на default `ON DELETE NO ACTION` (соответствует pattern composite FK в 0003); удаление counterparty в V1 не предусмотрено (только status-toggle).
+  3. **D3**: план предполагал `Enrollment.courseId` и pre-computed `completionRateByEnrollment` Map. Real model: `Enrollment` имеет только `groupId/learnerId/status`; binary completion signal через `status === 'completed'` (matches kpiSnapshot precedent). Per-course breakdown — через `groupCourses (groupId, courseId)` join. Granular 0..1 rate отложен до V1.1.
+  4. **D4**: `GroupCounterpartyPicker` создан standalone, но НЕ интегрирован inline в `GroupDetailsScreen` (`mvp/screens.tsx:1515`, ~2000-строчный mega-file — высокий риск побочных регрессий). `PATCH /groups/:id/counterparty` полностью работает; picker testable в изоляции; интеграция — V1.1 polish task.
+- Что осталось до Phase 2 целиком: ничего критичного. Опциональные V1.1: фильтр `BaseFilterQuery.counterpartyId` для `GET /groups`, замена `c.courseId` на real course name в progress section, GroupCounterpartyPicker integration, granular 0..1 progress rate (через materialProgress), BL-003 worker callback path для bulk-enrollment (sync path сейчас работает для V1).
+- Quality gates: `pnpm typecheck` зелёный (8 packages), backend изолированные прогоны зелёные (`mvp.dto-validation` 53 / `mvp.service` 85 / `group-progress-summary.service` 9 / `migrations.0039` 7 / `mvp.http.integration` 19 → +56 vs main), frontend `format.test.ts` 18 + `api.contract.test.ts` 9 + `admin-clients-management.e2e.test.ts` 15 + existing e2e suite 27 (unchanged) = 232 (был 217 после Plan B; +42 new − 27 pre-existing).
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |
