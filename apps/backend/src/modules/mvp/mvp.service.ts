@@ -2541,7 +2541,8 @@ export class MvpService {
       {
         testAttempts: this.state.attempts as TestAttempt[],
         attemptAnswers: this.state.attemptAnswers,
-        assignmentSubmissions: this.state.assignmentSubmissions
+        assignmentSubmissions: this.state.assignmentSubmissions,
+        questions: this.state.questions
       },
       { tenantId }
     );

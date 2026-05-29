@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { reviewerActionsApi } from './api';
@@ -42,6 +42,7 @@ function describe(err: unknown, fallback: string): string {
 
 export function useTakeIntoReview() {
   const { session } = useAuth();
+  const queryClient = useQueryClient();
   const [state, setState] = useState<MutationState<AssignmentReviewDto>>(initial());
   const mutate = async (payload: CreateReviewPayload) => {
     if (!session) return null;
@@ -49,6 +50,7 @@ export function useTakeIntoReview() {
     try {
       const data = await reviewerActionsApi.takeIntoReview(session, payload);
       setState({ isPending: false, error: null, data });
+      void queryClient.invalidateQueries({ queryKey: ['reviewer-actions', 'queue'] });
       return data;
     } catch (err) {
       setState({
@@ -64,6 +66,7 @@ export function useTakeIntoReview() {
 
 export function useCompleteReview() {
   const { session } = useAuth();
+  const queryClient = useQueryClient();
   const [state, setState] = useState<MutationState<AssignmentReviewDto>>(initial());
   const mutate = async (reviewId: string, payload: CompleteReviewPayload) => {
     if (!session) return null;
@@ -71,6 +74,7 @@ export function useCompleteReview() {
     try {
       const data = await reviewerActionsApi.completeReview(session, reviewId, payload);
       setState({ isPending: false, error: null, data });
+      void queryClient.invalidateQueries({ queryKey: ['reviewer-actions', 'queue'] });
       return data;
     } catch (err) {
       setState({
@@ -86,6 +90,7 @@ export function useCompleteReview() {
 
 export function useReturnSubmission() {
   const { session } = useAuth();
+  const queryClient = useQueryClient();
   const [state, setState] = useState<MutationState<unknown>>(initial());
   const mutate = async (submissionId: string, payload: ReturnSubmissionPayload) => {
     if (!session) return null;
@@ -93,6 +98,7 @@ export function useReturnSubmission() {
     try {
       const data = await reviewerActionsApi.returnSubmission(session, submissionId, payload);
       setState({ isPending: false, error: null, data });
+      void queryClient.invalidateQueries({ queryKey: ['reviewer-actions', 'queue'] });
       return data;
     } catch (err) {
       setState({
@@ -108,6 +114,7 @@ export function useReturnSubmission() {
 
 export function useCompleteAttemptReview() {
   const { session } = useAuth();
+  const queryClient = useQueryClient();
   const [state, setState] = useState<MutationState<unknown>>(initial());
   const mutate = async (attemptId: string, payload: CompleteAttemptReviewPayload) => {
     if (!session) return null;
@@ -115,6 +122,7 @@ export function useCompleteAttemptReview() {
     try {
       const data = await reviewerActionsApi.completeAttemptReview(session, attemptId, payload);
       setState({ isPending: false, error: null, data });
+      void queryClient.invalidateQueries({ queryKey: ['reviewer-actions', 'queue'] });
       return data;
     } catch (err) {
       setState({

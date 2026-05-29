@@ -122,25 +122,46 @@ function SubmissionActions({ item }: { item: ReviewerQueueItem }) {
 
 function AttemptActions({ item }: { item: ReviewerQueueItem }) {
   const completeAttemptReview = useCompleteAttemptReview();
-  const [essayScore, setEssayScore] = useState('');
+  const [scores, setScores] = useState<Record<string, string>>({});
   const [reviewComment, setReviewComment] = useState('');
 
+  const essays = item.essayAnswers ?? [];
+
   const onGradeEssay = async () => {
-    if (essayScore === '') return;
+    const answerScores = essays.map((e) => ({
+      questionId: e.questionId,
+      score: Number(scores[e.questionId] ?? 0)
+    }));
     await completeAttemptReview.mutate(item.id, {
-      answerScores: [{ questionId: item.testId ?? '', score: Number(essayScore) }],
+      answerScores,
       ...(reviewComment !== '' ? { reviewComment } : {})
     });
   };
 
+  if (essays.length === 0) {
+    return (
+      <div className="ui-stack">
+        <span>нет эссе для проверки</span>
+      </div>
+    );
+  }
+
   return (
     <div className="ui-stack">
-      <input
-        type="number"
-        placeholder="Балл за эссе"
-        value={essayScore}
-        onChange={(e) => setEssayScore(e.target.value)}
-      />
+      {essays.map((e) => (
+        <div key={e.questionId}>
+          <p>
+            <strong>{e.questionTitle}</strong>
+          </p>
+          <p>{e.answerText}</p>
+          <input
+            type="number"
+            placeholder="Балл"
+            value={scores[e.questionId] ?? ''}
+            onChange={(ev) => setScores((prev) => ({ ...prev, [e.questionId]: ev.target.value }))}
+          />
+        </div>
+      ))}
       <input
         type="text"
         placeholder="Комментарий"
@@ -149,10 +170,10 @@ function AttemptActions({ item }: { item: ReviewerQueueItem }) {
       />
       <button
         type="button"
-        disabled={completeAttemptReview.isPending || essayScore === ''}
+        disabled={completeAttemptReview.isPending}
         onClick={() => void onGradeEssay()}
       >
-        Оценить эссе
+        Завершить проверку
       </button>
       {completeAttemptReview.error ? <SectionError message={completeAttemptReview.error} /> : null}
     </div>

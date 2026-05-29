@@ -234,6 +234,12 @@ export interface Question extends BaseEntity {
   tags?: string[];
 }
 
+export interface ReviewerQueueEssayAnswer {
+  questionId: string;
+  questionTitle: string;
+  answerText: string;
+}
+
 export interface ReviewerQueueItem {
   kind: 'attempt' | 'submission';
   id: string;
@@ -242,6 +248,8 @@ export interface ReviewerQueueItem {
   testId?: string;
   assignmentId?: string;
   submittedAt: string;
+  /** Plan C: manual-grading payload — present only for attempt items with essay answers. */
+  essayAnswers?: ReviewerQueueEssayAnswer[];
 }
 
 export interface ReviewerQueueSnapshot {

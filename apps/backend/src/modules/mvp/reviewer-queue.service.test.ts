@@ -69,7 +69,7 @@ function makeManualAnswer(
 describe('aggregateReviewerQueue (Phase 3 Plan A pure-function)', () => {
   it('returns empty snapshot when both collections are empty', () => {
     const result = aggregateReviewerQueue(
-      { testAttempts: [], attemptAnswers: [], assignmentSubmissions: [] },
+      { testAttempts: [], attemptAnswers: [], assignmentSubmissions: [], questions: [] },
       { tenantId: 't1' }
     );
     expect(result).toEqual({ pendingAttempts: [], pendingSubmissions: [] });
@@ -85,7 +85,8 @@ describe('aggregateReviewerQueue (Phase 3 Plan A pure-function)', () => {
       {
         testAttempts: attempts,
         attemptAnswers: [makeManualAnswer('a1', 't1')],
-        assignmentSubmissions: []
+        assignmentSubmissions: [],
+        questions: []
       },
       { tenantId: 't1' }
     );
@@ -102,7 +103,7 @@ describe('aggregateReviewerQueue (Phase 3 Plan A pure-function)', () => {
       makeSubmission({ id: 's4', tenantId: 't1', status: 'draft' })
     ];
     const result = aggregateReviewerQueue(
-      { testAttempts: [], attemptAnswers: [], assignmentSubmissions: submissions },
+      { testAttempts: [], attemptAnswers: [], assignmentSubmissions: submissions, questions: [] },
       { tenantId: 't1' }
     );
     expect(result.pendingSubmissions.map((s) => s.id).sort()).toEqual(['s1', 's2']);
@@ -120,7 +121,8 @@ describe('aggregateReviewerQueue (Phase 3 Plan A pure-function)', () => {
         assignmentSubmissions: [
           makeSubmission({ id: 's_t1', tenantId: 't1', status: 'submitted' }),
           makeSubmission({ id: 's_t2', tenantId: 't2', status: 'submitted' })
-        ]
+        ],
+        questions: []
       },
       { tenantId: 't1' }
     );
@@ -139,7 +141,8 @@ describe('aggregateReviewerQueue (Phase 3 Plan A pure-function)', () => {
       {
         testAttempts: [a],
         attemptAnswers: [makeManualAnswer('a1', 't1')],
-        assignmentSubmissions: []
+        assignmentSubmissions: [],
+        questions: []
       },
       { tenantId: 't1' }
     );
@@ -167,7 +170,8 @@ describe('aggregateReviewerQueue (Phase 3 Plan A pure-function)', () => {
             assignmentId: 'asn_42',
             learnerId: 'learner_42'
           })
-        ]
+        ],
+        questions: []
       },
       { tenantId: 't1' }
     );
@@ -183,7 +187,12 @@ describe('aggregateReviewerQueue (Phase 3 Plan A pure-function)', () => {
     const attemptsSnapshot = JSON.stringify(attempts);
     const submissionsSnapshot = JSON.stringify(submissions);
     aggregateReviewerQueue(
-      { testAttempts: attempts, attemptAnswers: [], assignmentSubmissions: submissions },
+      {
+        testAttempts: attempts,
+        attemptAnswers: [],
+        assignmentSubmissions: submissions,
+        questions: []
+      },
       { tenantId: 't1' }
     );
     expect(JSON.stringify(attempts)).toBe(attemptsSnapshot);
