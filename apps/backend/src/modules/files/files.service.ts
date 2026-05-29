@@ -1,6 +1,7 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
+import { S3StorageClient } from '../../infrastructure/storage/s3-storage.client.js';
 
 import type { PoolClient } from 'pg';
 
@@ -17,9 +18,36 @@ export interface FileMetadata {
 const MATERIAL_ENTITY = 'learning.material';
 const PRIMARY_ROLE = 'primary';
 
+const SUBMISSION_MIME_ALLOWLIST = new Set([
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+]);
+const SUBMISSION_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+const UPLOAD_URL_TTL_SECONDS = 900;
+
+export interface UploadIntentInput {
+  originalName: string;
+  contentType: string;
+  sizeBytes: number;
+}
+
+export interface UploadIntent {
+  fileId: string;
+  uploadUrl: string;
+  storageKey: string;
+  expiresInSeconds: number;
+}
+
 @Injectable()
 export class FilesService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    @Inject(S3StorageClient) private readonly storage: S3StorageClient
+  ) {}
 
   async register(
     metadata: Omit<FileMetadata, 'id' | 'createdAt'> & { bucketName?: string }
@@ -76,6 +104,54 @@ export class FilesService {
       sizeBytes: Number(r.size_bytes),
       createdAt: r.created_at.toISOString()
     }));
+  }
+
+  async createUploadIntent(tenantId: string, input: UploadIntentInput): Promise<UploadIntent> {
+    if (!SUBMISSION_MIME_ALLOWLIST.has(input.contentType)) {
+      throw new BadRequestException({
+        code: 'unsupported_media_type',
+        message: 'File type is not allowed'
+      });
+    }
+    if (input.sizeBytes <= 0 || input.sizeBytes > SUBMISSION_MAX_BYTES) {
+      throw new BadRequestException({
+        code: 'file_too_large',
+        message: 'File exceeds the allowed size'
+      });
+    }
+    const safeName = input.originalName.replace(/[^\w.\-]+/g, '_').slice(-80);
+    const storageKey = `submissions/${tenantId}/${this.uploadId()}_${safeName}`;
+    const file = await this.register({
+      tenantId,
+      storageKey,
+      originalName: input.originalName,
+      mimeType: input.contentType,
+      sizeBytes: input.sizeBytes
+    });
+    const uploadUrl = await this.storage.createPresignedUploadUrl({
+      key: storageKey,
+      contentType: input.contentType,
+      expiresInSeconds: UPLOAD_URL_TTL_SECONDS
+    });
+    return { fileId: file.id, uploadUrl, storageKey, expiresInSeconds: UPLOAD_URL_TTL_SECONDS };
+  }
+
+  async createDownloadUrl(tenantId: string, fileId: string): Promise<string> {
+    const rows = await this.db.query<{ storage_key: string }>(
+      `select storage_key from storage.files where tenant_id = $1 and id = $2 and deleted_at is null`,
+      [tenantId, fileId]
+    );
+    if (!rows.length) {
+      throw new BadRequestException({
+        code: 'file_not_found',
+        message: 'File not found for tenant'
+      });
+    }
+    return this.storage.createPresignedDownloadUrl({ key: rows[0]!.storage_key });
+  }
+
+  private uploadId(): string {
+    return Math.random().toString(36).slice(2, 12);
   }
 
   /** Links a file to a material (primary). Verifies tenant scope on the file row. */
