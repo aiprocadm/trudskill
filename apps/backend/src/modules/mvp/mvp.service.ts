@@ -112,6 +112,7 @@ import type {
 } from './mvp.types.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 import type { GeneratedDocumentEntity } from '../documents/documents.types.js';
+import type { UploadIntent } from '../files/files.service.js';
 
 interface ListResponse<T> {
   items: T[];
@@ -3400,6 +3401,50 @@ export class MvpService {
     );
     return current;
   }
+
+  // === Phase 3 Plan C — file upload wrappers ===
+
+  async createSubmissionUploadIntent(
+    tenantId: string,
+    actorId: string | undefined,
+    submissionId: string,
+    request: { originalName: string; contentType: string; sizeBytes: number },
+    context: RequestContext
+  ): Promise<UploadIntent> {
+    const submission = this.getById(this.state.assignmentSubmissions, tenantId, submissionId);
+    const enrollment = this.getById(this.state.enrollments, tenantId, submission.enrollmentId);
+    this.assertActorMatchesLearnerIamLink(
+      tenantId,
+      actorId,
+      enrollment.learnerId,
+      context.permissions
+    );
+    if (!['draft', 'returned'].includes(submission.status)) {
+      throw new PreconditionFailedException({
+        code: 'submission_not_editable',
+        message: 'Files can only be attached to a draft or returned submission'
+      });
+    }
+    return this.filesService.createUploadIntent(tenantId, request);
+  }
+
+  async getSubmissionFileUrl(
+    tenantId: string,
+    submissionId: string,
+    access?: MvpAssessmentReadAccess
+  ): Promise<{ url: string }> {
+    const submission = this.getById(this.state.assignmentSubmissions, tenantId, submissionId);
+    this.assertAssessmentReadAllowedForLearner(tenantId, submission.learnerId, access);
+    if (!submission.fileId) {
+      throw new BadRequestException({
+        code: 'no_file',
+        message: 'Submission has no attached file'
+      });
+    }
+    const url = await this.filesService.createDownloadUrl(tenantId, submission.fileId);
+    return { url };
+  }
+
   listAssignmentReviews(tenantId: string, query: BaseFilterQuery): ListResponse<AssignmentReview> {
     return this.list(this.state.assignmentReviews, tenantId, query);
   }

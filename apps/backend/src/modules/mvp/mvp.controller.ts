@@ -25,6 +25,7 @@ import {
   AddCommissionMemberRequest,
   AddTestQuestionsRequest,
   CompleteAssignmentReviewRequest,
+  CompleteAttemptReviewRequest,
   CreateAnswerHttpRequest,
   CreateAssignmentRequest,
   CreateAssignmentReviewRequest,
@@ -40,9 +41,11 @@ import {
   CreateQuestionRequest,
   CreateSimpleRegistryRequest,
   CreateTestRequest,
+  CreateUploadUrlRequest,
   ImportQuestionsRequest,
   PatchTestRulesRequest,
   PutCourseDocumentSetRequest,
+  ReturnSubmissionRequest,
   SaveAnswerRequest,
   SaveAttemptAnswerRequest,
   StartAttemptRequest,
@@ -1053,6 +1056,54 @@ export class MvpController {
   @RequirePermissions('assessment.submissions.submit')
   submitAssignmentSubmission(@CurrentContext() c: RequestContext, @Param('id') id: string) {
     return this.mvpService.submitAssignmentSubmission(c.tenantId!, c.userId, id, c);
+  }
+
+  // === Phase 3 Plan C — presigned upload + return + complete-review ===
+
+  @Post('assignment-submissions/:id/upload-url')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('assessment.submissions.submit')
+  createSubmissionUploadUrl(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(CreateUploadUrlRequest, raw);
+    return this.mvpService.createSubmissionUploadIntent(c.tenantId!, c.userId, id, b, c);
+  }
+
+  @Get('assignment-submissions/:id/file-url')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('assessment.assignments.read')
+  getSubmissionFileUrl(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.mvpService.getSubmissionFileUrl(c.tenantId!, id, {
+      actorId: c.userId,
+      permissions: c.permissions
+    });
+  }
+
+  @Post('assignment-submissions/:id/return')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('assessment.reviews.review')
+  returnAssignmentSubmission(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(ReturnSubmissionRequest, raw);
+    return this.mvpService.returnAssignmentSubmission(c.tenantId!, c.userId, id, b, c);
+  }
+
+  @Post('attempts/:id/complete-review')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('assessment.reviews.review')
+  completeAttemptReview(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(CompleteAttemptReviewRequest, raw);
+    return this.mvpService.completeAttemptReview(c.tenantId!, c.userId, id, b, c);
   }
 
   @Get('assignment-reviews')

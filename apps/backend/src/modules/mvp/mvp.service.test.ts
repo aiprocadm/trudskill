@@ -22,7 +22,14 @@ const noopDocumentsService = {
 } as unknown as DocumentsService;
 
 const noopFilesService = {
-  ensureMaterialLink: async () => undefined
+  ensureMaterialLink: async () => undefined,
+  createUploadIntent: async () => ({
+    fileId: 'file_stub',
+    uploadUrl: 'https://minio.local/PUT',
+    storageKey: 'submissions/tenant_demo/stub',
+    expiresInSeconds: 900
+  }),
+  createDownloadUrl: async () => 'https://minio.local/GET'
 } as unknown as FilesService;
 
 const testEmitter = new EventEmitter2();
@@ -3078,5 +3085,65 @@ describe('Plan C — returnAssignmentSubmission', () => {
         ctx
       )
     ).toThrow(PreconditionFailedException);
+  });
+});
+
+describe('Plan C — submission file upload wrappers', () => {
+  it('issues an upload intent for a draft submission owned by the actor', async () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'CF', title: 'Files' },
+      ctx
+    );
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'GF', name: 'GF' }, ctx);
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'LF', name: 'File Learner' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const assignment = service.createAssignment(
+      'tenant_demo',
+      ctx.userId,
+      { courseId: course.id, title: 'P', maxScore: 10 },
+      ctx
+    );
+    const submission = service.createAssignmentSubmission(
+      'tenant_demo',
+      ctx.userId,
+      {
+        assignmentId: assignment.id,
+        enrollmentId: enrollment.id,
+        learnerId: learner.id,
+        answerText: 'd'
+      },
+      ctx
+    );
+
+    const intent = await service.createSubmissionUploadIntent(
+      'tenant_demo',
+      ctx.userId,
+      submission.id,
+      { originalName: 'w.pdf', contentType: 'application/pdf', sizeBytes: 100 },
+      ctx
+    );
+    expect(intent.uploadUrl).toContain('https://minio.local');
+    expect(intent.fileId).toBe('file_stub');
   });
 });
