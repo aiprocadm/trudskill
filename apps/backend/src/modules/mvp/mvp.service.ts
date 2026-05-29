@@ -335,6 +335,112 @@ export class MvpService {
     return current;
   }
 
+  /**
+   * Phase 2 Plan C — POST расширенной компании-заказчика
+   * (ИНН/КПП/контакты/адрес/заметка). Симметрично createLearnerExtended.
+   */
+  createCounterpartyExtended(
+    tenantId: string,
+    actorId: string | undefined,
+    request: {
+      code: string;
+      name: string;
+      legalName?: string;
+      inn?: string;
+      kpp?: string;
+      contactEmail?: string;
+      contactPhone?: string;
+      legalAddress?: string;
+      note?: string;
+      status?: string;
+    },
+    context: RequestContext
+  ): Counterparty {
+    const entity: Counterparty = {
+      id: this.id('cp'),
+      tenantId,
+      code: request.code.trim(),
+      name: request.name.trim(),
+      status: request.status ?? 'active',
+      createdAt: this.now(),
+      updatedAt: this.now()
+    };
+    if (request.legalName?.trim()) entity.legalName = request.legalName.trim();
+    if (request.inn?.trim()) entity.inn = request.inn.trim();
+    if (request.kpp?.trim()) entity.kpp = request.kpp.trim();
+    if (request.contactEmail?.trim()) entity.contactEmail = request.contactEmail.trim();
+    if (request.contactPhone?.trim()) entity.contactPhone = request.contactPhone.trim();
+    if (request.legalAddress?.trim()) entity.legalAddress = request.legalAddress.trim();
+    if (request.note?.trim()) entity.note = request.note.trim();
+    this.state.counterparties.push(entity);
+    this.audit(
+      tenantId,
+      actorId,
+      'crm.counterparty_created',
+      'crm.counterparty',
+      entity.id,
+      undefined,
+      entity,
+      context
+    );
+    return entity;
+  }
+
+  /**
+   * Phase 2 Plan C — PATCH расширенной компании.
+   * Симметрично updateLearnerExtended. Семантика: undefined = не трогать,
+   * null = очистить (для clearable полей).
+   */
+  updateCounterpartyExtended(
+    tenantId: string,
+    actorId: string | undefined,
+    counterpartyId: string,
+    request: {
+      code?: string;
+      name?: string;
+      legalName?: string | null;
+      inn?: string | null;
+      kpp?: string | null;
+      contactEmail?: string | null;
+      contactPhone?: string | null;
+      legalAddress?: string | null;
+      note?: string | null;
+      status?: string;
+    },
+    context: RequestContext
+  ): Counterparty {
+    const current = this.getById(this.state.counterparties, tenantId, counterpartyId);
+    const oldValues: Counterparty = { ...current };
+
+    if (request.code !== undefined) current.code = request.code.trim();
+    if (request.name !== undefined) current.name = request.name.trim();
+    if (request.legalName !== undefined) current.legalName = request.legalName?.trim() || undefined;
+    if (request.inn !== undefined) current.inn = request.inn?.trim() || undefined;
+    if (request.kpp !== undefined) current.kpp = request.kpp?.trim() || undefined;
+    if (request.contactEmail !== undefined)
+      current.contactEmail = request.contactEmail?.trim() || undefined;
+    if (request.contactPhone !== undefined)
+      current.contactPhone = request.contactPhone?.trim() || undefined;
+    if (request.legalAddress !== undefined)
+      current.legalAddress = request.legalAddress?.trim() || undefined;
+    if (request.note !== undefined) current.note = request.note?.trim() || undefined;
+    if (request.status !== undefined) current.status = request.status;
+
+    current.updatedAt = this.now();
+
+    this.audit(
+      tenantId,
+      actorId,
+      'crm.counterparty_updated',
+      'crm.counterparty',
+      current.id,
+      oldValues,
+      current,
+      context
+    );
+    return current;
+  }
+
   listLearners(tenantId: string, query: BaseFilterQuery): ListResponse<Learner> {
     return this.list(this.state.learners, tenantId, query);
   }
@@ -987,6 +1093,44 @@ export class MvpService {
       tenantId,
       actorId,
       'learning.group_updated',
+      'learning.group',
+      current.id,
+      oldValues,
+      current,
+      context
+    );
+    return current;
+  }
+
+  /**
+   * Phase 2 Plan C — назначить (или снять) компанию-заказчика для группы.
+   * counterpartyId === null → снять привязку. Анти-IDOR через tenant boundary в getById
+   * (counterparty проверяется в том же tenant).
+   */
+  setGroupCounterparty(
+    tenantId: string,
+    actorId: string | undefined,
+    groupId: string,
+    counterpartyId: string | null,
+    context: RequestContext
+  ): GroupEntity {
+    const current = this.getById(this.state.groups, tenantId, groupId);
+    const oldValues: GroupEntity = { ...current };
+
+    if (counterpartyId !== null) {
+      this.getById(this.state.counterparties, tenantId, counterpartyId);
+      current.counterpartyId = counterpartyId;
+    } else {
+      current.counterpartyId = undefined;
+    }
+    current.updatedAt = this.now();
+
+    this.audit(
+      tenantId,
+      actorId,
+      counterpartyId
+        ? 'learning.group_counterparty_linked'
+        : 'learning.group_counterparty_unlinked',
       'learning.group',
       current.id,
       oldValues,

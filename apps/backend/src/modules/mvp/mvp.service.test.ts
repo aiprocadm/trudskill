@@ -2642,3 +2642,185 @@ describe('MvpService — updateLearnerExtended (Phase 2 Plan B §Task2)', () => 
     expect(updated.updatedAt >= before).toBe(true);
   });
 });
+
+describe('MvpService — Counterparty extended + group linking (Phase 2 Plan C §Task4)', () => {
+  function makeService() {
+    const audit = new AuditService();
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      audit,
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    return { service, audit };
+  }
+
+  it('createCounterpartyExtended persists all extended fields + audits crm.counterparty_created', async () => {
+    const { service, audit } = makeService();
+    const cp = service.createCounterpartyExtended(
+      'tenant_demo',
+      'admin-1',
+      {
+        code: 'OOO-X',
+        name: 'ООО Х',
+        legalName: 'OOO Икс',
+        inn: '7707083893',
+        kpp: '770701001',
+        contactEmail: 'a@x.ru',
+        contactPhone: '+7-495-000',
+        legalAddress: 'Москва',
+        note: 'Заметка'
+      },
+      ctx
+    );
+    expect(cp.code).toBe('OOO-X');
+    expect(cp.name).toBe('ООО Х');
+    expect(cp.legalName).toBe('OOO Икс');
+    expect(cp.inn).toBe('7707083893');
+    expect(cp.kpp).toBe('770701001');
+    expect(cp.contactEmail).toBe('a@x.ru');
+    expect(cp.contactPhone).toBe('+7-495-000');
+    expect(cp.legalAddress).toBe('Москва');
+    expect(cp.note).toBe('Заметка');
+    expect(cp.status).toBe('active');
+    expect(
+      (await audit.list('tenant_demo')).some(
+        (e) => e.action === 'crm.counterparty_created' && e.entityId === cp.id
+      )
+    ).toBe(true);
+  });
+
+  it('createCounterpartyExtended omits empty optional fields (no undefined leak)', () => {
+    const { service } = makeService();
+    const cp = service.createCounterpartyExtended(
+      'tenant_demo',
+      'admin-1',
+      { code: 'C', name: 'N' },
+      ctx
+    );
+    expect(cp.inn).toBeUndefined();
+    expect(cp.kpp).toBeUndefined();
+    expect(cp.contactEmail).toBeUndefined();
+    expect(cp.legalName).toBeUndefined();
+  });
+
+  it('updateCounterpartyExtended applies delta and clears nulls', () => {
+    const { service } = makeService();
+    const cp = service.createCounterpartyExtended(
+      'tenant_demo',
+      'admin-1',
+      { code: 'C', name: 'N', inn: '7707083893', contactEmail: 'a@x.ru' },
+      ctx
+    );
+    const updated = service.updateCounterpartyExtended(
+      'tenant_demo',
+      'admin-1',
+      cp.id,
+      { contactEmail: null, contactPhone: '+7-499-111' },
+      ctx
+    );
+    expect(updated.contactEmail).toBeUndefined();
+    expect(updated.contactPhone).toBe('+7-499-111');
+    expect(updated.inn).toBe('7707083893');
+  });
+
+  it('updateCounterpartyExtended toggles status archived/active', async () => {
+    const { service, audit } = makeService();
+    const cp = service.createCounterpartyExtended(
+      'tenant_demo',
+      'admin-1',
+      { code: 'C', name: 'N' },
+      ctx
+    );
+    const archived = service.updateCounterpartyExtended(
+      'tenant_demo',
+      'admin-1',
+      cp.id,
+      { status: 'archived' },
+      ctx
+    );
+    expect(archived.status).toBe('archived');
+    expect(
+      (await audit.list('tenant_demo')).some(
+        (e) => e.action === 'crm.counterparty_updated' && e.entityId === cp.id
+      )
+    ).toBe(true);
+  });
+
+  it('updateCounterpartyExtended throws NotFound for unknown id', () => {
+    const { service } = makeService();
+    expect(() =>
+      service.updateCounterpartyExtended('tenant_demo', 'admin-1', 'cp-nope', { name: 'X' }, ctx)
+    ).toThrow(NotFoundException);
+  });
+
+  it('setGroupCounterparty links group to existing counterparty + audits linked action', async () => {
+    const { service, audit } = makeService();
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G1', name: 'Group' },
+      ctx
+    );
+    const cp = service.createCounterpartyExtended(
+      'tenant_demo',
+      'admin-1',
+      { code: 'C', name: 'N' },
+      ctx
+    );
+    const linked = service.setGroupCounterparty('tenant_demo', 'admin-1', group.id, cp.id, ctx);
+    expect(linked.counterpartyId).toBe(cp.id);
+    expect(
+      (await audit.list('tenant_demo')).some(
+        (e) => e.action === 'learning.group_counterparty_linked' && e.entityId === group.id
+      )
+    ).toBe(true);
+  });
+
+  it('setGroupCounterparty(null) unlinks the group + audits unlinked action', async () => {
+    const { service, audit } = makeService();
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G1', name: 'Group' },
+      ctx
+    );
+    const cp = service.createCounterpartyExtended(
+      'tenant_demo',
+      'admin-1',
+      { code: 'C', name: 'N' },
+      ctx
+    );
+    service.setGroupCounterparty('tenant_demo', 'admin-1', group.id, cp.id, ctx);
+    const unlinked = service.setGroupCounterparty('tenant_demo', 'admin-1', group.id, null, ctx);
+    expect(unlinked.counterpartyId).toBeUndefined();
+    expect(
+      (await audit.list('tenant_demo')).some(
+        (e) => e.action === 'learning.group_counterparty_unlinked' && e.entityId === group.id
+      )
+    ).toBe(true);
+  });
+
+  it('setGroupCounterparty throws NotFound when counterparty does not exist', () => {
+    const { service } = makeService();
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'G1', name: 'G' }, ctx);
+    expect(() =>
+      service.setGroupCounterparty('tenant_demo', 'admin-1', group.id, 'cp-nope', ctx)
+    ).toThrow(NotFoundException);
+  });
+
+  it('setGroupCounterparty throws NotFound when group does not exist', () => {
+    const { service } = makeService();
+    const cp = service.createCounterpartyExtended(
+      'tenant_demo',
+      'admin-1',
+      { code: 'C', name: 'N' },
+      ctx
+    );
+    expect(() =>
+      service.setGroupCounterparty('tenant_demo', 'admin-1', 'g-nope', cp.id, ctx)
+    ).toThrow(NotFoundException);
+  });
+});
