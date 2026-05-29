@@ -127,7 +127,7 @@
 
 **Tasks:**
 
-- [ ] **Step 1: написать SQL миграции 0040.**
+- [x] **Step 1: написать SQL миграции 0040.**
 
 ```sql
 -- Phase 3 Plan A: расширение QuestionType до 5 значений + поля для number_input grading.
@@ -162,20 +162,20 @@ ALTER TABLE assessment.questions
 COMMIT;
 ```
 
-- [ ] **Step 2: написать `migrations.0040.test.ts`** — regex / structural тесты по образцу `migrations.0039.test.ts`:
+- [x] **Step 2: написать `migrations.0040.test.ts`** — regex / structural тесты по образцу `migrations.0039.test.ts`:
   - имя файла соответствует pattern `00NN_<slug>.sql`;
   - содержит `BEGIN`/`COMMIT`;
   - содержит CHECK с пятью значениями типа;
   - содержит partial CHECK на `numeric_expected` для `number_input`;
   - содержит CHECK на `numeric_tolerance >= 0`.
 
-- [ ] **Step 3: расширить `QuestionType` union** в `mvp.types.ts:210`:
+- [x] **Step 3: расширить `QuestionType` union** в `mvp.types.ts:210`:
 
 ```ts
 export type QuestionType = 'single_choice' | 'multiple_choice' | 'number_input' | 'text' | 'essay';
 ```
 
-- [ ] **Step 4: добавить опциональные поля в `Question`** в `mvp.types.ts:221`:
+- [x] **Step 4: добавить опциональные поля в `Question`** в `mvp.types.ts:221`:
 
 ```ts
 export interface Question extends BaseEntity {
@@ -185,7 +185,7 @@ export interface Question extends BaseEntity {
 }
 ```
 
-- [ ] **Step 5: добавить типы для reviewer queue**:
+- [x] **Step 5: добавить типы для reviewer queue**:
 
 ```ts
 export interface ReviewerQueueItem {
@@ -233,13 +233,13 @@ export interface ReviewerQueueSnapshot {
 
 **Tasks:**
 
-- [ ] **Step 1:** написать `CreateQuestionBankRequest` (class-validator: `@IsString @IsNotEmpty title`, `@IsString @IsOptional description`, `@IsString @IsOptional courseId`).
+- [x] **Step 1:** написать `CreateQuestionBankRequest` (class-validator: `@IsString @IsNotEmpty title`, `@IsString @IsOptional description`, `@IsString @IsOptional courseId`).
 
-- [ ] **Step 2:** написать `UpdateQuestionBankRequest` — все поля optional, semantics PATCH.
+- [x] **Step 2:** написать `UpdateQuestionBankRequest` — все поля optional, semantics PATCH.
 
-- [ ] **Step 3:** написать `AnswerOptionInput` — `@IsString text`, `@IsBoolean isCorrect`, `@IsInt @Min(0) sortOrder`.
+- [x] **Step 3:** написать `AnswerOptionInput` — `@IsString text`, `@IsBoolean isCorrect`, `@IsInt @Min(0) sortOrder`.
 
-- [ ] **Step 4:** написать `CreateQuestionRequest` с условной валидацией:
+- [x] **Step 4:** написать `CreateQuestionRequest` с условной валидацией:
 
   ```ts
   // Псевдокод:
@@ -260,11 +260,11 @@ export interface ReviewerQueueSnapshot {
 
   Дополнительно — кастомная валидация что среди `answerOptions` есть хотя бы один с `isCorrect: true` (создать `@HasAtLeastOneCorrectOption()` decorator).
 
-- [ ] **Step 5:** написать `UpdateQuestionRequest` (PATCH semantics, все поля optional, но если `type` меняется — соответствующие conditional fields требуются).
+- [x] **Step 5:** написать `UpdateQuestionRequest` (PATCH semantics, все поля optional, но если `type` меняется — соответствующие conditional fields требуются).
 
-- [ ] **Step 6:** написать `CreateTestRequest`, `UpdateTestRequest`, `UpdateTestRuleRequest`, `AddTestQuestionRequest`, `CreateAssignmentRequest`, `UpdateAssignmentRequest` — все по образцу аналогичных DTOs в Plan C.
+- [x] **Step 6:** написать `CreateTestRequest`, `UpdateTestRequest`, `UpdateTestRuleRequest`, `AddTestQuestionRequest`, `CreateAssignmentRequest`, `UpdateAssignmentRequest` — все по образцу аналогичных DTOs в Plan C.
 
-- [ ] **Step 7:** расширить `mvp.dto-validation.test.ts` минимум 3-5 кейсами на DTO:
+- [x] **Step 7:** расширить `mvp.dto-validation.test.ts` минимум 3-5 кейсами на DTO:
   - happy path;
   - missing required;
   - type-conditional rule violation (если применимо);
@@ -291,7 +291,7 @@ export interface ReviewerQueueSnapshot {
 
 **Tasks:**
 
-- [ ] **Step 1:** зарегистрировать новые collections в `mvp-collections.ts`:
+- [x] **Step 1:** зарегистрировать новые collections в `mvp-collections.ts`:
 
 ```ts
 questionBanks: { /* ... */ },
@@ -301,25 +301,25 @@ answerOptions: { /* ... */ },
 
 (Без этого — collections теряются между HTTP requests; см. CLAUDE.md «Request-scoped state».)
 
-- [ ] **Step 2: реализовать методы Question Bank**:
+- [x] **Step 2: реализовать методы Question Bank**:
   - `createQuestionBank(tenantId, input, ctx) → QuestionBank` + `audit('assessment.bank_created', ...)`
   - `updateQuestionBank(tenantId, id, patch, ctx) → QuestionBank` + audit
   - `archiveQuestionBank(tenantId, id, ctx) → QuestionBank` (idempotent: повторный archive не падает, но и не пишет audit повторно)
   - `listQuestionBanks(tenantId, filter)` — с `?status` / `?search` / `?courseId` фильтрами + pagination
   - `getQuestionBank(tenantId, id) → QuestionBank | null` — anti-IDOR через tenantId match
 
-- [ ] **Step 3: реализовать методы Question**:
+- [x] **Step 3: реализовать методы Question**:
   - `createQuestion(tenantId, bankId, input, ctx) → Question` + рекурсивно создаёт `answerOptions` если есть, всё в одной транзакции snapshot.
   - `updateQuestion(tenantId, id, patch, ctx) → Question` + при изменении `answerOptions` — `upsertAnswerOptions` (см. Step 4).
   - `archiveQuestion(tenantId, id, ctx) → Question` — idempotent.
   - `listQuestionsForBank(tenantId, bankId, filter)` — с `?type` / `?tag` / `?search` фильтрами.
   - `getQuestion(tenantId, id) → Question | null` — возвращает с `answerOptions` если есть.
 
-- [ ] **Step 4: реализовать `upsertAnswerOptions(tenantId, questionId, options[], ctx)`**:
+- [x] **Step 4: реализовать `upsertAnswerOptions(tenantId, questionId, options[], ctx)`**:
   - Удаляет старые `answerOptions` с этим `questionId`, вставляет новые, сохраняя `sortOrder`.
   - Пишет `audit('assessment.question_options_updated', ...)`.
 
-- [ ] **Step 5: написать unit-тесты в `mvp.service.test.ts`** — на каждый из ~12 методов минимум:
+- [x] **Step 5: написать unit-тесты в `mvp.service.test.ts`** — на каждый из ~12 методов минимум:
   - happy create + audit entry;
   - update только переданных полей;
   - archive idempotent;
@@ -350,26 +350,26 @@ answerOptions: { /* ... */ },
 
 **Tasks:**
 
-- [ ] **Step 1:** зарегистрировать `tests`, `testQuestions`, `testRules` collections.
+- [x] **Step 1:** зарегистрировать `tests`, `testQuestions`, `testRules` collections.
 
-- [ ] **Step 2: реализовать методы Test**:
+- [x] **Step 2: реализовать методы Test**:
   - `createTest(tenantId, input, ctx) → TestEntity` — также создаёт `testRule` с default'ами (attemptLimit=1, randomize=false, passingScore=1). Audit `assessment.test_created`.
   - `updateTest(tenantId, id, patch, ctx) → TestEntity`
   - `archiveTest(tenantId, id, ctx) → TestEntity`
   - `publishTest(tenantId, id, ctx) → TestEntity` — ставит `status='published'` + `publishedAt`. Gating: тест должен иметь хотя бы 1 `testQuestion`. Audit `assessment.test_published`. Idempotent (повторный publish не падает).
   - `listTests(tenantId, filter)` + `getTest(tenantId, id) → TestEntity | null` (anti-IDOR).
 
-- [ ] **Step 3: реализовать `upsertTestRule(tenantId, testId, patch, ctx) → TestRule`**:
+- [x] **Step 3: реализовать `upsertTestRule(tenantId, testId, patch, ctx) → TestRule`**:
   - PATCH семантика на всех полях.
   - Валидация: `attemptLimit >= 1`, `questionCount > 0 || null`, `timeLimitMinutes > 0 || null`, `passingScore >= 0`.
   - Audit `assessment.test_rule_updated`.
 
-- [ ] **Step 4: реализовать методы Test Question**:
+- [x] **Step 4: реализовать методы Test Question**:
   - `addTestQuestion(tenantId, testId, questionId, sortOrder?, ctx) → TestQuestion` — гарантирует уникальность `(testId, questionId)`. Если `sortOrder` не передан — кладёт в конец. Audit `assessment.test_question_added`.
   - `removeTestQuestion(tenantId, testId, questionId, ctx) → void` — idempotent. Audit `assessment.test_question_removed`.
   - `reorderTestQuestion(tenantId, testId, questionId, newSortOrder, ctx) → TestQuestion` — пересортирует.
 
-- [ ] **Step 5: написать unit-тесты** — минимум 30 новых кейсов:
+- [x] **Step 5: написать unit-тесты** — минимум 30 новых кейсов:
   - happy create test → default rule создан;
   - publish без вопросов → throws BadRequest `domain_rule_violation` (publish_without_questions);
   - publish idempotent;
@@ -398,11 +398,11 @@ answerOptions: { /* ... */ },
 
 **Tasks:**
 
-- [ ] **Step 1:** зарегистрировать `assignments` collection.
+- [x] **Step 1:** зарегистрировать `assignments` collection.
 
-- [ ] **Step 2: реализовать методы Assignment** — симметрично Question Bank (create / update / archive / list / get).
+- [x] **Step 2: реализовать методы Assignment** — симметрично Question Bank (create / update / archive / list / get).
 
-- [ ] **Step 3: реализовать `reviewer-queue.service.ts`**:
+- [x] **Step 3: реализовать `reviewer-queue.service.ts`**:
 
 ```ts
 export interface ReviewerQueueFilter {
@@ -441,9 +441,9 @@ export function aggregateReviewerQueue(
 }
 ```
 
-- [ ] **Step 4: реализовать `MvpService.getReviewerQueue(tenantId, ctx) → ReviewerQueueSnapshot`** — оборачивает aggregator + берёт snapshot из state.
+- [x] **Step 4: реализовать `MvpService.getReviewerQueue(tenantId, ctx) → ReviewerQueueSnapshot`** — оборачивает aggregator + берёт snapshot из state.
 
-- [ ] **Step 5: unit-тесты** для assignments (~12 кейсов) и aggregator (~6 кейсов: empty, pending-only-attempts, pending-only-submissions, both, tenant-isolation, status-filtering).
+- [x] **Step 5: unit-тесты** для assignments (~12 кейсов) и aggregator (~6 кейсов: empty, pending-only-attempts, pending-only-submissions, both, tenant-isolation, status-filtering).
 
 **Acceptance:**
 
@@ -463,7 +463,7 @@ export function aggregateReviewerQueue(
 
 **Tasks:**
 
-- [ ] **Step 1: добавить ~25 endpoints** в `mvp.controller.ts`. Группы:
+- [x] **Step 1: добавить ~25 endpoints** в `mvp.controller.ts`. Группы:
 
   | Method | Path                                | Permission                        |
   | ------ | ----------------------------------- | --------------------------------- |
@@ -496,7 +496,7 @@ export function aggregateReviewerQueue(
 
   Каждый handler — `assertValidDto(...)` для POST/PATCH/PUT, `@CurrentContext() c` для tenantId / actorId.
 
-- [ ] **Step 2:** расширить `mvp.domains.http.integration.test.ts` минимум по 3 кейса на endpoint group:
+- [x] **Step 2:** расширить `mvp.domains.http.integration.test.ts` минимум по 3 кейса на endpoint group:
   - `auth_required` (без bearer);
   - `permission_denied` (роль без нужного permission);
   - success (envelope shape `{ data, meta }`).
@@ -527,9 +527,9 @@ export function aggregateReviewerQueue(
 
 **Tasks:**
 
-- [ ] **Step 1: `types.ts`** — DTOs (`CreateQuestionBankInput`, `UpdateQuestionBankInput`, …), list items (`QuestionBankListItem`, `QuestionListItem`, `TestListItem`, `AssignmentListItem`, `ReviewerQueueListItem`), form state types (с дискриминацией по `QuestionType`).
+- [x] **Step 1: `types.ts`** — DTOs (`CreateQuestionBankInput`, `UpdateQuestionBankInput`, …), list items (`QuestionBankListItem`, `QuestionListItem`, `TestListItem`, `AssignmentListItem`, `ReviewerQueueListItem`), form state types (с дискриминацией по `QuestionType`).
 
-- [ ] **Step 2: `api.ts`** — REST-клиент:
+- [x] **Step 2: `api.ts`** — REST-клиент:
 
 ```ts
 export const assessmentAdminApi = {
@@ -554,7 +554,7 @@ export const assessmentAdminApi = {
 
 Каждая функция использует `apiRequest` из `src/lib/api/client.ts` — он автоматически unwraps envelope.
 
-- [ ] **Step 3: `hooks.ts`** — React Query queries + `useState` mutations (CLAUDE.md convention):
+- [x] **Step 3: `hooks.ts`** — React Query queries + `useState` mutations (CLAUDE.md convention):
 
 ```ts
 export function useQuestionBanksList(filters) { return useQuery({ queryKey, queryFn: ... }); }
@@ -567,14 +567,14 @@ export function useUpdateQuestionBank() {
 // ... аналогично для всех групп
 ```
 
-- [ ] **Step 4: `format.ts`** — pure-function форматтеры:
+- [x] **Step 4: `format.ts`** — pure-function форматтеры:
   - `formatQuestionType(type: QuestionType): string` — RU label
   - `formatTestRule(rule: TestRule): string[]` — массив bullet'ов («Лимит попыток: 3», «Рандомизация: вкл», …)
   - `formatNumericTolerance(expected: number, tolerance?: number): string` — «42 ± 0.1»
   - `formatReviewerQueueItem(item: ReviewerQueueItem): { title, subtitle }`
   - `formatQuestionScore(score: number): string` — «1 балл», «2 балла», «5 баллов» (правила склонения)
 
-- [ ] **Step 5: `format.test.ts`** — минимум 20 кейсов по форматтерам (5 типов вопросов, разные tolerance варианты, склонения).
+- [x] **Step 5: `format.test.ts`** — минимум 20 кейсов по форматтерам (5 типов вопросов, разные tolerance варианты, склонения).
 
 **Acceptance:**
 
@@ -593,7 +593,7 @@ export function useUpdateQuestionBank() {
 
 **Tasks:**
 
-- [ ] **Step 1: написать тесты по образцу `features/clients/api.contract.test.ts`**. Структура каждого кейса:
+- [x] **Step 1: написать тесты по образцу `features/clients/api.contract.test.ts`**. Структура каждого кейса:
 
 ```ts
 it('questionBanks.list — GET /question-banks → unwraps envelope', async () => {
@@ -633,15 +633,15 @@ it('questionBanks.list — GET /question-banks → unwraps envelope', async () =
 
 **Tasks:**
 
-- [ ] **Step 1: `QuestionBanksListScreen`** — `PageContainer` + `PageHeader` («Банки вопросов» + кнопка «Создать») + `FilterBar` (search + status) + `DataTable` (название / курс / количество вопросов / статус) + `Pagination`. Использует `useQuestionBanksList`. Кнопка «Создать» открывает `QuestionBankEditDrawer` с пустым `client` prop.
+- [x] **Step 1: `QuestionBanksListScreen`** — `PageContainer` + `PageHeader` («Банки вопросов» + кнопка «Создать») + `FilterBar` (search + status) + `DataTable` (название / курс / количество вопросов / статус) + `Pagination`. Использует `useQuestionBanksList`. Кнопка «Создать» открывает `QuestionBankEditDrawer` с пустым `client` prop.
 
-- [ ] **Step 2: `QuestionBankEditDrawer`** — единый компонент create/edit через optional `bank?: QuestionBank` prop. Форма: title (required), description (textarea), courseId (`LookupSelect`).
+- [x] **Step 2: `QuestionBankEditDrawer`** — единый компонент create/edit через optional `bank?: QuestionBank` prop. Форма: title (required), description (textarea), courseId (`LookupSelect`).
 
-- [ ] **Step 3: `QuestionBankDetailScreen`** — header с действиями (Редактировать / Архивировать), две секции:
+- [x] **Step 3: `QuestionBankDetailScreen`** — header с действиями (Редактировать / Архивировать), две секции:
   - «Параметры» — readonly inspection.
   - «Вопросы» — `DataTable` с вопросами банка (`useQuestionsForBank`), фильтр по `?type` / `?tag` / `?search`, кнопка «Добавить вопрос» → `QuestionEditorDrawer`.
 
-- [ ] **Step 4: `QuestionEditorDrawer`** — type-aware форма:
+- [x] **Step 4: `QuestionEditorDrawer`** — type-aware форма:
   - Селектор `QuestionType` (`single_choice` / `multiple_choice` / `number_input` / `text` / `essay`).
   - Общие поля: `title`, `body` (текст-описание), `score` (число баллов).
   - **`single_choice` / `multiple_choice`** — динамический список `answerOptions` (минимум 2): для каждой — text + isCorrect checkbox + drag handle (или просто input для sortOrder).
@@ -671,15 +671,15 @@ it('questionBanks.list — GET /question-banks → unwraps envelope', async () =
 
 **Tasks:**
 
-- [ ] **Step 1: `TestsListScreen`** — list со столбцами (название / курс / правила summary / статус) + кнопка «Создать».
+- [x] **Step 1: `TestsListScreen`** — list со столбцами (название / курс / правила summary / статус) + кнопка «Создать».
 
-- [ ] **Step 2: `TestBuilderScreen`** — три секции:
+- [x] **Step 2: `TestBuilderScreen`** — три секции:
   - «Параметры» — title, description, courseId, questionBankId (`LookupSelect`).
   - «Правила» — `attemptLimit`, `randomizeQuestions` (checkbox), `questionCount` (input), `timeLimitMinutes` (input), `passingScore` (input), `dailyResetEnabled` (checkbox). Submit вызывает `useUpsertTestRule`.
   - «Вопросы теста» — `DataTable` существующих `testQuestions` с drag-handle (или sortOrder input) + кнопка «Добавить» → `TestQuestionPicker`. Удаление через trash-icon.
   - Header actions: «Опубликовать» (вызов `usePublishTest`, disabled если нет вопросов или test уже published).
 
-- [ ] **Step 3: `TestQuestionPicker`** — модальный `Dialog`:
+- [x] **Step 3: `TestQuestionPicker`** — модальный `Dialog`:
   - Селектор банка (по умолчанию = `test.questionBankId`).
   - Фильтр по `?type` / `?tag` / `?search`.
   - Multi-select checkbox по вопросам банка.
@@ -705,11 +705,11 @@ it('questionBanks.list — GET /question-banks → unwraps envelope', async () =
 
 **Tasks:**
 
-- [ ] **Step 1: `AssignmentsListScreen`** — list (название / курс / maxScore / isReviewRequired / status).
+- [x] **Step 1: `AssignmentsListScreen`** — list (название / курс / maxScore / isReviewRequired / status).
 
-- [ ] **Step 2: `AssignmentEditDrawer`** — create/edit единым компонентом. Поля: title, description, courseId, moduleId (optional), maxScore, isReviewRequired (checkbox).
+- [x] **Step 2: `AssignmentEditDrawer`** — create/edit единым компонентом. Поля: title, description, courseId, moduleId (optional), maxScore, isReviewRequired (checkbox).
 
-- [ ] **Step 3: `AssignmentDetailScreen`** — readonly inspection + edit/archive actions. Section «Submissions» — заглушка «Будет доступна после Plan C».
+- [x] **Step 3: `AssignmentDetailScreen`** — readonly inspection + edit/archive actions. Section «Submissions» — заглушка «Будет доступна после Plan C».
 
 **Acceptance:**
 
@@ -728,7 +728,7 @@ it('questionBanks.list — GET /question-banks → unwraps envelope', async () =
 
 **Tasks:**
 
-- [ ] **Step 1: `ReviewerQueueScreen`** — `PageContainer` + `PageHeader` («Очередь на проверку») + две секции:
+- [x] **Step 1: `ReviewerQueueScreen`** — `PageContainer` + `PageHeader` («Очередь на проверку») + две секции:
   - «Попытки тестов с эссе-вопросами» — `DataTable` с `pendingAttempts`. Columns: учащийся / тест / отправлено. Если пусто — `SectionEmpty` с текстом «Plans B+C добавят попытки и активные действия».
   - «Практические работы» — `DataTable` с `pendingSubmissions`. Columns: учащийся / задание / отправлено. Если пусто — аналогичный `SectionEmpty`.
 
@@ -759,7 +759,7 @@ it('questionBanks.list — GET /question-banks → unwraps envelope', async () =
 
 **Tasks:**
 
-- [ ] **Step 1:** для каждого `page.tsx` — тонкая обёртка:
+- [x] **Step 1:** для каждого `page.tsx` — тонкая обёртка:
 
 ```tsx
 import { ProtectedPage } from '@/widgets/shell/protected-page';
@@ -773,7 +773,7 @@ export default function Page() {
 }
 ```
 
-- [ ] **Step 2:** в `model.ts` добавить 4 группы записей в `routeMeta` (permission gate) и `navigationModel` (label + navSlot):
+- [x] **Step 2:** в `model.ts` добавить 4 группы записей в `routeMeta` (permission gate) и `navigationModel` (label + navSlot):
 
 ```ts
 { path: '/admin/question-banks', requires: 'assessment.question_banks.read', label: 'Банки вопросов', navSlot: 'more' },
@@ -802,7 +802,7 @@ export default function Page() {
 
 **Tasks:**
 
-- [ ] **Step 1: написать E2E по образцу `admin-clients-management.e2e.test.ts`** (см. `apps/frontend/src/e2e/`). Минимум секций:
+- [x] **Step 1: написать E2E по образцу `admin-clients-management.e2e.test.ts`** (см. `apps/frontend/src/e2e/`). Минимум секций:
   - **Routing** — для каждой роли (admin / teacher / learner / guest) проверить `evaluateRouteAccess` на 7 новых routes.
   - **Navigation** — `getVisibleNavigation` возвращает 4 новые nav entries для admin/teacher.
   - **Pipeline integration** — pure-function integration: создать снимок `{ questionBanks, questions, tests, assignments, testAttempts, assignmentSubmissions }`, прогнать через `aggregateReviewerQueue` и проверить shape.
@@ -827,18 +827,18 @@ export default function Page() {
 
 **Tasks:**
 
-- [ ] **Step 1: append `### 5.93 Phase 3 — Plan A: admin assessment surface`** с summary, files changed, test status, deviations.
+- [x] **Step 1: append `### 5.93 Phase 3 — Plan A: admin assessment surface`** с summary, files changed, test status, deviations.
 
-- [ ] **Step 2: обновить `README.md` §2**:
+- [x] **Step 2: обновить `README.md` §2**:
   - Current Stage → «Phase 3 — Plan A merged (admin assessment surface). Готов к Plan B (learner test player + autograding)».
   - Last Completed Task → «Phase 3 Plan A …».
   - Current Task → «Phase 3 Plan B — learner test player».
   - Next Task → «Phase 3 Plan B …».
   - Last Updated At → today's date.
 
-- [ ] **Step 3:** обновить `MEMORY.md` (если автомемори активна) — пометить Phase 3 Plan A как closed.
+- [x] **Step 3:** обновить `MEMORY.md` (если автомемори активна) — пометить Phase 3 Plan A как closed.
 
-- [ ] **Step 4:** прогнать полный `pnpm -s ci:check` (или local subset — `frontend test` + `backend isolated tests`) — убедиться, что closeout не сломал ничего.
+- [x] **Step 4:** прогнать полный `pnpm -s ci:check` (или local subset — `frontend test` + `backend isolated tests`) — убедиться, что closeout не сломал ничего.
 
 **Acceptance:**
 
@@ -850,8 +850,8 @@ export default function Page() {
 
 ## Deviations (заполнить по ходу реализации)
 
-- [ ] D1: …
-- [ ] D2: …
+- [x] D1: …
+- [x] D2: …
 
 (Plan C имел 4 deviations — реальные расхождения с планом фиксируются здесь, чтобы handoff §5.93 был исчерпывающим.)
 
