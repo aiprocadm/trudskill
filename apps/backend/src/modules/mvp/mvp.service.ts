@@ -104,6 +104,7 @@ import type {
   Question,
   QuestionBank,
   RegulatoryAct,
+  ReturnSubmissionInput,
   ReviewerQueueSnapshot,
   TestAttempt,
   TestEntity,
@@ -3523,6 +3524,39 @@ export class MvpService {
       context
     );
     return review;
+  }
+  returnAssignmentSubmission(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    request: ReturnSubmissionInput,
+    context: RequestContext
+  ): AssignmentSubmission {
+    const submission = this.getById(this.state.assignmentSubmissions, tenantId, id);
+    if (submission.status !== 'under_review') {
+      throw new PreconditionFailedException({
+        code: 'domain_rule_violation',
+        message: 'Only submissions under review can be returned for revision'
+      });
+    }
+    const reviewIndex = this.state.assignmentReviews.findIndex(
+      (r) => r.tenantId === tenantId && r.submissionId === submission.id && r.status !== 'completed'
+    );
+    if (reviewIndex >= 0) this.state.assignmentReviews.splice(reviewIndex, 1);
+    submission.status = 'returned';
+    if (request.comment !== undefined) submission.returnComment = request.comment;
+    submission.updatedAt = this.now();
+    this.audit(
+      tenantId,
+      actorId,
+      'assessment.assignment_submission_returned',
+      'assessment.assignment_submission',
+      submission.id,
+      undefined,
+      submission,
+      context
+    );
+    return submission;
   }
   private pushEnrollmentStatusHistory(
     tenantId: string,

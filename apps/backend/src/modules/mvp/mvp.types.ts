@@ -410,6 +410,11 @@ export interface AssignmentSubmission extends BaseEntity {
   fileId?: string;
   status: AssignmentSubmissionStatus;
   submittedAt?: string;
+  returnComment?: string; // Plan C: reviewer feedback when returned for revision
+}
+
+export interface ReturnSubmissionInput {
+  comment?: string;
 }
 
 export type AssignmentReviewStatus = 'pending' | 'in_review' | 'completed';

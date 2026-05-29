@@ -2950,3 +2950,133 @@ describe('Plan C — completeAttemptReview', () => {
     ).toThrow(PreconditionFailedException); // still in_progress
   });
 });
+
+describe('Plan C — returnAssignmentSubmission', () => {
+  function makeSubmittedUnderReview() {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'CR', title: 'Return' },
+      ctx
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'GR', name: 'GroupR' },
+      ctx
+    );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'LR', name: 'Return Learner' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const assignment = service.createAssignment(
+      'tenant_demo',
+      ctx.userId,
+      { courseId: course.id, title: 'Practical', maxScore: 10 },
+      ctx
+    );
+    const submission = service.createAssignmentSubmission(
+      'tenant_demo',
+      ctx.userId,
+      {
+        assignmentId: assignment.id,
+        enrollmentId: enrollment.id,
+        learnerId: learner.id,
+        answerText: 'first draft'
+      },
+      ctx
+    );
+    service.submitAssignmentSubmission('tenant_demo', ctx.userId, submission.id, ctx);
+    service.createAssignmentReview(
+      'tenant_demo',
+      ctx.userId,
+      { submissionId: submission.id, comment: 'needs work' },
+      ctx
+    );
+    return { service, submission, enrollment, assignment, learner };
+  }
+
+  it('returns an under_review submission and clears the active review so it can be re-reviewed', () => {
+    const { service, submission } = makeSubmittedUnderReview();
+    const returned = service.returnAssignmentSubmission(
+      'tenant_demo',
+      ctx.userId,
+      submission.id,
+      { comment: 'add section 3' },
+      ctx
+    );
+    expect(returned.status).toBe('returned');
+    expect(returned.returnComment).toBe('add section 3');
+    expect(
+      service
+        .listAssignmentReviews('tenant_demo', {})
+        .items.filter((r) => r.submissionId === submission.id)
+    ).toHaveLength(0);
+
+    // learner edits the returned submission and resubmits → submitted again
+    service.updateAssignmentSubmission(
+      'tenant_demo',
+      ctx.userId,
+      submission.id,
+      { answerText: 'revised draft' },
+      ctx
+    );
+    const resubmitted = service.submitAssignmentSubmission(
+      'tenant_demo',
+      ctx.userId,
+      submission.id,
+      ctx
+    );
+    expect(resubmitted.status).toBe('submitted');
+
+    // a fresh review can now be created without the one-review conflict
+    const review = service.createAssignmentReview(
+      'tenant_demo',
+      ctx.userId,
+      { submissionId: submission.id },
+      ctx
+    );
+    expect(review.status).toBe('in_review');
+  });
+
+  it('refuses to return a submission that is not under_review', () => {
+    const { service, assignment, enrollment, learner } = makeSubmittedUnderReview();
+    const draft = service.createAssignmentSubmission(
+      'tenant_demo',
+      ctx.userId,
+      {
+        assignmentId: assignment.id,
+        enrollmentId: enrollment.id,
+        learnerId: learner.id,
+        answerText: 'x'
+      },
+      ctx
+    );
+    expect(() =>
+      service.returnAssignmentSubmission(
+        'tenant_demo',
+        ctx.userId,
+        draft.id,
+        { comment: 'no' },
+        ctx
+      )
+    ).toThrow(PreconditionFailedException);
+  });
+});
