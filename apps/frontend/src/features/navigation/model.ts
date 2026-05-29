@@ -67,6 +67,14 @@ export const routeMeta: RouteMetaEntry[] = [
     pattern: '/admin/learners',
     meta: { public: false, requiredPermissions: ['learners.read'] }
   },
+  {
+    pattern: '/admin/clients/[id]',
+    meta: { public: false, requiredPermissions: ['counterparties.read'] }
+  },
+  {
+    pattern: '/admin/clients',
+    meta: { public: false, requiredPermissions: ['counterparties.read'] }
+  },
   { pattern: '/', meta: { public: false } },
   { pattern: '/users', meta: { public: false, requiredPermissions: ['iam.manage_roles'] } },
   {
@@ -287,6 +295,12 @@ export const navigationModel: NavigationItem[] = [
     href: '/admin/learners',
     label: 'Ученики',
     requiredPermissions: ['learners.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/admin/clients',
+    label: 'Компании',
+    requiredPermissions: ['counterparties.read'],
     navSlot: 'more'
   }
 ];
