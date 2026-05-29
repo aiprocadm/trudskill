@@ -73,7 +73,7 @@
 - Modify: `apps/backend/src/modules/mvp/mvp.service.ts:2058-2120` (createQuestion)
 - Test: `apps/backend/src/modules/mvp/mvp.service.test.ts`
 
-- [ ] **Step 1: Write the failing test** — append to `mvp.service.test.ts`:
+- [x] **Step 1: Write the failing test** — append to `mvp.service.test.ts`:
 
 ```ts
 describe('Plan B — createQuestion persists grading reference fields', () => {
@@ -116,12 +116,12 @@ describe('Plan B — createQuestion persists grading reference fields', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: Run it and confirm it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.service.test.ts --no-file-parallelism -t "persists grading reference fields"`
 Expected: FAIL — `num.numericExpected` is `undefined` (createQuestion drops it).
 
-- [ ] **Step 3: Add the typed fields** — in `mvp.types.ts`, the `Question` interface already has `numericExpected?`/`numericTolerance?`/`tags?` (Plan A). Add `expectedAnswer`:
+- [x] **Step 3: Add the typed fields** — in `mvp.types.ts`, the `Question` interface already has `numericExpected?`/`numericTolerance?`/`tags?` (Plan A). Add `expectedAnswer`:
 
 ```ts
 export interface Question extends BaseEntity {
@@ -155,7 +155,7 @@ export interface AttemptAnswer extends BaseEntity {
 }
 ```
 
-- [ ] **Step 4: Persist fields in `createQuestion`** — in `mvp.service.ts`, extend the `entity` object built at `:2073` using conditional spread (because of `exactOptionalPropertyTypes`):
+- [x] **Step 4: Persist fields in `createQuestion`** — in `mvp.service.ts`, extend the `entity` object built at `:2073` using conditional spread (because of `exactOptionalPropertyTypes`):
 
 ```ts
 const entity: Question = {
@@ -179,17 +179,17 @@ const entity: Question = {
 
 (`updateQuestion` already copies these via `Object.assign(current, request)` at `:2136`; once `expectedAnswer` is a typed field this is consistent. No change needed there.)
 
-- [ ] **Step 5: Run the test and confirm it passes**
+- [x] **Step 5: Run the test and confirm it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.service.test.ts --no-file-parallelism -t "persists grading reference fields"`
 Expected: PASS.
 
-- [ ] **Step 6: Typecheck + lint the touched files**
+- [x] **Step 6: Typecheck + lint the touched files**
 
 Run: `pnpm --filter @cdoprof/backend exec tsc --noEmit` then `npx eslint apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/mvp.types.ts --max-warnings=0`
 Expected: clean.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.types.ts apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/mvp.service.test.ts
@@ -205,7 +205,7 @@ git commit -m "feat(backend): Phase 3 Plan B — persist question grading refere
 - Create: `apps/backend/src/modules/mvp/assessment-autograde.service.ts`
 - Test: `apps/backend/src/modules/mvp/assessment-autograde.service.test.ts`
 
-- [ ] **Step 1: Write the failing test** — create `assessment-autograde.service.test.ts`:
+- [x] **Step 1: Write the failing test** — create `assessment-autograde.service.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -415,12 +415,12 @@ describe('gradeAnswer — essay (never auto-graded)', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: Run it and confirm it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/assessment-autograde.service.test.ts --no-file-parallelism`
 Expected: FAIL — module `./assessment-autograde.service.js` not found.
 
-- [ ] **Step 3: Implement the grader** — create `assessment-autograde.service.ts`:
+- [x] **Step 3: Implement the grader** — create `assessment-autograde.service.ts`:
 
 ```ts
 import type { AnswerOption, AttemptAnswer, Question } from './mvp.types.js';
@@ -497,17 +497,17 @@ export function gradeAnswer(input: AutogradeInput): AutogradeResult {
 }
 ```
 
-- [ ] **Step 4: Run the test and confirm it passes**
+- [x] **Step 4: Run the test and confirm it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/assessment-autograde.service.test.ts --no-file-parallelism`
 Expected: PASS (all cases).
 
-- [ ] **Step 5: Lint**
+- [x] **Step 5: Lint**
 
 Run: `npx eslint apps/backend/src/modules/mvp/assessment-autograde.service.ts apps/backend/src/modules/mvp/assessment-autograde.service.test.ts --max-warnings=0`
 Expected: clean.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/assessment-autograde.service.ts apps/backend/src/modules/mvp/assessment-autograde.service.test.ts
@@ -525,7 +525,7 @@ git commit -m "feat(backend): Phase 3 Plan B — pure-function autograder for 5 
 - Modify: `apps/backend/src/modules/mvp/mvp.service.ts:2780-2802`
 - Test: `apps/backend/src/modules/mvp/mvp.service.test.ts`
 
-- [ ] **Step 1: Write the failing test** — append to `mvp.service.test.ts`. (Reuse the attempt-setup style at `mvp.service.test.ts:420-450`: create course/group/group-course/enrollment/test/questions/test-questions, then start → answer → submit.)
+- [x] **Step 1: Write the failing test** — append to `mvp.service.test.ts`. (Reuse the attempt-setup style at `mvp.service.test.ts:420-450`: create course/group/group-course/enrollment/test/questions/test-questions, then start → answer → submit.)
 
 ```ts
 describe('Plan B — submitAttempt grades number_input and text, abstains on essay', () => {
@@ -606,12 +606,12 @@ describe('Plan B — submitAttempt grades number_input and text, abstains on ess
 
 Add the `seedAttemptEnv` helper near the top of the file's helpers (only if one does not already exist — check first; the existing attempt tests already build this inline, so you may factor the existing inline setup into `seedAttemptEnv` returning `{ bankId, testId, enrollmentId, learnerId }`).
 
-- [ ] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: Run it and confirm it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.service.test.ts --no-file-parallelism -t "grades number_input and text"`
 Expected: FAIL — with the old loop `score` is wrong (essay/number over-scored, text under-scored).
 
-- [ ] **Step 3: Replace the grading loop** — add the import at the top of `mvp.service.ts` (near the other local imports):
+- [x] **Step 3: Replace the grading loop** — add the import at the top of `mvp.service.ts` (near the other local imports):
 
 ```ts
 import { gradeAnswer } from './assessment-autograde.service.js';
@@ -640,17 +640,17 @@ attempt.score = score;
 
 (Leave the following lines — `attempt.passed = score >= test.rules.passingScore;` etc. — unchanged.)
 
-- [ ] **Step 4: Run the new test + the full service suite for regressions**
+- [x] **Step 4: Run the new test + the full service suite for regressions**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.service.test.ts --no-file-parallelism`
 Expected: PASS, including the pre-existing choice-grading attempt tests (`mvp.service.test.ts:420-450`).
 
-- [ ] **Step 5: Run concurrency + business-flow regressions** (they call submit)
+- [x] **Step 5: Run concurrency + business-flow regressions** (they call submit)
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.concurrency.test.ts src/modules/mvp/business-flows.e2e.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 6: Lint + commit**
+- [x] **Step 6: Lint + commit**
 
 ```bash
 npx eslint apps/backend/src/modules/mvp/mvp.service.ts --max-warnings=0
@@ -671,7 +671,7 @@ git commit -m "feat(backend): Phase 3 Plan B — autograde all question types in
 - Modify: `apps/backend/src/modules/mvp/mvp.controller.ts` (add endpoint after `getAttempt:863`)
 - Test: `apps/backend/src/modules/mvp/mvp.service.test.ts` (no-leak unit) + `apps/backend/src/modules/mvp/test-player.http.integration.test.ts` (permission boundary)
 
-- [ ] **Step 1: Write the failing unit test** — append to `mvp.service.test.ts`:
+- [x] **Step 1: Write the failing unit test** — append to `mvp.service.test.ts`:
 
 ```ts
 describe('Plan B — getAttemptQuestions never leaks answer keys', () => {
@@ -714,12 +714,12 @@ describe('Plan B — getAttemptQuestions never leaks answer keys', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: Run it and confirm it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.service.test.ts --no-file-parallelism -t "never leaks answer keys"`
 Expected: FAIL — `service.getAttemptQuestions` is not a function.
 
-- [ ] **Step 3: Add the view type** — in `mvp.types.ts`, after `TestAttempt`:
+- [x] **Step 3: Add the view type** — in `mvp.types.ts`, after `TestAttempt`:
 
 ```ts
 export interface AttemptQuestionOptionView {
@@ -738,7 +738,7 @@ export interface AttemptQuestionView {
 }
 ```
 
-- [ ] **Step 4: Implement the service method** — in `mvp.service.ts`, after `getAttempt` (`:2550`):
+- [x] **Step 4: Implement the service method** — in `mvp.service.ts`, after `getAttempt` (`:2550`):
 
 ```ts
 getAttemptQuestions(
@@ -769,7 +769,7 @@ getAttemptQuestions(
 
 Add `AttemptQuestionView` to the type import block at the top of `mvp.service.ts` (the `import type { ... } from './mvp.types.js'` group).
 
-- [ ] **Step 5: Add the controller endpoint** — in `mvp.controller.ts`, after `getAttempt` (`:863`):
+- [x] **Step 5: Add the controller endpoint** — in `mvp.controller.ts`, after `getAttempt` (`:863`):
 
 ```ts
 @Get('attempts/:id/questions')
@@ -780,7 +780,7 @@ getAttemptQuestions(@CurrentContext() c: RequestContext, @Param('id') id: string
 }
 ```
 
-- [ ] **Step 6: Run the unit test (PASS), then write the HTTP permission test** — create `test-player.http.integration.test.ts` mirroring `assessment-admin.http.integration.test.ts` exactly (same imports, same `makeTestApp` stub-controller helper, same envelope assertions). Cover the two new endpoints (this one + `/me/tests` from Task 5):
+- [x] **Step 6: Run the unit test (PASS), then write the HTTP permission test** — create `test-player.http.integration.test.ts` mirroring `assessment-admin.http.integration.test.ts` exactly (same imports, same `makeTestApp` stub-controller helper, same envelope assertions). Cover the two new endpoints (this one + `/me/tests` from Task 5):
 
 ```ts
 // Mirror assessment-admin.http.integration.test.ts structure.
@@ -793,12 +793,12 @@ getAttemptQuestions(@CurrentContext() c: RequestContext, @Param('id') id: string
 
 (Write the full file by copying `assessment-admin.http.integration.test.ts` and adapting the routes/permissions. Keep it to ~8 cases across both endpoints.)
 
-- [ ] **Step 7: Run both test files**
+- [x] **Step 7: Run both test files**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.service.test.ts src/modules/mvp/test-player.http.integration.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 8: Lint + commit**
+- [x] **Step 8: Lint + commit**
 
 ```bash
 npx eslint apps/backend/src/modules/mvp/mvp.controller.ts apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/mvp.types.ts apps/backend/src/modules/mvp/test-player.http.integration.test.ts --max-warnings=0
@@ -819,7 +819,7 @@ git commit -m "feat(backend): Phase 3 Plan B — learner-safe GET /attempts/:id/
 - Modify: `apps/backend/src/modules/mvp/mvp.controller.ts` (add `GET /me/tests`)
 - Test: `apps/backend/src/modules/mvp/mvp.service.test.ts` + extend `test-player.http.integration.test.ts`
 
-- [ ] **Step 1: Write the failing unit test** — append to `mvp.service.test.ts`:
+- [x] **Step 1: Write the failing unit test** — append to `mvp.service.test.ts`:
 
 ```ts
 describe('Plan B — listLearnerTests', () => {
@@ -859,12 +859,12 @@ describe('Plan B — listLearnerTests', () => {
 
 (Verify the exact `createCourse` / `createTest` signatures in `mvp.service.ts` before finalizing the test; adapt arg shapes to match.)
 
-- [ ] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: Run it and confirm it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.service.test.ts --no-file-parallelism -t "listLearnerTests"`
 Expected: FAIL — not a function.
 
-- [ ] **Step 3: Add the summary type** — in `mvp.types.ts`:
+- [x] **Step 3: Add the summary type** — in `mvp.types.ts`:
 
 ```ts
 export interface LearnerTestSummary {
@@ -880,7 +880,7 @@ export interface LearnerTestSummary {
 }
 ```
 
-- [ ] **Step 4: Implement `listLearnerTests`** — in `mvp.service.ts`, near `listExamResults`:
+- [x] **Step 4: Implement `listLearnerTests`** — in `mvp.service.ts`, near `listExamResults`:
 
 ```ts
 listLearnerTests(
@@ -932,7 +932,7 @@ listLearnerTests(
 
 Add `LearnerTestSummary` to the type import block in `mvp.service.ts`.
 
-- [ ] **Step 5: Add the controller endpoint** — in `mvp.controller.ts`, after the exam-results endpoints (`:947`). The learner is resolved from the actor's linked learner record; reuse the existing resolver if one exists (grep for `linkedIamUserId` lookups in the controller/service — Pillar A added `assertActorMatchesLearnerIamLink`; there should be a way to map `c.userId → learner`). If a `resolveLearnerIdForActor` helper does not exist, accept `learnerId` as a required query param validated against the link:
+- [x] **Step 5: Add the controller endpoint** — in `mvp.controller.ts`, after the exam-results endpoints (`:947`). The learner is resolved from the actor's linked learner record; reuse the existing resolver if one exists (grep for `linkedIamUserId` lookups in the controller/service — Pillar A added `assertActorMatchesLearnerIamLink`; there should be a way to map `c.userId → learner`). If a `resolveLearnerIdForActor` helper does not exist, accept `learnerId` as a required query param validated against the link:
 
 ```ts
 @Get('me/tests')
@@ -945,14 +945,14 @@ listMyTests(@CurrentContext() c: RequestContext, @Query('learnerId') learnerId: 
 
 (Prefer server-side resolution of `learnerId` from `c.userId` if the helper exists; fall back to the validated query param. Document whichever you choose in the closeout deviations.)
 
-- [ ] **Step 6: Extend the HTTP test** — add `/me/tests` cases to `test-player.http.integration.test.ts` (401 / 403 without `assessment.tests.read` / 200 envelope).
+- [x] **Step 6: Extend the HTTP test** — add `/me/tests` cases to `test-player.http.integration.test.ts` (401 / 403 without `assessment.tests.read` / 200 envelope).
 
-- [ ] **Step 7: Run tests**
+- [x] **Step 7: Run tests**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.service.test.ts src/modules/mvp/test-player.http.integration.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 8: Lint + commit**
+- [x] **Step 8: Lint + commit**
 
 ```bash
 npx eslint apps/backend/src/modules/mvp/mvp.controller.ts apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/mvp.types.ts --max-warnings=0
@@ -971,11 +971,11 @@ git commit -m "feat(backend): Phase 3 Plan B — GET /me/tests learner discovery
 - Create: `apps/backend/migrations/0041_assessment_text_expected_answer.sql`
 - Test: `apps/backend/src/modules/mvp/migrations.0041.test.ts` (mirror `migrations.0040.test.ts`)
 
-- [ ] **Step 1: Write the migration test** (regex assertions, mirroring `migrations.0040.test.ts`): assert the file adds `expected_answer text` to `assessment.questions`, `auto_graded boolean` to `assessment.attempt_answers`, and uses `IF NOT EXISTS`.
+- [x] **Step 1: Write the migration test** (regex assertions, mirroring `migrations.0040.test.ts`): assert the file adds `expected_answer text` to `assessment.questions`, `auto_graded boolean` to `assessment.attempt_answers`, and uses `IF NOT EXISTS`.
 
-- [ ] **Step 2: Run it → FAIL** (file missing).
+- [x] **Step 2: Run it → FAIL** (file missing).
 
-- [ ] **Step 3: Write the migration:**
+- [x] **Step 3: Write the migration:**
 
 ```sql
 -- 0041_assessment_text_expected_answer.sql
@@ -988,9 +988,9 @@ ALTER TABLE assessment.attempt_answers
   ADD COLUMN IF NOT EXISTS auto_graded boolean;
 ```
 
-- [ ] **Step 4: Run the migration test → PASS.**
+- [x] **Step 4: Run the migration test → PASS.**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/migrations/0041_assessment_text_expected_answer.sql apps/backend/src/modules/mvp/migrations.0041.test.ts
@@ -1006,7 +1006,7 @@ git commit -m "feat(backend): Phase 3 Plan B — migration 0041 expected_answer 
 - Modify: `apps/frontend/src/lib/auth/permission-map.ts:81-87`
 - Test: covered by the e2e in Task 10 (add assertion there).
 
-- [ ] **Step 1: Add the two missing permissions** to the `learner` array (align with backend seed `0038`):
+- [x] **Step 1: Add the two missing permissions** to the `learner` array (align with backend seed `0038`):
 
 ```ts
 learner: [
@@ -1020,12 +1020,12 @@ learner: [
 ];
 ```
 
-- [ ] **Step 2: Lint**
+- [x] **Step 2: Lint**
 
 Run: `npx eslint apps/frontend/src/lib/auth/permission-map.ts --max-warnings=0`
 Expected: clean.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/frontend/src/lib/auth/permission-map.ts
@@ -1044,7 +1044,7 @@ git commit -m "fix(frontend): Phase 3 Plan B — grant learner assessment.tests.
 - Create: `apps/frontend/src/features/test-player/format.ts`
 - Test: `apps/frontend/src/features/test-player/format.test.ts`, `apps/frontend/src/features/test-player/api.contract.test.ts`
 
-- [ ] **Step 1: Write `types.ts`:**
+- [x] **Step 1: Write `types.ts`:**
 
 ```ts
 export type AttemptQuestionType =
@@ -1123,7 +1123,7 @@ export interface SaveAnswerPayload {
 export type AnswerDraftMap = Record<string, { selectedOptionIds?: string[]; textAnswer?: string }>;
 ```
 
-- [ ] **Step 2: Write `api.ts`** (mirror `assessment-admin/api.ts:1-42` helpers exactly):
+- [x] **Step 2: Write `api.ts`** (mirror `assessment-admin/api.ts:1-42` helpers exactly):
 
 ```ts
 import { apiRequest } from '../../lib/api/client';
@@ -1188,7 +1188,7 @@ export const testPlayerApi = {
 };
 ```
 
-- [ ] **Step 3: Write `format.ts`:**
+- [x] **Step 3: Write `format.ts`:**
 
 ```ts
 import type { LearnerTestSummary } from './types';
@@ -1229,7 +1229,7 @@ export function formatScoreLine(score: number | undefined, maxScore: number): st
 }
 ```
 
-- [ ] **Step 4: Write `format.test.ts`:**
+- [x] **Step 4: Write `format.test.ts`:**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -1266,7 +1266,7 @@ describe('test-player format', () => {
 });
 ```
 
-- [ ] **Step 5: Write `hooks.ts`** (queries via React Query; mutations via the `useState` `wrap` pattern from `assessment-admin/hooks.ts:120-152`):
+- [x] **Step 5: Write `hooks.ts`** (queries via React Query; mutations via the `useState` `wrap` pattern from `assessment-admin/hooks.ts:120-152`):
 
 ```ts
 'use client';
@@ -1387,14 +1387,14 @@ export function useSubmitAttempt() {
 }
 ```
 
-- [ ] **Step 6: Write `api.contract.test.ts`** (stub `fetch` with `vi.stubGlobal`, assert URL/method/body + envelope unwrap; mirror `assessment-admin/api.contract.test.ts`). Cover: `myTests` (GET, query param), `startAttempt` (POST body), `getAttemptQuestions` (GET), `saveAnswer` (POST body), `submitAttempt` (POST), `getAttemptResult` (GET). ~8 cases.
+- [x] **Step 6: Write `api.contract.test.ts`** (stub `fetch` with `vi.stubGlobal`, assert URL/method/body + envelope unwrap; mirror `assessment-admin/api.contract.test.ts`). Cover: `myTests` (GET, query param), `startAttempt` (POST body), `getAttemptQuestions` (GET), `saveAnswer` (POST body), `submitAttempt` (POST), `getAttemptResult` (GET). ~8 cases.
 
-- [ ] **Step 7: Run the feature tests**
+- [x] **Step 7: Run the feature tests**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/test-player/ --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 8: Lint + commit**
+- [x] **Step 8: Lint + commit**
 
 ```bash
 npx eslint apps/frontend/src/features/test-player/ --max-warnings=0
@@ -1414,7 +1414,7 @@ git commit -m "feat(frontend): Phase 3 Plan B — test-player feature (types/api
 
 Use the state-wrapper components (`PageContainer`, `PageHeader`, `SectionCard`, `SectionEmpty`, `SectionError`, `LoadingState`) from `apps/frontend/src/components/` and `@cdoprof/ui` primitives. Match the structure of an existing learner screen (e.g. `apps/frontend/src/features/mvp/screens.tsx` `LearnerCourseDetailsScreen`).
 
-- [ ] **Step 1: `tests-list-screen.tsx`** — `'use client'`; resolves the learner id from `useAuth()` (the linked learner). Uses `useMyTests`. Renders a list of `LearnerTestSummary` with `formatLearnerTestStatus` + `formatAttemptsLeft`. Each row links to `/learner/tests/[testId]` carrying `enrollmentId` (via query string `?enrollmentId=...`). Loading → `LoadingState`; error → `SectionError`; empty → `SectionEmpty` ("Нет доступных тестов").
+- [x] **Step 1: `tests-list-screen.tsx`** — `'use client'`; resolves the learner id from `useAuth()` (the linked learner). Uses `useMyTests`. Renders a list of `LearnerTestSummary` with `formatLearnerTestStatus` + `formatAttemptsLeft`. Each row links to `/learner/tests/[testId]` carrying `enrollmentId` (via query string `?enrollmentId=...`). Loading → `LoadingState`; error → `SectionError`; empty → `SectionEmpty` ("Нет доступных тестов").
 
 ```tsx
 'use client';
@@ -1469,7 +1469,7 @@ export function TestsListScreen() {
 
 (Confirm the exact component import paths in `apps/frontend/src/components/` before writing — adapt names to the real files.)
 
-- [ ] **Step 2: `test-attempt-screen.tsx`** — the player. Auto-save (debounced 1500ms on the current question's draft), a countdown timer that auto-submits once at zero, Prev/Next navigation, and type-aware inputs. Full code:
+- [x] **Step 2: `test-attempt-screen.tsx`** — the player. Auto-save (debounced 1500ms on the current question's draft), a countdown timer that auto-submits once at zero, Prev/Next navigation, and type-aware inputs. Full code:
 
 ```tsx
 'use client';
@@ -1669,7 +1669,7 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
 
 (Confirm component import paths/props in `apps/frontend/src/components/` before writing; the timer is rendered as plain text inside the card to avoid assuming a `PageHeader` `actions` prop.)
 
-- [ ] **Step 3: `test-result-screen.tsx`** — pass/fail + score line + attempts count + back link. Full code:
+- [x] **Step 3: `test-result-screen.tsx`** — pass/fail + score line + attempts count + back link. Full code:
 
 ```tsx
 'use client';
@@ -1721,12 +1721,12 @@ export function TestResultScreen({ attemptId }: TestResultScreenProps) {
 
 (`testId` stays in the props type for the route to pass through but is intentionally not destructured — the result is fetched by `attemptId`. The reviewer note is shown unconditionally in V1 since `ExamResultDto` does not carry a "has-essay" flag; tightening it is a Plan C concern.)
 
-- [ ] **Step 4: Dynamic-import smoke check** (the e2e in Task 10 imports each screen). Quick local sanity:
+- [x] **Step 4: Dynamic-import smoke check** (the e2e in Task 10 imports each screen). Quick local sanity:
 
 Run: `pnpm --filter @cdoprof/frontend exec tsc --noEmit`
 Expected: clean (no type errors in the three screens).
 
-- [ ] **Step 5: Lint + commit**
+- [x] **Step 5: Lint + commit**
 
 ```bash
 npx eslint apps/frontend/src/features/test-player/ --max-warnings=0
@@ -1746,7 +1746,7 @@ git commit -m "feat(frontend): Phase 3 Plan B — learner test player screens (T
 - Modify: `apps/frontend/src/features/navigation/model.ts`
 - Test: `apps/frontend/src/e2e/learner-test-player.e2e.test.ts`
 
-- [ ] **Step 1: Routes** (mirror `app/learner/courses/[id]/page.tsx`):
+- [x] **Step 1: Routes** (mirror `app/learner/courses/[id]/page.tsx`):
 
 `app/learner/tests/page.tsx`:
 
@@ -1808,7 +1808,7 @@ export default async function LearnerResultPage({
 
 (Verify the relative `../` depth against the actual folder nesting before committing.)
 
-- [ ] **Step 2: Navigation** — in `apps/frontend/src/features/navigation/model.ts`, add to `routeMeta`:
+- [x] **Step 2: Navigation** — in `apps/frontend/src/features/navigation/model.ts`, add to `routeMeta`:
 
 ```ts
 { pattern: '/learner/tests', meta: { public: false, requiredPermissions: ['assessment.tests.read'] } },
@@ -1824,7 +1824,7 @@ and to `navigationModel`:
 
 (Match the exact pattern syntax used by neighboring entries — confirm whether the router uses `:param` or `[param]` in `routeMeta` patterns and follow it.)
 
-- [ ] **Step 3: Write the e2e** — `learner-test-player.e2e.test.ts`, mirroring `admin-assessment-surface.e2e.test.ts:1-130`:
+- [x] **Step 3: Write the e2e** — `learner-test-player.e2e.test.ts`, mirroring `admin-assessment-surface.e2e.test.ts:1-130`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -1910,13 +1910,13 @@ describe('learner test player — module smoke', () => {
 });
 ```
 
-- [ ] **Step 4: Run the e2e + the whole frontend suite (regressions)**
+- [x] **Step 4: Run the e2e + the whole frontend suite (regressions)**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/e2e/learner-test-player.e2e.test.ts src/features/test-player/ --no-file-parallelism`
 then `pnpm test:frontend`
 Expected: PASS, no regressions in the existing ~296 frontend tests.
 
-- [ ] **Step 5: Lint + commit**
+- [x] **Step 5: Lint + commit**
 
 ```bash
 npx eslint apps/frontend/app/learner/tests apps/frontend/src/features/navigation/model.ts apps/frontend/src/e2e/learner-test-player.e2e.test.ts --max-warnings=0
@@ -1934,12 +1934,12 @@ git commit -m "feat(frontend): Phase 3 Plan B — learner test routes + nav + e2
 - Modify: `README.md` §2 (AI Agent State)
 - Modify: this plan file (tick completed checkboxes)
 
-- [ ] **Step 1: Full quality gate**
+- [x] **Step 1: Full quality gate**
 
 Run: `pnpm -s ci:check`
 Expected: green. (If the Cyrillic backend-suite crash appears, fall back to the isolated file runs listed in each task + note it, per CLAUDE.md.)
 
-- [ ] **Step 2: Canonical §39 E2E regression**
+- [x] **Step 2: Canonical §39 E2E regression**
 
 Run:
 
@@ -1950,11 +1950,11 @@ pnpm --filter @cdoprof/frontend exec vitest run src/e2e/lms-role-flows.e2e.test.
 
 Expected: PASS.
 
-- [ ] **Step 3: Write `### 5.94`** in `LMS_AGENT_HANDOFF.md` — summary, files changed, test counts, and deviations (especially: lifecycle reused not rebuilt; createQuestion was dropping grading fields; submit over-scoring bug fixed; `/me/tests` learnerId resolution choice; essay provisional-score limitation deferred to Plan C). Cross-link this plan.
+- [x] **Step 3: Write `### 5.94`** in `LMS_AGENT_HANDOFF.md` — summary, files changed, test counts, and deviations (especially: lifecycle reused not rebuilt; createQuestion was dropping grading fields; submit over-scoring bug fixed; `/me/tests` learnerId resolution choice; essay provisional-score limitation deferred to Plan C). Cross-link this plan.
 
-- [ ] **Step 4: Update `README.md` §2** — Last Completed Task = Phase 3 Plan B; Next Task = Phase 3 Plan C (submission lifecycle + reviewer scoring + essay grading). Bump migration high-water mark to 0041. Update Last Updated At/By.
+- [x] **Step 4: Update `README.md` §2** — Last Completed Task = Phase 3 Plan B; Next Task = Phase 3 Plan C (submission lifecycle + reviewer scoring + essay grading). Bump migration high-water mark to 0041. Update Last Updated At/By.
 
-- [ ] **Step 5: Tick this plan's checkboxes**, then commit:
+- [x] **Step 5: Tick this plan's checkboxes**, then commit:
 
 ```bash
 git add LMS_AGENT_HANDOFF.md README.md docs/superpowers/plans/2026-05-30-phase-3-plan-b-test-player.md
@@ -1965,15 +1965,15 @@ git commit -m "docs(handoff): Phase 3 Plan B complete — §5.94 + README sync (
 
 ## Acceptance gates (Phase 3 Plan B)
 
-- [ ] `createQuestion` persists `numericExpected` / `numericTolerance` / `expectedAnswer` / `tags`; `Question.expectedAnswer` is a typed field.
-- [ ] `gradeAnswer` correctly scores all five types (single/multi/number/text auto; essay abstains) — table tests green.
-- [ ] `submitAttempt` no longer over-scores `number_input`/`essay` and no longer zeroes correct `text`; per-answer `score` + `autoGraded` persisted.
-- [ ] `GET /attempts/:id/questions` returns ordered snapshot questions with **no** `isCorrect` / reference fields; gated by `assessment.attempts.take`; scoped to the attempt's learner.
-- [ ] `GET /me/tests` returns the learner's published, enrolled-course tests with attempt/result status; gated by `assessment.tests.read`.
-- [ ] Learner can reach `/learner/tests`, the attempt player, and the result route (permission-map reconciled; nav entry visible).
-- [ ] `pnpm -s ci:check` green (or documented Cyrillic fallback with isolated runs green).
-- [ ] Canonical §39 E2E (`business-flows.e2e.test.ts`, `lms-role-flows.e2e.test.ts`, `canonical-e2e-readiness.e2e.test.ts`) — no regressions.
-- [ ] `LMS_AGENT_HANDOFF.md` §5.94 + `README.md` §2 updated.
+- [x] `createQuestion` persists `numericExpected` / `numericTolerance` / `expectedAnswer` / `tags`; `Question.expectedAnswer` is a typed field.
+- [x] `gradeAnswer` correctly scores all five types (single/multi/number/text auto; essay abstains) — table tests green.
+- [x] `submitAttempt` no longer over-scores `number_input`/`essay` and no longer zeroes correct `text`; per-answer `score` + `autoGraded` persisted.
+- [x] `GET /attempts/:id/questions` returns ordered snapshot questions with **no** `isCorrect` / reference fields; gated by `assessment.attempts.take`; scoped to the attempt's learner.
+- [x] `GET /me/tests` returns the learner's published, enrolled-course tests with attempt/result status; gated by `assessment.tests.read`.
+- [x] Learner can reach `/learner/tests`, the attempt player, and the result route (permission-map reconciled; nav entry visible).
+- [x] `pnpm -s ci:check` green (or documented Cyrillic fallback with isolated runs green).
+- [x] Canonical §39 E2E (`business-flows.e2e.test.ts`, `lms-role-flows.e2e.test.ts`, `canonical-e2e-readiness.e2e.test.ts`) — no regressions.
+- [x] `LMS_AGENT_HANDOFF.md` §5.94 + `README.md` §2 updated.
 
 ## Out of scope (deferred)
 
