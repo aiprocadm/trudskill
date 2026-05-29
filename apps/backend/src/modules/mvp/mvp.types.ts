@@ -359,9 +359,12 @@ export interface LearnerTestSummary {
   title: string;
   courseId: string;
   enrollmentId: string;
+  learnerId: string;
   status: 'not_started' | 'in_progress' | 'submitted' | 'passed' | 'failed';
   attemptsUsed: number;
   attemptLimit: number;
+  /** id of the resumable (draft/in_progress) attempt, if one exists. */
+  activeAttemptId?: string;
   bestScore?: number;
   maxScore: number;
 }

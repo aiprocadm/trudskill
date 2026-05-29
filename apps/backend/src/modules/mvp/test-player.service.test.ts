@@ -369,12 +369,14 @@ describe('listMyTests — learner test dashboard', () => {
       title: 'Exam',
       courseId: course.id,
       enrollmentId: enrollment.id,
+      learnerId: enrollment.learnerId,
       status: 'not_started',
       attemptsUsed: 0,
       attemptLimit: 2,
       maxScore: 2
     });
     expect(beforeStart[0].bestScore).toBeUndefined();
+    expect(beforeStart[0].activeAttemptId).toBeUndefined();
 
     const attempt = service.startAttempt(
       T,
@@ -384,7 +386,8 @@ describe('listMyTests — learner test dashboard', () => {
     );
     expect(service.listMyTests(T, learnerUser)[0]).toMatchObject({
       status: 'in_progress',
-      attemptsUsed: 1
+      attemptsUsed: 1,
+      activeAttemptId: attempt.id
     });
 
     const correct = service['state'].answerOptions.find(

@@ -2638,14 +2638,19 @@ export class MvpService {
         const bestScore = scored.length
           ? Math.max(...scored.map((item) => item.score ?? 0))
           : undefined;
+        const activeAttemptId = attempts.find(
+          (item) => item.status === 'draft' || item.status === 'in_progress'
+        )?.id;
         summaries.push({
           testId: test.id,
           title: test.title,
           courseId: test.courseId,
           enrollmentId: enrollment.id,
+          learnerId: enrollment.learnerId,
           status: this.deriveLearnerTestStatus(attempts, test.rules.attemptLimit),
           attemptsUsed: attempts.length,
           attemptLimit: test.rules.attemptLimit,
+          ...(activeAttemptId !== undefined ? { activeAttemptId } : {}),
           ...(bestScore !== undefined ? { bestScore } : {}),
           maxScore
         });
