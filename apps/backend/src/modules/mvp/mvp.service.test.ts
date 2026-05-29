@@ -22,7 +22,14 @@ const noopDocumentsService = {
 } as unknown as DocumentsService;
 
 const noopFilesService = {
-  ensureMaterialLink: async () => undefined
+  ensureMaterialLink: async () => undefined,
+  createUploadIntent: async () => ({
+    fileId: 'file_stub',
+    uploadUrl: 'https://minio.local/PUT',
+    storageKey: 'submissions/tenant_demo/stub',
+    expiresInSeconds: 900
+  }),
+  createDownloadUrl: async () => 'https://minio.local/GET'
 } as unknown as FilesService;
 
 const testEmitter = new EventEmitter2();
@@ -2822,5 +2829,372 @@ describe('MvpService — Counterparty extended + group linking (Phase 2 Plan C �
     expect(() =>
       service.setGroupCounterparty('tenant_demo', 'admin-1', 'g-nope', cp.id, ctx)
     ).toThrow(NotFoundException);
+  });
+});
+
+describe('Plan C — completeAttemptReview', () => {
+  function makeEssayAttempt(passingScore: number) {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'CC', title: 'PlanC' },
+      ctx
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'GC', name: 'GroupC' },
+      ctx
+    );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'LC', name: 'Essay Learner' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const bank = service.createQuestionBank(
+      'tenant_demo',
+      ctx.userId,
+      { title: 'BankC', courseId: course.id },
+      ctx
+    );
+    const essayQ = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      { questionBankId: bank.id, text: 'Discuss safety', type: 'essay', score: 5 },
+      ctx
+    );
+    const test = service.createTest(
+      'tenant_demo',
+      ctx.userId,
+      {
+        title: 'EssayTest',
+        courseId: course.id,
+        questionBankId: bank.id,
+        rules: { attemptLimit: 1, passingScore }
+      },
+      ctx
+    );
+    service.addTestQuestions('tenant_demo', test.id, [essayQ.id]);
+    const attempt = service.startAttempt(
+      'tenant_demo',
+      ctx.userId,
+      { testId: test.id, enrollmentId: enrollment.id, learnerId: learner.id },
+      ctx
+    );
+    service.saveAttemptAnswer(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { questionId: essayQ.id, textAnswer: 'a thoughtful essay' },
+      ctx
+    );
+    return { service, essayQ, attempt };
+  }
+
+  it('scores the essay, recomputes score/passed, finishes, updates ExamResult', () => {
+    const { service, essayQ, attempt } = makeEssayAttempt(3);
+    const submitted = service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+    expect(submitted.score).toBe(0); // essay abstains at submit
+    expect(submitted.status).toBe('submitted');
+
+    const reviewed = service.completeAttemptReview(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { answerScores: [{ questionId: essayQ.id, score: 4 }], reviewComment: 'good' },
+      ctx
+    );
+    expect(reviewed.score).toBe(4);
+    expect(reviewed.passed).toBe(true);
+    expect(reviewed.status).toBe('finished');
+    expect(reviewed.reviewComment).toBe('good');
+
+    const result = service.getAttemptResult('tenant_demo', attempt.id);
+    expect(result.finalScore).toBe(4);
+    expect(result.passed).toBe(true);
+  });
+
+  it('rejects an out-of-range score', () => {
+    const { service, essayQ, attempt } = makeEssayAttempt(3);
+    service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+    expect(() =>
+      service.completeAttemptReview(
+        'tenant_demo',
+        ctx.userId,
+        attempt.id,
+        { answerScores: [{ questionId: essayQ.id, score: 99 }] },
+        ctx
+      )
+    ).toThrow(BadRequestException);
+  });
+
+  it('refuses to review an attempt that is not submitted', () => {
+    const { service, essayQ, attempt } = makeEssayAttempt(3);
+    expect(() =>
+      service.completeAttemptReview(
+        'tenant_demo',
+        ctx.userId,
+        attempt.id,
+        { answerScores: [{ questionId: essayQ.id, score: 1 }] },
+        ctx
+      )
+    ).toThrow(PreconditionFailedException); // still in_progress
+  });
+});
+
+describe('Plan C — returnAssignmentSubmission', () => {
+  function makeSubmittedUnderReview() {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'CR', title: 'Return' },
+      ctx
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'GR', name: 'GroupR' },
+      ctx
+    );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'LR', name: 'Return Learner' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const assignment = service.createAssignment(
+      'tenant_demo',
+      ctx.userId,
+      { courseId: course.id, title: 'Practical', maxScore: 10 },
+      ctx
+    );
+    const submission = service.createAssignmentSubmission(
+      'tenant_demo',
+      ctx.userId,
+      {
+        assignmentId: assignment.id,
+        enrollmentId: enrollment.id,
+        learnerId: learner.id,
+        answerText: 'first draft'
+      },
+      ctx
+    );
+    service.submitAssignmentSubmission('tenant_demo', ctx.userId, submission.id, ctx);
+    service.createAssignmentReview(
+      'tenant_demo',
+      ctx.userId,
+      { submissionId: submission.id, comment: 'needs work' },
+      ctx
+    );
+    return { service, submission, enrollment, assignment, learner };
+  }
+
+  it('returns an under_review submission and clears the active review so it can be re-reviewed', () => {
+    const { service, submission } = makeSubmittedUnderReview();
+    const returned = service.returnAssignmentSubmission(
+      'tenant_demo',
+      ctx.userId,
+      submission.id,
+      { comment: 'add section 3' },
+      ctx
+    );
+    expect(returned.status).toBe('returned');
+    expect(returned.returnComment).toBe('add section 3');
+    expect(
+      service
+        .listAssignmentReviews('tenant_demo', {})
+        .items.filter((r) => r.submissionId === submission.id)
+    ).toHaveLength(0);
+
+    // learner edits the returned submission and resubmits → submitted again
+    service.updateAssignmentSubmission(
+      'tenant_demo',
+      ctx.userId,
+      submission.id,
+      { answerText: 'revised draft' },
+      ctx
+    );
+    const resubmitted = service.submitAssignmentSubmission(
+      'tenant_demo',
+      ctx.userId,
+      submission.id,
+      ctx
+    );
+    expect(resubmitted.status).toBe('submitted');
+
+    // a fresh review can now be created without the one-review conflict
+    const review = service.createAssignmentReview(
+      'tenant_demo',
+      ctx.userId,
+      { submissionId: submission.id },
+      ctx
+    );
+    expect(review.status).toBe('in_review');
+  });
+
+  it('refuses to return a submission that is not under_review', () => {
+    const { service, assignment, enrollment, learner } = makeSubmittedUnderReview();
+    const draft = service.createAssignmentSubmission(
+      'tenant_demo',
+      ctx.userId,
+      {
+        assignmentId: assignment.id,
+        enrollmentId: enrollment.id,
+        learnerId: learner.id,
+        answerText: 'x'
+      },
+      ctx
+    );
+    expect(() =>
+      service.returnAssignmentSubmission(
+        'tenant_demo',
+        ctx.userId,
+        draft.id,
+        { comment: 'no' },
+        ctx
+      )
+    ).toThrow(PreconditionFailedException);
+  });
+});
+
+describe('Plan C — submission file upload wrappers', () => {
+  it('issues an upload intent for a draft submission owned by the actor', async () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'CF', title: 'Files' },
+      ctx
+    );
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'GF', name: 'GF' }, ctx);
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'LF', name: 'File Learner' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const assignment = service.createAssignment(
+      'tenant_demo',
+      ctx.userId,
+      { courseId: course.id, title: 'P', maxScore: 10 },
+      ctx
+    );
+    const submission = service.createAssignmentSubmission(
+      'tenant_demo',
+      ctx.userId,
+      {
+        assignmentId: assignment.id,
+        enrollmentId: enrollment.id,
+        learnerId: learner.id,
+        answerText: 'd'
+      },
+      ctx
+    );
+
+    const intent = await service.createSubmissionUploadIntent(
+      'tenant_demo',
+      ctx.userId,
+      submission.id,
+      { originalName: 'w.pdf', contentType: 'application/pdf', sizeBytes: 100 },
+      ctx
+    );
+    expect(intent.uploadUrl).toContain('https://minio.local');
+    expect(intent.fileId).toBe('file_stub');
+  });
+});
+
+describe('Plan C — listMyAssignments', () => {
+  it('returns assignments for the actor-linked learner with submission status', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const course = service.createCourse('tenant_demo', ctx.userId, { code: 'CA', title: 'A' }, ctx);
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'GA', name: 'GA' }, ctx);
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    // Link a learner to the acting IAM user so the actor-resolution finds it.
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'LA', name: 'Linked', linkedIamUserId: ctx.userId },
+      ctx
+    );
+    service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const assignment = service.createAssignment(
+      'tenant_demo',
+      ctx.userId,
+      { courseId: course.id, title: 'Practical', maxScore: 10 },
+      ctx
+    );
+
+    const list = service.listMyAssignments('tenant_demo', ctx.userId);
+    expect(list.map((a) => a.assignmentId)).toContain(assignment.id);
+    expect(list.find((a) => a.assignmentId === assignment.id)?.status).toBe('not_started');
+  });
+
+  it('returns [] when the actor has no linked learner (not 403)', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    expect(service.listMyAssignments('tenant_demo', 'u_no_link')).toEqual([]);
   });
 });

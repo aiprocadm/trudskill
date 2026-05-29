@@ -80,6 +80,7 @@ import type {
   Commission,
   CommissionMember,
   CommissionStatus,
+  CompleteAttemptReviewInput,
   Counterparty,
   Course,
   CourseDocumentSetEntry,
@@ -95,6 +96,7 @@ import type {
   GroupEntity,
   KpiSnapshotDto,
   Learner,
+  LearnerAssignmentSummary,
   LearnerTestSummary,
   Material,
   MaterialProgress,
@@ -103,6 +105,7 @@ import type {
   Question,
   QuestionBank,
   RegulatoryAct,
+  ReturnSubmissionInput,
   ReviewerQueueSnapshot,
   TestAttempt,
   TestEntity,
@@ -110,6 +113,7 @@ import type {
 } from './mvp.types.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 import type { GeneratedDocumentEntity } from '../documents/documents.types.js';
+import type { UploadIntent } from '../files/files.service.js';
 
 interface ListResponse<T> {
   items: T[];
@@ -2536,7 +2540,9 @@ export class MvpService {
     return aggregateReviewerQueue(
       {
         testAttempts: this.state.attempts as TestAttempt[],
-        assignmentSubmissions: this.state.assignmentSubmissions
+        attemptAnswers: this.state.attemptAnswers,
+        assignmentSubmissions: this.state.assignmentSubmissions,
+        questions: this.state.questions
       },
       { tenantId }
     );
@@ -2653,6 +2659,56 @@ export class MvpService {
           ...(activeAttemptId !== undefined ? { activeAttemptId } : {}),
           ...(bestScore !== undefined ? { bestScore } : {}),
           maxScore
+        });
+      }
+    }
+    return summaries;
+  }
+  /**
+   * Phase 3 Plan C — aggregated list of assignments for the current IAM actor (learner).
+   * Mirrors `listMyTests`: resolves linked learner(s) inline by `linkedIamUserId`,
+   * returns [] (NOT 403) when the actor has no linked learner.
+   */
+  listMyAssignments(tenantId: string, actorId: string | undefined): LearnerAssignmentSummary[] {
+    if (!actorId) return [];
+    const learnerIds = new Set(
+      this.state.learners
+        .filter((l) => l.tenantId === tenantId && l.linkedIamUserId === actorId)
+        .map((l) => l.id)
+    );
+    if (learnerIds.size === 0) return [];
+    const enrollments = this.state.enrollments.filter(
+      (item) => item.tenantId === tenantId && learnerIds.has(item.learnerId)
+    );
+    const summaries: LearnerAssignmentSummary[] = [];
+    for (const enrollment of enrollments) {
+      const courseIds = this.state.groupCourses
+        .filter((item) => item.tenantId === tenantId && item.groupId === enrollment.groupId)
+        .map((item) => item.courseId);
+      const assignments = this.state.assignments.filter(
+        (item) =>
+          item.tenantId === tenantId && !item.isArchived && courseIds.includes(item.courseId)
+      );
+      for (const assignment of assignments) {
+        const submission = this.state.assignmentSubmissions.find(
+          (s) =>
+            s.tenantId === tenantId &&
+            s.assignmentId === assignment.id &&
+            s.enrollmentId === enrollment.id &&
+            learnerIds.has(s.learnerId)
+        );
+        summaries.push({
+          assignmentId: assignment.id,
+          title: assignment.title,
+          courseId: assignment.courseId,
+          enrollmentId: enrollment.id,
+          learnerId: enrollment.learnerId,
+          maxScore: assignment.maxScore,
+          status: submission?.status ?? 'not_started',
+          ...(submission?.id !== undefined ? { submissionId: submission.id } : {}),
+          ...(submission?.returnComment !== undefined
+            ? { returnComment: submission.returnComment }
+            : {})
         });
       }
     }
@@ -2964,6 +3020,70 @@ export class MvpService {
       delegationAuditMetadata
     );
     return submitted;
+  }
+
+  completeAttemptReview(
+    tenantId: string,
+    actorId: string | undefined,
+    attemptId: string,
+    input: CompleteAttemptReviewInput,
+    context: RequestContext
+  ): TestAttempt {
+    const attempt = this.getById(this.state.attempts, tenantId, attemptId);
+    if (attempt.status !== 'submitted') {
+      throw new PreconditionFailedException({
+        code: 'domain_rule_violation',
+        message: 'Only submitted attempts can be reviewed'
+      });
+    }
+    const answers = this.state.attemptAnswers.filter(
+      (a) => a.tenantId === tenantId && a.attemptId === attempt.id
+    );
+    for (const item of input.answerScores) {
+      const answer = answers.find((a) => a.questionId === item.questionId);
+      if (!answer) {
+        throw new BadRequestException({
+          code: 'validation_error',
+          message: `No answer recorded for question ${item.questionId}`
+        });
+      }
+      if (answer.autoGraded !== false) {
+        throw new PreconditionFailedException({
+          code: 'domain_rule_violation',
+          message: 'Only manually-gradable (non-auto-graded) answers can be scored'
+        });
+      }
+      const question = this.getById(this.state.questions, tenantId, item.questionId);
+      if (item.score < 0 || item.score > question.score) {
+        throw new BadRequestException({
+          code: 'validation_error',
+          message: 'Score must be within [0, question.score]'
+        });
+      }
+      answer.score = item.score;
+      answer.updatedAt = this.now();
+    }
+    const total = answers.reduce((sum, a) => sum + (a.score ?? 0), 0);
+    const test = this.getById(this.state.tests, tenantId, attempt.testId);
+    attempt.score = total;
+    attempt.passed = total >= test.rules.passingScore;
+    attempt.status = 'finished';
+    attempt.finishedAt = this.now();
+    attempt.reviewedBy = actorId;
+    if (input.reviewComment !== undefined) attempt.reviewComment = input.reviewComment;
+    attempt.updatedAt = this.now();
+    this.finalizeExamResult(tenantId, actorId, attempt, context);
+    this.audit(
+      tenantId,
+      actorId,
+      'assessment.attempt_review_completed',
+      'assessment.test_attempt',
+      attempt.id,
+      undefined,
+      attempt,
+      context
+    );
+    return attempt;
   }
 
   listExamResults(
@@ -3333,6 +3453,50 @@ export class MvpService {
     );
     return current;
   }
+
+  // === Phase 3 Plan C — file upload wrappers ===
+
+  async createSubmissionUploadIntent(
+    tenantId: string,
+    actorId: string | undefined,
+    submissionId: string,
+    request: { originalName: string; contentType: string; sizeBytes: number },
+    context: RequestContext
+  ): Promise<UploadIntent> {
+    const submission = this.getById(this.state.assignmentSubmissions, tenantId, submissionId);
+    const enrollment = this.getById(this.state.enrollments, tenantId, submission.enrollmentId);
+    this.assertActorMatchesLearnerIamLink(
+      tenantId,
+      actorId,
+      enrollment.learnerId,
+      context.permissions
+    );
+    if (!['draft', 'returned'].includes(submission.status)) {
+      throw new PreconditionFailedException({
+        code: 'submission_not_editable',
+        message: 'Files can only be attached to a draft or returned submission'
+      });
+    }
+    return this.filesService.createUploadIntent(tenantId, request);
+  }
+
+  async getSubmissionFileUrl(
+    tenantId: string,
+    submissionId: string,
+    access?: MvpAssessmentReadAccess
+  ): Promise<{ url: string }> {
+    const submission = this.getById(this.state.assignmentSubmissions, tenantId, submissionId);
+    this.assertAssessmentReadAllowedForLearner(tenantId, submission.learnerId, access);
+    if (!submission.fileId) {
+      throw new BadRequestException({
+        code: 'no_file',
+        message: 'Submission has no attached file'
+      });
+    }
+    const url = await this.filesService.createDownloadUrl(tenantId, submission.fileId);
+    return { url };
+  }
+
   listAssignmentReviews(tenantId: string, query: BaseFilterQuery): ListResponse<AssignmentReview> {
     return this.list(this.state.assignmentReviews, tenantId, query);
   }
@@ -3458,6 +3622,39 @@ export class MvpService {
       context
     );
     return review;
+  }
+  returnAssignmentSubmission(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    request: ReturnSubmissionInput,
+    context: RequestContext
+  ): AssignmentSubmission {
+    const submission = this.getById(this.state.assignmentSubmissions, tenantId, id);
+    if (submission.status !== 'under_review') {
+      throw new PreconditionFailedException({
+        code: 'domain_rule_violation',
+        message: 'Only submissions under review can be returned for revision'
+      });
+    }
+    const reviewIndex = this.state.assignmentReviews.findIndex(
+      (r) => r.tenantId === tenantId && r.submissionId === submission.id && r.status !== 'completed'
+    );
+    if (reviewIndex >= 0) this.state.assignmentReviews.splice(reviewIndex, 1);
+    submission.status = 'returned';
+    if (request.comment !== undefined) submission.returnComment = request.comment;
+    submission.updatedAt = this.now();
+    this.audit(
+      tenantId,
+      actorId,
+      'assessment.assignment_submission_returned',
+      'assessment.assignment_submission',
+      submission.id,
+      undefined,
+      submission,
+      context
+    );
+    return submission;
   }
   private pushEnrollmentStatusHistory(
     tenantId: string,

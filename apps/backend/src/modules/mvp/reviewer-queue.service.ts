@@ -1,5 +1,7 @@
 import type {
   AssignmentSubmission,
+  AttemptAnswer,
+  Question,
   ReviewerQueueItem,
   ReviewerQueueSnapshot,
   TestAttempt
@@ -24,23 +26,48 @@ export interface ReviewerQueueFilter {
 
 export interface ReviewerQueueInputSnapshot {
   testAttempts: TestAttempt[];
+  attemptAnswers: AttemptAnswer[];
   assignmentSubmissions: AssignmentSubmission[];
+  questions: Question[];
 }
 
 export function aggregateReviewerQueue(
   snapshot: ReviewerQueueInputSnapshot,
   filter: ReviewerQueueFilter
 ): ReviewerQueueSnapshot {
+  const needsManualGrading = (attemptId: string): boolean =>
+    snapshot.attemptAnswers.some(
+      (a) => a.tenantId === filter.tenantId && a.attemptId === attemptId && a.autoGraded === false
+    );
+
+  const questionById = new Map(snapshot.questions.map((q) => [q.id, q]));
+
   const pendingAttempts: ReviewerQueueItem[] = snapshot.testAttempts
-    .filter((a) => a.tenantId === filter.tenantId && a.status === 'submitted')
-    .map((a) => ({
-      kind: 'attempt' as const,
-      id: a.id,
-      tenantId: a.tenantId,
-      learnerId: a.learnerId,
-      testId: a.testId,
-      submittedAt: a.submittedAt ?? a.createdAt
-    }));
+    .filter(
+      (a) => a.tenantId === filter.tenantId && a.status === 'submitted' && needsManualGrading(a.id)
+    )
+    .map((a) => {
+      const essayAnswers = snapshot.attemptAnswers
+        .filter(
+          (ans) =>
+            ans.tenantId === filter.tenantId && ans.attemptId === a.id && ans.autoGraded === false
+        )
+        .map((ans) => ({
+          questionId: ans.questionId,
+          questionTitle: questionById.get(ans.questionId)?.title ?? '',
+          answerText: ans.textAnswer ?? ''
+        }));
+
+      return {
+        kind: 'attempt' as const,
+        id: a.id,
+        tenantId: a.tenantId,
+        learnerId: a.learnerId,
+        testId: a.testId,
+        submittedAt: a.submittedAt ?? a.createdAt,
+        ...(essayAnswers.length > 0 ? { essayAnswers } : {})
+      };
+    });
 
   const pendingSubmissions: ReviewerQueueItem[] = snapshot.assignmentSubmissions
     .filter(

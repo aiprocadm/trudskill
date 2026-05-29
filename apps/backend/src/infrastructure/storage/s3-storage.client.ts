@@ -1,9 +1,20 @@
-import { ListBucketsCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  GetObjectCommand,
+  ListBucketsCommand,
+  PutObjectCommand,
+  S3Client
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Injectable } from '@nestjs/common';
 
 import { backendEnv } from '../../env.js';
 
-import type { StorageClient, StorageReadiness } from './storage.client.js';
+import type {
+  PresignedDownloadParams,
+  PresignedUploadParams,
+  StorageClient,
+  StorageReadiness
+} from './storage.client.js';
 
 @Injectable()
 export class S3StorageClient implements StorageClient {
@@ -22,6 +33,27 @@ export class S3StorageClient implements StorageClient {
       provider: 's3-compatible',
       healthy
     };
+  }
+
+  async createPresignedUploadUrl(params: PresignedUploadParams): Promise<string> {
+    const command = new PutObjectCommand({
+      Bucket: backendEnv.S3_BUCKET,
+      Key: params.key,
+      ContentType: params.contentType
+    });
+    return getSignedUrl(this.getClient(), command, {
+      expiresIn: params.expiresInSeconds ?? 900
+    });
+  }
+
+  async createPresignedDownloadUrl(params: PresignedDownloadParams): Promise<string> {
+    const command = new GetObjectCommand({
+      Bucket: backendEnv.S3_BUCKET,
+      Key: params.key
+    });
+    return getSignedUrl(this.getClient(), command, {
+      expiresIn: params.expiresInSeconds ?? 900
+    });
   }
 
   private getClient(): S3Client {

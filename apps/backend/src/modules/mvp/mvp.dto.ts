@@ -992,3 +992,52 @@ export class PutCourseDocumentSetRequest {
   @Type(() => CourseDocumentSetEntryRequest)
   entries!: CourseDocumentSetEntryRequest[];
 }
+
+// === Phase 3 Plan C — presigned upload / return / complete-review DTOs ===
+
+/** `POST /assignment-submissions/:id/upload-url` */
+export class CreateUploadUrlRequest {
+  @IsString()
+  @MinLength(1)
+  originalName!: string;
+
+  @IsString()
+  @MinLength(1)
+  contentType!: string;
+
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  sizeBytes!: number;
+}
+
+/** `POST /assignment-submissions/:id/return` */
+export class ReturnSubmissionRequest {
+  @IsOptional()
+  @IsString()
+  comment?: string;
+}
+
+/** Nested item inside `CompleteAttemptReviewRequest`. */
+export class AttemptAnswerScore {
+  @IsString()
+  @MinLength(1)
+  questionId!: string;
+
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  score!: number;
+}
+
+/** `POST /attempts/:id/complete-review` */
+export class CompleteAttemptReviewRequest {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AttemptAnswerScore)
+  answerScores!: AttemptAnswerScore[];
+
+  @IsOptional()
+  @IsString()
+  reviewComment?: string;
+}

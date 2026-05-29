@@ -234,6 +234,12 @@ export interface Question extends BaseEntity {
   tags?: string[];
 }
 
+export interface ReviewerQueueEssayAnswer {
+  questionId: string;
+  questionTitle: string;
+  answerText: string;
+}
+
 export interface ReviewerQueueItem {
   kind: 'attempt' | 'submission';
   id: string;
@@ -242,6 +248,8 @@ export interface ReviewerQueueItem {
   testId?: string;
   assignmentId?: string;
   submittedAt: string;
+  /** Plan C: manual-grading payload — present only for attempt items with essay answers. */
+  essayAnswers?: ReviewerQueueEssayAnswer[];
 }
 
 export interface ReviewerQueueSnapshot {
@@ -304,6 +312,8 @@ export interface TestAttempt extends BaseEntity {
   maxScore: number;
   passed?: boolean;
   questionOrder: string[];
+  reviewComment?: string; // Plan C: reviewer note from manual essay grading
+  reviewedBy?: string; // Plan C: actorId who completed the manual review
 }
 
 export type Attempt = TestAttempt;
@@ -329,6 +339,16 @@ export interface ExamResult extends BaseEntity {
   maxScore: number;
   passingScore?: number;
   passed: boolean;
+}
+
+export interface AttemptAnswerScoreInput {
+  questionId: string;
+  score: number;
+}
+
+export interface CompleteAttemptReviewInput {
+  answerScores: AttemptAnswerScoreInput[];
+  reviewComment?: string;
 }
 
 /**
@@ -398,6 +418,24 @@ export interface AssignmentSubmission extends BaseEntity {
   fileId?: string;
   status: AssignmentSubmissionStatus;
   submittedAt?: string;
+  returnComment?: string; // Plan C: reviewer feedback when returned for revision
+}
+
+export interface LearnerAssignmentSummary {
+  assignmentId: string;
+  title: string;
+  courseId: string;
+  enrollmentId: string;
+  learnerId: string;
+  maxScore: number;
+  submissionId?: string;
+  /** 'not_started' when no submission exists yet; otherwise mirrors the submission status. */
+  status: 'not_started' | AssignmentSubmissionStatus;
+  returnComment?: string;
+}
+
+export interface ReturnSubmissionInput {
+  comment?: string;
 }
 
 export type AssignmentReviewStatus = 'pending' | 'in_review' | 'completed';
