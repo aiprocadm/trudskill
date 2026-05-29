@@ -207,7 +207,7 @@ export interface CourseProgress extends BaseEntity {
   calculatedAt?: string;
 }
 
-export type QuestionType = 'single_choice' | 'multiple_choice' | 'text';
+export type QuestionType = 'single_choice' | 'multiple_choice' | 'number_input' | 'text' | 'essay';
 
 export interface QuestionBank extends BaseEntity {
   code?: string;
@@ -228,6 +228,24 @@ export interface Question extends BaseEntity {
   text?: string;
   explanation?: string;
   maxScore?: number;
+  numericExpected?: number;
+  numericTolerance?: number;
+  tags?: string[];
+}
+
+export interface ReviewerQueueItem {
+  kind: 'attempt' | 'submission';
+  id: string;
+  tenantId: string;
+  learnerId: string;
+  testId?: string;
+  assignmentId?: string;
+  submittedAt: string;
+}
+
+export interface ReviewerQueueSnapshot {
+  pendingAttempts: ReviewerQueueItem[];
+  pendingSubmissions: ReviewerQueueItem[];
 }
 
 export interface AnswerOption extends BaseEntity {

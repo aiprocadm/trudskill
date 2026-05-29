@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { IsString, ValidateIf } from 'class-validator';
 
+import { AddTestQuestionRequest, ReorderTestQuestionRequest } from './add-test-question.dto.js';
 import { CreateCounterpartyExtendedRequest } from './create-counterparty-extended.dto.js';
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
 import { LearnerPdfCardService } from './learner-pdf-card.service.js';
@@ -64,6 +65,7 @@ import {
 import { MvpService } from './mvp.service.js';
 import { UpdateCounterpartyExtendedRequest } from './update-counterparty-extended.dto.js';
 import { UpdateLearnerExtendedRequest } from './update-learner-extended.dto.js';
+import { UpdateTestRuleRequest } from './update-test-rule.dto.js';
 import { assertValidDto } from '../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
@@ -770,6 +772,68 @@ export class MvpController {
   ) {
     const b = assertValidDto(PatchTestRulesRequest, raw);
     return this.mvpService.patchTestRules(c.tenantId!, c.userId, id, b, c);
+  }
+  /** Phase 3 Plan A: PUT alias на patch rules — single endpoint, full upsert semantics. */
+  @Put('tests/:id/rules')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('assessment.tests.write')
+  putTestRules(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() raw: unknown) {
+    const b = assertValidDto(UpdateTestRuleRequest, raw);
+    return this.mvpService.patchTestRules(c.tenantId!, c.userId, id, b, c);
+  }
+  /** Phase 3 Plan A: singular add — позволяет передать конкретный sortOrder и получить TestQuestion. */
+  @Post('tests/:id/questions/single')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('assessment.tests.write')
+  addSingleTestQuestion(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(AddTestQuestionRequest, raw);
+    return this.mvpService.addTestQuestion(c.tenantId!, c.userId, id, b.questionId, b.sortOrder, c);
+  }
+  /** Phase 3 Plan A: удалить вопрос из теста (idempotent). */
+  @Delete('tests/:id/questions/:questionId')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('assessment.tests.write')
+  removeTestQuestion(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Param('questionId') questionId: string
+  ) {
+    this.mvpService.removeTestQuestion(c.tenantId!, c.userId, id, questionId, c);
+    return { removed: true };
+  }
+  /** Phase 3 Plan A: перенумеровать вопрос в тесте. */
+  @Patch('tests/:id/questions/:questionId')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('assessment.tests.write')
+  reorderTestQuestion(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Param('questionId') questionId: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(ReorderTestQuestionRequest, raw);
+    return this.mvpService.reorderTestQuestion(
+      c.tenantId!,
+      c.userId,
+      id,
+      questionId,
+      b.sortOrder,
+      c
+    );
+  }
+  /**
+   * Phase 3 Plan A: read-only reviewer queue.
+   * Plan C добавит scoring actions; здесь только агрегированный список pending.
+   */
+  @Get('reviewer/queue')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('assessment.reviews.review')
+  getReviewerQueue(@CurrentContext() c: RequestContext) {
+    return this.mvpService.getReviewerQueue(c.tenantId!, c);
   }
 
   @Get('attempts')
