@@ -12,6 +12,18 @@ export interface Counterparty extends BaseEntity {
   code: string;
   name: string;
   legalName?: string;
+  /** Phase 2 Plan C — ИНН (10 или 12 цифр, валидируется DTO + DB CHECK). */
+  inn?: string;
+  /** Phase 2 Plan C — КПП (9 знаков, валидируется DTO). */
+  kpp?: string;
+  /** Phase 2 Plan C — основной контактный email клиента. */
+  contactEmail?: string;
+  /** Phase 2 Plan C — основной контактный телефон. */
+  contactPhone?: string;
+  /** Phase 2 Plan C — юридический адрес. */
+  legalAddress?: string;
+  /** Phase 2 Plan C — заметка для админа (не показывается клиенту). */
+  note?: string;
 }
 
 export interface Learner extends BaseEntity {
@@ -69,6 +81,8 @@ export interface Material extends BaseEntity {
 export interface GroupEntity extends BaseEntity {
   code: string;
   name: string;
+  /** Phase 2 Plan C — опциональная привязка группы к компании-заказчику (FK на crm.counterparties). */
+  counterpartyId?: string;
 }
 
 export interface GroupCourse extends BaseEntity {

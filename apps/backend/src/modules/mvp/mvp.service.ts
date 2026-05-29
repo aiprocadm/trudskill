@@ -11,6 +11,10 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { ENROLLMENT_COMPLETED_EVENT } from './enrollment-completed.event.js';
+import {
+  summarizeCounterpartyProgress,
+  summarizeGroupProgress
+} from './group-progress-summary.service.js';
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from './infrastructure/mvp-state.token.js';
 import { backendEnv } from '../../env.js';
@@ -322,6 +326,112 @@ export class MvpService {
     const current = this.getById(this.state.counterparties, tenantId, id);
     const oldValues = { ...current };
     Object.assign(current, request, { updatedAt: this.now() });
+    this.audit(
+      tenantId,
+      actorId,
+      'crm.counterparty_updated',
+      'crm.counterparty',
+      current.id,
+      oldValues,
+      current,
+      context
+    );
+    return current;
+  }
+
+  /**
+   * Phase 2 Plan C — POST расширенной компании-заказчика
+   * (ИНН/КПП/контакты/адрес/заметка). Симметрично createLearnerExtended.
+   */
+  createCounterpartyExtended(
+    tenantId: string,
+    actorId: string | undefined,
+    request: {
+      code: string;
+      name: string;
+      legalName?: string;
+      inn?: string;
+      kpp?: string;
+      contactEmail?: string;
+      contactPhone?: string;
+      legalAddress?: string;
+      note?: string;
+      status?: string;
+    },
+    context: RequestContext
+  ): Counterparty {
+    const entity: Counterparty = {
+      id: this.id('cp'),
+      tenantId,
+      code: request.code.trim(),
+      name: request.name.trim(),
+      status: request.status ?? 'active',
+      createdAt: this.now(),
+      updatedAt: this.now()
+    };
+    if (request.legalName?.trim()) entity.legalName = request.legalName.trim();
+    if (request.inn?.trim()) entity.inn = request.inn.trim();
+    if (request.kpp?.trim()) entity.kpp = request.kpp.trim();
+    if (request.contactEmail?.trim()) entity.contactEmail = request.contactEmail.trim();
+    if (request.contactPhone?.trim()) entity.contactPhone = request.contactPhone.trim();
+    if (request.legalAddress?.trim()) entity.legalAddress = request.legalAddress.trim();
+    if (request.note?.trim()) entity.note = request.note.trim();
+    this.state.counterparties.push(entity);
+    this.audit(
+      tenantId,
+      actorId,
+      'crm.counterparty_created',
+      'crm.counterparty',
+      entity.id,
+      undefined,
+      entity,
+      context
+    );
+    return entity;
+  }
+
+  /**
+   * Phase 2 Plan C — PATCH расширенной компании.
+   * Симметрично updateLearnerExtended. Семантика: undefined = не трогать,
+   * null = очистить (для clearable полей).
+   */
+  updateCounterpartyExtended(
+    tenantId: string,
+    actorId: string | undefined,
+    counterpartyId: string,
+    request: {
+      code?: string;
+      name?: string;
+      legalName?: string | null;
+      inn?: string | null;
+      kpp?: string | null;
+      contactEmail?: string | null;
+      contactPhone?: string | null;
+      legalAddress?: string | null;
+      note?: string | null;
+      status?: string;
+    },
+    context: RequestContext
+  ): Counterparty {
+    const current = this.getById(this.state.counterparties, tenantId, counterpartyId);
+    const oldValues: Counterparty = { ...current };
+
+    if (request.code !== undefined) current.code = request.code.trim();
+    if (request.name !== undefined) current.name = request.name.trim();
+    if (request.legalName !== undefined) current.legalName = request.legalName?.trim() || undefined;
+    if (request.inn !== undefined) current.inn = request.inn?.trim() || undefined;
+    if (request.kpp !== undefined) current.kpp = request.kpp?.trim() || undefined;
+    if (request.contactEmail !== undefined)
+      current.contactEmail = request.contactEmail?.trim() || undefined;
+    if (request.contactPhone !== undefined)
+      current.contactPhone = request.contactPhone?.trim() || undefined;
+    if (request.legalAddress !== undefined)
+      current.legalAddress = request.legalAddress?.trim() || undefined;
+    if (request.note !== undefined) current.note = request.note?.trim() || undefined;
+    if (request.status !== undefined) current.status = request.status;
+
+    current.updatedAt = this.now();
+
     this.audit(
       tenantId,
       actorId,
@@ -994,6 +1104,76 @@ export class MvpService {
       context
     );
     return current;
+  }
+
+  /**
+   * Phase 2 Plan C — назначить (или снять) компанию-заказчика для группы.
+   * counterpartyId === null → снять привязку. Анти-IDOR через tenant boundary в getById
+   * (counterparty проверяется в том же tenant).
+   */
+  setGroupCounterparty(
+    tenantId: string,
+    actorId: string | undefined,
+    groupId: string,
+    counterpartyId: string | null,
+    context: RequestContext
+  ): GroupEntity {
+    const current = this.getById(this.state.groups, tenantId, groupId);
+    const oldValues: GroupEntity = { ...current };
+
+    if (counterpartyId !== null) {
+      this.getById(this.state.counterparties, tenantId, counterpartyId);
+      current.counterpartyId = counterpartyId;
+    } else {
+      current.counterpartyId = undefined;
+    }
+    current.updatedAt = this.now();
+
+    this.audit(
+      tenantId,
+      actorId,
+      counterpartyId
+        ? 'learning.group_counterparty_linked'
+        : 'learning.group_counterparty_unlinked',
+      'learning.group',
+      current.id,
+      oldValues,
+      current,
+      context
+    );
+    return current;
+  }
+
+  /**
+   * Phase 2 Plan C — собирает прогресс по группе через pure-function summarizer.
+   * Проверяет существование группы в tenant (анти-IDOR), затем фильтрует tenant-scoped
+   * enrollments + groupCourses и делегирует pure-function aggregator.
+   */
+  getGroupProgressSummary(tenantId: string, groupId: string) {
+    this.getById(this.state.groups, tenantId, groupId);
+    const enrollments = this.state.enrollments.filter((e) => e.tenantId === tenantId);
+    const groupCourses = this.state.groupCourses.filter((gc) => gc.tenantId === tenantId);
+    return summarizeGroupProgress(groupId, { enrollments, groupCourses });
+  }
+
+  /**
+   * Phase 2 Plan C — собирает прогресс по компании-клиенту = сумма по всем её группам.
+   * Фильтрует группы по counterpartyId, затем enrollments+groupCourses этих групп.
+   */
+  getCounterpartyProgressSummary(tenantId: string, counterpartyId: string) {
+    this.getById(this.state.counterparties, tenantId, counterpartyId);
+    const groupIds = new Set(
+      this.state.groups
+        .filter((g) => g.tenantId === tenantId && g.counterpartyId === counterpartyId)
+        .map((g) => g.id)
+    );
+    const enrollments = this.state.enrollments.filter(
+      (e) => e.tenantId === tenantId && groupIds.has(e.groupId)
+    );
+    const groupCourses = this.state.groupCourses.filter(
+      (gc) => gc.tenantId === tenantId && groupIds.has(gc.groupId)
+    );
+    return summarizeCounterpartyProgress(counterpartyId, { enrollments, groupCourses });
   }
 
   listGroupCourses(tenantId: string, query: BaseFilterQuery): ListResponse<GroupCourse> {

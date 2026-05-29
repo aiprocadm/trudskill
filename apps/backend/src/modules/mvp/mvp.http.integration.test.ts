@@ -211,6 +211,65 @@ describe('MVP HTTP integration (permission boundaries)', () => {
           email: body.email
         };
       }
+
+      // Phase 2 Plan C — counterparty extended PATCH permission boundary
+      @Patch('counterparties/:id/profile')
+      @RequirePermissions('counterparties.write')
+      updateCounterpartyExtended(
+        @CurrentContext() context: { tenantId?: string; userId?: string },
+        @Body() body: { name?: string; inn?: string }
+      ) {
+        return {
+          id: 'cp-1',
+          tenantId: context.tenantId,
+          updatedBy: context.userId,
+          name: body.name,
+          inn: body.inn
+        };
+      }
+
+      // Phase 2 Plan C — setGroupCounterparty permission boundary
+      @Patch('groups/:id/counterparty')
+      @RequirePermissions('counterparties.write')
+      setGroupCounterparty(
+        @CurrentContext() context: { tenantId?: string; userId?: string },
+        @Body() body: { counterpartyId: string | null }
+      ) {
+        return {
+          id: 'group-1',
+          tenantId: context.tenantId,
+          updatedBy: context.userId,
+          counterpartyId: body.counterpartyId
+        };
+      }
+
+      // Phase 2 Plan C — group progress summary permission boundary
+      @Get('groups/:id/progress-summary')
+      @RequirePermissions('enrollments.read')
+      getGroupProgressSummary(@CurrentContext() context: { tenantId?: string }) {
+        return {
+          groupId: 'group-1',
+          tenantId: context.tenantId,
+          totalLearners: 0,
+          enrollments: { total: 0, completed: 0, inProgress: 0, notStarted: 0 },
+          avgCompletionRate: 0,
+          perCourse: []
+        };
+      }
+
+      // Phase 2 Plan C — counterparty progress summary (requires BOTH perms)
+      @Get('counterparties/:id/progress-summary')
+      @RequirePermissions('counterparties.read', 'enrollments.read')
+      getCounterpartyProgressSummary(@CurrentContext() context: { tenantId?: string }) {
+        return {
+          counterpartyId: 'cp-1',
+          tenantId: context.tenantId,
+          totalLearners: 0,
+          enrollments: { total: 0, completed: 0, inProgress: 0, notStarted: 0 },
+          avgCompletionRate: 0,
+          perCourse: []
+        };
+      }
     }
 
     @Module({
@@ -553,4 +612,158 @@ describe('MVP HTTP integration (permission boundaries)', () => {
   // NOTE: 400 validation_error case intentionally omitted — the stub controller does not
   // call assertValidDto (matches Plan A bulk-import pattern), so DTO validation is not
   // exercised at the HTTP integration layer. Covered by update-learner-extended.dto-validation.test.ts.
+
+  describe('Phase 2 Plan C — counterparty extended + group/counterparty progress', () => {
+    beforeEach(() => {
+      iamServiceMock.resolvePermissions.mockReset();
+      iamServiceMock.resolvePermissions.mockResolvedValue(['courses.read']);
+    });
+
+    it('PATCH /counterparties/:id/profile — 401 auth_required without bearer', async () => {
+      const response = await fetch(`${apiBaseUrl}/counterparties/cp-1/profile`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', 'x-tenant-id': 'tenant_demo' },
+        body: JSON.stringify({ name: 'Updated' })
+      });
+      expect(response.status).toBe(401);
+      const payload = (await response.json()) as {
+        error: { code: string };
+        meta: { requestId: string };
+      };
+      expect(payload.error.code).toBe('auth_required');
+    });
+
+    it('PATCH /counterparties/:id/profile — 403 permission_denied without counterparties.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['counterparties.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['teacher'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/counterparties/cp-1/profile`, {
+        method: 'PATCH',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ name: 'X' })
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('PATCH /counterparties/:id/profile — 200 success with counterparties.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['counterparties.write']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_admin', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/counterparties/cp-1/profile`, {
+        method: 'PATCH',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ name: 'ООО Новое', inn: '7707083893' })
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as {
+        data: { name?: string; inn?: string };
+        meta: { requestId: string };
+      };
+      expect(payload.data.name).toBe('ООО Новое');
+      expect(payload.data.inn).toBe('7707083893');
+      expect(payload.meta.requestId).toBeTruthy();
+    });
+
+    it('PATCH /groups/:id/counterparty — 403 without counterparties.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce([
+        'groups.write',
+        'counterparties.read'
+      ]);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['teacher'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/groups/group-1/counterparty`, {
+        method: 'PATCH',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ counterpartyId: 'cp-1' })
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('GET /groups/:id/progress-summary — 403 without enrollments.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['groups.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['teacher'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/groups/group-1/progress-summary`, {
+        headers: {
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        }
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('GET /counterparties/:id/progress-summary — 403 when missing one of the required perms', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['counterparties.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['teacher'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/counterparties/cp-1/progress-summary`, {
+        headers: {
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        }
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('GET /counterparties/:id/progress-summary — 200 with BOTH perms', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce([
+        'counterparties.read',
+        'enrollments.read'
+      ]);
+      const token = issueSignedAccessToken(
+        { sub: 'u_admin', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/counterparties/cp-1/progress-summary`, {
+        headers: {
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        }
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as {
+        data: { counterpartyId?: string; totalLearners?: number };
+        meta: { requestId: string };
+      };
+      expect(payload.data.counterpartyId).toBe('cp-1');
+      expect(payload.data.totalLearners).toBe(0);
+      expect(payload.meta.requestId).toBeTruthy();
+    });
+  });
 });
