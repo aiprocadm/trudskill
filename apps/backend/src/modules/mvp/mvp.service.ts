@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
+import { gradeAnswer } from './assessment-autograde.service.js';
 import { ENROLLMENT_COMPLETED_EVENT } from './enrollment-completed.event.js';
 import {
   summarizeCounterpartyProgress,
@@ -72,6 +73,7 @@ import type {
   AssignmentSubmission,
   Attempt,
   AttemptAnswer,
+  AttemptQuestionView,
   BaseEntity,
   BulkEnrollmentItemError,
   BulkEnrollmentsOutcome,
@@ -93,6 +95,7 @@ import type {
   GroupEntity,
   KpiSnapshotDto,
   Learner,
+  LearnerTestSummary,
   Material,
   MaterialProgress,
   ModuleProgress,
@@ -2081,7 +2084,15 @@ export class MvpService {
       isArchived: false,
       status: 'active',
       createdAt: this.now(),
-      updatedAt: this.now()
+      updatedAt: this.now(),
+      ...(request.numericExpected !== undefined
+        ? { numericExpected: request.numericExpected }
+        : {}),
+      ...(request.numericTolerance !== undefined
+        ? { numericTolerance: request.numericTolerance }
+        : {}),
+      ...(request.expectedAnswer !== undefined ? { expectedAnswer: request.expectedAnswer } : {}),
+      ...(request.tags !== undefined ? { tags: request.tags } : {})
     };
     this.state.questions.push(entity);
     const options =
@@ -2548,6 +2559,111 @@ export class MvpService {
     this.assertAssessmentReadAllowedForLearner(tenantId, attempt.learnerId, access);
     return attempt;
   }
+  getAttemptQuestions(
+    tenantId: string,
+    actorId: string | undefined,
+    attemptId: string,
+    context: RequestContext
+  ): AttemptQuestionView[] {
+    const attempt = this.getById(this.state.attempts, tenantId, attemptId);
+    this.assertActorMatchesLearnerIamLink(
+      tenantId,
+      actorId,
+      attempt.learnerId,
+      context.permissions
+    );
+    const answers = this.state.attemptAnswers.filter(
+      (item) => item.tenantId === tenantId && item.attemptId === attempt.id
+    );
+    return attempt.questionOrder.map((qid) => {
+      const question = this.getById(this.state.questions, tenantId, qid);
+      const options = this.state.answerOptions
+        .filter((item) => item.tenantId === tenantId && item.questionId === qid)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((item) => ({ id: item.id, text: item.text, sortOrder: item.sortOrder }));
+      const answer = answers.find((item) => item.questionId === qid);
+      const selectedOptionIds = answer?.selectedOptionIds ?? answer?.answerOptionIds;
+      return {
+        id: question.id,
+        type: question.type,
+        title: question.title,
+        ...(question.body !== undefined ? { body: question.body } : {}),
+        score: question.score,
+        options,
+        ...(selectedOptionIds !== undefined ? { selectedOptionIds } : {}),
+        ...(answer?.textAnswer !== undefined ? { textAnswer: answer.textAnswer } : {})
+      };
+    });
+  }
+  /**
+   * Агрегированный список тестов для текущего IAM-актора (учащийся).
+   * Зеркалит конвенцию `listMyDocuments`: сервис сам резолвит всех learner-ов,
+   * привязанных к актору (`linkedIamUserId`), и возвращает пустой массив (НЕ 403),
+   * если привязок нет — admin/teacher с `assessment.tests.read` без привязки видит
+   * просто пустоту здесь.
+   */
+  listMyTests(tenantId: string, actorId: string | undefined): LearnerTestSummary[] {
+    if (!actorId) return [];
+    const learnerIds = new Set(
+      this.state.learners
+        .filter((l) => l.tenantId === tenantId && l.linkedIamUserId === actorId)
+        .map((l) => l.id)
+    );
+    if (learnerIds.size === 0) return [];
+    const enrollments = this.state.enrollments.filter(
+      (item) => item.tenantId === tenantId && learnerIds.has(item.learnerId)
+    );
+    const summaries: LearnerTestSummary[] = [];
+    for (const enrollment of enrollments) {
+      const courseIds = this.state.groupCourses
+        .filter((item) => item.tenantId === tenantId && item.groupId === enrollment.groupId)
+        .map((item) => item.courseId);
+      const tests = this.state.tests.filter(
+        (item) =>
+          item.tenantId === tenantId && !item.isArchived && courseIds.includes(item.courseId)
+      );
+      for (const test of tests) {
+        const attempts = this.state.attempts.filter(
+          (item) =>
+            item.tenantId === tenantId &&
+            item.testId === test.id &&
+            item.enrollmentId === enrollment.id &&
+            learnerIds.has(item.learnerId)
+        );
+        const maxScore = this.listTestQuestions(tenantId, test.id).reduce(
+          (acc, link) => acc + this.getById(this.state.questions, tenantId, link.questionId).score,
+          0
+        );
+        const scored = attempts.filter((item) => item.score !== undefined);
+        const bestScore = scored.length
+          ? Math.max(...scored.map((item) => item.score ?? 0))
+          : undefined;
+        summaries.push({
+          testId: test.id,
+          title: test.title,
+          courseId: test.courseId,
+          enrollmentId: enrollment.id,
+          status: this.deriveLearnerTestStatus(attempts, test.rules.attemptLimit),
+          attemptsUsed: attempts.length,
+          attemptLimit: test.rules.attemptLimit,
+          ...(bestScore !== undefined ? { bestScore } : {}),
+          maxScore
+        });
+      }
+    }
+    return summaries;
+  }
+  private deriveLearnerTestStatus(
+    attempts: TestAttempt[],
+    attemptLimit: number
+  ): LearnerTestSummary['status'] {
+    if (attempts.length === 0) return 'not_started';
+    if (attempts.some((item) => item.status === 'draft' || item.status === 'in_progress'))
+      return 'in_progress';
+    if (attempts.some((item) => item.passed === true)) return 'passed';
+    if (attempts.length >= attemptLimit) return 'failed';
+    return 'submitted';
+  }
   startAttempt(
     tenantId: string,
     actorId: string | undefined,
@@ -2784,15 +2900,17 @@ export class MvpService {
     let score = 0;
     for (const qid of attempt.questionOrder) {
       const question = this.getById(this.state.questions, tenantId, qid);
+      const options = this.state.answerOptions.filter(
+        (item) => item.tenantId === tenantId && item.questionId === qid
+      );
       const answer = answers.find((item) => item.questionId === qid);
-      if (!answer) continue;
-      if (question.type === 'text') continue;
-      const correct = this.state.answerOptions
-        .filter((item) => item.tenantId === tenantId && item.questionId === qid && item.isCorrect)
-        .map((item) => item.id)
-        .sort();
-      const selected = [...(answer.selectedOptionIds ?? answer.answerOptionIds ?? [])].sort();
-      if (JSON.stringify(correct) === JSON.stringify(selected)) score += question.score;
+      const graded = gradeAnswer({ question, options, answer });
+      if (answer) {
+        answer.score = graded.score;
+        answer.autoGraded = graded.autoGraded;
+        answer.updatedAt = this.now();
+      }
+      score += graded.score;
     }
     attempt.score = score;
     attempt.passed = score >= test.rules.passingScore;
