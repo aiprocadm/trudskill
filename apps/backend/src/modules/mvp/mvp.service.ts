@@ -96,6 +96,7 @@ import type {
   GroupEntity,
   KpiSnapshotDto,
   Learner,
+  LearnerAssignmentSummary,
   LearnerTestSummary,
   Material,
   MaterialProgress,
@@ -2657,6 +2658,56 @@ export class MvpService {
           ...(activeAttemptId !== undefined ? { activeAttemptId } : {}),
           ...(bestScore !== undefined ? { bestScore } : {}),
           maxScore
+        });
+      }
+    }
+    return summaries;
+  }
+  /**
+   * Phase 3 Plan C — aggregated list of assignments for the current IAM actor (learner).
+   * Mirrors `listMyTests`: resolves linked learner(s) inline by `linkedIamUserId`,
+   * returns [] (NOT 403) when the actor has no linked learner.
+   */
+  listMyAssignments(tenantId: string, actorId: string | undefined): LearnerAssignmentSummary[] {
+    if (!actorId) return [];
+    const learnerIds = new Set(
+      this.state.learners
+        .filter((l) => l.tenantId === tenantId && l.linkedIamUserId === actorId)
+        .map((l) => l.id)
+    );
+    if (learnerIds.size === 0) return [];
+    const enrollments = this.state.enrollments.filter(
+      (item) => item.tenantId === tenantId && learnerIds.has(item.learnerId)
+    );
+    const summaries: LearnerAssignmentSummary[] = [];
+    for (const enrollment of enrollments) {
+      const courseIds = this.state.groupCourses
+        .filter((item) => item.tenantId === tenantId && item.groupId === enrollment.groupId)
+        .map((item) => item.courseId);
+      const assignments = this.state.assignments.filter(
+        (item) =>
+          item.tenantId === tenantId && !item.isArchived && courseIds.includes(item.courseId)
+      );
+      for (const assignment of assignments) {
+        const submission = this.state.assignmentSubmissions.find(
+          (s) =>
+            s.tenantId === tenantId &&
+            s.assignmentId === assignment.id &&
+            s.enrollmentId === enrollment.id &&
+            learnerIds.has(s.learnerId)
+        );
+        summaries.push({
+          assignmentId: assignment.id,
+          title: assignment.title,
+          courseId: assignment.courseId,
+          enrollmentId: enrollment.id,
+          learnerId: enrollment.learnerId,
+          maxScore: assignment.maxScore,
+          status: submission?.status ?? 'not_started',
+          ...(submission?.id !== undefined ? { submissionId: submission.id } : {}),
+          ...(submission?.returnComment !== undefined
+            ? { returnComment: submission.returnComment }
+            : {})
         });
       }
     }

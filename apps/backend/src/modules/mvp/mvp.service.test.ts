@@ -3147,3 +3147,54 @@ describe('Plan C — submission file upload wrappers', () => {
     expect(intent.fileId).toBe('file_stub');
   });
 });
+
+describe('Plan C — listMyAssignments', () => {
+  it('returns assignments for the actor-linked learner with submission status', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const course = service.createCourse('tenant_demo', ctx.userId, { code: 'CA', title: 'A' }, ctx);
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'GA', name: 'GA' }, ctx);
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    // Link a learner to the acting IAM user so the actor-resolution finds it.
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'LA', name: 'Linked', linkedIamUserId: ctx.userId },
+      ctx
+    );
+    service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const assignment = service.createAssignment(
+      'tenant_demo',
+      ctx.userId,
+      { courseId: course.id, title: 'Practical', maxScore: 10 },
+      ctx
+    );
+
+    const list = service.listMyAssignments('tenant_demo', ctx.userId);
+    expect(list.map((a) => a.assignmentId)).toContain(assignment.id);
+    expect(list.find((a) => a.assignmentId === assignment.id)?.status).toBe('not_started');
+  });
+
+  it('returns [] when the actor has no linked learner (not 403)', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    expect(service.listMyAssignments('tenant_demo', 'u_no_link')).toEqual([]);
+  });
+});

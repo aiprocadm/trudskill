@@ -552,6 +552,16 @@ export class MvpController {
   listMyTests(@CurrentContext() c: RequestContext) {
     return this.mvpService.listMyTests(c.tenantId!, c.userId);
   }
+  /**
+   * Phase 3 Plan C — aggregated list of assignments for the current IAM actor (learner).
+   * Mirrors `me/tests`: service resolves linked learner(s), returns [] (NOT 403) when unlinked.
+   */
+  @Get('me/assignments')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('assessment.assignments.read')
+  listMyAssignments(@CurrentContext() c: RequestContext) {
+    return this.mvpService.listMyAssignments(c.tenantId!, c.userId);
+  }
   @Get('enrollments/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('enrollments.read')

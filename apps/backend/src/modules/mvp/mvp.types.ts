@@ -413,6 +413,19 @@ export interface AssignmentSubmission extends BaseEntity {
   returnComment?: string; // Plan C: reviewer feedback when returned for revision
 }
 
+export interface LearnerAssignmentSummary {
+  assignmentId: string;
+  title: string;
+  courseId: string;
+  enrollmentId: string;
+  learnerId: string;
+  maxScore: number;
+  submissionId?: string;
+  /** 'not_started' when no submission exists yet; otherwise mirrors the submission status. */
+  status: 'not_started' | AssignmentSubmissionStatus;
+  returnComment?: string;
+}
+
 export interface ReturnSubmissionInput {
   comment?: string;
 }

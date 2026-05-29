@@ -182,6 +182,13 @@ describe('Phase 3 Plan C — HTTP boundary (upload-url / file-url / return / com
       completeReview(@Param('id') id: string) {
         return { id, status: 'finished', score: 4 };
       }
+
+      // GET /me/assignments
+      @Get('me/assignments')
+      @RequirePermissions('assessment.assignments.read')
+      listMyAssignments() {
+        return [];
+      }
     }
 
     @Module({
@@ -408,6 +415,37 @@ describe('Phase 3 Plan C — HTTP boundary (upload-url / file-url / return / com
     expect(p.data.id).toBe('att_1');
     expect(p.data.status).toBe('finished');
     expect(p.data.score).toBe(4);
+    expect(p.meta.requestId).toBeTruthy();
+  });
+
+  // ---------- GET /me/assignments ----------
+  it('GET /me/assignments → auth_required without bearer', async () => {
+    const r = await fetch(`${apiBaseUrl}/me/assignments`, {
+      headers: { 'x-tenant-id': 'tenant_demo' }
+    });
+    expect(r.status).toBe(401);
+    const p = (await r.json()) as { error: { code: string } };
+    expect(p.error.code).toBe('auth_required');
+  });
+
+  it('GET /me/assignments → permission_denied without assessment.assignments.read', async () => {
+    const token = tokenWithPerms(['assessment.submissions.submit']);
+    const r = await fetch(`${apiBaseUrl}/me/assignments`, {
+      headers: { authorization: `Bearer ${token}`, 'x-tenant-id': 'tenant_demo' }
+    });
+    expect(r.status).toBe(403);
+    const p = (await r.json()) as { error: { code: string } };
+    expect(p.error.code).toBe('permission_denied');
+  });
+
+  it('GET /me/assignments → 200 with array envelope', async () => {
+    const token = tokenWithPerms(['assessment.assignments.read']);
+    const r = await fetch(`${apiBaseUrl}/me/assignments`, {
+      headers: { authorization: `Bearer ${token}`, 'x-tenant-id': 'tenant_demo' }
+    });
+    expect(r.status).toBe(200);
+    const p = (await r.json()) as { data: unknown[]; meta: { requestId: string } };
+    expect(Array.isArray(p.data)).toBe(true);
     expect(p.meta.requestId).toBeTruthy();
   });
 });
