@@ -12,7 +12,9 @@ import {
   UseGuards,
   UseInterceptors
 } from '@nestjs/common';
+import { IsString, ValidateIf } from 'class-validator';
 
+import { CreateCounterpartyExtendedRequest } from './create-counterparty-extended.dto.js';
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
 import { LearnerPdfCardService } from './learner-pdf-card.service.js';
 import { BulkImportLearnersRequest } from './learners-bulk-import.dto.js';
@@ -60,6 +62,7 @@ import {
   UpdateTestRequest
 } from './mvp.dto.js';
 import { MvpService } from './mvp.service.js';
+import { UpdateCounterpartyExtendedRequest } from './update-counterparty-extended.dto.js';
 import { UpdateLearnerExtendedRequest } from './update-learner-extended.dto.js';
 import { assertValidDto } from '../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
@@ -70,6 +73,17 @@ import { PermissionGuard } from '../iam/permission.guard.js';
 import type { BaseFilterQuery } from './mvp.dto.js';
 import type { CommissionStatus } from './mvp.types.js';
 import type { RequestContext } from '../../common/context/request-context.js';
+
+/**
+ * Phase 2 Plan C — mini-DTO для PATCH /groups/:id/counterparty.
+ * Inline здесь, не отдельным файлом, потому что один-единственный endpoint.
+ * null = снять привязку, string = id компании.
+ */
+class SetGroupCounterpartyRequest {
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  counterpartyId!: string | null;
+}
 
 @Controller()
 @UseInterceptors(MvpRequestPersistenceInterceptor)
@@ -118,6 +132,38 @@ export class MvpController {
   ) {
     const b = assertValidDto(UpdateSimpleRegistryRequest, raw);
     return this.mvpService.updateCounterparty(c.tenantId!, c.userId, id, b, c);
+  }
+
+  // Phase 2 Plan C — расширенный POST для компании-клиента (ИНН/КПП/контакты).
+  @Post('counterparties/extended')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('counterparties.write')
+  createCounterpartyExtended(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateCounterpartyExtendedRequest, raw);
+    return this.mvpService.createCounterpartyExtended(c.tenantId!, c.userId, b, c);
+  }
+
+  // Phase 2 Plan C — расширенный PATCH для профиля компании.
+  @Patch('counterparties/:id/profile')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('counterparties.write')
+  updateCounterpartyExtended(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(UpdateCounterpartyExtendedRequest, raw);
+    return this.mvpService.updateCounterpartyExtended(c.tenantId!, c.userId, id, b, c);
+  }
+
+  // Phase 2 Plan C — сводный прогресс по всем группам компании-клиента.
+  // Требует ОБА permission: counterparties.read (доступ к сущности клиента) +
+  // enrollments.read (так как агрегирует enrollment-данные).
+  @Get('counterparties/:id/progress-summary')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('counterparties.read', 'enrollments.read')
+  getCounterpartyProgressSummary(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.mvpService.getCounterpartyProgressSummary(c.tenantId!, id);
   }
 
   @Get('learners')
@@ -385,6 +431,28 @@ export class MvpController {
   updateGroup(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() raw: unknown) {
     const b = assertValidDto(UpdateSimpleRegistryRequest, raw);
     return this.mvpService.updateGroup(c.tenantId!, c.userId, id, b, c);
+  }
+
+  // Phase 2 Plan C — привязать/отвязать группу к компании-клиенту.
+  // counterparties.write потому что мутируется связь компании; group.write не нужно.
+  @Patch('groups/:id/counterparty')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('counterparties.write')
+  setGroupCounterparty(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(SetGroupCounterpartyRequest, raw);
+    return this.mvpService.setGroupCounterparty(c.tenantId!, c.userId, id, b.counterpartyId, c);
+  }
+
+  // Phase 2 Plan C — сводный прогресс по конкретной группе.
+  @Get('groups/:id/progress-summary')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('enrollments.read')
+  getGroupProgressSummary(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.mvpService.getGroupProgressSummary(c.tenantId!, id);
   }
 
   @Get('group-courses')

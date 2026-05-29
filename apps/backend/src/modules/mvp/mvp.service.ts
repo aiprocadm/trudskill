@@ -11,6 +11,10 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { ENROLLMENT_COMPLETED_EVENT } from './enrollment-completed.event.js';
+import {
+  summarizeCounterpartyProgress,
+  summarizeGroupProgress
+} from './group-progress-summary.service.js';
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from './infrastructure/mvp-state.token.js';
 import { backendEnv } from '../../env.js';
@@ -1138,6 +1142,38 @@ export class MvpService {
       context
     );
     return current;
+  }
+
+  /**
+   * Phase 2 Plan C — собирает прогресс по группе через pure-function summarizer.
+   * Проверяет существование группы в tenant (анти-IDOR), затем фильтрует tenant-scoped
+   * enrollments + groupCourses и делегирует pure-function aggregator.
+   */
+  getGroupProgressSummary(tenantId: string, groupId: string) {
+    this.getById(this.state.groups, tenantId, groupId);
+    const enrollments = this.state.enrollments.filter((e) => e.tenantId === tenantId);
+    const groupCourses = this.state.groupCourses.filter((gc) => gc.tenantId === tenantId);
+    return summarizeGroupProgress(groupId, { enrollments, groupCourses });
+  }
+
+  /**
+   * Phase 2 Plan C — собирает прогресс по компании-клиенту = сумма по всем её группам.
+   * Фильтрует группы по counterpartyId, затем enrollments+groupCourses этих групп.
+   */
+  getCounterpartyProgressSummary(tenantId: string, counterpartyId: string) {
+    this.getById(this.state.counterparties, tenantId, counterpartyId);
+    const groupIds = new Set(
+      this.state.groups
+        .filter((g) => g.tenantId === tenantId && g.counterpartyId === counterpartyId)
+        .map((g) => g.id)
+    );
+    const enrollments = this.state.enrollments.filter(
+      (e) => e.tenantId === tenantId && groupIds.has(e.groupId)
+    );
+    const groupCourses = this.state.groupCourses.filter(
+      (gc) => gc.tenantId === tenantId && groupIds.has(gc.groupId)
+    );
+    return summarizeCounterpartyProgress(counterpartyId, { enrollments, groupCourses });
   }
 
   listGroupCourses(tenantId: string, query: BaseFilterQuery): ListResponse<GroupCourse> {
