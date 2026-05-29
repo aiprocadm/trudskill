@@ -82,7 +82,7 @@
 - Modify: `apps/backend/src/modules/files/files.service.ts`
 - Test: `apps/backend/src/modules/files/files.service.upload.test.ts`
 
-- [ ] **Step 1: Extend the `StorageClient` interface** — replace the body of `storage.client.ts`:
+- [x] **Step 1: Extend the `StorageClient` interface** — replace the body of `storage.client.ts`:
 
 ```ts
 export interface StorageReadiness {
@@ -108,7 +108,7 @@ export interface StorageClient {
 }
 ```
 
-- [ ] **Step 2: Implement the presigned methods on `S3StorageClient`** — in `s3-storage.client.ts`, update the import line and add the two methods:
+- [x] **Step 2: Implement the presigned methods on `S3StorageClient`** — in `s3-storage.client.ts`, update the import line and add the two methods:
 
 ```ts
 import {
@@ -157,7 +157,7 @@ async createPresignedDownloadUrl(params: PresignedDownloadParams): Promise<strin
 
 (Confirm `backendEnv.S3_BUCKET` exists in `apps/backend/src/env.ts`; `.env.example` has `S3_BUCKET=cdoprof-dev`. If the env schema lacks `S3_BUCKET`, add it there as a required string.)
 
-- [ ] **Step 3: Write the failing FilesService test** — create `files.service.upload.test.ts`:
+- [x] **Step 3: Write the failing FilesService test** — create `files.service.upload.test.ts`:
 
 ```ts
 import { describe, expect, it, vi } from 'vitest';
@@ -243,12 +243,12 @@ describe('FilesService.createDownloadUrl', () => {
 });
 ```
 
-- [ ] **Step 4: Run it and confirm it fails**
+- [x] **Step 4: Run it and confirm it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/files/files.service.upload.test.ts --no-file-parallelism`
 Expected: FAIL — `service.createUploadIntent is not a function` (and the constructor takes 1 arg, not 2).
 
-- [ ] **Step 5: Implement on `FilesService`** — in `files.service.ts`, inject the storage client and add the methods. Update the constructor + imports:
+- [x] **Step 5: Implement on `FilesService`** — in `files.service.ts`, inject the storage client and add the methods. Update the constructor + imports:
 
 ```ts
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
@@ -343,17 +343,17 @@ private uploadId(): string {
 }
 ```
 
-- [ ] **Step 6: Run the tests and confirm they pass**
+- [x] **Step 6: Run the tests and confirm they pass**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/files/files.service.upload.test.ts --no-file-parallelism`
 Expected: PASS (6 cases).
 
-- [ ] **Step 7: Typecheck + lint**
+- [x] **Step 7: Typecheck + lint**
 
 Run: `pnpm --filter @cdoprof/backend exec tsc --noEmit` then `npx eslint apps/backend/src/infrastructure/storage/storage.client.ts apps/backend/src/infrastructure/storage/s3-storage.client.ts apps/backend/src/modules/files/files.service.ts apps/backend/src/modules/files/files.service.upload.test.ts --max-warnings=0`
 Expected: clean. (If `health.test.ts` / `health.http.integration.test.ts` construct `new S3StorageClient()` and now fail typecheck because the interface grew — they instantiate the class directly, which still satisfies the interface since the methods exist; no change needed. If they mock `StorageClient` shape, add the two methods to those mocks.)
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add apps/backend/src/infrastructure/storage/ apps/backend/src/modules/files/
@@ -372,7 +372,7 @@ git commit -m "feat(backend): Phase 3 Plan C — presigned file upload/download 
 - Modify: `apps/backend/src/modules/mvp/mvp.service.ts` (add `completeAttemptReview` after `finishAttempt:2967`)
 - Test: `apps/backend/src/modules/mvp/mvp.service.test.ts`
 
-- [ ] **Step 1: Add the types** — in `mvp.types.ts`, extend `TestAttempt` (it ends at `questionOrder: string[];`):
+- [x] **Step 1: Add the types** — in `mvp.types.ts`, extend `TestAttempt` (it ends at `questionOrder: string[];`):
 
 ```ts
 export interface TestAttempt extends BaseEntity {
@@ -408,7 +408,7 @@ export interface CompleteAttemptReviewInput {
 }
 ```
 
-- [ ] **Step 2: Write the failing test** — append to `mvp.service.test.ts` (reuses the create signatures shown at `mvp.service.test.ts:383-442`; `noopDocumentsService`/`noopFilesService`/`testEmitter`/`ctx` are file-level consts):
+- [x] **Step 2: Write the failing test** — append to `mvp.service.test.ts` (reuses the create signatures shown at `mvp.service.test.ts:383-442`; `noopDocumentsService`/`noopFilesService`/`testEmitter`/`ctx` are file-level consts):
 
 ```ts
 describe('Plan C — completeAttemptReview', () => {
@@ -540,12 +540,12 @@ describe('Plan C — completeAttemptReview', () => {
 
 (`BadRequestException`/`PreconditionFailedException` are already imported at the top of `mvp.service.test.ts`; if not, add them from `@nestjs/common`.)
 
-- [ ] **Step 3: Run it and confirm it fails**
+- [x] **Step 3: Run it and confirm it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.service.test.ts --no-file-parallelism -t "completeAttemptReview"`
 Expected: FAIL — `service.completeAttemptReview is not a function`.
 
-- [ ] **Step 4: Implement `completeAttemptReview`** — add `CompleteAttemptReviewInput` to the `mvp.types.js` type-import block in `mvp.service.ts`, then add the method after `finishAttempt` (`:2967`):
+- [x] **Step 4: Implement `completeAttemptReview`** — add `CompleteAttemptReviewInput` to the `mvp.types.js` type-import block in `mvp.service.ts`, then add the method after `finishAttempt` (`:2967`):
 
 ```ts
 completeAttemptReview(
@@ -613,12 +613,12 @@ completeAttemptReview(
 }
 ```
 
-- [ ] **Step 5: Run the test (PASS) + attempt-lifecycle regressions**
+- [x] **Step 5: Run the test (PASS) + attempt-lifecycle regressions**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.service.test.ts src/modules/mvp/business-flows.e2e.test.ts --no-file-parallelism`
 Expected: PASS (no regression in existing attempt tests).
 
-- [ ] **Step 6: Lint + commit**
+- [x] **Step 6: Lint + commit**
 
 ```bash
 npx eslint apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/mvp.types.ts apps/backend/src/modules/mvp/mvp.service.test.ts --max-warnings=0
@@ -638,7 +638,7 @@ git commit -m "feat(backend): Phase 3 Plan C — completeAttemptReview manual es
 - Modify: `apps/backend/src/modules/mvp/mvp.service.ts` (add `returnAssignmentSubmission` after `completeAssignmentReview:3461`)
 - Test: `apps/backend/src/modules/mvp/mvp.service.test.ts`
 
-- [ ] **Step 1: Add the types** — in `mvp.types.ts`, extend `AssignmentSubmission` (add the field after `submittedAt?`):
+- [x] **Step 1: Add the types** — in `mvp.types.ts`, extend `AssignmentSubmission` (add the field after `submittedAt?`):
 
 ```ts
 export interface AssignmentSubmission extends BaseEntity {
@@ -662,7 +662,7 @@ export interface ReturnSubmissionInput {
 }
 ```
 
-- [ ] **Step 2: Write the failing test** — append to `mvp.service.test.ts`:
+- [x] **Step 2: Write the failing test** — append to `mvp.service.test.ts`:
 
 ```ts
 describe('Plan C — returnAssignmentSubmission', () => {
@@ -798,12 +798,12 @@ describe('Plan C — returnAssignmentSubmission', () => {
 
 (Verify `createAssignment` signature against `mvp.service.ts` — it is `createAssignment(tenantId, actorId, { courseId, title, maxScore, ... }, ctx)`; adapt field names if the real DTO differs.)
 
-- [ ] **Step 2b: Run it and confirm it fails**
+- [x] **Step 2b: Run it and confirm it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.service.test.ts --no-file-parallelism -t "returnAssignmentSubmission"`
 Expected: FAIL — not a function.
 
-- [ ] **Step 3: Implement `returnAssignmentSubmission`** — add `ReturnSubmissionInput` to the type-import block, then add the method after `completeAssignmentReview` (`:3461`):
+- [x] **Step 3: Implement `returnAssignmentSubmission`** — add `ReturnSubmissionInput` to the type-import block, then add the method after `completeAssignmentReview` (`:3461`):
 
 ```ts
 returnAssignmentSubmission(
@@ -841,12 +841,12 @@ returnAssignmentSubmission(
 }
 ```
 
-- [ ] **Step 4: Run the test (PASS)**
+- [x] **Step 4: Run the test (PASS)**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.service.test.ts --no-file-parallelism -t "returnAssignmentSubmission"`
 Expected: PASS.
 
-- [ ] **Step 5: Lint + commit**
+- [x] **Step 5: Lint + commit**
 
 ```bash
 npx eslint apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/mvp.types.ts apps/backend/src/modules/mvp/mvp.service.test.ts --max-warnings=0
@@ -866,7 +866,7 @@ git commit -m "feat(backend): Phase 3 Plan C — returnAssignmentSubmission revi
 - Modify: `apps/backend/src/modules/mvp/mvp.service.ts` (`getReviewerQueue:2535` passes `attemptAnswers`)
 - Test: `apps/backend/src/modules/mvp/reviewer-queue.plan-c.test.ts`
 
-- [ ] **Step 1: Write the failing test** — create `reviewer-queue.plan-c.test.ts`:
+- [x] **Step 1: Write the failing test** — create `reviewer-queue.plan-c.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -931,11 +931,11 @@ describe('aggregateReviewerQueue — Plan C essay-pending filter', () => {
 });
 ```
 
-- [ ] **Step 2: Run it → FAIL** (the snapshot type has no `attemptAnswers`, and the auto attempt is still included).
+- [x] **Step 2: Run it → FAIL** (the snapshot type has no `attemptAnswers`, and the auto attempt is still included).
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/reviewer-queue.plan-c.test.ts --no-file-parallelism`
 
-- [ ] **Step 3: Refine the aggregator** — in `reviewer-queue.service.ts`, update the import, the snapshot interface, and the `pendingAttempts` filter:
+- [x] **Step 3: Refine the aggregator** — in `reviewer-queue.service.ts`, update the import, the snapshot interface, and the `pendingAttempts` filter:
 
 ```ts
 import type {
@@ -977,7 +977,7 @@ const pendingAttempts: ReviewerQueueItem[] = snapshot.testAttempts
   }));
 ```
 
-- [ ] **Step 4: Wire `attemptAnswers` in `getReviewerQueue`** — in `mvp.service.ts:2535-2543`:
+- [x] **Step 4: Wire `attemptAnswers` in `getReviewerQueue`** — in `mvp.service.ts:2535-2543`:
 
 ```ts
 getReviewerQueue(tenantId: string, _context: RequestContext): ReviewerQueueSnapshot {
@@ -992,12 +992,12 @@ getReviewerQueue(tenantId: string, _context: RequestContext): ReviewerQueueSnaps
 }
 ```
 
-- [ ] **Step 5: Run the new test + the existing reviewer-queue test**
+- [x] **Step 5: Run the new test + the existing reviewer-queue test**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/reviewer-queue.plan-c.test.ts src/modules/mvp/reviewer-queue.service.test.ts --no-file-parallelism`
 Expected: PASS. (If `reviewer-queue.service.test.ts` constructs the old snapshot without `attemptAnswers`, add `attemptAnswers: []` to those fixtures.)
 
-- [ ] **Step 6: Lint + commit**
+- [x] **Step 6: Lint + commit**
 
 ```bash
 npx eslint apps/backend/src/modules/mvp/reviewer-queue.service.ts apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/reviewer-queue.plan-c.test.ts --max-warnings=0
@@ -1017,7 +1017,7 @@ git commit -m "feat(backend): Phase 3 Plan C — reviewer queue shows only essay
 - Modify: `apps/backend/src/modules/mvp/mvp.service.test.ts` (extend `noopFilesService`)
 - Test: `apps/backend/src/modules/mvp/plan-c.http.integration.test.ts`
 
-- [ ] **Step 1: Add the DTO classes** — in `mvp.dto.ts` (follow the existing class-validator style; `IsArray`/`ValidateNested`/`Type`/`Min` are already imported there or add them from `class-validator`/`class-transformer`):
+- [x] **Step 1: Add the DTO classes** — in `mvp.dto.ts` (follow the existing class-validator style; `IsArray`/`ValidateNested`/`Type`/`Min` are already imported there or add them from `class-validator`/`class-transformer`):
 
 ```ts
 export class CreateUploadUrlRequest {
@@ -1064,7 +1064,7 @@ export class CompleteAttemptReviewRequest {
 }
 ```
 
-- [ ] **Step 2: Add the MvpService upload wrappers** — in `mvp.service.ts`, add `UploadIntent` to the `FilesService` import usage and add after `submitAssignmentSubmission` (`:3335`):
+- [x] **Step 2: Add the MvpService upload wrappers** — in `mvp.service.ts`, add `UploadIntent` to the `FilesService` import usage and add after `submitAssignmentSubmission` (`:3335`):
 
 ```ts
 async createSubmissionUploadIntent(
@@ -1103,7 +1103,7 @@ async getSubmissionFileUrl(
 
 Import the `UploadIntent` type: add `import type { UploadIntent } from '../files/files.service.js';` near the `FilesService` import in `mvp.service.ts`.
 
-- [ ] **Step 3: Extend `noopFilesService`** — in `mvp.service.test.ts:24`, so MvpService tests that hit the upload path get a deterministic stub:
+- [x] **Step 3: Extend `noopFilesService`** — in `mvp.service.test.ts:24`, so MvpService tests that hit the upload path get a deterministic stub:
 
 ```ts
 const noopFilesService = {
@@ -1118,7 +1118,7 @@ const noopFilesService = {
 } as unknown as FilesService;
 ```
 
-- [ ] **Step 4: Add a service test for the upload wrappers** — append to `mvp.service.test.ts`:
+- [x] **Step 4: Add a service test for the upload wrappers** — append to `mvp.service.test.ts`:
 
 ```ts
 describe('Plan C — submission file upload wrappers', () => {
@@ -1182,7 +1182,7 @@ describe('Plan C — submission file upload wrappers', () => {
 });
 ```
 
-- [ ] **Step 5: Add the controller endpoints** — in `mvp.controller.ts`, after the assignment-submission endpoints (`submitAssignmentSubmission:1051-1056`) and after the attempt endpoints, add:
+- [x] **Step 5: Add the controller endpoints** — in `mvp.controller.ts`, after the assignment-submission endpoints (`submitAssignmentSubmission:1051-1056`) and after the attempt endpoints, add:
 
 ```ts
 @Post('assignment-submissions/:id/upload-url')
@@ -1222,7 +1222,7 @@ completeAttemptReview(@CurrentContext() c: RequestContext, @Param('id') id: stri
 
 Add `CreateUploadUrlRequest`, `ReturnSubmissionRequest`, `CompleteAttemptReviewRequest` to the `mvp.dto.js` import block in `mvp.controller.ts`.
 
-- [ ] **Step 6: Write the HTTP integration test** — create `plan-c.http.integration.test.ts` by copying the structure of `test-player.http.integration.test.ts` (same minimal-Nest stub-controller harness, same envelope + `auth_required` / `permission_denied` assertions). Cover the 4 routes:
+- [x] **Step 6: Write the HTTP integration test** — create `plan-c.http.integration.test.ts` by copying the structure of `test-player.http.integration.test.ts` (same minimal-Nest stub-controller harness, same envelope + `auth_required` / `permission_denied` assertions). Cover the 4 routes:
   - `POST /assignment-submissions/:id/upload-url` → 401 no auth; 403 without `assessment.submissions.submit`; 200 `{ data }`.
   - `GET /assignment-submissions/:id/file-url` → 401; 403 without `assessment.assignments.read`; 200.
   - `POST /assignment-submissions/:id/return` → 401; 403 without `assessment.reviews.review`; 200.
@@ -1230,12 +1230,12 @@ Add `CreateUploadUrlRequest`, `ReturnSubmissionRequest`, `CompleteAttemptReviewR
 
 Keep it to ~12 cases. The stub controller returns canned `{ data }` payloads (do **not** boot the real `MvpController`/`MvpService`).
 
-- [ ] **Step 7: Run the touched suites**
+- [x] **Step 7: Run the touched suites**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.service.test.ts src/modules/mvp/plan-c.http.integration.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 8: Typecheck + lint + commit**
+- [x] **Step 8: Typecheck + lint + commit**
 
 ```bash
 pnpm --filter @cdoprof/backend exec tsc --noEmit
@@ -1257,9 +1257,9 @@ git commit -m "feat(backend): Phase 3 Plan C — DTOs + endpoints (upload-url/fi
 - Modify: `apps/backend/src/modules/mvp/mvp.controller.ts` (`GET /me/assignments`)
 - Test: `apps/backend/src/modules/mvp/mvp.service.test.ts` + extend `plan-c.http.integration.test.ts`
 
-- [ ] **Step 1: Read `listMyTests` first** — open `mvp.service.ts` and find `listMyTests(tenantId, actorId)`. Note how it resolves linked learner(s) (by `linkedIamUserId === actorId`) and returns `[]` when unlinked. `listMyAssignments` must reuse that exact resolution (the same private helper `listMyTests` uses — grep for it, e.g. `resolveLinkedLearnerIds` or inline filter on `state.learners`).
+- [x] **Step 1: Read `listMyTests` first** — open `mvp.service.ts` and find `listMyTests(tenantId, actorId)`. Note how it resolves linked learner(s) (by `linkedIamUserId === actorId`) and returns `[]` when unlinked. `listMyAssignments` must reuse that exact resolution (the same private helper `listMyTests` uses — grep for it, e.g. `resolveLinkedLearnerIds` or inline filter on `state.learners`).
 
-- [ ] **Step 2: Add the type** — in `mvp.types.ts`:
+- [x] **Step 2: Add the type** — in `mvp.types.ts`:
 
 ```ts
 export interface LearnerAssignmentSummary {
@@ -1275,7 +1275,7 @@ export interface LearnerAssignmentSummary {
 }
 ```
 
-- [ ] **Step 3: Write the failing test** — append to `mvp.service.test.ts`:
+- [x] **Step 3: Write the failing test** — append to `mvp.service.test.ts`:
 
 ```ts
 describe('Plan C — listMyAssignments', () => {
@@ -1333,9 +1333,9 @@ describe('Plan C — listMyAssignments', () => {
 
 (Confirm the exact `createLearner` link field — Pillar A used `linkedIamUserId`; adapt if the DTO names it differently. Confirm whether assignments need `publishedAt` to be listable; mirror the `listLearnerTests` published-filter decision — if assignments have no publish step, drop the published filter.)
 
-- [ ] **Step 4: Run it → FAIL** (`listMyAssignments` not a function).
+- [x] **Step 4: Run it → FAIL** (`listMyAssignments` not a function).
 
-- [ ] **Step 5: Implement `listMyAssignments`** — add `LearnerAssignmentSummary` to the type-import block, then add the method near `listMyTests`:
+- [x] **Step 5: Implement `listMyAssignments`** — add `LearnerAssignmentSummary` to the type-import block, then add the method near `listMyTests`:
 
 ```ts
 listMyAssignments(tenantId: string, actorId: string | undefined): LearnerAssignmentSummary[] {
@@ -1380,7 +1380,7 @@ listMyAssignments(tenantId: string, actorId: string | undefined): LearnerAssignm
 
 (If `listMyTests` resolves learners inline rather than via a named helper, copy that exact inline resolution here instead of `resolveActorLinkedLearnerIds`. If `listLearnerTests` filtered on `publishedAt`, add the same `Boolean(a.publishedAt)` filter to the assignments filter for parity.)
 
-- [ ] **Step 6: Add the endpoint** — in `mvp.controller.ts`, right after `listMyTests` (`:551`):
+- [x] **Step 6: Add the endpoint** — in `mvp.controller.ts`, right after `listMyTests` (`:551`):
 
 ```ts
 @Get('me/assignments')
@@ -1391,9 +1391,9 @@ listMyAssignments(@CurrentContext() c: RequestContext) {
 }
 ```
 
-- [ ] **Step 7: Extend the HTTP test** — add `GET /me/assignments` cases to `plan-c.http.integration.test.ts` (401 / 403 without `assessment.assignments.read` / 200 `{ data: [...] }`).
+- [x] **Step 7: Extend the HTTP test** — add `GET /me/assignments` cases to `plan-c.http.integration.test.ts` (401 / 403 without `assessment.assignments.read` / 200 `{ data: [...] }`).
 
-- [ ] **Step 8: Run tests + lint + commit**
+- [x] **Step 8: Run tests + lint + commit**
 
 ```bash
 pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.service.test.ts src/modules/mvp/plan-c.http.integration.test.ts --no-file-parallelism
@@ -1413,11 +1413,11 @@ git commit -m "feat(backend): Phase 3 Plan C — GET /me/assignments learner dis
 - Create: `apps/backend/migrations/0042_assessment_submission_return_attempt_review.sql`
 - Test: `apps/backend/src/modules/mvp/migrations.0042.test.ts` (mirror `migrations.0041.test.ts`)
 
-- [ ] **Step 1: Write the migration test** (regex assertions, mirroring `migrations.0041.test.ts`): assert the file adds `return_comment text` to `assessment.assignment_submissions`, `review_comment text` + `reviewed_by text` to `assessment.test_attempts`, and uses `IF NOT EXISTS`.
+- [x] **Step 1: Write the migration test** (regex assertions, mirroring `migrations.0041.test.ts`): assert the file adds `return_comment text` to `assessment.assignment_submissions`, `review_comment text` + `reviewed_by text` to `assessment.test_attempts`, and uses `IF NOT EXISTS`.
 
-- [ ] **Step 2: Run it → FAIL** (file missing).
+- [x] **Step 2: Run it → FAIL** (file missing).
 
-- [ ] **Step 3: Write the migration:**
+- [x] **Step 3: Write the migration:**
 
 ```sql
 -- 0042_assessment_submission_return_attempt_review.sql
@@ -1433,11 +1433,11 @@ ALTER TABLE assessment.test_attempts
   ADD COLUMN IF NOT EXISTS reviewed_by text;
 ```
 
-- [ ] **Step 4: Run the migration test → PASS.**
+- [x] **Step 4: Run the migration test → PASS.**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/migrations.0042.test.ts --no-file-parallelism`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/migrations/0042_assessment_submission_return_attempt_review.sql apps/backend/src/modules/mvp/migrations.0042.test.ts
@@ -1453,9 +1453,9 @@ git commit -m "feat(backend): Phase 3 Plan C — migration 0042 return_comment +
 - Modify: `apps/frontend/src/features/navigation/model.ts` (`routeMeta` + `navigationModel`)
 - Verify: `apps/frontend/src/lib/auth/permission-map.ts` (no change expected)
 
-- [ ] **Step 1: Verify the learner permission map** — confirm `learner` (`permission-map.ts:81-89`) already contains `assessment.submissions.submit` and `assessment.assignments.read`. It does (Plan B sync). **No edit needed** — note this in the closeout deviations.
+- [x] **Step 1: Verify the learner permission map** — confirm `learner` (`permission-map.ts:81-89`) already contains `assessment.submissions.submit` and `assessment.assignments.read`. It does (Plan B sync). **No edit needed** — note this in the closeout deviations.
 
-- [ ] **Step 2: Add `routeMeta` entries** — in `navigation/model.ts`, add the two learner-assignment routes (place the `[id]/submit` pattern **before** the bare `/learner/assignments`, matching the `/learner/tests` ordering at `:127-138`):
+- [x] **Step 2: Add `routeMeta` entries** — in `navigation/model.ts`, add the two learner-assignment routes (place the `[id]/submit` pattern **before** the bare `/learner/assignments`, matching the `/learner/tests` ordering at `:127-138`):
 
 ```ts
 {
@@ -1468,13 +1468,13 @@ git commit -m "feat(backend): Phase 3 Plan C — migration 0042 return_comment +
 },
 ```
 
-- [ ] **Step 3: Add the `navigationModel` entry** — next to the «Мои тесты» entry (`:175`):
+- [x] **Step 3: Add the `navigationModel` entry** — next to the «Мои тесты» entry (`:175`):
 
 ```ts
 { href: '/learner/assignments', label: 'Мои задания', requiredPermissions: ['assessment.assignments.read'] },
 ```
 
-- [ ] **Step 4: Lint + commit**
+- [x] **Step 4: Lint + commit**
 
 ```bash
 npx eslint apps/frontend/src/features/navigation/model.ts --max-warnings=0
@@ -1490,7 +1490,7 @@ git commit -m "feat(frontend): Phase 3 Plan C — learner assignments nav + rout
 
 - Create: `apps/frontend/src/features/practical-submissions/{types.ts,api.ts,format.ts,format.test.ts,hooks.ts,api.contract.test.ts}`
 
-- [ ] **Step 1: Write `types.ts`:**
+- [x] **Step 1: Write `types.ts`:**
 
 ```ts
 export type SubmissionStatus =
@@ -1552,7 +1552,7 @@ export interface UploadIntent {
 }
 ```
 
-- [ ] **Step 2: Write `api.ts`** (mirror `test-player/api.ts` `withAuth` exactly; the presigned PUT goes direct to MinIO, **not** through `apiRequest`):
+- [x] **Step 2: Write `api.ts`** (mirror `test-player/api.ts` `withAuth` exactly; the presigned PUT goes direct to MinIO, **not** through `apiRequest`):
 
 ```ts
 import { apiRequest } from '../../lib/api/client';
@@ -1635,7 +1635,7 @@ export async function putFileToPresignedUrl(uploadUrl: string, file: File): Prom
 }
 ```
 
-- [ ] **Step 3: Write `format.ts`:**
+- [x] **Step 3: Write `format.ts`:**
 
 ```ts
 import type { SubmissionStatus } from './types';
@@ -1664,7 +1664,7 @@ export function formatMaxScore(maxScore: number): string {
 }
 ```
 
-- [ ] **Step 4: Write `format.test.ts`:**
+- [x] **Step 4: Write `format.test.ts`:**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -1688,7 +1688,7 @@ describe('practical-submissions format', () => {
 });
 ```
 
-- [ ] **Step 5: Write `hooks.ts`** (queries via React Query; mutations via the `MutationState`/`initial`/`describe` pattern from `assessment-admin/hooks.ts:120-152`; the file-upload hook orchestrates intent → PUT → attach):
+- [x] **Step 5: Write `hooks.ts`** (queries via React Query; mutations via the `MutationState`/`initial`/`describe` pattern from `assessment-admin/hooks.ts:120-152`; the file-upload hook orchestrates intent → PUT → attach):
 
 ```ts
 'use client';
@@ -1823,14 +1823,14 @@ export function useUploadSubmissionFile() {
 }
 ```
 
-- [ ] **Step 6: Write `api.contract.test.ts`** (stub `fetch` with `vi.stubGlobal`, assert envelope unwrap + URL/method/body — mirror `test-player/api.contract.test.ts`). Cover at least: `myAssignments` → GET `/me/assignments`; `createSubmission` → POST `/assignment-submissions` with body; `createUploadUrl` → POST `/assignment-submissions/:id/upload-url`; and `putFileToPresignedUrl` issues a raw `PUT` to the given URL with the file's `Content-Type` (this one stubs `fetch` directly, not `apiRequest`).
+- [x] **Step 6: Write `api.contract.test.ts`** (stub `fetch` with `vi.stubGlobal`, assert envelope unwrap + URL/method/body — mirror `test-player/api.contract.test.ts`). Cover at least: `myAssignments` → GET `/me/assignments`; `createSubmission` → POST `/assignment-submissions` with body; `createUploadUrl` → POST `/assignment-submissions/:id/upload-url`; and `putFileToPresignedUrl` issues a raw `PUT` to the given URL with the file's `Content-Type` (this one stubs `fetch` directly, not `apiRequest`).
 
-- [ ] **Step 7: Run the frontend feature tests**
+- [x] **Step 7: Run the frontend feature tests**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/practical-submissions/format.test.ts src/features/practical-submissions/api.contract.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 8: Lint + commit**
+- [x] **Step 8: Lint + commit**
 
 ```bash
 npx eslint "apps/frontend/src/features/practical-submissions/**/*.ts" --max-warnings=0
@@ -1849,7 +1849,7 @@ git commit -m "feat(frontend): Phase 3 Plan C — practical-submissions feature 
 - Create: `apps/frontend/app/learner/assignments/page.tsx`
 - Create: `apps/frontend/app/learner/assignments/[id]/submit/page.tsx`
 
-- [ ] **Step 1: Write `assignments-list-screen.tsx`** (mirror `test-player/tests-list-screen.tsx`; uses `@cdoprof/ui` `DataTable` + state-wrappers + `next/link`):
+- [x] **Step 1: Write `assignments-list-screen.tsx`** (mirror `test-player/tests-list-screen.tsx`; uses `@cdoprof/ui` `DataTable` + state-wrappers + `next/link`):
 
 ```tsx
 'use client';
@@ -1916,7 +1916,7 @@ export function AssignmentsListScreen() {
 
 (Use `StatusChip` instead of the plain status string if `test-player` uses it — match the sibling. Remove the unused `StatusChip` import if you keep the plain string.)
 
-- [ ] **Step 2: Write `submission-screen.tsx`** — the core learner flow. It loads the assignment summary from `useMyAssignments` (find by `assignmentId` from the route), creates a draft submission if none exists, lets the learner edit `answerText`, upload a file, and submit. When `status === 'returned'` it shows `returnComment` and re-enables editing.
+- [x] **Step 2: Write `submission-screen.tsx`** — the core learner flow. It loads the assignment summary from `useMyAssignments` (find by `assignmentId` from the route), creates a draft submission if none exists, lets the learner edit `answerText`, upload a file, and submit. When `status === 'returned'` it shows `returnComment` and re-enables editing.
 
 ```tsx
 'use client';
@@ -2055,7 +2055,7 @@ export function SubmissionScreen({ assignmentId }: { assignmentId: string }) {
 
 (`putFileToPresignedUrl` is imported only if you inline the upload; here `useUploadSubmissionFile` already calls it, so drop the unused import. Confirm the exact `state-wrappers` exports — `FieldError`, `LoadingState`, etc. — against `apps/frontend/src/components/`; adjust import paths if `LoadingState` comes from `@cdoprof/ui` as in the list screen.)
 
-- [ ] **Step 3: Write the route pages** — `app/learner/assignments/page.tsx`:
+- [x] **Step 3: Write the route pages** — `app/learner/assignments/page.tsx`:
 
 ```tsx
 import { AssignmentsListScreen } from '../../../src/features/practical-submissions/assignments-list-screen';
@@ -2087,7 +2087,7 @@ export default function LearnerAssignmentSubmitPage({ params }: { params: { id: 
 
 (Confirm the relative depth of the `src/` import against a sibling like `app/learner/tests/[testId]/attempt/[attemptId]/page.tsx`, and whether Next 15 in this repo types `params` as a plain object or a `Promise` — match the existing learner attempt page exactly.)
 
-- [ ] **Step 4: Typecheck + lint + commit**
+- [x] **Step 4: Typecheck + lint + commit**
 
 ```bash
 pnpm --filter @cdoprof/frontend exec tsc --noEmit
@@ -2107,7 +2107,7 @@ git commit -m "feat(frontend): Phase 3 Plan C — learner submission screens + r
 - Create: `apps/frontend/src/features/reviewer-actions/{types.ts,api.ts,format.ts,format.test.ts,hooks.ts,api.contract.test.ts,reviewer-actions-screen.tsx}`
 - Modify: `apps/frontend/app/teacher/review/page.tsx`
 
-- [ ] **Step 1: Write `types.ts`** (reuse the queue snapshot shape; add review + action payloads):
+- [x] **Step 1: Write `types.ts`** (reuse the queue snapshot shape; add review + action payloads):
 
 ```ts
 export interface ReviewerQueueItem {
@@ -2160,7 +2160,7 @@ export interface AssignmentReviewDto {
 }
 ```
 
-- [ ] **Step 2: Write `api.ts`** (same `withAuth`; reuses existing review endpoints + the new Plan C endpoints):
+- [x] **Step 2: Write `api.ts`** (same `withAuth`; reuses existing review endpoints + the new Plan C endpoints):
 
 ```ts
 import { apiRequest } from '../../lib/api/client';
@@ -2233,15 +2233,15 @@ export const reviewerActionsApi = {
 };
 ```
 
-- [ ] **Step 3: Write `format.ts` + `format.test.ts`** — a `formatReviewStatus` (RU labels for `pending`/`in_review`/`completed`) and a `formatQueueKind` (`attempt` → «Тест (эссе)», `submission` → «Практическая работа»). Test both like Task 9 Step 4.
+- [x] **Step 3: Write `format.ts` + `format.test.ts`** — a `formatReviewStatus` (RU labels for `pending`/`in_review`/`completed`) and a `formatQueueKind` (`attempt` → «Тест (эссе)», `submission` → «Практическая работа»). Test both like Task 9 Step 4.
 
-- [ ] **Step 4: Write `hooks.ts`** — `useReviewerQueue` (React Query) + `useTakeIntoReview` / `useCompleteReview` / `useReturnSubmission` / `useCompleteAttemptReview` mutations using the same `MutationState`/`initial`/`describe` pattern as Task 9 Step 5 (each wraps the matching `reviewerActionsApi` call and refetches the queue on success).
+- [x] **Step 4: Write `hooks.ts`** — `useReviewerQueue` (React Query) + `useTakeIntoReview` / `useCompleteReview` / `useReturnSubmission` / `useCompleteAttemptReview` mutations using the same `MutationState`/`initial`/`describe` pattern as Task 9 Step 5 (each wraps the matching `reviewerActionsApi` call and refetches the queue on success).
 
-- [ ] **Step 5: Write `reviewer-actions-screen.tsx`** — model on `assessment-admin/reviewer-queue-screen.tsx` (Task context shows its structure) but add an action column. For **submissions**: a «Взять в проверку» button (→ `takeIntoReview`), then a small score+comment form with «Завершить» (→ `completeReview`) and «Вернуть на доработку» (→ `returnSubmission`), plus a «Скачать файл» link that resolves `submissionFileUrl` on click and `window.open`s it. For **attempts**: a «Оценить эссе» control that collects per-question scores and calls `completeAttemptReview`. Keep the two `SectionCard`s («Попытки тестов» / «Практические работы») from the Plan A screen; render the queue from `useReviewerQueue`. Use `PageContainer`/`PageHeader`/`SectionCard`/`SectionEmpty`/`SectionError`/`LoadingState` + `DataTable` exactly as the Plan A screen does.
+- [x] **Step 5: Write `reviewer-actions-screen.tsx`** — model on `assessment-admin/reviewer-queue-screen.tsx` (Task context shows its structure) but add an action column. For **submissions**: a «Взять в проверку» button (→ `takeIntoReview`), then a small score+comment form with «Завершить» (→ `completeReview`) and «Вернуть на доработку» (→ `returnSubmission`), plus a «Скачать файл» link that resolves `submissionFileUrl` on click and `window.open`s it. For **attempts**: a «Оценить эссе» control that collects per-question scores and calls `completeAttemptReview`. Keep the two `SectionCard`s («Попытки тестов» / «Практические работы») from the Plan A screen; render the queue from `useReviewerQueue`. Use `PageContainer`/`PageHeader`/`SectionCard`/`SectionEmpty`/`SectionError`/`LoadingState` + `DataTable` exactly as the Plan A screen does.
 
-- [ ] **Step 6: Write `api.contract.test.ts`** — stub `fetch`, assert: `queue` → GET `/reviewer/queue`; `takeIntoReview` → POST `/assignment-reviews` with body; `completeReview` → POST `/assignment-reviews/:id/complete`; `returnSubmission` → POST `/assignment-submissions/:id/return`; `completeAttemptReview` → POST `/attempts/:id/complete-review` with `answerScores`. Mirror `assessment-admin/api.contract.test.ts`.
+- [x] **Step 6: Write `api.contract.test.ts`** — stub `fetch`, assert: `queue` → GET `/reviewer/queue`; `takeIntoReview` → POST `/assignment-reviews` with body; `completeReview` → POST `/assignment-reviews/:id/complete`; `returnSubmission` → POST `/assignment-submissions/:id/return`; `completeAttemptReview` → POST `/attempts/:id/complete-review` with `answerScores`. Mirror `assessment-admin/api.contract.test.ts`.
 
-- [ ] **Step 7: Point the route at the active screen** — replace `app/teacher/review/page.tsx`:
+- [x] **Step 7: Point the route at the active screen** — replace `app/teacher/review/page.tsx`:
 
 ```tsx
 import { ReviewerActionsScreen } from '../../../src/features/reviewer-actions/reviewer-actions-screen';
@@ -2258,7 +2258,7 @@ export default function TeacherReviewQueuePage() {
 
 (Leave Plan A's `assessment-admin/reviewer-queue-screen.tsx` in place — it's no longer routed but its e2e smoke test may still import it; do not delete in this task.)
 
-- [ ] **Step 8: Typecheck + lint + run feature tests**
+- [x] **Step 8: Typecheck + lint + run feature tests**
 
 ```bash
 pnpm --filter @cdoprof/frontend exec tsc --noEmit
@@ -2266,7 +2266,7 @@ pnpm --filter @cdoprof/frontend exec vitest run src/features/reviewer-actions/fo
 npx eslint "apps/frontend/src/features/reviewer-actions/**/*.ts" "apps/frontend/src/features/reviewer-actions/**/*.tsx" apps/frontend/app/teacher/review/page.tsx --max-warnings=0
 ```
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add apps/frontend/src/features/reviewer-actions/ apps/frontend/app/teacher/review/page.tsx
@@ -2281,7 +2281,7 @@ git commit -m "feat(frontend): Phase 3 Plan C — reviewer-actions active queue 
 
 - Create: `apps/frontend/src/e2e/phase-3-plan-c-review.e2e.test.ts`
 
-- [ ] **Step 1: Write the e2e** — mirror `apps/frontend/src/e2e/learner-test-player.e2e.test.ts` exactly (no React mount; `evaluateRouteAccess` + `getVisibleNavigation` + format-pipeline + dynamic-import smoke):
+- [x] **Step 1: Write the e2e** — mirror `apps/frontend/src/e2e/learner-test-player.e2e.test.ts` exactly (no React mount; `evaluateRouteAccess` + `getVisibleNavigation` + format-pipeline + dynamic-import smoke):
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -2348,12 +2348,12 @@ describe('Plan C — module smoke', () => {
 
 (Confirm the exact import paths for `evaluateRouteAccess` / `getVisibleNavigation` against `learner-test-player.e2e.test.ts` — match them precisely; the function names there are authoritative.)
 
-- [ ] **Step 2: Run it in isolation**
+- [x] **Step 2: Run it in isolation**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/e2e/phase-3-plan-c-review.e2e.test.ts --no-file-parallelism`
 Expected: PASS (dynamic-import smokes resolve well under timeout when run alone).
 
-- [ ] **Step 3: Lint + commit**
+- [x] **Step 3: Lint + commit**
 
 ```bash
 npx eslint apps/frontend/src/e2e/phase-3-plan-c-review.e2e.test.ts --max-warnings=0
@@ -2371,7 +2371,7 @@ git commit -m "test(frontend): Phase 3 Plan C — e2e routing + nav + module smo
 - Modify: `README.md` (§2 AI Agent State sync)
 - Modify: this plan (tick all checkboxes)
 
-- [ ] **Step 1: Full local quality gate** (Cyrillic fallback per CLAUDE.md):
+- [x] **Step 1: Full local quality gate** (Cyrillic fallback per CLAUDE.md):
 
 ```bash
 pnpm typecheck
@@ -2382,13 +2382,13 @@ pnpm --filter @cdoprof/backend exec vitest run src/modules/files/files.service.u
 
 Expected: typecheck/lint clean; backend Plan C files green; `business-flows.e2e` (§39 canonical) no regression.
 
-- [ ] **Step 2: Append `LMS_AGENT_HANDOFF.md` §5.95** — summary (manual review + practical submissions), files changed, test status, deviations (note: learner permission map already had the perms; `/me/assignments` mirrors `/me/tests`; AV scanning deferred to V1.1; presigned-direct upload requires MinIO CORS).
+- [x] **Step 2: Append `LMS_AGENT_HANDOFF.md` §5.95** — summary (manual review + practical submissions), files changed, test status, deviations (note: learner permission map already had the perms; `/me/assignments` mirrors `/me/tests`; AV scanning deferred to V1.1; presigned-direct upload requires MinIO CORS).
 
-- [ ] **Step 3: Sync `README.md` §2** — Current Stage (Phase 3 Plan C done), Last Completed Task, Current/Next Task (next: V1.1 polish or Phase 4), Last Updated At/By. **Also correct the stale lines** that still read "Смерджить Phase 3 Plan B" — Plan B is merged (PR #211); update Current Goal/Task accordingly.
+- [x] **Step 3: Sync `README.md` §2** — Current Stage (Phase 3 Plan C done), Last Completed Task, Current/Next Task (next: V1.1 polish or Phase 4), Last Updated At/By. **Also correct the stale lines** that still read "Смерджить Phase 3 Plan B" — Plan B is merged (PR #211); update Current Goal/Task accordingly.
 
-- [ ] **Step 4: Tick this plan's checkboxes** (all `- [ ]` → `- [x]`) and cross-link the spec.
+- [x] **Step 4: Tick this plan's checkboxes** (all `- [ ]` → `- [x]`) and cross-link the spec.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add LMS_AGENT_HANDOFF.md README.md docs/superpowers/plans/2026-05-31-phase-3-plan-c-manual-review.md
