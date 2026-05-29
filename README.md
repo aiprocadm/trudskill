@@ -76,23 +76,23 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 ### Current Stage
 
-V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md)) — **Phase 1 + Pillar A + Phase 2 (все три плана A+B+C)** завершены. Phase 2 покрыта объёмно на ~95%: bulk Excel import (Plan A, PRs #191-#196), учётки учеников list/search/filter/edit (Plan B, PRs #197-#200), компании-клиенты + group progress (Plan C, PRs #201-#203 + closeout). Стабильный quality gate `pnpm -s ci:check`; миграции до **0039** на этой ветке.
+V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md)) — **Phase 1 + Pillar A + Phase 2 (A+B+C) + Phase 3 (Plan A + Plan B)** реализованы. Phase 3 Plan A (admin assessment surface) — PRs #207/#208. Phase 3 Plan B (learner test player + autograding) — ветка `feat/2026-05-30-phase-3-plan-b-test-player`, stacked на Plan A: pure-function autograder (single/multi/number_input/text; essay abstains), починены grading-баги в существующем lifecycle (createQuestion ронял reference-поля; submit over-scoring), learner-safe `GET /attempts/:id/questions` + `GET /me/tests` (actor-resolution по `linkedIamUserId`), learner UI плеера (list/attempt/result). Phase 3 Plan C (manual review + practical submissions) — planned, not implemented yet. Стабильный quality gate `pnpm -s ci:check` (Cyrillic-path fallback на isolated backend runs — см. CLAUDE.md Gotchas); миграции до **0041** на этой ветке.
 
 ### Current Goal
 
-Закрыть Phase 2 финально (merge PRs Plan C), затем стартовать **Phase 3 (тестирование и оценивание)** по roadmap: банк вопросов, конструктор тестов, плеер теста, автогрейдинг single/multi/number, UI ручной проверки эссе, загрузка практических работ.
+Смерджить Phase 3 Plan B (stacked на Plan A), затем стартовать **Phase 3 Plan C (manual review + practical submissions)**: assignment submission lifecycle (upload → submit → return), reviewer scoring actions, manual essay grading (`completeAttemptReview`), активные действия в reviewer queue (Plan A дал read-only skeleton).
 
 ### Last Completed Task
 
-**Phase 2 Plan C — admin clients management + group progress** (2026-05-30, PRs #202/#203 + closeout): backend расширенный `crm.counterparties` (ИНН/КПП/контакты + nullable composite FK `learning.groups.counterparty_id` через migration 0039) + 3 service метода + pure-function `GroupProgressSummary` aggregator + 5 endpoints (POST extended, PATCH profile, PATCH groups counterparty, GET group + counterparty progress-summary). Frontend `/admin/clients` (list + detail + create/edit drawer) + group-progress-section + standalone group-counterparty-picker. Совместно с Plan A (#191-#196) и Plan B (#197-#200) полностью закрывает Phase 2 «Админка центра + массовые операции».
+**Phase 3 Plan B — learner test player + autograding** (2026-05-30, single stacked branch `feat/2026-05-30-phase-3-plan-b-test-player`): **Backend** — `assessment-autograde.service.ts` (pure-function `gradeAnswer`: single/multi через set-comparison, number_input numeric ± tolerance, text normalized string-compare, essay abstains → manual), wired в `submitAttempt` (починены два бага: `createQuestion` ронял `numericExpected`/`numericTolerance`/`expectedAnswer`/`tags`; submit over-scoring number/essay + зануление корректного text); learner-safe `GET /attempts/:id/questions` (strips `isCorrect`/numeric reference/`expectedAnswer`/`explanation`; gated `assessment.attempts.take`; scoped к learner попытки); `GET /me/tests` (actor-resolution — резолвит linked learner(s) по `linkedIamUserId === actorId`, `[]` а не 403 без привязки; `LearnerTestSummary` несёт `learnerId` + `activeAttemptId` для list→player flow); migration 0041 (`expected_answer` + `auto_graded`, additive, `IF NOT EXISTS`). **Frontend** — feature folder `test-player/` (types/api/hooks/format), 3 screens (tests-list со Start/Resume per row, test-attempt с type-aware inputs + debounced auto-save + countdown auto-submit + draft hydration для resume, test-result), 3 routes под `<ProtectedPage>`, nav «Мои тесты», permission-map sync. Tests: backend autograder 17 + test-player.service 11 + test-player.http.integration 6 + migrations.0041 4; frontend test-player 12 (5 format + 7 api.contract) + e2e 11. Canonical §39 (`business-flows.e2e` 4) — без регрессий.
 
 ### Current Task
 
-Дождаться merge Plan C PR-ов (#202 backend + #203 frontend + closeout), затем зафиксировать Phase 2 closed и переходить к Phase 3. Параллельно — known V1.1 polish: GroupCounterpartyPicker integration в GroupDetailsScreen (Plan C D4), granular 0..1 progress rate (Plan C D3), real course name в progress section, фильтр `counterpartyId` в `GET /groups`.
+Смерджить Phase 3 Plan B PR (stacked на Plan A). Параллельно — known V1.1 polish из Phase 2: GroupCounterpartyPicker integration в GroupDetailsScreen (Plan C D4), granular 0..1 progress rate (Plan C D3), real course name в progress section, фильтр `counterpartyId` в `GET /groups`.
 
 ### Next Task
 
-**Phase 3 — тестирование и оценивание** (см. roadmap): банк вопросов, конструктор тестов, плеер теста для ученика, автогрейдинг single/multi/number, UI ручной проверки эссе, загрузка практических работ. Параллельно — Pillar A polish backlog (drag-n-drop сортировки, PNG-подписи, реальный PDF render отложен до Phase 5), V1.1 follow-ups из Plan C deviations (D3 granular rate, D4 picker integration).
+**Phase 3 Plan C — manual review + practical submissions** (отдельный план будет написан): assignment submission lifecycle (`POST /assignment-submissions`: upload → submit → return), reviewer scoring actions для эссе + practical (`completeAttemptReview` — manual score + review note), активные действия в reviewer queue (Plan A дал read-only aggregator). Essay provisional-score (сейчас autograder abstains) станет реальной ручной оценкой. Использует данные Plan A (банки + задания) + Plan B (attempts + autograde).
 
 ### Do Not Touch
 
@@ -113,11 +113,11 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Updated By
 
-AI Agent (Phase 2 Plan C implemented end-to-end — backend + frontend + closeout in 3 stacked PRs)
+AI Agent (Phase 3 Plan B implemented end-to-end — backend autograder + lifecycle bug-fixes + learner-safe endpoints; frontend test player; single stacked branch)
 
 ### Last Updated At
 
-2026-05-30 (Phase 2 Plan C done — PRs #202/#203 + closeout; Phase 2 ~95% complete; previous: Plan B 2026-05-29, Plan A 2026-05-28, Phase 1 §4.3 + Pillar A 2026-05-27)
+2026-05-30 (Phase 3 Plan B done — learner test player + autograding; previous: Phase 3 Plan A 2026-05-30, Phase 2 Plan C 2026-05-30, Plan B 2026-05-29, Plan A 2026-05-28, Phase 1 §4.3 + Pillar A 2026-05-27)
 
 ## 3. Current Project Status
 

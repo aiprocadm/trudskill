@@ -75,6 +75,34 @@ export const routeMeta: RouteMetaEntry[] = [
     pattern: '/admin/clients',
     meta: { public: false, requiredPermissions: ['counterparties.read'] }
   },
+  {
+    pattern: '/admin/question-banks/[id]',
+    meta: { public: false, requiredPermissions: ['assessment.question_banks.read'] }
+  },
+  {
+    pattern: '/admin/question-banks',
+    meta: { public: false, requiredPermissions: ['assessment.question_banks.read'] }
+  },
+  {
+    pattern: '/admin/tests/[id]',
+    meta: { public: false, requiredPermissions: ['assessment.tests.read'] }
+  },
+  {
+    pattern: '/admin/tests',
+    meta: { public: false, requiredPermissions: ['assessment.tests.read'] }
+  },
+  {
+    pattern: '/admin/assignments/[id]',
+    meta: { public: false, requiredPermissions: ['assessment.assignments.read'] }
+  },
+  {
+    pattern: '/admin/assignments',
+    meta: { public: false, requiredPermissions: ['assessment.assignments.read'] }
+  },
+  {
+    pattern: '/teacher/review',
+    meta: { public: false, requiredPermissions: ['assessment.reviews.review'] }
+  },
   { pattern: '/', meta: { public: false } },
   { pattern: '/users', meta: { public: false, requiredPermissions: ['iam.manage_roles'] } },
   {
@@ -95,6 +123,18 @@ export const routeMeta: RouteMetaEntry[] = [
   {
     pattern: '/learner/courses',
     meta: { public: false, requiredPermissions: ['enrollments.read'] }
+  },
+  {
+    pattern: '/learner/tests/[testId]/attempt/[attemptId]',
+    meta: { public: false, requiredPermissions: ['assessment.attempts.take'] }
+  },
+  {
+    pattern: '/learner/tests/[testId]/result',
+    meta: { public: false, requiredPermissions: ['assessment.results.read'] }
+  },
+  {
+    pattern: '/learner/tests',
+    meta: { public: false, requiredPermissions: ['assessment.tests.read'] }
   },
   { pattern: '/documents', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/registry', meta: { public: false, requiredPermissions: ['tenant.read'] } },
@@ -132,6 +172,7 @@ export const navigationModel: NavigationItem[] = [
     label: 'Мои документы',
     requiredPermissions: ['enrollments.read']
   },
+  { href: '/learner/tests', label: 'Мои тесты', requiredPermissions: ['assessment.tests.read'] },
   { href: '/courses', label: 'Курсы', requiredPermissions: ['courses.read'] },
   { href: '/assessment', label: 'Задания и тесты', requiredPermissions: ['assessment.tests.read'] },
   { href: '/notifications', label: 'Сообщения', requiredPermissions: ['tenant.read'] },
@@ -144,6 +185,30 @@ export const navigationModel: NavigationItem[] = [
   },
   { href: '/reports', label: 'Отчеты', requiredPermissions: ['tenant.read'] },
   { href: '/settings', label: 'Настройки', requiredPermissions: ['iam.manage_roles'] },
+  {
+    href: '/admin/question-banks',
+    label: 'Банки вопросов',
+    requiredPermissions: ['assessment.question_banks.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/admin/tests',
+    label: 'Тесты',
+    requiredPermissions: ['assessment.tests.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/admin/assignments',
+    label: 'Задания',
+    requiredPermissions: ['assessment.assignments.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/teacher/review',
+    label: 'Очередь на проверку',
+    requiredPermissions: ['assessment.reviews.review'],
+    navSlot: 'more'
+  },
   {
     href: '/academy',
     label: 'Учебный центр',

@@ -230,6 +230,7 @@ export interface Question extends BaseEntity {
   maxScore?: number;
   numericExpected?: number;
   numericTolerance?: number;
+  expectedAnswer?: string;
   tags?: string[];
 }
 
@@ -314,6 +315,7 @@ export interface AttemptAnswer extends BaseEntity {
   selectedOptionIds?: string[];
   textAnswer?: string;
   score?: number;
+  autoGraded?: boolean;
 }
 
 export interface ExamResult extends BaseEntity {
@@ -327,6 +329,44 @@ export interface ExamResult extends BaseEntity {
   maxScore: number;
   passingScore?: number;
   passed: boolean;
+}
+
+/**
+ * Answer-safe projection of a question for the learner test player.
+ * Deliberately omits every answer-key field (isCorrect / numericExpected /
+ * numericTolerance / expectedAnswer / explanation) so the shape itself
+ * guarantees no leak — see getAttemptQuestions.
+ */
+export interface AttemptQuestionOptionView {
+  id: string;
+  text: string;
+  sortOrder: number;
+}
+
+export interface AttemptQuestionView {
+  id: string;
+  type: QuestionType;
+  title: string;
+  body?: string;
+  score: number;
+  options: AttemptQuestionOptionView[];
+  selectedOptionIds?: string[];
+  textAnswer?: string;
+}
+
+export interface LearnerTestSummary {
+  testId: string;
+  title: string;
+  courseId: string;
+  enrollmentId: string;
+  learnerId: string;
+  status: 'not_started' | 'in_progress' | 'submitted' | 'passed' | 'failed';
+  attemptsUsed: number;
+  attemptLimit: number;
+  /** id of the resumable (draft/in_progress) attempt, if one exists. */
+  activeAttemptId?: string;
+  bestScore?: number;
+  maxScore: number;
 }
 
 export interface Assignment extends BaseEntity {
