@@ -136,6 +136,14 @@ export const routeMeta: RouteMetaEntry[] = [
     pattern: '/learner/tests',
     meta: { public: false, requiredPermissions: ['assessment.tests.read'] }
   },
+  {
+    pattern: '/learner/assignments/[id]/submit',
+    meta: { public: false, requiredPermissions: ['assessment.submissions.submit'] }
+  },
+  {
+    pattern: '/learner/assignments',
+    meta: { public: false, requiredPermissions: ['assessment.assignments.read'] }
+  },
   { pattern: '/documents', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/registry', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/notifications', meta: { public: false, requiredPermissions: ['tenant.read'] } },
@@ -173,6 +181,11 @@ export const navigationModel: NavigationItem[] = [
     requiredPermissions: ['enrollments.read']
   },
   { href: '/learner/tests', label: 'Мои тесты', requiredPermissions: ['assessment.tests.read'] },
+  {
+    href: '/learner/assignments',
+    label: 'Мои задания',
+    requiredPermissions: ['assessment.assignments.read']
+  },
   { href: '/courses', label: 'Курсы', requiredPermissions: ['courses.read'] },
   { href: '/assessment', label: 'Задания и тесты', requiredPermissions: ['assessment.tests.read'] },
   { href: '/notifications', label: 'Сообщения', requiredPermissions: ['tenant.read'] },
