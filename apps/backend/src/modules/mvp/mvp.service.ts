@@ -17,6 +17,7 @@ import {
 } from './group-progress-summary.service.js';
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from './infrastructure/mvp-state.token.js';
+import { aggregateReviewerQueue } from './reviewer-queue.service.js';
 import { backendEnv } from '../../env.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -99,6 +100,7 @@ import type {
   Question,
   QuestionBank,
   RegulatoryAct,
+  ReviewerQueueSnapshot,
   TestAttempt,
   TestEntity,
   TestQuestion
@@ -2261,7 +2263,18 @@ export class MvpService {
     context: RequestContext
   ): TestEntity {
     const current = this.getById(this.state.tests, tenantId, id);
+    if (current.status === 'published') return current;
+    const attached = this.state.testQuestions.filter(
+      (item) => item.tenantId === tenantId && item.testId === id
+    );
+    if (attached.length === 0) {
+      throw new PreconditionFailedException({
+        code: 'domain_rule_violation',
+        message: 'Cannot publish a test without questions'
+      });
+    }
     current.status = 'published';
+    current.publishedAt = this.now();
     current.updatedAt = this.now();
     this.audit(
       tenantId,
@@ -2282,8 +2295,10 @@ export class MvpService {
     context: RequestContext
   ): TestEntity {
     const current = this.getById(this.state.tests, tenantId, id);
+    if (current.isArchived) return current;
     current.status = 'archived';
     current.isArchived = true;
+    current.archivedAt = this.now();
     current.updatedAt = this.now();
     this.audit(
       tenantId,
@@ -2383,6 +2398,137 @@ export class MvpService {
       );
     }
     return this.listTestQuestions(tenantId, testId);
+  }
+
+  /**
+   * Phase 3 Plan A: добавление одного вопроса в тест с опциональным sortOrder.
+   * Если вопрос уже привязан — возвращает существующую связь (идемпотентно, без audit).
+   * Если sortOrder не передан — кладёт в конец (max + 1 для этого теста, либо 0).
+   */
+  addTestQuestion(
+    tenantId: string,
+    actorId: string | undefined,
+    testId: string,
+    questionId: string,
+    sortOrder: number | undefined,
+    context: RequestContext
+  ): TestQuestion {
+    this.getById(this.state.tests, tenantId, testId);
+    this.getById(this.state.questions, tenantId, questionId);
+    const existing = this.state.testQuestions.find(
+      (item) =>
+        item.tenantId === tenantId && item.testId === testId && item.questionId === questionId
+    );
+    if (existing) return existing;
+    const peers = this.state.testQuestions.filter(
+      (item) => item.tenantId === tenantId && item.testId === testId
+    );
+    const resolvedSortOrder =
+      sortOrder ?? (peers.length === 0 ? 0 : Math.max(...peers.map((p) => p.sortOrder)) + 1);
+    const entity: TestQuestion = {
+      id: this.id('tq'),
+      tenantId,
+      testId,
+      questionId,
+      sortOrder: resolvedSortOrder,
+      status: 'active',
+      createdAt: this.now(),
+      updatedAt: this.now()
+    };
+    this.state.testQuestions.push(entity);
+    this.audit(
+      tenantId,
+      actorId,
+      'assessment.test_question_added',
+      'assessment.test_question',
+      entity.id,
+      undefined,
+      entity,
+      context
+    );
+    return entity;
+  }
+
+  /**
+   * Phase 3 Plan A: idempotent удаление test→question связи. Если связь отсутствует — no-op, без audit.
+   */
+  removeTestQuestion(
+    tenantId: string,
+    actorId: string | undefined,
+    testId: string,
+    questionId: string,
+    context: RequestContext
+  ): void {
+    const index = this.state.testQuestions.findIndex(
+      (item) =>
+        item.tenantId === tenantId && item.testId === testId && item.questionId === questionId
+    );
+    if (index < 0) return;
+    const [removed] = this.state.testQuestions.splice(index, 1);
+    if (!removed) return;
+    this.audit(
+      tenantId,
+      actorId,
+      'assessment.test_question_removed',
+      'assessment.test_question',
+      removed.id,
+      removed,
+      undefined,
+      context
+    );
+  }
+
+  /**
+   * Phase 3 Plan A: смена sortOrder для существующей test→question связи.
+   * Не пытается «уплотнить» соседей — UI вызывает по одному при drag-and-drop.
+   */
+  reorderTestQuestion(
+    tenantId: string,
+    actorId: string | undefined,
+    testId: string,
+    questionId: string,
+    newSortOrder: number,
+    context: RequestContext
+  ): TestQuestion {
+    const tq = this.state.testQuestions.find(
+      (item) =>
+        item.tenantId === tenantId && item.testId === testId && item.questionId === questionId
+    );
+    if (!tq) {
+      throw new NotFoundException({
+        code: 'not_found',
+        message: 'Test question link not found'
+      });
+    }
+    const previous = tq.sortOrder;
+    tq.sortOrder = newSortOrder;
+    tq.updatedAt = this.now();
+    this.audit(
+      tenantId,
+      actorId,
+      'assessment.test_question_reordered',
+      'assessment.test_question',
+      tq.id,
+      { sortOrder: previous },
+      { sortOrder: newSortOrder },
+      context
+    );
+    return tq;
+  }
+
+  /**
+   * Phase 3 Plan A: read-only reviewer queue — обёртка над pure-aggregator. См.
+   * reviewer-queue.service.ts для логики фильтрации. Plans B+C наполнят attempts /
+   * submissions; пока пустая обёртка.
+   */
+  getReviewerQueue(tenantId: string, _context: RequestContext): ReviewerQueueSnapshot {
+    return aggregateReviewerQueue(
+      {
+        testAttempts: this.state.attempts as TestAttempt[],
+        assignmentSubmissions: this.state.assignmentSubmissions
+      },
+      { tenantId }
+    );
   }
 
   listAttempts(
@@ -2889,23 +3035,47 @@ export class MvpService {
     tenantId: string,
     actorId: string | undefined,
     id: string,
-    _context: RequestContext
+    context: RequestContext
   ): Assignment {
     const current = this.getById(this.state.assignments, tenantId, id);
+    if (current.status === 'published') return current;
     current.status = 'published';
+    current.publishedAt = this.now();
     current.updatedAt = this.now();
+    this.audit(
+      tenantId,
+      actorId,
+      'assessment.assignment_published',
+      'assessment.assignment',
+      current.id,
+      undefined,
+      current,
+      context
+    );
     return current;
   }
   archiveAssignment(
     tenantId: string,
     actorId: string | undefined,
     id: string,
-    _context: RequestContext
+    context: RequestContext
   ): Assignment {
     const current = this.getById(this.state.assignments, tenantId, id);
+    if (current.isArchived) return current;
     current.status = 'archived';
     current.isArchived = true;
+    current.archivedAt = this.now();
     current.updatedAt = this.now();
+    this.audit(
+      tenantId,
+      actorId,
+      'assessment.assignment_archived',
+      'assessment.assignment',
+      current.id,
+      undefined,
+      current,
+      context
+    );
     return current;
   }
   listAssignmentSubmissions(

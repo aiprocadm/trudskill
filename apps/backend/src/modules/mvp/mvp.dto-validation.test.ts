@@ -3,6 +3,7 @@ import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import { describe, expect, it } from 'vitest';
 
+import { AddTestQuestionRequest, ReorderTestQuestionRequest } from './add-test-question.dto.js';
 import { CreateCounterpartyExtendedRequest } from './create-counterparty-extended.dto.js';
 import { BulkImportLearnersRequest } from './learners-bulk-import.dto.js';
 import {
@@ -16,8 +17,19 @@ import {
   UpdateMaterialProgressRequest,
   UpdateProgramMetaRequest
 } from './mvp.dto.js';
+import {
+  CreateAssignmentRequest as Phase3CreateAssignmentRequest,
+  CreateQuestionBankRequest as Phase3CreateQuestionBankRequest,
+  CreateQuestionRequest as Phase3CreateQuestionRequest,
+  CreateTestRequest as Phase3CreateTestRequest,
+  UpdateAssignmentRequest as Phase3UpdateAssignmentRequest,
+  UpdateQuestionBankRequest as Phase3UpdateQuestionBankRequest,
+  UpdateQuestionRequest as Phase3UpdateQuestionRequest,
+  UpdateTestRequest as Phase3UpdateTestRequest
+} from './mvp.dto.js';
 import { UpdateCounterpartyExtendedRequest } from './update-counterparty-extended.dto.js';
 import { UpdateLearnerExtendedRequest } from './update-learner-extended.dto.js';
+import { UpdateTestRuleRequest } from './update-test-rule.dto.js';
 
 describe('MVP critical DTO (class-validator)', () => {
   it('отклоняет отрицательный studiedSeconds', () => {
@@ -511,5 +523,297 @@ describe('UpdateCounterpartyExtendedRequest (Phase 2 Plan C)', () => {
     const errors = validate({ inn: '123' });
     expect(errors).toHaveLength(1);
     expect(errors[0]!.property).toBe('inn');
+  });
+});
+
+// ---------- Phase 3 Plan A: assessment admin DTOs (existing in mvp.dto.ts + new files) ----------
+
+function validateDto<T extends object>(
+  Cls: new () => T,
+  raw: object
+): ReturnType<typeof validateSync> {
+  return validateSync(plainToInstance(Cls, raw), { whitelist: true, forbidNonWhitelisted: true });
+}
+
+describe('CreateQuestionBankRequest (Phase 3 Plan A — existing mvp.dto.ts)', () => {
+  it('accepts a minimal valid bank', () => {
+    expect(validateDto(Phase3CreateQuestionBankRequest, { title: 'Bank A' })).toHaveLength(0);
+  });
+
+  it('accepts bank with optional description + courseId + code', () => {
+    expect(
+      validateDto(Phase3CreateQuestionBankRequest, {
+        title: 'B',
+        description: 'd',
+        courseId: 'c1',
+        code: 'OT-1'
+      })
+    ).toHaveLength(0);
+  });
+
+  it('rejects missing title', () => {
+    expect(validateDto(Phase3CreateQuestionBankRequest, {} as object).length).toBeGreaterThan(0);
+  });
+
+  it('rejects empty title', () => {
+    expect(validateDto(Phase3CreateQuestionBankRequest, { title: '' }).length).toBeGreaterThan(0);
+  });
+});
+
+describe('UpdateQuestionBankRequest (PATCH)', () => {
+  it('accepts empty patch', () => {
+    expect(validateDto(Phase3UpdateQuestionBankRequest, {})).toHaveLength(0);
+  });
+
+  it('accepts partial title update', () => {
+    expect(validateDto(Phase3UpdateQuestionBankRequest, { title: 'new' })).toHaveLength(0);
+  });
+});
+
+describe('CreateQuestionRequest (Phase 3 — 5 types + numeric/expectedAnswer/tags)', () => {
+  const baseSingle = {
+    questionBankId: 'qb1',
+    title: 'Q?',
+    type: 'single_choice' as const,
+    score: 1,
+    answerOptions: [
+      { text: 'a', isCorrect: true },
+      { text: 'b', isCorrect: false }
+    ]
+  };
+
+  it('accepts a valid single_choice question', () => {
+    expect(validateDto(Phase3CreateQuestionRequest, baseSingle)).toHaveLength(0);
+  });
+
+  it('accepts multiple_choice question with two correct options', () => {
+    expect(
+      validateDto(Phase3CreateQuestionRequest, {
+        questionBankId: 'qb1',
+        type: 'multiple_choice',
+        score: 2,
+        answerOptions: [
+          { text: 'a', isCorrect: true },
+          { text: 'b', isCorrect: true },
+          { text: 'c', isCorrect: false }
+        ]
+      })
+    ).toHaveLength(0);
+  });
+
+  it('accepts valid number_input with numericExpected (new Plan A type)', () => {
+    expect(
+      validateDto(Phase3CreateQuestionRequest, {
+        questionBankId: 'qb1',
+        title: '2+2?',
+        type: 'number_input',
+        score: 1,
+        numericExpected: 4,
+        numericTolerance: 0.1
+      })
+    ).toHaveLength(0);
+  });
+
+  it('rejects number_input with negative tolerance', () => {
+    expect(
+      validateDto(Phase3CreateQuestionRequest, {
+        questionBankId: 'qb1',
+        type: 'number_input',
+        score: 1,
+        numericExpected: 4,
+        numericTolerance: -1
+      }).length
+    ).toBeGreaterThan(0);
+  });
+
+  it('accepts text question with optional expectedAnswer (new field)', () => {
+    expect(
+      validateDto(Phase3CreateQuestionRequest, {
+        questionBankId: 'qb1',
+        type: 'text',
+        score: 1,
+        expectedAnswer: 'Paris'
+      })
+    ).toHaveLength(0);
+  });
+
+  it('accepts essay question with no extra fields (new Plan A type)', () => {
+    expect(
+      validateDto(Phase3CreateQuestionRequest, {
+        questionBankId: 'qb1',
+        type: 'essay',
+        score: 5
+      })
+    ).toHaveLength(0);
+  });
+
+  it('accepts tags array (new Plan A field)', () => {
+    expect(
+      validateDto(Phase3CreateQuestionRequest, {
+        questionBankId: 'qb1',
+        type: 'essay',
+        score: 1,
+        tags: ['safety', 'ОТ-2024']
+      })
+    ).toHaveLength(0);
+  });
+
+  it('rejects invalid type literal (e.g. boolean — legacy SQL type but removed from runtime DTO)', () => {
+    expect(
+      validateDto(Phase3CreateQuestionRequest, {
+        questionBankId: 'qb1',
+        type: 'boolean',
+        score: 1
+      } as object).length
+    ).toBeGreaterThan(0);
+  });
+
+  it('rejects missing questionBankId', () => {
+    expect(
+      validateDto(Phase3CreateQuestionRequest, { type: 'text', score: 1 } as object).length
+    ).toBeGreaterThan(0);
+  });
+});
+
+describe('UpdateQuestionRequest (PATCH — Phase 3 new fields)', () => {
+  it('accepts empty patch', () => {
+    expect(validateDto(Phase3UpdateQuestionRequest, {})).toHaveLength(0);
+  });
+
+  it('accepts numeric tolerance update (new Plan A field)', () => {
+    expect(
+      validateDto(Phase3UpdateQuestionRequest, { numericExpected: 5, numericTolerance: 0 })
+    ).toHaveLength(0);
+  });
+
+  it('accepts type change to essay (new Plan A type)', () => {
+    expect(validateDto(Phase3UpdateQuestionRequest, { type: 'essay' })).toHaveLength(0);
+  });
+
+  it('rejects negative tolerance on update', () => {
+    expect(
+      validateDto(Phase3UpdateQuestionRequest, { numericTolerance: -1 }).length
+    ).toBeGreaterThan(0);
+  });
+
+  it('rejects bad type literal', () => {
+    expect(
+      validateDto(Phase3UpdateQuestionRequest, { type: 'unknown' } as object).length
+    ).toBeGreaterThan(0);
+  });
+
+  it('accepts tags update', () => {
+    expect(validateDto(Phase3UpdateQuestionRequest, { tags: ['a'] })).toHaveLength(0);
+  });
+});
+
+describe('CreateTestRequest (existing — Plan A unchanged)', () => {
+  it('accepts a minimal test', () => {
+    expect(validateDto(Phase3CreateTestRequest, { courseId: 'c1', title: 'T' })).toHaveLength(0);
+  });
+
+  it('rejects missing courseId', () => {
+    expect(validateDto(Phase3CreateTestRequest, { title: 'T' } as object).length).toBeGreaterThan(
+      0
+    );
+  });
+
+  it('rejects missing title', () => {
+    expect(
+      validateDto(Phase3CreateTestRequest, { courseId: 'c1' } as object).length
+    ).toBeGreaterThan(0);
+  });
+});
+
+describe('UpdateTestRequest (PATCH)', () => {
+  it('accepts empty patch', () => {
+    expect(validateDto(Phase3UpdateTestRequest, {})).toHaveLength(0);
+  });
+
+  it('rejects empty title', () => {
+    expect(validateDto(Phase3UpdateTestRequest, { title: '' }).length).toBeGreaterThan(0);
+  });
+});
+
+describe('UpdateTestRuleRequest (Phase 3 Plan A new DTO)', () => {
+  it('accepts empty patch', () => {
+    expect(validateDto(UpdateTestRuleRequest, {})).toHaveLength(0);
+  });
+
+  it('accepts a fully-specified rule', () => {
+    expect(
+      validateDto(UpdateTestRuleRequest, {
+        attemptLimit: 3,
+        randomizeQuestions: true,
+        questionCount: 10,
+        timeLimitMinutes: 30,
+        passingScore: 0.8,
+        dailyResetEnabled: false
+      })
+    ).toHaveLength(0);
+  });
+
+  it('rejects attemptLimit = 0', () => {
+    expect(validateDto(UpdateTestRuleRequest, { attemptLimit: 0 }).length).toBeGreaterThan(0);
+  });
+
+  it('rejects negative passingScore', () => {
+    expect(validateDto(UpdateTestRuleRequest, { passingScore: -1 }).length).toBeGreaterThan(0);
+  });
+
+  it('rejects questionCount = 0', () => {
+    expect(validateDto(UpdateTestRuleRequest, { questionCount: 0 }).length).toBeGreaterThan(0);
+  });
+});
+
+describe('AddTestQuestionRequest / ReorderTestQuestionRequest (Phase 3 Plan A new DTOs)', () => {
+  it('accepts add with required questionId', () => {
+    expect(validateDto(AddTestQuestionRequest, { questionId: 'q1' })).toHaveLength(0);
+  });
+
+  it('accepts add with sortOrder', () => {
+    expect(validateDto(AddTestQuestionRequest, { questionId: 'q1', sortOrder: 3 })).toHaveLength(0);
+  });
+
+  it('rejects add without questionId', () => {
+    expect(validateDto(AddTestQuestionRequest, {} as object).length).toBeGreaterThan(0);
+  });
+
+  it('rejects negative sortOrder', () => {
+    expect(
+      validateDto(AddTestQuestionRequest, { questionId: 'q1', sortOrder: -1 }).length
+    ).toBeGreaterThan(0);
+  });
+
+  it('reorder requires sortOrder', () => {
+    expect(validateDto(ReorderTestQuestionRequest, {} as object).length).toBeGreaterThan(0);
+  });
+
+  it('reorder accepts valid sortOrder', () => {
+    expect(validateDto(ReorderTestQuestionRequest, { sortOrder: 2 })).toHaveLength(0);
+  });
+});
+
+describe('CreateAssignmentRequest (existing)', () => {
+  it('accepts a minimal assignment', () => {
+    expect(
+      validateDto(Phase3CreateAssignmentRequest, { courseId: 'c1', title: 'A', maxScore: 100 })
+    ).toHaveLength(0);
+  });
+
+  it('rejects missing courseId', () => {
+    expect(
+      validateDto(Phase3CreateAssignmentRequest, { title: 'A', maxScore: 0 } as object).length
+    ).toBeGreaterThan(0);
+  });
+});
+
+describe('UpdateAssignmentRequest (PATCH)', () => {
+  it('accepts empty patch', () => {
+    expect(validateDto(Phase3UpdateAssignmentRequest, {})).toHaveLength(0);
+  });
+
+  it('rejects empty title', () => {
+    expect(validateDto(Phase3UpdateAssignmentRequest, { title: '' }).length).toBeGreaterThan(0);
   });
 });
