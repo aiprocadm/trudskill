@@ -381,7 +381,13 @@ export interface TestRulesDto {
   passingScore: number;
 }
 
-const questionTypeValues = ['single_choice', 'multiple_choice', 'text'] as const;
+const questionTypeValues = [
+  'single_choice',
+  'multiple_choice',
+  'number_input',
+  'text',
+  'essay'
+] as const;
 
 export class QuestionAnswerOptionDto {
   @IsString()
@@ -438,9 +444,36 @@ export class CreateQuestionRequest {
   @ValidateNested({ each: true })
   @Type(() => QuestionAnswerOptionDto)
   options?: QuestionAnswerOptionDto[];
+
+  // Phase 3 Plan A: number_input grading reference value.
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  numericExpected?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  numericTolerance?: number;
+
+  // Phase 3 Plan A: short-answer text autograding reference.
+  @IsOptional()
+  @IsString()
+  expectedAnswer?: string;
+
+  // Phase 3 Plan A: tags for filtering questions in admin UI (V1.1 categories surrogate).
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
 }
 
 export class UpdateQuestionRequest {
+  @IsOptional()
+  @IsIn(questionTypeValues)
+  type?: (typeof questionTypeValues)[number];
+
   @IsOptional()
   @IsString()
   title?: string;
@@ -482,6 +515,26 @@ export class UpdateQuestionRequest {
   @ValidateNested({ each: true })
   @Type(() => QuestionAnswerOptionDto)
   options?: QuestionAnswerOptionDto[];
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  numericExpected?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  numericTolerance?: number;
+
+  @IsOptional()
+  @IsString()
+  expectedAnswer?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
 }
 
 /** Частичные правила теста (create / patch); совместимо с `normalizeTestRules`. */
