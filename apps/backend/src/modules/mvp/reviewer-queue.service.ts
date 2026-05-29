@@ -1,5 +1,6 @@
 import type {
   AssignmentSubmission,
+  AttemptAnswer,
   ReviewerQueueItem,
   ReviewerQueueSnapshot,
   TestAttempt
@@ -24,6 +25,7 @@ export interface ReviewerQueueFilter {
 
 export interface ReviewerQueueInputSnapshot {
   testAttempts: TestAttempt[];
+  attemptAnswers: AttemptAnswer[];
   assignmentSubmissions: AssignmentSubmission[];
 }
 
@@ -31,8 +33,15 @@ export function aggregateReviewerQueue(
   snapshot: ReviewerQueueInputSnapshot,
   filter: ReviewerQueueFilter
 ): ReviewerQueueSnapshot {
+  const needsManualGrading = (attemptId: string): boolean =>
+    snapshot.attemptAnswers.some(
+      (a) => a.tenantId === filter.tenantId && a.attemptId === attemptId && a.autoGraded === false
+    );
+
   const pendingAttempts: ReviewerQueueItem[] = snapshot.testAttempts
-    .filter((a) => a.tenantId === filter.tenantId && a.status === 'submitted')
+    .filter(
+      (a) => a.tenantId === filter.tenantId && a.status === 'submitted' && needsManualGrading(a.id)
+    )
     .map((a) => ({
       kind: 'attempt' as const,
       id: a.id,

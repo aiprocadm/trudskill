@@ -2538,6 +2538,7 @@ export class MvpService {
     return aggregateReviewerQueue(
       {
         testAttempts: this.state.attempts as TestAttempt[],
+        attemptAnswers: this.state.attemptAnswers,
         assignmentSubmissions: this.state.assignmentSubmissions
       },
       { tenantId }

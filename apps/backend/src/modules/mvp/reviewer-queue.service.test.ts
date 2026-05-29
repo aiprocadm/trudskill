@@ -5,6 +5,7 @@ import { aggregateReviewerQueue } from './reviewer-queue.service.js';
 import type {
   AssignmentSubmission,
   AssignmentSubmissionStatus,
+  AttemptAnswer,
   AttemptStatus,
   TestAttempt
 } from './mvp.types.js';
@@ -46,10 +47,29 @@ function makeSubmission(
   return { ...base, ...overrides };
 }
 
+/** Creates an AttemptAnswer with autoGraded=false (manual essay) for the given attempt. */
+function makeManualAnswer(
+  attemptId: string,
+  tenantId: string,
+  overrides?: Partial<AttemptAnswer>
+): AttemptAnswer {
+  return {
+    id: `ans_${attemptId}`,
+    tenantId,
+    attemptId,
+    questionId: 'q_x',
+    autoGraded: false,
+    status: 'active',
+    createdAt: '2026-05-30T12:00:00Z',
+    updatedAt: '2026-05-30T12:15:00Z',
+    ...overrides
+  } as AttemptAnswer;
+}
+
 describe('aggregateReviewerQueue (Phase 3 Plan A pure-function)', () => {
   it('returns empty snapshot when both collections are empty', () => {
     const result = aggregateReviewerQueue(
-      { testAttempts: [], assignmentSubmissions: [] },
+      { testAttempts: [], attemptAnswers: [], assignmentSubmissions: [] },
       { tenantId: 't1' }
     );
     expect(result).toEqual({ pendingAttempts: [], pendingSubmissions: [] });
@@ -62,7 +82,11 @@ describe('aggregateReviewerQueue (Phase 3 Plan A pure-function)', () => {
       makeAttempt({ id: 'a3', tenantId: 't1', status: 'finished' })
     ];
     const result = aggregateReviewerQueue(
-      { testAttempts: attempts, assignmentSubmissions: [] },
+      {
+        testAttempts: attempts,
+        attemptAnswers: [makeManualAnswer('a1', 't1')],
+        assignmentSubmissions: []
+      },
       { tenantId: 't1' }
     );
     expect(result.pendingAttempts).toHaveLength(1);
@@ -78,7 +102,7 @@ describe('aggregateReviewerQueue (Phase 3 Plan A pure-function)', () => {
       makeSubmission({ id: 's4', tenantId: 't1', status: 'draft' })
     ];
     const result = aggregateReviewerQueue(
-      { testAttempts: [], assignmentSubmissions: submissions },
+      { testAttempts: [], attemptAnswers: [], assignmentSubmissions: submissions },
       { tenantId: 't1' }
     );
     expect(result.pendingSubmissions.map((s) => s.id).sort()).toEqual(['s1', 's2']);
@@ -92,6 +116,7 @@ describe('aggregateReviewerQueue (Phase 3 Plan A pure-function)', () => {
           makeAttempt({ id: 'a_t1', tenantId: 't1', status: 'submitted' }),
           makeAttempt({ id: 'a_t2', tenantId: 't2', status: 'submitted' })
         ],
+        attemptAnswers: [makeManualAnswer('a_t1', 't1'), makeManualAnswer('a_t2', 't2')],
         assignmentSubmissions: [
           makeSubmission({ id: 's_t1', tenantId: 't1', status: 'submitted' }),
           makeSubmission({ id: 's_t2', tenantId: 't2', status: 'submitted' })
@@ -111,7 +136,11 @@ describe('aggregateReviewerQueue (Phase 3 Plan A pure-function)', () => {
     });
     delete a.submittedAt;
     const result = aggregateReviewerQueue(
-      { testAttempts: [a], assignmentSubmissions: [] },
+      {
+        testAttempts: [a],
+        attemptAnswers: [makeManualAnswer('a1', 't1')],
+        assignmentSubmissions: []
+      },
       { tenantId: 't1' }
     );
     expect(result.pendingAttempts[0]!.submittedAt).toBe(a.createdAt);
@@ -129,6 +158,7 @@ describe('aggregateReviewerQueue (Phase 3 Plan A pure-function)', () => {
             learnerId: 'learner_42'
           })
         ],
+        attemptAnswers: [makeManualAnswer('a1', 't1')],
         assignmentSubmissions: [
           makeSubmission({
             id: 's1',
@@ -153,7 +183,7 @@ describe('aggregateReviewerQueue (Phase 3 Plan A pure-function)', () => {
     const attemptsSnapshot = JSON.stringify(attempts);
     const submissionsSnapshot = JSON.stringify(submissions);
     aggregateReviewerQueue(
-      { testAttempts: attempts, assignmentSubmissions: submissions },
+      { testAttempts: attempts, attemptAnswers: [], assignmentSubmissions: submissions },
       { tenantId: 't1' }
     );
     expect(JSON.stringify(attempts)).toBe(attemptsSnapshot);
