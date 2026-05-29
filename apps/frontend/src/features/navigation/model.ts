@@ -75,6 +75,34 @@ export const routeMeta: RouteMetaEntry[] = [
     pattern: '/admin/clients',
     meta: { public: false, requiredPermissions: ['counterparties.read'] }
   },
+  {
+    pattern: '/admin/question-banks/[id]',
+    meta: { public: false, requiredPermissions: ['assessment.question_banks.read'] }
+  },
+  {
+    pattern: '/admin/question-banks',
+    meta: { public: false, requiredPermissions: ['assessment.question_banks.read'] }
+  },
+  {
+    pattern: '/admin/tests/[id]',
+    meta: { public: false, requiredPermissions: ['assessment.tests.read'] }
+  },
+  {
+    pattern: '/admin/tests',
+    meta: { public: false, requiredPermissions: ['assessment.tests.read'] }
+  },
+  {
+    pattern: '/admin/assignments/[id]',
+    meta: { public: false, requiredPermissions: ['assessment.assignments.read'] }
+  },
+  {
+    pattern: '/admin/assignments',
+    meta: { public: false, requiredPermissions: ['assessment.assignments.read'] }
+  },
+  {
+    pattern: '/teacher/review',
+    meta: { public: false, requiredPermissions: ['assessment.reviews.review'] }
+  },
   { pattern: '/', meta: { public: false } },
   { pattern: '/users', meta: { public: false, requiredPermissions: ['iam.manage_roles'] } },
   {
@@ -144,6 +172,30 @@ export const navigationModel: NavigationItem[] = [
   },
   { href: '/reports', label: 'Отчеты', requiredPermissions: ['tenant.read'] },
   { href: '/settings', label: 'Настройки', requiredPermissions: ['iam.manage_roles'] },
+  {
+    href: '/admin/question-banks',
+    label: 'Банки вопросов',
+    requiredPermissions: ['assessment.question_banks.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/admin/tests',
+    label: 'Тесты',
+    requiredPermissions: ['assessment.tests.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/admin/assignments',
+    label: 'Задания',
+    requiredPermissions: ['assessment.assignments.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/teacher/review',
+    label: 'Очередь на проверку',
+    requiredPermissions: ['assessment.reviews.review'],
+    navSlot: 'more'
+  },
   {
     href: '/academy',
     label: 'Учебный центр',
