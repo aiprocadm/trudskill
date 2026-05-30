@@ -80,19 +80,19 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Current Goal
 
-Смерджить **Phase 3 Plan C** (ветка `feat/2026-05-31-phase-3-plan-c-manual-review`, 13 задач реализованы и зелёные). Далее — V1.1 polish (антивирус-скан загрузок, partial credit, расширенная essay-review UX) либо старт Phase 4.
+Смерджить **Wave 1 Plan 1** (ветка `feat/2026-05-31-wave1-module-gating`, зелёная). Далее — **Wave 1 Plan 2**: аутентификация слушателя перед экзаменом (Приказ Минобрнауки №816) — см. [дизайн](docs/superpowers/specs/2026-05-30-wave1-module-gating-pre-exam-auth-design.md) и [дорожную карту паритета](docs/superpowers/specs/2026-05-30-legacy-parity-roadmap.md).
 
 ### Last Completed Task
 
-**Phase 3 Plan C — manual review + practical submissions** (2026-05-30, ветка `feat/2026-05-31-phase-3-plan-c-manual-review`, 13 задач через subagent-driven development). **Backend (Tasks 1-7)** — presigned file upload/download (`S3StorageClient` + `FilesService.createUploadIntent/createDownloadUrl`, MIME allowlist + 10MB cap, AV `pending`; `MvpService` конструктор не тронут); `completeAttemptReview` (ручная оценка essay-ответов, пересчёт score/passed, `submitted → finished`); `returnAssignmentSubmission` (под_review → returned → resubmit → fresh review); reviewer-queue refinement (только essay-pending попытки + `essayAnswers[]` на attempt-item); DTO + 4 endpoint'а (`upload-url`/`file-url`/`return`/`complete-review`); `GET /me/assignments` (зеркало `/me/tests`); migration 0042. **Frontend (Tasks 8-12)** — `practical-submissions/` (learner: список заданий + сдача text+file + resubmit), `reviewer-actions/` (активная очередь: take/score/comment/complete/return + per-essay grading + download), nav «Мои задания», e2e. **Открытие:** assignment review-цикл уже существовал (Pillar A) — Plan C переиспользовал. Tests: backend 133 (incl. canonical `business-flows.e2e` 4 без регрессий) + frontend Plan C 34; `tsc` 8/8, ESLint clean. Review-цикл поймал 1 Critical (essay questionId слался как testId → 400) + 1 Important (queue refetch) — починены.
+**Wave 1 (учебно-экзаменационное соответствие) — Plan 1: модульный гейтинг + время на изучение** (2026-05-31, ветка `feat/2026-05-31-wave1-module-gating`, subagent-driven, 7 задач). **Backend** — `TestEntity.moduleId` (миграция `0043`, tenant-scoped composite FK `(tenant_id, module_id)`); два гейта в `MvpService.startAttempt`: `assertModuleSequenceGate` (старт теста закрыт, пока не сдан промежуточный тест предыдущего **обязательного** модуля — по `ExamResult.passed`; необязательный модуль не блокирует) и `assertMinViewGate` (закрыт, пока `ModuleProgress.studiedSeconds < module.minViewSeconds`); коды `module_gate_locked` / `min_view_not_met`; **курсы без промежуточных тестов и без `minViewSeconds` не затронуты (no-op)** — существующие экзамен-флоу без регрессий. **Frontend** — `course-viewer/module-gate.ts` (`buildModuleGateState` + `computeModuleLocks` — чистое зеркало серверного гейта) + хук `useModuleGateState`; замок модуля в TOC; обратный отсчёт времени (`useWatchTracker.onTick`). Сервер — источник истины (гейт держится при любом входе: `/me/tests` или course-viewer). Tests: backend module-gating 6/6 + DTO 97/97 + регресс `business-flows.e2e` 4/4 + test-player 11/11; frontend course-viewer 26/26; contracts 7/7; `tsc` 8/8; ESLint clean. Двухэтапное ревью (spec + quality) backend и frontend поймало: code-in-`message` leak, отсутствие tenant-scoped FK, gate-order, missing non-required test — починены. **Известный долг:** `enrollment_id` нет в сгенерированном контракте → `as`-каст в `useModuleGateState` (TODO wave1.1: typed `/exam-results/by-enrollment/:id`). **Предыдущее:** Phase 3 Plan C (manual review + practical submissions, §5.95).
 
 ### Current Task
 
-Смерджить Phase 3 Plan C PR. Параллельно — known V1.1 polish: антивирус-скан загруженных файлов (сейчас остаются `antivirus_status='pending'`), GroupCounterpartyPicker integration в GroupDetailsScreen, granular 0..1 progress rate, real course name в progress section, фильтр `counterpartyId` в `GET /groups`.
+Смерджить **Wave 1 Plan 1** PR (модульный гейтинг + время на изучение, зелёная ветка).
 
 ### Next Task
 
-**Phase 4** (ЕСИА / прокторинг, per roadmap) либо **V1.1 polish**: антивирус-скан загрузок как gate перед download (сейчас `pending`), partial credit для multi-choice, расширенная essay-review UX (показ текста ответа ученика прямо в reviewer queue — сейчас reviewer видит `essayAnswers` через queue item), file-upload для essay-ответов попыток.
+**Wave 1 Plan 2** — аутентификация перед экзаменом (Приказ №816): токены `assessment.pre_exam_tokens` (зеркало magic-link), `GroupCourse.requiresPreExamAuth`, гейт в `startAttempt`, интерстишал в test-player. Затем **Wave 2** — регуляторные выгрузки (ФИС ФРДО / ЕИСОТ / Минтруд), см. [дорожную карту паритета](docs/superpowers/specs/2026-05-30-legacy-parity-roadmap.md). Параллельно — Phase 4 (ЕСИА / прокторинг, per V1 roadmap).
 
 ### Do Not Touch
 
@@ -113,11 +113,11 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Updated By
 
-AI Agent (Phase 3 Plan C implemented end-to-end — presigned file upload + manual essay grading + return cycle + active reviewer queue; subagent-driven, 13 tasks, review-caught Critical defect fixed)
+AI Agent (Wave 1 Plan 1 — module gating + time-on-material; subagent-driven 7 tasks; two-stage spec+quality reviews caught and fixed code-in-message leak, missing tenant-scoped FK, gate order, test gap)
 
 ### Last Updated At
 
-2026-05-30 (Phase 3 Plan C done — manual review + practical submissions; previous: Phase 3 Plan B 2026-05-30 merged #211, Plan A 2026-05-30 merged #210, Phase 2 Plan C 2026-05-30, Plan B 2026-05-29, Plan A 2026-05-28, Phase 1 §4.3 + Pillar A 2026-05-27)
+2026-05-31 (Wave 1 Plan 1 done — module gating + время на изучение; previous: Phase 3 Plan C 2026-05-30 manual review + practical submissions, Plan B merged #211, Plan A merged #210, Phase 2 Plan C 2026-05-30, Plan B 2026-05-29, Plan A 2026-05-28, Phase 1 §4.3 + Pillar A 2026-05-27)
 
 ## 3. Current Project Status
 

@@ -1,5 +1,7 @@
 # Wave 1 · Plan 1 — Module Gating + Time-on-Material Implementation Plan
 
+**✅ Status: DONE (2026-05-31)** — all 7 tasks implemented on branch `feat/2026-05-31-wave1-module-gating` via subagent-driven development with two-stage (spec + quality) reviews. Tests green: backend module-gating 6/6, DTO 97/97, regress business-flows 4/4 + test-player 11/11; frontend course-viewer 26/26; contracts 7/7; `tsc` 8/8. Details: handoff §5.96.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Block a learner from starting an exam until the previous module's intermediate test is passed (sequential gating) and the module's minimum study time is met — enforced server-side in `startAttempt`, reflected in the course-viewer UI.
