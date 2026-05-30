@@ -33,6 +33,14 @@ export const backendEnvSchema = z
     S3_ACCESS_KEY: z.string().min(1),
     S3_SECRET_KEY: z.string().min(1),
     S3_BUCKET: z.string().min(1),
+    // AV scan gate (V1.1). Custom boolean parse (NOT z.coerce.boolean, which maps the
+    // string "false" → true) so a security flag is never accidentally enabled.
+    ANTIVIRUS_ENABLED: z
+      .union([z.boolean(), z.enum(['true', 'false'])])
+      .transform((v) => v === true || v === 'true')
+      .default(false),
+    CLAMAV_HOST: z.string().min(1).default('clamav'),
+    CLAMAV_PORT: z.coerce.number().int().positive().default(3310),
     SECRETS_PROVIDER: secretsProviderSchema.default('env'),
     AUTH_JWT_SECRET: z.string().min(10).optional(),
     SESSION_SECRET: z.string().min(10).optional(),

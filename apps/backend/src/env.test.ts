@@ -121,3 +121,27 @@ describe('backend env schema profile validation', () => {
     expect(messages).toContain('SECRET_ROTATION_MAX_AGE_DAYS must be <= 30 in prod');
   });
 });
+
+describe('antivirus scan gate env', () => {
+  const validDevEnv = {
+    ...baseEnv,
+    AUTH_JWT_SECRET: 'dev-secret-not-placeholder',
+    SESSION_SECRET: 'dev-session-not-placeholder'
+  } as const;
+
+  it('defaults antivirus to disabled with clamd host/port', () => {
+    const parsed = backendEnvSchema.parse(validDevEnv);
+    expect(parsed.ANTIVIRUS_ENABLED).toBe(false);
+    expect(parsed.CLAMAV_HOST).toBe('clamav');
+    expect(parsed.CLAMAV_PORT).toBe(3310);
+  });
+
+  it('enables antivirus from the string "true" but never from "false"', () => {
+    expect(
+      backendEnvSchema.parse({ ...validDevEnv, ANTIVIRUS_ENABLED: 'true' }).ANTIVIRUS_ENABLED
+    ).toBe(true);
+    expect(
+      backendEnvSchema.parse({ ...validDevEnv, ANTIVIRUS_ENABLED: 'false' }).ANTIVIRUS_ENABLED
+    ).toBe(false);
+  });
+});
