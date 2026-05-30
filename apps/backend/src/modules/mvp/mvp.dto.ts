@@ -576,6 +576,11 @@ export class CreateTestRequest {
   @MinLength(1)
   courseId!: string;
 
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  moduleId?: string;
+
   @IsString()
   @MinLength(1)
   title!: string;

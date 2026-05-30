@@ -275,6 +275,8 @@ export interface TestRule {
 
 export interface TestEntity extends BaseEntity {
   courseId: string;
+  /** Wave 1: when set, this test is the intermediate (gating) test of the module. Null ⇒ final/course exam. */
+  moduleId?: string;
   title: string;
   description?: string;
   questionBankId?: string;

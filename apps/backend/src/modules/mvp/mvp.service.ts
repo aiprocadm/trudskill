@@ -2227,6 +2227,7 @@ export class MvpService {
       id: this.id('test'),
       tenantId,
       courseId: request.courseId,
+      moduleId: request.moduleId,
       title: request.title,
       description: request.description,
       questionBankId: request.questionBankId,
