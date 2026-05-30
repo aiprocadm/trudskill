@@ -10,6 +10,17 @@ import type { RequestContext } from '../../common/context/request-context.js';
 import type { DocumentsService } from '../documents/documents.service.js';
 import type { FilesService } from '../files/files.service.js';
 
+function expectThrowsCode(fn: () => unknown, code: string): void {
+  let err: unknown;
+  try {
+    fn();
+  } catch (e) {
+    err = e;
+  }
+  expect(err, `expected a throw with code ${code}`).toBeDefined();
+  expect((err as { getResponse: () => unknown }).getResponse()).toMatchObject({ code });
+}
+
 const noopDocumentsService = {
   listDocuments: () => ({ items: [], page: 1, pageSize: 50, total: 0 })
 } as unknown as DocumentsService;
@@ -174,14 +185,16 @@ describe('startAttempt — module gating (A) + min-view time (B)', () => {
     const { course, bank, enrollment, m1, m2 } = seedTwoModuleCourse(service);
     makeTest(service, course.id, bank.id, m1.id, 'M1 test');
     const m2Test = makeTest(service, course.id, bank.id, m2.id, 'M2 test');
-    expect(() =>
-      service.startAttempt(
-        T,
-        ADMIN,
-        { testId: m2Test.id, enrollmentId: enrollment.id, learnerId: enrollment.learnerId },
-        ctx
-      )
-    ).toThrowError(/module_gate_locked/);
+    expectThrowsCode(
+      () =>
+        service.startAttempt(
+          T,
+          ADMIN,
+          { testId: m2Test.id, enrollmentId: enrollment.id, learnerId: enrollment.learnerId },
+          ctx
+        ),
+      'module_gate_locked'
+    );
   });
 
   it('unlocks module-2 test after module-1 test is passed', () => {
@@ -222,14 +235,16 @@ describe('startAttempt — module gating (A) + min-view time (B)', () => {
     const { course, bank, enrollment, m1, mat1 } = seedTwoModuleCourse(service, { m1MinView: 120 });
     const m1Test = makeTest(service, course.id, bank.id, m1.id, 'M1 test');
     // No study yet → blocked.
-    expect(() =>
-      service.startAttempt(
-        T,
-        ADMIN,
-        { testId: m1Test.id, enrollmentId: enrollment.id, learnerId: enrollment.learnerId },
-        ctx
-      )
-    ).toThrowError(/min_view_not_met/);
+    expectThrowsCode(
+      () =>
+        service.startAttempt(
+          T,
+          ADMIN,
+          { testId: m1Test.id, enrollmentId: enrollment.id, learnerId: enrollment.learnerId },
+          ctx
+        ),
+      'min_view_not_met'
+    );
     // Study 120s on the module's material → module progress meets the threshold.
     service.upsertMaterialProgress(
       T,

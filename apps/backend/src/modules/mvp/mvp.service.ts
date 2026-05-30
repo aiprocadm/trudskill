@@ -2757,9 +2757,9 @@ export class MvpService {
       enrollment.learnerId,
       context.permissions
     );
-    // Wave 1 gates: министудия времени (B) и последовательность модулей (A).
-    this.assertMinViewGate(tenantId, enrollment.id, test);
+    // Wave 1 gates: последовательность модулей (A) и минимальное время (B).
     this.assertModuleSequenceGate(tenantId, enrollment.id, test);
+    this.assertMinViewGate(tenantId, enrollment.id, test);
     const delegationAuditMetadata = this.delegatedLearningAuditMetadata(
       tenantId,
       actorId,
@@ -2875,7 +2875,7 @@ export class MvpService {
       if (gating && !this.isExamPassed(tenantId, enrollmentId, gating.id)) {
         throw new PreconditionFailedException({
           code: 'module_gate_locked',
-          message: `module_gate_locked: Module "${prior.title}" intermediate test must be passed first`
+          message: `Module "${prior.title}" intermediate test must be passed first`
         });
       }
     }
@@ -2896,7 +2896,7 @@ export class MvpService {
     if (studied < moduleEntity.minViewSeconds) {
       throw new PreconditionFailedException({
         code: 'min_view_not_met',
-        message: `min_view_not_met: Minimum study time not met (${moduleEntity.minViewSeconds - studied}s remaining)`
+        message: `Minimum study time not met (${moduleEntity.minViewSeconds - studied}s remaining)`
       });
     }
   }
