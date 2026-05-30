@@ -84,7 +84,7 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Completed Task
 
-**Phase 3 Plan C — manual review + practical submissions** (2026-05-30, ветка `feat/2026-05-31-phase-3-plan-c-manual-review`, 13 задач через subagent-driven development). **Backend (Tasks 1-7)** — presigned file upload/download (`S3StorageClient` + `FilesService.createUploadIntent/createDownloadUrl`, MIME allowlist + 10MB cap, AV `pending`; `MvpService` конструктор не тронут); `completeAttemptReview` (ручная оценка essay-ответов, пересчёт score/passed, `submitted → finished`); `returnAssignmentSubmission` (под_review → returned → resubmit → fresh review); reviewer-queue refinement (только essay-pending попытки + `essayAnswers[]` на attempt-item); DTO + 4 endpoint'а (`upload-url`/`file-url`/`return`/`complete-review`); `GET /me/assignments` (зеркало `/me/tests`); migration 0042. **Frontend (Tasks 8-12)** — `practical-submissions/` (learner: список заданий + сдача text+file + resubmit), `reviewer-actions/` (активная очередь: take/score/comment/complete/return + per-essay grading + download), nav «Мои задания», e2e. **Открытие:** assignment review-цикл уже существовал (Pillar A) — Plan C переиспользовал. Tests: backend 133 (incl. canonical `business-flows.e2e` 4 без регрессий) + frontend Plan C 34; `tsc` 8/8, ESLint clean. Review-цикл поймал 1 Critical (essay questionId слался как testId → 400) + 1 Important (queue refetch) — починены.
+**V1.1 — антивирус-скан как gate перед download (ядро, Tasks 1-6)** (2026-05-30, ветка `feat/2026-05-30-v1.1-antivirus-scan-gate`). Pluggable `AntivirusScanner` (Noop dev / ClamAV prod за `ANTIVIRUS_ENABLED`) + `ANTIVIRUS_SCANNER` DI-factory; `FilesService.scanFile` (скан → `antivirus_status`/`checked_at` → audit) + **download-гейт** в `createDownloadUrl` (отказ для не-`clean`: infected→423, error→409; ленивый скан `pending` — файл никогда не отдаётся непросканированным); `getSubmissionFileUrl` наследует гейт. Без миграции (0002 уже имеет колонки). Tests зелёные (noop 1/clamav 4/env 7/files.upload 12), typecheck OK. Коммиты `9571930`/`73b3154`/`7dbc753`/`37d025d`/`793f930`. AV по умолчанию OFF (Noop=clean) — реальная защита по флагу после clamd (ops, spec §9). **Tasks 7-13 отложены** (проактивный скан, статус в UI, интеграционный тест) — env friction на кириллическом пути. Подробно — handoff §5.96. **Предыдущее:** **Phase 3 Plan C — manual review + practical submissions** (2026-05-30, ветка `feat/2026-05-31-phase-3-plan-c-manual-review`, 13 задач через subagent-driven development). **Backend (Tasks 1-7)** — presigned file upload/download (`S3StorageClient` + `FilesService.createUploadIntent/createDownloadUrl`, MIME allowlist + 10MB cap, AV `pending`; `MvpService` конструктор не тронут); `completeAttemptReview` (ручная оценка essay-ответов, пересчёт score/passed, `submitted → finished`); `returnAssignmentSubmission` (под_review → returned → resubmit → fresh review); reviewer-queue refinement (только essay-pending попытки + `essayAnswers[]` на attempt-item); DTO + 4 endpoint'а (`upload-url`/`file-url`/`return`/`complete-review`); `GET /me/assignments` (зеркало `/me/tests`); migration 0042. **Frontend (Tasks 8-12)** — `practical-submissions/` (learner: список заданий + сдача text+file + resubmit), `reviewer-actions/` (активная очередь: take/score/comment/complete/return + per-essay grading + download), nav «Мои задания», e2e. **Открытие:** assignment review-цикл уже существовал (Pillar A) — Plan C переиспользовал. Tests: backend 133 (incl. canonical `business-flows.e2e` 4 без регрессий) + frontend Plan C 34; `tsc` 8/8, ESLint clean. Review-цикл поймал 1 Critical (essay questionId слался как testId → 400) + 1 Important (queue refetch) — починены.
 
 ### Current Task
 
@@ -113,11 +113,11 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Updated By
 
-AI Agent (Phase 3 Plan C implemented end-to-end — presigned file upload + manual essay grading + return cycle + active reviewer queue; subagent-driven, 13 tasks, review-caught Critical defect fixed)
+AI Agent (V1.1 antivirus scan gate — core Tasks 1-6: pluggable scanner + download gate, committed + tests green; Tasks 7-13 deferred — Cyrillic-path env output-buffering friction)
 
 ### Last Updated At
 
-2026-05-30 (Phase 3 Plan C done — manual review + practical submissions; previous: Phase 3 Plan B 2026-05-30 merged #211, Plan A 2026-05-30 merged #210, Phase 2 Plan C 2026-05-30, Plan B 2026-05-29, Plan A 2026-05-28, Phase 1 §4.3 + Pillar A 2026-05-27)
+2026-05-30 (V1.1 AV gate core Tasks 1-6 done + committed — ветка `feat/2026-05-30-v1.1-antivirus-scan-gate`; previous: Phase 3 Plan C 2026-05-30 manual review + practical submissions; Phase 3 Plan B 2026-05-30 merged #211, Plan A 2026-05-30 merged #210, Phase 2 Plan C 2026-05-30, Plan B 2026-05-29, Plan A 2026-05-28, Phase 1 §4.3 + Pillar A 2026-05-27)
 
 ## 3. Current Project Status
 
@@ -184,6 +184,7 @@ AI Agent (Phase 3 Plan C implemented end-to-end — presigned file upload + manu
 
 ## 7. Known Issues / Open Errors
 
+- **V1.1 AV-гейт ставится с `ANTIVIRUS_ENABLED=false`** — `NoopAntivirusScanner` помечает файлы `clean` (dev/пилот). Реальная защита требует поднятого clamd + `ANTIVIRUS_ENABLED=true` (ops, spec §9). Файлы, загруженные до V1.1, остаются `pending` и сканируются лениво при первом скачивании. Задачи 7-13 V1.1 (проактивный скан при submit, статус файла в UI, HTTP-интеграционный тест) — отложены (handoff §5.96).
 - Для полной картины по тестам и командам см. таблицу в [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §12; здесь держите только краткое резюме после крупных прогонов.
 - Регулярно синхронизировать `AI Agent State` с handoff ([протокол](docs/DOCUMENTATION_MAP.md#agent-handoff-protocol)).
 
