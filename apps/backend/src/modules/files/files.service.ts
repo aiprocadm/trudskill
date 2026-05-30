@@ -1,8 +1,20 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  HttpException,
+  Inject,
+  Injectable
+} from '@nestjs/common';
 
+import { ANTIVIRUS_SCANNER } from '../../infrastructure/antivirus/antivirus.scanner.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import { S3StorageClient } from '../../infrastructure/storage/s3-storage.client.js';
+import { AuditService } from '../audit/audit.service.js';
 
+import type {
+  AntivirusScanner,
+  AntivirusVerdict
+} from '../../infrastructure/antivirus/antivirus.scanner.js';
 import type { PoolClient } from 'pg';
 
 export interface FileMetadata {
@@ -46,7 +58,9 @@ export interface UploadIntent {
 export class FilesService {
   constructor(
     private readonly db: DatabaseService,
-    @Inject(S3StorageClient) private readonly storage: S3StorageClient
+    @Inject(S3StorageClient) private readonly storage: S3StorageClient,
+    @Inject(ANTIVIRUS_SCANNER) private readonly scanner: AntivirusScanner,
+    private readonly audit: AuditService
   ) {}
 
   async register(
@@ -137,8 +151,9 @@ export class FilesService {
   }
 
   async createDownloadUrl(tenantId: string, fileId: string): Promise<string> {
-    const rows = await this.db.query<{ storage_key: string }>(
-      `select storage_key from storage.files where tenant_id = $1 and id = $2 and deleted_at is null`,
+    const rows = await this.db.query<{ storage_key: string; antivirus_status: string }>(
+      `select storage_key, antivirus_status from storage.files
+       where tenant_id = $1 and id = $2 and deleted_at is null`,
       [tenantId, fileId]
     );
     if (!rows.length) {
@@ -147,7 +162,65 @@ export class FilesService {
         message: 'File not found for tenant'
       });
     }
+
+    let status = rows[0]!.antivirus_status;
+    if (status === 'pending') {
+      // Lazy fallback: a file must never be served unscanned, even if the proactive
+      // scan at submit did not complete. With the Noop scanner this is instant.
+      status = await this.scanFile(tenantId, fileId);
+    }
+
+    if (status === 'infected') {
+      throw new HttpException(
+        { code: 'file_infected', message: 'File failed antivirus scan and cannot be downloaded' },
+        423 // Locked
+      );
+    }
+    if (status !== 'clean') {
+      // 'error' (or any unexpected state) — needs a re-scan before it can be served.
+      throw new ConflictException({
+        code: 'file_scan_failed',
+        message: 'File antivirus scan did not complete; try again later'
+      });
+    }
+
     return this.storage.createPresignedDownloadUrl({ key: rows[0]!.storage_key });
+  }
+
+  /**
+   * Scans a stored file, persists the verdict + checked_at, and audits the result.
+   * Returns the verdict ('clean' | 'infected' | 'error'). Used proactively at submit
+   * and lazily by the download gate for 'pending' files.
+   */
+  async scanFile(tenantId: string, fileId: string, actorId?: string): Promise<AntivirusVerdict> {
+    const rows = await this.db.query<{ storage_key: string; antivirus_status: string }>(
+      `select storage_key, antivirus_status from storage.files
+       where tenant_id = $1 and id = $2 and deleted_at is null`,
+      [tenantId, fileId]
+    );
+    if (!rows.length) {
+      throw new BadRequestException({
+        code: 'file_not_found',
+        message: 'File not found for tenant'
+      });
+    }
+    const previous = rows[0]!.antivirus_status;
+    const { verdict, detail } = await this.scanner.scan({ key: rows[0]!.storage_key });
+    await this.db.query(
+      `update storage.files set antivirus_status = $3, antivirus_checked_at = now(), updated_at = now()
+       where tenant_id = $1 and id = $2`,
+      [tenantId, fileId, verdict]
+    );
+    this.audit.write({
+      tenantId,
+      actorId: actorId ?? 'system',
+      action: 'storage.file_scanned',
+      entityType: 'storage.file',
+      entityId: fileId,
+      oldValues: { antivirusStatus: previous },
+      newValues: { antivirusStatus: verdict, ...(detail ? { detail } : {}) }
+    });
+    return verdict;
   }
 
   private uploadId(): string {
