@@ -70,4 +70,14 @@ describe('computeModuleLocks', () => {
     const locks = computeModuleLocks(tree, new Map());
     expect(locks.get('m2')).toBe('unlocked');
   });
+
+  it('does not lock module 2 when module 1 is non-required even with an unpassed gating test', () => {
+    const nonRequiredTree: CourseTree = [
+      { module: { ...tree[0].module, isRequired: false }, materials: [] },
+      { module: tree[1].module, materials: [] }
+    ];
+    const gate = new Map([['m1', { gatingTestId: 'test_m1', passed: false }]]);
+    const locks = computeModuleLocks(nonRequiredTree, gate);
+    expect(locks.get('m2')).toBe('unlocked');
+  });
 });

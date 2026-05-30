@@ -96,6 +96,11 @@ export const useModuleGateState = (
     queryFn: async () => {
       const [tests, exams] = await Promise.all([
         mvpApi.listTests(session!, { course_id: courseId, page: 1, page_size: 200 }),
+        // `enrollment_id` is accepted by the backend list filter at runtime and the
+        // result set is additionally learner-scoped server-side, so the gate state is
+        // correct for the learner viewing their own course. The generated contract type
+        // lags (no `enrollment_id`), hence the cast.
+        // TODO(wave1.1): switch to a typed `/exam-results/by-enrollment/:id` fetch.
         mvpApi.listExamResults(session!, {
           enrollment_id: enrollmentId!,
           page: 1,
