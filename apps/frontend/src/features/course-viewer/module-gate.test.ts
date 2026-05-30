@@ -72,10 +72,11 @@ describe('computeModuleLocks', () => {
   });
 
   it('does not lock module 2 when module 1 is non-required even with an unpassed gating test', () => {
-    const nonRequiredTree: CourseTree = [
-      { module: { ...tree[0].module, isRequired: false }, materials: [] },
-      { module: tree[1].module, materials: [] }
-    ];
+    const nonRequiredTree: CourseTree = tree.map((node) =>
+      node.module.id === 'm1'
+        ? { module: { ...node.module, isRequired: false }, materials: [] }
+        : node
+    );
     const gate = new Map([['m1', { gatingTestId: 'test_m1', passed: false }]]);
     const locks = computeModuleLocks(nonRequiredTree, gate);
     expect(locks.get('m2')).toBe('unlocked');
