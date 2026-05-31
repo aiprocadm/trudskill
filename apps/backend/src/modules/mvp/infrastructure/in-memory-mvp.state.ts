@@ -26,6 +26,7 @@ import type {
   Material,
   MaterialProgress,
   ModuleProgress,
+  PreExamToken,
   Question,
   QuestionBank,
   TestAttempt,
@@ -68,4 +69,6 @@ export class InMemoryMvpState {
   commissions: Commission[] = [];
   commissionMembers: CommissionMember[] = [];
   courseDocumentSets: CourseDocumentSetEntry[] = [];
+  // Wave 1 Plan 2 — pre-exam identity tokens (Приказ №816); a consumed token is the verification record.
+  preExamTokens: PreExamToken[] = [];
 }

@@ -4,7 +4,7 @@ import { LoadingState } from '@cdoprof/ui';
 import Link from 'next/link';
 
 import { formatScoreLine } from './format';
-import { useAttemptResult } from './hooks';
+import { useAttempt, useAttemptResult } from './hooks';
 import {
   PageContainer,
   PageHeader,
@@ -20,6 +20,7 @@ interface TestResultScreenProps {
 
 export function TestResultScreen({ attemptId }: TestResultScreenProps) {
   const { data: result, isLoading, error } = useAttemptResult(attemptId || null);
+  const { data: attempt } = useAttempt(attemptId || null);
 
   return (
     <PageContainer>
@@ -33,6 +34,7 @@ export function TestResultScreen({ attemptId }: TestResultScreenProps) {
       ) : (
         <SectionCard title={result.passed ? 'Тест пройден' : 'Тест не пройден'}>
           <p>Баллы: {formatScoreLine(result.finalScore, result.maxScore)}</p>
+          {attempt?.identityVerifiedAt ? <p>Личность подтверждена ✓</p> : null}
           <p>Попыток: {result.attemptsCount}</p>
           <p>
             Развёрнутые ответы (эссе) при наличии проверит преподаватель — результат может

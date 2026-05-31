@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   Optional,
   PreconditionFailedException
@@ -18,6 +19,12 @@ import {
 } from './group-progress-summary.service.js';
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from './infrastructure/mvp-state.token.js';
+import {
+  PRE_EXAM_TOKEN_TTL_MS,
+  buildPreExamAuthUrl,
+  generatePreExamToken,
+  hashPreExamToken
+} from './pre-exam-token.js';
 import { aggregateReviewerQueue } from './reviewer-queue.service.js';
 import { backendEnv } from '../../env.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
@@ -101,6 +108,7 @@ import type {
   Material,
   MaterialProgress,
   ModuleProgress,
+  PreExamToken,
   ProgressStatus,
   Question,
   QuestionBank,
@@ -282,6 +290,9 @@ export class MvpService {
     @Inject(EventEmitter2) private readonly events: EventEmitter2,
     @Optional() @Inject(LicensesService) private readonly licensesService?: LicensesService
   ) {}
+
+  /** Wave 1 Plan 2: logging stub for the pre-exam identity link delivery (no constructor change). */
+  private readonly preExamLogger = new Logger('PreExamAuth');
 
   listCounterparties(tenantId: string, query: BaseFilterQuery): ListResponse<Counterparty> {
     return this.list(this.state.counterparties, tenantId, query);
@@ -1215,7 +1226,10 @@ export class MvpService {
       status: 'active',
       createdAt: this.now(),
       updatedAt: this.now(),
-      durationDays: this.normalizeDurationDays(request.durationDays)
+      durationDays: this.normalizeDurationDays(request.durationDays),
+      ...(request.requiresPreExamAuth !== undefined
+        ? { requiresPreExamAuth: request.requiresPreExamAuth }
+        : {})
     };
     this.state.groupCourses.push(entity);
     return entity;
@@ -1234,6 +1248,9 @@ export class MvpService {
       current.durationDays = undefined;
     } else if (typeof request.durationDays === 'number') {
       current.durationDays = this.normalizeDurationDays(request.durationDays);
+    }
+    if (request.requiresPreExamAuth !== undefined) {
+      current.requiresPreExamAuth = request.requiresPreExamAuth;
     }
     current.updatedAt = this.now();
     this.audit(
@@ -2757,9 +2774,10 @@ export class MvpService {
       enrollment.learnerId,
       context.permissions
     );
-    // Wave 1 gates: последовательность модулей (A) и минимальное время (B).
+    // Wave 1 gates: последовательность модулей (A), минимальное время (B), аутентификация (C).
     this.assertModuleSequenceGate(tenantId, enrollment.id, test);
     this.assertMinViewGate(tenantId, enrollment.id, test);
+    this.assertPreExamAuthGate(tenantId, enrollment, test);
     const delegationAuditMetadata = this.delegatedLearningAuditMetadata(
       tenantId,
       actorId,
@@ -2798,6 +2816,7 @@ export class MvpService {
     const expiresAt = test.rules.timeLimitMinutes
       ? new Date(now.getTime() + test.rules.timeLimitMinutes * 60000).toISOString()
       : undefined;
+    const verification = this.findPreExamVerification(tenantId, enrollment.id, test.id);
     const entity: TestAttempt = {
       id: this.id('attempt'),
       tenantId,
@@ -2812,7 +2831,13 @@ export class MvpService {
       maxScore,
       questionOrder: snapshot,
       createdAt: startedAt,
-      updatedAt: startedAt
+      updatedAt: startedAt,
+      ...(verification
+        ? {
+            identityVerifiedAt: verification.consumedAt,
+            identityVerificationTokenId: verification.id
+          }
+        : {})
     };
     this.state.attempts.push(entity);
     this.audit(
@@ -2899,6 +2924,192 @@ export class MvpService {
         message: `Minimum study time not met (${moduleEntity.minViewSeconds - studied}s remaining)`
       });
     }
+  }
+
+  // ─── Feature C: Pre-exam identity authentication (Wave 1 Plan 2 / Приказ №816) ───
+
+  /** Feature C: the group-course toggle that turns on pre-exam identity auth. */
+  private groupCourseRequiresPreExamAuth(
+    tenantId: string,
+    groupId: string,
+    courseId: string
+  ): boolean {
+    const gc = this.state.groupCourses.find(
+      (item) => item.tenantId === tenantId && item.groupId === groupId && item.courseId === courseId
+    );
+    return gc?.requiresPreExamAuth === true;
+  }
+
+  /** A consumed (and thus verifying) token for this learner's enrollment + test, if any. */
+  private findPreExamVerification(
+    tenantId: string,
+    enrollmentId: string,
+    testId: string
+  ): PreExamToken | undefined {
+    return this.state.preExamTokens.find(
+      (t) =>
+        t.tenantId === tenantId &&
+        t.enrollmentId === enrollmentId &&
+        t.testId === testId &&
+        Boolean(t.consumedAt)
+    );
+  }
+
+  /**
+   * Feature C gate. Only final/course-level exams (no moduleId) are identity-gated,
+   * and only when the group-course requires it. After verification the consumed
+   * token persists, so repeat attempts of the same exam are not re-prompted.
+   */
+  private assertPreExamAuthGate(tenantId: string, enrollment: Enrollment, test: TestEntity): void {
+    if (test.moduleId) return; // intermediate module tests are never identity-gated
+    if (!this.groupCourseRequiresPreExamAuth(tenantId, enrollment.groupId, test.courseId)) return;
+    if (this.findPreExamVerification(tenantId, enrollment.id, test.id)) return;
+    throw new PreconditionFailedException({
+      code: 'pre_exam_auth_required',
+      message: 'Identity verification is required before starting this exam'
+    });
+  }
+
+  /** Shared resolution + course-link guard used by startAttempt and pre-exam endpoints. */
+  private resolveAttemptContext(
+    tenantId: string,
+    request: StartAttemptRequest
+  ): { test: TestEntity; enrollment: Enrollment } {
+    const test = this.getById(this.state.tests, tenantId, request.testId);
+    const enrollment = this.getById(this.state.enrollments, tenantId, request.enrollmentId);
+    const hasGroupCourseAccess = this.state.groupCourses.some(
+      (item) =>
+        item.tenantId === tenantId &&
+        item.groupId === enrollment.groupId &&
+        item.courseId === test.courseId
+    );
+    if (!hasGroupCourseAccess) {
+      throw new PreconditionFailedException({
+        code: 'domain_rule_violation',
+        message: 'Enrollment is not linked to the test course'
+      });
+    }
+    return { test, enrollment };
+  }
+
+  /**
+   * Issue a single-use identity token and "send" the verify link (logged in dev/pilot;
+   * a real e-mail adapter is a follow-up). Never returns the raw token.
+   */
+  requestPreExamToken(
+    tenantId: string,
+    actorId: string | undefined,
+    request: StartAttemptRequest,
+    context: RequestContext
+  ): { delivered: true; alreadyVerified: boolean } {
+    const { test, enrollment } = this.resolveAttemptContext(tenantId, request);
+    if (this.findPreExamVerification(tenantId, enrollment.id, test.id)) {
+      return { delivered: true, alreadyVerified: true };
+    }
+    const rawToken = generatePreExamToken();
+    const now = this.now();
+    const entity: PreExamToken = {
+      id: this.id('preexam'),
+      tenantId,
+      enrollmentId: enrollment.id,
+      testId: test.id,
+      learnerId: enrollment.learnerId,
+      tokenHash: hashPreExamToken(rawToken),
+      expiresAt: new Date(new Date(now).getTime() + PRE_EXAM_TOKEN_TTL_MS).toISOString(),
+      status: 'active',
+      createdAt: now,
+      updatedAt: now
+    };
+    this.state.preExamTokens.push(entity);
+    this.preExamLogger.log(
+      `pre_exam_auth.delivery enrollment=${enrollment.id} test=${test.id} url=${buildPreExamAuthUrl(rawToken)} (log-only)`
+    );
+    this.audit(
+      tenantId,
+      actorId,
+      'assessment.pre_exam_token_requested',
+      'assessment.pre_exam_token',
+      entity.id,
+      undefined,
+      { id: entity.id, enrollmentId: entity.enrollmentId, testId: entity.testId },
+      context
+    );
+    return { delivered: true, alreadyVerified: false };
+  }
+
+  /**
+   * @internal Test/dev-only: like {@link requestPreExamToken} but returns the raw token.
+   * SECURITY: returning the raw token bypasses the e-mail-delivery identity check, so this
+   * MUST NEVER be wired to an HTTP endpoint. Use only from unit tests (direct instantiation).
+   */
+  requestPreExamTokenRaw(
+    tenantId: string,
+    actorId: string | undefined,
+    request: StartAttemptRequest,
+    context: RequestContext
+  ): string {
+    const { test, enrollment } = this.resolveAttemptContext(tenantId, request);
+    const rawToken = generatePreExamToken();
+    const now = this.now();
+    const entity: PreExamToken = {
+      id: this.id('preexam'),
+      tenantId,
+      enrollmentId: enrollment.id,
+      testId: test.id,
+      learnerId: enrollment.learnerId,
+      tokenHash: hashPreExamToken(rawToken),
+      expiresAt: new Date(new Date(now).getTime() + PRE_EXAM_TOKEN_TTL_MS).toISOString(),
+      status: 'active',
+      createdAt: now,
+      updatedAt: now
+    };
+    this.state.preExamTokens.push(entity);
+    // actorId and context are used consistently with the public method but audit is omitted
+    // (this is test/dev only — the raw token exists only in test code, never in production flow).
+    void actorId;
+    void context;
+    return rawToken;
+  }
+
+  /** Redeem the link: mark the matching token consumed (= verification record). */
+  verifyPreExamToken(
+    tenantId: string,
+    actorId: string | undefined,
+    request: { token: string },
+    context: RequestContext
+  ): { verified: true; enrollmentId: string; testId: string } {
+    const tokenHash = hashPreExamToken(request.token ?? '');
+    const record = this.state.preExamTokens.find(
+      (t) => t.tenantId === tenantId && t.tokenHash === tokenHash
+    );
+    if (!record) {
+      throw new BadRequestException({
+        code: 'pre_exam_token_invalid',
+        message: 'Verification link is invalid'
+      });
+    }
+    if (!record.consumedAt) {
+      if (new Date(record.expiresAt).getTime() < new Date(this.now()).getTime()) {
+        throw new PreconditionFailedException({
+          code: 'pre_exam_token_expired',
+          message: 'Verification link has expired'
+        });
+      }
+      record.consumedAt = this.now();
+      record.verifiedByActorId = actorId;
+      record.updatedAt = this.now();
+      this.audit(
+        tenantId,
+        actorId,
+        'assessment.pre_exam_token_verified',
+        'assessment.pre_exam_token',
+        record.id,
+        undefined,
+        { id: record.id, enrollmentId: record.enrollmentId, testId: record.testId },
+        context
+      );
+    }
+    return { verified: true, enrollmentId: record.enrollmentId, testId: record.testId };
   }
 
   saveAnswer(

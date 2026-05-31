@@ -7,7 +7,13 @@ import { testPlayerApi } from './api';
 import { ApiClientError } from '../../lib/api/client';
 import { useAuth } from '../auth/context';
 
-import type { AttemptDto, SaveAnswerPayload, StartAttemptPayload } from './types';
+import type {
+  AttemptDto,
+  PreExamTokenDelivery,
+  RequestPreExamTokenPayload,
+  SaveAnswerPayload,
+  StartAttemptPayload
+} from './types';
 
 export function useMyTests() {
   const { session } = useAuth();
@@ -109,6 +115,28 @@ export function useSubmitAttempt() {
       return data;
     } catch (err) {
       setState({ isPending: false, error: describe(err, 'Не удалось завершить тест'), data: null });
+      return null;
+    }
+  };
+  return { ...state, mutate, reset: () => setState(initial()) };
+}
+
+export function useRequestPreExamToken() {
+  const { session } = useAuth();
+  const [state, setState] = useState<MutationState<PreExamTokenDelivery>>(initial());
+  const mutate = async (payload: RequestPreExamTokenPayload) => {
+    if (!session) return null;
+    setState({ isPending: true, error: null, data: null });
+    try {
+      const data = await testPlayerApi.requestPreExamToken(session, payload);
+      setState({ isPending: false, error: null, data });
+      return data;
+    } catch (err) {
+      setState({
+        isPending: false,
+        error: describe(err, 'Не удалось отправить ссылку для подтверждения личности'),
+        data: null
+      });
       return null;
     }
   };

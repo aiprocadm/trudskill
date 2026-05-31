@@ -36,6 +36,8 @@ export interface AttemptDto {
   maxScore: number;
   passed?: boolean;
   questionOrder: string[];
+  /** Wave 1 Plan 2: set when identity was verified (Приказ №816) before this attempt. */
+  identityVerifiedAt?: string;
 }
 
 export interface ExamResultDto {
@@ -68,6 +70,23 @@ export interface StartAttemptPayload {
   testId: string;
   enrollmentId: string;
   learnerId: string;
+}
+
+export interface RequestPreExamTokenPayload {
+  testId: string;
+  enrollmentId: string;
+  learnerId: string;
+}
+
+export interface PreExamTokenDelivery {
+  delivered: boolean;
+  alreadyVerified?: boolean;
+}
+
+export interface VerifyPreExamTokenResult {
+  verified: boolean;
+  enrollmentId: string;
+  testId: string;
 }
 
 export interface SaveAnswerPayload {
