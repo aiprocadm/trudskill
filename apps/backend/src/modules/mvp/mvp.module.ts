@@ -12,6 +12,8 @@ import { MvpBulkEnqueueService } from './mvp-bulk-enqueue.service.js';
 import { MvpInternalWorkerController } from './mvp-internal-worker.controller.js';
 import { MvpController } from './mvp.controller.js';
 import { MvpService } from './mvp.service.js';
+import { OtRegistryXlsxWriter } from './ot-registry/ot-registry-xlsx.writer.js';
+import { OtRegistryService } from './ot-registry/ot-registry.service.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { DocumentsModule } from '../documents/documents.module.js';
 import { FilesModule } from '../files/files.module.js';
@@ -27,6 +29,8 @@ import { OrgModule } from '../org/org.module.js';
     { provide: MVP_PERSISTENCE_BACKEND, useClass: MvpPersistenceRepositoryAdapter },
     { provide: MVP_STATE, scope: Scope.REQUEST, useClass: InMemoryMvpState },
     { provide: MvpService, scope: Scope.REQUEST, useClass: MvpService },
+    OtRegistryXlsxWriter,
+    { provide: OtRegistryService, scope: Scope.REQUEST, useClass: OtRegistryService },
     { provide: LearnerPdfCardService, scope: Scope.REQUEST, useClass: LearnerPdfCardService },
     {
       provide: LearnersBulkImportService,
