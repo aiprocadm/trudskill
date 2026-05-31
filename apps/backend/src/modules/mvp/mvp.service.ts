@@ -2227,6 +2227,7 @@ export class MvpService {
       id: this.id('test'),
       tenantId,
       courseId: request.courseId,
+      moduleId: request.moduleId,
       title: request.title,
       description: request.description,
       questionBankId: request.questionBankId,
@@ -2756,6 +2757,9 @@ export class MvpService {
       enrollment.learnerId,
       context.permissions
     );
+    // Wave 1 gates: последовательность модулей (A) и минимальное время (B).
+    this.assertModuleSequenceGate(tenantId, enrollment.id, test);
+    this.assertMinViewGate(tenantId, enrollment.id, test);
     const delegationAuditMetadata = this.delegatedLearningAuditMetadata(
       tenantId,
       actorId,
@@ -2824,6 +2828,79 @@ export class MvpService {
     );
     return entity;
   }
+
+  /** The intermediate (gating) test of a module, if any. */
+  private getModuleGatingTest(tenantId: string, moduleId: string): TestEntity | undefined {
+    return this.state.tests.find(
+      (t) => t.tenantId === tenantId && t.moduleId === moduleId && !t.isArchived
+    );
+  }
+
+  /** Whether the learner already has a passing ExamResult for the given test. */
+  private isExamPassed(tenantId: string, enrollmentId: string, testId: string): boolean {
+    return this.state.examResults.some(
+      (er) =>
+        er.tenantId === tenantId &&
+        er.enrollmentId === enrollmentId &&
+        er.testId === testId &&
+        er.passed === true
+    );
+  }
+
+  /** Required modules that must be passed before the given test can start. */
+  private requiredPriorModules(tenantId: string, test: TestEntity): CourseModuleEntity[] {
+    if (test.moduleId) {
+      const current = this.getById(this.state.modules, tenantId, test.moduleId);
+      return this.state.modules.filter(
+        (m) =>
+          m.tenantId === tenantId &&
+          m.courseVersionId === current.courseVersionId &&
+          m.isRequired &&
+          m.sortOrder < current.sortOrder
+      );
+    }
+    // Final/course-level exam: all required modules of the course must be passed.
+    const versionIds = this.state.courseVersions
+      .filter((v) => v.tenantId === tenantId && v.courseId === test.courseId)
+      .map((v) => v.id);
+    return this.state.modules.filter(
+      (m) => m.tenantId === tenantId && versionIds.includes(m.courseVersionId) && m.isRequired
+    );
+  }
+
+  /** Feature A: block until every required prior module with a gating test has been passed. */
+  private assertModuleSequenceGate(tenantId: string, enrollmentId: string, test: TestEntity): void {
+    for (const prior of this.requiredPriorModules(tenantId, test)) {
+      const gating = this.getModuleGatingTest(tenantId, prior.id);
+      if (gating && !this.isExamPassed(tenantId, enrollmentId, gating.id)) {
+        throw new PreconditionFailedException({
+          code: 'module_gate_locked',
+          message: `Module "${prior.title}" intermediate test must be passed first`
+        });
+      }
+    }
+  }
+
+  /** Feature B: block a module test until the module's minimum study time is met. */
+  private assertMinViewGate(tenantId: string, enrollmentId: string, test: TestEntity): void {
+    if (!test.moduleId) return;
+    const moduleEntity = this.getById(this.state.modules, tenantId, test.moduleId);
+    if (moduleEntity.minViewSeconds <= 0) return;
+    const progress = this.state.moduleProgress.find(
+      (item) =>
+        item.tenantId === tenantId &&
+        item.enrollmentId === enrollmentId &&
+        item.moduleId === moduleEntity.id
+    );
+    const studied = progress?.studiedSeconds ?? 0;
+    if (studied < moduleEntity.minViewSeconds) {
+      throw new PreconditionFailedException({
+        code: 'min_view_not_met',
+        message: `Minimum study time not met (${moduleEntity.minViewSeconds - studied}s remaining)`
+      });
+    }
+  }
+
   saveAnswer(
     tenantId: string,
     actorId: string | undefined,

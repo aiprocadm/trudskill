@@ -80,6 +80,7 @@ interface UseWatchTrackerArgs {
   flushIntervalMs?: number | undefined;
   onFlush?: ((studiedSeconds: number) => void) | undefined;
   onMinimumReached?: (() => void) | undefined;
+  onTick?: ((studiedSeconds: number) => void) | undefined;
 }
 
 export const useWatchTracker = ({
@@ -87,18 +88,22 @@ export const useWatchTracker = ({
   minViewSeconds,
   flushIntervalMs,
   onFlush,
-  onMinimumReached
+  onMinimumReached,
+  onTick
 }: UseWatchTrackerArgs): void => {
   const onFlushRef = useRef(onFlush);
   const onMinimumReachedRef = useRef(onMinimumReached);
+  const onTickRef = useRef(onTick);
   onFlushRef.current = onFlush;
   onMinimumReachedRef.current = onMinimumReached;
+  onTickRef.current = onTick;
 
   useEffect(() => {
     if (!materialId) return;
     const tracker = createWatchTracker({
       minViewSeconds,
       flushIntervalMs,
+      onTick: (s) => onTickRef.current?.(s),
       onFlush: (s) => onFlushRef.current?.(s),
       onMinimumReached: () => onMinimumReachedRef.current?.()
     });

@@ -817,3 +817,30 @@ describe('UpdateAssignmentRequest (PATCH)', () => {
     expect(validateDto(Phase3UpdateAssignmentRequest, { title: '' }).length).toBeGreaterThan(0);
   });
 });
+
+describe('CreateTestRequest — moduleId (Wave 1)', () => {
+  it('accepts an optional moduleId string', () => {
+    const dto = plainToInstance(Phase3CreateTestRequest, {
+      courseId: 'c1',
+      title: 'Module 1 test',
+      moduleId: 'mod_1'
+    });
+    expect(validateSync(dto)).toHaveLength(0);
+    expect(dto.moduleId).toBe('mod_1');
+  });
+
+  it('accepts an omitted moduleId (course-level / final exam)', () => {
+    const dto = plainToInstance(Phase3CreateTestRequest, { courseId: 'c1', title: 'Final' });
+    expect(validateSync(dto)).toHaveLength(0);
+    expect(dto.moduleId).toBeUndefined();
+  });
+
+  it('rejects an empty-string moduleId', () => {
+    const dto = plainToInstance(Phase3CreateTestRequest, {
+      courseId: 'c1',
+      title: 'X',
+      moduleId: ''
+    });
+    expect(validateSync(dto).length).toBeGreaterThan(0);
+  });
+});

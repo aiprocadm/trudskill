@@ -19,6 +19,7 @@ interface Props {
   tree: CourseTree;
   progressByMaterial: ProgressByMaterial;
   lockState: LockState;
+  moduleLocks: LockState;
   currentMaterialId: string | null;
   onSelect: (materialId: string) => void;
 }
@@ -27,6 +28,7 @@ export const TableOfContents = ({
   tree,
   progressByMaterial,
   lockState,
+  moduleLocks,
   currentMaterialId,
   onSelect
 }: Props) => {
@@ -44,22 +46,26 @@ export const TableOfContents = ({
         const completed = node.materials.filter(
           (m) => progressByMaterial.get(m.id)?.status === 'completed'
         ).length;
+        const moduleLocked = moduleLocks.get(node.module.id) === 'locked';
         return (
           <details
             key={node.module.id}
-            open
-            className="course-toc__module"
+            open={!moduleLocked}
+            className={`course-toc__module${moduleLocked ? ' course-toc__module--locked' : ''}`}
             data-testid={`course-toc-module-${node.module.id}`}
           >
             <summary className="course-toc__module-summary">
-              <span className="course-toc__module-title">{node.module.title}</span>
+              <span className="course-toc__module-title">
+                {moduleLocked ? '🔒 ' : ''}
+                {node.module.title}
+              </span>
               <span className="course-toc__module-counter ui-text-muted">
                 {moduleProgress(node.materials.length, completed)}
               </span>
             </summary>
             <ul className="course-toc__materials">
               {node.materials.map((material) => {
-                const lock = lockState.get(material.id) ?? 'locked';
+                const lock = moduleLocked ? 'locked' : (lockState.get(material.id) ?? 'locked');
                 const isLocked = lock === 'locked';
                 const status = progressByMaterial.get(material.id)?.status;
                 const isCurrent = material.id === currentMaterialId;

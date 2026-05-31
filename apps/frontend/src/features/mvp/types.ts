@@ -152,6 +152,8 @@ export interface Question extends BaseEntity {
 export interface TestEntity extends BaseEntity {
   title: string;
   courseId: string;
+  /** Wave 1: gating module for this test (undefined ⇒ final/course exam). */
+  moduleId?: string;
   questionBankId?: string;
   description?: string;
   rules: {

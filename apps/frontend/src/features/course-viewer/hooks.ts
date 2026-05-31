@@ -4,12 +4,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 
 import { loadCourseTree } from './api';
+import { buildModuleGateState } from './module-gate';
 import { useAuth } from '../auth/context';
 import { mvpApi } from '../mvp/api';
 
+import type { ModuleGateState } from './module-gate';
 import type { CourseTree, ProgressByMaterial } from './types';
 import type { UserSession } from '../../entities/session/model';
-import type { CourseVersion, Progress } from '../mvp/types';
+import type { BaseFilterQuery, CourseVersion, Progress } from '../mvp/types';
 
 const pickPublishedVersion = (versions: CourseVersion[]): CourseVersion | null => {
   const published = versions.filter((v) => v.status === 'published');
@@ -82,6 +84,34 @@ interface UpsertMaterialProgressArgs {
   enrollmentId: string;
   studiedSeconds: number;
 }
+
+export const useModuleGateState = (
+  courseId: string,
+  enrollmentId: string | null
+): { gate: ModuleGateState; loading: boolean } => {
+  const { session } = useAuth();
+  const query = useQuery({
+    queryKey: ['mvp', 'moduleGate', courseId, enrollmentId],
+    enabled: Boolean(session) && Boolean(courseId) && Boolean(enrollmentId),
+    queryFn: async () => {
+      const [tests, exams] = await Promise.all([
+        mvpApi.listTests(session!, { course_id: courseId, page: 1, page_size: 200 }),
+        // `enrollment_id` is accepted by the backend list filter at runtime and the
+        // result set is additionally learner-scoped server-side, so the gate state is
+        // correct for the learner viewing their own course. The generated contract type
+        // lags (no `enrollment_id`), hence the cast.
+        // TODO(wave1.1): switch to a typed `/exam-results/by-enrollment/:id` fetch.
+        mvpApi.listExamResults(session!, {
+          enrollment_id: enrollmentId!,
+          page: 1,
+          page_size: 200
+        } as BaseFilterQuery)
+      ]);
+      return buildModuleGateState(tests.items, exams.items);
+    }
+  });
+  return { gate: query.data ?? new Map(), loading: query.isLoading };
+};
 
 export const useUpsertMaterialProgress = (courseId: string) => {
   const { session } = useAuth();

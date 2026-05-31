@@ -6,10 +6,12 @@ import {
   buildProgressMap,
   useCourseTree,
   useLearnerEnrollmentForCourse,
+  useModuleGateState,
   useUpsertMaterialProgress
 } from './hooks';
 import { computeUnlockedMaterials } from './lock-logic';
 import { MaterialPlayer } from './material-player';
+import { computeModuleLocks } from './module-gate';
 import { TableOfContents } from './table-of-contents';
 import { useWatchTracker } from './use-watch-tracker';
 import {
@@ -62,6 +64,9 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
     [tree, progressByMaterial]
   );
 
+  const { gate: moduleGate } = useModuleGateState(courseId, enrollmentId);
+  const moduleLocks = useMemo(() => computeModuleLocks(tree ?? [], moduleGate), [tree, moduleGate]);
+
   const initialMaterialId = useMemo(
     () => findFirstUnlockedNotStarted(tree, lockState, progressByMaterial),
     [tree, lockState, progressByMaterial]
@@ -82,6 +87,12 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
     }
     return null;
   }, [tree, currentMaterialId]);
+
+  const [studiedSeconds, setStudiedSeconds] = useState(0);
+  useEffect(() => {
+    setStudiedSeconds(0);
+  }, [currentMaterialId]);
+  const remainingSeconds = Math.max(0, (currentMaterial?.minViewSeconds ?? 0) - studiedSeconds);
 
   const totalCount = useMemo(
     () => (tree ?? []).reduce((acc, node) => acc + node.materials.length, 0),
@@ -105,7 +116,8 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
   useWatchTracker({
     materialId: enrollmentId ? currentMaterialId : null,
     minViewSeconds: currentMaterial?.minViewSeconds ?? 30,
-    onFlush: handleFlush
+    onFlush: handleFlush,
+    onTick: setStudiedSeconds
   });
 
   const loading = courseLoading || treeLoading || progressLoading;
@@ -144,10 +156,16 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
             tree={tree}
             progressByMaterial={progressByMaterial}
             lockState={lockState}
+            moduleLocks={moduleLocks}
             currentMaterialId={currentMaterialId}
             onSelect={setCurrentMaterialId}
           />
           <section className="course-player" data-testid="course-player">
+            {currentMaterial && remainingSeconds > 0 ? (
+              <p className="ui-text-muted" data-testid="course-min-view-countdown">
+                До открытия экзамена модуля осталось изучать: {remainingSeconds} с
+              </p>
+            ) : null}
             {currentMaterial ? (
               <MaterialPlayer material={currentMaterial} />
             ) : (
