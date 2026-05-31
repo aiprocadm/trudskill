@@ -15,6 +15,7 @@ import type {
   StorageClient,
   StorageReadiness
 } from './storage.client.js';
+import type { Readable } from 'node:stream';
 
 @Injectable()
 export class S3StorageClient implements StorageClient {
@@ -54,6 +55,20 @@ export class S3StorageClient implements StorageClient {
     return getSignedUrl(this.getClient(), command, {
       expiresIn: params.expiresInSeconds ?? 900
     });
+  }
+
+  async getObjectStream(params: { key: string }): Promise<Readable> {
+    const response = await this.getClient().send(
+      new GetObjectCommand({
+        Bucket: backendEnv.S3_BUCKET,
+        Key: params.key
+      })
+    );
+    if (!response.Body) {
+      throw new Error(`Object has no body: ${params.key}`);
+    }
+    // In Node, GetObject Body is a Readable stream.
+    return response.Body as Readable;
   }
 
   private getClient(): S3Client {
