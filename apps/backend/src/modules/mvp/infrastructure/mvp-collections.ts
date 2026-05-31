@@ -29,7 +29,8 @@ export const MVP_COLLECTIONS = [
   'bulkImportIdempotency',
   'commissions',
   'commissionMembers',
-  'courseDocumentSets'
+  'courseDocumentSets',
+  'preExamTokens'
 ] as const;
 
 export type MvpCollection = (typeof MVP_COLLECTIONS)[number];

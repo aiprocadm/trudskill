@@ -254,6 +254,10 @@ export class CreateGroupCourseRequest {
   @IsInt()
   @Min(1)
   durationDays?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  requiresPreExamAuth?: boolean;
 }
 
 export class UpdateGroupCourseRequest {
@@ -263,6 +267,10 @@ export class UpdateGroupCourseRequest {
   @IsInt()
   @Min(1)
   durationDays?: number | null;
+
+  @IsOptional()
+  @IsBoolean()
+  requiresPreExamAuth?: boolean;
 }
 
 export class CreateEnrollmentRequest {

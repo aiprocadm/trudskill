@@ -92,6 +92,8 @@ export interface GroupCourse extends BaseEntity {
   sortOrder: number;
   /** Срок прохождения курса в рамках группы (дней от даты зачисления). */
   durationDays?: number;
+  /** Wave 1 Plan 2 (Приказ №816): require identity verification before the final exam. */
+  requiresPreExamAuth?: boolean;
 }
 
 export type EnrollmentStatus = 'pending' | 'active' | 'suspended' | 'completed' | 'cancelled';
@@ -316,9 +318,28 @@ export interface TestAttempt extends BaseEntity {
   questionOrder: string[];
   reviewComment?: string; // Plan C: reviewer note from manual essay grading
   reviewedBy?: string; // Plan C: actorId who completed the manual review
+  /** Wave 1 Plan 2: when identity was verified (Приказ №816) before this attempt. */
+  identityVerifiedAt?: string;
+  /** The consumed PreExamToken.id that proved identity for this attempt. */
+  identityVerificationTokenId?: string;
 }
 
 export type Attempt = TestAttempt;
+
+/**
+ * Wave 1 Plan 2 (Приказ №816): single-use identity token e-mailed to the learner
+ * before a final exam. Hash-only storage; a token with `consumedAt` set is the
+ * verification record for its `(enrollmentId, testId)`.
+ */
+export interface PreExamToken extends BaseEntity {
+  enrollmentId: string;
+  testId: string;
+  learnerId: string;
+  tokenHash: string;
+  expiresAt: string;
+  consumedAt?: string;
+  verifiedByActorId?: string;
+}
 
 export interface AttemptAnswer extends BaseEntity {
   attemptId: string;
