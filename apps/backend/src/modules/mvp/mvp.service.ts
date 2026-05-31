@@ -4695,6 +4695,7 @@ export class MvpService {
       cv.programAttachmentFileId = request.programAttachmentFileId;
     }
     if (request.commissionId !== undefined) cv.commissionId = request.commissionId;
+    if (request.otProgramCodes !== undefined) cv.otProgramCodes = request.otProgramCodes;
     cv.updatedAt = this.now();
 
     this.audit(
