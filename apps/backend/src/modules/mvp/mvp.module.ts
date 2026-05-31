@@ -13,6 +13,7 @@ import { MvpInternalWorkerController } from './mvp-internal-worker.controller.js
 import { MvpController } from './mvp.controller.js';
 import { MvpService } from './mvp.service.js';
 import { OtRegistryXlsxWriter } from './ot-registry/ot-registry-xlsx.writer.js';
+import { OtRegistryController } from './ot-registry/ot-registry.controller.js';
 import { OtRegistryService } from './ot-registry/ot-registry.service.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { DocumentsModule } from '../documents/documents.module.js';
@@ -22,7 +23,7 @@ import { OrgModule } from '../org/org.module.js';
 
 @Module({
   imports: [InfrastructureModule, FilesModule, IamModule, DocumentsModule, OrgModule],
-  controllers: [MvpController, MvpInternalWorkerController],
+  controllers: [MvpController, MvpInternalWorkerController, OtRegistryController],
   providers: [
     MvpBulkEnqueueService,
     PostgresMvpPersistenceBackend,

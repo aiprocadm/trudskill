@@ -270,6 +270,30 @@ describe('MVP HTTP integration (permission boundaries)', () => {
           perCourse: []
         };
       }
+
+      // Wave 2 — ОТ registry export (POST requires write; GET requires read)
+      @Post('ot-registry/exports')
+      @RequirePermissions('regulatory.export.write')
+      createOtRegistryExport(
+        @CurrentContext() context: { tenantId?: string; userId?: string },
+        @Body() body: { groupId?: string; clientId?: string }
+      ) {
+        return {
+          batchId: 'otb_stub',
+          tenantId: context.tenantId,
+          createdBy: context.userId,
+          groupId: body.groupId ?? null,
+          total: 0,
+          exported: 0,
+          failed: 0
+        };
+      }
+
+      @Get('ot-registry/exports')
+      @RequirePermissions('regulatory.export.read')
+      listOtRegistryExports(@CurrentContext() context: { tenantId?: string }) {
+        return { items: [], tenantId: context.tenantId };
+      }
     }
 
     @Module({
@@ -763,6 +787,124 @@ describe('MVP HTTP integration (permission boundaries)', () => {
       };
       expect(payload.data.counterpartyId).toBe('cp-1');
       expect(payload.data.totalLearners).toBe(0);
+      expect(payload.meta.requestId).toBeTruthy();
+    });
+  });
+
+  // === Wave 2 — ОТ registry export RBAC boundary ===
+
+  describe('ОТ registry export permission boundary', () => {
+    beforeEach(() => {
+      iamServiceMock.resolvePermissions.mockReset();
+      iamServiceMock.resolvePermissions.mockResolvedValue(['courses.read']);
+    });
+
+    it('POST /ot-registry/exports — 401 auth_required without bearer token', async () => {
+      const response = await fetch(`${apiBaseUrl}/ot-registry/exports`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-tenant-id': 'tenant_demo' },
+        body: JSON.stringify({})
+      });
+      expect(response.status).toBe(401);
+      const payload = (await response.json()) as {
+        error: { code: string };
+        meta: { requestId: string };
+      };
+      expect(payload.error.code).toBe('auth_required');
+      expect(payload.meta.requestId).toBeTruthy();
+    });
+
+    it('POST /ot-registry/exports — 403 permission_denied without regulatory.export.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['regulatory.export.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['teacher'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/ot-registry/exports`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ groupId: 'g1' })
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as {
+        error: { code: string };
+        meta: { requestId: string };
+      };
+      expect(payload.error.code).toBe('permission_denied');
+      expect(payload.meta.requestId).toBeTruthy();
+    });
+
+    it('POST /ot-registry/exports — 201 success with regulatory.export.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['regulatory.export.write']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_admin', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/ot-registry/exports`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ groupId: 'g1' })
+      });
+      expect(response.status).toBe(201);
+      const payload = (await response.json()) as {
+        data: { batchId: string; tenantId: string; createdBy: string };
+        meta: { requestId: string; correlationId: string };
+      };
+      expect(payload.data.batchId).toBe('otb_stub');
+      expect(payload.data.tenantId).toBe('tenant_demo');
+      expect(payload.data.createdBy).toBe('u_admin');
+      expect(payload.meta.requestId).toBeTruthy();
+      expect(payload.meta.correlationId).toBeTruthy();
+    });
+
+    it('GET /ot-registry/exports — 403 permission_denied without regulatory.export.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['courses.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['teacher'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/ot-registry/exports`, {
+        headers: {
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        }
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('GET /ot-registry/exports — 200 success with regulatory.export.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['regulatory.export.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_admin', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/ot-registry/exports`, {
+        headers: {
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        }
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as {
+        data: { items: unknown[]; tenantId: string };
+        meta: { requestId: string };
+      };
+      expect(Array.isArray(payload.data.items)).toBe(true);
+      expect(payload.data.tenantId).toBe('tenant_demo');
       expect(payload.meta.requestId).toBeTruthy();
     });
   });
