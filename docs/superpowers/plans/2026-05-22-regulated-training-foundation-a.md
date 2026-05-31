@@ -88,7 +88,7 @@
 - `learning.commissions` — атттестационная комиссия (code, name, description, status active/archived).
 - `learning.commission_members` — члены с ролями (chairman, deputy_chairman, member, secretary, external_expert), либо `user_id` (внутренний пользователь IAM), либо `external_full_name + external_position` (внешний эксперт). `signature_file_id` — PNG/SVG подписи в storage.
 
-- [ ] **Step 1: Создать миграционный файл**
+- [x] **Step 1: Создать миграционный файл**
 
 ```sql
 -- apps/backend/migrations/0029_learning_commissions.sql
@@ -134,7 +134,7 @@ CREATE INDEX IF NOT EXISTS idx_commission_members_commission
   ON learning.commission_members (tenant_id, commission_id, position_in_order);
 ```
 
-- [ ] **Step 2: Расширить тест миграций**
+- [x] **Step 2: Расширить тест миграций**
 
 В файле `apps/backend/src/infrastructure/database/mvp-domain-migrations.test.ts` добавить новый `describe` блок:
 
@@ -181,12 +181,12 @@ describe('migration 0029 — commissions', () => {
 });
 ```
 
-- [ ] **Step 3: Прогнать тесты миграций**
+- [x] **Step 3: Прогнать тесты миграций**
 
 Run: `pnpm -F backend test -- mvp-domain-migrations`
 Expected: новые describe-блоки → PASS.
 
-- [ ] **Step 4: Коммит**
+- [x] **Step 4: Коммит**
 
 ```bash
 git add apps/backend/migrations/0029_learning_commissions.sql apps/backend/src/infrastructure/database/mvp-domain-migrations.test.ts
@@ -210,7 +210,7 @@ git commit -m "feat(backend): add commissions migration 0029 (learning.commissio
 2. Новая schema `lookup` + таблица `lookup.regulatory_acts` со seed-данными (ПП 2464, ФЗ-116, ФЗ-273 ст.196, приказ Минтруда 26н, приказ Минздрава 707н).
 3. Новая таблица `learning.course_document_sets` с composite FK на `course_versions` и `documents.templates`.
 
-- [ ] **Step 1: Создать миграционный файл**
+- [x] **Step 1: Создать миграционный файл**
 
 ```sql
 -- apps/backend/migrations/0030_learning_course_program_meta.sql
@@ -295,7 +295,7 @@ CREATE INDEX IF NOT EXISTS idx_course_doc_sets_course_version
   ON learning.course_document_sets (tenant_id, course_version_id, position);
 ```
 
-- [ ] **Step 2: Расширить тест миграций**
+- [x] **Step 2: Расширить тест миграций**
 
 ```typescript
 describe('migration 0030 — program meta + course_document_sets', () => {
@@ -379,12 +379,12 @@ describe('migration 0030 — program meta + course_document_sets', () => {
 });
 ```
 
-- [ ] **Step 3: Прогнать тесты**
+- [x] **Step 3: Прогнать тесты**
 
 Run: `pnpm -F backend test -- mvp-domain-migrations`
 Expected: PASS. Если падает существующий тест миграции 0002 (там пишутся записи в course_versions без новых полей) — добавить дефолты для них или обновить тестовые fixtures.
 
-- [ ] **Step 4: Коммит**
+- [x] **Step 4: Коммит**
 
 ```bash
 git add apps/backend/migrations/0030_learning_course_program_meta.sql apps/backend/src/infrastructure/database/mvp-domain-migrations.test.ts
@@ -399,7 +399,7 @@ git commit -m "feat(backend): add program meta on course_versions + lookup.regul
 
 - Modify: `apps/backend/src/modules/mvp/mvp.types.ts`
 
-- [ ] **Step 1: Добавить типы в mvp.types.ts**
+- [x] **Step 1: Добавить типы в mvp.types.ts**
 
 В конец файла:
 
@@ -488,12 +488,12 @@ export interface CourseVersion extends BaseEntity, ProgramMeta {
 }
 ```
 
-- [ ] **Step 2: Проверить компиляцию**
+- [x] **Step 2: Проверить компиляцию**
 
 Run: `pnpm -F backend run typecheck`
 Expected: 0 errors. Если есть — это означает, что где-то есть несовместимость; обычно — добавление optional полей backwards-compatible.
 
-- [ ] **Step 3: Коммит**
+- [x] **Step 3: Коммит**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.types.ts
@@ -513,7 +513,7 @@ git commit -m "feat(backend): add commission and program meta types to mvp.types
 
 DTO с `class-validator` для всех новых endpoints. Все DTO следуют существующему стилю файла (см. `CreateCourseRequest`, `CreateMaterialRequest` для образца).
 
-- [ ] **Step 1: Добавить DTO в mvp.dto.ts**
+- [x] **Step 1: Добавить DTO в mvp.dto.ts**
 
 ```typescript
 // === Commission DTOs ===
@@ -643,7 +643,7 @@ export class PutCourseDocumentSetRequest {
 
 Импорты добавить в начало (если ещё нет): `ValidateNested`, `Type` из `class-transformer`, `ArrayMaxSize`, `IsBoolean` из `class-validator`.
 
-- [ ] **Step 2: Добавить DTO-валидационные тесты**
+- [x] **Step 2: Добавить DTO-валидационные тесты**
 
 В файле `mvp.dto-validation.test.ts` добавить:
 
@@ -736,12 +736,12 @@ describe('PutCourseDocumentSetRequest validation', () => {
 });
 ```
 
-- [ ] **Step 3: Прогнать тесты**
+- [x] **Step 3: Прогнать тесты**
 
 Run: `pnpm -F backend test -- mvp.dto-validation`
 Expected: PASS. Если падает — `validateDto` helper нужно подсмотреть в существующих тестах (он есть, проверить импорт).
 
-- [ ] **Step 4: Коммит**
+- [x] **Step 4: Коммит**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.dto.ts apps/backend/src/modules/mvp/mvp.dto-validation.test.ts
@@ -762,7 +762,7 @@ git commit -m "feat(backend): add DTOs for commissions, program meta, and docume
 
 Сервисные методы для CRUD комиссии и членов. Все методы tenant-scoped, пишут audit. Состояние commission переходит между `active` ↔ `archived`. При архивации — нельзя привязывать к новым курсам (валидируется в Task 6 publish-валидации).
 
-- [ ] **Step 1: Расширить in-memory state для commissions**
+- [x] **Step 1: Расширить in-memory state для commissions**
 
 В файле `in-memory-mvp.state.ts` добавить:
 
@@ -774,7 +774,7 @@ commissionMembers = new Map<string, CommissionMember>(); // key: id
 
 Также добавить методы `clearAll()` для сброса в тестах и метод сериализации, если паттерн используется.
 
-- [ ] **Step 2: Написать падающие тесты**
+- [x] **Step 2: Написать падающие тесты**
 
 ```typescript
 // in mvp.service.test.ts
@@ -913,12 +913,12 @@ describe('MvpService — commissions', () => {
 });
 ```
 
-- [ ] **Step 3: Прогнать тесты — убедиться, что падают**
+- [x] **Step 3: Прогнать тесты — убедиться, что падают**
 
 Run: `pnpm -F backend test -- mvp.service.test -t "commissions"`
 Expected: FAIL — методы ещё не существуют.
 
-- [ ] **Step 4: Реализовать методы в mvp.service.ts**
+- [x] **Step 4: Реализовать методы в mvp.service.ts**
 
 Добавить в класс `MvpService` (рядом с существующими методами для course/group/etc.):
 
@@ -1060,12 +1060,12 @@ listCommissionMembers(tenantId: string, commissionId: string): CommissionMember[
 }
 ```
 
-- [ ] **Step 5: Прогнать тесты — убедиться, что проходят**
+- [x] **Step 5: Прогнать тесты — убедиться, что проходят**
 
 Run: `pnpm -F backend test -- mvp.service.test -t "commissions"`
 Expected: PASS — все 10+ кейсов зелёные.
 
-- [ ] **Step 6: Коммит**
+- [x] **Step 6: Коммит**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/mvp.service.test.ts apps/backend/src/modules/mvp/infrastructure/in-memory-mvp.state.ts
@@ -1087,7 +1087,7 @@ git commit -m "feat(backend): add Commission CRUD service with members and audit
 
 Лицензия центра НЕ проверяется в плане A — это §5.10, план C.
 
-- [ ] **Step 1: Написать падающие тесты**
+- [x] **Step 1: Написать падающие тесты**
 
 ```typescript
 // in mvp.service.test.ts
@@ -1234,12 +1234,12 @@ describe('MvpService — program meta and publish validation', () => {
 });
 ```
 
-- [ ] **Step 2: Прогнать — убедиться, что падают**
+- [x] **Step 2: Прогнать — убедиться, что падают**
 
 Run: `pnpm -F backend test -- mvp.service.test -t "program meta and publish"`
 Expected: FAIL.
 
-- [ ] **Step 3: Реализовать методы**
+- [x] **Step 3: Реализовать методы**
 
 ```typescript
 updateProgramMeta(
@@ -1346,12 +1346,12 @@ private findCourseVersion(tenantId: string, id: string): CourseVersion {
 }
 ```
 
-- [ ] **Step 4: Прогнать тесты — PASS**
+- [x] **Step 4: Прогнать тесты — PASS**
 
 Run: `pnpm -F backend test -- mvp.service.test -t "program meta and publish"`
 Expected: PASS — все 9+ кейсов зелёные.
 
-- [ ] **Step 5: Коммит**
+- [x] **Step 5: Коммит**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/mvp.service.test.ts
@@ -1372,7 +1372,7 @@ git commit -m "feat(backend): add program meta + publish validation to mvp.servi
 
 Метод `setCourseDocumentSet(tenantId, actorId, courseVersionId, entries)` — PUT-семантика (заменяет полностью). Метод `getCourseDocumentSet(tenantId, courseVersionId)` — список упорядочен по position. Валидация: каждый templateId должен существовать в `documents.templates` и принадлежать tenant; positions уникальны (0..N-1, последовательно).
 
-- [ ] **Step 1: Расширить in-memory state**
+- [x] **Step 1: Расширить in-memory state**
 
 В файле `in-memory-mvp.state.ts`:
 
@@ -1380,7 +1380,7 @@ git commit -m "feat(backend): add program meta + publish validation to mvp.servi
 courseDocumentSets = new Map<string, CourseDocumentSetEntry>(); // key: id
 ```
 
-- [ ] **Step 2: Написать падающие тесты**
+- [x] **Step 2: Написать падающие тесты**
 
 ```typescript
 describe('MvpService — course document sets', () => {
@@ -1492,12 +1492,12 @@ describe('MvpService — course document sets', () => {
 
 > Хелпер `setupMvpServiceWithTemplates` нужно создать в тестовом helper-файле (см. существующий паттерн); он мокает связку с `documents`-сервисом для unit-тестов. Альтернатива: подменить через DI токен.
 
-- [ ] **Step 3: Прогнать — FAIL**
+- [x] **Step 3: Прогнать — FAIL**
 
 Run: `pnpm -F backend test -- mvp.service.test -t "course document sets"`
 Expected: FAIL.
 
-- [ ] **Step 4: Реализовать**
+- [x] **Step 4: Реализовать**
 
 ```typescript
 setCourseDocumentSet(
@@ -1570,12 +1570,12 @@ getCourseDocumentSet(
 
 > `this.documentsState` — это новая зависимость, которую нужно инжектировать через конструктор `MvpService`. Альтернатива (если сильно лишний coupling): ввести `TemplatesLookupPort` интерфейс и реализацию в documents-модуле; зависимость minimal-surface (только `getTemplate(tenantId, id)`).
 
-- [ ] **Step 5: Прогнать тесты — PASS**
+- [x] **Step 5: Прогнать тесты — PASS**
 
 Run: `pnpm -F backend test -- mvp.service.test -t "course document sets"`
 Expected: PASS — все 6+ кейсов зелёные.
 
-- [ ] **Step 6: Коммит**
+- [x] **Step 6: Коммит**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/mvp.service.test.ts apps/backend/src/modules/mvp/infrastructure/in-memory-mvp.state.ts
@@ -1600,7 +1600,7 @@ git commit -m "feat(backend): add course document set CRUD with template validat
 3. Для каждой строки последовательно: резервировать номер → генерировать документ → audit.
 4. Idempotency: ключ = `enrollment:${enrollmentId}:${templateId}:v1`.
 
-- [ ] **Step 1: Обновить тесты**
+- [x] **Step 1: Обновить тесты**
 
 ```typescript
 // in enrollment-document-issuance.listener.test.ts
@@ -1721,12 +1721,12 @@ describe('EnrollmentDocumentIssuanceListener — multi-doc set', () => {
 });
 ```
 
-- [ ] **Step 2: Прогнать — FAIL**
+- [x] **Step 2: Прогнать — FAIL**
 
 Run: `pnpm -F backend test -- enrollment-document-issuance`
 Expected: FAIL.
 
-- [ ] **Step 3: Заменить тело `issueCertificate` в листенере**
+- [x] **Step 3: Заменить тело `issueCertificate` в листенере**
 
 Старый код в `enrollment-document-issuance.listener.ts` вызывает `resolveAutoCertificateTemplateBinding`. Заменить:
 
@@ -1799,17 +1799,17 @@ private async issueCertificate(payload: EnrollmentCompletedPayload): Promise<voi
 
 Также `EnrollmentCompletedPayload` должен содержать `courseVersionId` — если ещё нет, добавить (см. `mvp/enrollment-completed.event.ts`).
 
-- [ ] **Step 4: Прогнать тесты — PASS**
+- [x] **Step 4: Прогнать тесты — PASS**
 
 Run: `pnpm -F backend test -- enrollment-document-issuance`
 Expected: PASS.
 
-- [ ] **Step 5: Прогнать существующие e2e — проверить, что не сломали ничего**
+- [x] **Step 5: Прогнать существующие e2e — проверить, что не сломали ничего**
 
 Run: `pnpm -F backend test -- business-flows.e2e`
 Expected: PASS — existing e2e должен по-прежнему работать (одиночный сертификат превратился в «пакет из 1 документа» — фасад тот же).
 
-- [ ] **Step 6: Коммит**
+- [x] **Step 6: Коммит**
 
 ```bash
 git add apps/backend/src/modules/documents/enrollment-document-issuance.listener.ts apps/backend/src/modules/documents/enrollment-document-issuance.listener.test.ts
@@ -1851,7 +1851,7 @@ git commit -m "feat(backend): extend listener for multi-document course document
   - `{commission.secretary.name}`, `{commission.secretary.signature_file_id}`
   - `{commission.members}` — JSON-список объектов {fullName, role, position, signatureFileId} для таблицы в шаблоне
 
-- [ ] **Step 1: Написать падающие тесты**
+- [x] **Step 1: Написать падающие тесты**
 
 ```typescript
 // in documents.service.test.ts (или новом resolver.test.ts)
@@ -1940,12 +1940,12 @@ describe('DocumentsService — variable resolver: commission category', () => {
 });
 ```
 
-- [ ] **Step 2: Прогнать — FAIL**
+- [x] **Step 2: Прогнать — FAIL**
 
 Run: `pnpm -F backend test -- documents.service.test -t "variable resolver"`
 Expected: FAIL.
 
-- [ ] **Step 3: Реализовать resolver**
+- [x] **Step 3: Реализовать resolver**
 
 Резолвер должен делегировать в `mvp` для чтения course_versions / commission state. Расширить `DocumentsService.resolveVariables` (или создать отдельные методы `resolveProgramVariables` / `resolveCommissionVariables`):
 
@@ -2058,12 +2058,12 @@ export interface MvpAdapter {
 
 Реализация — в `mvp` module: `MvpService` имплементирует port.
 
-- [ ] **Step 4: Прогнать — PASS**
+- [x] **Step 4: Прогнать — PASS**
 
 Run: `pnpm -F backend test -- documents.service.test -t "variable resolver"`
 Expected: PASS.
 
-- [ ] **Step 5: Коммит**
+- [x] **Step 5: Коммит**
 
 ```bash
 git add apps/backend/src/modules/documents/documents.service.ts apps/backend/src/modules/documents/documents.service.test.ts apps/backend/src/modules/mvp/mvp.service.ts
@@ -2097,7 +2097,7 @@ HTTP-эндпоинты с RBAC через существующий `Permissions
 
 Все эндпоинты проходят через `TenantGuard` + `PermissionsGuard` (стандартный паттерн `mvp`).
 
-- [ ] **Step 1: Добавить permissions seed**
+- [x] **Step 1: Добавить permissions seed**
 
 Проверить, есть ли в `apps/backend/migrations/0010_iam_role_permissions_and_seed.sql` permissions `learning.commissions.read`, `learning.commissions.write`, `learning.courses.publish`. Если нет — добавить миграцией `0031_iam_pillar_a_permissions.sql` (отдельный файл, чтобы не трогать seed):
 
@@ -2124,7 +2124,7 @@ INSERT INTO iam.role_permissions (role_code, permission_code) VALUES
 ON CONFLICT (role_code, permission_code) DO NOTHING;
 ```
 
-- [ ] **Step 2: Добавить контроллер-методы**
+- [x] **Step 2: Добавить контроллер-методы**
 
 В `mvp.controller.ts` добавить (используя существующий паттерн `@Permissions(...)` / `@Body(assertValidDto)`):
 
@@ -2188,7 +2188,7 @@ async getCourseDocumentSet(
 }
 ```
 
-- [ ] **Step 3: HTTP integration тесты**
+- [x] **Step 3: HTTP integration тесты**
 
 В `mvp.domains.http.integration.test.ts` добавить:
 
@@ -2250,12 +2250,12 @@ describe('Pillar A — commissions HTTP', () => {
 });
 ```
 
-- [ ] **Step 4: Прогнать**
+- [x] **Step 4: Прогнать**
 
 Run: `pnpm -F backend test -- mvp.domains.http`
 Expected: PASS. Если миграция permissions не подхватилась в test setup — проверить, что test bootstrap runs миграции.
 
-- [ ] **Step 5: Коммит**
+- [x] **Step 5: Коммит**
 
 ```bash
 git add apps/backend/migrations/0031_iam_pillar_a_permissions.sql apps/backend/src/modules/mvp/mvp.controller.ts apps/backend/src/modules/mvp/mvp.domains.http.integration.test.ts
@@ -2283,7 +2283,7 @@ git commit -m "feat(backend): add HTTP endpoints for commissions, program meta, 
 
 Раздел `/admin/commissions` — список комиссий (admin role), фильтр active/archived, создание новой, переход в детальную карточку. Карточка `/admin/commissions/[id]` — редактирование name/description, drag-n-drop редактор членов с ролями и загрузкой подписей.
 
-- [ ] **Step 1: Создать types и api клиент**
+- [x] **Step 1: Создать types и api клиент**
 
 ```typescript
 // apps/frontend/src/features/commissions/types.ts
@@ -2348,7 +2348,7 @@ export const commissionsApi = {
 };
 ```
 
-- [ ] **Step 2: React Query хуки + тесты**
+- [x] **Step 2: React Query хуки + тесты**
 
 ```typescript
 // apps/frontend/src/features/commissions/use-commissions.ts
@@ -2424,7 +2424,7 @@ describe('useCommissions', () => {
 });
 ```
 
-- [ ] **Step 3: Список + форма создания (компонент)**
+- [x] **Step 3: Список + форма создания (компонент)**
 
 ```tsx
 // apps/frontend/src/features/commissions/commission-list.tsx
@@ -2508,7 +2508,7 @@ export function CommissionList() {
 }
 ```
 
-- [ ] **Step 4: Page файлы**
+- [x] **Step 4: Page файлы**
 
 ```tsx
 // apps/frontend/app/admin/commissions/page.tsx
@@ -2563,7 +2563,7 @@ export default function CommissionDetailPage() {
 
 > `MembersEditor` — компонент с drag-n-drop (использовать `@dnd-kit/sortable` или существующий паттерн), upload подписи (через `storage.files` API). Реализация по образцу существующих admin-форм.
 
-- [ ] **Step 5: Component-test для списка**
+- [x] **Step 5: Component-test для списка**
 
 ```tsx
 // commission-list.test.tsx
@@ -2600,12 +2600,12 @@ describe('CommissionList', () => {
 });
 ```
 
-- [ ] **Step 6: Прогнать**
+- [x] **Step 6: Прогнать**
 
 Run: `pnpm -F frontend test -- commissions`
 Expected: PASS.
 
-- [ ] **Step 7: Manual smoke**
+- [x] **Step 7: Manual smoke**
 
 1. `pnpm dev` запустить.
 2. Залогиниться как admin (через магическую ссылку).
@@ -2614,7 +2614,7 @@ Expected: PASS.
 5. Заархивировать.
 6. Проверить, что в admin списке появилась с статусом archived (если фильтр archived выбран).
 
-- [ ] **Step 8: Коммит**
+- [x] **Step 8: Коммит**
 
 ```bash
 git add apps/frontend/app/admin/commissions/ apps/frontend/src/features/commissions/
@@ -2647,7 +2647,7 @@ git commit -m "feat(frontend): add /admin/commissions list and detail pages with
 - Кнопка «Сохранить»
 - Кнопка «Опубликовать» (видна на черновике, выдает 400 с понятным сообщением если поля не заполнены)
 
-- [ ] **Step 1: API клиент**
+- [x] **Step 1: API клиент**
 
 ```typescript
 // apps/frontend/src/features/course-editor/use-program-meta.ts
@@ -2704,7 +2704,7 @@ export function useRegulatoryActs() {
 
 > `/regulatory-acts` — read-only endpoint, который надо добавить в `mvp.controller.ts` (или существующий `lookup.controller.ts`, если есть). Минимум: `GET /regulatory-acts → { items: RegulatoryAct[] }`. Добавить в задачи (Task 10 уже не покрывает; можно вписать сюда или в Task 10.5). Для краткости считаем, что добавляется как часть Task 10.
 
-- [ ] **Step 2: Форма + select-helpers**
+- [x] **Step 2: Форма + select-helpers**
 
 ```tsx
 // apps/frontend/src/features/course-editor/program-meta-tab.tsx
@@ -2867,7 +2867,7 @@ export function ProgramMetaTab({ courseVersionId }: { courseVersionId: string })
 }
 ```
 
-- [ ] **Step 3: Тест компонента**
+- [x] **Step 3: Тест компонента**
 
 ```tsx
 // program-meta-tab.test.tsx — минимально:
@@ -2877,16 +2877,16 @@ export function ProgramMetaTab({ courseVersionId }: { courseVersionId: string })
 // - shows error message on publish failure
 ```
 
-- [ ] **Step 4: Интегрировать в редактор курса**
+- [x] **Step 4: Интегрировать в редактор курса**
 
 В `apps/frontend/app/courses/[id]/page.tsx` (или специфичной странице редактора версии курса) добавить таб. Если редактор — это разные routes, не одна страница с табами — создать `app/courses/[id]/versions/[v]/program-meta/page.tsx`.
 
-- [ ] **Step 5: Прогнать тесты**
+- [x] **Step 5: Прогнать тесты**
 
 Run: `pnpm -F frontend test -- program-meta`
 Expected: PASS.
 
-- [ ] **Step 6: Manual smoke**
+- [x] **Step 6: Manual smoke**
 
 1. Перейти на страницу редактора курса.
 2. Заполнить часы=40, виды подготовки=первичная, и т.д.
@@ -2895,7 +2895,7 @@ Expected: PASS.
 5. Привязать commission → опубликовать успешно.
 6. После публикации форма становится read-only.
 
-- [ ] **Step 7: Коммит**
+- [x] **Step 7: Коммит**
 
 ```bash
 git add apps/frontend/src/features/course-editor/ apps/frontend/app/courses/
@@ -2922,7 +2922,7 @@ git commit -m "feat(frontend): add program meta tab in course editor with publis
 - Чекбоксы «Обязательный» и «Авто-выпуск»
 - Кнопка «Сохранить»
 
-- [ ] **Step 1: Хуки**
+- [x] **Step 1: Хуки**
 
 ```typescript
 // use-document-set.ts
@@ -2955,7 +2955,7 @@ export function useTemplates() {
 }
 ```
 
-- [ ] **Step 2: Компонент (drag-n-drop с @dnd-kit или без — простой UP/DOWN)**
+- [x] **Step 2: Компонент (drag-n-drop с @dnd-kit или без — простой UP/DOWN)**
 
 ```tsx
 export function DocumentSetTab({ courseVersionId }: { courseVersionId: string }) {
@@ -3077,7 +3077,7 @@ export function DocumentSetTab({ courseVersionId }: { courseVersionId: string })
 }
 ```
 
-- [ ] **Step 3: Тест**
+- [x] **Step 3: Тест**
 
 ```tsx
 // document-set-tab.test.tsx
@@ -3088,12 +3088,12 @@ export function DocumentSetTab({ courseVersionId }: { courseVersionId: string })
 // - save.mutate called with correct entries
 ```
 
-- [ ] **Step 4: Прогнать тесты**
+- [x] **Step 4: Прогнать тесты**
 
 Run: `pnpm -F frontend test -- document-set`
 Expected: PASS.
 
-- [ ] **Step 5: Manual smoke**
+- [x] **Step 5: Manual smoke**
 
 1. На редакторе course_version открыть таб «Выходные документы».
 2. Добавить шаблон сертификата.
@@ -3103,12 +3103,12 @@ Expected: PASS.
 6. Завершить какое-нибудь зачисление по этому курсу.
 7. Проверить в `/documents` — выпущены оба документа.
 
-- [ ] **Step 6: Полный прогон всех тестов**
+- [x] **Step 6: Полный прогон всех тестов**
 
 Run: `pnpm -s ci:check`
 Expected: PASS (lint, typecheck, backend tests, frontend tests, e2e).
 
-- [ ] **Step 7: Коммит**
+- [x] **Step 7: Коммит**
 
 ```bash
 git add apps/frontend/src/features/course-editor/document-set-tab.tsx apps/frontend/src/features/course-editor/use-document-set.ts apps/frontend/src/features/course-editor/document-set-tab.test.tsx
