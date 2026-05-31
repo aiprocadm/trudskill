@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, NotFoundException, Scope } from '@nestjs/common';
 
 import { validateRegistryRow } from './ot-registry-preflight.js';
+import { matchResponseToRecords, parseRegistryResponse } from './ot-registry-response.parser.js';
 import { buildRegistryRows } from './ot-registry-rows.js';
 import { OtRegistryXlsxWriter } from './ot-registry-xlsx.writer.js';
 import { S3StorageClient } from '../../../infrastructure/storage/s3-storage.client.js';
@@ -18,6 +19,7 @@ import type { RequestContext } from '../../../common/context/request-context.js'
 import type {
   OtRegistryBatch,
   OtRegistryExportOutcome,
+  OtRegistryImportOutcome,
   OtRegistryRecord,
   OtRegistryRow,
   OtRegistryRowError,
@@ -248,6 +250,35 @@ export class OtRegistryService {
     }
     const url = await this.files.createDownloadUrl(tenantId, batch.fileId);
     return { url };
+  }
+
+  async importRegistryResponse(
+    tenantId: string,
+    batchId: string,
+    fileBase64: string,
+    ctx: RequestContext
+  ): Promise<OtRegistryImportOutcome> {
+    const records = this.state.otRegistryRecords.filter(
+      (r) => r.tenantId === tenantId && r.batchId === batchId
+    );
+    const parsed = await parseRegistryResponse(Buffer.from(fileBase64, 'base64'));
+    const outcome = matchResponseToRecords(parsed, records);
+    this.auditService.write({
+      tenantId,
+      actorId: ctx.userId,
+      action: 'regulatory.ot_registry_response_imported',
+      entityType: 'ot_registry_batch',
+      entityId: batchId,
+      newValues: {
+        matched: outcome.matched,
+        unmatched: outcome.unmatched
+      },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
+    return outcome;
   }
 
   private id(prefix: string): string {

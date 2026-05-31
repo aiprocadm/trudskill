@@ -8,6 +8,7 @@ import { RequirePermissions } from '../../iam/permission.decorator.js';
 import { PermissionGuard } from '../../iam/permission.guard.js';
 import { MvpRequestPersistenceInterceptor } from '../infrastructure/mvp-request-persistence.interceptor.js';
 import { CreateOtRegistryExportDto } from '../ot-registry-export.dto.js';
+import { ImportOtRegistryResponseDto } from '../ot-registry-import.dto.js';
 
 import type { RequestContext } from '../../../common/context/request-context.js';
 
@@ -44,5 +45,17 @@ export class OtRegistryController {
   @RequirePermissions('regulatory.export.read')
   async getFile(@CurrentContext() ctx: RequestContext, @Param('id') id: string) {
     return this.service.getBatchDownloadUrl(ctx.tenantId!, id);
+  }
+
+  @Post('exports/:id/registry-response')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('regulatory.export.write')
+  async importResponse(
+    @CurrentContext() ctx: RequestContext,
+    @Param('id') id: string,
+    @Body() body: unknown
+  ) {
+    const dto = assertValidDto(ImportOtRegistryResponseDto, body);
+    return this.service.importRegistryResponse(ctx.tenantId!, id, dto.fileBase64, ctx);
   }
 }

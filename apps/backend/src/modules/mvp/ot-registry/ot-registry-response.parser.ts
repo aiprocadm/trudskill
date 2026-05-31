@@ -18,6 +18,7 @@ export async function parseRegistryResponse(buffer: Buffer): Promise<OtRegistryR
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buffer as unknown as ArrayBuffer);
   const ws = wb.worksheets[0];
+  if (!ws) return [];
   const rows: OtRegistryResponseRow[] = [];
   ws.eachRow((row, n) => {
     if (n === 1) return;

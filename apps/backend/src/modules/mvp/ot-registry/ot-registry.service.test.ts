@@ -1,4 +1,5 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import ExcelJS from 'exceljs';
 import { describe, expect, it, vi } from 'vitest';
 
 import { OtRegistryXlsxWriter } from './ot-registry-xlsx.writer.js';
@@ -226,5 +227,73 @@ describe('OtRegistryService.exportOtRegistry', () => {
     expect(h.state.otRegistryRecords).toHaveLength(0);
     expect(h.storagePut).not.toHaveBeenCalled();
     expect(h.filesRegister).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Helper: build a minimal 4-column response xlsx matching one OT_A record.
+// Protocol 'ПР-12/2026', programRegistryId=1 (OT_A → registryId 1).
+// ---------------------------------------------------------------------------
+async function buildResponseBuffer(
+  snils: string,
+  protocolNumber: string,
+  programRegistryId: number,
+  regNo: string
+): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('resp');
+  ws.addRow(['СНИЛС', 'Номер протокола', 'ID программы', 'Регистрационный номер']);
+  ws.addRow([snils, protocolNumber, programRegistryId, regNo]);
+  return (await wb.xlsx.writeBuffer()) as unknown as Buffer;
+}
+
+describe('OtRegistryService.importRegistryResponse', () => {
+  it('stamps registrationNumber onto the matching record after export', async () => {
+    const h = makeHarness();
+    // Export a single-program enrollment so state.otRegistryRecords is populated.
+    seedCompletedEnrollment(h.state, { programCodes: ['OT_A'], examPassed: true });
+    const exportOutcome = await h.service.exportOtRegistry(TENANT, noFilter, ctx);
+    expect(exportOutcome.exported).toBe(1);
+
+    const [record] = h.state.otRegistryRecords;
+    // The protocol number from the harness stub is 'ПР-12/2026'; OT_A → registryId 1.
+    expect(record!.protocolNumber).toBe('ПР-12/2026');
+    expect(record!.programRegistryId).toBe(1);
+    const batchId = exportOutcome.batchId;
+
+    const buf = await buildResponseBuffer(VALID_SNILS, 'ПР-12/2026', 1, 'РН-2026-001');
+    const fileBase64 = buf.toString('base64');
+
+    const importOutcome = await h.service.importRegistryResponse(TENANT, batchId, fileBase64, ctx);
+
+    expect(importOutcome.matched).toBe(1);
+    expect(importOutcome.unmatched).toBe(0);
+    expect(h.state.otRegistryRecords[0]!.registrationNumber).toBe('РН-2026-001');
+
+    // Audit was written twice: once for export, once for import.
+    expect(h.auditWrite).toHaveBeenCalledTimes(2);
+    expect(h.auditWrite.mock.calls[1]![0]).toMatchObject({
+      action: 'regulatory.ot_registry_response_imported',
+      entityType: 'ot_registry_batch',
+      entityId: batchId,
+      newValues: { matched: 1, unmatched: 0 }
+    });
+  });
+
+  it('returns unmatched count when response row has no matching record', async () => {
+    const h = makeHarness();
+    seedCompletedEnrollment(h.state, { programCodes: ['OT_A'], examPassed: true });
+    const exportOutcome = await h.service.exportOtRegistry(TENANT, noFilter, ctx);
+    const batchId = exportOutcome.batchId;
+
+    // Build a response with a СНИЛС that doesn't exist in records.
+    const buf = await buildResponseBuffer('000-000-000 00', 'ПР-12/2026', 1, 'РН-999');
+    const fileBase64 = buf.toString('base64');
+
+    const importOutcome = await h.service.importRegistryResponse(TENANT, batchId, fileBase64, ctx);
+
+    expect(importOutcome.matched).toBe(0);
+    expect(importOutcome.unmatched).toBe(1);
+    expect(h.state.otRegistryRecords[0]!.registrationNumber).toBeUndefined();
   });
 });
