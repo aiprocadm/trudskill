@@ -108,6 +108,7 @@ import type {
   Material,
   MaterialProgress,
   ModuleProgress,
+  OtTrainingProgram,
   PreExamToken,
   ProgressStatus,
   Question,
@@ -276,6 +277,52 @@ const REGULATORY_ACTS_SEED: RegulatoryAct[] = [
     appliesToVerticals: ['ot', 'pb', 'nmo', 'emergency', 'other'],
     isActive: true,
     createdAt: '2026-05-22T00:00:00.000Z'
+  }
+];
+
+/**
+ * Global lookup программ обучения по ОТ — зеркало seed из migration 0045.
+ * Используется как DTO-каталог для UI (мульти-селект в форме программы курса).
+ * Postgres-implementation должна читать из `lookup.ot_training_programs` напрямую;
+ * в in-memory режиме храним константу здесь.
+ */
+const OT_TRAINING_PROGRAMS_SEED: OtTrainingProgram[] = [
+  {
+    code: 'OT_A',
+    registryId: 1,
+    exactName:
+      'Обучение по общим вопросам охраны труда и функционирования системы управления охраной труда',
+    programKind: 'A',
+    isActive: true
+  },
+  {
+    code: 'OT_B',
+    registryId: 2,
+    exactName:
+      'Обучение безопасным методам и приёмам выполнения работ при воздействии вредных и (или) опасных производственных факторов, источников опасности, идентифицированных в рамках специальной оценки условий труда и оценки профессиональных рисков',
+    programKind: 'B',
+    isActive: true
+  },
+  {
+    code: 'OT_V',
+    registryId: 3,
+    exactName: 'Обучение безопасным методам и приёмам выполнения работ повышенной опасности',
+    programKind: 'V',
+    isActive: true
+  },
+  {
+    code: 'OT_FIRST_AID',
+    registryId: 4,
+    exactName: 'Обучение по оказанию первой помощи пострадавшим',
+    programKind: 'first_aid',
+    isActive: true
+  },
+  {
+    code: 'OT_SIZ',
+    registryId: 5,
+    exactName: 'Обучение по использованию (применению) средств индивидуальной защиты',
+    programKind: 'siz',
+    isActive: true
   }
 ];
 
@@ -4405,6 +4452,14 @@ export class MvpService {
 
   listRegulatoryActs(): RegulatoryAct[] {
     return REGULATORY_ACTS_SEED;
+  }
+
+  // === Wave 2 — ОТ-реестр: программы обучения (lookup) ===
+
+  listOtTrainingPrograms(): OtTrainingProgram[] {
+    return OT_TRAINING_PROGRAMS_SEED.filter((p) => p.isActive).sort(
+      (a, b) => a.registryId - b.registryId
+    );
   }
 
   // === Pillar A — Plan A (§5.2): commissions ===
