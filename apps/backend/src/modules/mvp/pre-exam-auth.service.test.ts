@@ -90,6 +90,61 @@ function seedFinalExam(service: MvpService, requiresPreExamAuth: boolean) {
   return { course, group, learner, enrollment, test };
 }
 
+/** Like seedFinalExam(requires=true) but the test is a MODULE (intermediate) test (moduleId set). */
+function seedModuleExam(service: MvpService) {
+  const course = service.createCourse(T, ADMIN, { code: 'C2', title: 'Course 2' }, ctx);
+  const group = service.createGroup(T, ADMIN, { code: 'G2', name: 'Group 2' }, ctx);
+  service.createGroupCourse(T, {
+    groupId: group.id,
+    courseId: course.id,
+    requiresPreExamAuth: true
+  });
+  const learner = service.createLearner(T, ADMIN, { code: 'L2', name: 'John Roe' }, ctx);
+  const enrollment = service.createEnrollment(
+    T,
+    ADMIN,
+    { groupId: group.id, learnerId: learner.id },
+    ctx
+  );
+  const bank = service.createQuestionBank(T, ADMIN, { title: 'Bank2', courseId: course.id }, ctx);
+  const version = service.createCourseVersion(T, course.id);
+  const m1 = service.createModule(
+    T,
+    ADMIN,
+    { courseVersionId: version.id, title: 'Module 1', minViewSeconds: 0, isRequired: true },
+    ctx
+  );
+  const q = service.createQuestion(
+    T,
+    ADMIN,
+    {
+      questionBankId: bank.id,
+      type: 'single_choice',
+      title: 'Q',
+      score: 1,
+      options: [
+        { text: 'A', isCorrect: true },
+        { text: 'B', isCorrect: false }
+      ]
+    } as never,
+    ctx
+  );
+  const test = service.createTest(
+    T,
+    ADMIN,
+    {
+      courseId: course.id,
+      questionBankId: bank.id,
+      title: 'Module 1 test',
+      moduleId: m1.id,
+      rules: { attemptLimit: 5 }
+    },
+    ctx
+  );
+  service.addTestQuestions(T, test.id, [q.id]);
+  return { course, group, learner, enrollment, test, m1 };
+}
+
 const startArgs = (test: { id: string }, enrollment: { id: string; learnerId: string }) => ({
   testId: test.id,
   enrollmentId: enrollment.id,
@@ -132,6 +187,9 @@ describe('pre-exam auth (C) — gate, request, verify', () => {
     const service = makeService();
     const { test, enrollment } = seedFinalExam(service, true);
     const raw = service.requestPreExamTokenRaw(T, ADMIN, startArgs(test, enrollment), ctx); // test-only raw accessor
+    // hash-only storage: the stored token is the SHA-256 of the raw value (raw never persisted).
+    const stored = new InMemoryMvpStatePeek(service).preExamTokens();
+    expect(stored[0]!.tokenHash).toBe(hashPreExamToken(raw));
     service.verifyPreExamToken(T, ADMIN, { token: raw }, ctx);
     const attempt = service.startAttempt(T, ADMIN, startArgs(test, enrollment), ctx);
     expect(attempt.identityVerifiedAt).toBeTruthy();
@@ -156,6 +214,35 @@ describe('pre-exam auth (C) — gate, request, verify', () => {
       'pre_exam_token_invalid'
     );
   });
+
+  it('does NOT gate a MODULE (intermediate) test even when the group requires pre-exam auth', () => {
+    const service = makeService();
+    const { test, enrollment } = seedModuleExam(service);
+    // moduleId is set → identity gate is bypassed (Приказ №816 targets the final exam only).
+    expect(() => service.startAttempt(T, ADMIN, startArgs(test, enrollment), ctx)).not.toThrow();
+  });
+
+  it('rejects an expired token', () => {
+    const service = makeService();
+    const { test, enrollment } = seedFinalExam(service, true);
+    const raw = service.requestPreExamTokenRaw(T, ADMIN, startArgs(test, enrollment), ctx);
+    // Force the stored token past its TTL, then try to redeem it.
+    const stored = new InMemoryMvpStatePeek(service).preExamTokens();
+    stored[0]!.expiresAt = new Date(Date.now() - 60_000).toISOString();
+    expectThrowsCode(
+      () => service.verifyPreExamToken(T, ADMIN, { token: raw }, ctx),
+      'pre_exam_token_expired'
+    );
+  });
+
+  it('reports alreadyVerified on a second request once verified (no re-prompt)', () => {
+    const service = makeService();
+    const { test, enrollment } = seedFinalExam(service, true);
+    const raw = service.requestPreExamTokenRaw(T, ADMIN, startArgs(test, enrollment), ctx);
+    service.verifyPreExamToken(T, ADMIN, { token: raw }, ctx);
+    const again = service.requestPreExamToken(T, ADMIN, startArgs(test, enrollment), ctx);
+    expect(again).toMatchObject({ delivered: true, alreadyVerified: true });
+  });
 });
 
 /** Minimal reflection helper to read the private state collection in assertions. */
@@ -165,7 +252,3 @@ class InMemoryMvpStatePeek {
     return (this.service as unknown as { state: InMemoryMvpState }).state.preExamTokens;
   }
 }
-
-// Suppress unused import warning — hashPreExamToken is available for direct token hash assertions
-// if needed in future test extensions; keep it explicitly imported.
-void hashPreExamToken;
