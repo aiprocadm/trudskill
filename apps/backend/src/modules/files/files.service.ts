@@ -64,14 +64,18 @@ export class FilesService {
   ) {}
 
   async register(
-    metadata: Omit<FileMetadata, 'id' | 'createdAt'> & { bucketName?: string }
+    metadata: Omit<FileMetadata, 'id' | 'createdAt'> & {
+      bucketName?: string;
+      antivirusStatus?: string;
+    }
   ): Promise<FileMetadata> {
     const id = `file_${Math.random().toString(36).slice(2, 12)}`;
     const createdAt = new Date().toISOString();
     const bucket = metadata.bucketName ?? 'default';
+    const antivirusStatus = metadata.antivirusStatus ?? 'pending';
     await this.db.query(
       `insert into storage.files (id, tenant_id, storage_key, original_name, mime_type, size_bytes, bucket_name, antivirus_status, payload, created_at, updated_at)
-       values ($1, $2, $3, $4, $5, $6, $7, 'pending', '{}'::jsonb, now(), now())`,
+       values ($1, $2, $3, $4, $5, $6, $7, $8, '{}'::jsonb, now(), now())`,
       [
         id,
         metadata.tenantId,
@@ -79,7 +83,8 @@ export class FilesService {
         metadata.originalName,
         metadata.mimeType,
         metadata.sizeBytes,
-        bucket
+        bucket,
+        antivirusStatus
       ]
     );
     return {

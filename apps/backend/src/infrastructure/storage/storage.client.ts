@@ -22,4 +22,6 @@ export interface StorageClient {
   createPresignedDownloadUrl(params: PresignedDownloadParams): Promise<string>;
   /** Streams the raw bytes of a stored object. Used by the antivirus scanner. */
   getObjectStream(params: { key: string }): Promise<Readable>;
+  /** Writes a Buffer directly to object storage. Used for server-generated files (e.g. XLSX exports). */
+  putObject(params: { key: string; body: Buffer; contentType: string }): Promise<void>;
 }
