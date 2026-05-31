@@ -45,6 +45,7 @@ import {
   ImportQuestionsRequest,
   PatchTestRulesRequest,
   PutCourseDocumentSetRequest,
+  RequestPreExamTokenRequest,
   ReturnSubmissionRequest,
   SaveAnswerRequest,
   SaveAttemptAnswerRequest,
@@ -63,7 +64,8 @@ import {
   UpdateQuestionBankRequest,
   UpdateQuestionRequest,
   UpdateSimpleRegistryRequest,
-  UpdateTestRequest
+  UpdateTestRequest,
+  VerifyPreExamTokenRequest
 } from './mvp.dto.js';
 import { MvpService } from './mvp.service.js';
 import { UpdateCounterpartyExtendedRequest } from './update-counterparty-extended.dto.js';
@@ -876,6 +878,23 @@ export class MvpController {
     const b = assertValidDto(StartAttemptRequest, raw);
     return this.mvpService.startAttempt(c.tenantId!, c.userId, b, c);
   }
+
+  @Post('attempts/request-pre-exam-token')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('assessment.attempts.take')
+  requestPreExamToken(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(RequestPreExamTokenRequest, raw);
+    return this.mvpService.requestPreExamToken(c.tenantId!, c.userId, b, c);
+  }
+
+  @Post('attempts/verify-pre-exam-token')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('assessment.attempts.take')
+  verifyPreExamToken(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(VerifyPreExamTokenRequest, raw);
+    return this.mvpService.verifyPreExamToken(c.tenantId!, c.userId, b, c);
+  }
+
   @Get('attempts/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('assessment.attempts.read')

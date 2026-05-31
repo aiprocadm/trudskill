@@ -226,6 +226,20 @@ describe('Phase 3 Plan A — assessment admin HTTP boundary', () => {
           pendingSubmissions: []
         };
       }
+
+      // Wave 1 Plan 2 — POST /attempts/request-pre-exam-token
+      @Post('attempts/request-pre-exam-token')
+      @RequirePermissions('assessment.attempts.take')
+      requestPreExamToken(@CurrentContext() _c: { tenantId?: string }) {
+        return { delivered: true, alreadyVerified: false };
+      }
+
+      // Wave 1 Plan 2 — POST /attempts/verify-pre-exam-token
+      @Post('attempts/verify-pre-exam-token')
+      @RequirePermissions('assessment.attempts.take')
+      verifyPreExamToken(@CurrentContext() _c: { tenantId?: string }) {
+        return { verified: true };
+      }
     }
 
     @Module({
@@ -440,5 +454,104 @@ describe('Phase 3 Plan A — assessment admin HTTP boundary', () => {
     };
     expect(p.data.pendingAttempts).toEqual([]);
     expect(p.data.pendingSubmissions).toEqual([]);
+  });
+
+  // ---------- POST /attempts/request-pre-exam-token (Wave 1 Plan 2) ----------
+  it('POST /attempts/request-pre-exam-token → auth_required without bearer', async () => {
+    const r = await fetch(`${apiBaseUrl}/attempts/request-pre-exam-token`, {
+      method: 'POST',
+      headers: { 'x-tenant-id': 'tenant_demo', 'content-type': 'application/json' },
+      body: JSON.stringify({ testId: 't1', enrollmentId: 'e1', attemptId: 'a1' })
+    });
+    expect(r.status).toBe(401);
+    const p = (await r.json()) as { error: { code: string } };
+    expect(p.error.code).toBe('auth_required');
+  });
+
+  it('POST /attempts/request-pre-exam-token → 403 without assessment.attempts.take', async () => {
+    const token = adminToken(['assessment.tests.write']);
+    const r = await fetch(`${apiBaseUrl}/attempts/request-pre-exam-token`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-tenant-id': 'tenant_demo',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ testId: 't1', enrollmentId: 'e1', attemptId: 'a1' })
+    });
+    expect(r.status).toBe(403);
+    const p = (await r.json()) as { error: { code: string } };
+    expect(p.error.code).toBe('permission_denied');
+  });
+
+  it('POST /attempts/request-pre-exam-token → 201 + envelope with assessment.attempts.take', async () => {
+    const token = adminToken(['assessment.attempts.take']);
+    const r = await fetch(`${apiBaseUrl}/attempts/request-pre-exam-token`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-tenant-id': 'tenant_demo',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ testId: 't1', enrollmentId: 'e1', attemptId: 'a1' })
+    });
+    expect(r.status).toBe(201);
+    const p = (await r.json()) as {
+      data: { delivered: boolean; alreadyVerified: boolean };
+      meta: { requestId: string; timestamp: string };
+    };
+    expect(p.data.delivered).toBe(true);
+    expect(p.data.alreadyVerified).toBe(false);
+    expect(p.meta.requestId).toBeTruthy();
+    expect(p.meta.timestamp).toBeTruthy();
+  });
+
+  // ---------- POST /attempts/verify-pre-exam-token (Wave 1 Plan 2) ----------
+  it('POST /attempts/verify-pre-exam-token → auth_required without bearer', async () => {
+    const r = await fetch(`${apiBaseUrl}/attempts/verify-pre-exam-token`, {
+      method: 'POST',
+      headers: { 'x-tenant-id': 'tenant_demo', 'content-type': 'application/json' },
+      body: JSON.stringify({ token: 'abc123' })
+    });
+    expect(r.status).toBe(401);
+    const p = (await r.json()) as { error: { code: string } };
+    expect(p.error.code).toBe('auth_required');
+  });
+
+  it('POST /attempts/verify-pre-exam-token → 403 without assessment.attempts.take', async () => {
+    const token = adminToken(['assessment.tests.write']);
+    const r = await fetch(`${apiBaseUrl}/attempts/verify-pre-exam-token`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-tenant-id': 'tenant_demo',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ token: 'abc123' })
+    });
+    expect(r.status).toBe(403);
+    const p = (await r.json()) as { error: { code: string } };
+    expect(p.error.code).toBe('permission_denied');
+  });
+
+  it('POST /attempts/verify-pre-exam-token → 201 + envelope with assessment.attempts.take', async () => {
+    const token = adminToken(['assessment.attempts.take']);
+    const r = await fetch(`${apiBaseUrl}/attempts/verify-pre-exam-token`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-tenant-id': 'tenant_demo',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ token: 'abc123' })
+    });
+    expect(r.status).toBe(201);
+    const p = (await r.json()) as {
+      data: { verified: boolean };
+      meta: { requestId: string; timestamp: string };
+    };
+    expect(p.data.verified).toBe(true);
+    expect(p.meta.requestId).toBeTruthy();
+    expect(p.meta.timestamp).toBeTruthy();
   });
 });
