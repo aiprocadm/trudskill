@@ -87,17 +87,17 @@ Email-приглашения (последний шаг потока §3.3) от
 
 **Tasks:**
 
-- [ ] Создать `learners-bulk-import.types.ts`:
+- [x] Создать `learners-bulk-import.types.ts`:
   - `BulkImportRow`: `{ rowNumber: number; fullName: string; email: string; snils?: string; position?: string; }`.
   - `BulkImportOutcomeRow`: `{ rowNumber: number; status: 'created' | 'reused' | 'enrolled_only' | 'failed'; learnerId?: string; enrollmentId?: string; errorCode?: string; errorMessage?: string; }`.
   - `BulkImportOutcome`: `{ idempotencyKey: string; groupId: string; total: number; created: number; reused: number; failed: number; rows: BulkImportOutcomeRow[]; }`.
-- [ ] Создать `learners-bulk-import.dto.ts` с `BulkImportRowDto` (вложенный) и `BulkImportLearnersRequest`:
+- [x] Создать `learners-bulk-import.dto.ts` с `BulkImportRowDto` (вложенный) и `BulkImportLearnersRequest`:
   - `idempotencyKey: string` (MinLength 1).
   - `groupId: string` (MinLength 1).
   - `rows: BulkImportRowDto[]` (ArrayMaxSize 1000, ArrayMinSize 1).
   - `BulkImportRowDto`: rowNumber/fullName/email обязательны; snils/position опциональны.
   - На уровне DTO **только** структурная валидация; бизнес-валидация (формат СНИЛС, дубликаты) — в Task 2.
-- [ ] Добавить ≥6 кейсов в `mvp.dto-validation.test.ts`:
+- [x] Добавить ≥6 кейсов в `mvp.dto-validation.test.ts`:
   - happy path с 3 валидными строками,
   - пустой `rows` → ошибка,
   - `rows.length > 1000` → ошибка,
@@ -123,7 +123,7 @@ Email-приглашения (последний шаг потока §3.3) от
 
 **Tasks:**
 
-- [ ] Реализовать `classifyRows(rows: BulkImportRow[], existing: { learners: { id; email; snils? }[] }): ClassifiedRow[]`:
+- [x] Реализовать `classifyRows(rows: BulkImportRow[], existing: { learners: { id; email; snils? }[] }): ClassifiedRow[]`:
   - `ClassifiedRow`: `{ row: BulkImportRow; classification: 'create' | 'reuse' | 'invalid'; reuseLearnerId?: string; errors: { field; code; message }[] }`.
   - Проверки:
     - `fullName`: trim, ≥ 2 слов кириллицей с заглавных букв.
@@ -132,14 +132,14 @@ Email-приглашения (последний шаг потока §3.3) от
     - `position` (optional): trim, ≤ 200 символов.
     - В рамках одного запроса: дубликаты email/snils → все вхождения помечаются `invalid` с кодом `duplicate_in_file`.
     - Против `existing.learners`: если email или snils совпадает с существующим — `classification: 'reuse'`, `reuseLearnerId`.
-- [ ] СНИЛС-чексумма (algorithm):
+- [x] СНИЛС-чексумма (algorithm):
   1. Взять первые 9 цифр.
   2. Умножить каждую на её позицию (`d[0]*9 + d[1]*8 + ... + d[8]*1`).
   3. `sum < 100` → checksum = sum.
   4. `sum == 100 || sum == 101` → checksum = `00`.
   5. `sum > 101` → `sum % 101`; если результат `100` или `101` → `00`, иначе результат.
   6. Сравнить с последними 2 цифрами.
-- [ ] Тесты в `learners-bulk-import.service.test.ts` (≥ 12 кейсов):
+- [x] Тесты в `learners-bulk-import.service.test.ts` (≥ 12 кейсов):
   - happy path 3 строки → все `create`.
   - все 4 типа errors: bad fullName, bad email, bad snils format, bad snils checksum.
   - дубликат email в файле → обе строки `invalid`.
@@ -170,8 +170,8 @@ Email-приглашения (последний шаг потока §3.3) от
 
 **Tasks:**
 
-- [ ] Конструктор: `@Inject(MvpService) private readonly mvpService`.
-- [ ] Реализовать `async bulkImportLearners(tenantId, actorId, request, ctx): Promise<BulkImportOutcome>`:
+- [x] Конструктор: `@Inject(MvpService) private readonly mvpService`.
+- [x] Реализовать `async bulkImportLearners(tenantId, actorId, request, ctx): Promise<BulkImportOutcome>`:
   1. Idempotency: проверить через `mvpService.getBulkEnrollmentOutcomeIfAny(tenantId, idempotencyKey)` (Plan B может это переименовать) — если есть, вернуть кэшированный outcome.
   2. Загрузить существующих учеников tenant'а: `mvpService.listLearners(tenantId, { page: 1, pageSize: <large> })`. **TODO для performance**: если > 10k учеников — добавить bulk-lookup-by-emails endpoint.
   3. Вызвать `classifyRows(request.rows, { learners: existing })`.
@@ -181,7 +181,7 @@ Email-приглашения (последний шаг потока §3.3) от
   7. Вызвать `mvpService.createBulkEnrollments(tenantId, actorId, { idempotencyKey, groupId, learnerIds, deliveryMode: 'immediate' }, ctx)` — переиспользует существующий путь с `enrollments.write`.
   8. Сформировать `BulkImportOutcome.rows` с per-row статусами на основе результатов шагов 4-7.
   9. Записать outcome в новую in-memory коллекцию `bulkImportOutcomes` (или существующую `bulkEnrollmentOutcomes` с переименованием — выбрать при имплементации) для idempotency.
-- [ ] Тесты (≥ 8 кейсов):
+- [x] Тесты (≥ 8 кейсов):
   - 3 валидные строки → 3 `created` + 3 enrollments.
   - 2 валидных + 1 invalid → 2 `created` + 1 `failed`.
   - 1 reuse + 2 create → 1 `reused` + 2 `created`, 3 enrollments.
@@ -208,7 +208,7 @@ Email-приглашения (последний шаг потока §3.3) от
 
 **Tasks:**
 
-- [ ] В контроллер добавить:
+- [x] В контроллер добавить:
   ```ts
   @Post('learners/bulk-import')
   @UseGuards(PermissionGuard)
@@ -219,14 +219,14 @@ Email-приглашения (последний шаг потока §3.3) от
   }
   ```
   Inject `LearnersBulkImportService` в конструктор.
-- [ ] HTTP integration tests (по образцу `mvp.http.integration.test.ts`):
+- [x] HTTP integration tests (по образцу `mvp.http.integration.test.ts`):
   - `auth_required`: 401 без bearer token.
   - `permission_denied`: 403 при отсутствии `learners.write` (только `enrollments.write`).
   - `permission_denied`: 403 при отсутствии `enrollments.write` (только `learners.write`).
   - `session_inactive`: 401 при revoked session.
   - happy path: 200, outcome с per-row статусами.
   - валидная idempotency: 2 одинаковых вызова → 1 фактическое создание.
-- [ ] Проверить, что `MVP_COLLECTIONS` зарегистрировал bulkImportOutcomes коллекцию (если используется новая).
+- [x] Проверить, что `MVP_COLLECTIONS` зарегистрировал bulkImportOutcomes коллекцию (если используется новая).
 
 **Acceptance:**
 
@@ -245,16 +245,16 @@ Email-приглашения (последний шаг потока §3.3) от
 
 **Tasks:**
 
-- [ ] Добавить `xlsx` в `apps/frontend/package.json` → `"xlsx": "^0.20.3"`. Запустить `pnpm install` в worktree.
-- [ ] Реализовать `parseExcelBuffer(buffer: ArrayBuffer): { rows: ParsedRow[]; errors: ParseError[]; }`:
+- [x] Добавить `xlsx` в `apps/frontend/package.json` → `"xlsx": "^0.20.3"`. Запустить `pnpm install` в worktree.
+- [x] Реализовать `parseExcelBuffer(buffer: ArrayBuffer): { rows: ParsedRow[]; errors: ParseError[]; }`:
   - Через `XLSX.read(buffer, { type: 'array' })` прочесть первый лист.
   - Первая строка — заголовки. Принимаем синонимы: `ФИО`/`Имя`/`Фамилия Имя Отчество` → `fullName`, `Email`/`E-mail`/`Эл. почта` → `email`, `СНИЛС`/`SNILS` → `snils`, `Должность`/`Position` → `position`.
   - Регистронезависимый матч, trim, lowercase для match.
   - Если в заголовках не найдены `fullName` И `email` → вернуть `errors: [{ code: 'missing_required_columns', ...}]`.
   - Пропускать полностью пустые строки.
   - rowNumber = индекс строки в Excel (header = 1, первая данных = 2 и т.д.).
-- [ ] Также поддержать CSV (тот же `XLSX.read` с `type: 'binary'`).
-- [ ] Тесты (≥ 8 кейсов) — генерировать xlsx в коде через `XLSX.utils.aoa_to_sheet` + `XLSX.write`:
+- [x] Также поддержать CSV (тот же `XLSX.read` с `type: 'binary'`).
+- [x] Тесты (≥ 8 кейсов) — генерировать xlsx в коде через `XLSX.utils.aoa_to_sheet` + `XLSX.write`:
   - happy: 3 строки с 4 колонками → 3 ParsedRow.
   - заголовки в разном регистре `ФИО` / `фио` / `Фио` — все принимаются.
   - синонимы (`Имя` вместо `ФИО`) принимаются.
@@ -282,9 +282,9 @@ Email-приглашения (последний шаг потока §3.3) от
 
 **Tasks:**
 
-- [ ] Перенести логику `classifyRows` из backend на frontend (можно скопировать). **TODO для future refactoring**: вынести в `packages/shared-types` или `packages/api-contracts` как pure-function модуль, чтобы избежать drift.
-- [ ] Реализовать `classifyParsedRows(rows: ParsedRow[]): ClassifiedRow[]` — без аргумента `existing` (т.к. на фронте мы НЕ знаем существующих учеников; reuse-классификация делается backend'ом). Frontend помечает только: `valid` / `invalid` с per-field errors + `duplicate_in_file`.
-- [ ] Тесты (≥ 10 кейсов) — те же, что Task 2, но без reuse-сценариев. Включить СНИЛС-чексумму (тестовый набор корректных и некорректных).
+- [x] Перенести логику `classifyRows` из backend на frontend (можно скопировать). **TODO для future refactoring**: вынести в `packages/shared-types` или `packages/api-contracts` как pure-function модуль, чтобы избежать drift.
+- [x] Реализовать `classifyParsedRows(rows: ParsedRow[]): ClassifiedRow[]` — без аргумента `existing` (т.к. на фронте мы НЕ знаем существующих учеников; reuse-классификация делается backend'ом). Frontend помечает только: `valid` / `invalid` с per-field errors + `duplicate_in_file`.
+- [x] Тесты (≥ 10 кейсов) — те же, что Task 2, но без reuse-сценариев. Включить СНИЛС-чексумму (тестовый набор корректных и некорректных).
 
 **Acceptance:**
 
@@ -304,13 +304,13 @@ Email-приглашения (последний шаг потока §3.3) от
 
 **Tasks:**
 
-- [ ] `types.ts`: `BulkImportRequest`, `BulkImportOutcome`, `BulkImportOutcomeRow` — зеркало backend.
-- [ ] `api.ts`: `bulkImportLearners(session, payload): Promise<BulkImportOutcome>` — через существующий `apiRequest` + `withAuth(session)`.
-- [ ] `api.contract.test.ts` — по образцу `mvp/api.contract.test.ts` через MSW:
+- [x] `types.ts`: `BulkImportRequest`, `BulkImportOutcome`, `BulkImportOutcomeRow` — зеркало backend.
+- [x] `api.ts`: `bulkImportLearners(session, payload): Promise<BulkImportOutcome>` — через существующий `apiRequest` + `withAuth(session)`.
+- [x] `api.contract.test.ts` — по образцу `mvp/api.contract.test.ts` через MSW:
   - mock 200 → outcome парсится в правильный тип.
   - mock 400 → `ApiClientError` с code/message.
   - mock 403 → `ApiClientError`.
-- [ ] `hooks.ts`:
+- [x] `hooks.ts`:
   - `useBulkImportMutation()` — обёртка через существующий `wrap((authSession) => mvpApi.bulkImportLearners(authSession, payload))` (проект не использует React Query mutations, см. CommissionDetailsScreen паттерн).
   - Без React Query инвалидации на этом этапе — outcome возвращается напрямую в UI.
 
@@ -333,16 +333,16 @@ Email-приглашения (последний шаг потока §3.3) от
 
 **Tasks:**
 
-- [ ] `apps/frontend/app/admin/layout.tsx`:
+- [x] `apps/frontend/app/admin/layout.tsx`:
   - Принимает `children`.
   - Оборачивает в `<div className="admin-shell">` с двумя областями: nav-aside + content-main.
   - Использует существующий `ProtectedPage` (или не использует, если page-level уже его подключают — проверить).
-- [ ] `AdminSideNav` компонент:
+- [x] `AdminSideNav` компонент:
   - Берёт список разделов из конфига (новый `apps/frontend/src/widgets/admin-shell/admin-sections.ts`).
   - Каждый раздел: `{ href, label, requiredPermissions }`.
   - Фильтрует по permission'ам через существующий хук `useAuth().session.permissions`.
   - Highlight активного раздела по `usePathname()`.
-- [ ] Разделы Plan A:
+- [x] Разделы Plan A:
   ```ts
   [
     { href: '/admin/cockpit', label: 'Cockpit', requiredPermissions: ['auth.manage_sessions'] },
@@ -365,8 +365,8 @@ Email-приглашения (последний шаг потока §3.3) от
   ];
   ```
   (Слушатели/Группы — добавляются в Plan B.)
-- [ ] CSS-стили в существующем `app/globals.css` или новом scoped — sidebar 240px, content fill, mobile-collapse через media query.
-- [ ] Тест `admin-side-nav.test.ts`:
+- [x] CSS-стили в существующем `app/globals.css` или новом scoped — sidebar 240px, content fill, mobile-collapse через media query.
+- [x] Тест `admin-side-nav.test.ts`:
   - Render с user, имеющим все permissions → видны все пункты.
   - Render без `learners.write` → скрыт пункт «Массовая загрузка».
   - Active-pathname highlight.
@@ -388,8 +388,8 @@ Email-приглашения (последний шаг потока §3.3) от
 
 **Tasks:**
 
-- [ ] `app/admin/bulk-enrollments/page.tsx` — обёртка `<ProtectedPage><BulkImportScreen /></ProtectedPage>` по образцу `app/admin/commissions/[id]/page.tsx`.
-- [ ] `BulkImportScreen`:
+- [x] `app/admin/bulk-enrollments/page.tsx` — обёртка `<ProtectedPage><BulkImportScreen /></ProtectedPage>` по образцу `app/admin/commissions/[id]/page.tsx`.
+- [x] `BulkImportScreen`:
   - State: `{ file, parseResult, classifiedRows, groupId, idempotencyKey, isSubmitting, outcome, error }`.
   - Section «Загрузить файл»:
     - `<input type="file" accept=".xlsx,.xls,.csv">`.
@@ -404,7 +404,7 @@ Email-приглашения (последний шаг потока §3.3) от
     - Кнопка disabled пока: !file || !groupId || N валидных == 0.
     - On click: `useBulkImportMutation` с `rows = валидные`.
     - Показать outcome или error.
-- [ ] `PreviewTable`:
+- [x] `PreviewTable`:
   - Columns: `№`, `ФИО`, `Email`, `СНИЛС`, `Должность`, `Статус`, `Ошибки`.
   - Статус рендерится бейджем (green «Валидно» / red «Ошибка»).
   - Ошибки — список field/code/message.
@@ -428,12 +428,12 @@ Email-приглашения (последний шаг потока §3.3) от
 
 **Tasks:**
 
-- [ ] В `routeMeta` добавить:
+- [x] В `routeMeta` добавить:
   ```ts
   { pattern: '/admin/bulk-enrollments', meta: { public: false, requiredPermissions: ['learners.write', 'enrollments.write'] } },
   ```
-- [ ] В соответствующий role-blueprint для `tenant_admin` добавить пункт навигации (если используется отдельный blueprint).
-- [ ] Тест в `role-journeys.test.ts`:
+- [x] В соответствующий role-blueprint для `tenant_admin` добавить пункт навигации (если используется отдельный blueprint).
+- [x] Тест в `role-journeys.test.ts`:
   - tenant_admin видит `/admin/bulk-enrollments`.
   - methodist (без `learners.write`) НЕ видит.
   - learner НЕ видит.
@@ -453,7 +453,7 @@ Email-приглашения (последний шаг потока §3.3) от
 
 **Tasks:**
 
-- [ ] Сценарий через MSW + happy-dom (нет реального браузера, проект использует Vitest e2e):
+- [x] Сценарий через MSW + happy-dom (нет реального браузера, проект использует Vitest e2e):
   - Mount `BulkImportScreen`.
   - Симулировать загрузку файла (через File API mock).
   - Дождаться preview-таблицы.

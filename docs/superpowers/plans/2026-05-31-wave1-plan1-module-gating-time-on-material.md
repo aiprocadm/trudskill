@@ -46,7 +46,7 @@
 
 - Create: `apps/backend/migrations/0043_assessment_test_module_link.sql`
 
-- [ ] **Step 1: Write the migration**
+- [x] **Step 1: Write the migration**
 
 ```sql
 -- 0043_assessment_test_module_link.sql
@@ -65,12 +65,12 @@ CREATE INDEX IF NOT EXISTS tests_tenant_module_idx
 COMMIT;
 ```
 
-- [ ] **Step 2: Run the migration test suite to verify it applies**
+- [x] **Step 2: Run the migration test suite to verify it applies**
 
 Run: `pnpm test:migrations`
 Expected: PASS (no SQL/ordering errors; `0043` applies cleanly after `0042`).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/backend/migrations/0043_assessment_test_module_link.sql
@@ -90,7 +90,7 @@ git commit -m "feat(backend): add assessment.tests.module_id for module gating (
 - Test: `apps/backend/src/modules/mvp/mvp.dto-validation.test.ts`
 - Test: `apps/backend/src/modules/mvp/module-gating.service.test.ts` (created in Task 3; the persist assertion lives there)
 
-- [ ] **Step 1: Write the failing DTO validation test**
+- [x] **Step 1: Write the failing DTO validation test**
 
 Add to `apps/backend/src/modules/mvp/mvp.dto-validation.test.ts`:
 
@@ -127,12 +127,12 @@ describe('CreateTestRequest — moduleId', () => {
 });
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.dto-validation.test.ts --no-file-parallelism`
 Expected: FAIL — `CreateTestRequest` has no `moduleId` property.
 
-- [ ] **Step 3: Add `moduleId` to `TestEntity`**
+- [x] **Step 3: Add `moduleId` to `TestEntity`**
 
 In `apps/backend/src/modules/mvp/mvp.types.ts`, inside `export interface TestEntity extends BaseEntity {` (line 276), add after `courseId: string;`:
 
@@ -141,7 +141,7 @@ In `apps/backend/src/modules/mvp/mvp.types.ts`, inside `export interface TestEnt
   moduleId?: string;
 ```
 
-- [ ] **Step 4: Add `moduleId` to `CreateTestRequest`**
+- [x] **Step 4: Add `moduleId` to `CreateTestRequest`**
 
 In `apps/backend/src/modules/mvp/mvp.dto.ts`, inside `export class CreateTestRequest {` (line 574), add after the `courseId` field:
 
@@ -152,7 +152,7 @@ In `apps/backend/src/modules/mvp/mvp.dto.ts`, inside `export class CreateTestReq
   moduleId?: string;
 ```
 
-- [ ] **Step 5: Persist `moduleId` in `createTest`**
+- [x] **Step 5: Persist `moduleId` in `createTest`**
 
 In `apps/backend/src/modules/mvp/mvp.service.ts`, in `createTest` (line 2226), add `moduleId: request.moduleId,` to the `entity` object literal, right after `courseId: request.courseId,`:
 
@@ -173,7 +173,7 @@ const entity: TestEntity = {
 };
 ```
 
-- [ ] **Step 6: Mirror `moduleId` on the frontend test type**
+- [x] **Step 6: Mirror `moduleId` on the frontend test type**
 
 In `apps/frontend/src/features/mvp/types.ts`, find the interface used as the element type of `listTests` (the test type with `courseId`, `title`, `rules`). Add after its `courseId` field:
 
@@ -182,14 +182,14 @@ In `apps/frontend/src/features/mvp/types.ts`, find the interface used as the ele
   moduleId?: string;
 ```
 
-- [ ] **Step 7: Run the DTO test + typecheck**
+- [x] **Step 7: Run the DTO test + typecheck**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.dto-validation.test.ts --no-file-parallelism`
 Expected: PASS.
 Run: `pnpm typecheck`
 Expected: PASS (8/8 tasks).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.types.ts apps/backend/src/modules/mvp/mvp.dto.ts apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/mvp.dto-validation.test.ts apps/frontend/src/features/mvp/types.ts
@@ -205,7 +205,7 @@ git commit -m "feat(backend): persist test.moduleId; mirror on frontend type (Wa
 - Create: `apps/backend/src/modules/mvp/module-gating.service.test.ts`
 - Modify: `apps/backend/src/modules/mvp/mvp.service.ts` (`startAttempt` at 2766 + 5 private helpers)
 
-- [ ] **Step 1: Write the failing service test file**
+- [x] **Step 1: Write the failing service test file**
 
 Create `apps/backend/src/modules/mvp/module-gating.service.test.ts`:
 
@@ -462,12 +462,12 @@ describe('startAttempt — module gating (A) + min-view time (B)', () => {
 });
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/module-gating.service.test.ts --no-file-parallelism`
 Expected: FAIL — the `module_gate_locked` and `min_view_not_met` cases do NOT throw (gates not implemented yet). The `not.toThrow` cases pass.
 
-- [ ] **Step 3: Add the 5 private helpers**
+- [x] **Step 3: Add the 5 private helpers**
 
 In `apps/backend/src/modules/mvp/mvp.service.ts`, add these methods immediately AFTER the `startAttempt` method (after line 2826, before `saveAnswer`). They use only types already imported in the file (`TestEntity`, `CourseModuleEntity`, `PreconditionFailedException`).
 
@@ -545,7 +545,7 @@ In `apps/backend/src/modules/mvp/mvp.service.ts`, add these methods immediately 
   }
 ```
 
-- [ ] **Step 4: Wire the two gates into `startAttempt`**
+- [x] **Step 4: Wire the two gates into `startAttempt`**
 
 In `apps/backend/src/modules/mvp/mvp.service.ts`, find this block in `startAttempt` (around line 2752-2766):
 
@@ -576,18 +576,18 @@ Insert the two guard calls right after the `assertActorMatchesLearnerIamLink(...
     const delegationAuditMetadata = this.delegatedLearningAuditMetadata(
 ```
 
-- [ ] **Step 5: Run the gating test to verify it passes**
+- [x] **Step 5: Run the gating test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/module-gating.service.test.ts --no-file-parallelism`
 Expected: PASS (all 6 cases).
 
-- [ ] **Step 6: Run the existing test-player + canonical e2e to confirm no regression**
+- [x] **Step 6: Run the existing test-player + canonical e2e to confirm no regression**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/test-player.service.test.ts --no-file-parallelism`
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/business-flows.e2e.test.ts --no-file-parallelism`
 Expected: PASS for both (course-level tests with no module gating tests are unaffected).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/module-gating.service.test.ts
@@ -602,7 +602,7 @@ git commit -m "feat(backend): gate startAttempt by module sequence + min-view ti
 
 - Modify: `apps/frontend/src/features/course-viewer/hooks.ts`
 
-- [ ] **Step 1: Add `useModuleGateState` (no test — thin React Query wrapper, covered by Task 5's pure helper)**
+- [x] **Step 1: Add `useModuleGateState` (no test — thin React Query wrapper, covered by Task 5's pure helper)**
 
 In `apps/frontend/src/features/course-viewer/hooks.ts`, add this hook (it loads the learner's exam results + the course's tests, then delegates the pure computation to `buildModuleGateState` from Task 5). Add the import at the top:
 
@@ -634,13 +634,13 @@ export const useModuleGateState = (
 };
 ```
 
-- [ ] **Step 2: Typecheck (will fail until Task 5 creates `module-gate.ts`)**
+- [x] **Step 2: Typecheck (will fail until Task 5 creates `module-gate.ts`)**
 
 This task depends on Task 5's module. Implement Task 5 next, then run:
 Run: `pnpm typecheck`
 Expected: PASS after Task 5.
 
-- [ ] **Step 3: Commit (after Task 5 lands — or commit together)**
+- [x] **Step 3: Commit (after Task 5 lands — or commit together)**
 
 ```bash
 git add apps/frontend/src/features/course-viewer/hooks.ts
@@ -656,7 +656,7 @@ git commit -m "feat(frontend): load module-gate state (tests + exam results) (Wa
 - Create: `apps/frontend/src/features/course-viewer/module-gate.ts`
 - Create: `apps/frontend/src/features/course-viewer/module-gate.test.ts`
 
-- [ ] **Step 1: Write the failing unit test**
+- [x] **Step 1: Write the failing unit test**
 
 Create `apps/frontend/src/features/course-viewer/module-gate.test.ts`:
 
@@ -736,12 +736,12 @@ describe('computeModuleLocks', () => {
 });
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/course-viewer/module-gate.test.ts --no-file-parallelism`
 Expected: FAIL — `./module-gate` does not exist.
 
-- [ ] **Step 3: Implement the pure helpers**
+- [x] **Step 3: Implement the pure helpers**
 
 Create `apps/frontend/src/features/course-viewer/module-gate.ts`:
 
@@ -799,12 +799,12 @@ export const computeModuleLocks = (tree: CourseTree, gate: ModuleGateState): Loc
 };
 ```
 
-- [ ] **Step 4: Run it to verify it passes**
+- [x] **Step 4: Run it to verify it passes**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/course-viewer/module-gate.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/frontend/src/features/course-viewer/module-gate.ts apps/frontend/src/features/course-viewer/module-gate.test.ts apps/frontend/src/features/course-viewer/hooks.ts
@@ -821,7 +821,7 @@ git commit -m "feat(frontend): pure module-lock helpers + module-gate hook (Wave
 - Modify: `apps/frontend/src/features/course-viewer/course-viewer-screen.tsx`
 - Modify: `apps/frontend/src/features/course-viewer/table-of-contents.tsx`
 
-- [ ] **Step 1: Expose `onTick` in the `useWatchTracker` hook args**
+- [x] **Step 1: Expose `onTick` in the `useWatchTracker` hook args**
 
 In `apps/frontend/src/features/course-viewer/use-watch-tracker.ts`, extend `UseWatchTrackerArgs` (line 77) and wire it through. Replace the `interface UseWatchTrackerArgs { ... }` and the `useWatchTracker` body with:
 
@@ -865,7 +865,7 @@ export const useWatchTracker = ({
 };
 ```
 
-- [ ] **Step 2: Wire countdown + module locks into the screen**
+- [x] **Step 2: Wire countdown + module locks into the screen**
 
 In `apps/frontend/src/features/course-viewer/course-viewer-screen.tsx`:
 
@@ -922,7 +922,7 @@ useWatchTracker({
             ) : null}
 ```
 
-- [ ] **Step 3: Render module-level lock in the TOC**
+- [x] **Step 3: Render module-level lock in the TOC**
 
 In `apps/frontend/src/features/course-viewer/table-of-contents.tsx`:
 
@@ -965,19 +965,19 @@ moduleLocks: LockState;
 const lock = moduleLocked ? 'locked' : (lockState.get(material.id) ?? 'locked');
 ```
 
-- [ ] **Step 4: Typecheck + lint the touched files**
+- [x] **Step 4: Typecheck + lint the touched files**
 
 Run: `pnpm typecheck`
 Expected: PASS (8/8).
 Run: `npx eslint apps/frontend/src/features/course-viewer/use-watch-tracker.ts apps/frontend/src/features/course-viewer/course-viewer-screen.tsx apps/frontend/src/features/course-viewer/table-of-contents.tsx --max-warnings=0`
 Expected: clean.
 
-- [ ] **Step 5: Run the frontend course-viewer tests to confirm no regression**
+- [x] **Step 5: Run the frontend course-viewer tests to confirm no regression**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/course-viewer --no-file-parallelism`
 Expected: PASS (existing lock-logic/material tests + new module-gate test).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/frontend/src/features/course-viewer/use-watch-tracker.ts apps/frontend/src/features/course-viewer/course-viewer-screen.tsx apps/frontend/src/features/course-viewer/table-of-contents.tsx
@@ -994,16 +994,16 @@ git commit -m "feat(frontend): module lock in TOC + min-view countdown (Wave 1)"
 - Modify: `LMS_AGENT_HANDOFF.md` §5 (append next `### 5.XX`)
 - Modify: `docs/superpowers/specs/2026-05-30-wave1-module-gating-pre-exam-auth-design.md` (tick Plan 1)
 
-- [ ] **Step 1: Run the quality gate**
+- [x] **Step 1: Run the quality gate**
 
 Run: `pnpm -s ci:check`
 Expected: PASS (lint + typecheck + contracts + unit + build). If the full backend suite crashes on the Cyrillic path (CLAUDE.md Gotchas), rely on the isolated runs from Tasks 2-6 + CI; note this in the handoff.
 
-- [ ] **Step 2: Update README §2** — set Last Completed Task to "Wave 1 Plan 1 — module gating + time-on-material", Current/Next Task to "Wave 1 Plan 2 — pre-exam auth (№816)", Last Updated At/By.
+- [x] **Step 2: Update README §2** — set Last Completed Task to "Wave 1 Plan 1 — module gating + time-on-material", Current/Next Task to "Wave 1 Plan 2 — pre-exam auth (№816)", Last Updated At/By.
 
-- [ ] **Step 3: Append `### 5.XX` to LMS_AGENT_HANDOFF.md** — summary, files changed, test status (which isolated suites are green), deviations; cross-link this plan + the design spec.
+- [x] **Step 3: Append `### 5.XX` to LMS_AGENT_HANDOFF.md** — summary, files changed, test status (which isolated suites are green), deviations; cross-link this plan + the design spec.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add README.md LMS_AGENT_HANDOFF.md docs/superpowers/specs/2026-05-30-wave1-module-gating-pre-exam-auth-design.md

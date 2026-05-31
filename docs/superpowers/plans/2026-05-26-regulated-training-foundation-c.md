@@ -80,7 +80,7 @@
 
 **Files:** create `0033_documents_qr_token.sql` + `migrations.0033.test.ts`.
 
-- [ ] **Step 1: Write the migration test (regex check)**
+- [x] **Step 1: Write the migration test (regex check)**
 
 ```typescript
 import { describe, expect, it } from 'vitest';
@@ -105,7 +105,7 @@ describe('migration 0033 — documents qr_token (Plan C §5.8)', () => {
 });
 ```
 
-- [ ] **Step 2: Implement migration**
+- [x] **Step 2: Implement migration**
 
 ```sql
 -- 0033_documents_qr_token.sql
@@ -123,7 +123,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_generated_documents_qr_token
   WHERE qr_token IS NOT NULL;
 ```
 
-- [ ] **Step 3:** Commit `feat(backend): add migration 0033 — qr_token for public verification (Plan C §5.8)`.
+- [x] **Step 3:** Commit `feat(backend): add migration 0033 — qr_token for public verification (Plan C §5.8)`.
 
 ---
 
@@ -139,15 +139,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_generated_documents_qr_token
 
 ### Steps
 
-- [ ] **Step 1:** Add `qrToken?: string` to `GeneratedDocumentEntity`.
+- [x] **Step 1:** Add `qrToken?: string` to `GeneratedDocumentEntity`.
 
-- [ ] **Step 2:** Add helper `private generateQrToken(): string` в `DocumentsService` (использует node `crypto.randomBytes`).
+- [x] **Step 2:** Add helper `private generateQrToken(): string` в `DocumentsService` (использует node `crypto.randomBytes`).
 
-- [ ] **Step 3:** Изменить все места создания `GeneratedDocumentEntity` в сервисе чтобы устанавливать `qrToken = this.generateQrToken()`.
+- [x] **Step 3:** Изменить все места создания `GeneratedDocumentEntity` в сервисе чтобы устанавливать `qrToken = this.generateQrToken()`.
 
-- [ ] **Step 4:** Тесты в `documents.service.test.ts` — выпуск через `generateDocument` (после `startTask` → `completeTask`) и `issueGroupOrder` должны давать `.qrToken` ≥ 22 chars, уникальный, base64url-валидный.
+- [x] **Step 4:** Тесты в `documents.service.test.ts` — выпуск через `generateDocument` (после `startTask` → `completeTask`) и `issueGroupOrder` должны давать `.qrToken` ≥ 22 chars, уникальный, base64url-валидный.
 
-- [ ] **Step 5:** Обновить `resolveDocumentKey` в `pillar-a-variables.ts`:
+- [x] **Step 5:** Обновить `resolveDocumentKey` в `pillar-a-variables.ts`:
 
 ```typescript
 case 'qr_url':
@@ -165,7 +165,7 @@ export interface DocumentVariableContext {
 
 Тесты обновить: ожидать URL вместо пустой строки.
 
-- [ ] **Step 6:** Commit `feat(backend): generate qr_token on document issuance and resolve document.qr_url (Plan C §5.8)`.
+- [x] **Step 6:** Commit `feat(backend): generate qr_token on document issuance and resolve document.qr_url (Plan C §5.8)`.
 
 ---
 
@@ -189,12 +189,12 @@ export interface DocumentVariableContext {
 
 ### Steps
 
-- [ ] **Step 1:** Добавить метод `DocumentsService.verifyDocumentByQrToken(token: string)` который:
+- [x] **Step 1:** Добавить метод `DocumentsService.verifyDocumentByQrToken(token: string)` который:
   1. Делает global scan по `state.generatedDocuments` (любой tenant) по `qrToken === token`.
   2. Возвращает агрегат для public response (без tenantId).
   3. Не пишет audit самостоятельно (controller пишет).
 
-- [ ] **Step 2:** Создать `PublicVerifyController`:
+- [x] **Step 2:** Создать `PublicVerifyController`:
 
 ```typescript
 import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
@@ -227,11 +227,11 @@ export class PublicVerifyController {
 }
 ```
 
-- [ ] **Step 3:** Тесты `public-verify.controller.test.ts`: 200 valid, 404 unknown, 200 revoked (после Task 4 — пока assert на existence только).
+- [x] **Step 3:** Тесты `public-verify.controller.test.ts`: 200 valid, 404 unknown, 200 revoked (после Task 4 — пока assert на existence только).
 
-- [ ] **Step 4:** Зарегистрировать в `documents.module.ts`.
+- [x] **Step 4:** Зарегистрировать в `documents.module.ts`.
 
-- [ ] **Step 5:** Commit.
+- [x] **Step 5:** Commit.
 
 ---
 
@@ -456,11 +456,11 @@ Commit.
 
 ## Verification
 
-- [ ] `pnpm --filter @cdoprof/backend test` — все зелёные. Baseline 559 + ~50 новых от Plan C = ~610.
-- [ ] `pnpm --filter @cdoprof/frontend test` — baseline 117 + ~10 новых = ~127.
-- [ ] `pnpm --filter @cdoprof/backend exec tsc --noEmit` — 0 ошибок.
-- [ ] `pnpm --filter @cdoprof/frontend exec tsc --noEmit` — 0 ошибок.
-- [ ] Manual smoke: выпуск нового документа → QR-сканирование (или ручной visit URL) показывает карточку. Revoke → показывает «Аннулирован». Reissue → создаёт новый связанный документ.
+- [x] `pnpm --filter @cdoprof/backend test` — все зелёные. Baseline 559 + ~50 новых от Plan C = ~610.
+- [x] `pnpm --filter @cdoprof/frontend test` — baseline 117 + ~10 новых = ~127.
+- [x] `pnpm --filter @cdoprof/backend exec tsc --noEmit` — 0 ошибок.
+- [x] `pnpm --filter @cdoprof/frontend exec tsc --noEmit` — 0 ошибок.
+- [x] Manual smoke: выпуск нового документа → QR-сканирование (или ручной visit URL) показывает карточку. Revoke → показывает «Аннулирован». Reissue → создаёт новый связанный документ.
 
 ---
 

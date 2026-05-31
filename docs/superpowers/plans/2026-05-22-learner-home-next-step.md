@@ -49,7 +49,7 @@ The current root route `/` is a generic widget grid (`apps/frontend/app/page.tsx
 
 - Create: `apps/frontend/src/features/learner-home/types.ts`
 
-- [ ] **Step 1: Define the types module**
+- [x] **Step 1: Define the types module**
 
 ```typescript
 // apps/frontend/src/features/learner-home/types.ts
@@ -97,7 +97,7 @@ export interface RoleOption {
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add apps/frontend/src/features/learner-home/types.ts
@@ -125,7 +125,7 @@ Pick the highest-priority candidate from the user's enrollments, in this order:
 
 `href` always points to `/learner/courses/{courseId}` for kinds 1–3; for `completed_all`, `/learner/courses`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```typescript
 // apps/frontend/src/features/learner-home/next-step.test.ts
@@ -297,12 +297,12 @@ describe('pickNextStep', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests, expect failure (module not implemented)**
+- [x] **Step 2: Run tests, expect failure (module not implemented)**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/learner-home/next-step.test.ts`
 Expected: FAIL — `Cannot find module './next-step'`
 
-- [ ] **Step 3: Implement `pickNextStep`**
+- [x] **Step 3: Implement `pickNextStep`**
 
 ```typescript
 // apps/frontend/src/features/learner-home/next-step.ts
@@ -386,12 +386,12 @@ export const pickNextStep = (entries: EnrollmentWithDetails[]): NextStep | null 
 };
 ```
 
-- [ ] **Step 4: Run tests, expect pass**
+- [x] **Step 4: Run tests, expect pass**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/learner-home/next-step.test.ts`
 Expected: 7 PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/frontend/src/features/learner-home/next-step.ts \
@@ -419,7 +419,7 @@ git commit -m "feat(frontend): add pure pickNextStep picker for learner home"
 - If the session has only one role (or none), `getAvailableRoles` returns an empty array (caller will skip rendering the switcher).
 - `getActiveRole(session, requested)` returns the role code matching the `requested` value if it's in the user's available roles; otherwise the first available role; otherwise `'learner'`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```typescript
 // apps/frontend/src/features/learner-home/role-switcher.test.ts
@@ -483,12 +483,12 @@ describe('getActiveRole', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests, expect failure**
+- [x] **Step 2: Run tests, expect failure**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/learner-home/role-switcher.test.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement `role-switcher.ts`**
+- [x] **Step 3: Implement `role-switcher.ts`**
 
 ```typescript
 // apps/frontend/src/features/learner-home/role-switcher.ts
@@ -549,12 +549,12 @@ export const getActiveRole = (
 };
 ```
 
-- [ ] **Step 4: Run tests, expect pass**
+- [x] **Step 4: Run tests, expect pass**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/learner-home/role-switcher.test.ts`
 Expected: 9 PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/frontend/src/features/learner-home/role-switcher.ts \
@@ -585,7 +585,7 @@ git commit -m "feat(frontend): add role switcher logic for learner home"
 
 We don't have a jsdom test environment, so we can't test the React lifecycle directly. But we _can_ extract a pure `assembleHomeData` function that takes the raw query results and assembles the array — that part is unit-testable.
 
-- [ ] **Step 1: Write failing test for the pure assembler**
+- [x] **Step 1: Write failing test for the pure assembler**
 
 ```typescript
 // apps/frontend/src/features/learner-home/use-learner-home-data.test.ts
@@ -671,12 +671,12 @@ describe('assembleHomeData', () => {
 });
 ```
 
-- [ ] **Step 2: Run test, expect failure**
+- [x] **Step 2: Run test, expect failure**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/learner-home/use-learner-home-data.test.ts`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement `use-learner-home-data.ts`**
+- [x] **Step 3: Implement `use-learner-home-data.ts`**
 
 ```typescript
 // apps/frontend/src/features/learner-home/use-learner-home-data.ts
@@ -762,12 +762,12 @@ export const useLearnerHomeData = () => {
 };
 ```
 
-- [ ] **Step 4: Run test, expect pass**
+- [x] **Step 4: Run test, expect pass**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/learner-home/use-learner-home-data.test.ts`
 Expected: 3 PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/frontend/src/features/learner-home/use-learner-home-data.ts \
@@ -783,7 +783,7 @@ git commit -m "feat(frontend): add useLearnerHomeData composing enrollments + co
 
 - Create: `apps/frontend/src/features/learner-home/next-step-card.tsx`
 
-- [ ] **Step 1: Implement the component**
+- [x] **Step 1: Implement the component**
 
 ```tsx
 // apps/frontend/src/features/learner-home/next-step-card.tsx
@@ -838,7 +838,7 @@ export const NextStepCard = ({ step, loading }: Props) => {
 };
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add apps/frontend/src/features/learner-home/next-step-card.tsx
@@ -861,7 +861,7 @@ git commit -m "feat(frontend): add NextStepCard presentation component"
 - Loading state: shows skeleton-like placeholder via existing `ListSkeleton` pattern (inlined to avoid coupling).
 - Empty state: "Курсы пока не назначены" via `SectionEmpty`.
 
-- [ ] **Step 1: Implement the component**
+- [x] **Step 1: Implement the component**
 
 ```tsx
 // apps/frontend/src/features/learner-home/my-courses-list.tsx
@@ -937,7 +937,7 @@ export const MyCoursesList = ({ entries, loading }: Props) => {
 };
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add apps/frontend/src/features/learner-home/my-courses-list.tsx
@@ -961,7 +961,7 @@ git commit -m "feat(frontend): add MyCoursesList with progress bars for learner 
 
 > **Why the filename is `role-switcher-tabs.tsx`, not `role-switcher.tsx`:** the logic file is `role-switcher.ts`. Putting both `role-switcher.ts` and `role-switcher.tsx` in the same directory creates a TS module-resolution ambiguity (both could be imported as `./role-switcher`). The component-suffix variant sidesteps this entirely.
 
-- [ ] **Step 1: Implement the component**
+- [x] **Step 1: Implement the component**
 
 ```tsx
 // apps/frontend/src/features/learner-home/role-switcher-tabs.tsx
@@ -1000,7 +1000,7 @@ export const RoleSwitcher = () => {
 };
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add apps/frontend/src/features/learner-home/role-switcher-tabs.tsx
@@ -1016,7 +1016,7 @@ git commit -m "feat(frontend): add RoleSwitcher tabs for users with multiple rol
 - Create: `apps/frontend/src/features/learner-home/learner-home-screen.tsx`
 - Create: `apps/frontend/app/learner/page.tsx`
 
-- [ ] **Step 1: Implement the screen**
+- [x] **Step 1: Implement the screen**
 
 ```tsx
 // apps/frontend/src/features/learner-home/learner-home-screen.tsx
@@ -1052,7 +1052,7 @@ export const LearnerHomeScreen = () => {
 };
 ```
 
-- [ ] **Step 2: Implement the route page**
+- [x] **Step 2: Implement the route page**
 
 ```tsx
 // apps/frontend/app/learner/page.tsx
@@ -1068,7 +1068,7 @@ export default function LearnerHomePage() {
 }
 ```
 
-- [ ] **Step 3: Add smoke test for the route**
+- [x] **Step 3: Add smoke test for the route**
 
 ```tsx
 // apps/frontend/app/learner/page.test.tsx
@@ -1083,12 +1083,12 @@ describe('learner home route', () => {
 });
 ```
 
-- [ ] **Step 4: Run frontend test suite**
+- [x] **Step 4: Run frontend test suite**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run`
 Expected: all tests pass (existing 90 + new tests from Tasks 2, 3, 4, and the smoke test from Step 3).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/frontend/src/features/learner-home/learner-home-screen.tsx \
@@ -1111,7 +1111,7 @@ Role information lives in `useAuth().session` which is bootstrapped on the clien
 
 To avoid hijacking the legacy widget grid for admins/teachers who currently use it, we only redirect when the user is _primarily_ a learner: the user has the `learner` role **and** does not currently sit on a path under `/admin` or `/teacher`. On `/` the redirect runs for any learner.
 
-- [ ] **Step 1: Add redirect to DashboardPage**
+- [x] **Step 1: Add redirect to DashboardPage**
 
 Modify `apps/frontend/app/page.tsx`:
 
@@ -1163,12 +1163,12 @@ export default function DashboardPage() {
 
 > **Concretely:** insert the new `useRouter()` call and `useEffect` block immediately after the existing `useAuth()` and `startMetricTimer` effect. Do not delete the metric `useEffect` or any of the widget grid rendering — non-learner users keep seeing it.
 
-- [ ] **Step 2: Verify the existing root-route smoke test still passes**
+- [x] **Step 2: Verify the existing root-route smoke test still passes**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run app/smoke.test.tsx`
 Expected: PASS (this test only checks the component is a function — no behavior assertion).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/frontend/app/page.tsx
@@ -1179,22 +1179,22 @@ git commit -m "feat(frontend): redirect learners from / to /learner home"
 
 ## Task 10: Full verification
 
-- [ ] **Step 1: Lint**
+- [x] **Step 1: Lint**
 
 Run: `pnpm --filter @cdoprof/frontend run lint`
 Expected: no warnings or errors.
 
-- [ ] **Step 2: Typecheck**
+- [x] **Step 2: Typecheck**
 
 Run: `pnpm --filter @cdoprof/frontend exec tsc --noEmit`
 Expected: clean (no errors).
 
-- [ ] **Step 3: Run all frontend tests**
+- [x] **Step 3: Run all frontend tests**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run`
 Expected: all tests pass. Count should be 90 (current) + 8 (`pickNextStep`) + 9 (`getAvailableRoles` + `getActiveRole`) + 3 (`assembleHomeData`) + 1 (learner page smoke) = 111.
 
-- [ ] **Step 4: Manual smoke test in browser** (cannot be automated without jsdom)
+- [x] **Step 4: Manual smoke test in browser** (cannot be automated without jsdom)
 
 1. Start backend: `pnpm --filter @cdoprof/backend run dev`
 2. Start frontend: `pnpm --filter @cdoprof/frontend run dev`
@@ -1211,12 +1211,12 @@ Expected: all tests pass. Count should be 90 (current) + 8 (`pickNextStep`) + 9 
 
 ## Definition of Done
 
-- [ ] All 10 tasks committed.
-- [ ] Vitest: 111/111 passing (frontend filter).
-- [ ] ESLint: clean.
-- [ ] `tsc --noEmit`: clean.
-- [ ] Manual smoke walkthrough on a fresh learner account completes the goal: from `/` they see "Следующий шаг" within 1s and one click takes them to the right course.
-- [ ] Spec §4.2 requirements traced:
+- [x] All 10 tasks committed.
+- [x] Vitest: 111/111 passing (frontend filter).
+- [x] ESLint: clean.
+- [x] `tsc --noEmit`: clean.
+- [x] Manual smoke walkthrough on a fresh learner account completes the goal: from `/` they see "Следующий шаг" within 1s and one click takes them to the right course.
+- [x] Spec §4.2 requirements traced:
   - ✅ Центральная карточка "Следующий шаг" — `NextStepCard` with `pickNextStep` cross-course logic.
   - ✅ Список курсов с прогресс-барами — `MyCoursesList`.
   - ❌ Дедлайны — out of scope (data model lacks `dueAt` on `Enrollment`); follow-up plan needed.

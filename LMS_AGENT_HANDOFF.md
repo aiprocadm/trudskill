@@ -1215,6 +1215,17 @@
 - Quality gates (Cyrillic-path isolated `--no-file-parallelism`): backend `pre-exam-token` 6 + `pre-exam-auth.service` 9 + `mvp.dto-validation` 102 + `assessment-admin.http.integration` 18 + регресс `module-gating` 6 / `test-player` 11 / `business-flows.e2e` 4 (138 в общем прогоне); frontend `test-player` 14; contracts 7; `tsc` 8/8; ESLint clean (per-file lint-staged). Полный `pnpm -s ci:check` локально не гонялся (краш backend-suite на кириллице) → CI (Ubuntu).
 - Коммиты: `docs(plan)` → `feat(backend)` ×4 (migration, model, crypto, service-gate) → `test(backend)` (review) → `feat(backend)` (DTO) → `feat(backend)` (endpoints) → `feat(frontend)` ×2 (api+hook, UI).
 
+### 5.99 Консолидация статуса планов + гигиена чек-листов (PLANS_STATUS.md)
+
+- Контекст: запрос «найти все планы, свести в один, дописать код». Сверка показала, что **дописывать по планам нечего** — все 17 планов в `docs/superpowers/plans/` уже реализованы и слиты (PR #167–#219). 786 невыполненных галочек `- [ ]` оказались **устаревшим трекингом** (агенты сливали код, но не проставляли галочки), а не невыполненной работой. Сессия — гигиена документации, **без изменений кода**.
+- Метод: 5 параллельных агентов (по группе связанных планов через `superpowers:dispatching-parallel-agents`), каждый сверял факт реализации по `git log --oneline --all` + наличию файлов из «File Structure» плана, затем консервативно проставлял галочки только подтверждённо-готовых задач (при сомнении — оставлял незакрытой).
+- Создан **`docs/superpowers/plans/PLANS_STATUS.md`** — единый навигатор: таблица 17 планов (статус / PR / галочки), карта PR→план, раздел «что реально осталось», методология проверки. Перекрёстная ссылка добавлена в README §2.
+- Галочки: невыполненных стало **110 осознанно-открытых** (было 786): roadmap 70 (Phase 0 + Phase 4–11 + бизнес-гейты — будущее), Phase 2 Plan B 3 (нет E2E-теста), AV-гейт 37 (Tasks 7–13 отложены). ~736 устаревших проставлены.
+- **Реальные пробелы, выявленные сверкой** (важно — НЕ закрашены ложно): (1) **AV-гейт Tasks 7–13** — проактивный скан / статус-UI / integration-тест / доки отложены (ядро download-гейта уже в проде, #217); (2) **Phase 2 Plan B** — не создан `apps/frontend/src/e2e/admin-learners-management.e2e.test.ts`; готовый файл лежит на не-слитой ветке `feat/2026-05-29-phase-2-plan-b-closeout`, в `main` не попал; (3) **Wave 2** (регуляторные выгрузки ФИС ФРДО / ЕИСОТ) = незакрытый дом Phase 6 роадмапа.
+- Гигиена: откатил порчу строки-примера `(`- [ ]`)` в служебной шапке 12 планов (агентский global-replace задел); из `2026-05-30-v1.1-antivirus-scan-gate.md` удалены 6 NUL-байтов (файл был «бинарным» для git/grep/prettier) → теперь валидный UTF-8.
+- Тесты: не затронуты (изменения только в `.md`). Prettier применён к новым/правленым файлам; `pnpm` quality gates не релевантны (нет кода).
+- Деривация от протокола: README §2 Current Stage/Last Completed/Next Task НЕ переписаны (продуктовое состояние не менялось — остаётся Wave 1 Plan 2 / далее Wave 2); добавлен только указатель на PLANS_STATUS.md.
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |

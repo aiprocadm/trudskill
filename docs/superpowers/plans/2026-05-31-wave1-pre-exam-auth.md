@@ -61,7 +61,7 @@ These resolve the design's open choices. Do not re-litigate during execution; if
 
 - Create: `apps/backend/migrations/0044_assessment_pre_exam_auth.sql`
 
-- [ ] **Step 1: Write the migration**
+- [x] **Step 1: Write the migration**
 
 ```sql
 -- 0044_assessment_pre_exam_auth.sql
@@ -121,12 +121,12 @@ COMMENT ON TABLE assessment.pre_exam_tokens IS
 COMMIT;
 ```
 
-- [ ] **Step 2: Run the migration test suite to verify it applies**
+- [x] **Step 2: Run the migration test suite to verify it applies**
 
 Run: `pnpm test:migrations`
 Expected: PASS — `0044` applies cleanly after `0043` (no SQL/ordering errors). If a test enumerates the latest migration number, update it.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/backend/migrations/0044_assessment_pre_exam_auth.sql
@@ -144,7 +144,7 @@ git commit -m "feat(backend): pre-exam auth typed contract — group flag, attem
 - Modify: `apps/backend/src/modules/mvp/infrastructure/mvp-collections.ts`
 - Modify: `apps/backend/src/modules/mvp/mvp.dto.ts` (`CreateGroupCourseRequest`, `UpdateGroupCourseRequest`)
 
-- [ ] **Step 1: Add `requiresPreExamAuth` to `GroupCourse`**
+- [x] **Step 1: Add `requiresPreExamAuth` to `GroupCourse`**
 
 In `apps/backend/src/modules/mvp/mvp.types.ts`, inside `export interface GroupCourse extends BaseEntity {` (after `durationDays?: number;`, line ~94):
 
@@ -153,7 +153,7 @@ In `apps/backend/src/modules/mvp/mvp.types.ts`, inside `export interface GroupCo
   requiresPreExamAuth?: boolean;
 ```
 
-- [ ] **Step 2: Add identity fields to `TestAttempt`**
+- [x] **Step 2: Add identity fields to `TestAttempt`**
 
 In `apps/backend/src/modules/mvp/mvp.types.ts`, inside `export interface TestAttempt extends BaseEntity {` (after `reviewedBy?: string;`, line ~318):
 
@@ -164,7 +164,7 @@ In `apps/backend/src/modules/mvp/mvp.types.ts`, inside `export interface TestAtt
   identityVerificationTokenId?: string;
 ```
 
-- [ ] **Step 3: Add the `PreExamToken` interface**
+- [x] **Step 3: Add the `PreExamToken` interface**
 
 In `apps/backend/src/modules/mvp/mvp.types.ts`, add after the `TestAttempt` / `Attempt` block (after line ~321):
 
@@ -185,7 +185,7 @@ export interface PreExamToken extends BaseEntity {
 }
 ```
 
-- [ ] **Step 4: Register the collection in `InMemoryMvpState`**
+- [x] **Step 4: Register the collection in `InMemoryMvpState`**
 
 In `apps/backend/src/modules/mvp/infrastructure/in-memory-mvp.state.ts`:
 
@@ -204,7 +204,7 @@ In `apps/backend/src/modules/mvp/infrastructure/in-memory-mvp.state.ts`:
   preExamTokens: PreExamToken[] = [];
 ```
 
-- [ ] **Step 5: Register the collection key in `mvp-collections.ts`**
+- [x] **Step 5: Register the collection key in `mvp-collections.ts`**
 
 In `apps/backend/src/modules/mvp/infrastructure/mvp-collections.ts`, add `'preExamTokens'` to the `MVP_COLLECTIONS` array after `'courseDocumentSets'`:
 
@@ -214,7 +214,7 @@ In `apps/backend/src/modules/mvp/infrastructure/mvp-collections.ts`, add `'preEx
 
 > ⚠️ Steps 4 and 5 MUST land together — a collection missing from either list is silently lost between HTTP requests (CLAUDE.md).
 
-- [ ] **Step 6: Add `requiresPreExamAuth` to the group-course DTOs**
+- [x] **Step 6: Add `requiresPreExamAuth` to the group-course DTOs**
 
 In `apps/backend/src/modules/mvp/mvp.dto.ts`, inside `CreateGroupCourseRequest` (after `durationDays?`, line ~256):
 
@@ -234,12 +234,12 @@ And inside `UpdateGroupCourseRequest` (after its `durationDays?`, line ~265):
 
 Ensure `IsBoolean` is in the `class-validator` import at the top of the file (add it if missing).
 
-- [ ] **Step 7: Typecheck**
+- [x] **Step 7: Typecheck**
 
 Run: `pnpm typecheck`
 Expected: PASS (8/8). The new collection type flows through `MVP_COLLECTIONS` (which is `as const`), the state class, and the snapshot backend with no further change.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.types.ts apps/backend/src/modules/mvp/infrastructure/in-memory-mvp.state.ts apps/backend/src/modules/mvp/infrastructure/mvp-collections.ts apps/backend/src/modules/mvp/mvp.dto.ts
@@ -255,7 +255,7 @@ git commit -m "feat(backend): pre-exam token model + collection + group-course f
 - Create: `apps/backend/src/modules/mvp/pre-exam-token.ts`
 - Create: `apps/backend/src/modules/mvp/pre-exam-token.test.ts`
 
-- [ ] **Step 1: Write the failing unit test**
+- [x] **Step 1: Write the failing unit test**
 
 Create `apps/backend/src/modules/mvp/pre-exam-token.test.ts`:
 
@@ -303,12 +303,12 @@ describe('pre-exam-token crypto', () => {
 });
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/pre-exam-token.test.ts --no-file-parallelism`
 Expected: FAIL — `./pre-exam-token` does not exist.
 
-- [ ] **Step 3: Implement the helper**
+- [x] **Step 3: Implement the helper**
 
 Create `apps/backend/src/modules/mvp/pre-exam-token.ts`:
 
@@ -339,12 +339,12 @@ export function buildPreExamAuthUrl(rawToken: string): string {
 
 > Verify the import path: `mvp/pre-exam-token.ts` → `../../env.js` resolves to `apps/backend/src/env.ts`. Confirm `backendEnv.PUBLIC_BASE_URL` exists (it is used by `magic-link-email-sender.ts`).
 
-- [ ] **Step 4: Run it to verify it passes**
+- [x] **Step 4: Run it to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/pre-exam-token.test.ts --no-file-parallelism`
 Expected: PASS (6 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/pre-exam-token.ts apps/backend/src/modules/mvp/pre-exam-token.test.ts
@@ -360,7 +360,7 @@ git commit -m "feat(backend): pure pre-exam token crypto helper (Wave 1 Plan 2)"
 - Modify: `apps/backend/src/modules/mvp/mvp.service.ts`
 - Create: `apps/backend/src/modules/mvp/pre-exam-auth.service.test.ts`
 
-- [ ] **Step 1: Write the failing service test**
+- [x] **Step 1: Write the failing service test**
 
 Create `apps/backend/src/modules/mvp/pre-exam-auth.service.test.ts`:
 
@@ -522,12 +522,12 @@ class InMemoryMvpStatePeek {
 
 > **Deviation note for the executor:** the test uses a `requestPreExamTokenRaw` test-only accessor and a `requestPreExamToken` public method. Implement BOTH in Step 3: `requestPreExamToken` returns `{ delivered: true }` (no raw token); `requestPreExamTokenRaw` returns the raw token and is documented as test/dev-only (it is NOT exposed on the controller). If you prefer not to add a test-only method, instead have the test read the stored token via a verify-by-hash path — but the dual-method approach keeps the no-leak guarantee explicit and is the chosen design.
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/pre-exam-auth.service.test.ts --no-file-parallelism`
 Expected: FAIL — `requestPreExamToken` / `verifyPreExamToken` / `requestPreExamTokenRaw` do not exist; gate does not throw.
 
-- [ ] **Step 3: Add a private `Logger` field to `MvpService`**
+- [x] **Step 3: Add a private `Logger` field to `MvpService`**
 
 In `apps/backend/src/modules/mvp/mvp.service.ts`, ensure `Logger` is imported from `@nestjs/common` (add to the existing import if missing) and add a field near the top of the class body (next to other private fields):
 
@@ -535,7 +535,7 @@ In `apps/backend/src/modules/mvp/mvp.service.ts`, ensure `Logger` is imported fr
   private readonly preExamLogger = new Logger('PreExamAuth');
 ```
 
-- [ ] **Step 4: Persist the flag in `createGroupCourse` / `updateGroupCourse`**
+- [x] **Step 4: Persist the flag in `createGroupCourse` / `updateGroupCourse`**
 
 In `createGroupCourse` (line ~1209), add to the `entity` object literal (use conditional spread for `exactOptionalPropertyTypes`):
 
@@ -566,7 +566,7 @@ if (request.requiresPreExamAuth !== undefined) {
 
 (Match the file's existing mutation style in `updateGroupCourse`; if it builds a new object instead of mutating `current`, mirror that.)
 
-- [ ] **Step 5: Add the service methods + gate**
+- [x] **Step 5: Add the service methods + gate**
 
 In `apps/backend/src/modules/mvp/mvp.service.ts`, add imports at the top from the helper:
 
@@ -740,7 +740,7 @@ Add these methods immediately AFTER `assertMinViewGate` (ends ~line 2895, before
   }
 ```
 
-- [ ] **Step 6: Extract a small `resolveAttemptContext` helper (DRY with startAttempt) OR inline**
+- [x] **Step 6: Extract a small `resolveAttemptContext` helper (DRY with startAttempt) OR inline**
 
 `requestPreExamToken` / `requestPreExamTokenRaw` need the same `test` + `enrollment` + group-course-access checks as `startAttempt`'s preamble. Add a private helper that mirrors `startAttempt` lines 2735-2748 and reuse it. Place it just above `requestPreExamToken`:
 
@@ -770,7 +770,7 @@ Add these methods immediately AFTER `assertMinViewGate` (ends ~line 2895, before
 
 (Optional refactor: replace `startAttempt` lines 2735-2748 with `const { test, enrollment } = this.resolveAttemptContext(tenantId, request);`. Only do this if the regression suites stay green — otherwise leave `startAttempt` as-is and let `resolveAttemptContext` duplicate the few lines.)
 
-- [ ] **Step 7: Wire the gate + stamp identity in `startAttempt`**
+- [x] **Step 7: Wire the gate + stamp identity in `startAttempt`**
 
 In `startAttempt`, add the gate call right after the two Wave 1 gates (after line 2762 `this.assertMinViewGate(...)`):
 
@@ -805,14 +805,14 @@ const entity: TestAttempt = {
 };
 ```
 
-- [ ] **Step 8: Run the service test + regression**
+- [x] **Step 8: Run the service test + regression**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/pre-exam-auth.service.test.ts --no-file-parallelism`
 Expected: PASS (6 cases).
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/module-gating.service.test.ts src/modules/mvp/test-player.service.test.ts src/modules/mvp/business-flows.e2e.test.ts --no-file-parallelism`
 Expected: PASS (no regression — final exams in groups without the flag are unaffected; module tests are never gated).
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/pre-exam-auth.service.test.ts
@@ -828,7 +828,7 @@ git commit -m "feat(backend): pre-exam auth request/verify + startAttempt gate (
 - Modify: `apps/backend/src/modules/mvp/mvp.dto.ts`
 - Modify: `apps/backend/src/modules/mvp/mvp.dto-validation.test.ts`
 
-- [ ] **Step 1: Write the failing DTO validation test**
+- [x] **Step 1: Write the failing DTO validation test**
 
 Add to `apps/backend/src/modules/mvp/mvp.dto-validation.test.ts`:
 
@@ -877,12 +877,12 @@ describe('Pre-exam auth DTOs', () => {
 
 (Add `CreateGroupCourseRequest` to the existing imports in this test file if not already imported.)
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.dto-validation.test.ts --no-file-parallelism`
 Expected: FAIL — the two new request classes do not exist.
 
-- [ ] **Step 3: Add the DTOs**
+- [x] **Step 3: Add the DTOs**
 
 In `apps/backend/src/modules/mvp/mvp.dto.ts`, add immediately after `StartAttemptRequest` (line ~631):
 
@@ -910,12 +910,12 @@ export class VerifyPreExamTokenRequest {
 }
 ```
 
-- [ ] **Step 4: Run it to verify it passes**
+- [x] **Step 4: Run it to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.dto-validation.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.dto.ts apps/backend/src/modules/mvp/mvp.dto-validation.test.ts
@@ -931,7 +931,7 @@ git commit -m "feat(backend): pre-exam auth request/verify DTOs (Wave 1 Plan 2)"
 - Modify: `apps/backend/src/modules/mvp/mvp.controller.ts`
 - Modify: `apps/backend/src/modules/mvp/assessment-admin.http.integration.test.ts`
 
-- [ ] **Step 1: Add the two endpoints**
+- [x] **Step 1: Add the two endpoints**
 
 In `apps/backend/src/modules/mvp/mvp.controller.ts`, add the imports of the new DTOs to the existing `mvp.dto.js` import block (`RequestPreExamTokenRequest`, `VerifyPreExamTokenRequest`).
 
@@ -957,7 +957,7 @@ Add the endpoints right after the `startAttempt` handler (after line 878):
 
 > Note: `requestPreExamToken` here maps to the no-leak `MvpService.requestPreExamToken` (returns `{ delivered }`), NOT `requestPreExamTokenRaw`.
 
-- [ ] **Step 2: Add HTTP permission-boundary tests (stub-controller pattern)**
+- [x] **Step 2: Add HTTP permission-boundary tests (stub-controller pattern)**
 
 Open `apps/backend/src/modules/mvp/assessment-admin.http.integration.test.ts` and follow its existing stub-controller + permission-assertion pattern (see how `attempts/start` or similar `assessment.attempts.take` endpoints are asserted). Add a describe block asserting:
 
@@ -966,19 +966,19 @@ Open `apps/backend/src/modules/mvp/assessment-admin.http.integration.test.ts` an
 
 Mirror the exact harness already used in this file for an `assessment.attempts.take` route — copy that test's structure and swap the path/permission. (Do not invent a new bootstrap; extend the file's existing app.)
 
-- [ ] **Step 3: Run the HTTP integration test (isolated)**
+- [x] **Step 3: Run the HTTP integration test (isolated)**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/assessment-admin.http.integration.test.ts --no-file-parallelism`
 Expected: PASS. (If this file crashes on the Cyrillic path, note it and rely on CI; prefer this lighter file over the 2400-line `mvp.domains.http.integration.test.ts`.)
 
-- [ ] **Step 4: Typecheck + lint touched files**
+- [x] **Step 4: Typecheck + lint touched files**
 
 Run: `pnpm typecheck`
 Expected: PASS (8/8).
 Run: `npx eslint apps/backend/src/modules/mvp/mvp.controller.ts apps/backend/src/modules/mvp/mvp.service.ts --max-warnings=0`
 Expected: clean.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.controller.ts apps/backend/src/modules/mvp/assessment-admin.http.integration.test.ts
@@ -996,7 +996,7 @@ git commit -m "feat(backend): POST request/verify-pre-exam-token endpoints (Wave
 - Modify: `apps/frontend/src/features/test-player/api.contract.test.ts`
 - Modify: `apps/frontend/src/features/test-player/hooks.ts`
 
-- [ ] **Step 1: Extend the types**
+- [x] **Step 1: Extend the types**
 
 In `apps/frontend/src/features/test-player/types.ts`:
 
@@ -1028,7 +1028,7 @@ export interface VerifyPreExamTokenResult {
 }
 ```
 
-- [ ] **Step 2: Write the failing contract test**
+- [x] **Step 2: Write the failing contract test**
 
 In `apps/frontend/src/features/test-player/api.contract.test.ts`, follow the existing `vi.stubGlobal('fetch', ...)` + envelope-unwrap pattern and add:
 
@@ -1075,12 +1075,12 @@ describe('testPlayerApi.verifyPreExamToken', () => {
 
 (Reuse the `session` fixture already defined in this contract test file; match its existing structure exactly — variable names, imports, `beforeEach`/`afterEach` for `vi.unstubAllGlobals()`.)
 
-- [ ] **Step 3: Run it to verify it fails**
+- [x] **Step 3: Run it to verify it fails**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/test-player/api.contract.test.ts --no-file-parallelism`
 Expected: FAIL — `requestPreExamToken` / `verifyPreExamToken` are not on `testPlayerApi`.
 
-- [ ] **Step 4: Implement the API calls**
+- [x] **Step 4: Implement the API calls**
 
 In `apps/frontend/src/features/test-player/api.ts`, add the imports of the new types and add to the `testPlayerApi` object:
 
@@ -1102,7 +1102,7 @@ In `apps/frontend/src/features/test-player/api.ts`, add the imports of the new t
     }),
 ```
 
-- [ ] **Step 5: Add the hook**
+- [x] **Step 5: Add the hook**
 
 In `apps/frontend/src/features/test-player/hooks.ts`, add a `useRequestPreExamToken` mirroring `useStartAttempt`'s `MutationState` shape:
 
@@ -1132,14 +1132,14 @@ export function useRequestPreExamToken() {
 
 (Add `PreExamTokenDelivery`, `RequestPreExamTokenPayload` to the `./types` import.)
 
-- [ ] **Step 6: Run the contract test + typecheck**
+- [x] **Step 6: Run the contract test + typecheck**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/test-player/api.contract.test.ts --no-file-parallelism`
 Expected: PASS.
 Run: `pnpm typecheck`
 Expected: PASS (8/8).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/frontend/src/features/test-player/types.ts apps/frontend/src/features/test-player/api.ts apps/frontend/src/features/test-player/api.contract.test.ts apps/frontend/src/features/test-player/hooks.ts
@@ -1156,7 +1156,7 @@ git commit -m "feat(frontend): pre-exam token API + hook + contract tests (Wave 
 - Modify: `apps/frontend/src/features/test-player/test-result-screen.tsx`
 - Create: `apps/frontend/app/exam-auth/[token]/page.tsx`
 
-- [ ] **Step 1: Show the interstitial when the gate blocks**
+- [x] **Step 1: Show the interstitial when the gate blocks**
 
 In `apps/frontend/src/features/test-player/tests-list-screen.tsx`, extend `TestRow` so that when `start.error` indicates the pre-exam gate, it offers to send the verification link. The server error message for code `pre_exam_auth_required` flows through `ApiClientError.message`; detect it and render the interstitial. Replace the `TestRow` body's start handling with:
 
@@ -1243,7 +1243,7 @@ function TestRow({ test }: { test: LearnerTestSummary }) {
 
 (Add `useRequestPreExamToken` to the `./hooks` import.)
 
-- [ ] **Step 2: Create the verify page (mirrors magic-link page)**
+- [x] **Step 2: Create the verify page (mirrors magic-link page)**
 
 Read `apps/frontend/app/login/magic-link/[token]/page.tsx` first to copy its exact client-component + param + auth-session shape. Then create `apps/frontend/app/exam-auth/[token]/page.tsx` that, on mount, calls `testPlayerApi.verifyPreExamToken(session, token)` and shows success ("Личность подтверждена. Вернитесь к списку тестов и начните экзамен.") or the error. Keep it a thin client component consistent with the magic-link page; link back to `/learner/tests`.
 
@@ -1306,11 +1306,11 @@ export default function ExamAuthPage() {
 
 > Verify the relative import depth (`app/exam-auth/[token]/page.tsx` → `../../../src/...`) against the magic-link page's actual imports and adjust to match that file exactly.
 
-- [ ] **Step 3: Result marker**
+- [x] **Step 3: Result marker**
 
 In `apps/frontend/src/features/test-player/test-result-screen.tsx`, if the attempt/result carries `identityVerifiedAt`, render a small marker: `Личность подтверждена ✓`. Place it near the score line, guarded by a presence check. (Match the screen's existing layout primitives.)
 
-- [ ] **Step 4: Typecheck + lint + smoke**
+- [x] **Step 4: Typecheck + lint + smoke**
 
 Run: `pnpm typecheck`
 Expected: PASS (8/8).
@@ -1319,7 +1319,7 @@ Expected: clean.
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/test-player --no-file-parallelism`
 Expected: PASS (existing test-player tests + the contract test from Task 7).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/frontend/src/features/test-player/tests-list-screen.tsx apps/frontend/src/features/test-player/test-result-screen.tsx "apps/frontend/app/exam-auth/[token]/page.tsx"
@@ -1336,20 +1336,20 @@ git commit -m "feat(frontend): pre-exam interstitial + verify page + result mark
 - Modify: `LMS_AGENT_HANDOFF.md` §5 (append `### 5.98`)
 - Modify: `docs/superpowers/specs/2026-05-30-wave1-module-gating-pre-exam-auth-design.md` (tick Plan 2 / §3.C)
 
-- [ ] **Step 1: Run the quality gate**
+- [x] **Step 1: Run the quality gate**
 
 Run: `pnpm -s ci:check`
 Expected: PASS (lint + typecheck + contracts + unit + build). If the full backend suite crashes on the Cyrillic path (CLAUDE.md Gotchas), rely on the isolated runs from Tasks 1-8 + CI; note this in the handoff. Re-run the canonical regression explicitly:
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/business-flows.e2e.test.ts --no-file-parallelism`
 Expected: PASS (4/4).
 
-- [ ] **Step 2: Update README §2** — set Last Completed Task to "Wave 1 Plan 2 — pre-exam auth (Приказ №816)", Current Task to merge Plan 2, Next Task to "Wave 2 — регуляторные выгрузки (ФИС ФРДО → Минтруд/ЛКОТ → ЕИСОТ)", Last Updated At/By. Keep it consistent with the handoff entry.
+- [x] **Step 2: Update README §2** — set Last Completed Task to "Wave 1 Plan 2 — pre-exam auth (Приказ №816)", Current Task to merge Plan 2, Next Task to "Wave 2 — регуляторные выгрузки (ФИС ФРДО → Минтруд/ЛКОТ → ЕИСОТ)", Last Updated At/By. Keep it consistent with the handoff entry.
 
-- [ ] **Step 3: Append `### 5.98` to LMS_AGENT_HANDOFF.md** — summary, files changed, test status (which isolated suites are green + the email-stub precondition), deviations (gate scope = final exams only; logging-stub e-mail; `requestPreExamTokenRaw` is test/dev-only). Cross-link this plan + the design spec §3.C.
+- [x] **Step 3: Append `### 5.98` to LMS_AGENT_HANDOFF.md** — summary, files changed, test status (which isolated suites are green + the email-stub precondition), deviations (gate scope = final exams only; logging-stub e-mail; `requestPreExamTokenRaw` is test/dev-only). Cross-link this plan + the design spec §3.C.
 
-- [ ] **Step 4: Tick Plan 2 in the design spec** — mark §3.C / §5 «План 2» done with a one-line status referencing this plan.
+- [x] **Step 4: Tick Plan 2 in the design spec** — mark §3.C / §5 «План 2» done with a one-line status referencing this plan.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add README.md LMS_AGENT_HANDOFF.md docs/superpowers/specs/2026-05-30-wave1-module-gating-pre-exam-auth-design.md

@@ -81,7 +81,7 @@
 
 **Tasks:**
 
-- [ ] **Step 1: Создать файл `apps/backend/src/modules/mvp/update-learner-extended.dto.ts`** со следующим содержимым:
+- [x] **Step 1: Создать файл `apps/backend/src/modules/mvp/update-learner-extended.dto.ts`** со следующим содержимым:
 
 ```typescript
 import {
@@ -164,7 +164,7 @@ export class UpdateLearnerExtendedRequest {
 }
 ```
 
-- [ ] **Step 2: Добавить кейсы в `mvp.dto-validation.test.ts`** — найти секцию для `UpdateSimpleRegistryRequest` (она есть, см. Plan A §5.90), добавить отдельный `describe('UpdateLearnerExtendedRequest', () => { ... })` рядом:
+- [x] **Step 2: Добавить кейсы в `mvp.dto-validation.test.ts`** — найти секцию для `UpdateSimpleRegistryRequest` (она есть, см. Plan A §5.90), добавить отдельный `describe('UpdateLearnerExtendedRequest', () => { ... })` рядом:
 
 ```typescript
 import { UpdateLearnerExtendedRequest } from './update-learner-extended.dto.js';
@@ -236,7 +236,7 @@ describe('UpdateLearnerExtendedRequest', () => {
 });
 ```
 
-- [ ] **Step 3: Прогнать dto-validation тесты:**
+- [x] **Step 3: Прогнать dto-validation тесты:**
 
 ```bash
 pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.dto-validation.test.ts --no-file-parallelism
@@ -244,7 +244,7 @@ pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.dto-validatio
 
 Ожидаемо: новые 7 кейсов в `describe('UpdateLearnerExtendedRequest')` — все green; ничего не сломалось в уже существующих описаниях.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/update-learner-extended.dto.ts apps/backend/src/modules/mvp/mvp.dto-validation.test.ts
@@ -271,7 +271,7 @@ git commit -m "feat(backend): UpdateLearnerExtendedRequest DTO + validation (Pha
 
 **Tasks:**
 
-- [ ] **Step 1: Открыть `mvp.service.ts`, найти существующий `updateLearner(tenantId, actorId, id, request, context)` (~строка 435).** Добавить **сразу под ним** новый метод:
+- [x] **Step 1: Открыть `mvp.service.ts`, найти существующий `updateLearner(tenantId, actorId, id, request, context)` (~строка 435).** Добавить **сразу под ним** новый метод:
 
 ```typescript
 /**
@@ -347,7 +347,7 @@ updateLearnerExtended(
 
 > **Импорт.** `ConflictException` уже импортирован в `mvp.service.ts` из `@nestjs/common` (используется в других местах). Если нет — добавить к существующему импорту.
 
-- [ ] **Step 2: Открыть `mvp.service.test.ts`, найти `describe('updateLearner')` или ближайший блок для ученика.** Добавить **сразу под ним** новый блок:
+- [x] **Step 2: Открыть `mvp.service.test.ts`, найти `describe('updateLearner')` или ближайший блок для ученика.** Добавить **сразу под ним** новый блок:
 
 ```typescript
 describe('updateLearnerExtended', () => {
@@ -514,7 +514,7 @@ describe('updateLearnerExtended', () => {
 
 > **Helpers.** `makeServices()` и `makeContext()` уже определены в `mvp.service.test.ts` (используются в Plan A — см. `learners-bulk-import.service.test.ts` ссылку). Если в `mvp.service.test.ts` нет — взять их из соседнего теста и поднять в общий `__test-utils.ts`.
 
-- [ ] **Step 3: Прогнать unit-тесты:**
+- [x] **Step 3: Прогнать unit-тесты:**
 
 ```bash
 pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.service.test.ts --no-file-parallelism
@@ -522,7 +522,7 @@ pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.service.test.
 
 Ожидаемо: 6 новых кейсов в `describe('updateLearnerExtended')` зелёные.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/mvp.service.test.ts
@@ -548,7 +548,7 @@ git commit -m "feat(backend): MvpService.updateLearnerExtended + unit coverage (
 
 **Tasks:**
 
-- [ ] **Step 1: Открыть `apps/backend/src/modules/mvp/mvp.controller.ts`.** Найти существующий `@Put('learners/:id')` (~строка 169). Добавить **сразу под ним** новый метод:
+- [x] **Step 1: Открыть `apps/backend/src/modules/mvp/mvp.controller.ts`.** Найти существующий `@Put('learners/:id')` (~строка 169). Добавить **сразу под ним** новый метод:
 
 ```typescript
 /**
@@ -569,7 +569,7 @@ updateLearnerExtended(
 }
 ```
 
-- [ ] **Step 2: Добавить импорт в начало `mvp.controller.ts`:**
+- [x] **Step 2: Добавить импорт в начало `mvp.controller.ts`:**
 
 ```typescript
 import { UpdateLearnerExtendedRequest } from './update-learner-extended.dto.js';
@@ -595,7 +595,7 @@ import {
 
 (Проверить, что `Patch` ещё нет в импорте — если нет, добавить.)
 
-- [ ] **Step 3: Прогнать typecheck backend:**
+- [x] **Step 3: Прогнать typecheck backend:**
 
 ```bash
 pnpm --filter @cdoprof/backend exec tsc --noEmit
@@ -603,7 +603,7 @@ pnpm --filter @cdoprof/backend exec tsc --noEmit
 
 Ожидаемо: 0 ошибок.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.controller.ts
@@ -628,7 +628,7 @@ git commit -m "feat(backend): PATCH /learners/:id/profile endpoint (Phase 2 Plan
 
 **Tasks:**
 
-- [ ] **Step 1: Открыть `mvp.http.integration.test.ts`.** Найти секцию для `POST /learners/bulk-import` (добавлена в Plan A §5.90). Добавить **рядом** новый describe:
+- [x] **Step 1: Открыть `mvp.http.integration.test.ts`.** Найти секцию для `POST /learners/bulk-import` (добавлена в Plan A §5.90). Добавить **рядом** новый describe:
 
 ```typescript
 describe('PATCH /learners/:id/profile (Plan B)', () => {
@@ -681,7 +681,7 @@ describe('PATCH /learners/:id/profile (Plan B)', () => {
 
 > **Stub controller setup.** В `mvp.http.integration.test.ts` уже определён hand-rolled `MvpTestController` (Plan A §5.90 deviation #2 — расширили его, а не создали новый файл). Добавить в этот же stub-controller метод-обработчик `PATCH /learners/:id/profile`, который повторяет реальный `mvp.controller.updateLearnerExtended` контракт (можно скопировать как есть; цель stub — только проверить guards + envelope, не реальную бизнес-логику).
 
-- [ ] **Step 2: Прогнать integration-тест изолированно:**
+- [x] **Step 2: Прогнать integration-тест изолированно:**
 
 ```bash
 pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.http.integration.test.ts --no-file-parallelism
@@ -689,7 +689,7 @@ pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.http.integrat
 
 Ожидаемо: новые 4 кейса зелёные, прежние не сломаны.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.http.integration.test.ts
@@ -716,7 +716,7 @@ git commit -m "test(backend): HTTP integration for PATCH /learners/:id/profile (
 
 **Tasks:**
 
-- [ ] **Step 1: Создать `apps/frontend/src/features/learners/types.ts`:**
+- [x] **Step 1: Создать `apps/frontend/src/features/learners/types.ts`:**
 
 ```typescript
 export type LearnerStatus = 'active' | 'archived';
@@ -777,7 +777,7 @@ export interface UpdateLearnerProfilePayload {
 }
 ```
 
-- [ ] **Step 2: Создать `apps/frontend/src/features/learners/api.ts`:**
+- [x] **Step 2: Создать `apps/frontend/src/features/learners/api.ts`:**
 
 ```typescript
 import { apiRequest } from '@/lib/api/client';
@@ -820,7 +820,7 @@ export async function updateLearnerProfile(
 
 > **`apiRequest` signature.** Проверить: в `apps/frontend/src/lib/api/client.ts` сигнатура может отличаться (Plan A использовал `{ method, path, body? }`). Если другая — адаптировать, не менять `client.ts`.
 
-- [ ] **Step 3: Создать `apps/frontend/src/features/learners/hooks.ts`** — React Query для list + useState/async для mutation (конвенция CLAUDE.md):
+- [x] **Step 3: Создать `apps/frontend/src/features/learners/hooks.ts`** — React Query для list + useState/async для mutation (конвенция CLAUDE.md):
 
 ```typescript
 'use client';
@@ -879,7 +879,7 @@ export function useUpdateLearnerProfile() {
 
 > **Импорт `useSession`.** Проверить актуальное имя/путь — в Plan A bulk-enrollments использовал свой паттерн; имя контекста session может быть `useSessionInfo` или прямо `useSession`. Привести к существующему.
 
-- [ ] **Step 4: Прогнать typecheck frontend:**
+- [x] **Step 4: Прогнать typecheck frontend:**
 
 ```bash
 pnpm --filter @cdoprof/frontend exec tsc --noEmit
@@ -887,7 +887,7 @@ pnpm --filter @cdoprof/frontend exec tsc --noEmit
 
 Ожидаемо: 0 ошибок.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/frontend/src/features/learners/types.ts apps/frontend/src/features/learners/api.ts apps/frontend/src/features/learners/hooks.ts
@@ -912,7 +912,7 @@ git commit -m "feat(frontend): learners feature — types + api + hooks (Phase 2
 
 **Tasks:**
 
-- [ ] **Step 1: Создать `apps/frontend/src/features/learners/api.contract.test.ts`:**
+- [x] **Step 1: Создать `apps/frontend/src/features/learners/api.contract.test.ts`:**
 
 ```typescript
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -1007,7 +1007,7 @@ describe('updateLearnerProfile', () => {
 });
 ```
 
-- [ ] **Step 2: Прогнать contract-тест изолированно:**
+- [x] **Step 2: Прогнать contract-тест изолированно:**
 
 ```bash
 pnpm --filter @cdoprof/frontend exec vitest run src/features/learners/api.contract.test.ts --no-file-parallelism
@@ -1015,7 +1015,7 @@ pnpm --filter @cdoprof/frontend exec vitest run src/features/learners/api.contra
 
 Ожидаемо: 3 кейса зелёные.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/frontend/src/features/learners/api.contract.test.ts
@@ -1040,7 +1040,7 @@ git commit -m "test(frontend): learners api contract (Phase 2 Plan B Task 6)"
 
 **Tasks:**
 
-- [ ] **Step 1: Создать `apps/frontend/src/features/learners/format.ts`:**
+- [x] **Step 1: Создать `apps/frontend/src/features/learners/format.ts`:**
 
 ```typescript
 import type { LearnerListItem, LearnerStatus } from './types';
@@ -1085,7 +1085,7 @@ export function buildUpdatePayload(form: import('./types').LearnerEditFormState)
 }
 ```
 
-- [ ] **Step 2: Создать `apps/frontend/src/features/learners/format.test.ts`:**
+- [x] **Step 2: Создать `apps/frontend/src/features/learners/format.test.ts`:**
 
 ```typescript
 import { describe, expect, it } from 'vitest';
@@ -1157,7 +1157,7 @@ describe('buildUpdatePayload', () => {
 });
 ```
 
-- [ ] **Step 3: Прогнать тесты форматтеров:**
+- [x] **Step 3: Прогнать тесты форматтеров:**
 
 ```bash
 pnpm --filter @cdoprof/frontend exec vitest run src/features/learners/format.test.ts --no-file-parallelism
@@ -1165,7 +1165,7 @@ pnpm --filter @cdoprof/frontend exec vitest run src/features/learners/format.tes
 
 Ожидаемо: 9 кейсов зелёные.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/frontend/src/features/learners/format.ts apps/frontend/src/features/learners/format.test.ts
@@ -1189,7 +1189,7 @@ git commit -m "feat(frontend): learners formatters + payload builder (Phase 2 Pl
 
 **Tasks:**
 
-- [ ] **Step 1: Создать `apps/frontend/src/features/learners/learners-list-screen.tsx`:**
+- [x] **Step 1: Создать `apps/frontend/src/features/learners/learners-list-screen.tsx`:**
 
 ```typescript
 'use client';
@@ -1320,7 +1320,7 @@ export function LearnersListScreen() {
 
 > **Импорт `@/components`.** `PageContainer`/`PageHeader`/`SectionCard`/`SectionEmpty`/`SectionError`/`LoadingState` импортируются по конвенции CLAUDE.md из `apps/frontend/src/components/`. Проверить точные пути перед commit.
 
-- [ ] **Step 2: Прогнать typecheck:**
+- [x] **Step 2: Прогнать typecheck:**
 
 ```bash
 pnpm --filter @cdoprof/frontend exec tsc --noEmit
@@ -1328,7 +1328,7 @@ pnpm --filter @cdoprof/frontend exec tsc --noEmit
 
 Ожидаемо: 0 ошибок. Если `@cdoprof/ui` ругается на `aria-label` на `Select`/`SearchInput` — упростить (убрать, обернуть в `<label>`).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/frontend/src/features/learners/learners-list-screen.tsx
@@ -1353,7 +1353,7 @@ git commit -m "feat(frontend): admin learners list screen (Phase 2 Plan B Task 8
 
 **Tasks:**
 
-- [ ] **Step 1: Создать `apps/frontend/src/features/learners/learner-edit-drawer.tsx`:**
+- [x] **Step 1: Создать `apps/frontend/src/features/learners/learner-edit-drawer.tsx`:**
 
 ```typescript
 'use client';
@@ -1473,7 +1473,7 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
 
 > **Стилизация.** Минимум структурного HTML — окончательное оформление берётся из уже существующих form-классов в проекте (см. `commission-details-screen.tsx` для образца стилей). Plan B не вводит новые стилевые классы — только разметку.
 
-- [ ] **Step 2: Прогнать typecheck:**
+- [x] **Step 2: Прогнать typecheck:**
 
 ```bash
 pnpm --filter @cdoprof/frontend exec tsc --noEmit
@@ -1481,7 +1481,7 @@ pnpm --filter @cdoprof/frontend exec tsc --noEmit
 
 Ожидаемо: 0 ошибок.
 
-- [ ] **Step 3: Прогнать существующий frontend test-suite, убедиться что ничего не сломалось:**
+- [x] **Step 3: Прогнать существующий frontend test-suite, убедиться что ничего не сломалось:**
 
 ```bash
 pnpm --filter @cdoprof/frontend test --no-file-parallelism
@@ -1489,7 +1489,7 @@ pnpm --filter @cdoprof/frontend test --no-file-parallelism
 
 Ожидаемо: все тесты зелёные (≥190 + ≥12 новых из Plan B Tasks 6+7).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/frontend/src/features/learners/learner-edit-drawer.tsx
@@ -1515,7 +1515,7 @@ git commit -m "feat(frontend): learner edit drawer (Phase 2 Plan B Task 9)"
 
 **Tasks:**
 
-- [ ] **Step 1: Создать `apps/frontend/app/admin/learners/page.tsx`:**
+- [x] **Step 1: Создать `apps/frontend/app/admin/learners/page.tsx`:**
 
 ```typescript
 import { ProtectedPage } from '@/widgets/shell/protected-page';
@@ -1530,7 +1530,7 @@ export default function AdminLearnersPage() {
 }
 ```
 
-- [ ] **Step 2: Открыть `apps/frontend/src/features/navigation/model.ts`.** Найти существующую запись для `/admin/bulk-enrollments` (добавлена в Plan A §5.90, navSlot `'more'`). Добавить **рядом** запись для `/admin/learners`:
+- [x] **Step 2: Открыть `apps/frontend/src/features/navigation/model.ts`.** Найти существующую запись для `/admin/bulk-enrollments` (добавлена в Plan A §5.90, navSlot `'more'`). Добавить **рядом** запись для `/admin/learners`:
 
 В `routeMeta` (или аналогичной структуре access-policy):
 
@@ -1555,7 +1555,7 @@ export default function AdminLearnersPage() {
 
 > **navSlot.** Если `admin` слот не существует — использовать тот же `'more'`, что Plan A. Точные имена слотов смотреть в `model.ts` рядом со существующими пунктами.
 
-- [ ] **Step 3: Прогнать e2e тесты frontend (они проверяют navigation):**
+- [x] **Step 3: Прогнать e2e тесты frontend (они проверяют navigation):**
 
 ```bash
 pnpm --filter @cdoprof/frontend exec vitest run src/e2e/ --no-file-parallelism
@@ -1563,7 +1563,7 @@ pnpm --filter @cdoprof/frontend exec vitest run src/e2e/ --no-file-parallelism
 
 Ожидаемо: существующие e2e зелёные (особенно `canonical-e2e-readiness.e2e.test.ts` — он проверяет, что navigation-entries корректно прописаны).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/frontend/app/admin/learners/page.tsx apps/frontend/src/features/navigation/model.ts
@@ -1678,7 +1678,7 @@ pnpm --filter @cdoprof/frontend exec vitest run src/e2e/admin-learners-managemen
 
 Ожидаемо: 7 кейсов зелёные.
 
-- [ ] **Step 3: Добавить §5.91 в `LMS_AGENT_HANDOFF.md`** под существующим §5.90. Шаблон:
+- [x] **Step 3: Добавить §5.91 в `LMS_AGENT_HANDOFF.md`** под существующим §5.90. Шаблон:
 
 ```markdown
 ### 5.91 Phase 2 §3.2 — Plan B: учётки учеников (list/search/filter/edit UI)
@@ -1693,7 +1693,7 @@ pnpm --filter @cdoprof/frontend exec vitest run src/e2e/admin-learners-managemen
 - Quality gates: `pnpm typecheck` зелёный; backend изолированные прогоны `mvp.dto-validation.test.ts` + `mvp.service.test.ts` + `mvp.http.integration.test.ts` зелёные; frontend `pnpm test:frontend` зелёный (≥207 тестов).
 ```
 
-- [ ] **Step 4: Обновить `README.md` §2 AI Agent State** — заменить блок «Last Completed Task» / «Current Task» / «Next Task» / «Last Updated At» так, чтобы он отражал Plan B done. Минимум:
+- [x] **Step 4: Обновить `README.md` §2 AI Agent State** — заменить блок «Last Completed Task» / «Current Task» / «Next Task» / «Last Updated At» так, чтобы он отражал Plan B done. Минимум:
 
 ```markdown
 ### Last Completed Task
@@ -1713,7 +1713,7 @@ pnpm --filter @cdoprof/frontend exec vitest run src/e2e/admin-learners-managemen
 2026-05-29 (Phase 2 Plan B merged; previous: Plan A merged 2026-05-28)
 ```
 
-- [ ] **Step 5: Прогнать full quality gate:**
+- [x] **Step 5: Прогнать full quality gate:**
 
 ```bash
 pnpm typecheck
@@ -1721,7 +1721,7 @@ pnpm typecheck
 
 Ожидаемо: зелёный.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/frontend/src/e2e/admin-learners-management.e2e.test.ts LMS_AGENT_HANDOFF.md README.md
@@ -1739,15 +1739,15 @@ git commit -m "docs(handoff): Phase 2 Plan B complete — §5.91 + README sync (
 
 ## Self-Review Checklist (для исполнителя перед merge)
 
-- [ ] Все 11 задач выполнены и закоммичены отдельно (одна задача = один commit).
-- [ ] `pnpm typecheck` зелёный.
+- [x] Все 11 задач выполнены и закоммичены отдельно (одна задача = один commit).
+- [x] `pnpm typecheck` зелёный.
 - [ ] Изолированные прогоны: `mvp.dto-validation.test.ts`, `mvp.service.test.ts`, `mvp.http.integration.test.ts`, `src/features/learners/*.test.ts`, `src/e2e/admin-learners-management.e2e.test.ts` — все зелёные.
-- [ ] `pnpm test:frontend` зелёный.
-- [ ] Permission boundary проверена: `learners.read` для GET-list/route, `learners.write` для PATCH-profile.
-- [ ] Анти-IDOR для `linkedIamUserId` работает (Conflict при перебивании на другое значение).
-- [ ] Audit-event `learning.learner_updated` пишется при каждом PATCH (проверено в unit-тестах).
-- [ ] §5.91 в `LMS_AGENT_HANDOFF.md` + README §2 обновлены.
-- [ ] Чекбоксы плана отмечены (`- [x]`).
+- [x] `pnpm test:frontend` зелёный.
+- [x] Permission boundary проверена: `learners.read` для GET-list/route, `learners.write` для PATCH-profile.
+- [x] Анти-IDOR для `linkedIamUserId` работает (Conflict при перебивании на другое значение).
+- [x] Audit-event `learning.learner_updated` пишется при каждом PATCH (проверено в unit-тестах).
+- [x] §5.91 в `LMS_AGENT_HANDOFF.md` + README §2 обновлены.
+- [x] Чекбоксы плана отмечены (`- [x]`).
 
 ---
 
