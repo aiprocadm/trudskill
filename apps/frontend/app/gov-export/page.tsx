@@ -11,9 +11,13 @@ import {
   SectionError
 } from '../../src/components/state-wrappers';
 import { useAuth } from '../../src/features/auth/context';
+import { govExportApi } from '../../src/features/gov-export/api';
+import { useOtRegistryBatches } from '../../src/features/gov-export/hooks';
 import { useExportTasks, useSyncLogs } from '../../src/features/integrations/hooks';
 import { apiRequest } from '../../src/lib/api/client';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
+
+import type { OtRegistryExportOutcome } from '../../src/features/gov-export/types';
 
 export default function GovExportPage() {
   const { session } = useAuth();
@@ -24,6 +28,48 @@ export default function GovExportPage() {
   const [creating, setCreating] = useState(false);
   const tasks = useExportTasks(true);
   const logs = useSyncLogs();
+
+  // ОТ-реестр section state
+  const [groupId, setGroupId] = useState('');
+  const [otBusy, setOtBusy] = useState(false);
+  const [otError, setOtError] = useState<string | null>(null);
+  const [otOutcome, setOtOutcome] = useState<OtRegistryExportOutcome | null>(null);
+  const otBatches = useOtRegistryBatches();
+
+  const onGenerateOt = async () => {
+    if (!session) return;
+    setOtBusy(true);
+    setOtError(null);
+    try {
+      const outcome = await govExportApi.createOtRegistryExport(session, {
+        ...(groupId ? { groupId } : {})
+      });
+      setOtOutcome(outcome);
+      await otBatches.refetch();
+    } catch (e) {
+      setOtError(e instanceof Error ? e.message : 'Ошибка формирования выгрузки');
+    } finally {
+      setOtBusy(false);
+    }
+  };
+
+  const onDownloadOt = async (batchId: string) => {
+    if (!session) return;
+    const { url } = await govExportApi.getBatchFileUrl(session, batchId);
+    window.open(url, '_blank');
+  };
+
+  const onUploadResponse = async (batchId: string, file: File) => {
+    if (!session) return;
+    const fileBase64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+      reader.onerror = () => reject(new Error('read failed'));
+      reader.readAsDataURL(file);
+    });
+    await govExportApi.importResponse(session, batchId, fileBase64);
+    await otBatches.refetch();
+  };
 
   const onCreateTask = async () => {
     if (!session) return;
@@ -112,6 +158,81 @@ export default function GovExportPage() {
               rows={logs.data}
             />
           ) : null}
+        </SectionCard>
+        <SectionCard title="Реестр обученных по ОТ (Минтруд)">
+          <FilterBar>
+            <input
+              value={groupId}
+              onChange={(event) => setGroupId(event.target.value)}
+              placeholder="ID группы (необязательно)"
+            />
+            <button type="button" onClick={() => void onGenerateOt()} disabled={otBusy}>
+              {otBusy ? 'Формирование...' : 'Сформировать выгрузку'}
+            </button>
+          </FilterBar>
+          {otError ? <SectionError message={otError} /> : null}
+          {otOutcome ? (
+            <div>
+              <p>
+                Экспортировано: {otOutcome.exported} / {otOutcome.total}. Ошибок: {otOutcome.failed}
+                .
+              </p>
+              {otOutcome.errors.length > 0 ? (
+                <ul>
+                  {otOutcome.errors.map((e) => (
+                    <li key={`${e.enrollmentId}-${e.field}`}>
+                      {e.fullName || e.enrollmentId}: {e.field} — {e.message}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+          <SectionCard title="История выгрузок">
+            {otBatches.loading ? <LoadingState message="Загрузка истории..." /> : null}
+            {otBatches.error ? <SectionError message={otBatches.error} /> : null}
+            {!otBatches.loading && !otBatches.error && !otBatches.data.length ? (
+              <SectionEmpty message="Выгрузки отсутствуют" />
+            ) : null}
+            {otBatches.data.length ? (
+              <DataTable
+                columns={[
+                  { key: 'id', title: 'ID' },
+                  { key: 'batchStatus', title: 'Статус' },
+                  { key: 'exportedRows', title: 'Экспортировано' },
+                  { key: 'failedRows', title: 'Ошибок' },
+                  { key: 'createdAt', title: 'Дата' },
+                  {
+                    key: 'actionsView',
+                    title: 'Действия',
+                    render: (row) => row.actionsView
+                  }
+                ]}
+                rows={otBatches.data.map((batch) => ({
+                  ...batch,
+                  actionsView: (
+                    <span style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => void onDownloadOt(batch.id)}
+                        disabled={!batch.fileId}
+                      >
+                        Скачать
+                      </button>
+                      <input
+                        type="file"
+                        accept=".xlsx"
+                        onChange={(ev) => {
+                          const file = ev.target.files?.[0];
+                          if (file) void onUploadResponse(batch.id, file);
+                        }}
+                      />
+                    </span>
+                  )
+                }))}
+              />
+            ) : null}
+          </SectionCard>
         </SectionCard>
       </PageContainer>
     </ProtectedPage>

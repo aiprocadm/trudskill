@@ -529,6 +529,8 @@ export interface ProgramMeta {
   regulatoryBasisCodes?: string[];
   programAttachmentFileId?: string;
   commissionId?: string;
+  /** Коды программ ОТ-реестра (lookup.ot_training_programs.code); комплексный курс = несколько. */
+  otProgramCodes?: string[];
 }
 
 /** Global lookup из lookup.regulatory_acts. Не tenant-scoped, неизменяемый каталог. */
@@ -542,6 +544,85 @@ export interface RegulatoryAct {
   appliesToVerticals: string[];
   isActive: boolean;
   createdAt: string;
+}
+
+// === ОТ-реестр (Минтруд/ЕИСОТ) ===
+
+export interface OtTrainingProgram {
+  code: string;
+  registryId: number;
+  exactName: string;
+  programKind: 'A' | 'B' | 'V' | 'first_aid' | 'siz' | 'other';
+  isActive: boolean;
+}
+
+export interface OtRegistryRow {
+  enrollmentId: string;
+  learnerId: string;
+  fullName: string;
+  snils: string;
+  position: string;
+  employerInn: string;
+  programCode: string;
+  programRegistryId: number;
+  programName: string;
+  protocolNumber: string;
+  knowledgeCheckDate: string; // ДД.ММ.ГГГГ
+  result: 'удовлетворительно' | 'неудовлетворительно';
+}
+
+export interface OtRegistryRowError {
+  enrollmentId: string;
+  learnerId: string;
+  fullName: string;
+  field: string;
+  message: string;
+}
+
+export type OtRegistryBatchStatus = 'generated' | 'partial' | 'failed';
+
+export interface OtRegistryBatch extends BaseEntity {
+  sourceFilterJson: Record<string, unknown>;
+  fileId?: string;
+  totalCandidates: number;
+  exportedRows: number;
+  failedRows: number;
+  batchStatus: OtRegistryBatchStatus;
+  generatedBy: string;
+}
+
+export interface OtRegistryRecord extends BaseEntity {
+  batchId: string;
+  enrollmentId: string;
+  learnerId: string;
+  snils: string;
+  programCode: string;
+  programRegistryId: number;
+  protocolNumber: string;
+  registrationNumber?: string;
+}
+
+export interface OtRegistryExportOutcome {
+  batchId: string;
+  fileId?: string;
+  total: number;
+  exported: number;
+  failed: number;
+  rows: OtRegistryRow[];
+  errors: OtRegistryRowError[];
+}
+
+export interface OtRegistryResponseRow {
+  snils: string;
+  protocolNumber: string;
+  programRegistryId: number;
+  registrationNumber: string;
+}
+
+export interface OtRegistryImportOutcome {
+  matched: number;
+  unmatched: number;
+  unmatchedRows: OtRegistryResponseRow[];
 }
 
 /** Запись в пакете выходных документов курса (§5.3). PUT-семантика: replace all on save. */

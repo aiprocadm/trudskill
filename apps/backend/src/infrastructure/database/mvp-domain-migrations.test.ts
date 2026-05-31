@@ -359,6 +359,72 @@ describe('Plan A — attestation commissions (migration 0029)', () => {
   });
 });
 
+describe('migration 0045 — ОТ registry: program classifier, course mapping, permissions', () => {
+  const sql0045 = migrationSqlByFile.get('0045_ot_registry_export.sql') ?? '';
+
+  it('migration file exists in the chain', () => {
+    expect(migrationFiles).toContain('0045_ot_registry_export.sql');
+    expect(sql0045.length).toBeGreaterThan(0);
+  });
+
+  it('creates lookup.ot_training_programs table with correct constraints', () => {
+    expect(sql0045).toMatch(/CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+lookup\.ot_training_programs/i);
+    expect(sql0045).toMatch(/code\s+text\s+PRIMARY\s+KEY/i);
+    expect(sql0045).toMatch(/registry_id\s+integer\s+NOT\s+NULL/i);
+    expect(sql0045).toMatch(/CONSTRAINT\s+ot_programs_kind_chk\s+CHECK/i);
+    expect(sql0045).toMatch(
+      /CONSTRAINT\s+ot_programs_registry_id_uniq\s+UNIQUE\s*\(registry_id\)/i
+    );
+  });
+
+  it('seeds all 5 canonical ПП-2464 program rows', () => {
+    for (const code of ['OT_A', 'OT_B', 'OT_V', 'OT_FIRST_AID', 'OT_SIZ']) {
+      expect(sql0045, `missing seed row for ${code}`).toContain(`'${code}'`);
+    }
+    // registry_id values 1-5
+    for (const id of [1, 2, 3, 4, 5]) {
+      expect(sql0045, `missing registry_id ${id}`).toMatch(new RegExp(`\\b${id}\\b`));
+    }
+  });
+
+  it('seed uses ON CONFLICT (code) DO NOTHING for idempotence', () => {
+    expect(sql0045).toMatch(/ON\s+CONFLICT\s*\(code\)\s+DO\s+NOTHING/i);
+  });
+
+  it('adds ot_program_codes text[] column to learning.course_versions', () => {
+    expect(sql0045).toMatch(/ALTER\s+TABLE\s+learning\.course_versions/i);
+    expect(sql0045).toMatch(/ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+ot_program_codes\s+text\[\]/i);
+  });
+
+  it('inserts regulatory.export.read and regulatory.export.write permissions', () => {
+    expect(sql0045).toMatch(/INSERT\s+INTO\s+iam\.permissions/i);
+    expect(sql0045).toContain("'regulatory.export.read'");
+    expect(sql0045).toContain("'regulatory.export.write'");
+  });
+
+  it('assigns both export permissions to platform_admin and tenant_admin', () => {
+    expect(sql0045).toMatch(/r\.code\s+IN\s*\('platform_admin',\s*'tenant_admin'\)/i);
+    expect(sql0045).toMatch(
+      /p\.code\s+IN\s*\('regulatory\.export\.read',\s*'regulatory\.export\.write'\)/i
+    );
+  });
+
+  it('assigns only regulatory.export.read to methodist and manager roles', () => {
+    expect(sql0045).toMatch(/r\.code\s+IN\s*\('methodist',\s*'manager'\)/i);
+    expect(sql0045).toMatch(/p\.code\s*=\s*'regulatory\.export\.read'/i);
+  });
+
+  it('role_permissions insert seeds against tenant_demo', () => {
+    expect(sql0045).toContain("'tenant_demo'");
+  });
+
+  it('role_permissions insert uses ON CONFLICT (tenant_id, role_id, permission_id) DO NOTHING', () => {
+    expect(sql0045).toMatch(
+      /ON\s+CONFLICT\s*\(tenant_id,\s*role_id,\s*permission_id\)\s+DO\s+NOTHING/i
+    );
+  });
+});
+
 describe('IAM learner role seed (migration 0038)', () => {
   const learnerSeedSql = migrationSqlByFile.get('0038_iam_learner_role_and_seed.sql') ?? '';
 

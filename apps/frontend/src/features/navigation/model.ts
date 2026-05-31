@@ -35,7 +35,10 @@ export const routeMeta: RouteMetaEntry[] = [
   { pattern: '/reports', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/proctoring', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/scorm', meta: { public: false, requiredPermissions: ['materials.read'] } },
-  { pattern: '/gov-export', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  {
+    pattern: '/gov-export',
+    meta: { public: false, requiredPermissions: ['regulatory.export.read'] }
+  },
   { pattern: '/mailings', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/telephony', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/workspace', meta: { public: false, requiredPermissions: ['tenant.read'] } },
@@ -309,7 +312,7 @@ export const navigationModel: NavigationItem[] = [
   {
     href: '/gov-export',
     label: 'Госвыгрузки',
-    requiredPermissions: ['tenant.read'],
+    requiredPermissions: ['regulatory.export.read'],
     navSlot: 'more'
   },
   {

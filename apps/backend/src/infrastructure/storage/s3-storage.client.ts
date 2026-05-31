@@ -71,6 +71,17 @@ export class S3StorageClient implements StorageClient {
     return response.Body as Readable;
   }
 
+  async putObject(params: { key: string; body: Buffer; contentType: string }): Promise<void> {
+    await this.getClient().send(
+      new PutObjectCommand({
+        Bucket: backendEnv.S3_BUCKET,
+        Key: params.key,
+        Body: params.body,
+        ContentType: params.contentType
+      })
+    );
+  }
+
   private getClient(): S3Client {
     if (!this.client) {
       this.client = new S3Client({

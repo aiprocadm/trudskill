@@ -1000,6 +1000,11 @@ export class UpdateProgramMetaRequest {
   @IsOptional()
   @IsString()
   commissionId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  otProgramCodes?: string[];
 }
 
 /** Одна строка пакета документов (внутри `PutCourseDocumentSetRequest.entries`). */

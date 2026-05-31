@@ -1277,6 +1277,14 @@ export class MvpController {
   listRegulatoryActs() {
     return { items: this.mvpService.listRegulatoryActs() };
   }
+
+  // === Wave 2 — ОТ-реестр: программы обучения (lookup, справочник) ===
+
+  @Get('ot-training-programs')
+  listOtTrainingPrograms() {
+    return { items: this.mvpService.listOtTrainingPrograms() };
+  }
+
   @Put('course-versions/:id/document-set')
   @UseGuards(PermissionGuard)
   @RequirePermissions('learning.course_document_sets.write')

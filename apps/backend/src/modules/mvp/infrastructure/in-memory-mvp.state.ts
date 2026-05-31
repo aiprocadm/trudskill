@@ -26,6 +26,8 @@ import type {
   Material,
   MaterialProgress,
   ModuleProgress,
+  OtRegistryBatch,
+  OtRegistryRecord,
   PreExamToken,
   Question,
   QuestionBank,
@@ -71,4 +73,7 @@ export class InMemoryMvpState {
   courseDocumentSets: CourseDocumentSetEntry[] = [];
   // Wave 1 Plan 2 — pre-exam identity tokens (Приказ №816); a consumed token is the verification record.
   preExamTokens: PreExamToken[] = [];
+  // Wave 2 — ОТ-реестр (Минтруд/ЕИСОТ): durable export batches + per-record set.
+  otRegistryBatches: OtRegistryBatch[] = [];
+  otRegistryRecords: OtRegistryRecord[] = [];
 }

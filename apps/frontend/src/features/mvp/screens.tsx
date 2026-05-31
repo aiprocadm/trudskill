@@ -61,6 +61,7 @@ import { frontendEnv } from '../../lib/config/env';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 import { CourseViewerScreen } from '../course-viewer/course-viewer-screen';
+import { useOtTrainingPrograms } from '../gov-export/hooks';
 import { IssueOrderModal } from '../group-orders/issue-order-modal';
 import { LearnerPdfCardSections } from '../learner-pdf-card/learner-pdf-card-sections';
 
@@ -801,6 +802,7 @@ const ProgramMetaSection = ({
   onUpdated: () => void | Promise<void>;
 }) => {
   const { data: acts } = useRegulatoryActs();
+  const { data: otPrograms } = useOtTrainingPrograms();
   const { data: commissions } = useCommissions('active');
   const { updateCourseVersionProgramMeta, publishCourseVersion } = useDomainMutations();
   const readOnly = courseVersion.status !== 'draft';
@@ -822,6 +824,9 @@ const ProgramMetaSection = ({
     courseVersion.regulatoryBasisCodes ?? []
   );
   const [commissionId, setCommissionId] = useState<string>(courseVersion.commissionId ?? '');
+  const [otProgramCodes, setOtProgramCodes] = useState<string[]>(
+    courseVersion.otProgramCodes ?? []
+  );
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -835,6 +840,7 @@ const ProgramMetaSection = ({
     setFinalAssessmentForm(courseVersion.finalAssessmentForm ?? '');
     setRegulatoryBasisCodes(courseVersion.regulatoryBasisCodes ?? []);
     setCommissionId(courseVersion.commissionId ?? '');
+    setOtProgramCodes(courseVersion.otProgramCodes ?? []);
   }, [courseVersion]);
 
   const buildPayload = (): ProgramMetaPatch => {
@@ -849,7 +855,7 @@ const ProgramMetaSection = ({
     if (finalAssessmentForm) payload.finalAssessmentForm = finalAssessmentForm;
     if (regulatoryBasisCodes.length > 0) payload.regulatoryBasisCodes = regulatoryBasisCodes;
     if (commissionId) payload.commissionId = commissionId;
-    return payload;
+    return { ...payload, ...(otProgramCodes.length > 0 ? { otProgramCodes } : {}) };
   };
 
   const onSave = async () => {
@@ -971,6 +977,24 @@ const ProgramMetaSection = ({
             {acts?.items.map((a) => (
               <option key={a.code} value={a.code}>
                 {a.shortName} — {a.fullName}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Программы реестра ОТ (Минтруд)
+          <select
+            multiple
+            value={otProgramCodes}
+            onChange={(e) =>
+              setOtProgramCodes(Array.from(e.target.selectedOptions, (o) => o.value))
+            }
+            disabled={readOnly}
+            size={6}
+          >
+            {otPrograms?.map((p) => (
+              <option key={p.code} value={p.code}>
+                {p.registryId}. {p.exactName}
               </option>
             ))}
           </select>
