@@ -638,6 +638,28 @@ export class StartAttemptRequest {
   learnerId!: string;
 }
 
+/** Request a pre-exam identity verification link (Приказ №816). Same context as starting the attempt. */
+export class RequestPreExamTokenRequest {
+  @IsString()
+  @MinLength(1)
+  testId!: string;
+
+  @IsString()
+  @MinLength(1)
+  enrollmentId!: string;
+
+  @IsString()
+  @MinLength(1)
+  learnerId!: string;
+}
+
+/** Redeem a pre-exam identity link. */
+export class VerifyPreExamTokenRequest {
+  @IsString()
+  @MinLength(1)
+  token!: string;
+}
+
 export class SaveAnswerRequest {
   @IsString()
   @MinLength(1)

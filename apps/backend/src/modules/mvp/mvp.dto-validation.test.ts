@@ -11,11 +11,14 @@ import {
   CreateAssignmentSubmissionRequest,
   CreateBulkEnrollmentsRequest,
   CreateCommissionRequest,
+  CreateGroupCourseRequest,
   CreateMaterialRequest,
   CreateModuleRequest,
   PutCourseDocumentSetRequest,
+  RequestPreExamTokenRequest,
   UpdateMaterialProgressRequest,
-  UpdateProgramMetaRequest
+  UpdateProgramMetaRequest,
+  VerifyPreExamTokenRequest
 } from './mvp.dto.js';
 import {
   CreateAssignmentRequest as Phase3CreateAssignmentRequest,
@@ -842,5 +845,44 @@ describe('CreateTestRequest — moduleId (Wave 1)', () => {
       moduleId: ''
     });
     expect(validateSync(dto).length).toBeGreaterThan(0);
+  });
+});
+
+describe('Pre-exam auth DTOs', () => {
+  it('RequestPreExamTokenRequest accepts a full attempt context', () => {
+    const dto = plainToInstance(RequestPreExamTokenRequest, {
+      testId: 't1',
+      enrollmentId: 'e1',
+      learnerId: 'l1'
+    });
+    expect(validateSync(dto)).toHaveLength(0);
+  });
+
+  it('RequestPreExamTokenRequest rejects a missing testId', () => {
+    const dto = plainToInstance(RequestPreExamTokenRequest, {
+      enrollmentId: 'e1',
+      learnerId: 'l1'
+    });
+    expect(validateSync(dto).length).toBeGreaterThan(0);
+  });
+
+  it('VerifyPreExamTokenRequest accepts a non-empty token', () => {
+    const dto = plainToInstance(VerifyPreExamTokenRequest, { token: 'abc' });
+    expect(validateSync(dto)).toHaveLength(0);
+  });
+
+  it('VerifyPreExamTokenRequest rejects an empty token', () => {
+    const dto = plainToInstance(VerifyPreExamTokenRequest, { token: '' });
+    expect(validateSync(dto).length).toBeGreaterThan(0);
+  });
+
+  it('CreateGroupCourseRequest accepts requiresPreExamAuth', () => {
+    const dto = plainToInstance(CreateGroupCourseRequest, {
+      groupId: 'g1',
+      courseId: 'c1',
+      requiresPreExamAuth: true
+    });
+    expect(validateSync(dto)).toHaveLength(0);
+    expect(dto.requiresPreExamAuth).toBe(true);
   });
 });
