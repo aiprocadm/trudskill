@@ -3037,7 +3037,11 @@ export class MvpService {
     return { delivered: true, alreadyVerified: false };
   }
 
-  /** Test/dev-only: like requestPreExamToken but returns the raw token. NOT exposed on the controller. */
+  /**
+   * @internal Test/dev-only: like {@link requestPreExamToken} but returns the raw token.
+   * SECURITY: returning the raw token bypasses the e-mail-delivery identity check, so this
+   * MUST NEVER be wired to an HTTP endpoint. Use only from unit tests (direct instantiation).
+   */
   requestPreExamTokenRaw(
     tenantId: string,
     actorId: string | undefined,
