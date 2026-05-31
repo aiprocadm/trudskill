@@ -1,3 +1,4 @@
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import ExcelJS from 'exceljs';
 import { describe, expect, it, vi } from 'vitest';
@@ -43,12 +44,14 @@ interface SeedOptions {
   snils?: string;
   /** otProgramCodes mapped onto the course version. */
   programCodes?: string[];
-  examPassed?: boolean;
+  /** `true`/`false` push an exam result; `null` pushes none (simulates «нет результата»). */
+  examPassed?: boolean | null;
 }
 
 interface Harness {
   service: OtRegistryService;
   state: InMemoryMvpState;
+  mvp: MvpService;
   storagePut: ReturnType<typeof vi.fn>;
   filesRegister: ReturnType<typeof vi.fn>;
   auditWrite: ReturnType<typeof vi.fn>;
@@ -124,7 +127,100 @@ function seedCompletedEnrollment(state: InMemoryMvpState, opts: SeedOptions = {}
   state.courseVersions.push(courseVersion);
   state.groupCourses.push(groupCourse);
   state.enrollments.push(enrollment);
-  state.examResults.push(examResult);
+  // `examPassed: null` simulates «нет результата проверки знаний» — push nothing.
+  if (opts.examPassed !== null) {
+    state.examResults.push(examResult);
+  }
+}
+
+interface SeedNamedOptions extends SeedOptions {
+  /** Distinct id suffix so multiple enrollments coexist (`enr_${suffix}` …). */
+  suffix: string;
+  enrolledAt?: string;
+  counterpartyId?: string;
+}
+
+/**
+ * Seed a second/Nth completed enrollment with distinct ids so partial-success
+ * scenarios (one good + one bad) can be exercised. Each gets its own learner,
+ * group, counterparty, course version and group-course.
+ */
+function seedNamedCompletedEnrollment(state: InMemoryMvpState, opts: SeedNamedOptions): void {
+  const base = { tenantId: TENANT, status: 'active' as const, createdAt: 't', updatedAt: 't' };
+  const s = opts.suffix;
+  const cpId = opts.counterpartyId ?? `cp_${s}`;
+
+  const counterparty: Counterparty = {
+    ...base,
+    id: cpId,
+    code: `CP${s}`,
+    name: `ООО ${s}`,
+    inn: '7707083893'
+  };
+  const learner: Learner = {
+    ...base,
+    id: `lrn_${s}`,
+    firstName: 'Пётр',
+    lastName: 'Петров',
+    middleName: 'Петрович',
+    snils: opts.snils ?? VALID_SNILS,
+    position: 'Слесарь'
+  };
+  const group: GroupEntity = {
+    ...base,
+    id: `grp_${s}`,
+    code: `G${s}`,
+    name: `Группа ${s}`,
+    counterpartyId: cpId
+  };
+  const courseVersion: CourseVersion = {
+    ...base,
+    id: `cv_${s}`,
+    courseId: `crs_${s}`,
+    versionNo: 1,
+    otProgramCodes: opts.programCodes ?? ['OT_A']
+  } as CourseVersion;
+  const groupCourse: GroupCourse = {
+    ...base,
+    id: `gc_${s}`,
+    groupId: `grp_${s}`,
+    courseId: `crs_${s}`,
+    courseVersionId: `cv_${s}`,
+    sortOrder: 0
+  };
+  const enrollment: Enrollment = {
+    ...base,
+    id: `enr_${s}`,
+    groupId: `grp_${s}`,
+    learnerId: `lrn_${s}`,
+    status: 'completed',
+    enrolledAt: opts.enrolledAt ?? '2026-01-01',
+    completedAt: '2026-03-10'
+  };
+  const examResult: ExamResult = {
+    tenantId: TENANT,
+    id: `exr_${s}`,
+    status: 'active',
+    createdAt: 't',
+    updatedAt: 't',
+    testId: `tst_${s}`,
+    enrollmentId: `enr_${s}`,
+    learnerId: `lrn_${s}`,
+    attemptsCount: 1,
+    maxScore: 100,
+    passed: opts.examPassed ?? true
+  };
+
+  state.counterparties.push(counterparty);
+  state.learners.push(learner);
+  state.groups.push(group);
+  state.courseVersions.push(courseVersion);
+  state.groupCourses.push(groupCourse);
+  state.enrollments.push(enrollment);
+  // Only push an exam result when one is wanted — omit to simulate «no result».
+  if (opts.examPassed !== null) {
+    state.examResults.push(examResult);
+  }
 }
 
 function makeHarness(): Harness {
@@ -177,7 +273,7 @@ function makeHarness(): Harness {
     audit
   );
 
-  return { service, state, storagePut, filesRegister, auditWrite };
+  return { service, state, mvp, storagePut, filesRegister, auditWrite };
 }
 
 const noFilter: OtRegistryExportFilter = {};
@@ -227,6 +323,107 @@ describe('OtRegistryService.exportOtRegistry', () => {
     expect(h.state.otRegistryRecords).toHaveLength(0);
     expect(h.storagePut).not.toHaveBeenCalled();
     expect(h.filesRegister).not.toHaveBeenCalled();
+  });
+
+  it('FIX #1 — a throwing getter on one enrollment does not abort the batch; others still export', async () => {
+    const h = makeHarness();
+    // Good enrollment (enr_1) + a sibling (enr_bad) whose group lookup throws.
+    seedCompletedEnrollment(h.state, { programCodes: ['OT_A'], examPassed: true });
+    seedNamedCompletedEnrollment(h.state, {
+      suffix: 'bad',
+      programCodes: ['OT_A'],
+      examPassed: true
+    });
+
+    // Make getGroup throw only for the bad enrollment's group; delegate otherwise.
+    const realGetGroup = h.mvp.getGroup.bind(h.mvp);
+    vi.spyOn(h.mvp, 'getGroup').mockImplementation((tenantId: string, groupId: string) => {
+      if (groupId === 'grp_bad') {
+        throw new NotFoundException({ code: 'group_not_found', message: 'dangling fk' });
+      }
+      return realGetGroup(tenantId, groupId);
+    });
+
+    // Must resolve (not reject) — partial success.
+    const outcome = await h.service.exportOtRegistry(TENANT, noFilter, ctx);
+
+    // The good enrollment still exports.
+    expect(outcome.exported).toBe(1);
+    expect(outcome.rows.map((r) => r.enrollmentId)).toEqual(['enr_1']);
+    // The bad enrollment surfaces as an `enrollment`-field gather error.
+    expect(outcome.failed).toBe(1);
+    const gatherErr = outcome.errors.find((e) => e.enrollmentId === 'enr_bad');
+    expect(gatherErr).toMatchObject({ enrollmentId: 'enr_bad', field: 'enrollment' });
+    expect(outcome.total).toBe(2);
+
+    // Batch was still created with a file for the valid row.
+    expect(h.state.otRegistryBatches).toHaveLength(1);
+    expect(h.state.otRegistryBatches[0]!.batchStatus).toBe('partial');
+    expect(outcome.fileId).toBeTruthy();
+  });
+
+  it('FIX #2 — a non-passed enrollment is excluded from the file and reported as a result error', async () => {
+    const h = makeHarness();
+    // Sibling passed enrollment still exports.
+    seedCompletedEnrollment(h.state, { programCodes: ['OT_A'], examPassed: true });
+    // Non-passed: no exam result at all (examPassed: null → push nothing).
+    seedNamedCompletedEnrollment(h.state, {
+      suffix: 'np',
+      programCodes: ['OT_A'],
+      examPassed: null
+    });
+
+    const outcome = await h.service.exportOtRegistry(TENANT, noFilter, ctx);
+
+    // Only the passed enrollment is in the file.
+    expect(outcome.exported).toBe(1);
+    expect(outcome.rows.map((r) => r.enrollmentId)).toEqual(['enr_1']);
+    expect(h.state.otRegistryRecords.map((r) => r.enrollmentId)).toEqual(['enr_1']);
+
+    // The non-passed enrollment is reported with field `result` and is NOT in rows.
+    const resultErr = outcome.errors.find((e) => e.enrollmentId === 'enr_np');
+    expect(resultErr).toMatchObject({ enrollmentId: 'enr_np', field: 'result' });
+    expect(outcome.rows.some((r) => r.enrollmentId === 'enr_np')).toBe(false);
+    expect(outcome.failed).toBe(1);
+    expect(h.state.otRegistryBatches[0]!.batchStatus).toBe('partial');
+  });
+
+  it('FIX #2 — passed:false (explicit fail) is also excluded with a result error', async () => {
+    const h = makeHarness();
+    seedCompletedEnrollment(h.state, { programCodes: ['OT_A'], examPassed: false });
+
+    const outcome = await h.service.exportOtRegistry(TENANT, noFilter, ctx);
+
+    expect(outcome.exported).toBe(0);
+    expect(outcome.failed).toBe(1);
+    expect(outcome.errors[0]).toMatchObject({ enrollmentId: 'enr_1', field: 'result' });
+    expect(outcome.fileId).toBeUndefined();
+    expect(h.state.otRegistryBatches[0]!.batchStatus).toBe('failed');
+  });
+
+  it('FIX #3 — enrolledFrom/enrolledTo exclude out-of-range enrollments, include in-range', async () => {
+    const h = makeHarness();
+    // In range (enr_1 enrolledAt 2026-01-01) + out of range (enr_old 2025-06-01).
+    seedCompletedEnrollment(h.state, { programCodes: ['OT_A'], examPassed: true });
+    seedNamedCompletedEnrollment(h.state, {
+      suffix: 'old',
+      programCodes: ['OT_A'],
+      examPassed: true,
+      enrolledAt: '2025-06-01'
+    });
+
+    const outcome = await h.service.exportOtRegistry(
+      TENANT,
+      { enrolledFrom: '2026-01-01', enrolledTo: '2026-12-31' },
+      ctx
+    );
+
+    // Only the in-range enrollment is exported; the out-of-range one is silently dropped
+    // (not an error — it is simply out of the requested scope).
+    expect(outcome.rows.map((r) => r.enrollmentId)).toEqual(['enr_1']);
+    expect(outcome.exported).toBe(1);
+    expect(outcome.errors.some((e) => e.enrollmentId === 'enr_old')).toBe(false);
+    expect(outcome.failed).toBe(0);
   });
 });
 
@@ -295,5 +492,19 @@ describe('OtRegistryService.importRegistryResponse', () => {
     expect(importOutcome.matched).toBe(0);
     expect(importOutcome.unmatched).toBe(1);
     expect(h.state.otRegistryRecords[0]!.registrationNumber).toBeUndefined();
+  });
+
+  it('FIX #5 — a malformed (non-xlsx) response file rejects with BadRequestException, not 500', async () => {
+    const h = makeHarness();
+    seedCompletedEnrollment(h.state, { programCodes: ['OT_A'], examPassed: true });
+    const exportOutcome = await h.service.exportOtRegistry(TENANT, noFilter, ctx);
+    const batchId = exportOutcome.batchId;
+
+    // Random bytes that are valid base64 but not a parseable .xlsx (ZIP) container.
+    const garbage = Buffer.from('this-is-not-an-xlsx-file').toString('base64');
+
+    await expect(
+      h.service.importRegistryResponse(TENANT, batchId, garbage, ctx)
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

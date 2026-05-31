@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { Inject, Injectable, NotFoundException, Scope } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException, Scope } from '@nestjs/common';
 
 import { validateRegistryRow } from './ot-registry-preflight.js';
 import { matchResponseToRecords, parseRegistryResponse } from './ot-registry-response.parser.js';
@@ -17,6 +17,7 @@ import { MvpService } from '../mvp.service.js';
 import type { EnrollmentBundle } from './ot-registry-rows.js';
 import type { RequestContext } from '../../../common/context/request-context.js';
 import type {
+  Learner,
   OtRegistryBatch,
   OtRegistryExportOutcome,
   OtRegistryImportOutcome,
@@ -64,7 +65,7 @@ export class OtRegistryService {
   ): Promise<OtRegistryExportOutcome> {
     const programsByCode = new Map(this.mvp.listOtTrainingPrograms().map((p) => [p.code, p]));
 
-    const enrollments = this.mvp
+    const completed = this.mvp
       .listEnrollments(tenantId, {
         group_id: filter.groupId,
         enrolled_from: filter.enrolledFrom,
@@ -73,68 +74,115 @@ export class OtRegistryService {
       })
       .items.filter((e) => e.status === 'completed');
 
+    // FIX #3 — the in-memory `list()` ignores enrolled_from/enrolled_to, so we
+    // re-apply the date scope here. `enrolledAt` is an ISO string; lexicographic
+    // compare on ISO dates is correct. An undefined `enrolledAt` cannot satisfy a
+    // bound, so it is excluded whenever a bound is set.
+    const enrollments = completed.filter(
+      (e) =>
+        (!filter.enrolledFrom || (e.enrolledAt ? e.enrolledAt >= filter.enrolledFrom : false)) &&
+        (!filter.enrolledTo || (e.enrolledAt ? e.enrolledAt <= filter.enrolledTo : false))
+    );
+
+    // FIX #4 — errors collected while gathering (dangling FK / non-passed result)
+    // are merged with preflight errors below.
+    const gatherErrors: OtRegistryRowError[] = [];
     const bundles: EnrollmentBundle[] = [];
     for (const enrollment of enrollments) {
-      const learner = this.mvp.getLearner(tenantId, enrollment.learnerId);
-      const group = this.mvp.getGroup(tenantId, enrollment.groupId);
+      try {
+        const learner = this.mvp.getLearner(tenantId, enrollment.learnerId);
+        const group = this.mvp.getGroup(tenantId, enrollment.groupId);
 
-      // Optional client (counterparty) filter — skip enrollments whose group is
-      // not linked to the requested client.
-      if (filter.clientId && group.counterpartyId !== filter.clientId) {
+        // Optional client (counterparty) filter — skip enrollments whose group is
+        // not linked to the requested client.
+        if (filter.clientId && group.counterpartyId !== filter.clientId) {
+          continue;
+        }
+
+        const employerInn = group.counterpartyId
+          ? (this.mvp.getCounterparty(tenantId, group.counterpartyId).inn ?? '')
+          : '';
+
+        const groupCourse = this.mvp.listGroupCourses(tenantId, { group_id: enrollment.groupId })
+          .items[0];
+        const cv = groupCourse?.courseVersionId
+          ? this.mvp.getCourseVersion(tenantId, groupCourse.courseVersionId)
+          : undefined;
+        const codes = cv?.otProgramCodes ?? [];
+        const programs = codes
+          .map((c) => programsByCode.get(c))
+          .filter((p): p is OtTrainingProgram => Boolean(p));
+
+        const protocol = this.documents.listDocuments(tenantId, {
+          documentType: 'protocol',
+          sourceEntityType: 'enrollment',
+          sourceEntityId: enrollment.id,
+          pageSize: 1
+        }).items[0];
+
+        const exam = this.mvp.getExamResultByEnrollment(tenantId, enrollment.id)[0];
+        const examPassed = Boolean(exam?.passed);
+
+        // FIX #2 — выгружаем только сданные (spec §8/§14 default). A non-passed /
+        // missing-exam enrollment is excluded from the file and surfaced as an
+        // error rather than emitted as «неудовлетворительно».
+        if (!examPassed) {
+          gatherErrors.push({
+            enrollmentId: enrollment.id,
+            learnerId: enrollment.learnerId,
+            fullName: this.fullName(learner),
+            field: 'result',
+            message: 'Нет сданного результата проверки знаний (выгружаются только сданные)'
+          });
+          continue;
+        }
+
+        bundles.push({
+          enrollment,
+          learner,
+          employerInn,
+          protocol: {
+            documentNumber: protocol?.documentNumber ?? '',
+            documentDate: protocol?.documentDate ?? ''
+          },
+          examPassed,
+          // Always emit at least one row so an unmapped course surfaces as a
+          // preflight error rather than silently vanishing.
+          programs: programs.length
+            ? programs
+            : [{ code: '', registryId: 0, exactName: '', programKind: 'other', isActive: true }]
+        });
+      } catch {
+        // FIX #1 — a dangling FK (getLearner/getGroup/getCounterparty/
+        // getCourseVersion throws NotFoundException) must not abort the batch.
+        gatherErrors.push({
+          enrollmentId: enrollment.id,
+          learnerId: enrollment.learnerId,
+          fullName: '',
+          field: 'enrollment',
+          message: 'Не удалось собрать данные зачисления (отсутствует связанная сущность)'
+        });
         continue;
       }
-
-      const employerInn = group.counterpartyId
-        ? (this.mvp.getCounterparty(tenantId, group.counterpartyId).inn ?? '')
-        : '';
-
-      const groupCourse = this.mvp.listGroupCourses(tenantId, { group_id: enrollment.groupId })
-        .items[0];
-      const cv = groupCourse?.courseVersionId
-        ? this.mvp.getCourseVersion(tenantId, groupCourse.courseVersionId)
-        : undefined;
-      const codes = cv?.otProgramCodes ?? [];
-      const programs = codes
-        .map((c) => programsByCode.get(c))
-        .filter((p): p is OtTrainingProgram => Boolean(p));
-
-      const protocol = this.documents.listDocuments(tenantId, {
-        documentType: 'protocol',
-        sourceEntityType: 'enrollment',
-        sourceEntityId: enrollment.id,
-        pageSize: 1
-      }).items[0];
-
-      const exam = this.mvp.getExamResultByEnrollment(tenantId, enrollment.id)[0];
-
-      bundles.push({
-        enrollment,
-        learner,
-        employerInn,
-        protocol: {
-          documentNumber: protocol?.documentNumber ?? '',
-          documentDate: protocol?.documentDate ?? ''
-        },
-        examPassed: Boolean(exam?.passed),
-        // Always emit at least one row so an unmapped course surfaces as a
-        // preflight error rather than silently vanishing.
-        programs: programs.length
-          ? programs
-          : [{ code: '', registryId: 0, exactName: '', programKind: 'other', isActive: true }]
-      });
     }
 
     const rows = buildRegistryRows(bundles);
     const valid: OtRegistryRow[] = [];
-    const errors: OtRegistryRowError[] = [];
+    const preflightErrors: OtRegistryRowError[] = [];
     for (const r of rows) {
       const rowErrors = validateRegistryRow(r);
       if (rowErrors.length) {
-        errors.push(...rowErrors);
+        preflightErrors.push(...rowErrors);
       } else {
         valid.push(r);
       }
     }
+
+    // FIX #4 — gather-errors first, then preflight errors.
+    const errors: OtRegistryRowError[] = [...gatherErrors, ...preflightErrors];
+    const exported = valid.length;
+    const failed = errors.length;
+    const total = exported + failed;
 
     const now = new Date().toISOString();
     const batch: OtRegistryBatch = {
@@ -144,14 +192,14 @@ export class OtRegistryService {
       createdAt: now,
       updatedAt: now,
       sourceFilterJson: { ...filter },
-      totalCandidates: rows.length,
-      exportedRows: valid.length,
-      failedRows: errors.length,
-      batchStatus: errors.length ? (valid.length ? 'partial' : 'failed') : 'generated',
+      totalCandidates: total,
+      exportedRows: exported,
+      failedRows: failed,
+      batchStatus: failed ? (exported ? 'partial' : 'failed') : 'generated',
       generatedBy: ctx.userId ?? ''
     };
 
-    if (valid.length) {
+    if (exported) {
       const buffer = await this.xlsx.build(valid);
       const storageKey = `${tenantId}/ot-registry/${batch.id}.xlsx`;
       const meta = await this.files.register({
@@ -195,8 +243,8 @@ export class OtRegistryService {
       entityType: 'ot_registry_batch',
       entityId: batch.id,
       newValues: {
-        exported: valid.length,
-        failed: errors.length,
+        exported,
+        failed,
         batchStatus: batch.batchStatus
       },
       requestId: ctx.requestId,
@@ -208,9 +256,9 @@ export class OtRegistryService {
     return {
       batchId: batch.id,
       fileId: batch.fileId,
-      total: rows.length,
-      exported: valid.length,
-      failed: errors.length,
+      total,
+      exported,
+      failed,
       rows: valid,
       errors
     };
@@ -261,7 +309,15 @@ export class OtRegistryService {
     const records = this.state.otRegistryRecords.filter(
       (r) => r.tenantId === tenantId && r.batchId === batchId
     );
-    const parsed = await parseRegistryResponse(Buffer.from(fileBase64, 'base64'));
+    let parsed;
+    try {
+      parsed = await parseRegistryResponse(Buffer.from(fileBase64, 'base64'));
+    } catch {
+      throw new BadRequestException({
+        code: 'invalid_xlsx',
+        message: 'Не удалось прочитать файл-ответ (ожидается .xlsx)'
+      });
+    }
     const outcome = matchResponseToRecords(parsed, records);
     this.auditService.write({
       tenantId,
@@ -283,5 +339,10 @@ export class OtRegistryService {
 
   private id(prefix: string): string {
     return `${prefix}_${randomUUID().replace(/-/g, '')}`;
+  }
+
+  /** Russian convention `Фамилия Имя Отчество`; used for per-row error labelling. */
+  private fullName(l: Learner): string {
+    return [l.lastName, l.firstName, l.middleName].filter(Boolean).join(' ').trim();
   }
 }
