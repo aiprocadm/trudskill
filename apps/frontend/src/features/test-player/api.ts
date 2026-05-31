@@ -5,8 +5,11 @@ import type {
   AttemptQuestion,
   ExamResultDto,
   LearnerTestSummary,
+  PreExamTokenDelivery,
+  RequestPreExamTokenPayload,
   SaveAnswerPayload,
-  StartAttemptPayload
+  StartAttemptPayload,
+  VerifyPreExamTokenResult
 } from './types';
 import type { UserSession } from '../../entities/session/model';
 
@@ -56,6 +59,21 @@ export const testPlayerApi = {
   getAttemptResult: (session: UserSession, attemptId: string): Promise<ExamResultDto> =>
     apiRequest<ExamResultDto>(`/attempts/${attemptId}/result`, {
       method: 'GET',
+      ...withAuth(session)
+    }),
+  requestPreExamToken: (
+    session: UserSession,
+    payload: RequestPreExamTokenPayload
+  ): Promise<PreExamTokenDelivery> =>
+    apiRequest<PreExamTokenDelivery>('/attempts/request-pre-exam-token', {
+      method: 'POST',
+      body: payload,
+      ...withAuth(session)
+    }),
+  verifyPreExamToken: (session: UserSession, token: string): Promise<VerifyPreExamTokenResult> =>
+    apiRequest<VerifyPreExamTokenResult>('/attempts/verify-pre-exam-token', {
+      method: 'POST',
+      body: { token },
       ...withAuth(session)
     })
 };

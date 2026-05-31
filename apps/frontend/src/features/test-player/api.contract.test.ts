@@ -126,4 +126,27 @@ describe('testPlayerApi envelope compatibility (Phase 3 Plan B Task 8)', () => {
     expect(new URL(u).pathname).toMatch(/\/attempts\/at_1\/result$/);
     expect(init.method).toBe('GET');
   });
+
+  it('requestPreExamToken — POST /attempts/request-pre-exam-token and unwraps { delivered }', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(envelope({ delivered: true }), { status: 200 }));
+    const payload = { testId: 't1', enrollmentId: 'e1', learnerId: 'l1' };
+    const result = await api.requestPreExamToken(session, payload);
+    expect(result.delivered).toBe(true);
+    const [u, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(new URL(u).pathname).toMatch(/\/attempts\/request-pre-exam-token$/);
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toEqual(payload);
+  });
+
+  it('verifyPreExamToken — POST /attempts/verify-pre-exam-token and unwraps { verified }', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(envelope({ verified: true, enrollmentId: 'e1', testId: 't1' }), { status: 200 })
+    );
+    const result = await api.verifyPreExamToken(session, 'raw-token');
+    expect(result.verified).toBe(true);
+    const [u, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(new URL(u).pathname).toMatch(/\/attempts\/verify-pre-exam-token$/);
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toEqual({ token: 'raw-token' });
+  });
 });
