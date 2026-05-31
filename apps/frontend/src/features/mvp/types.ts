@@ -83,6 +83,8 @@ export interface CourseVersion extends BaseEntity {
   regulatoryBasisCodes?: string[];
   programAttachmentFileId?: string;
   commissionId?: string;
+  // ОТ-реестр (Минтруд/ЕИСОТ) — program mapping
+  otProgramCodes?: string[];
 }
 
 export interface CourseModule extends BaseEntity {
@@ -317,6 +319,8 @@ export interface ProgramMetaPatch {
   regulatoryBasisCodes?: string[];
   programAttachmentFileId?: string;
   commissionId?: string;
+  // ОТ-реестр (Минтруд/ЕИСОТ) — program mapping
+  otProgramCodes?: string[];
 }
 
 export interface CourseDocumentSetEntry {
