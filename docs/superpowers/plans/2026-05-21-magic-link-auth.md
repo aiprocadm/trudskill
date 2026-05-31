@@ -19,6 +19,7 @@
 ## File Structure
 
 ### Create
+
 - `apps/backend/migrations/0028_iam_magic_link_tokens.sql` — DB table
 - `apps/backend/src/modules/iam/services/magic-link.service.ts` — business logic
 - `apps/backend/src/modules/iam/services/magic-link.service.test.ts` — unit tests
@@ -28,6 +29,7 @@
 - `apps/frontend/src/features/auth/magic-link.ts` — frontend API client
 
 ### Modify
+
 - `apps/backend/src/modules/iam/auth.controller.ts` — add 2 endpoints (`request`, `redeem`)
 - `apps/backend/src/modules/iam/iam.module.ts` — register MagicLinkService
 - `apps/backend/src/modules/iam/dto/login.dto.ts` — re-export magic link DTOs (or restructure)
@@ -38,9 +40,10 @@
 ## Task 1: Database migration for magic_link_tokens
 
 **Files:**
+
 - Create: `apps/backend/migrations/0028_iam_magic_link_tokens.sql`
 
-- [ ] **Step 1: Write migration SQL**
+- [x] **Step 1: Write migration SQL**
 
 ```sql
 -- migration 0028: magic link tokens for passwordless authentication
@@ -76,17 +79,17 @@ comment on table iam.magic_link_tokens is
   'Passwordless authentication tokens. Hash-only storage. 15-min lifetime.';
 ```
 
-- [ ] **Step 2: Verify migration runs**
+- [x] **Step 2: Verify migration runs**
 
 Run: `pnpm --filter @cdoprof/backend run db:migrate`
 Expected: migration 0028 applied without errors.
 
-- [ ] **Step 3: Verify table exists**
+- [x] **Step 3: Verify table exists**
 
 Run: `psql $DATABASE_URL -c '\d iam.magic_link_tokens'`
 Expected: shows 11 columns + 3 indexes.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/backend/migrations/0028_iam_magic_link_tokens.sql
@@ -98,6 +101,7 @@ git commit -m "feat(iam): add magic_link_tokens table for passwordless auth"
 ## Task 2: MagicLinkService (business logic) with unit tests
 
 **Files:**
+
 - Create: `apps/backend/src/modules/iam/services/magic-link.service.ts`
 - Create: `apps/backend/src/modules/iam/services/magic-link.service.test.ts`
 
@@ -105,7 +109,7 @@ git commit -m "feat(iam): add magic_link_tokens table for passwordless auth"
 
 The service contains the testable business logic: token generation, hashing, expiry validation, idempotent redemption. Controller is just HTTP wrapping; integration-tested separately.
 
-- [ ] **Step 1: Write failing test for token generation**
+- [x] **Step 1: Write failing test for token generation**
 
 ```typescript
 // apps/backend/src/modules/iam/services/magic-link.service.test.ts
@@ -131,18 +135,18 @@ describe('MagicLinkService.requestLink', () => {
     });
     expect(rawToken).toMatch(/^[A-Za-z0-9_-]{40,}$/);
     expect(repo.saved.length).toBe(1);
-    expect(repo.saved[0].tokenHash).not.toBe(rawToken);  // never store raw
-    expect(repo.saved[0].tokenHash.length).toBe(64);  // sha-256 hex
+    expect(repo.saved[0].tokenHash).not.toBe(rawToken); // never store raw
+    expect(repo.saved[0].tokenHash.length).toBe(64); // sha-256 hex
   });
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails (file doesn't exist)**
+- [x] **Step 2: Run test to verify it fails (file doesn't exist)**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run apps/backend/src/modules/iam/services/magic-link.service.test.ts`
 Expected: FAIL — `Cannot find module 'magic-link.service'`
 
-- [ ] **Step 3: Implement minimal MagicLinkService.requestLink**
+- [x] **Step 3: Implement minimal MagicLinkService.requestLink**
 
 ```typescript
 // apps/backend/src/modules/iam/services/magic-link.service.ts
@@ -159,8 +163,17 @@ export interface MagicLinkTokenRecord {
 
 export interface MagicLinkTokenRepo {
   save(record: MagicLinkTokenRecord): Promise<void>;
-  findByHash(tenantId: string, tokenHash: string): Promise<MagicLinkTokenRecord & { id: string; consumedAt: Date | null } | null>;
-  markConsumed(tenantId: string, id: string, redeemedUserId: string, ip: string, userAgent: string): Promise<void>;
+  findByHash(
+    tenantId: string,
+    tokenHash: string
+  ): Promise<(MagicLinkTokenRecord & { id: string; consumedAt: Date | null }) | null>;
+  markConsumed(
+    tenantId: string,
+    id: string,
+    redeemedUserId: string,
+    ip: string,
+    userAgent: string
+  ): Promise<void>;
 }
 
 export interface RequestLinkInput {
@@ -193,7 +206,7 @@ export class MagicLinkService {
 }
 ```
 
-- [ ] **Step 4: Create the test util**
+- [x] **Step 4: Create the test util**
 
 ```typescript
 // apps/backend/src/modules/iam/testing/magic-link-test-utils.ts
@@ -207,10 +220,10 @@ export const createMockTokenRepo = () => {
       saved.push({ ...rec, id: `m_${saved.length + 1}`, consumedAt: null });
     },
     async findByHash(tenantId, tokenHash) {
-      return saved.find(r => r.tenantId === tenantId && r.tokenHash === tokenHash) ?? null;
+      return saved.find((r) => r.tenantId === tenantId && r.tokenHash === tokenHash) ?? null;
     },
     async markConsumed(tenantId, id, userId, ip, ua) {
-      const rec = saved.find(r => r.id === id && r.tenantId === tenantId);
+      const rec = saved.find((r) => r.id === id && r.tenantId === tenantId);
       if (rec) rec.consumedAt = new Date();
     }
   };
@@ -218,18 +231,19 @@ export const createMockTokenRepo = () => {
 };
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run apps/backend/src/modules/iam/services/magic-link.service.test.ts`
 Expected: PASS
 
-- [ ] **Step 6: Add test for redeemLink (happy path)**
+- [x] **Step 6: Add test for redeemLink (happy path)**
 
 ```typescript
 describe('MagicLinkService.redeemLink', () => {
   it('returns email for a valid token, marks it consumed', async () => {
     const { rawToken } = await service.requestLink({
-      tenantId: 't1', email: 'user@example.com'
+      tenantId: 't1',
+      email: 'user@example.com'
     });
     const result = await service.redeemLink({
       tenantId: 't1',
@@ -245,37 +259,51 @@ describe('MagicLinkService.redeemLink', () => {
   it('rejects expired tokens', async () => {
     const expiredService = new MagicLinkService(repo, { ttlMs: -1 });
     const { rawToken } = await expiredService.requestLink({
-      tenantId: 't1', email: 'a@b.ru'
+      tenantId: 't1',
+      email: 'a@b.ru'
     });
-    await expect(expiredService.redeemLink({
-      tenantId: 't1', rawToken, userId: 'u1'
-    })).rejects.toThrow(/expired/i);
+    await expect(
+      expiredService.redeemLink({
+        tenantId: 't1',
+        rawToken,
+        userId: 'u1'
+      })
+    ).rejects.toThrow(/expired/i);
   });
 
   it('rejects already-consumed tokens', async () => {
     const { rawToken } = await service.requestLink({
-      tenantId: 't1', email: 'a@b.ru'
+      tenantId: 't1',
+      email: 'a@b.ru'
     });
     await service.redeemLink({ tenantId: 't1', rawToken, userId: 'u1' });
-    await expect(service.redeemLink({
-      tenantId: 't1', rawToken, userId: 'u1'
-    })).rejects.toThrow(/consumed|invalid/i);
+    await expect(
+      service.redeemLink({
+        tenantId: 't1',
+        rawToken,
+        userId: 'u1'
+      })
+    ).rejects.toThrow(/consumed|invalid/i);
   });
 
   it('rejects unknown tokens', async () => {
-    await expect(service.redeemLink({
-      tenantId: 't1', rawToken: 'nonexistent', userId: 'u1'
-    })).rejects.toThrow(/invalid/i);
+    await expect(
+      service.redeemLink({
+        tenantId: 't1',
+        rawToken: 'nonexistent',
+        userId: 'u1'
+      })
+    ).rejects.toThrow(/invalid/i);
   });
 });
 ```
 
-- [ ] **Step 7: Run new tests to verify they fail (redeemLink not implemented)**
+- [x] **Step 7: Run new tests to verify they fail (redeemLink not implemented)**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run apps/backend/src/modules/iam/services/magic-link.service.test.ts`
 Expected: 4 of 5 tests FAIL (only first passes)
 
-- [ ] **Step 8: Implement redeemLink in MagicLinkService**
+- [x] **Step 8: Implement redeemLink in MagicLinkService**
 
 ```typescript
 // Add to magic-link.service.ts
@@ -314,12 +342,12 @@ export class MagicLinkService {
 }
 ```
 
-- [ ] **Step 9: Run all tests, verify all pass**
+- [x] **Step 9: Run all tests, verify all pass**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run apps/backend/src/modules/iam/services/magic-link.service.test.ts`
 Expected: All 5 tests PASS.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add apps/backend/src/modules/iam/services/magic-link.service.ts \
@@ -333,10 +361,11 @@ git commit -m "feat(iam): add MagicLinkService with request/redeem business logi
 ## Task 3: PostgresMagicLinkTokenRepo (DB layer)
 
 **Files:**
+
 - Create: `apps/backend/src/modules/iam/services/postgres-magic-link-token-repo.ts`
 - Create: `apps/backend/src/modules/iam/services/postgres-magic-link-token-repo.integration.test.ts`
 
-- [ ] **Step 1: Write failing integration test**
+- [x] **Step 1: Write failing integration test**
 
 ```typescript
 // postgres-magic-link-token-repo.integration.test.ts
@@ -372,7 +401,12 @@ describe('PostgresMagicLinkTokenRepo', () => {
   it('marks token consumed', async () => {
     await withTestDb(async (db) => {
       const repo = new PostgresMagicLinkTokenRepo(db);
-      await repo.save({ tenantId: 't1', email: 'u@x.ru', tokenHash: 'b'.repeat(64), expiresAt: new Date(Date.now() + 60_000) });
+      await repo.save({
+        tenantId: 't1',
+        email: 'u@x.ru',
+        tokenHash: 'b'.repeat(64),
+        expiresAt: new Date(Date.now() + 60_000)
+      });
       const saved = await repo.findByHash('t1', 'b'.repeat(64));
       await repo.markConsumed('t1', saved!.id, 'user1', '1.2.3.4', 'browser');
       const reloaded = await repo.findByHash('t1', 'b'.repeat(64));
@@ -382,18 +416,18 @@ describe('PostgresMagicLinkTokenRepo', () => {
 });
 ```
 
-- [ ] **Step 2: Run test (expect failure: file doesn't exist)**
+- [x] **Step 2: Run test (expect failure: file doesn't exist)**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run apps/backend/src/modules/iam/services/postgres-magic-link-token-repo.integration.test.ts`
 Expected: FAIL
 
-- [ ] **Step 3: Implement Postgres repo using existing DB pattern**
+- [x] **Step 3: Implement Postgres repo using existing DB pattern**
 
 Look at existing patterns: `apps/backend/src/modules/iam/services/postgres-*-repo.ts` (if any) or `apps/backend/src/database/`. Follow the same pattern (likely uses `kysely` or raw `pg`).
 
 ```typescript
 // postgres-magic-link-token-repo.ts
-import type { DbClient } from '../../../database/db-client.js';  // adjust to existing path
+import type { DbClient } from '../../../database/db-client.js'; // adjust to existing path
 import type { MagicLinkTokenRepo, MagicLinkTokenRecord } from './magic-link.service.js';
 
 export class PostgresMagicLinkTokenRepo implements MagicLinkTokenRepo {
@@ -404,7 +438,14 @@ export class PostgresMagicLinkTokenRepo implements MagicLinkTokenRepo {
       `insert into iam.magic_link_tokens
        (tenant_id, email, token_hash, expires_at, request_ip, request_user_agent)
        values ($1, $2, $3, $4, $5, $6)`,
-      [rec.tenantId, rec.email, rec.tokenHash, rec.expiresAt, rec.requestIp ?? null, rec.requestUserAgent ?? null]
+      [
+        rec.tenantId,
+        rec.email,
+        rec.tokenHash,
+        rec.expiresAt,
+        rec.requestIp ?? null,
+        rec.requestUserAgent ?? null
+      ]
     );
   }
 
@@ -438,12 +479,12 @@ export class PostgresMagicLinkTokenRepo implements MagicLinkTokenRepo {
 }
 ```
 
-- [ ] **Step 4: Run integration tests**
+- [x] **Step 4: Run integration tests**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run apps/backend/src/modules/iam/services/postgres-magic-link-token-repo.integration.test.ts`
 Expected: All 3 tests PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/iam/services/postgres-magic-link-token-repo.ts \
@@ -456,9 +497,10 @@ git commit -m "feat(iam): add Postgres repo for magic_link_tokens"
 ## Task 4: DTOs for magic link endpoints
 
 **Files:**
+
 - Create: `apps/backend/src/modules/iam/dto/magic-link.dto.ts`
 
-- [ ] **Step 1: Define DTOs with class-validator**
+- [x] **Step 1: Define DTOs with class-validator**
 
 ```typescript
 // apps/backend/src/modules/iam/dto/magic-link.dto.ts
@@ -478,7 +520,7 @@ export class MagicLinkRedeemDto {
 }
 ```
 
-- [ ] **Step 2: Verify DTO validation works (add to dto-validation test if pattern exists)**
+- [x] **Step 2: Verify DTO validation works (add to dto-validation test if pattern exists)**
 
 Look at `apps/backend/src/modules/iam/iam.dto-validation.test.ts` for pattern. Add:
 
@@ -498,12 +540,12 @@ describe('MagicLinkRequestDto', () => {
 });
 ```
 
-- [ ] **Step 3: Run test**
+- [x] **Step 3: Run test**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run apps/backend/src/modules/iam/iam.dto-validation.test.ts`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/backend/src/modules/iam/dto/magic-link.dto.ts \
@@ -516,10 +558,11 @@ git commit -m "feat(iam): add DTOs for magic link request/redeem"
 ## Task 5: AuthController endpoints
 
 **Files:**
+
 - Modify: `apps/backend/src/modules/iam/auth.controller.ts`
 - Modify: `apps/backend/src/modules/iam/iam.module.ts`
 
-- [ ] **Step 1: Register MagicLinkService and repo in IamModule**
+- [x] **Step 1: Register MagicLinkService and repo in IamModule**
 
 Look at `iam.module.ts` for existing providers. Add:
 
@@ -537,7 +580,7 @@ Look at `iam.module.ts` for existing providers. Add:
 }
 ```
 
-- [ ] **Step 2: Add request endpoint to AuthController**
+- [x] **Step 2: Add request endpoint to AuthController**
 
 ```typescript
 // in auth.controller.ts, inject MagicLinkService and EmailSender (see Task 6)
@@ -565,7 +608,7 @@ async requestMagicLink(
 }
 ```
 
-- [ ] **Step 3: Add redeem endpoint to AuthController**
+- [x] **Step 3: Add redeem endpoint to AuthController**
 
 ```typescript
 @Post('auth/magic-link/redeem')
@@ -614,7 +657,7 @@ async redeemMagicLink(
 
 > **Note:** `MagicLinkService.peekEmail` is a new helper that returns email without marking consumed — needed to look up/create the user first. Add it to `magic-link.service.ts` and test it in Task 2.
 
-- [ ] **Step 4: Add `peekEmail` to MagicLinkService**
+- [x] **Step 4: Add `peekEmail` to MagicLinkService**
 
 ```typescript
 // in magic-link.service.ts
@@ -628,7 +671,7 @@ async peekEmail(input: { tenantId: string; rawToken: string }): Promise<{ email:
 }
 ```
 
-- [ ] **Step 5: Add `issueSessionForUser` to AuthService**
+- [x] **Step 5: Add `issueSessionForUser` to AuthService**
 
 This may already exist — look in `auth.service.ts`. If not, extract from `login()` method. Pattern:
 
@@ -638,12 +681,12 @@ async issueSessionForUser(user: User, context: RequestContext): Promise<SessionT
 }
 ```
 
-- [ ] **Step 6: Run all IAM tests**
+- [x] **Step 6: Run all IAM tests**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run apps/backend/src/modules/iam/`
 Expected: All existing tests still pass, new tests pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/backend/src/modules/iam/auth.controller.ts \
@@ -659,17 +702,18 @@ git commit -m "feat(iam): add magic link request/redeem endpoints"
 ## Task 6: Email sender integration
 
 **Files:**
+
 - Check first: search for existing email/notification sender. If exists, extend. If not, create minimal.
 - Create or modify: `apps/backend/src/modules/communication/email-sender.service.ts`
 
 > **Note:** A full notification system is Phase 5 deliverable. For Phase 1 magic link, a minimal email-send abstraction is enough. The MVP: log the magic link URL to console in dev, send via SMTP in prod.
 
-- [ ] **Step 1: Search for existing email infrastructure**
+- [x] **Step 1: Search for existing email infrastructure**
 
 Run: `grep -r "sendEmail\|nodemailer\|smtp" apps/backend/src/modules/communication/`
 Expected: see existing patterns; adapt.
 
-- [ ] **Step 2: Add `sendMagicLink` method**
+- [x] **Step 2: Add `sendMagicLink` method**
 
 ```typescript
 // in email-sender.service.ts (or appropriate file)
@@ -681,18 +725,22 @@ async sendMagicLink(email: string, rawToken: string): Promise<void> {
 }
 ```
 
-- [ ] **Step 3: Add test (use mock for SMTP)**
+- [x] **Step 3: Add test (use mock for SMTP)**
 
 ```typescript
 it('sendMagicLink includes the correct URL', async () => {
   const sent: Array<{ to: string; text: string }> = [];
-  const sender = new EmailSender({ send: async (e) => { sent.push(e); } });
+  const sender = new EmailSender({
+    send: async (e) => {
+      sent.push(e);
+    }
+  });
   await sender.sendMagicLink('a@b.ru', 'token123');
   expect(sent[0].text).toContain('/login/magic-link/token123');
 });
 ```
 
-- [ ] **Step 4: Run test, commit**
+- [x] **Step 4: Run test, commit**
 
 ```bash
 pnpm --filter @cdoprof/backend exec vitest run apps/backend/src/modules/communication/
@@ -706,9 +754,10 @@ git commit -m "feat(communication): add sendMagicLink method to email sender"
 ## Task 7: HTTP integration test for full flow
 
 **Files:**
+
 - Create: `apps/backend/src/modules/iam/magic-link.integration.test.ts`
 
-- [ ] **Step 1: Write integration test**
+- [x] **Step 1: Write integration test**
 
 ```typescript
 import { describe, it, expect } from 'vitest';
@@ -773,12 +822,12 @@ describe('Magic link flow (integration)', () => {
 });
 ```
 
-- [ ] **Step 2: Run integration test**
+- [x] **Step 2: Run integration test**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run apps/backend/src/modules/iam/magic-link.integration.test.ts`
 Expected: All 3 tests PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/backend/src/modules/iam/magic-link.integration.test.ts
@@ -790,10 +839,11 @@ git commit -m "test(iam): add HTTP integration tests for magic link flow"
 ## Task 8: Frontend — login form with magic link option
 
 **Files:**
+
 - Modify: `apps/frontend/app/login/page.tsx`
 - Create: `apps/frontend/src/features/auth/magic-link.ts`
 
-- [ ] **Step 1: Create frontend API helper**
+- [x] **Step 1: Create frontend API helper**
 
 ```typescript
 // apps/frontend/src/features/auth/magic-link.ts
@@ -806,7 +856,9 @@ export async function requestMagicLink(email: string): Promise<void> {
   });
 }
 
-export async function redeemMagicLink(token: string): Promise<{ accessToken: string; tenantId: string }> {
+export async function redeemMagicLink(
+  token: string
+): Promise<{ accessToken: string; tenantId: string }> {
   return apiRequest('/auth/magic-link/redeem', {
     method: 'POST',
     body: { token }
@@ -814,9 +866,10 @@ export async function redeemMagicLink(token: string): Promise<{ accessToken: str
 }
 ```
 
-- [ ] **Step 2: Modify login page to show magic link option**
+- [x] **Step 2: Modify login page to show magic link option**
 
 Look at existing `app/login/page.tsx`. Add a "Login with magic link" button that, when clicked, shows email field + submit. On submit:
+
 - Show "Check your email" state.
 - Disable form to prevent spam.
 
@@ -841,7 +894,7 @@ function MagicLinkForm() {
   }
   return (
     <form onSubmit={onSubmit}>
-      <input type="email" required value={email} onChange={e => setEmail(e.target.value)} />
+      <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
       <button type="submit" disabled={state === 'sending'}>
         Отправить ссылку
       </button>
@@ -850,7 +903,7 @@ function MagicLinkForm() {
 }
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/frontend/app/login/page.tsx \
@@ -863,9 +916,10 @@ git commit -m "feat(frontend): add magic link option to login page"
 ## Task 9: Frontend — magic link redemption page
 
 **Files:**
+
 - Create: `apps/frontend/app/login/magic-link/[token]/page.tsx`
 
-- [ ] **Step 1: Create redemption page**
+- [x] **Step 1: Create redemption page**
 
 ```tsx
 'use client';
@@ -884,10 +938,12 @@ export default function MagicLinkRedeemPage() {
       .then(() => {
         if (mounted) router.replace('/learner');
       })
-      .catch(err => {
+      .catch((err) => {
         if (mounted) setError(err.message || 'Ссылка недействительна или истекла');
       });
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [token, router]);
 
   if (error) {
@@ -903,9 +959,10 @@ export default function MagicLinkRedeemPage() {
 }
 ```
 
-- [ ] **Step 2: Manual smoke test**
+- [x] **Step 2: Manual smoke test**
 
 Run dev server: `pnpm --filter @cdoprof/frontend run dev`
+
 - Open `/login`
 - Click "Magic link"
 - Enter email
@@ -913,7 +970,7 @@ Run dev server: `pnpm --filter @cdoprof/frontend run dev`
 - Find logged URL in backend console (dev mode logs the magic link URL)
 - Open URL — should redirect to `/learner`
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/frontend/app/login/magic-link/[token]/page.tsx
@@ -924,12 +981,12 @@ git commit -m "feat(frontend): add magic link redemption page"
 
 ## Definition of Done for magic link feature
 
-- [ ] All 9 tasks committed.
-- [ ] All tests pass: `pnpm --filter @cdoprof/backend exec vitest run apps/backend/src/modules/iam/`
-- [ ] Manual smoke test: full flow from `/login` → email → click URL → land on `/learner`.
-- [ ] CI green: `pnpm -s ci:check`
-- [ ] No email enumeration: requesting magic link for unknown email returns same response as known email.
-- [ ] Tokens expire after 15 min, single-use.
+- [x] All 9 tasks committed.
+- [x] All tests pass: `pnpm --filter @cdoprof/backend exec vitest run apps/backend/src/modules/iam/`
+- [x] Manual smoke test: full flow from `/login` → email → click URL → land on `/learner`.
+- [x] CI green: `pnpm -s ci:check`
+- [x] No email enumeration: requesting magic link for unknown email returns same response as known email.
+- [x] Tokens expire after 15 min, single-use.
 
 ---
 

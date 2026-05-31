@@ -74,6 +74,8 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 Состояние ниже должно совпадать по смыслу с [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) (факты сессии, файлы, тесты). Подробный лог — там §5–§20; здесь — краткий ориентир для следующего агента.
 
+> 📋 **Сводный статус всех 17 планов** (что слито / что осталось, карта PR→план) — [docs/superpowers/plans/PLANS_STATUS.md](docs/superpowers/plans/PLANS_STATUS.md) (сверено по git + коду, 2026-05-31).
+
 ### Current Stage
 
 V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md)) — **Phase 1 + Pillar A + Phase 2 (A+B+C) + Phase 3 (Plan A + Plan B + Plan C)** реализованы и слиты (Plan C — PR #215). **Wave 1 (учебно-экзаменационное соответствие)** — паритет с инкумбентом по обязательным требованиям ДО: **Plan 1 (модульный гейтинг + время на изучение)** слит (PR #218); **Plan 2 (аутентификация перед экзаменом, Приказ №816)** реализован на ветке `feat/2026-05-31-wave1-pre-exam-auth`. Стабильный quality gate `pnpm -s ci:check` (Cyrillic-path fallback на isolated backend runs — см. CLAUDE.md Gotchas); миграции до **0044**.

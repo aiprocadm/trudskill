@@ -96,7 +96,7 @@
 
 **Tasks:**
 
-- [ ] **Step 1: Создать файл `apps/backend/migrations/0039_counterparty_extended_fields_and_group_link.sql`** со следующим содержимым:
+- [x] **Step 1: Создать файл `apps/backend/migrations/0039_counterparty_extended_fields_and_group_link.sql`** со следующим содержимым:
 
 ```sql
 -- Phase 2 Plan C: расширение Counterparty + связь group ↔ counterparty.
@@ -142,9 +142,9 @@ CREATE INDEX IF NOT EXISTS groups_counterparty_id_idx
 COMMIT;
 ```
 
-- [ ] **Step 2: Если в репозитории есть migration tests (`apps/backend/src/modules/mvp/migrations.test.ts` или аналогичный), добавить regex-проверку:** проверить что миграция содержит `ADD COLUMN IF NOT EXISTS inn`, `ADD COLUMN IF NOT EXISTS counterparty_id`, `groups_counterparty_fk`. Если такого файла нет — пропустить step, не вводить новый тест-файл (миграция проверится через `pnpm test:migrations` при наличии).
+- [x] **Step 2: Если в репозитории есть migration tests (`apps/backend/src/modules/mvp/migrations.test.ts` или аналогичный), добавить regex-проверку:** проверить что миграция содержит `ADD COLUMN IF NOT EXISTS inn`, `ADD COLUMN IF NOT EXISTS counterparty_id`, `groups_counterparty_fk`. Если такого файла нет — пропустить step, не вводить новый тест-файл (миграция проверится через `pnpm test:migrations` при наличии).
 
-- [ ] **Step 3: Прогнать pnpm test:migrations (если настроено) или хотя бы typecheck:**
+- [x] **Step 3: Прогнать pnpm test:migrations (если настроено) или хотя бы typecheck:**
 
 ```bash
 pnpm test:migrations 2>&1 | tail -20
@@ -158,7 +158,7 @@ pnpm typecheck
 
 Ожидаемо: зелёный.
 
-- [ ] **Step 4: Commit:**
+- [x] **Step 4: Commit:**
 
 ```bash
 git add apps/backend/migrations/0039_counterparty_extended_fields_and_group_link.sql
@@ -186,7 +186,7 @@ git commit -m "feat(backend): migration 0039 — counterparty extended fields + 
 
 **Tasks:**
 
-- [ ] **Step 1: Открыть `apps/backend/src/modules/mvp/mvp.types.ts`, найти `interface Counterparty`** (~строка 11). Расширить:
+- [x] **Step 1: Открыть `apps/backend/src/modules/mvp/mvp.types.ts`, найти `interface Counterparty`** (~строка 11). Расширить:
 
 ```typescript
 export interface Counterparty extends BaseEntity {
@@ -208,7 +208,7 @@ export interface Counterparty extends BaseEntity {
 }
 ```
 
-- [ ] **Step 2: Найти `interface GroupEntity`** (~строка 69). Расширить:
+- [x] **Step 2: Найти `interface GroupEntity`** (~строка 69). Расширить:
 
 ```typescript
 export interface GroupEntity extends BaseEntity {
@@ -219,7 +219,7 @@ export interface GroupEntity extends BaseEntity {
 }
 ```
 
-- [ ] **Step 3: Прогнать typecheck backend:**
+- [x] **Step 3: Прогнать typecheck backend:**
 
 ```bash
 pnpm --filter @cdoprof/backend exec tsc --noEmit
@@ -227,7 +227,7 @@ pnpm --filter @cdoprof/backend exec tsc --noEmit
 
 Ожидаемо: 0 ошибок (всё опционально — никаких сломанных вызовов).
 
-- [ ] **Step 4: Commit:**
+- [x] **Step 4: Commit:**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.types.ts
@@ -254,7 +254,7 @@ git commit -m "feat(backend): extend Counterparty + GroupEntity types (Phase 2 P
 
 **Tasks:**
 
-- [ ] **Step 1: Создать `apps/backend/src/modules/mvp/create-counterparty-extended.dto.ts`:**
+- [x] **Step 1: Создать `apps/backend/src/modules/mvp/create-counterparty-extended.dto.ts`:**
 
 ```typescript
 import {
@@ -322,7 +322,7 @@ export class CreateCounterpartyExtendedRequest {
 }
 ```
 
-- [ ] **Step 2: Создать `apps/frontend/...` — нет, это backend. Создать `apps/backend/src/modules/mvp/update-counterparty-extended.dto.ts`:**
+- [x] **Step 2: Создать `apps/frontend/...` — нет, это backend. Создать `apps/backend/src/modules/mvp/update-counterparty-extended.dto.ts`:**
 
 ```typescript
 import {
@@ -400,7 +400,7 @@ export class UpdateCounterpartyExtendedRequest {
 }
 ```
 
-- [ ] **Step 3: Расширить `mvp.dto-validation.test.ts`** — добавить два новых `describe` блока:
+- [x] **Step 3: Расширить `mvp.dto-validation.test.ts`** — добавить два новых `describe` блока:
 
 ```typescript
 import { CreateCounterpartyExtendedRequest } from './create-counterparty-extended.dto.js';
@@ -514,7 +514,7 @@ describe('UpdateCounterpartyExtendedRequest', () => {
 });
 ```
 
-- [ ] **Step 4: Прогнать тесты:**
+- [x] **Step 4: Прогнать тесты:**
 
 ```bash
 pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.dto-validation.test.ts --no-file-parallelism
@@ -522,7 +522,7 @@ pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.dto-validatio
 
 Ожидаемо: 14 новых кейсов (9 create + 5 update) зелёные.
 
-- [ ] **Step 5: Commit:**
+- [x] **Step 5: Commit:**
 
 ```bash
 git add apps/backend/src/modules/mvp/create-counterparty-extended.dto.ts apps/backend/src/modules/mvp/update-counterparty-extended.dto.ts apps/backend/src/modules/mvp/mvp.dto-validation.test.ts
@@ -549,7 +549,7 @@ git commit -m "feat(backend): CounterpartyExtended DTOs + dto-validation (Phase 
 
 **Tasks:**
 
-- [ ] **Step 1: Открыть `mvp.service.ts`, найти существующий `createCounterparty` / `updateCounterparty`.** Добавить рядом:
+- [x] **Step 1: Открыть `mvp.service.ts`, найти существующий `createCounterparty` / `updateCounterparty`.** Добавить рядом:
 
 ```typescript
 /**
@@ -691,7 +691,7 @@ setGroupCounterparty(
 }
 ```
 
-- [ ] **Step 2: Расширить `mvp.service.test.ts`** новым `describe('createCounterpartyExtended + updateCounterpartyExtended + setGroupCounterparty')` блоком с ≥8 кейсами:
+- [x] **Step 2: Расширить `mvp.service.test.ts`** новым `describe('createCounterpartyExtended + updateCounterpartyExtended + setGroupCounterparty')` блоком с ≥8 кейсами:
 
 ```typescript
 describe('Counterparty extended + group linking (Phase 2 Plan C)', () => {
@@ -792,7 +792,7 @@ describe('Counterparty extended + group linking (Phase 2 Plan C)', () => {
 
 > **Test helpers.** Не вводить новый helper `setup()`/`makeServices()` если в `mvp.service.test.ts` уже используется другой pattern. Plan B Task 2 показал, что файл использует inline `new MvpService(...)` per test — повторите его. Заполните placeholder-строки реальными вызовами.
 
-- [ ] **Step 3: Прогнать тесты:**
+- [x] **Step 3: Прогнать тесты:**
 
 ```bash
 pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.service.test.ts --no-file-parallelism
@@ -800,7 +800,7 @@ pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.service.test.
 
 Ожидаемо: ≥8 новых кейсов зелёные, существующие тесты не сломались.
 
-- [ ] **Step 4: Commit:**
+- [x] **Step 4: Commit:**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/mvp.service.test.ts
@@ -826,7 +826,7 @@ git commit -m "feat(backend): counterparty extended CRUD + group-counterparty li
 
 **Tasks:**
 
-- [ ] **Step 1: Создать `apps/backend/src/modules/mvp/group-progress-summary.service.ts`:**
+- [x] **Step 1: Создать `apps/backend/src/modules/mvp/group-progress-summary.service.ts`:**
 
 ```typescript
 import type { Enrollment, Learner, GroupCourse } from './mvp.types.js';
@@ -925,7 +925,7 @@ function summarize(
 
 > **`exactOptionalPropertyTypes: true`.** Условный spread `{ ...(x !== undefined ? { groupId: x } : {}) }` нужен потому что `GroupProgressSummary.groupId?: string` не принимает `undefined` explicit.
 
-- [ ] **Step 2: Создать `apps/backend/src/modules/mvp/group-progress-summary.service.test.ts`** с ≥8 кейсами:
+- [x] **Step 2: Создать `apps/backend/src/modules/mvp/group-progress-summary.service.test.ts`** с ≥8 кейсами:
 
 ```typescript
 import { describe, expect, it } from 'vitest';
@@ -1092,7 +1092,7 @@ describe('summarizeCounterpartyProgress', () => {
 });
 ```
 
-- [ ] **Step 3: Прогнать тесты:**
+- [x] **Step 3: Прогнать тесты:**
 
 ```bash
 pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/group-progress-summary.service.test.ts --no-file-parallelism
@@ -1100,7 +1100,7 @@ pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/group-progress-su
 
 Ожидаемо: 8 кейсов зелёные.
 
-- [ ] **Step 4: Commit:**
+- [x] **Step 4: Commit:**
 
 ```bash
 git add apps/backend/src/modules/mvp/group-progress-summary.service.ts apps/backend/src/modules/mvp/group-progress-summary.service.test.ts
@@ -1132,7 +1132,7 @@ git commit -m "feat(backend): GroupProgressSummary pure-function aggregator (Pha
 
 **Tasks:**
 
-- [ ] **Step 1: В `mvp.service.ts` добавить wiring-методы:**
+- [x] **Step 1: В `mvp.service.ts` добавить wiring-методы:**
 
 ```typescript
 /**
@@ -1181,7 +1181,7 @@ private computeCompletionRatesByEnrollment(tenantId: string): Map<string, number
 
 > **DRY warning.** Если в `mvp.service.ts` уже есть похожий расчёт в KPI snapshot — **выделить его в private helper** и переиспользовать, а не копировать. Если выделение требует серьёзного рефактора — оставить как DEVIATION в Task 14 closeout и вызвать существующий KPI helper напрямую.
 
-- [ ] **Step 2: Импорт в `mvp.service.ts`:**
+- [x] **Step 2: Импорт в `mvp.service.ts`:**
 
 ```typescript
 import {
@@ -1191,7 +1191,7 @@ import {
 import type { GroupProgressSummary } from './group-progress-summary.service.js';
 ```
 
-- [ ] **Step 3: В `mvp.controller.ts` добавить 5 новых endpoint'ов рядом с существующими counterparties:**
+- [x] **Step 3: В `mvp.controller.ts` добавить 5 новых endpoint'ов рядом с существующими counterparties:**
 
 ```typescript
 // Импорты в начале файла:
@@ -1257,7 +1257,7 @@ getGroupProgressSummary(@CurrentContext() c: RequestContext, @Param('id') id: st
 
 > **Permission combinations:** `progress-summary` endpoints требуют `enrollments.read` (поток данных — enrollment progress). Counterparty endpoint требует ОБА — потому что показывает данные через клиент-абстракцию. `setGroupCounterparty` требует `counterparties.write` потому что меняет связь компании.
 
-- [ ] **Step 4: Прогнать typecheck:**
+- [x] **Step 4: Прогнать typecheck:**
 
 ```bash
 pnpm --filter @cdoprof/backend exec tsc --noEmit
@@ -1265,7 +1265,7 @@ pnpm --filter @cdoprof/backend exec tsc --noEmit
 
 Ожидаемо: 0 ошибок.
 
-- [ ] **Step 5: Добавить ≥5 HTTP integration кейсов в `mvp.http.integration.test.ts`** (по Plan A/B stub-controller pattern):
+- [x] **Step 5: Добавить ≥5 HTTP integration кейсов в `mvp.http.integration.test.ts`** (по Plan A/B stub-controller pattern):
 
 ```typescript
 describe('Counterparty extended + group progress (Plan C)', () => {
@@ -1287,7 +1287,7 @@ describe('Counterparty extended + group progress (Plan C)', () => {
 });
 ```
 
-- [ ] **Step 6: Прогнать integration tests:**
+- [x] **Step 6: Прогнать integration tests:**
 
 ```bash
 pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.http.integration.test.ts --no-file-parallelism
@@ -1295,7 +1295,7 @@ pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.http.integrat
 
 Ожидаемо: 5 новых кейсов зелёные, прежние не сломаны.
 
-- [ ] **Step 7: Commit:**
+- [x] **Step 7: Commit:**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/mvp.controller.ts apps/backend/src/modules/mvp/mvp.http.integration.test.ts
@@ -1322,7 +1322,7 @@ git commit -m "feat(backend): counterparty extended endpoints + group/counterpar
 
 **Tasks:**
 
-- [ ] **Step 1: Создать `apps/frontend/src/features/clients/types.ts`:**
+- [x] **Step 1: Создать `apps/frontend/src/features/clients/types.ts`:**
 
 ```typescript
 export type ClientStatus = 'active' | 'archived';
@@ -1413,7 +1413,7 @@ export interface ClientEditFormState {
 }
 ```
 
-- [ ] **Step 2: Создать `apps/frontend/src/features/clients/api.ts`:**
+- [x] **Step 2: Создать `apps/frontend/src/features/clients/api.ts`:**
 
 Mirror Plan B `learnersApi` pattern. Read `apps/frontend/src/features/learners/api.ts` first as the ground truth.
 
@@ -1497,7 +1497,7 @@ export const clientsApi = {
 };
 ```
 
-- [ ] **Step 3: Создать `apps/frontend/src/features/clients/hooks.ts`:**
+- [x] **Step 3: Создать `apps/frontend/src/features/clients/hooks.ts`:**
 
 ```typescript
 'use client';
@@ -1624,7 +1624,7 @@ export function useSetGroupCounterparty() {
 
 > **`useAuth` + `react-query-shim`.** Plan B Task 5 deviation #2-#3 показал реальные пути. Используйте те же.
 
-- [ ] **Step 4: Прогнать typecheck:**
+- [x] **Step 4: Прогнать typecheck:**
 
 ```bash
 pnpm --filter @cdoprof/frontend exec tsc --noEmit
@@ -1632,7 +1632,7 @@ pnpm --filter @cdoprof/frontend exec tsc --noEmit
 
 Ожидаемо: 0 ошибок.
 
-- [ ] **Step 5: Commit:**
+- [x] **Step 5: Commit:**
 
 ```bash
 git add apps/frontend/src/features/clients/types.ts apps/frontend/src/features/clients/api.ts apps/frontend/src/features/clients/hooks.ts
@@ -1657,9 +1657,9 @@ git commit -m "feat(frontend): clients feature — types + api + hooks (Phase 2 
 
 **Tasks:**
 
-- [ ] **Step 1: Read** `apps/frontend/src/features/learners/api.contract.test.ts` для exact pattern.
+- [x] **Step 1: Read** `apps/frontend/src/features/learners/api.contract.test.ts` для exact pattern.
 
-- [ ] **Step 2: Создать `apps/frontend/src/features/clients/api.contract.test.ts`** с ≥6 кейсами:
+- [x] **Step 2: Создать `apps/frontend/src/features/clients/api.contract.test.ts`** с ≥6 кейсами:
 
 1. `clientsApi.list` with filters → URL with `q`/`status`/`page`/`page_size`.
 2. `clientsApi.list` with empty filters → clean `/counterparties` URL.
@@ -1673,7 +1673,7 @@ git commit -m "feat(frontend): clients feature — types + api + hooks (Phase 2 
 
 Используйте тот же `stubFetchOnceWithBody(body, status)` helper, что Plan B.
 
-- [ ] **Step 3: Прогнать:**
+- [x] **Step 3: Прогнать:**
 
 ```bash
 pnpm --filter @cdoprof/frontend exec vitest run src/features/clients/api.contract.test.ts --no-file-parallelism
@@ -1681,7 +1681,7 @@ pnpm --filter @cdoprof/frontend exec vitest run src/features/clients/api.contrac
 
 Ожидаемо: 9 кейсов зелёные.
 
-- [ ] **Step 4: Commit:**
+- [x] **Step 4: Commit:**
 
 ```bash
 git add apps/frontend/src/features/clients/api.contract.test.ts
@@ -1706,7 +1706,7 @@ git commit -m "test(frontend): clients api contract (Phase 2 Plan C Task 8)"
 
 **Tasks:**
 
-- [ ] **Step 1: Создать `apps/frontend/src/features/clients/format.ts`:**
+- [x] **Step 1: Создать `apps/frontend/src/features/clients/format.ts`:**
 
 ```typescript
 import type {
@@ -1807,9 +1807,9 @@ export function toEditFormState(client: ClientListItem): ClientEditFormState {
 }
 ```
 
-- [ ] **Step 2: Создать `apps/frontend/src/features/clients/format.test.ts`** с ≥10 кейсами (по 1-3 на каждую функцию: формат ИНН 10/12/invalid, телефон валидный/невалидный/без формата, progress label с edge cases 0/0 и 100%, buildClientUpdatePayload с nulls, buildClientCreatePayload без empty fields, emptyClientForm, toEditFormState, CLIENT_STATUS_LABEL).
+- [x] **Step 2: Создать `apps/frontend/src/features/clients/format.test.ts`** с ≥10 кейсами (по 1-3 на каждую функцию: формат ИНН 10/12/invalid, телефон валидный/невалидный/без формата, progress label с edge cases 0/0 и 100%, buildClientUpdatePayload с nulls, buildClientCreatePayload без empty fields, emptyClientForm, toEditFormState, CLIENT_STATUS_LABEL).
 
-- [ ] **Step 3: Прогнать:**
+- [x] **Step 3: Прогнать:**
 
 ```bash
 pnpm --filter @cdoprof/frontend exec vitest run src/features/clients/format.test.ts --no-file-parallelism
@@ -1817,7 +1817,7 @@ pnpm --filter @cdoprof/frontend exec vitest run src/features/clients/format.test
 
 Ожидаемо: ≥10 кейсов зелёные.
 
-- [ ] **Step 4: Commit:**
+- [x] **Step 4: Commit:**
 
 ```bash
 git add apps/frontend/src/features/clients/format.ts apps/frontend/src/features/clients/format.test.ts
@@ -1841,9 +1841,9 @@ git commit -m "feat(frontend): clients formatters (Phase 2 Plan C Task 9)"
 
 **Tasks:**
 
-- [ ] **Step 1: Read** `apps/frontend/src/features/learners/learners-list-screen.tsx` для shape реальных `@cdoprof/ui` сигнатур (Plan B adapted: `Column.title`, `Pagination.totalPages`, native `<select>`, `StatusChip` raw, etc.).
+- [x] **Step 1: Read** `apps/frontend/src/features/learners/learners-list-screen.tsx` для shape реальных `@cdoprof/ui` сигнатур (Plan B adapted: `Column.title`, `Pagination.totalPages`, native `<select>`, `StatusChip` raw, etc.).
 
-- [ ] **Step 2: Создать `apps/frontend/src/features/clients/clients-list-screen.tsx`:**
+- [x] **Step 2: Создать `apps/frontend/src/features/clients/clients-list-screen.tsx`:**
 
 ```typescript
 'use client';
@@ -1944,7 +1944,7 @@ export function ClientsListScreen() {
 }
 ```
 
-- [ ] **Step 3: Прогнать typecheck:**
+- [x] **Step 3: Прогнать typecheck:**
 
 ```bash
 pnpm --filter @cdoprof/frontend exec tsc --noEmit
@@ -1952,7 +1952,7 @@ pnpm --filter @cdoprof/frontend exec tsc --noEmit
 
 Ожидаемо: 0 ошибок (после Task 11 drawer создан; если Task 11 идёт после — пометить как DONE_WITH_CONCERNS до Task 11).
 
-- [ ] **Step 4: Commit (если typecheck зелёный):**
+- [x] **Step 4: Commit (если typecheck зелёный):**
 
 ```bash
 git add apps/frontend/src/features/clients/clients-list-screen.tsx
@@ -1976,7 +1976,7 @@ git commit -m "feat(frontend): clients list screen (Phase 2 Plan C Task 10)"
 
 **Tasks:**
 
-- [ ] **Step 1: Создать `apps/frontend/src/features/clients/client-edit-drawer.tsx`:**
+- [x] **Step 1: Создать `apps/frontend/src/features/clients/client-edit-drawer.tsx`:**
 
 ```typescript
 'use client';
@@ -2060,7 +2060,7 @@ export function ClientEditDrawer({ mode, client, onClose, onSaved }: ClientEditD
 }
 ```
 
-- [ ] **Step 2: Прогнать typecheck + frontend test suite:**
+- [x] **Step 2: Прогнать typecheck + frontend test suite:**
 
 ```bash
 pnpm --filter @cdoprof/frontend exec tsc --noEmit
@@ -2069,7 +2069,7 @@ pnpm --filter @cdoprof/frontend test --no-file-parallelism
 
 Ожидаемо: typecheck зелёный, all tests pass.
 
-- [ ] **Step 3: Commit:**
+- [x] **Step 3: Commit:**
 
 ```bash
 git add apps/frontend/src/features/clients/client-edit-drawer.tsx
@@ -2095,7 +2095,7 @@ git commit -m "feat(frontend): client edit drawer create+edit (Phase 2 Plan C Ta
 
 **Tasks:**
 
-- [ ] **Step 1: Создать `apps/frontend/src/features/clients/group-progress-section.tsx`** (компонент для отображения `ClientProgressSummary`):
+- [x] **Step 1: Создать `apps/frontend/src/features/clients/group-progress-section.tsx`** (компонент для отображения `ClientProgressSummary`):
 
 ```typescript
 'use client';
@@ -2141,7 +2141,7 @@ export function GroupProgressSection({ clientId }: GroupProgressSectionProps) {
 
 > **TODO для follow-up:** заменить `c.courseId` на реальное название курса через `useCourses()` или подобный хук. План отмечает: это V1-приемлемо (показать id), V1.1 — name lookup.
 
-- [ ] **Step 2: Создать `apps/frontend/src/features/clients/client-detail-screen.tsx`:**
+- [x] **Step 2: Создать `apps/frontend/src/features/clients/client-detail-screen.tsx`:**
 
 ```typescript
 'use client';
@@ -2209,14 +2209,14 @@ export function ClientDetailScreen({ clientId }: ClientDetailScreenProps) {
 
 > **`/admin/groups?counterpartyId=...`.** Этот фильтр на existing groups list, возможно ещё не поддерживается — TODO в follow-up. Сейчас просто ведёт на голый список (без фильтра); пользователь руками отфильтровывает. V1.1 добавит `counterpartyId` в `BaseFilterQuery`.
 
-- [ ] **Step 3: Прогнать typecheck + tests:**
+- [x] **Step 3: Прогнать typecheck + tests:**
 
 ```bash
 pnpm --filter @cdoprof/frontend exec tsc --noEmit
 pnpm --filter @cdoprof/frontend test --no-file-parallelism
 ```
 
-- [ ] **Step 4: Commit:**
+- [x] **Step 4: Commit:**
 
 ```bash
 git add apps/frontend/src/features/clients/client-detail-screen.tsx apps/frontend/src/features/clients/group-progress-section.tsx
@@ -2241,7 +2241,7 @@ git commit -m "feat(frontend): client detail screen + progress section (Phase 2 
 
 **Tasks:**
 
-- [ ] **Step 1: Создать `apps/frontend/app/admin/clients/page.tsx`:**
+- [x] **Step 1: Создать `apps/frontend/app/admin/clients/page.tsx`:**
 
 ```typescript
 import { ProtectedPage } from '@/widgets/shell/protected-page';
@@ -2256,7 +2256,7 @@ export default function AdminClientsPage() {
 }
 ```
 
-- [ ] **Step 2: Создать `apps/frontend/app/admin/clients/[id]/page.tsx`:**
+- [x] **Step 2: Создать `apps/frontend/app/admin/clients/[id]/page.tsx`:**
 
 ```typescript
 import { ProtectedPage } from '@/widgets/shell/protected-page';
@@ -2275,7 +2275,7 @@ export default function AdminClientDetailPage({ params }: PageProps) {
 }
 ```
 
-- [ ] **Step 3: Расширить `apps/frontend/src/features/navigation/model.ts`** — добавить (по Plan B Task 10 deviation, реальный shape `routeMeta`/`navigationModel`):
+- [x] **Step 3: Расширить `apps/frontend/src/features/navigation/model.ts`** — добавить (по Plan B Task 10 deviation, реальный shape `routeMeta`/`navigationModel`):
 
 ```typescript
 // В routeMeta entries:
@@ -2286,7 +2286,7 @@ export default function AdminClientDetailPage({ params }: PageProps) {
 { href: '/admin/clients', label: 'Компании', requiredPermissions: ['counterparties.read'], navSlot: 'more' },
 ```
 
-- [ ] **Step 4: Расширить group details screen** (искать `apps/frontend/src/features/mvp/screens.tsx` для `GroupDetailsScreen` или аналог) — добавить мини-форму «Компания-заказчик»:
+- [x] **Step 4: Расширить group details screen** (искать `apps/frontend/src/features/mvp/screens.tsx` для `GroupDetailsScreen` или аналог) — добавить мини-форму «Компания-заказчик»:
 
 ```typescript
 // Внутри GroupDetailsScreen, в подходящей секции:
@@ -2321,13 +2321,13 @@ const cpList = useClientsList({ pageSize: 1000 });  // upper-bound для UI dro
 
 > **Если `GroupDetailsScreen` ещё не существует** (никакая фича не нарисовала её до Plan C) — пропустить step 4 и пометить как DEVIATION для Task 14. Picker всё равно тестабелен в изоляции через api.contract.
 
-- [ ] **Step 5: Прогнать e2e:**
+- [x] **Step 5: Прогнать e2e:**
 
 ```bash
 pnpm --filter @cdoprof/frontend exec vitest run src/e2e/ --no-file-parallelism
 ```
 
-- [ ] **Step 6: Commit:**
+- [x] **Step 6: Commit:**
 
 ```bash
 git add apps/frontend/app/admin/clients apps/frontend/src/features/navigation/model.ts apps/frontend/src/features/mvp/screens.tsx apps/frontend/src/features/clients/group-counterparty-picker.tsx
@@ -2355,9 +2355,9 @@ git commit -m "feat(frontend): wire /admin/clients routes + navigation + group c
 
 **Tasks:**
 
-- [ ] **Step 1: Read** `apps/frontend/src/e2e/admin-learners-management.e2e.test.ts` (Plan B Task 11) для exact pattern.
+- [x] **Step 1: Read** `apps/frontend/src/e2e/admin-learners-management.e2e.test.ts` (Plan B Task 11) для exact pattern.
 
-- [ ] **Step 2: Создать `apps/frontend/src/e2e/admin-clients-management.e2e.test.ts`** с ≥9 кейсами:
+- [x] **Step 2: Создать `apps/frontend/src/e2e/admin-clients-management.e2e.test.ts`** с ≥9 кейсами:
 
 ```typescript
 import { describe, expect, it } from 'vitest';
@@ -2462,7 +2462,7 @@ describe('admin clients management — module smoke', () => {
 });
 ```
 
-- [ ] **Step 3: Прогнать e2e:**
+- [x] **Step 3: Прогнать e2e:**
 
 ```bash
 pnpm --filter @cdoprof/frontend exec vitest run src/e2e/admin-clients-management.e2e.test.ts --no-file-parallelism
@@ -2470,7 +2470,7 @@ pnpm --filter @cdoprof/frontend exec vitest run src/e2e/admin-clients-management
 
 Ожидаемо: ≥10 кейсов зелёные.
 
-- [ ] **Step 4: Append §5.92 to `LMS_AGENT_HANDOFF.md`** — формат как §5.91 (см. Plan B Task 11 для точного шаблона):
+- [x] **Step 4: Append §5.92 to `LMS_AGENT_HANDOFF.md`** — формат как §5.91 (см. Plan B Task 11 для точного шаблона):
 
 ```markdown
 ### 5.92 Phase 2 §3.2 — Plan C: компании-клиенты + прогресс по группе
@@ -2485,7 +2485,7 @@ pnpm --filter @cdoprof/frontend exec vitest run src/e2e/admin-clients-management
 - Quality gates: `pnpm typecheck` зелёный (8 packages); backend изолированные прогоны зелёные; frontend ≥227 тестов зелёные.
 ```
 
-- [ ] **Step 5: Обновить `README.md` §2 AI Agent State:**
+- [x] **Step 5: Обновить `README.md` §2 AI Agent State:**
 
 ```markdown
 ### Last Completed Task
@@ -2505,13 +2505,13 @@ Smoke / приёмка Phase 2 целиком; подготовка к Phase 3 (
 2026-05-30 (Phase 2 Plan C implemented; previous: Plan B 2026-05-29; Plan A 2026-05-28)
 ```
 
-- [ ] **Step 6: Прогнать full quality gate:**
+- [x] **Step 6: Прогнать full quality gate:**
 
 ```bash
 pnpm typecheck
 ```
 
-- [ ] **Step 7: Commit:**
+- [x] **Step 7: Commit:**
 
 ```bash
 git add apps/frontend/src/e2e/admin-clients-management.e2e.test.ts LMS_AGENT_HANDOFF.md README.md
@@ -2529,15 +2529,15 @@ git commit -m "docs(handoff): Phase 2 Plan C complete — §5.92 + README sync (
 
 ## Self-Review Checklist (для исполнителя перед merge)
 
-- [ ] Все 14 задач выполнены и закоммичены отдельно.
-- [ ] `pnpm typecheck` зелёный.
-- [ ] Изолированные прогоны: dto-validation, service, group-progress-summary.service, http.integration, clients/api.contract, clients/format, e2e/admin-clients-management — все зелёные.
-- [ ] `pnpm test:frontend` зелёный.
-- [ ] Permission boundary: `counterparties.read` для list/detail/route, `counterparties.write` для create/edit/setGroupCounterparty, `enrollments.read` для progress-summary endpoints.
-- [ ] Анти-IDOR через tenant boundary: `getById(state.counterparties, tenantId, ...)` везде в new методах.
-- [ ] Migration 0039 не модифицирует исторические миграции.
-- [ ] §5.92 в handoff + README §2 обновлены.
-- [ ] Plan C deviations заполнены в §5.92 (по факту исполнения).
+- [x] Все 14 задач выполнены и закоммичены отдельно.
+- [x] `pnpm typecheck` зелёный.
+- [x] Изолированные прогоны: dto-validation, service, group-progress-summary.service, http.integration, clients/api.contract, clients/format, e2e/admin-clients-management — все зелёные.
+- [x] `pnpm test:frontend` зелёный.
+- [x] Permission boundary: `counterparties.read` для list/detail/route, `counterparties.write` для create/edit/setGroupCounterparty, `enrollments.read` для progress-summary endpoints.
+- [x] Анти-IDOR через tenant boundary: `getById(state.counterparties, tenantId, ...)` везде в new методах.
+- [x] Migration 0039 не модифицирует исторические миграции.
+- [x] §5.92 в handoff + README §2 обновлены.
+- [x] Plan C deviations заполнены в §5.92 (по факту исполнения).
 
 ---
 

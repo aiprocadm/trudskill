@@ -59,9 +59,9 @@
 
 **Files:** modify `apps/frontend/src/features/mvp/types.ts`. Test: type-level + smoke.
 
-- [ ] **Step 1:** Расширить `Material` interface на frontend: `fileId?: string`.
-- [ ] **Step 2:** Запустить `pnpm --filter @cdoprof/frontend exec tsc --noEmit` — ожидается 0 ошибок.
-- [ ] **Step 3:** Commit `feat(frontend): add fileId to Material type to match backend (Phase 1 §4.3)`.
+- [x] **Step 1:** Расширить `Material` interface на frontend: `fileId?: string`.
+- [x] **Step 2:** Запустить `pnpm --filter @cdoprof/frontend exec tsc --noEmit` — ожидается 0 ошибок.
+- [x] **Step 3:** Commit `feat(frontend): add fileId to Material type to match backend (Phase 1 §4.3)`.
 
 ---
 
@@ -80,7 +80,7 @@ Material `M` в модуле `Mod` **разблокирован**, если:
 
 ### Steps
 
-- [ ] **Step 1:** Написать тесты на 6+ кейсов:
+- [x] **Step 1:** Написать тесты на 6+ кейсов:
   - Первый материал всегда разблокирован.
   - Required completed → следующий разблокирован.
   - Required in_progress → следующий ЗАБЛОКИРОВАН.
@@ -88,9 +88,9 @@ Material `M` в модуле `Mod` **разблокирован**, если:
   - Cross-module: модуль B блокируется пока в модуле A не завершены required.
   - Edge case: пустой модуль (нет materials).
 
-- [ ] **Step 2:** Implement `computeUnlockedMaterials(tree, progressByMaterialId)`. Pure function, return `Map<materialId, 'unlocked' | 'locked'>`.
+- [x] **Step 2:** Implement `computeUnlockedMaterials(tree, progressByMaterialId)`. Pure function, return `Map<materialId, 'unlocked' | 'locked'>`.
 
-- [ ] **Step 3:** Commit `feat(frontend): add pure lock logic for course viewer TOC (Phase 1 §4.3)`.
+- [x] **Step 3:** Commit `feat(frontend): add pure lock logic for course viewer TOC (Phase 1 §4.3)`.
 
 ---
 
@@ -113,9 +113,9 @@ Material `M` в модуле `Mod` **разблокирован**, если:
 
 ### Steps
 
-- [ ] **Step 1:** Type-level tests (compile + smoke). Mock api, проверить структуру `tree[0].materials[0].title`.
-- [ ] **Step 2:** Реализация. **Важно:** обработать случай, когда у курса нет published version → возвращать `tree = []` и displayable error.
-- [ ] **Step 3:** Commit `feat(frontend): add course tree API + hook for viewer (Phase 1 §4.3)`.
+- [x] **Step 1:** Type-level tests (compile + smoke). Mock api, проверить структуру `tree[0].materials[0].title`.
+- [x] **Step 2:** Реализация. **Важно:** обработать случай, когда у курса нет published version → возвращать `tree = []` и displayable error.
+- [x] **Step 3:** Commit `feat(frontend): add course tree API + hook for viewer (Phase 1 §4.3)`.
 
 ---
 
@@ -135,9 +135,9 @@ Material `M` в модуле `Mod` **разблокирован**, если:
 
 ### Steps
 
-- [ ] **Step 1:** Snapshot test через render-tree on fixture (3 модуля по 2 материала, разные статусы).
-- [ ] **Step 2:** Implementation с pure props (`tree`, `progressByMaterialId`, `lockState`, `currentMaterialId`, `onSelect`).
-- [ ] **Step 3:** Commit `feat(frontend): add TableOfContents component with statuses and locks (Phase 1 §4.3)`.
+- [x] **Step 1:** Snapshot test через render-tree on fixture (3 модуля по 2 материала, разные статусы).
+- [x] **Step 2:** Implementation с pure props (`tree`, `progressByMaterialId`, `lockState`, `currentMaterialId`, `onSelect`).
+- [x] **Step 3:** Commit `feat(frontend): add TableOfContents component with statuses and locks (Phase 1 §4.3)`.
 
 ---
 
@@ -154,15 +154,15 @@ Material `M` в модуле `Mod` **разблокирован**, если:
 
 ### Steps
 
-- [ ] **Step 1:** TDD-тесты с `vi.useFakeTimers()`:
+- [x] **Step 1:** TDD-тесты с `vi.useFakeTimers()`:
   - 10 ticks → 10s studied.
   - Hidden tab → не накапливает.
   - Flush API call 1 раз каждые 5s.
   - `onMinimumReached` вызывается ровно один раз.
 
-- [ ] **Step 2:** Implementation. Хранить `studiedSeconds` в `useRef` (не state — не нужны re-renders).
+- [x] **Step 2:** Implementation. Хранить `studiedSeconds` в `useRef` (не state — не нужны re-renders).
 
-- [ ] **Step 3:** Commit `feat(frontend): add watch tracker hook for material progress (Phase 1 §4.3)`.
+- [x] **Step 3:** Commit `feat(frontend): add watch tracker hook for material progress (Phase 1 §4.3)`.
 
 ---
 
@@ -180,10 +180,10 @@ Material `M` в модуле `Mod` **разблокирован**, если:
 
 ### Steps
 
-- [ ] **Step 1:** Решение по DOMPurify — обсудить с командой. Если нет — Markdown через `marked` или `<pre>`. Default: `dompurify` (industry standard, ≈45kb gz).
-- [ ] **Step 2:** TDD type tests + render snapshots для каждого sub-player.
-- [ ] **Step 3:** Implementation 4 файлов + switcher.
-- [ ] **Step 4:** Commit `feat(frontend): add material sub-players for video/pdf/text/external_url (Phase 1 §4.3)`.
+- [x] **Step 1:** Решение по DOMPurify — обсудить с командой. Если нет — Markdown через `marked` или `<pre>`. Default: `dompurify` (industry standard, ≈45kb gz).
+- [x] **Step 2:** TDD type tests + render snapshots для каждого sub-player.
+- [x] **Step 3:** Implementation 4 файлов + switcher.
+- [x] **Step 4:** Commit `feat(frontend): add material sub-players for video/pdf/text/external_url (Phase 1 §4.3)`.
 
 ---
 
@@ -205,16 +205,16 @@ Material `M` в модуле `Mod` **разблокирован**, если:
 
 ### Steps
 
-- [ ] **Step 1:** Integration test (с mocked api):
+- [x] **Step 1:** Integration test (с mocked api):
   - Fixture: 2 модуля × 2 материала, прогресс пустой.
   - Render → TOC показывает все 4, первый материал unlocked, остальные locked.
   - Click first material → player отображается.
   - Simulate watch 10s → upsertMaterialProgress called.
   - После completed первого — второй unlocked.
 
-- [ ] **Step 2:** Implementation.
+- [x] **Step 2:** Implementation.
 
-- [ ] **Step 3:** Commit `feat(frontend): add CourseViewerScreen integration (Phase 1 §4.3)`.
+- [x] **Step 3:** Commit `feat(frontend): add CourseViewerScreen integration (Phase 1 §4.3)`.
 
 ---
 
@@ -222,18 +222,18 @@ Material `M` в модуле `Mod` **разблокирован**, если:
 
 **Files:** modify `mvp/screens.tsx`.
 
-- [ ] **Step 1:** Заменить тело `LearnerCourseDetailsScreen` на `<CourseViewerScreen courseId={id} />` с error/loading wrappers.
-- [ ] **Step 2:** Smoke-tests на старой странице остаются зелёными.
-- [ ] **Step 3:** Manual smoke: открыть `/learner/courses/[id]` — должен показать TOC + первый материал.
-- [ ] **Step 4:** Commit `feat(frontend): wire CourseViewerScreen into learner course route (Phase 1 §4.3)`.
+- [x] **Step 1:** Заменить тело `LearnerCourseDetailsScreen` на `<CourseViewerScreen courseId={id} />` с error/loading wrappers.
+- [x] **Step 2:** Smoke-tests на старой странице остаются зелёными.
+- [x] **Step 3:** Manual smoke: открыть `/learner/courses/[id]` — должен показать TOC + первый материал.
+- [x] **Step 4:** Commit `feat(frontend): wire CourseViewerScreen into learner course route (Phase 1 §4.3)`.
 
 ---
 
 ## Verification
 
-- [ ] `pnpm --filter @cdoprof/frontend test` — все зелёные. Baseline 125 + ~25 новых = ~150.
-- [ ] `pnpm --filter @cdoprof/frontend exec tsc --noEmit` — 0 ошибок.
-- [ ] Manual smoke chain:
+- [x] `pnpm --filter @cdoprof/frontend test` — все зелёные. Baseline 125 + ~25 новых = ~150.
+- [x] `pnpm --filter @cdoprof/frontend exec tsc --noEmit` — 0 ошибок.
+- [x] Manual smoke chain:
   1. Tenant_admin создаёт course → version → 2 модуля × 2 материала (1 video + 1 text).
   2. Зачисляет learner.
   3. Learner залогинивается через magic link → `/learner` → нажимает курс.
