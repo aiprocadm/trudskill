@@ -1244,6 +1244,25 @@
 - Quality gates (Cyrillic-path isolated `--no-file-parallelism`): backend 102 (11 файлов: preflight 4 / rows 2 / writer 1 / parser 2 / lookup 4 / program-meta 4 / service 9 / mvp.http.integration 24 / migrations 39 / files 12 / s3-storage 1); frontend 10 (contract 3 + e2e 7); `tsc` backend 0 + frontend 0; ESLint clean. Полный `pnpm -s ci:check` локально не гонялся (краш backend-suite на кириллице) → CI (Ubuntu).
 - Коммиты: `docs(spec)`+`docs(plan)` → `chore(backend)` (exceljs) → `feat(backend)` ×N (migration → types → lookup → mapping → preflight → rows → storage → writer → service → endpoints → parser → import) → `fix(backend)` (review) → `feat(frontend)` ×4 → `docs`.
 
+### 5.101 ОТ-реестр: provisional-шаблоны + XML-сериализация (XSD 1.0.3, выбор формата)
+
+Дата: 2026-06-01. Ветка `feat/2026-06-01-ot-registry-provisional-templates` (от `origin/main` с влитым #222). **Незакоммичено** — держим до решения владельца (CLAUDE.md «commit только по просьбе»).
+
+**Контекст.** Владелец: «придумай сам шаблоны». Прослежены ссылки прошлой сессии (`e1b89344`): офиц. `.xlsx`-шаблон и **XSD-схема v1.0.3** — в разделе `akot.rosmintrud.ru/sout/info` → «Справочная информация» → «Обучение по ОТ» (JS-рендеренный/ЕСИА-gated, недоступен WebFetch/WebSearch — 5 попыток). Состав полей подтверждён публично. Канонический формат импорта реестра — **XML по XSD 1.0.3**; `.xlsx` — человеко-читаемый шаблон. Решение: provisional-шаблоны, изолированные и помеченные, swappable на эталон одной правкой.
+
+**Сделано (план `docs/superpowers/plans/2026-06-01-ot-registry-provisional-templates.md`, дизайн spec §16):**
+
+- **Provisional-маркировка** (Task 1): комментарии `PROVISIONAL — сверить с офиц. ЛКОТ` над `COLUMNS` (`ot-registry-xlsx.writer.ts`) и `RESPONSE_COLUMNS` (`ot-registry-response.parser.ts`).
+- **XML-сериализатор** (Task 2): новый `OtRegistryXmlWriter` (`ot-registry-xml.writer.ts`) — `contentType='application/xml'`, корень `<РеестрОбученныхОТ ВерсияФормата="1.0.3" [ИННОрганизации][РегНомерОрганизации]>`, `<Запись>` (те же поля) + `<ПрограммаОбучения Код="…">`, XML-экранирование; единственная точка маппинга `ELEMENTS`. Golden-тест: 2 кейса (атрибуты/экранирование).
+- **Выбор формата `xlsx|xml`** (Task 3): `CreateOtRegistryExportDto.format` (`@IsIn`), `OtRegistryExportFilter.format`, `OtRegistryBatch.format`; ветка в `OtRegistryService.exportOtRegistry` (writer/contentType/расширение по формату); провайдер `OtRegistryXmlWriter` в `mvp.module.ts`; инстанцирование в `ot-registry.service.test.ts` (8-й арг). Новый сервис-тест: `format:"xml"` → `application/xml` + ключ `.xml` + `batch.format`.
+- **Frontend** (Task 4): `govExportApi.createOtRegistryExport` принимает `format`; `<select>` Excel/XML + provisional-баннер (⚠️ сверить с ЛКОТ) в секции «Реестр обученных по ОТ» (`app/gov-export/page.tsx`); `OtRegistryBatch.format` в типах; contract-тест шлёт+проверяет `format:'xml'`.
+
+**Тесты/гейты (Cyrillic isolated `--no-file-parallelism`):** backend `ot-registry/` 29 (+xml writer 2, +service xml 1; полный dir-прогон зелёный), frontend gov-export 10 (contract 3 + e2e 7); `pnpm typecheck` 8/8; ESLint changed-files clean.
+
+**Deviations от spec §16 (по доказательствам):** ФИО оставлено **комбинированным** (подтверждённое поле — «ФИО»; раздельное — без основания); миграцию **`0045` не трогали** (историческая/слита; 5 программ ПП №2464 корректны — provisional только `registry_id`); **колонку «статус» файла-ответа не добавляли** (ложная точность; парсер устойчив); опция «выгрузка несданных» — вне scope (spec §14).
+
+**⚠️ Главное для следующего агента/владельца:** все артефакты **PROVISIONAL**, НЕ сверены с эталоном ЛКОТ. Реальная подстановка = из кабинета ЛКОТ скачать `.xlsx`-шаблон + XSD 1.0.3 → заменить `COLUMNS` / `ELEMENTS` / `RESPONSE_COLUMNS` / сид (новой миграцией) — по одной точке на артефакт. Память: `project_wave2_ot_registry_export.md` (раздел «Format research»).
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |
