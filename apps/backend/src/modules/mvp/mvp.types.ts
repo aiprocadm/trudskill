@@ -589,6 +589,8 @@ export interface OtRegistryBatch extends BaseEntity {
   failedRows: number;
   batchStatus: OtRegistryBatchStatus;
   generatedBy: string;
+  /** PROVISIONAL формат сгенерированного файла. Отсутствует у старых батчей → трактуется как 'xlsx'. */
+  format?: 'xlsx' | 'xml';
 }
 
 export interface OtRegistryRecord extends BaseEntity {
