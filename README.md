@@ -90,7 +90,7 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Current Task
 
-Смерджить **Wave 2 Plan B** PR (выгрузка в реестр обученных по ОТ, зелёная ветка `feat/2026-05-31-eisot-ot-trained-registry-export`). Затем — подстановка 3 официальных артефактов ЛКОТ (см. спеку §13).
+**Wave 2 Plan B смерджен** (#222). ОТ-реестр **доработан** (ветка `feat/2026-06-01-ot-registry-provisional-templates`, незакоммичено): provisional-шаблоны + XML-сериализатор XSD 1.0.3 + выбор формата xlsx|xml + provisional-баннер; все артефакты помечены PROVISIONAL и изолированы — **сверить с эталоном ЛКОТ перед боевой отправкой**. Ожидает решения владельца о commit/PR. Опционально далее: реальные офиц. артефакты (когда будут из ЛКОТ-кабинета), под-цели A (ФРДО) / C (ЕИСОТ-тестирование).
 
 ### Next Task
 
@@ -115,11 +115,11 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Updated By
 
-AI Agent (Wave 2 Plan B — выгрузка в реестр обученных по ОТ Минтруд/ЕИСОТ; brainstorm→spec→plan→subagent-driven 8 slices; backend review APPROVED-with-fixes — partial-success on bad rows, passed-only, date-filter, malformed-response 400; tenant-isolation + ПДн-clean audit verified)
+AI Agent (ОТ-реестр provisional-шаблоны + XML-сериализатор XSD 1.0.3 + выбор формата xlsx|xml + provisional-баннер; brainstorm→spec(§16)→plan→TDD; backend ot-registry 30 + frontend gov-export 10 тестов, tsc 8/8, ESLint clean; артефакты помечены PROVISIONAL — сверить с эталоном ЛКОТ. Предыдущее: Wave 2 Plan B — выгрузка в реестр обученных по ОТ, #222 merged)
 
 ### Last Updated At
 
-2026-05-31 (Wave 2 Plan B done on branch — выгрузка в реестр обученных по ОТ Минтруд/ЕИСОТ; previous: Wave 1 Plan 2 — pre-exam auth №816 (#219), Plan 1 — module gating (#218), V1.1 AV gate (#217), Phase 3 Plan C (#215), Plan B (#211), Plan A (#210), Phase 2 A/B/C, Phase 1 §4.3 + Pillar A)
+2026-06-01 (ОТ-реестр: provisional-шаблоны + XML XSD 1.0.3 + формат xlsx|xml, ветка `feat/2026-06-01-ot-registry-provisional-templates`, незакоммичено; previous: Wave 2 Plan B #222 merged, Wave 1 Plan 2 №816 #219, Plan 1 #218, V1.1 AV #217, Phase 3 #215/#211/#210, Phase 2 A/B/C, Phase 1 §4.3 + Pillar A)
 
 ## 3. Current Project Status
 

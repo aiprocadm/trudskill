@@ -46,6 +46,7 @@ export interface OtRegistryBatch {
   failedRows: number;
   batchStatus: OtRegistryBatchStatus;
   generatedBy: string;
+  format?: 'xlsx' | 'xml';
 }
 
 export interface OtRegistryRecord {

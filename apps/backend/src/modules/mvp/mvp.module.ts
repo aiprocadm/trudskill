@@ -13,6 +13,7 @@ import { MvpInternalWorkerController } from './mvp-internal-worker.controller.js
 import { MvpController } from './mvp.controller.js';
 import { MvpService } from './mvp.service.js';
 import { OtRegistryXlsxWriter } from './ot-registry/ot-registry-xlsx.writer.js';
+import { OtRegistryXmlWriter } from './ot-registry/ot-registry-xml.writer.js';
 import { OtRegistryController } from './ot-registry/ot-registry.controller.js';
 import { OtRegistryService } from './ot-registry/ot-registry.service.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
@@ -31,6 +32,7 @@ import { OrgModule } from '../org/org.module.js';
     { provide: MVP_STATE, scope: Scope.REQUEST, useClass: InMemoryMvpState },
     { provide: MvpService, scope: Scope.REQUEST, useClass: MvpService },
     OtRegistryXlsxWriter,
+    OtRegistryXmlWriter,
     { provide: OtRegistryService, scope: Scope.REQUEST, useClass: OtRegistryService },
     { provide: LearnerPdfCardService, scope: Scope.REQUEST, useClass: LearnerPdfCardService },
     {

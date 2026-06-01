@@ -6,6 +6,7 @@ import { validateRegistryRow } from './ot-registry-preflight.js';
 import { matchResponseToRecords, parseRegistryResponse } from './ot-registry-response.parser.js';
 import { buildRegistryRows } from './ot-registry-rows.js';
 import { OtRegistryXlsxWriter } from './ot-registry-xlsx.writer.js';
+import { OtRegistryXmlWriter } from './ot-registry-xml.writer.js';
 import { S3StorageClient } from '../../../infrastructure/storage/s3-storage.client.js';
 import { AuditService } from '../../audit/audit.service.js';
 import { DocumentsService } from '../../documents/documents.service.js';
@@ -32,6 +33,7 @@ export interface OtRegistryExportFilter {
   clientId?: string;
   enrolledFrom?: string;
   enrolledTo?: string;
+  format?: 'xlsx' | 'xml';
 }
 
 /**
@@ -55,6 +57,7 @@ export class OtRegistryService {
     @Inject(FilesService) private readonly files: FilesService,
     @Inject(S3StorageClient) private readonly storage: S3StorageClient,
     @Inject(OtRegistryXlsxWriter) private readonly xlsx: OtRegistryXlsxWriter,
+    @Inject(OtRegistryXmlWriter) private readonly xml: OtRegistryXmlWriter,
     @Inject(AuditService) private readonly auditService: AuditService
   ) {}
 
@@ -185,6 +188,7 @@ export class OtRegistryService {
     const total = exported + failed;
 
     const now = new Date().toISOString();
+    const format: 'xlsx' | 'xml' = filter.format === 'xml' ? 'xml' : 'xlsx';
     const batch: OtRegistryBatch = {
       id: this.id('otb'),
       tenantId,
@@ -196,24 +200,26 @@ export class OtRegistryService {
       exportedRows: exported,
       failedRows: failed,
       batchStatus: failed ? (exported ? 'partial' : 'failed') : 'generated',
-      generatedBy: ctx.userId ?? ''
+      generatedBy: ctx.userId ?? '',
+      format
     };
 
     if (exported) {
-      const buffer = await this.xlsx.build(valid);
-      const storageKey = `${tenantId}/ot-registry/${batch.id}.xlsx`;
+      const buffer = format === 'xml' ? this.xml.build(valid) : await this.xlsx.build(valid);
+      const contentType = format === 'xml' ? this.xml.contentType : this.xlsx.contentType;
+      const storageKey = `${tenantId}/ot-registry/${batch.id}.${format}`;
       const meta = await this.files.register({
         tenantId,
         storageKey,
-        originalName: `ot-registry-${batch.id}.xlsx`,
-        mimeType: this.xlsx.contentType,
+        originalName: `ot-registry-${batch.id}.${format}`,
+        mimeType: contentType,
         sizeBytes: buffer.length,
         antivirusStatus: 'clean'
       });
       await this.storage.putObject({
         key: storageKey,
         body: buffer,
-        contentType: this.xlsx.contentType
+        contentType
       });
       batch.fileId = meta.id;
     }

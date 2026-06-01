@@ -1,4 +1,4 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsIn, IsOptional, IsString } from 'class-validator';
 
 export class CreateOtRegistryExportDto {
   @IsOptional()
@@ -16,4 +16,8 @@ export class CreateOtRegistryExportDto {
   @IsOptional()
   @IsString()
   enrolledTo?: string;
+
+  @IsOptional()
+  @IsIn(['xlsx', 'xml'])
+  format?: 'xlsx' | 'xml';
 }
