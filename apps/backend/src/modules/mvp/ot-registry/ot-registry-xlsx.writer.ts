@@ -3,7 +3,9 @@ import ExcelJS from 'exceljs';
 
 import type { OtRegistryRow } from '../mvp.types.js';
 
-// Единственное место маппинга поле→колонка. Сверить заголовки с офиц. шаблоном ЛКОТ (план §13 #1).
+// PROVISIONAL — сверить с офиц. .xlsx-шаблоном ЛКОТ перед боевой отправкой (spec §13/§16).
+// Единственное место маппинга поле→колонка (single swap point). Состав полей подтверждён
+// публично (ФИО/СНИЛС/должность/программа/дата/результат); порядок и заголовки — best-effort.
 const COLUMNS: { header: string; key: keyof OtRegistryRow; width: number }[] = [
   { header: 'ID программы', key: 'programRegistryId', width: 12 },
   { header: 'Наименование программы', key: 'programName', width: 60 },
