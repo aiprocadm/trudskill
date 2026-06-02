@@ -299,7 +299,8 @@ export class LearnersBulkImportService {
           ...(parsed.middleName ? { middleName: parsed.middleName } : {}),
           email: c.row.email.toLowerCase().trim(),
           ...(c.row.snils ? { snils: normalizeSnils(c.row.snils) } : {}),
-          ...(c.row.position ? { position: c.row.position.trim() } : {})
+          ...(c.row.position ? { position: c.row.position.trim() } : {}),
+          ...(c.row.dateOfBirth ? { dateOfBirth: c.row.dateOfBirth.trim() } : {})
         },
         context
       );
