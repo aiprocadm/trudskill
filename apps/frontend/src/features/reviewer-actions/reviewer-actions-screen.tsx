@@ -4,7 +4,7 @@ import { DataTable, LoadingState } from '@cdoprof/ui';
 import { useState } from 'react';
 
 import { reviewerActionsApi } from './api';
-import { formatQueueKind } from './format';
+import { formatAntivirusStatus, formatQueueKind } from './format';
 import {
   useCompleteAttemptReview,
   useCompleteReview,
@@ -36,6 +36,7 @@ function SubmissionActions({ item }: { item: ReviewerQueueItem }) {
   const [score, setScore] = useState('');
   const [comment, setComment] = useState('');
   const [returnComment, setReturnComment] = useState('');
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const onTake = async () => {
     const result = await takeIntoReview.mutate({ submissionId: item.id });
@@ -58,8 +59,14 @@ function SubmissionActions({ item }: { item: ReviewerQueueItem }) {
 
   const onDownloadFile = async () => {
     if (!session) return;
-    const result = await reviewerActionsApi.submissionFileUrl(session, item.id);
-    window.open(result.url, '_blank');
+    setDownloadError(null);
+    try {
+      const result = await reviewerActionsApi.submissionFileUrl(session, item.id);
+      window.open(result.url, '_blank');
+    } catch (err) {
+      // Surface the gate's envelope error (file_infected 423 / file_scan_failed 409) to the reviewer.
+      setDownloadError(err instanceof Error ? err.message : 'Не удалось скачать файл');
+    }
   };
 
   return (
@@ -108,9 +115,14 @@ function SubmissionActions({ item }: { item: ReviewerQueueItem }) {
           </div>
         </>
       )}
-      <button type="button" onClick={() => void onDownloadFile()}>
-        Скачать файл
-      </button>
+      {item.antivirusStatus === 'clean' ? (
+        <button type="button" onClick={() => void onDownloadFile()}>
+          Скачать файл
+        </button>
+      ) : item.antivirusStatus ? (
+        <span>{formatAntivirusStatus(item.antivirusStatus)}</span>
+      ) : null}
+      {downloadError ? <SectionError message={downloadError} /> : null}
       {takeIntoReview.error ? <SectionError message={takeIntoReview.error} /> : null}
       {completeReview.error ? <SectionError message={completeReview.error} /> : null}
       {returnSubmission.error ? <SectionError message={returnSubmission.error} /> : null}
