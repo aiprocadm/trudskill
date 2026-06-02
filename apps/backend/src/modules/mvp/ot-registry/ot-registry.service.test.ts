@@ -4,6 +4,7 @@ import ExcelJS from 'exceljs';
 import { describe, expect, it, vi } from 'vitest';
 
 import { OtRegistryXlsxWriter } from './ot-registry-xlsx.writer.js';
+import { OtRegistryXmlWriter } from './ot-registry-xml.writer.js';
 import { OtRegistryService } from './ot-registry.service.js';
 import { TenantScopedRepository } from '../../../infrastructure/database/tenant-repository.js';
 import { AuditService } from '../../audit/audit.service.js';
@@ -270,6 +271,7 @@ function makeHarness(): Harness {
     files,
     storage,
     new OtRegistryXlsxWriter(),
+    new OtRegistryXmlWriter(),
     audit
   );
 
@@ -424,6 +426,20 @@ describe('OtRegistryService.exportOtRegistry', () => {
     expect(outcome.exported).toBe(1);
     expect(outcome.errors.some((e) => e.enrollmentId === 'enr_old')).toBe(false);
     expect(outcome.failed).toBe(0);
+  });
+
+  it('format:"xml" generates an application/xml file and records batch.format', async () => {
+    const h = makeHarness();
+    seedCompletedEnrollment(h.state, { programCodes: ['OT_A'], examPassed: true });
+
+    const outcome = await h.service.exportOtRegistry(TENANT, { format: 'xml' }, ctx);
+
+    expect(outcome.exported).toBe(1);
+    expect(outcome.fileId).toBeTruthy();
+    expect(h.state.otRegistryBatches[0]!.format).toBe('xml');
+    const reg = h.filesRegister.mock.calls[0]![0] as { mimeType: string; storageKey: string };
+    expect(reg.mimeType).toBe('application/xml');
+    expect(reg.storageKey.endsWith('.xml')).toBe(true);
   });
 });
 

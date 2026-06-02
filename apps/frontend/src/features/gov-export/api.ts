@@ -27,6 +27,7 @@ export const govExportApi = {
       clientId?: string;
       enrolledFrom?: string;
       enrolledTo?: string;
+      format?: 'xlsx' | 'xml';
     }
   ): Promise<OtRegistryExportOutcome> =>
     apiRequest<OtRegistryExportOutcome>('/ot-registry/exports', {

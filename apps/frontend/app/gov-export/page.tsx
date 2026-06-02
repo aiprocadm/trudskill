@@ -31,6 +31,7 @@ export default function GovExportPage() {
 
   // ОТ-реестр section state
   const [groupId, setGroupId] = useState('');
+  const [otFormat, setOtFormat] = useState<'xlsx' | 'xml'>('xlsx');
   const [otBusy, setOtBusy] = useState(false);
   const [otError, setOtError] = useState<string | null>(null);
   const [otOutcome, setOtOutcome] = useState<OtRegistryExportOutcome | null>(null);
@@ -42,7 +43,8 @@ export default function GovExportPage() {
     setOtError(null);
     try {
       const outcome = await govExportApi.createOtRegistryExport(session, {
-        ...(groupId ? { groupId } : {})
+        ...(groupId ? { groupId } : {}),
+        format: otFormat
       });
       setOtOutcome(outcome);
       await otBatches.refetch();
@@ -160,12 +162,32 @@ export default function GovExportPage() {
           ) : null}
         </SectionCard>
         <SectionCard title="Реестр обученных по ОТ (Минтруд)">
+          <p
+            role="note"
+            style={{
+              background: '#FEF3C7',
+              border: '1px solid #F59E0B',
+              borderRadius: 6,
+              padding: '8px 12px',
+              margin: '0 0 12px'
+            }}
+          >
+            ⚠️ Формат выгрузки предварительный (не сверен с эталоном ЛКОТ). Перед подачей в реестр
+            сверьте колонки/XSD-схему 1.0.3 в личном кабинете.
+          </p>
           <FilterBar>
             <input
               value={groupId}
               onChange={(event) => setGroupId(event.target.value)}
               placeholder="ID группы (необязательно)"
             />
+            <select
+              value={otFormat}
+              onChange={(event) => setOtFormat(event.target.value as 'xlsx' | 'xml')}
+            >
+              <option value="xlsx">Excel (.xlsx)</option>
+              <option value="xml">XML (XSD 1.0.3)</option>
+            </select>
             <button type="button" onClick={() => void onGenerateOt()} disabled={otBusy}>
               {otBusy ? 'Формирование...' : 'Сформировать выгрузку'}
             </button>

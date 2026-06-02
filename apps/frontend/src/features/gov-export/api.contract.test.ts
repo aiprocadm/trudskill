@@ -64,7 +64,8 @@ describe('govExportApi envelope compatibility', () => {
     const result = await govExportApi.createOtRegistryExport(session, {
       groupId: 'grp_1',
       enrolledFrom: '2026-01-01',
-      enrolledTo: '2026-12-31'
+      enrolledTo: '2026-12-31',
+      format: 'xml'
     });
 
     expect(result.batchId).toBe('batch_1');
@@ -74,8 +75,9 @@ describe('govExportApi envelope compatibility', () => {
     const [calledUrl, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(calledUrl).toContain('/ot-registry/exports');
     expect(init.method).toBe('POST');
-    const body = JSON.parse(init.body as string) as { groupId: string };
+    const body = JSON.parse(init.body as string) as { groupId: string; format: string };
     expect(body.groupId).toBe('grp_1');
+    expect(body.format).toBe('xml');
   });
 
   it('importResponse posts to /ot-registry/exports/:id/registry-response and unwraps outcome', async () => {
