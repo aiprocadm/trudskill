@@ -341,6 +341,9 @@ export class MvpService {
   /** Wave 1 Plan 2: logging stub for the pre-exam identity link delivery (no constructor change). */
   private readonly preExamLogger = new Logger('PreExamAuth');
 
+  /** V1.1 AV gate: logs best-effort proactive scan failures (the download gate re-scans lazily). */
+  private readonly avScanLogger = new Logger('AvScan');
+
   listCounterparties(tenantId: string, query: BaseFilterQuery): ListResponse<Counterparty> {
     return this.list(this.state.counterparties, tenantId, query);
   }
@@ -3786,6 +3789,16 @@ export class MvpService {
       context,
       delegationAuditMetadata
     );
+    if (current.fileId) {
+      // Best-effort proactive scan. submitAssignmentSubmission is synchronous → fire-and-forget.
+      // Safety is guaranteed by the download gate's lazy fallback (it re-scans `pending`), so a
+      // failure here is non-fatal — log and move on.
+      void this.filesService
+        .scanFile(tenantId, current.fileId, actorId)
+        .catch((err) =>
+          this.avScanLogger.warn(`proactive scan failed for file ${current.fileId}: ${String(err)}`)
+        );
+    }
     return current;
   }
 
