@@ -1,6 +1,11 @@
 import 'reflect-metadata';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import type { DatabaseService } from '../../infrastructure/database/database.service.js';
+import type { S3StorageClient } from '../../infrastructure/storage/s3-storage.client.js';
+import type { AuditService } from '../audit/audit.service.js';
+import type { FilesService as FilesGate } from '../files/files.service.js';
+
 /**
  * Phase 3 Plan C — HTTP integration boundary tests for the 4 new endpoints.
  *
@@ -83,6 +88,12 @@ describe('Phase 3 Plan C — HTTP boundary (upload-url / file-url / return / com
 
     issueSignedAccessToken = cryptoImport.issueSignedAccessToken;
 
+    // V1.1 AV gate (Task 9): wire the REAL FilesService into the stub so the file-url route
+    // exercises the actual download gate (clean → url, infected → 423, error → 409).
+    const { FilesService } = await import('../files/files.service.js');
+    const { NoopAntivirusScanner } =
+      await import('../../infrastructure/antivirus/antivirus.scanner.js');
+
     const { NestFactory, Reflector } = nestjsCore;
     const {
       Controller,
@@ -147,9 +158,39 @@ describe('Phase 3 Plan C — HTTP boundary (upload-url / file-url / return / com
       }
     }
 
+    const FILES_GATE_TOKEN = Symbol('FILES_GATE');
+    // Maps the :id path param (treated as the file id) to a stored antivirus status.
+    const gateStatusByFile: Record<string, string> = {
+      sub_1: 'clean', // keep the pre-existing happy-path file-url test green
+      sub_clean: 'clean',
+      sub_infected: 'infected',
+      sub_error: 'error'
+    };
+    const gateFilesService = new FilesService(
+      {
+        query: async (sql: string, params: unknown[] = []) => {
+          if (sql.includes('select') && sql.includes('storage.files')) {
+            const fileId = params[1] as string;
+            const status = gateStatusByFile[fileId];
+            return status
+              ? [{ storage_key: `submissions/t/${fileId}.pdf`, antivirus_status: status }]
+              : [];
+          }
+          return [];
+        }
+      } as unknown as DatabaseService,
+      {
+        createPresignedDownloadUrl: async () => 'https://minio.local/GET-gated'
+      } as unknown as S3StorageClient,
+      new NoopAntivirusScanner(),
+      { write: () => undefined } as unknown as AuditService
+    );
+
     @Controller()
     @UseGuards(TenantGuard, TestPermissionGuard)
     class PlanCStubController {
+      constructor(@Inject(FILES_GATE_TOKEN) private readonly files: FilesGate) {}
+
       // POST /assignment-submissions/:id/upload-url
       @Post('assignment-submissions/:id/upload-url')
       @RequirePermissions('assessment.submissions.submit')
@@ -162,11 +203,12 @@ describe('Phase 3 Plan C — HTTP boundary (upload-url / file-url / return / com
         };
       }
 
-      // GET /assignment-submissions/:id/file-url
+      // GET /assignment-submissions/:id/file-url — routed through the real AV download gate
       @Get('assignment-submissions/:id/file-url')
       @RequirePermissions('assessment.assignments.read')
-      getFileUrl(@CurrentContext() c: { tenantId?: string }, @Param('id') id: string) {
-        return { url: `https://minio.local/GET/${id}?tenant=${c.tenantId}` };
+      async getFileUrl(@CurrentContext() c: { tenantId?: string }, @Param('id') id: string) {
+        const url = await this.files.createDownloadUrl(c.tenantId ?? 'tenant_demo', id);
+        return { url };
       }
 
       // POST /assignment-submissions/:id/return
@@ -194,7 +236,11 @@ describe('Phase 3 Plan C — HTTP boundary (upload-url / file-url / return / com
     @Module({
       imports: [ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: 300 }] })],
       controllers: [PlanCStubController],
-      providers: [TenantGuard, TestPermissionGuard]
+      providers: [
+        TenantGuard,
+        TestPermissionGuard,
+        { provide: FILES_GATE_TOKEN, useValue: gateFilesService }
+      ]
     })
     class TestAppModule {}
 
@@ -322,6 +368,37 @@ describe('Phase 3 Plan C — HTTP boundary (upload-url / file-url / return / com
     const p = (await r.json()) as { data: { url: string }; meta: { requestId: string } };
     expect(p.data.url).toContain('minio.local');
     expect(p.meta.requestId).toBeTruthy();
+  });
+
+  // ---------- GET file-url — antivirus download gate (V1.1) ----------
+  it('GET /assignment-submissions/:id/file-url → 200 + gated url for a clean file', async () => {
+    const token = tokenWithPerms(['assessment.assignments.read']);
+    const r = await fetch(`${apiBaseUrl}/assignment-submissions/sub_clean/file-url`, {
+      headers: { authorization: `Bearer ${token}`, 'x-tenant-id': 'tenant_demo' }
+    });
+    expect(r.status).toBe(200);
+    const p = (await r.json()) as { data: { url: string } };
+    expect(p.data.url).toContain('minio.local');
+  });
+
+  it('GET /assignment-submissions/:id/file-url → 423 file_infected for an infected file', async () => {
+    const token = tokenWithPerms(['assessment.assignments.read']);
+    const r = await fetch(`${apiBaseUrl}/assignment-submissions/sub_infected/file-url`, {
+      headers: { authorization: `Bearer ${token}`, 'x-tenant-id': 'tenant_demo' }
+    });
+    expect(r.status).toBe(423);
+    const p = (await r.json()) as { error: { code: string } };
+    expect(p.error.code).toBe('file_infected');
+  });
+
+  it('GET /assignment-submissions/:id/file-url → 409 file_scan_failed for a scan-errored file', async () => {
+    const token = tokenWithPerms(['assessment.assignments.read']);
+    const r = await fetch(`${apiBaseUrl}/assignment-submissions/sub_error/file-url`, {
+      headers: { authorization: `Bearer ${token}`, 'x-tenant-id': 'tenant_demo' }
+    });
+    expect(r.status).toBe(409);
+    const p = (await r.json()) as { error: { code: string } };
+    expect(p.error.code).toBe('file_scan_failed');
   });
 
   // ---------- POST /assignment-submissions/:id/return ----------
