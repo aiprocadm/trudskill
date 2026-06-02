@@ -171,4 +171,17 @@ describe('FrdoRegistryService.exportFrdoRegistry', () => {
     expect(outcome.fileId).toBeUndefined();
     expect(h.state.frdoRegistryBatches[0]!.batchStatus).toBe('failed');
   });
+
+  it('counts one failed document once even with multiple field errors', async () => {
+    // documentNumber + documentDate both empty → 2 preflight errors on 1 document.
+    const h = makeHarness([doc({ documentNumber: '', documentDate: '' })]);
+    seed(h.state);
+
+    const outcome = await h.service.exportFrdoRegistry(TENANT, {}, ctx);
+
+    expect(outcome.exported).toBe(0);
+    expect(outcome.failed).toBe(1); // one document, not the error-object count
+    expect(outcome.errors.length).toBeGreaterThanOrEqual(2);
+    expect(h.state.frdoRegistryBatches[0]!.failedRows).toBe(1);
+  });
 });

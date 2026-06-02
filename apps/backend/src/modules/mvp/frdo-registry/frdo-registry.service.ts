@@ -82,7 +82,10 @@ export class FrdoRegistryService {
         if (filter.clientId && group.counterpartyId !== filter.clientId) continue;
         if (filter.groupId && enrollment.groupId !== filter.groupId) continue;
 
-        const gc = this.mvp.listGroupCourses(tenantId, { group_id: enrollment.groupId }).items[0];
+        const gc = this.mvp.listGroupCourses(tenantId, {
+          group_id: enrollment.groupId,
+          page_size: 1000
+        }).items[0];
         const course = gc?.courseId ? this.mvp.getCourse(tenantId, gc.courseId) : undefined;
         const cv = gc?.courseVersionId
           ? this.mvp.getCourseVersion(tenantId, gc.courseVersionId)
@@ -130,7 +133,9 @@ export class FrdoRegistryService {
 
     const errors = [...gatherErrors, ...preflightErrors];
     const exported = valid.length;
-    const failed = errors.length;
+    // Count distinct failed documents, not per-field error objects (one row can yield
+    // several errors) — keeps `total`/`failed` meaningful (one candidate = one unit).
+    const failed = new Set(errors.map((e) => e.documentId)).size;
     const total = exported + failed;
     const now = new Date().toISOString();
 
