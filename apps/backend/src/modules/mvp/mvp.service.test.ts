@@ -802,7 +802,7 @@ describe('mvp service domain rules', () => {
     ).toThrow(BadRequestException);
   });
 
-  it('forbids assignment submission when IAM actor does not match learner linkedIamUserId', () => {
+  it('forbids assignment submission when IAM actor does not match learner linkedIamUserId', async () => {
     const service = new MvpService(
       new InMemoryMvpState(),
       new TenantScopedRepository(),
@@ -865,15 +865,17 @@ describe('mvp service domain rules', () => {
     );
     expect(submission.learnerId).toBe(learner.id);
 
-    expect(() =>
+    await expect(
       service.getAssignmentSubmission('tenant_demo', submission.id, {
         actorId: 'u_intruder'
       })
-    ).toThrow(ForbiddenException);
+    ).rejects.toThrow(ForbiddenException);
     expect(
-      service.getAssignmentSubmission('tenant_demo', submission.id, {
-        actorId: 'u_owner'
-      }).id
+      (
+        await service.getAssignmentSubmission('tenant_demo', submission.id, {
+          actorId: 'u_owner'
+        })
+      ).id
     ).toBe(submission.id);
 
     const other = service.createLearner(

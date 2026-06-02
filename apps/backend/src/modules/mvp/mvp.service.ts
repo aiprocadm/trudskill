@@ -2604,8 +2604,11 @@ export class MvpService {
    * reviewer-queue.service.ts для логики фильтрации. Plans B+C наполнят attempts /
    * submissions; пока пустая обёртка.
    */
-  getReviewerQueue(tenantId: string, _context: RequestContext): ReviewerQueueSnapshot {
-    return aggregateReviewerQueue(
+  async getReviewerQueue(
+    tenantId: string,
+    _context: RequestContext
+  ): Promise<ReviewerQueueSnapshot> {
+    const snapshot = aggregateReviewerQueue(
       {
         testAttempts: this.state.attempts as TestAttempt[],
         attemptAnswers: this.state.attemptAnswers,
@@ -2614,6 +2617,19 @@ export class MvpService {
       },
       { tenantId }
     );
+    // V1.1 AV gate: surface each submission file's antivirus status so the reviewer UI can
+    // gate the "Скачать файл" button. Batch lookup avoids N+1 across the queue.
+    const submissionFileIds = snapshot.pendingSubmissions
+      .map((s) => s.fileId)
+      .filter((id): id is string => Boolean(id));
+    const statusMap = await this.filesService.getAntivirusStatuses(tenantId, submissionFileIds);
+    return {
+      pendingAttempts: snapshot.pendingAttempts,
+      pendingSubmissions: snapshot.pendingSubmissions.map((s) => ({
+        ...s,
+        antivirusStatus: s.fileId ? (statusMap.get(s.fileId) ?? null) : null
+      }))
+    };
   }
 
   listAttempts(
@@ -3673,14 +3689,18 @@ export class MvpService {
           );
     return this.list(source, tenantId, query);
   }
-  getAssignmentSubmission(
+  async getAssignmentSubmission(
     tenantId: string,
     id: string,
     access?: MvpAssessmentReadAccess
-  ): AssignmentSubmission {
+  ): Promise<AssignmentSubmission & { antivirusStatus: string | null }> {
     const submission = this.getById(this.state.assignmentSubmissions, tenantId, id);
     this.assertAssessmentReadAllowedForLearner(tenantId, submission.learnerId, access);
-    return submission;
+    // V1.1 AV gate: surface the attached file's antivirus status so the learner UI can reflect it.
+    const antivirusStatus = submission.fileId
+      ? await this.filesService.getAntivirusStatus(tenantId, submission.fileId)
+      : null;
+    return { ...submission, antivirusStatus };
   }
   createAssignmentSubmission(
     tenantId: string,

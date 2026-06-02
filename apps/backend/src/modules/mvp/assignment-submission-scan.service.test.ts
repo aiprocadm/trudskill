@@ -26,7 +26,14 @@ const noopDocumentsService = {
 function makeServices() {
   const files = {
     scanFile: vi.fn(async () => 'clean' as const),
-    ensureMaterialLink: vi.fn(async () => undefined)
+    ensureMaterialLink: vi.fn(async () => undefined),
+    getAntivirusStatus: vi.fn(
+      async (_tenantId: string, _fileId: string): Promise<string | null> => 'infected'
+    ),
+    getAntivirusStatuses: vi.fn(
+      async (_tenantId: string, ids: string[]): Promise<Map<string, string>> =>
+        new Map(ids.map((id) => [id, 'infected']))
+    )
   };
   const service = new MvpService(
     new InMemoryMvpState(),
@@ -104,5 +111,36 @@ describe('MvpService.submitAssignmentSubmission — proactive AV scan', () => {
     service.submitAssignmentSubmission('tenant_demo', 'u_owner', submission.id, ctx);
     await Promise.resolve();
     expect(files.scanFile).not.toHaveBeenCalled();
+  });
+});
+
+describe('MvpService read DTOs — antivirus status enrichment', () => {
+  it('exposes the attached file antivirus status on the single submission read', async () => {
+    const { service, files } = makeServices();
+    const submission = seedDraftSubmission(service, { fileId: 'file_abc' });
+    const read = await service.getAssignmentSubmission('tenant_demo', submission.id, {
+      actorId: 'u_owner'
+    });
+    expect(files.getAntivirusStatus).toHaveBeenCalledWith('tenant_demo', 'file_abc');
+    expect(read.antivirusStatus).toBe('infected');
+  });
+
+  it('returns null antivirusStatus on the single read when there is no file', async () => {
+    const { service } = makeServices();
+    const submission = seedDraftSubmission(service, {});
+    const read = await service.getAssignmentSubmission('tenant_demo', submission.id, {
+      actorId: 'u_owner'
+    });
+    expect(read.antivirusStatus).toBeNull();
+  });
+
+  it('enriches reviewer-queue submission items with fileId + antivirus status', async () => {
+    const { service } = makeServices();
+    const submission = seedDraftSubmission(service, { fileId: 'file_abc' });
+    service.submitAssignmentSubmission('tenant_demo', 'u_owner', submission.id, ctx);
+    const queue = await service.getReviewerQueue('tenant_demo', ctx);
+    const item = queue.pendingSubmissions.find((s) => s.id === submission.id);
+    expect(item?.fileId).toBe('file_abc');
+    expect(item?.antivirusStatus).toBe('infected');
   });
 });
