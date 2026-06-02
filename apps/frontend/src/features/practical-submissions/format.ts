@@ -1,4 +1,4 @@
-import type { SubmissionStatus } from './types';
+import type { AntivirusStatus, SubmissionStatus } from './types';
 
 export const SUBMISSION_STATUS_LABEL: Record<SubmissionStatus, string> = {
   not_started: 'Не начато',
@@ -21,4 +21,19 @@ export function isSubmissionEditable(status: SubmissionStatus): boolean {
 
 export function formatMaxScore(maxScore: number): string {
   return `Макс. балл: ${maxScore}`;
+}
+
+/** V1.1 AV gate: learner-facing description of an attached file's antivirus scan status. */
+export function formatAntivirusStatusLearner(status: AntivirusStatus): string {
+  switch (status) {
+    case 'pending':
+      return 'Файл проверяется антивирусом…';
+    case 'infected':
+      return 'Файл заблокирован: обнаружена угроза';
+    case 'error':
+      return 'Не удалось проверить файл';
+    case 'clean':
+    default:
+      return 'Файл проверен';
+  }
 }
