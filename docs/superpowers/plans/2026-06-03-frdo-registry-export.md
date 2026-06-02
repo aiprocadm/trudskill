@@ -12,6 +12,8 @@
 
 **Provisional swap points (2):** (1) `lookup.frdo_document_kinds` seed in migration `0046`; (2) `COLUMNS` in `frdo-registry-xlsx.writer.ts`. Both marked `PROVISIONAL` in code; swap = one const each.
 
+**Status:** ✅ IMPLEMENTED 2026-06-03 on branch `feat/2026-06-03-frdo-registry-export`. All 12 tasks done + green: backend cluster 131 tests (`frdo-registry/*` + `mvp.service` + `mvp.http.integration`), frontend `gov-export/api.contract` 4 + e2e 4, `tsc` 8/8, ESLint clean. PR pending review. Follow-up: frontend Excel «Дата рождения» column in bulk import (backend passthrough ready). See handoff §5.103.
+
 ---
 
 ## File Structure
