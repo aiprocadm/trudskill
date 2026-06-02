@@ -1,6 +1,8 @@
 import { apiRequest } from '../../lib/api/client';
 
 import type {
+  FrdoRegistryBatch,
+  FrdoRegistryExportOutcome,
   OtRegistryBatch,
   OtRegistryExportOutcome,
   OtRegistryImportOutcome,
@@ -51,5 +53,27 @@ export const govExportApi = {
       method: 'POST',
       body: { fileBase64 },
       ...withAuth(session)
-    })
+    }),
+
+  createFrdoRegistryExport: (
+    session: UserSession,
+    body: {
+      from?: string;
+      to?: string;
+      types?: ('certificate' | 'diploma')[];
+      groupId?: string;
+      clientId?: string;
+    }
+  ): Promise<FrdoRegistryExportOutcome> =>
+    apiRequest<FrdoRegistryExportOutcome>('/frdo-registry/exports', {
+      method: 'POST',
+      body,
+      ...withAuth(session)
+    }),
+
+  listFrdoBatches: (session: UserSession): Promise<FrdoRegistryBatch[]> =>
+    apiRequest<FrdoRegistryBatch[]>('/frdo-registry/exports', withAuth(session)),
+
+  getFrdoBatchFileUrl: (session: UserSession, id: string): Promise<{ url: string }> =>
+    apiRequest<{ url: string }>(`/frdo-registry/exports/${id}/file`, withAuth(session))
 };
