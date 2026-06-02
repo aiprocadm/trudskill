@@ -2455,6 +2455,22 @@ describe('MvpService — course document sets (Plan A §5.3)', () => {
   });
 });
 
+describe('MvpService.listFrdoDocumentKinds (ФРДО)', () => {
+  it('returns 2 active ДПО kinds keyed by template type', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const kinds = service.listFrdoDocumentKinds();
+    expect(kinds.map((k) => k.templateType).sort()).toEqual(['certificate', 'diploma']);
+    expect(kinds.every((k) => k.educationLevel === 'ДПО')).toBe(true);
+  });
+});
+
 describe('MvpService — dateOfBirth (ФРДО)', () => {
   it('persists dateOfBirth on create and update', () => {
     const service = new MvpService(

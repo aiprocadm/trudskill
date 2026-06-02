@@ -99,6 +99,7 @@ import type {
   EnrollmentStatus,
   EnrollmentStatusHistory,
   ExamResult,
+  FrdoDocumentKind,
   GroupCourse,
   GroupEntity,
   KpiSnapshotDto,
@@ -286,6 +287,26 @@ const REGULATORY_ACTS_SEED: RegulatoryAct[] = [
  * Postgres-implementation должна читать из `lookup.ot_training_programs` напрямую;
  * в in-memory режиме храним константу здесь.
  */
+// PROVISIONAL — сверить frdoKind/exactName с офиц. перечнем/шаблоном ФРДО (Рособрнадзор) перед боевой отправкой.
+const FRDO_DOCUMENT_KINDS_SEED: FrdoDocumentKind[] = [
+  {
+    code: 'PK',
+    templateType: 'certificate',
+    frdoKind: 'Удостоверение о повышении квалификации',
+    educationLevel: 'ДПО',
+    exactName: 'Удостоверение о повышении квалификации',
+    isActive: true
+  },
+  {
+    code: 'PP',
+    templateType: 'diploma',
+    frdoKind: 'Диплом о профессиональной переподготовке',
+    educationLevel: 'ДПО',
+    exactName: 'Диплом о профессиональной переподготовке',
+    isActive: true
+  }
+];
+
 const OT_TRAINING_PROGRAMS_SEED: OtTrainingProgram[] = [
   {
     code: 'OT_A',
@@ -4493,6 +4514,10 @@ export class MvpService {
   }
 
   // === Wave 2 — ОТ-реестр: программы обучения (lookup) ===
+
+  listFrdoDocumentKinds(): FrdoDocumentKind[] {
+    return FRDO_DOCUMENT_KINDS_SEED.filter((k) => k.isActive);
+  }
 
   listOtTrainingPrograms(): OtTrainingProgram[] {
     return OT_TRAINING_PROGRAMS_SEED.filter((p) => p.isActive).sort(
