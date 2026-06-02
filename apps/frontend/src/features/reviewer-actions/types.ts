@@ -1,3 +1,5 @@
+import type { AntivirusStatus } from '../practical-submissions/types';
+
 export interface ReviewerQueueEssayAnswer {
   questionId: string;
   questionTitle: string;
@@ -14,6 +16,10 @@ export interface ReviewerQueueItem {
   submittedAt: string;
   /** Plan C: manual-grading payload — present only for attempt items with essay answers. */
   essayAnswers?: ReviewerQueueEssayAnswer[];
+  /** V1.1 AV gate: attached submission file id (submission items only). */
+  fileId?: string;
+  /** V1.1 AV gate: antivirus status of the attached file; null/omitted when no file. */
+  antivirusStatus?: AntivirusStatus | null;
 }
 
 export interface ReviewerQueueSnapshot {
