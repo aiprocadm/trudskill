@@ -3,10 +3,15 @@
 import { LoadingState } from '@cdoprof/ui';
 import { useState } from 'react';
 
-import { formatSubmissionStatus, isSubmissionEditable } from './format';
+import {
+  formatAntivirusStatusLearner,
+  formatSubmissionStatus,
+  isSubmissionEditable
+} from './format';
 import {
   useCreateSubmission,
   useMyAssignments,
+  useSubmission,
   useSubmitSubmission,
   useUpdateSubmission,
   useUploadSubmissionFile
@@ -30,6 +35,11 @@ export function SubmissionScreen({ assignmentId }: { assignmentId: string }) {
   const [answerText, setAnswerText] = useState('');
   const [submissionId, setSubmissionId] = useState<string | null>(null);
 
+  // Resolve the active submission id before the early returns so the data hook is called
+  // unconditionally (rules of hooks). The full DTO carries the file's antivirus status (V1.1).
+  const activeSubmissionId = submissionId ?? summary?.submissionId ?? null;
+  const submission = useSubmission(activeSubmissionId);
+
   if (assignments.isLoading) return <LoadingState />;
   if (!summary) {
     return (
@@ -39,7 +49,6 @@ export function SubmissionScreen({ assignmentId }: { assignmentId: string }) {
     );
   }
 
-  const activeSubmissionId = submissionId ?? summary.submissionId ?? null;
   const editable = isSubmissionEditable(summary.status);
 
   const ensureSubmission = async (): Promise<string | null> => {
@@ -61,7 +70,11 @@ export function SubmissionScreen({ assignmentId }: { assignmentId: string }) {
 
   const onUpload = async (file: File) => {
     const id = await ensureSubmission();
-    if (id) await uploadFile.mutate(id, file);
+    if (id) {
+      await uploadFile.mutate(id, file);
+      // Refresh the submission so the freshly-attached file's antivirus status appears.
+      void submission.refetch();
+    }
   };
 
   const onSubmit = async () => {
@@ -114,6 +127,9 @@ export function SubmissionScreen({ assignmentId }: { assignmentId: string }) {
         />
         {uploadFile.isPending ? <LoadingState /> : null}
         {uploadFile.data ? <p>Файл загружен.</p> : null}
+        {submission.data?.fileId && submission.data.antivirusStatus ? (
+          <p>{formatAntivirusStatusLearner(submission.data.antivirusStatus)}</p>
+        ) : null}
         {uploadFile.error ? <SectionError message={uploadFile.error} /> : null}
       </SectionCard>
 

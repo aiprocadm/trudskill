@@ -7,6 +7,9 @@ export type SubmissionStatus =
   | 'returned'
   | 'rejected';
 
+/** V1.1 AV gate: stored antivirus status of an attached file. `pending` = not yet scanned. */
+export type AntivirusStatus = 'pending' | 'clean' | 'infected' | 'error';
+
 export interface LearnerAssignmentSummary {
   assignmentId: string;
   title: string;
@@ -29,6 +32,8 @@ export interface AssignmentSubmissionDto {
   status: SubmissionStatus;
   submittedAt?: string;
   returnComment?: string;
+  /** V1.1 AV gate: antivirus status of the attached file; null/omitted when no file. */
+  antivirusStatus?: AntivirusStatus | null;
 }
 
 export interface CreateSubmissionPayload {

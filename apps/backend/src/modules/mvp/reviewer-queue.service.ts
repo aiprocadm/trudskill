@@ -80,7 +80,10 @@ export function aggregateReviewerQueue(
       tenantId: s.tenantId,
       learnerId: s.learnerId,
       assignmentId: s.assignmentId,
-      submittedAt: s.submittedAt ?? s.createdAt
+      submittedAt: s.submittedAt ?? s.createdAt,
+      // V1.1 AV gate: pass the attached file id through so the service can resolve its
+      // antivirus status (pure aggregator does no I/O — enrichment happens in getReviewerQueue).
+      ...(s.fileId ? { fileId: s.fileId } : {})
     }));
 
   return { pendingAttempts, pendingSubmissions };

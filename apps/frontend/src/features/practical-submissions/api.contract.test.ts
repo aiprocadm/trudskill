@@ -84,11 +84,12 @@ describe('practicalSubmissionsApi envelope compatibility (Phase 3 Plan C Task 9)
     expect(JSON.parse(String(init.body))).toEqual(payload);
   });
 
-  it('getSubmission — GET /assignment-submissions/:id', async () => {
-    const sub = { id: 'sub_1', status: 'draft' };
+  it('getSubmission — GET /assignment-submissions/:id (carries antivirusStatus)', async () => {
+    const sub = { id: 'sub_1', status: 'draft', fileId: 'file_1', antivirusStatus: 'infected' };
     fetchMock.mockResolvedValueOnce(new Response(envelope(sub), { status: 200 }));
     const result = await api.getSubmission(session, 'sub_1');
     expect(result.id).toBe('sub_1');
+    expect(result.antivirusStatus).toBe('infected');
     const [u, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(new URL(u).pathname).toMatch(/\/assignment-submissions\/sub_1$/);
     expect(init.method).toBe('GET');

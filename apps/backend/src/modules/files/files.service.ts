@@ -228,6 +228,25 @@ export class FilesService {
     return verdict;
   }
 
+  /** Batch-resolves antivirus status for a set of file ids (tenant-scoped). Empty input → no query. */
+  async getAntivirusStatuses(tenantId: string, fileIds: string[]): Promise<Map<string, string>> {
+    const result = new Map<string, string>();
+    if (fileIds.length === 0) return result;
+    const rows = await this.db.query<{ id: string; antivirus_status: string }>(
+      `select id, antivirus_status from storage.files
+       where tenant_id = $1 and id = any($2) and deleted_at is null`,
+      [tenantId, fileIds]
+    );
+    for (const row of rows) result.set(row.id, row.antivirus_status);
+    return result;
+  }
+
+  /** Convenience single-file lookup over getAntivirusStatuses. Returns null when unknown. */
+  async getAntivirusStatus(tenantId: string, fileId: string): Promise<string | null> {
+    const map = await this.getAntivirusStatuses(tenantId, [fileId]);
+    return map.get(fileId) ?? null;
+  }
+
   private uploadId(): string {
     return Math.random().toString(36).slice(2, 12);
   }

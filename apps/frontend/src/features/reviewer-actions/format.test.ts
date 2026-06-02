@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatQueueKind, formatReviewStatus } from './format';
+import { formatAntivirusStatus, formatQueueKind, formatReviewStatus } from './format';
 
 describe('reviewer-actions format', () => {
   it('maps RU review status labels', () => {
@@ -12,5 +12,14 @@ describe('reviewer-actions format', () => {
   it('maps queue kind to RU labels', () => {
     expect(formatQueueKind('attempt')).toBe('Тест (эссе)');
     expect(formatQueueKind('submission')).toBe('Практическая работа');
+  });
+});
+
+describe('formatAntivirusStatus', () => {
+  it('maps each status to a Russian label', () => {
+    expect(formatAntivirusStatus('pending')).toBe('файл на проверке');
+    expect(formatAntivirusStatus('infected')).toBe('файл заблокирован (заражён)');
+    expect(formatAntivirusStatus('error')).toBe('ошибка проверки файла');
+    expect(formatAntivirusStatus('clean')).toBe('файл проверен');
   });
 });

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatMaxScore, formatSubmissionStatus, isSubmissionEditable } from './format';
+import {
+  formatAntivirusStatusLearner,
+  formatMaxScore,
+  formatSubmissionStatus,
+  isSubmissionEditable
+} from './format';
 
 describe('practical-submissions format', () => {
   it('maps RU status labels', () => {
@@ -15,5 +20,14 @@ describe('practical-submissions format', () => {
   });
   it('formats max score', () => {
     expect(formatMaxScore(10)).toBe('Макс. балл: 10');
+  });
+});
+
+describe('formatAntivirusStatusLearner', () => {
+  it('describes scan status for learners', () => {
+    expect(formatAntivirusStatusLearner('pending')).toBe('Файл проверяется антивирусом…');
+    expect(formatAntivirusStatusLearner('clean')).toBe('Файл проверен');
+    expect(formatAntivirusStatusLearner('infected')).toBe('Файл заблокирован: обнаружена угроза');
+    expect(formatAntivirusStatusLearner('error')).toBe('Не удалось проверить файл');
   });
 });

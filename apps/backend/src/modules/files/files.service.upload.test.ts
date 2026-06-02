@@ -165,3 +165,39 @@ describe('FilesService.scanFile', () => {
     });
   });
 });
+
+describe('FilesService.getAntivirusStatuses', () => {
+  it('returns a fileId→status map for the tenant', async () => {
+    const { service, db } = makeFilesService();
+    (db.query as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      { id: 'file_a', antivirus_status: 'clean' },
+      { id: 'file_b', antivirus_status: 'infected' }
+    ]);
+    const map = await service.getAntivirusStatuses('t1', ['file_a', 'file_b']);
+    expect(map.get('file_a')).toBe('clean');
+    expect(map.get('file_b')).toBe('infected');
+  });
+
+  it('returns an empty map when given no ids (no query)', async () => {
+    const { service, db } = makeFilesService();
+    const map = await service.getAntivirusStatuses('t1', []);
+    expect(map.size).toBe(0);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+});
+
+describe('FilesService.getAntivirusStatus', () => {
+  it('resolves a single file status via the batch lookup', async () => {
+    const { service, db } = makeFilesService();
+    (db.query as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      { id: 'file_a', antivirus_status: 'clean' }
+    ]);
+    expect(await service.getAntivirusStatus('t1', 'file_a')).toBe('clean');
+  });
+
+  it('returns null when the file is unknown', async () => {
+    const { service, db } = makeFilesService();
+    (db.query as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+    expect(await service.getAntivirusStatus('t1', 'missing')).toBeNull();
+  });
+});

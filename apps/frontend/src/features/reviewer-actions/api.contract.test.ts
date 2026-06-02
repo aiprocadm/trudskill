@@ -62,6 +62,32 @@ describe('reviewerActionsApi envelope compatibility (Phase 3 Plan C Task 11)', (
     expect(init.method).toBe('GET');
   });
 
+  it('queue — submission items carry antivirusStatus + fileId through the envelope', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        envelope({
+          pendingAttempts: [],
+          pendingSubmissions: [
+            {
+              kind: 'submission',
+              id: 'sub_1',
+              tenantId: 'tenant_demo',
+              learnerId: 'l1',
+              assignmentId: 'a1',
+              submittedAt: '2026-05-31T00:00:00.000Z',
+              fileId: 'file_1',
+              antivirusStatus: 'infected'
+            }
+          ]
+        }),
+        { status: 200 }
+      )
+    );
+    const result = await api.queue(session);
+    expect(result.pendingSubmissions[0]?.antivirusStatus).toBe('infected');
+    expect(result.pendingSubmissions[0]?.fileId).toBe('file_1');
+  });
+
   it('takeIntoReview — POST /assignment-reviews with payload', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
