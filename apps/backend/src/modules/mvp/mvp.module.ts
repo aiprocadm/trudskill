@@ -1,5 +1,8 @@
 import { Module, Scope } from '@nestjs/common';
 
+import { EisotTestingRegistryController } from './eisot-testing-registry/eisot-testing-registry.controller.js';
+import { EisotTestingRegistryService } from './eisot-testing-registry/eisot-testing-registry.service.js';
+import { EisotTestingXlsxWriter } from './eisot-testing-registry/eisot-testing-xlsx.writer.js';
 import { FrdoRegistryXlsxWriter } from './frdo-registry/frdo-registry-xlsx.writer.js';
 import { FrdoRegistryController } from './frdo-registry/frdo-registry.controller.js';
 import { FrdoRegistryService } from './frdo-registry/frdo-registry.service.js';
@@ -31,7 +34,8 @@ import { OrgModule } from '../org/org.module.js';
     MvpController,
     MvpInternalWorkerController,
     OtRegistryController,
-    FrdoRegistryController
+    FrdoRegistryController,
+    EisotTestingRegistryController
   ],
   providers: [
     MvpBulkEnqueueService,
@@ -44,6 +48,12 @@ import { OrgModule } from '../org/org.module.js';
     { provide: OtRegistryService, scope: Scope.REQUEST, useClass: OtRegistryService },
     FrdoRegistryXlsxWriter,
     { provide: FrdoRegistryService, scope: Scope.REQUEST, useClass: FrdoRegistryService },
+    EisotTestingXlsxWriter,
+    {
+      provide: EisotTestingRegistryService,
+      scope: Scope.REQUEST,
+      useClass: EisotTestingRegistryService
+    },
     { provide: LearnerPdfCardService, scope: Scope.REQUEST, useClass: LearnerPdfCardService },
     {
       provide: LearnersBulkImportService,
