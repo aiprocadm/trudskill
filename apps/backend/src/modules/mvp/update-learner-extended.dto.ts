@@ -67,6 +67,12 @@ export class UpdateLearnerExtendedRequest {
   learnerNo?: string | null;
 
   @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(10) // ISO YYYY-MM-DD
+  dateOfBirth?: string | null;
+
+  @IsOptional()
   @IsString()
   @IsIn(['active', 'archived'])
   status?: string;

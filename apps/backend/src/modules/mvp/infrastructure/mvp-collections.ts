@@ -32,7 +32,9 @@ export const MVP_COLLECTIONS = [
   'courseDocumentSets',
   'preExamTokens',
   'otRegistryBatches',
-  'otRegistryRecords'
+  'otRegistryRecords',
+  'frdoRegistryBatches',
+  'frdoRegistryRecords'
 ] as const;
 
 export type MvpCollection = (typeof MVP_COLLECTIONS)[number];

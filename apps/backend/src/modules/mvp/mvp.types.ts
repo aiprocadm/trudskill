@@ -41,6 +41,8 @@ export interface Learner extends BaseEntity {
   snils?: string;
   /** Pillar A Plan C §5.11 — должность ученика (для протоколов, удостоверений). */
   position?: string;
+  /** Wave 2 ФРДО — дата рождения слушателя (ISO YYYY-MM-DD); нужна для выгрузки в ФИС ФРДО. */
+  dateOfBirth?: string;
 }
 
 export interface Direction extends BaseEntity {
@@ -629,6 +631,76 @@ export interface OtRegistryImportOutcome {
   matched: number;
   unmatched: number;
   unmatchedRows: OtRegistryResponseRow[];
+}
+
+// === ФИС ФРДО (Рособрнадзор) — выгрузка по выданным документам ===
+
+export interface FrdoDocumentKind {
+  code: string; // 'PK' | 'PP'
+  templateType: 'certificate' | 'diploma';
+  frdoKind: string;
+  educationLevel: string; // 'ДПО'
+  exactName: string;
+  isActive: boolean;
+}
+
+export interface FrdoRegistryRow {
+  documentId: string;
+  enrollmentId: string;
+  learnerId: string;
+  documentKindCode: string; // 'PK' | 'PP'
+  documentKind: string; // exactName
+  registrationNumber: string; // = GeneratedDocument.documentNumber
+  issueDate: string; // ДД.ММ.ГГГГ
+  lastName: string;
+  firstName: string;
+  middleName: string;
+  fullName: string; // для метки ошибок
+  snils: string;
+  dateOfBirth: string; // ДД.ММ.ГГГГ | ''
+  programName: string;
+  academicHours: string; // число строкой | ''
+  qualification: string; // '' (provisional)
+}
+
+export interface FrdoRegistryRowError {
+  documentId: string;
+  learnerId: string;
+  fullName: string;
+  field: string;
+  message: string;
+}
+
+export type FrdoRegistryBatchStatus = 'generated' | 'partial' | 'failed';
+
+export interface FrdoRegistryBatch extends BaseEntity {
+  sourceFilterJson: Record<string, unknown>;
+  fileId?: string;
+  totalCandidates: number;
+  exportedRows: number;
+  failedRows: number;
+  batchStatus: FrdoRegistryBatchStatus;
+  generatedBy: string;
+}
+
+export interface FrdoRegistryRecord extends BaseEntity {
+  batchId: string;
+  documentId: string;
+  enrollmentId: string;
+  learnerId: string;
+  documentKindCode: string;
+  registrationNumber: string;
+  snils: string;
+}
+
+export interface FrdoRegistryExportOutcome {
+  batchId: string;
+  fileId?: string;
+  total: number;
+  exported: number;
+  failed: number;
+  rows: FrdoRegistryRow[];
+  errors: FrdoRegistryRowError[];
 }
 
 /** Запись в пакете выходных документов курса (§5.3). PUT-семантика: replace all on save. */

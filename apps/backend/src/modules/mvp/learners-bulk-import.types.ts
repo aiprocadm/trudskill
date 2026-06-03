@@ -20,6 +20,8 @@ export interface BulkImportRow {
   snils?: string;
   /** Должность ученика (для протоколов, удостоверений). Опционально. */
   position?: string;
+  /** Дата рождения (ISO YYYY-MM-DD); нужна для выгрузки в ФИС ФРДО. Опционально. */
+  dateOfBirth?: string;
 }
 
 /**
