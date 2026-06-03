@@ -703,6 +703,62 @@ export interface FrdoRegistryExportOutcome {
   errors: FrdoRegistryRowError[];
 }
 
+// === ЕИСОТ «лица на тестирование» (Минтруд / ЛКОТ) — ростер по фильтру ===
+
+export interface EisotTestingRow {
+  enrollmentId: string;
+  learnerId: string;
+  lastName: string;
+  firstName: string;
+  middleName: string;
+  fullName: string; // для метки ошибок
+  snils: string;
+  dateOfBirth: string; // ДД.ММ.ГГГГ | ''
+  position: string;
+  employerName: string;
+  employerInn: string;
+  programName: string;
+  referralDate: string; // ДД.ММ.ГГГГ | '' (enrolledAt)
+}
+
+export interface EisotTestingRowError {
+  enrollmentId: string;
+  learnerId: string;
+  fullName: string;
+  field: string;
+  message: string;
+}
+
+export type EisotTestingBatchStatus = 'generated' | 'partial' | 'failed';
+
+export interface EisotTestingBatch extends BaseEntity {
+  sourceFilterJson: Record<string, unknown>;
+  fileId?: string;
+  totalCandidates: number;
+  exportedRows: number;
+  failedRows: number;
+  batchStatus: EisotTestingBatchStatus;
+  generatedBy: string;
+}
+
+export interface EisotTestingRecord extends BaseEntity {
+  batchId: string;
+  enrollmentId: string;
+  learnerId: string;
+  snils: string;
+  employerInn: string;
+}
+
+export interface EisotTestingExportOutcome {
+  batchId: string;
+  fileId?: string;
+  total: number;
+  exported: number;
+  failed: number;
+  rows: EisotTestingRow[];
+  errors: EisotTestingRowError[];
+}
+
 /** Запись в пакете выходных документов курса (§5.3). PUT-семантика: replace all on save. */
 export interface CourseDocumentSetEntry {
   id: string;
