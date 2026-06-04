@@ -17,6 +17,7 @@ describe('SmtpMailer', () => {
       templateKey: 'enrollment_invite'
     });
 
+    expect(createTransport).toHaveBeenCalledWith(config);
     expect(result.status).toBe('sent');
     expect(result.providerMessageId).toBe('abc-123');
     expect(sendMail).toHaveBeenCalledWith({
@@ -39,6 +40,7 @@ describe('SmtpMailer', () => {
       templateKey: 'course_completed'
     });
 
+    expect(createTransport).toHaveBeenCalledWith(config);
     expect(result.status).toBe('failed');
     expect(result.error).toContain('connection refused');
   });

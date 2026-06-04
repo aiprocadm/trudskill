@@ -166,6 +166,24 @@ export const backendEnvSchema = z
       });
     }
 
+    if (env.NOTIFICATIONS_EMAIL_ENABLED === true && !env.SMTP_HOST) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SMTP_HOST'],
+        message: 'SMTP_HOST is required when NOTIFICATIONS_EMAIL_ENABLED=true'
+      });
+    }
+
+    const smtpUserSet = Boolean(env.SMTP_USER);
+    const smtpPasswordSet = Boolean(env.SMTP_PASSWORD);
+    if (smtpUserSet !== smtpPasswordSet) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SMTP_PASSWORD'],
+        message: 'SMTP_USER and SMTP_PASSWORD must both be set or both be omitted'
+      });
+    }
+
     if (!isStrictProfile) {
       return;
     }
