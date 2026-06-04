@@ -12,7 +12,7 @@
 
 **Provisional swap point (1):** `COLUMNS` in `eisot-testing-xlsx.writer.ts`. Marked `PROVISIONAL` in code; swap = one const.
 
-**Status:** 📝 PLANNED — not yet implemented. Branch `feat/2026-06-03-eisot-testing-registry-export` (spec committed). **No migration** (all fields already in `main`: `learner.snils`/`position`/`dateOfBirth`, `counterparty.name`/`inn`; reuses `regulatory.export.read/write` from migration `0045`).
+**Status:** ✅ IMPLEMENTED 2026-06-03 on branch `feat/2026-06-03-eisot-testing-registry-export`. All 8 tasks done + green: backend cluster **41** (`eisot-testing-registry/*` rows/preflight/xlsx/service + `mvp.http.integration`) + dto-validation 3, frontend `gov-export/api.contract` 5 + e2e 4, `tsc` **8/8**, ESLint clean. **No migration** (all fields already in `main`: `learner.snils`/`position`/`dateOfBirth`, `counterparty.name`/`inn`; reuses `regulatory.export.read/write` from `0045`). PR pending review. Handoff §5.104.
 
 ---
 
