@@ -41,6 +41,17 @@ export const backendEnvSchema = z
       .default(false),
     CLAMAV_HOST: z.string().min(1).default('clamav'),
     CLAMAV_PORT: z.coerce.number().int().positive().default(3310),
+    // Email notifications (Phase 5). Custom boolean parse — NOT z.coerce.boolean, which maps
+    // the string "false" → true. NoopMailer is the safe default (no SMTP needed).
+    NOTIFICATIONS_EMAIL_ENABLED: z
+      .union([z.boolean(), z.enum(['true', 'false'])])
+      .transform((v) => v === true || v === 'true')
+      .default(false),
+    SMTP_HOST: z.string().min(1).optional(),
+    SMTP_PORT: z.coerce.number().int().positive().default(587),
+    SMTP_USER: z.string().min(1).optional(),
+    SMTP_PASSWORD: z.string().min(1).optional(),
+    SMTP_FROM: z.string().min(1).default('no-reply@cdoprof.local'),
     SECRETS_PROVIDER: secretsProviderSchema.default('env'),
     AUTH_JWT_SECRET: z.string().min(10).optional(),
     SESSION_SECRET: z.string().min(10).optional(),
