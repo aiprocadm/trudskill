@@ -4,6 +4,7 @@ import { ChatController } from './chat.controller.js';
 import { CHAT_REPOSITORY } from './chat.repository.js';
 import { ChatService } from './chat.service.js';
 import { EMAIL_DELIVERIES_REPOSITORY } from './email-deliveries.repository.js';
+import { EmailNotificationsController } from './email-notifications.controller.js';
 import { EMAIL_TEMPLATES_REPOSITORY } from './email-templates.repository.js';
 import { EnrollmentEmailListener } from './enrollment-email.listener.js';
 import { InMemoryChatState } from './in-memory-chat.state.js';
@@ -29,7 +30,12 @@ import { SmtpMailer } from '../../infrastructure/mailer/smtp-mailer.service.js';
 
 @Module({
   imports: [InfrastructureModule],
-  controllers: [NotificationsController, ChatController, WebinarsController],
+  controllers: [
+    NotificationsController,
+    ChatController,
+    WebinarsController,
+    EmailNotificationsController
+  ],
   providers: [
     { provide: NOTIFICATIONS_STATE, useClass: InMemoryNotificationsState },
     PostgresChatRepository,

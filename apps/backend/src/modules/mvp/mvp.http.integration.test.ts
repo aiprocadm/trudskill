@@ -87,6 +87,7 @@ describe('MVP HTTP integration (permission boundaries)', () => {
       Module,
       Patch,
       Post,
+      Put,
       UseGuards,
       ValidationPipe
     } = nestjsCommon;
@@ -293,6 +294,26 @@ describe('MVP HTTP integration (permission boundaries)', () => {
       @RequirePermissions('regulatory.export.read')
       listOtRegistryExports(@CurrentContext() context: { tenantId?: string }) {
         return { items: [], tenantId: context.tenantId };
+      }
+
+      // Phase 5 Plan 5A — notifications permission boundary
+      @Get('email-deliveries')
+      @RequirePermissions('notifications.read')
+      listEmailDeliveries(@CurrentContext() context: { tenantId?: string }) {
+        return { items: [], total: 0, tenantId: context.tenantId };
+      }
+
+      @Put('email-templates/:key')
+      @RequirePermissions('notifications.write')
+      upsertEmailTemplate(
+        @CurrentContext() context: { tenantId?: string; userId?: string },
+        @Body() body: { subject: string; body: string }
+      ) {
+        return {
+          templateKey: 'enrollment_invite',
+          updatedBy: context.userId,
+          subject: body.subject
+        };
       }
     }
 
@@ -906,6 +927,116 @@ describe('MVP HTTP integration (permission boundaries)', () => {
       expect(Array.isArray(payload.data.items)).toBe(true);
       expect(payload.data.tenantId).toBe('tenant_demo');
       expect(payload.meta.requestId).toBeTruthy();
+    });
+  });
+
+  // === Phase 5 Plan 5A — notifications permission boundary ===
+
+  describe('notifications permission boundary', () => {
+    beforeEach(() => {
+      iamServiceMock.resolvePermissions.mockReset();
+      iamServiceMock.resolvePermissions.mockResolvedValue(['courses.read']);
+    });
+
+    it('returns permission_denied for GET /email-deliveries without notifications.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['courses.read']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/email-deliveries`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as {
+        error: { code: string };
+        meta: { requestId: string };
+      };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('returns success for GET /email-deliveries with notifications.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['notifications.read']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/email-deliveries`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as {
+        data: { tenantId: string };
+        meta: { requestId: string };
+      };
+      expect(payload.data.tenantId).toBe('tenant_demo');
+    });
+
+    it('returns permission_denied for PUT /email-templates/:key without notifications.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['notifications.read']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/email-templates/enrollment_invite`, {
+        method: 'PUT',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ subject: 'S', body: 'B' })
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('returns success for PUT /email-templates/:key with notifications.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['notifications.write']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/email-templates/enrollment_invite`, {
+        method: 'PUT',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ subject: 'Custom', body: 'Body' })
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as {
+        data: { subject: string };
+        meta: { requestId: string };
+      };
+      expect(payload.data.subject).toBe('Custom');
     });
   });
 });
