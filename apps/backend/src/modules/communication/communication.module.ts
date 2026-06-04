@@ -5,6 +5,7 @@ import { CHAT_REPOSITORY } from './chat.repository.js';
 import { ChatService } from './chat.service.js';
 import { EMAIL_DELIVERIES_REPOSITORY } from './email-deliveries.repository.js';
 import { EMAIL_TEMPLATES_REPOSITORY } from './email-templates.repository.js';
+import { EnrollmentEmailListener } from './enrollment-email.listener.js';
 import { InMemoryChatState } from './in-memory-chat.state.js';
 import { InMemoryEmailDeliveriesState } from './in-memory-email-deliveries.state.js';
 import { InMemoryEmailTemplatesState } from './in-memory-email-templates.state.js';
@@ -59,7 +60,8 @@ import { SmtpMailer } from '../../infrastructure/mailer/smtp-mailer.service.js';
     { provide: EMAIL_DELIVERIES_REPOSITORY, useClass: PostgresEmailDeliveriesRepository },
     InMemoryEmailTemplatesState,
     InMemoryEmailDeliveriesState,
-    NotificationDispatcher
+    NotificationDispatcher,
+    EnrollmentEmailListener
   ],
   exports: [NotificationsService, ChatService, WebinarsService, NotificationDispatcher]
 })

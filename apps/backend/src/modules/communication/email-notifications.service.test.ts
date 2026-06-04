@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { EMAIL_TEMPLATE_DEFAULTS, renderTemplate } from './email-templates.js';
+import { EnrollmentEmailListener } from './enrollment-email.listener.js';
 import { InMemoryEmailDeliveriesState } from './in-memory-email-deliveries.state.js';
 import { InMemoryEmailTemplatesState } from './in-memory-email-templates.state.js';
 import { NotificationDispatcher } from './notification-dispatcher.service.js';
@@ -119,5 +120,50 @@ describe('NotificationDispatcher', () => {
       variables: { courseTitle: 'ОТ', learnerName: 'Иванов' }
     });
     expect((await deliveries.list('t1', {})).total).toBe(2);
+  });
+});
+
+describe('EnrollmentEmailListener', () => {
+  it('dispatches enrollment_invite on the invited event', async () => {
+    const { dispatcher, deliveries } = makeDispatcher();
+    const listener = new EnrollmentEmailListener(dispatcher);
+    await listener.handleInvited({
+      tenantId: 't1',
+      enrollmentId: 'enr1',
+      learnerId: 'l1',
+      groupId: 'g1',
+      recipient: { email: 'a@example.com', name: 'Иванов' }
+    });
+    const list = await deliveries.list('t1', {});
+    expect(list.total).toBe(1);
+    expect(list.items[0]!.templateKey).toBe('enrollment_invite');
+    expect(list.items[0]!.relatedEntityId).toBe('enr1');
+  });
+
+  it('does nothing when the payload has no recipient e-mail', async () => {
+    const { dispatcher, deliveries } = makeDispatcher();
+    const listener = new EnrollmentEmailListener(dispatcher);
+    await listener.handleInvited({
+      tenantId: 't1',
+      enrollmentId: 'enr1',
+      learnerId: 'l1',
+      groupId: 'g1'
+    });
+    expect((await deliveries.list('t1', {})).total).toBe(0);
+  });
+
+  it('dispatches course_completed on the completed event', async () => {
+    const { dispatcher, deliveries } = makeDispatcher();
+    const listener = new EnrollmentEmailListener(dispatcher);
+    await listener.handleCompleted({
+      tenantId: 't1',
+      enrollmentId: 'enr1',
+      learnerId: 'l1',
+      groupId: 'g1',
+      groupCourseIds: [],
+      recipient: { email: 'a@example.com', name: 'Иванов' }
+    });
+    const list = await deliveries.list('t1', {});
+    expect(list.items[0]!.templateKey).toBe('course_completed');
   });
 });
