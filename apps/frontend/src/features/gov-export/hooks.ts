@@ -6,7 +6,7 @@ import { useEffect } from 'react';
 import { govExportApi } from './api';
 import { useAuth } from '../auth/context';
 
-import type { FrdoRegistryBatch, OtRegistryBatch } from './types';
+import type { EisotTestingBatch, FrdoRegistryBatch, OtRegistryBatch } from './types';
 
 /**
  * Fetch the OT-registry training programs classifier (Минтруд/ЕИСОТ).
@@ -86,6 +86,36 @@ export const useFrdoRegistryBatches = (live = false) => {
 
   return {
     data: query.data ?? ([] as FrdoRegistryBatch[]),
+    loading: query.isLoading,
+    error: query.error instanceof Error ? query.error.message : null,
+    refetch: async () => {
+      await query.refetch();
+    }
+  };
+};
+
+/**
+ * Fetch the list of ЕИСОТ «лица на тестирование» export batches. Mirrors useFrdoRegistryBatches.
+ */
+export const useEisotTestingBatches = (live = false) => {
+  const { session } = useAuth();
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ['govExport', 'eisotTestingBatches'],
+    enabled: Boolean(session),
+    queryFn: (): Promise<EisotTestingBatch[]> => govExportApi.listEisotTestingBatches(session!),
+    refetchInterval: live ? 15_000 : undefined
+  });
+
+  useEffect(() => {
+    if (!session) {
+      void queryClient.invalidateQueries({ queryKey: ['govExport'] });
+    }
+  }, [queryClient, session]);
+
+  return {
+    data: query.data ?? ([] as EisotTestingBatch[]),
     loading: query.isLoading,
     error: query.error instanceof Error ? query.error.message : null,
     refetch: async () => {

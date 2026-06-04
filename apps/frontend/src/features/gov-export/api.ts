@@ -1,6 +1,8 @@
 import { apiRequest } from '../../lib/api/client';
 
 import type {
+  EisotTestingBatch,
+  EisotTestingExportOutcome,
   FrdoRegistryBatch,
   FrdoRegistryExportOutcome,
   OtRegistryBatch,
@@ -75,5 +77,21 @@ export const govExportApi = {
     apiRequest<FrdoRegistryBatch[]>('/frdo-registry/exports', withAuth(session)),
 
   getFrdoBatchFileUrl: (session: UserSession, id: string): Promise<{ url: string }> =>
-    apiRequest<{ url: string }>(`/frdo-registry/exports/${id}/file`, withAuth(session))
+    apiRequest<{ url: string }>(`/frdo-registry/exports/${id}/file`, withAuth(session)),
+
+  createEisotTestingExport: (
+    session: UserSession,
+    body: { from?: string; to?: string; groupId?: string; clientId?: string }
+  ): Promise<EisotTestingExportOutcome> =>
+    apiRequest<EisotTestingExportOutcome>('/eisot-testing-registry/exports', {
+      method: 'POST',
+      body,
+      ...withAuth(session)
+    }),
+
+  listEisotTestingBatches: (session: UserSession): Promise<EisotTestingBatch[]> =>
+    apiRequest<EisotTestingBatch[]>('/eisot-testing-registry/exports', withAuth(session)),
+
+  getEisotTestingBatchFileUrl: (session: UserSession, id: string): Promise<{ url: string }> =>
+    apiRequest<{ url: string }>(`/eisot-testing-registry/exports/${id}/file`, withAuth(session))
 };

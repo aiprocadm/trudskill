@@ -143,4 +143,20 @@ describe('govExportApi envelope compatibility', () => {
     expect(calledUrl).toContain('/frdo-registry/exports');
     expect(init.method).toBe('POST');
   });
+
+  it('createEisotTestingExport posts to /eisot-testing-registry/exports and unwraps batchId', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        envelope({ batchId: 'etb_1', total: 1, exported: 1, failed: 0, rows: [], errors: [] }),
+        { status: 201 }
+      )
+    );
+
+    const result = await govExportApi.createEisotTestingExport(session, { from: '2026-01-01' });
+
+    expect(result.batchId).toBe('etb_1');
+    const [calledUrl, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(calledUrl).toContain('/eisot-testing-registry/exports');
+    expect(init.method).toBe('POST');
+  });
 });

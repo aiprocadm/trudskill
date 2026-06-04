@@ -34,7 +34,9 @@ export const MVP_COLLECTIONS = [
   'otRegistryBatches',
   'otRegistryRecords',
   'frdoRegistryBatches',
-  'frdoRegistryRecords'
+  'frdoRegistryRecords',
+  'eisotTestingBatches',
+  'eisotTestingRecords'
 ] as const;
 
 export type MvpCollection = (typeof MVP_COLLECTIONS)[number];
