@@ -25,6 +25,15 @@ describe('learnerRecipient', () => {
     });
   });
 
+  it('includes middleName (patronymic) when present', () => {
+    expect(
+      learnerRecipient(learner({ email: 'ivan@example.com', middleName: 'Иванович' }))
+    ).toEqual({
+      email: 'ivan@example.com',
+      name: 'Иванов Иван Иванович'
+    });
+  });
+
   it('returns undefined when the learner has no e-mail', () => {
     expect(learnerRecipient(learner({ email: undefined }))).toBeUndefined();
   });

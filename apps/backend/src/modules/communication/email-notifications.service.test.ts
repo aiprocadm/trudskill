@@ -165,5 +165,6 @@ describe('EnrollmentEmailListener', () => {
     });
     const list = await deliveries.list('t1', {});
     expect(list.items[0]!.templateKey).toBe('course_completed');
+    expect(list.items[0]!.relatedEntityId).toBe('enr1');
   });
 });

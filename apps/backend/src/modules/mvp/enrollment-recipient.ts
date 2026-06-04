@@ -10,5 +10,6 @@ export function learnerRecipient(learner: Learner | undefined): ResolvedRecipien
   if (!learner?.email) {
     return undefined;
   }
-  return { email: learner.email, name: `${learner.lastName} ${learner.firstName}`.trim() };
+  const name = [learner.lastName, learner.firstName, learner.middleName].filter(Boolean).join(' ');
+  return { email: learner.email, name };
 }

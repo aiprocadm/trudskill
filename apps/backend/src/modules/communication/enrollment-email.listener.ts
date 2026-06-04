@@ -15,12 +15,12 @@ export class EnrollmentEmailListener {
   constructor(private readonly dispatcher: NotificationDispatcher) {}
 
   @OnEvent(ENROLLMENT_INVITED_EVENT, { async: true })
-  handleInvited(payload: EnrollmentInvitedPayload): Promise<void> {
+  async handleInvited(payload: EnrollmentInvitedPayload): Promise<void> {
     return this.dispatch(payload, 'enrollment_invite');
   }
 
   @OnEvent(ENROLLMENT_COMPLETED_EVENT, { async: true })
-  handleCompleted(payload: EnrollmentCompletedPayload): Promise<void> {
+  async handleCompleted(payload: EnrollmentCompletedPayload): Promise<void> {
     return this.dispatch(payload, 'course_completed');
   }
 
