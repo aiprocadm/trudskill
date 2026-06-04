@@ -1,6 +1,8 @@
 import { NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { describe, expect, it, vi } from 'vitest';
 
+import { DOCUMENT_REVOKED_EVENT } from './document-revoked.event.js';
 import { DocumentsService } from './documents.service.js';
 import { InMemoryDocumentsState } from './in-memory-documents.state.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -1172,6 +1174,46 @@ describe('DocumentsService.revokeDocument (Plan C §5.9)', () => {
     await service.revokeDocument('t1', 'admin_1', 'gdoc_revtest', 'reason', ctx);
     const actions = spy.mock.calls.map((c) => c[0].action);
     expect(actions).toContain('documents.revoked');
+  });
+
+  it('emits documents.revoked when a document is revoked', async () => {
+    const state = new InMemoryDocumentsState();
+    const events = new EventEmitter2();
+    const service = new DocumentsService(
+      state,
+      new AuditService(),
+      new RealtimeEventsService(),
+      undefined,
+      events
+    );
+    state.generatedDocuments.push({
+      id: 'gdoc_revtest',
+      tenantId: 't1',
+      templateId: 'tpl',
+      templateVersionId: 'tplv',
+      documentType: 'certificate',
+      name: 'Doc',
+      sourceEntityType: 'enrollment',
+      sourceEntityId: 'enr',
+      fileId: 'f',
+      status: 'generated',
+      documentNumber: 'N-1',
+      documentDate: '2026-05-26',
+      isFinal: false,
+      generatedAt: '2026-05-26T00:00:00.000Z',
+      qrToken: 'rev_qrtoken1234567890ab'
+    });
+    const captured: Array<{ reason: string; documentId: string; sourceEntityId?: string }> = [];
+    events.on(DOCUMENT_REVOKED_EVENT, (p) =>
+      captured.push(p as { reason: string; documentId: string; sourceEntityId?: string })
+    );
+
+    await service.revokeDocument('t1', 'admin_1', 'gdoc_revtest', 'Ошибка в ФИО', ctx);
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0]!.reason).toBe('Ошибка в ФИО');
+    expect(captured[0]!.documentId).toBe('gdoc_revtest');
+    expect(captured[0]!.sourceEntityId).toBe('enr');
   });
 });
 
