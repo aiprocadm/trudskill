@@ -303,6 +303,12 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         return { items: [], total: 0, tenantId: context.tenantId };
       }
 
+      @Get('email-templates')
+      @RequirePermissions('notifications.read')
+      listEmailTemplates(@CurrentContext() context: { tenantId?: string }) {
+        return { items: [], tenantId: context.tenantId };
+      }
+
       @Put('email-templates/:key')
       @RequirePermissions('notifications.write')
       upsertEmailTemplate(
@@ -939,7 +945,6 @@ describe('MVP HTTP integration (permission boundaries)', () => {
     });
 
     it('returns permission_denied for GET /email-deliveries without notifications.read', async () => {
-      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['courses.read']);
       const token = issueSignedAccessToken(
         {
           sub: 'u_admin',
@@ -974,6 +979,51 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         60
       );
       const response = await fetch(`${apiBaseUrl}/email-deliveries`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as {
+        data: { tenantId: string };
+        meta: { requestId: string };
+      };
+      expect(payload.data.tenantId).toBe('tenant_demo');
+    });
+
+    it('returns permission_denied for GET /email-templates without notifications.read', async () => {
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/email-templates`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as {
+        error: { code: string };
+        meta: { requestId: string };
+      };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('returns success for GET /email-templates with notifications.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['notifications.read']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/email-templates`, {
         headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
       });
       expect(response.status).toBe(200);
