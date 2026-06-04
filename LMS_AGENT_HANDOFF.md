@@ -1277,6 +1277,58 @@
 - **Единственный остаток** — ops: поднять clamd + `ANTIVIRUS_ENABLED=true` (spec §9). В коде V1.1 AV-гейт закрыт полностью; «остаток №1» из `PLANS_STATUS.md` закрывается.
 - Коммиты (Conventional, по задаче): `feat(backend)` proactive scan → `feat(backend)` antivirusStatus read DTOs → `test(backend)` HTTP gate boundary → `feat(frontend)` DTO types+contract → `feat(frontend)` reviewer gate → `feat(frontend)` learner status → `docs(handoff)` (§5.102 + README §2/§7 + plan checkboxes). Merge `origin/main` (#223) разрешён в README §2 + handoff (§5.101 — ОТ, §5.102 — AV).
 
+### 5.103 Phase 5 — Plan 5A: notification foundation (email engine + templates + delivery journal + enrollment emails + documents.revoked event + admin endpoints)
+
+- Контекст: **Plan 5A** Phase 5 (notifications + recertifications). Дизайн-спека `docs/superpowers/specs/2026-06-04-phase-5-notifications-recertifications-design.md`, план `docs/superpowers/plans/2026-06-04-phase-5-plan-a-notification-foundation.md` (9 задач TDD). Ветка `feat/2026-06-04-phase-5-notifications-recertifications`. Поток: subagent-driven-development + TDD пошагово (RED→GREEN→lint→typecheck→commit на каждую задачу).
+- **Summary:** Реализован email-движок как фундамент Phase 5. Провайдер-агностичный `MailerService` (интерфейс + `MAILER` Symbol + `NoopMailer` по умолчанию + `SmtpMailer` с injectable `createTransport` для тестируемости; env `NOTIFICATIONS_EMAIL_ENABLED` переключает на SMTP). Два репозитория в модуле `communication`: `email_templates` (code defaults + per-tenant DB-override; `EMAIL_TEMPLATE_DEFAULTS` + `renderTemplate`) и `email_deliveries` (append-only журнал каждой попытки отправки). `NotificationDispatcher` оркестрирует: template override → render → send → record. `EnrollmentEmailListener` (@OnEvent async) обрабатывает `learning.enrollment_invited` (новое событие) и `learning.enrollment_completed` (расширено полем `recipient`) — отправляет письма слушателю. `documents.revoked` событие эмитируется (listener отложен до 5B). Admin endpoints `GET /email-deliveries`, `GET /email-templates`, `PUT /email-templates/:key` (permissions `notifications.read`/`notifications.write`); permission-boundary тесты в `mvp.http.integration.test.ts` (per CLAUDE.md: extend, not new file).
+- **Файлы изменены:**
+  - `apps/backend/migrations/0047_communication_email_foundation.sql` (новый) — `communication.email_templates` + `communication.email_deliveries` + permissions `notifications.read/write` + role assignments
+  - `apps/backend/src/infrastructure/mailer/mailer.service.ts` (новый) — interface `MailerService` + `MAILER` token + `NoopMailer`
+  - `apps/backend/src/infrastructure/mailer/mailer.service.test.ts` (новый) — 1 тест
+  - `apps/backend/src/infrastructure/mailer/smtp-mailer.service.ts` (новый) — `SmtpMailer`
+  - `apps/backend/src/infrastructure/mailer/smtp-mailer.service.test.ts` (новый) — 2 теста
+  - `apps/backend/src/modules/communication/email-templates.ts` (новый) — `EmailTemplateKey`, `EMAIL_TEMPLATE_DEFAULTS`, `renderTemplate`
+  - `apps/backend/src/modules/communication/email-templates.repository.ts` (новый) — interface + token
+  - `apps/backend/src/modules/communication/in-memory-email-templates.state.ts` (новый)
+  - `apps/backend/src/modules/communication/postgres-email-templates.repository.ts` (новый)
+  - `apps/backend/src/modules/communication/email-deliveries.repository.ts` (новый) — interface + token
+  - `apps/backend/src/modules/communication/in-memory-email-deliveries.state.ts` (новый)
+  - `apps/backend/src/modules/communication/postgres-email-deliveries.repository.ts` (новый)
+  - `apps/backend/src/modules/communication/notification-dispatcher.service.ts` (новый)
+  - `apps/backend/src/modules/communication/enrollment-email.listener.ts` (новый)
+  - `apps/backend/src/modules/communication/upsert-email-template.dto.ts` (новый)
+  - `apps/backend/src/modules/communication/email-notifications.controller.ts` (новый)
+  - `apps/backend/src/modules/communication/email-notifications.service.test.ts` (новый) — 12 тестов
+  - `apps/backend/src/modules/communication/communication.module.ts` (изменён) — регистрация всех новых провайдеров + контроллер
+  - `apps/backend/src/modules/mvp/enrollment-invited.event.ts` (новый) — `ENROLLMENT_INVITED_EVENT` + payload
+  - `apps/backend/src/modules/mvp/enrollment-recipient.ts` (новый) — pure `learnerRecipient()` helper
+  - `apps/backend/src/modules/mvp/enrollment-recipient.test.ts` (новый) — 4 теста
+  - `apps/backend/src/modules/mvp/enrollment-completed.event.ts` (изменён) — опциональный `recipient` в payload
+  - `apps/backend/src/modules/mvp/mvp.service.ts` (изменён) — emit `enrollment_invited` в `createEnrollment`; `recipient` в `enrollment_completed` emit
+  - `apps/backend/src/modules/documents/document-revoked.event.ts` (новый) — `DOCUMENT_REVOKED_EVENT` + payload
+  - `apps/backend/src/modules/documents/documents.service.ts` (изменён) — optional `@Inject(EventEmitter2)` 4-й арг; emit `documents.revoked` в `revokeDocument`
+  - `apps/backend/src/modules/documents/documents.service.test.ts` (изменён) — новый тест emit; `EventEmitter2` передаётся как 4-й арг в одном describe-блоке
+  - `apps/backend/src/modules/mvp/mvp.http.integration.test.ts` (изменён) — `describe('notifications permission boundary', ...)` с 4 тестами; `Put` добавлен в деструктуризацию
+  - `apps/backend/src/env.schema.ts` (изменён) — `NOTIFICATIONS_EMAIL_ENABLED`, `SMTP_HOST/PORT/USER/PASSWORD/FROM`
+  - `.env.example` (изменён) — блок email notifications
+  - `apps/backend/package.json` (изменён) — `nodemailer` dep + `@types/nodemailer` devDep
+- **Статус тестов (Cyrillic-path isolated `--no-file-parallelism`):**
+  - `mailer.service.test.ts` — 1/1 PASS
+  - `smtp-mailer.service.test.ts` — 2/2 PASS
+  - `email-notifications.service.test.ts` — 12/12 PASS
+  - `enrollment-recipient.test.ts` — 4/4 PASS
+  - `documents.service.test.ts` — 45/45 PASS
+  - `mvp.http.integration.test.ts` — 30/30 PASS
+  - `pnpm typecheck` — 8/8 (backend cache miss = fresh); ESLint `apps/backend/src/infrastructure/mailer` + `apps/backend/src/modules/communication` — clean
+- **Отклонения от спеки/плана:**
+  1. `document_issued`-письмо сложено в `course_completed` — документ выдаётся при завершении, одно письмо на слушателя достаточно для MVP; отдельный issued-mail добавляется позже при необходимости.
+  2. `documents.revoked` email listener отложен до 5B — уведомление слушателя при отзыве требует enrollment→learner recipient resolver, который строит 5B для recertification. Событие уже эмитируется.
+  3. Permission-boundary тест добавлен в `mvp.http.integration.test.ts` (не новый файл) — per CLAUDE.md «extend that file rather than creating new ones for permission-only tests».
+  4. `EventEmitter2` добавлен как **optional** 4-й ctor-параметр `DocumentsService` (optional — чтобы ~20 существующих 3-арг `new DocumentsService(...)` в тестах компилировались без изменений).
+  5. Hardening задачи 2 (SMTP env guards, middleName в FIO) были добавлены по review — отражены в коде.
+  6. Migration 0047 объединяет DDL + permissions в одном файле (прецедент: `0030`).
+- **Следующий шаг:** Phase 5 Plan 5B — recertification cycle (validity + scheduler + recertification_drafts) — требует написания плана. Cross-link план: `docs/superpowers/plans/2026-06-04-phase-5-plan-a-notification-foundation.md`.
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |

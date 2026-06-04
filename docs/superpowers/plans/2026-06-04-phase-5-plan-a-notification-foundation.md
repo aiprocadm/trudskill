@@ -76,7 +76,7 @@
 
 > Latest migration on `main` is `0046_frdo_registry_export.sql`, so the next number is **0047**. (Older docs say 0038 — stale.) Conventions mirrored from `0007_communication_realtime_foundation.sql` (DDL) and `0037_iam_org_licenses_permissions.sql` (permissions): `id text primary key`, `tenant_id text not null` (no DB-level FK — tenant isolation is enforced in code), `timestamptz` timestamps, `jsonb` suffixed `_jsonb`, status columns are plain `text` (no CHECK), indexes lead with `tenant_id`.
 
-- [ ] **Step 1: Write the migration SQL**
+- [x] **Step 1: Write the migration SQL**
 
 Create `apps/backend/migrations/0047_communication_email_foundation.sql`:
 
@@ -143,12 +143,12 @@ where r.tenant_id = 'tenant_demo'
 on conflict (tenant_id, role_id, permission_id) do nothing;
 ```
 
-- [ ] **Step 2: Verify the migration applies cleanly**
+- [x] **Step 2: Verify the migration applies cleanly**
 
 Run: `pnpm test:migrations`
 Expected: PASS (the migration runner applies `0047` with no SQL errors). If your environment needs the DB up first, run `pnpm docker:infra` then retry.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/backend/migrations/0047_communication_email_foundation.sql
@@ -169,7 +169,7 @@ git commit -m "feat(backend): migration 0047 — email_templates + email_deliver
 - Modify: `.env.example`
 - Modify: `apps/backend/package.json`
 
-- [ ] **Step 1: Add the env vars (Zod schema)**
+- [x] **Step 1: Add the env vars (Zod schema)**
 
 In `apps/backend/src/env.schema.ts`, inside the `z.object({ ... })`, add these keys (copy the boolean pattern from `ANTIVIRUS_ENABLED` exactly — `z.coerce.boolean()` is a trap that maps the string `"false"` → `true`):
 
@@ -198,14 +198,14 @@ SMTP_PASSWORD=
 SMTP_FROM=no-reply@cdoprof.local
 ```
 
-- [ ] **Step 2: Add the dependency**
+- [x] **Step 2: Add the dependency**
 
 In `apps/backend/package.json` add to `dependencies` `"nodemailer": "^6.9.16"` and to `devDependencies` `"@types/nodemailer": "^6.4.17"`. Then run:
 
 Run: `pnpm install`
 Expected: lockfile updates, `nodemailer` installed.
 
-- [ ] **Step 3: Write the failing test for NoopMailer**
+- [x] **Step 3: Write the failing test for NoopMailer**
 
 Create `apps/backend/src/infrastructure/mailer/mailer.service.test.ts`:
 
@@ -229,12 +229,12 @@ describe('NoopMailer', () => {
 });
 ```
 
-- [ ] **Step 4: Run the test to verify it fails**
+- [x] **Step 4: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/infrastructure/mailer/mailer.service.test.ts --no-file-parallelism`
 Expected: FAIL — cannot find module `./mailer.service.js`.
 
-- [ ] **Step 5: Implement the interface + token + NoopMailer**
+- [x] **Step 5: Implement the interface + token + NoopMailer**
 
 Create `apps/backend/src/infrastructure/mailer/mailer.service.ts`:
 
@@ -275,12 +275,12 @@ export class NoopMailer implements MailerService {
 }
 ```
 
-- [ ] **Step 6: Run the test to verify it passes**
+- [x] **Step 6: Run the test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/infrastructure/mailer/mailer.service.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 7: Write the failing test for SmtpMailer**
+- [x] **Step 7: Write the failing test for SmtpMailer**
 
 Create `apps/backend/src/infrastructure/mailer/smtp-mailer.service.test.ts` (uses an injected fake `createTransport` so no real SMTP is needed — mirrors how `ClamAvAntivirusScanner` takes an injectable `connect`):
 
@@ -332,12 +332,12 @@ describe('SmtpMailer', () => {
 });
 ```
 
-- [ ] **Step 8: Run the test to verify it fails**
+- [x] **Step 8: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/infrastructure/mailer/smtp-mailer.service.test.ts --no-file-parallelism`
 Expected: FAIL — cannot find module `./smtp-mailer.service.js`.
 
-- [ ] **Step 9: Implement SmtpMailer**
+- [x] **Step 9: Implement SmtpMailer**
 
 Create `apps/backend/src/infrastructure/mailer/smtp-mailer.service.ts`:
 
@@ -401,12 +401,12 @@ export class SmtpMailer implements MailerService {
 
 > Note `exactOptionalPropertyTypes: true` is on — that's why `providerMessageId` is added by conditional spread, never set to `undefined`.
 
-- [ ] **Step 10: Run the test to verify it passes**
+- [x] **Step 10: Run the test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/infrastructure/mailer/smtp-mailer.service.test.ts --no-file-parallelism`
 Expected: PASS (both cases).
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add apps/backend/src/infrastructure/mailer apps/backend/src/env.schema.ts .env.example apps/backend/package.json pnpm-lock.yaml
@@ -425,7 +425,7 @@ git commit -m "feat(backend): MailerService infra (Noop default + SMTP) + email 
 - Create: `apps/backend/src/modules/communication/postgres-email-templates.repository.ts`
 - Test: `apps/backend/src/modules/communication/email-notifications.service.test.ts` (new shared test file for this plan's services)
 
-- [ ] **Step 1: Write the failing test for defaults + render**
+- [x] **Step 1: Write the failing test for defaults + render**
 
 Create `apps/backend/src/modules/communication/email-notifications.service.test.ts`:
 
@@ -456,12 +456,12 @@ describe('email templates', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/communication/email-notifications.service.test.ts --no-file-parallelism`
 Expected: FAIL — cannot find module `./email-templates.js`.
 
-- [ ] **Step 3: Implement defaults + render**
+- [x] **Step 3: Implement defaults + render**
 
 Create `apps/backend/src/modules/communication/email-templates.ts`:
 
@@ -504,12 +504,12 @@ export function renderTemplate(
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/communication/email-notifications.service.test.ts --no-file-parallelism`
 Expected: PASS (3 cases).
 
-- [ ] **Step 5: Write the failing test for the in-memory templates repository**
+- [x] **Step 5: Write the failing test for the in-memory templates repository**
 
 Append to `email-notifications.service.test.ts`:
 
@@ -540,12 +540,12 @@ describe('email templates repository (in-memory)', () => {
 });
 ```
 
-- [ ] **Step 6: Run the test to verify it fails**
+- [x] **Step 6: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/communication/email-notifications.service.test.ts --no-file-parallelism`
 Expected: FAIL — cannot find module `./in-memory-email-templates.state.js`.
 
-- [ ] **Step 7: Implement the repository interface + token + row type**
+- [x] **Step 7: Implement the repository interface + token + row type**
 
 Create `apps/backend/src/modules/communication/email-templates.repository.ts`:
 
@@ -581,7 +581,7 @@ export interface EmailTemplatesRepository {
 }
 ```
 
-- [ ] **Step 8: Implement the in-memory backend**
+- [x] **Step 8: Implement the in-memory backend**
 
 Create `apps/backend/src/modules/communication/in-memory-email-templates.state.ts`:
 
@@ -635,12 +635,12 @@ export class InMemoryEmailTemplatesState implements EmailTemplatesRepository {
 }
 ```
 
-- [ ] **Step 9: Run the test to verify it passes**
+- [x] **Step 9: Run the test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/communication/email-notifications.service.test.ts --no-file-parallelism`
 Expected: PASS (5 cases total).
 
-- [ ] **Step 10: Implement the postgres backend (no unit test — same interface, exercised via migration + app)**
+- [x] **Step 10: Implement the postgres backend (no unit test — same interface, exercised via migration + app)**
 
 Create `apps/backend/src/modules/communication/postgres-email-templates.repository.ts` (mirrors `postgres-webinars.repository.ts`: bare `DatabaseService` ctor, `$N` params, snake→camel map):
 
@@ -724,7 +724,7 @@ export class PostgresEmailTemplatesRepository implements EmailTemplatesRepositor
 }
 ```
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add apps/backend/src/modules/communication/email-templates.ts apps/backend/src/modules/communication/email-templates.repository.ts apps/backend/src/modules/communication/in-memory-email-templates.state.ts apps/backend/src/modules/communication/postgres-email-templates.repository.ts apps/backend/src/modules/communication/email-notifications.service.test.ts
@@ -742,7 +742,7 @@ git commit -m "feat(backend): email templates — code defaults + override repos
 - Create: `apps/backend/src/modules/communication/postgres-email-deliveries.repository.ts`
 - Test: `apps/backend/src/modules/communication/email-notifications.service.test.ts` (append)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `email-notifications.service.test.ts`:
 
@@ -768,12 +768,12 @@ describe('email deliveries journal (in-memory)', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/communication/email-notifications.service.test.ts --no-file-parallelism`
 Expected: FAIL — cannot find module `./in-memory-email-deliveries.state.js`.
 
-- [ ] **Step 3: Implement the repository interface + token + row type**
+- [x] **Step 3: Implement the repository interface + token + row type**
 
 Create `apps/backend/src/modules/communication/email-deliveries.repository.ts`:
 
@@ -816,7 +816,7 @@ export interface EmailDeliveriesRepository {
 }
 ```
 
-- [ ] **Step 4: Implement the in-memory backend**
+- [x] **Step 4: Implement the in-memory backend**
 
 Create `apps/backend/src/modules/communication/in-memory-email-deliveries.state.ts`:
 
@@ -857,12 +857,12 @@ export class InMemoryEmailDeliveriesState implements EmailDeliveriesRepository {
 }
 ```
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/communication/email-notifications.service.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 6: Implement the postgres backend**
+- [x] **Step 6: Implement the postgres backend**
 
 Create `apps/backend/src/modules/communication/postgres-email-deliveries.repository.ts`:
 
@@ -965,7 +965,7 @@ export class PostgresEmailDeliveriesRepository implements EmailDeliveriesReposit
 }
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/backend/src/modules/communication/email-deliveries.repository.ts apps/backend/src/modules/communication/in-memory-email-deliveries.state.ts apps/backend/src/modules/communication/postgres-email-deliveries.repository.ts apps/backend/src/modules/communication/email-notifications.service.test.ts
@@ -982,7 +982,7 @@ git commit -m "feat(backend): email deliveries journal repository (in-memory + p
 - Modify: `apps/backend/src/modules/communication/communication.module.ts`
 - Test: `apps/backend/src/modules/communication/email-notifications.service.test.ts` (append)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `email-notifications.service.test.ts`:
 
@@ -1045,12 +1045,12 @@ describe('NotificationDispatcher', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/communication/email-notifications.service.test.ts --no-file-parallelism`
 Expected: FAIL — cannot find module `./notification-dispatcher.service.js`.
 
-- [ ] **Step 3: Implement the dispatcher**
+- [x] **Step 3: Implement the dispatcher**
 
 Create `apps/backend/src/modules/communication/notification-dispatcher.service.ts`:
 
@@ -1122,12 +1122,12 @@ export class NotificationDispatcher {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/communication/email-notifications.service.test.ts --no-file-parallelism`
 Expected: PASS (all dispatcher cases).
 
-- [ ] **Step 5: Wire everything into CommunicationModule**
+- [x] **Step 5: Wire everything into CommunicationModule**
 
 In `apps/backend/src/modules/communication/communication.module.ts`, add imports at the top:
 
@@ -1171,12 +1171,12 @@ Add to the `providers` array (the `MAILER` factory mirrors the antivirus `useFac
 
 Add `NotificationDispatcher` to the `exports` array.
 
-- [ ] **Step 6: Verify the module compiles**
+- [x] **Step 6: Verify the module compiles**
 
 Run: `pnpm --filter @cdoprof/backend exec tsc --noEmit`
 Expected: PASS (no type errors).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/backend/src/modules/communication/notification-dispatcher.service.ts apps/backend/src/modules/communication/communication.module.ts apps/backend/src/modules/communication/email-notifications.service.test.ts
@@ -1198,7 +1198,7 @@ git commit -m "feat(backend): NotificationDispatcher + communication module wiri
 - Modify: `apps/backend/src/modules/communication/communication.module.ts` (register listener)
 - Test: `apps/backend/src/modules/communication/email-notifications.service.test.ts` (append — listener)
 
-- [ ] **Step 1: Add the `recipient` field to the completed-event payload**
+- [x] **Step 1: Add the `recipient` field to the completed-event payload**
 
 In `apps/backend/src/modules/mvp/enrollment-completed.event.ts`, add to the `EnrollmentCompletedPayload` interface (keep optional for backward compatibility):
 
@@ -1207,7 +1207,7 @@ In `apps/backend/src/modules/mvp/enrollment-completed.event.ts`, add to the `Enr
   recipient?: { email: string; name?: string };
 ```
 
-- [ ] **Step 2: Create the invited event**
+- [x] **Step 2: Create the invited event**
 
 Create `apps/backend/src/modules/mvp/enrollment-invited.event.ts`:
 
@@ -1227,7 +1227,7 @@ export interface EnrollmentInvitedPayload {
 }
 ```
 
-- [ ] **Step 3: Write the failing listener test**
+- [x] **Step 3: Write the failing listener test**
 
 Append to `email-notifications.service.test.ts`:
 
@@ -1282,12 +1282,12 @@ describe('EnrollmentEmailListener', () => {
 });
 ```
 
-- [ ] **Step 4: Run the test to verify it fails**
+- [x] **Step 4: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/communication/email-notifications.service.test.ts --no-file-parallelism`
 Expected: FAIL — cannot find module `./enrollment-email.listener.js`.
 
-- [ ] **Step 5: Implement the listener**
+- [x] **Step 5: Implement the listener**
 
 Create `apps/backend/src/modules/communication/enrollment-email.listener.ts` (mirrors `enrollment-document-issuance.listener.ts`: `@Injectable` + `@OnEvent({ async: true })` + `setImmediate` fire-and-forget; the handler is a thin sync entrypoint and the work is awaited inside):
 
@@ -1353,12 +1353,12 @@ export class EnrollmentEmailListener {
 
 > `courseTitle` is left empty here because the enrollment links to a _group_, not a single course. If a richer subject is wanted, resolve the title at the producer and add it to the payload — out of scope for 5A's "prove the wiring" goal.
 
-- [ ] **Step 6: Run the test to verify it passes**
+- [x] **Step 6: Run the test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/communication/email-notifications.service.test.ts --no-file-parallelism`
 Expected: PASS (listener cases).
 
-- [ ] **Step 7: Register the listener**
+- [x] **Step 7: Register the listener**
 
 In `communication.module.ts`, import `EnrollmentEmailListener` and add it to the `providers` array (plain singleton — exactly like `EnrollmentDocumentIssuanceListener` in `documents.module.ts`):
 
@@ -1368,7 +1368,7 @@ import { EnrollmentEmailListener } from './enrollment-email.listener.js';
     EnrollmentEmailListener,
 ```
 
-- [ ] **Step 8: Create the recipient helper + emit the invited event**
+- [x] **Step 8: Create the recipient helper + emit the invited event**
 
 Create `apps/backend/src/modules/mvp/enrollment-recipient.ts` (pure — extracts the only non-trivial part of the emit so it is unit-testable without `MvpService`):
 
@@ -1416,7 +1416,7 @@ this.events.emit(ENROLLMENT_INVITED_EVENT, {
 
 > This single emit covers BOTH the single-enrollment HTTP path and the bulk path — `createBulkEnrollments` calls `createEnrollment` per learner (mvp.service.ts ~line 1673), and duplicate rows throw `ConflictException` before reaching this point, so no double-emit.
 
-- [ ] **Step 9: Add `recipient` to the completed-event emit**
+- [x] **Step 9: Add `recipient` to the completed-event emit**
 
 In `mvp.service.ts`, at the existing `this.events.emit(ENROLLMENT_COMPLETED_EVENT, {...})` call (inside `updateEnrollmentStatus`, ~line 1788), reuse the helper. Just before the emit, add:
 
@@ -1432,7 +1432,7 @@ Then add this property inside the emitted object literal:
         ...(completedRecipient ? { recipient: completedRecipient } : {}),
 ```
 
-- [ ] **Step 10: Verify types + the existing MVP enrollment tests still pass**
+- [x] **Step 10: Verify types + the existing MVP enrollment tests still pass**
 
 Run: `pnpm --filter @cdoprof/backend exec tsc --noEmit`
 Expected: PASS.
@@ -1440,7 +1440,7 @@ Expected: PASS.
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/communication/email-notifications.service.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 11: Write + run the recipient-helper unit test**
+- [x] **Step 11: Write + run the recipient-helper unit test**
 
 This covers the resolution logic (the only non-trivial part of the emit) completely, with no `MvpService` needed. Create `apps/backend/src/modules/mvp/enrollment-recipient.test.ts`:
 
@@ -1485,7 +1485,7 @@ describe('learnerRecipient', () => {
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/enrollment-recipient.test.ts --no-file-parallelism`
 Expected: PASS (3 cases). The end-to-end emit wiring is additionally exercised by the canonical enrollment e2e flow (`business-flows.e2e.test.ts`) once the listener is registered.
 
-- [ ] **Step 12: Commit**
+- [x] **Step 12: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/enrollment-invited.event.ts apps/backend/src/modules/mvp/enrollment-recipient.ts apps/backend/src/modules/mvp/enrollment-recipient.test.ts apps/backend/src/modules/mvp/enrollment-completed.event.ts apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/communication/enrollment-email.listener.ts apps/backend/src/modules/communication/communication.module.ts apps/backend/src/modules/communication/email-notifications.service.test.ts
@@ -1504,7 +1504,7 @@ git commit -m "feat(backend): wire enrollment invited/completed events to learne
 
 > `DocumentsService` does NOT currently inject `EventEmitter2` and is request-scoped. Injecting the root-singleton `EventEmitter2` into a request-scoped provider is safe. The new param is made **optional** (`@Optional()`), so the ~20 existing 3-arg `new DocumentsService(...)` test call-sites keep compiling unchanged — mirroring how `LicensesService` is `@Optional()` in `MvpService`.
 
-- [ ] **Step 1: Create the event**
+- [x] **Step 1: Create the event**
 
 Create `apps/backend/src/modules/documents/document-revoked.event.ts`:
 
@@ -1525,7 +1525,7 @@ export interface DocumentRevokedPayload {
 }
 ```
 
-- [ ] **Step 2: Write the failing emit test**
+- [x] **Step 2: Write the failing emit test**
 
 In `apps/backend/src/modules/documents/documents.service.test.ts`, add these imports at the top:
 
@@ -1580,12 +1580,12 @@ it('emits documents.revoked when a document is revoked', async () => {
 
 (`InMemoryDocumentsState`, `AuditService`, `RealtimeEventsService`, and the shared `ctx` are already imported/defined in this file — they back the block's existing `seed()` helper.)
 
-- [ ] **Step 3: Run the test to verify it fails**
+- [x] **Step 3: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/documents/documents.service.test.ts --no-file-parallelism`
 Expected: FAIL — `DOCUMENT_REVOKED_EVENT` not emitted (and/or constructor arity).
 
-- [ ] **Step 4: Inject EventEmitter2 (optional) + emit**
+- [x] **Step 4: Inject EventEmitter2 (optional) + emit**
 
 In `documents.service.ts`, add the imports (and ensure `Inject`, `Optional` are imported from `@nestjs/common`):
 
@@ -1619,17 +1619,17 @@ this.events?.emit(DOCUMENT_REVOKED_EVENT, {
 
 > `this.events?.` guards the optional: in production DI provides the singleton `EventEmitter2`; in the existing 3-arg tests it's undefined and the emit is a harmless no-op.
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/documents/documents.service.test.ts --no-file-parallelism`
 Expected: PASS — the new emit test plus all pre-existing revoke cases (which still pass because `events` is optional and they omit it).
 
-- [ ] **Step 6: Verify types**
+- [x] **Step 6: Verify types**
 
 Run: `pnpm --filter @cdoprof/backend exec tsc --noEmit`
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/backend/src/modules/documents/document-revoked.event.ts apps/backend/src/modules/documents/documents.service.ts apps/backend/src/modules/documents/documents.service.test.ts
@@ -1647,7 +1647,7 @@ git commit -m "feat(backend): emit documents.revoked event (email listener lands
 - Modify: `apps/backend/src/modules/communication/communication.module.ts` (register controller)
 - Modify: `apps/backend/src/modules/mvp/mvp.http.integration.test.ts` (add notifications permission-boundary `describe` block — per CLAUDE.md, extend this file)
 
-- [ ] **Step 1: Create the DTO**
+- [x] **Step 1: Create the DTO**
 
 Create `apps/backend/src/modules/communication/upsert-email-template.dto.ts`:
 
@@ -1667,7 +1667,7 @@ export class UpsertEmailTemplateRequest {
 }
 ```
 
-- [ ] **Step 2: Create the controller**
+- [x] **Step 2: Create the controller**
 
 Create `apps/backend/src/modules/communication/email-notifications.controller.ts` (class-level `@Controller()` + `@UseGuards(TenantGuard)`; per-method `@UseGuards(PermissionGuard)` + `@RequirePermissions(...)`; `@Body() raw: unknown` + `assertValidDto`, exactly as `mvp.controller.ts` does):
 
@@ -1761,16 +1761,16 @@ export class EmailNotificationsController {
 }
 ```
 
-- [ ] **Step 3: Register the controller**
+- [x] **Step 3: Register the controller**
 
 In `communication.module.ts`, import `EmailNotificationsController` and add it to the `controllers` array.
 
-- [ ] **Step 4: Verify types**
+- [x] **Step 4: Verify types**
 
 Run: `pnpm --filter @cdoprof/backend exec tsc --noEmit`
 Expected: PASS.
 
-- [ ] **Step 5: Write the failing permission-boundary test**
+- [x] **Step 5: Write the failing permission-boundary test**
 
 In `apps/backend/src/modules/mvp/mvp.http.integration.test.ts`, add two handlers to the existing `TestMvpController` stub class:
 
@@ -1885,12 +1885,12 @@ describe('notifications permission boundary', () => {
 });
 ```
 
-- [ ] **Step 6: Run the test to verify it fails, then passes**
+- [x] **Step 6: Run the test to verify it fails, then passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.http.integration.test.ts --no-file-parallelism`
 Expected: first run FAIL (stub handlers/imports missing), then PASS after Step 5 edits are complete.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/backend/src/modules/communication/upsert-email-template.dto.ts apps/backend/src/modules/communication/email-notifications.controller.ts apps/backend/src/modules/communication/communication.module.ts apps/backend/src/modules/mvp/mvp.http.integration.test.ts
@@ -1907,17 +1907,17 @@ git commit -m "feat(backend): notifications admin endpoints + permission-boundar
 - Modify: `LMS_AGENT_HANDOFF.md` (append §5.XX)
 - Modify: `docs/superpowers/plans/2026-06-04-phase-5-plan-a-notification-foundation.md` (tick boxes)
 
-- [ ] **Step 1: Lint the new files**
+- [x] **Step 1: Lint the new files**
 
 Run: `npx eslint apps/backend/src/infrastructure/mailer apps/backend/src/modules/communication --max-warnings=0`
 Expected: PASS (no warnings). Fix any issues.
 
-- [ ] **Step 2: Typecheck the whole monorepo**
+- [x] **Step 2: Typecheck the whole monorepo**
 
 Run: `pnpm typecheck`
 Expected: PASS.
 
-- [ ] **Step 3: Run the targeted backend suites (Cyrillic-path safe — isolated files)**
+- [x] **Step 3: Run the targeted backend suites (Cyrillic-path safe — isolated files)**
 
 Run each and expect PASS:
 
@@ -1931,11 +1931,11 @@ pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.http.integrat
 
 > Per CLAUDE.md Gotchas, do NOT run the full `pnpm test:backend` locally (Cyrillic-path `tinypool` crash). CI (Ubuntu) runs the full suite.
 
-- [ ] **Step 4: Update docs**
+- [x] **Step 4: Update docs**
 
 In `README.md` §2 «AI Agent State», set Last Completed Task = «Phase 5 Plan 5A — notification foundation», Current/Next per remaining work (5B). Append a `### 5.XX` entry to `LMS_AGENT_HANDOFF.md` §5 with: summary, files changed, test status, deviations (document-revoked email deferred to 5B; `course_completed` folds the spec's separate document-issued mail; new HTTP test added to mvp file per CLAUDE.md). Cross-link this plan and tick its checkboxes.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add README.md LMS_AGENT_HANDOFF.md docs/superpowers/plans/2026-06-04-phase-5-plan-a-notification-foundation.md
