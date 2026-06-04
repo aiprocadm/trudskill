@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { EMAIL_TEMPLATE_DEFAULTS, renderTemplate } from './email-templates.js';
+import { InMemoryEmailDeliveriesState } from './in-memory-email-deliveries.state.js';
 import { InMemoryEmailTemplatesState } from './in-memory-email-templates.state.js';
 
 describe('email templates', () => {
@@ -44,5 +45,23 @@ describe('email templates repository (in-memory)', () => {
     const list = await repo.listOverrides('t1');
     expect(list).toHaveLength(1);
     expect(list[0]!.subject).toBe('B');
+  });
+});
+
+describe('email deliveries journal (in-memory)', () => {
+  it('records a delivery and lists it back, scoped by tenant', async () => {
+    const repo = new InMemoryEmailDeliveriesState();
+    await repo.record({
+      tenantId: 't1',
+      templateKey: 'enrollment_invite',
+      recipientEmail: 'a@example.com',
+      recipientKind: 'learner',
+      subject: 'S',
+      status: 'skipped_noop'
+    });
+    const t1 = await repo.list('t1', {});
+    expect(t1.total).toBe(1);
+    expect(t1.items[0]!.recipientEmail).toBe('a@example.com');
+    expect((await repo.list('t2', {})).total).toBe(0);
   });
 });
