@@ -93,7 +93,7 @@
 
 > Latest migration on `main` is `0047_communication_email_foundation.sql` → next is **0048**. (The design spec §3.2 wrote `0047`, but 5A took that number first.) The two `ALTER`s mirror existing precedent — `0030_learning_course_program_meta.sql` ALTERs `learning.course_versions` for new program-meta columns, and `0033`/`0034` ALTER `documents.generated_documents` for new fields (`qr_token`, `revoked_at`). The runtime reads these values from the JSON snapshot, but keeping the normalized columns in sync follows established precedent. The permissions block is copied from `0047` (and `0037`) verbatim in shape.
 
-- [ ] **Step 1: Write the migration SQL**
+- [x] **Step 1: Write the migration SQL**
 
 Create `apps/backend/migrations/0048_learning_recertification_foundation.sql`:
 
@@ -166,14 +166,14 @@ where r.tenant_id = 'tenant_demo'
 on conflict (tenant_id, role_id, permission_id) do nothing;
 ```
 
-- [ ] **Step 2: Verify the migration applies cleanly**
+- [x] **Step 2: Verify the migration applies cleanly**
 
 Run: `pnpm test:migrations`
 Expected: PASS (the runner applies `0048` with no SQL errors). If the DB must be up, run `pnpm docker:infra` first.
 
 > If `documents.generated_documents` does not exist in the test DB (some environments only run the JSON-snapshot path), the `alter table documents.generated_documents ...` will fail. Verify the table exists by grepping prior migrations (`0033_documents_qr_token.sql` ALTERs it). If the migration test fails ONLY on that line, wrap it the same way `0033` does and match that file's exact table reference. Do not invent a new table.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/backend/migrations/0048_learning_recertification_foundation.sql
@@ -191,7 +191,7 @@ git commit -m "feat(backend): migration 0048 — recertification columns + draft
 
 > There is **no** existing date helper in the backend (verified: no `date-fns`/`moment`, no `addMonths`). We add a tiny pure one. Month-end must clamp: `addMonths('2026-01-31', 1)` → `'2026-02-28'`, not March 3rd (JS `setUTCMonth` overflows).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/backend/src/common/utils/date-math.util.test.ts`:
 
@@ -223,12 +223,12 @@ describe('addDays', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/common/utils/date-math.util.test.ts --no-file-parallelism`
 Expected: FAIL — cannot find module `./date-math.util.js`.
 
-- [ ] **Step 3: Implement the util**
+- [x] **Step 3: Implement the util**
 
 Create `apps/backend/src/common/utils/date-math.util.ts`:
 
@@ -269,12 +269,12 @@ export function addDays(iso: string, days: number): string {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/common/utils/date-math.util.test.ts --no-file-parallelism`
 Expected: PASS (all cases).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/common/utils/date-math.util.ts apps/backend/src/common/utils/date-math.util.test.ts
@@ -292,7 +292,7 @@ git commit -m "feat(backend): pure addMonths/addDays date util (month-end clampe
 - Modify: `apps/backend/src/modules/mvp/mvp.service.ts` (apply the field when writing program-meta — mirror `academicHours`)
 - Test: `apps/backend/src/modules/mvp/mvp.dto-validation.test.ts` (append)
 
-- [ ] **Step 1: Add the type field**
+- [x] **Step 1: Add the type field**
 
 In `apps/backend/src/modules/mvp/mvp.types.ts`, in the `ProgramMeta` interface (≈ lines 529-540), add (it auto-propagates to `CourseVersion`, which `extends ProgramMeta`):
 
@@ -301,12 +301,12 @@ In `apps/backend/src/modules/mvp/mvp.types.ts`, in the `ProgramMeta` interface (
   recertificationPeriodMonths?: number;
 ```
 
-- [ ] **Step 2: Find the program-meta write DTO + service write path**
+- [x] **Step 2: Find the program-meta write DTO + service write path**
 
 Run: `npx eslint --no-eslintrc --rulesdir /dev/null 2>/dev/null; grep -rn "academicHours" apps/backend/src/modules/mvp/mvp.dto.ts apps/backend/src/modules/mvp/mvp.service.ts`
 (Or use the Grep tool for `academicHours` in those two files.) `academicHours` is the canonical optional integer program-meta field — `recertificationPeriodMonths` mirrors it **everywhere `academicHours` appears** in these two files: the DTO class (validation decorators) and the service method that copies program-meta onto the course version.
 
-- [ ] **Step 3: Add the DTO field (mirror `academicHours`'s decorators)**
+- [x] **Step 3: Add the DTO field (mirror `academicHours`'s decorators)**
 
 In `apps/backend/src/modules/mvp/mvp.dto.ts`, next to `academicHours`, add the same validator shape (it is an optional positive integer):
 
@@ -319,18 +319,18 @@ In `apps/backend/src/modules/mvp/mvp.dto.ts`, next to `academicHours`, add the s
 
 > Match the import list already present in the file (`IsOptional`, `IsInt`, `IsPositive` are used by `academicHours`; if `academicHours` uses `@Min(1)` instead of `@IsPositive`, copy that exact decorator set instead — mirror the sibling, don't introduce a new style).
 
-- [ ] **Step 4: Apply the field in the service write path (mirror `academicHours`)**
+- [x] **Step 4: Apply the field in the service write path (mirror `academicHours`)**
 
 In `apps/backend/src/modules/mvp/mvp.service.ts`, wherever program-meta is copied onto a `CourseVersion` (the same place `academicHours` is assigned, in both create and update of the version program-meta), add the conditional assignment mirroring `academicHours` exactly (remember `exactOptionalPropertyTypes`): use the same spread/assignment idiom the file already uses for `academicHours`.
 
-- [ ] **Step 5: Write + run the DTO validation test**
+- [x] **Step 5: Write + run the DTO validation test**
 
 Append to `apps/backend/src/modules/mvp/mvp.dto-validation.test.ts` a case mirroring the existing `academicHours` validation test (find it first): a valid positive integer passes; `0` or negative fails. Use `plainToInstance` + `validateSync` exactly as the sibling cases do.
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.dto-validation.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 6: Typecheck + commit**
+- [x] **Step 6: Typecheck + commit**
 
 Run: `pnpm --filter @cdoprof/backend exec tsc --noEmit`
 Expected: PASS.
@@ -354,7 +354,7 @@ git commit -m "feat(backend): writable recertificationPeriodMonths on course-ver
 - Modify: `apps/backend/src/modules/mvp/mvp.service.ts` (resolve `completedAt` + per-entry period at emit)
 - Modify: `apps/backend/src/modules/documents/enrollment-document-issuance.listener.ts` (compute + pass `validUntil`)
 
-- [ ] **Step 1: Add `validUntil` to the document + task + request types**
+- [x] **Step 1: Add `validUntil` to the document + task + request types**
 
 In `apps/backend/src/modules/documents/documents.types.ts`:
 
@@ -376,7 +376,7 @@ In `apps/backend/src/modules/documents/documents.dto.ts`, in `GenerateDocumentRe
   validUntil?: string;
 ```
 
-- [ ] **Step 2: Write the failing test for the stamp**
+- [x] **Step 2: Write the failing test for the stamp**
 
 In `apps/backend/src/modules/documents/documents.service.test.ts`, add a focused test that drives a task through to completion and asserts the stamp. Mirror the existing `generateDocument` → `completeTask` flow already used in this file (find an existing test that calls `service.generateDocument(...)` then `service.completeTask(...)` and copy its setup). The new assertion:
 
@@ -403,12 +403,12 @@ it('stamps validUntil from the generate request onto the completed document', as
 
 > Use the exact template/version seeding idiom already present in this test file. If the file has a `seed()`/helper that prepares a generatable template, reuse it rather than hand-rolling.
 
-- [ ] **Step 3: Run the test to verify it fails**
+- [x] **Step 3: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/documents/documents.service.test.ts --no-file-parallelism`
 Expected: FAIL — `doc.validUntil` is `undefined` (not threaded yet).
 
-- [ ] **Step 4: Thread the value through the service**
+- [x] **Step 4: Thread the value through the service**
 
 In `apps/backend/src/modules/documents/documents.service.ts`:
 
@@ -422,12 +422,12 @@ In `apps/backend/src/modules/documents/documents.service.ts`:
       ...(task.validUntil ? { validUntil: task.validUntil } : {}),
   ```
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/documents/documents.service.test.ts --no-file-parallelism`
 Expected: PASS — the new stamp test plus all pre-existing document tests (the field is optional, so untouched paths still produce documents without `validUntil`).
 
-- [ ] **Step 6: Add `completedAt` + per-entry period to the completed event**
+- [x] **Step 6: Add `completedAt` + per-entry period to the completed event**
 
 In `apps/backend/src/modules/mvp/enrollment-completed.event.ts`:
 
@@ -445,7 +445,7 @@ In `apps/backend/src/modules/mvp/enrollment-completed.event.ts`:
     recertificationPeriodMonths?: number;
   ```
 
-- [ ] **Step 7: Resolve `completedAt` + per-entry period at the MVP emit**
+- [x] **Step 7: Resolve `completedAt` + per-entry period at the MVP emit**
 
 In `apps/backend/src/modules/mvp/mvp.service.ts`, where the `documentSet` entries are built for the completion emit (≈ lines 1818-1828), add the per-entry period from the course version. The block currently maps each `gc` to `{ courseVersionId, templateId, position, isRequired, autoIssueOnCompletion }`. Resolve the version once and spread the period conditionally:
 
@@ -475,7 +475,7 @@ Then in the `this.events.emit(ENROLLMENT_COMPLETED_EVENT, { ... })` object (≈ 
 
 (`courseTitle` resolution is added in Task 7 — leave it for now; the field is optional.)
 
-- [ ] **Step 8: Compute `validUntil` in the issuance listener**
+- [x] **Step 8: Compute `validUntil` in the issuance listener**
 
 In `apps/backend/src/modules/documents/enrollment-document-issuance.listener.ts`, import the util at the top:
 
@@ -507,7 +507,7 @@ documents.generateDocument(
 
 > Keep the existing idempotency key `:v1` unchanged — re-running completion must not re-issue. The `validUntil` only fills in when BOTH `completedAt` and a program period exist; otherwise the document is бессрочный (no stamp), exactly as before.
 
-- [ ] **Step 9: Typecheck + run the affected suites**
+- [x] **Step 9: Typecheck + run the affected suites**
 
 Run each, expect PASS:
 
@@ -519,7 +519,7 @@ pnpm --filter @cdoprof/backend exec vitest run src/modules/documents/enrollment-
 
 > If `enrollment-document-issuance.listener.test.ts` does not exist, the listener is covered by `business-flows.e2e.test.ts`; run that instead. Either way add/extend one assertion that a completed enrollment with a program period produces a document whose `validUntil` equals `addMonths(completedAt, period)`.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add apps/backend/src/modules/documents/documents.types.ts apps/backend/src/modules/documents/documents.dto.ts apps/backend/src/modules/documents/documents.service.ts apps/backend/src/modules/documents/documents.service.test.ts apps/backend/src/modules/mvp/enrollment-completed.event.ts apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/documents/enrollment-document-issuance.listener.ts
@@ -540,7 +540,7 @@ git commit -m "feat(backend): stamp document valid_until at issuance (completed_
 
 > This mirrors 5A's `email-deliveries` repository (singleton: interface + token + in-memory + postgres), **not** the request-scoped MVP state. Reason: the Plan 5B-2 cron writes drafts outside any HTTP request, so the store must be a plain singleton. Do **not** add `recertificationDrafts` to `mvp-collections.ts`.
 
-- [ ] **Step 1: Write the failing repo test**
+- [x] **Step 1: Write the failing repo test**
 
 Create `apps/backend/src/modules/mvp/recertification/recertification-drafts.repository.test.ts`:
 
@@ -606,12 +606,12 @@ describe('InMemoryRecertificationDraftsState', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/recertification/recertification-drafts.repository.test.ts --no-file-parallelism`
 Expected: FAIL — cannot find module `./in-memory-recertification-drafts.state.js`.
 
-- [ ] **Step 3: Implement the interface + token + row/seed types**
+- [x] **Step 3: Implement the interface + token + row/seed types**
 
 Create `apps/backend/src/modules/mvp/recertification/recertification-drafts.repository.ts`:
 
@@ -669,7 +669,7 @@ export interface RecertificationDraftsRepository {
 }
 ```
 
-- [ ] **Step 4: Implement the in-memory backend**
+- [x] **Step 4: Implement the in-memory backend**
 
 Create `apps/backend/src/modules/mvp/recertification/in-memory-recertification-drafts.state.ts`:
 
@@ -762,12 +762,12 @@ export class InMemoryRecertificationDraftsState implements RecertificationDrafts
 }
 ```
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/recertification/recertification-drafts.repository.test.ts --no-file-parallelism`
 Expected: PASS (all 5 cases).
 
-- [ ] **Step 6: Implement the postgres backend**
+- [x] **Step 6: Implement the postgres backend**
 
 Create `apps/backend/src/modules/mvp/recertification/postgres-recertification-drafts.repository.ts` (mirrors `postgres-email-deliveries.repository.ts`: bare `DatabaseService` ctor, `$N` params, snake→camel map; the `create` uses the unique index for idempotency via `on conflict do nothing` + a follow-up select):
 
@@ -914,7 +914,7 @@ export class PostgresRecertificationDraftsRepository implements RecertificationD
 }
 ```
 
-- [ ] **Step 7: Wire the repo into MvpModule**
+- [x] **Step 7: Wire the repo into MvpModule**
 
 In `apps/backend/src/modules/mvp/mvp.module.ts`, add imports and register the repo as a **singleton** (bind the token to postgres, mirroring how 5A binds `EMAIL_DELIVERIES_REPOSITORY`):
 
@@ -928,7 +928,7 @@ import { PostgresRecertificationDraftsRepository } from './recertification/postg
     InMemoryRecertificationDraftsState,
 ```
 
-- [ ] **Step 8: Typecheck + commit**
+- [x] **Step 8: Typecheck + commit**
 
 Run: `pnpm --filter @cdoprof/backend exec tsc --noEmit`
 Expected: PASS.
@@ -949,7 +949,7 @@ git commit -m "feat(backend): recertification drafts repository (in-memory + pos
 - Create: `apps/backend/src/modules/mvp/recertification/recertification.service.test.ts`
 - Modify: `apps/backend/src/modules/mvp/mvp.module.ts` (import `CommunicationModule`; register service)
 
-- [ ] **Step 1: Add the `recertification_due` template (code default)**
+- [x] **Step 1: Add the `recertification_due` template (code default)**
 
 In `apps/backend/src/modules/communication/email-templates.ts`:
 
@@ -971,7 +971,7 @@ In `apps/backend/src/modules/communication/email-templates.ts`:
     }
   ```
 
-- [ ] **Step 2: Write the failing service test**
+- [x] **Step 2: Write the failing service test**
 
 Create `apps/backend/src/modules/mvp/recertification/recertification.service.test.ts`. It tests the **pure scan** + the orchestration with fakes (a fake drafts repo = `InMemoryRecertificationDraftsState`, a fake dispatcher capturing calls, and hand-built document/learner arrays). The service takes its collaborators as constructor params so it is unit-testable without Nest DI (mirror `makeServices()` in `learners-bulk-import.service.test.ts`).
 
@@ -1068,12 +1068,12 @@ describe('RecertificationService.runScan', () => {
 
 > The exact `deps` interface is yours to finalize in Step 3 — the test pins the **behaviour** (draft created, one email, idempotent). Keep the dep surface minimal: the service must not reach into Nest DI in tests.
 
-- [ ] **Step 3: Run the test to verify it fails**
+- [x] **Step 3: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/recertification/recertification.service.test.ts --no-file-parallelism`
 Expected: FAIL — cannot find module `./recertification.service.js`.
 
-- [ ] **Step 4: Implement the service**
+- [x] **Step 4: Implement the service**
 
 Create `apps/backend/src/modules/mvp/recertification/recertification.service.ts`. Design notes:
 
@@ -1094,12 +1094,12 @@ Export the constant `export const RECERT_HORIZON_DAYS = 90;`.
 
 > Use `learnerRecipient` from `../enrollment-recipient.js` for the learner recipient (returns `undefined` when no email — skip that recipient silently). Resolve the employer email via `group.counterpartyId → counterparty.contactEmail` (both already on the MVP state; see `mvp.types.ts` `GroupEntity.counterpartyId` + `Counterparty.contactEmail`). If either is absent, send to the learner only.
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/recertification/recertification.service.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 6: Wire the service + CommunicationModule into MvpModule**
+- [x] **Step 6: Wire the service + CommunicationModule into MvpModule**
 
 In `apps/backend/src/modules/mvp/mvp.module.ts`:
 
@@ -1116,7 +1116,7 @@ In `apps/backend/src/modules/mvp/mvp.module.ts`:
       { provide: RecertificationService, scope: Scope.REQUEST, useClass: RecertificationService },
   ```
 
-- [ ] **Step 7: Typecheck + commit**
+- [x] **Step 7: Typecheck + commit**
 
 Run: `pnpm --filter @cdoprof/backend exec tsc --noEmit`
 Expected: PASS.
@@ -1139,7 +1139,7 @@ git commit -m "feat(backend): RecertificationService — scan + drafts + approve
 
 > 5A deliberately left `courseTitle: ''` because the enrollment links to a _group_, not one course. We now resolve a human title at the producer (the MVP service has groups + courses). A group can have several courses — use the first course's name (or the group name as a fallback), enough for a meaningful subject line.
 
-- [ ] **Step 1: Add `courseTitle` to the invited payload**
+- [x] **Step 1: Add `courseTitle` to the invited payload**
 
 In `apps/backend/src/modules/mvp/enrollment-invited.event.ts`, add to `EnrollmentInvitedPayload`:
 
@@ -1150,7 +1150,7 @@ In `apps/backend/src/modules/mvp/enrollment-invited.event.ts`, add to `Enrollmen
 
 (`EnrollmentCompletedPayload.courseTitle` was already added in Task 4 Step 6.)
 
-- [ ] **Step 2: Write the failing listener assertion**
+- [x] **Step 2: Write the failing listener assertion**
 
 In `apps/backend/src/modules/communication/email-notifications.service.test.ts`, extend the existing `EnrollmentEmailListener` invited test to pass a `courseTitle` and assert the rendered subject contains it:
 
@@ -1167,12 +1167,12 @@ const list = await deliveries.list('t1', {});
 expect(list.items[0]!.subject).toContain('Охрана труда');
 ```
 
-- [ ] **Step 3: Run the test to verify it fails**
+- [x] **Step 3: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/communication/email-notifications.service.test.ts --no-file-parallelism`
 Expected: FAIL — subject is `Вас записали на курс «»` (empty title).
 
-- [ ] **Step 4: Use `courseTitle` in the listener**
+- [x] **Step 4: Use `courseTitle` in the listener**
 
 In `apps/backend/src/modules/communication/enrollment-email.listener.ts`, change the `dispatch` helper to accept the payload's `courseTitle` and pass it through. Update the helper's param type to include `courseTitle?: string` and set:
 
@@ -1183,7 +1183,7 @@ In `apps/backend/src/modules/communication/enrollment-email.listener.ts`, change
       },
 ```
 
-- [ ] **Step 5: Resolve the title at both emits in MvpService**
+- [x] **Step 5: Resolve the title at both emits in MvpService**
 
 In `apps/backend/src/modules/mvp/mvp.service.ts`, add a small private helper and use it at the invited emit (`createEnrollment`) and the completed emit (`updateEnrollmentStatus`). The helper resolves the first course name of the group, falling back to the group name:
 
@@ -1216,7 +1216,7 @@ At the invited emit object literal add:
 
 > Confirm the collection names against `mvp-collections.ts` / `in-memory-mvp.state.ts`: `groupCourses`, `courses`, `groups` are the relevant arrays. Adjust if a name differs.
 
-- [ ] **Step 6: Run the test + typecheck**
+- [x] **Step 6: Run the test + typecheck**
 
 Run, expect PASS:
 
@@ -1225,7 +1225,7 @@ pnpm --filter @cdoprof/backend exec vitest run src/modules/communication/email-n
 pnpm --filter @cdoprof/backend exec tsc --noEmit
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/enrollment-invited.event.ts apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/communication/enrollment-email.listener.ts apps/backend/src/modules/communication/email-notifications.service.test.ts
@@ -1243,7 +1243,7 @@ git commit -m "fix(backend): resolve group/course title for enrollment emails (c
 - Modify: `apps/backend/src/modules/mvp/mvp.module.ts` (register controller)
 - Modify: `apps/backend/src/modules/mvp/mvp.http.integration.test.ts` (recertification permission boundary block)
 
-- [ ] **Step 1: Create the DTOs**
+- [x] **Step 1: Create the DTOs**
 
 Create `apps/backend/src/modules/mvp/recertification/recertification.dto.ts`:
 
@@ -1265,7 +1265,7 @@ export class RejectRecertificationDraftRequest {
 }
 ```
 
-- [ ] **Step 2: Create the controller**
+- [x] **Step 2: Create the controller**
 
 Create `apps/backend/src/modules/mvp/recertification/recertification.controller.ts` (class-level `@Controller()` + `@UseInterceptors(MvpRequestPersistenceInterceptor)` + `@UseGuards(TenantGuard)`; per-method `@UseGuards(PermissionGuard)` + `@RequirePermissions(...)`; `@Body() raw: unknown` + `assertValidDto` — exactly as `mvp.controller.ts`/`email-notifications.controller.ts` do). The persistence interceptor is required because `approve`/`scan` mutate request-scoped MVP state (new enrollment):
 
@@ -1342,16 +1342,16 @@ export class RecertificationController {
 
 > Verify the relative import depth (`../../../common/...`) — the controller is one level deeper than `mvp.controller.ts` (it sits in `recertification/`). Confirm `MvpRequestPersistenceInterceptor`'s exact path/name under `mvp/infrastructure/`. The `runScan` here passes "today" — Plan 5B-2's cron will pass its own `asOf`.
 
-- [ ] **Step 3: Register the controller**
+- [x] **Step 3: Register the controller**
 
 In `apps/backend/src/modules/mvp/mvp.module.ts`, add `RecertificationController` to the `controllers` array.
 
-- [ ] **Step 4: Typecheck**
+- [x] **Step 4: Typecheck**
 
 Run: `pnpm --filter @cdoprof/backend exec tsc --noEmit`
 Expected: PASS.
 
-- [ ] **Step 5: Add the permission-boundary test (extend the mvp http file)**
+- [x] **Step 5: Add the permission-boundary test (extend the mvp http file)**
 
 In `apps/backend/src/modules/mvp/mvp.http.integration.test.ts`, add stub handlers to `TestMvpController` (mirror the 5A `email-deliveries`/`email-templates` stubs):
 
@@ -1374,12 +1374,12 @@ In `apps/backend/src/modules/mvp/mvp.http.integration.test.ts`, add stub handler
 
 Then add a `describe('recertification permission boundary', ...)` block mirroring the 5A `notifications permission boundary` block exactly: a 403 for `GET /recertification-drafts` without `recertification.read`; a 200 with it; a 403 for `POST /recertification-drafts/x/approve` without `recertification.write`; a 200 with it. Copy the token-minting + `iamServiceMock.resolvePermissions.mockResolvedValueOnce([...])` idiom verbatim from the notifications block, swapping the paths/permissions/method (`approve` is `POST` with a JSON body `{ targetGroupId: 'g1' }`).
 
-- [ ] **Step 6: Run the test to verify it passes**
+- [x] **Step 6: Run the test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.http.integration.test.ts --no-file-parallelism`
 Expected: PASS (existing blocks + the 4 new recertification cases).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/recertification/recertification.dto.ts apps/backend/src/modules/mvp/recertification/recertification.controller.ts apps/backend/src/modules/mvp/mvp.module.ts apps/backend/src/modules/mvp/mvp.http.integration.test.ts
@@ -1396,17 +1396,17 @@ git commit -m "feat(backend): recertification admin endpoints + permission-bound
 - Modify: `LMS_AGENT_HANDOFF.md` (append §5.XX)
 - Modify: `docs/superpowers/plans/2026-06-05-phase-5-plan-b-recertification-cycle.md` (tick boxes)
 
-- [ ] **Step 1: Lint the new files**
+- [x] **Step 1: Lint the new files**
 
 Run: `npx eslint apps/backend/src/modules/mvp/recertification apps/backend/src/common/utils/date-math.util.ts --max-warnings=0`
 Expected: PASS. Fix any issues.
 
-- [ ] **Step 2: Typecheck the whole monorepo**
+- [x] **Step 2: Typecheck the whole monorepo**
 
 Run: `pnpm typecheck`
 Expected: PASS.
 
-- [ ] **Step 3: Run the targeted backend suites (Cyrillic-path safe — isolated files)**
+- [x] **Step 3: Run the targeted backend suites (Cyrillic-path safe — isolated files)**
 
 Run each and expect PASS:
 
@@ -1422,13 +1422,13 @@ pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.dto-validatio
 
 > Per CLAUDE.md Gotchas, do NOT run the full `pnpm test:backend` locally (Cyrillic-path `tinypool` crash). CI (Ubuntu) runs the full suite.
 
-- [ ] **Step 4: Update docs**
+- [x] **Step 4: Update docs**
 
 - `README.md` §2 «AI Agent State»: Last Completed Task = «Phase 5 Plan 5B — recertification foundation», Current/Next = «Plan 5B-2 (daily scheduler) + Plan 5C (queue UI)», Last Updated At/By.
 - Append `### 5.XX` to `LMS_AGENT_HANDOFF.md` §5: summary, files changed, test status, and the **deferrals** (scheduler→5B-2, course_deadline/document_revoked/90-30-7 cadence→5B-2, license_expiring→needs org persistence, curator/admin recipients→gaps, frontend→5C). Cross-link this plan.
 - Tick the checkboxes in this plan file.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add README.md LMS_AGENT_HANDOFF.md docs/superpowers/plans/2026-06-05-phase-5-plan-b-recertification-cycle.md
