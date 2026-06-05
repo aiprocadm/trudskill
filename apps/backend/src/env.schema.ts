@@ -41,6 +41,17 @@ export const backendEnvSchema = z
       .default(false),
     CLAMAV_HOST: z.string().min(1).default('clamav'),
     CLAMAV_PORT: z.coerce.number().int().positive().default(3310),
+    // Email notifications (Phase 5). Custom boolean parse — NOT z.coerce.boolean, which maps
+    // the string "false" → true. NoopMailer is the safe default (no SMTP needed).
+    NOTIFICATIONS_EMAIL_ENABLED: z
+      .union([z.boolean(), z.enum(['true', 'false'])])
+      .transform((v) => v === true || v === 'true')
+      .default(false),
+    SMTP_HOST: z.string().min(1).optional(),
+    SMTP_PORT: z.coerce.number().int().positive().default(587),
+    SMTP_USER: z.string().min(1).optional(),
+    SMTP_PASSWORD: z.string().min(1).optional(),
+    SMTP_FROM: z.string().min(1).default('no-reply@cdoprof.local'),
     SECRETS_PROVIDER: secretsProviderSchema.default('env'),
     AUTH_JWT_SECRET: z.string().min(10).optional(),
     SESSION_SECRET: z.string().min(10).optional(),
@@ -152,6 +163,24 @@ export const backendEnvSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'KMS_ENDPOINT and KMS_KEY_RING are required when SECRETS_PROVIDER=kms'
+      });
+    }
+
+    if (env.NOTIFICATIONS_EMAIL_ENABLED === true && !env.SMTP_HOST) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SMTP_HOST'],
+        message: 'SMTP_HOST is required when NOTIFICATIONS_EMAIL_ENABLED=true'
+      });
+    }
+
+    const smtpUserSet = Boolean(env.SMTP_USER);
+    const smtpPasswordSet = Boolean(env.SMTP_PASSWORD);
+    if (smtpUserSet !== smtpPasswordSet) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SMTP_PASSWORD'],
+        message: 'SMTP_USER and SMTP_PASSWORD must both be set or both be omitted'
       });
     }
 

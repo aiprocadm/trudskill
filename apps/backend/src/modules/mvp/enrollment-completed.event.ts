@@ -30,4 +30,6 @@ export interface EnrollmentCompletedPayload {
    * листенер вернётся к legacy single-cert flow через `resolveAutoCertificateTemplateBinding`.
    */
   documentSet?: EnrollmentCompletedDocumentSetEntry[];
+  /** Resolved learner contact for Phase 5 email (producer-resolved, spec §3.1). */
+  recipient?: { email: string; name?: string };
 }

@@ -8,7 +8,9 @@ import {
   NotFoundException,
   Optional
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
+import { DOCUMENT_REVOKED_EVENT } from './document-revoked.event.js';
 import { DOCUMENTS_STATE } from './documents-state.token.js';
 import {
   type BaseFilter,
@@ -116,7 +118,8 @@ export class DocumentsService {
     @Inject(DOCUMENTS_STATE) private readonly state: InMemoryDocumentsState,
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(RealtimeEventsService) private readonly realtimeEvents: RealtimeEventsService,
-    @Inject(MetricsService) @Optional() private readonly metrics?: MetricsService
+    @Inject(MetricsService) @Optional() private readonly metrics?: MetricsService,
+    @Optional() @Inject(EventEmitter2) private readonly events?: EventEmitter2
   ) {}
 
   listTemplates(tenantId: string, query: BaseFilter) {
@@ -1168,6 +1171,17 @@ export class DocumentsService {
       correlationId: ctx.correlationId,
       ip: ctx.ip,
       userAgent: ctx.userAgent
+    });
+    this.events?.emit(DOCUMENT_REVOKED_EVENT, {
+      tenantId,
+      documentId,
+      sourceEntityType: doc.sourceEntityType,
+      sourceEntityId: doc.sourceEntityId,
+      reason: doc.revocationReason,
+      actorId,
+      revokedAt: doc.revokedAt,
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId
     });
     return doc;
   }

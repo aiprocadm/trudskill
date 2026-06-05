@@ -13,6 +13,8 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { gradeAnswer } from './assessment-autograde.service.js';
 import { ENROLLMENT_COMPLETED_EVENT } from './enrollment-completed.event.js';
+import { ENROLLMENT_INVITED_EVENT } from './enrollment-invited.event.js';
+import { learnerRecipient } from './enrollment-recipient.js';
 import {
   summarizeCounterpartyProgress,
   summarizeGroupProgress
@@ -1618,6 +1620,19 @@ export class MvpService {
       entity,
       context
     );
+    const invitedRecipient = learnerRecipient(
+      this.state.learners.find((l) => l.tenantId === tenantId && l.id === entity.learnerId)
+    );
+    this.events.emit(ENROLLMENT_INVITED_EVENT, {
+      tenantId,
+      enrollmentId: entity.id,
+      learnerId: entity.learnerId,
+      groupId: entity.groupId,
+      ...(invitedRecipient ? { recipient: invitedRecipient } : {}),
+      actorId,
+      requestId: context.requestId,
+      correlationId: context.correlationId
+    });
     return entity;
   }
 
@@ -1811,6 +1826,9 @@ export class MvpService {
             autoIssueOnCompletion: entry.autoIssueOnCompletion
           }))
         );
+      const completedRecipient = learnerRecipient(
+        this.state.learners.find((l) => l.tenantId === tenantId && l.id === enrollment.learnerId)
+      );
       this.events.emit(ENROLLMENT_COMPLETED_EVENT, {
         tenantId,
         enrollmentId: enrollment.id,
@@ -1820,7 +1838,8 @@ export class MvpService {
         actorId,
         requestId: context.requestId,
         correlationId: context.correlationId,
-        documentSet
+        documentSet,
+        ...(completedRecipient ? { recipient: completedRecipient } : {})
       });
     }
     return enrollment;
