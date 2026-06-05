@@ -22,6 +22,9 @@ import { OtRegistryXlsxWriter } from './ot-registry/ot-registry-xlsx.writer.js';
 import { OtRegistryXmlWriter } from './ot-registry/ot-registry-xml.writer.js';
 import { OtRegistryController } from './ot-registry/ot-registry.controller.js';
 import { OtRegistryService } from './ot-registry/ot-registry.service.js';
+import { InMemoryRecertificationDraftsState } from './recertification/in-memory-recertification-drafts.state.js';
+import { PostgresRecertificationDraftsRepository } from './recertification/postgres-recertification-drafts.repository.js';
+import { RECERTIFICATION_DRAFTS_REPOSITORY } from './recertification/recertification-drafts.repository.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { DocumentsModule } from '../documents/documents.module.js';
 import { FilesModule } from '../files/files.module.js';
@@ -40,6 +43,12 @@ import { OrgModule } from '../org/org.module.js';
   providers: [
     MvpBulkEnqueueService,
     PostgresMvpPersistenceBackend,
+    PostgresRecertificationDraftsRepository,
+    {
+      provide: RECERTIFICATION_DRAFTS_REPOSITORY,
+      useClass: PostgresRecertificationDraftsRepository
+    },
+    InMemoryRecertificationDraftsState,
     { provide: MVP_PERSISTENCE_BACKEND, useClass: MvpPersistenceRepositoryAdapter },
     { provide: MVP_STATE, scope: Scope.REQUEST, useClass: InMemoryMvpState },
     { provide: MvpService, scope: Scope.REQUEST, useClass: MvpService },
