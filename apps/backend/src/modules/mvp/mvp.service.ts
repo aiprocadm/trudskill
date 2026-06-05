@@ -1560,6 +1560,20 @@ export class MvpService {
     return { items };
   }
 
+  private resolveGroupCourseTitle(tenantId: string, groupId: string): string | undefined {
+    const groupCourse = this.state.groupCourses.find(
+      (gc) => gc.tenantId === tenantId && gc.groupId === groupId
+    );
+    if (groupCourse) {
+      const course = this.state.courses.find(
+        (c) => c.tenantId === tenantId && c.id === groupCourse.courseId
+      );
+      if (course?.title) return course.title;
+    }
+    const group = this.state.groups.find((g) => g.tenantId === tenantId && g.id === groupId);
+    return group?.name;
+  }
+
   private resolveEnrollmentCourse(
     tenantId: string,
     enrollment: Enrollment
@@ -1623,12 +1637,14 @@ export class MvpService {
     const invitedRecipient = learnerRecipient(
       this.state.learners.find((l) => l.tenantId === tenantId && l.id === entity.learnerId)
     );
+    const courseTitle = this.resolveGroupCourseTitle(tenantId, entity.groupId);
     this.events.emit(ENROLLMENT_INVITED_EVENT, {
       tenantId,
       enrollmentId: entity.id,
       learnerId: entity.learnerId,
       groupId: entity.groupId,
       ...(invitedRecipient ? { recipient: invitedRecipient } : {}),
+      ...(courseTitle ? { courseTitle } : {}),
       actorId,
       requestId: context.requestId,
       correlationId: context.correlationId
@@ -1833,6 +1849,7 @@ export class MvpService {
       const completedRecipient = learnerRecipient(
         this.state.learners.find((l) => l.tenantId === tenantId && l.id === enrollment.learnerId)
       );
+      const completedCourseTitle = this.resolveGroupCourseTitle(tenantId, enrollment.groupId);
       this.events.emit(ENROLLMENT_COMPLETED_EVENT, {
         tenantId,
         enrollmentId: enrollment.id,
@@ -1844,7 +1861,8 @@ export class MvpService {
         correlationId: context.correlationId,
         documentSet,
         ...(completedRecipient ? { recipient: completedRecipient } : {}),
-        ...(enrollment.completedAt ? { completedAt: enrollment.completedAt } : {})
+        ...(enrollment.completedAt ? { completedAt: enrollment.completedAt } : {}),
+        ...(completedCourseTitle ? { courseTitle: completedCourseTitle } : {})
       });
     }
     return enrollment;

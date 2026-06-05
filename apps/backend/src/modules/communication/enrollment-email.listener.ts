@@ -29,6 +29,7 @@ export class EnrollmentEmailListener {
       tenantId: string;
       enrollmentId: string;
       recipient?: { email: string; name?: string };
+      courseTitle?: string;
     },
     templateKey: 'enrollment_invite' | 'course_completed'
   ): Promise<void> {
@@ -48,7 +49,7 @@ export class EnrollmentEmailListener {
         ],
         variables: {
           learnerName: payload.recipient.name ?? '',
-          courseTitle: ''
+          courseTitle: payload.courseTitle ?? ''
         },
         relatedEntityType: 'learning.enrollment',
         relatedEntityId: payload.enrollmentId

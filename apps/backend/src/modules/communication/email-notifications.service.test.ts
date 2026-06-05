@@ -140,6 +140,21 @@ describe('EnrollmentEmailListener', () => {
     expect(list.items[0]!.relatedEntityId).toBe('enr1');
   });
 
+  it('uses courseTitle from invited payload in the email subject', async () => {
+    const { dispatcher, deliveries } = makeDispatcher();
+    const listener = new EnrollmentEmailListener(dispatcher);
+    await listener.handleInvited({
+      tenantId: 't1',
+      enrollmentId: 'enr1',
+      learnerId: 'l1',
+      groupId: 'g1',
+      courseTitle: 'Охрана труда',
+      recipient: { email: 'a@example.com', name: 'Иванов' }
+    });
+    const list = await deliveries.list('t1', {});
+    expect(list.items[0]!.subject).toContain('Охрана труда');
+  });
+
   it('does nothing when the payload has no recipient e-mail', async () => {
     const { dispatcher, deliveries } = makeDispatcher();
     const listener = new EnrollmentEmailListener(dispatcher);

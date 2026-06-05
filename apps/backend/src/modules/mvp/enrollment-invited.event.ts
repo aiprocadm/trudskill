@@ -7,6 +7,8 @@ export interface EnrollmentInvitedPayload {
   groupId: string;
   /** Resolved learner contact; absent if the learner has no e-mail on file. */
   recipient?: { email: string; name?: string };
+  /** Phase 5B — resolved group/course title for the email subject. */
+  courseTitle?: string;
   actorId?: string;
   requestId?: string;
   correlationId?: string;
