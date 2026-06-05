@@ -56,7 +56,12 @@ function make() {
     courseVersions: [{ id: 'cv1', tenantId: 't1', courseId: 'c1' }],
     courses: [{ id: 'c1', tenantId: 't1', title: 'Охрана труда' }]
   };
-  const documents = { listDocuments: () => ({ items: [doc()], total: 1 }) };
+  const documents = {
+    runWithTenantDocuments: async (
+      _tenantId: string,
+      fn: (d: { listDocuments: () => { items: unknown[]; total: number } }) => unknown
+    ) => fn({ listDocuments: () => ({ items: [doc()], total: 1 }) })
+  };
   const mvp = {
     createBulkEnrollments: vi
       .fn()

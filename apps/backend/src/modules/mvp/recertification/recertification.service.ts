@@ -8,7 +8,7 @@ import {
 } from './recertification-drafts.repository.js';
 import { addDays } from '../../../common/utils/date-math.util.js';
 import { NotificationDispatcher } from '../../communication/notification-dispatcher.service.js';
-import { DocumentsService } from '../../documents/documents.service.js';
+import { DocumentsTenantRunner } from '../../documents/documents-tenant-runner.service.js';
 import { learnerRecipient } from '../enrollment-recipient.js';
 import { MVP_STATE } from '../infrastructure/mvp-state.token.js';
 import { MvpService } from '../mvp.service.js';
@@ -68,7 +68,7 @@ export class RecertificationService {
     private readonly dispatcher: NotificationDispatcher,
     @Inject(MVP_STATE) private readonly state: InMemoryMvpState,
     private readonly mvp: MvpService,
-    private readonly documents: DocumentsService
+    private readonly documentsRunner: DocumentsTenantRunner
   ) {}
 
   /**
@@ -78,10 +78,15 @@ export class RecertificationService {
    */
   async runScan(tenantId: string, asOf: string, _ctx: RequestContext): Promise<RecertScanSummary> {
     // pageSize big enough to read the whole tenant's document set in one page.
-    const docs = this.documents.listDocuments(tenantId, {
-      pageSize: Number.MAX_SAFE_INTEGER
-    }).items;
-    const candidates = scanForRecertification(asOf, docs, RECERT_HORIZON_DAYS);
+    const candidates = await this.documentsRunner.runWithTenantDocuments(
+      tenantId,
+      async (documents) =>
+        scanForRecertification(
+          asOf,
+          documents.listDocuments(tenantId, { pageSize: Number.MAX_SAFE_INTEGER }).items,
+          RECERT_HORIZON_DAYS
+        )
+    );
 
     let draftsCreated = 0;
     let emailsDispatched = 0;
