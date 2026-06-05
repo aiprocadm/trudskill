@@ -310,6 +310,41 @@ describe('DocumentsService', () => {
     await expect(service.finalizeDocument('t1', 'u1', generated.id, ctx)).rejects.toThrowError();
   });
 
+  it('stamps validUntil from the generate request onto the completed document', () => {
+    const service = new DocumentsService(
+      new InMemoryDocumentsState(),
+      new AuditService(),
+      new RealtimeEventsService()
+    );
+    service.createNumberingRule('t1', { documentType: 'certificate' });
+    const template = service.createTemplate(
+      't1',
+      'u1',
+      { name: 'Tpl', templateType: 'contract' },
+      ctx
+    );
+    const version = service.createTemplateVersion('t1', 'u1', {
+      templateId: template.id,
+      fileId: 'file_1'
+    });
+    service.activateTemplateVersion('t1', 'u1', version.id, ctx);
+    const task = service.generateDocument(
+      't1',
+      'u1',
+      {
+        idempotencyKey: 'recert-stamp-1',
+        templateId: template.id,
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'enr_1',
+        documentType: 'certificate',
+        validUntil: '2027-06-04'
+      },
+      ctx
+    );
+    const doc = service.completeTask('t1', task.id, 'file_1');
+    expect(doc.validUntil).toBe('2027-06-04');
+  });
+
   it('validates supported template variable categories', () => {
     const service = new DocumentsService(
       new InMemoryDocumentsState(),

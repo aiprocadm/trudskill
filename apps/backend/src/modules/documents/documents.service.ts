@@ -629,7 +629,8 @@ export class DocumentsService {
         request_id: ctx?.requestId,
         correlation_id: ctx?.correlationId,
         enqueued_at: this.now()
-      }
+      },
+      ...(req.validUntil ? { validUntil: req.validUntil } : {})
     };
     this.state.tasks.push(task);
     this.state.idem.set(idemKey, { taskId: task.id, expiresAt: Date.now() + 24 * 60 * 60 * 1000 });
@@ -690,7 +691,8 @@ export class DocumentsService {
       isFinal: false,
       generatedBy,
       generatedAt: this.now(),
-      qrToken: this.generateQrToken()
+      qrToken: this.generateQrToken(),
+      ...(task.validUntil ? { validUntil: task.validUntil } : {})
     };
     this.state.generatedDocuments.push(generated);
     task.status = 'completed';

@@ -1817,15 +1817,19 @@ export class MvpService {
       const courseIds = groupCourses.map((gc) => gc.courseId);
       const documentSet = groupCourses
         .filter((gc) => gc.courseVersionId)
-        .flatMap((gc) =>
-          this.getCourseDocumentSet(tenantId, gc.courseVersionId as string).map((entry) => ({
+        .flatMap((gc) => {
+          const version = this.getCourseVersion(tenantId, gc.courseVersionId as string);
+          return this.getCourseDocumentSet(tenantId, gc.courseVersionId as string).map((entry) => ({
             courseVersionId: gc.courseVersionId as string,
             templateId: entry.templateId,
             position: entry.position,
             isRequired: entry.isRequired,
-            autoIssueOnCompletion: entry.autoIssueOnCompletion
-          }))
-        );
+            autoIssueOnCompletion: entry.autoIssueOnCompletion,
+            ...(version.recertificationPeriodMonths
+              ? { recertificationPeriodMonths: version.recertificationPeriodMonths }
+              : {})
+          }));
+        });
       const completedRecipient = learnerRecipient(
         this.state.learners.find((l) => l.tenantId === tenantId && l.id === enrollment.learnerId)
       );
@@ -1839,7 +1843,8 @@ export class MvpService {
         requestId: context.requestId,
         correlationId: context.correlationId,
         documentSet,
-        ...(completedRecipient ? { recipient: completedRecipient } : {})
+        ...(completedRecipient ? { recipient: completedRecipient } : {}),
+        ...(enrollment.completedAt ? { completedAt: enrollment.completedAt } : {})
       });
     }
     return enrollment;

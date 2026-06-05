@@ -5,6 +5,7 @@ import { DocumentsService } from './documents.service.js';
 import { EnrollmentDocumentIssuanceListener } from './enrollment-document-issuance.listener.js';
 import { InMemoryDocumentsState } from './in-memory-documents.state.js';
 import { MemoryDocumentsPersistenceBackend } from './infrastructure/memory-documents-persistence.backend.js';
+import { addMonths } from '../../common/utils/date-math.util.js';
 import { TenantSerialGateway } from '../../infrastructure/request/tenant-serial.gateway.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
@@ -388,6 +389,73 @@ describe('EnrollmentDocumentIssuanceListener', () => {
     expect(issued?.metadata?.correlation_id).toBe('corr_set_1');
 
     expect(logs.some((x) => x.action === 'documents.enrollment_certificate_skipped')).toBe(false);
+  });
+
+  it('stamps validUntil = completedAt + recertificationPeriodMonths on the issued document task (Plan 5B)', async () => {
+    const audit = new AuditService();
+    const realtime = new RealtimeEventsService();
+    const persistence = new MemoryDocumentsPersistenceBackend();
+    const gateway = new TenantSerialGateway();
+    const runner = new DocumentsTenantRunner(persistence, gateway, audit, realtime);
+
+    let templateCertId = '';
+    await runner.runWithTenantDocuments('tenant_demo', async (documents) => {
+      const ctx = {
+        requestId: 'r_recert',
+        correlationId: 'c_recert',
+        ip: '127.0.0.1',
+        userAgent: 'vitest',
+        tenantId: 'tenant_demo',
+        userId: 'u1',
+        roles: [],
+        permissions: [],
+        method: 'POST',
+        path: '/api/v1/documents',
+        timestamp: new Date().toISOString()
+      };
+      const cert = documents.createTemplate(
+        'tenant_demo',
+        'u1',
+        { name: 'Cert recert', templateType: 'certificate' },
+        ctx
+      );
+      const certVersion = documents.createTemplateVersion('tenant_demo', 'u1', {
+        templateId: cert.id,
+        fileId: 'file_cert_recert'
+      });
+      documents.activateTemplateVersion('tenant_demo', 'u1', certVersion.id, ctx);
+      templateCertId = cert.id;
+    });
+
+    const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
+    listener.handleEnrollmentCompleted({
+      tenantId: 'tenant_demo',
+      enrollmentId: 'enrollment_recert',
+      learnerId: 'learner_recert',
+      groupId: 'group_recert',
+      groupCourseIds: ['course_recert'],
+      actorId: 'u1',
+      completedAt: '2026-06-04',
+      documentSet: [
+        {
+          courseVersionId: 'cver_recert',
+          templateId: templateCertId,
+          position: 0,
+          isRequired: true,
+          autoIssueOnCompletion: true,
+          recertificationPeriodMonths: 12
+        }
+      ]
+    });
+    await flushDeferred();
+
+    const state = new InMemoryDocumentsState();
+    await persistence.loadIntoState('tenant_demo', state);
+    const docs = new DocumentsService(state, audit, realtime);
+    const tasks = docs.listDocumentTasks('tenant_demo', {});
+    expect(tasks.total).toBe(1);
+    expect(tasks.items[0]?.validUntil).toBe(addMonths('2026-06-04', 12));
+    expect(tasks.items[0]?.validUntil).toBe('2027-06-04');
   });
 
   it('skips entries with autoIssueOnCompletion=false from documentSet', async () => {

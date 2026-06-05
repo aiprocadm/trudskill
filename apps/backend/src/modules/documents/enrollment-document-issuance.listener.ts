@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 
 import { type DocumentsTenantRunner } from './documents-tenant-runner.service.js';
+import { addMonths } from '../../common/utils/date-math.util.js';
 import { type AuditService } from '../audit/audit.service.js';
 import {
   ENROLLMENT_COMPLETED_EVENT,
@@ -62,6 +63,10 @@ export class EnrollmentDocumentIssuanceListener {
     try {
       await this.documentsRunner.runWithTenantDocuments(tenantId, async (documents) => {
         for (const entry of autoIssueEntries) {
+          const validUntil =
+            payload.completedAt && entry.recertificationPeriodMonths
+              ? addMonths(payload.completedAt, entry.recertificationPeriodMonths)
+              : undefined;
           documents.generateDocument(
             tenantId,
             actorId,
@@ -70,7 +75,8 @@ export class EnrollmentDocumentIssuanceListener {
               templateId: entry.templateId,
               sourceEntityType: 'enrollment',
               sourceEntityId: enrollmentId,
-              documentType: CERTIFICATE_DOCUMENT_TYPE
+              documentType: CERTIFICATE_DOCUMENT_TYPE,
+              ...(validUntil ? { validUntil } : {})
             },
             traceCtx
           );

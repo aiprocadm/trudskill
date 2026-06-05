@@ -73,6 +73,8 @@ export interface GenerateDocumentRequest {
   sourceEntityType: string;
   sourceEntityId: string;
   documentType: string;
+  /** Phase 5B — pre-computed expiry (YYYY-MM-DD) to stamp on the generated document. */
+  validUntil?: string;
 }
 
 export interface GenerateDocumentsBatchRequest {
