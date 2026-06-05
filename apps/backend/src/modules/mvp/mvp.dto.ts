@@ -972,6 +972,11 @@ export class UpdateProgramMetaRequest {
   academicHours?: number;
 
   @IsOptional()
+  @IsInt()
+  @Min(1)
+  recertificationPeriodMonths?: number;
+
+  @IsOptional()
   @IsIn(TRAINING_TYPES)
   trainingType?: TrainingType;
 

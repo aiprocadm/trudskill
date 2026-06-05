@@ -4764,6 +4764,8 @@ export class MvpService {
 
     const oldValues = { ...cv };
     if (request.academicHours !== undefined) cv.academicHours = request.academicHours;
+    if (request.recertificationPeriodMonths !== undefined)
+      cv.recertificationPeriodMonths = request.recertificationPeriodMonths;
     if (request.trainingType !== undefined) cv.trainingType = request.trainingType;
     if (request.learnerCategory !== undefined) cv.learnerCategory = request.learnerCategory;
     if (request.studyForm !== undefined) cv.studyForm = request.studyForm;

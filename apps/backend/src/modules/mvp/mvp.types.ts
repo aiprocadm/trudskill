@@ -537,6 +537,8 @@ export interface ProgramMeta {
   commissionId?: string;
   /** Коды программ ОТ-реестра (lookup.ot_training_programs.code); комплексный курс = несколько. */
   otProgramCodes?: string[];
+  /** Phase 5B — срок действия удостоверения, мес. NULL/undefined = бессрочно. */
+  recertificationPeriodMonths?: number;
 }
 
 /** Global lookup из lookup.regulatory_acts. Не tenant-scoped, неизменяемый каталог. */
