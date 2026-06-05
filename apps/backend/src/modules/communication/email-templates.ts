@@ -1,4 +1,4 @@
-export type EmailTemplateKey = 'enrollment_invite' | 'course_completed';
+export type EmailTemplateKey = 'enrollment_invite' | 'course_completed' | 'recertification_due';
 
 export interface EmailTemplateBody {
   subject: string;
@@ -21,6 +21,15 @@ export const EMAIL_TEMPLATE_DEFAULTS: Record<EmailTemplateKey, EmailTemplateBody
       'Здравствуйте, {{learnerName}}!\n\n' +
       'Вы успешно завершили обучение по программе «{{courseTitle}}». ' +
       'Выданные документы доступны в личном кабинете.\n\n' +
+      'С уважением, учебный центр.'
+  },
+  recertification_due: {
+    subject: 'Истекает срок действия удостоверения по программе «{{courseTitle}}»',
+    body:
+      'Здравствуйте, {{learnerName}}!\n\n' +
+      'Срок действия вашего удостоверения по программе «{{courseTitle}}» истекает {{validUntil}}. ' +
+      'Для продления необходимо пройти переаттестацию. ' +
+      'Учебный центр свяжется с вами для записи на ближайший поток.\n\n' +
       'С уважением, учебный центр.'
   }
 };
