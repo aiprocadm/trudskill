@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import { InMemoryRecertificationDraftsState } from './in-memory-recertification-drafts.state.js';
@@ -38,9 +39,14 @@ describe('scanForRecertification (pure)', () => {
   });
 });
 
-function make() {
+function make(
+  overrides: {
+    dispatch?: ReturnType<typeof vi.fn>;
+    createBulkEnrollments?: ReturnType<typeof vi.fn>;
+  } = {}
+) {
   const drafts = new InMemoryRecertificationDraftsState();
-  const dispatch = vi.fn().mockResolvedValue(undefined);
+  const dispatch = overrides.dispatch ?? vi.fn().mockResolvedValue(undefined);
   const state = {
     enrollments: [
       { id: 'enr1', tenantId: 't1', learnerId: 'l1', groupId: 'g1', status: 'completed' }
@@ -63,9 +69,9 @@ function make() {
     ) => fn({ listDocuments: () => ({ items: [doc()], total: 1 }) })
   };
   const mvp = {
-    createBulkEnrollments: vi
-      .fn()
-      .mockReturnValue({ created: [{ id: 'enr_new' }], skippedExisting: [], errors: [] })
+    createBulkEnrollments:
+      overrides.createBulkEnrollments ??
+      vi.fn().mockReturnValue({ created: [{ id: 'enr_new' }], skippedExisting: [], errors: [] })
   };
   const service = new RecertificationService(
     drafts,
@@ -103,6 +109,21 @@ describe('RecertificationService.runScan', () => {
     expect((await drafts.list('t1', {})).length).toBe(1);
     expect(dispatch).toHaveBeenCalledTimes(1);
   });
+
+  it('tolerates a dispatch failure — draft is still created, no email counted, scan does not throw', async () => {
+    const dispatch = vi.fn().mockRejectedValue(new Error('smtp down'));
+    const errorSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const { service, drafts } = make({ dispatch });
+    const summary = await service.runScan('t1', ASOF, {
+      tenantId: 't1',
+      userId: 'admin1'
+    } as never);
+    expect(summary.draftsCreated).toBe(1);
+    expect(summary.emailsDispatched).toBe(0);
+    expect((await drafts.list('t1', {})).length).toBe(1);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    errorSpy.mockRestore();
+  });
 });
 
 describe('RecertificationService.approveDraft / rejectDraft', () => {
@@ -117,6 +138,26 @@ describe('RecertificationService.approveDraft / rejectDraft', () => {
     expect(mvp.createBulkEnrollments).toHaveBeenCalledTimes(1);
     expect(updated?.status).toBe('approved');
     expect(updated?.resultingEnrollmentId).toBe('enr_new');
+    // approve uses a group-scoped idempotency key so a corrected-group retry is fresh.
+    const reqArg = mvp.createBulkEnrollments.mock.calls[0]![2];
+    expect(reqArg.idempotencyKey).toContain('::approve::g_target');
+  });
+
+  it('approveDraft surfaces the bulk error reason and throws when no enrollment results', async () => {
+    const createBulkEnrollments = vi.fn().mockReturnValue({
+      created: [],
+      skippedExisting: [],
+      errors: [{ learnerId: 'l1', code: 'not_found', message: 'Группа не найдена' }]
+    });
+    const { service, drafts } = make({ createBulkEnrollments });
+    await service.runScan('t1', ASOF, { tenantId: 't1', userId: 'admin1' } as never);
+    const [d] = await drafts.list('t1', {});
+    await expect(
+      service.approveDraft('t1', d!.id, 'bad_group', {
+        tenantId: 't1',
+        userId: 'admin1'
+      } as never)
+    ).rejects.toThrow('Группа не найдена');
   });
 
   it('rejectDraft marks the draft rejected with a reason', async () => {

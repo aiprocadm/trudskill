@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import {
   RECERTIFICATION_DRAFTS_REPOSITORY,
@@ -62,6 +62,8 @@ export function scanForRecertification(
 
 @Injectable()
 export class RecertificationService {
+  private readonly logger = new Logger(RecertificationService.name);
+
   constructor(
     @Inject(RECERTIFICATION_DRAFTS_REPOSITORY)
     private readonly drafts: RecertificationDraftsRepository,
@@ -126,19 +128,25 @@ export class RecertificationService {
       }
 
       if (recipients.length > 0) {
-        await this.dispatcher.dispatch({
-          tenantId,
-          templateKey: 'recertification_due',
-          recipients,
-          variables: {
-            learnerName: learnerRcpt?.name ?? '',
-            courseTitle: this.resolveCourseTitle(tenantId, courseVersionId) ?? '',
-            validUntil: candidate.validUntil
-          },
-          relatedEntityType: 'recertification_draft',
-          relatedEntityId: row.id
-        });
-        emailsDispatched += recipients.length;
+        try {
+          await this.dispatcher.dispatch({
+            tenantId,
+            templateKey: 'recertification_due',
+            recipients,
+            variables: {
+              learnerName: learnerRcpt?.name ?? '',
+              courseTitle: this.resolveCourseTitle(tenantId, courseVersionId) ?? '',
+              validUntil: candidate.validUntil
+            },
+            relatedEntityType: 'recertification_draft',
+            relatedEntityId: row.id
+          });
+          emailsDispatched += recipients.length;
+        } catch (err) {
+          this.logger.error(
+            `Failed to dispatch recertification_due for draft ${row.id}: ${err instanceof Error ? err.message : String(err)}`
+          );
+        }
       }
     }
 
@@ -183,15 +191,18 @@ export class RecertificationService {
       {
         groupId: targetGroupId,
         learnerIds: [draft.learnerId],
-        idempotencyKey: `recert_${draftId}::approve`
+        idempotencyKey: `recert_${draftId}::approve::${targetGroupId}`
       },
       ctx
     );
     const enrollmentId = outcome.created[0]?.id ?? outcome.skippedExisting[0]?.enrollmentId;
     if (!enrollmentId) {
+      const reason = outcome.errors[0]?.message;
       throw new BadRequestException({
         code: 'recertification_enrollment_failed',
-        message: 'Не удалось создать зачисление для переаттестации'
+        message: reason
+          ? `Не удалось создать зачисление для переаттестации: ${reason}`
+          : 'Не удалось создать зачисление для переаттестации'
       });
     }
 
