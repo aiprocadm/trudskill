@@ -25,6 +25,7 @@ import { OtRegistryService } from './ot-registry/ot-registry.service.js';
 import { InMemoryRecertificationDraftsState } from './recertification/in-memory-recertification-drafts.state.js';
 import { PostgresRecertificationDraftsRepository } from './recertification/postgres-recertification-drafts.repository.js';
 import { RECERTIFICATION_DRAFTS_REPOSITORY } from './recertification/recertification-drafts.repository.js';
+import { RecertificationController } from './recertification/recertification.controller.js';
 import { RecertificationService } from './recertification/recertification.service.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { CommunicationModule } from '../communication/communication.module.js';
@@ -47,7 +48,8 @@ import { OrgModule } from '../org/org.module.js';
     MvpInternalWorkerController,
     OtRegistryController,
     FrdoRegistryController,
-    EisotTestingRegistryController
+    EisotTestingRegistryController,
+    RecertificationController
   ],
   providers: [
     MvpBulkEnqueueService,

@@ -201,7 +201,7 @@ export class RecertificationService {
   async rejectDraft(
     tenantId: string,
     draftId: string,
-    reason: string,
+    reason: string | undefined,
     ctx: RequestContext
   ): Promise<RecertificationDraftRow | null> {
     const draft = await this.drafts.getById(tenantId, draftId);

@@ -366,6 +366,22 @@ describe('MVP HTTP integration (permission boundaries)', () => {
       listEisotTestingExports(@CurrentContext() context: { tenantId?: string }) {
         return { items: [], tenantId: context.tenantId };
       }
+
+      // Phase 5 Plan 5B — recertification permission boundary
+      @Get('recertification-drafts')
+      @RequirePermissions('recertification.read')
+      listRecertDrafts(@CurrentContext() context: { tenantId?: string }) {
+        return { items: [], tenantId: context.tenantId };
+      }
+
+      @Post('recertification-drafts/:id/approve')
+      @RequirePermissions('recertification.write')
+      approveRecertDraft(
+        @CurrentContext() context: { tenantId?: string; userId?: string },
+        @Body() body: { targetGroupId: string }
+      ) {
+        return { id: 'recert_1', status: 'approved', targetGroupId: body.targetGroupId };
+      }
     }
 
     @Module({
@@ -1304,6 +1320,112 @@ describe('MVP HTTP integration (permission boundaries)', () => {
       expect(response.status).toBe(200);
       const payload = (await response.json()) as { data: { items: unknown[]; tenantId: string } };
       expect(payload.data.tenantId).toBe('tenant_demo');
+    });
+  });
+
+  // === Phase 5 Plan 5B — recertification admin RBAC boundary ===
+
+  describe('recertification permission boundary', () => {
+    beforeEach(() => {
+      iamServiceMock.resolvePermissions.mockReset();
+      iamServiceMock.resolvePermissions.mockResolvedValue(['courses.read']);
+    });
+
+    it('GET /recertification-drafts — 403 permission_denied without recertification.read', async () => {
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/recertification-drafts`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('GET /recertification-drafts — 200 success with recertification.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['recertification.read']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/recertification-drafts`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as {
+        data: { tenantId: string };
+        meta: { requestId: string };
+      };
+      expect(payload.data.tenantId).toBe('tenant_demo');
+    });
+
+    it('POST /recertification-drafts/:id/approve — 403 permission_denied without recertification.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['recertification.read']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/recertification-drafts/x/approve`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ targetGroupId: 'g1' })
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('POST /recertification-drafts/:id/approve — 201 success with recertification.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['recertification.write']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/recertification-drafts/x/approve`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ targetGroupId: 'g1' })
+      });
+      expect(response.status).toBe(201);
+      const payload = (await response.json()) as {
+        data: { targetGroupId: string };
+        meta: { requestId: string };
+      };
+      expect(payload.data.targetGroupId).toBe('g1');
     });
   });
 });
