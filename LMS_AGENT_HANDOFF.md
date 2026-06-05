@@ -1277,57 +1277,43 @@
 - **Единственный остаток** — ops: поднять clamd + `ANTIVIRUS_ENABLED=true` (spec §9). В коде V1.1 AV-гейт закрыт полностью; «остаток №1» из `PLANS_STATUS.md` закрывается.
 - Коммиты (Conventional, по задаче): `feat(backend)` proactive scan → `feat(backend)` antivirusStatus read DTOs → `test(backend)` HTTP gate boundary → `feat(frontend)` DTO types+contract → `feat(frontend)` reviewer gate → `feat(frontend)` learner status → `docs(handoff)` (§5.102 + README §2/§7 + plan checkboxes). Merge `origin/main` (#223) разрешён в README §2 + handoff (§5.101 — ОТ, §5.102 — AV).
 
-### 5.103 Phase 5 — Plan 5A: notification foundation (email engine + templates + delivery journal + enrollment emails + documents.revoked event + admin endpoints)
+### 5.103 Wave 2 — Plan A: выгрузка в ФИС ФРДО (Рособрнадзор) по выданным документам
 
-- Контекст: **Plan 5A** Phase 5 (notifications + recertifications). Дизайн-спека `docs/superpowers/specs/2026-06-04-phase-5-notifications-recertifications-design.md`, план `docs/superpowers/plans/2026-06-04-phase-5-plan-a-notification-foundation.md` (9 задач TDD). Ветка `feat/2026-06-04-phase-5-notifications-recertifications`. Поток: subagent-driven-development + TDD пошагово (RED→GREEN→lint→typecheck→commit на каждую задачу).
+- Контекст: реализует план `docs/superpowers/plans/2026-06-03-frdo-registry-export.md` (спека `…/specs/2026-06-03-frdo-registry-export-design.md`); Волна 2 под-цель **A** дорожной карты паритета (#1, ТЗ §17, BL-007/008). Ветка `feat/2026-06-03-frdo-registry-export` от локального `main` (= #224 merge, `858ef9f`). brainstorming → writing-plans → executing-plans (inline — задачи тесно связаны) + TDD пошагово (RED→GREEN→tsc→commit). Изоморфна ОТ-реестру (§5.100/5.101), но источник иной.
+- **Ключевое отличие от ОТ**: ОТ строит строки из зачислений+протокола; ФРДО — **по выданным документам об обучении** (удостоверения ПК / дипломы ПП) через готовый `DocumentsService.listIssuedDocuments`. Одна строка = один документ (без разворота человек×программа), без раунд-трипа (ФРДО не возвращает номера — рег.номер = наш `documentNumber`), только `.xlsx` (XML-веб-сервис ФРДО = Phase 4).
+- **Backend (durable MVP-модуль `frdo-registry/`, НЕ пустой `FrdoAdapter`)**: migration `0046` (`lookup.frdo_document_kinds` provisional-сид PK/PP + `learning.learners.date_of_birth`); типы `Frdo*` в `mvp.types.ts` + 2 коллекции state/`mvp-collections`; `Learner.dateOfBirth` через `createLearnerExtended`/`updateLearnerExtended`/DTO/bulk-import (JSONB-персистенция — без правки маппера); `listFrdoDocumentKinds()` (+ `FRDO_DOCUMENT_KINDS_SEED`); pure `buildFrdoRows` (документ→строка, даты ДД.ММ.ГГГГ); `validateFrdoRow` (жёсткие поля + опц. СНИЛС-чексумма); `FrdoRegistryXlsxWriter` (`COLUMNS` — swap-2, PROVISIONAL); `FrdoRegistryService` (Scope.REQUEST: собрать `certificate|diploma`, исключить archived/revoked, джойн enrollment→learner/course/version, preflight, `.xlsx`, persist batch+records, audit `regulatory.frdo_exported`); DTO + `@Controller('frdo-registry')` (4 эндпоинта, `regulatory.export.read/write` — переиспользованы из 0045); wiring в `mvp.module`.
+- **Frontend**: `features/gov-export/` — `Frdo*`-типы, `createFrdoRegistryExport`/`listFrdoBatches`/`getFrdoBatchFileUrl`, `useFrdoRegistryBatches`; секция «ФИС ФРДО (Рособрнадзор)» на `/gov-export` (provisional-баннер + период from/to + генерация + история/скачивание; без формата/раунд-трипа).
+- **Отклонения от спеки (осознанно, план §«Known deviations»)**: (1) реквизиты организации — контекст ЛК-аккаунта, не колонки строки (frdo-credential отложен); (2) preflight без канала warnings — пустые ячейки для отсутствующих опц. полей; (3) статус-фильтр `generated`+`final` (искл. archived/revoked), не только `final` — иначе риск пустой выгрузки; (4) аудит `regulatory.frdo_exported` (как ОТ).
+- Тесты (Cyrillic-path isolated `--no-file-parallelism`): backend кластер **6 файлов / 131 тест** (`frdo-registry/*`: rows 2 / preflight 3 / xlsx 1 / service 2 + `mvp.service.test` 95 [+dateOfBirth +listFrdoDocumentKinds] + `mvp.http.integration` 28 [+4 ФРДО boundary]); bulk-import dateOfBirth 1; frontend `gov-export/api.contract` 4 (+1 ФРДО) + e2e `frdo-registry-export` 4. `pnpm typecheck` **8/8**; ESLint clean (import/order авто-фикс в module/controller). Полный `pnpm -s ci:check` локально не гонялся (Cyrillic-краш) → CI.
+- **PROVISIONAL** (как ОТ): 2 swap-точки — сид `lookup.frdo_document_kinds` (migration 0046) + `COLUMNS` в `frdo-registry-xlsx.writer.ts`; обе помечены в коде, UI-баннер. Подставить офиц. Excel-шаблон ФРДО + перечень видов документов ПО/ДПО перед боевой подачей. **Follow-up**: фронтовый Excel-парсер колонки «Дата рождения»→`dateOfBirth` в bulk-импорте (бэкенд-проброс готов).
+- Коммиты (Conventional, по задаче): migration 0046 → types+state+collections → dateOfBirth wiring → classifier reader → buildFrdoRows → preflight → xlsx writer → service orchestrator → endpoints+wiring+boundary → frontend section → bulk-import dateOfBirth → e2e+docs. PR — после ревью.
+
+### 5.104 Wave 2 — Plan C: выгрузка в ЕИСОТ «лица на тестирование» (Минтруд / ЛКОТ)
+
+- Контекст: реализует план `docs/superpowers/plans/2026-06-03-eisot-testing-registry-export.md` (спека `…/specs/2026-06-03-eisot-testing-registry-export-design.md`); Волна 2 под-цель **C** дорожной карты паритета (#3, ТЗ §17, BL-008). Ветка `feat/2026-06-03-eisot-testing-registry-export` от `origin/main` (= #225 merge, `05c6669`). brainstorming → writing-plans → executing-plans (inline — задачи тесно связаны) + TDD пошагово (RED→GREEN→commit). Изоморфна ФРДО (§5.103), но источник и гранулярность иные.
+- **Ключевое отличие от A/B**: ОТ строит строки из зачислений+протокола, ФРДО — из выданных документов; ЕИСОТ C — **ростер «кого предстоит протестировать»** по фильтру (группа/период/клиент) через `MvpService.listEnrollments`, **одна строка = один слушатель** (дедуп), **без экзамена/документа**, без раунд-трипа, только `.xlsx`. **Самая лёгкая из трёх — без миграции** (все поля уже в `main`: `learner.snils/position/dateOfBirth`, `counterparty.name/inn`; права `regulatory.export.read/write` из 0045 переиспользованы).
+- **Backend (durable MVP-модуль `eisot-testing-registry/`, НЕ пустой `EisotAdapter`)**: типы `EisotTesting*` в `mvp.types.ts` + 2 коллекции state/`mvp-collections`; pure `buildEisotTestingRows` (зачисление→строка слушателя, даты ДД.ММ.ГГГГ); `validateEisotTestingRow` (жёсткие ФИО+работодатель; опц. СНИЛС-чексумма + ИНН 10/12); `EisotTestingXlsxWriter` (`COLUMNS` — единственная swap-точка, PROVISIONAL); `EisotTestingRegistryService` (Scope.REQUEST: `listEnrollments` по `group_id` + ре-фильтр `enrolledAt` [in-memory list игнорирует from/to], искл. `cancelled`, джойн learner/group/counterparty/course, **дедуп по слушателю**, `failed` = distinct learnerId без valid, persist batch+records, audit `regulatory.eisot_testing_exported`); DTO + `@Controller('eisot-testing-registry')` (4 эндпоинта); wiring в `mvp.module`.
+- **Frontend**: `features/gov-export/` — `EisotTesting*`-типы, `createEisotTestingExport`/`listEisotTestingBatches`/`getEisotTestingBatchFileUrl`, `useEisotTestingBatches`; секция «ЕИСОТ — лица на тестирование (Минтруд)» на `/gov-export` (provisional-баннер + период from/to + генерация + история/скачивание).
+- **Отклонения от спеки (осознанно, план §«Known deviations»)**: (1) исключены `cancelled`-зачисления (отозванных не направляют на тестирование); (2) дедуп по слушателю, первая отобранная группа выигрывает; (3) период применяется вручную на `enrolledAt` (in-memory `listEnrollments` игнорирует date-ключи, как OT FIX #3); (4) только ФИО+работодатель жёсткие; (5) `failed` = число distinct слушателей; (6) аудит `regulatory.eisot_testing_exported`.
+- Тесты (Cyrillic-path isolated `--no-file-parallelism`): backend кластер **5 файлов / 41 тест** (`eisot-testing-registry/*`: rows 2 / preflight 4 / xlsx 1 / service 2 + `mvp.http.integration` 32 [+4 ЕИСОТ boundary]) + `eisot-testing-export.dto-validation` 3; frontend `gov-export/api.contract` 5 (+1 ЕИСОТ) + e2e `eisot-testing-registry-export` 4. `pnpm typecheck` **8/8**; ESLint clean (import/order авто-фикс в module). Полный `pnpm -s ci:check` локально не гонялся (Cyrillic-краш) → CI.
+- **PROVISIONAL**: 1 swap-точка — `COLUMNS` в `eisot-testing-xlsx.writer.ts` (помечена в коде, UI-баннер). Подставить офиц. Excel-шаблон ростера ЛКОТ перед боевой подачей. TRACEABILITY не обновлялась (как у A/B — регуляторные экспортёры трактуются под BL-007/008).
+- Коммиты (Conventional, по задаче): types+state+collections → buildEisotTestingRows → preflight → xlsx writer → service orchestrator → endpoints+wiring+boundary → frontend section → e2e+docs. PR — после ревью.
+
+### 5.105 Phase 5 — Plan 5A: notification foundation (email engine + templates + delivery journal + enrollment emails + documents.revoked event + admin endpoints)
+
+- Контекст: **Plan 5A** Phase 5 (notifications + recertifications). Дизайн-спека `docs/superpowers/specs/2026-06-04-phase-5-notifications-recertifications-design.md`, план `docs/superpowers/plans/2026-06-04-phase-5-plan-a-notification-foundation.md` (9 задач TDD). Ветка `feat/2026-06-04-phase-5-notifications-recertifications`. Поток: subagent-driven-development + TDD пошагово (RED→GREEN→lint→typecheck→commit на каждую задачу). Слит `origin/main` (#225 ФРДО §5.103 + #226 ЕИСОТ §5.104) в ветку перед PR.
 - **Summary:** Реализован email-движок как фундамент Phase 5. Провайдер-агностичный `MailerService` (интерфейс + `MAILER` Symbol + `NoopMailer` по умолчанию + `SmtpMailer` с injectable `createTransport` для тестируемости; env `NOTIFICATIONS_EMAIL_ENABLED` переключает на SMTP). Два репозитория в модуле `communication`: `email_templates` (code defaults + per-tenant DB-override; `EMAIL_TEMPLATE_DEFAULTS` + `renderTemplate`) и `email_deliveries` (append-only журнал каждой попытки отправки). `NotificationDispatcher` оркестрирует: template override → render → send → record. `EnrollmentEmailListener` (@OnEvent async) обрабатывает `learning.enrollment_invited` (новое событие) и `learning.enrollment_completed` (расширено полем `recipient`) — отправляет письма слушателю. `documents.revoked` событие эмитируется (listener отложен до 5B). Admin endpoints `GET /email-deliveries`, `GET /email-templates`, `PUT /email-templates/:key` (permissions `notifications.read`/`notifications.write`); permission-boundary тесты в `mvp.http.integration.test.ts` (per CLAUDE.md: extend, not new file).
-- **Файлы изменены:**
-  - `apps/backend/migrations/0047_communication_email_foundation.sql` (новый) — `communication.email_templates` + `communication.email_deliveries` + permissions `notifications.read/write` + role assignments
-  - `apps/backend/src/infrastructure/mailer/mailer.service.ts` (новый) — interface `MailerService` + `MAILER` token + `NoopMailer`
-  - `apps/backend/src/infrastructure/mailer/mailer.service.test.ts` (новый) — 1 тест
-  - `apps/backend/src/infrastructure/mailer/smtp-mailer.service.ts` (новый) — `SmtpMailer`
-  - `apps/backend/src/infrastructure/mailer/smtp-mailer.service.test.ts` (новый) — 2 теста
-  - `apps/backend/src/modules/communication/email-templates.ts` (новый) — `EmailTemplateKey`, `EMAIL_TEMPLATE_DEFAULTS`, `renderTemplate`
-  - `apps/backend/src/modules/communication/email-templates.repository.ts` (новый) — interface + token
-  - `apps/backend/src/modules/communication/in-memory-email-templates.state.ts` (новый)
-  - `apps/backend/src/modules/communication/postgres-email-templates.repository.ts` (новый)
-  - `apps/backend/src/modules/communication/email-deliveries.repository.ts` (новый) — interface + token
-  - `apps/backend/src/modules/communication/in-memory-email-deliveries.state.ts` (новый)
-  - `apps/backend/src/modules/communication/postgres-email-deliveries.repository.ts` (новый)
-  - `apps/backend/src/modules/communication/notification-dispatcher.service.ts` (новый)
-  - `apps/backend/src/modules/communication/enrollment-email.listener.ts` (новый)
-  - `apps/backend/src/modules/communication/upsert-email-template.dto.ts` (новый)
-  - `apps/backend/src/modules/communication/email-notifications.controller.ts` (новый)
-  - `apps/backend/src/modules/communication/email-notifications.service.test.ts` (новый) — 12 тестов
-  - `apps/backend/src/modules/communication/communication.module.ts` (изменён) — регистрация всех новых провайдеров + контроллер
-  - `apps/backend/src/modules/mvp/enrollment-invited.event.ts` (новый) — `ENROLLMENT_INVITED_EVENT` + payload
-  - `apps/backend/src/modules/mvp/enrollment-recipient.ts` (новый) — pure `learnerRecipient()` helper
-  - `apps/backend/src/modules/mvp/enrollment-recipient.test.ts` (новый) — 4 теста
-  - `apps/backend/src/modules/mvp/enrollment-completed.event.ts` (изменён) — опциональный `recipient` в payload
-  - `apps/backend/src/modules/mvp/mvp.service.ts` (изменён) — emit `enrollment_invited` в `createEnrollment`; `recipient` в `enrollment_completed` emit
-  - `apps/backend/src/modules/documents/document-revoked.event.ts` (новый) — `DOCUMENT_REVOKED_EVENT` + payload
-  - `apps/backend/src/modules/documents/documents.service.ts` (изменён) — optional `@Inject(EventEmitter2)` 4-й арг; emit `documents.revoked` в `revokeDocument`
-  - `apps/backend/src/modules/documents/documents.service.test.ts` (изменён) — новый тест emit; `EventEmitter2` передаётся как 4-й арг в одном describe-блоке
-  - `apps/backend/src/modules/mvp/mvp.http.integration.test.ts` (изменён) — `describe('notifications permission boundary', ...)` с 4 тестами; `Put` добавлен в деструктуризацию
-  - `apps/backend/src/env.schema.ts` (изменён) — `NOTIFICATIONS_EMAIL_ENABLED`, `SMTP_HOST/PORT/USER/PASSWORD/FROM`
-  - `.env.example` (изменён) — блок email notifications
-  - `apps/backend/package.json` (изменён) — `nodemailer` dep + `@types/nodemailer` devDep
-- **Статус тестов (Cyrillic-path isolated `--no-file-parallelism`):**
-  - `mailer.service.test.ts` — 1/1 PASS
-  - `smtp-mailer.service.test.ts` — 2/2 PASS
-  - `email-notifications.service.test.ts` — 12/12 PASS
-  - `enrollment-recipient.test.ts` — 4/4 PASS
-  - `documents.service.test.ts` — 45/45 PASS
-  - `mvp.http.integration.test.ts` — 30/30 PASS
-  - `pnpm typecheck` — 8/8 (backend cache miss = fresh); ESLint `apps/backend/src/infrastructure/mailer` + `apps/backend/src/modules/communication` — clean
+- **Файлы изменены:** migration `0047_communication_email_foundation.sql`; infra `mailer/{mailer.service,smtp-mailer.service}.ts` (+тесты); `communication/` — `email-templates*`, `email-deliveries*` (interface+token+in-memory+postgres каждый), `notification-dispatcher.service.ts`, `enrollment-email.listener.ts`, `upsert-email-template.dto.ts`, `email-notifications.controller.ts`, `email-notifications.service.test.ts`, `communication.module.ts` (регистрация); `mvp/` — `enrollment-invited.event.ts`, `enrollment-recipient.ts` (+тест), `enrollment-completed.event.ts` (опц. `recipient`), `mvp.service.ts` (2 emit-точки), `mvp.http.integration.test.ts` (notifications boundary); `documents/` — `document-revoked.event.ts`, `documents.service.ts` (optional `EventEmitter2`), `documents.service.test.ts`; `env.schema.ts`, `.env.example`, `package.json` (nodemailer).
+- **Статус тестов (Cyrillic-path isolated `--no-file-parallelism`):** mailer 1/1; smtp-mailer 2/2; email-notifications 12/12; enrollment-recipient 4/4; documents.service 45/45; mvp.http.integration 30/30 (до merge). `pnpm typecheck` 8/8; ESLint clean по mailer + communication. После merge `origin/main`: mvp.http.integration выросла на ФРДО+ЕИСОТ boundary-блоки — пере-проверена.
 - **Отклонения от спеки/плана:**
-  1. `document_issued`-письмо сложено в `course_completed` — документ выдаётся при завершении, одно письмо на слушателя достаточно для MVP; отдельный issued-mail добавляется позже при необходимости.
-  2. `documents.revoked` email listener отложен до 5B — уведомление слушателя при отзыве требует enrollment→learner recipient resolver, который строит 5B для recertification. Событие уже эмитируется.
-  3. Permission-boundary тест добавлен в `mvp.http.integration.test.ts` (не новый файл) — per CLAUDE.md «extend that file rather than creating new ones for permission-only tests».
-  4. `EventEmitter2` добавлен как **optional** 4-й ctor-параметр `DocumentsService` (optional — чтобы ~20 существующих 3-арг `new DocumentsService(...)` в тестах компилировались без изменений).
-  5. Hardening задачи 2 (SMTP env guards, middleName в FIO) были добавлены по review — отражены в коде.
-  6. Migration 0047 объединяет DDL + permissions в одном файле (прецедент: `0030`).
-- **Следующий шаг:** Phase 5 Plan 5B — recertification cycle (validity + scheduler + recertification_drafts) — требует написания плана. Cross-link план: `docs/superpowers/plans/2026-06-04-phase-5-plan-a-notification-foundation.md`.
+  1. `document_issued`-письмо сложено в `course_completed` — одно письмо при завершении достаточно для MVP.
+  2. `documents.revoked` email listener отложен до 5B — нужен enrollment→learner recipient resolver (строит 5B). Событие уже эмитируется.
+  3. Permission-boundary тест добавлен в `mvp.http.integration.test.ts` (не новый файл) — per CLAUDE.md.
+  4. `EventEmitter2` добавлен как **optional** ctor-параметр `DocumentsService` (чтобы ~20 существующих 3-арг `new DocumentsService(...)` компилировались без правок; по факту 5-й арг после опц. `metrics`).
+  5. Hardening по review задачи 2 (SMTP env guards: SMTP_HOST обязателен при enabled; SMTP_USER⇔SMTP_PASSWORD) + middleName (отчество) в FIO получателя.
+  6. Migration 0047 объединяет DDL + permissions (прецедент `0030`).
+- **Известное ограничение (→ 5B):** письма рендерят пустое имя курса (`Курс «» завершён`) и пустое приветствие, т.к. продюсер пока не резолвит название программы в payload — безвредно при дефолтном `NoopMailer`; обогащается в 5B (который и так трогает продюсера + события).
+- **Следующий шаг:** Phase 5 Plan 5B — recertification cycle (validity + scheduler + recertification_drafts) — требует написания плана. Cross-link: `docs/superpowers/plans/2026-06-04-phase-5-plan-a-notification-foundation.md`.
 
 ## 6. Files Changed
 

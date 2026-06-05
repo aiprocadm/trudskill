@@ -321,6 +321,51 @@ describe('MVP HTTP integration (permission boundaries)', () => {
           subject: body.subject
         };
       }
+
+      // Wave 2 sub-goal A — ФРДО registry export (POST requires write; GET requires read)
+      @Post('frdo-registry/exports')
+      @RequirePermissions('regulatory.export.write')
+      createFrdoRegistryExport(
+        @CurrentContext() context: { tenantId?: string; userId?: string },
+        @Body() body: { from?: string; to?: string }
+      ) {
+        return {
+          batchId: 'frb_stub',
+          tenantId: context.tenantId,
+          createdBy: context.userId,
+          from: body.from ?? null,
+          total: 0,
+          exported: 0,
+          failed: 0
+        };
+      }
+
+      @Get('frdo-registry/exports')
+      @RequirePermissions('regulatory.export.read')
+      listFrdoRegistryExports(@CurrentContext() context: { tenantId?: string }) {
+        return { items: [], tenantId: context.tenantId };
+      }
+
+      // Wave 2 sub-goal C — ЕИСОТ testing roster (POST requires write; GET requires read)
+      @Post('eisot-testing-registry/exports')
+      @RequirePermissions('regulatory.export.write')
+      createEisotTestingExport(
+        @CurrentContext() context: { tenantId?: string; userId?: string },
+        @Body() body: { from?: string; to?: string }
+      ) {
+        return {
+          batchId: 'etb_stub',
+          tenantId: context.tenantId,
+          from: body.from ?? null,
+          to: body.to ?? null
+        };
+      }
+
+      @Get('eisot-testing-registry/exports')
+      @RequirePermissions('regulatory.export.read')
+      listEisotTestingExports(@CurrentContext() context: { tenantId?: string }) {
+        return { items: [], tenantId: context.tenantId };
+      }
     }
 
     @Module({
@@ -1087,6 +1132,178 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         meta: { requestId: string };
       };
       expect(payload.data.subject).toBe('Custom');
+    });
+  });
+
+  // === Wave 2 sub-goal A — ФРДО registry export RBAC boundary ===
+
+  describe('ФРДО registry export permission boundary', () => {
+    beforeEach(() => {
+      iamServiceMock.resolvePermissions.mockReset();
+      iamServiceMock.resolvePermissions.mockResolvedValue(['courses.read']);
+    });
+
+    it('POST /frdo-registry/exports — 403 permission_denied without regulatory.export.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['regulatory.export.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['teacher'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/frdo-registry/exports`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({})
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('POST /frdo-registry/exports — 201 success with regulatory.export.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['regulatory.export.write']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_admin', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/frdo-registry/exports`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ from: '2026-01-01' })
+      });
+      expect(response.status).toBe(201);
+      const payload = (await response.json()) as {
+        data: { batchId: string; tenantId: string; createdBy: string };
+        meta: { requestId: string };
+      };
+      expect(payload.data.batchId).toBe('frb_stub');
+      expect(payload.data.tenantId).toBe('tenant_demo');
+      expect(payload.data.createdBy).toBe('u_admin');
+      expect(payload.meta.requestId).toBeTruthy();
+    });
+
+    it('GET /frdo-registry/exports — 403 permission_denied without regulatory.export.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['courses.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['teacher'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/frdo-registry/exports`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('GET /frdo-registry/exports — 200 success with regulatory.export.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['regulatory.export.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_admin', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/frdo-registry/exports`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as {
+        data: { items: unknown[]; tenantId: string };
+        meta: { requestId: string };
+      };
+      expect(Array.isArray(payload.data.items)).toBe(true);
+      expect(payload.data.tenantId).toBe('tenant_demo');
+    });
+  });
+
+  // === Wave 2 sub-goal C — ЕИСОТ testing-roster export RBAC boundary ===
+
+  describe('ЕИСОТ testing-roster export permission boundary', () => {
+    beforeEach(() => {
+      iamServiceMock.resolvePermissions.mockReset();
+      iamServiceMock.resolvePermissions.mockResolvedValue(['courses.read']);
+    });
+
+    it('POST /eisot-testing-registry/exports — 403 without regulatory.export.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['regulatory.export.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['teacher'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/eisot-testing-registry/exports`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({})
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('POST /eisot-testing-registry/exports — 201 with regulatory.export.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['regulatory.export.write']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_admin', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/eisot-testing-registry/exports`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ from: '2026-01-01' })
+      });
+      expect(response.status).toBe(201);
+      const payload = (await response.json()) as { data: { batchId: string } };
+      expect(payload.data.batchId).toBe('etb_stub');
+    });
+
+    it('GET /eisot-testing-registry/exports — 403 without regulatory.export.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['courses.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['teacher'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/eisot-testing-registry/exports`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('GET /eisot-testing-registry/exports — 200 with regulatory.export.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['regulatory.export.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_admin', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/eisot-testing-registry/exports`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as { data: { items: unknown[]; tenantId: string } };
+      expect(payload.data.tenantId).toBe('tenant_demo');
     });
   });
 });

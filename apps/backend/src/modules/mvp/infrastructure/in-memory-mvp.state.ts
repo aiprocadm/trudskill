@@ -17,9 +17,13 @@ import type {
   CourseProgress,
   CourseVersion,
   Direction,
+  EisotTestingBatch,
+  EisotTestingRecord,
   Enrollment,
   EnrollmentStatusHistory,
   ExamResult,
+  FrdoRegistryBatch,
+  FrdoRegistryRecord,
   GroupCourse,
   GroupEntity,
   Learner,
@@ -76,4 +80,9 @@ export class InMemoryMvpState {
   // Wave 2 — ОТ-реестр (Минтруд/ЕИСОТ): durable export batches + per-record set.
   otRegistryBatches: OtRegistryBatch[] = [];
   otRegistryRecords: OtRegistryRecord[] = [];
+  frdoRegistryBatches: FrdoRegistryBatch[] = [];
+  frdoRegistryRecords: FrdoRegistryRecord[] = [];
+  // Wave 2 sub-goal C — ЕИСОТ «лица на тестирование»: durable roster batches + per-record set.
+  eisotTestingBatches: EisotTestingBatch[] = [];
+  eisotTestingRecords: EisotTestingRecord[] = [];
 }

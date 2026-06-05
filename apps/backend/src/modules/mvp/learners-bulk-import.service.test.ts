@@ -290,6 +290,26 @@ describe('LearnersBulkImportService.bulkImportLearners', () => {
     expect(mvp.listLearners('tenant_demo', { page: 1, page_size: 100 }).total).toBe(3);
   });
 
+  it('импортирует дату рождения (dateOfBirth) на созданного ученика (ФРДО)', () => {
+    const { mvp, bulk, group } = setupWithGroup();
+    const outcome = bulk.bulkImportLearners(
+      'tenant_demo',
+      ctx.userId,
+      {
+        idempotencyKey: 'idem_dob',
+        groupId: group.id,
+        rows: [
+          { rowNumber: 2, fullName: 'Иванов Иван', email: 'dob@x.ru', dateOfBirth: '1990-05-01' }
+        ]
+      },
+      ctx
+    );
+    const created = outcome.rows.find((r) => r.status === 'created');
+    expect(created?.learnerId).toBeTruthy();
+    const learner = mvp.getLearner('tenant_demo', created!.learnerId!);
+    expect(learner.dateOfBirth).toBe('1990-05-01');
+  });
+
   it('2 валидных + 1 invalid → 2 created + 1 failed', () => {
     const { mvp, bulk, group } = setupWithGroup();
     const outcome = bulk.bulkImportLearners(

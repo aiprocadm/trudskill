@@ -101,6 +101,7 @@ import type {
   EnrollmentStatus,
   EnrollmentStatusHistory,
   ExamResult,
+  FrdoDocumentKind,
   GroupCourse,
   GroupEntity,
   KpiSnapshotDto,
@@ -288,6 +289,26 @@ const REGULATORY_ACTS_SEED: RegulatoryAct[] = [
  * Postgres-implementation должна читать из `lookup.ot_training_programs` напрямую;
  * в in-memory режиме храним константу здесь.
  */
+// PROVISIONAL — сверить frdoKind/exactName с офиц. перечнем/шаблоном ФРДО (Рособрнадзор) перед боевой отправкой.
+const FRDO_DOCUMENT_KINDS_SEED: FrdoDocumentKind[] = [
+  {
+    code: 'PK',
+    templateType: 'certificate',
+    frdoKind: 'Удостоверение о повышении квалификации',
+    educationLevel: 'ДПО',
+    exactName: 'Удостоверение о повышении квалификации',
+    isActive: true
+  },
+  {
+    code: 'PP',
+    templateType: 'diploma',
+    frdoKind: 'Диплом о профессиональной переподготовке',
+    educationLevel: 'ДПО',
+    exactName: 'Диплом о профессиональной переподготовке',
+    isActive: true
+  }
+];
+
 const OT_TRAINING_PROGRAMS_SEED: OtTrainingProgram[] = [
   {
     code: 'OT_A',
@@ -582,6 +603,7 @@ export class MvpService {
       position?: string;
       organizationUnitId?: string;
       learnerNo?: string;
+      dateOfBirth?: string;
     },
     context: RequestContext
   ): Learner {
@@ -600,6 +622,7 @@ export class MvpService {
     if (request.position) entity.position = request.position;
     if (request.organizationUnitId) entity.organizationUnitId = request.organizationUnitId;
     if (request.learnerNo) entity.learnerNo = request.learnerNo;
+    if (request.dateOfBirth) entity.dateOfBirth = request.dateOfBirth;
     this.state.learners.push(entity);
     this.audit(
       tenantId,
@@ -676,6 +699,7 @@ export class MvpService {
       position?: string | null;
       organizationUnitId?: string | null;
       learnerNo?: string | null;
+      dateOfBirth?: string | null;
       status?: string;
       linkedIamUserId?: string | null;
     },
@@ -707,6 +731,8 @@ export class MvpService {
     if (request.organizationUnitId !== undefined)
       current.organizationUnitId = request.organizationUnitId?.trim() || undefined;
     if (request.learnerNo !== undefined) current.learnerNo = request.learnerNo?.trim() || undefined;
+    if (request.dateOfBirth !== undefined)
+      current.dateOfBirth = request.dateOfBirth?.trim() || undefined;
     if (request.status !== undefined) current.status = request.status;
     if (request.linkedIamUserId !== undefined)
       current.linkedIamUserId = request.linkedIamUserId ?? undefined;
@@ -4507,6 +4533,10 @@ export class MvpService {
   }
 
   // === Wave 2 — ОТ-реестр: программы обучения (lookup) ===
+
+  listFrdoDocumentKinds(): FrdoDocumentKind[] {
+    return FRDO_DOCUMENT_KINDS_SEED.filter((k) => k.isActive);
+  }
 
   listOtTrainingPrograms(): OtTrainingProgram[] {
     return OT_TRAINING_PROGRAMS_SEED.filter((p) => p.isActive).sort(

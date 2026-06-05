@@ -1,5 +1,11 @@
 import { Module, Scope } from '@nestjs/common';
 
+import { EisotTestingRegistryController } from './eisot-testing-registry/eisot-testing-registry.controller.js';
+import { EisotTestingRegistryService } from './eisot-testing-registry/eisot-testing-registry.service.js';
+import { EisotTestingXlsxWriter } from './eisot-testing-registry/eisot-testing-xlsx.writer.js';
+import { FrdoRegistryXlsxWriter } from './frdo-registry/frdo-registry-xlsx.writer.js';
+import { FrdoRegistryController } from './frdo-registry/frdo-registry.controller.js';
+import { FrdoRegistryService } from './frdo-registry/frdo-registry.service.js';
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MvpPersistenceRepositoryAdapter } from './infrastructure/mvp-persistence.repository.adapter.js';
 import { MVP_PERSISTENCE_BACKEND } from './infrastructure/mvp-persistence.token.js';
@@ -24,7 +30,13 @@ import { OrgModule } from '../org/org.module.js';
 
 @Module({
   imports: [InfrastructureModule, FilesModule, IamModule, DocumentsModule, OrgModule],
-  controllers: [MvpController, MvpInternalWorkerController, OtRegistryController],
+  controllers: [
+    MvpController,
+    MvpInternalWorkerController,
+    OtRegistryController,
+    FrdoRegistryController,
+    EisotTestingRegistryController
+  ],
   providers: [
     MvpBulkEnqueueService,
     PostgresMvpPersistenceBackend,
@@ -34,6 +46,14 @@ import { OrgModule } from '../org/org.module.js';
     OtRegistryXlsxWriter,
     OtRegistryXmlWriter,
     { provide: OtRegistryService, scope: Scope.REQUEST, useClass: OtRegistryService },
+    FrdoRegistryXlsxWriter,
+    { provide: FrdoRegistryService, scope: Scope.REQUEST, useClass: FrdoRegistryService },
+    EisotTestingXlsxWriter,
+    {
+      provide: EisotTestingRegistryService,
+      scope: Scope.REQUEST,
+      useClass: EisotTestingRegistryService
+    },
     { provide: LearnerPdfCardService, scope: Scope.REQUEST, useClass: LearnerPdfCardService },
     {
       provide: LearnersBulkImportService,

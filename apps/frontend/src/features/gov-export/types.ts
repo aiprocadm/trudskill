@@ -87,3 +87,108 @@ export interface OtRegistryImportOutcome {
   unmatched: number;
   unmatchedRows: OtRegistryResponseRow[];
 }
+
+// === ФИС ФРДО (Рособрнадзор) ===
+
+export interface FrdoRegistryRow {
+  documentId: string;
+  enrollmentId: string;
+  learnerId: string;
+  documentKindCode: string;
+  documentKind: string;
+  registrationNumber: string;
+  issueDate: string;
+  lastName: string;
+  firstName: string;
+  middleName: string;
+  fullName: string;
+  snils: string;
+  dateOfBirth: string;
+  programName: string;
+  academicHours: string;
+  qualification: string;
+}
+
+export interface FrdoRegistryRowError {
+  documentId: string;
+  learnerId: string;
+  fullName: string;
+  field: string;
+  message: string;
+}
+
+export interface FrdoRegistryBatch {
+  id: string;
+  tenantId: string;
+  createdAt: string;
+  updatedAt: string;
+  status: string;
+  sourceFilterJson: Record<string, unknown>;
+  fileId?: string;
+  totalCandidates: number;
+  exportedRows: number;
+  failedRows: number;
+  batchStatus: 'generated' | 'partial' | 'failed';
+  generatedBy: string;
+}
+
+export interface FrdoRegistryExportOutcome {
+  batchId: string;
+  fileId?: string;
+  total: number;
+  exported: number;
+  failed: number;
+  rows: FrdoRegistryRow[];
+  errors: FrdoRegistryRowError[];
+}
+
+// === ЕИСОТ «лица на тестирование» (Минтруд / ЛКОТ) ===
+
+export interface EisotTestingRow {
+  enrollmentId: string;
+  learnerId: string;
+  lastName: string;
+  firstName: string;
+  middleName: string;
+  fullName: string;
+  snils: string;
+  dateOfBirth: string;
+  position: string;
+  employerName: string;
+  employerInn: string;
+  programName: string;
+  referralDate: string;
+}
+
+export interface EisotTestingRowError {
+  enrollmentId: string;
+  learnerId: string;
+  fullName: string;
+  field: string;
+  message: string;
+}
+
+export interface EisotTestingBatch {
+  id: string;
+  tenantId: string;
+  createdAt: string;
+  updatedAt: string;
+  status: string;
+  sourceFilterJson: Record<string, unknown>;
+  fileId?: string;
+  totalCandidates: number;
+  exportedRows: number;
+  failedRows: number;
+  batchStatus: 'generated' | 'partial' | 'failed';
+  generatedBy: string;
+}
+
+export interface EisotTestingExportOutcome {
+  batchId: string;
+  fileId?: string;
+  total: number;
+  exported: number;
+  failed: number;
+  rows: EisotTestingRow[];
+  errors: EisotTestingRowError[];
+}

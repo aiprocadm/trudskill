@@ -12,12 +12,20 @@ import {
 } from '../../src/components/state-wrappers';
 import { useAuth } from '../../src/features/auth/context';
 import { govExportApi } from '../../src/features/gov-export/api';
-import { useOtRegistryBatches } from '../../src/features/gov-export/hooks';
+import {
+  useEisotTestingBatches,
+  useFrdoRegistryBatches,
+  useOtRegistryBatches
+} from '../../src/features/gov-export/hooks';
 import { useExportTasks, useSyncLogs } from '../../src/features/integrations/hooks';
 import { apiRequest } from '../../src/lib/api/client';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
-import type { OtRegistryExportOutcome } from '../../src/features/gov-export/types';
+import type {
+  EisotTestingExportOutcome,
+  FrdoRegistryExportOutcome,
+  OtRegistryExportOutcome
+} from '../../src/features/gov-export/types';
 
 export default function GovExportPage() {
   const { session } = useAuth();
@@ -36,6 +44,22 @@ export default function GovExportPage() {
   const [otError, setOtError] = useState<string | null>(null);
   const [otOutcome, setOtOutcome] = useState<OtRegistryExportOutcome | null>(null);
   const otBatches = useOtRegistryBatches();
+
+  // ФИС ФРДО (Рособрнадзор) section state
+  const [frdoFrom, setFrdoFrom] = useState('');
+  const [frdoTo, setFrdoTo] = useState('');
+  const [frdoBusy, setFrdoBusy] = useState(false);
+  const [frdoError, setFrdoError] = useState<string | null>(null);
+  const [frdoOutcome, setFrdoOutcome] = useState<FrdoRegistryExportOutcome | null>(null);
+  const frdoBatches = useFrdoRegistryBatches();
+
+  // ЕИСОТ «лица на тестирование» section state
+  const [eisotFrom, setEisotFrom] = useState('');
+  const [eisotTo, setEisotTo] = useState('');
+  const [eisotBusy, setEisotBusy] = useState(false);
+  const [eisotError, setEisotError] = useState<string | null>(null);
+  const [eisotOutcome, setEisotOutcome] = useState<EisotTestingExportOutcome | null>(null);
+  const eisotBatches = useEisotTestingBatches();
 
   const onGenerateOt = async () => {
     if (!session) return;
@@ -71,6 +95,54 @@ export default function GovExportPage() {
     });
     await govExportApi.importResponse(session, batchId, fileBase64);
     await otBatches.refetch();
+  };
+
+  const onGenerateFrdo = async () => {
+    if (!session) return;
+    setFrdoBusy(true);
+    setFrdoError(null);
+    try {
+      const outcome = await govExportApi.createFrdoRegistryExport(session, {
+        ...(frdoFrom ? { from: frdoFrom } : {}),
+        ...(frdoTo ? { to: frdoTo } : {})
+      });
+      setFrdoOutcome(outcome);
+      await frdoBatches.refetch();
+    } catch (e) {
+      setFrdoError(e instanceof Error ? e.message : 'Ошибка формирования выгрузки ФРДО');
+    } finally {
+      setFrdoBusy(false);
+    }
+  };
+
+  const onDownloadFrdo = async (batchId: string) => {
+    if (!session) return;
+    const { url } = await govExportApi.getFrdoBatchFileUrl(session, batchId);
+    window.open(url, '_blank');
+  };
+
+  const onGenerateEisot = async () => {
+    if (!session) return;
+    setEisotBusy(true);
+    setEisotError(null);
+    try {
+      const outcome = await govExportApi.createEisotTestingExport(session, {
+        ...(eisotFrom ? { from: eisotFrom } : {}),
+        ...(eisotTo ? { to: eisotTo } : {})
+      });
+      setEisotOutcome(outcome);
+      await eisotBatches.refetch();
+    } catch (e) {
+      setEisotError(e instanceof Error ? e.message : 'Ошибка формирования выгрузки ЕИСОТ');
+    } finally {
+      setEisotBusy(false);
+    }
+  };
+
+  const onDownloadEisot = async (batchId: string) => {
+    if (!session) return;
+    const { url } = await govExportApi.getEisotTestingBatchFileUrl(session, batchId);
+    window.open(url, '_blank');
   };
 
   const onCreateTask = async () => {
@@ -250,6 +322,176 @@ export default function GovExportPage() {
                         }}
                       />
                     </span>
+                  )
+                }))}
+              />
+            ) : null}
+          </SectionCard>
+        </SectionCard>
+        <SectionCard title="ФИС ФРДО (Рособрнадзор)">
+          <p
+            role="note"
+            style={{
+              background: '#FEF3C7',
+              border: '1px solid #F59E0B',
+              borderRadius: 6,
+              padding: '8px 12px',
+              margin: '0 0 12px'
+            }}
+          >
+            ⚠️ Формат выгрузки предварительный (не сверен с эталоном ФИС ФРДО). Перед подачей в
+            реестр сверьте колонки с Excel-шаблоном в личном кабинете ФРДО.
+          </p>
+          <FilterBar>
+            <input
+              type="date"
+              value={frdoFrom}
+              onChange={(event) => setFrdoFrom(event.target.value)}
+              placeholder="Дата выдачи с"
+            />
+            <input
+              type="date"
+              value={frdoTo}
+              onChange={(event) => setFrdoTo(event.target.value)}
+              placeholder="по"
+            />
+            <button type="button" onClick={() => void onGenerateFrdo()} disabled={frdoBusy}>
+              {frdoBusy ? 'Формирование...' : 'Сформировать выгрузку ФРДО'}
+            </button>
+          </FilterBar>
+          {frdoError ? <SectionError message={frdoError} /> : null}
+          {frdoOutcome ? (
+            <div>
+              <p>
+                Экспортировано: {frdoOutcome.exported} / {frdoOutcome.total}. Ошибок:{' '}
+                {frdoOutcome.failed}.
+              </p>
+              {frdoOutcome.errors.length > 0 ? (
+                <ul>
+                  {frdoOutcome.errors.map((e) => (
+                    <li key={`${e.documentId}-${e.field}`}>
+                      {e.fullName || e.documentId}: {e.field} — {e.message}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+          <SectionCard title="История выгрузок ФРДО">
+            {frdoBatches.loading ? <LoadingState message="Загрузка истории..." /> : null}
+            {frdoBatches.error ? <SectionError message={frdoBatches.error} /> : null}
+            {!frdoBatches.loading && !frdoBatches.error && !frdoBatches.data.length ? (
+              <SectionEmpty message="Выгрузки отсутствуют" />
+            ) : null}
+            {frdoBatches.data.length ? (
+              <DataTable
+                columns={[
+                  { key: 'id', title: 'ID' },
+                  { key: 'batchStatus', title: 'Статус' },
+                  { key: 'exportedRows', title: 'Экспортировано' },
+                  { key: 'failedRows', title: 'Ошибок' },
+                  { key: 'createdAt', title: 'Дата' },
+                  {
+                    key: 'actionsView',
+                    title: 'Действия',
+                    render: (row) => row.actionsView
+                  }
+                ]}
+                rows={frdoBatches.data.map((batch) => ({
+                  ...batch,
+                  actionsView: (
+                    <button
+                      type="button"
+                      onClick={() => void onDownloadFrdo(batch.id)}
+                      disabled={!batch.fileId}
+                    >
+                      Скачать
+                    </button>
+                  )
+                }))}
+              />
+            ) : null}
+          </SectionCard>
+        </SectionCard>
+        <SectionCard title="ЕИСОТ — лица на тестирование (Минтруд)">
+          <p
+            role="note"
+            style={{
+              background: '#FEF3C7',
+              border: '1px solid #F59E0B',
+              borderRadius: 6,
+              padding: '8px 12px',
+              margin: '0 0 12px'
+            }}
+          >
+            ⚠️ Формат выгрузки предварительный (не сверен с эталоном ЛКОТ). Перед подачей сверьте
+            колонки с шаблоном в личном кабинете ЛКОТ (Минтруд).
+          </p>
+          <FilterBar>
+            <input
+              type="date"
+              value={eisotFrom}
+              onChange={(event) => setEisotFrom(event.target.value)}
+              placeholder="Дата направления с"
+            />
+            <input
+              type="date"
+              value={eisotTo}
+              onChange={(event) => setEisotTo(event.target.value)}
+              placeholder="по"
+            />
+            <button type="button" onClick={() => void onGenerateEisot()} disabled={eisotBusy}>
+              {eisotBusy ? 'Формирование...' : 'Сформировать выгрузку ЕИСОТ'}
+            </button>
+          </FilterBar>
+          {eisotError ? <SectionError message={eisotError} /> : null}
+          {eisotOutcome ? (
+            <div>
+              <p>
+                Экспортировано: {eisotOutcome.exported} / {eisotOutcome.total}. Ошибок:{' '}
+                {eisotOutcome.failed}.
+              </p>
+              {eisotOutcome.errors.length > 0 ? (
+                <ul>
+                  {eisotOutcome.errors.map((e) => (
+                    <li key={`${e.enrollmentId}-${e.field}`}>
+                      {e.fullName || e.learnerId}: {e.field} — {e.message}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+          <SectionCard title="История выгрузок ЕИСОТ">
+            {eisotBatches.loading ? <LoadingState message="Загрузка истории..." /> : null}
+            {eisotBatches.error ? <SectionError message={eisotBatches.error} /> : null}
+            {!eisotBatches.loading && !eisotBatches.error && !eisotBatches.data.length ? (
+              <SectionEmpty message="Выгрузки отсутствуют" />
+            ) : null}
+            {eisotBatches.data.length ? (
+              <DataTable
+                columns={[
+                  { key: 'id', title: 'ID' },
+                  { key: 'batchStatus', title: 'Статус' },
+                  { key: 'exportedRows', title: 'Экспортировано' },
+                  { key: 'failedRows', title: 'Ошибок' },
+                  { key: 'createdAt', title: 'Дата' },
+                  {
+                    key: 'actionsView',
+                    title: 'Действия',
+                    render: (row) => row.actionsView
+                  }
+                ]}
+                rows={eisotBatches.data.map((batch) => ({
+                  ...batch,
+                  actionsView: (
+                    <button
+                      type="button"
+                      onClick={() => void onDownloadEisot(batch.id)}
+                      disabled={!batch.fileId}
+                    >
+                      Скачать
+                    </button>
                   )
                 }))}
               />

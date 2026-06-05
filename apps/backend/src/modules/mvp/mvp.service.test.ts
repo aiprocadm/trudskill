@@ -2455,6 +2455,50 @@ describe('MvpService — course document sets (Plan A §5.3)', () => {
   });
 });
 
+describe('MvpService.listFrdoDocumentKinds (ФРДО)', () => {
+  it('returns 2 active ДПО kinds keyed by template type', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const kinds = service.listFrdoDocumentKinds();
+    expect(kinds.map((k) => k.templateType).sort()).toEqual(['certificate', 'diploma']);
+    expect(kinds.every((k) => k.educationLevel === 'ДПО')).toBe(true);
+  });
+});
+
+describe('MvpService — dateOfBirth (ФРДО)', () => {
+  it('persists dateOfBirth on create and update', () => {
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const created = service.createLearnerExtended(
+      'tenant_demo',
+      'admin-1',
+      { firstName: 'Иван', lastName: 'Иванов', dateOfBirth: '1990-05-01' },
+      ctx
+    );
+    expect(created.dateOfBirth).toBe('1990-05-01');
+    const updated = service.updateLearnerExtended(
+      'tenant_demo',
+      'admin-1',
+      created.id,
+      { dateOfBirth: '1991-06-02' },
+      ctx
+    );
+    expect(updated.dateOfBirth).toBe('1991-06-02');
+  });
+});
+
 describe('MvpService — updateLearnerExtended (Phase 2 Plan B §Task2)', () => {
   it('updates all extended fields and writes audit', async () => {
     const audit = new AuditService();
