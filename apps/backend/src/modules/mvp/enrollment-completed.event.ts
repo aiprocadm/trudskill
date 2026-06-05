@@ -11,6 +11,8 @@ export interface EnrollmentCompletedDocumentSetEntry {
   position: number;
   isRequired: boolean;
   autoIssueOnCompletion: boolean;
+  /** Phase 5B — program validity (months) for this course version; undefined = бессрочно. */
+  recertificationPeriodMonths?: number;
 }
 
 export interface EnrollmentCompletedPayload {
@@ -32,4 +34,8 @@ export interface EnrollmentCompletedPayload {
   documentSet?: EnrollmentCompletedDocumentSetEntry[];
   /** Resolved learner contact for Phase 5 email (producer-resolved, spec §3.1). */
   recipient?: { email: string; name?: string };
+  /** Phase 5B — enrollment completion timestamp, for valid_until stamping. */
+  completedAt?: string;
+  /** Phase 5B — resolved group/course title (filled by a later task; keep optional). */
+  courseTitle?: string;
 }

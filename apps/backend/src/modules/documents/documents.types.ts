@@ -114,6 +114,8 @@ export interface DocumentGenerationTaskEntity {
   errorMessage?: string;
   generatedDocumentId?: string;
   numberReservationId?: string;
+  /** Phase 5B — carried from the generate request to stamp the document at completion. */
+  validUntil?: string;
 }
 
 export interface GeneratedDocumentEntity {
@@ -133,6 +135,8 @@ export interface GeneratedDocumentEntity {
   isFinal: boolean;
   generatedBy?: string;
   generatedAt: string;
+  /** Phase 5B — срок действия удостоверения (YYYY-MM-DD); undefined = бессрочно. */
+  validUntil?: string;
   archivedAt?: string;
   /** §5.7 — id документа-приказа, по которому выпущено это удостоверение (для трассировки каскада). */
   groupOrderDocumentId?: string;

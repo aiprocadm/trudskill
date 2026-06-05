@@ -230,6 +230,21 @@ describe('Pillar A — UpdateProgramMetaRequest', () => {
     const inst = plainToInstance(UpdateProgramMetaRequest, {});
     expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
   });
+
+  it('отклоняет recertificationPeriodMonths = 0', () => {
+    const inst = plainToInstance(UpdateProgramMetaRequest, { recertificationPeriodMonths: 0 });
+    const errs = validateSync(inst, { whitelist: true, forbidNonWhitelisted: true });
+    expect(
+      errs.find((e) => e.property === 'recertificationPeriodMonths')?.constraints
+    ).toMatchObject({
+      min: expect.any(String)
+    });
+  });
+
+  it('принимает recertificationPeriodMonths = 12', () => {
+    const inst = plainToInstance(UpdateProgramMetaRequest, { recertificationPeriodMonths: 12 });
+    expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+  });
 });
 
 describe('Pillar A — PutCourseDocumentSetRequest', () => {

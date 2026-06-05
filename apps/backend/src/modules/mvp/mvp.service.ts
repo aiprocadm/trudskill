@@ -1560,6 +1560,20 @@ export class MvpService {
     return { items };
   }
 
+  private resolveGroupCourseTitle(tenantId: string, groupId: string): string | undefined {
+    const groupCourse = this.state.groupCourses.find(
+      (gc) => gc.tenantId === tenantId && gc.groupId === groupId
+    );
+    if (groupCourse) {
+      const course = this.state.courses.find(
+        (c) => c.tenantId === tenantId && c.id === groupCourse.courseId
+      );
+      if (course?.title) return course.title;
+    }
+    const group = this.state.groups.find((g) => g.tenantId === tenantId && g.id === groupId);
+    return group?.name;
+  }
+
   private resolveEnrollmentCourse(
     tenantId: string,
     enrollment: Enrollment
@@ -1623,12 +1637,14 @@ export class MvpService {
     const invitedRecipient = learnerRecipient(
       this.state.learners.find((l) => l.tenantId === tenantId && l.id === entity.learnerId)
     );
+    const courseTitle = this.resolveGroupCourseTitle(tenantId, entity.groupId);
     this.events.emit(ENROLLMENT_INVITED_EVENT, {
       tenantId,
       enrollmentId: entity.id,
       learnerId: entity.learnerId,
       groupId: entity.groupId,
       ...(invitedRecipient ? { recipient: invitedRecipient } : {}),
+      ...(courseTitle ? { courseTitle } : {}),
       actorId,
       requestId: context.requestId,
       correlationId: context.correlationId
@@ -1817,18 +1833,23 @@ export class MvpService {
       const courseIds = groupCourses.map((gc) => gc.courseId);
       const documentSet = groupCourses
         .filter((gc) => gc.courseVersionId)
-        .flatMap((gc) =>
-          this.getCourseDocumentSet(tenantId, gc.courseVersionId as string).map((entry) => ({
+        .flatMap((gc) => {
+          const version = this.getCourseVersion(tenantId, gc.courseVersionId as string);
+          return this.getCourseDocumentSet(tenantId, gc.courseVersionId as string).map((entry) => ({
             courseVersionId: gc.courseVersionId as string,
             templateId: entry.templateId,
             position: entry.position,
             isRequired: entry.isRequired,
-            autoIssueOnCompletion: entry.autoIssueOnCompletion
-          }))
-        );
+            autoIssueOnCompletion: entry.autoIssueOnCompletion,
+            ...(version.recertificationPeriodMonths
+              ? { recertificationPeriodMonths: version.recertificationPeriodMonths }
+              : {})
+          }));
+        });
       const completedRecipient = learnerRecipient(
         this.state.learners.find((l) => l.tenantId === tenantId && l.id === enrollment.learnerId)
       );
+      const completedCourseTitle = this.resolveGroupCourseTitle(tenantId, enrollment.groupId);
       this.events.emit(ENROLLMENT_COMPLETED_EVENT, {
         tenantId,
         enrollmentId: enrollment.id,
@@ -1839,7 +1860,9 @@ export class MvpService {
         requestId: context.requestId,
         correlationId: context.correlationId,
         documentSet,
-        ...(completedRecipient ? { recipient: completedRecipient } : {})
+        ...(completedRecipient ? { recipient: completedRecipient } : {}),
+        ...(enrollment.completedAt ? { completedAt: enrollment.completedAt } : {}),
+        ...(completedCourseTitle ? { courseTitle: completedCourseTitle } : {})
       });
     }
     return enrollment;
@@ -4764,6 +4787,8 @@ export class MvpService {
 
     const oldValues = { ...cv };
     if (request.academicHours !== undefined) cv.academicHours = request.academicHours;
+    if (request.recertificationPeriodMonths !== undefined)
+      cv.recertificationPeriodMonths = request.recertificationPeriodMonths;
     if (request.trainingType !== undefined) cv.trainingType = request.trainingType;
     if (request.learnerCategory !== undefined) cv.learnerCategory = request.learnerCategory;
     if (request.studyForm !== undefined) cv.studyForm = request.studyForm;
