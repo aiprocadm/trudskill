@@ -204,6 +204,17 @@ export class TenantService {
     return next;
   }
 
+  /** All active tenant ids — used by the nightly cross-tenant reminders scan (Plan 5B-2). */
+  async listActiveTenantIds(): Promise<string[]> {
+    if (this.databaseService) {
+      const rows = await this.databaseService.query<{ id: string }>(
+        "select id from core.tenants where status = 'active' order by id"
+      );
+      return rows.map((r) => r.id);
+    }
+    return this.tenants.filter((t) => t.status === 'active').map((t) => t.id);
+  }
+
   async getCommission(tenantId: string): Promise<TenantCommission> {
     const cached = this.commissions.get(tenantId);
     if (cached) {
