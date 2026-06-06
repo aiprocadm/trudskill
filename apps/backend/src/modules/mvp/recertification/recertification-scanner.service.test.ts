@@ -112,4 +112,13 @@ describe('RecertificationScanner.scanTenant', () => {
     expect((await drafts.list('t1', {})).length).toBe(1);
     errorSpy.mockRestore();
   });
+
+  it('progresses through the 90 → 30 → 7 dedupKeys as the deadline approaches', async () => {
+    const { scanner, dispatch } = make(); // default doc validUntil = '2026-08-01'
+    await scanner.scanTenant('t1', '2026-06-05', state() as never); // 57 days out → 90
+    await scanner.scanTenant('t1', '2026-07-10', state() as never); // 22 days out → 30
+    await scanner.scanTenant('t1', '2026-07-28', state() as never); // 4 days out  → 7
+    const milestones = dispatch.mock.calls.map((c) => String(c[0].dedupKey).split(':').pop());
+    expect(milestones).toEqual(['90', '30', '7']);
+  });
 });
