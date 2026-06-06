@@ -190,14 +190,14 @@ export default function LearningCalendarPage() {
             font-size: 12px;
             font-weight: 600;
             text-align: center;
-            color: var(--muted, #666);
+            color: var(--ui-text-muted);
           }
           .calendar-grid__cell {
-            border: 1px solid var(--border, #e0e0e0);
+            border: 1px solid var(--ui-border);
             border-radius: 6px;
             min-height: 88px;
             padding: 4px;
-            background: var(--surface, #fff);
+            background: var(--ui-surface);
           }
           .calendar-grid__cell--muted {
             opacity: 0.45;

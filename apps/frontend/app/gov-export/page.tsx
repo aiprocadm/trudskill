@@ -234,16 +234,7 @@ export default function GovExportPage() {
           ) : null}
         </SectionCard>
         <SectionCard title="Реестр обученных по ОТ (Минтруд)">
-          <p
-            role="note"
-            style={{
-              background: '#FEF3C7',
-              border: '1px solid #F59E0B',
-              borderRadius: 6,
-              padding: '8px 12px',
-              margin: '0 0 12px'
-            }}
-          >
+          <p role="note" className="ui-callout ui-callout--warning" style={{ margin: '0 0 12px' }}>
             ⚠️ Формат выгрузки предварительный (не сверен с эталоном ЛКОТ). Перед подачей в реестр
             сверьте колонки/XSD-схему 1.0.3 в личном кабинете.
           </p>
@@ -329,16 +320,7 @@ export default function GovExportPage() {
           </SectionCard>
         </SectionCard>
         <SectionCard title="ФИС ФРДО (Рособрнадзор)">
-          <p
-            role="note"
-            style={{
-              background: '#FEF3C7',
-              border: '1px solid #F59E0B',
-              borderRadius: 6,
-              padding: '8px 12px',
-              margin: '0 0 12px'
-            }}
-          >
+          <p role="note" className="ui-callout ui-callout--warning" style={{ margin: '0 0 12px' }}>
             ⚠️ Формат выгрузки предварительный (не сверен с эталоном ФИС ФРДО). Перед подачей в
             реестр сверьте колонки с Excel-шаблоном в личном кабинете ФРДО.
           </p>
@@ -414,16 +396,7 @@ export default function GovExportPage() {
           </SectionCard>
         </SectionCard>
         <SectionCard title="ЕИСОТ — лица на тестирование (Минтруд)">
-          <p
-            role="note"
-            style={{
-              background: '#FEF3C7',
-              border: '1px solid #F59E0B',
-              borderRadius: 6,
-              padding: '8px 12px',
-              margin: '0 0 12px'
-            }}
-          >
+          <p role="note" className="ui-callout ui-callout--warning" style={{ margin: '0 0 12px' }}>
             ⚠️ Формат выгрузки предварительный (не сверен с эталоном ЛКОТ). Перед подачей сверьте
             колонки с шаблоном в личном кабинете ЛКОТ (Минтруд).
           </p>

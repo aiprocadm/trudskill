@@ -17,7 +17,8 @@ describe('ui style layers smoke/visual coverage', () => {
       'tables',
       'layout',
       'chat',
-      'modal'
+      'modal',
+      'courseViewer'
     ]);
     expect(uiStyleLayers.layout).toContain('.ui-dashboard-grid');
     expect(uiStyleLayers.chat).toContain('.ui-chat-layout');
