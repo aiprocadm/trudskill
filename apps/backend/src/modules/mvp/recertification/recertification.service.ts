@@ -67,10 +67,10 @@ export class RecertificationService {
   constructor(
     @Inject(RECERTIFICATION_DRAFTS_REPOSITORY)
     private readonly drafts: RecertificationDraftsRepository,
-    private readonly dispatcher: NotificationDispatcher,
+    @Inject(NotificationDispatcher) private readonly dispatcher: NotificationDispatcher,
     @Inject(MVP_STATE) private readonly state: InMemoryMvpState,
-    private readonly mvp: MvpService,
-    private readonly documentsRunner: DocumentsTenantRunner
+    @Inject(MvpService) private readonly mvp: MvpService,
+    @Inject(DocumentsTenantRunner) private readonly documentsRunner: DocumentsTenantRunner
   ) {}
 
   /**

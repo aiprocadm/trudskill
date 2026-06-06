@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  Post,
+  UseGuards,
+  UseInterceptors
+} from '@nestjs/common';
 
 import { FrdoRegistryService } from './frdo-registry.service.js';
 import { assertValidDto } from '../../../common/app-validation.pipe.js';
@@ -15,7 +24,7 @@ import type { RequestContext } from '../../../common/context/request-context.js'
 @UseInterceptors(MvpRequestPersistenceInterceptor)
 @UseGuards(TenantGuard)
 export class FrdoRegistryController {
-  constructor(private readonly service: FrdoRegistryService) {}
+  constructor(@Inject(FrdoRegistryService) private readonly service: FrdoRegistryService) {}
 
   @Post('exports')
   @UseGuards(PermissionGuard)

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Inject,
   Param,
   Post,
   Query,
@@ -28,7 +29,7 @@ import type { RequestContext } from '../../../common/context/request-context.js'
 @UseInterceptors(MvpRequestPersistenceInterceptor)
 @UseGuards(TenantGuard)
 export class RecertificationController {
-  constructor(private readonly service: RecertificationService) {}
+  constructor(@Inject(RecertificationService) private readonly service: RecertificationService) {}
 
   @Get('recertification-drafts')
   @UseGuards(PermissionGuard)

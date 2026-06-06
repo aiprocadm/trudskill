@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { backendEnv } from '../../env.js';
 import { RabbitMqService } from '../../infrastructure/messaging/rabbitmq.service.js';
@@ -17,7 +17,7 @@ export interface BulkEnqueueMessagePayload {
 
 @Injectable()
 export class MvpBulkEnqueueService {
-  constructor(private readonly rabbitMq: RabbitMqService) {}
+  constructor(@Inject(RabbitMqService) private readonly rabbitMq: RabbitMqService) {}
 
   async publishBulkJob(
     tenantId: string,
@@ -40,10 +40,15 @@ export class MvpBulkEnqueueService {
       jobType: 'bulk_enrollment' as const,
       payload
     };
-    await this.rabbitMq.publish(backendEnv.JOB_EXCHANGE, backendEnv.JOB_ROUTING_BULK_ENROLLMENT, envelope, {
-      requestId,
-      correlationId
-    });
+    await this.rabbitMq.publish(
+      backendEnv.JOB_EXCHANGE,
+      backendEnv.JOB_ROUTING_BULK_ENROLLMENT,
+      envelope,
+      {
+        requestId,
+        correlationId
+      }
+    );
     return {
       status: 'queued',
       messageId,

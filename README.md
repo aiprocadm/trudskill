@@ -112,6 +112,8 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 - Риск рассинхронизации документации и кода при отсутствии регулярного обновления README после каждой итерации.
 - Возможные регрессии в auth/session/permission flows при несистемном изменении backend и frontend.
 - Наличие широкого backlog по enterprise-operational задачам; требуется приоритизация по критичности (security/reliability first).
+- ✅ **Полное приложение бутится; логин работает** (исправлено 2026-06-06, §5.108): DI-«deadlock» был из-за того, что `tsx`/esbuild не эмитит `emitDecoratorMetadata` → type-based DI без `@Inject` виснет. Все инъекции переведены на явный `@Inject`, `CommunicationModule` импортирует `IamModule`, добавлен regression-guard. `pnpm dev:web` → `Nest application successfully started`, логин end-to-end OK.
+- ⚠️ **Остаток (Issue 4):** цепочка миграций `0003`/`0004`/… не накатывается на свежую БД из коробки (паттерн «FK на `(tenant_id,id)` до UNIQUE») — нужен consolidated baseline. `DB_MIGRATIONS_ENABLED` (`z.coerce.boolean`) — **исправлен**. Dev-БД развёрнута обходным путём (FK-safe IAM/audit-миграции + запись всех checksum'ов). Детали — [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §13 Issue 3 (resolved) + Issue 4, §5.108.
 
 ### Last Updated By
 

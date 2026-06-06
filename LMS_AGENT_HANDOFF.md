@@ -1343,6 +1343,27 @@
 - **Известное ограничение:** runtime-DI реального `RecertificationController` не покрыт автотестом (как и все контроллеры в репо — тесты бутят стаб `TestAppModule`); `tsc` компилирует граф, все 5 зависимостей сервиса провайдятся/экспортируются в импорт-графе MvpModule. Owner может подтвердить запуском приложения.
 - **Следующий шаг:** Plan 5B-2 (планировщик) → Plan 5C (frontend-очередь). Cross-link: `docs/superpowers/plans/2026-06-05-phase-5-plan-b-recertification-cycle.md`.
 
+### 5.107 Диагностика запуска полного приложения — найдены 2 блокера бутстрапа (код НЕ правился)
+
+- Контекст: запрос владельца «запусти проект и покажи данные для входа». Frontend поднялся (`http://localhost:3000/login` → HTTP 200). **Backend поднять не удалось** — найдены два уже существующих дефекта (§13 Issue 3 + Issue 4). По решению владельца: **зафиксировать баги, код не править** — рабочее дерево возвращено в чистое состояние (`git status` пуст).
+- Инфраструктура (переиспользует уже запущенные сервисы владельца, оставлена как есть): postgres :5432 / redis :6379 (чужой dev-stack). Создана и засеяна БД `cdoprof` реальными IAM-данными (6 demo-пользователей, RBAC: `platform_admin`/`tenant_admin` = все 62 права; `manager`/`methodist` = 23; `learner` = 14). Собран пустой `@cdoprof/ui/dist` (был только `.tsbuildinfo`).
+- Попутно найден **CommunicationModule DI-bug**: `EmailNotificationsController` под `@UseGuards(PermissionGuard)`, но `CommunicationModule` не импортирует `IamModule` и не объявляет локальные `IamService/AuthService` (как `WorkspaceModule`) → `UnknownDependenciesException` (`IamService` для `PermissionGuard`). Это первый барьер бутстрапа; за ним — Issue 3 (deadlock). Правка отката́на.
+- **Данные для входа** (справка): tenant `demo`; `platform_admin` / `tenant_admin` / `manager` / `methodist` / `learner` — пароль `Password123!`; `blocked_user` заблокирован. Источники: `apps/backend/src/seeds/dev-seed.ts`, fallback-список в `IamService`, миграция `0010_iam_role_permissions_and_seed.sql` (legacy SHA-256 хэш `Password123!`, апгрейдится в scrypt при первом логине). Frontend подставляет `x-tenant-id: tenant_demo` сам (`NEXT_PUBLIC_DEFAULT_TENANT_ID`).
+- **Следующий шаг:** устранить Issue 3 (smoke-бут полного `AppModule`) → Issue 4 (миграции на чистую БД) → end-to-end проверка входа.
+
+### 5.108 Issue 3 устранён — полное Nest-приложение бутится; логин работает end-to-end
+
+- Контекст: владелец запросил довести бэкенд до рабочего входа (продолжение §5.107). Подход — `superpowers:systematic-debugging` (root-cause до фиксов).
+- **Root cause (важно: гипотеза §5.107 про DI-цикл была ЛОЖНОЙ).** Бисекция кумулятивных префиксов модулей (харнесс `NestFactory.create(probeModule)` под таймаут) показала: `[1..7]` (вкл. `Iam+Audit` вместе) — OK, первый HANG при добавлении `FilesModule`. `FilesService` инжектит `DatabaseService`/`AuditService` **по типу, без `@Inject`**. Прямой тест: под `tsx` `Reflect.getMetadata('design:paramtypes', X) === undefined` → esbuild не эмитит `emitDecoratorMetadata` → type-based DI виснет на осиротевшем промисе. Прод не затронут (Dockerfile = `node dist/main.js`, `tsc` метаданные эмитит).
+- **Что сделано (код):**
+  - **Codemod**: 29 type-based параметров в 23 файлах → `@Inject(<Class>)`; нужные типы переведены `import type` → value-import. Файлы: `files.service`, `workspace.service`, `documents-tenant-runner`, `enrollment-document-issuance.listener`, `enrollment-email.listener`, все `postgres-*.repository`/`postgres-*-persistence.backend`, `*-persistence.repository.adapter`, `backfill.{service,controller}`, `mvp-bulk-enqueue.service`, `recertification.{service,controller}`, реестровые контроллеры (eisot/frdo/ot), `documents-request-persistence.interceptor`. Исключены factory-инстанцируемые (`clamav-antivirus.scanner`, `smtp-mailer.service`) и `Logger`.
+  - **`CommunicationModule`** импортирует `IamModule` (первый DI-барьер: `EmailNotificationsController` под `PermissionGuard`).
+  - **`env.schema.ts`**: `DB_MIGRATIONS_ENABLED` → safe `union([boolean, enum(['true','false'])]).transform(...)` (был `z.coerce.boolean()`; `Boolean("false")===true`).
+  - **Regression-guard** `apps/backend/src/common/di-explicit-injection.test.ts` — статически запрещает type-based DI.
+- **DB для dev (обходной путь Issue 4):** применены FK-safe `0001/0002/0010/0019/0027/0028` к `cdoprof`, записаны все 48 checksum'ов (skip при включённых миграциях), сид RBAC (admin=62, learner=14). Полная цепочка на свежей БД — остаётся (consolidated baseline, §13 Issue 4).
+- **Проверка:** бисекция 17/17 модулей OK; реальный `pnpm dev:web` (миграции вкл.) → `Nest application successfully started`, health 200, 0 «Applied migration»; логин `platform_admin`/`tenant_admin`/`learner` (`Password123!`, tenant `demo`) → токен + `/auth/me` + `/users/:id/roles` + `/workspace/summary` все 200; `pnpm --filter @cdoprof/backend typecheck` 8/8; ESLint clean; guard-тест зелёный. Браузерный скриншот не снят (Chrome-расширение не подключено) — проверен весь API-поток, который дёргает UI.
+- **Осознанно НЕ сделано:** consolidated baseline для миграций на свежей БД (Issue 4, follow-up); смена dev-runtime на метадата-эмитящий (потребовал бы переписать ~78 extensionless-импортов в packages — отвергнуто в пользу `@Inject`-конвенции).
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |
@@ -1576,6 +1597,28 @@
 - Description: даже после фикса таймаутов и отключения file-parallelism backend integration/contract suite остаётся заметным по времени.
 - Evidence: множественные bootstrap Nest приложения в монорепо `turbo` + Vitest.
 - Suggested fix: по мере возможности уменьшать дублирование bootstrap и выносить тяжёлые кейсы в облегчённые harness без полного приложения там, где достаточно unit.
+
+### Issue 3: ✅ RESOLVED (2026-06-06, §5.108) — полное Nest-приложение не стартовало (DI-«deadlock»)
+
+- Severity: была **high** (блокировала `pnpm dev:web` / `pnpm --filter @cdoprof/backend dev`); НЕ влияла на юнит/стаб-тесты.
+- **Истинная первопричина (гипотеза про цикл провайдеров оказалась ЛОЖНОЙ):** dev-runtime `tsx` (esbuild) **не эмитит `emitDecoratorMetadata`** (`Reflect.getMetadata('design:paramtypes', X) === undefined`). Поэтому конструкторные параметры, инжектируемые **по типу** (`private readonly x: FooService` без `@Inject`), резолвятся в undefined-токен, и инжектор Nest **виснет** на «осиротевшем промисе» внутри `NestFactory.create()` (видно как `beforeExit code=0`, только таймер в `getActiveResourcesInfo`). Первый модуль с type-based DI в порядке загрузки — `FilesModule` (`FilesService` инжектит `DatabaseService`/`AuditService` без `@Inject`); локализовано **бисекцией кумулятивных префиксов модулей**. Прод не затронут: Dockerfile запускает **компилированный** `node dist/main.js`, а `tsc` метаданные эмитит.
+- **Fix (§5.108):**
+  1. **Все 29 type-based инъекций в 23 файлах → явный `@Inject(Token)`** (codemod), плюс перевод нужных типов из `import type` в value-import (для `@Inject` нужен runtime-значение). Конвенция «всегда `@Inject`» уже доминировала в IAM/Infrastructure-модулях; `tsx` сохранён (переключение рантайма потребовало бы переписать ~78 extensionless-импортов в packages — `moduleResolution: Bundler`).
+  2. **`CommunicationModule`** теперь импортирует `IamModule` (его `EmailNotificationsController` под `@UseGuards(PermissionGuard)` требует `IamService`/`AuthService`) — был отдельный первый DI-барьер.
+  3. **Regression-guard** [`apps/backend/src/common/di-explicit-injection.test.ts`](apps/backend/src/common/di-explicit-injection.test.ts) — статически падает, если в backend-провайдерах/контроллерах снова появится type-based инъекция (boot-тест под vitest/esbuild не годится — та же проблема метаданных; и DB/Cyrillic-краши).
+- Проверено: все 17 модулей бутятся (бисекция), реальный `pnpm dev:web` (миграции включены) → `Nest application successfully started`, health 200, логин end-to-end (login → /auth/me → /users/:id/roles → /workspace/summary, все 200). `typecheck` 8/8, ESLint clean, guard-тест зелёный.
+
+### Issue 4: Цепочка миграций не накатывается на чистую БД (часть — `DB_MIGRATIONS_ENABLED` — ✅ исправлена)
+
+- **Статус (2026-06-06, §5.108):** пункт 3 (`DB_MIGRATIONS_ENABLED`) **ИСПРАВЛЕН** (env.schema → safe `union+transform`). Пункты 1–2 (FK-before-unique в 0003/0004/…) **остаются** — нужен consolidated-baseline (см. ниже). Для локального dev развёрнут обходной путь: применены только FK-safe runtime-миграции `0001/0002/0010/0019/0027/0028` (IAM/audit/base — домен работает на in-memory-драйверах), а **все 48** записаны в `core.schema_migrations` с оригинальными checksum'ами → `runMigrations` при включённых миграциях их пропускает (`pnpm dev:web` бутится без правок). Воспроизведение dev-БД: применить эти 6 миграций к свежей `cdoprof` + записать все checksum'ы + сид RBAC (62 права админам, learner).
+- Severity: **high** (блокирует первичный бутстрап реляционной БД «с нуля» из коробки; in-memory-домен + обходной dev-DB маскируют)
+- Area: backend/migrations + env-schema
+- Description:
+  1. **`migrations/0003_mvp_domain_integrity_hardening.sql`**: первый блок (строки 9–11) создаёт на `storage.files` constraint `files_tenant_id_id_uniq`; далее в той же миграции FK (строки 91/242/288) ссылаются на `storage.files(tenant_id, id)`; второй блок (строки 311–313) **повторно дропает** `files_tenant_id_id_uniq` → Postgres: `cannot drop constraint files_tenant_id_id_uniq ... because other objects depend on it`. Второй drop избыточен (constraint уже создан первым блоком).
+  2. **`migrations/0004_mvp_esign_domain.sql`**: FK ссылается на `esign_applications` без подходящего unique → `there is no unique constraint matching given keys for referenced table "esign_applications"`.
+  3. **`DB_MIGRATIONS_ENABLED: z.coerce.boolean()`** в [apps/backend/src/env.schema.ts:74](apps/backend/src/env.schema.ts) — `Boolean("false") === true`, поэтому флаг нельзя выключить значением `false` (только пустой строкой/unset). В этом же файле уже есть защита для `ANTIVIRUS_ENABLED`/`NOTIFICATIONS_EMAIL_ENABLED` (custom `union+transform`) — `DB_MIGRATIONS_ENABLED` её не получил.
+- Evidence: команда уже знает про (1) — комментарий [apps/backend/src/testing/with-test-db.ts:56-61](apps/backend/src/testing/with-test-db.ts) («0003 дважды дропает один constraint, что ломается на свежей БД»); тесты накатывают только минимальные подмножества миграций. Сессия 2026-06-06: полный `runMigrations` на свежей `cdoprof` падает на 0003, после in-memory-патча — на 0004.
+- Suggested fix (остаток): паттерн «FK на `(tenant_id, id)` до создания соответствующего UNIQUE» пронизывает hardening-миграции (0003/0004/…), forward-fix отдельными миграциями невозможен (цепочка падает посередине, до новой миграции дело не доходит). Правильное решение — **consolidated baseline-schema** для свежего бутстрапа (или дамп схемы из полностью применённой dev-БД), исторические файлы НЕ править (checksum-guard). Затем CI-тест, накатывающий 0001→latest на свежий testcontainer. ~~(3) `z.coerce.boolean()`~~ — **сделано** (§5.108).
 
 ## 14. Recommended Next Steps
 
