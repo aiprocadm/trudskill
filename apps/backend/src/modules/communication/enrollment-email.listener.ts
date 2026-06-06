@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 
-import { type NotificationDispatcher } from './notification-dispatcher.service.js';
+import { NotificationDispatcher } from './notification-dispatcher.service.js';
 import { ENROLLMENT_COMPLETED_EVENT } from '../mvp/enrollment-completed.event.js';
 import { ENROLLMENT_INVITED_EVENT } from '../mvp/enrollment-invited.event.js';
 
@@ -12,7 +12,9 @@ import type { EnrollmentInvitedPayload } from '../mvp/enrollment-invited.event.j
 export class EnrollmentEmailListener {
   private readonly logger = new Logger(EnrollmentEmailListener.name);
 
-  constructor(private readonly dispatcher: NotificationDispatcher) {}
+  constructor(
+    @Inject(NotificationDispatcher) private readonly dispatcher: NotificationDispatcher
+  ) {}
 
   @OnEvent(ENROLLMENT_INVITED_EVENT, { async: true })
   async handleInvited(payload: EnrollmentInvitedPayload): Promise<void> {

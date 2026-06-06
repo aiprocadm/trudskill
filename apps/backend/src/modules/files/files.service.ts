@@ -57,10 +57,10 @@ export interface UploadIntent {
 @Injectable()
 export class FilesService {
   constructor(
-    private readonly db: DatabaseService,
+    @Inject(DatabaseService) private readonly db: DatabaseService,
     @Inject(S3StorageClient) private readonly storage: S3StorageClient,
     @Inject(ANTIVIRUS_SCANNER) private readonly scanner: AntivirusScanner,
-    private readonly audit: AuditService
+    @Inject(AuditService) private readonly audit: AuditService
   ) {}
 
   async register(

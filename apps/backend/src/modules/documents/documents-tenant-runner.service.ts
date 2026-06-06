@@ -15,9 +15,9 @@ export class DocumentsTenantRunner {
   constructor(
     @Inject(DOCUMENTS_PERSISTENCE_BACKEND)
     private readonly persistence: DocumentsPersistenceBackend,
-    private readonly tenantGateway: TenantSerialGateway,
-    private readonly auditService: AuditService,
-    private readonly realtimeEvents: RealtimeEventsService
+    @Inject(TenantSerialGateway) private readonly tenantGateway: TenantSerialGateway,
+    @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(RealtimeEventsService) private readonly realtimeEvents: RealtimeEventsService
   ) {}
 
   async runWithTenantDocuments<R>(

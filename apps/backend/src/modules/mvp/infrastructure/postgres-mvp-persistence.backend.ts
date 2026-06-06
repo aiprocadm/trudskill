@@ -1,9 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { MVP_COLLECTIONS, type MvpCollection } from './mvp-collections.js';
 import { MvpWriteOrchestrator } from './mvp-write.orchestrator.js';
 import { backendEnv } from '../../../env.js';
-import { type DatabaseService } from '../../../infrastructure/database/database.service.js';
+import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 
 import type { InMemoryMvpState } from './in-memory-mvp.state.js';
 import type { MvpPersistenceBackend } from './mvp-persistence.backend.js';
@@ -18,7 +18,7 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
   private readonly logger = new Logger(PostgresMvpPersistenceBackend.name);
   private readonly writeOrchestrator = new MvpWriteOrchestrator(this.logger);
 
-  constructor(private readonly db: DatabaseService) {}
+  constructor(@Inject(DatabaseService) private readonly db: DatabaseService) {}
 
   async loadIntoState(tenantId: string, state: InMemoryMvpState): Promise<void> {
     const readModel = backendEnv.LMS_READ_MODEL;

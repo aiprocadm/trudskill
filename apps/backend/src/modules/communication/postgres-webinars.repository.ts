@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
-import { type DatabaseService } from '../../infrastructure/database/database.service.js';
+import { DatabaseService } from '../../infrastructure/database/database.service.js';
 
 import type { WebinarParticipantRow, WebinarRow } from './in-memory-webinars.state.js';
 import type {
@@ -11,7 +11,7 @@ import type {
 
 @Injectable()
 export class PostgresWebinarsRepository implements WebinarsRepository {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(@Inject(DatabaseService) private readonly db: DatabaseService) {}
 
   async list(tenantId: string, query: WebinarsQuery = {}) {
     const page = query.page ?? 1;

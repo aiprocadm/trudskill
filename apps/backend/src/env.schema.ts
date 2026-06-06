@@ -71,7 +71,12 @@ export const backendEnvSchema = z
       .int()
       .positive()
       .default(60 * 60 * 24 * 7),
-    DB_MIGRATIONS_ENABLED: z.coerce.boolean().default(true),
+    // Custom boolean parse — NOT z.coerce.boolean, which maps the string "false" → true
+    // (Boolean("false") === true). Same pattern as ANTIVIRUS_ENABLED above.
+    DB_MIGRATIONS_ENABLED: z
+      .union([z.boolean(), z.enum(['true', 'false'])])
+      .transform((v) => v === true || v === 'true')
+      .default(true),
     DB_MIGRATIONS_DIR: z.string().default('migrations'),
     READINESS_QUEUE_BACKLOG_THRESHOLD: z.coerce.number().int().min(0).default(1_000),
     READINESS_QUEUE_LAG_SECONDS_THRESHOLD: z.coerce.number().int().min(0).default(300),

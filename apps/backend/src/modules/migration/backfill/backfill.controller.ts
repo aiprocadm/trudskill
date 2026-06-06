@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post, Query } from '@nestjs/common';
 
 import { BackfillService } from './backfill.service.js';
 
@@ -6,7 +6,7 @@ import type { BackfillDomain } from './backfill.types.js';
 
 @Controller('migration/backfill')
 export class BackfillController {
-  constructor(private readonly backfill: BackfillService) {}
+  constructor(@Inject(BackfillService) private readonly backfill: BackfillService) {}
 
   @Post('runs')
   createRun(@Body() body: { domain: BackfillDomain; batchSize?: number }) {

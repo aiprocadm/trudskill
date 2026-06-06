@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  Post,
+  UseGuards,
+  UseInterceptors
+} from '@nestjs/common';
 
 import { OtRegistryService } from './ot-registry.service.js';
 import { assertValidDto } from '../../../common/app-validation.pipe.js';
@@ -16,7 +25,7 @@ import type { RequestContext } from '../../../common/context/request-context.js'
 @UseInterceptors(MvpRequestPersistenceInterceptor)
 @UseGuards(TenantGuard)
 export class OtRegistryController {
-  constructor(private readonly service: OtRegistryService) {}
+  constructor(@Inject(OtRegistryService) private readonly service: OtRegistryService) {}
 
   @Post('exports')
   @UseGuards(PermissionGuard)

@@ -27,9 +27,10 @@ import { backendEnv } from '../../env.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { MAILER, NoopMailer } from '../../infrastructure/mailer/mailer.service.js';
 import { SmtpMailer } from '../../infrastructure/mailer/smtp-mailer.service.js';
+import { IamModule } from '../iam/iam.module.js';
 
 @Module({
-  imports: [InfrastructureModule],
+  imports: [InfrastructureModule, IamModule],
   controllers: [
     NotificationsController,
     ChatController,
