@@ -26,6 +26,8 @@ export interface DispatchInput {
   variables: Record<string, string>;
   relatedEntityType?: string;
   relatedEntityId?: string;
+  /** Phase 5B-2 — send-once key; when a delivery with this key exists, the dispatch is skipped. */
+  dedupKey?: string;
 }
 
 @Injectable()
@@ -37,6 +39,13 @@ export class NotificationDispatcher {
   ) {}
 
   async dispatch(input: DispatchInput): Promise<void> {
+    if (input.dedupKey) {
+      const existing = await this.deliveries.findByDedupKey(input.tenantId, input.dedupKey);
+      if (existing) {
+        return;
+      }
+    }
+
     const override = await this.templates.getOverride(input.tenantId, input.templateKey);
     const base = override ?? EMAIL_TEMPLATE_DEFAULTS[input.templateKey];
     const rendered = renderTemplate(base, input.variables);
@@ -58,7 +67,8 @@ export class NotificationDispatcher {
         ...(result.providerMessageId ? { providerMessageId: result.providerMessageId } : {}),
         ...(result.error ? { error: result.error } : {}),
         ...(input.relatedEntityType ? { relatedEntityType: input.relatedEntityType } : {}),
-        ...(input.relatedEntityId ? { relatedEntityId: input.relatedEntityId } : {})
+        ...(input.relatedEntityId ? { relatedEntityId: input.relatedEntityId } : {}),
+        ...(input.dedupKey ? { dedupKey: input.dedupKey } : {})
       });
     }
   }
