@@ -12,6 +12,10 @@ import {
 } from './recertification-scanner.service.js';
 import { MVP_STATE } from '../infrastructure/mvp-state.token.js';
 import { MvpService } from '../mvp.service.js';
+import {
+  resolveCourseTitleByVersion,
+  resolveLearnerDisplay
+} from '../reminders/reminder-recipients.js';
 
 import type { RequestContext } from '../../../common/context/request-context.js';
 import type { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
@@ -23,6 +27,12 @@ export {
   type RecertCandidate,
   type RecertScanSummary
 } from './recertification-scanner.service.js';
+
+export interface RecertificationDraftView extends RecertificationDraftRow {
+  learnerName: string;
+  learnerSnils?: string;
+  courseTitle: string;
+}
 
 @Injectable()
 export class RecertificationService {
@@ -39,11 +49,20 @@ export class RecertificationService {
     return this.scanner.scanTenant(tenantId, asOf, this.state);
   }
 
-  listDrafts(
+  async listDrafts(
     tenantId: string,
     query: RecertificationDraftsQuery
-  ): Promise<RecertificationDraftRow[]> {
-    return this.drafts.list(tenantId, query);
+  ): Promise<RecertificationDraftView[]> {
+    const rows = await this.drafts.list(tenantId, query);
+    return rows.map((row) => {
+      const learner = resolveLearnerDisplay(this.state, tenantId, row.learnerId);
+      return {
+        ...row,
+        learnerName: learner.name,
+        ...(learner.snils ? { learnerSnils: learner.snils } : {}),
+        courseTitle: resolveCourseTitleByVersion(this.state, tenantId, row.courseVersionId) ?? ''
+      };
+    });
   }
 
   /**

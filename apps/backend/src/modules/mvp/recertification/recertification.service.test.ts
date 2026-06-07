@@ -146,3 +146,42 @@ describe('RecertificationService.approveDraft / rejectDraft', () => {
     expect(updated?.reason).toBe('не требуется');
   });
 });
+
+describe('RecertificationService.listDrafts (enrichment)', () => {
+  it('enriches each draft with learnerName + courseTitle resolved from state', async () => {
+    const { service, drafts } = make();
+    await drafts.create({
+      tenantId: 't1',
+      learnerId: 'l1',
+      sourceDocumentId: 'gdoc1',
+      courseVersionId: 'cv1',
+      validUntil: '2026-08-01'
+    });
+
+    const views = await service.listDrafts('t1', {});
+
+    expect(views).toHaveLength(1);
+    expect(views[0]!.learnerName).toBe('Иванов Иван');
+    expect(views[0]!.courseTitle).toBe('Охрана труда');
+    // raw row fields are preserved
+    expect(views[0]!.validUntil).toBe('2026-08-01');
+    expect(views[0]!.status).toBe('pending');
+  });
+
+  it('degrades to empty strings when learner/course cannot be resolved', async () => {
+    const { service, drafts } = make();
+    await drafts.create({
+      tenantId: 't1',
+      learnerId: 'ghost',
+      sourceDocumentId: 'gdoc9',
+      courseVersionId: 'ghost',
+      validUntil: '2026-08-01'
+    });
+
+    const views = await service.listDrafts('t1', {});
+
+    expect(views[0]!.learnerName).toBe('');
+    expect(views[0]!.courseTitle).toBe('');
+    expect(views[0]!.learnerSnils).toBeUndefined();
+  });
+});
