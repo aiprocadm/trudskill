@@ -2,13 +2,14 @@ import { QuestionBankDetailScreen } from '../../../../src/features/assessment-ad
 import { ProtectedPage } from '../../../../src/widgets/shell/protected-page';
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
-export default function AdminQuestionBankDetailPage({ params }: PageProps) {
+export default async function AdminQuestionBankDetailPage({ params }: PageProps) {
+  const { id } = await params;
   return (
     <ProtectedPage>
-      <QuestionBankDetailScreen bankId={params.id} />
+      <QuestionBankDetailScreen bankId={id} />
     </ProtectedPage>
   );
 }

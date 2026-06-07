@@ -10,10 +10,9 @@ const nextConfig: NextConfig = {
   // Monorepo: trace workspace deps from the repo root so the standalone bundle is complete.
   outputFileTracingRoot: repoRoot,
   transpilePackages: ['@cdoprof/ui'],
-  // ESLint and TypeScript type-checking run as separate CI jobs; skip them
-  // during `next build` to keep the production image build hermetic.
-  eslint: { ignoreDuringBuilds: true },
-  typescript: { ignoreBuildErrors: true }
+  // ESLint runs as a dedicated CI job (`pnpm lint`); skip it during the image build for speed.
+  // TypeScript checking stays ON during the build — do not disable it.
+  eslint: { ignoreDuringBuilds: true }
 };
 
 export default nextConfig;

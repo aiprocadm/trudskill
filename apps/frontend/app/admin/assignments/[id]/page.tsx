@@ -2,13 +2,14 @@ import { AssignmentDetailScreen } from '../../../../src/features/assessment-admi
 import { ProtectedPage } from '../../../../src/widgets/shell/protected-page';
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
-export default function AdminAssignmentDetailPage({ params }: PageProps) {
+export default async function AdminAssignmentDetailPage({ params }: PageProps) {
+  const { id } = await params;
   return (
     <ProtectedPage>
-      <AssignmentDetailScreen assignmentId={params.id} />
+      <AssignmentDetailScreen assignmentId={id} />
     </ProtectedPage>
   );
 }
