@@ -1391,6 +1391,25 @@
 - **Активация (ops, не код):** `RECERTIFICATION_SCAN_ENABLED=true` + `NOTIFICATIONS_EMAIL_ENABLED=true` (+ `SMTP_*`). По умолчанию dormant.
 - **Следующий шаг:** Plan 5C (frontend-очередь). Cross-link: `docs/superpowers/plans/2026-06-06-phase-5-plan-b2-recertification-scheduler.md`. Ветка ожидает PR/merge.
 
+### 5.112 Phase 5 — Plan 5C: frontend-очередь «Нужна переаттестация» (visibility-only + обогащение списка именами)
+
+- Контекст: **Plan 5C** Phase 5 — фронтенд-хвост после 5A/5B/5B-2. Спека `docs/superpowers/specs/2026-06-07-phase-5c-recertification-queue-design.md`; план `docs/superpowers/plans/2026-06-07-phase-5c-recertification-queue.md` (9 задач TDD). Ветка `feat/2026-06-07-phase-5c-recertification-queue` от `feat/2026-06-06-phase-5-plan-b2-recertification-scheduler` (5C — следующий по порядку после 5B-2). Поток: brainstorming → spec → writing-plans → subagent-driven-development (кластеры backend / frontend-core / screen+wiring) + two-stage review (spec + code-quality) на кластер + финальный holistic-review (opus).
+- **Scope (владелец):** «только список» — видимость + «Убрать» (reject) + «Проверить сейчас» (scan). Кнопка «Одобрить»/авто-зачисление НАМЕРЕННО не выведена (endpoint approve есть на бэке; перезачисление — через «Массовую загрузку»). `sourceDocumentNumber` исключён (кросс-модульное чтение documents).
+- **Summary:**
+  - **Backend (без миграции):** `resolveLearnerDisplay(state, tenantId, learnerId)` в `mvp/reminders/reminder-recipients.ts` (ФИО `lastName firstName [middleName]` + СНИЛС, graceful `{name:''}`, tenant-фильтр); `RecertificationService.listDrafts` теперь `async` → маппит строки в `RecertificationDraftView` (+ `learnerName`/`learnerSnils?`/`courseTitle`), резолверы из загруженного request-scoped mvp-state (`resolveLearnerDisplay` + `resolveCourseTitleByVersion`), деградация к `''`. Контроллер/права без изменений (`recertification.read` чтение, `recertification.write` reject/scan — 0048).
+  - **Frontend:** feature-модуль `features/recertification/` (`types`/`format`/`api`/`hooks`/`screens`); React Query `useQuery` для чтения + `useState`-обёртки для reject/scan (конвенция, не `useMutation`). `formatRemaining` (UTC-day diff: «через N дн.»/«сегодня»/«просрочено N дн.», guard «—» на мусор), `formatSnils`. Экран: `PageHeader`+«Проверить сейчас» (action), фильтр статуса (Ожидают default/Отклонённые/Все), `DataTable` (Слушатель+СНИЛС/Курс/Действует до/Осталось/Статус/«Убрать»), `window.confirm`+`window.prompt`(reason) для reject, loading/empty/error.
+  - **Wiring:** страница `app/admin/recertification/page.tsx` в `<ProtectedPage>`; `routeMeta` + `navigationModel` (метка «Переаттестация», `recertification.read`, слот `more`).
+  - **e2e:** `src/e2e/recertification-queue.e2e.test.ts` (route tri-state ok/forbidden/redirect + nav visibility + smoke-import; без RTL/render).
+- **Статус тестов (Cyrillic-path isolated `--no-file-parallelism`):** backend reminder-recipients 8 (4 `resolveLearnerDisplay` + 4 `resolveCourseTitleByVersion`), recertification.service 8 (+2 enrichment), регрессия mvp.http.integration 42; frontend format 10, api.contract 5, e2e 4. **`pnpm typecheck` 8/8 чисто; ESLint clean.** e2e screen-import иногда ловит 5s-timeout на Cyrillic-path (холодный transform `@cdoprof/ui`) — НЕ регресс (60s/CI зелено, идентично reference `admin-bulk-enrollment.e2e`). Коммиты T1…T8 (`15a92e9`…`48e7018`) + review-фиксы.
+- **Review поймал/исправил:**
+  1. **Backend quality:** `resolveCourseTitleByVersion` стал load-bearing (2 caller'а), 0 dedicated тестов → добавлены 4 (`85d4dfe`).
+  2. **Frontend-core quality:** `formatRemaining` рендерил бы «просрочено NaN дн.» на мусорном входе → guard `Number.isFinite`→«—» + 2 теста (год-граница, мусор); tighten `init.method` ассерт; `useQuery<…>` дженерик; NB-коммент про намеренное отсутствие approve (`2afe4c2`). Деривация `noUncheckedIndexedAccess`: array-destructuring → explicit index в `format.ts`.
+  3. **Финальный holistic (opus):** READY TO MERGE, Critical/Important — нет. Minor: `reject` тип → `Promise<RecertificationDraft | null>` (зеркало backend nullable; применено). UTC-дата «Осталось» — оставлено (консистентно с backend `asOf`).
+- **Осознанно отложено:** approve/авто-зачисление (5C-2); `license_expiring`; куратор/admin-получатели; пагинация; № исходного удостоверения (кросс-модуль documents).
+- **Pre-existing (не 5C):** `admin-assessment-surface.e2e.test.ts > aggregateReviewerQueue` падает (backend `reviewer-queue.service`) — подтверждён untouched этим диффом, уже трекается (spawn_task §5.110).
+- **Активация (ops):** та же, что 5B/5B-2 — `RECERTIFICATION_SCAN_ENABLED=true` + `NOTIFICATIONS_EMAIL_ENABLED=true` (+ `SMTP_*`).
+- **Следующий шаг:** PR/merge ветки; затем опц. 5C-2 (approve-очередь) или хвосты Phase 5 / Phase 6. Cross-link: план + спека выше.
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |

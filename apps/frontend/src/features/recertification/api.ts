@@ -29,6 +29,9 @@ export const recertificationApi = {
       withAuth(session)
     ),
 
+  // Backend's rejectDraft is `Row | null`, but the controller throws NotFound for an unknown id,
+  // so the HTTP body is always the updated row here (never null). The screen ignores the result
+  // and refetches anyway, so the non-null type is the accurate HTTP contract.
   reject: (session: UserSession, id: string, reason?: string): Promise<RecertificationDraft> =>
     apiRequest<RecertificationDraft>(`/recertification-drafts/${id}/reject`, {
       method: 'POST',

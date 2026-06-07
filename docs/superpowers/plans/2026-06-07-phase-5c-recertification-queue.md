@@ -47,7 +47,7 @@
 - Modify: `apps/backend/src/modules/mvp/reminders/reminder-recipients.ts`
 - Create: `apps/backend/src/modules/mvp/reminders/reminder-recipients.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/backend/src/modules/mvp/reminders/reminder-recipients.test.ts`:
 
@@ -94,12 +94,12 @@ describe('resolveLearnerDisplay', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/reminders/reminder-recipients.test.ts --no-file-parallelism`
 Expected: FAIL — `resolveLearnerDisplay` is not exported.
 
-- [ ] **Step 3: Add the resolver**
+- [x] **Step 3: Add the resolver**
 
 Append to `apps/backend/src/modules/mvp/reminders/reminder-recipients.ts`:
 
@@ -117,17 +117,17 @@ export function resolveLearnerDisplay(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/reminders/reminder-recipients.test.ts --no-file-parallelism`
 Expected: PASS (4 tests).
 
-- [ ] **Step 5: Lint the touched files**
+- [x] **Step 5: Lint the touched files**
 
 Run: `npx eslint apps/backend/src/modules/mvp/reminders/reminder-recipients.ts apps/backend/src/modules/mvp/reminders/reminder-recipients.test.ts --max-warnings=0`
 Expected: no errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/reminders/reminder-recipients.ts apps/backend/src/modules/mvp/reminders/reminder-recipients.test.ts
@@ -143,7 +143,7 @@ git commit -m "feat(backend): resolveLearnerDisplay helper for recertification r
 - Modify: `apps/backend/src/modules/mvp/recertification/recertification.service.ts`
 - Modify: `apps/backend/src/modules/mvp/recertification/recertification.service.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `apps/backend/src/modules/mvp/recertification/recertification.service.test.ts` (after the existing `describe(...)` blocks; the `make()` helper and `doc()` are already defined at the top of the file):
 
@@ -188,12 +188,12 @@ describe('RecertificationService.listDrafts (enrichment)', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/recertification/recertification.service.test.ts --no-file-parallelism`
 Expected: FAIL — `listDrafts` returns raw rows without `learnerName`/`courseTitle`.
 
-- [ ] **Step 3: Add the view type + enrich `listDrafts`**
+- [x] **Step 3: Add the view type + enrich `listDrafts`**
 
 In `apps/backend/src/modules/mvp/recertification/recertification.service.ts`:
 
@@ -236,22 +236,22 @@ async listDrafts(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/recertification/recertification.service.test.ts --no-file-parallelism`
 Expected: PASS (all prior tests + 2 new enrichment tests).
 
-- [ ] **Step 5: Verify the permission-boundary integration test still passes (shape unchanged for RBAC)**
+- [x] **Step 5: Verify the permission-boundary integration test still passes (shape unchanged for RBAC)**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.http.integration.test.ts --no-file-parallelism`
 Expected: PASS — the `recertification permission boundary` describe block is unaffected (enrichment does not change permissions).
 
-- [ ] **Step 6: Lint**
+- [x] **Step 6: Lint**
 
 Run: `npx eslint apps/backend/src/modules/mvp/recertification/recertification.service.ts apps/backend/src/modules/mvp/recertification/recertification.service.test.ts --max-warnings=0`
 Expected: no errors.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/recertification/recertification.service.ts apps/backend/src/modules/mvp/recertification/recertification.service.test.ts
@@ -268,7 +268,7 @@ git commit -m "feat(backend): enrich recertification-drafts list with learnerNam
 - Create: `apps/frontend/src/features/recertification/format.ts`
 - Create: `apps/frontend/src/features/recertification/format.test.ts`
 
-- [ ] **Step 1: Write the types**
+- [x] **Step 1: Write the types**
 
 Create `apps/frontend/src/features/recertification/types.ts`:
 
@@ -317,7 +317,7 @@ export const RECERT_STATUS_LABELS: Record<RecertificationDraftStatus, string> = 
 };
 ```
 
-- [ ] **Step 2: Write the failing format test**
+- [x] **Step 2: Write the failing format test**
 
 Create `apps/frontend/src/features/recertification/format.test.ts`:
 
@@ -363,12 +363,12 @@ describe('RECERT_STATUS_LABELS', () => {
 });
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/recertification/format.test.ts --no-file-parallelism`
 Expected: FAIL — `./format` does not exist.
 
-- [ ] **Step 4: Write the format helpers**
+- [x] **Step 4: Write the format helpers**
 
 Create `apps/frontend/src/features/recertification/format.ts`:
 
@@ -399,12 +399,12 @@ export function formatSnils(snils: string | undefined): string {
 }
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/recertification/format.test.ts --no-file-parallelism`
 Expected: PASS (3 describe blocks).
 
-- [ ] **Step 6: Lint + commit**
+- [x] **Step 6: Lint + commit**
 
 ```bash
 npx eslint apps/frontend/src/features/recertification/types.ts apps/frontend/src/features/recertification/format.ts apps/frontend/src/features/recertification/format.test.ts --max-warnings=0
@@ -421,7 +421,7 @@ git commit -m "feat(frontend): recertification queue types + format helpers"
 - Create: `apps/frontend/src/features/recertification/api.ts`
 - Create: `apps/frontend/src/features/recertification/api.contract.test.ts`
 
-- [ ] **Step 1: Write the API client**
+- [x] **Step 1: Write the API client**
 
 Create `apps/frontend/src/features/recertification/api.ts`:
 
@@ -469,7 +469,7 @@ export const recertificationApi = {
 };
 ```
 
-- [ ] **Step 2: Write the failing contract test**
+- [x] **Step 2: Write the failing contract test**
 
 Create `apps/frontend/src/features/recertification/api.contract.test.ts`:
 
@@ -634,12 +634,12 @@ describe('recertificationApi envelope compatibility (Phase 5C)', () => {
 });
 ```
 
-- [ ] **Step 3: Run test to verify it passes**
+- [x] **Step 3: Run test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/recertification/api.contract.test.ts --no-file-parallelism`
 Expected: PASS (5 tests). (The API client was written in Step 1, so the test goes green immediately — this is an API-contract test, not strict red-first TDD.)
 
-- [ ] **Step 4: Lint + commit**
+- [x] **Step 4: Lint + commit**
 
 ```bash
 npx eslint apps/frontend/src/features/recertification/api.ts apps/frontend/src/features/recertification/api.contract.test.ts --max-warnings=0
@@ -655,7 +655,7 @@ git commit -m "feat(frontend): recertification queue api client + contract test"
 
 - Create: `apps/frontend/src/features/recertification/hooks.ts`
 
-- [ ] **Step 1: Write the hooks**
+- [x] **Step 1: Write the hooks**
 
 Create `apps/frontend/src/features/recertification/hooks.ts`:
 
@@ -720,12 +720,12 @@ export function useRecertificationMutations() {
 }
 ```
 
-- [ ] **Step 2: Typecheck the feature so far**
+- [x] **Step 2: Typecheck the feature so far**
 
 Run: `pnpm --filter @cdoprof/frontend exec tsc --noEmit`
 Expected: PASS — no type errors. (Hooks have no standalone unit test; they are validated via typecheck + the e2e smoke-import in Task 8, matching the `licenses` feature which has no hooks test.)
 
-- [ ] **Step 3: Lint + commit**
+- [x] **Step 3: Lint + commit**
 
 ```bash
 npx eslint apps/frontend/src/features/recertification/hooks.ts --max-warnings=0
@@ -741,7 +741,7 @@ git commit -m "feat(frontend): recertification queue hooks (useQuery + manual mu
 
 - Create: `apps/frontend/src/features/recertification/screens.tsx`
 
-- [ ] **Step 1: Write the screen**
+- [x] **Step 1: Write the screen**
 
 Create `apps/frontend/src/features/recertification/screens.tsx`:
 
@@ -905,12 +905,12 @@ export function RecertificationQueueScreen(): ReactElement {
 }
 ```
 
-- [ ] **Step 2: Typecheck**
+- [x] **Step 2: Typecheck**
 
 Run: `pnpm --filter @cdoprof/frontend exec tsc --noEmit`
 Expected: PASS — no type errors.
 
-- [ ] **Step 3: Lint + commit**
+- [x] **Step 3: Lint + commit**
 
 ```bash
 npx eslint apps/frontend/src/features/recertification/screens.tsx --max-warnings=0
@@ -927,7 +927,7 @@ git commit -m "feat(frontend): recertification queue screen"
 - Create: `apps/frontend/app/admin/recertification/page.tsx`
 - Modify: `apps/frontend/src/features/navigation/model.ts`
 
-- [ ] **Step 1: Create the page**
+- [x] **Step 1: Create the page**
 
 Create `apps/frontend/app/admin/recertification/page.tsx`:
 
@@ -944,7 +944,7 @@ export default function AdminRecertificationPage() {
 }
 ```
 
-- [ ] **Step 2: Add the route meta**
+- [x] **Step 2: Add the route meta**
 
 In `apps/frontend/src/features/navigation/model.ts`, add to the `routeMeta` array immediately after the `/admin/clients` (non-`[id]`) entry (around line 80):
 
@@ -955,7 +955,7 @@ In `apps/frontend/src/features/navigation/model.ts`, add to the `routeMeta` arra
   },
 ```
 
-- [ ] **Step 3: Add the navigation item**
+- [x] **Step 3: Add the navigation item**
 
 In the same file, append to the end of the `navigationModel` array (after the `/admin/clients` entry, before the closing `]`):
 
@@ -971,12 +971,12 @@ In the same file, append to the end of the `navigationModel` array (after the `/
 
 (Note: the existing last array element has no trailing comma — ensure exactly one comma separates it from this new entry.)
 
-- [ ] **Step 4: Typecheck**
+- [x] **Step 4: Typecheck**
 
 Run: `pnpm --filter @cdoprof/frontend exec tsc --noEmit`
 Expected: PASS.
 
-- [ ] **Step 5: Lint + commit**
+- [x] **Step 5: Lint + commit**
 
 ```bash
 npx eslint apps/frontend/app/admin/recertification/page.tsx apps/frontend/src/features/navigation/model.ts --max-warnings=0
@@ -992,7 +992,7 @@ git commit -m "feat(frontend): /admin/recertification page + navigation entry"
 
 - Create: `apps/frontend/src/e2e/recertification-queue.e2e.test.ts`
 
-- [ ] **Step 1: Write the e2e test**
+- [x] **Step 1: Write the e2e test**
 
 Create `apps/frontend/src/e2e/recertification-queue.e2e.test.ts`:
 
@@ -1063,12 +1063,12 @@ describe('recertification queue E2E smoke', () => {
 });
 ```
 
-- [ ] **Step 2: Run the e2e test**
+- [x] **Step 2: Run the e2e test**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/e2e/recertification-queue.e2e.test.ts --no-file-parallelism`
 Expected: PASS (4 tests) — confirms Task 7 wiring (route + nav) and module imports.
 
-- [ ] **Step 3: Lint + commit**
+- [x] **Step 3: Lint + commit**
 
 ```bash
 npx eslint apps/frontend/src/e2e/recertification-queue.e2e.test.ts --max-warnings=0
@@ -1086,7 +1086,7 @@ git commit -m "test(frontend): recertification queue e2e smoke (route + nav + im
 - Modify: `LMS_AGENT_HANDOFF.md` (§5.XX — next sequential number)
 - Modify: `docs/superpowers/plans/2026-06-07-phase-5c-recertification-queue.md` (tick checkboxes)
 
-- [ ] **Step 1: Run the full targeted test set**
+- [x] **Step 1: Run the full targeted test set**
 
 ```bash
 pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/reminders/reminder-recipients.test.ts src/modules/mvp/recertification/recertification.service.test.ts --no-file-parallelism
@@ -1095,20 +1095,20 @@ pnpm --filter @cdoprof/frontend exec vitest run src/features/recertification/for
 
 Expected: all PASS.
 
-- [ ] **Step 2: Whole-repo typecheck**
+- [x] **Step 2: Whole-repo typecheck**
 
 Run: `pnpm typecheck`
 Expected: PASS (8/8 tasks).
 
-- [ ] **Step 3: Update README §2 «AI Agent State»**
+- [x] **Step 3: Update README §2 «AI Agent State»**
 
 Update `Current Stage` / `Last Completed Task` / `Current Task` / `Next Task` / `Last Updated At` / `By` to reflect: Phase 5C — recertification queue UI implemented (enriched list endpoint + `/admin/recertification` + nav). Next task: deferred 5C-2 (approve/auto-enroll) or other Phase-5 tails.
 
-- [ ] **Step 4: Append `### 5.XX` to `LMS_AGENT_HANDOFF.md`**
+- [x] **Step 4: Append `### 5.XX` to `LMS_AGENT_HANDOFF.md`**
 
 Add a sequentially-numbered entry (after the current highest §5.NN): summary, files changed, test status (targeted suites green, typecheck 8/8), deviations (none / note any), and cross-link this plan + the spec.
 
-- [ ] **Step 5: Tick the checkboxes in this plan file** (Tasks 1–9), then commit docs.
+- [x] **Step 5: Tick the checkboxes in this plan file** (Tasks 1–9), then commit docs.
 
 ```bash
 git add README.md LMS_AGENT_HANDOFF.md docs/superpowers/plans/2026-06-07-phase-5c-recertification-queue.md
