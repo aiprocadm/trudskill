@@ -23,14 +23,20 @@ export class RemindersSchedulerService {
     private readonly db: DatabaseService
   ) {}
 
-  @Cron(backendEnv.RECERTIFICATION_CRON_SCHEDULE, { name: 'reminders-daily-scan' })
+  @Cron(backendEnv.RECERTIFICATION_CRON_SCHEDULE, { name: 'reminders-daily-scan', timeZone: 'UTC' })
   async handleDailyScan(): Promise<void> {
     if (!backendEnv.RECERTIFICATION_SCAN_ENABLED) {
       return;
     }
     const asOf = new Date().toISOString().slice(0, 10);
     this.logger.log(`Starting nightly reminders scan asOf=${asOf}`);
-    await this.runScanAllTenants(asOf);
+    try {
+      await this.runScanAllTenants(asOf);
+    } catch (err) {
+      this.logger.error(
+        `Nightly reminders scan failed: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
   }
 
   /**

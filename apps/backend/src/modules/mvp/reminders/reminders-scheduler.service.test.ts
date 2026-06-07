@@ -64,6 +64,12 @@ describe('RemindersSchedulerService.runScanAllTenants', () => {
     );
     errorSpy.mockRestore();
   });
+
+  it('propagates an error from listActiveTenantIds so the lock transaction rolls back', async () => {
+    const { service, tenants } = make();
+    tenants.listActiveTenantIds.mockRejectedValue(new Error('db down'));
+    await expect(service.runScanAllTenants('2026-06-05')).rejects.toThrow('db down');
+  });
 });
 
 describe('RemindersSchedulerService.handleDailyScan', () => {

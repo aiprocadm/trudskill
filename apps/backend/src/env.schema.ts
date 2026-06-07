@@ -54,7 +54,7 @@ export const backendEnvSchema = z
       .union([z.boolean(), z.enum(['true', 'false'])])
       .transform((v) => v === true || v === 'true')
       .default(false),
-    /** Cron expression for the nightly recertification + course-deadline scan (server TZ). */
+    /** Cron expression for the nightly recertification + course-deadline scan (UTC — the cron is pinned to timeZone 'UTC'). */
     RECERTIFICATION_CRON_SCHEDULE: z.string().min(1).default('0 3 * * *'),
     SMTP_HOST: z.string().min(1).optional(),
     SMTP_PORT: z.coerce.number().int().positive().default(587),
