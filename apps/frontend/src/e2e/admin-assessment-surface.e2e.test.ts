@@ -184,14 +184,19 @@ describe('admin assessment surface — reviewer queue pure-function pipeline', (
         aggregateReviewerQueue: undefined
       }))) as {
         aggregateReviewerQueue?: (
-          s: { testAttempts: unknown[]; assignmentSubmissions: unknown[] },
+          s: {
+            testAttempts: unknown[];
+            attemptAnswers: unknown[];
+            assignmentSubmissions: unknown[];
+            questions: unknown[];
+          },
           f: { tenantId: string }
         ) => unknown;
       };
     // Если backend не доступен в этом scope — пропускаем (изолированный frontend test).
     if (!aggregateReviewerQueue) return;
     const result = aggregateReviewerQueue(
-      { testAttempts: [], assignmentSubmissions: [] },
+      { testAttempts: [], attemptAnswers: [], assignmentSubmissions: [], questions: [] },
       { tenantId: 't1' }
     );
     expect(result).toEqual({ pendingAttempts: [], pendingSubmissions: [] });
