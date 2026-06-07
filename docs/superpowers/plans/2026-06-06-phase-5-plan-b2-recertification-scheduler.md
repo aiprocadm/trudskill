@@ -107,7 +107,7 @@
 - Modify: `apps/backend/package.json`
 - Modify: `apps/backend/src/app.module.ts`
 
-- [ ] **Step 1: Install the dependency**
+- [x] **Step 1: Install the dependency**
 
 Run (from repo root):
 
@@ -117,7 +117,7 @@ pnpm --filter @cdoprof/backend add @nestjs/schedule
 
 > The backend is on NestJS 11 (`@nestjs/core ^11.0.11`). `@nestjs/schedule` must resolve to a major whose `peerDependencies` allow `@nestjs/common@^11` / `@nestjs/core@^11` (v4+ does; pnpm picks the latest compatible). If pnpm reports an unmet peer for `@nestjs/common@^11`, pin explicitly: `pnpm --filter @cdoprof/backend add @nestjs/schedule@^4.1.2`. Verify the version landed in `apps/backend/package.json` dependencies.
 
-- [ ] **Step 2: Register `ScheduleModule.forRoot()` in AppModule**
+- [x] **Step 2: Register `ScheduleModule.forRoot()` in AppModule**
 
 In `apps/backend/src/app.module.ts`, add the import near the other Nest imports (line 1-3 area):
 
@@ -139,12 +139,12 @@ const baseModules = [
 ];
 ```
 
-- [ ] **Step 3: Typecheck**
+- [x] **Step 3: Typecheck**
 
 Run: `pnpm --filter @cdoprof/backend exec tsc --noEmit`
 Expected: PASS (no type errors from the new import).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/backend/package.json pnpm-lock.yaml apps/backend/src/app.module.ts
@@ -160,7 +160,7 @@ git commit -m "feat(backend): add @nestjs/schedule + ScheduleModule.forRoot()"
 - Modify: `apps/backend/src/env.schema.ts`
 - Modify: `apps/backend/src/env.test.ts`
 
-- [ ] **Step 1: Add the schema fields**
+- [x] **Step 1: Add the schema fields**
 
 In `apps/backend/src/env.schema.ts`, inside the `z.object({ ... })`, immediately after the `NOTIFICATIONS_EMAIL_ENABLED` block (≈ line 49), add:
 
@@ -176,7 +176,7 @@ In `apps/backend/src/env.schema.ts`, inside the `z.object({ ... })`, immediately
     RECERTIFICATION_CRON_SCHEDULE: z.string().min(1).default('0 3 * * *'),
 ```
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 In `apps/backend/src/env.test.ts`, find an existing case that parses the schema with a minimal valid env (mirror it — it already supplies the required `DATABASE_URL`, `REDIS_URL`, `AUTH_JWT_SECRET`, etc.). Append a `describe` mirroring the existing `ANTIVIRUS_ENABLED` / `NOTIFICATIONS_EMAIL_ENABLED` cases:
 
@@ -207,12 +207,12 @@ describe('RECERTIFICATION_SCAN_ENABLED / RECERTIFICATION_CRON_SCHEDULE', () => {
 
 > Use the file's existing minimal-env helper (it may be named `baseEnv()`, `validEnv()`, or an inline object). Match the import of `backendEnvSchema` already present in the file. If `env.test.ts` uses `describe`/`it` from `vitest` already, do not re-import.
 
-- [ ] **Step 3: Run the test**
+- [x] **Step 3: Run the test**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/env.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/backend/src/env.schema.ts apps/backend/src/env.test.ts
@@ -230,7 +230,7 @@ git commit -m "feat(backend): RECERTIFICATION_SCAN_ENABLED + RECERTIFICATION_CRO
 
 > Reuses `addDays` from `apps/backend/src/common/utils/date-math.util.ts` (added in 5B). `pickMilestone` returns the **smallest satisfied** threshold so a doc seen first inside the 30-day window gets the 30-day notice (not the 90-day one), and an expired doc gets the most-urgent (smallest) milestone. Both inputs are normalized to `YYYY-MM-DD` so a timestamp `plannedEndAt` compares correctly against a date.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/backend/src/modules/mvp/reminders/milestone.util.test.ts`:
 
@@ -266,12 +266,12 @@ describe('pickMilestone', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/reminders/milestone.util.test.ts --no-file-parallelism`
 Expected: FAIL — cannot find module `./milestone.util.js`.
 
-- [ ] **Step 3: Implement the util**
+- [x] **Step 3: Implement the util**
 
 Create `apps/backend/src/modules/mvp/reminders/milestone.util.ts`:
 
@@ -305,12 +305,12 @@ export function pickMilestone(
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/reminders/milestone.util.test.ts --no-file-parallelism`
 Expected: PASS (all cases).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/reminders/milestone.util.ts apps/backend/src/modules/mvp/reminders/milestone.util.test.ts
@@ -327,7 +327,7 @@ git commit -m "feat(backend): pickMilestone util for graduated reminder cadence"
 
 > Latest migration on `main` is `0048_learning_recertification_foundation.sql` → next is **0049**. The `email_deliveries` table is created in `0047_communication_email_foundation.sql`; mirror its `add column if not exists` precedent (see `0033`/`0034`/`0048` ALTERs).
 
-- [ ] **Step 1: Write the migration SQL**
+- [x] **Step 1: Write the migration SQL**
 
 Create `apps/backend/migrations/0049_communication_email_dedup_key.sql`:
 
@@ -347,12 +347,12 @@ create index if not exists idx_email_deliveries_tenant_dedup
   on communication.email_deliveries (tenant_id, dedup_key);
 ```
 
-- [ ] **Step 2: Verify the migration applies cleanly**
+- [x] **Step 2: Verify the migration applies cleanly**
 
 Run: `pnpm test:migrations`
 Expected: PASS (the runner applies `0049` with no SQL errors). If the DB must be up, run `pnpm docker:infra` first.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/backend/migrations/0049_communication_email_dedup_key.sql
@@ -370,7 +370,7 @@ git commit -m "feat(backend): migration 0049 — email_deliveries.dedup_key + lo
 - Modify: `apps/backend/src/modules/communication/postgres-email-deliveries.repository.ts`
 - Create: `apps/backend/src/modules/communication/in-memory-email-deliveries.state.test.ts`
 
-- [ ] **Step 1: Extend the interface + row type**
+- [x] **Step 1: Extend the interface + row type**
 
 In `apps/backend/src/modules/communication/email-deliveries.repository.ts`:
 
@@ -386,7 +386,7 @@ In `apps/backend/src/modules/communication/email-deliveries.repository.ts`:
     findByDedupKey(tenantId: string, dedupKey: string): Promise<EmailDeliveryRow | null>;
   ```
 
-- [ ] **Step 2: Write the failing in-memory test**
+- [x] **Step 2: Write the failing in-memory test**
 
 Create `apps/backend/src/modules/communication/in-memory-email-deliveries.state.test.ts`:
 
@@ -430,12 +430,12 @@ describe('InMemoryEmailDeliveriesState.findByDedupKey', () => {
 });
 ```
 
-- [ ] **Step 3: Run the test to verify it fails**
+- [x] **Step 3: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/communication/in-memory-email-deliveries.state.test.ts --no-file-parallelism`
 Expected: FAIL — `repo.findByDedupKey is not a function`.
 
-- [ ] **Step 4: Implement `findByDedupKey` in the in-memory repo**
+- [x] **Step 4: Implement `findByDedupKey` in the in-memory repo**
 
 In `apps/backend/src/modules/communication/in-memory-email-deliveries.state.ts`, add a method after `list` (the existing `record` already spreads `...seed`, so `dedupKey` persists automatically):
 
@@ -447,12 +447,12 @@ In `apps/backend/src/modules/communication/in-memory-email-deliveries.state.ts`,
   }
 ```
 
-- [ ] **Step 5: Run the in-memory test to verify it passes**
+- [x] **Step 5: Run the in-memory test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/communication/in-memory-email-deliveries.state.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 6: Implement `dedup_key` in the postgres repo**
+- [x] **Step 6: Implement `dedup_key` in the postgres repo**
 
 In `apps/backend/src/modules/communication/postgres-email-deliveries.repository.ts`:
 
@@ -501,12 +501,12 @@ In `apps/backend/src/modules/communication/postgres-email-deliveries.repository.
 
 > The `list` query uses `select *`, so `total_count` is still computed via the window function and `dedup_key` is simply ignored by `map` unless present — no change to `list` needed.
 
-- [ ] **Step 7: Typecheck**
+- [x] **Step 7: Typecheck**
 
 Run: `pnpm --filter @cdoprof/backend exec tsc --noEmit`
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add apps/backend/src/modules/communication/email-deliveries.repository.ts apps/backend/src/modules/communication/in-memory-email-deliveries.state.ts apps/backend/src/modules/communication/postgres-email-deliveries.repository.ts apps/backend/src/modules/communication/in-memory-email-deliveries.state.test.ts
@@ -522,7 +522,7 @@ git commit -m "feat(backend): email_deliveries dedupKey + findByDedupKey (in-mem
 - Modify: `apps/backend/src/modules/communication/notification-dispatcher.service.ts`
 - Create: `apps/backend/src/modules/communication/notification-dispatcher.service.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/backend/src/modules/communication/notification-dispatcher.service.test.ts`:
 
@@ -576,12 +576,12 @@ describe('NotificationDispatcher dedup', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/communication/notification-dispatcher.service.test.ts --no-file-parallelism`
 Expected: FAIL — the second `dispatch` re-sends (no dedup logic yet) / `dedupKey` not on `DispatchInput`.
 
-- [ ] **Step 3: Add `dedupKey` to `DispatchInput` + skip logic**
+- [x] **Step 3: Add `dedupKey` to `DispatchInput` + skip logic**
 
 In `apps/backend/src/modules/communication/notification-dispatcher.service.ts`:
 
@@ -605,12 +605,12 @@ In `apps/backend/src/modules/communication/notification-dispatcher.service.ts`:
         ...(input.dedupKey ? { dedupKey: input.dedupKey } : {}),
   ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/communication/notification-dispatcher.service.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 5: Typecheck + commit**
+- [x] **Step 5: Typecheck + commit**
 
 Run: `pnpm --filter @cdoprof/backend exec tsc --noEmit`
 Expected: PASS.
@@ -628,7 +628,7 @@ git commit -m "feat(backend): NotificationDispatcher dedupKey skip (send-once)"
 
 - Modify: `apps/backend/src/modules/communication/email-templates.ts`
 
-- [ ] **Step 1: Extend the union + defaults**
+- [x] **Step 1: Extend the union + defaults**
 
 In `apps/backend/src/modules/communication/email-templates.ts`:
 
@@ -665,12 +665,12 @@ In `apps/backend/src/modules/communication/email-templates.ts`:
 
 > `EMAIL_TEMPLATE_DEFAULTS` is typed `Record<EmailTemplateKey, EmailTemplateBody>`, so omitting either new key is a compile error — this guarantees coverage. Check the exact comma placement: the existing `recertification_due` entry currently ends the object, so add a leading comma as shown.
 
-- [ ] **Step 2: Typecheck**
+- [x] **Step 2: Typecheck**
 
 Run: `pnpm --filter @cdoprof/backend exec tsc --noEmit`
 Expected: PASS (the `Record` is now exhaustive for the widened union).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/backend/src/modules/communication/email-templates.ts
@@ -686,7 +686,7 @@ git commit -m "feat(backend): course_deadline + document_revoked email templates
 - Modify: `apps/backend/src/modules/tenant/tenant.service.ts`
 - Create: `apps/backend/src/modules/tenant/tenant.service.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/backend/src/modules/tenant/tenant.service.test.ts`:
 
@@ -703,12 +703,12 @@ describe('TenantService.listActiveTenantIds (in-memory fallback)', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/tenant/tenant.service.test.ts --no-file-parallelism`
 Expected: FAIL — `service.listActiveTenantIds is not a function`.
 
-- [ ] **Step 3: Implement the method**
+- [x] **Step 3: Implement the method**
 
 In `apps/backend/src/modules/tenant/tenant.service.ts`, add a method (e.g. after `getTenantById`, ≈ line 66), mirroring the `if (this.databaseService) { ... } else { ... }` shape used throughout the class:
 
@@ -725,12 +725,12 @@ In `apps/backend/src/modules/tenant/tenant.service.ts`, add a method (e.g. after
   }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/tenant/tenant.service.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/tenant/tenant.service.ts apps/backend/src/modules/tenant/tenant.service.test.ts
@@ -748,7 +748,7 @@ git commit -m "feat(backend): TenantService.listActiveTenantIds for cross-tenant
 
 > Mirrors `DocumentsTenantRunner` (`apps/backend/src/modules/documents/documents-tenant-runner.service.ts`) but **read-only**: the reminder scanners never mutate MVP state (drafts live in their own table; emails in `email_deliveries`), so there is no `saveFromState` in `finally`. It runs under the shared `TenantSerialGateway`, so it serializes with the HTTP `MvpRequestPersistenceInterceptor` for the same tenant.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/backend/src/modules/mvp/infrastructure/mvp-tenant-runner.service.test.ts`:
 
@@ -786,12 +786,12 @@ describe('MvpTenantRunner', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/infrastructure/mvp-tenant-runner.service.test.ts --no-file-parallelism`
 Expected: FAIL — cannot find module `./mvp-tenant-runner.service.js`.
 
-- [ ] **Step 3: Implement the runner**
+- [x] **Step 3: Implement the runner**
 
 Create `apps/backend/src/modules/mvp/infrastructure/mvp-tenant-runner.service.ts`:
 
@@ -830,12 +830,12 @@ export class MvpTenantRunner {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/infrastructure/mvp-tenant-runner.service.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/infrastructure/mvp-tenant-runner.service.ts apps/backend/src/modules/mvp/infrastructure/mvp-tenant-runner.service.test.ts
@@ -856,7 +856,7 @@ git commit -m "feat(backend): MvpTenantRunner — read-only out-of-request MVP s
 
 > **Behaviour change (intended):** 5B dispatched `recertification_due` **once when the draft was created**. 5B-2 dispatches **once per milestone** (90/30/7) using `dedupKey = recert:<draftId>:<milestone>`, so a learner gets up to three notices as expiry approaches. The draft is still created once (idempotent). Do **not** preserve the old once-on-creation gate.
 
-- [ ] **Step 1: Create the shared pure resolvers**
+- [x] **Step 1: Create the shared pure resolvers**
 
 Create `apps/backend/src/modules/mvp/reminders/reminder-recipients.ts`:
 
@@ -923,7 +923,7 @@ export function buildLearnerEmployerRecipients(
 }
 ```
 
-- [ ] **Step 2: Write the failing scanner test**
+- [x] **Step 2: Write the failing scanner test**
 
 Create `apps/backend/src/modules/mvp/recertification/recertification-scanner.service.test.ts`:
 
@@ -1046,12 +1046,12 @@ describe('RecertificationScanner.scanTenant', () => {
 });
 ```
 
-- [ ] **Step 3: Run the test to verify it fails**
+- [x] **Step 3: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/recertification/recertification-scanner.service.test.ts --no-file-parallelism`
 Expected: FAIL — cannot find module `./recertification-scanner.service.js`.
 
-- [ ] **Step 4: Implement the scanner (move scan logic out of the service)**
+- [x] **Step 4: Implement the scanner (move scan logic out of the service)**
 
 Create `apps/backend/src/modules/mvp/recertification/recertification-scanner.service.ts`:
 
@@ -1203,12 +1203,12 @@ export class RecertificationScanner {
 }
 ```
 
-- [ ] **Step 5: Run the scanner test to verify it passes**
+- [x] **Step 5: Run the scanner test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/recertification/recertification-scanner.service.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 6: Slim down `RecertificationService` to delegate**
+- [x] **Step 6: Slim down `RecertificationService` to delegate**
 
 Rewrite `apps/backend/src/modules/mvp/recertification/recertification.service.ts` so it keeps only `runScan` (delegating to the scanner), `listDrafts`, `approveDraft`, `rejectDraft`. Replace the top of the file and the scan method:
 
@@ -1266,7 +1266,7 @@ Rewrite `apps/backend/src/modules/mvp/recertification/recertification.service.ts
 
 > After this, `RecertificationService` no longer imports `NotificationDispatcher`, `DocumentsTenantRunner`, `learnerRecipient`, `DispatchRecipient`, `addDays`, or `Logger` — remove any that are now unused so ESLint/`tsc` stay clean.
 
-- [ ] **Step 7: Update the 5B service test (constructor + delegation)**
+- [x] **Step 7: Update the 5B service test (constructor + delegation)**
 
 In `apps/backend/src/modules/mvp/recertification/recertification.service.test.ts`:
 
@@ -1299,7 +1299,7 @@ In `apps/backend/src/modules/mvp/recertification/recertification.service.test.ts
   ```
 - The `approveDraft` / `rejectDraft` cases are unchanged (the service still owns them).
 
-- [ ] **Step 8: Run both recert tests + typecheck**
+- [x] **Step 8: Run both recert tests + typecheck**
 
 Run each, expect PASS:
 
@@ -1311,7 +1311,7 @@ pnpm --filter @cdoprof/backend exec tsc --noEmit
 
 > `tsc` will fail until Task 14 wires `RecertificationScanner` into `MvpModule` (DI can't resolve it yet at runtime, but the type-level compile of these files should already pass). If `tsc` reports an unresolved provider it is a runtime concern, not a type error — proceed; Task 14 closes it. If `tsc` reports a **type** error (e.g. a leftover unused import), fix it now.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/reminders/reminder-recipients.ts apps/backend/src/modules/mvp/recertification/recertification-scanner.service.ts apps/backend/src/modules/mvp/recertification/recertification-scanner.service.test.ts apps/backend/src/modules/mvp/recertification/recertification.service.ts apps/backend/src/modules/mvp/recertification/recertification.service.test.ts
@@ -1329,7 +1329,7 @@ git commit -m "refactor(backend): extract RecertificationScanner + 90/30/7 caden
 
 > Scans **incomplete** enrollments (`status` is `pending` or `active`) whose `plannedEndAt` falls within the largest milestone window, and dispatches `course_deadline` once per 14/7/1 milestone (`dedupKey = deadline:<enrollmentId>:<milestone>`). No new schema — `Enrollment.plannedEndAt` already exists (5B / migration 0023).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/backend/src/modules/mvp/reminders/course-deadline-scanner.service.test.ts`:
 
@@ -1430,12 +1430,12 @@ describe('CourseDeadlineScanner.scanTenant', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/reminders/course-deadline-scanner.service.test.ts --no-file-parallelism`
 Expected: FAIL — cannot find module `./course-deadline-scanner.service.js`.
 
-- [ ] **Step 3: Implement the scanner**
+- [x] **Step 3: Implement the scanner**
 
 Create `apps/backend/src/modules/mvp/reminders/course-deadline-scanner.service.ts`:
 
@@ -1515,12 +1515,12 @@ export class CourseDeadlineScanner {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/reminders/course-deadline-scanner.service.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/reminders/course-deadline-scanner.service.ts apps/backend/src/modules/mvp/reminders/course-deadline-scanner.service.test.ts
@@ -1538,7 +1538,7 @@ git commit -m "feat(backend): CourseDeadlineScanner — 14/7/1-day completion re
 
 > `@Cron(backendEnv.RECERTIFICATION_CRON_SCHEDULE)` fires nightly; the handler returns immediately when `RECERTIFICATION_SCAN_ENABLED` is false. `runScanAllTenants(asOf)` is split out so tests call it directly. The advisory lock uses `pg_try_advisory_xact_lock` inside `withTransaction` (auto-released at commit, even on error); per-tenant work runs on its own pooled connections, so the lock connection just holds the lock. Each tenant is wrapped in try/catch (partial-success).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/backend/src/modules/mvp/reminders/reminders-scheduler.service.test.ts`:
 
@@ -1621,12 +1621,12 @@ describe('RemindersSchedulerService.handleDailyScan', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/reminders/reminders-scheduler.service.test.ts --no-file-parallelism`
 Expected: FAIL — cannot find module `./reminders-scheduler.service.js`.
 
-- [ ] **Step 3: Implement the scheduler**
+- [x] **Step 3: Implement the scheduler**
 
 Create `apps/backend/src/modules/mvp/reminders/reminders-scheduler.service.ts`:
 
@@ -1701,12 +1701,12 @@ export class RemindersSchedulerService {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/reminders/reminders-scheduler.service.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/reminders/reminders-scheduler.service.ts apps/backend/src/modules/mvp/reminders/reminders-scheduler.service.test.ts
@@ -1724,7 +1724,7 @@ git commit -m "feat(backend): RemindersSchedulerService — nightly cron + advis
 
 > Listens to the already-emitted `documents.revoked` event (5A). It resolves the learner from the revoked document's `sourceEntityId` (an enrollment) via `MvpTenantRunner` — the event fires under the documents tenant lock, and the `{ async: true }` listener simply queues after it on the shared `TenantSerialGateway` (no deadlock, because the revoke does not await the listener). Deduped by `revoked:<documentId>`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/backend/src/modules/mvp/reminders/document-revoked-email.listener.test.ts`:
 
@@ -1803,12 +1803,12 @@ describe('DocumentRevokedEmailListener', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/reminders/document-revoked-email.listener.test.ts --no-file-parallelism`
 Expected: FAIL — cannot find module `./document-revoked-email.listener.js`.
 
-- [ ] **Step 3: Implement the listener**
+- [x] **Step 3: Implement the listener**
 
 Create `apps/backend/src/modules/mvp/reminders/document-revoked-email.listener.ts`:
 
@@ -1896,12 +1896,12 @@ export class DocumentRevokedEmailListener {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/reminders/document-revoked-email.listener.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/reminders/document-revoked-email.listener.ts apps/backend/src/modules/mvp/reminders/document-revoked-email.listener.test.ts
@@ -1918,7 +1918,7 @@ git commit -m "feat(backend): DocumentRevokedEmailListener — notify learner on
 
 > All new singletons live in `MvpModule`. `TenantService` comes from `TenantModule` (already exported there). `DocumentsTenantRunner`, `NotificationDispatcher`, `TenantSerialGateway`, `DatabaseService`, and `MVP_PERSISTENCE_BACKEND` are already reachable via the modules `MvpModule` imports (`DocumentsModule`, `CommunicationModule`, `InfrastructureModule`) and its own providers.
 
-- [ ] **Step 1: Add imports**
+- [x] **Step 1: Add imports**
 
 In `apps/backend/src/modules/mvp/mvp.module.ts`, add near the other imports:
 
@@ -1931,7 +1931,7 @@ import { RecertificationScanner } from './recertification/recertification-scanne
 import { TenantModule } from '../tenant/tenant.module.js';
 ```
 
-- [ ] **Step 2: Import `TenantModule`**
+- [x] **Step 2: Import `TenantModule`**
 
 In the `imports: [...]` array (lines 38-45), add `TenantModule`:
 
@@ -1947,7 +1947,7 @@ In the `imports: [...]` array (lines 38-45), add `TenantModule`:
   ],
 ```
 
-- [ ] **Step 3: Register the new singleton providers**
+- [x] **Step 3: Register the new singleton providers**
 
 In the `providers: [...]` array, add the five new singletons (anywhere; place them after the `RecertificationService` provider on line 63 for locality). They are **plain singletons** (no `Scope.REQUEST`):
 
@@ -1961,12 +1961,12 @@ In the `providers: [...]` array, add the five new singletons (anywhere; place th
 
 > `RecertificationService` (request-scoped, line 63) injects `RecertificationScanner` (singleton) — a request-scoped provider may depend on a singleton, so this resolves cleanly. `DocumentRevokedEmailListener` and `RemindersSchedulerService` must be singletons for `@OnEvent` / `@Cron` discovery to work.
 
-- [ ] **Step 4: Full typecheck**
+- [x] **Step 4: Full typecheck**
 
 Run: `pnpm --filter @cdoprof/backend exec tsc --noEmit`
 Expected: PASS (DI graph now complete at the type level).
 
-- [ ] **Step 5: Run the full affected test set**
+- [x] **Step 5: Run the full affected test set**
 
 Run each, expect PASS:
 
@@ -1977,7 +1977,7 @@ pnpm --filter @cdoprof/backend exec vitest run src/modules/communication/notific
 pnpm --filter @cdoprof/backend exec vitest run src/modules/tenant/tenant.service.test.ts src/env.test.ts --no-file-parallelism
 ```
 
-- [ ] **Step 6: Regression — run the 5B HTTP permission boundary + issuance suites**
+- [x] **Step 6: Regression — run the 5B HTTP permission boundary + issuance suites**
 
 Run (these exercise the unchanged recert endpoints + issuance, confirming the refactor didn't regress them):
 
@@ -1988,7 +1988,7 @@ pnpm --filter @cdoprof/backend exec vitest run src/modules/documents/enrollment-
 
 Expected: PASS. If `mvp.http.integration.test.ts` references the recert controller through the real service, confirm it still imports correctly (the controller's public API is unchanged).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.module.ts
@@ -2005,19 +2005,19 @@ git commit -m "feat(backend): wire reminders scheduler + scanners + revoke liste
 - Modify: `LMS_AGENT_HANDOFF.md` (append §5.111)
 - Modify: this plan (tick all boxes)
 
-- [ ] **Step 1: Update README §2**
+- [x] **Step 1: Update README §2**
 
 In `README.md` §2 «AI Agent State», update `Current Goal`, `Last Completed Task`, `Current Task`, `Next Task`, `Last Updated By/At` to record Plan 5B-2 (nightly scheduler + 90/30/7 cadence + course-deadline + document_revoked email; migration 0049; `@nestjs/schedule`; flags `RECERTIFICATION_SCAN_ENABLED`/`RECERTIFICATION_CRON_SCHEDULE`). Set Next Task to **Plan 5C — frontend «Нужна переаттестация» queue** (and note ops must set `RECERTIFICATION_SCAN_ENABLED=true` + `NOTIFICATIONS_EMAIL_ENABLED=true` to activate).
 
-- [ ] **Step 2: Append handoff §5.111**
+- [x] **Step 2: Append handoff §5.111**
 
 Append a `### 5.111` entry to `LMS_AGENT_HANDOFF.md` §5 with: summary, files changed, test status (list the green target suites), deviations, and a cross-link to this plan. Note the behaviour change (recert email is now per-milestone, not once-on-creation) and the deferred items (license_expiring, curator/admin recipients, Plan 5C frontend).
 
-- [ ] **Step 3: Tick the plan boxes**
+- [x] **Step 3: Tick the plan boxes**
 
 Mark every `- [ ]` in this file `- [x]`. Record any deviations in a short `## Deviations` section at the bottom.
 
-- [ ] **Step 4: Final quality gate**
+- [x] **Step 4: Final quality gate**
 
 Run (the isolated backend runs per CLAUDE.md Gotchas — the full `pnpm test:backend` crashes on the Cyrillic path):
 
@@ -2028,7 +2028,7 @@ npx eslint apps/backend/src/modules/mvp/reminders apps/backend/src/modules/mvp/i
 
 Expected: PASS / no lint errors in the new + modified files.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add README.md LMS_AGENT_HANDOFF.md docs/superpowers/plans/2026-06-06-phase-5-plan-b2-recertification-scheduler.md
