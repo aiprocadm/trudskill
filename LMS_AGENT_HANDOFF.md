@@ -1410,6 +1410,15 @@
 - **Активация (ops):** та же, что 5B/5B-2 — `RECERTIFICATION_SCAN_ENABLED=true` + `NOTIFICATIONS_EMAIL_ENABLED=true` (+ `SMTP_*`).
 - **Следующий шаг:** PR/merge ветки; затем опц. 5C-2 (approve-очередь) или хвосты Phase 5 / Phase 6. Cross-link: план + спека выше.
 
+### 5.113 Фикс pre-existing e2e: `aggregateReviewerQueue` snapshot-shape drift (восстановлен после merge #233)
+
+- **Контекст:** закрытие known pre-existing failure из §5.110 (spawn_task chip) и §5.112 («Pre-existing (не 5C)»). Ветка `fix/2026-06-07-reviewer-queue-e2e-snapshot` от `main` (после merge PR #233). Изменён **только тест** — backend НЕ тронут.
+- **Симптом:** `apps/frontend/src/e2e/admin-assessment-surface.e2e.test.ts > aggregateReviewerQueue returns empty snapshot from empty inputs` падал: `Cannot read properties of undefined (reading 'map')`.
+- **Root cause (дрейф формы):** `reviewer-queue.service.ts:43` читает `snapshot.questions.map(...)` сразу (eager, до `.filter`), а тест передавал snapshot без `questions`. Поля `questions` и `attemptAnswers` добавлены в `ReviewerQueueInputSnapshot` уже после написания теста (Task 4 essay-pending + Task 8 antivirus).
+- **Фикс (2 согласованных правки, один тест):** (1) в литерал вызова добавлены `attemptAnswers: []` + `questions: []` → все 4 поля реального интерфейса; (2) расширен локальный cast-тип импорта функции, иначе excess-property-check свежего объект-литерала валит `tsc`. `attemptAnswers` добавлен превентивно (зеркало интерфейса), хотя на пустом входе не читается — `.filter` по пустому `testAttempts` короткозамкнут.
+- **Верификация:** таргет-тест зелёный на base post-#233; ESLint clean. 3 теста `module smoke` в том же файле ловят 5s-timeout на холодном transform по Cyrillic-path (зелёные при `--testTimeout=30000` и в CI) — НЕ регресс, известная Cyrillic-path-флака (CLAUDE.md Gotchas).
+- **История git (важно для следующего агента):** фикс изначально закоммичен на ветку 5C (`5eadccf` → rebase `309e41f`), но внешний `git reset HEAD~1` при подготовке PR #233 отбросил его, и **#233 (Phase 5C) слит в `main` БЕЗ этого фикса** → `aggregateReviewerQueue` оставался красным на main. Восстановлено cherry-pick'ом dangling-коммита на новую ветку `fix/2026-06-07-reviewer-queue-e2e-snapshot` (`23e4743`). Ожидает PR в main.
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |
