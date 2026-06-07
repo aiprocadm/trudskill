@@ -79,6 +79,10 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['counterparties.read'] }
   },
   {
+    pattern: '/admin/recertification',
+    meta: { public: false, requiredPermissions: ['recertification.read'] }
+  },
+  {
     pattern: '/admin/question-banks/[id]',
     meta: { public: false, requiredPermissions: ['assessment.question_banks.read'] }
   },
@@ -382,6 +386,12 @@ export const navigationModel: NavigationItem[] = [
     href: '/admin/clients',
     label: 'Компании',
     requiredPermissions: ['counterparties.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/admin/recertification',
+    label: 'Переаттестация',
+    requiredPermissions: ['recertification.read'],
     navSlot: 'more'
   }
 ];
