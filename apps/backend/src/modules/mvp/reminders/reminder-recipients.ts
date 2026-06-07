@@ -38,6 +38,18 @@ export function resolveEmployerEmail(
     ?.contactEmail;
 }
 
+/** Display name (ФИО) + СНИЛС for a learner id, for read-models (graceful empty when absent). */
+export function resolveLearnerDisplay(
+  state: InMemoryMvpState,
+  tenantId: string,
+  learnerId: string
+): { name: string; snils?: string } {
+  const learner = state.learners.find((l) => l.tenantId === tenantId && l.id === learnerId);
+  if (!learner) return { name: '' };
+  const name = [learner.lastName, learner.firstName, learner.middleName].filter(Boolean).join(' ');
+  return { name, ...(learner.snils ? { snils: learner.snils } : {}) };
+}
+
 /** Learner (+ employer when present) recipients for an enrollment. */
 export function buildLearnerEmployerRecipients(
   state: InMemoryMvpState,
