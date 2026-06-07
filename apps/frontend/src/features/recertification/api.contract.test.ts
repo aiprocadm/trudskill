@@ -76,7 +76,7 @@ describe('recertificationApi envelope compatibility (Phase 5C)', () => {
     const url = new URL(calledUrl);
     expect(url.pathname).toContain('/recertification-drafts');
     expect(url.searchParams.get('status')).toBe('pending');
-    expect(init.method ?? 'GET').toBe('GET');
+    expect(init.method).toBe('GET');
   });
 
   it('list omits status query when undefined', async () => {

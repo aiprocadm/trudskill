@@ -16,6 +16,9 @@ const withAuth = (session: UserSession) => ({
   }
 });
 
+// NB: approve / auto-enroll (POST /recertification-drafts/:id/approve) is intentionally NOT
+// exposed here — Phase 5C is visibility-only by owner decision (re-enrollment goes through the
+// existing bulk-enrollment flow). See the 5C spec §2/§7. Possible 5C-2 follow-up.
 export const recertificationApi = {
   list: (
     session: UserSession,

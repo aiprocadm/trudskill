@@ -16,6 +16,12 @@ describe('formatRemaining', () => {
   it('handles month boundary correctly', () => {
     expect(formatRemaining('2026-07-01', '2026-06-29')).toBe('через 2 дн.');
   });
+  it('handles year boundary', () => {
+    expect(formatRemaining('2027-01-01', '2026-12-31')).toBe('через 1 дн.');
+  });
+  it('returns «—» for malformed input', () => {
+    expect(formatRemaining('not-a-date', '2026-06-07')).toBe('—');
+  });
 });
 
 describe('formatSnils', () => {

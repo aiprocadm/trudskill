@@ -12,7 +12,10 @@ function toUtcDayIndex(iso: string): number {
  * «дн.» — единая безопасная аббревиатура для любого числа дней (день/дня/дней).
  */
 export function formatRemaining(validUntil: string, today: string): string {
-  const days = Math.round(toUtcDayIndex(validUntil) - toUtcDayIndex(today));
+  const target = toUtcDayIndex(validUntil);
+  const base = toUtcDayIndex(today);
+  if (!Number.isFinite(target) || !Number.isFinite(base)) return '—';
+  const days = Math.round(target - base);
   if (days > 0) return `через ${days} дн.`;
   if (days === 0) return 'сегодня';
   return `просрочено ${Math.abs(days)} дн.`;

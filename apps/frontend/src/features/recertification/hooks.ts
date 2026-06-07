@@ -6,11 +6,15 @@ import { useState } from 'react';
 import { recertificationApi } from './api';
 import { useAuth } from '../auth/context';
 
-import type { RecertScanSummary, RecertificationDraftStatus } from './types';
+import type {
+  RecertScanSummary,
+  RecertificationDraftStatus,
+  RecertificationDraftView
+} from './types';
 
 export function useRecertificationQueue(status?: RecertificationDraftStatus) {
   const { session } = useAuth();
-  return useQuery({
+  return useQuery<RecertificationDraftView[]>({
     queryKey: ['recertification-drafts', status ?? 'all'],
     enabled: Boolean(session),
     queryFn: () => recertificationApi.list(session!, status)
