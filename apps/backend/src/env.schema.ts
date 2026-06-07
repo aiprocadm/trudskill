@@ -47,6 +47,15 @@ export const backendEnvSchema = z
       .union([z.boolean(), z.enum(['true', 'false'])])
       .transform((v) => v === true || v === 'true')
       .default(false),
+    // Recertification/reminders daily scan (Phase 5B-2). Custom boolean parse — NOT
+    // z.coerce.boolean (which maps the string "false" → true). Ships dormant (false);
+    // ops enables it once SMTP + persistence are ready.
+    RECERTIFICATION_SCAN_ENABLED: z
+      .union([z.boolean(), z.enum(['true', 'false'])])
+      .transform((v) => v === true || v === 'true')
+      .default(false),
+    /** Cron expression for the nightly recertification + course-deadline scan (UTC — the cron is pinned to timeZone 'UTC'). */
+    RECERTIFICATION_CRON_SCHEDULE: z.string().min(1).default('0 3 * * *'),
     SMTP_HOST: z.string().min(1).optional(),
     SMTP_PORT: z.coerce.number().int().positive().default(587),
     SMTP_USER: z.string().min(1).optional(),

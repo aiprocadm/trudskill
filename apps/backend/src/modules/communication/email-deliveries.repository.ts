@@ -17,6 +17,8 @@ export interface EmailDeliveryRow {
   error?: string;
   relatedEntityType?: string;
   relatedEntityId?: string;
+  /** Phase 5B-2 — send-once key (feature:entity:milestone); undefined when not deduped. */
+  dedupKey?: string;
   createdAt: string;
 }
 
@@ -33,4 +35,5 @@ export interface EmailDeliveriesRepository {
     tenantId: string,
     query: EmailDeliveriesQuery
   ): Promise<{ items: EmailDeliveryRow[]; total: number }>;
+  findByDedupKey(tenantId: string, dedupKey: string): Promise<EmailDeliveryRow | null>;
 }
