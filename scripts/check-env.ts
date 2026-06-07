@@ -37,12 +37,44 @@ const schema = z
     INTEGRATION_WEBHOOK_SECRET: z.string().min(10).optional()
   })
   .superRefine((env, ctx) => {
-    if (env.NODE_ENV === 'production' && !env.INTEGRATION_WEBHOOK_SECRET) {
+    if (env.NODE_ENV !== 'production') return;
+
+    if (!env.INTEGRATION_WEBHOOK_SECRET) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'INTEGRATION_WEBHOOK_SECRET is required in production',
         path: ['INTEGRATION_WEBHOOK_SECRET']
       });
+    }
+
+    // Reject obvious dev/placeholder values that pass length checks but are insecure.
+    const DEV_DEFAULT_MARKERS = [
+      'change-me',
+      'dev-webhook-secret',
+      'minio123',
+      'postgres:postgres',
+      'guest:guest',
+      'supertokens-api-key'
+    ];
+    const SECRET_FIELDS = [
+      'AUTH_JWT_SECRET',
+      'SESSION_SECRET',
+      'REALTIME_PUBLISH_KEY',
+      'INTEGRATION_WEBHOOK_SECRET',
+      'DATABASE_URL',
+      'RABBITMQ_URL',
+      'S3_SECRET_KEY'
+    ] as const;
+
+    for (const field of SECRET_FIELDS) {
+      const value = String((env as Record<string, unknown>)[field] ?? '').toLowerCase();
+      if (value && DEV_DEFAULT_MARKERS.some((marker) => value.includes(marker))) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `${field} looks like a dev default — set a real secret in production`,
+          path: [field]
+        });
+      }
     }
   });
 
