@@ -13,11 +13,14 @@ COPY tooling tooling
 RUN pnpm install --filter @cdoprof/frontend... --frozen-lockfile
 
 FROM deps AS build
+ENV NODE_ENV=production
 # NEXT_PUBLIC_* are inlined at build time — they MUST be present now, not at runtime.
 ARG NEXT_PUBLIC_API_BASE_URL
 ARG NEXT_PUBLIC_REALTIME_URL
+ARG NEXT_PUBLIC_DEFAULT_TENANT_ID
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 ENV NEXT_PUBLIC_REALTIME_URL=$NEXT_PUBLIC_REALTIME_URL
+ENV NEXT_PUBLIC_DEFAULT_TENANT_ID=$NEXT_PUBLIC_DEFAULT_TENANT_ID
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
 RUN pnpm --filter @cdoprof/shared-types build \
