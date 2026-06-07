@@ -1,6 +1,9 @@
 /** YYYY-MM-DD → integer day index in UTC (для безопасной арифметики дат без TZ-сдвигов). */
 function toUtcDayIndex(iso: string): number {
-  const [y, m, d] = iso.split('-').map(Number);
+  const parts = iso.split('-');
+  const y = Number(parts[0]);
+  const m = Number(parts[1]);
+  const d = Number(parts[2]);
   return Date.UTC(y, m - 1, d) / 86_400_000;
 }
 
