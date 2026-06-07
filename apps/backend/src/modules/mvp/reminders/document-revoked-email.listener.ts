@@ -8,10 +8,8 @@ import {
 } from './reminder-recipients.js';
 import { type NotificationDispatcher } from '../../communication/notification-dispatcher.service.js';
 import { DOCUMENT_REVOKED_EVENT } from '../../documents/document-revoked.event.js';
-import { learnerRecipient } from '../enrollment-recipient.js';
 import { type MvpTenantRunner } from '../infrastructure/mvp-tenant-runner.service.js';
 
-import type { DispatchRecipient } from '../../communication/notification-dispatcher.service.js';
 import type { DocumentRevokedPayload } from '../../documents/document-revoked.event.js';
 
 @Injectable()
@@ -36,9 +34,6 @@ export class DocumentRevokedEmailListener {
         if (!enrollment) {
           return null;
         }
-        const learner = state.learners.find(
-          (l) => l.tenantId === payload.tenantId && l.id === enrollment.learnerId
-        );
         const recipients = buildLearnerEmployerRecipients(state, payload.tenantId, enrollment);
         const courseVersionId = resolveCourseVersionIdForGroup(
           state,
@@ -50,9 +45,9 @@ export class DocumentRevokedEmailListener {
           : undefined;
         return {
           recipients,
-          learnerName: learnerRecipient(learner)?.name ?? '',
+          learnerName: recipients.find((r) => r.kind === 'learner')?.name ?? '',
           courseTitle: courseTitle ?? ''
-        } as { recipients: DispatchRecipient[]; learnerName: string; courseTitle: string };
+        };
       });
 
       if (!resolved || resolved.recipients.length === 0) {
