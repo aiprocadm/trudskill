@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  Post,
+  UseGuards,
+  UseInterceptors
+} from '@nestjs/common';
 
 import { EisotTestingRegistryService } from './eisot-testing-registry.service.js';
 import { assertValidDto } from '../../../common/app-validation.pipe.js';
@@ -15,7 +24,9 @@ import type { RequestContext } from '../../../common/context/request-context.js'
 @UseInterceptors(MvpRequestPersistenceInterceptor)
 @UseGuards(TenantGuard)
 export class EisotTestingRegistryController {
-  constructor(private readonly service: EisotTestingRegistryService) {}
+  constructor(
+    @Inject(EisotTestingRegistryService) private readonly service: EisotTestingRegistryService
+  ) {}
 
   @Post('exports')
   @UseGuards(PermissionGuard)

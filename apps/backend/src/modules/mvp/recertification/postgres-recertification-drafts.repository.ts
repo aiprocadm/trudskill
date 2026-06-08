@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
-import { type DatabaseService } from '../../../infrastructure/database/database.service.js';
+import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 
 import type {
   RecertificationDraftRow,
@@ -28,7 +28,7 @@ interface DraftDbRow {
 
 @Injectable()
 export class PostgresRecertificationDraftsRepository implements RecertificationDraftsRepository {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(@Inject(DatabaseService) private readonly db: DatabaseService) {}
 
   async create(
     seed: RecertificationDraftSeed

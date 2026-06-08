@@ -24,7 +24,7 @@ export class DocumentsRequestPersistenceInterceptor implements NestInterceptor {
     @Inject(MetricsService) private readonly metrics: MetricsService,
     @Inject(DOCUMENTS_PERSISTENCE_BACKEND)
     private readonly persistence: DocumentsPersistenceBackend,
-    private readonly tenantGateway: TenantSerialGateway
+    @Inject(TenantSerialGateway) private readonly tenantGateway: TenantSerialGateway
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {

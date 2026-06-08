@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
-import { type DatabaseService } from '../../infrastructure/database/database.service.js';
+import { DatabaseService } from '../../infrastructure/database/database.service.js';
 
 import type {
   EmailDeliveriesQuery,
@@ -31,7 +31,7 @@ interface EmailDeliveryDbRow {
 
 @Injectable()
 export class PostgresEmailDeliveriesRepository implements EmailDeliveriesRepository {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(@Inject(DatabaseService) private readonly db: DatabaseService) {}
 
   async record(seed: EmailDeliverySeed): Promise<EmailDeliveryRow> {
     const id = `emaildlv_${Math.random().toString(36).slice(2, 10)}`;
