@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { backendEnv } from '../../env.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
@@ -27,7 +27,7 @@ interface WorkspaceSeed {
 
 @Injectable()
 export class WorkspaceService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(@Inject(DatabaseService) private readonly db: DatabaseService) {}
 
   private readonly fallbackByTenant = new Map<string, WorkspaceSeed>([
     [

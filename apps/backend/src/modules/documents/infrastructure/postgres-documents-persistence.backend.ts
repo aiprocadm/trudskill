@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import {
   DOCUMENTS_ARRAY_COLLECTIONS,
@@ -6,7 +6,7 @@ import {
 } from './documents-collections.js';
 import { DocumentsWriteOrchestrator } from './documents-write.orchestrator.js';
 import { backendEnv } from '../../../env.js';
-import { type DatabaseService } from '../../../infrastructure/database/database.service.js';
+import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 
 import type { InMemoryDocumentsState } from '../in-memory-documents.state.js';
 import type { DocumentsPersistenceBackend } from './documents-persistence.backend.js';
@@ -28,7 +28,7 @@ export class PostgresDocumentsPersistenceBackend implements DocumentsPersistence
   private readonly logger = new Logger(PostgresDocumentsPersistenceBackend.name);
   private readonly writeOrchestrator = new DocumentsWriteOrchestrator(this.logger);
 
-  constructor(private readonly db: DatabaseService) {}
+  constructor(@Inject(DatabaseService) private readonly db: DatabaseService) {}
 
   async loadIntoState(tenantId: string, state: InMemoryDocumentsState): Promise<void> {
     const readModel = backendEnv.DOCUMENTS_READ_MODEL;

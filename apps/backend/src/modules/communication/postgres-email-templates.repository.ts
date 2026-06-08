@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
-import { type DatabaseService } from '../../infrastructure/database/database.service.js';
+import { DatabaseService } from '../../infrastructure/database/database.service.js';
 
 import type { EmailTemplateKey } from './email-templates.js';
 import type {
@@ -21,7 +21,7 @@ interface EmailTemplateDbRow {
 
 @Injectable()
 export class PostgresEmailTemplatesRepository implements EmailTemplatesRepository {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(@Inject(DatabaseService) private readonly db: DatabaseService) {}
 
   async getOverride(
     tenantId: string,

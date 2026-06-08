@@ -1,9 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 
-import { type DocumentsTenantRunner } from './documents-tenant-runner.service.js';
+import { DocumentsTenantRunner } from './documents-tenant-runner.service.js';
 import { addMonths } from '../../common/utils/date-math.util.js';
-import { type AuditService } from '../audit/audit.service.js';
+import { AuditService } from '../audit/audit.service.js';
 import {
   ENROLLMENT_COMPLETED_EVENT,
   type EnrollmentCompletedDocumentSetEntry,
@@ -31,8 +31,8 @@ function enrollmentTraceRequestContext(
 @Injectable()
 export class EnrollmentDocumentIssuanceListener {
   constructor(
-    private readonly documentsRunner: DocumentsTenantRunner,
-    private readonly auditService: AuditService
+    @Inject(DocumentsTenantRunner) private readonly documentsRunner: DocumentsTenantRunner,
+    @Inject(AuditService) private readonly auditService: AuditService
   ) {}
 
   @OnEvent(ENROLLMENT_COMPLETED_EVENT, { async: true })

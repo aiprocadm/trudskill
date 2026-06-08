@@ -2,13 +2,14 @@ import { TestBuilderScreen } from '../../../../src/features/assessment-admin/tes
 import { ProtectedPage } from '../../../../src/widgets/shell/protected-page';
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
-export default function AdminTestBuilderPage({ params }: PageProps) {
+export default async function AdminTestBuilderPage({ params }: PageProps) {
+  const { id } = await params;
   return (
     <ProtectedPage>
-      <TestBuilderScreen testId={params.id} />
+      <TestBuilderScreen testId={id} />
     </ProtectedPage>
   );
 }

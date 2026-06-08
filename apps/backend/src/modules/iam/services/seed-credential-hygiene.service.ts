@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 
-import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
 
 import { backendEnv } from '../../../env.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
@@ -43,7 +43,7 @@ export async function neutralizeLeakedSeedCredentials(db: RowQueryExecutor): Pro
 export class SeedCredentialHygiene implements OnApplicationBootstrap {
   private readonly logger = new Logger(SeedCredentialHygiene.name);
 
-  constructor(private readonly db: DatabaseService) {}
+  constructor(@Inject(DatabaseService) private readonly db: DatabaseService) {}
 
   async onApplicationBootstrap(): Promise<void> {
     if (backendEnv.NODE_ENV !== 'production') {

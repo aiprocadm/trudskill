@@ -1,13 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
-import { type DatabaseService } from '../../infrastructure/database/database.service.js';
+import { DatabaseService } from '../../infrastructure/database/database.service.js';
 
 import type { ChatDialogsQuery, ChatMessagesQuery, ChatRepository } from './chat.repository.js';
 import type { ChatDialogRow, ChatMessageRow, ChatParticipantRow } from './in-memory-chat.state.js';
 
 @Injectable()
 export class PostgresChatRepository implements ChatRepository {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(@Inject(DatabaseService) private readonly db: DatabaseService) {}
 
   async listDialogs(tenantId: string, userId: string | undefined, query: ChatDialogsQuery = {}) {
     const page = query.page ?? 1;

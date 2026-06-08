@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   BACKFILL_DOMAIN_TABLES,
@@ -22,7 +22,7 @@ type RuntimeRow = {
 
 @Injectable()
 export class BackfillService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(@Inject(DatabaseService) private readonly db: DatabaseService) {}
 
   async createRun(domain: BackfillDomain, batchSize = 500): Promise<BackfillRunRecord> {
     const id = randomUUID();

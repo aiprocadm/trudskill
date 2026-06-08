@@ -1410,6 +1410,15 @@
 - **Активация (ops):** та же, что 5B/5B-2 — `RECERTIFICATION_SCAN_ENABLED=true` + `NOTIFICATIONS_EMAIL_ENABLED=true` (+ `SMTP_*`).
 - **Следующий шаг:** PR/merge ветки; затем опц. 5C-2 (approve-очередь) или хвосты Phase 5 / Phase 6. Cross-link: план + спека выше.
 
+### 5.113 Фикс pre-existing e2e: `aggregateReviewerQueue` snapshot-shape drift (восстановлен после merge #233)
+
+- **Контекст:** закрытие known pre-existing failure из §5.110 (spawn_task chip) и §5.112 («Pre-existing (не 5C)»). Ветка `fix/2026-06-07-reviewer-queue-e2e-snapshot` от `main` (после merge PR #233). Изменён **только тест** — backend НЕ тронут.
+- **Симптом:** `apps/frontend/src/e2e/admin-assessment-surface.e2e.test.ts > aggregateReviewerQueue returns empty snapshot from empty inputs` падал: `Cannot read properties of undefined (reading 'map')`.
+- **Root cause (дрейф формы):** `reviewer-queue.service.ts:43` читает `snapshot.questions.map(...)` сразу (eager, до `.filter`), а тест передавал snapshot без `questions`. Поля `questions` и `attemptAnswers` добавлены в `ReviewerQueueInputSnapshot` уже после написания теста (Task 4 essay-pending + Task 8 antivirus).
+- **Фикс (2 согласованных правки, один тест):** (1) в литерал вызова добавлены `attemptAnswers: []` + `questions: []` → все 4 поля реального интерфейса; (2) расширен локальный cast-тип импорта функции, иначе excess-property-check свежего объект-литерала валит `tsc`. `attemptAnswers` добавлен превентивно (зеркало интерфейса), хотя на пустом входе не читается — `.filter` по пустому `testAttempts` короткозамкнут.
+- **Верификация:** таргет-тест зелёный на base post-#233; ESLint clean. 3 теста `module smoke` в том же файле ловят 5s-timeout на холодном transform по Cyrillic-path (зелёные при `--testTimeout=30000` и в CI) — НЕ регресс, известная Cyrillic-path-флака (CLAUDE.md Gotchas).
+- **История git (важно для следующего агента):** фикс изначально закоммичен на ветку 5C (`5eadccf` → rebase `309e41f`), но внешний `git reset HEAD~1` при подготовке PR #233 отбросил его, и **#233 (Phase 5C) слит в `main` БЕЗ этого фикса** → `aggregateReviewerQueue` оставался красным на main. Восстановлено cherry-pick'ом dangling-коммита на новую ветку `fix/2026-06-07-reviewer-queue-e2e-snapshot` (`23e4743`). Слит #234.
+
 ### 5.114 Phase 0 деплой-фундамент (PR #235) + Production auth readiness (A+B)
 
 - **Запрос:** «начнём фазу 0» → переразмерил roadmap Phase 0 под **соло-владельца** (подтвердил: 4 фундамента уже есть — юр-лицо+лицензия, действующие клиенты, бренд+домен, облако). Обе части: brainstorming → spec → writing-plans → subagent-driven-development + two-stage review.
@@ -1651,6 +1660,28 @@
 - Description: даже после фикса таймаутов и отключения file-parallelism backend integration/contract suite остаётся заметным по времени.
 - Evidence: множественные bootstrap Nest приложения в монорепо `turbo` + Vitest.
 - Suggested fix: по мере возможности уменьшать дублирование bootstrap и выносить тяжёлые кейсы в облегчённые harness без полного приложения там, где достаточно unit.
+
+### Issue 3: ✅ RESOLVED (2026-06-06, §5.108) — полное Nest-приложение не стартовало (DI-«deadlock»)
+
+- Severity: была **high** (блокировала `pnpm dev:web` / `pnpm --filter @cdoprof/backend dev`); НЕ влияла на юнит/стаб-тесты.
+- **Истинная первопричина (гипотеза про цикл провайдеров оказалась ЛОЖНОЙ):** dev-runtime `tsx` (esbuild) **не эмитит `emitDecoratorMetadata`** (`Reflect.getMetadata('design:paramtypes', X) === undefined`). Поэтому конструкторные параметры, инжектируемые **по типу** (`private readonly x: FooService` без `@Inject`), резолвятся в undefined-токен, и инжектор Nest **виснет** на «осиротевшем промисе» внутри `NestFactory.create()` (видно как `beforeExit code=0`, только таймер в `getActiveResourcesInfo`). Первый модуль с type-based DI в порядке загрузки — `FilesModule` (`FilesService` инжектит `DatabaseService`/`AuditService` без `@Inject`); локализовано **бисекцией кумулятивных префиксов модулей**. Прод не затронут: Dockerfile запускает **компилированный** `node dist/main.js`, а `tsc` метаданные эмитит.
+- **Fix (§5.108):**
+  1. **Все 29 type-based инъекций в 23 файлах → явный `@Inject(Token)`** (codemod), плюс перевод нужных типов из `import type` в value-import (для `@Inject` нужен runtime-значение). Конвенция «всегда `@Inject`» уже доминировала в IAM/Infrastructure-модулях; `tsx` сохранён (переключение рантайма потребовало бы переписать ~78 extensionless-импортов в packages — `moduleResolution: Bundler`).
+  2. **`CommunicationModule`** теперь импортирует `IamModule` (его `EmailNotificationsController` под `@UseGuards(PermissionGuard)` требует `IamService`/`AuthService`) — был отдельный первый DI-барьер.
+  3. **Regression-guard** [`apps/backend/src/common/di-explicit-injection.test.ts`](apps/backend/src/common/di-explicit-injection.test.ts) — статически падает, если в backend-провайдерах/контроллерах снова появится type-based инъекция (boot-тест под vitest/esbuild не годится — та же проблема метаданных; и DB/Cyrillic-краши).
+- Проверено: все 17 модулей бутятся (бисекция), реальный `pnpm dev:web` (миграции включены) → `Nest application successfully started`, health 200, логин end-to-end (login → /auth/me → /users/:id/roles → /workspace/summary, все 200). `typecheck` 8/8, ESLint clean, guard-тест зелёный.
+
+### Issue 4: Цепочка миграций не накатывается на чистую БД (часть — `DB_MIGRATIONS_ENABLED` — ✅ исправлена)
+
+- **Статус (2026-06-06, §5.108):** пункт 3 (`DB_MIGRATIONS_ENABLED`) **ИСПРАВЛЕН** (env.schema → safe `union+transform`). Пункты 1–2 (FK-before-unique в 0003/0004/…) **остаются** — нужен consolidated-baseline (см. ниже). Для локального dev развёрнут обходной путь: применены только FK-safe runtime-миграции `0001/0002/0010/0019/0027/0028` (IAM/audit/base — домен работает на in-memory-драйверах), а **все 48** записаны в `core.schema_migrations` с оригинальными checksum'ами → `runMigrations` при включённых миграциях их пропускает (`pnpm dev:web` бутится без правок). Воспроизведение dev-БД: применить эти 6 миграций к свежей `cdoprof` + записать все checksum'ы + сид RBAC (62 права админам, learner).
+- Severity: **high** (блокирует первичный бутстрап реляционной БД «с нуля» из коробки; in-memory-домен + обходной dev-DB маскируют)
+- Area: backend/migrations + env-schema
+- Description:
+  1. **`migrations/0003_mvp_domain_integrity_hardening.sql`**: первый блок (строки 9–11) создаёт на `storage.files` constraint `files_tenant_id_id_uniq`; далее в той же миграции FK (строки 91/242/288) ссылаются на `storage.files(tenant_id, id)`; второй блок (строки 311–313) **повторно дропает** `files_tenant_id_id_uniq` → Postgres: `cannot drop constraint files_tenant_id_id_uniq ... because other objects depend on it`. Второй drop избыточен (constraint уже создан первым блоком).
+  2. **`migrations/0004_mvp_esign_domain.sql`**: FK ссылается на `esign_applications` без подходящего unique → `there is no unique constraint matching given keys for referenced table "esign_applications"`.
+  3. **`DB_MIGRATIONS_ENABLED: z.coerce.boolean()`** в [apps/backend/src/env.schema.ts:74](apps/backend/src/env.schema.ts) — `Boolean("false") === true`, поэтому флаг нельзя выключить значением `false` (только пустой строкой/unset). В этом же файле уже есть защита для `ANTIVIRUS_ENABLED`/`NOTIFICATIONS_EMAIL_ENABLED` (custom `union+transform`) — `DB_MIGRATIONS_ENABLED` её не получил.
+- Evidence: команда уже знает про (1) — комментарий [apps/backend/src/testing/with-test-db.ts:56-61](apps/backend/src/testing/with-test-db.ts) («0003 дважды дропает один constraint, что ломается на свежей БД»); тесты накатывают только минимальные подмножества миграций. Сессия 2026-06-06: полный `runMigrations` на свежей `cdoprof` падает на 0003, после in-memory-патча — на 0004.
+- Suggested fix (остаток): паттерн «FK на `(tenant_id, id)` до создания соответствующего UNIQUE» пронизывает hardening-миграции (0003/0004/…), forward-fix отдельными миграциями невозможен (цепочка падает посередине, до новой миграции дело не доходит). Правильное решение — **consolidated baseline-schema** для свежего бутстрапа (или дамп схемы из полностью применённой dev-БД), исторические файлы НЕ править (checksum-guard). Затем CI-тест, накатывающий 0001→latest на свежий testcontainer. ~~(3) `z.coerce.boolean()`~~ — **сделано** (§5.108).
 
 ## 14. Recommended Next Steps
 
