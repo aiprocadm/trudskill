@@ -12,29 +12,26 @@ import { DatabaseService } from '../../../infrastructure/database/database.servi
 export const LEAKED_SEED_PASSWORD_HASH =
   'd845591b855ba5b9a20db65eee522f76ed85858551b8f813ef146725e1a59264';
 
-/**
- * Narrow interface for the db parameter used by neutralizeLeakedSeedCredentials.
- * The test mock satisfies this shape; the real DatabaseService is passed as `as never`
- * in tests. In production use, call via SeedCredentialHygiene which wraps withTransaction
- * to supply a raw PoolClient whose query() returns a pg QueryResult with rowCount.
- */
-interface RawQueryExecutor {
-  query(sql: string, params: unknown[]): Promise<{ rowCount: number | null }>;
+/** Minimal db surface used here — DatabaseService.query returns the result rows. */
+interface RowQueryExecutor {
+  query(sql: string, params: unknown[]): Promise<unknown[]>;
 }
 
 /**
  * Rotates every iam.users row whose password_hash is the leaked seed hash to an unusable
  * value (`disabled:<random hex>` — neither scrypt nor 64-hex, so verifyPassword always
  * rejects it). Targeted at the exact leaked hash, so real passwords are untouched.
- * Returns the number of rows neutralized. Idempotent (the WHERE no longer matches after).
+ * `RETURNING id` lets the affected-row count come from the standard DatabaseService.query
+ * (which returns rows) — no raw client / transaction needed. Idempotent: after the first
+ * run the WHERE no longer matches, so a second run returns 0.
  */
-export async function neutralizeLeakedSeedCredentials(db: RawQueryExecutor): Promise<number> {
+export async function neutralizeLeakedSeedCredentials(db: RowQueryExecutor): Promise<number> {
   const replacement = `disabled:${randomBytes(32).toString('hex')}`;
-  const result = await db.query(
-    'update iam.users set password_hash = $1, updated_at = now() where password_hash = $2',
+  const rows = await db.query(
+    'update iam.users set password_hash = $1, updated_at = now() where password_hash = $2 returning id',
     [replacement, LEAKED_SEED_PASSWORD_HASH]
   );
-  return result.rowCount ?? 0;
+  return rows.length;
 }
 
 /**
@@ -53,14 +50,7 @@ export class SeedCredentialHygiene implements OnApplicationBootstrap {
       return;
     }
     try {
-      const count = await this.db.withTransaction(async (client) => {
-        const replacement = `disabled:${randomBytes(32).toString('hex')}`;
-        const result = await client.query(
-          'update iam.users set password_hash = $1, updated_at = now() where password_hash = $2',
-          [replacement, LEAKED_SEED_PASSWORD_HASH]
-        );
-        return result.rowCount ?? 0;
-      });
+      const count = await neutralizeLeakedSeedCredentials(this.db);
       if (count > 0) {
         this.logger.warn(
           `seed_credentials_neutralized count=${count} (leaked Password123! hash rotated)`
