@@ -1,0 +1,17 @@
+{$PUBLIC_DOMAIN} {
+	encode zstd gzip
+
+	@api path /api/v1/*
+	handle @api {
+		reverse_proxy backend:3001
+	}
+
+	@ws path /ws*
+	handle @ws {
+		reverse_proxy realtime:3002
+	}
+
+	handle {
+		reverse_proxy frontend:3000
+	}
+}
