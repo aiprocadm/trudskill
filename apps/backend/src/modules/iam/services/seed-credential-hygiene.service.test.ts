@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   LEAKED_SEED_PASSWORD_HASH,
+  SeedCredentialHygiene,
   neutralizeLeakedSeedCredentials
 } from './seed-credential-hygiene.service.js';
 
@@ -31,5 +32,14 @@ describe('neutralizeLeakedSeedCredentials', () => {
     const db = makeDb([]);
     const count = await neutralizeLeakedSeedCredentials(db as never);
     expect(count).toBe(0);
+  });
+});
+
+describe('SeedCredentialHygiene.onApplicationBootstrap', () => {
+  it('is a no-op outside production (does not touch the DB)', async () => {
+    const db = { query: vi.fn() };
+    const hygiene = new SeedCredentialHygiene(db as never);
+    await hygiene.onApplicationBootstrap();
+    expect(db.query).not.toHaveBeenCalled(); // NODE_ENV is not 'production' in the test env
   });
 });

@@ -20,6 +20,7 @@ import {
   type MagicLinkServiceConfig
 } from './services/magic-link.service.js';
 import { PostgresMagicLinkTokenRepo } from './services/postgres-magic-link-token-repo.js';
+import { SeedCredentialHygiene } from './services/seed-credential-hygiene.service.js';
 import { backendEnv } from '../../env.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
@@ -66,7 +67,13 @@ const magicLinkProviders: Provider[] = [
     SessionsModule
   ],
   controllers: [AuthController],
-  providers: [IamService, AuthService, PermissionGuard, ...magicLinkProviders],
+  providers: [
+    IamService,
+    AuthService,
+    PermissionGuard,
+    ...magicLinkProviders,
+    SeedCredentialHygiene
+  ],
   exports: [IamService, AuthService, MagicLinkService]
 })
 export class IamModule {}
