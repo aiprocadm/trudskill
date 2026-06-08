@@ -19,3 +19,6 @@ packages/shared-types/src/**/*.d.ts
 .cursor/
 .superpowers/
 
+
+# Production secrets (server-only, never commit)
+infra/.env.production

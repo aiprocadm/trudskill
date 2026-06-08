@@ -11,6 +11,7 @@ import { MvpPersistenceRepositoryAdapter } from './infrastructure/mvp-persistenc
 import { MVP_PERSISTENCE_BACKEND } from './infrastructure/mvp-persistence.token.js';
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
 import { MVP_STATE } from './infrastructure/mvp-state.token.js';
+import { MvpTenantRunner } from './infrastructure/mvp-tenant-runner.service.js';
 import { PostgresMvpPersistenceBackend } from './infrastructure/postgres-mvp-persistence.backend.js';
 import { LearnerPdfCardService } from './learner-pdf-card.service.js';
 import { LearnersBulkImportService } from './learners-bulk-import.service.js';
@@ -25,14 +26,19 @@ import { OtRegistryService } from './ot-registry/ot-registry.service.js';
 import { InMemoryRecertificationDraftsState } from './recertification/in-memory-recertification-drafts.state.js';
 import { PostgresRecertificationDraftsRepository } from './recertification/postgres-recertification-drafts.repository.js';
 import { RECERTIFICATION_DRAFTS_REPOSITORY } from './recertification/recertification-drafts.repository.js';
+import { RecertificationScanner } from './recertification/recertification-scanner.service.js';
 import { RecertificationController } from './recertification/recertification.controller.js';
 import { RecertificationService } from './recertification/recertification.service.js';
+import { CourseDeadlineScanner } from './reminders/course-deadline-scanner.service.js';
+import { DocumentRevokedEmailListener } from './reminders/document-revoked-email.listener.js';
+import { RemindersSchedulerService } from './reminders/reminders-scheduler.service.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { CommunicationModule } from '../communication/communication.module.js';
 import { DocumentsModule } from '../documents/documents.module.js';
 import { FilesModule } from '../files/files.module.js';
 import { IamModule } from '../iam/iam.module.js';
 import { OrgModule } from '../org/org.module.js';
+import { TenantModule } from '../tenant/tenant.module.js';
 
 @Module({
   imports: [
@@ -41,7 +47,8 @@ import { OrgModule } from '../org/org.module.js';
     IamModule,
     DocumentsModule,
     OrgModule,
-    CommunicationModule
+    CommunicationModule,
+    TenantModule
   ],
   controllers: [
     MvpController,
@@ -60,6 +67,11 @@ import { OrgModule } from '../org/org.module.js';
       useClass: PostgresRecertificationDraftsRepository
     },
     InMemoryRecertificationDraftsState,
+    RecertificationScanner,
+    MvpTenantRunner,
+    CourseDeadlineScanner,
+    RemindersSchedulerService,
+    DocumentRevokedEmailListener,
     { provide: RecertificationService, scope: Scope.REQUEST, useClass: RecertificationService },
     { provide: MVP_PERSISTENCE_BACKEND, useClass: MvpPersistenceRepositoryAdapter },
     { provide: MVP_STATE, scope: Scope.REQUEST, useClass: InMemoryMvpState },

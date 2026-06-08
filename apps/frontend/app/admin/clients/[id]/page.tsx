@@ -2,13 +2,14 @@ import { ClientDetailScreen } from '../../../../src/features/clients/client-deta
 import { ProtectedPage } from '../../../../src/widgets/shell/protected-page';
 
 interface AdminClientDetailPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
-export default function AdminClientDetailPage({ params }: AdminClientDetailPageProps) {
+export default async function AdminClientDetailPage({ params }: AdminClientDetailPageProps) {
+  const { id } = await params;
   return (
     <ProtectedPage>
-      <ClientDetailScreen clientId={params.id} />
+      <ClientDetailScreen clientId={id} />
     </ProtectedPage>
   );
 }

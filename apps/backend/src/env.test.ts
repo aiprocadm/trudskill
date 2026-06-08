@@ -122,6 +122,35 @@ describe('backend env schema profile validation', () => {
   });
 });
 
+describe('RECERTIFICATION_SCAN_ENABLED / RECERTIFICATION_CRON_SCHEDULE', () => {
+  const validDevEnv = {
+    ...baseEnv,
+    AUTH_JWT_SECRET: 'dev-secret-not-placeholder',
+    SESSION_SECRET: 'dev-session-not-placeholder'
+  } as const;
+
+  it('defaults to disabled with the 03:00 daily schedule', () => {
+    const env = backendEnvSchema.parse(validDevEnv);
+    expect(env.RECERTIFICATION_SCAN_ENABLED).toBe(false);
+    expect(env.RECERTIFICATION_CRON_SCHEDULE).toBe('0 3 * * *');
+  });
+
+  it('never coerces the string "false" to true', () => {
+    const env = backendEnvSchema.parse({ ...validDevEnv, RECERTIFICATION_SCAN_ENABLED: 'false' });
+    expect(env.RECERTIFICATION_SCAN_ENABLED).toBe(false);
+  });
+
+  it('enables on "true" and accepts a custom cron', () => {
+    const env = backendEnvSchema.parse({
+      ...validDevEnv,
+      RECERTIFICATION_SCAN_ENABLED: 'true',
+      RECERTIFICATION_CRON_SCHEDULE: '0 2 * * *'
+    });
+    expect(env.RECERTIFICATION_SCAN_ENABLED).toBe(true);
+    expect(env.RECERTIFICATION_CRON_SCHEDULE).toBe('0 2 * * *');
+  });
+});
+
 describe('antivirus scan gate env', () => {
   const validDevEnv = {
     ...baseEnv,

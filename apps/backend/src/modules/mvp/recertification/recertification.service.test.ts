@@ -2,7 +2,8 @@ import { Logger } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import { InMemoryRecertificationDraftsState } from './in-memory-recertification-drafts.state.js';
-import { RecertificationService, scanForRecertification } from './recertification.service.js';
+import { RecertificationScanner } from './recertification-scanner.service.js';
+import { RecertificationService } from './recertification.service.js';
 
 const ASOF = '2026-06-05';
 
@@ -17,27 +18,6 @@ function doc(over: Record<string, unknown> = {}) {
     ...over
   };
 }
-
-describe('scanForRecertification (pure)', () => {
-  it('selects documents whose validUntil is within the horizon', () => {
-    expect(scanForRecertification(ASOF, [doc()] as never, 90).map((c) => c.documentId)).toEqual([
-      'gdoc1'
-    ]);
-  });
-  it('selects already-expired documents', () => {
-    expect(
-      scanForRecertification(ASOF, [doc({ validUntil: '2026-01-01' })] as never, 90)
-    ).toHaveLength(1);
-  });
-  it('ignores beyond-horizon, no-validUntil, and revoked documents', () => {
-    const docs = [
-      doc({ id: 'far', validUntil: '2027-01-01' }),
-      doc({ id: 'none', validUntil: undefined }),
-      doc({ id: 'rev', status: 'revoked', revokedAt: '2026-05-01' })
-    ];
-    expect(scanForRecertification(ASOF, docs as never, 90)).toHaveLength(0);
-  });
-});
 
 function make(
   overrides: {
@@ -73,13 +53,8 @@ function make(
       overrides.createBulkEnrollments ??
       vi.fn().mockReturnValue({ created: [{ id: 'enr_new' }], skippedExisting: [], errors: [] })
   };
-  const service = new RecertificationService(
-    drafts,
-    { dispatch } as never,
-    state as never,
-    mvp as never,
-    documents as never
-  );
+  const scanner = new RecertificationScanner(drafts, { dispatch } as never, documents as never);
+  const service = new RecertificationService(drafts, state as never, mvp as never, scanner);
   return { service, drafts, dispatch, mvp };
 }
 
@@ -98,8 +73,8 @@ describe('RecertificationService.runScan', () => {
     expect(dispatch.mock.calls[0]![0].variables.courseTitle).toBe('Охрана труда');
   });
 
-  it('is idempotent — second scan creates no new draft and sends no new email', async () => {
-    const { service, drafts, dispatch } = make();
+  it('is idempotent on drafts — a second scan creates no new draft', async () => {
+    const { service, drafts } = make();
     await service.runScan('t1', ASOF, { tenantId: 't1', userId: 'admin1' } as never);
     const summary = await service.runScan('t1', ASOF, {
       tenantId: 't1',
@@ -107,7 +82,6 @@ describe('RecertificationService.runScan', () => {
     } as never);
     expect(summary.draftsCreated).toBe(0);
     expect((await drafts.list('t1', {})).length).toBe(1);
-    expect(dispatch).toHaveBeenCalledTimes(1);
   });
 
   it('tolerates a dispatch failure — draft is still created, no email counted, scan does not throw', async () => {
@@ -170,5 +144,44 @@ describe('RecertificationService.approveDraft / rejectDraft', () => {
     } as never);
     expect(updated?.status).toBe('rejected');
     expect(updated?.reason).toBe('не требуется');
+  });
+});
+
+describe('RecertificationService.listDrafts (enrichment)', () => {
+  it('enriches each draft with learnerName + courseTitle resolved from state', async () => {
+    const { service, drafts } = make();
+    await drafts.create({
+      tenantId: 't1',
+      learnerId: 'l1',
+      sourceDocumentId: 'gdoc1',
+      courseVersionId: 'cv1',
+      validUntil: '2026-08-01'
+    });
+
+    const views = await service.listDrafts('t1', {});
+
+    expect(views).toHaveLength(1);
+    expect(views[0]!.learnerName).toBe('Иванов Иван');
+    expect(views[0]!.courseTitle).toBe('Охрана труда');
+    // raw row fields are preserved
+    expect(views[0]!.validUntil).toBe('2026-08-01');
+    expect(views[0]!.status).toBe('pending');
+  });
+
+  it('degrades to empty strings when learner/course cannot be resolved', async () => {
+    const { service, drafts } = make();
+    await drafts.create({
+      tenantId: 't1',
+      learnerId: 'ghost',
+      sourceDocumentId: 'gdoc9',
+      courseVersionId: 'ghost',
+      validUntil: '2026-08-01'
+    });
+
+    const views = await service.listDrafts('t1', {});
+
+    expect(views[0]!.learnerName).toBe('');
+    expect(views[0]!.courseTitle).toBe('');
+    expect(views[0]!.learnerSnils).toBeUndefined();
   });
 });

@@ -60,7 +60,11 @@ export const AppShell = ({ children }: PropsWithChildren) => {
         id="app-shell-nav"
         className={`app-shell__sidebar ${mobileNavOpen ? 'is-drawer-open' : ''}`}
       >
-        <h2 className="app-shell__brand">cdoprof</h2>
+        <h2 className="app-shell__brand">
+          <span className="ui-wordmark">
+            CDO<span className="ui-wordmark__accent">проф</span>
+          </span>
+        </h2>
         {primaryRole ? <p className="app-shell__role">Роль: {primaryRole.displayName}</p> : null}
         <nav className="ui-stack" aria-label="Основные разделы">
           {navView.main.map((item) => {
