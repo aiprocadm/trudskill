@@ -1438,6 +1438,16 @@
 - **Деталь процесса:** docs-коммит изначально лёг на уже слитую (squash) ветку `feat/2026-06-08-production-auth-readiness` → перенесён cherry-pick'ом на свежую ветку от `main` (контент идентичен — ветка ранее подмёржила origin/main); stale-ветку не пушил.
 - **Следующий шаг:** merge docs-PR → **deploy-execution владельцем** (сервер + DNS A-запись + SMTP; `infra/server-setup.md` → `infra/bootstrap-admin.md`; в `.env.production`: `NOTIFICATIONS_EMAIL_ENABLED=true` + реальные `SMTP_*`). Кодовых блокеров пилота не осталось. Отложенное — без изменений (ЕСИА Phase 4, НЭП Phase 6, Pruffme/ЮKassa Phase 7/8, clamav ops, Wave 2 sub-goal D ждёт официальные шаблоны владельца).
 
+### 5.116 Hotfix: `DB_MIGRATIONS_ENABLED=''` ломает 13 тест-харнессов после #236
+
+- **Контекст:** #236 заменил в `env.schema.ts` парсинг boolean-флагов с `z.coerce.boolean()` на `z.union([z.boolean(), z.enum(['true', 'false'])])`. Старая коэрция молча глотала `''` (→ `false`), новая строгая схема пустую строку отвергает → все HTTP-integration/contract тесты, ставившие `DB_MIGRATIONS_ENABLED: ''`, падают на Zod parse. На `main` это 13 файлов = красный backend-CI.
+- **Сделано** (ветка `fix/2026-06-10-db-migrations-enabled-test-env` от `origin/main`):
+  - 13 тест-файлов: `DB_MIGRATIONS_ENABLED: ''` → `'false'` (documents, esign ×2, health, integrations ×2, workspace ×2, mvp: assessment-admin / internal-worker / plan-c / test-player / mvp.http).
+  - `apps/backend/vitest.setup-env.ts`: добавлен дефолт `DB_MIGRATIONS_ENABLED: 'false'` — страховка для будущих тест-файлов, не задающих ключ (существующие файлы он не лечит: каждый безусловно перезаписывает `process.env` своим блоком после setup).
+- **Верификация:** изолированные прогоны зелёные — documents 13/13, workspace.contract 3/3, test-player 6/6, mvp.http 42/42 (`--no-file-parallelism` из-за Cyrillic-path gotcha).
+- **Деталь процесса:** фикс изначально сделан на ветке Phase 4 Plan A (коммит `2549131`, 12 файлов — `mvp.http` там уже был починен внутри фиче-коммита `5813f87`); затем cherry-pick на свежую ветку от `main` + отдельный коммит для `mvp.http`, который на `main` оставался сломанным. На ветке Phase 4 те же правки уже есть → squash-merge обоих PR бесконфликтен по содержимому.
+- **Следующий шаг:** merge hotfix-PR (восстанавливает CI `main`), дальше — продолжение Phase 4 Plan A (identity verification).
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |

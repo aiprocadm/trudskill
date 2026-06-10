@@ -18,7 +18,7 @@ const requiredEnv: Record<string, string> = {
   PUBLIC_BASE_URL: 'http://localhost:3000',
   REALTIME_PUBLIC_URL: 'ws://localhost:3000',
   REALTIME_PUBLISH_KEY: 'test-realtime-publish-key',
-  DB_MIGRATIONS_ENABLED: '',
+  DB_MIGRATIONS_ENABLED: 'false',
   ALLOW_IN_MEMORY_STATE: 'true'
 };
 
