@@ -24,4 +24,6 @@ export interface StorageClient {
   getObjectStream(params: { key: string }): Promise<Readable>;
   /** Writes a Buffer directly to object storage. Used for server-generated files (e.g. XLSX exports). */
   putObject(params: { key: string; body: Buffer; contentType: string }): Promise<void>;
+  /** Permanently deletes an object from storage. Used by the identity image retention cron. */
+  deleteObject(params: { key: string }): Promise<void>;
 }
