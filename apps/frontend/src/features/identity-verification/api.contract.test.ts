@@ -74,7 +74,7 @@ describe('identityVerificationApi envelope compatibility (Phase 4 Plan A)', () =
     expect(result.id).toBe('idv_1');
 
     const [calledUrl, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(calledUrl).toContain('/identity-verifications');
+    expect(new URL(calledUrl).pathname).toMatch(/\/identity-verifications$/);
     expect(init.method).toBe('POST');
   });
 
@@ -134,6 +134,23 @@ describe('identityVerificationApi envelope compatibility (Phase 4 Plan A)', () =
     const [calledUrl, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(calledUrl).toContain('/identity-verifications/idv_1/submit');
     expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body as string) as {
+      selfieFileId?: string;
+      passportFileId?: string;
+      consent?: boolean;
+    };
+    expect(body.selfieFileId).toBe('file_1');
+    expect(body.passportFileId).toBe('file_2');
+    expect(body.consent).toBe(true);
+  });
+
+  it('list: GET /identity-verifications without status omits query string', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(envelope([]), { status: 200 }));
+
+    await identityVerificationApi.list(session);
+
+    const [calledUrl] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(new URL(calledUrl).search).toBe('');
   });
 
   it('list: GET /identity-verifications?status=pending unwraps array', async () => {
@@ -213,5 +230,7 @@ describe('identityVerificationApi envelope compatibility (Phase 4 Plan A)', () =
     const [calledUrl, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(calledUrl).toContain('/identity-verifications/idv_1/review');
     expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body as string) as { decision?: string };
+    expect(body.decision).toBe('approve');
   });
 });
