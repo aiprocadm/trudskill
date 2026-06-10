@@ -53,18 +53,23 @@ export class IdentityRetentionSchedulerService {
         return;
       }
       const tenantIds = await this.tenants.listActiveTenantIds();
+      let totalPurged = 0;
       for (const tenantId of tenantIds) {
         try {
-          await this.mvpRunner.runWithTenantState(tenantId, async (state) => {
-            const purged = await this.scanner.scanTenant(tenantId, asOf, state);
-            if (purged > 0) this.logger.log(`tenant=${tenantId} purged=${purged}`);
+          const purged = await this.mvpRunner.runWithTenantState(tenantId, async (state) => {
+            return this.scanner.scanTenant(tenantId, asOf, state);
           });
+          if (purged > 0) this.logger.log(`tenant=${tenantId} purged=${purged}`);
+          totalPurged += purged;
         } catch (err) {
           this.logger.error(
             `Identity retention failed for tenant ${tenantId}: ${err instanceof Error ? err.message : String(err)}`
           );
         }
       }
+      this.logger.log(
+        `Completed identity retention purge tenants=${tenantIds.length} purged=${totalPurged}`
+      );
     });
   }
 }

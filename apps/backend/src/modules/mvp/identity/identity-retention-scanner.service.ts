@@ -44,6 +44,7 @@ export class IdentityRetentionScanner {
           newValues: { imagesPurgedAt: now }
         });
       } catch (err) {
+        // imagesPurgedAt is intentionally not stamped on error; idempotent deleteFile means a retry next run re-attempts only surviving file ids.
         this.logger.error(
           `Identity image purge failed tenant=${tenantId} verification=${record.id}: ${err instanceof Error ? err.message : String(err)}`
         );
