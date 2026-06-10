@@ -1307,6 +1307,9 @@ export class MvpService {
       durationDays: this.normalizeDurationDays(request.durationDays),
       ...(request.requiresPreExamAuth !== undefined
         ? { requiresPreExamAuth: request.requiresPreExamAuth }
+        : {}),
+      ...(request.requiresIdentityVerification !== undefined
+        ? { requiresIdentityVerification: request.requiresIdentityVerification }
         : {})
     };
     this.state.groupCourses.push(entity);
@@ -1329,6 +1332,9 @@ export class MvpService {
     }
     if (request.requiresPreExamAuth !== undefined) {
       current.requiresPreExamAuth = request.requiresPreExamAuth;
+    }
+    if (request.requiresIdentityVerification !== undefined) {
+      current.requiresIdentityVerification = request.requiresIdentityVerification;
     }
     current.updatedAt = this.now();
     this.audit(

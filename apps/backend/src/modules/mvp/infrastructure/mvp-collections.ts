@@ -31,6 +31,7 @@ export const MVP_COLLECTIONS = [
   'commissionMembers',
   'courseDocumentSets',
   'preExamTokens',
+  'identityVerifications',
   'otRegistryBatches',
   'otRegistryRecords',
   'frdoRegistryBatches',

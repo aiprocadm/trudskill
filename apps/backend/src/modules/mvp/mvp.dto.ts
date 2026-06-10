@@ -258,6 +258,10 @@ export class CreateGroupCourseRequest {
   @IsOptional()
   @IsBoolean()
   requiresPreExamAuth?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  requiresIdentityVerification?: boolean;
 }
 
 export class UpdateGroupCourseRequest {
@@ -271,6 +275,10 @@ export class UpdateGroupCourseRequest {
   @IsOptional()
   @IsBoolean()
   requiresPreExamAuth?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  requiresIdentityVerification?: boolean;
 }
 
 export class CreateEnrollmentRequest {

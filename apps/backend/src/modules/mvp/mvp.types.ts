@@ -96,6 +96,8 @@ export interface GroupCourse extends BaseEntity {
   durationDays?: number;
   /** Wave 1 Plan 2 (Приказ №816): require identity verification before the final exam. */
   requiresPreExamAuth?: boolean;
+  /** Phase 4 Plan A: require documentary identity verification (selfie+passport) before the final exam. */
+  requiresIdentityVerification?: boolean;
 }
 
 export type EnrollmentStatus = 'pending' | 'active' | 'suspended' | 'completed' | 'cancelled';
@@ -345,6 +347,38 @@ export interface PreExamToken extends BaseEntity {
   expiresAt: string;
   consumedAt?: string;
   verifiedByActorId?: string;
+}
+
+export type IdentityVerificationStatus = 'draft' | 'pending' | 'approved' | 'rejected';
+
+/**
+ * Phase 4 Plan A: documentary identity verification (selfie + passport, manual review).
+ * Keyed per-LEARNER — one approved record unlocks all of that learner's identity-gated
+ * final exams. `verificationStatus` is the domain state machine (BaseEntity.status stays
+ * the lifecycle 'active'). The decision persists after the retention cron purges images.
+ */
+export interface IdentityVerification extends BaseEntity {
+  learnerId: string;
+  method: 'selfie_passport';
+  verificationStatus: IdentityVerificationStatus;
+  selfieFileId?: string;
+  passportFileId?: string;
+  consentAt?: string;
+  submittedAt?: string;
+  reviewedByActorId?: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
+  /** Unused in pilot (indefinite validity); kept for a later validity window. */
+  validUntil?: string;
+  /** Set by the retention cron when selfie/passport objects were deleted. */
+  imagesPurgedAt?: string;
+}
+
+/** Admin queue view: record + learner display data for manual comparison. */
+export interface IdentityVerificationView extends IdentityVerification {
+  learnerName: string;
+  snils?: string;
+  dateOfBirth?: string;
 }
 
 export interface AttemptAnswer extends BaseEntity {
