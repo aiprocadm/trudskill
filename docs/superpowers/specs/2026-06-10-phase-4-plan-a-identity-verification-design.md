@@ -10,9 +10,10 @@
 ## 1. Goal
 
 A learner proves their identity once by submitting a **selfie + a photo of their passport**. An
-admin/curator **manually verifies** these against the learner's already-stored passport data
-(`learning.learners.passport_*` / `snils`, migration 0036). Once a verification is **approved**,
-the learner may start identity-gated **final exams**.
+admin/curator **manually verifies** these against the learner's already-stored personal data —
+ФИО, СНИЛС, дата рождения (`mvp.learners.snils` / `middle_name` from migration 0036,
+`date_of_birth` from Wave 2 ФРДО) — plus a visual selfie ↔ passport-photo match. Once a
+verification is **approved**, the learner may start identity-gated **final exams**.
 
 Enforcement converges on `MvpService.startAttempt` through one new gate
 `assertIdentityVerificationGate`, placed immediately after Wave 1's `assertPreExamAuthGate`. The two
@@ -95,7 +96,8 @@ the 0016 JSONB-contract rule, migration `0050` adds the **typed schema contract*
    `identity/{tenantId}/…`) → PUTs the files directly to MinIO →
    `submitIdentityVerification({ selfieFileId, passportFileId, consent: true })` → status `pending`.
 3. Admin queue: views the two images (presigned download, **gated by the existing antivirus
-   clean-check**) side-by-side with the learner's stored passport fields → `approve` or
+   clean-check**) side-by-side with the learner's stored personal data (ФИО, СНИЛС, дата
+   рождения) → `approve` or
    `reject(reason)`.
 4. Learner starts the final exam → `assertIdentityVerificationGate` allows (approved) or throws
    `identity_verification_required` (HTTP 412) → frontend interstitial → learner verifies/resubmits.
@@ -112,8 +114,8 @@ the 0016 JSONB-contract rule, migration `0050` adds the **typed schema contract*
 - **`MvpService` methods** (6-arg constructor unchanged; `filesService` already injected):
   - `startIdentityVerification`, `createIdentityVerificationUploadIntent`,
     `submitIdentityVerification`, `reviewIdentityVerification`
-  - `listIdentityVerifications` (enriched view: `learnerName` + stored passport summary for
-    comparison), `getIdentityVerification` (with presigned image download URLs)
+  - `listIdentityVerifications` (enriched view: `learnerName` + stored СНИЛС/дата-рождения
+    summary for comparison), `getIdentityVerification` (with presigned image download URLs)
   - `groupCourseRequiresIdentityVerification` + `assertIdentityVerificationGate`, wired into
     `startAttempt` after `assertPreExamAuthGate`
   - pure `selectIdentityImagesToPurge(asOf, records, retentionDays = 90)` for the cron
@@ -148,7 +150,8 @@ Feature module `apps/frontend/src/features/identity-verification/` (`types.ts`, 
   practical-submissions `createUploadUrl → putFileToPresignedUrl → submit` flow; shows status,
   rejection reason, resubmit.
 - **Admin queue** `/admin/identity-verifications` — `@cdoprof/ui` `DataTable` of pending; detail
-  view with the two images + the learner's stored passport data side-by-side; Approve /
+  view with the two images + the learner's stored personal data (ФИО, СНИЛС, дата рождения)
+  side-by-side; Approve /
   Reject(reason). Mutations follow the `useState` + async/await `wrap` pattern (not React Query
   mutations).
 - **Navigation** — `routeMeta` + `navigationModel` entries
