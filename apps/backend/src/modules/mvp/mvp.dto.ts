@@ -1117,6 +1117,7 @@ export class SubmitIdentityVerificationRequest {
   @MinLength(1)
   passportFileId!: string;
 
+  @IsBoolean()
   @Equals(true)
   consent!: boolean;
 }
@@ -1128,5 +1129,6 @@ export class ReviewIdentityVerificationRequest {
 
   @IsOptional()
   @IsString()
+  @MinLength(1)
   rejectionReason?: string;
 }
