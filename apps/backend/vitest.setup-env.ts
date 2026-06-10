@@ -16,7 +16,9 @@ const defaults: Record<string, string> = {
   PUBLIC_BASE_URL: 'http://127.0.0.1:3000',
   REALTIME_PUBLIC_URL: 'http://127.0.0.1:3002',
   REALTIME_PUBLISH_KEY: 'test-realtime-publish-key',
-  WORKER_CALLBACK_SECRET: 'test-worker-callback-secret-16'
+  WORKER_CALLBACK_SECRET: 'test-worker-callback-secret-16',
+  // env.schema.ts (#236) парсит boolean как z.union([z.boolean(), z.enum(['true', 'false'])]) — пустая строка невалидна
+  DB_MIGRATIONS_ENABLED: 'false'
 };
 
 for (const [key, value] of Object.entries(defaults)) {
