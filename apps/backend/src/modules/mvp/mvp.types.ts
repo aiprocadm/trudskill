@@ -377,8 +377,8 @@ export interface IdentityVerification extends BaseEntity {
 /** Admin queue view: record + learner display data for manual comparison. */
 export interface IdentityVerificationView extends IdentityVerification {
   learnerName: string;
-  snils?: string;
-  dateOfBirth?: string;
+  learnerSnils?: string;
+  learnerDateOfBirth?: string;
 }
 
 export interface AttemptAnswer extends BaseEntity {
