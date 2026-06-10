@@ -1,17 +1,26 @@
 'use client';
 
-import { LoadingState } from '@cdoprof/ui';
+import { DataTable, LoadingState } from '@cdoprof/ui';
+import Link from 'next/link';
 import { useState } from 'react';
 
 import { formatDateShort, formatIdentityStatus } from './format';
-import { useIdentitySubmission, useMyIdentityVerification } from './hooks';
+import {
+  useIdentityDetail,
+  useIdentityQueue,
+  useIdentityReview,
+  useIdentitySubmission,
+  useMyIdentityVerification
+} from './hooks';
 import {
   PageContainer,
   PageHeader,
   SectionCard,
+  SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
 
+import type { IdentityVerificationStatus } from './types';
 import type { ReactElement } from 'react';
 
 export function LearnerIdentityScreen(): ReactElement {
@@ -109,6 +118,225 @@ export function LearnerIdentityScreen(): ReactElement {
             >
               {submission.isPending ? 'Отправка…' : 'Отправить на проверку'}
             </button>
+          </div>
+        </SectionCard>
+      ) : null}
+    </PageContainer>
+  );
+}
+
+// ─── Admin screens ────────────────────────────────────────────────────────────
+
+const STATUS_FILTER_OPTIONS: Array<{
+  value: IdentityVerificationStatus | undefined;
+  label: string;
+}> = [
+  { value: 'pending', label: 'На проверке' },
+  { value: undefined, label: 'Все' }
+];
+
+interface QueueRow {
+  id: string;
+  learnerNameView: string;
+  snilsView: string;
+  statusView: string;
+  submittedAtView: string;
+  actionView: ReactElement;
+}
+
+export function AdminIdentityQueueScreen(): ReactElement {
+  const [statusFilter, setStatusFilter] = useState<IdentityVerificationStatus | undefined>(
+    'pending'
+  );
+  const { data, isLoading, error } = useIdentityQueue(statusFilter);
+
+  const rows: QueueRow[] = (data ?? []).map((item) => ({
+    id: item.id,
+    learnerNameView: item.learnerName || '—',
+    snilsView: item.learnerSnils ?? '—',
+    statusView: formatIdentityStatus(item.verificationStatus),
+    submittedAtView: formatDateShort(item.submittedAt),
+    actionView: (
+      <Link href={`/admin/identity-verifications/${item.id}`} className="ui-button">
+        Открыть
+      </Link>
+    )
+  }));
+
+  return (
+    <PageContainer>
+      <PageHeader
+        title="Идентификация личности"
+        subtitle="Заявки слушателей на подтверждение личности (селфи + паспорт)"
+      />
+
+      <SectionCard title="Очередь идентификации">
+        <div className="ui-inline" style={{ marginBottom: 12, gap: 8 }}>
+          <span>Статус:</span>
+          {STATUS_FILTER_OPTIONS.map((opt) => (
+            <button
+              key={opt.value ?? 'all'}
+              type="button"
+              className="ui-button"
+              style={statusFilter === opt.value ? { fontWeight: 700 } : undefined}
+              onClick={() => setStatusFilter(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {isLoading ? <LoadingState message="Загрузка очереди…" /> : null}
+        {error ? <SectionError message="Не удалось загрузить очередь идентификации" /> : null}
+        {!isLoading && !error && rows.length === 0 ? (
+          <SectionEmpty message="Заявок нет" hint="Нет заявок с выбранным статусом" />
+        ) : null}
+        {!isLoading && !error && rows.length > 0 ? (
+          <DataTable<QueueRow>
+            columns={[
+              { key: 'learnerNameView', title: 'Слушатель' },
+              { key: 'snilsView', title: 'СНИЛС' },
+              { key: 'statusView', title: 'Статус' },
+              { key: 'submittedAtView', title: 'Отправлено' },
+              { key: 'actionView', title: '', render: (row) => row.actionView }
+            ]}
+            rows={rows}
+          />
+        ) : null}
+      </SectionCard>
+    </PageContainer>
+  );
+}
+
+export function AdminIdentityDetailScreen({ id }: { id: string }): ReactElement {
+  const { data: detail, isLoading, error, refetch } = useIdentityDetail(id);
+  const { review, isPending, error: reviewError } = useIdentityReview();
+  const [reason, setReason] = useState('');
+
+  if (isLoading) return <LoadingState message="Загрузка…" />;
+  if (error || !detail) return <SectionError message="Не удалось загрузить данные идентификации" />;
+
+  const isPdf = (url?: string) => Boolean(url && url.toLowerCase().includes('.pdf'));
+
+  const onApprove = async () => {
+    const ok = await review(id, { decision: 'approve' });
+    if (ok) void refetch();
+  };
+
+  const onReject = async () => {
+    const payload: Parameters<typeof review>[1] = {
+      decision: 'reject',
+      ...(reason ? { rejectionReason: reason } : {})
+    };
+    const ok = await review(id, payload);
+    if (ok) void refetch();
+  };
+
+  return (
+    <PageContainer>
+      <PageHeader
+        title={`Идентификация: ${detail.learnerName}`}
+        subtitle={formatIdentityStatus(detail.verificationStatus)}
+      />
+
+      <SectionCard title="Данные слушателя (для сверки с паспортом)">
+        <p>
+          <strong>ФИО:</strong> {detail.learnerName}
+        </p>
+        <p>
+          <strong>СНИЛС:</strong> {detail.learnerSnils ?? '—'}
+        </p>
+        <p>
+          <strong>Дата рождения:</strong> {detail.learnerDateOfBirth ?? '—'}
+        </p>
+        <p>
+          <strong>Согласие на обработку ПДн:</strong> {formatDateShort(detail.consentAt)}
+        </p>
+      </SectionCard>
+
+      <SectionCard title="Документы">
+        {detail.imagesPurgedAt ? (
+          <p className="ui-text-muted">
+            Изображения удалены по сроку хранения ({formatDateShort(detail.imagesPurgedAt)})
+          </p>
+        ) : (
+          <div className="ui-stack">
+            <div>
+              <p>
+                <strong>Селфи:</strong>
+              </p>
+              {detail.selfieUrl ? (
+                <img
+                  src={detail.selfieUrl}
+                  alt="Селфи"
+                  style={{ maxWidth: 320, display: 'block', marginTop: 8 }}
+                />
+              ) : (
+                <p className="ui-text-muted">Селфи: нет файла</p>
+              )}
+            </div>
+            <div>
+              <p>
+                <strong>Паспорт:</strong>
+              </p>
+              {detail.passportUrl ? (
+                <>
+                  {!isPdf(detail.passportUrl) ? (
+                    <img
+                      src={detail.passportUrl}
+                      alt="Паспорт"
+                      style={{ maxWidth: 480, display: 'block', marginTop: 8 }}
+                    />
+                  ) : null}
+                  <a
+                    href={detail.passportUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ display: 'inline-block', marginTop: 8 }}
+                  >
+                    Открыть документ
+                  </a>
+                </>
+              ) : (
+                <p className="ui-text-muted">Паспорт: нет файла</p>
+              )}
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      {detail.verificationStatus === 'pending' ? (
+        <SectionCard title="Решение">
+          <div className="ui-stack">
+            <label className="ui-stack">
+              <span>Причина отклонения (для «Отклонить»)</span>
+              <input
+                type="text"
+                value={reason}
+                disabled={isPending}
+                onChange={(e) => setReason(e.target.value)}
+                style={{ width: '100%' }}
+              />
+            </label>
+            {reviewError ? <SectionError message={reviewError} /> : null}
+            <div className="ui-inline" style={{ gap: 8 }}>
+              <button
+                type="button"
+                className="ui-button"
+                disabled={isPending}
+                onClick={() => void onApprove()}
+              >
+                {isPending ? 'Сохраняем…' : 'Подтвердить личность'}
+              </button>
+              <button
+                type="button"
+                className="ui-button"
+                disabled={isPending}
+                onClick={() => void onReject()}
+              >
+                Отклонить
+              </button>
+            </div>
           </div>
         </SectionCard>
       ) : null}

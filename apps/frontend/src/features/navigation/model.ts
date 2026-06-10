@@ -83,6 +83,14 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['recertification.read'] }
   },
   {
+    pattern: '/admin/identity-verifications/[id]',
+    meta: { public: false, requiredPermissions: ['identity.read'] }
+  },
+  {
+    pattern: '/admin/identity-verifications',
+    meta: { public: false, requiredPermissions: ['identity.read'] }
+  },
+  {
     pattern: '/admin/question-banks/[id]',
     meta: { public: false, requiredPermissions: ['assessment.question_banks.read'] }
   },
@@ -401,6 +409,12 @@ export const navigationModel: NavigationItem[] = [
     href: '/admin/recertification',
     label: 'Переаттестация',
     requiredPermissions: ['recertification.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/admin/identity-verifications',
+    label: 'Идентификация',
+    requiredPermissions: ['identity.read'],
     navSlot: 'more'
   }
 ];
