@@ -38,7 +38,7 @@ Spec: [docs/superpowers/specs/2026-06-08-production-auth-readiness-design.md](..
 - Create: `apps/backend/src/modules/iam/services/email-magic-link-email-sender.ts`
 - Test: `apps/backend/src/modules/iam/services/email-magic-link-email-sender.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { describe, expect, it, vi } from 'vitest';
@@ -80,12 +80,12 @@ describe('EmailMagicLinkEmailSender', () => {
 });
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/iam/services/email-magic-link-email-sender.test.ts --no-file-parallelism`
 Expected: FAIL (module `./email-magic-link-email-sender.js` not found).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```ts
 import { type MailerService } from '../../../infrastructure/mailer/mailer.service.js';
@@ -127,12 +127,12 @@ export class EmailMagicLinkEmailSender implements MagicLinkEmailSender {
 }
 ```
 
-- [ ] **Step 4: Run it to verify it passes**
+- [x] **Step 4: Run it to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/iam/services/email-magic-link-email-sender.test.ts --no-file-parallelism`
 Expected: PASS (3 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/iam/services/email-magic-link-email-sender.ts apps/backend/src/modules/iam/services/email-magic-link-email-sender.test.ts
@@ -149,7 +149,7 @@ git commit -m "feat(iam): EmailMagicLinkEmailSender (deliver magic-link via mail
 - Test: `apps/backend/src/modules/iam/services/magic-link-email-sender.factory.test.ts`
 - Modify: `apps/backend/src/modules/iam/iam.module.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { describe, expect, it, vi } from 'vitest';
@@ -183,12 +183,12 @@ describe('createMagicLinkEmailSender', () => {
 });
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/iam/services/magic-link-email-sender.factory.test.ts --no-file-parallelism`
 Expected: FAIL (factory module not found).
 
-- [ ] **Step 3: Implement the factory**
+- [x] **Step 3: Implement the factory**
 
 ```ts
 import { EmailMagicLinkEmailSender } from './email-magic-link-email-sender.js';
@@ -210,12 +210,12 @@ export function createMagicLinkEmailSender(
 }
 ```
 
-- [ ] **Step 4: Run it to verify it passes**
+- [x] **Step 4: Run it to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/iam/services/magic-link-email-sender.factory.test.ts --no-file-parallelism`
 Expected: PASS (2 tests).
 
-- [ ] **Step 5: Wire the factory into iam.module.ts**
+- [x] **Step 5: Wire the factory into iam.module.ts**
 
 In `apps/backend/src/modules/iam/iam.module.ts`, replace the `MAGIC_LINK_EMAIL_SENDER` provider (currently `{ provide: MAGIC_LINK_EMAIL_SENDER, useClass: LoggingMagicLinkEmailSender }`) with:
 
@@ -251,7 +251,7 @@ function buildSmtpMailer(): SmtpMailer {
 
 Keep the existing `LoggingMagicLinkEmailSender` import (still used by the factory).
 
-- [ ] **Step 6: Verify the backend still typechecks and the IAM auth tests pass**
+- [x] **Step 6: Verify the backend still typechecks and the IAM auth tests pass**
 
 Run:
 
@@ -262,7 +262,7 @@ pnpm --filter @cdoprof/backend exec vitest run src/modules/iam/auth.security.tes
 
 Expected: tsc clean; tests pass. (If `auth.security.test.ts` does not exist, run `src/modules/iam/auth.service.test.ts` instead.)
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/backend/src/modules/iam/services/magic-link-email-sender.factory.ts apps/backend/src/modules/iam/services/magic-link-email-sender.factory.test.ts apps/backend/src/modules/iam/iam.module.ts
@@ -280,7 +280,7 @@ git commit -m "feat(iam): select magic-link sender by NOTIFICATIONS_EMAIL_ENABLE
 
 Background: `crypto.util.ts` `verifyPassword` accepts a hash only if it is scrypt-format (`$`-separated) or exactly 64 lowercase hex (legacy sha256). A value like `disabled:<hex>` is neither → rejected. The leaked seed hash is `d845591b855ba5b9a20db65eee522f76ed85858551b8f813ef146725e1a59264` (= `sha256("pwd:Password123!")`, migration 0010).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { describe, expect, it, vi } from 'vitest';
@@ -320,12 +320,12 @@ describe('neutralizeLeakedSeedCredentials', () => {
 });
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/iam/services/seed-credential-hygiene.service.test.ts --no-file-parallelism`
 Expected: FAIL (module not found).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```ts
 import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
@@ -386,12 +386,12 @@ export class SeedCredentialHygiene implements OnApplicationBootstrap {
 }
 ```
 
-- [ ] **Step 4: Run it to verify it passes**
+- [x] **Step 4: Run it to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/iam/services/seed-credential-hygiene.service.test.ts --no-file-parallelism`
 Expected: PASS (2 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/iam/services/seed-credential-hygiene.service.ts apps/backend/src/modules/iam/services/seed-credential-hygiene.service.test.ts
@@ -406,7 +406,7 @@ git commit -m "feat(iam): neutralize leaked seed password in production (hygiene
 
 - Modify: `apps/backend/src/modules/iam/iam.module.ts`
 
-- [ ] **Step 1: Register the provider**
+- [x] **Step 1: Register the provider**
 
 In `apps/backend/src/modules/iam/iam.module.ts`, import and add `SeedCredentialHygiene` to the module `providers` array (it does not need to be exported):
 
@@ -416,7 +416,7 @@ import { SeedCredentialHygiene } from './services/seed-credential-hygiene.servic
 
 Add `SeedCredentialHygiene` to the `providers: [...]` list (alongside `IamService, AuthService, ...`). Nest will call its `onApplicationBootstrap` after all `onModuleInit` (including `DatabaseService` migrations), so the seed exists by then.
 
-- [ ] **Step 2: Verify the test does NOT run the hygiene in the test env (non-prod no-op)**
+- [x] **Step 2: Verify the test does NOT run the hygiene in the test env (non-prod no-op)**
 
 Add to `seed-credential-hygiene.service.test.ts`:
 
@@ -436,7 +436,7 @@ describe('SeedCredentialHygiene.onApplicationBootstrap', () => {
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/iam/services/seed-credential-hygiene.service.test.ts --no-file-parallelism`
 Expected: PASS (3 tests now). This relies on the test env not being `production` (vitest setup sets `NODE_ENV=test`).
 
-- [ ] **Step 3: Full IAM typecheck + targeted regression**
+- [x] **Step 3: Full IAM typecheck + targeted regression**
 
 ```bash
 pnpm --filter @cdoprof/backend exec tsc -p tsconfig.json --noEmit
@@ -445,7 +445,7 @@ pnpm --filter @cdoprof/backend exec vitest run src/modules/iam/services/email-ma
 
 Expected: tsc clean; all listed tests pass (crypto.util still verifies `Password123!` against the seed hash — confirms non-prod did not neutralize it).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/backend/src/modules/iam/iam.module.ts apps/backend/src/modules/iam/services/seed-credential-hygiene.service.test.ts
@@ -468,3 +468,4 @@ git commit -m "feat(iam): register SeedCredentialHygiene on bootstrap"
 **3. Type/name consistency:** `MagicLinkEmailSender`, `SendMagicLinkInput`, `buildMagicLinkUrl`, `MailerService`, `SendResult` match the real source. `createMagicLinkEmailSender`, `EmailMagicLinkEmailSender`, `neutralizeLeakedSeedCredentials`, `LEAKED_SEED_PASSWORD_HASH`, `SeedCredentialHygiene` are used consistently across tasks. `db.query(sql, params)` matches `DatabaseService.query`. ✅
 
 **Follow-up (not blocking):** update `infra/bootstrap-admin.md` (Phase 0 branch) to mark the manual demo-account blocking as belt-and-suspenders and note the magic-link now arrives by email.
+**Follow-up status (2026-06-10): DONE** — Phase 0 merged to main (#235) and was merged into this branch, so `infra/bootstrap-admin.md` was updated here: §2b describes `NOTIFICATIONS_EMAIL_ENABLED`-selected delivery, new §3.0 documents automatic `SeedCredentialHygiene` at boot, §3a/§3c/§3d demoted to belt-and-suspenders, §4 verification updated to inbox-first.

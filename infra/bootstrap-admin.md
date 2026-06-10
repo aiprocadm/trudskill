@@ -85,20 +85,24 @@ SELECT id, email, display_name, status FROM iam.users WHERE id = 'u_tenant_admin
 
 ### 2b — How magic-link login works
 
-> **IMPORTANT — current implementation note:** The magic-link email sender registered in
-> `apps/backend/src/modules/iam/iam.module.ts` (line 42-43) is `LoggingMagicLinkEmailSender`.
-> This implementation does NOT send email — it writes the login URL to the backend container's
-> stdout log. The SMTP settings in `.env.production` are used only for notification emails
-> (enrollment confirmations, reminders), not for magic-link delivery. This is a known
-> Phase 1 limitation marked `(Phase 1: log-only)` in the source code.
+> **Delivery is selected by `NOTIFICATIONS_EMAIL_ENABLED`** (factory
+> `createMagicLinkEmailSender` in `apps/backend/src/modules/iam/iam.module.ts`):
+>
+> - `NOTIFICATIONS_EMAIL_ENABLED=true` → `EmailMagicLinkEmailSender` sends the login link
+>   to the user's email via the SMTP settings in `.env.production` (`SMTP_HOST`, `SMTP_PORT`,
+>   `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD`). This is the production configuration.
+> - `NOTIFICATIONS_EMAIL_ENABLED=false` → `LoggingMagicLinkEmailSender` writes the login URL
+>   to the backend container's stdout log instead (dev fallback; the log-extraction
+>   procedure below still works).
 
-**As a result, the first-login procedure is:**
+**First-login procedure (with email enabled):**
 
 1. Navigate to `https://YOUR_DOMAIN/login` in your browser.
 2. Enter your real email address in the "Вход по ссылке на почту" form and click
-   "Отправить ссылку". The API responds with `{"status":"sent"}` — but no email is
-   delivered yet.
-3. Read the magic-link URL from the backend container logs:
+   "Отправить ссылку". The API responds with `{"status":"sent"}`.
+3. Open the email "Вход в CDOProf" in your inbox and follow the link. If the email did not
+   arrive (SMTP misconfigured, or `NOTIFICATIONS_EMAIL_ENABLED=false`), read the URL from
+   the backend container logs instead:
 
    ```bash
    docker compose -f infra/docker-compose.prod.yml logs backend \
@@ -130,20 +134,35 @@ new one from the login page.
   marks the token consumed, and issues a session (JWT access token + HTTP-only refresh
   cookie).
 
-**TO CONFIRM AT DEPLOY:** If a Phase 0 SMTP-backed magic-link sender is wired before
-go-live (replacing `LoggingMagicLinkEmailSender` in `iam.module.ts`), the log-extraction
-step above becomes unnecessary and real email delivery will work. Verify by checking
-`iam.module.ts` line 42-43 in the deployed version.
+**AT DEPLOY:** confirm `NOTIFICATIONS_EMAIL_ENABLED=true` and the `SMTP_*` variables are
+set in `.env.production`. If the mailer reports a delivery failure, the magic-link request
+returns an error instead of silently pretending the email was sent.
 
 ---
 
 ## 3. Security hardening (required before go-live)
 
-### 3a — Block or delete unused demo users
+### 3.0 — Automatic seed-password neutralization (runs at boot)
+
+`SeedCredentialHygiene` (`apps/backend/src/modules/iam/services/seed-credential-hygiene.service.ts`)
+runs on every backend startup when `NODE_ENV=production`: it rotates the `password_hash` of
+every `iam.users` row still carrying the leaked seed hash
+(`d845591b…59264` = `sha256("pwd:Password123!")`) to an unusable `disabled:<random hex>`
+value that `verifyPassword` always rejects. Real (user-set) passwords are untouched — the
+update targets the exact leaked hash only. The run is idempotent; when it neutralizes
+anything it logs `seed_credentials_neutralized count=N`.
+
+**Net effect: in production, `Password123!` stops working for all seed accounts after the
+first boot — no manual psql step required.** The manual steps below remain recommended as
+belt-and-suspenders.
+
+### 3a — Block or delete unused demo users (belt-and-suspenders)
 
 The seeded users share the plaintext password `Password123!` (public knowledge from the
 codebase). The password login endpoint (`POST /auth/login`) is active in production — it
-accepts login + password. Block all demo users that are not the pilot admin:
+accepts login + password. Section 3.0 already makes the leaked password unusable, but
+blocking unused demo users additionally prevents magic-link logins to them and is good
+hygiene. Block all demo users that are not the pilot admin:
 
 ```bash
 docker compose -f infra/docker-compose.prod.yml exec -T postgres \
@@ -179,27 +198,17 @@ unused seed users is sufficient.
 
 If magic-link is the only login path a user ever takes, the dev `password_hash` stored in the
 database is never verified — so it poses no direct authentication risk for magic-link-only
-users. However, the password login endpoint remains active (there is no env flag to disable
-it). Blocking unused accounts (3a) is therefore the required mitigation. Do NOT rely on
-"nobody knows the password" as a defense — `Password123!` is in the test suite.
+users. The password login endpoint remains active (there is no env flag to disable it), but
+Section 3.0 neutralizes the leaked hash automatically at boot, so password login with
+`Password123!` fails in production. Blocking unused accounts (3a) closes the remaining
+magic-link surface for demo users.
 
-### 3d — Rename the u_tenant_admin password hash (optional, belt-and-suspenders)
+### 3d — Manual password-hash rotation (no longer needed)
 
-If you want to eliminate the dev hash for the pilot admin account entirely, update it to a
-random bcrypt-like placeholder that will never match any real password. Run once:
-
-```bash
-docker compose -f infra/docker-compose.prod.yml exec -T postgres \
-  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "
-UPDATE iam.users
-SET password_hash = 'DISABLED:' || encode(gen_random_bytes(32), 'hex'),
-    updated_at = now()
-WHERE id = 'u_tenant_admin' AND tenant_id = 'tenant_demo';
-"
-```
-
-This stores a non-matching prefix that `verifyPassword` will never accept (it checks for
-a `$`-separated scrypt format or 64-char hex). The user can still log in via magic-link.
+Previously this section instructed a manual psql `UPDATE` to rotate the pilot admin's dev
+hash. That is now done automatically at boot by `SeedCredentialHygiene` (Section 3.0) for
+every account carrying the leaked hash — including `u_tenant_admin`. The user can still log
+in via magic-link; a real password can be set later through normal flows.
 
 ---
 
@@ -209,13 +218,15 @@ a `$`-separated scrypt format or 64-char hex). The user can still log in via mag
 2. Confirm Section 3a ran (unused accounts blocked).
 3. Open `https://YOUR_DOMAIN/login` in a browser.
 4. Enter your real email; click "Отправить ссылку".
-5. Run: `docker compose -f infra/docker-compose.prod.yml logs backend | grep magic_link.delivery`
-6. Copy the URL from the log; open it in the browser.
+5. Open the "Вход в CDOProf" email in your inbox. Fallback (email disabled or SMTP broken):
+   `docker compose -f infra/docker-compose.prod.yml logs backend | grep magic_link.delivery`
+6. Follow the link from the email (or copy the URL from the log) in the browser.
 7. You should be redirected to `/admin/cockpit` (or the admin cabinet landing).
 8. Click your avatar or profile area — confirm display name and email are correct.
 
 If step 7 fails with "Ссылка недействительна или истекла": the token expired (15-minute TTL)
 or was already consumed. Return to the login page and request a new link.
 
-If step 5 shows no matching log line: the email entered in step 4 does not match any
-`iam.users.email` in the database. Re-check the UPDATE from Section 2a.
+If no email arrives and the log fallback shows no matching line: the email entered in
+step 4 does not match any `iam.users.email` in the database. Re-check the UPDATE from
+Section 2a.
