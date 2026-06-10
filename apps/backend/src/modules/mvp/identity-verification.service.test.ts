@@ -356,3 +356,143 @@ describe('identity verification lifecycle', () => {
     );
   });
 });
+
+/**
+ * course → group → groupCourse(requiresIdentityVerification) → learner → enrollment → bank → final test.
+ * withIamLink=true sets linkedIamUserId so the identity flow (startIdentityVerification) can find the learner.
+ */
+function seedFinalExam(
+  service: MvpService,
+  requiresIdentityVerification: boolean,
+  withIamLink = false
+) {
+  const course = service.createCourse(T, ADMIN, { code: 'C1', title: 'Course' }, ctx);
+  const group = service.createGroup(T, ADMIN, { code: 'G1', name: 'Group' }, ctx);
+  service.createGroupCourse(T, {
+    groupId: group.id,
+    courseId: course.id,
+    requiresIdentityVerification
+  });
+  const learnerReq = withIamLink
+    ? { code: 'L1', name: 'Jane Doe', linkedIamUserId: 'u_l1' }
+    : { code: 'L1', name: 'Jane Doe' };
+  const learner = service.createLearner(T, ADMIN, learnerReq, ctx);
+  const enrollment = service.createEnrollment(
+    T,
+    ADMIN,
+    { groupId: group.id, learnerId: learner.id },
+    ctx
+  );
+  const bank = service.createQuestionBank(T, ADMIN, { title: 'Bank', courseId: course.id }, ctx);
+  const q = service.createQuestion(
+    T,
+    ADMIN,
+    {
+      questionBankId: bank.id,
+      type: 'single_choice',
+      title: 'Q',
+      score: 1,
+      options: [
+        { text: 'A', isCorrect: true },
+        { text: 'B', isCorrect: false }
+      ]
+    } as never,
+    ctx
+  );
+  const test = service.createTest(
+    T,
+    ADMIN,
+    { courseId: course.id, questionBankId: bank.id, title: 'Final', rules: { attemptLimit: 5 } },
+    ctx
+  );
+  service.addTestQuestions(T, test.id, [q.id]);
+  return { course, group, learner, enrollment, test };
+}
+
+const startArgs = (test: { id: string }, enrollment: { id: string; learnerId: string }) => ({
+  testId: test.id,
+  enrollmentId: enrollment.id,
+  learnerId: enrollment.learnerId
+});
+
+/** ctx variant for learner 'u_l1' (used in gate tests 4+5 where learner has an IAM link). */
+const ctxL1: RequestContext = { ...ctx, userId: 'u_l1' };
+
+describe('identity verification gate', () => {
+  it('does NOT gate when the group-course does not require identity verification', () => {
+    const { service } = makeService();
+    const { test, enrollment } = seedFinalExam(service, false);
+    expect(() => service.startAttempt(T, ADMIN, startArgs(test, enrollment), ctx)).not.toThrow();
+  });
+
+  it('blocks the final exam with identity_verification_required until approved', () => {
+    const { service } = makeService();
+    const { test, enrollment } = seedFinalExam(service, true);
+    let err: unknown;
+    try {
+      service.startAttempt(T, ADMIN, startArgs(test, enrollment), ctx);
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeDefined();
+    expect((err as { getResponse: () => unknown }).getResponse()).toMatchObject({
+      code: 'identity_verification_required'
+    });
+  });
+
+  it('gate message must not collide with the Wave 1 frontend regex', () => {
+    const { service } = makeService();
+    const { test, enrollment } = seedFinalExam(service, true);
+    let err: unknown;
+    try {
+      service.startAttempt(T, ADMIN, startArgs(test, enrollment), ctx);
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeDefined();
+    const message = (err as { getResponse: () => { message: string } }).getResponse().message;
+    expect(/identity verification is required/i.test(message)).toBe(false);
+  });
+
+  it('allows the exam after an approved verification (per-learner, any enrollment)', async () => {
+    const { service } = makeService();
+    // withIamLink=true so startIdentityVerification can find the learner by actorId 'u_l1'
+    const { test, enrollment } = seedFinalExam(service, true, true);
+    const draft = service.startIdentityVerification(T, 'u_l1', {}, ctx);
+    await service.submitIdentityVerification(
+      T,
+      'u_l1',
+      draft.id,
+      { selfieFileId: 'f_s', passportFileId: 'f_p', consent: true },
+      ctxL1
+    );
+    service.reviewIdentityVerification(T, ADMIN, draft.id, { decision: 'approve' }, ctx);
+    // actorId='u_l1' matches the learner's IAM link — gate passes + IDOR check passes
+    expect(() => service.startAttempt(T, 'u_l1', startArgs(test, enrollment), ctxL1)).not.toThrow();
+  });
+
+  it('a rejected verification does not unlock the gate', async () => {
+    const { service } = makeService();
+    // withIamLink=true so startIdentityVerification can find the learner by actorId 'u_l1'
+    const { test, enrollment } = seedFinalExam(service, true, true);
+    const draft = service.startIdentityVerification(T, 'u_l1', {}, ctx);
+    await service.submitIdentityVerification(
+      T,
+      'u_l1',
+      draft.id,
+      { selfieFileId: 'f_s', passportFileId: 'f_p', consent: true },
+      ctxL1
+    );
+    service.reviewIdentityVerification(T, ADMIN, draft.id, { decision: 'reject' }, ctx);
+    let err: unknown;
+    try {
+      service.startAttempt(T, 'u_l1', startArgs(test, enrollment), ctxL1);
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeDefined();
+    expect((err as { getResponse: () => unknown }).getResponse()).toMatchObject({
+      code: 'identity_verification_required'
+    });
+  });
+});

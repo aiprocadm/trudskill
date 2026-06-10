@@ -2918,6 +2918,8 @@ export class MvpService {
     this.assertModuleSequenceGate(tenantId, enrollment.id, test);
     this.assertMinViewGate(tenantId, enrollment.id, test);
     this.assertPreExamAuthGate(tenantId, enrollment, test);
+    // Phase 4 Plan A: documentary identity (selfie+passport) — per-learner.
+    this.assertIdentityVerificationGate(tenantId, enrollment, test);
     const delegationAuditMetadata = this.delegatedLearningAuditMetadata(
       tenantId,
       actorId,
@@ -3287,6 +3289,40 @@ export class MvpService {
       (v) =>
         v.tenantId === tenantId && v.learnerId === learnerId && v.verificationStatus === 'approved'
     );
+  }
+
+  /** Phase 4 Plan A: the group-course toggle for documentary identity verification. */
+  private groupCourseRequiresIdentityVerification(
+    tenantId: string,
+    groupId: string,
+    courseId: string
+  ): boolean {
+    const gc = this.state.groupCourses.find(
+      (item) => item.tenantId === tenantId && item.groupId === groupId && item.courseId === courseId
+    );
+    return gc?.requiresIdentityVerification === true;
+  }
+
+  /**
+   * Phase 4 Plan A gate. Final/course-level exams only (no moduleId), only when the
+   * group-course requires it. Orthogonal to assertPreExamAuthGate (№816 e-mail link):
+   * this gate proves identity by document, per-LEARNER, valid indefinitely in pilot.
+   * NB: the message deliberately avoids the substring "identity verification is required"
+   * (the Wave 1 frontend regex matches it for its own interstitial).
+   */
+  private assertIdentityVerificationGate(
+    tenantId: string,
+    enrollment: Enrollment,
+    test: TestEntity
+  ): void {
+    if (test.moduleId) return;
+    if (!this.groupCourseRequiresIdentityVerification(tenantId, enrollment.groupId, test.courseId))
+      return;
+    if (this.findApprovedIdentityVerification(tenantId, enrollment.learnerId)) return;
+    throw new PreconditionFailedException({
+      code: 'identity_verification_required',
+      message: 'Identity confirmation by document is required before starting this exam'
+    });
   }
 
   startIdentityVerification(
