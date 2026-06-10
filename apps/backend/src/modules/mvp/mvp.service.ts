@@ -1538,11 +1538,7 @@ export class MvpService {
     if (!actorId) {
       return { items: [] };
     }
-    const learnerIds = new Set(
-      this.state.learners
-        .filter((l) => l.tenantId === tenantId && l.linkedIamUserId === actorId)
-        .map((l) => l.id)
-    );
+    const learnerIds = this.resolveActorLearnerIds(tenantId, actorId);
     if (learnerIds.size === 0) {
       return { items: [] };
     }
@@ -2780,11 +2776,7 @@ export class MvpService {
    */
   listMyTests(tenantId: string, actorId: string | undefined): LearnerTestSummary[] {
     if (!actorId) return [];
-    const learnerIds = new Set(
-      this.state.learners
-        .filter((l) => l.tenantId === tenantId && l.linkedIamUserId === actorId)
-        .map((l) => l.id)
-    );
+    const learnerIds = this.resolveActorLearnerIds(tenantId, actorId);
     if (learnerIds.size === 0) return [];
     const enrollments = this.state.enrollments.filter(
       (item) => item.tenantId === tenantId && learnerIds.has(item.learnerId)
@@ -2841,11 +2833,7 @@ export class MvpService {
    */
   listMyAssignments(tenantId: string, actorId: string | undefined): LearnerAssignmentSummary[] {
     if (!actorId) return [];
-    const learnerIds = new Set(
-      this.state.learners
-        .filter((l) => l.tenantId === tenantId && l.linkedIamUserId === actorId)
-        .map((l) => l.id)
-    );
+    const learnerIds = this.resolveActorLearnerIds(tenantId, actorId);
     if (learnerIds.size === 0) return [];
     const enrollments = this.state.enrollments.filter(
       (item) => item.tenantId === tenantId && learnerIds.has(item.learnerId)
@@ -3333,7 +3321,7 @@ export class MvpService {
       (v) =>
         v.tenantId === tenantId && v.learnerId === learner.id && v.verificationStatus === 'draft'
     );
-    if (draft) return draft;
+    if (draft) return draft; // idempotent: return the existing draft silently (no duplicate audit event)
     const now = this.now();
     const entity: IdentityVerification = {
       id: this.id('idv'),
@@ -3440,7 +3428,7 @@ export class MvpService {
   ): IdentityVerification {
     const record = this.getById(this.state.identityVerifications, tenantId, verificationId);
     if (record.verificationStatus !== 'pending') {
-      throw new BadRequestException({
+      throw new PreconditionFailedException({
         code: 'identity_verification_not_pending',
         message: 'Only a submitted verification can be reviewed'
       });
@@ -3535,11 +3523,7 @@ export class MvpService {
     actorId: string | undefined
   ): IdentityVerification | null {
     if (!actorId) return null;
-    const learnerIds = new Set(
-      this.state.learners
-        .filter((l) => l.tenantId === tenantId && l.linkedIamUserId === actorId)
-        .map((l) => l.id)
-    );
+    const learnerIds = this.resolveActorLearnerIds(tenantId, actorId);
     if (learnerIds.size === 0) return null;
     const mine = this.state.identityVerifications
       .filter((v) => v.tenantId === tenantId && learnerIds.has(v.learnerId))
@@ -4582,6 +4566,15 @@ export class MvpService {
     const n = Math.floor(Number(value));
     if (n < 1) return undefined;
     return Math.min(n, 3650);
+  }
+
+  /** Ids of all learners linked to the acting IAM user (tenant-scoped). */
+  private resolveActorLearnerIds(tenantId: string, actorId: string): Set<string> {
+    return new Set(
+      this.state.learners
+        .filter((l) => l.tenantId === tenantId && l.linkedIamUserId === actorId)
+        .map((l) => l.id)
+    );
   }
 
   private learnerIdsBoundToIamActor(

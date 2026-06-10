@@ -162,15 +162,22 @@ describe('identity verification lifecycle', () => {
     (files as ReturnType<typeof makeFilesMock>).getAntivirusStatuses.mockResolvedValueOnce(
       new Map([['f_selfie', 'clean']])
     );
-    await expect(
-      service.submitIdentityVerification(
+    let err: unknown;
+    try {
+      await service.submitIdentityVerification(
         T,
         'u_l1',
         draft.id,
         { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true },
         ctx
-      )
-    ).rejects.toMatchObject({ message: expect.stringMatching(/file_not_found|not found/i) });
+      );
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeDefined();
+    expect(((err as { getResponse: () => unknown }).getResponse() as { code: string }).code).toBe(
+      'file_not_found'
+    );
   });
 
   it('7. approve moves pending → approved and stamps the reviewer', async () => {
@@ -311,5 +318,41 @@ describe('identity verification lifecycle', () => {
 
     expect(service.getMyIdentityVerification(T, 'u_l1')?.id).toBe(draft.id);
     expect(service.getMyIdentityVerification(T, 'u_unlinked')).toBeNull();
+  });
+
+  it('12. upload intent on a non-draft record throws identity_verification_not_editable', async () => {
+    const { service } = makeService();
+    service.createLearner(
+      T,
+      ADMIN,
+      { code: 'L1', name: 'Ivanov Ivan', linkedIamUserId: 'u_l1' },
+      ctx
+    );
+    const draft = service.startIdentityVerification(T, 'u_l1', {}, ctx);
+    // Submit to move to pending status
+    await service.submitIdentityVerification(
+      T,
+      'u_l1',
+      draft.id,
+      { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true },
+      ctx
+    );
+    // Now record is pending — upload intent should throw identity_verification_not_editable
+    let err: unknown;
+    try {
+      await service.createIdentityVerificationUploadIntent(
+        T,
+        'u_l1',
+        draft.id,
+        { originalName: 'selfie2.jpg', contentType: 'image/jpeg', sizeBytes: 500 },
+        ctx
+      );
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeDefined();
+    expect(((err as { getResponse: () => unknown }).getResponse() as { code: string }).code).toBe(
+      'identity_verification_not_editable'
+    );
   });
 });
