@@ -6,6 +6,8 @@ import { EisotTestingXlsxWriter } from './eisot-testing-registry/eisot-testing-x
 import { FrdoRegistryXlsxWriter } from './frdo-registry/frdo-registry-xlsx.writer.js';
 import { FrdoRegistryController } from './frdo-registry/frdo-registry.controller.js';
 import { FrdoRegistryService } from './frdo-registry/frdo-registry.service.js';
+import { IdentityRetentionScanner } from './identity/identity-retention-scanner.service.js';
+import { IdentityRetentionSchedulerService } from './identity/identity-retention-scheduler.service.js';
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MvpPersistenceRepositoryAdapter } from './infrastructure/mvp-persistence.repository.adapter.js';
 import { MVP_PERSISTENCE_BACKEND } from './infrastructure/mvp-persistence.token.js';
@@ -72,6 +74,8 @@ import { TenantModule } from '../tenant/tenant.module.js';
     CourseDeadlineScanner,
     RemindersSchedulerService,
     DocumentRevokedEmailListener,
+    IdentityRetentionScanner,
+    IdentityRetentionSchedulerService,
     { provide: RecertificationService, scope: Scope.REQUEST, useClass: RecertificationService },
     { provide: MVP_PERSISTENCE_BACKEND, useClass: MvpPersistenceRepositoryAdapter },
     { provide: MVP_STATE, scope: Scope.REQUEST, useClass: InMemoryMvpState },
