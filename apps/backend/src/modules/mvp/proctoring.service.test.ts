@@ -27,8 +27,8 @@ const ctx: RequestContext = {
 /** ctx variant for learner 'u_l1' (IAM-linked seeds). */
 const ctxL1: RequestContext = { ...ctx, userId: 'u_l1' };
 
-let fileSeq = 0;
 function makeFilesMock() {
+  let fileSeq = 0; // scoped per mock instance — no leakage across tests
   return {
     createUploadIntent: vi.fn(async () => ({
       fileId: `file_${(fileSeq += 1)}`,
