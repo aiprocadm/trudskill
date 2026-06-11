@@ -253,7 +253,8 @@ export function AdminProctoringQueueScreen(): ReactElement {
 }
 
 export function AdminProctoringDetailScreen({ id }: { id: string }): ReactElement {
-  const { data: detail, isLoading, error, refetch } = useProctoringDetail(id);
+  const { session } = useAuth();
+  const { data: detail, isLoading, error } = useProctoringDetail(id);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isAssembling, setIsAssembling] = useState(false);
   const [assembleProgress, setAssembleProgress] = useState<{ done: number; total: number } | null>(
@@ -286,8 +287,8 @@ export function AdminProctoringDetailScreen({ id }: { id: string }): ReactElemen
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      // Presigned GET urls expire in 15 minutes — refetch so a long-open page still plays.
-      const fresh = (await refetch()).data ?? detail;
+      // Presigned GET urls expire in 15 minutes — re-request so a long-open page still plays.
+      const fresh = session ? await proctoringApi.get(session, id) : detail;
       const total = fresh.playbackChunks.length;
       setAssembleProgress({ done: 0, total });
       const parts: Blob[] = [];
