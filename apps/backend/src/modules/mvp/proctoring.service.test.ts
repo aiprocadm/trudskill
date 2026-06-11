@@ -460,4 +460,145 @@ describe('proctoring lifecycle — chunks, complete, active', () => {
   });
 });
 
-void startArgs; // used by gate tests added in Task 6
+describe('proctoring gate (5th assert in startAttempt)', () => {
+  it('does NOT gate when proctoring is not required', () => {
+    const { service } = makeService();
+    const { test, enrollment } = seedProctoredExam(service, false);
+    expect(() => service.startAttempt(T, 'u_l1', startArgs(test, enrollment), ctxL1)).not.toThrow();
+  });
+
+  it('blocks the final exam with 412 proctoring_required until a session is active', () => {
+    const { service } = makeService();
+    const { test, enrollment } = seedProctoredExam(service, true);
+    let err: unknown;
+    try {
+      service.startAttempt(T, 'u_l1', startArgs(test, enrollment), ctxL1);
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeDefined();
+    expect((err as { getStatus: () => number }).getStatus()).toBe(412);
+    expect(getResponseOf(err).code).toBe('proctoring_required');
+  });
+
+  it('gate message collides with NEITHER the Wave 1 nor the Plan A frontend regex', () => {
+    const { service } = makeService();
+    const { test, enrollment } = seedProctoredExam(service, true);
+    let err: unknown;
+    try {
+      service.startAttempt(T, 'u_l1', startArgs(test, enrollment), ctxL1);
+    } catch (e) {
+      err = e;
+    }
+    const message = getResponseOf(err).message ?? '';
+    expect(message.length).toBeGreaterThan(0);
+    // Wave 1 pre-exam-auth interstitial regex (tests-list-screen.tsx)
+    expect(/pre_exam_auth_required|identity verification is required/i.test(message)).toBe(false);
+    // Plan A identity interstitial regex
+    expect(/identity_verification_required|identity confirmation by document/i.test(message)).toBe(
+      false
+    );
+    // …and it DOES match its own interstitial regex
+    expect(/proctoring_required|video recording must be active/i.test(message)).toBe(true);
+  });
+
+  it('an active recording session opens the gate and gets attemptId linked', () => {
+    const { service } = makeService();
+    const { test, course, enrollment } = seedProctoredExam(service, true);
+    const recording = service.startProctoringRecording(
+      T,
+      'u_l1',
+      { enrollmentId: enrollment.id, courseId: course.id, consent: true },
+      ctxL1
+    );
+    const attempt = service.startAttempt(T, 'u_l1', startArgs(test, enrollment), ctxL1);
+    expect(recording.attemptId).toBe(attempt.id);
+  });
+
+  it('a completed (not active) session does not open the gate', () => {
+    const { service } = makeService();
+    const { test, course, enrollment } = seedProctoredExam(service, true);
+    const recording = service.startProctoringRecording(
+      T,
+      'u_l1',
+      { enrollmentId: enrollment.id, courseId: course.id, consent: true },
+      ctxL1
+    );
+    service.completeProctoringRecording(T, 'u_l1', recording.id, ctxL1);
+    let err: unknown;
+    try {
+      service.startAttempt(T, 'u_l1', startArgs(test, enrollment), ctxL1);
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeDefined();
+    expect(getResponseOf(err).code).toBe('proctoring_required');
+  });
+
+  it("override 'exempt' disables the gate even when the group-course flag is on", () => {
+    const { service } = makeService();
+    const { test, enrollment } = seedProctoredExam(service, true);
+    service.setProctoringOverride(T, ADMIN, enrollment.id, { override: 'exempt' }, ctx);
+    expect(() => service.startAttempt(T, 'u_l1', startArgs(test, enrollment), ctxL1)).not.toThrow();
+  });
+
+  it("override 'require' gates an exam whose group-course flag is off", () => {
+    const { service } = makeService();
+    const { test, enrollment } = seedProctoredExam(service, false);
+    service.setProctoringOverride(T, ADMIN, enrollment.id, { override: 'require' }, ctx);
+    let err: unknown;
+    try {
+      service.startAttempt(T, 'u_l1', startArgs(test, enrollment), ctxL1);
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeDefined();
+    expect(getResponseOf(err).code).toBe('proctoring_required');
+  });
+
+  it('module (intermediate) tests are never gated', () => {
+    const { service } = makeService();
+    const seed = seedProctoredExam(service, true);
+    // A second test bound to a module of the course — moduleId set ⇒ not a final exam.
+    // Canonical module seeding (module-gating.service.test.ts seedCourseWithModules/makeTest).
+    const version = service.createCourseVersion(T, seed.course.id);
+    const mod = service.createModule(
+      T,
+      ADMIN,
+      { courseVersionId: version.id, title: 'Module 1', minViewSeconds: 0, isRequired: true },
+      ctx
+    );
+    const bank2 = service.createQuestionBank(T, ADMIN, { title: 'B2' }, ctx);
+    const q2 = service.createQuestion(
+      T,
+      ADMIN,
+      {
+        questionBankId: bank2.id,
+        type: 'single_choice',
+        title: 'Q2',
+        score: 1,
+        options: [
+          { text: 'A', isCorrect: true },
+          { text: 'B', isCorrect: false }
+        ]
+      } as never,
+      ctx
+    );
+    const moduleTest = service.createTest(
+      T,
+      ADMIN,
+      {
+        courseId: seed.course.id,
+        questionBankId: bank2.id,
+        title: 'Module test',
+        moduleId: mod.id,
+        rules: { attemptLimit: 5, passingScore: 0 }
+      },
+      ctx
+    );
+    service.addTestQuestions(T, moduleTest.id, [q2.id]);
+    expect(() =>
+      service.startAttempt(T, 'u_l1', startArgs(moduleTest, seed.enrollment), ctxL1)
+    ).not.toThrow();
+  });
+});

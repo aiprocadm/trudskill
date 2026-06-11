@@ -2933,6 +2933,8 @@ export class MvpService {
     this.assertPreExamAuthGate(tenantId, enrollment, test);
     // Phase 4 Plan A: documentary identity (selfie+passport) — per-learner.
     this.assertIdentityVerificationGate(tenantId, enrollment, test);
+    // Phase 4 Plan B: webcam recording must be running for proctored finals.
+    this.assertProctoringGate(tenantId, enrollment, test);
     const delegationAuditMetadata = this.delegatedLearningAuditMetadata(
       tenantId,
       actorId,
@@ -2995,6 +2997,17 @@ export class MvpService {
         : {})
     };
     this.state.attempts.push(entity);
+    // Phase 4 Plan B: link the running recording session to its (first) attempt.
+    const activeProctoringRecording = this.findActiveProctoringRecording(
+      tenantId,
+      learnerId,
+      enrollment.groupId,
+      test.courseId
+    );
+    if (activeProctoringRecording && !activeProctoringRecording.attemptId) {
+      activeProctoringRecording.attemptId = entity.id;
+      activeProctoringRecording.updatedAt = startedAt;
+    }
     this.audit(
       tenantId,
       actorId,
@@ -3684,6 +3697,31 @@ export class MvpService {
         r.recordingStatus === 'recording' &&
         !r.purgedAt
     );
+  }
+
+  /**
+   * Phase 4 Plan B gate (5th assert). Final/course-level exams only (no moduleId), only when
+   * the effective requirement (override ?? group-course flag) is on. Passes when an active
+   * recording session exists for (learner, group, course).
+   * NB: the message deliberately avoids "identity verification is required" (Wave 1 regex)
+   * and "identity confirmation by document" (Plan A regex) — the frontend matches err.message.
+   */
+  private assertProctoringGate(tenantId: string, enrollment: Enrollment, test: TestEntity): void {
+    if (test.moduleId) return;
+    if (!this.isProctoringRequired(tenantId, enrollment, test.courseId)) return;
+    if (
+      this.findActiveProctoringRecording(
+        tenantId,
+        enrollment.learnerId,
+        enrollment.groupId,
+        test.courseId
+      )
+    )
+      return;
+    throw new PreconditionFailedException({
+      code: 'proctoring_required',
+      message: 'Video recording must be active before starting this exam'
+    });
   }
 
   /**
