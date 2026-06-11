@@ -561,6 +561,8 @@ describe('proctoring gate (5th assert in startAttempt)', () => {
     const seed = seedProctoredExam(service, true);
     // A second test bound to a module of the course — moduleId set ⇒ not a final exam.
     // Canonical module seeding (module-gating.service.test.ts seedCourseWithModules/makeTest).
+    // NB: this is the first module in state (sortOrder 0) → no prior required modules, so the
+    // module-sequence gate stays silent and only the proctoring exemption is exercised here.
     const version = service.createCourseVersion(T, seed.course.id);
     const mod = service.createModule(
       T,

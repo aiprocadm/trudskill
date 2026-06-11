@@ -2998,6 +2998,8 @@ export class MvpService {
     };
     this.state.attempts.push(entity);
     // Phase 4 Plan B: link the running recording session to its (first) attempt.
+    // Re-querying is stable here: same synchronous call, request-scoped state. If lookups ever
+    // become async (per-row Postgres reads), pass the recording from assertProctoringGate instead.
     const activeProctoringRecording = this.findActiveProctoringRecording(
       tenantId,
       learnerId,
