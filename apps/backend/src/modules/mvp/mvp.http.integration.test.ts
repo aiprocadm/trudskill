@@ -407,6 +407,28 @@ describe('MVP HTTP integration (permission boundaries)', () => {
           verificationStatus: body.decision === 'approve' ? 'approved' : 'rejected'
         };
       }
+
+      // Phase 4 Plan B — proctoring permission boundary
+      @Get('proctoring-recordings')
+      @RequirePermissions('proctoring.read')
+      listProctoringRecordings(@CurrentContext() context: { tenantId?: string }) {
+        return { items: [], tenantId: context.tenantId };
+      }
+
+      @Post('proctoring-recordings')
+      @RequirePermissions('proctoring.submit')
+      startProctoringRecording(@CurrentContext() context: { tenantId?: string }) {
+        return { id: 'prec_1', recordingStatus: 'recording', tenantId: context.tenantId };
+      }
+
+      @Patch('enrollments/:id/proctoring-override')
+      @RequirePermissions('learners.write')
+      setProctoringOverride(
+        @CurrentContext() context: { tenantId?: string },
+        @Body() body: { override: string | null }
+      ) {
+        return { id: 'enr_1', proctoringOverride: body.override, tenantId: context.tenantId };
+      }
     }
 
     @Module({
@@ -1612,6 +1634,167 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         meta: { requestId: string };
       };
       expect(payload.data.verificationStatus).toBe('approved');
+    });
+  });
+
+  // === Phase 4 Plan B — proctoring RBAC boundary ===
+
+  describe('proctoring permission boundary', () => {
+    beforeEach(() => {
+      iamServiceMock.resolvePermissions.mockReset();
+      iamServiceMock.resolvePermissions.mockResolvedValue(['courses.read']);
+    });
+
+    it('GET /proctoring-recordings — 403 permission_denied without proctoring.read', async () => {
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/proctoring-recordings`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('GET /proctoring-recordings — 200 success with proctoring.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['proctoring.read']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/proctoring-recordings`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as {
+        data: { tenantId: string };
+        meta: { requestId: string };
+      };
+      expect(payload.data.tenantId).toBe('tenant_demo');
+    });
+
+    it('POST /proctoring-recordings — 403 permission_denied with only proctoring.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['proctoring.read']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/proctoring-recordings`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({})
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('POST /proctoring-recordings — 201 success with proctoring.submit', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['proctoring.submit']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/proctoring-recordings`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({})
+      });
+      expect(response.status).toBe(201);
+      const payload = (await response.json()) as {
+        data: { recordingStatus: string };
+        meta: { requestId: string };
+      };
+      expect(payload.data.recordingStatus).toBe('recording');
+    });
+
+    it('PATCH /enrollments/x/proctoring-override — 403 permission_denied without learners.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['proctoring.read']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/enrollments/x/proctoring-override`, {
+        method: 'PATCH',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ override: 'exempt' })
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('PATCH /enrollments/x/proctoring-override — 200 success with learners.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['learners.write']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/enrollments/x/proctoring-override`, {
+        method: 'PATCH',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ override: 'exempt' })
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as {
+        data: { proctoringOverride: string };
+        meta: { requestId: string };
+      };
+      expect(payload.data.proctoringOverride).toBe('exempt');
     });
   });
 });
