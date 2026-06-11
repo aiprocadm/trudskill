@@ -43,6 +43,8 @@ export class ProctoringRecorder {
   private uploadQueue: Promise<void> = Promise.resolve();
   private stream: MediaStreamLike | null = null;
   private recorder: MediaRecorderLike | null = null;
+  /** stop() during 'acquiring': remember the intent so the camera never outlives the user's exit. */
+  private stopRequested = false;
   /** Sequences dropped after 1 failed retry — the admin sees them as gaps. */
   readonly skippedSequences: number[] = [];
 
@@ -72,6 +74,13 @@ export class ProctoringRecorder {
       this.setPhase('error');
       throw new Error('camera_unavailable');
     }
+    if (this.stopRequested) {
+      // The user bailed out while the permission prompt was open — release the camera at once.
+      this.stream.getTracks().forEach((track) => track.stop());
+      this.stream = null;
+      this.setPhase('completed');
+      return;
+    }
     this.recorder = this.deps.createRecorder(this.stream);
     this.recorder.ondataavailable = (event) => {
       if (event.data && event.data.size > 0) this.enqueueChunk(event.data);
@@ -97,8 +106,17 @@ export class ProctoringRecorder {
     });
   }
 
-  /** recording → uploading-tail (final dataavailable flushes) → completed. Releases the camera. */
+  /**
+   * recording → uploading-tail (final dataavailable flushes) → completed. Releases the camera.
+   * During 'acquiring' it only marks intent — start() releases the stream as soon as it lands.
+   * Mid-recording device loss has no onerror path BY DESIGN: the recording keeps partial chunks
+   * and the admin sees the gap (spec §2.3 — recording problems never invalidate the exam).
+   */
   async stop(): Promise<void> {
+    if (this.phaseValue === 'acquiring') {
+      this.stopRequested = true;
+      return;
+    }
     if (this.phaseValue !== 'recording') return;
     this.setPhase('uploading-tail');
     await new Promise<void>((resolve) => {

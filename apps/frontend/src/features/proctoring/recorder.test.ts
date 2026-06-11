@@ -152,4 +152,20 @@ describe('ProctoringRecorder state machine', () => {
     // only the tail chunk (non-empty) was uploaded
     expect(uploadChunk.mock.calls.map(([seq]) => seq)).toEqual([0]);
   });
+
+  it('stop during acquiring: camera is released as soon as getUserMedia resolves (no live camera leak)', async () => {
+    const trackStop = vi.fn();
+    let resolveMedia!: (stream: MediaStreamLike) => void;
+    const pendingMedia = new Promise<MediaStreamLike>((resolve) => {
+      resolveMedia = resolve;
+    });
+    const { recorder } = makeRecorder({ getUserMedia: () => pendingMedia });
+    const starting = recorder.start();
+    expect(recorder.phase).toBe('acquiring');
+    await recorder.stop(); // user bails while the permission prompt is open
+    resolveMedia({ getTracks: () => [{ stop: trackStop }] });
+    await starting;
+    expect(trackStop).toHaveBeenCalled();
+    expect(recorder.phase).toBe('completed');
+  });
 });
