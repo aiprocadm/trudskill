@@ -56,7 +56,7 @@ export class IdentityRetentionSchedulerService {
       let totalPurged = 0;
       for (const tenantId of tenantIds) {
         try {
-          const purged = await this.mvpRunner.runWithTenantState(tenantId, async (state) => {
+          const purged = await this.mvpRunner.runWithTenantStateAndSave(tenantId, async (state) => {
             return this.scanner.scanTenant(tenantId, asOf, state);
           });
           if (purged > 0) this.logger.log(`tenant=${tenantId} purged=${purged}`);

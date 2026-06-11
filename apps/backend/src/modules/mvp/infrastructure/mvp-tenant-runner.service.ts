@@ -29,4 +29,30 @@ export class MvpTenantRunner {
       return fn(state);
     });
   }
+
+  /**
+   * Write-mode variant: loads tenant state, runs fn, and ALWAYS persists the state
+   * afterwards (mirrors DocumentsTenantRunner). Use when fn mutates state outside a
+   * request (e.g. the identity image retention cron). Runs under the same per-tenant
+   * serial lock as HTTP requests.
+   *
+   * Save happens in a `finally` block so partial purge progress is never lost:
+   * stamps are only set on individual records AFTER their files are successfully
+   * deleted, so saving even on unexpected throw preserves all completed stamps and
+   * lets idempotent retry skip already-purged records on the next run.
+   */
+  async runWithTenantStateAndSave<R>(
+    tenantId: string,
+    fn: (state: InMemoryMvpState) => Promise<R>
+  ): Promise<R> {
+    return this.tenantGateway.runExclusive(tenantId, async () => {
+      const state = new InMemoryMvpState();
+      await this.persistence.loadIntoState(tenantId, state);
+      try {
+        return await fn(state);
+      } finally {
+        await this.persistence.saveFromState(tenantId, state);
+      }
+    });
+  }
 }
