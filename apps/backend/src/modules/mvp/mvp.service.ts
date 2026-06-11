@@ -224,6 +224,9 @@ const IDENTITY_MIME_ALLOWLIST: ReadonlySet<string> = new Set([
   'application/pdf'
 ]);
 
+/** Phase 4 Plan B: MediaRecorder chunks — webm (Chrome/Firefox) + mp4 (Safari fallback). */
+const PROCTORING_MIME_ALLOWLIST: ReadonlySet<string> = new Set(['video/webm', 'video/mp4']);
+
 /**
  * Global lookup нормативных актов — зеркало seed из migration 0030.
  * Используется как DTO-каталог для UI (мульти-селект в форме программы курса).
@@ -3758,6 +3761,102 @@ export class MvpService {
       context
     );
     return entity;
+  }
+
+  /**
+   * Presigned PUT for one MediaRecorder chunk + registration (own active session only).
+   * No per-chunk audit (spec §8 — a 30-second timeslice would flood the log).
+   */
+  async createProctoringChunkUploadIntent(
+    tenantId: string,
+    actorId: string | undefined,
+    recordingId: string,
+    request: { sequence: number; originalName: string; contentType: string; sizeBytes: number },
+    context: RequestContext
+  ): Promise<UploadIntent> {
+    const record = this.getById(this.state.proctoringRecordings, tenantId, recordingId);
+    this.assertActorMatchesLearnerIamLink(tenantId, actorId, record.learnerId, context.permissions);
+    if (record.recordingStatus !== 'recording') {
+      throw new PreconditionFailedException({
+        code: 'proctoring_recording_not_active',
+        message: 'Chunks can only be uploaded to an active recording session'
+      });
+    }
+    if (record.chunks.some((c) => c.sequence === request.sequence)) {
+      throw new ConflictException({
+        code: 'proctoring_chunk_duplicate',
+        message: 'A chunk with this sequence is already registered'
+      });
+    }
+    const intent = await this.filesService.createUploadIntent(
+      tenantId,
+      {
+        originalName: request.originalName,
+        contentType: request.contentType,
+        sizeBytes: request.sizeBytes
+      },
+      { keyPrefix: 'proctoring', mimeAllowlist: PROCTORING_MIME_ALLOWLIST }
+    );
+    const now = this.now();
+    record.chunks.push({
+      sequence: request.sequence,
+      fileId: intent.fileId,
+      uploadedIntentAt: now
+    });
+    record.updatedAt = now;
+    return intent;
+  }
+
+  /** Stop the session (idempotent): recording → completed, completedAt stamped once. */
+  completeProctoringRecording(
+    tenantId: string,
+    actorId: string | undefined,
+    recordingId: string,
+    context: RequestContext
+  ): ProctoringRecording {
+    const record = this.getById(this.state.proctoringRecordings, tenantId, recordingId);
+    this.assertActorMatchesLearnerIamLink(tenantId, actorId, record.learnerId, context.permissions);
+    if (record.recordingStatus === 'completed') return record;
+    const now = this.now();
+    record.recordingStatus = 'completed';
+    record.completedAt = now;
+    record.updatedAt = now;
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.proctoring_completed',
+      'learning.proctoring_recording',
+      record.id,
+      { recordingStatus: 'recording' },
+      { recordingStatus: 'completed', completedAt: now, chunkCount: record.chunks.length },
+      context
+    );
+    return record;
+  }
+
+  /** Resume support: the actor's active session for the enrollment+course + next chunk sequence. */
+  getMyActiveProctoringRecording(
+    tenantId: string,
+    actorId: string | undefined,
+    query: { enrollmentId: string; courseId: string },
+    context: RequestContext
+  ): { recording: ProctoringRecording; nextSequence: number } | null {
+    const enrollment = this.getById(this.state.enrollments, tenantId, query.enrollmentId);
+    this.assertActorMatchesLearnerIamLink(
+      tenantId,
+      actorId,
+      enrollment.learnerId,
+      context.permissions
+    );
+    const active = this.findActiveProctoringRecording(
+      tenantId,
+      enrollment.learnerId,
+      enrollment.groupId,
+      query.courseId
+    );
+    if (!active) return null;
+    const maxSequence = active.chunks.reduce((max, c) => Math.max(max, c.sequence), -1);
+    return { recording: active, nextSequence: maxSequence + 1 };
   }
 
   saveAnswer(

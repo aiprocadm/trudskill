@@ -315,4 +315,149 @@ describe('proctoring lifecycle — start session', () => {
   });
 });
 
+describe('proctoring lifecycle — chunks, complete, active', () => {
+  function startSession(service: MvpService) {
+    const seed = seedProctoredExam(service, true);
+    const recording = service.startProctoringRecording(
+      T,
+      'u_l1',
+      { enrollmentId: seed.enrollment.id, courseId: seed.course.id, consent: true },
+      ctxL1
+    );
+    return { ...seed, recording };
+  }
+
+  it('issues an upload intent with the proctoring prefix and webm/mp4 allowlist, registers the chunk', async () => {
+    const { service, files } = makeService();
+    const { recording } = startSession(service);
+    const intent = await service.createProctoringChunkUploadIntent(
+      T,
+      'u_l1',
+      recording.id,
+      { sequence: 0, originalName: 'chunk-0.webm', contentType: 'video/webm', sizeBytes: 2048 },
+      ctxL1
+    );
+    expect(files.createUploadIntent).toHaveBeenCalledWith(
+      T,
+      expect.objectContaining({ contentType: 'video/webm' }),
+      expect.objectContaining({ keyPrefix: 'proctoring' })
+    );
+    const opts = files.createUploadIntent.mock.calls[0]![2] as {
+      mimeAllowlist: ReadonlySet<string>;
+    };
+    expect(opts.mimeAllowlist.has('video/webm')).toBe(true);
+    expect(opts.mimeAllowlist.has('video/mp4')).toBe(true);
+    expect(opts.mimeAllowlist.has('image/jpeg')).toBe(false);
+    expect(recording.chunks).toHaveLength(1);
+    expect(recording.chunks[0]).toMatchObject({ sequence: 0, fileId: intent.fileId });
+    expect(recording.chunks[0]!.uploadedIntentAt).toBeTruthy();
+  });
+
+  it('duplicate sequence → 409 proctoring_chunk_duplicate', async () => {
+    const { service } = makeService();
+    const { recording } = startSession(service);
+    await service.createProctoringChunkUploadIntent(
+      T,
+      'u_l1',
+      recording.id,
+      { sequence: 0, originalName: 'chunk-0.webm', contentType: 'video/webm', sizeBytes: 2048 },
+      ctxL1
+    );
+    let err: unknown;
+    try {
+      await service.createProctoringChunkUploadIntent(
+        T,
+        'u_l1',
+        recording.id,
+        { sequence: 0, originalName: 'chunk-0r.webm', contentType: 'video/webm', sizeBytes: 1024 },
+        ctxL1
+      );
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeDefined();
+    expect(getResponseOf(err).code).toBe('proctoring_chunk_duplicate');
+  });
+
+  it('chunk intent on a completed session → 412 proctoring_recording_not_active', async () => {
+    const { service } = makeService();
+    const { recording } = startSession(service);
+    service.completeProctoringRecording(T, 'u_l1', recording.id, ctxL1);
+    let err: unknown;
+    try {
+      await service.createProctoringChunkUploadIntent(
+        T,
+        'u_l1',
+        recording.id,
+        { sequence: 1, originalName: 'chunk-1.webm', contentType: 'video/webm', sizeBytes: 1024 },
+        ctxL1
+      );
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeDefined();
+    expect(getResponseOf(err).code).toBe('proctoring_recording_not_active');
+  });
+
+  it('complete stamps completedAt and is idempotent', () => {
+    const { service } = makeService();
+    const { recording } = startSession(service);
+    const done = service.completeProctoringRecording(T, 'u_l1', recording.id, ctxL1);
+    expect(done.recordingStatus).toBe('completed');
+    expect(done.completedAt).toBeTruthy();
+    const again = service.completeProctoringRecording(T, 'u_l1', recording.id, ctxL1);
+    expect(again.id).toBe(done.id);
+    expect(again.completedAt).toBe(done.completedAt);
+  });
+
+  it('getActive returns the session + nextSequence = maxSeq + 1; null when no active session', async () => {
+    const { service } = makeService();
+    const { recording, enrollment, course } = startSession(service);
+    await service.createProctoringChunkUploadIntent(
+      T,
+      'u_l1',
+      recording.id,
+      { sequence: 0, originalName: 'c0.webm', contentType: 'video/webm', sizeBytes: 10 },
+      ctxL1
+    );
+    await service.createProctoringChunkUploadIntent(
+      T,
+      'u_l1',
+      recording.id,
+      { sequence: 4, originalName: 'c4.webm', contentType: 'video/webm', sizeBytes: 10 },
+      ctxL1
+    );
+    const active = service.getMyActiveProctoringRecording(
+      T,
+      'u_l1',
+      { enrollmentId: enrollment.id, courseId: course.id },
+      ctxL1
+    );
+    expect(active?.recording.id).toBe(recording.id);
+    expect(active?.nextSequence).toBe(5);
+
+    service.completeProctoringRecording(T, 'u_l1', recording.id, ctxL1);
+    expect(
+      service.getMyActiveProctoringRecording(
+        T,
+        'u_l1',
+        { enrollmentId: enrollment.id, courseId: course.id },
+        ctxL1
+      )
+    ).toBeNull();
+  });
+
+  it('a fresh session has nextSequence 0', () => {
+    const { service } = makeService();
+    const { enrollment, course } = startSession(service);
+    const active = service.getMyActiveProctoringRecording(
+      T,
+      'u_l1',
+      { enrollmentId: enrollment.id, courseId: course.id },
+      ctxL1
+    );
+    expect(active?.nextSequence).toBe(0);
+  });
+});
+
 void startArgs; // used by gate tests added in Task 6
