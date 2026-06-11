@@ -222,6 +222,7 @@ export function AdminProctoringQueueScreen(): ReactElement {
               type="button"
               className="ui-button"
               style={statusFilter === opt.value ? { fontWeight: 700 } : undefined}
+              aria-pressed={statusFilter === opt.value}
               onClick={() => setStatusFilter(opt.value)}
             >
               {opt.label}
@@ -252,10 +253,14 @@ export function AdminProctoringQueueScreen(): ReactElement {
 }
 
 export function AdminProctoringDetailScreen({ id }: { id: string }): ReactElement {
-  const { data: detail, isLoading, error } = useProctoringDetail(id);
+  const { data: detail, isLoading, error, refetch } = useProctoringDetail(id);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isAssembling, setIsAssembling] = useState(false);
+  const [assembleProgress, setAssembleProgress] = useState<{ done: number; total: number } | null>(
+    null
+  );
   const [playerError, setPlayerError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   // Revoke the blob URL on unmount/replace (memory hygiene for multi-hundred-MB videos).
   useEffect(() => {
@@ -263,6 +268,11 @@ export function AdminProctoringDetailScreen({ id }: { id: string }): ReactElemen
       if (videoUrl) URL.revokeObjectURL(videoUrl);
     };
   }, [videoUrl]);
+
+  // Abort in-flight chunk downloads when the admin leaves the page.
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
 
   if (isLoading) return <LoadingState message="Загрузка…" />;
   if (error || !detail) return <SectionError message="Не удалось загрузить запись" />;
@@ -273,19 +283,29 @@ export function AdminProctoringDetailScreen({ id }: { id: string }): ReactElemen
   const onAssemble = async () => {
     setIsAssembling(true);
     setPlayerError(null);
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
+      // Presigned GET urls expire in 15 minutes — refetch so a long-open page still plays.
+      const fresh = (await refetch()).data ?? detail;
+      const total = fresh.playbackChunks.length;
+      setAssembleProgress({ done: 0, total });
       const parts: Blob[] = [];
-      for (const chunk of detail.playbackChunks) {
-        const res = await fetch(chunk.url);
+      for (const chunk of fresh.playbackChunks) {
+        const res = await fetch(chunk.url, { signal: controller.signal });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         parts.push(await res.blob());
+        setAssembleProgress({ done: parts.length, total });
       }
       const assembled = new Blob(parts, { type: 'video/webm' });
       setVideoUrl(URL.createObjectURL(assembled));
-    } catch {
-      setPlayerError('Не удалось собрать запись — попробуйте ещё раз');
+    } catch (err) {
+      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        setPlayerError('Не удалось собрать запись — попробуйте ещё раз');
+      }
     } finally {
       setIsAssembling(false);
+      setAssembleProgress(null);
     }
   };
 
@@ -328,7 +348,12 @@ export function AdminProctoringDetailScreen({ id }: { id: string }): ReactElemen
             {detail.playbackChunks.length === 0 ? (
               <p className="ui-text-muted">Нет доступных фрагментов</p>
             ) : videoUrl ? (
-              <video controls src={videoUrl} style={{ maxWidth: 640, width: '100%' }} />
+              <video
+                controls
+                src={videoUrl}
+                aria-label={`Запись экзамена — ${detail.learnerName || detail.id}`}
+                style={{ maxWidth: 640, width: '100%' }}
+              />
             ) : (
               <button
                 type="button"
@@ -337,7 +362,7 @@ export function AdminProctoringDetailScreen({ id }: { id: string }): ReactElemen
                 onClick={() => void onAssemble()}
               >
                 {isAssembling
-                  ? 'Скачиваем фрагменты…'
+                  ? `Скачиваем фрагменты…${assembleProgress ? ` ${assembleProgress.done} из ${assembleProgress.total}` : ''}`
                   : `Собрать и воспроизвести (${detail.playbackChunks.length} фрагм.)`}
               </button>
             )}
