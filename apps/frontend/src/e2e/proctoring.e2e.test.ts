@@ -73,10 +73,11 @@ describe('proctoring — navigation visibility', () => {
 });
 
 describe('proctoring — module smoke', () => {
-  it('screens module loads and exports the four components', async () => {
+  it('screens module loads and exports the five components', async () => {
     const mod = await import('../features/proctoring/screens');
     expect(typeof mod.ProctoringStartPanel).toBe('function');
     expect(typeof mod.ProctoringRecIndicator).toBe('function');
+    expect(typeof mod.ProctoringResumeBanner).toBe('function');
     expect(typeof mod.AdminProctoringQueueScreen).toBe('function');
     expect(typeof mod.AdminProctoringDetailScreen).toBe('function');
   });

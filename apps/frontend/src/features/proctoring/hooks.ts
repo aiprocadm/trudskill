@@ -6,6 +6,7 @@ import { baseMimeType, proctoringApi, putBlobToPresignedUrl } from './api';
 import { useAuth } from '../auth/context';
 
 import type {
+  ActiveProctoringDto,
   ProctoringRecordingDetail,
   ProctoringRecordingStatus,
   ProctoringRecordingView,
@@ -28,6 +29,24 @@ export function useProctoringDetail(id: string) {
     queryKey: ['proctoring-recordings', 'detail', id],
     enabled: Boolean(session) && Boolean(id),
     queryFn: () => proctoringApi.get(session!, id)
+  });
+}
+
+/**
+ * Holistic-review fix I1: detects a recording session orphaned by a mid-exam refresh
+ * (server says 'recording', but the module-level recorder died with the page).
+ * `enabled=false` skips the request entirely — e.g. while a live recorder exists.
+ */
+export function useActiveProctoringSession(
+  enrollmentId: string,
+  courseId: string,
+  enabled: boolean
+) {
+  const { session } = useAuth();
+  return useQuery<ActiveProctoringDto | null>({
+    queryKey: ['proctoring-recordings', 'active', enrollmentId, courseId],
+    enabled: Boolean(session) && enabled && Boolean(enrollmentId) && Boolean(courseId),
+    queryFn: () => proctoringApi.active(session!, enrollmentId, courseId)
   });
 }
 

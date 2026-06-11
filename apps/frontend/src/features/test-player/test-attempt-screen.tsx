@@ -5,7 +5,13 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { formatTimeRemaining, remainingMsFromExpiry } from './format';
-import { useAttempt, useAttemptQuestions, useSaveAnswer, useSubmitAttempt } from './hooks';
+import {
+  useAttempt,
+  useAttemptQuestions,
+  useMyTests,
+  useSaveAnswer,
+  useSubmitAttempt
+} from './hooks';
 import {
   PageContainer,
   PageHeader,
@@ -14,7 +20,7 @@ import {
 } from '../../components/state-wrappers';
 import { useAuth } from '../auth/context';
 import { stopAndCompleteActiveProctoring } from '../proctoring/active-recording';
-import { ProctoringRecIndicator } from '../proctoring/screens';
+import { ProctoringRecIndicator, ProctoringResumeBanner } from '../proctoring/screens';
 
 import type { AnswerDraftMap, AttemptQuestion, SaveAnswerPayload } from './types';
 
@@ -36,6 +42,11 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
   } = useAttemptQuestions(attemptId);
   const saveAnswer = useSaveAnswer();
   const submitAttempt = useSubmitAttempt();
+  // Fix I1: the resume banner needs enrollmentId+courseId — derived the same way the tests list
+  // does (LearnerTestSummary carries courseId; AttemptDto only knows testId+enrollmentId).
+  const { data: myTests } = useMyTests();
+  // Bump to re-render after a resumed recording so the top-level ● REC indicator reappears.
+  const [, setProctoringResumeTick] = useState(0);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [drafts, setDrafts] = useState<AnswerDraftMap>({});
@@ -142,10 +153,23 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
   const draft = drafts[q.id] ?? {};
   const isLast = currentIndex === questions.length - 1;
 
+  // Fix I1: detect a recording session orphaned by a mid-exam refresh and offer to resume.
+  const attemptInProgress = attempt.status === 'in_progress' || attempt.status === 'draft';
+  const testSummary = myTests?.find(
+    (t) => t.testId === testId && t.enrollmentId === attempt.enrollmentId
+  );
+
   return (
     <PageContainer>
       <PageHeader title="Прохождение теста" />
       <ProctoringRecIndicator />
+      {attemptInProgress && testSummary ? (
+        <ProctoringResumeBanner
+          enrollmentId={attempt.enrollmentId}
+          courseId={testSummary.courseId}
+          onResumed={() => setProctoringResumeTick((n) => n + 1)}
+        />
+      ) : null}
       <SectionCard title={q.title}>
         {remainingMs !== null ? <p>Осталось времени: {formatTimeRemaining(remainingMs)}</p> : null}
         <p>

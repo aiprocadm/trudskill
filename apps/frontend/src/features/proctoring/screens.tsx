@@ -7,7 +7,12 @@ import { useEffect, useRef, useState } from 'react';
 import { getActiveProctoring, setActiveProctoring } from './active-recording';
 import { proctoringApi } from './api';
 import { chunkIssueLabel, formatDateShort, formatProctoringStatus } from './format';
-import { makeChunkUploader, useProctoringDetail, useProctoringQueue } from './hooks';
+import {
+  makeChunkUploader,
+  useActiveProctoringSession,
+  useProctoringDetail,
+  useProctoringQueue
+} from './hooks';
 import { ProctoringRecorder } from './recorder';
 import {
   PageContainer,
@@ -20,6 +25,7 @@ import { useAuth } from '../auth/context';
 
 import type { MediaRecorderLike, MediaStreamLike } from './recorder';
 import type { ProctoringRecordingStatus } from './types';
+import type { UserSession } from '../../entities/session/model';
 import type { ReactElement } from 'react';
 
 /** Prefer vp8/opus webm (valid chunk concatenation); Safari falls back to the browser default (mp4). */
@@ -29,6 +35,29 @@ function supportedRecorderOptions(): MediaRecorderOptions {
     return { mimeType: preferred };
   }
   return {};
+}
+
+/** Shared by the consent panel (fresh start) and the resume banner (after a mid-exam refresh). */
+function buildRecorder(
+  session: UserSession,
+  recordingId: string,
+  stream: MediaStream,
+  startSequence: number
+): ProctoringRecorder {
+  return new ProctoringRecorder(
+    {
+      getUserMedia: async () => stream as unknown as MediaStreamLike,
+      // Casts are deliberate: the recorder's structural types are narrower than the DOM ones
+      // (MediaRecorderLike.ondataavailable takes { data: Blob }, the DOM handler a full BlobEvent).
+      createRecorder: (s) =>
+        new MediaRecorder(
+          s as unknown as MediaStream,
+          supportedRecorderOptions()
+        ) as unknown as MediaRecorderLike,
+      uploadChunk: makeChunkUploader(session, recordingId)
+    },
+    startSequence
+  );
 }
 
 /**
@@ -91,21 +120,7 @@ export function ProctoringStartPanel({
         consent: true
       });
       const startSequence = recording.chunks.reduce((max, c) => Math.max(max, c.sequence), -1) + 1;
-      const stream = streamRef.current;
-      const recorder = new ProctoringRecorder(
-        {
-          getUserMedia: async () => stream as unknown as MediaStreamLike,
-          // Casts are deliberate: the recorder's structural types are narrower than the DOM ones
-          // (MediaRecorderLike.ondataavailable takes { data: Blob }, the DOM handler a full BlobEvent).
-          createRecorder: (s) =>
-            new MediaRecorder(
-              s as unknown as MediaStream,
-              supportedRecorderOptions()
-            ) as unknown as MediaRecorderLike,
-          uploadChunk: makeChunkUploader(session, recording.id)
-        },
-        startSequence
-      );
+      const recorder = buildRecorder(session, recording.id, streamRef.current, startSequence);
       await recorder.start();
       setActiveProctoring({ recordingId: recording.id, recorder });
       onRecordingStarted();
@@ -163,6 +178,77 @@ export function ProctoringRecIndicator(): ReactElement | null {
     >
       ● REC
     </span>
+  );
+}
+
+/**
+ * Holistic-review fix I1: a mid-exam F5 kills the module-singleton recorder while the backend
+ * session stays 'recording'. Rendered on the attempt screen; when the server reports an active
+ * session and no local recorder exists, shows a blocking-style banner with a resume button:
+ * re-acquire the camera, restart the recorder from `nextSequence` (consent is already on record
+ * server-side — no new checkbox) and re-register the module holder. Renders nothing when
+ * proctoring is not required or the session is already completed.
+ */
+export function ProctoringResumeBanner({
+  enrollmentId,
+  courseId,
+  onResumed
+}: {
+  enrollmentId: string;
+  courseId: string;
+  /** Lets the attempt screen re-render so the top-level ● REC indicator reappears. */
+  onResumed: () => void;
+}): ReactElement | null {
+  const { session } = useAuth();
+  const hasLocalRecorder = Boolean(getActiveProctoring());
+  const [isResuming, setIsResuming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { data: active } = useActiveProctoringSession(enrollmentId, courseId, !hasLocalRecorder);
+
+  if (hasLocalRecorder || !active || active.recording.recordingStatus !== 'recording') return null;
+
+  const onResume = async () => {
+    if (!session) return;
+    setIsResuming(true);
+    setError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      // New MediaRecorder segment starts with a fresh container header; the admin player
+      // tolerates it and the sequence gap is reported in detail anyway (spec §2.8).
+      const recorder = buildRecorder(session, active.recording.id, stream, active.nextSequence);
+      await recorder.start();
+      setActiveProctoring({ recordingId: active.recording.id, recorder });
+      onResumed();
+    } catch {
+      setError(
+        'Не удалось возобновить запись: камера недоступна. Разрешите доступ к камере и микрофону и попробуйте ещё раз.'
+      );
+    } finally {
+      setIsResuming(false);
+    }
+  };
+
+  return (
+    <div
+      className="ui-stack"
+      role="alert"
+      data-testid="proctoring-resume-banner"
+      style={{ border: '2px solid #c00', borderRadius: 4, padding: 12 }}
+    >
+      <p style={{ fontWeight: 700, margin: 0 }}>
+        Запись прервана обновлением страницы — возобновите запись. Экзамен записывается на видео
+        (прокторинг); согласие уже учтено.
+      </p>
+      {error ? <SectionError message={error} /> : null}
+      <button
+        type="button"
+        className="ui-button"
+        disabled={isResuming}
+        onClick={() => void onResume()}
+      >
+        {isResuming ? 'Включаем запись…' : 'Возобновить запись'}
+      </button>
+    </div>
   );
 }
 
