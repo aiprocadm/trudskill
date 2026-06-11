@@ -117,8 +117,12 @@ import type {
   ModuleProgress,
   OtTrainingProgram,
   PreExamToken,
+  ProctoringChunkIssue,
   ProctoringOverride,
+  ProctoringPlaybackChunk,
   ProctoringRecording,
+  ProctoringRecordingDetail,
+  ProctoringRecordingView,
   ProgressStatus,
   Question,
   QuestionBank,
@@ -3901,6 +3905,90 @@ export class MvpService {
     if (!active) return null;
     const maxSequence = active.chunks.reduce((max, c) => Math.max(max, c.sequence), -1);
     return { recording: active, nextSequence: maxSequence + 1 };
+  }
+
+  /** Admin queue (proctoring.read): sessions (optionally by recordingStatus), newest first, enriched. */
+  listProctoringRecordings(
+    tenantId: string,
+    query: { status?: string }
+  ): ProctoringRecordingView[] {
+    return this.state.proctoringRecordings
+      .filter(
+        (r) => r.tenantId === tenantId && (!query.status || r.recordingStatus === query.status)
+      )
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((r) => this.toProctoringRecordingView(tenantId, r));
+  }
+
+  private toProctoringRecordingView(
+    tenantId: string,
+    record: ProctoringRecording
+  ): ProctoringRecordingView {
+    const learner = this.state.learners.find(
+      (l) => l.tenantId === tenantId && l.id === record.learnerId
+    );
+    const learnerName = [learner?.lastName, learner?.firstName, learner?.middleName]
+      .filter(Boolean)
+      .join(' ');
+    const course = this.state.courses.find(
+      (c) => c.tenantId === tenantId && c.id === record.courseId
+    );
+    const attempt = record.attemptId
+      ? this.state.attempts.find((a) => a.tenantId === tenantId && a.id === record.attemptId)
+      : undefined;
+    return {
+      ...record,
+      learnerName,
+      courseTitle: course?.title ?? '',
+      ...(attempt ? { attemptStatus: attempt.status } : {})
+    };
+  }
+
+  /**
+   * Admin detail + playback (proctoring.read): ordered presigned GET urls of CLEAN chunks.
+   * Infected chunks → excluded with a file_infected issue (no URL request — batch AV check first);
+   * URL-signing failures degrade per-chunk (mirror of Plan A selfieFileError); sequence gaps
+   * 0..max are reported as missing_chunk. A purged recording returns metadata only.
+   */
+  async getProctoringRecordingView(
+    tenantId: string,
+    recordingId: string
+  ): Promise<ProctoringRecordingDetail> {
+    const record = this.getById(this.state.proctoringRecordings, tenantId, recordingId);
+    const view = this.toProctoringRecordingView(tenantId, record);
+    const playbackChunks: ProctoringPlaybackChunk[] = [];
+    const chunkIssues: ProctoringChunkIssue[] = [];
+    const chunks = [...record.chunks].sort((a, b) => a.sequence - b.sequence);
+    if (!record.purgedAt && chunks.length > 0) {
+      const statuses = await this.filesService.getAntivirusStatuses(
+        tenantId,
+        chunks.map((c) => c.fileId)
+      );
+      for (const chunk of chunks) {
+        if (statuses.get(chunk.fileId) === 'infected') {
+          chunkIssues.push({ sequence: chunk.sequence, code: 'file_infected' });
+          continue;
+        }
+        try {
+          const url = await this.filesService.createDownloadUrl(tenantId, chunk.fileId);
+          playbackChunks.push({ sequence: chunk.sequence, fileId: chunk.fileId, url });
+        } catch (err) {
+          const rawCode =
+            err instanceof HttpException
+              ? ((err.getResponse() as { code?: string }).code ?? 'file_error')
+              : 'file_error';
+          const code: ProctoringChunkIssue['code'] =
+            rawCode === 'file_infected' || rawCode === 'file_scan_failed' ? rawCode : 'file_error';
+          chunkIssues.push({ sequence: chunk.sequence, code });
+        }
+      }
+      const present = new Set(chunks.map((c) => c.sequence));
+      const maxSequence = chunks[chunks.length - 1]!.sequence;
+      for (let sequence = 0; sequence <= maxSequence; sequence += 1) {
+        if (!present.has(sequence)) chunkIssues.push({ sequence, code: 'missing_chunk' });
+      }
+    }
+    return { ...view, playbackChunks, chunkIssues };
   }
 
   saveAnswer(

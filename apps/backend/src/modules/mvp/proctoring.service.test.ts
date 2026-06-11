@@ -604,3 +604,112 @@ describe('proctoring gate (5th assert in startAttempt)', () => {
     ).not.toThrow();
   });
 });
+
+describe('proctoring admin views', () => {
+  async function seedWithChunks(service: MvpService, sequences: number[]) {
+    const seed = seedProctoredExam(service, true);
+    const recording = service.startProctoringRecording(
+      T,
+      'u_l1',
+      { enrollmentId: seed.enrollment.id, courseId: seed.course.id, consent: true },
+      ctxL1
+    );
+    for (const sequence of sequences) {
+      await service.createProctoringChunkUploadIntent(
+        T,
+        'u_l1',
+        recording.id,
+        {
+          sequence,
+          originalName: `c${sequence}.webm`,
+          contentType: 'video/webm',
+          sizeBytes: 10
+        },
+        ctxL1
+      );
+    }
+    return { ...seed, recording };
+  }
+
+  it('list enriches learnerName + courseTitle and filters by status', async () => {
+    const { service } = makeService();
+    const { recording, course } = await seedWithChunks(service, [0]);
+    const all = service.listProctoringRecordings(T, {});
+    expect(all).toHaveLength(1);
+    expect(all[0]!.learnerName).toContain('Doe');
+    expect(all[0]!.courseTitle).toBe(course.title);
+    expect(service.listProctoringRecordings(T, { status: 'recording' })).toHaveLength(1);
+    expect(service.listProctoringRecordings(T, { status: 'completed' })).toHaveLength(0);
+    service.completeProctoringRecording(T, 'u_l1', recording.id, ctxL1);
+    expect(service.listProctoringRecordings(T, { status: 'completed' })).toHaveLength(1);
+  });
+
+  it('list enriches attemptStatus once the attempt is linked', async () => {
+    const { service } = makeService();
+    const { test, enrollment } = await seedWithChunks(service, [0]);
+    service.startAttempt(T, 'u_l1', startArgs(test, enrollment), ctxL1);
+    const rows = service.listProctoringRecordings(T, {});
+    expect(rows[0]!.attemptId).toBeTruthy();
+    expect(rows[0]!.attemptStatus).toBe('in_progress');
+  });
+
+  it('detail returns presigned GET urls of clean chunks ordered by sequence', async () => {
+    const { service, files } = makeService();
+    const { recording } = await seedWithChunks(service, [1, 0, 2]);
+    const detail = await service.getProctoringRecordingView(T, recording.id);
+    expect(detail.playbackChunks.map((c) => c.sequence)).toEqual([0, 1, 2]);
+    expect(detail.playbackChunks.every((c) => c.url === 'https://minio.local/GET-signed')).toBe(
+      true
+    );
+    expect(detail.chunkIssues).toEqual([]);
+    expect(files.createDownloadUrl).toHaveBeenCalledTimes(3);
+  });
+
+  it('infected chunk is excluded with a file_infected issue; the rest still play', async () => {
+    const { service, files } = makeService();
+    const { recording } = await seedWithChunks(service, [0, 1]);
+    const infectedFileId = recording.chunks.find((c) => c.sequence === 1)!.fileId;
+    files.getAntivirusStatuses.mockImplementation(
+      async (_t: string, ids: string[]) =>
+        new Map(ids.map((id) => [id, id === infectedFileId ? 'infected' : 'clean']))
+    );
+    const detail = await service.getProctoringRecordingView(T, recording.id);
+    expect(detail.playbackChunks.map((c) => c.sequence)).toEqual([0]);
+    expect(detail.chunkIssues).toContainEqual({ sequence: 1, code: 'file_infected' });
+    expect(files.createDownloadUrl).toHaveBeenCalledTimes(1); // infected never hits the URL signer
+  });
+
+  it('sequence gaps are reported as missing_chunk issues', async () => {
+    const { service } = makeService();
+    const { recording } = await seedWithChunks(service, [0, 2, 3]);
+    const detail = await service.getProctoringRecordingView(T, recording.id);
+    expect(detail.chunkIssues).toContainEqual({ sequence: 1, code: 'missing_chunk' });
+    expect(detail.playbackChunks.map((c) => c.sequence)).toEqual([0, 2, 3]);
+  });
+
+  it('a download-url failure degrades to an issue instead of failing the whole detail', async () => {
+    const { service, files } = makeService();
+    const { recording } = await seedWithChunks(service, [0, 1]);
+    const failingFileId = recording.chunks.find((c) => c.sequence === 0)!.fileId;
+    const { ConflictException: NestConflict } = await import('@nestjs/common');
+    files.createDownloadUrl.mockImplementation(async (_t: string, fileId: string) => {
+      if (fileId === failingFileId) {
+        throw new NestConflict({ code: 'file_scan_failed', message: 'scan did not complete' });
+      }
+      return 'https://minio.local/GET-signed';
+    });
+    const detail = await service.getProctoringRecordingView(T, recording.id);
+    expect(detail.chunkIssues).toContainEqual({ sequence: 0, code: 'file_scan_failed' });
+    expect(detail.playbackChunks.map((c) => c.sequence)).toEqual([1]);
+  });
+
+  it('a purged recording returns metadata with no playback chunks and no issues', async () => {
+    const { service, files } = makeService();
+    const { recording } = await seedWithChunks(service, [0]);
+    recording.purgedAt = '2027-06-12T00:00:00.000Z';
+    const detail = await service.getProctoringRecordingView(T, recording.id);
+    expect(detail.playbackChunks).toEqual([]);
+    expect(detail.chunkIssues).toEqual([]);
+    expect(files.createDownloadUrl).not.toHaveBeenCalled();
+  });
+});
