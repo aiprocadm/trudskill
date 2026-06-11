@@ -34,6 +34,7 @@ import type {
   OtRegistryBatch,
   OtRegistryRecord,
   PreExamToken,
+  ProctoringRecording,
   Question,
   QuestionBank,
   TestAttempt,
@@ -80,6 +81,8 @@ export class InMemoryMvpState {
   preExamTokens: PreExamToken[] = [];
   // Phase 4 Plan A — documentary identity verification (selfie+passport); per-learner records.
   identityVerifications: IdentityVerification[] = [];
+  // Phase 4 Plan B — proctoring recording sessions (webcam video of final exams).
+  proctoringRecordings: ProctoringRecording[] = [];
   // Wave 2 — ОТ-реестр (Минтруд/ЕИСОТ): durable export batches + per-record set.
   otRegistryBatches: OtRegistryBatch[] = [];
   otRegistryRecords: OtRegistryRecord[] = [];
