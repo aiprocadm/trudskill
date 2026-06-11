@@ -1,6 +1,6 @@
 # Phase 4 · Plan A — Identity Verification (selfie + passport, manual review) Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** A learner submits a selfie + passport photo once; an admin manually approves/rejects against stored ФИО/СНИЛС/дата-рождения; an approved verification unlocks identity-gated final exams via a new `assertIdentityVerificationGate` in `MvpService.startAttempt`.
 
@@ -77,7 +77,7 @@
 
 - Create: `apps/backend/migrations/0050_learning_identity_verification.sql`
 
-- [ ] **Step 1: Write the migration**
+- [x] **Step 1: Write the migration**
 
 ```sql
 -- 0050_learning_identity_verification.sql
@@ -149,12 +149,12 @@ ON CONFLICT (tenant_id, role_id, permission_id) DO NOTHING;
 COMMIT;
 ```
 
-- [ ] **Step 2: Run the migration test suite**
+- [x] **Step 2: Run the migration test suite**
 
 Run: `pnpm test:migrations`
 Expected: PASS — `0050` applies after `0049`. If a test enumerates the latest migration number, update it.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/backend/migrations/0050_learning_identity_verification.sql
@@ -173,14 +173,14 @@ git commit -m "feat(backend): identity verification typed contract — toggle, t
 - Modify: `apps/backend/src/modules/mvp/mvp.dto.ts` (`CreateGroupCourseRequest`, `UpdateGroupCourseRequest`)
 - Modify: `apps/backend/src/modules/mvp/mvp.service.ts` (`createGroupCourse` / `updateGroupCourse`)
 
-- [ ] **Step 1: Add `requiresIdentityVerification` to `GroupCourse`** in `mvp.types.ts` (after `requiresPreExamAuth?`, line ~98):
+- [x] **Step 1: Add `requiresIdentityVerification` to `GroupCourse`** in `mvp.types.ts` (after `requiresPreExamAuth?`, line ~98):
 
 ```typescript
   /** Phase 4 Plan A: require documentary identity verification (selfie+passport) before the final exam. */
   requiresIdentityVerification?: boolean;
 ```
 
-- [ ] **Step 2: Add the `IdentityVerification` types** in `mvp.types.ts` after the `PreExamToken` block (line ~348):
+- [x] **Step 2: Add the `IdentityVerification` types** in `mvp.types.ts` after the `PreExamToken` block (line ~348):
 
 ```typescript
 export type IdentityVerificationStatus = 'draft' | 'pending' | 'approved' | 'rejected';
@@ -216,18 +216,18 @@ export interface IdentityVerificationView extends IdentityVerification {
 }
 ```
 
-- [ ] **Step 3: Register the collection in `InMemoryMvpState`** (`in-memory-mvp.state.ts`): add `IdentityVerification` to the type import block, and the array field after `preExamTokens`:
+- [x] **Step 3: Register the collection in `InMemoryMvpState`** (`in-memory-mvp.state.ts`): add `IdentityVerification` to the type import block, and the array field after `preExamTokens`:
 
 ```typescript
   // Phase 4 Plan A — documentary identity verification (selfie+passport); per-learner records.
   identityVerifications: IdentityVerification[] = [];
 ```
 
-- [ ] **Step 4: Register the key in `mvp-collections.ts`** — add `'identityVerifications'` right after `'preExamTokens'` in `MVP_COLLECTIONS`.
+- [x] **Step 4: Register the key in `mvp-collections.ts`** — add `'identityVerifications'` right after `'preExamTokens'` in `MVP_COLLECTIONS`.
 
 > ⚠️ Steps 3 and 4 MUST land together — a collection missing from either list is silently lost between HTTP requests (CLAUDE.md).
 
-- [ ] **Step 5: Add `requiresIdentityVerification` to the two group-course DTOs** in `mvp.dto.ts`, mirroring `requiresPreExamAuth` exactly (both `CreateGroupCourseRequest` and `UpdateGroupCourseRequest`):
+- [x] **Step 5: Add `requiresIdentityVerification` to the two group-course DTOs** in `mvp.dto.ts`, mirroring `requiresPreExamAuth` exactly (both `CreateGroupCourseRequest` and `UpdateGroupCourseRequest`):
 
 ```typescript
   @IsOptional()
@@ -235,14 +235,14 @@ export interface IdentityVerificationView extends IdentityVerification {
   requiresIdentityVerification?: boolean;
 ```
 
-- [ ] **Step 6: Persist the flag in `MvpService.createGroupCourse` / `updateGroupCourse`** — mirror the existing `requiresPreExamAuth` handling in both methods (conditional spread in the create literal; `if (request.requiresIdentityVerification !== undefined) { ... }` in update — match the file's existing style for `requiresPreExamAuth`, it is directly adjacent).
+- [x] **Step 6: Persist the flag in `MvpService.createGroupCourse` / `updateGroupCourse`** — mirror the existing `requiresPreExamAuth` handling in both methods (conditional spread in the create literal; `if (request.requiresIdentityVerification !== undefined) { ... }` in update — match the file's existing style for `requiresPreExamAuth`, it is directly adjacent).
 
-- [ ] **Step 7: Typecheck**
+- [x] **Step 7: Typecheck**
 
 Run: `pnpm typecheck`
 Expected: PASS (8/8).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.types.ts apps/backend/src/modules/mvp/infrastructure/in-memory-mvp.state.ts apps/backend/src/modules/mvp/infrastructure/mvp-collections.ts apps/backend/src/modules/mvp/mvp.dto.ts apps/backend/src/modules/mvp/mvp.service.ts
@@ -260,7 +260,7 @@ git commit -m "feat(backend): identity verification model + collection + group-c
 - Modify: `apps/backend/src/modules/files/files.service.ts`
 - Modify: `apps/backend/src/modules/files/files.service.upload.test.ts`
 
-- [ ] **Step 1: Write the failing tests** — append to `files.service.upload.test.ts` (reuse its `makeFilesService` helper; extend the `storage` stub with `deleteObject: vi.fn(async () => undefined)`):
+- [x] **Step 1: Write the failing tests** — append to `files.service.upload.test.ts` (reuse its `makeFilesService` helper; extend the `storage` stub with `deleteObject: vi.fn(async () => undefined)`):
 
 ```typescript
 describe('FilesService.createUploadIntent — options', () => {
@@ -317,12 +317,12 @@ describe('FilesService.deleteFile', () => {
 
 > Note: if direct reassignment of `db.query` is awkward, instead extend `makeFilesService` with an `emptyDb?: boolean` option that returns `[]` from every select. Keep the assertion intent identical.
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/files/files.service.upload.test.ts --no-file-parallelism`
 Expected: FAIL — options param and `deleteFile` do not exist.
 
-- [ ] **Step 3: Implement.** In `storage.client.ts`, add to the `StorageClient` interface:
+- [x] **Step 3: Implement.** In `storage.client.ts`, add to the `StorageClient` interface:
 
 ```typescript
   deleteObject(params: { key: string }): Promise<void>;
@@ -404,12 +404,12 @@ And `deleteFile`:
   }
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/files/files.service.upload.test.ts --no-file-parallelism`
 Expected: PASS (existing + new tests).
 
-- [ ] **Step 5: Typecheck + commit**
+- [x] **Step 5: Typecheck + commit**
 
 Run: `pnpm typecheck` → PASS (8/8).
 
@@ -427,7 +427,7 @@ git commit -m "feat(backend): upload-intent options (prefix/allowlist) + object 
 - Modify: `apps/backend/src/modules/mvp/mvp.service.ts`
 - Create: `apps/backend/src/modules/mvp/identity-verification.service.test.ts`
 
-- [ ] **Step 1: Write the failing service tests.** Create `identity-verification.service.test.ts`. Mirror the harness of `pre-exam-auth.service.test.ts` (same imports, `T`/`ADMIN`/`ctx` constants, 6-arg `MvpService` construction), but with a capturing files mock:
+- [x] **Step 1: Write the failing service tests.** Create `identity-verification.service.test.ts`. Mirror the harness of `pre-exam-auth.service.test.ts` (same imports, `T`/`ADMIN`/`ctx` constants, 6-arg `MvpService` construction), but with a capturing files mock:
 
 ```typescript
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -716,12 +716,12 @@ describe('identity verification lifecycle', () => {
 
 > **Executor note:** check the actual `createLearnerExtended` request shape in `mvp.service.ts` / `mvp.dto.ts` before running — adjust the seed call (or fall back to `createLearner` + direct state mutation of `snils`) so the test compiles against the real signature. The assertion intent (enriched `learnerName` + `snils`) must stay.
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/identity-verification.service.test.ts --no-file-parallelism`
 Expected: FAIL — methods do not exist.
 
-- [ ] **Step 3: Implement in `mvp.service.ts`.** Add near `preExamLogger`:
+- [x] **Step 3: Implement in `mvp.service.ts`.** Add near `preExamLogger`:
 
 ```typescript
   private readonly identityVerificationLogger = new Logger('IdentityVerification');
@@ -1032,12 +1032,12 @@ Add `IdentityVerification`, `IdentityVerificationView`, `IdentityVerificationSta
 
 > Reuse existing imports: `ConflictException`, `BadRequestException`, `PreconditionFailedException`, `Logger` are already imported in `mvp.service.ts`; `UploadIntent` type is already imported for `createSubmissionUploadIntent`. Add `Learner` to the type import only if it is not already there.
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/identity-verification.service.test.ts --no-file-parallelism`
 Expected: PASS (11 cases).
 
-- [ ] **Step 5: Lint + commit**
+- [x] **Step 5: Lint + commit**
 
 Run: `npx eslint apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/identity-verification.service.test.ts --max-warnings=0`
 
@@ -1055,7 +1055,7 @@ git commit -m "feat(backend): identity verification lifecycle — start/upload/s
 - Modify: `apps/backend/src/modules/mvp/mvp.service.ts`
 - Modify: `apps/backend/src/modules/mvp/identity-verification.service.test.ts`
 
-- [ ] **Step 1: Write the failing gate tests.** Append to `identity-verification.service.test.ts` a copy of the `seedFinalExam` helper from `pre-exam-auth.service.test.ts`, parameterized with `requiresIdentityVerification`:
+- [x] **Step 1: Write the failing gate tests.** Append to `identity-verification.service.test.ts` a copy of the `seedFinalExam` helper from `pre-exam-auth.service.test.ts`, parameterized with `requiresIdentityVerification`:
 
 ```typescript
 /** course → group → groupCourse(requiresIdentityVerification) → learner → enrollment → bank → final test. */
@@ -1172,9 +1172,9 @@ describe('identity verification gate', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure** (same vitest command as Task 4). Expected: new gate tests FAIL (no gate yet → attempts start).
+- [x] **Step 2: Run to verify failure** (same vitest command as Task 4). Expected: new gate tests FAIL (no gate yet → attempts start).
 
-- [ ] **Step 3: Implement.** In `mvp.service.ts`, add after `findApprovedIdentityVerification`:
+- [x] **Step 3: Implement.** In `mvp.service.ts`, add after `findApprovedIdentityVerification`:
 
 ```typescript
   /** Phase 4 Plan A: the group-course toggle for documentary identity verification. */
@@ -1222,12 +1222,12 @@ this.assertPreExamAuthGate(tenantId, enrollment, test);
 this.assertIdentityVerificationGate(tenantId, enrollment, test);
 ```
 
-- [ ] **Step 4: Run target + regression**
+- [x] **Step 4: Run target + regression**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/identity-verification.service.test.ts --no-file-parallelism` → PASS (16 total).
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/pre-exam-auth.service.test.ts src/modules/mvp/module-gating.service.test.ts src/modules/mvp/test-player.service.test.ts src/modules/mvp/business-flows.e2e.test.ts --no-file-parallelism` → PASS (no regression).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/identity-verification.service.test.ts
@@ -1243,7 +1243,7 @@ git commit -m "feat(backend): identity verification gate in startAttempt (Phase 
 - Modify: `apps/backend/src/modules/mvp/mvp.dto.ts`
 - Modify: `apps/backend/src/modules/mvp/mvp.dto-validation.test.ts`
 
-- [ ] **Step 1: Write the failing DTO tests** (mirror the file's existing `plainToInstance` + `validateSync` style):
+- [x] **Step 1: Write the failing DTO tests** (mirror the file's existing `plainToInstance` + `validateSync` style):
 
 ```typescript
 import {
@@ -1305,11 +1305,11 @@ describe('Identity verification DTOs (Phase 4 Plan A)', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.dto-validation.test.ts --no-file-parallelism` → FAIL (classes missing).
 
-- [ ] **Step 3: Add the DTOs** to `mvp.dto.ts` (near `CreateUploadUrlRequest`); ensure `Equals` and `IsIn` are in the `class-validator` import:
+- [x] **Step 3: Add the DTOs** to `mvp.dto.ts` (near `CreateUploadUrlRequest`); ensure `Equals` and `IsIn` are in the `class-validator` import:
 
 ```typescript
 /** Phase 4 Plan A: start (or resume the draft of) a documentary identity verification. */
@@ -1346,9 +1346,9 @@ export class ReviewIdentityVerificationRequest {
 }
 ```
 
-- [ ] **Step 4: Run to verify pass** (same command) → PASS.
+- [x] **Step 4: Run to verify pass** (same command) → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.dto.ts apps/backend/src/modules/mvp/mvp.dto-validation.test.ts
@@ -1364,7 +1364,7 @@ git commit -m "feat(backend): identity verification DTOs (Phase 4 Plan A)"
 - Modify: `apps/backend/src/modules/mvp/mvp.controller.ts`
 - Modify: `apps/backend/src/modules/mvp/mvp.http.integration.test.ts`
 
-- [ ] **Step 1: Add the endpoints** in `mvp.controller.ts` (import the 3 new DTOs; place the block after the pre-exam-token endpoints, ~line 900). **Route order matters: `identity-verifications/me` MUST be declared before `identity-verifications/:id`.**
+- [x] **Step 1: Add the endpoints** in `mvp.controller.ts` (import the 3 new DTOs; place the block after the pre-exam-token endpoints, ~line 900). **Route order matters: `identity-verifications/me` MUST be declared before `identity-verifications/:id`.**
 
 ```typescript
   // ─── Phase 4 Plan A: documentary identity verification ───
@@ -1435,7 +1435,7 @@ git commit -m "feat(backend): identity verification DTOs (Phase 4 Plan A)"
   }
 ```
 
-- [ ] **Step 2: Extend the stub controller + add the boundary describe-block** in `mvp.http.integration.test.ts`. In the `TestMvpController` (after the recertification stubs, ~line 385), add:
+- [x] **Step 2: Extend the stub controller + add the boundary describe-block** in `mvp.http.integration.test.ts`. In the `TestMvpController` (after the recertification stubs, ~line 385), add:
 
 ```typescript
       // Phase 4 Plan A — identity verification permission boundary
@@ -1467,12 +1467,12 @@ Then append a describe-block mirroring the recertification boundary block exactl
 - `POST /identity-verifications` → 403 without `identity.submit`; 201 with it.
 - `POST /identity-verifications/x/review` → 403 with only `identity.read`; 201 with `identity.review`.
 
-- [ ] **Step 3: Run the boundary test (isolated)**
+- [x] **Step 3: Run the boundary test (isolated)**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.http.integration.test.ts --no-file-parallelism`
 Expected: PASS. (If this file crashes on the Cyrillic path, note it and rely on CI.)
 
-- [ ] **Step 4: Typecheck + lint + commit**
+- [x] **Step 4: Typecheck + lint + commit**
 
 Run: `pnpm typecheck` → 8/8. `npx eslint apps/backend/src/modules/mvp/mvp.controller.ts --max-warnings=0` → clean.
 
@@ -1495,7 +1495,7 @@ git commit -m "feat(backend): identity verification endpoints + RBAC boundary (P
 - Create: `apps/backend/src/modules/mvp/identity/identity-retention-scheduler.service.ts`
 - Modify: `apps/backend/src/modules/mvp/mvp.module.ts`
 
-- [ ] **Step 1: Env vars.** In `env.schema.ts`, next to `RECERTIFICATION_SCAN_ENABLED` (line ~53), add with the same custom boolean parse (NOT `z.coerce.boolean` — it maps `"false"` → `true`):
+- [x] **Step 1: Env vars.** In `env.schema.ts`, next to `RECERTIFICATION_SCAN_ENABLED` (line ~53), add with the same custom boolean parse (NOT `z.coerce.boolean` — it maps `"false"` → `true`):
 
 ```typescript
     // Identity image retention purge (Phase 4 Plan A). Ships dormant; ops enables after
@@ -1508,7 +1508,7 @@ git commit -m "feat(backend): identity verification endpoints + RBAC boundary (P
     IDENTITY_RETENTION_CRON_SCHEDULE: z.string().default('0 4 * * *'),
 ```
 
-- [ ] **Step 2: Write the failing pure-function test** (`identity-image-retention.test.ts`):
+- [x] **Step 2: Write the failing pure-function test** (`identity-image-retention.test.ts`):
 
 ```typescript
 import { describe, expect, it } from 'vitest';
@@ -1552,7 +1552,7 @@ describe('selectIdentityImagesToPurge', () => {
 });
 ```
 
-- [ ] **Step 3: Run → FAIL, then implement** `identity-image-retention.ts`:
+- [x] **Step 3: Run → FAIL, then implement** `identity-image-retention.ts`:
 
 ```typescript
 import { addDays } from '../../../common/utils/date-math.util.js';
@@ -1590,7 +1590,7 @@ export function selectIdentityImagesToPurge<T extends IdentityRetentionCandidate
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/identity/identity-image-retention.test.ts --no-file-parallelism` → PASS.
 
-- [ ] **Step 4: Write the failing scanner test** (`identity-retention-scanner.service.test.ts`):
+- [x] **Step 4: Write the failing scanner test** (`identity-retention-scanner.service.test.ts`):
 
 ```typescript
 import { describe, expect, it, vi } from 'vitest';
@@ -1668,7 +1668,7 @@ describe('IdentityRetentionScanner', () => {
 });
 ```
 
-- [ ] **Step 5: Run → FAIL, then implement** `identity-retention-scanner.service.ts` (explicit `@Inject` — tsx DI rule):
+- [x] **Step 5: Run → FAIL, then implement** `identity-retention-scanner.service.ts` (explicit `@Inject` — tsx DI rule):
 
 ```typescript
 import { Inject, Injectable, Logger } from '@nestjs/common';
@@ -1731,7 +1731,7 @@ export class IdentityRetentionScanner {
 
 Run the scanner test → PASS.
 
-- [ ] **Step 6: The dormant scheduler** (`identity-retention-scheduler.service.ts`) — mirrors `RemindersSchedulerService` with its own lock key:
+- [x] **Step 6: The dormant scheduler** (`identity-retention-scheduler.service.ts`) — mirrors `RemindersSchedulerService` with its own lock key:
 
 ```typescript
 import { Inject, Injectable, Logger } from '@nestjs/common';
@@ -1806,14 +1806,14 @@ export class IdentityRetentionSchedulerService {
 }
 ```
 
-- [ ] **Step 7: Register providers.** In `mvp.module.ts`, add `IdentityRetentionScanner` and `IdentityRetentionSchedulerService` to the `providers` array, next to where `RemindersSchedulerService` / `RecertificationScanner` are registered (match their import style).
+- [x] **Step 7: Register providers.** In `mvp.module.ts`, add `IdentityRetentionScanner` and `IdentityRetentionSchedulerService` to the `providers` array, next to where `RemindersSchedulerService` / `RecertificationScanner` are registered (match their import style).
 
-- [ ] **Step 8: Verify**
+- [x] **Step 8: Verify**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/identity/identity-image-retention.test.ts src/modules/mvp/identity/identity-retention-scanner.service.test.ts src/env.test.ts --no-file-parallelism` → PASS.
 Run: `pnpm typecheck` → 8/8.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add apps/backend/src/env.schema.ts apps/backend/src/modules/mvp/identity apps/backend/src/modules/mvp/mvp.module.ts
@@ -1833,7 +1833,7 @@ git commit -m "feat(backend): dormant 90-day identity image retention cron (Phas
 - Create: `apps/frontend/src/features/identity-verification/format.ts`
 - Create: `apps/frontend/src/features/identity-verification/format.test.ts`
 
-- [ ] **Step 1: types.ts**
+- [x] **Step 1: types.ts**
 
 ```typescript
 export type IdentityVerificationStatus = 'draft' | 'pending' | 'approved' | 'rejected';
@@ -1891,7 +1891,7 @@ export interface ReviewIdentityVerificationPayload {
 }
 ```
 
-- [ ] **Step 2: Write the failing contract test** (`api.contract.test.ts`) — mirror the structure of `apps/frontend/src/features/recertification/api.contract.test.ts` (same `session` fixture shape, `vi.stubGlobal('fetch', ...)`, `afterEach(() => vi.unstubAllGlobals())`). Cover:
+- [x] **Step 2: Write the failing contract test** (`api.contract.test.ts`) — mirror the structure of `apps/frontend/src/features/recertification/api.contract.test.ts` (same `session` fixture shape, `vi.stubGlobal('fetch', ...)`, `afterEach(() => vi.unstubAllGlobals())`). Cover:
 
 - `identityVerificationApi.me(session)` → GET `/identity-verifications/me`, unwraps `data` (may be `null`).
 - `identityVerificationApi.start(session, {})` → POST `/identity-verifications`, unwraps `{ verificationStatus: 'draft' }`.
@@ -1903,11 +1903,11 @@ export interface ReviewIdentityVerificationPayload {
 
 Each test: stub fetch with `new Response(JSON.stringify({ data: ..., meta: {} }), { status: 200 })`, assert the unwrapped value and `expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining(<path>), expect.objectContaining({ method: <verb> }))`.
 
-- [ ] **Step 3: Run to verify failure**
+- [x] **Step 3: Run to verify failure**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/identity-verification/api.contract.test.ts --no-file-parallelism` → FAIL (module missing).
 
-- [ ] **Step 4: api.ts**
+- [x] **Step 4: api.ts**
 
 ```typescript
 import { apiRequest } from '../../lib/api/client';
@@ -2008,7 +2008,7 @@ export async function putFileToPresignedUrl(uploadUrl: string, file: File): Prom
 
 Run the contract test again → PASS.
 
-- [ ] **Step 5: format.ts + format.test.ts**
+- [x] **Step 5: format.ts + format.test.ts**
 
 ```typescript
 import type { IdentityVerificationStatus } from './types';
@@ -2035,7 +2035,7 @@ export function formatDateShort(iso?: string): string {
 
 `format.test.ts`: assert the four labels, the unknown-status passthrough, `formatDateShort(undefined) === '—'`, `formatDateShort('not-a-date') === '—'`, and that a valid ISO date renders non-'—'.
 
-- [ ] **Step 6: hooks.ts** (React Query for reads, `useState` + async/await for mutations — project convention):
+- [x] **Step 6: hooks.ts** (React Query for reads, `useState` + async/await for mutations — project convention):
 
 ```typescript
 'use client';
@@ -2151,7 +2151,7 @@ export function useIdentityReview() {
 
 > **Executor note:** verify the `useAuth` import path against `features/recertification/hooks.ts` (it is the canonical sibling) and match it exactly.
 
-- [ ] **Step 7: Verify + commit**
+- [x] **Step 7: Verify + commit**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/identity-verification --no-file-parallelism` → PASS.
 Run: `pnpm typecheck` → 8/8.
@@ -2172,7 +2172,7 @@ git commit -m "feat(frontend): identity verification feature module — api/hook
 - Modify: `apps/frontend/src/features/navigation/model.ts`
 - Modify: `apps/frontend/src/features/test-player/tests-list-screen.tsx`
 
-- [ ] **Step 1: Learner screen** — add to `screens.tsx`. Use the project's state wrappers (`PageContainer`, `PageHeader`, `SectionCard`, `LoadingState`, `SectionError` from `src/components/` — check exact import paths in `features/recertification/screens.tsx` and mirror them):
+- [x] **Step 1: Learner screen** — add to `screens.tsx`. Use the project's state wrappers (`PageContainer`, `PageHeader`, `SectionCard`, `LoadingState`, `SectionError` from `src/components/` — check exact import paths in `features/recertification/screens.tsx` and mirror them):
 
 ```tsx
 'use client';
@@ -2265,7 +2265,7 @@ export function LearnerIdentityScreen() {
 
 > **Executor note:** this JSX is the semantic skeleton. Match the _actual_ component APIs (`PageHeader` props, `FieldError`, button classes) used in `features/recertification/screens.tsx` and the practical-submissions submit screen — copy their idioms (including any `ui-*` classNames), not raw HTML, where the project has primitives.
 
-- [ ] **Step 2: Page** `apps/frontend/app/learner/identity/page.tsx` — mirror `app/admin/recertification/page.tsx` exactly (open it first), swapping the screen import:
+- [x] **Step 2: Page** `apps/frontend/app/learner/identity/page.tsx` — mirror `app/admin/recertification/page.tsx` exactly (open it first), swapping the screen import:
 
 ```tsx
 'use client';
@@ -2284,7 +2284,7 @@ export default function LearnerIdentityPage() {
 
 (Adjust relative import depths/props to the real recertification page file.)
 
-- [ ] **Step 3: Navigation.** In `features/navigation/model.ts`:
+- [x] **Step 3: Navigation.** In `features/navigation/model.ts`:
 
 `routeMeta` (near the other `/learner/*` entries):
 
@@ -2305,7 +2305,7 @@ export default function LearnerIdentityPage() {
   },
 ```
 
-- [ ] **Step 4: Exam interstitial.** In `tests-list-screen.tsx`, after the `needsPreExamAuth` detection (line ~29), add:
+- [x] **Step 4: Exam interstitial.** In `tests-list-screen.tsx`, after the `needsPreExamAuth` detection (line ~29), add:
 
 ```typescript
 // Phase 4 Plan A gate: distinct message — does NOT contain "identity verification is required".
@@ -2315,12 +2315,12 @@ const needsIdentityVerification =
 
 Render an interstitial mirroring the existing pre-exam one (same block structure/classNames in this file) when `needsIdentityVerification`: text «Перед экзаменом нужно подтвердить личность (селфи + паспорт)» + a `next/link` `<Link href="/learner/identity">Подтвердить личность</Link>`. Make sure the pre-exam interstitial renders only for `needsPreExamAuth && !needsIdentityVerification` is NOT needed — the two regexes are mutually exclusive by message design; render each on its own flag.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/e2e/lms-role-flows.e2e.test.ts --no-file-parallelism` → PASS (navigation change must not break role flows; if a snapshot of nav items exists, update it deliberately).
 Run: `pnpm typecheck` → 8/8. `npx eslint <touched files> --max-warnings=0` → clean.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/frontend/src/features/identity-verification/screens.tsx apps/frontend/app/learner/identity apps/frontend/src/features/navigation/model.ts apps/frontend/src/features/test-player/tests-list-screen.tsx
@@ -2339,9 +2339,9 @@ git commit -m "feat(frontend): learner identity screen + exam interstitial + nav
 - Modify: `apps/frontend/src/features/navigation/model.ts`
 - Create: `apps/frontend/src/e2e/identity-verification.e2e.test.ts`
 
-- [ ] **Step 1: Admin queue screen** — add `AdminIdentityQueueScreen` to `screens.tsx`: `useIdentityQueue('pending')` (with a status filter toggle for all/pending), `DataTable` from `@cdoprof/ui` with columns: Слушатель (`learnerName`), СНИЛС (`snils ?? '—'`), Статус (`formatIdentityStatus`), Отправлено (`formatDateShort(submittedAt)`), and a row link to `/admin/identity-verifications/${id}`. Mirror the recertification queue screen's `DataTable`/`Column`/`StatusChip` usage exactly.
+- [x] **Step 1: Admin queue screen** — add `AdminIdentityQueueScreen` to `screens.tsx`: `useIdentityQueue('pending')` (with a status filter toggle for all/pending), `DataTable` from `@cdoprof/ui` with columns: Слушатель (`learnerName`), СНИЛС (`snils ?? '—'`), Статус (`formatIdentityStatus`), Отправлено (`formatDateShort(submittedAt)`), and a row link to `/admin/identity-verifications/${id}`. Mirror the recertification queue screen's `DataTable`/`Column`/`StatusChip` usage exactly.
 
-- [ ] **Step 2: Admin detail screen** — add `AdminIdentityDetailScreen({ id }: { id: string })`:
+- [x] **Step 2: Admin detail screen** — add `AdminIdentityDetailScreen({ id }: { id: string })`:
 
 ```tsx
 export function AdminIdentityDetailScreen({ id }: { id: string }) {
@@ -2413,9 +2413,9 @@ export function AdminIdentityDetailScreen({ id }: { id: string }) {
 
 (Same executor note as Task 10 Step 1: match real component APIs. A passport PDF won't render in `<img>` — when `passportUrl` is set but the record's file was a PDF, render an `<a href>` «Открыть документ» link instead; detect by URL extension or just always offer the link alongside.)
 
-- [ ] **Step 3: Pages.** `app/admin/identity-verifications/page.tsx` → `AdminIdentityQueueScreen` in `ProtectedPage` (mirror the recertification page). `app/admin/identity-verifications/[id]/page.tsx` → mirror an existing `[id]` page (e.g. `app/admin/clients/[id]/page.tsx`) for the params pattern — **Next 15: `params` may be a Promise; copy the existing file's idiom exactly** — and render `AdminIdentityDetailScreen id={...}`.
+- [x] **Step 3: Pages.** `app/admin/identity-verifications/page.tsx` → `AdminIdentityQueueScreen` in `ProtectedPage` (mirror the recertification page). `app/admin/identity-verifications/[id]/page.tsx` → mirror an existing `[id]` page (e.g. `app/admin/clients/[id]/page.tsx`) for the params pattern — **Next 15: `params` may be a Promise; copy the existing file's idiom exactly** — and render `AdminIdentityDetailScreen id={...}`.
 
-- [ ] **Step 4: Navigation.** `routeMeta`:
+- [x] **Step 4: Navigation.** `routeMeta`:
 
 ```typescript
   {
@@ -2439,20 +2439,20 @@ export function AdminIdentityDetailScreen({ id }: { id: string }) {
   }
 ```
 
-- [ ] **Step 5: e2e routing smoke** — create `src/e2e/identity-verification.e2e.test.ts` mirroring `admin-bulk-enrollment.e2e.test.ts` / the recertification e2e (same imports: `evaluateRouteAccess`, `getVisibleNavigation`). Assert:
+- [x] **Step 5: e2e routing smoke** — create `src/e2e/identity-verification.e2e.test.ts` mirroring `admin-bulk-enrollment.e2e.test.ts` / the recertification e2e (same imports: `evaluateRouteAccess`, `getVisibleNavigation`). Assert:
 
 - `/admin/identity-verifications` allowed with `['identity.read']`, denied with `[]` and with unrelated perms.
 - `/learner/identity` allowed with `['identity.submit']`, denied without.
 - Nav item «Идентификация» visible only with `identity.read`; «Подтверждение личности» only with `identity.submit`.
 - Dynamic-import smoke: `await import('../features/identity-verification/screens')` resolves and exports the three screens.
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/e2e/identity-verification.e2e.test.ts src/features/identity-verification --no-file-parallelism` → PASS.
 Run: `pnpm test:frontend` → PASS (full frontend suite works on this machine).
 Run: `pnpm typecheck` → 8/8; eslint touched files clean.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/frontend/src/features/identity-verification apps/frontend/app/admin/identity-verifications apps/frontend/src/features/navigation/model.ts apps/frontend/src/e2e/identity-verification.e2e.test.ts
@@ -2463,13 +2463,13 @@ git commit -m "feat(frontend): admin identity queue + detail + e2e smoke (Phase 
 
 ## Task 12: Quality gate
 
-- [ ] **Step 1:** `pnpm -s ci:check` — lint + typecheck + contracts + unit + build. On the Cyrillic-path machine the backend test step may crash in the worker pool; in that case run the isolated cluster instead and note it:
+- [x] **Step 1:** `pnpm -s ci:check` — lint + typecheck + contracts + unit + build. On the Cyrillic-path machine the backend test step may crash in the worker pool; in that case run the isolated cluster instead and note it:
 
 ```
 pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/identity-verification.service.test.ts src/modules/mvp/pre-exam-auth.service.test.ts src/modules/mvp/mvp.dto-validation.test.ts src/modules/mvp/mvp.http.integration.test.ts src/modules/files/files.service.upload.test.ts src/modules/mvp/identity/identity-image-retention.test.ts src/modules/mvp/identity/identity-retention-scanner.service.test.ts src/modules/mvp/business-flows.e2e.test.ts --no-file-parallelism
 ```
 
-- [ ] **Step 2:** Fix anything found; commit fixes as separate commits.
+- [x] **Step 2:** Fix anything found; commit fixes as separate commits.
 
 ---
 
@@ -2482,8 +2482,8 @@ pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/identity-verifica
 - Modify: `docs/superpowers/plans/2026-06-10-phase-4-plan-a-identity-verification.md` (tick completed checkboxes)
 - Modify: `infra/.env.production.example` — add `IDENTITY_IMAGE_RETENTION_ENABLED=false` + `IDENTITY_RETENTION_CRON_SCHEDULE=0 4 * * *` with a one-line comment (ops parity with the recert flag).
 
-- [ ] **Step 1:** Update all four files per the after-session protocol (CLAUDE.md).
-- [ ] **Step 2:** Commit:
+- [x] **Step 1:** Update all four files per the after-session protocol (CLAUDE.md).
+- [x] **Step 2:** Commit:
 
 ```bash
 git add README.md LMS_AGENT_HANDOFF.md docs/superpowers/plans/2026-06-10-phase-4-plan-a-identity-verification.md infra/.env.production.example
