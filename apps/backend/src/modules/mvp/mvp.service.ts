@@ -116,6 +116,7 @@ import type {
   ModuleProgress,
   OtTrainingProgram,
   PreExamToken,
+  ProctoringOverride,
   ProgressStatus,
   Question,
   QuestionBank,
@@ -1323,6 +1324,9 @@ export class MvpService {
         : {}),
       ...(request.requiresIdentityVerification !== undefined
         ? { requiresIdentityVerification: request.requiresIdentityVerification }
+        : {}),
+      ...(request.requiresProctoring !== undefined
+        ? { requiresProctoring: request.requiresProctoring }
         : {})
     };
     this.state.groupCourses.push(entity);
@@ -1348,6 +1352,9 @@ export class MvpService {
     }
     if (request.requiresIdentityVerification !== undefined) {
       current.requiresIdentityVerification = request.requiresIdentityVerification;
+    }
+    if (request.requiresProctoring !== undefined) {
+      current.requiresProctoring = request.requiresProctoring;
     }
     current.updatedAt = this.now();
     this.audit(
@@ -3605,6 +3612,37 @@ export class MvpService {
       .filter((v) => v.tenantId === tenantId && learnerIds.has(v.learnerId))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return mine[0] ?? null;
+  }
+
+  // ─── Phase 4 Plan B: proctoring (webcam video recording of final exams) ───
+
+  /** Per-student proctoring switch (learners.write): 'require' | 'exempt' | null = inherit group-course. */
+  setProctoringOverride(
+    tenantId: string,
+    actorId: string | undefined,
+    enrollmentId: string,
+    request: { override: ProctoringOverride | null },
+    context: RequestContext
+  ): Enrollment {
+    const enrollment = this.getById(this.state.enrollments, tenantId, enrollmentId);
+    const old = { proctoringOverride: enrollment.proctoringOverride ?? null };
+    if (request.override === null) {
+      delete enrollment.proctoringOverride;
+    } else {
+      enrollment.proctoringOverride = request.override;
+    }
+    enrollment.updatedAt = this.now();
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.proctoring_override_set',
+      'learning.enrollment',
+      enrollment.id,
+      old,
+      { proctoringOverride: enrollment.proctoringOverride ?? null },
+      context
+    );
+    return enrollment;
   }
 
   saveAnswer(

@@ -263,6 +263,10 @@ export class CreateGroupCourseRequest {
   @IsOptional()
   @IsBoolean()
   requiresIdentityVerification?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  requiresProctoring?: boolean;
 }
 
 export class UpdateGroupCourseRequest {
@@ -280,6 +284,10 @@ export class UpdateGroupCourseRequest {
   @IsOptional()
   @IsBoolean()
   requiresIdentityVerification?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  requiresProctoring?: boolean;
 }
 
 export class CreateEnrollmentRequest {
