@@ -12,10 +12,13 @@ import {
   CreateBulkEnrollmentsRequest,
   CreateCommissionRequest,
   CreateGroupCourseRequest,
+  CreateIdentityVerificationRequest,
   CreateMaterialRequest,
   CreateModuleRequest,
   PutCourseDocumentSetRequest,
   RequestPreExamTokenRequest,
+  ReviewIdentityVerificationRequest,
+  SubmitIdentityVerificationRequest,
   UpdateMaterialProgressRequest,
   UpdateProgramMetaRequest,
   VerifyPreExamTokenRequest
@@ -899,5 +902,57 @@ describe('Pre-exam auth DTOs', () => {
     });
     expect(validateSync(dto)).toHaveLength(0);
     expect(dto.requiresPreExamAuth).toBe(true);
+  });
+});
+
+describe('Identity verification DTOs (Phase 4 Plan A)', () => {
+  it('CreateIdentityVerificationRequest accepts an empty body (actor-linked learner)', () => {
+    const dto = plainToInstance(CreateIdentityVerificationRequest, {});
+    expect(validateSync(dto)).toHaveLength(0);
+  });
+
+  it('CreateIdentityVerificationRequest rejects an empty learnerId string', () => {
+    const dto = plainToInstance(CreateIdentityVerificationRequest, { learnerId: '' });
+    expect(validateSync(dto).length).toBeGreaterThan(0);
+  });
+
+  it('SubmitIdentityVerificationRequest requires both file ids and consent === true', () => {
+    const ok = plainToInstance(SubmitIdentityVerificationRequest, {
+      selfieFileId: 'f1',
+      passportFileId: 'f2',
+      consent: true
+    });
+    expect(validateSync(ok)).toHaveLength(0);
+    const noConsent = plainToInstance(SubmitIdentityVerificationRequest, {
+      selfieFileId: 'f1',
+      passportFileId: 'f2',
+      consent: false
+    });
+    expect(validateSync(noConsent).length).toBeGreaterThan(0);
+    const missingFile = plainToInstance(SubmitIdentityVerificationRequest, {
+      selfieFileId: 'f1',
+      consent: true
+    });
+    expect(validateSync(missingFile).length).toBeGreaterThan(0);
+  });
+
+  it('ReviewIdentityVerificationRequest accepts approve/reject and rejects other decisions', () => {
+    const ok = plainToInstance(ReviewIdentityVerificationRequest, {
+      decision: 'reject',
+      rejectionReason: 'blurry'
+    });
+    expect(validateSync(ok)).toHaveLength(0);
+    const bad = plainToInstance(ReviewIdentityVerificationRequest, { decision: 'maybe' });
+    expect(validateSync(bad).length).toBeGreaterThan(0);
+  });
+
+  it('CreateGroupCourseRequest accepts requiresIdentityVerification', () => {
+    const dto = plainToInstance(CreateGroupCourseRequest, {
+      groupId: 'g1',
+      courseId: 'c1',
+      requiresIdentityVerification: true
+    });
+    expect(validateSync(dto)).toHaveLength(0);
+    expect(dto.requiresIdentityVerification).toBe(true);
   });
 });

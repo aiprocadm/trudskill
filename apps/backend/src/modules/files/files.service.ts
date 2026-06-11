@@ -47,6 +47,13 @@ export interface UploadIntentInput {
   sizeBytes: number;
 }
 
+export interface UploadIntentOptions {
+  /** Storage key prefix segment; defaults to 'submissions'. */
+  keyPrefix?: string;
+  /** MIME allowlist override; defaults to the practical-submissions allowlist. */
+  mimeAllowlist?: ReadonlySet<string>;
+}
+
 export interface UploadIntent {
   fileId: string;
   uploadUrl: string;
@@ -125,8 +132,13 @@ export class FilesService {
     }));
   }
 
-  async createUploadIntent(tenantId: string, input: UploadIntentInput): Promise<UploadIntent> {
-    if (!SUBMISSION_MIME_ALLOWLIST.has(input.contentType)) {
+  async createUploadIntent(
+    tenantId: string,
+    input: UploadIntentInput,
+    options?: UploadIntentOptions
+  ): Promise<UploadIntent> {
+    const allowlist = options?.mimeAllowlist ?? SUBMISSION_MIME_ALLOWLIST;
+    if (!allowlist.has(input.contentType)) {
       throw new BadRequestException({
         code: 'unsupported_media_type',
         message: 'File type is not allowed'
@@ -138,8 +150,9 @@ export class FilesService {
         message: 'File exceeds the allowed size'
       });
     }
+    const prefix = options?.keyPrefix ?? 'submissions';
     const safeName = input.originalName.replace(/[^\w.\-]+/g, '_').slice(-80);
-    const storageKey = `submissions/${tenantId}/${this.uploadId()}_${safeName}`;
+    const storageKey = `${prefix}/${tenantId}/${this.uploadId()}_${safeName}`;
     const file = await this.register({
       tenantId,
       storageKey,
@@ -245,6 +258,33 @@ export class FilesService {
   async getAntivirusStatus(tenantId: string, fileId: string): Promise<string | null> {
     const map = await this.getAntivirusStatuses(tenantId, [fileId]);
     return map.get(fileId) ?? null;
+  }
+
+  /**
+   * Deletes the stored object and soft-deletes the metadata row. Idempotent —
+   * a missing/already-deleted row is a no-op. Used by the identity image retention cron.
+   */
+  async deleteFile(tenantId: string, fileId: string, actorId?: string): Promise<void> {
+    const rows = await this.db.query<{ storage_key: string }>(
+      `select storage_key from storage.files
+       where tenant_id = $1 and id = $2 and deleted_at is null`,
+      [tenantId, fileId]
+    );
+    if (!rows.length) return;
+    await this.storage.deleteObject({ key: rows[0]!.storage_key });
+    await this.db.query(
+      `update storage.files set deleted_at = now(), updated_at = now()
+       where tenant_id = $1 and id = $2`,
+      [tenantId, fileId]
+    );
+    this.audit.write({
+      tenantId,
+      actorId: actorId ?? 'system',
+      action: 'storage.file_deleted',
+      entityType: 'storage.file',
+      entityId: fileId,
+      oldValues: { storageKey: rows[0]!.storage_key }
+    });
   }
 
   private uploadId(): string {

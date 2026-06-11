@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  HttpException,
   Inject,
   Injectable,
   Logger,
@@ -104,6 +105,8 @@ import type {
   FrdoDocumentKind,
   GroupCourse,
   GroupEntity,
+  IdentityVerification,
+  IdentityVerificationView,
   KpiSnapshotDto,
   Learner,
   LearnerAssignmentSummary,
@@ -210,6 +213,13 @@ const DEFAULT_GROUP_COURSE_DURATION_DAYS = 90;
 const ASSESSMENT_READ_CROSS_LEARNER_PERMISSION = 'assessment.read.cross_learner';
 /** Делегирование: мутации прогресса/субмиссий/попыток для слушателя с linkedIamUserId от имени преподавателя/L&D. */
 const LEARNERS_ACT_AS_PERMISSION = 'learners.act_as';
+
+/** Phase 4 Plan A: identity uploads accept photos/scans only. */
+const IDENTITY_MIME_ALLOWLIST: ReadonlySet<string> = new Set([
+  'image/png',
+  'image/jpeg',
+  'application/pdf'
+]);
 
 /**
  * Global lookup нормативных актов — зеркало seed из migration 0030.
@@ -363,6 +373,9 @@ export class MvpService {
 
   /** Wave 1 Plan 2: logging stub for the pre-exam identity link delivery (no constructor change). */
   private readonly preExamLogger = new Logger('PreExamAuth');
+
+  /** Phase 4 Plan A: identity verification lifecycle events (rejection log stub). */
+  private readonly identityVerificationLogger = new Logger('IdentityVerification');
 
   /** V1.1 AV gate: logs best-effort proactive scan failures (the download gate re-scans lazily). */
   private readonly avScanLogger = new Logger('AvScan');
@@ -1307,6 +1320,9 @@ export class MvpService {
       durationDays: this.normalizeDurationDays(request.durationDays),
       ...(request.requiresPreExamAuth !== undefined
         ? { requiresPreExamAuth: request.requiresPreExamAuth }
+        : {}),
+      ...(request.requiresIdentityVerification !== undefined
+        ? { requiresIdentityVerification: request.requiresIdentityVerification }
         : {})
     };
     this.state.groupCourses.push(entity);
@@ -1329,6 +1345,9 @@ export class MvpService {
     }
     if (request.requiresPreExamAuth !== undefined) {
       current.requiresPreExamAuth = request.requiresPreExamAuth;
+    }
+    if (request.requiresIdentityVerification !== undefined) {
+      current.requiresIdentityVerification = request.requiresIdentityVerification;
     }
     current.updatedAt = this.now();
     this.audit(
@@ -1520,11 +1539,7 @@ export class MvpService {
     if (!actorId) {
       return { items: [] };
     }
-    const learnerIds = new Set(
-      this.state.learners
-        .filter((l) => l.tenantId === tenantId && l.linkedIamUserId === actorId)
-        .map((l) => l.id)
-    );
+    const learnerIds = this.resolveActorLearnerIds(tenantId, actorId);
     if (learnerIds.size === 0) {
       return { items: [] };
     }
@@ -2762,11 +2777,7 @@ export class MvpService {
    */
   listMyTests(tenantId: string, actorId: string | undefined): LearnerTestSummary[] {
     if (!actorId) return [];
-    const learnerIds = new Set(
-      this.state.learners
-        .filter((l) => l.tenantId === tenantId && l.linkedIamUserId === actorId)
-        .map((l) => l.id)
-    );
+    const learnerIds = this.resolveActorLearnerIds(tenantId, actorId);
     if (learnerIds.size === 0) return [];
     const enrollments = this.state.enrollments.filter(
       (item) => item.tenantId === tenantId && learnerIds.has(item.learnerId)
@@ -2823,11 +2834,7 @@ export class MvpService {
    */
   listMyAssignments(tenantId: string, actorId: string | undefined): LearnerAssignmentSummary[] {
     if (!actorId) return [];
-    const learnerIds = new Set(
-      this.state.learners
-        .filter((l) => l.tenantId === tenantId && l.linkedIamUserId === actorId)
-        .map((l) => l.id)
-    );
+    const learnerIds = this.resolveActorLearnerIds(tenantId, actorId);
     if (learnerIds.size === 0) return [];
     const enrollments = this.state.enrollments.filter(
       (item) => item.tenantId === tenantId && learnerIds.has(item.learnerId)
@@ -2912,6 +2919,8 @@ export class MvpService {
     this.assertModuleSequenceGate(tenantId, enrollment.id, test);
     this.assertMinViewGate(tenantId, enrollment.id, test);
     this.assertPreExamAuthGate(tenantId, enrollment, test);
+    // Phase 4 Plan A: documentary identity (selfie+passport) — per-learner.
+    this.assertIdentityVerificationGate(tenantId, enrollment, test);
     const delegationAuditMetadata = this.delegatedLearningAuditMetadata(
       tenantId,
       actorId,
@@ -3244,6 +3253,358 @@ export class MvpService {
       );
     }
     return { verified: true, enrollmentId: record.enrollmentId, testId: record.testId };
+  }
+
+  // ─── Phase 4 Plan A: documentary identity verification (selfie + passport) ───
+
+  /** Resolve the learner this identity action targets: explicit id (with anti-IDOR check) or the actor's linked learner. */
+  private resolveIdentityLearner(
+    tenantId: string,
+    actorId: string | undefined,
+    explicitLearnerId: string | undefined,
+    permissions?: string[]
+  ): Learner {
+    if (explicitLearnerId) {
+      const learner = this.getById(this.state.learners, tenantId, explicitLearnerId);
+      this.assertActorMatchesLearnerIamLink(tenantId, actorId, learner.id, permissions);
+      return learner;
+    }
+    const linked = this.state.learners.find(
+      (l) => l.tenantId === tenantId && l.linkedIamUserId === actorId
+    );
+    if (!linked) {
+      throw new BadRequestException({
+        code: 'learner_not_linked',
+        message: 'No learner profile is linked to the current user'
+      });
+    }
+    return linked;
+  }
+
+  /** Latest approved verification for the learner (indefinite validity in pilot — validUntil ignored). */
+  private findApprovedIdentityVerification(
+    tenantId: string,
+    learnerId: string
+  ): IdentityVerification | undefined {
+    return this.state.identityVerifications.find(
+      (v) =>
+        v.tenantId === tenantId && v.learnerId === learnerId && v.verificationStatus === 'approved'
+    );
+  }
+
+  /** Phase 4 Plan A: the group-course toggle for documentary identity verification. */
+  private groupCourseRequiresIdentityVerification(
+    tenantId: string,
+    groupId: string,
+    courseId: string
+  ): boolean {
+    const gc = this.state.groupCourses.find(
+      (item) => item.tenantId === tenantId && item.groupId === groupId && item.courseId === courseId
+    );
+    return gc?.requiresIdentityVerification === true;
+  }
+
+  /**
+   * Phase 4 Plan A gate. Final/course-level exams only (no moduleId), only when the
+   * group-course requires it. Orthogonal to assertPreExamAuthGate (№816 e-mail link):
+   * this gate proves identity by document, per-LEARNER, valid indefinitely in pilot.
+   * NB: the message deliberately avoids the substring "identity verification is required"
+   * (the Wave 1 frontend regex matches it for its own interstitial).
+   */
+  private assertIdentityVerificationGate(
+    tenantId: string,
+    enrollment: Enrollment,
+    test: TestEntity
+  ): void {
+    if (test.moduleId) return;
+    if (!this.groupCourseRequiresIdentityVerification(tenantId, enrollment.groupId, test.courseId))
+      return;
+    if (this.findApprovedIdentityVerification(tenantId, enrollment.learnerId)) return;
+    throw new PreconditionFailedException({
+      code: 'identity_verification_required',
+      message: 'Identity confirmation by document is required before starting this exam'
+    });
+  }
+
+  startIdentityVerification(
+    tenantId: string,
+    actorId: string | undefined,
+    request: { learnerId?: string },
+    context: RequestContext
+  ): IdentityVerification {
+    const learner = this.resolveIdentityLearner(
+      tenantId,
+      actorId,
+      request.learnerId,
+      context.permissions
+    );
+    if (this.findApprovedIdentityVerification(tenantId, learner.id)) {
+      throw new ConflictException({
+        code: 'identity_already_verified',
+        message: 'Identity is already verified for this learner'
+      });
+    }
+    const pending = this.state.identityVerifications.find(
+      (v) =>
+        v.tenantId === tenantId && v.learnerId === learner.id && v.verificationStatus === 'pending'
+    );
+    if (pending) {
+      throw new ConflictException({
+        code: 'identity_verification_pending',
+        message: 'A submitted verification is already awaiting review'
+      });
+    }
+    const draft = this.state.identityVerifications.find(
+      (v) =>
+        v.tenantId === tenantId && v.learnerId === learner.id && v.verificationStatus === 'draft'
+    );
+    if (draft) return draft; // idempotent: return the existing draft silently (no duplicate audit event)
+    const now = this.now();
+    const entity: IdentityVerification = {
+      id: this.id('idv'),
+      tenantId,
+      learnerId: learner.id,
+      method: 'selfie_passport',
+      verificationStatus: 'draft',
+      status: 'active',
+      createdAt: now,
+      updatedAt: now
+    };
+    this.state.identityVerifications.push(entity);
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.identity_verification_started',
+      'learning.identity_verification',
+      entity.id,
+      undefined,
+      { id: entity.id, learnerId: entity.learnerId },
+      context
+    );
+    return entity;
+  }
+
+  async createIdentityVerificationUploadIntent(
+    tenantId: string,
+    actorId: string | undefined,
+    verificationId: string,
+    request: { originalName: string; contentType: string; sizeBytes: number },
+    context: RequestContext
+  ): Promise<UploadIntent> {
+    const record = this.getById(this.state.identityVerifications, tenantId, verificationId);
+    this.assertActorMatchesLearnerIamLink(tenantId, actorId, record.learnerId, context.permissions);
+    if (record.verificationStatus !== 'draft') {
+      throw new PreconditionFailedException({
+        code: 'identity_verification_not_editable',
+        message: 'Files can only be attached to a draft verification'
+      });
+    }
+    return this.filesService.createUploadIntent(tenantId, request, {
+      keyPrefix: 'identity',
+      mimeAllowlist: IDENTITY_MIME_ALLOWLIST
+    });
+  }
+
+  async submitIdentityVerification(
+    tenantId: string,
+    actorId: string | undefined,
+    verificationId: string,
+    request: { selfieFileId: string; passportFileId: string; consent: boolean },
+    context: RequestContext
+  ): Promise<IdentityVerification> {
+    const record = this.getById(this.state.identityVerifications, tenantId, verificationId);
+    this.assertActorMatchesLearnerIamLink(tenantId, actorId, record.learnerId, context.permissions);
+    if (record.verificationStatus !== 'draft') {
+      throw new PreconditionFailedException({
+        code: 'identity_verification_not_editable',
+        message: 'Only a draft verification can be submitted'
+      });
+    }
+    if (request.consent !== true) {
+      throw new BadRequestException({
+        code: 'consent_required',
+        message: 'Consent to personal data processing is required (152-ФЗ)'
+      });
+    }
+    if (request.selfieFileId === request.passportFileId) {
+      throw new BadRequestException({
+        code: 'identity_files_must_differ',
+        message: 'Selfie and passport must be different files'
+      });
+    }
+    const known = await this.filesService.getAntivirusStatuses(tenantId, [
+      request.selfieFileId,
+      request.passportFileId
+    ]);
+    if (!known.has(request.selfieFileId) || !known.has(request.passportFileId)) {
+      throw new BadRequestException({
+        code: 'file_not_found',
+        message: 'Uploaded file not found for tenant'
+      });
+    }
+    const now = this.now();
+    record.selfieFileId = request.selfieFileId;
+    record.passportFileId = request.passportFileId;
+    record.consentAt = now;
+    record.submittedAt = now;
+    record.verificationStatus = 'pending';
+    record.updatedAt = now;
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.identity_verification_submitted',
+      'learning.identity_verification',
+      record.id,
+      undefined,
+      { id: record.id, learnerId: record.learnerId },
+      context
+    );
+    return record;
+  }
+
+  reviewIdentityVerification(
+    tenantId: string,
+    actorId: string | undefined,
+    verificationId: string,
+    request: { decision: 'approve' | 'reject'; rejectionReason?: string },
+    context: RequestContext
+  ): IdentityVerification {
+    const record = this.getById(this.state.identityVerifications, tenantId, verificationId);
+    if (record.verificationStatus !== 'pending') {
+      throw new PreconditionFailedException({
+        code: 'identity_verification_not_pending',
+        message: 'Only a submitted verification can be reviewed'
+      });
+    }
+    const now = this.now();
+    const old = { verificationStatus: record.verificationStatus };
+    record.verificationStatus = request.decision === 'approve' ? 'approved' : 'rejected';
+    record.reviewedByActorId = actorId;
+    record.reviewedAt = now;
+    record.updatedAt = now;
+    if (request.decision === 'reject' && request.rejectionReason) {
+      record.rejectionReason = request.rejectionReason;
+    }
+    if (request.decision === 'reject') {
+      // Logged stub — a real e-mail rides Phase 5 MailerService as a follow-up.
+      this.identityVerificationLogger.log(
+        `identity_verification.rejected learner=${record.learnerId} verification=${record.id} reason=${request.rejectionReason ?? '-'} (log-only notice)`
+      );
+    }
+    this.audit(
+      tenantId,
+      actorId,
+      request.decision === 'approve'
+        ? 'learning.identity_verification_approved'
+        : 'learning.identity_verification_rejected',
+      'learning.identity_verification',
+      record.id,
+      old,
+      { verificationStatus: record.verificationStatus, rejectionReason: record.rejectionReason },
+      context
+    );
+    return record;
+  }
+
+  /** Admin queue: records (optionally by status) enriched with learner display data, newest first. */
+  listIdentityVerifications(
+    tenantId: string,
+    query: { status?: string }
+  ): IdentityVerificationView[] {
+    const items = this.state.identityVerifications
+      .filter(
+        (v) => v.tenantId === tenantId && (!query.status || v.verificationStatus === query.status)
+      )
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return items.map((v) => this.toIdentityVerificationView(tenantId, v));
+  }
+
+  private toIdentityVerificationView(
+    tenantId: string,
+    record: IdentityVerification
+  ): IdentityVerificationView {
+    const learner = this.state.learners.find(
+      (l) => l.tenantId === tenantId && l.id === record.learnerId
+    );
+    const learnerName = [learner?.lastName, learner?.firstName, learner?.middleName]
+      .filter(Boolean)
+      .join(' ');
+    return {
+      ...record,
+      learnerName,
+      ...(learner?.snils ? { learnerSnils: learner.snils } : {}),
+      ...(learner?.dateOfBirth ? { learnerDateOfBirth: learner.dateOfBirth } : {})
+    };
+  }
+
+  /** Admin detail: view + presigned image URLs (antivirus-gated by FilesService; absent after purge). */
+  async getIdentityVerificationView(
+    tenantId: string,
+    verificationId: string
+  ): Promise<
+    IdentityVerificationView & {
+      selfieUrl?: string;
+      passportUrl?: string;
+      selfieFileError?: string;
+      passportFileError?: string;
+    }
+  > {
+    const record = this.getById(this.state.identityVerifications, tenantId, verificationId);
+    const view = this.toIdentityVerificationView(tenantId, record);
+    const purged = Boolean(record.imagesPurgedAt);
+
+    const resolveUrl = async (fileId: string | undefined): Promise<string | undefined> => {
+      if (!fileId) return undefined;
+      return this.filesService.createDownloadUrl(tenantId, fileId);
+    };
+
+    const tryResolveUrl = async (
+      fileId: string | undefined
+    ): Promise<{ url?: string; error?: string }> => {
+      if (!fileId) return {};
+      try {
+        const url = await resolveUrl(fileId);
+        return { url };
+      } catch (err) {
+        const code =
+          err instanceof HttpException
+            ? ((err.getResponse() as { code?: string }).code ?? 'file_error')
+            : 'file_error';
+        this.identityVerificationLogger.warn(
+          `createDownloadUrl failed tenant=${tenantId} file=${fileId} code=${code}`
+        );
+        return { error: code };
+      }
+    };
+
+    const [selfieResult, passportResult] = purged
+      ? [{}, {}]
+      : await Promise.all([
+          tryResolveUrl(record.selfieFileId),
+          tryResolveUrl(record.passportFileId)
+        ]);
+
+    return {
+      ...view,
+      ...(selfieResult.url ? { selfieUrl: selfieResult.url } : {}),
+      ...(selfieResult.error ? { selfieFileError: selfieResult.error } : {}),
+      ...(passportResult.url ? { passportUrl: passportResult.url } : {}),
+      ...(passportResult.error ? { passportFileError: passportResult.error } : {})
+    };
+  }
+
+  /** Learner self-service: own latest record or null (no link → null, not 403 — mirrors listMyAssignments). */
+  getMyIdentityVerification(
+    tenantId: string,
+    actorId: string | undefined
+  ): IdentityVerification | null {
+    if (!actorId) return null;
+    const learnerIds = this.resolveActorLearnerIds(tenantId, actorId);
+    if (learnerIds.size === 0) return null;
+    const mine = this.state.identityVerifications
+      .filter((v) => v.tenantId === tenantId && learnerIds.has(v.learnerId))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return mine[0] ?? null;
   }
 
   saveAnswer(
@@ -4281,6 +4642,15 @@ export class MvpService {
     const n = Math.floor(Number(value));
     if (n < 1) return undefined;
     return Math.min(n, 3650);
+  }
+
+  /** Ids of all learners linked to the acting IAM user (tenant-scoped). */
+  private resolveActorLearnerIds(tenantId: string, actorId: string): Set<string> {
+    return new Set(
+      this.state.learners
+        .filter((l) => l.tenantId === tenantId && l.linkedIamUserId === actorId)
+        .map((l) => l.id)
+    );
   }
 
   private learnerIdsBoundToIamActor(

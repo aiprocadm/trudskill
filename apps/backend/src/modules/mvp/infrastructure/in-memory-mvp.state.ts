@@ -26,6 +26,7 @@ import type {
   FrdoRegistryRecord,
   GroupCourse,
   GroupEntity,
+  IdentityVerification,
   Learner,
   Material,
   MaterialProgress,
@@ -77,6 +78,8 @@ export class InMemoryMvpState {
   courseDocumentSets: CourseDocumentSetEntry[] = [];
   // Wave 1 Plan 2 — pre-exam identity tokens (Приказ №816); a consumed token is the verification record.
   preExamTokens: PreExamToken[] = [];
+  // Phase 4 Plan A — documentary identity verification (selfie+passport); per-learner records.
+  identityVerifications: IdentityVerification[] = [];
   // Wave 2 — ОТ-реестр (Минтруд/ЕИСОТ): durable export batches + per-record set.
   otRegistryBatches: OtRegistryBatch[] = [];
   otRegistryRecords: OtRegistryRecord[] = [];

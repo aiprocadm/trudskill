@@ -1,3 +1,4 @@
+import nextPlugin from '@next/eslint-plugin-next';
 import tseslint from '@typescript-eslint/eslint-plugin';
 import parser from '@typescript-eslint/parser';
 import prettier from 'eslint-config-prettier';
@@ -47,6 +48,15 @@ export default [
           ]
         }
       ]
+    }
+  },
+  {
+    files: ['apps/frontend/**/*.{ts,tsx,js,jsx}'],
+    plugins: {
+      '@next/next': nextPlugin
+    },
+    rules: {
+      '@next/next/no-img-element': 'warn'
     }
   },
   {

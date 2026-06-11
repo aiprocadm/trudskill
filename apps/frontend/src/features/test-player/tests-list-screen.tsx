@@ -30,6 +30,10 @@ function TestRow({ test }: { test: LearnerTestSummary }) {
     start.error ?? ''
   );
 
+  // Phase 4 Plan A gate: distinct message — does NOT contain "identity verification is required".
+  const needsIdentityVerification =
+    /identity_verification_required|identity confirmation by document/i.test(start.error ?? '');
+
   const onStart = async () => {
     const attempt = await start.mutate({
       testId: test.testId,
@@ -93,6 +97,15 @@ function TestRow({ test }: { test: LearnerTestSummary }) {
             <p className="ui-text-muted">Ссылка отправлена. Проверьте e-mail.</p>
           ) : null}
           {requestLink.error ? <SectionError message={requestLink.error} /> : null}
+        </div>
+      ) : needsIdentityVerification ? (
+        <div className="ui-stack" data-testid="identity-verification-interstitial">
+          <p className="ui-text-muted">
+            Перед экзаменом нужно подтвердить личность (селфи + паспорт).
+          </p>
+          <Link className="ui-button" href="/learner/identity">
+            Подтвердить личность
+          </Link>
         </div>
       ) : start.error ? (
         <SectionError message={start.error} />

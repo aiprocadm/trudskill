@@ -382,6 +382,31 @@ describe('MVP HTTP integration (permission boundaries)', () => {
       ) {
         return { id: 'recert_1', status: 'approved', targetGroupId: body.targetGroupId };
       }
+
+      // Phase 4 Plan A — identity verification permission boundary
+      @Get('identity-verifications')
+      @RequirePermissions('identity.read')
+      listIdentityVerifications(@CurrentContext() context: { tenantId?: string }) {
+        return { items: [], tenantId: context.tenantId };
+      }
+
+      @Post('identity-verifications')
+      @RequirePermissions('identity.submit')
+      startIdentityVerification(@CurrentContext() context: { tenantId?: string }) {
+        return { id: 'idv_1', verificationStatus: 'draft', tenantId: context.tenantId };
+      }
+
+      @Post('identity-verifications/:id/review')
+      @RequirePermissions('identity.review')
+      reviewIdentityVerification(
+        @CurrentContext() context: { tenantId?: string },
+        @Body() body: { decision: string }
+      ) {
+        return {
+          id: 'idv_1',
+          verificationStatus: body.decision === 'approve' ? 'approved' : 'rejected'
+        };
+      }
     }
 
     @Module({
@@ -1426,6 +1451,167 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         meta: { requestId: string };
       };
       expect(payload.data.targetGroupId).toBe('g1');
+    });
+  });
+
+  // === Phase 4 Plan A — identity verification RBAC boundary ===
+
+  describe('identity verification permission boundary', () => {
+    beforeEach(() => {
+      iamServiceMock.resolvePermissions.mockReset();
+      iamServiceMock.resolvePermissions.mockResolvedValue(['courses.read']);
+    });
+
+    it('GET /identity-verifications — 403 permission_denied without identity.read', async () => {
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/identity-verifications`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('GET /identity-verifications — 200 success with identity.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['identity.read']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/identity-verifications`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as {
+        data: { tenantId: string };
+        meta: { requestId: string };
+      };
+      expect(payload.data.tenantId).toBe('tenant_demo');
+    });
+
+    it('POST /identity-verifications — 403 permission_denied without identity.submit', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['identity.read']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/identity-verifications`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({})
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('POST /identity-verifications — 201 success with identity.submit', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['identity.submit']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/identity-verifications`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({})
+      });
+      expect(response.status).toBe(201);
+      const payload = (await response.json()) as {
+        data: { tenantId: string };
+        meta: { requestId: string };
+      };
+      expect(payload.data.tenantId).toBe('tenant_demo');
+    });
+
+    it('POST /identity-verifications/x/review — 403 permission_denied with only identity.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['identity.read']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/identity-verifications/x/review`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ decision: 'approve' })
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('POST /identity-verifications/x/review — 201 success with identity.review', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['identity.review']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/identity-verifications/x/review`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ decision: 'approve' })
+      });
+      expect(response.status).toBe(201);
+      const payload = (await response.json()) as {
+        data: { verificationStatus: string };
+        meta: { requestId: string };
+      };
+      expect(payload.data.verificationStatus).toBe('approved');
     });
   });
 });

@@ -56,6 +56,14 @@ export const backendEnvSchema = z
       .default(false),
     /** Cron expression for the nightly recertification + course-deadline scan (UTC — the cron is pinned to timeZone 'UTC'). */
     RECERTIFICATION_CRON_SCHEDULE: z.string().min(1).default('0 3 * * *'),
+    // Identity image retention purge (Phase 4 Plan A). Ships dormant; ops enables after
+    // confirming the 90-day policy. Custom boolean parse — NOT z.coerce.boolean.
+    IDENTITY_IMAGE_RETENTION_ENABLED: z
+      .union([z.boolean(), z.enum(['true', 'false'])])
+      .transform((v) => v === true || v === 'true')
+      .default(false),
+    /** Cron for the nightly identity-image purge (UTC). */
+    IDENTITY_RETENTION_CRON_SCHEDULE: z.string().default('0 4 * * *'),
     SMTP_HOST: z.string().min(1).optional(),
     SMTP_PORT: z.coerce.number().int().positive().default(587),
     SMTP_USER: z.string().min(1).optional(),

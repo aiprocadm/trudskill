@@ -35,6 +35,7 @@ import {
   CreateCourseRequest,
   CreateEnrollmentRequest,
   CreateGroupCourseRequest,
+  CreateIdentityVerificationRequest,
   CreateMaterialRequest,
   CreateModuleRequest,
   CreateQuestionBankRequest,
@@ -47,9 +48,11 @@ import {
   PutCourseDocumentSetRequest,
   RequestPreExamTokenRequest,
   ReturnSubmissionRequest,
+  ReviewIdentityVerificationRequest,
   SaveAnswerRequest,
   SaveAttemptAnswerRequest,
   StartAttemptRequest,
+  SubmitIdentityVerificationRequest,
   UpdateAssignmentRequest,
   UpdateAssignmentReviewRequest,
   UpdateAssignmentSubmissionRequest,
@@ -893,6 +896,73 @@ export class MvpController {
   verifyPreExamToken(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
     const b = assertValidDto(VerifyPreExamTokenRequest, raw);
     return this.mvpService.verifyPreExamToken(c.tenantId!, c.userId, b, c);
+  }
+
+  // ─── Phase 4 Plan A: documentary identity verification ───
+
+  @Post('identity-verifications')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('identity.submit')
+  startIdentityVerification(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateIdentityVerificationRequest, raw);
+    return this.mvpService.startIdentityVerification(c.tenantId!, c.userId, b, c);
+  }
+
+  @Post('identity-verifications/:id/upload-url')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('identity.submit')
+  createIdentityUploadUrl(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(CreateUploadUrlRequest, raw);
+    return this.mvpService.createIdentityVerificationUploadIntent(c.tenantId!, c.userId, id, b, c);
+  }
+
+  @Post('identity-verifications/:id/submit')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('identity.submit')
+  submitIdentityVerification(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(SubmitIdentityVerificationRequest, raw);
+    return this.mvpService.submitIdentityVerification(c.tenantId!, c.userId, id, b, c);
+  }
+
+  @Get('identity-verifications/me')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('identity.submit')
+  getMyIdentityVerification(@CurrentContext() c: RequestContext) {
+    return this.mvpService.getMyIdentityVerification(c.tenantId!, c.userId);
+  }
+
+  @Get('identity-verifications')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('identity.read')
+  listIdentityVerifications(@CurrentContext() c: RequestContext, @Query('status') status?: string) {
+    return this.mvpService.listIdentityVerifications(c.tenantId!, status ? { status } : {});
+  }
+
+  @Get('identity-verifications/:id')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('identity.read')
+  getIdentityVerification(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.mvpService.getIdentityVerificationView(c.tenantId!, id);
+  }
+
+  @Post('identity-verifications/:id/review')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('identity.review')
+  reviewIdentityVerification(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(ReviewIdentityVerificationRequest, raw);
+    return this.mvpService.reviewIdentityVerification(c.tenantId!, c.userId, id, b, c);
   }
 
   @Get('attempts/:id')

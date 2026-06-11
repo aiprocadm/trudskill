@@ -1,4 +1,5 @@
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   ListBucketsCommand,
   PutObjectCommand,
@@ -78,6 +79,15 @@ export class S3StorageClient implements StorageClient {
         Key: params.key,
         Body: params.body,
         ContentType: params.contentType
+      })
+    );
+  }
+
+  async deleteObject(params: { key: string }): Promise<void> {
+    await this.getClient().send(
+      new DeleteObjectCommand({
+        Bucket: backendEnv.S3_BUCKET,
+        Key: params.key
       })
     );
   }

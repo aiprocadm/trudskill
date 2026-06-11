@@ -10,11 +10,13 @@ import type { AuditService } from '../audit/audit.service.js';
 function makeFilesService(opts?: {
   antivirusStatus?: string;
   verdict?: 'clean' | 'infected' | 'error';
+  emptyDb?: boolean;
 }) {
   const queries: Array<{ sql: string; params: unknown[] }> = [];
   const db = {
     query: vi.fn(async (sql: string, params: unknown[] = []) => {
       queries.push({ sql, params });
+      if (opts?.emptyDb) return [];
       if (sql.includes('select') && sql.includes('storage.files')) {
         return [
           {
@@ -30,7 +32,8 @@ function makeFilesService(opts?: {
   const storage = {
     createPresignedUploadUrl: vi.fn(async () => 'https://minio.local/PUT-signed'),
     createPresignedDownloadUrl: vi.fn(async () => 'https://minio.local/GET-signed'),
-    getObjectStream: vi.fn()
+    getObjectStream: vi.fn(),
+    deleteObject: vi.fn(async () => undefined)
   } as unknown as S3StorageClient;
   const scanner = {
     scan: vi.fn(async () => ({ verdict: opts?.verdict ?? 'clean' }))
@@ -199,5 +202,52 @@ describe('FilesService.getAntivirusStatus', () => {
     const { service, db } = makeFilesService();
     (db.query as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
     expect(await service.getAntivirusStatus('t1', 'missing')).toBeNull();
+  });
+});
+
+describe('FilesService.createUploadIntent — options', () => {
+  it('uses a custom keyPrefix for the storage key', async () => {
+    const { service, queries } = makeFilesService();
+    const out = await service.createUploadIntent(
+      't1',
+      { originalName: 'selfie.jpg', contentType: 'image/jpeg', sizeBytes: 1024 },
+      { keyPrefix: 'identity' }
+    );
+    expect(out.storageKey).toMatch(/^identity\/t1\//);
+    const insert = queries.find((q) => q.sql.includes('insert into storage.files'));
+    expect(insert?.params[2]).toMatch(/^identity\/t1\//);
+  });
+
+  it('enforces a custom mime allowlist', async () => {
+    const { service } = makeFilesService();
+    await expect(
+      service.createUploadIntent(
+        't1',
+        { originalName: 'doc.docx', contentType: 'application/msword', sizeBytes: 10 },
+        { mimeAllowlist: new Set(['image/png', 'image/jpeg', 'application/pdf']) }
+      )
+    ).rejects.toMatchObject({ response: { code: 'unsupported_media_type' } });
+  });
+});
+
+describe('FilesService.deleteFile', () => {
+  it('deletes the object and soft-deletes the row', async () => {
+    const { service, storage, queries, audit } = makeFilesService();
+    await service.deleteFile('t1', 'file_x');
+    expect(
+      (storage as unknown as { deleteObject: ReturnType<typeof vi.fn> }).deleteObject
+    ).toHaveBeenCalledWith({ key: 'submissions/t1/existing.pdf' });
+    expect(queries.some((q) => q.sql.includes('set deleted_at = now()'))).toBe(true);
+    expect((audit as unknown as { write: ReturnType<typeof vi.fn> }).write).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'storage.file_deleted', entityId: 'file_x' })
+    );
+  });
+
+  it('is idempotent when the row is already gone', async () => {
+    const { service, storage } = makeFilesService({ emptyDb: true });
+    await expect(service.deleteFile('t1', 'file_missing')).resolves.toBeUndefined();
+    expect(
+      (storage as unknown as { deleteObject: ReturnType<typeof vi.fn> }).deleteObject
+    ).not.toHaveBeenCalled();
   });
 });

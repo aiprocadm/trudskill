@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  Equals,
   IsArray,
   IsBoolean,
   IsDefined,
@@ -258,6 +259,10 @@ export class CreateGroupCourseRequest {
   @IsOptional()
   @IsBoolean()
   requiresPreExamAuth?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  requiresIdentityVerification?: boolean;
 }
 
 export class UpdateGroupCourseRequest {
@@ -271,6 +276,10 @@ export class UpdateGroupCourseRequest {
   @IsOptional()
   @IsBoolean()
   requiresPreExamAuth?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  requiresIdentityVerification?: boolean;
 }
 
 export class CreateEnrollmentRequest {
@@ -1085,4 +1094,41 @@ export class CompleteAttemptReviewRequest {
   @IsOptional()
   @IsString()
   reviewComment?: string;
+}
+
+// === Phase 4 Plan A — identity verification DTOs ===
+
+/** Phase 4 Plan A: start (or resume the draft of) a documentary identity verification. */
+export class CreateIdentityVerificationRequest {
+  /** Optional explicit learner (admin/act-as); defaults to the actor-linked learner. */
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  learnerId?: string;
+}
+
+/** Phase 4 Plan A: attach the uploaded files + 152-ФЗ consent; moves draft → pending. */
+export class SubmitIdentityVerificationRequest {
+  @IsString()
+  @MinLength(1)
+  selfieFileId!: string;
+
+  @IsString()
+  @MinLength(1)
+  passportFileId!: string;
+
+  @IsBoolean()
+  @Equals(true)
+  consent!: boolean;
+}
+
+/** Phase 4 Plan A: manual review decision. */
+export class ReviewIdentityVerificationRequest {
+  @IsIn(['approve', 'reject'])
+  decision!: 'approve' | 'reject';
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  rejectionReason?: string;
 }
