@@ -12,6 +12,9 @@ import {
   SectionCard,
   SectionError
 } from '../../components/state-wrappers';
+import { useAuth } from '../auth/context';
+import { stopAndCompleteActiveProctoring } from '../proctoring/active-recording';
+import { ProctoringRecIndicator } from '../proctoring/screens';
 
 import type { AnswerDraftMap, AttemptQuestion, SaveAnswerPayload } from './types';
 
@@ -24,6 +27,7 @@ const AUTOSAVE_DELAY_MS = 1500;
 
 export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps) {
   const router = useRouter();
+  const { session } = useAuth();
   const { data: attempt, isLoading: attemptLoading, error: attemptError } = useAttempt(attemptId);
   const {
     data: questions,
@@ -74,7 +78,12 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
 
   const handleSubmit = async () => {
     const result = await submitAttempt.mutate(attemptId);
-    if (result) goToResult();
+    if (result) {
+      // Phase 4 Plan B: stop the webcam recording and complete the session (fire-and-forget —
+      // complete is idempotent; a failure must never block the result screen).
+      if (session) void stopAndCompleteActiveProctoring(session);
+      goToResult();
+    }
   };
 
   // Auto-submit exactly once when the timer hits zero.
@@ -136,6 +145,7 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
   return (
     <PageContainer>
       <PageHeader title="Прохождение теста" />
+      <ProctoringRecIndicator />
       <SectionCard title={q.title}>
         {remainingMs !== null ? <p>Осталось времени: {formatTimeRemaining(remainingMs)}</p> : null}
         <p>

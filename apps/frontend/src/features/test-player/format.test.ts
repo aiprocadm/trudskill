@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  detectStartGate,
   formatAttemptsLeft,
   formatLearnerTestStatus,
   formatScoreLine,
@@ -29,5 +30,34 @@ describe('test-player format', () => {
   it('formats score line', () => {
     expect(formatScoreLine(4, 5)).toBe('4 / 5');
     expect(formatScoreLine(undefined, 5)).toBe('0 / 5');
+  });
+});
+
+describe('detectStartGate (start-attempt interstitial routing)', () => {
+  it('detects the Wave 1 pre-exam-auth gate by message', () => {
+    expect(detectStartGate('Identity verification is required before starting this exam')).toBe(
+      'pre_exam_auth'
+    );
+    expect(detectStartGate('pre_exam_auth_required')).toBe('pre_exam_auth');
+  });
+
+  it('detects the Plan A identity gate by its non-colliding message', () => {
+    expect(
+      detectStartGate('Identity confirmation by document is required before starting this exam')
+    ).toBe('identity_verification');
+    expect(detectStartGate('identity_verification_required')).toBe('identity_verification');
+  });
+
+  it('detects the Plan B proctoring gate by its non-colliding message', () => {
+    expect(detectStartGate('Video recording must be active before starting this exam')).toBe(
+      'proctoring'
+    );
+    expect(detectStartGate('proctoring_required')).toBe('proctoring');
+  });
+
+  it('returns null for other errors and empty input', () => {
+    expect(detectStartGate('Attempt limit reached')).toBeNull();
+    expect(detectStartGate(null)).toBeNull();
+    expect(detectStartGate(undefined)).toBeNull();
   });
 });

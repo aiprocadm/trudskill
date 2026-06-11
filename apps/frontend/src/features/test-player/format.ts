@@ -34,3 +34,26 @@ export function remainingMsFromExpiry(expiresAt: string | undefined, nowMs: numb
 export function formatScoreLine(score: number | undefined, maxScore: number): string {
   return `${score ?? 0} / ${maxScore}`;
 }
+
+export type StartGateKind = 'pre_exam_auth' | 'identity_verification' | 'proctoring' | null;
+
+/**
+ * Routes a failed startAttempt error to the right interstitial. useStartAttempt exposes
+ * err.message (the backend English message), so the regexes match messages; the codes are
+ * kept in the alternation as future-proofing. The three backend gate messages are designed
+ * to be mutually non-colliding (asserted by backend tests), so order is mostly cosmetic —
+ * most specific first.
+ */
+export function detectStartGate(error: string | null | undefined): StartGateKind {
+  const text = error ?? '';
+  if (/identity_verification_required|identity confirmation by document/i.test(text)) {
+    return 'identity_verification';
+  }
+  if (/proctoring_required|video recording must be active/i.test(text)) {
+    return 'proctoring';
+  }
+  if (/pre_exam_auth_required|identity verification is required/i.test(text)) {
+    return 'pre_exam_auth';
+  }
+  return null;
+}
