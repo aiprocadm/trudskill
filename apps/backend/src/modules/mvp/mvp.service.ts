@@ -28,6 +28,7 @@ import {
   generatePreExamToken,
   hashPreExamToken
 } from './pre-exam-token.js';
+import { resolveProctoringRequirement } from './proctoring/proctoring-requirement.js';
 import { aggregateReviewerQueue } from './reviewer-queue.service.js';
 import { backendEnv } from '../../env.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
@@ -117,6 +118,7 @@ import type {
   OtTrainingProgram,
   PreExamToken,
   ProctoringOverride,
+  ProctoringRecording,
   ProgressStatus,
   Question,
   QuestionBank,
@@ -3643,6 +3645,119 @@ export class MvpService {
       context
     );
     return enrollment;
+  }
+
+  /** Effective requirement: enrollment override ?? group-course flag (final exams of this course). */
+  private isProctoringRequired(
+    tenantId: string,
+    enrollment: Enrollment,
+    courseId: string
+  ): boolean {
+    const gc = this.state.groupCourses.find(
+      (item) =>
+        item.tenantId === tenantId &&
+        item.groupId === enrollment.groupId &&
+        item.courseId === courseId
+    );
+    return resolveProctoringRequirement(
+      enrollment.proctoringOverride,
+      gc?.requiresProctoring === true
+    );
+  }
+
+  /** The learner's open session for this group+course (purged sessions never count). */
+  private findActiveProctoringRecording(
+    tenantId: string,
+    learnerId: string,
+    groupId: string,
+    courseId: string
+  ): ProctoringRecording | undefined {
+    return this.state.proctoringRecordings.find(
+      (r) =>
+        r.tenantId === tenantId &&
+        r.learnerId === learnerId &&
+        r.groupId === groupId &&
+        r.courseId === courseId &&
+        r.recordingStatus === 'recording' &&
+        !r.purgedAt
+    );
+  }
+
+  /**
+   * Start (or idempotently resume) a recording session BEFORE the exam attempt (spec §2.5).
+   * Takes enrollmentId (not groupId) — the only id the test-player has; group derives from it.
+   */
+  startProctoringRecording(
+    tenantId: string,
+    actorId: string | undefined,
+    request: { enrollmentId: string; courseId: string; consent: boolean },
+    context: RequestContext
+  ): ProctoringRecording {
+    if (request.consent !== true) {
+      throw new BadRequestException({
+        code: 'consent_required',
+        message: 'Consent to video recording is required (152-ФЗ)'
+      });
+    }
+    const enrollment = this.getById(this.state.enrollments, tenantId, request.enrollmentId);
+    this.assertActorMatchesLearnerIamLink(
+      tenantId,
+      actorId,
+      enrollment.learnerId,
+      context.permissions
+    );
+    const linked = this.state.groupCourses.some(
+      (item) =>
+        item.tenantId === tenantId &&
+        item.groupId === enrollment.groupId &&
+        item.courseId === request.courseId
+    );
+    if (!linked) {
+      throw new PreconditionFailedException({
+        code: 'domain_rule_violation',
+        message: 'Enrollment group is not linked to the course'
+      });
+    }
+    if (!this.isProctoringRequired(tenantId, enrollment, request.courseId)) {
+      throw new BadRequestException({
+        code: 'proctoring_not_required',
+        message: 'Proctoring is not required for this learner and course'
+      });
+    }
+    const active = this.findActiveProctoringRecording(
+      tenantId,
+      enrollment.learnerId,
+      enrollment.groupId,
+      request.courseId
+    );
+    if (active) return active; // idempotent resume — chunks carry nextSequence for the client
+    const now = this.now();
+    const entity: ProctoringRecording = {
+      id: this.id('prec'),
+      tenantId,
+      learnerId: enrollment.learnerId,
+      groupId: enrollment.groupId,
+      courseId: request.courseId,
+      recordingStatus: 'recording',
+      consentAt: now,
+      startedAt: now,
+      chunks: [],
+      status: 'active',
+      createdAt: now,
+      updatedAt: now
+    };
+    this.state.proctoringRecordings.push(entity);
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.proctoring_started',
+      'learning.proctoring_recording',
+      entity.id,
+      undefined,
+      { id: entity.id, learnerId: entity.learnerId, courseId: entity.courseId, consentAt: now },
+      context
+    );
+    return entity;
   }
 
   saveAnswer(

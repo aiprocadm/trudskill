@@ -177,6 +177,142 @@ describe('proctoring override (per-student switch)', () => {
   });
 });
 
+describe('proctoring lifecycle — start session', () => {
+  it('consent !== true → 400 consent_required', () => {
+    const { service } = makeService();
+    const { course, enrollment } = seedProctoredExam(service, true);
+    let err: unknown;
+    try {
+      service.startProctoringRecording(
+        T,
+        'u_l1',
+        { enrollmentId: enrollment.id, courseId: course.id, consent: false },
+        ctxL1
+      );
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeDefined();
+    expect(getResponseOf(err).code).toBe('consent_required');
+  });
+
+  it('proctoring not required (flag off, no override) → 400 proctoring_not_required', () => {
+    const { service } = makeService();
+    const { course, enrollment } = seedProctoredExam(service, false);
+    let err: unknown;
+    try {
+      service.startProctoringRecording(
+        T,
+        'u_l1',
+        { enrollmentId: enrollment.id, courseId: course.id, consent: true },
+        ctxL1
+      );
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeDefined();
+    expect(getResponseOf(err).code).toBe('proctoring_not_required');
+  });
+
+  it("override 'exempt' beats the group-course flag → proctoring_not_required", () => {
+    const { service } = makeService();
+    const { course, enrollment } = seedProctoredExam(service, true);
+    service.setProctoringOverride(T, ADMIN, enrollment.id, { override: 'exempt' }, ctx);
+    let err: unknown;
+    try {
+      service.startProctoringRecording(
+        T,
+        'u_l1',
+        { enrollmentId: enrollment.id, courseId: course.id, consent: true },
+        ctxL1
+      );
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeDefined();
+    expect(getResponseOf(err).code).toBe('proctoring_not_required');
+  });
+
+  it("override 'require' starts a session even when the group-course flag is off", () => {
+    const { service } = makeService();
+    const { course, enrollment } = seedProctoredExam(service, false);
+    service.setProctoringOverride(T, ADMIN, enrollment.id, { override: 'require' }, ctx);
+    const recording = service.startProctoringRecording(
+      T,
+      'u_l1',
+      { enrollmentId: enrollment.id, courseId: course.id, consent: true },
+      ctxL1
+    );
+    expect(recording.recordingStatus).toBe('recording');
+  });
+
+  it('starts a recording session: status, consentAt/startedAt stamps, empty chunks, group derived from enrollment', () => {
+    const { service } = makeService();
+    const { course, group, enrollment, learner } = seedProctoredExam(service, true);
+    const recording = service.startProctoringRecording(
+      T,
+      'u_l1',
+      { enrollmentId: enrollment.id, courseId: course.id, consent: true },
+      ctxL1
+    );
+    expect(recording.recordingStatus).toBe('recording');
+    expect(recording.consentAt).toBeTruthy();
+    expect(recording.startedAt).toBeTruthy();
+    expect(recording.chunks).toEqual([]);
+    expect(recording.learnerId).toBe(learner.id);
+    expect(recording.groupId).toBe(group.id);
+    expect(recording.courseId).toBe(course.id);
+  });
+
+  it('is idempotent: a second start while a session is active returns the same record', () => {
+    const { service } = makeService();
+    const { course, enrollment } = seedProctoredExam(service, true);
+    const first = service.startProctoringRecording(
+      T,
+      'u_l1',
+      { enrollmentId: enrollment.id, courseId: course.id, consent: true },
+      ctxL1
+    );
+    const second = service.startProctoringRecording(
+      T,
+      'u_l1',
+      { enrollmentId: enrollment.id, courseId: course.id, consent: true },
+      ctxL1
+    );
+    expect(second.id).toBe(first.id);
+  });
+
+  it('a foreign actor without delegation cannot start on someone else’s enrollment', () => {
+    const { service } = makeService();
+    const { course, enrollment } = seedProctoredExam(service, true);
+    expect(() =>
+      service.startProctoringRecording(
+        T,
+        'u_stranger',
+        { enrollmentId: enrollment.id, courseId: course.id, consent: true },
+        { ...ctx, userId: 'u_stranger' }
+      )
+    ).toThrow();
+  });
+
+  it('course not linked to the enrollment group → domain_rule_violation', () => {
+    const { service } = makeService();
+    const { enrollment } = seedProctoredExam(service, true);
+    const other = service.createCourse(T, ADMIN, { code: 'C2', title: 'Other' }, ctx);
+    let err: unknown;
+    try {
+      service.startProctoringRecording(
+        T,
+        'u_l1',
+        { enrollmentId: enrollment.id, courseId: other.id, consent: true },
+        ctxL1
+      );
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeDefined();
+    expect(getResponseOf(err).code).toBe('domain_rule_violation');
+  });
+});
+
 void startArgs; // used by gate tests added in Task 6
-void ctxL1; // used by lifecycle tests added in Task 4
-void getResponseOf; // used by lifecycle tests added in Task 4
