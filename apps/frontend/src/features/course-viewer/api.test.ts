@@ -16,7 +16,7 @@ const baseEntity = {
   updatedAt: '2026-05-01T00:00:00.000Z'
 };
 
-const module = (id: string, sortOrder: number): CourseModule => ({
+const makeModule = (id: string, sortOrder: number): CourseModule => ({
   ...baseEntity,
   id,
   courseVersionId: 'cv1',
@@ -51,7 +51,7 @@ describe('loadCourseTree', () => {
 
   it('сортирует модули и материалы по sortOrder', async () => {
     vi.spyOn(mvpApi, 'listModules').mockResolvedValue(
-      listResponse([module('m2', 1), module('m1', 0)])
+      listResponse([makeModule('m2', 1), makeModule('m1', 0)])
     );
     vi.spyOn(mvpApi, 'listMaterials').mockImplementation((_session, moduleId) => {
       if (moduleId === 'm1') {
