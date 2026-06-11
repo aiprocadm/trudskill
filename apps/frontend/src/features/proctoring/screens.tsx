@@ -38,6 +38,7 @@ export function ProctoringStartPanel({
   const { session } = useAuth();
   const [consent, setConsent] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [streamReady, setStreamReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -53,6 +54,7 @@ export function ProctoringStartPanel({
           return;
         }
         streamRef.current = stream;
+        setStreamReady(true);
         if (videoRef.current) videoRef.current.srcObject = stream;
       })
       .catch(() =>
@@ -98,7 +100,12 @@ export function ProctoringStartPanel({
       setActiveProctoring({ recordingId: recording.id, recorder });
       onRecordingStarted();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось начать запись');
+      const message = err instanceof Error ? err.message : '';
+      setError(
+        message === 'camera_unavailable' || message === ''
+          ? 'Не удалось начать запись: камера недоступна. Проверьте доступ к камере и попробуйте ещё раз.'
+          : message
+      );
     } finally {
       setIsStarting(false);
     }
@@ -121,7 +128,7 @@ export function ProctoringStartPanel({
       <button
         type="button"
         className="ui-button"
-        disabled={!consent || isStarting}
+        disabled={!consent || isStarting || !streamReady}
         onClick={() => void onStart()}
       >
         {isStarting ? 'Включаем запись…' : 'Начать запись и экзамен'}

@@ -1,3 +1,5 @@
+'use client';
+
 import { proctoringApi } from './api';
 
 import type { ProctoringRecorder } from './recorder';
