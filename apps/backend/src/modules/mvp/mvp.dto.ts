@@ -1140,3 +1140,50 @@ export class ReviewIdentityVerificationRequest {
   @MinLength(1)
   rejectionReason?: string;
 }
+
+// === Phase 4 Plan B — proctoring DTOs ===
+
+/** `POST /proctoring-recordings` — start (or idempotently resume) a recording session. */
+export class StartProctoringRecordingRequest {
+  @IsString()
+  @MinLength(1)
+  enrollmentId!: string;
+
+  @IsString()
+  @MinLength(1)
+  courseId!: string;
+
+  /** 152-ФЗ: explicit consent to video recording. */
+  @IsBoolean()
+  @Equals(true)
+  consent!: boolean;
+}
+
+/** `POST /proctoring-recordings/:id/chunk-upload-intent` — presigned PUT for one MediaRecorder chunk. */
+export class CreateProctoringChunkUploadUrlRequest {
+  /** 0-based monotonic chunk number assigned by the client. */
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  sequence!: number;
+
+  @IsString()
+  @MinLength(1)
+  originalName!: string;
+
+  @IsString()
+  @MinLength(1)
+  contentType!: string;
+
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  sizeBytes!: number;
+}
+
+/** `PATCH /enrollments/:id/proctoring-override` — per-student switch; null = inherit group-course. */
+export class SetProctoringOverrideRequest {
+  @ValidateIf((_, value) => value !== null)
+  @IsIn(['require', 'exempt'])
+  override!: 'require' | 'exempt' | null;
+}
