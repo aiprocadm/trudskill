@@ -104,6 +104,9 @@ export interface GroupCourse extends BaseEntity {
 
 export type EnrollmentStatus = 'pending' | 'active' | 'suspended' | 'completed' | 'cancelled';
 
+/** Phase 4 Plan B: per-student proctoring override ('require'/'exempt'); undefined inherits the group-course flag. */
+export type ProctoringOverride = 'require' | 'exempt';
+
 export interface Enrollment extends BaseEntity {
   groupId: string;
   learnerId: string;
@@ -385,8 +388,6 @@ export interface IdentityVerificationView extends IdentityVerification {
   learnerDateOfBirth?: string;
 }
 
-export type ProctoringOverride = 'require' | 'exempt';
-
 export type ProctoringRecordingStatus = 'recording' | 'completed';
 
 /** One uploaded (or at least intent-issued) MediaRecorder chunk; the file lives in storage.files. */
@@ -426,12 +427,13 @@ export interface ProctoringRecordingView extends ProctoringRecording {
   attemptStatus?: AttemptStatus;
 }
 
-/** A chunk excluded from playback (or missing): code ∈ file_infected | file_scan_failed | file_error | missing_chunk. */
+/** A chunk excluded from playback (AV verdict) or absent from the sequence entirely. */
 export interface ProctoringChunkIssue {
   sequence: number;
-  code: string;
+  code: 'file_infected' | 'file_scan_failed' | 'file_error' | 'missing_chunk';
 }
 
+/** One playable chunk: short-lived presigned GET url, ordered by sequence. */
 export interface ProctoringPlaybackChunk {
   sequence: number;
   fileId: string;
