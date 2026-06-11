@@ -123,6 +123,8 @@ export interface Enrollment extends BaseEntity {
   courseId?: string;
   status: 'pending' | 'active' | 'suspended' | 'completed' | 'cancelled';
   enrolledAt: string;
+  /** Phase 4 Plan B: per-student proctoring override; absent = inherit from group-course. */
+  proctoringOverride?: 'require' | 'exempt';
 }
 
 export interface Progress extends BaseEntity {
