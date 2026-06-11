@@ -3684,7 +3684,7 @@ git commit -m "feat(frontend): proctoring learner flow — gate interstitial, co
 - Modify: `apps/frontend/src/features/navigation/model.ts`
 - Create: `apps/frontend/src/e2e/proctoring.e2e.test.ts`
 
-- [ ] **Step 1: Write the failing e2e smoke** (`src/e2e/proctoring.e2e.test.ts`), mirroring `identity-verification.e2e.test.ts` (same imports/fixtures):
+- [x] **Step 1: Write the failing e2e smoke** (`src/e2e/proctoring.e2e.test.ts`), mirroring `identity-verification.e2e.test.ts` (same imports/fixtures):
 
 ```typescript
 /**
@@ -3787,7 +3787,7 @@ describe('proctoring — module smoke', () => {
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/e2e/proctoring.e2e.test.ts --no-file-parallelism` → FAIL (routes/nav/screens missing).
 
-- [ ] **Step 2: Admin screens** — append to `features/proctoring/screens.tsx` (imports merge with the learner part: add `DataTable`, `LoadingState` from `@cdoprof/ui`, `Link` from `next/link`, `PageContainer`/`PageHeader`/`SectionCard`/`SectionEmpty` from `../../components/state-wrappers`, hooks and format helpers):
+- [x] **Step 2: Admin screens** — append to `features/proctoring/screens.tsx` (imports merge with the learner part: add `DataTable`, `LoadingState` from `@cdoprof/ui`, `Link` from `next/link`, `PageContainer`/`PageHeader`/`SectionCard`/`SectionEmpty` from `../../components/state-wrappers`, hooks and format helpers):
 
 ```tsx
 const STATUS_FILTER_OPTIONS: Array<{
@@ -3974,7 +3974,7 @@ export function AdminProctoringDetailScreen({ id }: { id: string }): ReactElemen
 
 (Extend the file's import block accordingly: `useEffect` is already imported for the learner panel; add `ProctoringRecordingStatus` to the type imports, `chunkIssueLabel`, `formatDateShort`, `formatProctoringStatus` from `./format`, `useProctoringDetail`, `useProctoringQueue` from `./hooks`.)
 
-- [ ] **Step 3: Pages.** `app/admin/proctoring-recordings/page.tsx`:
+- [x] **Step 3: Pages.** `app/admin/proctoring-recordings/page.tsx`:
 
 ```tsx
 'use client';
@@ -4015,7 +4015,7 @@ export default async function AdminProctoringDetailPage({
 
 (Check whether `app/admin/identity-verifications/page.tsx` uses `'use client'` and mirror it exactly for the list page.)
 
-- [ ] **Step 4: Navigation.** In `features/navigation/model.ts` — `routeMeta`, directly after the `/admin/identity-verifications` entries (line ~92; `[id]` pattern BEFORE the bare pattern, matching the identity ordering):
+- [x] **Step 4: Navigation.** In `features/navigation/model.ts` — `routeMeta`, directly after the `/admin/identity-verifications` entries (line ~92; `[id]` pattern BEFORE the bare pattern, matching the identity ordering):
 
 ```typescript
   {
@@ -4041,13 +4041,13 @@ export default async function AdminProctoringDetailPage({
 
 > The pre-existing `/proctoring` routeMeta + «Прокторинг» nav item (integrations stub, `tenant.read`) stay untouched.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/e2e/proctoring.e2e.test.ts src/e2e/lms-role-flows.e2e.test.ts src/features/proctoring --no-file-parallelism` → PASS (if a role-flow snapshot enumerates nav items, update it deliberately).
 Run: `pnpm test:frontend` → PASS (full frontend suite works on this machine).
 Run: `pnpm typecheck` → 8/8; `npx eslint apps/frontend/src/features/proctoring apps/frontend/app/admin/proctoring-recordings apps/frontend/src/features/navigation/model.ts apps/frontend/src/e2e/proctoring.e2e.test.ts --max-warnings=0` → clean.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/frontend/src/features/proctoring apps/frontend/app/admin/proctoring-recordings apps/frontend/src/features/navigation/model.ts apps/frontend/src/e2e/proctoring.e2e.test.ts
