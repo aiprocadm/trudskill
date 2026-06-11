@@ -3788,6 +3788,9 @@ export class MvpService {
         message: 'A chunk with this sequence is already registered'
       });
     }
+    // NOTE: reuses the files-layer 10 MB ceiling (SUBMISSION_MAX_BYTES) — enough for a 30-second
+    // webm chunk at default MediaRecorder bitrates; higher-bitrate needs would require a per-intent
+    // maxBytes option in FilesService, not a change here.
     const intent = await this.filesService.createUploadIntent(
       tenantId,
       {
@@ -3817,6 +3820,7 @@ export class MvpService {
     const record = this.getById(this.state.proctoringRecordings, tenantId, recordingId);
     this.assertActorMatchesLearnerIamLink(tenantId, actorId, record.learnerId, context.permissions);
     if (record.recordingStatus === 'completed') return record;
+    const oldValues = { recordingStatus: record.recordingStatus };
     const now = this.now();
     record.recordingStatus = 'completed';
     record.completedAt = now;
@@ -3827,7 +3831,7 @@ export class MvpService {
       'learning.proctoring_completed',
       'learning.proctoring_recording',
       record.id,
-      { recordingStatus: 'recording' },
+      oldValues,
       { recordingStatus: 'completed', completedAt: now, chunkCount: record.chunks.length },
       context
     );
