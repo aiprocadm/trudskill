@@ -1,6 +1,6 @@
 # Phase 4 Plan B — Proctoring Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** A final exam can be video-recorded from the learner's webcam: the learner consents (152-ФЗ), the browser `MediaRecorder` produces 30-second chunks that upload sequentially to MinIO via the files layer, a 5th gate in `MvpService.startAttempt` (412 `proctoring_required`) blocks the exam until a recording session is active, and an admin reviews recordings at `/admin/proctoring-recordings` (chunk-concatenating player). Requirement is per-group-course (`requiresProctoring`) with a per-student override (`Enrollment.proctoringOverride`). Videos age out via a dormant 365-day retention cron.
 
@@ -108,7 +108,7 @@ npx eslint apps/backend/src/modules/mvp/proctoring apps/backend/src/modules/mvp/
 - Create: `apps/backend/migrations/0051_learning_proctoring_recordings.sql`
 - Modify: `apps/backend/src/infrastructure/database/mvp-domain-migrations.test.ts`
 
-- [ ] **Step 1: Write the failing migration test.** Append to `mvp-domain-migrations.test.ts` (it already defines `migrationFiles`, `migrationSqlByFile`; mirror the `migration 0045` describe-block):
+- [x] **Step 1: Write the failing migration test.** Append to `mvp-domain-migrations.test.ts` (it already defines `migrationFiles`, `migrationSqlByFile`; mirror the `migration 0045` describe-block):
 
 ```typescript
 describe('Phase 4 Plan B — proctoring recordings (migration 0051)', () => {
@@ -168,12 +168,12 @@ describe('Phase 4 Plan B — proctoring recordings (migration 0051)', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `pnpm test:migrations`
 Expected: FAIL — `0051_learning_proctoring_recordings.sql` does not exist.
 
-- [ ] **Step 3: Write the migration**
+- [x] **Step 3: Write the migration**
 
 ```sql
 -- 0051_learning_proctoring_recordings.sql
@@ -261,12 +261,12 @@ ON CONFLICT (tenant_id, role_id, permission_id) DO NOTHING;
 COMMIT;
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `pnpm test:migrations`
 Expected: PASS — new describe green, ordering/duplicate-number checks still green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/migrations/0051_learning_proctoring_recordings.sql apps/backend/src/infrastructure/database/mvp-domain-migrations.test.ts
@@ -283,7 +283,7 @@ git commit -m "feat(migrations): proctoring typed contract — table, toggles, p
 - Modify: `apps/backend/src/modules/mvp/infrastructure/in-memory-mvp.state.ts`
 - Modify: `apps/backend/src/modules/mvp/infrastructure/mvp-collections.ts`
 
-- [ ] **Step 1: Add the flag + override to existing types** in `mvp.types.ts`. In `GroupCourse` (after `requiresIdentityVerification?`, line ~100):
+- [x] **Step 1: Add the flag + override to existing types** in `mvp.types.ts`. In `GroupCourse` (after `requiresIdentityVerification?`, line ~100):
 
 ```typescript
   /** Phase 4 Plan B: record the final exam on webcam video (proctoring). */
@@ -297,7 +297,7 @@ In `Enrollment` (after `plannedEndAt?`, line ~112):
   proctoringOverride?: ProctoringOverride;
 ```
 
-- [ ] **Step 2: Add the proctoring types** in `mvp.types.ts` after the `IdentityVerificationView` block (line ~382):
+- [x] **Step 2: Add the proctoring types** in `mvp.types.ts` after the `IdentityVerificationView` block (line ~382):
 
 ```typescript
 export type ProctoringOverride = 'require' | 'exempt';
@@ -359,25 +359,25 @@ export interface ProctoringRecordingDetail extends ProctoringRecordingView {
 }
 ```
 
-- [ ] **Step 3: Register the collection in `InMemoryMvpState`** (`in-memory-mvp.state.ts`): add `ProctoringRecording` to the type import block, and the array field after `identityVerifications`:
+- [x] **Step 3: Register the collection in `InMemoryMvpState`** (`in-memory-mvp.state.ts`): add `ProctoringRecording` to the type import block, and the array field after `identityVerifications`:
 
 ```typescript
   // Phase 4 Plan B — proctoring recording sessions (webcam video of final exams).
   proctoringRecordings: ProctoringRecording[] = [];
 ```
 
-- [ ] **Step 4: Register the key in `mvp-collections.ts`** — add `'proctoringRecordings'` right after `'identityVerifications'` in `MVP_COLLECTIONS`.
+- [x] **Step 4: Register the key in `mvp-collections.ts`** — add `'proctoringRecordings'` right after `'identityVerifications'` in `MVP_COLLECTIONS`.
 
 > ⚠️ Steps 3 and 4 MUST land together — a collection missing from either list is silently lost between HTTP requests (CLAUDE.md).
 >
 > **Persistence note (verified against code):** `PostgresMvpPersistenceBackend` iterates `MVP_COLLECTIONS` generically (JSONB rows in `learning.mvp_runtime_documents` / `..._stage1_...`) — there is **no per-collection adapter code** to write. `identityVerifications` works exactly this way; the typed table from Task 1 is the schema contract only (0016 rule). Adding the key above IS the whole persistence wiring.
 
-- [ ] **Step 5: Typecheck**
+- [x] **Step 5: Typecheck**
 
 Run: `pnpm typecheck`
 Expected: PASS (8/8).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.types.ts apps/backend/src/modules/mvp/infrastructure/in-memory-mvp.state.ts apps/backend/src/modules/mvp/infrastructure/mvp-collections.ts
@@ -396,7 +396,7 @@ git commit -m "feat(backend): proctoring recording model + MVP collection regist
 - Modify: `apps/backend/src/modules/mvp/mvp.service.ts` (`createGroupCourse` / `updateGroupCourse` / `setProctoringOverride`)
 - Create: `apps/backend/src/modules/mvp/proctoring.service.test.ts` (harness + override test)
 
-- [ ] **Step 1: Write the failing pure-function matrix test** (`proctoring-requirement.test.ts`):
+- [x] **Step 1: Write the failing pure-function matrix test** (`proctoring-requirement.test.ts`):
 
 ```typescript
 import { describe, expect, it } from 'vitest';
@@ -418,12 +418,12 @@ describe('resolveProctoringRequirement (override × group-course flag matrix)', 
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/proctoring/proctoring-requirement.test.ts --no-file-parallelism`
 Expected: FAIL — module missing.
 
-- [ ] **Step 3: Implement** `proctoring-requirement.ts` (dependency-free; the `ProctoringOverride` union is declared structurally to avoid importing `mvp.types`):
+- [x] **Step 3: Implement** `proctoring-requirement.ts` (dependency-free; the `ProctoringOverride` union is declared structurally to avoid importing `mvp.types`):
 
 ```typescript
 /**
@@ -443,7 +443,7 @@ export function resolveProctoringRequirement(
 
 Run the matrix test again → PASS (6 cases).
 
-- [ ] **Step 4: Add `requiresProctoring` to the two group-course DTOs** in `mvp.dto.ts`, directly after `requiresIdentityVerification` in BOTH `CreateGroupCourseRequest` and `UpdateGroupCourseRequest`:
+- [x] **Step 4: Add `requiresProctoring` to the two group-course DTOs** in `mvp.dto.ts`, directly after `requiresIdentityVerification` in BOTH `CreateGroupCourseRequest` and `UpdateGroupCourseRequest`:
 
 ```typescript
   @IsOptional()
@@ -451,7 +451,7 @@ Run the matrix test again → PASS (6 cases).
   requiresProctoring?: boolean;
 ```
 
-- [ ] **Step 5: Persist the flag in `MvpService`.** In `createGroupCourse` (line ~1311), extend the entity literal — directly after the `requiresIdentityVerification` conditional spread:
+- [x] **Step 5: Persist the flag in `MvpService`.** In `createGroupCourse` (line ~1311), extend the entity literal — directly after the `requiresIdentityVerification` conditional spread:
 
 ```typescript
       ...(request.requiresProctoring !== undefined
@@ -467,7 +467,7 @@ if (request.requiresProctoring !== undefined) {
 }
 ```
 
-- [ ] **Step 6: Write the failing service test for the override.** Create `proctoring.service.test.ts` with the harness copied from `identity-verification.service.test.ts` (same imports, `T`/`ADMIN`/`ctx`, `makeFilesMock`, 6-arg `MvpService`) plus a seed helper used by ALL later tasks:
+- [x] **Step 6: Write the failing service test for the override.** Create `proctoring.service.test.ts` with the harness copied from `identity-verification.service.test.ts` (same imports, `T`/`ADMIN`/`ctx`, `makeFilesMock`, 6-arg `MvpService`) plus a seed helper used by ALL later tasks:
 
 ```typescript
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -654,12 +654,12 @@ void ctxL1; // used by lifecycle tests added in Task 4
 void getResponseOf; // used by lifecycle tests added in Task 4
 ```
 
-- [ ] **Step 7: Run to verify failure**
+- [x] **Step 7: Run to verify failure**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/proctoring.service.test.ts --no-file-parallelism`
 Expected: FAIL — `setProctoringOverride` does not exist (the DTO/flag wiring compiles already).
 
-- [ ] **Step 8: Implement `setProctoringOverride`** in `mvp.service.ts`. Open a new section after `getMyIdentityVerification` (line ~3608):
+- [x] **Step 8: Implement `setProctoringOverride`** in `mvp.service.ts`. Open a new section after `getMyIdentityVerification` (line ~3608):
 
 ```typescript
   // ─── Phase 4 Plan B: proctoring (webcam video recording of final exams) ───
@@ -696,12 +696,12 @@ Expected: FAIL — `setProctoringOverride` does not exist (the DTO/flag wiring c
 
 Add `ProctoringOverride` (plus, for later tasks, `ProctoringRecording`, `ProctoringChunk`, `ProctoringRecordingView`, `ProctoringRecordingDetail`, `ProctoringChunkIssue`, `ProctoringPlaybackChunk`, `ProctoringRecordingStatus`) to the `mvp.types.js` type import in `mvp.service.ts`.
 
-- [ ] **Step 9: Run to verify pass + lint**
+- [x] **Step 9: Run to verify pass + lint**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/proctoring.service.test.ts src/modules/mvp/proctoring/proctoring-requirement.test.ts --no-file-parallelism` → PASS.
 Run: `npx eslint apps/backend/src/modules/mvp/proctoring apps/backend/src/modules/mvp/proctoring.service.test.ts apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/mvp.dto.ts --max-warnings=0` → clean.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/proctoring apps/backend/src/modules/mvp/proctoring.service.test.ts apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/mvp.dto.ts
@@ -717,7 +717,7 @@ git commit -m "feat(backend): proctoring requirement resolution + group-course f
 - Modify: `apps/backend/src/modules/mvp/mvp.service.ts`
 - Modify: `apps/backend/src/modules/mvp/proctoring.service.test.ts`
 
-- [ ] **Step 1: Write the failing tests.** Append to `proctoring.service.test.ts` (remove the `void ctxL1;` / `void getResponseOf;` suppressions once used):
+- [x] **Step 1: Write the failing tests.** Append to `proctoring.service.test.ts` (remove the `void ctxL1;` / `void getResponseOf;` suppressions once used):
 
 ```typescript
 describe('proctoring lifecycle — start session', () => {
@@ -859,12 +859,12 @@ describe('proctoring lifecycle — start session', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/proctoring.service.test.ts --no-file-parallelism`
 Expected: FAIL — `startProctoringRecording` does not exist.
 
-- [ ] **Step 3: Implement.** In `mvp.service.ts`, add a module-level constant next to `IDENTITY_MIME_ALLOWLIST` (line ~222):
+- [x] **Step 3: Implement.** In `mvp.service.ts`, add a module-level constant next to `IDENTITY_MIME_ALLOWLIST` (line ~222):
 
 ```typescript
 /** Phase 4 Plan B: proctoring chunks are browser MediaRecorder output only (mp4 = Safari fallback). */
@@ -987,12 +987,12 @@ Then add inside the proctoring section (after `setProctoringOverride` from Task 
 
 > Reuse existing imports: `BadRequestException`, `ConflictException`, `PreconditionFailedException` are already imported in `mvp.service.ts`.
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/proctoring.service.test.ts --no-file-parallelism`
 Expected: PASS (Task 3 + Task 4 cases).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/proctoring.service.test.ts
@@ -1008,7 +1008,7 @@ git commit -m "feat(backend): proctoring session start — consent, requirement 
 - Modify: `apps/backend/src/modules/mvp/mvp.service.ts`
 - Modify: `apps/backend/src/modules/mvp/proctoring.service.test.ts`
 
-- [ ] **Step 1: Write the failing tests.** Append:
+- [x] **Step 1: Write the failing tests.** Append:
 
 ```typescript
 describe('proctoring lifecycle — chunks, complete, active', () => {
@@ -1157,9 +1157,9 @@ describe('proctoring lifecycle — chunks, complete, active', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure** (same vitest command as Task 4). Expected: FAIL — methods missing.
+- [x] **Step 2: Run to verify failure** (same vitest command as Task 4). Expected: FAIL — methods missing.
 
-- [ ] **Step 3: Implement** in `mvp.service.ts` (proctoring section):
+- [x] **Step 3: Implement** in `mvp.service.ts` (proctoring section):
 
 ```typescript
   /**
@@ -1255,9 +1255,9 @@ describe('proctoring lifecycle — chunks, complete, active', () => {
   }
 ```
 
-- [ ] **Step 4: Run to verify pass** (same command) → PASS.
+- [x] **Step 4: Run to verify pass** (same command) → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/proctoring.service.test.ts
@@ -1273,7 +1273,7 @@ git commit -m "feat(backend): proctoring chunk upload intents + complete + resum
 - Modify: `apps/backend/src/modules/mvp/mvp.service.ts`
 - Modify: `apps/backend/src/modules/mvp/proctoring.service.test.ts`
 
-- [ ] **Step 1: Write the failing gate tests.** Append (and remove the now-used `void startArgs;` suppression left by Task 3):
+- [x] **Step 1: Write the failing gate tests.** Append (and remove the now-used `void startArgs;` suppression left by Task 3):
 
 ```typescript
 describe('proctoring gate (5th assert in startAttempt)', () => {
@@ -1420,9 +1420,9 @@ describe('proctoring gate (5th assert in startAttempt)', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure** (same vitest command). Expected: gate tests FAIL — attempts start unguarded / no linking.
+- [x] **Step 2: Run to verify failure** (same vitest command). Expected: gate tests FAIL — attempts start unguarded / no linking.
 
-- [ ] **Step 3: Implement.** In `mvp.service.ts`, add after `findActiveProctoringRecording`:
+- [x] **Step 3: Implement.** In `mvp.service.ts`, add after `findActiveProctoringRecording`:
 
 ```typescript
   /**
@@ -1476,13 +1476,13 @@ if (activeProctoringRecording && !activeProctoringRecording.attemptId) {
 }
 ```
 
-- [ ] **Step 4: Run target + regression**
+- [x] **Step 4: Run target + regression**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/proctoring.service.test.ts --no-file-parallelism` → PASS.
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/identity-verification.service.test.ts src/modules/mvp/pre-exam-auth.service.test.ts src/modules/mvp/module-gating.service.test.ts src/modules/mvp/test-player.service.test.ts src/modules/mvp/business-flows.e2e.test.ts --no-file-parallelism`
 Expected: PASS (no regression — existing seeds have `requiresProctoring` undefined ⇒ gate inert).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/proctoring.service.test.ts
@@ -1498,7 +1498,7 @@ git commit -m "feat(backend): proctoring gate in startAttempt + attempt linking 
 - Modify: `apps/backend/src/modules/mvp/mvp.service.ts`
 - Modify: `apps/backend/src/modules/mvp/proctoring.service.test.ts`
 
-- [ ] **Step 1: Write the failing tests.** Append:
+- [x] **Step 1: Write the failing tests.** Append:
 
 ```typescript
 describe('proctoring admin views', () => {
@@ -1611,9 +1611,9 @@ describe('proctoring admin views', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure** (same vitest command). Expected: FAIL — methods missing.
+- [x] **Step 2: Run to verify failure** (same vitest command). Expected: FAIL — methods missing.
 
-- [ ] **Step 3: Implement** in `mvp.service.ts` (proctoring section). `HttpException` is already imported (used by `getIdentityVerificationView`):
+- [x] **Step 3: Implement** in `mvp.service.ts` (proctoring section). `HttpException` is already imported (used by `getIdentityVerificationView`):
 
 ```typescript
   /** Admin queue (proctoring.read): sessions (optionally by recordingStatus), newest first, enriched. */
@@ -1701,9 +1701,9 @@ describe('proctoring admin views', () => {
 
 > **Executor note:** `Learner` has `firstName`/`lastName`/`middleName` (NO `name` field) — the enrichment is byte-for-byte the identity `toIdentityVerificationView` pattern. The seed's `createLearner({ name: 'Jane Doe' })` populates first/last via the legacy split, so the test's `toContain('Doe')` assertion holds regardless of name order.
 
-- [ ] **Step 4: Run to verify pass** (same command) → PASS.
+- [x] **Step 4: Run to verify pass** (same command) → PASS.
 
-- [ ] **Step 5: Lint + commit**
+- [x] **Step 5: Lint + commit**
 
 ```bash
 npx eslint apps/backend/src/modules/mvp/mvp.service.ts apps/backend/src/modules/mvp/proctoring.service.test.ts --max-warnings=0
@@ -1720,7 +1720,7 @@ git commit -m "feat(backend): proctoring admin queue + playback detail with chun
 - Modify: `apps/backend/src/modules/mvp/mvp.dto.ts`
 - Modify: `apps/backend/src/modules/mvp/mvp.dto-validation.test.ts`
 
-- [ ] **Step 1: Write the failing DTO tests** (mirror the file's existing `plainToInstance` + `validateSync` style; extend the import from `./mvp.dto.js`):
+- [x] **Step 1: Write the failing DTO tests** (mirror the file's existing `plainToInstance` + `validateSync` style; extend the import from `./mvp.dto.js`):
 
 ```typescript
 import {
@@ -1808,11 +1808,11 @@ describe('Proctoring DTOs (Phase 4 Plan B)', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.dto-validation.test.ts --no-file-parallelism` → FAIL (classes missing).
 
-- [ ] **Step 3: Add the DTOs** to `mvp.dto.ts` after the identity-verification DTO block (line ~1134). All decorators (`Equals`, `IsIn`, `IsInt`, `Min`, `IsNumber`, `IsBoolean`, `ValidateIf`, `Type`) are already imported in this file:
+- [x] **Step 3: Add the DTOs** to `mvp.dto.ts` after the identity-verification DTO block (line ~1134). All decorators (`Equals`, `IsIn`, `IsInt`, `Min`, `IsNumber`, `IsBoolean`, `ValidateIf`, `Type`) are already imported in this file:
 
 ```typescript
 // === Phase 4 Plan B — proctoring DTOs ===
@@ -1863,9 +1863,9 @@ export class SetProctoringOverrideRequest {
 }
 ```
 
-- [ ] **Step 4: Run to verify pass** (same command) → PASS.
+- [x] **Step 4: Run to verify pass** (same command) → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.dto.ts apps/backend/src/modules/mvp/mvp.dto-validation.test.ts
@@ -1881,7 +1881,7 @@ git commit -m "feat(backend): proctoring DTOs (Phase 4 Plan B)"
 - Modify: `apps/backend/src/modules/mvp/mvp.controller.ts`
 - Modify: `apps/backend/src/modules/mvp/mvp.http.integration.test.ts`
 
-- [ ] **Step 1: Add the endpoints** in `mvp.controller.ts` (import the 3 new DTO classes; place the block after the identity-verification endpoints, line ~966). **Route order matters: `proctoring-recordings/active` MUST be declared before `proctoring-recordings/:id`.**
+- [x] **Step 1: Add the endpoints** in `mvp.controller.ts` (import the 3 new DTO classes; place the block after the identity-verification endpoints, line ~966). **Route order matters: `proctoring-recordings/active` MUST be declared before `proctoring-recordings/:id`.**
 
 ```typescript
   // ─── Phase 4 Plan B: proctoring (webcam video recording of final exams) ───
@@ -1964,7 +1964,7 @@ git commit -m "feat(backend): proctoring DTOs (Phase 4 Plan B)"
 
 > `BadRequestException`, `Patch`, `Query`, `Param` are already imported in `mvp.controller.ts` (verify the `@nestjs/common` import line; add any that are missing).
 
-- [ ] **Step 2: Extend the stub controller + boundary describe-block** in `mvp.http.integration.test.ts`. In `TestMvpController` (after the identity stubs, line ~409), add:
+- [x] **Step 2: Extend the stub controller + boundary describe-block** in `mvp.http.integration.test.ts`. In `TestMvpController` (after the identity stubs, line ~409), add:
 
 ```typescript
       // Phase 4 Plan B — proctoring permission boundary
@@ -2118,12 +2118,12 @@ describe('proctoring permission boundary', () => {
 });
 ```
 
-- [ ] **Step 3: Run the boundary test (isolated)**
+- [x] **Step 3: Run the boundary test (isolated)**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.http.integration.test.ts --no-file-parallelism`
 Expected: PASS. (If this file crashes on the Cyrillic path, note it and rely on CI.)
 
-- [ ] **Step 4: Typecheck + lint + commit**
+- [x] **Step 4: Typecheck + lint + commit**
 
 Run: `pnpm typecheck` → 8/8. `npx eslint apps/backend/src/modules/mvp/mvp.controller.ts --max-warnings=0` → clean.
 
@@ -2147,7 +2147,7 @@ git commit -m "feat(backend): proctoring endpoints + RBAC boundary (Phase 4 Plan
 - Create: `apps/backend/src/modules/mvp/proctoring/proctoring-retention-scheduler.service.test.ts`
 - Modify: `apps/backend/src/modules/mvp/mvp.module.ts`
 
-- [ ] **Step 1: Env vars.** In `env.schema.ts`, directly after `IDENTITY_RETENTION_CRON_SCHEDULE` (line ~66), with the same custom boolean parse (NOT `z.coerce.boolean` — it maps `"false"` → `true`):
+- [x] **Step 1: Env vars.** In `env.schema.ts`, directly after `IDENTITY_RETENTION_CRON_SCHEDULE` (line ~66), with the same custom boolean parse (NOT `z.coerce.boolean` — it maps `"false"` → `true`):
 
 ```typescript
     // Proctoring video retention purge (Phase 4 Plan B). Ships dormant; ops enables after the
@@ -2160,7 +2160,7 @@ git commit -m "feat(backend): proctoring endpoints + RBAC boundary (Phase 4 Plan
     PROCTORING_RETENTION_CRON_SCHEDULE: z.string().default('0 5 * * *'),
 ```
 
-- [ ] **Step 2: Write the failing pure-function test** (`proctoring-video-retention.test.ts`):
+- [x] **Step 2: Write the failing pure-function test** (`proctoring-video-retention.test.ts`):
 
 ```typescript
 import { describe, expect, it } from 'vitest';
@@ -2211,7 +2211,7 @@ describe('selectProctoringRecordingsToPurge', () => {
 });
 ```
 
-- [ ] **Step 3: Run → FAIL, then implement** `proctoring-video-retention.ts`:
+- [x] **Step 3: Run → FAIL, then implement** `proctoring-video-retention.ts`:
 
 ```typescript
 import { addDays } from '../../../common/utils/date-math.util.js';
@@ -2253,7 +2253,7 @@ export function selectProctoringRecordingsToPurge<T extends ProctoringRetentionC
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/proctoring/proctoring-video-retention.test.ts --no-file-parallelism` → PASS.
 
-- [ ] **Step 4: Write the failing scanner test** (`proctoring-retention-scanner.service.test.ts`):
+- [x] **Step 4: Write the failing scanner test** (`proctoring-retention-scanner.service.test.ts`):
 
 ```typescript
 import { describe, expect, it, vi } from 'vitest';
@@ -2332,7 +2332,7 @@ describe('ProctoringRetentionScanner', () => {
 });
 ```
 
-- [ ] **Step 5: Run → FAIL, then implement** `proctoring-retention-scanner.service.ts` (explicit `@Inject` — tsx DI rule):
+- [x] **Step 5: Run → FAIL, then implement** `proctoring-retention-scanner.service.ts` (explicit `@Inject` — tsx DI rule):
 
 ```typescript
 import { Inject, Injectable, Logger } from '@nestjs/common';
@@ -2397,7 +2397,7 @@ export class ProctoringRetentionScanner {
 
 Run the scanner test → PASS.
 
-- [ ] **Step 6: Write the failing scheduler test** (`proctoring-retention-scheduler.service.test.ts`) — the write-mode-runner regression guard:
+- [x] **Step 6: Write the failing scheduler test** (`proctoring-retention-scheduler.service.test.ts`) — the write-mode-runner regression guard:
 
 ```typescript
 import { describe, expect, it, vi } from 'vitest';
@@ -2459,7 +2459,7 @@ describe('ProctoringRetentionSchedulerService', () => {
 });
 ```
 
-- [ ] **Step 7: Run → FAIL, then implement** `proctoring-retention-scheduler.service.ts` — mirrors `IdentityRetentionSchedulerService` with its own lock key and the WRITE-mode runner:
+- [x] **Step 7: Run → FAIL, then implement** `proctoring-retention-scheduler.service.ts` — mirrors `IdentityRetentionSchedulerService` with its own lock key and the WRITE-mode runner:
 
 ```typescript
 import { Inject, Injectable, Logger } from '@nestjs/common';
@@ -2541,14 +2541,14 @@ export class ProctoringRetentionSchedulerService {
 }
 ```
 
-- [ ] **Step 8: Register providers.** In `mvp.module.ts`, import both classes and add `ProctoringRetentionScanner` + `ProctoringRetentionSchedulerService` to the `providers` array, directly after `IdentityRetentionScanner` / `IdentityRetentionSchedulerService` (line ~78).
+- [x] **Step 8: Register providers.** In `mvp.module.ts`, import both classes and add `ProctoringRetentionScanner` + `ProctoringRetentionSchedulerService` to the `providers` array, directly after `IdentityRetentionScanner` / `IdentityRetentionSchedulerService` (line ~78).
 
-- [ ] **Step 9: Verify**
+- [x] **Step 9: Verify**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/proctoring/proctoring-video-retention.test.ts src/modules/mvp/proctoring/proctoring-retention-scanner.service.test.ts src/modules/mvp/proctoring/proctoring-retention-scheduler.service.test.ts src/env.test.ts --no-file-parallelism` → PASS.
 Run: `pnpm typecheck` → 8/8.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add apps/backend/src/env.schema.ts apps/backend/src/modules/mvp/proctoring apps/backend/src/modules/mvp/mvp.module.ts
@@ -2567,7 +2567,7 @@ git commit -m "feat(backend): dormant 365-day proctoring video retention cron, w
 - Create: `apps/frontend/src/features/proctoring/format.ts`
 - Create: `apps/frontend/src/features/proctoring/format.test.ts`
 
-- [ ] **Step 1: types.ts**
+- [x] **Step 1: types.ts**
 
 ```typescript
 export type ProctoringRecordingStatus = 'recording' | 'completed';
@@ -2648,7 +2648,7 @@ export interface SetProctoringOverridePayload {
 }
 ```
 
-- [ ] **Step 2: Write the failing contract test** (`api.contract.test.ts`) — mirror `features/identity-verification/api.contract.test.ts` exactly (same `session` fixture shape, `beforeAll` env defaults + dynamic import, `vi.stubGlobal('fetch', fetchMock)`, `envelope` helper, `afterEach` unstub). Cover all seven calls:
+- [x] **Step 2: Write the failing contract test** (`api.contract.test.ts`) — mirror `features/identity-verification/api.contract.test.ts` exactly (same `session` fixture shape, `beforeAll` env defaults + dynamic import, `vi.stubGlobal('fetch', fetchMock)`, `envelope` helper, `afterEach` unstub). Cover all seven calls:
 
 ```typescript
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -2811,11 +2811,11 @@ describe('proctoringApi envelope compatibility (Phase 4 Plan B)', () => {
 });
 ```
 
-- [ ] **Step 3: Run to verify failure**
+- [x] **Step 3: Run to verify failure**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/proctoring/api.contract.test.ts --no-file-parallelism` → FAIL (module missing).
 
-- [ ] **Step 4: api.ts** (`withAuth` shape copied from `identity-verification/api.ts`):
+- [x] **Step 4: api.ts** (`withAuth` shape copied from `identity-verification/api.ts`):
 
 ```typescript
 import { apiRequest } from '../../lib/api/client';
@@ -2922,7 +2922,7 @@ export function baseMimeType(blobType: string): string {
 
 Run the contract test again → PASS.
 
-- [ ] **Step 5: format.ts + format.test.ts** (local `formatDateShort` copy — same precedent as identity):
+- [x] **Step 5: format.ts + format.test.ts** (local `formatDateShort` copy — same precedent as identity):
 
 ```typescript
 import type { ProctoringRecordingStatus } from './types';
@@ -2959,7 +2959,7 @@ export function chunkIssueLabel(issue: { sequence: number; code: string }): stri
 
 `format.test.ts`: assert both status labels, unknown-status passthrough, `formatDateShort(undefined) === '—'`, `formatDateShort('not-a-date') === '—'`, a valid ISO renders non-'—', and the three `chunkIssueLabel` branches (`missing_chunk` mentions «разрыв», `file_infected` mentions «антивирус», unknown code falls back).
 
-- [ ] **Step 6: Verify + commit**
+- [x] **Step 6: Verify + commit**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/proctoring --no-file-parallelism` → PASS.
 Run: `pnpm typecheck` → 8/8.
@@ -2978,7 +2978,7 @@ git commit -m "feat(frontend): proctoring feature core — types/api/format (Pha
 - Create: `apps/frontend/src/features/proctoring/recorder.ts`
 - Create: `apps/frontend/src/features/proctoring/recorder.test.ts`
 
-- [ ] **Step 1: Write the failing tests** (`recorder.test.ts`) with a fake MediaRecorder — NO real browser APIs:
+- [x] **Step 1: Write the failing tests** (`recorder.test.ts`) with a fake MediaRecorder — NO real browser APIs:
 
 ```typescript
 import { describe, expect, it, vi } from 'vitest';
@@ -3138,11 +3138,11 @@ describe('ProctoringRecorder state machine', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/proctoring/recorder.test.ts --no-file-parallelism` → FAIL (module missing).
 
-- [ ] **Step 3: Implement** `recorder.ts`:
+- [x] **Step 3: Implement** `recorder.ts`:
 
 ```typescript
 /**
@@ -3263,9 +3263,9 @@ export class ProctoringRecorder {
 }
 ```
 
-- [ ] **Step 4: Run to verify pass** (same command) → PASS (9 cases).
+- [x] **Step 4: Run to verify pass** (same command) → PASS (9 cases).
 
-- [ ] **Step 5: Lint + commit**
+- [x] **Step 5: Lint + commit**
 
 ```bash
 npx eslint apps/frontend/src/features/proctoring --max-warnings=0
@@ -4065,9 +4065,9 @@ git commit -m "feat(frontend): proctoring admin queue + chunk-stitching player +
 - Modify: `LMS_AGENT_HANDOFF.md` (append the next §5.XX)
 - Modify: `docs/superpowers/plans/2026-06-11-phase-4-plan-b-proctoring.md` (tick checkboxes)
 
-- [ ] **Step 1: Run the full Verification block** from the top of this plan. Fix anything found; commit fixes as separate commits.
+- [x] **Step 1: Run the full Verification block** from the top of this plan. Fix anything found; commit fixes as separate commits.
 
-- [ ] **Step 2: env example.** In `infra/.env.production.example`, directly after the identity retention block (line ~92), mirroring its comment style:
+- [x] **Step 2: env example.** In `infra/.env.production.example`, directly after the identity retention block (line ~92), mirroring its comment style:
 
 ```bash
 # --- Proctoring video retention (Phase 4 Plan B): stays OFF until the 365-day policy is confirmed ---
@@ -4077,9 +4077,9 @@ PROCTORING_VIDEO_RETENTION_ENABLED=false
 PROCTORING_RETENTION_CRON_SCHEDULE=0 5 * * *
 ```
 
-- [ ] **Step 3: Handoff protocol** (docs/DOCUMENTATION_MAP.md §agent-handoff-protocol): update README §2 (Current Stage / Last Completed / Current / Next / Last Updated At / By), append the next sequential `### 5.XX` entry to LMS_AGENT_HANDOFF.md §5 (summary, files changed, test status, deviations; cross-link this plan + the spec), and tick the completed checkboxes in THIS plan file. Mention any follow-ups spawned during the session.
+- [x] **Step 3: Handoff protocol** (docs/DOCUMENTATION_MAP.md §agent-handoff-protocol): update README §2 (Current Stage / Last Completed / Current / Next / Last Updated At / By), append the next sequential `### 5.XX` entry to LMS_AGENT_HANDOFF.md §5 (summary, files changed, test status, deviations; cross-link this plan + the spec), and tick the completed checkboxes in THIS plan file. Mention any follow-ups spawned during the session.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add infra/.env.production.example README.md LMS_AGENT_HANDOFF.md docs/superpowers/plans/2026-06-11-phase-4-plan-b-proctoring.md
