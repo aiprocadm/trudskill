@@ -1,15 +1,25 @@
 'use client';
 
+import { DataTable, LoadingState } from '@cdoprof/ui';
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
 import { getActiveProctoring, setActiveProctoring } from './active-recording';
 import { proctoringApi } from './api';
-import { makeChunkUploader } from './hooks';
+import { chunkIssueLabel, formatDateShort, formatProctoringStatus } from './format';
+import { makeChunkUploader, useProctoringDetail, useProctoringQueue } from './hooks';
 import { ProctoringRecorder } from './recorder';
-import { SectionError } from '../../components/state-wrappers';
+import {
+  PageContainer,
+  PageHeader,
+  SectionCard,
+  SectionEmpty,
+  SectionError
+} from '../../components/state-wrappers';
 import { useAuth } from '../auth/context';
 
 import type { MediaRecorderLike, MediaStreamLike } from './recorder';
+import type { ProctoringRecordingStatus } from './types';
 import type { ReactElement } from 'react';
 
 /** Prefer vp8/opus webm (valid chunk concatenation); Safari falls back to the browser default (mp4). */
@@ -153,5 +163,188 @@ export function ProctoringRecIndicator(): ReactElement | null {
     >
       ● REC
     </span>
+  );
+}
+
+// ─── Admin screens ────────────────────────────────────────────────────────────
+
+const STATUS_FILTER_OPTIONS: Array<{
+  value: ProctoringRecordingStatus | undefined;
+  label: string;
+}> = [
+  { value: undefined, label: 'Все' },
+  { value: 'recording', label: 'Идёт запись' },
+  { value: 'completed', label: 'Завершённые' }
+];
+
+interface QueueRow {
+  id: string;
+  learnerNameView: string;
+  courseTitleView: string;
+  statusView: string;
+  startedAtView: string;
+  chunksView: string;
+  actionView: ReactElement;
+}
+
+export function AdminProctoringQueueScreen(): ReactElement {
+  const [statusFilter, setStatusFilter] = useState<ProctoringRecordingStatus | undefined>(
+    undefined
+  );
+  const { data, isLoading, error } = useProctoringQueue(statusFilter);
+
+  const rows: QueueRow[] = (data ?? []).map((item) => ({
+    id: item.id,
+    learnerNameView: item.learnerName || '—',
+    courseTitleView: item.courseTitle || '—',
+    statusView: formatProctoringStatus(item.recordingStatus),
+    startedAtView: formatDateShort(item.startedAt),
+    chunksView: item.purgedAt ? 'удалена по сроку' : String(item.chunks.length),
+    actionView: (
+      <Link href={`/admin/proctoring-recordings/${item.id}`} className="ui-button">
+        Открыть
+      </Link>
+    )
+  }));
+
+  return (
+    <PageContainer>
+      <PageHeader
+        title="Записи прокторинга"
+        subtitle="Видеозаписи итоговых экзаменов (веб-камера слушателя)"
+      />
+      <SectionCard title="Сеансы записи">
+        <div className="ui-inline" style={{ marginBottom: 12, gap: 8 }}>
+          <span>Статус:</span>
+          {STATUS_FILTER_OPTIONS.map((opt) => (
+            <button
+              key={opt.value ?? 'all'}
+              type="button"
+              className="ui-button"
+              style={statusFilter === opt.value ? { fontWeight: 700 } : undefined}
+              onClick={() => setStatusFilter(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        {isLoading ? <LoadingState message="Загрузка…" /> : null}
+        {error ? <SectionError message="Не удалось загрузить записи прокторинга" /> : null}
+        {!isLoading && !error && rows.length === 0 ? (
+          <SectionEmpty message="Записей нет" hint="Нет сеансов с выбранным статусом" />
+        ) : null}
+        {!isLoading && !error && rows.length > 0 ? (
+          <DataTable<QueueRow>
+            columns={[
+              { key: 'learnerNameView', title: 'Слушатель' },
+              { key: 'courseTitleView', title: 'Курс' },
+              { key: 'statusView', title: 'Статус' },
+              { key: 'startedAtView', title: 'Начата' },
+              { key: 'chunksView', title: 'Фрагменты' },
+              { key: 'actionView', title: '', render: (row) => row.actionView }
+            ]}
+            rows={rows}
+          />
+        ) : null}
+      </SectionCard>
+    </PageContainer>
+  );
+}
+
+export function AdminProctoringDetailScreen({ id }: { id: string }): ReactElement {
+  const { data: detail, isLoading, error } = useProctoringDetail(id);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [isAssembling, setIsAssembling] = useState(false);
+  const [playerError, setPlayerError] = useState<string | null>(null);
+
+  // Revoke the blob URL on unmount/replace (memory hygiene for multi-hundred-MB videos).
+  useEffect(() => {
+    return () => {
+      if (videoUrl) URL.revokeObjectURL(videoUrl);
+    };
+  }, [videoUrl]);
+
+  if (isLoading) return <LoadingState message="Загрузка…" />;
+  if (error || !detail) return <SectionError message="Не удалось загрузить запись" />;
+
+  // Chunks of ONE MediaRecorder session concatenate validly (container header in chunk 0);
+  // after a resume the new segment starts with a fresh header — players tolerate it, and the
+  // gap is reported below anyway (spec §2.8).
+  const onAssemble = async () => {
+    setIsAssembling(true);
+    setPlayerError(null);
+    try {
+      const parts: Blob[] = [];
+      for (const chunk of detail.playbackChunks) {
+        const res = await fetch(chunk.url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        parts.push(await res.blob());
+      }
+      const assembled = new Blob(parts, { type: 'video/webm' });
+      setVideoUrl(URL.createObjectURL(assembled));
+    } catch {
+      setPlayerError('Не удалось собрать запись — попробуйте ещё раз');
+    } finally {
+      setIsAssembling(false);
+    }
+  };
+
+  return (
+    <PageContainer>
+      <PageHeader
+        title={`Запись: ${detail.learnerName || detail.id}`}
+        subtitle={`${detail.courseTitle} · ${formatProctoringStatus(detail.recordingStatus)}`}
+      />
+      <SectionCard title="Сеанс">
+        <p>
+          <strong>Согласие на видеозапись (152-ФЗ):</strong> {formatDateShort(detail.consentAt)}
+        </p>
+        <p>
+          <strong>Начата:</strong> {formatDateShort(detail.startedAt)} · <strong>Завершена:</strong>{' '}
+          {formatDateShort(detail.completedAt)}
+        </p>
+        <p>
+          <strong>Попытка:</strong> {detail.attemptId ?? '—'}
+          {detail.attemptStatus ? ` (${detail.attemptStatus})` : ''}
+        </p>
+      </SectionCard>
+      <SectionCard title="Видео">
+        {detail.purgedAt ? (
+          <p className="ui-text-muted">
+            Видео удалено по сроку хранения ({formatDateShort(detail.purgedAt)}). Метаданные сеанса
+            сохранены.
+          </p>
+        ) : (
+          <div className="ui-stack">
+            {detail.chunkIssues.length > 0 ? (
+              <ul className="ui-list">
+                {detail.chunkIssues.map((issue) => (
+                  <li key={`${issue.sequence}:${issue.code}`} className="ui-text-muted">
+                    ⚠ {chunkIssueLabel(issue)}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {detail.playbackChunks.length === 0 ? (
+              <p className="ui-text-muted">Нет доступных фрагментов</p>
+            ) : videoUrl ? (
+              <video controls src={videoUrl} style={{ maxWidth: 640, width: '100%' }} />
+            ) : (
+              <button
+                type="button"
+                className="ui-button"
+                disabled={isAssembling}
+                onClick={() => void onAssemble()}
+              >
+                {isAssembling
+                  ? 'Скачиваем фрагменты…'
+                  : `Собрать и воспроизвести (${detail.playbackChunks.length} фрагм.)`}
+              </button>
+            )}
+            {playerError ? <SectionError message={playerError} /> : null}
+          </div>
+        )}
+      </SectionCard>
+    </PageContainer>
   );
 }
