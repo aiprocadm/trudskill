@@ -583,3 +583,59 @@ describe('Plan A — program meta on course_versions (migration 0030)', () => {
     );
   });
 });
+
+describe('Phase 4 Plan B — proctoring recordings (migration 0051)', () => {
+  const sql0051 = migrationSqlByFile.get('0051_learning_proctoring_recordings.sql') ?? '';
+
+  it('migration file exists in the chain', () => {
+    expect(migrationFiles).toContain('0051_learning_proctoring_recordings.sql');
+    expect(sql0051.length).toBeGreaterThan(0);
+  });
+
+  it('creates learning.proctoring_recordings with the typed contract columns', () => {
+    expect(sql0051).toMatch(
+      /CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+learning\.proctoring_recordings/i
+    );
+    for (const column of [
+      'tenant_id',
+      'learner_id',
+      'group_id',
+      'course_id',
+      'attempt_id',
+      'recording_status',
+      'consent_at',
+      'started_at',
+      'completed_at',
+      'chunks',
+      'purged_at'
+    ]) {
+      expect(sql0051, `0051 must declare column ${column}`).toMatch(new RegExp(`\\b${column}\\b`));
+    }
+    expect(sql0051).toMatch(/chunks\s+jsonb\s+NOT\s+NULL\s+DEFAULT\s+'\[\]'::jsonb/i);
+  });
+
+  it('adds requires_proctoring to group_courses and proctoring_override to enrollments', () => {
+    expect(sql0051).toMatch(
+      /ALTER\s+TABLE\s+learning\.group_courses\s+ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+requires_proctoring\s+boolean\s+NOT\s+NULL\s+DEFAULT\s+false/i
+    );
+    expect(sql0051).toMatch(
+      /ALTER\s+TABLE\s+learning\.enrollments\s+ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+proctoring_override\s+text/i
+    );
+    expect(sql0051).toMatch(/enrollments_proctoring_override_chk/i);
+  });
+
+  it('inserts proctoring.submit and proctoring.read permissions with role grants', () => {
+    expect(sql0051).toContain("'proctoring.submit'");
+    expect(sql0051).toContain("'proctoring.read'");
+    expect(sql0051).toMatch(/r\.code\s+IN\s*\('platform_admin',\s*'tenant_admin'\)/i);
+    expect(sql0051).toMatch(/r\.code\s*=\s*'learner'\s+AND\s+p\.code\s*=\s*'proctoring\.submit'/i);
+    expect(sql0051).toMatch(/r\.code\s*=\s*'methodist'\s+AND\s+p\.code\s*=\s*'proctoring\.read'/i);
+  });
+
+  it('seed inserts are idempotent (ON CONFLICT DO NOTHING)', () => {
+    expect(sql0051).toMatch(/ON\s+CONFLICT\s*\(id\)\s+DO\s+NOTHING/i);
+    expect(sql0051).toMatch(
+      /ON\s+CONFLICT\s*\(tenant_id,\s*role_id,\s*permission_id\)\s+DO\s+NOTHING/i
+    );
+  });
+});
