@@ -3286,7 +3286,7 @@ git commit -m "feat(frontend): proctoring recorder state machine — sequential 
 - Modify: `apps/frontend/src/features/test-player/tests-list-screen.tsx`
 - Modify: `apps/frontend/src/features/test-player/test-attempt-screen.tsx`
 
-- [ ] **Step 1: Write the failing gate-detection tests.** Append to `apps/frontend/src/features/test-player/format.test.ts`:
+- [x] **Step 1: Write the failing gate-detection tests.** Append to `apps/frontend/src/features/test-player/format.test.ts`:
 
 ```typescript
 import { detectStartGate } from './format';
@@ -3323,7 +3323,7 @@ describe('detectStartGate (start-attempt interstitial routing)', () => {
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/test-player/format.test.ts --no-file-parallelism` → FAIL (`detectStartGate` missing).
 
-- [ ] **Step 2: Implement `detectStartGate`** in `apps/frontend/src/features/test-player/format.ts` (append):
+- [x] **Step 2: Implement `detectStartGate`** in `apps/frontend/src/features/test-player/format.ts` (append):
 
 ```typescript
 export type StartGateKind = 'pre_exam_auth' | 'identity_verification' | 'proctoring' | null;
@@ -3352,7 +3352,7 @@ export function detectStartGate(error: string | null | undefined): StartGateKind
 
 Run the format test again → PASS.
 
-- [ ] **Step 3: hooks.ts** (reads = React Query; the start flow is plain async — it is consumed by the panel's own pending state, mirroring the project's `useState` wrap convention):
+- [x] **Step 3: hooks.ts** (reads = React Query; the start flow is plain async — it is consumed by the panel's own pending state, mirroring the project's `useState` wrap convention):
 
 ```typescript
 'use client';
@@ -3402,7 +3402,7 @@ export function makeChunkUploader(session: UserSession, recordingId: string) {
 }
 ```
 
-- [ ] **Step 4: active-recording.ts** — the module-level singleton that survives App Router navigation:
+- [x] **Step 4: active-recording.ts** — the module-level singleton that survives App Router navigation:
 
 ```typescript
 import { proctoringApi } from './api';
@@ -3448,7 +3448,7 @@ export async function stopAndCompleteActiveProctoring(session: UserSession): Pro
 }
 ```
 
-- [ ] **Step 5: Learner screens** — create `screens.tsx` with the consent panel + REC indicator (admin screens are added in Task 14; keep one file):
+- [x] **Step 5: Learner screens** — create `screens.tsx` with the consent panel + REC indicator (admin screens are added in Task 14; keep one file):
 
 ```tsx
 'use client';
@@ -3600,7 +3600,7 @@ export function ProctoringRecIndicator(): ReactElement | null {
 
 > **Executor note:** the `MediaStream → MediaStreamLike` casts are deliberate — the recorder's structural types are narrower than the DOM ones. If `next lint` flags the `<video>` without a track, keep it (live preview has no captions) and add a targeted eslint suppression with a comment, mirroring the `no-img-element` suppressions in identity screens.
 
-- [ ] **Step 6: Wire the tests list.** In `tests-list-screen.tsx`, replace the two inline regex consts (lines ~25–35) with the pure helper, and add the proctoring branch to the interstitial chain (after the identity branch, before the generic `start.error` fallback):
+- [x] **Step 6: Wire the tests list.** In `tests-list-screen.tsx`, replace the two inline regex consts (lines ~25–35) with the pure helper, and add the proctoring branch to the interstitial chain (after the identity branch, before the generic `start.error` fallback):
 
 ```typescript
 import {
@@ -3638,7 +3638,7 @@ const needsProctoring = gate === 'proctoring';
 
 (The existing `needsPreExamAuth ? (...) : needsIdentityVerification ? (...)` chain keeps its JSX bodies unchanged — only the flag definitions move to `detectStartGate`.)
 
-- [ ] **Step 7: Wire the attempt screen.** In `test-attempt-screen.tsx`:
+- [x] **Step 7: Wire the attempt screen.** In `test-attempt-screen.tsx`:
 
 ```typescript
 import { stopAndCompleteActiveProctoring } from '../proctoring/active-recording';
@@ -3660,12 +3660,12 @@ const handleSubmit = async () => {
 };
 ```
 
-- [ ] **Step 8: Verify**
+- [x] **Step 8: Verify**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/test-player src/features/proctoring --no-file-parallelism` → PASS.
 Run: `pnpm typecheck` → 8/8. `npx eslint apps/frontend/src/features/proctoring apps/frontend/src/features/test-player --max-warnings=0` → clean.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add apps/frontend/src/features/proctoring apps/frontend/src/features/test-player
