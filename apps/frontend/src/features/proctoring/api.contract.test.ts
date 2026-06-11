@@ -43,7 +43,6 @@ describe('proctoringApi envelope compatibility (Phase 4 Plan B)', () => {
   beforeAll(async () => {
     process.env.NEXT_PUBLIC_API_BASE_URL ??= 'http://localhost:3001/api/v1';
     process.env.NEXT_PUBLIC_REALTIME_URL ??= 'ws://localhost:3002';
-    process.env.PUBLIC_BASE_URL ??= 'http://localhost:3000';
     proctoringApi = (await import('./api')).proctoringApi;
   });
 
@@ -67,6 +66,10 @@ describe('proctoringApi envelope compatibility (Phase 4 Plan B)', () => {
     const [calledUrl, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(new URL(calledUrl).pathname).toMatch(/\/proctoring-recordings$/);
     expect(init.method).toBe('POST');
+    // 152-ФЗ: explicit consent must travel in the body verbatim.
+    expect(init.body).toBe(
+      JSON.stringify({ enrollmentId: 'enr_1', courseId: 'c1', consent: true })
+    );
   });
 
   it('chunkUploadUrl: POST /proctoring-recordings/:id/chunk-upload-intent unwraps the intent', async () => {
@@ -91,6 +94,14 @@ describe('proctoringApi envelope compatibility (Phase 4 Plan B)', () => {
     const [calledUrl, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(calledUrl).toContain('/proctoring-recordings/prec_1/chunk-upload-intent');
     expect(init.method).toBe('POST');
+    expect(init.body).toBe(
+      JSON.stringify({
+        sequence: 0,
+        originalName: 'chunk-0.webm',
+        contentType: 'video/webm',
+        sizeBytes: 2048
+      })
+    );
   });
 
   it('complete: POST /proctoring-recordings/:id/complete unwraps the completed session', async () => {

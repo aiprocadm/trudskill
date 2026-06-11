@@ -21,11 +21,20 @@ export interface ProctoringRecordingDto {
   createdAt: string;
 }
 
+/** Mirrors the backend `AttemptStatus` union (mvp.types.ts) — documented duplication. */
+export type AttemptStatus =
+  | 'draft'
+  | 'in_progress'
+  | 'submitted'
+  | 'finished'
+  | 'expired'
+  | 'invalidated';
+
 /** Admin queue row: session + display enrichment. */
 export interface ProctoringRecordingView extends ProctoringRecordingDto {
   learnerName: string;
   courseTitle: string;
-  attemptStatus?: string;
+  attemptStatus?: AttemptStatus;
 }
 
 /** Mirrors the backend `ProctoringChunkIssue['code']` union (mvp.types.ts). */
