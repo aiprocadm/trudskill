@@ -612,6 +612,9 @@ describe('Phase 4 Plan B — proctoring recordings (migration 0051)', () => {
       expect(sql0051, `0051 must declare column ${column}`).toMatch(new RegExp(`\\b${column}\\b`));
     }
     expect(sql0051).toMatch(/chunks\s+jsonb\s+NOT\s+NULL\s+DEFAULT\s+'\[\]'::jsonb/i);
+    expect(sql0051).toMatch(
+      /CONSTRAINT\s+proctoring_recordings_status_chk\s+CHECK\s*\(recording_status\s+IN\s*\('recording',\s*'completed'\)\)/i
+    );
   });
 
   it('adds requires_proctoring to group_courses and proctoring_override to enrollments', () => {

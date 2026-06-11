@@ -41,7 +41,9 @@ CREATE TABLE IF NOT EXISTS learning.proctoring_recordings (
   group_id text NOT NULL,
   course_id text NOT NULL,
   attempt_id text,
-  recording_status text NOT NULL DEFAULT 'recording',
+  recording_status text NOT NULL DEFAULT 'recording'
+    CONSTRAINT proctoring_recordings_status_chk
+    CHECK (recording_status IN ('recording', 'completed')),
   consent_at timestamptz NOT NULL,
   started_at timestamptz NOT NULL,
   completed_at timestamptz,
