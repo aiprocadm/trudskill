@@ -3969,6 +3969,8 @@ export class MvpService {
           chunkIssues.push({ sequence: chunk.sequence, code: 'file_infected' });
           continue;
         }
+        // 'pending'/'error' statuses fall through on purpose: createDownloadUrl lazily re-scans
+        // and its throw degrades to a per-chunk issue below (files-layer semantics, spec §2.10).
         try {
           const url = await this.filesService.createDownloadUrl(tenantId, chunk.fileId);
           playbackChunks.push({ sequence: chunk.sequence, fileId: chunk.fileId, url });
@@ -3977,6 +3979,7 @@ export class MvpService {
             err instanceof HttpException
               ? ((err.getResponse() as { code?: string }).code ?? 'file_error')
               : 'file_error';
+          // Any unrecognized files-layer code collapses to 'file_error' to keep the issue union closed.
           const code: ProctoringChunkIssue['code'] =
             rawCode === 'file_infected' || rawCode === 'file_scan_failed' ? rawCode : 'file_error';
           chunkIssues.push({ sequence: chunk.sequence, code });
