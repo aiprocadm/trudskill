@@ -91,6 +91,14 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['identity.read'] }
   },
   {
+    pattern: '/admin/proctoring-recordings/[id]',
+    meta: { public: false, requiredPermissions: ['proctoring.read'] }
+  },
+  {
+    pattern: '/admin/proctoring-recordings',
+    meta: { public: false, requiredPermissions: ['proctoring.read'] }
+  },
+  {
     pattern: '/admin/question-banks/[id]',
     meta: { public: false, requiredPermissions: ['assessment.question_banks.read'] }
   },
@@ -415,6 +423,12 @@ export const navigationModel: NavigationItem[] = [
     href: '/admin/identity-verifications',
     label: 'Идентификация',
     requiredPermissions: ['identity.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/admin/proctoring-recordings',
+    label: 'Записи прокторинга',
+    requiredPermissions: ['proctoring.read'],
     navSlot: 'more'
   }
 ];

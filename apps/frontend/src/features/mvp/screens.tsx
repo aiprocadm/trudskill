@@ -64,6 +64,7 @@ import { CourseViewerScreen } from '../course-viewer/course-viewer-screen';
 import { useOtTrainingPrograms } from '../gov-export/hooks';
 import { IssueOrderModal } from '../group-orders/issue-order-modal';
 import { LearnerPdfCardSections } from '../learner-pdf-card/learner-pdf-card-sections';
+import { proctoringApi } from '../proctoring/api';
 
 import type {
   AssignmentSubmission,
@@ -1537,6 +1538,7 @@ export const GroupCreateScreen = () => {
 };
 
 export const GroupDetailsScreen = ({ id }: { id: string }) => {
+  const { session } = useAuth();
   const { data: group } = useGroup(id);
   const { data: courses } = useCoursesList({ page: 1, page_size: 20 });
   const { data: groupCourses, refetch: refetchCourses } = useGroupCourses(id);
@@ -1634,8 +1636,33 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
         </form>
         <ul>
           {enrollments?.items.map((item) => (
-            <li key={item.id}>
-              {item.learnerId} — {item.status}
+            <li key={item.id} className="ui-inline" style={{ gap: 8, flexWrap: 'wrap' }}>
+              <span>
+                {item.learnerId} — {item.status}
+              </span>
+              {/* Phase 4 Plan B: per-student proctoring override (PATCH needs learners.write). */}
+              {session && hasPermission(session.permissions, 'learners.write') ? (
+                <label className="ui-inline" style={{ gap: 4 }}>
+                  <span>Прокторинг:</span>
+                  <select
+                    value={item.proctoringOverride ?? ''}
+                    aria-label={`Прокторинг для слушателя ${item.learnerId}`}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      void proctoringApi
+                        .setOverride(session, item.id, {
+                          override: value === 'require' || value === 'exempt' ? value : null
+                        })
+                        .then(() => refetchEnrollments())
+                        .catch((overrideError) => setSaveError(readApiMessage(overrideError)));
+                    }}
+                  >
+                    <option value="">наследуется</option>
+                    <option value="require">требуется</option>
+                    <option value="exempt">освобождён</option>
+                  </select>
+                </label>
+              ) : null}
             </li>
           ))}
         </ul>

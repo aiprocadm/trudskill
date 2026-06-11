@@ -64,6 +64,14 @@ export const backendEnvSchema = z
       .default(false),
     /** Cron for the nightly identity-image purge (UTC). */
     IDENTITY_RETENTION_CRON_SCHEDULE: z.string().default('0 4 * * *'),
+    // Proctoring video retention purge (Phase 4 Plan B). Ships dormant; ops enables after the
+    // owner confirms the 365-day policy (roadmap open question №6). Custom boolean parse.
+    PROCTORING_VIDEO_RETENTION_ENABLED: z
+      .union([z.boolean(), z.enum(['true', 'false'])])
+      .transform((v) => v === true || v === 'true')
+      .default(false),
+    /** Cron for the nightly proctoring-video purge (UTC; offset from identity's 04:00). */
+    PROCTORING_RETENTION_CRON_SCHEDULE: z.string().default('0 5 * * *'),
     SMTP_HOST: z.string().min(1).optional(),
     SMTP_PORT: z.coerce.number().int().positive().default(587),
     SMTP_USER: z.string().min(1).optional(),

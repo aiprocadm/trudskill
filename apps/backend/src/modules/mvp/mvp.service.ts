@@ -28,6 +28,7 @@ import {
   generatePreExamToken,
   hashPreExamToken
 } from './pre-exam-token.js';
+import { resolveProctoringRequirement } from './proctoring/proctoring-requirement.js';
 import { aggregateReviewerQueue } from './reviewer-queue.service.js';
 import { backendEnv } from '../../env.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
@@ -116,6 +117,12 @@ import type {
   ModuleProgress,
   OtTrainingProgram,
   PreExamToken,
+  ProctoringChunkIssue,
+  ProctoringOverride,
+  ProctoringPlaybackChunk,
+  ProctoringRecording,
+  ProctoringRecordingDetail,
+  ProctoringRecordingView,
   ProgressStatus,
   Question,
   QuestionBank,
@@ -220,6 +227,9 @@ const IDENTITY_MIME_ALLOWLIST: ReadonlySet<string> = new Set([
   'image/jpeg',
   'application/pdf'
 ]);
+
+/** Phase 4 Plan B: MediaRecorder chunks — webm (Chrome/Firefox) + mp4 (Safari fallback). */
+const PROCTORING_MIME_ALLOWLIST: ReadonlySet<string> = new Set(['video/webm', 'video/mp4']);
 
 /**
  * Global lookup нормативных актов — зеркало seed из migration 0030.
@@ -1323,6 +1333,9 @@ export class MvpService {
         : {}),
       ...(request.requiresIdentityVerification !== undefined
         ? { requiresIdentityVerification: request.requiresIdentityVerification }
+        : {}),
+      ...(request.requiresProctoring !== undefined
+        ? { requiresProctoring: request.requiresProctoring }
         : {})
     };
     this.state.groupCourses.push(entity);
@@ -1348,6 +1361,9 @@ export class MvpService {
     }
     if (request.requiresIdentityVerification !== undefined) {
       current.requiresIdentityVerification = request.requiresIdentityVerification;
+    }
+    if (request.requiresProctoring !== undefined) {
+      current.requiresProctoring = request.requiresProctoring;
     }
     current.updatedAt = this.now();
     this.audit(
@@ -2921,6 +2937,8 @@ export class MvpService {
     this.assertPreExamAuthGate(tenantId, enrollment, test);
     // Phase 4 Plan A: documentary identity (selfie+passport) — per-learner.
     this.assertIdentityVerificationGate(tenantId, enrollment, test);
+    // Phase 4 Plan B: webcam recording must be running for proctored finals.
+    this.assertProctoringGate(tenantId, enrollment, test);
     const delegationAuditMetadata = this.delegatedLearningAuditMetadata(
       tenantId,
       actorId,
@@ -2983,6 +3001,19 @@ export class MvpService {
         : {})
     };
     this.state.attempts.push(entity);
+    // Phase 4 Plan B: link the running recording session to its (first) attempt.
+    // Re-querying is stable here: same synchronous call, request-scoped state. If lookups ever
+    // become async (per-row Postgres reads), pass the recording from assertProctoringGate instead.
+    const activeProctoringRecording = this.findActiveProctoringRecording(
+      tenantId,
+      learnerId,
+      enrollment.groupId,
+      test.courseId
+    );
+    if (activeProctoringRecording && !activeProctoringRecording.attemptId) {
+      activeProctoringRecording.attemptId = entity.id;
+      activeProctoringRecording.updatedAt = startedAt;
+    }
     this.audit(
       tenantId,
       actorId,
@@ -3605,6 +3636,362 @@ export class MvpService {
       .filter((v) => v.tenantId === tenantId && learnerIds.has(v.learnerId))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return mine[0] ?? null;
+  }
+
+  // ─── Phase 4 Plan B: proctoring (webcam video recording of final exams) ───
+
+  /** Per-student proctoring switch (learners.write): 'require' | 'exempt' | null = inherit group-course. */
+  setProctoringOverride(
+    tenantId: string,
+    actorId: string | undefined,
+    enrollmentId: string,
+    request: { override: ProctoringOverride | null },
+    context: RequestContext
+  ): Enrollment {
+    const enrollment = this.getById(this.state.enrollments, tenantId, enrollmentId);
+    const old = { proctoringOverride: enrollment.proctoringOverride ?? null };
+    if (request.override === null) {
+      delete enrollment.proctoringOverride;
+    } else {
+      enrollment.proctoringOverride = request.override;
+    }
+    enrollment.updatedAt = this.now();
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.proctoring_override_set',
+      'learning.enrollment',
+      enrollment.id,
+      old,
+      { proctoringOverride: enrollment.proctoringOverride ?? null },
+      context
+    );
+    return enrollment;
+  }
+
+  /** Effective requirement: enrollment override ?? group-course flag (final exams of this course). */
+  private isProctoringRequired(
+    tenantId: string,
+    enrollment: Enrollment,
+    courseId: string
+  ): boolean {
+    const gc = this.state.groupCourses.find(
+      (item) =>
+        item.tenantId === tenantId &&
+        item.groupId === enrollment.groupId &&
+        item.courseId === courseId
+    );
+    return resolveProctoringRequirement(
+      enrollment.proctoringOverride,
+      gc?.requiresProctoring === true
+    );
+  }
+
+  /** The learner's open session for this group+course (purged sessions never count). */
+  private findActiveProctoringRecording(
+    tenantId: string,
+    learnerId: string,
+    groupId: string,
+    courseId: string
+  ): ProctoringRecording | undefined {
+    return this.state.proctoringRecordings.find(
+      (r) =>
+        r.tenantId === tenantId &&
+        r.learnerId === learnerId &&
+        r.groupId === groupId &&
+        r.courseId === courseId &&
+        r.recordingStatus === 'recording' &&
+        !r.purgedAt
+    );
+  }
+
+  /**
+   * Phase 4 Plan B gate (5th assert). Final/course-level exams only (no moduleId), only when
+   * the effective requirement (override ?? group-course flag) is on. Passes when an active
+   * recording session exists for (learner, group, course).
+   * NB: the message deliberately avoids "identity verification is required" (Wave 1 regex)
+   * and "identity confirmation by document" (Plan A regex) — the frontend matches err.message.
+   */
+  private assertProctoringGate(tenantId: string, enrollment: Enrollment, test: TestEntity): void {
+    if (test.moduleId) return;
+    if (!this.isProctoringRequired(tenantId, enrollment, test.courseId)) return;
+    if (
+      this.findActiveProctoringRecording(
+        tenantId,
+        enrollment.learnerId,
+        enrollment.groupId,
+        test.courseId
+      )
+    )
+      return;
+    throw new PreconditionFailedException({
+      code: 'proctoring_required',
+      message: 'Video recording must be active before starting this exam'
+    });
+  }
+
+  /**
+   * Start (or idempotently resume) a recording session BEFORE the exam attempt (spec §2.5).
+   * Takes enrollmentId (not groupId) — the only id the test-player has; group derives from it.
+   */
+  startProctoringRecording(
+    tenantId: string,
+    actorId: string | undefined,
+    request: { enrollmentId: string; courseId: string; consent: boolean },
+    context: RequestContext
+  ): ProctoringRecording {
+    if (request.consent !== true) {
+      throw new BadRequestException({
+        code: 'consent_required',
+        message: 'Consent to video recording is required (152-ФЗ)'
+      });
+    }
+    const enrollment = this.getById(this.state.enrollments, tenantId, request.enrollmentId);
+    this.assertActorMatchesLearnerIamLink(
+      tenantId,
+      actorId,
+      enrollment.learnerId,
+      context.permissions
+    );
+    const linked = this.state.groupCourses.some(
+      (item) =>
+        item.tenantId === tenantId &&
+        item.groupId === enrollment.groupId &&
+        item.courseId === request.courseId
+    );
+    if (!linked) {
+      throw new PreconditionFailedException({
+        code: 'domain_rule_violation',
+        message: 'Enrollment group is not linked to the course'
+      });
+    }
+    if (!this.isProctoringRequired(tenantId, enrollment, request.courseId)) {
+      throw new BadRequestException({
+        code: 'proctoring_not_required',
+        message: 'Proctoring is not required for this learner and course'
+      });
+    }
+    const active = this.findActiveProctoringRecording(
+      tenantId,
+      enrollment.learnerId,
+      enrollment.groupId,
+      request.courseId
+    );
+    if (active) return active; // idempotent resume — chunks carry nextSequence for the client
+    const now = this.now();
+    const entity: ProctoringRecording = {
+      id: this.id('prec'),
+      tenantId,
+      learnerId: enrollment.learnerId,
+      groupId: enrollment.groupId,
+      courseId: request.courseId,
+      recordingStatus: 'recording',
+      consentAt: now,
+      startedAt: now,
+      chunks: [],
+      status: 'active',
+      createdAt: now,
+      updatedAt: now
+    };
+    this.state.proctoringRecordings.push(entity);
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.proctoring_started',
+      'learning.proctoring_recording',
+      entity.id,
+      undefined,
+      { id: entity.id, learnerId: entity.learnerId, courseId: entity.courseId, consentAt: now },
+      context
+    );
+    return entity;
+  }
+
+  /**
+   * Presigned PUT for one MediaRecorder chunk + registration (own active session only).
+   * No per-chunk audit (spec §8 — a 30-second timeslice would flood the log).
+   */
+  async createProctoringChunkUploadIntent(
+    tenantId: string,
+    actorId: string | undefined,
+    recordingId: string,
+    request: { sequence: number; originalName: string; contentType: string; sizeBytes: number },
+    context: RequestContext
+  ): Promise<UploadIntent> {
+    const record = this.getById(this.state.proctoringRecordings, tenantId, recordingId);
+    this.assertActorMatchesLearnerIamLink(tenantId, actorId, record.learnerId, context.permissions);
+    if (record.recordingStatus !== 'recording') {
+      throw new PreconditionFailedException({
+        code: 'proctoring_recording_not_active',
+        message: 'Chunks can only be uploaded to an active recording session'
+      });
+    }
+    if (record.chunks.some((c) => c.sequence === request.sequence)) {
+      throw new ConflictException({
+        code: 'proctoring_chunk_duplicate',
+        message: 'A chunk with this sequence is already registered'
+      });
+    }
+    // NOTE: reuses the files-layer 10 MB ceiling (SUBMISSION_MAX_BYTES) — enough for a 30-second
+    // webm chunk at default MediaRecorder bitrates; higher-bitrate needs would require a per-intent
+    // maxBytes option in FilesService, not a change here.
+    const intent = await this.filesService.createUploadIntent(
+      tenantId,
+      {
+        originalName: request.originalName,
+        contentType: request.contentType,
+        sizeBytes: request.sizeBytes
+      },
+      { keyPrefix: 'proctoring', mimeAllowlist: PROCTORING_MIME_ALLOWLIST }
+    );
+    const now = this.now();
+    record.chunks.push({
+      sequence: request.sequence,
+      fileId: intent.fileId,
+      uploadedIntentAt: now
+    });
+    record.updatedAt = now;
+    return intent;
+  }
+
+  /** Stop the session (idempotent): recording → completed, completedAt stamped once. */
+  completeProctoringRecording(
+    tenantId: string,
+    actorId: string | undefined,
+    recordingId: string,
+    context: RequestContext
+  ): ProctoringRecording {
+    const record = this.getById(this.state.proctoringRecordings, tenantId, recordingId);
+    this.assertActorMatchesLearnerIamLink(tenantId, actorId, record.learnerId, context.permissions);
+    if (record.recordingStatus === 'completed') return record;
+    const oldValues = { recordingStatus: record.recordingStatus };
+    const now = this.now();
+    record.recordingStatus = 'completed';
+    record.completedAt = now;
+    record.updatedAt = now;
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.proctoring_completed',
+      'learning.proctoring_recording',
+      record.id,
+      oldValues,
+      { recordingStatus: 'completed', completedAt: now, chunkCount: record.chunks.length },
+      context
+    );
+    return record;
+  }
+
+  /** Resume support: the actor's active session for the enrollment+course + next chunk sequence. */
+  getMyActiveProctoringRecording(
+    tenantId: string,
+    actorId: string | undefined,
+    query: { enrollmentId: string; courseId: string },
+    context: RequestContext
+  ): { recording: ProctoringRecording; nextSequence: number } | null {
+    const enrollment = this.getById(this.state.enrollments, tenantId, query.enrollmentId);
+    this.assertActorMatchesLearnerIamLink(
+      tenantId,
+      actorId,
+      enrollment.learnerId,
+      context.permissions
+    );
+    const active = this.findActiveProctoringRecording(
+      tenantId,
+      enrollment.learnerId,
+      enrollment.groupId,
+      query.courseId
+    );
+    if (!active) return null;
+    const maxSequence = active.chunks.reduce((max, c) => Math.max(max, c.sequence), -1);
+    return { recording: active, nextSequence: maxSequence + 1 };
+  }
+
+  /** Admin queue (proctoring.read): sessions (optionally by recordingStatus), newest first, enriched. */
+  listProctoringRecordings(
+    tenantId: string,
+    query: { status?: string }
+  ): ProctoringRecordingView[] {
+    return this.state.proctoringRecordings
+      .filter(
+        (r) => r.tenantId === tenantId && (!query.status || r.recordingStatus === query.status)
+      )
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((r) => this.toProctoringRecordingView(tenantId, r));
+  }
+
+  private toProctoringRecordingView(
+    tenantId: string,
+    record: ProctoringRecording
+  ): ProctoringRecordingView {
+    const learner = this.state.learners.find(
+      (l) => l.tenantId === tenantId && l.id === record.learnerId
+    );
+    const learnerName = [learner?.lastName, learner?.firstName, learner?.middleName]
+      .filter(Boolean)
+      .join(' ');
+    const course = this.state.courses.find(
+      (c) => c.tenantId === tenantId && c.id === record.courseId
+    );
+    const attempt = record.attemptId
+      ? this.state.attempts.find((a) => a.tenantId === tenantId && a.id === record.attemptId)
+      : undefined;
+    return {
+      ...record,
+      learnerName,
+      courseTitle: course?.title ?? '',
+      ...(attempt ? { attemptStatus: attempt.status } : {})
+    };
+  }
+
+  /**
+   * Admin detail + playback (proctoring.read): ordered presigned GET urls of CLEAN chunks.
+   * Infected chunks → excluded with a file_infected issue (no URL request — batch AV check first);
+   * URL-signing failures degrade per-chunk (mirror of Plan A selfieFileError); sequence gaps
+   * 0..max are reported as missing_chunk. A purged recording returns metadata only.
+   */
+  async getProctoringRecordingView(
+    tenantId: string,
+    recordingId: string
+  ): Promise<ProctoringRecordingDetail> {
+    const record = this.getById(this.state.proctoringRecordings, tenantId, recordingId);
+    const view = this.toProctoringRecordingView(tenantId, record);
+    const playbackChunks: ProctoringPlaybackChunk[] = [];
+    const chunkIssues: ProctoringChunkIssue[] = [];
+    const chunks = [...record.chunks].sort((a, b) => a.sequence - b.sequence);
+    if (!record.purgedAt && chunks.length > 0) {
+      const statuses = await this.filesService.getAntivirusStatuses(
+        tenantId,
+        chunks.map((c) => c.fileId)
+      );
+      for (const chunk of chunks) {
+        if (statuses.get(chunk.fileId) === 'infected') {
+          chunkIssues.push({ sequence: chunk.sequence, code: 'file_infected' });
+          continue;
+        }
+        // 'pending'/'error' statuses fall through on purpose: createDownloadUrl lazily re-scans
+        // and its throw degrades to a per-chunk issue below (files-layer semantics, spec §2.10).
+        try {
+          const url = await this.filesService.createDownloadUrl(tenantId, chunk.fileId);
+          playbackChunks.push({ sequence: chunk.sequence, fileId: chunk.fileId, url });
+        } catch (err) {
+          const rawCode =
+            err instanceof HttpException
+              ? ((err.getResponse() as { code?: string }).code ?? 'file_error')
+              : 'file_error';
+          // Any unrecognized files-layer code collapses to 'file_error' to keep the issue union closed.
+          const code: ProctoringChunkIssue['code'] =
+            rawCode === 'file_infected' || rawCode === 'file_scan_failed' ? rawCode : 'file_error';
+          chunkIssues.push({ sequence: chunk.sequence, code });
+        }
+      }
+      const present = new Set(chunks.map((c) => c.sequence));
+      const maxSequence = chunks[chunks.length - 1]!.sequence;
+      for (let sequence = 0; sequence <= maxSequence; sequence += 1) {
+        if (!present.has(sequence)) chunkIssues.push({ sequence, code: 'missing_chunk' });
+      }
+    }
+    return { ...view, playbackChunks, chunkIssues };
   }
 
   saveAnswer(

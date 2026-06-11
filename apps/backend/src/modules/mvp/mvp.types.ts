@@ -98,9 +98,14 @@ export interface GroupCourse extends BaseEntity {
   requiresPreExamAuth?: boolean;
   /** Phase 4 Plan A: require documentary identity verification (selfie+passport) before the final exam. */
   requiresIdentityVerification?: boolean;
+  /** Phase 4 Plan B: record the final exam on webcam video (proctoring). */
+  requiresProctoring?: boolean;
 }
 
 export type EnrollmentStatus = 'pending' | 'active' | 'suspended' | 'completed' | 'cancelled';
+
+/** Phase 4 Plan B: per-student proctoring override ('require'/'exempt'); undefined inherits the group-course flag. */
+export type ProctoringOverride = 'require' | 'exempt';
 
 export interface Enrollment extends BaseEntity {
   groupId: string;
@@ -110,6 +115,8 @@ export interface Enrollment extends BaseEntity {
   completedAt?: string;
   /** Плановая дата окончания (по максимуму сроков курсов программы). */
   plannedEndAt?: string;
+  /** Phase 4 Plan B: per-student proctoring override; undefined inherits GroupCourse.requiresProctoring. */
+  proctoringOverride?: ProctoringOverride;
 }
 
 /** Результат одной операции массового назначения (`POST /enrollments/bulk`). */
@@ -379,6 +386,64 @@ export interface IdentityVerificationView extends IdentityVerification {
   learnerName: string;
   learnerSnils?: string;
   learnerDateOfBirth?: string;
+}
+
+export type ProctoringRecordingStatus = 'recording' | 'completed';
+
+/** One uploaded (or at least intent-issued) MediaRecorder chunk; the file lives in storage.files. */
+export interface ProctoringChunk {
+  /** 0-based, monotonically assigned by the client. Gaps = skipped uploads (admin sees them). */
+  sequence: number;
+  fileId: string;
+  uploadedIntentAt: string;
+}
+
+/**
+ * Phase 4 Plan B: webcam recording session of a final exam, keyed per (learner, group, course).
+ * `recordingStatus` is the domain state machine (BaseEntity.status stays the lifecycle 'active').
+ * Abandoned sessions (browser crash) remain 'recording' — the retention cron ages them out
+ * from `completedAt ?? startedAt`. Metadata persists after the cron purges chunk files.
+ */
+export interface ProctoringRecording extends BaseEntity {
+  learnerId: string;
+  groupId: string;
+  courseId: string;
+  recordingStatus: ProctoringRecordingStatus;
+  /** Linked by startAttempt when the gated attempt actually starts. */
+  attemptId?: string;
+  /** 152-ФЗ consent timestamp (consent: true is required to create the session). */
+  consentAt: string;
+  startedAt: string;
+  completedAt?: string;
+  chunks: ProctoringChunk[];
+  /** Set by the video retention cron when all chunk files were deleted. */
+  purgedAt?: string;
+}
+
+/** Admin queue view: session + display enrichment. */
+export interface ProctoringRecordingView extends ProctoringRecording {
+  learnerName: string;
+  courseTitle: string;
+  attemptStatus?: AttemptStatus;
+}
+
+/** A chunk excluded from playback (AV verdict) or absent from the sequence entirely. */
+export interface ProctoringChunkIssue {
+  sequence: number;
+  code: 'file_infected' | 'file_scan_failed' | 'file_error' | 'missing_chunk';
+}
+
+/** One playable chunk: short-lived presigned GET url, ordered by sequence. */
+export interface ProctoringPlaybackChunk {
+  sequence: number;
+  fileId: string;
+  url: string;
+}
+
+/** Admin detail: ordered presigned GET urls of clean chunks + issues (infected / gaps). */
+export interface ProctoringRecordingDetail extends ProctoringRecordingView {
+  playbackChunks: ProctoringPlaybackChunk[];
+  chunkIssues: ProctoringChunkIssue[];
 }
 
 export interface AttemptAnswer extends BaseEntity {

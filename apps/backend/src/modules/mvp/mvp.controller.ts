@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -38,6 +39,7 @@ import {
   CreateIdentityVerificationRequest,
   CreateMaterialRequest,
   CreateModuleRequest,
+  CreateProctoringChunkUploadUrlRequest,
   CreateQuestionBankRequest,
   CreateQuestionRequest,
   CreateSimpleRegistryRequest,
@@ -51,7 +53,9 @@ import {
   ReviewIdentityVerificationRequest,
   SaveAnswerRequest,
   SaveAttemptAnswerRequest,
+  SetProctoringOverrideRequest,
   StartAttemptRequest,
+  StartProctoringRecordingRequest,
   SubmitIdentityVerificationRequest,
   UpdateAssignmentRequest,
   UpdateAssignmentReviewRequest,
@@ -963,6 +967,84 @@ export class MvpController {
   ) {
     const b = assertValidDto(ReviewIdentityVerificationRequest, raw);
     return this.mvpService.reviewIdentityVerification(c.tenantId!, c.userId, id, b, c);
+  }
+
+  // ─── Phase 4 Plan B: proctoring (webcam video recording of final exams) ───
+
+  @Post('proctoring-recordings')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('proctoring.submit')
+  startProctoringRecording(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(StartProctoringRecordingRequest, raw);
+    return this.mvpService.startProctoringRecording(c.tenantId!, c.userId, b, c);
+  }
+
+  @Post('proctoring-recordings/:id/chunk-upload-intent')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('proctoring.submit')
+  createProctoringChunkUploadUrl(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(CreateProctoringChunkUploadUrlRequest, raw);
+    return this.mvpService.createProctoringChunkUploadIntent(c.tenantId!, c.userId, id, b, c);
+  }
+
+  @Post('proctoring-recordings/:id/complete')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('proctoring.submit')
+  completeProctoringRecording(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.mvpService.completeProctoringRecording(c.tenantId!, c.userId, id, c);
+  }
+
+  // Static 'active' route MUST be declared before 'proctoring-recordings/:id'.
+  @Get('proctoring-recordings/active')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('proctoring.submit')
+  getMyActiveProctoringRecording(
+    @CurrentContext() c: RequestContext,
+    @Query('enrollmentId') enrollmentId?: string,
+    @Query('courseId') courseId?: string
+  ) {
+    if (!enrollmentId || !courseId) {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'enrollmentId and courseId query params are required'
+      });
+    }
+    return this.mvpService.getMyActiveProctoringRecording(
+      c.tenantId!,
+      c.userId,
+      { enrollmentId, courseId },
+      c
+    );
+  }
+
+  @Get('proctoring-recordings')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('proctoring.read')
+  listProctoringRecordings(@CurrentContext() c: RequestContext, @Query('status') status?: string) {
+    return this.mvpService.listProctoringRecordings(c.tenantId!, status ? { status } : {});
+  }
+
+  @Get('proctoring-recordings/:id')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('proctoring.read')
+  getProctoringRecording(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.mvpService.getProctoringRecordingView(c.tenantId!, id);
+  }
+
+  @Patch('enrollments/:id/proctoring-override')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learners.write')
+  setProctoringOverride(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(SetProctoringOverrideRequest, raw);
+    return this.mvpService.setProctoringOverride(c.tenantId!, c.userId, id, b, c);
   }
 
   @Get('attempts/:id')

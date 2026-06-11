@@ -4,7 +4,12 @@ import { LoadingState } from '@cdoprof/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { formatAttemptsLeft, formatLearnerTestStatus, formatScoreLine } from './format';
+import {
+  detectStartGate,
+  formatAttemptsLeft,
+  formatLearnerTestStatus,
+  formatScoreLine
+} from './format';
 import { useMyTests, useRequestPreExamToken, useStartAttempt } from './hooks';
 import {
   PageContainer,
@@ -13,6 +18,7 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import { ProctoringStartPanel } from '../proctoring/screens';
 
 import type { LearnerTestSummary } from './types';
 
@@ -22,17 +28,11 @@ function TestRow({ test }: { test: LearnerTestSummary }) {
   const requestLink = useRequestPreExamToken();
   const attemptsLeft = test.attemptLimit - test.attemptsUsed;
 
-  // Gate detection: match both the error code token and the English message text.
-  // useStartAttempt stores err.message (from ApiClientError), which is the backend's
-  // English message "Identity verification is required before starting this exam".
-  // We also match 'pre_exam_auth_required' in case the message format ever changes.
-  const needsPreExamAuth = /pre_exam_auth_required|identity verification is required/i.test(
-    start.error ?? ''
-  );
-
-  // Phase 4 Plan A gate: distinct message — does NOT contain "identity verification is required".
-  const needsIdentityVerification =
-    /identity_verification_required|identity confirmation by document/i.test(start.error ?? '');
+  // Gate detection extracted to detectStartGate (format.ts) — messages are designed non-colliding.
+  const gate = detectStartGate(start.error);
+  const needsPreExamAuth = gate === 'pre_exam_auth';
+  const needsIdentityVerification = gate === 'identity_verification';
+  const needsProctoring = gate === 'proctoring';
 
   const onStart = async () => {
     const attempt = await start.mutate({
@@ -106,6 +106,18 @@ function TestRow({ test }: { test: LearnerTestSummary }) {
           <Link className="ui-button" href="/learner/identity">
             Подтвердить личность
           </Link>
+        </div>
+      ) : needsProctoring ? (
+        <div className="ui-stack" data-testid="proctoring-interstitial">
+          <p className="ui-text-muted">
+            Этот экзамен записывается на видео (прокторинг). Включите камеру, дайте согласие и
+            нажмите «Начать запись и экзамен».
+          </p>
+          <ProctoringStartPanel
+            enrollmentId={test.enrollmentId}
+            courseId={test.courseId}
+            onRecordingStarted={() => void onStart()}
+          />
         </div>
       ) : start.error ? (
         <SectionError message={start.error} />

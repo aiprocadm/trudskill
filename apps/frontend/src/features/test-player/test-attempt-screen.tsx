@@ -5,13 +5,22 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { formatTimeRemaining, remainingMsFromExpiry } from './format';
-import { useAttempt, useAttemptQuestions, useSaveAnswer, useSubmitAttempt } from './hooks';
+import {
+  useAttempt,
+  useAttemptQuestions,
+  useMyTests,
+  useSaveAnswer,
+  useSubmitAttempt
+} from './hooks';
 import {
   PageContainer,
   PageHeader,
   SectionCard,
   SectionError
 } from '../../components/state-wrappers';
+import { useAuth } from '../auth/context';
+import { stopAndCompleteActiveProctoring } from '../proctoring/active-recording';
+import { ProctoringRecIndicator, ProctoringResumeBanner } from '../proctoring/screens';
 
 import type { AnswerDraftMap, AttemptQuestion, SaveAnswerPayload } from './types';
 
@@ -24,6 +33,7 @@ const AUTOSAVE_DELAY_MS = 1500;
 
 export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps) {
   const router = useRouter();
+  const { session } = useAuth();
   const { data: attempt, isLoading: attemptLoading, error: attemptError } = useAttempt(attemptId);
   const {
     data: questions,
@@ -32,6 +42,11 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
   } = useAttemptQuestions(attemptId);
   const saveAnswer = useSaveAnswer();
   const submitAttempt = useSubmitAttempt();
+  // Fix I1: the resume banner needs enrollmentId+courseId — derived the same way the tests list
+  // does (LearnerTestSummary carries courseId; AttemptDto only knows testId+enrollmentId).
+  const { data: myTests } = useMyTests();
+  // Bump to re-render after a resumed recording so the top-level ● REC indicator reappears.
+  const [, setProctoringResumeTick] = useState(0);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [drafts, setDrafts] = useState<AnswerDraftMap>({});
@@ -74,7 +89,12 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
 
   const handleSubmit = async () => {
     const result = await submitAttempt.mutate(attemptId);
-    if (result) goToResult();
+    if (result) {
+      // Phase 4 Plan B: stop the webcam recording and complete the session (fire-and-forget —
+      // complete is idempotent; a failure must never block the result screen).
+      if (session) void stopAndCompleteActiveProctoring(session);
+      goToResult();
+    }
   };
 
   // Auto-submit exactly once when the timer hits zero.
@@ -133,9 +153,23 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
   const draft = drafts[q.id] ?? {};
   const isLast = currentIndex === questions.length - 1;
 
+  // Fix I1: detect a recording session orphaned by a mid-exam refresh and offer to resume.
+  const attemptInProgress = attempt.status === 'in_progress' || attempt.status === 'draft';
+  const testSummary = myTests?.find(
+    (t) => t.testId === testId && t.enrollmentId === attempt.enrollmentId
+  );
+
   return (
     <PageContainer>
       <PageHeader title="Прохождение теста" />
+      <ProctoringRecIndicator />
+      {attemptInProgress && testSummary ? (
+        <ProctoringResumeBanner
+          enrollmentId={attempt.enrollmentId}
+          courseId={testSummary.courseId}
+          onResumed={() => setProctoringResumeTick((n) => n + 1)}
+        />
+      ) : null}
       <SectionCard title={q.title}>
         {remainingMs !== null ? <p>Осталось времени: {formatTimeRemaining(remainingMs)}</p> : null}
         <p>

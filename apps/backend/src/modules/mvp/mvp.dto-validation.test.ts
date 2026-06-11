@@ -15,9 +15,12 @@ import {
   CreateIdentityVerificationRequest,
   CreateMaterialRequest,
   CreateModuleRequest,
+  CreateProctoringChunkUploadUrlRequest,
   PutCourseDocumentSetRequest,
   RequestPreExamTokenRequest,
   ReviewIdentityVerificationRequest,
+  SetProctoringOverrideRequest,
+  StartProctoringRecordingRequest,
   SubmitIdentityVerificationRequest,
   UpdateMaterialProgressRequest,
   UpdateProgramMetaRequest,
@@ -954,5 +957,108 @@ describe('Identity verification DTOs (Phase 4 Plan A)', () => {
     });
     expect(validateSync(dto)).toHaveLength(0);
     expect(dto.requiresIdentityVerification).toBe(true);
+  });
+});
+
+describe('Proctoring DTOs (Phase 4 Plan B)', () => {
+  it('StartProctoringRecordingRequest requires enrollmentId, courseId and consent === true', () => {
+    const ok = plainToInstance(StartProctoringRecordingRequest, {
+      enrollmentId: 'enr_1',
+      courseId: 'c_1',
+      consent: true
+    });
+    expect(validateSync(ok, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+
+    const noConsent = plainToInstance(StartProctoringRecordingRequest, {
+      enrollmentId: 'enr_1',
+      courseId: 'c_1',
+      consent: false
+    });
+    expect(
+      validateSync(noConsent, { whitelist: true, forbidNonWhitelisted: true }).length
+    ).toBeGreaterThan(0);
+
+    const missingEnrollment = plainToInstance(StartProctoringRecordingRequest, {
+      courseId: 'c_1',
+      consent: true
+    });
+    expect(
+      validateSync(missingEnrollment, { whitelist: true, forbidNonWhitelisted: true }).length
+    ).toBeGreaterThan(0);
+
+    const missingCourse = plainToInstance(StartProctoringRecordingRequest, {
+      enrollmentId: 'enr_1',
+      consent: true
+    });
+    expect(
+      validateSync(missingCourse, { whitelist: true, forbidNonWhitelisted: true }).length
+    ).toBeGreaterThan(0);
+  });
+
+  it('CreateProctoringChunkUploadUrlRequest validates sequence ≥ 0 and the upload triple', () => {
+    const ok = plainToInstance(CreateProctoringChunkUploadUrlRequest, {
+      sequence: 0,
+      originalName: 'chunk-0.webm',
+      contentType: 'video/webm',
+      sizeBytes: 1024
+    });
+    expect(validateSync(ok, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+
+    const negative = plainToInstance(CreateProctoringChunkUploadUrlRequest, {
+      sequence: -1,
+      originalName: 'chunk.webm',
+      contentType: 'video/webm',
+      sizeBytes: 1024
+    });
+    expect(
+      validateSync(negative, { whitelist: true, forbidNonWhitelisted: true }).length
+    ).toBeGreaterThan(0);
+
+    const fractional = plainToInstance(CreateProctoringChunkUploadUrlRequest, {
+      sequence: 1.5,
+      originalName: 'chunk.webm',
+      contentType: 'video/webm',
+      sizeBytes: 1024
+    });
+    expect(
+      validateSync(fractional, { whitelist: true, forbidNonWhitelisted: true }).length
+    ).toBeGreaterThan(0);
+
+    const noMime = plainToInstance(CreateProctoringChunkUploadUrlRequest, {
+      sequence: 0,
+      originalName: 'chunk.webm',
+      sizeBytes: 1024
+    });
+    expect(
+      validateSync(noMime, { whitelist: true, forbidNonWhitelisted: true }).length
+    ).toBeGreaterThan(0);
+  });
+
+  it("SetProctoringOverrideRequest accepts 'require' | 'exempt' | null and rejects others", () => {
+    for (const override of ['require', 'exempt', null]) {
+      const dto = plainToInstance(SetProctoringOverrideRequest, { override });
+      expect(
+        validateSync(dto, { whitelist: true, forbidNonWhitelisted: true }),
+        `override=${String(override)} must be valid`
+      ).toHaveLength(0);
+    }
+    const bad = plainToInstance(SetProctoringOverrideRequest, { override: 'maybe' });
+    expect(
+      validateSync(bad, { whitelist: true, forbidNonWhitelisted: true }).length
+    ).toBeGreaterThan(0);
+    const missing = plainToInstance(SetProctoringOverrideRequest, {});
+    expect(
+      validateSync(missing, { whitelist: true, forbidNonWhitelisted: true }).length
+    ).toBeGreaterThan(0);
+  });
+
+  it('CreateGroupCourseRequest accepts requiresProctoring', () => {
+    const dto = plainToInstance(CreateGroupCourseRequest, {
+      groupId: 'g1',
+      courseId: 'c1',
+      requiresProctoring: true
+    });
+    expect(validateSync(dto)).toHaveLength(0);
+    expect(dto.requiresProctoring).toBe(true);
   });
 });
