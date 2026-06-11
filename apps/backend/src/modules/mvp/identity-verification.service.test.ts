@@ -355,6 +355,68 @@ describe('identity verification lifecycle', () => {
       'identity_verification_not_editable'
     );
   });
+
+  it('13. getIdentityVerificationView resolves even when selfie file is infected (selfieFileError set, passportUrl present)', async () => {
+    const { service, files } = makeService();
+    service.createLearner(
+      T,
+      ADMIN,
+      { code: 'L1', name: 'Ivanov Ivan', linkedIamUserId: 'u_l1' },
+      ctx
+    );
+    const draft = service.startIdentityVerification(T, 'u_l1', {}, ctx);
+    await service.submitIdentityVerification(
+      T,
+      'u_l1',
+      draft.id,
+      { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true },
+      ctx
+    );
+    // Selfie download throws the same 423 HttpException that FilesService throws for infected files
+    const { HttpException: NestHttpException } = await import('@nestjs/common');
+    (files as ReturnType<typeof makeFilesMock>).createDownloadUrl.mockImplementation(
+      async (_t: string, fileId: string) => {
+        if (fileId === 'f_selfie') {
+          throw new NestHttpException(
+            { code: 'file_infected', message: 'File failed antivirus scan' },
+            423
+          );
+        }
+        return 'https://minio.local/GET-signed';
+      }
+    );
+    const view = await service.getIdentityVerificationView(T, draft.id);
+    expect(view.selfieUrl).toBeUndefined();
+    expect(view.selfieFileError).toBe('file_infected');
+    expect(view.passportUrl).toBe('https://minio.local/GET-signed');
+  });
+
+  it('14. submitIdentityVerification throws identity_files_must_differ when selfieFileId === passportFileId', async () => {
+    const { service } = makeService();
+    service.createLearner(
+      T,
+      ADMIN,
+      { code: 'L1', name: 'Ivanov Ivan', linkedIamUserId: 'u_l1' },
+      ctx
+    );
+    const draft = service.startIdentityVerification(T, 'u_l1', {}, ctx);
+    let err: unknown;
+    try {
+      await service.submitIdentityVerification(
+        T,
+        'u_l1',
+        draft.id,
+        { selfieFileId: 'same_file', passportFileId: 'same_file', consent: true },
+        ctx
+      );
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeDefined();
+    expect(((err as { getResponse: () => unknown }).getResponse() as { code: string }).code).toBe(
+      'identity_files_must_differ'
+    );
+  });
 });
 
 /**

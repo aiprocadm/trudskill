@@ -26,6 +26,10 @@ export interface IdentityVerificationView extends IdentityVerificationDto {
 export interface IdentityVerificationDetail extends IdentityVerificationView {
   selfieUrl?: string;
   passportUrl?: string;
+  /** Error code when the selfie file is unavailable (e.g. 'file_infected', 'file_scan_failed', 'file_not_found'). */
+  selfieFileError?: string;
+  /** Error code when the passport file is unavailable (e.g. 'file_infected', 'file_scan_failed', 'file_not_found'). */
+  passportFileError?: string;
 }
 
 export interface CreateUploadUrlPayload {

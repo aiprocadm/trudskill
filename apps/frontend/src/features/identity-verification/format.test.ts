@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { IDENTITY_STATUS_LABELS, formatDateShort, formatIdentityStatus } from './format';
+import {
+  IDENTITY_STATUS_LABELS,
+  fileUnavailableLabel,
+  formatDateShort,
+  formatIdentityStatus
+} from './format';
 
 describe('IDENTITY_STATUS_LABELS', () => {
   it('has Russian label for draft', () => {
@@ -42,5 +47,23 @@ describe('formatDateShort', () => {
   it('returns non-dash string for YYYY-MM-DD format', () => {
     const result = formatDateShort('2026-01-01');
     expect(result).not.toBe('—');
+  });
+});
+
+describe('fileUnavailableLabel', () => {
+  it('returns AV label for file_infected', () => {
+    expect(fileUnavailableLabel('file_infected')).toBe('файл недоступен (антивирус)');
+  });
+  it('returns AV label for file_scan_failed', () => {
+    expect(fileUnavailableLabel('file_scan_failed')).toBe('файл недоступен (антивирус)');
+  });
+  it('returns generic label for file_not_found', () => {
+    expect(fileUnavailableLabel('file_not_found')).toBe('файл недоступен');
+  });
+  it('returns generic label for undefined', () => {
+    expect(fileUnavailableLabel(undefined)).toBe('файл недоступен');
+  });
+  it('returns generic label for unknown codes', () => {
+    expect(fileUnavailableLabel('file_error')).toBe('файл недоступен');
   });
 });

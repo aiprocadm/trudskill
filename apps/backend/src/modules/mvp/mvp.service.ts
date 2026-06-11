@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  HttpException,
   Inject,
   Injectable,
   Logger,
@@ -3425,6 +3426,12 @@ export class MvpService {
         message: 'Consent to personal data processing is required (152-ФЗ)'
       });
     }
+    if (request.selfieFileId === request.passportFileId) {
+      throw new BadRequestException({
+        code: 'identity_files_must_differ',
+        message: 'Selfie and passport must be different files'
+      });
+    }
     const known = await this.filesService.getAntivirusStatuses(tenantId, [
       request.selfieFileId,
       request.passportFileId
@@ -3534,22 +3541,55 @@ export class MvpService {
   async getIdentityVerificationView(
     tenantId: string,
     verificationId: string
-  ): Promise<IdentityVerificationView & { selfieUrl?: string; passportUrl?: string }> {
+  ): Promise<
+    IdentityVerificationView & {
+      selfieUrl?: string;
+      passportUrl?: string;
+      selfieFileError?: string;
+      passportFileError?: string;
+    }
+  > {
     const record = this.getById(this.state.identityVerifications, tenantId, verificationId);
     const view = this.toIdentityVerificationView(tenantId, record);
     const purged = Boolean(record.imagesPurgedAt);
-    const selfieUrl =
-      !purged && record.selfieFileId
-        ? await this.filesService.createDownloadUrl(tenantId, record.selfieFileId)
-        : undefined;
-    const passportUrl =
-      !purged && record.passportFileId
-        ? await this.filesService.createDownloadUrl(tenantId, record.passportFileId)
-        : undefined;
+
+    const resolveUrl = async (fileId: string | undefined): Promise<string | undefined> => {
+      if (!fileId) return undefined;
+      return this.filesService.createDownloadUrl(tenantId, fileId);
+    };
+
+    const tryResolveUrl = async (
+      fileId: string | undefined
+    ): Promise<{ url?: string; error?: string }> => {
+      if (!fileId) return {};
+      try {
+        const url = await resolveUrl(fileId);
+        return { url };
+      } catch (err) {
+        const code =
+          err instanceof HttpException
+            ? ((err.getResponse() as { code?: string }).code ?? 'file_error')
+            : 'file_error';
+        this.identityVerificationLogger.warn(
+          `createDownloadUrl failed tenant=${tenantId} file=${fileId} code=${code}`
+        );
+        return { error: code };
+      }
+    };
+
+    const [selfieResult, passportResult] = purged
+      ? [{}, {}]
+      : await Promise.all([
+          tryResolveUrl(record.selfieFileId),
+          tryResolveUrl(record.passportFileId)
+        ]);
+
     return {
       ...view,
-      ...(selfieUrl ? { selfieUrl } : {}),
-      ...(passportUrl ? { passportUrl } : {})
+      ...(selfieResult.url ? { selfieUrl: selfieResult.url } : {}),
+      ...(selfieResult.error ? { selfieFileError: selfieResult.error } : {}),
+      ...(passportResult.url ? { passportUrl: passportResult.url } : {}),
+      ...(passportResult.error ? { passportFileError: passportResult.error } : {})
     };
   }
 

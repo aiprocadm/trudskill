@@ -4,7 +4,7 @@ import { DataTable, LoadingState } from '@cdoprof/ui';
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { formatDateShort, formatIdentityStatus } from './format';
+import { fileUnavailableLabel, formatDateShort, formatIdentityStatus } from './format';
 import {
   useIdentityDetail,
   useIdentityQueue,
@@ -273,7 +273,11 @@ export function AdminIdentityDetailScreen({ id }: { id: string }): ReactElement 
                   style={{ maxWidth: 320, display: 'block', marginTop: 8 }}
                 />
               ) : (
-                <p className="ui-text-muted">Селфи: нет файла</p>
+                <p className="ui-text-muted">
+                  {detail.selfieFileError
+                    ? `Селфи: ${fileUnavailableLabel(detail.selfieFileError)}`
+                    : 'Селфи: нет файла'}
+                </p>
               )}
             </div>
             <div>
@@ -300,7 +304,11 @@ export function AdminIdentityDetailScreen({ id }: { id: string }): ReactElement 
                   </a>
                 </>
               ) : (
-                <p className="ui-text-muted">Паспорт: нет файла</p>
+                <p className="ui-text-muted">
+                  {detail.passportFileError
+                    ? `Паспорт: ${fileUnavailableLabel(detail.passportFileError)}`
+                    : 'Паспорт: нет файла'}
+                </p>
               )}
             </div>
           </div>

@@ -73,7 +73,12 @@ export function useIdentitySubmission() {
       await queryClient.invalidateQueries({ queryKey: ['identity-verification', 'me'] });
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось отправить документы');
+      const message = err instanceof Error ? err.message : '';
+      setError(
+        message.includes('learner_not_linked') || message.includes('No learner profile')
+          ? 'Ваш аккаунт не привязан к карточке слушателя — обратитесь в учебный центр.'
+          : message || 'Не удалось отправить документы'
+      );
       return false;
     } finally {
       setIsPending(false);

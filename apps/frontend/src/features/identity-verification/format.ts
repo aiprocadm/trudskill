@@ -18,3 +18,14 @@ export function formatDateShort(iso?: string): string {
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('ru-RU');
 }
+
+/**
+ * Returns a human-readable unavailability label for identity document file errors.
+ * Used in the admin detail view when a file cannot be served (AV-gated or missing).
+ */
+export function fileUnavailableLabel(code?: string): string {
+  if (code === 'file_infected' || code === 'file_scan_failed') {
+    return 'файл недоступен (антивирус)';
+  }
+  return 'файл недоступен';
+}
