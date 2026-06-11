@@ -261,6 +261,9 @@ export function AdminProctoringDetailScreen({ id }: { id: string }): ReactElemen
     null
   );
   const [playerError, setPlayerError] = useState<string | null>(null);
+  // Holistic-review fix C1: per-chunk download failures (e.g. a phantom chunk registered without
+  // an object) degrade gracefully — the chunk is skipped with a warning, the rest still plays.
+  const [assembleWarnings, setAssembleWarnings] = useState<string[]>([]);
   const abortRef = useRef<AbortController | null>(null);
 
   // Revoke the blob URL on unmount/replace (memory hygiene for multi-hundred-MB videos).
@@ -284,6 +287,7 @@ export function AdminProctoringDetailScreen({ id }: { id: string }): ReactElemen
   const onAssemble = async () => {
     setIsAssembling(true);
     setPlayerError(null);
+    setAssembleWarnings([]);
     const controller = new AbortController();
     abortRef.current = controller;
     try {
@@ -292,11 +296,24 @@ export function AdminProctoringDetailScreen({ id }: { id: string }): ReactElemen
       const total = fresh.playbackChunks.length;
       setAssembleProgress({ done: 0, total });
       const parts: Blob[] = [];
+      const warnings: string[] = [];
+      let done = 0;
       for (const chunk of fresh.playbackChunks) {
+        // AbortError rejects the fetch itself and lands in the outer catch (silent exit).
         const res = await fetch(chunk.url, { signal: controller.signal });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        parts.push(await res.blob());
-        setAssembleProgress({ done: parts.length, total });
+        done += 1;
+        if (!res.ok) {
+          // One unavailable chunk (404 phantom, expired url, …) must not kill the whole video.
+          warnings.push(`Фрагмент ${chunk.sequence} недоступен (HTTP ${res.status})`);
+        } else {
+          parts.push(await res.blob());
+        }
+        setAssembleProgress({ done, total });
+      }
+      setAssembleWarnings(warnings);
+      if (parts.length === 0) {
+        setPlayerError('Не удалось собрать запись — попробуйте ещё раз');
+        return;
       }
       const assembled = new Blob(parts, { type: 'video/webm' });
       setVideoUrl(URL.createObjectURL(assembled));
@@ -342,6 +359,15 @@ export function AdminProctoringDetailScreen({ id }: { id: string }): ReactElemen
                 {detail.chunkIssues.map((issue) => (
                   <li key={`${issue.sequence}:${issue.code}`} className="ui-text-muted">
                     ⚠ {chunkIssueLabel(issue)}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {assembleWarnings.length > 0 ? (
+              <ul className="ui-list" data-testid="proctoring-assemble-warnings">
+                {assembleWarnings.map((warning) => (
+                  <li key={warning} className="ui-text-muted">
+                    ⚠ {warning}
                   </li>
                 ))}
               </ul>
