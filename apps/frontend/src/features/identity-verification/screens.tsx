@@ -266,6 +266,7 @@ export function AdminIdentityDetailScreen({ id }: { id: string }): ReactElement 
                 <strong>Селфи:</strong>
               </p>
               {detail.selfieUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- presigned MinIO URL, next/image needs static domain config
                 <img
                   src={detail.selfieUrl}
                   alt="Селфи"
@@ -282,6 +283,7 @@ export function AdminIdentityDetailScreen({ id }: { id: string }): ReactElement 
               {detail.passportUrl ? (
                 <>
                   {!isPdf(detail.passportUrl) ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- presigned MinIO URL, next/image needs static domain config
                     <img
                       src={detail.passportUrl}
                       alt="Паспорт"
