@@ -230,6 +230,38 @@ describe('FilesService.createUploadIntent — options', () => {
   });
 });
 
+describe('FilesService.createUploadIntent — maxBytes override', () => {
+  it('createUploadIntent honors options.maxBytes override (scorm zip > default 10MB)', async () => {
+    // 50 MB при дефолтном лимите 10 MB — должно пройти с override
+    const { service } = makeFilesService();
+    const intent = await service.createUploadIntent(
+      'tenant_demo',
+      { originalName: 'course.zip', contentType: 'application/zip', sizeBytes: 50 * 1024 * 1024 },
+      {
+        maxBytes: 300 * 1024 * 1024,
+        mimeAllowlist: new Set(['application/zip']),
+        keyPrefix: 'scorm-packages'
+      }
+    );
+    expect(intent.fileId).toBeTruthy();
+  });
+
+  it('createUploadIntent rejects sizeBytes above options.maxBytes', async () => {
+    const { service } = makeFilesService();
+    await expect(
+      service.createUploadIntent(
+        'tenant_demo',
+        {
+          originalName: 'course.zip',
+          contentType: 'application/zip',
+          sizeBytes: 400 * 1024 * 1024
+        },
+        { maxBytes: 300 * 1024 * 1024, mimeAllowlist: new Set(['application/zip']) }
+      )
+    ).rejects.toMatchObject({ response: { code: 'file_too_large' } });
+  });
+});
+
 describe('FilesService.deleteFile', () => {
   it('deletes the object and soft-deletes the row', async () => {
     const { service, storage, queries, audit } = makeFilesService();

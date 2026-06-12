@@ -52,6 +52,8 @@ export interface UploadIntentOptions {
   keyPrefix?: string;
   /** MIME allowlist override; defaults to the practical-submissions allowlist. */
   mimeAllowlist?: ReadonlySet<string>;
+  /** Per-purpose size ceiling override, bytes; defaults to SUBMISSION_MAX_BYTES (10 MB). */
+  maxBytes?: number;
 }
 
 export interface UploadIntent {
@@ -144,7 +146,8 @@ export class FilesService {
         message: 'File type is not allowed'
       });
     }
-    if (input.sizeBytes <= 0 || input.sizeBytes > SUBMISSION_MAX_BYTES) {
+    const maxBytes = options?.maxBytes ?? SUBMISSION_MAX_BYTES;
+    if (input.sizeBytes <= 0 || input.sizeBytes > maxBytes) {
       throw new BadRequestException({
         code: 'file_too_large',
         message: 'File exceeds the allowed size'
