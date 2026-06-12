@@ -37,6 +37,8 @@ import type {
   ProctoringRecording,
   Question,
   QuestionBank,
+  ScormAttempt,
+  ScormPackage,
   TestAttempt,
   TestEntity,
   TestQuestion
@@ -91,4 +93,7 @@ export class InMemoryMvpState {
   // Wave 2 sub-goal C — ЕИСОТ «лица на тестирование»: durable roster batches + per-record set.
   eisotTestingBatches: EisotTestingBatch[] = [];
   eisotTestingRecords: EisotTestingRecord[] = [];
+  // Phase 9 Plan A — SCORM: пакеты + cmi-прогресс учеников.
+  scormPackages: ScormPackage[] = [];
+  scormAttempts: ScormAttempt[] = [];
 }

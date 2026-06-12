@@ -73,11 +73,13 @@ export interface CourseModuleEntity extends BaseEntity {
 export interface Material extends BaseEntity {
   moduleId: string;
   title: string;
-  materialType: 'file' | 'external_url' | 'text' | 'video';
+  materialType: 'file' | 'external_url' | 'text' | 'video' | 'scorm';
   sortOrder: number;
   minViewSeconds: number;
   isRequired: boolean;
   fileId?: string;
+  /** Phase 9 Plan A: пакет для materialType='scorm' (FK learning.scorm_packages, статус ready). */
+  scormPackageId?: string;
 }
 
 export interface GroupEntity extends BaseEntity {
@@ -875,3 +877,48 @@ export interface CourseDocumentSetEntry {
 
 /** Re-exported from documents module — single source of truth for template_type and category_code unions. */
 export type { TemplateType, VariableCategoryCode } from '../documents/documents.types.js';
+
+// ─── Phase 9 Plan A: SCORM 1.2 import + player ───
+
+export type ScormPackageStatus = 'uploaded' | 'processing' | 'ready' | 'failed';
+
+/** Загруженный SCORM 1.2 пакет: zip в storage.files, распакованный контент в S3 под storagePrefix. */
+export interface ScormPackage extends BaseEntity {
+  title: string;
+  packageStatus: ScormPackageStatus;
+  zipFileId: string;
+  /** Детерминированный префикс: scorm/<tenantId>/<id> — content-роут вычисляет его без чтения state. */
+  storagePrefix: string;
+  launchHref?: string;
+  manifestTitle?: string;
+  entryCount?: number;
+  totalBytes?: number;
+  /** Код причины failed (scorm_version_unsupported | scorm_manifest_missing | ...). */
+  error?: string;
+}
+
+export type ScormLessonStatus =
+  | 'not attempted'
+  | 'incomplete'
+  | 'completed'
+  | 'passed'
+  | 'failed'
+  | 'browsed';
+
+/** cmi-прогресс SCORM per (enrollment, material): единственная запись, last-write-wins. */
+export interface ScormAttempt extends BaseEntity {
+  enrollmentId: string;
+  materialId: string;
+  learnerId: string;
+  lessonStatus: ScormLessonStatus;
+  lessonLocation?: string;
+  suspendData?: string;
+  scoreRaw?: number;
+  scoreMax?: number;
+  scoreMin?: number;
+  /** Сумма session_time коммитов, секунды. */
+  totalSeconds: number;
+  startedAt: string;
+  lastCommitAt?: string;
+  completedAt?: string;
+}

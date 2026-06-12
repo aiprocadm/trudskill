@@ -38,7 +38,9 @@ export const MVP_COLLECTIONS = [
   'frdoRegistryBatches',
   'frdoRegistryRecords',
   'eisotTestingBatches',
-  'eisotTestingRecords'
+  'eisotTestingRecords',
+  'scormPackages',
+  'scormAttempts'
 ] as const;
 
 export type MvpCollection = (typeof MVP_COLLECTIONS)[number];
