@@ -72,6 +72,12 @@ export const backendEnvSchema = z
       .default(false),
     /** Cron for the nightly proctoring-video purge (UTC; offset from identity's 04:00). */
     PROCTORING_RETENTION_CRON_SCHEDULE: z.string().default('0 5 * * *'),
+    // Phase 9 Plan A — SCORM package import (zip upload ceiling, bytes). Default 300 MB.
+    SCORM_PACKAGE_MAX_BYTES: z.coerce.number().int().positive().default(314_572_800),
+    /** HMAC secret for the path-embedded scorm-content tokens (iframe asset auth). */
+    SCORM_CONTENT_TOKEN_SECRET: z.string().min(8).default('dev-scorm-content-secret'),
+    /** TTL of a scorm-content token, seconds. Default 4h (player session). */
+    SCORM_CONTENT_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(14_400),
     SMTP_HOST: z.string().min(1).optional(),
     SMTP_PORT: z.coerce.number().int().positive().default(587),
     SMTP_USER: z.string().min(1).optional(),
