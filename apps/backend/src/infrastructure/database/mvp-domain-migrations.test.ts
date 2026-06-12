@@ -642,3 +642,88 @@ describe('Phase 4 Plan B — proctoring recordings (migration 0051)', () => {
     );
   });
 });
+
+describe('Phase 9 Plan A — SCORM 1.2 import + player (migration 0052)', () => {
+  const sql0052 = migrationSqlByFile.get('0052_learning_scorm.sql') ?? '';
+
+  it('migration file exists in the chain', () => {
+    expect(migrationFiles).toContain('0052_learning_scorm.sql');
+    expect(sql0052.length).toBeGreaterThan(0);
+  });
+
+  it("adds 'scorm' to materials_type_chk and scorm_package_id column", () => {
+    expect(sql0052).toMatch(/DROP\s+CONSTRAINT\s+IF\s+EXISTS\s+materials_type_chk/i);
+    expect(sql0052).toMatch(
+      /ADD\s+CONSTRAINT\s+materials_type_chk\s+CHECK\s*\(material_type\s+IN\s*\('file',\s*'external_url',\s*'text',\s*'video',\s*'scorm'\)\)/i
+    );
+    expect(sql0052).toMatch(
+      /ALTER\s+TABLE\s+learning\.materials\s+ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+scorm_package_id\s+text/i
+    );
+  });
+
+  it('creates learning.scorm_packages with required columns', () => {
+    expect(sql0052).toMatch(/CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+learning\.scorm_packages/i);
+    for (const column of [
+      'id',
+      'tenant_id',
+      'title',
+      'package_status',
+      'zip_file_id',
+      'storage_prefix',
+      'launch_href',
+      'manifest_title',
+      'entry_count',
+      'total_bytes',
+      'error',
+      'created_at',
+      'updated_at'
+    ]) {
+      expect(sql0052, `0052 scorm_packages must declare column ${column}`).toMatch(
+        new RegExp(`\\b${column}\\b`)
+      );
+    }
+    expect(sql0052).toMatch(
+      /CONSTRAINT\s+scorm_packages_status_chk\s+CHECK\s*\(package_status\s+IN\s*\('uploaded',\s*'processing',\s*'ready',\s*'failed'\)\)/i
+    );
+  });
+
+  it('creates learning.scorm_attempts with required columns and lesson_status check', () => {
+    expect(sql0052).toMatch(/CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+learning\.scorm_attempts/i);
+    for (const column of [
+      'id',
+      'tenant_id',
+      'enrollment_id',
+      'material_id',
+      'learner_id',
+      'lesson_status',
+      'lesson_location',
+      'suspend_data',
+      'score_raw',
+      'score_max',
+      'score_min',
+      'total_seconds',
+      'started_at',
+      'last_commit_at',
+      'completed_at',
+      'created_at',
+      'updated_at'
+    ]) {
+      expect(sql0052, `0052 scorm_attempts must declare column ${column}`).toMatch(
+        new RegExp(`\\b${column}\\b`)
+      );
+    }
+    expect(sql0052).toMatch(
+      /CONSTRAINT\s+scorm_attempts_lesson_status_chk\s+CHECK\s*\(lesson_status\s+IN\s*\('not attempted',\s*'incomplete',\s*'completed',\s*'passed',\s*'failed',\s*'browsed'\)\)/i
+    );
+  });
+
+  it('creates unique index idx_scorm_attempts_tenant_enrollment_material', () => {
+    expect(sql0052).toMatch(
+      /CREATE\s+UNIQUE\s+INDEX\s+IF\s+NOT\s+EXISTS\s+idx_scorm_attempts_tenant_enrollment_material\s+ON\s+learning\.scorm_attempts\s*\(tenant_id,\s*enrollment_id,\s*material_id\)/i
+    );
+  });
+
+  it('does NOT insert into iam.permissions (no new perms needed for scorm)', () => {
+    expect(sql0052).not.toMatch(/INSERT\s+INTO\s+iam\.permissions/i);
+  });
+});
