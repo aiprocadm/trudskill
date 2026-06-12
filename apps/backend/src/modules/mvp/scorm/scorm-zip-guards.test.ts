@@ -18,6 +18,25 @@ describe('assertSafeEntryPath', () => {
       );
     });
   }
+
+  // I-1: percent-encoded traversal
+  it('отклоняет %2e%2e/evil.js (encoded traversal) → scorm_zip_unsafe_path', () => {
+    expect(() => assertSafeEntryPath('%2e%2e/evil.js')).toThrowError(
+      expect.objectContaining({ code: 'scorm_zip_unsafe_path' })
+    );
+  });
+  it('отклоняет a%2Fb.js (encoded slash) → scorm_zip_unsafe_path', () => {
+    expect(() => assertSafeEntryPath('a%2Fb.js')).toThrowError(
+      expect.objectContaining({ code: 'scorm_zip_unsafe_path' })
+    );
+  });
+
+  // I-2: NUL byte
+  it('отклоняет путь с NUL-байтом → scorm_zip_unsafe_path', () => {
+    expect(() => assertSafeEntryPath('a\x00b.js')).toThrowError(
+      expect.objectContaining({ code: 'scorm_zip_unsafe_path' })
+    );
+  });
 });
 
 describe('createZipBudget', () => {
@@ -28,11 +47,23 @@ describe('createZipBudget', () => {
       expect.objectContaining({ code: 'scorm_zip_too_many_entries' })
     );
   });
-  it('бросает при превышении total-байт', () => {
+  it('бросает при превышении total-байт (несколько entry по 200 MB)', () => {
     const budget = createZipBudget();
-    expect(() => budget.addEntry(SCORM_ZIP_LIMITS.maxTotalBytes + 1)).toThrowError(
-      expect.objectContaining({ code: 'scorm_zip_too_large' })
-    );
+    // 200 MB < maxEntryBytes (300 MB), поэтому entry_too_large не будет раньше total-лимита.
+    // 1.5 GB / 200 MB = 7.5, т.е. после 8 вызовов total = 1.6 GB > 1.5 GB.
+    const entrySize = 200 * 1024 * 1024;
+    const count = Math.ceil(SCORM_ZIP_LIMITS.maxTotalBytes / entrySize);
+    let threw = false;
+    for (let i = 0; i <= count; i++) {
+      try {
+        budget.addEntry(entrySize);
+      } catch (e) {
+        expect(e).toEqual(expect.objectContaining({ code: 'scorm_zip_too_large' }));
+        threw = true;
+        break;
+      }
+    }
+    expect(threw).toBe(true);
   });
   it('бросает при слишком большом одиночном entry', () => {
     const budget = createZipBudget();

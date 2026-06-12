@@ -24,7 +24,12 @@ export function assertSafeEntryPath(entryPath: string): void {
     entryPath.includes('\\') ||
     entryPath.startsWith('/') ||
     /^[a-zA-Z]:/.test(entryPath) ||
-    entryPath.split('/').includes('..');
+    entryPath.split('/').includes('..') ||
+    // I-1: percent-encoded символы не нужны в валидных SCORM-именах;
+    //      backstop от encoded traversal (%2e%2e, %2F и т.п.)
+    entryPath.includes('%') ||
+    // I-2: NUL-байт в пути может обходить проверки на уровне ОС/libc
+    entryPath.includes('\x00');
   if (unsafe) {
     throw new ScormZipGuardError('scorm_zip_unsafe_path', `Unsafe zip entry path: ${entryPath}`);
   }
@@ -44,16 +49,18 @@ export function createZipBudget() {
           `More than ${SCORM_ZIP_LIMITS.maxEntries} entries`
         );
       }
-      if (totalBytes > SCORM_ZIP_LIMITS.maxTotalBytes) {
-        throw new ScormZipGuardError(
-          'scorm_zip_too_large',
-          'Uncompressed size exceeds the total limit'
-        );
-      }
+      // M-1: per-entry check BEFORE total check — при одновременном превышении
+      //      возвращаем более точный код scorm_zip_entry_too_large.
       if (sizeBytes > SCORM_ZIP_LIMITS.maxEntryBytes) {
         throw new ScormZipGuardError(
           'scorm_zip_entry_too_large',
           'Single entry exceeds the per-file limit'
+        );
+      }
+      if (totalBytes > SCORM_ZIP_LIMITS.maxTotalBytes) {
+        throw new ScormZipGuardError(
+          'scorm_zip_too_large',
+          'Uncompressed size exceeds the total limit'
         );
       }
     },

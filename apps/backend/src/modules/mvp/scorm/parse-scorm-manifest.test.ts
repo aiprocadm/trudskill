@@ -18,6 +18,26 @@ const MANIFEST_12 = `<?xml version="1.0"?>
   </resources>
 </manifest>`;
 
+/** Манифест с двумя organizations — default указывает на вторую (org2). */
+const MANIFEST_TWO_ORGS = `<?xml version="1.0"?>
+<manifest identifier="m2" xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2">
+  <metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
+  <organizations default="org2">
+    <organization identifier="org1">
+      <title>Первая организация</title>
+      <item identifier="i1a" identifierref="res_first"><title>Первый</title></item>
+    </organization>
+    <organization identifier="org2">
+      <title>Вторая организация</title>
+      <item identifier="i2a" identifierref="res_second"><title>Второй</title></item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="res_first" type="webcontent" href="first/index.html"/>
+    <resource identifier="res_second" type="webcontent" href="second/index.html"/>
+  </resources>
+</manifest>`;
+
 describe('parseScormManifest', () => {
   it('извлекает версию, title и launch href первого item→resource', () => {
     const m = parseScormManifest(MANIFEST_12);
@@ -65,5 +85,21 @@ describe('parseScormManifest', () => {
       ''
     );
     expect(parseScormManifest(xml).version).toBe('1.2');
+  });
+
+  // I-3: organizations[@_default] — выбирать указанную, а не первую
+  it('I-3: default указывает на вторую organization — title/launchHref из второй', () => {
+    const m = parseScormManifest(MANIFEST_TWO_ORGS);
+    expect(m.title).toBe('Вторая организация');
+    expect(m.launchHref).toBe('second/index.html');
+  });
+
+  // M-2: xml:base без trailing slash
+  it('M-2: xml:base без trailing slash → base + "/" + href', () => {
+    const xml = MANIFEST_12.replace(
+      'href="content/index.html"',
+      'href="index.html" xml:base="content"'
+    );
+    expect(parseScormManifest(xml).launchHref).toBe('content/index.html');
   });
 });

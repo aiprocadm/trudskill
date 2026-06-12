@@ -32,12 +32,9 @@ export function verifyScormContentToken(
   if (parts.length !== 2) return null;
   const [body, sig] = parts as [string, string];
   const expected = createHmac('sha256', secret).update(body).digest();
-  let actual: Buffer;
-  try {
-    actual = Buffer.from(sig, 'base64url');
-  } catch {
-    return null;
-  }
+  // M-3: Buffer.from(str, 'base64url') в Node не бросает на невалидном base64 —
+  //      защита обеспечивается сравнением длин ниже, поэтому try/catch убран.
+  const actual = Buffer.from(sig, 'base64url');
   if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
   let payload: ScormContentTokenPayload;
   try {
@@ -51,6 +48,9 @@ export function verifyScormContentToken(
     typeof payload.tenantId !== 'string' ||
     typeof payload.packageId !== 'string' ||
     typeof payload.exp !== 'number' ||
+    // I-4: пустые tenantId / packageId семантически невалидны — отклоняем
+    payload.tenantId.length === 0 ||
+    payload.packageId.length === 0 ||
     payload.exp <= opts.nowEpochSeconds
   ) {
     return null;

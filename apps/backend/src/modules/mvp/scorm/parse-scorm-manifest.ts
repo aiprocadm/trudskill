@@ -6,7 +6,13 @@ export interface ScormManifest {
   launchHref: string;
 }
 
-/** Типизированная ошибка разбора манифеста; code уходит в ScormPackage.error. */
+/**
+ * Типизированная ошибка разбора манифеста; code уходит в ScormPackage.error.
+ *
+ * Примечание: код 'scorm_manifest_missing' бросается ScormService.processPackage
+ * (zip без imsmanifest.xml), а не этой функцией — здесь он присутствует только
+ * в union для совместимости с ScormPackage.error.
+ */
 export class ScormManifestError extends Error {
   constructor(
     public readonly code:
@@ -54,9 +60,18 @@ export function parseScormManifest(xml: string): ScormManifest {
   }
 
   const organizations = first(manifest['organizations']) as Record<string, unknown> | undefined;
-  const organization = first(organizations?.['organization']) as
-    | Record<string, unknown>
-    | undefined;
+  // I-3: если organizations[@_default] задан, выбираем organization с совпадающим identifier;
+  //      fallback — первая organization (поведение до исправления).
+  const defaultId =
+    typeof organizations?.['@_default'] === 'string' ? organizations['@_default'] : undefined;
+  const orgRaw = organizations?.['organization'];
+  const orgList = (Array.isArray(orgRaw) ? orgRaw : orgRaw ? [orgRaw] : []) as Array<
+    Record<string, unknown>
+  >;
+  const organization: Record<string, unknown> | undefined =
+    defaultId !== undefined
+      ? (orgList.find((o) => o['@_identifier'] === defaultId) ?? orgList[0])
+      : orgList[0];
   const title = String(first(organization?.['title']) ?? '').trim() || 'SCORM course';
 
   // Первый item (возможно вложенный) с identifierref.
@@ -91,6 +106,9 @@ export function parseScormManifest(xml: string): ScormManifest {
       'Manifest has no launchable item (organization item with identifierref → resource href)'
     );
   }
-  const base = typeof resource?.['@_base'] === 'string' ? (resource['@_base'] as string) : '';
+  const rawBase = typeof resource?.['@_base'] === 'string' ? (resource['@_base'] as string) : '';
+  // M-2: если base непустой и не заканчивается на '/', вставить разделитель
+  //      чтобы "content" + "index.html" → "content/index.html" (а не "contentindex.html").
+  const base = rawBase.length > 0 && !rawBase.endsWith('/') ? `${rawBase}/` : rawBase;
   return { version: '1.2', title, launchHref: `${base}${href}` };
 }

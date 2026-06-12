@@ -51,4 +51,21 @@ describe('scorm content token', () => {
     expect(verifyScormContentToken('garbage', SECRET, { nowEpochSeconds: 1 })).toBeNull();
     expect(verifyScormContentToken('a.b.c', SECRET, { nowEpochSeconds: 1 })).toBeNull();
   });
+
+  // I-4: пустые tenantId / packageId → null даже при валидной подписи
+  it('I-4: пустой tenantId в валидно-подписанном токене → null', () => {
+    const token = createScormContentToken({ tenantId: '', packageId: 'scp_1' }, SECRET, {
+      ttlSeconds: 3600,
+      nowEpochSeconds: 1_000_000
+    });
+    expect(verifyScormContentToken(token, SECRET, { nowEpochSeconds: 1_000_100 })).toBeNull();
+  });
+
+  it('I-4: пустой packageId в валидно-подписанном токене → null', () => {
+    const token = createScormContentToken({ tenantId: 'tenant_demo', packageId: '' }, SECRET, {
+      ttlSeconds: 3600,
+      nowEpochSeconds: 1_000_000
+    });
+    expect(verifyScormContentToken(token, SECRET, { nowEpochSeconds: 1_000_100 })).toBeNull();
+  });
 });
