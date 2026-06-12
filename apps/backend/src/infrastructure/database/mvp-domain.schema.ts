@@ -30,7 +30,9 @@ export const mvpDomainTables = {
     'mvp_reconciliation_log',
     'commissions',
     'commission_members',
-    'course_document_sets'
+    'course_document_sets',
+    'scorm_packages',
+    'scorm_attempts'
   ],
   assessment: [
     'question_banks',

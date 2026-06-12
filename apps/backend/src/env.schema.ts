@@ -152,7 +152,8 @@ export const backendEnvSchema = z
     const devSecrets = [
       'change-me-in-production',
       'dev-jwt-secret-12345',
-      'dev-session-secret-12345'
+      'dev-session-secret-12345',
+      'dev-scorm-content-secret'
     ];
     const isStrictProfile =
       env.NODE_ENV === 'production' ||
@@ -243,6 +244,14 @@ export const backendEnvSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'SESSION_SECRET must not use development value in production/staging/prod-profile'
+      });
+    }
+
+    if (devSecrets.includes(env.SCORM_CONTENT_TOKEN_SECRET)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'SCORM_CONTENT_TOKEN_SECRET must not use development value in production/staging/prod-profile'
       });
     }
 

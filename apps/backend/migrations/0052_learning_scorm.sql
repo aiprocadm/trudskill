@@ -16,6 +16,7 @@ ALTER TABLE learning.materials
 ALTER TABLE learning.materials
   DROP CONSTRAINT IF EXISTS materials_type_chk;
 
+-- Safe: existing rows only contain ('file','external_url','text','video'); we extend the set with 'scorm'.
 ALTER TABLE learning.materials
   ADD CONSTRAINT materials_type_chk
   CHECK (material_type IN ('file', 'external_url', 'text', 'video', 'scorm'));
@@ -45,7 +46,7 @@ CREATE INDEX IF NOT EXISTS idx_scorm_packages_tenant_status
   ON learning.scorm_packages (tenant_id, package_status);
 
 COMMENT ON TABLE learning.scorm_packages IS
-  'Phase 9 Plan A: SCORM 1.2 пакет (zip в storage.files, распакованный контент в S3 под storage_prefix). MVP JSON store mirrors this collection.';
+  'Phase 9 Plan A: SCORM 1.2 пакет (zip в storage.files, распакованный контент в S3 под storage_prefix). MVP JSON store mirrors this collection. Soft-delete пакета выполняется в MVP JSON store через BaseEntity.status=''deleted'' (как у остальных MVP-коллекций); package_status хранит только жизненный цикл обработки (uploaded/processing/ready/failed) и значения ''deleted'' не получает.';
 
 CREATE TABLE IF NOT EXISTS learning.scorm_attempts (
   id text PRIMARY KEY,
