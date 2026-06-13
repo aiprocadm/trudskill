@@ -420,3 +420,340 @@ describe('ScormService.deletePackage — no references', () => {
     expect(() => scorm.getPackageView(T, pkg.id)).toThrow();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Seed helper for launch/commit tests
+// ---------------------------------------------------------------------------
+
+function makeScormSeed() {
+  const { state, mvp, scorm } = makeServices();
+
+  const course = mvp.createCourse(T, ADMIN, { code: 'C1', title: 'Course' }, ctx);
+  const version = mvp.createCourseVersion(T, course.id);
+  const moduleEntity = mvp.createModule(
+    T,
+    ADMIN,
+    { courseVersionId: version.id, title: 'M1', minViewSeconds: 0, isRequired: true },
+    ctx
+  );
+
+  // Register a ready SCORM package (bypassing processPackage by mutating fields directly)
+  const pkg = scorm.registerPackage(T, ADMIN, { zipFileId: 'file_1', title: 'P' }, ctx);
+  pkg.packageStatus = 'ready';
+  pkg.launchHref = 'index.html';
+
+  // Push a scorm material directly (createMaterial scorm support is Task 12)
+  const now = new Date().toISOString();
+  const material: Material = {
+    id: 'mat_scorm',
+    tenantId: T,
+    status: 'active',
+    createdAt: now,
+    updatedAt: now,
+    moduleId: moduleEntity.id,
+    title: 'SCORM',
+    materialType: 'scorm',
+    sortOrder: 0,
+    minViewSeconds: 0,
+    isRequired: true,
+    scormPackageId: pkg.id
+  };
+  state.materials.push(material);
+
+  const group = mvp.createGroup(T, ADMIN, { code: 'G1', name: 'G' }, ctx);
+  mvp.createGroupCourse(T, { groupId: group.id, courseId: course.id });
+
+  const learner = mvp.createLearner(
+    T,
+    ADMIN,
+    { code: 'L1', name: 'Jane Doe', linkedIamUserId: 'u_l1' },
+    ctx
+  );
+  const enrollment = mvp.createEnrollment(
+    T,
+    ADMIN,
+    { groupId: group.id, learnerId: learner.id },
+    ctx
+  );
+
+  const ctxL1: RequestContext = { ...ctx, userId: 'u_l1' };
+
+  return { state, mvp, scorm, pkg, material, learner, enrollment, ctxL1 };
+}
+
+// ---------------------------------------------------------------------------
+// launchScormMaterial
+// ---------------------------------------------------------------------------
+
+describe('ScormService.launchScormMaterial — happy path', () => {
+  it('creates an attempt with lessonStatus=not attempted, returns token and launchUrl', () => {
+    const { scorm, enrollment } = makeScormSeed();
+    const ctxL1: RequestContext = { ...ctx, userId: 'u_l1' };
+
+    const res = scorm.launchScormMaterial(
+      T,
+      'u_l1',
+      'mat_scorm',
+      { enrollmentId: enrollment.id },
+      ctxL1
+    );
+
+    expect(res.attempt.lessonStatus).toBe('not attempted');
+    expect(res.attempt.enrollmentId).toBe(enrollment.id);
+    expect(res.attempt.materialId).toBe('mat_scorm');
+    expect(typeof res.token).toBe('string');
+    expect(res.token.length).toBeGreaterThan(0);
+    expect(res.launchUrl).toBe(`/api/v1/scorm-content/${res.token}/index.html`);
+  });
+
+  it('repeated launch returns the same attempt (one record per enrollment+material)', () => {
+    const { scorm, enrollment, state } = makeScormSeed();
+    const ctxL1: RequestContext = { ...ctx, userId: 'u_l1' };
+
+    const res1 = scorm.launchScormMaterial(
+      T,
+      'u_l1',
+      'mat_scorm',
+      { enrollmentId: enrollment.id },
+      ctxL1
+    );
+    const res2 = scorm.launchScormMaterial(
+      T,
+      'u_l1',
+      'mat_scorm',
+      { enrollmentId: enrollment.id },
+      ctxL1
+    );
+
+    expect(res1.attempt.id).toBe(res2.attempt.id);
+    // Only one record per enrollment+material in state
+    const attempts = state.scormAttempts.filter(
+      (a) => a.enrollmentId === enrollment.id && a.materialId === 'mat_scorm'
+    );
+    expect(attempts).toHaveLength(1);
+  });
+});
+
+describe('ScormService.launchScormMaterial — non-scorm material → 412', () => {
+  it('throws 412 domain_rule_violation when material is not scorm type', () => {
+    const { state, scorm, enrollment } = makeScormSeed();
+    const ctxL1: RequestContext = { ...ctx, userId: 'u_l1' };
+
+    // Push a video material
+    const now = new Date().toISOString();
+    const videoMat: Material = {
+      id: 'mat_video',
+      tenantId: T,
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+      moduleId: state.modules.find((m) => m.tenantId === T)!.id,
+      title: 'Video',
+      materialType: 'video',
+      sortOrder: 1,
+      minViewSeconds: 0,
+      isRequired: false
+    };
+    state.materials.push(videoMat);
+
+    expect(() =>
+      scorm.launchScormMaterial(T, 'u_l1', 'mat_video', { enrollmentId: enrollment.id }, ctxL1)
+    ).toThrow(
+      expect.objectContaining({
+        response: expect.objectContaining({ code: 'domain_rule_violation' })
+      })
+    );
+  });
+});
+
+describe('ScormService.launchScormMaterial — package not ready → 412', () => {
+  it('throws 412 scorm_package_not_ready when packageStatus is not ready', () => {
+    const { scorm, pkg, enrollment } = makeScormSeed();
+    const ctxL1: RequestContext = { ...ctx, userId: 'u_l1' };
+
+    // Downgrade package back to uploaded
+    pkg.packageStatus = 'uploaded';
+
+    expect(() =>
+      scorm.launchScormMaterial(T, 'u_l1', 'mat_scorm', { enrollmentId: enrollment.id }, ctxL1)
+    ).toThrow(
+      expect.objectContaining({
+        response: expect.objectContaining({ code: 'scorm_package_not_ready' })
+      })
+    );
+  });
+});
+
+describe('ScormService.launchScormMaterial — wrong actor → ForbiddenException', () => {
+  it('throws ForbiddenException when actorId does not match linkedIamUserId', () => {
+    const { scorm, enrollment } = makeScormSeed();
+    // Actor is u_other, not u_l1
+    const ctxOther: RequestContext = { ...ctx, userId: 'u_other' };
+
+    expect(() =>
+      scorm.launchScormMaterial(
+        T,
+        'u_other',
+        'mat_scorm',
+        { enrollmentId: enrollment.id },
+        ctxOther
+      )
+    ).toThrow(
+      expect.objectContaining({ response: expect.objectContaining({ code: 'forbidden' }) })
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// commitScormAttempt
+// ---------------------------------------------------------------------------
+
+describe('ScormService.commitScormAttempt — merge cmi + sum sessionSeconds', () => {
+  it('merges cmi fields and sums sessionSeconds into totalSeconds', () => {
+    const { scorm, enrollment } = makeScormSeed();
+    const ctxL1: RequestContext = { ...ctx, userId: 'u_l1' };
+
+    const { attempt } = scorm.launchScormMaterial(
+      T,
+      'u_l1',
+      'mat_scorm',
+      { enrollmentId: enrollment.id },
+      ctxL1
+    );
+
+    const result = scorm.commitScormAttempt(
+      T,
+      'u_l1',
+      attempt.id,
+      {
+        lessonStatus: 'incomplete',
+        lessonLocation: 'page_2',
+        suspendData: 'abc123',
+        scoreRaw: 75,
+        scoreMax: 100,
+        scoreMin: 0,
+        sessionSeconds: 30
+      },
+      ctxL1
+    );
+
+    expect(result.lessonStatus).toBe('incomplete');
+    expect(result.lessonLocation).toBe('page_2');
+    expect(result.suspendData).toBe('abc123');
+    expect(result.scoreRaw).toBe(75);
+    expect(result.scoreMax).toBe(100);
+    expect(result.scoreMin).toBe(0);
+    expect(result.totalSeconds).toBe(30);
+    expect(result.lastCommitAt).toBeDefined();
+  });
+
+  it('accumulates totalSeconds across multiple commits', () => {
+    const { scorm, enrollment } = makeScormSeed();
+    const ctxL1: RequestContext = { ...ctx, userId: 'u_l1' };
+
+    const { attempt } = scorm.launchScormMaterial(
+      T,
+      'u_l1',
+      'mat_scorm',
+      { enrollmentId: enrollment.id },
+      ctxL1
+    );
+
+    scorm.commitScormAttempt(T, 'u_l1', attempt.id, { sessionSeconds: 40 }, ctxL1);
+    const result = scorm.commitScormAttempt(T, 'u_l1', attempt.id, { sessionSeconds: 60 }, ctxL1);
+
+    expect(result.totalSeconds).toBe(100);
+  });
+});
+
+describe('ScormService.commitScormAttempt — lessonStatus=passed sets completedAt + materialProgress', () => {
+  it('sets completedAt and creates materialProgress with status=completed on passed', () => {
+    const { scorm, enrollment, state } = makeScormSeed();
+    const ctxL1: RequestContext = { ...ctx, userId: 'u_l1' };
+
+    const { attempt } = scorm.launchScormMaterial(
+      T,
+      'u_l1',
+      'mat_scorm',
+      { enrollmentId: enrollment.id },
+      ctxL1
+    );
+
+    scorm.commitScormAttempt(
+      T,
+      'u_l1',
+      attempt.id,
+      { lessonStatus: 'passed', sessionSeconds: 10 },
+      ctxL1
+    );
+
+    expect(attempt.completedAt).toBeDefined();
+    // materialProgress should be created and completed
+    const progress = state.materialProgress.find(
+      (p) => p.enrollmentId === enrollment.id && p.materialId === 'mat_scorm'
+    );
+    expect(progress).toBeDefined();
+    expect(progress!.status).toBe('completed');
+  });
+
+  it('repeat commit with passed does NOT change completedAt and progress remains completed', () => {
+    const { scorm, enrollment, state } = makeScormSeed();
+    const ctxL1: RequestContext = { ...ctx, userId: 'u_l1' };
+
+    const { attempt } = scorm.launchScormMaterial(
+      T,
+      'u_l1',
+      'mat_scorm',
+      { enrollmentId: enrollment.id },
+      ctxL1
+    );
+
+    scorm.commitScormAttempt(
+      T,
+      'u_l1',
+      attempt.id,
+      { lessonStatus: 'passed', sessionSeconds: 10 },
+      ctxL1
+    );
+    const firstCompletedAt = attempt.completedAt;
+
+    // Second commit with passed — should NOT change completedAt
+    scorm.commitScormAttempt(
+      T,
+      'u_l1',
+      attempt.id,
+      { lessonStatus: 'passed', sessionSeconds: 5 },
+      ctxL1
+    );
+
+    expect(attempt.completedAt).toBe(firstCompletedAt);
+
+    // Still completed in progress
+    const progress = state.materialProgress.filter(
+      (p) => p.enrollmentId === enrollment.id && p.materialId === 'mat_scorm'
+    );
+    expect(progress.every((p) => p.status === 'completed')).toBe(true);
+  });
+});
+
+describe('ScormService.commitScormAttempt — wrong actor → ForbiddenException', () => {
+  it('throws ForbiddenException when committing another learner attempt', () => {
+    const { scorm, enrollment } = makeScormSeed();
+    const ctxL1: RequestContext = { ...ctx, userId: 'u_l1' };
+    const ctxOther: RequestContext = { ...ctx, userId: 'u_other' };
+
+    const { attempt } = scorm.launchScormMaterial(
+      T,
+      'u_l1',
+      'mat_scorm',
+      { enrollmentId: enrollment.id },
+      ctxL1
+    );
+
+    expect(() =>
+      scorm.commitScormAttempt(T, 'u_other', attempt.id, { sessionSeconds: 10 }, ctxOther)
+    ).toThrow(
+      expect.objectContaining({ response: expect.objectContaining({ code: 'forbidden' }) })
+    );
+  });
+});

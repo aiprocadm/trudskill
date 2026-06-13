@@ -1,9 +1,17 @@
 import { randomUUID } from 'node:crypto';
 
-import { ConflictException, Inject, Injectable, NotFoundException, Scope } from '@nestjs/common';
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  PreconditionFailedException,
+  Scope
+} from '@nestjs/common';
 import AdmZip from 'adm-zip';
 
 import { ScormManifestError, parseScormManifest } from './parse-scorm-manifest.js';
+import { createScormContentToken } from './scorm-content-token.js';
 import {
   ScormZipGuardError,
   assertSafeEntryPath,
@@ -18,10 +26,15 @@ import { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from '../infrastructure/mvp-state.token.js';
 import { MvpService } from '../mvp.service.js';
 
-import type { RegisterScormPackageRequest } from './scorm.dto.js';
+import type {
+  CommitScormAttemptRequest,
+  LaunchScormMaterialRequest,
+  RegisterScormPackageRequest
+} from './scorm.dto.js';
 import type { RequestContext } from '../../../common/context/request-context.js';
 import type { UploadIntent, UploadIntentInput } from '../../files/files.service.js';
-import type { ScormPackage } from '../mvp.types.js';
+import type { UpdateMaterialProgressRequest } from '../mvp.dto.js';
+import type { ScormAttempt, ScormPackage } from '../mvp.types.js';
 import type { Readable } from 'node:stream';
 
 const SCORM_ZIP_MIME_ALLOWLIST: ReadonlySet<string> = new Set([
@@ -249,5 +262,173 @@ export class ScormService {
       userAgent: ctx.userAgent
     });
     return { id, deleted: true };
+  }
+
+  /** Validate learner access: material→module→version→course chain + enrollment→groupCourse link + owner. */
+  private resolveLaunchTarget(
+    tenantId: string,
+    actorId: string | undefined,
+    materialId: string,
+    enrollmentId: string,
+    ctx: RequestContext
+  ) {
+    const material = this.state.materials.find(
+      (m) => m.tenantId === tenantId && m.id === materialId
+    );
+    if (!material) {
+      throw new NotFoundException({ code: 'not_found', message: 'Material not found' });
+    }
+    if (material.materialType !== 'scorm' || !material.scormPackageId) {
+      throw new PreconditionFailedException({
+        code: 'domain_rule_violation',
+        message: 'Material is not a SCORM material'
+      });
+    }
+    const pkg = this.getPackage(tenantId, material.scormPackageId);
+    if (pkg.packageStatus !== 'ready' || !pkg.launchHref) {
+      throw new PreconditionFailedException({
+        code: 'scorm_package_not_ready',
+        message: 'SCORM package is not processed yet'
+      });
+    }
+    const moduleEntity = this.state.modules.find(
+      (m) => m.tenantId === tenantId && m.id === material.moduleId
+    );
+    const courseVersion = moduleEntity
+      ? this.state.courseVersions.find(
+          (v) => v.tenantId === tenantId && v.id === moduleEntity.courseVersionId
+        )
+      : undefined;
+    const enrollment = this.state.enrollments.find(
+      (e) => e.tenantId === tenantId && e.id === enrollmentId
+    );
+    if (!enrollment || !courseVersion) {
+      throw new NotFoundException({
+        code: 'not_found',
+        message: 'Enrollment not found for SCORM launch'
+      });
+    }
+    const hasGroupCourseAccess = this.state.groupCourses.some(
+      (gc) =>
+        gc.tenantId === tenantId &&
+        gc.groupId === enrollment.groupId &&
+        gc.courseId === courseVersion.courseId
+    );
+    if (!hasGroupCourseAccess) {
+      throw new PreconditionFailedException({
+        code: 'domain_rule_violation',
+        message: 'Enrollment is not linked to the course for this material'
+      });
+    }
+    this.mvp.assertActorMatchesLearnerIamLink(
+      tenantId,
+      actorId,
+      enrollment.learnerId,
+      ctx.permissions
+    );
+    return { material, pkg, enrollment };
+  }
+
+  /** Launch a SCORM material: validates access, creates or reuses the single attempt, returns token + launchUrl. */
+  launchScormMaterial(
+    tenantId: string,
+    actorId: string | undefined,
+    materialId: string,
+    request: LaunchScormMaterialRequest,
+    ctx: RequestContext
+  ): { attempt: ScormAttempt; token: string; launchUrl: string } {
+    const { pkg, enrollment } = this.resolveLaunchTarget(
+      tenantId,
+      actorId,
+      materialId,
+      request.enrollmentId,
+      ctx
+    );
+    let attempt = this.state.scormAttempts.find(
+      (a) =>
+        a.tenantId === tenantId &&
+        a.enrollmentId === request.enrollmentId &&
+        a.materialId === materialId
+    );
+    const now = new Date().toISOString();
+    if (!attempt) {
+      attempt = {
+        id: this.newId('sca'),
+        tenantId,
+        status: 'active',
+        createdAt: now,
+        updatedAt: now,
+        enrollmentId: request.enrollmentId,
+        materialId,
+        learnerId: enrollment.learnerId,
+        lessonStatus: 'not attempted',
+        totalSeconds: 0,
+        startedAt: now
+      };
+      this.state.scormAttempts.push(attempt);
+    }
+    const token = createScormContentToken(
+      { tenantId, packageId: pkg.id },
+      backendEnv.SCORM_CONTENT_TOKEN_SECRET,
+      {
+        ttlSeconds: backendEnv.SCORM_CONTENT_TOKEN_TTL_SECONDS,
+        nowEpochSeconds: Math.floor(Date.now() / 1000)
+      }
+    );
+    const apiPrefix = backendEnv.API_PREFIX.startsWith('/')
+      ? backendEnv.API_PREFIX
+      : `/${backendEnv.API_PREFIX}`;
+    return { attempt, token, launchUrl: `${apiPrefix}/scorm-content/${token}/${pkg.launchHref}` };
+  }
+
+  /** Commit cmi fields from the SCORM player: merge fields, sum sessionSeconds, complete materialProgress on pass/complete. */
+  commitScormAttempt(
+    tenantId: string,
+    actorId: string | undefined,
+    attemptId: string,
+    request: CommitScormAttemptRequest,
+    ctx: RequestContext
+  ): ScormAttempt {
+    const attempt = this.state.scormAttempts.find(
+      (a) => a.tenantId === tenantId && a.id === attemptId
+    );
+    if (!attempt) {
+      throw new NotFoundException({ code: 'not_found', message: 'SCORM attempt not found' });
+    }
+    this.mvp.assertActorMatchesLearnerIamLink(
+      tenantId,
+      actorId,
+      attempt.learnerId,
+      ctx.permissions
+    );
+    const now = new Date().toISOString();
+    if (request.lessonStatus !== undefined) attempt.lessonStatus = request.lessonStatus;
+    if (request.lessonLocation !== undefined) attempt.lessonLocation = request.lessonLocation;
+    if (request.suspendData !== undefined) attempt.suspendData = request.suspendData;
+    if (request.scoreRaw !== undefined) attempt.scoreRaw = request.scoreRaw;
+    if (request.scoreMax !== undefined) attempt.scoreMax = request.scoreMax;
+    if (request.scoreMin !== undefined) attempt.scoreMin = request.scoreMin;
+    attempt.totalSeconds += request.sessionSeconds ?? 0;
+    attempt.lastCommitAt = now;
+    attempt.updatedAt = now;
+
+    const completesNow =
+      (attempt.lessonStatus === 'passed' || attempt.lessonStatus === 'completed') &&
+      !attempt.completedAt;
+    if (completesNow) {
+      attempt.completedAt = now;
+      const material = this.state.materials.find(
+        (m) => m.tenantId === tenantId && m.id === attempt.materialId
+      );
+      const studiedSeconds = Math.max(material?.minViewSeconds ?? 0, attempt.totalSeconds);
+      this.mvp.upsertMaterialProgress(
+        tenantId,
+        actorId,
+        attempt.materialId,
+        { enrollmentId: attempt.enrollmentId, studiedSeconds } as UpdateMaterialProgressRequest,
+        ctx
+      );
+    }
+    return attempt;
   }
 }
