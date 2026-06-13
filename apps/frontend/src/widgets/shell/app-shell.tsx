@@ -1,5 +1,6 @@
 'use client';
 
+import { VISUALLY_HIDDEN_CLASS } from '@cdoprof/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { type PropsWithChildren, useEffect, useMemo, useState } from 'react';
@@ -124,14 +125,15 @@ export const AppShell = ({ children }: PropsWithChildren) => {
           <div className="app-shell__userbar ui-inline">
             <Link href="/notifications" className="app-shell__notif-link">
               Уведомления
-              {unreadLabel ? (
-                <span
-                  className="ui-badge ui-badge--brand"
-                  aria-label={`Непрочитано: ${unread.data?.total ?? 0}`}
-                >
-                  {unreadLabel}
-                </span>
-              ) : null}
+              {/* Постоянная live-region: смена счётчика непрочитанных озвучивается скринридером. */}
+              <span
+                role="status"
+                aria-live="polite"
+                aria-label={`Непрочитано: ${unread.data?.total ?? 0}`}
+                className={unreadLabel ? 'ui-badge ui-badge--brand' : VISUALLY_HIDDEN_CLASS}
+              >
+                {unreadLabel ?? ''}
+              </span>
             </Link>
             <span className="app-shell__meta" title="Тенант">
               {session?.user.tenantId}

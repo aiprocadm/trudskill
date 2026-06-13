@@ -14,7 +14,8 @@ export function DataTable<T extends object>({
   sortBy,
   sortDir = 'asc',
   onSort,
-  emptyMessage = 'Нет данных'
+  emptyMessage = 'Нет данных',
+  rowKey
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -24,8 +25,17 @@ export function DataTable<T extends object>({
   sortDir?: 'asc' | 'desc';
   onSort?: (next: { key: keyof T; dir: 'asc' | 'desc' }) => void;
   emptyMessage?: string;
+  /** Стабильный ключ строки; по умолчанию r.id/r.key, иначе индекс (fallback). */
+  rowKey?: (row: T, index: number) => string | number;
 }): ReactElement {
-  const wrapClass = stickyFirstColumn ? 'ui-table-wrap ui-table-wrap--sticky-first' : 'ui-table-wrap';
+  const wrapClass = stickyFirstColumn
+    ? 'ui-table-wrap ui-table-wrap--sticky-first'
+    : 'ui-table-wrap';
+  const resolveRowKey = (row: T, index: number): string | number => {
+    if (rowKey) return rowKey(row, index);
+    const candidate = (row as Record<string, unknown>).id ?? (row as Record<string, unknown>).key;
+    return typeof candidate === 'string' || typeof candidate === 'number' ? candidate : index;
+  };
   const getNextSortDir = (columnKey: keyof T): 'asc' | 'desc' => {
     if (sortBy !== columnKey) return 'asc';
     return sortDir === 'asc' ? 'desc' : 'asc';
@@ -66,11 +76,9 @@ export function DataTable<T extends object>({
             </tr>
           ) : (
             rows.map((r, i) => (
-              <tr key={i}>
+              <tr key={resolveRowKey(r, i)}>
                 {columns.map((c) => (
-                  <td key={String(c.key)}>
-                    {c.render ? c.render(r) : String(r[c.key] ?? '')}
-                  </td>
+                  <td key={String(c.key)}>{c.render ? c.render(r) : String(r[c.key] ?? '')}</td>
                 ))}
               </tr>
             ))

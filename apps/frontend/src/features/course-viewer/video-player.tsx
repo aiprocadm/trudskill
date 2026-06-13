@@ -17,6 +17,7 @@ export const VideoPlayer = ({ material, videoUrl, onEnded }: Props) => {
     );
   }
   return (
+    // eslint-disable-next-line jsx-a11y/media-has-caption -- Phase 10B: out-of-scope; tenant-uploaded course videos have no caption track available. Captions tracking deferred (separate content-authoring feature).
     <video
       className="course-player__video"
       controls

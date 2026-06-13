@@ -3,6 +3,7 @@ import tseslint from '@typescript-eslint/eslint-plugin';
 import parser from '@typescript-eslint/parser';
 import prettier from 'eslint-config-prettier';
 import eslintPluginImport from 'eslint-plugin-import';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
 import globals from 'globals';
 
 export default [
@@ -78,6 +79,12 @@ export default [
     rules: {
       '@typescript-eslint/consistent-type-imports': 'off'
     }
+  },
+  {
+    // Phase 10 Track B — статический WCAG-гейт для общих примитивов и экранов.
+    // Покрывает и packages/ui, и apps/frontend (оба резолвят этот корневой flat-config).
+    files: ['apps/frontend/**/*.{jsx,tsx}', 'packages/ui/**/*.{jsx,tsx}'],
+    ...jsxA11y.flatConfigs.recommended
   },
   {
     files: ['**/*.test.{ts,tsx,js,jsx}', '**/vitest.config.ts'],

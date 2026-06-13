@@ -1,4 +1,5 @@
 export * from './tokens/index';
+export * from './a11y/visually-hidden';
 export * from './primitives/layout';
 export * from './components/states/index';
 export * from './components/table/index';
@@ -14,4 +15,9 @@ export * from './components/async-status/index';
 export * from './components/permission/index';
 export * from './patterns/registry';
 export * from './providers/theme-provider';
-export { useUiTheme, UI_THEME_STORAGE_KEY, type UiThemeChoice, type UiThemeContextValue } from './providers/theme-context';
+export {
+  useUiTheme,
+  UI_THEME_STORAGE_KEY,
+  type UiThemeChoice,
+  type UiThemeContextValue
+} from './providers/theme-context';

@@ -79,6 +79,7 @@ export const Modal = ({
   return (
     <div className="ui-modal-root" role="presentation">
       <div className="ui-modal-backdrop" role="presentation" aria-hidden onClick={onClose} />
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/click-events-have-key-events -- Phase 10B: out-of-scope; onClick only stops backdrop-propagation, dialog already has focus trap + Escape handler (keyboard-accessible). Modal landmarks intentionally untouched per plan. */}
       <div
         ref={panelRef}
         role="dialog"
