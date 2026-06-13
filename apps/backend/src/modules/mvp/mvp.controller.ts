@@ -75,6 +75,7 @@ import {
   VerifyPreExamTokenRequest
 } from './mvp.dto.js';
 import { MvpService } from './mvp.service.js';
+import { BuildReportRequestDto, SaveReportTemplateDto } from './report-builder.dto.js';
 import { UpdateCounterpartyExtendedRequest } from './update-counterparty-extended.dto.js';
 import { UpdateLearnerExtendedRequest } from './update-learner-extended.dto.js';
 import { UpdateTestRuleRequest } from './update-test-rule.dto.js';
@@ -517,6 +518,46 @@ export class MvpController {
   @RequirePermissions('enrollments.read')
   getAnalyticsDashboard(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
     return this.mvpService.getAnalyticsDashboard(c.tenantId!, q);
+  }
+  @Get('reports/builder/entities')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('enrollments.read')
+  getReportEntities() {
+    return this.mvpService.getReportEntitiesMeta();
+  }
+  @Post('reports/builder/preview')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('enrollments.read')
+  previewReport(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    return this.mvpService.previewReport(c.tenantId!, assertValidDto(BuildReportRequestDto, raw));
+  }
+  @Post('reports/builder/export')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('enrollments.read')
+  exportReport(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    return this.mvpService.exportReport(c.tenantId!, assertValidDto(BuildReportRequestDto, raw));
+  }
+  @Get('reports/builder/templates')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('enrollments.read')
+  listReportTemplates(@CurrentContext() c: RequestContext) {
+    return this.mvpService.listReportTemplates(c.tenantId!);
+  }
+  @Post('reports/builder/templates')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('enrollments.write')
+  saveReportTemplate(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    return this.mvpService.saveReportTemplate(
+      c.tenantId!,
+      assertValidDto(SaveReportTemplateDto, raw),
+      c
+    );
+  }
+  @Delete('reports/builder/templates/:id')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('enrollments.write')
+  deleteReportTemplate(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.mvpService.deleteReportTemplate(c.tenantId!, id, c);
   }
   @Get('enrollments/:id/certificates')
   @UseGuards(PermissionGuard)
