@@ -303,8 +303,11 @@ describe('ScormService.processPackage — unsafe zip path', () => {
       traversalName
     );
 
+    const pkg = scorm.registerPackage(T, ADMIN, { zipFileId: 'file_unsafe' }, ctx);
+
+    // Use the actual package's storagePrefix so cleanup verification targets the right prefix
     (storageMock.listObjectKeys as ReturnType<typeof vi.fn>).mockResolvedValue([
-      `scorm/${T}/scp_patch/imsmanifest.xml`
+      `${pkg.storagePrefix}/imsmanifest.xml`
     ]);
     (filesMock.getReadableFile as ReturnType<typeof vi.fn>).mockResolvedValue({
       storageKey: 'k',
@@ -314,14 +317,15 @@ describe('ScormService.processPackage — unsafe zip path', () => {
       Readable.from(traversalBuf)
     );
 
-    const pkg = scorm.registerPackage(T, ADMIN, { zipFileId: 'file_unsafe' }, ctx);
     const result = await scorm.processPackage(T, ADMIN, pkg.id, ctx);
 
     expect(result.packageStatus).toBe('failed');
     expect(result.error).toBe('scorm_zip_unsafe_path');
-    // cleanup should have been attempted
+    // cleanup should have been attempted against the correct storagePrefix
     expect(storageMock.listObjectKeys).toHaveBeenCalled();
-    expect(storageMock.deleteObject).toHaveBeenCalled();
+    expect(storageMock.deleteObject).toHaveBeenCalledWith(
+      expect.objectContaining({ key: expect.stringContaining(pkg.storagePrefix) })
+    );
   });
 });
 

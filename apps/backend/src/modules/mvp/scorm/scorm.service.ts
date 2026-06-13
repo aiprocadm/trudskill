@@ -133,7 +133,9 @@ export class ScormService {
       });
     }
     pkg.packageStatus = 'processing';
-    pkg.error = undefined;
+    // Defensive delete: base tsconfig uses exactOptionalPropertyTypes; backend overrides to false,
+    // but use delete to avoid assigning `undefined` to an optional property.
+    delete (pkg as { error?: string }).error;
     try {
       const meta = await this.files.getReadableFile(tenantId, pkg.zipFileId);
       const zipBuffer = await streamToBuffer(
@@ -141,6 +143,15 @@ export class ScormService {
       );
       const zip = new AdmZip(zipBuffer);
       const entries = zip.getEntries().filter((e) => !e.isDirectory);
+
+      // Guard loop FIRST — enforce path safety and declared-size budget before any getData().
+      // This prevents a zip-bomb manifest from being decompressed before the budget runs.
+      const budget = createZipBudget();
+      for (const entry of entries) {
+        assertSafeEntryPath(entry.entryName);
+        budget.addEntry(entry.header.size);
+      }
+
       const manifestEntry = entries.find((e) => e.entryName === 'imsmanifest.xml');
       if (!manifestEntry) {
         throw new ScormManifestError(
@@ -149,11 +160,6 @@ export class ScormService {
         );
       }
       const manifest = parseScormManifest(manifestEntry.getData().toString('utf8'));
-      const budget = createZipBudget();
-      for (const entry of entries) {
-        assertSafeEntryPath(entry.entryName);
-        budget.addEntry(entry.header.size);
-      }
       for (const entry of entries) {
         await this.storage.putObject({
           key: `${pkg.storagePrefix}/${entry.entryName}`,
