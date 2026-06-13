@@ -40,7 +40,8 @@ export const MVP_COLLECTIONS = [
   'eisotTestingBatches',
   'eisotTestingRecords',
   'scormPackages',
-  'scormAttempts'
+  'scormAttempts',
+  'reportTemplates'
 ] as const;
 
 export type MvpCollection = (typeof MVP_COLLECTIONS)[number];
