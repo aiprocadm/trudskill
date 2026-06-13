@@ -1,6 +1,6 @@
 # Phase 10 Track A — Excel Report Builder Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Admin builds an arbitrary Excel report (pick entity → fields → filters → preview → download XLSX → save/load template) without a developer.
 
@@ -57,7 +57,7 @@ Spec: [docs/superpowers/specs/2026-06-13-phase-10a-excel-report-builder-design.m
 - Test: `apps/backend/src/modules/mvp/report-builder/report-entities.test.ts`
 - Modify: `apps/backend/src/modules/mvp/mvp.types.ts` (add `ReportTemplate`, `ReportColumn`, `ReportRequest`, `ReportPreview`, `ReportFilterValue`)
 
-- [ ] **Step 1: Write `report-types.ts`**
+- [x] **Step 1: Write `report-types.ts`**
 
 ```ts
 export type ReportFieldType = 'string' | 'number' | 'date' | 'enum';
@@ -106,7 +106,7 @@ export interface ReportColumn {
 }
 ```
 
-- [ ] **Step 2: Add persisted/DTO types to `mvp.types.ts`** (near `KpiSnapshotDto`):
+- [x] **Step 2: Add persisted/DTO types to `mvp.types.ts`** (near `KpiSnapshotDto`):
 
 ```ts
 export interface ReportTemplate extends BaseEntity {
@@ -137,7 +137,7 @@ export interface ReportEntitiesMetaDto {
 }
 ```
 
-- [ ] **Step 3: Write the failing test `report-entities.test.ts`** — assert each entity exposes expected field keys and that resolvers + a couple of filters behave. Example:
+- [x] **Step 3: Write the failing test `report-entities.test.ts`** — assert each entity exposes expected field keys and that resolvers + a couple of filters behave. Example:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -174,13 +174,13 @@ describe('REPORT_ENTITIES', () => {
 });
 ```
 
-- [ ] **Step 4: Run, expect FAIL** (module not found). `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/report-builder/report-entities.test.ts --no-file-parallelism`
+- [x] **Step 4: Run, expect FAIL** (module not found). `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/report-builder/report-entities.test.ts --no-file-parallelism`
 
-- [ ] **Step 5: Implement `report-entities.ts`** — define `REPORT_ENTITIES: ReportEntityDef[]` for learners/enrollments/documents with the fields listed in spec §4.1, attached-field resolvers via `ctx`, filters (status `eq`, course/group/client `eq`, enrolled/issued `date_from`/`date_to`). Add `getEntity(key)` (throws `Error` on unknown) and `REPORT_ENTITY_META` derivation. Note: documents rows are the shape returned by `DocumentsService.listDocuments` — resolve learner/course names via ctx where ids are present, else raw fields.
+- [x] **Step 5: Implement `report-entities.ts`** — define `REPORT_ENTITIES: ReportEntityDef[]` for learners/enrollments/documents with the fields listed in spec §4.1, attached-field resolvers via `ctx`, filters (status `eq`, course/group/client `eq`, enrolled/issued `date_from`/`date_to`). Add `getEntity(key)` (throws `Error` on unknown) and `REPORT_ENTITY_META` derivation. Note: documents rows are the shape returned by `DocumentsService.listDocuments` — resolve learner/course names via ctx where ids are present, else raw fields.
 
-- [ ] **Step 6: Run, expect PASS.**
+- [x] **Step 6: Run, expect PASS.**
 
-- [ ] **Step 7: Commit** `feat(backend): report-builder entity registry + types`
+- [x] **Step 7: Commit** `feat(backend): report-builder entity registry + types`
 
 ---
 
@@ -191,7 +191,7 @@ describe('REPORT_ENTITIES', () => {
 - Create: `apps/backend/src/modules/mvp/report-builder/build-report.ts`
 - Test: `apps/backend/src/modules/mvp/report-builder/build-report.test.ts`
 
-- [ ] **Step 1: Write failing test** covering: projects only selectedFields in order; applies `eq` + `date_from`/`date_to` filters; `total` reflects pre-cap count; `limit` caps rows and sets `truncated`; unknown field key → throws; empty selectedFields → throws.
+- [x] **Step 1: Write failing test** covering: projects only selectedFields in order; applies `eq` + `date_from`/`date_to` filters; `total` reflects pre-cap count; `limit` caps rows and sets `truncated`; unknown field key → throws; empty selectedFields → throws.
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -267,9 +267,9 @@ it('throws on empty fields / unknown field', () => {
 });
 ```
 
-- [ ] **Step 2: Run, expect FAIL.**
+- [x] **Step 2: Run, expect FAIL.**
 
-- [ ] **Step 3: Implement `buildReport`:**
+- [x] **Step 3: Implement `buildReport`:**
 
 ```ts
 export interface BuildReportInput {
@@ -319,8 +319,8 @@ export function buildReport(input: BuildReportInput): BuildReportResult {
 }
 ```
 
-- [ ] **Step 4: Run, expect PASS.**
-- [ ] **Step 5: Commit** `feat(backend): pure buildReport engine`
+- [x] **Step 4: Run, expect PASS.**
+- [x] **Step 5: Commit** `feat(backend): pure buildReport engine`
 
 ---
 
@@ -331,11 +331,11 @@ export function buildReport(input: BuildReportInput): BuildReportResult {
 - Create: `apps/backend/src/modules/mvp/report-builder/report-xlsx.writer.ts`
 - Test: `apps/backend/src/modules/mvp/report-builder/report-xlsx.writer.test.ts`
 
-- [ ] **Step 1: Write failing test** (mirror `ot-registry-xlsx.writer.test.ts`): build buffer from `{columns, rows}`, read back via `new ExcelJS.Workbook().xlsx.load(buf)`, assert header row = headers, first data row values, bold header. Date-typed cells render as the ISO/readable string.
+- [x] **Step 1: Write failing test** (mirror `ot-registry-xlsx.writer.test.ts`): build buffer from `{columns, rows}`, read back via `new ExcelJS.Workbook().xlsx.load(buf)`, assert header row = headers, first data row values, bold header. Date-typed cells render as the ISO/readable string.
 
-- [ ] **Step 2: Run, expect FAIL.**
+- [x] **Step 2: Run, expect FAIL.**
 
-- [ ] **Step 3: Implement `ReportXlsxWriter`:**
+- [x] **Step 3: Implement `ReportXlsxWriter`:**
 
 ```ts
 import { Injectable } from '@nestjs/common';
@@ -367,8 +367,8 @@ export class ReportXlsxWriter {
 }
 ```
 
-- [ ] **Step 4: Run, expect PASS.**
-- [ ] **Step 5: Commit** `feat(backend): report-builder xlsx writer`
+- [x] **Step 4: Run, expect PASS.**
+- [x] **Step 5: Commit** `feat(backend): report-builder xlsx writer`
 
 ---
 
@@ -379,14 +379,14 @@ export class ReportXlsxWriter {
 - Create: `apps/backend/src/modules/mvp/report-builder.dto.ts`
 - Test: `apps/backend/src/modules/mvp/report-builder.dto-validation.test.ts`
 
-- [ ] **Step 1: Write failing dto-validation test** (`plainToInstance` + `validateSync`, mirror an existing `*.dto-validation.test.ts`): valid preview/export request passes; missing `entityKey` fails; empty `selectedFields` fails (`@ArrayNotEmpty`); bad filter shape fails; template `name` `@MinLength(1)`.
+- [x] **Step 1: Write failing dto-validation test** (`plainToInstance` + `validateSync`, mirror an existing `*.dto-validation.test.ts`): valid preview/export request passes; missing `entityKey` fails; empty `selectedFields` fails (`@ArrayNotEmpty`); bad filter shape fails; template `name` `@MinLength(1)`.
 
-- [ ] **Step 2: Run, expect FAIL.**
+- [x] **Step 2: Run, expect FAIL.**
 
-- [ ] **Step 3: Implement DTOs** — `ReportFilterValueDto` (`@IsString key`, `@IsString value`), `BuildReportRequestDto` (`@IsIn(['learners','enrollments','documents']) entityKey`, `@IsArray @ArrayNotEmpty @IsString({each:true}) selectedFields`, `@IsArray @ValidateNested({each:true}) @Type(()=>ReportFilterValueDto) filters`), `SaveReportTemplateDto` (extends build request + `@IsString @MinLength(1) name`, optional `@IsString id`). Use the same decorators/imports as neighbouring DTOs.
+- [x] **Step 3: Implement DTOs** — `ReportFilterValueDto` (`@IsString key`, `@IsString value`), `BuildReportRequestDto` (`@IsIn(['learners','enrollments','documents']) entityKey`, `@IsArray @ArrayNotEmpty @IsString({each:true}) selectedFields`, `@IsArray @ValidateNested({each:true}) @Type(()=>ReportFilterValueDto) filters`), `SaveReportTemplateDto` (extends build request + `@IsString @MinLength(1) name`, optional `@IsString id`). Use the same decorators/imports as neighbouring DTOs.
 
-- [ ] **Step 4: Run, expect PASS.**
-- [ ] **Step 5: Commit** `feat(backend): report-builder request DTOs`
+- [x] **Step 4: Run, expect PASS.**
+- [x] **Step 5: Commit** `feat(backend): report-builder request DTOs`
 
 ---
 
@@ -399,18 +399,18 @@ export class ReportXlsxWriter {
 - Modify: `apps/backend/src/modules/mvp/mvp.service.ts` (add 6 methods + import writer/engine/registry)
 - Test: `apps/backend/src/modules/mvp/report-builder.service.test.ts`
 
-- [ ] **Step 1: Add `'reportTemplates'` to `MVP_COLLECTIONS`** and init array in state; add `reportTemplates: ReportTemplate[]` to the `InMemoryMvpState` interface.
+- [x] **Step 1: Add `'reportTemplates'` to `MVP_COLLECTIONS`** and init array in state; add `reportTemplates: ReportTemplate[]` to the `InMemoryMvpState` interface.
 
-- [ ] **Step 2: Write failing service test** (`makeServices()` helper, see `learners-bulk-import.service.test.ts`):
+- [x] **Step 2: Write failing service test** (`makeServices()` helper, see `learners-bulk-import.service.test.ts`):
   - `getReportEntitiesMeta()` returns 3 entities with fields/filters.
   - `previewReport(tenant, {entityKey:'enrollments', selectedFields:['status'], filters:[]})` returns rows only for that tenant (seed 2 tenants), `total`, `truncated` honoured by the preview cap (50).
   - `exportReport(...)` returns `{fileName endsWith '.xlsx', mimeType, contentBase64}` with non-empty base64 that ExcelJS can load.
   - `saveReportTemplate` creates (id assigned), then update by id mutates in place (same id, idempotent count), `listReportTemplates` tenant-scoped, `deleteReportTemplate` removes; each writes an audit entry (assert `auditService` called with `reports.template_created/_updated/_deleted`).
   - tenant isolation: tenant B cannot get/delete tenant A's template (throws not-found).
 
-- [ ] **Step 3: Run, expect FAIL.**
+- [x] **Step 3: Run, expect FAIL.**
 
-- [ ] **Step 4: Implement methods** in `MvpService`:
+- [x] **Step 4: Implement methods** in `MvpService`:
 
 ```ts
 private buildResolveCtx(tenantId: string): ResolveCtx { /* build maps from here(state.courses/groups/counterparties/learners/courseProgress) — mirror analytics-dashboard map construction */ }
@@ -438,9 +438,9 @@ async exportReport(tenantId: string, req: BuildReportRequestDto): Promise<Report
 - Throw `BadRequestException({code:'validation_error',...})` on engine errors (wrap `buildReport` throws).
 - Instantiate `ReportXlsxWriter` (stateless) — either inject or `new ReportXlsxWriter()` in the method (writer has no deps). Prefer a private readonly field `= new ReportXlsxWriter()` to keep the 6-arg constructor unchanged.
 
-- [ ] **Step 5: Run, expect PASS.**
-- [ ] **Step 6: Verify `mvp-collections` regression test still green** (`pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/infrastructure --no-file-parallelism`).
-- [ ] **Step 7: Commit** `feat(backend): report-builder service methods + reportTemplates collection`
+- [x] **Step 5: Run, expect PASS.**
+- [x] **Step 6: Verify `mvp-collections` regression test still green** (`pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/infrastructure --no-file-parallelism`).
+- [x] **Step 7: Commit** `feat(backend): report-builder service methods + reportTemplates collection`
 
 ---
 
@@ -451,11 +451,11 @@ async exportReport(tenantId: string, req: BuildReportRequestDto): Promise<Report
 - Modify: `apps/backend/src/modules/mvp/mvp.controller.ts` (6 endpoints next to `reports/analytics-dashboard`)
 - Modify: `apps/backend/src/modules/mvp/mvp.http.integration.test.ts`
 
-- [ ] **Step 1: Write failing http-integration assertions** (extend the stub-controller harness pattern in that file): `GET reports/builder/entities`, `POST reports/builder/preview`, `POST reports/builder/export`, `GET reports/builder/templates` require `enrollments.read` (403 without); `POST reports/builder/templates`, `DELETE reports/builder/templates/:id` require `enrollments.write` (403 without).
+- [x] **Step 1: Write failing http-integration assertions** (extend the stub-controller harness pattern in that file): `GET reports/builder/entities`, `POST reports/builder/preview`, `POST reports/builder/export`, `GET reports/builder/templates` require `enrollments.read` (403 without); `POST reports/builder/templates`, `DELETE reports/builder/templates/:id` require `enrollments.write` (403 without).
 
-- [ ] **Step 2: Run, expect FAIL.**
+- [x] **Step 2: Run, expect FAIL.**
 
-- [ ] **Step 3: Implement endpoints** (mirror `getAnalyticsDashboard` block at `mvp.controller.ts:515`):
+- [x] **Step 3: Implement endpoints** (mirror `getAnalyticsDashboard` block at `mvp.controller.ts:515`):
 
 ```ts
 @Get('reports/builder/entities')
@@ -493,8 +493,8 @@ deleteReportTemplate(@CurrentContext() c: RequestContext, @Param('id') id: strin
 
 (Ensure `Delete` is imported from `@nestjs/common`.)
 
-- [ ] **Step 4: Run, expect PASS** (`pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.http.integration.test.ts --no-file-parallelism`).
-- [ ] **Step 5: Commit** `feat(backend): report-builder endpoints + permission boundary`
+- [x] **Step 4: Run, expect PASS** (`pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.http.integration.test.ts --no-file-parallelism`).
+- [x] **Step 5: Commit** `feat(backend): report-builder endpoints + permission boundary`
 
 ---
 
@@ -504,9 +504,9 @@ deleteReportTemplate(@CurrentContext() c: RequestContext, @Param('id') id: strin
 
 - Modify: `packages/api-contracts/src/domains/mvp-metrics/contracts.ts`
 
-- [ ] **Step 1:** Add (hand-written, mirroring `AnalyticsDashboardDto` there): `ReportEntitiesMetaDto`, `BuildReportRequest`, `ReportPreviewResponse`, `ReportExportResponse`, `ReportTemplateDto`. Re-export from the package index if that domain is re-exported.
-- [ ] **Step 2: Run** `pnpm contracts:typecheck` and `pnpm --filter @cdoprof/api-contracts test` — expect PASS. (Do NOT hand-edit `src/generated/*`; run `pnpm contracts:generate` if generation is required and commit the result.)
-- [ ] **Step 3: Commit** `feat(contracts): report-builder DTOs`
+- [x] **Step 1:** Add (hand-written, mirroring `AnalyticsDashboardDto` there): `ReportEntitiesMetaDto`, `BuildReportRequest`, `ReportPreviewResponse`, `ReportExportResponse`, `ReportTemplateDto`. Re-export from the package index if that domain is re-exported.
+- [x] **Step 2: Run** `pnpm contracts:typecheck` and `pnpm --filter @cdoprof/api-contracts test` — expect PASS. (Do NOT hand-edit `src/generated/*`; run `pnpm contracts:generate` if generation is required and commit the result.)
+- [x] **Step 3: Commit** `feat(contracts): report-builder DTOs`
 
 ---
 
@@ -520,18 +520,18 @@ deleteReportTemplate(@CurrentContext() c: RequestContext, @Param('id') id: strin
 - Test: `apps/frontend/src/features/report-builder/report-builder.test.ts`
 - Test: `apps/frontend/src/features/report-builder/api.contract.test.ts`
 
-- [ ] **Step 1: Write failing pure-logic test** — `canRun(state)` true only with entity + ≥1 field; `toRequest(state)` drops empty filters; `decodeBase64ToBlob` produces a Blob of the right type (guard: only call in jsdom-free way — test the base64→Uint8Array step as a pure function `base64ToBytes`).
+- [x] **Step 1: Write failing pure-logic test** — `canRun(state)` true only with entity + ≥1 field; `toRequest(state)` drops empty filters; `decodeBase64ToBlob` produces a Blob of the right type (guard: only call in jsdom-free way — test the base64→Uint8Array step as a pure function `base64ToBytes`).
 
-- [ ] **Step 2: Run, expect FAIL.**
+- [x] **Step 2: Run, expect FAIL.**
 
-- [ ] **Step 3: Implement `report-builder.ts`** — `canRun`, `toRequest`, `base64ToBytes` (pure, uses `atob`/`Buffer` guarded), and `triggerDownload(blob, fileName)` (DOM, not unit-tested).
+- [x] **Step 3: Implement `report-builder.ts`** — `canRun`, `toRequest`, `base64ToBytes` (pure, uses `atob`/`Buffer` guarded), and `triggerDownload(blob, fileName)` (DOM, not unit-tested).
 
-- [ ] **Step 4: Write failing `api.contract.test.ts`** — `vi.stubGlobal('fetch', ...)` returning the `{data,meta}` envelope for `getEntities`, `preview`, `export`, template CRUD; assert `apiRequest` unwraps `data` and that `export` returns `{fileName,mimeType,contentBase64}`.
+- [x] **Step 4: Write failing `api.contract.test.ts`** — `vi.stubGlobal('fetch', ...)` returning the `{data,meta}` envelope for `getEntities`, `preview`, `export`, template CRUD; assert `apiRequest` unwraps `data` and that `export` returns `{fileName,mimeType,contentBase64}`.
 
-- [ ] **Step 5: Implement `api.ts`** using `apiRequest` from `src/lib/api/client.ts` (mirror an existing feature `api.ts`, e.g. `features/recertification/api.ts`).
+- [x] **Step 5: Implement `api.ts`** using `apiRequest` from `src/lib/api/client.ts` (mirror an existing feature `api.ts`, e.g. `features/recertification/api.ts`).
 
-- [ ] **Step 6: Run both tests, expect PASS.**
-- [ ] **Step 7: Commit** `feat(frontend): report-builder api + pure logic`
+- [x] **Step 6: Run both tests, expect PASS.**
+- [x] **Step 7: Commit** `feat(frontend): report-builder api + pure logic`
 
 ---
 
@@ -544,31 +544,31 @@ deleteReportTemplate(@CurrentContext() c: RequestContext, @Param('id') id: strin
 - Modify: `apps/frontend/src/features/navigation/model.ts`
 - Test: `apps/frontend/src/e2e/report-builder.e2e.test.ts`
 
-- [ ] **Step 1: Write failing e2e** (match `admin-bulk-enrollment.e2e.test.ts` convention — `evaluateRouteAccess` for `/admin/reports/builder` granted to admin / denied to learner; dynamic-import smoke of the screen module).
+- [x] **Step 1: Write failing e2e** (match `admin-bulk-enrollment.e2e.test.ts` convention — `evaluateRouteAccess` for `/admin/reports/builder` granted to admin / denied to learner; dynamic-import smoke of the screen module).
 
-- [ ] **Step 2: Run, expect FAIL.**
+- [x] **Step 2: Run, expect FAIL.**
 
-- [ ] **Step 3: Add navigation** — `routeMeta['/admin/reports/builder']` (same access policy as analytics/reports) + `navigationModel` entry (label «Конструктор отчётов», under reports/analytics slot).
+- [x] **Step 3: Add navigation** — `routeMeta['/admin/reports/builder']` (same access policy as analytics/reports) + `navigationModel` entry (label «Конструктор отчётов», under reports/analytics slot).
 
-- [ ] **Step 4: Implement `ReportBuilderScreen`** — entity `<select>`, field checkboxes (from `getEntities`), filter rows, «Превью» → `DataTable` (`@cdoprof/ui`), «Скачать XLSX» → export + `triggerDownload`, «Сохранить шаблон» (name input) + templates list (load/delete). Mutations via `useState`+async/await `wrap` pattern (NOT React Query). Wrap page in `<ProtectedPage>`. State wrappers: `PageContainer`/`PageHeader`/`SectionCard`/`SectionError`/`LoadingState`.
+- [x] **Step 4: Implement `ReportBuilderScreen`** — entity `<select>`, field checkboxes (from `getEntities`), filter rows, «Превью» → `DataTable` (`@cdoprof/ui`), «Скачать XLSX» → export + `triggerDownload`, «Сохранить шаблон» (name input) + templates list (load/delete). Mutations via `useState`+async/await `wrap` pattern (NOT React Query). Wrap page in `<ProtectedPage>`. State wrappers: `PageContainer`/`PageHeader`/`SectionCard`/`SectionError`/`LoadingState`.
 
-- [ ] **Step 5: Implement `page.tsx`** — thin wrapper rendering the screen inside `<ProtectedPage>`.
+- [x] **Step 5: Implement `page.tsx`** — thin wrapper rendering the screen inside `<ProtectedPage>`.
 
-- [ ] **Step 6: Run e2e, expect PASS.** Run `pnpm --filter @cdoprof/frontend exec vitest run src/e2e/report-builder.e2e.test.ts --no-file-parallelism`.
+- [x] **Step 6: Run e2e, expect PASS.** Run `pnpm --filter @cdoprof/frontend exec vitest run src/e2e/report-builder.e2e.test.ts --no-file-parallelism`.
 
-- [ ] **Step 7: Commit** `feat(frontend): report-builder screen + page + navigation`
+- [x] **Step 7: Commit** `feat(frontend): report-builder screen + page + navigation`
 
 ---
 
 ## Task 10: Full verification + docs handoff
 
-- [ ] **Step 1: Typecheck** `pnpm typecheck` → expect 8/8.
-- [ ] **Step 2: Lint changed files** `npx eslint <changed files> --max-warnings=0` → clean.
-- [ ] **Step 3: Targeted test sweep** — backend report-builder suites + `mvp.http.integration` + `mvp.infrastructure` + frontend report-builder + e2e (isolated `--no-file-parallelism` runs per CLAUDE.md Cyrillic gotcha).
-- [ ] **Step 4: Manual acceptance** against spec §9 (entity→fields→filter→preview→download→save/load→permission 403s).
-- [ ] **Step 5: Docs** — README §2 (Current/Next Task), `LMS_AGENT_HANDOFF.md` §5.121, tick this plan's boxes, cross-link spec. Note Tracks B & C remain (designs in spec §11).
-- [ ] **Step 6: Commit** `docs: Phase 10 Track A handoff §5.121 + plan + README §2`
-- [ ] **Step 7:** Push + open PR (`## Summary` + `## Test plan`).
+- [x] **Step 1: Typecheck** `pnpm typecheck` → expect 8/8.
+- [x] **Step 2: Lint changed files** `npx eslint <changed files> --max-warnings=0` → clean.
+- [x] **Step 3: Targeted test sweep** — backend report-builder suites + `mvp.http.integration` + `mvp.infrastructure` + frontend report-builder + e2e (isolated `--no-file-parallelism` runs per CLAUDE.md Cyrillic gotcha).
+- [x] **Step 4: Manual acceptance** against spec §9 (entity→fields→filter→preview→download→save/load→permission 403s).
+- [x] **Step 5: Docs** — README §2 (Current/Next Task), `LMS_AGENT_HANDOFF.md` §5.121, tick this plan's boxes, cross-link spec. Note Tracks B & C remain (designs in spec §11).
+- [x] **Step 6: Commit** `docs: Phase 10 Track A handoff §5.121 + plan + README §2`
+- [x] **Step 7:** Push + open PR (`## Summary` + `## Test plan`).
 
 ---
 
