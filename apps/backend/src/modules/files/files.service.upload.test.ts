@@ -21,7 +21,8 @@ function makeFilesService(opts?: {
         return [
           {
             storage_key: 'submissions/t1/existing.pdf',
-            antivirus_status: opts?.antivirusStatus ?? 'clean'
+            antivirus_status: opts?.antivirusStatus ?? 'clean',
+            size_bytes: '1024'
           }
         ];
       }
@@ -259,6 +260,37 @@ describe('FilesService.createUploadIntent — maxBytes override', () => {
         { maxBytes: 300 * 1024 * 1024, mimeAllowlist: new Set(['application/zip']) }
       )
     ).rejects.toMatchObject({ response: { code: 'file_too_large' } });
+  });
+});
+
+describe('FilesService.getReadableFile', () => {
+  it('returns storageKey and sizeBytes for a clean file', async () => {
+    const { service } = makeFilesService({ antivirusStatus: 'clean' });
+    const meta = await service.getReadableFile('t1', 'file_abc');
+    expect(meta.storageKey).toBe('submissions/t1/existing.pdf');
+    expect(meta.sizeBytes).toBe(1024);
+  });
+
+  it('blocks an infected file with code file_infected (423)', async () => {
+    const { service } = makeFilesService({ antivirusStatus: 'infected' });
+    await expect(service.getReadableFile('t1', 'file_abc')).rejects.toMatchObject({
+      response: { code: 'file_infected' }
+    });
+  });
+
+  it('blocks a scan-errored file with code file_scan_failed', async () => {
+    const { service } = makeFilesService({ antivirusStatus: 'error' });
+    await expect(service.getReadableFile('t1', 'file_abc')).rejects.toMatchObject({
+      response: { code: 'file_scan_failed' }
+    });
+  });
+
+  it('throws file_not_found for a missing file', async () => {
+    const { service, db } = makeFilesService();
+    (db.query as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+    await expect(service.getReadableFile('t1', 'missing')).rejects.toMatchObject({
+      response: { code: 'file_not_found' }
+    });
   });
 });
 

@@ -5106,7 +5106,7 @@ export class MvpService {
    * Когда слушатель привязан к IAM-пользователю, мутации в его контексте недоступны другим пользователям
    * (соответствие anti-IDOR для прогресса, субмиссий и попытек). Исключение: право `learners.act_as`.
    */
-  private assertActorMatchesLearnerIamLink(
+  assertActorMatchesLearnerIamLink(
     tenantId: string,
     actorId: string | undefined,
     learnerId: string,

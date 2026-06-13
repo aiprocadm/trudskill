@@ -26,4 +26,6 @@ export interface StorageClient {
   putObject(params: { key: string; body: Buffer; contentType: string }): Promise<void>;
   /** Permanently deletes an object from storage. Used by the identity image retention cron. */
   deleteObject(params: { key: string }): Promise<void>;
+  /** Lists all object keys under a prefix (paginated). Phase 9: SCORM prefix cleanup. */
+  listObjectKeys(params: { prefix: string }): Promise<string[]>;
 }
