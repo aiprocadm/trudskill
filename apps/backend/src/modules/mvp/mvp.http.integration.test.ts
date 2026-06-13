@@ -80,11 +80,13 @@ describe('MVP HTTP integration (permission boundaries)', () => {
     const {
       Body,
       Controller,
+      Delete,
       ForbiddenException,
       Get,
       Inject,
       Injectable,
       Module,
+      Param,
       Patch,
       Post,
       Put,
@@ -428,6 +430,66 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         @Body() body: { override: string | null }
       ) {
         return { id: 'enr_1', proctoringOverride: body.override, tenantId: context.tenantId };
+      }
+
+      // Phase 9 Plan A — SCORM permission boundary stubs
+      @Get('scorm-packages')
+      @RequirePermissions('materials.read')
+      listScormPackages(@CurrentContext() context: { tenantId?: string }) {
+        return { items: [], total: 0, tenantId: context.tenantId };
+      }
+
+      @Post('scorm-packages')
+      @RequirePermissions('materials.write')
+      registerScormPackage(
+        @CurrentContext() context: { tenantId?: string; userId?: string },
+        @Body() body: { zipFileId?: string }
+      ) {
+        return { id: 'scp_stub', tenantId: context.tenantId, zipFileId: body.zipFileId };
+      }
+
+      @Post('scorm-packages/:id/process')
+      @RequirePermissions('materials.write')
+      processScormPackage(
+        @CurrentContext() context: { tenantId?: string },
+        @Param('id') id: string
+      ) {
+        return { id, tenantId: context.tenantId, packageStatus: 'ready' };
+      }
+
+      @Delete('scorm-packages/:id')
+      @RequirePermissions('materials.write')
+      deleteScormPackage(
+        @CurrentContext() context: { tenantId?: string },
+        @Param('id') id: string
+      ) {
+        return { id, deleted: true, tenantId: context.tenantId };
+      }
+
+      @Post('scorm-materials/:id/launch')
+      @RequirePermissions('materials.read')
+      launchScormMaterial(
+        @CurrentContext() context: { tenantId?: string },
+        @Param('id') id: string,
+        @Body() body: { enrollmentId?: string }
+      ) {
+        return {
+          attempt: { id: 'sca_stub', materialId: id },
+          token: 'stub_token',
+          launchUrl: `/api/v1/scorm-content/stub_token/index.html`,
+          tenantId: context.tenantId,
+          enrollmentId: body.enrollmentId
+        };
+      }
+
+      @Put('scorm-attempts/:id/commit')
+      @RequirePermissions('progress.recalculate')
+      commitScormAttempt(
+        @CurrentContext() context: { tenantId?: string },
+        @Param('id') id: string,
+        @Body() body: { lessonStatus?: string }
+      ) {
+        return { id, tenantId: context.tenantId, lessonStatus: body.lessonStatus ?? 'incomplete' };
       }
     }
 
@@ -1795,6 +1857,349 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         meta: { requestId: string };
       };
       expect(payload.data.proctoringOverride).toBe('exempt');
+    });
+  });
+
+  // === Phase 9 Plan A — SCORM permission boundary ===
+
+  describe('Phase 9 Plan A — SCORM permission boundary', () => {
+    beforeEach(() => {
+      iamServiceMock.resolvePermissions.mockReset();
+      iamServiceMock.resolvePermissions.mockResolvedValue(['courses.read']);
+    });
+
+    // GET /scorm-packages — requires materials.read
+
+    it('GET /scorm-packages — 401 auth_required without bearer token', async () => {
+      const response = await fetch(`${apiBaseUrl}/scorm-packages`, {
+        headers: { 'x-tenant-id': 'tenant_demo' }
+      });
+      expect(response.status).toBe(401);
+      const payload = (await response.json()) as {
+        error: { code: string };
+        meta: { requestId: string };
+      };
+      expect(payload.error.code).toBe('auth_required');
+      expect(payload.meta.requestId).toBeTruthy();
+    });
+
+    it('GET /scorm-packages — 403 permission_denied without materials.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['courses.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['teacher'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/scorm-packages`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('GET /scorm-packages — 200 success with materials.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['materials.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_admin', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/scorm-packages`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as {
+        data: { items: unknown[] };
+        meta: { requestId: string };
+      };
+      expect(Array.isArray(payload.data.items)).toBe(true);
+      expect(payload.meta.requestId).toBeTruthy();
+    });
+
+    // POST /scorm-packages — requires materials.write
+
+    it('POST /scorm-packages — 401 auth_required without bearer token', async () => {
+      const response = await fetch(`${apiBaseUrl}/scorm-packages`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-tenant-id': 'tenant_demo' },
+        body: JSON.stringify({ zipFileId: 'file_1' })
+      });
+      expect(response.status).toBe(401);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('auth_required');
+    });
+
+    it('POST /scorm-packages — 403 permission_denied without materials.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['materials.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['teacher'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/scorm-packages`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ zipFileId: 'file_1' })
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('POST /scorm-packages — 201 success with materials.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['materials.write']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_admin', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/scorm-packages`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ zipFileId: 'file_1' })
+      });
+      expect(response.status).toBe(201);
+      const payload = (await response.json()) as {
+        data: { id: string };
+        meta: { requestId: string };
+      };
+      expect(payload.data.id).toBeTruthy();
+      expect(payload.meta.requestId).toBeTruthy();
+    });
+
+    // POST /scorm-packages/:id/process — requires materials.write
+
+    it('POST /scorm-packages/:id/process — 401 auth_required without bearer token', async () => {
+      const response = await fetch(`${apiBaseUrl}/scorm-packages/scp_1/process`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-tenant-id': 'tenant_demo' },
+        body: JSON.stringify({})
+      });
+      expect(response.status).toBe(401);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('auth_required');
+    });
+
+    it('POST /scorm-packages/:id/process — 403 permission_denied without materials.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['materials.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['teacher'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/scorm-packages/scp_1/process`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({})
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('POST /scorm-packages/:id/process — 201 success with materials.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['materials.write']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_admin', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/scorm-packages/scp_1/process`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({})
+      });
+      expect(response.status).toBe(201);
+      const payload = (await response.json()) as {
+        data: { packageStatus: string };
+        meta: { requestId: string };
+      };
+      expect(payload.data.packageStatus).toBe('ready');
+      expect(payload.meta.requestId).toBeTruthy();
+    });
+
+    // DELETE /scorm-packages/:id — requires materials.write
+
+    it('DELETE /scorm-packages/:id — 401 auth_required without bearer token', async () => {
+      const response = await fetch(`${apiBaseUrl}/scorm-packages/scp_1`, {
+        method: 'DELETE',
+        headers: { 'x-tenant-id': 'tenant_demo' }
+      });
+      expect(response.status).toBe(401);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('auth_required');
+    });
+
+    it('DELETE /scorm-packages/:id — 403 permission_denied without materials.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['materials.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['teacher'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/scorm-packages/scp_1`, {
+        method: 'DELETE',
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('DELETE /scorm-packages/:id — 200 success with materials.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['materials.write']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_admin', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/scorm-packages/scp_1`, {
+        method: 'DELETE',
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as {
+        data: { deleted: boolean };
+        meta: { requestId: string };
+      };
+      expect(payload.data.deleted).toBe(true);
+      expect(payload.meta.requestId).toBeTruthy();
+    });
+
+    // POST /scorm-materials/:id/launch — requires materials.read
+
+    it('POST /scorm-materials/:id/launch — 401 auth_required without bearer token', async () => {
+      const response = await fetch(`${apiBaseUrl}/scorm-materials/mat_1/launch`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-tenant-id': 'tenant_demo' },
+        body: JSON.stringify({ enrollmentId: 'enr_1' })
+      });
+      expect(response.status).toBe(401);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('auth_required');
+    });
+
+    it('POST /scorm-materials/:id/launch — 403 permission_denied without materials.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['progress.recalculate']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['learner'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/scorm-materials/mat_1/launch`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ enrollmentId: 'enr_1' })
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('POST /scorm-materials/:id/launch — 201 success with materials.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['materials.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_learner', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['learner'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/scorm-materials/mat_1/launch`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ enrollmentId: 'enr_1' })
+      });
+      expect(response.status).toBe(201);
+      const payload = (await response.json()) as {
+        data: { token: string; launchUrl: string };
+        meta: { requestId: string };
+      };
+      expect(payload.data.token).toBeTruthy();
+      expect(payload.data.launchUrl).toBeTruthy();
+      expect(payload.meta.requestId).toBeTruthy();
+    });
+
+    // PUT /scorm-attempts/:id/commit — requires progress.recalculate
+
+    it('PUT /scorm-attempts/:id/commit — 401 auth_required without bearer token', async () => {
+      const response = await fetch(`${apiBaseUrl}/scorm-attempts/sca_1/commit`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json', 'x-tenant-id': 'tenant_demo' },
+        body: JSON.stringify({ lessonStatus: 'incomplete' })
+      });
+      expect(response.status).toBe(401);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('auth_required');
+    });
+
+    it('PUT /scorm-attempts/:id/commit — 403 permission_denied without progress.recalculate', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['materials.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['learner'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/scorm-attempts/sca_1/commit`, {
+        method: 'PUT',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ lessonStatus: 'incomplete' })
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('PUT /scorm-attempts/:id/commit — 200 success with progress.recalculate', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['progress.recalculate']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_learner', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['learner'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/scorm-attempts/sca_1/commit`, {
+        method: 'PUT',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ lessonStatus: 'passed' })
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as {
+        data: { lessonStatus: string };
+        meta: { requestId: string };
+      };
+      expect(payload.data.lessonStatus).toBe('passed');
+      expect(payload.meta.requestId).toBeTruthy();
     });
   });
 });
