@@ -41,4 +41,18 @@ describe('learnerRecipient', () => {
   it('returns undefined when the learner is undefined', () => {
     expect(learnerRecipient(undefined)).toBeUndefined();
   });
+
+  it('includes userId when the learner is linked to an IAM account (Phase 10 Track C)', () => {
+    expect(
+      learnerRecipient(learner({ email: 'ivan@example.com', linkedIamUserId: 'user-1' }))
+    ).toEqual({
+      email: 'ivan@example.com',
+      name: 'Иванов Иван',
+      userId: 'user-1'
+    });
+  });
+
+  it('omits userId when the learner has no IAM link', () => {
+    expect(learnerRecipient(learner({ email: 'ivan@example.com' }))).not.toHaveProperty('userId');
+  });
 });

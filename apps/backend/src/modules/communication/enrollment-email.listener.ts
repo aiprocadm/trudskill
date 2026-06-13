@@ -30,7 +30,7 @@ export class EnrollmentEmailListener {
     payload: {
       tenantId: string;
       enrollmentId: string;
-      recipient?: { email: string; name?: string };
+      recipient?: { email: string; name?: string; userId?: string };
       courseTitle?: string;
     },
     templateKey: 'enrollment_invite' | 'course_completed'
@@ -46,6 +46,7 @@ export class EnrollmentEmailListener {
           {
             email: payload.recipient.email,
             ...(payload.recipient.name ? { name: payload.recipient.name } : {}),
+            ...(payload.recipient.userId ? { userId: payload.recipient.userId } : {}),
             kind: 'learner'
           }
         ],

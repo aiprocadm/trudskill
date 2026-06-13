@@ -62,7 +62,14 @@ export function buildLearnerEmployerRecipients(
   );
   const rcpt = learnerRecipient(learner);
   if (rcpt) {
-    recipients.push({ email: rcpt.email, name: rcpt.name, kind: 'learner' });
+    // Phase 10 Track C — forward the learner's IAM userId (when linked) so the dispatcher can
+    // fan out a web-push alongside the email. Employer recipients have no userId (push skipped).
+    recipients.push({
+      email: rcpt.email,
+      name: rcpt.name,
+      kind: 'learner',
+      ...(rcpt.userId ? { userId: rcpt.userId } : {})
+    });
   }
   const employerEmail = resolveEmployerEmail(state, tenantId, enrollment.groupId);
   if (employerEmail) {

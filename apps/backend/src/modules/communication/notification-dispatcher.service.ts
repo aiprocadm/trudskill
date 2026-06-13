@@ -7,16 +7,25 @@ import {
   renderTemplate
 } from './email-templates.js';
 import { EMAIL_TEMPLATES_REPOSITORY } from './email-templates.repository.js';
+import { toPushNotification } from './web-push/template-push-mapping.js';
+import { WEB_PUSH_SENDER } from './web-push/web-push-sender.js';
 import { MAILER } from '../../infrastructure/mailer/mailer.service.js';
 
 import type { EmailDeliveriesRepository } from './email-deliveries.repository.js';
 import type { EmailTemplatesRepository } from './email-templates.repository.js';
+import type { WebPushSenderPort } from './web-push/web-push-sender.js';
 import type { MailerService } from '../../infrastructure/mailer/mailer.service.js';
 
 export interface DispatchRecipient {
   email: string;
   name?: string;
   kind: RecipientKind;
+  /**
+   * Phase 10 Track C — IAM userId получателя (если известен). Используется только для
+   * web-push фан-аута; email-доставка не зависит от него. Внешние/неизвестные получатели
+   * (без userId) получают только email.
+   */
+  userId?: string;
 }
 
 export interface DispatchInput {
@@ -35,7 +44,8 @@ export class NotificationDispatcher {
   constructor(
     @Inject(MAILER) private readonly mailer: MailerService,
     @Inject(EMAIL_TEMPLATES_REPOSITORY) private readonly templates: EmailTemplatesRepository,
-    @Inject(EMAIL_DELIVERIES_REPOSITORY) private readonly deliveries: EmailDeliveriesRepository
+    @Inject(EMAIL_DELIVERIES_REPOSITORY) private readonly deliveries: EmailDeliveriesRepository,
+    @Inject(WEB_PUSH_SENDER) private readonly pushSender: WebPushSenderPort
   ) {}
 
   async dispatch(input: DispatchInput): Promise<void> {
@@ -70,6 +80,14 @@ export class NotificationDispatcher {
         ...(input.relatedEntityId ? { relatedEntityId: input.relatedEntityId } : {}),
         ...(input.dedupKey ? { dedupKey: input.dedupKey } : {})
       });
+    }
+
+    // Phase 10 Track C — web-push fan-out, alongside email. Recipients with a known IAM
+    // userId get a push to their subscribed browsers; the NoopWebPushSender (default,
+    // WEB_PUSH_ENABLED=false) makes this a no-op so email behaviour is byte-for-byte unchanged.
+    const userIds = input.recipients.map((r) => r.userId).filter((id): id is string => Boolean(id));
+    if (userIds.length > 0) {
+      await this.pushSender.sendToUsers(input.tenantId, userIds, toPushNotification(rendered));
     }
   }
 }

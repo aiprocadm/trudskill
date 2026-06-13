@@ -7,12 +7,14 @@ function make() {
   const mailer = { send: vi.fn().mockResolvedValue({ status: 'sent' }) };
   const templates = { getOverride: vi.fn().mockResolvedValue(null) };
   const deliveries = new InMemoryEmailDeliveriesState();
+  const pushSender = { sendToUsers: vi.fn().mockResolvedValue(undefined) };
   const dispatcher = new NotificationDispatcher(
     mailer as never,
     templates as never,
-    deliveries as never
+    deliveries as never,
+    pushSender as never
   );
-  return { dispatcher, mailer, deliveries };
+  return { dispatcher, mailer, deliveries, pushSender };
 }
 
 const baseInput = {
@@ -43,5 +45,64 @@ describe('NotificationDispatcher dedup', () => {
     const { dispatcher, deliveries } = make();
     await dispatcher.dispatch({ ...baseInput, dedupKey: 'recert:d1:7' });
     expect(await deliveries.findByDedupKey('t1', 'recert:d1:7')).not.toBeNull();
+  });
+});
+
+describe('NotificationDispatcher push fan-out (Phase 10 Track C)', () => {
+  const withUserId = {
+    ...baseInput,
+    recipients: [
+      { email: 'ivan@example.com', name: 'Иван', kind: 'learner' as const, userId: 'u1' }
+    ]
+  };
+
+  it('after the email loop calls pushSender.sendToUsers with title/body from rendered', async () => {
+    const { dispatcher, pushSender } = make();
+    await dispatcher.dispatch(withUserId);
+
+    expect(pushSender.sendToUsers).toHaveBeenCalledTimes(1);
+    const [tenantId, userIds, notification] = pushSender.sendToUsers.mock.calls[0];
+    expect(tenantId).toBe('t1');
+    expect(userIds).toEqual(['u1']);
+    expect(notification.title).toBe('Истекает срок действия удостоверения по программе «ОТ»');
+    expect(typeof notification.body).toBe('string');
+    expect(notification.body.length).toBeGreaterThan(0);
+  });
+
+  it('recipients without userId are skipped by push fan-out; email still sends', async () => {
+    const { dispatcher, mailer, pushSender } = make();
+    await dispatcher.dispatch(baseInput); // recipient has no userId
+    expect(mailer.send).toHaveBeenCalledTimes(1);
+    expect(pushSender.sendToUsers).not.toHaveBeenCalled();
+  });
+
+  it('dedup-skipped dispatch sends no push (early return preserved)', async () => {
+    const { dispatcher, pushSender } = make();
+    await dispatcher.dispatch({ ...withUserId, dedupKey: 'recert:d1:30' });
+    expect(pushSender.sendToUsers).toHaveBeenCalledTimes(1);
+    await dispatcher.dispatch({ ...withUserId, dedupKey: 'recert:d1:30' });
+    expect(pushSender.sendToUsers).toHaveBeenCalledTimes(1); // not re-pushed
+  });
+
+  it('a push error does not break dispatch (email already journaled)', async () => {
+    const { dispatcher, deliveries, pushSender } = make();
+    pushSender.sendToUsers.mockRejectedValueOnce(new Error('push boom'));
+    await expect(dispatcher.dispatch(withUserId)).rejects.toThrow('push boom');
+    // email was recorded before the push fan-out ran
+    expect((await deliveries.list('t1', {})).total).toBe(1);
+  });
+
+  it('only known userIds are forwarded (mixed recipients)', async () => {
+    const { dispatcher, pushSender } = make();
+    await dispatcher.dispatch({
+      ...baseInput,
+      recipients: [
+        { email: 'a@x.com', kind: 'learner' as const, userId: 'u1' },
+        { email: 'b@x.com', kind: 'learner' as const }, // external, no userId
+        { email: 'c@x.com', kind: 'learner' as const, userId: 'u3' }
+      ]
+    });
+    const [, userIds] = pushSender.sendToUsers.mock.calls[0];
+    expect(userIds).toEqual(['u1', 'u3']);
   });
 });
