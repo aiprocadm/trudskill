@@ -1,11 +1,11 @@
-import { Controller, Get, Inject, NotFoundException, Param, Req, Res } from '@nestjs/common';
+import { Controller, Get, Inject, NotFoundException, Param, Res } from '@nestjs/common';
 
 import { verifyScormContentToken } from './scorm-content-token.js';
 import { contentTypeForPath } from './scorm-zip-guards.js';
 import { backendEnv } from '../../../env.js';
 import { S3StorageClient } from '../../../infrastructure/storage/s3-storage.client.js';
 
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 
 /**
  * Phase 9 Plan A (D6): serving unpacked SCORM content in an iframe.
@@ -27,7 +27,6 @@ export class ScormContentController {
   async serve(
     @Param('token') token: string,
     @Param('rest') rawRest: unknown,
-    @Req() _req: Request,
     @Res() res: Response
   ) {
     const payload = verifyScormContentToken(token, backendEnv.SCORM_CONTENT_TOKEN_SECRET, {
@@ -56,6 +55,13 @@ export class ScormContentController {
       res.setHeader('Content-Type', contentTypeForPath(rest));
       res.setHeader('Cache-Control', 'private, max-age=3600');
       res.setHeader('X-Content-Type-Options', 'nosniff');
+      stream.on('error', () => {
+        if (!res.headersSent) {
+          res.status(404).end();
+        } else {
+          res.destroy();
+        }
+      });
       stream.pipe(res);
     } catch {
       throw new NotFoundException({ code: 'not_found', message: 'Not found' });

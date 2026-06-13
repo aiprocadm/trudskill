@@ -40,7 +40,7 @@ describe('ScormContentController (HTTP integration)', () => {
   let getObjectStreamMock: ReturnType<typeof vi.fn>;
 
   // Token factory: creates a valid HMAC token inline to avoid circular import ordering issues.
-  let makeToken: (opts?: { expiredSeconds?: number }) => string;
+  let makeToken: (opts?: { alreadyExpiredBySeconds?: number }) => string;
 
   beforeAll(async () => {
     const [
@@ -85,13 +85,13 @@ describe('ScormContentController (HTTP integration)', () => {
 
     makeToken = (opts = {}) => {
       const now = Math.floor(Date.now() / 1000);
-      const expiredSeconds = opts.expiredSeconds;
-      if (expiredSeconds !== undefined) {
-        // Create a token that is already expired.
+      const alreadyExpiredBySeconds = opts.alreadyExpiredBySeconds;
+      if (alreadyExpiredBySeconds !== undefined) {
+        // Create a token whose expiry is alreadyExpiredBySeconds in the past.
         return createScormContentToken(
           { tenantId: 'tenant_demo', packageId: 'scp_test' },
           SCORM_SECRET,
-          { ttlSeconds: -expiredSeconds, nowEpochSeconds: now }
+          { ttlSeconds: -alreadyExpiredBySeconds, nowEpochSeconds: now }
         );
       }
       return createScormContentToken(
@@ -148,8 +148,8 @@ describe('ScormContentController (HTTP integration)', () => {
   });
 
   it('expired token → 404 (no details)', async () => {
-    // Create a token with negative TTL to ensure it is expired
-    const token = makeToken({ expiredSeconds: 10 });
+    // Create a token that expired 10 seconds in the past
+    const token = makeToken({ alreadyExpiredBySeconds: 10 });
     const response = await fetch(`${apiBaseUrl}/scorm-content/${token}/index.html`);
 
     expect(response.status).toBe(404);
