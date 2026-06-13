@@ -3,7 +3,13 @@ import { semanticStatusMap } from '../../tokens/index';
 import type { EntityStatus } from '@cdoprof/shared-types';
 import type { ReactElement } from 'react';
 
-export const StatusChip = ({ status }: { status: EntityStatus | string }): ReactElement => (
+export const StatusChip = ({
+  status,
+  label
+}: {
+  status: EntityStatus | string;
+  label?: string;
+}): ReactElement => (
   <span
     className="ui-badge"
     style={{
@@ -12,6 +18,6 @@ export const StatusChip = ({ status }: { status: EntityStatus | string }): React
         'var(--ui-neutral-500)'
     }}
   >
-    {status}
+    {label ?? status}
   </span>
 );

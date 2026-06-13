@@ -81,11 +81,18 @@ export const scormApi = {
 };
 
 /** Direct PUT of zip file to presigned MinIO URL (bypasses the API envelope).
- *  Deliberate local copy of proctoring's helper (documented duplication precedent). */
-export async function putFileToPresignedUrl(uploadUrl: string, file: File): Promise<void> {
+ *  Deliberate local copy of proctoring's helper (documented duplication precedent).
+ *  Pass the same `contentType` used to sign the upload intent so the presigned
+ *  signature and the PUT header are identical (prevents MinIO 403 on Windows where
+ *  file.type is often empty for .zip). */
+export async function putFileToPresignedUrl(
+  uploadUrl: string,
+  file: File,
+  contentType?: string
+): Promise<void> {
   const res = await fetch(uploadUrl, {
     method: 'PUT',
-    headers: { 'Content-Type': file.type },
+    headers: { 'Content-Type': contentType ?? (file.type || 'application/zip') },
     body: file
   });
   if (!res.ok) throw new Error(`Upload failed (HTTP ${res.status})`);

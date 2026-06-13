@@ -35,6 +35,14 @@ function statusChipKey(s: ScormPackageStatus): string {
   return 'inactive';
 }
 
+/** Human-readable Russian label for each package status. */
+function statusLabel(s: ScormPackageStatus): string {
+  if (s === 'ready') return 'Готов';
+  if (s === 'failed') return 'Ошибка';
+  if (s === 'processing') return 'Обработка';
+  return 'Загружен';
+}
+
 function readErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (typeof err === 'object' && err !== null) {
@@ -98,7 +106,7 @@ export function ScormPackagesScreen(): ReactElement {
         contentType,
         sizeBytes: file.size
       });
-      await putFileToPresignedUrl(intent.uploadUrl, file);
+      await putFileToPresignedUrl(intent.uploadUrl, file, contentType);
       const pkg = await scormApi.register(session, {
         zipFileId: intent.fileId,
         title: file.name
@@ -163,15 +171,13 @@ export function ScormPackagesScreen(): ReactElement {
       title: 'Статус',
       render: (row) => (
         <span>
-          <StatusChip status={statusChipKey(row.packageStatus)} />
+          <StatusChip
+            status={statusChipKey(row.packageStatus)}
+            label={statusLabel(row.packageStatus)}
+          />
           {row.packageStatus === 'failed' && row.error ? (
             <span style={{ marginLeft: 6, fontSize: '0.8em', color: 'var(--ui-text-muted)' }}>
               {row.error}
-            </span>
-          ) : null}
-          {row.packageStatus !== 'ready' && row.packageStatus !== 'failed' ? (
-            <span style={{ marginLeft: 6, fontSize: '0.8em', color: 'var(--ui-text-muted)' }}>
-              {row.packageStatus}
             </span>
           ) : null}
         </span>

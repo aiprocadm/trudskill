@@ -1243,6 +1243,7 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
   const [scormPackageId, setScormPackageId] = useState<string>('');
   const [scormPackages, setScormPackages] = useState<ScormPackageDto[]>([]);
   const [scormPackagesLoaded, setScormPackagesLoaded] = useState(false);
+  const [scormPackagesError, setScormPackagesError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const canPublish = hasPermission(session?.permissions ?? [], 'courses.publish');
@@ -1262,9 +1263,11 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
       .then((resp) => {
         setScormPackages(resp.items.filter((p) => p.packageStatus === 'ready'));
         setScormPackagesLoaded(true);
+        setScormPackagesError(null);
       })
       .catch(() => {
         setScormPackagesLoaded(true);
+        setScormPackagesError('Не удалось загрузить SCORM-пакеты');
       });
   }, [materialType, scormPackagesLoaded, session]);
 
@@ -1422,17 +1425,23 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
             <option value="scorm">scorm</option>
           </select>
           {materialType === 'scorm' ? (
-            <select
-              value={scormPackageId}
-              onChange={(event) => setScormPackageId(event.target.value)}
-            >
-              <option value="">— выберите SCORM-пакет —</option>
-              {scormPackages.map((pkg) => (
-                <option key={pkg.id} value={pkg.id}>
-                  {pkg.title}
-                </option>
-              ))}
-            </select>
+            <>
+              {scormPackagesError ? (
+                <SectionError message={scormPackagesError} />
+              ) : (
+                <select
+                  value={scormPackageId}
+                  onChange={(event) => setScormPackageId(event.target.value)}
+                >
+                  <option value="">— выберите SCORM-пакет —</option>
+                  {scormPackages.map((pkg) => (
+                    <option key={pkg.id} value={pkg.id}>
+                      {pkg.title}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </>
           ) : null}
           <button
             type="submit"
