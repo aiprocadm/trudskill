@@ -22,6 +22,13 @@ export const MaterialPlayer = ({ material, onMaterialEnded }: Props) => {
       return <TextViewer material={material} />;
     case 'external_url':
       return <ExternalLinkViewer material={material} externalUrl={null} />;
+    case 'scorm':
+      // Phase 9 Plan A (Task 15): full ScormPlayer wired here; placeholder until then.
+      return (
+        <div className="course-player__placeholder">
+          SCORM-материал доступен в контексте зачисления
+        </div>
+      );
     default: {
       const _exhaustive: never = material.materialType;
       return (

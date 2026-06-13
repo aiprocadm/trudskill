@@ -98,11 +98,13 @@ export interface CourseModule extends BaseEntity {
 export interface Material extends BaseEntity {
   moduleId: string;
   title: string;
-  materialType: 'file' | 'external_url' | 'text' | 'video';
+  materialType: 'file' | 'external_url' | 'text' | 'video' | 'scorm';
   sortOrder: number;
   minViewSeconds: number;
   isRequired: boolean;
   fileId?: string;
+  /** Phase 9 Plan A: package for materialType='scorm' (FK learning.scorm_packages, status ready). */
+  scormPackageId?: string;
 }
 
 export interface Group extends BaseEntity {
