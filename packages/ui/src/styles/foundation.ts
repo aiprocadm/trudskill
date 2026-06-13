@@ -27,6 +27,7 @@ export const foundationStyles = `
 .ui-badge { color: #fff; border-radius: 999px; padding: 3px 11px; font-size: 12px; font-weight: 600; letter-spacing: 0.01em; }
 .ui-badge--brand { background: var(--ui-brand-600); }
 .ui-text-muted { color: var(--ui-text-muted); }
+.ui-visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .ui-prose-muted { margin: 0; color: var(--ui-text-muted); line-height: 1.6; }
 .ui-prose-muted--tight { margin: 0 0 12px; }
 .ui-list-row { padding: 12px 0; border-bottom: 1px solid var(--ui-border); }
