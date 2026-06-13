@@ -34,3 +34,30 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+// Phase 10 Track C — web-push handlers. Payload shape matches WebPushSender's JSON
+// ({ title, body, url }). Show the notification; on click, focus/open the deep-link.
+self.addEventListener('push', (event) => {
+  const data = (() => {
+    try {
+      return event.data?.json() ?? {};
+    } catch {
+      return {};
+    }
+  })() as { title?: string; body?: string; url?: string };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title ?? 'CDOProf', {
+      body: data.body ?? '',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      data: { url: data.url ?? '/' }
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data as { url?: string } | undefined)?.url ?? '/';
+  event.waitUntil(self.clients.openWindow(url));
+});
