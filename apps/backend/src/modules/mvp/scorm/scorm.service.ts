@@ -420,6 +420,10 @@ export class ScormService {
       const material = this.state.materials.find(
         (m) => m.tenantId === tenantId && m.id === attempt.materialId
       );
+      // SCORM completion is driven by cmi lesson_status (passed/completed), not by elapsed time;
+      // we pass at least minViewSeconds so upsertMaterialProgress marks the material completed
+      // regardless of reported session time. (SCORM materials default minViewSeconds=0 — see Task 12
+      // material validation.)
       const studiedSeconds = Math.max(material?.minViewSeconds ?? 0, attempt.totalSeconds);
       this.mvp.upsertMaterialProgress(
         tenantId,

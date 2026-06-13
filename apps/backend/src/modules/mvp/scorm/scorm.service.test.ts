@@ -736,6 +736,36 @@ describe('ScormService.commitScormAttempt — lessonStatus=passed sets completed
   });
 });
 
+describe('ScormService.commitScormAttempt — lessonStatus=completed sets completedAt + materialProgress', () => {
+  it('sets completedAt and creates materialProgress with status=completed on completed', () => {
+    const { scorm, enrollment, state } = makeScormSeed();
+    const ctxL1: RequestContext = { ...ctx, userId: 'u_l1' };
+
+    const { attempt } = scorm.launchScormMaterial(
+      T,
+      'u_l1',
+      'mat_scorm',
+      { enrollmentId: enrollment.id },
+      ctxL1
+    );
+
+    scorm.commitScormAttempt(
+      T,
+      'u_l1',
+      attempt.id,
+      { lessonStatus: 'completed', sessionSeconds: 20 },
+      ctxL1
+    );
+
+    expect(attempt.completedAt).toBeDefined();
+    const progress = state.materialProgress.find(
+      (p) => p.enrollmentId === enrollment.id && p.materialId === 'mat_scorm'
+    );
+    expect(progress).toBeDefined();
+    expect(progress!.status).toBe('completed');
+  });
+});
+
 describe('ScormService.commitScormAttempt — wrong actor → ForbiddenException', () => {
   it('throws ForbiddenException when committing another learner attempt', () => {
     const { scorm, enrollment } = makeScormSeed();
