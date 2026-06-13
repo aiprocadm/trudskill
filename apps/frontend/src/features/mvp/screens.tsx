@@ -65,6 +65,7 @@ import { useOtTrainingPrograms } from '../gov-export/hooks';
 import { IssueOrderModal } from '../group-orders/issue-order-modal';
 import { LearnerPdfCardSections } from '../learner-pdf-card/learner-pdf-card-sections';
 import { proctoringApi } from '../proctoring/api';
+import { scormApi } from '../scorm/api';
 
 import type {
   AssignmentSubmission,
@@ -83,6 +84,7 @@ import type {
   StudyForm,
   TrainingType
 } from './types';
+import type { ScormPackageDto } from '../scorm/types';
 import type { Column } from '@cdoprof/ui';
 
 const resolveCertificateDownloadHref = (downloadPath: string): string => {
@@ -1235,9 +1237,13 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
     useDomainMutations();
   const [moduleTitle, setModuleTitle] = useState('');
   const [materialTitle, setMaterialTitle] = useState('');
-  const [materialType, setMaterialType] = useState<'text' | 'video' | 'file' | 'external_url'>(
-    'text'
-  );
+  const [materialType, setMaterialType] = useState<
+    'text' | 'video' | 'file' | 'external_url' | 'scorm'
+  >('text');
+  const [scormPackageId, setScormPackageId] = useState<string>('');
+  const [scormPackages, setScormPackages] = useState<ScormPackageDto[]>([]);
+  const [scormPackagesLoaded, setScormPackagesLoaded] = useState(false);
+  const [scormPackagesError, setScormPackagesError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const canPublish = hasPermission(session?.permissions ?? [], 'courses.publish');
@@ -1248,6 +1254,22 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
       setSelectedModuleId(modules.items[0]?.id ?? '');
     }
   }, [modules, selectedModuleId]);
+
+  // Lazy-load ready SCORM packages when the scorm material type is first selected
+  useEffect(() => {
+    if (materialType !== 'scorm' || scormPackagesLoaded || !session) return;
+    scormApi
+      .list(session)
+      .then((resp) => {
+        setScormPackages(resp.items.filter((p) => p.packageStatus === 'ready'));
+        setScormPackagesLoaded(true);
+        setScormPackagesError(null);
+      })
+      .catch(() => {
+        setScormPackagesLoaded(true);
+        setScormPackagesError('Не удалось загрузить SCORM-пакеты');
+      });
+  }, [materialType, scormPackagesLoaded, session]);
 
   return (
     <PageContainer>
@@ -1360,11 +1382,13 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
               moduleId: selectedModuleId,
               title: materialTitle.trim(),
               materialType,
-              minViewSeconds: 60,
-              isRequired: true
+              minViewSeconds: materialType === 'scorm' ? 0 : 60,
+              isRequired: true,
+              ...(materialType === 'scorm' && scormPackageId ? { scormPackageId } : {})
             })
               .then(() => {
                 setMaterialTitle('');
+                setScormPackageId('');
                 return refetchMaterials();
               })
               .catch((materialError) => setSaveError(readApiMessage(materialError)));
@@ -1389,14 +1413,40 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
           />
           <select
             value={materialType}
-            onChange={(event) => setMaterialType(event.target.value as typeof materialType)}
+            onChange={(event) => {
+              setMaterialType(event.target.value as typeof materialType);
+              setScormPackageId('');
+            }}
           >
             <option value="text">text</option>
             <option value="video">video</option>
             <option value="file">file</option>
             <option value="external_url">external_url</option>
+            <option value="scorm">scorm</option>
           </select>
-          <button type="submit" disabled={!selectedModuleId}>
+          {materialType === 'scorm' ? (
+            <>
+              {scormPackagesError ? (
+                <SectionError message={scormPackagesError} />
+              ) : (
+                <select
+                  value={scormPackageId}
+                  onChange={(event) => setScormPackageId(event.target.value)}
+                >
+                  <option value="">— выберите SCORM-пакет —</option>
+                  {scormPackages.map((pkg) => (
+                    <option key={pkg.id} value={pkg.id}>
+                      {pkg.title}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </>
+          ) : null}
+          <button
+            type="submit"
+            disabled={!selectedModuleId || (materialType === 'scorm' && !scormPackageId)}
+          >
             Добавить материал
           </button>
         </form>

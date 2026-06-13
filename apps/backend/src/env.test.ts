@@ -27,7 +27,8 @@ const strictValidEnv = {
   INTEGRATION_WEBHOOK_SECRET: 'prod-webhook-secret-ok',
   MVP_PERSISTENCE_DRIVER: 'postgres',
   DOCUMENTS_PERSISTENCE_DRIVER: 'postgres',
-  ALLOW_IN_MEMORY_STATE: false
+  ALLOW_IN_MEMORY_STATE: false,
+  SCORM_CONTENT_TOKEN_SECRET: 'prod-scorm-content-token-secret'
 } as const;
 
 const issueMessages = (input: Record<string, unknown>) => {
@@ -86,6 +87,9 @@ describe('backend env schema profile validation', () => {
     );
     expect(messages).toContain(
       'INTEGRATION_WEBHOOK_SECRET is required in production/staging/prod-profile to authenticate integration webhooks'
+    );
+    expect(messages).toContain(
+      'SCORM_CONTENT_TOKEN_SECRET must not use development value in production/staging/prod-profile'
     );
   });
 

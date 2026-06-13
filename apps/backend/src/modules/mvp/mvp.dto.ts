@@ -182,7 +182,7 @@ export class UpdateModuleRequest {
   status?: string;
 }
 
-const materialTypeValues = ['file', 'external_url', 'text', 'video'] as const;
+const materialTypeValues = ['file', 'external_url', 'text', 'video', 'scorm'] as const;
 
 export class CreateMaterialRequest {
   @IsString()
@@ -209,6 +209,10 @@ export class CreateMaterialRequest {
   @IsOptional()
   @IsString()
   fileId?: string;
+
+  @IsOptional()
+  @IsString()
+  scormPackageId?: string;
 }
 
 export class UpdateMaterialRequest {
@@ -238,6 +242,10 @@ export class UpdateMaterialRequest {
   @IsOptional()
   @IsString()
   fileId?: string;
+
+  @IsOptional()
+  @IsString()
+  scormPackageId?: string;
 }
 
 export class CreateGroupCourseRequest {

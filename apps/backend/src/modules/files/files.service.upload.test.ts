@@ -21,7 +21,8 @@ function makeFilesService(opts?: {
         return [
           {
             storage_key: 'submissions/t1/existing.pdf',
-            antivirus_status: opts?.antivirusStatus ?? 'clean'
+            antivirus_status: opts?.antivirusStatus ?? 'clean',
+            size_bytes: '1024'
           }
         ];
       }
@@ -227,6 +228,87 @@ describe('FilesService.createUploadIntent — options', () => {
         { mimeAllowlist: new Set(['image/png', 'image/jpeg', 'application/pdf']) }
       )
     ).rejects.toMatchObject({ response: { code: 'unsupported_media_type' } });
+  });
+});
+
+describe('FilesService.createUploadIntent — maxBytes override', () => {
+  it('createUploadIntent honors options.maxBytes override (scorm zip > default 10MB)', async () => {
+    // 50 MB при дефолтном лимите 10 MB — должно пройти с override
+    const { service } = makeFilesService();
+    const intent = await service.createUploadIntent(
+      'tenant_demo',
+      { originalName: 'course.zip', contentType: 'application/zip', sizeBytes: 50 * 1024 * 1024 },
+      {
+        maxBytes: 300 * 1024 * 1024,
+        mimeAllowlist: new Set(['application/zip']),
+        keyPrefix: 'scorm-packages'
+      }
+    );
+    expect(intent.fileId).toBeTruthy();
+  });
+
+  it('createUploadIntent rejects sizeBytes above options.maxBytes', async () => {
+    const { service } = makeFilesService();
+    await expect(
+      service.createUploadIntent(
+        'tenant_demo',
+        {
+          originalName: 'course.zip',
+          contentType: 'application/zip',
+          sizeBytes: 400 * 1024 * 1024
+        },
+        { maxBytes: 300 * 1024 * 1024, mimeAllowlist: new Set(['application/zip']) }
+      )
+    ).rejects.toMatchObject({ response: { code: 'file_too_large' } });
+  });
+});
+
+describe('FilesService.getReadableFile', () => {
+  it('returns storageKey and sizeBytes for a clean file', async () => {
+    const { service } = makeFilesService({ antivirusStatus: 'clean' });
+    const meta = await service.getReadableFile('t1', 'file_abc');
+    expect(meta.storageKey).toBe('submissions/t1/existing.pdf');
+    expect(meta.sizeBytes).toBe(1024);
+  });
+
+  it('blocks an infected file with code file_infected (423)', async () => {
+    const { service } = makeFilesService({ antivirusStatus: 'infected' });
+    await expect(service.getReadableFile('t1', 'file_abc')).rejects.toMatchObject({
+      response: { code: 'file_infected' }
+    });
+  });
+
+  it('blocks a scan-errored file with code file_scan_failed', async () => {
+    const { service } = makeFilesService({ antivirusStatus: 'error' });
+    await expect(service.getReadableFile('t1', 'file_abc')).rejects.toMatchObject({
+      response: { code: 'file_scan_failed' }
+    });
+  });
+
+  it('throws file_not_found for a missing file', async () => {
+    const { service, db } = makeFilesService();
+    (db.query as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+    await expect(service.getReadableFile('t1', 'missing')).rejects.toMatchObject({
+      response: { code: 'file_not_found' }
+    });
+  });
+
+  it('lazily scans a pending file then returns { storageKey, sizeBytes } when clean', async () => {
+    const { service, scanner } = makeFilesService({
+      antivirusStatus: 'pending',
+      verdict: 'clean'
+    });
+    const meta = await service.getReadableFile('t1', 'file_abc');
+    expect(scanner.scan).toHaveBeenCalledTimes(1);
+    expect(meta.storageKey).toBe('submissions/t1/existing.pdf');
+    expect(meta.sizeBytes).toBe(1024);
+  });
+
+  it('lazily scans a pending file and throws file_infected when infected', async () => {
+    const { service } = makeFilesService({ antivirusStatus: 'pending', verdict: 'infected' });
+    await expect(service.getReadableFile('t1', 'file_abc')).rejects.toMatchObject({
+      response: { code: 'file_infected' }
+    });
   });
 });
 

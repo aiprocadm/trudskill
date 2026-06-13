@@ -36,6 +36,9 @@ import { RecertificationService } from './recertification/recertification.servic
 import { CourseDeadlineScanner } from './reminders/course-deadline-scanner.service.js';
 import { DocumentRevokedEmailListener } from './reminders/document-revoked-email.listener.js';
 import { RemindersSchedulerService } from './reminders/reminders-scheduler.service.js';
+import { ScormContentController } from './scorm/scorm-content.controller.js';
+import { ScormController } from './scorm/scorm.controller.js';
+import { ScormService } from './scorm/scorm.service.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { CommunicationModule } from '../communication/communication.module.js';
 import { DocumentsModule } from '../documents/documents.module.js';
@@ -60,7 +63,9 @@ import { TenantModule } from '../tenant/tenant.module.js';
     OtRegistryController,
     FrdoRegistryController,
     EisotTestingRegistryController,
-    RecertificationController
+    RecertificationController,
+    ScormController,
+    ScormContentController
   ],
   providers: [
     MvpBulkEnqueueService,
@@ -101,6 +106,7 @@ import { TenantModule } from '../tenant/tenant.module.js';
       scope: Scope.REQUEST,
       useClass: LearnersBulkImportService
     },
+    { provide: ScormService, scope: Scope.REQUEST, useClass: ScormService },
     {
       provide: MvpRequestPersistenceInterceptor,
       scope: Scope.REQUEST,

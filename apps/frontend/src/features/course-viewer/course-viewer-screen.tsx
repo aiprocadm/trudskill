@@ -114,7 +114,8 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
   );
 
   useWatchTracker({
-    materialId: enrollmentId ? currentMaterialId : null,
+    materialId:
+      enrollmentId && currentMaterial?.materialType !== 'scorm' ? currentMaterialId : null,
     minViewSeconds: currentMaterial?.minViewSeconds ?? 30,
     onFlush: handleFlush,
     onTick: setStudiedSeconds
@@ -167,7 +168,10 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
               </p>
             ) : null}
             {currentMaterial ? (
-              <MaterialPlayer material={currentMaterial} />
+              <MaterialPlayer
+                material={currentMaterial}
+                {...(enrollmentId ? { enrollmentId } : {})}
+              />
             ) : (
               <SectionEmpty
                 message="Выберите материал слева, чтобы начать просмотр."

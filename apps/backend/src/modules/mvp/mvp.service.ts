@@ -1092,6 +1092,30 @@ export class MvpService {
       });
     }
     this.getById(this.state.modules, tenantId, request.moduleId);
+
+    // SCORM-specific validation: package must exist and be ready.
+    if (request.materialType === 'scorm') {
+      if (!request.scormPackageId) {
+        throw new BadRequestException({
+          code: 'validation_error',
+          message: 'scormPackageId is required for scorm materials'
+        });
+      }
+      const pkg = this.state.scormPackages.find(
+        (p) => p.tenantId === tenantId && p.id === request.scormPackageId && p.status !== 'deleted'
+      );
+      if (!pkg || pkg.packageStatus !== 'ready') {
+        throw new PreconditionFailedException({
+          code: 'scorm_package_not_ready',
+          message: 'SCORM package must be processed before use'
+        });
+      }
+    }
+
+    // SCORM completion is cmi lesson_status-driven, not time-driven; force minViewSeconds=0.
+    const resolvedMinViewSeconds =
+      request.materialType === 'scorm' ? 0 : (request.minViewSeconds ?? 0);
+
     const entity: Material = {
       id: this.id('material'),
       tenantId,
@@ -1099,13 +1123,16 @@ export class MvpService {
       title: request.title,
       materialType: request.materialType,
       sortOrder: this.state.materials.length,
-      minViewSeconds: request.minViewSeconds ?? 0,
+      minViewSeconds: resolvedMinViewSeconds,
       isRequired: request.isRequired ?? true,
-      fileId: request.fileId,
+      fileId: request.materialType !== 'scorm' ? request.fileId : undefined,
       status: 'active',
       createdAt: this.now(),
       updatedAt: this.now()
     };
+    if (request.materialType === 'scorm' && request.scormPackageId) {
+      entity.scormPackageId = request.scormPackageId;
+    }
     this.state.materials.push(entity);
     this.audit(
       tenantId,
@@ -1145,6 +1172,19 @@ export class MvpService {
     if (typeof request.fileId === 'string' || request.fileId === null)
       current.fileId = request.fileId ?? undefined;
     if (typeof request.status === 'string') current.status = request.status;
+    // For scorm-typed materials, allow updating the referenced package (must be ready).
+    if (current.materialType === 'scorm' && request.scormPackageId !== undefined) {
+      const pkg = this.state.scormPackages.find(
+        (p) => p.tenantId === tenantId && p.id === request.scormPackageId && p.status !== 'deleted'
+      );
+      if (!pkg || pkg.packageStatus !== 'ready') {
+        throw new PreconditionFailedException({
+          code: 'scorm_package_not_ready',
+          message: 'SCORM package must be processed before use'
+        });
+      }
+      current.scormPackageId = request.scormPackageId;
+    }
     current.updatedAt = this.now();
     this.audit(
       tenantId,
@@ -1918,7 +1958,8 @@ export class MvpService {
     actorId: string | undefined,
     materialId: string,
     request: UpdateMaterialProgressRequest,
-    context: RequestContext
+    context: RequestContext,
+    options?: { allowScormCompletion?: boolean }
   ): MaterialProgress {
     const material = this.getById(this.state.materials, tenantId, materialId);
     const moduleEntity = this.getById(this.state.modules, tenantId, material.moduleId);
@@ -1981,9 +2022,20 @@ export class MvpService {
 
     const studiedSeconds = Math.max(0, request.studiedSeconds);
     const ratio = requiredSeconds === 0 ? 1 : Math.min(1, studiedSeconds / requiredSeconds);
-    const percent = this.normalizePercent(ratio * 100);
-    const status: ProgressStatus =
+    let percent = this.normalizePercent(ratio * 100);
+    let status: ProgressStatus =
       percent >= 100 ? 'completed' : percent > 0 ? 'in_progress' : 'not_started';
+
+    // Defense-in-depth: SCORM completion must come exclusively via commitScormAttempt.
+    // The generic progress endpoint (watch-tracker) must never mark a SCORM material
+    // completed — the SCO lesson_status reported by the SCORM player is the only valid
+    // completion signal. Block it here unless the caller explicitly opts in.
+    if (material.materialType === 'scorm' && options?.allowScormCompletion !== true) {
+      if (status === 'completed') {
+        status = 'in_progress';
+        percent = Math.min(percent, 99);
+      }
+    }
 
     const record: MaterialProgress = existing ?? {
       id: this.id('mp'),
@@ -5106,7 +5158,7 @@ export class MvpService {
    * Когда слушатель привязан к IAM-пользователю, мутации в его контексте недоступны другим пользователям
    * (соответствие anti-IDOR для прогресса, субмиссий и попытек). Исключение: право `learners.act_as`.
    */
-  private assertActorMatchesLearnerIamLink(
+  assertActorMatchesLearnerIamLink(
     tenantId: string,
     actorId: string | undefined,
     learnerId: string,

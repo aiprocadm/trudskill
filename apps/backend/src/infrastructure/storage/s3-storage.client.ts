@@ -2,6 +2,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   ListBucketsCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client
 } from '@aws-sdk/client-s3';
@@ -90,6 +91,26 @@ export class S3StorageClient implements StorageClient {
         Key: params.key
       })
     );
+  }
+
+  /** All keys under a prefix (paginated ListObjectsV2). Phase 9: SCORM prefix cleanup. */
+  async listObjectKeys(params: { prefix: string }): Promise<string[]> {
+    const keys: string[] = [];
+    let continuationToken: string | undefined;
+    do {
+      const response = await this.getClient().send(
+        new ListObjectsV2Command({
+          Bucket: backendEnv.S3_BUCKET,
+          Prefix: params.prefix,
+          ...(continuationToken ? { ContinuationToken: continuationToken } : {})
+        })
+      );
+      for (const obj of response.Contents ?? []) {
+        if (obj.Key) keys.push(obj.Key);
+      }
+      continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+    } while (continuationToken);
+    return keys;
   }
 
   private getClient(): S3Client {

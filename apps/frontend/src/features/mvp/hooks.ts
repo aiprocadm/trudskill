@@ -175,6 +175,7 @@ export const useDomainMutations = () => {
         materialType: string;
         minViewSeconds?: number;
         isRequired?: boolean;
+        scormPackageId?: string;
       }
     ) => wrap((authSession) => mvpApi.saveMaterial(authSession, id, payload)),
     saveGroup: (id: string | null, payload: { code: string; name: string; status: string }) =>

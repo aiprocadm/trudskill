@@ -52,6 +52,8 @@ export interface UploadIntentOptions {
   keyPrefix?: string;
   /** MIME allowlist override; defaults to the practical-submissions allowlist. */
   mimeAllowlist?: ReadonlySet<string>;
+  /** Per-purpose size ceiling override, bytes; defaults to SUBMISSION_MAX_BYTES (10 MB). */
+  maxBytes?: number;
 }
 
 export interface UploadIntent {
@@ -144,7 +146,8 @@ export class FilesService {
         message: 'File type is not allowed'
       });
     }
-    if (input.sizeBytes <= 0 || input.sizeBytes > SUBMISSION_MAX_BYTES) {
+    const maxBytes = options?.maxBytes ?? SUBMISSION_MAX_BYTES;
+    if (input.sizeBytes <= 0 || input.sizeBytes > maxBytes) {
       throw new BadRequestException({
         code: 'file_too_large',
         message: 'File exceeds the allowed size'
@@ -169,8 +172,29 @@ export class FilesService {
   }
 
   async createDownloadUrl(tenantId: string, fileId: string): Promise<string> {
-    const rows = await this.db.query<{ storage_key: string; antivirus_status: string }>(
-      `select storage_key, antivirus_status from storage.files
+    const row = await this.ensureCleanFile(tenantId, fileId);
+    return this.storage.createPresignedDownloadUrl({ key: row.storageKey });
+  }
+
+  /** Phase 9 Plan A: server-side read (SCORM zip extraction) — same AV gate as download. */
+  async getReadableFile(
+    tenantId: string,
+    fileId: string
+  ): Promise<{ storageKey: string; sizeBytes: number }> {
+    const row = await this.ensureCleanFile(tenantId, fileId);
+    return { storageKey: row.storageKey, sizeBytes: row.sizeBytes };
+  }
+
+  private async ensureCleanFile(
+    tenantId: string,
+    fileId: string
+  ): Promise<{ storageKey: string; sizeBytes: number }> {
+    const rows = await this.db.query<{
+      storage_key: string;
+      antivirus_status: string;
+      size_bytes: string;
+    }>(
+      `select storage_key, antivirus_status, size_bytes from storage.files
        where tenant_id = $1 and id = $2 and deleted_at is null`,
       [tenantId, fileId]
     );
@@ -202,7 +226,10 @@ export class FilesService {
       });
     }
 
-    return this.storage.createPresignedDownloadUrl({ key: rows[0]!.storage_key });
+    return {
+      storageKey: rows[0]!.storage_key,
+      sizeBytes: Number(rows[0]!.size_bytes)
+    };
   }
 
   /**

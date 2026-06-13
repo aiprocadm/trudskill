@@ -22,3 +22,49 @@ describe('S3StorageClient.putObject', () => {
     });
   });
 });
+
+describe('S3StorageClient.listObjectKeys', () => {
+  it('single page — returns all keys when IsTruncated is false', async () => {
+    const send = vi
+      .fn()
+      .mockResolvedValue({ IsTruncated: false, Contents: [{ Key: 'a' }, { Key: 'b' }] });
+    const client = new S3StorageClient();
+    (client as unknown as { client: { send: typeof send } }).client = { send } as never;
+
+    const keys = await client.listObjectKeys({ prefix: 'scorm/tenant1/' });
+
+    expect(send).toHaveBeenCalledOnce();
+    expect(keys).toEqual(['a', 'b']);
+  });
+
+  it('multi-page — follows NextContinuationToken and collects all keys', async () => {
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce({
+        IsTruncated: true,
+        NextContinuationToken: 't1',
+        Contents: [{ Key: 'a' }]
+      })
+      .mockResolvedValueOnce({ IsTruncated: false, Contents: [{ Key: 'b' }] });
+    const client = new S3StorageClient();
+    (client as unknown as { client: { send: typeof send } }).client = { send } as never;
+
+    const keys = await client.listObjectKeys({ prefix: 'scorm/tenant1/' });
+
+    expect(send).toHaveBeenCalledTimes(2);
+    const [secondCommand] = send.mock.calls[1] as [{ input: Record<string, unknown> }];
+    expect(secondCommand.input).toMatchObject({ ContinuationToken: 't1' });
+    expect(keys).toEqual(['a', 'b']);
+  });
+
+  it('empty bucket — returns [] when Contents is undefined', async () => {
+    const send = vi.fn().mockResolvedValue({ IsTruncated: false });
+    const client = new S3StorageClient();
+    (client as unknown as { client: { send: typeof send } }).client = { send } as never;
+
+    const keys = await client.listObjectKeys({ prefix: 'scorm/tenant1/' });
+
+    expect(send).toHaveBeenCalledOnce();
+    expect(keys).toEqual([]);
+  });
+});

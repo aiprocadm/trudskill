@@ -352,13 +352,15 @@
 
 **Tasks (high-level):**
 
-- [ ] SCORM-парсер пакета (manifest.xml)
-- [ ] SCORM-плеер в iframe
-- [ ] Прогресс через SCORM API
-- [ ] Дашборд с графиками (Chart.js или Recharts)
-- [ ] Drill-down фильтры
+- [x] SCORM-парсер пакета (manifest.xml) — Plan A, `parseScormManifest` (SCORM 1.2; 2004 → unsupported)
+- [x] SCORM-плеер в iframe — Plan A, `ScormPlayer` (scorm-again, same-origin iframe по HMAC-токену)
+- [x] Прогресс через SCORM API — Plan A, cmi commit → завершение materialProgress
+- [ ] Дашборд с графиками (Chart.js или Recharts) — **Plan B** (отдельный план)
+- [ ] Drill-down фильтры — **Plan B**
 
 **Estimated effort:** 1 фронт + 1 бэк full-time за 4 недели
+
+**Статус:** **Plan A (SCORM-импорт + плеер) реализован** — ветка `feat/2026-06-12-phase-9-plan-a-scorm` (§5.119, миграция 0052). **Plan B (аналитика-дашборд)** — не начат (скоуп в `docs/superpowers/specs/2026-06-12-phase-9-scorm-analytics-design.md` §11).
 
 **Зависит от:** Phase 1
 
