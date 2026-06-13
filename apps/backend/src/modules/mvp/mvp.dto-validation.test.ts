@@ -23,6 +23,7 @@ import {
   StartProctoringRecordingRequest,
   SubmitIdentityVerificationRequest,
   UpdateMaterialProgressRequest,
+  UpdateMaterialRequest,
   UpdateProgramMetaRequest,
   VerifyPreExamTokenRequest
 } from './mvp.dto.js';
@@ -114,6 +115,33 @@ describe('MVP critical DTO (class-validator)', () => {
       materialType: 'video',
       minViewSeconds: 120,
       isRequired: true
+    });
+    expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+  });
+
+  it('принимает CreateMaterialRequest с materialType=scorm и scormPackageId', () => {
+    const inst = plainToInstance(CreateMaterialRequest, {
+      moduleId: 'm_3',
+      title: 'SCORM material',
+      materialType: 'scorm',
+      scormPackageId: 'pkg_001'
+    });
+    expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+  });
+
+  it('принимает CreateMaterialRequest без scormPackageId (поле опционально на уровне DTO)', () => {
+    const inst = plainToInstance(CreateMaterialRequest, {
+      moduleId: 'm_4',
+      title: 'File material',
+      materialType: 'file',
+      fileId: 'f_1'
+    });
+    expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+  });
+
+  it('принимает UpdateMaterialRequest с scormPackageId', () => {
+    const inst = plainToInstance(UpdateMaterialRequest, {
+      scormPackageId: 'pkg_002'
     });
     expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
   });

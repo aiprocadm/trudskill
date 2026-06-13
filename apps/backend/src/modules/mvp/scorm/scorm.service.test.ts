@@ -787,3 +787,101 @@ describe('ScormService.commitScormAttempt — wrong actor → ForbiddenException
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// Task 12: MvpService.createMaterial — scorm material type
+// ---------------------------------------------------------------------------
+
+function makeCreateMaterialSeed() {
+  const { state, mvp, scorm } = makeServices();
+  const course = mvp.createCourse(T, ADMIN, { code: 'CM1', title: 'Course' }, ctx);
+  const version = mvp.createCourseVersion(T, course.id);
+  const moduleEntity = mvp.createModule(
+    T,
+    ADMIN,
+    { courseVersionId: version.id, title: 'Mod1', minViewSeconds: 0, isRequired: true },
+    ctx
+  );
+  return { state, mvp, scorm, moduleId: moduleEntity.id };
+}
+
+describe('MvpService.createMaterial — scorm: missing scormPackageId', () => {
+  it('throws BadRequestException validation_error when scormPackageId absent', () => {
+    const { mvp, moduleId } = makeCreateMaterialSeed();
+    expect(() =>
+      mvp.createMaterial(
+        T,
+        ADMIN,
+        { moduleId, title: 'S', materialType: 'scorm' } as Parameters<typeof mvp.createMaterial>[2],
+        ctx
+      )
+    ).toThrow(
+      expect.objectContaining({ response: expect.objectContaining({ code: 'validation_error' }) })
+    );
+  });
+});
+
+describe('MvpService.createMaterial — scorm: package not ready', () => {
+  it('throws PreconditionFailedException scorm_package_not_ready when package status is uploaded', () => {
+    const { mvp, scorm, moduleId } = makeCreateMaterialSeed();
+    const pkg = scorm.registerPackage(T, ADMIN, { zipFileId: 'f_nr', title: 'P' }, ctx);
+    // packageStatus is 'uploaded' by default — not ready
+
+    expect(() =>
+      mvp.createMaterial(
+        T,
+        ADMIN,
+        { moduleId, title: 'S', materialType: 'scorm', scormPackageId: pkg.id } as Parameters<
+          typeof mvp.createMaterial
+        >[2],
+        ctx
+      )
+    ).toThrow(
+      expect.objectContaining({
+        response: expect.objectContaining({ code: 'scorm_package_not_ready' })
+      })
+    );
+  });
+});
+
+describe('MvpService.createMaterial — scorm: happy path', () => {
+  it('creates entity with materialType=scorm, scormPackageId set, minViewSeconds=0 (even if positive passed)', () => {
+    const { mvp, scorm, moduleId } = makeCreateMaterialSeed();
+    const pkg = scorm.registerPackage(T, ADMIN, { zipFileId: 'f_rdy', title: 'P' }, ctx);
+    pkg.packageStatus = 'ready';
+    pkg.launchHref = 'index.html';
+
+    const mat = mvp.createMaterial(
+      T,
+      ADMIN,
+      {
+        moduleId,
+        title: 'SCORM mat',
+        materialType: 'scorm',
+        scormPackageId: pkg.id,
+        minViewSeconds: 999 // should be forced to 0
+      } as Parameters<typeof mvp.createMaterial>[2],
+      ctx
+    );
+
+    expect(mat.materialType).toBe('scorm');
+    expect(mat.scormPackageId).toBe(pkg.id);
+    expect(mat.minViewSeconds).toBe(0);
+  });
+});
+
+describe('MvpService.createMaterial — non-scorm unaffected by scorm validation', () => {
+  it('creates a text material successfully without scormPackageId', () => {
+    const { mvp, moduleId } = makeCreateMaterialSeed();
+    const mat = mvp.createMaterial(
+      T,
+      ADMIN,
+      { moduleId, title: 'Text mat', materialType: 'text' } as Parameters<
+        typeof mvp.createMaterial
+      >[2],
+      ctx
+    );
+    expect(mat.materialType).toBe('text');
+    expect(mat.scormPackageId).toBeUndefined();
+  });
+});

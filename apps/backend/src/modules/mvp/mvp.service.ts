@@ -1092,6 +1092,30 @@ export class MvpService {
       });
     }
     this.getById(this.state.modules, tenantId, request.moduleId);
+
+    // SCORM-specific validation: package must exist and be ready.
+    if (request.materialType === 'scorm') {
+      if (!request.scormPackageId) {
+        throw new BadRequestException({
+          code: 'validation_error',
+          message: 'scormPackageId is required for scorm materials'
+        });
+      }
+      const pkg = this.state.scormPackages.find(
+        (p) => p.tenantId === tenantId && p.id === request.scormPackageId && p.status !== 'deleted'
+      );
+      if (!pkg || pkg.packageStatus !== 'ready') {
+        throw new PreconditionFailedException({
+          code: 'scorm_package_not_ready',
+          message: 'SCORM package must be processed before use'
+        });
+      }
+    }
+
+    // SCORM completion is cmi lesson_status-driven, not time-driven; force minViewSeconds=0.
+    const resolvedMinViewSeconds =
+      request.materialType === 'scorm' ? 0 : (request.minViewSeconds ?? 0);
+
     const entity: Material = {
       id: this.id('material'),
       tenantId,
@@ -1099,13 +1123,16 @@ export class MvpService {
       title: request.title,
       materialType: request.materialType,
       sortOrder: this.state.materials.length,
-      minViewSeconds: request.minViewSeconds ?? 0,
+      minViewSeconds: resolvedMinViewSeconds,
       isRequired: request.isRequired ?? true,
-      fileId: request.fileId,
+      fileId: request.materialType !== 'scorm' ? request.fileId : undefined,
       status: 'active',
       createdAt: this.now(),
       updatedAt: this.now()
     };
+    if (request.materialType === 'scorm' && request.scormPackageId) {
+      entity.scormPackageId = request.scormPackageId;
+    }
     this.state.materials.push(entity);
     this.audit(
       tenantId,
@@ -1145,6 +1172,19 @@ export class MvpService {
     if (typeof request.fileId === 'string' || request.fileId === null)
       current.fileId = request.fileId ?? undefined;
     if (typeof request.status === 'string') current.status = request.status;
+    // For scorm-typed materials, allow updating the referenced package (must be ready).
+    if (current.materialType === 'scorm' && request.scormPackageId !== undefined) {
+      const pkg = this.state.scormPackages.find(
+        (p) => p.tenantId === tenantId && p.id === request.scormPackageId && p.status !== 'deleted'
+      );
+      if (!pkg || pkg.packageStatus !== 'ready') {
+        throw new PreconditionFailedException({
+          code: 'scorm_package_not_ready',
+          message: 'SCORM package must be processed before use'
+        });
+      }
+      current.scormPackageId = request.scormPackageId;
+    }
     current.updatedAt = this.now();
     this.audit(
       tenantId,
