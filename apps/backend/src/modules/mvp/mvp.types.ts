@@ -975,3 +975,18 @@ export interface ScormAttempt extends BaseEntity {
   lastCommitAt?: string;
   completedAt?: string;
 }
+
+// ─── Phase 10 Track C: Web Push subscriptions ───
+
+/** Браузерная push-подписка одного устройства пользователя (PushSubscription.toJSON()). */
+export interface PushSubscription extends BaseEntity {
+  userId: string;
+  /** Уникальный endpoint push-сервиса браузера — ключ дедупликации per (tenant, endpoint). */
+  endpoint: string;
+  /** p256dh-ключ из subscription.keys. */
+  p256dh: string;
+  /** auth-ключ из subscription.keys. */
+  auth: string;
+  /** UA для диагностики/отзыва устройства (опционально). */
+  userAgent?: string;
+}

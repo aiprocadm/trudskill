@@ -35,6 +35,7 @@ import type {
   OtRegistryRecord,
   PreExamToken,
   ProctoringRecording,
+  PushSubscription,
   Question,
   QuestionBank,
   ScormAttempt,
@@ -96,4 +97,6 @@ export class InMemoryMvpState {
   // Phase 9 Plan A — SCORM: пакеты + cmi-прогресс учеников.
   scormPackages: ScormPackage[] = [];
   scormAttempts: ScormAttempt[] = [];
+  // Phase 10 Track C — web-push подписки браузеров пользователей.
+  pushSubscriptions: PushSubscription[] = [];
 }
