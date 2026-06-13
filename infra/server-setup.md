@@ -113,14 +113,17 @@ nano infra/.env.production
 openssl rand -hex 32
 ```
 
-| Variable                     | Notes                                        |
-| ---------------------------- | -------------------------------------------- |
-| `AUTH_JWT_SECRET`            | Independent secret                           |
-| `SESSION_SECRET`             | Independent secret                           |
-| `REALTIME_PUBLISH_KEY`       | Independent secret                           |
-| `INTEGRATION_WEBHOOK_SECRET` | Independent secret                           |
-| `SUPERTOKENS_API_KEY`        | Generate once                                |
-| `API_KEYS`                   | **Must equal `SUPERTOKENS_API_KEY` exactly** |
+| Variable                     | Notes                                                                                            |
+| ---------------------------- | ------------------------------------------------------------------------------------------------ |
+| `AUTH_JWT_SECRET`            | Independent secret                                                                               |
+| `SESSION_SECRET`             | Independent secret                                                                               |
+| `REALTIME_PUBLISH_KEY`       | Independent secret                                                                               |
+| `INTEGRATION_WEBHOOK_SECRET` | Independent secret                                                                               |
+| `SUPERTOKENS_API_KEY`        | Generate once                                                                                    |
+| `API_KEYS`                   | **Must equal `SUPERTOKENS_API_KEY` exactly**                                                     |
+| `SCORM_CONTENT_TOKEN_SECRET` | Independent secret — signs SCORM iframe content URLs (a prod boot guard rejects the dev default) |
+
+> **SCORM (Phase 9 Plan A):** the SCORM player serves package content from a same-origin path (`/api/v1/scorm-content/…`). This is already covered by the existing Caddy route `@api path /api/v1/*` (`infra/Caddyfile`) — **no extra Caddy config needed**. Tune `SCORM_PACKAGE_MAX_BYTES` (default 300 MB) only if courses exceed it; `SCORM_CONTENT_TOKEN_TTL_SECONDS` (default 4 h) is the player-session token lifetime.
 
 ### Passwords — pairs that must match:
 

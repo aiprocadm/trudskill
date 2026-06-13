@@ -1,6 +1,6 @@
 # Phase 9 Plan A: SCORM 1.2 Import + Player Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Админ загружает SCORM 1.2 zip-пакет, привязывает его к материалу курса; ученик проходит SCORM-курс во встроенном плеере, прогресс (lesson_status/score/suspend_data) сохраняется и завершает materialProgress.
 
@@ -32,7 +32,7 @@
 - Modify: `apps/backend/src/env.schema.ts`
 - Modify: `infra/.env.production.example`
 
-- [ ] **Step 1: Установить зависимости**
+- [x] **Step 1: Установить зависимости**
 
 ```bash
 pnpm --filter @cdoprof/backend add adm-zip fast-xml-parser
@@ -40,7 +40,7 @@ pnpm --filter @cdoprof/backend add -D @types/adm-zip
 pnpm --filter @cdoprof/frontend add scorm-again
 ```
 
-- [ ] **Step 2: Добавить env-переменные**
+- [x] **Step 2: Добавить env-переменные**
 
 В `apps/backend/src/env.schema.ts` рядом с блоком `PROCTORING_VIDEO_RETENTION_*` (≈строка 65–75) добавить:
 
@@ -53,7 +53,7 @@ pnpm --filter @cdoprof/frontend add scorm-again
     SCORM_CONTENT_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(14_400),
 ```
 
-- [ ] **Step 3: Добавить в `infra/.env.production.example`** (рядом с PROCTORING-блоком, тем же стилем комментариев):
+- [x] **Step 3: Добавить в `infra/.env.production.example`** (рядом с PROCTORING-блоком, тем же стилем комментариев):
 
 ```bash
 # Phase 9 Plan A — SCORM: лимит zip-пакета (байт) и секрет токена раздачи контента.
@@ -62,12 +62,12 @@ SCORM_CONTENT_TOKEN_SECRET=replace-with-strong-random-64-chars
 SCORM_CONTENT_TOKEN_TTL_SECONDS=14400
 ```
 
-- [ ] **Step 4: Проверка**
+- [x] **Step 4: Проверка**
 
 Run: `pnpm --filter @cdoprof/backend exec tsc --noEmit -p tsconfig.json` (или `pnpm typecheck`)
 Expected: PASS (env-схема валидна, типы подтянулись).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/package.json apps/frontend/package.json pnpm-lock.yaml apps/backend/src/env.schema.ts infra/.env.production.example
@@ -83,7 +83,7 @@ git commit -m "chore(deps): unzipper + fast-xml-parser (backend), scorm-again (f
 - Create: `apps/backend/migrations/0052_learning_scorm.sql`
 - Modify: `apps/backend/src/infrastructure/database/mvp-domain-migrations.test.ts` (добавить блок проверок по образцу Phase 4 для 0051)
 
-- [ ] **Step 1: Написать миграцию**
+- [x] **Step 1: Написать миграцию**
 
 ```sql
 -- 0052_learning_scorm.sql
@@ -166,14 +166,14 @@ COMMENT ON TABLE learning.scorm_attempts IS
 COMMIT;
 ```
 
-- [ ] **Step 2: Написать проверки миграции** — открыть `apps/backend/src/infrastructure/database/mvp-domain-migrations.test.ts`, найти блок Phase 4 (`0051`) и добавить аналогичный `describe('0052_learning_scorm', ...)`, проверяющий (по той же технике чтения файла миграции, что 0051-блок): наличие `'scorm'` в новом `materials_type_chk`, колонок `scorm_package_id`, таблиц `learning.scorm_packages` / `learning.scorm_attempts`, CHECK-ов статусов, уникального индекса `idx_scorm_attempts_tenant_enrollment_material`, отсутствия INSERT в `iam.permissions` (прав не добавляем).
+- [x] **Step 2: Написать проверки миграции** — открыть `apps/backend/src/infrastructure/database/mvp-domain-migrations.test.ts`, найти блок Phase 4 (`0051`) и добавить аналогичный `describe('0052_learning_scorm', ...)`, проверяющий (по той же технике чтения файла миграции, что 0051-блок): наличие `'scorm'` в новом `materials_type_chk`, колонок `scorm_package_id`, таблиц `learning.scorm_packages` / `learning.scorm_attempts`, CHECK-ов статусов, уникального индекса `idx_scorm_attempts_tenant_enrollment_material`, отсутствия INSERT в `iam.permissions` (прав не добавляем).
 
-- [ ] **Step 3: Прогнать тест**
+- [x] **Step 3: Прогнать тест**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/infrastructure/database/mvp-domain-migrations.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/backend/migrations/0052_learning_scorm.sql apps/backend/src/infrastructure/database/mvp-domain-migrations.test.ts
@@ -190,7 +190,7 @@ git commit -m "feat(backend): migration 0052 - scorm packages/attempts tables + 
 - Modify: `apps/backend/src/modules/mvp/infrastructure/in-memory-mvp.state.ts`
 - Modify: `apps/backend/src/modules/mvp/infrastructure/mvp-collections.ts`
 
-- [ ] **Step 1: Типы.** В `mvp.types.ts`:
+- [x] **Step 1: Типы.** В `mvp.types.ts`:
 
 В `Material` (≈строка 73) заменить union и добавить поле:
 
@@ -257,7 +257,7 @@ export interface ScormAttempt extends BaseEntity {
 }
 ```
 
-- [ ] **Step 2: State.** В `in-memory-mvp.state.ts` добавить импорт типов `ScormAttempt, ScormPackage` и поля в конец класса:
+- [x] **Step 2: State.** В `in-memory-mvp.state.ts` добавить импорт типов `ScormAttempt, ScormPackage` и поля в конец класса:
 
 ```ts
   // Phase 9 Plan A — SCORM: пакеты + cmi-прогресс учеников.
@@ -265,11 +265,11 @@ export interface ScormAttempt extends BaseEntity {
   scormAttempts: ScormAttempt[] = [];
 ```
 
-- [ ] **Step 3: Коллекции.** В `mvp-collections.ts` добавить `'scormPackages', 'scormAttempts'` в конец массива `MVP_COLLECTIONS` (без этого коллекции не переживут HTTP-запрос).
+- [x] **Step 3: Коллекции.** В `mvp-collections.ts` добавить `'scormPackages', 'scormAttempts'` в конец массива `MVP_COLLECTIONS` (без этого коллекции не переживут HTTP-запрос).
 
-- [ ] **Step 4: Проверка** — `pnpm typecheck` → PASS.
+- [x] **Step 4: Проверка** — `pnpm typecheck` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.types.ts apps/backend/src/modules/mvp/infrastructure/in-memory-mvp.state.ts apps/backend/src/modules/mvp/infrastructure/mvp-collections.ts
@@ -285,7 +285,7 @@ git commit -m "feat(backend): scorm types + MVP state collections (scormPackages
 - Modify: `apps/backend/src/modules/files/files.service.ts:41-55,135-152`
 - Test: `apps/backend/src/modules/files/files.service.test.ts` (существует — дописать; если файла нет, найти текущие тесты FilesService через `Glob apps/backend/src/modules/files/*.test.ts` и дописать туда)
 
-- [ ] **Step 1: Failing test** — в тестах FilesService (по образцу существующих тестов createUploadIntent, тем же harness'ом):
+- [x] **Step 1: Failing test** — в тестах FilesService (по образцу существующих тестов createUploadIntent, тем же harness'ом):
 
 ```ts
 it('createUploadIntent honors options.maxBytes override (scorm zip > default 10MB)', async () => {
@@ -313,9 +313,9 @@ it('createUploadIntent rejects sizeBytes above options.maxBytes', async () => {
 });
 ```
 
-- [ ] **Step 2: Run** → FAIL (`maxBytes` не существует в `UploadIntentOptions`).
+- [x] **Step 2: Run** → FAIL (`maxBytes` не существует в `UploadIntentOptions`).
 
-- [ ] **Step 3: Реализация.** В `UploadIntentOptions` добавить:
+- [x] **Step 3: Реализация.** В `UploadIntentOptions` добавить:
 
 ```ts
   /** Per-purpose size ceiling override, bytes; defaults to SUBMISSION_MAX_BYTES (10 MB). */
@@ -329,9 +329,9 @@ it('createUploadIntent rejects sizeBytes above options.maxBytes', async () => {
     if (input.sizeBytes <= 0 || input.sizeBytes > maxBytes) {
 ```
 
-- [ ] **Step 4: Run tests** → PASS.
+- [x] **Step 4: Run tests** → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/files/
@@ -347,7 +347,7 @@ git commit -m "feat(backend): per-purpose maxBytes override in FilesService uplo
 - Create: `apps/backend/src/modules/mvp/scorm/parse-scorm-manifest.ts`
 - Test: `apps/backend/src/modules/mvp/scorm/parse-scorm-manifest.test.ts`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -421,11 +421,11 @@ describe('parseScormManifest', () => {
 });
 ```
 
-- [ ] **Step 2: Run** → FAIL (модуль не существует).
+- [x] **Step 2: Run** → FAIL (модуль не существует).
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/scorm/parse-scorm-manifest.test.ts --no-file-parallelism`
 
-- [ ] **Step 3: Реализация**
+- [x] **Step 3: Реализация**
 
 ```ts
 import { XMLParser } from 'fast-xml-parser';
@@ -527,9 +527,9 @@ export function parseScormManifest(xml: string): ScormManifest {
 
 Примечание: `removeNSPrefix: true` срезает и `xml:` у `xml:base` → атрибут виден как `@_base`.
 
-- [ ] **Step 4: Run tests** → PASS (все 6).
+- [x] **Step 4: Run tests** → PASS (все 6).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/scorm/parse-scorm-manifest.ts apps/backend/src/modules/mvp/scorm/parse-scorm-manifest.test.ts
@@ -545,7 +545,7 @@ git commit -m "feat(backend): SCORM 1.2 imsmanifest parser (pure function)"
 - Create: `apps/backend/src/modules/mvp/scorm/scorm-zip-guards.ts`
 - Test: `apps/backend/src/modules/mvp/scorm/scorm-zip-guards.test.ts`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -608,9 +608,9 @@ describe('contentTypeForPath', () => {
 });
 ```
 
-- [ ] **Step 2: Run** → FAIL.
+- [x] **Step 2: Run** → FAIL.
 
-- [ ] **Step 3: Реализация**
+- [x] **Step 3: Реализация**
 
 ```ts
 /** Лимиты распаковки SCORM-zip (D3 спеки): zip-bomb / DoS guard. */
@@ -716,9 +716,9 @@ export function contentTypeForPath(entryPath: string): string {
 }
 ```
 
-- [ ] **Step 4: Run tests** → PASS.
+- [x] **Step 4: Run tests** → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/scorm/scorm-zip-guards.*
@@ -734,7 +734,7 @@ git commit -m "feat(backend): scorm zip guards (traversal, zip-bomb limits) + mi
 - Create: `apps/backend/src/modules/mvp/scorm/scorm-content-token.ts`
 - Test: `apps/backend/src/modules/mvp/scorm/scorm-content-token.test.ts`
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -793,9 +793,9 @@ describe('scorm content token', () => {
 });
 ```
 
-- [ ] **Step 2: Run** → FAIL.
+- [x] **Step 2: Run** → FAIL.
 
-- [ ] **Step 3: Реализация**
+- [x] **Step 3: Реализация**
 
 ```ts
 import { createHmac, timingSafeEqual } from 'node:crypto';
@@ -859,9 +859,9 @@ export function verifyScormContentToken(
 }
 ```
 
-- [ ] **Step 4: Run tests** → PASS.
+- [x] **Step 4: Run tests** → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/scorm/scorm-content-token.*
@@ -879,7 +879,7 @@ git commit -m "feat(backend): HMAC path-token for scorm content serving (sign/ve
 - Modify: `apps/backend/src/modules/mvp/mvp.service.ts` (модификатор `assertActorMatchesLearnerIamLink`)
 - Test: тесты FilesService (тот же файл, что в Task 4)
 
-- [ ] **Step 1: Failing test для `getReadableFile`** — server-side чтение файла с тем же AV-гейтом, что у download:
+- [x] **Step 1: Failing test для `getReadableFile`** — server-side чтение файла с тем же AV-гейтом, что у download:
 
 ```ts
 it('getReadableFile возвращает storageKey чистого файла', async () => {
@@ -895,9 +895,9 @@ it('getReadableFile блокирует infected файл кодом file_infecte
 });
 ```
 
-- [ ] **Step 2: Run** → FAIL (метода нет).
+- [x] **Step 2: Run** → FAIL (метода нет).
 
-- [ ] **Step 3: Реализация `getReadableFile`.** В `files.service.ts` найти `createDownloadUrl` и выделить из него приватный хелпер `ensureCleanFile(tenantId, fileId)` (lookup строки `storage.files` + проверка `antivirus_status` с lazy-сканом `pending` и выбросом 423 `file_infected` / 409 `file_scan_failed` — ровно тот код, что сейчас инлайном в `createDownloadUrl`). Затем:
+- [x] **Step 3: Реализация `getReadableFile`.** В `files.service.ts` найти `createDownloadUrl` и выделить из него приватный хелпер `ensureCleanFile(tenantId, fileId)` (lookup строки `storage.files` + проверка `antivirus_status` с lazy-сканом `pending` и выбросом 423 `file_infected` / 409 `file_scan_failed` — ровно тот код, что сейчас инлайном в `createDownloadUrl`). Затем:
 
 ```ts
   /** Phase 9 Plan A: server-side чтение (распаковка SCORM-zip) — тот же AV-гейт, что у download. */
@@ -912,7 +912,7 @@ it('getReadableFile блокирует infected файл кодом file_infecte
 
 `createDownloadUrl` переключить на `ensureCleanFile` (поведение не меняется — существующие тесты download-гейта должны остаться зелёными).
 
-- [ ] **Step 4: `listObjectKeys` в S3StorageClient** (нужен для удаления распакованного префикса и cleanup при failed-распаковке):
+- [x] **Step 4: `listObjectKeys` в S3StorageClient** (нужен для удаления распакованного префикса и cleanup при failed-распаковке):
 
 ```ts
 import {
@@ -947,11 +947,11 @@ import {
 
 Если у `S3StorageClient` есть интерфейс `StorageClient` (`storage.client.ts`) — добавить метод и туда (и в memory/fake реализацию, если существует, — проверить `Glob apps/backend/src/infrastructure/storage/*`).
 
-- [ ] **Step 5: Сделать `assertActorMatchesLearnerIamLink` публичным.** В `mvp.service.ts` найти объявление `assertActorMatchesLearnerIamLink` (используется в `upsertMaterialProgress`, прокторинге). Если `private` — сменить на `public` (вызовы извне появятся в ScormService). Поведение не меняется.
+- [x] **Step 5: Сделать `assertActorMatchesLearnerIamLink` публичным.** В `mvp.service.ts` найти объявление `assertActorMatchesLearnerIamLink` (используется в `upsertMaterialProgress`, прокторинге). Если `private` — сменить на `public` (вызовы извне появятся в ScormService). Поведение не меняется.
 
-- [ ] **Step 6: Run tests** (FilesService + быстрый smoke существующих files-тестов) → PASS.
+- [x] **Step 6: Run tests** (FilesService + быстрый smoke существующих files-тестов) → PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/backend/src/infrastructure/storage/ apps/backend/src/modules/files/ apps/backend/src/modules/mvp/mvp.service.ts
@@ -971,7 +971,7 @@ git commit -m "feat(backend): getReadableFile AV-gate, S3 listObjectKeys, public
 
 **Контекст для исполнителя:** harness тестов — по образцу `apps/backend/src/modules/mvp/proctoring.service.test.ts` (`makeService()` создаёт `InMemoryMvpState`, реальный `MvpService` из 6 позиционных аргументов с vi.fn-моками, сид-хелперы для course/group/enrollment/learner с `linkedIamUserId`). Сервисный паттерн — `apps/backend/src/modules/mvp/eisot-testing-registry/eisot-testing-registry.service.ts` (`@Injectable({ scope: Scope.REQUEST })`, инжекты `MVP_STATE`, `MvpService`, `FilesService`, `S3StorageClient`, `AuditService`); вызов аудита скопировать оттуда же (те же аргументы/форма).
 
-- [ ] **Step 1: DTO** (`scorm.dto.ts`):
+- [x] **Step 1: DTO** (`scorm.dto.ts`):
 
 ```ts
 import { Type } from 'class-transformer';
@@ -1058,7 +1058,7 @@ export class CommitScormAttemptRequest {
 
 DTO-тесты добавить в `mvp.dto-validation.test.ts` (по образцу соседних): валидный `CommitScormAttemptRequest` проходит; `lessonStatus: 'weird'` — ошибка; `sessionSeconds: -1` — ошибка; `RegisterScormPackageRequest` без `zipFileId` — ошибка.
 
-- [ ] **Step 2: Failing service-тесты (жизненный цикл пакета).** `scorm.service.test.ts` — harness:
+- [x] **Step 2: Failing service-тесты (жизненный цикл пакета).** `scorm.service.test.ts` — harness:
 
 ```ts
 import AdmZip from 'adm-zip';
@@ -1103,9 +1103,9 @@ it('deletePackage: блокируется 409 scorm_package_in_use, пока mat
 it('deletePackage: без ссылок — listObjectKeys+deleteObject по префиксу, status пакета=deleted/soft-delete', ...);
 ```
 
-- [ ] **Step 3: Run** → FAIL.
+- [x] **Step 3: Run** → FAIL.
 
-- [ ] **Step 4: Реализация `scorm.service.ts`** (жизненный цикл пакета; launch/commit добавит Task 10):
+- [x] **Step 4: Реализация `scorm.service.ts`** (жизненный цикл пакета; launch/commit добавит Task 10):
 
 ```ts
 import { randomUUID } from 'node:crypto';
@@ -1327,9 +1327,9 @@ export class ScormService {
 - Аудит: заменить комментарии на реальный вызов AuditService, скопировав форму из eisot-сервиса.
 - `ScormManifestError` union в Task 5 расширить кодом `'scorm_manifest_missing'`.
 
-- [ ] **Step 5: Run tests** → PASS (vitest по `src/modules/mvp/scorm/scorm.service.test.ts` + `mvp.dto-validation.test.ts`).
+- [x] **Step 5: Run tests** → PASS (vitest по `src/modules/mvp/scorm/scorm.service.test.ts` + `mvp.dto-validation.test.ts`).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/scorm/ apps/backend/src/modules/mvp/mvp.dto-validation.test.ts
@@ -1345,7 +1345,7 @@ git commit -m "feat(backend): ScormService package lifecycle (register/upload-in
 - Modify: `apps/backend/src/modules/mvp/scorm/scorm.service.ts`
 - Test: `apps/backend/src/modules/mvp/scorm/scorm.service.test.ts`
 
-- [ ] **Step 1: Failing tests** (сид: курс+версия+модуль+material типа scorm со scormPackageId ready-пакета, группа+groupCourse+enrollment+learner с `linkedIamUserId: 'u_l1'` — скопировать сид-хелперы proctoring.service.test.ts):
+- [x] **Step 1: Failing tests** (сид: курс+версия+модуль+material типа scorm со scormPackageId ready-пакета, группа+groupCourse+enrollment+learner с `linkedIamUserId: 'u_l1'` — скопировать сид-хелперы proctoring.service.test.ts):
 
 ```ts
 it('launch создаёт attempt (not attempted), возвращает token и launchUrl с launchHref пакета', ...);
@@ -1362,9 +1362,9 @@ it('commit чужого attempt → ForbiddenException', ...);
 
 Для проверки завершения прогресса: после commit-passed найти в `state.materialProgress` запись по `(enrollmentId, materialId)` и проверить `status === 'completed'` (реальный `MvpService.upsertMaterialProgress` сделает это, когда `studiedSeconds >= material.minViewSeconds`).
 
-- [ ] **Step 2: Run** → FAIL.
+- [x] **Step 2: Run** → FAIL.
 
-- [ ] **Step 3: Реализация** — добавить в `scorm.service.ts`:
+- [x] **Step 3: Реализация** — добавить в `scorm.service.ts`:
 
 ```ts
   /** Доступ ученика к scorm-материалу: материал→модуль→версия→курс, enrollment→groupCourse линк, владелец. */
@@ -1452,9 +1452,9 @@ it('commit чужого attempt → ForbiddenException', ...);
 
 (Импорты `PreconditionFailedException`, `ForbiddenException` — из `@nestjs/common`; типы методов — полные сигнатуры как в Task 9. `as never` у DTO-литерала заменить на `plainToInstance(UpdateMaterialProgressRequest, {...})`, если typecheck потребует точный класс.)
 
-- [ ] **Step 4: Run tests** → PASS (все тесты Task 9 + Task 10).
+- [x] **Step 4: Run tests** → PASS (все тесты Task 9 + Task 10).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/scorm/
@@ -1473,7 +1473,7 @@ git commit -m "feat(backend): scorm launch (token+attempt) and cmi commit with m
 - Modify: `apps/backend/src/modules/mvp/mvp.module.ts` (providers + controllers; по образцу подключения eisot-testing-registry)
 - Modify: `apps/backend/src/modules/mvp/mvp.http.integration.test.ts` (permission-стабы)
 
-- [ ] **Step 1: ScormController** (авторизованные маршруты; по образцу `eisot-testing-registry.controller.ts`):
+- [x] **Step 1: ScormController** (авторизованные маршруты; по образцу `eisot-testing-registry.controller.ts`):
 
 ```ts
 import {
@@ -1577,7 +1577,7 @@ export class ScormController {
 }
 ```
 
-- [ ] **Step 2: ScormContentController** — unguarded стриминг (НЕТ TenantGuard/interceptor'а; state не читается — префикс детерминирован из токена):
+- [x] **Step 2: ScormContentController** — unguarded стриминг (НЕТ TenantGuard/interceptor'а; state не читается — префикс детерминирован из токена):
 
 ```ts
 import { Controller, Get, Inject, NotFoundException, Param, Req, Res } from '@nestjs/common';
@@ -1628,9 +1628,9 @@ export class ScormContentController {
 }
 ```
 
-- [ ] **Step 3: Wiring.** В `mvp.module.ts` добавить `ScormService` в providers и `ScormController`, `ScormContentController` в controllers (рядом с eisot/frdo-контроллерами).
+- [x] **Step 3: Wiring.** В `mvp.module.ts` добавить `ScormService` в providers и `ScormController`, `ScormContentController` в controllers (рядом с eisot/frdo-контроллерами).
 
-- [ ] **Step 4: HTTP-тесты.**
+- [x] **Step 4: HTTP-тесты.**
 
 a) `scorm-content.http.integration.test.ts` — поднять минимальный Nest-app (по образцу harness'а `mvp.http.integration.test.ts`: `Test.createTestingModule` с РЕАЛЬНЫМ `ScormContentController` и мокнутым `S3StorageClient` провайдером `{ getObjectStream: vi.fn().mockResolvedValue(Readable.from(Buffer.from('<html>ok</html>'))) }`), `setGlobalPrefix(process.env.API_PREFIX ?? '/api/v1')`. Тесты:
 
@@ -1645,7 +1645,7 @@ it('запрос вообще без auth-заголовков проходит 
 
 b) В `mvp.http.integration.test.ts` добавить в стаб-контроллер (по образцу proctoring-блока) маршруты и assertions границы прав: `GET /scorm-packages` → `materials.read`; `POST /scorm-packages`, `POST /scorm-packages/:id/process`, `DELETE /scorm-packages/:id` → `materials.write`; `POST /scorm-materials/:id/launch` → `materials.read`; `PUT /scorm-attempts/:id/commit` → `progress.recalculate`; для каждого: 401 без токена / 403 без права / 200 с правом.
 
-- [ ] **Step 5: Run**
+- [x] **Step 5: Run**
 
 ```bash
 pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/scorm/scorm-content.http.integration.test.ts --no-file-parallelism
@@ -1654,7 +1654,7 @@ pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.http.integrat
 
 Expected: PASS. Если wildcard-роут не матчится — переключить синтаксис на `':token/*path'` + `@Param('path')` (см. комментарий в коде) и перепрогнать.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/scorm/ apps/backend/src/modules/mvp/mvp.module.ts apps/backend/src/modules/mvp/mvp.http.integration.test.ts
@@ -1671,11 +1671,11 @@ git commit -m "feat(backend): scorm controllers (packages/launch/commit + unguar
 - Modify: `apps/backend/src/modules/mvp/mvp.service.ts` (создание/обновление материала)
 - Test: `apps/backend/src/modules/mvp/mvp.dto-validation.test.ts`, `apps/backend/src/modules/mvp/scorm/scorm.service.test.ts` (или существующий materials-блок сервис-тестов — найти, где тестируется createMaterial)
 
-- [ ] **Step 1: Failing tests:** DTO принимает `materialType: 'scorm'` + `scormPackageId`; сервис отклоняет scorm-материал без `scormPackageId` (`BadRequestException validation_error`) и с пакетом не в `ready` (`PreconditionFailedException scorm_package_not_ready`); принимает с ready-пакетом (поле сохраняется).
+- [x] **Step 1: Failing tests:** DTO принимает `materialType: 'scorm'` + `scormPackageId`; сервис отклоняет scorm-материал без `scormPackageId` (`BadRequestException validation_error`) и с пакетом не в `ready` (`PreconditionFailedException scorm_package_not_ready`); принимает с ready-пакетом (поле сохраняется).
 
-- [ ] **Step 2: Run** → FAIL.
+- [x] **Step 2: Run** → FAIL.
 
-- [ ] **Step 3: Реализация.** В `CreateMaterialRequest`/`UpdateMaterialRequest` (mvp.dto.ts): найти `@IsIn(['file', 'external_url', 'text', 'video'])` у `materialType`, добавить `'scorm'`; добавить поле:
+- [x] **Step 3: Реализация.** В `CreateMaterialRequest`/`UpdateMaterialRequest` (mvp.dto.ts): найти `@IsIn(['file', 'external_url', 'text', 'video'])` у `materialType`, добавить `'scorm'`; добавить поле:
 
 ```ts
   /** Phase 9 Plan A: обязателен при materialType='scorm' (валидируется в сервисе — пакет должен быть ready). */
@@ -1708,9 +1708,9 @@ if (request.materialType === 'scorm') {
 
 и прокидывание `scormPackageId` в создаваемую/обновляемую сущность (по образцу `fileId` — conditional spread).
 
-- [ ] **Step 4: Run tests** → PASS.
+- [x] **Step 4: Run tests** → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/
@@ -1731,7 +1731,7 @@ git commit -m "feat(backend): scorm material type in material DTOs + ready-packa
 - Modify: `apps/frontend/src/features/mvp/types.ts` (Material: + `'scorm'` в union, + `scormPackageId?`)
 - Modify: `apps/frontend/next.config.ts` (dev-rewrite)
 
-- [ ] **Step 1: types.ts**
+- [x] **Step 1: types.ts**
 
 ```ts
 export type ScormPackageStatus = 'uploaded' | 'processing' | 'ready' | 'failed';
@@ -1798,7 +1798,7 @@ export interface UploadIntent {
 }
 ```
 
-- [ ] **Step 2: api.ts** (паттерн — `features/proctoring/api.ts`, включая локальную копию presigned-PUT-хелпера — документированный прецедент дублирования): методы `scormApi.uploadUrl` (`POST /scorm-packages/upload-url`), `register` (`POST /scorm-packages`), `list` (`GET /scorm-packages`), `process` (`POST /scorm-packages/:id/process`, body `{}`), `remove` (`DELETE /scorm-packages/:id`), `launch` (`POST /scorm-materials/:materialId/launch`, body `{ enrollmentId }`), `commit` (`PUT /scorm-attempts/:id/commit`, body `CommitScormAttemptPayload`) — все через `apiRequest` + `withAuth(session)` ровно как в proctoring/api.ts; плюс хелпер:
+- [x] **Step 2: api.ts** (паттерн — `features/proctoring/api.ts`, включая локальную копию presigned-PUT-хелпера — документированный прецедент дублирования): методы `scormApi.uploadUrl` (`POST /scorm-packages/upload-url`), `register` (`POST /scorm-packages`), `list` (`GET /scorm-packages`), `process` (`POST /scorm-packages/:id/process`, body `{}`), `remove` (`DELETE /scorm-packages/:id`), `launch` (`POST /scorm-materials/:materialId/launch`, body `{ enrollmentId }`), `commit` (`PUT /scorm-attempts/:id/commit`, body `CommitScormAttemptPayload`) — все через `apiRequest` + `withAuth(session)` ровно как в proctoring/api.ts; плюс хелпер:
 
 ```ts
 /** Direct PUT zip-файла на presigned MinIO URL (мимо API envelope). Копия хелпера proctoring (прецедент). */
@@ -1812,7 +1812,7 @@ export async function putFileToPresignedUrl(uploadUrl: string, file: File): Prom
 }
 ```
 
-- [ ] **Step 3: cmi-mapping.ts — чистые функции (сначала failing-тесты `cmi-mapping.test.ts`):**
+- [x] **Step 3: cmi-mapping.ts — чистые функции (сначала failing-тесты `cmi-mapping.test.ts`):**
 
 Тесты:
 
@@ -1954,11 +1954,11 @@ export function buildInitialCmi(
 }
 ```
 
-- [ ] **Step 4: api.contract.test.ts** — по образцу `features/proctoring/api.contract.test.ts` (`vi.stubGlobal('fetch', ...)`, проверка envelope unwrap `{ data, meta }`, путей, методов, заголовка `x-tenant-id`): покрыть `list`, `register`, `process`, `launch`, `commit` (минимум — launch и commit: правильный URL/метод/body).
+- [x] **Step 4: api.contract.test.ts** — по образцу `features/proctoring/api.contract.test.ts` (`vi.stubGlobal('fetch', ...)`, проверка envelope unwrap `{ data, meta }`, путей, методов, заголовка `x-tenant-id`): покрыть `list`, `register`, `process`, `launch`, `commit` (минимум — launch и commit: правильный URL/метод/body).
 
-- [ ] **Step 5: Material type на фронте.** В `apps/frontend/src/features/mvp/types.ts` — `materialType: 'file' | 'external_url' | 'text' | 'video' | 'scorm'` + `scormPackageId?: string`.
+- [x] **Step 5: Material type на фронте.** В `apps/frontend/src/features/mvp/types.ts` — `materialType: 'file' | 'external_url' | 'text' | 'video' | 'scorm'` + `scormPackageId?: string`.
 
-- [ ] **Step 6: dev-rewrite.** В `apps/frontend/next.config.ts`:
+- [x] **Step 6: dev-rewrite.** В `apps/frontend/next.config.ts`:
 
 ```ts
 const nextConfig: NextConfig = {
@@ -1975,9 +1975,9 @@ const nextConfig: NextConfig = {
 };
 ```
 
-- [ ] **Step 7: Run** — vitest по `src/features/scorm/cmi-mapping.test.ts` и `src/features/scorm/api.contract.test.ts` (single-file команды из шапки плана). Expected: PASS.
+- [x] **Step 7: Run** — vitest по `src/features/scorm/cmi-mapping.test.ts` и `src/features/scorm/api.contract.test.ts` (single-file команды из шапки плана). Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add apps/frontend/src/features/scorm/ apps/frontend/src/features/mvp/types.ts apps/frontend/next.config.ts
@@ -1996,21 +1996,21 @@ git commit -m "feat(frontend): scorm feature - api client, cmi mapping (pure), d
 - Modify: `apps/frontend/src/features/mvp/screens.tsx` (форма материала, ≈строки 1235–1400)
 - Modify: `apps/frontend/src/features/mvp/api.ts` / `hooks.ts` (прокинуть `scormPackageId` в payload saveMaterial — найти текущий тип payload материала)
 
-- [ ] **Step 1: hooks.ts** — `useScormPackages(session)`: загрузка списка (`useState` + `useEffect` + reload-функция, как соседние фичи; НЕ React Query mutations). Мутации (upload+register, process, remove) — `wrap`-паттерн `useDomainMutations` (см. `features/mvp/hooks.ts:131`) или локальный `useState`-аналог как в `CommissionDetailsScreen.onSaveEditInfo`.
+- [x] **Step 1: hooks.ts** — `useScormPackages(session)`: загрузка списка (`useState` + `useEffect` + reload-функция, как соседние фичи; НЕ React Query mutations). Мутации (upload+register, process, remove) — `wrap`-паттерн `useDomainMutations` (см. `features/mvp/hooks.ts:131`) или локальный `useState`-аналог как в `CommissionDetailsScreen.onSaveEditInfo`.
 
-- [ ] **Step 2: ScormPackagesScreen** — `PageContainer` + `PageHeader` («SCORM-пакеты», подзаголовок про загрузку готовых курсов) + `SectionCard`:
+- [x] **Step 2: ScormPackagesScreen** — `PageContainer` + `PageHeader` («SCORM-пакеты», подзаголовок про загрузку готовых курсов) + `SectionCard`:
 
 - `<input type="file" accept=".zip,application/zip">` + кнопка «Загрузить»: `scormApi.uploadUrl` → `putFileToPresignedUrl` → `scormApi.register({ zipFileId, title: имяФайла })` → авто-вызов `scormApi.process(id)` → reload. Ошибки — `FieldError`/`SectionError`.
 - `DataTable` (`@cdoprof/ui`): колонки «Название», «Статус» (`StatusChip`: uploaded/processing → нейтральный, ready → success, failed → error + `error`-код в подписи), «Файлов» (entryCount), «Размер» (totalBytes, человекочитаемо), «Создан», действия: «Обработать» (для uploaded/failed), «Удалить» (confirm; ошибка `scorm_package_in_use` → понятное сообщение «Пакет привязан к материалу курса»).
 - Состояния `LoadingState` / `SectionEmpty` («Пока нет пакетов — загрузите zip с курсом SCORM 1.2»).
 
-- [ ] **Step 3: page.tsx.** Открыть `apps/frontend/app/scorm/page.tsx`, сохранить существующую обёртку (`ProtectedPage`, если есть) и заменить контент-заглушку на `<ScormPackagesScreen />`.
+- [x] **Step 3: page.tsx.** Открыть `apps/frontend/app/scorm/page.tsx`, сохранить существующую обёртку (`ProtectedPage`, если есть) и заменить контент-заглушку на `<ScormPackagesScreen />`.
 
-- [ ] **Step 4: Форма материала.** В `features/mvp/screens.tsx` (CourseDetailsScreen, ≈1238): расширить state-тип `materialType` и `<select>` опцией `<option value="scorm">scorm</option>`; добавить state `scormPackageId` и при `materialType === 'scorm'` показывать select из ready-пакетов (`scormApi.list` → filter `packageStatus === 'ready'`; загрузка при первом выборе scorm-типа); в `saveMaterial(...)` payload добавить conditional spread `...(materialType === 'scorm' && scormPackageId ? { scormPackageId } : {})`. Проверить тип payload в `features/mvp/api.ts`/`hooks.ts` и расширить его полем `scormPackageId?: string`.
+- [x] **Step 4: Форма материала.** В `features/mvp/screens.tsx` (CourseDetailsScreen, ≈1238): расширить state-тип `materialType` и `<select>` опцией `<option value="scorm">scorm</option>`; добавить state `scormPackageId` и при `materialType === 'scorm'` показывать select из ready-пакетов (`scormApi.list` → filter `packageStatus === 'ready'`; загрузка при первом выборе scorm-типа); в `saveMaterial(...)` payload добавить conditional spread `...(materialType === 'scorm' && scormPackageId ? { scormPackageId } : {})`. Проверить тип payload в `features/mvp/api.ts`/`hooks.ts` и расширить его полем `scormPackageId?: string`.
 
-- [ ] **Step 5: Проверка** — `pnpm typecheck` + ESLint по затронутым файлам (`npx eslint <paths> --max-warnings=0`) → PASS.
+- [x] **Step 5: Проверка** — `pnpm typecheck` + ESLint по затронутым файлам (`npx eslint <paths> --max-warnings=0`) → PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/frontend/src/features/scorm/ apps/frontend/app/scorm/page.tsx apps/frontend/src/features/mvp/
@@ -2027,7 +2027,7 @@ git commit -m "feat(frontend): scorm packages admin registry (upload/process/del
 - Modify: `apps/frontend/src/features/course-viewer/material-player.tsx`
 - Modify: `apps/frontend/src/features/course-viewer/course-viewer-screen.tsx` (прокинуть enrollmentId)
 
-- [ ] **Step 1: ScormPlayer.** Требования (D7):
+- [x] **Step 1: ScormPlayer.** Требования (D7):
 
 - Пропсы: `{ material: Material; enrollmentId: string; onCompleted?: (() => void) | undefined }`.
 - При монтировании: `scormApi.launch(session, material.id, enrollmentId)`; пока ждём — `LoadingState`; ошибка → `SectionError` (код `scorm_package_not_ready` → «Курс ещё обрабатывается администратором»).
@@ -2038,7 +2038,7 @@ git commit -m "feat(frontend): scorm packages admin registry (upload/process/del
 - На unmount: снять `window.API`, отписаться, послать финальный commit.
 - Никакого RTL-теста на компонент; вся выносимая логика (маппинг, парс времени) уже покрыта в `cmi-mapping.test.ts`.
 
-- [ ] **Step 2: MaterialPlayer.** Расширить пропсы и добавить кейс (учесть, что `default:` exhaustive-check теперь включает `'scorm'`):
+- [x] **Step 2: MaterialPlayer.** Расширить пропсы и добавить кейс (учесть, что `default:` exhaustive-check теперь включает `'scorm'`):
 
 ```tsx
 interface Props {
@@ -2055,11 +2055,11 @@ interface Props {
       );
 ```
 
-- [ ] **Step 3: course-viewer-screen.tsx** — найти место рендера `<MaterialPlayer ...>`; экран уже знает enrollmentId (он передаёт его в updateMaterialProgress) — прокинуть `enrollmentId={...}` тем же значением.
+- [x] **Step 3: course-viewer-screen.tsx** — найти место рендера `<MaterialPlayer ...>`; экран уже знает enrollmentId (он передаёт его в updateMaterialProgress) — прокинуть `enrollmentId={...}` тем же значением.
 
-- [ ] **Step 4: Проверка** — `pnpm typecheck` + ESLint по затронутым файлам → PASS.
+- [x] **Step 4: Проверка** — `pnpm typecheck` + ESLint по затронутым файлам → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/frontend/src/features/scorm/ apps/frontend/src/features/course-viewer/
@@ -2075,20 +2075,20 @@ git commit -m "feat(frontend): scorm player (scorm-again, same-origin iframe) wi
 - Create: `apps/frontend/src/e2e/scorm.e2e.test.ts`
 - Reference: `apps/frontend/src/e2e/proctoring.e2e.test.ts` (структура), `canonical-e2e-readiness.e2e.test.ts`
 
-- [ ] **Step 1: Тесты** (конвенция репо: НЕ render; только evaluateRouteAccess / getVisibleNavigation / чистые пайплайны / dynamic-import smoke):
+- [x] **Step 1: Тесты** (конвенция репо: НЕ render; только evaluateRouteAccess / getVisibleNavigation / чистые пайплайны / dynamic-import smoke):
 
 1. Route access: `/scorm` доступен с `materials.read`, недоступен без (роут уже в `navigation/model.ts` — тест фиксирует контракт).
 2. Навигация: пункт SCORM виден роли с `materials.read` (по образцу proctoring.e2e.test.ts).
 3. Pipeline-интеграция (чистые функции): launch-ответ → `buildInitialCmi` → симулированный cmi-снапшот (passed, `00:10:00`, score 85) → `buildCommitPayload` → assert формы payload (`lessonStatus: 'passed'`, `sessionSeconds: 600`).
 4. Dynamic-import smoke: `await import('../features/scorm/api')`, `('../features/scorm/screens')`, `('../features/scorm/scorm-player')` — модули загружаются. ВАЖНО: `scorm-again` импортируется только внутри компонента (dynamic) — если import scorm-player падает в node-окружении, ограничиться api+screens и зафиксировать комментарием.
 
-- [ ] **Step 2: Полный прогон frontend** — `pnpm test:frontend` (полный набор на этой машине работает). Expected: PASS (все существующие + новые).
+- [x] **Step 2: Полный прогон frontend** — `pnpm test:frontend` (полный набор на этой машине работает). Expected: PASS (все существующие + новые).
 
-- [ ] **Step 3: Backend изолированные прогоны** (полный backend-suite на Windows/Cyrillic падает — НЕ запускать целиком): vitest single-file по `src/modules/mvp/scorm/` (все файлы), `mvp.http.integration.test.ts`, `src/modules/files/`, `src/infrastructure/database/mvp-domain-migrations.test.ts`, `mvp.dto-validation.test.ts` — каждый с `--no-file-parallelism`. Expected: PASS.
+- [x] **Step 3: Backend изолированные прогоны** (полный backend-suite на Windows/Cyrillic падает — НЕ запускать целиком): vitest single-file по `src/modules/mvp/scorm/` (все файлы), `mvp.http.integration.test.ts`, `src/modules/files/`, `src/infrastructure/database/mvp-domain-migrations.test.ts`, `mvp.dto-validation.test.ts` — каждый с `--no-file-parallelism`. Expected: PASS.
 
-- [ ] **Step 4: Lint + typecheck монорепо** — `pnpm typecheck` и `pnpm lint`. Expected: PASS (pre-existing падения вне наших файлов не блокируют; свои файлы — ESLint `--max-warnings=0`).
+- [x] **Step 4: Lint + typecheck монорепо** — `pnpm typecheck` и `pnpm lint`. Expected: PASS (pre-existing падения вне наших файлов не блокируют; свои файлы — ESLint `--max-warnings=0`).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/frontend/src/e2e/scorm.e2e.test.ts
@@ -2108,8 +2108,8 @@ git commit -m "test(frontend): scorm e2e - route access, cmi pipeline, module sm
 - Modify: `docs/superpowers/PLANS_STATUS.md` — строка Phase 9 Plan A со статусом и PR (формат — по соседним строкам)
 - Modify: `docs/operations-runbook.md` (или `infra/server-setup.md` — где описаны env) — примечание: same-origin SCORM уже покрыт существующим Caddy-маршрутом `/api/v1/*`; новые env `SCORM_PACKAGE_MAX_BYTES`, `SCORM_CONTENT_TOKEN_SECRET` (в проде сгенерировать сильный), `SCORM_CONTENT_TOKEN_TTL_SECONDS`
 
-- [ ] **Step 1: Внести правки во все файлы выше.**
-- [ ] **Step 2: Commit**
+- [x] **Step 1: Внести правки во все файлы выше.**
+- [x] **Step 2: Commit**
 
 ```bash
 git add README.md LMS_AGENT_HANDOFF.md docs/ infra/
