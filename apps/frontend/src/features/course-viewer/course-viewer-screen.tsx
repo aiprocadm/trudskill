@@ -167,7 +167,10 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
               </p>
             ) : null}
             {currentMaterial ? (
-              <MaterialPlayer material={currentMaterial} />
+              <MaterialPlayer
+                material={currentMaterial}
+                {...(enrollmentId ? { enrollmentId } : {})}
+              />
             ) : (
               <SectionEmpty
                 message="Выберите материал слева, чтобы начать просмотр."
