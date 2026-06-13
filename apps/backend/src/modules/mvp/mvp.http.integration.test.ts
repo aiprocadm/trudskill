@@ -538,6 +538,43 @@ describe('MVP HTTP integration (permission boundaries)', () => {
           byGroup: []
         };
       }
+
+      // Phase 10 Track A — report builder permission boundaries
+      @Get('reports/builder/entities')
+      @RequirePermissions('enrollments.read')
+      getReportEntities() {
+        return { entities: [] };
+      }
+
+      @Post('reports/builder/preview')
+      @RequirePermissions('enrollments.read')
+      previewReport(@CurrentContext() context: { tenantId?: string }) {
+        return { columns: [], rows: [], total: 0, truncated: false, tenantId: context.tenantId };
+      }
+
+      @Post('reports/builder/export')
+      @RequirePermissions('enrollments.read')
+      exportReport() {
+        return { fileName: 'report.xlsx', mimeType: 'application/x', contentBase64: '' };
+      }
+
+      @Get('reports/builder/templates')
+      @RequirePermissions('enrollments.read')
+      listReportTemplates() {
+        return [];
+      }
+
+      @Post('reports/builder/templates')
+      @RequirePermissions('enrollments.write')
+      saveReportTemplate(@Body() body: { name?: string }) {
+        return { id: 'rpt_1', name: body.name ?? '' };
+      }
+
+      @Delete('reports/builder/templates/:id')
+      @RequirePermissions('enrollments.write')
+      deleteReportTemplate(@Param('id') id: string) {
+        return { id };
+      }
     }
 
     @Module({
@@ -1029,6 +1066,100 @@ describe('MVP HTTP integration (permission boundaries)', () => {
       expect(payload.data.enrollmentsTotal).toBe(0);
       expect(payload.data.dropOffThresholdDays).toBe(14);
       expect(payload.meta.requestId).toBeTruthy();
+    });
+
+    it('GET /reports/builder/entities — 403 without enrollments.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['courses.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['teacher'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/reports/builder/entities`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('POST /reports/builder/preview — 200 with enrollments.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['enrollments.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_admin', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/reports/builder/preview`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ entityKey: 'learners', selectedFields: ['fullName'] })
+      });
+      expect(response.status).toBe(201);
+      const payload = (await response.json()) as { data: { total: number } };
+      expect(payload.data.total).toBe(0);
+    });
+
+    it('POST /reports/builder/templates — 403 with only enrollments.read (needs write)', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['enrollments.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['teacher'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/reports/builder/templates`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ name: 'X', entityKey: 'learners', selectedFields: ['fullName'] })
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('DELETE /reports/builder/templates/:id — 403 without enrollments.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['enrollments.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['teacher'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/reports/builder/templates/rpt_1`, {
+        method: 'DELETE',
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('POST /reports/builder/templates — 201 with enrollments.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['enrollments.write']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_admin', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/reports/builder/templates`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ name: 'Отчёт', entityKey: 'learners', selectedFields: ['fullName'] })
+      });
+      expect(response.status).toBe(201);
+      const payload = (await response.json()) as { data: { id: string } };
+      expect(payload.data.id).toBe('rpt_1');
     });
 
     it('GET /counterparties/:id/progress-summary — 403 when missing one of the required perms', async () => {

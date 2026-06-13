@@ -37,6 +37,7 @@ import type {
   ProctoringRecording,
   Question,
   QuestionBank,
+  ReportTemplate,
   ScormAttempt,
   ScormPackage,
   TestAttempt,
@@ -96,4 +97,6 @@ export class InMemoryMvpState {
   // Phase 9 Plan A — SCORM: пакеты + cmi-прогресс учеников.
   scormPackages: ScormPackage[] = [];
   scormAttempts: ScormAttempt[] = [];
+  // Phase 10 Track A — saved Excel report builder templates (tenant-level).
+  reportTemplates: ReportTemplate[] = [];
 }

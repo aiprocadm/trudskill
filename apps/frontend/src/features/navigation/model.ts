@@ -59,6 +59,10 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['enrollments.read'] }
   },
   {
+    pattern: '/admin/reports/builder',
+    meta: { public: false, requiredPermissions: ['enrollments.read'] }
+  },
+  {
     pattern: '/admin/commissions',
     meta: { public: false, requiredPermissions: ['learning.commissions.read'] }
   },
@@ -396,6 +400,12 @@ export const navigationModel: NavigationItem[] = [
   {
     href: '/admin/analytics',
     label: 'Аналитика',
+    requiredPermissions: ['enrollments.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/admin/reports/builder',
+    label: 'Конструктор отчётов',
     requiredPermissions: ['enrollments.read'],
     navSlot: 'more'
   },
