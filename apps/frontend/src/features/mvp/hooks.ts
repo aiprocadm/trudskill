@@ -39,7 +39,7 @@ export const useEnrollmentCertificatesForCompleted = (enrollmentIds: string[]) =
   });
 };
 
-const useMvpQuery = <T>(
+export const useMvpQuery = <T>(
   scope: string,
   args: unknown,
   call: (session: NonNullable<ReturnType<typeof useAuth>['session']>) => Promise<T>

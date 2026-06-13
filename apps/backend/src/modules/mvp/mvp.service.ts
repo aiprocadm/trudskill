@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
+import { computeAnalyticsDashboard } from './analytics-dashboard.js';
 import { gradeAnswer } from './assessment-autograde.service.js';
 import { ENROLLMENT_COMPLETED_EVENT } from './enrollment-completed.event.js';
 import { ENROLLMENT_INVITED_EVENT } from './enrollment-invited.event.js';
@@ -79,6 +80,7 @@ import type {
   UpdateTestRequest
 } from './mvp.dto.js';
 import type {
+  AnalyticsDashboardDto,
   Assignment,
   AssignmentReview,
   AssignmentSubmission,
@@ -1495,6 +1497,32 @@ export class MvpService {
           }
         : {})
     };
+  }
+
+  getAnalyticsDashboard(tenantId: string, query: BaseFilterQuery): AnalyticsDashboardDto {
+    const here = <T extends { tenantId: string }>(rows: T[]): T[] =>
+      rows.filter((r) => r.tenantId === tenantId);
+    return computeAnalyticsDashboard({
+      enrollments: here(this.state.enrollments),
+      examResults: here(this.state.examResults),
+      groups: here(this.state.groups),
+      groupCourses: here(this.state.groupCourses),
+      courses: here(this.state.courses),
+      tests: here(this.state.tests).map((t) => ({ id: t.id, courseId: t.courseId })),
+      asOf: new Date().toISOString(),
+      dropOffThresholdDays: 14,
+      scope: {
+        ...(query.course_id ? { courseId: query.course_id } : {}),
+        ...(query.group_id ? { groupId: query.group_id } : {}),
+        ...(query.client_id ? { clientId: query.client_id } : {}),
+        ...((query.enrolled_from ?? query.created_from)
+          ? { enrolledFrom: query.enrolled_from ?? query.created_from }
+          : {}),
+        ...((query.enrolled_to ?? query.created_to)
+          ? { enrolledTo: query.enrolled_to ?? query.created_to }
+          : {})
+      }
+    });
   }
 
   getEnrollment(tenantId: string, id: string): Enrollment {

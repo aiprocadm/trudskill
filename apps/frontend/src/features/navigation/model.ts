@@ -55,6 +55,10 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['auth.manage_sessions'] }
   },
   {
+    pattern: '/admin/analytics',
+    meta: { public: false, requiredPermissions: ['enrollments.read'] }
+  },
+  {
     pattern: '/admin/commissions',
     meta: { public: false, requiredPermissions: ['learning.commissions.read'] }
   },
@@ -387,6 +391,12 @@ export const navigationModel: NavigationItem[] = [
     href: '/admin/cockpit',
     label: 'Admin cockpit',
     requiredPermissions: ['auth.manage_sessions'],
+    navSlot: 'more'
+  },
+  {
+    href: '/admin/analytics',
+    label: 'Аналитика',
+    requiredPermissions: ['enrollments.read'],
     navSlot: 'more'
   },
   {

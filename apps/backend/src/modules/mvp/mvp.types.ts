@@ -172,6 +172,59 @@ export interface KpiSnapshotDto {
   }>;
 }
 
+/** Phase 9 Plan B — строка разбивки дашборда по курсу или группе. */
+export interface AnalyticsBreakdownRow {
+  /** courseId (для byCourse) или groupId (для byGroup). */
+  key: string;
+  /** Название курса / группы (или key, если сущность не найдена). */
+  label: string;
+  enrollmentsTotal: number;
+  enrollmentsCompleted: number;
+  /** 0..1 */
+  completionRate: number;
+  /** 0..1 */
+  examPassRate: number;
+  /** 0..1, либо null если нет оценённых экзаменов в строке. */
+  averageScorePercent: number | null;
+}
+
+/** Phase 9 Plan B — распределение «с какой попытки сдан экзамен». */
+export interface AnalyticsAttemptDistribution {
+  passedFirstAttempt: number;
+  passedSecondAttempt: number;
+  passedThirdPlusAttempt: number;
+}
+
+/** Phase 9 Plan B — сводка дашборда аналитики администратора. */
+export interface AnalyticsDashboardDto {
+  scope: {
+    courseId?: string;
+    groupId?: string;
+    clientId?: string;
+    enrolledFrom?: string;
+    enrolledTo?: string;
+  };
+  enrollmentsTotal: number;
+  enrollmentsCompleted: number;
+  /** 0..1 */
+  completionRate: number;
+  examResultsTotal: number;
+  examResultsPassed: number;
+  /** 0..1 */
+  examPassRate: number;
+  /** Средний срок прохождения (дни, enrolledAt→completedAt) по завершённым; null если завершённых нет. */
+  averageCompletionDays: number | null;
+  /** Средний балл как доля от максимума (0..1); null если нет оценённых экзаменов. */
+  averageScorePercent: number | null;
+  attemptDistribution: AnalyticsAttemptDistribution;
+  /** Активные зачисления без активности дольше порога. */
+  dropOffCount: number;
+  /** Порог неактивности в днях (эхо для UI). */
+  dropOffThresholdDays: number;
+  byCourse: AnalyticsBreakdownRow[];
+  byGroup: AnalyticsBreakdownRow[];
+}
+
 export interface EnrollmentStatusHistory {
   id: string;
   tenantId: string;

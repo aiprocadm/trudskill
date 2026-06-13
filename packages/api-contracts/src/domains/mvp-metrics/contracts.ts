@@ -45,3 +45,43 @@ export interface BulkEnrollmentsOutcomeDto {
   skippedExisting: Array<{ learnerId: string; enrollmentId: string }>;
   errors: BulkEnrollmentItemErrorDto[];
 }
+
+/** Phase 9 Plan B — строка разбивки дашборда аналитики. */
+export interface AnalyticsBreakdownRow {
+  key: string;
+  label: string;
+  enrollmentsTotal: number;
+  enrollmentsCompleted: number;
+  completionRate: number;
+  examPassRate: number;
+  averageScorePercent: number | null;
+}
+
+export interface AnalyticsAttemptDistribution {
+  passedFirstAttempt: number;
+  passedSecondAttempt: number;
+  passedThirdPlusAttempt: number;
+}
+
+export interface AnalyticsDashboardDto {
+  scope: {
+    courseId?: string;
+    groupId?: string;
+    clientId?: string;
+    enrolledFrom?: string;
+    enrolledTo?: string;
+  };
+  enrollmentsTotal: number;
+  enrollmentsCompleted: number;
+  completionRate: number;
+  examResultsTotal: number;
+  examResultsPassed: number;
+  examPassRate: number;
+  averageCompletionDays: number | null;
+  averageScorePercent: number | null;
+  attemptDistribution: AnalyticsAttemptDistribution;
+  dropOffCount: number;
+  dropOffThresholdDays: number;
+  byCourse: AnalyticsBreakdownRow[];
+  byGroup: AnalyticsBreakdownRow[];
+}
