@@ -36,6 +36,7 @@ import {
   UpdateQuestionRequest as Phase3UpdateQuestionRequest,
   UpdateTestRequest as Phase3UpdateTestRequest
 } from './mvp.dto.js';
+import { CommitScormAttemptRequest, RegisterScormPackageRequest } from './scorm/scorm.dto.js';
 import { UpdateCounterpartyExtendedRequest } from './update-counterparty-extended.dto.js';
 import { UpdateLearnerExtendedRequest } from './update-learner-extended.dto.js';
 import { UpdateTestRuleRequest } from './update-test-rule.dto.js';
@@ -1060,5 +1061,74 @@ describe('Proctoring DTOs (Phase 4 Plan B)', () => {
     });
     expect(validateSync(dto)).toHaveLength(0);
     expect(dto.requiresProctoring).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 9 Plan A — SCORM DTOs
+// ---------------------------------------------------------------------------
+
+describe('Phase 9 — CommitScormAttemptRequest', () => {
+  it('принимает полностью пустой (все поля опциональны)', () => {
+    const dto = plainToInstance(CommitScormAttemptRequest, {});
+    expect(validateSync(dto, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+  });
+
+  it('принимает валидный набор полей', () => {
+    const dto = plainToInstance(CommitScormAttemptRequest, {
+      lessonStatus: 'passed',
+      lessonLocation: '1.2.3',
+      suspendData: 'some data',
+      scoreRaw: 85,
+      scoreMax: 100,
+      scoreMin: 0,
+      sessionSeconds: 300
+    });
+    expect(validateSync(dto, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+  });
+
+  it('отклоняет lessonStatus с неизвестным значением', () => {
+    const dto = plainToInstance(CommitScormAttemptRequest, { lessonStatus: 'weird' });
+    const errs = validateSync(dto, { whitelist: true, forbidNonWhitelisted: true });
+    expect(errs.find((e) => e.property === 'lessonStatus')).toBeTruthy();
+  });
+
+  it('отклоняет sessionSeconds < 0', () => {
+    const dto = plainToInstance(CommitScormAttemptRequest, { sessionSeconds: -1 });
+    const errs = validateSync(dto, { whitelist: true, forbidNonWhitelisted: true });
+    expect(errs.find((e) => e.property === 'sessionSeconds')).toBeTruthy();
+  });
+
+  it('отклоняет нецелое sessionSeconds', () => {
+    const dto = plainToInstance(CommitScormAttemptRequest, { sessionSeconds: 1.5 });
+    const errs = validateSync(dto, { whitelist: true, forbidNonWhitelisted: true });
+    expect(errs.find((e) => e.property === 'sessionSeconds')).toBeTruthy();
+  });
+});
+
+describe('Phase 9 — RegisterScormPackageRequest', () => {
+  it('отклоняет запрос без zipFileId', () => {
+    const dto = plainToInstance(RegisterScormPackageRequest, {});
+    const errs = validateSync(dto, { whitelist: true, forbidNonWhitelisted: true });
+    expect(errs.find((e) => e.property === 'zipFileId')).toBeTruthy();
+  });
+
+  it('принимает минимально валидный запрос с только zipFileId', () => {
+    const dto = plainToInstance(RegisterScormPackageRequest, { zipFileId: 'file_001' });
+    expect(validateSync(dto, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+  });
+
+  it('принимает запрос с опциональным title', () => {
+    const dto = plainToInstance(RegisterScormPackageRequest, {
+      zipFileId: 'file_002',
+      title: 'Охрана труда'
+    });
+    expect(validateSync(dto, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+  });
+
+  it('отклоняет zipFileId из пустой строки', () => {
+    const dto = plainToInstance(RegisterScormPackageRequest, { zipFileId: '' });
+    const errs = validateSync(dto, { whitelist: true, forbidNonWhitelisted: true });
+    expect(errs.find((e) => e.property === 'zipFileId')).toBeTruthy();
   });
 });
