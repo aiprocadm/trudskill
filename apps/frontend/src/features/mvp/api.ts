@@ -172,6 +172,7 @@ export const mvpApi = {
       materialType: string;
       minViewSeconds?: number;
       isRequired?: boolean;
+      scormPackageId?: string;
     }
   ) =>
     apiRequest<Material>(id ? `/materials/${id}` : '/materials', {
