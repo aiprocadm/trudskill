@@ -42,7 +42,7 @@ import type {
 } from './types';
 import type { UserSession } from '../../entities/session/model';
 
-const withAuth = (session: UserSession) => ({
+export const withAuth = (session: UserSession) => ({
   auth: {
     userId: session.user.id,
     tenantId: session.user.tenantId,
@@ -50,7 +50,7 @@ const withAuth = (session: UserSession) => ({
   }
 });
 
-const queryString = (query: BaseFilterQuery = {}) => {
+export const queryString = (query: BaseFilterQuery = {}) => {
   const search = new URLSearchParams();
   Object.entries(query).forEach(([key, value]) => {
     if (value !== undefined && value !== '') search.set(key, String(value));
