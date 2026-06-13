@@ -2,7 +2,7 @@ import type { CommitScormAttemptPayload, ScormAttemptDto, ScormLessonStatus } fr
 
 /** SCORM 1.2 CMITimespan 'HHHH:MM:SS.SS' -> integer seconds; garbage -> 0. */
 export function parseScormSessionTime(value: string): number {
-  const m = /^(\d{2,4}):(\d{2}):(\d{2})(?:\.\d{1,2})?$/.exec(value ?? '');
+  const m = /^(\d{1,4}):(\d{2}):(\d{2})(?:\.\d+)?$/.exec(value ?? '');
   if (!m) return 0;
   return Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]);
 }
