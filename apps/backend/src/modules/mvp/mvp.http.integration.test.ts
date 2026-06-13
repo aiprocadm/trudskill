@@ -511,6 +511,33 @@ describe('MVP HTTP integration (permission boundaries)', () => {
       ) {
         return { id, tenantId: context.tenantId, lessonStatus: body.lessonStatus ?? 'incomplete' };
       }
+
+      // Phase 9 Plan B — analytics dashboard permission boundary
+      @Get('reports/analytics-dashboard')
+      @RequirePermissions('enrollments.read')
+      getAnalyticsDashboard(@CurrentContext() context: { tenantId?: string }) {
+        return {
+          scope: {},
+          tenantId: context.tenantId,
+          enrollmentsTotal: 0,
+          enrollmentsCompleted: 0,
+          completionRate: 0,
+          examResultsTotal: 0,
+          examResultsPassed: 0,
+          examPassRate: 0,
+          averageCompletionDays: null,
+          averageScorePercent: null,
+          attemptDistribution: {
+            passedFirstAttempt: 0,
+            passedSecondAttempt: 0,
+            passedThirdPlusAttempt: 0
+          },
+          dropOffCount: 0,
+          dropOffThresholdDays: 14,
+          byCourse: [],
+          byGroup: []
+        };
+      }
     }
 
     @Module({
@@ -961,6 +988,47 @@ describe('MVP HTTP integration (permission boundaries)', () => {
       expect(response.status).toBe(403);
       const payload = (await response.json()) as { error: { code: string } };
       expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('GET /reports/analytics-dashboard — 403 without enrollments.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['courses.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['teacher'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/reports/analytics-dashboard`, {
+        headers: {
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        }
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('GET /reports/analytics-dashboard — 200 with enrollments.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['enrollments.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_admin', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/reports/analytics-dashboard`, {
+        headers: {
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        }
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as {
+        data: { enrollmentsTotal?: number; dropOffThresholdDays?: number };
+        meta: { requestId: string };
+      };
+      expect(payload.data.enrollmentsTotal).toBe(0);
+      expect(payload.data.dropOffThresholdDays).toBe(14);
+      expect(payload.meta.requestId).toBeTruthy();
     });
 
     it('GET /counterparties/:id/progress-summary — 403 when missing one of the required perms', async () => {

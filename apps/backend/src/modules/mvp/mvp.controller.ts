@@ -512,6 +512,12 @@ export class MvpController {
   getKpiSnapshot(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
     return this.mvpService.getKpiSnapshot(c.tenantId!, q);
   }
+  @Get('reports/analytics-dashboard')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('enrollments.read')
+  getAnalyticsDashboard(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
+    return this.mvpService.getAnalyticsDashboard(c.tenantId!, q);
+  }
   @Get('enrollments/:id/certificates')
   @UseGuards(PermissionGuard)
   @RequirePermissions('enrollments.read')

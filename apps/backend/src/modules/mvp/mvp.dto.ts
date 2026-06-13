@@ -46,6 +46,8 @@ export interface BaseFilterQuery {
   learner_id?: string;
   course_id?: string;
   course_version_id?: string;
+  /** Phase 9 Plan B — фильтр по компании-заказчику (group.counterpartyId). */
+  client_id?: string;
   module_id?: string;
   test_id?: string;
   enrollment_id?: string;
