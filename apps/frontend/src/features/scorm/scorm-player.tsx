@@ -79,6 +79,10 @@ export const ScormPlayer = ({ material, enrollmentId, onCompleted }: Props) => {
   // function reference we subscribed.
   const commitHandlerRef = useRef<(() => void) | null>(null);
 
+  // Tracks the live API instance so synchronous cleanup can confirm ownership
+  // before deleting window.API (avoids deleting a freshly-mounted replacement).
+  const apiInstanceRef = useRef<unknown>(null);
+
   useEffect(() => {
     if (!session) return;
 
@@ -148,11 +152,17 @@ export const ScormPlayer = ({ material, enrollmentId, onCompleted }: Props) => {
           }
         };
 
+        // Fix 1: guard against cancelled BEFORE attaching handlers or exposing
+        // window.API.  If unmount raced the dynamic import, the api instance
+        // was created but never attached — cleanup has nothing to delete.
+        if (cancelled) return undefined;
+
         commitHandlerRef.current = doCommit;
         api.on('LMSCommit', doCommit);
         api.on('LMSFinish', doCommit);
 
         // Expose the SCORM API in the parent window BEFORE the iframe renders.
+        apiInstanceRef.current = api;
         (window as unknown as { API?: unknown }).API = api;
 
         if (mountedRef.current) {
@@ -189,7 +199,19 @@ export const ScormPlayer = ({ material, enrollmentId, onCompleted }: Props) => {
     return () => {
       cancelled = true;
 
-      // Unmount cleanup: detach listeners, attempt final best-effort commit, clear window.API.
+      // Fix 2: delete window.API SYNCHRONOUSLY and only if it still points to
+      // this player's instance — prevents a freshly-mounted replacement from
+      // being deleted by the outgoing cleanup.
+      const ours = apiInstanceRef.current;
+      const w = window as unknown as { API?: unknown };
+      if (ours && w.API === ours) {
+        delete w.API;
+      }
+      // Reset our own ref so it doesn't linger.
+      apiInstanceRef.current = null;
+
+      // Async best-effort: detach listeners and flush a final commit.
+      // window.API is already cleared above; errors here are swallowed.
       void (async () => {
         if (resolvedApi) {
           const handler = commitHandlerRef.current;
@@ -222,7 +244,6 @@ export const ScormPlayer = ({ material, enrollmentId, onCompleted }: Props) => {
             }
           }
         }
-        delete (window as unknown as { API?: unknown }).API;
       })();
     };
   }, [material.id, enrollmentId, session]);
