@@ -10,10 +10,16 @@ describe('a11y helpers', () => {
     expect(fieldId('search', 'label')).toBe('search-label');
     expect(fieldId('lookup-status', 'input')).toBe('lookup-status-input');
   });
-  it('fieldId санитизирует пробелы/спецсимволы в стабильный slug', () => {
-    expect(fieldId('Поиск по ФИО', 'label')).toMatch(/^[a-z0-9-]+-label$/);
+  it('fieldId сохраняет кириллицу (русскоязычный UI), пробелы → дефис', () => {
+    expect(fieldId('Поиск по ФИО', 'label')).toBe('поиск-по-фио-label');
+  });
+  it('fieldId различает разные кириллические подписи (нет коллапса в один slug)', () => {
+    expect(fieldId('Фамилия', 'hint')).toBe('фамилия-hint');
+    expect(fieldId('Имя', 'error')).toBe('имя-error');
+    expect(fieldId('Фамилия', 'hint')).not.toBe(fieldId('Имя', 'hint'));
   });
   it('fieldId пустой/нерелевантный base → fallback "field"', () => {
     expect(fieldId('!!!', 'input')).toBe('field-input');
+    expect(fieldId('', 'label')).toBe('field-label');
   });
 });
