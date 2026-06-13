@@ -1958,7 +1958,8 @@ export class MvpService {
     actorId: string | undefined,
     materialId: string,
     request: UpdateMaterialProgressRequest,
-    context: RequestContext
+    context: RequestContext,
+    options?: { allowScormCompletion?: boolean }
   ): MaterialProgress {
     const material = this.getById(this.state.materials, tenantId, materialId);
     const moduleEntity = this.getById(this.state.modules, tenantId, material.moduleId);
@@ -2021,9 +2022,20 @@ export class MvpService {
 
     const studiedSeconds = Math.max(0, request.studiedSeconds);
     const ratio = requiredSeconds === 0 ? 1 : Math.min(1, studiedSeconds / requiredSeconds);
-    const percent = this.normalizePercent(ratio * 100);
-    const status: ProgressStatus =
+    let percent = this.normalizePercent(ratio * 100);
+    let status: ProgressStatus =
       percent >= 100 ? 'completed' : percent > 0 ? 'in_progress' : 'not_started';
+
+    // Defense-in-depth: SCORM completion must come exclusively via commitScormAttempt.
+    // The generic progress endpoint (watch-tracker) must never mark a SCORM material
+    // completed — the SCO lesson_status reported by the SCORM player is the only valid
+    // completion signal. Block it here unless the caller explicitly opts in.
+    if (material.materialType === 'scorm' && options?.allowScormCompletion !== true) {
+      if (status === 'completed') {
+        status = 'in_progress';
+        percent = Math.min(percent, 99);
+      }
+    }
 
     const record: MaterialProgress = existing ?? {
       id: this.id('mp'),

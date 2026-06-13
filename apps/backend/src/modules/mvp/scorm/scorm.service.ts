@@ -430,7 +430,8 @@ export class ScormService {
         actorId,
         attempt.materialId,
         { enrollmentId: attempt.enrollmentId, studiedSeconds } as UpdateMaterialProgressRequest,
-        ctx
+        ctx,
+        { allowScormCompletion: true }
       );
     }
     return attempt;

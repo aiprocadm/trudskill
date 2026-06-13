@@ -114,7 +114,8 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
   );
 
   useWatchTracker({
-    materialId: enrollmentId ? currentMaterialId : null,
+    materialId:
+      enrollmentId && currentMaterial?.materialType !== 'scorm' ? currentMaterialId : null,
     minViewSeconds: currentMaterial?.minViewSeconds ?? 30,
     onFlush: handleFlush,
     onTick: setStudiedSeconds

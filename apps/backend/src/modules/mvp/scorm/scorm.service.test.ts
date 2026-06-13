@@ -885,3 +885,127 @@ describe('MvpService.createMaterial — non-scorm unaffected by scorm validation
     expect(mat.scormPackageId).toBeUndefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// CRITICAL regression: generic progress path must NOT complete a SCORM material
+// ---------------------------------------------------------------------------
+
+describe('upsertMaterialProgress — SCORM material WITHOUT allowScormCompletion (generic/watch-tracker path)', () => {
+  it('does NOT mark scorm material completed when called without the flag (even studiedSeconds > 0)', () => {
+    const { mvp, enrollment, material } = makeScormSeed();
+    const ctxL1: RequestContext = { ...ctx, userId: 'u_l1' };
+
+    // Simulate watch-tracker firing after ~5 s — no allowScormCompletion flag
+    const progress = mvp.upsertMaterialProgress(
+      T,
+      'u_l1',
+      material.id,
+      { enrollmentId: enrollment.id, studiedSeconds: 5 },
+      ctxL1
+      // no options arg → allowScormCompletion defaults to false/undefined
+    );
+
+    expect(progress.status).not.toBe('completed');
+    expect(progress.completedAt).toBeUndefined();
+    expect(progress.progressPercent).toBeLessThan(100);
+  });
+
+  it('still records in_progress (not not_started) after watch-tracker fires for scorm', () => {
+    const { mvp, enrollment, material } = makeScormSeed();
+    const ctxL1: RequestContext = { ...ctx, userId: 'u_l1' };
+
+    const progress = mvp.upsertMaterialProgress(
+      T,
+      'u_l1',
+      material.id,
+      { enrollmentId: enrollment.id, studiedSeconds: 5 },
+      ctxL1
+    );
+
+    // Activity was recorded; lastActivityAt set
+    expect(progress.lastActivityAt).toBeDefined();
+    // But must NOT be completed
+    expect(progress.status).not.toBe('completed');
+  });
+});
+
+describe('upsertMaterialProgress — SCORM material WITH allowScormCompletion (commitScormAttempt path)', () => {
+  it('marks scorm material completed when allowScormCompletion=true (commit path)', () => {
+    const { mvp, enrollment, material } = makeScormSeed();
+    const ctxL1: RequestContext = { ...ctx, userId: 'u_l1' };
+
+    // Simulate commitScormAttempt passing the flag
+    const progress = mvp.upsertMaterialProgress(
+      T,
+      'u_l1',
+      material.id,
+      { enrollmentId: enrollment.id, studiedSeconds: 10 },
+      ctxL1,
+      { allowScormCompletion: true }
+    );
+
+    expect(progress.status).toBe('completed');
+    expect(progress.completedAt).toBeDefined();
+    expect(progress.progressPercent).toBe(100);
+  });
+});
+
+describe('upsertMaterialProgress — non-scorm material still completes normally via generic path', () => {
+  it('marks a text material with minViewSeconds=10 completed when studiedSeconds>=required', () => {
+    const { state, mvp } = makeServices();
+
+    // Set up a minimal course + enrollment for a text material
+    const course = mvp.createCourse(T, ADMIN, { code: 'TXT1', title: 'Text Course' }, ctx);
+    const version = mvp.createCourseVersion(T, course.id);
+    const moduleEntity = mvp.createModule(
+      T,
+      ADMIN,
+      { courseVersionId: version.id, title: 'TxtMod', minViewSeconds: 0, isRequired: true },
+      ctx
+    );
+    const now = new Date().toISOString();
+    const textMat: Material = {
+      id: 'mat_text_001',
+      tenantId: T,
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+      moduleId: moduleEntity.id,
+      title: 'Text material',
+      materialType: 'text',
+      sortOrder: 0,
+      minViewSeconds: 10,
+      isRequired: true
+    };
+    state.materials.push(textMat);
+
+    const group = mvp.createGroup(T, ADMIN, { code: 'GT1', name: 'G' }, ctx);
+    mvp.createGroupCourse(T, { groupId: group.id, courseId: course.id });
+    const learner = mvp.createLearner(
+      T,
+      ADMIN,
+      { code: 'LT1', name: 'Learner T', linkedIamUserId: 'u_lt1' },
+      ctx
+    );
+    const enrollment = mvp.createEnrollment(
+      T,
+      ADMIN,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const ctxLT: RequestContext = { ...ctx, userId: 'u_lt1' };
+
+    // Generic path (no options flag) — non-scorm material must still complete
+    const progress = mvp.upsertMaterialProgress(
+      T,
+      'u_lt1',
+      textMat.id,
+      { enrollmentId: enrollment.id, studiedSeconds: 10 },
+      ctxLT
+    );
+
+    expect(progress.status).toBe('completed');
+    expect(progress.completedAt).toBeDefined();
+    expect(progress.progressPercent).toBe(100);
+  });
+});
