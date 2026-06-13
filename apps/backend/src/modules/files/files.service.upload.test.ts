@@ -292,6 +292,24 @@ describe('FilesService.getReadableFile', () => {
       response: { code: 'file_not_found' }
     });
   });
+
+  it('lazily scans a pending file then returns { storageKey, sizeBytes } when clean', async () => {
+    const { service, scanner } = makeFilesService({
+      antivirusStatus: 'pending',
+      verdict: 'clean'
+    });
+    const meta = await service.getReadableFile('t1', 'file_abc');
+    expect(scanner.scan).toHaveBeenCalledTimes(1);
+    expect(meta.storageKey).toBe('submissions/t1/existing.pdf');
+    expect(meta.sizeBytes).toBe(1024);
+  });
+
+  it('lazily scans a pending file and throws file_infected when infected', async () => {
+    const { service } = makeFilesService({ antivirusStatus: 'pending', verdict: 'infected' });
+    await expect(service.getReadableFile('t1', 'file_abc')).rejects.toMatchObject({
+      response: { code: 'file_infected' }
+    });
+  });
 });
 
 describe('FilesService.deleteFile', () => {
