@@ -1,8 +1,13 @@
-import { randomUUID } from 'node:crypto';
-
 import { Inject, Injectable, Scope } from '@nestjs/common';
 
-import { normalizeSubscription } from './web-push-keys.js';
+import {
+  type BrowserSubscriptionInput,
+  listSubscriptionsForUser,
+  listSubscriptionsForUsers,
+  removeSubscriptionByEndpoint,
+  removeSubscriptionForUser,
+  upsertSubscription
+} from './push-subscription-store.js';
 import { AuditService } from '../../audit/audit.service.js';
 import { InMemoryMvpState } from '../../mvp/infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from '../../mvp/infrastructure/mvp-state.token.js';
@@ -10,19 +15,13 @@ import { MVP_STATE } from '../../mvp/infrastructure/mvp-state.token.js';
 import type { RequestContext } from '../../../common/context/request-context.js';
 import type { PushSubscription } from '../../mvp/mvp.types.js';
 
-/** Сырой PushSubscription.toJSON() из браузера (после DTO-валидации). */
-export interface BrowserSubscriptionInput {
-  endpoint: string;
-  keys: { p256dh: string; auth: string };
-  userAgent?: string;
-}
+export type { BrowserSubscriptionInput } from './push-subscription-store.js';
 
 /**
- * Phase 10 Track C — CRUD браузерных web-push подписок. Request-scoped (как другие
- * MVP-сервисы), читает/пишет `pushSubscriptions` в MVP-state. Дедуп per (tenant, endpoint):
- * один браузер = один endpoint = одна запись. Скоуп операций пользователя — по userId;
- * `removeByEndpoint`/`listEndpointsForUsers` — для push-sender-а (зачистка протухших,
- * батч-резолв получателей).
+ * Phase 10 Track C — request-scoped self-service CRUD of browser web-push subscriptions.
+ * Reads/writes `pushSubscriptions` in the request's MVP-state via pure store helpers (shared
+ * with WebPushSender). Dedup per (tenant, endpoint); user-scoped operations skoped by userId;
+ * every mutation is audited.
  */
 @Injectable({ scope: Scope.REQUEST })
 export class PushSubscriptionService {
@@ -31,82 +30,35 @@ export class PushSubscriptionService {
     @Inject(AuditService) private readonly auditService: AuditService
   ) {}
 
-  /** Создаёт/обновляет подписку браузера; дедуп по (tenantId, endpoint). */
   subscribe(
     tenantId: string,
     userId: string,
     raw: BrowserSubscriptionInput,
     ctx: RequestContext
   ): PushSubscription {
-    const normalized = normalizeSubscription(raw);
-    const now = new Date().toISOString();
-    const existing = this.state.pushSubscriptions.find(
-      (s) => s.tenantId === tenantId && s.endpoint === normalized.endpoint
-    );
-
-    let record: PushSubscription;
-    if (existing) {
-      existing.userId = userId;
-      existing.p256dh = normalized.p256dh;
-      existing.auth = normalized.auth;
-      existing.updatedAt = now;
-      if (raw.userAgent !== undefined) {
-        existing.userAgent = raw.userAgent;
-      }
-      record = existing;
-    } else {
-      record = {
-        id: this.id('push'),
-        tenantId,
-        status: 'active',
-        createdAt: now,
-        updatedAt: now,
-        userId,
-        endpoint: normalized.endpoint,
-        p256dh: normalized.p256dh,
-        auth: normalized.auth,
-        ...(raw.userAgent !== undefined ? { userAgent: raw.userAgent } : {})
-      };
-      this.state.pushSubscriptions.push(record);
-    }
-
+    const record = upsertSubscription(this.state, tenantId, userId, raw);
     this.audit(tenantId, ctx, 'notifications.push_subscribed', record.id, {
-      endpoint: normalized.endpoint
+      endpoint: record.endpoint
     });
     return record;
   }
 
-  /** Удаляет подписку с этим endpoint, принадлежащую userId (self-service). */
   unsubscribe(tenantId: string, userId: string, endpoint: string, ctx: RequestContext): void {
-    const before = this.state.pushSubscriptions.length;
-    this.state.pushSubscriptions = this.state.pushSubscriptions.filter(
-      (s) => !(s.tenantId === tenantId && s.userId === userId && s.endpoint === endpoint)
-    );
-    if (this.state.pushSubscriptions.length !== before) {
+    if (removeSubscriptionForUser(this.state, tenantId, userId, endpoint)) {
       this.audit(tenantId, ctx, 'notifications.push_unsubscribed', endpoint, { endpoint });
     }
   }
 
-  /** Подписки конкретного (tenant, user). */
   listForUser(tenantId: string, userId: string): PushSubscription[] {
-    return this.state.pushSubscriptions.filter(
-      (s) => s.tenantId === tenantId && s.userId === userId
-    );
+    return listSubscriptionsForUser(this.state, tenantId, userId);
   }
 
-  /** Батч-резолв подписок для множества пользователей (используется WebPushSender). */
   listEndpointsForUsers(tenantId: string, userIds: string[]): PushSubscription[] {
-    const wanted = new Set(userIds);
-    return this.state.pushSubscriptions.filter(
-      (s) => s.tenantId === tenantId && wanted.has(s.userId)
-    );
+    return listSubscriptionsForUsers(this.state, tenantId, userIds);
   }
 
-  /** Зачистка протухшей подписки (вызывается sender-ом при 404/410 от push-сервиса). */
   removeByEndpoint(tenantId: string, endpoint: string): void {
-    this.state.pushSubscriptions = this.state.pushSubscriptions.filter(
-      (s) => !(s.tenantId === tenantId && s.endpoint === endpoint)
-    );
+    removeSubscriptionByEndpoint(this.state, tenantId, endpoint);
   }
 
   private audit(
@@ -128,9 +80,5 @@ export class PushSubscriptionService {
       ip: ctx.ip,
       userAgent: ctx.userAgent
     });
-  }
-
-  private id(prefix: string): string {
-    return `${prefix}_${randomUUID().replace(/-/g, '')}`;
   }
 }
