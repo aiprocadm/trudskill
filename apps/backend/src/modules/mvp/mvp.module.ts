@@ -36,6 +36,9 @@ import { RecertificationService } from './recertification/recertification.servic
 import { CourseDeadlineScanner } from './reminders/course-deadline-scanner.service.js';
 import { DocumentRevokedEmailListener } from './reminders/document-revoked-email.listener.js';
 import { RemindersSchedulerService } from './reminders/reminders-scheduler.service.js';
+import { RostechnadzorRegistryController } from './rostechnadzor-registry/rostechnadzor-registry.controller.js';
+import { RostechnadzorRegistryService } from './rostechnadzor-registry/rostechnadzor-registry.service.js';
+import { RostechnadzorXlsxWriter } from './rostechnadzor-registry/rostechnadzor-xlsx.writer.js';
 import { ScormContentController } from './scorm/scorm-content.controller.js';
 import { ScormController } from './scorm/scorm.controller.js';
 import { ScormService } from './scorm/scorm.service.js';
@@ -65,6 +68,7 @@ import { TenantModule } from '../tenant/tenant.module.js';
     OtRegistryController,
     FrdoRegistryController,
     EisotTestingRegistryController,
+    RostechnadzorRegistryController,
     RecertificationController,
     ScormController,
     ScormContentController,
@@ -102,6 +106,12 @@ import { TenantModule } from '../tenant/tenant.module.js';
       provide: EisotTestingRegistryService,
       scope: Scope.REQUEST,
       useClass: EisotTestingRegistryService
+    },
+    RostechnadzorXlsxWriter,
+    {
+      provide: RostechnadzorRegistryService,
+      scope: Scope.REQUEST,
+      useClass: RostechnadzorRegistryService
     },
     { provide: LearnerPdfCardService, scope: Scope.REQUEST, useClass: LearnerPdfCardService },
     {
