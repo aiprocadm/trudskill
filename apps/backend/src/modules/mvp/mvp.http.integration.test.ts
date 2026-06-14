@@ -369,6 +369,22 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         return { items: [], tenantId: context.tenantId };
       }
 
+      // Phase 6 — Ростехнадзор registry export (POST requires write; GET requires read)
+      @Post('rostechnadzor-registry/exports')
+      @RequirePermissions('regulatory.export.write')
+      createRostechnadzorExport(
+        @CurrentContext() context: { tenantId?: string; userId?: string },
+        @Body() body: { groupId?: string }
+      ) {
+        return { batchId: 'rtb_stub', tenantId: context.tenantId, groupId: body.groupId ?? null };
+      }
+
+      @Get('rostechnadzor-registry/exports')
+      @RequirePermissions('regulatory.export.read')
+      listRostechnadzorExports(@CurrentContext() context: { tenantId?: string }) {
+        return { items: [], tenantId: context.tenantId };
+      }
+
       // Phase 5 Plan 5B — recertification permission boundary
       @Get('recertification-drafts')
       @RequirePermissions('recertification.read')
@@ -1643,6 +1659,87 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         60
       );
       const response = await fetch(`${apiBaseUrl}/eisot-testing-registry/exports`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as { data: { items: unknown[]; tenantId: string } };
+      expect(payload.data.tenantId).toBe('tenant_demo');
+    });
+  });
+
+  // === Phase 6 — Ростехнадзор export RBAC boundary ===
+
+  describe('Ростехнадзор registry permission boundary', () => {
+    beforeEach(() => {
+      iamServiceMock.resolvePermissions.mockReset();
+      iamServiceMock.resolvePermissions.mockResolvedValue(['courses.read']);
+    });
+
+    it('POST /rostechnadzor-registry/exports — 403 without regulatory.export.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['regulatory.export.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['teacher'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/rostechnadzor-registry/exports`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({})
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('POST /rostechnadzor-registry/exports — 201 with regulatory.export.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['regulatory.export.write']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_admin', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/rostechnadzor-registry/exports`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ groupId: 'g1' })
+      });
+      expect(response.status).toBe(201);
+      const payload = (await response.json()) as { data: { batchId: string } };
+      expect(payload.data.batchId).toBe('rtb_stub');
+    });
+
+    it('GET /rostechnadzor-registry/exports — 403 without regulatory.export.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['courses.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['teacher'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/rostechnadzor-registry/exports`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('GET /rostechnadzor-registry/exports — 200 with regulatory.export.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['regulatory.export.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_admin', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/rostechnadzor-registry/exports`, {
         headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
       });
       expect(response.status).toBe(200);
