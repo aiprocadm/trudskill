@@ -5,10 +5,14 @@ import type {
   EisotTestingExportOutcome,
   FrdoRegistryBatch,
   FrdoRegistryExportOutcome,
+  NmoBatch,
+  NmoExportOutcome,
   OtRegistryBatch,
   OtRegistryExportOutcome,
   OtRegistryImportOutcome,
-  OtTrainingProgram
+  OtTrainingProgram,
+  RostechnadzorBatch,
+  RostechnadzorExportOutcome
 } from './types';
 import type { UserSession } from '../../entities/session/model';
 
@@ -93,5 +97,43 @@ export const govExportApi = {
     apiRequest<EisotTestingBatch[]>('/eisot-testing-registry/exports', withAuth(session)),
 
   getEisotTestingBatchFileUrl: (session: UserSession, id: string): Promise<{ url: string }> =>
-    apiRequest<{ url: string }>(`/eisot-testing-registry/exports/${id}/file`, withAuth(session))
+    apiRequest<{ url: string }>(`/eisot-testing-registry/exports/${id}/file`, withAuth(session)),
+
+  createRostechnadzorExport: (
+    session: UserSession,
+    body: { groupId?: string; clientId?: string; enrolledFrom?: string; enrolledTo?: string }
+  ): Promise<RostechnadzorExportOutcome> =>
+    apiRequest<RostechnadzorExportOutcome>('/rostechnadzor-registry/exports', {
+      method: 'POST',
+      body,
+      ...withAuth(session)
+    }),
+
+  listRostechnadzorBatches: (session: UserSession): Promise<RostechnadzorBatch[]> =>
+    apiRequest<RostechnadzorBatch[]>('/rostechnadzor-registry/exports', withAuth(session)),
+
+  getRostechnadzorBatchFileUrl: (session: UserSession, id: string): Promise<{ url: string }> =>
+    apiRequest<{ url: string }>(`/rostechnadzor-registry/exports/${id}/file`, withAuth(session)),
+
+  createNmoExport: (
+    session: UserSession,
+    body: {
+      from?: string;
+      to?: string;
+      types?: ('certificate' | 'diploma')[];
+      groupId?: string;
+      clientId?: string;
+    }
+  ): Promise<NmoExportOutcome> =>
+    apiRequest<NmoExportOutcome>('/nmo-registry/exports', {
+      method: 'POST',
+      body,
+      ...withAuth(session)
+    }),
+
+  listNmoBatches: (session: UserSession): Promise<NmoBatch[]> =>
+    apiRequest<NmoBatch[]>('/nmo-registry/exports', withAuth(session)),
+
+  getNmoBatchFileUrl: (session: UserSession, id: string): Promise<{ url: string }> =>
+    apiRequest<{ url: string }>(`/nmo-registry/exports/${id}/file`, withAuth(session))
 };

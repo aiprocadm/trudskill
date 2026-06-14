@@ -6,7 +6,13 @@ import { useEffect } from 'react';
 import { govExportApi } from './api';
 import { useAuth } from '../auth/context';
 
-import type { EisotTestingBatch, FrdoRegistryBatch, OtRegistryBatch } from './types';
+import type {
+  EisotTestingBatch,
+  FrdoRegistryBatch,
+  NmoBatch,
+  OtRegistryBatch,
+  RostechnadzorBatch
+} from './types';
 
 /**
  * Fetch the OT-registry training programs classifier (Минтруд/ЕИСОТ).
@@ -116,6 +122,67 @@ export const useEisotTestingBatches = (live = false) => {
 
   return {
     data: query.data ?? ([] as EisotTestingBatch[]),
+    loading: query.isLoading,
+    error: query.error instanceof Error ? query.error.message : null,
+    refetch: async () => {
+      await query.refetch();
+    }
+  };
+};
+
+/**
+ * Fetch the list of Ростехнадзор (промышленная безопасность) export batches.
+ * Mirrors useFrdoRegistryBatches.
+ */
+export const useRostechnadzorBatches = (live = false) => {
+  const { session } = useAuth();
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ['govExport', 'rostechnadzorBatches'],
+    enabled: Boolean(session),
+    queryFn: (): Promise<RostechnadzorBatch[]> => govExportApi.listRostechnadzorBatches(session!),
+    refetchInterval: live ? 15_000 : undefined
+  });
+
+  useEffect(() => {
+    if (!session) {
+      void queryClient.invalidateQueries({ queryKey: ['govExport'] });
+    }
+  }, [queryClient, session]);
+
+  return {
+    data: query.data ?? ([] as RostechnadzorBatch[]),
+    loading: query.isLoading,
+    error: query.error instanceof Error ? query.error.message : null,
+    refetch: async () => {
+      await query.refetch();
+    }
+  };
+};
+
+/**
+ * Fetch the list of Минздрав-НМО (НМО, ЗЕТ) export batches. Mirrors useFrdoRegistryBatches.
+ */
+export const useNmoBatches = (live = false) => {
+  const { session } = useAuth();
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ['govExport', 'nmoBatches'],
+    enabled: Boolean(session),
+    queryFn: (): Promise<NmoBatch[]> => govExportApi.listNmoBatches(session!),
+    refetchInterval: live ? 15_000 : undefined
+  });
+
+  useEffect(() => {
+    if (!session) {
+      void queryClient.invalidateQueries({ queryKey: ['govExport'] });
+    }
+  }, [queryClient, session]);
+
+  return {
+    data: query.data ?? ([] as NmoBatch[]),
     loading: query.isLoading,
     error: query.error instanceof Error ? query.error.message : null,
     refetch: async () => {
