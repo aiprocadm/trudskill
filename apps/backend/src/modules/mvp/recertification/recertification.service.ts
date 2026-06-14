@@ -40,8 +40,8 @@ export class RecertificationService {
     @Inject(RECERTIFICATION_DRAFTS_REPOSITORY)
     private readonly drafts: RecertificationDraftsRepository,
     @Inject(MVP_STATE) private readonly state: InMemoryMvpState,
-    private readonly mvp: MvpService,
-    private readonly scanner: RecertificationScanner
+    @Inject(MvpService) private readonly mvp: MvpService,
+    @Inject(RecertificationScanner) private readonly scanner: RecertificationScanner
   ) {}
 
   /** Manual per-tenant scan (HTTP-triggered). The interceptor has already loaded `this.state`. */

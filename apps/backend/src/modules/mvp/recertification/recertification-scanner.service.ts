@@ -72,7 +72,9 @@ export class RecertificationScanner {
   constructor(
     @Inject(RECERTIFICATION_DRAFTS_REPOSITORY)
     private readonly drafts: RecertificationDraftsRepository,
+    @Inject(NotificationDispatcher)
     private readonly dispatcher: NotificationDispatcher,
+    @Inject(DocumentsTenantRunner)
     private readonly documentsRunner: DocumentsTenantRunner
   ) {}
 

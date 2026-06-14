@@ -81,6 +81,21 @@ async function applyMigrations(pool: Pool, migrationFiles: string[]): Promise<vo
   }
 }
 
+/**
+ * Cheap synchronous probe for a reachable Docker engine. Testcontainers needs a running Docker
+ * daemon; without one it throws "Could not find a working container runtime strategy". CI (Ubuntu)
+ * always exposes the unix socket; a dev box without Docker — or with Docker Desktop's engine
+ * stopped (common on Windows without admin to start `com.docker.service`) — has neither the socket
+ * nor the Windows named pipe. `DOCKER_HOST` covers remote/CI overrides. Suites use this with
+ * `describe.skipIf(!isDockerAvailable())` so they run fully in CI but skip (visibly) where Docker
+ * is absent, instead of failing the whole local backend run on a missing optional dependency.
+ */
+export function isDockerAvailable(): boolean {
+  if (process.env.DOCKER_HOST) return true;
+  if (process.platform === 'win32') return existsSync('\\\\.\\pipe\\docker_engine');
+  return existsSync('/var/run/docker.sock');
+}
+
 export interface WithTestDbOptions {
   /** Migration filenames to apply before the callback. Order matters. */
   migrations: string[];

@@ -1,12 +1,16 @@
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { PostgresMagicLinkTokenRepo } from './postgres-magic-link-token-repo.js';
-import { stopTestDb, withTestDb } from '../../../testing/with-test-db.js';
+import { isDockerAvailable, stopTestDb, withTestDb } from '../../../testing/with-test-db.js';
 
 import type { DatabaseService } from '../../../infrastructure/database/database.service.js';
 
+// Testcontainers-backed: needs a live Docker engine. Runs fully in CI; skips (visibly) on dev
+// boxes without Docker so the local backend suite stays green instead of failing on a missing dep.
+const dockerAvailable = isDockerAvailable();
+
 afterAll(async () => {
-  await stopTestDb();
+  if (dockerAvailable) await stopTestDb();
 }, 60_000);
 
 const MAGIC_LINK_TEST_DB = { migrations: ['0028_iam_magic_link_tokens.sql'] };
@@ -19,7 +23,7 @@ function inOneMinute(): Date {
   return new Date(Date.now() + 60_000);
 }
 
-describe('PostgresMagicLinkTokenRepo', () => {
+describe.skipIf(!dockerAvailable)('PostgresMagicLinkTokenRepo', () => {
   it('saves a token and finds it by tenant + hash', async () => {
     await withTestDb(MAGIC_LINK_TEST_DB, async (db) => {
       const repo = new PostgresMagicLinkTokenRepo(db as DatabaseService);

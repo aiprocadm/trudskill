@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
 import { CourseDeadlineScanner } from './course-deadline-scanner.service.js';
@@ -16,11 +16,11 @@ export class RemindersSchedulerService {
   private readonly logger = new Logger(RemindersSchedulerService.name);
 
   constructor(
-    private readonly tenants: TenantService,
-    private readonly mvpRunner: MvpTenantRunner,
-    private readonly recertScanner: RecertificationScanner,
-    private readonly deadlineScanner: CourseDeadlineScanner,
-    private readonly db: DatabaseService
+    @Inject(TenantService) private readonly tenants: TenantService,
+    @Inject(MvpTenantRunner) private readonly mvpRunner: MvpTenantRunner,
+    @Inject(RecertificationScanner) private readonly recertScanner: RecertificationScanner,
+    @Inject(CourseDeadlineScanner) private readonly deadlineScanner: CourseDeadlineScanner,
+    @Inject(DatabaseService) private readonly db: DatabaseService
   ) {}
 
   @Cron(backendEnv.RECERTIFICATION_CRON_SCHEDULE, { name: 'reminders-daily-scan', timeZone: 'UTC' })

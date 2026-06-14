@@ -22,7 +22,11 @@ const SRC = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Classes instantiated via `useFactory` (new X(...)) rather than Nest DI — their ctor params
 // are passed explicitly by the factory and need no @Inject.
-const FACTORY_INSTANTIATED = new Set(['clamav-antivirus.scanner.ts', 'smtp-mailer.service.ts']);
+const FACTORY_INSTANTIATED = new Set([
+  'clamav-antivirus.scanner.ts',
+  'smtp-mailer.service.ts',
+  'email-magic-link-email-sender.ts'
+]);
 // Types Nest resolves without a provider token / not DI.
 const NON_DI_TYPES = new Set(['Logger', 'Reflector']);
 
