@@ -41,7 +41,7 @@
 - [ ] **Шаг 6. Создать DNS A-запись и проверить `dig`** — прописать IP сервера в DNS, дождаться распространения, убедиться что `dig +short <домен>` возвращает нужный IP. Без этого шага Caddy не получит TLS-сертификат.
       [→ Шаг 6 руководства](../../infra/server-setup.md#step-6--dns)
 
-- [ ] **Шаг 7. Первый запуск** — `docker compose -f infra/docker-compose.prod.yml up -d --build`. Миграции БД применяются автоматически при старте бэкенда.
+- [ ] **Шаг 7. Первый запуск** — сначала загрузить `infra/.env.production` (`set -a; . infra/.env.production; set +a`), затем `docker compose -f infra/docker-compose.prod.yml up -d --build`. Миграции БД применяются автоматически при старте бэкенда.
       [→ Шаг 7 руководства](../../infra/server-setup.md#step-7--first-boot)
 
 - [ ] **Шаг 8. Проверить `/api/v1/health/live` + TLS** — убедиться что все контейнеры `healthy`/`running`, `curl https://<домен>/api/v1/health/live` возвращает `{"status":"ok"}`.
@@ -62,6 +62,14 @@
 1. Обновите email тестового пользователя `u_tenant_admin` на ваш реальный адрес.
 2. Заблокируйте остальных demo-пользователей (хорошая практика безопасности).
 3. Войдите через magic-link: откройте `https://<домен>/login`, введите email, перейдите по ссылке из письма.
+
+> **Если SMTP ещё не работает** (`NOTIFICATIONS_EMAIL_ENABLED=false` или письма не доходят) — ссылку для первого входа можно прочитать прямо из логов бэкенда:
+>
+> ```
+> docker compose -f infra/docker-compose.prod.yml logs backend | grep magic_link.delivery
+> ```
+>
+> Подробнее — в `infra/bootstrap-admin.md` §2b.
 
 > **Важно:** дефолтный seed-пароль (`Password123!`) автоматически нейтрализуется при первом запуске в production-режиме — механизм `SeedCredentialHygiene` меняет хэш на недействительный у всех seed-аккаунтов. Поэтому войти с паролем не получится даже если попробовать. Первый вход — только по magic-link согласно процедуре в `bootstrap-admin.md`.
 
