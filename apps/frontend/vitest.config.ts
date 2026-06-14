@@ -20,6 +20,13 @@ export default defineConfig({
   test: {
     name: '@cdoprof/frontend',
     include: ['app/**/*.test.tsx', 'src/**/*.test.ts'],
-    setupFiles: ['./vitest.setup-env.ts']
+    setupFiles: ['./vitest.setup-env.ts'],
+    // Module-smoke tests in src/e2e/* assert structure via `await import(...)`. The first
+    // cold dynamic import of a heavy feature module pays a one-off transform cost (~2s in
+    // isolation) that can exceed vitest's default 5000ms when many parallel workers thrash
+    // transforms on slower machines. The assertions are structural, not temporal, so give
+    // them ample headroom rather than flaking under load (CI stays green either way).
+    testTimeout: 30000,
+    hookTimeout: 30000
   }
 });
