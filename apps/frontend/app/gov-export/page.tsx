@@ -15,7 +15,9 @@ import { govExportApi } from '../../src/features/gov-export/api';
 import {
   useEisotTestingBatches,
   useFrdoRegistryBatches,
-  useOtRegistryBatches
+  useNmoBatches,
+  useOtRegistryBatches,
+  useRostechnadzorBatches
 } from '../../src/features/gov-export/hooks';
 import { useExportTasks, useSyncLogs } from '../../src/features/integrations/hooks';
 import { apiRequest } from '../../src/lib/api/client';
@@ -24,7 +26,9 @@ import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 import type {
   EisotTestingExportOutcome,
   FrdoRegistryExportOutcome,
-  OtRegistryExportOutcome
+  NmoExportOutcome,
+  OtRegistryExportOutcome,
+  RostechnadzorExportOutcome
 } from '../../src/features/gov-export/types';
 
 export default function GovExportPage() {
@@ -60,6 +64,25 @@ export default function GovExportPage() {
   const [eisotError, setEisotError] = useState<string | null>(null);
   const [eisotOutcome, setEisotOutcome] = useState<EisotTestingExportOutcome | null>(null);
   const eisotBatches = useEisotTestingBatches();
+
+  // Ростехнадзор (промышленная безопасность) section state — Phase 6
+  const [rostechGroupId, setRostechGroupId] = useState('');
+  const [rostechClientId, setRostechClientId] = useState('');
+  const [rostechFrom, setRostechFrom] = useState('');
+  const [rostechTo, setRostechTo] = useState('');
+  const [rostechBusy, setRostechBusy] = useState(false);
+  const [rostechError, setRostechError] = useState<string | null>(null);
+  const [rostechOutcome, setRostechOutcome] = useState<RostechnadzorExportOutcome | null>(null);
+  const rostechBatches = useRostechnadzorBatches();
+
+  // Минздрав-НМО (непрерывное медобразование, ЗЕТ) section state — Phase 6
+  const [nmoFrom, setNmoFrom] = useState('');
+  const [nmoTo, setNmoTo] = useState('');
+  const [nmoGroupId, setNmoGroupId] = useState('');
+  const [nmoBusy, setNmoBusy] = useState(false);
+  const [nmoError, setNmoError] = useState<string | null>(null);
+  const [nmoOutcome, setNmoOutcome] = useState<NmoExportOutcome | null>(null);
+  const nmoBatches = useNmoBatches();
 
   const onGenerateOt = async () => {
     if (!session) return;
@@ -142,6 +165,57 @@ export default function GovExportPage() {
   const onDownloadEisot = async (batchId: string) => {
     if (!session) return;
     const { url } = await govExportApi.getEisotTestingBatchFileUrl(session, batchId);
+    window.open(url, '_blank');
+  };
+
+  const onGenerateRostech = async () => {
+    if (!session) return;
+    setRostechBusy(true);
+    setRostechError(null);
+    try {
+      const outcome = await govExportApi.createRostechnadzorExport(session, {
+        ...(rostechGroupId ? { groupId: rostechGroupId } : {}),
+        ...(rostechClientId ? { clientId: rostechClientId } : {}),
+        ...(rostechFrom ? { enrolledFrom: rostechFrom } : {}),
+        ...(rostechTo ? { enrolledTo: rostechTo } : {})
+      });
+      setRostechOutcome(outcome);
+      await rostechBatches.refetch();
+    } catch (e) {
+      setRostechError(e instanceof Error ? e.message : 'Ошибка формирования выгрузки Ростехнадзор');
+    } finally {
+      setRostechBusy(false);
+    }
+  };
+
+  const onDownloadRostech = async (batchId: string) => {
+    if (!session) return;
+    const { url } = await govExportApi.getRostechnadzorBatchFileUrl(session, batchId);
+    window.open(url, '_blank');
+  };
+
+  const onGenerateNmo = async () => {
+    if (!session) return;
+    setNmoBusy(true);
+    setNmoError(null);
+    try {
+      const outcome = await govExportApi.createNmoExport(session, {
+        ...(nmoFrom ? { from: nmoFrom } : {}),
+        ...(nmoTo ? { to: nmoTo } : {}),
+        ...(nmoGroupId ? { groupId: nmoGroupId } : {})
+      });
+      setNmoOutcome(outcome);
+      await nmoBatches.refetch();
+    } catch (e) {
+      setNmoError(e instanceof Error ? e.message : 'Ошибка формирования выгрузки НМО');
+    } finally {
+      setNmoBusy(false);
+    }
+  };
+
+  const onDownloadNmo = async (batchId: string) => {
+    if (!session) return;
+    const { url } = await govExportApi.getNmoBatchFileUrl(session, batchId);
     window.open(url, '_blank');
   };
 
@@ -461,6 +535,173 @@ export default function GovExportPage() {
                     <button
                       type="button"
                       onClick={() => void onDownloadEisot(batch.id)}
+                      disabled={!batch.fileId}
+                    >
+                      Скачать
+                    </button>
+                  )
+                }))}
+              />
+            ) : null}
+          </SectionCard>
+        </SectionCard>
+        <SectionCard title="Ростехнадзор — аттестация по промышленной безопасности">
+          <p role="note" className="ui-callout ui-callout--warning" style={{ margin: '0 0 12px' }}>
+            ⚠️ Формат выгрузки предварительный (не сверен с эталоном Ростехнадзора). Перед подачей
+            сверьте колонки и область аттестации.
+          </p>
+          <FilterBar>
+            <input
+              value={rostechGroupId}
+              onChange={(event) => setRostechGroupId(event.target.value)}
+              placeholder="ID группы (необязательно)"
+            />
+            <input
+              value={rostechClientId}
+              onChange={(event) => setRostechClientId(event.target.value)}
+              placeholder="ID клиента (необязательно)"
+            />
+            <input
+              type="date"
+              value={rostechFrom}
+              onChange={(event) => setRostechFrom(event.target.value)}
+              placeholder="Дата зачисления с"
+            />
+            <input
+              type="date"
+              value={rostechTo}
+              onChange={(event) => setRostechTo(event.target.value)}
+              placeholder="по"
+            />
+            <button type="button" onClick={() => void onGenerateRostech()} disabled={rostechBusy}>
+              {rostechBusy ? 'Формирование...' : 'Сформировать выгрузку Ростехнадзор'}
+            </button>
+          </FilterBar>
+          {rostechError ? <SectionError message={rostechError} /> : null}
+          {rostechOutcome ? (
+            <div>
+              <p>
+                Экспортировано: {rostechOutcome.exported} / {rostechOutcome.total}. Ошибок:{' '}
+                {rostechOutcome.failed}.
+              </p>
+              {rostechOutcome.errors.length > 0 ? (
+                <ul>
+                  {rostechOutcome.errors.map((e) => (
+                    <li key={`${e.enrollmentId}-${e.field}`}>
+                      {e.fullName || e.enrollmentId}: {e.field} — {e.message}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+          <SectionCard title="История выгрузок Ростехнадзор">
+            {rostechBatches.loading ? <LoadingState message="Загрузка истории..." /> : null}
+            {rostechBatches.error ? <SectionError message={rostechBatches.error} /> : null}
+            {!rostechBatches.loading && !rostechBatches.error && !rostechBatches.data.length ? (
+              <SectionEmpty message="Выгрузки отсутствуют" />
+            ) : null}
+            {rostechBatches.data.length ? (
+              <DataTable
+                columns={[
+                  { key: 'id', title: 'ID' },
+                  { key: 'batchStatus', title: 'Статус' },
+                  { key: 'exportedRows', title: 'Экспортировано' },
+                  { key: 'failedRows', title: 'Ошибок' },
+                  { key: 'createdAt', title: 'Дата' },
+                  {
+                    key: 'actionsView',
+                    title: 'Действия',
+                    render: (row) => row.actionsView
+                  }
+                ]}
+                rows={rostechBatches.data.map((batch) => ({
+                  ...batch,
+                  actionsView: (
+                    <button
+                      type="button"
+                      onClick={() => void onDownloadRostech(batch.id)}
+                      disabled={!batch.fileId}
+                    >
+                      Скачать
+                    </button>
+                  )
+                }))}
+              />
+            ) : null}
+          </SectionCard>
+        </SectionCard>
+        <SectionCard title="Минздрав-НМО — непрерывное медобразование (ЗЕТ)">
+          <p role="note" className="ui-callout ui-callout--warning" style={{ margin: '0 0 12px' }}>
+            ⚠️ Формат выгрузки предварительный (не сверен с эталоном портала НМО). Специальность и
+            ЗЕТ требуют проверки перед подачей.
+          </p>
+          <FilterBar>
+            <input
+              type="date"
+              value={nmoFrom}
+              onChange={(event) => setNmoFrom(event.target.value)}
+              placeholder="Дата выдачи с"
+            />
+            <input
+              type="date"
+              value={nmoTo}
+              onChange={(event) => setNmoTo(event.target.value)}
+              placeholder="по"
+            />
+            <input
+              value={nmoGroupId}
+              onChange={(event) => setNmoGroupId(event.target.value)}
+              placeholder="ID группы (необязательно)"
+            />
+            <button type="button" onClick={() => void onGenerateNmo()} disabled={nmoBusy}>
+              {nmoBusy ? 'Формирование...' : 'Сформировать выгрузку НМО'}
+            </button>
+          </FilterBar>
+          {nmoError ? <SectionError message={nmoError} /> : null}
+          {nmoOutcome ? (
+            <div>
+              <p>
+                Экспортировано: {nmoOutcome.exported} / {nmoOutcome.total}. Ошибок:{' '}
+                {nmoOutcome.failed}.
+              </p>
+              {nmoOutcome.errors.length > 0 ? (
+                <ul>
+                  {nmoOutcome.errors.map((e) => (
+                    <li key={`${e.documentId}-${e.field}`}>
+                      {e.fullName || e.documentId}: {e.field} — {e.message}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+          <SectionCard title="История выгрузок НМО">
+            {nmoBatches.loading ? <LoadingState message="Загрузка истории..." /> : null}
+            {nmoBatches.error ? <SectionError message={nmoBatches.error} /> : null}
+            {!nmoBatches.loading && !nmoBatches.error && !nmoBatches.data.length ? (
+              <SectionEmpty message="Выгрузки отсутствуют" />
+            ) : null}
+            {nmoBatches.data.length ? (
+              <DataTable
+                columns={[
+                  { key: 'id', title: 'ID' },
+                  { key: 'batchStatus', title: 'Статус' },
+                  { key: 'exportedRows', title: 'Экспортировано' },
+                  { key: 'failedRows', title: 'Ошибок' },
+                  { key: 'createdAt', title: 'Дата' },
+                  {
+                    key: 'actionsView',
+                    title: 'Действия',
+                    render: (row) => row.actionsView
+                  }
+                ]}
+                rows={nmoBatches.data.map((batch) => ({
+                  ...batch,
+                  actionsView: (
+                    <button
+                      type="button"
+                      onClick={() => void onDownloadNmo(batch.id)}
                       disabled={!batch.fileId}
                     >
                       Скачать
