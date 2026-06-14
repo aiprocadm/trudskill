@@ -1,9 +1,21 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import withSerwistInit from '@serwist/next';
+
 import type { NextConfig } from 'next';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../');
+
+// Phase 10 Track C — Serwist PWA service worker. Compiles src/app/sw.ts → public/sw.js and
+// auto-registers it. Disabled in development so the SW cache doesn't interfere with HMR; the
+// SW is exercised by the production build (and verified there). Existing rewrites (SCORM) are
+// preserved by wrapping the same nextConfig.
+const withSerwist = withSerwistInit({
+  swSrc: 'src/app/sw.ts',
+  swDest: 'public/sw.js',
+  disable: process.env.NODE_ENV === 'development'
+});
 
 const nextConfig: NextConfig = {
   output: 'standalone',
@@ -25,4 +37,4 @@ const nextConfig: NextConfig = {
   }
 };
 
-export default nextConfig;
+export default withSerwist(nextConfig);

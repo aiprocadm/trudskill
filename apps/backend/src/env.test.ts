@@ -155,6 +155,51 @@ describe('RECERTIFICATION_SCAN_ENABLED / RECERTIFICATION_CRON_SCHEDULE', () => {
   });
 });
 
+describe('WEB_PUSH_ENABLED / VAPID env (Phase 10 Track C)', () => {
+  const validDevEnv = {
+    ...baseEnv,
+    AUTH_JWT_SECRET: 'dev-secret-not-placeholder',
+    SESSION_SECRET: 'dev-session-not-placeholder'
+  } as const;
+
+  it('defaults web push to disabled with optional VAPID keys and a default subject', () => {
+    const env = backendEnvSchema.parse(validDevEnv);
+    expect(env.WEB_PUSH_ENABLED).toBe(false);
+    expect(env.VAPID_PUBLIC_KEY).toBeUndefined();
+    expect(env.VAPID_PRIVATE_KEY).toBeUndefined();
+    expect(env.VAPID_SUBJECT).toBe('mailto:no-reply@cdoprof.local');
+  });
+
+  it('never coerces the string "false" to true', () => {
+    const env = backendEnvSchema.parse({ ...validDevEnv, WEB_PUSH_ENABLED: 'false' });
+    expect(env.WEB_PUSH_ENABLED).toBe(false);
+  });
+
+  it('parses when enabled with both VAPID keys present', () => {
+    const env = backendEnvSchema.parse({
+      ...validDevEnv,
+      WEB_PUSH_ENABLED: 'true',
+      VAPID_PUBLIC_KEY: 'pub-key',
+      VAPID_PRIVATE_KEY: 'priv-key',
+      VAPID_SUBJECT: 'mailto:admin@center.ru'
+    });
+    expect(env.WEB_PUSH_ENABLED).toBe(true);
+    expect(env.VAPID_PUBLIC_KEY).toBe('pub-key');
+    expect(env.VAPID_SUBJECT).toBe('mailto:admin@center.ru');
+  });
+
+  it('rejects WEB_PUSH_ENABLED=true without VAPID keys (conditional-required)', () => {
+    const parsed = backendEnvSchema.safeParse({ ...validDevEnv, WEB_PUSH_ENABLED: 'true' });
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      const vapidIssue = parsed.error.issues.find((i) => i.path[0] === 'VAPID_PUBLIC_KEY');
+      expect(vapidIssue?.message).toBe(
+        'VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY are required when WEB_PUSH_ENABLED=true'
+      );
+    }
+  });
+});
+
 describe('antivirus scan gate env', () => {
   const validDevEnv = {
     ...baseEnv,

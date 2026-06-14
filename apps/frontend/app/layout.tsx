@@ -2,7 +2,20 @@ import { Golos_Text, PT_Serif } from 'next/font/google';
 
 import { AppProviders } from '../src/app/providers';
 
+import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+
+// Phase 10 Track C — PWA metadata. The web app manifest itself lives in app/manifest.ts
+// (App Router metadata route) and is linked automatically; here we add the theme colour and
+// iOS standalone hints so the installed app chrome matches the brand.
+export const metadata: Metadata = {
+  applicationName: 'CDOProf',
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'CDOProf' }
+};
+
+export const viewport: Viewport = {
+  themeColor: '#0b5cab'
+};
 
 // Golos Text — функциональный UI/текст. PT Serif — акцент (вордмарк, герой-заголовок).
 // Обе Paratype, кириллица-first. next/font self-hosts шрифты в бандл (end-user не ходит в Google → 152-ФЗ).

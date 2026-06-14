@@ -35,6 +35,7 @@ import type {
   OtRegistryRecord,
   PreExamToken,
   ProctoringRecording,
+  PushSubscription,
   Question,
   QuestionBank,
   ReportTemplate,
@@ -99,4 +100,6 @@ export class InMemoryMvpState {
   scormAttempts: ScormAttempt[] = [];
   // Phase 10 Track A — saved Excel report builder templates (tenant-level).
   reportTemplates: ReportTemplate[] = [];
+  // Phase 10 Track C — web-push подписки браузеров пользователей.
+  pushSubscriptions: PushSubscription[] = [];
 }

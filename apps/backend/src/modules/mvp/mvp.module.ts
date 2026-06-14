@@ -41,6 +41,8 @@ import { ScormController } from './scorm/scorm.controller.js';
 import { ScormService } from './scorm/scorm.service.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { CommunicationModule } from '../communication/communication.module.js';
+import { PushSubscriptionService } from '../communication/web-push/push-subscription.service.js';
+import { WebPushController } from '../communication/web-push/web-push.controller.js';
 import { DocumentsModule } from '../documents/documents.module.js';
 import { FilesModule } from '../files/files.module.js';
 import { IamModule } from '../iam/iam.module.js';
@@ -65,7 +67,8 @@ import { TenantModule } from '../tenant/tenant.module.js';
     EisotTestingRegistryController,
     RecertificationController,
     ScormController,
-    ScormContentController
+    ScormContentController,
+    WebPushController
   ],
   providers: [
     MvpBulkEnqueueService,
@@ -107,6 +110,8 @@ import { TenantModule } from '../tenant/tenant.module.js';
       useClass: LearnersBulkImportService
     },
     { provide: ScormService, scope: Scope.REQUEST, useClass: ScormService },
+    // Phase 10 Track C — self-service push subscription CRUD (request-scoped, reads MVP_STATE).
+    { provide: PushSubscriptionService, scope: Scope.REQUEST, useClass: PushSubscriptionService },
     {
       provide: MvpRequestPersistenceInterceptor,
       scope: Scope.REQUEST,
