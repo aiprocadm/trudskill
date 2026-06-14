@@ -39,6 +39,8 @@ import type {
   Question,
   QuestionBank,
   ReportTemplate,
+  RostechnadzorBatch,
+  RostechnadzorRecord,
   ScormAttempt,
   ScormPackage,
   TestAttempt,
@@ -95,6 +97,9 @@ export class InMemoryMvpState {
   // Wave 2 sub-goal C — ЕИСОТ «лица на тестирование»: durable roster batches + per-record set.
   eisotTestingBatches: EisotTestingBatch[] = [];
   eisotTestingRecords: EisotTestingRecord[] = [];
+  // Phase 6 — Ростехнадзор (промышленная безопасность): durable export batches + records.
+  rostechnadzorRegistryBatches: RostechnadzorBatch[] = [];
+  rostechnadzorRegistryRecords: RostechnadzorRecord[] = [];
   // Phase 9 Plan A — SCORM: пакеты + cmi-прогресс учеников.
   scormPackages: ScormPackage[] = [];
   scormAttempts: ScormAttempt[] = [];
