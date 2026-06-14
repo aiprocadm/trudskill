@@ -21,6 +21,9 @@ import { MvpBulkEnqueueService } from './mvp-bulk-enqueue.service.js';
 import { MvpInternalWorkerController } from './mvp-internal-worker.controller.js';
 import { MvpController } from './mvp.controller.js';
 import { MvpService } from './mvp.service.js';
+import { NmoRegistryController } from './nmo-registry/nmo-registry.controller.js';
+import { NmoRegistryService } from './nmo-registry/nmo-registry.service.js';
+import { NmoXlsxWriter } from './nmo-registry/nmo-xlsx.writer.js';
 import { OtRegistryXlsxWriter } from './ot-registry/ot-registry-xlsx.writer.js';
 import { OtRegistryXmlWriter } from './ot-registry/ot-registry-xml.writer.js';
 import { OtRegistryController } from './ot-registry/ot-registry.controller.js';
@@ -69,6 +72,7 @@ import { TenantModule } from '../tenant/tenant.module.js';
     FrdoRegistryController,
     EisotTestingRegistryController,
     RostechnadzorRegistryController,
+    NmoRegistryController,
     RecertificationController,
     ScormController,
     ScormContentController,
@@ -113,6 +117,8 @@ import { TenantModule } from '../tenant/tenant.module.js';
       scope: Scope.REQUEST,
       useClass: RostechnadzorRegistryService
     },
+    NmoXlsxWriter,
+    { provide: NmoRegistryService, scope: Scope.REQUEST, useClass: NmoRegistryService },
     { provide: LearnerPdfCardService, scope: Scope.REQUEST, useClass: LearnerPdfCardService },
     {
       provide: LearnersBulkImportService,

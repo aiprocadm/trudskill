@@ -41,6 +41,8 @@ export const MVP_COLLECTIONS = [
   'eisotTestingRecords',
   'rostechnadzorRegistryBatches',
   'rostechnadzorRegistryRecords',
+  'nmoRegistryBatches',
+  'nmoRegistryRecords',
   'scormPackages',
   'scormAttempts',
   'reportTemplates',
