@@ -25,35 +25,8 @@ function loadGeneratedOpenApi() {
 }
 
 describe('API contract compatibility', () => {
-  it('preserves canonical error-code set including snake_case compatibility alias', async () => {
+  it('preserves canonical error-code set including snake_case compatibility alias', () => {
     const actualCodes = Object.values(ApiErrorCodes);
-    // #region agent log
-    await fetch('http://127.0.0.1:7784/ingest/208359c6-33bf-4bcf-bd6c-d5a3e4d89734', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '940dad' },
-      body: JSON.stringify({
-        sessionId: '940dad',
-        runId: 'pre-fix',
-        hypothesisId: 'H1',
-        location: 'packages/api-contracts/src/contracts.compatibility.test.ts:27',
-        message: 'Canonical error set assertion input',
-        data: {
-          actualCodes,
-          expectedCodes: [
-            'VALIDATION_ERROR',
-            'FORBIDDEN',
-            'NOT_FOUND',
-            'CONFLICT',
-            'PRECONDITION_FAILED',
-            'RATE_LIMITED',
-            'INTERNAL_ERROR',
-            'internal_error'
-          ]
-        },
-        timestamp: Date.now()
-      })
-    }).catch(() => {});
-    // #endregion
     expect(actualCodes).toEqual([
       'VALIDATION_ERROR',
       'FORBIDDEN',
