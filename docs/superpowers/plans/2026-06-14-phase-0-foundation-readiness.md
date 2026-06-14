@@ -31,7 +31,7 @@
 
 - Create: `docs/phase-0/README.md`
 
-- [ ] **Step 1: Создать индекс плейбука**
+- [x] **Step 1: Создать индекс плейбука**
 
 Документ должен содержать ровно эти разделы с этим содержанием:
 
@@ -42,7 +42,7 @@
 - **Отложено (вне критического пути):** ЕСИА (решение D), платежи/54-ФЗ (решение E) — со ссылкой на Phase 7.
 - **Как пользоваться:** проходить документы в порядке критического пути; начинать WS5 и WS6 можно немедленно параллельно.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add docs/phase-0/README.md
@@ -57,7 +57,7 @@ git commit -m "docs(phase-0): playbook index — critical path + workstream map"
 
 - Create: `docs/phase-0/01-brand-domain.md`
 
-- [ ] **Step 1: Создать документ бренда/домена**
+- [x] **Step 1: Создать документ бренда/домена**
 
 Разделы:
 
@@ -68,7 +68,7 @@ git commit -m "docs(phase-0): playbook index — critical path + workstream map"
 - **Чек-лист действий владельца** (чек-боксы): ☐ выбрать название из шорт-листа/своё; ☐ проверить домен (`whois`/регистратор); ☐ проверить товарный знак на ФИПС; ☐ купить домен; ☐ зафиксировать `PUBLIC_DOMAIN` и `SMTP_FROM` для WS2.
 - **Готово когда:** домен куплен, DNS под контролем владельца, значения для `.env.production` записаны.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add docs/phase-0/01-brand-domain.md
@@ -83,7 +83,7 @@ git commit -m "docs(phase-0): WS1 brand + domain checklist + name shortlist"
 
 - Create: `docs/phase-0/02-server-go-live.md`
 
-- [ ] **Step 1: Создать чек-лист запуска сервера**
+- [x] **Step 1: Создать чек-лист запуска сервера**
 
 Документ НЕ дублирует `infra/server-setup.md`, а даёт pre-flight + навигацию:
 
@@ -94,7 +94,7 @@ git commit -m "docs(phase-0): WS1 brand + domain checklist + name shortlist"
 - **Роль агента:** провести владельца по шагам интерактивно, помочь заполнить `.env.production`, продиагностировать ошибки health/TLS.
 - **Готово когда:** `curl https://<домен>/api/v1/health/live` → `{"status":"ok"}`, вход первого админа работает, CD-деплой по push в `main` проходит.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add docs/phase-0/02-server-go-live.md
@@ -109,7 +109,7 @@ git commit -m "docs(phase-0): WS2 server go-live pre-flight + 10-step checklist"
 
 - Create: `docs/phase-0/03-signature-model.md`
 
-- [ ] **Step 1: Создать памятку решения по подписи**
+- [x] **Step 1: Создать памятку решения по подписи**
 
 > Документ открывается дисклеймером: **«Это структура для решения, а не юридическая консультация. Финальную модель утверждает юрист.»**
 
@@ -124,7 +124,7 @@ git commit -m "docs(phase-0): WS2 server go-live pre-flight + 10-step checklist"
 - **Готово когда:** на пилот зафиксирована промежуточная модель + оговорка; выбран провайдер и поставлена задача юристу для апгрейда.
 - **Заметка:** при погружении WS3 может стать отдельным спеком (НЭП-интеграция = остаток Phase 6).
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add docs/phase-0/03-signature-model.md
@@ -139,7 +139,7 @@ git commit -m "docs(phase-0): WS3 document signature decision memo (interim e-si
 
 - Create: `docs/phase-0/04-pilot-content.md`
 
-- [ ] **Step 1: Создать ранбук настройки пилотного курса**
+- [x] **Step 1: Создать ранбук настройки пилотного курса**
 
 Ранбук опирается на уже существующий админ-функционал (Phase 1-3, Pillar A). Разделы:
 
@@ -150,7 +150,7 @@ git commit -m "docs(phase-0): WS3 document signature decision memo (interim e-si
 - **Роль агента:** помочь с настройкой каждого шага в UI, объяснить переменные шаблона (`pillar-a-variables.ts`).
 - **Готово когда:** тестовый слушатель прошёл полный поток «обучение → экзамен → удостоверение → QR-проверка» на реальном курсе.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add docs/phase-0/04-pilot-content.md
@@ -165,7 +165,7 @@ git commit -m "docs(phase-0): WS4 pilot course setup runbook (course→exam→ce
 
 - Create: `docs/phase-0/05-pilot-client.md`
 
-- [ ] **Step 1: Создать шаблон рамки пилота**
+- [x] **Step 1: Создать шаблон рамки пилота**
 
 Разделы:
 
@@ -176,7 +176,7 @@ git commit -m "docs(phase-0): WS4 pilot course setup runbook (course→exam→ce
 - **Чек-лист действий владельца:** ☐ список 2-3 кандидатов; ☐ выбрать основного; ☐ согласовать рамку; ☐ заполнить шаблон; ☐ назначить дату старта.
 - **Готово когда:** рамка пилота заполнена, клиент подтвердил участие, дата старта назначена.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add docs/phase-0/05-pilot-client.md
@@ -191,7 +191,7 @@ git commit -m "docs(phase-0): WS5 pilot client selection criteria + scope templa
 
 - Create: `docs/phase-0/06-license-registry-verification.md`
 
-- [ ] **Step 1: Создать чек-листы верификации**
+- [x] **Step 1: Создать чек-листы верификации**
 
 > Открывается предупреждением из спека §7: **допущение о лицензии (решение C) при ошибке радикально меняет критический путь — подтвердить в первую очередь.**
 
@@ -202,7 +202,7 @@ git commit -m "docs(phase-0): WS5 pilot client selection criteria + scope templa
 - **Роль агента:** дать чек-листы, при сдаче в реестр — помочь скорректировать колонки/формат экспортёра под эталон.
 - **Готово когда:** лицензия подтверждена; для целевого реестра есть доступ и тестовая выгрузка прошла.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add docs/phase-0/06-license-registry-verification.md
@@ -217,15 +217,15 @@ git commit -m "docs(phase-0): WS6+WS7 license & registry-access verification che
 
 - Modify: `docs/superpowers/plans/PLANS_STATUS.md`
 
-- [ ] **Step 1: Добавить строку про Phase 0 readiness плейбук**
+- [x] **Step 1: Добавить строку про Phase 0 readiness плейбук**
 
 В `PLANS_STATUS.md`, в разделе «Что реально осталось» рядом с пунктом про Phase 0, добавить ссылку: «**Phase 0 readiness плейбук** — `docs/phase-0/` (спек `2026-06-14-phase-0-foundation-readiness-design.md`, план `2026-06-14-phase-0-foundation-readiness.md`): критический путь к первому пилоту; ЕСИА/платежи отложены.»
 
-- [ ] **Step 2: Добавить в README плейбука итоговую последовательность владельца**
+- [x] **Step 2: Добавить в README плейбука итоговую последовательность владельца**
 
 В `docs/phase-0/README.md` добавить раздел «Рекомендуемый порядок для владельца»: (1) подтвердить лицензию (WS6) — первым, т.к. при провале меняет всё; (2) параллельно: выбрать бренд+домен (WS1) и наметить пилотного клиента (WS5); (3) запустить сервер (WS2); (4) зафиксировать модель подписи на пилот (WS3); (5) настроить пилотный курс (WS4); (6) получить доступ к реестру (WS7); (7) прогон пилота → выдача документов.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add docs/superpowers/plans/PLANS_STATUS.md docs/phase-0/README.md
