@@ -16,6 +16,7 @@ export class MvpTenantRunner {
   constructor(
     @Inject(MVP_PERSISTENCE_BACKEND)
     private readonly persistence: MvpPersistenceBackend,
+    @Inject(TenantSerialGateway)
     private readonly tenantGateway: TenantSerialGateway
   ) {}
 

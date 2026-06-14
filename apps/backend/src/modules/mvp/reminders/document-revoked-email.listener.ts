@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 
 import {
@@ -6,9 +6,9 @@ import {
   resolveCourseTitleByVersion,
   resolveCourseVersionIdForGroup
 } from './reminder-recipients.js';
-import { type NotificationDispatcher } from '../../communication/notification-dispatcher.service.js';
+import { NotificationDispatcher } from '../../communication/notification-dispatcher.service.js';
 import { DOCUMENT_REVOKED_EVENT } from '../../documents/document-revoked.event.js';
-import { type MvpTenantRunner } from '../infrastructure/mvp-tenant-runner.service.js';
+import { MvpTenantRunner } from '../infrastructure/mvp-tenant-runner.service.js';
 
 import type { DocumentRevokedPayload } from '../../documents/document-revoked.event.js';
 
@@ -17,8 +17,8 @@ export class DocumentRevokedEmailListener {
   private readonly logger = new Logger(DocumentRevokedEmailListener.name);
 
   constructor(
-    private readonly mvpRunner: MvpTenantRunner,
-    private readonly dispatcher: NotificationDispatcher
+    @Inject(MvpTenantRunner) private readonly mvpRunner: MvpTenantRunner,
+    @Inject(NotificationDispatcher) private readonly dispatcher: NotificationDispatcher
   ) {}
 
   @OnEvent(DOCUMENT_REVOKED_EVENT, { async: true })

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { COURSE_DEADLINE_MILESTONES, pickMilestone } from './milestone.util.js';
 import {
@@ -21,7 +21,9 @@ const ACTIVE_STATUSES = new Set(['pending', 'active']);
 export class CourseDeadlineScanner {
   private readonly logger = new Logger(CourseDeadlineScanner.name);
 
-  constructor(private readonly dispatcher: NotificationDispatcher) {}
+  constructor(
+    @Inject(NotificationDispatcher) private readonly dispatcher: NotificationDispatcher
+  ) {}
 
   async scanTenant(
     tenantId: string,
