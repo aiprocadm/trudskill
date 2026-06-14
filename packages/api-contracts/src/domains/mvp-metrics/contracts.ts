@@ -85,3 +85,78 @@ export interface AnalyticsDashboardDto {
   byCourse: AnalyticsBreakdownRow[];
   byGroup: AnalyticsBreakdownRow[];
 }
+
+/** Phase 10 Track A — Excel report builder contracts. */
+export type ReportEntityKey = 'learners' | 'enrollments';
+export type ReportFieldType = 'string' | 'number' | 'date' | 'enum';
+
+export interface ReportFieldMeta {
+  key: string;
+  header: string;
+  type: string;
+}
+
+export interface ReportFilterMeta {
+  key: string;
+  label: string;
+  kind: string;
+  type: string;
+}
+
+export interface ReportEntityMetaDto {
+  key: string;
+  label: string;
+  fields: ReportFieldMeta[];
+  filters: ReportFilterMeta[];
+}
+
+export interface ReportEntitiesMetaDto {
+  entities: ReportEntityMetaDto[];
+}
+
+export interface ReportFilterValue {
+  key: string;
+  value: string;
+}
+
+export interface BuildReportRequest {
+  entityKey: ReportEntityKey;
+  selectedFields: string[];
+  filters?: ReportFilterValue[];
+}
+
+export interface ReportColumnDto {
+  key: string;
+  header: string;
+  type: ReportFieldType;
+}
+
+export interface ReportPreviewResponse {
+  columns: ReportColumnDto[];
+  rows: Record<string, string | number | null>[];
+  total: number;
+  truncated: boolean;
+}
+
+export interface ReportExportResponse {
+  fileName: string;
+  mimeType: string;
+  contentBase64: string;
+}
+
+export interface ReportTemplateDto {
+  id: string;
+  tenantId: string;
+  name: string;
+  entityKey: ReportEntityKey;
+  selectedFields: string[];
+  filters: ReportFilterValue[];
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SaveReportTemplateRequest extends BuildReportRequest {
+  id?: string;
+  name: string;
+}

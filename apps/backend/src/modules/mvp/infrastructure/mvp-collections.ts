@@ -41,6 +41,7 @@ export const MVP_COLLECTIONS = [
   'eisotTestingRecords',
   'scormPackages',
   'scormAttempts',
+  'reportTemplates',
   'pushSubscriptions'
 ] as const;
 

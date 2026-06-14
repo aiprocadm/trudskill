@@ -30,6 +30,9 @@ import {
   hashPreExamToken
 } from './pre-exam-token.js';
 import { resolveProctoringRequirement } from './proctoring/proctoring-requirement.js';
+import { buildReport } from './report-builder/build-report.js';
+import { getEntity, listReportEntityMeta } from './report-builder/report-entities.js';
+import { ReportXlsxWriter } from './report-builder/report-xlsx.writer.js';
 import { aggregateReviewerQueue } from './reviewer-queue.service.js';
 import { backendEnv } from '../../env.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
@@ -129,12 +132,18 @@ import type {
   Question,
   QuestionBank,
   RegulatoryAct,
+  ReportEntitiesMetaDto,
+  ReportExportDto,
+  ReportPreviewDto,
+  ReportTemplate,
   ReturnSubmissionInput,
   ReviewerQueueSnapshot,
   TestAttempt,
   TestEntity,
   TestQuestion
 } from './mvp.types.js';
+import type { ReportEntityKey, ResolveCtx } from './report-builder/report-types.js';
+import type { BuildReportRequestDto, SaveReportTemplateDto } from './report-builder.dto.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 import type { GeneratedDocumentEntity } from '../documents/documents.types.js';
 import type { UploadIntent } from '../files/files.service.js';
@@ -1523,6 +1532,170 @@ export class MvpService {
           : {})
       }
     });
+  }
+
+  // ───────────────────────── Phase 10 Track A — Excel report builder ─────────────────────────
+
+  /** Stateless XLSX writer (no DI deps) — kept off the constructor to leave its 6-arg shape intact. */
+  private readonly reportXlsxWriter = new ReportXlsxWriter();
+
+  /** Serialisable entity/field/filter registry for the UI. */
+  getReportEntitiesMeta(): ReportEntitiesMetaDto {
+    return { entities: listReportEntityMeta() };
+  }
+
+  previewReport(tenantId: string, req: BuildReportRequestDto): ReportPreviewDto {
+    return this.runReport(tenantId, req, 50);
+  }
+
+  async exportReport(tenantId: string, req: BuildReportRequestDto): Promise<ReportExportDto> {
+    const result = this.runReport(tenantId, req, 50_000);
+    const buffer = await this.reportXlsxWriter.build(result.columns, result.rows);
+    return {
+      fileName: `report-${req.entityKey}-${tenantId.slice(0, 8)}.xlsx`,
+      mimeType: this.reportXlsxWriter.contentType,
+      contentBase64: buffer.toString('base64')
+    };
+  }
+
+  listReportTemplates(tenantId: string): ReportTemplate[] {
+    return this.state.reportTemplates.filter((t) => t.tenantId === tenantId);
+  }
+
+  getReportTemplate(tenantId: string, id: string): ReportTemplate {
+    return this.getById(this.state.reportTemplates, tenantId, id);
+  }
+
+  saveReportTemplate(
+    tenantId: string,
+    req: SaveReportTemplateDto,
+    context: RequestContext
+  ): ReportTemplate {
+    const filters = (req.filters ?? []).map((f) => ({ key: f.key, value: f.value }));
+    if (req.id) {
+      const current = this.getById(this.state.reportTemplates, tenantId, req.id);
+      const oldValues = { ...current };
+      current.name = req.name;
+      current.entityKey = req.entityKey;
+      current.selectedFields = [...req.selectedFields];
+      current.filters = filters;
+      current.updatedAt = this.now();
+      this.audit(
+        tenantId,
+        context.userId,
+        'reports.template_updated',
+        'reports.template',
+        current.id,
+        oldValues,
+        current,
+        context
+      );
+      return current;
+    }
+    const entity: ReportTemplate = {
+      id: this.id('rpt'),
+      tenantId,
+      status: 'active',
+      name: req.name,
+      entityKey: req.entityKey,
+      selectedFields: [...req.selectedFields],
+      filters,
+      createdBy: context.userId,
+      createdAt: this.now(),
+      updatedAt: this.now()
+    };
+    this.state.reportTemplates.push(entity);
+    this.audit(
+      tenantId,
+      context.userId,
+      'reports.template_created',
+      'reports.template',
+      entity.id,
+      undefined,
+      entity,
+      context
+    );
+    return entity;
+  }
+
+  deleteReportTemplate(tenantId: string, id: string, context: RequestContext): { id: string } {
+    const current = this.getById(this.state.reportTemplates, tenantId, id);
+    this.state.reportTemplates = this.state.reportTemplates.filter((t) => t.id !== current.id);
+    this.audit(
+      tenantId,
+      context.userId,
+      'reports.template_deleted',
+      'reports.template',
+      current.id,
+      current,
+      undefined,
+      context
+    );
+    return { id: current.id };
+  }
+
+  /** Shared preview/export path: load tenant rows → run the pure engine, wrapping engine errors. */
+  private runReport(
+    tenantId: string,
+    req: BuildReportRequestDto,
+    limit: number
+  ): {
+    columns: ReportPreviewDto['columns'];
+    rows: ReportPreviewDto['rows'];
+    total: number;
+    truncated: boolean;
+  } {
+    const entity = getEntity(req.entityKey);
+    const rows = this.loadReportRows(tenantId, req.entityKey);
+    try {
+      return buildReport({
+        entity,
+        selectedFields: req.selectedFields,
+        filters: (req.filters ?? []).map((f) => ({ key: f.key, value: f.value })),
+        rows,
+        ctx: this.buildReportResolveCtx(tenantId),
+        limit
+      });
+    } catch (error) {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: error instanceof Error ? error.message : 'invalid_report_request'
+      });
+    }
+  }
+
+  private loadReportRows(tenantId: string, entityKey: ReportEntityKey): unknown[] {
+    const here = <T extends BaseEntity>(rows: T[]): T[] =>
+      rows.filter((r) => r.tenantId === tenantId);
+    switch (entityKey) {
+      case 'learners':
+        return here(this.state.learners);
+      case 'enrollments':
+        return here(this.state.enrollments);
+      default:
+        return [];
+    }
+  }
+
+  private buildReportResolveCtx(tenantId: string): ResolveCtx {
+    const here = <T extends BaseEntity>(rows: T[]): T[] =>
+      rows.filter((r) => r.tenantId === tenantId);
+    const fullName = (l: { lastName?: string; firstName?: string; middleName?: string }): string =>
+      [l.lastName, l.firstName, l.middleName].filter((p) => p && p.length > 0).join(' ');
+    return {
+      courseTitleById: new Map(here(this.state.courses).map((c) => [c.id, c.title])),
+      groupById: new Map(
+        here(this.state.groups).map((g) => [
+          g.id,
+          { name: g.name, ...(g.counterpartyId ? { counterpartyId: g.counterpartyId } : {}) }
+        ])
+      ),
+      clientNameById: new Map(here(this.state.counterparties).map((c) => [c.id, c.name])),
+      learnerNameById: new Map(here(this.state.learners).map((l) => [l.id, fullName(l)])),
+      courseProgressByEnrollment: new Map(
+        here(this.state.courseProgress).map((p) => [p.enrollmentId, p.progressPercent])
+      )
+    };
   }
 
   getEnrollment(tenantId: string, id: string): Enrollment {

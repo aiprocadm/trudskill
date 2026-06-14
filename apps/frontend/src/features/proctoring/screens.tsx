@@ -461,6 +461,7 @@ export function AdminProctoringDetailScreen({ id }: { id: string }): ReactElemen
             {detail.playbackChunks.length === 0 ? (
               <p className="ui-text-muted">Нет доступных фрагментов</p>
             ) : videoUrl ? (
+              // eslint-disable-next-line jsx-a11y/media-has-caption -- Phase 10B: out-of-scope; proctoring recordings (MediaRecorder chunks) have no caption track. Captions not applicable to silent exam-screen captures.
               <video
                 controls
                 src={videoUrl}

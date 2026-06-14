@@ -225,6 +225,42 @@ export interface AnalyticsDashboardDto {
   byGroup: AnalyticsBreakdownRow[];
 }
 
+/** Phase 10 Track A — сохранённый шаблон конструктора отчётов (MVP-state JSON-снимок, без миграции). */
+export interface ReportTemplate extends BaseEntity {
+  name: string;
+  entityKey: 'learners' | 'enrollments';
+  selectedFields: string[];
+  filters: { key: string; value: string }[];
+  createdBy?: string;
+}
+
+/** Phase 10 Track A — превью отчёта (строки капнуты для UI). */
+export interface ReportPreviewDto {
+  columns: { key: string; header: string; type: 'string' | 'number' | 'date' | 'enum' }[];
+  rows: Record<string, string | number | null>[];
+  /** Полное число подходящих строк до капа. */
+  total: number;
+  /** true, если строки были капнуты (total > отданных строк). */
+  truncated: boolean;
+}
+
+/** Phase 10 Track A — XLSX-экспорт, base64-в-конверте (без S3/presigned). */
+export interface ReportExportDto {
+  fileName: string;
+  mimeType: string;
+  contentBase64: string;
+}
+
+/** Phase 10 Track A — метаданные реестра сущностей/полей/фильтров для UI. */
+export interface ReportEntitiesMetaDto {
+  entities: {
+    key: string;
+    label: string;
+    fields: { key: string; header: string; type: string }[];
+    filters: { key: string; label: string; kind: string; type: string }[];
+  }[];
+}
+
 export interface EnrollmentStatusHistory {
   id: string;
   tenantId: string;
