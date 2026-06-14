@@ -1,6 +1,6 @@
 # Phase 6 — Ростехнадзор + Минздрав-НМО registry exporters Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add two durable regulatory-registry exporters — **Ростехнадзор** (аттестация по промышленной безопасности) and **Минздрав-НМО** (непрерывное медобразование, ЗЕТ) — that produce provisional `.xlsx` files for manual upload, following the exact Wave 2 pattern of the three shipped exporters.
 
@@ -45,7 +45,7 @@ pnpm typecheck
 
 - Modify: `apps/backend/src/modules/mvp/mvp.types.ts` (append after the ЕИСОТ block, ~line 952)
 
-- [ ] **Step 1: Append the type block**
+- [x] **Step 1: Append the type block**
 
 ```ts
 // === Ростехнадзор (аттестация по промышленной безопасности) — Phase 6 ===
@@ -109,12 +109,12 @@ export interface RostechnadzorExportOutcome {
 }
 ```
 
-- [ ] **Step 2: Typecheck**
+- [x] **Step 2: Typecheck**
 
 Run: `pnpm typecheck`
 Expected: PASS (types unused yet — confirms valid syntax).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.types.ts
@@ -130,7 +130,7 @@ git commit -m "feat(backend): Ростехнадзор registry types (row/batch
 - Create: `apps/backend/src/modules/mvp/rostechnadzor-registry/rostechnadzor-rows.ts`
 - Test: `apps/backend/src/modules/mvp/rostechnadzor-registry/rostechnadzor-rows.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -204,12 +204,12 @@ describe('buildRostechnadzorRows', () => {
 });
 ```
 
-- [ ] **Step 2: Run test — verify it fails**
+- [x] **Step 2: Run test — verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/rostechnadzor-registry/rostechnadzor-rows.test.ts --no-file-parallelism`
 Expected: FAIL — `buildRostechnadzorRows` not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```ts
 import type { Enrollment, Learner, RostechnadzorRow } from '../mvp.types.js';
@@ -251,11 +251,11 @@ export function buildRostechnadzorRows(bundles: RostechnadzorBundle[]): Rostechn
 }
 ```
 
-- [ ] **Step 4: Run test — verify it passes**
+- [x] **Step 4: Run test — verify it passes**
 
 Run: same as Step 2. Expected: PASS (2 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/rostechnadzor-registry/rostechnadzor-rows.ts apps/backend/src/modules/mvp/rostechnadzor-registry/rostechnadzor-rows.test.ts
@@ -271,7 +271,7 @@ git commit -m "feat(backend): Ростехнадзор pure row builder + test"
 - Create: `apps/backend/src/modules/mvp/rostechnadzor-registry/rostechnadzor-preflight.ts`
 - Test: `apps/backend/src/modules/mvp/rostechnadzor-registry/rostechnadzor-preflight.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -336,12 +336,12 @@ describe('validateRostechnadzorRow', () => {
 });
 ```
 
-- [ ] **Step 2: Run test — verify it fails**
+- [x] **Step 2: Run test — verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/rostechnadzor-registry/rostechnadzor-preflight.test.ts --no-file-parallelism`
 Expected: FAIL — function not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```ts
 import { isValidSnilsChecksum, normalizeSnils } from '../learners-bulk-import.service.js';
@@ -385,11 +385,11 @@ export function validateRostechnadzorRow(row: RostechnadzorRow): RostechnadzorRo
 }
 ```
 
-- [ ] **Step 4: Run test — verify it passes**
+- [x] **Step 4: Run test — verify it passes**
 
 Run: same as Step 2. Expected: PASS (4 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/rostechnadzor-registry/rostechnadzor-preflight.ts apps/backend/src/modules/mvp/rostechnadzor-registry/rostechnadzor-preflight.test.ts
@@ -405,7 +405,7 @@ git commit -m "feat(backend): Ростехнадзор row preflight validator +
 - Create: `apps/backend/src/modules/mvp/rostechnadzor-registry/rostechnadzor-xlsx.writer.ts`
 - Test: `apps/backend/src/modules/mvp/rostechnadzor-registry/rostechnadzor-xlsx.writer.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import ExcelJS from 'exceljs';
@@ -446,12 +446,12 @@ describe('RostechnadzorXlsxWriter', () => {
 });
 ```
 
-- [ ] **Step 2: Run test — verify it fails**
+- [x] **Step 2: Run test — verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/rostechnadzor-registry/rostechnadzor-xlsx.writer.test.ts --no-file-parallelism`
 Expected: FAIL — class not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```ts
 import { Injectable } from '@nestjs/common';
@@ -493,11 +493,11 @@ export class RostechnadzorXlsxWriter {
 }
 ```
 
-- [ ] **Step 4: Run test — verify it passes**
+- [x] **Step 4: Run test — verify it passes**
 
 Run: same as Step 2. Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/rostechnadzor-registry/rostechnadzor-xlsx.writer.ts apps/backend/src/modules/mvp/rostechnadzor-registry/rostechnadzor-xlsx.writer.test.ts
@@ -513,7 +513,7 @@ git commit -m "feat(backend): Ростехнадзор xlsx writer (PROVISIONAL 
 - Create: `apps/backend/src/modules/mvp/rostechnadzor-registry-export.dto.ts`
 - Test: `apps/backend/src/modules/mvp/rostechnadzor-registry-export.dto-validation.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { plainToInstance } from 'class-transformer';
@@ -545,12 +545,12 @@ describe('CreateRostechnadzorExportDto', () => {
 });
 ```
 
-- [ ] **Step 2: Run test — verify it fails**
+- [x] **Step 2: Run test — verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/rostechnadzor-registry-export.dto-validation.test.ts --no-file-parallelism`
 Expected: FAIL — DTO not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```ts
 import { IsOptional, IsString } from 'class-validator';
@@ -574,11 +574,11 @@ export class CreateRostechnadzorExportDto {
 }
 ```
 
-- [ ] **Step 4: Run test — verify it passes**
+- [x] **Step 4: Run test — verify it passes**
 
 Run: same as Step 2. Expected: PASS (3 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/rostechnadzor-registry-export.dto.ts apps/backend/src/modules/mvp/rostechnadzor-registry-export.dto-validation.test.ts
@@ -596,7 +596,7 @@ git commit -m "feat(backend): Ростехнадзор export DTO + validation t
 
 This is the ОТ twin without programs-classifier/XML/import. Attestation area is sourced provisionally from the course title.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Mirror `ot-registry/ot-registry.service.test.ts` structure. Use a `makeService()` helper that builds the service with hand-rolled stubs for `InMemoryMvpState`, `MvpService`, `DocumentsService`, `FilesService`, `S3StorageClient`, `RostechnadzorXlsxWriter`, `AuditService`. Minimum cases:
 
@@ -704,12 +704,12 @@ describe('RostechnadzorRegistryService', () => {
 });
 ```
 
-- [ ] **Step 2: Run test — verify it fails**
+- [x] **Step 2: Run test — verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/rostechnadzor-registry/rostechnadzor-registry.service.test.ts --no-file-parallelism`
 Expected: FAIL — service not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```ts
 import { randomUUID } from 'node:crypto';
@@ -985,11 +985,11 @@ export class RostechnadzorRegistryService {
 
 > **NOTE:** the `state.rostechnadzorRegistryBatches`/`...Records` arrays referenced here are declared in Task 7. Implement Task 6 and Task 7 together; the service test only compiles after Task 7's state arrays exist. If running strictly TDD, add the two `in-memory-mvp.state.ts` arrays (Task 7 Step 1) FIRST, then this service.
 
-- [ ] **Step 4: Run test — verify it passes**
+- [x] **Step 4: Run test — verify it passes**
 
 Run: same as Step 2 (after Task 7 Step 1 state arrays exist). Expected: PASS (3 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/rostechnadzor-registry/rostechnadzor-registry.service.ts apps/backend/src/modules/mvp/rostechnadzor-registry/rostechnadzor-registry.service.test.ts
@@ -1007,7 +1007,7 @@ git commit -m "feat(backend): Ростехнадзор export service (completed
 - Create: `apps/backend/src/modules/mvp/rostechnadzor-registry/rostechnadzor-registry.controller.ts`
 - Modify: `apps/backend/src/modules/mvp/mvp.module.ts`
 
-- [ ] **Step 1: Add state arrays** (`in-memory-mvp.state.ts`)
+- [x] **Step 1: Add state arrays** (`in-memory-mvp.state.ts`)
 
 In the type import list (near line 20-35) add `RostechnadzorBatch`, `RostechnadzorRecord`. After the ЕИСОТ arrays (line ~97) add:
 
@@ -1017,7 +1017,7 @@ In the type import list (near line 20-35) add `RostechnadzorBatch`, `Rostechnadz
   rostechnadzorRegistryRecords: RostechnadzorRecord[] = [];
 ```
 
-- [ ] **Step 2: Register collections** (`mvp-collections.ts`)
+- [x] **Step 2: Register collections** (`mvp-collections.ts`)
 
 After `'eisotTestingRecords',` (line 41) add:
 
@@ -1026,7 +1026,7 @@ After `'eisotTestingRecords',` (line 41) add:
   'rostechnadzorRegistryRecords',
 ```
 
-- [ ] **Step 3: Create the controller**
+- [x] **Step 3: Create the controller**
 
 ```ts
 import {
@@ -1090,7 +1090,7 @@ export class RostechnadzorRegistryController {
 }
 ```
 
-- [ ] **Step 4: Register in `mvp.module.ts`**
+- [x] **Step 4: Register in `mvp.module.ts`**
 
 Imports (near the other registry imports, lines 3-8):
 
@@ -1117,12 +1117,12 @@ import { RostechnadzorXlsxWriter } from './rostechnadzor-registry/rostechnadzor-
     },
 ```
 
-- [ ] **Step 5: Verify build + service test pass**
+- [x] **Step 5: Verify build + service test pass**
 
 Run: `pnpm typecheck` → PASS
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/rostechnadzor-registry/rostechnadzor-registry.service.test.ts --no-file-parallelism` → PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/infrastructure/in-memory-mvp.state.ts apps/backend/src/modules/mvp/infrastructure/mvp-collections.ts apps/backend/src/modules/mvp/rostechnadzor-registry/rostechnadzor-registry.controller.ts apps/backend/src/modules/mvp/mvp.module.ts
@@ -1137,7 +1137,7 @@ git commit -m "feat(backend): wire Ростехнадзор registry (state, col
 
 - Modify: `apps/backend/src/modules/mvp/mvp.http.integration.test.ts`
 
-- [ ] **Step 1: Add stub-controller endpoints**
+- [x] **Step 1: Add stub-controller endpoints**
 
 After the ЕИСОТ stub block (line ~370), add:
 
@@ -1159,7 +1159,7 @@ After the ЕИСОТ stub block (line ~370), add:
       }
 ```
 
-- [ ] **Step 2: Add the 4 boundary test cases**
+- [x] **Step 2: Add the 4 boundary test cases**
 
 After the ЕИСОТ `describe`/`it` blocks (~line 1650), mirror them:
 
@@ -1207,12 +1207,12 @@ describe('Ростехнадзор registry permission boundary', () => {
 
 > Use the exact local helper names already present in this file (`authHeaders`, `apiBaseUrl`, `iamServiceMock`) — confirm them in the ЕИСОТ block you are mirroring; adjust if they differ.
 
-- [ ] **Step 3: Run test**
+- [x] **Step 3: Run test**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.http.integration.test.ts --no-file-parallelism`
 Expected: PASS (all existing + 4 new).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.http.integration.test.ts
@@ -1229,7 +1229,7 @@ git commit -m "test(backend): Ростехнадзор export permission boundar
 
 - Modify: `apps/backend/src/modules/mvp/mvp.types.ts` (append after the Ростехнадзор block)
 
-- [ ] **Step 1: Append the type block**
+- [x] **Step 1: Append the type block**
 
 ```ts
 // === Минздрав-НМО (непрерывное медобразование, ЗЕТ) — Phase 6 ===
@@ -1293,9 +1293,9 @@ export interface NmoExportOutcome {
 }
 ```
 
-- [ ] **Step 2: Typecheck** → `pnpm typecheck` PASS.
+- [x] **Step 2: Typecheck** → `pnpm typecheck` PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.types.ts
@@ -1311,7 +1311,7 @@ git commit -m "feat(backend): Минздрав-НМО registry types (row/batch/
 - Create: `apps/backend/src/modules/mvp/nmo-registry/nmo-rows.ts`
 - Test: `apps/backend/src/modules/mvp/nmo-registry/nmo-rows.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -1368,11 +1368,11 @@ describe('buildNmoRows', () => {
 });
 ```
 
-- [ ] **Step 2: Run — verify fail**
+- [x] **Step 2: Run — verify fail**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/nmo-registry/nmo-rows.test.ts --no-file-parallelism` → FAIL.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```ts
 import type { GeneratedDocumentEntity } from '../../documents/documents.types.js';
@@ -1414,9 +1414,9 @@ export function buildNmoRows(bundles: NmoDocumentBundle[]): NmoRow[] {
 }
 ```
 
-- [ ] **Step 4: Run — verify pass** → PASS (2 tests).
+- [x] **Step 4: Run — verify pass** → PASS (2 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/nmo-registry/nmo-rows.ts apps/backend/src/modules/mvp/nmo-registry/nmo-rows.test.ts
@@ -1432,7 +1432,7 @@ git commit -m "feat(backend): Минздрав-НМО pure row builder + test"
 - Create: `apps/backend/src/modules/mvp/nmo-registry/nmo-preflight.ts`
 - Test: `apps/backend/src/modules/mvp/nmo-registry/nmo-preflight.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -1487,9 +1487,9 @@ describe('validateNmoRow', () => {
 });
 ```
 
-- [ ] **Step 2: Run — verify fail.**
+- [x] **Step 2: Run — verify fail.**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```ts
 import { isValidSnilsChecksum, normalizeSnils } from '../learners-bulk-import.service.js';
@@ -1532,9 +1532,9 @@ export function validateNmoRow(row: NmoRow): NmoRowError[] {
 }
 ```
 
-- [ ] **Step 4: Run — verify pass** (4 tests).
+- [x] **Step 4: Run — verify pass** (4 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/nmo-registry/nmo-preflight.ts apps/backend/src/modules/mvp/nmo-registry/nmo-preflight.test.ts
@@ -1550,7 +1550,7 @@ git commit -m "feat(backend): Минздрав-НМО row preflight validator + 
 - Create: `apps/backend/src/modules/mvp/nmo-registry/nmo-xlsx.writer.ts`
 - Test: `apps/backend/src/modules/mvp/nmo-registry/nmo-xlsx.writer.test.ts`
 
-- [ ] **Step 1: Write the failing test** (mirror Task 4's writer test)
+- [x] **Step 1: Write the failing test** (mirror Task 4's writer test)
 
 ```ts
 import ExcelJS from 'exceljs';
@@ -1590,9 +1590,9 @@ describe('NmoXlsxWriter', () => {
 });
 ```
 
-- [ ] **Step 2: Run — verify fail.**
+- [x] **Step 2: Run — verify fail.**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```ts
 import { Injectable } from '@nestjs/common';
@@ -1632,9 +1632,9 @@ export class NmoXlsxWriter {
 }
 ```
 
-- [ ] **Step 4: Run — verify pass.**
+- [x] **Step 4: Run — verify pass.**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/nmo-registry/nmo-xlsx.writer.ts apps/backend/src/modules/mvp/nmo-registry/nmo-xlsx.writer.test.ts
@@ -1650,7 +1650,7 @@ git commit -m "feat(backend): Минздрав-НМО xlsx writer (PROVISIONAL C
 - Create: `apps/backend/src/modules/mvp/nmo-registry-export.dto.ts`
 - Test: `apps/backend/src/modules/mvp/nmo-registry-export.dto-validation.test.ts`
 
-- [ ] **Step 1: Write the failing test** (mirror Task 5 + FRDO `types` array)
+- [x] **Step 1: Write the failing test** (mirror Task 5 + FRDO `types` array)
 
 ```ts
 import { plainToInstance } from 'class-transformer';
@@ -1683,9 +1683,9 @@ describe('CreateNmoExportDto', () => {
 });
 ```
 
-- [ ] **Step 2: Run — verify fail.**
+- [x] **Step 2: Run — verify fail.**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```ts
 import { IsArray, IsIn, IsOptional, IsString } from 'class-validator';
@@ -1714,9 +1714,9 @@ export class CreateNmoExportDto {
 }
 ```
 
-- [ ] **Step 4: Run — verify pass** (3 tests).
+- [x] **Step 4: Run — verify pass** (3 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/nmo-registry-export.dto.ts apps/backend/src/modules/mvp/nmo-registry-export.dto-validation.test.ts
@@ -1734,7 +1734,7 @@ git commit -m "feat(backend): Минздрав-НМО export DTO + validation te
 
 This is the ФРДО twin without the document-kind classifier (НМО needs no kind lookup). `specialty` provisionally `''`; `creditUnits` provisionally from `courseVersion.academicHours`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Mirror `frdo-registry/frdo-registry.service.test.ts`. `makeService()` stubs: `InMemoryMvpState`, `MvpService` (`getEnrollment`, `getLearner`, `getGroup`, `listGroupCourses`, `getCourse`, `getCourseVersion`), `DocumentsService` (`listIssuedDocuments`), `FilesService`, `S3StorageClient`, `NmoXlsxWriter`, `AuditService`.
 
@@ -1771,15 +1771,13 @@ function makeService(docOver: Record<string, unknown> = {}) {
     getEnrollment: vi
       .fn()
       .mockReturnValue({ id: 'e1', tenantId: 't1', learnerId: 'l1', groupId: 'g1' }),
-    getLearner: vi
-      .fn()
-      .mockReturnValue({
-        id: 'l1',
-        tenantId: 't1',
-        lastName: 'Петрова',
-        firstName: 'Анна',
-        snils: '112-233-445 95'
-      }),
+    getLearner: vi.fn().mockReturnValue({
+      id: 'l1',
+      tenantId: 't1',
+      lastName: 'Петрова',
+      firstName: 'Анна',
+      snils: '112-233-445 95'
+    }),
     getGroup: vi.fn().mockReturnValue({ id: 'g1', tenantId: 't1', counterpartyId: 'cp1' }),
     listGroupCourses: vi
       .fn()
@@ -1833,9 +1831,9 @@ describe('NmoRegistryService', () => {
 });
 ```
 
-- [ ] **Step 2: Run — verify fail.**
+- [x] **Step 2: Run — verify fail.**
 
-- [ ] **Step 3: Implement** (ФРДО twin, no kind classifier)
+- [x] **Step 3: Implement** (ФРДО twin, no kind classifier)
 
 ```ts
 import { randomUUID } from 'node:crypto';
@@ -2077,9 +2075,9 @@ export class NmoRegistryService {
 
 > If ESLint flags `fullName` as unused, delete the method (НМО gather-errors use `learnerId: ''`/`fullName: ''` like ФРДО). It is included only for parity; remove rather than suppress if lint complains.
 
-- [ ] **Step 4: Run — verify pass** (after Task 15 Step 1 state arrays exist). Expected: PASS (3 tests).
+- [x] **Step 4: Run — verify pass** (after Task 15 Step 1 state arrays exist). Expected: PASS (3 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/nmo-registry/nmo-registry.service.ts apps/backend/src/modules/mvp/nmo-registry/nmo-registry.service.test.ts
@@ -2097,7 +2095,7 @@ git commit -m "feat(backend): Минздрав-НМО export service (issued doc
 - Create: `apps/backend/src/modules/mvp/nmo-registry/nmo-registry.controller.ts`
 - Modify: `apps/backend/src/modules/mvp/mvp.module.ts`
 
-- [ ] **Step 1: State arrays** (`in-memory-mvp.state.ts`) — add `NmoBatch`, `NmoRecord` to type imports; after the Ростехнадзор arrays:
+- [x] **Step 1: State arrays** (`in-memory-mvp.state.ts`) — add `NmoBatch`, `NmoRecord` to type imports; after the Ростехнадзор arrays:
 
 ```ts
   // Phase 6 — Минздрав-НМО (НМО, ЗЕТ): durable export batches + records.
@@ -2105,14 +2103,14 @@ git commit -m "feat(backend): Минздрав-НМО export service (issued doc
   nmoRegistryRecords: NmoRecord[] = [];
 ```
 
-- [ ] **Step 2: Collections** (`mvp-collections.ts`) — after the Ростехнадзор entries:
+- [x] **Step 2: Collections** (`mvp-collections.ts`) — after the Ростехнадзор entries:
 
 ```ts
   'nmoRegistryBatches',
   'nmoRegistryRecords',
 ```
 
-- [ ] **Step 3: Controller** — identical to Task 7 Step 3 but `nmo-registry` prefix, `NmoRegistryService`, `CreateNmoExportDto`, `exportNmoRegistry`:
+- [x] **Step 3: Controller** — identical to Task 7 Step 3 but `nmo-registry` prefix, `NmoRegistryService`, `CreateNmoExportDto`, `exportNmoRegistry`:
 
 ```ts
 import {
@@ -2174,7 +2172,7 @@ export class NmoRegistryController {
 }
 ```
 
-- [ ] **Step 4: Register in `mvp.module.ts`** — imports:
+- [x] **Step 4: Register in `mvp.module.ts`** — imports:
 
 ```ts
 import { NmoRegistryController } from './nmo-registry/nmo-registry.controller.js';
@@ -2195,12 +2193,12 @@ import { NmoXlsxWriter } from './nmo-registry/nmo-xlsx.writer.js';
     { provide: NmoRegistryService, scope: Scope.REQUEST, useClass: NmoRegistryService },
 ```
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run: `pnpm typecheck` → PASS
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/nmo-registry/nmo-registry.service.test.ts --no-file-parallelism` → PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/infrastructure/in-memory-mvp.state.ts apps/backend/src/modules/mvp/infrastructure/mvp-collections.ts apps/backend/src/modules/mvp/nmo-registry/nmo-registry.controller.ts apps/backend/src/modules/mvp/mvp.module.ts
@@ -2215,7 +2213,7 @@ git commit -m "feat(backend): wire Минздрав-НМО registry (state, coll
 
 - Modify: `apps/backend/src/modules/mvp/mvp.http.integration.test.ts`
 
-- [ ] **Step 1: Stub endpoints** — after the Ростехнадзор stub block:
+- [x] **Step 1: Stub endpoints** — after the Ростехнадзор stub block:
 
 ```ts
       // Phase 6 — Минздрав-НМО registry export (POST requires write; GET requires read)
@@ -2235,7 +2233,7 @@ git commit -m "feat(backend): wire Минздрав-НМО registry (state, coll
       }
 ```
 
-- [ ] **Step 2: Boundary tests** — mirror Task 8 Step 2 with `nmo-registry` path + `nmb_stub`.
+- [x] **Step 2: Boundary tests** — mirror Task 8 Step 2 with `nmo-registry` path + `nmb_stub`.
 
 ```ts
 describe('Минздрав-НМО registry permission boundary', () => {
@@ -2274,9 +2272,9 @@ describe('Минздрав-НМО registry permission boundary', () => {
 });
 ```
 
-- [ ] **Step 3: Run** → `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.http.integration.test.ts --no-file-parallelism` PASS.
+- [x] **Step 3: Run** → `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/mvp.http.integration.test.ts --no-file-parallelism` PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/backend/src/modules/mvp/mvp.http.integration.test.ts
@@ -2295,7 +2293,7 @@ git commit -m "test(backend): Минздрав-НМО export permission boundary
 - Modify: `apps/frontend/src/features/gov-export/api.ts`
 - Modify: `apps/frontend/src/features/gov-export/hooks.ts`
 
-- [ ] **Step 1: Append frontend types** (`types.ts`) — mirror the backend `mvp.types.ts` blocks (no `BaseEntity`; inline `id/tenantId/createdAt/updatedAt/status`):
+- [x] **Step 1: Append frontend types** (`types.ts`) — mirror the backend `mvp.types.ts` blocks (no `BaseEntity`; inline `id/tenantId/createdAt/updatedAt/status`):
 
 ```ts
 // === Ростехнадзор (промышленная безопасность) — Phase 6 ===
@@ -2402,7 +2400,7 @@ export interface NmoExportOutcome {
 }
 ```
 
-- [ ] **Step 2: Append api methods** (`api.ts`) — add to the imports and the `govExportApi` object (before the closing `}`):
+- [x] **Step 2: Append api methods** (`api.ts`) — add to the imports and the `govExportApi` object (before the closing `}`):
 
 ```ts
 // (add to the type import block)
@@ -2443,7 +2441,7 @@ export interface NmoExportOutcome {
 
 > The last existing method (`getEisotTestingBatchFileUrl`) has no trailing comma before `}`. Add a comma after it, then append the block above.
 
-- [ ] **Step 3: Append hooks** (`hooks.ts`) — mirror `useFrdoRegistryBatches`, add `RostechnadzorBatch`/`NmoBatch` to type imports:
+- [x] **Step 3: Append hooks** (`hooks.ts`) — mirror `useFrdoRegistryBatches`, add `RostechnadzorBatch`/`NmoBatch` to type imports:
 
 ```ts
 export const useRostechnadzorBatches = (live = false) => {
@@ -2491,9 +2489,9 @@ export const useNmoBatches = (live = false) => {
 };
 ```
 
-- [ ] **Step 4: Verify** → `pnpm --filter @cdoprof/frontend exec tsc --noEmit` (or `pnpm typecheck`) PASS; `npx eslint apps/frontend/src/features/gov-export/{types,api,hooks}.ts --max-warnings=0` clean.
+- [x] **Step 4: Verify** → `pnpm --filter @cdoprof/frontend exec tsc --noEmit` (or `pnpm typecheck`) PASS; `npx eslint apps/frontend/src/features/gov-export/{types,api,hooks}.ts --max-warnings=0` clean.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/frontend/src/features/gov-export/types.ts apps/frontend/src/features/gov-export/api.ts apps/frontend/src/features/gov-export/hooks.ts
@@ -2509,7 +2507,7 @@ git commit -m "feat(frontend): gov-export types/api/hooks for Ростехнад
 - Modify: `apps/frontend/app/gov-export/page.tsx`
 - Modify: `apps/frontend/src/features/gov-export/api.contract.test.ts`
 
-- [ ] **Step 1: Add contract test cases** (`api.contract.test.ts`) — mirror the existing FRDO/ЕИСОТ `it` blocks for the four new methods. Representative:
+- [x] **Step 1: Add contract test cases** (`api.contract.test.ts`) — mirror the existing FRDO/ЕИСОТ `it` blocks for the four new methods. Representative:
 
 ```ts
 it('createRostechnadzorExport posts to /rostechnadzor-registry/exports and unwraps batchId', async () => {
@@ -2551,11 +2549,11 @@ it('listNmoBatches GETs /nmo-registry/exports and unwraps array', async () => {
 });
 ```
 
-- [ ] **Step 2: Run contract test — verify fail** → method not found.
+- [x] **Step 2: Run contract test — verify fail** → method not found.
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/gov-export/api.contract.test.ts --no-file-parallelism`
 
-- [ ] **Step 3: Add two page sections** (`page.tsx`) — mirror the `<SectionCard title="ФИС ФРДО (Рособрнадзор)">` block (`page.tsx:322-396`) and the ЕИСОТ block (`:398-...`). For each new registry:
+- [x] **Step 3: Add two page sections** (`page.tsx`) — mirror the `<SectionCard title="ФИС ФРДО (Рособрнадзор)">` block (`page.tsx:322-396`) and the ЕИСОТ block (`:398-...`). For each new registry:
   - import `useRostechnadzorBatches`, `useNmoBatches` from `../../src/features/gov-export/hooks`.
   - add section state: `const rostechBatches = useRostechnadzorBatches();` + `useState` for busy/error/filter fields (groupId/clientId/enrolledFrom/enrolledTo for Ростехнадзор; from/to/groupId/clientId for НМО) — copy the FRDO/ЕИСОТ state shape.
   - add an `onCreateRostechnadzor`/`onCreateNmo` handler calling `govExportApi.createRostechnadzorExport`/`createNmoExport`, then `void rostechBatches.refetch()`.
@@ -2565,11 +2563,11 @@ Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/gov-export/ap
 
   Keep each section self-contained; do not refactor the existing three.
 
-- [ ] **Step 4: Run contract test — verify pass.**
+- [x] **Step 4: Run contract test — verify pass.**
 
-- [ ] **Step 5: Verify** → `pnpm typecheck` PASS; `npx eslint apps/frontend/app/gov-export/page.tsx apps/frontend/src/features/gov-export/api.contract.test.ts --max-warnings=0` clean.
+- [x] **Step 5: Verify** → `pnpm typecheck` PASS; `npx eslint apps/frontend/app/gov-export/page.tsx apps/frontend/src/features/gov-export/api.contract.test.ts --max-warnings=0` clean.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/frontend/app/gov-export/page.tsx apps/frontend/src/features/gov-export/api.contract.test.ts
@@ -2585,13 +2583,13 @@ git commit -m "feat(frontend): gov-export page sections + contract tests for Р�
 - Create: `apps/frontend/src/e2e/rostechnadzor-registry-export.e2e.test.ts`
 - Create: `apps/frontend/src/e2e/nmo-registry-export.e2e.test.ts`
 
-- [ ] **Step 1: Write the e2e tests** — open `apps/frontend/src/e2e/frdo-registry-export.e2e.test.ts` and replicate it for each new registry: assert route access to `/gov-export` for an admin with `regulatory.export.*`, dynamic-import smoke of the page module, and the api method shape. Match that file's structure exactly (no React mount — `evaluateRouteAccess` / dynamic import convention).
+- [x] **Step 1: Write the e2e tests** — open `apps/frontend/src/e2e/frdo-registry-export.e2e.test.ts` and replicate it for each new registry: assert route access to `/gov-export` for an admin with `regulatory.export.*`, dynamic-import smoke of the page module, and the api method shape. Match that file's structure exactly (no React mount — `evaluateRouteAccess` / dynamic import convention).
 
-- [ ] **Step 2: Run** → both files green.
+- [x] **Step 2: Run** → both files green.
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/e2e/rostechnadzor-registry-export.e2e.test.ts src/e2e/nmo-registry-export.e2e.test.ts --no-file-parallelism`
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/frontend/src/e2e/rostechnadzor-registry-export.e2e.test.ts apps/frontend/src/e2e/nmo-registry-export.e2e.test.ts
@@ -2611,7 +2609,7 @@ git commit -m "test(frontend): e2e route-access + smoke for Ростехнадз
 - Modify: `docs/superpowers/plans/PLANS_STATUS.md` (mark Phase 6 registries progress)
 - Modify: this plan file (tick checkboxes)
 
-- [ ] **Step 1: Full isolated verification**
+- [x] **Step 1: Full isolated verification**
 
 ```bash
 pnpm typecheck
@@ -2622,20 +2620,20 @@ npx eslint apps/backend/src/modules/mvp/rostechnadzor-registry apps/backend/src/
 
 Expected: all green; typecheck 8/8.
 
-- [ ] **Step 2: Update README §2** — Current Stage / Last Completed Task / Current Task / Next Task / Last Updated At=2026-06-14 / By.
+- [x] **Step 2: Update README §2** — Current Stage / Last Completed Task / Current Task / Next Task / Last Updated At=2026-06-14 / By.
 
-- [ ] **Step 3: Append `LMS_AGENT_HANDOFF.md` §5.NN** — summary, files changed (two modules + wiring + frontend), test status, deviations (PROVISIONAL columns; no migration; `attestationArea`/`specialty`/`creditUnits` swap-points).
+- [x] **Step 3: Append `LMS_AGENT_HANDOFF.md` §5.NN** — summary, files changed (two modules + wiring + frontend), test status, deviations (PROVISIONAL columns; no migration; `attestationArea`/`specialty`/`creditUnits` swap-points).
 
-- [ ] **Step 4: Update `PLANS_STATUS.md`** — note Phase 6 registries: Ростехнадзор + Минздрав-НМО shipped (PROVISIONAL), remainder of Phase 6 = ЭП/НЭП only.
+- [x] **Step 4: Update `PLANS_STATUS.md`** — note Phase 6 registries: Ростехнадзор + Минздрав-НМО shipped (PROVISIONAL), remainder of Phase 6 = ЭП/НЭП only.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add README.md LMS_AGENT_HANDOFF.md docs/superpowers/plans/PLANS_STATUS.md docs/superpowers/plans/2026-06-14-phase-6-rostechnadzor-nmo-registries.md
 git commit -m "docs: Phase 6 Ростехнадзор + Минздрав-НМО exporters handoff + plan closeout"
 ```
 
-- [ ] **Step 6: Finish the branch** — invoke `superpowers:finishing-a-development-branch` to open the PR.
+- [x] **Step 6: Finish the branch** — invoke `superpowers:finishing-a-development-branch` to open the PR.
 
 ---
 

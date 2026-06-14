@@ -1548,6 +1548,20 @@
 - **Files changed:** 7 новых в `docs/phase-0/`, спек+план в `docs/superpowers/`, +1 строка в [PLANS_STATUS.md](docs/superpowers/plans/PLANS_STATUS.md). Backend/frontend нетронуты.
 - **Тест-статус:** N/A (docs-only). `git status` чист, ветка запушена.
 
+### 5.126 Phase 6 — Ростехнадзор + Минздрав-НМО реестры (durable Wave 2-паттерн)
+
+- **Запрос:** «продолжай» → выбор владельца «Phase 6: новые реестры» (оба в одном спеке/плане).
+- **Природа:** код-фича через полный цикл brainstorming → [спек](docs/superpowers/specs/2026-06-14-phase-6-rostechnadzor-nmo-registries-design.md) → [план](docs/superpowers/plans/2026-06-14-phase-6-rostechnadzor-nmo-registries.md) (20 TDD-задач) → subagent-driven (два модуля + фронтенд, two-stage review на каждую пачку) + холистическое ревью. Закрывает реестровый остаток Phase 6 (оставался ЭП/НЭП — отложен владельцем).
+- **Что сделано:** два новых durable-экспортёра как сиблинги трёх существующих (ФРДО/ОТ/ЕИСОТ), **без миграции, без нового права** (переиспользуют `regulatory.export.read/write`), **XLSX-only**, PROVISIONAL-`COLUMNS` со swap-точками:
+  - **Ростехнадзор** (`rostechnadzor-registry/`, route `rostechnadzor-registry`): источник = завершённые + сданные зачисления (ОТ-архетип, протокол из documents, exam-passed); 11 колонок; swap-точка `attestationArea` (= наименование курса/программы). Аудит `regulatory.rostechnadzor_exported`, id-префиксы `rtb`/`rtr`, коллекции `rostechnadzorRegistryBatches`/`...Records`.
+  - **Минздрав-НМО** (`nmo-registry/`, route `nmo-registry`): источник = выданные документы (ФРДО-архетип, `listIssuedDocuments`, без kind-классификатора); 9 колонок; swap-точки `specialty` (пока `''`) + `creditUnits`/ЗЕТ (= академические часы). Аудит `regulatory.nmo_exported`, id-префиксы `nmb`/`nmr`, коллекции `nmoRegistryBatches`/`...Records`.
+  - **Frontend:** расширение `features/gov-export/` (types/api/hooks) + две секции в `app/gov-export/page.tsx` (фильтры → «Сформировать» → история+скачивание; провизорные ⚠️-предупреждения) + два e2e.
+- **Партиал-саксесс** соблюдён (валидные строки экспортируются, ошибки по строкам, `batchStatus: generated|partial|failed`, полностью невалидный батч → нет файла). Ревью-улучшение над ОТ-твином: `failed` считает distinct-сущности (а не объекты ошибок).
+- **Ревью:** spec-compliance + code-quality на каждый модуль (0 Critical/Important; добавлены 2 теста-паритета на каждый сервис — cross-tenant rejection + dedup `failed`-math) + финальное холистическое ревью всей ветки.
+- **Files changed:** 2 новых backend-модуля (по 6 файлов + тесты) + DTO + врезки в `mvp.types.ts`/`in-memory-mvp.state.ts`/`mvp-collections.ts`/`mvp.module.ts`/`mvp.http.integration.test.ts`; frontend `gov-export/{types,api,hooks,api.contract.test}.ts` + `app/gov-export/page.tsx` + 2 e2e. **Миграций нет** (последняя остаётся 0052).
+- **Тест-статус (изолированные прогоны, Cyrillic-path fallback):** backend 123 (11 файлов: оба модуля + DTO + http-integration с +8 boundary-кейсами), frontend 17 (gov-export + 2 e2e), `pnpm typecheck` 8/8, ESLint clean.
+- **PROVISIONAL:** оба формата не сверены с эталонами регуляторов — swap-точки помечены в коде; при получении офиц. шаблонов реконсиляция = локальная правка `COLUMNS` (+ возможная миграция под классификаторы областей аттестации / специальностей).
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |
