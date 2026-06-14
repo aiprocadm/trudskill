@@ -951,6 +951,66 @@ export interface EisotTestingExportOutcome {
   errors: EisotTestingRowError[];
 }
 
+// === Ростехнадзор (аттестация по промышленной безопасности) — Phase 6 ===
+// PROVISIONAL: формат не сверен с эталоном Ростехнадзора. `attestationArea` —
+// swap-point (пока = наименование программы/курса; при наличии офиц. классификатора
+// областей аттестации заменить источник + добавить fan-out по областям).
+
+export interface RostechnadzorRow {
+  enrollmentId: string;
+  learnerId: string;
+  lastName: string;
+  firstName: string;
+  middleName: string;
+  fullName: string; // для метки ошибок
+  snils: string;
+  position: string;
+  employerName: string;
+  employerInn: string;
+  attestationArea: string; // SWAP-POINT — провизорно = наименование программы
+  protocolNumber: string;
+  knowledgeCheckDate: string; // ДД.ММ.ГГГГ
+  result: string; // 'удовлетворительно' (выгружаются только сданные)
+}
+
+export interface RostechnadzorRowError {
+  enrollmentId: string;
+  learnerId: string;
+  fullName: string;
+  field: string;
+  message: string;
+}
+
+export type RostechnadzorBatchStatus = 'generated' | 'partial' | 'failed';
+
+export interface RostechnadzorBatch extends BaseEntity {
+  sourceFilterJson: Record<string, unknown>;
+  fileId?: string;
+  totalCandidates: number;
+  exportedRows: number;
+  failedRows: number;
+  batchStatus: RostechnadzorBatchStatus;
+  generatedBy: string;
+}
+
+export interface RostechnadzorRecord extends BaseEntity {
+  batchId: string;
+  enrollmentId: string;
+  learnerId: string;
+  snils: string;
+  protocolNumber: string;
+}
+
+export interface RostechnadzorExportOutcome {
+  batchId: string;
+  fileId?: string;
+  total: number;
+  exported: number;
+  failed: number;
+  rows: RostechnadzorRow[];
+  errors: RostechnadzorRowError[];
+}
+
 /** Запись в пакете выходных документов курса (§5.3). PUT-семантика: replace all on save. */
 export interface CourseDocumentSetEntry {
   id: string;
