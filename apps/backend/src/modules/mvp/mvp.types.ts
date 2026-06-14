@@ -1011,6 +1011,66 @@ export interface RostechnadzorExportOutcome {
   errors: RostechnadzorRowError[];
 }
 
+// === Минздрав-НМО (непрерывное медобразование, ЗЕТ) — Phase 6 ===
+// PROVISIONAL: формат не сверен с эталоном портала НМО (edu.rosminzdrav.ru).
+// `specialty` и `creditUnits` (ЗЕТ) — swap-points (специальность пока пустая;
+// ЗЕТ провизорно = академические часы программы).
+
+export interface NmoRow {
+  documentId: string;
+  enrollmentId: string;
+  learnerId: string;
+  lastName: string;
+  firstName: string;
+  middleName: string;
+  fullName: string; // для метки ошибок
+  snils: string;
+  specialty: string; // SWAP-POINT — специальность (пока '')
+  programName: string;
+  creditUnits: string; // ЗЕТ — SWAP-POINT, провизорно = акад. часы; число строкой | ''
+  completionDate: string; // ДД.ММ.ГГГГ
+  documentNumber: string;
+}
+
+export interface NmoRowError {
+  documentId: string;
+  learnerId: string;
+  fullName: string;
+  field: string;
+  message: string;
+}
+
+export type NmoBatchStatus = 'generated' | 'partial' | 'failed';
+
+export interface NmoBatch extends BaseEntity {
+  sourceFilterJson: Record<string, unknown>;
+  fileId?: string;
+  totalCandidates: number;
+  exportedRows: number;
+  failedRows: number;
+  batchStatus: NmoBatchStatus;
+  generatedBy: string;
+}
+
+export interface NmoRecord extends BaseEntity {
+  batchId: string;
+  documentId: string;
+  enrollmentId: string;
+  learnerId: string;
+  snils: string;
+  documentNumber: string;
+}
+
+export interface NmoExportOutcome {
+  batchId: string;
+  fileId?: string;
+  total: number;
+  exported: number;
+  failed: number;
+  rows: NmoRow[];
+  errors: NmoRowError[];
+}
+
 /** Запись в пакете выходных документов курса (§5.3). PUT-семантика: replace all on save. */
 export interface CourseDocumentSetEntry {
   id: string;
