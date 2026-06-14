@@ -1,3 +1,4 @@
+import { statusAccessibleLabel } from './status-label';
 import { semanticStatusMap } from '../../tokens/index';
 
 import type { EntityStatus } from '@cdoprof/shared-types';
@@ -9,15 +10,20 @@ export const StatusChip = ({
 }: {
   status: EntityStatus | string;
   label?: string;
-}): ReactElement => (
-  <span
-    className="ui-badge"
-    style={{
-      background:
-        semanticStatusMap[(status as keyof typeof semanticStatusMap) ?? 'inactive'] ??
-        'var(--ui-neutral-500)'
-    }}
-  >
-    {label ?? status}
-  </span>
-);
+}): ReactElement => {
+  // Текст внутри чипа — НЕ-цветовой носитель смысла (WCAG 1.4.1). `title` даёт hover-подсказку.
+  const text = label ?? statusAccessibleLabel(status);
+  return (
+    <span
+      className="ui-badge"
+      title={text}
+      style={{
+        background:
+          semanticStatusMap[(status as keyof typeof semanticStatusMap) ?? 'inactive'] ??
+          'var(--ui-neutral-500)'
+      }}
+    >
+      {text}
+    </span>
+  );
+};

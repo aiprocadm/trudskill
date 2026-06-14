@@ -78,6 +78,18 @@ export const backendEnvSchema = z
     SCORM_CONTENT_TOKEN_SECRET: z.string().min(8).default('dev-scorm-content-secret'),
     /** TTL of a scorm-content token, seconds. Default 4h (player session). */
     SCORM_CONTENT_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(14_400),
+    // Web Push (Phase 10 Track C). Ships dormant (false); ops enables once VAPID keys are
+    // generated. Custom boolean parse — NOT z.coerce.boolean (which maps "false" → true).
+    WEB_PUSH_ENABLED: z
+      .union([z.boolean(), z.enum(['true', 'false'])])
+      .transform((v) => v === true || v === 'true')
+      .default(false),
+    /** VAPID public key (base64url). Required when WEB_PUSH_ENABLED=true (see superRefine). */
+    VAPID_PUBLIC_KEY: z.string().min(1).optional(),
+    /** VAPID private key (base64url). Required when WEB_PUSH_ENABLED=true. */
+    VAPID_PRIVATE_KEY: z.string().min(1).optional(),
+    /** VAPID subject — mailto: or https: contact for push services. */
+    VAPID_SUBJECT: z.string().min(1).default('mailto:no-reply@cdoprof.local'),
     SMTP_HOST: z.string().min(1).optional(),
     SMTP_PORT: z.coerce.number().int().positive().default(587),
     SMTP_USER: z.string().min(1).optional(),
@@ -208,6 +220,14 @@ export const backendEnvSchema = z
         code: z.ZodIssueCode.custom,
         path: ['SMTP_HOST'],
         message: 'SMTP_HOST is required when NOTIFICATIONS_EMAIL_ENABLED=true'
+      });
+    }
+
+    if (env.WEB_PUSH_ENABLED === true && (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['VAPID_PUBLIC_KEY'],
+        message: 'VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY are required when WEB_PUSH_ENABLED=true'
       });
     }
 

@@ -1,0 +1,4 @@
+# Phase 10 Track C — Serwist-generated service worker artifacts (built by withSerwist).
+public/sw.js
+public/sw.js.map
+public/swe-worker-*.js

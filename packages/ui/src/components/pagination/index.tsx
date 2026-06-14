@@ -3,21 +3,33 @@ import type { ReactElement } from 'react';
 export const Pagination = ({
   page,
   totalPages,
-  onPageChange
+  onPageChange,
+  label = 'Постраничная навигация'
 }: {
   page: number;
   totalPages: number;
   onPageChange: (next: number) => void;
+  label?: string;
 }): ReactElement => (
-  <div className="ui-inline">
-    <button disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
+  <nav className="ui-inline" aria-label={label}>
+    <button
+      type="button"
+      disabled={page <= 1}
+      aria-label="Предыдущая страница"
+      onClick={() => onPageChange(page - 1)}
+    >
       Prev
     </button>
-    <span>
+    <span aria-live="polite">
       {page} / {totalPages}
     </span>
-    <button disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>
+    <button
+      type="button"
+      disabled={page >= totalPages}
+      aria-label="Следующая страница"
+      onClick={() => onPageChange(page + 1)}
+    >
       Next
     </button>
-  </div>
+  </nav>
 );

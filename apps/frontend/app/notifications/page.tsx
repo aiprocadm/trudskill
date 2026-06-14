@@ -18,6 +18,7 @@ import {
   useNotificationsList,
   useNotificationsRealtime
 } from '../../src/features/communication/hooks';
+import { PushSettingsScreen } from '../../src/features/push/screens';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
 export default function NotificationsPage() {
@@ -97,6 +98,7 @@ export default function NotificationsPage() {
               ))}
           </div>
         </SectionCard>
+        <PushSettingsScreen />
       </PageContainer>
     </ProtectedPage>
   );

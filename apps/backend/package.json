@@ -31,6 +31,7 @@
     "redis": "^5.11.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "web-push": "^3.6.7",
     "zod": "^3.24.2"
   },
   "devDependencies": {
@@ -39,6 +40,7 @@
     "@types/amqplib": "^0.10.8",
     "@types/express": "^5.0.6",
     "@types/nodemailer": "^6.4.17",
-    "@types/pg": "^8.20.0"
+    "@types/pg": "^8.20.0",
+    "@types/web-push": "^3.6.4"
   }
 }
