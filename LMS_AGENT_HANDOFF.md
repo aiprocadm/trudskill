@@ -1562,7 +1562,23 @@
 - **Тест-статус (изолированные прогоны, Cyrillic-path fallback):** backend 123 (11 файлов: оба модуля + DTO + http-integration с +8 boundary-кейсами), frontend 17 (gov-export + 2 e2e), `pnpm typecheck` 8/8, ESLint clean.
 - **PROVISIONAL:** оба формата не сверены с эталонами регуляторов — swap-точки помечены в коде; при получении офиц. шаблонов реконсиляция = локальная правка `COLUMNS` (+ возможная миграция под классификаторы областей аттестации / специальностей).
 - **PR:** [#253](https://github.com/aiprocadm/cdoprof/pull/253) (push + PR через finishing-a-development-branch). Холистическое ревью: READY TO MERGE, 0 Critical/Important.
-- **Follow-up (spawn_task):** все 5 реестровых экспортёров молча обрезают источник на `page_size: 1000` (pre-existing во всех твинах) — запланирована пагинация до боевой подачи в реестр.
+- **Follow-up (spawn_task):** все 5 реестровых экспортёров молча обрезают источник на `page_size: 1000` (pre-existing во всех твинах) — запланирована пагинация до боевой подачи в реестр. **→ Закрыто в §5.127.**
+
+### 5.127 Устранение молчаливого обрезания источника на 1000 строк во всех 5 реестровых экспортёрах
+
+- **Запрос:** закрыть pre-existing-ограничение, отмеченное follow-up'ом §5.126: каждый из 5 экспортёров (ОТ/ФРДО/ЕИСОТ/Ростехнадзор/НМО) брал ровно одну страницу источника с захардкоженным `page_size: 1000` и без цикла, поэтому тенант с >1000 кандидатов в окне фильтра получал **неполную выгрузку без предупреждения** — риск корректности для регуляторной подачи.
+- **Природа:** TDD-фикс. Выбран вариант (a) — полная пагинация до исчерпания источника (предпочтительнее (b) «предупреждение о частичной выгрузке», т.к. устраняет проблему, а не сигнализирует о ней).
+- **Диагностика (важно — уточняет формулировку задачи):** реально обрезались только **3** сервиса на архетипе `listEnrollments` (Ростехнадзор/ОТ/ЕИСОТ) — `MvpService.list()` режет до `page_size`. NMO/ФРДО вызывали `listIssuedDocuments` **без** `limit`, а тот по умолчанию отдаёт `limit = total` → де-факто все строки. Вызовы `listGroupCourses(..., page_size: 1000).items[0]` берут только первый элемент → не источник, не трогал. Фикс всё равно сделан **единообразно на все 5** (defensive + future-proof).
+- **Что сделано:**
+  - Новый общий хелпер [`apps/backend/src/modules/mvp/registry-pagination.ts`](apps/backend/src/modules/mvp/registry-pagination.ts) — `collectAllPages(fetchPage, pageSize=1000)` (+ экспорт `REGISTRY_SOURCE_PAGE_SIZE`). Терминация устойчива к двум формам источника: реальный `list()`/`listIssuedDocuments` с правдивым `total` → стоп по `collected >= total`; полностью замоканные стабы `{ items }` без `total` → стоп на первой короткой/пустой странице (не зацикливается на constant-return mock).
+  - Все 5 сервисов переведены на `collectAllPages(...)`: 3 `listEnrollments`-вызова паджинируют через `page`/`page_size`; 2 `listIssuedDocuments`-вызова (NMO/ФРДО) — через `offset`/`limit`.
+- **Тесты (TDD, RED→GREEN на оба архетипа источника):**
+  - [`registry-pagination.test.ts`](apps/backend/src/modules/mvp/registry-pagination.test.ts) — 4 юнит-теста хелпера: исчерпание >1000 (1500 строк → 2 фетча), стоп на короткой странице без `total`, отсутствие лишнего фетча при `total` кратном размеру страницы, стоп на пустой странице без `total`.
+  - ЕИСОТ-сервис (реальный `MvpService`): regression на 1500 зачислений → `exported === 1500` (до фикса было 1000 — RED подтверждён).
+  - NMO-сервис: regression на 1500 выданных документов через offset/limit-пейджер → `exported === 1500`, `listIssuedDocuments` вызван дважды.
+- **Партиал-саксесс / batchStatus не тронуты** — вариант (a) делает (b) ненужным: при полной пагинации обрезания не происходит.
+- **Files changed:** `registry-pagination.ts` (+`.test.ts`) — новые; 5 сервисов (`{ot,frdo,eisot-testing,rostechnadzor,nmo}-registry*.service.ts`) — врезка хелпера; `eisot-testing-registry.service.test.ts` + `nmo-registry.service.test.ts` — +1 >1000-regression каждый. **Миграций нет** (последняя остаётся 0052).
+- **Тест-статус (изолированные прогоны, Cyrillic-path fallback):** 6 затронутых suite — **31/31 green**; `tsc --noEmit` backend clean; ESLint `--max-warnings=0` clean на всех изменённых файлах.
 
 ## 6. Files Changed
 

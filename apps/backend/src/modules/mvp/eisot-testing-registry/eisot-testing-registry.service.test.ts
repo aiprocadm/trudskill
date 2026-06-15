@@ -168,6 +168,71 @@ describe('EisotTestingRegistryService.exportEisotTestingRegistry', () => {
     });
   });
 
+  it('exports ALL candidates when there are more than one source page (>1000)', async () => {
+    // Regression for the silent 1000-row truncation: 1500 distinct learners, each with
+    // one enrollment in a single client group. The old single-page fetch (page_size:1000)
+    // capped the export at 1000; full pagination must surface all 1500.
+    const h = makeHarness();
+    h.state.counterparties.push({
+      ...base,
+      id: 'cp_big',
+      code: 'CPB',
+      name: 'ООО Большая',
+      inn: '7707083893'
+    } as Counterparty);
+    h.state.groups.push({
+      ...base,
+      id: 'grp_big',
+      code: 'GB',
+      name: 'Большая группа',
+      counterpartyId: 'cp_big'
+    } as GroupEntity);
+    h.state.courses.push({
+      ...base,
+      id: 'crs_big',
+      code: 'CRSB',
+      title: 'Охрана труда',
+      isArchived: false
+    } as Course);
+    h.state.courseVersions.push({
+      ...base,
+      id: 'cv_big',
+      courseId: 'crs_big',
+      versionNo: 1
+    } as CourseVersion);
+    h.state.groupCourses.push({
+      ...base,
+      id: 'gc_big',
+      groupId: 'grp_big',
+      courseId: 'crs_big',
+      courseVersionId: 'cv_big',
+      sortOrder: 0
+    } as GroupCourse);
+    for (let i = 0; i < 1500; i += 1) {
+      h.state.learners.push({
+        ...base,
+        id: `lrn_big_${i}`,
+        firstName: 'Имя',
+        lastName: `Фамилия${i}`,
+        snils: '112-233-445 95'
+      } as Learner);
+      h.state.enrollments.push({
+        ...base,
+        id: `enr_big_${i}`,
+        groupId: 'grp_big',
+        learnerId: `lrn_big_${i}`,
+        status: 'active',
+        enrolledAt: '2026-03-10'
+      } as Enrollment);
+    }
+
+    const outcome = await h.service.exportEisotTestingRegistry(TENANT, {}, ctx);
+
+    expect(outcome.exported).toBe(1500);
+    expect(outcome.total).toBe(1500);
+    expect(h.state.eisotTestingRecords).toHaveLength(1500);
+  });
+
   it('excludes cancelled enrollments and fails a row with no employer', async () => {
     const h = makeHarness();
     // Active enrollment whose group has NO counterparty → employerName blank → hard error.

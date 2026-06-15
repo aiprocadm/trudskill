@@ -77,6 +77,69 @@ describe('NmoRegistryService', () => {
     expect(state.nmoRegistryRecords).toHaveLength(1);
   });
 
+  it('exports ALL issued documents across more than one source page (>1000)', async () => {
+    // Regression for the silent 1000-row truncation on the `listIssuedDocuments`
+    // archetype: 1500 issued certificates behind an offset/limit pager. The exporter
+    // must walk every page (offset/limit) rather than reading a single capped page.
+    const state = new InMemoryMvpState();
+    const docs = Array.from({ length: 1500 }, (_, i) => ({
+      id: `d${i}`,
+      documentNumber: `НМО-${i}`,
+      documentDate: '2026-04-20',
+      documentType: 'certificate',
+      sourceEntityType: 'enrollment',
+      sourceEntityId: 'e1',
+      status: 'final'
+    }));
+    const documents = {
+      listIssuedDocuments: vi.fn((_t: string, f: { offset?: number; limit?: number }) => {
+        const offset = f.offset ?? 0;
+        const limit = f.limit ?? docs.length;
+        return { items: docs.slice(offset, offset + limit), total: docs.length };
+      })
+    } as any;
+    const mvp = {
+      getEnrollment: vi
+        .fn()
+        .mockReturnValue({ id: 'e1', tenantId: 't1', learnerId: 'l1', groupId: 'g1' }),
+      getLearner: vi.fn().mockReturnValue({
+        id: 'l1',
+        tenantId: 't1',
+        lastName: 'Петрова',
+        firstName: 'Анна',
+        snils: '112-233-445 95'
+      }),
+      getGroup: vi.fn().mockReturnValue({ id: 'g1', tenantId: 't1', counterpartyId: 'cp1' }),
+      listGroupCourses: vi
+        .fn()
+        .mockReturnValue({ items: [{ courseId: 'co1', courseVersionId: 'cv1' }] }),
+      getCourse: vi.fn().mockReturnValue({ id: 'co1', title: 'Кардиология' }),
+      getCourseVersion: vi.fn().mockReturnValue({ id: 'cv1', academicHours: 36 })
+    } as any;
+    const files = {
+      register: vi.fn().mockResolvedValue({ id: 'file1' }),
+      createDownloadUrl: vi.fn().mockResolvedValue('http://x')
+    } as any;
+    const storage = { putObject: vi.fn().mockResolvedValue(undefined) } as any;
+    const audit = { write: vi.fn() } as any;
+    const service = new NmoRegistryService(
+      state,
+      mvp,
+      documents,
+      files,
+      storage,
+      new NmoXlsxWriter(),
+      audit
+    );
+
+    const outcome = await service.exportNmoRegistry('t1', {}, ctx);
+
+    expect(outcome.exported).toBe(1500);
+    expect(state.nmoRegistryRecords).toHaveLength(1500);
+    // 1500 docs / 1000 page → page 1 (offset 0) then page 2 (offset 1000).
+    expect(documents.listIssuedDocuments).toHaveBeenCalledTimes(2);
+  });
+
   it('skips non-enrollment-sourced documents', async () => {
     const { service } = makeService({ sourceEntityType: 'group' });
     const outcome = await service.exportNmoRegistry('t1', {}, ctx);

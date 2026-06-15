@@ -11,6 +11,7 @@ import { FilesService } from '../../files/files.service.js';
 import { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from '../infrastructure/mvp-state.token.js';
 import { MvpService } from '../mvp.service.js';
+import { collectAllPages } from '../registry-pagination.js';
 
 import type { EisotTestingBundle } from './eisot-testing-rows.js';
 import type { RequestContext } from '../../../common/context/request-context.js';
@@ -55,14 +56,15 @@ export class EisotTestingRegistryService {
     // `listEnrollments` honours `group_id` but IGNORES `enrolled_from`/`enrolled_to`
     // (same in-memory gap OT FIX #3 documented), so re-apply the referral-date scope on
     // `enrolledAt` here. Exclude `cancelled` — a withdrawn learner is not sent to testing.
-    const enrollments = this.mvp
-      .listEnrollments(tenantId, { group_id: filter.groupId, page_size: 1000 })
-      .items.filter(
-        (e) =>
-          e.status !== 'cancelled' &&
-          (!filter.from || (e.enrolledAt ? e.enrolledAt >= filter.from : false)) &&
-          (!filter.to || (e.enrolledAt ? e.enrolledAt <= filter.to : false))
-      );
+    // Exhaust every page so a tenant with >1000 candidates is never silently truncated.
+    const enrollments = collectAllPages((page, pageSize) =>
+      this.mvp.listEnrollments(tenantId, { group_id: filter.groupId, page, page_size: pageSize })
+    ).filter(
+      (e) =>
+        e.status !== 'cancelled' &&
+        (!filter.from || (e.enrolledAt ? e.enrolledAt >= filter.from : false)) &&
+        (!filter.to || (e.enrolledAt ? e.enrolledAt <= filter.to : false))
+    );
 
     const gatherErrors: EisotTestingRowError[] = [];
     const bundles: EisotTestingBundle[] = [];

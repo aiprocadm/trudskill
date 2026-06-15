@@ -5,6 +5,7 @@ import { BadRequestException, Inject, Injectable, NotFoundException, Scope } fro
 import { validateRegistryRow } from './ot-registry-preflight.js';
 import { matchResponseToRecords, parseRegistryResponse } from './ot-registry-response.parser.js';
 import { buildRegistryRows } from './ot-registry-rows.js';
+import { collectAllPages } from '../registry-pagination.js';
 import { OtRegistryXlsxWriter } from './ot-registry-xlsx.writer.js';
 import { OtRegistryXmlWriter } from './ot-registry-xml.writer.js';
 import { S3StorageClient } from '../../../infrastructure/storage/s3-storage.client.js';
@@ -68,14 +69,16 @@ export class OtRegistryService {
   ): Promise<OtRegistryExportOutcome> {
     const programsByCode = new Map(this.mvp.listOtTrainingPrograms().map((p) => [p.code, p]));
 
-    const completed = this.mvp
-      .listEnrollments(tenantId, {
+    // Exhaust every page so a tenant with >1000 candidates is never silently truncated.
+    const completed = collectAllPages((page, pageSize) =>
+      this.mvp.listEnrollments(tenantId, {
         group_id: filter.groupId,
         enrolled_from: filter.enrolledFrom,
         enrolled_to: filter.enrolledTo,
-        page_size: 1000
+        page,
+        page_size: pageSize
       })
-      .items.filter((e) => e.status === 'completed');
+    ).filter((e) => e.status === 'completed');
 
     // FIX #3 — the in-memory `list()` ignores enrolled_from/enrolled_to, so we
     // re-apply the date scope here. `enrolledAt` is an ISO string; lexicographic
