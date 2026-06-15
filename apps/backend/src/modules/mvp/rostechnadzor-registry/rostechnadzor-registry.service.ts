@@ -12,6 +12,7 @@ import { FilesService } from '../../files/files.service.js';
 import { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from '../infrastructure/mvp-state.token.js';
 import { MvpService } from '../mvp.service.js';
+import { collectAllPages } from '../registry-pagination.js';
 
 import type { RostechnadzorBundle } from './rostechnadzor-rows.js';
 import type { RequestContext } from '../../../common/context/request-context.js';
@@ -55,14 +56,16 @@ export class RostechnadzorRegistryService {
     filter: RostechnadzorExportFilter,
     ctx: RequestContext
   ): Promise<RostechnadzorExportOutcome> {
-    const completed = this.mvp
-      .listEnrollments(tenantId, {
+    // Exhaust every page so a tenant with >1000 candidates is never silently truncated.
+    const completed = collectAllPages((page, pageSize) =>
+      this.mvp.listEnrollments(tenantId, {
         group_id: filter.groupId,
         enrolled_from: filter.enrolledFrom,
         enrolled_to: filter.enrolledTo,
-        page_size: 1000
+        page,
+        page_size: pageSize
       })
-      .items.filter((e) => e.status === 'completed');
+    ).filter((e) => e.status === 'completed');
 
     // `listEnrollments` ignores enrolled_from/to (documented in-memory gap), so
     // re-apply the date scope on `enrolledAt` (ISO lexicographic compare is correct).
