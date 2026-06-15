@@ -95,7 +95,11 @@ function makeHarness(docs: Partial<GeneratedDocumentEntity>[]) {
     new EventEmitter2()
   );
   const documents = {
-    listIssuedDocuments: vi.fn(() => ({ items: docs, total: docs.length }))
+    listIssuedDocuments: vi.fn((_t: string, f: { offset?: number; limit?: number }) => {
+      const offset = f.offset ?? 0;
+      const limit = f.limit !== undefined && f.limit > 0 ? f.limit : docs.length;
+      return { items: docs.slice(offset, offset + limit), total: docs.length };
+    })
   } as unknown as DocumentsService;
   const filesRegister = vi.fn(async (m: { tenantId: string }) => ({
     id: 'file_x',
@@ -120,7 +124,7 @@ function makeHarness(docs: Partial<GeneratedDocumentEntity>[]) {
     new FrdoRegistryXlsxWriter(),
     audit
   );
-  return { service, state, storagePut, filesRegister, auditWrite };
+  return { service, state, documents, storagePut, filesRegister, auditWrite };
 }
 
 const doc = (over: Partial<GeneratedDocumentEntity> = {}): Partial<GeneratedDocumentEntity> => ({
@@ -154,6 +158,24 @@ describe('FrdoRegistryService.exportFrdoRegistry', () => {
       action: 'regulatory.frdo_exported',
       entityType: 'frdo_registry_batch'
     });
+  });
+
+  it('exports ALL issued documents across more than one source page (>1000)', async () => {
+    // Regression for the silent 1000-row truncation on the `listIssuedDocuments`
+    // archetype: 1500 issued certificates behind an offset/limit pager. The exporter
+    // must walk every page (offset/limit) rather than reading a single capped page.
+    const docs = Array.from({ length: 1500 }, (_, i) =>
+      doc({ id: `doc_${i}`, documentNumber: `УД-${i}` })
+    );
+    const h = makeHarness(docs);
+    seed(h.state);
+
+    const outcome = await h.service.exportFrdoRegistry(TENANT, {}, ctx);
+
+    expect(outcome.exported).toBe(1500);
+    expect(h.state.frdoRegistryRecords).toHaveLength(1500);
+    // 1500 docs / 1000 page → page 1 (offset 0) then page 2 (offset 1000).
+    expect(h.documents.listIssuedDocuments).toHaveBeenCalledTimes(2);
   });
 
   it('excludes revoked documents and reports unmatched kinds as errors', async () => {

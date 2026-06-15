@@ -1580,6 +1580,14 @@
 - **Files changed:** `registry-pagination.ts` (+`.test.ts`) — новые; 5 сервисов (`{ot,frdo,eisot-testing,rostechnadzor,nmo}-registry*.service.ts`) — врезка хелпера; `eisot-testing-registry.service.test.ts` + `nmo-registry.service.test.ts` — +1 >1000-regression каждый. **Миграций нет** (последняя остаётся 0052).
 - **Тест-статус (изолированные прогоны, Cyrillic-path fallback):** 6 затронутых suite — **31/31 green**; `tsc --noEmit` backend clean; ESLint `--max-warnings=0` clean на всех изменённых файлах.
 
+### 5.128 Завершение пагинации: ФРДО-экспортёр (5-й из 5) + его >1000-regression
+
+- **Контекст:** коммит §5.127 (`b81b647`) озаглавлен «all 5 exporters», но по факту в него вошли только **4** сервиса (ОТ/ЕИСОТ/Ростехнадзор/НМО) + хелпер; правка `frdo-registry.service.ts` осталась незакоммиченной в рабочем дереве, и у ФРДО не было >1000-regression (в отличие от NMO/ЕИСОТ). Этот шаг закрывает 5-й.
+- **Что сделано:** `frdo-registry.service.ts` переведён на `collectAllPages(...)` через `offset`/`limit` — **байт-в-байт** тот же паттерн, что у уже слитого NMO-твина (оба источника = `listIssuedDocuments`, возвращает `{ items, total }`, дефолтит `limit=total`). Добавлен >1000-regression в `frdo-registry.service.test.ts`: 1500 выданных сертификатов за offset/limit-пейджером → `exported === 1500`, `frdoRegistryRecords` 1500, `listIssuedDocuments` вызван **дважды** (offset 0 → offset 1000). Хелпер-мок `makeHarness` теперь честно режет `slice(offset, offset+limit)` (безвреден для существующих коротких входов).
+- **Природа truncation у ФРДО:** как и NMO — де-факто строки не терялись (`listIssuedDocuments` без `limit` отдаёт `limit=total`); фикс defensive + future-proof и приводит ФРДО к единообразию с 4 другими.
+- **Files changed:** `frdo-registry/frdo-registry.service.ts` (врезка `collectAllPages`), `frdo-registry/frdo-registry.service.test.ts` (+1 >1000-regression, пагинирующий мок-харнесс). **Миграций нет.**
+- **Тест-статус:** `frdo-registry.service.test.ts` **4/4 green**; `tsc --noEmit` backend clean; ESLint `--max-warnings=0` clean на обоих файлах.
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |

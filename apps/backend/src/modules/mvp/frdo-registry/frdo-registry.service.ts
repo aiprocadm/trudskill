@@ -12,6 +12,7 @@ import { FilesService } from '../../files/files.service.js';
 import { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from '../infrastructure/mvp-state.token.js';
 import { MvpService } from '../mvp.service.js';
+import { collectAllPages } from '../registry-pagination.js';
 
 import type { FrdoDocumentBundle } from './frdo-registry-rows.js';
 import type { RequestContext } from '../../../common/context/request-context.js';
@@ -63,13 +64,16 @@ export class FrdoRegistryService {
     // exclude archived/revoked. NOT `status:'final'` only — issued certs may sit in
     // 'generated' depending on the issuance flow; filtering 'final' risks silently
     // exporting nothing.
-    const docs = this.documents
-      .listIssuedDocuments(tenantId, {
+    // Exhaust every page so a tenant with >1000 issued documents is never silently truncated.
+    const docs = collectAllPages((page, pageSize) =>
+      this.documents.listIssuedDocuments(tenantId, {
         types: filter.types?.length ? filter.types : ['certificate', 'diploma'],
         ...(filter.from ? { from: filter.from } : {}),
-        ...(filter.to ? { to: filter.to } : {})
+        ...(filter.to ? { to: filter.to } : {}),
+        offset: (page - 1) * pageSize,
+        limit: pageSize
       })
-      .items.filter((d) => !d.revokedAt && d.status !== 'archived' && d.status !== 'revoked');
+    ).filter((d) => !d.revokedAt && d.status !== 'archived' && d.status !== 'revoked');
 
     const gatherErrors: FrdoRegistryRowError[] = [];
     const bundles: FrdoDocumentBundle[] = [];
