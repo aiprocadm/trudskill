@@ -1561,6 +1561,8 @@
 - **Files changed:** 2 новых backend-модуля (по 6 файлов + тесты) + DTO + врезки в `mvp.types.ts`/`in-memory-mvp.state.ts`/`mvp-collections.ts`/`mvp.module.ts`/`mvp.http.integration.test.ts`; frontend `gov-export/{types,api,hooks,api.contract.test}.ts` + `app/gov-export/page.tsx` + 2 e2e. **Миграций нет** (последняя остаётся 0052).
 - **Тест-статус (изолированные прогоны, Cyrillic-path fallback):** backend 123 (11 файлов: оба модуля + DTO + http-integration с +8 boundary-кейсами), frontend 17 (gov-export + 2 e2e), `pnpm typecheck` 8/8, ESLint clean.
 - **PROVISIONAL:** оба формата не сверены с эталонами регуляторов — swap-точки помечены в коде; при получении офиц. шаблонов реконсиляция = локальная правка `COLUMNS` (+ возможная миграция под классификаторы областей аттестации / специальностей).
+- **PR:** [#253](https://github.com/aiprocadm/cdoprof/pull/253) (push + PR через finishing-a-development-branch). Холистическое ревью: READY TO MERGE, 0 Critical/Important.
+- **Follow-up (spawn_task):** все 5 реестровых экспортёров молча обрезают источник на `page_size: 1000` (pre-existing во всех твинах) — запланирована пагинация до боевой подачи в реестр.
 
 ## 6. Files Changed
 
