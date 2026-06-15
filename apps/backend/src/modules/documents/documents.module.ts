@@ -9,6 +9,10 @@ import { InMemoryDocumentsState } from './in-memory-documents.state.js';
 import { backendEnv } from '../../env.js';
 import { DocumentsPersistenceRepositoryAdapter } from './infrastructure/documents-persistence.repository.adapter.js';
 import { DOCUMENTS_PERSISTENCE_BACKEND } from './infrastructure/documents-persistence.token.js';
+import {
+  DOCUMENT_SIGNATURE_PROVIDER,
+  NoopDocumentSignatureProvider
+} from '../../infrastructure/document-signature/document-signature.provider.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { DocumentsRequestPersistenceInterceptor } from './infrastructure/documents-request-persistence.interceptor.js';
@@ -36,6 +40,20 @@ const persistenceBackendClass =
       provide: DocumentsRequestPersistenceInterceptor,
       scope: Scope.REQUEST,
       useClass: DocumentsRequestPersistenceInterceptor
+    },
+    {
+      provide: DOCUMENT_SIGNATURE_PROVIDER,
+      useFactory: () => {
+        // CryptoPro adapter not implemented yet — when ESIGN_ENABLED && provider==='cryptopro'
+        // is requested, fall back to Noop so prod can't silently believe docs are signed.
+        // Swap this branch for `new CryptoProSignatureProvider(...)` when the adapter lands.
+        if (backendEnv.ESIGN_ENABLED && backendEnv.ESIGN_PROVIDER === 'cryptopro') {
+          console.warn(
+            '[esign] ESIGN_PROVIDER=cryptopro requested but adapter not implemented — using Noop'
+          );
+        }
+        return new NoopDocumentSignatureProvider();
+      }
     }
   ],
   exports: [DocumentsService, DocumentsTenantRunner]
