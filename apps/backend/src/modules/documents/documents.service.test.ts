@@ -1359,3 +1359,118 @@ describe('DocumentsService.verifyDocumentByQrToken — revoked path (Plan C §5.
     expect(result.revocationReason).toBe('Опечатка в ФИО');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phase 6 — sign-on-finalize + manual signDocument
+// ---------------------------------------------------------------------------
+
+import type {
+  DocumentSignatureProvider,
+  SignatureResult
+} from '../../infrastructure/document-signature/document-signature.provider.js';
+
+class StubSignatureProvider implements DocumentSignatureProvider {
+  readonly id = 'cryptopro';
+  calls: Array<{ documentId: string }> = [];
+  constructor(private readonly result: SignatureResult) {}
+  async sign(params: { documentId: string; fileId: string; tenantId: string }) {
+    this.calls.push({ documentId: params.documentId });
+    return this.result;
+  }
+}
+
+function makeSignServiceWith(provider?: DocumentSignatureProvider) {
+  const state = new InMemoryDocumentsState();
+  const service = new DocumentsService(
+    state,
+    new AuditService(),
+    new RealtimeEventsService(),
+    undefined,
+    undefined,
+    provider
+  );
+  const doc = {
+    id: 'gdoc_sig',
+    tenantId: 't1',
+    templateId: 'tpl',
+    templateVersionId: 'tplv',
+    documentType: 'certificate',
+    name: 'cert',
+    sourceEntityType: 'enrollment',
+    sourceEntityId: 'enr_1',
+    fileId: 'file_1',
+    status: 'generated' as const,
+    isFinal: false,
+    generatedAt: '2026-06-15T00:00:00.000Z'
+  };
+  state.generatedDocuments.push(doc as never);
+  return { service, state };
+}
+
+const signCtx = {
+  tenantId: 't1',
+  userId: 'user_1',
+  requestId: 'r1',
+  correlationId: 'c1'
+} as never;
+
+describe('DocumentsService signing (Phase 6)', () => {
+  it('finalize without a provider leaves the document unsigned (back-compat)', async () => {
+    const { service, state } = makeSignServiceWith(undefined);
+    await service.finalizeDocument('t1', 'user_1', 'gdoc_sig', signCtx);
+    expect(state.generatedDocuments[0].signatureStatus).toBeUndefined();
+  });
+
+  it('finalize with a signing provider stamps signed metadata', async () => {
+    const provider = new StubSignatureProvider({
+      status: 'signed',
+      signatureRef: 'sig_abc',
+      certificateSubject: 'CN=УЦ'
+    });
+    const { service, state } = makeSignServiceWith(provider);
+    await service.finalizeDocument('t1', 'user_1', 'gdoc_sig', signCtx);
+    const d = state.generatedDocuments[0];
+    expect(d.signatureStatus).toBe('signed');
+    expect(d.signatureProvider).toBe('cryptopro');
+    expect(d.signatureRef).toBe('sig_abc');
+    expect(d.signatureCertificateSubject).toBe('CN=УЦ');
+    expect(d.signedAt).toBeDefined();
+    expect(d.isFinal).toBe(true);
+    expect(provider.calls).toHaveLength(1);
+  });
+
+  it('finalize still succeeds when signing fails (status=failed, document stays final)', async () => {
+    const provider = new StubSignatureProvider({ status: 'failed', detail: 'provider_down' });
+    const { service, state } = makeSignServiceWith(provider);
+    const result = await service.finalizeDocument('t1', 'user_1', 'gdoc_sig', signCtx);
+    expect(result.isFinal).toBe(true);
+    expect(state.generatedDocuments[0].signatureStatus).toBe('failed');
+  });
+
+  it('signDocument re-signs an already-final document on demand', async () => {
+    const provider = new StubSignatureProvider({ status: 'signed', signatureRef: 'sig_2' });
+    const { service, state } = makeSignServiceWith(provider);
+    state.generatedDocuments[0].status = 'final';
+    state.generatedDocuments[0].isFinal = true;
+    state.generatedDocuments[0].signatureStatus = 'failed';
+    await service.signDocument('t1', 'user_1', 'gdoc_sig', signCtx);
+    expect(state.generatedDocuments[0].signatureStatus).toBe('signed');
+    expect(state.generatedDocuments[0].signatureRef).toBe('sig_2');
+  });
+
+  it('signDocument rejects a non-final (generated) document', async () => {
+    const provider = new StubSignatureProvider({ status: 'signed' });
+    const { service } = makeSignServiceWith(provider);
+    // doc starts as status='generated', isFinal=false
+    await expect(service.signDocument('t1', 'user_1', 'gdoc_sig', signCtx)).rejects.toThrow();
+  });
+
+  it('signDocument rejects a revoked document', async () => {
+    const provider = new StubSignatureProvider({ status: 'signed' });
+    const { service, state } = makeSignServiceWith(provider);
+    state.generatedDocuments[0].status = 'final';
+    state.generatedDocuments[0].isFinal = true;
+    state.generatedDocuments[0].status = 'revoked'; // revoked keeps isFinal=true
+    await expect(service.signDocument('t1', 'user_1', 'gdoc_sig', signCtx)).rejects.toThrow();
+  });
+});

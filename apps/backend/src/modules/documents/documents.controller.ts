@@ -264,6 +264,12 @@ export class DocumentsController {
   finalizeDocument(@CurrentContext() c: RequestContext, @Param('id') id: string) {
     return this.documentsService.finalizeDocument(c.tenantId!, c.userId, id, c);
   }
+  @Post('documents/:id/sign')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.sign')
+  signDocument(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.documentsService.signDocument(c.tenantId!, c.userId, id, c);
+  }
   @Post('documents/:id/archive')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')

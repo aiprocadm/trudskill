@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type {
+  DocumentSignatureStatus,
   GeneratedDocumentEntity,
   TemplateType,
   VariableCategoryCode
@@ -74,5 +75,29 @@ describe('Pillar A Plan B types', () => {
       generatedAt: '2026-05-24T00:00:00.000Z'
     };
     expect(sample.groupOrderDocumentId).toBeUndefined();
+  });
+});
+
+describe('GeneratedDocumentEntity signature fields (Phase 6)', () => {
+  it('accepts a fully-signed document shape', () => {
+    const statuses: DocumentSignatureStatus[] = ['unsigned', 'signed', 'failed'];
+    expect(statuses).toContain('signed');
+    const doc: Pick<
+      GeneratedDocumentEntity,
+      | 'signatureStatus'
+      | 'signedAt'
+      | 'signedBy'
+      | 'signatureProvider'
+      | 'signatureRef'
+      | 'signatureCertificateSubject'
+    > = {
+      signatureStatus: 'signed',
+      signedAt: '2026-06-15T00:00:00.000Z',
+      signedBy: 'user_1',
+      signatureProvider: 'cryptopro',
+      signatureRef: 'sig_abc',
+      signatureCertificateSubject: 'CN=ООО Учебный Центр'
+    };
+    expect(doc.signatureStatus).toBe('signed');
   });
 });

@@ -1,8 +1,12 @@
+import type { DocumentSignatureStatus } from '../../infrastructure/document-signature/document-signature.provider.js';
+
 export type TemplateStatus = 'active' | 'archived';
 export type TemplateBindingType = 'direction' | 'course' | 'group';
 export type TaskStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 export type GeneratedDocumentStatus = 'generated' | 'final' | 'archived' | 'revoked';
 export type NumberResetPeriod = 'none' | 'year' | 'month';
+
+export type { DocumentSignatureStatus };
 
 /**
  * §5.4 — все типы документных шаблонов в Pillar A.
@@ -152,6 +156,18 @@ export interface GeneratedDocumentEntity {
   replacesDocumentId?: string;
   /** §5.9 — если этот документ был перевыпущен, ссылка на перевыпуск. */
   replacedByDocumentId?: string;
+  /** Phase 6 — статус подписи. undefined для legacy/несписанных документов трактуется как 'unsigned'. */
+  signatureStatus?: DocumentSignatureStatus;
+  /** Phase 6 — момент подписания (ISO timestamp). */
+  signedAt?: string;
+  /** Phase 6 — кто инициировал подписание (actorId; 'system' для авто-подписи при финализации). */
+  signedBy?: string;
+  /** Phase 6 — id провайдера подписи на момент подписания ('noop' | 'cryptopro'). */
+  signatureProvider?: string;
+  /** Phase 6 — непрозрачная ссылка на хранимую подпись (detached .sig key / tx id провайдера). */
+  signatureRef?: string;
+  /** Phase 6 — subject/thumbprint сертификата для отображения и аудита. */
+  signatureCertificateSubject?: string;
 }
 
 export interface NumberingRuleEntity {

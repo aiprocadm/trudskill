@@ -18,6 +18,11 @@ export interface LearnerDocument {
   isDownloadable: boolean;
   revocationReason?: string;
   replacedByDocumentId?: string;
+  /**
+   * Phase 6 — статус НЭП-подписи документа. Заполняется бэкендом, когда
+   * LearnerDocumentDto начнёт пробрасывать поле (сейчас seam dormant → обычно undefined).
+   */
+  signatureStatus?: 'unsigned' | 'signed' | 'failed';
 }
 
 export interface LearnerDocumentsResponse {

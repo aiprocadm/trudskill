@@ -31,6 +31,11 @@ import {
 } from './documents.dto.js';
 import { InMemoryDocumentsState } from './in-memory-documents.state.js';
 import { MetricsService } from '../../common/metrics/metrics.service.js';
+import {
+  DOCUMENT_SIGNATURE_PROVIDER,
+  type DocumentSignatureProvider,
+  type SignatureResult
+} from '../../infrastructure/document-signature/document-signature.provider.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
@@ -119,7 +124,10 @@ export class DocumentsService {
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(RealtimeEventsService) private readonly realtimeEvents: RealtimeEventsService,
     @Inject(MetricsService) @Optional() private readonly metrics?: MetricsService,
-    @Optional() @Inject(EventEmitter2) private readonly events?: EventEmitter2
+    @Optional() @Inject(EventEmitter2) private readonly events?: EventEmitter2,
+    @Optional()
+    @Inject(DOCUMENT_SIGNATURE_PROVIDER)
+    private readonly signatureProvider?: DocumentSignatureProvider
   ) {}
 
   listTemplates(tenantId: string, query: BaseFilter) {
@@ -763,8 +771,89 @@ export class DocumentsService {
       ip: ctx.ip,
       userAgent: ctx.userAgent
     });
+    await this.applySignature(doc, actorId, ctx);
     return doc;
   }
+
+  /** Phase 6 — ручное/повторное подписание уже выпущенного документа (напр. после включения флага). */
+  async signDocument(
+    tenantId: string,
+    actorId: string | undefined,
+    id: string,
+    ctx: RequestContext
+  ): Promise<GeneratedDocumentEntity> {
+    const doc = this.getDocument(tenantId, id);
+    if (doc.status === 'archived')
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'Archived document cannot be signed'
+      });
+    if (doc.status === 'revoked')
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'Revoked document cannot be signed'
+      });
+    if (!doc.isFinal)
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'Only finalized documents can be signed'
+      });
+    await this.applySignature(doc, actorId, ctx);
+    return doc;
+  }
+
+  /**
+   * Phase 6 — подписывает документ через активный провайдер и проставляет метаданные.
+   * Провайдер отсутствует (старые call-sites/тесты) или Noop → документ остаётся unsigned.
+   * Сбой провайдера НЕ откатывает финализацию: ставим status='failed' и продолжаем
+   * (повторить можно через signDocument). Это зеркалит fail-soft AV-gate.
+   */
+  private async applySignature(
+    doc: GeneratedDocumentEntity,
+    actorId: string | undefined,
+    ctx: RequestContext
+  ): Promise<void> {
+    if (!this.signatureProvider || this.signatureProvider.id === 'noop') return;
+    const previous = {
+      signatureStatus: doc.signatureStatus,
+      signatureProvider: doc.signatureProvider
+    };
+    let result: SignatureResult;
+    try {
+      result = await this.signatureProvider.sign({
+        tenantId: doc.tenantId,
+        documentId: doc.id,
+        fileId: doc.pdfFileId ?? doc.fileId
+      });
+    } catch (err) {
+      result = { status: 'failed', detail: String(err) };
+    }
+    doc.signatureStatus = result.status;
+    doc.signatureProvider = this.signatureProvider.id;
+    if (result.status === 'signed') {
+      doc.signedAt = this.now();
+      doc.signedBy = actorId ?? 'system';
+      if (result.signatureRef) doc.signatureRef = result.signatureRef;
+      if (result.certificateSubject) doc.signatureCertificateSubject = result.certificateSubject;
+    }
+    await this.auditService.writeCritical({
+      tenantId: doc.tenantId,
+      actorId,
+      action: 'documents.signed',
+      entityType: 'documents.generated',
+      entityId: doc.id,
+      oldValues: previous,
+      newValues: {
+        signatureStatus: doc.signatureStatus,
+        signatureProvider: doc.signatureProvider
+      },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
+  }
+
   async archiveDocument(
     tenantId: string,
     actorId: string | undefined,
