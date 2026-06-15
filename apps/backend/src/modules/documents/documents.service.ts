@@ -788,6 +788,11 @@ export class DocumentsService {
         code: 'validation_error',
         message: 'Archived document cannot be signed'
       });
+    if (doc.status === 'revoked')
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'Revoked document cannot be signed'
+      });
     if (!doc.isFinal)
       throw new BadRequestException({
         code: 'validation_error',

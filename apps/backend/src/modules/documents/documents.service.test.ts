@@ -1464,4 +1464,13 @@ describe('DocumentsService signing (Phase 6)', () => {
     // doc starts as status='generated', isFinal=false
     await expect(service.signDocument('t1', 'user_1', 'gdoc_sig', signCtx)).rejects.toThrow();
   });
+
+  it('signDocument rejects a revoked document', async () => {
+    const provider = new StubSignatureProvider({ status: 'signed' });
+    const { service, state } = makeSignServiceWith(provider);
+    state.generatedDocuments[0].status = 'final';
+    state.generatedDocuments[0].isFinal = true;
+    state.generatedDocuments[0].status = 'revoked'; // revoked keeps isFinal=true
+    await expect(service.signDocument('t1', 'user_1', 'gdoc_sig', signCtx)).rejects.toThrow();
+  });
 });

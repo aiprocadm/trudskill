@@ -48,6 +48,8 @@ const persistenceBackendClass =
         // is requested, fall back to Noop so prod can't silently believe docs are signed.
         // Swap this branch for `new CryptoProSignatureProvider(...)` when the adapter lands.
         if (backendEnv.ESIGN_ENABLED && backendEnv.ESIGN_PROVIDER === 'cryptopro') {
+          // Activation: replace the warn+Noop below with
+          // `new CryptoProSignatureProvider(backendEnv.ESIGN_SIGNER_NAME, ...)`.
           console.warn(
             '[esign] ESIGN_PROVIDER=cryptopro requested but adapter not implemented — using Noop'
           );
