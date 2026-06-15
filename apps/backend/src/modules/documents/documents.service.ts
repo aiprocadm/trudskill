@@ -788,6 +788,11 @@ export class DocumentsService {
         code: 'validation_error',
         message: 'Archived document cannot be signed'
       });
+    if (!doc.isFinal)
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'Only finalized documents can be signed'
+      });
     await this.applySignature(doc, actorId, ctx);
     return doc;
   }
@@ -804,6 +809,10 @@ export class DocumentsService {
     ctx: RequestContext
   ): Promise<void> {
     if (!this.signatureProvider || this.signatureProvider.id === 'noop') return;
+    const previous = {
+      signatureStatus: doc.signatureStatus,
+      signatureProvider: doc.signatureProvider
+    };
     let result: SignatureResult;
     try {
       result = await this.signatureProvider.sign({
@@ -828,7 +837,7 @@ export class DocumentsService {
       action: 'documents.signed',
       entityType: 'documents.generated',
       entityId: doc.id,
-      oldValues: {},
+      oldValues: previous,
       newValues: {
         signatureStatus: doc.signatureStatus,
         signatureProvider: doc.signatureProvider

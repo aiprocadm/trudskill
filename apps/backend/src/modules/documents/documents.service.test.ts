@@ -1418,7 +1418,7 @@ describe('DocumentsService signing (Phase 6)', () => {
   it('finalize without a provider leaves the document unsigned (back-compat)', async () => {
     const { service, state } = makeSignServiceWith(undefined);
     await service.finalizeDocument('t1', 'user_1', 'gdoc_sig', signCtx);
-    expect(state.generatedDocuments[0].signatureStatus ?? 'unsigned').toBe('unsigned');
+    expect(state.generatedDocuments[0].signatureStatus).toBeUndefined();
   });
 
   it('finalize with a signing provider stamps signed metadata', async () => {
@@ -1456,5 +1456,12 @@ describe('DocumentsService signing (Phase 6)', () => {
     await service.signDocument('t1', 'user_1', 'gdoc_sig', signCtx);
     expect(state.generatedDocuments[0].signatureStatus).toBe('signed');
     expect(state.generatedDocuments[0].signatureRef).toBe('sig_2');
+  });
+
+  it('signDocument rejects a non-final (generated) document', async () => {
+    const provider = new StubSignatureProvider({ status: 'signed' });
+    const { service } = makeSignServiceWith(provider);
+    // doc starts as status='generated', isFinal=false
+    await expect(service.signDocument('t1', 'user_1', 'gdoc_sig', signCtx)).rejects.toThrow();
   });
 });
