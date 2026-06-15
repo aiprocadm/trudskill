@@ -21,6 +21,9 @@ import { MvpBulkEnqueueService } from './mvp-bulk-enqueue.service.js';
 import { MvpInternalWorkerController } from './mvp-internal-worker.controller.js';
 import { MvpController } from './mvp.controller.js';
 import { MvpService } from './mvp.service.js';
+import { NmoRegistryController } from './nmo-registry/nmo-registry.controller.js';
+import { NmoRegistryService } from './nmo-registry/nmo-registry.service.js';
+import { NmoXlsxWriter } from './nmo-registry/nmo-xlsx.writer.js';
 import { OtRegistryXlsxWriter } from './ot-registry/ot-registry-xlsx.writer.js';
 import { OtRegistryXmlWriter } from './ot-registry/ot-registry-xml.writer.js';
 import { OtRegistryController } from './ot-registry/ot-registry.controller.js';
@@ -36,6 +39,9 @@ import { RecertificationService } from './recertification/recertification.servic
 import { CourseDeadlineScanner } from './reminders/course-deadline-scanner.service.js';
 import { DocumentRevokedEmailListener } from './reminders/document-revoked-email.listener.js';
 import { RemindersSchedulerService } from './reminders/reminders-scheduler.service.js';
+import { RostechnadzorRegistryController } from './rostechnadzor-registry/rostechnadzor-registry.controller.js';
+import { RostechnadzorRegistryService } from './rostechnadzor-registry/rostechnadzor-registry.service.js';
+import { RostechnadzorXlsxWriter } from './rostechnadzor-registry/rostechnadzor-xlsx.writer.js';
 import { ScormContentController } from './scorm/scorm-content.controller.js';
 import { ScormController } from './scorm/scorm.controller.js';
 import { ScormService } from './scorm/scorm.service.js';
@@ -65,6 +71,8 @@ import { TenantModule } from '../tenant/tenant.module.js';
     OtRegistryController,
     FrdoRegistryController,
     EisotTestingRegistryController,
+    RostechnadzorRegistryController,
+    NmoRegistryController,
     RecertificationController,
     ScormController,
     ScormContentController,
@@ -103,6 +111,14 @@ import { TenantModule } from '../tenant/tenant.module.js';
       scope: Scope.REQUEST,
       useClass: EisotTestingRegistryService
     },
+    RostechnadzorXlsxWriter,
+    {
+      provide: RostechnadzorRegistryService,
+      scope: Scope.REQUEST,
+      useClass: RostechnadzorRegistryService
+    },
+    NmoXlsxWriter,
+    { provide: NmoRegistryService, scope: Scope.REQUEST, useClass: NmoRegistryService },
     { provide: LearnerPdfCardService, scope: Scope.REQUEST, useClass: LearnerPdfCardService },
     {
       provide: LearnersBulkImportService,

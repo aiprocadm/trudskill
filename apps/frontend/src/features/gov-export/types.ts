@@ -192,3 +192,106 @@ export interface EisotTestingExportOutcome {
   rows: EisotTestingRow[];
   errors: EisotTestingRowError[];
 }
+
+// === Ростехнадзор (промышленная безопасность) — Phase 6 ===
+
+export interface RostechnadzorRow {
+  enrollmentId: string;
+  learnerId: string;
+  lastName: string;
+  firstName: string;
+  middleName: string;
+  fullName: string;
+  snils: string;
+  position: string;
+  employerName: string;
+  employerInn: string;
+  attestationArea: string;
+  protocolNumber: string;
+  knowledgeCheckDate: string;
+  result: string;
+}
+
+export interface RostechnadzorRowError {
+  enrollmentId: string;
+  learnerId: string;
+  fullName: string;
+  field: string;
+  message: string;
+}
+
+export interface RostechnadzorBatch {
+  id: string;
+  tenantId: string;
+  createdAt: string;
+  updatedAt: string;
+  status: string;
+  sourceFilterJson: Record<string, unknown>;
+  fileId?: string;
+  totalCandidates: number;
+  exportedRows: number;
+  failedRows: number;
+  batchStatus: 'generated' | 'partial' | 'failed';
+  generatedBy: string;
+}
+
+export interface RostechnadzorExportOutcome {
+  batchId: string;
+  fileId?: string;
+  total: number;
+  exported: number;
+  failed: number;
+  rows: RostechnadzorRow[];
+  errors: RostechnadzorRowError[];
+}
+
+// === Минздрав-НМО (НМО, ЗЕТ) — Phase 6 ===
+
+export interface NmoRow {
+  documentId: string;
+  enrollmentId: string;
+  learnerId: string;
+  lastName: string;
+  firstName: string;
+  middleName: string;
+  fullName: string;
+  snils: string;
+  specialty: string;
+  programName: string;
+  creditUnits: string;
+  completionDate: string;
+  documentNumber: string;
+}
+
+export interface NmoRowError {
+  documentId: string;
+  learnerId: string;
+  fullName: string;
+  field: string;
+  message: string;
+}
+
+export interface NmoBatch {
+  id: string;
+  tenantId: string;
+  createdAt: string;
+  updatedAt: string;
+  status: string;
+  sourceFilterJson: Record<string, unknown>;
+  fileId?: string;
+  totalCandidates: number;
+  exportedRows: number;
+  failedRows: number;
+  batchStatus: 'generated' | 'partial' | 'failed';
+  generatedBy: string;
+}
+
+export interface NmoExportOutcome {
+  batchId: string;
+  fileId?: string;
+  total: number;
+  exported: number;
+  failed: number;
+  rows: NmoRow[];
+  errors: NmoRowError[];
+}

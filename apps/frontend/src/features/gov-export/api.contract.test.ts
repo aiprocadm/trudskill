@@ -159,4 +159,56 @@ describe('govExportApi envelope compatibility', () => {
     expect(calledUrl).toContain('/eisot-testing-registry/exports');
     expect(init.method).toBe('POST');
   });
+
+  it('createRostechnadzorExport posts to /rostechnadzor-registry/exports and unwraps batchId', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        envelope({ batchId: 'rtb_1', total: 1, exported: 1, failed: 0, rows: [], errors: [] }),
+        { status: 201 }
+      )
+    );
+
+    const result = await govExportApi.createRostechnadzorExport(session, { groupId: 'g1' });
+
+    expect(result.batchId).toBe('rtb_1');
+    const [calledUrl, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(calledUrl).toContain('/rostechnadzor-registry/exports');
+    expect(init.method).toBe('POST');
+  });
+
+  it('listRostechnadzorBatches GETs /rostechnadzor-registry/exports and unwraps array', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(envelope([{ id: 'rtb_1' }]), { status: 200 }));
+
+    const result = await govExportApi.listRostechnadzorBatches(session);
+
+    expect(result[0]!.id).toBe('rtb_1');
+    const [calledUrl] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(calledUrl).toContain('/rostechnadzor-registry/exports');
+  });
+
+  it('createNmoExport posts to /nmo-registry/exports and unwraps batchId', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        envelope({ batchId: 'nmb_1', total: 1, exported: 1, failed: 0, rows: [], errors: [] }),
+        { status: 201 }
+      )
+    );
+
+    const result = await govExportApi.createNmoExport(session, { from: '2026-01-01' });
+
+    expect(result.batchId).toBe('nmb_1');
+    const [calledUrl, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(calledUrl).toContain('/nmo-registry/exports');
+    expect(init.method).toBe('POST');
+  });
+
+  it('listNmoBatches GETs /nmo-registry/exports and unwraps array', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(envelope([{ id: 'nmb_1' }]), { status: 200 }));
+
+    const result = await govExportApi.listNmoBatches(session);
+
+    expect(result[0]!.id).toBe('nmb_1');
+    const [calledUrl] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(calledUrl).toContain('/nmo-registry/exports');
+  });
 });
