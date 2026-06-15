@@ -41,6 +41,17 @@ export const backendEnvSchema = z
       .default(false),
     CLAMAV_HOST: z.string().min(1).default('clamav'),
     CLAMAV_PORT: z.coerce.number().int().positive().default(3310),
+    // E-signature seam (Phase 6, НЭП). Ships dormant (false) → NoopDocumentSignatureProvider.
+    // Custom boolean parse — NOT z.coerce.boolean (which maps the string "false" → true),
+    // same rule as ANTIVIRUS_ENABLED so a signing flag is never accidentally on.
+    ESIGN_ENABLED: z
+      .union([z.boolean(), z.enum(['true', 'false'])])
+      .transform((v) => v === true || v === 'true')
+      .default(false),
+    /** Active signing provider. 'noop' until a КриптоПро adapter is wired (Phase 6 follow-up). */
+    ESIGN_PROVIDER: z.enum(['noop', 'cryptopro']).default('noop'),
+    /** Human-readable signer (organisation) name stamped onto the document for display. */
+    ESIGN_SIGNER_NAME: z.string().min(1).default('CDOProf'),
     // Email notifications (Phase 5). Custom boolean parse — NOT z.coerce.boolean, which maps
     // the string "false" → true. NoopMailer is the safe default (no SMTP needed).
     NOTIFICATIONS_EMAIL_ENABLED: z
