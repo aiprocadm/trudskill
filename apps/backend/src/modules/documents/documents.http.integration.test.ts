@@ -118,12 +118,19 @@ describe('Documents HTTP integration (permission boundaries)', () => {
         const routePath = (request.originalUrl ?? request.url ?? '').split('?')[0] ?? '';
         const method = request.method ?? '';
         const isDocumentsGenerate = method === 'POST' && routePath.includes('/documents/generate');
+        const isDocumentsSign = method === 'POST' && /\/documents\/[^/]+\/sign$/.test(routePath);
 
         let required: string[];
         if (method === 'GET') {
           required = ['documents.read'];
         } else if (method === 'POST') {
-          required = isDocumentsGenerate ? ['documents.generate'] : ['documents.write'];
+          if (isDocumentsSign) {
+            required = ['documents.sign'];
+          } else if (isDocumentsGenerate) {
+            required = ['documents.generate'];
+          } else {
+            required = ['documents.write'];
+          }
         } else if (method === 'PATCH' || method === 'PUT' || method === 'DELETE') {
           required = ['documents.write'];
         } else {
@@ -223,6 +230,16 @@ describe('Documents HTTP integration (permission boundaries)', () => {
         return {
           items: [{ id: 'dtask_stub_batch', tenantId: context.tenantId }]
         };
+      }
+
+      @Post('documents/:id/sign')
+      @UseGuards(TestPermissionGuard)
+      @RequirePermissions('documents.sign')
+      signDocument(
+        @CurrentContext() context: { tenantId?: string; userId?: string },
+        @Param('id') id: string
+      ) {
+        return { id, tenantId: context.tenantId, signedBy: context.userId, status: 'signed' };
       }
     }
 
@@ -681,6 +698,76 @@ describe('Documents HTTP integration (permission boundaries)', () => {
     };
     expect(payload.data.items).toHaveLength(1);
     expect(payload.data.items[0]?.tenantId).toBe('tenant_demo');
+    expect(payload.meta.requestId).toBeTruthy();
+    expect(payload.meta.correlationId).toBeTruthy();
+  });
+
+  it('returns permission_denied for POST documents/:id/sign without documents.sign', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['documents.read', 'documents.write']);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_doc_sign_ro',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: ['tenant_admin']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/documents/doc_sign_1/sign`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      }
+    });
+
+    expect(response.status).toBe(403);
+    const payload = (await response.json()) as {
+      error: { code: string; message: string };
+      meta: { requestId: string };
+    };
+    expect(payload.error.code).toBe('permission_denied');
+    expect(payload.meta.requestId).toBeTruthy();
+  });
+
+  it('returns success envelope for POST documents/:id/sign with documents.sign', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce([
+      'documents.read',
+      'documents.write',
+      'documents.sign'
+    ]);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_doc_signer',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: ['tenant_admin']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/documents/doc_sign_2/sign`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      }
+    });
+
+    expect(response.status).toBe(201);
+    const payload = (await response.json()) as {
+      data: { id: string; tenantId?: string; signedBy?: string; status: string };
+      meta: { requestId: string; correlationId: string; timestamp: string };
+    };
+    expect(payload.data.id).toBe('doc_sign_2');
+    expect(payload.data.tenantId).toBe('tenant_demo');
+    expect(payload.data.signedBy).toBe('u_doc_signer');
+    expect(payload.data.status).toBe('signed');
     expect(payload.meta.requestId).toBeTruthy();
     expect(payload.meta.correlationId).toBeTruthy();
   });
