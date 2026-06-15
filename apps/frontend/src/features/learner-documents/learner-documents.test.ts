@@ -37,10 +37,12 @@ describe('LearnerDocument type (Phase 1 §4.3)', () => {
       downloadUrl: '/api/v1/files/file_x/download',
       isDownloadable: true,
       revocationReason: 'Ошибка ФИО',
-      replacedByDocumentId: 'd_3'
+      replacedByDocumentId: 'd_3',
+      signatureStatus: 'signed'
     };
     expect(doc.qrToken).toBe('qr_abc');
     expect(doc.revocationReason).toBe('Ошибка ФИО');
+    expect(doc.signatureStatus).toBe('signed');
   });
 
   it('LearnerDocumentsResponse — обёртка с items', () => {
