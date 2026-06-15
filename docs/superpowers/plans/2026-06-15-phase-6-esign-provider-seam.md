@@ -1,6 +1,6 @@
 # Phase 6 — Provider-agnostic e-signature seam (НЭП) Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Ввести провайдер-абстракцию подписи документов с безопасным `NoopDocumentSignatureProvider` по умолчанию, прошить её за флагом `ESIGN_ENABLED`, добавить метаданные подписи на удостоверение и подписывать документ при финализации/по запросу — так, чтобы реальный КриптоПро-адаптер подключался позже **одной заменой фабрики**, не трогая места вызова.
 
@@ -59,7 +59,7 @@ pnpm typecheck
 - Create: `apps/backend/src/infrastructure/document-signature/document-signature.provider.ts`
 - Test: `apps/backend/src/infrastructure/document-signature/noop-document-signature.provider.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```typescript
 // noop-document-signature.provider.test.ts
@@ -84,12 +84,12 @@ describe('NoopDocumentSignatureProvider', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/infrastructure/document-signature/noop-document-signature.provider.test.ts --no-file-parallelism`
 Expected: FAIL — `Cannot find module './document-signature.provider.js'`.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```typescript
 // document-signature.provider.ts
@@ -135,12 +135,12 @@ export class NoopDocumentSignatureProvider implements DocumentSignatureProvider 
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/infrastructure/document-signature/noop-document-signature.provider.test.ts --no-file-parallelism`
 Expected: PASS (2 tests).
 
-- [ ] **Step 5: Lint + commit**
+- [x] **Step 5: Lint + commit**
 
 ```bash
 npx eslint apps/backend/src/infrastructure/document-signature/*.ts --max-warnings=0
@@ -157,7 +157,7 @@ git commit -m "feat(backend): document signature provider seam + Noop default"
 - Modify: `apps/backend/src/env.schema.ts:43` (после блока CLAMAV\_\*)
 - Test: `apps/backend/src/env.esign.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```typescript
 // env.esign.test.ts
@@ -203,12 +203,12 @@ describe('ESIGN env flags', () => {
 
 > NOTE: убедись, что `backendEnvSchema` экспортируется из `env.schema.ts`. Если экспортируется иначе (напр. `envSchema`) — поправь импорт в тесте под фактическое имя; не вводи новый экспорт.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/env.esign.test.ts --no-file-parallelism`
 Expected: FAIL — `ESIGN_ENABLED` is `undefined`.
 
-- [ ] **Step 3: Add the flags (insert after `CLAMAV_PORT` line ~43)**
+- [x] **Step 3: Add the flags (insert after `CLAMAV_PORT` line ~43)**
 
 ```typescript
     // E-signature seam (Phase 6, НЭП). Ships dormant (false) → NoopDocumentSignatureProvider.
@@ -224,12 +224,12 @@ Expected: FAIL — `ESIGN_ENABLED` is `undefined`.
     ESIGN_SIGNER_NAME: z.string().min(1).default('CDOProf'),
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/env.esign.test.ts --no-file-parallelism`
 Expected: PASS (3 tests).
 
-- [ ] **Step 5: Lint + commit**
+- [x] **Step 5: Lint + commit**
 
 ```bash
 npx eslint apps/backend/src/env.schema.ts apps/backend/src/env.esign.test.ts --max-warnings=0
@@ -248,7 +248,7 @@ git commit -m "feat(backend): ESIGN_ENABLED/ESIGN_PROVIDER/ESIGN_SIGNER_NAME env
 
 > Полей подписи нет в БД-схеме явно — документ персистится целиком как `jsonb`-снимок (см. контекст), поэтому **SQL-миграция для этих полей НЕ нужна**.
 
-- [ ] **Step 1: Write the failing test (append to existing documents.types.test.ts)**
+- [x] **Step 1: Write the failing test (append to existing documents.types.test.ts)**
 
 ```typescript
 import { describe, expect, it } from 'vitest';
@@ -280,12 +280,12 @@ describe('GeneratedDocumentEntity signature fields (Phase 6)', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/documents/documents.types.test.ts --no-file-parallelism`
 Expected: FAIL — typecheck error: properties don't exist / `DocumentSignatureStatus` not exported.
 
-- [ ] **Step 3: Add fields + re-export the status type**
+- [x] **Step 3: Add fields + re-export the status type**
 
 В `documents.types.ts` добавь импорт-реэкспорт типа статуса в начало файла (рядом с другими типами):
 
@@ -311,12 +311,12 @@ export type { DocumentSignatureStatus };
   signatureCertificateSubject?: string;
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/documents/documents.types.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 5: Lint + commit**
+- [x] **Step 5: Lint + commit**
 
 ```bash
 npx eslint apps/backend/src/modules/documents/documents.types.ts apps/backend/src/modules/documents/documents.types.test.ts --max-warnings=0
@@ -333,7 +333,7 @@ git commit -m "feat(backend): signature metadata fields on GeneratedDocumentEnti
 - Modify: `apps/backend/src/modules/documents/documents.service.ts` (импорты ~14-35; конструктор 117-122; `finalizeDocument` 741-767; добавить методы рядом)
 - Test: `apps/backend/src/modules/documents/documents.service.test.ts`
 
-- [ ] **Step 1: Write the failing tests (append to documents.service.test.ts)**
+- [x] **Step 1: Write the failing tests (append to documents.service.test.ts)**
 
 Используй существующий хелпер создания сервиса (см. `new DocumentsService(state, audit, realtime)` в файле). Добавь тест-провайдер.
 
@@ -435,12 +435,12 @@ describe('DocumentsService signing (Phase 6)', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/documents/documents.service.test.ts -t "signing (Phase 6)" --no-file-parallelism`
 Expected: FAIL — конструктор не принимает 6-й аргумент / `signDocument` не определён.
 
-- [ ] **Step 3a: Add import + optional constructor injection**
+- [x] **Step 3a: Add import + optional constructor injection**
 
 В импортах `documents.service.ts` добавь:
 
@@ -459,7 +459,7 @@ import {
     private readonly signatureProvider?: DocumentSignatureProvider
 ```
 
-- [ ] **Step 3b: Add the private signing helper + call it from finalizeDocument**
+- [x] **Step 3b: Add the private signing helper + call it from finalizeDocument**
 
 Добавь приватный метод (рядом с `finalizeDocument`):
 
@@ -519,7 +519,7 @@ import {
 await this.applySignature(doc, actorId, ctx);
 ```
 
-- [ ] **Step 3c: Add the public signDocument method**
+- [x] **Step 3c: Add the public signDocument method**
 
 ```typescript
   /** Phase 6 — ручное/повторное подписание уже выпущенного документа (напр. после включения флага). */
@@ -542,12 +542,12 @@ await this.applySignature(doc, actorId, ctx);
 
 > Проверь, что `GeneratedDocumentEntity`, `RequestContext` и `BadRequestException` уже импортированы в файле (они используются в `finalizeDocument`/рядом — да).
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/documents/documents.service.test.ts --no-file-parallelism`
 Expected: PASS — новые 4 теста зелёные, существующие не сломаны.
 
-- [ ] **Step 5: Lint + commit**
+- [x] **Step 5: Lint + commit**
 
 ```bash
 npx eslint apps/backend/src/modules/documents/documents.service.ts apps/backend/src/modules/documents/documents.service.test.ts --max-warnings=0
@@ -563,7 +563,7 @@ git commit -m "feat(backend): sign-on-finalize + manual signDocument via provide
 
 - Modify: `apps/backend/src/modules/documents/documents.module.ts`
 
-- [ ] **Step 1: Add the factory provider (mirrors files.module.ts AV factory)**
+- [x] **Step 1: Add the factory provider (mirrors files.module.ts AV factory)**
 
 Импорты:
 
@@ -597,12 +597,12 @@ import {
     },
 ```
 
-- [ ] **Step 2: Typecheck**
+- [x] **Step 2: Typecheck**
 
 Run: `pnpm typecheck`
 Expected: PASS (8/8 tasks).
 
-- [ ] **Step 3: Lint + commit**
+- [x] **Step 3: Lint + commit**
 
 ```bash
 npx eslint apps/backend/src/modules/documents/documents.module.ts --max-warnings=0
@@ -619,7 +619,7 @@ git commit -m "feat(backend): wire DOCUMENT_SIGNATURE_PROVIDER factory (Noop unt
 - Create: `apps/backend/migrations/0053_iam_documents_sign_permission.sql`
 - Test: `apps/backend/src/modules/documents/migrations.0053.test.ts`
 
-- [ ] **Step 1: Write the failing test (mirror migrations.0033.test.ts structure)**
+- [x] **Step 1: Write the failing test (mirror migrations.0033.test.ts structure)**
 
 ```typescript
 // migrations.0053.test.ts
@@ -647,12 +647,12 @@ describe('0053 documents.sign permission migration', () => {
 
 > NOTE: проверь рабочую директорию vitest для backend. Если `migrations.0033.test.ts` читает путь иначе (напр. от `__dirname` или `apps/backend`), скопируй ровно его способ построения пути, чтобы тест нашёл файл.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/documents/migrations.0053.test.ts --no-file-parallelism`
 Expected: FAIL — файла миграции нет.
 
-- [ ] **Step 3: Write the migration**
+- [x] **Step 3: Write the migration**
 
 ```sql
 -- apps/backend/migrations/0053_iam_documents_sign_permission.sql
@@ -679,12 +679,12 @@ where r.tenant_id = 'tenant_demo'
 on conflict (tenant_id, role_id, permission_id) do nothing;
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/documents/migrations.0053.test.ts --no-file-parallelism`
 Expected: PASS (2 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/migrations/0053_iam_documents_sign_permission.sql apps/backend/src/modules/documents/migrations.0053.test.ts
@@ -700,7 +700,7 @@ git commit -m "feat(backend): seed documents.sign permission (migration 0053)"
 - Modify: `apps/backend/src/modules/documents/documents.controller.ts:266` (после `finalizeDocument` endpoint)
 - Test: `apps/backend/src/modules/documents/documents.http.integration.test.ts`
 
-- [ ] **Step 1: Write the failing HTTP integration test**
+- [x] **Step 1: Write the failing HTTP integration test**
 
 Открой `documents.http.integration.test.ts`, найди существующий стаб-контроллер (паттерн из CLAUDE.md). Добавь маршрут и assert, ровно повторяя стиль соседних permission-тестов в файле (тот же способ boot минимального Nest-app + проверка 403 без права / 2xx с правом `documents.sign`). Скелет:
 
@@ -719,12 +719,12 @@ describe('POST /documents/:id/sign permission boundary', () => {
 
 > Скопируй точную обвязку (имена хелперов boot/withPermissions) из ближайшего `*finalize*`/`*archive*` permission-теста в этом же файле — не выдумывай новый каркас.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/documents/documents.http.integration.test.ts -t "sign permission boundary" --no-file-parallelism`
 Expected: FAIL — маршрута нет (404) или право не распознано.
 
-- [ ] **Step 3: Add the endpoint (after finalizeDocument, controller line ~266)**
+- [x] **Step 3: Add the endpoint (after finalizeDocument, controller line ~266)**
 
 ```typescript
   @Post('documents/:id/sign')
@@ -735,12 +735,12 @@ Expected: FAIL — маршрута нет (404) или право не расп
   }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/documents/documents.http.integration.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 5: Lint + commit**
+- [x] **Step 5: Lint + commit**
 
 ```bash
 npx eslint apps/backend/src/modules/documents/documents.controller.ts apps/backend/src/modules/documents/documents.http.integration.test.ts --max-warnings=0
@@ -759,12 +759,12 @@ git commit -m "feat(backend): POST documents/:id/sign endpoint under documents.s
 
 > Цель — минимальная: фронт умеет читать новые поля подписи без падения типов и отображает бейдж статуса. Реальный UX-полиш — отдельно.
 
-- [ ] **Step 1: Locate the frontend document type**
+- [x] **Step 1: Locate the frontend document type**
 
 Run: `npx --yes rg -n "signatureStatus|GeneratedDocument|qrToken" apps/frontend/src` (или Grep tool)
 Expected: найдёшь тип, отражающий документ. Если фронт не типизирует документ отдельно — задача сводится к контракт-тесту (Step 2) на эндпоинт, который теперь возвращает поля подписи; UI-бейдж добавь только если есть экран документа.
 
-- [ ] **Step 2: Add fields to the frontend type + a contract assertion**
+- [x] **Step 2: Add fields to the frontend type + a contract assertion**
 
 В тип документа добавь (соблюдая `exactOptionalPropertyTypes` — все поля опциональны):
 
@@ -776,12 +776,12 @@ Expected: найдёшь тип, отражающий документ. Если
 
 В контракт-тест (stub `fetch` через `vi.stubGlobal`, как в других `api.contract.test.ts`) добавь кейс: ответ с `signatureStatus: 'signed'` корректно разворачивается из envelope и доходит до вызывающего.
 
-- [ ] **Step 3: Run the frontend test**
+- [x] **Step 3: Run the frontend test**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run <path-to-contract-test> --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 4: Lint + commit**
+- [x] **Step 4: Lint + commit**
 
 ```bash
 npx eslint <changed frontend files> --max-warnings=0
@@ -797,12 +797,12 @@ git commit -m "feat(frontend): surface document signature status from API"
 
 - Modify: `README.md` §2, `LMS_AGENT_HANDOFF.md` §5.x (следующий номер), `docs/superpowers/plans/PLANS_STATUS.md`, этот план (отметить чекбоксы).
 
-- [ ] **Step 1: Whole-repo typecheck**
+- [x] **Step 1: Whole-repo typecheck**
 
 Run: `pnpm typecheck`
 Expected: PASS (8/8).
 
-- [ ] **Step 2: Run the touched backend clusters together**
+- [x] **Step 2: Run the touched backend clusters together**
 
 Run:
 
@@ -812,19 +812,19 @@ pnpm --filter @cdoprof/backend exec vitest run src/infrastructure/document-signa
 
 Expected: все зелёные.
 
-- [ ] **Step 3: Update README §2 «AI Agent State»**
+- [x] **Step 3: Update README §2 «AI Agent State»**
 
 Обнови Last Completed Task / Current Task / Last Updated At / By на «Phase 6 e-signature provider seam (НЭП, dormant)».
 
-- [ ] **Step 4: Append LMS_AGENT_HANDOFF §5.x**
+- [x] **Step 4: Append LMS_AGENT_HANDOFF §5.x**
 
 Новая запись (следующий номер после текущего максимума §5.x): summary (provider seam по AV-паттерну, dormant `ESIGN_ENABLED=false`, КриптоПро — будущий адаптер), список файлов, статус тестов, deviations.
 
-- [ ] **Step 5: Update PLANS_STATUS.md**
+- [x] **Step 5: Update PLANS_STATUS.md**
 
 Добавь строку про этот план; отметь, что остаток Phase 6 теперь = реальный КриптоПро-адаптер + КЭП-подпись выгрузок + юр-оформление (оферта/Положение об ЭДО).
 
-- [ ] **Step 6: Commit docs**
+- [x] **Step 6: Commit docs**
 
 ```bash
 git add README.md LMS_AGENT_HANDOFF.md docs/superpowers/plans/
