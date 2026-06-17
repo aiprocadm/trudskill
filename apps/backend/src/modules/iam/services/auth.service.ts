@@ -26,7 +26,7 @@ export interface LoginPayload {
   password: string;
 }
 
-export type AuthMethod = 'password' | 'magic_link';
+export type AuthMethod = 'password' | 'magic_link' | 'esia';
 
 export interface IssueSessionOptions {
   authMethod: AuthMethod;
@@ -129,7 +129,11 @@ export class AuthService {
     const tokens = await this.createSession(user, persistRelational);
     const eventType = options.authMethod === 'magic_link' ? 'magic_link_login' : 'login';
     const auditAction =
-      options.authMethod === 'magic_link' ? 'auth.magic_link_login' : 'auth.login';
+      options.authMethod === 'magic_link'
+        ? 'auth.magic_link_login'
+        : options.authMethod === 'esia'
+          ? 'auth.esia_login'
+          : 'auth.login';
     await this.pushAuthEvent(user.tenantId, user.id, eventType, persistRelational);
     await this.auditService.writeCritical(
       {
