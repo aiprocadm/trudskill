@@ -2,9 +2,11 @@
 
 import { type FormEvent, useRef, useState } from 'react';
 
+import { EsiaLoginButton } from './esia-login-button';
 import { FieldError, FieldHelp } from '../../components/form-feedback';
 import { ApiClientError } from '../../lib/api/client';
 import { authApi } from '../../lib/auth/auth-api';
+import { frontendEnv } from '../../lib/config/env';
 
 type FormStatus = 'idle' | 'sending' | 'sent';
 
@@ -121,6 +123,7 @@ export const MagicLinkForm = () => {
       >
         {status === 'sending' ? 'Отправляем...' : 'Отправить ссылку'}
       </button>
+      <EsiaLoginButton tenantId={frontendEnv.NEXT_PUBLIC_DEFAULT_TENANT_ID} />
     </form>
   );
 };
