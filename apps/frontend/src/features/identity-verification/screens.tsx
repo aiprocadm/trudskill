@@ -4,6 +4,7 @@ import { DataTable, LoadingState } from '@cdoprof/ui';
 import Link from 'next/link';
 import { useState } from 'react';
 
+import { identityVerificationApi } from './api';
 import { fileUnavailableLabel, formatDateShort, formatIdentityStatus } from './format';
 import {
   useIdentityDetail,
@@ -20,17 +21,31 @@ import {
   SectionError
 } from '../../components/state-wrappers';
 import { frontendEnv } from '../../lib/config/env';
+import { useAuth } from '../auth/context';
 
 import type { IdentityVerificationStatus } from './types';
 import type { ReactElement } from 'react';
 
 export function LearnerIdentityScreen(): ReactElement {
+  const { session } = useAuth();
   const my = useMyIdentityVerification();
   const submission = useIdentitySubmission();
 
   const [selfie, setSelfie] = useState<File | null>(null);
   const [passport, setPassport] = useState<File | null>(null);
   const [consent, setConsent] = useState(false);
+  const [esiaPending, setEsiaPending] = useState(false);
+
+  const onEsiaIdentity = async () => {
+    if (!session) return;
+    setEsiaPending(true);
+    try {
+      const res = await identityVerificationApi.esiaIdentityAuthorize(session);
+      window.location.href = res.authorizeUrl;
+    } catch {
+      setEsiaPending(false);
+    }
+  };
 
   if (my.isLoading) return <LoadingState message="Загрузка…" />;
 
@@ -120,15 +135,17 @@ export function LearnerIdentityScreen(): ReactElement {
               {submission.isPending ? 'Отправка…' : 'Отправить на проверку'}
             </button>
             {frontendEnv.NEXT_PUBLIC_ESIA_ENABLED && (
-              <a
+              <button
+                type="button"
                 className="ui-button ui-button--secondary"
-                href={`${frontendEnv.NEXT_PUBLIC_API_BASE_URL}/auth/esia/authorize?purpose=identity&tenant_id=${encodeURIComponent(
-                  frontendEnv.NEXT_PUBLIC_DEFAULT_TENANT_ID
-                )}`}
+                disabled={esiaPending || submission.isPending}
+                onClick={() => void onEsiaIdentity()}
                 data-testid="esia-identity"
               >
-                Подтвердить через Госуслуги (альтернатива)
-              </a>
+                {esiaPending
+                  ? 'Переход в Госуслуги…'
+                  : 'Подтвердить через Госуслуги (альтернатива)'}
+              </button>
             )}
           </div>
         </SectionCard>
