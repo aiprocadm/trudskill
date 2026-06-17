@@ -52,6 +52,18 @@ export const backendEnvSchema = z
     ESIGN_PROVIDER: z.enum(['noop', 'cryptopro']).default('noop'),
     /** Human-readable signer (organisation) name stamped onto the document for display. */
     ESIGN_SIGNER_NAME: z.string().min(1).default('CDOProf'),
+    // Export-signature seam (Phase 6, КЭП on registry export files). Ships dormant (false) →
+    // NoopExportSignatureProvider. Separate from ESIGN_* (different cert/purpose: detached КЭП on
+    // госреестр uploads vs embedded НЭП on learner documents). Custom boolean parse — NOT
+    // z.coerce.boolean (string "false" → true) — so a signing flag is never accidentally on.
+    EXPORT_SIGN_ENABLED: z
+      .union([z.boolean(), z.enum(['true', 'false'])])
+      .transform((v) => v === true || v === 'true')
+      .default(false),
+    /** Active export-signing provider. 'noop' until a КриптоПро adapter is wired. 'fake' = staging preview. */
+    EXPORT_SIGN_PROVIDER: z.enum(['noop', 'cryptopro', 'fake']).default('noop'),
+    /** Human-readable signer (organisation) name stamped onto the export signature for display. */
+    EXPORT_SIGN_SIGNER_NAME: z.string().min(1).default('CDOProf'),
     // ЕСИА (Госуслуги) OAuth/OIDC seam (Phase 4 follow-up). Ships dormant (false) →
     // NoopEsiaProvider. Custom boolean parse — NOT z.coerce.boolean (string "false" → true) —
     // same rule as ANTIVIRUS_ENABLED/ESIGN_ENABLED so a login flag is never accidentally on.
@@ -348,6 +360,19 @@ export const backendEnvSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'SECRET_ROTATION_MAX_AGE_DAYS must be <= 30 in prod'
+      });
+    }
+
+    // EXPORT_SIGN_PROVIDER=fake is a STAGING preview signer (self-marked non-cryptographic).
+    // Deliberately blocked ONLY in production, NOT staging: staging is where the owner previews
+    // the export-signing pipeline. Real prod is always NODE_ENV=production (enforced by the
+    // DEPLOYMENT_PROFILE=prod ⟺ NODE_ENV=production parity checks above), so this cannot be dodged.
+    if (env.EXPORT_SIGN_PROVIDER === 'fake' && env.NODE_ENV === 'production') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['EXPORT_SIGN_PROVIDER'],
+        message:
+          'EXPORT_SIGN_PROVIDER=fake is forbidden in production — it fakes signatures (use cryptopro)'
       });
     }
   });
