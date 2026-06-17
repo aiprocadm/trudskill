@@ -1361,6 +1361,66 @@ describe('DocumentsService.verifyDocumentByQrToken — revoked path (Plan C §5.
 });
 
 // ---------------------------------------------------------------------------
+// Phase 6 — signature status passthrough on public QR-verify result
+// ---------------------------------------------------------------------------
+
+describe('DocumentsService.verifyDocumentByQrToken — Phase 6 signature passthrough', () => {
+  it('public verify surfaces signatureStatus for a signed document', () => {
+    const state = new InMemoryDocumentsState();
+    const service = new DocumentsService(state, new AuditService(), new RealtimeEventsService());
+    state.generatedDocuments.push({
+      id: 'gdoc_sig_verify',
+      tenantId: 't1',
+      templateId: 'tpl',
+      templateVersionId: 'tplv',
+      documentType: 'certificate',
+      name: 'Doc',
+      sourceEntityType: 'enrollment',
+      sourceEntityId: 'enr',
+      fileId: 'f',
+      status: 'final',
+      isFinal: true,
+      generatedAt: '2026-06-17T00:00:00.000Z',
+      qrToken: 'qrtoken-signed-1234',
+      signatureStatus: 'signed',
+      signatureCertificateSubject: 'CN=CDOProf, O=CDOProf'
+    });
+
+    const result = service.verifyDocumentByQrToken('qrtoken-signed-1234');
+
+    expect(result.status).toBe('valid');
+    expect(result.signatureStatus).toBe('signed');
+    expect(result.signatureCertificateSubject).toBe('CN=CDOProf, O=CDOProf');
+  });
+
+  it('public verify omits signature fields for an unsigned document', () => {
+    const state = new InMemoryDocumentsState();
+    const service = new DocumentsService(state, new AuditService(), new RealtimeEventsService());
+    state.generatedDocuments.push({
+      id: 'gdoc_unsigned_verify',
+      tenantId: 't1',
+      templateId: 'tpl',
+      templateVersionId: 'tplv',
+      documentType: 'certificate',
+      name: 'Doc',
+      sourceEntityType: 'enrollment',
+      sourceEntityId: 'enr',
+      fileId: 'f',
+      status: 'final',
+      isFinal: true,
+      generatedAt: '2026-06-17T00:00:00.000Z',
+      qrToken: 'qrtoken-unsigned-1234'
+    });
+
+    const result = service.verifyDocumentByQrToken('qrtoken-unsigned-1234');
+
+    expect(result.status).toBe('valid');
+    expect(result.signatureStatus).toBeUndefined();
+    expect(result.signatureCertificateSubject).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Phase 6 — sign-on-finalize + manual signDocument
 // ---------------------------------------------------------------------------
 
