@@ -1,8 +1,11 @@
 import { Module, Scope } from '@nestjs/common';
 
+import { backendEnv } from '../../env.js';
 import { EisotTestingRegistryController } from './eisot-testing-registry/eisot-testing-registry.controller.js';
 import { EisotTestingRegistryService } from './eisot-testing-registry/eisot-testing-registry.service.js';
 import { EisotTestingXlsxWriter } from './eisot-testing-registry/eisot-testing-xlsx.writer.js';
+import { EsiaController } from './esia/esia.controller.js';
+import { ESIA_SERVICE_CONFIG, EsiaService, type EsiaServiceConfig } from './esia/esia.service.js';
 import { FrdoRegistryXlsxWriter } from './frdo-registry/frdo-registry-xlsx.writer.js';
 import { FrdoRegistryController } from './frdo-registry/frdo-registry.controller.js';
 import { FrdoRegistryService } from './frdo-registry/frdo-registry.service.js';
@@ -45,6 +48,12 @@ import { RostechnadzorXlsxWriter } from './rostechnadzor-registry/rostechnadzor-
 import { ScormContentController } from './scorm/scorm-content.controller.js';
 import { ScormController } from './scorm/scorm.controller.js';
 import { ScormService } from './scorm/scorm.service.js';
+import {
+  ESIA_IDENTITY_PROVIDER,
+  NoopEsiaProvider
+} from '../../infrastructure/esia/esia-identity.provider.js';
+import { EsiaOidcProvider } from '../../infrastructure/esia/esia-oidc.provider.js';
+import { MockEsiaProvider } from '../../infrastructure/esia/mock-esia.provider.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { CommunicationModule } from '../communication/communication.module.js';
 import { PushSubscriptionService } from '../communication/web-push/push-subscription.service.js';
@@ -76,7 +85,8 @@ import { TenantModule } from '../tenant/tenant.module.js';
     RecertificationController,
     ScormController,
     ScormContentController,
-    WebPushController
+    WebPushController,
+    EsiaController
   ],
   providers: [
     MvpBulkEnqueueService,
@@ -132,7 +142,37 @@ import { TenantModule } from '../tenant/tenant.module.js';
       provide: MvpRequestPersistenceInterceptor,
       scope: Scope.REQUEST,
       useClass: MvpRequestPersistenceInterceptor
-    }
+    },
+    // ЕСИА (Госуслуги) OAuth seam — ships dormant (ESIA_ENABLED=false → NoopEsiaProvider).
+    {
+      provide: ESIA_IDENTITY_PROVIDER,
+      useFactory: () => {
+        if (!backendEnv.ESIA_ENABLED) return new NoopEsiaProvider();
+        if (backendEnv.ESIA_PROVIDER === 'mock') return new MockEsiaProvider();
+        if (backendEnv.ESIA_PROVIDER === 'esia') {
+          return new EsiaOidcProvider({
+            clientId: backendEnv.ESIA_CLIENT_ID ?? '',
+            authorizeUrl: backendEnv.ESIA_AUTHORIZE_URL ?? '',
+            scopes: backendEnv.ESIA_SCOPES,
+            ...(backendEnv.ESIA_TOKEN_URL ? { tokenUrl: backendEnv.ESIA_TOKEN_URL } : {}),
+            ...(backendEnv.ESIA_USERINFO_URL ? { userinfoUrl: backendEnv.ESIA_USERINFO_URL } : {}),
+            ...(backendEnv.ESIA_CERT_PATH ? { certPath: backendEnv.ESIA_CERT_PATH } : {})
+          });
+        }
+        return new NoopEsiaProvider();
+      }
+    },
+    {
+      provide: ESIA_SERVICE_CONFIG,
+      useValue: {
+        secret: backendEnv.ESIA_STATE_SECRET,
+        ttlSeconds: 300,
+        callbackUrl:
+          backendEnv.ESIA_CALLBACK_URL ?? 'http://localhost:3001/api/v1/auth/esia/callback',
+        nowMs: () => Date.now()
+      } satisfies EsiaServiceConfig
+    },
+    { provide: EsiaService, scope: Scope.REQUEST, useClass: EsiaService }
   ]
 })
 export class MvpModule {}
