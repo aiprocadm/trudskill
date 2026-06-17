@@ -733,4 +733,4 @@ Expected: 8/8 tasks pass.
 
 ## Deviations
 
-_(Record any deviations from this plan here during execution.)_
+- **Task 4 was already satisfied — no code added.** The plan's premise ("the non-Noop branch of `applySignature` is never exercised by tests") was wrong: `documents.service.test.ts` already contains `describe('DocumentsService signing (Phase 6)')` (lines ~1477-1536) covering all six scenarios via a `StubSignatureProvider` — finalize-without-provider (back-compat unsigned), finalize-with-provider (signed metadata stamped), finalize-with-failing-provider (fail-soft `status='failed'`, stays final), `signDocument` re-sign, `signDocument` rejects non-final, `signDocument` rejects revoked. The implementer subagent verified this and correctly declined to add duplicate tests. Task 4 marked complete by pre-existing coverage; no new commit.
