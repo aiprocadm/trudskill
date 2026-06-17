@@ -145,7 +145,10 @@ import type {
 import type { ReportEntityKey, ResolveCtx } from './report-builder/report-types.js';
 import type { BuildReportRequestDto, SaveReportTemplateDto } from './report-builder.dto.js';
 import type { RequestContext } from '../../common/context/request-context.js';
-import type { GeneratedDocumentEntity } from '../documents/documents.types.js';
+import type {
+  DocumentSignatureStatus,
+  GeneratedDocumentEntity
+} from '../documents/documents.types.js';
 import type { UploadIntent } from '../files/files.service.js';
 
 interface ListResponse<T> {
@@ -196,7 +199,7 @@ export interface LearnerDocumentDto {
   /** §5.9 — если перевыпущен, ссылка на новый документ. */
   replacedByDocumentId?: string;
   /** Phase 6 — статус НЭП-подписи (seam dormant → обычно undefined). */
-  signatureStatus?: 'unsigned' | 'signed' | 'failed';
+  signatureStatus?: DocumentSignatureStatus;
 }
 
 export function mapDocumentToLearnerDto(
