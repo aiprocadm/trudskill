@@ -39,12 +39,13 @@ export class EsiaService {
 
   /** Sign a state token and return the Госуслуги authorize URL. */
   startAuthorize(purpose: EsiaPurpose, tenantId: string): { authorizeUrl: string } {
-    const nonce = `${tenantId}:${this.config.nowMs()}`;
+    const now = this.config.nowMs();
+    const nonce = `${tenantId}:${now}`;
     const state = signEsiaState(
       { purpose, tenantId, nonce },
       this.config.secret,
       this.config.ttlSeconds,
-      this.config.nowMs()
+      now
     );
     const authorizeUrl = this.provider.buildAuthorizeUrl({
       state,
