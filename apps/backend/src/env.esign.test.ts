@@ -18,6 +18,32 @@ const base = {
   SESSION_SECRET: 'dev-session-secret-12345'
 };
 
+/** Full prod-valid base — mirrors strictValidEnv from env.test.ts. */
+const prodBase = {
+  DATABASE_URL: 'postgres://u:p@localhost:5432/db',
+  REDIS_URL: 'redis://localhost:6379',
+  RABBITMQ_URL: 'amqp://localhost:5672',
+  S3_ENDPOINT: 'http://localhost:9000',
+  S3_ACCESS_KEY: 'a',
+  S3_SECRET_KEY: 'b',
+  S3_BUCKET: 'bucket',
+  CORS_ORIGIN: 'http://localhost:3000',
+  PUBLIC_BASE_URL: 'http://localhost:3001',
+  REALTIME_PUBLIC_URL: 'http://localhost:3002',
+  REALTIME_PUBLISH_KEY: 'prod-realtime-publish-key',
+  NODE_ENV: 'production',
+  DEPLOYMENT_PROFILE: 'prod',
+  SECRETS_PROVIDER: 'vault',
+  VAULT_ADDR: 'https://vault.internal',
+  VAULT_TOKEN: 'vault-token-123456',
+  INTEGRATION_WEBHOOK_SECRET: 'prod-webhook-secret-ok',
+  MVP_PERSISTENCE_DRIVER: 'postgres',
+  DOCUMENTS_PERSISTENCE_DRIVER: 'postgres',
+  ALLOW_IN_MEMORY_STATE: false,
+  SCORM_CONTENT_TOKEN_SECRET: 'prod-scorm-content-token-secret',
+  ESIA_STATE_SECRET: 'prod-esia-state-secret-ok'
+} as const;
+
 describe('ESIGN env flags', () => {
   it('defaults to disabled / noop', () => {
     const env = backendEnvSchema.parse({ ...base });
@@ -40,5 +66,27 @@ describe('ESIGN env flags', () => {
     expect(env.ESIGN_ENABLED).toBe(true);
     expect(env.ESIGN_PROVIDER).toBe('cryptopro');
     expect(env.ESIGN_SIGNER_NAME).toBe('ООО Учебный Центр');
+  });
+
+  it('allows ESIGN_PROVIDER=fake in development', () => {
+    const env = backendEnvSchema.parse({
+      ...base,
+      ESIGN_ENABLED: 'true',
+      ESIGN_PROVIDER: 'fake'
+    });
+    expect(env.ESIGN_PROVIDER).toBe('fake');
+  });
+
+  it('rejects ESIGN_PROVIDER=fake in production', () => {
+    const parsed = backendEnvSchema.safeParse({
+      ...prodBase,
+      ESIGN_ENABLED: 'true',
+      ESIGN_PROVIDER: 'fake'
+    });
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      const messages = parsed.error.issues.map((i) => i.message);
+      expect(messages.some((m) => /fake.*production|production.*fake/i.test(m))).toBe(true);
+    }
   });
 });
