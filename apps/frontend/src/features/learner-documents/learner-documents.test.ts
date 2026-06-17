@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { learnerDocumentsApi } from './api';
 import { LearnerDocumentsList } from './documents-list';
 import { LearnerDocumentsScreen } from './learner-documents-screen';
+import { signatureBadgeLabel } from './signature-badge';
 
 import type { LearnerDocument, LearnerDocumentsResponse } from './types';
 
@@ -64,5 +65,18 @@ describe('learnerDocumentsApi — поверхность API', () => {
   it('экспортирует listMine и listForEnrollment', () => {
     expect(typeof learnerDocumentsApi.listMine).toBe('function');
     expect(typeof learnerDocumentsApi.listForEnrollment).toBe('function');
+  });
+});
+
+describe('signatureBadgeLabel (Phase 6)', () => {
+  it('подписанный документ → бейдж "Подписана НЭП"', () => {
+    expect(signatureBadgeLabel('signed')).toBe('Подписана НЭП');
+  });
+  it('ошибка подписи → бейдж "Ошибка подписи"', () => {
+    expect(signatureBadgeLabel('failed')).toBe('Ошибка подписи');
+  });
+  it('неподписанный / отсутствующий статус → нет бейджа', () => {
+    expect(signatureBadgeLabel('unsigned')).toBeNull();
+    expect(signatureBadgeLabel(undefined)).toBeNull();
   });
 });
