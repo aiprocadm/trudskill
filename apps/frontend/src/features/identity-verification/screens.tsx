@@ -19,6 +19,7 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import { frontendEnv } from '../../lib/config/env';
 
 import type { IdentityVerificationStatus } from './types';
 import type { ReactElement } from 'react';
@@ -118,6 +119,17 @@ export function LearnerIdentityScreen(): ReactElement {
             >
               {submission.isPending ? 'Отправка…' : 'Отправить на проверку'}
             </button>
+            {frontendEnv.NEXT_PUBLIC_ESIA_ENABLED && (
+              <a
+                className="ui-button ui-button--secondary"
+                href={`${frontendEnv.NEXT_PUBLIC_API_BASE_URL}/auth/esia/authorize?purpose=identity&tenant_id=${encodeURIComponent(
+                  frontendEnv.NEXT_PUBLIC_DEFAULT_TENANT_ID
+                )}`}
+                data-testid="esia-identity"
+              >
+                Подтвердить через Госуслуги (альтернатива)
+              </a>
+            )}
           </div>
         </SectionCard>
       ) : null}
