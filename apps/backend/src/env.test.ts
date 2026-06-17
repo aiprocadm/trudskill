@@ -28,7 +28,10 @@ const strictValidEnv = {
   MVP_PERSISTENCE_DRIVER: 'postgres',
   DOCUMENTS_PERSISTENCE_DRIVER: 'postgres',
   ALLOW_IN_MEMORY_STATE: false,
-  SCORM_CONTENT_TOKEN_SECRET: 'prod-scorm-content-token-secret'
+  SCORM_CONTENT_TOKEN_SECRET: 'prod-scorm-content-token-secret',
+  // ESIA_STATE_SECRET defaults to a dev value the strict-profile refinement rejects (added by
+  // PR #258); set a non-dev value so staging/prod fixtures parse for reasons unrelated to it.
+  ESIA_STATE_SECRET: 'prod-esia-state-secret-ok'
 } as const;
 
 const issueMessages = (input: Record<string, unknown>) => {
