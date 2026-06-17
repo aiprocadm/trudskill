@@ -57,6 +57,15 @@ export class TenantGuard implements CanActivate {
       return true;
     }
 
+    const isEsiaAuthRoute = requestPath.includes('/auth/esia/');
+    if (isEsiaAuthRoute) {
+      // ЕСИА OAuth entry/callback are browser navigations: tenant + (for identity) learner travel
+      // inside the signed `state`; the controller/service resolve them. No bearer/x-tenant-id here.
+      if (requestContext.requestedTenantId)
+        requestContext.tenantId = requestContext.requestedTenantId;
+      return true;
+    }
+
     if (!requestContext.tenantId || !requestContext.userId) {
       throw new UnauthorizedException({
         code: 'auth_required',
