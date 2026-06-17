@@ -1,8 +1,10 @@
 // apps/backend/src/modules/mvp/esia/esia.controller.ts
 import {
+  BadRequestException,
   Controller,
   Get,
   Inject,
+  Post,
   Query,
   Res,
   UnauthorizedException,
@@ -21,7 +23,6 @@ import { MvpRequestPersistenceInterceptor } from '../infrastructure/mvp-request-
 import { MvpService } from '../mvp.service.js';
 
 import type { RequestContext } from '../../../common/context/request-context.js';
-import type { EsiaPurpose } from '../../../infrastructure/esia/esia-identity.provider.js';
 import type { Response } from 'express';
 
 const frontend = (path: string): string => `${backendEnv.ESIA_FRONTEND_REDIRECT_BASE}${path}`;
@@ -37,17 +38,35 @@ export class EsiaController {
     @Inject(MvpService) private readonly mvp: MvpService
   ) {}
 
+  /**
+   * LOGIN entry — unauthenticated browser top-level navigation. tenant_id comes in the query and is
+   * baked into the signed state; the callback reads tenant FROM the state, not the guard context.
+   */
   @Get('auth/esia/authorize')
   authorize(
-    @CurrentContext() context: RequestContext,
-    @Query('purpose') purposeRaw: string | undefined,
+    @Query('tenant_id') tenantId: string | undefined,
     @Res({ passthrough: true }) response: Response
   ): void {
-    if (!context.tenantId)
-      throw new UnauthorizedException({ code: 'no_tenant', message: 'Tenant not resolved' });
-    const purpose: EsiaPurpose = purposeRaw === 'identity' ? 'identity' : 'login';
-    const { authorizeUrl } = this.esia.startAuthorize(purpose, context.tenantId);
+    if (!tenantId)
+      throw new BadRequestException({ code: 'esia_no_tenant', message: 'tenant_id is required' });
+    const { authorizeUrl } = this.esia.startAuthorize('login', tenantId);
     response.redirect(authorizeUrl); // throws via NoopEsiaProvider (503) when ESIA_ENABLED=false
+  }
+
+  /**
+   * IDENTITY entry — initiated by the authenticated SPA (bearer present → normal guard resolves
+   * userId+tenantId). The learner is baked into the signed state so the (cookie-only) callback can
+   * approve without context. Returns the authorize URL as JSON; the SPA navigates to it.
+   */
+  @Post('auth/esia/identity/authorize')
+  identityAuthorize(@CurrentContext() context: RequestContext): { authorizeUrl: string } {
+    if (!context.userId || !context.tenantId)
+      throw new UnauthorizedException({
+        code: 'esia_identity_no_session',
+        message: 'Требуется вход'
+      });
+    const learner = this.mvp.getLinkedLearnerForUser(context.tenantId, context.userId);
+    return this.esia.startAuthorize('identity', context.tenantId, learner.id);
   }
 
   @Get('auth/esia/callback')
@@ -57,8 +76,6 @@ export class EsiaController {
     @Query('state') state: string | undefined,
     @Res({ passthrough: true }) response: Response
   ): Promise<void> {
-    if (!context.tenantId)
-      throw new UnauthorizedException({ code: 'no_tenant', message: 'Tenant not resolved' });
     if (!code || !state) {
       response.redirect(frontend('/auth/esia/callback?status=error&reason=missing_params'));
       return;
@@ -66,23 +83,12 @@ export class EsiaController {
     // The purpose lives inside the signed state; peek it to branch (verify happens in the service).
     const purpose = this.esia.peekPurpose(state);
     if (purpose === 'identity') {
-      // identity flow requires an authenticated learner
-      if (!context.userId)
-        throw new UnauthorizedException({
-          code: 'esia_identity_no_session',
-          message: 'Требуется вход'
-        });
-      const learner = this.mvp.getLinkedLearnerForUser(context.tenantId, context.userId);
-      await this.esia.approveIdentity(context.tenantId, learner.id, code, state, context);
+      await this.esia.approveIdentity(code, state, context);
       response.redirect(frontend('/learner/identity?status=ok'));
       return;
     }
-    const { userId, databaseBacked } = await this.esia.resolveLoginUser(
-      context.tenantId,
-      code,
-      state
-    );
-    const user = await this.iamService.getUser(context.tenantId, userId);
+    const { userId, databaseBacked, tenantId } = await this.esia.resolveLoginUser(code, state);
+    const user = await this.iamService.getUser(tenantId, userId);
     const tokens = await this.authService.issueSessionForUser(user, context, {
       authMethod: 'esia',
       databaseBacked

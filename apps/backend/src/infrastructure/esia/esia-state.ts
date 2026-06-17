@@ -6,6 +6,8 @@ export interface EsiaStateClaims {
   purpose: EsiaPurpose;
   tenantId: string;
   nonce: string;
+  /** Present only for the identity flow — the learner whose СНИЛС must match ЕСИА. */
+  learnerId?: string;
 }
 
 interface EsiaStatePayload extends EsiaStateClaims {
@@ -38,5 +40,10 @@ export const verifyEsiaState = (token: string, secret: string, nowMs: number): E
   if (a.length !== b.length || !timingSafeEqual(a, b)) throw new Error('esia_state_bad_signature');
   const payload = JSON.parse(unb64(body)) as EsiaStatePayload;
   if (typeof payload.exp !== 'number' || nowMs > payload.exp) throw new Error('esia_state_expired');
-  return { purpose: payload.purpose, tenantId: payload.tenantId, nonce: payload.nonce };
+  return {
+    purpose: payload.purpose,
+    tenantId: payload.tenantId,
+    nonce: payload.nonce,
+    learnerId: payload.learnerId
+  };
 };

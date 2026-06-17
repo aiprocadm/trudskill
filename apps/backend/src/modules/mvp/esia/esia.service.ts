@@ -12,7 +12,11 @@ import {
   type EsiaIdentityProvider,
   type EsiaPurpose
 } from '../../../infrastructure/esia/esia-identity.provider.js';
-import { signEsiaState, verifyEsiaState } from '../../../infrastructure/esia/esia-state.js';
+import {
+  type EsiaStateClaims,
+  signEsiaState,
+  verifyEsiaState
+} from '../../../infrastructure/esia/esia-state.js';
 import { IamService } from '../../iam/services/iam.service.js';
 import { MvpService } from '../mvp.service.js';
 
@@ -38,11 +42,15 @@ export class EsiaService {
   ) {}
 
   /** Sign a state token and return the Госуслуги authorize URL. */
-  startAuthorize(purpose: EsiaPurpose, tenantId: string): { authorizeUrl: string } {
+  startAuthorize(
+    purpose: EsiaPurpose,
+    tenantId: string,
+    learnerId?: string
+  ): { authorizeUrl: string } {
     const now = this.config.nowMs();
     const nonce = `${tenantId}:${now}`;
     const state = signEsiaState(
-      { purpose, tenantId, nonce },
+      { purpose, tenantId, nonce, ...(learnerId ? { learnerId } : {}) },
       this.config.secret,
       this.config.ttlSeconds,
       now
@@ -71,23 +79,29 @@ export class EsiaService {
     }
   }
 
-  private verify(tenantId: string, state: string, expected: EsiaPurpose): void {
+  /**
+   * Verify the signed state (signature + expiry) and assert the purpose. tenantId — and, for
+   * identity, learnerId — are READ FROM the returned claims, so the callback needs nothing from
+   * the (cookie-only) guard context.
+   */
+  private verifyAndGetClaims(state: string, expected: EsiaPurpose): EsiaStateClaims {
     const claims = verifyEsiaState(state, this.config.secret, this.config.nowMs());
-    if (claims.purpose !== expected || claims.tenantId !== tenantId) {
+    if (claims.purpose !== expected) {
       throw new ForbiddenException({
         code: 'esia_state_mismatch',
         message: 'Недействительный запрос'
       });
     }
+    return claims;
   }
 
   /** Login: state → exchange → learner-by-СНИЛС → resolve/link IAM user. Never auto-creates a learner. */
   async resolveLoginUser(
-    tenantId: string,
     code: string,
     state: string
-  ): Promise<{ userId: string; databaseBacked: boolean }> {
-    this.verify(tenantId, state, 'login');
+  ): Promise<{ userId: string; databaseBacked: boolean; tenantId: string }> {
+    const claims = this.verifyAndGetClaims(state, 'login');
+    const { tenantId } = claims;
     const identity = await this.provider.exchangeCode({
       code,
       state,
@@ -110,18 +124,23 @@ export class EsiaService {
     // Learner already verified to exist → creating/linking the IAM user is legitimate (not auto-signup).
     const { user, databaseBacked } = await this.iam.findOrCreateByEmail(tenantId, learner.email);
     this.mvp.linkLearnerToIamUser(tenantId, learner.id, user.id);
-    return { userId: user.id, databaseBacked };
+    return { userId: user.id, databaseBacked, tenantId };
   }
 
-  /** Identity: state → exchange → compare СНИЛС with the session learner → auto-approve. */
+  /** Identity: state → exchange → compare СНИЛС with the state's learner → auto-approve. */
   async approveIdentity(
-    tenantId: string,
-    learnerId: string,
     code: string,
     state: string,
     context: RequestContext
-  ): Promise<{ verificationId: string }> {
-    this.verify(tenantId, state, 'identity');
+  ): Promise<{ verificationId: string; tenantId: string }> {
+    const claims = this.verifyAndGetClaims(state, 'identity');
+    const { tenantId, learnerId } = claims;
+    if (!learnerId) {
+      throw new ForbiddenException({
+        code: 'esia_state_mismatch',
+        message: 'Недействительный запрос'
+      });
+    }
     const identity = await this.provider.exchangeCode({
       code,
       state,
@@ -135,6 +154,6 @@ export class EsiaService {
       });
     }
     const record = this.mvp.approveIdentityViaEsia(tenantId, learnerId, context);
-    return { verificationId: record.id };
+    return { verificationId: record.id, tenantId };
   }
 }

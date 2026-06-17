@@ -16,6 +16,22 @@ describe('esia state token', () => {
     expect(claims).toMatchObject({ purpose: 'login', tenantId: 't1', nonce: 'n1' });
   });
 
+  it('round-trips the identity learnerId', () => {
+    const token = signEsiaState(
+      { purpose: 'identity', tenantId: 't1', nonce: 'n1', learnerId: 'lrn_1' },
+      secret,
+      300,
+      1000
+    );
+    const claims = verifyEsiaState(token, secret, 1100);
+    expect(claims).toMatchObject({
+      purpose: 'identity',
+      tenantId: 't1',
+      nonce: 'n1',
+      learnerId: 'lrn_1'
+    });
+  });
+
   it('rejects a tampered token', () => {
     const token = signEsiaState(
       { purpose: 'login', tenantId: 't1', nonce: 'n1' },

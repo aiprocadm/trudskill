@@ -44,7 +44,7 @@ describe('EsiaService', () => {
       1000
     );
     const code = encodeMockCode({ snils: '11223344595', lastName: 'Х', firstName: 'У' });
-    await expect(service.resolveLoginUser('t1', code, state)).rejects.toThrow(ForbiddenException);
+    await expect(service.resolveLoginUser(code, state)).rejects.toThrow(ForbiddenException);
   });
 
   it('login: denies when the matched learner has no email (no account to sign into)', async () => {
@@ -56,7 +56,7 @@ describe('EsiaService', () => {
       1000
     );
     const code = encodeMockCode({ snils: '11223344595', lastName: 'Х', firstName: 'У' });
-    await expect(service.resolveLoginUser('t1', code, state)).rejects.toThrow(ForbiddenException);
+    await expect(service.resolveLoginUser(code, state)).rejects.toThrow(ForbiddenException);
     expect(iam.findOrCreateByEmail).not.toHaveBeenCalled();
   });
 
@@ -71,40 +71,42 @@ describe('EsiaService', () => {
       1000
     );
     const code = encodeMockCode({ snils: '11223344595', lastName: 'Х', firstName: 'У' });
-    await expect(service.resolveLoginUser('t1', code, state)).resolves.toEqual({
+    await expect(service.resolveLoginUser(code, state)).resolves.toEqual({
       userId: 'u1',
-      databaseBacked: false
+      databaseBacked: false,
+      tenantId: 't1'
     });
     expect(iam.findOrCreateByEmail).toHaveBeenCalledWith('t1', 'learner@example.test');
     expect(mvp.linkLearnerToIamUser).toHaveBeenCalledWith('t1', 'lrn_1', 'u1');
   });
 
-  it('identity: rejects when ЕСИА СНИЛС differs from the session learner', async () => {
+  it('identity: rejects when ЕСИА СНИЛС differs from the state learner', async () => {
     // findLearnersBySnils(ЕСИА-snils) returns [] → no learner with that СНИЛС is lrn_1 → mismatch.
     const { service } = makeService({ learners: [] });
     const state = signEsiaState(
-      { purpose: 'identity', tenantId: 't1', nonce: 'n' },
+      { purpose: 'identity', tenantId: 't1', nonce: 'n', learnerId: 'lrn_1' },
       SECRET,
       300,
       1000
     );
     const code = encodeMockCode({ snils: '11223344595', lastName: 'Х', firstName: 'У' });
-    await expect(service.approveIdentity('t1', 'lrn_1', code, state, ctx)).rejects.toThrow(
+    await expect(service.approveIdentity(code, state, ctx)).rejects.toThrow(
       UnprocessableEntityException
     );
   });
 
-  it('identity: approves when ЕСИА СНИЛС matches the session learner', async () => {
+  it('identity: approves when ЕСИА СНИЛС matches the state learner', async () => {
     const { service } = makeService({ learners: [{ id: 'lrn_1', snils: '11223344595' }] });
     const state = signEsiaState(
-      { purpose: 'identity', tenantId: 't1', nonce: 'n' },
+      { purpose: 'identity', tenantId: 't1', nonce: 'n', learnerId: 'lrn_1' },
       SECRET,
       300,
       1000
     );
     const code = encodeMockCode({ snils: '11223344595', lastName: 'Х', firstName: 'У' });
-    await expect(service.approveIdentity('t1', 'lrn_1', code, state, ctx)).resolves.toEqual({
-      verificationId: 'idv_1'
+    await expect(service.approveIdentity(code, state, ctx)).resolves.toEqual({
+      verificationId: 'idv_1',
+      tenantId: 't1'
     });
   });
 });
