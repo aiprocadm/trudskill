@@ -52,6 +52,26 @@ export const backendEnvSchema = z
     ESIGN_PROVIDER: z.enum(['noop', 'cryptopro']).default('noop'),
     /** Human-readable signer (organisation) name stamped onto the document for display. */
     ESIGN_SIGNER_NAME: z.string().min(1).default('CDOProf'),
+    // ЕСИА (Госуслуги) OAuth/OIDC seam (Phase 4 follow-up). Ships dormant (false) →
+    // NoopEsiaProvider. Custom boolean parse — NOT z.coerce.boolean (string "false" → true) —
+    // same rule as ANTIVIRUS_ENABLED/ESIGN_ENABLED so a login flag is never accidentally on.
+    ESIA_ENABLED: z
+      .union([z.boolean(), z.enum(['true', 'false'])])
+      .transform((v) => v === true || v === 'true')
+      .default(false),
+    /** Active ЕСИА provider. 'noop' (off) | 'mock' (dev/tests) | 'esia' (real ОIDC, follow-up). */
+    ESIA_PROVIDER: z.enum(['noop', 'mock', 'esia']).default('noop'),
+    ESIA_CLIENT_ID: z.string().min(1).optional(),
+    ESIA_SCOPES: z.string().min(1).default('openid fullname snils birthdate email'),
+    ESIA_AUTHORIZE_URL: z.string().url().optional(),
+    ESIA_TOKEN_URL: z.string().url().optional(),
+    ESIA_USERINFO_URL: z.string().url().optional(),
+    ESIA_CALLBACK_URL: z.string().url().optional(),
+    ESIA_CERT_PATH: z.string().min(1).optional(),
+    /** HMAC secret for the self-contained OAuth `state` token. Dev default; override in prod. */
+    ESIA_STATE_SECRET: z.string().min(1).default('dev-esia-state-secret'),
+    /** Where the browser lands after a callback (frontend origin). */
+    ESIA_FRONTEND_REDIRECT_BASE: z.string().url().default('http://localhost:3000'),
     // Email notifications (Phase 5). Custom boolean parse — NOT z.coerce.boolean, which maps
     // the string "false" → true. NoopMailer is the safe default (no SMTP needed).
     NOTIFICATIONS_EMAIL_ENABLED: z
@@ -176,7 +196,8 @@ export const backendEnvSchema = z
       'change-me-in-production',
       'dev-jwt-secret-12345',
       'dev-session-secret-12345',
-      'dev-scorm-content-secret'
+      'dev-scorm-content-secret',
+      'dev-esia-state-secret'
     ];
     const isStrictProfile =
       env.NODE_ENV === 'production' ||
@@ -286,6 +307,14 @@ export const backendEnvSchema = z
       });
     }
 
+    if (devSecrets.includes(env.ESIA_STATE_SECRET)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'ESIA_STATE_SECRET must not use development value in production/staging/prod-profile'
+      });
+    }
+
     if (env.ALLOW_IN_MEMORY_STATE) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -324,3 +353,6 @@ export const backendEnvSchema = z
   });
 
 export type BackendEnv = z.infer<typeof backendEnvSchema>;
+
+/** Alias for test imports that expect the name `envSchema`. */
+export const envSchema = backendEnvSchema;

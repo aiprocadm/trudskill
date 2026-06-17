@@ -77,6 +77,13 @@ export const identityVerificationApi = {
       method: 'POST',
       body: payload,
       ...withAuth(session)
+    }),
+  /** ЕСИА identity: bearer-authenticated POST (can't be an <a href> — that wouldn't send the token).
+   *  Returns the Госуслуги authorize URL the SPA then navigates to. */
+  esiaIdentityAuthorize: (session: UserSession): Promise<{ authorizeUrl: string }> =>
+    apiRequest<{ authorizeUrl: string }>('/auth/esia/identity/authorize', {
+      method: 'POST',
+      ...withAuth(session)
     })
 };
 

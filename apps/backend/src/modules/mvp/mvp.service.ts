@@ -3576,6 +3576,101 @@ export class MvpService {
     );
   }
 
+  // ─── ЕСИА (Госуслуги) OAuth seam helpers ──────────────────────────────────
+
+  /** Digits-only normalisation so '112-233-445 95' and '11223344595' compare equal. */
+  private normalizeSnils(snils: string | undefined): string {
+    return (snils ?? '').replace(/\D/g, '');
+  }
+
+  /** Learners in this tenant whose СНИЛС matches (normalised). Empty when none — caller denies. */
+  findLearnersBySnils(tenantId: string, snils: string): Learner[] {
+    const target = this.normalizeSnils(snils);
+    if (target.length === 0) return [];
+    return this.state.learners.filter(
+      (l) => l.tenantId === tenantId && this.normalizeSnils(l.snils) === target
+    );
+  }
+
+  /**
+   * ЕСИА success → an `approved` IdentityVerification for the learner (method 'esia'),
+   * unlocking assertIdentityVerificationGate. Idempotent: returns the existing approved record.
+   */
+  approveIdentityViaEsia(
+    tenantId: string,
+    learnerId: string,
+    context: RequestContext
+  ): IdentityVerification {
+    const existing = this.findApprovedIdentityVerification(tenantId, learnerId);
+    if (existing) return existing;
+    const now = this.now();
+    const entity: IdentityVerification = {
+      id: this.id('idv'),
+      tenantId,
+      learnerId,
+      method: 'esia',
+      verificationStatus: 'approved',
+      status: 'active',
+      reviewedByActorId: 'system_esia',
+      reviewedAt: now,
+      consentAt: now,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.state.identityVerifications.push(entity);
+    this.audit(
+      tenantId,
+      'system_esia',
+      'learning.identity_verification_approved_by_esia',
+      'learning.identity_verification',
+      entity.id,
+      undefined,
+      { id: entity.id, learnerId, method: 'esia' },
+      context
+    );
+    return entity;
+  }
+
+  /**
+   * Links a learner profile to an IAM user (idempotent).
+   * Sets `linkedIamUserId` only when currently empty — if already set to ANY value,
+   * it is a no-op (never overwrites an existing link). Audit fires only on actual link.
+   */
+  linkLearnerToIamUser(tenantId: string, learnerId: string, iamUserId: string): void {
+    const learner = this.state.learners.find((l) => l.tenantId === tenantId && l.id === learnerId);
+    if (!learner) return; // nothing to link — caller responsible for prior validation
+    if (learner.linkedIamUserId) return; // already linked — no-op regardless of the new value
+    learner.linkedIamUserId = iamUserId;
+    learner.updatedAt = this.now();
+    this.auditService.write({
+      tenantId,
+      actorId: 'system_esia',
+      action: 'learning.learner_linked_to_user',
+      entityType: 'learning.learner',
+      entityId: learnerId,
+      oldValues: undefined,
+      newValues: { learnerId, iamUserId }
+    });
+  }
+
+  /**
+   * Returns the learner whose `linkedIamUserId === iamUserId` in this tenant.
+   * Throws `learner_not_linked` (BadRequestException) when none found — mirrors
+   * the private `resolveIdentityLearner` pattern.
+   */
+  getLinkedLearnerForUser(tenantId: string, iamUserId: string): Learner {
+    const linked = this.state.learners.find(
+      (l) => l.tenantId === tenantId && l.linkedIamUserId === iamUserId
+    );
+    if (!linked) {
+      throw new BadRequestException({
+        code: 'learner_not_linked',
+        message: 'No learner profile is linked to the current user'
+      });
+    }
+    return linked;
+  }
+
   /** Phase 4 Plan A: the group-course toggle for documentary identity verification. */
   private groupCourseRequiresIdentityVerification(
     tenantId: string,

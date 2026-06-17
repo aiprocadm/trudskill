@@ -457,7 +457,7 @@ export type IdentityVerificationStatus = 'draft' | 'pending' | 'approved' | 'rej
  */
 export interface IdentityVerification extends BaseEntity {
   learnerId: string;
-  method: 'selfie_passport';
+  method: 'selfie_passport' | 'esia';
   verificationStatus: IdentityVerificationStatus;
   selfieFileId?: string;
   passportFileId?: string;
