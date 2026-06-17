@@ -196,7 +196,8 @@ export const backendEnvSchema = z
       'change-me-in-production',
       'dev-jwt-secret-12345',
       'dev-session-secret-12345',
-      'dev-scorm-content-secret'
+      'dev-scorm-content-secret',
+      'dev-esia-state-secret'
     ];
     const isStrictProfile =
       env.NODE_ENV === 'production' ||
@@ -303,6 +304,14 @@ export const backendEnvSchema = z
         code: z.ZodIssueCode.custom,
         message:
           'SCORM_CONTENT_TOKEN_SECRET must not use development value in production/staging/prod-profile'
+      });
+    }
+
+    if (devSecrets.includes(env.ESIA_STATE_SECRET)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'ESIA_STATE_SECRET must not use development value in production/staging/prod-profile'
       });
     }
 
