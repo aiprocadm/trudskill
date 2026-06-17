@@ -269,3 +269,32 @@ env-флаги (dormant) · 2 кнопки на фронте под флагом
 - `apps/backend/src/env.schema.ts` — образец флагов и boolean-парсера.
 - `apps/frontend/src/features/auth/` (форма входа, `session-manager`, `AuthContext`) +
   `features/identity-verification/screens.tsx`.
+
+## 13. As-built deviations (после финального холистического ревью)
+
+Реализация отличается от потоков §4–§5 выше в одном существенном месте — финальное
+холистическое ревью поймало два CRITICAL в исходной схеме «callback берёт tenantId/userId из
+guard-контекста», и интеграция была переработана. Зафиксировано здесь, чтобы спека не
+вводила в заблуждение относительно as-built.
+
+- **C1:** `TenantGuard` отклонял `GET /auth/esia/authorize` и `/callback` с `401` ещё до
+  контроллера — это браузерные top-level переходы без `Authorization: Bearer` и без `x-tenant-id`,
+  а маршруты не были в bootstrap-списке. **Фикс:** exemption `/auth/esia/*` в `TenantGuard`.
+- **C2:** identity-ветка callback зависела от `context.userId`, которого при редиректе от Госуслуг
+  нет (браузер шлёт cookie, не bearer-заголовок) → поток идентификации был мёртв.
+
+**As-built схема (заменяет §4–§5 в части механики):**
+
+- `/auth/esia/callback` — **полностью state-driven**: `tenantId` и (для identity) `learnerId` едут
+  внутри HMAC-подписанного `state` и читаются из него после верификации; контроллеру/сервису не
+  нужен ни `tenantId`, ни `userId` из guard-контекста.
+- **Вход (login):** неаутентифицированный `GET /auth/esia/authorize?tenant_id=…` (тенант из query →
+  в подписанный state). Callback читает tenant из state → `resolveLoginUser(code, state)`.
+- **Идентификация (identity):** инициируется аутентифицированным SPA через
+  `POST /auth/esia/identity/authorize` (Bearer присутствует → штатный guard резолвит `userId`);
+  контроллер резолвит linked-`learnerId` владельца сессии и запекает его в подписанный state.
+  Callback читает `tenantId`+`learnerId` из state → `approveIdentity(code, state, ctx)`. Кнопка
+  идентификации на фронте — bearer-POST + `window.location`, не `<a href>`.
+- **Hardening:** слабый дефолт `ESIA_STATE_SECRET` отклоняется в прод/strict-профиле (зеркало
+  `SCORM_CONTENT_TOKEN_SECRET`). Граница безопасности «неаутентифицированный `identity/authorize`
+  → 401» зафиксирована юнит-тестом контроллера.
