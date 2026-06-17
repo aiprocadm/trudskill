@@ -11,5 +11,6 @@ describe('FakeDocumentSignatureProvider', () => {
     expect(result.status).toBe('signed');
     expect(result.signatureRef).toContain('doc_9');
     expect(result.certificateSubject).toContain('Тестовый УЦ');
+    expect(result.certificateSubject).toContain('STAGING');
   });
 });

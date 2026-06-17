@@ -315,6 +315,11 @@ export const backendEnvSchema = z
       });
     }
 
+    // ESIGN_PROVIDER=fake is a STAGING preview signer (self-marked non-cryptographic).
+    // Deliberately blocked ONLY in production, NOT staging: staging is where the owner
+    // previews the signing pipeline end-to-end. Real prod is always NODE_ENV=production
+    // (enforced by the DEPLOYMENT_PROFILE=prod ↔ NODE_ENV=production parity checks above),
+    // so this cannot be dodged by a prod deployment.
     if (env.ESIGN_PROVIDER === 'fake' && env.NODE_ENV === 'production') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

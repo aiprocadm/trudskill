@@ -18,7 +18,7 @@ const base = {
   SESSION_SECRET: 'dev-session-secret-12345'
 };
 
-/** Full prod-valid base — mirrors strictValidEnv from env.test.ts. */
+/** Full prod-valid base — satisfies all strict-profile env guards (vault, postgres, non-dev secrets). */
 const prodBase = {
   DATABASE_URL: 'postgres://u:p@localhost:5432/db',
   REDIS_URL: 'redis://localhost:6379',
@@ -87,6 +87,23 @@ describe('ESIGN env flags', () => {
     if (!parsed.success) {
       const messages = parsed.error.issues.map((i) => i.message);
       expect(messages.some((m) => /fake.*production|production.*fake/i.test(m))).toBe(true);
+    }
+  });
+
+  it('allows ESIGN_PROVIDER=fake in staging (deliberate — owner preview env)', () => {
+    // NODE_ENV=staging triggers isStrictProfile (vault + postgres + non-dev secrets required).
+    // DEPLOYMENT_PROFILE=staging avoids the prod↔production parity check.
+    // prodBase already satisfies all strict-profile guards; we just swap the profile pair.
+    const parsed = backendEnvSchema.safeParse({
+      ...prodBase,
+      NODE_ENV: 'staging',
+      DEPLOYMENT_PROFILE: 'staging',
+      ESIGN_ENABLED: 'true',
+      ESIGN_PROVIDER: 'fake'
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.ESIGN_PROVIDER).toBe('fake');
     }
   });
 });
