@@ -195,9 +195,11 @@ export interface LearnerDocumentDto {
   revocationReason?: string;
   /** §5.9 — если перевыпущен, ссылка на новый документ. */
   replacedByDocumentId?: string;
+  /** Phase 6 — статус НЭП-подписи (seam dormant → обычно undefined). */
+  signatureStatus?: 'unsigned' | 'signed' | 'failed';
 }
 
-function mapDocumentToLearnerDto(
+export function mapDocumentToLearnerDto(
   doc: GeneratedDocumentEntity,
   apiPrefix: string,
   enrollmentId: string,
@@ -221,7 +223,8 @@ function mapDocumentToLearnerDto(
     downloadUrl: hasFile ? `${apiPrefix}/files/${doc.fileId}/download` : '',
     isDownloadable: hasFile,
     revocationReason: doc.revocationReason,
-    replacedByDocumentId: doc.replacedByDocumentId
+    replacedByDocumentId: doc.replacedByDocumentId,
+    ...(doc.signatureStatus ? { signatureStatus: doc.signatureStatus } : {})
   };
 }
 
