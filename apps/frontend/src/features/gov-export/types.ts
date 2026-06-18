@@ -47,6 +47,8 @@ export interface OtRegistryBatch {
   batchStatus: OtRegistryBatchStatus;
   generatedBy: string;
   format?: 'xlsx' | 'xml';
+  signatureStatus?: 'unsigned' | 'signed' | 'failed';
+  signatureFileId?: string;
 }
 
 export interface OtRegistryRecord {
@@ -130,6 +132,8 @@ export interface FrdoRegistryBatch {
   failedRows: number;
   batchStatus: 'generated' | 'partial' | 'failed';
   generatedBy: string;
+  signatureStatus?: 'unsigned' | 'signed' | 'failed';
+  signatureFileId?: string;
 }
 
 export interface FrdoRegistryExportOutcome {
@@ -181,6 +185,8 @@ export interface EisotTestingBatch {
   failedRows: number;
   batchStatus: 'generated' | 'partial' | 'failed';
   generatedBy: string;
+  signatureStatus?: 'unsigned' | 'signed' | 'failed';
+  signatureFileId?: string;
 }
 
 export interface EisotTestingExportOutcome {
@@ -233,6 +239,8 @@ export interface RostechnadzorBatch {
   failedRows: number;
   batchStatus: 'generated' | 'partial' | 'failed';
   generatedBy: string;
+  signatureStatus?: 'unsigned' | 'signed' | 'failed';
+  signatureFileId?: string;
 }
 
 export interface RostechnadzorExportOutcome {
@@ -284,6 +292,8 @@ export interface NmoBatch {
   failedRows: number;
   batchStatus: 'generated' | 'partial' | 'failed';
   generatedBy: string;
+  signatureStatus?: 'unsigned' | 'signed' | 'failed';
+  signatureFileId?: string;
 }
 
 export interface NmoExportOutcome {

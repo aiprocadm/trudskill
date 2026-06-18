@@ -12,6 +12,7 @@ import {
 } from '../../src/components/state-wrappers';
 import { useAuth } from '../../src/features/auth/context';
 import { govExportApi } from '../../src/features/gov-export/api';
+import { exportSignatureBadgeLabel } from '../../src/features/gov-export/export-signature-badge';
 import {
   useEisotTestingBatches,
   useFrdoRegistryBatches,
@@ -362,6 +363,11 @@ export default function GovExportPage() {
                   { key: 'failedRows', title: 'Ошибок' },
                   { key: 'createdAt', title: 'Дата' },
                   {
+                    key: 'signatureView',
+                    title: 'Подпись',
+                    render: (row) => row.signatureView
+                  },
+                  {
                     key: 'actionsView',
                     title: 'Действия',
                     render: (row) => row.actionsView
@@ -369,6 +375,7 @@ export default function GovExportPage() {
                 ]}
                 rows={otBatches.data.map((batch) => ({
                   ...batch,
+                  signatureView: exportSignatureBadgeLabel(batch.signatureStatus),
                   actionsView: (
                     <span style={{ display: 'flex', gap: 8 }}>
                       <button
@@ -448,6 +455,11 @@ export default function GovExportPage() {
                   { key: 'failedRows', title: 'Ошибок' },
                   { key: 'createdAt', title: 'Дата' },
                   {
+                    key: 'signatureView',
+                    title: 'Подпись',
+                    render: (row) => row.signatureView
+                  },
+                  {
                     key: 'actionsView',
                     title: 'Действия',
                     render: (row) => row.actionsView
@@ -455,6 +467,7 @@ export default function GovExportPage() {
                 ]}
                 rows={frdoBatches.data.map((batch) => ({
                   ...batch,
+                  signatureView: exportSignatureBadgeLabel(batch.signatureStatus),
                   actionsView: (
                     <button
                       type="button"
@@ -524,6 +537,11 @@ export default function GovExportPage() {
                   { key: 'failedRows', title: 'Ошибок' },
                   { key: 'createdAt', title: 'Дата' },
                   {
+                    key: 'signatureView',
+                    title: 'Подпись',
+                    render: (row) => row.signatureView
+                  },
+                  {
                     key: 'actionsView',
                     title: 'Действия',
                     render: (row) => row.actionsView
@@ -531,6 +549,7 @@ export default function GovExportPage() {
                 ]}
                 rows={eisotBatches.data.map((batch) => ({
                   ...batch,
+                  signatureView: exportSignatureBadgeLabel(batch.signatureStatus),
                   actionsView: (
                     <button
                       type="button"
@@ -610,6 +629,11 @@ export default function GovExportPage() {
                   { key: 'failedRows', title: 'Ошибок' },
                   { key: 'createdAt', title: 'Дата' },
                   {
+                    key: 'signatureView',
+                    title: 'Подпись',
+                    render: (row) => row.signatureView
+                  },
+                  {
                     key: 'actionsView',
                     title: 'Действия',
                     render: (row) => row.actionsView
@@ -617,6 +641,7 @@ export default function GovExportPage() {
                 ]}
                 rows={rostechBatches.data.map((batch) => ({
                   ...batch,
+                  signatureView: exportSignatureBadgeLabel(batch.signatureStatus),
                   actionsView: (
                     <button
                       type="button"
@@ -691,6 +716,11 @@ export default function GovExportPage() {
                   { key: 'failedRows', title: 'Ошибок' },
                   { key: 'createdAt', title: 'Дата' },
                   {
+                    key: 'signatureView',
+                    title: 'Подпись',
+                    render: (row) => row.signatureView
+                  },
+                  {
                     key: 'actionsView',
                     title: 'Действия',
                     render: (row) => row.actionsView
@@ -698,6 +728,7 @@ export default function GovExportPage() {
                 ]}
                 rows={nmoBatches.data.map((batch) => ({
                   ...batch,
+                  signatureView: exportSignatureBadgeLabel(batch.signatureStatus),
                   actionsView: (
                     <button
                       type="button"
