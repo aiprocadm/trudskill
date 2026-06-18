@@ -1,3 +1,5 @@
+import type { ExportSignatureStatus } from '../../infrastructure/export-signature/export-signature.provider.js';
+
 export type EntityStatus = string;
 
 export interface BaseEntity {
@@ -787,6 +789,10 @@ export interface OtRegistryBatch extends BaseEntity {
   failedRows: number;
   batchStatus: OtRegistryBatchStatus;
   generatedBy: string;
+  /** Phase 6 КЭП — detached export signature (seam dormant → usually undefined). */
+  signatureStatus?: ExportSignatureStatus;
+  signatureFileId?: string;
+  signatureCertificateSubject?: string;
   /** PROVISIONAL формат сгенерированного файла. Отсутствует у старых батчей → трактуется как 'xlsx'. */
   format?: 'xlsx' | 'xml';
 }
@@ -808,6 +814,8 @@ export interface OtRegistryExportOutcome {
   total: number;
   exported: number;
   failed: number;
+  signatureStatus?: ExportSignatureStatus;
+  signatureFileId?: string;
   rows: OtRegistryRow[];
   errors: OtRegistryRowError[];
 }
@@ -873,6 +881,10 @@ export interface FrdoRegistryBatch extends BaseEntity {
   failedRows: number;
   batchStatus: FrdoRegistryBatchStatus;
   generatedBy: string;
+  /** Phase 6 КЭП — detached export signature (seam dormant → usually undefined). */
+  signatureStatus?: ExportSignatureStatus;
+  signatureFileId?: string;
+  signatureCertificateSubject?: string;
 }
 
 export interface FrdoRegistryRecord extends BaseEntity {
@@ -891,6 +903,8 @@ export interface FrdoRegistryExportOutcome {
   total: number;
   exported: number;
   failed: number;
+  signatureStatus?: ExportSignatureStatus;
+  signatureFileId?: string;
   rows: FrdoRegistryRow[];
   errors: FrdoRegistryRowError[];
 }
@@ -931,6 +945,10 @@ export interface EisotTestingBatch extends BaseEntity {
   failedRows: number;
   batchStatus: EisotTestingBatchStatus;
   generatedBy: string;
+  /** Phase 6 КЭП — detached export signature (seam dormant → usually undefined). */
+  signatureStatus?: ExportSignatureStatus;
+  signatureFileId?: string;
+  signatureCertificateSubject?: string;
 }
 
 export interface EisotTestingRecord extends BaseEntity {
@@ -947,6 +965,8 @@ export interface EisotTestingExportOutcome {
   total: number;
   exported: number;
   failed: number;
+  signatureStatus?: ExportSignatureStatus;
+  signatureFileId?: string;
   rows: EisotTestingRow[];
   errors: EisotTestingRowError[];
 }
@@ -991,6 +1011,10 @@ export interface RostechnadzorBatch extends BaseEntity {
   failedRows: number;
   batchStatus: RostechnadzorBatchStatus;
   generatedBy: string;
+  /** Phase 6 КЭП — detached export signature (seam dormant → usually undefined). */
+  signatureStatus?: ExportSignatureStatus;
+  signatureFileId?: string;
+  signatureCertificateSubject?: string;
 }
 
 export interface RostechnadzorRecord extends BaseEntity {
@@ -1007,6 +1031,8 @@ export interface RostechnadzorExportOutcome {
   total: number;
   exported: number;
   failed: number;
+  signatureStatus?: ExportSignatureStatus;
+  signatureFileId?: string;
   rows: RostechnadzorRow[];
   errors: RostechnadzorRowError[];
 }
@@ -1050,6 +1076,10 @@ export interface NmoBatch extends BaseEntity {
   failedRows: number;
   batchStatus: NmoBatchStatus;
   generatedBy: string;
+  /** Phase 6 КЭП — detached export signature (seam dormant → usually undefined). */
+  signatureStatus?: ExportSignatureStatus;
+  signatureFileId?: string;
+  signatureCertificateSubject?: string;
 }
 
 export interface NmoRecord extends BaseEntity {
@@ -1067,6 +1097,8 @@ export interface NmoExportOutcome {
   total: number;
   exported: number;
   failed: number;
+  signatureStatus?: ExportSignatureStatus;
+  signatureFileId?: string;
   rows: NmoRow[];
   errors: NmoRowError[];
 }

@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { RostechnadzorRegistryService } from './rostechnadzor-registry.service.js';
 import { RostechnadzorXlsxWriter } from './rostechnadzor-xlsx.writer.js';
+import { FakeExportSignatureProvider } from '../../../infrastructure/export-signature/fake-export-signature.provider.js';
 import { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
+
+import type { ExportSignatureProvider } from '../../../infrastructure/export-signature/export-signature.provider.js';
 
 const ctx = {
   tenantId: 't1',
@@ -14,7 +17,8 @@ const ctx = {
 } as any;
 
 function makeService(
-  overrides: { passed?: boolean; courseTitle?: string; protocolItems?: unknown[] } = {}
+  overrides: { passed?: boolean; courseTitle?: string; protocolItems?: unknown[] } = {},
+  exportSigner?: ExportSignatureProvider
 ) {
   const state = new InMemoryMvpState();
   const learner = {
@@ -59,7 +63,7 @@ function makeService(
   } as any;
   const files = {
     register: vi.fn().mockResolvedValue({ id: 'file1' }),
-    createDownloadUrl: vi.fn().mockResolvedValue('http://x')
+    createDownloadUrl: vi.fn(async () => 'https://signed-url.example/sig')
   } as any;
   const storage = { putObject: vi.fn().mockResolvedValue(undefined) } as any;
   const audit = { write: vi.fn() } as any;
@@ -70,7 +74,8 @@ function makeService(
     files,
     storage,
     new RostechnadzorXlsxWriter(),
-    audit
+    audit,
+    exportSigner
   );
   return { service, state, files, storage };
 }
@@ -104,7 +109,9 @@ describe('RostechnadzorRegistryService', () => {
     const { batchId } = await service.exportRostechnadzorRegistry('t1', {}, ctx);
     expect(service.listBatches('t1')).toHaveLength(1);
     expect(service.getBatchWithRecords('t1', batchId).records).toHaveLength(1);
-    await expect(service.getBatchDownloadUrl('t1', batchId)).resolves.toEqual({ url: 'http://x' });
+    await expect(service.getBatchDownloadUrl('t1', batchId)).resolves.toEqual({
+      url: 'https://signed-url.example/sig'
+    });
   });
 
   it('rejects cross-tenant batch access', async () => {
@@ -129,5 +136,43 @@ describe('RostechnadzorRegistryService', () => {
     // `failed` counts DISTINCT failed enrollments, not per-field error objects.
     expect(outcome.failed).toBe(1);
     expect(outcome.exported).toBe(0);
+  });
+
+  it('stamps the batch with a КЭП signature when an export signer is active', async () => {
+    const { service, state } = makeService({}, new FakeExportSignatureProvider('УЦ'));
+    const outcome = await service.exportRostechnadzorRegistry('t1', {}, ctx);
+
+    expect(outcome.exported).toBeGreaterThan(0);
+    const batch = state.rostechnadzorRegistryBatches[0]!;
+    expect(batch.signatureStatus).toBe('signed');
+    expect(batch.signatureFileId).toBeTruthy();
+    expect(batch.signatureCertificateSubject).toContain('УЦ');
+    expect(outcome.signatureStatus).toBe('signed');
+  });
+
+  it('leaves the batch unsigned when no export signer is configured', async () => {
+    const { service, state } = makeService();
+    const outcome = await service.exportRostechnadzorRegistry('t1', {}, ctx);
+
+    const batch = state.rostechnadzorRegistryBatches[0]!;
+    expect(batch.signatureStatus).toBe('unsigned');
+    expect(batch.signatureFileId).toBeUndefined();
+    expect(outcome.signatureStatus).toBe('unsigned');
+    expect(outcome.signatureFileId).toBeUndefined();
+  });
+
+  it('getBatchSignatureUrl returns a download url for a signed batch', async () => {
+    const { service, state } = makeService({}, new FakeExportSignatureProvider('УЦ'));
+    await service.exportRostechnadzorRegistry('t1', {}, ctx);
+    const batch = state.rostechnadzorRegistryBatches[0]!;
+    const { url } = await service.getBatchSignatureUrl('t1', batch.id);
+    expect(typeof url).toBe('string');
+  });
+
+  it('getBatchSignatureUrl throws when the batch has no signature', async () => {
+    const { service, state } = makeService();
+    await service.exportRostechnadzorRegistry('t1', {}, ctx);
+    const batch = state.rostechnadzorRegistryBatches[0]!;
+    await expect(service.getBatchSignatureUrl('t1', batch.id)).rejects.toThrow();
   });
 });

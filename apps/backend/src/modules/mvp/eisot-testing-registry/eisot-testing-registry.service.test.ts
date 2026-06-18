@@ -4,11 +4,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { EisotTestingRegistryService } from './eisot-testing-registry.service.js';
 import { EisotTestingXlsxWriter } from './eisot-testing-xlsx.writer.js';
 import { TenantScopedRepository } from '../../../infrastructure/database/tenant-repository.js';
+import { FakeExportSignatureProvider } from '../../../infrastructure/export-signature/fake-export-signature.provider.js';
 import { AuditService } from '../../audit/audit.service.js';
 import { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
 import { MvpService } from '../mvp.service.js';
 
 import type { RequestContext } from '../../../common/context/request-context.js';
+import type { ExportSignatureProvider } from '../../../infrastructure/export-signature/export-signature.provider.js';
 import type { S3StorageClient } from '../../../infrastructure/storage/s3-storage.client.js';
 import type { DocumentsService } from '../../documents/documents.service.js';
 import type { FilesService } from '../../files/files.service.js';
@@ -33,7 +35,7 @@ const ctx: RequestContext = {
 };
 const base = { tenantId: TENANT, status: 'active' as const, createdAt: 't', updatedAt: 't' };
 
-function makeHarness() {
+function makeHarness(exportSigner?: ExportSignatureProvider) {
   const state = new InMemoryMvpState();
   const mvp = new MvpService(
     state,
@@ -54,7 +56,11 @@ function makeHarness() {
     sizeBytes: 1,
     createdAt: 't'
   }));
-  const files = { register: filesRegister } as unknown as FilesService;
+  const filesCreateDownloadUrl = vi.fn(async () => 'https://signed-url.example/sig');
+  const files = {
+    register: filesRegister,
+    createDownloadUrl: filesCreateDownloadUrl
+  } as unknown as FilesService;
   const storagePut = vi.fn(async () => undefined);
   const storage = { putObject: storagePut } as unknown as S3StorageClient;
   const auditWrite = vi.fn();
@@ -65,9 +71,10 @@ function makeHarness() {
     files,
     storage,
     new EisotTestingXlsxWriter(),
-    audit
+    audit,
+    exportSigner
   );
-  return { service, state, storagePut, filesRegister, auditWrite };
+  return { service, state, storagePut, filesRegister, filesCreateDownloadUrl, auditWrite };
 }
 
 describe('EisotTestingRegistryService.exportEisotTestingRegistry', () => {
@@ -289,5 +296,257 @@ describe('EisotTestingRegistryService.exportEisotTestingRegistry', () => {
     expect(outcome.total).toBe(1); // cancelled enr_y excluded; only enr_x is a candidate
     expect(h.state.eisotTestingBatches[0]!.batchStatus).toBe('failed');
     expect(h.storagePut).not.toHaveBeenCalled();
+  });
+
+  it('stamps the batch with a КЭП signature when an export signer is active', async () => {
+    const h = makeHarness(new FakeExportSignatureProvider('УЦ'));
+    h.state.counterparties.push({
+      ...base,
+      id: 'cp_sig',
+      code: 'CS',
+      name: 'ООО Подпись',
+      inn: '7707083893'
+    } as Counterparty);
+    h.state.learners.push({
+      ...base,
+      id: 'lrn_sig',
+      firstName: 'Сигма',
+      lastName: 'Подписант',
+      snils: '112-233-445 95',
+      dateOfBirth: '1985-01-01',
+      position: 'Инженер'
+    } as Learner);
+    h.state.groups.push({
+      ...base,
+      id: 'grp_sig',
+      code: 'GS',
+      name: 'Группа подпись',
+      counterpartyId: 'cp_sig'
+    } as GroupEntity);
+    h.state.courses.push({
+      ...base,
+      id: 'crs_sig',
+      code: 'CRSS',
+      title: 'Охрана труда',
+      isArchived: false
+    } as Course);
+    h.state.courseVersions.push({
+      ...base,
+      id: 'cv_sig',
+      courseId: 'crs_sig',
+      versionNo: 1
+    } as CourseVersion);
+    h.state.groupCourses.push({
+      ...base,
+      id: 'gc_sig',
+      groupId: 'grp_sig',
+      courseId: 'crs_sig',
+      courseVersionId: 'cv_sig',
+      sortOrder: 0
+    } as GroupCourse);
+    h.state.enrollments.push({
+      ...base,
+      id: 'enr_sig',
+      groupId: 'grp_sig',
+      learnerId: 'lrn_sig',
+      status: 'active',
+      enrolledAt: '2026-03-10'
+    } as Enrollment);
+
+    const outcome = await h.service.exportEisotTestingRegistry(TENANT, {}, ctx);
+
+    expect(outcome.exported).toBeGreaterThan(0);
+    const batch = h.state.eisotTestingBatches[0]!;
+    expect(batch.signatureStatus).toBe('signed');
+    expect(batch.signatureFileId).toBeTruthy();
+    expect(batch.signatureCertificateSubject).toContain('УЦ');
+    expect(outcome.signatureStatus).toBe('signed');
+  });
+
+  it('leaves the batch unsigned when no export signer is configured', async () => {
+    const h = makeHarness();
+    h.state.counterparties.push({
+      ...base,
+      id: 'cp_nosig',
+      code: 'CN',
+      name: 'ООО Без подписи',
+      inn: '7707083893'
+    } as Counterparty);
+    h.state.learners.push({
+      ...base,
+      id: 'lrn_nosig',
+      firstName: 'Нина',
+      lastName: 'Носигнова',
+      snils: '112-233-445 95',
+      dateOfBirth: '1990-06-15',
+      position: 'Бухгалтер'
+    } as Learner);
+    h.state.groups.push({
+      ...base,
+      id: 'grp_nosig',
+      code: 'GN',
+      name: 'Группа без подписи',
+      counterpartyId: 'cp_nosig'
+    } as GroupEntity);
+    h.state.courses.push({
+      ...base,
+      id: 'crs_nosig',
+      code: 'CRSN',
+      title: 'Охрана труда',
+      isArchived: false
+    } as Course);
+    h.state.courseVersions.push({
+      ...base,
+      id: 'cv_nosig',
+      courseId: 'crs_nosig',
+      versionNo: 1
+    } as CourseVersion);
+    h.state.groupCourses.push({
+      ...base,
+      id: 'gc_nosig',
+      groupId: 'grp_nosig',
+      courseId: 'crs_nosig',
+      courseVersionId: 'cv_nosig',
+      sortOrder: 0
+    } as GroupCourse);
+    h.state.enrollments.push({
+      ...base,
+      id: 'enr_nosig',
+      groupId: 'grp_nosig',
+      learnerId: 'lrn_nosig',
+      status: 'active',
+      enrolledAt: '2026-03-10'
+    } as Enrollment);
+
+    const outcome = await h.service.exportEisotTestingRegistry(TENANT, {}, ctx);
+
+    const batch = h.state.eisotTestingBatches[0]!;
+    expect(batch.signatureStatus).toBe('unsigned');
+    expect(batch.signatureFileId).toBeUndefined();
+    expect(outcome.signatureStatus).toBe('unsigned');
+    expect(outcome.signatureFileId).toBeUndefined();
+  });
+
+  it('getBatchSignatureUrl returns a download url for a signed batch', async () => {
+    const h = makeHarness(new FakeExportSignatureProvider('УЦ'));
+    h.state.counterparties.push({
+      ...base,
+      id: 'cp_surl',
+      code: 'CSU',
+      name: 'ООО Подпись URL',
+      inn: '7707083893'
+    } as Counterparty);
+    h.state.learners.push({
+      ...base,
+      id: 'lrn_surl',
+      firstName: 'Урл',
+      lastName: 'Подписантов',
+      snils: '112-233-445 95',
+      dateOfBirth: '1985-03-03',
+      position: 'Технолог'
+    } as Learner);
+    h.state.groups.push({
+      ...base,
+      id: 'grp_surl',
+      code: 'GSU',
+      name: 'Группа surl',
+      counterpartyId: 'cp_surl'
+    } as GroupEntity);
+    h.state.courses.push({
+      ...base,
+      id: 'crs_surl',
+      code: 'CRSU',
+      title: 'Охрана труда',
+      isArchived: false
+    } as Course);
+    h.state.courseVersions.push({
+      ...base,
+      id: 'cv_surl',
+      courseId: 'crs_surl',
+      versionNo: 1
+    } as CourseVersion);
+    h.state.groupCourses.push({
+      ...base,
+      id: 'gc_surl',
+      groupId: 'grp_surl',
+      courseId: 'crs_surl',
+      courseVersionId: 'cv_surl',
+      sortOrder: 0
+    } as GroupCourse);
+    h.state.enrollments.push({
+      ...base,
+      id: 'enr_surl',
+      groupId: 'grp_surl',
+      learnerId: 'lrn_surl',
+      status: 'active',
+      enrolledAt: '2026-03-10'
+    } as Enrollment);
+
+    await h.service.exportEisotTestingRegistry(TENANT, {}, ctx);
+    const batch = h.state.eisotTestingBatches[0]!;
+    const { url } = await h.service.getBatchSignatureUrl(TENANT, batch.id);
+
+    expect(typeof url).toBe('string');
+  });
+
+  it('getBatchSignatureUrl throws when the batch has no signature', async () => {
+    const h = makeHarness();
+    h.state.counterparties.push({
+      ...base,
+      id: 'cp_nosurl',
+      code: 'CNSU',
+      name: 'ООО Без подписи URL',
+      inn: '7707083893'
+    } as Counterparty);
+    h.state.learners.push({
+      ...base,
+      id: 'lrn_nosurl',
+      firstName: 'Без',
+      lastName: 'Урлов',
+      snils: '112-233-445 95',
+      dateOfBirth: '1992-07-07',
+      position: 'Кладовщик'
+    } as Learner);
+    h.state.groups.push({
+      ...base,
+      id: 'grp_nosurl',
+      code: 'GNSU',
+      name: 'Группа nosurl',
+      counterpartyId: 'cp_nosurl'
+    } as GroupEntity);
+    h.state.courses.push({
+      ...base,
+      id: 'crs_nosurl',
+      code: 'CRSNU',
+      title: 'Охрана труда',
+      isArchived: false
+    } as Course);
+    h.state.courseVersions.push({
+      ...base,
+      id: 'cv_nosurl',
+      courseId: 'crs_nosurl',
+      versionNo: 1
+    } as CourseVersion);
+    h.state.groupCourses.push({
+      ...base,
+      id: 'gc_nosurl',
+      groupId: 'grp_nosurl',
+      courseId: 'crs_nosurl',
+      courseVersionId: 'cv_nosurl',
+      sortOrder: 0
+    } as GroupCourse);
+    h.state.enrollments.push({
+      ...base,
+      id: 'enr_nosurl',
+      groupId: 'grp_nosurl',
+      learnerId: 'lrn_nosurl',
+      status: 'active',
+      enrolledAt: '2026-03-10'
+    } as Enrollment);
+
+    await h.service.exportEisotTestingRegistry(TENANT, {}, ctx);
+    const batch = h.state.eisotTestingBatches[0]!;
+
+    await expect(h.service.getBatchSignatureUrl(TENANT, batch.id)).rejects.toThrow();
   });
 });

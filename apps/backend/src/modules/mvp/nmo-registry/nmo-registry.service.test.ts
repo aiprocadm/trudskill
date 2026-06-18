@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { NmoRegistryService } from './nmo-registry.service.js';
 import { NmoXlsxWriter } from './nmo-xlsx.writer.js';
+import { FakeExportSignatureProvider } from '../../../infrastructure/export-signature/fake-export-signature.provider.js';
 import { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
+
+import type { ExportSignatureProvider } from '../../../infrastructure/export-signature/export-signature.provider.js';
 
 const ctx = {
   tenantId: 't1',
@@ -13,7 +16,11 @@ const ctx = {
   userAgent: ''
 } as any;
 
-function makeService(docOver: Record<string, unknown> = {}, opts: { courseTitle?: string } = {}) {
+function makeService(
+  docOver: Record<string, unknown> = {},
+  opts: { courseTitle?: string } = {},
+  exportSigner?: ExportSignatureProvider
+) {
   const state = new InMemoryMvpState();
   const doc = {
     id: 'd1',
@@ -49,7 +56,7 @@ function makeService(docOver: Record<string, unknown> = {}, opts: { courseTitle?
   } as any;
   const files = {
     register: vi.fn().mockResolvedValue({ id: 'file1' }),
-    createDownloadUrl: vi.fn().mockResolvedValue('http://x')
+    createDownloadUrl: vi.fn(async () => 'https://signed-url.example/sig')
   } as any;
   const storage = { putObject: vi.fn().mockResolvedValue(undefined) } as any;
   const audit = { write: vi.fn() } as any;
@@ -60,7 +67,8 @@ function makeService(docOver: Record<string, unknown> = {}, opts: { courseTitle?
     files,
     storage,
     new NmoXlsxWriter(),
-    audit
+    audit,
+    exportSigner
   );
   return { service, state, files };
 }
@@ -151,7 +159,9 @@ describe('NmoRegistryService', () => {
     const { batchId } = await service.exportNmoRegistry('t1', {}, ctx);
     expect(service.listBatches('t1')).toHaveLength(1);
     expect(service.getBatchWithRecords('t1', batchId).records).toHaveLength(1);
-    await expect(service.getBatchDownloadUrl('t1', batchId)).resolves.toEqual({ url: 'http://x' });
+    await expect(service.getBatchDownloadUrl('t1', batchId)).resolves.toEqual({
+      url: 'https://signed-url.example/sig'
+    });
   });
 
   it('rejects cross-tenant batch access', async () => {
@@ -177,5 +187,45 @@ describe('NmoRegistryService', () => {
     // `failed` counts DISTINCT failed documents, not per-field error objects.
     expect(outcome.failed).toBe(1);
     expect(outcome.exported).toBe(0);
+  });
+
+  it('stamps the batch with a КЭП signature when an export signer is active', async () => {
+    const { service, state } = makeService({}, {}, new FakeExportSignatureProvider('УЦ'));
+    const outcome = await service.exportNmoRegistry('t1', {}, ctx);
+
+    expect(outcome.exported).toBeGreaterThan(0);
+    const batch = state.nmoRegistryBatches[0]!;
+    expect(batch.signatureStatus).toBe('signed');
+    expect(batch.signatureFileId).toBeTruthy();
+    expect(batch.signatureCertificateSubject).toContain('УЦ');
+    expect(outcome.signatureStatus).toBe('signed');
+  });
+
+  it('leaves the batch unsigned when no export signer is configured', async () => {
+    const { service, state } = makeService();
+    const outcome = await service.exportNmoRegistry('t1', {}, ctx);
+
+    const batch = state.nmoRegistryBatches[0]!;
+    expect(batch.signatureStatus).toBe('unsigned');
+    expect(batch.signatureFileId).toBeUndefined();
+    expect(outcome.signatureStatus).toBe('unsigned');
+    expect(outcome.signatureFileId).toBeUndefined();
+  });
+
+  it('getBatchSignatureUrl returns a download url for a signed batch', async () => {
+    const { service, state } = makeService({}, {}, new FakeExportSignatureProvider('УЦ'));
+    await service.exportNmoRegistry('t1', {}, ctx);
+    const batch = state.nmoRegistryBatches[0]!;
+
+    const { url } = await service.getBatchSignatureUrl('t1', batch.id);
+    expect(typeof url).toBe('string');
+  });
+
+  it('getBatchSignatureUrl throws when the batch has no signature', async () => {
+    const { service, state } = makeService();
+    await service.exportNmoRegistry('t1', {}, ctx);
+    const batch = state.nmoRegistryBatches[0]!;
+
+    await expect(service.getBatchSignatureUrl('t1', batch.id)).rejects.toThrow();
   });
 });

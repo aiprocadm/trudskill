@@ -54,6 +54,11 @@ import {
 } from '../../infrastructure/esia/esia-identity.provider.js';
 import { EsiaOidcProvider } from '../../infrastructure/esia/esia-oidc.provider.js';
 import { MockEsiaProvider } from '../../infrastructure/esia/mock-esia.provider.js';
+import {
+  EXPORT_SIGNATURE_PROVIDER,
+  NoopExportSignatureProvider
+} from '../../infrastructure/export-signature/export-signature.provider.js';
+import { FakeExportSignatureProvider } from '../../infrastructure/export-signature/fake-export-signature.provider.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { CommunicationModule } from '../communication/communication.module.js';
 import { PushSubscriptionService } from '../communication/web-push/push-subscription.service.js';
@@ -172,7 +177,25 @@ import { TenantModule } from '../tenant/tenant.module.js';
         nowMs: () => Date.now()
       } satisfies EsiaServiceConfig
     },
-    { provide: EsiaService, scope: Scope.REQUEST, useClass: EsiaService }
+    { provide: EsiaService, scope: Scope.REQUEST, useClass: EsiaService },
+    // Phase 6 КЭП — export-signature seam. Ships dormant (EXPORT_SIGN_ENABLED=false → Noop).
+    {
+      provide: EXPORT_SIGNATURE_PROVIDER,
+      useFactory: () => {
+        // STAGING: synthetic detached signer for end-to-end QA (env refinement forbids it in prod).
+        if (backendEnv.EXPORT_SIGN_ENABLED && backendEnv.EXPORT_SIGN_PROVIDER === 'fake') {
+          return new FakeExportSignatureProvider(backendEnv.EXPORT_SIGN_SIGNER_NAME);
+        }
+        // CryptoPro adapter not implemented yet — fall back to Noop so prod can't silently
+        // believe exports are signed. Swap this branch for `new CryptoProExportSignatureProvider(...)`.
+        if (backendEnv.EXPORT_SIGN_ENABLED && backendEnv.EXPORT_SIGN_PROVIDER === 'cryptopro') {
+          console.warn(
+            '[export-sign] EXPORT_SIGN_PROVIDER=cryptopro requested but adapter not implemented — using Noop'
+          );
+        }
+        return new NoopExportSignatureProvider();
+      }
+    }
   ]
 })
 export class MvpModule {}

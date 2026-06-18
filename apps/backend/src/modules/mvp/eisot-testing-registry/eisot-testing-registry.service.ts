@@ -1,10 +1,15 @@
 import { randomUUID } from 'node:crypto';
 
-import { Inject, Injectable, NotFoundException, Scope } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, Optional, Scope } from '@nestjs/common';
 
 import { validateEisotTestingRow } from './eisot-testing-preflight.js';
 import { buildEisotTestingRows } from './eisot-testing-rows.js';
 import { EisotTestingXlsxWriter } from './eisot-testing-xlsx.writer.js';
+import {
+  EXPORT_SIGNATURE_PROVIDER,
+  type ExportSignatureProvider
+} from '../../../infrastructure/export-signature/export-signature.provider.js';
+import { signExportArtifact } from '../../../infrastructure/export-signature/sign-export-artifact.js';
 import { S3StorageClient } from '../../../infrastructure/storage/s3-storage.client.js';
 import { AuditService } from '../../audit/audit.service.js';
 import { FilesService } from '../../files/files.service.js';
@@ -45,7 +50,10 @@ export class EisotTestingRegistryService {
     @Inject(FilesService) private readonly files: FilesService,
     @Inject(S3StorageClient) private readonly storage: S3StorageClient,
     @Inject(EisotTestingXlsxWriter) private readonly xlsx: EisotTestingXlsxWriter,
-    @Inject(AuditService) private readonly auditService: AuditService
+    @Inject(AuditService) private readonly auditService: AuditService,
+    @Optional()
+    @Inject(EXPORT_SIGNATURE_PROVIDER)
+    private readonly exportSigner?: ExportSignatureProvider
   ) {}
 
   async exportEisotTestingRegistry(
@@ -157,6 +165,14 @@ export class EisotTestingRegistryService {
         contentType: this.xlsx.contentType
       });
       batch.fileId = meta.id;
+      const sig = await signExportArtifact(
+        { provider: this.exportSigner, files: this.files, storage: this.storage },
+        { tenantId, fileId: meta.id, storageKey, buffer }
+      );
+      batch.signatureStatus = sig.signatureStatus;
+      if (sig.signatureFileId) batch.signatureFileId = sig.signatureFileId;
+      if (sig.signatureCertificateSubject)
+        batch.signatureCertificateSubject = sig.signatureCertificateSubject;
     }
 
     this.state.eisotTestingBatches.push(batch);
@@ -191,6 +207,8 @@ export class EisotTestingRegistryService {
     return {
       batchId: batch.id,
       fileId: batch.fileId,
+      ...(batch.signatureStatus ? { signatureStatus: batch.signatureStatus } : {}),
+      ...(batch.signatureFileId ? { signatureFileId: batch.signatureFileId } : {}),
       total,
       exported,
       failed,
@@ -233,6 +251,17 @@ export class EisotTestingRegistryService {
       });
     }
     return { url: await this.files.createDownloadUrl(tenantId, batch.fileId) };
+  }
+
+  async getBatchSignatureUrl(tenantId: string, id: string): Promise<{ url: string }> {
+    const { batch } = this.getBatchWithRecords(tenantId, id);
+    if (!batch.signatureFileId) {
+      throw new NotFoundException({
+        code: 'eisot_testing_signature_not_found',
+        message: 'Batch has no signature file'
+      });
+    }
+    return { url: await this.files.createDownloadUrl(tenantId, batch.signatureFileId) };
   }
 
   private id(prefix: string): string {

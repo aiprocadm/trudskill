@@ -7,12 +7,14 @@ import { OtRegistryXlsxWriter } from './ot-registry-xlsx.writer.js';
 import { OtRegistryXmlWriter } from './ot-registry-xml.writer.js';
 import { OtRegistryService } from './ot-registry.service.js';
 import { TenantScopedRepository } from '../../../infrastructure/database/tenant-repository.js';
+import { FakeExportSignatureProvider } from '../../../infrastructure/export-signature/fake-export-signature.provider.js';
 import { AuditService } from '../../audit/audit.service.js';
 import { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
 import { MvpService } from '../mvp.service.js';
 
 import type { OtRegistryExportFilter } from './ot-registry.service.js';
 import type { RequestContext } from '../../../common/context/request-context.js';
+import type { ExportSignatureProvider } from '../../../infrastructure/export-signature/export-signature.provider.js';
 import type { S3StorageClient } from '../../../infrastructure/storage/s3-storage.client.js';
 import type { DocumentsService } from '../../documents/documents.service.js';
 import type { GeneratedDocumentEntity } from '../../documents/documents.types.js';
@@ -224,7 +226,7 @@ function seedNamedCompletedEnrollment(state: InMemoryMvpState, opts: SeedNamedOp
   }
 }
 
-function makeHarness(): Harness {
+function makeHarness(exportSigner?: ExportSignatureProvider): Harness {
   const state = new InMemoryMvpState();
 
   const mvp = new MvpService(
@@ -256,7 +258,10 @@ function makeHarness(): Harness {
     sizeBytes: 1,
     createdAt: 't'
   }));
-  const files = { register: filesRegister } as unknown as FilesService;
+  const files = {
+    register: filesRegister,
+    createDownloadUrl: vi.fn(async () => 'https://signed-url.example/sig')
+  } as unknown as FilesService;
 
   const storagePut = vi.fn(async () => undefined);
   const storage = { putObject: storagePut } as unknown as S3StorageClient;
@@ -272,7 +277,8 @@ function makeHarness(): Harness {
     storage,
     new OtRegistryXlsxWriter(),
     new OtRegistryXmlWriter(),
-    audit
+    audit,
+    exportSigner
   );
 
   return { service, state, mvp, storagePut, filesRegister, auditWrite };
@@ -441,6 +447,34 @@ describe('OtRegistryService.exportOtRegistry', () => {
     expect(reg.mimeType).toBe('application/xml');
     expect(reg.storageKey.endsWith('.xml')).toBe(true);
   });
+
+  it('stamps the batch with a КЭП signature when an export signer is active', async () => {
+    const h = makeHarness(new FakeExportSignatureProvider('УЦ'));
+    seedCompletedEnrollment(h.state, { programCodes: ['OT_A'], examPassed: true });
+
+    const outcome = await h.service.exportOtRegistry(TENANT, noFilter, ctx);
+
+    expect(outcome.exported).toBeGreaterThan(0);
+    const batch = h.state.otRegistryBatches[0]!;
+    expect(batch.signatureStatus).toBe('signed');
+    expect(batch.signatureFileId).toBeTruthy();
+    expect(batch.signatureCertificateSubject).toContain('УЦ');
+    expect(outcome.signatureStatus).toBe('signed');
+  });
+
+  it('leaves the batch unsigned when no export signer is configured', async () => {
+    const h = makeHarness();
+    seedCompletedEnrollment(h.state, { programCodes: ['OT_A'], examPassed: true });
+
+    const outcome = await h.service.exportOtRegistry(TENANT, noFilter, ctx);
+
+    expect(outcome.exported).toBeGreaterThan(0);
+    const batch = h.state.otRegistryBatches[0]!;
+    expect(batch.signatureStatus).toBe('unsigned');
+    expect(batch.signatureFileId).toBeUndefined();
+    expect(outcome.signatureStatus).toBe('unsigned');
+    expect(outcome.signatureFileId).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -522,5 +556,30 @@ describe('OtRegistryService.importRegistryResponse', () => {
     await expect(
       h.service.importRegistryResponse(TENANT, batchId, garbage, ctx)
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('OtRegistryService.getBatchSignatureUrl', () => {
+  it('returns a download url for a signed batch', async () => {
+    const h = makeHarness(new FakeExportSignatureProvider('УЦ'));
+    seedCompletedEnrollment(h.state, { programCodes: ['OT_A'], examPassed: true });
+    await h.service.exportOtRegistry(TENANT, noFilter, ctx);
+    const batch = h.state.otRegistryBatches[0]!;
+
+    const { url } = await h.service.getBatchSignatureUrl(TENANT, batch.id);
+
+    expect(typeof url).toBe('string');
+    expect(url.length).toBeGreaterThan(0);
+  });
+
+  it('throws NotFoundException when the batch has no signature', async () => {
+    const h = makeHarness(); // no signer → signatureFileId undefined
+    seedCompletedEnrollment(h.state, { programCodes: ['OT_A'], examPassed: true });
+    await h.service.exportOtRegistry(TENANT, noFilter, ctx);
+    const batch = h.state.otRegistryBatches[0]!;
+
+    await expect(h.service.getBatchSignatureUrl(TENANT, batch.id)).rejects.toBeInstanceOf(
+      NotFoundException
+    );
   });
 });

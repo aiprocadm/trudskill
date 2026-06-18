@@ -1,13 +1,24 @@
 import { randomUUID } from 'node:crypto';
 
-import { BadRequestException, Inject, Injectable, NotFoundException, Scope } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional,
+  Scope
+} from '@nestjs/common';
 
 import { validateRegistryRow } from './ot-registry-preflight.js';
 import { matchResponseToRecords, parseRegistryResponse } from './ot-registry-response.parser.js';
 import { buildRegistryRows } from './ot-registry-rows.js';
-import { collectAllPages } from '../registry-pagination.js';
 import { OtRegistryXlsxWriter } from './ot-registry-xlsx.writer.js';
 import { OtRegistryXmlWriter } from './ot-registry-xml.writer.js';
+import {
+  EXPORT_SIGNATURE_PROVIDER,
+  type ExportSignatureProvider
+} from '../../../infrastructure/export-signature/export-signature.provider.js';
+import { signExportArtifact } from '../../../infrastructure/export-signature/sign-export-artifact.js';
 import { S3StorageClient } from '../../../infrastructure/storage/s3-storage.client.js';
 import { AuditService } from '../../audit/audit.service.js';
 import { DocumentsService } from '../../documents/documents.service.js';
@@ -15,6 +26,7 @@ import { FilesService } from '../../files/files.service.js';
 import { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from '../infrastructure/mvp-state.token.js';
 import { MvpService } from '../mvp.service.js';
+import { collectAllPages } from '../registry-pagination.js';
 
 import type { EnrollmentBundle } from './ot-registry-rows.js';
 import type { RequestContext } from '../../../common/context/request-context.js';
@@ -59,7 +71,10 @@ export class OtRegistryService {
     @Inject(S3StorageClient) private readonly storage: S3StorageClient,
     @Inject(OtRegistryXlsxWriter) private readonly xlsx: OtRegistryXlsxWriter,
     @Inject(OtRegistryXmlWriter) private readonly xml: OtRegistryXmlWriter,
-    @Inject(AuditService) private readonly auditService: AuditService
+    @Inject(AuditService) private readonly auditService: AuditService,
+    @Optional()
+    @Inject(EXPORT_SIGNATURE_PROVIDER)
+    private readonly exportSigner?: ExportSignatureProvider
   ) {}
 
   async exportOtRegistry(
@@ -225,6 +240,14 @@ export class OtRegistryService {
         contentType
       });
       batch.fileId = meta.id;
+      const sig = await signExportArtifact(
+        { provider: this.exportSigner, files: this.files, storage: this.storage },
+        { tenantId, fileId: meta.id, storageKey, buffer }
+      );
+      batch.signatureStatus = sig.signatureStatus;
+      if (sig.signatureFileId) batch.signatureFileId = sig.signatureFileId;
+      if (sig.signatureCertificateSubject)
+        batch.signatureCertificateSubject = sig.signatureCertificateSubject;
     }
 
     this.state.otRegistryBatches.push(batch);
@@ -265,6 +288,8 @@ export class OtRegistryService {
     return {
       batchId: batch.id,
       fileId: batch.fileId,
+      ...(batch.signatureStatus ? { signatureStatus: batch.signatureStatus } : {}),
+      ...(batch.signatureFileId ? { signatureFileId: batch.signatureFileId } : {}),
       total,
       exported,
       failed,
@@ -306,6 +331,18 @@ export class OtRegistryService {
       });
     }
     const url = await this.files.createDownloadUrl(tenantId, batch.fileId);
+    return { url };
+  }
+
+  async getBatchSignatureUrl(tenantId: string, id: string): Promise<{ url: string }> {
+    const { batch } = this.getBatchWithRecords(tenantId, id);
+    if (!batch.signatureFileId) {
+      throw new NotFoundException({
+        code: 'ot_registry_signature_not_found',
+        message: 'Batch has no signature file'
+      });
+    }
+    const url = await this.files.createDownloadUrl(tenantId, batch.signatureFileId);
     return { url };
   }
 

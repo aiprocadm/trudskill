@@ -1,10 +1,15 @@
 import { randomUUID } from 'node:crypto';
 
-import { Inject, Injectable, NotFoundException, Scope } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, Optional, Scope } from '@nestjs/common';
 
 import { validateRostechnadzorRow } from './rostechnadzor-preflight.js';
 import { buildRostechnadzorRows } from './rostechnadzor-rows.js';
 import { RostechnadzorXlsxWriter } from './rostechnadzor-xlsx.writer.js';
+import {
+  EXPORT_SIGNATURE_PROVIDER,
+  type ExportSignatureProvider
+} from '../../../infrastructure/export-signature/export-signature.provider.js';
+import { signExportArtifact } from '../../../infrastructure/export-signature/sign-export-artifact.js';
 import { S3StorageClient } from '../../../infrastructure/storage/s3-storage.client.js';
 import { AuditService } from '../../audit/audit.service.js';
 import { DocumentsService } from '../../documents/documents.service.js';
@@ -48,7 +53,10 @@ export class RostechnadzorRegistryService {
     @Inject(FilesService) private readonly files: FilesService,
     @Inject(S3StorageClient) private readonly storage: S3StorageClient,
     @Inject(RostechnadzorXlsxWriter) private readonly xlsx: RostechnadzorXlsxWriter,
-    @Inject(AuditService) private readonly auditService: AuditService
+    @Inject(AuditService) private readonly auditService: AuditService,
+    @Optional()
+    @Inject(EXPORT_SIGNATURE_PROVIDER)
+    private readonly exportSigner?: ExportSignatureProvider
   ) {}
 
   async exportRostechnadzorRegistry(
@@ -184,6 +192,14 @@ export class RostechnadzorRegistryService {
         contentType: this.xlsx.contentType
       });
       batch.fileId = meta.id;
+      const sig = await signExportArtifact(
+        { provider: this.exportSigner, files: this.files, storage: this.storage },
+        { tenantId, fileId: meta.id, storageKey, buffer }
+      );
+      batch.signatureStatus = sig.signatureStatus;
+      if (sig.signatureFileId) batch.signatureFileId = sig.signatureFileId;
+      if (sig.signatureCertificateSubject)
+        batch.signatureCertificateSubject = sig.signatureCertificateSubject;
     }
 
     this.state.rostechnadzorRegistryBatches.push(batch);
@@ -218,6 +234,8 @@ export class RostechnadzorRegistryService {
     return {
       batchId: batch.id,
       fileId: batch.fileId,
+      ...(batch.signatureStatus ? { signatureStatus: batch.signatureStatus } : {}),
+      ...(batch.signatureFileId ? { signatureFileId: batch.signatureFileId } : {}),
       total,
       exported,
       failed,
@@ -260,6 +278,17 @@ export class RostechnadzorRegistryService {
       });
     }
     return { url: await this.files.createDownloadUrl(tenantId, batch.fileId) };
+  }
+
+  async getBatchSignatureUrl(tenantId: string, id: string): Promise<{ url: string }> {
+    const { batch } = this.getBatchWithRecords(tenantId, id);
+    if (!batch.signatureFileId) {
+      throw new NotFoundException({
+        code: 'rostechnadzor_signature_not_found',
+        message: 'Batch has no signature file'
+      });
+    }
+    return { url: await this.files.createDownloadUrl(tenantId, batch.signatureFileId) };
   }
 
   private id(prefix: string): string {

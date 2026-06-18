@@ -4,11 +4,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { FrdoRegistryXlsxWriter } from './frdo-registry-xlsx.writer.js';
 import { FrdoRegistryService } from './frdo-registry.service.js';
 import { TenantScopedRepository } from '../../../infrastructure/database/tenant-repository.js';
+import { FakeExportSignatureProvider } from '../../../infrastructure/export-signature/fake-export-signature.provider.js';
 import { AuditService } from '../../audit/audit.service.js';
 import { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
 import { MvpService } from '../mvp.service.js';
 
 import type { RequestContext } from '../../../common/context/request-context.js';
+import type { ExportSignatureProvider } from '../../../infrastructure/export-signature/export-signature.provider.js';
 import type { S3StorageClient } from '../../../infrastructure/storage/s3-storage.client.js';
 import type { DocumentsService } from '../../documents/documents.service.js';
 import type { GeneratedDocumentEntity } from '../../documents/documents.types.js';
@@ -82,7 +84,10 @@ function seed(state: InMemoryMvpState): void {
   } as Enrollment);
 }
 
-function makeHarness(docs: Partial<GeneratedDocumentEntity>[]) {
+function makeHarness(
+  docs: Partial<GeneratedDocumentEntity>[],
+  exportSigner?: ExportSignatureProvider
+) {
   const state = new InMemoryMvpState();
   const mvp = new MvpService(
     state,
@@ -110,7 +115,10 @@ function makeHarness(docs: Partial<GeneratedDocumentEntity>[]) {
     sizeBytes: 1,
     createdAt: 't'
   }));
-  const files = { register: filesRegister } as unknown as FilesService;
+  const files = {
+    register: filesRegister,
+    createDownloadUrl: vi.fn(async () => 'https://signed-url.example/sig')
+  } as unknown as FilesService;
   const storagePut = vi.fn(async () => undefined);
   const storage = { putObject: storagePut } as unknown as S3StorageClient;
   const auditWrite = vi.fn();
@@ -122,7 +130,8 @@ function makeHarness(docs: Partial<GeneratedDocumentEntity>[]) {
     files,
     storage,
     new FrdoRegistryXlsxWriter(),
-    audit
+    audit,
+    exportSigner
   );
   return { service, state, documents, storagePut, filesRegister, auditWrite };
 }
@@ -205,5 +214,51 @@ describe('FrdoRegistryService.exportFrdoRegistry', () => {
     expect(outcome.failed).toBe(1); // one document, not the error-object count
     expect(outcome.errors.length).toBeGreaterThanOrEqual(2);
     expect(h.state.frdoRegistryBatches[0]!.failedRows).toBe(1);
+  });
+
+  it('stamps the batch with a КЭП signature when an export signer is active', async () => {
+    const h = makeHarness([doc()], new FakeExportSignatureProvider('УЦ'));
+    seed(h.state);
+
+    const outcome = await h.service.exportFrdoRegistry(TENANT, {}, ctx);
+
+    expect(outcome.exported).toBe(1);
+    const batch = h.state.frdoRegistryBatches[0]!;
+    expect(batch.signatureStatus).toBe('signed');
+    expect(batch.signatureFileId).toBeTruthy();
+    expect(batch.signatureCertificateSubject).toContain('УЦ');
+    expect(outcome.signatureStatus).toBe('signed');
+  });
+
+  it('leaves the batch unsigned when no export signer is configured', async () => {
+    const h = makeHarness([doc()]);
+    seed(h.state);
+
+    const outcome = await h.service.exportFrdoRegistry(TENANT, {}, ctx);
+
+    const batch = h.state.frdoRegistryBatches[0]!;
+    expect(batch.signatureStatus).toBe('unsigned');
+    expect(batch.signatureFileId).toBeUndefined();
+    expect(outcome.signatureStatus).toBe('unsigned');
+    expect(outcome.signatureFileId).toBeUndefined();
+  });
+
+  it('getBatchSignatureUrl returns a download url for a signed batch', async () => {
+    const h = makeHarness([doc()], new FakeExportSignatureProvider('УЦ'));
+    seed(h.state);
+    await h.service.exportFrdoRegistry(TENANT, {}, ctx);
+    const batch = h.state.frdoRegistryBatches[0]!;
+
+    const { url } = await h.service.getBatchSignatureUrl(TENANT, batch.id);
+    expect(typeof url).toBe('string');
+  });
+
+  it('getBatchSignatureUrl throws when the batch has no signature', async () => {
+    const h = makeHarness([doc()]);
+    seed(h.state);
+    await h.service.exportFrdoRegistry(TENANT, {}, ctx);
+    const batch = h.state.frdoRegistryBatches[0]!;
+
+    await expect(h.service.getBatchSignatureUrl(TENANT, batch.id)).rejects.toThrow();
   });
 });
