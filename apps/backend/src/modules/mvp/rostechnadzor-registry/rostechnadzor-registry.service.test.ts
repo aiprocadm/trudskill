@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { RostechnadzorRegistryService } from './rostechnadzor-registry.service.js';
 import { RostechnadzorXlsxWriter } from './rostechnadzor-xlsx.writer.js';
+import { FakeExportSignatureProvider } from '../../../infrastructure/export-signature/fake-export-signature.provider.js';
 import { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
+
+import type { ExportSignatureProvider } from '../../../infrastructure/export-signature/export-signature.provider.js';
 
 const ctx = {
   tenantId: 't1',
@@ -14,7 +17,8 @@ const ctx = {
 } as any;
 
 function makeService(
-  overrides: { passed?: boolean; courseTitle?: string; protocolItems?: unknown[] } = {}
+  overrides: { passed?: boolean; courseTitle?: string; protocolItems?: unknown[] } = {},
+  exportSigner?: ExportSignatureProvider
 ) {
   const state = new InMemoryMvpState();
   const learner = {
@@ -70,7 +74,8 @@ function makeService(
     files,
     storage,
     new RostechnadzorXlsxWriter(),
-    audit
+    audit,
+    exportSigner
   );
   return { service, state, files, storage };
 }
@@ -129,5 +134,28 @@ describe('RostechnadzorRegistryService', () => {
     // `failed` counts DISTINCT failed enrollments, not per-field error objects.
     expect(outcome.failed).toBe(1);
     expect(outcome.exported).toBe(0);
+  });
+
+  it('stamps the batch with a КЭП signature when an export signer is active', async () => {
+    const { service, state } = makeService({}, new FakeExportSignatureProvider('УЦ'));
+    const outcome = await service.exportRostechnadzorRegistry('t1', {}, ctx);
+
+    expect(outcome.exported).toBeGreaterThan(0);
+    const batch = state.rostechnadzorRegistryBatches[0]!;
+    expect(batch.signatureStatus).toBe('signed');
+    expect(batch.signatureFileId).toBeTruthy();
+    expect(batch.signatureCertificateSubject).toContain('УЦ');
+    expect(outcome.signatureStatus).toBe('signed');
+  });
+
+  it('leaves the batch unsigned when no export signer is configured', async () => {
+    const { service, state } = makeService();
+    const outcome = await service.exportRostechnadzorRegistry('t1', {}, ctx);
+
+    const batch = state.rostechnadzorRegistryBatches[0]!;
+    expect(batch.signatureStatus).toBe('unsigned');
+    expect(batch.signatureFileId).toBeUndefined();
+    expect(outcome.signatureStatus).toBe('unsigned');
+    expect(outcome.signatureFileId).toBeUndefined();
   });
 });

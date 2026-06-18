@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { NmoRegistryService } from './nmo-registry.service.js';
 import { NmoXlsxWriter } from './nmo-xlsx.writer.js';
+import { FakeExportSignatureProvider } from '../../../infrastructure/export-signature/fake-export-signature.provider.js';
 import { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
+
+import type { ExportSignatureProvider } from '../../../infrastructure/export-signature/export-signature.provider.js';
 
 const ctx = {
   tenantId: 't1',
@@ -13,7 +16,11 @@ const ctx = {
   userAgent: ''
 } as any;
 
-function makeService(docOver: Record<string, unknown> = {}, opts: { courseTitle?: string } = {}) {
+function makeService(
+  docOver: Record<string, unknown> = {},
+  opts: { courseTitle?: string } = {},
+  exportSigner?: ExportSignatureProvider
+) {
   const state = new InMemoryMvpState();
   const doc = {
     id: 'd1',
@@ -60,7 +67,8 @@ function makeService(docOver: Record<string, unknown> = {}, opts: { courseTitle?
     files,
     storage,
     new NmoXlsxWriter(),
-    audit
+    audit,
+    exportSigner
   );
   return { service, state, files };
 }
@@ -177,5 +185,28 @@ describe('NmoRegistryService', () => {
     // `failed` counts DISTINCT failed documents, not per-field error objects.
     expect(outcome.failed).toBe(1);
     expect(outcome.exported).toBe(0);
+  });
+
+  it('stamps the batch with a КЭП signature when an export signer is active', async () => {
+    const { service, state } = makeService({}, {}, new FakeExportSignatureProvider('УЦ'));
+    const outcome = await service.exportNmoRegistry('t1', {}, ctx);
+
+    expect(outcome.exported).toBeGreaterThan(0);
+    const batch = state.nmoRegistryBatches[0]!;
+    expect(batch.signatureStatus).toBe('signed');
+    expect(batch.signatureFileId).toBeTruthy();
+    expect(batch.signatureCertificateSubject).toContain('УЦ');
+    expect(outcome.signatureStatus).toBe('signed');
+  });
+
+  it('leaves the batch unsigned when no export signer is configured', async () => {
+    const { service, state } = makeService();
+    const outcome = await service.exportNmoRegistry('t1', {}, ctx);
+
+    const batch = state.nmoRegistryBatches[0]!;
+    expect(batch.signatureStatus).toBe('unsigned');
+    expect(batch.signatureFileId).toBeUndefined();
+    expect(outcome.signatureStatus).toBe('unsigned');
+    expect(outcome.signatureFileId).toBeUndefined();
   });
 });

@@ -1,10 +1,15 @@
 import { randomUUID } from 'node:crypto';
 
-import { Inject, Injectable, NotFoundException, Scope } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, Optional, Scope } from '@nestjs/common';
 
 import { validateFrdoRow } from './frdo-registry-preflight.js';
 import { buildFrdoRows } from './frdo-registry-rows.js';
 import { FrdoRegistryXlsxWriter } from './frdo-registry-xlsx.writer.js';
+import {
+  EXPORT_SIGNATURE_PROVIDER,
+  type ExportSignatureProvider
+} from '../../../infrastructure/export-signature/export-signature.provider.js';
+import { signExportArtifact } from '../../../infrastructure/export-signature/sign-export-artifact.js';
 import { S3StorageClient } from '../../../infrastructure/storage/s3-storage.client.js';
 import { AuditService } from '../../audit/audit.service.js';
 import { DocumentsService } from '../../documents/documents.service.js';
@@ -48,7 +53,10 @@ export class FrdoRegistryService {
     @Inject(FilesService) private readonly files: FilesService,
     @Inject(S3StorageClient) private readonly storage: S3StorageClient,
     @Inject(FrdoRegistryXlsxWriter) private readonly xlsx: FrdoRegistryXlsxWriter,
-    @Inject(AuditService) private readonly auditService: AuditService
+    @Inject(AuditService) private readonly auditService: AuditService,
+    @Optional()
+    @Inject(EXPORT_SIGNATURE_PROVIDER)
+    private readonly exportSigner?: ExportSignatureProvider
   ) {}
 
   async exportFrdoRegistry(
@@ -174,6 +182,14 @@ export class FrdoRegistryService {
         contentType: this.xlsx.contentType
       });
       batch.fileId = meta.id;
+      const sig = await signExportArtifact(
+        { provider: this.exportSigner, files: this.files, storage: this.storage },
+        { tenantId, fileId: meta.id, storageKey, buffer }
+      );
+      batch.signatureStatus = sig.signatureStatus;
+      if (sig.signatureFileId) batch.signatureFileId = sig.signatureFileId;
+      if (sig.signatureCertificateSubject)
+        batch.signatureCertificateSubject = sig.signatureCertificateSubject;
     }
 
     this.state.frdoRegistryBatches.push(batch);
@@ -210,6 +226,8 @@ export class FrdoRegistryService {
     return {
       batchId: batch.id,
       fileId: batch.fileId,
+      ...(batch.signatureStatus ? { signatureStatus: batch.signatureStatus } : {}),
+      ...(batch.signatureFileId ? { signatureFileId: batch.signatureFileId } : {}),
       total,
       exported,
       failed,
