@@ -54,4 +54,11 @@ export class FrdoRegistryController {
   async getFile(@CurrentContext() ctx: RequestContext, @Param('id') id: string) {
     return this.service.getBatchDownloadUrl(ctx.tenantId!, id);
   }
+
+  @Get('exports/:id/signature')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('regulatory.export.read')
+  async getSignature(@CurrentContext() ctx: RequestContext, @Param('id') id: string) {
+    return this.service.getBatchSignatureUrl(ctx.tenantId!, id);
+  }
 }

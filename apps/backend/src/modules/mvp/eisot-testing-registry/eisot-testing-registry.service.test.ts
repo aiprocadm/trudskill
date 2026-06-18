@@ -56,7 +56,11 @@ function makeHarness(exportSigner?: ExportSignatureProvider) {
     sizeBytes: 1,
     createdAt: 't'
   }));
-  const files = { register: filesRegister } as unknown as FilesService;
+  const filesCreateDownloadUrl = vi.fn(async () => 'https://signed-url.example/sig');
+  const files = {
+    register: filesRegister,
+    createDownloadUrl: filesCreateDownloadUrl
+  } as unknown as FilesService;
   const storagePut = vi.fn(async () => undefined);
   const storage = { putObject: storagePut } as unknown as S3StorageClient;
   const auditWrite = vi.fn();
@@ -70,7 +74,7 @@ function makeHarness(exportSigner?: ExportSignatureProvider) {
     audit,
     exportSigner
   );
-  return { service, state, storagePut, filesRegister, auditWrite };
+  return { service, state, storagePut, filesRegister, filesCreateDownloadUrl, auditWrite };
 }
 
 describe('EisotTestingRegistryService.exportEisotTestingRegistry', () => {
@@ -421,5 +425,128 @@ describe('EisotTestingRegistryService.exportEisotTestingRegistry', () => {
     expect(batch.signatureFileId).toBeUndefined();
     expect(outcome.signatureStatus).toBe('unsigned');
     expect(outcome.signatureFileId).toBeUndefined();
+  });
+
+  it('getBatchSignatureUrl returns a download url for a signed batch', async () => {
+    const h = makeHarness(new FakeExportSignatureProvider('УЦ'));
+    h.state.counterparties.push({
+      ...base,
+      id: 'cp_surl',
+      code: 'CSU',
+      name: 'ООО Подпись URL',
+      inn: '7707083893'
+    } as Counterparty);
+    h.state.learners.push({
+      ...base,
+      id: 'lrn_surl',
+      firstName: 'Урл',
+      lastName: 'Подписантов',
+      snils: '112-233-445 95',
+      dateOfBirth: '1985-03-03',
+      position: 'Технолог'
+    } as Learner);
+    h.state.groups.push({
+      ...base,
+      id: 'grp_surl',
+      code: 'GSU',
+      name: 'Группа surl',
+      counterpartyId: 'cp_surl'
+    } as GroupEntity);
+    h.state.courses.push({
+      ...base,
+      id: 'crs_surl',
+      code: 'CRSU',
+      title: 'Охрана труда',
+      isArchived: false
+    } as Course);
+    h.state.courseVersions.push({
+      ...base,
+      id: 'cv_surl',
+      courseId: 'crs_surl',
+      versionNo: 1
+    } as CourseVersion);
+    h.state.groupCourses.push({
+      ...base,
+      id: 'gc_surl',
+      groupId: 'grp_surl',
+      courseId: 'crs_surl',
+      courseVersionId: 'cv_surl',
+      sortOrder: 0
+    } as GroupCourse);
+    h.state.enrollments.push({
+      ...base,
+      id: 'enr_surl',
+      groupId: 'grp_surl',
+      learnerId: 'lrn_surl',
+      status: 'active',
+      enrolledAt: '2026-03-10'
+    } as Enrollment);
+
+    await h.service.exportEisotTestingRegistry(TENANT, {}, ctx);
+    const batch = h.state.eisotTestingBatches[0]!;
+    const { url } = await h.service.getBatchSignatureUrl(TENANT, batch.id);
+
+    expect(typeof url).toBe('string');
+  });
+
+  it('getBatchSignatureUrl throws when the batch has no signature', async () => {
+    const h = makeHarness();
+    h.state.counterparties.push({
+      ...base,
+      id: 'cp_nosurl',
+      code: 'CNSU',
+      name: 'ООО Без подписи URL',
+      inn: '7707083893'
+    } as Counterparty);
+    h.state.learners.push({
+      ...base,
+      id: 'lrn_nosurl',
+      firstName: 'Без',
+      lastName: 'Урлов',
+      snils: '112-233-445 95',
+      dateOfBirth: '1992-07-07',
+      position: 'Кладовщик'
+    } as Learner);
+    h.state.groups.push({
+      ...base,
+      id: 'grp_nosurl',
+      code: 'GNSU',
+      name: 'Группа nosurl',
+      counterpartyId: 'cp_nosurl'
+    } as GroupEntity);
+    h.state.courses.push({
+      ...base,
+      id: 'crs_nosurl',
+      code: 'CRSNU',
+      title: 'Охрана труда',
+      isArchived: false
+    } as Course);
+    h.state.courseVersions.push({
+      ...base,
+      id: 'cv_nosurl',
+      courseId: 'crs_nosurl',
+      versionNo: 1
+    } as CourseVersion);
+    h.state.groupCourses.push({
+      ...base,
+      id: 'gc_nosurl',
+      groupId: 'grp_nosurl',
+      courseId: 'crs_nosurl',
+      courseVersionId: 'cv_nosurl',
+      sortOrder: 0
+    } as GroupCourse);
+    h.state.enrollments.push({
+      ...base,
+      id: 'enr_nosurl',
+      groupId: 'grp_nosurl',
+      learnerId: 'lrn_nosurl',
+      status: 'active',
+      enrolledAt: '2026-03-10'
+    } as Enrollment);
+
+    await h.service.exportEisotTestingRegistry(TENANT, {}, ctx);
+    const batch = h.state.eisotTestingBatches[0]!;
+
+    await expect(h.service.getBatchSignatureUrl(TENANT, batch.id)).rejects.toThrow();
   });
 });

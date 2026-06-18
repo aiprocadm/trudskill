@@ -239,6 +239,17 @@ export class NmoRegistryService {
     return { url: await this.files.createDownloadUrl(tenantId, batch.fileId) };
   }
 
+  async getBatchSignatureUrl(tenantId: string, id: string): Promise<{ url: string }> {
+    const { batch } = this.getBatchWithRecords(tenantId, id);
+    if (!batch.signatureFileId) {
+      throw new NotFoundException({
+        code: 'nmo_registry_signature_not_found',
+        message: 'Batch has no signature file'
+      });
+    }
+    return { url: await this.files.createDownloadUrl(tenantId, batch.signatureFileId) };
+  }
+
   private id(prefix: string): string {
     return `${prefix}_${randomUUID().replace(/-/g, '')}`;
   }

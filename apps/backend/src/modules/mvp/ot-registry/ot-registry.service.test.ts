@@ -258,7 +258,10 @@ function makeHarness(exportSigner?: ExportSignatureProvider): Harness {
     sizeBytes: 1,
     createdAt: 't'
   }));
-  const files = { register: filesRegister } as unknown as FilesService;
+  const files = {
+    register: filesRegister,
+    createDownloadUrl: vi.fn(async () => 'https://signed-url.example/sig')
+  } as unknown as FilesService;
 
   const storagePut = vi.fn(async () => undefined);
   const storage = { putObject: storagePut } as unknown as S3StorageClient;
@@ -553,5 +556,30 @@ describe('OtRegistryService.importRegistryResponse', () => {
     await expect(
       h.service.importRegistryResponse(TENANT, batchId, garbage, ctx)
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('OtRegistryService.getBatchSignatureUrl', () => {
+  it('returns a download url for a signed batch', async () => {
+    const h = makeHarness(new FakeExportSignatureProvider('УЦ'));
+    seedCompletedEnrollment(h.state, { programCodes: ['OT_A'], examPassed: true });
+    await h.service.exportOtRegistry(TENANT, noFilter, ctx);
+    const batch = h.state.otRegistryBatches[0]!;
+
+    const { url } = await h.service.getBatchSignatureUrl(TENANT, batch.id);
+
+    expect(typeof url).toBe('string');
+    expect(url.length).toBeGreaterThan(0);
+  });
+
+  it('throws NotFoundException when the batch has no signature', async () => {
+    const h = makeHarness(); // no signer → signatureFileId undefined
+    seedCompletedEnrollment(h.state, { programCodes: ['OT_A'], examPassed: true });
+    await h.service.exportOtRegistry(TENANT, noFilter, ctx);
+    const batch = h.state.otRegistryBatches[0]!;
+
+    await expect(h.service.getBatchSignatureUrl(TENANT, batch.id)).rejects.toBeInstanceOf(
+      NotFoundException
+    );
   });
 });

@@ -334,6 +334,18 @@ export class OtRegistryService {
     return { url };
   }
 
+  async getBatchSignatureUrl(tenantId: string, id: string): Promise<{ url: string }> {
+    const { batch } = this.getBatchWithRecords(tenantId, id);
+    if (!batch.signatureFileId) {
+      throw new NotFoundException({
+        code: 'ot_registry_signature_not_found',
+        message: 'Batch has no signature file'
+      });
+    }
+    const url = await this.files.createDownloadUrl(tenantId, batch.signatureFileId);
+    return { url };
+  }
+
   async importRegistryResponse(
     tenantId: string,
     batchId: string,

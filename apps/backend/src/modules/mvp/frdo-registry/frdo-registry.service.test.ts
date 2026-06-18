@@ -115,7 +115,10 @@ function makeHarness(
     sizeBytes: 1,
     createdAt: 't'
   }));
-  const files = { register: filesRegister } as unknown as FilesService;
+  const files = {
+    register: filesRegister,
+    createDownloadUrl: vi.fn(async () => 'https://signed-url.example/sig')
+  } as unknown as FilesService;
   const storagePut = vi.fn(async () => undefined);
   const storage = { putObject: storagePut } as unknown as S3StorageClient;
   const auditWrite = vi.fn();
@@ -238,5 +241,24 @@ describe('FrdoRegistryService.exportFrdoRegistry', () => {
     expect(batch.signatureFileId).toBeUndefined();
     expect(outcome.signatureStatus).toBe('unsigned');
     expect(outcome.signatureFileId).toBeUndefined();
+  });
+
+  it('getBatchSignatureUrl returns a download url for a signed batch', async () => {
+    const h = makeHarness([doc()], new FakeExportSignatureProvider('УЦ'));
+    seed(h.state);
+    await h.service.exportFrdoRegistry(TENANT, {}, ctx);
+    const batch = h.state.frdoRegistryBatches[0]!;
+
+    const { url } = await h.service.getBatchSignatureUrl(TENANT, batch.id);
+    expect(typeof url).toBe('string');
+  });
+
+  it('getBatchSignatureUrl throws when the batch has no signature', async () => {
+    const h = makeHarness([doc()]);
+    seed(h.state);
+    await h.service.exportFrdoRegistry(TENANT, {}, ctx);
+    const batch = h.state.frdoRegistryBatches[0]!;
+
+    await expect(h.service.getBatchSignatureUrl(TENANT, batch.id)).rejects.toThrow();
   });
 });
