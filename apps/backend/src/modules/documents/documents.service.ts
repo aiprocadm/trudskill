@@ -97,6 +97,9 @@ export interface PublicVerifyResult {
   /** Заполнены только для status='revoked'. */
   revokedAt?: string;
   revocationReason?: string;
+  /** Phase 6 — НЭП-подпись. Заполняется ТОЛЬКО для подписанных документов (сигнал доверия на странице проверки). */
+  signatureStatus?: 'signed';
+  signatureCertificateSubject?: string;
 }
 
 /** Pillar A Plan B §5.7 — атомарный выпуск группового приказа + каскад удостоверений. */
@@ -1409,6 +1412,11 @@ export class DocumentsService {
     if (doc.status === 'revoked') {
       if (doc.revokedAt) result.revokedAt = doc.revokedAt;
       if (doc.revocationReason) result.revocationReason = doc.revocationReason;
+    }
+    if (doc.signatureStatus === 'signed') {
+      result.signatureStatus = 'signed';
+      if (doc.signatureCertificateSubject)
+        result.signatureCertificateSubject = doc.signatureCertificateSubject;
     }
     return result;
   }

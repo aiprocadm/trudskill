@@ -2,6 +2,7 @@
 
 import { DataTable, StatusChip } from '@cdoprof/ui';
 
+import { signatureBadgeLabel } from './signature-badge';
 import { SectionCard, SectionEmpty } from '../../components/state-wrappers';
 
 import type { LearnerDocument } from './types';
@@ -86,36 +87,48 @@ export function LearnerDocumentsList({
     { key: 'statusView', title: 'Статус', render: (row) => row.statusView },
     { key: 'actions', title: '', render: (row) => row.actions }
   ];
-  const rows: Row[] = documents.map((d) => ({
-    documentNumber: d.documentNumber ?? '—',
-    documentDate: d.documentDate ?? '—',
-    documentType: DOCUMENT_TYPE_LABELS[d.documentType] ?? d.documentType,
-    courseTitle: d.courseTitle || '—',
-    statusView: <StatusChip status={d.status} />,
-    actions: (
-      <div className="learner-documents-actions">
-        <button
-          type="button"
-          className="ui-button ui-button--ghost"
-          data-testid={`download-${d.id}`}
-          onClick={() => handleDownloadClick(d, onDownload)}
-        >
-          {d.isDownloadable ? 'Скачать' : 'Скачать (скоро)'}
-        </button>
-        {d.qrToken ? (
-          <a
-            className="ui-link"
-            href={`/verify/${d.qrToken}`}
-            target="_blank"
-            rel="noreferrer noopener"
-            data-testid={`verify-${d.id}`}
+  const rows: Row[] = documents.map((d) => {
+    const sigBadge = signatureBadgeLabel(d.signatureStatus);
+    return {
+      documentNumber: d.documentNumber ?? '—',
+      documentDate: d.documentDate ?? '—',
+      documentType: DOCUMENT_TYPE_LABELS[d.documentType] ?? d.documentType,
+      courseTitle: d.courseTitle || '—',
+      statusView: (
+        <span className="learner-documents-status">
+          <StatusChip status={d.status} />
+          {sigBadge ? (
+            <span className="learner-documents-signature-badge" data-testid={`signature-${d.id}`}>
+              {sigBadge}
+            </span>
+          ) : null}
+        </span>
+      ),
+      actions: (
+        <div className="learner-documents-actions">
+          <button
+            type="button"
+            className="ui-button ui-button--ghost"
+            data-testid={`download-${d.id}`}
+            onClick={() => handleDownloadClick(d, onDownload)}
           >
-            Проверить
-          </a>
-        ) : null}
-      </div>
-    )
-  }));
+            {d.isDownloadable ? 'Скачать' : 'Скачать (скоро)'}
+          </button>
+          {d.qrToken ? (
+            <a
+              className="ui-link"
+              href={`/verify/${d.qrToken}`}
+              target="_blank"
+              rel="noreferrer noopener"
+              data-testid={`verify-${d.id}`}
+            >
+              Проверить
+            </a>
+          ) : null}
+        </div>
+      )
+    };
+  });
 
   return (
     <SectionCard title={title}>

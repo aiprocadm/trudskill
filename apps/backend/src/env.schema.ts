@@ -49,7 +49,7 @@ export const backendEnvSchema = z
       .transform((v) => v === true || v === 'true')
       .default(false),
     /** Active signing provider. 'noop' until a КриптоПро adapter is wired (Phase 6 follow-up). */
-    ESIGN_PROVIDER: z.enum(['noop', 'cryptopro']).default('noop'),
+    ESIGN_PROVIDER: z.enum(['noop', 'cryptopro', 'fake']).default('noop'),
     /** Human-readable signer (organisation) name stamped onto the document for display. */
     ESIGN_SIGNER_NAME: z.string().min(1).default('CDOProf'),
     // Export-signature seam (Phase 6, КЭП on registry export files). Ships dormant (false) →
@@ -324,6 +324,20 @@ export const backendEnvSchema = z
         code: z.ZodIssueCode.custom,
         message:
           'ESIA_STATE_SECRET must not use development value in production/staging/prod-profile'
+      });
+    }
+
+    // ESIGN_PROVIDER=fake is a STAGING preview signer (self-marked non-cryptographic).
+    // Deliberately blocked ONLY in production, NOT staging: staging is where the owner
+    // previews the signing pipeline end-to-end. Real prod is always NODE_ENV=production
+    // (enforced by the DEPLOYMENT_PROFILE=prod ↔ NODE_ENV=production parity checks above),
+    // so this cannot be dodged by a prod deployment.
+    if (env.ESIGN_PROVIDER === 'fake' && env.NODE_ENV === 'production') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ESIGN_PROVIDER'],
+        message:
+          'ESIGN_PROVIDER=fake is forbidden in production — it fakes signatures (use cryptopro)'
       });
     }
 
