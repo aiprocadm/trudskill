@@ -9,7 +9,7 @@ const seed = {
   currency: 'RUB',
   description: 'Курс ОТ',
   createdBy: 'admin',
-  items: [{ courseVersionId: 'cv1', learnerId: 'l1', unitAmount: 150000 }]
+  items: [{ groupId: 'g1', learnerId: 'l1', unitAmount: 150000 }]
 };
 
 describe('InMemoryPaymentsRepository', () => {

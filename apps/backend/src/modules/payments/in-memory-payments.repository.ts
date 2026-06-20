@@ -26,7 +26,7 @@ export class InMemoryPaymentsRepository implements PaymentsRepository {
       id: rid('oi'),
       tenantId: seed.tenantId,
       orderId,
-      courseVersionId: i.courseVersionId,
+      groupId: i.groupId,
       learnerId: i.learnerId,
       unitAmount: i.unitAmount,
       fulfillmentStatus: 'pending'

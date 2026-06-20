@@ -17,7 +17,7 @@ export interface CreateOrderSeed {
   currency: string;
   description?: string;
   createdBy?: string;
-  items: { courseVersionId: string; learnerId: string; unitAmount: number }[];
+  items: { groupId: string; learnerId: string; unitAmount: number }[];
 }
 
 export interface CreatePaymentSeed {

@@ -15,7 +15,7 @@ import {
 export class CreateOrderItemRequest {
   @IsString()
   @MinLength(1)
-  courseVersionId!: string;
+  groupId!: string;
 
   @IsString()
   @MinLength(1)

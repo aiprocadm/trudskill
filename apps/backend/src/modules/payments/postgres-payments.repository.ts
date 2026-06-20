@@ -37,7 +37,7 @@ interface OrderItemDbRow {
   id: string;
   tenant_id: string;
   order_id: string;
-  course_version_id: string;
+  group_id: string;
   learner_id: string;
   unit_amount: string; // bigint → string from pg driver
   fulfillment_status: string;
@@ -90,9 +90,9 @@ export class PostgresPaymentsRepository implements PaymentsRepository {
     for (const i of seed.items) {
       await this.db.query(
         `insert into payments.order_items
-           (id, tenant_id, order_id, course_version_id, learner_id, unit_amount, fulfillment_status, created_at, updated_at)
+           (id, tenant_id, order_id, group_id, learner_id, unit_amount, fulfillment_status, created_at, updated_at)
          values ($1, $2, $3, $4, $5, $6, 'pending', now(), now())`,
-        [rid('oi'), seed.tenantId, orderId, i.courseVersionId, i.learnerId, i.unitAmount]
+        [rid('oi'), seed.tenantId, orderId, i.groupId, i.learnerId, i.unitAmount]
       );
     }
 
@@ -261,7 +261,7 @@ export class PostgresPaymentsRepository implements PaymentsRepository {
       id: row.id,
       tenantId: row.tenant_id,
       orderId: row.order_id,
-      courseVersionId: row.course_version_id,
+      groupId: row.group_id,
       learnerId: row.learner_id,
       unitAmount: Number(row.unit_amount),
       fulfillmentStatus: row.fulfillment_status as ItemFulfillmentStatus,

@@ -15,7 +15,7 @@ describe('CreateOrderRequest', () => {
         buyerType: 'learner',
         buyerId: 'l1',
         description: 'Курс ОТ',
-        items: [{ courseVersionId: 'cv1', learnerId: 'l1', unitAmount: 150000 }]
+        items: [{ groupId: 'g1', learnerId: 'l1', unitAmount: 150000 }]
       })
     ).toBe(0);
   });
@@ -29,14 +29,14 @@ describe('CreateOrderRequest', () => {
       errCount(CreateOrderRequest, {
         buyerType: 'learner',
         buyerId: 'l1',
-        items: [{ courseVersionId: 'cv1', learnerId: 'l1', unitAmount: -5 }]
+        items: [{ groupId: 'g1', learnerId: 'l1', unitAmount: -5 }]
       })
     ).toBeGreaterThan(0);
     expect(
       errCount(CreateOrderRequest, {
         buyerType: 'learner',
         buyerId: 'l1',
-        items: [{ courseVersionId: 'cv1', learnerId: 'l1', unitAmount: 1.5 }]
+        items: [{ groupId: 'g1', learnerId: 'l1', unitAmount: 1.5 }]
       })
     ).toBeGreaterThan(0);
   });
@@ -45,7 +45,7 @@ describe('CreateOrderRequest', () => {
       errCount(CreateOrderRequest, {
         buyerType: 'alien',
         buyerId: 'l1',
-        items: [{ courseVersionId: 'cv1', learnerId: 'l1', unitAmount: 100 }]
+        items: [{ groupId: 'g1', learnerId: 'l1', unitAmount: 100 }]
       })
     ).toBeGreaterThan(0);
   });

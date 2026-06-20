@@ -8,21 +8,13 @@ import type { RequestContext } from '../../common/context/request-context.js';
 
 /**
  * Fulfills a paid order by enrolling each PENDING item's learner into the
- * corresponding course group via MvpService.createBulkEnrollments.
+ * corresponding group via MvpService.createBulkEnrollments.
  *
- * Real createBulkEnrollments signature:
- *   (tenantId, actorId, { idempotencyKey, groupId, learnerIds }, ctx) → BulkEnrollmentsOutcome (sync)
- *   Outcome: { created: Enrollment[], skippedExisting: [{learnerId, enrollmentId}], errors }
+ * Real createBulkEnrollments signature (synchronous):
+ *   (tenantId, actorId, { idempotencyKey, groupId, learnerIds }, ctx) → BulkEnrollmentsOutcome
+ *   Outcome: { groupId, idempotencyKey, created: Enrollment[], skippedExisting: [{learnerId, enrollmentId}], errors }
  *
- * Since OrderItemEntity carries courseVersionId (not groupId), we treat courseVersionId as the
- * groupId argument. Items are grouped by courseVersionId and a single bulk call is made per group.
- *
- * The body passed to createBulkEnrollments includes courseVersionId as an extra field (as any)
- * so that test stubs keying on body.courseVersionId continue to work against the real groupId param.
- *
- * Outcome mapping handles both shapes:
- *   - Test stub: { rows: [{learnerId, enrollmentId, status}] }
- *   - Real BulkEnrollmentsOutcome: { created: Enrollment[], skippedExisting: [{learnerId, enrollmentId}] }
+ * Items are grouped by groupId and a single bulk call is made per group.
  */
 @Injectable()
 export class PaymentFulfillmentService {
@@ -45,61 +37,35 @@ export class PaymentFulfillmentService {
         return;
       }
 
-      // Group pending items by courseVersionId (treated as groupId for bulk enrollment).
-      const byCourse = new Map<string, OrderItemEntity[]>();
+      const byGroup = new Map<string, OrderItemEntity[]>();
       for (const item of pending) {
-        const list = byCourse.get(item.courseVersionId) ?? [];
+        const list = byGroup.get(item.groupId) ?? [];
         list.push(item);
-        byCourse.set(item.courseVersionId, list);
+        byGroup.set(item.groupId, list);
       }
 
-      for (const [courseVersionId, items] of byCourse) {
-        // Real body: groupId is required; courseVersionId is passed as an additional field
-        // (using `as any`) so test stubs that read body.courseVersionId work correctly.
-        // idempotencyKey is scoped per order+course so retries are safe.
-        const outcome = await (this.mvp.createBulkEnrollments as any)(
+      for (const [groupId, items] of byGroup) {
+        const outcome = this.mvp.createBulkEnrollments(
           order.tenantId,
           order.createdBy ?? 'system',
           {
-            groupId: courseVersionId,
-            courseVersionId, // extra field for test-stub compatibility
-            learnerIds: items.map((i) => i.learnerId),
-            idempotencyKey: `payment:${order.id}:${courseVersionId}`
-          } as any,
+            idempotencyKey: `payment:${order.id}:${groupId}`,
+            groupId,
+            learnerIds: items.map((i) => i.learnerId)
+          },
           ctx
         );
-
-        // Build learnerId → enrollmentId map from either outcome shape:
-        //   • Test stub: { rows: [{learnerId, enrollmentId}] }
-        //   • Real BulkEnrollmentsOutcome: { created: Enrollment[], skippedExisting: [{learnerId, enrollmentId}] }
         const enrollmentByLearner = new Map<string, string>();
-
-        const rows: Array<{ learnerId: string; enrollmentId?: string; id?: string }> =
-          (outcome as any).rows ?? [];
-
-        if (rows.length > 0) {
-          // Test-stub path: rows array present
-          for (const row of rows) {
-            const eid = row.enrollmentId ?? row.id;
-            if (eid) enrollmentByLearner.set(row.learnerId, eid);
-          }
-        } else {
-          // Real BulkEnrollmentsOutcome path
-          const created: Array<{ id: string; learnerId: string }> = (outcome as any).created ?? [];
-          const skipped: Array<{ learnerId: string; enrollmentId: string }> =
-            (outcome as any).skippedExisting ?? [];
-
-          for (const e of created) {
-            enrollmentByLearner.set(e.learnerId, e.id);
-          }
-          for (const s of skipped) {
-            enrollmentByLearner.set(s.learnerId, s.enrollmentId);
-          }
-        }
-
+        for (const e of outcome.created) enrollmentByLearner.set(e.learnerId, e.id);
+        for (const s of outcome.skippedExisting)
+          enrollmentByLearner.set(s.learnerId, s.enrollmentId);
         for (const item of items) {
-          const enrollmentId = enrollmentByLearner.get(item.learnerId);
-          await this.repo.markItemFulfilled(order.tenantId, item.id, 'enrolled', enrollmentId);
+          await this.repo.markItemFulfilled(
+            order.tenantId,
+            item.id,
+            'enrolled',
+            enrollmentByLearner.get(item.learnerId)
+          );
         }
       }
 

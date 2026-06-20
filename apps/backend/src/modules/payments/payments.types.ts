@@ -9,7 +9,7 @@ export interface OrderItemEntity {
   id: string;
   tenantId: string;
   orderId: string;
-  courseVersionId: string;
+  groupId: string;
   learnerId: string;
   unitAmount: number; // kopecks
   fulfillmentStatus: ItemFulfillmentStatus;

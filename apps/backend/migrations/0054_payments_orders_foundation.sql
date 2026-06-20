@@ -29,7 +29,7 @@ create table if not exists payments.order_items (
   id text primary key,
   tenant_id text not null,
   order_id text not null references payments.orders (id) on delete cascade,
-  course_version_id text not null,
+  group_id text not null,
   learner_id text not null,
   unit_amount bigint not null check (unit_amount >= 0),
   fulfillment_status text not null default 'pending'

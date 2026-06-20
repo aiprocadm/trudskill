@@ -5,14 +5,14 @@ import { PaymentFulfillmentService } from './payment-fulfillment.service.js';
 
 const ctx = { tenantId: 't1', userId: 'admin' } as any;
 
-function makeMvp(outcomeByCourse: Record<string, { learnerId: string; enrollmentId: string }[]>) {
+function makeMvp(byGroup: Record<string, { learnerId: string; enrollmentId: string }[]>) {
   return {
-    createBulkEnrollments: vi.fn(async (_t: string, _u: string, body: any) => ({
-      rows: outcomeByCourse[body.courseVersionId].map((r) => ({
-        learnerId: r.learnerId,
-        enrollmentId: r.enrollmentId,
-        status: 'created'
-      }))
+    createBulkEnrollments: vi.fn((_t: string, _u: string, body: any) => ({
+      groupId: body.groupId,
+      idempotencyKey: body.idempotencyKey,
+      created: byGroup[body.groupId].map((r) => ({ id: r.enrollmentId, learnerId: r.learnerId })),
+      skippedExisting: [],
+      errors: []
     }))
   };
 }
@@ -33,11 +33,11 @@ describe('PaymentFulfillmentService', () => {
   it('enrolls each item, marks items enrolled, sets order fulfilled', async () => {
     const repo = new InMemoryPaymentsRepository();
     const order = await seedPaidOrder(repo, [
-      { courseVersionId: 'cv1', learnerId: 'l1', unitAmount: 100 },
-      { courseVersionId: 'cv1', learnerId: 'l2', unitAmount: 100 }
+      { groupId: 'g1', learnerId: 'l1', unitAmount: 100 },
+      { groupId: 'g1', learnerId: 'l2', unitAmount: 100 }
     ]);
     const mvp = makeMvp({
-      cv1: [
+      g1: [
         { learnerId: 'l1', enrollmentId: 'e1' },
         { learnerId: 'l2', enrollmentId: 'e2' }
       ]
@@ -53,10 +53,8 @@ describe('PaymentFulfillmentService', () => {
 
   it('is idempotent — re-running does not double-enroll', async () => {
     const repo = new InMemoryPaymentsRepository();
-    const order = await seedPaidOrder(repo, [
-      { courseVersionId: 'cv1', learnerId: 'l1', unitAmount: 100 }
-    ]);
-    const mvp = makeMvp({ cv1: [{ learnerId: 'l1', enrollmentId: 'e1' }] });
+    const order = await seedPaidOrder(repo, [{ groupId: 'g1', learnerId: 'l1', unitAmount: 100 }]);
+    const mvp = makeMvp({ g1: [{ learnerId: 'l1', enrollmentId: 'e1' }] });
     const svc = new PaymentFulfillmentService(repo, mvp as any);
     await svc.fulfill(order!, ctx);
     const reloaded = await repo.getOrder('t1', order!.id);
@@ -66,10 +64,12 @@ describe('PaymentFulfillmentService', () => {
 
   it('fail-soft — enrollment error leaves order paid, never throws', async () => {
     const repo = new InMemoryPaymentsRepository();
-    const order = await seedPaidOrder(repo, [
-      { courseVersionId: 'cv1', learnerId: 'l1', unitAmount: 100 }
-    ]);
-    const mvp = { createBulkEnrollments: vi.fn().mockRejectedValue(new Error('db down')) };
+    const order = await seedPaidOrder(repo, [{ groupId: 'g1', learnerId: 'l1', unitAmount: 100 }]);
+    const mvp = {
+      createBulkEnrollments: vi.fn(() => {
+        throw new Error('db down');
+      })
+    };
     const svc = new PaymentFulfillmentService(repo, mvp as any);
     await expect(svc.fulfill(order!, ctx)).resolves.toBeUndefined();
     const after = await repo.getOrder('t1', order!.id);
