@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 
 import { InMemoryPaymentsRepository } from './in-memory-payments.repository.js';
 import { PaymentFulfillmentService } from './payment-fulfillment.service.js';
+import { PaymentsWebhookController } from './payments-webhook.controller.js';
+import { PaymentsController } from './payments.controller.js';
 import { PAYMENTS_REPOSITORY } from './payments.repository.js';
 import { PaymentsService } from './payments.service.js';
 import { PostgresPaymentsRepository } from './postgres-payments.repository.js';
@@ -18,7 +20,7 @@ import { MvpModule } from '../mvp/mvp.module.js';
 
 @Module({
   imports: [InfrastructureModule, AuditModule, MvpModule],
-  controllers: [], // TODO(Task 12): add PaymentsController + PaymentsWebhookController
+  controllers: [PaymentsController, PaymentsWebhookController],
   providers: [
     PaymentsService,
     PaymentFulfillmentService,
