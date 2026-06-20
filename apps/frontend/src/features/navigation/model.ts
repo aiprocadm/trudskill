@@ -31,7 +31,17 @@ export const routeMeta: RouteMetaEntry[] = [
   },
   { pattern: '/learners', meta: { public: false, requiredPermissions: ['learners.read'] } },
   { pattern: '/materials', meta: { public: false, requiredPermissions: ['materials.read'] } },
-  { pattern: '/webinars', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  // More-specific pattern first: resolveRouteMeta uses `.find` with prefix matching, so
+  // `/admin/webinars/settings` must precede `/admin/webinars` or it'd inherit webinars.read.
+  {
+    pattern: '/admin/webinars/settings',
+    meta: { public: false, requiredPermissions: ['webinars.configure'] }
+  },
+  { pattern: '/admin/webinars', meta: { public: false, requiredPermissions: ['webinars.read'] } },
+  {
+    pattern: '/learner/webinars',
+    meta: { public: false, requiredPermissions: ['webinars.attend'] }
+  },
   { pattern: '/reports', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/proctoring', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/scorm', meta: { public: false, requiredPermissions: ['materials.read'] } },
@@ -348,7 +358,18 @@ export const navigationModel: NavigationItem[] = [
     requiredPermissions: ['esign.legal.read'],
     navSlot: 'more'
   },
-  { href: '/webinars', label: 'Вебинары', requiredPermissions: ['tenant.read'], navSlot: 'more' },
+  {
+    href: '/admin/webinars',
+    label: 'Вебинары',
+    requiredPermissions: ['webinars.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/learner/webinars',
+    label: 'Мои вебинары',
+    requiredPermissions: ['webinars.attend'],
+    navSlot: 'more'
+  },
   {
     href: '/proctoring',
     label: 'Прокторинг',
