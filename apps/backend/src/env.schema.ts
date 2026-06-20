@@ -64,6 +64,17 @@ export const backendEnvSchema = z
     EXPORT_SIGN_PROVIDER: z.enum(['noop', 'cryptopro', 'fake']).default('noop'),
     /** Human-readable signer (organisation) name stamped onto the export signature for display. */
     EXPORT_SIGN_SIGNER_NAME: z.string().min(1).default('CDOProf'),
+    // Payments seam (Phase 7). Ships dormant (false) → NoopPaymentProvider: online payment is
+    // unavailable, manual bank-transfer mark-paid still works. Custom boolean parse — NOT
+    // z.coerce.boolean (string "false" → true) — so a money flag is never accidentally on.
+    PAYMENTS_ENABLED: z
+      .union([z.boolean(), z.enum(['true', 'false'])])
+      .transform((v) => v === true || v === 'true')
+      .default(false),
+    /** Active payment provider. 'noop' until a ЮKassa adapter is wired. 'fake' = staging preview. */
+    PAYMENTS_PROVIDER: z.enum(['noop', 'yookassa', 'fake']).default('noop'),
+    /** ISO-4217 currency. RUB-only this iteration. */
+    PAYMENTS_CURRENCY: z.literal('RUB').default('RUB'),
     // ЕСИА (Госуслуги) OAuth/OIDC seam (Phase 4 follow-up). Ships dormant (false) →
     // NoopEsiaProvider. Custom boolean parse — NOT z.coerce.boolean (string "false" → true) —
     // same rule as ANTIVIRUS_ENABLED/ESIGN_ENABLED so a login flag is never accidentally on.
@@ -387,6 +398,19 @@ export const backendEnvSchema = z
         path: ['EXPORT_SIGN_PROVIDER'],
         message:
           'EXPORT_SIGN_PROVIDER=fake is forbidden in production — it fakes signatures (use cryptopro)'
+      });
+    }
+
+    // PAYMENTS_PROVIDER=fake is a STAGING preview mode (no real money moves).
+    // Deliberately blocked ONLY in production, NOT staging: staging is where the owner previews
+    // the payment pipeline end-to-end. Real prod is always NODE_ENV=production (enforced by the
+    // DEPLOYMENT_PROFILE=prod ⟺ NODE_ENV=production parity checks above), so this cannot be dodged.
+    if (env.PAYMENTS_PROVIDER === 'fake' && env.NODE_ENV === 'production') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['PAYMENTS_PROVIDER'],
+        message:
+          'PAYMENTS_PROVIDER=fake is forbidden in production — it fakes payments (use yookassa)'
       });
     }
   });

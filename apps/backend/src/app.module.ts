@@ -17,6 +17,7 @@ import { IntegrationsModule } from './modules/integrations/integrations.module.j
 import { MigrationModule } from './modules/migration/migration.module.js';
 import { MvpModule } from './modules/mvp/mvp.module.js';
 import { OrgModule } from './modules/org/org.module.js';
+import { PaymentsModule } from './modules/payments/payments.module.js';
 import { TenantModule } from './modules/tenant/tenant.module.js';
 import { WorkspaceModule } from './modules/workspace/workspace.module.js';
 
@@ -39,7 +40,14 @@ const baseModules = [
 ];
 
 /** Доменные модули; переключение реализаций хранения — внутри модулей (провайдеры/DynamicModule), а не дублированием списка. */
-const domainModules = [MvpModule, DocumentsModule, IntegrationsModule, MigrationModule, OrgModule];
+const domainModules = [
+  MvpModule,
+  DocumentsModule,
+  IntegrationsModule,
+  MigrationModule,
+  OrgModule,
+  PaymentsModule
+];
 
 @Module({
   providers: [RequestObservabilityInterceptor],
