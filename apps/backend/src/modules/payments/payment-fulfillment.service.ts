@@ -1,16 +1,22 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { PAYMENTS_REPOSITORY, type PaymentsRepository } from './payments.repository.js';
-import { MvpService } from '../mvp/mvp.service.js';
+import { MvpEnrollmentService } from '../mvp/mvp-enrollment.service.js';
 
 import type { OrderEntity, OrderItemEntity } from './payments.types.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 
 /**
  * Fulfills a paid order by enrolling each PENDING item's learner into the
- * corresponding group via MvpService.createBulkEnrollments.
+ * corresponding group via MvpEnrollmentService.enrollIntoGroup.
  *
- * Real createBulkEnrollments signature (synchronous):
+ * CRITICAL: this runs OUTSIDE an HTTP request (mark-paid + webhook paths don't apply
+ * MvpRequestPersistenceInterceptor), so it must NOT call the request-scoped MvpService
+ * directly — its MVP_STATE would be empty (no learner/group hydrated, nothing saved).
+ * MvpEnrollmentService hydrates tenant MVP state from Postgres via MvpTenantRunner, runs
+ * createBulkEnrollments, and persists the mutated state under the per-tenant serial lock.
+ *
+ * enrollIntoGroup signature (async):
  *   (tenantId, actorId, { idempotencyKey, groupId, learnerIds }, ctx) → BulkEnrollmentsOutcome
  *   Outcome: { groupId, idempotencyKey, created: Enrollment[], skippedExisting: [{learnerId, enrollmentId}], errors }
  *
@@ -22,7 +28,7 @@ export class PaymentFulfillmentService {
 
   constructor(
     @Inject(PAYMENTS_REPOSITORY) private readonly repo: PaymentsRepository,
-    @Inject(MvpService) private readonly mvp: MvpService
+    @Inject(MvpEnrollmentService) private readonly enrollment: MvpEnrollmentService
   ) {}
 
   async fulfill(order: OrderEntity, ctx: RequestContext): Promise<void> {
@@ -45,7 +51,7 @@ export class PaymentFulfillmentService {
       }
 
       for (const [groupId, items] of byGroup) {
-        const outcome = this.mvp.createBulkEnrollments(
+        const outcome = await this.enrollment.enrollIntoGroup(
           order.tenantId,
           order.createdBy ?? 'system',
           {

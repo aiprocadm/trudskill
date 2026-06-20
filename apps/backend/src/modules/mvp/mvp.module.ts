@@ -21,6 +21,7 @@ import { PostgresMvpPersistenceBackend } from './infrastructure/postgres-mvp-per
 import { LearnerPdfCardService } from './learner-pdf-card.service.js';
 import { LearnersBulkImportService } from './learners-bulk-import.service.js';
 import { MvpBulkEnqueueService } from './mvp-bulk-enqueue.service.js';
+import { MvpEnrollmentService } from './mvp-enrollment.service.js';
 import { MvpInternalWorkerController } from './mvp-internal-worker.controller.js';
 import { MvpController } from './mvp.controller.js';
 import { MvpService } from './mvp.service.js';
@@ -104,6 +105,9 @@ import { TenantModule } from '../tenant/tenant.module.js';
     InMemoryRecertificationDraftsState,
     RecertificationScanner,
     MvpTenantRunner,
+    // Phase 7 payments — singleton bulk-enrollment helper for fulfillment outside an HTTP request
+    // (hydrates+saves tenant MVP state via MvpTenantRunner). NO Scope.REQUEST.
+    MvpEnrollmentService,
     CourseDeadlineScanner,
     RemindersSchedulerService,
     DocumentRevokedEmailListener,
@@ -197,6 +201,6 @@ import { TenantModule } from '../tenant/tenant.module.js';
       }
     }
   ],
-  exports: [MvpService]
+  exports: [MvpService, MvpEnrollmentService]
 })
 export class MvpModule {}
