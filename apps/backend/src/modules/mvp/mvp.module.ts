@@ -196,6 +196,7 @@ import { TenantModule } from '../tenant/tenant.module.js';
         return new NoopExportSignatureProvider();
       }
     }
-  ]
+  ],
+  exports: [MvpService]
 })
 export class MvpModule {}
