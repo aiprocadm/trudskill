@@ -91,6 +91,10 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['recertification.read'] }
   },
   {
+    pattern: '/admin/orders',
+    meta: { public: false, requiredPermissions: ['payments.read'] }
+  },
+  {
     pattern: '/admin/identity-verifications/[id]',
     meta: { public: false, requiredPermissions: ['identity.read'] }
   },
@@ -437,6 +441,12 @@ export const navigationModel: NavigationItem[] = [
     href: '/admin/recertification',
     label: 'Переаттестация',
     requiredPermissions: ['recertification.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/admin/orders',
+    label: 'Заказы',
+    requiredPermissions: ['payments.read'],
     navSlot: 'more'
   },
   {
