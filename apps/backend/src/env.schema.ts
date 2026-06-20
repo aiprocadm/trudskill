@@ -75,6 +75,13 @@ export const backendEnvSchema = z
     PAYMENTS_PROVIDER: z.enum(['noop', 'yookassa', 'fake']).default('noop'),
     /** ISO-4217 currency. RUB-only this iteration. */
     PAYMENTS_CURRENCY: z.literal('RUB').default('RUB'),
+    // Phase 8 webinars seam master switch. Ships dormant (false → every tenant resolves to
+    // NoopWebinarProvider regardless of their saved provider_code). Custom boolean parse — NOT
+    // z.coerce.boolean (string "false" → true) — so the subsystem is never accidentally on.
+    WEBINARS_ENABLED: z
+      .union([z.boolean(), z.enum(['true', 'false'])])
+      .transform((v) => v === true || v === 'true')
+      .default(false),
     // ЕСИА (Госуслуги) OAuth/OIDC seam (Phase 4 follow-up). Ships dormant (false) →
     // NoopEsiaProvider. Custom boolean parse — NOT z.coerce.boolean (string "false" → true) —
     // same rule as ANTIVIRUS_ENABLED/ESIGN_ENABLED so a login flag is never accidentally on.
