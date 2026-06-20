@@ -2,6 +2,15 @@ import type { WebinarParticipantRow, WebinarRow } from './in-memory-webinars.sta
 
 export const WEBINARS_REPOSITORY = Symbol('WEBINARS_REPOSITORY');
 
+export interface AttendanceUpdate {
+  /** Matches participant by user_id OR learner_id (provider participant key). */
+  participantRef: string;
+  attendanceStatus: WebinarParticipantRow['attendanceStatus'];
+  joinedAt?: string;
+  leftAt?: string;
+  durationSeconds?: number;
+}
+
 export interface WebinarsQuery {
   page?: number;
   pageSize?: number;
@@ -25,4 +34,10 @@ export interface WebinarsRepository {
     query: WebinarParticipantsQuery
   ): Promise<{ items: WebinarParticipantRow[]; total: number }>;
   addParticipant(row: WebinarParticipantRow): Promise<void>;
+  findByProviderSessionId(providerSessionId: string): Promise<WebinarRow | null>;
+  upsertParticipantAttendance(
+    tenantId: string,
+    webinarId: string,
+    update: AttendanceUpdate
+  ): Promise<void>;
 }

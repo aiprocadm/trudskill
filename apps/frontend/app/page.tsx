@@ -63,7 +63,7 @@ const widgetCatalog: Array<{
   {
     title: 'Webinar',
     note: 'Предстоящие вебинары и эфиры',
-    href: '/webinars',
+    href: '/learner/webinars',
     roles: ['learner']
   },
   {

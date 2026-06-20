@@ -4,6 +4,7 @@ import { DatabaseService } from '../../infrastructure/database/database.service.
 
 import type { WebinarParticipantRow, WebinarRow } from './in-memory-webinars.state.js';
 import type {
+  AttendanceUpdate,
   WebinarParticipantsQuery,
   WebinarsQuery,
   WebinarsRepository
@@ -171,6 +172,55 @@ export class PostgresWebinarsRepository implements WebinarsRepository {
         row.joinedAt ?? null,
         row.leftAt ?? null,
         row.durationSeconds ?? null
+      ]
+    );
+  }
+
+  async findByProviderSessionId(providerSessionId: string) {
+    const rows = await this.db.query<any>(
+      'select * from communication.webinars where provider_session_id = $1 limit 1',
+      [providerSessionId]
+    );
+    return rows[0] ? this.map(rows[0]) : null;
+  }
+
+  async upsertParticipantAttendance(tenantId: string, webinarId: string, update: AttendanceUpdate) {
+    const existing = await this.db.query<{ id: string }>(
+      `select id from communication.webinar_participants
+       where tenant_id = $1 and webinar_id = $2 and (learner_id = $3 or user_id = $3) limit 1`,
+      [tenantId, webinarId, update.participantRef]
+    );
+    if (existing[0]) {
+      await this.db.query(
+        `update communication.webinar_participants set
+           attendance_status = $1,
+           joined_at = coalesce($2::timestamptz, joined_at),
+           left_at = coalesce($3::timestamptz, left_at),
+           duration_seconds = coalesce($4, duration_seconds)
+         where id = $5`,
+        [
+          update.attendanceStatus,
+          update.joinedAt ?? null,
+          update.leftAt ?? null,
+          update.durationSeconds ?? null,
+          existing[0].id
+        ]
+      );
+      return;
+    }
+    await this.db.query(
+      `insert into communication.webinar_participants
+       (id, tenant_id, webinar_id, user_id, learner_id, role_code, attendance_status, joined_at, left_at, duration_seconds)
+       values ($1,$2,$3,null,$4,'attendee',$5,$6::timestamptz,$7::timestamptz,$8)`,
+      [
+        `wp_${Math.random().toString(36).slice(2, 10)}`,
+        tenantId,
+        webinarId,
+        update.participantRef,
+        update.attendanceStatus,
+        update.joinedAt ?? null,
+        update.leftAt ?? null,
+        update.durationSeconds ?? null
       ]
     );
   }
