@@ -3,7 +3,8 @@
 import { DataTable, LoadingState } from '@cdoprof/ui';
 import { type ReactElement, useState } from 'react';
 
-import { useOrderMutations, useOrders } from './hooks';
+import { payOrder } from './api';
+import { useMyOrders, useOrderMutations, useOrders } from './hooks';
 import { ORDER_STATUS_LABELS, type OrderStatus } from './types';
 import {
   PageContainer,
@@ -21,6 +22,95 @@ const STATUS_FILTER_OPTIONS: Array<{ value: OrderStatus | ''; label: string }> =
   { value: 'fulfilled', label: 'Выполненные' },
   { value: 'cancelled', label: 'Отменённые' }
 ];
+
+interface MyOrderRow {
+  id: string;
+  descriptionView: string;
+  totalView: string;
+  statusView: ReactElement;
+  actionsView: ReactElement;
+}
+
+export function MyPaymentsScreen(): ReactElement {
+  const { data, loading, error } = useMyOrders();
+  const [payPending, setPayPending] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [payError, setPayError] = useState<string | null>(null);
+
+  const onPay = async (id: string) => {
+    setNotice(null);
+    setPayError(null);
+    setPayPending(true);
+    try {
+      const result = await payOrder(id);
+      if (result.confirmationUrl) {
+        window.location.href = result.confirmationUrl;
+      } else {
+        setNotice('Заявка на оплату отправлена');
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Не удалось выполнить оплату';
+      if (
+        msg.toLowerCase().includes('payment_disabled') ||
+        msg.toLowerCase().includes('недоступ')
+      ) {
+        setPayError('Онлайн-оплата временно недоступна');
+      } else {
+        setPayError(msg);
+      }
+    } finally {
+      setPayPending(false);
+    }
+  };
+
+  const rows: MyOrderRow[] = data.map((order) => ({
+    id: order.id,
+    descriptionView: order.description ?? order.id,
+    totalView: `₽ ${(order.totalAmount / 100).toLocaleString('ru-RU')}`,
+    statusView: <span>{ORDER_STATUS_LABELS[order.status] ?? order.status}</span>,
+    actionsView:
+      order.status === 'awaiting_payment' ? (
+        <button
+          type="button"
+          className="ui-button"
+          onClick={() => void onPay(order.id)}
+          disabled={payPending}
+        >
+          Оплатить
+        </button>
+      ) : (
+        <span />
+      )
+  }));
+
+  return (
+    <PageContainer>
+      <PageHeader title="Мои оплаты" subtitle="История ваших заказов и платежей." />
+
+      <SectionCard title="Заказы">
+        {notice ? <p className="ui-callout">{notice}</p> : null}
+        {payError ? <p className="ui-callout">{payError}</p> : null}
+
+        {loading ? <LoadingState message="Загрузка заказов…" /> : null}
+        {error ? <SectionError message="Не удалось загрузить заказы" /> : null}
+        {!loading && !error && rows.length === 0 ? (
+          <SectionEmpty message="Заказов пока нет" hint="Здесь появятся ваши платёжные заказы" />
+        ) : null}
+        {!loading && !error && rows.length > 0 ? (
+          <DataTable<MyOrderRow>
+            columns={[
+              { key: 'descriptionView', title: 'Описание' },
+              { key: 'totalView', title: 'Сумма' },
+              { key: 'statusView', title: 'Статус', render: (row) => row.statusView },
+              { key: 'actionsView', title: 'Действия', render: (row) => row.actionsView }
+            ]}
+            rows={rows}
+          />
+        ) : null}
+      </SectionCard>
+    </PageContainer>
+  );
+}
 
 interface OrderRow {
   id: string;

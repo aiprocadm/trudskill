@@ -183,6 +183,10 @@ export const routeMeta: RouteMetaEntry[] = [
     pattern: '/learner/identity',
     meta: { public: false, requiredPermissions: ['identity.submit'] }
   },
+  {
+    pattern: '/learner/payments',
+    meta: { public: false, requiredPermissions: ['payments.self_purchase'] }
+  },
   { pattern: '/documents', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/registry', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/notifications', meta: { public: false, requiredPermissions: ['tenant.read'] } },
@@ -229,6 +233,11 @@ export const navigationModel: NavigationItem[] = [
     href: '/learner/identity',
     label: 'Подтверждение личности',
     requiredPermissions: ['identity.submit']
+  },
+  {
+    href: '/learner/payments',
+    label: 'Мои оплаты',
+    requiredPermissions: ['payments.self_purchase']
   },
   { href: '/courses', label: 'Курсы', requiredPermissions: ['courses.read'] },
   { href: '/assessment', label: 'Задания и тесты', requiredPermissions: ['assessment.tests.read'] },

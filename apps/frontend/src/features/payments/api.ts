@@ -17,3 +17,6 @@ export const cancelOrder = (id: string): Promise<Order> =>
   apiRequest<Order>(`/orders/${id}/cancel`, { method: 'POST' });
 
 export const listMyOrders = (): Promise<Order[]> => apiRequest<Order[]>('/me/orders');
+
+export const payOrder = (id: string): Promise<{ confirmationUrl?: string }> =>
+  apiRequest<{ confirmationUrl?: string }>(`/orders/${id}/pay`, { method: 'POST' });

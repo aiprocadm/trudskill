@@ -3,9 +3,25 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { cancelOrder, createOrder, listOrders, markOrderPaid } from './api';
+import { cancelOrder, createOrder, listMyOrders, listOrders, markOrderPaid } from './api';
 
 import type { CreateOrderInput, MarkPaidInput, Order } from './types';
+
+export function useMyOrders() {
+  const query = useQuery<Order[]>({
+    queryKey: ['payments', 'my-orders'],
+    queryFn: () => listMyOrders()
+  });
+
+  return {
+    data: query.data ?? ([] as Order[]),
+    loading: query.isLoading,
+    error: query.error instanceof Error ? query.error.message : null,
+    refetch: async () => {
+      await query.refetch();
+    }
+  };
+}
 
 export function useOrders(status?: string) {
   const query = useQuery<Order[]>({
