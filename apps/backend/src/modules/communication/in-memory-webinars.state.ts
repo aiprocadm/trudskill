@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import type {
+  AttendanceUpdate,
   WebinarParticipantsQuery,
   WebinarsQuery,
   WebinarsRepository
@@ -87,5 +88,35 @@ export class InMemoryWebinarsState implements WebinarsRepository {
 
   async addParticipant(row: WebinarParticipantRow) {
     this.participants.push(row);
+  }
+
+  async findByProviderSessionId(providerSessionId: string) {
+    return this.webinars.find((w) => w.providerSessionId === providerSessionId) ?? null;
+  }
+
+  async upsertParticipantAttendance(tenantId: string, webinarId: string, update: AttendanceUpdate) {
+    const existing = this.participants.find(
+      (p) =>
+        p.tenantId === tenantId &&
+        p.webinarId === webinarId &&
+        (p.learnerId === update.participantRef || p.userId === update.participantRef)
+    );
+    if (existing) {
+      existing.attendanceStatus = update.attendanceStatus;
+      if (update.joinedAt) existing.joinedAt = update.joinedAt;
+      if (update.leftAt) existing.leftAt = update.leftAt;
+      if (update.durationSeconds !== undefined) existing.durationSeconds = update.durationSeconds;
+      return;
+    }
+    this.participants.push({
+      webinarId,
+      tenantId,
+      learnerId: update.participantRef,
+      roleCode: 'attendee',
+      attendanceStatus: update.attendanceStatus,
+      ...(update.joinedAt ? { joinedAt: update.joinedAt } : {}),
+      ...(update.leftAt ? { leftAt: update.leftAt } : {}),
+      ...(update.durationSeconds !== undefined ? { durationSeconds: update.durationSeconds } : {})
+    });
   }
 }
