@@ -186,3 +186,21 @@ Durable order/payment-домен + спящий провайдер-шов (Noop 
 история ученика). Активация ЮKassa / 54-ФЗ / PDF / лендинг — следующими итерациями поверх готового шва.
 
 Миграция: **0054** (последняя на main — 0053). Новые права: `payments.read/write/self_purchase`.
+
+## Implementation deviations (post-build, §5.133)
+
+- **`course_version_id` → `group_id`:** позиция заказа таргетит **группу-когорту** (`group_id`), не версию курса.
+  Реальный примитив зачисления `MvpService.createBulkEnrollments` принимает `groupId` (ученик зачисляется в группу,
+  группа привязана к курсу). Поймано при реализации fulfillment'а (Task 10). Отражено в миграции 0054, типах, DTO,
+  репозитории, fulfillment и frontend. Позиция = пара `(group, learner)`.
+- **CRITICAL-фикс fulfillment (холистическое ревью):** прямой вызов request-scoped `MvpService.createBulkEnrollments`
+  из `PaymentFulfillmentService` давал пустой `MVP_STATE` (платёжные контроллеры не применяют
+  `MvpRequestPersistenceInterceptor`) → ноль зачислений при статусе `fulfilled`. Исправлено новым экспортируемым
+  singleton `MvpEnrollmentService` (в `MvpModule`), который гоняет зачисление внутри
+  `MvpTenantRunner.runWithTenantStateAndSave` (гидратация tenant-state из Postgres → мутация → сохранение, под
+  реентрантным per-tenant-локом). См. `reference_mvp_tenant_runner_modes`.
+- **`rawBody` follow-up:** реальная HMAC-верификация вебхука ЮKassa требует сырого тела запроса
+  (`NestFactory.create(…, { rawBody: true })` в `main.ts`). Сейчас Noop/Fake парсят JSON-фолбэк — достаточно для
+  dormant/staging; добавить при активации реального адаптера.
+- **`pay` под `payments.self_purchase`:** spec-таблица упоминала «write/self_purchase», по факту реализовано только
+  `self_purchase` (онлайн-оплату инициирует покупатель; админ использует ручную `mark-paid`). Осознанное сужение.

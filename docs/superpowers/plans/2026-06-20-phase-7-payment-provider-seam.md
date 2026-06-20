@@ -10,6 +10,11 @@
 
 **Spec:** [docs/superpowers/specs/2026-06-20-phase-7-payment-provider-seam-design.md](../specs/2026-06-20-phase-7-payment-provider-seam-design.md)
 
+> **STATUS (2026-06-20): IMPLEMENTED ✅** — all 15 tasks done (subagent-driven) + 2 fixes (ownership-guard on `pay`;
+> CRITICAL fulfillment-state via `MvpEnrollmentService`/`MvpTenantRunner`) + final holistic opus-review. Backend payments
+> 46 tests / frontend 16 / typecheck 8/8 / ESLint clean / migrations to 0054. Deviation: `course_version_id`→`group_id`
+> (real enrollment primitive). See handoff §5.133. Awaiting PR.
+
 **Conventions reminder:**
 
 - Run a single backend test file: `pnpm --filter @cdoprof/backend exec vitest run <path> --no-file-parallelism`
