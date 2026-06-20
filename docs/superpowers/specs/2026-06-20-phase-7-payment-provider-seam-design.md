@@ -75,6 +75,15 @@ paid_at (nullable), idempotency_key, raw_payload (jsonb), created_at, updated_at
 
 Успешный платёж (онлайн ИЛИ ручная отметка) → `order.status=paid` → fulfillment → `order.status=fulfilled`.
 
+### Resolved details (snap to avoid plan-time ambiguity)
+
+- **Стартовый статус заказа:** `POST /orders` / `POST /me/orders` создают заказ сразу в `awaiting_payment`
+  (значение `draft` зарезервировано под будущую многошаговую корзину, в этой итерации не выставляется).
+- **`buyer_id` — soft reference, без FK:** при `buyer_type='learner'` ссылается на `iam`-ученика;
+  при `buyer_type='counterparty'` — свободный uuid (схема `crm` — заглушка, FK к ней НЕ создаём,
+  чтобы не цеплять непостроенный модуль). Целостность проверяется на уровне сервиса, не БД-констрейнтом.
+- **Валюта:** только `RUB` в этой итерации (поле `currency` есть в схеме для будущего, но валидируется как `'RUB'`).
+
 ## Provider seam
 
 ```ts
