@@ -1876,7 +1876,7 @@ const roleWidgets: RoleWidget[] = [
   {
     title: 'Webinar',
     note: 'Запланированные онлайн-занятия и ссылки на эфир.',
-    href: '/webinars',
+    href: '/learner/webinars',
     allowedRoles: ['learner']
   },
   {

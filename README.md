@@ -15,7 +15,7 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 - Аутентификация, сессии, роли/права (`apps/backend/src/modules/iam`, `apps/frontend/src/features/auth`)
 - Курсы/обучение и смежные MVP домены (`apps/backend/src/modules/mvp`, `apps/frontend/app/courses*`, `apps/frontend/app/learner*`)
 - Документы и e-sign (`apps/backend/src/modules/documents`, `apps/backend/src/modules/esign`)
-- Коммуникации (чат, уведомления, вебинары) (`apps/backend/src/modules/communication`, `apps/frontend/app/chat`, `apps/frontend/app/notifications`, `apps/frontend/app/webinars`)
+- Коммуникации (чат, уведомления, вебинары) (`apps/backend/src/modules/communication`, `apps/frontend/app/chat`, `apps/frontend/app/notifications`, `apps/frontend/app/admin/webinars`, `apps/frontend/app/learner/webinars`)
 - Интеграции (`apps/backend/src/modules/integrations`, `apps/frontend/app/integrations`)
 - Аналитика/аудит/метрики (`apps/backend/src/modules/audit`, `apps/backend/src/common/metrics`)
 
