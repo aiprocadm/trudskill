@@ -11,6 +11,7 @@ import { InMemoryChatState } from './in-memory-chat.state.js';
 import { InMemoryEmailDeliveriesState } from './in-memory-email-deliveries.state.js';
 import { InMemoryEmailTemplatesState } from './in-memory-email-templates.state.js';
 import { InMemoryNotificationsState } from './in-memory-notifications.state.js';
+import { InMemoryWebinarProviderSettingsRepository } from './in-memory-webinar-provider-settings.repository.js';
 import { InMemoryWebinarsState } from './in-memory-webinars.state.js';
 import { NotificationDispatcher } from './notification-dispatcher.service.js';
 import { NOTIFICATIONS_STATE } from './notifications-state.token.js';
@@ -19,17 +20,32 @@ import { NotificationsService } from './notifications.service.js';
 import { PostgresChatRepository } from './postgres-chat.repository.js';
 import { PostgresEmailDeliveriesRepository } from './postgres-email-deliveries.repository.js';
 import { PostgresEmailTemplatesRepository } from './postgres-email-templates.repository.js';
+import { PostgresWebinarProviderSettingsRepository } from './postgres-webinar-provider-settings.repository.js';
 import { PostgresWebinarsRepository } from './postgres-webinars.repository.js';
 import { NoopWebPushSender } from './web-push/noop-web-push-sender.js';
 import { WEB_PUSH_SENDER } from './web-push/web-push-sender.js';
 import { WebPushSender } from './web-push/web-push-sender.service.js';
+import { WebinarProviderResolver } from './webinar-provider-resolver.service.js';
+import { WEBINAR_PROVIDER_SETTINGS_REPOSITORY } from './webinar-provider-settings.repository.js';
+import { WebinarProviderSettingsService } from './webinar-provider-settings.service.js';
+import { WebinarsWebhookController } from './webinars-webhook.controller.js';
 import { WebinarsController } from './webinars.controller.js';
 import { WEBINARS_REPOSITORY } from './webinars.repository.js';
 import { WebinarsService } from './webinars.service.js';
 import { backendEnv } from '../../env.js';
+import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { MAILER, NoopMailer } from '../../infrastructure/mailer/mailer.service.js';
 import { SmtpMailer } from '../../infrastructure/mailer/smtp-mailer.service.js';
+import { FakeWebinarProvider } from '../../infrastructure/webinar-provider/fake-webinar.provider.js';
+import { JitsiWebinarProvider } from '../../infrastructure/webinar-provider/jitsi-webinar.provider.js';
+import {
+  NoopWebinarProvider,
+  WEBINAR_PROVIDER_REGISTRY,
+  type WebinarProvider,
+  type WebinarProviderCode,
+  type WebinarProviderRegistry
+} from '../../infrastructure/webinar-provider/webinar.provider.js';
 import { IamModule } from '../iam/iam.module.js';
 import { MvpPersistenceRepositoryAdapter } from '../mvp/infrastructure/mvp-persistence.repository.adapter.js';
 import { MVP_PERSISTENCE_BACKEND } from '../mvp/infrastructure/mvp-persistence.token.js';
@@ -42,6 +58,7 @@ import { PostgresMvpPersistenceBackend } from '../mvp/infrastructure/postgres-mv
     NotificationsController,
     ChatController,
     WebinarsController,
+    WebinarsWebhookController,
     EmailNotificationsController
   ],
   providers: [
@@ -54,6 +71,28 @@ import { PostgresMvpPersistenceBackend } from '../mvp/infrastructure/postgres-mv
     InMemoryWebinarsState,
     NotificationsService,
     WebinarsService,
+    PostgresWebinarProviderSettingsRepository,
+    {
+      provide: WEBINAR_PROVIDER_SETTINGS_REPOSITORY,
+      useFactory: (db: DatabaseService) =>
+        backendEnv.ALLOW_IN_MEMORY_STATE
+          ? new InMemoryWebinarProviderSettingsRepository()
+          : new PostgresWebinarProviderSettingsRepository(db),
+      inject: [DatabaseService]
+    },
+    WebinarProviderSettingsService,
+    // Phase 8 webinar seam. Multi-provider registry; the ACTIVE provider is chosen per-tenant by
+    // WebinarProviderResolver. Ships dormant (WEBINARS_ENABLED=false → resolver always returns Noop).
+    {
+      provide: WEBINAR_PROVIDER_REGISTRY,
+      useFactory: (): WebinarProviderRegistry =>
+        new Map<WebinarProviderCode, WebinarProvider>([
+          ['noop', new NoopWebinarProvider()],
+          ['fake', new FakeWebinarProvider()],
+          ['jitsi', new JitsiWebinarProvider('')]
+        ])
+    },
+    WebinarProviderResolver,
     ChatService,
     {
       provide: MAILER,
@@ -91,6 +130,12 @@ import { PostgresMvpPersistenceBackend } from '../mvp/infrastructure/postgres-mv
       inject: [MvpTenantRunner]
     }
   ],
-  exports: [NotificationsService, ChatService, WebinarsService, NotificationDispatcher]
+  exports: [
+    NotificationsService,
+    ChatService,
+    WebinarsService,
+    WebinarProviderSettingsService,
+    NotificationDispatcher
+  ]
 })
 export class CommunicationModule {}
