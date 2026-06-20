@@ -65,7 +65,10 @@ describe('PaymentsService', () => {
       auditStub()
     );
     const order = await svc.createOrder('t1', 'admin', orderReq, ctx);
-    await expect(svc.pay('t1', order.id, ctx)).rejects.toThrow(/payment_disabled/);
+    // pay as the owning learner (l1) — ownership check must pass before reaching provider check
+    await expect(svc.pay('t1', order.id, { tenantId: 't1', userId: 'l1' } as any)).rejects.toThrow(
+      /payment_disabled/
+    );
   });
   it('pay with Fake provider returns a confirmation url', async () => {
     const svc = new PaymentsService(
@@ -75,7 +78,35 @@ describe('PaymentsService', () => {
       auditStub()
     );
     const order = await svc.createOrder('t1', 'admin', orderReq, ctx);
-    const res = await svc.pay('t1', order.id, ctx);
+    // pay as the owning learner (l1)
+    const res = await svc.pay('t1', order.id, { tenantId: 't1', userId: 'l1' } as any);
+    expect(res.confirmationUrl).toContain(order.id);
+  });
+  it('pay rejects when the order belongs to a different learner', async () => {
+    const svc = new PaymentsService(
+      new InMemoryPaymentsRepository(),
+      new FakePaymentProvider(),
+      makeFulfillment() as any,
+      auditStub()
+    );
+    // order created with buyerId 'l1'
+    const order = await svc.createOrder('t1', 'admin', orderReq, ctx);
+    // a different learner (userId 'l2') tries to pay it
+    await expect(svc.pay('t1', order.id, { tenantId: 't1', userId: 'l2' } as any)).rejects.toThrow(
+      /order_access_denied/
+    );
+  });
+  it('pay allows the owning learner', async () => {
+    const svc = new PaymentsService(
+      new InMemoryPaymentsRepository(),
+      new FakePaymentProvider(),
+      makeFulfillment() as any,
+      auditStub()
+    );
+    // order created with buyerId 'l1'
+    const order = await svc.createOrder('t1', 'admin', orderReq, ctx);
+    // the owning learner (userId 'l1') pays successfully
+    const res = await svc.pay('t1', order.id, { tenantId: 't1', userId: 'l1' } as any);
     expect(res.confirmationUrl).toContain(order.id);
   });
   it('cancel works from awaiting_payment, fails from paid', async () => {

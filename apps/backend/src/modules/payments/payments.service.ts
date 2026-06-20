@@ -1,4 +1,10 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException
+} from '@nestjs/common';
 
 /**
  * Thin wrapper so service-layer errors carry a machine-readable code in `.message`
@@ -9,6 +15,16 @@ class PaymentBadRequestError extends BadRequestException {
   constructor(code: string, humanMessage: string) {
     super({ code, message: humanMessage });
     // Override Error.message so vitest `.toThrow(/code/)` can match it
+    this.message = code;
+  }
+}
+
+/**
+ * Parallel to PaymentBadRequestError but for 403 ownership violations.
+ */
+class PaymentForbiddenError extends ForbiddenException {
+  constructor(code: string, humanMessage: string) {
+    super({ code, message: humanMessage });
     this.message = code;
   }
 }
@@ -82,9 +98,12 @@ export class PaymentsService {
   async pay(
     tenantId: string,
     orderId: string,
-    _ctx: RequestContext
+    ctx: RequestContext
   ): Promise<{ confirmationUrl?: string }> {
     const order = await this.getOrder(tenantId, orderId);
+    if (order.buyerType === 'learner' && ctx.userId && order.buyerId !== ctx.userId) {
+      throw new PaymentForbiddenError('order_access_denied', 'Заказ не принадлежит пользователю');
+    }
     if (order.status !== 'awaiting_payment') {
       throw new PaymentBadRequestError('order_not_payable', 'Заказ не ожидает оплаты');
     }
