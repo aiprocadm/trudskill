@@ -24,7 +24,10 @@ BEGIN
   ) THEN
     ALTER TABLE documents.templates
       ADD CONSTRAINT templates_type_chk
-      CHECK (template_type IN (
+      -- Corrected 2026-06-20 (Issue 4, fresh-DB bootstrap): the canonical column is
+      -- document_type (created in 0002); the template_type name only existed in the
+      -- 0005 "create table if not exists" no-op. Safe to edit history: no DB deployed.
+      CHECK (document_type IN (
         'certificate',
         'protocol',
         'order',
@@ -36,6 +39,14 @@ BEGIN
       ));
   END IF;
 END$$;
+
+-- Corrected 2026-06-20 (Issue 4, fresh-DB bootstrap): ensure category_code exists
+-- before constraining it. The column was defined in 0005's template_variables, but
+-- that "create table if not exists" was a no-op (0002 created the table first
+-- without it), so the CHECK below targeted a non-existent column on a fresh DB.
+-- Safe to edit history: no DB deployed.
+ALTER TABLE documents.template_variables
+  ADD COLUMN IF NOT EXISTS category_code text;
 
 DO $$
 BEGIN
