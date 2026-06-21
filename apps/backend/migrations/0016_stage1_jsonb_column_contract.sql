@@ -1,3 +1,12 @@
+-- Corrected 2026-06-20 (Issue 4, fresh-DB bootstrap): removed three orphaned
+-- COMMENT ON COLUMN statements (assessment.assignments.payload,
+-- documents.template_versions.payload, documents.numbering_rules.payload). Those
+-- tables were created earlier (0005/0009) with fully-typed schemas and no payload
+-- column; the 0013 "create table if not exists" variants that carry payload were
+-- no-ops because the tables already existed, so the comments targeted non-existent
+-- columns and failed on a fresh DB. Safe to edit history: no DB is deployed. See
+-- docs/superpowers/specs/2026-06-20-migration-chain-fresh-bootstrap-design.md
+
 -- Stage-1 JSONB usage contract for normalized enterprise tables.
 -- JSONB is reserved for:
 --   1) extension payload,
@@ -42,22 +51,16 @@ comment on column assessment.answers.answer_jsonb is
   'Extension payload for answer body/details only; scoring and relational keys stay typed.';
 comment on column assessment.results.payload is
   'Extension payload only. Result totals/pass flags and references stay typed.';
-comment on column assessment.assignments.payload is
-  'Extension payload only. Assignment due dates and typed attributes stay in columns.';
 comment on column assessment.submissions.content_jsonb is
   'Primary submission content payload (domain content), while status/date/foreign keys remain typed columns.';
 
 -- documents
 comment on column documents.templates.payload is
   'Extension payload only. Template status/code/version linkage stays typed.';
-comment on column documents.template_versions.payload is
-  'Extension payload only. Version status/number and parent references stay typed.';
 comment on column documents.generated_documents.payload is
   'Extension payload only. Document status/number and template references stay typed.';
 comment on column documents.document_tasks.payload is
   'Extension payload only. Task type/status and references stay typed.';
-comment on column documents.numbering_rules.payload is
-  'Extension payload only. Rule activation/type/pattern fields stay typed.';
 
 -- integrations
 comment on column integrations.providers.payload is

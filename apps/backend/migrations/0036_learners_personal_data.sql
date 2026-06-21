@@ -8,7 +8,10 @@
 --   middle_name — отчество (для fullName в шаблонах).
 --   position    — должность ученика (для протоколов / удостоверений).
 
-ALTER TABLE mvp.learners
+-- Corrected 2026-06-20 (Issue 4, fresh-DB bootstrap): the learners table lives in
+-- the learning schema (there is no mvp schema — the MVP module is in-memory). Safe
+-- to edit history: no DB deployed.
+ALTER TABLE learning.learners
   ADD COLUMN IF NOT EXISTS snils text,
   ADD COLUMN IF NOT EXISTS middle_name text,
   ADD COLUMN IF NOT EXISTS position text;
