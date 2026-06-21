@@ -307,13 +307,11 @@ export const backendEnvSchema = z
       return;
     }
 
-    if (env.SECRETS_PROVIDER === 'env') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          'SECRETS_PROVIDER=env is forbidden in production/staging/prod-profile; use vault or kms'
-      });
-    }
+    // NB: SECRETS_PROVIDER=env IS permitted in strict profiles. The 'vault'/'kms' providers
+    // (MirroredRemoteSecretProvider) read from the same env vars with a versioned prefix — there
+    // is no external secret manager in the single-VPS deploy model (managed services deferred by
+    // the owner), so forbidding 'env' added friction without real isolation. The dev-default /
+    // weak-secret guards below still apply to every provider, so prod secrets must still be strong.
 
     if (env.AUTH_JWT_SECRET && devSecrets.includes(env.AUTH_JWT_SECRET)) {
       ctx.addIssue({
