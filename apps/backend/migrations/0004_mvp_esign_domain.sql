@@ -1,3 +1,7 @@
+-- Corrected 2026-06-20 (Issue 4, fresh-DB bootstrap): added UNIQUE (tenant_id, id)
+-- to esign_applications / signing_processes / signing_participants so the composite
+-- (tenant_id, id) FKs in this file have a matching unique. Safe to edit history: no DB
+-- deployed. See docs/superpowers/specs/2026-06-20-migration-chain-fresh-bootstrap-design.md
 CREATE SCHEMA IF NOT EXISTS esign;
 
 CREATE TABLE IF NOT EXISTS esign.esign_applications (
@@ -15,6 +19,7 @@ CREATE TABLE IF NOT EXISTS esign.esign_applications (
   updated_by text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT esign_applications_tenant_id_id_uniq UNIQUE (tenant_id, id),
   CONSTRAINT esign_applications_status_chk CHECK (status IN ('draft', 'submitted', 'under_review', 'approved', 'rejected', 'expired', 'reused')),
   CONSTRAINT esign_applications_learner_tenant_fk FOREIGN KEY (tenant_id, learner_id) REFERENCES learning.learners(tenant_id, id)
 );
@@ -60,6 +65,7 @@ CREATE TABLE IF NOT EXISTS esign.signing_processes (
   updated_by text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT signing_processes_tenant_id_id_uniq UNIQUE (tenant_id, id),
   CONSTRAINT signing_processes_status_chk CHECK (status IN ('draft', 'prepared', 'awaiting_participants', 'in_signing', 'signed', 'failed', 'cancelled')),
   CONSTRAINT signing_processes_terminal_snapshot_chk CHECK (status NOT IN ('signed', 'failed', 'cancelled') OR terminal_snapshot IS NOT NULL),
   CONSTRAINT signing_processes_terminal_finished_chk CHECK (status NOT IN ('signed', 'failed', 'cancelled') OR finished_at IS NOT NULL),
@@ -91,6 +97,7 @@ CREATE TABLE IF NOT EXISTS esign.signing_participants (
   updated_by text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT signing_participants_tenant_id_id_uniq UNIQUE (tenant_id, id),
   CONSTRAINT signing_participants_type_chk CHECK (participant_type IN ('learner', 'commission_member', 'employee')),
   CONSTRAINT signing_participants_status_chk CHECK (status IN ('pending', 'invited', 'viewed', 'signed', 'rejected', 'skipped', 'expired')),
   CONSTRAINT signing_participants_sign_order_chk CHECK (sign_order > 0),
