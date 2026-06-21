@@ -37,6 +37,9 @@ RUN addgroup -S app && adduser -S app -G app
 # Next.js standalone output (monorepo layout: server.js lives under apps/frontend/).
 COPY --from=build /app/apps/frontend/.next/standalone ./
 COPY --from=build /app/apps/frontend/.next/static ./apps/frontend/.next/static
+# Next standalone does NOT bundle public/. It holds the PWA icons and the Serwist-generated
+# sw.js (built into public/sw.js) — without it /sw.js and /icons/* 404 and the PWA breaks.
+COPY --from=build /app/apps/frontend/public ./apps/frontend/public
 USER app
 EXPOSE 3000
 CMD ["node", "apps/frontend/server.js"]

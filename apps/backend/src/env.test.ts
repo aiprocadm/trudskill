@@ -56,7 +56,7 @@ describe('backend env schema profile validation', () => {
     expect(parsed.success).toBe(true);
   });
 
-  it('rejects staging env with in-memory/document and env secrets provider', () => {
+  it('rejects staging env with in-memory/document drivers and dev-default secrets', () => {
     const messages = issueMessages({
       ...baseEnv,
       NODE_ENV: 'staging',
@@ -70,7 +70,8 @@ describe('backend env schema profile validation', () => {
       INTEGRATION_WEBHOOK_SECRET: undefined
     });
 
-    expect(messages).toContain(
+    // SECRETS_PROVIDER=env is no longer forbidden in strict profiles (single-VPS model).
+    expect(messages).not.toContain(
       'SECRETS_PROVIDER=env is forbidden in production/staging/prod-profile; use vault or kms'
     );
     expect(messages).toContain(
@@ -114,6 +115,42 @@ describe('backend env schema profile validation', () => {
     });
 
     expect(parsed.success).toBe(true);
+  });
+
+  it('allows SECRETS_PROVIDER=env in production with strong secrets (single-VPS deploy model)', () => {
+    const parsed = backendEnvSchema.safeParse({
+      ...strictValidEnv,
+      NODE_ENV: 'production',
+      DEPLOYMENT_PROFILE: 'prod',
+      SECRETS_PROVIDER: 'env',
+      AUTH_JWT_SECRET: 'prod-strong-jwt-secret-abc123',
+      SESSION_SECRET: 'prod-strong-session-secret-xyz789'
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it('still rejects dev-default secrets under SECRETS_PROVIDER=env in production', () => {
+    const messages = issueMessages({
+      ...strictValidEnv,
+      NODE_ENV: 'production',
+      DEPLOYMENT_PROFILE: 'prod',
+      SECRETS_PROVIDER: 'env',
+      AUTH_JWT_SECRET: 'change-me-in-production',
+      SESSION_SECRET: 'dev-session-secret-12345'
+    });
+
+    // env provider itself is allowed now…
+    expect(messages).not.toContain(
+      'SECRETS_PROVIDER=env is forbidden in production/staging/prod-profile; use vault or kms'
+    );
+    // …but the weak/dev-default secret guards stay fully in force.
+    expect(messages).toContain(
+      'AUTH_JWT_SECRET must not use development value in production/staging/prod-profile'
+    );
+    expect(messages).toContain(
+      'SESSION_SECRET must not use development value in production/staging/prod-profile'
+    );
   });
 
   it('rejects DEPLOYMENT_PROFILE=prod with NODE_ENV=development and rotation > 30', () => {
