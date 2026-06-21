@@ -1,3 +1,7 @@
+-- Corrected 2026-06-20 (Issue 4, fresh-DB bootstrap): removed a redundant second
+-- DROP/ADD of files_tenant_id_id_uniq that failed once FKs depended on it. Safe to
+-- edit history: no DB is deployed. See
+-- docs/superpowers/specs/2026-06-20-migration-chain-fresh-bootstrap-design.md
 ALTER TABLE crm.counterparties
   DROP CONSTRAINT IF EXISTS counterparties_tenant_id_id_uniq,
   ADD CONSTRAINT counterparties_tenant_id_id_uniq UNIQUE (tenant_id, id);
@@ -309,8 +313,6 @@ ALTER TABLE documents.number_reservations
     CHECK (status <> 'consumed' OR consumed_at IS NOT NULL);
 
 ALTER TABLE storage.files
-  DROP CONSTRAINT IF EXISTS files_tenant_id_id_uniq,
-  ADD CONSTRAINT files_tenant_id_id_uniq UNIQUE (tenant_id, id),
   DROP CONSTRAINT IF EXISTS files_size_bytes_chk,
   ADD CONSTRAINT files_size_bytes_chk CHECK (size_bytes >= 0),
   DROP CONSTRAINT IF EXISTS files_uploaded_by_tenant_fk,
