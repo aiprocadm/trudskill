@@ -16,10 +16,11 @@ import {
   PAYMENT_PROVIDER
 } from '../../infrastructure/payments/payment.provider.js';
 import { AuditModule } from '../audit/audit.module.js';
+import { IamModule } from '../iam/iam.module.js';
 import { MvpModule } from '../mvp/mvp.module.js';
 
 @Module({
-  imports: [InfrastructureModule, AuditModule, MvpModule],
+  imports: [InfrastructureModule, AuditModule, IamModule, MvpModule],
   controllers: [PaymentsController, PaymentsWebhookController],
   providers: [
     PaymentsService,
