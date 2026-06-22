@@ -18,6 +18,8 @@ where r.tenant_id = 'tenant_demo'
   and r.code in ('platform_admin', 'tenant_admin')
 on conflict (tenant_id, role_id, permission_id) do nothing;
 
+-- NON-SECRET selection only (no base_url/credentials): acquirer creds + base URLs are global env
+-- config (one platform merchant); per-tenant own-merchant secrets are a future spec.
 create table if not exists payments.payment_provider_settings (
   tenant_id text primary key,
   provider_code text not null default 'noop',
