@@ -1,6 +1,6 @@
 # Phase 7 Payments Multi-Provider Activation — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Activate online payment by refactoring the dormant Phase 7 seam to a registry + per-tenant resolver (mirror of Phase 8 webinars) and adding four real acquirer adapters (ЮKassa, Т-Касса/Tinkoff, CloudPayments, Robokassa).
 
@@ -38,7 +38,7 @@
 - Create: `apps/backend/migrations/0056_payments_provider_settings.sql`
 - Test: `apps/backend/src/modules/payments/migration-0056.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // apps/backend/src/modules/payments/migration-0056.test.ts
@@ -67,12 +67,12 @@ describe('migration 0056', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/payments/migration-0056.test.ts --no-file-parallelism`
 Expected: FAIL — file not found (ENOENT).
 
-- [ ] **Step 3: Write the migration**
+- [x] **Step 3: Write the migration**
 
 ```sql
 -- apps/backend/migrations/0056_payments_provider_settings.sql
@@ -104,12 +104,12 @@ create table if not exists payments.payment_provider_settings (
 );
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/payments/migration-0056.test.ts --no-file-parallelism`
 Expected: PASS (2 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/migrations/0056_payments_provider_settings.sql apps/backend/src/modules/payments/migration-0056.test.ts
@@ -131,7 +131,7 @@ git commit -m "feat(payments): migration 0056 — provider settings table + paym
 
 > NOTE: `PaymentProviderCode` is introduced in Task 3. To avoid an ordering dependency, this task types `providerCode` as a plain `string` in the repository interface and the service; Task 3 does not need to change it (the resolver narrows by lookup). The settings layer is provider-code-agnostic by design.
 
-- [ ] **Step 1: Write the failing in-memory repo test**
+- [x] **Step 1: Write the failing in-memory repo test**
 
 ```ts
 // apps/backend/src/modules/payments/in-memory-payment-provider-settings.repository.test.ts
@@ -156,12 +156,12 @@ describe('InMemoryPaymentProviderSettingsRepository', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/payments/in-memory-payment-provider-settings.repository.test.ts --no-file-parallelism`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Write the interface + in-memory + postgres repos**
+- [x] **Step 3: Write the interface + in-memory + postgres repos**
 
 ```ts
 // apps/backend/src/modules/payments/payment-provider-settings.repository.ts
@@ -276,12 +276,12 @@ export class PostgresPaymentProviderSettingsRepository implements PaymentProvide
 }
 ```
 
-- [ ] **Step 4: Run in-memory repo test — PASS**
+- [x] **Step 4: Run in-memory repo test — PASS**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/payments/in-memory-payment-provider-settings.repository.test.ts --no-file-parallelism`
 Expected: PASS (2 tests).
 
-- [ ] **Step 5: Write the failing service test**
+- [x] **Step 5: Write the failing service test**
 
 ```ts
 // apps/backend/src/modules/payments/payment-provider-settings.service.test.ts
@@ -307,7 +307,7 @@ describe('PaymentProviderSettingsService', () => {
 });
 ```
 
-- [ ] **Step 6: Run it (FAIL), write the service, run again (PASS)**
+- [x] **Step 6: Run it (FAIL), write the service, run again (PASS)**
 
 ```ts
 // apps/backend/src/modules/payments/payment-provider-settings.service.ts
@@ -345,7 +345,7 @@ export class PaymentProviderSettingsService {
 Run both: `pnpm --filter @cdoprof/backend exec vitest run src/modules/payments/in-memory-payment-provider-settings.repository.test.ts src/modules/payments/payment-provider-settings.service.test.ts --no-file-parallelism`
 Expected: PASS (4 tests).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/backend/src/modules/payments/*payment-provider-settings*
@@ -372,7 +372,7 @@ This task is a cohesive refactor: it converts the single-token seam to a registr
 - Modify: `apps/backend/src/modules/payments/payments.module.ts`
 - Modify: `apps/backend/src/modules/payments/payments.http.integration.test.ts`
 
-- [ ] **Step 1: Write the failing resolver test**
+- [x] **Step 1: Write the failing resolver test**
 
 ```ts
 // apps/backend/src/modules/payments/payment-provider-resolver.service.test.ts
@@ -443,12 +443,12 @@ describe('PaymentProviderResolver', () => {
 });
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/payments/payment-provider-resolver.service.test.ts --no-file-parallelism`
 Expected: FAIL — `payment.provider.js` has no `PaymentProviderRegistry`; resolver module missing.
 
-- [ ] **Step 3: Refactor the seam (`payment.provider.ts`)**
+- [x] **Step 3: Refactor the seam (`payment.provider.ts`)**
 
 Replace the file with:
 
@@ -524,13 +524,13 @@ export class NoopPaymentProvider implements PaymentProvider {
 }
 ```
 
-- [ ] **Step 4: Update Fake provider + its tests + noop test (`id`→`code`)**
+- [x] **Step 4: Update Fake provider + its tests + noop test (`id`→`code`)**
 
 In `fake-payment.provider.ts`: change `readonly id = 'fake';` to `readonly code = 'fake' as const;`.
 In `fake-payment.provider.test.ts`: change `expect(provider.id).toBe('fake')` to `expect(provider.code).toBe('fake')`.
 In `noop-payment.provider.test.ts`: change any `.id` assertion to `.code` (read the file; replace `provider.id` → `provider.code`, expected value `'noop'`).
 
-- [ ] **Step 5: Write the resolver (`payment-provider-resolver.service.ts`)**
+- [x] **Step 5: Write the resolver (`payment-provider-resolver.service.ts`)**
 
 ```ts
 // apps/backend/src/modules/payments/payment-provider-resolver.service.ts
@@ -583,7 +583,7 @@ export class PaymentProviderResolver {
 }
 ```
 
-- [ ] **Step 6: Extend `PaymentProviderId` (`payments.types.ts`)**
+- [x] **Step 6: Extend `PaymentProviderId` (`payments.types.ts`)**
 
 Change line 5 to:
 
@@ -598,7 +598,7 @@ export type PaymentProviderId =
   | 'robokassa';
 ```
 
-- [ ] **Step 7: Migrate `PaymentsService.pay()` to the resolver**
+- [x] **Step 7: Migrate `PaymentsService.pay()` to the resolver**
 
 In `payments.service.ts`:
 
@@ -620,7 +620,7 @@ In `payments.service.ts`:
   then change `this.provider.createPayment(` → `provider.createPayment(` and
   `provider: this.provider.id as any,` → `provider: provider.code,`.
 
-- [ ] **Step 8: Migrate the webhook controller to a provider-specific path**
+- [x] **Step 8: Migrate the webhook controller to a provider-specific path**
 
 Replace `payments-webhook.controller.ts` with:
 
@@ -686,7 +686,7 @@ export class PaymentsWebhookController {
 }
 ```
 
-- [ ] **Step 9: Rewire the module (`payments.module.ts`)**
+- [x] **Step 9: Rewire the module (`payments.module.ts`)**
 
 Replace the provider/factory block. New providers list (keep `PAYMENTS_REPOSITORY` factory as-is; add settings repo factory; replace the `PAYMENT_PROVIDER` factory with the registry; add resolver + settings service):
 
@@ -730,18 +730,18 @@ PaymentProviderSettingsService,
 PaymentProviderResolver,
 ```
 
-- [ ] **Step 10: Update `payments.http.integration.test.ts`**
+- [x] **Step 10: Update `payments.http.integration.test.ts`**
 
 Read the file. Wherever it provides `PAYMENT_PROVIDER` (single token) to the test module, replace it with providing `PAYMENT_PROVIDER_REGISTRY` (a `Map` with `noop`), `PaymentProviderSettingsService` (backed by `InMemoryPaymentProviderSettingsRepository`), and `PaymentProviderResolver`. If the test posts to `/payments/webhook`, change the path to `/payments/webhook/fake` (and register a `fake` entry in the test registry) so the provider-specific route resolves. Keep all permission-boundary assertions unchanged.
 
-- [ ] **Step 11: Run the payments suite + typecheck**
+- [x] **Step 11: Run the payments suite + typecheck**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/payments src/infrastructure/payments --no-file-parallelism`
 Expected: PASS (resolver 5, settings 4, fake/noop provider, service, fulfillment, dto, http integration, migration).
 Run: `pnpm typecheck`
 Expected: 8/8.
 
-- [ ] **Step 12: Commit**
+- [x] **Step 12: Commit**
 
 ```bash
 git add apps/backend/src/infrastructure/payments apps/backend/src/modules/payments
@@ -759,7 +759,7 @@ git commit -m "refactor(payments): registry + per-tenant resolver; provider-spec
 - Modify: `apps/backend/src/main.ts`
 - Modify: `infra/.env.production.example`
 
-- [ ] **Step 1: Rewrite `env.payments.test.ts` expectations**
+- [x] **Step 1: Rewrite `env.payments.test.ts` expectations**
 
 Replace the `describe('PAYMENTS_* env', ...)` block with:
 
@@ -802,12 +802,12 @@ describe('PAYMENTS_* env', () => {
 });
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/env.payments.test.ts --no-file-parallelism`
 Expected: FAIL — `PAYMENTS_PROVIDER` still in schema; `YOOKASSA_*` undefined.
 
-- [ ] **Step 3: Edit `env.schema.ts`**
+- [x] **Step 3: Edit `env.schema.ts`**
 
 - Remove the `PAYMENTS_PROVIDER` line (the `z.enum(['noop', 'yookassa', 'fake'])` one).
 - Remove the prod-guard refinement block that references `env.PAYMENTS_PROVIDER === 'fake'` (lines ~409-419).
@@ -842,12 +842,12 @@ Expected: FAIL — `PAYMENTS_PROVIDER` still in schema; `YOOKASSA_*` undefined.
     ROBOKASSA_PAY_URL: z.string().default('https://auth.robokassa.ru/Merchant/Index.aspx'),
 ```
 
-- [ ] **Step 4: Run env test — PASS**
+- [x] **Step 4: Run env test — PASS**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/env.payments.test.ts --no-file-parallelism`
 Expected: PASS (4 tests).
 
-- [ ] **Step 5: Enable rawBody in `main.ts`**
+- [x] **Step 5: Enable rawBody in `main.ts`**
 
 Change:
 
@@ -866,7 +866,7 @@ const app = await NestFactory.create(AppModule, {
 });
 ```
 
-- [ ] **Step 6: Update `infra/.env.production.example`**
+- [x] **Step 6: Update `infra/.env.production.example`**
 
 Read the file; find the `PAYMENTS_*` block. Remove `PAYMENTS_PROVIDER=...`. Keep `PAYMENTS_ENABLED=false` and `PAYMENTS_CURRENCY=RUB`. Add commented placeholders below it:
 
@@ -886,12 +886,12 @@ Read the file; find the `PAYMENTS_*` block. Remove `PAYMENTS_PROVIDER=...`. Keep
 # ROBOKASSA_PASSWORD_2=
 ```
 
-- [ ] **Step 7: Run the deploy-readiness env guard**
+- [x] **Step 7: Run the deploy-readiness env guard**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/env.payments.test.ts --no-file-parallelism` and the prod-env example guard test (find it: `grep -rl "env.production.example" apps/backend/src`). Run that file too.
 Expected: PASS. If the guard fails, the example has a key the schema rejects or vice versa — reconcile.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add apps/backend/src/env.schema.ts apps/backend/src/env.payments.test.ts apps/backend/src/main.ts infra/.env.production.example
@@ -910,7 +910,7 @@ git commit -m "feat(payments): env acquirer creds + rawBody; drop PAYMENTS_PROVI
 - Test: `apps/backend/src/infrastructure/payments/yookassa-payment.provider.test.ts`
 - Modify: `apps/backend/src/modules/payments/payments.module.ts` (register, credential-gated)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // apps/backend/src/infrastructure/payments/yookassa-payment.provider.test.ts
@@ -938,15 +938,13 @@ function jsonResponse(body: unknown, ok = true, status = 200): Response {
 
 describe('YookassaPaymentProvider.createPayment', () => {
   it('POSTs amount in rubles, Basic auth + Idempotence-Key, returns confirmationUrl', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        jsonResponse({
-          id: 'yk-1',
-          status: 'pending',
-          confirmation: { confirmation_url: 'https://pay/yk-1' }
-        })
-      );
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        id: 'yk-1',
+        status: 'pending',
+        confirmation: { confirmation_url: 'https://pay/yk-1' }
+      })
+    );
     const p = new YookassaPaymentProvider(cfg, fetchMock as unknown as typeof fetch);
     const res = await p.createPayment({
       tenantId: 't1',
@@ -1028,12 +1026,12 @@ describe('YookassaPaymentProvider.parseWebhook', () => {
 });
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/infrastructure/payments/yookassa-payment.provider.test.ts --no-file-parallelism`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Write the adapter**
+- [x] **Step 3: Write the adapter**
 
 ```ts
 // apps/backend/src/infrastructure/payments/yookassa-payment.provider.ts
@@ -1165,12 +1163,12 @@ export class YookassaPaymentProvider implements PaymentProvider {
 }
 ```
 
-- [ ] **Step 4: Run the test — PASS**
+- [x] **Step 4: Run the test — PASS**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/infrastructure/payments/yookassa-payment.provider.test.ts --no-file-parallelism`
 Expected: PASS (6 tests).
 
-- [ ] **Step 5: Register in the module (credential-gated)**
+- [x] **Step 5: Register in the module (credential-gated)**
 
 In `payments.module.ts`, import `YookassaPaymentProvider`, and inside the `PAYMENT_PROVIDER_REGISTRY` factory, after seeding noop+fake:
 
@@ -1201,12 +1199,12 @@ return reg;
 
 (Convert the factory body from the inline `new Map([...])` to the `const reg = ...; return reg;` form.)
 
-- [ ] **Step 6: Run payments suite + typecheck**
+- [x] **Step 6: Run payments suite + typecheck**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/payments src/infrastructure/payments --no-file-parallelism && pnpm typecheck`
 Expected: PASS; 8/8.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/backend/src/infrastructure/payments/yookassa-payment.provider.* apps/backend/src/modules/payments/payments.module.ts
@@ -1225,7 +1223,7 @@ git commit -m "feat(payments): ЮKassa adapter (re-fetch + IP-allowlist webhook)
 - Test: `apps/backend/src/infrastructure/payments/tinkoff-payment.provider.test.ts`
 - Modify: `apps/backend/src/modules/payments/payments.module.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // apps/backend/src/infrastructure/payments/tinkoff-payment.provider.test.ts
@@ -1332,7 +1330,7 @@ describe('TinkoffPaymentProvider.parseWebhook', () => {
 });
 ```
 
-- [ ] **Step 2: Run (FAIL) → Step 3: write the adapter → Step 4: run (PASS)**
+- [x] **Step 2: Run (FAIL) → Step 3: write the adapter → Step 4: run (PASS)**
 
 ```ts
 // apps/backend/src/infrastructure/payments/tinkoff-payment.provider.ts
@@ -1435,7 +1433,7 @@ export class TinkoffPaymentProvider implements PaymentProvider {
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/infrastructure/payments/tinkoff-payment.provider.test.ts --no-file-parallelism`
 Expected: PASS (6 tests).
 
-- [ ] **Step 5: Register (credential-gated) in `payments.module.ts`**
+- [x] **Step 5: Register (credential-gated) in `payments.module.ts`**
 
 ```ts
 if (backendEnv.TINKOFF_TERMINAL_KEY && backendEnv.TINKOFF_PASSWORD) {
@@ -1451,7 +1449,7 @@ if (backendEnv.TINKOFF_TERMINAL_KEY && backendEnv.TINKOFF_PASSWORD) {
 }
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/backend/src/infrastructure/payments/tinkoff-payment.provider.* apps/backend/src/modules/payments/payments.module.ts
@@ -1470,7 +1468,7 @@ git commit -m "feat(payments): Т-Касса (Tinkoff) adapter (token-signed Ini
 - Test: `apps/backend/src/infrastructure/payments/cloudpayments-payment.provider.test.ts`
 - Modify: `apps/backend/src/modules/payments/payments.module.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // apps/backend/src/infrastructure/payments/cloudpayments-payment.provider.test.ts
@@ -1542,7 +1540,7 @@ describe('CloudPaymentsProvider.parseWebhook', () => {
 });
 ```
 
-- [ ] **Step 2: Run (FAIL) → Step 3: write the adapter → Step 4: run (PASS)**
+- [x] **Step 2: Run (FAIL) → Step 3: write the adapter → Step 4: run (PASS)**
 
 ```ts
 // apps/backend/src/infrastructure/payments/cloudpayments-payment.provider.ts
@@ -1638,7 +1636,7 @@ export class CloudPaymentsProvider implements PaymentProvider {
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/infrastructure/payments/cloudpayments-payment.provider.test.ts --no-file-parallelism`
 Expected: PASS (5 tests).
 
-- [ ] **Step 5: Register (credential-gated)**
+- [x] **Step 5: Register (credential-gated)**
 
 ```ts
 if (backendEnv.CLOUDPAYMENTS_PUBLIC_ID && backendEnv.CLOUDPAYMENTS_API_SECRET) {
@@ -1653,7 +1651,7 @@ if (backendEnv.CLOUDPAYMENTS_PUBLIC_ID && backendEnv.CLOUDPAYMENTS_API_SECRET) {
 }
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/backend/src/infrastructure/payments/cloudpayments-payment.provider.* apps/backend/src/modules/payments/payments.module.ts
@@ -1672,7 +1670,7 @@ git commit -m "feat(payments): CloudPayments adapter (Basic-auth order + HMAC we
 - Test: `apps/backend/src/infrastructure/payments/robokassa-payment.provider.test.ts`
 - Modify: `apps/backend/src/modules/payments/payments.module.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // apps/backend/src/infrastructure/payments/robokassa-payment.provider.test.ts
@@ -1736,7 +1734,7 @@ describe('RobokassaProvider.parseWebhook', () => {
 });
 ```
 
-- [ ] **Step 2: Run (FAIL) → Step 3: write the adapter → Step 4: run (PASS)**
+- [x] **Step 2: Run (FAIL) → Step 3: write the adapter → Step 4: run (PASS)**
 
 ```ts
 // apps/backend/src/infrastructure/payments/robokassa-payment.provider.ts
@@ -1808,7 +1806,7 @@ export class RobokassaProvider implements PaymentProvider {
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/infrastructure/payments/robokassa-payment.provider.test.ts --no-file-parallelism`
 Expected: PASS (4 tests).
 
-- [ ] **Step 5: Register (credential-gated)**
+- [x] **Step 5: Register (credential-gated)**
 
 ```ts
 if (backendEnv.ROBOKASSA_MERCHANT_LOGIN && backendEnv.ROBOKASSA_PASSWORD_1) {
@@ -1824,12 +1822,12 @@ if (backendEnv.ROBOKASSA_MERCHANT_LOGIN && backendEnv.ROBOKASSA_PASSWORD_1) {
 }
 ```
 
-- [ ] **Step 6: Run all payments tests + typecheck**
+- [x] **Step 6: Run all payments tests + typecheck**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/payments src/infrastructure/payments --no-file-parallelism && pnpm typecheck`
 Expected: PASS; 8/8.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/backend/src/infrastructure/payments/robokassa-payment.provider.* apps/backend/src/modules/payments/payments.module.ts
@@ -1846,7 +1844,7 @@ git commit -m "feat(payments): Robokassa adapter (md5 redirect + ResultURL webho
 - Modify: `apps/backend/src/modules/payments/payments.controller.ts`
 - Modify: `apps/backend/src/modules/payments/payments.http.integration.test.ts`
 
-- [ ] **Step 1: Add the settings DTO (`payments.dto.ts`)**
+- [x] **Step 1: Add the settings DTO (`payments.dto.ts`)**
 
 ```ts
 import { IsBoolean, IsIn } from 'class-validator';
@@ -1871,7 +1869,7 @@ export class ProviderSettingsRequest {
 
 (Keep existing imports; merge the `class-validator` import line if one already exists.)
 
-- [ ] **Step 2: Add endpoints to `payments.controller.ts`**
+- [x] **Step 2: Add endpoints to `payments.controller.ts`**
 
 Inject the settings service:
 
@@ -1901,7 +1899,7 @@ saveProviderSettings(@CurrentContext() c: RequestContext, @Body() raw: unknown) 
 }
 ```
 
-- [ ] **Step 3: Write the failing HTTP integration assertions**
+- [x] **Step 3: Write the failing HTTP integration assertions**
 
 In `payments.http.integration.test.ts`, add to the stub controller a `payments.configure`-guarded settings route mirror, and assert:
 
@@ -1925,12 +1923,12 @@ it('GET /payments/provider-settings needs payments.configure', async () => {
 });
 ```
 
-- [ ] **Step 4: Run it (FAIL), wire the stub, run again (PASS)**
+- [x] **Step 4: Run it (FAIL), wire the stub, run again (PASS)**
 
 Run: `pnpm --filter @cdoprof/backend exec vitest run src/modules/payments/payments.http.integration.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/backend/src/modules/payments/payments.dto.ts apps/backend/src/modules/payments/payments.controller.ts apps/backend/src/modules/payments/payments.http.integration.test.ts
@@ -1950,7 +1948,7 @@ git commit -m "feat(payments): /admin payments provider-settings endpoints (paym
 - Test: `apps/frontend/src/features/payments/api.contract.test.ts`
 - Test: `apps/frontend/src/e2e/payments-settings.e2e.test.ts`
 
-- [ ] **Step 1: Add the API functions (`features/payments/api.ts`)**
+- [x] **Step 1: Add the API functions (`features/payments/api.ts`)**
 
 Mirror the webinar settings client. Add:
 
@@ -1979,7 +1977,7 @@ export async function savePaymentProviderSettings(input: {
 
 (Use the project's `apiRequest` import already used in this feature's api.ts.)
 
-- [ ] **Step 2: Write the api.contract test**
+- [x] **Step 2: Write the api.contract test**
 
 ```ts
 // apps/frontend/src/features/payments/api.contract.test.ts (add cases)
@@ -2006,22 +2004,22 @@ describe('payments provider-settings api', () => {
 });
 ```
 
-- [ ] **Step 3: Run it (FAIL → after api.ts edit, PASS)**
+- [x] **Step 3: Run it (FAIL → after api.ts edit, PASS)**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/payments/api.contract.test.ts --no-file-parallelism`
 Expected: PASS.
 
-- [ ] **Step 4: Build the settings screen + page**
+- [x] **Step 4: Build the settings screen + page**
 
 `settings-screen.tsx`: a `PageContainer`/`PageHeader`/`SectionCard` form with a provider `<select>` (options: noop, fake, yookassa, tinkoff, cloudpayments, robokassa), an "enabled" checkbox, and a Save button. State via `useState` + async (`useDomainMutations.wrap` if the feature uses it; otherwise a local `useState` loading/error pattern matching the webinar settings screen). Load with `getPaymentProviderSettings` in `useEffect`; save with `savePaymentProviderSettings`.
 
 `app/admin/payments/settings/page.tsx`: wrap the screen in `<ProtectedPage>` (mirror `app/admin/webinars/settings/page.tsx`).
 
-- [ ] **Step 5: Add navigation + route policy (`features/navigation/model.ts`)**
+- [x] **Step 5: Add navigation + route policy (`features/navigation/model.ts`)**
 
 Add to `routeMeta`: `'/admin/payments/settings'` with access policy requiring `payments.configure`. **Declare it BEFORE any broader `/admin/payments` entry** (Phase 8 lesson — a broader prefix entry would otherwise shadow the policy). Add a `navigationModel` entry (label "Платёжный провайдер", appropriate nav slot).
 
-- [ ] **Step 6: Write the e2e route-access + ordering regression**
+- [x] **Step 6: Write the e2e route-access + ordering regression**
 
 ```ts
 // apps/frontend/src/e2e/payments-settings.e2e.test.ts
@@ -2044,12 +2042,12 @@ describe('/admin/payments/settings access', () => {
 
 (Match the exact signature of `evaluateRouteAccess` used by the existing e2e tests — read `canonical-e2e-readiness.e2e.test.ts` for the real call shape and adapt.)
 
-- [ ] **Step 7: Run frontend payments + e2e + typecheck**
+- [x] **Step 7: Run frontend payments + e2e + typecheck**
 
 Run: `pnpm --filter @cdoprof/frontend exec vitest run src/features/payments src/e2e/payments-settings.e2e.test.ts --no-file-parallelism && pnpm typecheck`
 Expected: PASS; 8/8.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add apps/frontend/src/features/payments apps/frontend/app/admin/payments/settings apps/frontend/src/features/navigation/model.ts apps/frontend/src/e2e/payments-settings.e2e.test.ts
@@ -2066,7 +2064,7 @@ git commit -m "feat(payments): /admin/payments/settings per-tenant provider page
 - Modify: `LMS_AGENT_HANDOFF.md` (new §5.NNN entry)
 - Tick the plan checkboxes.
 
-- [ ] **Step 1: Backend payments cluster + global typecheck/lint**
+- [x] **Step 1: Backend payments cluster + global typecheck/lint**
 
 Run:
 
@@ -2078,7 +2076,7 @@ npx eslint apps/backend/src/modules/payments apps/backend/src/infrastructure/pay
 
 Expected: all green; typecheck 8/8.
 
-- [ ] **Step 2: Frontend payments + lint**
+- [x] **Step 2: Frontend payments + lint**
 
 Run:
 
@@ -2089,11 +2087,11 @@ npx eslint apps/frontend/src/features/payments --max-warnings=0
 
 Expected: green.
 
-- [ ] **Step 3: Update README §2 + LMS_AGENT_HANDOFF §5.NNN**
+- [x] **Step 3: Update README §2 + LMS_AGENT_HANDOFF §5.NNN**
 
 Record: branch, what shipped (registry + resolver + 4 adapters + settings + migration 0056 + rawBody), test status, migration number (0056), and the remaining activation steps (acquirer contract + live creds + `PAYMENTS_ENABLED=true` + tenant selects provider). Follow the handoff protocol in CLAUDE.md.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add README.md LMS_AGENT_HANDOFF.md docs/superpowers/plans/2026-06-22-phase-7-payments-multi-provider.md
