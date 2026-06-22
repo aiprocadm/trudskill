@@ -43,7 +43,7 @@ export type PaymentProviderCode =
 
 export interface PaymentProviderSettings {
   tenantId: string;
-  providerCode: string;
+  providerCode: PaymentProviderCode;
   enabled: boolean;
   updatedAt: string;
 }

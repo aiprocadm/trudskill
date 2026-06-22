@@ -40,7 +40,7 @@ export function PaymentProviderSettingsScreen() {
         const s = await getPaymentProviderSettings();
         if (!cancelled) {
           setSettings(s);
-          setCode(s.providerCode as PaymentProviderCode);
+          setCode(s.providerCode);
           setEnabled(s.enabled);
         }
       } catch (e) {
