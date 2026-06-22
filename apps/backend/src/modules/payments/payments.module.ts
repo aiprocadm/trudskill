@@ -23,6 +23,7 @@ import {
   type PaymentProviderCode,
   type PaymentProviderRegistry
 } from '../../infrastructure/payments/payment.provider.js';
+import { YookassaPaymentProvider } from '../../infrastructure/payments/yookassa-payment.provider.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { IamModule } from '../iam/iam.module.js';
 import { MvpModule } from '../mvp/mvp.module.js';
@@ -55,11 +56,30 @@ import { MvpModule } from '../mvp/mvp.module.js';
       // PaymentProviderResolver. Ships dormant (PAYMENTS_ENABLED=false → resolver always Noop).
       // Real adapters are added in later tasks (credential-gated).
       provide: PAYMENT_PROVIDER_REGISTRY,
-      useFactory: (): PaymentProviderRegistry =>
-        new Map<PaymentProviderCode, PaymentProvider>([
+      useFactory: (): PaymentProviderRegistry => {
+        const reg = new Map<PaymentProviderCode, PaymentProvider>([
           ['noop', new NoopPaymentProvider()],
           ['fake', new FakePaymentProvider()]
-        ])
+        ]);
+        if (backendEnv.YOOKASSA_SHOP_ID && backendEnv.YOOKASSA_SECRET_KEY) {
+          reg.set(
+            'yookassa',
+            new YookassaPaymentProvider({
+              shopId: backendEnv.YOOKASSA_SHOP_ID,
+              secretKey: backendEnv.YOOKASSA_SECRET_KEY,
+              returnUrl: backendEnv.YOOKASSA_RETURN_URL,
+              apiBase: backendEnv.YOOKASSA_API_BASE,
+              allowedIps: backendEnv.YOOKASSA_WEBHOOK_IPS.split(',')
+                .map((s) => s.trim())
+                .filter(Boolean),
+              ipCheckEnabled: backendEnv.YOOKASSA_WEBHOOK_IP_CHECK
+            })
+          );
+        } else if (backendEnv.PAYMENTS_ENABLED) {
+          console.warn('[payments] yookassa not registered — YOOKASSA_SHOP_ID/SECRET_KEY missing');
+        }
+        return reg;
+      }
     },
     PaymentProviderResolver
   ],
