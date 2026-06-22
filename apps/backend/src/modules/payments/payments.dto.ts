@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsOptional,
@@ -74,4 +75,21 @@ export class OrdersFilter {
   @IsOptional()
   @IsIn(['draft', 'awaiting_payment', 'paid', 'fulfilled', 'cancelled'])
   status?: string;
+}
+
+const PROVIDER_CODES = [
+  'noop',
+  'fake',
+  'yookassa',
+  'tinkoff',
+  'cloudpayments',
+  'robokassa'
+] as const;
+
+export class ProviderSettingsRequest {
+  @IsIn(PROVIDER_CODES as unknown as string[])
+  providerCode!: (typeof PROVIDER_CODES)[number];
+
+  @IsBoolean()
+  enabled!: boolean;
 }

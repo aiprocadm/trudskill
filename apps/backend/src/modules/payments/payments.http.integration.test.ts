@@ -391,4 +391,75 @@ describe('Payments HTTP integration (permission boundaries + unguarded webhook)'
     const payload = (await response.json()) as { data: { ok: boolean } };
     expect(payload.data.ok).toBe(true);
   });
+
+  // === GET /payments/provider-settings: requires payments.configure ===
+
+  it('GET /payments/provider-settings: 403 without payments.configure', async () => {
+    const token = makeToken(['payments.read']);
+    const response = await fetch(`${apiBaseUrl}/payments/provider-settings`, {
+      headers: {
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      }
+    });
+    expect(response.status).toBe(403);
+    const payload = (await response.json()) as { error: { code: string } };
+    expect(payload.error.code).toBe('permission_denied');
+  });
+
+  it('GET /payments/provider-settings: 200 with payments.configure', async () => {
+    const token = makeToken(['payments.configure']);
+    const response = await fetch(`${apiBaseUrl}/payments/provider-settings`, {
+      headers: {
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      }
+    });
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      data: { tenantId: string; providerCode: string; enabled: boolean };
+      meta: { requestId: string };
+    };
+    expect(payload.data.providerCode).toBe('noop');
+    expect(payload.meta.requestId).toBeTruthy();
+  });
+
+  // === PUT /payments/provider-settings: requires payments.configure ===
+
+  it('PUT /payments/provider-settings: 403 without payments.configure', async () => {
+    const token = makeToken(['payments.read']);
+    const response = await fetch(`${apiBaseUrl}/payments/provider-settings`, {
+      method: 'PUT',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ providerCode: 'fake', enabled: true })
+    });
+    expect(response.status).toBe(403);
+    const payload = (await response.json()) as { error: { code: string } };
+    expect(payload.error.code).toBe('permission_denied');
+  });
+
+  it('PUT /payments/provider-settings: 200 with payments.configure', async () => {
+    const token = makeToken(['payments.configure']);
+    const response = await fetch(`${apiBaseUrl}/payments/provider-settings`, {
+      method: 'PUT',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ providerCode: 'fake', enabled: true })
+    });
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      data: { tenantId: string; providerCode: string; enabled: boolean };
+      meta: { requestId: string };
+    };
+    expect(payload.data.providerCode).toBe('fake');
+    expect(payload.data.enabled).toBe(true);
+    expect(payload.meta.requestId).toBeTruthy();
+  });
 });
