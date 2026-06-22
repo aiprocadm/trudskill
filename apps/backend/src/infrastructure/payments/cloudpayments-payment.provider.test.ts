@@ -46,14 +46,33 @@ describe('CloudPaymentsProvider.createPayment', () => {
 });
 
 describe('CloudPaymentsProvider.parseWebhook', () => {
-  const payload = { TransactionId: 555, Status: 'Completed' };
-  const raw = Buffer.from(JSON.stringify(payload));
+  // CloudPayments delivers webhooks as application/x-www-form-urlencoded
+  const raw = Buffer.from('TransactionId=555&Status=Completed', 'utf8');
   const goodHmac = createHmac('sha256', cfg.apiSecret).update(raw).digest('base64');
 
   it('verifies Content-HMAC and maps Completed → succeeded', async () => {
     const p = new CloudPaymentsProvider(cfg, vi.fn() as unknown as typeof fetch);
     const ev = await p.parseWebhook(raw, { 'content-hmac': goodHmac });
     expect(ev).toMatchObject({ providerPaymentId: '555', status: 'succeeded' });
+  });
+  it('rawPayload is the form-field object', async () => {
+    const p = new CloudPaymentsProvider(cfg, vi.fn() as unknown as typeof fetch);
+    const ev = await p.parseWebhook(raw, { 'content-hmac': goodHmac });
+    expect(ev?.rawPayload).toEqual({ TransactionId: '555', Status: 'Completed' });
+  });
+  it('maps Authorized → succeeded', async () => {
+    const rawAuth = Buffer.from('TransactionId=556&Status=Authorized', 'utf8');
+    const hmac = createHmac('sha256', cfg.apiSecret).update(rawAuth).digest('base64');
+    const p = new CloudPaymentsProvider(cfg, vi.fn() as unknown as typeof fetch);
+    const ev = await p.parseWebhook(rawAuth, { 'content-hmac': hmac });
+    expect(ev).toMatchObject({ providerPaymentId: '556', status: 'succeeded' });
+  });
+  it('maps Cancelled → cancelled', async () => {
+    const rawCancelled = Buffer.from('TransactionId=557&Status=Cancelled', 'utf8');
+    const hmac = createHmac('sha256', cfg.apiSecret).update(rawCancelled).digest('base64');
+    const p = new CloudPaymentsProvider(cfg, vi.fn() as unknown as typeof fetch);
+    const ev = await p.parseWebhook(rawCancelled, { 'content-hmac': hmac });
+    expect(ev).toMatchObject({ providerPaymentId: '557', status: 'cancelled' });
   });
   it('returns null on a bad HMAC', async () => {
     const p = new CloudPaymentsProvider(cfg, vi.fn() as unknown as typeof fetch);

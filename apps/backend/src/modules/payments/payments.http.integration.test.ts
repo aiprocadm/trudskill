@@ -364,10 +364,11 @@ describe('Payments HTTP integration (permission boundaries + unguarded webhook)'
     expect(payload.meta.requestId).toBeTruthy();
   });
 
-  // === Unguarded webhook: no auth required ===
+  // === Unguarded webhook: no auth required, raw (unwrapped) ack body ===
 
-  it('POST /payments/webhook/fake: reachable without any auth → 2xx { ok: true }', async () => {
+  it('POST /payments/webhook/fake: reachable without any auth → 2xx raw { ok: true }', async () => {
     // No x-tenant-id, no Authorization — provider returns null → ok: true
+    // The response must NOT be wrapped in {data, meta} — acquirers need the exact literal body.
     fakeProviderStub.parseWebhook.mockResolvedValueOnce(null);
     const response = await fetch(`${apiBaseUrl}/payments/webhook/fake`, {
       method: 'POST',
@@ -376,11 +377,13 @@ describe('Payments HTTP integration (permission boundaries + unguarded webhook)'
     });
     // Webhook has no TenantGuard — must be 2xx
     expect(response.status).toBeLessThan(300);
-    const payload = (await response.json()) as { data: { ok: boolean }; meta: unknown };
-    expect(payload.data.ok).toBe(true);
+    const payload = (await response.json()) as { ok: boolean };
+    // Raw body — NOT wrapped in {data, meta}
+    expect(payload.ok).toBe(true);
+    expect((payload as any).data).toBeUndefined();
   });
 
-  it('POST /payments/webhook/fake: null-event provider path returns ok: true', async () => {
+  it('POST /payments/webhook/fake: null-event provider path returns raw ok: true', async () => {
     fakeProviderStub.parseWebhook.mockResolvedValueOnce(null);
     const response = await fetch(`${apiBaseUrl}/payments/webhook/fake`, {
       method: 'POST',
@@ -388,8 +391,21 @@ describe('Payments HTTP integration (permission boundaries + unguarded webhook)'
       body: JSON.stringify({})
     });
     expect(response.status).toBeLessThan(300);
-    const payload = (await response.json()) as { data: { ok: boolean } };
-    expect(payload.data.ok).toBe(true);
+    const payload = (await response.json()) as { ok: boolean };
+    expect(payload.ok).toBe(true);
+    expect((payload as any).data).toBeUndefined();
+  });
+
+  it('POST /payments/webhook/unknowncode: unknown provider → raw { ok: true }', async () => {
+    const response = await fetch(`${apiBaseUrl}/payments/webhook/unknowncode`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    expect(response.status).toBeLessThan(300);
+    const payload = (await response.json()) as { ok: boolean };
+    expect(payload.ok).toBe(true);
+    expect((payload as any).data).toBeUndefined();
   });
 
   // === GET /payments/provider-settings: requires payments.configure ===

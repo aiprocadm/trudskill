@@ -62,15 +62,18 @@ export class CloudPaymentsProvider implements PaymentProvider {
     const b = Buffer.from(expected);
     if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
 
-    let body: Record<string, unknown>;
+    // CloudPayments delivers notifications as application/x-www-form-urlencoded, not JSON.
+    // Parse the raw body as URL-encoded form fields.
+    let params: URLSearchParams;
     try {
-      body = JSON.parse(raw.toString('utf8'));
+      params = new URLSearchParams(raw.toString('utf8'));
     } catch {
       return null;
     }
-    const id = body.TransactionId ?? body.InvoiceId;
-    if (id === undefined || id === null) return null;
-    const st = String(body.Status ?? '');
+    const rawPayload = Object.fromEntries(params.entries());
+    const id = params.get('TransactionId') ?? params.get('InvoiceId');
+    if (id === null || id === '') return null;
+    const st = params.get('Status') ?? '';
     const status =
       st === 'Completed' || st === 'Authorized'
         ? ('succeeded' as const)
@@ -78,7 +81,7 @@ export class CloudPaymentsProvider implements PaymentProvider {
           ? ('cancelled' as const)
           : null;
     if (!status) return null;
-    return { providerPaymentId: String(id), status, rawPayload: body };
+    return { providerPaymentId: id, status, rawPayload };
   }
 
   webhookAck(): Record<string, unknown> {
