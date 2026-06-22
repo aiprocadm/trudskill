@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 
 import type {
   CreatePaymentParams,
@@ -74,8 +74,13 @@ export class TinkoffPaymentProvider implements PaymentProvider {
     } catch {
       return null;
     }
+    if (body.TerminalKey !== this.cfg.terminalKey) return null;
     const token = body.Token;
-    if (typeof token !== 'string' || tinkoffToken(body, this.cfg.password) !== token) return null;
+    if (typeof token !== 'string') return null;
+    const expected = tinkoffToken(body, this.cfg.password);
+    const a = Buffer.from(expected);
+    const b = Buffer.from(token);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
     const paymentId = body.PaymentId;
     if (paymentId === undefined || paymentId === null) return null;
     const status =

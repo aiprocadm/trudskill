@@ -89,6 +89,8 @@ import { MvpModule } from '../mvp/mvp.module.js';
               successUrl: backendEnv.TINKOFF_SUCCESS_URL
             })
           );
+        } else if (backendEnv.PAYMENTS_ENABLED) {
+          console.warn('[payments] tinkoff not registered — TINKOFF_TERMINAL_KEY/PASSWORD missing');
         }
         return reg;
       }
