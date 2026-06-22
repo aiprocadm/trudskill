@@ -23,6 +23,7 @@ import {
   type PaymentProviderCode,
   type PaymentProviderRegistry
 } from '../../infrastructure/payments/payment.provider.js';
+import { TinkoffPaymentProvider } from '../../infrastructure/payments/tinkoff-payment.provider.js';
 import { YookassaPaymentProvider } from '../../infrastructure/payments/yookassa-payment.provider.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { IamModule } from '../iam/iam.module.js';
@@ -77,6 +78,17 @@ import { MvpModule } from '../mvp/mvp.module.js';
           );
         } else if (backendEnv.PAYMENTS_ENABLED) {
           console.warn('[payments] yookassa not registered — YOOKASSA_SHOP_ID/SECRET_KEY missing');
+        }
+        if (backendEnv.TINKOFF_TERMINAL_KEY && backendEnv.TINKOFF_PASSWORD) {
+          reg.set(
+            'tinkoff',
+            new TinkoffPaymentProvider({
+              terminalKey: backendEnv.TINKOFF_TERMINAL_KEY,
+              password: backendEnv.TINKOFF_PASSWORD,
+              apiBase: backendEnv.TINKOFF_API_BASE,
+              successUrl: backendEnv.TINKOFF_SUCCESS_URL
+            })
+          );
         }
         return reg;
       }
