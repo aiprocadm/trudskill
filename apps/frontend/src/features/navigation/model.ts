@@ -100,6 +100,11 @@ export const routeMeta: RouteMetaEntry[] = [
     pattern: '/admin/recertification',
     meta: { public: false, requiredPermissions: ['recertification.read'] }
   },
+  // More-specific pattern first: /admin/payments/settings must precede /admin/orders or it'd inherit payments.read.
+  {
+    pattern: '/admin/payments/settings',
+    meta: { public: false, requiredPermissions: ['payments.configure'] }
+  },
   {
     pattern: '/admin/orders',
     meta: { public: false, requiredPermissions: ['payments.read'] }
@@ -477,6 +482,12 @@ export const navigationModel: NavigationItem[] = [
     href: '/admin/orders',
     label: 'Заказы',
     requiredPermissions: ['payments.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/admin/payments/settings',
+    label: 'Платёжный провайдер',
+    requiredPermissions: ['payments.configure'],
     navSlot: 'more'
   },
   {

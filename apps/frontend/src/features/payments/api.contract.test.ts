@@ -2,8 +2,10 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type {
   createOrder as CreateOrder,
+  getPaymentProviderSettings as GetPaymentProviderSettings,
   listOrders as ListOrders,
-  markOrderPaid as MarkOrderPaid
+  markOrderPaid as MarkOrderPaid,
+  savePaymentProviderSettings as SavePaymentProviderSettings
 } from './api';
 
 const fetchMock = vi.fn();
@@ -18,6 +20,8 @@ describe('payments api', () => {
   let listOrders: typeof ListOrders;
   let createOrder: typeof CreateOrder;
   let markOrderPaid: typeof MarkOrderPaid;
+  let getPaymentProviderSettings: typeof GetPaymentProviderSettings;
+  let savePaymentProviderSettings: typeof SavePaymentProviderSettings;
 
   beforeAll(async () => {
     process.env.NEXT_PUBLIC_API_BASE_URL ??= 'http://localhost:3001/api/v1';
@@ -27,6 +31,8 @@ describe('payments api', () => {
     listOrders = mod.listOrders;
     createOrder = mod.createOrder;
     markOrderPaid = mod.markOrderPaid;
+    getPaymentProviderSettings = mod.getPaymentProviderSettings;
+    savePaymentProviderSettings = mod.savePaymentProviderSettings;
   });
 
   afterEach(() => {
@@ -77,5 +83,35 @@ describe('payments api', () => {
     await markOrderPaid('o1', { method: 'bank_transfer' });
     const [calledUrl] = spy.mock.calls[0] as unknown as [string, RequestInit];
     expect(calledUrl).toContain('/orders/o1/mark-paid');
+  });
+
+  it('getPaymentProviderSettings unwraps envelope to settings object', async () => {
+    const mockSettings = {
+      tenantId: 't1',
+      providerCode: 'yookassa',
+      enabled: true,
+      updatedAt: '2026-06-23T00:00:00.000Z'
+    };
+    fetchMock.mockResolvedValueOnce(new Response(envelope(mockSettings), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const result = await getPaymentProviderSettings();
+    expect(result.providerCode).toBe('yookassa');
+    expect(result.enabled).toBe(true);
+  });
+
+  it('savePaymentProviderSettings sends PUT and returns updated settings', async () => {
+    const mockSettings = {
+      tenantId: 't1',
+      providerCode: 'tinkoff',
+      enabled: false,
+      updatedAt: '2026-06-23T00:00:00.000Z'
+    };
+    const spy = vi.fn(async () => new Response(envelope(mockSettings), { status: 200 }));
+    vi.stubGlobal('fetch', spy);
+    const result = await savePaymentProviderSettings({ providerCode: 'tinkoff', enabled: false });
+    const [calledUrl, calledInit] = spy.mock.calls[0] as unknown as [string, RequestInit];
+    expect(calledUrl).toContain('/payments/provider-settings');
+    expect(calledInit.method).toBe('PUT');
+    expect(result.providerCode).toBe('tinkoff');
   });
 });
