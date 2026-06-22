@@ -198,7 +198,10 @@ describe('Payments HTTP integration (permission boundaries + unguarded webhook)'
     const address = created.getHttpServer().address() as { port: number };
     apiBaseUrl = `http://127.0.0.1:${address.port}${process.env.API_PREFIX ?? '/api/v1'}`;
     app = created;
-  }, 30_000);
+    // Importing the real IamService/AuthService classes as DI tokens drags in the
+    // entire IAM module graph; on the Cyrillic-path Windows dev box transform alone
+    // takes ~20s, blowing the default 30s hook budget. CI (Ubuntu) boots in ~8s.
+  }, 120_000);
 
   afterAll(async () => {
     if (app) await app.close();
