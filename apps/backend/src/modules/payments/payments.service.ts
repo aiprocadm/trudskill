@@ -30,12 +30,9 @@ class PaymentForbiddenError extends ForbiddenException {
 }
 
 import { PaymentFulfillmentService } from './payment-fulfillment.service.js';
+import { PaymentProviderResolver } from './payment-provider-resolver.service.js';
 import { PAYMENTS_REPOSITORY, type PaymentsRepository } from './payments.repository.js';
 import { assertOrderTransition, canCancelOrder } from './payments.state-machine.js';
-import {
-  PAYMENT_PROVIDER,
-  type PaymentProvider
-} from '../../infrastructure/payments/payment.provider.js';
 import { AuditService } from '../audit/audit.service.js';
 
 import type { CreateOrderRequest, MarkPaidRequest } from './payments.dto.js';
@@ -46,7 +43,7 @@ import type { RequestContext } from '../../common/context/request-context.js';
 export class PaymentsService {
   constructor(
     @Inject(PAYMENTS_REPOSITORY) private readonly repo: PaymentsRepository,
-    @Inject(PAYMENT_PROVIDER) private readonly provider: PaymentProvider,
+    @Inject(PaymentProviderResolver) private readonly resolver: PaymentProviderResolver,
     @Inject(PaymentFulfillmentService) private readonly fulfillment: PaymentFulfillmentService,
     @Inject(AuditService) private readonly audit: AuditService
   ) {}
@@ -108,7 +105,8 @@ export class PaymentsService {
       throw new PaymentBadRequestError('order_not_payable', 'Заказ не ожидает оплаты');
     }
 
-    const result = await this.provider.createPayment({
+    const provider = await this.resolver.forTenant(tenantId);
+    const result = await provider.createPayment({
       tenantId,
       orderId: order.id,
       amount: order.totalAmount,
@@ -123,7 +121,7 @@ export class PaymentsService {
     await this.repo.createPayment({
       tenantId,
       orderId: order.id,
-      provider: this.provider.id as any,
+      provider: provider.code,
       providerPaymentId: result.providerPaymentId,
       method: 'card',
       amount: order.totalAmount,

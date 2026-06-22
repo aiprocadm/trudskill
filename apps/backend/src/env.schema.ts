@@ -71,10 +71,34 @@ export const backendEnvSchema = z
       .union([z.boolean(), z.enum(['true', 'false'])])
       .transform((v) => v === true || v === 'true')
       .default(false),
-    /** Active payment provider. 'noop' until a ЮKassa adapter is wired. 'fake' = staging preview. */
-    PAYMENTS_PROVIDER: z.enum(['noop', 'yookassa', 'fake']).default('noop'),
     /** ISO-4217 currency. RUB-only this iteration. */
     PAYMENTS_CURRENCY: z.literal('RUB').default('RUB'),
+    // --- Acquirer credentials (one platform merchant). All optional; an adapter with blank
+    // creds is omitted from the registry at runtime (boot never fails for a missing acquirer). ---
+    YOOKASSA_SHOP_ID: z.string().default(''),
+    YOOKASSA_SECRET_KEY: z.string().default(''),
+    YOOKASSA_RETURN_URL: z.string().default(''),
+    YOOKASSA_API_BASE: z.string().default('https://api.yookassa.ru/v3'),
+    YOOKASSA_WEBHOOK_IPS: z
+      .string()
+      .default(
+        '185.71.76.0/27,185.71.77.0/27,77.75.153.0/25,77.75.156.11,77.75.156.35,77.75.154.128/25,2a02:5180::/32'
+      ),
+    YOOKASSA_WEBHOOK_IP_CHECK: z
+      .union([z.boolean(), z.enum(['true', 'false'])])
+      .transform((v) => v === true || v === 'true')
+      .default(true),
+    TINKOFF_TERMINAL_KEY: z.string().default(''),
+    TINKOFF_PASSWORD: z.string().default(''),
+    TINKOFF_API_BASE: z.string().default('https://securepay.tinkoff.ru'),
+    TINKOFF_SUCCESS_URL: z.string().default(''),
+    CLOUDPAYMENTS_PUBLIC_ID: z.string().default(''),
+    CLOUDPAYMENTS_API_SECRET: z.string().default(''),
+    CLOUDPAYMENTS_API_BASE: z.string().default('https://api.cloudpayments.ru'),
+    ROBOKASSA_MERCHANT_LOGIN: z.string().default(''),
+    ROBOKASSA_PASSWORD_1: z.string().default(''),
+    ROBOKASSA_PASSWORD_2: z.string().default(''),
+    ROBOKASSA_PAY_URL: z.string().default('https://auth.robokassa.ru/Merchant/Index.aspx'),
     // Phase 8 webinars seam master switch. Ships dormant (false → every tenant resolves to
     // NoopWebinarProvider regardless of their saved provider_code). Custom boolean parse — NOT
     // z.coerce.boolean (string "false" → true) — so the subsystem is never accidentally on.
@@ -403,19 +427,6 @@ export const backendEnvSchema = z
         path: ['EXPORT_SIGN_PROVIDER'],
         message:
           'EXPORT_SIGN_PROVIDER=fake is forbidden in production — it fakes signatures (use cryptopro)'
-      });
-    }
-
-    // PAYMENTS_PROVIDER=fake is a STAGING preview mode (no real money moves).
-    // Deliberately blocked ONLY in production, NOT staging: staging is where the owner previews
-    // the payment pipeline end-to-end. Real prod is always NODE_ENV=production (enforced by the
-    // DEPLOYMENT_PROFILE=prod ⟺ NODE_ENV=production parity checks above), so this cannot be dodged.
-    if (env.PAYMENTS_PROVIDER === 'fake' && env.NODE_ENV === 'production') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['PAYMENTS_PROVIDER'],
-        message:
-          'PAYMENTS_PROVIDER=fake is forbidden in production — it fakes payments (use yookassa)'
       });
     }
   });

@@ -33,6 +33,30 @@ export interface MarkPaidInput {
   note?: string;
 }
 
+export type PaymentProviderCode =
+  | 'noop'
+  | 'fake'
+  | 'yookassa'
+  | 'tinkoff'
+  | 'cloudpayments'
+  | 'robokassa';
+
+export interface PaymentProviderSettings {
+  tenantId: string;
+  providerCode: PaymentProviderCode;
+  enabled: boolean;
+  updatedAt: string;
+}
+
+export const PAYMENT_PROVIDER_LABELS: Record<PaymentProviderCode, string> = {
+  noop: 'Отключено (noop)',
+  fake: 'Тестовый (fake)',
+  yookassa: 'ЮKassa',
+  tinkoff: 'Т-Касса',
+  cloudpayments: 'CloudPayments',
+  robokassa: 'Robokassa'
+};
+
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   draft: 'Черновик',
   awaiting_payment: 'Ожидает оплаты',

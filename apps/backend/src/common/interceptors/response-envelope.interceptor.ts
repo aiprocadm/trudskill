@@ -1,4 +1,9 @@
-import { type CallHandler, type ExecutionContext, Injectable, type NestInterceptor } from '@nestjs/common';
+import {
+  type CallHandler,
+  type ExecutionContext,
+  Injectable,
+  type NestInterceptor
+} from '@nestjs/common';
 import { type Observable, map } from 'rxjs';
 
 import { resolveRequestContext } from '../utils/request.js';
@@ -13,6 +18,10 @@ export class ResponseEnvelopeInterceptor implements NestInterceptor {
         const http = context.switchToHttp();
         const req = http.getRequest();
         const res = http.getResponse();
+        if (res.headersSent) {
+          // a controller (e.g. the unguarded payment webhook) already sent via @Res(); do not wrap/re-header
+          return data;
+        }
         const requestContext = resolveRequestContext(req);
         res.setHeader('x-request-id', requestContext.requestId);
         res.setHeader('x-correlation-id', requestContext.correlationId);

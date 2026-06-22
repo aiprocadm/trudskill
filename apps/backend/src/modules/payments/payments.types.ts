@@ -2,7 +2,14 @@ export type OrderStatus = 'draft' | 'awaiting_payment' | 'paid' | 'fulfilled' | 
 export type OrderBuyerType = 'learner' | 'counterparty';
 export type ItemFulfillmentStatus = 'pending' | 'enrolled' | 'skipped';
 export type PaymentRowStatus = 'pending' | 'succeeded' | 'failed' | 'cancelled' | 'refunded';
-export type PaymentProviderId = 'manual' | 'noop' | 'fake' | 'yookassa';
+export type PaymentProviderId =
+  | 'manual'
+  | 'noop'
+  | 'fake'
+  | 'yookassa'
+  | 'tinkoff'
+  | 'cloudpayments'
+  | 'robokassa';
 export type PaymentMethod = 'manual' | 'bank_transfer' | 'card';
 
 export interface OrderItemEntity {

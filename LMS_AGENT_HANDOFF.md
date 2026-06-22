@@ -1698,6 +1698,43 @@
 - **Тест-статус (всё зелёное, прогон батчами):** typecheck **8/8** (exit 0), ESLint clean по изменённым файлам; backend — common/infra/seeds **42**, integrations+iam+audit+health+org+workspace+files+tenant **40**, communication+esign **24**, documents **18**, mvp (все поддиректории + top-level, **9 батчей**) суммарно зелёные; frontend **634**, contracts **7**. **Единственное исключение:** `mvp.domains.http.integration.test.ts` локально падает `ERR_IPC_CHANNEL_CLOSED` (tinypool + Cyrillic-путь — задокументированный env-краш, не баг кода; проходит в CI на Ubuntu).
 - **Closes:** §13 Issue 5.
 
+### 5.139 Phase 7 — активация онлайн-платежей (multi-provider, per-tenant) + 4 реальных адаптера эквайеров
+
+- **Запрос:** активировать онлайн-платежи поверх дормант-шва Phase 7 (§5.133, PR #262), зеркаля multi-provider + per-tenant паттерн Phase 8 (§5.134). Ветка `feat/2026-06-22-phase-7-payments-multi-provider`. Полный цикл spec → план (11 задач) → subagent-driven; эта запись = Task 11 (верификация + документация).
+- **Спек/план:** [`docs/superpowers/specs/2026-06-22-phase-7-payments-multi-provider-activation-design.md`](docs/superpowers/specs/2026-06-22-phase-7-payments-multi-provider-activation-design.md), [`docs/superpowers/plans/2026-06-22-phase-7-payments-multi-provider.md`](docs/superpowers/plans/2026-06-22-phase-7-payments-multi-provider.md).
+- **Рефактор шва (registry + per-tenant resolver):** одиночный DI-токен `PAYMENT_PROVIDER` заменён реестром `PAYMENT_PROVIDER_REGISTRY` (Map по коду) + `PaymentProviderResolver.forTenant` (prod-guard для `fake` переехал в резолвер); `provider.id`→`provider.code`; единый источник истины `PAYMENT_PROVIDER_CODES`. Provider-specific webhook `POST /payments/webhook/:providerCode` + опц. `webhookAck` per provider.
+- **Per-tenant настройки:** новая таблица `payments.payment_provider_settings` (НЕсекретный per-tenant выбор провайдера + `enabled`) + repo (in-memory + postgres) + `PaymentProviderSettingsService`.
+- **Четыре реальных адаптера** ([`apps/backend/src/infrastructure/payments/`](apps/backend/src/infrastructure/payments/)), credential-gated в реестре (пустые креды → адаптер опущен, boot никогда не падает):
+  - **ЮKassa** — REST createPayment (Basic auth + `Idempotence-Key=orderId`); webhook-аутентичность = ре-фетч статуса платежа из API (источник истины) + IPv4-allowlist (IPv6/неопределимый → fall through на ре-фетч).
+  - **Т-Касса (Tinkoff)** — `/v2/Init` (Amount в копейках, token SHA-256); webhook сверяет `TerminalKey` + timing-safe token; ACK `'OK'`.
+  - **CloudPayments** — `/orders/create` (Basic auth, Amount в мажорных единицах); webhook HMAC-SHA256 (`Content-HMAC`, timing-safe); ACK `{code:0}`.
+  - **Robokassa** — подписанный redirect URL (md5, без HTTP); ResultURL webhook md5 (требует `PASSWORD_2` для регистрации); ACK `OK{InvId}`.
+- **env:** убран `PAYMENTS_PROVIDER` (выбор теперь per-tenant); добавлены cred-vars эквайеров (все опциональные, credential-gated); `main.ts` `rawBody: true`; `infra/.env.production.example` обновлён.
+- **Frontend:** `/admin/payments/settings` (per-tenant select провайдера + enabled) под правом `payments.configure`; nav-entry упорядочен перед `/admin/orders`.
+- **Files changed (by area):**
+  - _Миграция:_ `apps/backend/migrations/0056_payments_provider_settings.sql`.
+  - _Seam/реестр/резолвер:_ `infrastructure/payments/payment.provider.ts`, `modules/payments/payment-provider-resolver.service.{ts,test.ts}`, `payments.module.ts`.
+  - _Per-tenant settings:_ `payment-provider-settings.{repository.ts,service.ts,service.test.ts}`, `in-memory-payment-provider-settings.repository.{ts,test.ts}`, `postgres-payment-provider-settings.repository.ts`, `migration-0056.test.ts`.
+  - _4 адаптера:_ `infrastructure/payments/{yookassa,tinkoff,cloudpayments,robokassa}-payment.provider.{ts,test.ts}` (+ правки `fake`/`noop`).
+  - _Контроллеры/DTO/типы:_ `payments-webhook.controller.ts`, `payments.controller.ts`, `payments.dto.ts`, `payments.types.ts`, `payments.service.{ts,test.ts}`, `payments.http.integration.test.ts`.
+  - _env:_ `env.schema.ts`, `env.payments.test.ts`, `main.ts`, `infra/.env.production.example`.
+  - _Frontend:_ `app/admin/payments/settings/page.tsx`, `features/payments/{settings-screen.tsx,types.ts,api.ts,api.contract.test.ts}`, `features/navigation/model.ts`, `e2e/payments-settings.e2e.test.ts`.
+  - _Docs:_ spec + plan (см. выше).
+- **Миграция 0056** (последняя). Новое право `payments.configure`.
+- **Тест-статус (финальный, всё зелёное):** backend payments-кластер **89 pass** (17 файлов; `vitest run src/modules/payments src/infrastructure/payments src/env.payments.test.ts --no-file-parallelism`); `pnpm typecheck` **8/8**; ESLint clean (`apps/backend/src/modules/payments` + `apps/backend/src/infrastructure/payments`; `apps/frontend/src/features/payments`); frontend payments **12 pass** (2 файла; `src/features/payments` + `src/e2e/payments-settings.e2e.test.ts`).
+- **Go-live остаток:** договор с эквайером + боевые креды в env + `PAYMENTS_ENABLED=true` + выбор провайдера тенантом в `/admin/payments/settings`.
+- **Deviations / Follow-ups (отложены, найдены при ревью):**
+  1. `findOrderByProviderPaymentId` (payments repository) резолвит по `provider_payment_id` **без** фильтра по колонке `provider`. У Robokassa `orderToInvId` — короткий 31-битный integer; теоретически InvId Robokassa может совпасть со строкой-id другого провайдера. Webhook-контроллер уже знает `providerCode` (из URL) — hardening-follow-up = добавить `provider`-фильтр в этот lookup. Низкий риск на текущем масштабе.
+  2. Webhook не сверяет сумму уведомления (например Robokassa `OutSum`) со хранимой суммой заказа перед fulfillment. Подпись покрывает сумму серверным секретом → форджа исключена; остаток (acquirer-side partial payment) экзотичен. Follow-up: верифицировать сумму в webhook-контроллере после резолва заказа.
+  3. Четыре адаптера кодируют документированный контракт каждого эквайера по текущему знанию (имена полей, формулы подписи). Перед go-live сверить каждый с актуальными доками/песочницей провайдера; юнит-тесты пинят закодированное поведение → правка по докам будет локальной.
+
+- **Финальное холистическое ревью (поймало + исправлено):**
+  1. **CRITICAL** — глобальный `ResponseEnvelopeInterceptor` оборачивал ACK вебхука в `{data, meta}`, из-за чего эквайеры (Robokassa `OK{InvId}`, Tinkoff `OK`, CloudPayments `{code:0}`) никогда не получали ожидаемое буквальное тело и уходили в бесконечный retry. Фикс: webhook-контроллер теперь отправляет ACK напрямую через `@Res()`, а `ResponseEnvelopeInterceptor` получил защиту `if (res.headersSent) return data;` — чтобы никогда не добавлять заголовки к уже отправленному (`@Res`) ответу (envelope-wrapping для health/scorm и прочих эндпоинтов проверен — не затронут).
+  2. **IMPORTANT** — CloudPayments доставляет вебхуки как `application/x-www-form-urlencoded`, а не JSON; адаптер теперь парсит через `URLSearchParams` (HMAC по-прежнему считается над сырыми байтами).
+  3. **IMPORTANT** — вебхук теперь кросс-проверяет `payment.provider === providerCode` (URL-сегмент) перед fulfillment, закрывая hardening-gap коллизии provider-id из Follow-up #1.
+  4. **MINOR** — устаревший комментарий в `fake-payment.provider.ts` обновлён — теперь указывает на guard в резолвере.
+     Итог: backend payments-кластер вырос с 85 до **89 pass** (добавились тесты на envelope-bypass, form-body CloudPayments, provider cross-check).
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |

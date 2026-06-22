@@ -1,9 +1,20 @@
 /**
- * Provider-agnostic seam for course-purchase payments, mirroring ExportSignatureProvider.
- * Noop is the safe default for dev/test and any env with PAYMENTS_ENABLED=false: online
- * payment is unavailable, but manual bank-transfer mark-paid still works. A ЮKassa adapter
- * plugs in later behind PAYMENT_PROVIDER. All amounts are integer kopecks.
+ * Provider-agnostic, MULTI-PROVIDER seam for course-purchase payments. The active provider is
+ * chosen PER TENANT (see PaymentProviderResolver), not by one global env enum — mirroring the
+ * webinar seam. Noop is the safe default while PAYMENTS_ENABLED=false and for any tenant with no
+ * provider configured. Real adapters (ЮKassa, Tinkoff, CloudPayments, Robokassa) register into the
+ * registry. All amounts are integer kopecks; major-unit conversion happens only inside an adapter.
  */
+export const PAYMENT_PROVIDER_CODES = [
+  'noop',
+  'fake',
+  'yookassa',
+  'tinkoff',
+  'cloudpayments',
+  'robokassa'
+] as const;
+export type PaymentProviderCode = (typeof PAYMENT_PROVIDER_CODES)[number];
+
 export type PaymentStatus = 'pending' | 'succeeded' | 'failed' | 'cancelled' | 'refunded';
 
 export interface CreatePaymentParams {
@@ -16,10 +27,8 @@ export interface CreatePaymentParams {
 }
 
 export interface CreatePaymentResult {
-  /** Provider-side payment id; '' when disabled. */
   providerPaymentId: string;
   status: 'pending' | 'disabled';
-  /** Redirect URL the buyer opens to pay. Set only when a real/fake provider is active. */
   confirmationUrl?: string;
 }
 
@@ -30,21 +39,28 @@ export interface WebhookEvent {
 }
 
 export interface PaymentProvider {
-  /** Stable provider id ('noop' | 'fake' | 'yookassa'). */
-  readonly id: string;
+  /** Stable provider code; also stored in the payments.provider column. */
+  readonly code: PaymentProviderCode;
   createPayment(params: CreatePaymentParams): Promise<CreatePaymentResult>;
-  /** Verifies signature internally; returns null for unrecognized/unsigned payloads. */
+  /** Verifies authenticity internally; returns null for unrecognized/unverified payloads. */
   parseWebhook(
     raw: Buffer,
     headers: Record<string, string | undefined>
   ): Promise<WebhookEvent | null>;
+  /**
+   * Optional provider-specific webhook ACK body. The acquirer retries unless it receives the body
+   * it expects (Robokassa `OK{InvId}`, Tinkoff `OK`, CloudPayments `{code:0}`, ЮKassa any-200).
+   * When omitted, the controller responds `{ ok: true }`.
+   */
+  webhookAck?(event: WebhookEvent | null, raw: Buffer): string | Record<string, unknown>;
 }
 
-/** DI token for the active payment provider. Mirrors EXPORT_SIGNATURE_PROVIDER. */
-export const PAYMENT_PROVIDER = Symbol('PAYMENT_PROVIDER');
+/** DI token for the registry of all compiled-in providers. Mirrors WEBINAR_PROVIDER_REGISTRY. */
+export const PAYMENT_PROVIDER_REGISTRY = Symbol('PAYMENT_PROVIDER_REGISTRY');
+export type PaymentProviderRegistry = Map<PaymentProviderCode, PaymentProvider>;
 
 export class NoopPaymentProvider implements PaymentProvider {
-  readonly id = 'noop';
+  readonly code = 'noop' as const;
   async createPayment(_params: CreatePaymentParams): Promise<CreatePaymentResult> {
     return { providerPaymentId: '', status: 'disabled' };
   }

@@ -12,7 +12,7 @@ describe('FakePaymentProvider', () => {
       currency: 'RUB',
       description: 'Курс ОТ'
     });
-    expect(provider.id).toBe('fake');
+    expect(provider.code).toBe('fake');
     expect(result.status).toBe('pending');
     expect(result.providerPaymentId).toMatch(/^fake-pay:/);
     expect(result.confirmationUrl).toContain('o1');

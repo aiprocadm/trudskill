@@ -79,8 +79,8 @@ describe('Payments HTTP integration (permission boundaries + unguarded webhook)'
     markItemFulfilled: vi.fn().mockResolvedValue(undefined)
   };
 
-  const paymentProviderStub = {
-    id: 'noop',
+  const fakeProviderStub = {
+    code: 'fake',
     createPayment: vi.fn().mockResolvedValue({ providerPaymentId: '', status: 'disabled' }),
     parseWebhook: vi.fn().mockResolvedValue(null)
   };
@@ -105,6 +105,9 @@ describe('Payments HTTP integration (permission boundaries + unguarded webhook)'
       paymentsServiceImport,
       paymentsRepoImport,
       paymentProviderImport,
+      resolverImport,
+      settingsServiceImport,
+      settingsRepoImport,
       fulfillmentServiceImport,
       iamServiceImport,
       authServiceImport
@@ -123,6 +126,9 @@ describe('Payments HTTP integration (permission boundaries + unguarded webhook)'
       import('./payments.service.js'),
       import('./payments.repository.js'),
       import('../../infrastructure/payments/payment.provider.js'),
+      import('./payment-provider-resolver.service.js'),
+      import('./payment-provider-settings.service.js'),
+      import('./in-memory-payment-provider-settings.repository.js'),
       import('./payment-fulfillment.service.js'),
       import('../iam/services/iam.service.js'),
       import('../iam/services/auth.service.js')
@@ -142,7 +148,10 @@ describe('Payments HTTP integration (permission boundaries + unguarded webhook)'
     const { PaymentsWebhookController } = paymentsWebhookControllerImport;
     const { PaymentsService } = paymentsServiceImport;
     const { PAYMENTS_REPOSITORY } = paymentsRepoImport;
-    const { PAYMENT_PROVIDER } = paymentProviderImport;
+    const { PAYMENT_PROVIDER_REGISTRY, NoopPaymentProvider } = paymentProviderImport;
+    const { PaymentProviderResolver } = resolverImport;
+    const { PaymentProviderSettingsService } = settingsServiceImport;
+    const { InMemoryPaymentProviderSettingsRepository } = settingsRepoImport;
     const { PaymentFulfillmentService } = fulfillmentServiceImport;
     const { IamService } = iamServiceImport;
     const { AuthService } = authServiceImport;
@@ -172,9 +181,19 @@ describe('Payments HTTP integration (permission boundaries + unguarded webhook)'
           useValue: paymentsRepoStub
         },
         {
-          provide: PAYMENT_PROVIDER,
-          useValue: paymentProviderStub
+          provide: PAYMENT_PROVIDER_REGISTRY,
+          useValue: new Map<string, unknown>([
+            ['noop', new NoopPaymentProvider()],
+            ['fake', fakeProviderStub]
+          ])
         },
+        {
+          provide: PaymentProviderSettingsService,
+          useValue: new PaymentProviderSettingsService(
+            new InMemoryPaymentProviderSettingsRepository()
+          )
+        },
+        PaymentProviderResolver,
         {
           provide: PaymentFulfillmentService,
           useValue: fulfillmentServiceStub
@@ -345,31 +364,125 @@ describe('Payments HTTP integration (permission boundaries + unguarded webhook)'
     expect(payload.meta.requestId).toBeTruthy();
   });
 
-  // === Unguarded webhook: no auth required ===
+  // === Unguarded webhook: no auth required, raw (unwrapped) ack body ===
 
-  it('POST /payments/webhook: reachable without any auth → 2xx { ok: true }', async () => {
-    // No x-tenant-id, no Authorization — provider returns null (noop) → ok: true
-    paymentProviderStub.parseWebhook.mockResolvedValueOnce(null);
-    const response = await fetch(`${apiBaseUrl}/payments/webhook`, {
+  it('POST /payments/webhook/fake: reachable without any auth → 2xx raw { ok: true }', async () => {
+    // No x-tenant-id, no Authorization — provider returns null → ok: true
+    // The response must NOT be wrapped in {data, meta} — acquirers need the exact literal body.
+    fakeProviderStub.parseWebhook.mockResolvedValueOnce(null);
+    const response = await fetch(`${apiBaseUrl}/payments/webhook/fake`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ event: 'payment.succeeded', id: 'pay_stub' })
     });
     // Webhook has no TenantGuard — must be 2xx
     expect(response.status).toBeLessThan(300);
-    const payload = (await response.json()) as { data: { ok: boolean }; meta: unknown };
-    expect(payload.data.ok).toBe(true);
+    const payload = (await response.json()) as { ok: boolean };
+    // Raw body — NOT wrapped in {data, meta}
+    expect(payload.ok).toBe(true);
+    expect((payload as any).data).toBeUndefined();
   });
 
-  it('POST /payments/webhook: noop provider path returns ok: true', async () => {
-    paymentProviderStub.parseWebhook.mockResolvedValueOnce(null);
-    const response = await fetch(`${apiBaseUrl}/payments/webhook`, {
+  it('POST /payments/webhook/fake: null-event provider path returns raw ok: true', async () => {
+    fakeProviderStub.parseWebhook.mockResolvedValueOnce(null);
+    const response = await fetch(`${apiBaseUrl}/payments/webhook/fake`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({})
     });
     expect(response.status).toBeLessThan(300);
-    const payload = (await response.json()) as { data: { ok: boolean } };
-    expect(payload.data.ok).toBe(true);
+    const payload = (await response.json()) as { ok: boolean };
+    expect(payload.ok).toBe(true);
+    expect((payload as any).data).toBeUndefined();
+  });
+
+  it('POST /payments/webhook/unknowncode: unknown provider → raw { ok: true }', async () => {
+    const response = await fetch(`${apiBaseUrl}/payments/webhook/unknowncode`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    expect(response.status).toBeLessThan(300);
+    const payload = (await response.json()) as { ok: boolean };
+    expect(payload.ok).toBe(true);
+    expect((payload as any).data).toBeUndefined();
+  });
+
+  // === GET /payments/provider-settings: requires payments.configure ===
+
+  it('GET /payments/provider-settings: 403 without payments.configure', async () => {
+    const token = makeToken(['payments.read']);
+    const response = await fetch(`${apiBaseUrl}/payments/provider-settings`, {
+      headers: {
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      }
+    });
+    expect(response.status).toBe(403);
+    const payload = (await response.json()) as { error: { code: string } };
+    expect(payload.error.code).toBe('permission_denied');
+  });
+
+  it('GET /payments/provider-settings: 200 with payments.configure — returns noop default for fresh tenant', async () => {
+    // Use a distinct tenantId never written by the PUT test so this assertion is order-independent.
+    const freshTenantId = 'tenant_settings_ro';
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['payments.configure']);
+    const token = issueSignedAccessToken(
+      { sub: 'u_admin_1', tenant_id: freshTenantId, session_id: 's_active', roles: ['admin'] },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+    const response = await fetch(`${apiBaseUrl}/payments/provider-settings`, {
+      headers: {
+        'x-tenant-id': freshTenantId,
+        authorization: `Bearer ${token}`
+      }
+    });
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      data: { tenantId: string; providerCode: string; enabled: boolean };
+      meta: { requestId: string };
+    };
+    expect(payload.data.providerCode).toBe('noop');
+    expect(payload.meta.requestId).toBeTruthy();
+  });
+
+  // === PUT /payments/provider-settings: requires payments.configure ===
+
+  it('PUT /payments/provider-settings: 403 without payments.configure', async () => {
+    const token = makeToken(['payments.read']);
+    const response = await fetch(`${apiBaseUrl}/payments/provider-settings`, {
+      method: 'PUT',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ providerCode: 'fake', enabled: true })
+    });
+    expect(response.status).toBe(403);
+    const payload = (await response.json()) as { error: { code: string } };
+    expect(payload.error.code).toBe('permission_denied');
+  });
+
+  it('PUT /payments/provider-settings: 200 with payments.configure', async () => {
+    const token = makeToken(['payments.configure']);
+    const response = await fetch(`${apiBaseUrl}/payments/provider-settings`, {
+      method: 'PUT',
+      headers: {
+        'content-type': 'application/json',
+        'x-tenant-id': 'tenant_demo',
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ providerCode: 'fake', enabled: true })
+    });
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      data: { tenantId: string; providerCode: string; enabled: boolean };
+      meta: { requestId: string };
+    };
+    expect(payload.data.providerCode).toBe('fake');
+    expect(payload.data.enabled).toBe(true);
+    expect(payload.meta.requestId).toBeTruthy();
   });
 });

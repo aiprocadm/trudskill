@@ -1,10 +1,12 @@
-import { Body, Controller, Get, Inject, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 
+import { PaymentProviderSettingsService } from './payment-provider-settings.service.js';
 import {
   CreateOrderRequest,
   CreateSelfOrderRequest,
   MarkPaidRequest,
-  OrdersFilter
+  OrdersFilter,
+  ProviderSettingsRequest
 } from './payments.dto.js';
 import { PaymentsService } from './payments.service.js';
 import { assertValidDto } from '../../common/app-validation.pipe.js';
@@ -18,7 +20,11 @@ import type { RequestContext } from '../../common/context/request-context.js';
 @Controller()
 @UseGuards(TenantGuard)
 export class PaymentsController {
-  constructor(@Inject(PaymentsService) private readonly payments: PaymentsService) {}
+  constructor(
+    @Inject(PaymentsService) private readonly payments: PaymentsService,
+    @Inject(PaymentProviderSettingsService)
+    private readonly settings: PaymentProviderSettingsService
+  ) {}
 
   @Post('orders')
   @UseGuards(PermissionGuard)
@@ -87,5 +93,21 @@ export class PaymentsController {
   @RequirePermissions('payments.write')
   cancelOrder(@CurrentContext() c: RequestContext, @Param('id') id: string) {
     return this.payments.cancelOrder(c.tenantId!, c.userId, id, c);
+  }
+
+  // Self-prefixed under /payments (controller base is root) — namespaces settings beside the webhook.
+  @Get('payments/provider-settings')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('payments.configure')
+  getProviderSettings(@CurrentContext() c: RequestContext) {
+    return this.settings.get(c.tenantId!);
+  }
+
+  @Put('payments/provider-settings')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('payments.configure')
+  saveProviderSettings(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const dto = assertValidDto(ProviderSettingsRequest, raw);
+    return this.settings.save(c.tenantId!, dto);
   }
 }

@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsOptional,
@@ -11,6 +12,8 @@ import {
   MinLength,
   ValidateNested
 } from 'class-validator';
+
+import { PAYMENT_PROVIDER_CODES } from '../../infrastructure/payments/payment.provider.js';
 
 export class CreateOrderItemRequest {
   @IsString()
@@ -74,4 +77,12 @@ export class OrdersFilter {
   @IsOptional()
   @IsIn(['draft', 'awaiting_payment', 'paid', 'fulfilled', 'cancelled'])
   status?: string;
+}
+
+export class ProviderSettingsRequest {
+  @IsIn(PAYMENT_PROVIDER_CODES as unknown as string[])
+  providerCode!: (typeof PAYMENT_PROVIDER_CODES)[number];
+
+  @IsBoolean()
+  enabled!: boolean;
 }
