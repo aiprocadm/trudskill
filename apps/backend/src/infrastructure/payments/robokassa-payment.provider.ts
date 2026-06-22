@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 
 import type {
   CreatePaymentParams,
@@ -18,7 +18,12 @@ function md5(s: string): string {
   return createHash('md5').update(s).digest('hex');
 }
 
-/** Robokassa requires a positive 31-bit integer InvId; derive a stable one from the UUID order id. */
+/**
+ * Robokassa requires a positive 31-bit integer InvId; derive a stable one from the UUID order id.
+ *
+ * The 31-bit space holds ~2.1e9 values. Collision probability is negligible at expected LMS order
+ * volume. The webhook resolves the order by this InvId value.
+ */
 export function orderToInvId(orderId: string): number {
   const hex = createHash('sha256').update(orderId).digest('hex').slice(0, 8);
   return parseInt(hex, 16) & 0x7fffffff || 1;
@@ -49,7 +54,9 @@ export class RobokassaProvider implements PaymentProvider {
     const sig = params.get('SignatureValue');
     if (!outSum || !invId || !sig) return null;
     const expected = md5(`${outSum}:${invId}:${this.cfg.password2}`);
-    if (sig.toLowerCase() !== expected.toLowerCase()) return null;
+    const a = Buffer.from(sig.toLowerCase());
+    const b = Buffer.from(expected.toLowerCase());
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
     return {
       providerPaymentId: invId,
       status: 'succeeded',

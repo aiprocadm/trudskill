@@ -108,7 +108,11 @@ import { MvpModule } from '../mvp/mvp.module.js';
             '[payments] cloudpayments not registered — CLOUDPAYMENTS_PUBLIC_ID/API_SECRET missing'
           );
         }
-        if (backendEnv.ROBOKASSA_MERCHANT_LOGIN && backendEnv.ROBOKASSA_PASSWORD_1) {
+        if (
+          backendEnv.ROBOKASSA_MERCHANT_LOGIN &&
+          backendEnv.ROBOKASSA_PASSWORD_1 &&
+          backendEnv.ROBOKASSA_PASSWORD_2
+        ) {
           reg.set(
             'robokassa',
             new RobokassaProvider({
@@ -120,7 +124,7 @@ import { MvpModule } from '../mvp/mvp.module.js';
           );
         } else if (backendEnv.PAYMENTS_ENABLED) {
           console.warn(
-            '[payments] robokassa not registered — ROBOKASSA_MERCHANT_LOGIN/PASSWORD_1 missing'
+            '[payments] robokassa not registered — ROBOKASSA_MERCHANT_LOGIN/PASSWORD_1/PASSWORD_2 missing'
           );
         }
         return reg;
