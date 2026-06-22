@@ -59,6 +59,48 @@ function firstCtorParams(src: string): string | null {
   return null;
 }
 
+/**
+ * Only classes Nest actually instantiates through DI — i.e. decorated with `@Injectable()` or
+ * `@Controller()` — can deadlock on type-based injection. Plain helper classes (e.g. `Error`
+ * subclasses) and factory-instantiated providers (`new X(cfg)` via `useFactory`) carry no DI
+ * metadata and are irrelevant here, so the scan must target the decorated class's own
+ * constructor, not merely the first `constructor(` anywhere in the file.
+ *
+ * Returns the constructor parameter list for each `@Injectable`/`@Controller` class in the file.
+ */
+function diClassCtorParamLists(src: string): string[] {
+  const lists: string[] = [];
+  for (const match of src.matchAll(/\bclass\s+\w+/g)) {
+    const classIdx = match.index ?? 0;
+    // Decorators sit between the previous statement terminator and the `class` keyword.
+    let regionStart = 0;
+    for (let i = classIdx - 1; i >= 0; i--) {
+      const c = src[i];
+      if (c === '}' || c === ';') {
+        regionStart = i + 1;
+        break;
+      }
+    }
+    if (!/@(?:Injectable|Controller)\b/.test(src.slice(regionStart, classIdx))) continue;
+
+    // Brace-match the class body so we read only this class's constructor.
+    const braceIdx = src.indexOf('{', classIdx);
+    if (braceIdx === -1) continue;
+    let depth = 0;
+    let bodyEnd = src.length;
+    for (let i = braceIdx; i < src.length; i++) {
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}' && --depth === 0) {
+        bodyEnd = i;
+        break;
+      }
+    }
+    const params = firstCtorParams(src.slice(braceIdx, bodyEnd));
+    if (params) lists.push(params);
+  }
+  return lists;
+}
+
 function splitTopLevel(s: string): string[] {
   const out: string[] = [];
   let depth = 0;
@@ -79,14 +121,14 @@ describe('DI uses explicit @Inject (tsx/esbuild has no decorator metadata)', () 
   it('has no type-based constructor injection in backend providers/controllers', () => {
     const offenders: string[] = [];
     for (const file of listTsFiles(SRC)) {
-      const params = firstCtorParams(readFileSync(file, 'utf8'));
-      if (!params) continue;
-      for (const raw of splitTopLevel(params)) {
-        const p = raw.trim();
-        if (!p || p.includes('@Inject')) continue;
-        const m = p.match(/:\s*([A-Z][A-Za-z0-9_]*)\b/);
-        if (!m || NON_DI_TYPES.has(m[1])) continue;
-        offenders.push(`${file.replace(SRC, 'src')} -> ${p.replace(/\s+/g, ' ')}`);
+      for (const params of diClassCtorParamLists(readFileSync(file, 'utf8'))) {
+        for (const raw of splitTopLevel(params)) {
+          const p = raw.trim();
+          if (!p || p.includes('@Inject')) continue;
+          const m = p.match(/:\s*([A-Z][A-Za-z0-9_]*)\b/);
+          if (!m || NON_DI_TYPES.has(m[1])) continue;
+          offenders.push(`${file.replace(SRC, 'src')} -> ${p.replace(/\s+/g, ' ')}`);
+        }
       }
     }
     expect(offenders, `Add @Inject(<Token>) to:\n${offenders.join('\n')}`).toEqual([]);

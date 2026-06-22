@@ -112,7 +112,10 @@ export class IntegrationsController {
 @Controller('exports')
 @UseGuards(TenantGuard)
 export class ExportsController {
-  constructor(private readonly orchestrator: IntegrationOrchestratorService) {}
+  constructor(
+    @Inject(IntegrationOrchestratorService)
+    private readonly orchestrator: IntegrationOrchestratorService
+  ) {}
 
   @Get('tasks') listTasks(@CurrentContext() ctx: RequestContext, @Query() query: ListQueryDto) {
     return this.orchestrator.listTasks(ctx.tenantId!, query);
@@ -162,7 +165,10 @@ export class ExportsController {
 @Controller('sync-logs')
 @UseGuards(TenantGuard)
 export class SyncLogsController {
-  constructor(private readonly orchestrator: IntegrationOrchestratorService) {}
+  constructor(
+    @Inject(IntegrationOrchestratorService)
+    private readonly orchestrator: IntegrationOrchestratorService
+  ) {}
   @Get() list(@CurrentContext() ctx: RequestContext, @Query() query: ListQueryDto) {
     return this.orchestrator.listSyncLogs(ctx.tenantId!, query);
   }
