@@ -55,7 +55,7 @@ export class CloudPaymentsProvider implements PaymentProvider {
     raw: Buffer,
     headers: Record<string, string | undefined>
   ): Promise<WebhookEvent | null> {
-    const provided = headers['content-hmac'] ?? headers['x-content-hmac'];
+    const provided = headers['content-hmac'];
     if (!provided) return null;
     const expected = createHmac('sha256', this.cfg.apiSecret).update(raw).digest('base64');
     const a = Buffer.from(provided);

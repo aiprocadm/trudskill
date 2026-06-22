@@ -59,6 +59,10 @@ describe('CloudPaymentsProvider.parseWebhook', () => {
     const p = new CloudPaymentsProvider(cfg, vi.fn() as unknown as typeof fetch);
     expect(await p.parseWebhook(raw, { 'content-hmac': 'nope' })).toBeNull();
   });
+  it('returns null when the Content-HMAC header is absent', async () => {
+    const p = new CloudPaymentsProvider(cfg, vi.fn() as unknown as typeof fetch);
+    expect(await p.parseWebhook(raw, {})).toBeNull();
+  });
   it('acks with {code:0}', () => {
     const p = new CloudPaymentsProvider(cfg, vi.fn() as unknown as typeof fetch);
     expect(p.webhookAck()).toEqual({ code: 0 });
