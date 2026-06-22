@@ -11,6 +11,7 @@ import { backendEnv } from './env.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
+    rawBody: true,
     cors: { origin: backendEnv.CORS_ORIGIN, credentials: true }
   });
   app.useGlobalPipes(createAppValidationPipe());

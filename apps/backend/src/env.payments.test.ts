@@ -44,11 +44,11 @@ const strictBase = {
 } as const;
 
 describe('PAYMENTS_* env', () => {
-  it('defaults to noop + disabled + RUB', () => {
+  it('defaults to disabled + RUB; PAYMENTS_PROVIDER no longer exists', () => {
     const env = backendEnvSchema.parse({ ...devBase });
     expect(env.PAYMENTS_ENABLED).toBe(false);
-    expect(env.PAYMENTS_PROVIDER).toBe('noop');
     expect(env.PAYMENTS_CURRENCY).toBe('RUB');
+    expect('PAYMENTS_PROVIDER' in env).toBe(false);
   });
 
   it('never coerces the string "false" to true', () => {
@@ -56,25 +56,26 @@ describe('PAYMENTS_* env', () => {
     expect(env.PAYMENTS_ENABLED).toBe(false);
   });
 
-  it('allows PAYMENTS_PROVIDER=fake outside production', () => {
+  it('parses ЮKassa credentials when provided', () => {
     const env = backendEnvSchema.parse({
       ...devBase,
       PAYMENTS_ENABLED: 'true',
-      PAYMENTS_PROVIDER: 'fake'
+      YOOKASSA_SHOP_ID: 'shop-1',
+      YOOKASSA_SECRET_KEY: 'sk-live-xxx',
+      YOOKASSA_RETURN_URL: 'https://lms.example.ru/payments/return'
     });
-    expect(env.PAYMENTS_PROVIDER).toBe('fake');
+    expect(env.YOOKASSA_SHOP_ID).toBe('shop-1');
+    expect(env.YOOKASSA_API_BASE).toBe('https://api.yookassa.ru/v3');
+    expect(env.YOOKASSA_WEBHOOK_IP_CHECK).toBe(true);
   });
 
-  it('rejects PAYMENTS_PROVIDER=fake in production', () => {
+  it('parses with no acquirer creds even when enabled (adapters are credential-gated at runtime)', () => {
     const parsed = backendEnvSchema.safeParse({
       ...strictBase,
       NODE_ENV: 'production',
       DEPLOYMENT_PROFILE: 'prod',
-      PAYMENTS_ENABLED: 'true',
-      PAYMENTS_PROVIDER: 'fake'
+      PAYMENTS_ENABLED: 'true'
     });
-    expect(parsed.success).toBe(false);
-    if (!parsed.success)
-      expect(JSON.stringify(parsed.error.issues)).toMatch(/fake.*production|production.*fake/i);
+    expect(parsed.success).toBe(true);
   });
 });
