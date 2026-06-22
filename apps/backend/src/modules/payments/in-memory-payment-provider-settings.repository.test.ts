@@ -16,4 +16,12 @@ describe('InMemoryPaymentProviderSettingsRepository', () => {
     const got = await repo.get('t1');
     expect(got?.providerCode).toBe('yookassa');
   });
+  it('overwrites an existing row on re-upsert', async () => {
+    const repo = new InMemoryPaymentProviderSettingsRepository();
+    await repo.upsert('t1', { providerCode: 'yookassa', enabled: true });
+    await repo.upsert('t1', { providerCode: 'tinkoff', enabled: false });
+    const got = await repo.get('t1');
+    expect(got?.providerCode).toBe('tinkoff');
+    expect(got?.enabled).toBe(false);
+  });
 });

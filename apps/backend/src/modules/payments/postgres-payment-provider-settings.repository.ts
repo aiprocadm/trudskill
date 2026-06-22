@@ -17,7 +17,7 @@ export class PostgresPaymentProviderSettingsRepository implements PaymentProvide
       tenant_id: string;
       provider_code: string;
       enabled: boolean;
-      updated_at: string;
+      updated_at: string | Date;
     }>(
       `select tenant_id, provider_code, enabled, updated_at
        from payments.payment_provider_settings where tenant_id = $1`,
@@ -29,7 +29,7 @@ export class PostgresPaymentProviderSettingsRepository implements PaymentProvide
       tenantId: row.tenant_id,
       providerCode: row.provider_code,
       enabled: row.enabled,
-      updatedAt: row.updated_at
+      updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at
     };
   }
 

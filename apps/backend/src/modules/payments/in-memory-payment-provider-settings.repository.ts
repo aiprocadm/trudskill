@@ -25,6 +25,6 @@ export class InMemoryPaymentProviderSettingsRepository implements PaymentProvide
       updatedAt: new Date().toISOString()
     };
     this.rows.set(tenantId, row);
-    return row;
+    return { ...row };
   }
 }
