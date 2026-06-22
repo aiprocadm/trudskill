@@ -407,11 +407,18 @@ describe('Payments HTTP integration (permission boundaries + unguarded webhook)'
     expect(payload.error.code).toBe('permission_denied');
   });
 
-  it('GET /payments/provider-settings: 200 with payments.configure', async () => {
-    const token = makeToken(['payments.configure']);
+  it('GET /payments/provider-settings: 200 with payments.configure — returns noop default for fresh tenant', async () => {
+    // Use a distinct tenantId never written by the PUT test so this assertion is order-independent.
+    const freshTenantId = 'tenant_settings_ro';
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['payments.configure']);
+    const token = issueSignedAccessToken(
+      { sub: 'u_admin_1', tenant_id: freshTenantId, session_id: 's_active', roles: ['admin'] },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
     const response = await fetch(`${apiBaseUrl}/payments/provider-settings`, {
       headers: {
-        'x-tenant-id': 'tenant_demo',
+        'x-tenant-id': freshTenantId,
         authorization: `Bearer ${token}`
       }
     });

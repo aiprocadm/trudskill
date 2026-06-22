@@ -13,6 +13,8 @@ import {
   ValidateNested
 } from 'class-validator';
 
+import { PAYMENT_PROVIDER_CODES } from '../../infrastructure/payments/payment.provider.js';
+
 export class CreateOrderItemRequest {
   @IsString()
   @MinLength(1)
@@ -77,18 +79,9 @@ export class OrdersFilter {
   status?: string;
 }
 
-const PROVIDER_CODES = [
-  'noop',
-  'fake',
-  'yookassa',
-  'tinkoff',
-  'cloudpayments',
-  'robokassa'
-] as const;
-
 export class ProviderSettingsRequest {
-  @IsIn(PROVIDER_CODES as unknown as string[])
-  providerCode!: (typeof PROVIDER_CODES)[number];
+  @IsIn(PAYMENT_PROVIDER_CODES as unknown as string[])
+  providerCode!: (typeof PAYMENT_PROVIDER_CODES)[number];
 
   @IsBoolean()
   enabled!: boolean;

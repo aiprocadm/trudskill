@@ -5,13 +5,15 @@
  * provider configured. Real adapters (ЮKassa, Tinkoff, CloudPayments, Robokassa) register into the
  * registry. All amounts are integer kopecks; major-unit conversion happens only inside an adapter.
  */
-export type PaymentProviderCode =
-  | 'noop'
-  | 'fake'
-  | 'yookassa'
-  | 'tinkoff'
-  | 'cloudpayments'
-  | 'robokassa';
+export const PAYMENT_PROVIDER_CODES = [
+  'noop',
+  'fake',
+  'yookassa',
+  'tinkoff',
+  'cloudpayments',
+  'robokassa'
+] as const;
+export type PaymentProviderCode = (typeof PAYMENT_PROVIDER_CODES)[number];
 
 export type PaymentStatus = 'pending' | 'succeeded' | 'failed' | 'cancelled' | 'refunded';
 

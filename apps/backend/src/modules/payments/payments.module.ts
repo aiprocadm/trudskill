@@ -132,6 +132,6 @@ import { MvpModule } from '../mvp/mvp.module.js';
     },
     PaymentProviderResolver
   ],
-  exports: [PaymentsService]
+  exports: [PaymentsService, PaymentProviderSettingsService]
 })
 export class PaymentsModule {}

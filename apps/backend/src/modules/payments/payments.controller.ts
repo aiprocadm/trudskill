@@ -95,6 +95,7 @@ export class PaymentsController {
     return this.payments.cancelOrder(c.tenantId!, c.userId, id, c);
   }
 
+  // Self-prefixed under /payments (controller base is root) — namespaces settings beside the webhook.
   @Get('payments/provider-settings')
   @UseGuards(PermissionGuard)
   @RequirePermissions('payments.configure')
