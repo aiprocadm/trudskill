@@ -15,6 +15,7 @@ import { PostgresPaymentsRepository } from './postgres-payments.repository.js';
 import { backendEnv } from '../../env.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
+import { CloudPaymentsProvider } from '../../infrastructure/payments/cloudpayments-payment.provider.js';
 import { FakePaymentProvider } from '../../infrastructure/payments/fake-payment.provider.js';
 import {
   NoopPaymentProvider,
@@ -91,6 +92,20 @@ import { MvpModule } from '../mvp/mvp.module.js';
           );
         } else if (backendEnv.PAYMENTS_ENABLED) {
           console.warn('[payments] tinkoff not registered — TINKOFF_TERMINAL_KEY/PASSWORD missing');
+        }
+        if (backendEnv.CLOUDPAYMENTS_PUBLIC_ID && backendEnv.CLOUDPAYMENTS_API_SECRET) {
+          reg.set(
+            'cloudpayments',
+            new CloudPaymentsProvider({
+              publicId: backendEnv.CLOUDPAYMENTS_PUBLIC_ID,
+              apiSecret: backendEnv.CLOUDPAYMENTS_API_SECRET,
+              apiBase: backendEnv.CLOUDPAYMENTS_API_BASE
+            })
+          );
+        } else if (backendEnv.PAYMENTS_ENABLED) {
+          console.warn(
+            '[payments] cloudpayments not registered — CLOUDPAYMENTS_PUBLIC_ID/API_SECRET missing'
+          );
         }
         return reg;
       }
