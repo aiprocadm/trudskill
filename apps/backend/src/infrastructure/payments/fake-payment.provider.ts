@@ -13,7 +13,7 @@ import type {
  * replaces this behind the same PAYMENT_PROVIDER token.
  */
 export class FakePaymentProvider implements PaymentProvider {
-  readonly id = 'fake';
+  readonly code = 'fake' as const;
 
   async createPayment(params: CreatePaymentParams): Promise<CreatePaymentResult> {
     const providerPaymentId = `fake-pay:${params.orderId}`;

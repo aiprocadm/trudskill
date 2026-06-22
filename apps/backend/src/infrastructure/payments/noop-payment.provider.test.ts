@@ -12,7 +12,7 @@ describe('NoopPaymentProvider', () => {
       currency: 'RUB',
       description: 'Курс ОТ'
     });
-    expect(provider.id).toBe('noop');
+    expect(provider.code).toBe('noop');
     expect(result.status).toBe('disabled');
     expect(result.confirmationUrl).toBeUndefined();
   });

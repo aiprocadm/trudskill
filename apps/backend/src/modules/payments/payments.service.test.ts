@@ -9,6 +9,11 @@ const ctx = { tenantId: 't1', userId: 'admin' } as any;
 // Stub audit exposing the method(s) PaymentsService actually calls — match the real AuditService method name.
 const auditStub = () => ({ write: vi.fn(), record: vi.fn(), writeCritical: vi.fn() }) as any;
 const makeFulfillment = () => ({ fulfill: vi.fn().mockResolvedValue(undefined) });
+// PaymentsService now takes a PaymentProviderResolver (per-tenant). For unit tests we wrap a fixed
+// provider so the same provider is returned for every tenant.
+const resolverFor = (provider: { code?: string }) => ({ forTenant: async () => provider }) as any;
+const noopResolver = () => resolverFor(new NoopPaymentProvider());
+const fakeResolver = () => resolverFor(new FakePaymentProvider());
 
 const orderReq = {
   buyerType: 'learner' as const,
@@ -21,7 +26,7 @@ describe('PaymentsService', () => {
   it('creates an order in awaiting_payment with a computed total', async () => {
     const svc = new PaymentsService(
       new InMemoryPaymentsRepository(),
-      new NoopPaymentProvider(),
+      noopResolver(),
       makeFulfillment() as any,
       auditStub()
     );
@@ -33,7 +38,7 @@ describe('PaymentsService', () => {
     const fulfillment = makeFulfillment();
     const svc = new PaymentsService(
       new InMemoryPaymentsRepository(),
-      new NoopPaymentProvider(),
+      noopResolver(),
       fulfillment as any,
       auditStub()
     );
@@ -46,7 +51,7 @@ describe('PaymentsService', () => {
     const fulfillment = makeFulfillment();
     const svc = new PaymentsService(
       new InMemoryPaymentsRepository(),
-      new NoopPaymentProvider(),
+      noopResolver(),
       fulfillment as any,
       auditStub()
     );
@@ -60,7 +65,7 @@ describe('PaymentsService', () => {
   it('pay with Noop provider throws payment_disabled', async () => {
     const svc = new PaymentsService(
       new InMemoryPaymentsRepository(),
-      new NoopPaymentProvider(),
+      noopResolver(),
       makeFulfillment() as any,
       auditStub()
     );
@@ -73,7 +78,7 @@ describe('PaymentsService', () => {
   it('pay with Fake provider returns a confirmation url', async () => {
     const svc = new PaymentsService(
       new InMemoryPaymentsRepository(),
-      new FakePaymentProvider(),
+      fakeResolver(),
       makeFulfillment() as any,
       auditStub()
     );
@@ -85,7 +90,7 @@ describe('PaymentsService', () => {
   it('pay rejects when the order belongs to a different learner', async () => {
     const svc = new PaymentsService(
       new InMemoryPaymentsRepository(),
-      new FakePaymentProvider(),
+      fakeResolver(),
       makeFulfillment() as any,
       auditStub()
     );
@@ -99,7 +104,7 @@ describe('PaymentsService', () => {
   it('pay allows the owning learner', async () => {
     const svc = new PaymentsService(
       new InMemoryPaymentsRepository(),
-      new FakePaymentProvider(),
+      fakeResolver(),
       makeFulfillment() as any,
       auditStub()
     );
@@ -112,7 +117,7 @@ describe('PaymentsService', () => {
   it('cancel works from awaiting_payment, fails from paid', async () => {
     const svc = new PaymentsService(
       new InMemoryPaymentsRepository(),
-      new NoopPaymentProvider(),
+      noopResolver(),
       makeFulfillment() as any,
       auditStub()
     );

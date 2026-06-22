@@ -79,8 +79,8 @@ describe('Payments HTTP integration (permission boundaries + unguarded webhook)'
     markItemFulfilled: vi.fn().mockResolvedValue(undefined)
   };
 
-  const paymentProviderStub = {
-    id: 'noop',
+  const fakeProviderStub = {
+    code: 'fake',
     createPayment: vi.fn().mockResolvedValue({ providerPaymentId: '', status: 'disabled' }),
     parseWebhook: vi.fn().mockResolvedValue(null)
   };
@@ -105,6 +105,9 @@ describe('Payments HTTP integration (permission boundaries + unguarded webhook)'
       paymentsServiceImport,
       paymentsRepoImport,
       paymentProviderImport,
+      resolverImport,
+      settingsServiceImport,
+      settingsRepoImport,
       fulfillmentServiceImport,
       iamServiceImport,
       authServiceImport
@@ -123,6 +126,9 @@ describe('Payments HTTP integration (permission boundaries + unguarded webhook)'
       import('./payments.service.js'),
       import('./payments.repository.js'),
       import('../../infrastructure/payments/payment.provider.js'),
+      import('./payment-provider-resolver.service.js'),
+      import('./payment-provider-settings.service.js'),
+      import('./in-memory-payment-provider-settings.repository.js'),
       import('./payment-fulfillment.service.js'),
       import('../iam/services/iam.service.js'),
       import('../iam/services/auth.service.js')
@@ -142,7 +148,10 @@ describe('Payments HTTP integration (permission boundaries + unguarded webhook)'
     const { PaymentsWebhookController } = paymentsWebhookControllerImport;
     const { PaymentsService } = paymentsServiceImport;
     const { PAYMENTS_REPOSITORY } = paymentsRepoImport;
-    const { PAYMENT_PROVIDER } = paymentProviderImport;
+    const { PAYMENT_PROVIDER_REGISTRY, NoopPaymentProvider } = paymentProviderImport;
+    const { PaymentProviderResolver } = resolverImport;
+    const { PaymentProviderSettingsService } = settingsServiceImport;
+    const { InMemoryPaymentProviderSettingsRepository } = settingsRepoImport;
     const { PaymentFulfillmentService } = fulfillmentServiceImport;
     const { IamService } = iamServiceImport;
     const { AuthService } = authServiceImport;
@@ -172,9 +181,19 @@ describe('Payments HTTP integration (permission boundaries + unguarded webhook)'
           useValue: paymentsRepoStub
         },
         {
-          provide: PAYMENT_PROVIDER,
-          useValue: paymentProviderStub
+          provide: PAYMENT_PROVIDER_REGISTRY,
+          useValue: new Map<string, unknown>([
+            ['noop', new NoopPaymentProvider()],
+            ['fake', fakeProviderStub]
+          ])
         },
+        {
+          provide: PaymentProviderSettingsService,
+          useValue: new PaymentProviderSettingsService(
+            new InMemoryPaymentProviderSettingsRepository()
+          )
+        },
+        PaymentProviderResolver,
         {
           provide: PaymentFulfillmentService,
           useValue: fulfillmentServiceStub
@@ -347,10 +366,10 @@ describe('Payments HTTP integration (permission boundaries + unguarded webhook)'
 
   // === Unguarded webhook: no auth required ===
 
-  it('POST /payments/webhook: reachable without any auth → 2xx { ok: true }', async () => {
-    // No x-tenant-id, no Authorization — provider returns null (noop) → ok: true
-    paymentProviderStub.parseWebhook.mockResolvedValueOnce(null);
-    const response = await fetch(`${apiBaseUrl}/payments/webhook`, {
+  it('POST /payments/webhook/fake: reachable without any auth → 2xx { ok: true }', async () => {
+    // No x-tenant-id, no Authorization — provider returns null → ok: true
+    fakeProviderStub.parseWebhook.mockResolvedValueOnce(null);
+    const response = await fetch(`${apiBaseUrl}/payments/webhook/fake`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ event: 'payment.succeeded', id: 'pay_stub' })
@@ -361,9 +380,9 @@ describe('Payments HTTP integration (permission boundaries + unguarded webhook)'
     expect(payload.data.ok).toBe(true);
   });
 
-  it('POST /payments/webhook: noop provider path returns ok: true', async () => {
-    paymentProviderStub.parseWebhook.mockResolvedValueOnce(null);
-    const response = await fetch(`${apiBaseUrl}/payments/webhook`, {
+  it('POST /payments/webhook/fake: null-event provider path returns ok: true', async () => {
+    fakeProviderStub.parseWebhook.mockResolvedValueOnce(null);
+    const response = await fetch(`${apiBaseUrl}/payments/webhook/fake`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({})
