@@ -24,6 +24,7 @@ import {
   type PaymentProviderCode,
   type PaymentProviderRegistry
 } from '../../infrastructure/payments/payment.provider.js';
+import { RobokassaProvider } from '../../infrastructure/payments/robokassa-payment.provider.js';
 import { TinkoffPaymentProvider } from '../../infrastructure/payments/tinkoff-payment.provider.js';
 import { YookassaPaymentProvider } from '../../infrastructure/payments/yookassa-payment.provider.js';
 import { AuditModule } from '../audit/audit.module.js';
@@ -105,6 +106,21 @@ import { MvpModule } from '../mvp/mvp.module.js';
         } else if (backendEnv.PAYMENTS_ENABLED) {
           console.warn(
             '[payments] cloudpayments not registered — CLOUDPAYMENTS_PUBLIC_ID/API_SECRET missing'
+          );
+        }
+        if (backendEnv.ROBOKASSA_MERCHANT_LOGIN && backendEnv.ROBOKASSA_PASSWORD_1) {
+          reg.set(
+            'robokassa',
+            new RobokassaProvider({
+              merchantLogin: backendEnv.ROBOKASSA_MERCHANT_LOGIN,
+              password1: backendEnv.ROBOKASSA_PASSWORD_1,
+              password2: backendEnv.ROBOKASSA_PASSWORD_2,
+              payUrl: backendEnv.ROBOKASSA_PAY_URL
+            })
+          );
+        } else if (backendEnv.PAYMENTS_ENABLED) {
+          console.warn(
+            '[payments] robokassa not registered — ROBOKASSA_MERCHANT_LOGIN/PASSWORD_1 missing'
           );
         }
         return reg;
