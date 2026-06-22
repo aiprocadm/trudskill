@@ -9,8 +9,9 @@ import type {
  * STAGING-ONLY payment provider. Produces a synthetic confirmation URL and accepts a synthetic
  * webhook WITHOUT any real acquiring, so dev/staging can exercise order → pay → webhook →
  * fulfillment end-to-end. FORBIDDEN in production by an env refinement (see env.schema.ts):
- * prod must never believe an order is paid when no money moved. The real ЮKassa adapter
- * replaces this behind the same PAYMENT_PROVIDER token.
+ * prod must never believe an order is paid when no money moved. The real adapters (ЮKassa,
+ * Tinkoff, etc.) register into PAYMENT_PROVIDER_REGISTRY under their own code; Fake is the
+ * staging entry.
  */
 export class FakePaymentProvider implements PaymentProvider {
   readonly code = 'fake' as const;

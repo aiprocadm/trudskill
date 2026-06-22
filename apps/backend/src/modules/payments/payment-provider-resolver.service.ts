@@ -13,6 +13,9 @@ import {
 /**
  * Resolves the active PaymentProvider FOR A TENANT. The prod-guard for `fake` lives here (env no
  * longer names the active provider — it is per-tenant). Mirrors WebinarProviderResolver.
+ * `fromRegistry` exists because per-provider webhook URLs (`/payments/webhook/:providerCode`) are
+ * unguarded — there is no tenant in that request, so the webhook handler picks the provider by
+ * code directly from the registry instead of going through `forTenant`.
  */
 @Injectable()
 export class PaymentProviderResolver {
