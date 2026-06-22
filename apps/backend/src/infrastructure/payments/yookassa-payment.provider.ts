@@ -75,6 +75,8 @@ export class YookassaPaymentProvider implements PaymentProvider {
     } catch {
       return null;
     }
+    // 'refund.succeeded' is accepted so the re-fetch runs, but it resolves to a no-op:
+    // the re-fetched object is a refund, not a payment, so status mapping returns null.
     const known = ['payment.succeeded', 'payment.canceled', 'refund.succeeded'];
     if (body.type !== 'notification' || !body.event || !known.includes(body.event)) return null;
     const id = body.object?.id;
@@ -82,7 +84,8 @@ export class YookassaPaymentProvider implements PaymentProvider {
 
     if (this.cfg.ipCheckEnabled) {
       const ip = this.clientIp(headers);
-      if (ip && !this.ipAllowed(ip)) return null; // fail-open if ip indeterminable
+      // Defense-in-depth IPv4 fast-reject. IPv6/indeterminable IPs fall through to the re-fetch (the real gate).
+      if (ip && !this.ipAllowed(ip)) return null;
     }
 
     // Re-fetch: trust the authenticated API response, not the notification body.
@@ -101,11 +104,18 @@ export class YookassaPaymentProvider implements PaymentProvider {
     return { providerPaymentId: payment.id, status, rawPayload: body as Record<string, unknown> };
   }
 
+  /**
+   * Extract the first hop from X-Forwarded-For and return it only when it is
+   * an IPv4 address. IPv6 and unparseable values return null so they fall
+   * through to the authoritative re-fetch (the real security gate). The IP
+   * allowlist only covers IPv4 CIDRs, so IPv6/indeterminable IPs must never
+   * be fast-rejected.
+   */
   private clientIp(headers: Record<string, string | undefined>): string | null {
     const xff = headers['x-forwarded-for'];
     if (!xff) return null;
     const first = xff.split(',')[0]?.trim();
-    return first && isIP(first) ? first : null;
+    return first && isIP(first) === 4 ? first : null;
   }
 
   /** Minimal allowlist check: exact match or a /N CIDR over IPv4. IPv6 CIDRs are skipped (re-fetch is the real gate). */

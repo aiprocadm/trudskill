@@ -23,15 +23,13 @@ function jsonResponse(body: unknown, ok = true, status = 200): Response {
 
 describe('YookassaPaymentProvider.createPayment', () => {
   it('POSTs amount in rubles, Basic auth + Idempotence-Key, returns confirmationUrl', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        jsonResponse({
-          id: 'yk-1',
-          status: 'pending',
-          confirmation: { confirmation_url: 'https://pay/yk-1' }
-        })
-      );
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        id: 'yk-1',
+        status: 'pending',
+        confirmation: { confirmation_url: 'https://pay/yk-1' }
+      })
+    );
     const p = new YookassaPaymentProvider(cfg, fetchMock as unknown as typeof fetch);
     const res = await p.createPayment({
       tenantId: 't1',
@@ -109,5 +107,27 @@ describe('YookassaPaymentProvider.parseWebhook', () => {
     );
     expect(await p.parseWebhook(notif('yk-1'), { 'x-forwarded-for': '8.8.8.8' })).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('admits an allowlisted IPv4 and proceeds to re-fetch', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 'yk-1', status: 'succeeded' }));
+    const p = new YookassaPaymentProvider(
+      { ...cfg, ipCheckEnabled: true },
+      fetchMock as unknown as typeof fetch
+    );
+    const ev = await p.parseWebhook(notif('yk-1'), { 'x-forwarded-for': '185.71.76.5' });
+    expect(ev).toMatchObject({ providerPaymentId: 'yk-1', status: 'succeeded' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls through to re-fetch for an IPv6 source (IPv4-only allowlist)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 'yk-1', status: 'succeeded' }));
+    const p = new YookassaPaymentProvider(
+      { ...cfg, ipCheckEnabled: true },
+      fetchMock as unknown as typeof fetch
+    );
+    const ev = await p.parseWebhook(notif('yk-1'), { 'x-forwarded-for': '2a02:5180::1' });
+    expect(ev).toMatchObject({ providerPaymentId: 'yk-1', status: 'succeeded' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
