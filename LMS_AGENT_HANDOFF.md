@@ -1721,12 +1721,19 @@
   - _Frontend:_ `app/admin/payments/settings/page.tsx`, `features/payments/{settings-screen.tsx,types.ts,api.ts,api.contract.test.ts}`, `features/navigation/model.ts`, `e2e/payments-settings.e2e.test.ts`.
   - _Docs:_ spec + plan (см. выше).
 - **Миграция 0056** (последняя). Новое право `payments.configure`.
-- **Тест-статус (Part A, всё зелёное):** backend payments-кластер **85 pass** (17 файлов; `vitest run src/modules/payments src/infrastructure/payments src/env.payments.test.ts --no-file-parallelism`); `pnpm typecheck` **8/8**; ESLint clean (`apps/backend/src/modules/payments` + `apps/backend/src/infrastructure/payments`; `apps/frontend/src/features/payments`); frontend payments **12 pass** (2 файла; `src/features/payments` + `src/e2e/payments-settings.e2e.test.ts`).
+- **Тест-статус (финальный, всё зелёное):** backend payments-кластер **89 pass** (17 файлов; `vitest run src/modules/payments src/infrastructure/payments src/env.payments.test.ts --no-file-parallelism`); `pnpm typecheck` **8/8**; ESLint clean (`apps/backend/src/modules/payments` + `apps/backend/src/infrastructure/payments`; `apps/frontend/src/features/payments`); frontend payments **12 pass** (2 файла; `src/features/payments` + `src/e2e/payments-settings.e2e.test.ts`).
 - **Go-live остаток:** договор с эквайером + боевые креды в env + `PAYMENTS_ENABLED=true` + выбор провайдера тенантом в `/admin/payments/settings`.
 - **Deviations / Follow-ups (отложены, найдены при ревью):**
   1. `findOrderByProviderPaymentId` (payments repository) резолвит по `provider_payment_id` **без** фильтра по колонке `provider`. У Robokassa `orderToInvId` — короткий 31-битный integer; теоретически InvId Robokassa может совпасть со строкой-id другого провайдера. Webhook-контроллер уже знает `providerCode` (из URL) — hardening-follow-up = добавить `provider`-фильтр в этот lookup. Низкий риск на текущем масштабе.
   2. Webhook не сверяет сумму уведомления (например Robokassa `OutSum`) со хранимой суммой заказа перед fulfillment. Подпись покрывает сумму серверным секретом → форджа исключена; остаток (acquirer-side partial payment) экзотичен. Follow-up: верифицировать сумму в webhook-контроллере после резолва заказа.
   3. Четыре адаптера кодируют документированный контракт каждого эквайера по текущему знанию (имена полей, формулы подписи). Перед go-live сверить каждый с актуальными доками/песочницей провайдера; юнит-тесты пинят закодированное поведение → правка по докам будет локальной.
+
+- **Финальное холистическое ревью (поймало + исправлено):**
+  1. **CRITICAL** — глобальный `ResponseEnvelopeInterceptor` оборачивал ACK вебхука в `{data, meta}`, из-за чего эквайеры (Robokassa `OK{InvId}`, Tinkoff `OK`, CloudPayments `{code:0}`) никогда не получали ожидаемое буквальное тело и уходили в бесконечный retry. Фикс: webhook-контроллер теперь отправляет ACK напрямую через `@Res()`, а `ResponseEnvelopeInterceptor` получил защиту `if (res.headersSent) return data;` — чтобы никогда не добавлять заголовки к уже отправленному (`@Res`) ответу (envelope-wrapping для health/scorm и прочих эндпоинтов проверен — не затронут).
+  2. **IMPORTANT** — CloudPayments доставляет вебхуки как `application/x-www-form-urlencoded`, а не JSON; адаптер теперь парсит через `URLSearchParams` (HMAC по-прежнему считается над сырыми байтами).
+  3. **IMPORTANT** — вебхук теперь кросс-проверяет `payment.provider === providerCode` (URL-сегмент) перед fulfillment, закрывая hardening-gap коллизии provider-id из Follow-up #1.
+  4. **MINOR** — устаревший комментарий в `fake-payment.provider.ts` обновлён — теперь указывает на guard в резолвере.
+     Итог: backend payments-кластер вырос с 85 до **89 pass** (добавились тесты на envelope-bypass, form-body CloudPayments, provider cross-check).
 
 ## 6. Files Changed
 
