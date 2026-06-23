@@ -1,9 +1,16 @@
-import { Body, Controller, Get, Inject, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post, Query, UseGuards } from '@nestjs/common';
 
 import { BackfillService } from './backfill.service.js';
+import { WorkerCallbackGuard } from '../../mvp/infrastructure/worker-callback.guard.js';
 
 import type { BackfillDomain } from './backfill.types.js';
 
+// SECURITY: backfill operates ACROSS tenants (platform-level reconciliation), so TenantGuard —
+// which derives a single tenant from the caller's JWT — does not fit. These ops-only routes are
+// instead gated by a shared secret (`x-worker-callback-token`); when the secret is unset the
+// guard fails closed (503), so the surface is never reachable unauthenticated. Previously the
+// whole controller had NO guard at all → unauthenticated cross-tenant backfill + reports.
+@UseGuards(WorkerCallbackGuard)
 @Controller('migration/backfill')
 export class BackfillController {
   constructor(@Inject(BackfillService) private readonly backfill: BackfillService) {}

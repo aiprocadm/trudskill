@@ -26,7 +26,11 @@ export default defineConfig({
     // isolation) that can exceed vitest's default 5000ms when many parallel workers thrash
     // transforms on slower machines. The assertions are structural, not temporal, so give
     // them ample headroom rather than flaking under load (CI stays green either way).
-    testTimeout: 30000,
-    hookTimeout: 30000
+    // 60s (raised from 30s): on the Cyrillic-path Windows dev box the full parallel suite
+    // pushes a cold `await import()` past 30s under transform contention (isolated it is ~10s).
+    // A genuinely broken import throws rather than hangs, so the larger ceiling guards only
+    // against a true hang and does not mask real failures.
+    testTimeout: 60000,
+    hookTimeout: 60000
   }
 });
