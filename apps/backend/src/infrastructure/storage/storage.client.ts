@@ -9,6 +9,12 @@ export interface PresignedUploadParams {
   key: string;
   contentType: string;
   expiresInSeconds?: number;
+  /**
+   * Exact byte size the client declared. When set it is signed into the presigned PUT as
+   * Content-Length, so S3 rejects any body whose length differs — server-side enforcement of the
+   * declared size, closing the "claim 1 KB, upload 500 MB" gap left by the advisory check.
+   */
+  contentLength?: number;
 }
 
 export interface PresignedDownloadParams {

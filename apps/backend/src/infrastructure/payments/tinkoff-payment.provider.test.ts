@@ -83,6 +83,11 @@ describe('TinkoffPaymentProvider.parseWebhook', () => {
     const ev = await p.parseWebhook(notif({}), {});
     expect(ev).toMatchObject({ providerPaymentId: '900', status: 'succeeded' });
   });
+  it('surfaces the kopeck Amount for the webhook cross-check', async () => {
+    const p = new TinkoffPaymentProvider(cfg, vi.fn() as unknown as typeof fetch);
+    const ev = await p.parseWebhook(notif({ Amount: 150000 }), {});
+    expect(ev?.amount).toBe(150000);
+  });
   it('returns null on a bad token', async () => {
     const p = new TinkoffPaymentProvider(cfg, vi.fn() as unknown as typeof fetch);
     const raw = Buffer.from(

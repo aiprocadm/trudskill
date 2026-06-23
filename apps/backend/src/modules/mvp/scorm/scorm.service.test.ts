@@ -230,6 +230,22 @@ describe('ScormService.processPackage — valid zip', () => {
     );
   });
 
+  it('records totalBytes from the ACTUAL inflated content length of every entry', async () => {
+    const { scorm, filesMock, storageMock } = makeServices();
+    const indexBody = '<html><body>' + 'A'.repeat(5000) + '</body></html>';
+    const expectedTotal =
+      Buffer.from(VALID_MANIFEST, 'utf8').length + Buffer.from(indexBody, 'utf8').length;
+    const zipBuf = makeZip({ 'imsmanifest.xml': VALID_MANIFEST, 'index.html': indexBody });
+    givenZip(zipBuf, filesMock as never, storageMock as never);
+
+    const pkg = scorm.registerPackage(T, ADMIN, { zipFileId: 'file_total' }, ctx);
+    const processed = await scorm.processPackage(T, ADMIN, pkg.id, ctx);
+
+    expect(processed.packageStatus).toBe('ready');
+    // totalBytes is summed from getData().length (real inflated bytes), not declared header sizes.
+    expect(processed.totalBytes).toBe(expectedTotal);
+  });
+
   it('uses manifest title as package title when title was the default', async () => {
     const { scorm, filesMock, storageMock } = makeServices();
     const zipBuf = makeZip({

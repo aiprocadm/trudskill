@@ -201,11 +201,18 @@ export class PostgresPaymentsRepository implements PaymentsRepository {
   }
 
   async findOrderByProviderPaymentId(
-    providerPaymentId: string
+    providerPaymentId: string,
+    provider?: PaymentProviderId
   ): Promise<{ tenantId: string; order: OrderEntity; payment: PaymentEntity } | null> {
+    const conditions = ['provider_payment_id = $1'];
+    const params: unknown[] = [providerPaymentId];
+    if (provider !== undefined) {
+      params.push(provider);
+      conditions.push(`provider = $${params.length}`);
+    }
     const payments = await this.db.query<PaymentDbRow>(
-      `select * from payments.payments where provider_payment_id = $1`,
-      [providerPaymentId]
+      `select * from payments.payments where ${conditions.join(' and ')}`,
+      params
     );
     if (!payments[0]) return null;
 

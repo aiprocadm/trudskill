@@ -166,7 +166,9 @@ export class FilesService {
     const uploadUrl = await this.storage.createPresignedUploadUrl({
       key: storageKey,
       contentType: input.contentType,
-      expiresInSeconds: UPLOAD_URL_TTL_SECONDS
+      expiresInSeconds: UPLOAD_URL_TTL_SECONDS,
+      // Pin the declared size into the signature so S3 rejects a body of any other length.
+      contentLength: input.sizeBytes
     });
     return { fileId: file.id, uploadUrl, storageKey, expiresInSeconds: UPLOAD_URL_TTL_SECONDS };
   }

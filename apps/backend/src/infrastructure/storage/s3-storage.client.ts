@@ -42,7 +42,10 @@ export class S3StorageClient implements StorageClient {
     const command = new PutObjectCommand({
       Bucket: backendEnv.S3_BUCKET,
       Key: params.key,
-      ContentType: params.contentType
+      ContentType: params.contentType,
+      // Sign Content-Length into the URL so S3 enforces the declared size (server-side); the
+      // browser sets content-length from the body, so a larger body fails the signature.
+      ...(params.contentLength !== undefined ? { ContentLength: params.contentLength } : {})
     });
     return getSignedUrl(this.getClient(), command, {
       expiresIn: params.expiresInSeconds ?? 900

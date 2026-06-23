@@ -90,7 +90,15 @@ export class TinkoffPaymentProvider implements PaymentProvider {
           ? ('cancelled' as const)
           : null;
     if (!status) return null;
-    return { providerPaymentId: String(paymentId), status, rawPayload: body };
+    // Tinkoff Amount is already integer kopecks.
+    const amount =
+      typeof body.Amount === 'number' && Number.isFinite(body.Amount) ? body.Amount : undefined;
+    return {
+      providerPaymentId: String(paymentId),
+      status,
+      ...(amount !== undefined ? { amount } : {}),
+      rawPayload: body
+    };
   }
 
   webhookAck(): string {

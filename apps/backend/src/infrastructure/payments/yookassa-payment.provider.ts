@@ -93,7 +93,11 @@ export class YookassaPaymentProvider implements PaymentProvider {
       headers: { Authorization: this.authHeader() }
     });
     if (!res.ok) return null;
-    const payment = (await res.json()) as { id: string; status: string };
+    const payment = (await res.json()) as {
+      id: string;
+      status: string;
+      amount?: { value?: string };
+    };
     const status =
       payment.status === 'succeeded'
         ? ('succeeded' as const)
@@ -101,7 +105,16 @@ export class YookassaPaymentProvider implements PaymentProvider {
           ? ('cancelled' as const)
           : null;
     if (!status) return null;
-    return { providerPaymentId: payment.id, status, rawPayload: body as Record<string, unknown> };
+    // YooKassa amount.value is major units ("1500.00") → integer kopecks.
+    const val = Number(payment.amount?.value);
+    const amount =
+      payment.amount?.value && Number.isFinite(val) ? Math.round(val * 100) : undefined;
+    return {
+      providerPaymentId: payment.id,
+      status,
+      ...(amount !== undefined ? { amount } : {}),
+      rawPayload: body as Record<string, unknown>
+    };
   }
 
   /**

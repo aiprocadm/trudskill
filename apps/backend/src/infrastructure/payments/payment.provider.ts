@@ -35,6 +35,13 @@ export interface CreatePaymentResult {
 export interface WebhookEvent {
   providerPaymentId: string;
   status: 'succeeded' | 'failed' | 'cancelled';
+  /**
+   * Verified notification amount in integer kopecks, when the adapter can surface it from the
+   * signed/authenticated payload. The webhook handler cross-checks it against the stored payment
+   * amount and refuses to fulfill on mismatch. Omitted when the provider's payload carries no
+   * trustworthy amount (the signature still guarantees authenticity — this is defense-in-depth).
+   */
+  amount?: number;
   rawPayload: Record<string, unknown>;
 }
 
