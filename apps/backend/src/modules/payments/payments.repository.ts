@@ -48,8 +48,15 @@ export interface PaymentsRepository {
     status: PaymentRowStatus,
     paidAt?: string
   ): Promise<void>;
+  /**
+   * Resolves the order/payment a webhook refers to. When `provider` is given, the lookup is scoped
+   * to that provider so a short, non-unique `providerPaymentId` (e.g. Robokassa's numeric InvId)
+   * cannot collide with another provider's id and return the wrong — or, worse, miss the right —
+   * order. The unscoped form is retained for callers that have a globally-unique id.
+   */
   findOrderByProviderPaymentId(
-    providerPaymentId: string
+    providerPaymentId: string,
+    provider?: PaymentProviderId
   ): Promise<{ tenantId: string; order: OrderEntity; payment: PaymentEntity } | null>;
   markItemFulfilled(
     tenantId: string,

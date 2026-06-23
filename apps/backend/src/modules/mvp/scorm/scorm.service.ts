@@ -157,12 +157,14 @@ export class ScormService {
       const zip = new AdmZip(zipBuffer);
       const entries = zip.getEntries().filter((e) => !e.isDirectory);
 
-      // Guard loop FIRST — enforce path safety and declared-size budget before any getData().
-      // This prevents a zip-bomb manifest from being decompressed before the budget runs.
-      const budget = createZipBudget();
+      // Guard loop FIRST — enforce path safety and a cheap DECLARED-size pre-check before any
+      // getData(). The declared (central-directory) size is attacker-controlled, so it is only a
+      // fast reject for honestly-large zips; the authoritative budget below runs on ACTUAL inflated
+      // bytes so a manifest that under-reports its size cannot smuggle a zip-bomb past the limits.
+      const declaredBudget = createZipBudget();
       for (const entry of entries) {
         assertSafeEntryPath(entry.entryName);
-        budget.addEntry(entry.header.size);
+        declaredBudget.addEntry(entry.header.size);
       }
 
       const manifestEntry = entries.find((e) => e.entryName === 'imsmanifest.xml');
@@ -173,18 +175,25 @@ export class ScormService {
         );
       }
       const manifest = parseScormManifest(manifestEntry.getData().toString('utf8'));
+
+      // Authoritative budget: enforce the limits against the REAL inflated length of each entry as
+      // we decompress it, not the declared header size. A lying header that passed the pre-check is
+      // caught here before the bomb is persisted, and the recorded totals reflect reality.
+      const actualBudget = createZipBudget();
       for (const entry of entries) {
+        const data = entry.getData();
+        actualBudget.addEntry(data.length);
         await this.storage.putObject({
           key: `${pkg.storagePrefix}/${entry.entryName}`,
-          body: entry.getData(),
+          body: data,
           contentType: contentTypeForPath(entry.entryName)
         });
       }
       pkg.launchHref = manifest.launchHref;
       pkg.manifestTitle = manifest.title;
       if (!pkg.title || pkg.title === 'SCORM package') pkg.title = manifest.title;
-      pkg.entryCount = budget.entries;
-      pkg.totalBytes = budget.totalBytes;
+      pkg.entryCount = actualBudget.entries;
+      pkg.totalBytes = actualBudget.totalBytes;
       pkg.packageStatus = 'ready';
       pkg.updatedAt = new Date().toISOString();
       this.auditService.write({

@@ -43,6 +43,38 @@ describe('InMemoryPaymentsRepository', () => {
     expect(found?.order.id).toBe(order.id);
     expect(found?.tenantId).toBe('t1');
   });
+  it('scopes provider_payment_id lookup by provider to avoid cross-provider collisions', async () => {
+    const repo = new InMemoryPaymentsRepository();
+    // Two providers happen to mint the same short id (e.g. Robokassa numeric InvId vs another).
+    const roboOrder = await repo.createOrder(seed);
+    await repo.createPayment({
+      tenantId: 't1',
+      orderId: roboOrder.id,
+      provider: 'robokassa',
+      providerPaymentId: '42',
+      method: 'card',
+      amount: 150000,
+      status: 'pending'
+    });
+    const tinkoffOrder = await repo.createOrder({ ...seed, buyerId: 'l2' });
+    await repo.createPayment({
+      tenantId: 't1',
+      orderId: tinkoffOrder.id,
+      provider: 'tinkoff',
+      providerPaymentId: '42',
+      method: 'card',
+      amount: 150000,
+      status: 'pending'
+    });
+
+    const robo = await repo.findOrderByProviderPaymentId('42', 'robokassa');
+    expect(robo?.order.id).toBe(roboOrder.id);
+    expect(robo?.payment.provider).toBe('robokassa');
+
+    const tinkoff = await repo.findOrderByProviderPaymentId('42', 'tinkoff');
+    expect(tinkoff?.order.id).toBe(tinkoffOrder.id);
+    expect(tinkoff?.payment.provider).toBe('tinkoff');
+  });
   it('updates order status', async () => {
     const repo = new InMemoryPaymentsRepository();
     const order = await repo.createOrder(seed);

@@ -9,6 +9,7 @@ import type {
   OrderItemEntity,
   OrderStatus,
   PaymentEntity,
+  PaymentProviderId,
   PaymentRowStatus
 } from './payments.types.js';
 
@@ -110,9 +111,14 @@ export class InMemoryPaymentsRepository implements PaymentsRepository {
   }
 
   async findOrderByProviderPaymentId(
-    providerPaymentId: string
+    providerPaymentId: string,
+    provider?: PaymentProviderId
   ): Promise<{ tenantId: string; order: OrderEntity; payment: PaymentEntity } | null> {
-    const p = [...this.payments.values()].find((x) => x.providerPaymentId === providerPaymentId);
+    const p = [...this.payments.values()].find(
+      (x) =>
+        x.providerPaymentId === providerPaymentId &&
+        (provider === undefined || x.provider === provider)
+    );
     if (!p) return null;
     const o = this.orders.get(p.orderId);
     if (!o) return null;

@@ -84,6 +84,10 @@ describe('FilesService.createUploadIntent', () => {
     expect(out.uploadUrl).toBe('https://minio.local/PUT-signed');
     expect(out.expiresInSeconds).toBeGreaterThan(0);
     expect(storage.createPresignedUploadUrl).toHaveBeenCalledTimes(1);
+    // The declared size is pinned into the presigned PUT so S3 enforces it server-side.
+    expect(storage.createPresignedUploadUrl).toHaveBeenCalledWith(
+      expect.objectContaining({ contentLength: 1024 })
+    );
   });
 });
 

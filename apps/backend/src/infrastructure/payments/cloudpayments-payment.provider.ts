@@ -81,7 +81,15 @@ export class CloudPaymentsProvider implements PaymentProvider {
           ? ('cancelled' as const)
           : null;
     if (!status) return null;
-    return { providerPaymentId: id, status, rawPayload };
+    // CloudPayments Amount is in major units (rubles) → integer kopecks.
+    const amt = Number(params.get('Amount'));
+    const amount = Number.isFinite(amt) && params.get('Amount') ? Math.round(amt * 100) : undefined;
+    return {
+      providerPaymentId: id,
+      status,
+      ...(amount !== undefined ? { amount } : {}),
+      rawPayload
+    };
   }
 
   webhookAck(): Record<string, unknown> {

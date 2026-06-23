@@ -38,6 +38,13 @@ export interface WebinarProvider {
     raw: Buffer,
     headers: Record<string, string | undefined>
   ): Promise<WebinarAttendanceEvent[] | null>;
+  /**
+   * Optional provider-specific webhook ACK body. The controller writes this directly to the
+   * response (bypassing the global envelope interceptor) so a provider that expects an exact ack
+   * body is not given a wrapped `{ data, meta }`. When omitted, the controller responds
+   * `{ ok: true }`. Mirrors PaymentProvider.webhookAck.
+   */
+  webhookAck?(events: WebinarAttendanceEvent[] | null): string | Record<string, unknown>;
 }
 
 /** DI token for the registry of all compiled-in providers (Map<code, provider>). */

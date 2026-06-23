@@ -5,6 +5,7 @@ import { PaymentFulfillmentService } from './payment-fulfillment.service.js';
 import { PaymentProviderResolver } from './payment-provider-resolver.service.js';
 import { PAYMENTS_REPOSITORY, type PaymentsRepository } from './payments.repository.js';
 
+import type { PaymentEntity } from './payments.types.js';
 import type { Request, Response } from 'express';
 
 /**
@@ -57,7 +58,12 @@ export class PaymentsWebhookController {
       return;
     }
 
-    const found = await this.repo.findOrderByProviderPaymentId(event.providerPaymentId);
+    // Scope the lookup to the webhook's provider so a short, non-unique providerPaymentId cannot
+    // collide with another provider's id (and return — or miss — the wrong order).
+    const found = await this.repo.findOrderByProviderPaymentId(
+      event.providerPaymentId,
+      providerCode as PaymentEntity['provider']
+    );
     if (!found) {
       sendAck(ack());
       return;
@@ -65,9 +71,17 @@ export class PaymentsWebhookController {
 
     const { tenantId, order, payment } = found;
 
-    // Cross-check: the stored payment must belong to the provider that sent this webhook.
-    // A provider-payment-id collision across providers must not fulfill the wrong order.
+    // Defense-in-depth: even with the scoped lookup, re-assert the stored payment belongs to the
+    // provider that sent this webhook before mutating anything.
     if (payment.provider !== providerCode) {
+      sendAck(ack());
+      return;
+    }
+
+    // Amount cross-check: when the adapter surfaced a verified amount, it must match the order we
+    // are about to fulfill. The signature already binds the amount, so a mismatch means
+    // misconfiguration or tampering — ACK (so the acquirer stops retrying) but do not fulfill.
+    if (event.amount !== undefined && event.amount !== payment.amount) {
       sendAck(ack());
       return;
     }

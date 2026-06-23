@@ -57,9 +57,13 @@ export class RobokassaProvider implements PaymentProvider {
     const a = Buffer.from(sig.toLowerCase());
     const b = Buffer.from(expected.toLowerCase());
     if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+    // Robokassa OutSum is in major units (rubles) → integer kopecks.
+    const sum = Number(outSum);
+    const amount = Number.isFinite(sum) ? Math.round(sum * 100) : undefined;
     return {
       providerPaymentId: invId,
       status: 'succeeded',
+      ...(amount !== undefined ? { amount } : {}),
       rawPayload: Object.fromEntries(params.entries())
     };
   }

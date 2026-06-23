@@ -43,6 +43,8 @@ describe('RobokassaProvider.parseWebhook', () => {
       'content-type': 'application/x-www-form-urlencoded'
     });
     expect(ev).toMatchObject({ providerPaymentId: '42', status: 'succeeded' });
+    // OutSum 1500.00 rubles → 150000 kopecks for the amount cross-check.
+    expect(ev?.amount).toBe(150000);
   });
   it('returns null on a bad signature', async () => {
     const p = new RobokassaProvider(cfg);
