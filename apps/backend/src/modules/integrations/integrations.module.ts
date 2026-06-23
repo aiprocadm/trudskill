@@ -2,6 +2,7 @@ import { Inject, Injectable, Module, type OnModuleInit } from '@nestjs/common';
 
 import { AuditModule } from '../audit/audit.module.js';
 import { CoreModule } from '../core/core.module.js';
+import { IamModule } from '../iam/iam.module.js';
 import { EisotAdapter } from './adapters/eisot.adapter.js';
 import { EmailAdapter } from './adapters/email.adapter.js';
 import { FrdoAdapter } from './adapters/frdo.adapter.js';
@@ -51,6 +52,7 @@ class IntegrationsProviderRegistryBootstrap implements OnModuleInit {
   imports: [
     AuditModule,
     CoreModule,
+    IamModule,
     ProvidersModule,
     CredentialsModule,
     ExportsModule,
