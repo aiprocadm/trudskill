@@ -248,7 +248,7 @@ export default function GovExportPage() {
       <PageContainer>
         <PageHeader
           title="Выгрузки ФИС ФРДО / ЕИСОТ"
-          subtitle="П. 5.22 ТЗ — XML, валидация, история выгрузок"
+          subtitle="Государственные выгрузки: XML, валидация, история"
         />
         <SectionCard title="Мастер формирования пакета">
           <FilterBar>

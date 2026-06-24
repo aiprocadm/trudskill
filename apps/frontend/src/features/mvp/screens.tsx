@@ -2008,7 +2008,7 @@ const RoleWidgetGrid = ({
   return (
     <PageContainer>
       <PageHeader title={title} subtitle={subtitle} />
-      <SectionCard title="Виджеты по роли (RBAC)">
+      <SectionCard title="Виджеты по роли">
         {visibleWidgets.length ? (
           <div className="ui-dashboard-grid" data-testid="rbac-widget-grid">
             {visibleWidgets.map((widget) => (
@@ -2025,7 +2025,7 @@ const RoleWidgetGrid = ({
         ) : (
           <SectionEmpty
             message="Нет видимых виджетов для текущей роли"
-            hint="Проверьте назначенные роли пользователя и матрицу RBAC."
+            hint="Проверьте назначенные пользователю роли."
           />
         )}
       </SectionCard>

@@ -8,7 +8,7 @@ export default function QuestionImportPage() {
       <PageContainer>
         <PageHeader
           title="Импорт вопросов"
-          subtitle="П. 5.7 ТЗ — файл, валидация, протокол ошибок"
+          subtitle="Импорт вопросов из файла с валидацией и протоколом ошибок"
         />
         <SectionCard title="API">
           <p className="ui-prose-muted ui-prose-muted--tight">

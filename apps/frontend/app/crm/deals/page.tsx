@@ -57,7 +57,7 @@ export default function CrmDealsPage() {
       <PageContainer>
         <PageHeader
           title="CRM · Сделки"
-          subtitle="П. 5.21 ТЗ — стадии, контрагенты, промокоды, договоры"
+          subtitle="Сделки: стадии, контрагенты, промокоды, договоры"
         />
         <SectionCard title="Создать сделку">
           {counterparties.loading || groups.loading ? (

@@ -39,7 +39,7 @@ export default function AcademyCommissionPage() {
       <PageContainer>
         <PageHeader
           title="Комиссия учебного центра"
-          subtitle="GET /tenant/commission — состав, председатель, секретарь (п. 5.1, 5.15 ТЗ)"
+          subtitle="Состав комиссии: председатель, секретарь и члены"
         />
         <SectionCard title="Состав">
           {err ? <SectionError message={err} /> : null}

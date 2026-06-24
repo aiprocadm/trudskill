@@ -31,50 +31,50 @@ const widgetCatalog: Array<{
   roles: RoleCode[];
 }> = [
   {
-    title: 'Continue',
+    title: 'Продолжить обучение',
     note: 'Вернуться к последнему модулю обучения',
     href: '/learner/courses',
     roles: ['learner']
   },
   {
-    title: 'Deadlines',
+    title: 'Дедлайны',
     note: 'Проверить задания и тесты на неделе',
     href: '/assessment',
     roles: ['learner']
   },
   {
-    title: 'Attempts',
+    title: 'Попытки и результаты',
     note: 'История попыток и результаты',
     href: '/assessment',
     roles: ['learner']
   },
   {
-    title: 'Docs',
+    title: 'Документы',
     note: 'Учебные документы и регламенты',
     href: '/documents',
     roles: ['learner']
   },
   {
-    title: 'Notifications',
+    title: 'Уведомления',
     note: 'Непрочитанные сообщения и объявления',
     href: '/notifications',
     roles: ['learner']
   },
   {
-    title: 'Webinar',
+    title: 'Вебинары',
     note: 'Предстоящие вебинары и эфиры',
     href: '/learner/webinars',
     roles: ['learner']
   },
   {
-    title: 'Teacher grading center',
-    note: 'Проверка работ, rubric и обратная связь',
+    title: 'Центр проверки работ',
+    note: 'Проверка работ, критерии и обратная связь',
     href: '/teacher/grading-center',
     roles: ['teacher']
   },
   {
-    title: 'Admin cockpit',
-    note: 'Sessions, queue, integrations, audit health',
+    title: 'Панель администратора',
+    note: 'Сессии, очередь, интеграции, состояние аудита',
     href: '/admin/cockpit',
     roles: ['tenant_admin', 'platform_admin']
   }
@@ -110,10 +110,7 @@ export default function DashboardPage() {
   return (
     <ProtectedPage>
       <PageContainer>
-        <PageHeader
-          title="Панель LMS"
-          subtitle="RBAC-видимость: student dashboard, teacher grading center и admin cockpit"
-        />
+        <PageHeader title="Панель LMS" subtitle="Быстрый доступ к задачам по вашей роли" />
         <SectionCard title="Приоритеты на сегодня">
           <div className="ui-dashboard-grid">
             {visibleCards.map((item) => (
