@@ -61,7 +61,10 @@ export default function EsignLegalLogPage() {
   return (
     <ProtectedPage>
       <PageContainer>
-        <PageHeader title="Legal log" subtitle="Append-only журнал юридически значимых событий" />
+        <PageHeader
+          title="Юридический журнал"
+          subtitle="Журнал юридически значимых событий (только добавление)"
+        />
         <SectionCard title="События">
           <FilterBar>
             <input
