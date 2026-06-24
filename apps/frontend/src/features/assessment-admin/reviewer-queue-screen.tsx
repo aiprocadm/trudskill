@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, LoadingState } from '@cdoprof/ui';
+import { DataTable, LoadingState } from '@trudskill/ui';
 
 import { formatDateTime } from './format';
 import { useReviewerQueue } from './hooks';
@@ -13,7 +13,7 @@ import {
 } from '../../components/state-wrappers';
 
 import type { ReviewerQueueListItem } from './types';
-import type { Column } from '@cdoprof/ui';
+import type { Column } from '@trudskill/ui';
 
 export function ReviewerQueueScreen() {
   const queue = useReviewerQueue();

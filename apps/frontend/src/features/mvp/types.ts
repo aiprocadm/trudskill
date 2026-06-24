@@ -1,7 +1,7 @@
 import type {
   GeneratedBaseFilterQuery as BaseFilterQuery,
   GeneratedSessionDto as SessionDto
-} from '@cdoprof/api-contracts/src/generated/contracts.generated';
+} from '@trudskill/api-contracts/src/generated/contracts.generated';
 
 export type { BaseFilterQuery, SessionDto };
 

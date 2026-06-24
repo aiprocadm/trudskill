@@ -1,6 +1,6 @@
 'use client';
 
-import { LoadingState } from '@cdoprof/ui';
+import { LoadingState } from '@trudskill/ui';
 
 import { formatProgressLabel } from './format';
 import { useClientProgress } from './hooks';

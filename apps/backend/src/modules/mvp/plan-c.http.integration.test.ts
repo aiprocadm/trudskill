@@ -11,7 +11,7 @@ import type { FilesService as FilesGate } from '../files/files.service.js';
  *
  * Stub-controller pattern mirroring `test-player.http.integration.test.ts`.
  * Run in isolation:
- *   pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/plan-c.http.integration.test.ts --no-file-parallelism
+ *   pnpm --filter @trudskill/backend exec vitest run src/modules/mvp/plan-c.http.integration.test.ts --no-file-parallelism
  *
  * Endpoints tested:
  *  - POST /assignment-submissions/:id/upload-url  → assessment.submissions.submit

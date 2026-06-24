@@ -7,7 +7,7 @@ import {
   Pagination,
   SearchInput,
   StatusChip
-} from '@cdoprof/ui';
+} from '@trudskill/ui';
 import { useMemo, useState } from 'react';
 
 import { STATUS_LABEL, formatFullName, formatSnils } from './format';
@@ -22,7 +22,7 @@ import {
 } from '../../components/state-wrappers';
 
 import type { LearnerListItem, LearnerStatus, LearnersListFilters } from './types';
-import type { Column } from '@cdoprof/ui';
+import type { Column } from '@trudskill/ui';
 
 const PAGE_SIZE = 20;
 

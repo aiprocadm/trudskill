@@ -1,4 +1,4 @@
-# @cdoprof/test-utils
+# @trudskill/test-utils
 
 Общий пакет тестовых утилит для unit/integration/e2e/contract тестов.
 
@@ -14,7 +14,7 @@
 ## Быстрый пример
 
 ```ts
-import { authHeaders, createTestTenant } from '@cdoprof/test-utils';
+import { authHeaders, createTestTenant } from '@trudskill/test-utils';
 
 const tenant = createTestTenant('stage2');
 const headers = {

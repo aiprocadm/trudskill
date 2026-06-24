@@ -1,6 +1,6 @@
 'use client';
 
-import { VISUALLY_HIDDEN_CLASS } from '@cdoprof/ui';
+import { VISUALLY_HIDDEN_CLASS } from '@trudskill/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { type PropsWithChildren, useEffect, useMemo, useState } from 'react';

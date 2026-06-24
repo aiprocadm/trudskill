@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, LoadingState } from '@cdoprof/ui';
+import { DataTable, LoadingState } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { reviewerActionsApi } from './api';
@@ -22,7 +22,7 @@ import {
 import { useAuth } from '../auth/context';
 
 import type { ReviewerQueueItem } from './types';
-import type { Column } from '@cdoprof/ui';
+import type { Column } from '@trudskill/ui';
 
 /* ---------- Submission action panel ---------- */
 

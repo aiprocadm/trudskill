@@ -1,6 +1,6 @@
 'use client';
 
-import { LoadingState } from '@cdoprof/ui';
+import { LoadingState } from '@trudskill/ui';
 import { useEffect, useState } from 'react';
 
 import { getPaymentProviderSettings, savePaymentProviderSettings } from './api';

@@ -1,4 +1,4 @@
-# @cdoprof/frontend
+# @trudskill/frontend
 
 Единое shell-приложение платформы на Next.js + React + TypeScript.
 
@@ -29,14 +29,14 @@
 
 ```bash
 pnpm install
-pnpm --filter @cdoprof/frontend dev
+pnpm --filter @trudskill/frontend dev
 ```
 
 ## Тесты
 
 ```bash
-pnpm --filter @cdoprof/frontend test
-pnpm --filter @cdoprof/frontend typecheck
+pnpm --filter @trudskill/frontend test
+pnpm --filter @trudskill/frontend typecheck
 ```
 
 Покрыты foundation-сценарии: auth/session refresh/logout reset, protected routing, forbidden logic, permission-aware navigation и error normalization.

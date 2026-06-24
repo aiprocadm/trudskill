@@ -70,9 +70,6 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.1019.0
         version: 3.1019.0
-      '@cdoprof/api-contracts':
-        specifier: workspace:*
-        version: link:../../packages/api-contracts
       '@nestjs/common':
         specifier: ^11.0.11
         version: 11.1.17(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -88,6 +85,9 @@ importers:
       '@nestjs/throttler':
         specifier: ^6.4.0
         version: 6.5.0(@nestjs/common@11.1.17(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.17)(reflect-metadata@0.2.2)
+      '@trudskill/api-contracts':
+        specifier: workspace:*
+        version: link:../../packages/api-contracts
       adm-zip:
         specifier: ^0.5.17
         version: 0.5.17
@@ -155,18 +155,18 @@ importers:
 
   apps/frontend:
     dependencies:
-      '@cdoprof/api-contracts':
-        specifier: workspace:*
-        version: link:../../packages/api-contracts
-      '@cdoprof/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
       '@serwist/next':
         specifier: ^9.5.11
         version: 9.5.11(next@15.2.2(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react@19.0.0)(typescript@5.9.3)
       '@tanstack/react-query':
         specifier: ^5.66.0
         version: 5.100.1(react@19.0.0)
+      '@trudskill/api-contracts':
+        specifier: workspace:*
+        version: link:../../packages/api-contracts
+      '@trudskill/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       next:
         specifier: 15.2.2
         version: 15.2.2(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -216,15 +216,15 @@ importers:
 
   apps/worker:
     dependencies:
-      '@cdoprof/shared-types':
-        specifier: workspace:*
-        version: link:../../packages/shared-types
       '@nestjs/common':
         specifier: ^11.0.11
         version: 11.1.17(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/core':
         specifier: ^11.0.11
         version: 11.1.17(@nestjs/common@11.1.17(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.1.17)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@trudskill/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
       amqplib:
         specifier: ^1.0.2
         version: 1.0.2
@@ -240,7 +240,7 @@ importers:
 
   packages/api-contracts:
     dependencies:
-      '@cdoprof/shared-types':
+      '@trudskill/shared-types':
         specifier: workspace:*
         version: link:../shared-types
 
@@ -248,13 +248,13 @@ importers:
 
   packages/test-utils:
     dependencies:
-      '@cdoprof/shared-types':
+      '@trudskill/shared-types':
         specifier: workspace:*
         version: link:../shared-types
 
   packages/ui:
     dependencies:
-      '@cdoprof/shared-types':
+      '@trudskill/shared-types':
         specifier: workspace:*
         version: link:../shared-types
       react:

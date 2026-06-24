@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
  * Phase 3 Plan A — HTTP integration boundary tests для НОВЫХ admin assessment endpoints.
  *
  * Этот файл — stub-controller паттерн по образцу `mvp.http.integration.test.ts`. Запускать
- * через `pnpm --filter @cdoprof/backend exec vitest run src/modules/mvp/assessment-admin.http.integration.test.ts --no-file-parallelism`
+ * через `pnpm --filter @trudskill/backend exec vitest run src/modules/mvp/assessment-admin.http.integration.test.ts --no-file-parallelism`
  * чтобы избежать падения NestJS worker pool на Cyrillic пути (см. CLAUDE.md Gotchas).
  *
  * Проверяемые endpoints (новые в Phase 3 Plan A):

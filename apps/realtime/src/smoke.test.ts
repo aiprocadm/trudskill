@@ -1,4 +1,4 @@
-import { realtimeCatalog } from '@cdoprof/api-contracts';
+import { realtimeCatalog } from '@trudskill/api-contracts';
 import { describe, expect, it } from 'vitest';
 
 describe('realtime', () => {

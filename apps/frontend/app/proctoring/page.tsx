@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, LoadingState } from '@cdoprof/ui';
+import { DataTable, LoadingState } from '@trudskill/ui';
 import { useMemo } from 'react';
 
 import {

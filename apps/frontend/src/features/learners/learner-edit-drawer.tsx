@@ -1,6 +1,6 @@
 'use client';
 
-import { Dialog } from '@cdoprof/ui';
+import { Dialog } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { STATUS_LABEL, buildUpdatePayload } from './format';

@@ -2,7 +2,7 @@
 
 ## Run
 
-- `pnpm --filter @cdoprof/worker dev`
+- `pnpm --filter @trudskill/worker dev`
 
 ## Document generation flow
 

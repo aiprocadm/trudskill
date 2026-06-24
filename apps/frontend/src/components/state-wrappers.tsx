@@ -1,4 +1,4 @@
-import { EmptyState, ErrorState, LoadingState } from '@cdoprof/ui';
+import { EmptyState, ErrorState, LoadingState } from '@trudskill/ui';
 
 import type { PropsWithChildren, ReactNode } from 'react';
 

@@ -1,6 +1,6 @@
 import type { AuthResponseDto, SessionResponseDto, UserResponseDto } from './dto/response.dto.js';
 import type { Session, User } from './iam.types.js';
-import type { AuthTokensContract } from '@cdoprof/api-contracts';
+import type { AuthTokensContract } from '@trudskill/api-contracts';
 
 export const toAuthResponse = (
   tokens: AuthTokensContract & { refreshToken?: string }

@@ -1,5 +1,5 @@
 {
-  "name": "@cdoprof/frontend",
+  "name": "@trudskill/frontend",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -10,8 +10,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@cdoprof/api-contracts": "workspace:*",
-    "@cdoprof/ui": "workspace:*",
+    "@trudskill/api-contracts": "workspace:*",
+    "@trudskill/ui": "workspace:*",
     "@serwist/next": "^9.5.11",
     "@tanstack/react-query": "^5.66.0",
     "next": "15.2.2",

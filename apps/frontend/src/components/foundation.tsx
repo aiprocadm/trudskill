@@ -8,7 +8,7 @@ import {
   RegistryFilterBar,
   RegistryTableState,
   RegistryToolbar
-} from '@cdoprof/ui';
+} from '@trudskill/ui';
 import { useState } from 'react';
 
 export const FormFoundation = () => (

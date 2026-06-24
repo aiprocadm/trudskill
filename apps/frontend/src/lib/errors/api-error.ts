@@ -2,7 +2,7 @@ import {
   type ApiErrorResponse,
   BackendHttpErrorCodes,
   type HttpExceptionResponseJson
-} from '@cdoprof/api-contracts';
+} from '@trudskill/api-contracts';
 
 export interface NormalizedApiError {
   status: number;

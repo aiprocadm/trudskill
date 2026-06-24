@@ -1,6 +1,6 @@
 'use client';
 
-import { LoadingState } from '@cdoprof/ui';
+import { LoadingState } from '@trudskill/ui';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
@@ -17,7 +17,8 @@ export const ProtectedRoute = ({ children }: PropsWithChildren) => {
   useEffect(() => {
     if (loading) return;
     const bootstrap = getRouteBootstrapState(pathname, session);
-    if (bootstrap.shouldRedirectToLogin) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+    if (bootstrap.shouldRedirectToLogin)
+      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
     if (bootstrap.shouldRedirectToForbidden) router.replace('/forbidden');
     if (bootstrap.shouldRedirectToNotFound) router.replace('/not-found');
   }, [loading, pathname, router, session]);

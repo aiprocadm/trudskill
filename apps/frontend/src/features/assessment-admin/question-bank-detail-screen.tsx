@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, LoadingState, StatusChip } from '@cdoprof/ui';
+import { DataTable, LoadingState, StatusChip } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { formatEntityStatus, formatQuestionScore, formatQuestionType } from './format';
@@ -16,7 +16,7 @@ import {
 } from '../../components/state-wrappers';
 
 import type { QuestionListItem, QuestionType } from './types';
-import type { Column } from '@cdoprof/ui';
+import type { Column } from '@trudskill/ui';
 
 interface Props {
   bankId: string;

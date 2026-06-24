@@ -60,8 +60,8 @@ Migration `migrations/0001_backend_foundation.sql` creates:
 
 ## Local commands
 
-- `pnpm --filter @cdoprof/backend dev`
-- `pnpm --filter @cdoprof/backend test`
+- `pnpm --filter @trudskill/backend dev`
+- `pnpm --filter @trudskill/backend test`
 
 ## Notes
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, FilterBar } from '@cdoprof/ui';
+import { DataTable, FilterBar } from '@trudskill/ui';
 import { useState } from 'react';
 
 import {

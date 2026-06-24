@@ -1,4 +1,4 @@
-import { FilterBar } from '@cdoprof/ui';
+import { FilterBar } from '@trudskill/ui';
 
 export const SearchStatusFilter = ({
   q,

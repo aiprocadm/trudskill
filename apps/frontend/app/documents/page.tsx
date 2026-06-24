@@ -1,7 +1,7 @@
 'use client';
 
-import { DataTable, LoadingState, StatusChip } from '@cdoprof/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { DataTable, LoadingState, StatusChip } from '@trudskill/ui';
 import { useMemo, useState } from 'react';
 
 import {

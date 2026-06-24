@@ -1,7 +1,7 @@
 import { toAuthResponse } from './iam-response.mapper.js';
 import { backendEnv } from '../../env.js';
 
-import type { AuthTokensContract } from '@cdoprof/api-contracts';
+import type { AuthTokensContract } from '@trudskill/api-contracts';
 
 const REFRESH_COOKIE_NAME = 'cdoprof_refresh_token';
 const CSRF_COOKIE_NAME = 'cdoprof_csrf_token';

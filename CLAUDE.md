@@ -39,16 +39,16 @@ pnpm ci:check            # lint + typecheck + contracts:lint + contracts:typeche
 pnpm typecheck           # turbo typecheck (8 tasks, cached)
 pnpm lint                # turbo lint (next lint for frontend; ESLint for rest)
 pnpm test                # turbo test (all projects in parallel)
-pnpm test:backend        # vitest --project @cdoprof/backend (HEAVY — see Gotchas)
-pnpm test:frontend       # vitest --project @cdoprof/frontend (~190 tests in ~15s)
-pnpm test:contracts      # vitest --project @cdoprof/api-contracts
+pnpm test:backend        # vitest --project @trudskill/backend (HEAVY — see Gotchas)
+pnpm test:frontend       # vitest --project @trudskill/frontend (~190 tests in ~15s)
+pnpm test:contracts      # vitest --project @trudskill/api-contracts
 pnpm test:integration    # backend integration suite only
 pnpm test:migrations     # SQL migration tests
 pnpm test:security       # auth + webhook signatures + state machines
 
 # Run a single test file (the reliable way on Windows):
-pnpm --filter @cdoprof/backend exec vitest run src/modules/<path>.test.ts --no-file-parallelism
-pnpm --filter @cdoprof/frontend exec vitest run src/<path>.test.ts --no-file-parallelism
+pnpm --filter @trudskill/backend exec vitest run src/modules/<path>.test.ts --no-file-parallelism
+pnpm --filter @trudskill/frontend exec vitest run src/<path>.test.ts --no-file-parallelism
 
 # Lint a single file (useful when pre-existing lint errors elsewhere block full lint):
 npx eslint <path> --max-warnings=0
@@ -62,14 +62,14 @@ CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs lint+typecheck,
 
 ## Architecture
 
-**Monorepo layout** (don't deep-import — go through workspace package entrypoints like `@cdoprof/shared-types`):
+**Monorepo layout** (don't deep-import — go through workspace package entrypoints like `@trudskill/shared-types`):
 
 - `apps/backend` — NestJS API. Module-per-domain under `src/modules/` (`iam`, `mvp`, `documents`, `esign`, `communication`, `integrations`, `audit`, `org`, `files`, `health`, `workspace`).
 - `apps/frontend` — Next.js 15 App Router + TypeScript. Pages in `app/`, features in `src/features/<domain>/` (each typically: `api.ts`, `hooks.ts`, `types.ts`, `screens.tsx`).
 - `apps/realtime` / `apps/worker` — separate Node services for WebSocket push and RabbitMQ consumers (bulk enrollment worker, etc.).
 - `packages/api-contracts` — DTO + generated OpenAPI/Zod schemas. **Don't edit `src/generated/*` by hand** — use `pnpm contracts:generate`.
 - `packages/shared-types` — runtime-agnostic types shared across apps.
-- `packages/ui` — shared UI primitives (`DataTable`, `Column`, etc.) imported as `@cdoprof/ui`.
+- `packages/ui` — shared UI primitives (`DataTable`, `Column`, etc.) imported as `@trudskill/ui`.
 
 **Database schemas** (PostgreSQL):
 
@@ -116,7 +116,7 @@ CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs lint+typecheck,
 - **Navigation entries are data, not JSX.** Add to [`apps/frontend/src/features/navigation/model.ts`](apps/frontend/src/features/navigation/model.ts) — both `routeMeta` (access policy) and `navigationModel` (label + nav slot). `AppShell` renders them dynamically; **no per-section custom layout needed**.
 - All `/admin/*` and learner cabinet pages wrap in `<ProtectedPage>` ([`src/widgets/shell/protected-page.tsx`](apps/frontend/src/widgets/shell/protected-page.tsx)) which uses `<AppShell>` (sidebar + breadcrumbs + auth check).
 - **State wrappers** for screens: `PageContainer`, `PageHeader`, `SectionCard`, `SectionEmpty`, `SectionError`, `FieldError`, `LoadingState` from `src/components/`.
-- **Shared UI** primitives (`DataTable`, `Column`, `StatusChip`, `FilterBar`) from `@cdoprof/ui`.
+- **Shared UI** primitives (`DataTable`, `Column`, `StatusChip`, `FilterBar`) from `@trudskill/ui`.
 - **API contract tests** stub global `fetch` with `vi.stubGlobal` and assert envelope unwrap + payload shape. See `api.contract.test.ts` per feature.
 
 ## Test categorization

@@ -4,7 +4,7 @@ import { type NormalizedApiError, normalizeApiError } from '../errors/api-error'
 import type {
   GeneratedApiResponseEnvelope as ApiResponseEnvelope,
   GeneratedApiPath
-} from '@cdoprof/api-contracts/src/generated/contracts.generated';
+} from '@trudskill/api-contracts/src/generated/contracts.generated';
 
 export class ApiClientError extends Error {
   constructor(public readonly normalized: NormalizedApiError) {
