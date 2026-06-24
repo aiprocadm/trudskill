@@ -22,7 +22,7 @@ export default function CounterpartyPortalPage() {
       <PageContainer>
         <PageHeader
           title="Кабинет контрагента (обзор для персонала)"
-          subtitle="П. 5.11 ТЗ — отдельный контур для юрлица; здесь — навигация к данным"
+          subtitle="Отдельный контур для юрлица — навигация к его данным"
         />
         <SectionCard title="Контрагенты">
           {counterparties.loading ? <LoadingState message="Загрузка контрагентов..." /> : null}

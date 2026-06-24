@@ -30,7 +30,7 @@ export default function ProctoringPage() {
       <PageContainer>
         <PageHeader
           title="Прокторинг"
-          subtitle="П. 5.16 ТЗ — проверка оборудования, сессия, протокол, интеграция с внешним сервисом"
+          subtitle="Проверка оборудования, сессия и протокол прокторинга"
         />
         <SectionCard title="Назначения на контроль">
           {assignments.loading ? <LoadingState message="Загрузка назначений..." /> : null}

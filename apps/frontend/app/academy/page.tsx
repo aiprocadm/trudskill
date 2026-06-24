@@ -10,7 +10,7 @@ export default function AcademyHubPage() {
       <PageContainer>
         <PageHeader
           title="Учебный центр"
-          subtitle="Разделы п. 5.1, 5.15 ТЗ: реквизиты, комиссия, связь с документами и нумерацией"
+          subtitle="Реквизиты учебного центра, комиссия, шаблоны документов и нумерация"
         />
         <SectionCard title="Ключевые настройки">
           <TzLinks
@@ -30,7 +30,7 @@ export default function AcademyHubPage() {
               {
                 href: '/documents',
                 label: 'Шаблоны и генерация документов',
-                description: 'Реестр шаблонов, задания генерации, нумерация — п. 5.12–5.13 ТЗ'
+                description: 'Реестр шаблонов, задания генерации и нумерация документов'
               },
               {
                 href: '/settings',
