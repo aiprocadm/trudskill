@@ -21,6 +21,13 @@ type Deal = {
   stage: 'lead' | 'proposal' | 'won' | 'lost';
 };
 
+const STAGE_LABELS: Record<Deal['stage'], string> = {
+  lead: 'Лид',
+  proposal: 'Предложение',
+  won: 'Успех',
+  lost: 'Отказ'
+};
+
 export default function CrmDealsPage() {
   const counterparties = useCounterpartiesList({ page: 1, page_size: 50 });
   const groups = useGroupsList({ page: 1, page_size: 50 });
@@ -87,7 +94,12 @@ export default function CrmDealsPage() {
               onChange={(event) => setAmount(event.target.value)}
               placeholder="Сумма"
             />
-            <button type="button" onClick={createDeal} disabled={!counterparty || !groupId}>
+            <button
+              type="button"
+              className="ui-button ui-button--primary"
+              onClick={createDeal}
+              disabled={!counterparty || !groupId}
+            >
               Добавить
             </button>
           </FilterBar>
@@ -103,22 +115,34 @@ export default function CrmDealsPage() {
                   { key: 'counterparty', title: 'Контрагент' },
                   { key: 'groupId', title: 'Группа' },
                   { key: 'amount', title: 'Сумма' },
-                  { key: 'stage', title: 'Стадия' }
+                  { key: 'stage', title: 'Стадия', render: (row) => STAGE_LABELS[row.stage] }
                 ]}
                 rows={deals}
               />
               <div className="ui-stack">
                 {deals.map((deal) => (
                   <div key={deal.id} className="ui-inline">
-                    <span>{deal.id}</span>
-                    <button type="button" onClick={() => moveDeal(deal.id, 'proposal')}>
-                      proposal
+                    <span className="ui-text-muted">{STAGE_LABELS[deal.stage]}</span>
+                    <button
+                      type="button"
+                      className="ui-button ui-button--secondary"
+                      onClick={() => moveDeal(deal.id, 'proposal')}
+                    >
+                      В предложение
                     </button>
-                    <button type="button" onClick={() => moveDeal(deal.id, 'won')}>
-                      won
+                    <button
+                      type="button"
+                      className="ui-button ui-button--secondary"
+                      onClick={() => moveDeal(deal.id, 'won')}
+                    >
+                      Успех
                     </button>
-                    <button type="button" onClick={() => moveDeal(deal.id, 'lost')}>
-                      lost
+                    <button
+                      type="button"
+                      className="ui-button ui-button--secondary"
+                      onClick={() => moveDeal(deal.id, 'lost')}
+                    >
+                      Отказ
                     </button>
                   </div>
                 ))}
