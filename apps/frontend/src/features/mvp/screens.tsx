@@ -88,6 +88,15 @@ import type {
 import type { ScormPackageDto } from '../scorm/types';
 import type { Column } from '@cdoprof/ui';
 
+const ENROLLMENT_STATUS_LABEL: Record<string, string> = {
+  pending: 'ожидает',
+  active: 'активно',
+  completed: 'завершено',
+  suspended: 'приостановлено',
+  cancelled: 'отменено',
+  draft: 'черновик'
+};
+
 const resolveCertificateDownloadHref = (downloadPath: string): string => {
   try {
     const apiRoot = new URL(frontendEnv.NEXT_PUBLIC_API_BASE_URL);
@@ -1354,13 +1363,18 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
         <MutationError message={saveError} />
       </SectionCard>
       <SectionCard title="Версии курса">
-        <button onClick={() => void createCourseVersion(id).then(refetchVersions)}>
+        <button
+          type="button"
+          className="ui-button ui-button--primary"
+          onClick={() => void createCourseVersion(id).then(refetchVersions)}
+        >
           Добавить версию
         </button>
-        <ul>
+        <ul className="ui-list">
           {versions?.items.map((item) => (
-            <li key={item.id}>
-              v{item.versionNo} ({item.status})
+            <li key={item.id} className="ui-inline" style={{ gap: 8, padding: '8px 0' }}>
+              <span>v{item.versionNo}</span>
+              <StatusChip status={item.status} />
             </li>
           ))}
         </ul>
@@ -1758,9 +1772,8 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
         <ul>
           {enrollments?.items.map((item) => (
             <li key={item.id} className="ui-inline" style={{ gap: 8, flexWrap: 'wrap' }}>
-              <span>
-                {item.learnerId} — {item.status}
-              </span>
+              <span>{item.learnerId}</span>
+              <StatusChip status={item.status} />
               {/* Phase 4 Plan B: per-student proctoring override (PATCH needs learners.write). */}
               {session && hasPermission(session.permissions, 'learners.write') ? (
                 <label className="ui-inline" style={{ gap: 4 }}>
@@ -2387,7 +2400,7 @@ export const AssessmentDashboardScreen = () => {
             <option value="">Выберите зачисление</option>
             {enrollments?.items.map((item) => (
               <option key={item.id} value={item.id}>
-                {item.id} ({item.status})
+                {item.id} ({ENROLLMENT_STATUS_LABEL[item.status] ?? item.status})
               </option>
             ))}
           </select>
