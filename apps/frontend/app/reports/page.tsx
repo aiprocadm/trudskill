@@ -123,10 +123,14 @@ export default function ReportsPage() {
       <PageContainer>
         <PageHeader
           title="Отчётность"
-          subtitle="П. 5.24 ТЗ — выгрузки по курсам, группам, экзаменам, НЭП, прокторингу"
+          subtitle="Выгрузки по курсам, группам, экзаменам и документам"
           actions={
             <>
-              <button type="button" className="ui-button ui-button--secondary" onClick={exportKpiCsv}>
+              <button
+                type="button"
+                className="ui-button ui-button--secondary"
+                onClick={exportKpiCsv}
+              >
                 KPI → CSV
               </button>
               <button type="button" className="ui-button ui-button--primary" onClick={exportCsv}>
@@ -172,11 +176,11 @@ export default function ReportsPage() {
                 checked={kpiDrilldown}
                 onChange={(event) => setKpiDrilldown(event.target.checked)}
               />
-              KPI: детализация зачислений (drill-down)
+              KPI: детализация зачислений
             </label>
           </FilterBar>
         </SectionCard>
-        <SectionCard title="KPI обучения (BL-008)">
+        <SectionCard title="KPI обучения">
           {kpi.error ? (
             <p className="ui-text-muted">Не удалось загрузить KPI: {kpi.error}</p>
           ) : null}

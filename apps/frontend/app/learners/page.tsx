@@ -60,10 +60,7 @@ export default function LearnersRegistryPage() {
   return (
     <ProtectedPage>
       <PageContainer>
-        <PageHeader
-          title="Слушатели"
-          subtitle="Реестр слушателей (п. 5.3, 5.9 ТЗ) — API /learners"
-        />
+        <PageHeader title="Слушатели" subtitle="Реестр слушателей учебного центра" />
         <SectionCard title="Список">
           {loading ? <LoadingState message="Загрузка списка слушателей…" /> : null}
           {err ? <SectionError message={err} /> : null}

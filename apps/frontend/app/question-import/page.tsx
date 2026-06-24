@@ -8,15 +8,14 @@ export default function QuestionImportPage() {
       <PageContainer>
         <PageHeader
           title="Импорт вопросов"
-          subtitle="П. 5.7 ТЗ — файл, валидация, протокол ошибок"
+          subtitle="Импорт вопросов из файла с валидацией и протоколом ошибок"
         />
-        <SectionCard title="API">
+        <SectionCard title="Импорт из файла">
           <p className="ui-prose-muted ui-prose-muted--tight">
-            Бэкенд: <code>POST /questions/import</code> с телом JSON{' '}
-            <code>items: CreateQuestionRequest[]</code> (массовое создание). Расширение: загрузка
-            файла, парсер шаблона и отчёт об ошибках.
+            Массовый импорт вопросов из файла появится здесь. Пока вопросы можно создавать вручную в
+            банках вопросов.
           </p>
-          <TzLinks items={[{ href: '/assessment', label: 'Assessment — банки и вопросы' }]} />
+          <TzLinks items={[{ href: '/assessment', label: 'Перейти к банкам вопросов и тестам' }]} />
         </SectionCard>
       </PageContainer>
     </ProtectedPage>

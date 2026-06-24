@@ -21,7 +21,7 @@ export default function MaterialsHubPage() {
   return (
     <ProtectedPage>
       <PageContainer>
-        <PageHeader title="Учебный контент" subtitle="Модули и материалы курса (п. 5.5 ТЗ)" />
+        <PageHeader title="Учебный контент" subtitle="Модули и материалы курсов" />
         <SectionCard title="Реестр материалов">
           <FilterBar>
             <input

@@ -525,9 +525,9 @@ export default function DocumentsPage() {
                   value={bindType}
                   onChange={(e) => setBindType(e.target.value as typeof bindType)}
                 >
-                  <option value="group">group</option>
-                  <option value="course">course</option>
-                  <option value="direction">direction</option>
+                  <option value="group">Группа</option>
+                  <option value="course">Курс</option>
+                  <option value="direction">Направление</option>
                 </select>
                 <input
                   value={bindGroupId}

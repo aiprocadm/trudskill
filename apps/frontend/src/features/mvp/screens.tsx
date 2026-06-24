@@ -88,6 +88,15 @@ import type {
 import type { ScormPackageDto } from '../scorm/types';
 import type { Column } from '@cdoprof/ui';
 
+const ENROLLMENT_STATUS_LABEL: Record<string, string> = {
+  pending: 'ожидает',
+  active: 'активно',
+  completed: 'завершено',
+  suspended: 'приостановлено',
+  cancelled: 'отменено',
+  draft: 'черновик'
+};
+
 const resolveCertificateDownloadHref = (downloadPath: string): string => {
   try {
     const apiRoot = new URL(frontendEnv.NEXT_PUBLIC_API_BASE_URL);
@@ -333,11 +342,20 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
       {user ? (
         <>
           <SectionCard title="Основные данные">
-            <p>
-              {user.displayName} ({user.login})
-            </p>
-            <p>Tenant: {user.tenantId}</p>
-            <StatusChip status={user.status} />
+            <div className="ui-inline" style={{ justifyContent: 'space-between' }}>
+              <p className="profile-name">{user.displayName}</p>
+              <StatusChip status={user.status} />
+            </div>
+            <dl className="kv-list">
+              <div className="kv-list__row">
+                <dt>Логин</dt>
+                <dd>{user.login}</dd>
+              </div>
+              <div className="kv-list__row">
+                <dt>Организация</dt>
+                <dd>{user.tenantId}</dd>
+              </div>
+            </dl>
           </SectionCard>
           <SectionCard title="Роли и права">
             <p>Текущие роли: {userRoles?.map((roleItem) => roleItem.code).join(', ') || '—'}</p>
@@ -360,7 +378,12 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
                 </label>
               ))}
             </div>
-            <button disabled={!canManageRoles} onClick={() => void onSaveRoles()}>
+            <button
+              type="button"
+              className="ui-button ui-button--primary"
+              disabled={!canManageRoles}
+              onClick={() => void onSaveRoles()}
+            >
               Сохранить роли
             </button>
             {saveError ? <SectionError message={saveError} /> : null}
@@ -383,8 +406,14 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
                 {sessions
                   ?.filter((row) => !row.revokedAt)
                   .map((row) => (
-                    <button key={row.id} type="button" onClick={() => void revokeSession(row.id)}>
-                      Revoke {row.id}
+                    <button
+                      key={row.id}
+                      type="button"
+                      className="ui-button ui-button--ghost"
+                      aria-label={`Отозвать сессию ${row.id}`}
+                      onClick={() => void revokeSession(row.id)}
+                    >
+                      Отозвать
                     </button>
                   ))}
               </div>
@@ -515,12 +544,19 @@ export const CounterpartyDetailsScreen = ({ id }: { id: string }) => {
       {data ? (
         <>
           <SectionCard title="Общие данные">
-            <p>{data.name}</p>
-            <p>Код: {data.code}</p>
-            <StatusChip status={data.status} />
+            <div className="ui-inline" style={{ justifyContent: 'space-between' }}>
+              <p className="profile-name">{data.name}</p>
+              <StatusChip status={data.status} />
+            </div>
+            <dl className="kv-list">
+              <div className="kv-list__row">
+                <dt>Код</dt>
+                <dd>{data.code}</dd>
+              </div>
+            </dl>
           </SectionCard>
           <SectionCard title="Контакты">
-            <SectionEmpty message="Контактные данные будут отображаться при расширении API." />
+            <SectionEmpty message="Контактные данные пока не заполнены." />
           </SectionCard>
         </>
       ) : null}
@@ -1327,13 +1363,18 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
         <MutationError message={saveError} />
       </SectionCard>
       <SectionCard title="Версии курса">
-        <button onClick={() => void createCourseVersion(id).then(refetchVersions)}>
+        <button
+          type="button"
+          className="ui-button ui-button--primary"
+          onClick={() => void createCourseVersion(id).then(refetchVersions)}
+        >
           Добавить версию
         </button>
-        <ul>
+        <ul className="ui-list">
           {versions?.items.map((item) => (
-            <li key={item.id}>
-              v{item.versionNo} ({item.status})
+            <li key={item.id} className="ui-inline" style={{ gap: 8, padding: '8px 0' }}>
+              <span>v{item.versionNo}</span>
+              <StatusChip status={item.status} />
             </li>
           ))}
         </ul>
@@ -1435,11 +1476,11 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
               setScormPackageId('');
             }}
           >
-            <option value="text">text</option>
-            <option value="video">video</option>
-            <option value="file">file</option>
-            <option value="external_url">external_url</option>
-            <option value="scorm">scorm</option>
+            <option value="text">Текст</option>
+            <option value="video">Видео</option>
+            <option value="file">Файл</option>
+            <option value="external_url">Внешняя ссылка</option>
+            <option value="scorm">SCORM</option>
           </select>
           {materialType === 'scorm' ? (
             <>
@@ -1731,9 +1772,8 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
         <ul>
           {enrollments?.items.map((item) => (
             <li key={item.id} className="ui-inline" style={{ gap: 8, flexWrap: 'wrap' }}>
-              <span>
-                {item.learnerId} — {item.status}
-              </span>
+              <span>{item.learnerId}</span>
+              <StatusChip status={item.status} />
               {/* Phase 4 Plan B: per-student proctoring override (PATCH needs learners.write). */}
               {session && hasPermission(session.permissions, 'learners.write') ? (
                 <label className="ui-inline" style={{ gap: 4 }}>
@@ -2008,7 +2048,7 @@ const RoleWidgetGrid = ({
   return (
     <PageContainer>
       <PageHeader title={title} subtitle={subtitle} />
-      <SectionCard title="Виджеты по роли (RBAC)">
+      <SectionCard title="Виджеты по роли">
         {visibleWidgets.length ? (
           <div className="ui-dashboard-grid" data-testid="rbac-widget-grid">
             {visibleWidgets.map((widget) => (
@@ -2025,7 +2065,7 @@ const RoleWidgetGrid = ({
         ) : (
           <SectionEmpty
             message="Нет видимых виджетов для текущей роли"
-            hint="Проверьте назначенные роли пользователя и матрицу RBAC."
+            hint="Проверьте назначенные пользователю роли."
           />
         )}
       </SectionCard>
@@ -2036,16 +2076,16 @@ const RoleWidgetGrid = ({
 export const StudentDashboardScreen = () => (
   <RoleWidgetGrid
     roles={['learner']}
-    title="Student dashboard"
-    subtitle="Continue / deadlines / attempts / docs / notifications / webinar"
+    title="Главная учащегося"
+    subtitle="Обучение, дедлайны, попытки, документы, уведомления и вебинары"
   />
 );
 
 export const TeacherGradingCenterScreen = () => (
   <RoleWidgetGrid
     roles={['teacher']}
-    title="Teacher grading center"
-    subtitle="Очередь проверок, рубрики и контроль отстающих студентов"
+    title="Центр проверки работ"
+    subtitle="Очередь проверок, критерии оценки и контроль отстающих учащихся"
   />
 );
 
@@ -2360,7 +2400,7 @@ export const AssessmentDashboardScreen = () => {
             <option value="">Выберите зачисление</option>
             {enrollments?.items.map((item) => (
               <option key={item.id} value={item.id}>
-                {item.id} ({item.status})
+                {item.id} ({ENROLLMENT_STATUS_LABEL[item.status] ?? item.status})
               </option>
             ))}
           </select>
@@ -2605,7 +2645,7 @@ export const CommissionsPageScreen = () => {
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} />
           </label>
           {saveError ? <FieldError id="commission-create-error" message={saveError} /> : null}
-          <button type="submit" className="ui-button" disabled={saving}>
+          <button type="submit" className="ui-button ui-button--primary" disabled={saving}>
             {saving ? 'Создаём…' : 'Создать комиссию'}
           </button>
         </form>

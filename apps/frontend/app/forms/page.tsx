@@ -18,6 +18,16 @@ type SystemFormTemplate = {
   status: 'draft' | 'active';
 };
 
+const TARGET_LABELS: Record<SystemFormTemplate['target'], string> = {
+  learner: 'Слушатель',
+  group: 'Группа',
+  counterparty: 'Контрагент'
+};
+const STATUS_LABELS: Record<SystemFormTemplate['status'], string> = {
+  draft: 'Черновик',
+  active: 'Активный'
+};
+
 export default function ModulePage() {
   const [name, setName] = useState('');
   const [target, setTarget] = useState<SystemFormTemplate['target']>('learner');
@@ -47,11 +57,16 @@ export default function ModulePage() {
               value={target}
               onChange={(event) => setTarget(event.target.value as typeof target)}
             >
-              <option value="learner">learner</option>
-              <option value="group">group</option>
-              <option value="counterparty">counterparty</option>
+              <option value="learner">Слушатель</option>
+              <option value="group">Группа</option>
+              <option value="counterparty">Контрагент</option>
             </select>
-            <button type="button" onClick={addTemplate} disabled={!name.trim()}>
+            <button
+              type="button"
+              className="ui-button ui-button--primary"
+              onClick={addTemplate}
+              disabled={!name.trim()}
+            >
               Добавить шаблон
             </button>
           </FilterBar>
@@ -61,8 +76,8 @@ export default function ModulePage() {
             <DataTable
               columns={[
                 { key: 'name', title: 'Название' },
-                { key: 'target', title: 'Назначение' },
-                { key: 'status', title: 'Статус' }
+                { key: 'target', title: 'Назначение', render: (row) => TARGET_LABELS[row.target] },
+                { key: 'status', title: 'Статус', render: (row) => STATUS_LABELS[row.status] }
               ]}
               rows={rows}
             />

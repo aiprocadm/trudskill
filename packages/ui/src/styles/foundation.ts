@@ -26,6 +26,30 @@ export const foundationStyles = `
 .ui-stack { display:flex; flex-direction:column; gap:12px; }
 .ui-grid { display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 .ui-list { list-style:none; margin:0; padding:0; display:grid; gap:0; }
+.ui-list-title { font-weight: 600; color: var(--ui-text); font-size: 0.97rem; }
+/* Карточка-строка списка (тесты, задания и т.п.) */
+.entry-card { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; border: 1px solid var(--ui-border); border-radius: 12px; padding: 14px; transition: border-color .15s ease, box-shadow .15s ease; }
+.entry-card:hover { border-color: var(--ui-brand-600); box-shadow: var(--ui-shadow); }
+.entry-card + .entry-card { margin-top: 10px; }
+/* Слайд-овер дровер (создание/редактирование сущностей) — фикс. панель справа + затемнение */
+.ui-drawer { position: fixed; top: 0; right: 0; z-index: 10050; isolation: isolate; height: 100vh; width: min(480px, 100vw); background: var(--ui-surface); border-left: 1px solid var(--ui-border); box-shadow: var(--ui-shadow-strong); overflow-y: auto; padding: 20px; display: grid; gap: 16px; align-content: start; }
+.ui-drawer::before { content: ''; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); z-index: -1; pointer-events: none; }
+.ui-drawer-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ui-drawer-header h2 { margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--ui-text); }
+/* Формы внутри дроверов/модалок */
+.ui-form { display: grid; gap: 12px; }
+.ui-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.ui-fieldset { border: 1px solid var(--ui-border); border-radius: 12px; padding: 12px 14px; display: grid; gap: 10px; }
+.ui-option-row { justify-content: space-between; width: 100%; }
+/* Текстовые/служебные классы */
+.ui-hint { margin: 0; font-size: 13px; color: var(--ui-text-muted); line-height: 1.5; }
+.ui-subheading { margin: 0; font-size: 0.97rem; font-weight: 650; color: var(--ui-text); }
+.ui-bare-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ui-link { color: var(--ui-brand-700); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.ui-link:hover { color: var(--ui-brand-600); }
+/* Кнопка-ссылка — вид ссылки, поведение кнопки */
+.ui-link-button, .ui-button-link { background: none; border: none; padding: 0; height: auto; font: inherit; color: var(--ui-brand-700); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.ui-link-button:hover, .ui-button-link:hover { color: var(--ui-brand-600); background: none; }
 fieldset { border: 1px solid var(--ui-border); border-radius: 12px; padding: 12px 14px; margin: 0; }
 legend { font-size: 13px; font-weight: 600; color: var(--ui-text-muted); padding: 0 6px; }
 .ui-badge { color: #fff; border-radius: 999px; padding: 3px 11px; font-size: 12px; font-weight: 600; letter-spacing: 0.01em; }
@@ -144,6 +168,16 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: 99
 .kv-list__row:last-child { border-bottom: none; }
 .kv-list dt { color: var(--ui-text-muted); font-size: 13px; }
 .kv-list dd { margin: 0; color: var(--ui-text); font-weight: 500; text-align: right; word-break: break-word; }
+/* Алиасы того же key/value паттерна, использовавшиеся в детальных экранах без определения */
+.ui-data-list { display: grid; gap: 0; margin: 0; }
+.ui-data-list__row { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--ui-border); }
+.ui-data-list__row:last-child { border-bottom: none; }
+.ui-data-list dt { color: var(--ui-text-muted); font-size: 13px; }
+.ui-data-list dd { margin: 0; color: var(--ui-text); font-weight: 500; text-align: right; word-break: break-word; }
+.ui-defs { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; }
+.ui-defs dt { color: var(--ui-text-muted); font-size: 13px; }
+.ui-defs dd { margin: 0; color: var(--ui-text); }
+.ui-muted { color: var(--ui-text-muted); }
 /* Карточки-метрики для дашбордов (аналитика, cockpit) */
 .stat-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 .stat-card { border: 1px solid var(--ui-border); border-radius: 14px; background: var(--ui-surface); padding: 16px; display: grid; gap: 4px; align-content: start; }
