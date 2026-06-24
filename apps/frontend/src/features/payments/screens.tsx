@@ -72,7 +72,7 @@ export function MyPaymentsScreen(): ReactElement {
       order.status === 'awaiting_payment' ? (
         <button
           type="button"
-          className="ui-button"
+          className="ui-button ui-button--primary"
           onClick={() => void onPay(order.id)}
           disabled={payPending}
         >
@@ -239,7 +239,11 @@ export function OrdersScreen(): ReactElement {
         title="Заказы"
         subtitle="Управление платёжными заказами слушателей и контрагентов."
         actions={
-          <button type="button" className="ui-button" onClick={() => setShowForm((v) => !v)}>
+          <button
+            type="button"
+            className={`ui-button ${showForm ? '' : 'ui-button--primary'}`}
+            onClick={() => setShowForm((v) => !v)}
+          >
             {showForm ? 'Скрыть форму' : '+ Новый заказ'}
           </button>
         }
@@ -345,7 +349,11 @@ export function OrdersScreen(): ReactElement {
             </div>
 
             <div style={{ display: 'flex', gap: 8 }}>
-              <button type="submit" className="ui-button" disabled={createPending}>
+              <button
+                type="submit"
+                className="ui-button ui-button--primary"
+                disabled={createPending}
+              >
                 {createPending ? 'Создаём…' : 'Создать заказ'}
               </button>
               <button type="button" className="ui-button" onClick={resetForm}>
