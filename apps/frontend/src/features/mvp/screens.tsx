@@ -333,11 +333,20 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
       {user ? (
         <>
           <SectionCard title="Основные данные">
-            <p>
-              {user.displayName} ({user.login})
-            </p>
-            <p>Tenant: {user.tenantId}</p>
-            <StatusChip status={user.status} />
+            <div className="ui-inline" style={{ justifyContent: 'space-between' }}>
+              <p className="profile-name">{user.displayName}</p>
+              <StatusChip status={user.status} />
+            </div>
+            <dl className="kv-list">
+              <div className="kv-list__row">
+                <dt>Логин</dt>
+                <dd>{user.login}</dd>
+              </div>
+              <div className="kv-list__row">
+                <dt>Организация</dt>
+                <dd>{user.tenantId}</dd>
+              </div>
+            </dl>
           </SectionCard>
           <SectionCard title="Роли и права">
             <p>Текущие роли: {userRoles?.map((roleItem) => roleItem.code).join(', ') || '—'}</p>
@@ -360,7 +369,12 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
                 </label>
               ))}
             </div>
-            <button disabled={!canManageRoles} onClick={() => void onSaveRoles()}>
+            <button
+              type="button"
+              className="ui-button ui-button--primary"
+              disabled={!canManageRoles}
+              onClick={() => void onSaveRoles()}
+            >
               Сохранить роли
             </button>
             {saveError ? <SectionError message={saveError} /> : null}
@@ -383,8 +397,14 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
                 {sessions
                   ?.filter((row) => !row.revokedAt)
                   .map((row) => (
-                    <button key={row.id} type="button" onClick={() => void revokeSession(row.id)}>
-                      Revoke {row.id}
+                    <button
+                      key={row.id}
+                      type="button"
+                      className="ui-button ui-button--ghost"
+                      aria-label={`Отозвать сессию ${row.id}`}
+                      onClick={() => void revokeSession(row.id)}
+                    >
+                      Отозвать
                     </button>
                   ))}
               </div>
@@ -2612,7 +2632,7 @@ export const CommissionsPageScreen = () => {
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} />
           </label>
           {saveError ? <FieldError id="commission-create-error" message={saveError} /> : null}
-          <button type="submit" className="ui-button" disabled={saving}>
+          <button type="submit" className="ui-button ui-button--primary" disabled={saving}>
             {saving ? 'Создаём…' : 'Создать комиссию'}
           </button>
         </form>
