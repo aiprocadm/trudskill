@@ -17,10 +17,13 @@ import type { LearnerAssignmentSummary } from './types';
 
 function AssignmentRow({ assignment }: { assignment: LearnerAssignmentSummary }) {
   return (
-    <li className="ui-stack">
+    <li className="entry-card">
       <span className="ui-list-title">{assignment.title}</span>
       <span>{formatSubmissionStatus(assignment.status)}</span>
-      <Link href={`/learner/assignments/${assignment.assignmentId}/submit`}>
+      <Link
+        className="ui-button ui-button--primary"
+        href={`/learner/assignments/${assignment.assignmentId}/submit`}
+      >
         {assignment.status === 'not_started' ? 'Сдать' : 'Открыть'}
       </Link>
     </li>

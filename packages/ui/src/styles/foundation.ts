@@ -26,6 +26,11 @@ export const foundationStyles = `
 .ui-stack { display:flex; flex-direction:column; gap:12px; }
 .ui-grid { display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 .ui-list { list-style:none; margin:0; padding:0; display:grid; gap:0; }
+.ui-list-title { font-weight: 600; color: var(--ui-text); font-size: 0.97rem; }
+/* Карточка-строка списка (тесты, задания и т.п.) */
+.entry-card { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; border: 1px solid var(--ui-border); border-radius: 12px; padding: 14px; transition: border-color .15s ease, box-shadow .15s ease; }
+.entry-card:hover { border-color: var(--ui-brand-600); box-shadow: var(--ui-shadow); }
+.entry-card + .entry-card { margin-top: 10px; }
 fieldset { border: 1px solid var(--ui-border); border-radius: 12px; padding: 12px 14px; margin: 0; }
 legend { font-size: 13px; font-weight: 600; color: var(--ui-text-muted); padding: 0 6px; }
 .ui-badge { color: #fff; border-radius: 999px; padding: 3px 11px; font-size: 12px; font-weight: 600; letter-spacing: 0.01em; }
