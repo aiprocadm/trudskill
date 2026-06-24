@@ -515,12 +515,19 @@ export const CounterpartyDetailsScreen = ({ id }: { id: string }) => {
       {data ? (
         <>
           <SectionCard title="Общие данные">
-            <p>{data.name}</p>
-            <p>Код: {data.code}</p>
-            <StatusChip status={data.status} />
+            <div className="ui-inline" style={{ justifyContent: 'space-between' }}>
+              <p className="profile-name">{data.name}</p>
+              <StatusChip status={data.status} />
+            </div>
+            <dl className="kv-list">
+              <div className="kv-list__row">
+                <dt>Код</dt>
+                <dd>{data.code}</dd>
+              </div>
+            </dl>
           </SectionCard>
           <SectionCard title="Контакты">
-            <SectionEmpty message="Контактные данные будут отображаться при расширении API." />
+            <SectionEmpty message="Контактные данные пока не заполнены." />
           </SectionCard>
         </>
       ) : null}

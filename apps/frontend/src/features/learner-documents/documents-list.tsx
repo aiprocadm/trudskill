@@ -28,9 +28,8 @@ interface Props {
 }
 
 const downloadStubMessage =
-  'Скачивание PDF — в разработке.\n\n' +
-  'В Phase 5 будет подключён background worker для рендера PDF. ' +
-  'Сейчас можно проверить подлинность через QR-код на странице публичной проверки.';
+  'Скачивание PDF пока недоступно.\n\n' +
+  'Подлинность документа можно проверить по QR-коду на странице публичной проверки.';
 
 const handleDownloadClick = (
   doc: LearnerDocument,
