@@ -8,11 +8,7 @@ import { PageContainer, PageHeader, SectionCard } from '../src/components/state-
 import { useAuth } from '../src/features/auth/context';
 import { getPrimaryRoleBlueprint } from '../src/features/navigation/role-blueprints';
 import { getJourneyByRole } from '../src/features/navigation/role-journeys';
-import {
-  getMetricBaseline,
-  recordJourneyStep,
-  startMetricTimer
-} from '../src/lib/analytics/ux-metrics';
+import { recordJourneyStep, startMetricTimer } from '../src/lib/analytics/ux-metrics';
 import { ProtectedPage } from '../src/widgets/shell/protected-page';
 
 type RoleCode = 'learner' | 'teacher' | 'tenant_admin' | 'platform_admin';
@@ -105,8 +101,6 @@ export default function DashboardPage() {
 
   const journey = useMemo(() => getJourneyByRole(role?.role), [role]);
 
-  const baselineCount = getMetricBaseline().length;
-
   return (
     <ProtectedPage>
       <PageContainer>
@@ -151,12 +145,6 @@ export default function DashboardPage() {
             </ol>
           </SectionCard>
         ) : null}
-        <SectionCard title="Baseline метрик UX">
-          <p className="ui-prose-muted">
-            Зафиксировано событий для baseline: {baselineCount}. Метрики используются для оценки
-            времени до старта, завершения отправки и ошибок форм.
-          </p>
-        </SectionCard>
       </PageContainer>
     </ProtectedPage>
   );
