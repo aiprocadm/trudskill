@@ -7,14 +7,14 @@ import type { MetadataRoute } from 'next';
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'CDOProf — Личный кабинет',
-    short_name: 'CDOProf',
-    description: 'Платформа дистанционного обучения CDOProf',
+    name: 'trudskill — Личный кабинет',
+    short_name: 'trudskill',
+    description: 'Платформа дистанционного обучения trudskill',
     start_url: '/',
     scope: '/',
     display: 'standalone',
     background_color: '#ffffff',
-    theme_color: '#0b5cab',
+    theme_color: '#3b4fe4',
     lang: 'ru',
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },

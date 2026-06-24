@@ -63,6 +63,7 @@ import { useAuth } from '../auth/context';
 import { CourseViewerScreen } from '../course-viewer/course-viewer-screen';
 import { useOtTrainingPrograms } from '../gov-export/hooks';
 import { IssueOrderModal } from '../group-orders/issue-order-modal';
+import { useLearnerHomeData } from '../learner-home/use-learner-home-data';
 import { LearnerPdfCardSections } from '../learner-pdf-card/learner-pdf-card-sections';
 import { proctoringApi } from '../proctoring/api';
 import { scormApi } from '../scorm/api';
@@ -411,19 +412,35 @@ export const LearnerDetailsScreen = ({ id }: { id: string }) => {
       {learner ? (
         <>
           <SectionCard title="Основные данные">
-            <p>
-              <small>ID: {learner.id}</small>
-            </p>
-            <p>
-              <strong>{`${learner.lastName} ${learner.firstName}`.trim()}</strong>
-            </p>
-            <p>Код (learnerNo): {learner.learnerNo ?? '—'}</p>
-            <p>Email: {learner.email ?? '—'}</p>
-            <p>Подразделение: {learner.organizationUnitId ?? '—'}</p>
-            <p>Связанный IAM user: {learner.linkedIamUserId ?? '—'}</p>
-            <StatusChip status={learner.status} />
+            <div className="ui-inline" style={{ justifyContent: 'space-between' }}>
+              <div>
+                <p className="profile-name">{`${learner.lastName} ${learner.firstName}`.trim()}</p>
+                <p className="ui-text-muted" style={{ margin: '2px 0 0', fontSize: 13 }}>
+                  ID: {learner.id}
+                </p>
+              </div>
+              <StatusChip status={learner.status} />
+            </div>
+            <dl className="kv-list">
+              <div className="kv-list__row">
+                <dt>Код (learnerNo)</dt>
+                <dd>{learner.learnerNo ?? '—'}</dd>
+              </div>
+              <div className="kv-list__row">
+                <dt>Email</dt>
+                <dd>{learner.email ?? '—'}</dd>
+              </div>
+              <div className="kv-list__row">
+                <dt>Подразделение</dt>
+                <dd>{learner.organizationUnitId ?? '—'}</dd>
+              </div>
+              <div className="kv-list__row">
+                <dt>Связанный IAM user</dt>
+                <dd>{learner.linkedIamUserId ?? '—'}</dd>
+              </div>
+            </dl>
           </SectionCard>
-          <SectionCard title="Зачисления (черновик)">
+          <SectionCard title="Зачисления">
             {enrollmentsLoading ? <LoadingState message="Загрузка зачислений…" /> : null}
             {!enrollmentsLoading && enrollments.length === 0 ? (
               <SectionEmpty message="Нет зачислений для этого слушателя" />
@@ -1612,6 +1629,13 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
     return Math.round(total / progress.items.length);
   }, [progress]);
 
+  // Карта id→название курса для читаемого списка курсов группы (вместо сырых id).
+  const courseTitleById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const course of courses?.items ?? []) map[course.id] = course.title;
+    return map;
+  }, [courses]);
+
   return (
     <PageContainer>
       <PageHeader
@@ -1623,8 +1647,18 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
         }
       />
       <SectionCard title="Общая информация">
-        <p>Код: {group?.code}</p>
-        <StatusChip status={group?.status ?? 'draft'} />
+        <dl className="kv-list">
+          <div className="kv-list__row">
+            <dt>Код</dt>
+            <dd>{group?.code ?? '—'}</dd>
+          </div>
+          <div className="kv-list__row">
+            <dt>Статус</dt>
+            <dd>
+              <StatusChip status={group?.status ?? 'draft'} />
+            </dd>
+          </div>
+        </dl>
       </SectionCard>
       <SectionCard title="Курсы группы">
         <form
@@ -1651,13 +1685,19 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
               </option>
             ))}
           </select>
-          <button type="submit" disabled={!selectedCourseId}>
+          <button
+            type="submit"
+            className="ui-button ui-button--primary"
+            disabled={!selectedCourseId}
+          >
             Назначить курс
           </button>
         </form>
-        <ul>
+        <ul className="ui-stack" style={{ gap: 0, listStyle: 'none', padding: 0, margin: 0 }}>
           {groupCourses?.items.map((item) => (
-            <li key={item.id}>{item.courseId}</li>
+            <li key={item.id} className="ui-list-row">
+              {courseTitleById[item.courseId] ?? item.courseId}
+            </li>
           ))}
         </ul>
       </SectionCard>
@@ -1680,7 +1720,11 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
             onChange={(event) => setLearnerId(event.target.value)}
             placeholder="ID слушателя"
           />
-          <button type="submit" disabled={!learnerId.trim()}>
+          <button
+            type="submit"
+            className="ui-button ui-button--primary"
+            disabled={!learnerId.trim()}
+          >
             Зачислить слушателя
           </button>
         </form>
@@ -1730,13 +1774,11 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
 };
 
 export const LearnerCoursesScreen = () => {
-  const { session } = useAuth();
-  const learnerId = session?.user.id ?? '';
-  const { data, loading, error } = useLearnerCourses(learnerId);
+  const { data, isLoading, error } = useLearnerHomeData();
 
   const completedEnrollmentIds = useMemo(
-    () => (data?.items ?? []).filter((e) => e.status === 'completed').map((e) => e.id),
-    [data?.items]
+    () => data.filter((e) => e.enrollment.status === 'completed').map((e) => e.enrollment.id),
+    [data]
   );
 
   const certsQuery = useEnrollmentCertificatesForCompleted(completedEnrollmentIds);
@@ -1746,24 +1788,53 @@ export const LearnerCoursesScreen = () => {
     <PageContainer>
       <PageHeader
         title="Мои курсы"
-        subtitle="Упрощённый сценарий слушателя: только ваши назначения"
+        subtitle="Ваши назначения — открывайте курс и продолжайте обучение"
       />
       <SectionCard title="Назначенные курсы">
         {error ? <SectionError message={error} /> : null}
-        {loading ? <ListSkeleton lines={5} /> : null}
-        {!loading && !error && data?.items.length ? (
-          <ul>
-            {data.items.map((enrollment) => (
-              <li key={enrollment.id}>
-                <Link href={`/learner/courses/${enrollment.courseId ?? enrollment.id}`}>
-                  Курс {enrollment.courseId ?? enrollment.id}
-                </Link>{' '}
-                — {enrollment.status}
-              </li>
-            ))}
+        {isLoading ? <ListSkeleton lines={5} /> : null}
+        {!isLoading && !error && data.length ? (
+          <ul className="course-grid">
+            {data.map((entry) => {
+              const courseId = entry.enrollment.courseId;
+              const title = entry.course?.title ?? `Курс ${courseId ?? entry.enrollment.id}`;
+              const percent =
+                entry.progress.length === 0
+                  ? 0
+                  : Math.round(
+                      entry.progress.reduce((acc, p) => acc + p.progressPercent, 0) /
+                        entry.progress.length
+                    );
+              const href = `/learner/courses/${courseId ?? entry.enrollment.id}`;
+              const ctaLabel =
+                entry.enrollment.status === 'completed'
+                  ? 'Открыть курс'
+                  : percent > 0
+                    ? 'Продолжить'
+                    : 'Начать';
+              return (
+                <li key={entry.enrollment.id} className="course-card">
+                  <span className="course-card__banner" aria-hidden />
+                  <div className="course-card__head">
+                    <h3 className="course-card__title">{title}</h3>
+                    <StatusChip status={entry.enrollment.status} />
+                  </div>
+                  <div className="course-card__body">
+                    <progress max={100} value={percent} aria-label={`Прогресс по курсу ${title}`} />
+                    <div className="course-card__meta">
+                      <span>Прогресс курса</span>
+                      <span className="course-card__percent">{percent}%</span>
+                    </div>
+                    <Link href={href} className="ui-button ui-button--primary course-card__cta">
+                      {ctaLabel}
+                    </Link>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         ) : null}
-        {!loading && !error && !data?.items.length ? (
+        {!isLoading && !error && !data.length ? (
           <SectionEmpty
             message="Нет назначенных курсов"
             hint="Если вы ожидаете обучение, обратитесь к куратору или администратору учебного центра — вас ещё не зачислили в группу или курс."
@@ -1981,8 +2052,8 @@ export const TeacherGradingCenterScreen = () => (
 export const AdminCockpitScreen = () => (
   <RoleWidgetGrid
     roles={['tenant_admin', 'platform_admin']}
-    title="Admin cockpit"
-    subtitle="Sessions / queue / integration / audit health"
+    title="Панель администратора"
+    subtitle="Сессии · очередь · интеграции · состояние аудита"
   />
 );
 

@@ -29,7 +29,15 @@ export const layoutStyles = `
 }
 .ui-centered-card,
 .ui-auth-card { max-width: 420px; width: 100%; }
-.ui-login-card { width: 360px; max-width: 100%; }
+.ui-login-card { width: 100%; max-width: 100%; }
+/* Брендированная страница входа */
+.auth-shell { min-height: 100vh; display: grid; place-items: center; box-sizing: border-box; padding: 24px; background: radial-gradient(1100px 560px at 50% -12%, var(--ui-surface-accent), var(--ui-bg) 70%); }
+.auth-shell__panel { width: 100%; max-width: 420px; display: grid; gap: 16px; }
+.auth-shell__brand { display: grid; gap: 6px; justify-items: center; text-align: center; margin-bottom: 2px; }
+.auth-shell__brand .ui-wordmark { font-size: 2.1rem; }
+.auth-shell__tagline { margin: 0; color: var(--ui-text-muted); font-size: 0.95rem; }
+.auth-divider { display: flex; align-items: center; gap: 12px; color: var(--ui-text-muted); font-size: 13px; }
+.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--ui-border); }
 .ui-centered-stack { display: grid; gap: 10px; justify-items: center; }
 .ui-system-title { margin: 0 0 8px; font-size: 2rem; font-weight: 650; }
 .ui-system-text { margin: 0 0 16px; color: var(--ui-text-muted); line-height: 1.5; }

@@ -62,9 +62,7 @@ export const AppShell = ({ children }: PropsWithChildren) => {
         className={`app-shell__sidebar ${mobileNavOpen ? 'is-drawer-open' : ''}`}
       >
         <h2 className="app-shell__brand">
-          <span className="ui-wordmark">
-            CDO<span className="ui-wordmark__accent">проф</span>
-          </span>
+          <span className="ui-wordmark">trudskill</span>
         </h2>
         {primaryRole ? <p className="app-shell__role">Роль: {primaryRole.displayName}</p> : null}
         <nav className="ui-stack" aria-label="Основные разделы">
