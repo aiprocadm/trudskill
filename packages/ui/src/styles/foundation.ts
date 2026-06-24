@@ -149,6 +149,16 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: 99
 .kv-list__row:last-child { border-bottom: none; }
 .kv-list dt { color: var(--ui-text-muted); font-size: 13px; }
 .kv-list dd { margin: 0; color: var(--ui-text); font-weight: 500; text-align: right; word-break: break-word; }
+/* Алиасы того же key/value паттерна, использовавшиеся в детальных экранах без определения */
+.ui-data-list { display: grid; gap: 0; margin: 0; }
+.ui-data-list__row { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--ui-border); }
+.ui-data-list__row:last-child { border-bottom: none; }
+.ui-data-list dt { color: var(--ui-text-muted); font-size: 13px; }
+.ui-data-list dd { margin: 0; color: var(--ui-text); font-weight: 500; text-align: right; word-break: break-word; }
+.ui-defs { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; }
+.ui-defs dt { color: var(--ui-text-muted); font-size: 13px; }
+.ui-defs dd { margin: 0; color: var(--ui-text); }
+.ui-muted { color: var(--ui-text-muted); }
 /* Карточки-метрики для дашбордов (аналитика, cockpit) */
 .stat-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 .stat-card { border: 1px solid var(--ui-border); border-radius: 14px; background: var(--ui-surface); padding: 16px; display: grid; gap: 4px; align-content: start; }

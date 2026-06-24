@@ -61,10 +61,14 @@ export function QuestionBankDetailScreen({ bankId }: Props) {
     <PageContainer>
       <PageHeader
         title={bank.title}
-        subtitle={bank.description ?? 'Банк вопросов — контейнер для test/assignment-вопросов.'}
+        subtitle={bank.description ?? 'Банк вопросов для тестов и заданий'}
         actions={
           <>
-            <button type="button" className="ui-button" onClick={() => setEditing(true)}>
+            <button
+              type="button"
+              className="ui-button ui-button--primary"
+              onClick={() => setEditing(true)}
+            >
               Редактировать
             </button>
             {!bank.isArchived && (
