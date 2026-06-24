@@ -2063,16 +2063,16 @@ const RoleWidgetGrid = ({
 export const StudentDashboardScreen = () => (
   <RoleWidgetGrid
     roles={['learner']}
-    title="Student dashboard"
-    subtitle="Continue / deadlines / attempts / docs / notifications / webinar"
+    title="Главная учащегося"
+    subtitle="Обучение, дедлайны, попытки, документы, уведомления и вебинары"
   />
 );
 
 export const TeacherGradingCenterScreen = () => (
   <RoleWidgetGrid
     roles={['teacher']}
-    title="Teacher grading center"
-    subtitle="Очередь проверок, рубрики и контроль отстающих студентов"
+    title="Центр проверки работ"
+    subtitle="Очередь проверок, критерии оценки и контроль отстающих учащихся"
   />
 );
 
