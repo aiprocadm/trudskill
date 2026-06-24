@@ -152,6 +152,14 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
   const q = current!;
   const draft = drafts[q.id] ?? {};
   const isLast = currentIndex === questions.length - 1;
+  const timerClass =
+    remainingMs === null
+      ? ''
+      : remainingMs <= 10_000
+        ? 'test-timer--danger'
+        : remainingMs <= 60_000
+          ? 'test-timer--warning'
+          : '';
 
   // Fix I1: detect a recording session orphaned by a mid-exam refresh and offer to resume.
   const attemptInProgress = attempt.status === 'in_progress' || attempt.status === 'draft';
@@ -171,28 +179,41 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
         />
       ) : null}
       <SectionCard title={q.title}>
-        {remainingMs !== null ? <p>Осталось времени: {formatTimeRemaining(remainingMs)}</p> : null}
-        <p>
-          Вопрос {currentIndex + 1} из {questions.length}
-        </p>
+        <div className="test-meta">
+          <span className="test-counter">
+            Вопрос {currentIndex + 1} из {questions.length}
+          </span>
+          {remainingMs !== null ? (
+            <span className={`test-timer ${timerClass}`}>⏱ {formatTimeRemaining(remainingMs)}</span>
+          ) : null}
+        </div>
+        <progress
+          max={questions.length}
+          value={currentIndex + 1}
+          aria-label="Прогресс по вопросам"
+        />
         {q.body ? <p>{q.body}</p> : null}
 
-        {(q.type === 'single_choice' || q.type === 'multiple_choice') &&
-          q.options.map((o) => (
-            <label key={o.id} className="ui-option">
-              <input
-                type={q.type === 'multiple_choice' ? 'checkbox' : 'radio'}
-                name={q.id}
-                checked={(draft.selectedOptionIds ?? []).includes(o.id)}
-                onChange={() => setChoice(q.id, o.id, q.type === 'multiple_choice')}
-              />
-              {o.text}
-            </label>
-          ))}
+        {q.type === 'single_choice' || q.type === 'multiple_choice' ? (
+          <div className="test-options">
+            {q.options.map((o) => (
+              <label key={o.id} className="ui-option">
+                <input
+                  type={q.type === 'multiple_choice' ? 'checkbox' : 'radio'}
+                  name={q.id}
+                  checked={(draft.selectedOptionIds ?? []).includes(o.id)}
+                  onChange={() => setChoice(q.id, o.id, q.type === 'multiple_choice')}
+                />
+                {o.text}
+              </label>
+            ))}
+          </div>
+        ) : null}
 
         {q.type === 'number_input' && (
           <input
             type="number"
+            className="ui-input"
             value={draft.textAnswer ?? ''}
             onChange={(e) => setText(q.id, e.target.value)}
           />
@@ -201,6 +222,7 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
         {q.type === 'text' && (
           <input
             type="text"
+            className="ui-input"
             value={draft.textAnswer ?? ''}
             onChange={(e) => setText(q.id, e.target.value)}
           />
@@ -208,13 +230,14 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
 
         {q.type === 'essay' && (
           <textarea
+            className="ui-textarea"
             value={draft.textAnswer ?? ''}
             onChange={(e) => setText(q.id, e.target.value)}
           />
         )}
       </SectionCard>
 
-      <div className="ui-inline">
+      <div className="test-nav">
         <button
           type="button"
           className="ui-button"
@@ -226,7 +249,7 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
         {isLast ? (
           <button
             type="button"
-            className="ui-button"
+            className={`ui-button ui-button--primary ${submitAttempt.isPending ? 'ui-button--loading' : ''}`}
             disabled={submitAttempt.isPending}
             onClick={() => void handleSubmit()}
           >
@@ -235,7 +258,7 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
         ) : (
           <button
             type="button"
-            className="ui-button"
+            className="ui-button ui-button--primary"
             onClick={() => setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))}
           >
             Далее

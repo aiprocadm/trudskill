@@ -105,7 +105,7 @@ export function TestBuilderScreen({ testId }: Props) {
     <PageContainer>
       <PageHeader
         title={t.title}
-        subtitle={`Курс ${t.courseId} · `}
+        subtitle={`Курс ${t.courseId}`}
         actions={
           <>
             {!isPublished && !isArchived && (

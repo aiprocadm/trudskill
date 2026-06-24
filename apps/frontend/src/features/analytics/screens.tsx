@@ -31,7 +31,7 @@ export function AnalyticsDashboardScreen() {
     <PageContainer>
       <PageHeader
         title="Аналитика обучения"
-        subtitle="Phase 9 — завершаемость, сдача экзаменов, средний срок и балл, drop-off; drill-down по курсу/группе/компании"
+        subtitle="Завершаемость, сдача экзаменов, средний срок и балл, drop-off — с фильтром по курсу, группе и компании"
       />
       <SectionCard title="Фильтр">
         <FilterBar>
@@ -83,36 +83,39 @@ export function AnalyticsDashboardScreen() {
       {!dash.loading && !dash.error && d ? (
         <>
           <SectionCard title="Ключевые показатели">
-            <dl className="ui-stack">
-              <div>
-                <dt>Зачислений</dt>
-                <dd>
-                  {d.enrollmentsTotal} (завершено {d.enrollmentsCompleted})
-                </dd>
+            <div className="stat-grid">
+              <div className="stat-card">
+                <span className="stat-card__label">Зачислений</span>
+                <span className="stat-card__value">{d.enrollmentsTotal}</span>
+                <span className="stat-card__sub">завершено {d.enrollmentsCompleted}</span>
               </div>
-              <div>
-                <dt>Завершаемость</dt>
-                <dd>{formatPercent(d.completionRate)}</dd>
+              <div className="stat-card">
+                <span className="stat-card__label">Завершаемость</span>
+                <span className="stat-card__value">{formatPercent(d.completionRate)}</span>
               </div>
-              <div>
-                <dt>Сдача экзаменов</dt>
-                <dd>
-                  {formatPercent(d.examPassRate)} ({d.examResultsPassed}/{d.examResultsTotal})
-                </dd>
+              <div className="stat-card">
+                <span className="stat-card__label">Сдача экзаменов</span>
+                <span className="stat-card__value">{formatPercent(d.examPassRate)}</span>
+                <span className="stat-card__sub">
+                  {d.examResultsPassed}/{d.examResultsTotal}
+                </span>
               </div>
-              <div>
-                <dt>Средний срок прохождения</dt>
-                <dd>{formatDays(d.averageCompletionDays)}</dd>
+              <div className="stat-card">
+                <span className="stat-card__label">Средний срок прохождения</span>
+                <span className="stat-card__value">{formatDays(d.averageCompletionDays)}</span>
               </div>
-              <div>
-                <dt>Средний балл</dt>
-                <dd>{formatPercent(d.averageScorePercent)}</dd>
+              <div className="stat-card">
+                <span className="stat-card__label">Средний балл</span>
+                <span className="stat-card__value">{formatPercent(d.averageScorePercent)}</span>
               </div>
-              <div>
-                <dt>Drop-off (нет активности &gt; {d.dropOffThresholdDays} дн.)</dt>
-                <dd>{d.dropOffCount}</dd>
+              <div className="stat-card">
+                <span className="stat-card__label">Drop-off</span>
+                <span className="stat-card__value">{d.dropOffCount}</span>
+                <span className="stat-card__sub">
+                  нет активности &gt; {d.dropOffThresholdDays} дн.
+                </span>
               </div>
-            </dl>
+            </div>
           </SectionCard>
 
           <SectionCard title="Завершаемость по курсам">

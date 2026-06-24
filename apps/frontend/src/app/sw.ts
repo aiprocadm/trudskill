@@ -47,7 +47,7 @@ self.addEventListener('push', (event) => {
   })() as { title?: string; body?: string; url?: string };
 
   event.waitUntil(
-    self.registration.showNotification(data.title ?? 'CDOProf', {
+    self.registration.showNotification(data.title ?? 'trudskill', {
       body: data.body ?? '',
       icon: '/icons/icon-192.png',
       badge: '/icons/icon-192.png',

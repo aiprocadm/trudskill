@@ -12,6 +12,8 @@ export const courseViewerStyles = `
   border-radius: 12px;
   padding: 12px;
   background: var(--ui-surface);
+  position: sticky;
+  top: 16px;
   max-height: calc(100vh - 160px);
   overflow: auto;
 }
@@ -41,7 +43,7 @@ export const courseViewerStyles = `
   color: var(--ui-text);
 }
 .course-toc__material:hover:not(:disabled) { background: var(--ui-surface-muted); }
-.course-toc__material--current { border-color: var(--ui-brand-600); background: var(--ui-surface-muted); }
+.course-toc__material--current { border-color: var(--ui-brand-600); background: var(--ui-surface-accent); font-weight: 600; }
 .course-toc__material--locked { color: var(--ui-text-muted); cursor: not-allowed; }
 .course-toc__material-icon { width: 18px; text-align: center; }
 .course-toc__material-title { flex: 1; }
@@ -64,8 +66,13 @@ export const courseViewerStyles = `
 .course-player__video, .course-player__pdf { width: 100%; max-height: 70vh; border: 0; border-radius: 8px; background: #000; }
 .course-player__text { font-size: 15px; line-height: 1.6; }
 .course-player__external { padding: 12px; border-radius: 8px; background: var(--ui-surface-muted); }
+/* Визуальный прогресс по курсу — заметная полоса вверху экрана */
+.course-progress { display: grid; gap: 6px; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 12px; padding: 14px 16px; box-shadow: var(--ui-shadow); }
+.course-progress__row { display: flex; align-items: center; gap: 12px; }
+.course-progress__value { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ui-text); min-width: 3.5ch; text-align: right; }
+.course-progress__caption { margin: 0; font-size: 13px; color: var(--ui-text-muted); }
 @media (max-width: 768px) {
   .course-viewer-layout { grid-template-columns: 1fr; }
-  .course-toc { max-height: none; }
+  .course-toc { position: static; max-height: none; }
 }
 `;
