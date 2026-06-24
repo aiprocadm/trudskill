@@ -206,7 +206,7 @@ export function ReportBuilderScreen(): ReactElement {
                   </button>
                   <button
                     type="button"
-                    className="ui-button"
+                    className="ui-button ui-button--primary"
                     onClick={() => void onExport()}
                     disabled={!canRun(state) || exportPending}
                   >
@@ -233,7 +233,7 @@ export function ReportBuilderScreen(): ReactElement {
                 />
                 <button
                   type="button"
-                  className="ui-button"
+                  className="ui-button ui-button--primary"
                   onClick={() => void onSave()}
                   disabled={!canRun(state) || savePending}
                 >

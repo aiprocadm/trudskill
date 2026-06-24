@@ -45,7 +45,7 @@ export const MyCoursesList = ({ entries, loading }: Props) => {
 
   return (
     <SectionCard title="Мои курсы">
-      <ul className="ui-stack" style={{ gap: 12, listStyle: 'none', padding: 0, margin: 0 }}>
+      <ul className="learner-home-courses">
         {entries.map((entry) => {
           const title =
             entry.course?.title ?? `Курс ${entry.enrollment.courseId ?? entry.enrollment.id}`;
@@ -54,13 +54,18 @@ export const MyCoursesList = ({ entries, loading }: Props) => {
             ? `/learner/courses/${entry.enrollment.courseId}`
             : `/learner/courses/${entry.enrollment.id}`;
           return (
-            <li key={entry.enrollment.id} className="ui-stack" style={{ gap: 4 }}>
-              <div className="ui-inline" style={{ justifyContent: 'space-between' }}>
-                <Link href={href}>{title}</Link>
+            <li key={entry.enrollment.id} className="learner-home-course">
+              <div className="learner-home-course__head">
+                <Link href={href} className="learner-home-course__title">
+                  {title}
+                </Link>
                 <StatusChip status={entry.enrollment.status} />
               </div>
               <progress max={100} value={percent} aria-label={`Прогресс по курсу ${title}`} />
-              <small className="ui-text-muted">{percent}%</small>
+              <div className="learner-home-course__meta">
+                <span>Прогресс курса</span>
+                <span className="learner-home-course__percent">{percent}%</span>
+              </div>
             </li>
           );
         })}

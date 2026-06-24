@@ -133,14 +133,26 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
 
   return (
     <PageContainer>
-      <PageHeader
-        title={title}
-        subtitle={`Прогресс: ${completedCount}/${totalCount} (${completionPercent}%)`}
-      />
+      <PageHeader title={title} subtitle="Учебные материалы курса и ваш прогресс" />
       {error ? <SectionError message={error} /> : null}
+      {!loading && totalCount > 0 ? (
+        <div className="course-progress">
+          <div className="course-progress__row">
+            <progress max={100} value={completionPercent} aria-label="Общий прогресс по курсу" />
+            <span className="course-progress__value">{completionPercent}%</span>
+          </div>
+          <p className="course-progress__caption">
+            Пройдено {completedCount} из {totalCount} материалов
+          </p>
+        </div>
+      ) : null}
       {loading ? (
-        <SectionCard title="Загрузка…">
-          <p className="ui-text-muted">Готовим материалы…</p>
+        <SectionCard title="Загрузка курса">
+          <div className="ui-skeleton-block" aria-hidden>
+            <div className="ui-skeleton-line" style={{ width: '40%', height: 18 }} />
+            <div className="ui-skeleton-line" style={{ width: '90%' }} />
+            <div className="ui-skeleton-line" style={{ width: '72%' }} />
+          </div>
         </SectionCard>
       ) : null}
       {!loading && tree && tree.length === 0 ? (
@@ -163,7 +175,7 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
           />
           <section className="course-player" data-testid="course-player">
             {currentMaterial && remainingSeconds > 0 ? (
-              <p className="ui-text-muted" data-testid="course-min-view-countdown">
+              <p className="ui-callout ui-callout--info" data-testid="course-min-view-countdown">
                 До открытия экзамена модуля осталось изучать: {remainingSeconds} с
               </p>
             ) : null}

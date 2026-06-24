@@ -82,63 +82,57 @@ export const LoginForm = () => {
   const passwordErrorId = 'password-error';
 
   return (
-    <div className="ui-login-center">
-      <form onSubmit={onSubmit} className="ui-section-card ui-login-card" noValidate>
-        <h1 className="ui-page-title">Вход</h1>
-        <p className="ui-page-subtitle">Используйте корпоративный логин и пароль.</p>
-        <FormErrorSummary
-          id="login-form-summary"
-          title="Исправьте ошибки во входе"
-          errors={errors}
+    <form onSubmit={onSubmit} className="ui-section-card ui-login-card" noValidate>
+      <h1 className="ui-page-title">Вход</h1>
+      <p className="ui-page-subtitle">Используйте корпоративный логин и пароль.</p>
+      <FormErrorSummary id="login-form-summary" title="Исправьте ошибки во входе" errors={errors} />
+      <label htmlFor="login" className="ui-field">
+        <span className="ui-field-label">Логин</span>
+        <input
+          id="login"
+          ref={loginRef}
+          className="ui-input"
+          name="login"
+          required
+          value={loginValue}
+          onChange={(event) => setLoginValue(event.target.value)}
+          aria-invalid={Boolean(fieldErrors.login)}
+          aria-describedby={[loginHintId, fieldErrors.login ? loginErrorId : '']
+            .filter(Boolean)
+            .join(' ')}
         />
-        <label htmlFor="login" className="ui-field">
-          <span className="ui-field-label">Логин</span>
-          <input
-            id="login"
-            ref={loginRef}
-            className="ui-input"
-            name="login"
-            required
-            value={loginValue}
-            onChange={(event) => setLoginValue(event.target.value)}
-            aria-invalid={Boolean(fieldErrors.login)}
-            aria-describedby={[loginHintId, fieldErrors.login ? loginErrorId : '']
-              .filter(Boolean)
-              .join(' ')}
-          />
-          <FieldHelp id={loginHintId}>Формат: корпоративный логин без домена.</FieldHelp>
-          <FieldError id={loginErrorId} message={fieldErrors.login} />
-        </label>
+        <FieldHelp id={loginHintId}>Формат: корпоративный логин без домена.</FieldHelp>
+        <FieldError id={loginErrorId} message={fieldErrors.login} />
+      </label>
 
-        <label htmlFor="password" className="ui-field">
-          <span className="ui-field-label">Пароль</span>
-          <input
-            id="password"
-            ref={passwordRef}
-            className="ui-input"
-            name="password"
-            type="password"
-            required
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            aria-invalid={Boolean(fieldErrors.password)}
-            aria-describedby={[passwordHintId, fieldErrors.password ? passwordErrorId : '']
-              .filter(Boolean)
-              .join(' ')}
-          />
-          <FieldHelp id={passwordHintId}>Минимум 8 символов.</FieldHelp>
-          <FieldError id={passwordErrorId} message={fieldErrors.password} />
-        </label>
+      <label htmlFor="password" className="ui-field">
+        <span className="ui-field-label">Пароль</span>
+        <input
+          id="password"
+          ref={passwordRef}
+          className="ui-input"
+          name="password"
+          type="password"
+          required
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          aria-invalid={Boolean(fieldErrors.password)}
+          aria-describedby={[passwordHintId, fieldErrors.password ? passwordErrorId : '']
+            .filter(Boolean)
+            .join(' ')}
+        />
+        <FieldHelp id={passwordHintId}>Минимум 8 символов.</FieldHelp>
+        <FieldError id={passwordErrorId} message={fieldErrors.password} />
+      </label>
 
-        {error ? (
-          <p role="alert" className="ui-error">
-            {error}
-          </p>
-        ) : null}
-        <button className="ui-button ui-button--primary" type="submit" disabled={pending}>
-          {pending ? 'Входим...' : 'Войти'}
-        </button>
-      </form>
-    </div>
+      {error ? (
+        <p role="alert" className="ui-error">
+          {error}
+        </p>
+      ) : null}
+      <button className="ui-button ui-button--primary" type="submit" disabled={pending}>
+        {pending ? 'Входим...' : 'Войти'}
+      </button>
+    </form>
   );
 };
