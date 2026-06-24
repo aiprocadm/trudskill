@@ -31,6 +31,25 @@ export const foundationStyles = `
 .entry-card { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; border: 1px solid var(--ui-border); border-radius: 12px; padding: 14px; transition: border-color .15s ease, box-shadow .15s ease; }
 .entry-card:hover { border-color: var(--ui-brand-600); box-shadow: var(--ui-shadow); }
 .entry-card + .entry-card { margin-top: 10px; }
+/* Слайд-овер дровер (создание/редактирование сущностей) — фикс. панель справа + затемнение */
+.ui-drawer { position: fixed; top: 0; right: 0; z-index: 10050; isolation: isolate; height: 100vh; width: min(480px, 100vw); background: var(--ui-surface); border-left: 1px solid var(--ui-border); box-shadow: var(--ui-shadow-strong); overflow-y: auto; padding: 20px; display: grid; gap: 16px; align-content: start; }
+.ui-drawer::before { content: ''; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); z-index: -1; pointer-events: none; }
+.ui-drawer-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ui-drawer-header h2 { margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--ui-text); }
+/* Формы внутри дроверов/модалок */
+.ui-form { display: grid; gap: 12px; }
+.ui-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.ui-fieldset { border: 1px solid var(--ui-border); border-radius: 12px; padding: 12px 14px; display: grid; gap: 10px; }
+.ui-option-row { justify-content: space-between; width: 100%; }
+/* Текстовые/служебные классы */
+.ui-hint { margin: 0; font-size: 13px; color: var(--ui-text-muted); line-height: 1.5; }
+.ui-subheading { margin: 0; font-size: 0.97rem; font-weight: 650; color: var(--ui-text); }
+.ui-bare-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ui-link { color: var(--ui-brand-700); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.ui-link:hover { color: var(--ui-brand-600); }
+/* Кнопка-ссылка — вид ссылки, поведение кнопки */
+.ui-link-button, .ui-button-link { background: none; border: none; padding: 0; height: auto; font: inherit; color: var(--ui-brand-700); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.ui-link-button:hover, .ui-button-link:hover { color: var(--ui-brand-600); background: none; }
 fieldset { border: 1px solid var(--ui-border); border-radius: 12px; padding: 12px 14px; margin: 0; }
 legend { font-size: 13px; font-weight: 600; color: var(--ui-text-muted); padding: 0 6px; }
 .ui-badge { color: #fff; border-radius: 999px; padding: 3px 11px; font-size: 12px; font-weight: 600; letter-spacing: 0.01em; }
