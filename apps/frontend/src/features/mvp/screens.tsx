@@ -1462,11 +1462,11 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
               setScormPackageId('');
             }}
           >
-            <option value="text">text</option>
-            <option value="video">video</option>
-            <option value="file">file</option>
-            <option value="external_url">external_url</option>
-            <option value="scorm">scorm</option>
+            <option value="text">Текст</option>
+            <option value="video">Видео</option>
+            <option value="file">Файл</option>
+            <option value="external_url">Внешняя ссылка</option>
+            <option value="scorm">SCORM</option>
           </select>
           {materialType === 'scorm' ? (
             <>

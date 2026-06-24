@@ -253,13 +253,13 @@ export default function GovExportPage() {
         <SectionCard title="Мастер формирования пакета">
           <FilterBar>
             <select value={providerCode} onChange={(event) => setProviderCode(event.target.value)}>
-              <option value="frdo">frdo</option>
-              <option value="eisot">eisot</option>
+              <option value="frdo">ФРДО</option>
+              <option value="eisot">ЕИСОТ</option>
             </select>
             <select value={exportType} onChange={(event) => setExportType(event.target.value)}>
-              <option value="learners">learners</option>
-              <option value="courses">courses</option>
-              <option value="groups">groups</option>
+              <option value="learners">Слушатели</option>
+              <option value="courses">Курсы</option>
+              <option value="groups">Группы</option>
             </select>
             <input
               value={sourceFilter}

@@ -20,9 +20,9 @@ export const SearchStatusFilter = ({
     />
     <select value={status} onChange={(event) => onStatus(event.target.value)} aria-label="Статус">
       <option value="">Все статусы</option>
-      <option value="active">active</option>
-      <option value="draft">draft</option>
-      <option value="archived">archived</option>
+      <option value="active">Активные</option>
+      <option value="draft">Черновики</option>
+      <option value="archived">В архиве</option>
     </select>
   </FilterBar>
 );
