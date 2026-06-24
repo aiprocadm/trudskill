@@ -1,7 +1,7 @@
 'use client';
 
-import { DataTable, FilterBar, LoadingState } from '@cdoprof/ui';
 import { useQueryClient } from '@tanstack/react-query';
+import { DataTable, FilterBar, LoadingState } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { SimplePagination } from '../../src/components/list-controls';

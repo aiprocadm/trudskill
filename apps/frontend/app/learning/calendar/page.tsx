@@ -1,7 +1,7 @@
 'use client';
 
-import { LoadingState, StatusChip } from '@cdoprof/ui';
 import { useQuery } from '@tanstack/react-query';
+import { LoadingState, StatusChip } from '@trudskill/ui';
 import { useMemo, useState } from 'react';
 
 import {

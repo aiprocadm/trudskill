@@ -2,7 +2,7 @@
 
 import { frontendEnv } from '../config/env';
 
-import type { RealtimeEventEnvelope } from '@cdoprof/api-contracts';
+import type { RealtimeEventEnvelope } from '@trudskill/api-contracts';
 
 export type RealtimeHandler = (event: RealtimeEventEnvelope) => void;
 
@@ -11,7 +11,10 @@ export class RealtimeClient {
 
   subscribe(room: string, token: string, handler: RealtimeHandler) {
     // EventSource не поддерживает Authorization; тот же access JWT передаётся в query (как договорено с realtime).
-    const base = frontendEnv.NEXT_PUBLIC_REALTIME_URL.replace(/^ws:/i, 'http:').replace(/^wss:/i, 'https:');
+    const base = frontendEnv.NEXT_PUBLIC_REALTIME_URL.replace(/^ws:/i, 'http:').replace(
+      /^wss:/i,
+      'https:'
+    );
     const url = new URL(`${base.replace(/\/$/, '')}/stream/${encodeURIComponent(room)}`);
     url.searchParams.set('since', new Date(Date.now() - 60_000).toISOString());
     if (token) url.searchParams.set('access_token', token);

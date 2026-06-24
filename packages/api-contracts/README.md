@@ -1,4 +1,4 @@
-# @cdoprof/api-contracts
+# @trudskill/api-contracts
 
 Единый API-first контрактный слой monorepo.
 
@@ -26,7 +26,7 @@
 - `pnpm contracts:build` — сборка пакета.
 - `pnpm contracts:typecheck` — проверка типов.
 - `pnpm contracts:generate` — генерация артефактов для frontend-потребления (`src/generated/*`).
-- `pnpm --filter @cdoprof/api-contracts contracts:check-generated` — проверка целостности generated-файлов (marker + SHA256 source hash).
+- `pnpm --filter @trudskill/api-contracts contracts:check-generated` — проверка целостности generated-файлов (marker + SHA256 source hash).
 
 ## Как расширять
 

@@ -5,11 +5,11 @@ RUN corepack enable
 FROM base AS deps
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY apps/realtime/package.json apps/realtime/package.json
-RUN pnpm install --filter @cdoprof/realtime... --frozen-lockfile
+RUN pnpm install --filter @trudskill/realtime... --frozen-lockfile
 
 FROM deps AS build
 COPY . .
-RUN pnpm --filter @cdoprof/realtime build
+RUN pnpm --filter @trudskill/realtime build
 
 FROM node:22-alpine AS runtime
 WORKDIR /app

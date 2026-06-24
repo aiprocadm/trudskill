@@ -1,6 +1,6 @@
 'use client';
 
-import { LoadingState } from '@cdoprof/ui';
+import { LoadingState } from '@trudskill/ui';
 import { useEffect, useRef, useState } from 'react';
 
 import { scormApi } from './api';

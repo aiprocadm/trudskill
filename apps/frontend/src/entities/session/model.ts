@@ -1,4 +1,4 @@
-import type { AuthTokensContract } from '@cdoprof/api-contracts';
+import type { AuthTokensContract } from '@trudskill/api-contracts';
 export interface CurrentUser {
   id: string;
   tenantId: string;

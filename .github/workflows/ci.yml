@@ -102,7 +102,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Verify generated API contract artifacts are up-to-date
-        run: pnpm --filter @cdoprof/api-contracts contracts:check-generated
+        run: pnpm --filter @trudskill/api-contracts contracts:check-generated
 
   frontend_typecheck_build:
     name: Frontend typecheck + build gate
@@ -120,11 +120,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Frontend typecheck
-        run: pnpm --filter @cdoprof/frontend typecheck
+        run: pnpm --filter @trudskill/frontend typecheck
       - name: Build shared UI package (frontend dependency)
-        run: pnpm --filter @cdoprof/ui build
+        run: pnpm --filter @trudskill/ui build
       - name: Frontend build
-        run: pnpm --filter @cdoprof/frontend build
+        run: pnpm --filter @trudskill/frontend build
 
   build:
     name: Build

@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, LoadingState, StatusChip } from '@cdoprof/ui';
+import { DataTable, LoadingState, StatusChip } from '@trudskill/ui';
 import { type ReactElement, useState } from 'react';
 
 import { issuanceJournalApi } from './api';
@@ -190,7 +190,7 @@ export function IssuanceJournalView() {
                 statusView: <StatusChip status={doc.status} />,
                 actionsView:
                   doc.status === 'revoked' ? (
-                    <span style={{ color: '#888' }}>—</span>
+                    <span className="ui-text-muted">—</span>
                   ) : (
                     <span className="ui-inline" style={{ gap: 6 }}>
                       <button

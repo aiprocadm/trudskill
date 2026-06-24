@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, LoadingState, StatusChip } from '@cdoprof/ui';
+import { DataTable, LoadingState, StatusChip } from '@trudskill/ui';
 
 import { useLearnerPdfCard } from './hooks';
 import { SectionCard, SectionEmpty, SectionError } from '../../components/state-wrappers';

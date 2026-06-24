@@ -1,7 +1,7 @@
 import { statusAccessibleLabel } from './status-label';
 import { semanticStatusMap } from '../../tokens/index';
 
-import type { EntityStatus } from '@cdoprof/shared-types';
+import type { EntityStatus } from '@trudskill/shared-types';
 import type { ReactElement } from 'react';
 
 export const StatusChip = ({

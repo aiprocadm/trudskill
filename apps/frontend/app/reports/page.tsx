@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, FilterBar } from '@cdoprof/ui';
+import { DataTable, FilterBar } from '@trudskill/ui';
 import { useMemo, useState } from 'react';
 
 import { PageContainer, PageHeader, SectionCard } from '../../src/components/state-wrappers';

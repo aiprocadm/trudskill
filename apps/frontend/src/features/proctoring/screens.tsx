@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, LoadingState } from '@cdoprof/ui';
+import { DataTable, LoadingState } from '@trudskill/ui';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
@@ -140,7 +140,7 @@ export function ProctoringStartPanel({
     <div className="ui-stack">
       {/* Preview is muted: the learner must not hear their own microphone. */}
       <video ref={videoRef} autoPlay muted playsInline style={{ maxWidth: 320 }} />
-      <label className="ui-inline" style={{ gap: 8 }}>
+      <label className="ui-inline">
         <input
           type="checkbox"
           checked={consent}
@@ -172,7 +172,8 @@ export function ProctoringRecIndicator(): ReactElement | null {
   if (!active || active.recorder.phase !== 'recording') return null;
   return (
     <span
-      style={{ color: '#c00', fontWeight: 700 }}
+      className="ui-subheading"
+      style={{ color: 'var(--ui-danger-600)' }}
       aria-label="Идёт видеозапись экзамена"
       data-testid="proctoring-rec-indicator"
     >
@@ -230,24 +231,25 @@ export function ProctoringResumeBanner({
 
   return (
     <div
-      className="ui-stack"
+      className="ui-callout ui-callout--danger"
       role="alert"
       data-testid="proctoring-resume-banner"
-      style={{ border: '2px solid #c00', borderRadius: 4, padding: 12 }}
     >
-      <p style={{ fontWeight: 700, margin: 0 }}>
-        Запись прервана обновлением страницы — возобновите запись. Экзамен записывается на видео
-        (прокторинг); согласие уже учтено.
-      </p>
-      {error ? <SectionError message={error} /> : null}
-      <button
-        type="button"
-        className="ui-button"
-        disabled={isResuming}
-        onClick={() => void onResume()}
-      >
-        {isResuming ? 'Включаем запись…' : 'Возобновить запись'}
-      </button>
+      <div className="ui-stack">
+        <p className="ui-subheading" style={{ margin: 0 }}>
+          Запись прервана обновлением страницы — возобновите запись. Экзамен записывается на видео
+          (прокторинг); согласие уже учтено.
+        </p>
+        {error ? <SectionError message={error} /> : null}
+        <button
+          type="button"
+          className="ui-button"
+          disabled={isResuming}
+          onClick={() => void onResume()}
+        >
+          {isResuming ? 'Включаем запись…' : 'Возобновить запись'}
+        </button>
+      </div>
     </div>
   );
 }
@@ -300,14 +302,13 @@ export function AdminProctoringQueueScreen(): ReactElement {
         subtitle="Видеозаписи итоговых экзаменов (веб-камера слушателя)"
       />
       <SectionCard title="Сеансы записи">
-        <div className="ui-inline" style={{ marginBottom: 12, gap: 8 }}>
+        <div className="ui-inline" style={{ marginBottom: 12 }}>
           <span>Статус:</span>
           {STATUS_FILTER_OPTIONS.map((opt) => (
             <button
               key={opt.value ?? 'all'}
               type="button"
-              className="ui-button"
-              style={statusFilter === opt.value ? { fontWeight: 700 } : undefined}
+              className={statusFilter === opt.value ? 'ui-button ui-subheading' : 'ui-button'}
               aria-pressed={statusFilter === opt.value}
               onClick={() => setStatusFilter(opt.value)}
             >

@@ -1,7 +1,7 @@
 'use client';
 
-import { DataTable } from '@cdoprof/ui';
 import { useQuery } from '@tanstack/react-query';
+import { DataTable } from '@trudskill/ui';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
@@ -69,7 +69,11 @@ export default function WorkspacePage() {
           title="Оперативная панель"
           subtitle="Приоритеты роли, блокеры и следующие действия для текущей смены"
           actions={
-            <button type="button" className="ui-button ui-button--primary" onClick={() => void workspace.refetch()}>
+            <button
+              type="button"
+              className="ui-button ui-button--primary"
+              onClick={() => void workspace.refetch()}
+            >
               Обновить
             </button>
           }
@@ -93,7 +97,12 @@ export default function WorkspacePage() {
                   key={step.id}
                   href={step.href}
                   onClick={() =>
-                    recordJourneyStep(role?.role ?? 'learner', 'workspace_flow', step.metricStep, 'success')
+                    recordJourneyStep(
+                      role?.role ?? 'learner',
+                      'workspace_flow',
+                      step.metricStep,
+                      'success'
+                    )
                   }
                 >
                   {step.label}

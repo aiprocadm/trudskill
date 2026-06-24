@@ -3,10 +3,10 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@cdoprof/shared-types": ["../../packages/shared-types/src/index.ts"],
-      "@cdoprof/api-contracts": ["../../packages/api-contracts/src/index.ts"],
-      "@cdoprof/test-utils": ["../../packages/test-utils/src/index.ts"],
-      "@cdoprof/ui": ["../../packages/ui/src/index.tsx"],
+      "@trudskill/shared-types": ["../../packages/shared-types/src/index.ts"],
+      "@trudskill/api-contracts": ["../../packages/api-contracts/src/index.ts"],
+      "@trudskill/test-utils": ["../../packages/test-utils/src/index.ts"],
+      "@trudskill/ui": ["../../packages/ui/src/index.tsx"],
       "@tanstack/react-query": ["src/lib/query/react-query-shim.tsx"]
     },
     "isolatedModules": true,

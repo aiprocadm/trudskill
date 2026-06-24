@@ -77,27 +77,12 @@ export function RevokeReissueModal({
   if (!open) return null;
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={labels.title}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000
-      }}
-    >
-      <div
-        className="ui-section-card"
-        style={{ background: 'white', padding: 24, minWidth: 420, maxWidth: 560 }}
-      >
-        <h2 className="ui-page-title" style={{ marginTop: 0 }}>
-          {labels.title}
-        </h2>
+    // Оверлей + панель — классы модалки дизайн-системы (.ui-modal*) вместо инлайн-стилей и хардкода.
+    <div className="ui-modal" role="dialog" aria-modal="true" aria-label={labels.title}>
+      <div className="ui-modal-content">
+        <div className="ui-modal-header">
+          <h2>{labels.title}</h2>
+        </div>
         {documentNumber ? (
           <p>
             Документ № <strong>{documentNumber}</strong>
@@ -113,8 +98,8 @@ export function RevokeReissueModal({
             style={{ width: '100%' }}
           />
         </label>
-        {error ? <p style={{ color: 'crimson', marginTop: 8 }}>{error}</p> : null}
-        <div className="ui-inline" style={{ marginTop: 16, gap: 8, justifyContent: 'flex-end' }}>
+        {error ? <p className="ui-callout ui-callout--danger">{error}</p> : null}
+        <div className="ui-modal-actions">
           <button type="button" className="ui-button" onClick={onClose}>
             Отмена
           </button>

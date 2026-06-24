@@ -1,6 +1,6 @@
 'use client';
 
-import { StatusChip } from '@cdoprof/ui';
+import { StatusChip } from '@trudskill/ui';
 import Link from 'next/link';
 
 import { SectionCard, SectionEmpty } from '../../components/state-wrappers';

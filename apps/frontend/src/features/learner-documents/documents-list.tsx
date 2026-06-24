@@ -1,12 +1,12 @@
 'use client';
 
-import { DataTable, StatusChip } from '@cdoprof/ui';
+import { DataTable, StatusChip } from '@trudskill/ui';
 
 import { signatureBadgeLabel } from './signature-badge';
 import { SectionCard, SectionEmpty } from '../../components/state-wrappers';
 
 import type { LearnerDocument } from './types';
-import type { Column } from '@cdoprof/ui';
+import type { Column } from '@trudskill/ui';
 import type { ReactElement } from 'react';
 
 const DOCUMENT_TYPE_LABELS: Record<string, string> = {

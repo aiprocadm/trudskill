@@ -4,26 +4,26 @@
     {
       "name": "frontend",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@cdoprof/frontend", "dev"],
+      "runtimeArgs": ["--filter", "@trudskill/frontend", "dev"],
       "port": 3000
     },
     {
       "name": "frontend-preview",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@cdoprof/frontend", "exec", "next", "dev"],
+      "runtimeArgs": ["--filter", "@trudskill/frontend", "exec", "next", "dev"],
       "port": 3100,
       "autoPort": true
     },
     {
       "name": "backend",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@cdoprof/backend", "dev"],
+      "runtimeArgs": ["--filter", "@trudskill/backend", "dev"],
       "port": 3001
     },
     {
       "name": "realtime",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@cdoprof/realtime", "dev"],
+      "runtimeArgs": ["--filter", "@trudskill/realtime", "dev"],
       "port": 3002
     }
   ]

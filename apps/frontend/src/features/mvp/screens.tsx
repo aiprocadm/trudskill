@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, FilterBar, LoadingState, StatusChip } from '@cdoprof/ui';
+import { DataTable, FilterBar, LoadingState, StatusChip } from '@trudskill/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, type ReactElement, useEffect, useMemo, useRef, useState } from 'react';
@@ -86,7 +86,7 @@ import type {
   TrainingType
 } from './types';
 import type { ScormPackageDto } from '../scorm/types';
-import type { Column } from '@cdoprof/ui';
+import type { Column } from '@trudskill/ui';
 
 const ENROLLMENT_STATUS_LABEL: Record<string, string> = {
   pending: 'ожидает',
@@ -518,7 +518,7 @@ export const CounterpartiesPageScreen = () => {
         <RegistryControls q={q} setQ={setQ} status={status} setStatus={setStatus} />
         {loading ? <LoadingState message="Загрузка…" /> : null}
         {error ? <SectionError message={error} /> : null}
-        <div style={{ display: 'grid', gap: 8 }}>
+        <div className="ui-stack" style={{ gap: 8 }}>
           {data?.items.map((item) => (
             <Link key={item.id} href={`/counterparties/${item.id}`}>
               {item.name} ({item.code})
@@ -742,7 +742,8 @@ export const CourseCreateScreen = () => {
         </ul>
         <form
           onSubmit={(event) => void onSubmit(event)}
-          style={{ display: 'grid', gap: 8, maxWidth: 480 }}
+          className="ui-form"
+          style={{ maxWidth: 480 }}
           noValidate
         >
           <FormErrorSummary id="course-create-summary" errors={formErrors} />
@@ -1199,7 +1200,7 @@ const DocumentSetSection = ({
           <div
             key={`${entry.templateId}_${idx}`}
             className="ui-inline"
-            style={{ gap: 8, padding: '6px 0', borderBottom: '1px solid var(--ui-border, #eee)' }}
+            style={{ gap: 8, padding: '6px 0', borderBottom: '1px solid var(--ui-border)' }}
           >
             <strong>{idx + 1}.</strong>
             <span>{info?.name ?? `(${entry.templateId} — не найден)`}</span>
@@ -1330,7 +1331,7 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
       <SectionCard title="Общие данные">
         <p>Код: {course?.code}</p>
         <StatusChip status={course?.status ?? 'draft'} />
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="ui-inline">
           {canPublish ? (
             <button
               disabled={!latestVersionId || !modules?.items?.length || !materials?.items?.length}
@@ -1412,7 +1413,8 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
               })
               .catch((moduleError) => setSaveError(readApiMessage(moduleError)));
           }}
-          style={{ display: 'flex', gap: 8, marginBottom: 8 }}
+          className="ui-inline"
+          style={{ marginBottom: 8 }}
         >
           <input
             value={moduleTitle}
@@ -1451,7 +1453,8 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
               })
               .catch((materialError) => setSaveError(readApiMessage(materialError)));
           }}
-          style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}
+          className="ui-inline"
+          style={{ marginBottom: 8 }}
         >
           <select
             value={selectedModuleId}
@@ -1605,7 +1608,8 @@ export const GroupCreateScreen = () => {
       <SectionCard title="Основные атрибуты">
         <form
           onSubmit={(event) => void onSubmit(event)}
-          style={{ display: 'grid', gap: 8, maxWidth: 480 }}
+          className="ui-form"
+          style={{ maxWidth: 480 }}
           noValidate
         >
           <FormErrorSummary id="group-create-summary" errors={formErrors} />
@@ -1713,7 +1717,8 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
               })
               .catch((groupCourseError) => setSaveError(readApiMessage(groupCourseError)));
           }}
-          style={{ display: 'flex', gap: 8, marginBottom: 8 }}
+          className="ui-inline"
+          style={{ marginBottom: 8 }}
         >
           <select
             value={selectedCourseId}
@@ -1754,7 +1759,8 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
               })
               .catch((enrollmentError) => setSaveError(readApiMessage(enrollmentError)));
           }}
-          style={{ display: 'flex', gap: 8, marginBottom: 8 }}
+          className="ui-inline"
+          style={{ marginBottom: 8 }}
         >
           <input
             value={learnerId}
@@ -2815,7 +2821,7 @@ export const CommissionDetailsScreen = ({ id }: { id: string }) => {
                 {editError ? (
                   <FieldError id="commission-edit-info-error" message={editError} />
                 ) : null}
-                <div className="ui-stack" style={{ flexDirection: 'row', gap: '0.5rem' }}>
+                <div className="ui-inline">
                   <button type="submit" className="ui-button" disabled={savingEdit}>
                     {savingEdit ? 'Сохранение…' : 'Сохранить'}
                   </button>

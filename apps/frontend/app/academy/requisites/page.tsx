@@ -99,7 +99,8 @@ export default function AcademyRequisitesPage() {
                 event.preventDefault();
                 void onSave();
               }}
-              style={{ display: 'grid', gap: 8, maxWidth: 560 }}
+              className="ui-form"
+              style={{ maxWidth: 560 }}
             >
               <label>
                 Юридическое название

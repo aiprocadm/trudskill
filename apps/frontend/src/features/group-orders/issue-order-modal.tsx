@@ -101,34 +101,23 @@ export function IssueOrderModal({
       role="dialog"
       aria-modal="true"
       aria-label="Сгенерировать приказ по группе"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000
-      }}
+      className="ui-modal"
     >
-      <div
-        className="ui-section-card"
-        style={{ background: 'white', padding: 24, minWidth: 480, maxWidth: 640 }}
-      >
-        <h2 className="ui-page-title" style={{ marginTop: 0 }}>
-          Сгенерировать приказ по группе
-        </h2>
+      <div className="ui-modal-content">
+        <div className="ui-modal-header">
+          <h2>Сгенерировать приказ по группе</h2>
+        </div>
         <p>
           Учеников будет включено в приказ: <strong>{enrollmentIds.length}</strong>
         </p>
 
         {templatesQuery.isLoading ? <p>Загрузка шаблонов…</p> : null}
         {templatesQuery.error ? (
-          <p style={{ color: 'crimson' }}>Не удалось загрузить шаблоны</p>
+          <p className="ui-callout ui-callout--danger">Не удалось загрузить шаблоны</p>
         ) : null}
 
         {!templatesQuery.isLoading && !templatesQuery.error ? (
-          <div className="ui-stack" style={{ gap: 12 }}>
+          <div className="ui-stack">
             <label className="ui-stack" style={{ gap: 4 }}>
               <span>Шаблон приказа</span>
               <select
@@ -165,9 +154,9 @@ export function IssueOrderModal({
           </div>
         ) : null}
 
-        {error ? <p style={{ color: 'crimson', marginTop: 12 }}>Ошибка: {error}</p> : null}
+        {error ? <p className="ui-callout ui-callout--danger">Ошибка: {error}</p> : null}
 
-        <div className="ui-inline" style={{ marginTop: 16, gap: 8, justifyContent: 'flex-end' }}>
+        <div className="ui-modal-actions">
           <button type="button" className="ui-button" onClick={onClose}>
             Отмена
           </button>

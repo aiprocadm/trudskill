@@ -1,4 +1,4 @@
-import { AsyncTaskStatus } from '@cdoprof/shared-types';
+import { AsyncTaskStatus } from '@trudskill/shared-types';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AsyncStatusWidget } from './async-status/index.js';

@@ -1,9 +1,9 @@
 'use client';
 
-import { DataTable } from '@cdoprof/ui';
+import { DataTable } from '@trudskill/ui';
 
 import type { ClassifiedParsedRow } from './types';
-import type { Column } from '@cdoprof/ui';
+import type { Column } from '@trudskill/ui';
 
 interface PreviewRow {
   rowNumber: number;

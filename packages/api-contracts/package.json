@@ -1,12 +1,12 @@
 {
-  "name": "@cdoprof/api-contracts",
+  "name": "@trudskill/api-contracts",
   "version": "0.0.1",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "dependencies": {
-    "@cdoprof/shared-types": "workspace:*"
+    "@trudskill/shared-types": "workspace:*"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

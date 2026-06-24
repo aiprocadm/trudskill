@@ -20,4 +20,4 @@ export type {
   StartSigningProcessRequest,
   UpdateEsignApplicationRequest,
   UpdateSigningParticipantRequest
-} from '@cdoprof/shared-types';
+} from '@trudskill/shared-types';

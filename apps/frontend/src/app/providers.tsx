@@ -1,6 +1,6 @@
 'use client';
 
-import { UiThemeProvider } from '@cdoprof/ui';
+import { UiThemeProvider } from '@trudskill/ui';
 
 import { AuthProvider } from '../features/auth/context';
 import { AppQueryProvider } from '../lib/query/provider';

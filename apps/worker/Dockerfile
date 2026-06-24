@@ -6,11 +6,11 @@ FROM base AS deps
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY apps/worker/package.json apps/worker/package.json
 COPY packages/shared-types/package.json packages/shared-types/package.json
-RUN pnpm install --filter @cdoprof/worker... --frozen-lockfile
+RUN pnpm install --filter @trudskill/worker... --frozen-lockfile
 
 FROM deps AS build
 COPY . .
-RUN pnpm --filter @cdoprof/worker build
+RUN pnpm --filter @trudskill/worker build
 
 FROM node:22-alpine AS runtime
 WORKDIR /app

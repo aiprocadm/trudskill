@@ -8,13 +8,13 @@ COPY apps/backend/package.json apps/backend/package.json
 COPY packages/shared-types/package.json packages/shared-types/package.json
 COPY packages/api-contracts/package.json packages/api-contracts/package.json
 COPY tooling tooling
-RUN pnpm install --filter @cdoprof/backend... --frozen-lockfile
+RUN pnpm install --filter @trudskill/backend... --frozen-lockfile
 
 FROM deps AS build
 COPY . .
-RUN pnpm --filter @cdoprof/shared-types build \
- && pnpm --filter @cdoprof/api-contracts build \
- && pnpm --filter @cdoprof/backend build
+RUN pnpm --filter @trudskill/shared-types build \
+ && pnpm --filter @trudskill/api-contracts build \
+ && pnpm --filter @trudskill/backend build
 
 FROM node:22-alpine AS runtime
 WORKDIR /app

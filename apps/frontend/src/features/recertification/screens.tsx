@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, LoadingState, StatusChip } from '@cdoprof/ui';
+import { DataTable, LoadingState, StatusChip } from '@trudskill/ui';
 import { type ReactElement, useState } from 'react';
 
 import { formatRemaining, formatSnils } from './format';
@@ -111,7 +111,7 @@ export function RecertificationQueueScreen(): ReactElement {
       />
 
       <SectionCard title="Очередь переаттестации">
-        <div className="ui-inline" style={{ marginBottom: 12, gap: 8 }}>
+        <div className="ui-inline" style={{ marginBottom: 12 }}>
           <label className="ui-inline" style={{ gap: 4 }}>
             <span>Статус:</span>
             <select

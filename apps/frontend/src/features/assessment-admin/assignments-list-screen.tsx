@@ -7,7 +7,7 @@ import {
   Pagination,
   SearchInput,
   StatusChip
-} from '@cdoprof/ui';
+} from '@trudskill/ui';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
@@ -23,7 +23,7 @@ import {
 } from '../../components/state-wrappers';
 
 import type { AssignmentListItem, EntityStatus } from './types';
-import type { Column } from '@cdoprof/ui';
+import type { Column } from '@trudskill/ui';
 
 const PAGE_SIZE = 20;
 

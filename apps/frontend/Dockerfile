@@ -10,7 +10,7 @@ COPY packages/ui/package.json packages/ui/package.json
 COPY packages/api-contracts/package.json packages/api-contracts/package.json
 COPY packages/shared-types/package.json packages/shared-types/package.json
 COPY tooling tooling
-RUN pnpm install --filter @cdoprof/frontend... --frozen-lockfile
+RUN pnpm install --filter @trudskill/frontend... --frozen-lockfile
 
 FROM deps AS build
 ENV NODE_ENV=production
@@ -23,10 +23,10 @@ ENV NEXT_PUBLIC_REALTIME_URL=$NEXT_PUBLIC_REALTIME_URL
 ENV NEXT_PUBLIC_DEFAULT_TENANT_ID=$NEXT_PUBLIC_DEFAULT_TENANT_ID
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
-RUN pnpm --filter @cdoprof/shared-types build \
- && pnpm --filter @cdoprof/api-contracts build \
- && pnpm --filter @cdoprof/ui build \
- && pnpm --filter @cdoprof/frontend build
+RUN pnpm --filter @trudskill/shared-types build \
+ && pnpm --filter @trudskill/api-contracts build \
+ && pnpm --filter @trudskill/ui build \
+ && pnpm --filter @trudskill/frontend build
 
 FROM node:22-alpine AS runtime
 WORKDIR /app

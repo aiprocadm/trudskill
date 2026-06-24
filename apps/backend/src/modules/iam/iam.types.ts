@@ -1,4 +1,4 @@
-import type { SessionResponseContract, UserResponseContract } from '@cdoprof/api-contracts';
+import type { SessionResponseContract, UserResponseContract } from '@trudskill/api-contracts';
 
 export type UserStatus = 'active' | 'blocked';
 

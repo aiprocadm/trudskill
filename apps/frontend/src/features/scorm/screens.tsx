@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, LoadingState, StatusChip } from '@cdoprof/ui';
+import { DataTable, LoadingState, StatusChip } from '@trudskill/ui';
 import { useRef, useState } from 'react';
 
 import { putFileToPresignedUrl, scormApi } from './api';
@@ -15,7 +15,7 @@ import {
 import { useAuth } from '../auth/context';
 
 import type { ScormPackageDto, ScormPackageStatus } from './types';
-import type { Column } from '@cdoprof/ui';
+import type { Column } from '@trudskill/ui';
 import type { ReactElement } from 'react';
 
 function humanizeBytes(bytes: number): string {

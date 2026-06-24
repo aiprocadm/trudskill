@@ -3,7 +3,7 @@ import type {
   AuthTokensContract,
   SessionResponseContract,
   UserResponseContract
-} from '@cdoprof/api-contracts';
+} from '@trudskill/api-contracts';
 
 export type AuthResponseDto = AuthTokensContract;
 export type AuthClaimsResponseDto = AuthClaimsContract;

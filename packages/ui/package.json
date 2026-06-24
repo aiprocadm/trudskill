@@ -1,5 +1,5 @@
 {
-  "name": "@cdoprof/ui",
+  "name": "@trudskill/ui",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -15,7 +15,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@cdoprof/shared-types": "workspace:*"
+    "@trudskill/shared-types": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "19.2.14"

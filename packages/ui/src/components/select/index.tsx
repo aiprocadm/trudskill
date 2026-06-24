@@ -1,6 +1,6 @@
 import { VISUALLY_HIDDEN_CLASS, fieldId } from '../../a11y/visually-hidden';
 
-import type { LookupItem } from '@cdoprof/shared-types';
+import type { LookupItem } from '@trudskill/shared-types';
 import type { ReactElement } from 'react';
 
 export const LookupSelect = ({

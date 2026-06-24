@@ -1,5 +1,6 @@
 'use client';
 
+import { LoadingState } from '@trudskill/ui';
 import { useEffect, useState } from 'react';
 
 import { fetchVerifyDocument } from './api';
@@ -41,35 +42,19 @@ export function VerifyPage({ token }: VerifyPageProps) {
     };
   }, [token]);
 
+  // Публичная страница вне AppShell: центрируем средствами дизайн-системы (.ui-auth-center),
+  // карточка — фирменная .ui-section-card. Тема (вкл. тёмную) приходит из UiThemeProvider на корне.
   return (
-    <main
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
-        background: '#f5f5f7'
-      }}
-    >
-      <article
-        style={{
-          width: '100%',
-          maxWidth: 480,
-          background: 'white',
-          borderRadius: 12,
-          padding: 24,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
-        }}
-      >
-        <h1 style={{ margin: '0 0 16px', fontSize: 20 }}>Проверка подлинности документа</h1>
+    <main className="ui-auth-center">
+      <article className="ui-section-card ui-auth-card">
+        <h1 className="ui-section-title">Проверка подлинности документа</h1>
 
-        {state.kind === 'loading' ? <p>Проверяем…</p> : null}
+        {state.kind === 'loading' ? <LoadingState message="Проверяем…" /> : null}
 
         {state.kind === 'not_found' ? (
-          <div>
-            <StatusBadge variant="error" label="Документ не найден" />
-            <p style={{ marginTop: 12 }}>
+          <div className="ui-stack">
+            <p className="ui-callout ui-callout--danger">Документ не найден</p>
+            <p className="ui-prose-muted">
               QR-код не соответствует ни одному выпущенному документу. Проверьте, что вы
               отсканировали актуальный документ.
             </p>
@@ -77,9 +62,9 @@ export function VerifyPage({ token }: VerifyPageProps) {
         ) : null}
 
         {state.kind === 'error' ? (
-          <div>
-            <StatusBadge variant="error" label="Ошибка проверки" />
-            <p style={{ marginTop: 12, color: 'crimson' }}>{state.message}</p>
+          <div className="ui-stack">
+            <p className="ui-callout ui-callout--danger">Ошибка проверки</p>
+            <p className="ui-prose-muted">{state.message}</p>
           </div>
         ) : null}
 
@@ -92,13 +77,12 @@ export function VerifyPage({ token }: VerifyPageProps) {
 function VerifyCard({ data }: { data: VerifyResult }) {
   const isRevoked = data.status === 'revoked';
   return (
-    <div>
-      {isRevoked ? (
-        <StatusBadge variant="error" label="Аннулирован" />
-      ) : (
-        <StatusBadge variant="success" label="Действителен" />
-      )}
-      <dl style={{ margin: '16px 0 0', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+    <div className="ui-stack">
+      {/* Заметная плашка статуса: зелёная «Действителен» / красная «Аннулирован» из токенов темы */}
+      <p className={`ui-callout ${isRevoked ? 'ui-callout--danger' : 'ui-callout--success'}`}>
+        <strong>{isRevoked ? 'Аннулирован' : 'Действителен'}</strong>
+      </p>
+      <dl className="ui-defs">
         {data.documentNumber ? <Row label="№ документа" value={data.documentNumber} /> : null}
         {data.documentType ? (
           <Row label="Тип" value={DOCUMENT_TYPE_LABELS[data.documentType] ?? data.documentType} />
@@ -121,31 +105,12 @@ function VerifyCard({ data }: { data: VerifyResult }) {
   );
 }
 
+// Пара «метка → значение» внутри .ui-defs: цвета и типографика берутся из классов дизайн-системы.
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <>
-      <dt style={{ color: '#666', fontSize: 14 }}>{label}</dt>
-      <dd style={{ margin: 0, fontWeight: 600 }}>{value}</dd>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
     </>
-  );
-}
-
-function StatusBadge({ variant, label }: { variant: 'success' | 'error'; label: string }) {
-  const color = variant === 'success' ? '#0a8a0a' : '#c81e1e';
-  const bg = variant === 'success' ? '#e8f5e8' : '#fde8e8';
-  return (
-    <span
-      style={{
-        display: 'inline-block',
-        padding: '4px 12px',
-        borderRadius: 999,
-        background: bg,
-        color,
-        fontSize: 14,
-        fontWeight: 600
-      }}
-    >
-      {label}
-    </span>
   );
 }

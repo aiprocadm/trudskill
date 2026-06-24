@@ -1,4 +1,4 @@
-# @cdoprof/shared-types
+# @trudskill/shared-types
 
 Общий foundation-слой типов для frontend, backend, worker, realtime и test-utils.
 
@@ -17,6 +17,6 @@
 
 ## Ограничения
 
-- Импортировать только из публичного `@cdoprof/shared-types`.
+- Импортировать только из публичного `@trudskill/shared-types`.
 - Не размещать здесь persistence-сущности БД.
 - Не добавлять бизнес-логику доменных модулей.

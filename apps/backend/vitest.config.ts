@@ -5,11 +5,14 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   resolve: {
     alias: {
-      '@cdoprof/api-contracts': path.resolve(__dirname, '../../packages/api-contracts/src/index.ts')
+      '@trudskill/api-contracts': path.resolve(
+        __dirname,
+        '../../packages/api-contracts/src/index.ts'
+      )
     }
   },
   test: {
-    name: '@cdoprof/backend',
+    name: '@trudskill/backend',
     include: ['src/**/*.test.ts'],
     setupFiles: ['./vitest.setup-env.ts'],
     hookTimeout: 120000,

@@ -1,4 +1,4 @@
-import { AsyncTaskStatus } from '@cdoprof/shared-types';
+import { AsyncTaskStatus } from '@trudskill/shared-types';
 
 import { semanticStatusMap } from '../../tokens';
 

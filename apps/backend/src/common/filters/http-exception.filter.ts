@@ -1,4 +1,3 @@
-import { BackendHttpErrorCodes } from '@cdoprof/api-contracts';
 import {
   type ArgumentsHost,
   Catch,
@@ -8,6 +7,7 @@ import {
   Injectable,
   Logger
 } from '@nestjs/common';
+import { BackendHttpErrorCodes } from '@trudskill/api-contracts';
 
 import { backendEnv } from '../../env.js';
 import { resolveRequestContext } from '../utils/request.js';

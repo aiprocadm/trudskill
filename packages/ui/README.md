@@ -1,4 +1,4 @@
-# @cdoprof/ui
+# @trudskill/ui
 
 Базовый UI-kit/design foundation для frontend-приложений.
 
@@ -11,7 +11,7 @@
 
 ## Conventions
 
-- Статусы и role-aware сценарии строятся на `@cdoprof/shared-types`.
+- Статусы и role-aware сценарии строятся на `@trudskill/shared-types`.
 - Компоненты UI-kit не должны содержать доменную бизнес-логику.
 - Новые компоненты должны иметь example/demo в соответствующем frontend приложении.
 
@@ -19,4 +19,4 @@
 
 1. Добавить компонент в `src/components/*` или `src/patterns/*`.
 2. Экспортировать через `src/index.tsx`.
-3. Проверить `pnpm --filter @cdoprof/ui typecheck && pnpm --filter @cdoprof/ui test`.
+3. Проверить `pnpm --filter @trudskill/ui typecheck && pnpm --filter @trudskill/ui test`.

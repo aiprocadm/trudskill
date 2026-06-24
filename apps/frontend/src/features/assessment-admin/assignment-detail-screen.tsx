@@ -1,6 +1,6 @@
 'use client';
 
-import { LoadingState, StatusChip } from '@cdoprof/ui';
+import { LoadingState, StatusChip } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { AssignmentEditDrawer } from './assignment-edit-drawer';
