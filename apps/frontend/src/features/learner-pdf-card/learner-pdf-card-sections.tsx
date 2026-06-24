@@ -37,9 +37,8 @@ export function LearnerPdfCardSections({ learnerId }: { learnerId: string }) {
 
   const onExportPdf = () => {
     window.alert(
-      'Экспорт PDF-карточки ученика — в разработке.\n\n' +
-        'В Phase 5 будет интегрирован с background worker и шаблонами типа «report». ' +
-        'Пока секции выше можно использовать для просмотра данных.'
+      'Экспорт PDF-карточки ученика пока недоступен.\n\n' +
+        'Данные карточки можно просмотреть в секциях выше.'
     );
   };
 

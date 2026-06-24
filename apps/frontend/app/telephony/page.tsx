@@ -34,7 +34,7 @@ export default function TelephonyPage() {
       <PageContainer>
         <PageHeader
           title="Телефония"
-          subtitle="П. 5.20 ТЗ (опционально II–III этап) — облачная АТС, внутренние номера, CRM"
+          subtitle="Облачная АТС, внутренние номера, интеграция с CRM"
         />
         <SectionCard title="Провайдеры коммуникаций">
           {providers.loading ? <LoadingState message="Загрузка провайдеров..." /> : null}

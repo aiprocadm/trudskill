@@ -10,7 +10,7 @@ export default function AcademyHubPage() {
       <PageContainer>
         <PageHeader
           title="Учебный центр"
-          subtitle="Разделы п. 5.1, 5.15 ТЗ: реквизиты, комиссия, связь с документами и нумерацией"
+          subtitle="Реквизиты учебного центра, комиссия, шаблоны документов и нумерация"
         />
         <SectionCard title="Ключевые настройки">
           <TzLinks
@@ -18,8 +18,7 @@ export default function AcademyHubPage() {
               {
                 href: '/academy/requisites',
                 label: 'Данные учебного заведения и реквизиты',
-                description:
-                  'Наименование, адреса, ИНН, контакты, часовой пояс, расширяемый payload из API /tenant/*'
+                description: 'Наименование, адреса, ИНН, контакты и часовой пояс учебного центра'
               },
               {
                 href: '/academy/commission',
@@ -30,7 +29,7 @@ export default function AcademyHubPage() {
               {
                 href: '/documents',
                 label: 'Шаблоны и генерация документов',
-                description: 'Реестр шаблонов, задания генерации, нумерация — п. 5.12–5.13 ТЗ'
+                description: 'Реестр шаблонов, задания генерации и нумерация документов'
               },
               {
                 href: '/settings',
@@ -42,8 +41,8 @@ export default function AcademyHubPage() {
         </SectionCard>
         <SectionCard title="Связанные модули">
           <p className="ui-prose-muted">
-            Нумерация приказов и протоколов: см. модуль документов и бэкенд <code>documents</code>.
-            Массовая выгрузка логинов: раздел <Link href="/users">Пользователи</Link>, API IAM.
+            Нумерация приказов и протоколов настраивается в разделе «Документы». Массовая выдача
+            логинов — в разделе <Link href="/users">Пользователи</Link>.
           </p>
         </SectionCard>
       </PageContainer>

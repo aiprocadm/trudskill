@@ -43,7 +43,11 @@ export function AssignmentDetailScreen({ assignmentId }: Props) {
         subtitle={`Курс ${a.courseId}${a.moduleId ? ` · модуль ${a.moduleId}` : ''}`}
         actions={
           <>
-            <button type="button" className="ui-button" onClick={() => setEditing(true)}>
+            <button
+              type="button"
+              className="ui-button ui-button--primary"
+              onClick={() => setEditing(true)}
+            >
               Редактировать
             </button>
             {!a.isArchived && (
@@ -74,10 +78,10 @@ export function AssignmentDetailScreen({ assignmentId }: Props) {
         </dl>
       </SectionCard>
 
-      <SectionCard title="Submissions">
+      <SectionCard title="Практические работы">
         <SectionEmpty
-          message="Раздел будет доступен после Plan C"
-          hint="Plan C добавит загрузку файлов и manual review."
+          message="Здесь появятся сданные работы"
+          hint="Загрузка файлов и проверка работ станут доступны позже."
         />
       </SectionCard>
 

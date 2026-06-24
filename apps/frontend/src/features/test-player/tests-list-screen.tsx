@@ -54,7 +54,7 @@ function TestRow({ test }: { test: LearnerTestSummary }) {
   };
 
   return (
-    <li className="ui-stack">
+    <li className="entry-card">
       <span className="ui-list-title">{test.title}</span>
       <span>{formatLearnerTestStatus(test.status)}</span>
       <span>{formatAttemptsLeft(test.attemptsUsed, test.attemptLimit)}</span>
@@ -63,7 +63,7 @@ function TestRow({ test }: { test: LearnerTestSummary }) {
       ) : null}
       {test.activeAttemptId ? (
         <Link
-          className="ui-button"
+          className="ui-button ui-button--primary"
           href={`/learner/tests/${test.testId}/attempt/${test.activeAttemptId}`}
         >
           Продолжить
@@ -71,7 +71,7 @@ function TestRow({ test }: { test: LearnerTestSummary }) {
       ) : attemptsLeft > 0 ? (
         <button
           type="button"
-          className="ui-button"
+          className="ui-button ui-button--primary"
           disabled={start.isPending}
           onClick={() => void onStart()}
         >

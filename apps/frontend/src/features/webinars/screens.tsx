@@ -30,7 +30,7 @@ export function WebinarsAdminScreen() {
           <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} />
           <button
             type="button"
-            className="ui-button"
+            className="ui-button ui-button--primary"
             disabled={!title || !start || !end}
             onClick={() =>
               create({
@@ -101,7 +101,7 @@ export function WebinarProviderSettingsScreen() {
           </label>
           <button
             type="button"
-            className="ui-button"
+            className="ui-button ui-button--primary"
             disabled={saving}
             onClick={() => save({ providerCode: code, enabled, ...(baseUrl ? { baseUrl } : {}) })}
           >
@@ -129,7 +129,12 @@ export function MyWebinarsScreen() {
               {new Date(w.plannedStartAt).toLocaleString('ru-RU')}
             </div>
             {w.joinUrl ? (
-              <a className="ui-button" href={w.joinUrl} target="_blank" rel="noreferrer">
+              <a
+                className="ui-button ui-button--primary"
+                href={w.joinUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
                 Подключиться
               </a>
             ) : (

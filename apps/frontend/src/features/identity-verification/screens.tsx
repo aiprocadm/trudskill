@@ -128,7 +128,7 @@ export function LearnerIdentityScreen(): ReactElement {
 
             <button
               type="button"
-              className="ui-button"
+              className="ui-button ui-button--primary"
               disabled={!selfie || !passport || !consent || submission.isPending}
               onClick={() => void onSubmit()}
             >
@@ -269,18 +269,24 @@ export function AdminIdentityDetailScreen({ id }: { id: string }): ReactElement 
       />
 
       <SectionCard title="Данные слушателя (для сверки с паспортом)">
-        <p>
-          <strong>ФИО:</strong> {detail.learnerName}
-        </p>
-        <p>
-          <strong>СНИЛС:</strong> {detail.learnerSnils ?? '—'}
-        </p>
-        <p>
-          <strong>Дата рождения:</strong> {detail.learnerDateOfBirth ?? '—'}
-        </p>
-        <p>
-          <strong>Согласие на обработку ПДн:</strong> {formatDateShort(detail.consentAt)}
-        </p>
+        <dl className="kv-list">
+          <div className="kv-list__row">
+            <dt>ФИО</dt>
+            <dd>{detail.learnerName}</dd>
+          </div>
+          <div className="kv-list__row">
+            <dt>СНИЛС</dt>
+            <dd>{detail.learnerSnils ?? '—'}</dd>
+          </div>
+          <div className="kv-list__row">
+            <dt>Дата рождения</dt>
+            <dd>{detail.learnerDateOfBirth ?? '—'}</dd>
+          </div>
+          <div className="kv-list__row">
+            <dt>Согласие на обработку ПДн</dt>
+            <dd>{formatDateShort(detail.consentAt)}</dd>
+          </div>
+        </dl>
       </SectionCard>
 
       <SectionCard title="Документы">
@@ -361,7 +367,7 @@ export function AdminIdentityDetailScreen({ id }: { id: string }): ReactElement 
             <div className="ui-inline" style={{ gap: 8 }}>
               <button
                 type="button"
-                className="ui-button"
+                className="ui-button ui-button--primary"
                 disabled={isPending}
                 onClick={() => void onApprove()}
               >
@@ -369,7 +375,7 @@ export function AdminIdentityDetailScreen({ id }: { id: string }): ReactElement 
               </button>
               <button
                 type="button"
-                className="ui-button"
+                className="ui-button ui-button--danger"
                 disabled={isPending}
                 onClick={() => void onReject()}
               >

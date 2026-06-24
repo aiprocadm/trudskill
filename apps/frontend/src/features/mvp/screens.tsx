@@ -333,11 +333,20 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
       {user ? (
         <>
           <SectionCard title="Основные данные">
-            <p>
-              {user.displayName} ({user.login})
-            </p>
-            <p>Tenant: {user.tenantId}</p>
-            <StatusChip status={user.status} />
+            <div className="ui-inline" style={{ justifyContent: 'space-between' }}>
+              <p className="profile-name">{user.displayName}</p>
+              <StatusChip status={user.status} />
+            </div>
+            <dl className="kv-list">
+              <div className="kv-list__row">
+                <dt>Логин</dt>
+                <dd>{user.login}</dd>
+              </div>
+              <div className="kv-list__row">
+                <dt>Организация</dt>
+                <dd>{user.tenantId}</dd>
+              </div>
+            </dl>
           </SectionCard>
           <SectionCard title="Роли и права">
             <p>Текущие роли: {userRoles?.map((roleItem) => roleItem.code).join(', ') || '—'}</p>
@@ -360,7 +369,12 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
                 </label>
               ))}
             </div>
-            <button disabled={!canManageRoles} onClick={() => void onSaveRoles()}>
+            <button
+              type="button"
+              className="ui-button ui-button--primary"
+              disabled={!canManageRoles}
+              onClick={() => void onSaveRoles()}
+            >
               Сохранить роли
             </button>
             {saveError ? <SectionError message={saveError} /> : null}
@@ -383,8 +397,14 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
                 {sessions
                   ?.filter((row) => !row.revokedAt)
                   .map((row) => (
-                    <button key={row.id} type="button" onClick={() => void revokeSession(row.id)}>
-                      Revoke {row.id}
+                    <button
+                      key={row.id}
+                      type="button"
+                      className="ui-button ui-button--ghost"
+                      aria-label={`Отозвать сессию ${row.id}`}
+                      onClick={() => void revokeSession(row.id)}
+                    >
+                      Отозвать
                     </button>
                   ))}
               </div>
@@ -515,12 +535,19 @@ export const CounterpartyDetailsScreen = ({ id }: { id: string }) => {
       {data ? (
         <>
           <SectionCard title="Общие данные">
-            <p>{data.name}</p>
-            <p>Код: {data.code}</p>
-            <StatusChip status={data.status} />
+            <div className="ui-inline" style={{ justifyContent: 'space-between' }}>
+              <p className="profile-name">{data.name}</p>
+              <StatusChip status={data.status} />
+            </div>
+            <dl className="kv-list">
+              <div className="kv-list__row">
+                <dt>Код</dt>
+                <dd>{data.code}</dd>
+              </div>
+            </dl>
           </SectionCard>
           <SectionCard title="Контакты">
-            <SectionEmpty message="Контактные данные будут отображаться при расширении API." />
+            <SectionEmpty message="Контактные данные пока не заполнены." />
           </SectionCard>
         </>
       ) : null}
@@ -2008,7 +2035,7 @@ const RoleWidgetGrid = ({
   return (
     <PageContainer>
       <PageHeader title={title} subtitle={subtitle} />
-      <SectionCard title="Виджеты по роли (RBAC)">
+      <SectionCard title="Виджеты по роли">
         {visibleWidgets.length ? (
           <div className="ui-dashboard-grid" data-testid="rbac-widget-grid">
             {visibleWidgets.map((widget) => (
@@ -2025,7 +2052,7 @@ const RoleWidgetGrid = ({
         ) : (
           <SectionEmpty
             message="Нет видимых виджетов для текущей роли"
-            hint="Проверьте назначенные роли пользователя и матрицу RBAC."
+            hint="Проверьте назначенные пользователю роли."
           />
         )}
       </SectionCard>
@@ -2036,16 +2063,16 @@ const RoleWidgetGrid = ({
 export const StudentDashboardScreen = () => (
   <RoleWidgetGrid
     roles={['learner']}
-    title="Student dashboard"
-    subtitle="Continue / deadlines / attempts / docs / notifications / webinar"
+    title="Главная учащегося"
+    subtitle="Обучение, дедлайны, попытки, документы, уведомления и вебинары"
   />
 );
 
 export const TeacherGradingCenterScreen = () => (
   <RoleWidgetGrid
     roles={['teacher']}
-    title="Teacher grading center"
-    subtitle="Очередь проверок, рубрики и контроль отстающих студентов"
+    title="Центр проверки работ"
+    subtitle="Очередь проверок, критерии оценки и контроль отстающих учащихся"
   />
 );
 
@@ -2605,7 +2632,7 @@ export const CommissionsPageScreen = () => {
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} />
           </label>
           {saveError ? <FieldError id="commission-create-error" message={saveError} /> : null}
-          <button type="submit" className="ui-button" disabled={saving}>
+          <button type="submit" className="ui-button ui-button--primary" disabled={saving}>
             {saving ? 'Создаём…' : 'Создать комиссию'}
           </button>
         </form>
