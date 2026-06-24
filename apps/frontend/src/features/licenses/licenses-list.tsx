@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, LoadingState, StatusChip } from '@cdoprof/ui';
+import { DataTable, LoadingState, StatusChip } from '@trudskill/ui';
 import { type FormEvent, type ReactElement, useState } from 'react';
 
 import { useLicenses, useLicensesMutations } from './hooks';
@@ -161,7 +161,7 @@ export function LicensesView() {
                       Отозвать
                     </button>
                   ) : (
-                    <span style={{ color: '#888' }}>—</span>
+                    <span className="ui-text-muted">—</span>
                   )
               })
             )}

@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, LoadingState } from '@cdoprof/ui';
+import { DataTable, LoadingState } from '@trudskill/ui';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -80,7 +80,7 @@ export default function LearnersRegistryPage() {
                 ]}
                 rows={toRows(rows)}
               />
-              <div className="ui-stack" style={{ gap: 8, marginTop: 12 }}>
+              <div className="ui-stack" style={{ marginTop: 12 }}>
                 {rows.map((learner) => (
                   <Link key={learner.id} href={`/learners/${learner.id}`}>
                     Открыть карточку {learner.learnerNo ?? learner.id.slice(0, 8)} —{' '}

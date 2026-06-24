@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, LoadingState } from '@cdoprof/ui';
+import { DataTable, LoadingState } from '@trudskill/ui';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -114,7 +114,7 @@ export function LearnerIdentityScreen(): ReactElement {
               />
             </label>
 
-            <label className="ui-inline" style={{ gap: 8 }}>
+            <label className="ui-inline">
               <input
                 type="checkbox"
                 checked={consent}
@@ -200,14 +200,13 @@ export function AdminIdentityQueueScreen(): ReactElement {
       />
 
       <SectionCard title="Очередь идентификации">
-        <div className="ui-inline" style={{ marginBottom: 12, gap: 8 }}>
+        <div className="ui-inline" style={{ marginBottom: 12 }}>
           <span>Статус:</span>
           {STATUS_FILTER_OPTIONS.map((opt) => (
             <button
               key={opt.value ?? 'all'}
               type="button"
-              className="ui-button"
-              style={statusFilter === opt.value ? { fontWeight: 700 } : undefined}
+              className={statusFilter === opt.value ? 'ui-button ui-subheading' : 'ui-button'}
               onClick={() => setStatusFilter(opt.value)}
             >
               {opt.label}
@@ -364,7 +363,7 @@ export function AdminIdentityDetailScreen({ id }: { id: string }): ReactElement 
               />
             </label>
             {reviewError ? <SectionError message={reviewError} /> : null}
-            <div className="ui-inline" style={{ gap: 8 }}>
+            <div className="ui-inline">
               <button
                 type="button"
                 className="ui-button ui-button--primary"

@@ -1,17 +1,17 @@
 'use client';
 
-import { useUiTheme } from '@cdoprof/ui';
+import { useUiTheme } from '@trudskill/ui';
 
 export const ThemeAppearanceSettings = () => {
   const { choice, setChoice } = useUiTheme();
 
   return (
     <div className="ui-stack" style={{ maxWidth: 420 }}>
-      <p style={{ margin: 0, color: 'var(--ui-text-muted)', fontSize: 14, lineHeight: 1.5 }}>
+      <p className="ui-prose-muted">
         Тема применяется ко всему интерфейсу и сохраняется в этом браузере.
       </p>
       <label style={{ display: 'grid', gap: 6, fontSize: 14 }}>
-        <span style={{ fontWeight: 600 }}>Оформление</span>
+        <span className="ui-subheading">Оформление</span>
         <select
           className="ui-select"
           value={choice}

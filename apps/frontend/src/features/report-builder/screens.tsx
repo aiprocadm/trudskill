@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, LoadingState } from '@cdoprof/ui';
+import { DataTable, LoadingState } from '@trudskill/ui';
 import { type ReactElement, useMemo, useState } from 'react';
 
 import { useReportBuilderMutations, useReportEntities, useReportTemplates } from './hooks';
@@ -130,7 +130,7 @@ export function ReportBuilderScreen(): ReactElement {
       {meta ? (
         <>
           <SectionCard title="Параметры отчёта">
-            <label className="ui-inline" style={{ gap: 4, marginBottom: 12 }}>
+            <label className="ui-inline" style={{ marginBottom: 12 }}>
               <span>Сущность:</span>
               <select
                 value={state.entityKey}
@@ -147,55 +147,55 @@ export function ReportBuilderScreen(): ReactElement {
 
             {currentEntity ? (
               <>
-                <fieldset style={{ marginBottom: 12 }}>
+                <fieldset className="ui-fieldset" style={{ marginBottom: 12 }}>
                   <legend>Поля</legend>
-                  {currentEntity.fields.map((f) => (
-                    <label key={f.key} className="ui-inline" style={{ gap: 4, marginRight: 12 }}>
-                      <input
-                        type="checkbox"
-                        checked={state.selectedFields.includes(f.key)}
-                        onChange={() =>
-                          setState((s) => ({
-                            ...s,
-                            selectedFields: toggleField(s.selectedFields, f.key)
-                          }))
-                        }
-                      />
-                      <span>{f.header}</span>
-                    </label>
-                  ))}
+                  <div className="ui-inline">
+                    {currentEntity.fields.map((f) => (
+                      <label key={f.key} className="ui-inline">
+                        <input
+                          type="checkbox"
+                          checked={state.selectedFields.includes(f.key)}
+                          onChange={() =>
+                            setState((s) => ({
+                              ...s,
+                              selectedFields: toggleField(s.selectedFields, f.key)
+                            }))
+                          }
+                        />
+                        <span>{f.header}</span>
+                      </label>
+                    ))}
+                  </div>
                 </fieldset>
 
                 {currentEntity.filters.length > 0 ? (
-                  <fieldset style={{ marginBottom: 12 }}>
+                  <fieldset className="ui-fieldset" style={{ marginBottom: 12 }}>
                     <legend>Фильтры</legend>
-                    {currentEntity.filters.map((flt) => {
-                      const current = state.filters.find((x) => x.key === flt.key)?.value ?? '';
-                      const inputType = flt.kind === 'eq' ? 'text' : 'date';
-                      return (
-                        <label
-                          key={flt.key}
-                          className="ui-inline"
-                          style={{ gap: 4, marginRight: 12 }}
-                        >
-                          <span>{flt.label}:</span>
-                          <input
-                            type={inputType}
-                            value={current}
-                            onChange={(e) =>
-                              setState((s) => ({
-                                ...s,
-                                filters: setFilter(s.filters, flt.key, e.target.value)
-                              }))
-                            }
-                          />
-                        </label>
-                      );
-                    })}
+                    <div className="ui-inline">
+                      {currentEntity.filters.map((flt) => {
+                        const current = state.filters.find((x) => x.key === flt.key)?.value ?? '';
+                        const inputType = flt.kind === 'eq' ? 'text' : 'date';
+                        return (
+                          <label key={flt.key} className="ui-inline">
+                            <span>{flt.label}:</span>
+                            <input
+                              type={inputType}
+                              value={current}
+                              onChange={(e) =>
+                                setState((s) => ({
+                                  ...s,
+                                  filters: setFilter(s.filters, flt.key, e.target.value)
+                                }))
+                              }
+                            />
+                          </label>
+                        );
+                      })}
+                    </div>
                   </fieldset>
                 ) : null}
 
-                <div className="ui-inline" style={{ gap: 8 }}>
+                <div className="ui-inline">
                   <button
                     type="button"
                     className="ui-button"
@@ -224,7 +224,7 @@ export function ReportBuilderScreen(): ReactElement {
 
           {currentEntity ? (
             <SectionCard title="Сохранённые шаблоны">
-              <div className="ui-inline" style={{ gap: 8, marginBottom: 12 }}>
+              <div className="ui-inline" style={{ marginBottom: 12 }}>
                 <input
                   type="text"
                   placeholder="Название шаблона"
@@ -248,12 +248,12 @@ export function ReportBuilderScreen(): ReactElement {
                     <li
                       key={tpl.id}
                       className="ui-inline"
-                      style={{ gap: 8, justifyContent: 'space-between' }}
+                      style={{ justifyContent: 'space-between' }}
                     >
                       <span>
                         {tpl.name} <span className="ui-text-muted">({tpl.entityKey})</span>
                       </span>
-                      <span className="ui-inline" style={{ gap: 4 }}>
+                      <span className="ui-inline">
                         <button
                           type="button"
                           className="ui-button"

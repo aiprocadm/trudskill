@@ -47,7 +47,7 @@ export default function AcademyCommissionPage() {
             <SectionEmpty message="Члены комиссии не заведены (режим БД)" />
           ) : null}
           {data && data.members.length > 0 ? (
-            <ul className="ui-ordered-list" style={{ listStyleType: 'disc' }}>
+            <ul className="ui-ordered-list">
               {data.members.map((m) => (
                 <li key={m.id}>
                   <strong>{m.displayName}</strong>
