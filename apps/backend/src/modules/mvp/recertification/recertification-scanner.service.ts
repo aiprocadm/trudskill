@@ -98,6 +98,9 @@ export class RecertificationScanner {
     let draftsCreated = 0;
     let emailsDispatched = 0;
 
+    // Staff copy is tenant-wide and loop-invariant — resolve once (mirrors license-expiry-scanner).
+    const staffRecipients = buildStaffRecipients(state, tenantId);
+
     for (const candidate of candidates) {
       const enrollment = state.enrollments.find(
         (e) => e.tenantId === tenantId && e.id === candidate.sourceEntityId
@@ -121,7 +124,7 @@ export class RecertificationScanner {
 
       const recipients = [
         ...buildLearnerEmployerRecipients(state, tenantId, enrollment),
-        ...buildStaffRecipients(state, tenantId)
+        ...staffRecipients
       ];
       if (recipients.length === 0) continue;
 
