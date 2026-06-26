@@ -5341,7 +5341,10 @@ export class MvpService {
         item.testId === testId &&
         item.enrollmentId === enrollmentId &&
         item.learnerId === learnerId &&
-        item.status === 'finished'
+        // Must match finalizeExamResult's filter. A 'submitted' attempt is terminal
+        // for auto-graded tests (only finishAttempt/review reach 'finished'); counting
+        // only 'finished' here made a plain getAttemptResult read flip passed → false.
+        ['submitted', 'finished'].includes(item.status)
     );
     const best = [...attempts].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0];
     const test = this.getById(this.state.tests, tenantId, testId);

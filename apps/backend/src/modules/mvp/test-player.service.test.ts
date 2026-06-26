@@ -235,6 +235,45 @@ describe('submitAttempt — Plan B autograding integration', () => {
   });
 });
 
+describe('getAttemptResult — a read must NOT flip a passing result (CRITICAL)', () => {
+  it('keeps passed=true when reading the result of a submitted (not finished) attempt', () => {
+    const service = makeService();
+    const { course, enrollment, bank } = seedEnrollment(service);
+    const { q, attempt } = startSingleQuestionAttempt(
+      service,
+      {
+        questionBankId: bank.id,
+        type: 'number_input',
+        score: 2,
+        numericExpected: 3.14,
+        numericTolerance: 0.01
+      },
+      enrollment,
+      course.id,
+      bank.id,
+      2
+    );
+    service.saveAttemptAnswer(T, ADMIN, attempt.id, { questionId: q.id, textAnswer: '3.14' }, ctx);
+    const submitted = service.submitAttempt(T, ADMIN, attempt.id, ctx);
+    // submitAttempt leaves status 'submitted' (only finishAttempt/review reach 'finished').
+    expect(submitted.status).toBe('submitted');
+    expect(submitted.passed).toBe(true);
+
+    // getAttemptResult recalculates the persisted ExamResult. It must use the SAME
+    // attempt filter as finalizeExamResult (submitted+finished) — otherwise a plain
+    // read silently re-grades against finished-only attempts and flips passed → false.
+    const result = service.getAttemptResult(T, attempt.id);
+    expect(result.passed).toBe(true);
+    expect(result.bestScore).toBe(2);
+
+    // And the persisted record must stay passed after the read.
+    const persisted = service['state'].examResults.find(
+      (r) => r.enrollmentId === enrollment.id && r.testId === result.testId
+    );
+    expect(persisted?.passed).toBe(true);
+  });
+});
+
 describe('getAttemptQuestions — answer-safe projection', () => {
   it('omits every answer-key field and sorts options by sortOrder', () => {
     const service = makeService();

@@ -66,16 +66,31 @@ export class PaymentFulfillmentService {
         for (const s of outcome.skippedExisting)
           enrollmentByLearner.set(s.learnerId, s.enrollmentId);
         for (const item of items) {
-          await this.repo.markItemFulfilled(
-            order.tenantId,
-            item.id,
-            'enrolled',
-            enrollmentByLearner.get(item.learnerId)
+          // Mark 'enrolled' ONLY when a real enrollment id resolved. A learner that
+          // failed (in outcome.errors, absent from the map) must stay 'pending' for a
+          // retry — never 'enrolled' with a null enrollmentId.
+          const enrollmentId = enrollmentByLearner.get(item.learnerId);
+          if (enrollmentId) {
+            await this.repo.markItemFulfilled(order.tenantId, item.id, 'enrolled', enrollmentId);
+          }
+        }
+        if (outcome.errors.length > 0) {
+          this.logger.error(
+            `Partial fulfillment for order ${order.id} group ${groupId} (kept 'paid' for retry): ${JSON.stringify(
+              outcome.errors
+            )}`
           );
         }
       }
 
-      await this.repo.updateOrderStatus(order.tenantId, order.id, 'fulfilled');
+      // Complete the order ONLY when every item enrolled. If any item is still pending
+      // (a learner failed), keep the order 'paid' so a retry re-attempts the rest —
+      // do not falsely report a partially-fulfilled order as fulfilled.
+      const refreshed = await this.repo.getOrder(order.tenantId, order.id);
+      const stillPending = refreshed?.items.some((i) => i.fulfillmentStatus === 'pending') ?? false;
+      if (!stillPending) {
+        await this.repo.updateOrderStatus(order.tenantId, order.id, 'fulfilled');
+      }
     } catch (err) {
       this.logger.error(
         `Fulfillment failed for order ${order.id} (kept 'paid' for retry): ${String(err)}`

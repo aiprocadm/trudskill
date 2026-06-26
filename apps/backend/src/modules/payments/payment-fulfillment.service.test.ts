@@ -62,6 +62,37 @@ describe('PaymentFulfillmentService', () => {
     expect(enrollment.enrollIntoGroup).toHaveBeenCalledOnce();
   });
 
+  it('partial fulfillment keeps the order paid and never marks an un-enrolled item', async () => {
+    const repo = new InMemoryPaymentsRepository();
+    const order = await seedPaidOrder(repo, [
+      { groupId: 'g1', learnerId: 'l1', unitAmount: 100 },
+      { groupId: 'g1', learnerId: 'l2', unitAmount: 100 }
+    ]);
+    // l1 enrolls; l2 fails (absent from created/skippedExisting — surfaced in errors).
+    const enrollment = {
+      enrollIntoGroup: vi.fn(async (_t: string, _u: string, body: any) => ({
+        groupId: body.groupId,
+        idempotencyKey: body.idempotencyKey,
+        created: [{ id: 'e1', learnerId: 'l1' }],
+        skippedExisting: [],
+        errors: [{ learnerId: 'l2', error: 'group full' }]
+      }))
+    };
+    const svc = new PaymentFulfillmentService(repo, enrollment as any);
+    await svc.fulfill(order!, ctx);
+
+    const after = await repo.getOrder('t1', order!.id);
+    // A seat is missing → the order must NOT be reported fulfilled (retry-able at 'paid').
+    expect(after!.status).toBe('paid');
+    const l1 = after!.items.find((i) => i.learnerId === 'l1')!;
+    const l2 = after!.items.find((i) => i.learnerId === 'l2')!;
+    expect(l1.fulfillmentStatus).toBe('enrolled');
+    expect(l1.enrollmentId).toBe('e1');
+    // l2 stays pending — never 'enrolled' with a null enrollmentId.
+    expect(l2.fulfillmentStatus).toBe('pending');
+    expect(l2.enrollmentId).toBeUndefined();
+  });
+
   it('fail-soft — enrollment error leaves order paid, never throws', async () => {
     const repo = new InMemoryPaymentsRepository();
     const order = await seedPaidOrder(repo, [{ groupId: 'g1', learnerId: 'l1', unitAmount: 100 }]);

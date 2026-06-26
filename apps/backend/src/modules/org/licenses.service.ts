@@ -199,7 +199,13 @@ export class LicensesService {
     directionId?: string
   ): Promise<TrainingLicense[]> {
     const active = await this.repo.list(tenantId, 'active');
+    const today = this.now().slice(0, 10);
     return active.filter((l) => {
+      // Time-expired license fails the publish gate even though status stays 'active'
+      // (nothing flips active→expired). validUntil is inclusive; undefined = бессрочная.
+      if (l.validUntil && l.validUntil < today) {
+        return false;
+      }
       if (l.permittedTrainingTypes && !l.permittedTrainingTypes.includes(trainingType)) {
         return false;
       }
