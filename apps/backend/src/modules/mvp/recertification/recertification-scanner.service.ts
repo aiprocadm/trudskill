@@ -10,8 +10,10 @@ import { DocumentsTenantRunner } from '../../documents/documents-tenant-runner.s
 import { RECERT_MILESTONES, pickMilestone } from '../reminders/milestone.util.js';
 import {
   buildLearnerEmployerRecipients,
+  buildStaffRecipients,
   resolveCourseTitleByVersion,
-  resolveCourseVersionIdForGroup
+  resolveCourseVersionIdForGroup,
+  resolveLearnerDisplay
 } from '../reminders/reminder-recipients.js';
 
 import type { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
@@ -117,7 +119,10 @@ export class RecertificationScanner {
       const milestone = pickMilestone(asOf, candidate.validUntil, RECERT_MILESTONES);
       if (milestone === null) continue;
 
-      const recipients = buildLearnerEmployerRecipients(state, tenantId, enrollment);
+      const recipients = [
+        ...buildLearnerEmployerRecipients(state, tenantId, enrollment),
+        ...buildStaffRecipients(state, tenantId)
+      ];
       if (recipients.length === 0) continue;
 
       try {
@@ -126,7 +131,7 @@ export class RecertificationScanner {
           templateKey: 'recertification_due',
           recipients,
           variables: {
-            learnerName: recipients.find((r) => r.kind === 'learner')?.name ?? '',
+            learnerName: resolveLearnerDisplay(state, tenantId, enrollment.learnerId).name,
             courseTitle: resolveCourseTitleByVersion(state, tenantId, courseVersionId) ?? '',
             validUntil: candidate.validUntil
           },

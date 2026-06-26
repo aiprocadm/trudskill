@@ -50,6 +50,20 @@ export function resolveLearnerDisplay(
   return { name, ...(learner.snils ? { snils: learner.snils } : {}) };
 }
 
+/**
+ * Phase 5C-2 — настроенные сотрудники тенанта (admin/curator) как получатели staff-копии.
+ * Источник — MVP-снимок (`notificationStaffRecipients`), доступный и в HTTP-запросе, и в
+ * ночном cron через `MvpTenantRunner` (без coupling к IAM). Пусто по умолчанию (opt-in).
+ */
+export function buildStaffRecipients(
+  state: InMemoryMvpState,
+  tenantId: string
+): DispatchRecipient[] {
+  return (state.notificationStaffRecipients ?? [])
+    .filter((r) => r.tenantId === tenantId)
+    .map((r) => ({ email: r.email, kind: 'admin' as const }));
+}
+
 /** Learner (+ employer when present) recipients for an enrollment. */
 export function buildLearnerEmployerRecipients(
   state: InMemoryMvpState,

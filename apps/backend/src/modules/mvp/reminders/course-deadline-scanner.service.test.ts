@@ -101,6 +101,35 @@ describe('CourseDeadlineScanner.scanTenant', () => {
     expect(milestones).toEqual(['14', '7', '1']);
   });
 
+  it('includes configured staff recipients (admin-kind) alongside the learner', async () => {
+    const { scanner, dispatch } = make();
+    const withStaff = state({
+      notificationStaffRecipients: [{ tenantId: 't1', email: 'admin@uc.ru' }]
+    });
+    const summary = await scanner.scanTenant('t1', ASOF, withStaff as never);
+    const arg = dispatch.mock.calls[0]![0];
+    const emails = arg.recipients.map((r: { email: string }) => r.email);
+    expect(emails).toContain('ivan@example.com');
+    expect(emails).toContain('admin@uc.ru');
+    expect(arg.recipients.find((r: { email: string }) => r.email === 'admin@uc.ru').kind).toBe(
+      'admin'
+    );
+    expect(summary.remindersDispatched).toBe(2);
+  });
+
+  it('notifies staff even when the learner has no email', async () => {
+    const { scanner, dispatch } = make();
+    const noLearnerEmail = state({
+      learners: [{ id: 'l1', tenantId: 't1', firstName: 'Иван', lastName: 'Иванов' }],
+      notificationStaffRecipients: [{ tenantId: 't1', email: 'admin@uc.ru' }]
+    });
+    const summary = await scanner.scanTenant('t1', ASOF, noLearnerEmail as never);
+    expect(summary.remindersDispatched).toBe(1);
+    expect(dispatch.mock.calls[0]![0].recipients.map((r: { email: string }) => r.email)).toEqual([
+      'admin@uc.ru'
+    ]);
+  });
+
   it('sends the 1-day reminder for an already-overdue active enrollment', async () => {
     const { scanner, dispatch } = make();
     const overdue = state({

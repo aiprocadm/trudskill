@@ -142,6 +142,36 @@ describe('recertificationApi envelope compatibility (Phase 5C)', () => {
     expect(body).toEqual({});
   });
 
+  it('approve POSTs /recertification-drafts/:id/approve with targetGroupId body', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        envelope({
+          id: 'd1',
+          tenantId: 'tenant_demo',
+          learnerId: 'l1',
+          sourceDocumentId: 'gd1',
+          courseVersionId: 'cv1',
+          validUntil: '2026-08-01',
+          status: 'approved',
+          resultingEnrollmentId: 'e1',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-02T00:00:00.000Z'
+        }),
+        { status: 201 }
+      )
+    );
+
+    const result = await recertificationApi.approve(session, 'd1', 'g_new');
+    expect(result.status).toBe('approved');
+    expect(result.resultingEnrollmentId).toBe('e1');
+
+    const [calledUrl, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(calledUrl).toContain('/recertification-drafts/d1/approve');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body as string) as { targetGroupId?: string };
+    expect(body.targetGroupId).toBe('g_new');
+  });
+
   it('scan POSTs /recertification/scan and unwraps summary', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(envelope({ draftsCreated: 2, emailsDispatched: 3 }), { status: 200 })

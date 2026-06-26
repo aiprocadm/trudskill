@@ -29,12 +29,14 @@ export function useRecertificationMutations() {
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const [rejectPending, setRejectPending] = useState(false);
+  const [approvePending, setApprovePending] = useState(false);
   const [scanPending, setScanPending] = useState(false);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['recertification-drafts'] });
 
   return {
     rejectPending,
+    approvePending,
     scanPending,
     rejectDraft: async (id: string, reason?: string) => {
       if (!session) throw new Error('Нет активной сессии');
@@ -45,6 +47,17 @@ export function useRecertificationMutations() {
         return result;
       } finally {
         setRejectPending(false);
+      }
+    },
+    approveDraft: async (id: string, targetGroupId: string) => {
+      if (!session) throw new Error('Нет активной сессии');
+      setApprovePending(true);
+      try {
+        const result = await recertificationApi.approve(session, id, targetGroupId);
+        await invalidate();
+        return result;
+      } finally {
+        setApprovePending(false);
       }
     },
     runScan: async (): Promise<RecertScanSummary> => {

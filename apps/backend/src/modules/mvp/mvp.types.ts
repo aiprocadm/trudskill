@@ -1178,3 +1178,14 @@ export interface PushSubscription extends BaseEntity {
   /** UA для диагностики/отзыва устройства (опционально). */
   userAgent?: string;
 }
+
+/**
+ * Phase 5C-2 — настраиваемые per-tenant email сотрудников (admin/curator), которым
+ * дублируются staff-уведомления (переаттестация / дедлайн / отзыв документа).
+ * Хранится в MVP-снимке; пусто по умолчанию (opt-in, без сюрприз-писем). Одна строка = один
+ * адрес; список тенанта = все строки с его tenantId (set заменяет строки тенанта целиком).
+ */
+export interface NotificationStaffRecipient {
+  tenantId: string;
+  email: string;
+}

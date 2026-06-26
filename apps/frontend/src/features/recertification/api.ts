@@ -16,9 +16,9 @@ const withAuth = (session: UserSession) => ({
   }
 });
 
-// NB: approve / auto-enroll (POST /recertification-drafts/:id/approve) is intentionally NOT
-// exposed here — Phase 5C is visibility-only by owner decision (re-enrollment goes through the
-// existing bulk-enrollment flow). See the 5C spec §2/§7. Possible 5C-2 follow-up.
+// Phase 5C-2: approve / auto-enroll wires the existing backend endpoint
+// (POST /recertification-drafts/:id/approve) into the UI. Re-enrollment goes through the
+// bulk-enrollment path server-side (idempotent per draft); the admin picks the target group.
 export const recertificationApi = {
   list: (
     session: UserSession,
@@ -36,6 +36,17 @@ export const recertificationApi = {
     apiRequest<RecertificationDraft>(`/recertification-drafts/${id}/reject`, {
       method: 'POST',
       body: reason ? { reason } : {},
+      ...withAuth(session)
+    }),
+
+  approve: (
+    session: UserSession,
+    id: string,
+    targetGroupId: string
+  ): Promise<RecertificationDraft> =>
+    apiRequest<RecertificationDraft>(`/recertification-drafts/${id}/approve`, {
+      method: 'POST',
+      body: { targetGroupId },
       ...withAuth(session)
     }),
 

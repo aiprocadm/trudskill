@@ -6067,6 +6067,49 @@ export class MvpService {
     return cv;
   }
 
+  /**
+   * Phase 5C-2 — настроенные email сотрудников тенанта для staff-копии уведомлений.
+   * Возвращает нормализованный список (как хранится). Пусто = функция выключена (opt-in).
+   */
+  getNotificationStaffRecipients(tenantId: string): string[] {
+    return this.state.notificationStaffRecipients
+      .filter((r) => r.tenantId === tenantId)
+      .map((r) => r.email);
+  }
+
+  /**
+   * Заменяет список staff-получателей тенанта целиком. Нормализует (trim+lowercase),
+   * отбрасывает пустые, дедуплицирует с сохранением порядка. Пустой массив выключает копии.
+   */
+  setNotificationStaffRecipients(
+    tenantId: string,
+    actorId: string | undefined,
+    emails: string[],
+    context: RequestContext
+  ): string[] {
+    const normalized: string[] = [];
+    for (const raw of emails) {
+      const email = raw.trim().toLowerCase();
+      if (email && !normalized.includes(email)) normalized.push(email);
+    }
+    const oldValues = this.getNotificationStaffRecipients(tenantId);
+    this.state.notificationStaffRecipients = [
+      ...this.state.notificationStaffRecipients.filter((r) => r.tenantId !== tenantId),
+      ...normalized.map((email) => ({ tenantId, email }))
+    ];
+    this.audit(
+      tenantId,
+      actorId,
+      'communication.staff_recipients_updated',
+      'communication.notification_settings',
+      tenantId,
+      { emails: oldValues },
+      { emails: normalized },
+      context
+    );
+    return normalized;
+  }
+
   private getById<T extends BaseEntity>(source: T[], tenantId: string, id: string): T {
     const result = source.find((item) => item.id === id && item.tenantId === tenantId);
     if (!result) {

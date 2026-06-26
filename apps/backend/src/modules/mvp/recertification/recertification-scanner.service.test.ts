@@ -113,6 +113,23 @@ describe('RecertificationScanner.scanTenant', () => {
     errorSpy.mockRestore();
   });
 
+  it('includes configured staff recipients (admin-kind) alongside the learner', async () => {
+    const { scanner, dispatch } = make();
+    const withStaff = {
+      ...state(),
+      notificationStaffRecipients: [{ tenantId: 't1', email: 'admin@uc.ru' }]
+    };
+    const summary = await scanner.scanTenant('t1', ASOF, withStaff as never);
+    const arg = dispatch.mock.calls[0]![0];
+    const emails = arg.recipients.map((r: { email: string }) => r.email);
+    expect(emails).toContain('ivan@example.com');
+    expect(emails).toContain('admin@uc.ru');
+    expect(arg.recipients.find((r: { email: string }) => r.email === 'admin@uc.ru').kind).toBe(
+      'admin'
+    );
+    expect(summary.emailsDispatched).toBe(2);
+  });
+
   it('progresses through the 90 → 30 → 7 dedupKeys as the deadline approaches', async () => {
     const { scanner, dispatch } = make(); // default doc validUntil = '2026-08-01'
     await scanner.scanTenant('t1', '2026-06-05', state() as never); // 57 days out → 90
