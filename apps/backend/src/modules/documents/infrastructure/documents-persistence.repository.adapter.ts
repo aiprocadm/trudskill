@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { PostgresDocumentsPersistenceBackend } from './postgres-documents-persistence.backend.js';
 
+import type { GeneratedDocumentEntity } from '../documents.types.js';
 import type { InMemoryDocumentsState } from '../in-memory-documents.state.js';
 import type { DocumentsPersistenceBackend } from './documents-persistence.backend.js';
 
@@ -18,5 +19,11 @@ export class DocumentsPersistenceRepositoryAdapter implements DocumentsPersisten
 
   async saveFromState(tenantId: string, state: InMemoryDocumentsState): Promise<void> {
     await this.backend.saveFromState(tenantId, state);
+  }
+
+  async findGeneratedDocumentByQrToken(
+    token: string
+  ): Promise<{ tenantId: string; document: GeneratedDocumentEntity } | null> {
+    return this.backend.findGeneratedDocumentByQrToken(token);
   }
 }

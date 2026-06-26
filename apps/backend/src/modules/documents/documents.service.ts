@@ -30,6 +30,7 @@ import {
   assertVariableCategoryCode
 } from './documents.dto.js';
 import { InMemoryDocumentsState } from './in-memory-documents.state.js';
+import { type PublicVerifyResult, buildPublicVerifyResult } from './public-verify.util.js';
 import { MetricsService } from '../../common/metrics/metrics.service.js';
 import {
   DOCUMENT_SIGNATURE_PROVIDER,
@@ -76,31 +77,9 @@ export interface IssuedDocumentsPage {
   total: number;
 }
 
-/**
- * Pillar A Plan C §5.8 — результат публичной QR-проверки.
- * Не раскрывает tenantId / СНИЛС / другие чувствительные поля — только то,
- * что есть на бумажном удостоверении: ФИО, программа, часы, № и дата.
- */
-export interface PublicVerifyResult {
-  status: 'valid' | 'revoked' | 'not_found';
-  documentId?: string;
-  documentNumber?: string;
-  documentType?: string;
-  issueDate?: string;
-  /** Из source enrollment → mvp.learners. Резолвится caller'ом / адаптером (Plan C MVP — заглушка). */
-  learnerFullName?: string;
-  /** Из source enrollment → group → course → program meta. Caller adapter. */
-  programTitle?: string;
-  academicHours?: number;
-  /** Краткое имя выдавшей организации (без tenant_id). */
-  issuerName?: string;
-  /** Заполнены только для status='revoked'. */
-  revokedAt?: string;
-  revocationReason?: string;
-  /** Phase 6 — НЭП-подпись. Заполняется ТОЛЬКО для подписанных документов (сигнал доверия на странице проверки). */
-  signatureStatus?: 'signed';
-  signatureCertificateSubject?: string;
-}
+// Pillar A Plan C §5.8 — публичный результат QR-проверки + чистый билдер вынесены
+// в public-verify.util.ts (общий источник для in-tenant и кросс-tenant путей).
+export type { PublicVerifyResult } from './public-verify.util.js';
 
 /** Pillar A Plan B §5.7 — атомарный выпуск группового приказа + каскад удостоверений. */
 export interface IssueGroupOrderRequest {
@@ -1399,26 +1378,7 @@ export class DocumentsService {
       return { status: 'not_found' };
     }
     const doc = this.state.generatedDocuments.find((d) => d.qrToken === token);
-    if (!doc) {
-      return { status: 'not_found' };
-    }
-    const result: PublicVerifyResult = {
-      status: doc.status === 'revoked' ? 'revoked' : 'valid',
-      documentId: doc.id,
-      documentType: doc.documentType
-    };
-    if (doc.documentNumber) result.documentNumber = doc.documentNumber;
-    if (doc.documentDate) result.issueDate = doc.documentDate;
-    if (doc.status === 'revoked') {
-      if (doc.revokedAt) result.revokedAt = doc.revokedAt;
-      if (doc.revocationReason) result.revocationReason = doc.revocationReason;
-    }
-    if (doc.signatureStatus === 'signed') {
-      result.signatureStatus = 'signed';
-      if (doc.signatureCertificateSubject)
-        result.signatureCertificateSubject = doc.signatureCertificateSubject;
-    }
-    return result;
+    return doc ? buildPublicVerifyResult(doc) : { status: 'not_found' };
   }
 
   // ==========================================================================

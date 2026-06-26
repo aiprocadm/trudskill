@@ -8,6 +8,7 @@ import { DocumentsWriteOrchestrator } from './documents-write.orchestrator.js';
 import { backendEnv } from '../../../env.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 
+import type { GeneratedDocumentEntity } from '../documents.types.js';
 import type { InMemoryDocumentsState } from '../in-memory-documents.state.js';
 import type { DocumentsPersistenceBackend } from './documents-persistence.backend.js';
 import type { PoolClient } from 'pg';
@@ -75,6 +76,23 @@ export class PostgresDocumentsPersistenceBackend implements DocumentsPersistence
 
   async writeNormalized(tenantId: string, state: InMemoryDocumentsState): Promise<void> {
     await this.writeSnapshot(tenantId, state, NORMALIZED_TABLE);
+  }
+
+  async findGeneratedDocumentByQrToken(
+    token: string
+  ): Promise<{ tenantId: string; document: GeneratedDocumentEntity } | null> {
+    if (!token) return null;
+    // Read model determines which snapshot table holds the live documents (shadow reads legacy).
+    const table =
+      backendEnv.DOCUMENTS_READ_MODEL === 'normalized' ? NORMALIZED_TABLE : LEGACY_TABLE;
+    const rows = await this.db.query<{ tenant_id: string; data: GeneratedDocumentEntity }>(
+      `select tenant_id, data from ${table}
+        where collection = 'generatedDocuments' and data->>'qrToken' = $1
+        limit 1`,
+      [token]
+    );
+    const row = rows[0];
+    return row ? { tenantId: row.tenant_id, document: row.data } : null;
   }
 
   private async readSnapshot(tenantId: string, tableName: string): Promise<DocumentsSnapshot> {

@@ -1,21 +1,12 @@
 import { NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
-import { DocumentsService } from './documents.service.js';
 import { InMemoryDocumentsState } from './in-memory-documents.state.js';
+import { MemoryDocumentsPersistenceBackend } from './infrastructure/memory-documents-persistence.backend.js';
 import { PublicVerifyController } from './public-verify.controller.js';
 import { AuditService } from '../audit/audit.service.js';
-import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
 import type { GeneratedDocumentEntity } from './documents.types.js';
-
-function makeService() {
-  const state = new InMemoryDocumentsState();
-  const audit = new AuditService();
-  const service = new DocumentsService(state, audit, new RealtimeEventsService());
-  const controller = new PublicVerifyController(service, audit);
-  return { state, audit, service, controller };
-}
 
 function makeDoc(overrides: Partial<GeneratedDocumentEntity> = {}): GeneratedDocumentEntity {
   return {
@@ -38,10 +29,29 @@ function makeDoc(overrides: Partial<GeneratedDocumentEntity> = {}): GeneratedDoc
   };
 }
 
+function makeService() {
+  // The public path has NO tenant context and NO request-scoped state — it must find
+  // documents cross-tenant in the DURABLE backend. We seed the backend (not a hand-held
+  // service state), which is exactly the production wiring the old test failed to exercise.
+  const backend = new MemoryDocumentsPersistenceBackend();
+  const audit = new AuditService();
+  const controller = new PublicVerifyController(backend, audit);
+
+  async function seed(doc: GeneratedDocumentEntity): Promise<void> {
+    const state = new InMemoryDocumentsState();
+    await backend.loadIntoState(doc.tenantId, state);
+    state.generatedDocuments.push(doc);
+    await backend.saveFromState(doc.tenantId, state);
+  }
+
+  return { backend, audit, controller, seed };
+}
+
 describe('PublicVerifyController (Plan C §5.8)', () => {
-  it('returns valid result for a known qr_token', async () => {
-    const { state, controller } = makeService();
-    state.generatedDocuments.push(makeDoc({ id: 'gdoc_real', qrToken: 'realtoken1234567890ab' }));
+  it('finds a document that lives only in the durable backend (regression: empty request state)', async () => {
+    const { controller, seed } = makeService();
+    // No request-scoped state is ever populated — the doc is only in persistence.
+    await seed(makeDoc({ id: 'gdoc_real', qrToken: 'realtoken1234567890ab' }));
     const result = await controller.verify('realtoken1234567890ab');
     expect(result.status).toBe('valid');
     expect(result.documentId).toBe('gdoc_real');
@@ -60,20 +70,22 @@ describe('PublicVerifyController (Plan C §5.8)', () => {
     expect(response.code).toBe('document_not_found');
   });
 
-  it('does NOT leak tenantId in response', async () => {
-    const { state, controller } = makeService();
-    state.generatedDocuments.push(
+  it('finds a document in ANOTHER tenant without leaking tenantId', async () => {
+    const { controller, seed } = makeService();
+    await seed(
       makeDoc({ id: 'gdoc_t2', tenantId: 'secret_tenant', qrToken: 'tt_token_1234567890ab' })
     );
     const result = await controller.verify('tt_token_1234567890ab');
+    expect(result.status).toBe('valid');
+    expect(result.documentId).toBe('gdoc_t2');
     expect(Object.keys(result)).not.toContain('tenantId');
     expect(JSON.stringify(result)).not.toContain('secret_tenant');
   });
 
   it('writes audit entry via writeCritical (awaited)', async () => {
-    const { audit, controller, state } = makeService();
+    const { audit, controller, seed } = makeService();
     const spy = vi.spyOn(audit, 'writeCritical');
-    state.generatedDocuments.push(makeDoc({ qrToken: 'AbCdEFGhIJKLMNOPQRSTUV' }));
+    await seed(makeDoc({ qrToken: 'AbCdEFGhIJKLMNOPQRSTUV' }));
     await controller.verify('AbCdEFGhIJKLMNOPQRSTUV');
     expect(spy).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -87,8 +99,8 @@ describe('PublicVerifyController (Plan C §5.8)', () => {
   });
 
   it('returns status="revoked" for revoked documents (Plan C §5.9 wiring)', async () => {
-    const { state, controller } = makeService();
-    state.generatedDocuments.push(
+    const { controller, seed } = makeService();
+    await seed(
       makeDoc({ id: 'gdoc_rev', qrToken: 'rev_token_1234567890ab', status: 'revoked' as never })
     );
     const result = await controller.verify('rev_token_1234567890ab');
@@ -104,14 +116,8 @@ describe('PublicVerifyController (Plan C §5.8)', () => {
 
 describe('PublicVerifyController PII protection', () => {
   it('response does NOT include learnerFullName, snils, programTitle, issuerName, academicHours', async () => {
-    const { state, controller } = makeService();
-    state.generatedDocuments.push(
-      makeDoc({
-        id: 'gdoc_pii',
-        qrToken: 'pii_token_1234567890ab'
-        // даже если что-то в state есть, оно НЕ должно попасть в response
-      })
-    );
+    const { controller, seed } = makeService();
+    await seed(makeDoc({ id: 'gdoc_pii', qrToken: 'pii_token_1234567890ab' }));
     const result = await controller.verify('pii_token_1234567890ab');
     const keys = Object.keys(result);
     expect(keys).not.toContain('learnerFullName');
@@ -122,8 +128,8 @@ describe('PublicVerifyController PII protection', () => {
   });
 
   it('revoked response — НЕ раскрывает revokedBy (actor)', async () => {
-    const { state, controller } = makeService();
-    state.generatedDocuments.push(
+    const { controller, seed } = makeService();
+    await seed(
       makeDoc({
         id: 'gdoc_revoked',
         qrToken: 'rev_pii_1234567890ab',
@@ -142,9 +148,6 @@ describe('PublicVerifyController PII protection', () => {
 
 describe('PublicVerifyController rate-limit configuration', () => {
   it('verify method has @Throttle decorator with limit=30 ttl=60s', () => {
-    // @nestjs/throttler v6.x stores metadata per throttler name.
-    // For @Throttle({ default: { limit: 30, ttl: 60_000 } }) applied to a
-    // method the keys are 'THROTTLER:TTLdefault' and 'THROTTLER:LIMITdefault'.
     const verifyFn = PublicVerifyController.prototype.verify;
     const ttl = Reflect.getMetadata('THROTTLER:TTLdefault', verifyFn) as number | undefined;
     const limit = Reflect.getMetadata('THROTTLER:LIMITdefault', verifyFn) as number | undefined;
