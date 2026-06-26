@@ -34,6 +34,9 @@ export class CourseDeadlineScanner {
   ): Promise<CourseDeadlineScanSummary> {
     let remindersDispatched = 0;
 
+    // Staff copy is tenant-wide and loop-invariant — resolve once (mirrors license-expiry-scanner).
+    const staffRecipients = buildStaffRecipients(state, tenantId);
+
     for (const enrollment of state.enrollments) {
       if (enrollment.tenantId !== tenantId) continue;
       if (!ACTIVE_STATUSES.has(enrollment.status)) continue;
@@ -44,7 +47,7 @@ export class CourseDeadlineScanner {
 
       const recipients = [
         ...buildLearnerEmployerRecipients(state, tenantId, enrollment),
-        ...buildStaffRecipients(state, tenantId)
+        ...staffRecipients
       ];
       if (recipients.length === 0) continue;
 
