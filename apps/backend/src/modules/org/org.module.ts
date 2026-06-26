@@ -12,7 +12,6 @@ import { IamModule } from '../iam/iam.module.js';
   imports: [AuditModule, IamModule, InfrastructureModule],
   controllers: [LicensesController],
   providers: [
-    PostgresLicensesRepository,
     { provide: LICENSES_REPOSITORY, useClass: PostgresLicensesRepository },
     LicensesService
   ],
