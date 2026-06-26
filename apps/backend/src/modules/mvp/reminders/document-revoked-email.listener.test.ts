@@ -50,6 +50,26 @@ describe('DocumentRevokedEmailListener', () => {
     expect(arg.dedupKey).toBe('revoked:gdoc1');
   });
 
+  it('includes configured staff recipients (admin-kind) alongside the learner', async () => {
+    const dispatch = vi.fn().mockResolvedValue(undefined);
+    const mvpRunner = {
+      runWithTenantState: async (_t: string, fn: (state: unknown) => Promise<unknown>) =>
+        fn({
+          ...fakeState(),
+          notificationStaffRecipients: [{ tenantId: 't1', email: 'admin@uc.ru' }]
+        })
+    };
+    const listener = new DocumentRevokedEmailListener(mvpRunner as never, { dispatch } as never);
+    await listener.handle(payload as never);
+    const arg = dispatch.mock.calls[0]![0];
+    const emails = arg.recipients.map((r: { email: string }) => r.email);
+    expect(emails).toContain('ivan@example.com');
+    expect(emails).toContain('admin@uc.ru');
+    expect(arg.recipients.find((r: { email: string }) => r.email === 'admin@uc.ru').kind).toBe(
+      'admin'
+    );
+  });
+
   it('does nothing when the payload has no sourceEntityId', async () => {
     const { listener, dispatch } = make();
     await listener.handle({ tenantId: 't1', documentId: 'gdoc1', reason: 'x' } as never);

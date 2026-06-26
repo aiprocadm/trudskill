@@ -3,8 +3,10 @@ import { OnEvent } from '@nestjs/event-emitter';
 
 import {
   buildLearnerEmployerRecipients,
+  buildStaffRecipients,
   resolveCourseTitleByVersion,
-  resolveCourseVersionIdForGroup
+  resolveCourseVersionIdForGroup,
+  resolveLearnerDisplay
 } from './reminder-recipients.js';
 import { NotificationDispatcher } from '../../communication/notification-dispatcher.service.js';
 import { DOCUMENT_REVOKED_EVENT } from '../../documents/document-revoked.event.js';
@@ -34,7 +36,10 @@ export class DocumentRevokedEmailListener {
         if (!enrollment) {
           return null;
         }
-        const recipients = buildLearnerEmployerRecipients(state, payload.tenantId, enrollment);
+        const recipients = [
+          ...buildLearnerEmployerRecipients(state, payload.tenantId, enrollment),
+          ...buildStaffRecipients(state, payload.tenantId)
+        ];
         const courseVersionId = resolveCourseVersionIdForGroup(
           state,
           payload.tenantId,
@@ -45,7 +50,7 @@ export class DocumentRevokedEmailListener {
           : undefined;
         return {
           recipients,
-          learnerName: recipients.find((r) => r.kind === 'learner')?.name ?? '',
+          learnerName: resolveLearnerDisplay(state, payload.tenantId, enrollment.learnerId).name,
           courseTitle: courseTitle ?? ''
         };
       });

@@ -1951,7 +1951,7 @@ describe('MvpService — program meta and publish (Plan A §5.1)', () => {
       expect(updated.regulatoryBasisCodes).toEqual(['PP_2464_2022']);
     });
 
-    it('rejects update on a published version', () => {
+    it('rejects update on a published version', async () => {
       const service = makeService();
       const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
       service.updateProgramMeta(
@@ -1961,7 +1961,7 @@ describe('MvpService — program meta and publish (Plan A §5.1)', () => {
         completeMeta(commissionId),
         ctx
       );
-      service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx);
+      await service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx);
 
       expect(() =>
         service.updateProgramMeta(
@@ -2021,7 +2021,7 @@ describe('MvpService — program meta and publish (Plan A §5.1)', () => {
   });
 
   describe('publishCourseVersion', () => {
-    it('publishes when all required meta set and commission active', () => {
+    it('publishes when all required meta set and commission active', async () => {
       const service = makeService();
       const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
       service.updateProgramMeta(
@@ -2031,7 +2031,7 @@ describe('MvpService — program meta and publish (Plan A §5.1)', () => {
         completeMeta(commissionId),
         ctx
       );
-      const published = service.publishCourseVersion(
+      const published = await service.publishCourseVersion(
         'tenant_demo',
         ctx.userId,
         courseVersionId,
@@ -2040,7 +2040,7 @@ describe('MvpService — program meta and publish (Plan A §5.1)', () => {
       expect(published.status).toBe('published');
     });
 
-    it('returns same entity when already published (idempotent)', () => {
+    it('returns same entity when already published (idempotent)', async () => {
       const service = makeService();
       const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
       service.updateProgramMeta(
@@ -2050,34 +2050,39 @@ describe('MvpService — program meta and publish (Plan A §5.1)', () => {
         completeMeta(commissionId),
         ctx
       );
-      service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx);
-      const again = service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx);
+      await service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx);
+      const again = await service.publishCourseVersion(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        ctx
+      );
       expect(again.status).toBe('published');
     });
 
-    it('rejects publish without academic_hours', () => {
+    it('rejects publish without academic_hours', async () => {
       const service = makeService();
       const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
       const { academicHours: _omit, ...withoutHours } = completeMeta(commissionId);
       void _omit;
       service.updateProgramMeta('tenant_demo', ctx.userId, courseVersionId, withoutHours, ctx);
-      expect(() =>
+      await expect(
         service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx)
-      ).toThrow(BadRequestException);
+      ).rejects.toThrow(BadRequestException);
     });
 
-    it('rejects publish without training_type', () => {
+    it('rejects publish without training_type', async () => {
       const service = makeService();
       const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
       const { trainingType: _omit, ...withoutType } = completeMeta(commissionId);
       void _omit;
       service.updateProgramMeta('tenant_demo', ctx.userId, courseVersionId, withoutType, ctx);
-      expect(() =>
+      await expect(
         service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx)
-      ).toThrow(BadRequestException);
+      ).rejects.toThrow(BadRequestException);
     });
 
-    it('rejects publish without regulatory_basis', () => {
+    it('rejects publish without regulatory_basis', async () => {
       const service = makeService();
       const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
       service.updateProgramMeta(
@@ -2087,23 +2092,23 @@ describe('MvpService — program meta and publish (Plan A §5.1)', () => {
         { ...completeMeta(commissionId), regulatoryBasisCodes: [] },
         ctx
       );
-      expect(() =>
+      await expect(
         service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx)
-      ).toThrow(BadRequestException);
+      ).rejects.toThrow(BadRequestException);
     });
 
-    it('rejects publish without commission attached', () => {
+    it('rejects publish without commission attached', async () => {
       const service = makeService();
       const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
       const { commissionId: _omit, ...withoutCommission } = completeMeta(commissionId);
       void _omit;
       service.updateProgramMeta('tenant_demo', ctx.userId, courseVersionId, withoutCommission, ctx);
-      expect(() =>
+      await expect(
         service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx)
-      ).toThrow(BadRequestException);
+      ).rejects.toThrow(BadRequestException);
     });
 
-    it('rejects publish when attached commission was archived after attach', () => {
+    it('rejects publish when attached commission was archived after attach', async () => {
       const service = makeService();
       const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
       service.updateProgramMeta(
@@ -2114,23 +2119,26 @@ describe('MvpService — program meta and publish (Plan A §5.1)', () => {
         ctx
       );
       service.archiveCommission('tenant_demo', ctx.userId, commissionId, ctx);
-      expect(() =>
+      await expect(
         service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx)
-      ).toThrow(BadRequestException);
+      ).rejects.toThrow(BadRequestException);
     });
 
-    it('throws NotFoundException for unknown courseVersionId', () => {
+    it('throws NotFoundException for unknown courseVersionId', async () => {
       const service = makeService();
-      expect(() =>
+      await expect(
         service.publishCourseVersion('tenant_demo', ctx.userId, 'cver_nope', ctx)
-      ).toThrow(NotFoundException);
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('rejects publish when no active license matches trainingType (Plan C §5.10)', async () => {
       const { LicensesService } = await import('../org/licenses.service.js');
-      const { InMemoryOrgState } = await import('../org/in-memory-org.state.js');
-      const orgState = new InMemoryOrgState();
-      const licensesService = new LicensesService(orgState, new AuditService());
+      const { InMemoryLicensesRepository } =
+        await import('../org/in-memory-licenses.repository.js');
+      const licensesService = new LicensesService(
+        new InMemoryLicensesRepository(),
+        new AuditService()
+      );
 
       const service = new MvpService(
         new InMemoryMvpState(),
@@ -2152,9 +2160,9 @@ describe('MvpService — program meta and publish (Plan A §5.1)', () => {
       );
 
       // No licenses created — publish must fail.
-      expect(() =>
+      await expect(
         service.publishCourseVersion('tenant_demo', ctx.userId, courseVersionId, ctx)
-      ).toThrow(/no_matching_license|нет активной лицензии/);
+      ).rejects.toThrow(/no_matching_license|нет активной лицензии/);
 
       // Create a permissive license — publish must succeed.
       await licensesService.create(
@@ -2168,7 +2176,7 @@ describe('MvpService — program meta and publish (Plan A §5.1)', () => {
         },
         ctx
       );
-      const published = service.publishCourseVersion(
+      const published = await service.publishCourseVersion(
         'tenant_demo',
         ctx.userId,
         courseVersionId,

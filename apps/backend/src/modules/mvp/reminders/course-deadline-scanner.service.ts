@@ -3,8 +3,10 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { COURSE_DEADLINE_MILESTONES, pickMilestone } from './milestone.util.js';
 import {
   buildLearnerEmployerRecipients,
+  buildStaffRecipients,
   resolveCourseTitleByVersion,
-  resolveCourseVersionIdForGroup
+  resolveCourseVersionIdForGroup,
+  resolveLearnerDisplay
 } from './reminder-recipients.js';
 import { NotificationDispatcher } from '../../communication/notification-dispatcher.service.js';
 
@@ -40,7 +42,10 @@ export class CourseDeadlineScanner {
       const milestone = pickMilestone(asOf, enrollment.plannedEndAt, COURSE_DEADLINE_MILESTONES);
       if (milestone === null) continue;
 
-      const recipients = buildLearnerEmployerRecipients(state, tenantId, enrollment);
+      const recipients = [
+        ...buildLearnerEmployerRecipients(state, tenantId, enrollment),
+        ...buildStaffRecipients(state, tenantId)
+      ];
       if (recipients.length === 0) continue;
 
       const courseVersionId = resolveCourseVersionIdForGroup(state, tenantId, enrollment.groupId);
@@ -54,7 +59,7 @@ export class CourseDeadlineScanner {
           templateKey: 'course_deadline',
           recipients,
           variables: {
-            learnerName: recipients.find((r) => r.kind === 'learner')?.name ?? '',
+            learnerName: resolveLearnerDisplay(state, tenantId, enrollment.learnerId).name,
             courseTitle: courseTitle ?? '',
             deadline: enrollment.plannedEndAt.slice(0, 10)
           },

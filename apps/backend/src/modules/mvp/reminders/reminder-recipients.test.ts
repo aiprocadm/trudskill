@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveCourseTitleByVersion, resolveLearnerDisplay } from './reminder-recipients.js';
+import {
+  buildStaffRecipients,
+  resolveCourseTitleByVersion,
+  resolveLearnerDisplay
+} from './reminder-recipients.js';
 
 import type { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
 
@@ -60,5 +64,36 @@ describe('resolveCourseTitleByVersion', () => {
   });
   it('does not resolve a version from another tenant', () => {
     expect(resolveCourseTitleByVersion(courseState, 'other', 'cv1')).toBeUndefined();
+  });
+});
+
+const staffState = {
+  notificationStaffRecipients: [
+    { tenantId: 't1', email: 'admin@uc.ru' },
+    { tenantId: 't1', email: 'curator@uc.ru' },
+    { tenantId: 'other', email: 'foreign@uc.ru' }
+  ]
+} as unknown as InMemoryMvpState;
+
+describe('buildStaffRecipients', () => {
+  it('maps configured tenant staff emails to admin-kind recipients', () => {
+    expect(buildStaffRecipients(staffState, 't1')).toEqual([
+      { email: 'admin@uc.ru', kind: 'admin' },
+      { email: 'curator@uc.ru', kind: 'admin' }
+    ]);
+  });
+
+  it('does not leak staff recipients across tenants', () => {
+    expect(buildStaffRecipients(staffState, 'other')).toEqual([
+      { email: 'foreign@uc.ru', kind: 'admin' }
+    ]);
+  });
+
+  it('returns empty list when none configured for the tenant', () => {
+    expect(buildStaffRecipients(staffState, 'ghost')).toEqual([]);
+  });
+
+  it('is graceful when the collection is absent (undefined)', () => {
+    expect(buildStaffRecipients({} as unknown as InMemoryMvpState, 't1')).toEqual([]);
   });
 });

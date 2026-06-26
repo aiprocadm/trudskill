@@ -324,6 +324,19 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         };
       }
 
+      // Phase 5C-2 — staff notification recipients (GET read; PUT write)
+      @Get('notification-staff-recipients')
+      @RequirePermissions('notifications.read')
+      getStaffRecipients(@CurrentContext() context: { tenantId?: string }) {
+        return { emails: [], tenantId: context.tenantId };
+      }
+
+      @Put('notification-staff-recipients')
+      @RequirePermissions('notifications.write')
+      setStaffRecipients(@Body() body: { emails: string[] }) {
+        return { emails: body.emails };
+      }
+
       // Wave 2 sub-goal A — ФРДО registry export (POST requires write; GET requires read)
       @Post('frdo-registry/exports')
       @RequirePermissions('regulatory.export.write')
@@ -1508,6 +1521,98 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         meta: { requestId: string };
       };
       expect(payload.data.subject).toBe('Custom');
+    });
+
+    it('returns permission_denied for GET /notification-staff-recipients without notifications.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce([]);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/notification-staff-recipients`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('returns success for GET /notification-staff-recipients with notifications.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['notifications.read']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/notification-staff-recipients`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as { data: { emails: string[] } };
+      expect(payload.data.emails).toEqual([]);
+    });
+
+    it('returns permission_denied for PUT /notification-staff-recipients without notifications.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['notifications.read']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/notification-staff-recipients`, {
+        method: 'PUT',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ emails: ['admin@uc.ru'] })
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('returns success for PUT /notification-staff-recipients with notifications.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['notifications.write']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/notification-staff-recipients`, {
+        method: 'PUT',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ emails: ['admin@uc.ru'] })
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as { data: { emails: string[] } };
+      expect(payload.data.emails).toEqual(['admin@uc.ru']);
     });
   });
 

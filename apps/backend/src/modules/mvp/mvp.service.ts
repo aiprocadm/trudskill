@@ -6003,12 +6003,12 @@ export class MvpService {
     return created.sort((a, b) => a.position - b.position);
   }
 
-  publishCourseVersion(
+  async publishCourseVersion(
     tenantId: string,
     actorId: string | undefined,
     courseVersionId: string,
     context: RequestContext
-  ): CourseVersion {
+  ): Promise<CourseVersion> {
     const cv = this.getById(this.state.courseVersions, tenantId, courseVersionId);
     if (cv.status === 'published') return cv;
 
@@ -6042,7 +6042,7 @@ export class MvpService {
     // Pillar A Plan C §5.10 — публикация blocked, если нет matching active license.
     // Optional injection: in legacy/unit tests без OrgModule валидация лицензии skipped.
     if (this.licensesService && cv.trainingType) {
-      const matching = this.licensesService.findActiveLicensesFor(tenantId, cv.trainingType);
+      const matching = await this.licensesService.findActiveLicensesFor(tenantId, cv.trainingType);
       if (matching.length === 0) {
         throw new BadRequestException({
           code: 'no_matching_license',
@@ -6065,6 +6065,49 @@ export class MvpService {
       context
     );
     return cv;
+  }
+
+  /**
+   * Phase 5C-2 — настроенные email сотрудников тенанта для staff-копии уведомлений.
+   * Возвращает нормализованный список (как хранится). Пусто = функция выключена (opt-in).
+   */
+  getNotificationStaffRecipients(tenantId: string): string[] {
+    return this.state.notificationStaffRecipients
+      .filter((r) => r.tenantId === tenantId)
+      .map((r) => r.email);
+  }
+
+  /**
+   * Заменяет список staff-получателей тенанта целиком. Нормализует (trim+lowercase),
+   * отбрасывает пустые, дедуплицирует с сохранением порядка. Пустой массив выключает копии.
+   */
+  setNotificationStaffRecipients(
+    tenantId: string,
+    actorId: string | undefined,
+    emails: string[],
+    context: RequestContext
+  ): string[] {
+    const normalized: string[] = [];
+    for (const raw of emails) {
+      const email = raw.trim().toLowerCase();
+      if (email && !normalized.includes(email)) normalized.push(email);
+    }
+    const oldValues = this.getNotificationStaffRecipients(tenantId);
+    this.state.notificationStaffRecipients = [
+      ...this.state.notificationStaffRecipients.filter((r) => r.tenantId !== tenantId),
+      ...normalized.map((email) => ({ tenantId, email }))
+    ];
+    this.audit(
+      tenantId,
+      actorId,
+      'communication.staff_recipients_updated',
+      'communication.notification_settings',
+      tenantId,
+      { emails: oldValues },
+      { emails: normalized },
+      context
+    );
+    return normalized;
   }
 
   private getById<T extends BaseEntity>(source: T[], tenantId: string, id: string): T {

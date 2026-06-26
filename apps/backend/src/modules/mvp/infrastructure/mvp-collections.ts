@@ -46,7 +46,8 @@ export const MVP_COLLECTIONS = [
   'scormPackages',
   'scormAttempts',
   'reportTemplates',
-  'pushSubscriptions'
+  'pushSubscriptions',
+  'notificationStaffRecipients'
 ] as const;
 
 export type MvpCollection = (typeof MVP_COLLECTIONS)[number];

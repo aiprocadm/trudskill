@@ -33,6 +33,7 @@ import type {
   ModuleProgress,
   NmoBatch,
   NmoRecord,
+  NotificationStaffRecipient,
   OtRegistryBatch,
   OtRegistryRecord,
   PreExamToken,
@@ -112,4 +113,6 @@ export class InMemoryMvpState {
   reportTemplates: ReportTemplate[] = [];
   // Phase 10 Track C — web-push подписки браузеров пользователей.
   pushSubscriptions: PushSubscription[] = [];
+  // Phase 5C-2 — per-tenant email сотрудников для дублирования staff-уведомлений (opt-in).
+  notificationStaffRecipients: NotificationStaffRecipient[] = [];
 }

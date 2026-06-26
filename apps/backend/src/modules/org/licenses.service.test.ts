@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 
-import { InMemoryOrgState } from './in-memory-org.state.js';
+import { InMemoryLicensesRepository } from './in-memory-licenses.repository.js';
 import { LicensesService } from './licenses.service.js';
 import { AuditService } from '../audit/audit.service.js';
 
@@ -17,7 +17,7 @@ const ctx: RequestContext = {
 };
 
 function makeService(): LicensesService {
-  return new LicensesService(new InMemoryOrgState(), new AuditService());
+  return new LicensesService(new InMemoryLicensesRepository(), new AuditService());
 }
 
 const baseRequest = {
@@ -92,8 +92,8 @@ describe('LicensesService — CRUD (Plan C §5.10)', () => {
     const service = makeService();
     await service.create('tenant_a', ctx.userId, baseRequest, ctx);
     await service.create('tenant_b', ctx.userId, baseRequest, ctx);
-    expect(service.list('tenant_a')).toHaveLength(1);
-    expect(service.list('tenant_a')[0].tenantId).toBe('tenant_a');
+    expect(await service.list('tenant_a')).toHaveLength(1);
+    expect((await service.list('tenant_a'))[0].tenantId).toBe('tenant_a');
   });
 
   it('list filters by status when provided', async () => {
@@ -106,19 +106,19 @@ describe('LicensesService — CRUD (Plan C §5.10)', () => {
       ctx
     );
     await service.revoke('tenant_demo', ctx.userId, a.id, ctx);
-    expect(service.list('tenant_demo', 'active')).toHaveLength(1);
-    expect(service.list('tenant_demo', 'revoked')).toHaveLength(1);
+    expect(await service.list('tenant_demo', 'active')).toHaveLength(1);
+    expect(await service.list('tenant_demo', 'revoked')).toHaveLength(1);
   });
 
-  it('get throws NotFoundException for unknown id', () => {
+  it('get throws NotFoundException for unknown id', async () => {
     const service = makeService();
-    expect(() => service.get('tenant_demo', 'license_nope')).toThrow(NotFoundException);
+    await expect(service.get('tenant_demo', 'license_nope')).rejects.toThrow(NotFoundException);
   });
 
   it('get throws NotFoundException when license belongs to other tenant (no cross-tenant read)', async () => {
     const service = makeService();
     const license = await service.create('tenant_a', ctx.userId, baseRequest, ctx);
-    expect(() => service.get('tenant_b', license.id)).toThrow(NotFoundException);
+    await expect(service.get('tenant_b', license.id)).rejects.toThrow(NotFoundException);
   });
 
   it('update patches editable fields', async () => {
@@ -167,8 +167,10 @@ describe('LicensesService.findActiveLicensesFor (Plan C §5.10)', () => {
   it('returns universal license (no permitted lists) for any training type', async () => {
     const service = makeService();
     await service.create('tenant_demo', ctx.userId, baseRequest, ctx);
-    expect(service.findActiveLicensesFor('tenant_demo', 'primary')).toHaveLength(1);
-    expect(service.findActiveLicensesFor('tenant_demo', 'extraordinary', 'dir_x')).toHaveLength(1);
+    expect(await service.findActiveLicensesFor('tenant_demo', 'primary')).toHaveLength(1);
+    expect(
+      await service.findActiveLicensesFor('tenant_demo', 'extraordinary', 'dir_x')
+    ).toHaveLength(1);
   });
 
   it('filters by permittedTrainingTypes whitelist', async () => {
@@ -179,8 +181,8 @@ describe('LicensesService.findActiveLicensesFor (Plan C §5.10)', () => {
       { ...baseRequest, permittedTrainingTypes: ['primary'] },
       ctx
     );
-    expect(service.findActiveLicensesFor('tenant_demo', 'primary')).toHaveLength(1);
-    expect(service.findActiveLicensesFor('tenant_demo', 'repeat')).toHaveLength(0);
+    expect(await service.findActiveLicensesFor('tenant_demo', 'primary')).toHaveLength(1);
+    expect(await service.findActiveLicensesFor('tenant_demo', 'repeat')).toHaveLength(0);
   });
 
   it('filters by permittedDirections whitelist when directionId provided', async () => {
@@ -191,8 +193,8 @@ describe('LicensesService.findActiveLicensesFor (Plan C §5.10)', () => {
       { ...baseRequest, permittedDirections: ['dir_ot'] },
       ctx
     );
-    expect(service.findActiveLicensesFor('tenant_demo', 'primary', 'dir_ot')).toHaveLength(1);
-    expect(service.findActiveLicensesFor('tenant_demo', 'primary', 'dir_pb')).toHaveLength(0);
+    expect(await service.findActiveLicensesFor('tenant_demo', 'primary', 'dir_ot')).toHaveLength(1);
+    expect(await service.findActiveLicensesFor('tenant_demo', 'primary', 'dir_pb')).toHaveLength(0);
   });
 
   it('rejects when permittedDirections set but directionId not provided', async () => {
@@ -203,19 +205,19 @@ describe('LicensesService.findActiveLicensesFor (Plan C §5.10)', () => {
       { ...baseRequest, permittedDirections: ['dir_ot'] },
       ctx
     );
-    expect(service.findActiveLicensesFor('tenant_demo', 'primary')).toHaveLength(0);
+    expect(await service.findActiveLicensesFor('tenant_demo', 'primary')).toHaveLength(0);
   });
 
   it('excludes revoked licenses', async () => {
     const service = makeService();
     const l = await service.create('tenant_demo', ctx.userId, baseRequest, ctx);
     await service.revoke('tenant_demo', ctx.userId, l.id, ctx);
-    expect(service.findActiveLicensesFor('tenant_demo', 'primary')).toHaveLength(0);
+    expect(await service.findActiveLicensesFor('tenant_demo', 'primary')).toHaveLength(0);
   });
 
   it('is tenant-scoped — other tenant license never matches', async () => {
     const service = makeService();
     await service.create('tenant_a', ctx.userId, baseRequest, ctx);
-    expect(service.findActiveLicensesFor('tenant_b', 'primary')).toHaveLength(0);
+    expect(await service.findActiveLicensesFor('tenant_b', 'primary')).toHaveLength(0);
   });
 });

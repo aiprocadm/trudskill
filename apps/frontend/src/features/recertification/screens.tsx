@@ -3,6 +3,7 @@
 import { DataTable, LoadingState, StatusChip } from '@trudskill/ui';
 import { type ReactElement, useState } from 'react';
 
+import { ApproveRecertModal } from './approve-recert-modal';
 import { formatRemaining, formatSnils } from './format';
 import { useRecertificationMutations, useRecertificationQueue } from './hooks';
 import { RECERT_STATUS_LABELS, type RecertificationDraftStatus } from './types';
@@ -37,9 +38,15 @@ export function RecertificationQueueScreen(): ReactElement {
   const { data, isLoading, error } = useRecertificationQueue(
     statusFilter === '' ? undefined : statusFilter
   );
-  const { rejectPending, scanPending, rejectDraft, runScan } = useRecertificationMutations();
+  const { rejectPending, approvePending, scanPending, rejectDraft, approveDraft, runScan } =
+    useRecertificationMutations();
   const [notice, setNotice] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [approveTarget, setApproveTarget] = useState<{
+    id: string;
+    learnerName: string;
+    courseTitle: string;
+  } | null>(null);
 
   const onScan = async () => {
     setNotice(null);
@@ -50,6 +57,12 @@ export function RecertificationQueueScreen(): ReactElement {
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Не удалось запустить проверку');
     }
+  };
+
+  const onApproveSuccess = () => {
+    setActionError(null);
+    setNotice('Слушатель перезачислен на переаттестацию.');
+    setApproveTarget(null);
   };
 
   const onReject = async (id: string) => {
@@ -80,14 +93,30 @@ export function RecertificationQueueScreen(): ReactElement {
     statusView: <StatusChip status={RECERT_STATUS_LABELS[draft.status]} />,
     actionsView:
       draft.status === 'pending' ? (
-        <button
-          type="button"
-          className="ui-button"
-          onClick={() => void onReject(draft.id)}
-          disabled={rejectPending}
-        >
-          Убрать
-        </button>
+        <span className="ui-inline" style={{ gap: 8 }}>
+          <button
+            type="button"
+            className="ui-button ui-button--primary"
+            onClick={() =>
+              setApproveTarget({
+                id: draft.id,
+                learnerName: draft.learnerName,
+                courseTitle: draft.courseTitle
+              })
+            }
+            disabled={approvePending}
+          >
+            Перезачислить
+          </button>
+          <button
+            type="button"
+            className="ui-button"
+            onClick={() => void onReject(draft.id)}
+            disabled={rejectPending}
+          >
+            Убрать
+          </button>
+        </span>
       ) : (
         <span className="ui-text-muted">—</span>
       )
@@ -97,7 +126,7 @@ export function RecertificationQueueScreen(): ReactElement {
     <PageContainer>
       <PageHeader
         title="Нужна переаттестация"
-        subtitle="Слушатели, у которых истекает срок действия удостоверения. Перезачисление — через «Массовую загрузку»."
+        subtitle="Слушатели, у которых истекает срок действия удостоверения. «Перезачислить» — выбрать группу и зачислить повторно; «Убрать» — скрыть запись."
         actions={
           <button
             type="button"
@@ -152,6 +181,18 @@ export function RecertificationQueueScreen(): ReactElement {
           />
         ) : null}
       </SectionCard>
+
+      <ApproveRecertModal
+        open={approveTarget !== null}
+        learnerName={approveTarget?.learnerName ?? ''}
+        courseTitle={approveTarget?.courseTitle ?? ''}
+        pending={approvePending}
+        onConfirm={async (targetGroupId) => {
+          if (approveTarget) await approveDraft(approveTarget.id, targetGroupId);
+        }}
+        onSuccess={onApproveSuccess}
+        onClose={() => setApproveTarget(null)}
+      />
     </PageContainer>
   );
 }

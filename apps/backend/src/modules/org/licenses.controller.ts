@@ -33,8 +33,8 @@ export class LicensesController {
   @Get()
   @UseGuards(PermissionGuard)
   @RequirePermissions('org.licenses.read')
-  list(@CurrentContext() c: RequestContext, @Query('status') status?: LicenseStatus) {
-    return { items: this.service.list(c.tenantId!, status) };
+  async list(@CurrentContext() c: RequestContext, @Query('status') status?: LicenseStatus) {
+    return { items: await this.service.list(c.tenantId!, status) };
   }
 
   @Get(':id')

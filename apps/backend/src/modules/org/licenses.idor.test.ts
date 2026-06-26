@@ -1,7 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 
-import { InMemoryOrgState } from './in-memory-org.state.js';
+import { InMemoryLicensesRepository } from './in-memory-licenses.repository.js';
 import { LicensesService } from './licenses.service.js';
 import { AuditService } from '../audit/audit.service.js';
 
@@ -25,7 +25,7 @@ const ctxB: RequestContext = {
 };
 
 function makeService() {
-  return new LicensesService(new InMemoryOrgState(), new AuditService());
+  return new LicensesService(new InMemoryLicensesRepository(), new AuditService());
 }
 
 describe('IDOR — licenses :id endpoints reject cross-tenant', () => {
@@ -42,7 +42,7 @@ describe('IDOR — licenses :id endpoints reject cross-tenant', () => {
       },
       ctxA
     );
-    expect(() => service.get('tB', lic.id)).toThrow(NotFoundException);
+    await expect(service.get('tB', lic.id)).rejects.toThrow(NotFoundException);
   });
 
   it('update: tenantB cannot update license of tenantA', async () => {
@@ -103,7 +103,7 @@ describe('IDOR — licenses :id endpoints reject cross-tenant', () => {
       },
       ctxB
     );
-    expect(service.list('tA').map((l) => l.licenseNumber)).toEqual(['L1']);
-    expect(service.list('tB').map((l) => l.licenseNumber)).toEqual(['L2']);
+    expect((await service.list('tA')).map((l) => l.licenseNumber)).toEqual(['L1']);
+    expect((await service.list('tB')).map((l) => l.licenseNumber)).toEqual(['L2']);
   });
 });

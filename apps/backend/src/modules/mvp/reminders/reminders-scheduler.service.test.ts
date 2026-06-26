@@ -15,6 +15,7 @@ function make(opts: { locked?: boolean; tenantIds?: string[] } = {}) {
     scanTenant: vi.fn().mockResolvedValue({ draftsCreated: 0, emailsDispatched: 0 })
   };
   const deadlineScanner = { scanTenant: vi.fn().mockResolvedValue({ remindersDispatched: 0 }) };
+  const licenseScanner = { scanTenant: vi.fn().mockResolvedValue({ remindersDispatched: 0 }) };
   const mvpRunner = {
     runWithTenantState: async (_t: string, fn: (state: unknown) => Promise<unknown>) => fn({})
   };
@@ -27,18 +28,20 @@ function make(opts: { locked?: boolean; tenantIds?: string[] } = {}) {
     mvpRunner as never,
     recertScanner as never,
     deadlineScanner as never,
+    licenseScanner as never,
     db as never
   );
-  return { service, recertScanner, deadlineScanner, tenants, db };
+  return { service, recertScanner, deadlineScanner, licenseScanner, tenants, db };
 }
 
 describe('RemindersSchedulerService.runScanAllTenants', () => {
-  it('runs both scanners once per active tenant when the lock is acquired', async () => {
-    const { service, recertScanner, deadlineScanner, tenants } = make();
+  it('runs all scanners once per active tenant when the lock is acquired', async () => {
+    const { service, recertScanner, deadlineScanner, licenseScanner, tenants } = make();
     await service.runScanAllTenants('2026-06-05');
     expect(tenants.listActiveTenantIds).toHaveBeenCalledTimes(1);
     expect(recertScanner.scanTenant).toHaveBeenCalledTimes(2);
     expect(deadlineScanner.scanTenant).toHaveBeenCalledTimes(2);
+    expect(licenseScanner.scanTenant).toHaveBeenCalledTimes(2);
   });
 
   it('skips scanning entirely when the advisory lock is held by another instance', async () => {
