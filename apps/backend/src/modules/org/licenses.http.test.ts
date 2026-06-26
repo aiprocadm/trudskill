@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { InMemoryOrgState } from './in-memory-org.state.js';
+import { InMemoryLicensesRepository } from './in-memory-licenses.repository.js';
 import { LicensesController } from './licenses.controller.js';
 import { LicensesService } from './licenses.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -17,7 +17,7 @@ const ctx: RequestContext = {
 };
 
 function makeController(): LicensesController {
-  const service = new LicensesService(new InMemoryOrgState(), new AuditService());
+  const service = new LicensesService(new InMemoryLicensesRepository(), new AuditService());
   return new LicensesController(service);
 }
 
@@ -46,7 +46,7 @@ describe('LicensesController — HTTP (Plan C §5.10)', () => {
   it('GET /admin/licenses returns items array', async () => {
     const controller = makeController();
     await controller.create(ctx, baseRequest);
-    const list = controller.list(ctx);
+    const list = await controller.list(ctx);
     expect(list.items).toHaveLength(1);
   });
 
@@ -54,14 +54,14 @@ describe('LicensesController — HTTP (Plan C §5.10)', () => {
     const controller = makeController();
     const created = await controller.create(ctx, baseRequest);
     await controller.revoke(ctx, created.id);
-    expect(controller.list(ctx, 'active').items).toHaveLength(0);
-    expect(controller.list(ctx, 'revoked').items).toHaveLength(1);
+    expect((await controller.list(ctx, 'active')).items).toHaveLength(0);
+    expect((await controller.list(ctx, 'revoked')).items).toHaveLength(1);
   });
 
   it('GET /admin/licenses/:id returns license', async () => {
     const controller = makeController();
     const created = await controller.create(ctx, baseRequest);
-    const fetched = controller.get(ctx, created.id);
+    const fetched = await controller.get(ctx, created.id);
     expect(fetched.id).toBe(created.id);
   });
 

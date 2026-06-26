@@ -6003,12 +6003,12 @@ export class MvpService {
     return created.sort((a, b) => a.position - b.position);
   }
 
-  publishCourseVersion(
+  async publishCourseVersion(
     tenantId: string,
     actorId: string | undefined,
     courseVersionId: string,
     context: RequestContext
-  ): CourseVersion {
+  ): Promise<CourseVersion> {
     const cv = this.getById(this.state.courseVersions, tenantId, courseVersionId);
     if (cv.status === 'published') return cv;
 
@@ -6042,7 +6042,7 @@ export class MvpService {
     // Pillar A Plan C §5.10 — публикация blocked, если нет matching active license.
     // Optional injection: in legacy/unit tests без OrgModule валидация лицензии skipped.
     if (this.licensesService && cv.trainingType) {
-      const matching = this.licensesService.findActiveLicensesFor(tenantId, cv.trainingType);
+      const matching = await this.licensesService.findActiveLicensesFor(tenantId, cv.trainingType);
       if (matching.length === 0) {
         throw new BadRequestException({
           code: 'no_matching_license',

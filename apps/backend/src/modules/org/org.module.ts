@@ -1,18 +1,21 @@
-import { Module, Scope } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 
-import { InMemoryOrgState } from './in-memory-org.state.js';
 import { LicensesController } from './licenses.controller.js';
+import { LICENSES_REPOSITORY } from './licenses.repository.js';
 import { LicensesService } from './licenses.service.js';
+import { PostgresLicensesRepository } from './postgres-licenses.repository.js';
+import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { IamModule } from '../iam/iam.module.js';
 
 @Module({
-  imports: [AuditModule, IamModule],
+  imports: [AuditModule, IamModule, InfrastructureModule],
   controllers: [LicensesController],
   providers: [
-    { provide: InMemoryOrgState, scope: Scope.REQUEST, useClass: InMemoryOrgState },
-    { provide: LicensesService, scope: Scope.REQUEST, useClass: LicensesService }
+    PostgresLicensesRepository,
+    { provide: LICENSES_REPOSITORY, useClass: PostgresLicensesRepository },
+    LicensesService
   ],
-  exports: [LicensesService]
+  exports: [LicensesService, LICENSES_REPOSITORY]
 })
 export class OrgModule {}

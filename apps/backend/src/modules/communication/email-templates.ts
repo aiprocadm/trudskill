@@ -3,7 +3,8 @@ export type EmailTemplateKey =
   | 'course_completed'
   | 'recertification_due'
   | 'course_deadline'
-  | 'document_revoked';
+  | 'document_revoked'
+  | 'license_expiring';
 
 export interface EmailTemplateBody {
   subject: string;
@@ -53,6 +54,16 @@ export const EMAIL_TEMPLATE_DEFAULTS: Record<EmailTemplateKey, EmailTemplateBody
       'Причина: {{reason}}. ' +
       'По вопросам перевыпуска обратитесь в учебный центр.\n\n' +
       'С уважением, учебный центр.'
+  },
+  // Staff-facing (sent to the configured notification recipients, not a learner): a center
+  // license/accreditation is approaching its expiry date.
+  license_expiring: {
+    subject: 'Истекает срок действия лицензии № {{licenseNumber}}',
+    body:
+      'Внимание!\n\n' +
+      'Срок действия лицензии/аккредитации № {{licenseNumber}} ({{issuerName}}) истекает {{validUntil}}. ' +
+      'Продлите документ заранее, чтобы не приостанавливать публикацию программ и выдачу удостоверений.\n\n' +
+      'Учебный центр (системное уведомление).'
   }
 };
 

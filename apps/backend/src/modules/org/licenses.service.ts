@@ -6,10 +6,11 @@ import {
   NotFoundException
 } from '@nestjs/common';
 
-import { InMemoryOrgState } from './in-memory-org.state.js';
+import { LICENSES_REPOSITORY } from './licenses.repository.js';
 import { AuditService } from '../audit/audit.service.js';
 
 import type { CreateLicenseRequest, UpdateLicenseRequest } from './licenses.dto.js';
+import type { LicensesRepository } from './licenses.repository.js';
 import type { LicenseStatus, TrainingLicense } from './licenses.types.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 
@@ -27,18 +28,16 @@ import type { RequestContext } from '../../common/context/request-context.js';
 @Injectable()
 export class LicensesService {
   constructor(
-    @Inject(InMemoryOrgState) private readonly state: InMemoryOrgState,
+    @Inject(LICENSES_REPOSITORY) private readonly repo: LicensesRepository,
     @Inject(AuditService) private readonly auditService: AuditService
   ) {}
 
-  list(tenantId: string, status?: LicenseStatus): TrainingLicense[] {
-    return this.state.licenses
-      .filter((l) => l.tenantId === tenantId && (!status || l.status === status))
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  list(tenantId: string, status?: LicenseStatus): Promise<TrainingLicense[]> {
+    return this.repo.list(tenantId, status);
   }
 
-  get(tenantId: string, id: string): TrainingLicense {
-    const license = this.state.licenses.find((l) => l.tenantId === tenantId && l.id === id);
+  async get(tenantId: string, id: string): Promise<TrainingLicense> {
+    const license = await this.repo.getById(tenantId, id);
     if (!license) {
       throw new NotFoundException({ code: 'license_not_found', message: 'Лицензия не найдена' });
     }
@@ -57,11 +56,10 @@ export class LicensesService {
         message: 'validUntil не может быть раньше issuedAt'
       });
     }
-    const duplicate = this.state.licenses.find(
-      (l) =>
-        l.tenantId === tenantId &&
-        l.licenseType === request.licenseType &&
-        l.licenseNumber === request.licenseNumber
+    const duplicate = await this.repo.findByTypeAndNumber(
+      tenantId,
+      request.licenseType,
+      request.licenseNumber
     );
     if (duplicate) {
       throw new ConflictException({
@@ -91,7 +89,7 @@ export class LicensesService {
       createdAt: this.now(),
       updatedAt: this.now()
     };
-    this.state.licenses.push(entity);
+    await this.repo.insert(entity);
     await this.auditService.writeCritical({
       tenantId,
       actorId,
@@ -114,7 +112,7 @@ export class LicensesService {
     request: UpdateLicenseRequest,
     context: RequestContext
   ): Promise<TrainingLicense> {
-    const license = this.get(tenantId, id);
+    const license = await this.get(tenantId, id);
     if (license.status !== 'active') {
       throw new BadRequestException({
         code: 'license_not_editable',
@@ -142,6 +140,7 @@ export class LicensesService {
       });
     }
     license.updatedAt = this.now();
+    await this.repo.update(license);
     await this.auditService.writeCritical({
       tenantId,
       actorId,
@@ -164,11 +163,12 @@ export class LicensesService {
     id: string,
     context: RequestContext
   ): Promise<TrainingLicense> {
-    const license = this.get(tenantId, id);
+    const license = await this.get(tenantId, id);
     if (license.status === 'revoked') return license;
     const oldValues = { ...license };
     license.status = 'revoked';
     license.updatedAt = this.now();
+    await this.repo.update(license);
     await this.auditService.writeCritical({
       tenantId,
       actorId,
@@ -193,14 +193,13 @@ export class LicensesService {
    * любую проверку trainingType; то же для directions. Это безопасный default —
    * центры с одной «всеохватной» лицензией не упрутся в false negative.
    */
-  findActiveLicensesFor(
+  async findActiveLicensesFor(
     tenantId: string,
     trainingType: string,
     directionId?: string
-  ): TrainingLicense[] {
-    return this.state.licenses.filter((l) => {
-      if (l.tenantId !== tenantId) return false;
-      if (l.status !== 'active') return false;
+  ): Promise<TrainingLicense[]> {
+    const active = await this.repo.list(tenantId, 'active');
+    return active.filter((l) => {
       if (l.permittedTrainingTypes && !l.permittedTrainingTypes.includes(trainingType)) {
         return false;
       }
@@ -209,6 +208,11 @@ export class LicensesService {
       }
       return true;
     });
+  }
+
+  /** Active licenses expiring at/before `dateInclusive` (YYYY-MM-DD), for the expiry scanner. */
+  findActiveExpiringBefore(tenantId: string, dateInclusive: string): Promise<TrainingLicense[]> {
+    return this.repo.findActiveExpiringBefore(tenantId, dateInclusive);
   }
 
   private id(): string {

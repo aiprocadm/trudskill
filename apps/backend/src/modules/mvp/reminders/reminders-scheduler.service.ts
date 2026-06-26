@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
 import { CourseDeadlineScanner } from './course-deadline-scanner.service.js';
+import { LicenseExpiryScanner } from './license-expiry-scanner.service.js';
 import { backendEnv } from '../../../env.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 import { TenantService } from '../../tenant/tenant.service.js';
@@ -20,6 +21,7 @@ export class RemindersSchedulerService {
     @Inject(MvpTenantRunner) private readonly mvpRunner: MvpTenantRunner,
     @Inject(RecertificationScanner) private readonly recertScanner: RecertificationScanner,
     @Inject(CourseDeadlineScanner) private readonly deadlineScanner: CourseDeadlineScanner,
+    @Inject(LicenseExpiryScanner) private readonly licenseScanner: LicenseExpiryScanner,
     @Inject(DatabaseService) private readonly db: DatabaseService
   ) {}
 
@@ -62,6 +64,7 @@ export class RemindersSchedulerService {
           await this.mvpRunner.runWithTenantState(tenantId, async (state) => {
             await this.recertScanner.scanTenant(tenantId, asOf, state);
             await this.deadlineScanner.scanTenant(tenantId, asOf, state);
+            await this.licenseScanner.scanTenant(tenantId, asOf, state);
           });
         } catch (err) {
           this.logger.error(

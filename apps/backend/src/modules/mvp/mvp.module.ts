@@ -43,6 +43,7 @@ import { RecertificationController } from './recertification/recertification.con
 import { RecertificationService } from './recertification/recertification.service.js';
 import { CourseDeadlineScanner } from './reminders/course-deadline-scanner.service.js';
 import { DocumentRevokedEmailListener } from './reminders/document-revoked-email.listener.js';
+import { LicenseExpiryScanner } from './reminders/license-expiry-scanner.service.js';
 import { RemindersSchedulerService } from './reminders/reminders-scheduler.service.js';
 import { RostechnadzorRegistryController } from './rostechnadzor-registry/rostechnadzor-registry.controller.js';
 import { RostechnadzorRegistryService } from './rostechnadzor-registry/rostechnadzor-registry.service.js';
@@ -111,6 +112,7 @@ import { TenantModule } from '../tenant/tenant.module.js';
     // (hydrates+saves tenant MVP state via MvpTenantRunner). NO Scope.REQUEST.
     MvpEnrollmentService,
     CourseDeadlineScanner,
+    LicenseExpiryScanner,
     RemindersSchedulerService,
     DocumentRevokedEmailListener,
     IdentityRetentionScanner,

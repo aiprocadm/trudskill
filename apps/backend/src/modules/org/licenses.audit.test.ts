@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { InMemoryOrgState } from './in-memory-org.state.js';
+import { InMemoryLicensesRepository } from './in-memory-licenses.repository.js';
 import { LicensesService } from './licenses.service.js';
 import { AuditService } from '../audit/audit.service.js';
 
@@ -16,10 +16,10 @@ const ctx: RequestContext = {
 };
 
 function makeService() {
-  const state = new InMemoryOrgState();
+  const repo = new InMemoryLicensesRepository();
   const audit = new AuditService();
-  const service = new LicensesService(state, audit);
-  return { state, audit, service };
+  const service = new LicensesService(repo, audit);
+  return { repo, audit, service };
 }
 
 describe('Licenses audit — writeCritical on create/update/revoke', () => {
