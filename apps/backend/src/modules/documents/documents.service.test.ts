@@ -115,6 +115,114 @@ describe('DocumentsService', () => {
     expect(b.reservedNumber.endsWith('000002')).toBe(true);
   });
 
+  it('resets the counter and embeds the period on a yearly rollover without colliding', () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2025-06-15T00:00:00.000Z'));
+      const service = new DocumentsService(
+        new InMemoryDocumentsState(),
+        new AuditService(),
+        new RealtimeEventsService()
+      );
+      service.createNumberingRule('t1', {
+        documentType: 'certificate',
+        prefix: 'CERT-',
+        resetPeriod: 'year'
+      });
+
+      const a = service.reserveNumber('t1', 'certificate');
+      const b = service.reserveNumber('t1', 'certificate');
+      expect(a.reservedNumber).toBe('CERT-2025-000001');
+      expect(b.reservedNumber).toBe('CERT-2025-000002');
+
+      // Year rolls over: counter resets to 1, but the period in the number keeps
+      // it globally unique — the prior period's #1 must not cause a collision.
+      vi.setSystemTime(new Date('2026-01-10T00:00:00.000Z'));
+      const c = service.reserveNumber('t1', 'certificate');
+      expect(c.reservedNumber).toBe('CERT-2026-000001');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not advance the counter when a reservation number collides', () => {
+    const state = new InMemoryDocumentsState();
+    const service = new DocumentsService(state, new AuditService(), new RealtimeEventsService());
+    service.createNumberingRule('t1', {
+      documentType: 'default',
+      prefix: 'DOC-',
+      pattern: '{prefix}{counter}{suffix}'
+    });
+    // Seed a reservation colliding with the very first number the rule would mint.
+    state.reservations.push({
+      id: 'seed',
+      tenantId: 't1',
+      ruleId: 'seed-rule',
+      reservedNumber: 'DOC-000001',
+      reservedAt: new Date().toISOString(),
+      status: 'reserved'
+    });
+
+    expect(() => service.reserveNumber('t1', 'default')).toThrow();
+
+    // A failed reservation must not burn a counter value (no gap in the sequence).
+    const rule = state.numberingRules.find(
+      (r) => r.tenantId === 't1' && r.documentType === 'default'
+    );
+    expect(rule?.currentCounter).toBe(0);
+  });
+
+  it('issues documents across a year boundary without silent failure', () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2025-12-31T00:00:00.000Z'));
+      const service = new DocumentsService(
+        new InMemoryDocumentsState(),
+        new AuditService(),
+        new RealtimeEventsService()
+      );
+      const template = service.createTemplate(
+        't1',
+        'u1',
+        { name: 'Cert', templateType: 'certificate' },
+        ctx
+      );
+      const version = service.createTemplateVersion('t1', 'u1', {
+        templateId: template.id,
+        fileId: 'file_1'
+      });
+      service.activateTemplateVersion('t1', 'u1', version.id, ctx);
+      service.createNumberingRule('t1', {
+        documentType: 'certificate',
+        prefix: 'CERT-',
+        resetPeriod: 'year'
+      });
+
+      const task1 = service.generateDocument('t1', 'u1', {
+        idempotencyKey: 'enrollment-2025',
+        templateId: template.id,
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'e1',
+        documentType: 'certificate'
+      });
+      const doc1 = service.completeTask('t1', task1.id, 'file_out_1', 'u1');
+      expect(doc1.documentNumber).toBe('CERT-2025-000001');
+
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const task2 = service.generateDocument('t1', 'u1', {
+        idempotencyKey: 'enrollment-2026',
+        templateId: template.id,
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'e2',
+        documentType: 'certificate'
+      });
+      const doc2 = service.completeTask('t1', task2.id, 'file_out_2', 'u1');
+      expect(doc2.documentNumber).toBe('CERT-2026-000001');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('prevents cross-tenant access', () => {
     const service = new DocumentsService(
       new InMemoryDocumentsState(),
