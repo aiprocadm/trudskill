@@ -688,9 +688,13 @@ export class DocumentsService {
   }
 
   completeTask(tenantId: string, taskId: string, fileId: string, generatedBy?: string) {
+    const existing = this.getDocumentTask(tenantId, taskId);
+    // Idempotent redelivery: an already-completed task returns its document instead of
+    // erroring (startTask would throw 'Terminal task cannot be started' first) (audit tail f).
+    if (existing.status === 'completed')
+      return this.getDocument(tenantId, existing.generatedDocumentId!);
     this.startTask(tenantId, taskId);
     const task = this.getDocumentTask(tenantId, taskId);
-    if (task.status === 'completed') return this.getDocument(tenantId, task.generatedDocumentId!);
     if (task.status !== 'running') throw new BadRequestException('Task state is not processable');
     const reserved = task.numberReservationId
       ? this.getReservation(tenantId, task.numberReservationId)

@@ -1808,4 +1808,47 @@ describe('DocumentsService signing (Phase 6)', () => {
     state.generatedDocuments[0].status = 'revoked'; // revoked keeps isFinal=true
     await expect(service.signDocument('t1', 'user_1', 'gdoc_sig', signCtx)).rejects.toThrow();
   });
+
+  it('completeTask is idempotent on redelivery of an already-completed task (audit tail f)', () => {
+    const service = new DocumentsService(
+      new InMemoryDocumentsState(),
+      new AuditService(),
+      new RealtimeEventsService()
+    );
+    service.createNumberingRule('t1', { documentType: 'default' });
+    const template = service.createTemplate(
+      't1',
+      'u1',
+      { name: 'Tpl', templateType: 'contract' },
+      ctx
+    );
+    const version = service.createTemplateVersion('t1', 'u1', {
+      templateId: template.id,
+      fileId: 'file_1'
+    });
+    service.activateTemplateVersion('t1', 'u1', version.id, ctx);
+    const task = service.generateDocument('t1', 'u1', {
+      idempotencyKey: 'idem-complete-1',
+      templateId: template.id,
+      sourceEntityType: 'group',
+      sourceEntityId: 'g1',
+      documentType: 'default'
+    });
+
+    // First call: drives queued → running → completed and creates the generated doc.
+    service.startTask('t1', task.id);
+    const firstDoc = service.completeTask('t1', task.id, 'file_out_1', 'u1');
+
+    // Redelivery: completeTask called again for the same already-completed task.
+    // Should return the same generated document without throwing.
+    const secondDoc = service.completeTask('t1', task.id, 'file_out_1', 'u1');
+
+    expect(secondDoc.id).toBe(firstDoc.id);
+
+    // No extra generated document should have been created.
+    const docsForTask = (service as any).state.generatedDocuments.filter(
+      (d: { sourceEntityId: string }) => d.sourceEntityId === 'g1'
+    );
+    expect(docsForTask).toHaveLength(1);
+  });
 });
