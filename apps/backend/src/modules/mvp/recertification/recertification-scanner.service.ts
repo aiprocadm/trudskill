@@ -129,7 +129,7 @@ export class RecertificationScanner {
       if (recipients.length === 0) continue;
 
       try {
-        await this.dispatcher.dispatch({
+        const summary = await this.dispatcher.dispatch({
           tenantId,
           templateKey: 'recertification_due',
           recipients,
@@ -142,7 +142,7 @@ export class RecertificationScanner {
           relatedEntityId: row.id,
           dedupKey: `recert:${row.id}:${milestone}`
         });
-        emailsDispatched += recipients.length;
+        emailsDispatched += summary.sent;
       } catch (err) {
         this.logger.error(
           `Failed to dispatch recertification_due for draft ${row.id}: ${err instanceof Error ? err.message : String(err)}`

@@ -57,7 +57,7 @@ export class CourseDeadlineScanner {
         : undefined;
 
       try {
-        await this.dispatcher.dispatch({
+        const summary = await this.dispatcher.dispatch({
           tenantId,
           templateKey: 'course_deadline',
           recipients,
@@ -70,7 +70,7 @@ export class CourseDeadlineScanner {
           relatedEntityId: enrollment.id,
           dedupKey: `deadline:${enrollment.id}:${milestone}`
         });
-        remindersDispatched += recipients.length;
+        remindersDispatched += summary.sent;
       } catch (err) {
         this.logger.error(
           `Failed to dispatch course_deadline for enrollment ${enrollment.id}: ${err instanceof Error ? err.message : String(err)}`

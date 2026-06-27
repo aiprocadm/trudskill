@@ -129,6 +129,44 @@ describe('NotificationDispatcher stranding (audit tail 1b)', () => {
   });
 });
 
+describe('NotificationDispatcher dispatch summary (audit tail fix)', () => {
+  it('dispatch returns a {sent,skipped,failed} summary', async () => {
+    const { dispatcher, mailer } = make();
+
+    // First dispatch: a@ sent, b@ rejects, c@ sent
+    mailer.send
+      .mockResolvedValueOnce({ status: 'sent' }) // a@
+      .mockRejectedValueOnce(new Error('smtp boom')) // b@
+      .mockResolvedValueOnce({ status: 'sent' }); // c@
+
+    const firstResult = await dispatcher.dispatch({
+      ...baseInput,
+      dedupKey: 'recert:d1:30',
+      recipients: [
+        { email: 'a@x.com', kind: 'learner' as const },
+        { email: 'b@x.com', kind: 'learner' as const },
+        { email: 'c@x.com', kind: 'learner' as const }
+      ]
+    });
+    expect(firstResult).toEqual({ sent: 2, skipped: 0, failed: 1 });
+
+    // Re-dispatch: a@ & c@ already delivered (skipped), b@ retried & sent
+    mailer.send.mockClear();
+    mailer.send.mockResolvedValue({ status: 'sent' });
+
+    const secondResult = await dispatcher.dispatch({
+      ...baseInput,
+      dedupKey: 'recert:d1:30',
+      recipients: [
+        { email: 'a@x.com', kind: 'learner' as const },
+        { email: 'b@x.com', kind: 'learner' as const },
+        { email: 'c@x.com', kind: 'learner' as const }
+      ]
+    });
+    expect(secondResult).toEqual({ sent: 1, skipped: 2, failed: 0 });
+  });
+});
+
 describe('NotificationDispatcher push fan-out (Phase 10 Track C)', () => {
   const withUserId = {
     ...baseInput,

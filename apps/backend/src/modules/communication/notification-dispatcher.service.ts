@@ -39,6 +39,15 @@ export interface DispatchInput {
   dedupKey?: string;
 }
 
+export interface DispatchSummary {
+  /** Recipients successfully sent (or skipped_noop) this dispatch. */
+  sent: number;
+  /** Recipients skipped because already delivered under this dedupKey. */
+  skipped: number;
+  /** Recipients whose send failed this dispatch. */
+  failed: number;
+}
+
 @Injectable()
 export class NotificationDispatcher {
   constructor(
@@ -54,8 +63,12 @@ export class NotificationDispatcher {
    * continues. `dispatch` itself never rejects due to a send failure — only a push-sender error
    * propagates (push runs after the email loop). On retry, recipients with a prior non-failed row
    * under the same `dedupKey` are skipped; failed/never-attempted ones are (re)sent.
+   *
+   * Returns a per-dispatch summary `{ sent, skipped, failed }` reflecting only the actions taken
+   * in this call — callers accumulate `summary.sent` rather than `recipients.length` to avoid
+   * overcounting on retry runs where some recipients are dedup-skipped.
    */
-  async dispatch(input: DispatchInput): Promise<void> {
+  async dispatch(input: DispatchInput): Promise<DispatchSummary> {
     // Build the set of already-succeeded recipients for this dedupKey (per-recipient idempotency).
     const alreadyDelivered = new Set<string>();
     if (input.dedupKey) {
@@ -72,9 +85,12 @@ export class NotificationDispatcher {
     const rendered = renderTemplate(base, input.variables);
 
     const sent: DispatchRecipient[] = [];
+    let skipped = 0;
+    let failed = 0;
 
     for (const recipient of input.recipients) {
       if (alreadyDelivered.has(recipient.email)) {
+        skipped++;
         continue;
       }
 
@@ -109,6 +125,8 @@ export class NotificationDispatcher {
 
       if (result.status !== 'failed') {
         sent.push(recipient);
+      } else {
+        failed++;
       }
     }
 
@@ -120,5 +138,7 @@ export class NotificationDispatcher {
     if (userIds.length > 0) {
       await this.pushSender.sendToUsers(input.tenantId, userIds, toPushNotification(rendered));
     }
+
+    return { sent: sent.length, skipped, failed };
   }
 }

@@ -26,7 +26,13 @@ function stateWithStaff(emails: string[] = ['admin@uc.ru']) {
 }
 
 function make(opts: { dispatch?: ReturnType<typeof vi.fn>; expiring?: unknown[] } = {}) {
-  const dispatch = opts.dispatch ?? vi.fn().mockResolvedValue(undefined);
+  const dispatch =
+    opts.dispatch ??
+    vi
+      .fn()
+      .mockImplementation((input) =>
+        Promise.resolve({ sent: input.recipients.length, skipped: 0, failed: 0 })
+      );
   const findActiveExpiringBefore = vi.fn().mockResolvedValue(opts.expiring ?? [license()]);
   const scanner = new LicenseExpiryScanner(
     { findActiveExpiringBefore } as never,
@@ -80,7 +86,11 @@ describe('LicenseExpiryScanner.scanTenant', () => {
     const termBValidUntil = '2027-08-20';
     const asOfB = '2027-05-22';
 
-    const dispatchA = vi.fn().mockResolvedValue(undefined);
+    const dispatchA = vi
+      .fn()
+      .mockImplementation((input) =>
+        Promise.resolve({ sent: input.recipients.length, skipped: 0, failed: 0 })
+      );
     const { scanner: scannerA } = make({
       dispatch: dispatchA,
       expiring: [license({ validUntil: termAValidUntil })]
@@ -88,7 +98,11 @@ describe('LicenseExpiryScanner.scanTenant', () => {
     await scannerA.scanTenant('t1', ASOF, stateWithStaff() as never);
     const dedupKeyA: string = dispatchA.mock.calls[0]![0].dedupKey;
 
-    const dispatchB = vi.fn().mockResolvedValue(undefined);
+    const dispatchB = vi
+      .fn()
+      .mockImplementation((input) =>
+        Promise.resolve({ sent: input.recipients.length, skipped: 0, failed: 0 })
+      );
     const { scanner: scannerB } = make({
       dispatch: dispatchB,
       expiring: [license({ validUntil: termBValidUntil })]
@@ -109,5 +123,14 @@ describe('LicenseExpiryScanner.scanTenant', () => {
     const summary = await scanner.scanTenant('t1', ASOF, stateWithStaff() as never);
     expect(summary.remindersDispatched).toBe(0);
     errorSpy.mockRestore();
+  });
+
+  it('a fully-deduped re-dispatch does not overcount (audit tail regression)', async () => {
+    // Simulate the dispatcher returning sent:0 when all recipients were already delivered.
+    const dispatch = vi.fn().mockResolvedValue({ sent: 0, skipped: 1, failed: 0 });
+    const { scanner } = make({ dispatch });
+    const summary = await scanner.scanTenant('t1', ASOF, stateWithStaff() as never);
+    // Despite having 1 recipient in the roster, the counter must reflect actual sends (0).
+    expect(summary.remindersDispatched).toBe(0);
   });
 });
