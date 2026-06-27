@@ -882,7 +882,7 @@ export class DocumentsService {
       documentType: req.documentType,
       prefix: req.prefix ?? '',
       suffix: req.suffix ?? '',
-      pattern: req.pattern ?? '{prefix}{counter}{suffix}',
+      pattern: req.pattern ?? this.defaultNumberingPattern(req.resetPeriod ?? 'none'),
       currentCounter: 0,
       resetPeriod: req.resetPeriod ?? 'none',
       isActive: true,
@@ -974,12 +974,25 @@ export class DocumentsService {
       this.state.numberingRules.push(rule);
     }
     const periodKey = this.periodKey(rule.resetPeriod);
-    if (rule.periodKey && rule.periodKey !== periodKey) rule.currentCounter = 0;
-    rule.periodKey = periodKey;
-    rule.currentCounter += 1;
-    const counter = `${rule.currentCounter}`.padStart(6, '0');
-    const formatted = rule.pattern
+    // Period rollover (new year/month) restarts the sequence at 1. Compute the
+    // next value WITHOUT committing it yet — a failed reservation below must not
+    // burn a counter value and leave a gap in a regulated register.
+    const rolledOver = rule.periodKey !== undefined && rule.periodKey !== periodKey;
+    const nextCounter = rolledOver ? 1 : rule.currentCounter + 1;
+    const counter = `${nextCounter}`.padStart(6, '0');
+    // {period} keeps reset numbers globally unique: after a rollover the counter
+    // resets, so without the period the new period's #1 collides with the prior
+    // period's #1 (the silent-failure источник). Legacy rules that reset by period
+    // but omit {period} from their pattern are qualified here so issuance never
+    // silently fails on rollover.
+    const periodToken = rule.resetPeriod === 'none' ? '' : periodKey;
+    const pattern =
+      rule.resetPeriod !== 'none' && !rule.pattern.includes('{period}')
+        ? rule.pattern.replace('{counter}', '{period}-{counter}')
+        : rule.pattern;
+    const formatted = pattern
       .replace('{prefix}', rule.prefix)
+      .replace('{period}', periodToken)
       .replace('{suffix}', rule.suffix)
       .replace('{counter}', counter);
     if (
@@ -987,6 +1000,9 @@ export class DocumentsService {
     ) {
       throw new ConflictException(`Reservation number ${formatted} already exists`);
     }
+    // Commit the sequence advance only after the uniqueness check passed.
+    rule.currentCounter = nextCounter;
+    rule.periodKey = periodKey;
     const reservation: NumberReservationEntity = {
       id: this.id('nres'),
       tenantId,
@@ -1082,6 +1098,15 @@ export class DocumentsService {
         resolvedAt: this.now()
       }
     };
+  }
+
+  /**
+   * Default номер-паттерн. Period-reset правила встраивают {period}, чтобы
+   * сброшенный каждый год/месяц счётчик оставался глобально уникальным
+   * (CERT-2026-000001) — иначе #1 нового периода коллидирует с #1 прошлого.
+   */
+  private defaultNumberingPattern(reset: 'none' | 'year' | 'month'): string {
+    return reset === 'none' ? '{prefix}{counter}{suffix}' : '{prefix}{period}-{counter}{suffix}';
   }
 
   private periodKey(reset: 'none' | 'year' | 'month') {
