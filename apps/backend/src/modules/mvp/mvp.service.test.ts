@@ -3484,4 +3484,176 @@ describe('progress denominator (audit tail 1c)', () => {
     expect(modProgress!.progressPercent).toBe(100);
     expect(modProgress!.status).toBe('completed');
   });
+
+  it('course pinned to v1 reaches 100% even when v2 is published with extra modules', () => {
+    const service = makeService();
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'C4', title: 'Course4' },
+      ctx
+    );
+
+    // v1: one module with one required 600s material.
+    const v1 = service.createCourseVersion('tenant_demo', course.id);
+    const v1mod = service.createModule(
+      'tenant_demo',
+      ctx.userId,
+      { courseVersionId: v1.id, title: 'V1 Mod', minViewSeconds: 0 },
+      ctx
+    );
+    const v1mat = service.createMaterial(
+      'tenant_demo',
+      ctx.userId,
+      { moduleId: v1mod.id, title: 'V1 Mat', materialType: 'video', minViewSeconds: 600 },
+      ctx
+    );
+
+    // v2: two EXTRA modules each with a required material — must NOT be counted.
+    const v2 = service.createCourseVersion('tenant_demo', course.id);
+    const v2modA = service.createModule(
+      'tenant_demo',
+      ctx.userId,
+      { courseVersionId: v2.id, title: 'V2 ModA', minViewSeconds: 0 },
+      ctx
+    );
+    service.createMaterial(
+      'tenant_demo',
+      ctx.userId,
+      { moduleId: v2modA.id, title: 'V2 MatA', materialType: 'video', minViewSeconds: 600 },
+      ctx
+    );
+    const v2modB = service.createModule(
+      'tenant_demo',
+      ctx.userId,
+      { courseVersionId: v2.id, title: 'V2 ModB', minViewSeconds: 0 },
+      ctx
+    );
+    service.createMaterial(
+      'tenant_demo',
+      ctx.userId,
+      { moduleId: v2modB.id, title: 'V2 MatB', materialType: 'video', minViewSeconds: 600 },
+      ctx
+    );
+
+    // Both versions are published (publishing v2 does not demote v1).
+    service['state'].courseVersions.find((v) => v.id === v1.id)!.status = 'published';
+    service['state'].courseVersions.find((v) => v.id === v2.id)!.status = 'published';
+
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G4', name: 'Group4' },
+      ctx
+    );
+    const gc = service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    // Pin the group's course to v1.
+    service['state'].groupCourses.find((g) => g.id === gc.id)!.courseVersionId = v1.id;
+
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'L4', name: 'Pat Doe' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+
+    // Study v1's material to completion — course should be 100% (v2 not counted).
+    service.upsertMaterialProgress(
+      'tenant_demo',
+      ctx.userId,
+      v1mat.id,
+      { enrollmentId: enrollment.id, studiedSeconds: 600 },
+      ctx
+    );
+
+    const courseProgressRow = service['state'].courseProgress.find(
+      (p: { tenantId: string; courseId: string; enrollmentId: string }) =>
+        p.tenantId === 'tenant_demo' && p.courseId === course.id && p.enrollmentId === enrollment.id
+    );
+    expect(courseProgressRow).toBeDefined();
+    expect(courseProgressRow!.progressPercent).toBe(100);
+    expect(courseProgressRow!.status).toBe('completed');
+  });
+
+  it('published-version primary path (no group pin)', () => {
+    const service = makeService();
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'C5', title: 'Course5' },
+      ctx
+    );
+    const version = service.createCourseVersion('tenant_demo', course.id);
+    const mod1 = service.createModule(
+      'tenant_demo',
+      ctx.userId,
+      { courseVersionId: version.id, title: 'Mod1', minViewSeconds: 0 },
+      ctx
+    );
+    const mod2 = service.createModule(
+      'tenant_demo',
+      ctx.userId,
+      { courseVersionId: version.id, title: 'Mod2', minViewSeconds: 0 },
+      ctx
+    );
+    const mat1 = service.createMaterial(
+      'tenant_demo',
+      ctx.userId,
+      { moduleId: mod1.id, title: 'Mat1', materialType: 'video', minViewSeconds: 600 },
+      ctx
+    );
+    service.createMaterial(
+      'tenant_demo',
+      ctx.userId,
+      { moduleId: mod2.id, title: 'Mat2', materialType: 'video', minViewSeconds: 600 },
+      ctx
+    );
+
+    // Single published version; group course WITHOUT a version pin → exercises
+    // the published-primary branch (not the progress-referenced fallback).
+    service['state'].courseVersions.find((v) => v.id === version.id)!.status = 'published';
+
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G5', name: 'Group5' },
+      ctx
+    );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'L5', name: 'Lee Doe' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+
+    // Complete only module 1 → course should be 50% / in_progress.
+    service.upsertMaterialProgress(
+      'tenant_demo',
+      ctx.userId,
+      mat1.id,
+      { enrollmentId: enrollment.id, studiedSeconds: 600 },
+      ctx
+    );
+
+    const courseProgressRow = service['state'].courseProgress.find(
+      (p: { tenantId: string; courseId: string; enrollmentId: string }) =>
+        p.tenantId === 'tenant_demo' && p.courseId === course.id && p.enrollmentId === enrollment.id
+    );
+    expect(courseProgressRow).toBeDefined();
+    expect(courseProgressRow!.progressPercent).toBe(50);
+    expect(courseProgressRow!.status).toBe('in_progress');
+  });
 });

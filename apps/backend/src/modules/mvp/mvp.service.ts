@@ -2399,15 +2399,6 @@ export class MvpService {
         (mat) => mat.tenantId === tenantId && mat.moduleId === moduleId && (mat.isRequired ?? true)
       );
 
-    // Prefer published versions — a draft v2 created mid-enrollment must not
-    // inflate a v1 learner's denominator.
-    const publishedVersionIds = new Set(
-      this.state.courseVersions
-        .filter(
-          (v) => v.tenantId === tenantId && v.courseId === courseId && v.status === 'published'
-        )
-        .map((v) => v.id)
-    );
     const courseModulesFor = (versionIds: Set<string>) =>
       this.state.modules.filter(
         (m) =>
@@ -2416,19 +2407,50 @@ export class MvpService {
           moduleHasRequiredMaterial(m.id)
       );
 
-    let courseModules = courseModulesFor(publishedVersionIds);
-    // Empty-case guard: if no published version yields a gating module yet the
-    // learner already has module progress, fall back to the versions referenced
-    // by that progress so we never collapse to a 100%-because-empty result.
+    // Version-scope precedence: PINNED > PUBLISHED > PROGRESS-REFERENCED.
+    // A course can legitimately have >1 published version at once (publishing a
+    // new version does NOT demote the old one), so "all published versions" is
+    // the wrong denominator — a learner pinned to v1 would have v2's modules
+    // added and could never reach 100%. We therefore scope to the version the
+    // enrollment's group is actually pinned to (GroupCourse.courseVersionId),
+    // falling back to published versions when the group has no pin, and finally
+    // to the versions referenced by existing moduleProgress so we never collapse
+    // to a 100%-because-empty result.
+    const enrollment = this.state.enrollments.find(
+      (e) => e.tenantId === tenantId && e.id === enrollmentId
+    );
+    const pinnedVersionIds = new Set(
+      enrollment
+        ? this.state.groupCourses
+            .filter(
+              (gc) =>
+                gc.tenantId === tenantId &&
+                gc.courseId === courseId &&
+                gc.groupId === enrollment.groupId &&
+                gc.courseVersionId
+            )
+            .map((gc) => gc.courseVersionId as string)
+        : []
+    );
+    const publishedVersionIds = new Set(
+      this.state.courseVersions
+        .filter(
+          (v) => v.tenantId === tenantId && v.courseId === courseId && v.status === 'published'
+        )
+        .map((v) => v.id)
+    );
+    const progressVersionIds = new Set(
+      moduleProgress
+        .map((mp) =>
+          this.state.modules.find((m) => m.tenantId === tenantId && m.id === mp.moduleId)
+        )
+        .filter((m): m is (typeof this.state.modules)[number] => Boolean(m))
+        .map((m) => m.courseVersionId)
+    );
+
+    let courseModules = courseModulesFor(pinnedVersionIds);
+    if (courseModules.length === 0) courseModules = courseModulesFor(publishedVersionIds);
     if (courseModules.length === 0 && moduleProgress.length > 0) {
-      const progressVersionIds = new Set(
-        moduleProgress
-          .map((mp) =>
-            this.state.modules.find((m) => m.tenantId === tenantId && m.id === mp.moduleId)
-          )
-          .filter((m): m is (typeof this.state.modules)[number] => Boolean(m))
-          .map((m) => m.courseVersionId)
-      );
       courseModules = courseModulesFor(progressVersionIds);
     }
 
