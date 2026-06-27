@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { InMemoryLicensesRepository } from './in-memory-licenses.repository.js';
 import { LicensesService } from './licenses.service.js';
@@ -26,6 +26,51 @@ const baseRequest = {
   issuerName: 'Рособрнадзор',
   issuedAt: '2024-01-15'
 };
+
+describe('findActiveLicensesFor — time-expired licenses fail the publish gate (§5.10)', () => {
+  it('excludes an active license whose validUntil is already in the past', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-06-27T00:00:00.000Z'));
+      const service = makeService();
+      // status stays 'active' (nothing flips active→expired), but validUntil has passed.
+      await service.create(
+        'tenant_demo',
+        ctx.userId,
+        { ...baseRequest, validUntil: '2025-12-31' },
+        ctx
+      );
+      const valid = await service.findActiveLicensesFor('tenant_demo', 'primary');
+      expect(valid).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('includes a license valid through today and an open-ended (бессрочная) license', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-06-27T00:00:00.000Z'));
+      const service = makeService();
+      await service.create(
+        'tenant_demo',
+        ctx.userId,
+        { ...baseRequest, licenseNumber: 'L-today', validUntil: '2026-06-27' },
+        ctx
+      );
+      await service.create(
+        'tenant_demo',
+        ctx.userId,
+        { ...baseRequest, licenseNumber: 'L-open' },
+        ctx
+      );
+      const valid = await service.findActiveLicensesFor('tenant_demo', 'primary');
+      expect(valid).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
 
 describe('LicensesService — CRUD (Plan C §5.10)', () => {
   it('creates active license with required fields only', async () => {

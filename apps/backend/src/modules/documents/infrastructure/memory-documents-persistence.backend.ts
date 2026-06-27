@@ -5,6 +5,7 @@ import {
   type DocumentsArrayCollection
 } from './documents-collections.js';
 
+import type { GeneratedDocumentEntity } from '../documents.types.js';
 import type { InMemoryDocumentsState } from '../in-memory-documents.state.js';
 import type { DocumentsPersistenceBackend } from './documents-persistence.backend.js';
 
@@ -39,6 +40,18 @@ export class MemoryDocumentsPersistenceBackend implements DocumentsPersistenceBa
       arrays,
       idemEntries: Array.from(state.idem.entries())
     });
+  }
+
+  async findGeneratedDocumentByQrToken(
+    token: string
+  ): Promise<{ tenantId: string; document: GeneratedDocumentEntity } | null> {
+    if (!token) return null;
+    for (const [tenantId, snap] of this.snapshots) {
+      const docs = snap.arrays.generatedDocuments as GeneratedDocumentEntity[] | undefined;
+      const document = docs?.find((d) => d?.qrToken === token);
+      if (document) return { tenantId, document };
+    }
+    return null;
   }
 
   private pick(state: InMemoryDocumentsState, col: DocumentsArrayCollection): unknown[] {
