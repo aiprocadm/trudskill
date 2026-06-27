@@ -3254,17 +3254,6 @@ describe('Plan C — listMyAssignments', () => {
 });
 
 describe('progress denominator (audit tail 1c)', () => {
-  function makeService(): MvpService {
-    return new MvpService(
-      new InMemoryMvpState(),
-      new TenantScopedRepository(),
-      new AuditService(),
-      noopDocumentsService,
-      noopFilesService,
-      new EventEmitter2()
-    );
-  }
-
   it('module is not 100% until every material in the module is completed', () => {
     const service = makeService();
     const course = service.createCourse(
@@ -3327,7 +3316,7 @@ describe('progress denominator (audit tail 1c)', () => {
     );
     expect(modProgressAfterA).toBeDefined();
     expect(modProgressAfterA!.progressPercent).toBe(50);
-    expect(modProgressAfterA!.status).not.toBe('completed');
+    expect(modProgressAfterA!.status).toBe('in_progress');
 
     // Now study material B fully — module should be 100%, completed
     service.upsertMaterialProgress(
@@ -3415,6 +3404,84 @@ describe('progress denominator (audit tail 1c)', () => {
     );
     expect(courseProgressRow).toBeDefined();
     expect(courseProgressRow!.progressPercent).toBe(50);
-    expect(courseProgressRow!.status).not.toBe('completed');
+    expect(courseProgressRow!.status).toBe('in_progress');
+  });
+
+  it('optional material does not block module completion (isRequired:false)', () => {
+    const service = makeService();
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'C3', title: 'Course3' },
+      ctx
+    );
+    const version = service.createCourseVersion('tenant_demo', course.id);
+    const mod = service.createModule(
+      'tenant_demo',
+      ctx.userId,
+      { courseVersionId: version.id, title: 'Mod1', minViewSeconds: 0 },
+      ctx
+    );
+    const required = service.createMaterial(
+      'tenant_demo',
+      ctx.userId,
+      {
+        moduleId: mod.id,
+        title: 'Required',
+        materialType: 'video',
+        minViewSeconds: 600,
+        isRequired: true
+      },
+      ctx
+    );
+    // Optional material — must NOT block 100%.
+    service.createMaterial(
+      'tenant_demo',
+      ctx.userId,
+      {
+        moduleId: mod.id,
+        title: 'Optional',
+        materialType: 'video',
+        minViewSeconds: 600,
+        isRequired: false
+      },
+      ctx
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G3', name: 'Group3' },
+      ctx
+    );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'L3', name: 'Sam Doe' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+
+    // Study only the required material — module should reach 100%/completed.
+    service.upsertMaterialProgress(
+      'tenant_demo',
+      ctx.userId,
+      required.id,
+      { enrollmentId: enrollment.id, studiedSeconds: 600 },
+      ctx
+    );
+
+    const modProgress = service['state'].moduleProgress.find(
+      (p: { tenantId: string; moduleId: string; enrollmentId: string }) =>
+        p.tenantId === 'tenant_demo' && p.moduleId === mod.id && p.enrollmentId === enrollment.id
+    );
+    expect(modProgress).toBeDefined();
+    expect(modProgress!.progressPercent).toBe(100);
+    expect(modProgress!.status).toBe('completed');
   });
 });

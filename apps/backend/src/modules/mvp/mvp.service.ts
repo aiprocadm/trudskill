@@ -2292,6 +2292,29 @@ export class MvpService {
     return record;
   }
 
+  /**
+   * Shared count-based progress formula for module/course rollups so the two
+   * callers cannot drift. `progressPercent` is the share of completed items
+   * (100% when there is nothing to complete); `status` is driven by the same
+   * completed/total gate, falling back to studiedSeconds to distinguish
+   * not_started from in_progress.
+   */
+  private countBasedProgress(
+    completedCount: number,
+    totalCount: number,
+    studiedSeconds: number
+  ): { progressPercent: number; status: ProgressStatus } {
+    const progressPercent =
+      totalCount === 0 ? 100 : this.normalizePercent((completedCount / totalCount) * 100);
+    const status: ProgressStatus =
+      totalCount === 0 || completedCount === totalCount
+        ? 'completed'
+        : completedCount > 0 || studiedSeconds > 0
+          ? 'in_progress'
+          : 'not_started';
+    return { progressPercent, status };
+  }
+
   private recalculateModuleProgress(
     tenantId: string,
     enrollmentId: string,
@@ -2302,24 +2325,28 @@ export class MvpService {
     const allMaterials = this.state.materials.filter(
       (item) => item.tenantId === tenantId && item.moduleId === moduleId
     );
+    // Only REQUIRED materials gate completion — optional ones never block 100%.
+    const requiredMaterialIds = new Set(
+      allMaterials.filter((m) => m.isRequired ?? true).map((m) => m.id)
+    );
     const progressRows = this.state.materialProgress.filter(
       (item) =>
         item.tenantId === tenantId &&
         item.enrollmentId === enrollmentId &&
         item.moduleId === moduleId
     );
+    // Display sums stay over ALL materials / all visited rows (informational).
     const requiredSeconds = allMaterials.reduce((acc, item) => acc + item.minViewSeconds, 0);
     const studiedSeconds = progressRows.reduce((acc, item) => acc + item.studiedSeconds, 0);
-    const totalCount = allMaterials.length;
-    const completedCount = progressRows.filter((item) => item.status === 'completed').length;
-    const progressPercent =
-      totalCount === 0 ? 100 : this.normalizePercent((completedCount / totalCount) * 100);
-    const status: ProgressStatus =
-      totalCount === 0 || completedCount === totalCount
-        ? 'completed'
-        : completedCount > 0 || studiedSeconds > 0
-          ? 'in_progress'
-          : 'not_started';
+    const totalCount = requiredMaterialIds.size;
+    const completedCount = progressRows.filter(
+      (item) => item.status === 'completed' && requiredMaterialIds.has(item.materialId)
+    ).length;
+    const { progressPercent, status } = this.countBasedProgress(
+      completedCount,
+      totalCount,
+      studiedSeconds
+    );
     const now = this.now();
     const existing = this.state.moduleProgress.find(
       (item) =>
@@ -2356,39 +2383,66 @@ export class MvpService {
     enrollmentId: string,
     courseId: string
   ): void {
-    // Drive completion from the FULL module set of the course, not just modules with opened materials.
-    const versionIds = new Set(
-      this.state.courseVersions
-        .filter((v) => v.tenantId === tenantId && v.courseId === courseId)
-        .map((v) => v.id)
-    );
-    // Only count modules that actually contain ≥1 material (open assumption, documented deviation).
-    const courseModules = this.state.modules.filter(
-      (m) =>
-        m.tenantId === tenantId &&
-        versionIds.has(m.courseVersionId) &&
-        this.state.materials.some((mat) => mat.tenantId === tenantId && mat.moduleId === m.id)
-    );
     const moduleProgress = this.state.moduleProgress.filter(
       (item) =>
         item.tenantId === tenantId &&
         item.enrollmentId === enrollmentId &&
         item.courseId === courseId
     );
+
+    // A module gates course completion only if it holds ≥1 REQUIRED material
+    // (a module whose materials are all optional shouldn't count). NOTE: this
+    // nested scan is O(modules × materials) over in-memory state — replace with
+    // an indexed query at the Postgres-backend port.
+    const moduleHasRequiredMaterial = (moduleId: string): boolean =>
+      this.state.materials.some(
+        (mat) => mat.tenantId === tenantId && mat.moduleId === moduleId && (mat.isRequired ?? true)
+      );
+
+    // Prefer published versions — a draft v2 created mid-enrollment must not
+    // inflate a v1 learner's denominator.
+    const publishedVersionIds = new Set(
+      this.state.courseVersions
+        .filter(
+          (v) => v.tenantId === tenantId && v.courseId === courseId && v.status === 'published'
+        )
+        .map((v) => v.id)
+    );
+    const courseModulesFor = (versionIds: Set<string>) =>
+      this.state.modules.filter(
+        (m) =>
+          m.tenantId === tenantId &&
+          versionIds.has(m.courseVersionId) &&
+          moduleHasRequiredMaterial(m.id)
+      );
+
+    let courseModules = courseModulesFor(publishedVersionIds);
+    // Empty-case guard: if no published version yields a gating module yet the
+    // learner already has module progress, fall back to the versions referenced
+    // by that progress so we never collapse to a 100%-because-empty result.
+    if (courseModules.length === 0 && moduleProgress.length > 0) {
+      const progressVersionIds = new Set(
+        moduleProgress
+          .map((mp) =>
+            this.state.modules.find((m) => m.tenantId === tenantId && m.id === mp.moduleId)
+          )
+          .filter((m): m is (typeof this.state.modules)[number] => Boolean(m))
+          .map((m) => m.courseVersionId)
+      );
+      courseModules = courseModulesFor(progressVersionIds);
+    }
+
     const requiredSeconds = moduleProgress.reduce((acc, item) => acc + item.requiredSeconds, 0);
     const studiedSeconds = moduleProgress.reduce((acc, item) => acc + item.studiedSeconds, 0);
     const totalCount = courseModules.length;
     const completedCount = courseModules.filter((m) =>
       moduleProgress.some((mp) => mp.moduleId === m.id && mp.status === 'completed')
     ).length;
-    const progressPercent =
-      totalCount === 0 ? 100 : this.normalizePercent((completedCount / totalCount) * 100);
-    const status: ProgressStatus =
-      totalCount === 0 || completedCount === totalCount
-        ? 'completed'
-        : completedCount > 0 || studiedSeconds > 0
-          ? 'in_progress'
-          : 'not_started';
+    const { progressPercent, status } = this.countBasedProgress(
+      completedCount,
+      totalCount,
+      studiedSeconds
+    );
     const now = this.now();
     const existing = this.state.courseProgress.find(
       (item) =>
