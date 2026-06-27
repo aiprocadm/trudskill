@@ -17,12 +17,10 @@ export interface SendResult {
 
 export interface MailerService {
   /**
-   * Send one message. MUST NOT throw — transport failures are returned as
-   * `{ status: 'failed', error }`. `NotificationDispatcher` relies on this: it loops over
-   * recipients recording a per-recipient delivery (which carries the send-once `dedupKey`),
-   * so a throw mid-loop would strand the remaining recipients (their dispatch is skipped on
-   * the next run once an earlier recipient's `dedupKey` row exists). Implementations wrap
-   * their transport in try/catch (see `SmtpMailer`).
+   * Send one message. Implementations SHOULD return transport failures as
+   * `{ status: 'failed', error }` rather than throwing (see `SmtpMailer`);
+   * `NotificationDispatcher` also catches throws per-recipient defensively, recording a
+   * failed delivery and continuing, so a mid-loop throw no longer strands later recipients.
    */
   send(message: EmailMessage): Promise<SendResult>;
 }

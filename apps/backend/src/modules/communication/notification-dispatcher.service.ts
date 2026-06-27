@@ -48,6 +48,13 @@ export class NotificationDispatcher {
     @Inject(WEB_PUSH_SENDER) private readonly pushSender: WebPushSenderPort
   ) {}
 
+  /**
+   * Per-recipient idempotency + throw-safety: each `mailer.send` is wrapped in try/catch, so a
+   * mailer throw is caught per-recipient and recorded as a `failed` delivery row while the loop
+   * continues. `dispatch` itself never rejects due to a send failure — only a push-sender error
+   * propagates (push runs after the email loop). On retry, recipients with a prior non-failed row
+   * under the same `dedupKey` are skipped; failed/never-attempted ones are (re)sent.
+   */
   async dispatch(input: DispatchInput): Promise<void> {
     // Build the set of already-succeeded recipients for this dedupKey (per-recipient idempotency).
     const alreadyDelivered = new Set<string>();
