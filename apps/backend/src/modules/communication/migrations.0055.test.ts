@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const sql = readFileSync(
-  join(process.cwd(), 'migrations', '0055_communication_webinar_provider_seam.sql'),
+  join(__dirname, '../../../migrations/0055_communication_webinar_provider_seam.sql'),
   'utf8'
 );
 
