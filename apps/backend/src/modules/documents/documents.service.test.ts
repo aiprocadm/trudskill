@@ -739,6 +739,55 @@ describe('DocumentsService', () => {
     expect(created.variableCode).toBe('program.academic_hours');
   });
 
+  describe('audit tail 1a — durable source-entity dedup survives TTL cache expiry', () => {
+    it('returns the same task when re-called after TTL cache is cleared', () => {
+      const service = new DocumentsService(
+        new InMemoryDocumentsState(),
+        new AuditService(),
+        new RealtimeEventsService()
+      );
+      const template = service.createTemplate(
+        't1',
+        'u1',
+        { name: 'Cert', templateType: 'certificate' },
+        ctx
+      );
+      const version = service.createTemplateVersion('t1', 'u1', {
+        templateId: template.id,
+        fileId: 'file_cert'
+      });
+      service.activateTemplateVersion('t1', 'u1', version.id, ctx);
+
+      const first = service.generateDocument('t1', 'u1', {
+        idempotencyKey: 'enrollment:e1:tpl:v1',
+        templateId: template.id,
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'e1',
+        documentType: 'certificate'
+      });
+
+      // Simulate >24h passing: evict the TTL cache exactly as cleanupIdempotencyCache does.
+
+      (service as any)['state'].idem.clear();
+
+      const second = service.generateDocument('t1', 'u1', {
+        idempotencyKey: 'enrollment:e1:tpl:v1',
+        templateId: template.id,
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'e1',
+        documentType: 'certificate'
+      });
+
+      expect(second.id).toBe(first.id);
+
+      const tasksForSource = (service as any)['state'].tasks.filter(
+        (t: { sourceEntityType: string; sourceEntityId: string }) =>
+          t.sourceEntityType === 'enrollment' && t.sourceEntityId === 'e1'
+      );
+      expect(tasksForSource).toHaveLength(1);
+    });
+  });
+
   it('accepts commission category for template variables (Plan A §5.5)', () => {
     const service = new DocumentsService(
       new InMemoryDocumentsState(),

@@ -593,6 +593,29 @@ export class DocumentsService {
     const existing = this.state.idem.get(idemKey);
     if (existing && existing.expiresAt > Date.now())
       return this.getDocumentTask(tenantId, existing.taskId);
+    // Durable dedup: if a source entity is specified, check the persisted task set for an
+    // existing non-failed task for the same (tenantId, templateId, sourceEntityType,
+    // sourceEntityId, taskType='generate'). This survives the 24h TTL cache expiry and
+    // prevents duplicate certificates when ENROLLMENT_COMPLETED_EVENT is re-emitted.
+    if (req.sourceEntityType && req.sourceEntityId) {
+      const durable = this.state.tasks.find(
+        (t) =>
+          t.tenantId === tenantId &&
+          t.templateId === req.templateId &&
+          t.sourceEntityType === req.sourceEntityType &&
+          t.sourceEntityId === req.sourceEntityId &&
+          t.taskType === 'generate' &&
+          t.status !== 'failed'
+      );
+      if (durable) {
+        // Repopulate the TTL cache so subsequent in-window calls stay on the fast path.
+        this.state.idem.set(idemKey, {
+          taskId: durable.id,
+          expiresAt: Date.now() + 24 * 60 * 60 * 1000
+        });
+        return this.getDocumentTask(tenantId, durable.id);
+      }
+    }
     const template = this.getTemplate(tenantId, req.templateId);
     if (template.status === 'archived')
       throw new BadRequestException('Cannot generate documents from archived template');
