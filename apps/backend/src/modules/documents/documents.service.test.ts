@@ -786,6 +786,124 @@ describe('DocumentsService', () => {
       );
       expect(tasksForSource).toHaveLength(1);
     });
+
+    function seedGeneratableCertTemplate(service: DocumentsService) {
+      const template = service.createTemplate(
+        't1',
+        'u1',
+        { name: 'Cert', templateType: 'certificate' },
+        ctx
+      );
+      const version = service.createTemplateVersion('t1', 'u1', {
+        templateId: template.id,
+        fileId: 'file_cert'
+      });
+      service.activateTemplateVersion('t1', 'u1', version.id, ctx);
+      return template;
+    }
+
+    it('failed prior task allows a fresh issuance', () => {
+      const service = new DocumentsService(
+        new InMemoryDocumentsState(),
+        new AuditService(),
+        new RealtimeEventsService()
+      );
+      const template = seedGeneratableCertTemplate(service);
+
+      const first = service.generateDocument('t1', 'u1', {
+        idempotencyKey: 'enrollment:e1:tpl:v1',
+        templateId: template.id,
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'e1',
+        documentType: 'certificate'
+      });
+      // Drive the prior task to 'failed' (e.g. renderer error).
+      service.startTask('t1', first.id);
+      service.failTask('t1', first.id, 'render failed');
+
+      (service as any)['state'].idem.clear();
+
+      const second = service.generateDocument('t1', 'u1', {
+        idempotencyKey: 'enrollment:e1:tpl:v1',
+        templateId: template.id,
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'e1',
+        documentType: 'certificate'
+      });
+
+      expect(second.id).not.toBe(first.id);
+      const tasksForSource = (service as any)['state'].tasks.filter(
+        (t: { sourceEntityType: string; sourceEntityId: string }) =>
+          t.sourceEntityType === 'enrollment' && t.sourceEntityId === 'e1'
+      );
+      expect(tasksForSource).toHaveLength(2);
+    });
+
+    it('cancelled prior task allows a fresh issuance', () => {
+      const service = new DocumentsService(
+        new InMemoryDocumentsState(),
+        new AuditService(),
+        new RealtimeEventsService()
+      );
+      const template = seedGeneratableCertTemplate(service);
+
+      const first = service.generateDocument('t1', 'u1', {
+        idempotencyKey: 'enrollment:e1:tpl:v1',
+        templateId: template.id,
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'e1',
+        documentType: 'certificate'
+      });
+      // Admin cancels the stuck task.
+      service.cancelTask('t1', first.id);
+
+      (service as any)['state'].idem.clear();
+
+      const second = service.generateDocument('t1', 'u1', {
+        idempotencyKey: 'enrollment:e1:tpl:v1',
+        templateId: template.id,
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'e1',
+        documentType: 'certificate'
+      });
+
+      expect(second.id).not.toBe(first.id);
+      const tasksForSource = (service as any)['state'].tasks.filter(
+        (t: { sourceEntityType: string; sourceEntityId: string }) =>
+          t.sourceEntityType === 'enrollment' && t.sourceEntityId === 'e1'
+      );
+      expect(tasksForSource).toHaveLength(2);
+    });
+
+    it('no source entity → durable guard skipped', () => {
+      const service = new DocumentsService(
+        new InMemoryDocumentsState(),
+        new AuditService(),
+        new RealtimeEventsService()
+      );
+      const template = seedGeneratableCertTemplate(service);
+
+      const first = service.generateDocument('t1', 'u1', {
+        idempotencyKey: 'no-source-1',
+        templateId: template.id,
+        sourceEntityType: '',
+        sourceEntityId: '',
+        documentType: 'certificate'
+      });
+
+      (service as any)['state'].idem.clear();
+
+      const second = service.generateDocument('t1', 'u1', {
+        idempotencyKey: 'no-source-2',
+        templateId: template.id,
+        sourceEntityType: '',
+        sourceEntityId: '',
+        documentType: 'certificate'
+      });
+
+      expect(second.id).not.toBe(first.id);
+      expect(service.listDocumentTasks('t1', {}).total).toBe(2);
+    });
   });
 
   it('accepts commission category for template variables (Plan A §5.5)', () => {

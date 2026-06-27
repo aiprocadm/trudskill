@@ -594,9 +594,16 @@ export class DocumentsService {
     if (existing && existing.expiresAt > Date.now())
       return this.getDocumentTask(tenantId, existing.taskId);
     // Durable dedup: if a source entity is specified, check the persisted task set for an
-    // existing non-failed task for the same (tenantId, templateId, sourceEntityType,
+    // existing non-terminal-failure task for the same (tenantId, templateId, sourceEntityType,
     // sourceEntityId, taskType='generate'). This survives the 24h TTL cache expiry and
     // prevents duplicate certificates when ENROLLMENT_COMPLETED_EVENT is re-emitted.
+    // Only queued/running/completed count as "already issued": a failed OR cancelled prior
+    // task must NOT block a fresh issuance (after a renderer error or an admin cancel of a
+    // stuck task, the next re-emit should produce a new task).
+    // templateVersionId is intentionally NOT part of the match — a template version upgrade
+    // is not a distinct issuance, so a re-emit with a different version still dedups here.
+    // NOTE: state.tasks.find(...) is an O(n) scan, acceptable for the in-memory MVP backend;
+    // replace with an indexed query at the Postgres-backend port (cf. the idem-cache note).
     if (req.sourceEntityType && req.sourceEntityId) {
       const durable = this.state.tasks.find(
         (t) =>
@@ -605,7 +612,8 @@ export class DocumentsService {
           t.sourceEntityType === req.sourceEntityType &&
           t.sourceEntityId === req.sourceEntityId &&
           t.taskType === 'generate' &&
-          t.status !== 'failed'
+          t.status !== 'failed' &&
+          t.status !== 'cancelled'
       );
       if (durable) {
         // Repopulate the TTL cache so subsequent in-window calls stay on the fast path.
