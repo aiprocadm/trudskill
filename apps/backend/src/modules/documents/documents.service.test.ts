@@ -1214,6 +1214,52 @@ describe('DocumentsService.issueGroupOrder (Plan B §5.7)', () => {
     expect(allCerts).toHaveLength(1);
   });
 
+  it('re-issuing a group order fills in certificates missing from the first issuance', async () => {
+    const { service, state } = seedService();
+    // First call: only e1
+    const first = await service.issueGroupOrder(
+      't1',
+      'actor_1',
+      {
+        groupId: 'g_1',
+        templateId: 'tpl_order',
+        enrollmentIds: ['e1'],
+        certificateTemplateId: 'tpl_cert'
+      },
+      ctx
+    );
+    expect(first.certificates).toHaveLength(1);
+    expect(first.alreadyExisted).toBe(false);
+
+    // Second call: same order (same groupId+templateId) but enrollmentIds grew to ['e1','e2']
+    const second = await service.issueGroupOrder(
+      't1',
+      'actor_1',
+      {
+        groupId: 'g_1',
+        templateId: 'tpl_order',
+        enrollmentIds: ['e1', 'e2'],
+        certificateTemplateId: 'tpl_cert'
+      },
+      ctx
+    );
+    expect(second.alreadyExisted).toBe(true);
+    expect(second.order.id).toBe(first.order.id);
+
+    // Both enrollments should be covered
+    expect(second.certificates).toHaveLength(2);
+    const enrIds = second.certificates.map((c) => c.sourceEntityId).sort();
+    expect(enrIds).toEqual(['e1', 'e2']);
+
+    // No duplicate cert for e1 in state
+    const allCerts = state.generatedDocuments.filter(
+      (d) => d.groupOrderDocumentId === first.order.id
+    );
+    expect(allCerts).toHaveLength(2);
+    const e1Certs = allCerts.filter((d) => d.sourceEntityId === 'e1');
+    expect(e1Certs).toHaveLength(1);
+  });
+
   it('rejects when the order template is not of type "order"', async () => {
     const { service } = seedService();
     await expect(

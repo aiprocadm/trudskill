@@ -1485,8 +1485,12 @@ export class DocumentsService {
         d.status !== 'archived'
     );
     if (existing) {
-      const certificates = this.state.generatedDocuments.filter(
-        (d) => d.tenantId === tenantId && d.groupOrderDocumentId === existing.id
+      const certificates = await this.ensureOrderCertificates(
+        tenantId,
+        actorId,
+        existing,
+        req,
+        ctx
       );
       return { order: existing, certificates, alreadyExisted: true };
     }
@@ -1534,74 +1538,90 @@ export class DocumentsService {
       userAgent: ctx.userAgent
     });
 
-    const certificates: GeneratedDocumentEntity[] = [];
-    if (req.certificateTemplateId && req.enrollmentIds.length > 0) {
-      const certTpl = this.state.templates.find(
-        (t) => t.tenantId === tenantId && t.id === req.certificateTemplateId
-      );
-      if (!certTpl) {
-        throw new NotFoundException(`Template ${req.certificateTemplateId} not found`);
-      }
-      const certVersionId =
-        certTpl.currentVersionId ??
-        this.state.versions.find(
-          (v) => v.tenantId === tenantId && v.templateId === req.certificateTemplateId && v.isActive
-        )?.id ??
-        '';
-      for (const enrId of req.enrollmentIds) {
-        // Within-order idempotency: тот же enrollment не выпускается дважды.
-        const dup = this.state.generatedDocuments.find(
-          (d) =>
-            d.tenantId === tenantId &&
-            d.sourceEntityType === 'enrollment' &&
-            d.sourceEntityId === enrId &&
-            d.templateId === req.certificateTemplateId &&
-            d.groupOrderDocumentId === order.id
-        );
-        if (dup) {
-          certificates.push(dup);
-          continue;
-        }
-        const certNumber = this.reserveNumber(tenantId, certTpl.templateType).reservedNumber;
-        const cert: GeneratedDocumentEntity = {
-          id: this.id('gdoc'),
-          tenantId,
-          templateId: req.certificateTemplateId,
-          templateVersionId: certVersionId,
-          documentType: certTpl.templateType,
-          name: `${certTpl.name} ${certNumber}`,
-          sourceEntityType: 'enrollment',
-          sourceEntityId: enrId,
-          fileId: '',
-          status: 'generated',
-          documentNumber: certNumber,
-          documentDate: now.slice(0, 10),
-          isFinal: false,
-          generatedBy: actorId,
-          generatedAt: now,
-          groupOrderDocumentId: order.id,
-          qrToken: this.generateQrToken()
-        };
-        this.state.generatedDocuments.push(cert);
-        certificates.push(cert);
-        await this.auditService.writeCritical({
-          tenantId,
-          actorId,
-          action: 'documents.certificate_issued_via_order',
-          entityType: 'documents.generated',
-          entityId: cert.id,
-          newValues: { enrollmentId: enrId, orderId: order.id } as unknown as Record<
-            string,
-            unknown
-          >,
-          requestId: ctx.requestId,
-          correlationId: ctx.correlationId,
-          ip: ctx.ip,
-          userAgent: ctx.userAgent
-        });
-      }
-    }
-
+    const certificates = await this.ensureOrderCertificates(tenantId, actorId, order, req, ctx);
     return { order, certificates, alreadyExisted: false };
+  }
+
+  /**
+   * Гарантирует, что для каждого `enrollmentId` в `req` существует удостоверение,
+   * привязанное к `order`. Пропускает уже выпущенные (идемпотентность внутри приказа).
+   * Вызывается как на новом приказе, так и при повторном вызове `issueGroupOrder`
+   * (self-healing: до-выпускает удостоверения, пропущенные в предыдущем прерванном запросе).
+   */
+  private async ensureOrderCertificates(
+    tenantId: string,
+    actorId: string | undefined,
+    order: GeneratedDocumentEntity,
+    req: IssueGroupOrderRequest,
+    ctx: RequestContext
+  ): Promise<GeneratedDocumentEntity[]> {
+    if (!req.certificateTemplateId || req.enrollmentIds.length === 0) {
+      return this.state.generatedDocuments.filter(
+        (d) => d.tenantId === tenantId && d.groupOrderDocumentId === order.id
+      );
+    }
+    const certTpl = this.state.templates.find(
+      (t) => t.tenantId === tenantId && t.id === req.certificateTemplateId
+    );
+    if (!certTpl) {
+      throw new NotFoundException(`Template ${req.certificateTemplateId} not found`);
+    }
+    const certVersionId =
+      certTpl.currentVersionId ??
+      this.state.versions.find(
+        (v) => v.tenantId === tenantId && v.templateId === req.certificateTemplateId && v.isActive
+      )?.id ??
+      '';
+    const now = this.now();
+    for (const enrId of req.enrollmentIds) {
+      // Within-order idempotency: тот же enrollment не выпускается дважды.
+      const dup = this.state.generatedDocuments.find(
+        (d) =>
+          d.tenantId === tenantId &&
+          d.sourceEntityType === 'enrollment' &&
+          d.sourceEntityId === enrId &&
+          d.templateId === req.certificateTemplateId &&
+          d.groupOrderDocumentId === order.id
+      );
+      if (dup) {
+        continue;
+      }
+      const certNumber = this.reserveNumber(tenantId, certTpl.templateType).reservedNumber;
+      const cert: GeneratedDocumentEntity = {
+        id: this.id('gdoc'),
+        tenantId,
+        templateId: req.certificateTemplateId,
+        templateVersionId: certVersionId,
+        documentType: certTpl.templateType,
+        name: `${certTpl.name} ${certNumber}`,
+        sourceEntityType: 'enrollment',
+        sourceEntityId: enrId,
+        fileId: '',
+        status: 'generated',
+        documentNumber: certNumber,
+        documentDate: now.slice(0, 10),
+        isFinal: false,
+        generatedBy: actorId,
+        generatedAt: now,
+        groupOrderDocumentId: order.id,
+        qrToken: this.generateQrToken()
+      };
+      this.state.generatedDocuments.push(cert);
+      await this.auditService.writeCritical({
+        tenantId,
+        actorId,
+        action: 'documents.certificate_issued_via_order',
+        entityType: 'documents.generated',
+        entityId: cert.id,
+        newValues: { enrollmentId: enrId, orderId: order.id } as unknown as Record<string, unknown>,
+        requestId: ctx.requestId,
+        correlationId: ctx.correlationId,
+        ip: ctx.ip,
+        userAgent: ctx.userAgent
+      });
+    }
+    return this.state.generatedDocuments.filter(
+      (d) => d.tenantId === tenantId && d.groupOrderDocumentId === order.id
+    );
   }
 }
