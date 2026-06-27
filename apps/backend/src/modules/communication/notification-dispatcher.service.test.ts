@@ -48,6 +48,53 @@ describe('NotificationDispatcher dedup', () => {
   });
 });
 
+describe('NotificationDispatcher stranding (audit tail 1b)', () => {
+  it('a mid-loop send failure does not strand later recipients on retry', async () => {
+    const { dispatcher, mailer, deliveries } = make();
+
+    // Three recipients; b@ fails on first attempt
+    mailer.send
+      .mockResolvedValueOnce({ status: 'sent' }) // a@ succeeds
+      .mockRejectedValueOnce(new Error('smtp boom')) // b@ throws
+      .mockResolvedValueOnce({ status: 'sent' }); // c@ succeeds
+
+    await dispatcher.dispatch({
+      ...baseInput,
+      dedupKey: 'recert:d1:30',
+      recipients: [
+        { email: 'a@x.com', kind: 'learner' as const },
+        { email: 'b@x.com', kind: 'learner' as const },
+        { email: 'c@x.com', kind: 'learner' as const }
+      ]
+    });
+
+    // Loop must have continued past b@'s throw: all three get a delivery row
+    const { items } = await deliveries.list('t1', {});
+    expect(items.length).toBe(3);
+    const byEmail = Object.fromEntries(items.map((r) => [r.recipientEmail, r.status]));
+    expect(byEmail['a@x.com']).toBe('sent');
+    expect(byEmail['b@x.com']).toBe('failed');
+    expect(byEmail['c@x.com']).toBe('sent');
+
+    // Retry: only b@ (the failed row) should be re-attempted; a@ and c@ are skipped
+    mailer.send.mockClear();
+    mailer.send.mockResolvedValue({ status: 'sent' });
+
+    await dispatcher.dispatch({
+      ...baseInput,
+      dedupKey: 'recert:d1:30',
+      recipients: [
+        { email: 'a@x.com', kind: 'learner' as const },
+        { email: 'b@x.com', kind: 'learner' as const },
+        { email: 'c@x.com', kind: 'learner' as const }
+      ]
+    });
+
+    expect(mailer.send).toHaveBeenCalledTimes(1);
+    expect(mailer.send).toHaveBeenCalledWith(expect.objectContaining({ to: 'b@x.com' }));
+  });
+});
+
 describe('NotificationDispatcher push fan-out (Phase 10 Track C)', () => {
   const withUserId = {
     ...baseInput,
