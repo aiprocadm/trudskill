@@ -2298,18 +2298,28 @@ export class MvpService {
     moduleId: string,
     courseId: string
   ): void {
-    const moduleMaterials = this.state.materialProgress.filter(
+    // Drive completion from the FULL material set of the module, not just opened ones.
+    const allMaterials = this.state.materials.filter(
+      (item) => item.tenantId === tenantId && item.moduleId === moduleId
+    );
+    const progressRows = this.state.materialProgress.filter(
       (item) =>
         item.tenantId === tenantId &&
         item.enrollmentId === enrollmentId &&
         item.moduleId === moduleId
     );
-    const requiredSeconds = moduleMaterials.reduce((acc, item) => acc + item.requiredSeconds, 0);
-    const studiedSeconds = moduleMaterials.reduce((acc, item) => acc + item.studiedSeconds, 0);
-    const ratio = requiredSeconds === 0 ? 1 : Math.min(1, studiedSeconds / requiredSeconds);
-    const progressPercent = this.normalizePercent(ratio * 100);
+    const requiredSeconds = allMaterials.reduce((acc, item) => acc + item.minViewSeconds, 0);
+    const studiedSeconds = progressRows.reduce((acc, item) => acc + item.studiedSeconds, 0);
+    const totalCount = allMaterials.length;
+    const completedCount = progressRows.filter((item) => item.status === 'completed').length;
+    const progressPercent =
+      totalCount === 0 ? 100 : this.normalizePercent((completedCount / totalCount) * 100);
     const status: ProgressStatus =
-      progressPercent >= 100 ? 'completed' : progressPercent > 0 ? 'in_progress' : 'not_started';
+      totalCount === 0 || completedCount === totalCount
+        ? 'completed'
+        : completedCount > 0 || studiedSeconds > 0
+          ? 'in_progress'
+          : 'not_started';
     const now = this.now();
     const existing = this.state.moduleProgress.find(
       (item) =>
@@ -2346,6 +2356,19 @@ export class MvpService {
     enrollmentId: string,
     courseId: string
   ): void {
+    // Drive completion from the FULL module set of the course, not just modules with opened materials.
+    const versionIds = new Set(
+      this.state.courseVersions
+        .filter((v) => v.tenantId === tenantId && v.courseId === courseId)
+        .map((v) => v.id)
+    );
+    // Only count modules that actually contain ≥1 material (open assumption, documented deviation).
+    const courseModules = this.state.modules.filter(
+      (m) =>
+        m.tenantId === tenantId &&
+        versionIds.has(m.courseVersionId) &&
+        this.state.materials.some((mat) => mat.tenantId === tenantId && mat.moduleId === m.id)
+    );
     const moduleProgress = this.state.moduleProgress.filter(
       (item) =>
         item.tenantId === tenantId &&
@@ -2354,10 +2377,18 @@ export class MvpService {
     );
     const requiredSeconds = moduleProgress.reduce((acc, item) => acc + item.requiredSeconds, 0);
     const studiedSeconds = moduleProgress.reduce((acc, item) => acc + item.studiedSeconds, 0);
-    const ratio = requiredSeconds === 0 ? 1 : Math.min(1, studiedSeconds / requiredSeconds);
-    const progressPercent = this.normalizePercent(ratio * 100);
+    const totalCount = courseModules.length;
+    const completedCount = courseModules.filter((m) =>
+      moduleProgress.some((mp) => mp.moduleId === m.id && mp.status === 'completed')
+    ).length;
+    const progressPercent =
+      totalCount === 0 ? 100 : this.normalizePercent((completedCount / totalCount) * 100);
     const status: ProgressStatus =
-      progressPercent >= 100 ? 'completed' : progressPercent > 0 ? 'in_progress' : 'not_started';
+      totalCount === 0 || completedCount === totalCount
+        ? 'completed'
+        : completedCount > 0 || studiedSeconds > 0
+          ? 'in_progress'
+          : 'not_started';
     const now = this.now();
     const existing = this.state.courseProgress.find(
       (item) =>

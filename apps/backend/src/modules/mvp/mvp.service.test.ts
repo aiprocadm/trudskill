@@ -3252,3 +3252,169 @@ describe('Plan C — listMyAssignments', () => {
     expect(service.listMyAssignments('tenant_demo', 'u_no_link')).toEqual([]);
   });
 });
+
+describe('progress denominator (audit tail 1c)', () => {
+  function makeService(): MvpService {
+    return new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      new EventEmitter2()
+    );
+  }
+
+  it('module is not 100% until every material in the module is completed', () => {
+    const service = makeService();
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'C1', title: 'Course' },
+      ctx
+    );
+    const version = service.createCourseVersion('tenant_demo', course.id);
+    const mod = service.createModule(
+      'tenant_demo',
+      ctx.userId,
+      { courseVersionId: version.id, title: 'Mod1', minViewSeconds: 0 },
+      ctx
+    );
+    const matA = service.createMaterial(
+      'tenant_demo',
+      ctx.userId,
+      { moduleId: mod.id, title: 'MatA', materialType: 'video', minViewSeconds: 600 },
+      ctx
+    );
+    const matB = service.createMaterial(
+      'tenant_demo',
+      ctx.userId,
+      { moduleId: mod.id, title: 'MatB', materialType: 'video', minViewSeconds: 600 },
+      ctx
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G1', name: 'Group' },
+      ctx
+    );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'L1', name: 'John Doe' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+
+    // Study only material A fully — module should be 50%, not completed
+    service.upsertMaterialProgress(
+      'tenant_demo',
+      ctx.userId,
+      matA.id,
+      { enrollmentId: enrollment.id, studiedSeconds: 600 },
+      ctx
+    );
+
+    const modProgressAfterA = service['state'].moduleProgress.find(
+      (p: { tenantId: string; moduleId: string; enrollmentId: string }) =>
+        p.tenantId === 'tenant_demo' && p.moduleId === mod.id && p.enrollmentId === enrollment.id
+    );
+    expect(modProgressAfterA).toBeDefined();
+    expect(modProgressAfterA!.progressPercent).toBe(50);
+    expect(modProgressAfterA!.status).not.toBe('completed');
+
+    // Now study material B fully — module should be 100%, completed
+    service.upsertMaterialProgress(
+      'tenant_demo',
+      ctx.userId,
+      matB.id,
+      { enrollmentId: enrollment.id, studiedSeconds: 600 },
+      ctx
+    );
+
+    const modProgressAfterB = service['state'].moduleProgress.find(
+      (p: { tenantId: string; moduleId: string; enrollmentId: string }) =>
+        p.tenantId === 'tenant_demo' && p.moduleId === mod.id && p.enrollmentId === enrollment.id
+    );
+    expect(modProgressAfterB!.progressPercent).toBe(100);
+    expect(modProgressAfterB!.status).toBe('completed');
+  });
+
+  it('course is not 100% while a sibling module has no opened materials', () => {
+    const service = makeService();
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'C2', title: 'Course2' },
+      ctx
+    );
+    const version = service.createCourseVersion('tenant_demo', course.id);
+    const mod1 = service.createModule(
+      'tenant_demo',
+      ctx.userId,
+      { courseVersionId: version.id, title: 'Mod1', minViewSeconds: 0 },
+      ctx
+    );
+    const mod2 = service.createModule(
+      'tenant_demo',
+      ctx.userId,
+      { courseVersionId: version.id, title: 'Mod2', minViewSeconds: 0 },
+      ctx
+    );
+    // Each module has one 600s material
+    const mat1 = service.createMaterial(
+      'tenant_demo',
+      ctx.userId,
+      { moduleId: mod1.id, title: 'Mat1', materialType: 'video', minViewSeconds: 600 },
+      ctx
+    );
+    service.createMaterial(
+      'tenant_demo',
+      ctx.userId,
+      { moduleId: mod2.id, title: 'Mat2', materialType: 'video', minViewSeconds: 600 },
+      ctx
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G2', name: 'Group2' },
+      ctx
+    );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'L2', name: 'Jane Doe' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+
+    // Complete only module 1's material — course should be 50%, not completed
+    service.upsertMaterialProgress(
+      'tenant_demo',
+      ctx.userId,
+      mat1.id,
+      { enrollmentId: enrollment.id, studiedSeconds: 600 },
+      ctx
+    );
+
+    const courseProgressRow = service['state'].courseProgress.find(
+      (p: { tenantId: string; courseId: string; enrollmentId: string }) =>
+        p.tenantId === 'tenant_demo' && p.courseId === course.id && p.enrollmentId === enrollment.id
+    );
+    expect(courseProgressRow).toBeDefined();
+    expect(courseProgressRow!.progressPercent).toBe(50);
+    expect(courseProgressRow!.status).not.toBe('completed');
+  });
+});
