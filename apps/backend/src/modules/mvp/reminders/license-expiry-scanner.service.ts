@@ -62,7 +62,7 @@ export class LicenseExpiryScanner {
           },
           relatedEntityType: 'org.training_license',
           relatedEntityId: license.id,
-          dedupKey: `license:${license.id}:${milestone}`
+          dedupKey: `license:${license.id}:${license.validUntil}:${milestone}`
         });
         remindersDispatched += recipients.length;
       } catch (err) {

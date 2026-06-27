@@ -45,7 +45,7 @@ describe('LicenseExpiryScanner.scanTenant', () => {
     expect(arg.recipients).toEqual([{ email: 'admin@uc.ru', kind: 'admin' }]);
     expect(arg.variables.licenseNumber).toBe('L-001');
     expect(arg.variables.validUntil).toBe('2026-08-20');
-    expect(arg.dedupKey).toBe('license:lic1:90');
+    expect(arg.dedupKey).toBe('license:lic1:2026-08-20:90');
   });
 
   it('does nothing when no staff recipients are configured (opt-in)', async () => {
@@ -68,7 +68,38 @@ describe('LicenseExpiryScanner.scanTenant', () => {
   it('uses the 7-day dedupKey for an already-expired license', async () => {
     const { scanner, dispatch } = make({ expiring: [license({ validUntil: '2026-01-01' })] });
     await scanner.scanTenant('t1', ASOF, stateWithStaff() as never);
-    expect(dispatch.mock.calls[0]![0].dedupKey).toBe('license:lic1:7');
+    expect(dispatch.mock.calls[0]![0].dedupKey).toBe('license:lic1:2026-01-01:7');
+  });
+
+  it('renewed license (new validUntil) re-reminds at the same milestone', async () => {
+    // Term A: validUntil '2026-08-20', asOf '2026-06-05' → 76 days out → milestone 90
+    // (2026-06-05 + 90 = 2026-09-03 ≥ 2026-08-20 ✓)
+    const termAValidUntil = '2026-08-20';
+    // Term B: validUntil '2027-08-20', asOf '2027-05-22' → 90 days out exactly → milestone 90
+    // (2027-05-22 + 90 = 2027-08-20 ≥ 2027-08-20 ✓)
+    const termBValidUntil = '2027-08-20';
+    const asOfB = '2027-05-22';
+
+    const dispatchA = vi.fn().mockResolvedValue(undefined);
+    const { scanner: scannerA } = make({
+      dispatch: dispatchA,
+      expiring: [license({ validUntil: termAValidUntil })]
+    });
+    await scannerA.scanTenant('t1', ASOF, stateWithStaff() as never);
+    const dedupKeyA: string = dispatchA.mock.calls[0]![0].dedupKey;
+
+    const dispatchB = vi.fn().mockResolvedValue(undefined);
+    const { scanner: scannerB } = make({
+      dispatch: dispatchB,
+      expiring: [license({ validUntil: termBValidUntil })]
+    });
+    await scannerB.scanTenant('t1', asOfB, stateWithStaff() as never);
+    const dedupKeyB: string = dispatchB.mock.calls[0]![0].dedupKey;
+
+    // Both hits are at milestone 90, same license id — but DIFFERENT validUntil → must differ
+    expect(dedupKeyA).toBe(`license:lic1:${termAValidUntil}:90`);
+    expect(dedupKeyB).toBe(`license:lic1:${termBValidUntil}:90`);
+    expect(dedupKeyA).not.toBe(dedupKeyB);
   });
 
   it('tolerates a dispatch failure without throwing', async () => {
