@@ -143,11 +143,12 @@ When adding a feature, the typical test trio: unit tests for the service, DTO va
 
 ## Gotchas (Windows + Cyrillic path)
 
-The repo path contains Cyrillic (`Кодинг`). This breaks:
+The repo path contains Cyrillic (`Кодинг`). This affects:
 
-- **Full `pnpm test:backend` crashes** during NestJS worker pool init with `tinypool` / `ERR_IPC_CHANNEL_CLOSED`. Verified pre-existing — not caused by any single change. **Workaround: run isolated files with `--no-file-parallelism`.** `mvp.domains.http.integration.test.ts` (2400 lines, ~2x other suites) is the most consistent crash candidate.
-- **Don't rely on full backend suite as a local quality gate** — use isolated file runs + CI (Ubuntu, no Cyrillic, runs fine).
-- Frontend full suite (`pnpm test:frontend`) **works** — only `vitest` over the heavyweight NestJS test setup crashes.
+- **Full `pnpm test:backend` now runs green locally** (2026-06-27: 244 files / 1853 tests, single process, no crash). The long-standing `tinypool` / `ERR_IPC_CHANNEL_CLOSED` "crash" was NOT a path problem — it was `mvp.domains.http.integration.test.ts` booting the real `MvpController` while missing two providers (`LearnerPdfCardService`, `LearnersBulkImportService`); `NestFactory`'s default `abortOnError:true` reacted to the `UnknownDependenciesException` by calling `process.abort()`, which hard-kills the vitest worker pool. Fixed by providing the deps + `abortOnError:false`. A second class of failure (boot `beforeAll` hooks pinned to an explicit `}, 30_000)` timing out under full-suite CPU contention) was fixed by bumping all Nest-booting boot hooks to `120_000`.
+- **Test output is buffered** under the Cyrillic path — a backgrounded vitest run often flushes only the final summary (or nothing until exit). Rely on the process exit code and the `Test Files` / `Tests` summary lines, and redirect to a file when you need per-test detail.
+- When reading migration/fixture files in tests, resolve paths via `__dirname` (or an `existsSync` dual-candidate), **never `process.cwd()`** — cwd differs between root (`pnpm test:backend`) and `apps/backend` (`pnpm --filter` runs).
+- Frontend full suite (`pnpm test:frontend`) works fine.
 
 PowerShell-specific (the default shell on this machine): use `$null`, not `/dev/null`; use `$env:VAR`, not `$VAR`. Bash is available via the `Bash` tool for POSIX scripts.
 

@@ -116,7 +116,7 @@ describe('ScormContentController (HTTP integration)', () => {
     const address = created.getHttpServer().address() as { port: number };
     apiBaseUrl = `http://127.0.0.1:${address.port}${process.env.API_PREFIX ?? '/api/v1'}`;
     app = created;
-  }, 30_000);
+  }, 120_000);
 
   afterAll(async () => {
     if (app) await app.close();

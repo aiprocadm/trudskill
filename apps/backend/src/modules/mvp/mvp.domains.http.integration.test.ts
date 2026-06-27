@@ -144,7 +144,9 @@ describe('MVP HTTP integration (domain invariants)', () => {
       { MvpBulkEnqueueService },
       { MvpController },
       { MvpService },
-      { InMemoryMvpState }
+      { InMemoryMvpState },
+      { LearnerPdfCardService },
+      { LearnersBulkImportService }
     ] = await Promise.all([
       import('@nestjs/core'),
       import('@nestjs/throttler'),
@@ -164,7 +166,9 @@ describe('MVP HTTP integration (domain invariants)', () => {
       import('./mvp-bulk-enqueue.service.js'),
       import('./mvp.controller.js'),
       import('./mvp.service.js'),
-      import('./infrastructure/in-memory-mvp.state.js')
+      import('./infrastructure/in-memory-mvp.state.js'),
+      import('./learner-pdf-card.service.js'),
+      import('./learners-bulk-import.service.js')
     ]);
 
     issueSignedAccessToken = cryptoImport.issueSignedAccessToken;
@@ -187,6 +191,12 @@ describe('MVP HTTP integration (domain invariants)', () => {
         TenantSerialGateway,
         { provide: MVP_STATE, scope: Scope.REQUEST, useClass: InMemoryMvpState },
         { provide: MvpService, scope: Scope.REQUEST, useClass: MvpService },
+        { provide: LearnerPdfCardService, scope: Scope.REQUEST, useClass: LearnerPdfCardService },
+        {
+          provide: LearnersBulkImportService,
+          scope: Scope.REQUEST,
+          useClass: LearnersBulkImportService
+        },
         {
           provide: MvpRequestPersistenceInterceptor,
           scope: Scope.REQUEST,
@@ -208,7 +218,11 @@ describe('MVP HTTP integration (domain invariants)', () => {
     class MvpDomainsHttpIntegrationRootModule {}
 
     const created = await NestFactory.create(MvpDomainsHttpIntegrationRootModule, {
-      logger: false
+      logger: false,
+      // Surface module-initialization errors (e.g. a missing provider) as a normal
+      // hook rejection instead of Nest's default process.abort(), which hard-kills the
+      // vitest worker pool (ERR_IPC_CHANNEL_CLOSED) and masks the real cause.
+      abortOnError: false
     });
     created.useGlobalPipes(createAppValidationPipe());
     created.useGlobalFilters(new HttpExceptionEnvelopeFilter());

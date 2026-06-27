@@ -111,7 +111,7 @@ describe('Webinars webhook HTTP integration (tenant-from-session, unguarded)', (
     const address = created.getHttpServer().address() as { port: number };
     apiBaseUrl = `http://127.0.0.1:${address.port}`;
     app = created;
-  }, 30_000);
+  }, 120_000);
 
   afterAll(async () => {
     if (app) await app.close();
