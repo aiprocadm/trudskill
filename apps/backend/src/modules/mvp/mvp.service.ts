@@ -4820,8 +4820,14 @@ export class MvpService {
     if (existing) {
       existing.bestAttemptId = best.id;
       existing.attemptsCount = attempts.length;
+      // finalScore and bestScore are synonyms (both = the best attempt's score).
+      // Write BOTH so the record is consistent regardless of which finalizer
+      // (finalize on submit / recalculate on read+finish) last touched it —
+      // otherwise a consumer reading the other field gets undefined → NaN.
       existing.finalScore = best.score ?? 0;
+      existing.bestScore = best.score ?? 0;
       existing.maxScore = best.maxScore;
+      existing.passingScore = test.rules.passingScore;
       existing.passed = (best.score ?? 0) >= test.rules.passingScore;
       existing.updatedAt = this.now();
       this.audit(
@@ -4846,7 +4852,9 @@ export class MvpService {
       bestAttemptId: best.id,
       attemptsCount: attempts.length,
       finalScore: best.score ?? 0,
+      bestScore: best.score ?? 0,
       maxScore: best.maxScore,
+      passingScore: test.rules.passingScore,
       passed: (best.score ?? 0) >= test.rules.passingScore,
       status: 'final',
       createdAt: this.now(),
@@ -5502,6 +5510,9 @@ export class MvpService {
     record.attemptsCount = attempts.length;
     record.bestAttemptId = best?.id;
     record.bestScore = best?.score ?? 0;
+    // Keep finalScore in lockstep with bestScore (synonyms) so the record stays
+    // consistent whichever finalizer wrote it last (see finalizeExamResult).
+    record.finalScore = best?.score ?? 0;
     record.maxScore = best?.maxScore ?? 0;
     record.passingScore = test.rules.passingScore;
     record.passed = record.bestScore >= record.passingScore;
