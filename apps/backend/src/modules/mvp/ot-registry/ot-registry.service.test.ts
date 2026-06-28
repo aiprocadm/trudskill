@@ -333,6 +333,26 @@ describe('OtRegistryService.exportOtRegistry', () => {
     expect(h.filesRegister).not.toHaveBeenCalled();
   });
 
+  it('counts distinct failed candidates, not raw per-field/per-program error objects', async () => {
+    const h = makeHarness();
+    // One enrollment on a комплексный course = 2 program rows, both invalid on the
+    // same field (bad СНИЛС checksum). The previous code set failed = errors.length,
+    // counting one error object per (program × field) → failed=2/total=2. The batch
+    // metric must mirror the sibling exporters: one failed candidate → failed=1/total=1.
+    seedCompletedEnrollment(h.state, {
+      programCodes: ['OT_A', 'OT_FIRST_AID'],
+      snils: '112-233-445 96'
+    });
+
+    const outcome = await h.service.exportOtRegistry(TENANT, noFilter, ctx);
+
+    expect(outcome.exported).toBe(0);
+    expect(outcome.failed).toBe(1);
+    expect(outcome.total).toBe(1);
+    expect(h.state.otRegistryBatches[0]!.failedRows).toBe(1);
+    expect(h.state.otRegistryBatches[0]!.totalCandidates).toBe(1);
+  });
+
   it('FIX #1 — a throwing getter on one enrollment does not abort the batch; others still export', async () => {
     const h = makeHarness();
     // Good enrollment (enr_1) + a sibling (enr_bad) whose group lookup throws.

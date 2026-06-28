@@ -202,7 +202,15 @@ export class OtRegistryService {
     // FIX #4 — gather-errors first, then preflight errors.
     const errors: OtRegistryRowError[] = [...gatherErrors, ...preflightErrors];
     const exported = valid.length;
-    const failed = errors.length;
+    // Count distinct failed candidates, not raw error objects. A комплексный course
+    // emits one row per (enrollment × program) and validateRegistryRow pushes one
+    // error per bad field, so `errors.length` over-counts a single failed enrollment.
+    // Mirror the sibling exporters (rostechnadzor/eisot): a candidate that produced
+    // at least one valid row is not also counted as failed.
+    const validIds = new Set(valid.map((r) => r.enrollmentId));
+    const failed = new Set(
+      errors.map((e) => e.enrollmentId).filter((id) => id && !validIds.has(id))
+    ).size;
     const total = exported + failed;
 
     const now = new Date().toISOString();
