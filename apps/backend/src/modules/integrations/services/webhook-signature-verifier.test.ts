@@ -21,4 +21,16 @@ describe('WebhookSignatureVerifier', () => {
 
     expect(() => verifier.verify('wrong-signature', 'provider-secret')).toThrow(ForbiddenException);
   });
+
+  it('accepts a signature equal to the configured secret (constant-time compare)', () => {
+    const verifier = new WebhookSignatureVerifier();
+
+    expect(() => verifier.verify('provider-secret', 'provider-secret')).not.toThrow();
+  });
+
+  it('rejects a signature that is a prefix of the secret (no length-based shortcut)', () => {
+    const verifier = new WebhookSignatureVerifier();
+
+    expect(() => verifier.verify('provider', 'provider-secret')).toThrow(ForbiddenException);
+  });
 });
