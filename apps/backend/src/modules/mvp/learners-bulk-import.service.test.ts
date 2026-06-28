@@ -14,6 +14,7 @@ import { TenantScopedRepository } from '../../infrastructure/database/tenant-rep
 import { AuditService } from '../audit/audit.service.js';
 
 import type { BulkImportRow, ExistingLearnersSnapshot } from './learners-bulk-import.types.js';
+import type { Learner } from './mvp.types.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 import type { DocumentsService } from '../documents/documents.service.js';
 import type { FilesService } from '../files/files.service.js';
@@ -40,6 +41,41 @@ const ctx: RequestContext = {
 function makeServices(): { mvp: MvpService; bulk: LearnersBulkImportService } {
   const mvp = new MvpService(
     new InMemoryMvpState(),
+    new TenantScopedRepository(),
+    new AuditService(),
+    noopDocumentsService,
+    noopFilesService,
+    new EventEmitter2()
+  );
+  const bulk = new LearnersBulkImportService(mvp);
+  return { mvp, bulk };
+}
+
+/**
+ * Builds services with `count` filler learners pre-seeded directly into tenant state
+ * (bypassing the audit-writing service path for speed). Used to exercise the >10k
+ * reuse-detection boundary: any learner created AFTER these fillers lands at array
+ * index ≥ count, beyond the old `listLearners(page_size: 10_000)` snapshot cap.
+ */
+function makeServicesWithSeededLearners(
+  count: number,
+  tenantId = 'tenant_demo'
+): { mvp: MvpService; bulk: LearnersBulkImportService } {
+  const state = new InMemoryMvpState();
+  for (let i = 0; i < count; i++) {
+    state.learners.push({
+      id: `seed_${i}`,
+      tenantId,
+      firstName: 'Заполнитель',
+      lastName: `Номер${i}`,
+      email: `seed_${i}@x.ru`,
+      status: 'active',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    } satisfies Learner);
+  }
+  const mvp = new MvpService(
+    state,
     new TenantScopedRepository(),
     new AuditService(),
     noopDocumentsService,
@@ -467,6 +503,48 @@ describe('LearnersBulkImportService.bulkImportLearners', () => {
     expect(row2.enrollmentId).toBeDefined();
     expect(row3.status).toBe('failed');
     expect(row3.errorCode).toBe('duplicate_in_file');
+  });
+
+  it('reuse-детекция покрывает учётки за границей старой страницы 10k (>10k tenant)', () => {
+    // 10 000 наполнителей сидируются ПЕРВЫМИ → целевой учёток окажется на индексе
+    // массива 10 000, за пределами старого snapshot'а listLearners(page_size: 10_000).
+    const { mvp, bulk } = makeServicesWithSeededLearners(10_000);
+    const group = mvp.createGroup('tenant_demo', ctx.userId, { code: 'G1', name: 'Group' }, ctx);
+    const target = mvp.createLearnerExtended(
+      'tenant_demo',
+      ctx.userId,
+      { firstName: 'За', lastName: 'Границей', email: 'beyond@x.ru' },
+      ctx
+    );
+
+    // Sanity: целевой учёток действительно за пределами первой страницы 10k —
+    // без этого тест не доказывал бы факт пересечения границы.
+    const firstPage = mvp.listLearners('tenant_demo', { page: 1, page_size: 10_000 });
+    expect(firstPage.total).toBe(10_001);
+    expect(firstPage.items.some((l) => l.id === target.id)).toBe(false);
+
+    const outcome = bulk.bulkImportLearners(
+      'tenant_demo',
+      ctx.userId,
+      {
+        idempotencyKey: 'idem_beyond_10k',
+        groupId: group.id,
+        rows: [{ rowNumber: 2, fullName: 'Границей За', email: 'beyond@x.ru' }]
+      },
+      ctx
+    );
+
+    // Должно быть reuse существующего учётка, НЕ создание дубликата.
+    expect(outcome.rows[0]!.status).toBe('reused');
+    expect(outcome.rows[0]!.learnerId).toBe(target.id);
+    expect(outcome.reused).toBe(1);
+    expect(outcome.created).toBe(0);
+    // Учёток не должен дублироваться: ровно один с этим email.
+    expect(
+      mvp
+        .listLearners('tenant_demo', { page: 1, page_size: 20_000 })
+        .items.filter((l) => l.email === 'beyond@x.ru')
+    ).toHaveLength(1);
   });
 
   it('tenant-isolation: учёток другого tenant НЕ доступен для reuse', () => {
