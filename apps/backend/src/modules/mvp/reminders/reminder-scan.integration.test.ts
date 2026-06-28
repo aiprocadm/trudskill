@@ -116,7 +116,11 @@ describe('reminders nightly scan (nested MvpTenantRunner → DocumentsTenantRunn
       );
 
       const drafts = new InMemoryRecertificationDraftsState();
-      const fakeDispatch = vi.fn().mockResolvedValue(undefined);
+      const fakeDispatch = vi
+        .fn()
+        .mockImplementation((input) =>
+          Promise.resolve({ sent: input.recipients.length, skipped: 0, failed: 0 })
+        );
       const recertScanner = new RecertificationScanner(
         drafts,
         { dispatch: fakeDispatch } as never,

@@ -41,7 +41,13 @@ function state() {
 
 function make(over: { dispatch?: ReturnType<typeof vi.fn>; docs?: unknown[] } = {}) {
   const drafts = new InMemoryRecertificationDraftsState();
-  const dispatch = over.dispatch ?? vi.fn().mockResolvedValue(undefined);
+  const dispatch =
+    over.dispatch ??
+    vi
+      .fn()
+      .mockImplementation((input) =>
+        Promise.resolve({ sent: input.recipients.length, skipped: 0, failed: 0 })
+      );
   const documentsRunner = {
     runWithTenantDocuments: async (
       _tenantId: string,

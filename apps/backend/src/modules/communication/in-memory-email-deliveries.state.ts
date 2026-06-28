@@ -35,4 +35,8 @@ export class InMemoryEmailDeliveriesState implements EmailDeliveriesRepository {
   async findByDedupKey(tenantId: string, dedupKey: string): Promise<EmailDeliveryRow | null> {
     return this.deliveries.find((d) => d.tenantId === tenantId && d.dedupKey === dedupKey) ?? null;
   }
+
+  async listByDedupKey(tenantId: string, dedupKey: string): Promise<EmailDeliveryRow[]> {
+    return this.deliveries.filter((d) => d.tenantId === tenantId && d.dedupKey === dedupKey);
+  }
 }

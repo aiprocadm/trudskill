@@ -90,6 +90,16 @@ export class PostgresEmailDeliveriesRepository implements EmailDeliveriesReposit
     return rows[0] ? this.map(rows[0]) : null;
   }
 
+  async listByDedupKey(tenantId: string, dedupKey: string): Promise<EmailDeliveryRow[]> {
+    const rows = await this.db.query<EmailDeliveryDbRow>(
+      `select * from communication.email_deliveries
+       where tenant_id = $1 and dedup_key = $2
+       order by created_at desc`,
+      [tenantId, dedupKey]
+    );
+    return rows.map((r) => this.map(r));
+  }
+
   private map(row: EmailDeliveryDbRow): EmailDeliveryRow {
     return {
       id: row.id,

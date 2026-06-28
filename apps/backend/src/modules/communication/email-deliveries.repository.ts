@@ -36,4 +36,5 @@ export interface EmailDeliveriesRepository {
     query: EmailDeliveriesQuery
   ): Promise<{ items: EmailDeliveryRow[]; total: number }>;
   findByDedupKey(tenantId: string, dedupKey: string): Promise<EmailDeliveryRow | null>;
+  listByDedupKey(tenantId: string, dedupKey: string): Promise<EmailDeliveryRow[]>;
 }

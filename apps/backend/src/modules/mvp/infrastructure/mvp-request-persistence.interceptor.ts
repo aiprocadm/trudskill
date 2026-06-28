@@ -64,30 +64,31 @@ export class MvpRequestPersistenceInterceptor implements NestInterceptor {
             );
           }
 
+          const result = await lastValueFrom(next.handle().pipe(defaultIfEmpty(null)));
+          // Persist only on success — a throwing handler must not commit partial mutations
+          // (audit tail e). Request-scoped state is discarded on throw = clean rollback.
+          // Audit entries persist independently via AuditService.
+          const saveStarted = Date.now();
           try {
-            return await lastValueFrom(next.handle().pipe(defaultIfEmpty(null)));
+            await this.persistence.saveFromState(tenantId, this.state);
+            this.metrics.incrementCounter('mvp_persistence_save_total', {
+              backend,
+              result: 'ok'
+            });
+          } catch (error) {
+            this.metrics.incrementCounter('mvp_persistence_save_total', {
+              backend,
+              result: 'error'
+            });
+            throw error;
           } finally {
-            const saveStarted = Date.now();
-            try {
-              await this.persistence.saveFromState(tenantId, this.state);
-              this.metrics.incrementCounter('mvp_persistence_save_total', {
-                backend,
-                result: 'ok'
-              });
-            } catch (error) {
-              this.metrics.incrementCounter('mvp_persistence_save_total', {
-                backend,
-                result: 'error'
-              });
-              throw error;
-            } finally {
-              this.metrics.observeDuration(
-                'mvp_persistence_save_duration_ms',
-                Date.now() - saveStarted,
-                { backend }
-              );
-            }
+            this.metrics.observeDuration(
+              'mvp_persistence_save_duration_ms',
+              Date.now() - saveStarted,
+              { backend }
+            );
           }
+          return result;
         })
       ).pipe(mergeMap((v) => of(v)))
     );

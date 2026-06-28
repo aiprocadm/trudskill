@@ -51,7 +51,7 @@ export class LicenseExpiryScanner {
       if (milestone === null) continue;
 
       try {
-        await this.dispatcher.dispatch({
+        const summary = await this.dispatcher.dispatch({
           tenantId,
           templateKey: 'license_expiring',
           recipients,
@@ -62,9 +62,9 @@ export class LicenseExpiryScanner {
           },
           relatedEntityType: 'org.training_license',
           relatedEntityId: license.id,
-          dedupKey: `license:${license.id}:${milestone}`
+          dedupKey: `license:${license.id}:${license.validUntil}:${milestone}`
         });
-        remindersDispatched += recipients.length;
+        remindersDispatched += summary.sent;
       } catch (err) {
         this.logger.error(
           `Failed to dispatch license_expiring for license ${license.id}: ${err instanceof Error ? err.message : String(err)}`

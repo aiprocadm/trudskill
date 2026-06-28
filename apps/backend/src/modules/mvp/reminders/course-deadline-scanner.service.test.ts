@@ -31,7 +31,13 @@ function state(over: Record<string, unknown> = {}) {
   };
 }
 
-function make(dispatch = vi.fn().mockResolvedValue(undefined)) {
+function make(
+  dispatch = vi
+    .fn()
+    .mockImplementation((input) =>
+      Promise.resolve({ sent: input.recipients.length, skipped: 0, failed: 0 })
+    )
+) {
   const scanner = new CourseDeadlineScanner({ dispatch } as never);
   return { scanner, dispatch };
 }

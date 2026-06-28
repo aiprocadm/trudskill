@@ -593,6 +593,37 @@ export class DocumentsService {
     const existing = this.state.idem.get(idemKey);
     if (existing && existing.expiresAt > Date.now())
       return this.getDocumentTask(tenantId, existing.taskId);
+    // Durable dedup: if a source entity is specified, check the persisted task set for an
+    // existing non-terminal-failure task for the same (tenantId, templateId, sourceEntityType,
+    // sourceEntityId, taskType='generate'). This survives the 24h TTL cache expiry and
+    // prevents duplicate certificates when ENROLLMENT_COMPLETED_EVENT is re-emitted.
+    // Only queued/running/completed count as "already issued": a failed OR cancelled prior
+    // task must NOT block a fresh issuance (after a renderer error or an admin cancel of a
+    // stuck task, the next re-emit should produce a new task).
+    // templateVersionId is intentionally NOT part of the match — a template version upgrade
+    // is not a distinct issuance, so a re-emit with a different version still dedups here.
+    // NOTE: state.tasks.find(...) is an O(n) scan, acceptable for the in-memory MVP backend;
+    // replace with an indexed query at the Postgres-backend port (cf. the idem-cache note).
+    if (req.sourceEntityType && req.sourceEntityId) {
+      const durable = this.state.tasks.find(
+        (t) =>
+          t.tenantId === tenantId &&
+          t.templateId === req.templateId &&
+          t.sourceEntityType === req.sourceEntityType &&
+          t.sourceEntityId === req.sourceEntityId &&
+          t.taskType === 'generate' &&
+          t.status !== 'failed' &&
+          t.status !== 'cancelled'
+      );
+      if (durable) {
+        // Repopulate the TTL cache so subsequent in-window calls stay on the fast path.
+        this.state.idem.set(idemKey, {
+          taskId: durable.id,
+          expiresAt: Date.now() + 24 * 60 * 60 * 1000
+        });
+        return this.getDocumentTask(tenantId, durable.id);
+      }
+    }
     const template = this.getTemplate(tenantId, req.templateId);
     if (template.status === 'archived')
       throw new BadRequestException('Cannot generate documents from archived template');
@@ -657,9 +688,13 @@ export class DocumentsService {
   }
 
   completeTask(tenantId: string, taskId: string, fileId: string, generatedBy?: string) {
+    const existing = this.getDocumentTask(tenantId, taskId);
+    // Idempotent redelivery: an already-completed task returns its document instead of
+    // erroring (startTask would throw 'Terminal task cannot be started' first) (audit tail f).
+    if (existing.status === 'completed')
+      return this.getDocument(tenantId, existing.generatedDocumentId!);
     this.startTask(tenantId, taskId);
     const task = this.getDocumentTask(tenantId, taskId);
-    if (task.status === 'completed') return this.getDocument(tenantId, task.generatedDocumentId!);
     if (task.status !== 'running') throw new BadRequestException('Task state is not processable');
     const reserved = task.numberReservationId
       ? this.getReservation(tenantId, task.numberReservationId)
@@ -1450,8 +1485,12 @@ export class DocumentsService {
         d.status !== 'archived'
     );
     if (existing) {
-      const certificates = this.state.generatedDocuments.filter(
-        (d) => d.tenantId === tenantId && d.groupOrderDocumentId === existing.id
+      const certificates = await this.ensureOrderCertificates(
+        tenantId,
+        actorId,
+        existing,
+        req,
+        ctx
       );
       return { order: existing, certificates, alreadyExisted: true };
     }
@@ -1499,74 +1538,90 @@ export class DocumentsService {
       userAgent: ctx.userAgent
     });
 
-    const certificates: GeneratedDocumentEntity[] = [];
-    if (req.certificateTemplateId && req.enrollmentIds.length > 0) {
-      const certTpl = this.state.templates.find(
-        (t) => t.tenantId === tenantId && t.id === req.certificateTemplateId
-      );
-      if (!certTpl) {
-        throw new NotFoundException(`Template ${req.certificateTemplateId} not found`);
-      }
-      const certVersionId =
-        certTpl.currentVersionId ??
-        this.state.versions.find(
-          (v) => v.tenantId === tenantId && v.templateId === req.certificateTemplateId && v.isActive
-        )?.id ??
-        '';
-      for (const enrId of req.enrollmentIds) {
-        // Within-order idempotency: тот же enrollment не выпускается дважды.
-        const dup = this.state.generatedDocuments.find(
-          (d) =>
-            d.tenantId === tenantId &&
-            d.sourceEntityType === 'enrollment' &&
-            d.sourceEntityId === enrId &&
-            d.templateId === req.certificateTemplateId &&
-            d.groupOrderDocumentId === order.id
-        );
-        if (dup) {
-          certificates.push(dup);
-          continue;
-        }
-        const certNumber = this.reserveNumber(tenantId, certTpl.templateType).reservedNumber;
-        const cert: GeneratedDocumentEntity = {
-          id: this.id('gdoc'),
-          tenantId,
-          templateId: req.certificateTemplateId,
-          templateVersionId: certVersionId,
-          documentType: certTpl.templateType,
-          name: `${certTpl.name} ${certNumber}`,
-          sourceEntityType: 'enrollment',
-          sourceEntityId: enrId,
-          fileId: '',
-          status: 'generated',
-          documentNumber: certNumber,
-          documentDate: now.slice(0, 10),
-          isFinal: false,
-          generatedBy: actorId,
-          generatedAt: now,
-          groupOrderDocumentId: order.id,
-          qrToken: this.generateQrToken()
-        };
-        this.state.generatedDocuments.push(cert);
-        certificates.push(cert);
-        await this.auditService.writeCritical({
-          tenantId,
-          actorId,
-          action: 'documents.certificate_issued_via_order',
-          entityType: 'documents.generated',
-          entityId: cert.id,
-          newValues: { enrollmentId: enrId, orderId: order.id } as unknown as Record<
-            string,
-            unknown
-          >,
-          requestId: ctx.requestId,
-          correlationId: ctx.correlationId,
-          ip: ctx.ip,
-          userAgent: ctx.userAgent
-        });
-      }
-    }
-
+    const certificates = await this.ensureOrderCertificates(tenantId, actorId, order, req, ctx);
     return { order, certificates, alreadyExisted: false };
+  }
+
+  /**
+   * Гарантирует, что для каждого `enrollmentId` в `req` существует удостоверение,
+   * привязанное к `order`. Пропускает уже выпущенные (идемпотентность внутри приказа).
+   * Вызывается как на новом приказе, так и при повторном вызове `issueGroupOrder`
+   * (self-healing: до-выпускает удостоверения, пропущенные в предыдущем прерванном запросе).
+   */
+  private async ensureOrderCertificates(
+    tenantId: string,
+    actorId: string | undefined,
+    order: GeneratedDocumentEntity,
+    req: IssueGroupOrderRequest,
+    ctx: RequestContext
+  ): Promise<GeneratedDocumentEntity[]> {
+    if (!req.certificateTemplateId || req.enrollmentIds.length === 0) {
+      return this.state.generatedDocuments.filter(
+        (d) => d.tenantId === tenantId && d.groupOrderDocumentId === order.id
+      );
+    }
+    const certTpl = this.state.templates.find(
+      (t) => t.tenantId === tenantId && t.id === req.certificateTemplateId
+    );
+    if (!certTpl) {
+      throw new NotFoundException(`Template ${req.certificateTemplateId} not found`);
+    }
+    const certVersionId =
+      certTpl.currentVersionId ??
+      this.state.versions.find(
+        (v) => v.tenantId === tenantId && v.templateId === req.certificateTemplateId && v.isActive
+      )?.id ??
+      '';
+    const now = this.now();
+    for (const enrId of req.enrollmentIds) {
+      // Within-order idempotency: тот же enrollment не выпускается дважды.
+      const dup = this.state.generatedDocuments.find(
+        (d) =>
+          d.tenantId === tenantId &&
+          d.sourceEntityType === 'enrollment' &&
+          d.sourceEntityId === enrId &&
+          d.templateId === req.certificateTemplateId &&
+          d.groupOrderDocumentId === order.id
+      );
+      if (dup) {
+        continue;
+      }
+      const certNumber = this.reserveNumber(tenantId, certTpl.templateType).reservedNumber;
+      const cert: GeneratedDocumentEntity = {
+        id: this.id('gdoc'),
+        tenantId,
+        templateId: req.certificateTemplateId,
+        templateVersionId: certVersionId,
+        documentType: certTpl.templateType,
+        name: `${certTpl.name} ${certNumber}`,
+        sourceEntityType: 'enrollment',
+        sourceEntityId: enrId,
+        fileId: '',
+        status: 'generated',
+        documentNumber: certNumber,
+        documentDate: now.slice(0, 10),
+        isFinal: false,
+        generatedBy: actorId,
+        generatedAt: now,
+        groupOrderDocumentId: order.id,
+        qrToken: this.generateQrToken()
+      };
+      this.state.generatedDocuments.push(cert);
+      await this.auditService.writeCritical({
+        tenantId,
+        actorId,
+        action: 'documents.certificate_issued_via_order',
+        entityType: 'documents.generated',
+        entityId: cert.id,
+        newValues: { enrollmentId: enrId, orderId: order.id } as unknown as Record<string, unknown>,
+        requestId: ctx.requestId,
+        correlationId: ctx.correlationId,
+        ip: ctx.ip,
+        userAgent: ctx.userAgent
+      });
+    }
+    return this.state.generatedDocuments.filter(
+      (d) => d.tenantId === tenantId && d.groupOrderDocumentId === order.id
+    );
   }
 }

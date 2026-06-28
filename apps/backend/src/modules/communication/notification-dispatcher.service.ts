@@ -39,6 +39,15 @@ export interface DispatchInput {
   dedupKey?: string;
 }
 
+export interface DispatchSummary {
+  /** Recipients successfully sent (or skipped_noop) this dispatch. */
+  sent: number;
+  /** Recipients skipped because already delivered under this dedupKey. */
+  skipped: number;
+  /** Recipients whose send failed this dispatch. */
+  failed: number;
+}
+
 @Injectable()
 export class NotificationDispatcher {
   constructor(
@@ -48,11 +57,26 @@ export class NotificationDispatcher {
     @Inject(WEB_PUSH_SENDER) private readonly pushSender: WebPushSenderPort
   ) {}
 
-  async dispatch(input: DispatchInput): Promise<void> {
+  /**
+   * Per-recipient idempotency + throw-safety: each `mailer.send` is wrapped in try/catch, so a
+   * mailer throw is caught per-recipient and recorded as a `failed` delivery row while the loop
+   * continues. `dispatch` itself never rejects due to a send failure — only a push-sender error
+   * propagates (push runs after the email loop). On retry, recipients with a prior non-failed row
+   * under the same `dedupKey` are skipped; failed/never-attempted ones are (re)sent.
+   *
+   * Returns a per-dispatch summary `{ sent, skipped, failed }` reflecting only the actions taken
+   * in this call — callers accumulate `summary.sent` rather than `recipients.length` to avoid
+   * overcounting on retry runs where some recipients are dedup-skipped.
+   */
+  async dispatch(input: DispatchInput): Promise<DispatchSummary> {
+    // Build the set of already-succeeded recipients for this dedupKey (per-recipient idempotency).
+    const alreadyDelivered = new Set<string>();
     if (input.dedupKey) {
-      const existing = await this.deliveries.findByDedupKey(input.tenantId, input.dedupKey);
-      if (existing) {
-        return;
+      const prior = await this.deliveries.listByDedupKey(input.tenantId, input.dedupKey);
+      for (const row of prior) {
+        if (row.status !== 'failed') {
+          alreadyDelivered.add(row.recipientEmail);
+        }
       }
     }
 
@@ -60,13 +84,31 @@ export class NotificationDispatcher {
     const base = override ?? EMAIL_TEMPLATE_DEFAULTS[input.templateKey];
     const rendered = renderTemplate(base, input.variables);
 
+    const sent: DispatchRecipient[] = [];
+    let skipped = 0;
+    let failed = 0;
+
     for (const recipient of input.recipients) {
-      const result = await this.mailer.send({
-        to: recipient.email,
-        subject: rendered.subject,
-        body: rendered.body,
-        templateKey: input.templateKey
-      });
+      if (alreadyDelivered.has(recipient.email)) {
+        skipped++;
+        continue;
+      }
+
+      let result: Awaited<ReturnType<MailerService['send']>>;
+      try {
+        result = await this.mailer.send({
+          to: recipient.email,
+          subject: rendered.subject,
+          body: rendered.body,
+          templateKey: input.templateKey
+        });
+      } catch (error) {
+        result = {
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error)
+        };
+      }
+
       await this.deliveries.record({
         tenantId: input.tenantId,
         templateKey: input.templateKey,
@@ -80,14 +122,23 @@ export class NotificationDispatcher {
         ...(input.relatedEntityId ? { relatedEntityId: input.relatedEntityId } : {}),
         ...(input.dedupKey ? { dedupKey: input.dedupKey } : {})
       });
+
+      if (result.status !== 'failed') {
+        sent.push(recipient);
+      } else {
+        failed++;
+      }
     }
 
     // Phase 10 Track C — web-push fan-out, alongside email. Recipients with a known IAM
     // userId get a push to their subscribed browsers; the NoopWebPushSender (default,
     // WEB_PUSH_ENABLED=false) makes this a no-op so email behaviour is byte-for-byte unchanged.
-    const userIds = input.recipients.map((r) => r.userId).filter((id): id is string => Boolean(id));
+    // Push is OUTSIDE the try/catch so a push failure still propagates (existing test expectation).
+    const userIds = sent.map((r) => r.userId).filter((id): id is string => Boolean(id));
     if (userIds.length > 0) {
       await this.pushSender.sendToUsers(input.tenantId, userIds, toPushNotification(rendered));
     }
+
+    return { sent: sent.length, skipped, failed };
   }
 }

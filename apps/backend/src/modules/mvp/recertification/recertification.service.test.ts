@@ -26,7 +26,13 @@ function make(
   } = {}
 ) {
   const drafts = new InMemoryRecertificationDraftsState();
-  const dispatch = overrides.dispatch ?? vi.fn().mockResolvedValue(undefined);
+  const dispatch =
+    overrides.dispatch ??
+    vi
+      .fn()
+      .mockImplementation((input) =>
+        Promise.resolve({ sent: input.recipients.length, skipped: 0, failed: 0 })
+      );
   const state = {
     enrollments: [
       { id: 'enr1', tenantId: 't1', learnerId: 'l1', groupId: 'g1', status: 'completed' }

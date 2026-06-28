@@ -739,6 +739,173 @@ describe('DocumentsService', () => {
     expect(created.variableCode).toBe('program.academic_hours');
   });
 
+  describe('audit tail 1a — durable source-entity dedup survives TTL cache expiry', () => {
+    it('returns the same task when re-called after TTL cache is cleared', () => {
+      const service = new DocumentsService(
+        new InMemoryDocumentsState(),
+        new AuditService(),
+        new RealtimeEventsService()
+      );
+      const template = service.createTemplate(
+        't1',
+        'u1',
+        { name: 'Cert', templateType: 'certificate' },
+        ctx
+      );
+      const version = service.createTemplateVersion('t1', 'u1', {
+        templateId: template.id,
+        fileId: 'file_cert'
+      });
+      service.activateTemplateVersion('t1', 'u1', version.id, ctx);
+
+      const first = service.generateDocument('t1', 'u1', {
+        idempotencyKey: 'enrollment:e1:tpl:v1',
+        templateId: template.id,
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'e1',
+        documentType: 'certificate'
+      });
+
+      // Simulate >24h passing: evict the TTL cache exactly as cleanupIdempotencyCache does.
+
+      (service as any)['state'].idem.clear();
+
+      const second = service.generateDocument('t1', 'u1', {
+        idempotencyKey: 'enrollment:e1:tpl:v1',
+        templateId: template.id,
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'e1',
+        documentType: 'certificate'
+      });
+
+      expect(second.id).toBe(first.id);
+
+      const tasksForSource = (service as any)['state'].tasks.filter(
+        (t: { sourceEntityType: string; sourceEntityId: string }) =>
+          t.sourceEntityType === 'enrollment' && t.sourceEntityId === 'e1'
+      );
+      expect(tasksForSource).toHaveLength(1);
+    });
+
+    function seedGeneratableCertTemplate(service: DocumentsService) {
+      const template = service.createTemplate(
+        't1',
+        'u1',
+        { name: 'Cert', templateType: 'certificate' },
+        ctx
+      );
+      const version = service.createTemplateVersion('t1', 'u1', {
+        templateId: template.id,
+        fileId: 'file_cert'
+      });
+      service.activateTemplateVersion('t1', 'u1', version.id, ctx);
+      return template;
+    }
+
+    it('failed prior task allows a fresh issuance', () => {
+      const service = new DocumentsService(
+        new InMemoryDocumentsState(),
+        new AuditService(),
+        new RealtimeEventsService()
+      );
+      const template = seedGeneratableCertTemplate(service);
+
+      const first = service.generateDocument('t1', 'u1', {
+        idempotencyKey: 'enrollment:e1:tpl:v1',
+        templateId: template.id,
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'e1',
+        documentType: 'certificate'
+      });
+      // Drive the prior task to 'failed' (e.g. renderer error).
+      service.startTask('t1', first.id);
+      service.failTask('t1', first.id, 'render failed');
+
+      (service as any)['state'].idem.clear();
+
+      const second = service.generateDocument('t1', 'u1', {
+        idempotencyKey: 'enrollment:e1:tpl:v1',
+        templateId: template.id,
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'e1',
+        documentType: 'certificate'
+      });
+
+      expect(second.id).not.toBe(first.id);
+      const tasksForSource = (service as any)['state'].tasks.filter(
+        (t: { sourceEntityType: string; sourceEntityId: string }) =>
+          t.sourceEntityType === 'enrollment' && t.sourceEntityId === 'e1'
+      );
+      expect(tasksForSource).toHaveLength(2);
+    });
+
+    it('cancelled prior task allows a fresh issuance', () => {
+      const service = new DocumentsService(
+        new InMemoryDocumentsState(),
+        new AuditService(),
+        new RealtimeEventsService()
+      );
+      const template = seedGeneratableCertTemplate(service);
+
+      const first = service.generateDocument('t1', 'u1', {
+        idempotencyKey: 'enrollment:e1:tpl:v1',
+        templateId: template.id,
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'e1',
+        documentType: 'certificate'
+      });
+      // Admin cancels the stuck task.
+      service.cancelTask('t1', first.id);
+
+      (service as any)['state'].idem.clear();
+
+      const second = service.generateDocument('t1', 'u1', {
+        idempotencyKey: 'enrollment:e1:tpl:v1',
+        templateId: template.id,
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'e1',
+        documentType: 'certificate'
+      });
+
+      expect(second.id).not.toBe(first.id);
+      const tasksForSource = (service as any)['state'].tasks.filter(
+        (t: { sourceEntityType: string; sourceEntityId: string }) =>
+          t.sourceEntityType === 'enrollment' && t.sourceEntityId === 'e1'
+      );
+      expect(tasksForSource).toHaveLength(2);
+    });
+
+    it('no source entity → durable guard skipped', () => {
+      const service = new DocumentsService(
+        new InMemoryDocumentsState(),
+        new AuditService(),
+        new RealtimeEventsService()
+      );
+      const template = seedGeneratableCertTemplate(service);
+
+      const first = service.generateDocument('t1', 'u1', {
+        idempotencyKey: 'no-source-1',
+        templateId: template.id,
+        sourceEntityType: '',
+        sourceEntityId: '',
+        documentType: 'certificate'
+      });
+
+      (service as any)['state'].idem.clear();
+
+      const second = service.generateDocument('t1', 'u1', {
+        idempotencyKey: 'no-source-2',
+        templateId: template.id,
+        sourceEntityType: '',
+        sourceEntityId: '',
+        documentType: 'certificate'
+      });
+
+      expect(second.id).not.toBe(first.id);
+      expect(service.listDocumentTasks('t1', {}).total).toBe(2);
+    });
+  });
+
   it('accepts commission category for template variables (Plan A §5.5)', () => {
     const service = new DocumentsService(
       new InMemoryDocumentsState(),
@@ -1045,6 +1212,52 @@ describe('DocumentsService.issueGroupOrder (Plan B §5.7)', () => {
       (d) => d.groupOrderDocumentId === first.order.id
     );
     expect(allCerts).toHaveLength(1);
+  });
+
+  it('re-issuing a group order fills in certificates missing from the first issuance', async () => {
+    const { service, state } = seedService();
+    // First call: only e1
+    const first = await service.issueGroupOrder(
+      't1',
+      'actor_1',
+      {
+        groupId: 'g_1',
+        templateId: 'tpl_order',
+        enrollmentIds: ['e1'],
+        certificateTemplateId: 'tpl_cert'
+      },
+      ctx
+    );
+    expect(first.certificates).toHaveLength(1);
+    expect(first.alreadyExisted).toBe(false);
+
+    // Second call: same order (same groupId+templateId) but enrollmentIds grew to ['e1','e2']
+    const second = await service.issueGroupOrder(
+      't1',
+      'actor_1',
+      {
+        groupId: 'g_1',
+        templateId: 'tpl_order',
+        enrollmentIds: ['e1', 'e2'],
+        certificateTemplateId: 'tpl_cert'
+      },
+      ctx
+    );
+    expect(second.alreadyExisted).toBe(true);
+    expect(second.order.id).toBe(first.order.id);
+
+    // Both enrollments should be covered
+    expect(second.certificates).toHaveLength(2);
+    const enrIds = second.certificates.map((c) => c.sourceEntityId).sort();
+    expect(enrIds).toEqual(['e1', 'e2']);
+
+    // No duplicate cert for e1 in state
+    const allCerts = state.generatedDocuments.filter(
+      (d) => d.groupOrderDocumentId === first.order.id
+    );
+    expect(allCerts).toHaveLength(2);
+    const e1Certs = allCerts.filter((d) => d.sourceEntityId === 'e1');
+    expect(e1Certs).toHaveLength(1);
   });
 
   it('rejects when the order template is not of type "order"', async () => {
@@ -1640,5 +1853,48 @@ describe('DocumentsService signing (Phase 6)', () => {
     state.generatedDocuments[0].isFinal = true;
     state.generatedDocuments[0].status = 'revoked'; // revoked keeps isFinal=true
     await expect(service.signDocument('t1', 'user_1', 'gdoc_sig', signCtx)).rejects.toThrow();
+  });
+
+  it('completeTask is idempotent on redelivery of an already-completed task (audit tail f)', () => {
+    const service = new DocumentsService(
+      new InMemoryDocumentsState(),
+      new AuditService(),
+      new RealtimeEventsService()
+    );
+    service.createNumberingRule('t1', { documentType: 'default' });
+    const template = service.createTemplate(
+      't1',
+      'u1',
+      { name: 'Tpl', templateType: 'contract' },
+      ctx
+    );
+    const version = service.createTemplateVersion('t1', 'u1', {
+      templateId: template.id,
+      fileId: 'file_1'
+    });
+    service.activateTemplateVersion('t1', 'u1', version.id, ctx);
+    const task = service.generateDocument('t1', 'u1', {
+      idempotencyKey: 'idem-complete-1',
+      templateId: template.id,
+      sourceEntityType: 'group',
+      sourceEntityId: 'g1',
+      documentType: 'default'
+    });
+
+    // First call: drives queued → running → completed and creates the generated doc.
+    service.startTask('t1', task.id);
+    const firstDoc = service.completeTask('t1', task.id, 'file_out_1', 'u1');
+
+    // Redelivery: completeTask called again for the same already-completed task.
+    // Should return the same generated document without throwing.
+    const secondDoc = service.completeTask('t1', task.id, 'file_out_1', 'u1');
+
+    expect(secondDoc.id).toBe(firstDoc.id);
+
+    // No extra generated document should have been created.
+    const docsForTask = (service as any).state.generatedDocuments.filter(
+      (d: { sourceEntityId: string }) => d.sourceEntityId === 'g1'
+    );
+    expect(docsForTask).toHaveLength(1);
   });
 });
