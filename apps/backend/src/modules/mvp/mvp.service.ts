@@ -5403,43 +5403,6 @@ export class MvpService {
     }
   }
 
-  private calculateAttemptScore(
-    tenantId: string,
-    attemptId: string
-  ): { score: number; maxScore: number; passingScore: number } {
-    const attempt = this.getById(this.state.attempts, tenantId, attemptId);
-    const test = this.getById(this.state.tests, tenantId, attempt.testId);
-    const questions = attempt.questionOrder.map((id) =>
-      this.getById(this.state.questions, tenantId, id)
-    );
-    const answers = this.state.attemptAnswers.filter(
-      (item) => item.tenantId === tenantId && item.attemptId === attemptId
-    );
-    let score = 0;
-    questions.forEach((question) => {
-      const answer = answers.find((item) => item.questionId === question.id);
-      const options = this.state.answerOptions.filter(
-        (item) => item.tenantId === tenantId && item.questionId === question.id
-      );
-      if (!answer) return;
-      if (question.type === 'text') {
-        if ((answer.textAnswer ?? '').trim().length > 0) score += question.maxScore ?? 0;
-        return;
-      }
-      const correctIds = options
-        .filter((item) => item.isCorrect)
-        .map((item) => item.id)
-        .sort();
-      const picked = [...(answer.answerOptionIds ?? [])].sort();
-      if (JSON.stringify(correctIds) === JSON.stringify(picked)) score += question.maxScore ?? 0;
-    });
-    return {
-      score,
-      maxScore: questions.reduce((acc, item) => acc + (item.maxScore ?? 0), 0),
-      passingScore: test.rules.passingScore
-    };
-  }
-
   private finalizeAttempt(
     tenantId: string,
     actorId: string | undefined,
