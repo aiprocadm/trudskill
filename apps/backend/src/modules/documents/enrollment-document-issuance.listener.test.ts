@@ -624,6 +624,87 @@ describe('EnrollmentDocumentIssuanceListener', () => {
     expect(tasks.total).toBe(2);
   });
 
+  it('issues the valid entries even when one set entry has a bad template (partial-success)', async () => {
+    const audit = new AuditService();
+    const realtime = new RealtimeEventsService();
+    const persistence = new MemoryDocumentsPersistenceBackend();
+    const gateway = new TenantSerialGateway();
+    const runner = new DocumentsTenantRunner(persistence, gateway, audit, realtime);
+
+    let templateGoodId = '';
+    await runner.runWithTenantDocuments('tenant_demo', async (documents) => {
+      const ctx = {
+        requestId: 'r_partial',
+        correlationId: 'c_partial',
+        ip: '127.0.0.1',
+        userAgent: 'vitest',
+        tenantId: 'tenant_demo',
+        userId: 'u1',
+        roles: [],
+        permissions: [],
+        method: 'POST',
+        path: '/api/v1/documents',
+        timestamp: new Date().toISOString()
+      };
+      const good = documents.createTemplate(
+        'tenant_demo',
+        'u1',
+        { name: 'Good', templateType: 'certificate' },
+        ctx
+      );
+      const goodV = documents.createTemplateVersion('tenant_demo', 'u1', {
+        templateId: good.id,
+        fileId: 'file_good'
+      });
+      documents.activateTemplateVersion('tenant_demo', 'u1', goodV.id, ctx);
+      templateGoodId = good.id;
+    });
+
+    const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
+    listener.handleEnrollmentCompleted({
+      tenantId: 'tenant_demo',
+      enrollmentId: 'enrollment_partial',
+      learnerId: 'learner_partial',
+      groupId: 'group_partial',
+      groupCourseIds: [],
+      actorId: 'u1',
+      requestId: 'req_partial',
+      correlationId: 'corr_partial',
+      documentSet: [
+        {
+          courseVersionId: 'cver_p',
+          templateId: 'tpl_does_not_exist', // bad: getTemplate throws
+          position: 0,
+          isRequired: true,
+          autoIssueOnCompletion: true
+        },
+        {
+          courseVersionId: 'cver_p',
+          templateId: templateGoodId, // good: must still issue despite the earlier failure
+          position: 1,
+          isRequired: true,
+          autoIssueOnCompletion: true
+        }
+      ]
+    });
+    await flushDeferred();
+
+    const state = new InMemoryDocumentsState();
+    await persistence.loadIntoState('tenant_demo', state);
+    const docs = new DocumentsService(state, audit, realtime);
+    const tasks = docs.listDocumentTasks('tenant_demo', {});
+    // The good template was issued even though the bad one (sorted first) threw.
+    expect(tasks.total).toBe(1);
+    expect(tasks.items[0]?.templateId).toBe(templateGoodId);
+
+    const logs = await audit.list('tenant_demo');
+    const issued = logs.find((x) => x.action === 'documents.enrollment_document_set_issued');
+    expect(issued?.newValues?.count).toBe(1);
+    expect(issued?.newValues?.requested).toBe(2);
+    // The failure is still surfaced for alerting.
+    expect(logs.some((x) => x.action === 'documents.enrollment_document_set_failed')).toBe(true);
+  });
+
   it('writes document_set_failed audit when runner throws', async () => {
     const audit = new AuditService();
     const runner = {

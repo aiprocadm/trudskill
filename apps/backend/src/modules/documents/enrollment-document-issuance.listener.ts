@@ -62,24 +62,39 @@ export class EnrollmentDocumentIssuanceListener {
     const traceCtx = enrollmentTraceRequestContext(payload);
     try {
       await this.documentsRunner.runWithTenantDocuments(tenantId, async (documents) => {
+        // Partial-success: один негодный шаблон в наборе (архивный / без активной версии) не
+        // должен лишать ученика остальных документов. Изолируем каждую выдачу — иначе throw на
+        // первой записи прерывал цикл, оставляя набор частичным без success-аудита, а т.к. событие
+        // летит через in-process EventEmitter (setImmediate), автоповтора нет. Durable-dedup в
+        // generateDocument гарантирует, что уже выданные при ре-эмите не дублируются.
+        let issued = 0;
+        const failures: Array<{ templateId: string; error: string }> = [];
         for (const entry of autoIssueEntries) {
           const validUntil =
             payload.completedAt && entry.recertificationPeriodMonths
               ? addMonths(payload.completedAt, entry.recertificationPeriodMonths)
               : undefined;
-          documents.generateDocument(
-            tenantId,
-            actorId,
-            {
-              idempotencyKey: `enrollment:${enrollmentId}:${entry.templateId}:v1`,
+          try {
+            documents.generateDocument(
+              tenantId,
+              actorId,
+              {
+                idempotencyKey: `enrollment:${enrollmentId}:${entry.templateId}:v1`,
+                templateId: entry.templateId,
+                sourceEntityType: 'enrollment',
+                sourceEntityId: enrollmentId,
+                documentType: CERTIFICATE_DOCUMENT_TYPE,
+                ...(validUntil ? { validUntil } : {})
+              },
+              traceCtx
+            );
+            issued += 1;
+          } catch (error) {
+            failures.push({
               templateId: entry.templateId,
-              sourceEntityType: 'enrollment',
-              sourceEntityId: enrollmentId,
-              documentType: CERTIFICATE_DOCUMENT_TYPE,
-              ...(validUntil ? { validUntil } : {})
-            },
-            traceCtx
-          );
+              error: error instanceof Error ? error.message : String(error)
+            });
+          }
         }
         this.auditService.write({
           tenantId,
@@ -87,10 +102,26 @@ export class EnrollmentDocumentIssuanceListener {
           action: 'documents.enrollment_document_set_issued',
           entityType: 'learning.enrollment',
           entityId: enrollmentId,
-          newValues: { count: autoIssueEntries.length },
+          newValues: {
+            count: issued,
+            requested: autoIssueEntries.length,
+            ...(failures.length > 0 ? { failures } : {})
+          },
           requestId: payload.requestId,
           correlationId: payload.correlationId
         });
+        if (failures.length > 0) {
+          this.auditService.write({
+            tenantId,
+            actorId,
+            action: 'documents.enrollment_document_set_failed',
+            entityType: 'learning.enrollment',
+            entityId: enrollmentId,
+            newValues: { failures },
+            requestId: payload.requestId,
+            correlationId: payload.correlationId
+          });
+        }
       });
     } catch (error) {
       this.auditService.write({
