@@ -369,13 +369,19 @@ export class EsignService {
     const idem = `${tenantId}:proc-start:${id}:${req.idempotencyKey}`;
     if (this.state.idempotency.has(idem)) return this.getProcess(tenantId, id);
     const process = this.getProcess(tenantId, id);
+    // Validate-first, mutate-last: run every guard (transition validity + participant
+    // presence) BEFORE touching process.status. Mutating to 'prepared' and then
+    // throwing on the no-participants check stranded the process in 'prepared' — a
+    // retry would hit transitionProcess('prepared','prepared') → invalid, bricking
+    // it permanently (only cancel could escape). The durable singleton state made
+    // the stranded status survive across requests.
     EsignStateMachine.transitionProcess(process.status, 'prepared');
-    process.status = 'prepared';
     const hasParticipants = this.state.participants.some(
       (x) => x.tenantId === tenantId && x.processId === process.id
     );
     if (!hasParticipants)
       throw new BadRequestException('Cannot start signing process without participants');
+    process.status = 'prepared';
     EsignStateMachine.transitionProcess(process.status, 'awaiting_participants');
     process.status = 'awaiting_participants';
     EsignStateMachine.transitionProcess(process.status, 'in_signing');
@@ -433,7 +439,7 @@ export class EsignService {
     req: CreateSigningParticipantRequest
   ) {
     const process = this.getProcess(tenantId, req.processId);
-    EsignStateMachine.assertProcessMutable(process);
+    EsignStateMachine.assertProcessRosterMutable(process);
     if (
       this.state.participants.some(
         (x) =>
@@ -460,7 +466,7 @@ export class EsignService {
   }
   updateParticipant(tenantId: string, id: string, req: UpdateSigningParticipantRequest) {
     const p = this.must(this.state.participants, tenantId, id);
-    EsignStateMachine.assertProcessMutable(this.getProcess(tenantId, p.processId));
+    EsignStateMachine.assertProcessRosterMutable(this.getProcess(tenantId, p.processId));
     if (req.signOrder !== undefined) p.signOrder = req.signOrder;
     if (req.expiresAt !== undefined) p.expiresAt = req.expiresAt;
     p.updatedAt = this.now();
