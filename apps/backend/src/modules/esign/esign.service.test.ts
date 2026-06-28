@@ -104,6 +104,37 @@ describe('EsignService', () => {
     );
   });
 
+  it('does not brick a process started with no participants (recoverable after adding one)', () => {
+    const { service } = makeService();
+    const process = service.createProcess('t1', 'staff_1', {
+      idempotencyKey: 'brick-create',
+      generatedDocumentId: 'gdoc_1',
+      sequential: true
+    });
+
+    // Starting with no participants must be rejected...
+    expect(() =>
+      service.startProcess('t1', 'staff_1', process.id, { idempotencyKey: 'brick-start-1' })
+    ).toThrow(BadRequestException);
+
+    // ...but must NOT strand the process in 'prepared' (validate-first, mutate-last).
+    // A stranded 'prepared' bricks it: every retry hits
+    // transitionProcess('prepared','prepared') → invalid, and only cancel escapes.
+    expect(service.getProcess('t1', process.id).status).toBe('draft');
+
+    // After adding a participant, the operator can start the process normally.
+    service.createParticipant('t1', 'staff_1', {
+      processId: process.id,
+      participantType: 'employee',
+      participantUserId: 'u2',
+      signOrder: 1
+    });
+    const started = service.startProcess('t1', 'staff_1', process.id, {
+      idempotencyKey: 'brick-start-2'
+    });
+    expect(started.status).toBe('in_signing');
+  });
+
   it('blocks out-of-order signature for sequential process', async () => {
     const { service } = makeService();
     const process = service.createProcess('t1', 'staff_1', {

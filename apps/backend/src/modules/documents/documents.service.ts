@@ -772,6 +772,13 @@ export class DocumentsService {
     const doc = this.getDocument(tenantId, id);
     if (doc.status === 'archived')
       throw new BadRequestException('Archived document cannot be finalized');
+    // Idempotent: finalizing an already-final document is a no-op. Two signing
+    // processes completing on the same generatedDocumentId would otherwise each
+    // call finalizeDocument → re-run applySignature (double signature) and re-emit
+    // documents.finalized / documents.signed critical-audit entries. (Re-signing a
+    // finalized doc on demand goes through signDocument.) This also stops a re-finalize
+    // from silently un-revoking a revoked document (revoke keeps isFinal=true).
+    if (doc.isFinal) return doc;
     const oldValues = { status: doc.status, isFinal: doc.isFinal };
     doc.status = 'final';
     doc.isFinal = true;

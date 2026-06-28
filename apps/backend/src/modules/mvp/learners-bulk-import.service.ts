@@ -277,6 +277,22 @@ export class LearnersBulkImportService {
 
       if (c.classification === 'reuse') {
         const learnerId = c.reuseLearnerId!;
+        const claimedByRow = learnerIdToRowNumber.get(learnerId);
+        if (claimedByRow != null) {
+          // An earlier row in this batch already resolved to the SAME existing
+          // learner (e.g. that row matched by email, this one by СНИЛС). That is a
+          // duplicate person within the file. Fail the later row instead of
+          // overwriting the first row's enrollment mapping and double-counting
+          // `reused` — consistent with classifyRows' duplicate_in_file handling.
+          outcomeRowByRowNumber.set(rowNum, {
+            rowNumber: rowNum,
+            status: 'failed',
+            errorCode: 'duplicate_in_file',
+            errorMessage: `Та же учётная запись, что и в строке ${claimedByRow}`
+          });
+          failedCount += 1;
+          continue;
+        }
         outcomeRowByRowNumber.set(rowNum, {
           rowNumber: rowNum,
           status: 'reused',

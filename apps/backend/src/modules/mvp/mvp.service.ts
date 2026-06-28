@@ -4584,7 +4584,29 @@ export class MvpService {
 
     if (['submitted', 'finished', 'expired', 'invalidated'].includes(attempt.status))
       return attempt;
-    if (attempt.expiresAt && new Date(attempt.expiresAt) <= new Date()) attempt.status = 'expired';
+    if (attempt.expiresAt && new Date(attempt.expiresAt) <= new Date()) {
+      // Time limit elapsed: finalize as expired (terminal) instead of accepting a
+      // late submission. An expired attempt is excluded from the exam result
+      // (finalize/recalculate only count submitted|finished), so it cannot pass —
+      // this mirrors finishAttempt/assertAttemptWritable, which already treat
+      // expiry as terminal. Without the early return the status was overwritten to
+      // 'submitted' below, silently bypassing the time limit.
+      attempt.status = 'expired';
+      attempt.finishedAt = this.now();
+      attempt.updatedAt = this.now();
+      this.audit(
+        tenantId,
+        actorId,
+        'assessment.attempt_expired',
+        'assessment.test_attempt',
+        attempt.id,
+        undefined,
+        attempt,
+        context,
+        delegationAuditMetadata
+      );
+      return attempt;
+    }
     const test = this.getById(this.state.tests, tenantId, attempt.testId);
     const answers = this.state.attemptAnswers.filter(
       (item) => item.tenantId === tenantId && item.attemptId === attempt.id
@@ -4798,8 +4820,14 @@ export class MvpService {
     if (existing) {
       existing.bestAttemptId = best.id;
       existing.attemptsCount = attempts.length;
+      // finalScore and bestScore are synonyms (both = the best attempt's score).
+      // Write BOTH so the record is consistent regardless of which finalizer
+      // (finalize on submit / recalculate on read+finish) last touched it —
+      // otherwise a consumer reading the other field gets undefined → NaN.
       existing.finalScore = best.score ?? 0;
+      existing.bestScore = best.score ?? 0;
       existing.maxScore = best.maxScore;
+      existing.passingScore = test.rules.passingScore;
       existing.passed = (best.score ?? 0) >= test.rules.passingScore;
       existing.updatedAt = this.now();
       this.audit(
@@ -4824,7 +4852,9 @@ export class MvpService {
       bestAttemptId: best.id,
       attemptsCount: attempts.length,
       finalScore: best.score ?? 0,
+      bestScore: best.score ?? 0,
       maxScore: best.maxScore,
+      passingScore: test.rules.passingScore,
       passed: (best.score ?? 0) >= test.rules.passingScore,
       status: 'final',
       createdAt: this.now(),
@@ -5373,43 +5403,6 @@ export class MvpService {
     }
   }
 
-  private calculateAttemptScore(
-    tenantId: string,
-    attemptId: string
-  ): { score: number; maxScore: number; passingScore: number } {
-    const attempt = this.getById(this.state.attempts, tenantId, attemptId);
-    const test = this.getById(this.state.tests, tenantId, attempt.testId);
-    const questions = attempt.questionOrder.map((id) =>
-      this.getById(this.state.questions, tenantId, id)
-    );
-    const answers = this.state.attemptAnswers.filter(
-      (item) => item.tenantId === tenantId && item.attemptId === attemptId
-    );
-    let score = 0;
-    questions.forEach((question) => {
-      const answer = answers.find((item) => item.questionId === question.id);
-      const options = this.state.answerOptions.filter(
-        (item) => item.tenantId === tenantId && item.questionId === question.id
-      );
-      if (!answer) return;
-      if (question.type === 'text') {
-        if ((answer.textAnswer ?? '').trim().length > 0) score += question.maxScore ?? 0;
-        return;
-      }
-      const correctIds = options
-        .filter((item) => item.isCorrect)
-        .map((item) => item.id)
-        .sort();
-      const picked = [...(answer.answerOptionIds ?? [])].sort();
-      if (JSON.stringify(correctIds) === JSON.stringify(picked)) score += question.maxScore ?? 0;
-    });
-    return {
-      score,
-      maxScore: questions.reduce((acc, item) => acc + (item.maxScore ?? 0), 0),
-      passingScore: test.rules.passingScore
-    };
-  }
-
   private finalizeAttempt(
     tenantId: string,
     actorId: string | undefined,
@@ -5480,6 +5473,9 @@ export class MvpService {
     record.attemptsCount = attempts.length;
     record.bestAttemptId = best?.id;
     record.bestScore = best?.score ?? 0;
+    // Keep finalScore in lockstep with bestScore (synonyms) so the record stays
+    // consistent whichever finalizer wrote it last (see finalizeExamResult).
+    record.finalScore = best?.score ?? 0;
     record.maxScore = best?.maxScore ?? 0;
     record.passingScore = test.rules.passingScore;
     record.passed = record.bestScore >= record.passingScore;

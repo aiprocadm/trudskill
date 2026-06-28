@@ -67,6 +67,50 @@ describe('EsignService state machine', () => {
     ).toThrow(BadRequestException);
   });
 
+  it('blocks roster changes once signing has started (in_signing / failed are not roster-mutable)', () => {
+    const service = makeService();
+    const process = service.createProcess('t1', 'staff_1', {
+      idempotencyKey: 'proc-roster-1',
+      generatedDocumentId: 'gdoc_1',
+      sequential: true
+    });
+    const p1 = service.createParticipant('t1', 'staff_1', {
+      processId: process.id,
+      participantType: 'employee',
+      participantUserId: 'u_signer',
+      signOrder: 1
+    });
+    service.startProcess('t1', 'staff_1', process.id, { idempotencyKey: 'proc-roster-start' });
+    expect(service.getProcess('t1', process.id).status).toBe('in_signing');
+
+    // Adding a signer mid-signing would re-open the flow and could shift the
+    // sequential "next signer" — must be rejected.
+    expect(() =>
+      service.createParticipant('t1', 'staff_1', {
+        processId: process.id,
+        participantType: 'employee',
+        participantUserId: 'u_signer_2',
+        signOrder: 2
+      })
+    ).toThrow(BadRequestException);
+
+    // Reordering an existing participant mid-signing is likewise blocked.
+    expect(() => service.updateParticipant('t1', p1.id, { signOrder: 9 })).toThrow(
+      BadRequestException
+    );
+
+    // A failed process is terminal for roster changes too (no orphan participants).
+    service.getProcess('t1', process.id).status = 'failed';
+    expect(() =>
+      service.createParticipant('t1', 'staff_1', {
+        processId: process.id,
+        participantType: 'employee',
+        participantUserId: 'u_signer_3',
+        signOrder: 3
+      })
+    ).toThrow(BadRequestException);
+  });
+
   it('stores terminal snapshot after failed process transition', () => {
     const service = makeService();
     const process = service.createProcess('t1', 'staff_1', {

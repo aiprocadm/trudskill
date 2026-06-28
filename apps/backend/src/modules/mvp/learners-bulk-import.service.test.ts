@@ -429,6 +429,46 @@ describe('LearnersBulkImportService.bulkImportLearners', () => {
     expect(outcome.reused).toBe(1);
   });
 
+  it('two rows resolving to the SAME existing learner (email vs СНИЛС) → later row is a duplicate, not double-counted', () => {
+    const { mvp, bulk, group } = setupWithGroup();
+    // Existing learner matchable by BOTH email and СНИЛС.
+    mvp.createLearnerExtended(
+      'tenant_demo',
+      ctx.userId,
+      { firstName: 'Старый', lastName: 'Учётник', email: 'dup@x.ru', snils: '11111111145' },
+      ctx
+    );
+
+    const outcome = bulk.bulkImportLearners(
+      'tenant_demo',
+      ctx.userId,
+      {
+        idempotencyKey: 'idem_cross_field_dup',
+        groupId: group.id,
+        rows: [
+          // row 2 matches the existing learner by email (its own СНИЛС is new/unmatched)
+          { rowNumber: 2, fullName: 'Учётник Старый', email: 'dup@x.ru', snils: '11234567828' },
+          // row 3 matches the SAME existing learner by СНИЛС (its email is new/unmatched)
+          { rowNumber: 3, fullName: 'Учётник Старый', email: 'other@x.ru', snils: '11111111145' }
+        ]
+      },
+      ctx
+    );
+
+    // Exactly one row reuses the learner and gets the enrollment; the other is an
+    // in-file duplicate (same person via a different field) — not silently
+    // double-counted with a lost enrollment mapping (which the map-overwrite did).
+    expect(outcome.reused).toBe(1);
+    expect(outcome.failed).toBe(1);
+
+    const row2 = outcome.rows.find((r) => r.rowNumber === 2)!;
+    const row3 = outcome.rows.find((r) => r.rowNumber === 3)!;
+    expect(row2.status).toBe('reused');
+    expect(row2.enrollmentId).toBeDefined();
+    expect(row3.status).toBe('failed');
+    expect(row3.errorCode).toBe('duplicate_in_file');
+  });
+
   it('tenant-isolation: учёток другого tenant НЕ доступен для reuse', () => {
     const { mvp, bulk, group } = setupWithGroup();
     mvp.createLearnerExtended(

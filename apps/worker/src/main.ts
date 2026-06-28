@@ -2,21 +2,13 @@ import { createRequire } from 'node:module';
 
 import { invokeBackendBulkEnrollment } from './bulk-enrollment-callback.js';
 import { workerEnv } from './env.js';
+import { type WorkerEnvelope, consumeMessage } from './message-consumer.js';
 
 const require = createRequire(import.meta.url);
 const amqp = require('amqplib') as any;
 const { Pool } = require('pg') as any;
 
-type WorkerJobType = 'document' | 'integration' | 'notification' | 'bulk_enrollment';
-
 type RetryDecision = 'retry' | 'dead-letter';
-
-interface WorkerEnvelope {
-  messageId: string;
-  tenantId: string;
-  jobType: WorkerJobType;
-  payload: Record<string, unknown>;
-}
 
 const REDACTED = '[REDACTED]';
 const SENSITIVE_KEY_PATTERNS = [
@@ -97,15 +89,24 @@ function decideRetry(retryCount: number, error: unknown): RetryDecision {
   return 'retry';
 }
 
-async function markProcessed(messageId: string, queueName: string): Promise<boolean> {
+async function hasBeenProcessed(messageId: string): Promise<boolean> {
   const result = await db.query(
+    `select 1 from core.processed_message_ids
+     where consumer_name = $1 and message_id = $2
+     limit 1`,
+    [workerEnv.WORKER_CONSUMER_NAME, messageId]
+  );
+
+  return result.rowCount > 0;
+}
+
+async function markProcessed(messageId: string, queueName: string): Promise<void> {
+  await db.query(
     `insert into core.processed_message_ids (consumer_name, message_id, queue_name)
      values ($1, $2, $3)
      on conflict (consumer_name, message_id) do nothing`,
     [workerEnv.WORKER_CONSUMER_NAME, messageId, queueName]
   );
-
-  return result.rowCount > 0;
 }
 
 async function processJob(envelope: WorkerEnvelope): Promise<void> {
@@ -178,8 +179,14 @@ async function bootstrap(): Promise<void> {
           throw new Error('Invalid envelope: messageId/jobType are required');
         }
 
-        const inserted = await markProcessed(parsed.messageId, workerEnv.DOCUMENT_GENERATION_QUEUE);
-        if (!inserted) {
+        const outcome = await consumeMessage(parsed, {
+          hasBeenProcessed: (messageId) => hasBeenProcessed(messageId),
+          markProcessed: (messageId) =>
+            markProcessed(messageId, workerEnv.DOCUMENT_GENERATION_QUEUE),
+          processJob
+        });
+
+        if (outcome.kind === 'skipped_duplicate') {
           channel.ack(msg);
           log('info', 'worker_duplicate_message_skipped', {
             messageId: parsed.messageId,
@@ -188,7 +195,12 @@ async function bootstrap(): Promise<void> {
           return;
         }
 
-        await processJob(parsed);
+        if (outcome.kind === 'failed') {
+          // Re-throw into the retry/dead-letter handler below. The dedup mark was
+          // NOT written (mark happens only after success), so the retry re-runs.
+          throw outcome.error;
+        }
+
         channel.ack(msg);
         log('info', 'worker_message_processed', {
           messageId: parsed.messageId,

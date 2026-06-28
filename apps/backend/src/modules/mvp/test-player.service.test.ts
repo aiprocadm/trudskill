@@ -274,6 +274,83 @@ describe('getAttemptResult — a read must NOT flip a passing result (CRITICAL)'
   });
 });
 
+describe('submitAttempt — time limit enforcement (CRITICAL)', () => {
+  it('finalizes an attempt whose time elapsed as expired, not as a passing submission', () => {
+    const service = makeService();
+    const { course, enrollment, bank } = seedEnrollment(service);
+    const { q, attempt } = startSingleQuestionAttempt(
+      service,
+      {
+        questionBankId: bank.id,
+        type: 'number_input',
+        score: 2,
+        numericExpected: 3.14,
+        numericTolerance: 0.01
+      },
+      enrollment,
+      course.id,
+      bank.id,
+      2
+    );
+    // Learner answers correctly while the attempt is still open.
+    service.saveAttemptAnswer(T, ADMIN, attempt.id, { questionId: q.id, textAnswer: '3.14' }, ctx);
+
+    // Time runs out before the learner submits.
+    const stored = service['state'].attempts.find((a) => a.id === attempt.id)!;
+    stored.expiresAt = new Date(Date.now() - 60_000).toISOString();
+
+    const submitted = service.submitAttempt(T, ADMIN, attempt.id, ctx);
+
+    // The time limit must be enforced: a late submit is finalized as expired,
+    // never accepted as a passing submission (mirrors finishAttempt semantics).
+    expect(submitted.status).toBe('expired');
+    expect(submitted.passed).toBeFalsy();
+
+    // An expired attempt must not produce a passing exam result.
+    const passing = service['state'].examResults.find(
+      (r) => r.enrollmentId === enrollment.id && r.passed
+    );
+    expect(passing).toBeUndefined();
+  });
+});
+
+describe('exam result — finalScore and bestScore stay consistent across finalizers', () => {
+  it('submitAttempt populates BOTH finalScore and bestScore, not just one', () => {
+    const service = makeService();
+    const { course, enrollment, bank } = seedEnrollment(service);
+    const { q, attempt } = startSingleQuestionAttempt(
+      service,
+      {
+        questionBankId: bank.id,
+        type: 'number_input',
+        score: 2,
+        numericExpected: 3.14,
+        numericTolerance: 0.01
+      },
+      enrollment,
+      course.id,
+      bank.id,
+      2
+    );
+    service.saveAttemptAnswer(T, ADMIN, attempt.id, { questionId: q.id, textAnswer: '3.14' }, ctx);
+    service.submitAttempt(T, ADMIN, attempt.id, ctx);
+
+    // finalizeExamResult (submit path) and recalculateExamResult (read/finish path)
+    // historically wrote disjoint score fields (finalScore vs bestScore) to the SAME
+    // record, so a consumer reading the "other" field got undefined → NaN downstream.
+    const persisted = service['state'].examResults.find((r) => r.enrollmentId === enrollment.id)!;
+    expect(persisted.finalScore).toBe(2);
+    expect(persisted.bestScore).toBe(2);
+    expect(persisted.passingScore).toBe(2);
+
+    // A subsequent read (recalculate) keeps both fields consistent.
+    service.getAttemptResult(T, attempt.id);
+    const afterRead = service['state'].examResults.find((r) => r.enrollmentId === enrollment.id)!;
+    expect(afterRead.finalScore).toBe(2);
+    expect(afterRead.bestScore).toBe(2);
+  });
+});
+
 describe('getAttemptQuestions — answer-safe projection', () => {
   it('omits every answer-key field and sorts options by sortOrder', () => {
     const service = makeService();

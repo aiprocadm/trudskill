@@ -1828,6 +1828,28 @@ describe('DocumentsService signing (Phase 6)', () => {
     expect(state.generatedDocuments[0].signatureStatus).toBe('failed');
   });
 
+  it('finalizeDocument is idempotent: a second finalize does not re-sign the document', async () => {
+    const provider = new StubSignatureProvider({
+      status: 'signed',
+      signatureRef: 'sig_once',
+      certificateSubject: 'CN=УЦ'
+    });
+    const { service, state } = makeSignServiceWith(provider);
+
+    const first = await service.finalizeDocument('t1', 'user_1', 'gdoc_sig', signCtx);
+    expect(first.isFinal).toBe(true);
+    expect(provider.calls).toHaveLength(1);
+
+    // A second signing process completing on the same generated document must NOT
+    // double-apply the signature (one document = one signature) nor re-emit the
+    // documents.finalized / documents.signed critical-audit entries.
+    const second = await service.finalizeDocument('t1', 'user_1', 'gdoc_sig', signCtx);
+    expect(second.isFinal).toBe(true);
+    expect(second.signatureRef).toBe('sig_once');
+    expect(provider.calls).toHaveLength(1);
+    expect(state.generatedDocuments[0].status).toBe('final');
+  });
+
   it('signDocument re-signs an already-final document on demand', async () => {
     const provider = new StubSignatureProvider({ status: 'signed', signatureRef: 'sig_2' });
     const { service, state } = makeSignServiceWith(provider);
