@@ -4652,6 +4652,11 @@ export class MvpService {
     context: RequestContext
   ): TestAttempt {
     const submitted = this.submitAttempt(tenantId, actorId, attemptId, context);
+    // submitAttempt is terminal-aware: it returns 'expired' when the time limit elapsed and
+    // leaves an already-terminal attempt untouched. Only a freshly-graded 'submitted' attempt may
+    // transition to 'finished' — otherwise finish would resurrect an expired/terminal attempt into
+    // a counted 'finished' record, silently defeating the time-limit semantics.
+    if (submitted.status !== 'submitted') return submitted;
     submitted.status = 'finished';
     submitted.finishedAt = this.now();
     submitted.updatedAt = this.now();
