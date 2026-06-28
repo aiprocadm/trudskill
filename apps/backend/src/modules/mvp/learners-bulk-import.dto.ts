@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
+  ArrayUnique,
   IsArray,
   IsInt,
   IsOptional,
@@ -44,6 +45,14 @@ export class BulkImportRowDto {
   @IsString()
   @MaxLength(200)
   position?: string;
+
+  // Дата рождения (для экспорта ФИС ФРДО). Сервис (`classifyRows`) и тип `BulkImportRow`
+  // её читают; без объявления здесь `forbidNonWhitelisted: true` в `assertValidDto` отвергал
+  // бы ВЕСЬ запрос, как только клиент передавал dateOfBirth — фича была недостижима по HTTP.
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  dateOfBirth?: string;
 }
 
 export class BulkImportLearnersRequest {
@@ -58,6 +67,14 @@ export class BulkImportLearnersRequest {
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(1000)
+  // Весь конвейер импорта (outcomeRowByRowNumber, learnerIdToRowNumber) индексируется по
+  // rowNumber. Дубликат rowNumber схлопывал бы outcome-строки: вторая перезаписывала первую в
+  // Map, и созданный по первой строке ученик пропадал из отчёта при count «2 created». Фронтенд
+  // нумерует строки по позиции в Excel (уникальны), так что дубль — это искажённый запрос:
+  // отклоняем его структурно (это не бизнес-валидация, на которую распространяется partial-success).
+  @ArrayUnique((row: BulkImportRowDto) => row.rowNumber, {
+    message: 'rowNumber values must be unique across rows'
+  })
   @ValidateNested({ each: true })
   @Type(() => BulkImportRowDto)
   rows!: BulkImportRowDto[];
