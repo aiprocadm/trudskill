@@ -312,6 +312,40 @@ describe('submitAttempt — time limit enforcement (CRITICAL)', () => {
     );
     expect(passing).toBeUndefined();
   });
+
+  it('finishAttempt on an elapsed attempt preserves expired status (does not resurrect to finished)', () => {
+    const service = makeService();
+    const { course, enrollment, bank } = seedEnrollment(service);
+    const { q, attempt } = startSingleQuestionAttempt(
+      service,
+      {
+        questionBankId: bank.id,
+        type: 'number_input',
+        score: 2,
+        numericExpected: 3.14,
+        numericTolerance: 0.01
+      },
+      enrollment,
+      course.id,
+      bank.id,
+      2
+    );
+    service.saveAttemptAnswer(T, ADMIN, attempt.id, { questionId: q.id, textAnswer: '3.14' }, ctx);
+
+    // Time runs out, then the learner hits "finish" (the /finish endpoint) instead of /submit.
+    const stored = service['state'].attempts.find((a) => a.id === attempt.id)!;
+    stored.expiresAt = new Date(Date.now() - 60_000).toISOString();
+
+    const finished = service.finishAttempt(T, ADMIN, attempt.id, ctx);
+
+    // finishAttempt must NOT overwrite the terminal 'expired' state with 'finished'.
+    expect(finished.status).toBe('expired');
+    expect(finished.passed).toBeFalsy();
+    const passing = service['state'].examResults.find(
+      (r) => r.enrollmentId === enrollment.id && r.passed
+    );
+    expect(passing).toBeUndefined();
+  });
 });
 
 describe('exam result — finalScore and bestScore stay consistent across finalizers', () => {

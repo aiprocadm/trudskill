@@ -35,6 +35,13 @@ export interface PublicVerifyResult {
  * идентичную форму и одинаково не светили tenantId/PII/actor.
  */
 export function buildPublicVerifyResult(doc: GeneratedDocumentEntity): PublicVerifyResult {
+  // Административно архивированный (отозванный из обращения) документ НЕ должен публично
+  // подтверждаться как подлинный: archive — это «тихое» изъятие, у него нет публичной причины
+  // отзыва (в отличие от revoked). Отдаём минимальный not_found, не светя номер/идентификатор
+  // изъятого документа — иначе регулятор по QR увидит archived-сертификат как valid.
+  if (doc.status === 'archived') {
+    return { status: 'not_found' };
+  }
   const result: PublicVerifyResult = {
     status: doc.status === 'revoked' ? 'revoked' : 'valid',
     documentId: doc.id,

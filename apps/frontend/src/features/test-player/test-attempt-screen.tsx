@@ -87,7 +87,25 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
   const goToResult = () =>
     router.push(`/learner/tests/${testId}/result?attemptId=${encodeURIComponent(attemptId)}`);
 
+  // Persist a question's dirty draft immediately, bypassing the autosave debounce. Without this,
+  // navigating (or submitting) within AUTOSAVE_DELAY_MS cancels the pending save and the answer is
+  // silently lost — critical in a graded exam, where the last question is submitted before its
+  // debounce fires. Saving the same answer twice is idempotent, so racing the debounce is safe.
+  const flushDraft = async (questionId: string) => {
+    if (!dirtyRef.current.has(questionId)) return;
+    const draft = drafts[questionId];
+    if (!draft) return;
+    dirtyRef.current.delete(questionId);
+    const payload: SaveAnswerPayload = {
+      questionId,
+      ...(draft.selectedOptionIds ? { selectedOptionIds: draft.selectedOptionIds } : {}),
+      ...(draft.textAnswer !== undefined ? { textAnswer: draft.textAnswer } : {})
+    };
+    await saveAnswer.mutate(attemptId, payload);
+  };
+
   const handleSubmit = async () => {
+    if (current) await flushDraft(current.id);
     const result = await submitAttempt.mutate(attemptId);
     if (result) {
       // Phase 4 Plan B: stop the webcam recording and complete the session (fire-and-forget —
@@ -242,7 +260,10 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
           type="button"
           className="ui-button"
           disabled={currentIndex === 0}
-          onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
+          onClick={() => {
+            void flushDraft(q.id);
+            setCurrentIndex((i) => Math.max(0, i - 1));
+          }}
         >
           Назад
         </button>
@@ -259,7 +280,10 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
           <button
             type="button"
             className="ui-button ui-button--primary"
-            onClick={() => setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))}
+            onClick={() => {
+              void flushDraft(q.id);
+              setCurrentIndex((i) => Math.min(questions.length - 1, i + 1));
+            }}
           >
             Далее
           </button>

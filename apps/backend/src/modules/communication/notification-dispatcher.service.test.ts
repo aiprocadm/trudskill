@@ -47,6 +47,33 @@ describe('NotificationDispatcher dedup', () => {
     await dispatcher.dispatch({ ...baseInput, dedupKey: 'recert:d1:7' });
     expect(await deliveries.findByDedupKey('t1', 'recert:d1:7')).not.toBeNull();
   });
+
+  it('sends only once when the same address appears twice in one dispatch', async () => {
+    const { dispatcher, mailer, deliveries } = make();
+    const result = await dispatcher.dispatch({
+      ...baseInput,
+      recipients: [
+        { email: 'dup@x.com', kind: 'learner' as const },
+        { email: 'dup@x.com', kind: 'staff' as const }
+      ]
+    });
+    expect(mailer.send).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ sent: 1, skipped: 1, failed: 0 });
+    expect((await deliveries.list('t1', {})).total).toBe(1);
+  });
+
+  it('treats case/whitespace-different addresses as the same recipient', async () => {
+    const { dispatcher, mailer } = make();
+    const result = await dispatcher.dispatch({
+      ...baseInput,
+      recipients: [
+        { email: 'Curator@x.com', kind: 'staff' as const },
+        { email: ' curator@x.com ', kind: 'learner' as const }
+      ]
+    });
+    expect(mailer.send).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ sent: 1, skipped: 1, failed: 0 });
+  });
 });
 
 describe('NotificationDispatcher stranding (audit tail 1b)', () => {

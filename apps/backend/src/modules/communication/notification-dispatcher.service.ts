@@ -39,6 +39,11 @@ export interface DispatchInput {
   dedupKey?: string;
 }
 
+/** Каноничный ключ адреса для дедупликации: без учёта регистра и краевых пробелов. */
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
 export interface DispatchSummary {
   /** Recipients successfully sent (or skipped_noop) this dispatch. */
   sent: number;
@@ -75,7 +80,7 @@ export class NotificationDispatcher {
       const prior = await this.deliveries.listByDedupKey(input.tenantId, input.dedupKey);
       for (const row of prior) {
         if (row.status !== 'failed') {
-          alreadyDelivered.add(row.recipientEmail);
+          alreadyDelivered.add(normalizeEmail(row.recipientEmail));
         }
       }
     }
@@ -88,11 +93,18 @@ export class NotificationDispatcher {
     let skipped = 0;
     let failed = 0;
 
+    // Дедуп В ПРЕДЕЛАХ одного вызова: один и тот же адрес может встретиться дважды в одном
+    // recipients[] (напр. staff-получатель совпал с employer contactEmail). Кросс-run `dedupKey`
+    // тут не спасает — оба отправления происходят до записи строк этого run'а. Нормализуем адрес
+    // по регистру/пробелам, чтобы `Learner@x` и `learner@x` считались одним получателем.
+    const seenThisRun = new Set<string>();
     for (const recipient of input.recipients) {
-      if (alreadyDelivered.has(recipient.email)) {
+      const dedupEmail = normalizeEmail(recipient.email);
+      if (alreadyDelivered.has(dedupEmail) || seenThisRun.has(dedupEmail)) {
         skipped++;
         continue;
       }
+      seenThisRun.add(dedupEmail);
 
       let result: Awaited<ReturnType<MailerService['send']>>;
       try {

@@ -49,6 +49,17 @@ describe('buildPublicVerifyResult', () => {
     expect(JSON.stringify(r)).not.toContain('secret_admin');
   });
 
+  it('treats an archived (withdrawn) document as not_found and leaks no document fields', () => {
+    const r = buildPublicVerifyResult(
+      makeDoc({ status: 'archived', archivedAt: '2026-06-10T00:00:00.000Z' } as never)
+    );
+    expect(r.status).toBe('not_found');
+    expect(r.documentId).toBeUndefined();
+    expect(r.documentNumber).toBeUndefined();
+    expect(JSON.stringify(r)).not.toContain('gdoc_x');
+    expect(JSON.stringify(r)).not.toContain('N-1');
+  });
+
   it('never leaks tenantId or PII fields', () => {
     const r = buildPublicVerifyResult(makeDoc());
     expect(JSON.stringify(r)).not.toContain('secret_tenant');
