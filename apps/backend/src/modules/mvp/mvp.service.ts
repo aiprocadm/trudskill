@@ -4584,7 +4584,29 @@ export class MvpService {
 
     if (['submitted', 'finished', 'expired', 'invalidated'].includes(attempt.status))
       return attempt;
-    if (attempt.expiresAt && new Date(attempt.expiresAt) <= new Date()) attempt.status = 'expired';
+    if (attempt.expiresAt && new Date(attempt.expiresAt) <= new Date()) {
+      // Time limit elapsed: finalize as expired (terminal) instead of accepting a
+      // late submission. An expired attempt is excluded from the exam result
+      // (finalize/recalculate only count submitted|finished), so it cannot pass —
+      // this mirrors finishAttempt/assertAttemptWritable, which already treat
+      // expiry as terminal. Without the early return the status was overwritten to
+      // 'submitted' below, silently bypassing the time limit.
+      attempt.status = 'expired';
+      attempt.finishedAt = this.now();
+      attempt.updatedAt = this.now();
+      this.audit(
+        tenantId,
+        actorId,
+        'assessment.attempt_expired',
+        'assessment.test_attempt',
+        attempt.id,
+        undefined,
+        attempt,
+        context,
+        delegationAuditMetadata
+      );
+      return attempt;
+    }
     const test = this.getById(this.state.tests, tenantId, attempt.testId);
     const answers = this.state.attemptAnswers.filter(
       (item) => item.tenantId === tenantId && item.attemptId === attempt.id

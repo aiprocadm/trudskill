@@ -274,6 +274,46 @@ describe('getAttemptResult — a read must NOT flip a passing result (CRITICAL)'
   });
 });
 
+describe('submitAttempt — time limit enforcement (CRITICAL)', () => {
+  it('finalizes an attempt whose time elapsed as expired, not as a passing submission', () => {
+    const service = makeService();
+    const { course, enrollment, bank } = seedEnrollment(service);
+    const { q, attempt } = startSingleQuestionAttempt(
+      service,
+      {
+        questionBankId: bank.id,
+        type: 'number_input',
+        score: 2,
+        numericExpected: 3.14,
+        numericTolerance: 0.01
+      },
+      enrollment,
+      course.id,
+      bank.id,
+      2
+    );
+    // Learner answers correctly while the attempt is still open.
+    service.saveAttemptAnswer(T, ADMIN, attempt.id, { questionId: q.id, textAnswer: '3.14' }, ctx);
+
+    // Time runs out before the learner submits.
+    const stored = service['state'].attempts.find((a) => a.id === attempt.id)!;
+    stored.expiresAt = new Date(Date.now() - 60_000).toISOString();
+
+    const submitted = service.submitAttempt(T, ADMIN, attempt.id, ctx);
+
+    // The time limit must be enforced: a late submit is finalized as expired,
+    // never accepted as a passing submission (mirrors finishAttempt semantics).
+    expect(submitted.status).toBe('expired');
+    expect(submitted.passed).toBeFalsy();
+
+    // An expired attempt must not produce a passing exam result.
+    const passing = service['state'].examResults.find(
+      (r) => r.enrollmentId === enrollment.id && r.passed
+    );
+    expect(passing).toBeUndefined();
+  });
+});
+
 describe('getAttemptQuestions — answer-safe projection', () => {
   it('omits every answer-key field and sorts options by sortOrder', () => {
     const service = makeService();
