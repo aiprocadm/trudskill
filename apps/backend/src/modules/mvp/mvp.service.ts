@@ -6080,7 +6080,9 @@ export class MvpService {
         message: 'Cannot edit program meta of a non-draft course version'
       });
     }
-    if (request.commissionId !== undefined) {
+    // `!= null` so both `null` (clear/detach) and `undefined` (keep) skip the lookup;
+    // only a real id is validated for existence.
+    if (request.commissionId != null) {
       const commission = this.state.commissions.find(
         (c) => c.tenantId === tenantId && c.id === request.commissionId
       );
@@ -6098,23 +6100,26 @@ export class MvpService {
       }
     }
 
+    // clear-vs-keep: a present key applies; `null` clears (normalized → undefined so the
+    // entity stays `?: T` and `JSON.stringify` drops the key); an absent key keeps the value.
     const oldValues = { ...cv };
-    if (request.academicHours !== undefined) cv.academicHours = request.academicHours;
+    if (request.academicHours !== undefined) cv.academicHours = request.academicHours ?? undefined;
     if (request.recertificationPeriodMonths !== undefined)
-      cv.recertificationPeriodMonths = request.recertificationPeriodMonths;
-    if (request.trainingType !== undefined) cv.trainingType = request.trainingType;
-    if (request.learnerCategory !== undefined) cv.learnerCategory = request.learnerCategory;
-    if (request.studyForm !== undefined) cv.studyForm = request.studyForm;
+      cv.recertificationPeriodMonths = request.recertificationPeriodMonths ?? undefined;
+    if (request.trainingType !== undefined) cv.trainingType = request.trainingType ?? undefined;
+    if (request.learnerCategory !== undefined)
+      cv.learnerCategory = request.learnerCategory ?? undefined;
+    if (request.studyForm !== undefined) cv.studyForm = request.studyForm ?? undefined;
     if (request.finalAssessmentForm !== undefined) {
-      cv.finalAssessmentForm = request.finalAssessmentForm;
+      cv.finalAssessmentForm = request.finalAssessmentForm ?? undefined;
     }
     if (request.regulatoryBasisCodes !== undefined) {
       cv.regulatoryBasisCodes = request.regulatoryBasisCodes;
     }
     if (request.programAttachmentFileId !== undefined) {
-      cv.programAttachmentFileId = request.programAttachmentFileId;
+      cv.programAttachmentFileId = request.programAttachmentFileId ?? undefined;
     }
-    if (request.commissionId !== undefined) cv.commissionId = request.commissionId;
+    if (request.commissionId !== undefined) cv.commissionId = request.commissionId ?? undefined;
     if (request.otProgramCodes !== undefined) cv.otProgramCodes = request.otProgramCodes;
     cv.updatedAt = this.now();
 

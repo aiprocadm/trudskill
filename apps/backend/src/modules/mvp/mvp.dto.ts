@@ -993,32 +993,36 @@ export class AddCommissionMemberRequest {
 
 /** `PATCH /course-versions/:id/program-meta` — patch программных полей черновика. */
 export class UpdateProgramMetaRequest {
+  // clear-vs-keep: `null` clears a field (service normalizes → undefined), omitting keeps it.
+  // `@IsOptional()` already treats `null` as "missing" and skips the inner validators,
+  // while still rejecting malformed non-null input — so only the TS types widen here.
   @IsOptional()
   @IsInt()
   @Min(1)
-  academicHours?: number;
+  academicHours?: number | null;
 
   @IsOptional()
   @IsInt()
   @Min(1)
-  recertificationPeriodMonths?: number;
+  recertificationPeriodMonths?: number | null;
 
   @IsOptional()
   @IsIn(TRAINING_TYPES)
-  trainingType?: TrainingType;
+  trainingType?: TrainingType | null;
 
   @IsOptional()
   @IsIn(LEARNER_CATEGORIES)
-  learnerCategory?: LearnerCategory;
+  learnerCategory?: LearnerCategory | null;
 
   @IsOptional()
   @IsIn(STUDY_FORMS)
-  studyForm?: StudyForm;
+  studyForm?: StudyForm | null;
 
   @IsOptional()
   @IsIn(FINAL_ASSESSMENT_FORMS)
-  finalAssessmentForm?: FinalAssessmentForm;
+  finalAssessmentForm?: FinalAssessmentForm | null;
 
+  // arrays clear via `[]`, not `null`
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(20)
@@ -1027,11 +1031,11 @@ export class UpdateProgramMetaRequest {
 
   @IsOptional()
   @IsString()
-  programAttachmentFileId?: string;
+  programAttachmentFileId?: string | null;
 
   @IsOptional()
   @IsString()
-  commissionId?: string;
+  commissionId?: string | null;
 
   @IsOptional()
   @IsArray()

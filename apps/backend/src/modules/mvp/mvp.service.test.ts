@@ -1740,6 +1740,24 @@ describe('MvpService — commissions (Plan A §5.2)', () => {
       expect(updated.description).toBe('d2');
       expect(updated.code).toBe('C1');
     });
+
+    it('clears description when an empty string is sent', () => {
+      const service = makeService();
+      const c = service.createCommission(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'C1', name: 'C', description: 'old' },
+        ctx
+      );
+      const updated = service.updateCommission(
+        'tenant_demo',
+        ctx.userId,
+        c.id,
+        { name: 'C', description: '' },
+        ctx
+      );
+      expect(updated.description).toBe('');
+    });
   });
 
   describe('addCommissionMember', () => {
@@ -2017,6 +2035,97 @@ describe('MvpService — program meta and publish (Plan A §5.1)', () => {
       expect(updated.academicHours).toBe(16);
       expect(updated.trainingType).toBe('primary');
       expect(updated.commissionId).toBe(commissionId);
+    });
+
+    it('clears trainingType when null is sent (normalizes to undefined)', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+
+      const updated = service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        { trainingType: null },
+        ctx
+      );
+
+      expect(updated.trainingType).toBeUndefined();
+    });
+
+    it('detaches commission when commissionId is null, without throwing', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+
+      const updated = service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        { commissionId: null },
+        ctx
+      );
+
+      expect(updated.commissionId).toBeUndefined();
+    });
+
+    it('clears only the targeted field and keeps omitted ones intact', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+
+      const updated = service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        { studyForm: null },
+        ctx
+      );
+
+      expect(updated.studyForm).toBeUndefined();
+      expect(updated.academicHours).toBe(40);
+      expect(updated.trainingType).toBe('primary');
+      expect(updated.commissionId).toBe(commissionId);
+    });
+
+    it('clears regulatoryBasisCodes when an empty array is sent', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+
+      const updated = service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        { regulatoryBasisCodes: [] },
+        ctx
+      );
+
+      expect(updated.regulatoryBasisCodes).toEqual([]);
     });
   });
 

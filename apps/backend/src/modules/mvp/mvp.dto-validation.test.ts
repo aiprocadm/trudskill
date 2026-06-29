@@ -22,6 +22,7 @@ import {
   SetProctoringOverrideRequest,
   StartProctoringRecordingRequest,
   SubmitIdentityVerificationRequest,
+  UpdateCommissionRequest,
   UpdateMaterialProgressRequest,
   UpdateMaterialRequest,
   UpdateProgramMetaRequest,
@@ -278,6 +279,33 @@ describe('Pillar A — UpdateProgramMetaRequest', () => {
 
   it('принимает recertificationPeriodMonths = 12', () => {
     const inst = plainToInstance(UpdateProgramMetaRequest, { recertificationPeriodMonths: 12 });
+    expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+  });
+
+  it('принимает null как явную очистку enum/числовых/FK-полей (clear-vs-keep)', () => {
+    const inst = plainToInstance(UpdateProgramMetaRequest, {
+      academicHours: null,
+      trainingType: null,
+      learnerCategory: null,
+      studyForm: null,
+      finalAssessmentForm: null,
+      commissionId: null
+    });
+    expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+  });
+
+  it('принимает [] как явную очистку массивов (clear-vs-keep)', () => {
+    const inst = plainToInstance(UpdateProgramMetaRequest, {
+      regulatoryBasisCodes: [],
+      otProgramCodes: []
+    });
+    expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
+  });
+});
+
+describe('Pillar A — UpdateCommissionRequest (clear-vs-keep)', () => {
+  it('принимает пустую строку description как очистку', () => {
+    const inst = plainToInstance(UpdateCommissionRequest, { name: 'C', description: '' });
     expect(validateSync(inst, { whitelist: true, forbidNonWhitelisted: true })).toHaveLength(0);
   });
 });
