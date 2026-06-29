@@ -3392,6 +3392,120 @@ describe('§5.156 — provisional ExamResult must not publish a pass before manu
     expect(result!.status).toBe('needs_review');
   });
 
+  // §5.160 — an UNANSWERED essay (no answer row at all) must still force manual review.
+  // Mirrors seedMixedAutoEssayTest but answers ONLY the auto question, leaving the essay blank.
+  function seedUnansweredEssay(service: MvpService) {
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'MXU', title: 'MixedU' },
+      ctx
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'GMU', name: 'GroupU' },
+      ctx
+    );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'LMU', name: 'U Learner' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const bank = service.createQuestionBank(
+      'tenant_demo',
+      ctx.userId,
+      { title: 'BankU', courseId: course.id },
+      ctx
+    );
+    const autoQ = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      {
+        questionBankId: bank.id,
+        type: 'number_input',
+        title: 'Pi?',
+        score: 2,
+        numericExpected: 3.14,
+        numericTolerance: 0.01
+      },
+      ctx
+    );
+    const essayQ = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      { questionBankId: bank.id, type: 'essay', title: 'Discuss', score: 5 },
+      ctx
+    );
+    const test = service.createTest(
+      'tenant_demo',
+      ctx.userId,
+      {
+        title: 'MixedU',
+        courseId: course.id,
+        questionBankId: bank.id,
+        rules: { attemptLimit: 1, passingScore: 2 }
+      },
+      ctx
+    );
+    service.addTestQuestions('tenant_demo', test.id, [autoQ.id, essayQ.id]);
+    const attempt = service.startAttempt(
+      'tenant_demo',
+      ctx.userId,
+      { testId: test.id, enrollmentId: enrollment.id, learnerId: learner.id },
+      ctx
+    );
+    // Answer ONLY the auto question; leave the essay blank (no answer row at all).
+    service.saveAttemptAnswer(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { questionId: autoQ.id, textAnswer: '3.14' },
+      ctx
+    );
+    return { service, enrollment, test, attempt, essayQ };
+  }
+
+  it('does NOT publish passed/final when a manual essay is left UNANSWERED (no answer row) — §5.160', () => {
+    const { service, enrollment, test, attempt } = seedUnansweredEssay(makeService());
+    const submitted = service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+    expect(submitted.score).toBe(2); // auto subtotal clears passingScore 2
+    const result = service['state'].examResults.find(
+      (r) => r.enrollmentId === enrollment.id && r.testId === test.id
+    );
+    expect(result).toBeDefined();
+    expect(result!.passed).toBe(false);
+    expect(result!.status).toBe('needs_review');
+  });
+
+  it('lets a reviewer score the left-blank essay and then publishes the pass — §5.160', () => {
+    const { service, enrollment, test, attempt, essayQ } = seedUnansweredEssay(makeService());
+    service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+    // The stub answer row seeded at submit makes the blank essay reviewable
+    // (completeAttemptReview throws "No answer recorded" without a row).
+    service.completeAttemptReview(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { answerScores: [{ questionId: essayQ.id, score: 1 }] },
+      ctx
+    );
+    const result = service['state'].examResults.find(
+      (r) => r.enrollmentId === enrollment.id && r.testId === test.id
+    );
+    expect(result!.passed).toBe(true);
+    expect(result!.status).not.toBe('needs_review');
+    expect(result!.finalScore).toBe(3); // auto 2 + reviewed essay 1
+  });
+
   it('transitions the ExamResult from needs_review to a real pass after completeAttemptReview', () => {
     const { service, enrollment, test, attempt, essayQ } = seedMixedAutoEssayTest(makeService());
     service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);

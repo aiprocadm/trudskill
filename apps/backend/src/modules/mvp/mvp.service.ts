@@ -4728,8 +4728,26 @@ export class MvpService {
       const options = this.state.answerOptions.filter(
         (item) => item.tenantId === tenantId && item.questionId === qid
       );
-      const answer = answers.find((item) => item.questionId === qid);
+      let answer = answers.find((item) => item.questionId === qid);
       const graded = gradeAnswer({ question, options, answer });
+      // §5.160: a manual-grade question (essay / misconfigured auto) left UNANSWERED has no
+      // answer row, so its `autoGraded:false` marker would be lost — the attempt would look
+      // fully auto-graded and publish a premature pass before mandatory human review (the
+      // unanswered-essay hole in §5.156), and the reviewer could not score it
+      // (completeAttemptReview throws "No answer recorded" without a row). Seed a stub answer
+      // row so the attempt is flagged pending review and is reviewable.
+      if (!answer && !graded.autoGraded) {
+        answer = {
+          id: this.id('ans'),
+          tenantId,
+          attemptId: attempt.id,
+          questionId: qid,
+          status: 'active',
+          createdAt: this.now(),
+          updatedAt: this.now()
+        };
+        this.state.attemptAnswers.push(answer);
+      }
       if (answer) {
         answer.score = graded.score;
         answer.autoGraded = graded.autoGraded;
