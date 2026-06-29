@@ -1478,8 +1478,22 @@ export class MvpService {
     return current;
   }
 
-  listEnrollments(tenantId: string, query: BaseFilterQuery): ListResponse<Enrollment> {
-    return this.list(this.state.enrollments, tenantId, query);
+  listEnrollments(
+    tenantId: string,
+    query: BaseFilterQuery,
+    access?: MvpAssessmentReadAccess
+  ): ListResponse<Enrollment> {
+    // §5.160 anti-IDOR: an IAM-linked learner (no cross-learner bypass) sees only their own
+    // enrollments — mirrors listAttempts. Staff with assessment.read.cross_learner/learners.act_as
+    // are unrestricted (scope === null).
+    const scope = this.restrictLearnerIdsForAssessmentList(tenantId, access);
+    const source =
+      scope === null
+        ? this.state.enrollments
+        : this.state.enrollments.filter(
+            (e) => e.tenantId === tenantId && scope.includes(e.learnerId)
+          );
+    return this.list(source, tenantId, query);
   }
 
   getKpiSnapshot(tenantId: string, query: BaseFilterQuery): KpiSnapshotDto {
@@ -1748,8 +1762,10 @@ export class MvpService {
     };
   }
 
-  getEnrollment(tenantId: string, id: string): Enrollment {
-    return this.getById(this.state.enrollments, tenantId, id);
+  getEnrollment(tenantId: string, id: string, access?: MvpAssessmentReadAccess): Enrollment {
+    const enrollment = this.getById(this.state.enrollments, tenantId, id);
+    this.assertAssessmentReadAllowedForLearner(tenantId, enrollment.learnerId, access);
+    return enrollment;
   }
 
   listEnrollmentCertificates(
@@ -2211,15 +2227,45 @@ export class MvpService {
     return enrollment;
   }
 
-  listProgress(tenantId: string, query: BaseFilterQuery): ListResponse<CourseProgress> {
-    return this.list(this.state.courseProgress, tenantId, query);
+  listProgress(
+    tenantId: string,
+    query: BaseFilterQuery,
+    access?: MvpAssessmentReadAccess
+  ): ListResponse<CourseProgress> {
+    // §5.160 anti-IDOR: progress rows key on enrollmentId → resolve ownership via the enrollment.
+    const scope = this.restrictLearnerIdsForAssessmentList(tenantId, access);
+    const source =
+      scope === null
+        ? this.state.courseProgress
+        : this.state.courseProgress.filter((p) => {
+            if (p.tenantId !== tenantId) return false;
+            const enrollment = this.state.enrollments.find(
+              (e) => e.tenantId === tenantId && e.id === p.enrollmentId
+            );
+            return enrollment !== undefined && scope.includes(enrollment.learnerId);
+          });
+    return this.list(source, tenantId, query);
   }
 
-  getProgress(tenantId: string, id: string): CourseProgress {
-    return this.getById(this.state.courseProgress, tenantId, id);
+  getProgress(tenantId: string, id: string, access?: MvpAssessmentReadAccess): CourseProgress {
+    const progress = this.getById(this.state.courseProgress, tenantId, id);
+    const enrollment = this.getById(this.state.enrollments, tenantId, progress.enrollmentId);
+    this.assertAssessmentReadAllowedForLearner(tenantId, enrollment.learnerId, access);
+    return progress;
   }
 
-  listEnrollmentStatusHistory(tenantId: string, enrollmentId: string): EnrollmentStatusHistory[] {
+  listEnrollmentStatusHistory(
+    tenantId: string,
+    enrollmentId: string,
+    access?: MvpAssessmentReadAccess
+  ): EnrollmentStatusHistory[] {
+    // Guard only when the enrollment exists (preserve "unknown id → []"); §5.160 anti-IDOR.
+    const enrollment = this.state.enrollments.find(
+      (e) => e.tenantId === tenantId && e.id === enrollmentId
+    );
+    if (enrollment) {
+      this.assertAssessmentReadAllowedForLearner(tenantId, enrollment.learnerId, access);
+    }
     return this.state.enrollmentStatusHistory.filter(
       (item) => item.tenantId === tenantId && item.enrollmentId === enrollmentId
     );

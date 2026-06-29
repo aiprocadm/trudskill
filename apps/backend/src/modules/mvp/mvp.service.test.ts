@@ -1831,6 +1831,100 @@ describe('MvpService — commissions (Plan A §5.2)', () => {
     });
   });
 
+  describe('§5.160 — anti-IDOR on enrollment / progress reads', () => {
+    const ownerAccess = { actorId: 'u_own', permissions: [] as string[] };
+    const staffAccess = { actorId: 'u_staff', permissions: ['assessment.read.cross_learner'] };
+
+    function seedTwoLearners(service: MvpService) {
+      const course = service.createCourse(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'IDC', title: 'C' },
+        ctx
+      );
+      const g1 = service.createGroup('tenant_demo', ctx.userId, { code: 'IG1', name: 'G1' }, ctx);
+      const g2 = service.createGroup('tenant_demo', ctx.userId, { code: 'IG2', name: 'G2' }, ctx);
+      service.createGroupCourse('tenant_demo', { groupId: g1.id, courseId: course.id });
+      service.createGroupCourse('tenant_demo', { groupId: g2.id, courseId: course.id });
+      const own = service.createLearner(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'LOWN', name: 'Own', linkedIamUserId: 'u_own' },
+        ctx
+      );
+      const other = service.createLearner(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'LOTH', name: 'Other', linkedIamUserId: 'u_other' },
+        ctx
+      );
+      const eOwn = service.createEnrollment(
+        'tenant_demo',
+        ctx.userId,
+        { groupId: g1.id, learnerId: own.id },
+        ctx
+      );
+      const eOther = service.createEnrollment(
+        'tenant_demo',
+        ctx.userId,
+        { groupId: g2.id, learnerId: other.id },
+        ctx
+      );
+      const pushProgress = (enrollmentId: string) => {
+        const id = `cp_${enrollmentId}`;
+        service['state'].courseProgress.push({
+          id,
+          tenantId: 'tenant_demo',
+          enrollmentId,
+          courseId: course.id,
+          status: 'in_progress',
+          studiedSeconds: 0,
+          requiredSeconds: 0,
+          progressPercent: 0,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z'
+        });
+        return id;
+      };
+      return { eOwn, eOther, pOwnId: pushProgress(eOwn.id), pOtherId: pushProgress(eOther.id) };
+    }
+
+    it('forbids a learner from reading another learner enrollment / progress / status-history', () => {
+      const service = makeService();
+      const { eOther, pOtherId } = seedTwoLearners(service);
+      expect(() => service.getEnrollment('tenant_demo', eOther.id, ownerAccess)).toThrow(
+        ForbiddenException
+      );
+      expect(() => service.getProgress('tenant_demo', pOtherId, ownerAccess)).toThrow(
+        ForbiddenException
+      );
+      expect(() =>
+        service.listEnrollmentStatusHistory('tenant_demo', eOther.id, ownerAccess)
+      ).toThrow(ForbiddenException);
+    });
+
+    it('restricts list endpoints to the linked learner own rows', () => {
+      const service = makeService();
+      const { eOwn, pOwnId } = seedTwoLearners(service);
+      const enr = service.listEnrollments('tenant_demo', { page: 1, page_size: 50 }, ownerAccess);
+      expect(enr.items.map((e) => e.id)).toEqual([eOwn.id]);
+      const prog = service.listProgress('tenant_demo', { page: 1, page_size: 50 }, ownerAccess);
+      expect(prog.items.map((p) => p.id)).toEqual([pOwnId]);
+    });
+
+    it('allows the owner their own rows and staff (cross_learner) everything', () => {
+      const service = makeService();
+      const { eOwn } = seedTwoLearners(service);
+      expect(() => service.getEnrollment('tenant_demo', eOwn.id, ownerAccess)).not.toThrow();
+      const enrStaff = service.listEnrollments(
+        'tenant_demo',
+        { page: 1, page_size: 50 },
+        staffAccess
+      );
+      expect(enrStaff.items.length).toBe(2);
+    });
+  });
+
   describe('addCommissionMember', () => {
     it('adds chairman as internal user', () => {
       const service = makeService();
