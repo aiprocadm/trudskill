@@ -1260,6 +1260,100 @@ describe('DocumentsService.issueGroupOrder (Plan B §5.7)', () => {
     expect(e1Certs).toHaveLength(1);
   });
 
+  it('reuses an already auto-issued certificate instead of minting a duplicate (cross-flow dedup)', async () => {
+    const { service, state } = seedService();
+    // Simulate the completion-listener auto-issuance: generateDocument creates a
+    // task, completeTask materialises the certificate as a generated_document with
+    // NO groupOrderDocumentId (issued via the generate flow, not a group order).
+    const task = service.generateDocument(
+      't1',
+      'system',
+      {
+        idempotencyKey: 'enrollment:enr_x:tpl_cert:v1',
+        templateId: 'tpl_cert',
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'enr_x',
+        documentType: 'certificate'
+      },
+      ctx
+    );
+    const autoCert = service.completeTask('t1', task.id, 'file_auto', 'system');
+    expect(autoCert.groupOrderDocumentId).toBeUndefined();
+
+    // Admin now issues a group order covering the SAME enrollment + SAME cert template.
+    const res = await service.issueGroupOrder(
+      't1',
+      'actor_1',
+      {
+        groupId: 'g_1',
+        templateId: 'tpl_order',
+        enrollmentIds: ['enr_x'],
+        certificateTemplateId: 'tpl_cert'
+      },
+      ctx
+    );
+
+    // No SECOND valid certificate (= second registry number) for this enrollment+template.
+    const validCerts = state.generatedDocuments.filter(
+      (d) =>
+        d.sourceEntityType === 'enrollment' &&
+        d.sourceEntityId === 'enr_x' &&
+        d.templateId === 'tpl_cert' &&
+        d.status !== 'revoked'
+    );
+    expect(validCerts).toHaveLength(1);
+    expect(validCerts[0]?.id).toBe(autoCert.id);
+    expect(new Set(validCerts.map((d) => d.documentNumber)).size).toBe(1);
+
+    // The order reuses (back-links) the existing certificate rather than duplicating.
+    expect(autoCert.groupOrderDocumentId).toBe(res.order.id);
+    expect(res.certificates.map((c) => c.id)).toContain(autoCert.id);
+  });
+
+  it('re-issues a fresh certificate via the order when the prior one was revoked (controlled перевыпуск)', async () => {
+    const { service, state } = seedService();
+    const task = service.generateDocument(
+      't1',
+      'system',
+      {
+        idempotencyKey: 'enrollment:enr_y:tpl_cert:v1',
+        templateId: 'tpl_cert',
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'enr_y',
+        documentType: 'certificate'
+      },
+      ctx
+    );
+    const autoCert = service.completeTask('t1', task.id, 'file_auto', 'system');
+    // The auto-issued certificate is annulled (e.g. issued in error).
+    await service.revokeDocument('t1', 'actor_1', autoCert.id, 'выпущено ошибочно', ctx);
+
+    const res = await service.issueGroupOrder(
+      't1',
+      'actor_1',
+      {
+        groupId: 'g_1',
+        templateId: 'tpl_order',
+        enrollmentIds: ['enr_y'],
+        certificateTemplateId: 'tpl_cert'
+      },
+      ctx
+    );
+
+    // A revoked prior certificate does NOT block: the order mints a fresh valid one.
+    const validCerts = state.generatedDocuments.filter(
+      (d) =>
+        d.sourceEntityType === 'enrollment' &&
+        d.sourceEntityId === 'enr_y' &&
+        d.templateId === 'tpl_cert' &&
+        d.status !== 'revoked'
+    );
+    expect(validCerts).toHaveLength(1);
+    expect(validCerts[0]?.id).not.toBe(autoCert.id);
+    expect(validCerts[0]?.groupOrderDocumentId).toBe(res.order.id);
+    expect(validCerts[0]?.documentNumber).not.toBe(autoCert.documentNumber);
+  });
+
   it('rejects when the order template is not of type "order"', async () => {
     const { service } = seedService();
     await expect(
