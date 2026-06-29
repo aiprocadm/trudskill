@@ -180,6 +180,57 @@ describe('startAttempt — module gating (A) + min-view time (B)', () => {
     ).not.toThrow();
   });
 
+  it('scopes the course-level final-exam gate to published versions (a DRAFT version’s gating module must not lock learners out)', () => {
+    const service = makeService();
+    const course = service.createCourse(T, ADMIN, { code: 'CV', title: 'Versioned' }, ctx);
+    const group = service.createGroup(T, ADMIN, { code: 'GV', name: 'Group V' }, ctx);
+    service.createGroupCourse(T, { groupId: group.id, courseId: course.id });
+    const bank = service.createQuestionBank(T, ADMIN, { title: 'Bank', courseId: course.id }, ctx);
+
+    // v1 — the PUBLISHED version the learners are taking. Required module, no gating test.
+    const v1 = service.createCourseVersion(T, course.id);
+    (v1 as { status: string }).status = 'published';
+    service.createModule(
+      T,
+      ADMIN,
+      { courseVersionId: v1.id, title: 'v1 Module', minViewSeconds: 0, isRequired: true },
+      ctx
+    );
+
+    // v2 — a DRAFT (work-in-progress) version with a required module that HAS a gating test.
+    // Aggregating required modules across ALL versions (the bug) lets this not-yet-published
+    // module retroactively lock every v1 learner out of the final exam.
+    const v2 = service.createCourseVersion(T, course.id);
+    const m2 = service.createModule(
+      T,
+      ADMIN,
+      { courseVersionId: v2.id, title: 'v2 draft Module', minViewSeconds: 0, isRequired: true },
+      ctx
+    );
+    makeTest(service, course.id, bank.id, m2.id, 'v2 gating');
+
+    const learner = service.createLearner(T, ADMIN, { code: 'LV', name: 'V Learner' }, ctx);
+    const enrollment = service.createEnrollment(
+      T,
+      ADMIN,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+
+    const finalTest = makeTest(service, course.id, bank.id, undefined, 'Final');
+
+    // The gate must consider only published v1 (no unpassed gating test) — the draft v2
+    // module must not block.
+    expect(() =>
+      service.startAttempt(
+        T,
+        ADMIN,
+        { testId: finalTest.id, enrollmentId: enrollment.id, learnerId: enrollment.learnerId },
+        ctx
+      )
+    ).not.toThrow();
+  });
+
   it('locks module-2 test until module-1 intermediate test is passed', () => {
     const service = makeService();
     const { course, bank, enrollment, m1, m2 } = seedTwoModuleCourse(service);

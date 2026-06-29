@@ -51,7 +51,7 @@ describe('CourseDeadlineScanner.scanTenant', () => {
     expect(arg.templateKey).toBe('course_deadline');
     expect(arg.recipients[0].email).toBe('ivan@example.com');
     expect(arg.variables.deadline).toBe('2026-06-15');
-    expect(arg.dedupKey).toBe('deadline:enr1:14');
+    expect(arg.dedupKey).toBe('deadline:enr1:2026-06-15:14');
   });
 
   it('ignores completed enrollments and enrollments beyond the window', async () => {
@@ -107,6 +107,32 @@ describe('CourseDeadlineScanner.scanTenant', () => {
     expect(milestones).toEqual(['14', '7', '1']);
   });
 
+  it('re-reminds at the same milestone when the deadline (plannedEndAt) changes', async () => {
+    // Mirrors the license-expiry scanner's renewed-term test: the dedupKey must embed
+    // the deadline date, so moving plannedEndAt yields a *new* key and the milestone
+    // nudge fires again for the new deadline instead of being dedup-suppressed.
+    const { scanner, dispatch } = make();
+    // Term A: plannedEndAt 2026-06-15, asOf 2026-06-05 → 10 days out → milestone 14.
+    await scanner.scanTenant('t1', '2026-06-05', state() as never);
+    // Term B: deadline extended to 2026-07-15; asOf 2026-07-05 → 10 days out → milestone 14 again.
+    const extended = state({
+      enrollments: [
+        {
+          id: 'enr1',
+          tenantId: 't1',
+          learnerId: 'l1',
+          groupId: 'g1',
+          status: 'active',
+          plannedEndAt: '2026-07-15T00:00:00.000Z'
+        }
+      ]
+    });
+    await scanner.scanTenant('t1', '2026-07-05', extended as never);
+
+    const keys = dispatch.mock.calls.map((c) => c[0].dedupKey);
+    expect(keys).toEqual(['deadline:enr1:2026-06-15:14', 'deadline:enr1:2026-07-15:14']);
+  });
+
   it('includes configured staff recipients (admin-kind) alongside the learner', async () => {
     const { scanner, dispatch } = make();
     const withStaff = state({
@@ -152,6 +178,6 @@ describe('CourseDeadlineScanner.scanTenant', () => {
     });
     const summary = await scanner.scanTenant('t1', '2026-06-05', overdue as never);
     expect(summary.remindersDispatched).toBe(1);
-    expect(dispatch.mock.calls[0]![0].dedupKey).toBe('deadline:enr1:1');
+    expect(dispatch.mock.calls[0]![0].dedupKey).toBe('deadline:enr1:2026-05-01:1');
   });
 });

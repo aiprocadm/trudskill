@@ -2984,6 +2984,29 @@ describe('Plan C — completeAttemptReview', () => {
     expect(result.passed).toBe(true);
   });
 
+  it('finishAttempt keeps an essay attempt reviewable (does not lock out manual grading)', () => {
+    const { service, essayQ, attempt } = makeEssayAttempt(3);
+
+    // A learner clicking "finish" on a test that contains an essay must NOT freeze the
+    // essay at the provisional 0 and finalize the attempt. It must stay 'submitted' so it
+    // remains in the reviewer queue (status==='submitted' && autoGraded===false) and
+    // completeAttemptReview can score it.
+    const finished = service.finishAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+    expect(finished.status).toBe('submitted');
+
+    // The reviewer can still complete the review → real 'finished' with the human score.
+    const reviewed = service.completeAttemptReview(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { answerScores: [{ questionId: essayQ.id, score: 4 }] },
+      ctx
+    );
+    expect(reviewed.status).toBe('finished');
+    expect(reviewed.score).toBe(4);
+    expect(reviewed.passed).toBe(true);
+  });
+
   it('rejects an out-of-range score', () => {
     const { service, essayQ, attempt } = makeEssayAttempt(3);
     service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);

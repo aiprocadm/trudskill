@@ -68,7 +68,11 @@ export class CourseDeadlineScanner {
           },
           relatedEntityType: 'learning.enrollment',
           relatedEntityId: enrollment.id,
-          dedupKey: `deadline:${enrollment.id}:${milestone}`
+          // Embed the deadline date so that moving plannedEndAt produces a fresh key and
+          // the milestone nudge re-fires for the new deadline (otherwise a milestone that
+          // already fired for the old deadline would be dedup-suppressed forever). Mirrors
+          // the license-expiry scanner's `license:{id}:{validUntil}:{milestone}` fix (§5.150).
+          dedupKey: `deadline:${enrollment.id}:${enrollment.plannedEndAt.slice(0, 10)}:${milestone}`
         });
         remindersDispatched += summary.sent;
       } catch (err) {

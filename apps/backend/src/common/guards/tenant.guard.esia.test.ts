@@ -33,4 +33,38 @@ describe('TenantGuard — ЕСИА OAuth routes', () => {
   it('still rejects a non-esia route with no auth', () => {
     expect(() => guard.canActivate(makeContext('/api/v1/learners'))).toThrow(UnauthorizedException);
   });
+
+  it('does not treat a query string containing /auth/esia/ as an ESIA route (no route match)', () => {
+    // Adversarial request: route is unresolved (route=undefined, path=undefined) so the
+    // guard falls back to request.url — which an attacker stuffed with /auth/esia/ in the
+    // query string. The security decision must depend on the PATH, never the query.
+    const maliciousRequest = {
+      header: (_name: string): string | undefined => undefined,
+      route: undefined,
+      path: undefined,
+      url: '/api/v1/learners?redirect=/auth/esia/callback',
+      ip: '127.0.0.1'
+    };
+    const ctx = {
+      switchToHttp: () => ({ getRequest: () => maliciousRequest })
+    } as unknown as ExecutionContext;
+
+    expect(() => guard.canActivate(ctx)).toThrow(UnauthorizedException);
+  });
+
+  it('does not treat a query string ending in /auth/login as a bootstrap route', () => {
+    const maliciousRequest = {
+      header: (name: string): string | undefined =>
+        name === 'x-tenant-id' ? 'tenant_victim' : undefined,
+      route: undefined,
+      path: undefined,
+      url: '/api/v1/learners?next=/auth/login',
+      ip: '127.0.0.1'
+    };
+    const ctx = {
+      switchToHttp: () => ({ getRequest: () => maliciousRequest })
+    } as unknown as ExecutionContext;
+
+    expect(() => guard.canActivate(ctx)).toThrow(UnauthorizedException);
+  });
 });

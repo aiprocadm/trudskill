@@ -73,15 +73,20 @@ export class PostgresMagicLinkTokenRepo implements MagicLinkTokenRepo {
     redeemedUserId: string,
     redeemIp?: string,
     redeemUserAgent?: string
-  ): Promise<void> {
-    await this.db.query(
+  ): Promise<boolean> {
+    // `returning id` makes the conditional update report whether it actually consumed
+    // the token. With `consumed_at is null` in the WHERE clause, only the first of N
+    // racing redeems gets a row back — the rest get an empty set and are rejected.
+    const rows = await this.db.query<{ id: string }>(
       `update iam.magic_link_tokens
        set consumed_at = now(),
            redeemed_user_id = $3,
            redeem_ip = $4,
            redeem_user_agent = $5
-       where tenant_id = $1 and id = $2 and consumed_at is null`,
+       where tenant_id = $1 and id = $2 and consumed_at is null
+       returning id`,
       [tenantId, id, redeemedUserId, redeemIp ?? null, redeemUserAgent ?? null]
     );
+    return rows.length > 0;
   }
 }

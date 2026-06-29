@@ -579,6 +579,12 @@ export class EsignService {
     req: ParticipantActionRequest
   ) {
     const p = this.must(this.state.participants, tenantId, id);
+    // Guard the parent process like signParticipant does: skipping a participant on a
+    // terminal (signed/cancelled) process must be rejected. Without this, skipping a
+    // leftover `pending` participant on a cancelled process flowed into
+    // tryCompleteProcess and resurrected the process to 'signed' (cancelProcess does
+    // not transition its participants, and pending→skipped is a legal transition).
+    EsignStateMachine.assertProcessMutable(this.getProcess(tenantId, p.processId));
     EsignStateMachine.transitionParticipant(p.status, 'skipped');
     p.status = 'skipped';
     p.skippedAt = this.now();
@@ -624,10 +630,21 @@ export class EsignService {
     processId: string
   ) {
     const process = this.getProcess(tenantId, processId);
+    // Only an active signing process may auto-complete. This blocks resurrecting a
+    // terminal process (cancelled/failed/already-signed) into 'signed' via a late
+    // sign/skip — defense-in-depth alongside the assertProcessMutable guards on the
+    // participant mutators.
+    if (process.status !== 'in_signing') return;
     const participants = this.state.participants.filter(
       (x) => x.tenantId === tenantId && x.processId === processId
     );
+    if (participants.length === 0) return;
     if (participants.some((x) => !['signed', 'skipped'].includes(x.status))) return;
+    // A signing process completes as 'signed' only if at least one participant actually
+    // signed. An all-skipped roster carries zero signatures and must not finalize a
+    // legally-binding regulated document.
+    if (!participants.some((x) => x.status === 'signed')) return;
+    EsignStateMachine.transitionProcess(process.status, 'signed');
     process.status = 'signed';
     process.finishedAt = this.now();
     process.terminalSnapshot = {
