@@ -1925,6 +1925,73 @@ describe('MvpService — commissions (Plan A §5.2)', () => {
     });
   });
 
+  describe('§5.160 — material progress is monotonic (no de-completion)', () => {
+    it('keeps a completed material completed when a later report has smaller studiedSeconds', () => {
+      const service = makeService();
+      const course = service.createCourse(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'MON', title: 'C' },
+        ctx
+      );
+      const version = service.createCourseVersion('tenant_demo', course.id);
+      const moduleEntity = service.createModule(
+        'tenant_demo',
+        ctx.userId,
+        { courseVersionId: version.id, title: 'M', minViewSeconds: 0 },
+        ctx
+      );
+      const material = service.createMaterial(
+        'tenant_demo',
+        ctx.userId,
+        { moduleId: moduleEntity.id, title: 'Mat', materialType: 'video', minViewSeconds: 10 },
+        ctx
+      );
+      const group = service.createGroup(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'GMON', name: 'G' },
+        ctx
+      );
+      service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+      const learner = service.createLearner(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'LMON', name: 'L' },
+        ctx
+      );
+      const enrollment = service.createEnrollment(
+        'tenant_demo',
+        ctx.userId,
+        { groupId: group.id, learnerId: learner.id },
+        ctx
+      );
+
+      const first = service.upsertMaterialProgress(
+        'tenant_demo',
+        ctx.userId,
+        material.id,
+        { enrollmentId: enrollment.id, studiedSeconds: 10 },
+        ctx
+      );
+      expect(first.status).toBe('completed');
+      expect(first.completedAt).toBeDefined();
+
+      // A later watch-tracker report with a SMALLER cumulative value must not regress.
+      const second = service.upsertMaterialProgress(
+        'tenant_demo',
+        ctx.userId,
+        material.id,
+        { enrollmentId: enrollment.id, studiedSeconds: 0 },
+        ctx
+      );
+      expect(second.status).toBe('completed');
+      expect(second.studiedSeconds).toBe(10); // latched to the max
+      expect(second.progressPercent).toBe(100);
+      expect(second.completedAt).toBeDefined();
+    });
+  });
+
   describe('addCommissionMember', () => {
     it('adds chairman as internal user', () => {
       const service = makeService();

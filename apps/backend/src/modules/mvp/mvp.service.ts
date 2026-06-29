@@ -2338,7 +2338,12 @@ export class MvpService {
         item.enrollmentId === enrollment.id
     );
 
-    const studiedSeconds = Math.max(0, request.studiedSeconds);
+    // §5.160 monotonic latch: watch-trackers post absolute cumulative values that can arrive
+    // out of order or reset to 0; never regress studiedSeconds below what was already recorded.
+    const studiedSeconds = Math.max(
+      existing?.studiedSeconds ?? 0,
+      Math.max(0, request.studiedSeconds)
+    );
     const ratio = requiredSeconds === 0 ? 1 : Math.min(1, studiedSeconds / requiredSeconds);
     let percent = this.normalizePercent(ratio * 100);
     let status: ProgressStatus =
@@ -2353,6 +2358,14 @@ export class MvpService {
         status = 'in_progress';
         percent = Math.min(percent, 99);
       }
+    }
+
+    // §5.160 monotonic completion latch: a previously-completed material stays completed — its
+    // completion came from a valid signal (seconds threshold or commitScormAttempt) and a later
+    // smaller / SCORM-blocked report must not de-complete it.
+    if (existing?.status === 'completed') {
+      status = 'completed';
+      percent = Math.max(percent, existing.progressPercent);
     }
 
     const record: MaterialProgress = existing ?? {
@@ -2377,7 +2390,7 @@ export class MvpService {
     record.lastActivityAt = now;
     record.calculatedAt = now;
     record.updatedAt = now;
-    record.completedAt = status === 'completed' ? now : undefined;
+    record.completedAt = status === 'completed' ? (existing?.completedAt ?? now) : undefined;
 
     if (!existing) this.state.materialProgress.push(record);
 
