@@ -1520,7 +1520,9 @@ export class MvpService {
       }
       return true;
     });
-    const passed = examScoped.filter((er) => er.passed).length;
+    // Provisional results (best attempt still awaiting essay review) must not count as
+    // passes — passed is already false while needs_review; the status guard is defensive.
+    const passed = examScoped.filter((er) => er.passed && er.status !== 'needs_review').length;
     const examTotal = examScoped.length;
     const examPassRate = examTotal === 0 ? 0 : passed / examTotal;
 
@@ -2012,13 +2014,6 @@ export class MvpService {
     request: CreateBulkEnrollmentsRequest,
     context: RequestContext
   ): BulkEnrollmentsOutcome {
-    const duplicateIdem = this.state.bulkEnrollmentIdempotency.find(
-      (r) => r.tenantId === tenantId && r.idempotencyKey === request.idempotencyKey
-    );
-    if (duplicateIdem) {
-      return duplicateIdem.outcome;
-    }
-
     const explicit = (request.learnerIds ?? [])
       .map((lid) => String(lid).trim())
       .filter((id) => id.length > 0);
@@ -2040,11 +2035,32 @@ export class MvpService {
           'No learner targets resolved: provide non-empty learnerIds and/or organizationUnitId with matching learners'
       });
     }
-    const created: Enrollment[] = [];
-    const skippedExisting: Array<{ learnerId: string; enrollmentId: string }> = [];
-    const errors: BulkEnrollmentItemError[] = [];
+    // Idempotency replay is NOT frozen: cached successes (created/skippedExisting) are
+    // preserved and never re-attempted (no duplicate enrollment or invite event), while
+    // previously-failed learners are RE-ATTEMPTED. This lets a retry (e.g. payment
+    // fulfillment via `payment:<order>:<group>`, or recertification approval) enroll a
+    // learner that failed transiently — e.g. NotFound because the learner row was not yet
+    // hydrated when the order was first fulfilled — once the cause is resolved. Returning
+    // the stale outcome verbatim would strand the learner in `errors` forever.
+    const prior = this.state.bulkEnrollmentIdempotency.find(
+      (r) => r.tenantId === tenantId && r.idempotencyKey === request.idempotencyKey
+    );
+    const alreadyEnrolledLearnerIds = new Set<string>([
+      ...(prior?.outcome.created ?? []).map((e) => e.learnerId),
+      ...(prior?.outcome.skippedExisting ?? []).map((s) => s.learnerId)
+    ]);
+    const created: Enrollment[] = [...(prior?.outcome.created ?? [])];
+    const skippedExisting: Array<{ learnerId: string; enrollmentId: string }> = [
+      ...(prior?.outcome.skippedExisting ?? [])
+    ];
+    // Carry forward prior errors for learners this attempt does not target; targeted ones
+    // are re-attempted below and their fresh result replaces the stale error.
+    const errors: BulkEnrollmentItemError[] = (prior?.outcome.errors ?? []).filter(
+      (e) => !uniqueLearnerIds.includes(e.learnerId)
+    );
 
     for (const learnerId of uniqueLearnerIds) {
+      if (alreadyEnrolledLearnerIds.has(learnerId)) continue; // cached success — never redo
       try {
         const entity = this.createEnrollment(
           tenantId,
@@ -2089,13 +2105,19 @@ export class MvpService {
       skippedExisting,
       errors
     };
-    this.state.bulkEnrollmentIdempotency.push({
-      id: this.id('bulkidem'),
-      tenantId,
-      idempotencyKey: request.idempotencyKey,
-      outcome,
-      createdAt: this.now()
-    });
+    if (prior) {
+      // Refresh the cached outcome so a later replay sees the resolved errors (and a
+      // double-fire after full success becomes a true no-op).
+      prior.outcome = outcome;
+    } else {
+      this.state.bulkEnrollmentIdempotency.push({
+        id: this.id('bulkidem'),
+        tenantId,
+        idempotencyKey: request.idempotencyKey,
+        outcome,
+        createdAt: this.now()
+      });
+    }
     this.audit(
       tenantId,
       actorId,
@@ -3442,14 +3464,20 @@ export class MvpService {
     );
   }
 
-  /** Whether the learner already has a passing ExamResult for the given test. */
+  /**
+   * Whether the learner already has a passing, fully-graded ExamResult for the given
+   * test. A 'needs_review' result is provisional (its best attempt still awaits essay
+   * review) and must never open a module gate — the `status` guard is defensive: passed
+   * is already false while needs_review (see computeExamPassState).
+   */
   private isExamPassed(tenantId: string, enrollmentId: string, testId: string): boolean {
     return this.state.examResults.some(
       (er) =>
         er.tenantId === tenantId &&
         er.enrollmentId === enrollmentId &&
         er.testId === testId &&
-        er.passed === true
+        er.passed === true &&
+        er.status !== 'needs_review'
     );
   }
 
@@ -4891,6 +4919,46 @@ export class MvpService {
 
     return { count: grouped.size };
   }
+  /**
+   * An attempt still awaiting human grading: submitted (not yet reviewed —
+   * completeAttemptReview transitions a reviewed attempt to 'finished') and carrying
+   * at least one answer the auto-grader abstained on (autoGraded === false). Mirrors
+   * finishAttempt's `needsManualGrading` predicate, additionally gated on status so a
+   * reviewed ('finished') essay no longer counts as pending.
+   */
+  private attemptAwaitsManualReview(tenantId: string, attempt: TestAttempt): boolean {
+    return (
+      attempt.status === 'submitted' &&
+      this.state.attemptAnswers.some(
+        (a) => a.tenantId === tenantId && a.attemptId === attempt.id && a.autoGraded === false
+      )
+    );
+  }
+
+  /**
+   * Pass / needs-review state for an exam result, derived from the (submitted|finished)
+   * attempts. `passed` is true only when a FULLY-GRADED attempt cleared the passing
+   * score: an attempt still pending manual review contributes only its provisional
+   * auto-subtotal and must NEVER publish a pass (regulated attestation — ТЗ §35
+   * «ручная проверка эссе/кейсов», acceptance §39). When no genuine pass exists yet but
+   * an attempt is pending review, the result is `needsReview` (status 'needs_review',
+   * passed false) so module-gating, analytics, and the regulated export registries treat
+   * it as not-yet-passed until completeAttemptReview runs. `passed` is therefore
+   * deliberately decoupled from bestScore (which still reflects all submitted|finished
+   * attempts) during the review window.
+   */
+  private computeExamPassState(
+    tenantId: string,
+    attempts: TestAttempt[],
+    passingScore: number
+  ): { passed: boolean; needsReview: boolean } {
+    const graded = attempts.filter((a) => !this.attemptAwaitsManualReview(tenantId, a));
+    const bestGradedScore = graded.reduce((max, a) => Math.max(max, a.score ?? 0), 0);
+    const passed = graded.length > 0 && bestGradedScore >= passingScore;
+    const pendingReview = attempts.length > graded.length;
+    return { passed, needsReview: !passed && pendingReview };
+  }
+
   private finalizeExamResult(
     tenantId: string,
     actorId: string | undefined,
@@ -4913,6 +4981,14 @@ export class MvpService {
     );
     const best = attempts.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0] ?? attempt;
     const test = this.getById(this.state.tests, tenantId, attempt.testId);
+    // passed/status reflect only fully-graded attempts; an essay still awaiting review
+    // yields needsReview (status 'needs_review', passed false) rather than a premature pass.
+    const { passed, needsReview } = this.computeExamPassState(
+      tenantId,
+      attempts,
+      test.rules.passingScore
+    );
+    const status = needsReview ? 'needs_review' : 'final';
     if (existing) {
       existing.bestAttemptId = best.id;
       existing.attemptsCount = attempts.length;
@@ -4924,7 +5000,8 @@ export class MvpService {
       existing.bestScore = best.score ?? 0;
       existing.maxScore = best.maxScore;
       existing.passingScore = test.rules.passingScore;
-      existing.passed = (best.score ?? 0) >= test.rules.passingScore;
+      existing.passed = passed;
+      existing.status = status;
       existing.updatedAt = this.now();
       this.audit(
         tenantId,
@@ -4951,8 +5028,8 @@ export class MvpService {
       bestScore: best.score ?? 0,
       maxScore: best.maxScore,
       passingScore: test.rules.passingScore,
-      passed: (best.score ?? 0) >= test.rules.passingScore,
-      status: 'final',
+      passed,
+      status,
       createdAt: this.now(),
       updatedAt: this.now()
     };
@@ -5574,7 +5651,17 @@ export class MvpService {
     record.finalScore = best?.score ?? 0;
     record.maxScore = best?.maxScore ?? 0;
     record.passingScore = test.rules.passingScore;
-    record.passed = record.bestScore >= record.passingScore;
+    // passed reflects only fully-graded attempts (see computeExamPassState): a read of
+    // a result whose best attempt is still pending essay review must not flip it to a
+    // pass. needsReview keeps the record visibly provisional via status 'needs_review'.
+    const { passed, needsReview } = this.computeExamPassState(
+      tenantId,
+      attempts,
+      test.rules.passingScore
+    );
+    record.passed = passed;
+    if (needsReview) record.status = 'needs_review';
+    else if (record.status === 'needs_review') record.status = 'active';
     record.updatedAt = this.now();
     if (!existing) this.state.examResults.push(record);
     return record;
@@ -6080,7 +6167,9 @@ export class MvpService {
         message: 'Cannot edit program meta of a non-draft course version'
       });
     }
-    if (request.commissionId !== undefined) {
+    // `!= null` so both `null` (clear/detach) and `undefined` (keep) skip the lookup;
+    // only a real id is validated for existence.
+    if (request.commissionId != null) {
       const commission = this.state.commissions.find(
         (c) => c.tenantId === tenantId && c.id === request.commissionId
       );
@@ -6098,23 +6187,26 @@ export class MvpService {
       }
     }
 
+    // clear-vs-keep: a present key applies; `null` clears (normalized → undefined so the
+    // entity stays `?: T` and `JSON.stringify` drops the key); an absent key keeps the value.
     const oldValues = { ...cv };
-    if (request.academicHours !== undefined) cv.academicHours = request.academicHours;
+    if (request.academicHours !== undefined) cv.academicHours = request.academicHours ?? undefined;
     if (request.recertificationPeriodMonths !== undefined)
-      cv.recertificationPeriodMonths = request.recertificationPeriodMonths;
-    if (request.trainingType !== undefined) cv.trainingType = request.trainingType;
-    if (request.learnerCategory !== undefined) cv.learnerCategory = request.learnerCategory;
-    if (request.studyForm !== undefined) cv.studyForm = request.studyForm;
+      cv.recertificationPeriodMonths = request.recertificationPeriodMonths ?? undefined;
+    if (request.trainingType !== undefined) cv.trainingType = request.trainingType ?? undefined;
+    if (request.learnerCategory !== undefined)
+      cv.learnerCategory = request.learnerCategory ?? undefined;
+    if (request.studyForm !== undefined) cv.studyForm = request.studyForm ?? undefined;
     if (request.finalAssessmentForm !== undefined) {
-      cv.finalAssessmentForm = request.finalAssessmentForm;
+      cv.finalAssessmentForm = request.finalAssessmentForm ?? undefined;
     }
     if (request.regulatoryBasisCodes !== undefined) {
       cv.regulatoryBasisCodes = request.regulatoryBasisCodes;
     }
     if (request.programAttachmentFileId !== undefined) {
-      cv.programAttachmentFileId = request.programAttachmentFileId;
+      cv.programAttachmentFileId = request.programAttachmentFileId ?? undefined;
     }
-    if (request.commissionId !== undefined) cv.commissionId = request.commissionId;
+    if (request.commissionId !== undefined) cv.commissionId = request.commissionId ?? undefined;
     if (request.otProgramCodes !== undefined) cv.otProgramCodes = request.otProgramCodes;
     cv.updatedAt = this.now();
 

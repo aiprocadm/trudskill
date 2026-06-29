@@ -1,7 +1,15 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { describe, expect, it, vi } from 'vitest';
 
 import { InMemoryPaymentsRepository } from './in-memory-payments.repository.js';
 import { PaymentFulfillmentService } from './payment-fulfillment.service.js';
+import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
+import { TenantSerialGateway } from '../../infrastructure/request/tenant-serial.gateway.js';
+import { AuditService } from '../audit/audit.service.js';
+import { InMemoryMvpState } from '../mvp/infrastructure/in-memory-mvp.state.js';
+import { MemoryMvpPersistenceBackend } from '../mvp/infrastructure/memory-mvp-persistence.backend.js';
+import { MvpTenantRunner } from '../mvp/infrastructure/mvp-tenant-runner.service.js';
+import { MvpEnrollmentService } from '../mvp/mvp-enrollment.service.js';
 
 const ctx = { tenantId: 't1', userId: 'admin' } as any;
 
@@ -91,6 +99,77 @@ describe('PaymentFulfillmentService', () => {
     // l2 stays pending — never 'enrolled' with a null enrollmentId.
     expect(l2.fulfillmentStatus).toBe('pending');
     expect(l2.enrollmentId).toBeUndefined();
+  });
+
+  it('retry re-enrolls a learner that failed transiently, then fulfills the order (real enrollment path)', async () => {
+    // Real enrollment stack over a seeded Postgres-equivalent snapshot: group g1 + learner l1.
+    // l2 is intentionally MISSING so it fails NotFound on the first fulfillment pass.
+    const backend = new MemoryMvpPersistenceBackend();
+    const seed = new InMemoryMvpState();
+    const now = '2026-01-01T00:00:00.000Z';
+    seed.groups.push({
+      id: 'g1',
+      tenantId: 't1',
+      name: 'Группа 1',
+      status: 'active',
+      createdAt: now,
+      updatedAt: now
+    } as never);
+    seed.learners.push({
+      id: 'l1',
+      tenantId: 't1',
+      fullName: 'Иванов Иван',
+      status: 'active',
+      createdAt: now,
+      updatedAt: now
+    } as never);
+    await backend.saveFromState('t1', seed);
+
+    const enrollment = new MvpEnrollmentService(
+      new MvpTenantRunner(backend, new TenantSerialGateway()),
+      new TenantScopedRepository(),
+      new AuditService(),
+      new EventEmitter2()
+    );
+    const repo = new InMemoryPaymentsRepository();
+    const order = await seedPaidOrder(repo, [
+      { groupId: 'g1', learnerId: 'l1', unitAmount: 100 },
+      { groupId: 'g1', learnerId: 'l2', unitAmount: 100 }
+    ]);
+    const svc = new PaymentFulfillmentService(repo, enrollment);
+
+    // First pass: l1 enrolls, l2 fails NotFound → order stays 'paid', l2 item stays 'pending'.
+    await svc.fulfill(order!, ctx);
+    const afterFirst = await repo.getOrder('t1', order!.id);
+    expect(afterFirst!.status).toBe('paid');
+    expect(afterFirst!.items.find((i) => i.learnerId === 'l1')!.fulfillmentStatus).toBe('enrolled');
+    expect(afterFirst!.items.find((i) => i.learnerId === 'l2')!.fulfillmentStatus).toBe('pending');
+
+    // The transient cause is fixed: l2 now exists in the persisted snapshot.
+    const snapshot = new InMemoryMvpState();
+    await backend.loadIntoState('t1', snapshot);
+    snapshot.learners.push({
+      id: 'l2',
+      tenantId: 't1',
+      fullName: 'Петров Пётр',
+      status: 'active',
+      createdAt: now,
+      updatedAt: now
+    } as never);
+    await backend.saveFromState('t1', snapshot);
+
+    // Retry fulfillment with the SAME order id (same deterministic idempotency key):
+    // l2 must now be enrolled and the order fulfilled.
+    await svc.fulfill(afterFirst!, ctx);
+    const afterRetry = await repo.getOrder('t1', order!.id);
+    expect(afterRetry!.items.find((i) => i.learnerId === 'l2')!.fulfillmentStatus).toBe('enrolled');
+    expect(afterRetry!.items.every((i) => i.fulfillmentStatus === 'enrolled')).toBe(true);
+    expect(afterRetry!.status).toBe('fulfilled');
+
+    // Exactly two enrollments persisted — l1 was not duplicated on retry.
+    const persisted = new InMemoryMvpState();
+    await backend.loadIntoState('t1', persisted);
+    expect(persisted.enrollments.map((e) => e.learnerId).sort()).toEqual(['l1', 'l2']);
   });
 
   it('fail-soft — enrollment error leaves order paid, never throws', async () => {
