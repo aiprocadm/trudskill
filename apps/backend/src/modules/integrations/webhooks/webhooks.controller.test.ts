@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { WebhooksController } from './webhooks.controller.js';
 import { backendEnv } from '../../../env.js';
@@ -59,5 +59,28 @@ describe('webhooks controller', () => {
     const logs = orchestrator.byEntity('tenant_a', 'webhook', 'evt_1');
     expect(logs).toHaveLength(2);
     expect(logs.map((entry) => entry.status)).toEqual(['accepted', 'duplicate']);
+  });
+
+  // §5.160 — verify the signature BEFORE emitting any realtime event, so an unauthenticated
+  // caller (wrong/absent x-signature) cannot spam tenant subscribers with a "received" ping.
+  it('does not emit the received event when the signature is invalid', async () => {
+    const { controller, orchestrator } = build();
+    const context = { tenantId: 'tenant_a' } as any;
+    const publishSpy = vi.spyOn(orchestrator, 'publishIntegrationEvent');
+
+    await expect(
+      controller.handle(
+        context,
+        'frdo',
+        { eventId: 'evt_bad', eventType: 'status_changed', payload: { id: 1 } },
+        'WRONG_SECRET'
+      )
+    ).rejects.toThrow();
+
+    expect(publishSpy).not.toHaveBeenCalledWith(
+      'tenant_a',
+      'integration.webhook.received',
+      expect.anything()
+    );
   });
 });
