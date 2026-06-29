@@ -1520,7 +1520,9 @@ export class MvpService {
       }
       return true;
     });
-    const passed = examScoped.filter((er) => er.passed).length;
+    // Provisional results (best attempt still awaiting essay review) must not count as
+    // passes — passed is already false while needs_review; the status guard is defensive.
+    const passed = examScoped.filter((er) => er.passed && er.status !== 'needs_review').length;
     const examTotal = examScoped.length;
     const examPassRate = examTotal === 0 ? 0 : passed / examTotal;
 
@@ -3442,14 +3444,20 @@ export class MvpService {
     );
   }
 
-  /** Whether the learner already has a passing ExamResult for the given test. */
+  /**
+   * Whether the learner already has a passing, fully-graded ExamResult for the given
+   * test. A 'needs_review' result is provisional (its best attempt still awaits essay
+   * review) and must never open a module gate — the `status` guard is defensive: passed
+   * is already false while needs_review (see computeExamPassState).
+   */
   private isExamPassed(tenantId: string, enrollmentId: string, testId: string): boolean {
     return this.state.examResults.some(
       (er) =>
         er.tenantId === tenantId &&
         er.enrollmentId === enrollmentId &&
         er.testId === testId &&
-        er.passed === true
+        er.passed === true &&
+        er.status !== 'needs_review'
     );
   }
 
@@ -4891,6 +4899,46 @@ export class MvpService {
 
     return { count: grouped.size };
   }
+  /**
+   * An attempt still awaiting human grading: submitted (not yet reviewed —
+   * completeAttemptReview transitions a reviewed attempt to 'finished') and carrying
+   * at least one answer the auto-grader abstained on (autoGraded === false). Mirrors
+   * finishAttempt's `needsManualGrading` predicate, additionally gated on status so a
+   * reviewed ('finished') essay no longer counts as pending.
+   */
+  private attemptAwaitsManualReview(tenantId: string, attempt: TestAttempt): boolean {
+    return (
+      attempt.status === 'submitted' &&
+      this.state.attemptAnswers.some(
+        (a) => a.tenantId === tenantId && a.attemptId === attempt.id && a.autoGraded === false
+      )
+    );
+  }
+
+  /**
+   * Pass / needs-review state for an exam result, derived from the (submitted|finished)
+   * attempts. `passed` is true only when a FULLY-GRADED attempt cleared the passing
+   * score: an attempt still pending manual review contributes only its provisional
+   * auto-subtotal and must NEVER publish a pass (regulated attestation — ТЗ §35
+   * «ручная проверка эссе/кейсов», acceptance §39). When no genuine pass exists yet but
+   * an attempt is pending review, the result is `needsReview` (status 'needs_review',
+   * passed false) so module-gating, analytics, and the regulated export registries treat
+   * it as not-yet-passed until completeAttemptReview runs. `passed` is therefore
+   * deliberately decoupled from bestScore (which still reflects all submitted|finished
+   * attempts) during the review window.
+   */
+  private computeExamPassState(
+    tenantId: string,
+    attempts: TestAttempt[],
+    passingScore: number
+  ): { passed: boolean; needsReview: boolean } {
+    const graded = attempts.filter((a) => !this.attemptAwaitsManualReview(tenantId, a));
+    const bestGradedScore = graded.reduce((max, a) => Math.max(max, a.score ?? 0), 0);
+    const passed = graded.length > 0 && bestGradedScore >= passingScore;
+    const pendingReview = attempts.length > graded.length;
+    return { passed, needsReview: !passed && pendingReview };
+  }
+
   private finalizeExamResult(
     tenantId: string,
     actorId: string | undefined,
@@ -4913,6 +4961,14 @@ export class MvpService {
     );
     const best = attempts.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0] ?? attempt;
     const test = this.getById(this.state.tests, tenantId, attempt.testId);
+    // passed/status reflect only fully-graded attempts; an essay still awaiting review
+    // yields needsReview (status 'needs_review', passed false) rather than a premature pass.
+    const { passed, needsReview } = this.computeExamPassState(
+      tenantId,
+      attempts,
+      test.rules.passingScore
+    );
+    const status = needsReview ? 'needs_review' : 'final';
     if (existing) {
       existing.bestAttemptId = best.id;
       existing.attemptsCount = attempts.length;
@@ -4924,7 +4980,8 @@ export class MvpService {
       existing.bestScore = best.score ?? 0;
       existing.maxScore = best.maxScore;
       existing.passingScore = test.rules.passingScore;
-      existing.passed = (best.score ?? 0) >= test.rules.passingScore;
+      existing.passed = passed;
+      existing.status = status;
       existing.updatedAt = this.now();
       this.audit(
         tenantId,
@@ -4951,8 +5008,8 @@ export class MvpService {
       bestScore: best.score ?? 0,
       maxScore: best.maxScore,
       passingScore: test.rules.passingScore,
-      passed: (best.score ?? 0) >= test.rules.passingScore,
-      status: 'final',
+      passed,
+      status,
       createdAt: this.now(),
       updatedAt: this.now()
     };
@@ -5574,7 +5631,17 @@ export class MvpService {
     record.finalScore = best?.score ?? 0;
     record.maxScore = best?.maxScore ?? 0;
     record.passingScore = test.rules.passingScore;
-    record.passed = record.bestScore >= record.passingScore;
+    // passed reflects only fully-graded attempts (see computeExamPassState): a read of
+    // a result whose best attempt is still pending essay review must not flip it to a
+    // pass. needsReview keeps the record visibly provisional via status 'needs_review'.
+    const { passed, needsReview } = this.computeExamPassState(
+      tenantId,
+      attempts,
+      test.rules.passingScore
+    );
+    record.passed = passed;
+    if (needsReview) record.status = 'needs_review';
+    else if (record.status === 'needs_review') record.status = 'active';
     record.updatedAt = this.now();
     if (!existing) this.state.examResults.push(record);
     return record;

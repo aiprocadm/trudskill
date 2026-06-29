@@ -3035,6 +3035,286 @@ describe('Plan C — completeAttemptReview', () => {
   });
 });
 
+describe('§5.155 — provisional ExamResult must not publish a pass before manual review', () => {
+  function makeService(): MvpService {
+    return new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+  }
+
+  /**
+   * Course with ONE test mixing an auto-graded number_input (score 2) and an essay
+   * (score 5), passingScore = 2. The auto question ALONE clears the bar — the exact
+   * shape that made submitAttempt publish a provisional `passed: true` before the
+   * essay was human-reviewed.
+   */
+  function seedMixedAutoEssayTest(service: MvpService) {
+    const course = service.createCourse('tenant_demo', ctx.userId, { code: 'MX', title: 'Mixed' }, ctx);
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'GM', name: 'GroupMixed' }, ctx);
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'LM', name: 'Mixed Learner' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const bank = service.createQuestionBank(
+      'tenant_demo',
+      ctx.userId,
+      { title: 'BankMixed', courseId: course.id },
+      ctx
+    );
+    const autoQ = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      {
+        questionBankId: bank.id,
+        type: 'number_input',
+        title: 'Pi?',
+        score: 2,
+        numericExpected: 3.14,
+        numericTolerance: 0.01
+      },
+      ctx
+    );
+    const essayQ = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      { questionBankId: bank.id, type: 'essay', title: 'Discuss safety', score: 5 },
+      ctx
+    );
+    const test = service.createTest(
+      'tenant_demo',
+      ctx.userId,
+      {
+        title: 'MixedTest',
+        courseId: course.id,
+        questionBankId: bank.id,
+        rules: { attemptLimit: 1, passingScore: 2 }
+      },
+      ctx
+    );
+    service.addTestQuestions('tenant_demo', test.id, [autoQ.id, essayQ.id]);
+    const attempt = service.startAttempt(
+      'tenant_demo',
+      ctx.userId,
+      { testId: test.id, enrollmentId: enrollment.id, learnerId: learner.id },
+      ctx
+    );
+    service.saveAttemptAnswer(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { questionId: autoQ.id, textAnswer: '3.14' },
+      ctx
+    );
+    service.saveAttemptAnswer(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { questionId: essayQ.id, textAnswer: 'a thoughtful essay' },
+      ctx
+    );
+    return { service, course, group, learner, enrollment, bank, autoQ, essayQ, test, attempt };
+  }
+
+  it('does NOT publish passed/final when the auto subtotal clears passingScore but an essay is pending', () => {
+    const { service, enrollment, test, attempt } = seedMixedAutoEssayTest(makeService());
+    const submitted = service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+    // Auto subtotal = 2 (number_input) ≥ passingScore 2; essay abstains.
+    expect(submitted.score).toBe(2);
+    expect(submitted.status).toBe('submitted');
+
+    const result = service['state'].examResults.find(
+      (r) => r.enrollmentId === enrollment.id && r.testId === test.id
+    );
+    expect(result).toBeDefined();
+    // The provisional record must NOT be a published pass.
+    expect(result!.passed).toBe(false);
+    expect(result!.status).toBe('needs_review');
+  });
+
+  it('transitions the ExamResult from needs_review to a real pass after completeAttemptReview', () => {
+    const { service, enrollment, test, attempt, essayQ } = seedMixedAutoEssayTest(makeService());
+    service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+
+    service.completeAttemptReview(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { answerScores: [{ questionId: essayQ.id, score: 1 }] },
+      ctx
+    );
+
+    const result = service['state'].examResults.find(
+      (r) => r.enrollmentId === enrollment.id && r.testId === test.id
+    );
+    expect(result!.passed).toBe(true);
+    expect(result!.status).not.toBe('needs_review');
+    expect(result!.finalScore).toBe(3); // auto 2 + reviewed essay 1
+  });
+
+  it('publishes a real pass for an auto-only attempt (no manual review needed) — regression guard', () => {
+    const service = makeService();
+    const course = service.createCourse('tenant_demo', ctx.userId, { code: 'AO', title: 'AutoOnly' }, ctx);
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'GA', name: 'GA' }, ctx);
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner('tenant_demo', ctx.userId, { code: 'LA', name: 'Auto Learner' }, ctx);
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const bank = service.createQuestionBank('tenant_demo', ctx.userId, { title: 'BankA', courseId: course.id }, ctx);
+    const autoQ = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      { questionBankId: bank.id, type: 'number_input', title: 'Pi?', score: 2, numericExpected: 3.14, numericTolerance: 0.01 },
+      ctx
+    );
+    const test = service.createTest(
+      'tenant_demo',
+      ctx.userId,
+      { title: 'AutoTest', courseId: course.id, questionBankId: bank.id, rules: { attemptLimit: 1, passingScore: 2 } },
+      ctx
+    );
+    service.addTestQuestions('tenant_demo', test.id, [autoQ.id]);
+    const attempt = service.startAttempt(
+      'tenant_demo',
+      ctx.userId,
+      { testId: test.id, enrollmentId: enrollment.id, learnerId: learner.id },
+      ctx
+    );
+    service.saveAttemptAnswer('tenant_demo', ctx.userId, attempt.id, { questionId: autoQ.id, textAnswer: '3.14' }, ctx);
+    service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+
+    const result = service['state'].examResults.find((r) => r.enrollmentId === enrollment.id);
+    expect(result!.passed).toBe(true);
+    expect(result!.status).not.toBe('needs_review');
+  });
+
+  it('keeps the module gate LOCKED while the gating exam awaits essay review, then opens after review', () => {
+    const service = makeService();
+    const course = service.createCourse('tenant_demo', ctx.userId, { code: 'GT', title: 'Gated' }, ctx);
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'GG', name: 'GG' }, ctx);
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner('tenant_demo', ctx.userId, { code: 'LG', name: 'Gated Learner' }, ctx);
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const bank = service.createQuestionBank('tenant_demo', ctx.userId, { title: 'BankG', courseId: course.id }, ctx);
+    const version = service.createCourseVersion('tenant_demo', course.id);
+    const m1 = service.createModule(
+      'tenant_demo',
+      ctx.userId,
+      { courseVersionId: version.id, title: 'M1', minViewSeconds: 0, isRequired: true },
+      ctx
+    );
+    const m2 = service.createModule(
+      'tenant_demo',
+      ctx.userId,
+      { courseVersionId: version.id, title: 'M2', minViewSeconds: 0, isRequired: true },
+      ctx
+    );
+    // m1 gating test: mixed auto(number_input score 2) + essay, passingScore 2.
+    const autoQ = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      { questionBankId: bank.id, type: 'number_input', title: 'Pi?', score: 2, numericExpected: 3.14, numericTolerance: 0.01 },
+      ctx
+    );
+    const essayQ = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      { questionBankId: bank.id, type: 'essay', title: 'Discuss', score: 5 },
+      ctx
+    );
+    const m1test = service.createTest(
+      'tenant_demo',
+      ctx.userId,
+      { title: 'M1 test', courseId: course.id, questionBankId: bank.id, moduleId: m1.id, rules: { attemptLimit: 1, passingScore: 2 } },
+      ctx
+    );
+    service.addTestQuestions('tenant_demo', m1test.id, [autoQ.id, essayQ.id]);
+    const m2q = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      { questionBankId: bank.id, type: 'number_input', title: 'Two?', score: 1, numericExpected: 2, numericTolerance: 0 },
+      ctx
+    );
+    const m2test = service.createTest(
+      'tenant_demo',
+      ctx.userId,
+      { title: 'M2 test', courseId: course.id, questionBankId: bank.id, moduleId: m2.id, rules: { attemptLimit: 1, passingScore: 1 } },
+      ctx
+    );
+    service.addTestQuestions('tenant_demo', m2test.id, [m2q.id]);
+
+    // Take m1's gating test: auto answered correctly, essay pending.
+    const a1 = service.startAttempt(
+      'tenant_demo',
+      ctx.userId,
+      { testId: m1test.id, enrollmentId: enrollment.id, learnerId: learner.id },
+      ctx
+    );
+    service.saveAttemptAnswer('tenant_demo', ctx.userId, a1.id, { questionId: autoQ.id, textAnswer: '3.14' }, ctx);
+    service.saveAttemptAnswer('tenant_demo', ctx.userId, a1.id, { questionId: essayQ.id, textAnswer: 'essay' }, ctx);
+    service.submitAttempt('tenant_demo', ctx.userId, a1.id, ctx);
+
+    // BEFORE review: the provisional pass must NOT unlock the next module.
+    expect(() =>
+      service.startAttempt(
+        'tenant_demo',
+        ctx.userId,
+        { testId: m2test.id, enrollmentId: enrollment.id, learnerId: learner.id },
+        ctx
+      )
+    ).toThrow(PreconditionFailedException);
+
+    // Reviewer scores the essay → real pass.
+    service.completeAttemptReview(
+      'tenant_demo',
+      ctx.userId,
+      a1.id,
+      { answerScores: [{ questionId: essayQ.id, score: 1 }] },
+      ctx
+    );
+
+    // AFTER review: the gate opens.
+    const a2 = service.startAttempt(
+      'tenant_demo',
+      ctx.userId,
+      { testId: m2test.id, enrollmentId: enrollment.id, learnerId: learner.id },
+      ctx
+    );
+    expect(a2.status).toBe('in_progress');
+  });
+
+  it('does not count a provisional (needs_review) result as a pass in analytics pass-rate', () => {
+    const { service, attempt } = seedMixedAutoEssayTest(makeService());
+    service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+
+    const kpi = service.getKpiSnapshot('tenant_demo', {});
+    expect(kpi.examResultsPassed).toBe(0);
+    expect(kpi.examPassRate).toBe(0);
+  });
+});
+
 describe('Plan C — returnAssignmentSubmission', () => {
   function makeSubmittedUnderReview() {
     const service = new MvpService(
