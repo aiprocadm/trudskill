@@ -92,12 +92,22 @@ describe('AuthController public user contract', () => {
     const response = await controller.me(context);
 
     expect(response).not.toHaveProperty('passwordHash');
+    // §5.160: /auth/me carries server-resolved permissions (SSOT) so the frontend no longer
+    // derives them from a drift-prone static map.
+    expect((response as { permissions: string[] }).permissions).toContain('iam.manage_roles');
     expect(response).toMatchInlineSnapshot(`
       {
         "displayName": "Tenant Admin",
         "email": "tenant@demo.local",
         "id": "u_tenant_admin",
         "login": "tenant_admin",
+        "permissions": [
+          "auth.manage_sessions",
+          "iam.manage_roles",
+          "tenant.read",
+          "assessment.read.cross_learner",
+          "learners.act_as",
+        ],
         "status": "active",
         "tenantId": "tenant_demo",
       }
