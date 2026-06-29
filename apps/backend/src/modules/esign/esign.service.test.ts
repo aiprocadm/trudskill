@@ -163,6 +163,68 @@ describe('EsignService', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it('does not complete/finalize a process when every participant is skipped (zero real signatures)', async () => {
+    const { service, documentsService } = makeService();
+    const process = service.createProcess('t1', 'staff_1', {
+      idempotencyKey: 'skip-all-create',
+      generatedDocumentId: 'gdoc_1',
+      sequential: false
+    });
+    const p1 = service.createParticipant('t1', 'staff_1', {
+      processId: process.id,
+      participantType: 'employee',
+      participantUserId: 'u2',
+      signOrder: 1
+    });
+
+    service.startProcess('t1', 'staff_1', process.id, { idempotencyKey: 'skip-all-start' });
+    service.inviteParticipant('t1', 'staff_1', p1.id);
+    await service.skipParticipant('t1', 'staff_1', p1.id, { idempotencyKey: 'skip-1' });
+
+    // A roster where everyone is skipped carries zero signatures — it must NOT be
+    // reported as 'signed' nor finalize the (legally-binding) document.
+    expect(service.getProcess('t1', process.id).status).not.toBe('signed');
+    expect(documentsService.finalizeDocument).not.toHaveBeenCalled();
+  });
+
+  it('does not resurrect a cancelled process to signed via skipParticipant', async () => {
+    const { service, documentsService } = makeService();
+    const process = service.createProcess('t1', 'staff_1', {
+      idempotencyKey: 'resurrect-create',
+      generatedDocumentId: 'gdoc_1',
+      sequential: false
+    });
+    const p1 = service.createParticipant('t1', 'staff_1', {
+      processId: process.id,
+      participantType: 'employee',
+      participantUserId: 'u2',
+      signOrder: 1
+    });
+    const p2 = service.createParticipant('t1', 'staff_1', {
+      processId: process.id,
+      participantType: 'employee',
+      participantUserId: 'u3',
+      signOrder: 2
+    });
+
+    service.startProcess('t1', 'staff_1', process.id, { idempotencyKey: 'resurrect-start' });
+    service.inviteParticipant('t1', 'staff_1', p1.id);
+    await service.signParticipant('t1', 'u2', p1.id, { idempotencyKey: 'resurrect-sign' });
+
+    // Process is still in_signing (p2 pending). Operator cancels it.
+    service.cancelProcess('t1', 'staff_1', process.id);
+    expect(service.getProcess('t1', process.id).status).toBe('cancelled');
+    const finalizeCallsAfterCancel = documentsService.finalizeDocument.mock.calls.length;
+
+    // Skipping the leftover participant on a terminal process must be rejected and
+    // must NOT flip the cancelled process back to 'signed'.
+    await expect(
+      service.skipParticipant('t1', 'staff_1', p2.id, { idempotencyKey: 'resurrect-skip' })
+    ).rejects.toThrow(BadRequestException);
+    expect(service.getProcess('t1', process.id).status).toBe('cancelled');
+    expect(documentsService.finalizeDocument.mock.calls.length).toBe(finalizeCallsAfterCancel);
+  });
+
   it('fails process when participant rejects signing', () => {
     const { service } = makeService();
     const process = service.createProcess('t1', 'staff_1', {

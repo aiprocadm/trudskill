@@ -26,14 +26,16 @@ function createInMemoryRepo(): InMemoryMagicLinkTokenRepo {
     async findByHash(tenantId: string, tokenHash: string): Promise<PersistedMagicLinkToken | null> {
       return saved.find((r) => r.tenantId === tenantId && r.tokenHash === tokenHash) ?? null;
     },
-    async markConsumed(tenantId: string, id: string, redeemedUserId: string): Promise<void> {
+    async markConsumed(tenantId: string, id: string, redeemedUserId: string): Promise<boolean> {
       const record = saved.find((r) => r.id === id && r.tenantId === tenantId);
-      if (record) {
-        record.consumedAt = new Date();
-      }
       // redeemedUserId would be persisted in the DB version; the in-memory
       // repo only tracks consumption for the unit-test assertions below.
       void redeemedUserId;
+      if (record && record.consumedAt === null) {
+        record.consumedAt = new Date();
+        return true; // this call won the atomic consume
+      }
+      return false; // already consumed (or unknown) — caller must reject
     }
   };
 }
@@ -143,6 +145,36 @@ describe('MagicLinkService.redeemLink', () => {
 
     await expect(
       service.redeemLink({ tenantId: 't1', rawToken, userId: 'u1' })
+    ).rejects.toMatchObject({
+      name: 'MagicLinkInvalidError',
+      reason: 'consumed'
+    });
+  });
+
+  it('rejects redeem when the atomic consume reports 0 rows (TOCTOU race lost)', async () => {
+    // Models the race window: findByHash still returns an un-consumed snapshot (the
+    // stale read), but the atomic conditional UPDATE consumed 0 rows because a
+    // concurrent redeem already won. The service must NOT mint a session in that case.
+    const racingRepo: MagicLinkTokenRepo = {
+      async save(): Promise<void> {},
+      async findByHash(): Promise<PersistedMagicLinkToken> {
+        return {
+          id: 'm_race',
+          tenantId: 't1',
+          email: 'race@example.ru',
+          tokenHash: 'hash',
+          expiresAt: new Date(Date.now() + FIFTEEN_MINUTES),
+          consumedAt: null
+        };
+      },
+      async markConsumed(): Promise<boolean> {
+        return false; // lost the race — 0 rows affected
+      }
+    };
+    const racingService = new MagicLinkService(racingRepo, { ttlMs: FIFTEEN_MINUTES });
+
+    await expect(
+      racingService.redeemLink({ tenantId: 't1', rawToken: 'anything', userId: 'u1' })
     ).rejects.toMatchObject({
       name: 'MagicLinkInvalidError',
       reason: 'consumed'

@@ -49,7 +49,13 @@ export class TenantGuard implements CanActivate {
       }
     }
 
-    const requestPath: string = request.route?.path ?? request.path ?? request.url ?? '';
+    // SECURITY: prefer the matched route pattern; fall back to the URL path with the
+    // query string stripped. `request.url` carries the query, and an attacker can stuff
+    // `/auth/esia/` or `/auth/login` into it (e.g. `?redirect=/auth/esia/cb`). The
+    // unauthenticated bypass decision below must depend on the PATH only, never the query.
+    const requestPath: string = (request.route?.path ?? request.path ?? request.url ?? '').split(
+      '?'
+    )[0];
     const isTenantBootstrapRoute =
       requestPath.endsWith('/auth/login') || requestPath.endsWith('/auth/refresh');
     if (isTenantBootstrapRoute && requestContext.requestedTenantId) {

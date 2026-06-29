@@ -1998,6 +1998,7 @@ export class MvpService {
     outcome: BulkImportOutcome
   ): void {
     this.state.bulkImportIdempotency.push({
+      id: this.id('bulkimportidem'),
       tenantId,
       idempotencyKey,
       outcome,
@@ -3453,7 +3454,11 @@ export class MvpService {
   }
 
   /** Required modules that must be passed before the given test can start. */
-  private requiredPriorModules(tenantId: string, test: TestEntity): CourseModuleEntity[] {
+  private requiredPriorModules(
+    tenantId: string,
+    test: TestEntity,
+    enrollmentId: string
+  ): CourseModuleEntity[] {
     if (test.moduleId) {
       const current = this.getById(this.state.modules, tenantId, test.moduleId);
       return this.state.modules.filter(
@@ -3464,18 +3469,54 @@ export class MvpService {
           m.sortOrder < current.sortOrder
       );
     }
-    // Final/course-level exam: all required modules of the course must be passed.
-    const versionIds = this.state.courseVersions
-      .filter((v) => v.tenantId === tenantId && v.courseId === test.courseId)
-      .map((v) => v.id);
+    // Final/course-level exam: required modules of the COURSE VERSION the learner is
+    // pinned to — NOT every version. A course can have >1 published version at once, so
+    // aggregating modules across all versions would block a learner pinned to v1 with
+    // v2's gating modules (they could never start the final exam). Mirror the
+    // PINNED > PUBLISHED > (all, as a strict last resort) scoping recalculateCourseProgress
+    // uses for the completion denominator.
+    const enrollment = this.state.enrollments.find(
+      (e) => e.tenantId === tenantId && e.id === enrollmentId
+    );
+    const pinnedVersionIds = new Set(
+      enrollment
+        ? this.state.groupCourses
+            .filter(
+              (gc) =>
+                gc.tenantId === tenantId &&
+                gc.courseId === test.courseId &&
+                gc.groupId === enrollment.groupId &&
+                gc.courseVersionId
+            )
+            .map((gc) => gc.courseVersionId as string)
+        : []
+    );
+    const publishedVersionIds = new Set(
+      this.state.courseVersions
+        .filter(
+          (v) => v.tenantId === tenantId && v.courseId === test.courseId && v.status === 'published'
+        )
+        .map((v) => v.id)
+    );
+    const allVersionIds = new Set(
+      this.state.courseVersions
+        .filter((v) => v.tenantId === tenantId && v.courseId === test.courseId)
+        .map((v) => v.id)
+    );
+    const scopedVersionIds =
+      pinnedVersionIds.size > 0
+        ? pinnedVersionIds
+        : publishedVersionIds.size > 0
+          ? publishedVersionIds
+          : allVersionIds;
     return this.state.modules.filter(
-      (m) => m.tenantId === tenantId && versionIds.includes(m.courseVersionId) && m.isRequired
+      (m) => m.tenantId === tenantId && scopedVersionIds.has(m.courseVersionId) && m.isRequired
     );
   }
 
   /** Feature A: block until every required prior module with a gating test has been passed. */
   private assertModuleSequenceGate(tenantId: string, enrollmentId: string, test: TestEntity): void {
-    for (const prior of this.requiredPriorModules(tenantId, test)) {
+    for (const prior of this.requiredPriorModules(tenantId, test, enrollmentId)) {
       const gating = this.getModuleGatingTest(tenantId, prior.id);
       if (gating && !this.isExamPassed(tenantId, enrollmentId, gating.id)) {
         throw new PreconditionFailedException({
@@ -4697,6 +4738,16 @@ export class MvpService {
     // transition to 'finished' — otherwise finish would resurrect an expired/terminal attempt into
     // a counted 'finished' record, silently defeating the time-limit semantics.
     if (submitted.status !== 'submitted') return submitted;
+    // An attempt with manually-gradable answers (essay, or a misconfigured auto question)
+    // must NOT be auto-finalized here: that would freeze those answers at the provisional 0,
+    // drop the attempt out of the reviewer queue (which only lists 'submitted'), and lock
+    // completeAttemptReview (which requires 'submitted'). Leave it 'submitted' so a human
+    // reviewer can score it — completeAttemptReview is what transitions it to 'finished'.
+    // Predicate mirrors aggregateReviewerQueue's needsManualGrading.
+    const needsManualGrading = this.state.attemptAnswers.some(
+      (a) => a.tenantId === tenantId && a.attemptId === submitted.id && a.autoGraded === false
+    );
+    if (needsManualGrading) return submitted;
     submitted.status = 'finished';
     submitted.finishedAt = this.now();
     submitted.updatedAt = this.now();

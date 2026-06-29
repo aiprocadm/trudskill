@@ -74,6 +74,13 @@ export interface BulkImportOutcome {
 
 /** Запись idempotency для in-memory state. Persistent в Postgres-варианте — отдельная таблица. */
 export interface BulkImportIdempotencyRecord {
+  /**
+   * Required: the Postgres snapshot store (`learning.mvp_runtime_documents`) keys every
+   * persisted MVP collection entity by a NOT NULL `id` column. Omitting it made the whole
+   * tenant snapshot save throw after any successful bulk-import (cf. sibling
+   * `BulkEnrollmentIdempotencyRecord`, which always carried an id).
+   */
+  id: string;
   tenantId: string;
   idempotencyKey: string;
   outcome: BulkImportOutcome;

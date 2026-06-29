@@ -19,13 +19,19 @@ export interface PersistedMagicLinkToken extends MagicLinkTokenRecord {
 export interface MagicLinkTokenRepo {
   save(record: MagicLinkTokenRecord): Promise<void>;
   findByHash(tenantId: string, tokenHash: string): Promise<PersistedMagicLinkToken | null>;
+  /**
+   * Atomically consume the token. Returns `true` only if THIS call flipped
+   * `consumedAt` from null (i.e. the conditional update affected a row); `false` if
+   * the token was already consumed by a concurrent request. Callers MUST treat a
+   * `false` result as "already redeemed" — this is the single-use race gate.
+   */
   markConsumed(
     tenantId: string,
     id: string,
     redeemedUserId: string,
     redeemIp?: string,
     redeemUserAgent?: string
-  ): Promise<void>;
+  ): Promise<boolean>;
 }
 
 export interface MagicLinkServiceConfig {
@@ -93,13 +99,20 @@ export class MagicLinkService {
 
   async redeemLink(input: RedeemLinkInput): Promise<{ email: string }> {
     const record = await this.loadValidRecord(input.tenantId, input.rawToken);
-    await this.repo.markConsumed(
+    // Atomic single-use gate: loadValidRecord's consumedAt check is a TOCTOU read.
+    // Two concurrent redeems can both pass it, so the authoritative decision is the
+    // conditional UPDATE — if it consumed 0 rows, another request already won the race
+    // and we must NOT issue a session for this one.
+    const consumed = await this.repo.markConsumed(
       input.tenantId,
       record.id,
       input.userId,
       input.ip,
       input.userAgent
     );
+    if (!consumed) {
+      throw new MagicLinkInvalidError('consumed');
+    }
     return { email: record.email };
   }
 
