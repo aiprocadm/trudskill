@@ -3035,7 +3035,7 @@ describe('Plan C — completeAttemptReview', () => {
   });
 });
 
-describe('§5.155 — provisional ExamResult must not publish a pass before manual review', () => {
+describe('§5.156 — provisional ExamResult must not publish a pass before manual review', () => {
   function makeService(): MvpService {
     return new MvpService(
       new InMemoryMvpState(),
