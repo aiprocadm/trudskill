@@ -736,10 +736,11 @@ export class IamService {
     await this.getUser(tenantId, userId);
 
     if (!this.databaseService) {
-      const roleIds = this.fallbackUserRoles.get(userId) ?? [];
-      if (roleIds.includes('r_platform_admin') || roleIds.includes('r_tenant_admin')) {
-        return this.fallbackPermissions.map((permission) => permission.code);
-      }
+      // DB-less fallback (dev / unit tests only): there is no per-role permission map here —
+      // just a flat staff permission set — so every seeded user resolves to that full set.
+      // The previous admin-role check was dead (both branches returned the same list, §5.158).
+      // Production always injects a databaseService and runs the role-gated SQL below, so this
+      // coarse path never executes there.
       return this.fallbackPermissions.map((permission) => permission.code);
     }
 
