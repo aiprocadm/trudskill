@@ -330,6 +330,58 @@ describe('startAttempt — module gating (A) + min-view time (B)', () => {
     ).not.toThrow();
   });
 
+  it('locks a group attached before any publication once a later v2 adds a gating module (no pin → PUBLISHED fallback)', () => {
+    const service = makeService();
+    const course = service.createCourse(T, ADMIN, { code: 'CP3', title: 'Unpinned' }, ctx);
+    const group = service.createGroup(T, ADMIN, { code: 'GP3', name: 'Group U' }, ctx);
+    const bank = service.createQuestionBank(T, ADMIN, { title: 'Bank', courseId: course.id }, ctx);
+
+    // Attach BEFORE any version is published → no pin lands (documented residual-limitation path).
+    const gc = service.createGroupCourse(T, { groupId: group.id, courseId: course.id });
+    expect(gc.courseVersionId).toBeUndefined();
+
+    // v1 published (no gating), v2 published with a required module behind an unpassed gating test.
+    const v1 = service.createCourseVersion(T, course.id);
+    (v1 as { status: string }).status = 'published';
+    service.createModule(
+      T,
+      ADMIN,
+      { courseVersionId: v1.id, title: 'v1 Module', minViewSeconds: 0, isRequired: true },
+      ctx
+    );
+    const v2 = service.createCourseVersion(T, course.id);
+    (v2 as { status: string }).status = 'published';
+    const m2 = service.createModule(
+      T,
+      ADMIN,
+      { courseVersionId: v2.id, title: 'v2 Module', minViewSeconds: 0, isRequired: true },
+      ctx
+    );
+    makeTest(service, course.id, bank.id, m2.id, 'v2 gating');
+
+    const learner = service.createLearner(T, ADMIN, { code: 'LU', name: 'U Learner' }, ctx);
+    const enrollment = service.createEnrollment(
+      T,
+      ADMIN,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const finalTest = makeTest(service, course.id, bank.id, undefined, 'Final');
+
+    // No pin → PUBLISHED fallback spans v1+v2 → v2's unpassed gating module locks the final exam.
+    // This is the contrapositive of the pinned test above: it proves the pin is what unlocks.
+    expectThrowsCode(
+      () =>
+        service.startAttempt(
+          T,
+          ADMIN,
+          { testId: finalTest.id, enrollmentId: enrollment.id, learnerId: enrollment.learnerId },
+          ctx
+        ),
+      'module_gate_locked'
+    );
+  });
+
   it('blocks the module test until the module min-view time is met, then allows it', () => {
     const service = makeService();
     const { course, bank, enrollment, m1, mat1 } = seedTwoModuleCourse(service, { m1MinView: 120 });
