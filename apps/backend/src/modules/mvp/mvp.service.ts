@@ -2012,13 +2012,6 @@ export class MvpService {
     request: CreateBulkEnrollmentsRequest,
     context: RequestContext
   ): BulkEnrollmentsOutcome {
-    const duplicateIdem = this.state.bulkEnrollmentIdempotency.find(
-      (r) => r.tenantId === tenantId && r.idempotencyKey === request.idempotencyKey
-    );
-    if (duplicateIdem) {
-      return duplicateIdem.outcome;
-    }
-
     const explicit = (request.learnerIds ?? [])
       .map((lid) => String(lid).trim())
       .filter((id) => id.length > 0);
@@ -2040,11 +2033,32 @@ export class MvpService {
           'No learner targets resolved: provide non-empty learnerIds and/or organizationUnitId with matching learners'
       });
     }
-    const created: Enrollment[] = [];
-    const skippedExisting: Array<{ learnerId: string; enrollmentId: string }> = [];
-    const errors: BulkEnrollmentItemError[] = [];
+    // Idempotency replay is NOT frozen: cached successes (created/skippedExisting) are
+    // preserved and never re-attempted (no duplicate enrollment or invite event), while
+    // previously-failed learners are RE-ATTEMPTED. This lets a retry (e.g. payment
+    // fulfillment via `payment:<order>:<group>`, or recertification approval) enroll a
+    // learner that failed transiently — e.g. NotFound because the learner row was not yet
+    // hydrated when the order was first fulfilled — once the cause is resolved. Returning
+    // the stale outcome verbatim would strand the learner in `errors` forever.
+    const prior = this.state.bulkEnrollmentIdempotency.find(
+      (r) => r.tenantId === tenantId && r.idempotencyKey === request.idempotencyKey
+    );
+    const alreadyEnrolledLearnerIds = new Set<string>([
+      ...(prior?.outcome.created ?? []).map((e) => e.learnerId),
+      ...(prior?.outcome.skippedExisting ?? []).map((s) => s.learnerId)
+    ]);
+    const created: Enrollment[] = [...(prior?.outcome.created ?? [])];
+    const skippedExisting: Array<{ learnerId: string; enrollmentId: string }> = [
+      ...(prior?.outcome.skippedExisting ?? [])
+    ];
+    // Carry forward prior errors for learners this attempt does not target; targeted ones
+    // are re-attempted below and their fresh result replaces the stale error.
+    const errors: BulkEnrollmentItemError[] = (prior?.outcome.errors ?? []).filter(
+      (e) => !uniqueLearnerIds.includes(e.learnerId)
+    );
 
     for (const learnerId of uniqueLearnerIds) {
+      if (alreadyEnrolledLearnerIds.has(learnerId)) continue; // cached success — never redo
       try {
         const entity = this.createEnrollment(
           tenantId,
@@ -2089,13 +2103,19 @@ export class MvpService {
       skippedExisting,
       errors
     };
-    this.state.bulkEnrollmentIdempotency.push({
-      id: this.id('bulkidem'),
-      tenantId,
-      idempotencyKey: request.idempotencyKey,
-      outcome,
-      createdAt: this.now()
-    });
+    if (prior) {
+      // Refresh the cached outcome so a later replay sees the resolved errors (and a
+      // double-fire after full success becomes a true no-op).
+      prior.outcome = outcome;
+    } else {
+      this.state.bulkEnrollmentIdempotency.push({
+        id: this.id('bulkidem'),
+        tenantId,
+        idempotencyKey: request.idempotencyKey,
+        outcome,
+        createdAt: this.now()
+      });
+    }
     this.audit(
       tenantId,
       actorId,
