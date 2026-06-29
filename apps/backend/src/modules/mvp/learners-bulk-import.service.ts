@@ -240,15 +240,17 @@ export class LearnersBulkImportService {
     const cached = this.mvpService.getBulkImportOutcomeIfAny(tenantId, request.idempotencyKey);
     if (cached) return cached;
 
-    // 2) Snapshot существующих учётков tenant (для reuse-детекции)
-    const existingPage = this.mvpService.listLearners(tenantId, { page: 1, page_size: 10_000 });
-    const snapshot: ExistingLearnersSnapshot = {
-      learners: existingPage.items.map((l) => ({
-        id: l.id,
-        ...(l.email ? { email: l.email } : {}),
-        ...(l.snils ? { snils: l.snils } : {})
-      }))
-    };
+    // 2) Snapshot существующих учётков tenant (для reuse-детекции).
+    //    Целевой lookup по email/СНИЛС строк импорта вместо листинга одной страницы:
+    //    `listLearners(page_size: 10_000)` терял совпадения у tenant с >10k учётков
+    //    (учёток за границей страницы классифицировался как create, а
+    //    `createLearnerExtended` не проверяет уникальность → молчаливый дубликат). §5.152.
+    const existing = this.mvpService.findLearnersByEmailOrSnils(
+      tenantId,
+      request.rows.map((r) => r.email ?? ''),
+      request.rows.map((r) => r.snils ?? '')
+    );
+    const snapshot: ExistingLearnersSnapshot = { learners: existing };
 
     // 3) Classification
     const classified = classifyRows(request.rows, snapshot);

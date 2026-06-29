@@ -592,6 +592,46 @@ export class MvpService {
     );
   }
 
+  /**
+   * §5.152 — целевой lookup существующих учётков по email/СНИЛС (reuse-детекция bulk-import).
+   *
+   * В отличие от `listLearners(..., page_size: N)`, НЕ ограничен размером страницы:
+   * сканирует все учётки tenant и возвращает только совпавшие. Поэтому корректно
+   * находит существующего ученика у tenant с >N учётков (раньше snapshot обрезался
+   * на page_size=10_000 — совпадение за границей терялось, и т.к. `createLearnerExtended`
+   * не проверяет уникальность, импорт молча создавал дубликат). Память ограничена
+   * числом совпадений (≤ размер импорта), а не общим числом учётков tenant.
+   *
+   * Email сравнивается case-insensitive (trimmed lower-case); СНИЛС — по
+   * нормализованным 11 цифрам. Возвращает только поля, нужные классификатору.
+   */
+  findLearnersByEmailOrSnils(
+    tenantId: string,
+    emails: readonly string[],
+    snilsValues: readonly string[]
+  ): Array<{ id: string; email?: string; snils?: string }> {
+    const emailSet = new Set(emails.map((e) => e.toLowerCase().trim()).filter((e) => e.length > 0));
+    const snilsSet = new Set(
+      snilsValues.map((s) => s.replace(/\D/g, '')).filter((s) => s.length === 11)
+    );
+    if (emailSet.size === 0 && snilsSet.size === 0) return [];
+
+    const matches: Array<{ id: string; email?: string; snils?: string }> = [];
+    for (const learner of this.state.learners) {
+      if (learner.tenantId !== tenantId) continue;
+      const emailHit = learner.email ? emailSet.has(learner.email.toLowerCase().trim()) : false;
+      const snilsHit = learner.snils ? snilsSet.has(learner.snils.replace(/\D/g, '')) : false;
+      if (emailHit || snilsHit) {
+        matches.push({
+          id: learner.id,
+          ...(learner.email ? { email: learner.email } : {}),
+          ...(learner.snils ? { snils: learner.snils } : {})
+        });
+      }
+    }
+    return matches;
+  }
+
   createLearner(
     tenantId: string,
     actorId: string | undefined,
