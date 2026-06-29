@@ -76,6 +76,15 @@ export class InMemoryPaymentsRepository implements PaymentsRepository {
   }
 
   async createPayment(seed: CreatePaymentSeed): Promise<PaymentEntity> {
+    // §5.160 idempotency: a repeated / concurrent create with the same (tenant, idempotencyKey)
+    // returns the existing payment instead of inserting a duplicate — a double mark-paid must not
+    // double-record revenue. Mirrors the partial unique index on payments.payments (migration 0059).
+    if (seed.idempotencyKey) {
+      const existing = [...this.payments.values()].find(
+        (p) => p.tenantId === seed.tenantId && p.idempotencyKey === seed.idempotencyKey
+      );
+      if (existing) return clone(existing);
+    }
     const now = new Date().toISOString();
     const payment: PaymentEntity = {
       id: rid('pay'),

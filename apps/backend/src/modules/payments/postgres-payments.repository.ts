@@ -163,11 +163,15 @@ export class PostgresPaymentsRepository implements PaymentsRepository {
 
   async createPayment(seed: CreatePaymentSeed): Promise<PaymentEntity> {
     const paymentId = rid('pay');
+    // §5.160 idempotency: the partial unique index (tenant_id, idempotency_key) (migration 0059)
+    // makes a repeated / concurrent create a no-op; we then return the already-stored payment so a
+    // double mark-paid does not double-record revenue.
     const rows = await this.db.query<PaymentDbRow>(
       `insert into payments.payments
          (id, tenant_id, order_id, provider, provider_payment_id, method, status, amount,
           confirmation_url, idempotency_key, raw_payload, created_at, updated_at)
        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(), now())
+       on conflict (tenant_id, idempotency_key) where idempotency_key is not null do nothing
        returning *`,
       [
         paymentId,
@@ -183,7 +187,13 @@ export class PostgresPaymentsRepository implements PaymentsRepository {
         seed.rawPayload ?? {}
       ]
     );
-    return this.mapPayment(rows[0]!);
+    if (rows[0]) return this.mapPayment(rows[0]);
+    // Conflict on idempotency_key → a payment already exists for this key; return it unchanged.
+    const existing = await this.db.query<PaymentDbRow>(
+      `select * from payments.payments where tenant_id = $1 and idempotency_key = $2 limit 1`,
+      [seed.tenantId, seed.idempotencyKey ?? null]
+    );
+    return this.mapPayment(existing[0]!);
   }
 
   async updatePaymentStatus(
