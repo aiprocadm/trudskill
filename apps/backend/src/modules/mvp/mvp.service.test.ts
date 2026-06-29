@@ -1531,6 +1531,77 @@ describe('mvp service domain rules', () => {
     expect(second).toEqual(first);
   });
 
+  it('replay re-attempts a previously-failed learner once it exists (retry, not frozen errors)', () => {
+    const state = new InMemoryMvpState();
+    const service = new MvpService(
+      state,
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G-RT', name: 'Retry G' },
+      ctx
+    );
+    const l1 = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'L-RT1', name: 'Present One' },
+      ctx
+    );
+
+    // First attempt: l1 enrolls; 'learner_pending' is not yet hydrated → NotFound (transient).
+    const first = service.createBulkEnrollments(
+      'tenant_demo',
+      ctx.userId,
+      {
+        idempotencyKey: 'payment:o1:g1',
+        groupId: group.id,
+        learnerIds: [l1.id, 'learner_pending']
+      },
+      ctx
+    );
+    expect(first.created).toHaveLength(1);
+    expect(first.errors).toHaveLength(1);
+    expect(first.errors[0]!.learnerId).toBe('learner_pending');
+
+    // The transient cause is fixed: the learner now exists.
+    const now = new Date().toISOString();
+    state.learners.push({
+      id: 'learner_pending',
+      tenantId: 'tenant_demo',
+      status: 'active',
+      createdAt: now,
+      updatedAt: now
+    } as never);
+
+    // Retry with the SAME deterministic idempotency key — must re-attempt the failed learner,
+    // NOT return the frozen outcome that still lists it under `errors`.
+    const second = service.createBulkEnrollments(
+      'tenant_demo',
+      ctx.userId,
+      {
+        idempotencyKey: 'payment:o1:g1',
+        groupId: group.id,
+        learnerIds: [l1.id, 'learner_pending']
+      },
+      ctx
+    );
+
+    expect(second.errors).toHaveLength(0);
+    const enrolledLearnerIds = [
+      ...second.created.map((e) => e.learnerId),
+      ...second.skippedExisting.map((s) => s.learnerId)
+    ].sort();
+    expect(enrolledLearnerIds).toEqual([l1.id, 'learner_pending'].sort());
+    // Cached success preserved — l1 is not re-enrolled (single row, no duplicate).
+    expect(state.enrollments.filter((e) => e.learnerId === l1.id)).toHaveLength(1);
+  });
+
   it('bulk enroll merges organizationUnitId with explicit learner ids', () => {
     const service = new MvpService(
       new InMemoryMvpState(),
