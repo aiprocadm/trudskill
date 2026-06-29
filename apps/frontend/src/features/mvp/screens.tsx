@@ -43,6 +43,7 @@ import {
   useUserSessions,
   useUsersList
 } from './hooks';
+import { buildCommissionInfoPayload, buildProgramMetaPatch } from './payloads';
 import { FieldError, FormErrorSummary, useFocusFirstError } from '../../components/form-feedback';
 import {
   PageContainer,
@@ -900,20 +901,19 @@ const ProgramMetaSection = ({
     setOtProgramCodes(courseVersion.otProgramCodes ?? []);
   }, [courseVersion]);
 
-  const buildPayload = (): ProgramMetaPatch => {
-    const payload: ProgramMetaPatch = {};
-    const hoursNum = Number(academicHours);
-    if (academicHours && Number.isFinite(hoursNum) && hoursNum > 0) {
-      payload.academicHours = hoursNum;
-    }
-    if (trainingType) payload.trainingType = trainingType;
-    if (learnerCategory) payload.learnerCategory = learnerCategory;
-    if (studyForm) payload.studyForm = studyForm;
-    if (finalAssessmentForm) payload.finalAssessmentForm = finalAssessmentForm;
-    if (regulatoryBasisCodes.length > 0) payload.regulatoryBasisCodes = regulatoryBasisCodes;
-    if (commissionId) payload.commissionId = commissionId;
-    return { ...payload, ...(otProgramCodes.length > 0 ? { otProgramCodes } : {}) };
-  };
+  // EDIT form pre-populates current values, so we always send every field: a real value
+  // updates, an explicit clearing value (null / []) unsets it. See payloads.ts.
+  const buildPayload = (): ProgramMetaPatch =>
+    buildProgramMetaPatch({
+      academicHours,
+      trainingType,
+      learnerCategory,
+      studyForm,
+      finalAssessmentForm,
+      regulatoryBasisCodes,
+      commissionId,
+      otProgramCodes
+    });
 
   const onSave = async () => {
     setBusy(true);
@@ -2700,10 +2700,7 @@ export const CommissionDetailsScreen = ({ id }: { id: string }) => {
     setSavingEdit(true);
     setEditError(null);
     try {
-      const trimmedDescription = editDescription.trim();
-      const payload: { name: string; description?: string } = { name: trimmedName };
-      if (trimmedDescription) payload.description = trimmedDescription;
-      await updateCommission(id, payload);
+      await updateCommission(id, buildCommissionInfoPayload(editName, editDescription));
       await refetch();
       setEditingInfo(false);
     } catch (err) {

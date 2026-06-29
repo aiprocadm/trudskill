@@ -1811,6 +1811,24 @@ describe('MvpService — commissions (Plan A §5.2)', () => {
       expect(updated.description).toBe('d2');
       expect(updated.code).toBe('C1');
     });
+
+    it('clears description when an empty string is sent', () => {
+      const service = makeService();
+      const c = service.createCommission(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'C1', name: 'C', description: 'old' },
+        ctx
+      );
+      const updated = service.updateCommission(
+        'tenant_demo',
+        ctx.userId,
+        c.id,
+        { name: 'C', description: '' },
+        ctx
+      );
+      expect(updated.description).toBe('');
+    });
   });
 
   describe('addCommissionMember', () => {
@@ -2088,6 +2106,97 @@ describe('MvpService — program meta and publish (Plan A §5.1)', () => {
       expect(updated.academicHours).toBe(16);
       expect(updated.trainingType).toBe('primary');
       expect(updated.commissionId).toBe(commissionId);
+    });
+
+    it('clears trainingType when null is sent (normalizes to undefined)', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+
+      const updated = service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        { trainingType: null },
+        ctx
+      );
+
+      expect(updated.trainingType).toBeUndefined();
+    });
+
+    it('detaches commission when commissionId is null, without throwing', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+
+      const updated = service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        { commissionId: null },
+        ctx
+      );
+
+      expect(updated.commissionId).toBeUndefined();
+    });
+
+    it('clears only the targeted field and keeps omitted ones intact', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+
+      const updated = service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        { studyForm: null },
+        ctx
+      );
+
+      expect(updated.studyForm).toBeUndefined();
+      expect(updated.academicHours).toBe(40);
+      expect(updated.trainingType).toBe('primary');
+      expect(updated.commissionId).toBe(commissionId);
+    });
+
+    it('clears regulatoryBasisCodes when an empty array is sent', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+
+      const updated = service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        { regulatoryBasisCodes: [] },
+        ctx
+      );
+
+      expect(updated.regulatoryBasisCodes).toEqual([]);
     });
   });
 
@@ -3125,8 +3234,18 @@ describe('§5.156 — provisional ExamResult must not publish a pass before manu
    * essay was human-reviewed.
    */
   function seedMixedAutoEssayTest(service: MvpService) {
-    const course = service.createCourse('tenant_demo', ctx.userId, { code: 'MX', title: 'Mixed' }, ctx);
-    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'GM', name: 'GroupMixed' }, ctx);
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'MX', title: 'Mixed' },
+      ctx
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'GM', name: 'GroupMixed' },
+      ctx
+    );
     service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
     const learner = service.createLearner(
       'tenant_demo',
@@ -3238,27 +3357,54 @@ describe('§5.156 — provisional ExamResult must not publish a pass before manu
 
   it('publishes a real pass for an auto-only attempt (no manual review needed) — regression guard', () => {
     const service = makeService();
-    const course = service.createCourse('tenant_demo', ctx.userId, { code: 'AO', title: 'AutoOnly' }, ctx);
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'AO', title: 'AutoOnly' },
+      ctx
+    );
     const group = service.createGroup('tenant_demo', ctx.userId, { code: 'GA', name: 'GA' }, ctx);
     service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
-    const learner = service.createLearner('tenant_demo', ctx.userId, { code: 'LA', name: 'Auto Learner' }, ctx);
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'LA', name: 'Auto Learner' },
+      ctx
+    );
     const enrollment = service.createEnrollment(
       'tenant_demo',
       ctx.userId,
       { groupId: group.id, learnerId: learner.id },
       ctx
     );
-    const bank = service.createQuestionBank('tenant_demo', ctx.userId, { title: 'BankA', courseId: course.id }, ctx);
+    const bank = service.createQuestionBank(
+      'tenant_demo',
+      ctx.userId,
+      { title: 'BankA', courseId: course.id },
+      ctx
+    );
     const autoQ = service.createQuestion(
       'tenant_demo',
       ctx.userId,
-      { questionBankId: bank.id, type: 'number_input', title: 'Pi?', score: 2, numericExpected: 3.14, numericTolerance: 0.01 },
+      {
+        questionBankId: bank.id,
+        type: 'number_input',
+        title: 'Pi?',
+        score: 2,
+        numericExpected: 3.14,
+        numericTolerance: 0.01
+      },
       ctx
     );
     const test = service.createTest(
       'tenant_demo',
       ctx.userId,
-      { title: 'AutoTest', courseId: course.id, questionBankId: bank.id, rules: { attemptLimit: 1, passingScore: 2 } },
+      {
+        title: 'AutoTest',
+        courseId: course.id,
+        questionBankId: bank.id,
+        rules: { attemptLimit: 1, passingScore: 2 }
+      },
       ctx
     );
     service.addTestQuestions('tenant_demo', test.id, [autoQ.id]);
@@ -3268,7 +3414,13 @@ describe('§5.156 — provisional ExamResult must not publish a pass before manu
       { testId: test.id, enrollmentId: enrollment.id, learnerId: learner.id },
       ctx
     );
-    service.saveAttemptAnswer('tenant_demo', ctx.userId, attempt.id, { questionId: autoQ.id, textAnswer: '3.14' }, ctx);
+    service.saveAttemptAnswer(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { questionId: autoQ.id, textAnswer: '3.14' },
+      ctx
+    );
     service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
 
     const result = service['state'].examResults.find((r) => r.enrollmentId === enrollment.id);
@@ -3278,17 +3430,32 @@ describe('§5.156 — provisional ExamResult must not publish a pass before manu
 
   it('keeps the module gate LOCKED while the gating exam awaits essay review, then opens after review', () => {
     const service = makeService();
-    const course = service.createCourse('tenant_demo', ctx.userId, { code: 'GT', title: 'Gated' }, ctx);
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'GT', title: 'Gated' },
+      ctx
+    );
     const group = service.createGroup('tenant_demo', ctx.userId, { code: 'GG', name: 'GG' }, ctx);
     service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
-    const learner = service.createLearner('tenant_demo', ctx.userId, { code: 'LG', name: 'Gated Learner' }, ctx);
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'LG', name: 'Gated Learner' },
+      ctx
+    );
     const enrollment = service.createEnrollment(
       'tenant_demo',
       ctx.userId,
       { groupId: group.id, learnerId: learner.id },
       ctx
     );
-    const bank = service.createQuestionBank('tenant_demo', ctx.userId, { title: 'BankG', courseId: course.id }, ctx);
+    const bank = service.createQuestionBank(
+      'tenant_demo',
+      ctx.userId,
+      { title: 'BankG', courseId: course.id },
+      ctx
+    );
     const version = service.createCourseVersion('tenant_demo', course.id);
     const m1 = service.createModule(
       'tenant_demo',
@@ -3306,7 +3473,14 @@ describe('§5.156 — provisional ExamResult must not publish a pass before manu
     const autoQ = service.createQuestion(
       'tenant_demo',
       ctx.userId,
-      { questionBankId: bank.id, type: 'number_input', title: 'Pi?', score: 2, numericExpected: 3.14, numericTolerance: 0.01 },
+      {
+        questionBankId: bank.id,
+        type: 'number_input',
+        title: 'Pi?',
+        score: 2,
+        numericExpected: 3.14,
+        numericTolerance: 0.01
+      },
       ctx
     );
     const essayQ = service.createQuestion(
@@ -3318,20 +3492,39 @@ describe('§5.156 — provisional ExamResult must not publish a pass before manu
     const m1test = service.createTest(
       'tenant_demo',
       ctx.userId,
-      { title: 'M1 test', courseId: course.id, questionBankId: bank.id, moduleId: m1.id, rules: { attemptLimit: 1, passingScore: 2 } },
+      {
+        title: 'M1 test',
+        courseId: course.id,
+        questionBankId: bank.id,
+        moduleId: m1.id,
+        rules: { attemptLimit: 1, passingScore: 2 }
+      },
       ctx
     );
     service.addTestQuestions('tenant_demo', m1test.id, [autoQ.id, essayQ.id]);
     const m2q = service.createQuestion(
       'tenant_demo',
       ctx.userId,
-      { questionBankId: bank.id, type: 'number_input', title: 'Two?', score: 1, numericExpected: 2, numericTolerance: 0 },
+      {
+        questionBankId: bank.id,
+        type: 'number_input',
+        title: 'Two?',
+        score: 1,
+        numericExpected: 2,
+        numericTolerance: 0
+      },
       ctx
     );
     const m2test = service.createTest(
       'tenant_demo',
       ctx.userId,
-      { title: 'M2 test', courseId: course.id, questionBankId: bank.id, moduleId: m2.id, rules: { attemptLimit: 1, passingScore: 1 } },
+      {
+        title: 'M2 test',
+        courseId: course.id,
+        questionBankId: bank.id,
+        moduleId: m2.id,
+        rules: { attemptLimit: 1, passingScore: 1 }
+      },
       ctx
     );
     service.addTestQuestions('tenant_demo', m2test.id, [m2q.id]);
@@ -3343,8 +3536,20 @@ describe('§5.156 — provisional ExamResult must not publish a pass before manu
       { testId: m1test.id, enrollmentId: enrollment.id, learnerId: learner.id },
       ctx
     );
-    service.saveAttemptAnswer('tenant_demo', ctx.userId, a1.id, { questionId: autoQ.id, textAnswer: '3.14' }, ctx);
-    service.saveAttemptAnswer('tenant_demo', ctx.userId, a1.id, { questionId: essayQ.id, textAnswer: 'essay' }, ctx);
+    service.saveAttemptAnswer(
+      'tenant_demo',
+      ctx.userId,
+      a1.id,
+      { questionId: autoQ.id, textAnswer: '3.14' },
+      ctx
+    );
+    service.saveAttemptAnswer(
+      'tenant_demo',
+      ctx.userId,
+      a1.id,
+      { questionId: essayQ.id, textAnswer: 'essay' },
+      ctx
+    );
     service.submitAttempt('tenant_demo', ctx.userId, a1.id, ctx);
 
     // BEFORE review: the provisional pass must NOT unlock the next module.

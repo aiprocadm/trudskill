@@ -315,14 +315,16 @@ export interface CommissionWithMembers extends Commission {
 }
 
 export interface ProgramMetaPatch {
-  academicHours?: number;
-  trainingType?: TrainingType;
-  learnerCategory?: LearnerCategory;
-  studyForm?: StudyForm;
-  finalAssessmentForm?: FinalAssessmentForm;
+  // clear-vs-keep: `null` clears a scalar/enum/FK field, omitting it keeps the value.
+  academicHours?: number | null;
+  trainingType?: TrainingType | null;
+  learnerCategory?: LearnerCategory | null;
+  studyForm?: StudyForm | null;
+  finalAssessmentForm?: FinalAssessmentForm | null;
+  // arrays clear via `[]`
   regulatoryBasisCodes?: string[];
-  programAttachmentFileId?: string;
-  commissionId?: string;
+  programAttachmentFileId?: string | null;
+  commissionId?: string | null;
   // ОТ-реестр (Минтруд/ЕИСОТ) — program mapping
   otProgramCodes?: string[];
 }
