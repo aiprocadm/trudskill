@@ -281,6 +281,55 @@ describe('startAttempt — module gating (A) + min-view time (B)', () => {
     ).not.toThrow();
   });
 
+  it('isolates a group pinned to v1 from a later-published v2 required module (PINNED beats PUBLISHED)', () => {
+    const service = makeService();
+    const course = service.createCourse(T, ADMIN, { code: 'CP2', title: 'Pinned' }, ctx);
+    const group = service.createGroup(T, ADMIN, { code: 'GP2', name: 'Group P' }, ctx);
+    const bank = service.createQuestionBank(T, ADMIN, { title: 'Bank', courseId: course.id }, ctx);
+
+    // v1 published BEFORE attach → group auto-pins to v1.
+    const v1 = service.createCourseVersion(T, course.id);
+    (v1 as { status: string }).status = 'published';
+    service.createModule(
+      T,
+      ADMIN,
+      { courseVersionId: v1.id, title: 'v1 Module', minViewSeconds: 0, isRequired: true },
+      ctx
+    );
+    const gc = service.createGroupCourse(T, { groupId: group.id, courseId: course.id });
+    expect(gc.courseVersionId).toBe(v1.id); // precondition: the pin landed
+
+    // v2 published AFTER attach, with a required module behind an unpassed gating test.
+    const v2 = service.createCourseVersion(T, course.id);
+    (v2 as { status: string }).status = 'published';
+    const m2 = service.createModule(
+      T,
+      ADMIN,
+      { courseVersionId: v2.id, title: 'v2 Module', minViewSeconds: 0, isRequired: true },
+      ctx
+    );
+    makeTest(service, course.id, bank.id, m2.id, 'v2 gating');
+
+    const learner = service.createLearner(T, ADMIN, { code: 'LP', name: 'P Learner' }, ctx);
+    const enrollment = service.createEnrollment(
+      T,
+      ADMIN,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const finalTest = makeTest(service, course.id, bank.id, undefined, 'Final');
+
+    // Pinned to v1 → v2's gating module is out of scope → final exam is NOT locked.
+    expect(() =>
+      service.startAttempt(
+        T,
+        ADMIN,
+        { testId: finalTest.id, enrollmentId: enrollment.id, learnerId: enrollment.learnerId },
+        ctx
+      )
+    ).not.toThrow();
+  });
+
   it('blocks the module test until the module min-view time is met, then allows it', () => {
     const service = makeService();
     const { course, bank, enrollment, m1, mat1 } = seedTwoModuleCourse(service, { m1MinView: 120 });

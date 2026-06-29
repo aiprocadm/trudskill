@@ -2367,6 +2367,63 @@ describe('MvpService — program meta and publish (Plan A §5.1)', () => {
   });
 });
 
+describe('createGroupCourse — version pinning (§5.159)', () => {
+  it('pins courseVersionId to the only published version at attach time', () => {
+    const service = makeService();
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'CP', title: 'Pin' },
+      ctx
+    );
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'GP', name: 'GP' }, ctx);
+    const v1 = service.createCourseVersion('tenant_demo', course.id);
+    (v1 as { status: string }).status = 'published';
+    const gc = service.createGroupCourse('tenant_demo', {
+      groupId: group.id,
+      courseId: course.id
+    });
+    expect(gc.courseVersionId).toBe(v1.id);
+  });
+
+  it('pins to the latest published version (by versionNo) when several are published', () => {
+    const service = makeService();
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'CP', title: 'Pin' },
+      ctx
+    );
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'GP', name: 'GP' }, ctx);
+    const v1 = service.createCourseVersion('tenant_demo', course.id);
+    (v1 as { status: string }).status = 'published';
+    const v2 = service.createCourseVersion('tenant_demo', course.id);
+    (v2 as { status: string }).status = 'published';
+    const gc = service.createGroupCourse('tenant_demo', {
+      groupId: group.id,
+      courseId: course.id
+    });
+    expect(gc.courseVersionId).toBe(v2.id);
+  });
+
+  it('leaves courseVersionId unset when the course has no published version', () => {
+    const service = makeService();
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'CP', title: 'Pin' },
+      ctx
+    );
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'GP', name: 'GP' }, ctx);
+    service.createCourseVersion('tenant_demo', course.id); // draft only
+    const gc = service.createGroupCourse('tenant_demo', {
+      groupId: group.id,
+      courseId: course.id
+    });
+    expect(gc.courseVersionId).toBeUndefined();
+  });
+});
+
 describe('MvpService — course document sets (Plan A §5.3)', () => {
   function makeServiceWithTemplates(
     templates: Array<{ id: string; tenantId: string; name?: string; templateType?: string }>

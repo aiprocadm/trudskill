@@ -1415,6 +1415,7 @@ export class MvpService {
         message: 'Group course already exists for pair(group, course)'
       });
     }
+    const pinnedVersionId = this.latestPublishedVersionId(tenantId, request.courseId);
     const entity: GroupCourse = {
       id: this.id('gc'),
       tenantId,
@@ -1433,7 +1434,8 @@ export class MvpService {
         : {}),
       ...(request.requiresProctoring !== undefined
         ? { requiresProctoring: request.requiresProctoring }
-        : {})
+        : {}),
+      ...(pinnedVersionId ? { courseVersionId: pinnedVersionId } : {})
     };
     this.state.groupCourses.push(entity);
     return entity;
@@ -6149,6 +6151,21 @@ export class MvpService {
       undefined,
       context
     );
+  }
+
+  /**
+   * Latest published version id for a course, by `versionNo` (monotonic). Used to pin a
+   * GroupCourse to a concrete approved version at attach time so module-gating's PINNED
+   * branch is non-empty (the cohort stays on the version it started on). Returns undefined
+   * when the course has no published version yet — the read-side then falls back to PUBLISHED.
+   */
+  private latestPublishedVersionId(tenantId: string, courseId: string): string | undefined {
+    let latest: CourseVersion | undefined;
+    for (const v of this.state.courseVersions) {
+      if (v.tenantId !== tenantId || v.courseId !== courseId || v.status !== 'published') continue;
+      if (!latest || v.versionNo > latest.versionNo) latest = v;
+    }
+    return latest?.id;
   }
 
   // === Pillar A — Plan A (§5.1): program meta + publish course version ===
