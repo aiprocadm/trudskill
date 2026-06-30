@@ -11,4 +11,6 @@ export type LoginResponse = AuthTokensContract;
 
 export type LogoutRequest = GeneratedLogoutRequest;
 
-export type MeResponse = CurrentUser;
+// §5.160: /auth/me carries server-resolved permissions (the SSOT — iam.role_permissions) so the
+// session is hydrated from the backend instead of a hand-maintained static role→permission map.
+export type MeResponse = CurrentUser & { permissions: string[] };

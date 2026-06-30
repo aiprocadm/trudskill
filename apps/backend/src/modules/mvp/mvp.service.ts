@@ -1415,6 +1415,7 @@ export class MvpService {
         message: 'Group course already exists for pair(group, course)'
       });
     }
+    const pinnedVersionId = this.latestPublishedVersionId(tenantId, request.courseId);
     const entity: GroupCourse = {
       id: this.id('gc'),
       tenantId,
@@ -1433,7 +1434,8 @@ export class MvpService {
         : {}),
       ...(request.requiresProctoring !== undefined
         ? { requiresProctoring: request.requiresProctoring }
-        : {})
+        : {}),
+      ...(pinnedVersionId ? { courseVersionId: pinnedVersionId } : {})
     };
     this.state.groupCourses.push(entity);
     return entity;
@@ -1476,8 +1478,22 @@ export class MvpService {
     return current;
   }
 
-  listEnrollments(tenantId: string, query: BaseFilterQuery): ListResponse<Enrollment> {
-    return this.list(this.state.enrollments, tenantId, query);
+  listEnrollments(
+    tenantId: string,
+    query: BaseFilterQuery,
+    access?: MvpAssessmentReadAccess
+  ): ListResponse<Enrollment> {
+    // §5.160 anti-IDOR: an IAM-linked learner (no cross-learner bypass) sees only their own
+    // enrollments — mirrors listAttempts. Staff with assessment.read.cross_learner/learners.act_as
+    // are unrestricted (scope === null).
+    const scope = this.restrictLearnerIdsForAssessmentList(tenantId, access);
+    const source =
+      scope === null
+        ? this.state.enrollments
+        : this.state.enrollments.filter(
+            (e) => e.tenantId === tenantId && scope.includes(e.learnerId)
+          );
+    return this.list(source, tenantId, query);
   }
 
   getKpiSnapshot(tenantId: string, query: BaseFilterQuery): KpiSnapshotDto {
@@ -1746,8 +1762,10 @@ export class MvpService {
     };
   }
 
-  getEnrollment(tenantId: string, id: string): Enrollment {
-    return this.getById(this.state.enrollments, tenantId, id);
+  getEnrollment(tenantId: string, id: string, access?: MvpAssessmentReadAccess): Enrollment {
+    const enrollment = this.getById(this.state.enrollments, tenantId, id);
+    this.assertAssessmentReadAllowedForLearner(tenantId, enrollment.learnerId, access);
+    return enrollment;
   }
 
   listEnrollmentCertificates(
@@ -2209,15 +2227,45 @@ export class MvpService {
     return enrollment;
   }
 
-  listProgress(tenantId: string, query: BaseFilterQuery): ListResponse<CourseProgress> {
-    return this.list(this.state.courseProgress, tenantId, query);
+  listProgress(
+    tenantId: string,
+    query: BaseFilterQuery,
+    access?: MvpAssessmentReadAccess
+  ): ListResponse<CourseProgress> {
+    // §5.160 anti-IDOR: progress rows key on enrollmentId → resolve ownership via the enrollment.
+    const scope = this.restrictLearnerIdsForAssessmentList(tenantId, access);
+    const source =
+      scope === null
+        ? this.state.courseProgress
+        : this.state.courseProgress.filter((p) => {
+            if (p.tenantId !== tenantId) return false;
+            const enrollment = this.state.enrollments.find(
+              (e) => e.tenantId === tenantId && e.id === p.enrollmentId
+            );
+            return enrollment !== undefined && scope.includes(enrollment.learnerId);
+          });
+    return this.list(source, tenantId, query);
   }
 
-  getProgress(tenantId: string, id: string): CourseProgress {
-    return this.getById(this.state.courseProgress, tenantId, id);
+  getProgress(tenantId: string, id: string, access?: MvpAssessmentReadAccess): CourseProgress {
+    const progress = this.getById(this.state.courseProgress, tenantId, id);
+    const enrollment = this.getById(this.state.enrollments, tenantId, progress.enrollmentId);
+    this.assertAssessmentReadAllowedForLearner(tenantId, enrollment.learnerId, access);
+    return progress;
   }
 
-  listEnrollmentStatusHistory(tenantId: string, enrollmentId: string): EnrollmentStatusHistory[] {
+  listEnrollmentStatusHistory(
+    tenantId: string,
+    enrollmentId: string,
+    access?: MvpAssessmentReadAccess
+  ): EnrollmentStatusHistory[] {
+    // Guard only when the enrollment exists (preserve "unknown id → []"); §5.160 anti-IDOR.
+    const enrollment = this.state.enrollments.find(
+      (e) => e.tenantId === tenantId && e.id === enrollmentId
+    );
+    if (enrollment) {
+      this.assertAssessmentReadAllowedForLearner(tenantId, enrollment.learnerId, access);
+    }
     return this.state.enrollmentStatusHistory.filter(
       (item) => item.tenantId === tenantId && item.enrollmentId === enrollmentId
     );
@@ -2290,7 +2338,12 @@ export class MvpService {
         item.enrollmentId === enrollment.id
     );
 
-    const studiedSeconds = Math.max(0, request.studiedSeconds);
+    // §5.160 monotonic latch: watch-trackers post absolute cumulative values that can arrive
+    // out of order or reset to 0; never regress studiedSeconds below what was already recorded.
+    const studiedSeconds = Math.max(
+      existing?.studiedSeconds ?? 0,
+      Math.max(0, request.studiedSeconds)
+    );
     const ratio = requiredSeconds === 0 ? 1 : Math.min(1, studiedSeconds / requiredSeconds);
     let percent = this.normalizePercent(ratio * 100);
     let status: ProgressStatus =
@@ -2305,6 +2358,14 @@ export class MvpService {
         status = 'in_progress';
         percent = Math.min(percent, 99);
       }
+    }
+
+    // §5.160 monotonic completion latch: a previously-completed material stays completed — its
+    // completion came from a valid signal (seconds threshold or commitScormAttempt) and a later
+    // smaller / SCORM-blocked report must not de-complete it.
+    if (existing?.status === 'completed') {
+      status = 'completed';
+      percent = Math.max(percent, existing.progressPercent);
     }
 
     const record: MaterialProgress = existing ?? {
@@ -2329,7 +2390,7 @@ export class MvpService {
     record.lastActivityAt = now;
     record.calculatedAt = now;
     record.updatedAt = now;
-    record.completedAt = status === 'completed' ? now : undefined;
+    record.completedAt = status === 'completed' ? (existing?.completedAt ?? now) : undefined;
 
     if (!existing) this.state.materialProgress.push(record);
 
@@ -4726,8 +4787,26 @@ export class MvpService {
       const options = this.state.answerOptions.filter(
         (item) => item.tenantId === tenantId && item.questionId === qid
       );
-      const answer = answers.find((item) => item.questionId === qid);
+      let answer = answers.find((item) => item.questionId === qid);
       const graded = gradeAnswer({ question, options, answer });
+      // §5.160: a manual-grade question (essay / misconfigured auto) left UNANSWERED has no
+      // answer row, so its `autoGraded:false` marker would be lost — the attempt would look
+      // fully auto-graded and publish a premature pass before mandatory human review (the
+      // unanswered-essay hole in §5.156), and the reviewer could not score it
+      // (completeAttemptReview throws "No answer recorded" without a row). Seed a stub answer
+      // row so the attempt is flagged pending review and is reviewable.
+      if (!answer && !graded.autoGraded) {
+        answer = {
+          id: this.id('ans'),
+          tenantId,
+          attemptId: attempt.id,
+          questionId: qid,
+          status: 'active',
+          createdAt: this.now(),
+          updatedAt: this.now()
+        };
+        this.state.attemptAnswers.push(answer);
+      }
       if (answer) {
         answer.score = graded.score;
         answer.autoGraded = graded.autoGraded;
@@ -4816,6 +4895,20 @@ export class MvpService {
     const answers = this.state.attemptAnswers.filter(
       (a) => a.tenantId === tenantId && a.attemptId === attempt.id
     );
+    // §5.160 follow-up: a review must score EVERY manual (autoGraded:false) answer — essays,
+    // misconfigured-auto questions, and the stub rows seeded for unanswered manual questions.
+    // An omitted answer would keep its provisional 0 while the attempt leaves needs_review and
+    // freezes `passed` → regulated false-fail. Validate completeness before mutating any score.
+    const scoredQuestionIds = new Set(input.answerScores.map((s) => s.questionId));
+    const unscoredManual = answers
+      .filter((a) => a.autoGraded === false && !scoredQuestionIds.has(a.questionId))
+      .map((a) => a.questionId);
+    if (unscoredManual.length > 0) {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: `All manual answers must be scored to complete review; unscored: ${unscoredManual.join(', ')}`
+      });
+    }
     for (const item of input.answerScores) {
       const answer = answers.find((a) => a.questionId === item.questionId);
       if (!answer) {
@@ -6149,6 +6242,21 @@ export class MvpService {
       undefined,
       context
     );
+  }
+
+  /**
+   * Latest published version id for a course, by `versionNo` (monotonic). Used to pin a
+   * GroupCourse to a concrete approved version at attach time so module-gating's PINNED
+   * branch is non-empty (the cohort stays on the version it started on). Returns undefined
+   * when the course has no published version yet — the read-side then falls back to PUBLISHED.
+   */
+  private latestPublishedVersionId(tenantId: string, courseId: string): string | undefined {
+    let latest: CourseVersion | undefined;
+    for (const v of this.state.courseVersions) {
+      if (v.tenantId !== tenantId || v.courseId !== courseId || v.status !== 'published') continue;
+      if (!latest || v.versionNo > latest.versionNo) latest = v;
+    }
+    return latest?.id;
   }
 
   // === Pillar A — Plan A (§5.1): program meta + publish course version ===
