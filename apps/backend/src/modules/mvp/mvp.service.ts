@@ -4895,6 +4895,20 @@ export class MvpService {
     const answers = this.state.attemptAnswers.filter(
       (a) => a.tenantId === tenantId && a.attemptId === attempt.id
     );
+    // §5.160 follow-up: a review must score EVERY manual (autoGraded:false) answer — essays,
+    // misconfigured-auto questions, and the stub rows seeded for unanswered manual questions.
+    // An omitted answer would keep its provisional 0 while the attempt leaves needs_review and
+    // freezes `passed` → regulated false-fail. Validate completeness before mutating any score.
+    const scoredQuestionIds = new Set(input.answerScores.map((s) => s.questionId));
+    const unscoredManual = answers
+      .filter((a) => a.autoGraded === false && !scoredQuestionIds.has(a.questionId))
+      .map((a) => a.questionId);
+    if (unscoredManual.length > 0) {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: `All manual answers must be scored to complete review; unscored: ${unscoredManual.join(', ')}`
+      });
+    }
     for (const item of input.answerScores) {
       const answer = answers.find((a) => a.questionId === item.questionId);
       if (!answer) {

@@ -3667,6 +3667,114 @@ describe('§5.156 — provisional ExamResult must not publish a pass before manu
     expect(result!.finalScore).toBe(3); // auto 2 + reviewed essay 1
   });
 
+  it('rejects completing review unless EVERY manual answer was scored (§5.160 follow-up)', () => {
+    const service = makeService();
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'TWO', title: 'Two essays' },
+      ctx
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'GTW', name: 'GTwo' },
+      ctx
+    );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'LTW', name: 'L' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const bank = service.createQuestionBank(
+      'tenant_demo',
+      ctx.userId,
+      { title: 'B', courseId: course.id },
+      ctx
+    );
+    const e1 = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      { questionBankId: bank.id, type: 'essay', title: 'E1', score: 5 },
+      ctx
+    );
+    const e2 = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      { questionBankId: bank.id, type: 'essay', title: 'E2', score: 5 },
+      ctx
+    );
+    const test = service.createTest(
+      'tenant_demo',
+      ctx.userId,
+      {
+        title: 'T',
+        courseId: course.id,
+        questionBankId: bank.id,
+        rules: { attemptLimit: 1, passingScore: 6 }
+      },
+      ctx
+    );
+    service.addTestQuestions('tenant_demo', test.id, [e1.id, e2.id]);
+    const attempt = service.startAttempt(
+      'tenant_demo',
+      ctx.userId,
+      { testId: test.id, enrollmentId: enrollment.id, learnerId: learner.id },
+      ctx
+    );
+    service.saveAttemptAnswer(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { questionId: e1.id, textAnswer: 'a' },
+      ctx
+    );
+    service.saveAttemptAnswer(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { questionId: e2.id, textAnswer: 'b' },
+      ctx
+    );
+    service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+
+    // Reviewer scores only e1 → e2 left unscored must NOT silently finalize at 0 (false-fail).
+    expect(() =>
+      service.completeAttemptReview(
+        'tenant_demo',
+        ctx.userId,
+        attempt.id,
+        { answerScores: [{ questionId: e1.id, score: 5 }] },
+        ctx
+      )
+    ).toThrow(BadRequestException);
+
+    // Scoring BOTH manual answers completes the review.
+    const reviewed = service.completeAttemptReview(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      {
+        answerScores: [
+          { questionId: e1.id, score: 5 },
+          { questionId: e2.id, score: 3 }
+        ]
+      },
+      ctx
+    );
+    expect(reviewed.status).toBe('finished');
+    expect(reviewed.score).toBe(8);
+    expect(reviewed.passed).toBe(true);
+  });
+
   it('transitions the ExamResult from needs_review to a real pass after completeAttemptReview', () => {
     const { service, enrollment, test, attempt, essayQ } = seedMixedAutoEssayTest(makeService());
     service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
