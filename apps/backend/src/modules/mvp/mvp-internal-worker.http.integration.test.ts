@@ -34,10 +34,10 @@ for (const [key, value] of Object.entries(requiredEnv)) {
 describe('MVP internal worker HTTP (bulk callback)', () => {
   let app: INestApplication | undefined;
   let apiBaseUrl = '';
-  const createBulkEnrollmentsSpy = vi.fn();
+  const enrollIntoGroupSpy = vi.fn();
 
   beforeEach(() => {
-    createBulkEnrollmentsSpy.mockReturnValue({
+    enrollIntoGroupSpy.mockResolvedValue({
       groupId: 'grp_worker_stub',
       idempotencyKey: 'idem_stub',
       created: [],
@@ -55,7 +55,7 @@ describe('MVP internal worker HTTP (bulk callback)', () => {
       envelopeImport,
       { MvpInternalWorkerController },
       { WorkerCallbackGuard },
-      { MvpService }
+      { MvpEnrollmentService }
     ] = await Promise.all([
       import('@nestjs/core'),
       import('@nestjs/common'),
@@ -64,7 +64,7 @@ describe('MVP internal worker HTTP (bulk callback)', () => {
       import('../../common/interceptors/response-envelope.interceptor.js'),
       import('./mvp-internal-worker.controller.js'),
       import('./infrastructure/worker-callback.guard.js'),
-      import('./mvp.service.js')
+      import('./mvp-enrollment.service.js')
     ]);
 
     const { NestFactory, Reflector } = nestjsCore;
@@ -78,7 +78,7 @@ describe('MVP internal worker HTTP (bulk callback)', () => {
       providers: [
         Reflector,
         WorkerCallbackGuard,
-        { provide: MvpService, useValue: { createBulkEnrollments: createBulkEnrollmentsSpy } }
+        { provide: MvpEnrollmentService, useValue: { enrollIntoGroup: enrollIntoGroupSpy } }
       ]
     })
     class InternalWorkerHarnessModule {}
@@ -128,7 +128,7 @@ describe('MVP internal worker HTTP (bulk callback)', () => {
       error: { code?: string; message?: string };
     };
     expect(json.error.code).toBe('forbidden');
-    expect(createBulkEnrollmentsSpy).not.toHaveBeenCalled();
+    expect(enrollIntoGroupSpy).not.toHaveBeenCalled();
   });
 
   it('returns 403 when callback token does not match', async () => {
@@ -141,7 +141,7 @@ describe('MVP internal worker HTTP (bulk callback)', () => {
       body: JSON.stringify(validBody())
     });
     expect(res.status).toBe(403);
-    expect(createBulkEnrollmentsSpy).not.toHaveBeenCalled();
+    expect(enrollIntoGroupSpy).not.toHaveBeenCalled();
   });
 
   it('returns validation_error when body is incomplete', async () => {
@@ -159,10 +159,10 @@ describe('MVP internal worker HTTP (bulk callback)', () => {
     expect(res.status).toBe(400);
     const json = (await res.json()) as { error: { code?: string } };
     expect(json.error.code).toBe('validation_error');
-    expect(createBulkEnrollmentsSpy).not.toHaveBeenCalled();
+    expect(enrollIntoGroupSpy).not.toHaveBeenCalled();
   });
 
-  it('proxies to MvpService.createBulkEnrollments with deliveryMode immediate', async () => {
+  it('proxies to MvpEnrollmentService.enrollIntoGroup with deliveryMode immediate', async () => {
     const res = await fetch(workerPath(), {
       method: 'POST',
       headers: {
@@ -173,8 +173,8 @@ describe('MVP internal worker HTTP (bulk callback)', () => {
     });
     expect([200, 201]).toContain(res.status);
 
-    expect(createBulkEnrollmentsSpy).toHaveBeenCalledTimes(1);
-    expect(createBulkEnrollmentsSpy).toHaveBeenCalledWith(
+    expect(enrollIntoGroupSpy).toHaveBeenCalledTimes(1);
+    expect(enrollIntoGroupSpy).toHaveBeenCalledWith(
       'tenant_demo',
       'u_worker_actor',
       expect.objectContaining({
@@ -213,7 +213,7 @@ describe('MVP internal worker HTTP (bulk callback)', () => {
       body: JSON.stringify(body)
     });
 
-    expect(createBulkEnrollmentsSpy).toHaveBeenCalledWith(
+    expect(enrollIntoGroupSpy).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(String),
       expect.objectContaining({ learnerIds: [] }),

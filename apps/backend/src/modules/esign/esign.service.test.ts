@@ -225,6 +225,113 @@ describe('EsignService', () => {
     expect(documentsService.finalizeDocument.mock.calls.length).toBe(finalizeCallsAfterCancel);
   });
 
+  it('does not allow rejectParticipant on a terminal (cancelled) process', async () => {
+    const { service } = makeService();
+    const process = service.createProcess('t1', 'staff_1', {
+      idempotencyKey: 'reject-terminal-create',
+      generatedDocumentId: 'gdoc_1',
+      sequential: false
+    });
+    const p1 = service.createParticipant('t1', 'staff_1', {
+      processId: process.id,
+      participantType: 'employee',
+      participantUserId: 'u2',
+      signOrder: 1
+    });
+    const p2 = service.createParticipant('t1', 'staff_1', {
+      processId: process.id,
+      participantType: 'employee',
+      participantUserId: 'u3',
+      signOrder: 2
+    });
+
+    service.startProcess('t1', 'staff_1', process.id, { idempotencyKey: 'reject-terminal-start' });
+    service.inviteParticipant('t1', 'staff_1', p1.id);
+    service.inviteParticipant('t1', 'staff_1', p2.id); // p2 → invited, so invited→rejected is legal
+    await service.signParticipant('t1', 'u2', p1.id, { idempotencyKey: 'reject-terminal-sign' });
+
+    service.cancelProcess('t1', 'staff_1', process.id);
+    expect(service.getProcess('t1', process.id).status).toBe('cancelled');
+
+    // Rejecting a leftover participant on a terminal process must be rejected (mirror of the
+    // assertProcessMutable guard on sign/skip): it must NOT flip the participant to 'rejected' nor
+    // append a post-cancellation rejection to the append-only legal log.
+    expect(() =>
+      service.rejectParticipant('t1', 'u3', p2.id, { idempotencyKey: 'reject-terminal-reject' })
+    ).toThrow(BadRequestException);
+    const p2After = service['state'].participants.find((p) => p.id === p2.id)!;
+    expect(p2After.status).toBe('invited');
+    expect(service.getProcess('t1', process.id).status).toBe('cancelled');
+  });
+
+  it('does not allow inviteParticipant or markViewed on a terminal (cancelled) process', async () => {
+    const { service } = makeService();
+    const process = service.createProcess('t1', 'staff_1', {
+      idempotencyKey: 'invite-terminal-create',
+      generatedDocumentId: 'gdoc_1',
+      sequential: false
+    });
+    const p1 = service.createParticipant('t1', 'staff_1', {
+      processId: process.id,
+      participantType: 'employee',
+      participantUserId: 'u2',
+      signOrder: 1
+    });
+    const p2 = service.createParticipant('t1', 'staff_1', {
+      processId: process.id,
+      participantType: 'employee',
+      participantUserId: 'u3',
+      signOrder: 2
+    });
+    const p3 = service.createParticipant('t1', 'staff_1', {
+      processId: process.id,
+      participantType: 'employee',
+      participantUserId: 'u4',
+      signOrder: 3
+    });
+
+    service.startProcess('t1', 'staff_1', process.id, { idempotencyKey: 'invite-terminal-start' });
+    service.inviteParticipant('t1', 'staff_1', p1.id);
+    service.inviteParticipant('t1', 'staff_1', p3.id); // p3 → invited (so invited→viewed is legal)
+    await service.signParticipant('t1', 'u2', p1.id, { idempotencyKey: 'invite-terminal-sign' });
+
+    service.cancelProcess('t1', 'staff_1', process.id);
+    expect(service.getProcess('t1', process.id).status).toBe('cancelled');
+
+    // Inviting/viewing leftover participants on a terminal process must be refused — no participant
+    // advancement and no signature.requested / legal-log entry on a dead process.
+    expect(() => service.inviteParticipant('t1', 'staff_1', p2.id)).toThrow(BadRequestException);
+    expect(() => service.markViewed('t1', 'u4', p3.id)).toThrow(BadRequestException);
+    expect(service['state'].participants.find((p) => p.id === p2.id)!.status).toBe('pending');
+    expect(service['state'].participants.find((p) => p.id === p3.id)!.status).toBe('invited');
+  });
+
+  it('does not falsely complete a process when the target document was revoked mid-signing', async () => {
+    const { service, documentsService } = makeService();
+    // Document is revoked while the signing process is in flight.
+    documentsService.getDocument.mockReturnValue({ id: 'gdoc_1', status: 'revoked' });
+    const process = service.createProcess('t1', 'staff_1', {
+      idempotencyKey: 'rev-mid-create',
+      generatedDocumentId: 'gdoc_1',
+      sequential: false
+    });
+    const p1 = service.createParticipant('t1', 'staff_1', {
+      processId: process.id,
+      participantType: 'employee',
+      participantUserId: 'u2',
+      signOrder: 1
+    });
+    service.startProcess('t1', 'staff_1', process.id, { idempotencyKey: 'rev-mid-start' });
+    service.inviteParticipant('t1', 'staff_1', p1.id);
+    await service.signParticipant('t1', 'u2', p1.id, { idempotencyKey: 'rev-mid-sign' });
+
+    // tryCompleteProcess must validate the document BEFORE mutating the process: a revoked target
+    // means the process fails cleanly (no 'signed' status, no false 'completed' legal entry) and
+    // finalizeDocument is never called (it would throw AFTER the mutation otherwise).
+    expect(service.getProcess('t1', process.id).status).toBe('failed');
+    expect(documentsService.finalizeDocument).not.toHaveBeenCalled();
+  });
+
   it('fails process when participant rejects signing', () => {
     const { service } = makeService();
     const process = service.createProcess('t1', 'staff_1', {

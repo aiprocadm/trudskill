@@ -2498,7 +2498,10 @@ export class MvpService {
     record.lastActivityAt = now;
     record.calculatedAt = now;
     record.updatedAt = now;
-    record.completedAt = status === 'completed' ? now : undefined;
+    // Monotonic completion: preserve the original completedAt once a module is completed so a later
+    // recalc (re-opening an optional material, etc.) does not drift the recorded date forward.
+    // Mirrors the material-level recalc.
+    record.completedAt = status === 'completed' ? (existing?.completedAt ?? now) : undefined;
     if (!existing) this.state.moduleProgress.push(record);
   }
 
@@ -2615,7 +2618,9 @@ export class MvpService {
     record.lastActivityAt = now;
     record.calculatedAt = now;
     record.updatedAt = now;
-    record.completedAt = status === 'completed' ? now : undefined;
+    // Monotonic completion: preserve the original completedAt once the course is completed (mirrors
+    // the module/material-level recalc) so later activity does not drift the recorded date forward.
+    record.completedAt = status === 'completed' ? (existing?.completedAt ?? now) : undefined;
     if (!existing) this.state.courseProgress.push(record);
   }
 
@@ -3322,7 +3327,7 @@ export class MvpService {
           courseId: test.courseId,
           enrollmentId: enrollment.id,
           learnerId: enrollment.learnerId,
-          status: this.deriveLearnerTestStatus(attempts, test.rules.attemptLimit),
+          status: this.deriveLearnerTestStatus(tenantId, attempts, test.rules.attemptLimit),
           attemptsUsed: attempts.length,
           attemptLimit: test.rules.attemptLimit,
           ...(activeAttemptId !== undefined ? { activeAttemptId } : {}),
@@ -3380,13 +3385,26 @@ export class MvpService {
     return summaries;
   }
   private deriveLearnerTestStatus(
+    tenantId: string,
     attempts: TestAttempt[],
     attemptLimit: number
   ): LearnerTestSummary['status'] {
     if (attempts.length === 0) return 'not_started';
     if (attempts.some((item) => item.status === 'draft' || item.status === 'in_progress'))
       return 'in_progress';
-    if (attempts.some((item) => item.passed === true)) return 'passed';
+    // `attempt.passed` is set in submitAttempt from the AUTO-graded subtotal only; an attempt
+    // still awaiting manual review (essay/manual answers) carries a provisional value that must
+    // NOT surface as passed/failed on the learner dashboard before a human grades it (regulated —
+    // ТЗ §35 «ручная проверка», §39). Mirror the ExamResult/computeExamPassState decoupling every
+    // authoritative consumer uses: only a NOT-pending attempt can decide passed, and while any
+    // attempt is pending review we report 'submitted' ("На проверке") rather than passed/failed.
+    if (
+      attempts.some(
+        (item) => item.passed === true && !this.attemptAwaitsManualReview(tenantId, item)
+      )
+    )
+      return 'passed';
+    if (attempts.some((item) => this.attemptAwaitsManualReview(tenantId, item))) return 'submitted';
     if (attempts.length >= attemptLimit) return 'failed';
     return 'submitted';
   }
@@ -5667,32 +5685,6 @@ export class MvpService {
         message: 'Attempt is in terminal state'
       });
     }
-  }
-
-  private finalizeAttempt(
-    tenantId: string,
-    actorId: string | undefined,
-    id: string,
-    context: RequestContext
-  ): Attempt {
-    const attempt = this.getById(this.state.attempts, tenantId, id);
-    if (attempt.status === 'finished') return attempt;
-    if (attempt.status === 'in_progress') this.submitAttempt(tenantId, actorId, id, context);
-    attempt.status = attempt.status === 'expired' ? 'expired' : 'finished';
-    attempt.finishedAt = this.now();
-    attempt.updatedAt = this.now();
-    this.recalculateExamResult(tenantId, attempt.testId, attempt.enrollmentId, attempt.learnerId);
-    this.audit(
-      tenantId,
-      actorId,
-      'assessment.attempt_finished',
-      'assessment.attempt',
-      attempt.id,
-      undefined,
-      attempt,
-      context
-    );
-    return attempt;
   }
 
   private recalculateExamResult(

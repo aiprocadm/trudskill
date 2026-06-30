@@ -1601,6 +1601,23 @@ describe('DocumentsService.revokeDocument (Plan C §5.9)', () => {
     ).rejects.toThrowError(/уже аннулирован/);
   });
 
+  it('finalizeDocument refuses to resurrect a revoked (non-final) document', async () => {
+    // A document revoked while still `generated` has isFinal=false, so finalizeDocument's only
+    // protection (the isFinal short-circuit) does NOT engage. Without a status guard, finalize
+    // would silently un-revoke it to status='final' + isFinal=true + signed — resurrecting a
+    // legally annulled regulated document (reachable via esign tryCompleteProcess → finalizeDocument).
+    const { service, state } = seed();
+    await service.revokeDocument('t1', 'admin_1', 'gdoc_revtest', 'выпущено ошибочно', ctx);
+
+    await expect(
+      service.finalizeDocument('t1', 'admin_1', 'gdoc_revtest', ctx)
+    ).rejects.toThrowError(/[Rr]evoked|аннулирован/);
+
+    const doc = state.generatedDocuments.find((d) => d.id === 'gdoc_revtest')!;
+    expect(doc.status).toBe('revoked');
+    expect(doc.isFinal).toBe(false);
+  });
+
   it('throws BadRequestException when reason is empty', async () => {
     const { service } = seed();
     await expect(

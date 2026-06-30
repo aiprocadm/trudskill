@@ -1,5 +1,5 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MvpService } from './mvp.service.js';
@@ -413,5 +413,82 @@ describe('startAttempt — module gating (A) + min-view time (B)', () => {
         ctx
       )
     ).not.toThrow();
+  });
+});
+
+describe('module/course progress completedAt is monotonic (does not drift on later recalc)', () => {
+  it('keeps the original completedAt when a completed module/course is recalculated later', () => {
+    vi.useFakeTimers();
+    try {
+      const service = makeService();
+      const course = service.createCourse(T, ADMIN, { code: 'CM', title: 'Mono' }, ctx);
+      const group = service.createGroup(T, ADMIN, { code: 'GM', name: 'Group M' }, ctx);
+      service.createGroupCourse(T, { groupId: group.id, courseId: course.id });
+      const learner = service.createLearner(T, ADMIN, { code: 'LM', name: 'Mono Learner' }, ctx);
+      const enrollment = service.createEnrollment(
+        T,
+        ADMIN,
+        { groupId: group.id, learnerId: learner.id },
+        ctx
+      );
+      const version = service.createCourseVersion(T, course.id);
+      const m1 = service.createModule(
+        T,
+        ADMIN,
+        { courseVersionId: version.id, title: 'Only Module', minViewSeconds: 0, isRequired: true },
+        ctx
+      );
+      const mat1 = service.createMaterial(
+        T,
+        ADMIN,
+        {
+          moduleId: m1.id,
+          title: 'Mat',
+          materialType: 'text',
+          minViewSeconds: 0,
+          isRequired: true
+        },
+        ctx
+      );
+
+      vi.setSystemTime(new Date('2026-02-01T00:00:00.000Z'));
+      service.upsertMaterialProgress(
+        T,
+        ADMIN,
+        mat1.id,
+        { enrollmentId: enrollment.id, studiedSeconds: 60 },
+        ctx
+      );
+      const findModule = () =>
+        service['state'].moduleProgress.find(
+          (r) => r.enrollmentId === enrollment.id && r.moduleId === m1.id
+        )!;
+      const findCourse = () =>
+        service['state'].courseProgress.find(
+          (r) => r.enrollmentId === enrollment.id && r.courseId === course.id
+        )!;
+      expect(findModule().status).toBe('completed');
+      expect(findCourse().status).toBe('completed');
+      const moduleCompletedAt = findModule().completedAt;
+      const courseCompletedAt = findCourse().completedAt;
+      expect(moduleCompletedAt).toBe('2026-02-01T00:00:00.000Z');
+      expect(courseCompletedAt).toBe('2026-02-01T00:00:00.000Z');
+
+      // Later re-study of an already-completed material must NOT push the recorded completion date
+      // forward — completion is monotonic (mirrors the material-level recalc).
+      vi.setSystemTime(new Date('2026-03-01T00:00:00.000Z'));
+      service.upsertMaterialProgress(
+        T,
+        ADMIN,
+        mat1.id,
+        { enrollmentId: enrollment.id, studiedSeconds: 90 },
+        ctx
+      );
+      expect(findModule().status).toBe('completed');
+      expect(findModule().completedAt).toBe(moduleCompletedAt);
+      expect(findCourse().completedAt).toBe(courseCompletedAt);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
