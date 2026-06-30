@@ -474,6 +474,9 @@ export class EsignService {
   }
   inviteParticipant(tenantId: string, actorId: string | undefined, id: string) {
     const p = this.must(this.state.participants, tenantId, id);
+    // Guard the parent process like sign/skip/reject do: no participant advancement (and no
+    // signature.requested / legal-log entry) on a terminal (signed/cancelled) process.
+    EsignStateMachine.assertProcessMutable(this.getProcess(tenantId, p.processId));
     EsignStateMachine.transitionParticipant(p.status, 'invited');
     p.status = 'invited';
     p.invitedAt = this.now();
@@ -494,6 +497,7 @@ export class EsignService {
   markViewed(tenantId: string, actorId: string | undefined, id: string) {
     const p = this.must(this.state.participants, tenantId, id);
     EsignStateMachine.assertParticipantActor(p.participantUserId, actorId);
+    EsignStateMachine.assertProcessMutable(this.getProcess(tenantId, p.processId));
     EsignStateMachine.transitionParticipant(p.status, 'viewed');
     p.status = 'viewed';
     p.viewedAt = this.now();
@@ -556,6 +560,10 @@ export class EsignService {
   ) {
     const p = this.must(this.state.participants, tenantId, id);
     EsignStateMachine.assertParticipantActor(p.participantUserId, actorId);
+    // Guard the parent process like sign/skip do: rejecting on a terminal (signed/cancelled)
+    // process must be refused — otherwise a leftover participant flips to 'rejected' and a spurious
+    // post-cancellation rejection is appended to the append-only legal log of a dead process.
+    EsignStateMachine.assertProcessMutable(this.getProcess(tenantId, p.processId));
     EsignStateMachine.transitionParticipant(p.status, 'rejected');
     p.status = 'rejected';
     p.rejectedAt = this.now();
@@ -644,6 +652,17 @@ export class EsignService {
     // signed. An all-skipped roster carries zero signatures and must not finalize a
     // legally-binding regulated document.
     if (!participants.some((x) => x.status === 'signed')) return;
+    // Validate-before-mutate: the target document must still be finalizable. If it was revoked or
+    // archived while signing was in progress, finalizeDocument (below) would throw AFTER we mutate
+    // the process to 'signed' and write a false 'completed' legal entry, leaving a durably 'signed'
+    // process whose document stays revoked and which the signer can no longer retry. Detect that
+    // here and fail the process cleanly instead — mirrors the "validate-first, mutate-last" guard
+    // in startProcess.
+    const targetDoc = this.documentsService.getDocument(tenantId, process.generatedDocumentId);
+    if (targetDoc.status === 'revoked' || targetDoc.status === 'archived') {
+      this.failProcess(tenantId, actorId, processId, `Target document is ${targetDoc.status}`);
+      return;
+    }
     EsignStateMachine.transitionProcess(process.status, 'signed');
     process.status = 'signed';
     process.finishedAt = this.now();
