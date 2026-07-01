@@ -9,7 +9,7 @@ export const courseViewerStyles = `
 .course-toc {
   display: block;
   border: 1px solid var(--ui-border);
-  border-radius: 12px;
+  border-radius: var(--ui-radius-md);
   padding: 12px;
   background: var(--ui-surface);
   position: sticky;
@@ -36,7 +36,7 @@ export const courseViewerStyles = `
   margin: 2px 0;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--ui-radius-sm);
   cursor: pointer;
   font-size: 14px;
   text-align: left;
@@ -50,7 +50,7 @@ export const courseViewerStyles = `
 .course-player {
   display: block;
   border: 1px solid var(--ui-border);
-  border-radius: 12px;
+  border-radius: var(--ui-radius-md);
   padding: 16px;
   background: var(--ui-surface);
   min-height: 320px;
@@ -63,11 +63,11 @@ export const courseViewerStyles = `
   font-style: italic;
   text-align: center;
 }
-.course-player__video, .course-player__pdf { width: 100%; max-height: 70vh; border: 0; border-radius: 8px; background: #000; }
+.course-player__video, .course-player__pdf { width: 100%; max-height: 70vh; border: 0; border-radius: var(--ui-radius-sm); background: #000; }
 .course-player__text { font-size: 15px; line-height: 1.6; }
-.course-player__external { padding: 12px; border-radius: 8px; background: var(--ui-surface-muted); }
+.course-player__external { padding: 12px; border-radius: var(--ui-radius-sm); background: var(--ui-surface-muted); }
 /* Визуальный прогресс по курсу — заметная полоса вверху экрана */
-.course-progress { display: grid; gap: 6px; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 12px; padding: 14px 16px; box-shadow: var(--ui-shadow); }
+.course-progress { display: grid; gap: 6px; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); padding: 14px 16px; box-shadow: var(--ui-shadow); }
 .course-progress__row { display: flex; align-items: center; gap: 12px; }
 .course-progress__value { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ui-text); min-width: 3.5ch; text-align: right; }
 .course-progress__caption { margin: 0; font-size: 13px; color: var(--ui-text-muted); }

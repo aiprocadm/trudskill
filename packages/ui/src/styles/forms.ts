@@ -1,12 +1,12 @@
 export const formStyles = `
-.ui-input,.ui-select,.ui-textarea,input,select,textarea { height: 40px; border: 1px solid var(--ui-border); border-radius: 12px; padding: 0 12px; background: var(--ui-surface); color: var(--ui-text); font-family: inherit; font-size: 0.95rem; transition: border-color .15s ease, box-shadow .15s ease; }
+.ui-input,.ui-select,.ui-textarea,input,select,textarea { height: 40px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); padding: 0 12px; background: var(--ui-surface); color: var(--ui-text); font-family: inherit; font-size: 0.95rem; transition: border-color .15s ease, box-shadow .15s ease; }
 .ui-input:focus,.ui-select:focus,.ui-textarea:focus,input:focus,select:focus,textarea:focus { border-color: var(--ui-brand-600); }
 textarea,.ui-textarea { min-height: 88px; padding: 9px 12px; }
 .ui-field { display: grid; gap: 6px; }
 .ui-field-label { font-size: 13px; font-weight: 600; color: var(--ui-text-muted); }
 .ui-field-hint { font-size: 12px; color: var(--ui-text-muted); margin: 0; }
 .ui-field-error { font-size: 12px; color: var(--ui-danger-600); margin: 0; }
-button,.ui-button,.ui-button-primary,.ui-button-secondary,.ui-button-ghost,.ui-button-danger { height: 40px; border: 1px solid var(--ui-border); border-radius: 12px; background: var(--ui-surface); padding: 0 14px; cursor: pointer; font-family: inherit; font-size: 0.93rem; font-weight: 600; transition: background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .15s ease; color: var(--ui-text); }
+button,.ui-button,.ui-button-primary,.ui-button-secondary,.ui-button-ghost,.ui-button-danger { height: 40px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); background: var(--ui-surface); padding: 0 14px; cursor: pointer; font-family: inherit; font-size: 0.93rem; font-weight: 600; transition: background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .15s ease; color: var(--ui-text); }
 button:hover,.ui-button:hover { background: var(--ui-surface-muted); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 /* Главная кнопка-действие — коралл с тёмным текстом (AA 6.4:1; белый текст на коралле = 2.6:1, провал) */

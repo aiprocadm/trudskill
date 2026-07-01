@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { baseVars, radius, spacing } from './index.js';
+import { baseVars, darkThemeVars, lightThemeVars, radius, spacing } from './index.js';
 
 // baseVars — CSS-мост: JS-токены должны быть проброшены в --ui-* переменные 1:1.
 describe('baseVars — CSS-мост токенов', () => {
@@ -29,5 +29,12 @@ describe('baseVars — CSS-мост токенов', () => {
     expect(vars['--ui-font-weight-bold']).toBe('700');
     expect(vars['--ui-line-height-tight']).toBe('1.2');
     expect(vars['--ui-line-height-normal']).toBe('1.5');
+  });
+
+  it('ключи baseVars не пересекаются с ключами тем (base проигрывал бы теме)', () => {
+    const themeKeys = new Set([...Object.keys(lightThemeVars), ...Object.keys(darkThemeVars)]);
+    for (const key of Object.keys(baseVars)) {
+      expect(themeKeys.has(key)).toBe(false);
+    }
   });
 });

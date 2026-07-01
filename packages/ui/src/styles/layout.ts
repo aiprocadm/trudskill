@@ -5,7 +5,7 @@ export const layoutStyles = `
   display: block;
   padding: 14px;
   border: 1px solid var(--ui-border);
-  border-radius: 12px;
+  border-radius: var(--ui-radius-md);
   text-decoration: none;
   color: var(--ui-text);
   background: var(--ui-surface);
