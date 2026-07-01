@@ -11,7 +11,7 @@ import {
 } from 'react';
 
 import { uiGlobalStyles } from '../styles';
-import { darkThemeVars, lightThemeVars } from '../tokens';
+import { baseVars, darkThemeVars, lightThemeVars } from '../tokens';
 import { UI_THEME_STORAGE_KEY, type UiThemeChoice, UiThemeContextProvider } from './theme-context';
 
 export const UiThemeProvider = ({ children }: PropsWithChildren): ReactElement => {
@@ -67,7 +67,8 @@ export const UiThemeProvider = ({ children }: PropsWithChildren): ReactElement =
 
   const vars = useMemo(() => {
     const source = resolved === 'dark' ? darkThemeVars : lightThemeVars;
-    return Object.fromEntries(Object.entries(source)) as CSSProperties;
+    // Базовые переменные (отступы/радиусы/типографика) не зависят от темы и подмешиваются всегда.
+    return { ...baseVars, ...source } as CSSProperties;
   }, [resolved]);
 
   return (

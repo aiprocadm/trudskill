@@ -119,3 +119,29 @@ export const darkThemeVars = {
   '--ui-hero-cta-text': '#1a1205',
   '--ui-hero-seal': 'rgba(255, 255, 255, 0.08)'
 } as const;
+
+// CSS-мост: базовые (не зависящие от темы) переменные — отступы, радиусы, типографика.
+// Значения синхронизированы с JS-токенами spacing/radius (гарантируется base-vars.test.ts).
+// Вёрстка в styles/* должна ссылаться на эти var(--ui-*), а не хардкодить px.
+export const baseVars = {
+  '--ui-space-xs': `${spacing.xs}px`,
+  '--ui-space-sm': `${spacing.sm}px`,
+  '--ui-space-md': `${spacing.md}px`,
+  '--ui-space-lg': `${spacing.lg}px`,
+  '--ui-space-xl': `${spacing.xl}px`,
+  '--ui-space-xxl': `${spacing.xxl}px`,
+  '--ui-radius-sm': `${radius.sm}px`,
+  '--ui-radius-md': `${radius.md}px`,
+  '--ui-radius-lg': `${radius.lg}px`,
+  '--ui-radius-pill': `${radius.pill}px`,
+  '--ui-font-size-xs': '12px',
+  '--ui-font-size-sm': '13px',
+  '--ui-font-size-md': '15px',
+  '--ui-font-size-lg': '17px',
+  '--ui-font-size-xl': '22px',
+  '--ui-font-weight-medium': '500',
+  '--ui-font-weight-semibold': '600',
+  '--ui-font-weight-bold': '700',
+  '--ui-line-height-tight': '1.2',
+  '--ui-line-height-normal': '1.5'
+} as const;
