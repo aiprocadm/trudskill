@@ -54,20 +54,21 @@ export const AppShell = ({ children }: PropsWithChildren) => {
     paletteReturnRef.current?.focus();
   }, []);
 
-  // Глобальный Ctrl/⌘+K.
+  // Глобальный Ctrl/⌘+K: открыть/закрыть палитру, сохраняя корректный возврат фокуса.
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && (event.key === 'k' || event.key === 'K')) {
         event.preventDefault();
-        setPaletteOpen((prev) => {
-          if (!prev) paletteReturnRef.current = (document.activeElement as HTMLElement) ?? null;
-          return !prev;
-        });
+        if (paletteOpen) {
+          closePalette();
+        } else {
+          openPalette();
+        }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [paletteOpen, openPalette, closePalette]);
 
   useNotificationsRealtime(() => void unread.refetch());
 
