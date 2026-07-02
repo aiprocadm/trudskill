@@ -11,8 +11,13 @@ import {
 } from 'react';
 
 import { uiGlobalStyles } from '../styles';
-import { darkThemeVars, lightThemeVars } from '../tokens';
+import { baseVars, darkThemeVars, lightThemeVars } from '../tokens';
 import { UI_THEME_STORAGE_KEY, type UiThemeChoice, UiThemeContextProvider } from './theme-context';
+
+// Чистая сборка inline-переменных: базовые токены + переменные выбранной темы.
+// Вынесена из useMemo, чтобы быть тестируемой (конвенция пакета — без RTL).
+export const buildThemeVars = (resolved: 'light' | 'dark'): CSSProperties =>
+  ({ ...baseVars, ...(resolved === 'dark' ? darkThemeVars : lightThemeVars) }) as CSSProperties;
 
 export const UiThemeProvider = ({ children }: PropsWithChildren): ReactElement => {
   const [choice, setChoiceState] = useState<UiThemeChoice>('system');
@@ -65,10 +70,7 @@ export const UiThemeProvider = ({ children }: PropsWithChildren): ReactElement =
     [choice, resolved, setChoice]
   );
 
-  const vars = useMemo(() => {
-    const source = resolved === 'dark' ? darkThemeVars : lightThemeVars;
-    return Object.fromEntries(Object.entries(source)) as CSSProperties;
-  }, [resolved]);
+  const vars = useMemo(() => buildThemeVars(resolved), [resolved]);
 
   return (
     <UiThemeContextProvider value={themeValue}>

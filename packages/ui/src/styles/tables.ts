@@ -1,5 +1,5 @@
 export const tableStyles = `
-.ui-table-wrap { border: 1px solid var(--ui-border); border-radius: 12px; overflow-x: auto; }
+.ui-table-wrap { border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); overflow-x: auto; }
 .ui-table-wrap--sticky-first { overflow-x: auto; }
 .ui-table-wrap--sticky-first .ui-table th:first-child,
 .ui-table-wrap--sticky-first .ui-table td:first-child {

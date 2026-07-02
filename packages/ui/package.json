@@ -15,7 +15,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@trudskill/shared-types": "workspace:*"
+    "@trudskill/shared-types": "workspace:*",
+    "lucide-react": "^1.23.0"
   },
   "devDependencies": {
     "@types/react": "19.2.14"
