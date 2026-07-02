@@ -30,4 +30,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 /* Спиннер подстраивается под цвет текста кнопки: тёмный на коралле, белый на красной */
 .ui-button--primary.ui-button--loading::after { border-color: rgba(15,23,42,0.25); border-top-color: var(--ui-on-accent); }
 .ui-button--danger.ui-button--loading::after { border-color: rgba(255,255,255,0.35); border-top-color: #fff; }
+.ui-button,.ui-button--primary,.ui-button--secondary,.ui-button--ghost,.ui-button--danger { display: inline-flex; align-items: center; justify-content: center; gap: var(--ui-space-sm); }
+.ui-button__icon { display: inline-flex; }
+.ui-button__icon svg { width: 16px; height: 16px; }
 `;

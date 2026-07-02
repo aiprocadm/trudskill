@@ -9,6 +9,7 @@ describe('Icon — единая обёртка над lucide-react', () => {
     expect(el.props['aria-hidden']).toBe(true);
     expect(el.props.size).toBe(18);
     expect(el.props.strokeWidth).toBe(1.75);
+    expect(el.props.focusable).toBe(false);
   });
 
   it('с label — самостоятельный смысл: role=img + aria-label, без aria-hidden', () => {
@@ -16,9 +17,11 @@ describe('Icon — единая обёртка над lucide-react', () => {
     expect(el.props['aria-label']).toBe('Главная');
     expect(el.props.role).toBe('img');
     expect(el.props['aria-hidden']).toBeUndefined();
+    expect(el.props.size).toBe(18);
+    expect(el.props.strokeWidth).toBe(1.75);
   });
 
-  it('размер только из шкалы', () => {
+  it('размер из шкалы применяется', () => {
     const el = Icon({ icon: Home, size: 24 });
     expect(el.props.size).toBe(24);
   });
