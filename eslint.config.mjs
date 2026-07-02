@@ -57,7 +57,53 @@ export default [
       '@next/next': nextPlugin
     },
     rules: {
-      '@next/next/no-img-element': 'warn'
+      '@next/next/no-img-element': 'warn',
+      // Иконки только через <Icon icon={...} /> из @trudskill/ui.
+      // no-restricted-imports НЕ мёржится между блоками — дублируем глобальный patterns.
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'lucide-react',
+              message:
+                'Не импортируйте иконки напрямую из lucide-react. Используйте <Icon icon={...} /> из @trudskill/ui (глифы — из features/navigation/nav-icons).',
+              allowTypeImports: true
+            }
+          ],
+          patterns: [
+            {
+              group: ['apps/*', './apps/*', '../apps/*', '../../apps/*', 'packages/*/src/*'],
+              message:
+                'Import only through package entrypoints (workspace package names), not via app/package source paths.'
+            },
+            {
+              group: ['lucide-react/*'],
+              message:
+                'Не импортируйте иконки напрямую из lucide-react. Используйте <Icon icon={...} /> из @trudskill/ui.'
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    // Единственное исключение: курируемый реестр иконок навигации.
+    // Здесь lucide-react разрешён; глобальная гигиена импортов сохранена.
+    files: ['apps/frontend/src/features/navigation/nav-icons.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['apps/*', './apps/*', '../apps/*', '../../apps/*', 'packages/*/src/*'],
+              message:
+                'Import only through package entrypoints (workspace package names), not via app/package source paths.'
+            }
+          ]
+        }
+      ]
     }
   },
   {

@@ -118,4 +118,40 @@ describe('navigation helpers', () => {
     const visible = getVisibleNavigation(session).map((item) => item.href);
     expect(visible).toContain('/admin/bulk-enrollments');
   });
+
+  // === Фаза 2 — сироты, заглушки, русификация ===
+
+  it('routeMeta: сирота /admin/issuance-journal доступен как /documents (tenant.read)', () => {
+    expect(resolveRouteMeta('/admin/issuance-journal')?.requiredPermissions).toEqual([
+      'tenant.read'
+    ]);
+  });
+
+  it('routeMeta: сирота /admin/licenses — админ-only (auth.manage_sessions)', () => {
+    expect(resolveRouteMeta('/admin/licenses')?.requiredPermissions).toEqual([
+      'auth.manage_sessions'
+    ]);
+  });
+
+  it('nav: 3 сироты присутствуют в меню', () => {
+    const hrefs = navigationModel.map((item) => item.href);
+    expect(hrefs).toContain('/admin/issuance-journal');
+    expect(hrefs).toContain('/admin/licenses');
+    expect(hrefs).toContain('/admin/webinars/settings');
+  });
+
+  it('nav: заглушки /mailings и /crm/deals скрыты из меню, но страницы доступны', () => {
+    const hrefs = navigationModel.map((item) => item.href);
+    expect(hrefs).not.toContain('/mailings');
+    expect(hrefs).not.toContain('/crm/deals');
+    expect(resolveRouteMeta('/mailings')).not.toBeNull();
+    expect(resolveRouteMeta('/crm/deals')).not.toBeNull();
+  });
+
+  it('nav: латинские метки русифицированы', () => {
+    const label = (href: string) => navigationModel.find((i) => i.href === href)?.label ?? '';
+    expect(label('/student/dashboard')).toBe('Панель студента');
+    expect(label('/teacher/grading-center')).toBe('Центр проверки работ');
+    expect(label('/admin/cockpit')).toBe('Панель администратора');
+  });
 });

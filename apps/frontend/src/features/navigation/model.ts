@@ -130,6 +130,14 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['proctoring.read'] }
   },
   {
+    pattern: '/admin/issuance-journal',
+    meta: { public: false, requiredPermissions: ['tenant.read'] }
+  },
+  {
+    pattern: '/admin/licenses',
+    meta: { public: false, requiredPermissions: ['auth.manage_sessions'] }
+  },
+  {
     pattern: '/admin/question-banks/[id]',
     meta: { public: false, requiredPermissions: ['assessment.question_banks.read'] }
   },
@@ -390,9 +398,7 @@ export const navigationModel: NavigationItem[] = [
     navSlot: 'more'
   },
   { href: '/scorm', label: 'SCORM', requiredPermissions: ['materials.read'], navSlot: 'more' },
-  { href: '/mailings', label: 'Рассылки', requiredPermissions: ['tenant.read'], navSlot: 'more' },
   { href: '/chat', label: 'Чат', requiredPermissions: ['tenant.read'], navSlot: 'more' },
-  { href: '/crm/deals', label: 'Сделки', requiredPermissions: ['tenant.read'], navSlot: 'more' },
   {
     href: '/gov-export',
     label: 'Госвыгрузки',
@@ -428,19 +434,19 @@ export const navigationModel: NavigationItem[] = [
   },
   {
     href: '/student/dashboard',
-    label: 'Student dashboard',
+    label: 'Панель студента',
     requiredPermissions: ['enrollments.read'],
     navSlot: 'more'
   },
   {
     href: '/teacher/grading-center',
-    label: 'Teacher grading center',
+    label: 'Центр проверки работ',
     requiredPermissions: ['assessment.reviews.review'],
     navSlot: 'more'
   },
   {
     href: '/admin/cockpit',
-    label: 'Admin cockpit',
+    label: 'Панель администратора',
     requiredPermissions: ['auth.manage_sessions'],
     navSlot: 'more'
   },
@@ -514,6 +520,24 @@ export const navigationModel: NavigationItem[] = [
     href: '/admin/proctoring-recordings',
     label: 'Записи прокторинга',
     requiredPermissions: ['proctoring.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/admin/issuance-journal',
+    label: 'Журнал выдачи',
+    requiredPermissions: ['tenant.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/admin/webinars/settings',
+    label: 'Настройки вебинаров',
+    requiredPermissions: ['webinars.configure'],
+    navSlot: 'more'
+  },
+  {
+    href: '/admin/licenses',
+    label: 'Лицензии',
+    requiredPermissions: ['auth.manage_sessions'],
     navSlot: 'more'
   }
 ];
