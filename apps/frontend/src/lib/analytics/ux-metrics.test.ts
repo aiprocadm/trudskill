@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  completeMetricTimer,
   getMetricBaseline,
   recordJourneyStep,
   recordMetric,
-  startMetricTimer,
-  completeMetricTimer
+  startMetricTimer
 } from './ux-metrics';
 
 const createStorageMock = () => {
