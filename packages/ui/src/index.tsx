@@ -18,6 +18,7 @@ export * from './components/button/index';
 export * from './components/skeleton/index';
 export * from './components/stat-card/index';
 export * from './components/key-value-list/index';
+export * from './components/callout/index';
 export * from './patterns/registry';
 export * from './providers/theme-provider';
 export {

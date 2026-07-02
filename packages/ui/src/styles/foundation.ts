@@ -72,6 +72,7 @@ legend { font-size: 13px; font-weight: 600; color: var(--ui-text-muted); padding
 .ui-callout--warning { border-color: var(--ui-warning-600); background: color-mix(in srgb, var(--ui-warning-600) 12%, var(--ui-surface)); }
 .ui-callout--success { border-color: var(--ui-success-600); background: color-mix(in srgb, var(--ui-success-600) 10%, var(--ui-surface)); }
 .ui-callout--danger { border-color: var(--ui-danger-600); background: color-mix(in srgb, var(--ui-danger-600) 10%, var(--ui-surface)); }
+.ui-callout__title { margin: 0 0 4px; font-weight: var(--ui-font-weight-semibold); font-size: var(--ui-font-size-sm); }
 
 /* Вордмарк trudskill (фирменная подпись) — плотный гротеск, тесный трекинг */
 .ui-wordmark { font-family: var(--font-sans), 'Segoe UI', system-ui, sans-serif; font-weight: 800; font-size: 1.3rem; letter-spacing: -0.02em; line-height: 1; display: inline-flex; align-items: baseline; }
