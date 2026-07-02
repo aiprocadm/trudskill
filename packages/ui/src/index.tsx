@@ -13,6 +13,7 @@ export * from './components/select/index';
 export * from './components/date-range/index';
 export * from './components/async-status/index';
 export * from './components/permission/index';
+export * from './components/icon/index';
 export * from './patterns/registry';
 export * from './providers/theme-provider';
 export {

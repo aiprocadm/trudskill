@@ -10,10 +10,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@trudskill/api-contracts": "workspace:*",
-    "@trudskill/ui": "workspace:*",
     "@serwist/next": "^9.5.11",
     "@tanstack/react-query": "^5.66.0",
+    "@trudskill/api-contracts": "workspace:*",
+    "@trudskill/ui": "workspace:*",
+    "lucide-react": "^1.23.0",
     "next": "15.2.2",
     "react": "19.0.0",
     "react-dom": "19.0.0",
