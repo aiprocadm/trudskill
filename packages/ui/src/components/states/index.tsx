@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 
 export const EmptyState = ({
-  message = 'No data yet',
+  message = 'Нет данных',
   hint
 }: {
   message?: string;
@@ -13,7 +13,7 @@ export const EmptyState = ({
   </div>
 );
 export const ErrorState = ({
-  message = 'Something went wrong'
+  message = 'Не удалось загрузить данные'
 }: {
   message?: string;
 }): ReactElement => (
@@ -21,7 +21,7 @@ export const ErrorState = ({
     {message}
   </div>
 );
-export const LoadingState = ({ message = 'Loading...' }: { message?: string }): ReactElement => (
+export const LoadingState = ({ message = 'Загрузка…' }: { message?: string }): ReactElement => (
   <div className="ui-loading" role="status" aria-live="polite" aria-busy="true">
     {message}
   </div>
