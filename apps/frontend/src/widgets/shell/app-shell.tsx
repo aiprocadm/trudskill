@@ -1,6 +1,6 @@
 'use client';
 
-import { VISUALLY_HIDDEN_CLASS } from '@trudskill/ui';
+import { Icon, VISUALLY_HIDDEN_CLASS } from '@trudskill/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { type PropsWithChildren, useEffect, useMemo, useState } from 'react';
@@ -8,7 +8,8 @@ import { type PropsWithChildren, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../features/auth/context';
 import { useNotificationsList, useNotificationsRealtime } from '../../features/communication/hooks';
 import { buildBreadcrumbs } from '../../features/navigation/breadcrumbs';
-import { getNavigationView } from '../../features/navigation/helpers';
+import { getGroupedNavigation } from '../../features/navigation/nav-groups';
+import { ChevronDownIcon } from '../../features/navigation/nav-icons';
 import { getPrimaryRoleBlueprint } from '../../features/navigation/role-blueprints';
 
 const formatUnreadBadge = (total: number | undefined) => {
@@ -21,17 +22,37 @@ const formatUnreadBadge = (total: number | undefined) => {
 export const AppShell = ({ children }: PropsWithChildren) => {
   const pathname = usePathname();
   const { session, logout } = useAuth();
-  const navView = getNavigationView(session);
+  const groups = getGroupedNavigation(session);
   const primaryRole = getPrimaryRoleBlueprint(session);
   const breadcrumbItems = useMemo(() => buildBreadcrumbs(pathname), [pathname]);
   const unread = useNotificationsList(1, 1, 'unread');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  const isItemActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
+  // Блок с активной страницей (для авто-раскрытия). Вычисляем на каждый рендер — дёшево.
+  const activeGroupId =
+    groups.find((group) => group.items.some((item) => isItemActive(item.href)))?.id ?? null;
+
+  // Ручные раскрытия пользователя поверх авто-раскрытия активного блока.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   useNotificationsRealtime(() => void unread.refetch());
 
   useEffect(() => {
     setMobileNavOpen(false);
   }, [pathname]);
+
+  // Блок с активной страницей всегда раскрыт (не схлопываем ручные раскрытия пользователя).
+  useEffect(() => {
+    if (activeGroupId) {
+      setOpenGroups((prev) => (prev[activeGroupId] ? prev : { ...prev, [activeGroupId]: true }));
+    }
+  }, [activeGroupId]);
+
+  const isGroupOpen = (id: string) => openGroups[id] ?? id === activeGroupId;
+  const toggleGroup = (id: string) =>
+    setOpenGroups((prev) => ({ ...prev, [id]: !(prev[id] ?? id === activeGroupId) }));
 
   const unreadLabel = formatUnreadBadge(unread.data?.total);
 
@@ -65,40 +86,43 @@ export const AppShell = ({ children }: PropsWithChildren) => {
           <span className="ui-wordmark">trudskill</span>
         </h2>
         {primaryRole ? <p className="app-shell__role">Роль: {primaryRole.displayName}</p> : null}
-        <nav className="ui-stack" aria-label="Основные разделы">
-          {navView.main.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+        <nav className="app-shell__nav" aria-label="Основные разделы">
+          {groups.map((group) => {
+            const open = isGroupOpen(group.id);
+            const regionId = `nav-group-${group.id}`;
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`app-shell__link ${isActive ? 'is-active' : ''}`}
-                aria-current={isActive ? 'page' : undefined}
-              >
-                {item.label}
-              </Link>
+              <div className="app-shell__group" key={group.id}>
+                <button
+                  type="button"
+                  className="app-shell__group-header"
+                  aria-expanded={open}
+                  aria-controls={regionId}
+                  onClick={() => toggleGroup(group.id)}
+                >
+                  <Icon icon={group.icon} size={20} />
+                  <span className="app-shell__group-title">{group.label}</span>
+                  <span className={`app-shell__chevron ${open ? 'is-open' : ''}`}>
+                    <Icon icon={ChevronDownIcon} size={16} />
+                  </span>
+                </button>
+                <div id={regionId} className="app-shell__group-items ui-stack" hidden={!open}>
+                  {group.items.map((item) => {
+                    const active = isItemActive(item.href);
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={`app-shell__link ${active ? 'is-active' : ''}`}
+                        aria-current={active ? 'page' : undefined}
+                      >
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
             );
           })}
-          {navView.more.length ? (
-            <details className="app-shell__more">
-              <summary aria-label="Показать дополнительные разделы">Еще разделы</summary>
-              <div className="ui-stack" style={{ gap: 6 }}>
-                {navView.more.map((item) => {
-                  const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`app-shell__link app-shell__link--more ${isActive ? 'is-active' : ''}`}
-                      aria-current={isActive ? 'page' : undefined}
-                    >
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </div>
-            </details>
-          ) : null}
         </nav>
       </aside>
       <div className="app-shell__content" id="app-shell-main" tabIndex={-1}>
@@ -201,20 +225,54 @@ export const AppShell = ({ children }: PropsWithChildren) => {
           color: var(--ui-nav-active-text, var(--ui-brand-700));
           background: var(--ui-nav-active-bg);
         }
-        .app-shell__link--more {
-          font-weight: 400;
-          padding: 8px 10px;
+        .app-shell__nav {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
         }
-        .app-shell__more {
-          border-top: 1px solid var(--ui-border);
-          margin-top: 8px;
-          padding-top: 10px;
+        .app-shell__group {
+          display: flex;
+          flex-direction: column;
         }
-        .app-shell__more > summary {
+        .app-shell__group-header {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+          padding: 10px 12px;
+          border: none;
+          background: transparent;
+          border-radius: 10px;
+          color: var(--ui-nav-text, var(--ui-text));
+          font-weight: 700;
+          font-size: 13px;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
           cursor: pointer;
+        }
+        .app-shell__group-header:hover {
+          background: var(--ui-nav-hover-bg, var(--ui-surface-muted));
+        }
+        .app-shell__group-title {
+          flex: 1 1 auto;
+          text-align: left;
+        }
+        .app-shell__chevron {
+          display: inline-flex;
           color: var(--ui-nav-text-muted, var(--ui-text-muted));
-          font-size: 14px;
-          margin-bottom: 8px;
+          transition: transform 0.18s ease;
+        }
+        .app-shell__chevron.is-open {
+          transform: rotate(180deg);
+        }
+        .app-shell__group-items {
+          gap: 2px;
+          padding: 2px 0 6px 12px;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .app-shell__chevron {
+            transition: none;
+          }
         }
         .app-shell__content {
           display: grid;
