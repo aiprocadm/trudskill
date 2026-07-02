@@ -179,6 +179,10 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['enrollments.read'] }
   },
   {
+    pattern: '/learner/documents',
+    meta: { public: false, requiredPermissions: ['enrollments.read'] }
+  },
+  {
     pattern: '/learner/tests/[testId]/attempt/[attemptId]',
     meta: { public: false, requiredPermissions: ['assessment.attempts.take'] }
   },

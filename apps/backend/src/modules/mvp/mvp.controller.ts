@@ -505,7 +505,10 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('enrollments.read')
   listEnrollments(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    return this.mvpService.listEnrollments(c.tenantId!, q);
+    return this.mvpService.listEnrollments(c.tenantId!, q, {
+      actorId: c.userId,
+      permissions: c.permissions
+    });
   }
   @Get('reports/kpi-snapshot')
   @UseGuards(PermissionGuard)
@@ -622,7 +625,10 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('enrollments.read')
   getEnrollment(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.mvpService.getEnrollment(c.tenantId!, id);
+    return this.mvpService.getEnrollment(c.tenantId!, id, {
+      actorId: c.userId,
+      permissions: c.permissions
+    });
   }
   @Post('enrollments/bulk')
   @UseGuards(PermissionGuard)
@@ -667,20 +673,29 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('enrollments.read')
   enrollmentStatusHistory(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.mvpService.listEnrollmentStatusHistory(c.tenantId!, id);
+    return this.mvpService.listEnrollmentStatusHistory(c.tenantId!, id, {
+      actorId: c.userId,
+      permissions: c.permissions
+    });
   }
 
   @Get('progress')
   @UseGuards(PermissionGuard)
   @RequirePermissions('progress.read')
   listProgress(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    return this.mvpService.listProgress(c.tenantId!, q);
+    return this.mvpService.listProgress(c.tenantId!, q, {
+      actorId: c.userId,
+      permissions: c.permissions
+    });
   }
   @Get('progress/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('progress.read')
   getProgress(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.mvpService.getProgress(c.tenantId!, id);
+    return this.mvpService.getProgress(c.tenantId!, id, {
+      actorId: c.userId,
+      permissions: c.permissions
+    });
   }
   @Patch('progress/materials/:materialId')
   @UseGuards(PermissionGuard)

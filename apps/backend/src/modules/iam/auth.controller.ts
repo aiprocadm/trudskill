@@ -222,7 +222,14 @@ export class AuthController {
   @Get('auth/me')
   async me(@CurrentContext() context: RequestContext) {
     const user = await this.iamService.getUser(context.tenantId!, context.userId!);
-    return this.iamService.toPublicUser(user);
+    // §5.160: resolve permissions server-side (the SSOT — iam.role_permissions) and return them
+    // so the frontend stops deriving them from a hand-maintained static map that drifted out of
+    // sync with backend role grants (admins were silently denied ~20 nav sections).
+    const permissions = await this.iamService.resolvePermissions(
+      context.tenantId!,
+      context.userId!
+    );
+    return { ...this.iamService.toPublicUser(user), permissions };
   }
 
   @Get('auth/sessions')

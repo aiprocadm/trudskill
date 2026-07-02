@@ -30,10 +30,12 @@ export class InMemoryMagicLinkTokenRepo implements MagicLinkTokenRepo {
     _redeemedUserId: string,
     _redeemIp?: string,
     _redeemUserAgent?: string
-  ): Promise<void> {
+  ): Promise<boolean> {
     const record = this.tokens.find((r) => r.id === id && r.tenantId === tenantId);
     if (record && record.consumedAt === null) {
       record.consumedAt = new Date();
+      return true;
     }
+    return false;
   }
 }

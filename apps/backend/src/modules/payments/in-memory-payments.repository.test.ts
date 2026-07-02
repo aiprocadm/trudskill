@@ -27,6 +27,25 @@ describe('InMemoryPaymentsRepository', () => {
     expect(await repo.getOrder('t1', order.id)).not.toBeNull();
     expect(await repo.getOrder('t2', order.id)).toBeNull();
   });
+  it('is idempotent by (tenant, idempotencyKey): a repeated manual create returns the existing payment (§5.160)', async () => {
+    const repo = new InMemoryPaymentsRepository();
+    const order = await repo.createOrder(seed);
+    const mk = () =>
+      repo.createPayment({
+        tenantId: 't1',
+        orderId: order.id,
+        provider: 'manual',
+        method: 'bank_transfer',
+        amount: 150000,
+        status: 'succeeded',
+        idempotencyKey: `manual:${order.id}`
+      });
+    const first = await mk();
+    const second = await mk();
+    // Same row, not a duplicate (concurrent / double mark-paid must not double-record revenue).
+    expect(second.id).toBe(first.id);
+  });
+
   it('records a payment and finds the order by provider_payment_id', async () => {
     const repo = new InMemoryPaymentsRepository();
     const order = await repo.createOrder(seed);

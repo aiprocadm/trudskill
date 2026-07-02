@@ -1,5 +1,5 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MvpService } from './mvp.service.js';
@@ -180,6 +180,57 @@ describe('startAttempt — module gating (A) + min-view time (B)', () => {
     ).not.toThrow();
   });
 
+  it('scopes the course-level final-exam gate to published versions (a DRAFT version’s gating module must not lock learners out)', () => {
+    const service = makeService();
+    const course = service.createCourse(T, ADMIN, { code: 'CV', title: 'Versioned' }, ctx);
+    const group = service.createGroup(T, ADMIN, { code: 'GV', name: 'Group V' }, ctx);
+    service.createGroupCourse(T, { groupId: group.id, courseId: course.id });
+    const bank = service.createQuestionBank(T, ADMIN, { title: 'Bank', courseId: course.id }, ctx);
+
+    // v1 — the PUBLISHED version the learners are taking. Required module, no gating test.
+    const v1 = service.createCourseVersion(T, course.id);
+    (v1 as { status: string }).status = 'published';
+    service.createModule(
+      T,
+      ADMIN,
+      { courseVersionId: v1.id, title: 'v1 Module', minViewSeconds: 0, isRequired: true },
+      ctx
+    );
+
+    // v2 — a DRAFT (work-in-progress) version with a required module that HAS a gating test.
+    // Aggregating required modules across ALL versions (the bug) lets this not-yet-published
+    // module retroactively lock every v1 learner out of the final exam.
+    const v2 = service.createCourseVersion(T, course.id);
+    const m2 = service.createModule(
+      T,
+      ADMIN,
+      { courseVersionId: v2.id, title: 'v2 draft Module', minViewSeconds: 0, isRequired: true },
+      ctx
+    );
+    makeTest(service, course.id, bank.id, m2.id, 'v2 gating');
+
+    const learner = service.createLearner(T, ADMIN, { code: 'LV', name: 'V Learner' }, ctx);
+    const enrollment = service.createEnrollment(
+      T,
+      ADMIN,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+
+    const finalTest = makeTest(service, course.id, bank.id, undefined, 'Final');
+
+    // The gate must consider only published v1 (no unpassed gating test) — the draft v2
+    // module must not block.
+    expect(() =>
+      service.startAttempt(
+        T,
+        ADMIN,
+        { testId: finalTest.id, enrollmentId: enrollment.id, learnerId: enrollment.learnerId },
+        ctx
+      )
+    ).not.toThrow();
+  });
+
   it('locks module-2 test until module-1 intermediate test is passed', () => {
     const service = makeService();
     const { course, bank, enrollment, m1, m2 } = seedTwoModuleCourse(service);
@@ -230,6 +281,107 @@ describe('startAttempt — module gating (A) + min-view time (B)', () => {
     ).not.toThrow();
   });
 
+  it('isolates a group pinned to v1 from a later-published v2 required module (PINNED beats PUBLISHED)', () => {
+    const service = makeService();
+    const course = service.createCourse(T, ADMIN, { code: 'CP2', title: 'Pinned' }, ctx);
+    const group = service.createGroup(T, ADMIN, { code: 'GP2', name: 'Group P' }, ctx);
+    const bank = service.createQuestionBank(T, ADMIN, { title: 'Bank', courseId: course.id }, ctx);
+
+    // v1 published BEFORE attach → group auto-pins to v1.
+    const v1 = service.createCourseVersion(T, course.id);
+    (v1 as { status: string }).status = 'published';
+    service.createModule(
+      T,
+      ADMIN,
+      { courseVersionId: v1.id, title: 'v1 Module', minViewSeconds: 0, isRequired: true },
+      ctx
+    );
+    const gc = service.createGroupCourse(T, { groupId: group.id, courseId: course.id });
+    expect(gc.courseVersionId).toBe(v1.id); // precondition: the pin landed
+
+    // v2 published AFTER attach, with a required module behind an unpassed gating test.
+    const v2 = service.createCourseVersion(T, course.id);
+    (v2 as { status: string }).status = 'published';
+    const m2 = service.createModule(
+      T,
+      ADMIN,
+      { courseVersionId: v2.id, title: 'v2 Module', minViewSeconds: 0, isRequired: true },
+      ctx
+    );
+    makeTest(service, course.id, bank.id, m2.id, 'v2 gating');
+
+    const learner = service.createLearner(T, ADMIN, { code: 'LP', name: 'P Learner' }, ctx);
+    const enrollment = service.createEnrollment(
+      T,
+      ADMIN,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const finalTest = makeTest(service, course.id, bank.id, undefined, 'Final');
+
+    // Pinned to v1 → v2's gating module is out of scope → final exam is NOT locked.
+    expect(() =>
+      service.startAttempt(
+        T,
+        ADMIN,
+        { testId: finalTest.id, enrollmentId: enrollment.id, learnerId: enrollment.learnerId },
+        ctx
+      )
+    ).not.toThrow();
+  });
+
+  it('locks a group attached before any publication once a later v2 adds a gating module (no pin → PUBLISHED fallback)', () => {
+    const service = makeService();
+    const course = service.createCourse(T, ADMIN, { code: 'CP3', title: 'Unpinned' }, ctx);
+    const group = service.createGroup(T, ADMIN, { code: 'GP3', name: 'Group U' }, ctx);
+    const bank = service.createQuestionBank(T, ADMIN, { title: 'Bank', courseId: course.id }, ctx);
+
+    // Attach BEFORE any version is published → no pin lands (documented residual-limitation path).
+    const gc = service.createGroupCourse(T, { groupId: group.id, courseId: course.id });
+    expect(gc.courseVersionId).toBeUndefined();
+
+    // v1 published (no gating), v2 published with a required module behind an unpassed gating test.
+    const v1 = service.createCourseVersion(T, course.id);
+    (v1 as { status: string }).status = 'published';
+    service.createModule(
+      T,
+      ADMIN,
+      { courseVersionId: v1.id, title: 'v1 Module', minViewSeconds: 0, isRequired: true },
+      ctx
+    );
+    const v2 = service.createCourseVersion(T, course.id);
+    (v2 as { status: string }).status = 'published';
+    const m2 = service.createModule(
+      T,
+      ADMIN,
+      { courseVersionId: v2.id, title: 'v2 Module', minViewSeconds: 0, isRequired: true },
+      ctx
+    );
+    makeTest(service, course.id, bank.id, m2.id, 'v2 gating');
+
+    const learner = service.createLearner(T, ADMIN, { code: 'LU', name: 'U Learner' }, ctx);
+    const enrollment = service.createEnrollment(
+      T,
+      ADMIN,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const finalTest = makeTest(service, course.id, bank.id, undefined, 'Final');
+
+    // No pin → PUBLISHED fallback spans v1+v2 → v2's unpassed gating module locks the final exam.
+    // This is the contrapositive of the pinned test above: it proves the pin is what unlocks.
+    expectThrowsCode(
+      () =>
+        service.startAttempt(
+          T,
+          ADMIN,
+          { testId: finalTest.id, enrollmentId: enrollment.id, learnerId: enrollment.learnerId },
+          ctx
+        ),
+      'module_gate_locked'
+    );
+  });
+
   it('blocks the module test until the module min-view time is met, then allows it', () => {
     const service = makeService();
     const { course, bank, enrollment, m1, mat1 } = seedTwoModuleCourse(service, { m1MinView: 120 });
@@ -261,5 +413,82 @@ describe('startAttempt — module gating (A) + min-view time (B)', () => {
         ctx
       )
     ).not.toThrow();
+  });
+});
+
+describe('module/course progress completedAt is monotonic (does not drift on later recalc)', () => {
+  it('keeps the original completedAt when a completed module/course is recalculated later', () => {
+    vi.useFakeTimers();
+    try {
+      const service = makeService();
+      const course = service.createCourse(T, ADMIN, { code: 'CM', title: 'Mono' }, ctx);
+      const group = service.createGroup(T, ADMIN, { code: 'GM', name: 'Group M' }, ctx);
+      service.createGroupCourse(T, { groupId: group.id, courseId: course.id });
+      const learner = service.createLearner(T, ADMIN, { code: 'LM', name: 'Mono Learner' }, ctx);
+      const enrollment = service.createEnrollment(
+        T,
+        ADMIN,
+        { groupId: group.id, learnerId: learner.id },
+        ctx
+      );
+      const version = service.createCourseVersion(T, course.id);
+      const m1 = service.createModule(
+        T,
+        ADMIN,
+        { courseVersionId: version.id, title: 'Only Module', minViewSeconds: 0, isRequired: true },
+        ctx
+      );
+      const mat1 = service.createMaterial(
+        T,
+        ADMIN,
+        {
+          moduleId: m1.id,
+          title: 'Mat',
+          materialType: 'text',
+          minViewSeconds: 0,
+          isRequired: true
+        },
+        ctx
+      );
+
+      vi.setSystemTime(new Date('2026-02-01T00:00:00.000Z'));
+      service.upsertMaterialProgress(
+        T,
+        ADMIN,
+        mat1.id,
+        { enrollmentId: enrollment.id, studiedSeconds: 60 },
+        ctx
+      );
+      const findModule = () =>
+        service['state'].moduleProgress.find(
+          (r) => r.enrollmentId === enrollment.id && r.moduleId === m1.id
+        )!;
+      const findCourse = () =>
+        service['state'].courseProgress.find(
+          (r) => r.enrollmentId === enrollment.id && r.courseId === course.id
+        )!;
+      expect(findModule().status).toBe('completed');
+      expect(findCourse().status).toBe('completed');
+      const moduleCompletedAt = findModule().completedAt;
+      const courseCompletedAt = findCourse().completedAt;
+      expect(moduleCompletedAt).toBe('2026-02-01T00:00:00.000Z');
+      expect(courseCompletedAt).toBe('2026-02-01T00:00:00.000Z');
+
+      // Later re-study of an already-completed material must NOT push the recorded completion date
+      // forward — completion is monotonic (mirrors the material-level recalc).
+      vi.setSystemTime(new Date('2026-03-01T00:00:00.000Z'));
+      service.upsertMaterialProgress(
+        T,
+        ADMIN,
+        mat1.id,
+        { enrollmentId: enrollment.id, studiedSeconds: 90 },
+        ctx
+      );
+      expect(findModule().status).toBe('completed');
+      expect(findModule().completedAt).toBe(moduleCompletedAt);
+      expect(findCourse().completedAt).toBe(courseCompletedAt);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

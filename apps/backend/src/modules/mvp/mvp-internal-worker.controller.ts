@@ -5,7 +5,7 @@ import { Type } from 'class-transformer';
 import { IsArray, IsOptional, IsString, MinLength, ValidateNested } from 'class-validator';
 
 import { WorkerCallbackGuard } from './infrastructure/worker-callback.guard.js';
-import { MvpService } from './mvp.service.js';
+import { MvpEnrollmentService } from './mvp-enrollment.service.js';
 import { assertValidDto } from '../../common/app-validation.pipe.js';
 
 import type { RequestContext } from '../../common/context/request-context.js';
@@ -51,11 +51,20 @@ class WorkerBulkEnrollmentBodyDto {
   payload!: WorkerBulkPayloadDto;
 }
 
-/** Внутренний вызов из apps/worker после сообщения RabbitMQ — не использовать из браузера. */
+/**
+ * Внутренний вызов из apps/worker после сообщения RabbitMQ — не использовать из браузера.
+ *
+ * CRITICAL: this runs OUTSIDE an HTTP request, so MvpRequestPersistenceInterceptor never fires
+ * (and could not anyway — it keys tenant off ctx/headers, not the body). A request-scoped
+ * MvpService would therefore see an EMPTY MVP_STATE: every learner would fail `not_found`, the
+ * callback would return an all-errors 200, the worker would ack, and the enrollment would be lost
+ * forever. We route through MvpEnrollmentService (the singleton payment fulfillment also uses),
+ * which hydrates tenant state from the snapshot and SAVES the mutation under the per-tenant lock.
+ */
 @Controller('internal/worker')
 @UseGuards(WorkerCallbackGuard)
 export class MvpInternalWorkerController {
-  constructor(@Inject(MvpService) private readonly mvpService: MvpService) {}
+  constructor(@Inject(MvpEnrollmentService) private readonly enrollment: MvpEnrollmentService) {}
 
   @Post('mvp/bulk-enrollments')
   processBulkEnrollment(@Body() raw: unknown) {
@@ -67,7 +76,7 @@ export class MvpInternalWorkerController {
       tenantId: body.tenantId,
       userId: p.actorId
     };
-    return this.mvpService.createBulkEnrollments(
+    return this.enrollment.enrollIntoGroup(
       body.tenantId,
       p.actorId,
       {

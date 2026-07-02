@@ -6,6 +6,7 @@ import {
   getVisibleNavigation,
   resolveRouteMeta
 } from './helpers';
+import { navigationModel } from './model';
 
 import type { UserSession } from '../../entities/session/model';
 
@@ -63,6 +64,18 @@ describe('navigation helpers', () => {
   it('allows learner cabinet routes with enrollment read permission', () => {
     const learner = { ...adminSession, permissions: ['enrollments.read'] };
     expect(evaluateRouteAccess('/learner/courses/abc', learner)).toEqual({ kind: 'ok' });
+  });
+
+  it('makes the "Мои документы" learner link reachable (has routeMeta)', () => {
+    const learner = { ...adminSession, permissions: ['enrollments.read'] };
+    expect(evaluateRouteAccess('/learner/documents', learner)).toEqual({ kind: 'ok' });
+  });
+
+  it('every navigation link target resolves to a routeMeta entry (no link 404s)', () => {
+    const unreachable = navigationModel
+      .map((item) => item.href)
+      .filter((href) => resolveRouteMeta(href) === null);
+    expect(unreachable).toEqual([]);
   });
 
   it('shows workspace in navigation for tenant.read permission', () => {

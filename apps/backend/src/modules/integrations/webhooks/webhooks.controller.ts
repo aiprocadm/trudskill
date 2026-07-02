@@ -69,12 +69,14 @@ export class WebhooksController {
     body: WebhookDto,
     signature?: string
   ) {
+    // §5.160: verify the shared secret BEFORE emitting any realtime event, so an
+    // unauthenticated caller cannot spam tenant subscribers with a "received" ping.
+    this.verifier.verify(signature, backendEnv.INTEGRATION_WEBHOOK_SECRET);
     this.orchestrator.publishIntegrationEvent(ctx.tenantId!, 'integration.webhook.received', {
       provider_code: providerCode,
       event_type: eventType,
       event_id: body.eventId ?? null
     });
-    this.verifier.verify(signature, backendEnv.INTEGRATION_WEBHOOK_SECRET);
     const dedupeKey = `${ctx.tenantId}:webhook:${providerCode}:${body.eventId ?? this.crypto.hashPayload(body.payload ?? body)}`;
     const duplicate = this.idempotency.get(dedupeKey);
     if (duplicate) {

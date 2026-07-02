@@ -70,7 +70,9 @@ describe('session bootstrap after hard reload (e2e logic)', () => {
       login: 'tenant_admin',
       email: null,
       status: 'active',
-      displayName: 'Tenant Admin'
+      displayName: 'Tenant Admin',
+      // §5.160: permissions now come from /auth/me (server-resolved SSOT).
+      permissions: ['iam.manage_roles', 'tenant.read']
     });
     authApiMock.userRoles.mockResolvedValue([{ code: 'tenant_admin' }]);
 
@@ -89,7 +91,9 @@ describe('session bootstrap after hard reload (e2e logic)', () => {
       login: 'tenant_admin',
       email: null,
       status: 'active',
-      displayName: 'Tenant Admin'
+      displayName: 'Tenant Admin',
+      // §5.160: permissions now come from /auth/me (server-resolved SSOT).
+      permissions: ['iam.manage_roles', 'tenant.read']
     });
     authApiMock.userRoles.mockResolvedValue([{ code: 'tenant_admin' }]);
     authApiMock.logout.mockResolvedValue({ success: true });

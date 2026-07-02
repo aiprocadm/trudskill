@@ -772,12 +772,18 @@ export class DocumentsService {
     const doc = this.getDocument(tenantId, id);
     if (doc.status === 'archived')
       throw new BadRequestException('Archived document cannot be finalized');
+    // A revoked document must never be resurrected. The isFinal short-circuit below does NOT
+    // cover this: a document revoked while still `generated` keeps isFinal=false, so finalize
+    // would otherwise flip it to status='final' + isFinal=true + signed — silently un-revoking a
+    // legally annulled document (reachable via esign tryCompleteProcess → finalizeDocument).
+    // Mirrors the same guard in signDocument.
+    if (doc.status === 'revoked')
+      throw new BadRequestException('Revoked document cannot be finalized');
     // Idempotent: finalizing an already-final document is a no-op. Two signing
     // processes completing on the same generatedDocumentId would otherwise each
     // call finalizeDocument → re-run applySignature (double signature) and re-emit
     // documents.finalized / documents.signed critical-audit entries. (Re-signing a
-    // finalized doc on demand goes through signDocument.) This also stops a re-finalize
-    // from silently un-revoking a revoked document (revoke keeps isFinal=true).
+    // finalized doc on demand goes through signDocument.)
     if (doc.isFinal) return doc;
     const oldValues = { status: doc.status, isFinal: doc.isFinal };
     doc.status = 'final';
@@ -1581,7 +1587,9 @@ export class DocumentsService {
       '';
     const now = this.now();
     for (const enrId of req.enrollmentIds) {
-      // Within-order idempotency: тот же enrollment не выпускается дважды.
+      // Within-order idempotency: тот же enrollment не выпускается дважды этим же
+      // приказом (любой статус — приказ уже отработал по нему, в т.ч. при ре-вызове
+      // alreadyExisted-ветки).
       const dup = this.state.generatedDocuments.find(
         (d) =>
           d.tenantId === tenantId &&
@@ -1591,6 +1599,45 @@ export class DocumentsService {
           d.groupOrderDocumentId === order.id
       );
       if (dup) {
+        continue;
+      }
+      // Cross-flow dedup: у слушателя уже может быть ДЕЙСТВУЮЩЕЕ удостоверение по
+      // этому (enrollment, шаблону), выпущенное другим потоком — авто-выдача при
+      // завершении обучения (generateDocument→completeTask, без groupOrderDocumentId)
+      // или другой приказ. Второй валидный номер недопустим: §17 «перевыпуск» — это
+      // контролируемая операция (reissueDocument: revoke оригинала + новый номер со
+      // связкой replaces/replaced_by), а не молчаливый дубль. Аннулированное (revoked)
+      // удостоверение НЕ блокирует — у слушателя нет действующего, приказ выпускает заново.
+      const existingValid = this.state.generatedDocuments.find(
+        (d) =>
+          d.tenantId === tenantId &&
+          d.sourceEntityType === 'enrollment' &&
+          d.sourceEntityId === enrId &&
+          d.templateId === req.certificateTemplateId &&
+          d.status !== 'revoked'
+      );
+      if (existingValid) {
+        // Переиспользуем существующее удостоверение: если оно ещё не привязано ни к
+        // какому приказу — back-link на текущий приказ, чтобы приказ ссылался на тот же
+        // номер (трассировка через groupOrderDocumentId), а не плодил дубликат.
+        if (!existingValid.groupOrderDocumentId) {
+          existingValid.groupOrderDocumentId = order.id;
+          await this.auditService.writeCritical({
+            tenantId,
+            actorId,
+            action: 'documents.certificate_reused_in_order',
+            entityType: 'documents.generated',
+            entityId: existingValid.id,
+            newValues: { enrollmentId: enrId, orderId: order.id } as unknown as Record<
+              string,
+              unknown
+            >,
+            requestId: ctx.requestId,
+            correlationId: ctx.correlationId,
+            ip: ctx.ip,
+            userAgent: ctx.userAgent
+          });
+        }
         continue;
       }
       const certNumber = this.reserveNumber(tenantId, certTpl.templateType).reservedNumber;

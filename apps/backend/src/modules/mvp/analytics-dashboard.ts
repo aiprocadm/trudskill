@@ -93,7 +93,10 @@ export function computeAnalyticsDashboard(input: AnalyticsInput): AnalyticsDashb
         (new Date(e.completedAt as string).getTime() - new Date(e.enrolledAt).getTime()) /
         MS_PER_DAY
     );
-  const passedExams = scopedExams.filter((er) => er.passed);
+  // A provisional result (best attempt still awaiting essay review) is never a pass —
+  // passed is already false while needs_review; the status guard is defensive.
+  const isGenuinePass = (er: ExamResult): boolean => er.passed && er.status !== 'needs_review';
+  const passedExams = scopedExams.filter(isGenuinePass);
   const scorePercents = scopedExams.map(scorePercent).filter((v): v is number => v !== null);
 
   const attemptDistribution = passedExams.reduce(
@@ -128,7 +131,7 @@ export function computeAnalyticsDashboard(input: AnalyticsInput): AnalyticsDashb
         rowEnrollments.filter((e) => e.status === 'completed').length,
         rowEnrollments.length
       ),
-      examPassRate: ratio(rowExams.filter((er) => er.passed).length, rowExams.length),
+      examPassRate: ratio(rowExams.filter(isGenuinePass).length, rowExams.length),
       averageScorePercent: average(rowScores)
     };
   };

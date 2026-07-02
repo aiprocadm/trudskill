@@ -557,6 +557,160 @@ describe('listMyTests — learner test dashboard', () => {
     expect(afterPass.bestScore).toBe(2);
   });
 
+  it('reports submitted (not passed) while an essay still awaits manual review, then passed after review', () => {
+    const service = makeService();
+    const learnerUser = 'u_learner';
+    const { course, enrollment, bank } = seedEnrollment(service, { linkedIamUserId: learnerUser });
+    const choice = service.createQuestion(
+      T,
+      ADMIN,
+      {
+        questionBankId: bank.id,
+        type: 'single_choice',
+        title: 'Q',
+        score: 2,
+        options: [
+          { text: 'right', isCorrect: true },
+          { text: 'wrong', isCorrect: false }
+        ]
+      },
+      ctx
+    );
+    const essay = service.createQuestion(
+      T,
+      ADMIN,
+      { questionBankId: bank.id, type: 'essay', title: 'Essay', score: 5 },
+      ctx
+    );
+    const test = service.createTest(
+      T,
+      ADMIN,
+      {
+        title: 'Exam',
+        courseId: course.id,
+        questionBankId: bank.id,
+        rules: { attemptLimit: 1, passingScore: 2 }
+      },
+      ctx
+    );
+    service.addTestQuestions(T, test.id, [choice.id, essay.id]);
+    const attempt = service.startAttempt(
+      T,
+      learnerUser,
+      { testId: test.id, enrollmentId: enrollment.id, learnerId: enrollment.learnerId },
+      ctx
+    );
+    const correct = service['state'].answerOptions.find(
+      (o) => o.questionId === choice.id && o.isCorrect
+    )!;
+    service.saveAttemptAnswer(
+      T,
+      learnerUser,
+      attempt.id,
+      { questionId: choice.id, answerOptionIds: [correct.id] },
+      ctx
+    );
+    service.saveAttemptAnswer(
+      T,
+      learnerUser,
+      attempt.id,
+      { questionId: essay.id, textAnswer: 'A thoughtful essay answer.' },
+      ctx
+    );
+    service.submitAttempt(T, learnerUser, attempt.id, ctx);
+
+    // Auto-subtotal (2) already clears passingScore (2), so the raw attempt.passed flag is true —
+    // but the essay is unreviewed, so the dashboard must NOT show "passed" yet.
+    const pending = service.listMyTests(T, learnerUser)[0];
+    expect(pending.status).toBe('submitted');
+
+    service.completeAttemptReview(
+      T,
+      ADMIN,
+      attempt.id,
+      { answerScores: [{ questionId: essay.id, score: 5 }] },
+      ctx
+    );
+    expect(service.listMyTests(T, learnerUser)[0].status).toBe('passed');
+  });
+
+  it('reports submitted (not failed) at the attempt limit while an essay awaits review, then passed after review', () => {
+    const service = makeService();
+    const learnerUser = 'u_learner';
+    const { course, enrollment, bank } = seedEnrollment(service, { linkedIamUserId: learnerUser });
+    const choice = service.createQuestion(
+      T,
+      ADMIN,
+      {
+        questionBankId: bank.id,
+        type: 'single_choice',
+        title: 'Q',
+        score: 2,
+        options: [
+          { text: 'right', isCorrect: true },
+          { text: 'wrong', isCorrect: false }
+        ]
+      },
+      ctx
+    );
+    const essay = service.createQuestion(
+      T,
+      ADMIN,
+      { questionBankId: bank.id, type: 'essay', title: 'Essay', score: 5 },
+      ctx
+    );
+    const test = service.createTest(
+      T,
+      ADMIN,
+      {
+        title: 'Exam',
+        courseId: course.id,
+        questionBankId: bank.id,
+        rules: { attemptLimit: 1, passingScore: 5 }
+      },
+      ctx
+    );
+    service.addTestQuestions(T, test.id, [choice.id, essay.id]);
+    const attempt = service.startAttempt(
+      T,
+      learnerUser,
+      { testId: test.id, enrollmentId: enrollment.id, learnerId: enrollment.learnerId },
+      ctx
+    );
+    const correct = service['state'].answerOptions.find(
+      (o) => o.questionId === choice.id && o.isCorrect
+    )!;
+    service.saveAttemptAnswer(
+      T,
+      learnerUser,
+      attempt.id,
+      { questionId: choice.id, answerOptionIds: [correct.id] },
+      ctx
+    );
+    service.saveAttemptAnswer(
+      T,
+      learnerUser,
+      attempt.id,
+      { questionId: essay.id, textAnswer: 'A thoughtful essay answer.' },
+      ctx
+    );
+    service.submitAttempt(T, learnerUser, attempt.id, ctx);
+
+    // Auto-subtotal (2) is below passingScore (5) and the single attempt is used up — but the
+    // essay (worth 5) is unreviewed, so the dashboard must NOT prematurely show "failed".
+    const pending = service.listMyTests(T, learnerUser)[0];
+    expect(pending.status).toBe('submitted');
+
+    service.completeAttemptReview(
+      T,
+      ADMIN,
+      attempt.id,
+      { answerScores: [{ questionId: essay.id, score: 5 }] },
+      ctx
+    );
+    expect(service.listMyTests(T, learnerUser)[0].status).toBe('passed');
+  });
+
   it('reports failed when attempts are exhausted without a pass', () => {
     const service = makeService();
     const learnerUser = 'u_learner';

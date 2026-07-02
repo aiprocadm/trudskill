@@ -1531,6 +1531,77 @@ describe('mvp service domain rules', () => {
     expect(second).toEqual(first);
   });
 
+  it('replay re-attempts a previously-failed learner once it exists (retry, not frozen errors)', () => {
+    const state = new InMemoryMvpState();
+    const service = new MvpService(
+      state,
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'G-RT', name: 'Retry G' },
+      ctx
+    );
+    const l1 = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'L-RT1', name: 'Present One' },
+      ctx
+    );
+
+    // First attempt: l1 enrolls; 'learner_pending' is not yet hydrated → NotFound (transient).
+    const first = service.createBulkEnrollments(
+      'tenant_demo',
+      ctx.userId,
+      {
+        idempotencyKey: 'payment:o1:g1',
+        groupId: group.id,
+        learnerIds: [l1.id, 'learner_pending']
+      },
+      ctx
+    );
+    expect(first.created).toHaveLength(1);
+    expect(first.errors).toHaveLength(1);
+    expect(first.errors[0]!.learnerId).toBe('learner_pending');
+
+    // The transient cause is fixed: the learner now exists.
+    const now = new Date().toISOString();
+    state.learners.push({
+      id: 'learner_pending',
+      tenantId: 'tenant_demo',
+      status: 'active',
+      createdAt: now,
+      updatedAt: now
+    } as never);
+
+    // Retry with the SAME deterministic idempotency key — must re-attempt the failed learner,
+    // NOT return the frozen outcome that still lists it under `errors`.
+    const second = service.createBulkEnrollments(
+      'tenant_demo',
+      ctx.userId,
+      {
+        idempotencyKey: 'payment:o1:g1',
+        groupId: group.id,
+        learnerIds: [l1.id, 'learner_pending']
+      },
+      ctx
+    );
+
+    expect(second.errors).toHaveLength(0);
+    const enrolledLearnerIds = [
+      ...second.created.map((e) => e.learnerId),
+      ...second.skippedExisting.map((s) => s.learnerId)
+    ].sort();
+    expect(enrolledLearnerIds).toEqual([l1.id, 'learner_pending'].sort());
+    // Cached success preserved — l1 is not re-enrolled (single row, no duplicate).
+    expect(state.enrollments.filter((e) => e.learnerId === l1.id)).toHaveLength(1);
+  });
+
   it('bulk enroll merges organizationUnitId with explicit learner ids', () => {
     const service = new MvpService(
       new InMemoryMvpState(),
@@ -1739,6 +1810,185 @@ describe('MvpService — commissions (Plan A §5.2)', () => {
       expect(updated.name).toBe('New');
       expect(updated.description).toBe('d2');
       expect(updated.code).toBe('C1');
+    });
+
+    it('clears description when an empty string is sent', () => {
+      const service = makeService();
+      const c = service.createCommission(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'C1', name: 'C', description: 'old' },
+        ctx
+      );
+      const updated = service.updateCommission(
+        'tenant_demo',
+        ctx.userId,
+        c.id,
+        { name: 'C', description: '' },
+        ctx
+      );
+      expect(updated.description).toBe('');
+    });
+  });
+
+  describe('§5.160 — anti-IDOR on enrollment / progress reads', () => {
+    const ownerAccess = { actorId: 'u_own', permissions: [] as string[] };
+    const staffAccess = { actorId: 'u_staff', permissions: ['assessment.read.cross_learner'] };
+
+    function seedTwoLearners(service: MvpService) {
+      const course = service.createCourse(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'IDC', title: 'C' },
+        ctx
+      );
+      const g1 = service.createGroup('tenant_demo', ctx.userId, { code: 'IG1', name: 'G1' }, ctx);
+      const g2 = service.createGroup('tenant_demo', ctx.userId, { code: 'IG2', name: 'G2' }, ctx);
+      service.createGroupCourse('tenant_demo', { groupId: g1.id, courseId: course.id });
+      service.createGroupCourse('tenant_demo', { groupId: g2.id, courseId: course.id });
+      const own = service.createLearner(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'LOWN', name: 'Own', linkedIamUserId: 'u_own' },
+        ctx
+      );
+      const other = service.createLearner(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'LOTH', name: 'Other', linkedIamUserId: 'u_other' },
+        ctx
+      );
+      const eOwn = service.createEnrollment(
+        'tenant_demo',
+        ctx.userId,
+        { groupId: g1.id, learnerId: own.id },
+        ctx
+      );
+      const eOther = service.createEnrollment(
+        'tenant_demo',
+        ctx.userId,
+        { groupId: g2.id, learnerId: other.id },
+        ctx
+      );
+      const pushProgress = (enrollmentId: string) => {
+        const id = `cp_${enrollmentId}`;
+        service['state'].courseProgress.push({
+          id,
+          tenantId: 'tenant_demo',
+          enrollmentId,
+          courseId: course.id,
+          status: 'in_progress',
+          studiedSeconds: 0,
+          requiredSeconds: 0,
+          progressPercent: 0,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z'
+        });
+        return id;
+      };
+      return { eOwn, eOther, pOwnId: pushProgress(eOwn.id), pOtherId: pushProgress(eOther.id) };
+    }
+
+    it('forbids a learner from reading another learner enrollment / progress / status-history', () => {
+      const service = makeService();
+      const { eOther, pOtherId } = seedTwoLearners(service);
+      expect(() => service.getEnrollment('tenant_demo', eOther.id, ownerAccess)).toThrow(
+        ForbiddenException
+      );
+      expect(() => service.getProgress('tenant_demo', pOtherId, ownerAccess)).toThrow(
+        ForbiddenException
+      );
+      expect(() =>
+        service.listEnrollmentStatusHistory('tenant_demo', eOther.id, ownerAccess)
+      ).toThrow(ForbiddenException);
+    });
+
+    it('restricts list endpoints to the linked learner own rows', () => {
+      const service = makeService();
+      const { eOwn, pOwnId } = seedTwoLearners(service);
+      const enr = service.listEnrollments('tenant_demo', { page: 1, page_size: 50 }, ownerAccess);
+      expect(enr.items.map((e) => e.id)).toEqual([eOwn.id]);
+      const prog = service.listProgress('tenant_demo', { page: 1, page_size: 50 }, ownerAccess);
+      expect(prog.items.map((p) => p.id)).toEqual([pOwnId]);
+    });
+
+    it('allows the owner their own rows and staff (cross_learner) everything', () => {
+      const service = makeService();
+      const { eOwn } = seedTwoLearners(service);
+      expect(() => service.getEnrollment('tenant_demo', eOwn.id, ownerAccess)).not.toThrow();
+      const enrStaff = service.listEnrollments(
+        'tenant_demo',
+        { page: 1, page_size: 50 },
+        staffAccess
+      );
+      expect(enrStaff.items.length).toBe(2);
+    });
+  });
+
+  describe('§5.160 — material progress is monotonic (no de-completion)', () => {
+    it('keeps a completed material completed when a later report has smaller studiedSeconds', () => {
+      const service = makeService();
+      const course = service.createCourse(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'MON', title: 'C' },
+        ctx
+      );
+      const version = service.createCourseVersion('tenant_demo', course.id);
+      const moduleEntity = service.createModule(
+        'tenant_demo',
+        ctx.userId,
+        { courseVersionId: version.id, title: 'M', minViewSeconds: 0 },
+        ctx
+      );
+      const material = service.createMaterial(
+        'tenant_demo',
+        ctx.userId,
+        { moduleId: moduleEntity.id, title: 'Mat', materialType: 'video', minViewSeconds: 10 },
+        ctx
+      );
+      const group = service.createGroup(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'GMON', name: 'G' },
+        ctx
+      );
+      service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+      const learner = service.createLearner(
+        'tenant_demo',
+        ctx.userId,
+        { code: 'LMON', name: 'L' },
+        ctx
+      );
+      const enrollment = service.createEnrollment(
+        'tenant_demo',
+        ctx.userId,
+        { groupId: group.id, learnerId: learner.id },
+        ctx
+      );
+
+      const first = service.upsertMaterialProgress(
+        'tenant_demo',
+        ctx.userId,
+        material.id,
+        { enrollmentId: enrollment.id, studiedSeconds: 10 },
+        ctx
+      );
+      expect(first.status).toBe('completed');
+      expect(first.completedAt).toBeDefined();
+
+      // A later watch-tracker report with a SMALLER cumulative value must not regress.
+      const second = service.upsertMaterialProgress(
+        'tenant_demo',
+        ctx.userId,
+        material.id,
+        { enrollmentId: enrollment.id, studiedSeconds: 0 },
+        ctx
+      );
+      expect(second.status).toBe('completed');
+      expect(second.studiedSeconds).toBe(10); // latched to the max
+      expect(second.progressPercent).toBe(100);
+      expect(second.completedAt).toBeDefined();
     });
   });
 
@@ -2018,6 +2268,97 @@ describe('MvpService — program meta and publish (Plan A §5.1)', () => {
       expect(updated.trainingType).toBe('primary');
       expect(updated.commissionId).toBe(commissionId);
     });
+
+    it('clears trainingType when null is sent (normalizes to undefined)', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+
+      const updated = service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        { trainingType: null },
+        ctx
+      );
+
+      expect(updated.trainingType).toBeUndefined();
+    });
+
+    it('detaches commission when commissionId is null, without throwing', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+
+      const updated = service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        { commissionId: null },
+        ctx
+      );
+
+      expect(updated.commissionId).toBeUndefined();
+    });
+
+    it('clears only the targeted field and keeps omitted ones intact', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+
+      const updated = service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        { studyForm: null },
+        ctx
+      );
+
+      expect(updated.studyForm).toBeUndefined();
+      expect(updated.academicHours).toBe(40);
+      expect(updated.trainingType).toBe('primary');
+      expect(updated.commissionId).toBe(commissionId);
+    });
+
+    it('clears regulatoryBasisCodes when an empty array is sent', () => {
+      const service = makeService();
+      const { courseVersionId, commissionId } = seedCourseVersionAndCommission(service);
+      service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        completeMeta(commissionId),
+        ctx
+      );
+
+      const updated = service.updateProgramMeta(
+        'tenant_demo',
+        ctx.userId,
+        courseVersionId,
+        { regulatoryBasisCodes: [] },
+        ctx
+      );
+
+      expect(updated.regulatoryBasisCodes).toEqual([]);
+    });
   });
 
   describe('publishCourseVersion', () => {
@@ -2184,6 +2525,63 @@ describe('MvpService — program meta and publish (Plan A §5.1)', () => {
       );
       expect(published.status).toBe('published');
     });
+  });
+});
+
+describe('createGroupCourse — version pinning (§5.159)', () => {
+  it('pins courseVersionId to the only published version at attach time', () => {
+    const service = makeService();
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'CP', title: 'Pin' },
+      ctx
+    );
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'GP', name: 'GP' }, ctx);
+    const v1 = service.createCourseVersion('tenant_demo', course.id);
+    (v1 as { status: string }).status = 'published';
+    const gc = service.createGroupCourse('tenant_demo', {
+      groupId: group.id,
+      courseId: course.id
+    });
+    expect(gc.courseVersionId).toBe(v1.id);
+  });
+
+  it('pins to the latest published version (by versionNo) when several are published', () => {
+    const service = makeService();
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'CP', title: 'Pin' },
+      ctx
+    );
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'GP', name: 'GP' }, ctx);
+    const v1 = service.createCourseVersion('tenant_demo', course.id);
+    (v1 as { status: string }).status = 'published';
+    const v2 = service.createCourseVersion('tenant_demo', course.id);
+    (v2 as { status: string }).status = 'published';
+    const gc = service.createGroupCourse('tenant_demo', {
+      groupId: group.id,
+      courseId: course.id
+    });
+    expect(gc.courseVersionId).toBe(v2.id);
+  });
+
+  it('leaves courseVersionId unset when the course has no published version', () => {
+    const service = makeService();
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'CP', title: 'Pin' },
+      ctx
+    );
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'GP', name: 'GP' }, ctx);
+    service.createCourseVersion('tenant_demo', course.id); // draft only
+    const gc = service.createGroupCourse('tenant_demo', {
+      groupId: group.id,
+      courseId: course.id
+    });
+    expect(gc.courseVersionId).toBeUndefined();
   });
 });
 
@@ -2984,6 +3382,29 @@ describe('Plan C — completeAttemptReview', () => {
     expect(result.passed).toBe(true);
   });
 
+  it('finishAttempt keeps an essay attempt reviewable (does not lock out manual grading)', () => {
+    const { service, essayQ, attempt } = makeEssayAttempt(3);
+
+    // A learner clicking "finish" on a test that contains an essay must NOT freeze the
+    // essay at the provisional 0 and finalize the attempt. It must stay 'submitted' so it
+    // remains in the reviewer queue (status==='submitted' && autoGraded===false) and
+    // completeAttemptReview can score it.
+    const finished = service.finishAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+    expect(finished.status).toBe('submitted');
+
+    // The reviewer can still complete the review → real 'finished' with the human score.
+    const reviewed = service.completeAttemptReview(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { answerScores: [{ questionId: essayQ.id, score: 4 }] },
+      ctx
+    );
+    expect(reviewed.status).toBe('finished');
+    expect(reviewed.score).toBe(4);
+    expect(reviewed.passed).toBe(true);
+  });
+
   it('rejects an out-of-range score', () => {
     const { service, essayQ, attempt } = makeEssayAttempt(3);
     service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
@@ -3009,6 +3430,604 @@ describe('Plan C — completeAttemptReview', () => {
         ctx
       )
     ).toThrow(PreconditionFailedException); // still in_progress
+  });
+});
+
+describe('§5.156 — provisional ExamResult must not publish a pass before manual review', () => {
+  function makeService(): MvpService {
+    return new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+  }
+
+  /**
+   * Course with ONE test mixing an auto-graded number_input (score 2) and an essay
+   * (score 5), passingScore = 2. The auto question ALONE clears the bar — the exact
+   * shape that made submitAttempt publish a provisional `passed: true` before the
+   * essay was human-reviewed.
+   */
+  function seedMixedAutoEssayTest(service: MvpService) {
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'MX', title: 'Mixed' },
+      ctx
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'GM', name: 'GroupMixed' },
+      ctx
+    );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'LM', name: 'Mixed Learner' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const bank = service.createQuestionBank(
+      'tenant_demo',
+      ctx.userId,
+      { title: 'BankMixed', courseId: course.id },
+      ctx
+    );
+    const autoQ = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      {
+        questionBankId: bank.id,
+        type: 'number_input',
+        title: 'Pi?',
+        score: 2,
+        numericExpected: 3.14,
+        numericTolerance: 0.01
+      },
+      ctx
+    );
+    const essayQ = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      { questionBankId: bank.id, type: 'essay', title: 'Discuss safety', score: 5 },
+      ctx
+    );
+    const test = service.createTest(
+      'tenant_demo',
+      ctx.userId,
+      {
+        title: 'MixedTest',
+        courseId: course.id,
+        questionBankId: bank.id,
+        rules: { attemptLimit: 1, passingScore: 2 }
+      },
+      ctx
+    );
+    service.addTestQuestions('tenant_demo', test.id, [autoQ.id, essayQ.id]);
+    const attempt = service.startAttempt(
+      'tenant_demo',
+      ctx.userId,
+      { testId: test.id, enrollmentId: enrollment.id, learnerId: learner.id },
+      ctx
+    );
+    service.saveAttemptAnswer(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { questionId: autoQ.id, textAnswer: '3.14' },
+      ctx
+    );
+    service.saveAttemptAnswer(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { questionId: essayQ.id, textAnswer: 'a thoughtful essay' },
+      ctx
+    );
+    return { service, course, group, learner, enrollment, bank, autoQ, essayQ, test, attempt };
+  }
+
+  it('does NOT publish passed/final when the auto subtotal clears passingScore but an essay is pending', () => {
+    const { service, enrollment, test, attempt } = seedMixedAutoEssayTest(makeService());
+    const submitted = service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+    // Auto subtotal = 2 (number_input) ≥ passingScore 2; essay abstains.
+    expect(submitted.score).toBe(2);
+    expect(submitted.status).toBe('submitted');
+
+    const result = service['state'].examResults.find(
+      (r) => r.enrollmentId === enrollment.id && r.testId === test.id
+    );
+    expect(result).toBeDefined();
+    // The provisional record must NOT be a published pass.
+    expect(result!.passed).toBe(false);
+    expect(result!.status).toBe('needs_review');
+  });
+
+  // §5.160 — an UNANSWERED essay (no answer row at all) must still force manual review.
+  // Mirrors seedMixedAutoEssayTest but answers ONLY the auto question, leaving the essay blank.
+  function seedUnansweredEssay(service: MvpService) {
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'MXU', title: 'MixedU' },
+      ctx
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'GMU', name: 'GroupU' },
+      ctx
+    );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'LMU', name: 'U Learner' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const bank = service.createQuestionBank(
+      'tenant_demo',
+      ctx.userId,
+      { title: 'BankU', courseId: course.id },
+      ctx
+    );
+    const autoQ = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      {
+        questionBankId: bank.id,
+        type: 'number_input',
+        title: 'Pi?',
+        score: 2,
+        numericExpected: 3.14,
+        numericTolerance: 0.01
+      },
+      ctx
+    );
+    const essayQ = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      { questionBankId: bank.id, type: 'essay', title: 'Discuss', score: 5 },
+      ctx
+    );
+    const test = service.createTest(
+      'tenant_demo',
+      ctx.userId,
+      {
+        title: 'MixedU',
+        courseId: course.id,
+        questionBankId: bank.id,
+        rules: { attemptLimit: 1, passingScore: 2 }
+      },
+      ctx
+    );
+    service.addTestQuestions('tenant_demo', test.id, [autoQ.id, essayQ.id]);
+    const attempt = service.startAttempt(
+      'tenant_demo',
+      ctx.userId,
+      { testId: test.id, enrollmentId: enrollment.id, learnerId: learner.id },
+      ctx
+    );
+    // Answer ONLY the auto question; leave the essay blank (no answer row at all).
+    service.saveAttemptAnswer(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { questionId: autoQ.id, textAnswer: '3.14' },
+      ctx
+    );
+    return { service, enrollment, test, attempt, essayQ };
+  }
+
+  it('does NOT publish passed/final when a manual essay is left UNANSWERED (no answer row) — §5.160', () => {
+    const { service, enrollment, test, attempt } = seedUnansweredEssay(makeService());
+    const submitted = service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+    expect(submitted.score).toBe(2); // auto subtotal clears passingScore 2
+    const result = service['state'].examResults.find(
+      (r) => r.enrollmentId === enrollment.id && r.testId === test.id
+    );
+    expect(result).toBeDefined();
+    expect(result!.passed).toBe(false);
+    expect(result!.status).toBe('needs_review');
+  });
+
+  it('lets a reviewer score the left-blank essay and then publishes the pass — §5.160', () => {
+    const { service, enrollment, test, attempt, essayQ } = seedUnansweredEssay(makeService());
+    service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+    // The stub answer row seeded at submit makes the blank essay reviewable
+    // (completeAttemptReview throws "No answer recorded" without a row).
+    service.completeAttemptReview(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { answerScores: [{ questionId: essayQ.id, score: 1 }] },
+      ctx
+    );
+    const result = service['state'].examResults.find(
+      (r) => r.enrollmentId === enrollment.id && r.testId === test.id
+    );
+    expect(result!.passed).toBe(true);
+    expect(result!.status).not.toBe('needs_review');
+    expect(result!.finalScore).toBe(3); // auto 2 + reviewed essay 1
+  });
+
+  it('rejects completing review unless EVERY manual answer was scored (§5.160 follow-up)', () => {
+    const service = makeService();
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'TWO', title: 'Two essays' },
+      ctx
+    );
+    const group = service.createGroup(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'GTW', name: 'GTwo' },
+      ctx
+    );
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'LTW', name: 'L' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const bank = service.createQuestionBank(
+      'tenant_demo',
+      ctx.userId,
+      { title: 'B', courseId: course.id },
+      ctx
+    );
+    const e1 = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      { questionBankId: bank.id, type: 'essay', title: 'E1', score: 5 },
+      ctx
+    );
+    const e2 = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      { questionBankId: bank.id, type: 'essay', title: 'E2', score: 5 },
+      ctx
+    );
+    const test = service.createTest(
+      'tenant_demo',
+      ctx.userId,
+      {
+        title: 'T',
+        courseId: course.id,
+        questionBankId: bank.id,
+        rules: { attemptLimit: 1, passingScore: 6 }
+      },
+      ctx
+    );
+    service.addTestQuestions('tenant_demo', test.id, [e1.id, e2.id]);
+    const attempt = service.startAttempt(
+      'tenant_demo',
+      ctx.userId,
+      { testId: test.id, enrollmentId: enrollment.id, learnerId: learner.id },
+      ctx
+    );
+    service.saveAttemptAnswer(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { questionId: e1.id, textAnswer: 'a' },
+      ctx
+    );
+    service.saveAttemptAnswer(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { questionId: e2.id, textAnswer: 'b' },
+      ctx
+    );
+    service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+
+    // Reviewer scores only e1 → e2 left unscored must NOT silently finalize at 0 (false-fail).
+    expect(() =>
+      service.completeAttemptReview(
+        'tenant_demo',
+        ctx.userId,
+        attempt.id,
+        { answerScores: [{ questionId: e1.id, score: 5 }] },
+        ctx
+      )
+    ).toThrow(BadRequestException);
+
+    // Scoring BOTH manual answers completes the review.
+    const reviewed = service.completeAttemptReview(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      {
+        answerScores: [
+          { questionId: e1.id, score: 5 },
+          { questionId: e2.id, score: 3 }
+        ]
+      },
+      ctx
+    );
+    expect(reviewed.status).toBe('finished');
+    expect(reviewed.score).toBe(8);
+    expect(reviewed.passed).toBe(true);
+  });
+
+  it('transitions the ExamResult from needs_review to a real pass after completeAttemptReview', () => {
+    const { service, enrollment, test, attempt, essayQ } = seedMixedAutoEssayTest(makeService());
+    service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+
+    service.completeAttemptReview(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { answerScores: [{ questionId: essayQ.id, score: 1 }] },
+      ctx
+    );
+
+    const result = service['state'].examResults.find(
+      (r) => r.enrollmentId === enrollment.id && r.testId === test.id
+    );
+    expect(result!.passed).toBe(true);
+    expect(result!.status).not.toBe('needs_review');
+    expect(result!.finalScore).toBe(3); // auto 2 + reviewed essay 1
+  });
+
+  it('publishes a real pass for an auto-only attempt (no manual review needed) — regression guard', () => {
+    const service = makeService();
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'AO', title: 'AutoOnly' },
+      ctx
+    );
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'GA', name: 'GA' }, ctx);
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'LA', name: 'Auto Learner' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const bank = service.createQuestionBank(
+      'tenant_demo',
+      ctx.userId,
+      { title: 'BankA', courseId: course.id },
+      ctx
+    );
+    const autoQ = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      {
+        questionBankId: bank.id,
+        type: 'number_input',
+        title: 'Pi?',
+        score: 2,
+        numericExpected: 3.14,
+        numericTolerance: 0.01
+      },
+      ctx
+    );
+    const test = service.createTest(
+      'tenant_demo',
+      ctx.userId,
+      {
+        title: 'AutoTest',
+        courseId: course.id,
+        questionBankId: bank.id,
+        rules: { attemptLimit: 1, passingScore: 2 }
+      },
+      ctx
+    );
+    service.addTestQuestions('tenant_demo', test.id, [autoQ.id]);
+    const attempt = service.startAttempt(
+      'tenant_demo',
+      ctx.userId,
+      { testId: test.id, enrollmentId: enrollment.id, learnerId: learner.id },
+      ctx
+    );
+    service.saveAttemptAnswer(
+      'tenant_demo',
+      ctx.userId,
+      attempt.id,
+      { questionId: autoQ.id, textAnswer: '3.14' },
+      ctx
+    );
+    service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+
+    const result = service['state'].examResults.find((r) => r.enrollmentId === enrollment.id);
+    expect(result!.passed).toBe(true);
+    expect(result!.status).not.toBe('needs_review');
+  });
+
+  it('keeps the module gate LOCKED while the gating exam awaits essay review, then opens after review', () => {
+    const service = makeService();
+    const course = service.createCourse(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'GT', title: 'Gated' },
+      ctx
+    );
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'GG', name: 'GG' }, ctx);
+    service.createGroupCourse('tenant_demo', { groupId: group.id, courseId: course.id });
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'LG', name: 'Gated Learner' },
+      ctx
+    );
+    const enrollment = service.createEnrollment(
+      'tenant_demo',
+      ctx.userId,
+      { groupId: group.id, learnerId: learner.id },
+      ctx
+    );
+    const bank = service.createQuestionBank(
+      'tenant_demo',
+      ctx.userId,
+      { title: 'BankG', courseId: course.id },
+      ctx
+    );
+    const version = service.createCourseVersion('tenant_demo', course.id);
+    const m1 = service.createModule(
+      'tenant_demo',
+      ctx.userId,
+      { courseVersionId: version.id, title: 'M1', minViewSeconds: 0, isRequired: true },
+      ctx
+    );
+    const m2 = service.createModule(
+      'tenant_demo',
+      ctx.userId,
+      { courseVersionId: version.id, title: 'M2', minViewSeconds: 0, isRequired: true },
+      ctx
+    );
+    // m1 gating test: mixed auto(number_input score 2) + essay, passingScore 2.
+    const autoQ = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      {
+        questionBankId: bank.id,
+        type: 'number_input',
+        title: 'Pi?',
+        score: 2,
+        numericExpected: 3.14,
+        numericTolerance: 0.01
+      },
+      ctx
+    );
+    const essayQ = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      { questionBankId: bank.id, type: 'essay', title: 'Discuss', score: 5 },
+      ctx
+    );
+    const m1test = service.createTest(
+      'tenant_demo',
+      ctx.userId,
+      {
+        title: 'M1 test',
+        courseId: course.id,
+        questionBankId: bank.id,
+        moduleId: m1.id,
+        rules: { attemptLimit: 1, passingScore: 2 }
+      },
+      ctx
+    );
+    service.addTestQuestions('tenant_demo', m1test.id, [autoQ.id, essayQ.id]);
+    const m2q = service.createQuestion(
+      'tenant_demo',
+      ctx.userId,
+      {
+        questionBankId: bank.id,
+        type: 'number_input',
+        title: 'Two?',
+        score: 1,
+        numericExpected: 2,
+        numericTolerance: 0
+      },
+      ctx
+    );
+    const m2test = service.createTest(
+      'tenant_demo',
+      ctx.userId,
+      {
+        title: 'M2 test',
+        courseId: course.id,
+        questionBankId: bank.id,
+        moduleId: m2.id,
+        rules: { attemptLimit: 1, passingScore: 1 }
+      },
+      ctx
+    );
+    service.addTestQuestions('tenant_demo', m2test.id, [m2q.id]);
+
+    // Take m1's gating test: auto answered correctly, essay pending.
+    const a1 = service.startAttempt(
+      'tenant_demo',
+      ctx.userId,
+      { testId: m1test.id, enrollmentId: enrollment.id, learnerId: learner.id },
+      ctx
+    );
+    service.saveAttemptAnswer(
+      'tenant_demo',
+      ctx.userId,
+      a1.id,
+      { questionId: autoQ.id, textAnswer: '3.14' },
+      ctx
+    );
+    service.saveAttemptAnswer(
+      'tenant_demo',
+      ctx.userId,
+      a1.id,
+      { questionId: essayQ.id, textAnswer: 'essay' },
+      ctx
+    );
+    service.submitAttempt('tenant_demo', ctx.userId, a1.id, ctx);
+
+    // BEFORE review: the provisional pass must NOT unlock the next module.
+    expect(() =>
+      service.startAttempt(
+        'tenant_demo',
+        ctx.userId,
+        { testId: m2test.id, enrollmentId: enrollment.id, learnerId: learner.id },
+        ctx
+      )
+    ).toThrow(PreconditionFailedException);
+
+    // Reviewer scores the essay → real pass.
+    service.completeAttemptReview(
+      'tenant_demo',
+      ctx.userId,
+      a1.id,
+      { answerScores: [{ questionId: essayQ.id, score: 1 }] },
+      ctx
+    );
+
+    // AFTER review: the gate opens.
+    const a2 = service.startAttempt(
+      'tenant_demo',
+      ctx.userId,
+      { testId: m2test.id, enrollmentId: enrollment.id, learnerId: learner.id },
+      ctx
+    );
+    expect(a2.status).toBe('in_progress');
+  });
+
+  it('does not count a provisional (needs_review) result as a pass in analytics pass-rate', () => {
+    const { service, attempt } = seedMixedAutoEssayTest(makeService());
+    service.submitAttempt('tenant_demo', ctx.userId, attempt.id, ctx);
+
+    const kpi = service.getKpiSnapshot('tenant_demo', {});
+    expect(kpi.examResultsPassed).toBe(0);
+    expect(kpi.examPassRate).toBe(0);
   });
 });
 
