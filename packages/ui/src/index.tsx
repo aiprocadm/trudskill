@@ -16,6 +16,7 @@ export * from './components/permission/index';
 export * from './components/icon/index';
 export * from './components/button/index';
 export * from './components/skeleton/index';
+export * from './components/stat-card/index';
 export * from './patterns/registry';
 export * from './providers/theme-provider';
 export {
