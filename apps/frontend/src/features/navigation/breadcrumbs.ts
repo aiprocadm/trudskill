@@ -1,4 +1,5 @@
 import { navigationModel } from './model';
+import { resolveGroupForPath } from './nav-groups';
 
 const hrefToLabel = new Map(navigationModel.map((item) => [item.href, item.label]));
 
@@ -58,7 +59,7 @@ const labelForSegment = (segment: string, isLast: boolean): string => {
   return segment;
 };
 
-export type BreadcrumbItem = { label: string; href: string };
+export type BreadcrumbItem = { label: string; href?: string };
 
 export const buildBreadcrumbs = (pathname: string): BreadcrumbItem[] => {
   const normalized = (pathname.split('?')[0] ?? '/').replace(/\/+$/, '') || '/';
@@ -66,9 +67,15 @@ export const buildBreadcrumbs = (pathname: string): BreadcrumbItem[] => {
     return [{ label: 'Главная', href: '/' }];
   }
 
-  const segments = normalized.split('/').filter(Boolean);
   const items: BreadcrumbItem[] = [{ label: 'Главная', href: '/' }];
 
+  // Крошка блока (раздел меню) — ненавигационная: Блок → Страница → Деталь.
+  const group = resolveGroupForPath(normalized);
+  if (group) {
+    items.push({ label: group.label });
+  }
+
+  const segments = normalized.split('/').filter(Boolean);
   let acc = '';
   for (let i = 0; i < segments.length; i++) {
     acc += `/${segments[i]}`;

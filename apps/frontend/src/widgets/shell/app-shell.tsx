@@ -164,10 +164,14 @@ export const AppShell = ({ children }: PropsWithChildren) => {
             {breadcrumbItems.map((crumb, index) => {
               const isLast = index === breadcrumbItems.length - 1;
               return (
-                <span key={crumb.href} className="app-shell__crumb">
+                <span key={`${index}-${crumb.label}`} className="app-shell__crumb">
                   {index > 0 ? <span className="app-shell__crumb-sep"> / </span> : null}
-                  {isLast ? (
-                    <span className="app-shell__crumb-current">{crumb.label}</span>
+                  {isLast || !crumb.href ? (
+                    <span
+                      className={isLast ? 'app-shell__crumb-current' : 'app-shell__crumb-block'}
+                    >
+                      {crumb.label}
+                    </span>
                   ) : (
                     <Link href={crumb.href} className="app-shell__crumb-link">
                       {crumb.label}
@@ -355,6 +359,10 @@ export const AppShell = ({ children }: PropsWithChildren) => {
         }
         .app-shell__crumb-current {
           color: var(--ui-text);
+          font-weight: 500;
+        }
+        .app-shell__crumb-block {
+          color: var(--ui-text-muted);
           font-weight: 500;
         }
         .app-shell__userbar {
