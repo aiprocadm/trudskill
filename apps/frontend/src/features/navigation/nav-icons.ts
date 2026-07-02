@@ -26,9 +26,8 @@ export const ClipboardCheckIcon: LucideIcon = ClipboardCheck;
 export const UsersIcon: LucideIcon = Users;
 export const Building2Icon: LucideIcon = Building2;
 export const FileBadgeIcon: LucideIcon = FileBadge;
-// BarChart3 не экспортируется в установленной версии lucide-react (1.23.0) — переименован
-// в рамках ребрендинга glyph-имён библиотеки. Ближайший семантический эквивалент — ChartColumn
-// (столбчатая диаграмма, тот же смысл блока «Отчёты и выгрузки»).
+// lucide-react@1.23.0: канонический глиф — ChartColumn; BarChart3 — устаревший алиас того же глифа.
+// Используем ChartColumn напрямую; имя экспортируемой константы (BarChart3Icon) сохранено для читаемости.
 export const BarChart3Icon: LucideIcon = ChartColumn;
 export const MessagesSquareIcon: LucideIcon = MessagesSquare;
 export const SettingsIcon: LucideIcon = Settings;
