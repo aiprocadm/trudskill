@@ -368,6 +368,7 @@ export const AppShell = ({ children }: PropsWithChildren) => {
         .app-shell__userbar {
           flex: 0 1 auto;
           justify-content: flex-end;
+          gap: 12px;
         }
         .app-shell__search {
           display: inline-flex;
