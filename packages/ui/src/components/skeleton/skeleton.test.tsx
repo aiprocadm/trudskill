@@ -24,4 +24,9 @@ describe('Skeleton — заглушка загрузки', () => {
     expect(Skeleton({}).props.children as ReactElement[]).toHaveLength(3);
     expect(Skeleton({ lines: 0 }).props.children as ReactElement[]).toHaveLength(1);
   });
+
+  it('ширины линий чередуются 70/80/90%', () => {
+    const rows = Skeleton({ lines: 4 }).props.children as ReactElement[];
+    expect(rows.map((row) => row.props.style.width)).toEqual(['70%', '80%', '90%', '70%']);
+  });
 });

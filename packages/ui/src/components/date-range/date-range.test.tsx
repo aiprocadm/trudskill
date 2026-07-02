@@ -27,6 +27,14 @@ describe('DateRangeField — диапазон дат в контракте ui-fi
     expect(to.props.value).toBe('2026-07-31');
   });
 
+  it('кастомный label попадает в подпись и aria-метки', () => {
+    const el = DateRangeField({ value: {}, onChange: () => {}, label: 'Срок действия' });
+    const [label, row] = el.props.children as ReactElement[];
+    expect(label.props.children).toBe('Срок действия');
+    const [from] = row.props.children as ReactElement[];
+    expect(from.props['aria-label']).toBe('Срок действия: с');
+  });
+
   it('onChange отдаёт обновлённый диапазон', () => {
     const onChange = vi.fn();
     const el = DateRangeField({ value: { from: '2026-07-01' }, onChange });

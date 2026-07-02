@@ -23,12 +23,18 @@ describe('Callout — статичная плашка-уведомление', (
     });
     expect(el.props.className).toBe('ui-callout ui-callout--warning');
     const body = el.props.children as ReactElement;
-    const [title] = body.props.children as ReactElement[];
+    const [title, content] = body.props.children as ReactElement[];
     expect(title.props.className).toBe('ui-callout__title');
     expect(title.props.children).toBe('Проверьте данные');
+    expect(content).toBe('СНИЛС не прошёл контроль');
   });
 
   it('tone по умолчанию — info', () => {
     expect(Callout({ children: 'Текст' }).props.className).toBe('ui-callout ui-callout--info');
+  });
+
+  it('role переопределяется для статичных баннеров', () => {
+    const el = Callout({ tone: 'danger', role: 'status', children: 'Аннулирован' });
+    expect(el.props.role).toBe('status');
   });
 });

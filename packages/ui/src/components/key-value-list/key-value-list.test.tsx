@@ -23,4 +23,16 @@ describe('KeyValueList — канонический key/value список (dl.k
     expect(dd.type).toBe('dd');
     expect(dd.props.children).toBe('7701234567');
   });
+
+  it('дубли label не конфликтуют по key', () => {
+    const el = KeyValueList({
+      items: [
+        { label: 'Телефон', value: '+7 900' },
+        { label: 'Телефон', value: '+7 901' }
+      ]
+    });
+    const rows = el.props.children as ReactElement[];
+    expect(rows[0]?.key).toBe('Телефон-0');
+    expect(rows[1]?.key).toBe('Телефон-1');
+  });
 });
