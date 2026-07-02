@@ -269,6 +269,9 @@ export const AppShell = ({ children }: PropsWithChildren) => {
           gap: 2px;
           padding: 2px 0 6px 12px;
         }
+        .app-shell__group-items[hidden] {
+          display: none;
+        }
         @media (prefers-reduced-motion: reduce) {
           .app-shell__chevron {
             transition: none;
