@@ -16,7 +16,7 @@ export const Button = ({
 }: {
   variant?: ButtonVariant;
   loading?: boolean;
-  /** Декоративная иконка слева от текста (обычно <Icon icon={...} size={16} />). */
+  /** Декоративная иконка слева от текста (обычно <Icon icon={...} />; CSS кнопки принудительно рендерит её 16px независимо от size). */
   icon?: ReactNode;
 } & ButtonHTMLAttributes<HTMLButtonElement>): ReactElement => {
   const classes = [

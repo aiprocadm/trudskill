@@ -10,6 +10,7 @@ describe('Button — обёртка над ui-button классами', () => {
     expect(el.props.type).toBe('button');
     expect(el.props.className).toBe('ui-button');
     expect(el.props.disabled).toBe(false);
+    expect(el.props['aria-busy']).toBeUndefined();
   });
 
   it('variant → канонический BEM-модификатор ui-button--<variant>', () => {

@@ -33,4 +33,5 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .ui-button,.ui-button--primary,.ui-button--secondary,.ui-button--ghost,.ui-button--danger { display: inline-flex; align-items: center; justify-content: center; gap: var(--ui-space-sm); }
 .ui-button__icon { display: inline-flex; }
 .ui-button__icon svg { width: 16px; height: 16px; }
+.ui-button--loading:disabled { opacity: 1; }
 `;
