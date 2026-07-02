@@ -3,13 +3,15 @@
 import { Icon, VISUALLY_HIDDEN_CLASS } from '@trudskill/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { type PropsWithChildren, useEffect, useMemo, useState } from 'react';
+import { type PropsWithChildren, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { CommandPalette } from './command-palette';
 import { useAuth } from '../../features/auth/context';
 import { useNotificationsList, useNotificationsRealtime } from '../../features/communication/hooks';
 import { buildBreadcrumbs } from '../../features/navigation/breadcrumbs';
+import { buildCommandItems } from '../../features/navigation/command-palette';
 import { getGroupedNavigation } from '../../features/navigation/nav-groups';
-import { ChevronDownIcon } from '../../features/navigation/nav-icons';
+import { ChevronDownIcon, SearchIcon } from '../../features/navigation/nav-icons';
 import { getPrimaryRoleBlueprint } from '../../features/navigation/role-blueprints';
 
 const formatUnreadBadge = (total: number | undefined) => {
@@ -36,6 +38,36 @@ export const AppShell = ({ children }: PropsWithChildren) => {
 
   // Ручные раскрытия пользователя поверх авто-раскрытия активного блока.
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const paletteReturnRef = useRef<HTMLElement | null>(null);
+  const commandItems = useMemo(() => buildCommandItems(session), [session]);
+
+  const openPalette = useCallback(() => {
+    paletteReturnRef.current = (document.activeElement as HTMLElement) ?? null;
+    setPaletteOpen(true);
+  }, []);
+
+  const closePalette = useCallback(() => {
+    setPaletteOpen(false);
+    // Фокус возвращается на место вызова.
+    paletteReturnRef.current?.focus();
+  }, []);
+
+  // Глобальный Ctrl/⌘+K.
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && (event.key === 'k' || event.key === 'K')) {
+        event.preventDefault();
+        setPaletteOpen((prev) => {
+          if (!prev) paletteReturnRef.current = (document.activeElement as HTMLElement) ?? null;
+          return !prev;
+        });
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   useNotificationsRealtime(() => void unread.refetch());
 
@@ -145,6 +177,16 @@ export const AppShell = ({ children }: PropsWithChildren) => {
             })}
           </nav>
           <div className="app-shell__userbar ui-inline">
+            <button
+              type="button"
+              className="app-shell__search"
+              onClick={openPalette}
+              aria-keyshortcuts="Control+K Meta+K"
+            >
+              <Icon icon={SearchIcon} size={16} />
+              <span>Поиск</span>
+              <kbd className="app-shell__kbd">Ctrl K</kbd>
+            </button>
             <Link href="/notifications" className="app-shell__notif-link">
               Уведомления
               {/* Постоянная live-region: смена счётчика непрочитанных озвучивается скринридером. */}
@@ -168,6 +210,7 @@ export const AppShell = ({ children }: PropsWithChildren) => {
         </header>
         <div className="ui-app-shell-main">{children}</div>
       </div>
+      <CommandPalette open={paletteOpen} items={commandItems} onClose={closePalette} />
       <style jsx>{`
         .app-shell {
           min-height: 100vh;
@@ -316,6 +359,29 @@ export const AppShell = ({ children }: PropsWithChildren) => {
         .app-shell__userbar {
           flex: 0 1 auto;
           justify-content: flex-end;
+        }
+        .app-shell__search {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          height: 36px;
+          padding: 0 10px;
+          border: 1px solid var(--ui-border);
+          border-radius: 10px;
+          background: var(--ui-surface);
+          color: var(--ui-text-muted);
+          cursor: pointer;
+          font-size: 13px;
+        }
+        .app-shell__search:hover {
+          color: var(--ui-text);
+        }
+        .app-shell__kbd {
+          font-size: 11px;
+          border: 1px solid var(--ui-border);
+          border-radius: 6px;
+          padding: 1px 5px;
+          color: var(--ui-text-muted);
         }
         .app-shell__meta {
           font-size: 13px;
