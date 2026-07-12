@@ -20,6 +20,7 @@ export * from './components/stat-card/index';
 export * from './components/key-value-list/index';
 export * from './components/callout/index';
 export * from './patterns/registry';
+export * from './composition/index';
 export * from './providers/theme-provider';
 export {
   useUiTheme,
