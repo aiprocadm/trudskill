@@ -29,9 +29,20 @@ export const SectionEmpty = ({ message, hint }: { message?: string; hint?: strin
   return <EmptyState message={resolvedMessage} />;
 };
 
-export const SectionCard = ({ title, children }: PropsWithChildren<{ title: string }>) => (
+export const SectionCard = ({
+  title,
+  subtitle,
+  actions,
+  children
+}: PropsWithChildren<{ title: string; subtitle?: string; actions?: ReactNode }>) => (
   <section className="ui-section-card">
-    <h3 className="ui-section-title">{title}</h3>
+    <div className="ui-section-head">
+      <div>
+        <h3 className="ui-section-title">{title}</h3>
+        {subtitle ? <p className="ui-page-subtitle">{subtitle}</p> : null}
+      </div>
+      {actions ? <div className="ui-inline">{actions}</div> : null}
+    </div>
     {children}
   </section>
 );
