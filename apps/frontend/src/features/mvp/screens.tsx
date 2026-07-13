@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, FilterBar, LoadingState, StatusChip } from '@trudskill/ui';
+import { AsyncSection, DataTable, FilterBar, LoadingState, StatusChip } from '@trudskill/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, type ReactElement, useEffect, useMemo, useRef, useState } from 'react';
@@ -2616,14 +2616,16 @@ export const CommissionsPageScreen = () => {
             Обновить
           </button>
         </div>
-        {loading ? <LoadingState message="Загрузка…" /> : null}
-        {error ? <SectionError message={error} /> : null}
-        {data && data.items.length > 0 ? (
-          <DataTable columns={commissionColumns} rows={data.items} />
-        ) : null}
-        {data && data.items.length === 0 && !loading ? (
-          <SectionEmpty message="Комиссии не созданы" hint="Создайте первую комиссию ниже" />
-        ) : null}
+        <AsyncSection
+          isLoading={loading}
+          error={error ? new Error(error) : undefined}
+          isEmpty={!!data && data.items.length === 0}
+          loadingMessage="Загрузка…"
+          emptyMessage="Комиссии не созданы"
+          emptyHint="Создайте первую комиссию ниже"
+        >
+          <DataTable columns={commissionColumns} rows={data?.items ?? []} />
+        </AsyncSection>
       </SectionCard>
 
       <SectionCard title="Создать новую комиссию">
