@@ -6,6 +6,11 @@ import { defineConfig } from 'vitest/config';
 loadDotenv({ path: path.resolve(__dirname, '../../.env') });
 
 export default defineConfig({
+  // Компоненты фронта написаны под автоматический JSX-рантайм (Next.js, без `import React`).
+  // esbuild в vitest по умолчанию берёт классический `React.createElement`, из-за чего вызов
+  // любого JSX-компонента как функции падает с «React is not defined». Ставим automatic, чтобы
+  // тесты-как-функция (напр. SectionCard) совпадали с продакшн-трансформом. Совпадает с packages/ui.
+  esbuild: { jsx: 'automatic' },
   resolve: {
     alias: {
       '@trudskill/api-contracts': path.resolve(

@@ -1,5 +1,6 @@
 'use client';
 
+import { Button, Form, FormActions, FormField } from '@trudskill/ui';
 import { useEffect, useState } from 'react';
 
 import {
@@ -94,49 +95,46 @@ export default function AcademyRequisitesPage() {
           {!session ? <SectionEmpty message="Нет активной сессии" /> : null}
           {err ? <SectionError message={err} /> : null}
           {session ? (
-            <form
+            <Form
               onSubmit={(event) => {
                 event.preventDefault();
                 void onSave();
               }}
-              className="ui-form"
               style={{ maxWidth: 560 }}
             >
-              <label>
-                Юридическое название
-                <input
-                  value={legalName}
-                  onChange={(event) => setLegalName(event.target.value)}
-                  required
-                />
-              </label>
-              <label>
-                ИНН
-                <input
-                  value={taxNumber}
-                  onChange={(event) => setTaxNumber(event.target.value)}
-                  required
-                />
-              </label>
-              <label>
-                Название академии (UI)
-                <input
-                  value={academyName}
-                  onChange={(event) => setAcademyName(event.target.value)}
-                />
-              </label>
-              <label>
-                Часовой пояс
-                <input value={timezone} onChange={(event) => setTimezone(event.target.value)} />
-              </label>
-              <label>
-                Локаль
-                <input value={locale} onChange={(event) => setLocale(event.target.value)} />
-              </label>
-              <button type="submit" className="ui-button ui-button--primary" disabled={saving}>
-                {saving ? 'Сохранение...' : 'Сохранить изменения'}
-              </button>
-            </form>
+              <FormField
+                label="Юридическое название"
+                value={legalName}
+                onChange={(event) => setLegalName(event.target.value)}
+                required
+              />
+              <FormField
+                label="ИНН"
+                value={taxNumber}
+                onChange={(event) => setTaxNumber(event.target.value)}
+                required
+              />
+              <FormField
+                label="Название академии (UI)"
+                value={academyName}
+                onChange={(event) => setAcademyName(event.target.value)}
+              />
+              <FormField
+                label="Часовой пояс"
+                value={timezone}
+                onChange={(event) => setTimezone(event.target.value)}
+              />
+              <FormField
+                label="Локаль"
+                value={locale}
+                onChange={(event) => setLocale(event.target.value)}
+              />
+              <FormActions>
+                <Button variant="primary" type="submit" loading={saving}>
+                  {saving ? 'Сохранение...' : 'Сохранить изменения'}
+                </Button>
+              </FormActions>
+            </Form>
           ) : null}
         </SectionCard>
       </PageContainer>

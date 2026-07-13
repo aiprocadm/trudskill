@@ -19,6 +19,7 @@ export const foundationStyles = `
 .ui-section-card { padding: 20px; display:grid; gap:14px; }
 .ui-section-title { margin:0; font-size: 1.05rem; font-weight: 650; letter-spacing: -0.01em; color: var(--ui-text); display:flex; align-items:center; gap:9px; }
 .ui-section-title::before { content:''; width:4px; height:1.05em; border-radius:var(--ui-radius-pill); background: var(--ui-brand-600); flex:none; }
+.ui-section-head { display:flex; justify-content:space-between; align-items:flex-start; gap: var(--ui-space-md); }
 .ui-empty,.ui-error,.ui-loading { border: 1px dashed var(--ui-border); border-radius: var(--ui-radius-md); background: var(--ui-surface-muted); padding: 16px; color: var(--ui-text-muted); }
 .ui-error { border-color: var(--ui-error-border); color: var(--ui-danger-600); }
 .ui-empty-hint { margin: 10px 0 0; font-size: 0.875rem; line-height: 1.5; color: var(--ui-text-muted); }

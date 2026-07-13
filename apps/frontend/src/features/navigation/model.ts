@@ -65,6 +65,10 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['auth.manage_sessions'] }
   },
   {
+    pattern: '/admin/ui-kit',
+    meta: { public: false, requiredPermissions: ['auth.manage_sessions'] }
+  },
+  {
     pattern: '/admin/analytics',
     meta: { public: false, requiredPermissions: ['enrollments.read'] }
   },

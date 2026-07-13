@@ -44,4 +44,24 @@ export const layoutStyles = `
 @media (max-width: 768px) {
   .ui-dashboard-grid { grid-template-columns: 1fr; }
 }
+/* Двухколоночная раскладка карточки (DetailLayout): main + aside. */
+/* 320px — ширина трека aside, 900px — breakpoint; структурные величины, не spacing/radius. */
+.ui-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 320px);
+  gap: var(--ui-space-lg);
+  align-items: start;
+}
+.ui-detail__main,
+.ui-detail__aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-lg);
+  min-width: 0;
+}
+@media (max-width: 900px) {
+  .ui-detail {
+    grid-template-columns: 1fr;
+  }
+}
 `;
