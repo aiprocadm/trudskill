@@ -279,9 +279,13 @@ export const UsersPageScreen = () => {
           setRole={setRole}
           roles={roles}
         />
-        {loading ? <LoadingState message="Загрузка списка пользователей…" /> : null}
-        {error ? <SectionError message={error} /> : null}
-        {data?.items.length ? (
+        <AsyncSection
+          isLoading={loading}
+          error={error ? new Error(error) : undefined}
+          isEmpty={!data?.items.length}
+          loadingMessage="Загрузка списка пользователей…"
+          emptyMessage="Нет пользователей"
+        >
           <DataTable
             stickyFirstColumn
             columns={[
@@ -289,21 +293,18 @@ export const UsersPageScreen = () => {
               { key: 'login', title: 'Логин' },
               { key: 'status', title: 'Статус' }
             ]}
-            rows={toTableRows(data.items)}
+            rows={toTableRows(data?.items ?? [])}
           />
-        ) : null}
-        {!loading && !error && !data?.items.length ? (
-          <SectionEmpty message="Нет пользователей" />
-        ) : null}
-        <div className="ui-stack" style={{ gap: 8 }}>
-          {data?.items.map((user) => (
-            <div key={user.id} className="ui-inline">
-              <Link href={`/users/${user.id}`}>Открыть карточку {user.displayName}</Link>
-              <StatusChip status={user.status} />
-              {!canManage ? <small>Только просмотр</small> : null}
-            </div>
-          ))}
-        </div>
+          <div className="ui-stack" style={{ gap: 8 }}>
+            {(data?.items ?? []).map((user) => (
+              <div key={user.id} className="ui-inline">
+                <Link href={`/users/${user.id}`}>Открыть карточку {user.displayName}</Link>
+                <StatusChip status={user.status} />
+                {!canManage ? <small>Только просмотр</small> : null}
+              </div>
+            ))}
+          </div>
+        </AsyncSection>
         <PaginationControls page={page} setPage={setPage} total={data?.total} pageSize={20} />
       </SectionCard>
     </PageContainer>
@@ -517,18 +518,21 @@ export const CounterpartiesPageScreen = () => {
       <PageHeader title="Контрагенты" />
       <SectionCard title="Реестр контрагентов">
         <RegistryControls q={q} setQ={setQ} status={status} setStatus={setStatus} />
-        {loading ? <LoadingState message="Загрузка…" /> : null}
-        {error ? <SectionError message={error} /> : null}
-        <div className="ui-stack" style={{ gap: 8 }}>
-          {data?.items.map((item) => (
-            <Link key={item.id} href={`/counterparties/${item.id}`}>
-              {item.name} ({item.code})
-            </Link>
-          ))}
-        </div>
-        {!loading && !error && !data?.items.length ? (
-          <SectionEmpty message="Нет контрагентов" />
-        ) : null}
+        <AsyncSection
+          isLoading={loading}
+          error={error ? new Error(error) : undefined}
+          isEmpty={!data?.items.length}
+          loadingMessage="Загрузка…"
+          emptyMessage="Нет контрагентов"
+        >
+          <div className="ui-stack" style={{ gap: 8 }}>
+            {(data?.items ?? []).map((item) => (
+              <Link key={item.id} href={`/counterparties/${item.id}`}>
+                {item.name} ({item.code})
+              </Link>
+            ))}
+          </div>
+        </AsyncSection>
         <PaginationControls page={page} setPage={setPage} total={data?.total} pageSize={20} />
       </SectionCard>
     </PageContainer>
@@ -571,13 +575,17 @@ export const DirectionsPageScreen = () => {
     <PageContainer>
       <PageHeader title="Направления" />
       <SectionCard title="Реестр направлений">
-        {loading ? <LoadingState message="Загрузка…" /> : null}
-        {error ? <SectionError message={error} /> : null}
-        <ul>
-          {data?.items.map((item) => (
-            <li key={item.id}>{item.name}</li>
-          ))}
-        </ul>
+        <AsyncSection
+          isLoading={loading}
+          error={error ? new Error(error) : undefined}
+          loadingMessage="Загрузка…"
+        >
+          <ul>
+            {(data?.items ?? []).map((item) => (
+              <li key={item.id}>{item.name}</li>
+            ))}
+          </ul>
+        </AsyncSection>
       </SectionCard>
     </PageContainer>
   );
@@ -623,17 +631,22 @@ export const CoursesPageScreen = () => {
             ))}
           </select>
         </FilterBar>
-        {loading ? <LoadingState message="Загрузка…" /> : null}
-        {error ? <SectionError message={error} /> : null}
-        <ul>
-          {data?.items.map((course) => (
-            <li key={course.id}>
-              <Link href={`/courses/${course.id}`}>{course.title}</Link>{' '}
-              <StatusChip status={course.status} />
-            </li>
-          ))}
-        </ul>
-        {!loading && !error && !data?.items.length ? <SectionEmpty message="Нет курсов" /> : null}
+        <AsyncSection
+          isLoading={loading}
+          error={error ? new Error(error) : undefined}
+          isEmpty={!data?.items.length}
+          loadingMessage="Загрузка…"
+          emptyMessage="Нет курсов"
+        >
+          <ul>
+            {(data?.items ?? []).map((course) => (
+              <li key={course.id}>
+                <Link href={`/courses/${course.id}`}>{course.title}</Link>{' '}
+                <StatusChip status={course.status} />
+              </li>
+            ))}
+          </ul>
+        </AsyncSection>
         <PaginationControls page={page} setPage={setPage} total={data?.total} pageSize={20} />
       </SectionCard>
     </PageContainer>
@@ -1542,16 +1555,21 @@ export const GroupsPageScreen = () => {
         }
       />
       <SectionCard title="Реестр групп">
-        {loading ? <LoadingState message="Загрузка…" /> : null}
-        {error ? <SectionError message={error} /> : null}
-        <ul>
-          {data?.items.map((group) => (
-            <li key={group.id}>
-              <Link href={`/groups/${group.id}`}>{group.name}</Link>
-            </li>
-          ))}
-        </ul>
-        {!loading && !error && !data?.items.length ? <SectionEmpty message="Нет групп" /> : null}
+        <AsyncSection
+          isLoading={loading}
+          error={error ? new Error(error) : undefined}
+          isEmpty={!data?.items.length}
+          loadingMessage="Загрузка…"
+          emptyMessage="Нет групп"
+        >
+          <ul>
+            {(data?.items ?? []).map((group) => (
+              <li key={group.id}>
+                <Link href={`/groups/${group.id}`}>{group.name}</Link>
+              </li>
+            ))}
+          </ul>
+        </AsyncSection>
         <PaginationControls page={page} setPage={setPage} total={data?.total} pageSize={20} />
       </SectionCard>
     </PageContainer>
