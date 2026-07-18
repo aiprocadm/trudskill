@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository
 
-CDOProf — LMS/СДО platform for regulated professional education (ОТ, ПБ, медицина, МЧС, обязательные аттестации). `pnpm` 9.12.3 + Turborepo monorepo. Local path is `D:\Кодинг\cdoprof--main\cdoprof--main` (Windows, **Cyrillic — see Gotchas**).
+CDOProf — LMS/СДО platform for regulated professional education (ОТ, ПБ, медицина, МЧС, обязательные аттестации). `pnpm` 9.12.3 + Turborepo monorepo. Local path is `D:\Кодинг\7. Trudskill\Trudskill\Trudskill` (Windows, **Cyrillic + spaces — see Gotchas**).
 
 ## Documentation hierarchy (SSOT)
 
