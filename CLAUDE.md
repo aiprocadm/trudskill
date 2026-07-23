@@ -11,12 +11,14 @@ CDOProf — LMS/СДО platform for regulated professional education (ОТ, ПБ
 When docs disagree, follow the order in [docs/DOCUMENTATION_MAP.md](docs/DOCUMENTATION_MAP.md):
 
 1. Customer-signed protocol (e.g. ТЗ §47 Appendix Б).
-2. [SDOPROF_TZ_FINAL.md](SDOPROF_TZ_FINAL.md) — product spec / §39 acceptance criteria / §41 backlog.
-3. Code + tests; described in [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §5.\* (sequentially numbered, currently up to §5.90) and [docs/TZ_MVP_TRACEABILITY.md](docs/TZ_MVP_TRACEABILITY.md) (BL → file paths).
+2. [SDOPROF_TZ_FINAL.md](SDOPROF_TZ_FINAL.md) — product spec / §39 acceptance criteria / §41 backlog. **Действующее дельта-ТЗ поверх него** — [TZ_TRUDSKILL_ARENDNAYA_SDO.md](TZ_TRUDSKILL_ARENDNAYA_SDO.md) (цели «аренда/полноценная СДО»: эпики A–I, требования ФТ-\*, дорожная карта фаз 0–6; в рамках его эпиков при конфликте деталей приоритет у него). Живой статус выполнения — [docs/TZ_ARENDNAYA_SDO_STATUS.md](docs/TZ_ARENDNAYA_SDO_STATUS.md).
+3. Code + tests; described in [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §5.\* (sequentially numbered, currently up to §5.166) and [docs/TZ_MVP_TRACEABILITY.md](docs/TZ_MVP_TRACEABILITY.md) (BL → file paths).
 4. [README.md](README.md) §2 «AI Agent State» — operational snapshot.
 
 For «продолжай по ТЗ» tasks, read in this order:
-README §2 → LMS_AGENT_HANDOFF §1 (date/branch) + §5 (recent work) + §13 (Known Issues) → SDOPROF_TZ_FINAL §41 ↔ TZ_MVP_TRACEABILITY.
+README §2 → LMS_AGENT_HANDOFF §1 (date/branch) + §5 (recent work) + §13 (Known Issues) → **TZ_TRUDSKILL_ARENDNAYA_SDO §13 (дорожная карта) + docs/TZ_ARENDNAYA_SDO_STATUS.md** (текущая фаза; что сделано / частично / не начато / переделать по каждому ФТ; открытые вопросы, блокирующие фазу) → SDOPROF_TZ_FINAL §41 ↔ TZ_MVP_TRACEABILITY (детальные требования).
+
+Rules for TZ phases (ТЗ §13/§15): перед фазой — план в `docs/superpowers/plans/` + апрув владельца; URL/RBAC/контракты `packages/api-contracts` не ломать; миграции только аддитивные; фаза заканчивается зелёным `pnpm ci:check`, обновлением handoff и статусов в `docs/TZ_ARENDNAYA_SDO_STATUS.md`.
 
 ## Plan-driven workflow
 
