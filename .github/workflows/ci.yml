@@ -59,12 +59,13 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Backend unit/integration/migrations/security
+      - name: Backend unit/integration/migrations/security/isolation
         run: |
           pnpm test:backend
           pnpm test:integration
           pnpm test:migrations
           pnpm test:security
+          pnpm test:isolation
 
   tests_frontend_and_contracts:
     name: Frontend + Contract tests
