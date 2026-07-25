@@ -62,6 +62,28 @@ services:
       mc mb --ignore-existing local/$${S3_BUCKET}
       "
 
+  # Антивирусный демон (ФТ-G5). В проде ВКЛЮЧЁН: backend ждёт его готовности,
+  # ANTIVIRUS_ENABLED=true в .env.production. Первый старт долгий — freshclam качает базу
+  # сигнатур (start_period 120s). База persists в томе clamav-data, чтобы не качать повторно.
+  clamav:
+    image: clamav/clamav:1.4
+    env_file: .env.production
+    volumes:
+      - clamav-data:/var/lib/clamav
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'clamdcheck.sh']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  # Gotenberg (ФТ-A1.3): DOCX→PDF (LibreOffice внутри). Внутренний порт 3000 (по имени сервиса).
+  # Инфраструктура готова к Фазе 1; сам рендер (worker → Gotenberg) подключается там. GET /health.
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    restart: unless-stopped
+
   supertokens:
     image: registry.supertokens.io/supertokens/supertokens-postgresql:9.3
     env_file: .env.production
@@ -90,6 +112,8 @@ services:
       minio:
         condition: service_healthy
       supertokens:
+        condition: service_healthy
+      clamav:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -155,5 +179,6 @@ volumes:
   redis-data:
   rabbitmq-data:
   minio-data:
+  clamav-data:
   caddy-data:
   caddy-config:
