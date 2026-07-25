@@ -2058,6 +2058,14 @@ _Изначально записана как §5.155; перенумерова�
 - **Deviations от плана Task 1:** скрипт сделан не glob-ом `**/*.isolation.test.ts` (в кавычках vitest трактует как подстроку — «No test files found»), а фильтром `isolation.test`. Полная per-endpoint HTTP-матрица «каждый доменный endpoint × чужой tenant → 403/404» и опциональный RLS-слой — **следующий инкремент** (этот PR даёт контракт guard + структурный сторож, что уже роняет суиту при новом контроллере без tenant-скоупа). Инвариант «tenantId в каждом сообщении очереди» пока не покрыт отдельным тестом — вынесен в тот же следующий инкремент.
 - **Next (Фаза 0):** Task 3 (ClamAV-контейнер) → Task 6 (Gotenberg-контейнер) → Task 2 (rate limiting на `/verify/{qr}`) → Task 4 (email-события) → Task 5 (2FA TOTP) → Task 7 (шифрование ПДн, вопрос №7 = Фаза 0). Каждая — отдельный под-PR.
 
+### 5.169 Фаза 0 «Фундамент», Task 2 — rate limiting на публичной проверке `/verify/{qr}` (ФТ-G2)
+
+- **Summary:** починен «спящий» rate limit на публичной проверке документа. На `PublicVerifyController.verify` уже стоял `@Throttle({ limit: 30, ttl: 60_000 })`, но он **не применялся**: глобального `ThrottlerGuard` в `app.module` нет (throttler навешивается по-роутно через `@UseGuards(ThrottlerGuard)`, как в `auth.controller`), а на этом контроллере guard'а не было. Добавлен `@UseGuards(ThrottlerGuard)` — лимит 30 req/мин/IP теперь реально действует (защита от перебора QR-токенов, ФТ-A6.2/G2).
+- **Files changed:** `apps/backend/src/modules/documents/public-verify.controller.ts` (+`UseGuards(ThrottlerGuard)` + комментарий-предупреждение про «спящий» @Throttle), `apps/backend/src/modules/documents/public-verify.controller.test.ts` (тест «guard применён» через reflection `__guards__` + HTTP-тест: 30 запросов проходят (404 unknown token), 31-й → 429), `docs/TZ_ARENDNAYA_SDO_STATUS.md`, `README.md`, `LMS_AGENT_HANDOFF.md`.
+- **Тесты:** файл `public-verify.controller.test.ts` — 11/11 зелёные (вкл. HTTP-429); `pnpm --filter @trudskill/backend typecheck` зелёный; eslint чист.
+- **Замечание:** это **параллельный PR** с §5.168 (PR #308, контейнеры) — оба правят статус-трекер/handoff, при слиянии второго возможен тривиальный конфликт в таблицах (журнал/сводка фаз) — разрешается объединением строк.
+- **Next (Фаза 0):** Task 4 (email-события — включить прод-SMTP + перевести stub'ы на MailerService) → Task 5 (2FA TOTP — меняет флоу логина) → Task 7 (шифрование ПДн — миграция + application-crypto, вопрос №7 = Фаза 0). Task 5 и Task 7 — крупные, каждый своим PR.
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |
