@@ -183,6 +183,41 @@ describe('pre-exam auth (C) — gate, request, verify', () => {
     expect(stored[0]!.tokenHash).toMatch(/^[0-9a-f]{64}$/);
   });
 
+  it('emits the pre-exam e-mail event whose verify URL carries the issued token (ФТ-F1)', () => {
+    const events = new EventEmitter2();
+    const received: Array<Record<string, unknown>> = [];
+    events.on('assessment.pre_exam_auth_requested', (p: Record<string, unknown>) =>
+      received.push(p)
+    );
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      events
+    );
+    const { test, enrollment } = seedFinalExam(service, true);
+    service.requestPreExamToken(T, ADMIN, startArgs(test, enrollment), ctx);
+    expect(received).toHaveLength(1);
+    const payload = received[0]!;
+    const stored = new InMemoryMvpStatePeek(service).preExamTokens();
+    expect(payload).toMatchObject({
+      tenantId: T,
+      enrollmentId: enrollment.id,
+      testId: test.id,
+      tokenId: stored[0]!.id,
+      expiresAt: stored[0]!.expiresAt,
+      courseTitle: 'Course'
+    });
+    // Ссылка в письме должна соответствовать сохранённому хешу — иначе письмо бесполезно.
+    const url = payload.verifyUrl as string;
+    const rawFromUrl = decodeURIComponent(url.split('/exam-auth/')[1] ?? '');
+    expect(hashPreExamToken(rawFromUrl)).toBe(stored[0]!.tokenHash);
+    // Слушатель без e-mail → recipient отсутствует (письмо не уйдёт, но флоу не падает).
+    expect(payload.recipient).toBeUndefined();
+  });
+
   it('verifies a token and then allows the attempt (records identity on it)', () => {
     const service = makeService();
     const { test, enrollment } = seedFinalExam(service, true);

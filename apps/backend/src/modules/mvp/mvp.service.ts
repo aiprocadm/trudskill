@@ -21,8 +21,10 @@ import {
   summarizeCounterpartyProgress,
   summarizeGroupProgress
 } from './group-progress-summary.service.js';
+import { IDENTITY_VERIFICATION_REJECTED_EVENT } from './identity-verification-rejected.event.js';
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from './infrastructure/mvp-state.token.js';
+import { PRE_EXAM_AUTH_REQUESTED_EVENT } from './pre-exam-auth-requested.event.js';
 import {
   PRE_EXAM_TOKEN_TTL_MS,
   buildPreExamAuthUrl,
@@ -3721,8 +3723,10 @@ export class MvpService {
   }
 
   /**
-   * Issue a single-use identity token and "send" the verify link (logged in dev/pilot;
-   * a real e-mail adapter is a follow-up). Never returns the raw token.
+   * Issue a single-use identity token and send the verify link: the
+   * PRE_EXAM_AUTH_REQUESTED event is e-mailed by CommunicationModule when
+   * NOTIFICATIONS_EMAIL_ENABLED=true; outside production the link is also
+   * logged for the operator. Never returns the raw token.
    */
   requestPreExamToken(
     tenantId: string,
@@ -3749,9 +3753,35 @@ export class MvpService {
       updatedAt: now
     };
     this.state.preExamTokens.push(entity);
-    this.preExamLogger.log(
-      `pre_exam_auth.delivery enrollment=${enrollment.id} test=${test.id} url=${buildPreExamAuthUrl(rawToken)} (log-only)`
+    // SECURITY: the URL embeds a live single-use token — in production it must never
+    // reach stdout/log aggregation (same rule as LoggingMagicLinkEmailSender).
+    if (backendEnv.NODE_ENV === 'production') {
+      this.preExamLogger.log(
+        `pre_exam_auth.delivery enrollment=${enrollment.id} test=${test.id} url=<redacted in production>`
+      );
+    } else {
+      this.preExamLogger.log(
+        `pre_exam_auth.delivery enrollment=${enrollment.id} test=${test.id} url=${buildPreExamAuthUrl(rawToken)} (log-only)`
+      );
+    }
+    const preExamRecipient = learnerRecipient(
+      this.state.learners.find((l) => l.tenantId === tenantId && l.id === enrollment.learnerId)
     );
+    const preExamCourseTitle = this.resolveGroupCourseTitle(tenantId, enrollment.groupId);
+    this.events.emit(PRE_EXAM_AUTH_REQUESTED_EVENT, {
+      tenantId,
+      tokenId: entity.id,
+      enrollmentId: enrollment.id,
+      testId: test.id,
+      learnerId: enrollment.learnerId,
+      verifyUrl: buildPreExamAuthUrl(rawToken),
+      expiresAt: entity.expiresAt,
+      ...(preExamRecipient ? { recipient: preExamRecipient } : {}),
+      ...(preExamCourseTitle ? { courseTitle: preExamCourseTitle } : {}),
+      actorId,
+      requestId: context.requestId,
+      correlationId: context.correlationId
+    });
     this.audit(
       tenantId,
       actorId,
@@ -4166,10 +4196,23 @@ export class MvpService {
       record.rejectionReason = request.rejectionReason;
     }
     if (request.decision === 'reject') {
-      // Logged stub — a real e-mail rides Phase 5 MailerService as a follow-up.
       this.identityVerificationLogger.log(
-        `identity_verification.rejected learner=${record.learnerId} verification=${record.id} reason=${request.rejectionReason ?? '-'} (log-only notice)`
+        `identity_verification.rejected learner=${record.learnerId} verification=${record.id} reason=${request.rejectionReason ?? '-'}`
       );
+      const rejectedRecipient = learnerRecipient(
+        this.state.learners.find((l) => l.tenantId === tenantId && l.id === record.learnerId)
+      );
+      this.events.emit(IDENTITY_VERIFICATION_REJECTED_EVENT, {
+        tenantId,
+        verificationId: record.id,
+        learnerId: record.learnerId,
+        reviewedAt: now,
+        ...(request.rejectionReason ? { reason: request.rejectionReason } : {}),
+        ...(rejectedRecipient ? { recipient: rejectedRecipient } : {}),
+        actorId,
+        requestId: context.requestId,
+        correlationId: context.correlationId
+      });
     }
     this.audit(
       tenantId,

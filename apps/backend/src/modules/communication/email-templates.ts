@@ -4,7 +4,9 @@ export type EmailTemplateKey =
   | 'recertification_due'
   | 'course_deadline'
   | 'document_revoked'
-  | 'license_expiring';
+  | 'license_expiring'
+  | 'pre_exam_auth'
+  | 'identity_verification_rejected';
 
 export interface EmailTemplateBody {
   subject: string;
@@ -18,7 +20,8 @@ export const EMAIL_TEMPLATE_DEFAULTS: Record<EmailTemplateKey, EmailTemplateBody
     body:
       'Здравствуйте, {{learnerName}}!\n\n' +
       'Вы записаны на обучение по программе «{{courseTitle}}». ' +
-      'Войдите в личный кабинет, чтобы приступить к занятиям.\n\n' +
+      'Войдите в личный кабинет, чтобы приступить к занятиям: {{loginUrl}}\n' +
+      'Для входа укажите этот e-mail — ссылка для входа придёт на него.\n\n' +
       'С уважением, учебный центр.'
   },
   course_completed: {
@@ -53,6 +56,26 @@ export const EMAIL_TEMPLATE_DEFAULTS: Record<EmailTemplateKey, EmailTemplateBody
       'Выданный вам документ по программе «{{courseTitle}}» был аннулирован. ' +
       'Причина: {{reason}}. ' +
       'По вопросам перевыпуска обратитесь в учебный центр.\n\n' +
+      'С уважением, учебный центр.'
+  },
+  // Ссылка одноразовая и живёт 15 минут (PRE_EXAM_TOKEN_TTL_MS) — в письме это
+  // проговаривается, чтобы слушатель не откладывал переход.
+  pre_exam_auth: {
+    subject: 'Подтверждение личности перед экзаменом — «{{courseTitle}}»',
+    body:
+      'Здравствуйте, {{learnerName}}!\n\n' +
+      'Для допуска к итоговому тестированию по программе «{{courseTitle}}» подтвердите личность, ' +
+      'перейдя по ссылке: {{verifyUrl}}\n' +
+      'Ссылка одноразовая и действует 15 минут. Если вы не запрашивали допуск — проигнорируйте это письмо.\n\n' +
+      'С уважением, учебный центр.'
+  },
+  identity_verification_rejected: {
+    subject: 'Проверка личности не пройдена',
+    body:
+      'Здравствуйте, {{learnerName}}!\n\n' +
+      'Загруженные вами документы для проверки личности отклонены. ' +
+      'Причина: {{reason}}.\n' +
+      'Пожалуйста, загрузите документы повторно в личном кабинете.\n\n' +
       'С уважением, учебный центр.'
   },
   // Staff-facing (sent to the configured notification recipients, not a learner): a center

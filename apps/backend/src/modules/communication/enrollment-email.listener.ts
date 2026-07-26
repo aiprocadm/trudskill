@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 
 import { NotificationDispatcher } from './notification-dispatcher.service.js';
+import { backendEnv } from '../../env.js';
 import { ENROLLMENT_COMPLETED_EVENT } from '../mvp/enrollment-completed.event.js';
 import { ENROLLMENT_INVITED_EVENT } from '../mvp/enrollment-invited.event.js';
 
@@ -52,10 +53,18 @@ export class EnrollmentEmailListener {
         ],
         variables: {
           learnerName: payload.recipient.name ?? '',
-          courseTitle: payload.courseTitle ?? ''
+          courseTitle: payload.courseTitle ?? '',
+          // Рабочая ссылка входа (ФТ-F1): страница логина, где слушатель запрашивает
+          // magic-link на этот же e-mail. Отдельный invite-токен — за рамками Фазы 0.
+          loginUrl: `${backendEnv.PUBLIC_BASE_URL.replace(/\/+$/, '')}/login`
         },
         relatedEntityType: 'learning.enrollment',
-        relatedEntityId: payload.enrollmentId
+        relatedEntityId: payload.enrollmentId,
+        // Send-once: повторная эмиссия события той же записи не дублирует письмо.
+        dedupKey:
+          templateKey === 'enrollment_invite'
+            ? `enrollinvite:${payload.enrollmentId}`
+            : `enrollcomplete:${payload.enrollmentId}`
       });
     } catch (err) {
       this.logger.error(

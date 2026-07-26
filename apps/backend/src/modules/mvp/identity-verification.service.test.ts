@@ -208,6 +208,84 @@ describe('identity verification lifecycle', () => {
     expect(approved.reviewedAt).toBeTruthy();
   });
 
+  it('reject emits the e-mail event with reason and reviewedAt (ФТ-F1)', async () => {
+    const events = new EventEmitter2();
+    const received: Array<Record<string, unknown>> = [];
+    events.on('learning.identity_verification_rejected', (p: Record<string, unknown>) =>
+      received.push(p)
+    );
+    const files = makeFilesMock();
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      files,
+      events
+    );
+    service.createLearner(
+      T,
+      ADMIN,
+      { code: 'L1', name: 'Ivanov Ivan', linkedIamUserId: 'u_l1' },
+      ctx
+    );
+    const draft = service.startIdentityVerification(T, 'u_l1', {}, ctx);
+    await service.submitIdentityVerification(
+      T,
+      'u_l1',
+      draft.id,
+      { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true },
+      ctx
+    );
+    const rejected = service.reviewIdentityVerification(
+      T,
+      ADMIN,
+      draft.id,
+      { decision: 'reject', rejectionReason: 'Фото нечитаемо' },
+      ctx
+    );
+    expect(received).toHaveLength(1);
+    expect(received[0]).toMatchObject({
+      tenantId: T,
+      verificationId: draft.id,
+      reason: 'Фото нечитаемо',
+      reviewedAt: rejected.reviewedAt
+    });
+    // Слушатель без e-mail в профиле → recipient отсутствует.
+    expect(received[0]!.recipient).toBeUndefined();
+  });
+
+  it('approve does not emit the rejection e-mail event', async () => {
+    const events = new EventEmitter2();
+    const received: unknown[] = [];
+    events.on('learning.identity_verification_rejected', (p: unknown) => received.push(p));
+    const files = makeFilesMock();
+    const service = new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      files,
+      events
+    );
+    service.createLearner(
+      T,
+      ADMIN,
+      { code: 'L1', name: 'Ivanov Ivan', linkedIamUserId: 'u_l1' },
+      ctx
+    );
+    const draft = service.startIdentityVerification(T, 'u_l1', {}, ctx);
+    await service.submitIdentityVerification(
+      T,
+      'u_l1',
+      draft.id,
+      { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true },
+      ctx
+    );
+    service.reviewIdentityVerification(T, ADMIN, draft.id, { decision: 'approve' }, ctx);
+    expect(received).toHaveLength(0);
+  });
+
   it('8. reject stores the reason; a new start after rejection creates a fresh record', async () => {
     const { service } = makeService();
     service.createLearner(
