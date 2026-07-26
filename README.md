@@ -84,7 +84,9 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 ### Current Stage
 
-**2026-07-24 (текущее, §5.169, ветка `feat/2026-07-24-verify-rate-limit`):** **Фаза 0, Task 2 — rate limiting на публичной проверке `/verify/{qr}`.** На endpoint уже стоял `@Throttle(30/мин)`, но он «спал» без `@UseGuards(ThrottlerGuard)` (глобального throttler-guard в app.module нет). Guard добавлен — лимит реально применяется (защита от перебора QR, ФТ-G2/A6.2); тест на 429. Контейнеры ClamAV+Gotenberg — §5.168 (PR #308 влит); живой EICAR-smoke + фикс протокола clamd — §5.170 (PR #310). **Дальше по Фазе 0:** Task 4 (email-события) → Task 5 (2FA TOTP) → Task 7 (шифрование ПДн).
+**2026-07-26 (текущее, §5.170, ветка `feat/2026-07-26-clamav-container`):** **Фаза 0, добивка Task 3 — живой EICAR-smoke + фикс протокола INSTREAM (ФТ-G5).** Живой прогон на тестовом сервере (clamd `clamav/clamav:1.4` из compose, дошёл до `healthy`) вскрыл протокольный баг сканера: z-команды clamd NUL-терминированы, а код слал `'zINSTREAM '` с пробелом, и NUL-терминированные ответы clamd не парсились — с `ANTIVIRUS_ENABLED=true` prod отбивал бы **все** загрузки (fail-closed). Починено в `clamav-antivirus.scanner.ts`, юнит-симулятор clamd приведён к реальному поведению. Smoke: чистый файл → `clean`, EICAR → `infected: Eicar-Test-Signature`; юнит 5/5, eslint/typecheck зелёные. Ops-оговорка §5.168 «живой EICAR-прогон на деплое» закрыта. **Дальше по Фазе 0:** Task 2 (rate limiting `/verify/{qr}` — PR #309) → Task 4 (email-события) → Task 5 (2FA TOTP) → Task 7 (шифрование ПДн).
+
+**2026-07-24 (§5.169, ветка `feat/2026-07-24-verify-rate-limit`):** **Фаза 0, Task 2 — rate limiting на публичной проверке `/verify/{qr}`.** На endpoint уже стоял `@Throttle(30/мин)`, но он «спал» без `@UseGuards(ThrottlerGuard)` (глобального throttler-guard в app.module нет). Guard добавлен — лимит реально применяется (защита от перебора QR, ФТ-G2/A6.2); тест на 429. Контейнеры ClamAV+Gotenberg — §5.168 (PR #308 влит); живой EICAR-smoke + фикс протокола clamd — §5.170 (PR #310). **Дальше по Фазе 0:** Task 4 (email-события) → Task 5 (2FA TOTP) → Task 7 (шифрование ПДн).
 
 **2026-07-24 (§5.168, ветка `feat/2026-07-24-phase0-infra-containers`):** **Фаза 0, Task 3 + Task 6 — инфраструктура ClamAV и Gotenberg.** В `docker-compose` (dev+prod) добавлены сервисы `clamav` (антивирус, ФТ-G5 — в проде включён, backend ждёт healthcheck) и `gotenberg` (DOCX→PDF, ФТ-A1.3 — под будущий движок рендера Фазы 1); добавлена env-переменная `GOTENBERG_URL`. Только инфраструктура, кода приложения нет. `docker compose config` и backend typecheck зелёные. **Дальше по Фазе 0:** Task 2 (rate limiting `/verify/{qr}`) → Task 4 (email-события) → Task 5 (2FA TOTP) → Task 7 (шифрование ПДн).
 
@@ -191,11 +193,11 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Updated By
 
-Claude (Opus 4.8) — §5.165: UI Фаза 4 под-PR 1a — 6 списочных экранов монолита `mvp/screens.tsx` на `AsyncSection` (zero-change, adversarial-ревью чист).
+Claude (Fable 5) — §5.170: Фаза 0, добивка Task 3 — живой EICAR-smoke + фикс протокола INSTREAM в сканере ClamAV.
 
 ### Last Updated At
 
-2026-07-13 (§5.165 — UI redesign Фаза 4, под-PR 1a: списки монолита → AsyncSection).
+2026-07-26 (§5.170 — Фаза 0, добивка Task 3: живой EICAR-smoke + фикс протокола сканера, ФТ-G5).
 
 ## 3. Current Project Status
 

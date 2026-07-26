@@ -13,8 +13,7 @@ const SCAN_TIMEOUT_MS = 30_000;
 /**
  * Streams an object into clamd via the INSTREAM command and maps the reply to a verdict.
  * Fail-closed: any connection/parse problem yields `error` (the gate refuses `error`).
- * NOTE: unit-tested against a simulated clamd; verify against a real clamd before
- * flipping ANTIVIRUS_ENABLED=true (spec §9).
+ * Verified against a real clamd (clamav/clamav:1.4, EICAR) on 2026-07-26 — Фаза 0 Task 3.
  */
 export class ClamAvAntivirusScanner implements AntivirusScanner {
   constructor(
@@ -52,7 +51,9 @@ export class ClamAvAntivirusScanner implements AntivirusScanner {
       socket.on('connect', () => {
         void (async () => {
           try {
-            socket.write(Buffer.from('zINSTREAM ', 'utf8'));
+            // z-prefixed clamd commands are NUL-terminated; a real clamd replies
+            // UNKNOWN COMMAND to any other delimiter.
+            socket.write(Buffer.from('zINSTREAM\0', 'utf8'));
             for await (const chunk of stream) {
               const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array);
               const len = Buffer.alloc(4);
@@ -70,7 +71,9 @@ export class ClamAvAntivirusScanner implements AntivirusScanner {
   }
 
   private parseReply(reply: string): ScanResult {
-    const text = reply.replace(/ $/, '').trim();
+    // Replies to z-commands are NUL-terminated ("stream: OK\0"); NUL is not
+    // whitespace, so strip it explicitly before trimming.
+    const text = reply.replaceAll('\0', '').replace(/ $/, '').trim();
     if (text.endsWith('FOUND')) {
       // Format: "stream: <signature> FOUND"
       const signature = text.replace(/^stream:\s*/, '').replace(/\s+FOUND$/, '');

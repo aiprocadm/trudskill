@@ -49,21 +49,22 @@ async function runScan(storageBytes: string, reply: string) {
 }
 
 describe('ClamAvAntivirusScanner', () => {
+  // Replies below mirror a real clamd: z-command replies are NUL-terminated.
   it('reports clean on "stream: OK"', async () => {
-    const { result } = await runScan('hello', 'stream: OK ');
+    const { result } = await runScan('hello', 'stream: OK\0');
     expect(result).toEqual({ verdict: 'clean' });
   });
 
   it('reports infected with the signature name on "FOUND"', async () => {
-    const { result } = await runScan('x', 'stream: Eicar-Test-Signature FOUND ');
+    const { result } = await runScan('x', 'stream: Eicar-Test-Signature FOUND\0');
     expect(result.verdict).toBe('infected');
     expect(result.detail).toBe('Eicar-Test-Signature');
   });
 
-  it('sends the zINSTREAM command and a zero-length terminator', async () => {
-    const { socket } = await runScan('ab', 'stream: OK ');
+  it('sends the NUL-terminated zINSTREAM command and a zero-length terminator', async () => {
+    const { socket } = await runScan('ab', 'stream: OK\0');
     const all = Buffer.concat(socket.writes);
-    expect(all.includes('zINSTREAM ')).toBe(true);
+    expect(all.includes('zINSTREAM\0')).toBe(true);
     // Last 4 bytes are the big-endian zero terminator.
     expect(all.subarray(all.length - 4)).toEqual(Buffer.from([0, 0, 0, 0]));
   });
