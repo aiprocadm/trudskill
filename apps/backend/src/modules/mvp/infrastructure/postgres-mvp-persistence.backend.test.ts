@@ -78,3 +78,91 @@ describe('PostgresMvpPersistenceBackend snapshot serialization', () => {
     expect((idemInsert?.id as string).length).toBeGreaterThan(0);
   });
 });
+
+describe('PII at-rest encryption (ФТ-C3.3, Фаза 0 Task 7)', () => {
+  /** Fake DB: записывает вставленные jsonb-строки и отдаёт их обратно на select. */
+  function makeRoundTripDb() {
+    const stored = new Map<string, unknown[]>();
+    const client = {
+      query: vi.fn(async (sql: string, params: unknown[]) => {
+        if (sql.trimStart().startsWith('insert into')) {
+          const col = params[1] as string;
+          const list = stored.get(col) ?? [];
+          list.push(JSON.parse(params[3] as string));
+          stored.set(col, list);
+        }
+        return [];
+      })
+    };
+    return {
+      stored,
+      db: {
+        withTransaction: async (fn: (c: typeof client) => Promise<void>) => fn(client),
+        query: vi.fn(async (_sql: string, params: unknown[]) => {
+          const col = params[1] as string;
+          return (stored.get(col) ?? []).map((data) => ({ data }));
+        })
+      }
+    };
+  }
+
+  const learnerWithSnils = {
+    id: 'learner_pii_1',
+    tenantId: 'tenant_demo',
+    code: 'L1',
+    name: 'Иванов Иван',
+    snils: '112-233-445 95',
+    status: 'active',
+    createdAt: '2026-07-26T00:00:00.000Z',
+    updatedAt: '2026-07-26T00:00:00.000Z'
+  };
+
+  it('stores snils only as ciphertext + blind hash; load decrypts it back', async () => {
+    const { stored, db } = makeRoundTripDb();
+    const backend = new PostgresMvpPersistenceBackend(db as never);
+
+    const state = new InMemoryMvpState();
+    state.learners.push(learnerWithSnils as never);
+    await backend.writeLegacy('tenant_demo', state);
+
+    const atRest = (stored.get('learners') ?? [])[0] as Record<string, unknown>;
+    expect(String(atRest.snils)).toMatch(/^enc:/);
+    expect(JSON.stringify(atRest)).not.toContain('11223344595');
+    expect(JSON.stringify(atRest)).not.toContain('112-233-445');
+    expect(atRest.snilsHash).toMatch(/^[0-9a-f]{64}$/);
+    // Память не мутирована — рантайм продолжает видеть открытый СНИЛС.
+    expect(state.learners[0]!.snils).toBe('112-233-445 95');
+
+    const restoredState = new InMemoryMvpState();
+    await backend.loadIntoState('tenant_demo', restoredState);
+    expect(restoredState.learners[0]!.snils).toBe('112-233-445 95');
+    expect('snilsHash' in (restoredState.learners[0] as object)).toBe(false);
+  });
+
+  it('legacy plaintext rows load as-is and get re-encrypted on the next save', async () => {
+    const { stored, db } = makeRoundTripDb();
+    const backend = new PostgresMvpPersistenceBackend(db as never);
+    // Строка, записанная ДО Task 7: снилс открытым текстом.
+    stored.set('learners', [{ ...learnerWithSnils, snils: '11223344595' }]);
+
+    const state = new InMemoryMvpState();
+    await backend.loadIntoState('tenant_demo', state);
+    expect(state.learners[0]!.snils).toBe('11223344595');
+
+    stored.delete('learners');
+    await backend.writeLegacy('tenant_demo', state);
+    const atRest = (stored.get('learners') ?? [])[0] as Record<string, unknown>;
+    expect(String(atRest.snils)).toMatch(/^enc:/);
+  });
+
+  it('learners without snils are stored untouched', async () => {
+    const { stored, db } = makeRoundTripDb();
+    const backend = new PostgresMvpPersistenceBackend(db as never);
+    const state = new InMemoryMvpState();
+    state.learners.push({ ...learnerWithSnils, id: 'l2', snils: undefined } as never);
+    await backend.writeLegacy('tenant_demo', state);
+    const atRest = (stored.get('learners') ?? [])[0] as Record<string, unknown>;
+    expect('snils' in atRest).toBe(false);
+    expect('snilsHash' in atRest).toBe(false);
+  });
+});

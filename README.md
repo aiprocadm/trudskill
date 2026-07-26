@@ -84,7 +84,9 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 ### Current Stage
 
-**2026-07-26 (текущее, §5.171, ветка `feat/2026-07-26-tz-faza0-task4-email`):** **Фаза 0, Task 4 — email-события по-настоящему (ФТ-F1).** Два log-only стаба переведены на события → новый `ExamIdentityEmailListener` → `NotificationDispatcher` (журнал + send-once dedup): **код на экзамен** (`PRE_EXAM_AUTH_REQUESTED_EVENT`, шаблон `pre_exam_auth` с `{{verifyUrl}}`; сырой URL в prod-логах теперь редактируется — раньше живой токен печатался в stdout) и **отклонение identity-проверки** (`IDENTITY_VERIFICATION_REJECTED_EVENT`, шаблон с `{{reason}}`; dedup на `reviewedAt` — reject после resubmit шлёт новое письмо). В `enrollment_invite` — рабочая ссылка входа `{{loginUrl}}`; enrollment-письма получили dedup-ключи. Env: задокументированы SMTP + `RECERTIFICATION_SCAN_ENABLED` (в прод-примере `true`). Конструктор `MvpService` не тронут. 150+ таргет-тестов, isolation 12, typecheck, eslint — зелёные. **Дальше по Фазе 0:** Task 5 (2FA TOTP) → Task 7 (шифрование ПДн).
+**2026-07-26 (текущее, §5.173, ветка `feat/2026-07-26-tz-faza0-task7-pii-encryption`):** **Фаза 0, Task 7 — шифрование ПДн (ФТ-C3.3).** СНИЛС слушателей хранится в БД только шифртекстом: learners лежат JSONB-документами, поэтому шифрование — на границе персистенса (`infrastructure/crypto/pii-crypto.ts` + хуки в `PostgresMvpPersistenceBackend`): запись → AES-256-GCM (keyring `INTEGRATION_CRYPTO_KEYS`) + слепой keyed-HMAC `snilsHash` по нормализованным цифрам; чтение → расшифровка. **Рантайм не менялся**: реестры/ЕСИА/поиски/PDF видят открытое значение в памяти; legacy plaintext перешифровывается при первом сохранении (lazy). Паспортных текстовых полей в коде нет (только файлы-сканы) — объём сужен по факту. Миграция `0061` — functional-индексы по хэшу. Тесты: pii 6 + persistence 4 + migrations 51 + смежные 70 — зелёные. **Все 7 задач Фазы 0 сделаны** (PR #312 и этот — на мердже) → дальше приёмка фазы (`ci:check` + финал статусов).
+
+**2026-07-26 (§5.171, ветка `feat/2026-07-26-tz-faza0-task4-email`):** **Фаза 0, Task 4 — email-события по-настоящему (ФТ-F1).** Два log-only стаба переведены на события → новый `ExamIdentityEmailListener` → `NotificationDispatcher` (журнал + send-once dedup): **код на экзамен** (`PRE_EXAM_AUTH_REQUESTED_EVENT`, шаблон `pre_exam_auth` с `{{verifyUrl}}`; сырой URL в prod-логах теперь редактируется — раньше живой токен печатался в stdout) и **отклонение identity-проверки** (`IDENTITY_VERIFICATION_REJECTED_EVENT`, шаблон с `{{reason}}`; dedup на `reviewedAt` — reject после resubmit шлёт новое письмо). В `enrollment_invite` — рабочая ссылка входа `{{loginUrl}}`; enrollment-письма получили dedup-ключи. Env: задокументированы SMTP + `RECERTIFICATION_SCAN_ENABLED` (в прод-примере `true`). Конструктор `MvpService` не тронут. 150+ таргет-тестов, isolation 12, typecheck, eslint — зелёные. **Дальше по Фазе 0:** Task 5 (2FA TOTP) → Task 7 (шифрование ПДн).
 
 **2026-07-26 (§5.170, ветка `feat/2026-07-26-clamav-container`):** **Фаза 0, добивка Task 3 — живой EICAR-smoke + фикс протокола INSTREAM (ФТ-G5).** Живой прогон на тестовом сервере (clamd `clamav/clamav:1.4` из compose, дошёл до `healthy`) вскрыл протокольный баг сканера: z-команды clamd NUL-терминированы, а код слал `'zINSTREAM '` с пробелом, и NUL-терминированные ответы clamd не парсились — с `ANTIVIRUS_ENABLED=true` prod отбивал бы **все** загрузки (fail-closed). Починено в `clamav-antivirus.scanner.ts`, юнит-симулятор clamd приведён к реальному поведению. Smoke: чистый файл → `clean`, EICAR → `infected: Eicar-Test-Signature`; юнит 5/5, eslint/typecheck зелёные. Ops-оговорка §5.168 «живой EICAR-прогон на деплое» закрыта. **Дальше по Фазе 0:** Task 2 (rate limiting `/verify/{qr}` — PR #309) → Task 4 (email-события) → Task 5 (2FA TOTP) → Task 7 (шифрование ПДн).
 
@@ -195,11 +197,11 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Updated By
 
-Claude (Fable 5) — §5.171: Фаза 0 Task 4 — email-события по-настоящему (pre-exam ссылка, отклонение identity-проверки, invite с loginUrl, dedup).
+Claude (Fable 5) — §5.173: Фаза 0 Task 7 — шифрование ПДн (СНИЛС at-rest шифртекстом на границе персистенса + слепой индекс, миграция 0061).
 
 ### Last Updated At
 
-2026-07-26 (§5.171 — Фаза 0, Task 4: email-события, ФТ-F1).
+2026-07-26 (§5.173 — Фаза 0, Task 7: шифрование ПДн, ФТ-C3.3).
 
 ## 3. Current Project Status
 
