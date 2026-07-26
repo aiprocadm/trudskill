@@ -1,6 +1,7 @@
 import { Body, Controller, Inject, NotFoundException, Post, UseGuards } from '@nestjs/common';
 import { IsInt, IsObject, IsOptional, IsPositive, IsString, MinLength } from 'class-validator';
 
+import { DocumentVariablesBuilder } from './document-variables.builder.js';
 import { DocumentsTenantRunner } from './documents-tenant-runner.service.js';
 import { assertValidDto } from '../../common/app-validation.pipe.js';
 import { FilesService } from '../files/files.service.js';
@@ -68,6 +69,7 @@ class WorkerUploadIntentDto extends WorkerTaskRefDto {
 export class DocumentsInternalWorkerController {
   constructor(
     @Inject(DocumentsTenantRunner) private readonly runner: DocumentsTenantRunner,
+    @Inject(DocumentVariablesBuilder) private readonly variables: DocumentVariablesBuilder,
     @Inject(FilesService) private readonly files: FilesService
   ) {}
 
@@ -88,7 +90,8 @@ export class DocumentsInternalWorkerController {
         claimed: true as const,
         status: started.status,
         templateFileId: version?.fileId,
-        number
+        number,
+        task: started
       };
     });
     if (!claim.claimed) {
@@ -100,17 +103,14 @@ export class DocumentsInternalWorkerController {
     }
     // Presigned GET шаблона — вне runner'а (не держим tenant-лок на время S3-вызова).
     const templateFileUrl = await this.files.createDownloadUrl(body.tenantId, claim.templateFileId);
-    return {
-      claimed: true,
-      taskId: body.taskId,
-      number: claim.number,
-      templateFileUrl,
-      // Task 2 — минимальный словарь (категория document); полный резолв 10 категорий — Task 3/4.
-      variables: {
-        'document.number': claim.number ?? '',
-        'document.date': new Date().toISOString().slice(0, 10)
-      }
-    };
+    // ФТ-A2.3: полный словарь всех десяти категорий каталога — собирается вне tenant-лока
+    // documents (сборщик берёт собственный лок MVP-состояния).
+    const variables = await this.variables.build({
+      tenantId: body.tenantId,
+      task: claim.task,
+      ...(claim.number ? { reservedNumber: claim.number } : {})
+    });
+    return { claimed: true, taskId: body.taskId, number: claim.number, templateFileUrl, variables };
   }
 
   @Post('result-upload-intent')
