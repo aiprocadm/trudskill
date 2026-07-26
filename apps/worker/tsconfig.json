@@ -9,5 +9,8 @@
   },
   "include": ["src/**/*"],
   "exclude": ["dist", "node_modules", "src/**/*.test.ts", "src/**/*.e2e.test.ts"],
-  "references": [{ "path": "../../packages/shared-types" }]
+  "references": [
+    { "path": "../../packages/docx-render" },
+    { "path": "../../packages/shared-types" }
+  ]
 }

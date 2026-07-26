@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -9,6 +10,7 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
   UseInterceptors
 } from '@nestjs/common';
@@ -20,8 +22,11 @@ import {
   type IssuedDocumentFilter
 } from './documents.service.js';
 import { DocumentsRequestPersistenceInterceptor } from './infrastructure/documents-request-persistence.interceptor.js';
+import { TemplateInspectionService } from './template-inspection.service.js';
+import { demoVariables } from './variable-catalog.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
+import { FilesService } from '../files/files.service.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
 import { PermissionGuard } from '../iam/permission.guard.js';
 
@@ -41,6 +46,7 @@ import type {
   UpdateTemplateVersionRequest
 } from './documents.dto.js';
 import type { RequestContext } from '../../common/context/request-context.js';
+import type { Response } from 'express';
 
 /** Hard cap для CSV-экспорта книги выдачи — защита от DoS на больших тенантах. */
 export const ISSUANCE_JOURNAL_CSV_HARD_CAP = 10000;
@@ -49,14 +55,50 @@ export const ISSUANCE_JOURNAL_CSV_HARD_CAP = 10000;
 export const ISSUANCE_JOURNAL_CSV_HEADER =
   '№;Дата выдачи;№ документа;Тип документа;Статус;ID документа;ID группового приказа';
 
+const TEMPLATE_DOCX_MIME =
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
 @Controller()
 @UseInterceptors(DocumentsRequestPersistenceInterceptor)
 @UseGuards(TenantGuard)
 export class DocumentsController {
   constructor(
     @Inject(DocumentsService) private readonly documentsService: DocumentsService,
-    @Inject(DocumentsEnqueueService) private readonly enqueue: DocumentsEnqueueService
+    @Inject(DocumentsEnqueueService) private readonly enqueue: DocumentsEnqueueService,
+    @Inject(TemplateInspectionService) private readonly inspection: TemplateInspectionService,
+    @Inject(FilesService) private readonly files: FilesService
   ) {}
+
+  /**
+   * ФТ-A3.1: интент загрузки бланка. Отдельный keyPrefix и allowlist только на DOCX —
+   * шаблоны не должны смешиваться с работами слушателей, а рендер понимает лишь DOCX.
+   * AV-гейт общий для files-модуля (ФТ-G5).
+   */
+  @Post('templates/upload-url')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.write')
+  createTemplateUploadUrl(
+    @CurrentContext() c: RequestContext,
+    @Body() b: { originalName?: string; sizeBytes?: number }
+  ) {
+    const sizeBytes = Number(b?.sizeBytes);
+    if (!Number.isInteger(sizeBytes) || sizeBytes <= 0) {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'sizeBytes must be a positive integer'
+      });
+    }
+    const originalName = (b?.originalName ?? 'template.docx').trim() || 'template.docx';
+    return this.files.createUploadIntent(
+      c.tenantId!,
+      { originalName, contentType: TEMPLATE_DOCX_MIME, sizeBytes },
+      {
+        keyPrefix: 'templates',
+        mimeAllowlist: new Set([TEMPLATE_DOCX_MIME]),
+        maxBytes: 25 * 1024 * 1024
+      }
+    );
+  }
 
   @Get('templates')
   @UseGuards(PermissionGuard)
@@ -152,11 +194,43 @@ export class DocumentsController {
   activateVersion(@CurrentContext() c: RequestContext, @Param('id') id: string) {
     return this.documentsService.activateTemplateVersion(c.tenantId!, c.userId, id, c);
   }
+  /**
+   * ФТ-A3.2: разбор загруженного бланка — «найдено / соответствует каталогу / неизвестно».
+   * Раньше эндпоинт лишь возвращал ранее сохранённые переменные и сам DOCX не читал.
+   */
   @Post('template-versions/:id/parse-variables')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
-  parseVariables(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.documentsService.listTemplateVariables(c.tenantId!, { templateVersionId: id });
+  async parseVariables(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    const version = this.documentsService.getTemplateVersion(c.tenantId!, id);
+    const inspection = await this.inspection.inspect(c.tenantId!, version.fileId);
+    return {
+      templateVersionId: id,
+      ...inspection,
+      declared: this.documentsService.listTemplateVariables(c.tenantId!, {
+        templateVersionId: id
+      })
+    };
+  }
+
+  /**
+   * ФТ-A3.3: «Сгенерировать пример» — тот же движок, что у боевой выдачи, но на демо-данных.
+   * Отдаём PDF потоком: конверт ответа для бинарных тел не применяется (см. @Res в проекте).
+   */
+  @Post('template-versions/:id/preview')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.write')
+  async previewVersion(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Res() res: Response
+  ) {
+    const version = this.documentsService.getTemplateVersion(c.tenantId!, id);
+    const pdf = await this.inspection.preview(c.tenantId!, version.fileId, demoVariables());
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="preview-${id}.pdf"`);
+    res.setHeader('Content-Length', String(pdf.length));
+    res.end(pdf);
   }
 
   @Get('template-variables')

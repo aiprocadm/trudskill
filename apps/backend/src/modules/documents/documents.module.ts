@@ -15,14 +15,15 @@ import { DocumentsPersistenceRepositoryAdapter } from './infrastructure/document
 import { DOCUMENTS_PERSISTENCE_BACKEND } from './infrastructure/documents-persistence.token.js';
 import { DocumentsRequestPersistenceInterceptor } from './infrastructure/documents-request-persistence.interceptor.js';
 import { MemoryDocumentsPersistenceBackend } from './infrastructure/memory-documents-persistence.backend.js';
+import { TemplateInspectionService } from './template-inspection.service.js';
 import {
   DOCUMENT_SIGNATURE_PROVIDER,
   NoopDocumentSignatureProvider
 } from '../../infrastructure/document-signature/document-signature.provider.js';
-import { FakeDocumentSignatureProvider } from '../../infrastructure/document-signature/fake-document-signature.provider.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { PostgresDocumentsPersistenceBackend } from './infrastructure/postgres-documents-persistence.backend.js';
+import { FakeDocumentSignatureProvider } from '../../infrastructure/document-signature/fake-document-signature.provider.js';
 import { FilesModule } from '../files/files.module.js';
 import { IamModule } from '../iam/iam.module.js';
 import { MvpPersistenceRepositoryAdapter } from '../mvp/infrastructure/mvp-persistence.repository.adapter.js';
@@ -53,6 +54,7 @@ const persistenceBackendClass =
     { provide: MVP_PERSISTENCE_BACKEND, useClass: MvpPersistenceRepositoryAdapter },
     MvpTenantRunner,
     DocumentVariablesBuilder,
+    TemplateInspectionService,
     EnrollmentDocumentIssuanceListener,
     {
       provide: DocumentsRequestPersistenceInterceptor,

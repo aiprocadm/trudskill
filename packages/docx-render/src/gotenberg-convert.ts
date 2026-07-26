@@ -1,4 +1,18 @@
-import { NonRetryableJobError } from '../bulk-enrollment-callback.js';
+/**
+ * Ошибка конвертации. `retryable=false` означает «повтор бессмыслен» (LibreOffice не смог
+ * открыть документ) — вызывающая сторона решает, что с этим делать: воркер помечает задачу
+ * `failed` и подтверждает сообщение, админский предпросмотр показывает текст пользователю.
+ * Пакет намеренно не знает про очереди и не тянет их типы ошибок.
+ */
+export class DocumentConversionError extends Error {
+  constructor(
+    message: string,
+    readonly retryable: boolean
+  ) {
+    super(message);
+    this.name = 'DocumentConversionError';
+  }
+}
 
 /**
  * Конвертация DOCX → PDF через Gotenberg (ФТ-A1.3, Фаза 1 Task 3).
@@ -8,9 +22,8 @@ import { NonRetryableJobError } from '../bulk-enrollment-callback.js';
  * по нему LibreOffice выбирает конвертер. Ответ — `application/pdf` телом.
  *
  * Классификация ошибок (ФТ-A1.5) — от неё зависит судьба задачи:
- *   • сеть/таймаут/5xx → обычная Error ⇒ consume-цикл `main.ts` ретраит с backoff'ом (DLQ на исходе);
- *   • 4xx (LibreOffice не смог открыть файл) → `NonRetryableJobError` ⇒ повтор бессмыслен,
- *     вызывающий помечает задачу `failed` с человекочитаемым текстом.
+ *   • сеть/таймаут/5xx/не-PDF-тело → `retryable: true` ⇒ имеет смысл повторить;
+ *   • 4xx (LibreOffice не смог открыть файл) → `retryable: false` ⇒ повтор бессмыслен.
  */
 
 const CONVERT_PATH = '/forms/libreoffice/convert';
@@ -38,25 +51,30 @@ export async function convertDocxToPdf(docx: Buffer, deps: GotenbergDeps): Promi
     });
   } catch (error) {
     // Сеть/таймаут — Gotenberg может подняться к следующей попытке.
-    throw new Error(
-      `gotenberg unreachable: ${error instanceof Error ? error.message : String(error)}`
+    throw new DocumentConversionError(
+      `gotenberg unreachable: ${error instanceof Error ? error.message : String(error)}`,
+      true
     );
   }
 
   if (!res.ok) {
     const detail = (await res.text().catch(() => '')).slice(0, 300);
     if (res.status >= 400 && res.status < 500) {
-      throw new NonRetryableJobError(
-        `Не удалось преобразовать документ в PDF (Gotenberg ${res.status}): ${detail}`
+      throw new DocumentConversionError(
+        `Не удалось преобразовать документ в PDF (Gotenberg ${res.status}): ${detail}`,
+        false
       );
     }
-    throw new Error(`gotenberg convert failed http=${res.status} body=${detail}`);
+    throw new DocumentConversionError(
+      `gotenberg convert failed http=${res.status} body=${detail}`,
+      true
+    );
   }
 
   const pdf = Buffer.from(await res.arrayBuffer());
   if (pdf.subarray(0, PDF_MAGIC.length).toString('latin1') !== PDF_MAGIC) {
     // 200, но тело — не PDF: считаем сбоем сервиса, а не документа.
-    throw new Error('gotenberg returned a non-PDF payload');
+    throw new DocumentConversionError('gotenberg returned a non-PDF payload', true);
   }
   return pdf;
 }

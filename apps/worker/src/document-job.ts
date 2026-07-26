@@ -1,6 +1,11 @@
+import {
+  DocumentConversionError,
+  TemplateRenderError,
+  convertDocxToPdf,
+  renderDocx
+} from '@trudskill/docx-render';
+
 import { NonRetryableJobError } from './bulk-enrollment-callback.js';
-import { TemplateRenderError, renderDocx } from './render/docx-render.js';
-import { convertDocxToPdf } from './render/gotenberg-convert.js';
 
 /**
  * Обработка job'а `document` (Фаза 1 Task 2, ФТ-A1.1): claim задачи через internal-эндпоинт
@@ -117,7 +122,7 @@ export async function runDocumentJob(
       ...(deps.fetchFn ? { fetchFn: deps.fetchFn } : {})
     });
   } catch (error) {
-    if (error instanceof NonRetryableJobError) {
+    if (error instanceof DocumentConversionError && !error.retryable) {
       // LibreOffice не смог открыть документ — повтор бессмыслен, помечаем задачу failed.
       await call('fail', { message: error.message.slice(0, 900) });
       return;

@@ -10,6 +10,7 @@ export default defineConfig({
       'apps/realtime/vitest.config.ts',
       'packages/api-contracts/vitest.config.ts',
       'packages/ui/vitest.config.ts',
+      'packages/docx-render/vitest.config.ts',
       'packages/shared-types/vitest.config.ts',
       'packages/test-utils/vitest.config.ts'
     ]
