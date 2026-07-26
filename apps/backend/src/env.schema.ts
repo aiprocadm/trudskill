@@ -41,6 +41,9 @@ export const backendEnvSchema = z
       .default(false),
     CLAMAV_HOST: z.string().min(1).default('clamav'),
     CLAMAV_PORT: z.coerce.number().int().positive().default(3310),
+    // Gotenberg (ФТ-A1.3) — конвертация DOCX→PDF (LibreOffice внутри контейнера).
+    // Инфраструктура готовится в Фазе 0; сам движок рендера подключается в Фазе 1 (ЭПИК A).
+    GOTENBERG_URL: z.string().url().default('http://gotenberg:3000'),
     // E-signature seam (Phase 6, НЭП). Ships dormant (false) → NoopDocumentSignatureProvider.
     // Custom boolean parse — NOT z.coerce.boolean (which maps the string "false" → true),
     // same rule as ANTIVIRUS_ENABLED so a signing flag is never accidentally on.

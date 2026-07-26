@@ -72,6 +72,30 @@ services:
       mc mb --ignore-existing local/cdoprof-dev
       "
 
+  # Антивирусный демон (ФТ-G5). В dev по умолчанию ВЫКЛЮЧЕН на стороне backend
+  # (ANTIVIRUS_ENABLED=false в .env.example → NoopAntivirusScanner), чтобы не грузить
+  # локалку загрузкой базы сигнатур. Поднять при необходимости: `docker compose up -d clamav`
+  # и выставить ANTIVIRUS_ENABLED=true. Первый старт долгий — freshclam качает базу.
+  clamav:
+    image: clamav/clamav:1.4
+    ports:
+      - '3310:3310'
+    volumes:
+      - clamav-data:/var/lib/clamav
+    healthcheck:
+      test: ['CMD', 'clamdcheck.sh']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  # Gotenberg (ФТ-A1.3): конвертация DOCX→PDF (LibreOffice внутри). Внутренний порт 3000 —
+  # обращаемся по имени сервиса `gotenberg:3000` внутри сети compose; host-порт НЕ пробрасываем,
+  # чтобы не конфликтовать с фронтендом на :3000. Здесь только инфраструктура — сам движок
+  # рендера (worker → Gotenberg) подключается в Фазе 1 (ЭПИК A). Health-эндпоинт: GET /health.
+  gotenberg:
+    image: gotenberg/gotenberg:8
+
   supertokens:
     image: registry.supertokens.io/supertokens/supertokens-postgresql:9.3
     environment:
@@ -146,3 +170,4 @@ volumes:
   redis-data:
   rabbitmq-data:
   minio-data:
+  clamav-data:
