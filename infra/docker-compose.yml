@@ -72,6 +72,22 @@ services:
       mc mb --ignore-existing local/cdoprof-dev
       "
 
+  # Опционален в dev: backend по умолчанию идёт с ANTIVIRUS_ENABLED=false (Noop-сканер),
+  # поэтому зависимости backend → clamav здесь нет. Первый старт качает базы сигнатур
+  # (~300 МБ), отсюда длинный start_period.
+  clamav:
+    image: clamav/clamav:1.4
+    ports:
+      - '3310:3310'
+    volumes:
+      - clamav-data:/var/lib/clamav
+    healthcheck:
+      test: ['CMD', 'clamdcheck.sh']
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 300s
+
   supertokens:
     image: registry.supertokens.io/supertokens/supertokens-postgresql:9.3
     environment:
@@ -146,3 +162,4 @@ volumes:
   redis-data:
   rabbitmq-data:
   minio-data:
+  clamav-data:

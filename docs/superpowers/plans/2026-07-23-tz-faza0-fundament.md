@@ -107,12 +107,14 @@
 
 **Tasks:**
 
-- [ ] Добавить сервис `clamav` в dev-compose (по умолчанию dev остаётся с флагом false — Noop, чтобы не грузить локалку).
-- [ ] В prod-compose включить контейнер + `ANTIVIRUS_ENABLED=true`.
-- [ ] Проверить healthcheck и что backend стартует после готовности clamav (depends_on).
-- [ ] Дымовой тест: загрузка заражённого EICAR-файла в prod-профиле → `file_infected`.
+- [x] Добавить сервис `clamav` в dev-compose (по умолчанию dev остаётся с флагом false — Noop, чтобы не грузить локалку).
+- [x] В prod-compose включить контейнер + `ANTIVIRUS_ENABLED=true`.
+- [x] Проверить healthcheck и что backend стартует после готовности clamav (depends_on).
+- [x] Дымовой тест: загрузка заражённого EICAR-файла в prod-профиле → `file_infected`.
 
 **Acceptance:** в prod-профиле антивирус реально сканирует; EICAR отбивается; dev-профиль не сломан (флаг false → Noop). Код сканера не тронут.
+
+**Выполнено 2026-07-26 (§5.168).** Deviations: (1) дымовой тест сделан не через полный boot prod-профиля, а против живого `clamav/clamav:1.4` из нового compose-сервиса **реальным классом `ClamAvAntivirusScanner`** (clean → `clean`, EICAR → `infected: Eicar-Test-Signature`); (2) «код сканера не тронут» нарушено осознанно — живой clamd вскрыл протокольный баг (команда `zINSTREAM` не была NUL-терминирована + ответы clamd NUL-терминированы и не парсились) → любой скан возвращал `error`, т.е. с `ANTIVIRUS_ENABLED=true` prod отбивал бы **все** загрузки. Исправлено в сканере + юнит-тесты приведены к поведению реального clamd.
 
 ---
 

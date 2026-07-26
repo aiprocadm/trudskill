@@ -62,6 +62,20 @@ services:
       mc mb --ignore-existing local/$${S3_BUCKET}
       "
 
+  # Порт наружу не публикуем — clamd доступен только из docker-сети (backend → clamav:3310).
+  # Первый старт качает базы сигнатур (~300 МБ) — длинный start_period; clamd нужно ~1 ГБ RAM.
+  clamav:
+    image: clamav/clamav:1.4
+    volumes:
+      - clamav-data:/var/lib/clamav
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'clamdcheck.sh']
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 300s
+
   supertokens:
     image: registry.supertokens.io/supertokens/supertokens-postgresql:9.3
     env_file: .env.production
@@ -80,6 +94,11 @@ services:
       context: ..
       dockerfile: apps/backend/Dockerfile
     env_file: .env.production
+    environment:
+      # В проде антивирус включён принудительно, поверх .env.production (ФТ-G5).
+      ANTIVIRUS_ENABLED: 'true'
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: '3310'
     depends_on:
       postgres:
         condition: service_healthy
@@ -90,6 +109,8 @@ services:
       minio:
         condition: service_healthy
       supertokens:
+        condition: service_healthy
+      clamav:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -155,5 +176,6 @@ volumes:
   redis-data:
   rabbitmq-data:
   minio-data:
+  clamav-data:
   caddy-data:
   caddy-config:

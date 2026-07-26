@@ -84,7 +84,9 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 ### Current Stage
 
-**2026-07-24 (текущее, §5.167, ветка `feat/2026-07-23-tenant-isolation-suite`):** **Фаза 0 «Фундамент» дельта-ТЗ «Арендная СДО» — старт.** План Фазы 0 создан и апрувнут владельцем ([docs/superpowers/plans/2026-07-23-tz-faza0-fundament.md](docs/superpowers/plans/2026-07-23-tz-faza0-fundament.md), PR #306); открытый вопрос №7 решён — **шифрование ПДн делаем в Фазе 0**. Сделан **Task 1 — гейт изоляции тенантов `pnpm test:isolation`** (ФТ-D1.3): контракт `TenantGuard` (эффективный тенант только из токена, `x-tenant-id` не подменяет) + data-layer `enforceTenantScope` + структурный «сторож» контроллеров (любой новый контроллер без `@UseGuards(TenantGuard)` роняет суиту) + шаг в CI. 12 тестов зелёные, typecheck зелёный. **Дальше по Фазе 0:** Task 3 (ClamAV-контейнер) → Task 6 (Gotenberg) → Task 2 (rate limiting `/verify/{qr}`) → Task 4 (email-события) → Task 5 (2FA TOTP) → Task 7 (шифрование ПДн). Каждая — отдельный под-PR.
+**2026-07-26 (текущее, §5.168, ветка `feat/2026-07-26-clamav-container`):** **Фаза 0 «Фундамент», Task 3 — ClamAV (ФТ-G5) сделан.** Контейнер `clamav/clamav:1.4` добавлен в dev/prod compose (healthcheck, volume под базы, `start_period: 300s`); prod-compose принудительно включает `ANTIVIRUS_ENABLED=true` + `depends_on: clamav healthy`, dev остаётся на Noop. **Живой EICAR-smoke на тестовом сервере вскрыл протокольный баг сканера** (z-команды clamd NUL-терминированы; код слал `'zINSTREAM '` с пробелом, а NUL-терминированные ответы не парсились) — с включённым флагом prod отбивал бы все загрузки; починено в `clamav-antivirus.scanner.ts` + юнит-симулятор приведён к реальному clamd. Smoke: чистый файл → `clean`, EICAR → `infected: Eicar-Test-Signature`; юнит 5/5 зелёные. **Дальше по Фазе 0:** Task 6 (Gotenberg) → Task 2 (rate limiting `/verify/{qr}`) → Task 4 (email-события) → Task 5 (2FA TOTP) → Task 7 (шифрование ПДн). Каждая — отдельный под-PR.
+
+**2026-07-24 (§5.167, ветка `feat/2026-07-23-tenant-isolation-suite`):** **Фаза 0 «Фундамент» дельта-ТЗ «Арендная СДО» — старт.** План Фазы 0 создан и апрувнут владельцем ([docs/superpowers/plans/2026-07-23-tz-faza0-fundament.md](docs/superpowers/plans/2026-07-23-tz-faza0-fundament.md), PR #306); открытый вопрос №7 решён — **шифрование ПДн делаем в Фазе 0**. Сделан **Task 1 — гейт изоляции тенантов `pnpm test:isolation`** (ФТ-D1.3): контракт `TenantGuard` (эффективный тенант только из токена, `x-tenant-id` не подменяет) + data-layer `enforceTenantScope` + структурный «сторож» контроллеров (любой новый контроллер без `@UseGuards(TenantGuard)` роняет суиту) + шаг в CI. 12 тестов зелёные, typecheck зелёный. **Дальше по Фазе 0:** Task 3 (ClamAV-контейнер) → Task 6 (Gotenberg) → Task 2 (rate limiting `/verify/{qr}`) → Task 4 (email-события) → Task 5 (2FA TOTP) → Task 7 (шифрование ПДн). Каждая — отдельный под-PR.
 
 **2026-07-24 (§5.166, ветка `claude/tz-project-integration-27b955`):** **Принято в работу дельта-ТЗ «Арендная СДО»** — [TZ_TRUDSKILL_ARENDNAYA_SDO.md](TZ_TRUDSKILL_ARENDNAYA_SDO.md) добавлено в корень (гэп-анализ к `SDOPROF_TZ_FINAL.md` по аудиту коммита `ac2af17`: 9 эпиков A–I, требования ФТ-\*, дорожная карта фаз 0–6, приоритеты P0–P2). Создан живой статус-трекер [docs/TZ_ARENDNAYA_SDO_STATUS.md](docs/TZ_ARENDNAYA_SDO_STATUS.md) (статус каждого ФТ: сделано / частично / не начато / переделать; начальные статусы из аудита ТЗ + факта кода, вкл. досрочный прогресс ЭПИКа H по UI redesign §5.162–§5.165). Протокол «продолжай по ТЗ» обновлён в CLAUDE.md / docs/DOCUMENTATION_MAP.md / README (порядок чтения теперь включает дельта-ТЗ §13 + статус-трекер). Docs-only, код не тронут. **Дальше:** решения владельца по открытым вопросам ТЗ §14 (минимум №2 docxtemplater и №7 шифрование ПДн — блокируют фазы 0–1) → план Фазы 0 «Фундамент» в `docs/superpowers/plans/` → апрув → код.
 
@@ -187,11 +189,11 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Updated By
 
-Claude (Opus 4.8) — §5.165: UI Фаза 4 под-PR 1a — 6 списочных экранов монолита `mvp/screens.tsx` на `AsyncSection` (zero-change, adversarial-ревью чист).
+Claude (Fable 5) — §5.168: Фаза 0 Task 3 — контейнер ClamAV в dev/prod compose + прод-включение + фикс протокола INSTREAM (живой EICAR-smoke зелёный).
 
 ### Last Updated At
 
-2026-07-13 (§5.165 — UI redesign Фаза 4, под-PR 1a: списки монолита → AsyncSection).
+2026-07-26 (§5.168 — Фаза 0 «Фундамент», Task 3: ClamAV, ФТ-G5).
 
 ## 3. Current Project Status
 
