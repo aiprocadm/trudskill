@@ -1,5 +1,5 @@
 import { Body, Controller, Inject, NotFoundException, Post, UseGuards } from '@nestjs/common';
-import { IsInt, IsOptional, IsPositive, IsString, MinLength } from 'class-validator';
+import { IsInt, IsObject, IsOptional, IsPositive, IsString, MinLength } from 'class-validator';
 
 import { DocumentsTenantRunner } from './documents-tenant-runner.service.js';
 import { assertValidDto } from '../../common/app-validation.pipe.js';
@@ -7,6 +7,7 @@ import { FilesService } from '../files/files.service.js';
 import { WorkerCallbackGuard } from '../mvp/infrastructure/worker-callback.guard.js';
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const PDF_MIME = 'application/pdf';
 
 class WorkerTaskRefDto {
   @IsString()
@@ -22,6 +23,17 @@ class WorkerCompleteDto extends WorkerTaskRefDto {
   @IsString()
   @MinLength(1)
   fileId!: string;
+
+  /** ФТ-A1.3: PDF-двойник (worker конвертирует через Gotenberg). */
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  pdfFileId?: string;
+
+  /** ФТ-A1.4: словарь подставленных значений — основа детерминированного перевыпуска. */
+  @IsOptional()
+  @IsObject()
+  variablesSnapshot?: Record<string, unknown>;
 }
 
 class WorkerFailDto extends WorkerTaskRefDto {
@@ -105,12 +117,14 @@ export class DocumentsInternalWorkerController {
   async resultUploadIntent(@Body() raw: unknown) {
     const body = assertValidDto(WorkerUploadIntentDto, raw);
     const contentType = body.contentType ?? DOCX_MIME;
+    // Расширение выводим из MIME: тот же эндпоинт отдаёт интенты и под DOCX, и под PDF-двойник.
+    const extension = contentType === PDF_MIME ? 'pdf' : 'docx';
     return this.files.createUploadIntent(
       body.tenantId,
-      { originalName: `${body.taskId}.docx`, contentType, sizeBytes: body.sizeBytes },
+      { originalName: `${body.taskId}.${extension}`, contentType, sizeBytes: body.sizeBytes },
       {
         keyPrefix: 'generated-documents',
-        mimeAllowlist: new Set([DOCX_MIME, 'application/pdf']),
+        mimeAllowlist: new Set([DOCX_MIME, PDF_MIME]),
         maxBytes: 50 * 1024 * 1024
       }
     );
@@ -120,8 +134,15 @@ export class DocumentsInternalWorkerController {
   async complete(@Body() raw: unknown) {
     const body = assertValidDto(WorkerCompleteDto, raw);
     return this.runner.runWithTenantDocuments(body.tenantId, async (documents) => {
-      const generated = documents.completeTask(body.tenantId, body.taskId, body.fileId);
-      return { generatedDocumentId: generated.id, documentNumber: generated.documentNumber };
+      const generated = documents.completeTask(body.tenantId, body.taskId, body.fileId, undefined, {
+        ...(body.pdfFileId ? { pdfFileId: body.pdfFileId } : {}),
+        ...(body.variablesSnapshot ? { variablesSnapshot: body.variablesSnapshot } : {})
+      });
+      return {
+        generatedDocumentId: generated.id,
+        documentNumber: generated.documentNumber,
+        pdfFileId: generated.pdfFileId
+      };
     });
   }
 

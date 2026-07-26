@@ -1,5 +1,6 @@
 import { NonRetryableJobError } from './bulk-enrollment-callback.js';
 import { TemplateRenderError, renderDocx } from './render/docx-render.js';
+import { convertDocxToPdf } from './render/gotenberg-convert.js';
 
 /**
  * Обработка job'а `document` (Фаза 1 Task 2, ФТ-A1.1): claim задачи через internal-эндпоинт
@@ -10,6 +11,7 @@ import { TemplateRenderError, renderDocx } from './render/docx-render.js';
  */
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const PDF_MIME = 'application/pdf';
 const INTERNAL_DOCUMENTS_PATH = '/api/v1/internal/worker/documents';
 
 export interface DocumentJobEnvelope {
@@ -21,6 +23,8 @@ export interface DocumentJobEnvelope {
 export interface DocumentJobDeps {
   backendPublicUrl: string;
   callbackToken: string | undefined;
+  /** База Gotenberg для конвертации DOCX→PDF (ФТ-A1.3). */
+  gotenbergUrl: string;
   fetchFn?: typeof fetch;
 }
 
@@ -103,19 +107,47 @@ export async function runDocumentJob(
     throw error;
   }
 
-  const intent = (await call('result-upload-intent', {
-    sizeBytes: rendered.length,
-    contentType: DOCX_MIME
-  })) as { fileId: string; uploadUrl: string };
-
-  const putRes = await fetchFn(intent.uploadUrl, {
-    method: 'PUT',
-    headers: { 'content-type': DOCX_MIME, 'content-length': String(rendered.length) },
-    body: new Uint8Array(rendered)
-  });
-  if (!putRes.ok) {
-    throw new Error(`result upload failed http=${putRes.status}`);
+  // ФТ-A1.3: храним ОБА формата. PDF — то, что печатают и подписывают; DOCX остаётся
+  // исходником для перевыпуска. Сбой конвертации не должен терять уже отрендеренный DOCX,
+  // поэтому PDF готовим до загрузки: либо кладём пару, либо задача честно падает.
+  let pdf: Buffer;
+  try {
+    pdf = await convertDocxToPdf(rendered, {
+      gotenbergUrl: deps.gotenbergUrl,
+      ...(deps.fetchFn ? { fetchFn: deps.fetchFn } : {})
+    });
+  } catch (error) {
+    if (error instanceof NonRetryableJobError) {
+      // LibreOffice не смог открыть документ — повтор бессмыслен, помечаем задачу failed.
+      await call('fail', { message: error.message.slice(0, 900) });
+      return;
+    }
+    throw error; // сеть/таймаут/5xx — ретрай с backoff'ом
   }
 
-  await call('complete', { fileId: intent.fileId });
+  const upload = async (body: Buffer, contentType: string): Promise<string> => {
+    const intent = (await call('result-upload-intent', {
+      sizeBytes: body.length,
+      contentType
+    })) as { fileId: string; uploadUrl: string };
+    const putRes = await fetchFn(intent.uploadUrl, {
+      method: 'PUT',
+      headers: { 'content-type': contentType, 'content-length': String(body.length) },
+      body: new Uint8Array(body)
+    });
+    if (!putRes.ok) {
+      throw new Error(`result upload failed http=${putRes.status}`);
+    }
+    return intent.fileId;
+  };
+
+  const fileId = await upload(rendered, DOCX_MIME);
+  const pdfFileId = await upload(pdf, PDF_MIME);
+
+  await call('complete', {
+    fileId,
+    pdfFileId,
+    // ФТ-A1.4: снапшот подставленных данных — из него перевыпуск даёт идентичный файл.
+    variablesSnapshot: start.variables ?? {}
+  });
 }

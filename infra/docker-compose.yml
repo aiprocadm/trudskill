@@ -95,6 +95,12 @@ services:
   # рендера (worker → Gotenberg) подключается в Фазе 1 (ЭПИК A). Health-эндпоинт: GET /health.
   gotenberg:
     image: gotenberg/gotenberg:8
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   supertokens:
     image: registry.supertokens.io/supertokens/supertokens-postgresql:9.3
@@ -163,6 +169,8 @@ services:
       rabbitmq:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      gotenberg:
         condition: service_healthy
 
 volumes:
