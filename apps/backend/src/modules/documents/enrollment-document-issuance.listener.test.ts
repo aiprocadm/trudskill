@@ -10,6 +10,9 @@ import { TenantSerialGateway } from '../../infrastructure/request/tenant-serial.
 import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
+// Task 2 (ФТ-A1.1): слушатель публикует job'ы после сохранения состояния — в юнитах глушим.
+const noopEnqueue = { publishQueuedTasks: async () => undefined } as never;
+
 const flushDeferred = async () => {
   await new Promise<void>((resolve) => setImmediate(() => resolve()));
   await new Promise<void>((resolve) => setImmediate(() => resolve()));
@@ -61,7 +64,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       );
     });
 
-    const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
       enrollmentId: 'enrollment_x',
@@ -115,7 +118,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       );
     });
 
-    const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
       enrollmentId: 'enrollment_y',
@@ -183,7 +186,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       );
     });
 
-    const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
     const payload = {
       tenantId: 'tenant_demo',
       enrollmentId: 'enrollment_dup',
@@ -211,7 +214,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
         throw new Error('documents backend unavailable');
       }
     } as unknown as DocumentsTenantRunner;
-    const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
 
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
@@ -272,7 +275,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       );
     });
 
-    const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
       enrollmentId: 'enrollment_cross_tenant',
@@ -344,7 +347,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       templateCertId = cert.id;
     });
 
-    const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
       enrollmentId: 'enrollment_set_1',
@@ -427,7 +430,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       templateCertId = cert.id;
     });
 
-    const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
       enrollmentId: 'enrollment_recert',
@@ -503,7 +506,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       templateManualId = manualTpl.id;
     });
 
-    const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
       enrollmentId: 'enrollment_set_2',
@@ -588,7 +591,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       templateBId = b.id;
     });
 
-    const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
     const payload = {
       tenantId: 'tenant_demo',
       enrollmentId: 'enrollment_set_3',
@@ -660,7 +663,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       templateGoodId = good.id;
     });
 
-    const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
       enrollmentId: 'enrollment_partial',
@@ -712,7 +715,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
         throw new Error('tenant runner unavailable');
       }
     } as unknown as DocumentsTenantRunner;
-    const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
 
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
@@ -783,7 +786,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       );
     });
 
-    const listener = new EnrollmentDocumentIssuanceListener(runner, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
       enrollmentId: 'enrollment_fallback',

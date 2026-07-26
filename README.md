@@ -84,7 +84,9 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 ### Current Stage
 
-**2026-07-26 (текущее, §5.175, ветка `feat/2026-07-26-tz-faza1-task1-docx-render`):** **Фаза 1 «Документы» стартовала** (план PR #314 апрувнут; вопрос №2 = docxtemplater free). **Task 1 — движок рендера DOCX готов:** `worker/src/render/docx-render.ts` — docxtemplater с кастомным parser'ом (плоские ключи `pillar-a-variables` + вложенные пути), циклы/условия/split-runs, `nullGetter`→'', байт-детерминизм (фиксация zip-дат), `extractPlaceholders` для админ-UX, `TemplateRenderError`. 10 юнитов на фикстурах-фабрике (DOCX собирается кодом). **Дальше:** Task 2 — транспорт (enqueue → worker → internal-эндпоинты → presigned файлы).
+**2026-07-26 (текущее, §5.176, ветка `feat/2026-07-26-tz-faza1-task2-transport`):** **Фаза 1, Task 2 — транспорт рендера (ФТ-A1.1): цепочка «generate → RabbitMQ → worker → DOCX в S3» собрана.** Enqueue из 3 точек (generate/batch/авто-выдача — после сохранения состояния; best-effort), `case 'document'` в worker → `document-job.ts` (claim → presigned GET шаблона → renderDocx → presigned PUT → complete; ошибки шаблона → fail+ack, транспортные → retry/DLQ, гонка состояния → 404-retry), internal-эндпоинты documents под `WorkerCallbackGuard` через `DocumentsTenantRunner`, результат — стандартным files-циклом (AV-гейт). Тесты: documents 236, worker 32, isolation 12 — зелёные. **Дальше:** Task 3 — PDF/Gotenberg + снапшот (0062, pii-crypto) + живой smoke цепочки.
+
+**2026-07-26 (§5.175, ветка `feat/2026-07-26-tz-faza1-task1-docx-render`):** **Фаза 1 «Документы» стартовала** (план PR #314 апрувнут; вопрос №2 = docxtemplater free). **Task 1 — движок рендера DOCX готов:** `worker/src/render/docx-render.ts` — docxtemplater с кастомным parser'ом (плоские ключи `pillar-a-variables` + вложенные пути), циклы/условия/split-runs, `nullGetter`→'', байт-детерминизм (фиксация zip-дат), `extractPlaceholders` для админ-UX, `TemplateRenderError`. 10 юнитов на фикстурах-фабрике (DOCX собирается кодом). **Дальше:** Task 2 — транспорт (enqueue → worker → internal-эндпоинты → presigned файлы).
 
 **2026-07-26 (§5.174, ветка `feat/2026-07-26-tz-faza0-task7-pii-encryption`):** **ФАЗА 0 «ФУНДАМЕНТ» ЗАВЕРШЕНА И ПРИНЯТА.** Все 7 задач — PR #307–#313: test:isolation-гейт, контейнеры ClamAV+Gotenberg (+фикс протокола clamd по живому EICAR), rate limiting `/verify/{qr}`, email-события по-настоящему, 2FA TOTP для админ-ролей, шифрование ПДн (СНИЛС at-rest). Приёмка: полный `ci:check` (2033 бэк + 682 фронт + сборки) + isolation 12 + security 24 + migrations 51 (0000–0061) — зелёные; вопрос №7 закрыт. Осознанные хвосты — в плане фазы. **Дальше:** план Фазы 1 «Документы» (ЭПИК A — движок рендера) + апрув; блокер — вопрос №2 (docxtemplater?) — нужно решение владельца.
 
@@ -203,11 +205,11 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Updated By
 
-Claude (Fable 5) — §5.175: Фаза 1 Task 1 — движок рендера DOCX (docxtemplater, детерминизм, extractPlaceholders), 10 юнитов зелёные.
+Claude (Fable 5) — §5.176: Фаза 1 Task 2 — транспорт рендера (enqueue → worker → internal-эндпоинты → presigned файлы).
 
 ### Last Updated At
 
-2026-07-26 (§5.175 — Фаза 1 «Документы», Task 1: движок рендера DOCX).
+2026-07-26 (§5.176 — Фаза 1 «Документы», Task 2: транспорт рендера).
 
 ## 3. Current Project Status
 

@@ -730,6 +730,13 @@ export class DocumentsService {
     this.writeTaskAudit(task, 'documents.task.completed', { generatedDocumentId: generated.id });
     return generated;
   }
+  /** Номер, зарезервированный под задачу (для рендера и ответа internal-worker). */
+  getTaskReservedNumber(tenantId: string, taskId: string): string | undefined {
+    const task = this.getDocumentTask(tenantId, taskId);
+    if (!task.numberReservationId) return undefined;
+    return this.getReservation(tenantId, task.numberReservationId).reservedNumber;
+  }
+
   startTask(tenantId: string, id: string) {
     const task = this.getDocumentTask(tenantId, id);
     if (task.status === 'completed' || task.status === 'failed')

@@ -1,0 +1,169 @@
+import { NotFoundException } from '@nestjs/common';
+import { describe, expect, it, vi } from 'vitest';
+
+import { DocumentsInternalWorkerController } from './documents-internal-worker.controller.js';
+import { DocumentsService } from './documents.service.js';
+import { InMemoryDocumentsState } from './in-memory-documents.state.js';
+import { AuditService } from '../audit/audit.service.js';
+import { RealtimeEventsService } from '../core/realtime-events.service.js';
+
+import type { RequestContext } from '../../common/context/request-context.js';
+import type { FilesService } from '../files/files.service.js';
+
+const T = 'tenant_demo';
+const ctx: RequestContext = {
+  requestId: 'req_1',
+  correlationId: 'corr_1',
+  tenantId: T,
+  userId: 'u_admin',
+  ip: '127.0.0.1',
+  userAgent: 'vitest'
+};
+
+/** Один общий DocumentsService на тест — фейковый runner просто передаёт его внутрь. */
+function makeHarness() {
+  const documents = new DocumentsService(
+    new InMemoryDocumentsState(),
+    new AuditService(),
+    new RealtimeEventsService()
+  );
+  const runner = {
+    runWithTenantDocuments: async <R>(_tenantId: string, fn: (d: DocumentsService) => Promise<R>) =>
+      fn(documents)
+  };
+  const files = {
+    createDownloadUrl: vi.fn(async () => 'https://s3.local/GET-template'),
+    createUploadIntent: vi.fn(async () => ({
+      fileId: 'file_result_1',
+      uploadUrl: 'https://s3.local/PUT-result',
+      storageKey: 'generated-documents/t/x.docx',
+      expiresInSeconds: 900
+    }))
+  };
+  const controller = new DocumentsInternalWorkerController(
+    runner as never,
+    files as unknown as FilesService
+  );
+  return { documents, controller, files };
+}
+
+let seedCounter = 0;
+function seedTask(documents: DocumentsService) {
+  seedCounter += 1;
+  const template = documents.createTemplate(
+    T,
+    'u_admin',
+    { name: 'Удостоверение', templateType: 'certificate' },
+    ctx
+  );
+  const version = documents.createTemplateVersion(T, 'u_admin', {
+    templateId: template.id,
+    fileId: 'file_template_docx'
+  });
+  documents.activateTemplateVersion(T, 'u_admin', version.id, ctx);
+  return documents.generateDocument(
+    T,
+    'u_admin',
+    {
+      idempotencyKey: `idem-${seedCounter}`,
+      templateId: template.id,
+      documentType: 'certificate'
+    },
+    ctx
+  );
+}
+
+describe('DocumentsInternalWorkerController (Фаза 1 Task 2)', () => {
+  it('start claims a queued task: number reserved, presigned template URL, variables', async () => {
+    const { documents, controller, files } = makeHarness();
+    const task = seedTask(documents);
+    const res = (await controller.start({ tenantId: T, taskId: task.id })) as Record<
+      string,
+      unknown
+    >;
+    expect(res.claimed).toBe(true);
+    expect(res.templateFileUrl).toBe('https://s3.local/GET-template');
+    expect(files.createDownloadUrl).toHaveBeenCalledWith(T, 'file_template_docx');
+    expect(res.number).toBeTruthy();
+    expect((res.variables as Record<string, unknown>)['document.number']).toBe(res.number);
+    expect(documents.getDocumentTask(T, task.id).status).toBe('running');
+  });
+
+  it('start is re-claimable while running (worker retry) but not after completion', async () => {
+    const { documents, controller } = makeHarness();
+    const task = seedTask(documents);
+    await controller.start({ tenantId: T, taskId: task.id });
+    const again = (await controller.start({ tenantId: T, taskId: task.id })) as Record<
+      string,
+      unknown
+    >;
+    expect(again.claimed).toBe(true);
+
+    await controller.complete({ tenantId: T, taskId: task.id, fileId: 'file_result_1' });
+    const afterComplete = (await controller.start({ tenantId: T, taskId: task.id })) as Record<
+      string,
+      unknown
+    >;
+    expect(afterComplete).toEqual({ claimed: false, status: 'completed' });
+  });
+
+  it('start on an unknown task propagates 404 (worker retries the state race)', async () => {
+    const { controller } = makeHarness();
+    await expect(controller.start({ tenantId: T, taskId: 'dtask_missing' })).rejects.toBeInstanceOf(
+      NotFoundException
+    );
+  });
+
+  it('complete registers the generated document with the reserved number', async () => {
+    const { documents, controller } = makeHarness();
+    const task = seedTask(documents);
+    const started = (await controller.start({ tenantId: T, taskId: task.id })) as Record<
+      string,
+      unknown
+    >;
+    const res = (await controller.complete({
+      tenantId: T,
+      taskId: task.id,
+      fileId: 'file_result_1'
+    })) as Record<string, unknown>;
+    expect(res.generatedDocumentId).toBeTruthy();
+    expect(res.documentNumber).toBe(started.number);
+  });
+
+  it('fail marks the task failed; failing after completion answers idempotently', async () => {
+    const { documents, controller } = makeHarness();
+    const task = seedTask(documents);
+    await controller.start({ tenantId: T, taskId: task.id });
+    const failed = (await controller.fail({
+      tenantId: T,
+      taskId: task.id,
+      message: 'Template render failed: unclosed loop'
+    })) as Record<string, unknown>;
+    expect(failed.status).toBe('failed');
+    expect(documents.getDocumentTask(T, task.id).errorMessage).toContain('unclosed loop');
+
+    const task2 = seedTask(documents);
+    await controller.start({ tenantId: T, taskId: task2.id });
+    await controller.complete({ tenantId: T, taskId: task2.id, fileId: 'f' });
+    const afterComplete = (await controller.fail({
+      tenantId: T,
+      taskId: task2.id,
+      message: 'late duplicate'
+    })) as Record<string, unknown>;
+    expect(afterComplete.status).toBe('completed');
+  });
+
+  it('result-upload-intent asks files-module for a DOCX/PDF-only presigned PUT', async () => {
+    const { controller, files } = makeHarness();
+    const res = (await controller.resultUploadIntent({
+      tenantId: T,
+      taskId: 'dtask_1',
+      sizeBytes: 12_345
+    })) as Record<string, unknown>;
+    expect(res.fileId).toBe('file_result_1');
+    const [tenantArg, inputArg, optionsArg] = files.createUploadIntent.mock.calls[0]!;
+    expect(tenantArg).toBe(T);
+    expect(inputArg).toMatchObject({ originalName: 'dtask_1.docx', sizeBytes: 12_345 });
+    expect((optionsArg as { keyPrefix: string }).keyPrefix).toBe('generated-documents');
+  });
+});

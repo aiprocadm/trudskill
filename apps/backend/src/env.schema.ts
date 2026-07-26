@@ -246,7 +246,8 @@ export const backendEnvSchema = z
     /** Exchange RabbitMQ для фоновых job (совпадает с `WORKER_EXCHANGE` в apps/worker). */
     JOB_EXCHANGE: z.string().min(1).default('jobs.topic'),
     /** Routing key публикации задачи массового зачисления. */
-    JOB_ROUTING_BULK_ENROLLMENT: z.string().min(1).default('lms.bulk_enrollment')
+    JOB_ROUTING_BULK_ENROLLMENT: z.string().min(1).default('lms.bulk_enrollment'),
+    JOB_ROUTING_DOCUMENT: z.string().min(1).default('lms.document_generation')
   })
   .superRefine((env, ctx) => {
     const devSecrets = [

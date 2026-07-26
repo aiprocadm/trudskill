@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module';
 
 import { invokeBackendBulkEnrollment } from './bulk-enrollment-callback.js';
+import { runDocumentJob } from './document-job.js';
 import { workerEnv } from './env.js';
 import { type WorkerEnvelope, consumeMessage } from './message-consumer.js';
 
@@ -112,6 +113,17 @@ async function markProcessed(messageId: string, queueName: string): Promise<void
 async function processJob(envelope: WorkerEnvelope): Promise<void> {
   switch (envelope.jobType) {
     case 'document':
+      await runDocumentJob(
+        {
+          messageId: envelope.messageId,
+          tenantId: envelope.tenantId,
+          payload: envelope.payload
+        },
+        {
+          backendPublicUrl: workerEnv.BACKEND_PUBLIC_URL,
+          callbackToken: workerEnv.WORKER_CALLBACK_TOKEN
+        }
+      );
       return;
     case 'integration':
       return;

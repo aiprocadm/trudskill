@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 
+import { DocumentsEnqueueService } from './documents-enqueue.service.js';
 import { DocumentsTenantRunner } from './documents-tenant-runner.service.js';
 import { addMonths } from '../../common/utils/date-math.util.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -32,6 +33,7 @@ function enrollmentTraceRequestContext(
 export class EnrollmentDocumentIssuanceListener {
   constructor(
     @Inject(DocumentsTenantRunner) private readonly documentsRunner: DocumentsTenantRunner,
+    @Inject(DocumentsEnqueueService) private readonly enqueue: DocumentsEnqueueService,
     @Inject(AuditService) private readonly auditService: AuditService
   ) {}
 
@@ -60,6 +62,9 @@ export class EnrollmentDocumentIssuanceListener {
   ): Promise<void> {
     const { tenantId, enrollmentId, actorId } = payload;
     const traceCtx = enrollmentTraceRequestContext(payload);
+    // ФТ-A1.1: публикуем job'ы ПОСЛЕ выхода из runner'а — состояние тенанта уже сохранено,
+    // иначе worker мог бы прочитать снапшот без задачи.
+    const createdTasks: Array<{ id: string; status: string }> = [];
     try {
       await this.documentsRunner.runWithTenantDocuments(tenantId, async (documents) => {
         // Partial-success: один негодный шаблон в наборе (архивный / без активной версии) не
@@ -75,7 +80,7 @@ export class EnrollmentDocumentIssuanceListener {
               ? addMonths(payload.completedAt, entry.recertificationPeriodMonths)
               : undefined;
           try {
-            documents.generateDocument(
+            const task = documents.generateDocument(
               tenantId,
               actorId,
               {
@@ -88,6 +93,7 @@ export class EnrollmentDocumentIssuanceListener {
               },
               traceCtx
             );
+            createdTasks.push({ id: task.id, status: task.status });
             issued += 1;
           } catch (error) {
             failures.push({
@@ -123,6 +129,10 @@ export class EnrollmentDocumentIssuanceListener {
           });
         }
       });
+      await this.enqueue.publishQueuedTasks(tenantId, createdTasks, {
+        requestId: payload.requestId,
+        correlationId: payload.correlationId
+      });
     } catch (error) {
       this.auditService.write({
         tenantId,
@@ -142,6 +152,7 @@ export class EnrollmentDocumentIssuanceListener {
   private async issueLegacyCertificate(payload: EnrollmentCompletedPayload): Promise<void> {
     const { tenantId, enrollmentId, groupId, groupCourseIds, actorId } = payload;
     const traceCtx = enrollmentTraceRequestContext(payload);
+    const createdTasks: Array<{ id: string; status: string }> = [];
     try {
       await this.documentsRunner.runWithTenantDocuments(tenantId, async (documents) => {
         const resolved = documents.resolveAutoCertificateTemplateBinding(
@@ -162,7 +173,7 @@ export class EnrollmentDocumentIssuanceListener {
           });
           return;
         }
-        documents.generateDocument(
+        const task = documents.generateDocument(
           tenantId,
           actorId,
           {
@@ -174,6 +185,11 @@ export class EnrollmentDocumentIssuanceListener {
           },
           traceCtx
         );
+        createdTasks.push({ id: task.id, status: task.status });
+      });
+      await this.enqueue.publishQueuedTasks(tenantId, createdTasks, {
+        requestId: payload.requestId,
+        correlationId: payload.correlationId
       });
     } catch (error) {
       this.auditService.write({
