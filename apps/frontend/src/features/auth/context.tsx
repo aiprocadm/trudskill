@@ -5,13 +5,16 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { sessionManager } from '../../lib/auth/session-manager';
 
 import type { UserSession } from '../../entities/session/model';
+import type { TotpChallengeResponse } from '../../lib/auth/auth-api';
 import type { PropsWithChildren } from 'react';
 
 interface AuthContextValue {
   session: UserSession | null;
   loading: boolean;
-  login: (login: string, password: string) => Promise<UserSession>;
-  loginWithMagicLink: (token: string) => Promise<UserSession>;
+  /** Возвращает сессию либо 2FA-challenge (тогда сессии ещё нет — нужен verifyTotp). */
+  login: (login: string, password: string) => Promise<UserSession | TotpChallengeResponse>;
+  loginWithMagicLink: (token: string) => Promise<UserSession | TotpChallengeResponse>;
+  verifyTotp: (challengeToken: string, code: string) => Promise<UserSession>;
   logout: () => Promise<void>;
   refresh: () => Promise<UserSession | null>;
 }
@@ -34,12 +37,21 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       session,
       loading,
       login: async (login, password) => {
-        const nextSession = await sessionManager.login(login, password);
-        setSession(nextSession);
-        return nextSession;
+        const outcome = await sessionManager.login(login, password);
+        if (!('totpRequired' in outcome)) {
+          setSession(outcome);
+        }
+        return outcome;
       },
       loginWithMagicLink: async (token) => {
-        const nextSession = await sessionManager.loginWithMagicLink(token);
+        const outcome = await sessionManager.loginWithMagicLink(token);
+        if (!('totpRequired' in outcome)) {
+          setSession(outcome);
+        }
+        return outcome;
+      },
+      verifyTotp: async (challengeToken, code) => {
+        const nextSession = await sessionManager.verifyTotp(challengeToken, code);
         setSession(nextSession);
         return nextSession;
       },

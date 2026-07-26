@@ -10,6 +10,10 @@ export interface User {
   passwordHash: string;
   status: UserStatus;
   displayName: string;
+  /** 2FA (ФТ-G3): подтверждённая TOTP-защита входа. Опциональны — legacy-конструкторы юзера их не знают. */
+  totpEnabled?: boolean;
+  totpSecretEncrypted?: string | null;
+  totpLastUsedStep?: number | null;
 }
 
 export type UserPublicDto = UserResponseContract;
@@ -48,6 +52,14 @@ export interface AuthEvent {
   id: string;
   tenantId: string;
   userId: string;
-  type: 'login' | 'logout' | 'refresh' | 'session_revoke' | 'logout_all' | 'magic_link_login';
+  type:
+    | 'login'
+    | 'logout'
+    | 'refresh'
+    | 'session_revoke'
+    | 'logout_all'
+    | 'magic_link_login'
+    | 'totp_verified'
+    | 'totp_failed';
   createdAt: string;
 }

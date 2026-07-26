@@ -16,6 +16,7 @@ import {
   UseGuards
 } from '@nestjs/common';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import QRCode from 'qrcode';
 
 import { authCookie } from './auth-cookie.util.js';
 import {
@@ -27,10 +28,11 @@ import {
   type UpdateUserDto
 } from './dto/login.dto.js';
 import { type MagicLinkRedeemDto, type MagicLinkRequestDto } from './dto/magic-link.dto.js';
+import { TotpCodeDto, TotpVerifyDto } from './dto/totp.dto.js';
 import { toSessionResponse } from './iam-response.mapper.js';
 import { RequirePermissions } from './permission.decorator.js';
 import { PermissionGuard } from './permission.guard.js';
-import { AuthService } from './services/auth.service.js';
+import { AuthService, TotpChallengeRequired } from './services/auth.service.js';
 import { IamService } from './services/iam.service.js';
 import {
   MAGIC_LINK_EMAIL_SENDER,
@@ -73,9 +75,77 @@ export class AuthController {
         message: 'Invalid credentials'
       });
     }
-    const tokens = await this.authService.login(context.tenantId!, loginPayload, context);
+    try {
+      const tokens = await this.authService.login(context.tenantId!, loginPayload, context);
+      authCookie.attachRefreshAndCsrfCookies(response, tokens.refreshToken, tokens.csrfToken);
+      return authCookie.toPublicTokens(tokens);
+    } catch (err) {
+      if (err instanceof TotpChallengeRequired) {
+        // Пароль верный, но включена 2FA: сессии ещё нет — клиент идёт на /auth/2fa/verify.
+        return { totpRequired: true as const, challengeToken: err.challengeToken };
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Второй шаг логина (ФТ-G3). Bootstrap-роут: bearer-токена ещё нет, тенант приходит
+   * заголовком x-tenant-id (см. isTenantBootstrapRoute в TenantGuard). Жёсткий лимит —
+   * перебор 6-значного кода в 5-минутном окне challenge должен быть невозможен.
+   */
+  @Post('auth/2fa/verify')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async verifyTotp(
+    @CurrentContext() context: RequestContext,
+    @Body() payload: TotpVerifyDto,
+    @Res({ passthrough: true }) response: Response
+  ) {
+    if (!context.tenantId) {
+      throw new UnauthorizedException({ code: 'no_tenant', message: 'Tenant not resolved' });
+    }
+    const tokens = await this.authService.verifyTotpAndLogin(
+      context.tenantId,
+      payload.challengeToken,
+      payload.code,
+      context
+    );
     authCookie.attachRefreshAndCsrfCookies(response, tokens.refreshToken, tokens.csrfToken);
     return authCookie.toPublicTokens(tokens);
+  }
+
+  /** Самообслуживание 2FA (авторизованный пользователь; роли — внутри сервиса). */
+  @Get('auth/2fa/status')
+  async totpStatus(@CurrentContext() context: RequestContext) {
+    return this.authService.getTotpStatus(context.tenantId!, context.userId!);
+  }
+
+  @Post('auth/2fa/setup')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async setupTotp(@CurrentContext() context: RequestContext) {
+    const { secret, otpauthUrl } = await this.authService.setupTotp(
+      context.tenantId!,
+      context.userId!,
+      context
+    );
+    // QR рисуем на бэке (data-URI): фронт остаётся без QR-зависимостей.
+    const qrDataUrl = await QRCode.toDataURL(otpauthUrl, { margin: 1, width: 240 });
+    return { secret, otpauthUrl, qrDataUrl };
+  }
+
+  @Post('auth/2fa/confirm')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async confirmTotp(@CurrentContext() context: RequestContext, @Body() payload: TotpCodeDto) {
+    return this.authService.confirmTotp(context.tenantId!, context.userId!, payload.code, context);
+  }
+
+  @Post('auth/2fa/disable')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async disableTotp(@CurrentContext() context: RequestContext, @Body() payload: TotpCodeDto) {
+    return this.authService.disableTotp(context.tenantId!, context.userId!, payload.code, context);
   }
 
   @Post('auth/magic-link/request')
@@ -139,6 +209,10 @@ export class AuthController {
       authCookie.attachRefreshAndCsrfCookies(response, tokens.refreshToken, tokens.csrfToken);
       return authCookie.toPublicTokens(tokens);
     } catch (err) {
+      if (err instanceof TotpChallengeRequired) {
+        // ФТ-G3: magic-link не обходит 2FA — ссылка погашена, но сессия только после кода.
+        return { totpRequired: true as const, challengeToken: err.challengeToken };
+      }
       if (err instanceof MagicLinkInvalidError) {
         throw new UnauthorizedException({
           code: 'invalid_magic_link',

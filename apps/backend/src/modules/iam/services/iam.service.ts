@@ -145,9 +145,12 @@ export class IamService {
       password_hash: string;
       status: 'active' | 'blocked';
       display_name: string;
+      totp_secret_encrypted: string | null;
+      totp_enabled: boolean;
+      totp_last_used_step: string | number | null;
     }>(
       `
-        select id, tenant_id, login, email, password_hash, status, display_name
+        select id, tenant_id, login, email, password_hash, status, display_name, totp_secret_encrypted, totp_enabled, totp_last_used_step
         from iam.users
         where tenant_id = $1 and lower(email) = $2 and deleted_at is null
         limit 1
@@ -189,9 +192,12 @@ export class IamService {
       password_hash: string;
       status: 'active' | 'blocked';
       display_name: string;
+      totp_secret_encrypted: string | null;
+      totp_enabled: boolean;
+      totp_last_used_step: string | number | null;
     }>(
       `
-        select id, tenant_id, login, email, password_hash, status, display_name
+        select id, tenant_id, login, email, password_hash, status, display_name, totp_secret_encrypted, totp_enabled, totp_last_used_step
         from iam.users
         where tenant_id = $1 and login = $2 and deleted_at is null
         limit 1
@@ -247,9 +253,12 @@ export class IamService {
       password_hash: string;
       status: 'active' | 'blocked';
       display_name: string;
+      totp_secret_encrypted: string | null;
+      totp_enabled: boolean;
+      totp_last_used_step: string | number | null;
     }>(
       `
-        select id, tenant_id, login, email, password_hash, status, display_name
+        select id, tenant_id, login, email, password_hash, status, display_name, totp_secret_encrypted, totp_enabled, totp_last_used_step
         from iam.users
         where tenant_id = $1 and id = $2 and deleted_at is null
         limit 1
@@ -406,9 +415,12 @@ export class IamService {
       password_hash: string;
       status: 'active' | 'blocked';
       display_name: string;
+      totp_secret_encrypted: string | null;
+      totp_enabled: boolean;
+      totp_last_used_step: string | number | null;
     }>(
       `
-        select id, tenant_id, login, email, password_hash, status, display_name
+        select id, tenant_id, login, email, password_hash, status, display_name, totp_secret_encrypted, totp_enabled, totp_last_used_step
         from iam.users
         where tenant_id = $1 and deleted_at is null
         order by created_at desc
@@ -562,6 +574,79 @@ export class IamService {
       `,
       [tenantId, userId, newPasswordHash]
     );
+  }
+
+  /** 2FA (ФТ-G3): сохранить свежесгенерированный секрет; сама 2FA включается отдельно (confirm). */
+  async setTotpSecret(tenantId: string, userId: string, encryptedSecret: string): Promise<void> {
+    if (!this.databaseService) {
+      const user = this.requireFallbackUser(tenantId, userId);
+      user.totpSecretEncrypted = encryptedSecret;
+      user.totpEnabled = false;
+      user.totpLastUsedStep = null;
+      return;
+    }
+    await this.databaseService.query(
+      `
+        update iam.users
+        set totp_secret_encrypted = $3, totp_enabled = false, totp_last_used_step = null,
+            updated_at = now()
+        where tenant_id = $1 and id = $2 and deleted_at is null
+      `,
+      [tenantId, userId, encryptedSecret]
+    );
+  }
+
+  /** 2FA: включить после подтверждения кодом; выключение стирает секрет и анти-replay шаг. */
+  async setTotpEnabled(tenantId: string, userId: string, enabled: boolean): Promise<void> {
+    if (!this.databaseService) {
+      const user = this.requireFallbackUser(tenantId, userId);
+      user.totpEnabled = enabled;
+      if (!enabled) {
+        user.totpSecretEncrypted = null;
+        user.totpLastUsedStep = null;
+      }
+      return;
+    }
+    await this.databaseService.query(
+      enabled
+        ? `
+            update iam.users
+            set totp_enabled = true, updated_at = now()
+            where tenant_id = $1 and id = $2 and deleted_at is null
+          `
+        : `
+            update iam.users
+            set totp_enabled = false, totp_secret_encrypted = null, totp_last_used_step = null,
+                updated_at = now()
+            where tenant_id = $1 and id = $2 and deleted_at is null
+          `,
+      [tenantId, userId]
+    );
+  }
+
+  /** 2FA: зафиксировать принятый шаг TOTP — тот же код второй раз не пройдёт (anti-replay). */
+  async updateTotpLastUsedStep(tenantId: string, userId: string, step: number): Promise<void> {
+    if (!this.databaseService) {
+      const user = this.requireFallbackUser(tenantId, userId);
+      user.totpLastUsedStep = step;
+      return;
+    }
+    await this.databaseService.query(
+      `
+        update iam.users
+        set totp_last_used_step = greatest(coalesce(totp_last_used_step, 0), $3), updated_at = now()
+        where tenant_id = $1 and id = $2 and deleted_at is null
+      `,
+      [tenantId, userId, step]
+    );
+  }
+
+  private requireFallbackUser(tenantId: string, userId: string): User {
+    const user = this.fallbackUsers.find((u) => u.tenantId === tenantId && u.id === userId);
+    if (!user) {
+      throw new NotFoundException({ code: 'user_not_found', message: 'User not found' });
+    }
+    return user;
   }
 
   async getRoles(tenantId: string): Promise<Role[]> {
@@ -778,6 +863,10 @@ export class IamService {
     password_hash: string;
     status: 'active' | 'blocked';
     display_name: string;
+    totp_secret_encrypted?: string | null;
+    totp_enabled?: boolean;
+    // pg отдаёт bigint строкой — нормализуем в number.
+    totp_last_used_step?: string | number | null;
   }): User {
     return {
       id: row.id,
@@ -786,7 +875,10 @@ export class IamService {
       email: row.email,
       passwordHash: row.password_hash,
       status: row.status,
-      displayName: row.display_name
+      displayName: row.display_name,
+      totpEnabled: row.totp_enabled ?? false,
+      totpSecretEncrypted: row.totp_secret_encrypted ?? null,
+      totpLastUsedStep: row.totp_last_used_step == null ? null : Number(row.totp_last_used_step)
     };
   }
 }
