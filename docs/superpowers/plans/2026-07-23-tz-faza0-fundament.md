@@ -209,9 +209,11 @@
 
 ## Завершение фазы (обязательно, ТЗ §13/§15 + DOCUMENTATION_MAP §agent-handoff-protocol)
 
-- [ ] `pnpm ci:check` зелёный (lint + typecheck + contracts + test:unit + build).
-- [ ] `pnpm test:isolation` зелёный (новый гейт).
-- [ ] README §2 «AI Agent State» обновлён (Current Stage / Last / Current / Next / дата / by).
-- [ ] `LMS_AGENT_HANDOFF.md` §5.167+ — запись сессии (summary, файлы, тесты, deviations).
-- [ ] `docs/TZ_ARENDNAYA_SDO_STATUS.md` — статусы ФТ-D1/G2/G3/G5/F1 (+ C3 при Task 7) переведены в ✅/🟡, журнал сессий дополнен, открытый вопрос №7 отмечен решённым.
-- [ ] CLAUDE.md — поправить устаревший указатель последней миграции (0038 → фактический).
+- [x] `pnpm ci:check` зелёный (lint + typecheck + contracts + test:unit + build) — финальный прогон §5.174 на коде «main + Task 7».
+- [x] `pnpm test:isolation` зелёный (новый гейт) — 12 тестов.
+- [x] README §2 «AI Agent State» обновлён (Current Stage / Last / Current / Next / дата / by).
+- [x] `LMS_AGENT_HANDOFF.md` §5.167–§5.174 — записи всех сессий фазы.
+- [x] `docs/TZ_ARENDNAYA_SDO_STATUS.md` — статусы ФТ-D1/G2/G3/G5/F1/C3.3 переведены, журнал дополнен, вопрос №7 отмечен решённым.
+- [x] CLAUDE.md — указатель последней миграции актуализирован (0038 → 0061).
+
+**ФАЗА 0 ПРИНЯТА 2026-07-26 (§5.174).** Все 7 задач выполнены (PR #307–#313). Хвосты, вынесенные из фазы осознанно: per-endpoint HTTP-матрица изоляции и tenantId-инвариант очередей (инкремент к Task 1), обязательность 2FA для `platform_admin` (решение владельца), боевой SMTP/ключи INTEGRATION*CRYPTO*\* (ops при деплое), белый список типов файлов (довесок к G5). Следующая фаза — «1. Документы» (ЭПИК A); блокер старта — вопрос №2 (библиотека рендера, docxtemplater?).
