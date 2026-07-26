@@ -28,11 +28,14 @@ export const resolveSafeNextPath = (next: string | null): string => {
 export const LoginForm = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login } = useAuth();
+  const { login, verifyTotp } = useAuth();
   const [loginValue, setLoginValue] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // ФТ-G3: после верного пароля у пользователя с 2FA приходит challenge — второй шаг с кодом.
+  const [totpChallenge, setTotpChallenge] = useState<string | null>(null);
+  const [totpCode, setTotpCode] = useState('');
   const [fieldErrors, setFieldErrors] = useState<{ login?: string; password?: string }>({});
   const loginRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -63,7 +66,11 @@ export const LoginForm = () => {
     setError(null);
 
     try {
-      await login(loginValue, password);
+      const outcome = await login(loginValue, password);
+      if ('totpRequired' in outcome) {
+        setTotpChallenge(outcome.challengeToken);
+        return;
+      }
       router.replace(resolveSafeNextPath(searchParams.get('next')));
     } catch (submitError) {
       setError(
@@ -75,6 +82,74 @@ export const LoginForm = () => {
       setPending(false);
     }
   };
+
+  const onSubmitTotp = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!totpChallenge || !/^\d{6}$/.test(totpCode.trim())) {
+      setError('Введите 6-значный код из приложения.');
+      return;
+    }
+    setPending(true);
+    setError(null);
+    try {
+      await verifyTotp(totpChallenge, totpCode.trim());
+      router.replace(resolveSafeNextPath(searchParams.get('next')));
+    } catch (submitError) {
+      setError(
+        submitError instanceof ApiClientError
+          ? submitError.normalized.message
+          : 'Не удалось подтвердить код'
+      );
+    } finally {
+      setPending(false);
+    }
+  };
+
+  if (totpChallenge) {
+    return (
+      <form onSubmit={onSubmitTotp} className="ui-section-card ui-login-card" noValidate>
+        <h1 className="ui-page-title">Подтверждение входа</h1>
+        <p className="ui-page-subtitle">
+          Введите 6-значный код из приложения-аутентификатора (двухфакторная защита).
+        </p>
+        <label htmlFor="totp-code" className="ui-field">
+          <span className="ui-field-label">Код</span>
+          <input
+            id="totp-code"
+            className="ui-input"
+            name="totp-code"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            required
+            value={totpCode}
+            onChange={(event) => setTotpCode(event.target.value)}
+            data-testid="totp-code-input"
+          />
+        </label>
+        {error ? (
+          <p role="alert" className="ui-error">
+            {error}
+          </p>
+        ) : null}
+        <button className="ui-button ui-button--primary" type="submit" disabled={pending}>
+          {pending ? 'Проверяем...' : 'Подтвердить'}
+        </button>
+        <button
+          className="ui-button"
+          type="button"
+          disabled={pending}
+          onClick={() => {
+            setTotpChallenge(null);
+            setTotpCode('');
+            setError(null);
+          }}
+        >
+          Назад ко входу
+        </button>
+      </form>
+    );
+  }
 
   const loginHintId = 'login-hint';
   const loginErrorId = 'login-error';

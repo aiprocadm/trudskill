@@ -6,7 +6,9 @@ describe('auth api envelope compatibility', () => {
   let authApi: {
     me: (accessToken: string) => Promise<{ id: string; login: string }>;
     magicLinkRequest: (payload: { email: string }) => Promise<{ status: 'sent' }>;
-    magicLinkRedeem: (payload: { token: string }) => Promise<{ accessToken: string }>;
+    magicLinkRedeem: (payload: {
+      token: string;
+    }) => Promise<{ accessToken: string } | { totpRequired: true; challengeToken: string }>;
   };
 
   beforeAll(async () => {
@@ -108,6 +110,9 @@ describe('auth api envelope compatibility', () => {
 
     const tokens = await authApi.magicLinkRedeem({ token: 'raw-token-123' });
 
+    if ('totpRequired' in tokens) {
+      throw new Error('unexpected totp challenge for a user without 2FA');
+    }
     expect(tokens.accessToken).toBe('at-1');
     const [, requestInit] = fetchMock.mock.calls[0] ?? [];
     expect(requestInit?.method).toBe('POST');

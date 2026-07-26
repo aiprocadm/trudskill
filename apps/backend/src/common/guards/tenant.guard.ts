@@ -57,7 +57,11 @@ export class TenantGuard implements CanActivate {
       '?'
     )[0];
     const isTenantBootstrapRoute =
-      requestPath.endsWith('/auth/login') || requestPath.endsWith('/auth/refresh');
+      requestPath.endsWith('/auth/login') ||
+      requestPath.endsWith('/auth/refresh') ||
+      // Второй шаг 2FA-логина (ФТ-G3): bearer-токена ещё нет, авторизует подписанный
+      // challenge в теле запроса; сравнение по PATH — как и у остальных bootstrap-роутов.
+      requestPath.endsWith('/auth/2fa/verify');
     if (isTenantBootstrapRoute && requestContext.requestedTenantId) {
       requestContext.tenantId = requestContext.requestedTenantId;
       return true;

@@ -18,13 +18,66 @@ export interface MagicLinkRedeemPayload {
   token: string;
 }
 
-export type MagicLinkRedeemResponse = LoginResponse;
+export type MagicLinkRedeemResponse = LoginResponse | TotpChallengeResponse;
+
+/** ФТ-G3: у пользователя включена 2FA — сессии нет, нужен второй шаг /auth/2fa/verify. */
+export interface TotpChallengeResponse {
+  totpRequired: true;
+  challengeToken: string;
+}
+
+export const isTotpChallenge = (
+  value: LoginResponse | TotpChallengeResponse
+): value is TotpChallengeResponse => 'totpRequired' in value && value.totpRequired === true;
+
+export interface TotpStatusResponse {
+  enabled: boolean;
+  pending: boolean;
+  eligible: boolean;
+}
+
+export interface TotpSetupResponse {
+  secret: string;
+  otpauthUrl: string;
+  qrDataUrl: string;
+}
 
 export const authApi = {
   login: (payload: LoginRequest) =>
-    apiRequest<LoginResponse>('/auth/login', {
+    apiRequest<LoginResponse | TotpChallengeResponse>('/auth/login', {
       method: 'POST',
       body: payload,
+      credentials: 'include'
+    }),
+  verifyTotp: (payload: { challengeToken: string; code: string }) =>
+    apiRequest<LoginResponse>('/auth/2fa/verify', {
+      method: 'POST',
+      body: payload,
+      credentials: 'include'
+    }),
+  totpStatus: (accessToken: string) =>
+    apiRequest<TotpStatusResponse>('/auth/2fa/status', {
+      auth: { accessToken },
+      credentials: 'include'
+    }),
+  totpSetup: (accessToken: string) =>
+    apiRequest<TotpSetupResponse>('/auth/2fa/setup', {
+      method: 'POST',
+      auth: { accessToken },
+      credentials: 'include'
+    }),
+  totpConfirm: (code: string, accessToken: string) =>
+    apiRequest<{ enabled: true }>('/auth/2fa/confirm', {
+      method: 'POST',
+      body: { code },
+      auth: { accessToken },
+      credentials: 'include'
+    }),
+  totpDisable: (code: string, accessToken: string) =>
+    apiRequest<{ enabled: false }>('/auth/2fa/disable', {
+      method: 'POST',
+      body: { code },
+      auth: { accessToken },
       credentials: 'include'
     }),
   refresh: async () => {
@@ -59,7 +112,7 @@ export const authApi = {
       credentials: 'include'
     }),
   magicLinkRedeem: (payload: MagicLinkRedeemPayload) =>
-    apiRequest<MagicLinkRedeemResponse>('/auth/magic-link/redeem', {
+    apiRequest<LoginResponse | TotpChallengeResponse>('/auth/magic-link/redeem', {
       method: 'POST',
       body: payload,
       credentials: 'include'

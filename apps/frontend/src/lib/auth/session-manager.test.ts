@@ -107,6 +107,9 @@ describe('session manager', () => {
     const session = await sessionManager.loginWithMagicLink('raw-token-xyz');
 
     expect(authApiMock.magicLinkRedeem).toHaveBeenCalledWith({ token: 'raw-token-xyz' });
+    if ('totpRequired' in session) {
+      throw new Error('unexpected totp challenge for a user without 2FA');
+    }
     expect(session.tokens.accessToken).toBe('ml-access');
     expect(session.user.id).toBe('u_magic');
     expect(state.session?.tokens.sessionId).toBe('ml-session');
