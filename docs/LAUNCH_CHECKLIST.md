@@ -89,7 +89,7 @@
 
 Включать по мере готовности соответствующих контрактов/процедур. Имена сверены по [`apps/backend/src/env.schema.ts`](../apps/backend/src/env.schema.ts).
 
-- ✅ ☑ `ANTIVIRUS_ENABLED=true` + поднять clamd-инстанс — закрыто Фазой 0 Task 3: сервис `clamav` в dev/prod compose + флаг в `.env.production.example` (§5.168, PR #308); протокол INSTREAM починен и живой EICAR-smoke пройден (§5.169)
+- ✅ ☑ `ANTIVIRUS_ENABLED=true` + поднять clamd-инстанс — закрыто Фазой 0 Task 3: сервис `clamav` в dev/prod compose + флаг в `.env.production.example` (§5.168, PR #308); протокол INSTREAM починен и живой EICAR-smoke пройден (§5.170)
 - 🟡 ☐ `PAYMENTS_ENABLED=true` + per-tenant выбор провайдера в `/admin/payments/settings` + боевые креды эквайера (после A1)
 - 🟡 ☐ `WEBINARS_ENABLED=true` + секреты провайдера (после A2)
 - 🟡 ☐ `ESIGN_ENABLED=true` + сертификат УЦ ФНС (после A3)
