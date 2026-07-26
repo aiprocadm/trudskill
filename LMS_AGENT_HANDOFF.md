@@ -2116,6 +2116,14 @@ _Изначально записана как §5.155; перенумерова�
 - **Вынесено из фазы осознанно** (см. план): per-endpoint HTTP-матрица изоляции + tenantId-инвариант очередей (инкремент Task 1), обязательность 2FA для `platform_admin` (решение владельца), боевой SMTP и `INTEGRATION_CRYPTO_KEYS` (ops при деплое), белый список типов файлов (довесок G5), RLS-слой (Фаза 4).
 - **Next:** план **Фазы 1 «Документы»** (ЭПИК A: движок рендера docxtemplater→Gotenberg→S3, язык шаблонов, админ-UX, массовая выдача) в `docs/superpowers/plans/` + апрув владельца. **Блокер — открытый вопрос №2** (библиотека рендера: docxtemplater MIT-версия или альтернатива) — нужно решение владельца до старта.
 
+### 5.175 Фаза 1 «Документы», Task 1 — движок рендера DOCX (ФТ-A1.2/A2)
+
+- **Контекст:** Фаза 0 принята (§5.174), план Фазы 1 апрувнут (PR #314), вопрос №2 решён — **docxtemplater, бесплатное ядро** (картинки ФТ-A7 — отдельное решение к Task 9).
+- **Summary:** чистый модуль `apps/worker/src/render/docx-render.ts` (+`docxtemplater`, `pizzip` в worker): `renderDocx(buffer, variables)` — одиночные теги `{learner.full_name}`, циклы `{#group_learners}…{/}` (N строк протокола), условия/инверсия, `nullGetter` → пустая строка; кастомный parser ищет значение сначала по ПЛОСКОМУ ключу с точками (ровно формат словаря `pillar-a-variables`), затем по вложенному пути — angular-expressions не нужен. **Байт-детерминизм** (ФТ-A1.4): даты zip-записей фиксируются, два рендера в разные секунды дают идентичный файл (голден-тест с реальной задержкой 1.1с). `extractPlaceholders` — список тегов тела+колонтитулов в порядке появления (для таблицы «найдено/соответствует/неизвестно» ФТ-A3.2); split-run теги (Word рвёт текст на прогоны) покрыты. Ошибки шаблона → `TemplateRenderError` со списком объяснений (несбалансированный цикл, битый zip) — терминальные, в отличие от транспортных (ретраи — Task 3).
+- **Files changed:** `apps/worker/src/render/docx-render.ts`, `apps/worker/src/render/docx-fixture.ts` (фабрика тестовых DOCX — вместо бинарных фикстур в git), `apps/worker/src/render/docx-render.test.ts`, `apps/worker/package.json` (+2 deps), docs.
+- **Тесты:** 10 юнитов рендера зелёные (плоские ключи, split-runs, цикл ×3, условия обе ветки, nullGetter, байт-детерминизм, unclosed-loop, не-zip); весь worker 25; typecheck/eslint чисты.
+- **Next (Фаза 1):** Task 2 — транспорт (enqueue backend→RabbitMQ, wire `case 'document'` в worker, internal-эндпоинты под `WorkerCallbackGuard`, файлы по presigned URL) — вертикальный срез «generate → DOCX в S3».
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |

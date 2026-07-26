@@ -237,9 +237,15 @@ importers:
       amqplib:
         specifier: ^1.0.2
         version: 1.0.2
+      docxtemplater:
+        specifier: ^3.69.3
+        version: 3.69.3
       pg:
         specifier: ^8.20.0
         version: 8.20.0
+      pizzip:
+        specifier: ^3.2.0
+        version: 3.2.0
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -2716,6 +2722,13 @@ packages:
         integrity: sha512-fB2V0JFrQSMsCo9HiSq3Ezpdv4iYaXRG1Sx8edX3MwxfyNn83mKiGzOcH+Fkxt4MHxr3y42fQi1oeAInqgX2QA==
       }
 
+  '@xmldom/xmldom@0.9.10':
+    resolution:
+      {
+        integrity: sha512-A9gOqLdi6cV4ibazAjcQufGj0B1y/vDqYrcuP6d/6x8P27gRS8643Dj9o1dEKtB6O7fwxb2FgBmJS2mX7gpvdw==
+      }
+    engines: { node: '>=14.6' }
+
   abort-controller@3.0.0:
     resolution:
       {
@@ -3723,6 +3736,13 @@ packages:
         integrity: sha512-35mSku4ZXK0vfCuHEDAwt55dg2jNajHZ1odvF+8SSr82EsZY4QmXfuWso8oEd8zRhVObSN18aM0CjSdoBX7zIw==
       }
     engines: { node: '>=0.10.0' }
+
+  docxtemplater@3.69.3:
+    resolution:
+      {
+        integrity: sha512-z6IIXImBvOFudR1VHZIjIoewPd/xft/OVF1JT9eKgJLGWQaFZ8gPrjPuAnho0bbQEfKd5Ge7RPq+owqKLmC3PA==
+      }
+    engines: { node: '>=0.10' }
 
   dotenv@17.3.1:
     resolution:
@@ -5680,6 +5700,12 @@ packages:
         integrity: sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw==
       }
 
+  pako@2.2.0:
+    resolution:
+      {
+        integrity: sha512-zJq6RP/5q+TO2OpFV3FHzlPnFjmkb7Nc99a5SNjJE+uu/PkpChs+NIZSSzbBoD+6kjiISXjfYdwj1ZRQ81dz/w==
+      }
+
   parent-module@1.0.1:
     resolution:
       {
@@ -5860,6 +5886,12 @@ packages:
       }
     engines: { node: '>=0.10' }
     hasBin: true
+
+  pizzip@3.2.0:
+    resolution:
+      {
+        integrity: sha512-X4NPNICxCfIK8VYhF6wbksn81vTiziyLbvKuORVAmolvnUzl1A1xmz9DAWKxPRq9lZg84pJOOAMq3OE61bD8IQ==
+      }
 
   pngjs@5.0.0:
     resolution:
@@ -9124,6 +9156,8 @@ snapshots:
       loupe: 3.2.1
       tinyrainbow: 2.0.0
 
+  '@xmldom/xmldom@0.9.10': {}
+
   abort-controller@3.0.0:
     dependencies:
       event-target-shim: 5.0.1
@@ -9739,6 +9773,10 @@ snapshots:
   doctrine@2.1.0:
     dependencies:
       esutils: 2.0.3
+
+  docxtemplater@3.69.3:
+    dependencies:
+      '@xmldom/xmldom': 0.9.10
 
   dotenv@17.3.1: {}
 
@@ -11041,6 +11079,8 @@ snapshots:
 
   pako@1.0.11: {}
 
+  pako@2.2.0: {}
+
   parent-module@1.0.1:
     dependencies:
       callsites: 3.1.0
@@ -11119,6 +11159,10 @@ snapshots:
   picomatch@4.0.4: {}
 
   pidtree@0.6.0: {}
+
+  pizzip@3.2.0:
+    dependencies:
+      pako: 2.2.0
 
   pngjs@5.0.0: {}
 
