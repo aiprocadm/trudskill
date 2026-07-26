@@ -1,5 +1,5 @@
-import { Controller, Get, Inject, NotFoundException, Param } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
+import { Controller, Get, Inject, NotFoundException, Param, UseGuards } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 
 import { DOCUMENTS_PERSISTENCE_BACKEND } from './infrastructure/documents-persistence.token.js';
 import { type PublicVerifyResult, buildPublicVerifyResult } from './public-verify.util.js';
@@ -19,8 +19,10 @@ import type { DocumentsPersistenceBackend } from './infrastructure/documents-per
  * к нему не применяется). Раньше контроллер читал пустой request-scoped state →
  * любой реальный QR давал `not_found`.
  *
- * Rate-limit: 30 req/мин/IP. Защищает от перебора, хотя при 128-битном qr_token
- * перебор практически невозможен.
+ * Rate-limit: 30 req/мин/IP (ФТ-G2). Защищает от перебора, хотя при 128-битном qr_token
+ * перебор практически невозможен. Важно: `@Throttle` без `@UseGuards(ThrottlerGuard)` НЕ
+ * применяется (глобального ThrottlerGuard в app.module нет — лимиты навешиваются по-роутно,
+ * как в auth.controller), поэтому guard обязателен, иначе лимит «спит».
  */
 @Controller('public')
 export class PublicVerifyController {
@@ -31,6 +33,7 @@ export class PublicVerifyController {
   ) {}
 
   @Get('verify/:token')
+  @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   async verify(@Param('token') token: string): Promise<PublicVerifyResult> {
     // Audit пишется с tenantId='public' для трассировки — не раскрывает

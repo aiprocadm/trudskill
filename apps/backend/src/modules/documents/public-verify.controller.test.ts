@@ -1,7 +1,10 @@
-import { NotFoundException } from '@nestjs/common';
-import { describe, expect, it, vi } from 'vitest';
+import { Module, NotFoundException } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { InMemoryDocumentsState } from './in-memory-documents.state.js';
+import { DOCUMENTS_PERSISTENCE_BACKEND } from './infrastructure/documents-persistence.token.js';
 import { MemoryDocumentsPersistenceBackend } from './infrastructure/memory-documents-persistence.backend.js';
 import { PublicVerifyController } from './public-verify.controller.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -154,4 +157,56 @@ describe('PublicVerifyController rate-limit configuration', () => {
     expect(ttl).toBe(60_000);
     expect(limit).toBe(30);
   });
+
+  it('verify method применяет ThrottlerGuard — без него @Throttle «спит» (ФТ-G2)', () => {
+    // Глобального ThrottlerGuard в app.module нет: лимиты навешиваются по-роутно через
+    // @UseGuards(ThrottlerGuard). Если guard забыт — @Throttle не действует и это регрессия.
+    const guards =
+      (Reflect.getMetadata('__guards__', PublicVerifyController.prototype.verify) as
+        | Array<{ name?: string }>
+        | undefined) ?? [];
+    expect(guards.some((g) => g === ThrottlerGuard || g?.name === 'ThrottlerGuard')).toBe(true);
+  });
+});
+
+describe('PublicVerifyController rate-limit enforcement (HTTP, ФТ-G2)', () => {
+  let app: { close: () => Promise<void>; getHttpServer: () => { address: () => unknown } };
+  let baseUrl = '';
+
+  beforeAll(async () => {
+    @Module({
+      imports: [ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: 30 }] })],
+      controllers: [PublicVerifyController],
+      providers: [
+        {
+          provide: DOCUMENTS_PERSISTENCE_BACKEND,
+          useValue: new MemoryDocumentsPersistenceBackend()
+        },
+        { provide: AuditService, useValue: new AuditService() }
+      ]
+    })
+    class TestModule {}
+
+    const created = await NestFactory.create(TestModule, { logger: false, abortOnError: false });
+    await created.listen(0, '127.0.0.1');
+    const addr = created.getHttpServer().address() as { port: number };
+    baseUrl = `http://127.0.0.1:${addr.port}`;
+    app = created as never;
+  }, 120_000);
+
+  afterAll(async () => {
+    if (app) await app.close();
+  });
+
+  it('31-й запрос за минуту с одного IP → 429 (лимит 30/мин реально применяется)', async () => {
+    const url = `${baseUrl}/public/verify/unknown_token_aaaaaaaaa`;
+    // Первые 30 — проходят до контроллера (вернут 404 unknown token), 31-й — отбит throttler.
+    let lastStatus = 0;
+    for (let i = 0; i < 30; i += 1) {
+      lastStatus = (await fetch(url)).status;
+    }
+    expect(lastStatus).toBe(404); // до лимита — обычный ответ контроллера
+    const blocked = await fetch(url);
+    expect(blocked.status).toBe(429); // 31-й — Too Many Requests
+  }, 30_000);
 });
