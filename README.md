@@ -84,7 +84,11 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 ### Current Stage
 
-**2026-07-26 (текущее, §5.172, ветка `feat/2026-07-26-tz-faza0-task5-2fa-totp`):** **Фаза 0, Task 5 — 2FA (TOTP) для админ-ролей (ФТ-G3).** Миграция `0060` (три totp-колонки на `iam.users`, секрет в AES-256-GCM), самописный RFC 6238 на `node:crypto` (`totp.util.ts`, эталонные вектора), **гейт в `issueSessionForUser`** — 2FA закрывает пароль, magic-link и ЕСИА; login/redeem отдают `{totpRequired, challengeToken}` (TTL 5 мин), второй шаг `POST auth/2fa/verify` (bootstrap-роут TenantGuard, throttle 10/мин, anti-replay по `totp_last_used_step`); самообслуживание `setup`(QR data-URI, роль-гейт)/`confirm`/`disable`(нужен код)/`status`. Фронт: шаг кода в логине и на magic-link странице, карточка «Безопасность» в `/settings`. Тесты: totp 25, IAM 150, security 24, isolation 12, фронт 682 — зелёные. **Дальше по Фазе 0:** Task 7 (шифрование ПДн) → приёмка фазы.
+**2026-07-26 (текущее, §5.174, ветка `feat/2026-07-26-tz-faza0-task7-pii-encryption`):** **ФАЗА 0 «ФУНДАМЕНТ» ЗАВЕРШЕНА И ПРИНЯТА.** Все 7 задач — PR #307–#313: test:isolation-гейт, контейнеры ClamAV+Gotenberg (+фикс протокола clamd по живому EICAR), rate limiting `/verify/{qr}`, email-события по-настоящему, 2FA TOTP для админ-ролей, шифрование ПДн (СНИЛС at-rest). Приёмка: полный `ci:check` (2033 бэк + 682 фронт + сборки) + isolation 12 + security 24 + migrations 51 (0000–0061) — зелёные; вопрос №7 закрыт. Осознанные хвосты — в плане фазы. **Дальше:** план Фазы 1 «Документы» (ЭПИК A — движок рендера) + апрув; блокер — вопрос №2 (docxtemplater?) — нужно решение владельца.
+
+**2026-07-26 (§5.173, ветка `feat/2026-07-26-tz-faza0-task7-pii-encryption`):** **Фаза 0, Task 7 — шифрование ПДн (ФТ-C3.3).** СНИЛС слушателей хранится в БД только шифртекстом: learners лежат JSONB-документами, поэтому шифрование — на границе персистенса (`infrastructure/crypto/pii-crypto.ts` + хуки в `PostgresMvpPersistenceBackend`): запись → AES-256-GCM (keyring `INTEGRATION_CRYPTO_KEYS`) + слепой keyed-HMAC `snilsHash` по нормализованным цифрам; чтение → расшифровка. **Рантайм не менялся**: реестры/ЕСИА/поиски/PDF видят открытое значение в памяти; legacy plaintext перешифровывается при первом сохранении (lazy). Паспортных текстовых полей в коде нет (только файлы-сканы) — объём сужен по факту. Миграция `0061` — functional-индексы по хэшу. Тесты: pii 6 + persistence 4 + migrations 51 + смежные 70 — зелёные. **Все 7 задач Фазы 0 сделаны** (PR #312 и этот — на мердже) → дальше приёмка фазы (`ci:check` + финал статусов).
+
+**2026-07-26 (§5.172, ветка `feat/2026-07-26-tz-faza0-task5-2fa-totp`):** **Фаза 0, Task 5 — 2FA (TOTP) для админ-ролей (ФТ-G3).** Миграция `0060` (три totp-колонки на `iam.users`, секрет в AES-256-GCM), самописный RFC 6238 на `node:crypto` (`totp.util.ts`, эталонные вектора), **гейт в `issueSessionForUser`** — 2FA закрывает пароль, magic-link и ЕСИА; login/redeem отдают `{totpRequired, challengeToken}` (TTL 5 мин), второй шаг `POST auth/2fa/verify` (bootstrap-роут TenantGuard, throttle 10/мин, anti-replay по `totp_last_used_step`); самообслуживание `setup`(QR data-URI, роль-гейт)/`confirm`/`disable`(нужен код)/`status`. Фронт: шаг кода в логине и на magic-link странице, карточка «Безопасность» в `/settings`. Тесты: totp 25, IAM 150, security 24, isolation 12, фронт 682 — зелёные. **Дальше по Фазе 0:** Task 7 (шифрование ПДн) → приёмка фазы.
 
 **2026-07-26 (§5.171, ветка `feat/2026-07-26-tz-faza0-task4-email`):** **Фаза 0, Task 4 — email-события по-настоящему (ФТ-F1).** Два log-only стаба переведены на события → новый `ExamIdentityEmailListener` → `NotificationDispatcher` (журнал + send-once dedup): **код на экзамен** (`PRE_EXAM_AUTH_REQUESTED_EVENT`, шаблон `pre_exam_auth` с `{{verifyUrl}}`; сырой URL в prod-логах теперь редактируется — раньше живой токен печатался в stdout) и **отклонение identity-проверки** (`IDENTITY_VERIFICATION_REJECTED_EVENT`, шаблон с `{{reason}}`; dedup на `reviewedAt` — reject после resubmit шлёт новое письмо). В `enrollment_invite` — рабочая ссылка входа `{{loginUrl}}`; enrollment-письма получили dedup-ключи. Env: задокументированы SMTP + `RECERTIFICATION_SCAN_ENABLED` (в прод-примере `true`). Конструктор `MvpService` не тронут. 150+ таргет-тестов, isolation 12, typecheck, eslint — зелёные. **Дальше по Фазе 0:** Task 5 (2FA TOTP) → Task 7 (шифрование ПДн).
 
@@ -197,11 +201,11 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Updated By
 
-Claude (Fable 5) — §5.172: Фаза 0 Task 5 — 2FA TOTP для админ-ролей (миграция 0060, RFC 6238 на node:crypto, гейт всех трёх входов, QR, экран в /settings).
+Claude (Fable 5) — §5.174: приёмка Фазы 0 «Фундамент» — все 7 задач (PR #307–#313), финальные прогоны зелёные.
 
 ### Last Updated At
 
-2026-07-26 (§5.172 — Фаза 0, Task 5: 2FA TOTP, ФТ-G3).
+2026-07-26 (§5.174 — Фаза 0 завершена и принята; дальше план Фазы 1 «Документы»).
 
 ## 3. Current Project Status
 

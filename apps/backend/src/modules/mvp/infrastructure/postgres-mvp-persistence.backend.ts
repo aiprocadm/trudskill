@@ -3,6 +3,10 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { MVP_COLLECTIONS, type MvpCollection } from './mvp-collections.js';
 import { MvpWriteOrchestrator } from './mvp-write.orchestrator.js';
 import { backendEnv } from '../../../env.js';
+import {
+  decryptLearnerPiiAtRest,
+  encryptLearnerPiiAtRest
+} from '../../../infrastructure/crypto/pii-crypto.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 
 import type { InMemoryMvpState } from './in-memory-mvp.state.js';
@@ -85,7 +89,12 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
         `select data from ${tableName} where tenant_id = $1 and collection = $2`,
         [tenantId, col]
       );
-      snapshot[col] = rows.map((row) => row.data);
+      // ФТ-C3.3: ПДн слушателей зашифрованы at-rest — в память кладём открытые значения,
+      // остальной рантайм (реестры/ЕСИА/поиск) шифрования не видит.
+      snapshot[col] =
+        col === 'learners'
+          ? rows.map((row) => decryptLearnerPiiAtRest(row.data))
+          : rows.map((row) => row.data);
     }
 
     return snapshot;
@@ -112,10 +121,13 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
         ]);
         const items = this.pick(state, col) as Array<{ id: string; tenantId: string }>;
         for (const entity of items) {
+          // ФТ-C3.3: снилс — только шифртекстом + слепой индекс; legacy-plaintext строки
+          // перешифровываются здесь же при первом сохранении состояния тенанта.
+          const atRest = col === 'learners' ? encryptLearnerPiiAtRest(entity) : entity;
           await client.query(
             `insert into ${tableName} (tenant_id, collection, id, data, created_at, updated_at)
              values ($1, $2, $3, $4::jsonb, now(), now())`,
-            [tenantId, col, entity.id, JSON.stringify(entity)]
+            [tenantId, col, entity.id, JSON.stringify(atRest)]
           );
         }
       }

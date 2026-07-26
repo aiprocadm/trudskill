@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from 'node:crypto';
 
 import { Injectable } from '@nestjs/common';
 
@@ -72,6 +72,21 @@ export class IntegrationCryptoService {
 
   hashPayload(payload: unknown): string {
     return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+  }
+
+  /**
+   * Слепой индекс (keyed HMAC-SHA256 активным ключом keyring'а) — для поиска по
+   * зашифрованным ПДн (ФТ-C3.3). В отличие от hashPayload, без ключа не перебирается:
+   * пространство СНИЛС (10^9) против голого sha256 вскрывается мгновенно.
+   */
+  blindIndex(value: string, label: string): string {
+    const key = this.keyring.keys.get(this.keyring.activeVersion);
+    if (!key) {
+      throw new Error(
+        `Active integration key version "${this.keyring.activeVersion}" is not configured`
+      );
+    }
+    return createHmac('sha256', key).update(`${label}:${value}`).digest('hex');
   }
 
   private loadKeyring(): Keyring {
