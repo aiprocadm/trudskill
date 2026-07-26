@@ -84,7 +84,9 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 ### Current Stage
 
-**2026-07-26 (текущее, §5.168, ветка `feat/2026-07-26-clamav-container`):** **Фаза 0 «Фундамент», Task 3 — ClamAV (ФТ-G5) сделан.** Контейнер `clamav/clamav:1.4` добавлен в dev/prod compose (healthcheck, volume под базы, `start_period: 300s`); prod-compose принудительно включает `ANTIVIRUS_ENABLED=true` + `depends_on: clamav healthy`, dev остаётся на Noop. **Живой EICAR-smoke на тестовом сервере вскрыл протокольный баг сканера** (z-команды clamd NUL-терминированы; код слал `'zINSTREAM '` с пробелом, а NUL-терминированные ответы не парсились) — с включённым флагом prod отбивал бы все загрузки; починено в `clamav-antivirus.scanner.ts` + юнит-симулятор приведён к реальному clamd. Smoke: чистый файл → `clean`, EICAR → `infected: Eicar-Test-Signature`; юнит 5/5 зелёные. **Дальше по Фазе 0:** Task 6 (Gotenberg) → Task 2 (rate limiting `/verify/{qr}`) → Task 4 (email-события) → Task 5 (2FA TOTP) → Task 7 (шифрование ПДн). Каждая — отдельный под-PR.
+**2026-07-26 (текущее, §5.169, ветка `feat/2026-07-26-clamav-container`):** **Фаза 0, добивка Task 3 — живой EICAR-smoke + фикс протокола INSTREAM (ФТ-G5).** Живой прогон на тестовом сервере (clamd `clamav/clamav:1.4` из compose, дошёл до `healthy`) вскрыл протокольный баг сканера: z-команды clamd NUL-терминированы, а код слал `'zINSTREAM '` с пробелом, и NUL-терминированные ответы clamd не парсились — с `ANTIVIRUS_ENABLED=true` prod отбивал бы **все** загрузки (fail-closed). Починено в `clamav-antivirus.scanner.ts`, юнит-симулятор clamd приведён к реальному поведению. Smoke: чистый файл → `clean`, EICAR → `infected: Eicar-Test-Signature`; юнит 5/5, eslint/typecheck зелёные. Ops-оговорка §5.168 «живой EICAR-прогон на деплое» закрыта. **Дальше по Фазе 0:** Task 2 (rate limiting `/verify/{qr}` — PR #309) → Task 4 (email-события) → Task 5 (2FA TOTP) → Task 7 (шифрование ПДн).
+
+**2026-07-24 (§5.168, ветка `feat/2026-07-24-phase0-infra-containers`):** **Фаза 0, Task 3 + Task 6 — инфраструктура ClamAV и Gotenberg.** В `docker-compose` (dev+prod) добавлены сервисы `clamav` (антивирус, ФТ-G5 — в проде включён, backend ждёт healthcheck) и `gotenberg` (DOCX→PDF, ФТ-A1.3 — под будущий движок рендера Фазы 1); добавлена env-переменная `GOTENBERG_URL`. Только инфраструктура, кода приложения нет. `docker compose config` и backend typecheck зелёные. **Дальше по Фазе 0:** Task 2 (rate limiting `/verify/{qr}`) → Task 4 (email-события) → Task 5 (2FA TOTP) → Task 7 (шифрование ПДн).
 
 **2026-07-24 (§5.167, ветка `feat/2026-07-23-tenant-isolation-suite`):** **Фаза 0 «Фундамент» дельта-ТЗ «Арендная СДО» — старт.** План Фазы 0 создан и апрувнут владельцем ([docs/superpowers/plans/2026-07-23-tz-faza0-fundament.md](docs/superpowers/plans/2026-07-23-tz-faza0-fundament.md), PR #306); открытый вопрос №7 решён — **шифрование ПДн делаем в Фазе 0**. Сделан **Task 1 — гейт изоляции тенантов `pnpm test:isolation`** (ФТ-D1.3): контракт `TenantGuard` (эффективный тенант только из токена, `x-tenant-id` не подменяет) + data-layer `enforceTenantScope` + структурный «сторож» контроллеров (любой новый контроллер без `@UseGuards(TenantGuard)` роняет суиту) + шаг в CI. 12 тестов зелёные, typecheck зелёный. **Дальше по Фазе 0:** Task 3 (ClamAV-контейнер) → Task 6 (Gotenberg) → Task 2 (rate limiting `/verify/{qr}`) → Task 4 (email-события) → Task 5 (2FA TOTP) → Task 7 (шифрование ПДн). Каждая — отдельный под-PR.
 
@@ -189,11 +191,11 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Updated By
 
-Claude (Fable 5) — §5.168: Фаза 0 Task 3 — контейнер ClamAV в dev/prod compose + прод-включение + фикс протокола INSTREAM (живой EICAR-smoke зелёный).
+Claude (Fable 5) — §5.169: Фаза 0, добивка Task 3 — живой EICAR-smoke + фикс протокола INSTREAM в сканере ClamAV.
 
 ### Last Updated At
 
-2026-07-26 (§5.168 — Фаза 0 «Фундамент», Task 3: ClamAV, ФТ-G5).
+2026-07-26 (§5.169 — Фаза 0, добивка Task 3: живой EICAR-smoke + фикс протокола сканера, ФТ-G5).
 
 ## 3. Current Project Status
 
