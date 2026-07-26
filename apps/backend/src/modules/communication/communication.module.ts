@@ -7,6 +7,7 @@ import { EMAIL_DELIVERIES_REPOSITORY } from './email-deliveries.repository.js';
 import { EmailNotificationsController } from './email-notifications.controller.js';
 import { EMAIL_TEMPLATES_REPOSITORY } from './email-templates.repository.js';
 import { EnrollmentEmailListener } from './enrollment-email.listener.js';
+import { ExamIdentityEmailListener } from './exam-identity-email.listener.js';
 import { InMemoryChatState } from './in-memory-chat.state.js';
 import { InMemoryEmailDeliveriesState } from './in-memory-email-deliveries.state.js';
 import { InMemoryEmailTemplatesState } from './in-memory-email-templates.state.js';
@@ -115,6 +116,7 @@ import { PostgresMvpPersistenceBackend } from '../mvp/infrastructure/postgres-mv
     InMemoryEmailDeliveriesState,
     NotificationDispatcher,
     EnrollmentEmailListener,
+    ExamIdentityEmailListener,
     // Phase 10 Track C — web-push fan-out. Dormant by default: NoopWebPushSender (no deps).
     // When WEB_PUSH_ENABLED=true, the real WebPushSender loads recipient subscriptions from
     // MVP-state via its own MvpTenantRunner (built here from infra to avoid importing MvpModule,

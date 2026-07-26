@@ -11,6 +11,18 @@ describe('email templates', () => {
   it('has a default for every template key', () => {
     expect(EMAIL_TEMPLATE_DEFAULTS.enrollment_invite.subject.length).toBeGreaterThan(0);
     expect(EMAIL_TEMPLATE_DEFAULTS.course_completed.subject.length).toBeGreaterThan(0);
+    expect(EMAIL_TEMPLATE_DEFAULTS.pre_exam_auth.subject.length).toBeGreaterThan(0);
+    expect(EMAIL_TEMPLATE_DEFAULTS.identity_verification_rejected.subject.length).toBeGreaterThan(
+      0
+    );
+  });
+
+  it('pre_exam_auth default embeds the verify link placeholder', () => {
+    expect(EMAIL_TEMPLATE_DEFAULTS.pre_exam_auth.body).toContain('{{verifyUrl}}');
+  });
+
+  it('enrollment_invite default embeds the login link placeholder (ФТ-F1)', () => {
+    expect(EMAIL_TEMPLATE_DEFAULTS.enrollment_invite.body).toContain('{{loginUrl}}');
   });
 
   it('interpolates {{variables}} into subject and body', () => {
@@ -165,6 +177,21 @@ describe('EnrollmentEmailListener', () => {
       groupId: 'g1'
     });
     expect((await deliveries.list('t1', {})).total).toBe(0);
+  });
+
+  it('re-emitting the invited event for the same enrollment does not duplicate the email', async () => {
+    const { dispatcher, deliveries } = makeDispatcher();
+    const listener = new EnrollmentEmailListener(dispatcher);
+    const payload = {
+      tenantId: 't1',
+      enrollmentId: 'enr1',
+      learnerId: 'l1',
+      groupId: 'g1',
+      recipient: { email: 'a@example.com', name: 'Иванов' }
+    };
+    await listener.handleInvited(payload);
+    await listener.handleInvited(payload);
+    expect((await deliveries.list('t1', {})).total).toBe(1);
   });
 
   it('dispatches course_completed on the completed event', async () => {

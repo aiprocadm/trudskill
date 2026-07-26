@@ -129,12 +129,14 @@
 
 **Tasks:**
 
-- [ ] Найти все залогированные stub-письма (grep по «e-mail»/«mail rides»/Noop-обходам) и перевести на `MailerService`.
-- [ ] Подключить события к диспетчеру уведомлений (приглашение с рабочей invite-ссылкой — сейчас не уходит само).
-- [ ] Прод-SMTP env + cross-field валидация уже в `env.schema.ts` — задокументировать заполнение.
-- [ ] Тесты: события вызывают `MailerService.send` (мок); при `NOTIFICATIONS_EMAIL_ENABLED=false` — Noop, ничего не падает.
+- [x] Найти все залогированные stub-письма (grep по «e-mail»/«mail rides»/Noop-обходам) и перевести на `MailerService`.
+- [x] Подключить события к диспетчеру уведомлений (приглашение с рабочей invite-ссылкой — сейчас не уходит само).
+- [x] Прод-SMTP env + cross-field валидация уже в `env.schema.ts` — задокументировать заполнение.
+- [x] Тесты: события вызывают `MailerService.send` (мок); при `NOTIFICATIONS_EMAIL_ENABLED=false` — Noop, ничего не падает.
 
 **Acceptance:** с прод-SMTP приглашение слушателя и код на экзамен реально уходят; дедуп работает; юнит-тесты зелёные; выключенный флаг не ломает флоу (Noop).
+
+**Выполнено 2026-07-26 (§5.171).** Оба log-only стаба (`pre_exam_auth` в `requestPreExamToken`, отклонение identity-проверки) переведены на события → `ExamIdentityEmailListener` → `NotificationDispatcher` (send-once dedup); в `enrollment_invite` добавлена рабочая ссылка входа `{{loginUrl}}`, у enrollment-писем появились dedup-ключи. Deviations: (1) «результат экзамена» — события в коде нет вовсе, завершение покрыто `course_completed`; полноценное письмо о результате — ЭПИК E (E2/E3); (2) полноценный invite-токен — за рамками Фазы 0, вместо него ссылка на страницу входа (magic-link на тот же e-mail); (3) живой SMTP-smoke не гонялся (SMTP-путь покрыт юнитами `smtp-mailer.service.test.ts`, обёртка nodemailer не менялась); (4) magic-link остаётся на своём отдельном sender'е мимо диспетчера — работает, не трогали.
 
 ---
 
