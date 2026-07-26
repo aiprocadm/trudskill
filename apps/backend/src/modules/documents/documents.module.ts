@@ -1,5 +1,7 @@
 import { Module, Scope } from '@nestjs/common';
 
+import { DocumentsEnqueueService } from './documents-enqueue.service.js';
+import { DocumentsInternalWorkerController } from './documents-internal-worker.controller.js';
 import { DOCUMENTS_STATE } from './documents-state.token.js';
 import { DocumentsTenantRunner } from './documents-tenant-runner.service.js';
 import { DocumentsController } from './documents.controller.js';
@@ -9,6 +11,8 @@ import { InMemoryDocumentsState } from './in-memory-documents.state.js';
 import { backendEnv } from '../../env.js';
 import { DocumentsPersistenceRepositoryAdapter } from './infrastructure/documents-persistence.repository.adapter.js';
 import { DOCUMENTS_PERSISTENCE_BACKEND } from './infrastructure/documents-persistence.token.js';
+import { DocumentsRequestPersistenceInterceptor } from './infrastructure/documents-request-persistence.interceptor.js';
+import { MemoryDocumentsPersistenceBackend } from './infrastructure/memory-documents-persistence.backend.js';
 import {
   DOCUMENT_SIGNATURE_PROVIDER,
   NoopDocumentSignatureProvider
@@ -16,10 +20,9 @@ import {
 import { FakeDocumentSignatureProvider } from '../../infrastructure/document-signature/fake-document-signature.provider.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { AuditModule } from '../audit/audit.module.js';
-import { DocumentsRequestPersistenceInterceptor } from './infrastructure/documents-request-persistence.interceptor.js';
-import { MemoryDocumentsPersistenceBackend } from './infrastructure/memory-documents-persistence.backend.js';
 import { PostgresDocumentsPersistenceBackend } from './infrastructure/postgres-documents-persistence.backend.js';
 import { PublicVerifyController } from './public-verify.controller.js';
+import { FilesModule } from '../files/files.module.js';
 import { IamModule } from '../iam/iam.module.js';
 
 const persistenceBackendClass =
@@ -28,14 +31,15 @@ const persistenceBackendClass =
     : MemoryDocumentsPersistenceBackend;
 
 @Module({
-  imports: [AuditModule, InfrastructureModule, IamModule],
-  controllers: [DocumentsController, PublicVerifyController],
+  imports: [AuditModule, InfrastructureModule, IamModule, FilesModule],
+  controllers: [DocumentsController, PublicVerifyController, DocumentsInternalWorkerController],
   providers: [
     PostgresDocumentsPersistenceBackend,
     { provide: DOCUMENTS_PERSISTENCE_BACKEND, useClass: persistenceBackendClass },
     { provide: DOCUMENTS_STATE, scope: Scope.REQUEST, useClass: InMemoryDocumentsState },
     { provide: DocumentsService, scope: Scope.REQUEST, useClass: DocumentsService },
     DocumentsTenantRunner,
+    DocumentsEnqueueService,
     EnrollmentDocumentIssuanceListener,
     {
       provide: DocumentsRequestPersistenceInterceptor,

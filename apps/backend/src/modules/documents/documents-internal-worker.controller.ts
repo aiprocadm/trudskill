@@ -1,0 +1,142 @@
+import { Body, Controller, Inject, NotFoundException, Post, UseGuards } from '@nestjs/common';
+import { IsInt, IsOptional, IsPositive, IsString, MinLength } from 'class-validator';
+
+import { DocumentsTenantRunner } from './documents-tenant-runner.service.js';
+import { assertValidDto } from '../../common/app-validation.pipe.js';
+import { FilesService } from '../files/files.service.js';
+import { WorkerCallbackGuard } from '../mvp/infrastructure/worker-callback.guard.js';
+
+const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+class WorkerTaskRefDto {
+  @IsString()
+  @MinLength(1)
+  tenantId!: string;
+
+  @IsString()
+  @MinLength(1)
+  taskId!: string;
+}
+
+class WorkerCompleteDto extends WorkerTaskRefDto {
+  @IsString()
+  @MinLength(1)
+  fileId!: string;
+}
+
+class WorkerFailDto extends WorkerTaskRefDto {
+  @IsString()
+  @MinLength(1)
+  message!: string;
+}
+
+class WorkerUploadIntentDto extends WorkerTaskRefDto {
+  @IsInt()
+  @IsPositive()
+  sizeBytes!: number;
+
+  @IsOptional()
+  @IsString()
+  contentType?: string;
+}
+
+/**
+ * Внутренние эндпоинты конвейера рендера (Фаза 1 Task 2, ФТ-A1.1) — вызывает apps/worker
+ * после сообщения RabbitMQ. Не для браузера: защита — WorkerCallbackGuard (shared secret),
+ * как у mvp/bulk-enrollments. Работают ВНЕ HTTP-персистенса, поэтому состояние тенанта
+ * гидрируется/сохраняется явно через DocumentsTenantRunner (под per-tenant локом).
+ *
+ * `start` — клейм задачи: queued/running → running (+ резервация номера) и выдача всего,
+ * что нужно рендеру (presigned GET шаблона, номер, переменные); терминальная задача →
+ * `{claimed:false}` (worker молча ack'ает дубль сообщения). Race «сообщение обогнало
+ * сохранение состояния» отдаёт 404 → worker ретраит с backoff'ом.
+ */
+@Controller('internal/worker/documents')
+@UseGuards(WorkerCallbackGuard)
+export class DocumentsInternalWorkerController {
+  constructor(
+    @Inject(DocumentsTenantRunner) private readonly runner: DocumentsTenantRunner,
+    @Inject(FilesService) private readonly files: FilesService
+  ) {}
+
+  @Post('start')
+  async start(@Body() raw: unknown) {
+    const body = assertValidDto(WorkerTaskRefDto, raw);
+    const claim = await this.runner.runWithTenantDocuments(body.tenantId, async (documents) => {
+      const task = documents.getDocumentTask(body.tenantId, body.taskId);
+      if (task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled') {
+        return { claimed: false as const, status: task.status };
+      }
+      const started = documents.startTask(body.tenantId, body.taskId);
+      const version = started.templateVersionId
+        ? documents.getTemplateVersion(body.tenantId, started.templateVersionId)
+        : undefined;
+      const number = documents.getTaskReservedNumber(body.tenantId, started.id);
+      return {
+        claimed: true as const,
+        status: started.status,
+        templateFileId: version?.fileId,
+        number
+      };
+    });
+    if (!claim.claimed) {
+      return claim;
+    }
+    if (!claim.templateFileId) {
+      // Версия без файла: worker получит ответ без templateFileUrl и пометит задачу failed.
+      return { claimed: true, taskId: body.taskId, number: claim.number, variables: {} };
+    }
+    // Presigned GET шаблона — вне runner'а (не держим tenant-лок на время S3-вызова).
+    const templateFileUrl = await this.files.createDownloadUrl(body.tenantId, claim.templateFileId);
+    return {
+      claimed: true,
+      taskId: body.taskId,
+      number: claim.number,
+      templateFileUrl,
+      // Task 2 — минимальный словарь (категория document); полный резолв 10 категорий — Task 3/4.
+      variables: {
+        'document.number': claim.number ?? '',
+        'document.date': new Date().toISOString().slice(0, 10)
+      }
+    };
+  }
+
+  @Post('result-upload-intent')
+  async resultUploadIntent(@Body() raw: unknown) {
+    const body = assertValidDto(WorkerUploadIntentDto, raw);
+    const contentType = body.contentType ?? DOCX_MIME;
+    return this.files.createUploadIntent(
+      body.tenantId,
+      { originalName: `${body.taskId}.docx`, contentType, sizeBytes: body.sizeBytes },
+      {
+        keyPrefix: 'generated-documents',
+        mimeAllowlist: new Set([DOCX_MIME, 'application/pdf']),
+        maxBytes: 50 * 1024 * 1024
+      }
+    );
+  }
+
+  @Post('complete')
+  async complete(@Body() raw: unknown) {
+    const body = assertValidDto(WorkerCompleteDto, raw);
+    return this.runner.runWithTenantDocuments(body.tenantId, async (documents) => {
+      const generated = documents.completeTask(body.tenantId, body.taskId, body.fileId);
+      return { generatedDocumentId: generated.id, documentNumber: generated.documentNumber };
+    });
+  }
+
+  @Post('fail')
+  async fail(@Body() raw: unknown) {
+    const body = assertValidDto(WorkerFailDto, raw);
+    return this.runner.runWithTenantDocuments(body.tenantId, async (documents) => {
+      try {
+        const task = documents.failTask(body.tenantId, body.taskId, body.message);
+        return { status: task.status };
+      } catch (error) {
+        if (error instanceof NotFoundException) throw error;
+        // Completed task cannot be failed — гонка с дублем сообщения; отвечаем идемпотентно.
+        return { status: 'completed' };
+      }
+    });
+  }
+}

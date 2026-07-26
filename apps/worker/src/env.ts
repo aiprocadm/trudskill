@@ -37,6 +37,8 @@ const workerEnvSchema = z.object({
   WORKER_CALLBACK_TOKEN: z.string().min(8).optional(),
   WORKER_INTERNAL_URL: z.string().url(),
   BACKEND_PUBLIC_URL: z.string().url(),
+  // Фаза 1: конвертация DOCX->PDF (подключается в Task 3).
+  GOTENBERG_URL: z.string().url().default('http://gotenberg:3000'),
   DOCUMENTS_STORAGE_BUCKET: z.string().default('cdoprof-dev')
 });
 

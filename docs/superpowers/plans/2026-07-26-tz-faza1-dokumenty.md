@@ -88,12 +88,14 @@
 
 **Tasks:**
 
-- [ ] Публикация job `document` в RabbitMQ (envelope с `tenantId` — инвариант Task 1 Фазы 0).
-- [ ] Worker: скачивание шаблона по presigned GET → `renderDocx` → загрузка результата по presigned PUT → `complete {fileId}`.
-- [ ] `failTask` при ошибке с `FailureDiagnostics`; ретраи только транспортных ошибок.
-- [ ] AV-гейт: результат рендера проходит стандартный files-цикл (скан по флагу).
+- [x] Публикация job `document` в RabbitMQ (envelope с `tenantId` — инвариант Task 1 Фазы 0).
+- [x] Worker: скачивание шаблона по presigned GET → `renderDocx` → загрузка результата по presigned PUT → `complete {fileId}`.
+- [x] `failTask` при ошибке с `FailureDiagnostics`; ретраи только транспортных ошибок.
+- [x] AV-гейт: результат рендера проходит стандартный files-цикл (скан по флагу).
 
 **Acceptance:** e2e по цепочке «`POST /documents/generate` → очередь → worker → `generated_documents` с реальным DOCX в S3»; guard-граница internal-эндпоинтов покрыта; `test:isolation` не деградировал.
+
+**Выполнено 2026-07-26 (§5.176).** Deviations: (1) worker-логика — `document-job.ts` поверх internal-HTTP (существующий `DocumentGenerationPipeline` с локальными deps не задействован — его модель «всё локально» не ложится на HTTP-клейм; файл оставлен как контракт); (2) публикация best-effort из трёх точек (generate, batch, listener авто-выдачи — после сохранения состояния), гонка «сообщение обогнало сохранение» разрулена ретраем worker'а по 404; (3) живой e2e на реальных RabbitMQ/S3 отложен к smoke Task 3 (вместе с Gotenberg) — цепочка покрыта юнитами обеих сторон, включая реальный DOCX в PUT-теле.
 
 ## Task 3 — ФТ-A1.3/A1.4/A1.5: PDF, снапшот, ошибки
 

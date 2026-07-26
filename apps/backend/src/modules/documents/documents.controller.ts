@@ -13,6 +13,7 @@ import {
   UseInterceptors
 } from '@nestjs/common';
 
+import { DocumentsEnqueueService } from './documents-enqueue.service.js';
 import {
   DocumentsService,
   type IssueGroupOrderRequest,
@@ -52,7 +53,10 @@ export const ISSUANCE_JOURNAL_CSV_HEADER =
 @UseInterceptors(DocumentsRequestPersistenceInterceptor)
 @UseGuards(TenantGuard)
 export class DocumentsController {
-  constructor(@Inject(DocumentsService) private readonly documentsService: DocumentsService) {}
+  constructor(
+    @Inject(DocumentsService) private readonly documentsService: DocumentsService,
+    @Inject(DocumentsEnqueueService) private readonly enqueue: DocumentsEnqueueService
+  ) {}
 
   @Get('templates')
   @UseGuards(PermissionGuard)
@@ -246,17 +250,29 @@ export class DocumentsController {
   @Post('documents/generate')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.generate')
-  generateDocument(@CurrentContext() c: RequestContext, @Body() b: GenerateDocumentRequest) {
-    return this.documentsService.generateDocument(c.tenantId!, c.userId, b, c);
+  async generateDocument(@CurrentContext() c: RequestContext, @Body() b: GenerateDocumentRequest) {
+    const task = this.documentsService.generateDocument(c.tenantId!, c.userId, b, c);
+    // ФТ-A1.1: job в очередь. Race «сообщение обогнало сохранение состояния» разруливает
+    // worker (retry c backoff), повторная публикация того же taskId безопасна (claim в start).
+    await this.enqueue.publishQueuedTasks(c.tenantId!, [task], {
+      requestId: c.requestId,
+      correlationId: c.correlationId
+    });
+    return task;
   }
   @Post('documents/generate/batch')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.generate')
-  generateDocumentsBatch(
+  async generateDocumentsBatch(
     @CurrentContext() c: RequestContext,
     @Body() b: GenerateDocumentsBatchRequest
   ) {
-    return this.documentsService.generateDocumentsBatch(c.tenantId!, c.userId, b, c);
+    const result = this.documentsService.generateDocumentsBatch(c.tenantId!, c.userId, b, c);
+    await this.enqueue.publishQueuedTasks(c.tenantId!, result.items, {
+      requestId: c.requestId,
+      correlationId: c.correlationId
+    });
+    return result;
   }
   @Post('documents/:id/finalize')
   @UseGuards(PermissionGuard)

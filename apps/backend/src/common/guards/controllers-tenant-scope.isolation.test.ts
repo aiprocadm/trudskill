@@ -39,6 +39,10 @@ const PUBLIC_CONTROLLERS: ReadonlyArray<{ file: string; why: string }> = [
     why: 'внутренние callback-и worker; защищены собственным WorkerCallbackGuard'
   },
   {
+    file: 'documents/documents-internal-worker.controller.ts',
+    why: 'внутренние callback-и конвейера рендера (Фаза 1 Task 2); защищены WorkerCallbackGuard, tenantId — в теле от доверенного worker'
+  },
+  {
     file: 'documents/public-verify.controller.ts',
     why: 'публичная проверка документа по QR (ФТ-A6) — без auth по задумке; ПДн отдаются частично, перебор ограничивается rate limit (ФТ-G2)'
   },
