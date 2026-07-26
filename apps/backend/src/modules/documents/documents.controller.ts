@@ -166,10 +166,14 @@ export class DocumentsController {
   @Post('template-versions')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
-  createTemplateVersion(
+  async createTemplateVersion(
     @CurrentContext() c: RequestContext,
     @Body() b: CreateTemplateVersionRequest
   ) {
+    // ФТ-A3.1: раньше fileId принимался «на честном слове» — версия могла ссылаться на
+    // несуществующий или чужой файл, и это всплывало только при выдаче документа.
+    // Проверяем файл сразу: он тенантный, прошёл AV-гейт и читается как DOCX-шаблон.
+    await this.inspection.inspect(c.tenantId!, b.fileId);
     return this.documentsService.createTemplateVersion(c.tenantId!, c.userId, b);
   }
   @Get('template-versions/:id')
