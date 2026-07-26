@@ -84,7 +84,9 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 ### Current Stage
 
-**2026-07-26 (текущее, §5.171, ветка `feat/2026-07-26-tz-faza0-task4-email`):** **Фаза 0, Task 4 — email-события по-настоящему (ФТ-F1).** Два log-only стаба переведены на события → новый `ExamIdentityEmailListener` → `NotificationDispatcher` (журнал + send-once dedup): **код на экзамен** (`PRE_EXAM_AUTH_REQUESTED_EVENT`, шаблон `pre_exam_auth` с `{{verifyUrl}}`; сырой URL в prod-логах теперь редактируется — раньше живой токен печатался в stdout) и **отклонение identity-проверки** (`IDENTITY_VERIFICATION_REJECTED_EVENT`, шаблон с `{{reason}}`; dedup на `reviewedAt` — reject после resubmit шлёт новое письмо). В `enrollment_invite` — рабочая ссылка входа `{{loginUrl}}`; enrollment-письма получили dedup-ключи. Env: задокументированы SMTP + `RECERTIFICATION_SCAN_ENABLED` (в прод-примере `true`). Конструктор `MvpService` не тронут. 150+ таргет-тестов, isolation 12, typecheck, eslint — зелёные. **Дальше по Фазе 0:** Task 5 (2FA TOTP) → Task 7 (шифрование ПДн).
+**2026-07-26 (текущее, §5.172, ветка `feat/2026-07-26-tz-faza0-task5-2fa-totp`):** **Фаза 0, Task 5 — 2FA (TOTP) для админ-ролей (ФТ-G3).** Миграция `0060` (три totp-колонки на `iam.users`, секрет в AES-256-GCM), самописный RFC 6238 на `node:crypto` (`totp.util.ts`, эталонные вектора), **гейт в `issueSessionForUser`** — 2FA закрывает пароль, magic-link и ЕСИА; login/redeem отдают `{totpRequired, challengeToken}` (TTL 5 мин), второй шаг `POST auth/2fa/verify` (bootstrap-роут TenantGuard, throttle 10/мин, anti-replay по `totp_last_used_step`); самообслуживание `setup`(QR data-URI, роль-гейт)/`confirm`/`disable`(нужен код)/`status`. Фронт: шаг кода в логине и на magic-link странице, карточка «Безопасность» в `/settings`. Тесты: totp 25, IAM 150, security 24, isolation 12, фронт 682 — зелёные. **Дальше по Фазе 0:** Task 7 (шифрование ПДн) → приёмка фазы.
+
+**2026-07-26 (§5.171, ветка `feat/2026-07-26-tz-faza0-task4-email`):** **Фаза 0, Task 4 — email-события по-настоящему (ФТ-F1).** Два log-only стаба переведены на события → новый `ExamIdentityEmailListener` → `NotificationDispatcher` (журнал + send-once dedup): **код на экзамен** (`PRE_EXAM_AUTH_REQUESTED_EVENT`, шаблон `pre_exam_auth` с `{{verifyUrl}}`; сырой URL в prod-логах теперь редактируется — раньше живой токен печатался в stdout) и **отклонение identity-проверки** (`IDENTITY_VERIFICATION_REJECTED_EVENT`, шаблон с `{{reason}}`; dedup на `reviewedAt` — reject после resubmit шлёт новое письмо). В `enrollment_invite` — рабочая ссылка входа `{{loginUrl}}`; enrollment-письма получили dedup-ключи. Env: задокументированы SMTP + `RECERTIFICATION_SCAN_ENABLED` (в прод-примере `true`). Конструктор `MvpService` не тронут. 150+ таргет-тестов, isolation 12, typecheck, eslint — зелёные. **Дальше по Фазе 0:** Task 5 (2FA TOTP) → Task 7 (шифрование ПДн).
 
 **2026-07-26 (§5.170, ветка `feat/2026-07-26-clamav-container`):** **Фаза 0, добивка Task 3 — живой EICAR-smoke + фикс протокола INSTREAM (ФТ-G5).** Живой прогон на тестовом сервере (clamd `clamav/clamav:1.4` из compose, дошёл до `healthy`) вскрыл протокольный баг сканера: z-команды clamd NUL-терминированы, а код слал `'zINSTREAM '` с пробелом, и NUL-терминированные ответы clamd не парсились — с `ANTIVIRUS_ENABLED=true` prod отбивал бы **все** загрузки (fail-closed). Починено в `clamav-antivirus.scanner.ts`, юнит-симулятор clamd приведён к реальному поведению. Smoke: чистый файл → `clean`, EICAR → `infected: Eicar-Test-Signature`; юнит 5/5, eslint/typecheck зелёные. Ops-оговорка §5.168 «живой EICAR-прогон на деплое» закрыта. **Дальше по Фазе 0:** Task 2 (rate limiting `/verify/{qr}` — PR #309) → Task 4 (email-события) → Task 5 (2FA TOTP) → Task 7 (шифрование ПДн).
 
@@ -195,11 +197,11 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Updated By
 
-Claude (Fable 5) — §5.171: Фаза 0 Task 4 — email-события по-настоящему (pre-exam ссылка, отклонение identity-проверки, invite с loginUrl, dedup).
+Claude (Fable 5) — §5.172: Фаза 0 Task 5 — 2FA TOTP для админ-ролей (миграция 0060, RFC 6238 на node:crypto, гейт всех трёх входов, QR, экран в /settings).
 
 ### Last Updated At
 
-2026-07-26 (§5.171 — Фаза 0, Task 4: email-события, ФТ-F1).
+2026-07-26 (§5.172 — Фаза 0, Task 5: 2FA TOTP, ФТ-G3).
 
 ## 3. Current Project Status
 

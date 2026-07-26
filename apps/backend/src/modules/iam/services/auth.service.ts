@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto';
 
-import { Inject, Injectable, Optional, UnauthorizedException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Optional,
+  UnauthorizedException
+} from '@nestjs/common';
 
 import { MetricsService } from '../../../common/metrics/metrics.service.js';
 import { ensureInMemoryModeAllowed } from '../../../common/runtime/in-memory-mode.guard.js';
@@ -17,9 +23,30 @@ import {
   verifyPassword
 } from '../crypto.util.js';
 import { IamService } from './iam.service.js';
+import { IntegrationCryptoService } from '../../integrations/services/integration-crypto.service.js';
+import {
+  buildOtpauthUrl,
+  generateTotpSecret,
+  signTotpChallenge,
+  verifyTotpChallenge,
+  verifyTotpCode
+} from '../totp.util.js';
 
 import type { RequestContext } from '../../../common/context/request-context.js';
 import type { AuthEvent, Session, User } from '../iam.types.js';
+
+/**
+ * 2FA-роли (ФТ-G3): включать TOTP могут админские роли. Не HttpException —
+ * internal control-flow, контроллеры превращают в ответ «нужен код».
+ */
+export const TOTP_ELIGIBLE_ROLES = ['tenant_admin', 'platform_admin'] as const;
+
+/** Выбрасывается вместо выдачи сессии, когда у пользователя включена 2FA. */
+export class TotpChallengeRequired extends Error {
+  constructor(readonly challengeToken: string) {
+    super('totp_required');
+  }
+}
 
 export interface LoginPayload {
   login: string;
@@ -31,12 +58,20 @@ export type AuthMethod = 'password' | 'magic_link' | 'esia';
 export interface IssueSessionOptions {
   authMethod: AuthMethod;
   databaseBacked: boolean;
+  /**
+   * 2FA уже пройдена на этом входе (второй шаг /auth/2fa/verify). Без этого флага
+   * пользователю с totp_enabled сессия НЕ выдаётся ни одним способом входа
+   * (пароль / magic-link / ЕСИА) — гейт в issueSessionForUser.
+   */
+  twoFactorSatisfied?: boolean;
 }
 
 @Injectable()
 export class AuthService {
   private sessions: Session[] = [];
   private authEvents: AuthEvent[] = [];
+  /** AES-256-GCM для TOTP-секретов — тот же application-crypto, что у секретов интеграций. */
+  private readonly totpCrypto = new IntegrationCryptoService();
 
   constructor(
     @Inject(IamService)
@@ -125,6 +160,22 @@ export class AuthService {
     context: RequestContext,
     options: IssueSessionOptions
   ): Promise<Awaited<ReturnType<AuthService['createSession']>>> {
+    if (user.totpEnabled === true && options.twoFactorSatisfied !== true) {
+      // ФТ-G3: единый гейт на ВСЕ способы входа. Challenge — подписанный конверт с TTL 5 мин;
+      // сессии, куки и auth-события появляются только после верного кода (verifyTotpAndLogin).
+      throw new TotpChallengeRequired(
+        signTotpChallenge(
+          {
+            sub: user.id,
+            tenant_id: user.tenantId,
+            method: options.authMethod,
+            database_backed: options.databaseBacked
+          },
+          this.secretsService.getJwtSigningSecret(),
+          Date.now()
+        )
+      );
+    }
     const persistRelational = !this.databaseService || options.databaseBacked;
     const tokens = await this.createSession(user, persistRelational);
     const eventType = options.authMethod === 'magic_link' ? 'magic_link_login' : 'login';
@@ -151,6 +202,198 @@ export class AuthService {
     );
 
     return tokens;
+  }
+
+  /** Второй шаг логина (ФТ-G3): challenge из issueSessionForUser + верный TOTP-код → сессия. */
+  async verifyTotpAndLogin(
+    tenantId: string,
+    challengeToken: string,
+    code: string,
+    context: RequestContext
+  ): Promise<Awaited<ReturnType<AuthService['createSession']>>> {
+    let payload: ReturnType<typeof verifyTotpChallenge>;
+    try {
+      payload = verifyTotpChallenge(
+        challengeToken,
+        this.secretsService.getJwtSigningSecret(),
+        Date.now()
+      );
+    } catch {
+      this.metrics?.incrementAuthFailure({ reason: 'invalid_totp_challenge', phase: 'totp' });
+      throw new UnauthorizedException({
+        code: 'invalid_totp_challenge',
+        message: 'Two-factor challenge is invalid or expired'
+      });
+    }
+    if (payload.tenant_id !== tenantId) {
+      throw new UnauthorizedException({
+        code: 'invalid_totp_challenge',
+        message: 'Two-factor challenge is invalid or expired'
+      });
+    }
+    const user = await this.iamService.getUser(tenantId, payload.sub);
+    if (user.status === 'blocked') {
+      throw new UnauthorizedException({ code: 'user_blocked', message: 'User is blocked' });
+    }
+    const persistRelational = !this.databaseService || payload.database_backed;
+    const step = this.verifyCodeAgainstUser(user, code);
+    if (step === null) {
+      await this.pushAuthEvent(tenantId, user.id, 'totp_failed', persistRelational);
+      this.metrics?.incrementAuthFailure({ reason: 'invalid_totp_code', phase: 'totp' });
+      throw new UnauthorizedException({
+        code: 'invalid_totp_code',
+        message: 'Two-factor code is invalid'
+      });
+    }
+    await this.iamService.updateTotpLastUsedStep(tenantId, user.id, step);
+    await this.pushAuthEvent(tenantId, user.id, 'totp_verified', persistRelational);
+    return this.issueSessionForUser(user, context, {
+      authMethod: payload.method,
+      databaseBacked: payload.database_backed,
+      twoFactorSatisfied: true
+    });
+  }
+
+  /** Настройка 2FA: сгенерировать секрет (2FA ещё выключена — включит confirmTotp верным кодом). */
+  async setupTotp(
+    tenantId: string,
+    userId: string,
+    context: RequestContext
+  ): Promise<{ secret: string; otpauthUrl: string }> {
+    const roles = await this.iamService.getUserRoles(tenantId, userId);
+    const eligible = roles.some((role) =>
+      (TOTP_ELIGIBLE_ROLES as readonly string[]).includes(role.code)
+    );
+    if (!eligible) {
+      throw new ForbiddenException({
+        code: 'totp_role_not_eligible',
+        message: 'Two-factor auth is available for admin roles only'
+      });
+    }
+    const user = await this.iamService.getUser(tenantId, userId);
+    const secret = generateTotpSecret();
+    await this.iamService.setTotpSecret(tenantId, userId, this.totpCrypto.encrypt(secret));
+    await this.auditService.writeCritical({
+      tenantId,
+      actorId: userId,
+      action: 'auth.totp_setup_started',
+      entityType: 'iam.user',
+      entityId: userId,
+      requestId: context.requestId,
+      correlationId: context.correlationId,
+      ip: context.ip,
+      userAgent: context.userAgent
+    });
+    return {
+      secret,
+      otpauthUrl: buildOtpauthUrl({
+        secretBase32: secret,
+        accountName: `${user.login}@${tenantId}`,
+        issuer: 'CDOProf'
+      })
+    };
+  }
+
+  /** Подтвердить настройку кодом из приложения → 2FA включена. */
+  async confirmTotp(
+    tenantId: string,
+    userId: string,
+    code: string,
+    context: RequestContext
+  ): Promise<{ enabled: true }> {
+    const user = await this.iamService.getUser(tenantId, userId);
+    if (!user.totpSecretEncrypted) {
+      throw new UnauthorizedException({
+        code: 'totp_not_configured',
+        message: 'Run 2FA setup first'
+      });
+    }
+    const step = this.verifyCodeAgainstUser(user, code);
+    if (step === null) {
+      throw new UnauthorizedException({
+        code: 'invalid_totp_code',
+        message: 'Two-factor code is invalid'
+      });
+    }
+    await this.iamService.updateTotpLastUsedStep(tenantId, userId, step);
+    await this.iamService.setTotpEnabled(tenantId, userId, true);
+    await this.auditService.writeCritical({
+      tenantId,
+      actorId: userId,
+      action: 'auth.totp_enabled',
+      entityType: 'iam.user',
+      entityId: userId,
+      requestId: context.requestId,
+      correlationId: context.correlationId,
+      ip: context.ip,
+      userAgent: context.userAgent
+    });
+    return { enabled: true };
+  }
+
+  /** Выключить 2FA — только с верным текущим кодом (угнанной сессии недостаточно). */
+  async disableTotp(
+    tenantId: string,
+    userId: string,
+    code: string,
+    context: RequestContext
+  ): Promise<{ enabled: false }> {
+    const user = await this.iamService.getUser(tenantId, userId);
+    if (user.totpEnabled !== true) {
+      return { enabled: false };
+    }
+    const step = this.verifyCodeAgainstUser(user, code);
+    if (step === null) {
+      throw new UnauthorizedException({
+        code: 'invalid_totp_code',
+        message: 'Two-factor code is invalid'
+      });
+    }
+    await this.iamService.setTotpEnabled(tenantId, userId, false);
+    await this.auditService.writeCritical({
+      tenantId,
+      actorId: userId,
+      action: 'auth.totp_disabled',
+      entityType: 'iam.user',
+      entityId: userId,
+      requestId: context.requestId,
+      correlationId: context.correlationId,
+      ip: context.ip,
+      userAgent: context.userAgent
+    });
+    return { enabled: false };
+  }
+
+  async getTotpStatus(
+    tenantId: string,
+    userId: string
+  ): Promise<{ enabled: boolean; pending: boolean; eligible: boolean }> {
+    const [user, roles] = await Promise.all([
+      this.iamService.getUser(tenantId, userId),
+      this.iamService.getUserRoles(tenantId, userId)
+    ]);
+    return {
+      enabled: user.totpEnabled === true,
+      pending: user.totpEnabled !== true && Boolean(user.totpSecretEncrypted),
+      eligible: roles.some((role) => (TOTP_ELIGIBLE_ROLES as readonly string[]).includes(role.code))
+    };
+  }
+
+  /** Расшифровать секрет и проверить код с окном ±1 и anti-replay по последнему шагу. */
+  private verifyCodeAgainstUser(user: User, code: string): number | null {
+    if (!user.totpSecretEncrypted) {
+      return null;
+    }
+    let secret: string;
+    try {
+      secret = this.totpCrypto.decrypt(user.totpSecretEncrypted);
+    } catch {
+      return null;
+    }
+    return verifyTotpCode(secret, code, {
+      nowMs: Date.now(),
+      minStepExclusive: user.totpLastUsedStep ?? null
+    });
   }
 
   async refresh(

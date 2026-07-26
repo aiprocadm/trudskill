@@ -17,7 +17,7 @@ import { CurrentContext } from '../../../common/decorators/current-context.decor
 import { TenantGuard } from '../../../common/guards/tenant.guard.js';
 import { backendEnv } from '../../../env.js';
 import { authCookie } from '../../iam/auth-cookie.util.js';
-import { AuthService } from '../../iam/services/auth.service.js';
+import { AuthService, TotpChallengeRequired } from '../../iam/services/auth.service.js';
 import { IamService } from '../../iam/services/iam.service.js';
 import { MvpRequestPersistenceInterceptor } from '../infrastructure/mvp-request-persistence.interceptor.js';
 import { MvpService } from '../mvp.service.js';
@@ -89,10 +89,21 @@ export class EsiaController {
     }
     const { userId, databaseBacked, tenantId } = await this.esia.resolveLoginUser(code, state);
     const user = await this.iamService.getUser(tenantId, userId);
-    const tokens = await this.authService.issueSessionForUser(user, context, {
-      authMethod: 'esia',
-      databaseBacked
-    });
+    let tokens: Awaited<ReturnType<AuthService['issueSessionForUser']>>;
+    try {
+      tokens = await this.authService.issueSessionForUser(user, context, {
+        authMethod: 'esia',
+        databaseBacked
+      });
+    } catch (err) {
+      if (err instanceof TotpChallengeRequired) {
+        // ФТ-G3: ЕСИА-вход не обходит 2FA. Это browser-redirect флоу — challenge в URL не
+        // передаём (утёк бы в history/логи), отправляем на обычный логин с паролем + кодом.
+        response.redirect(frontend('/login?status=totp_required'));
+        return;
+      }
+      throw err;
+    }
     authCookie.attachRefreshAndCsrfCookies(response, tokens.refreshToken, tokens.csrfToken);
     response.redirect(frontend('/learner?status=esia_ok'));
   }
