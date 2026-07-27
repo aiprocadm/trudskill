@@ -2,6 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { EnrollmentDocumentIssuanceListener } from './enrollment-document-issuance.listener.js';
 
+// Task 2 (ФТ-A1.1): слушатель публикует job'ы после сохранения состояния — в юнитах глушим.
+// Без этого аргумента auditService уезжал на позицию enqueue и падал в setImmediate
+// необработанным TypeError (тест при этом «проходил»).
+const noopEnqueue = { publishQueuedTasks: async () => undefined } as never;
+
 describe('EnrollmentDocumentIssuanceListener (BL-007)', () => {
   it('вызывает generateDocument при успешном resolveAutoCertificateTemplateBinding', async () => {
     const generateDocument = vi.fn();
@@ -18,12 +23,9 @@ describe('EnrollmentDocumentIssuanceListener (BL-007)', () => {
       }
     };
     const auditWrite = vi.fn();
-    const listener = new EnrollmentDocumentIssuanceListener(
-      runner as any,
-      {
-        write: auditWrite
-      } as any
-    );
+    const listener = new EnrollmentDocumentIssuanceListener(runner as any, noopEnqueue, {
+      write: auditWrite
+    } as any);
 
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
@@ -61,12 +63,9 @@ describe('EnrollmentDocumentIssuanceListener (BL-007)', () => {
         await fn(docs);
       }
     };
-    const listener = new EnrollmentDocumentIssuanceListener(
-      runner as any,
-      {
-        write: vi.fn()
-      } as any
-    );
+    const listener = new EnrollmentDocumentIssuanceListener(runner as any, noopEnqueue, {
+      write: vi.fn()
+    } as any);
 
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',

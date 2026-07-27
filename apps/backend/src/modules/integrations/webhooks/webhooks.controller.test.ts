@@ -1,5 +1,23 @@
 import { describe, expect, it, vi } from 'vitest';
 
+/**
+ * Секрет вебхуков в тестовой среде не задан, а `WebhookSignatureVerifier` при пустом
+ * секрете намеренно пропускает проверку (локальная разработка). Из-за этого негативный
+ * кейс ниже молча «проходил» — вебхук с чужой подписью принимался, и тест падал.
+ * Подставляем секрет, как в production/staging (там env.schema делает его обязательным),
+ * иначе проверять нечего.
+ */
+vi.mock('../../../env.js', async (importOriginal) => {
+  const actual = (await importOriginal()) as { backendEnv: Record<string, unknown> };
+  return {
+    ...actual,
+    backendEnv: {
+      ...actual.backendEnv,
+      INTEGRATION_WEBHOOK_SECRET: 'test-webhook-secret-0123456789'
+    }
+  };
+});
+
 import { WebhooksController } from './webhooks.controller.js';
 import { backendEnv } from '../../../env.js';
 import { AuditService } from '../../audit/audit.service.js';
