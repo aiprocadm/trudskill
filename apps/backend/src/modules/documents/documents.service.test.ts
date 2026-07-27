@@ -294,6 +294,62 @@ describe('DocumentsService', () => {
     });
   });
 
+  describe('ФТ-A4.1 — стартовое значение нумератора', () => {
+    const makeService = () =>
+      new DocumentsService(
+        new InMemoryDocumentsState(),
+        new AuditService(),
+        new RealtimeEventsService()
+      );
+
+    it('начинает выдачу с указанного номера при создании правила', () => {
+      const service = makeService();
+      service.createNumberingRule('t1', {
+        documentType: 'certificate',
+        prefix: 'CERT-',
+        startCounter: 137
+      });
+
+      expect(service.reserveNumber('t1', 'certificate').reservedNumber).toBe('CERT-000137');
+      expect(service.reserveNumber('t1', 'certificate').reservedNumber).toBe('CERT-000138');
+    });
+
+    it('сдвигает нумерацию вперёд при обновлении правила', () => {
+      const service = makeService();
+      const rule = service.createNumberingRule('t1', {
+        documentType: 'certificate',
+        prefix: 'CERT-'
+      });
+      service.reserveNumber('t1', 'certificate'); // CERT-000001
+
+      service.updateNumberingRule('t1', rule.id, { startCounter: 500 });
+
+      expect(service.reserveNumber('t1', 'certificate').reservedNumber).toBe('CERT-000500');
+    });
+
+    it('запрещает откат нумерации назад — иначе номера выдались бы повторно', () => {
+      const service = makeService();
+      const rule = service.createNumberingRule('t1', {
+        documentType: 'certificate',
+        prefix: 'CERT-',
+        startCounter: 100
+      });
+      service.reserveNumber('t1', 'certificate'); // CERT-000100
+
+      expect(() => service.updateNumberingRule('t1', rule.id, { startCounter: 50 })).toThrow();
+    });
+
+    it('не подменяет счётчик служебным полем startCounter', () => {
+      const service = makeService();
+      const rule = service.createNumberingRule('t1', {
+        documentType: 'certificate',
+        startCounter: 10
+      });
+
+      expect(service.getNumberingRule('t1', rule.id)).not.toHaveProperty('startCounter');
+    });
+  });
+
   it('issues documents across a year boundary without silent failure', () => {
     vi.useFakeTimers();
     try {

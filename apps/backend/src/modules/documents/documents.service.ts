@@ -972,7 +972,9 @@ export class DocumentsService {
       prefix: req.prefix ?? '',
       suffix: req.suffix ?? '',
       pattern: req.pattern ?? this.defaultNumberingPattern(req.resetPeriod ?? 'none'),
-      currentCounter: 0,
+      // ФТ-A4.1: startCounter — номер, который выдастся первым; во внутреннем счётчике
+      // держим «последний выданный», поэтому минус один.
+      currentCounter: req.startCounter !== undefined ? req.startCounter - 1 : 0,
       resetPeriod: req.resetPeriod ?? 'none',
       isActive: true,
       updatedAt: this.now()
@@ -985,7 +987,22 @@ export class DocumentsService {
   }
   updateNumberingRule(tenantId: string, id: string, req: UpdateNumberingRuleRequest) {
     const row = this.getNumberingRule(tenantId, id);
-    Object.assign(row, req, { updatedAt: this.now() });
+    // ФТ-A4.1: startCounter — это «следующий выдаваемый номер», а во внутреннем
+    // счётчике хранится «последний выданный». Поле служебное: в сущность правила
+    // оно попасть не должно (иначе Object.assign протащит его в персистенцию).
+    const { startCounter, ...rest } = req;
+    Object.assign(row, rest, { updatedAt: this.now() });
+    if (startCounter !== undefined) {
+      const nextCounter = startCounter - 1;
+      if (nextCounter < row.currentCounter) {
+        // Откат назад повторно выдал бы уже использованные номера — в регулируемом
+        // реестре это дубли, которые нечем развести.
+        throw new BadRequestException(
+          `Numbering cannot go backwards: already issued up to ${row.currentCounter}`
+        );
+      }
+      row.currentCounter = nextCounter;
+    }
     return row;
   }
   activateNumberingRule(
