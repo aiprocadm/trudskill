@@ -1,0 +1,30 @@
+# Тестовый стенд lms.ptsfera.online — живые обновления (WebSocket/SSE).
+# Ставится в /etc/systemd/system/lms-realtime.service. См. docs/RUNBOOK_TEST_STAND.md.
+#
+# Своя копия, свой порт 3012, свой номер базы Redis, свой ключ публикации —
+# с разработкой не пересекается. Настройки в apps/realtime/.env копии.
+#
+# Без этой службы витрина работает, но живые обновления в интерфейсе молчат:
+# браузер стучится на /realtime того же домена (NEXT_PUBLIC_REALTIME_URL).
+
+[Unit]
+Description=trudskill — живые обновления для lms.ptsfera.online
+After=network-online.target lms-backend.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aiproc
+Group=aiproc
+WorkingDirectory=/home/aiproc/stands/trudskill/apps/realtime
+Environment=PATH=/home/aiproc/.nvm/versions/node/v24.18.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=NODE_ENV=development
+ExecStart=/home/aiproc/stands/trudskill/node_modules/.bin/tsx src/main.ts
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lms-realtime
+
+[Install]
+WantedBy=multi-user.target
