@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DataTable, LoadingState, StatusChip } from '@trudskill/ui';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import {
   PageContainer,
@@ -13,6 +13,12 @@ import {
 } from '../../src/components/state-wrappers';
 import { useAuth } from '../../src/features/auth/context';
 import { useTaskRealtime } from '../../src/features/communication/hooks';
+import {
+  type TemplateParseResult,
+  fetchPreviewPdfUrl,
+  putTemplateFile,
+  templatesApi
+} from '../../src/features/templates/api';
 import { apiRequest } from '../../src/lib/api/client';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
@@ -46,7 +52,10 @@ export default function DocumentsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskDto | null>(null);
   const [bulkEntityIds, setBulkEntityIds] = useState('');
-  const [fileIdForVersion, setFileIdForVersion] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [parseResult, setParseResult] = useState<TemplateParseResult | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const [varCode, setVarCode] = useState('');
   const [varDisplayName, setVarDisplayName] = useState('');
   const [varCategory, setVarCategory] = useState('learner');
@@ -237,36 +246,56 @@ export default function DocumentsPage() {
     }
   };
 
-  const createVersionAndActivate = async () => {
-    if (!session || !generateTemplateId || !fileIdForVersion.trim()) return;
+  /**
+   * ФТ-A3.1/A3.2/A3.4: выбрал .docx → интент → PUT в хранилище → новая версия → активация →
+   * разбор плейсхолдеров. Раньше на этом месте админ вписывал fileId руками.
+   */
+  const uploadTemplateVersion = async () => {
+    if (!session || !generateTemplateId) return;
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) {
+      setActionError('Выберите файл бланка в формате .docx');
+      return;
+    }
+    setUploading(true);
+    setActionError(null);
+    setParseResult(null);
     try {
-      setActionError(null);
-      const created = await apiRequest<{ id: string }>('/template-versions', {
-        method: 'POST',
-        body: {
-          templateId: generateTemplateId,
-          fileId: fileIdForVersion.trim()
-        },
-        auth: {
-          accessToken: session.tokens.accessToken,
-          tenantId: session.user.tenantId,
-          userId: session.user.id
-        }
+      const intent = await templatesApi.uploadUrl(session, {
+        originalName: file.name,
+        sizeBytes: file.size
       });
-      await apiRequest(`/template-versions/${created.id}/activate`, {
-        method: 'POST',
-        auth: {
-          accessToken: session.tokens.accessToken,
-          tenantId: session.user.tenantId,
-          userId: session.user.id
-        }
+      await putTemplateFile(intent.uploadUrl, file);
+      const created = await templatesApi.createVersion(session, {
+        templateId: generateTemplateId,
+        fileId: intent.fileId
       });
-      setFileIdForVersion('');
+      await templatesApi.activateVersion(session, created.id);
+      // Сразу показываем, что система распознала в бланке (ФТ-A3.2).
+      setParseResult(await templatesApi.parseVariables(session, created.id));
+      if (fileInputRef.current) fileInputRef.current.value = '';
       await queryClient.invalidateQueries({ queryKey: ['documents'] });
       await queryClient.invalidateQueries({ queryKey: ['template-versions'] });
       await queryClient.invalidateQueries({ queryKey: ['template-variables'] });
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Не удалось создать версию');
+      setActionError(error instanceof Error ? error.message : 'Не удалось загрузить бланк');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  /** ФТ-A3.3: пример PDF на демо-данных — открывается в новой вкладке. */
+  const openPreview = async (versionId: string) => {
+    if (!session) return;
+    setPreviewing(true);
+    setActionError(null);
+    try {
+      const url = await fetchPreviewPdfUrl(session, versionId);
+      window.open(url, '_blank', 'noopener');
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Не удалось получить предпросмотр');
+    } finally {
+      setPreviewing(false);
     }
   };
 
@@ -419,9 +448,10 @@ export default function DocumentsPage() {
         </SectionCard>
         <SectionCard title="Версия шаблона, переменные и привязки">
           <p className="ui-text-muted">
-            Выберите шаблон в списке ниже (поле «Выберите шаблон» в блоке генерации). Укажите{' '}
-            <code>fileId</code> из хранилища файлов и создайте версию, затем добавьте переменные и
-            привязку к курсу или группе для автоматической выдачи сертификата.
+            Выберите шаблон в списке ниже (поле «Выберите шаблон» в блоке генерации), загрузите
+            бланк в формате <code>.docx</code> — система создаст новую версию, сделает её активной и
+            покажет, какие плейсхолдеры распознаны. Кнопка «Пример PDF» заполнит бланк демо-данными,
+            чтобы проверить вёрстку до реальной выдачи.
           </p>
           {!generateTemplateId ? (
             <SectionEmpty message="Сначала выберите шаблон в блоке генерации" />
@@ -444,18 +474,58 @@ export default function DocumentsPage() {
               )}
               <div className="ui-inline">
                 <input
-                  value={fileIdForVersion}
-                  onChange={(event) => setFileIdForVersion(event.target.value)}
-                  placeholder="fileId (из backend файлов)"
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  disabled={uploading}
+                  aria-label="Файл бланка (.docx)"
                 />
                 <button
                   type="button"
-                  onClick={() => void createVersionAndActivate()}
-                  disabled={!fileIdForVersion.trim()}
+                  onClick={() => void uploadTemplateVersion()}
+                  disabled={uploading}
                 >
-                  Создать и активировать версию
+                  {uploading ? 'Загружаем…' : 'Загрузить бланк и активировать версию'}
                 </button>
+                {activeTemplateVersionId ? (
+                  <button
+                    type="button"
+                    onClick={() => void openPreview(activeTemplateVersionId)}
+                    disabled={previewing}
+                  >
+                    {previewing ? 'Готовим пример…' : 'Пример PDF'}
+                  </button>
+                ) : null}
               </div>
+              {parseResult ? (
+                <div className="ui-stack" data-testid="template-parse-result">
+                  <strong>Плейсхолдеры в загруженном бланке</strong>
+                  {parseResult.known.length ? (
+                    <DataTable
+                      columns={[
+                        { key: 'code', title: 'Плейсхолдер' },
+                        { key: 'category', title: 'Категория' },
+                        { key: 'description', title: 'Что подставится' }
+                      ]}
+                      rows={parseResult.known}
+                    />
+                  ) : (
+                    <SectionEmpty message="В бланке не найдено ни одного известного плейсхолдера" />
+                  )}
+                  {parseResult.unknown.length ? (
+                    <p
+                      role="alert"
+                      className="ui-error"
+                      data-testid="template-unknown-placeholders"
+                    >
+                      Система не знает такие плейсхолдеры (проверьте написание, они останутся
+                      пустыми): {parseResult.unknown.join(', ')}
+                    </p>
+                  ) : (
+                    <p className="ui-text-muted">Все плейсхолдеры бланка распознаны.</p>
+                  )}
+                </div>
+              ) : null}
               <strong>Переменные (первая активная версия)</strong>
               {variablesQuery.isLoading ? <LoadingState message="Загрузка переменных…" /> : null}
               {variablesQuery.data?.items?.length ? (
