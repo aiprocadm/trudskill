@@ -22,3 +22,16 @@ packages/shared-types/src/**/*.d.ts
 
 # Production secrets (server-only, never commit)
 infra/.env.production
+
+# Локальные логи dev-запуска (backend.log, apps/frontend/next.log)
+*.log
+
+# Кэш Python-тестов
+__pycache__/
+*.pyc
+
+# Изолированные рабочие копии Claude Code
+.claude/worktrees/
+
+# Локальный uv-lock: зависимости python_tests описаны в requirements.txt
+uv.lock
