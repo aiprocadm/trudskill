@@ -19,8 +19,16 @@ function makeService(fileBody: Buffer) {
   const storage = {
     getObjectStream: vi.fn(async () => Readable.from([fileBody]))
   } as unknown as S3StorageClient;
-  const service = new TemplateInspectionService(files, storage);
-  return { service, files, storage };
+  const tenants = {
+    getRequisites: vi.fn(async () => ({
+      tenantId: T,
+      legalName: 'ООО УЦ',
+      taxNumber: '7701',
+      payload: {}
+    }))
+  };
+  const service = new TemplateInspectionService(files, storage, tenants as never);
+  return { service, files, storage, tenants };
 }
 
 const templateDocx = buildDocx(
@@ -31,6 +39,27 @@ const templateDocx = buildDocx(
     p('{/group_learners}') +
     p('{learner.favourite_colour}')
 );
+
+describe('TemplateInspectionService.inspect — картинки (ФТ-A7.1)', () => {
+  it('показывает теги-картинки отдельным списком', async () => {
+    const { service } = makeService(
+      buildDocx(p('{tenant.name}') + p('{%tenant.stamp_image}') + p('{%tenant.signature_image}'))
+    );
+    const result = await service.inspect(T, 'file_1');
+    expect(result.imagePlaceholders).toEqual(['tenant.stamp_image', 'tenant.signature_image']);
+    // Картинка — известная переменная каталога, а не «опечатка админа».
+    expect(result.unknown).not.toContain('tenant.stamp_image');
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('предупреждает, когда печать вставили обычным тегом — иначе напечатается UUID файла', async () => {
+    const { service } = makeService(buildDocx(p('Печать: {tenant.stamp_image}')));
+    const result = await service.inspect(T, 'file_1');
+    expect(result.imagePlaceholders).toEqual([]);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toContain('{%tenant.stamp_image}');
+  });
+});
 
 describe('TemplateInspectionService.inspect (ФТ-A3.2)', () => {
   it('splits placeholders found in the blank into known and unknown', async () => {

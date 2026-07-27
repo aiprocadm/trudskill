@@ -1,11 +1,13 @@
 import { Body, Controller, Inject, NotFoundException, Post, UseGuards } from '@nestjs/common';
 import { IsInt, IsObject, IsOptional, IsPositive, IsString, MinLength } from 'class-validator';
 
+import { collectDocumentImageRefs } from './document-images.js';
 import { DocumentVariablesBuilder } from './document-variables.builder.js';
 import { DocumentsTenantRunner } from './documents-tenant-runner.service.js';
 import { assertValidDto } from '../../common/app-validation.pipe.js';
 import { FilesService } from '../files/files.service.js';
 import { WorkerCallbackGuard } from '../mvp/infrastructure/worker-callback.guard.js';
+import { TenantService } from '../tenant/tenant.service.js';
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const PDF_MIME = 'application/pdf';
@@ -70,7 +72,8 @@ export class DocumentsInternalWorkerController {
   constructor(
     @Inject(DocumentsTenantRunner) private readonly runner: DocumentsTenantRunner,
     @Inject(DocumentVariablesBuilder) private readonly variables: DocumentVariablesBuilder,
-    @Inject(FilesService) private readonly files: FilesService
+    @Inject(FilesService) private readonly files: FilesService,
+    @Inject(TenantService) private readonly tenants: TenantService
   ) {}
 
   @Post('start')
@@ -110,7 +113,34 @@ export class DocumentsInternalWorkerController {
       task: claim.task,
       ...(claim.number ? { reservedNumber: claim.number } : {})
     });
-    return { claimed: true, taskId: body.taskId, number: claim.number, templateFileUrl, variables };
+    // ФТ-A7.1: подпись и печать — отдельные файлы; worker получает presigned GET на каждую.
+    const images = await this.imageUrls(body.tenantId, variables);
+    return {
+      claimed: true,
+      taskId: body.taskId,
+      number: claim.number,
+      templateFileUrl,
+      variables,
+      images
+    };
+  }
+
+  /** Presigned-ссылки на картинки бланка; недоступный файл пропускаем, а не валим выдачу. */
+  private async imageUrls(
+    tenantId: string,
+    variables: Record<string, unknown>
+  ): Promise<Array<{ name: string; url: string; widthMm: number }>> {
+    const requisites = await this.tenants.getRequisites(tenantId).catch(() => undefined);
+    const refs = collectDocumentImageRefs(variables, requisites);
+    const resolved = await Promise.all(
+      refs.map(async (ref) => {
+        const url = await this.files.createDownloadUrl(tenantId, ref.fileId).catch(() => undefined);
+        return url ? { name: ref.name, url, widthMm: ref.widthMm } : undefined;
+      })
+    );
+    return resolved.filter((item): item is { name: string; url: string; widthMm: number } =>
+      Boolean(item)
+    );
   }
 
   @Post('result-upload-intent')

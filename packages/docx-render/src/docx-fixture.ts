@@ -1,3 +1,5 @@
+import { deflateSync } from 'node:zlib';
+
 import PizZip from 'pizzip';
 
 /**
@@ -45,4 +47,48 @@ export function buildDocx(bodyXml: string): Buffer {
 /** Прочитать word/document.xml из готового DOCX (для ассертов). */
 export function readDocumentXml(docx: Buffer): string {
   return new PizZip(docx).file('word/document.xml')!.asText();
+}
+
+const CRC_TABLE = Array.from({ length: 256 }, (_, index) => {
+  let c = index;
+  for (let bit = 0; bit < 8; bit += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  return c >>> 0;
+});
+
+function crc32(data: Buffer): number {
+  let crc = 0xffffffff;
+  for (const byte of data) crc = CRC_TABLE[(crc ^ byte) & 0xff]! ^ (crc >>> 8);
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function pngChunk(type: string, body: Buffer): Buffer {
+  const head = Buffer.alloc(4);
+  head.writeUInt32BE(body.length);
+  const typed = Buffer.concat([Buffer.from(type, 'ascii'), body]);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(typed));
+  return Buffer.concat([head, typed, crc]);
+}
+
+/**
+ * Настоящий (открывается любой программой) одноцветный PNG заданного размера — фикстура
+ * для тестов картинок в бланке: подпись и печать. Бинарников в git по-прежнему нет.
+ */
+export function tinyPng(width: number, height: number, rgb: [number, number, number]): Buffer {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8; // бит на канал
+  ihdr[9] = 2; // truecolor RGB
+  const row = Buffer.concat([
+    Buffer.from([0]), // фильтр строки — none
+    Buffer.concat(Array.from({ length: width }, () => Buffer.from(rgb)))
+  ]);
+  const raw = Buffer.concat(Array.from({ length: height }, () => row));
+  return Buffer.concat([
+    Buffer.from('89504e470d0a1a0a', 'hex'),
+    pngChunk('IHDR', ihdr),
+    pngChunk('IDAT', deflateSync(raw)),
+    pngChunk('IEND', Buffer.alloc(0))
+  ]);
 }

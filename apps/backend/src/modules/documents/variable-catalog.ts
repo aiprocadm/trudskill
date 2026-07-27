@@ -22,6 +22,12 @@ export interface VariableCatalogEntry {
   category: VariableCategoryCode;
   /** Человекочитаемое описание для админского UI. */
   description: string;
+  /**
+   * Картинка (ФТ-A7.1): в бланк ставится тегом `{%tenant.stamp_image}`, а значением
+   * переменной остаётся fileId — по нему рендер забирает сам файл. Обычный тег без `%`
+   * напечатал бы идентификатор файла текстом, поэтому админ-UX об этом предупреждает.
+   */
+  kind?: 'image';
 }
 
 const entry = (
@@ -29,6 +35,12 @@ const entry = (
   key: string,
   description: string
 ): VariableCatalogEntry => ({ code: `${category}.${key}`, category, description });
+
+const imageEntry = (
+  category: VariableCategoryCode,
+  key: string,
+  description: string
+): VariableCatalogEntry => ({ code: `${category}.${key}`, category, description, kind: 'image' });
 
 export const VARIABLE_CATALOG: readonly VariableCatalogEntry[] = [
   // --- Учебный центр ---
@@ -42,6 +54,8 @@ export const VARIABLE_CATALOG: readonly VariableCatalogEntry[] = [
   entry('tenant', 'license_issued_at_words', 'Дата выдачи лицензии прописью'),
   entry('tenant', 'accreditation_number', 'Номер действующей аккредитации'),
   entry('tenant', 'accreditation_issuer', 'Кем выдана аккредитация'),
+  imageEntry('tenant', 'signature_image', 'Подпись руководителя — тег {%tenant.signature_image}'),
+  imageEntry('tenant', 'stamp_image', 'Печать учебного центра — тег {%tenant.stamp_image}'),
 
   // --- Слушатель ---
   entry('learner', 'full_name', 'ФИО слушателя полностью'),
@@ -96,10 +110,18 @@ export const VARIABLE_CATALOG: readonly VariableCatalogEntry[] = [
   entry('commission', 'description', 'Описание комиссии'),
   entry('commission', 'chairman.name', 'Председатель комиссии — ФИО'),
   entry('commission', 'chairman.position', 'Председатель комиссии — должность'),
-  entry('commission', 'chairman.signature_file_id', 'Председатель — файл подписи'),
+  imageEntry(
+    'commission',
+    'chairman.signature_file_id',
+    'Председатель — подпись; тег {%commission.chairman.signature_file_id}'
+  ),
   entry('commission', 'secretary.name', 'Секретарь комиссии — ФИО'),
   entry('commission', 'secretary.position', 'Секретарь комиссии — должность'),
-  entry('commission', 'secretary.signature_file_id', 'Секретарь — файл подписи'),
+  imageEntry(
+    'commission',
+    'secretary.signature_file_id',
+    'Секретарь — подпись; тег {%commission.secretary.signature_file_id}'
+  ),
   entry('commission', 'members', 'Состав комиссии (список для цикла)'),
 
   // --- Запись на обучение ---
@@ -142,6 +164,23 @@ export function allVariableCodes(): string[] {
   return VARIABLE_CATALOG.map((item) => item.code);
 }
 
+const IMAGE_CODES: ReadonlySet<string> = new Set(
+  VARIABLE_CATALOG.filter((item) => item.kind === 'image').map((item) => item.code)
+);
+
+/**
+ * Переменная-картинка (ФТ-A7.1)? Её значение — fileId, а не текст: конвейер рендера
+ * подменяет его на сам файл, а админ-UX подсказывает синтаксис `{%…}`.
+ */
+export function isImageVariable(code: string): boolean {
+  return IMAGE_CODES.has(code);
+}
+
+/** Коды всех переменных-картинок — вход для сборщика картинок при рендере. */
+export function imageVariableCodes(): string[] {
+  return [...IMAGE_CODES];
+}
+
 /**
  * Раскладка найденных в бланке плейсхолдеров на «известные / неизвестные» —
  * основа таблицы админ-UX при загрузке DOCX (ФТ-A3.2).
@@ -178,6 +217,10 @@ export function demoVariables(): Record<string, unknown> {
     'tenant.license_issued_at_words': '15 января 2024 г.',
     'tenant.accreditation_number': 'АКК-000000',
     'tenant.accreditation_issuer': 'Минтруд России',
+    // Картинки в предпросмотр подставляются отдельно (реальные подпись и печать центра,
+    // если загружены) — здесь только заглушки, чтобы словарь совпадал с каталогом.
+    'tenant.signature_image': '',
+    'tenant.stamp_image': '',
 
     'learner.full_name': 'Образцов Образец Образцович',
     'learner.last_name': 'Образцов',
