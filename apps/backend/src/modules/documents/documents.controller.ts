@@ -21,6 +21,7 @@ import {
   type IssueGroupOrderRequest,
   type IssuedDocumentFilter
 } from './documents.service.js';
+import { GroupPackageService } from './group-package.service.js';
 import { DocumentsRequestPersistenceInterceptor } from './infrastructure/documents-request-persistence.interceptor.js';
 import { TemplateInspectionService } from './template-inspection.service.js';
 import { demoVariables } from './variable-catalog.js';
@@ -67,6 +68,7 @@ export class DocumentsController {
     @Inject(DocumentsService) private readonly documentsService: DocumentsService,
     @Inject(DocumentsEnqueueService) private readonly enqueue: DocumentsEnqueueService,
     @Inject(TemplateInspectionService) private readonly inspection: TemplateInspectionService,
+    @Inject(GroupPackageService) private readonly groupPackages: GroupPackageService,
     @Inject(FilesService) private readonly files: FilesService
   ) {}
 
@@ -506,6 +508,25 @@ export class DocumentsController {
   @RequirePermissions('documents.read')
   groupClosureStatus(@CurrentContext() c: RequestContext, @Param('groupId') groupId: string) {
     return this.documentsService.getGroupClosureStatus(c.tenantId!, groupId);
+  }
+
+  /**
+   * ФТ-A5.2: комплект группы одним ZIP. Отдаём потоком — конверт ответа для
+   * бинарных тел не применяется (как в предпросмотре PDF выше).
+   */
+  @Get('admin/documents/close-group/:groupId/package')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.read')
+  async groupPackage(
+    @CurrentContext() c: RequestContext,
+    @Param('groupId') groupId: string,
+    @Res() res: Response
+  ) {
+    const zip = await this.groupPackages.buildGroupZip(c.tenantId!, groupId);
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="group-${groupId}.zip"`);
+    res.setHeader('Content-Length', String(zip.length));
+    res.end(zip);
   }
 
   // ==========================================================================

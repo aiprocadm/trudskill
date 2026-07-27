@@ -8,6 +8,7 @@ import { DocumentsTenantRunner } from './documents-tenant-runner.service.js';
 import { DocumentsController } from './documents.controller.js';
 import { DocumentsService } from './documents.service.js';
 import { EnrollmentDocumentIssuanceListener } from './enrollment-document-issuance.listener.js';
+import { GroupPackageService } from './group-package.service.js';
 import { InMemoryDocumentsState } from './in-memory-documents.state.js';
 import { PublicVerifyController } from './public-verify.controller.js';
 import { backendEnv } from '../../env.js';
@@ -20,10 +21,10 @@ import {
   DOCUMENT_SIGNATURE_PROVIDER,
   NoopDocumentSignatureProvider
 } from '../../infrastructure/document-signature/document-signature.provider.js';
+import { FakeDocumentSignatureProvider } from '../../infrastructure/document-signature/fake-document-signature.provider.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { PostgresDocumentsPersistenceBackend } from './infrastructure/postgres-documents-persistence.backend.js';
-import { FakeDocumentSignatureProvider } from '../../infrastructure/document-signature/fake-document-signature.provider.js';
 import { FilesModule } from '../files/files.module.js';
 import { IamModule } from '../iam/iam.module.js';
 import { MvpPersistenceRepositoryAdapter } from '../mvp/infrastructure/mvp-persistence.repository.adapter.js';
@@ -55,6 +56,7 @@ const persistenceBackendClass =
     MvpTenantRunner,
     DocumentVariablesBuilder,
     TemplateInspectionService,
+    GroupPackageService,
     EnrollmentDocumentIssuanceListener,
     {
       provide: DocumentsRequestPersistenceInterceptor,
