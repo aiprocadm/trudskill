@@ -23,6 +23,7 @@ import {
 } from './documents.service.js';
 import { GroupPackageService } from './group-package.service.js';
 import { DocumentsRequestPersistenceInterceptor } from './infrastructure/documents-request-persistence.interceptor.js';
+import { validateProtocolTemplate } from './protocol-compliance.js';
 import { TemplateInspectionService } from './template-inspection.service.js';
 import { demoVariables } from './variable-catalog.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
@@ -211,9 +212,17 @@ export class DocumentsController {
   async parseVariables(@CurrentContext() c: RequestContext, @Param('id') id: string) {
     const version = this.documentsService.getTemplateVersion(c.tenantId!, id);
     const inspection = await this.inspection.inspect(c.tenantId!, version.fileId);
+    // ФТ-A8: для протоколов дополнительно сверяем бланк с п. 92 ПП 2464.
+    // Мягко: это предупреждение в ответе, загрузка бланка не блокируется.
+    const template = this.documentsService.getTemplate(c.tenantId!, version.templateId);
+    const compliance =
+      template.templateType === 'protocol'
+        ? validateProtocolTemplate(inspection.placeholders)
+        : undefined;
     return {
       templateVersionId: id,
       ...inspection,
+      ...(compliance ? { compliance } : {}),
       declared: this.documentsService.listTemplateVariables(c.tenantId!, {
         templateVersionId: id
       })

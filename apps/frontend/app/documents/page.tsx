@@ -525,6 +525,28 @@ export default function DocumentsPage() {
                   ) : (
                     <p className="ui-text-muted">Все плейсхолдеры бланка распознаны.</p>
                   )}
+                  {parseResult.compliance && !parseResult.compliance.isCompliant ? (
+                    <div role="status" data-testid="protocol-compliance-gaps">
+                      <strong>Протокол: не хватает обязательных реквизитов</strong>
+                      <p className="ui-text-muted">
+                        Проверка мягкая — бланк сохранится. Если реквизит вписан в бланк текстом,
+                        предупреждение можно игнорировать.
+                      </p>
+                      <ul>
+                        {parseResult.compliance.missing.map((gap) => (
+                          <li key={gap.code}>
+                            {gap.title} <span className="ui-text-muted">({gap.basis})</span> —
+                            например {gap.expected.map((code) => `{${code}}`).join(' или ')}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {parseResult.compliance?.isCompliant ? (
+                    <p className="ui-text-muted">
+                      Протокол: обязательные реквизиты п. 92 ПП 2464 на месте.
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
               <strong>Переменные (первая активная версия)</strong>

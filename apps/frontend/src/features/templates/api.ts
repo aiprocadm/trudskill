@@ -27,11 +27,28 @@ export interface TemplatePlaceholder {
   description: string;
 }
 
+/** ФТ-A8: реквизит протокола из п. 92 ПП 2464, которого в бланке не нашлось. */
+export interface ProtocolRequirementGap {
+  code: string;
+  title: string;
+  basis: string;
+  expected: string[];
+}
+
 export interface TemplateParseResult {
   templateVersionId: string;
   placeholders: string[];
   known: TemplatePlaceholder[];
   unknown: string[];
+  /**
+   * ФТ-A8 — приходит только для шаблонов типа `protocol`. Мягкая проверка:
+   * пропущенный реквизит не блокирует загрузку, но админ должен узнать о нём
+   * от нас, а не от инспектора.
+   */
+  compliance?: {
+    isCompliant: boolean;
+    missing: ProtocolRequirementGap[];
+  };
 }
 
 const auth = (session: UserSession) => ({
