@@ -45,11 +45,16 @@ function makeHarness() {
       };
     })
   };
+  // Сборщик словаря (Task 4) в этих тестах заглушен — его собственные тесты отдельно.
+  const variables = {
+    build: vi.fn(async () => ({ 'document.number': 'N-1', 'learner.full_name': 'Иванов И. И.' }))
+  };
   const controller = new DocumentsInternalWorkerController(
     runner as never,
+    variables as never,
     files as unknown as FilesService
   );
-  return { documents, controller, files };
+  return { documents, controller, files, variables };
 }
 
 let seedCounter = 0;
@@ -80,7 +85,7 @@ function seedTask(documents: DocumentsService) {
 
 describe('DocumentsInternalWorkerController (Фаза 1 Task 2)', () => {
   it('start claims a queued task: number reserved, presigned template URL, variables', async () => {
-    const { documents, controller, files } = makeHarness();
+    const { documents, controller, files, variables } = makeHarness();
     const task = seedTask(documents);
     const res = (await controller.start({ tenantId: T, taskId: task.id })) as Record<
       string,
@@ -90,7 +95,8 @@ describe('DocumentsInternalWorkerController (Фаза 1 Task 2)', () => {
     expect(res.templateFileUrl).toBe('https://s3.local/GET-template');
     expect(files.createDownloadUrl).toHaveBeenCalledWith(T, 'file_template_docx');
     expect(res.number).toBeTruthy();
-    expect((res.variables as Record<string, unknown>)['document.number']).toBe(res.number);
+    expect(variables.build).toHaveBeenCalled();
+    expect((res.variables as Record<string, unknown>)['learner.full_name']).toBe('Иванов И. И.');
     expect(documents.getDocumentTask(T, task.id).status).toBe('running');
   });
 

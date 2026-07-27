@@ -329,12 +329,22 @@ function resolveDocumentKey(
  * используются вместо пустых строк.
  */
 export interface GroupLearnerView {
+  /** Порядковый номер строки в таблице протокола (1, 2, 3…) — для `{row_no}`. */
+  row_no: number;
   fullName: string;
   snils: string;
   position: string;
   enrolledAt: string;
   status: string;
   learnerNo: string;
+  /**
+   * snake_case-псевдонимы (Фаза 1 Task 4): весь каталог переменных — snake_case
+   * (`learner.full_name`), и внутри цикла админ по аналогии пишет `{full_name}`.
+   * camelCase-ключи оставлены, чтобы не ломать существующие бланки и тесты.
+   */
+  full_name: string;
+  enrolled_at: string;
+  learner_no: string;
 }
 
 export interface GroupLearnersVariableContext {
@@ -367,17 +377,23 @@ export function resolveGroupLearnersVariables(
         Boolean(piece && piece.trim())
       );
       const fullName = namePieces.join(' ').trim();
+      const enrolledAt = enr.enrolledAt ? enr.enrolledAt.slice(0, 10) : '';
       return {
+        row_no: 0, // проставляется после сортировки — нумерация должна идти по порядку в таблице
         fullName,
+        full_name: fullName,
         snils: l.snils ?? '',
         position: l.position ?? '',
-        enrolledAt: enr.enrolledAt ? enr.enrolledAt.slice(0, 10) : '',
+        enrolledAt,
+        enrolled_at: enrolledAt,
         status: enr.status ?? '',
-        learnerNo: l.learnerNo ?? ''
+        learnerNo: l.learnerNo ?? '',
+        learner_no: l.learnerNo ?? ''
       };
     })
     .filter((v): v is GroupLearnerView => v !== undefined)
-    .sort((a, b) => a.fullName.localeCompare(b.fullName, 'ru'));
+    .sort((a, b) => a.fullName.localeCompare(b.fullName, 'ru'))
+    .map((view, index) => ({ ...view, row_no: index + 1 }));
 
   const result: Record<string, unknown> = {};
   for (const name of varNames) {

@@ -118,10 +118,12 @@
 
 **Tasks:**
 
-- [ ] Новые переменные ТЗ: `learner.snils`, `learner.position`, `document.number`, `document.issue_date_words` (дата прописью), `commission.chairman_*`/`members[]`, `tenant.accreditation_number`/`license_number`.
-- [ ] Склонения ФИО — ручные поля (как в ТЗ, без автоматики в MVP).
+- [x] Новые переменные ТЗ: `learner.snils`, `learner.position`, `document.number`, `document.issue_date_words` (дата прописью), `commission.chairman_*`/`members[]`, `tenant.accreditation_number`/`license_number`.
+- [x] Склонения ФИО — ручные поля (как в ТЗ, без автоматики в MVP).
 
 **Acceptance:** все 10 категорий резолвятся; required-валидация (`resolveTemplateVariables`) видит новые переменные; каталог в UI полон.
+
+**Выполнено 2026-07-26 (§5.178).** Живой прогон: бланк протокола заполнился целиком — шапка центра с лицензией, номер и дата прописью, программа с часами, заказчик с ИНН, нумерованная таблица слушателей со СНИЛС и должностями, председатель комиссии. Deviations: (1) **разведка показала, что пять существующих резолверов (`program`/`commission`/`enrollment`/`document`/`group_learners`) никогда не вызывались из рабочего кода** — только из тестов; поэтому объём вырос: не «дописать 5», а «дописать 5 + подключить все 10» через новый `DocumentVariablesBuilder`; (2) каталог сделан **кодом** (`variable-catalog.ts`), а не сидами миграции: таблица `documents.template_variables` привязана к версии шаблона (это «переменные ЭТОГО бланка», не глобальный справочник), плюс её схема расходится между 0002 и 0005 — миграция 0063 не понадобилась; (3) `tenant.license_number`/`accreditation_number` берутся из `org.training_licenses` (активная запись нужного типа), а не из полей тенанта — их там нет; (4) сверх плана: живой прогон вскрыл, что строки таблицы отдавались в camelCase (`fullName`) при snake_case во всём каталоге и без номера строки — добавлены `row_no` и snake_case-псевдонимы, старые ключи сохранены; (5) `REGULATORY_ACTS_SEED` вынесен из `mvp.service.ts` в отдельный файл (прямой импорт дал бы цикл).
 
 ## Task 5 — ФТ-A3: админ-UX шаблонов
 

@@ -1,5 +1,6 @@
 import { Module, Scope } from '@nestjs/common';
 
+import { DocumentVariablesBuilder } from './document-variables.builder.js';
 import { DocumentsEnqueueService } from './documents-enqueue.service.js';
 import { DocumentsInternalWorkerController } from './documents-internal-worker.controller.js';
 import { DOCUMENTS_STATE } from './documents-state.token.js';
@@ -8,6 +9,7 @@ import { DocumentsController } from './documents.controller.js';
 import { DocumentsService } from './documents.service.js';
 import { EnrollmentDocumentIssuanceListener } from './enrollment-document-issuance.listener.js';
 import { InMemoryDocumentsState } from './in-memory-documents.state.js';
+import { PublicVerifyController } from './public-verify.controller.js';
 import { backendEnv } from '../../env.js';
 import { DocumentsPersistenceRepositoryAdapter } from './infrastructure/documents-persistence.repository.adapter.js';
 import { DOCUMENTS_PERSISTENCE_BACKEND } from './infrastructure/documents-persistence.token.js';
@@ -21,9 +23,14 @@ import { FakeDocumentSignatureProvider } from '../../infrastructure/document-sig
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { PostgresDocumentsPersistenceBackend } from './infrastructure/postgres-documents-persistence.backend.js';
-import { PublicVerifyController } from './public-verify.controller.js';
 import { FilesModule } from '../files/files.module.js';
 import { IamModule } from '../iam/iam.module.js';
+import { MvpPersistenceRepositoryAdapter } from '../mvp/infrastructure/mvp-persistence.repository.adapter.js';
+import { MVP_PERSISTENCE_BACKEND } from '../mvp/infrastructure/mvp-persistence.token.js';
+import { MvpTenantRunner } from '../mvp/infrastructure/mvp-tenant-runner.service.js';
+import { PostgresMvpPersistenceBackend } from '../mvp/infrastructure/postgres-mvp-persistence.backend.js';
+import { OrgModule } from '../org/org.module.js';
+import { TenantModule } from '../tenant/tenant.module.js';
 
 const persistenceBackendClass =
   backendEnv.DOCUMENTS_PERSISTENCE_DRIVER === 'postgres'
@@ -31,7 +38,7 @@ const persistenceBackendClass =
     : MemoryDocumentsPersistenceBackend;
 
 @Module({
-  imports: [AuditModule, InfrastructureModule, IamModule, FilesModule],
+  imports: [AuditModule, InfrastructureModule, IamModule, FilesModule, TenantModule, OrgModule],
   controllers: [DocumentsController, PublicVerifyController, DocumentsInternalWorkerController],
   providers: [
     PostgresDocumentsPersistenceBackend,
@@ -40,6 +47,12 @@ const persistenceBackendClass =
     { provide: DocumentsService, scope: Scope.REQUEST, useClass: DocumentsService },
     DocumentsTenantRunner,
     DocumentsEnqueueService,
+    // Сборщик словаря переменных (Task 4) читает MVP-состояние. MvpTenantRunner собираем
+    // из инфраструктуры напрямую — импорт MvpModule дал бы цикл (он импортирует documents).
+    PostgresMvpPersistenceBackend,
+    { provide: MVP_PERSISTENCE_BACKEND, useClass: MvpPersistenceRepositoryAdapter },
+    MvpTenantRunner,
+    DocumentVariablesBuilder,
     EnrollmentDocumentIssuanceListener,
     {
       provide: DocumentsRequestPersistenceInterceptor,

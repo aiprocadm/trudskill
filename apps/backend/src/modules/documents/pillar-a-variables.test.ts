@@ -577,7 +577,7 @@ describe('resolveGroupLearnersVariables (Plan B §5.7)', () => {
     };
     const result = resolveGroupLearnersVariables(ctx, ['group_learners']);
     const arr = result['group_learners'] as GroupLearnerView[];
-    expect(arr[0]).toEqual({
+    expect(arr[0]).toMatchObject({
       fullName: 'Иванов Иван Сергеевич',
       snils: '123-456-789 00',
       position: 'Электромонтёр',
@@ -587,6 +587,23 @@ describe('resolveGroupLearnersVariables (Plan B §5.7)', () => {
     });
   });
 
+  // Фаза 1 Task 4: внутри цикла админ пишет snake_case (как во всём каталоге) и нумерует строки.
+  it('exposes snake_case aliases and a 1-based row_no for the protocol table', () => {
+    const ctx: GroupLearnersVariableContext = {
+      learners: [learnerA, learnerB],
+      enrollments: [enrollmentA, enrollmentB]
+    };
+    const arr = resolveGroupLearnersVariables(ctx, ['group_learners'])['group_learners'] as Array<
+      Record<string, unknown>
+    >;
+    expect(arr.map((row) => row.row_no)).toEqual([1, 2]);
+    for (const row of arr) {
+      expect(row.full_name).toBe(row.fullName);
+      expect(row.enrolled_at).toBe(row.enrolledAt);
+      expect(row.learner_no).toBe(row.learnerNo);
+    }
+  });
+
   it('keeps snils/position as empty strings when learner does not have them set', () => {
     const ctx: GroupLearnersVariableContext = {
       learners: [learnerB],
@@ -594,7 +611,7 @@ describe('resolveGroupLearnersVariables (Plan B §5.7)', () => {
     };
     const result = resolveGroupLearnersVariables(ctx, ['group_learners']);
     const arr = result['group_learners'] as GroupLearnerView[];
-    expect(arr[0]).toEqual({
+    expect(arr[0]).toMatchObject({
       fullName: 'Петров Пётр',
       snils: '',
       position: '',
