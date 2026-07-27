@@ -84,7 +84,9 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 ### Current Stage
 
-**2026-07-26 (текущее, §5.176, ветка `feat/2026-07-26-tz-faza1-task2-transport`):** **Фаза 1, Task 2 — транспорт рендера (ФТ-A1.1): цепочка «generate → RabbitMQ → worker → DOCX в S3» собрана.** Enqueue из 3 точек (generate/batch/авто-выдача — после сохранения состояния; best-effort), `case 'document'` в worker → `document-job.ts` (claim → presigned GET шаблона → renderDocx → presigned PUT → complete; ошибки шаблона → fail+ack, транспортные → retry/DLQ, гонка состояния → 404-retry), internal-эндпоинты documents под `WorkerCallbackGuard` через `DocumentsTenantRunner`, результат — стандартным files-циклом (AV-гейт). Тесты: documents 236, worker 32, isolation 12 — зелёные. **Дальше:** Task 3 — PDF/Gotenberg + снапшот (0062, pii-crypto) + живой smoke цепочки.
+**2026-07-26 (текущее, §5.177, ветка `feat/2026-07-26-tz-faza1-task3-pdf-snapshot`):** **Фаза 1, Task 3 — PDF, оба формата, снапшот (ФТ-A1.3/A1.4/A1.5).** DOCX→PDF через Gotenberg (`gotenberg-convert.ts`; контракт снят с живого сервиса), документ хранится в обоих форматах (`pdfFileId`), снапшот подстановки (`variablesSnapshot`, миграция `0062`) шифруется на границе БД и **вырезается на публичном QR-пути**; ошибки классифицированы: 4xx → задача `failed`, сеть/5xx → ретрай/DLQ. **Живой прогон:** PDF 16 КБ, текст извлечён `pdftotext` и совпал с бланком дословно, кириллица читаема; повтор из снапшота — байт-в-байт. Тесты: worker 43, documents 241, crypto 14, isolation 12, migrations 51. **Дальше:** Task 4 — наполнить каталог переменных (сейчас в бланк идут только номер и дата).
+
+**2026-07-26 (§5.176, ветка `feat/2026-07-26-tz-faza1-task2-transport`):** **Фаза 1, Task 2 — транспорт рендера (ФТ-A1.1): цепочка «generate → RabbitMQ → worker → DOCX в S3» собрана.** Enqueue из 3 точек (generate/batch/авто-выдача — после сохранения состояния; best-effort), `case 'document'` в worker → `document-job.ts` (claim → presigned GET шаблона → renderDocx → presigned PUT → complete; ошибки шаблона → fail+ack, транспортные → retry/DLQ, гонка состояния → 404-retry), internal-эндпоинты documents под `WorkerCallbackGuard` через `DocumentsTenantRunner`, результат — стандартным files-циклом (AV-гейт). Тесты: documents 236, worker 32, isolation 12 — зелёные. **Дальше:** Task 3 — PDF/Gotenberg + снапшот (0062, pii-crypto) + живой smoke цепочки.
 
 **2026-07-26 (§5.175, ветка `feat/2026-07-26-tz-faza1-task1-docx-render`):** **Фаза 1 «Документы» стартовала** (план PR #314 апрувнут; вопрос №2 = docxtemplater free). **Task 1 — движок рендера DOCX готов:** `worker/src/render/docx-render.ts` — docxtemplater с кастомным parser'ом (плоские ключи `pillar-a-variables` + вложенные пути), циклы/условия/split-runs, `nullGetter`→'', байт-детерминизм (фиксация zip-дат), `extractPlaceholders` для админ-UX, `TemplateRenderError`. 10 юнитов на фикстурах-фабрике (DOCX собирается кодом). **Дальше:** Task 2 — транспорт (enqueue → worker → internal-эндпоинты → presigned файлы).
 
@@ -205,11 +207,11 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Updated By
 
-Claude (Fable 5) — §5.176: Фаза 1 Task 2 — транспорт рендера (enqueue → worker → internal-эндпоинты → presigned файлы).
+Claude (Opus 5) — §5.177: Фаза 1 Task 3 — PDF через Gotenberg, оба формата, шифрованный снапшот; живой прогон PDF с кириллицей.
 
 ### Last Updated At
 
-2026-07-26 (§5.176 — Фаза 1 «Документы», Task 2: транспорт рендера).
+2026-07-26 (§5.177 — Фаза 1 «Документы», Task 3: PDF/Gotenberg + снапшот).
 
 ## 3. Current Project Status
 

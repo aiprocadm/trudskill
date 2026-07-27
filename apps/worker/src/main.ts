@@ -121,7 +121,8 @@ async function processJob(envelope: WorkerEnvelope): Promise<void> {
         },
         {
           backendPublicUrl: workerEnv.BACKEND_PUBLIC_URL,
-          callbackToken: workerEnv.WORKER_CALLBACK_TOKEN
+          callbackToken: workerEnv.WORKER_CALLBACK_TOKEN,
+          gotenbergUrl: workerEnv.GOTENBERG_URL
         }
       );
       return;

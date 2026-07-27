@@ -82,6 +82,12 @@ services:
   # Инфраструктура готова к Фазе 1; сам рендер (worker → Gotenberg) подключается там. GET /health.
   gotenberg:
     image: gotenberg/gotenberg:8
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
 
   supertokens:
@@ -141,6 +147,8 @@ services:
       rabbitmq:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      gotenberg:
         condition: service_healthy
     restart: unless-stopped
 

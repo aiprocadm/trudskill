@@ -103,12 +103,14 @@
 
 **Tasks:**
 
-- [ ] Конвертация DOCX→PDF в Gotenberg; healthcheck-degradation: Gotenberg недоступен → `ServiceUnavailableError` (ретрай).
-- [ ] Снапшот подставленных данных в `generated_documents` (шифрование поля — `pii-crypto`, как СНИЛС §5.173).
-- [ ] Повторный рендер из снапшота = идентичный файл (голден-тест).
-- [ ] Живой smoke на тестовом сервере: реальный Gotenberg из compose (по образцу EICAR-smoke §5.170).
+- [x] Конвертация DOCX→PDF в Gotenberg; healthcheck-degradation: Gotenberg недоступен → `ServiceUnavailableError` (ретрай).
+- [x] Снапшот подставленных данных в `generated_documents` (шифрование поля — `pii-crypto`, как СНИЛС §5.173).
+- [x] Повторный рендер из снапшота = идентичный файл (голден-тест).
+- [x] Живой smoke на тестовом сервере: реальный Gotenberg из compose (по образцу EICAR-smoke §5.170).
 
 **Acceptance:** документ существует в обоих форматах; повторный рендер детерминирован; падение Gotenberg не теряет номер и задачу (ретрай/фейл по политике).
+
+**Выполнено 2026-07-26 (§5.177).** Живой прогон подтвердил цепочку целиком: `renderDocx` → Gotenberg → PDF, извлечённый текст совпал с бланком, **включая кириллицу** (`ПРОТОКОЛ № 26-ОТ-0042`, три строки цикла с ФИО). Deviations: (1) вместо выставления `error.name='ServiceUnavailableError'` классификация сделана по типу ошибки — 4xx Gotenberg → `NonRetryableJobError` (задача `failed`, повтор бессмыслен), сеть/таймаут/5xx → обычная `Error` (её ретраит `decideRetry` в `main.ts`, у которого allowlist НЕ-ретраибельных); (2) миграция `0062` — аддитивная колонка на нормализованную `documents.generated_documents` (рантайм пишет JSONB в `documents.runtime_documents`, поле уезжает туда само) — по прецеденту 0033/0034; (3) `completeTask` расширен ОПЦИОНАЛЬНЫМ 5-м параметром-объектом → ни один из 20+ существующих вызовов не тронут; (4) сверх плана: снапшот **вырезается** на публичном QR-пути (`findGeneratedDocumentByQrToken`) — там ПДн не нужны; (5) сверх плана: у `gotenberg` в обоих compose появился healthcheck (`curl /health` — наличие curl в образе проверено), worker получил `depends_on: gotenberg`.
 
 ## Task 4 — ФТ-A2.3: каталог переменных — добить
 

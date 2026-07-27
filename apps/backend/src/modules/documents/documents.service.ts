@@ -687,7 +687,17 @@ export class DocumentsService {
     };
   }
 
-  completeTask(tenantId: string, taskId: string, fileId: string, generatedBy?: string) {
+  /**
+   * @param artifacts ФТ-A1.3/A1.4 — PDF-двойник и снапшот подстановки. Опциональны и идут
+   * пятым аргументом, чтобы не ломать существующие вызовы (позиционный `generatedBy`).
+   */
+  completeTask(
+    tenantId: string,
+    taskId: string,
+    fileId: string,
+    generatedBy?: string,
+    artifacts?: { pdfFileId?: string; variablesSnapshot?: Record<string, unknown> }
+  ) {
     const existing = this.getDocumentTask(tenantId, taskId);
     // Idempotent redelivery: an already-completed task returns its document instead of
     // erroring (startTask would throw 'Terminal task cannot be started' first) (audit tail f).
@@ -710,6 +720,8 @@ export class DocumentsService {
       sourceEntityType: task.sourceEntityType,
       sourceEntityId: task.sourceEntityId,
       fileId,
+      ...(artifacts?.pdfFileId ? { pdfFileId: artifacts.pdfFileId } : {}),
+      ...(artifacts?.variablesSnapshot ? { variablesSnapshot: artifacts.variablesSnapshot } : {}),
       status: 'generated',
       documentNumber: reserved.reservedNumber,
       documentDate: this.now().slice(0, 10),

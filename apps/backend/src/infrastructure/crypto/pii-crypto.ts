@@ -52,6 +52,44 @@ export function encryptLearnerPiiAtRest(entity: unknown): unknown {
   };
 }
 
+interface GeneratedDocumentAtRest {
+  variablesSnapshot?: unknown;
+  [key: string]: unknown;
+}
+
+/**
+ * Снапшот подстановки выданного документа (ФТ-A1.4) шифруется целиком: в нём лежат ровно те
+ * значения, что попали в бланк, — ФИО, СНИЛС, даты. Хранится строкой `enc:…` вместо объекта;
+ * при чтении разворачивается обратно. Тот же keyring, что у СНИЛСа и TOTP-секретов.
+ */
+export function encryptDocumentSnapshotAtRest(entity: unknown): unknown {
+  const doc = entity as GeneratedDocumentAtRest | null;
+  if (!doc || typeof doc !== 'object' || doc.variablesSnapshot == null) {
+    return entity;
+  }
+  if (isEncryptedPiiValue(doc.variablesSnapshot)) {
+    return entity;
+  }
+  return { ...doc, variablesSnapshot: piiCrypto.encrypt(JSON.stringify(doc.variablesSnapshot)) };
+}
+
+/** Обратная операция; legacy-plaintext снапшоты (до Task 3) читаются как есть. */
+export function decryptDocumentSnapshotAtRest(document: unknown): unknown {
+  const doc = document as GeneratedDocumentAtRest | null;
+  if (!doc || typeof doc !== 'object' || !isEncryptedPiiValue(doc.variablesSnapshot)) {
+    return document;
+  }
+  try {
+    return { ...doc, variablesSnapshot: JSON.parse(piiCrypto.decrypt(doc.variablesSnapshot)) };
+  } catch {
+    // Ключ провёрнут/шифртекст побит: документ важнее снапшота — отдаём без него,
+    // сам документ (файлы, номер, QR) остаётся читаемым.
+    const rest = { ...doc };
+    delete rest.variablesSnapshot;
+    return rest;
+  }
+}
+
 /**
  * После чтения из jsonb: расшифровать снилс (или пропустить legacy-plaintext как есть).
  * `snilsHash` — деталь хранения, в память/API не отдаём (при записи посчитается заново).

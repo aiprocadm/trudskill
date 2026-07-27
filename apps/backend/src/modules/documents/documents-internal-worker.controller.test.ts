@@ -31,14 +31,19 @@ function makeHarness() {
     runWithTenantDocuments: async <R>(_tenantId: string, fn: (d: DocumentsService) => Promise<R>) =>
       fn(documents)
   };
+  let uploadSeq = 0;
   const files = {
     createDownloadUrl: vi.fn(async () => 'https://s3.local/GET-template'),
-    createUploadIntent: vi.fn(async () => ({
-      fileId: 'file_result_1',
-      uploadUrl: 'https://s3.local/PUT-result',
-      storageKey: 'generated-documents/t/x.docx',
-      expiresInSeconds: 900
-    }))
+    // Реальный files-модуль выдаёт НОВЫЙ fileId на каждый интент — DOCX и PDF не должны слиться.
+    createUploadIntent: vi.fn(async (_t: string, input: { originalName: string }) => {
+      uploadSeq += 1;
+      return {
+        fileId: `file_result_${uploadSeq}`,
+        uploadUrl: `https://s3.local/PUT-${uploadSeq}`,
+        storageKey: `generated-documents/t/${input.originalName}`,
+        expiresInSeconds: 900
+      };
+    })
   };
   const controller = new DocumentsInternalWorkerController(
     runner as never,
@@ -165,5 +170,58 @@ describe('DocumentsInternalWorkerController (Фаза 1 Task 2)', () => {
     expect(tenantArg).toBe(T);
     expect(inputArg).toMatchObject({ originalName: 'dtask_1.docx', sizeBytes: 12_345 });
     expect((optionsArg as { keyPrefix: string }).keyPrefix).toBe('generated-documents');
+  });
+
+  it('result-upload-intent derives the .pdf extension from the content type (ФТ-A1.3)', async () => {
+    const { controller, files } = makeHarness();
+    await controller.resultUploadIntent({
+      tenantId: T,
+      taskId: 'dtask_1',
+      sizeBytes: 999,
+      contentType: 'application/pdf'
+    });
+    const [, inputArg] = files.createUploadIntent.mock.calls[0]!;
+    expect(inputArg).toMatchObject({
+      originalName: 'dtask_1.pdf',
+      contentType: 'application/pdf'
+    });
+  });
+
+  it('complete stores both formats and the substitution snapshot (ФТ-A1.3/A1.4)', async () => {
+    const { documents, controller } = makeHarness();
+    const task = seedTask(documents);
+    await controller.start({ tenantId: T, taskId: task.id });
+    const snapshot = {
+      'document.number': '26-ОТ-0001',
+      'learner.full_name': 'Иванов Иван Иванович'
+    };
+    const res = (await controller.complete({
+      tenantId: T,
+      taskId: task.id,
+      fileId: 'file_docx_1',
+      pdfFileId: 'file_pdf_1',
+      variablesSnapshot: snapshot
+    })) as Record<string, unknown>;
+
+    expect(res.pdfFileId).toBe('file_pdf_1');
+    const stored = documents.getDocument(T, res.generatedDocumentId as string);
+    expect(stored.fileId).toBe('file_docx_1');
+    expect(stored.pdfFileId).toBe('file_pdf_1');
+    expect(stored.variablesSnapshot).toEqual(snapshot);
+  });
+
+  it('complete without a pdf/snapshot still works (fields stay unset, not null)', async () => {
+    const { documents, controller } = makeHarness();
+    const task = seedTask(documents);
+    await controller.start({ tenantId: T, taskId: task.id });
+    const res = (await controller.complete({
+      tenantId: T,
+      taskId: task.id,
+      fileId: 'file_docx_only'
+    })) as Record<string, unknown>;
+    const stored = documents.getDocument(T, res.generatedDocumentId as string);
+    expect(stored.fileId).toBe('file_docx_only');
+    expect('pdfFileId' in stored).toBe(false);
+    expect('variablesSnapshot' in stored).toBe(false);
   });
 });

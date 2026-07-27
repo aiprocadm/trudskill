@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  decryptDocumentSnapshotAtRest,
   decryptLearnerPiiAtRest,
+  encryptDocumentSnapshotAtRest,
   encryptLearnerPiiAtRest,
   isEncryptedPiiValue,
   snilsBlindIndex
@@ -57,5 +59,64 @@ describe('pii-crypto (ФТ-C3.3)', () => {
     const once = encryptLearnerPiiAtRest(learner);
     const twice = encryptLearnerPiiAtRest(once) as Record<string, unknown>;
     expect(twice.snils).toBe((once as Record<string, unknown>).snils);
+  });
+});
+
+const generatedDoc = {
+  id: 'gdoc_1',
+  tenantId: 'tenant_demo',
+  documentNumber: '26-ОТ-0001',
+  fileId: 'file_docx',
+  pdfFileId: 'file_pdf',
+  variablesSnapshot: {
+    'learner.full_name': 'Иванов Иван Иванович',
+    'learner.snils': '112-233-445 95',
+    'document.number': '26-ОТ-0001'
+  }
+};
+
+describe('document snapshot at rest (ФТ-A1.4)', () => {
+  it('encrypts the whole snapshot; other document fields stay readable', () => {
+    const atRest = encryptDocumentSnapshotAtRest(generatedDoc) as Record<string, unknown>;
+    expect(isEncryptedPiiValue(atRest.variablesSnapshot)).toBe(true);
+    expect(atRest.documentNumber).toBe('26-ОТ-0001');
+    expect(atRest.pdfFileId).toBe('file_pdf');
+    // Исходный объект в памяти не мутирован.
+    expect(typeof generatedDoc.variablesSnapshot).toBe('object');
+  });
+
+  it('serialized at-rest JSON leaks neither the name nor the SNILS', () => {
+    const json = JSON.stringify(encryptDocumentSnapshotAtRest(generatedDoc));
+    expect(json).not.toContain('Иванов');
+    expect(json).not.toContain('112-233-445');
+    expect(json).not.toContain('11223344595');
+  });
+
+  it('round-trips back to the exact same snapshot object', () => {
+    const restored = decryptDocumentSnapshotAtRest(
+      encryptDocumentSnapshotAtRest(generatedDoc)
+    ) as typeof generatedDoc;
+    expect(restored.variablesSnapshot).toEqual(generatedDoc.variablesSnapshot);
+  });
+
+  it('passes through documents without a snapshot and legacy plaintext ones', () => {
+    const noSnapshot = { id: 'gdoc_2', tenantId: 't', fileId: 'f' };
+    expect(encryptDocumentSnapshotAtRest(noSnapshot)).toBe(noSnapshot);
+    const legacy = { id: 'gdoc_3', variablesSnapshot: { a: 1 } };
+    expect(decryptDocumentSnapshotAtRest(legacy)).toBe(legacy);
+  });
+
+  it('does not double-encrypt', () => {
+    const once = encryptDocumentSnapshotAtRest(generatedDoc) as Record<string, unknown>;
+    const twice = encryptDocumentSnapshotAtRest(once) as Record<string, unknown>;
+    expect(twice.variablesSnapshot).toBe(once.variablesSnapshot);
+  });
+
+  it('a corrupted ciphertext drops the snapshot but keeps the document readable', () => {
+    const broken = { ...generatedDoc, variablesSnapshot: 'enc:v1:zzz:zzz:zzz' };
+    const restored = decryptDocumentSnapshotAtRest(broken) as Record<string, unknown>;
+    expect('variablesSnapshot' in restored).toBe(false);
+    expect(restored.documentNumber).toBe('26-ОТ-0001');
+    expect(restored.fileId).toBe('file_docx');
   });
 });

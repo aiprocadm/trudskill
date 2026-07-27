@@ -133,6 +133,12 @@ export interface GeneratedDocumentEntity {
   sourceEntityId: string;
   fileId: string;
   pdfFileId?: string;
+  /**
+   * ФТ-A1.4: полный словарь значений, подставленных в бланк при выдаче. Из него перевыпуск
+   * даёт байт-в-байт тот же файл. Содержит ПДн → в БД хранится шифртекстом (pii-crypto),
+   * в публичный QR-ответ не отдаётся.
+   */
+  variablesSnapshot?: Record<string, unknown>;
   status: GeneratedDocumentStatus;
   documentNumber?: string;
   documentDate?: string;

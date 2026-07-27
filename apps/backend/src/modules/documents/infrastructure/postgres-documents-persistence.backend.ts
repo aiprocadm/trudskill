@@ -6,6 +6,10 @@ import {
 } from './documents-collections.js';
 import { DocumentsWriteOrchestrator } from './documents-write.orchestrator.js';
 import { backendEnv } from '../../../env.js';
+import {
+  decryptDocumentSnapshotAtRest,
+  encryptDocumentSnapshotAtRest
+} from '../../../infrastructure/crypto/pii-crypto.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 
 import type { GeneratedDocumentEntity } from '../documents.types.js';
@@ -92,7 +96,13 @@ export class PostgresDocumentsPersistenceBackend implements DocumentsPersistence
       [token]
     );
     const row = rows[0];
-    return row ? { tenantId: row.tenant_id, document: row.data } : null;
+    if (!row) return null;
+    // SECURITY: это путь ПУБЛИЧНОЙ проверки по QR (без auth). Снапшот подстановки содержит
+    // полные ПДн из бланка и здесь не нужен — вырезаем его вместо расшифровки, чтобы даже
+    // будущая правка ответа не смогла его выдать наружу (ФТ-A6.1 «без лишних ПДн»).
+    const document = { ...(row.data as GeneratedDocumentEntity & { variablesSnapshot?: unknown }) };
+    delete document.variablesSnapshot;
+    return { tenantId: row.tenant_id, document: document as GeneratedDocumentEntity };
   }
 
   private async readSnapshot(tenantId: string, tableName: string): Promise<DocumentsSnapshot> {
@@ -102,7 +112,12 @@ export class PostgresDocumentsPersistenceBackend implements DocumentsPersistence
         `select data from ${tableName} where tenant_id = $1 and collection = $2`,
         [tenantId, col]
       );
-      arrays[col] = rows.map((row) => row.data);
+      // ФТ-A1.4/C3.3: снапшот подстановки лежит шифртекстом (в нём ПДн из бланка) —
+      // рантайм получает его расшифрованным, шифрование живёт только на границе БД.
+      arrays[col] =
+        col === 'generatedDocuments'
+          ? rows.map((row) => decryptDocumentSnapshotAtRest(row.data))
+          : rows.map((row) => row.data);
     }
 
     const idemRows = await this.db.query<{
@@ -143,10 +158,12 @@ export class PostgresDocumentsPersistenceBackend implements DocumentsPersistence
         ]);
         const items = this.pick(state, col) as Array<{ id: string; tenantId: string }>;
         for (const entity of items) {
+          const atRest =
+            col === 'generatedDocuments' ? encryptDocumentSnapshotAtRest(entity) : entity;
           await client.query(
             `insert into ${tableName} (tenant_id, collection, id, data, created_at, updated_at)
              values ($1, $2, $3, $4::jsonb, now(), now())`,
-            [tenantId, col, entity.id, JSON.stringify(entity)]
+            [tenantId, col, entity.id, JSON.stringify(atRest)]
           );
         }
       }
