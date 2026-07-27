@@ -1654,6 +1654,27 @@ export class DocumentsService {
     };
   }
 
+  /**
+   * Документы, выпущенные при закрытии группы (ФТ-A5.2) — по завершённым задачам
+   * с этим `groupId`. Идём через задачи, а не через `sourceEntityId`: у
+   * удостоверения источник — запись слушателя, и связи с группой у самого
+   * документа нет.
+   */
+  listGroupDocuments(tenantId: string, groupId: string): GeneratedDocumentEntity[] {
+    const documentIds = this.state.tasks
+      .filter(
+        (t) =>
+          t.tenantId === tenantId &&
+          t.groupId === groupId &&
+          t.status === 'completed' &&
+          t.generatedDocumentId
+      )
+      .map((t) => t.generatedDocumentId!);
+    return this.state.generatedDocuments.filter(
+      (d) => d.tenantId === tenantId && documentIds.includes(d.id) && d.status !== 'archived'
+    );
+  }
+
   private assertTemplateOfType(tenantId: string, templateId: string, expected: TemplateType) {
     const tpl = this.state.templates.find((t) => t.tenantId === tenantId && t.id === templateId);
     if (!tpl) throw new NotFoundException(`Template ${templateId} not found`);

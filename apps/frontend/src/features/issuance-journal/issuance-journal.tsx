@@ -21,6 +21,7 @@ import {
   SectionError
 } from '../../components/state-wrappers';
 import { useAuth } from '../auth/context';
+import { CloseGroupSection } from '../close-group/screens';
 
 const PAGE_SIZE = 50;
 const STATUS_OPTIONS = ['generated', 'final', 'archived'];
@@ -265,6 +266,8 @@ export function IssuanceJournalView() {
           </div>
         ) : null}
       </SectionCard>
+
+      <CloseGroupSection />
     </PageContainer>
   );
 }
