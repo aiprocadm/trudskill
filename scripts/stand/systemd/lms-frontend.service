@@ -1,0 +1,35 @@
+# Тестовый стенд lms.ptsfera.online — витрина (Next.js). См. docs/RUNBOOK_TEST_STAND.md.
+# Ставится в /etc/systemd/system/lms-frontend.service.
+#
+# Запуск автономного сервера (`output: standalone` в next.config), а НЕ
+# `next start` — последний прямо предупреждает, что со standalone не работает.
+# Сборка кладёт сервер в .next/standalone/apps/frontend/server.js, но статику
+# и public туда НЕ копирует: это делает скрипт обновления после каждой сборки,
+# иначе страницы приедут без стилей и картинок.
+#
+# HOSTNAME=127.0.0.1 обязателен: наружу витрину отдаёт только nginx, напрямую
+# из сети порт слушать не должен.
+
+[Unit]
+Description=trudskill — витрина (Next.js) для lms.ptsfera.online
+After=network-online.target lms-backend.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aiproc
+Group=aiproc
+WorkingDirectory=/home/aiproc/stands/trudskill/apps/frontend
+Environment=PATH=/home/aiproc/.nvm/versions/node/v24.18.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=NODE_ENV=production
+Environment=PORT=3015
+Environment=HOSTNAME=127.0.0.1
+ExecStart=/home/aiproc/.nvm/versions/node/v24.18.0/bin/node .next/standalone/apps/frontend/server.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lms-frontend
+
+[Install]
+WantedBy=multi-user.target

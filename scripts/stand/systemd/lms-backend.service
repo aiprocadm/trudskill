@@ -1,0 +1,43 @@
+# Тестовый стенд lms.ptsfera.online — сервер (NestJS). См. docs/RUNBOOK_TEST_STAND.md.
+# Ставится в /etc/systemd/system/lms-backend.service.
+#
+# WorkingDirectory — ОТДЕЛЬНАЯ копия репозитория, а не папка разработки: иначе
+# соседняя сессия своей обычной работой оставляет стенд без рабочих артефактов.
+# На этом сервере такое уже приводило к простою в несколько суток. Свежую main
+# копия подтягивает сама: scripts/stand/update-stand.sh раз в 10 минут.
+#
+# У стенда ВСЁ своё и с разработкой не пересекается: своя база
+# (trudskill_stand), свой номер базы Redis, своя точка обмена очереди, свой
+# бакет хранилища, свои секреты подписи токенов и свои порты. Всё это задано
+# в apps/backend/.env копии (в git не хранится).
+#
+# Запуск через tsx, а не через собранный dist: в собранном виде ESM-пакеты
+# монорепо (api-contracts, shared-types) содержат относительные импорты БЕЗ
+# расширения, которые Node не резолвит — `node apps/backend/dist/main.js`
+# падает с ERR_MODULE_NOT_FOUND. Это же ломает CMD в Dockerfile. Отдельный
+# дефект репозитория, к стенду отношения не имеет.
+#
+# User=aiproc принципиален: благодаря ему стенд перезапускается без sudo —
+# сигналом своему же процессу, а Restart=always вернёт службу через 5 секунд.
+
+[Unit]
+Description=trudskill — сервер (NestJS) для lms.ptsfera.online
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aiproc
+Group=aiproc
+WorkingDirectory=/home/aiproc/stands/trudskill/apps/backend
+Environment=PATH=/home/aiproc/.nvm/versions/node/v24.18.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=NODE_ENV=development
+ExecStart=/home/aiproc/stands/trudskill/node_modules/.bin/tsx src/main.ts
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lms-backend
+
+[Install]
+WantedBy=multi-user.target
