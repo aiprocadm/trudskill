@@ -13,6 +13,7 @@ import {
 } from '../../src/components/state-wrappers';
 import { useAuth } from '../../src/features/auth/context';
 import { useTaskRealtime } from '../../src/features/communication/hooks';
+import { NumberingRulesSection } from '../../src/features/numbering/screens';
 import {
   type TemplateParseResult,
   fetchPreviewPdfUrl,
@@ -719,6 +720,7 @@ export default function DocumentsPage() {
           ) : null}
           {actionError ? <SectionError message={actionError} /> : null}
         </SectionCard>
+        <NumberingRulesSection />
       </PageContainer>
     </ProtectedPage>
   );
