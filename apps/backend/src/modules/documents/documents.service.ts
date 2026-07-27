@@ -33,7 +33,11 @@ import {
   assertVariableCategoryCode
 } from './documents.dto.js';
 import { InMemoryDocumentsState } from './in-memory-documents.state.js';
-import { type PublicVerifyResult, buildPublicVerifyResult } from './public-verify.util.js';
+import {
+  type PublicVerifyResult,
+  buildPublicVerifyResult,
+  maskFullName
+} from './public-verify.util.js';
 import { MetricsService } from '../../common/metrics/metrics.service.js';
 import {
   DOCUMENT_SIGNATURE_PROVIDER,
@@ -728,6 +732,16 @@ export class DocumentsService {
       fileId,
       ...(artifacts?.pdfFileId ? { pdfFileId: artifacts.pdfFileId } : {}),
       ...(artifacts?.variablesSnapshot ? { variablesSnapshot: artifacts.variablesSnapshot } : {}),
+      // ФТ-A6.1: инициалы считаем здесь, пока снапшот под рукой. На публичном
+      // пути он вырезается вместе с полными ПДн, и восстановить ФИО будет нечем.
+      ...(() => {
+        const masked = maskFullName(
+          typeof artifacts?.variablesSnapshot?.['learner.full_name'] === 'string'
+            ? (artifacts.variablesSnapshot['learner.full_name'] as string)
+            : undefined
+        );
+        return masked ? { learnerNamePublic: masked } : {};
+      })(),
       status: 'generated',
       documentNumber: reserved.reservedNumber,
       documentDate: this.now().slice(0, 10),

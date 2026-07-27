@@ -169,6 +169,13 @@ export interface GeneratedDocumentEntity {
   replacesDocumentId?: string;
   /** §5.9 — если этот документ был перевыпущен, ссылка на перевыпуск. */
   replacedByDocumentId?: string;
+  /**
+   * ФТ-A6.1 — ФИО слушателя в частичном виде («Иванов И. И.») для публичной
+   * проверки по QR. Считается один раз при выпуске из снапшота подстановки:
+   * сам снапшот на публичном пути вырезается (в нём полные ПДн), поэтому
+   * восстановить ФИО на чтении нечем. Инициалы ПДн не являются.
+   */
+  learnerNamePublic?: string;
   /** Phase 6 — статус подписи. undefined для legacy/несписанных документов трактуется как 'unsigned'. */
   signatureStatus?: DocumentSignatureStatus;
   /** Phase 6 — момент подписания (ISO timestamp). */

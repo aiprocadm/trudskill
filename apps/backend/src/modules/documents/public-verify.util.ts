@@ -34,6 +34,27 @@ export interface PublicVerifyResult {
  * и кросс-tenant публичного пути (`PublicVerifyController`) — чтобы оба отдавали
  * идентичную форму и одинаково не светили tenantId/PII/actor.
  */
+/**
+ * ФТ-A6.1: «ФИО показывать частично» — «Иванов Иван Иванович» → «Иванов И. И.».
+ *
+ * Маска считается ОДИН раз при выпуске документа и хранится в нём готовой:
+ * публичный путь намеренно вырезает `variablesSnapshot` (там полные ПДн из
+ * бланка), поэтому восстановить ФИО на чтении нечем — да и не нужно.
+ * Порядок частей — русская конвенция «Фамилия Имя [Отчество]».
+ */
+export function maskFullName(fullName: string | undefined): string | undefined {
+  const parts = (fullName ?? '').trim().split(/\s+/u).filter(Boolean);
+  if (parts.length === 0) return undefined;
+  const [surname, ...rest] = parts;
+  // Больше трёх частей — хвост отбрасываем: в инициалы идут только имя и отчество,
+  // а «Младший»/«оглы» в публичной проверке ничего не подтверждают.
+  const initials = rest
+    .slice(0, 2)
+    .map((part) => `${[...part][0]!.toUpperCase()}.`)
+    .join(' ');
+  return initials ? `${surname} ${initials}` : surname!;
+}
+
 export function buildPublicVerifyResult(doc: GeneratedDocumentEntity): PublicVerifyResult {
   // Административно архивированный (отозванный из обращения) документ НЕ должен публично
   // подтверждаться как подлинный: archive — это «тихое» изъятие, у него нет публичной причины
@@ -49,6 +70,8 @@ export function buildPublicVerifyResult(doc: GeneratedDocumentEntity): PublicVer
   };
   if (doc.documentNumber) result.documentNumber = doc.documentNumber;
   if (doc.documentDate) result.issueDate = doc.documentDate;
+  // Уже замаскировано на выпуске (ФТ-A6.1) — отдаём как есть.
+  if (doc.learnerNamePublic) result.learnerFullName = doc.learnerNamePublic;
   if (doc.status === 'revoked') {
     if (doc.revokedAt) result.revokedAt = doc.revokedAt;
     if (doc.revocationReason) result.revocationReason = doc.revocationReason;
