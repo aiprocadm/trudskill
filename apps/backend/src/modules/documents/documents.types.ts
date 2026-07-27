@@ -100,6 +100,13 @@ export interface DocumentGenerationTaskEntity {
   taskType: string;
   sourceEntityType: string;
   sourceEntityId: string;
+  /**
+   * ФТ-A5.3: группа, ради закрытия которой заведена задача. У удостоверения
+   * `sourceEntityId` — это запись слушателя, поэтому без явной ссылки собрать
+   * сводку по группе нечем. Идемпотентный кэш для этого не годится: он живёт
+   * сутки и чистится, а статус группы должен переживать перезапуск.
+   */
+  groupId?: string;
   status: TaskStatus;
   requestedBy?: string;
   requestedAt: string;

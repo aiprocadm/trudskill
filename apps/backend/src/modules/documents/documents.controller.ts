@@ -32,6 +32,7 @@ import { PermissionGuard } from '../iam/permission.guard.js';
 
 import type {
   BaseFilter,
+  CloseGroupRequest,
   CreateNumberingRuleRequest,
   CreateTemplateBindingRequest,
   CreateTemplateRequest,
@@ -485,6 +486,26 @@ export class DocumentsController {
   @RequirePermissions('documents.write')
   issueGroupOrder(@CurrentContext() c: RequestContext, @Body() b: IssueGroupOrderRequest) {
     return this.documentsService.issueGroupOrder(c.tenantId!, c.userId, b, c);
+  }
+
+  // ==========================================================================
+  // ФТ-A5 «закрыть группу» (Фаза 1 Task 7a).
+  // ==========================================================================
+
+  /** Протокол на группу + удостоверение каждому сдавшему; повтор добивает упавшие. */
+  @Post('admin/documents/close-group')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.generate')
+  closeGroup(@CurrentContext() c: RequestContext, @Body() b: CloseGroupRequest) {
+    return this.documentsService.closeGroup(c.tenantId!, c.userId, b, c);
+  }
+
+  /** Сводка статусов по закрытию группы — прогресс для админа (ФТ-A5.3). */
+  @Get('admin/documents/close-group/:groupId')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.read')
+  groupClosureStatus(@CurrentContext() c: RequestContext, @Param('groupId') groupId: string) {
+    return this.documentsService.getGroupClosureStatus(c.tenantId!, groupId);
   }
 
   // ==========================================================================
