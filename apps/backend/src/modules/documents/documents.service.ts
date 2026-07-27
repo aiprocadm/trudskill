@@ -14,6 +14,8 @@ import { DOCUMENT_REVOKED_EVENT } from './document-revoked.event.js';
 import { DOCUMENTS_STATE } from './documents-state.token.js';
 import {
   type BaseFilter,
+  type CloseGroupRequest,
+  type CloseGroupResult,
   type CreateNumberingRuleRequest,
   type CreateTemplateBindingRequest,
   type CreateTemplateRequest,
@@ -21,6 +23,7 @@ import {
   type CreateTemplateVersionRequest,
   type GenerateDocumentRequest,
   type GenerateDocumentsBatchRequest,
+  type GroupClosureStatus,
   type UpdateNumberingRuleRequest,
   type UpdateTemplateBindingRequest,
   type UpdateTemplateRequest,
@@ -45,8 +48,10 @@ import type {
   GeneratedDocumentEntity,
   NumberReservationEntity,
   NumberingRuleEntity,
+  TaskStatus,
   TemplateBindingEntity,
   TemplateEntity,
+  TemplateType,
   TemplateVariableEntity,
   TemplateVersionEntity
 } from './documents.types.js';
@@ -651,7 +656,8 @@ export class DocumentsService {
         correlation_id: ctx?.correlationId,
         enqueued_at: this.now()
       },
-      ...(req.validUntil ? { validUntil: req.validUntil } : {})
+      ...(req.validUntil ? { validUntil: req.validUntil } : {}),
+      ...(req.groupId ? { groupId: req.groupId } : {})
     };
     this.state.tasks.push(task);
     this.state.idem.set(idemKey, { taskId: task.id, expiresAt: Date.now() + 24 * 60 * 60 * 1000 });
@@ -1529,6 +1535,134 @@ export class DocumentsService {
     }
     const doc = this.state.generatedDocuments.find((d) => d.qrToken === token);
     return doc ? buildPublicVerifyResult(doc) : { status: 'not_found' };
+  }
+
+  // ==========================================================================
+  // ФТ-A5 «закрыть группу» (Фаза 1 Task 7a).
+  // ==========================================================================
+
+  /**
+   * Одной операцией ставит на рендер протокол по группе и удостоверение каждому
+   * сдавшему. В отличие от `issueGroupOrder` (Pillar A: пишет записи документов
+   * напрямую, с пустым `fileId`) здесь заводятся именно ЗАДАЧИ — файлы рождаются
+   * штатным конвейером «очередь → worker → S3».
+   *
+   * Идемпотентность держится на детерминированных ключах `close-group:<group>:…`,
+   * поэтому повторный вызов ничего не дублирует. Упавшие задачи он возвращает в
+   * очередь (ФТ-A5.3: «упал 1 из 25 — перезапустить только его»), а готовые не
+   * трогает: перевыпуск сжёг бы номер и подменил уже выданный документ.
+   */
+  closeGroup(
+    tenantId: string,
+    actorId: string | undefined,
+    req: CloseGroupRequest,
+    ctx: RequestContext
+  ): CloseGroupResult {
+    const enrollmentIds = req.enrollmentIds.map((id) => id.trim()).filter(Boolean);
+    if (enrollmentIds.length === 0) {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'Group closure requires at least one enrollment'
+      });
+    }
+    this.assertTemplateOfType(tenantId, req.protocolTemplateId, 'protocol');
+    this.assertTemplateOfType(tenantId, req.certificateTemplateId, 'certificate');
+
+    const before = this.state.tasks.length;
+    let retried = 0;
+    // Задача, уже стоящая в очереди или готовая, возвращается как есть; упавшая —
+    // возвращается в очередь. Так повторное нажатие «Закрыть группу» становится
+    // безопасным для оператора: оно добивает хвост, а не выпускает второй комплект.
+    const ensure = (
+      templateId: string,
+      documentType: string,
+      sourceEntityType: string,
+      sourceEntityId: string,
+      idempotencyKey: string
+    ) => {
+      const task = this.generateDocument(
+        tenantId,
+        actorId,
+        {
+          idempotencyKey,
+          templateId,
+          sourceEntityType,
+          sourceEntityId,
+          documentType,
+          groupId: req.groupId
+        },
+        ctx
+      );
+      if (task.status === 'failed') {
+        retried += 1;
+        return this.retryTask(tenantId, task.id);
+      }
+      return task;
+    };
+
+    const protocol = ensure(
+      req.protocolTemplateId,
+      'protocol',
+      'group',
+      req.groupId,
+      `close-group:${req.groupId}:protocol`
+    );
+    const certificates = enrollmentIds.map((enrollmentId) =>
+      ensure(
+        req.certificateTemplateId,
+        'certificate',
+        'enrollment',
+        enrollmentId,
+        `close-group:${req.groupId}:certificate:${enrollmentId}`
+      )
+    );
+
+    const created = this.state.tasks.length - before;
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.group_closed',
+      entityType: 'learning.group',
+      entityId: req.groupId,
+      metadata: { learners: enrollmentIds.length, created, retried },
+      requestId: ctx.requestId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent
+    });
+    return { protocol, certificates, created, retried };
+  }
+
+  /**
+   * Сводка по закрытию группы (ФТ-A5.3) — считается по задачам, помеченным
+   * `groupId`. Идемпотентный кэш для этого не подходит: он живёт сутки и
+   * чистится, а сводка обязана переживать перезапуск.
+   */
+  getGroupClosureStatus(tenantId: string, groupId: string): GroupClosureStatus {
+    const tasks = this.state.tasks.filter((t) => t.tenantId === tenantId && t.groupId === groupId);
+    const count = (status: TaskStatus) => tasks.filter((t) => t.status === status).length;
+    const completed = count('completed');
+    const failed = count('failed');
+    return {
+      groupId,
+      total: tasks.length,
+      queued: count('queued'),
+      running: count('running'),
+      completed,
+      failed,
+      isComplete: tasks.length > 0 && completed === tasks.length
+    };
+  }
+
+  private assertTemplateOfType(tenantId: string, templateId: string, expected: TemplateType) {
+    const tpl = this.state.templates.find((t) => t.tenantId === tenantId && t.id === templateId);
+    if (!tpl) throw new NotFoundException(`Template ${templateId} not found`);
+    if (tpl.templateType !== expected) {
+      throw new BadRequestException({
+        code: 'invalid_template_type',
+        message: `Expected template_type='${expected}' (got '${tpl.templateType}')`
+      });
+    }
   }
 
   // ==========================================================================

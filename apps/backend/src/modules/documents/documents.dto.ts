@@ -1,4 +1,8 @@
-import type { TemplateType, VariableCategoryCode } from './documents.types.js';
+import type {
+  DocumentGenerationTaskEntity,
+  TemplateType,
+  VariableCategoryCode
+} from './documents.types.js';
 
 export interface BaseFilter {
   page?: number;
@@ -75,6 +79,42 @@ export interface GenerateDocumentRequest {
   documentType: string;
   /** Phase 5B — pre-computed expiry (YYYY-MM-DD) to stamp on the generated document. */
   validUntil?: string;
+  /** ФТ-A5.3 — группа, ради закрытия которой заведена задача (см. `closeGroup`). */
+  groupId?: string;
+}
+
+/**
+ * ФТ-A5.1 «закрыть группу»: одной операцией — протокол на группу и удостоверение
+ * каждому сдавшему. Идемпотентна по (groupId, слушатель): повторный вызов ничего
+ * не дублирует, а упавшие задачи возвращает в очередь (ФТ-A5.3).
+ */
+export interface CloseGroupRequest {
+  groupId: string;
+  protocolTemplateId: string;
+  certificateTemplateId: string;
+  /** Записи сдавших: по одному удостоверению на каждую. */
+  enrollmentIds: string[];
+}
+
+export interface CloseGroupResult {
+  protocol: DocumentGenerationTaskEntity;
+  certificates: DocumentGenerationTaskEntity[];
+  /** Сколько задач заведено этим вызовом (0 при повторе без новых слушателей). */
+  created: number;
+  /** Сколько упавших задач возвращено в очередь. */
+  retried: number;
+}
+
+/** Сводка для админа: на чём стоит закрытие группы (ФТ-A5.3). */
+export interface GroupClosureStatus {
+  groupId: string;
+  total: number;
+  queued: number;
+  running: number;
+  completed: number;
+  failed: number;
+  /** Все задачи завершены успешно — группу можно выгружать. */
+  isComplete: boolean;
 }
 
 export interface GenerateDocumentsBatchRequest {
