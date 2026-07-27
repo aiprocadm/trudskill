@@ -1,8 +1,8 @@
+import { buildDocx, p, readDocumentXml } from '@trudskill/docx-render';
 import { describe, expect, it, vi } from 'vitest';
 
 import { NonRetryableJobError } from './bulk-enrollment-callback.js';
 import { runDocumentJob } from './document-job.js';
-import { buildDocx, p, readDocumentXml } from './render/docx-fixture.js';
 
 const DEPS = {
   backendPublicUrl: 'http://backend.local',

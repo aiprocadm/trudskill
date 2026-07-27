@@ -20,6 +20,7 @@
     "paths": {
       "@trudskill/shared-types": ["packages/shared-types/src/index.ts"],
       "@trudskill/api-contracts": ["packages/api-contracts/src/index.ts"],
+      "@trudskill/docx-render": ["packages/docx-render/src/index.ts"],
       "@trudskill/test-utils": ["packages/test-utils/src/index.ts"],
       "@trudskill/ui": ["packages/ui/src/index.tsx"]
     }

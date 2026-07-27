@@ -8,7 +8,8 @@ export default defineConfig({
       '@trudskill/api-contracts': path.resolve(
         __dirname,
         '../../packages/api-contracts/src/index.ts'
-      )
+      ),
+      '@trudskill/docx-render': path.resolve(__dirname, '../../packages/docx-render/src/index.ts')
     }
   },
   test: {

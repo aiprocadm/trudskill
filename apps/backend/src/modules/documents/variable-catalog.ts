@@ -159,3 +159,126 @@ export function classifyPlaceholders(placeholders: string[]): {
   }
   return { known, unknown };
 }
+
+/**
+ * Демо-значения для предпросмотра бланка (ФТ-A3.3): админ жмёт «Сгенерировать пример» и
+ * видит документ, заполненный образцовыми данными, — без реальной группы и без выдачи
+ * настоящего номера. Значения намеренно узнаваемо-условные, чтобы никто не принял
+ * предпросмотр за подлинный документ.
+ */
+export function demoVariables(): Record<string, unknown> {
+  const values: Record<string, unknown> = {
+    'tenant.name': 'АНО ДПО «Учебный центр» (пример)',
+    'tenant.code': 'DEMO',
+    'tenant.legal_name': 'Автономная некоммерческая организация ДПО «Учебный центр»',
+    'tenant.tax_number': '7700000000',
+    'tenant.license_number': 'Л000-00000-00/00000000',
+    'tenant.license_issuer': 'Рособрнадзор',
+    'tenant.license_issued_at': '2024-01-15',
+    'tenant.license_issued_at_words': '15 января 2024 г.',
+    'tenant.accreditation_number': 'АКК-000000',
+    'tenant.accreditation_issuer': 'Минтруд России',
+
+    'learner.full_name': 'Образцов Образец Образцович',
+    'learner.last_name': 'Образцов',
+    'learner.first_name': 'Образец',
+    'learner.middle_name': 'Образцович',
+    'learner.initials': 'Образцов О. О.',
+    'learner.snils': '000-000-000 00',
+    'learner.position': 'Специалист',
+    'learner.birth_date': '1990-01-01',
+    'learner.birth_date_words': '1 января 1990 г.',
+    'learner.email': 'sample@example.org',
+    'learner.learner_no': 'L-000001',
+
+    'counterparty.name': 'ООО «Образец»',
+    'counterparty.legal_name': 'Общество с ограниченной ответственностью «Образец»',
+    'counterparty.code': 'CP-000',
+    'counterparty.inn': '7700000001',
+    'counterparty.kpp': '770001001',
+    'counterparty.legal_address': 'г. Москва, ул. Примерная, д. 1',
+    'counterparty.contact_email': 'info@example.org',
+    'counterparty.contact_phone': '+7 (000) 000-00-00',
+
+    'group.code': 'G-000',
+    'group.name': 'Группа-образец',
+    'group.counterparty_name': 'ООО «Образец»',
+
+    'course.code': 'DEMO-40',
+    'course.title': 'Программа-образец, 40 часов',
+    'course.description': 'Демонстрационная программа для предпросмотра бланка',
+
+    'program.academic_hours': 40,
+    'program.training_type': 'primary',
+    'program.training_type_label': 'Первичное обучение',
+    'program.learner_category': 'manager',
+    'program.learner_category_label': 'Руководители',
+    'program.study_form': 'distance',
+    'program.study_form_label': 'Дистанционная',
+    'program.final_assessment_form': 'test',
+    'program.final_assessment_form_label': 'Тестирование',
+    'program.regulatory_basis': 'ПП 2464',
+    'program.commission_name': 'Комиссия-образец',
+    'program.commission_code': 'K-000',
+
+    'commission.code': 'K-000',
+    'commission.name': 'Комиссия-образец',
+    'commission.description': 'Комиссия по проверке знаний (пример)',
+    'commission.chairman.name': 'Председателев Пётр Петрович',
+    'commission.chairman.position': 'Директор',
+    'commission.chairman.signature_file_id': '',
+    'commission.secretary.name': 'Секретарёва Светлана Сергеевна',
+    'commission.secretary.position': 'Секретарь',
+    'commission.secretary.signature_file_id': '',
+    'commission.members': [
+      { fullName: 'Председателев Пётр Петрович', position: 'Директор', role: 'chairman' },
+      { fullName: 'Членов Максим Михайлович', position: 'Главный инженер', role: 'member' }
+    ],
+
+    'enrollment.id': 'enrollment-sample',
+    'enrollment.status': 'completed',
+    'enrollment.start_date': '2026-01-10',
+    'enrollment.end_date': '2026-02-10',
+    'enrollment.completion_date': '2026-02-08',
+
+    'document.id': 'document-sample',
+    'document.number': 'ОБРАЗЕЦ-0001',
+    'document.issue_date': '2026-02-08',
+    'document.issue_date_words': '8 февраля 2026 г.',
+    'document.type': 'certificate',
+    'document.qr_url': 'https://example.org/verify/sample',
+
+    group_learners: [
+      {
+        row_no: 1,
+        fullName: 'Образцов Образец Образцович',
+        full_name: 'Образцов Образец Образцович',
+        snils: '000-000-000 00',
+        position: 'Специалист',
+        enrolledAt: '2026-01-10',
+        enrolled_at: '2026-01-10',
+        status: 'completed',
+        learnerNo: 'L-000001',
+        learner_no: 'L-000001'
+      },
+      {
+        row_no: 2,
+        fullName: 'Примерова Прима Примовна',
+        full_name: 'Примерова Прима Примовна',
+        snils: '000-000-000 01',
+        position: 'Инженер',
+        enrolledAt: '2026-01-10',
+        enrolled_at: '2026-01-10',
+        status: 'completed',
+        learnerNo: 'L-000002',
+        learner_no: 'L-000002'
+      }
+    ],
+    group_learners_count: 2
+  };
+  // Гарантия полноты: любая переменная каталога, забытая выше, всё равно попадёт в предпросмотр.
+  for (const code of allVariableCodes()) {
+    if (!(code in values)) values[code] = `«${code}»`;
+  }
+  return values;
+}

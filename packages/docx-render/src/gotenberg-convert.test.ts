@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { NonRetryableJobError } from '../bulk-enrollment-callback.js';
-import { convertDocxToPdf } from './gotenberg-convert.js';
+import { DocumentConversionError, convertDocxToPdf } from './gotenberg-convert.js';
 
 const DOCX = Buffer.from('PK fake docx');
 const PDF = Buffer.from('%PDF-1.7\n...binary...');
@@ -34,11 +33,13 @@ describe('convertDocxToPdf (ФТ-A1.3)', () => {
     );
   });
 
-  it('4xx (LibreOffice cannot open the file) → NonRetryableJobError: retry is pointless', async () => {
+  it('4xx (LibreOffice cannot open the file) → retryable=false: retry is pointless', async () => {
     const fetchFn = vi.fn(async () => new Response('malformed document', { status: 400 }));
-    await expect(
-      convertDocxToPdf(DOCX, { ...DEPS, fetchFn: fetchFn as never })
-    ).rejects.toBeInstanceOf(NonRetryableJobError);
+    const error = await convertDocxToPdf(DOCX, { ...DEPS, fetchFn: fetchFn as never }).catch(
+      (e: unknown) => e
+    );
+    expect(error).toBeInstanceOf(DocumentConversionError);
+    expect((error as DocumentConversionError).retryable).toBe(false);
   });
 
   it('5xx → plain Error so the consume loop retries with backoff', async () => {
@@ -46,8 +47,8 @@ describe('convertDocxToPdf (ФТ-A1.3)', () => {
     const error = await convertDocxToPdf(DOCX, { ...DEPS, fetchFn: fetchFn as never }).catch(
       (e: unknown) => e
     );
-    expect(error).toBeInstanceOf(Error);
-    expect(error).not.toBeInstanceOf(NonRetryableJobError);
+    expect(error).toBeInstanceOf(DocumentConversionError);
+    expect((error as DocumentConversionError).retryable).toBe(true);
     expect((error as Error).message).toMatch(/http=503/);
   });
 
@@ -58,7 +59,7 @@ describe('convertDocxToPdf (ФТ-A1.3)', () => {
     const error = await convertDocxToPdf(DOCX, { ...DEPS, fetchFn: fetchFn as never }).catch(
       (e: unknown) => e
     );
-    expect(error).not.toBeInstanceOf(NonRetryableJobError);
+    expect((error as DocumentConversionError).retryable).toBe(true);
     expect((error as Error).message).toMatch(/unreachable/);
   });
 
@@ -67,7 +68,7 @@ describe('convertDocxToPdf (ФТ-A1.3)', () => {
     const error = await convertDocxToPdf(DOCX, { ...DEPS, fetchFn: fetchFn as never }).catch(
       (e: unknown) => e
     );
-    expect(error).not.toBeInstanceOf(NonRetryableJobError);
+    expect((error as DocumentConversionError).retryable).toBe(true);
     expect((error as Error).message).toMatch(/non-PDF/);
   });
 });

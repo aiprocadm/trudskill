@@ -13,11 +13,10 @@
   "dependencies": {
     "@nestjs/common": "^11.0.11",
     "@nestjs/core": "^11.0.11",
+    "@trudskill/docx-render": "workspace:*",
     "@trudskill/shared-types": "workspace:*",
     "amqplib": "^1.0.2",
-    "docxtemplater": "^3.69.3",
     "pg": "^8.20.0",
-    "pizzip": "^3.2.0",
     "reflect-metadata": "^0.2.2",
     "zod": "^3.24.2"
   }
