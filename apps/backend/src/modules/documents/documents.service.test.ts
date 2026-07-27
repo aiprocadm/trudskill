@@ -172,6 +172,128 @@ describe('DocumentsService', () => {
     expect(rule?.currentCounter).toBe(0);
   });
 
+  describe('ФТ-A4.2 — освобождённый номер переиспользуется, а не дырявит реестр', () => {
+    const makeService = (state = new InMemoryDocumentsState()) => ({
+      state,
+      service: new DocumentsService(state, new AuditService(), new RealtimeEventsService())
+    });
+
+    let seq = 0;
+    const startTaskFor = (service: DocumentsService, documentType = 'certificate') => {
+      seq += 1;
+      const template = service.createTemplate(
+        't1',
+        'u1',
+        { name: `Tpl ${seq}`, templateType: documentType },
+        ctx
+      );
+      const version = service.createTemplateVersion('t1', 'u1', {
+        templateId: template.id,
+        fileId: `file_${seq}`
+      });
+      service.activateTemplateVersion('t1', 'u1', version.id, ctx);
+      const task = service.generateDocument('t1', 'u1', {
+        templateId: template.id,
+        sourceEntityType: 'enrollment',
+        sourceEntityId: `e${seq}`,
+        documentType
+      });
+      service.startTask('t1', task.id);
+      return task;
+    };
+
+    it('помечает резервацию released (не failed) при падении задачи', () => {
+      const { state, service } = makeService();
+      const task = startTaskFor(service);
+      const reservationId = service.getDocumentTask('t1', task.id).numberReservationId!;
+
+      service.failTask('t1', task.id, 'render failed');
+
+      const reservation = state.reservations.find((r) => r.id === reservationId);
+      expect(reservation?.status).toBe('released');
+    });
+
+    it('выдаёт освобождённый номер следующей задаче — в реестре нет дыры', () => {
+      const { service } = makeService();
+      const first = startTaskFor(service);
+      const burned = service.getTaskReservedNumber('t1', first.id);
+
+      service.failTask('t1', first.id, 'gotenberg down');
+      const next = service.reserveNumber('t1', 'certificate');
+
+      // Тот же номер, а не следующий по счётчику: регулятор не должен видеть пропуск.
+      expect(next.reservedNumber).toBe(burned);
+      expect(next.status).toBe('reserved');
+    });
+
+    it('не плодит дублей: переиспользованный номер существует в одном экземпляре', () => {
+      const { state, service } = makeService();
+      const first = startTaskFor(service);
+      const burned = service.getTaskReservedNumber('t1', first.id)!;
+      service.failTask('t1', first.id, 'render failed');
+
+      service.reserveNumber('t1', 'certificate');
+
+      const sameNumber = state.reservations.filter((r) => r.reservedNumber === burned);
+      expect(sameNumber).toHaveLength(1);
+    });
+
+    it('не переиспользует номер чужого типа документа', () => {
+      const { service } = makeService();
+      const first = startTaskFor(service, 'certificate');
+      const burned = service.getTaskReservedNumber('t1', first.id);
+      service.failTask('t1', first.id, 'render failed');
+
+      const other = service.reserveNumber('t1', 'protocol');
+
+      expect(other.reservedNumber).not.toBe(burned);
+    });
+
+    it('не переносит освобождённый номер через границу периода', () => {
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(new Date('2025-06-15T00:00:00.000Z'));
+        const { service } = makeService();
+        service.createNumberingRule('t1', {
+          documentType: 'certificate',
+          prefix: 'CERT-',
+          resetPeriod: 'year'
+        });
+        const first = startTaskFor(service);
+        const burned = service.getTaskReservedNumber('t1', first.id);
+        expect(burned).toBe('CERT-2025-000001');
+        service.failTask('t1', first.id, 'render failed');
+
+        // Новый год: номер прошлого периода переиспользовать нельзя — маска
+        // содержит период, и CERT-2025-* в реестре 2026 года выглядел бы подлогом.
+        vi.setSystemTime(new Date('2026-01-10T00:00:00.000Z'));
+        const next = service.reserveNumber('t1', 'certificate');
+
+        expect(next.reservedNumber).toBe('CERT-2026-000001');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('пишет в аудит явный след освобождения номера', async () => {
+      const audit = new AuditService();
+      const service = new DocumentsService(
+        new InMemoryDocumentsState(),
+        audit,
+        new RealtimeEventsService()
+      );
+      const task = startTaskFor(service);
+      const burned = service.getTaskReservedNumber('t1', task.id);
+
+      service.failTask('t1', task.id, 'render failed');
+
+      const events = await audit.list('t1');
+      const entries = events.filter((e) => e.action === 'documents.number.released');
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.metadata).toMatchObject({ reservedNumber: burned });
+    });
+  });
+
   it('issues documents across a year boundary without silent failure', () => {
     vi.useFakeTimers();
     try {
@@ -544,7 +666,9 @@ describe('DocumentsService', () => {
     expect(service.listDocuments('tb', {}).total).toBe(1);
   });
 
-  it('marks number reservation as failed when task fails after start', () => {
+  // ФТ-A4.2 сменила исход: номер упавшей задачи не сгорает ('failed'), а
+  // возвращается в оборот ('released') — иначе в регулируемом реестре остаётся дыра.
+  it('releases the number reservation when task fails after start', () => {
     const service = new DocumentsService(
       new InMemoryDocumentsState(),
       new AuditService(),
@@ -573,7 +697,7 @@ describe('DocumentsService', () => {
     const running = service.startTask('t1', task.id);
     service.failTask('t1', task.id, 'renderer failure');
     const reservation = service.getReservation('t1', running.numberReservationId!);
-    expect(reservation.status).toBe('failed');
+    expect(reservation.status).toBe('released');
   });
 
   it('resolves variables with snapshot and required validation', () => {

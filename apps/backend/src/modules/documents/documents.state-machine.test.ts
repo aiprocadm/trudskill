@@ -76,7 +76,9 @@ describe('DocumentsService state transitions', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('marks number reservation as failed when running task fails', () => {
+  // ФТ-A4.2: упавшая задача освобождает номер ('released') для переиспользования,
+  // а не сжигает его — пропуск в нумерации недопустим в регулируемом реестре.
+  it('releases the number reservation when running task fails', () => {
     const service = new DocumentsService(
       new InMemoryDocumentsState(),
       new AuditService(),
@@ -88,7 +90,7 @@ describe('DocumentsService state transitions', () => {
     service.failTask('tenant_demo', task.id, 'renderer failed');
 
     expect(service.getReservation('tenant_demo', running.numberReservationId!).status).toBe(
-      'failed'
+      'released'
     );
   });
 });
