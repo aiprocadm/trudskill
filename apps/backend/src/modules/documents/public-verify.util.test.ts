@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildPublicVerifyResult } from './public-verify.util.js';
+import { buildPublicVerifyResult, maskFullName } from './public-verify.util.js';
 
 import type { GeneratedDocumentEntity } from './documents.types.js';
 
@@ -75,5 +75,63 @@ describe('buildPublicVerifyResult', () => {
     );
     expect(signed.signatureStatus).toBe('signed');
     expect(signed.signatureCertificateSubject).toBe('CN=УЦ');
+  });
+});
+
+describe('maskFullName (ФТ-A6.1 — «без лишних ПДн»)', () => {
+  it('сокращает имя и отчество до инициалов', () => {
+    expect(maskFullName('Иванов Иван Иванович')).toBe('Иванов И. И.');
+  });
+
+  it('работает без отчества', () => {
+    expect(maskFullName('Иванов Иван')).toBe('Иванов И.');
+  });
+
+  it('оставляет одну фамилию как есть — сокращать нечего', () => {
+    expect(maskFullName('Иванов')).toBe('Иванов');
+  });
+
+  it('сохраняет двойную фамилию целиком', () => {
+    expect(maskFullName('Петров-Водкин Кузьма Сергеевич')).toBe('Петров-Водкин К. С.');
+  });
+
+  it('переживает лишние пробелы', () => {
+    expect(maskFullName('  Иванов   Иван  Иванович ')).toBe('Иванов И. И.');
+  });
+
+  it('отбрасывает хвост длиннее трёх частей — в инициалы идут только имя и отчество', () => {
+    expect(maskFullName('Иванов Иван Иванович Младший')).toBe('Иванов И. И.');
+  });
+
+  it('на пустом значении возвращает undefined, а не пустую строку', () => {
+    expect(maskFullName('   ')).toBeUndefined();
+    expect(maskFullName(undefined)).toBeUndefined();
+  });
+});
+
+describe('buildPublicVerifyResult — частичное ФИО (ФТ-A6.1)', () => {
+  it('отдаёт инициалы, если документ их сохранил при выпуске', () => {
+    const result = buildPublicVerifyResult(makeDoc({ learnerNamePublic: 'Иванов И. И.' }));
+    expect(result.learnerFullName).toBe('Иванов И. И.');
+  });
+
+  it('не выдумывает ФИО для документов, выпущенных до этой фичи', () => {
+    expect(buildPublicVerifyResult(makeDoc()).learnerFullName).toBeUndefined();
+  });
+
+  it('у отозванного документа ФИО тоже частичное', () => {
+    const result = buildPublicVerifyResult(
+      makeDoc({ status: 'revoked', learnerNamePublic: 'Петров П.' })
+    );
+    expect(result.status).toBe('revoked');
+    expect(result.learnerFullName).toBe('Петров П.');
+  });
+
+  it('архивный документ не раскрывает даже инициалы', () => {
+    const result = buildPublicVerifyResult(
+      makeDoc({ status: 'archived', learnerNamePublic: 'Иванов И. И.' })
+    );
+    expect(result.status).toBe('not_found');
+    expect(result.learnerFullName).toBeUndefined();
   });
 });

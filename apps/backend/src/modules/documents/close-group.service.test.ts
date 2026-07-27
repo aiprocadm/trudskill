@@ -207,3 +207,37 @@ describe('DocumentsService.closeGroup (ФТ-A5)', () => {
     expect(service.getGroupClosureStatus('t2', 'g1').total).toBe(0);
   });
 });
+
+describe('ФТ-A6.1 — инициалы сохраняются при выпуске', () => {
+  it('completeTask кладёт в документ частичное ФИО из снапшота', () => {
+    const { service, protocolTemplateId, certificateTemplateId } = makeService();
+    const result = service.closeGroup(
+      't1',
+      'u1',
+      request(['e1'], protocolTemplateId, certificateTemplateId),
+      ctx
+    );
+
+    const doc = service.completeTask('t1', result.certificates[0]!.id, 'file_1', undefined, {
+      variablesSnapshot: { 'learner.full_name': 'Иванов Иван Иванович' }
+    });
+
+    expect(doc.learnerNamePublic).toBe('Иванов И. И.');
+    // Полное ФИО осталось только в снапшоте — он шифруется и вырезается на публичном пути.
+    expect(doc.variablesSnapshot?.['learner.full_name']).toBe('Иванов Иван Иванович');
+  });
+
+  it('документ без снапшота не получает поле — старый выпуск не ломается', () => {
+    const { service, protocolTemplateId, certificateTemplateId } = makeService();
+    const result = service.closeGroup(
+      't1',
+      'u1',
+      request(['e1'], protocolTemplateId, certificateTemplateId),
+      ctx
+    );
+
+    const doc = service.completeTask('t1', result.certificates[0]!.id, 'file_1');
+
+    expect(doc.learnerNamePublic).toBeUndefined();
+  });
+});
