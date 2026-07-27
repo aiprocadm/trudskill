@@ -199,4 +199,11 @@ export interface NumberReservationEntity {
   reservedAt: string;
   usedAt?: string;
   status: 'reserved' | 'used' | 'released' | 'failed';
+  /**
+   * ФТ-A4.2: период, в котором номер был выпущен ('2026' / '2026-01' / '' для
+   * resetPeriod='none'). Освобождённый номер переиспользуется только внутри
+   * своего периода — маска содержит период, и номер прошлого года в реестре
+   * текущего выглядел бы подлогом.
+   */
+  periodKey?: string;
 }

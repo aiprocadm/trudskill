@@ -93,12 +93,20 @@ export interface CreateNumberingRuleRequest {
   suffix?: string;
   pattern?: string;
   resetPeriod?: 'none' | 'year' | 'month';
+  /** ФТ-A4.1: номер, с которого начнётся выдача (1 = обычный старт с единицы). */
+  startCounter?: number;
 }
 export interface UpdateNumberingRuleRequest {
   prefix?: string;
   suffix?: string;
   pattern?: string;
   resetPeriod?: 'none' | 'year' | 'month';
+  /**
+   * ФТ-A4.1: сдвиг стартового номера (например, УЦ переносит нумерацию из бумажного
+   * журнала и продолжает с 137). Только вперёд — откат назад повторно выдал бы уже
+   * использованные номера.
+   */
+  startCounter?: number;
 }
 
 /**

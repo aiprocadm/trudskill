@@ -776,7 +776,29 @@ export class DocumentsService {
     task.finishedAt = this.now();
     if (task.numberReservationId) {
       const reservation = this.getReservation(tenantId, task.numberReservationId);
-      if (reservation.status === 'reserved') reservation.status = 'failed';
+      if (reservation.status === 'reserved') {
+        // ФТ-A4.2: номер возвращается в оборот (его подберёт следующий reserveNumber),
+        // а не сгорает — иначе упавший рендер оставляет дыру в регулируемом реестре.
+        // Освобождение фиксируется отдельной записью аудита: у номера должна быть
+        // прослеживаемая судьба, а не молчаливое исчезновение.
+        reservation.status = 'released';
+        this.auditService.write({
+          tenantId,
+          actorId: task.requestedBy,
+          action: 'documents.number.released',
+          entityType: 'number_reservation',
+          entityId: reservation.id,
+          metadata: {
+            reservedNumber: reservation.reservedNumber,
+            taskId: task.id,
+            reason: message
+          },
+          requestId: task.requestId,
+          correlationId: task.correlationId,
+          ip: task.ip,
+          userAgent: task.userAgent
+        });
+      }
     }
     this.metrics?.incrementDocumentGenerationFailure({ queue: 'documents_generation' });
     this.writeTaskAudit(task, 'documents.task.failed', { errorMessage: message });
@@ -950,7 +972,9 @@ export class DocumentsService {
       prefix: req.prefix ?? '',
       suffix: req.suffix ?? '',
       pattern: req.pattern ?? this.defaultNumberingPattern(req.resetPeriod ?? 'none'),
-      currentCounter: 0,
+      // ФТ-A4.1: startCounter — номер, который выдастся первым; во внутреннем счётчике
+      // держим «последний выданный», поэтому минус один.
+      currentCounter: req.startCounter !== undefined ? req.startCounter - 1 : 0,
       resetPeriod: req.resetPeriod ?? 'none',
       isActive: true,
       updatedAt: this.now()
@@ -963,7 +987,22 @@ export class DocumentsService {
   }
   updateNumberingRule(tenantId: string, id: string, req: UpdateNumberingRuleRequest) {
     const row = this.getNumberingRule(tenantId, id);
-    Object.assign(row, req, { updatedAt: this.now() });
+    // ФТ-A4.1: startCounter — это «следующий выдаваемый номер», а во внутреннем
+    // счётчике хранится «последний выданный». Поле служебное: в сущность правила
+    // оно попасть не должно (иначе Object.assign протащит его в персистенцию).
+    const { startCounter, ...rest } = req;
+    Object.assign(row, rest, { updatedAt: this.now() });
+    if (startCounter !== undefined) {
+      const nextCounter = startCounter - 1;
+      if (nextCounter < row.currentCounter) {
+        // Откат назад повторно выдал бы уже использованные номера — в регулируемом
+        // реестре это дубли, которые нечем развести.
+        throw new BadRequestException(
+          `Numbering cannot go backwards: already issued up to ${row.currentCounter}`
+        );
+      }
+      row.currentCounter = nextCounter;
+    }
     return row;
   }
   activateNumberingRule(
@@ -1041,6 +1080,24 @@ export class DocumentsService {
       this.state.numberingRules.push(rule);
     }
     const periodKey = this.periodKey(rule.resetPeriod);
+    // ФТ-A4.2: номер, освобождённый упавшей задачей, возвращается в оборот раньше,
+    // чем счётчик выдаст следующий — иначе в реестре остаётся дыра, а дыра в
+    // регулируемой нумерации у проверяющего равносильна утраченному документу.
+    // Границу периода не пересекаем: маска содержит период (см. periodKey).
+    const reusable = this.state.reservations.find(
+      (x) =>
+        x.tenantId === tenantId &&
+        x.ruleId === rule.id &&
+        x.status === 'released' &&
+        (rule.resetPeriod === 'none' || x.periodKey === periodKey)
+    );
+    if (reusable) {
+      reusable.status = 'reserved';
+      reusable.reservedAt = this.now();
+      delete reusable.documentId;
+      delete reusable.usedAt;
+      return reusable;
+    }
     // Period rollover (new year/month) restarts the sequence at 1. Compute the
     // next value WITHOUT committing it yet — a failed reservation below must not
     // burn a counter value and leave a gap in a regulated register.
@@ -1076,7 +1133,8 @@ export class DocumentsService {
       ruleId: rule.id,
       reservedNumber: formatted,
       reservedAt: this.now(),
-      status: 'reserved'
+      status: 'reserved',
+      periodKey
     };
     this.state.reservations.push(reservation);
     return reservation;
