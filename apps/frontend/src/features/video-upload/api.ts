@@ -40,7 +40,24 @@ const auth = (session: UserSession) => ({
   userId: session.user.id
 });
 
+export interface StorageUsageDto {
+  usedBytes: number;
+  /** `null` — лимит не задан. */
+  limitBytes: number | null;
+  remainingBytes: number | null;
+}
+
+/** Человекочитаемый размер: методисту нужны гигабайты, а не 4294967296. */
+export function formatBytes(bytes: number): string {
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} ГБ`;
+  if (bytes >= 1024 ** 2) return `${Math.round(bytes / 1024 ** 2)} МБ`;
+  return `${Math.max(1, Math.round(bytes / 1024))} КБ`;
+}
+
 export const videoApi = {
+  storage: (session: UserSession) =>
+    apiRequest<StorageUsageDto>('/video-assets/storage', { auth: auth(session) }),
+
   create: (
     session: UserSession,
     input: { fileName: string; sizeBytes: number; contentType: string }

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { InMemoryVideoAssetsRepository } from './in-memory-video-assets.repository.js';
 import { InMemoryVideoProviderSettingsRepository } from './in-memory-video-provider-settings.repository.js';
+import { StorageLimitExceededError } from './tenant-storage.service.js';
 import { VideoProviderResolver } from './video-provider-resolver.service.js';
 import { VideoProviderSettingsService } from './video-provider-settings.service.js';
 import { VIDEO_MAX_BYTES, VideoService } from './video.service.js';
@@ -43,10 +44,21 @@ function makeService() {
       expiresInSeconds: 900
     })),
     completeMultipartUpload: vi.fn(async () => undefined),
-    abortMultipartUpload: vi.fn(async () => undefined)
+    abortMultipartUpload: vi.fn(async () => undefined),
+    deleteFile: vi.fn(async () => undefined)
   };
-  const service = new VideoService(assets, resolver, files as unknown as FilesService);
-  return { service, assets, settings, files };
+  // Место по умолчанию безлимитное — таковы все существующие тенанты (ФТ-B1.3).
+  const storage = {
+    assertFits: vi.fn(async () => ({ usedBytes: 0, limitBytes: null, remainingBytes: null })),
+    getUsage: vi.fn(async () => ({ usedBytes: 0, limitBytes: null, remainingBytes: null }))
+  };
+  const service = new VideoService(
+    assets,
+    resolver,
+    files as unknown as FilesService,
+    storage as never
+  );
+  return { service, assets, settings, files, storage };
 }
 
 describe('VideoService.createAsset — ветка self-hosted', () => {
@@ -212,5 +224,37 @@ describe('VideoService — изоляция тенантов', () => {
     await service.attachToMaterial(T, assetId, 'mat_1');
 
     expect(await service.listByMaterial('tenant_other', 'mat_1')).toEqual([]);
+  });
+});
+
+describe('VideoService — лимит хранилища (ФТ-B1.3)', () => {
+  it('переполнение отвергается ДО создания ассета и до заливки', async () => {
+    const { service, storage, files } = makeService();
+    storage.assertFits.mockRejectedValueOnce(
+      new StorageLimitExceededError(
+        { usedBytes: 900 * 1024 ** 2, limitBytes: 1024 ** 3, remainingBytes: 124 * 1024 ** 2 },
+        2 * 1024 ** 3
+      )
+    );
+
+    await expect(service.createAsset(T, MP4)).rejects.toThrow(/Не хватает места/);
+    // Ни ассета, ни начатой загрузки: методист не должен узнавать о лимите после часа заливки.
+    expect(files.createMultipartUploadIntent).not.toHaveBeenCalled();
+  });
+
+  it('удаление ассета освобождает место — файл тоже удаляется', async () => {
+    const { service, files } = makeService();
+    const { assetId } = await service.createAsset(T, MP4);
+
+    await service.deleteAsset(T, assetId);
+
+    expect(files.deleteFile).toHaveBeenCalledWith(T, 'file_1');
+  });
+
+  it('безлимитный тенант работает как раньше', async () => {
+    const { service, storage } = makeService();
+    const result = await service.createAsset(T, MP4);
+    expect(result.uploadKind).toBe('multipart');
+    expect(storage.assertFits).toHaveBeenCalledWith(T, MP4.sizeBytes);
   });
 });
