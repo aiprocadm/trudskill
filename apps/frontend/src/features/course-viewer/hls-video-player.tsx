@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { type PlaybackSourceDto, refreshDelayMs, videoPlaybackApi } from './video-playback-api';
+import { watermarkLabel } from './video-watermark';
+import { VideoWatermark } from './video-watermark-overlay';
 import { useAuth } from '../auth/context';
 
 import type { Material } from '../mvp/types';
@@ -100,16 +102,20 @@ export const HlsVideoPlayer = ({ material, enrollmentId, onEnded }: Props) => {
   }
 
   return (
-    // eslint-disable-next-line jsx-a11y/media-has-caption -- субтитры к видео тенанта не предоставляются; отдельная задача авторинга контента
-    <video
-      ref={videoRef}
-      className="course-player__video"
-      controls
-      controlsList="nodownload"
-      disablePictureInPicture
-      onContextMenu={(event) => event.preventDefault()}
-      onEnded={onEnded}
-      data-testid="video-player"
-    />
+    // Обёртка с position:relative — система координат для водяного знака (ФТ-B2.2).
+    <div className="course-player__video-frame" style={{ position: 'relative' }}>
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption -- субтитры к видео тенанта не предоставляются; отдельная задача авторинга контента */}
+      <video
+        ref={videoRef}
+        className="course-player__video"
+        controls
+        controlsList="nodownload"
+        disablePictureInPicture
+        onContextMenu={(event) => event.preventDefault()}
+        onEnded={onEnded}
+        data-testid="video-player"
+      />
+      {session ? <VideoWatermark label={watermarkLabel(session.user)} /> : null}
+    </div>
   );
 };
