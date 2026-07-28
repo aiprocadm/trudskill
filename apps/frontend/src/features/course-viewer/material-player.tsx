@@ -26,7 +26,8 @@ export const MaterialPlayer = ({ material, onMaterialEnded, enrollmentId }: Prop
         <HlsVideoPlayer material={material} enrollmentId={enrollmentId} onEnded={onMaterialEnded} />
       );
     case 'file':
-      return <PdfViewer material={material} pdfUrl={null} />;
+      // ФТ-B4.1: файл выдаётся ПО ЗАЧИСЛЕНИЮ, оно же фиксирует факт открытия.
+      return <PdfViewer material={material} enrollmentId={enrollmentId} />;
     case 'text':
       return <TextViewer material={material} />;
     case 'external_url':

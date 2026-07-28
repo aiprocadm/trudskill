@@ -71,6 +71,7 @@ import { FilesModule } from '../files/files.module.js';
 import { IamModule } from '../iam/iam.module.js';
 import { OrgModule } from '../org/org.module.js';
 import { TenantModule } from '../tenant/tenant.module.js';
+import { DocumentMaterialService } from './video/document-material.service.js';
 import { InMemoryVideoAssetsRepository } from './video/in-memory-video-assets.repository.js';
 import { InMemoryVideoProgressRepository } from './video/in-memory-video-progress.repository.js';
 import { InMemoryVideoProviderSettingsRepository } from './video/in-memory-video-provider-settings.repository.js';
@@ -227,6 +228,7 @@ import {
     { provide: VideoAccessService, scope: Scope.REQUEST, useClass: VideoAccessService },
     // Журнал часов читает состояние тенанта — тоже request-scoped.
     { provide: LearningHoursService, scope: Scope.REQUEST, useClass: LearningHoursService },
+    { provide: DocumentMaterialService, scope: Scope.REQUEST, useClass: DocumentMaterialService },
     { provide: VideoPlaybackService, scope: Scope.REQUEST, useClass: VideoPlaybackService },
     { provide: VideoProgressService, scope: Scope.REQUEST, useClass: VideoProgressService },
     // Phase 10 Track C — self-service push subscription CRUD (request-scoped, reads MVP_STATE).

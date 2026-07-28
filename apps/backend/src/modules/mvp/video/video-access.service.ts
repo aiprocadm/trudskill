@@ -36,7 +36,9 @@ export class VideoAccessService {
     actorId: string | undefined,
     materialId: string,
     enrollmentId: string,
-    ctx: RequestContext
+    ctx: RequestContext,
+    /** Какие типы материала допустимы. По умолчанию видео (ФТ-B2.1). */
+    allowedTypes: readonly string[] = ['video']
   ): VideoAccessContext {
     const material = this.state.materials.find(
       (m) => m.tenantId === tenantId && m.id === materialId
@@ -44,10 +46,10 @@ export class VideoAccessService {
     if (!material) {
       throw new NotFoundException({ code: 'not_found', message: 'Material not found' });
     }
-    if (material.materialType !== 'video') {
+    if (!allowedTypes.includes(material.materialType)) {
       throw new PreconditionFailedException({
         code: 'domain_rule_violation',
-        message: 'Этот материал — не видео'
+        message: `Этот материал не относится к типам: ${allowedTypes.join(', ')}`
       });
     }
     const moduleEntity = this.state.modules.find(

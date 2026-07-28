@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { IsArray, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
 
+import { DocumentMaterialService } from './document-material.service.js';
 import { LearningHoursService, renderLearningJournalCsv } from './learning-hours.service.js';
 import { VideoPlaybackService } from './video-playback.service.js';
 import { VideoProgressService } from './video-progress.service.js';
@@ -64,8 +65,25 @@ export class VideoPlaybackController {
   constructor(
     @Inject(VideoPlaybackService) private readonly playback: VideoPlaybackService,
     @Inject(VideoProgressService) private readonly progress: VideoProgressService,
-    @Inject(LearningHoursService) private readonly hours: LearningHoursService
+    @Inject(LearningHoursService) private readonly hours: LearningHoursService,
+    @Inject(DocumentMaterialService) private readonly documents: DocumentMaterialService
   ) {}
+
+  /**
+   * Открыть документ урока (ФТ-B4.1): ссылка на файл + фиксация факта открытия.
+   * POST, потому что запрос МЕНЯЕТ состояние (пишет прогресс), а ссылка не кэшируется.
+   */
+  @Post('document-materials/:materialId/open')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('progress.recalculate')
+  openDocument(
+    @CurrentContext() c: RequestContext,
+    @Param('materialId') materialId: string,
+    @Body() raw: unknown
+  ) {
+    const body = assertValidDto(PlaybackRequestDto, raw);
+    return this.documents.open(c.tenantId!, c.userId, materialId, body.enrollmentId, c);
+  }
 
   @Post('video-materials/:materialId/playback')
   @UseGuards(PermissionGuard)

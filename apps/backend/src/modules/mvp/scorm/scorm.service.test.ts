@@ -1025,3 +1025,93 @@ describe('upsertMaterialProgress — non-scorm material still completes normally
     expect(progress.progressPercent).toBe(100);
   });
 });
+
+/**
+ * ФТ-B4.2, Фаза 2 Task 9 — СКВОЗНОЙ путь SCORM.
+ *
+ * План фазы требовал сначала ПРОВЕРИТЬ фактическое состояние, а не писать второй мост.
+ * Мост «завершение → materialProgress» существует с Фазы 9 и покрыт тестами выше, но
+ * дальше по цепочке — до прогресса МОДУЛЯ и КУРСА — не проверялся никогда. Именно это
+ * и есть «трекинг завершения в общий прогресс» из ТЗ: без подъёма модуля слушатель
+ * закрыл бы SCORM-урок, а курс остался бы незавершённым.
+ */
+describe('SCORM → общий прогресс: модуль и курс (ФТ-B4.2)', () => {
+  it('завершение SCORM поднимает прогресс модуля, а не только материала', () => {
+    const { scorm, enrollment, state } = makeScormSeed();
+    const ctxL1: RequestContext = { ...ctx, userId: 'u_l1' };
+
+    const { attempt } = scorm.launchScormMaterial(
+      T,
+      'u_l1',
+      'mat_scorm',
+      { enrollmentId: enrollment.id },
+      ctxL1
+    );
+    scorm.commitScormAttempt(
+      T,
+      'u_l1',
+      attempt.id,
+      { lessonStatus: 'passed', sessionSeconds: 10 },
+      ctxL1
+    );
+
+    const material = state.materials.find((m) => m.id === 'mat_scorm')!;
+    const moduleProgress = state.moduleProgress.find(
+      (p) => p.enrollmentId === enrollment.id && p.moduleId === material.moduleId
+    );
+
+    expect(moduleProgress).toBeDefined();
+    // Единственный материал модуля пройден — значит и модуль пройден.
+    expect(moduleProgress!.status).toBe('completed');
+    expect(moduleProgress!.progressPercent).toBe(100);
+  });
+
+  it('завершение SCORM доходит до прогресса курса', () => {
+    const { scorm, enrollment, state } = makeScormSeed();
+    const ctxL1: RequestContext = { ...ctx, userId: 'u_l1' };
+
+    const { attempt } = scorm.launchScormMaterial(
+      T,
+      'u_l1',
+      'mat_scorm',
+      { enrollmentId: enrollment.id },
+      ctxL1
+    );
+    scorm.commitScormAttempt(
+      T,
+      'u_l1',
+      attempt.id,
+      { lessonStatus: 'completed', sessionSeconds: 10 },
+      ctxL1
+    );
+
+    const courseProgress = state.courseProgress.find((p) => p.enrollmentId === enrollment.id);
+
+    expect(courseProgress).toBeDefined();
+    expect(courseProgress!.progressPercent).toBe(100);
+  });
+
+  it('незавершённый SCORM курс не закрывает', () => {
+    const { scorm, enrollment, state } = makeScormSeed();
+    const ctxL1: RequestContext = { ...ctx, userId: 'u_l1' };
+
+    const { attempt } = scorm.launchScormMaterial(
+      T,
+      'u_l1',
+      'mat_scorm',
+      { enrollmentId: enrollment.id },
+      ctxL1
+    );
+    // Слушатель открыл пакет и вышел: статус incomplete.
+    scorm.commitScormAttempt(
+      T,
+      'u_l1',
+      attempt.id,
+      { lessonStatus: 'incomplete', sessionSeconds: 30 },
+      ctxL1
+    );
+
+    const courseProgress = state.courseProgress.find((p) => p.enrollmentId === enrollment.id);
+    expect(courseProgress?.progressPercent ?? 0).toBeLessThan(100);
+  });
+});
