@@ -1,6 +1,17 @@
-import { Body, Controller, Inject, Param, Post, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  Inject,
+  Param,
+  Post,
+  UseGuards,
+  UseInterceptors
+} from '@nestjs/common';
 import { IsArray, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
 
+import { LearningHoursService, renderLearningJournalCsv } from './learning-hours.service.js';
 import { VideoPlaybackService } from './video-playback.service.js';
 import { VideoProgressService } from './video-progress.service.js';
 import { assertValidDto } from '../../../common/app-validation.pipe.js';
@@ -52,7 +63,8 @@ class VideoHeartbeatDto {
 export class VideoPlaybackController {
   constructor(
     @Inject(VideoPlaybackService) private readonly playback: VideoPlaybackService,
-    @Inject(VideoProgressService) private readonly progress: VideoProgressService
+    @Inject(VideoProgressService) private readonly progress: VideoProgressService,
+    @Inject(LearningHoursService) private readonly hours: LearningHoursService
   ) {}
 
   @Post('video-materials/:materialId/playback')
@@ -81,5 +93,25 @@ export class VideoPlaybackController {
   ) {
     const body = assertValidDto(VideoHeartbeatDto, raw);
     return this.progress.record(c.tenantId!, c.userId, materialId, body, c);
+  }
+
+  /**
+   * Журнал учебных часов группы (ФТ-B3.4) — доказательная база на проверке ГИТ/Минтруда:
+   * фактическое время против плановых часов программы по каждому слушателю.
+   */
+  @Get('groups/:groupId/learning-journal')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('progress.read')
+  learningJournal(@CurrentContext() c: RequestContext, @Param('groupId') groupId: string) {
+    return this.hours.getGroupJournal(c.tenantId!, groupId);
+  }
+
+  /** Тот же журнал файлом: на проверке просят выгрузку, а не скриншот. */
+  @Get('groups/:groupId/learning-journal.csv')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('progress.read')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  async learningJournalCsv(@CurrentContext() c: RequestContext, @Param('groupId') groupId: string) {
+    return renderLearningJournalCsv(await this.hours.getGroupJournal(c.tenantId!, groupId));
   }
 }
