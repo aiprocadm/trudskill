@@ -1054,6 +1054,11 @@ export class UpdateProgramMetaRequest {
   @IsOptional()
   @IsBoolean()
   noSeekOnFirstView?: boolean | null;
+
+  /** Фаза 2 Task 11 (ФТ-E1): строгий порядок прохождения модулей. */
+  @IsOptional()
+  @IsBoolean()
+  sequentialModules?: boolean | null;
 }
 
 /** Одна строка пакета документов (внутри `PutCourseDocumentSetRequest.entries`). */

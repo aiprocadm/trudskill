@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildModuleGateState, computeModuleLocks } from './module-gate';
+import {
+  buildModuleGateState,
+  computeModuleLocks,
+  computeSequentialModuleLocks
+} from './module-gate';
 
 import type { CourseTree } from './types';
 
@@ -80,5 +84,54 @@ describe('computeModuleLocks', () => {
     const gate = new Map([['m1', { gatingTestId: 'test_m1', passed: false }]]);
     const locks = computeModuleLocks(nonRequiredTree, gate);
     expect(locks.get('m2')).toBe('unlocked');
+  });
+});
+
+/** Строгий порядок модулей (ФТ-E1, Фаза 2 Task 11). */
+describe('computeSequentialModuleLocks', () => {
+  const tree = [
+    {
+      module: { id: 'mod_1', sortOrder: 1, title: 'M1', isRequired: true },
+      materials: [
+        { id: 'mat_1', isRequired: true },
+        { id: 'mat_1_opt', isRequired: false }
+      ]
+    },
+    {
+      module: { id: 'mod_2', sortOrder: 2, title: 'M2', isRequired: true },
+      materials: [{ id: 'mat_2', isRequired: true }]
+    },
+    {
+      module: { id: 'mod_3', sortOrder: 3, title: 'M3', isRequired: true },
+      materials: [{ id: 'mat_3', isRequired: true }]
+    }
+  ] as unknown as Parameters<typeof computeSequentialModuleLocks>[0];
+
+  it('первый модуль открыт всегда, следующие закрыты до его закрытия', () => {
+    const locks = computeSequentialModuleLocks(tree, []);
+    expect(locks.get('mod_1')).toBe('unlocked');
+    expect(locks.get('mod_2')).toBe('locked');
+    expect(locks.get('mod_3')).toBe('locked');
+  });
+
+  it('закрытие обязательного материала открывает следующий модуль', () => {
+    const locks = computeSequentialModuleLocks(tree, [{ materialId: 'mat_1', completed: true }]);
+    expect(locks.get('mod_2')).toBe('unlocked');
+    // Третий по-прежнему закрыт: второй ещё не пройден.
+    expect(locks.get('mod_3')).toBe('locked');
+  });
+
+  it('необязательный материал не запирает — правило совпадает с серверным', () => {
+    const locks = computeSequentialModuleLocks(tree, [{ materialId: 'mat_1', completed: true }]);
+    expect(locks.get('mod_2')).toBe('unlocked');
+  });
+
+  it('пройденный курс открыт целиком', () => {
+    const locks = computeSequentialModuleLocks(tree, [
+      { materialId: 'mat_1', completed: true },
+      { materialId: 'mat_2', completed: true },
+      { materialId: 'mat_3', completed: true }
+    ]);
+    expect([...locks.values()].every((v) => v === 'unlocked')).toBe(true);
   });
 });

@@ -6287,6 +6287,9 @@ export class MvpService {
     if (request.noSeekOnFirstView !== undefined) {
       cv.noSeekOnFirstView = request.noSeekOnFirstView ?? undefined;
     }
+    if (request.sequentialModules !== undefined) {
+      cv.sequentialModules = request.sequentialModules ?? undefined;
+    }
     cv.updatedAt = this.now();
 
     this.audit(

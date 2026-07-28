@@ -89,6 +89,8 @@ export interface CourseVersion extends BaseEntity {
   videoCompletionPercent?: number | null;
   /** Фаза 2 Task 7 (ФТ-B3.2): запрет перемотки вперёд при первом просмотре. */
   noSeekOnFirstView?: boolean | null;
+  /** Фаза 2 Task 11 (ФТ-E1): строгий порядок прохождения модулей. */
+  sequentialModules?: boolean | null;
 }
 
 export interface CourseModule extends BaseEntity {
@@ -335,6 +337,8 @@ export interface ProgramMetaPatch {
   videoCompletionPercent?: number | null;
   /** Фаза 2 Task 7 (ФТ-B3.2): запрет перемотки вперёд при первом просмотре. */
   noSeekOnFirstView?: boolean | null;
+  /** Фаза 2 Task 11 (ФТ-E1): строгий порядок прохождения модулей. */
+  sequentialModules?: boolean | null;
 }
 
 export interface CourseDocumentSetEntry {

@@ -12,6 +12,7 @@ const filled = {
   commissionId: 'commission_1',
   videoCompletionPercent: '',
   noSeekOnFirstView: false,
+  sequentialModules: false,
   otProgramCodes: ['OT-1']
 };
 
@@ -36,6 +37,7 @@ describe('buildProgramMetaPatch (clear-vs-keep)', () => {
       commissionId: '',
       videoCompletionPercent: '',
       noSeekOnFirstView: false,
+      sequentialModules: false,
       otProgramCodes: []
     });
     expect(patch.academicHours).toBeNull();

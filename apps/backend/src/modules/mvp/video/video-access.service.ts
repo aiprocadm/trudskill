@@ -89,6 +89,61 @@ export class VideoAccessService {
       enrollment.learnerId,
       ctx.permissions
     );
+
+    // ФТ-E1: правило прохождения курса проверяется ЗДЕСЬ, а не только в интерфейсе.
+    // Клиентский замок на карточке модуля снимается через DevTools; настоящий запрет —
+    // отказ выдать материал.
+    this.assertSequentialModules(tenantId, material, courseVersion, enrollment.id);
+
     return { material, courseVersion, enrollment };
+  }
+
+  /**
+   * Строгий порядок модулей (ФТ-E1). Материал модуля недоступен, пока не закрыты
+   * ОБЯЗАТЕЛЬНЫЕ материалы всех модулей, идущих раньше по `sortOrder`.
+   *
+   * Почему не «весь предыдущий модуль целиком»: необязательные материалы методист
+   * добавляет как справочные, и запирать курс из-за непрочитанной методички нельзя.
+   */
+  private assertSequentialModules(
+    tenantId: string,
+    material: Material,
+    courseVersion: CourseVersion,
+    enrollmentId: string
+  ): void {
+    if (!courseVersion.sequentialModules) return;
+
+    const currentModule = this.state.modules.find(
+      (m) => m.tenantId === tenantId && m.id === material.moduleId
+    );
+    if (!currentModule) return;
+
+    const priorModules = this.state.modules
+      .filter(
+        (m) =>
+          m.tenantId === tenantId &&
+          m.courseVersionId === currentModule.courseVersionId &&
+          m.sortOrder < currentModule.sortOrder
+      )
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+
+    for (const prior of priorModules) {
+      const required = this.state.materials.filter(
+        (m) => m.tenantId === tenantId && m.moduleId === prior.id && m.isRequired
+      );
+      const unfinished = required.filter((item) => {
+        const progress = this.state.materialProgress.find(
+          (p) =>
+            p.tenantId === tenantId && p.enrollmentId === enrollmentId && p.materialId === item.id
+        );
+        return progress?.status !== 'completed';
+      });
+      if (unfinished.length) {
+        throw new PreconditionFailedException({
+          code: 'module_sequence_locked',
+          message: `Сначала завершите модуль «${prior.title}» — в нём осталось незакрытых материалов: ${unfinished.length}`
+        });
+      }
+    }
   }
 }

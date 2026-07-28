@@ -906,6 +906,9 @@ const ProgramMetaSection = ({
   const [noSeekOnFirstView, setNoSeekOnFirstView] = useState<boolean>(
     Boolean(courseVersion.noSeekOnFirstView)
   );
+  const [sequentialModules, setSequentialModules] = useState<boolean>(
+    Boolean(courseVersion.sequentialModules)
+  );
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -926,6 +929,7 @@ const ProgramMetaSection = ({
         : ''
     );
     setNoSeekOnFirstView(Boolean(courseVersion.noSeekOnFirstView));
+    setSequentialModules(Boolean(courseVersion.sequentialModules));
   }, [courseVersion]);
 
   // EDIT form pre-populates current values, so we always send every field: a real value
@@ -941,7 +945,8 @@ const ProgramMetaSection = ({
       commissionId,
       otProgramCodes,
       videoCompletionPercent,
-      noSeekOnFirstView
+      noSeekOnFirstView,
+      sequentialModules
     });
 
   const onSave = async () => {
@@ -1105,6 +1110,15 @@ const ProgramMetaSection = ({
             disabled={readOnly}
           />
           Запретить перемотку вперёд при первом просмотре
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={sequentialModules}
+            onChange={(e) => setSequentialModules(e.target.checked)}
+            disabled={readOnly}
+          />
+          Строгий порядок модулей: следующий открывается после закрытия предыдущего
         </label>
         <label>
           Аттестационная комиссия
