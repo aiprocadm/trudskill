@@ -82,6 +82,34 @@ export interface Material extends BaseEntity {
   fileId?: string;
   /** Phase 9 Plan A: пакет для materialType='scorm' (FK learning.scorm_packages, статус ready). */
   scormPackageId?: string;
+  /** Фаза 2 Task 1 (ФТ-B1.1): видео-ассет для materialType='video' (FK learning.video_assets). */
+  videoAssetId?: string;
+}
+
+/**
+ * Загруженное видео (ФТ-B1.1, Фаза 2 Task 1, миграция `0063`).
+ *
+ * Отдельная сущность, а не поля в `Material`: у видео свой жизненный цикл
+ * (`uploading → processing → ready | failed`), свой размер, длительность и идентификатор
+ * на стороне провайдера. Длительность появляется только после обработки — до неё считать
+ * процент просмотра (ФТ-B3.1) не из чего.
+ */
+export type VideoAssetStatus = 'uploading' | 'processing' | 'ready' | 'failed';
+
+export interface VideoAsset extends BaseEntity {
+  /** Пусто, пока методист не привязал ассет к уроку. */
+  materialId?: string;
+  providerCode: string;
+  /** Идентификатор у провайдера; для self-hosted пусто. */
+  providerAssetId?: string;
+  status: VideoAssetStatus;
+  /** Известна только после обработки. */
+  durationSeconds?: number;
+  sizeBytes: number;
+  /** Ключ в S3 для self-hosted; для провайдера пусто. */
+  storageKey?: string;
+  /** Человекочитаемая причина отказа — методист должен видеть текст, а не вечное «обрабатывается». */
+  errorMessage?: string;
 }
 
 export interface GroupEntity extends BaseEntity {

@@ -71,6 +71,20 @@ import { FilesModule } from '../files/files.module.js';
 import { IamModule } from '../iam/iam.module.js';
 import { OrgModule } from '../org/org.module.js';
 import { TenantModule } from '../tenant/tenant.module.js';
+import { InMemoryVideoProviderSettingsRepository } from './video/in-memory-video-provider-settings.repository.js';
+import { PostgresVideoProviderSettingsRepository } from './video/postgres-video-provider-settings.repository.js';
+import { VideoProviderResolver } from './video/video-provider-resolver.service.js';
+import { VIDEO_PROVIDER_SETTINGS_REPOSITORY } from './video/video-provider-settings.repository.js';
+import { VideoProviderSettingsService } from './video/video-provider-settings.service.js';
+import { DatabaseService } from '../../infrastructure/database/database.service.js';
+import { FakeVideoProvider } from '../../infrastructure/video-provider/fake-video.provider.js';
+import {
+  NoopVideoProvider,
+  VIDEO_PROVIDER_REGISTRY,
+  type VideoProvider,
+  type VideoProviderCode,
+  type VideoProviderRegistry
+} from '../../infrastructure/video-provider/video.provider.js';
 
 @Module({
   imports: [
@@ -98,6 +112,27 @@ import { TenantModule } from '../tenant/tenant.module.js';
     EsiaController
   ],
   providers: [
+    // Фаза 2 Task 1 (ФТ-B1.1) — шов видео-провайдера. Реестр мультипровайдерный, АКТИВНЫЙ
+    // выбирается пер тенант резолвером; тенант без настройки получает Noop.
+    PostgresVideoProviderSettingsRepository,
+    {
+      provide: VIDEO_PROVIDER_SETTINGS_REPOSITORY,
+      useFactory: (db: DatabaseService) =>
+        backendEnv.ALLOW_IN_MEMORY_STATE
+          ? new InMemoryVideoProviderSettingsRepository()
+          : new PostgresVideoProviderSettingsRepository(db),
+      inject: [DatabaseService]
+    },
+    VideoProviderSettingsService,
+    {
+      provide: VIDEO_PROVIDER_REGISTRY,
+      useFactory: (): VideoProviderRegistry =>
+        new Map<VideoProviderCode, VideoProvider>([
+          ['noop', new NoopVideoProvider()],
+          ['fake', new FakeVideoProvider()]
+        ])
+    },
+    VideoProviderResolver,
     MvpBulkEnqueueService,
     PostgresMvpPersistenceBackend,
     PostgresRecertificationDraftsRepository,

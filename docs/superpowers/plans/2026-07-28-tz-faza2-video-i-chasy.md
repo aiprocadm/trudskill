@@ -69,13 +69,15 @@
 
 **Tasks:**
 
-- [ ] Миграция `0063`: таблица `learning.video_assets` (`id`, `tenant_id`, `material_id` null, `provider_code`, `provider_asset_id` null, `status` check `uploading|processing|ready|failed`, `duration_seconds` null, `size_bytes`, `storage_key` null, `error_message` null, `created_at`, `updated_at`) + индекс по (`tenant_id`, `material_id`); таблица `learning.video_provider_settings` (per tenant, **только несекретная конфигурация**) — форма из `0055`; права `video.read` / `video.write` / `video.configure` с раздачей ролям `platform_admin`/`tenant_admin`/`methodist` для демо-тенанта.
-- [ ] Интерфейс `VideoProvider`: `createUploadTarget(input): Promise<UploadTarget | null>`, `getPlayback(assetId, ctx): Promise<PlaybackSource | null>`, `parseWebhook(raw, headers): Promise<VideoAssetEvent[] | null>`, опциональный `webhookAck`. `null` = провайдер спит (fail-soft, как у вебинаров).
-- [ ] `NoopVideoProvider` (всё возвращает `null`) — безопасный дефолт для тенанта без настройки; `FakeVideoProvider` — детерминированный для тестов.
-- [ ] Реестр `VIDEO_PROVIDER_REGISTRY` (`Map<VideoProviderCode, VideoProvider>`) + резолвер per tenant по таблице настроек, с падением в `noop` при отсутствии/отключении записи.
-- [ ] Тесты: контракт `noop` (все методы отдают `null`, ничего не бросают), резолвер (тенант без настроек → `noop`; тенант с настройками → его провайдер; чужой tenant_id не виден), миграция в `test:migrations`.
+- [x] Миграция `0063`: таблица `learning.video_assets` (`id`, `tenant_id`, `material_id` null, `provider_code`, `provider_asset_id` null, `status` check `uploading|processing|ready|failed`, `duration_seconds` null, `size_bytes`, `storage_key` null, `error_message` null, `created_at`, `updated_at`) + индекс по (`tenant_id`, `material_id`); таблица `learning.video_provider_settings` (per tenant, **только несекретная конфигурация**) — форма из `0055`; права `video.read` / `video.write` / `video.configure` с раздачей ролям `platform_admin`/`tenant_admin`/`methodist` для демо-тенанта.
+- [x] Интерфейс `VideoProvider`: `createUploadTarget(input): Promise<UploadTarget | null>`, `getPlayback(assetId, ctx): Promise<PlaybackSource | null>`, `parseWebhook(raw, headers): Promise<VideoAssetEvent[] | null>`, опциональный `webhookAck`. `null` = провайдер спит (fail-soft, как у вебинаров).
+- [x] `NoopVideoProvider` (всё возвращает `null`) — безопасный дефолт для тенанта без настройки; `FakeVideoProvider` — детерминированный для тестов.
+- [x] Реестр `VIDEO_PROVIDER_REGISTRY` (`Map<VideoProviderCode, VideoProvider>`) + резолвер per tenant по таблице настроек, с падением в `noop` при отсутствии/отключении записи.
+- [x] Тесты: контракт `noop` (все методы отдают `null`, ничего не бросают), резолвер (тенант без настроек → `noop`; тенант с настройками → его провайдер; чужой tenant_id не виден), миграция в `test:migrations`.
 
 **Acceptance:** `pnpm test:migrations` зелёный с `0063`; резолвер отдаёт `noop` для нового тенанта; `test:isolation` не деградировал; ни одного обращения к внешней сети в тестах.
+
+**Выполнено 2026-07-28 (§5.188).** Deviations: (1) **глобального env-флага не заводили** — у вебинаров `WEBINARS_ENABLED` существует потому, что подсистема ехала спящей; здесь достаточно per-tenant `enabled` + `noop` по умолчанию, лишний переключатель только добавил бы способ «всё выключено, а почему — непонятно». (2) В `Material` добавлено поле `videoAssetId` — материал ссылается на ассет, как уже сделано для SCORM (`scormPackageId`). (3) Миграция проверена не только статическим гейтом (`test:migrations` разбирает SQL текстом, живую базу не трогает): все 63 миграции применены по порядку во временную базу на живом Postgres, затем `0063` прогнана повторно — идемпотентность подтверждена (только NOTICE, ноль дублей прав и role_permissions), RBAC проверен запросом (слушатель имеет `video.read`, не имеет `video.write`).
 
 ## Task 2 — ФТ-B1.1: загрузка видео методистом
 
