@@ -40,6 +40,10 @@ export interface TemplateParseResult {
   placeholders: string[];
   known: TemplatePlaceholder[];
   unknown: string[];
+  /** ФТ-A7.1: теги-картинки `{%…}` — подпись и печать, найденные в бланке. */
+  imagePlaceholders?: string[];
+  /** Мягкие замечания по синтаксису: например, картинку вставили обычным тегом. */
+  warnings?: string[];
   /**
    * ФТ-A8 — приходит только для шаблонов типа `protocol`. Мягкая проверка:
    * пропущенный реквизит не блокирует загрузку, но админ должен узнать о нём

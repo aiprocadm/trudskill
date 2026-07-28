@@ -122,7 +122,16 @@ function resolveEverything(codes: string[]): Record<string, unknown> {
     ...resolveTenantVariables(
       {
         tenant: { id: 't', code: 'DEMO', name: 'УЦ', status: 'active' },
-        requisites: { tenantId: 't', legalName: 'ООО УЦ', taxNumber: '7701', payload: {} },
+        requisites: {
+          tenantId: 't',
+          legalName: 'ООО УЦ',
+          taxNumber: '7701',
+          // ФТ-A7.1: подпись и печать лежат в payload реквизитов — «богатые» данные для
+          // сторожа синхронизации обязаны их включать, иначе ветка резолвера не проверена.
+          payload: {
+            documentImages: { signature: { fileId: 'file-sign' }, stamp: { fileId: 'file-stamp' } }
+          }
+        },
         licenses: [
           {
             id: 'lic',

@@ -7,6 +7,8 @@ import {
 
 import { NonRetryableJobError } from './bulk-enrollment-callback.js';
 
+import type { DocxImage } from '@trudskill/docx-render';
+
 /**
  * Обработка job'а `document` (Фаза 1 Task 2, ФТ-A1.1): claim задачи через internal-эндпоинт
  * backend'а → скачивание DOCX-шаблона по presigned GET → рендер → загрузка результата по
@@ -40,6 +42,30 @@ interface StartResponse {
   number?: string;
   templateFileUrl?: string;
   variables?: Record<string, unknown>;
+  /** ФТ-A7.1: подпись руководителя и печать УЦ — presigned GET на каждую картинку. */
+  images?: Array<{ name: string; url: string; widthMm?: number }>;
+}
+
+/**
+ * Скачивание картинок бланка. Недоступная картинка НЕ валит выдачу: документ печатается
+ * без факсимиле — это лучше, чем застрявшая в ретраях очередь удостоверений.
+ */
+async function downloadImages(
+  images: StartResponse['images'],
+  fetchFn: typeof fetch
+): Promise<Record<string, DocxImage>> {
+  const result: Record<string, DocxImage> = {};
+  for (const image of images ?? []) {
+    const res = await fetchFn(image.url).catch(() => undefined);
+    if (!res?.ok) continue;
+    const contentType = (res.headers.get('content-type') ?? 'image/png').split(';')[0]!.trim();
+    result[image.name] = {
+      data: Buffer.from(await res.arrayBuffer()),
+      contentType,
+      ...(image.widthMm ? { widthMm: image.widthMm } : {})
+    };
+  }
+  return result;
 }
 
 export async function runDocumentJob(
@@ -100,9 +126,11 @@ export async function runDocumentJob(
   }
   const templateBuffer = Buffer.from(await templateRes.arrayBuffer());
 
+  const images = await downloadImages(start.images, fetchFn);
+
   let rendered: Buffer;
   try {
-    rendered = renderDocx(templateBuffer, start.variables ?? {});
+    rendered = renderDocx(templateBuffer, start.variables ?? {}, { images });
   } catch (error) {
     if (error instanceof TemplateRenderError) {
       // Ошибка шаблона терминальна: fail с человекочитаемым сообщением (ФТ-A1.5) и ack.

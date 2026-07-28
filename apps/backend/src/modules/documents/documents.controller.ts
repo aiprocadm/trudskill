@@ -9,6 +9,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Res,
   UseGuards,
@@ -31,6 +32,13 @@ import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { FilesService } from '../files/files.service.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
 import { PermissionGuard } from '../iam/permission.guard.js';
+import {
+  TENANT_DOCUMENT_IMAGES_KEY,
+  TENANT_IMAGE_SLOTS,
+  type TenantImageSlot,
+  readTenantDocumentImages
+} from '../tenant/tenant-document-images.js';
+import { TenantService } from '../tenant/tenant.service.js';
 
 import type {
   BaseFilter,
@@ -61,6 +69,9 @@ export const ISSUANCE_JOURNAL_CSV_HEADER =
 const TEMPLATE_DOCX_MIME =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
+/** Форматы факсимиле (ФТ-A7.1) — ровно те, что умеет вставлять движок рендера. */
+const TENANT_IMAGE_MIMES = new Set(['image/png', 'image/jpeg']);
+
 @Controller()
 @UseInterceptors(DocumentsRequestPersistenceInterceptor)
 @UseGuards(TenantGuard)
@@ -70,8 +81,91 @@ export class DocumentsController {
     @Inject(DocumentsEnqueueService) private readonly enqueue: DocumentsEnqueueService,
     @Inject(TemplateInspectionService) private readonly inspection: TemplateInspectionService,
     @Inject(GroupPackageService) private readonly groupPackages: GroupPackageService,
-    @Inject(FilesService) private readonly files: FilesService
+    @Inject(FilesService) private readonly files: FilesService,
+    @Inject(TenantService) private readonly tenants: TenantService
   ) {}
+
+  /**
+   * ФТ-A7.1: интент загрузки подписи руководителя или печати УЦ. Отдельный keyPrefix и
+   * allowlist только на PNG/JPEG — рендер умеет вставлять лишь эти форматы, а лимит
+   * маленький: факсимиле — это картинка на пару сотен килобайт, не скан журнала.
+   */
+  @Post('tenant-images/upload-url')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.write')
+  createTenantImageUploadUrl(
+    @CurrentContext() c: RequestContext,
+    @Body() b: { originalName?: string; sizeBytes?: number; contentType?: string }
+  ) {
+    const sizeBytes = Number(b?.sizeBytes);
+    if (!Number.isInteger(sizeBytes) || sizeBytes <= 0) {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'sizeBytes must be a positive integer'
+      });
+    }
+    const contentType = b?.contentType ?? 'image/png';
+    if (!TENANT_IMAGE_MIMES.has(contentType)) {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'Поддерживаются только PNG и JPEG'
+      });
+    }
+    return this.files.createUploadIntent(
+      c.tenantId!,
+      { originalName: b?.originalName ?? 'signature.png', contentType, sizeBytes },
+      {
+        keyPrefix: 'tenant-images',
+        mimeAllowlist: TENANT_IMAGE_MIMES,
+        maxBytes: 5 * 1024 * 1024
+      }
+    );
+  }
+
+  @Get('tenant-images')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.read')
+  async listTenantImages(@CurrentContext() c: RequestContext) {
+    const requisites = await this.tenants.getRequisites(c.tenantId!).catch(() => undefined);
+    return { images: readTenantDocumentImages(requisites) };
+  }
+
+  /** Привязать загруженный файл к слоту (или отвязать, прислав `fileId: null`). */
+  @Put('tenant-images/:slot')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.write')
+  async updateTenantImage(
+    @CurrentContext() c: RequestContext,
+    @Param('slot') slot: string,
+    @Body() b: { fileId?: string | null; widthMm?: number }
+  ) {
+    if (!(TENANT_IMAGE_SLOTS as readonly string[]).includes(slot)) {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: `Неизвестный слот «${slot}»: ожидается ${TENANT_IMAGE_SLOTS.join(' или ')}`
+      });
+    }
+    if (b?.widthMm !== undefined && (typeof b.widthMm !== 'number' || b.widthMm <= 0)) {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'widthMm must be a positive number'
+      });
+    }
+    const requisites = await this.tenants.getRequisites(c.tenantId!);
+    const images = readTenantDocumentImages(requisites);
+    if (b?.fileId) {
+      images[slot as TenantImageSlot] = {
+        fileId: b.fileId,
+        ...(b.widthMm ? { widthMm: b.widthMm } : {})
+      };
+    } else {
+      delete images[slot as TenantImageSlot];
+    }
+    const saved = await this.tenants.updateRequisites(c.tenantId!, {
+      payload: { [TENANT_DOCUMENT_IMAGES_KEY]: images }
+    });
+    return { images: readTenantDocumentImages(saved) };
+  }
 
   /**
    * ФТ-A3.1: интент загрузки бланка. Отдельный keyPrefix и allowlist только на DOCX —
@@ -242,7 +336,15 @@ export class DocumentsController {
     @Res() res: Response
   ) {
     const version = this.documentsService.getTemplateVersion(c.tenantId!, id);
-    const pdf = await this.inspection.preview(c.tenantId!, version.fileId, demoVariables());
+    // ФТ-A7.1: предпросмотр показывает НАСТОЯЩИЕ подпись и печать центра — заглушек тут
+    // быть не может, админ проверяет именно как факсимиле встанет на бланк.
+    const images = await this.inspection.previewImages(c.tenantId!);
+    const pdf = await this.inspection.preview(
+      c.tenantId!,
+      version.fileId,
+      demoVariables(),
+      images
+    );
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="preview-${id}.pdf"`);
     res.setHeader('Content-Length', String(pdf.length));

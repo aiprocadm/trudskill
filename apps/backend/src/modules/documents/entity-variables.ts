@@ -8,6 +8,7 @@
  * namespace → пустая строка (бланк не должен падать из-за незаполненного поля).
  */
 import { formatRussianDateWords } from './date-words.js';
+import { tenantImageFileId } from '../tenant/tenant-document-images.js';
 
 import type { Counterparty, Course, GroupEntity, Learner } from '../mvp/mvp.types.js';
 import type { TrainingLicense } from '../org/licenses.types.js';
@@ -84,6 +85,12 @@ export function resolveTenantVariables(
         return accreditation?.licenseNumber ?? '';
       case 'accreditation_issuer':
         return accreditation?.issuerName ?? '';
+      // ФТ-A7.1: значение переменной-картинки — fileId; сам файл подставляет конвейер
+      // рендера. Не загружено — пусто, и бланк печатается без подписи/печати.
+      case 'signature_image':
+        return tenantImageFileId(ctx.requisites, 'signature');
+      case 'stamp_image':
+        return tenantImageFileId(ctx.requisites, 'stamp');
       default:
         return '';
     }

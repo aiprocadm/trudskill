@@ -49,12 +49,22 @@ function makeHarness() {
   const variables = {
     build: vi.fn(async () => ({ 'document.number': 'N-1', 'learner.full_name': 'Иванов И. И.' }))
   };
+  // Реквизиты тенанта: из них берутся подпись и печать (ФТ-A7.1).
+  const tenants = {
+    getRequisites: vi.fn(async () => ({
+      tenantId: 't',
+      legalName: 'ООО УЦ',
+      taxNumber: '7701',
+      payload: {}
+    }))
+  };
   const controller = new DocumentsInternalWorkerController(
     runner as never,
     variables as never,
-    files as unknown as FilesService
+    files as unknown as FilesService,
+    tenants as never
   );
-  return { documents, controller, files, variables };
+  return { documents, controller, files, variables, tenants };
 }
 
 let seedCounter = 0;
@@ -98,6 +108,54 @@ describe('DocumentsInternalWorkerController (Фаза 1 Task 2)', () => {
     expect(variables.build).toHaveBeenCalled();
     expect((res.variables as Record<string, unknown>)['learner.full_name']).toBe('Иванов И. И.');
     expect(documents.getDocumentTask(T, task.id).status).toBe('running');
+  });
+
+  it('start отдаёт ссылки на подпись и печать центра (ФТ-A7.1)', async () => {
+    const { documents, controller, variables, tenants, files } = makeHarness();
+    tenants.getRequisites.mockResolvedValue({
+      tenantId: T,
+      legalName: 'ООО УЦ',
+      taxNumber: '7701',
+      payload: { documentImages: { stamp: { fileId: 'file_stamp', widthMm: 30 } } }
+    });
+    variables.build.mockResolvedValue({
+      'document.number': 'N-1',
+      'tenant.stamp_image': 'file_stamp',
+      'tenant.signature_image': ''
+    });
+    files.createDownloadUrl.mockImplementation(async (_t: string, fileId: string) =>
+      `https://s3.local/GET-${fileId}`
+    );
+
+    const task = seedTask(documents);
+    const res = (await controller.start({ tenantId: T, taskId: task.id })) as Record<
+      string,
+      unknown
+    >;
+
+    // Пустая переменная картинки в список не попадает — качать нечего.
+    expect(res.images).toEqual([
+      { name: 'tenant.stamp_image', url: 'https://s3.local/GET-file_stamp', widthMm: 30 }
+    ]);
+  });
+
+  it('недоступный файл подписи не срывает выдачу документа (ФТ-A7.1)', async () => {
+    const { documents, controller, variables, files } = makeHarness();
+    variables.build.mockResolvedValue({ 'tenant.stamp_image': 'file_stamp' });
+    files.createDownloadUrl.mockImplementation(async (_t: string, fileId: string) => {
+      if (fileId === 'file_stamp') throw new Error('файл удалён');
+      return 'https://s3.local/GET-template';
+    });
+
+    const task = seedTask(documents);
+    const res = (await controller.start({ tenantId: T, taskId: task.id })) as Record<
+      string,
+      unknown
+    >;
+
+    expect(res.claimed).toBe(true);
+    expect(res.templateFileUrl).toBe('https://s3.local/GET-template');
+    expect(res.images).toEqual([]);
   });
 
   it('start is re-claimable while running (worker retry) but not after completion', async () => {

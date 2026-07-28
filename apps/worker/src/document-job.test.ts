@@ -1,4 +1,4 @@
-import { buildDocx, p, readDocumentXml } from '@trudskill/docx-render';
+import { buildDocx, p, readDocumentXml, tinyPng } from '@trudskill/docx-render';
 import { describe, expect, it, vi } from 'vitest';
 
 import { NonRetryableJobError } from './bulk-enrollment-callback.js';
@@ -10,6 +10,7 @@ const DEPS = {
   gotenbergUrl: 'http://gotenberg:3000'
 };
 const PDF_BYTES = Buffer.from('%PDF-1.7\nrendered');
+const STAMP_PNG = tinyPng(120, 120, [200, 30, 30]);
 const envelope = { messageId: 'm1', tenantId: 'tenant_demo', payload: { taskId: 'dtask_1' } };
 
 const okJson = (data: unknown) =>
@@ -24,6 +25,7 @@ function makeFetch(overrides: {
   template?: Buffer;
   failOn?: string;
   gotenberg?: () => Response;
+  stampMissing?: boolean;
 }) {
   const calls: Array<{ url: string; body?: unknown }> = [];
   const puts: Array<{ contentType: string; body: Buffer }> = [];
@@ -53,6 +55,14 @@ function makeFetch(overrides: {
     if (url.includes('GET-template')) {
       const body = overrides.template ?? buildDocx(p('Номер: {document.number}'));
       return new Response(new Uint8Array(body), { status: 200 });
+    }
+    if (url.includes('GET-stamp')) {
+      return overrides.stampMissing
+        ? new Response(null, { status: 404 })
+        : new Response(new Uint8Array(STAMP_PNG), {
+            status: 200,
+            headers: { 'content-type': 'image/png' }
+          });
     }
     if (url.includes('/forms/libreoffice/convert')) {
       return overrides.gotenberg?.() ?? new Response(new Uint8Array(PDF_BYTES), { status: 200 });
@@ -219,5 +229,56 @@ describe('PDF-двойник и снапшот (ФТ-A1.3/A1.4)', () => {
     const secondDocx = second.puts.find((x) => x.contentType.includes('wordprocessingml'))!.body;
 
     expect(secondDocx.equals(firstDocx)).toBe(true);
+  });
+});
+
+describe('картинки в бланке (ФТ-A7.1, Фаза 1 Task 9)', () => {
+  const startWithStamp = (images: unknown) => () =>
+    okJson({
+      claimed: true,
+      taskId: 'dtask_1',
+      number: '26-ОТ-0001',
+      templateFileUrl: 'https://s3.local/GET-template',
+      variables: { 'document.number': '26-ОТ-0001', 'tenant.stamp_image': 'file_stamp' },
+      images
+    });
+
+  const stampTemplate = buildDocx(p('Номер: {document.number}') + p('М.П. {%tenant.stamp_image}'));
+
+  it('скачивает печать и вставляет её в выданный DOCX', async () => {
+    const { fetchFn, calls, getPutBody } = makeFetch({
+      template: stampTemplate,
+      start: startWithStamp([
+        { name: 'tenant.stamp_image', url: 'https://s3.local/GET-stamp', widthMm: 30 }
+      ])
+    });
+    await runDocumentJob(envelope, { ...DEPS, fetchFn });
+
+    expect(calls.map((c) => c.url)).toContain('https://s3.local/GET-stamp');
+    const docx = getPutBody()!;
+    expect(readDocumentXml(docx)).toContain('<w:drawing>');
+    // Ширина 30 мм из настроек тенанта доехала до документа.
+    expect(readDocumentXml(docx)).toContain(`cx="${30 * 36000}"`);
+  });
+
+  it('недоступная печать не срывает выдачу — документ уходит без факсимиле', async () => {
+    const { fetchFn, calls, getPutBody } = makeFetch({
+      template: stampTemplate,
+      stampMissing: true,
+      start: startWithStamp([{ name: 'tenant.stamp_image', url: 'https://s3.local/GET-stamp' }])
+    });
+    await runDocumentJob(envelope, { ...DEPS, fetchFn });
+
+    expect(calls.some((c) => c.url.endsWith('/fail'))).toBe(false);
+    expect(calls.some((c) => c.url.endsWith('/complete'))).toBe(true);
+    const xml = readDocumentXml(getPutBody()!);
+    expect(xml).not.toContain('<w:drawing>');
+    expect(xml).toContain('Номер: 26-ОТ-0001');
+  });
+
+  it('бланк без тегов-картинок не ходит за файлами', async () => {
+    const { fetchFn, calls } = makeFetch({ start: startWithStamp(undefined) });
+    await runDocumentJob(envelope, { ...DEPS, fetchFn });
+    expect(calls.some((c) => c.url.includes('GET-stamp'))).toBe(false);
   });
 });

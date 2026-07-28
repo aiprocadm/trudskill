@@ -14,6 +14,7 @@ import {
 import { useAuth } from '../../src/features/auth/context';
 import { useTaskRealtime } from '../../src/features/communication/hooks';
 import { NumberingRulesSection } from '../../src/features/numbering/screens';
+import { TenantImagesSection } from '../../src/features/tenant-images/screens';
 import {
   type TemplateParseResult,
   fetchPreviewPdfUrl,
@@ -525,6 +526,21 @@ export default function DocumentsPage() {
                   ) : (
                     <p className="ui-text-muted">Все плейсхолдеры бланка распознаны.</p>
                   )}
+                  {parseResult.imagePlaceholders?.length ? (
+                    <p className="ui-text-muted" data-testid="template-image-placeholders">
+                      Картинки в бланке: {parseResult.imagePlaceholders.join(', ')} — подставятся из
+                      раздела «Подпись и печать».
+                    </p>
+                  ) : null}
+                  {parseResult.warnings?.length ? (
+                    <div role="alert" className="ui-error" data-testid="template-warnings">
+                      <ul>
+                        {parseResult.warnings.map((warning) => (
+                          <li key={warning}>{warning}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                   {parseResult.compliance && !parseResult.compliance.isCompliant ? (
                     <div role="status" data-testid="protocol-compliance-gaps">
                       <strong>Протокол: не хватает обязательных реквизитов</strong>
@@ -743,6 +759,7 @@ export default function DocumentsPage() {
           {actionError ? <SectionError message={actionError} /> : null}
         </SectionCard>
         <NumberingRulesSection />
+        <TenantImagesSection />
       </PageContainer>
     </ProtectedPage>
   );
