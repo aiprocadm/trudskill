@@ -23,11 +23,7 @@ export const MaterialPlayer = ({ material, onMaterialEnded, enrollmentId }: Prop
         return <VideoPlayer material={material} videoUrl={null} onEnded={onMaterialEnded} />;
       }
       return (
-        <HlsVideoPlayer
-          material={material}
-          enrollmentId={enrollmentId}
-          onEnded={onMaterialEnded}
-        />
+        <HlsVideoPlayer material={material} enrollmentId={enrollmentId} onEnded={onMaterialEnded} />
       );
     case 'file':
       return <PdfViewer material={material} pdfUrl={null} />;

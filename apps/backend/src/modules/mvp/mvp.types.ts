@@ -759,6 +759,12 @@ export interface ProgramMeta {
   otProgramCodes?: string[];
   /** Phase 5B — срок действия удостоверения, мес. NULL/undefined = бессрочно. */
   recertificationPeriodMonths?: number;
+  /**
+   * Фаза 2 Task 6 (ФТ-B3.1): доля ролика, после которой видео-урок считается пройденным.
+   * Не задано = 90% по умолчанию. Персистится JSONB-снапшотом MVP-состояния (правило 0016),
+   * поэтому миграция не нужна.
+   */
+  videoCompletionPercent?: number;
 }
 
 /** Global lookup из lookup.regulatory_acts. Не tenant-scoped, неизменяемый каталог. */

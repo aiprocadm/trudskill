@@ -72,13 +72,18 @@ import { IamModule } from '../iam/iam.module.js';
 import { OrgModule } from '../org/org.module.js';
 import { TenantModule } from '../tenant/tenant.module.js';
 import { InMemoryVideoAssetsRepository } from './video/in-memory-video-assets.repository.js';
+import { InMemoryVideoProgressRepository } from './video/in-memory-video-progress.repository.js';
 import { InMemoryVideoProviderSettingsRepository } from './video/in-memory-video-provider-settings.repository.js';
 import { PostgresVideoAssetsRepository } from './video/postgres-video-assets.repository.js';
+import { PostgresVideoProgressRepository } from './video/postgres-video-progress.repository.js';
 import { PostgresVideoProviderSettingsRepository } from './video/postgres-video-provider-settings.repository.js';
 import { TenantStorageService } from './video/tenant-storage.service.js';
+import { VideoAccessService } from './video/video-access.service.js';
 import { VIDEO_ASSETS_REPOSITORY } from './video/video-assets.repository.js';
 import { VideoPlaybackController } from './video/video-playback.controller.js';
 import { VideoPlaybackService } from './video/video-playback.service.js';
+import { VIDEO_PROGRESS_REPOSITORY } from './video/video-progress.repository.js';
+import { VideoProgressService } from './video/video-progress.service.js';
 import { VideoProviderResolver } from './video/video-provider-resolver.service.js';
 import { VIDEO_PROVIDER_SETTINGS_REPOSITORY } from './video/video-provider-settings.repository.js';
 import { VideoProviderSettingsService } from './video/video-provider-settings.service.js';
@@ -208,7 +213,19 @@ import {
     { provide: ScormService, scope: Scope.REQUEST, useClass: ScormService },
     // Проверка доступа читает состояние тенанта (материалы, модули, зачисления) —
     // поэтому request-scoped, как ScormService.
+    PostgresVideoProgressRepository,
+    {
+      provide: VIDEO_PROGRESS_REPOSITORY,
+      useFactory: (db: DatabaseService) =>
+        backendEnv.ALLOW_IN_MEMORY_STATE
+          ? new InMemoryVideoProgressRepository()
+          : new PostgresVideoProgressRepository(db),
+      inject: [DatabaseService]
+    },
+    // Проверка доступа и приём прогресса читают состояние тенанта — request-scoped.
+    { provide: VideoAccessService, scope: Scope.REQUEST, useClass: VideoAccessService },
     { provide: VideoPlaybackService, scope: Scope.REQUEST, useClass: VideoPlaybackService },
+    { provide: VideoProgressService, scope: Scope.REQUEST, useClass: VideoProgressService },
     // Phase 10 Track C — self-service push subscription CRUD (request-scoped, reads MVP_STATE).
     { provide: PushSubscriptionService, scope: Scope.REQUEST, useClass: PushSubscriptionService },
     {

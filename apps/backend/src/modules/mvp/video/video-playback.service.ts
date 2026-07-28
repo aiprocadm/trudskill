@@ -1,20 +1,17 @@
-import {
-  Inject,
-  Injectable,
-  NotFoundException,
-  PreconditionFailedException
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, PreconditionFailedException } from '@nestjs/common';
 
+import { VideoAccessService } from './video-access.service.js';
 import {
   VIDEO_ASSETS_REPOSITORY,
   type VideoAssetRow,
   type VideoAssetsRepository
 } from './video-assets.repository.js';
+import {
+  VIDEO_PROGRESS_REPOSITORY,
+  type VideoProgressRepository
+} from './video-progress.repository.js';
 import { VideoProviderResolver } from './video-provider-resolver.service.js';
 import { S3StorageClient } from '../../../infrastructure/storage/s3-storage.client.js';
-import { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
-import { MVP_STATE } from '../infrastructure/mvp-state.token.js';
-import { MvpService } from '../mvp.service.js';
 
 import type { RequestContext } from '../../../common/context/request-context.js';
 
@@ -45,16 +42,18 @@ export interface PlaybackResult {
   expiresInSeconds: number;
   /** Длительность известна после обработки; плееру она нужна для расчёта прогресса (ФТ-B3.1). */
   durationSeconds?: number;
+  /** ФТ-B3.3: откуда продолжить — плеер стартует с этой секунды. */
+  lastPositionSeconds: number;
 }
 
 @Injectable()
 export class VideoPlaybackService {
   constructor(
-    @Inject(MVP_STATE) private readonly state: InMemoryMvpState,
-    @Inject(MvpService) private readonly mvp: MvpService,
+    @Inject(VideoAccessService) private readonly access: VideoAccessService,
     @Inject(VIDEO_ASSETS_REPOSITORY) private readonly assets: VideoAssetsRepository,
     @Inject(VideoProviderResolver) private readonly providers: VideoProviderResolver,
-    @Inject(S3StorageClient) private readonly storage: S3StorageClient
+    @Inject(S3StorageClient) private readonly storage: S3StorageClient,
+    @Inject(VIDEO_PROGRESS_REPOSITORY) private readonly progress: VideoProgressRepository
   ) {}
 
   async getPlayback(
@@ -64,7 +63,7 @@ export class VideoPlaybackService {
     enrollmentId: string,
     ctx: RequestContext
   ): Promise<PlaybackResult> {
-    this.assertLearnerMayWatch(tenantId, actorId, materialId, enrollmentId, ctx);
+    this.access.assertLearnerMayWatch(tenantId, actorId, materialId, enrollmentId, ctx);
 
     const asset = await this.readyAssetFor(tenantId, materialId);
 
@@ -83,6 +82,7 @@ export class VideoPlaybackService {
       }
       return {
         ...source,
+        lastPositionSeconds: await this.resumePosition(tenantId, enrollmentId, materialId),
         ...(asset.durationSeconds ? { durationSeconds: asset.durationSeconds } : {})
       };
     }
@@ -104,8 +104,19 @@ export class VideoPlaybackService {
       url,
       kind: 'progressive',
       expiresInSeconds: PLAYBACK_URL_TTL_SECONDS,
+      lastPositionSeconds: await this.resumePosition(tenantId, enrollmentId, materialId),
       ...(asset.durationSeconds ? { durationSeconds: asset.durationSeconds } : {})
     };
+  }
+
+  /** ФТ-B3.3: закрытая вкладка не должна стоить слушателю просмотренных минут. */
+  private async resumePosition(
+    tenantId: string,
+    enrollmentId: string,
+    materialId: string
+  ): Promise<number> {
+    const stored = await this.progress.find(tenantId, enrollmentId, materialId);
+    return stored?.lastPositionSeconds ?? 0;
   }
 
   /** Готовое к показу видео этого материала; несколько — берём самое свежее. */
@@ -126,67 +137,5 @@ export class VideoPlaybackService {
       });
     }
     return ready;
-  }
-
-  /**
-   * Та же цепочка проверок, что у запуска SCORM (`scorm.service.ts`): дублируется
-   * намеренно — у видео свои сообщения об ошибках, а вытаскивать общий хелпер из
-   * request-scoped сервиса значило бы тянуть за собой половину его состояния.
-   */
-  private assertLearnerMayWatch(
-    tenantId: string,
-    actorId: string | undefined,
-    materialId: string,
-    enrollmentId: string,
-    ctx: RequestContext
-  ): void {
-    const material = this.state.materials.find(
-      (m) => m.tenantId === tenantId && m.id === materialId
-    );
-    if (!material) {
-      throw new NotFoundException({ code: 'not_found', message: 'Material not found' });
-    }
-    if (material.materialType !== 'video') {
-      throw new PreconditionFailedException({
-        code: 'domain_rule_violation',
-        message: 'Этот материал — не видео'
-      });
-    }
-    const moduleEntity = this.state.modules.find(
-      (m) => m.tenantId === tenantId && m.id === material.moduleId
-    );
-    const courseVersion = moduleEntity
-      ? this.state.courseVersions.find(
-          (v) => v.tenantId === tenantId && v.id === moduleEntity.courseVersionId
-        )
-      : undefined;
-    const enrollment = this.state.enrollments.find(
-      (e) => e.tenantId === tenantId && e.id === enrollmentId
-    );
-    if (!enrollment || !courseVersion) {
-      throw new NotFoundException({
-        code: 'not_found',
-        message: 'Зачисление для этого урока не найдено'
-      });
-    }
-    const hasGroupCourseAccess = this.state.groupCourses.some(
-      (gc) =>
-        gc.tenantId === tenantId &&
-        gc.groupId === enrollment.groupId &&
-        gc.courseId === courseVersion.courseId
-    );
-    if (!hasGroupCourseAccess) {
-      throw new PreconditionFailedException({
-        code: 'domain_rule_violation',
-        message: 'Зачисление не связано с курсом этого урока'
-      });
-    }
-    // Ссылку получает владелец зачисления (или тот, кому разрешено действовать за него).
-    this.mvp.assertActorMatchesLearnerIamLink(
-      tenantId,
-      actorId,
-      enrollment.learnerId,
-      ctx.permissions
-    );
   }
 }

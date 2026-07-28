@@ -2,7 +2,9 @@ import { NotFoundException, PreconditionFailedException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import { InMemoryVideoAssetsRepository } from './in-memory-video-assets.repository.js';
+import { InMemoryVideoProgressRepository } from './in-memory-video-progress.repository.js';
 import { InMemoryVideoProviderSettingsRepository } from './in-memory-video-provider-settings.repository.js';
+import { VideoAccessService } from './video-access.service.js';
 import { PLAYBACK_URL_TTL_SECONDS, VideoPlaybackService } from './video-playback.service.js';
 import { VideoProviderResolver } from './video-provider-resolver.service.js';
 import { VideoProviderSettingsService } from './video-provider-settings.service.js';
@@ -34,9 +36,7 @@ function makeState(overrides: Partial<Record<string, unknown[]>> = {}) {
       { tenantId: T, id: 'mat_1', moduleId: 'mod_1', materialType: 'video' }
     ],
     modules: overrides.modules ?? [{ tenantId: T, id: 'mod_1', courseVersionId: 'cv_1' }],
-    courseVersions: overrides.courseVersions ?? [
-      { tenantId: T, id: 'cv_1', courseId: 'course_1' }
-    ],
+    courseVersions: overrides.courseVersions ?? [{ tenantId: T, id: 'cv_1', courseId: 'course_1' }],
     enrollments: overrides.enrollments ?? [
       { tenantId: T, id: 'enr_1', groupId: 'grp_1', learnerId: 'lrn_1' }
     ],
@@ -89,14 +89,10 @@ async function makeService(
     createPresignedDownloadUrl: vi.fn(async () => 'https://s3.local/GET-video?sig=1')
   } as unknown as S3StorageClient;
 
-  const service = new VideoPlaybackService(
-    options.state ?? makeState(),
-    mvp,
-    assets,
-    resolver,
-    storage
-  );
-  return { service, mvp, storage, assets };
+  const access = new VideoAccessService(options.state ?? makeState(), mvp);
+  const progressRepo = new InMemoryVideoProgressRepository();
+  const service = new VideoPlaybackService(access, assets, resolver, storage, progressRepo);
+  return { service, mvp, storage, assets, progressRepo };
 }
 
 describe('VideoPlaybackService — кто имеет право смотреть', () => {
@@ -215,8 +211,40 @@ describe('VideoPlaybackService — ветка провайдера', () => {
     );
     (service as unknown as { providers: VideoProviderResolver }).providers = sleeping;
 
-    await expect(service.getPlayback(T, 'u1', 'mat_1', 'enr_1', CTX)).rejects.toThrow(
-      /недоступен/
-    );
+    await expect(service.getPlayback(T, 'u1', 'mat_1', 'enr_1', CTX)).rejects.toThrow(/недоступен/);
+  });
+});
+
+describe('VideoPlaybackService — возобновление (ФТ-B3.3)', () => {
+  it('без сохранённого прогресса стартуем с начала', async () => {
+    const { service } = await makeService();
+    const result = await service.getPlayback(T, 'u1', 'mat_1', 'enr_1', CTX);
+    expect(result.lastPositionSeconds).toBe(0);
+  });
+
+  it('после просмотра отдаёт позицию остановки — закрытая вкладка не стоит минут', async () => {
+    const { service, progressRepo } = await makeService();
+    await progressRepo.save(T, 'enr_1', 'mat_1', {
+      watchedRanges: [[0, 420]],
+      lastPositionSeconds: 420,
+      maxPositionSeconds: 420
+    });
+
+    const result = await service.getPlayback(T, 'u1', 'mat_1', 'enr_1', CTX);
+
+    expect(result.lastPositionSeconds).toBe(420);
+  });
+
+  it('позиция чужого зачисления не подмешивается', async () => {
+    const { service, progressRepo } = await makeService();
+    await progressRepo.save(T, 'enr_other', 'mat_1', {
+      watchedRanges: [[0, 900]],
+      lastPositionSeconds: 900,
+      maxPositionSeconds: 900
+    });
+
+    const result = await service.getPlayback(T, 'u1', 'mat_1', 'enr_1', CTX);
+
+    expect(result.lastPositionSeconds).toBe(0);
   });
 });

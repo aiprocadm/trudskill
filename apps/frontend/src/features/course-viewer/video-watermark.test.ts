@@ -25,9 +25,7 @@ describe('watermarkLabel', () => {
   });
 
   it('без имени показывает почту — знак не должен исчезать целиком', () => {
-    expect(watermarkLabel({ displayName: '', email: 'ivan@example.org' })).toBe(
-      'ivan@example.org'
-    );
+    expect(watermarkLabel({ displayName: '', email: 'ivan@example.org' })).toBe('ivan@example.org');
   });
 
   it('пустой пользователь даёт пустую подпись — компонент такой знак не рисует', () => {

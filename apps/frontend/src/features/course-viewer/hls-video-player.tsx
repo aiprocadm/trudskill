@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { type PlaybackSourceDto, refreshDelayMs, videoPlaybackApi } from './video-playback-api';
+import { PROGRESS_HEARTBEAT_MS, timeRangesToArray, videoProgressApi } from './video-progress-api';
 import { watermarkLabel } from './video-watermark';
 import { VideoWatermark } from './video-watermark-overlay';
 import { useAuth } from '../auth/context';
@@ -85,6 +86,40 @@ export const HlsVideoPlayer = ({ material, enrollmentId, onEnded }: Props) => {
     });
     return () => destroy?.();
   }, [source]);
+
+  // ФТ-B3.3: возвращаем слушателя туда, где он остановился. Ставим позицию, когда
+  // браузер уже знает длительность, — до этого currentTime сбрасывается в ноль.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !source?.lastPositionSeconds) return;
+    const seek = () => {
+      if (video.currentTime < 1) video.currentTime = source.lastPositionSeconds;
+    };
+    if (video.readyState >= 1) seek();
+    else video.addEventListener('loadedmetadata', seek, { once: true });
+    return () => video.removeEventListener('loadedmetadata', seek);
+  }, [source]);
+
+  // ФТ-B3.1: раз в 12 секунд сообщаем серверу, какие куски реально проиграны.
+  // Решение «пройдено» принимает он — клиент только докладывает факты.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !session || !source) return;
+    const timer = setInterval(() => {
+      if (video.paused) return;
+      void videoProgressApi
+        .send(session, material.id, {
+          enrollmentId,
+          positionSeconds: video.currentTime,
+          ranges: timeRangesToArray(video.played)
+        })
+        .catch(() => {
+          // Потерянный heartbeat не должен ломать просмотр: следующий донесёт то же
+          // самое, сервер всё равно объединяет отрезки.
+        });
+    }, PROGRESS_HEARTBEAT_MS);
+    return () => clearInterval(timer);
+  }, [session, source, material.id, enrollmentId]);
 
   if (error) {
     return (
