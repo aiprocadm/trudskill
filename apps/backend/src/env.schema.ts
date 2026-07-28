@@ -44,6 +44,14 @@ export const backendEnvSchema = z
     // Gotenberg (ФТ-A1.3) — конвертация DOCX→PDF (LibreOffice внутри контейнера).
     // Инфраструктура готовится в Фазе 0; сам движок рендера подключается в Фазе 1 (ЭПИК A).
     GOTENBERG_URL: z.string().url().default('http://gotenberg:3000'),
+    // Видеосервис (ФТ-B1.2, Фаза 2 Task 10). Решение владельца по вопросу №1 от 2026-07-28:
+    // «берём готовый видеосервис». Секреты — ТОЛЬКО здесь; в БД (learning.video_provider_settings)
+    // лежит несекретная конфигурация. Пусто = адаптер спит и резолвер отдаёт noop.
+    KINESCOPE_API_URL: z.string().url().default('https://api.kinescope.io/v1'),
+    KINESCOPE_API_TOKEN: z.string().optional(),
+    // Общий секрет для проверки подписи вебхука. НЕ задан → вебхуки не принимаются вовсе:
+    // принимать неподписанные события значит позволить кому угодно объявить видео готовым.
+    KINESCOPE_WEBHOOK_SECRET: z.string().optional(),
     // E-signature seam (Phase 6, НЭП). Ships dormant (false) → NoopDocumentSignatureProvider.
     // Custom boolean parse — NOT z.coerce.boolean (which maps the string "false" → true),
     // same rule as ANTIVIRUS_ENABLED so a signing flag is never accidentally on.

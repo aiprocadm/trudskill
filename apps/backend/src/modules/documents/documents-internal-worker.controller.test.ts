@@ -123,8 +123,8 @@ describe('DocumentsInternalWorkerController (Фаза 1 Task 2)', () => {
       'tenant.stamp_image': 'file_stamp',
       'tenant.signature_image': ''
     });
-    files.createDownloadUrl.mockImplementation(async (_t: string, fileId: string) =>
-      `https://s3.local/GET-${fileId}`
+    files.createDownloadUrl.mockImplementation(
+      async (_t: string, fileId: string) => `https://s3.local/GET-${fileId}`
     );
 
     const task = seedTask(documents);

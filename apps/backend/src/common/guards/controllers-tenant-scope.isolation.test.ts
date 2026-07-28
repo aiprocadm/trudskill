@@ -35,6 +35,10 @@ const PUBLIC_CONTROLLERS: ReadonlyArray<{ file: string; why: string }> = [
     why: 'внешний вебхук провайдера; проверка подписи внутри адаптера, тенант — по provider_session_id'
   },
   {
+    file: 'mvp/video/video-webhook.controller.ts',
+    why: 'внешний вебхук видеосервиса (ФТ-B1.2, Фаза 2 Task 10); подпись проверяет адаптер, тенант берётся ИЗ НАЙДЕННОГО ассета по provider_asset_id — сам вебхук его выбрать не может'
+  },
+  {
     file: 'mvp/mvp-internal-worker.controller.ts',
     why: 'внутренние callback-и worker; защищены собственным WorkerCallbackGuard'
   },

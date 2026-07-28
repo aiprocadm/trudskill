@@ -3,7 +3,10 @@ export function computeMigrationSqlChecksum(sql: string): string {
   return Buffer.from(sql, 'utf8').toString('base64url');
 }
 
-export function assertAppliedMigrationUnchanged(storedChecksum: string | undefined, sql: string): void {
+export function assertAppliedMigrationUnchanged(
+  storedChecksum: string | undefined,
+  sql: string
+): void {
   if (storedChecksum === undefined) return;
   const current = computeMigrationSqlChecksum(sql);
   if (storedChecksum !== current) {

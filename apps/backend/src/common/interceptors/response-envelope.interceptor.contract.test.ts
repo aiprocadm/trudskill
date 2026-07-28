@@ -38,7 +38,9 @@ describe('ResponseEnvelopeInterceptor contract', () => {
       })
     } as never;
 
-    const wrapped = await firstValueFrom(interceptor.intercept(executionContext, { handle: () => of({ ok: true }) } as never));
+    const wrapped = await firstValueFrom(
+      interceptor.intercept(executionContext, { handle: () => of({ ok: true }) } as never)
+    );
 
     expect(wrapped).toEqual({
       data: { ok: true },
