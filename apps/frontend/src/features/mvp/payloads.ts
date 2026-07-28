@@ -20,6 +20,8 @@ export interface ProgramMetaFormState {
   videoCompletionPercent: string;
   /** Фаза 2 Task 7 (ФТ-B3.2): запрет перемотки вперёд при первом просмотре. */
   noSeekOnFirstView: boolean;
+  /** Фаза 2 Task 11 (ФТ-E1): строгий порядок прохождения модулей. */
+  sequentialModules: boolean;
 }
 
 /**
@@ -43,7 +45,8 @@ export function buildProgramMetaPatch(state: ProgramMetaFormState): ProgramMetaP
     videoCompletionPercent: normalizeCompletionPercent(state.videoCompletionPercent),
     // Флаг всегда булев: `null` тут означал бы «сбросить», а сбрасывать нечего —
     // выключенный запрет и есть значение по умолчанию.
-    noSeekOnFirstView: state.noSeekOnFirstView
+    noSeekOnFirstView: state.noSeekOnFirstView,
+    sequentialModules: state.sequentialModules
   };
 }
 

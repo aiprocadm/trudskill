@@ -49,3 +49,39 @@ export const computeModuleLocks = (tree: CourseTree, gate: ModuleGateState): Loc
   }
   return locks;
 };
+
+/**
+ * Строгий порядок модулей (ФТ-E1, Фаза 2 Task 11).
+ *
+ * Клиентский замок — это подсказка, а не защита: настоящий запрет живёт на сервере
+ * (`VideoAccessService.assertSequentialModules`). Здесь мы лишь не даём слушателю
+ * ткнуть в модуль, который всё равно не откроется.
+ *
+ * Запирает только НЕЗАКРЫТЫЕ ОБЯЗАТЕЛЬНЫЕ материалы: необязательную методичку методист
+ * добавляет как справочную, и запирать из-за неё курс нельзя — правило совпадает
+ * с серверным.
+ */
+export interface MaterialCompletionLike {
+  materialId: string;
+  completed: boolean;
+}
+
+export const computeSequentialModuleLocks = (
+  tree: CourseTree,
+  completion: MaterialCompletionLike[]
+): LockState => {
+  const completedIds = new Set(
+    completion.filter((item) => item.completed).map((i) => i.materialId)
+  );
+  const locks: LockState = new Map();
+  const orderedModules = [...tree].sort((a, b) => a.module.sortOrder - b.module.sortOrder);
+  let priorClosed = true;
+  for (const node of orderedModules) {
+    locks.set(node.module.id, priorClosed ? 'unlocked' : 'locked');
+    const unfinishedRequired = node.materials.some(
+      (material) => material.isRequired && !completedIds.has(material.id)
+    );
+    if (unfinishedRequired) priorClosed = false;
+  }
+  return locks;
+};
