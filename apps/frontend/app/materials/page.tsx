@@ -12,6 +12,7 @@ import {
   SectionError
 } from '../../src/components/state-wrappers';
 import { useMaterials } from '../../src/features/mvp/hooks';
+import { VideoUploadSection } from '../../src/features/video-upload/screens';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
 export default function MaterialsHubPage() {
@@ -51,6 +52,7 @@ export default function MaterialsHubPage() {
             />
           ) : null}
         </SectionCard>
+        <VideoUploadSection />
       </PageContainer>
     </ProtectedPage>
   );

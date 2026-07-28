@@ -22,6 +22,22 @@ export interface PresignedDownloadParams {
   expiresInSeconds?: number;
 }
 
+/**
+ * Загрузка по частям (ФТ-B1.1, Фаза 2 Task 2). Видео весит 2–4 ГБ и одним PUT не проходит:
+ * рвётся соединение — и часовая заливка начинается заново. S3 режет файл на части,
+ * каждая подписывается отдельно, а сборка происходит на стороне хранилища.
+ */
+export interface MultipartUploadRef {
+  key: string;
+  uploadId: string;
+}
+
+export interface MultipartPart {
+  partNumber: number;
+  /** ETag части, который вернул S3 в заголовке ответа на PUT. */
+  etag: string;
+}
+
 export interface StorageClient {
   ping(): Promise<StorageReadiness>;
   createPresignedUploadUrl(params: PresignedUploadParams): Promise<string>;
@@ -34,4 +50,21 @@ export interface StorageClient {
   deleteObject(params: { key: string }): Promise<void>;
   /** Lists all object keys under a prefix (paginated). Phase 9: SCORM prefix cleanup. */
   listObjectKeys(params: { prefix: string }): Promise<string[]>;
+  /** Открывает загрузку по частям и возвращает её идентификатор (ФТ-B1.1). */
+  createMultipartUpload(params: { key: string; contentType: string }): Promise<MultipartUploadRef>;
+  /** Подписанный PUT для одной части; номера частей начинаются с 1. */
+  createPresignedPartUrl(params: {
+    key: string;
+    uploadId: string;
+    partNumber: number;
+    expiresInSeconds?: number;
+  }): Promise<string>;
+  /** Склеивает залитые части в объект. Части обязаны идти по возрастанию номера. */
+  completeMultipartUpload(params: {
+    key: string;
+    uploadId: string;
+    parts: MultipartPart[];
+  }): Promise<void>;
+  /** Отменяет незавершённую загрузку — иначе части остаются в хранилище и занимают место. */
+  abortMultipartUpload(params: { key: string; uploadId: string }): Promise<void>;
 }
