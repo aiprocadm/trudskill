@@ -198,9 +198,14 @@ export class VideoService {
       parts
     });
     // multipartUploadId стирается: загрузка закрыта, отменять больше нечего.
+    //
+    // Статус — сразу `ready`, а не `processing`: в self-hosted-ветке обработки пока НЕТ,
+    // оригинал играется как есть (ФТ-B2.1 отдаёт его одним файлом). Держать ассет в
+    // `processing` значило бы, что залитое видео невозможно посмотреть до Task 10.
+    // Когда появится транскодер, он вернёт сюда `processing` и сам переведёт в `ready`.
     return (
       (await this.assets.update(tenantId, assetId, {
-        status: 'processing',
+        status: 'ready',
         multipartUploadId: null
       })) ?? asset
     );

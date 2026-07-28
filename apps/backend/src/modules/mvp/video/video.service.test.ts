@@ -136,7 +136,7 @@ describe('VideoService — части и завершение', () => {
 
     const asset = await service.completeUpload(T, assetId, [{ partNumber: 1, etag: '"a"' }]);
 
-    expect(asset.status).toBe('processing');
+    expect(asset.status).toBe('ready');
     expect(files.completeMultipartUpload).toHaveBeenCalled();
     // Загрузка закрыта — отменять больше нечего.
     expect(asset.multipartUploadId).toBeUndefined();
@@ -149,7 +149,7 @@ describe('VideoService — части и завершение', () => {
 
     const again = await service.completeUpload(T, assetId, [{ partNumber: 1, etag: '"a"' }]);
 
-    expect(again.status).toBe('processing');
+    expect(again.status).toBe('ready');
     expect(files.completeMultipartUpload).toHaveBeenCalledTimes(1);
   });
 

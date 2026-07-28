@@ -77,6 +77,8 @@ import { PostgresVideoAssetsRepository } from './video/postgres-video-assets.rep
 import { PostgresVideoProviderSettingsRepository } from './video/postgres-video-provider-settings.repository.js';
 import { TenantStorageService } from './video/tenant-storage.service.js';
 import { VIDEO_ASSETS_REPOSITORY } from './video/video-assets.repository.js';
+import { VideoPlaybackController } from './video/video-playback.controller.js';
+import { VideoPlaybackService } from './video/video-playback.service.js';
 import { VideoProviderResolver } from './video/video-provider-resolver.service.js';
 import { VIDEO_PROVIDER_SETTINGS_REPOSITORY } from './video/video-provider-settings.repository.js';
 import { VideoProviderSettingsService } from './video/video-provider-settings.service.js';
@@ -105,6 +107,7 @@ import {
   controllers: [
     MvpController,
     VideoController,
+    VideoPlaybackController,
     MvpInternalWorkerController,
     OtRegistryController,
     FrdoRegistryController,
@@ -203,6 +206,9 @@ import {
       useClass: LearnersBulkImportService
     },
     { provide: ScormService, scope: Scope.REQUEST, useClass: ScormService },
+    // Проверка доступа читает состояние тенанта (материалы, модули, зачисления) —
+    // поэтому request-scoped, как ScormService.
+    { provide: VideoPlaybackService, scope: Scope.REQUEST, useClass: VideoPlaybackService },
     // Phase 10 Track C — self-service push subscription CRUD (request-scoped, reads MVP_STATE).
     { provide: PushSubscriptionService, scope: Scope.REQUEST, useClass: PushSubscriptionService },
     {

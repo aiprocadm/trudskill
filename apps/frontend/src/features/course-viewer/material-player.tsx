@@ -1,6 +1,7 @@
 'use client';
 
 import { ExternalLinkViewer } from './external-link-viewer';
+import { HlsVideoPlayer } from './hls-video-player';
 import { PdfViewer } from './pdf-viewer';
 import { TextViewer } from './text-viewer';
 import { VideoPlayer } from './video-player';
@@ -17,7 +18,17 @@ interface Props {
 export const MaterialPlayer = ({ material, onMaterialEnded, enrollmentId }: Props) => {
   switch (material.materialType) {
     case 'video':
-      return <VideoPlayer material={material} videoUrl={null} onEnded={onMaterialEnded} />;
+      // Ссылка на видео выдаётся ПО ЗАЧИСЛЕНИЮ (ФТ-B2.1) — без него показывать нечего.
+      if (!enrollmentId) {
+        return <VideoPlayer material={material} videoUrl={null} onEnded={onMaterialEnded} />;
+      }
+      return (
+        <HlsVideoPlayer
+          material={material}
+          enrollmentId={enrollmentId}
+          onEnded={onMaterialEnded}
+        />
+      );
     case 'file':
       return <PdfViewer material={material} pdfUrl={null} />;
     case 'text':
