@@ -61,6 +61,7 @@ import { ApiClientError } from '../../lib/api/client';
 import { frontendEnv } from '../../lib/config/env';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
+import { LearningJournalSection } from '../learning-journal/screens';
 import { CourseViewerScreen } from '../course-viewer/course-viewer-screen';
 import { useOtTrainingPrograms } from '../gov-export/hooks';
 import { IssueOrderModal } from '../group-orders/issue-order-modal';
@@ -1863,6 +1864,8 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
         <ProgressBar value={averageProgress} />
         <MutationError message={saveError} />
       </SectionCard>
+      {/* ФТ-B3.4: доказательная база на проверке ГИТ/Минтруда. */}
+      <LearningJournalSection groupId={id} />
       <IssueOrderModal
         open={issueOrderOpen}
         groupId={id}
