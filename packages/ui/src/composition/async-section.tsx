@@ -1,4 +1,4 @@
-import { EmptyState, ErrorState, LoadingState } from '../components/states/index';
+import { EmptyState, ErrorState, LoadingState } from '../components/states/index.js';
 
 import type { ReactElement, ReactNode } from 'react';
 

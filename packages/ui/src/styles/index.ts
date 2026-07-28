@@ -1,10 +1,10 @@
-import { chatStyles } from './chat';
-import { courseViewerStyles } from './course-viewer';
-import { formStyles } from './forms';
-import { foundationStyles } from './foundation';
-import { layoutStyles } from './layout';
-import { modalStyles } from './modal';
-import { tableStyles } from './tables';
+import { chatStyles } from './chat.js';
+import { courseViewerStyles } from './course-viewer.js';
+import { formStyles } from './forms.js';
+import { foundationStyles } from './foundation.js';
+import { layoutStyles } from './layout.js';
+import { modalStyles } from './modal.js';
+import { tableStyles } from './tables.js';
 
 export const uiStyleLayers = {
   foundation: foundationStyles,

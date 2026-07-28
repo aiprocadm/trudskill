@@ -1,9 +1,9 @@
-import { AsyncSection } from './async-section';
-import { FilterBar } from '../components/filters/index';
-import { Pagination } from '../components/pagination/index';
-import { DataTable } from '../components/table/index';
+import { AsyncSection } from './async-section.js';
+import { FilterBar } from '../components/filters/index.js';
+import { Pagination } from '../components/pagination/index.js';
+import { DataTable } from '../components/table/index.js';
 
-import type { Column } from '../components/table/index';
+import type { Column } from '../components/table/index.js';
 import type { ReactElement, ReactNode } from 'react';
 
 export interface ListPageProps<T extends object> {

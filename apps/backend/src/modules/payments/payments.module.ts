@@ -130,7 +130,21 @@ import { MvpModule } from '../mvp/mvp.module.js';
         return reg;
       }
     },
-    PaymentProviderResolver
+    // Объявлен фабрикой, а НЕ классом — по той же причине, что и резолвер
+    // вебинаров: у конструктора два последних параметра примитивные
+    // (флаг и режим запуска), и при обычном объявлении Nest ищет в контейнере
+    // Boolean и String, роняя приложение на старте. Под tsx это не проявлялось.
+    {
+      provide: PaymentProviderResolver,
+      useFactory: (registry: PaymentProviderRegistry, settings: PaymentProviderSettingsService) =>
+        new PaymentProviderResolver(
+          registry,
+          settings,
+          backendEnv.PAYMENTS_ENABLED,
+          backendEnv.NODE_ENV
+        ),
+      inject: [PAYMENT_PROVIDER_REGISTRY, PaymentProviderSettingsService]
+    }
   ],
   exports: [PaymentsService, PaymentProviderSettingsService]
 })

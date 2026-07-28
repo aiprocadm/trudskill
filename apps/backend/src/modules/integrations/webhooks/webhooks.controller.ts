@@ -3,6 +3,7 @@ import { Body, Controller, Headers, Inject, Param, Post, UseGuards } from '@nest
 import { CurrentContext } from '../../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../../common/guards/tenant.guard.js';
 import { backendEnv } from '../../../env.js';
+import { WebhookDto } from '../dto/integrations.dto.js';
 import { AdapterResolver } from '../services/adapter-resolver.service.js';
 import { IdempotencyService } from '../services/idempotency.service.js';
 import { IntegrationCryptoService } from '../services/integration-crypto.service.js';
@@ -10,7 +11,7 @@ import { IntegrationOrchestratorService } from '../services/integration-orchestr
 import { WebhookSignatureVerifier } from '../services/webhook-signature-verifier.service.js';
 
 import type { RequestContext } from '../../../common/context/request-context.js';
-import type { WebhookDto } from '../dto/integrations.dto.js';
+// ВАЖНО: значение, а не `import type` — см. пояснение в auth.controller.ts.
 
 @Controller('webhooks')
 @UseGuards(TenantGuard)

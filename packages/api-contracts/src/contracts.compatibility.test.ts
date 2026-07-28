@@ -4,12 +4,12 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { documentsEndpoints } from './domains/documents';
-import { esignEndpoints } from './domains/esign';
-import { notificationsEndpoints } from './domains/notifications';
-import { assessmentEndpoints } from './domains/tests';
-import { ApiErrorCodes, type ErrorEnvelope } from './errors/contracts';
-import { type ResponseMeta } from './meta/contracts';
+import { documentsEndpoints } from './domains/documents.js';
+import { esignEndpoints } from './domains/esign.js';
+import { notificationsEndpoints } from './domains/notifications.js';
+import { assessmentEndpoints } from './domains/tests.js';
+import { ApiErrorCodes, type ErrorEnvelope } from './errors/contracts.js';
+import { type ResponseMeta } from './meta/contracts.js';
 
 function loadGeneratedOpenApi() {
   const currentDir = dirname(fileURLToPath(import.meta.url));

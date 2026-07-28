@@ -1,5 +1,5 @@
-import { statusAccessibleLabel } from './status-label';
-import { semanticStatusMap } from '../../tokens/index';
+import { statusAccessibleLabel } from './status-label.js';
+import { semanticStatusMap } from '../../tokens/index.js';
 
 import type { EntityStatus } from '@trudskill/shared-types';
 import type { ReactElement } from 'react';

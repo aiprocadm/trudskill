@@ -1,4 +1,4 @@
-import type { AsyncTaskStatus } from '../enums/index';
+import type { AsyncTaskStatus } from '../enums/index.js';
 
 export interface AsyncTaskRef {
   id: string;

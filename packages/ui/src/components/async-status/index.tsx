@@ -1,6 +1,6 @@
 import { AsyncTaskStatus } from '@trudskill/shared-types';
 
-import { semanticStatusMap } from '../../tokens';
+import { semanticStatusMap } from '../../tokens/index.js';
 
 import type { ReactElement } from 'react';
 

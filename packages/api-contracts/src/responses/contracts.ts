@@ -1,4 +1,4 @@
-import type { PaginationMeta, ResponseMeta, SortMeta } from '../meta/contracts';
+import type { PaginationMeta, ResponseMeta, SortMeta } from '../meta/contracts.js';
 
 export interface SuccessResponse<TData, TMeta extends object = object> {
   data: TData;
@@ -7,11 +7,12 @@ export interface SuccessResponse<TData, TMeta extends object = object> {
 
 export interface ListResponse<TItem> extends SuccessResponse<TItem[]> {}
 
-export interface PaginatedResponse<TItem>
-  extends SuccessResponse<TItem[], { pagination: PaginationMeta; sort?: SortMeta[] }> {}
+export interface PaginatedResponse<TItem> extends SuccessResponse<
+  TItem[],
+  { pagination: PaginationMeta; sort?: SortMeta[] }
+> {}
 
-export interface AsyncTaskResponse
-  extends SuccessResponse<{
-    task_id: string;
-    status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled';
-  }> {}
+export interface AsyncTaskResponse extends SuccessResponse<{
+  task_id: string;
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled';
+}> {}

@@ -1,5 +1,5 @@
-import type { ISODateString } from '../core/index';
-import type { RequestId } from '../ids/index';
+import type { ISODateString } from '../core/index.js';
+import type { RequestId } from '../ids/index.js';
 
 export interface RequestMeta {
   requestId: RequestId;

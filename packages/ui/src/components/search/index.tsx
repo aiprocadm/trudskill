@@ -1,4 +1,4 @@
-import { VISUALLY_HIDDEN_CLASS, fieldId } from '../../a11y/visually-hidden';
+import { VISUALLY_HIDDEN_CLASS, fieldId } from '../../a11y/visually-hidden.js';
 
 import type { ReactElement } from 'react';
 

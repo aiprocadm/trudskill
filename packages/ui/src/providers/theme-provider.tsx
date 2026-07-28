@@ -10,9 +10,13 @@ import {
   useState
 } from 'react';
 
-import { uiGlobalStyles } from '../styles';
-import { baseVars, darkThemeVars, lightThemeVars } from '../tokens';
-import { UI_THEME_STORAGE_KEY, type UiThemeChoice, UiThemeContextProvider } from './theme-context';
+import {
+  UI_THEME_STORAGE_KEY,
+  type UiThemeChoice,
+  UiThemeContextProvider
+} from './theme-context.js';
+import { uiGlobalStyles } from '../styles/index.js';
+import { baseVars, darkThemeVars, lightThemeVars } from '../tokens/index.js';
 
 // Чистая сборка inline-переменных: базовые токены + переменные выбранной темы.
 // Вынесена из useMemo, чтобы быть тестируемой (конвенция пакета — без RTL).

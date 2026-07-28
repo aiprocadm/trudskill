@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { PageContainer, StatusChip } from './index';
+import { PageContainer, StatusChip } from './index.js';
 
 describe('ui', () => {
   it('exports ui primitives and components', () => {

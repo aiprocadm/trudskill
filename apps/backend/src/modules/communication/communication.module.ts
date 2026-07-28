@@ -93,7 +93,24 @@ import { PostgresMvpPersistenceBackend } from '../mvp/infrastructure/postgres-mv
           ['jitsi', new JitsiWebinarProvider('')]
         ])
     },
-    WebinarProviderResolver,
+    // Объявлен фабрикой, а НЕ классом. У конструктора два последних параметра —
+    // примитивы со значениями по умолчанию (флаг и режим запуска). При обычном
+    // объявлении Nest берёт типы из метаданных и пытается найти в контейнере
+    // Boolean и String, которых там нет: приложение падает на старте с
+    // UnknownDependenciesException. Под tsx это не проявлялось — esbuild
+    // не эмитит метаданные типов, и Nest просто не видел лишние параметры,
+    // поэтому дефекта не замечали, пока не запустили собранный код.
+    {
+      provide: WebinarProviderResolver,
+      useFactory: (registry: WebinarProviderRegistry, settings: WebinarProviderSettingsService) =>
+        new WebinarProviderResolver(
+          registry,
+          settings,
+          backendEnv.WEBINARS_ENABLED,
+          backendEnv.NODE_ENV
+        ),
+      inject: [WEBINAR_PROVIDER_REGISTRY, WebinarProviderSettingsService]
+    },
     ChatService,
     {
       provide: MAILER,
