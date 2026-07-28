@@ -85,6 +85,10 @@ export interface CourseVersion extends BaseEntity {
   commissionId?: string;
   // ОТ-реестр (Минтруд/ЕИСОТ) — program mapping
   otProgramCodes?: string[];
+  /** Фаза 2 Task 6 (ФТ-B3.1): доля ролика для зачёта видео-урока; `null` = умолчание 90%. */
+  videoCompletionPercent?: number | null;
+  /** Фаза 2 Task 7 (ФТ-B3.2): запрет перемотки вперёд при первом просмотре. */
+  noSeekOnFirstView?: boolean | null;
 }
 
 export interface CourseModule extends BaseEntity {
@@ -327,6 +331,10 @@ export interface ProgramMetaPatch {
   commissionId?: string | null;
   // ОТ-реестр (Минтруд/ЕИСОТ) — program mapping
   otProgramCodes?: string[];
+  /** Фаза 2 Task 6 (ФТ-B3.1): доля ролика для зачёта видео-урока; `null` = умолчание 90%. */
+  videoCompletionPercent?: number | null;
+  /** Фаза 2 Task 7 (ФТ-B3.2): запрет перемотки вперёд при первом просмотре. */
+  noSeekOnFirstView?: boolean | null;
 }
 
 export interface CourseDocumentSetEntry {

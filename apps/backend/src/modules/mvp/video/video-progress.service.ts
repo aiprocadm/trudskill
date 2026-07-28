@@ -7,10 +7,12 @@ import {
   type VideoProgressRepository
 } from './video-progress.repository.js';
 import {
+  NO_SEEK_TOLERANCE_SECONDS,
   accumulateRanges,
   completionThreshold,
   coverageRatio,
-  coveredSeconds
+  coveredSeconds,
+  dropSeekedAheadRanges
 } from './video-progress.util.js';
 import { MvpService } from '../mvp.service.js';
 
@@ -43,6 +45,11 @@ export interface VideoProgressResult {
   maxPositionSeconds: number;
   /** Порог зачёта курса в процентах — интерфейсу нужно показать, сколько осталось. */
   requiredPercent: number;
+  /**
+   * ФТ-B3.2: перемотка вперёд запрещена прямо сейчас. Интерфейс по этому полю прячет
+   * возможность мотать; но даже если его проигнорировать, зачёт всё равно даёт сервер.
+   */
+  seekForwardBlocked: boolean;
 }
 
 @Injectable()
@@ -79,18 +86,40 @@ export class VideoProgressService {
     const durationSeconds = assets.find((asset) => asset.status === 'ready')?.durationSeconds;
 
     const stored = await this.progress.find(tenantId, heartbeat.enrollmentId, materialId);
-    const watchedRanges = accumulateRanges(
-      stored?.watchedRanges ?? [],
-      heartbeat.ranges ?? [],
-      durationSeconds
-    );
+    const threshold = completionThreshold(courseVersion.videoCompletionPercent);
+    // ФТ-B3.2: «первый просмотр» — пока материал не набрал порог. Покрытие не уменьшается,
+    // поэтому однажды пройденный урок остаётся свободным для перемотки навсегда.
+    const alreadyCompleted =
+      coverageRatio(stored?.watchedRanges ?? [], durationSeconds) >= threshold;
+    const noSeekActive = Boolean(courseVersion.noSeekOnFirstView) && !alreadyCompleted;
 
-    const position = durationSeconds
+    // Прыжок вперёд не засчитывается: отрезок, начинающийся далеко за досмотренным
+    // максимумом, выбрасывается ДО слияния. Запрет в интерфейсе снимается через
+    // инструменты разработчика за минуту — поэтому решает сервер.
+    const incoming = noSeekActive
+      ? dropSeekedAheadRanges(heartbeat.ranges ?? [], stored?.maxPositionSeconds ?? 0)
+      : (heartbeat.ranges ?? []);
+
+    const watchedRanges = accumulateRanges(stored?.watchedRanges ?? [], incoming, durationSeconds);
+
+    const rawPosition = durationSeconds
       ? Math.min(heartbeat.positionSeconds, durationSeconds)
       : heartbeat.positionSeconds;
-    // Максимум досмотренного только растёт: запоздавший heartbeat не должен снимать
-    // уже заработанное право перематывать (опора антиперемотки, ФТ-B3.2).
-    const maxPositionSeconds = Math.max(stored?.maxPositionSeconds ?? 0, position);
+
+    // Максимум досмотренного считается по ЗАЧТЁННЫМ отрезкам, а не по заявленной позиции:
+    // позиция — это лишь «где стоит плеер», и при прыжке вперёд она врёт. Отрезки уже
+    // прошли антиперемоточный фильтр, поэтому их правый край — честная граница.
+    // Максимум только растёт: запоздавший heartbeat не снимает заработанное право
+    // перематывать (ФТ-B3.2).
+    const watchedEnd = watchedRanges.reduce((max, [, to]) => Math.max(max, to), 0);
+    const maxPositionSeconds = Math.max(stored?.maxPositionSeconds ?? 0, watchedEnd);
+
+    // Позицию возобновления при запрете перемотки не пускаем дальше досмотренного:
+    // иначе после прыжка слушатель вернулся бы в конец ролика (ФТ-B3.3 + ФТ-B3.2).
+    const position =
+      noSeekActive && rawPosition > maxPositionSeconds + NO_SEEK_TOLERANCE_SECONDS
+        ? maxPositionSeconds
+        : rawPosition;
 
     const saved = await this.progress.save(tenantId, heartbeat.enrollmentId, materialId, {
       watchedRanges,
@@ -99,7 +128,6 @@ export class VideoProgressService {
     });
 
     const ratio = coverageRatio(watchedRanges, durationSeconds);
-    const threshold = completionThreshold(courseVersion.videoCompletionPercent);
     const completed = ratio >= threshold;
 
     if (completed) {
@@ -126,7 +154,9 @@ export class VideoProgressService {
       completed,
       lastPositionSeconds: saved.lastPositionSeconds,
       maxPositionSeconds: saved.maxPositionSeconds,
-      requiredPercent: Math.round(threshold * 100)
+      requiredPercent: Math.round(threshold * 100),
+      // После зачёта перемотка свободна — пересматривать пройденное никто не запрещает.
+      seekForwardBlocked: noSeekActive && !completed
     };
   }
 

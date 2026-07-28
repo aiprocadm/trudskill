@@ -16,6 +16,10 @@ export interface ProgramMetaFormState {
   regulatoryBasisCodes: string[];
   commissionId: string;
   otProgramCodes: string[];
+  /** Фаза 2 Task 6 (ФТ-B3.1): доля ролика для зачёта; пусто = умолчание 90%. */
+  videoCompletionPercent: string;
+  /** Фаза 2 Task 7 (ФТ-B3.2): запрет перемотки вперёд при первом просмотре. */
+  noSeekOnFirstView: boolean;
 }
 
 /**
@@ -35,8 +39,19 @@ export function buildProgramMetaPatch(state: ProgramMetaFormState): ProgramMetaP
     finalAssessmentForm: state.finalAssessmentForm || null,
     regulatoryBasisCodes: state.regulatoryBasisCodes,
     commissionId: state.commissionId || null,
-    otProgramCodes: state.otProgramCodes
+    otProgramCodes: state.otProgramCodes,
+    videoCompletionPercent: normalizeCompletionPercent(state.videoCompletionPercent),
+    // Флаг всегда булев: `null` тут означал бы «сбросить», а сбрасывать нечего —
+    // выключенный запрет и есть значение по умолчанию.
+    noSeekOnFirstView: state.noSeekOnFirstView
   };
+}
+
+/** Пустое поле или мусор → `null` (сервер применит умолчание 90%). */
+function normalizeCompletionPercent(raw: string): number | null {
+  const value = Number(raw);
+  if (!raw || !Number.isFinite(value) || value < 1 || value > 100) return null;
+  return Math.round(value);
 }
 
 /**
