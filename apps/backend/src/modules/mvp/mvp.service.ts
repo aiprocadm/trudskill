@@ -13,6 +13,7 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { computeAnalyticsDashboard } from './analytics-dashboard.js';
+import { shuffle } from './assessment/shuffle.util.js';
 import { gradeAnswer } from './assessment-autograde.service.js';
 import { ENROLLMENT_COMPLETED_EVENT } from './enrollment-completed.event.js';
 import { ENROLLMENT_INVITED_EVENT } from './enrollment-invited.event.js';
@@ -3403,8 +3404,9 @@ export class MvpService {
     const questionPool = this.listTestQuestions(tenantId, request.testId).map(
       (item) => item.questionId
     );
-    const ordered = [...questionPool];
-    if (test.rules.randomizeQuestions) ordered.sort(() => Math.random() - 0.5);
+    // ФТ-E2 (Task 12): честный Фишер–Йетс вместо `sort(() => Math.random() - 0.5)` —
+    // тот компаратор несогласован и оставлял вопросы почти на своих местах.
+    const ordered = test.rules.randomizeQuestions ? shuffle(questionPool) : [...questionPool];
     const snapshot = test.rules.questionCount
       ? ordered.slice(0, test.rules.questionCount)
       : ordered;
@@ -5640,7 +5642,7 @@ export class MvpService {
           .map((item) => item.id)
       : [];
     let ids = linked.length ? linked : bankIds;
-    if (test.rules.randomizeQuestions) ids = [...ids].sort(() => Math.random() - 0.5);
+    if (test.rules.randomizeQuestions) ids = shuffle(ids);
     if (test.rules.questionCount && test.rules.questionCount > 0)
       ids = ids.slice(0, test.rules.questionCount);
     return ids;

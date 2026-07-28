@@ -1,6 +1,8 @@
 import { Module, Scope } from '@nestjs/common';
 
 import { backendEnv } from '../../env.js';
+import { ExpiredAttemptsScanner } from './assessment/expired-attempts.scanner.service.js';
+import { ExpiredAttemptsSchedulerService } from './assessment/expired-attempts.scheduler.service.js';
 import { EisotTestingRegistryController } from './eisot-testing-registry/eisot-testing-registry.controller.js';
 import { EisotTestingRegistryService } from './eisot-testing-registry/eisot-testing-registry.service.js';
 import { EisotTestingXlsxWriter } from './eisot-testing-registry/eisot-testing-xlsx.writer.js';
@@ -180,6 +182,9 @@ import {
     RemindersSchedulerService,
     DocumentRevokedEmailListener,
     IdentityRetentionScanner,
+    // ФТ-E2 (Task 12): закрытие истёкших попыток без участия клиента.
+    ExpiredAttemptsScanner,
+    ExpiredAttemptsSchedulerService,
     IdentityRetentionSchedulerService,
     ProctoringRetentionScanner,
     ProctoringRetentionSchedulerService,

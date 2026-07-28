@@ -115,31 +115,53 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
     }
   };
 
-  // Auto-submit exactly once when the timer hits zero.
+  /*
+   * Автосдача ровно один раз, когда таймер дошёл до нуля.
+   *
+   * `handleSubmit` пересоздаётся на каждый рендер, поэтому в зависимостях его держать
+   * нельзя: эффект перезапускался бы постоянно. Держим последнюю версию в ref —
+   * так линтер видит полный список зависимостей, а поведение остаётся прежним.
+   */
+  const handleSubmitRef = useRef(handleSubmit);
+  handleSubmitRef.current = handleSubmit;
+
   useEffect(() => {
     if (remainingMs === null || autoSubmittedRef.current) return;
     if (remainingMs <= 0) {
       autoSubmittedRef.current = true;
-      void handleSubmit();
+      void handleSubmitRef.current();
     }
   }, [remainingMs]);
 
-  // Debounced auto-save of the current question's draft (only if user-modified).
+  /*
+   * Автосохранение черновика текущего вопроса с задержкой.
+   *
+   * В зависимостях намеренно только `current?.id` и `drafts`: добавить сюда `saveAnswer`
+   * (новый объект на каждый рендер) значило бы сбрасывать таймер автосохранения при
+   * каждом ререндере — ответы переставали бы сохраняться вовсе. Мутатор и id попытки
+   * берём из ref'ов: они всегда актуальны, но не участвуют в перезапуске эффекта.
+   */
+  const saveAnswerRef = useRef(saveAnswer);
+  saveAnswerRef.current = saveAnswer;
+  const attemptIdRef = useRef(attemptId);
+  attemptIdRef.current = attemptId;
+
+  const currentId = current?.id;
   useEffect(() => {
-    if (!current) return;
-    if (!dirtyRef.current.has(current.id)) return;
-    const draft = drafts[current.id];
+    if (!currentId) return;
+    if (!dirtyRef.current.has(currentId)) return;
+    const draft = drafts[currentId];
     if (!draft) return;
     const handle = setTimeout(() => {
       const payload: SaveAnswerPayload = {
-        questionId: current.id,
+        questionId: currentId,
         ...(draft.selectedOptionIds ? { selectedOptionIds: draft.selectedOptionIds } : {}),
         ...(draft.textAnswer !== undefined ? { textAnswer: draft.textAnswer } : {})
       };
-      void saveAnswer.mutate(attemptId, payload);
+      void saveAnswerRef.current.mutate(attemptIdRef.current, payload);
     }, AUTOSAVE_DELAY_MS);
     return () => clearTimeout(handle);
-  }, [current?.id, drafts]);
+  }, [currentId, drafts]);
 
   if (attemptLoading || questionsLoading) return <LoadingState />;
   if (attemptError || questionsError || !attempt || !questions) {
