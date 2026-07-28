@@ -51,7 +51,8 @@ describe('video progress api', () => {
         completed: false,
         lastPositionSeconds: 250,
         maxPositionSeconds: 250,
-        requiredPercent: 90
+        requiredPercent: 90,
+        seekForwardBlocked: true
       })
     );
 
@@ -64,6 +65,8 @@ describe('video progress api', () => {
     // «Пройдено» приходит С СЕРВЕРА — клиент это не решает.
     expect(result.completed).toBe(false);
     expect(result.requiredPercent).toBe(90);
+    // ФТ-B3.2: запрет перемотки приходит С СЕРВЕРА, клиент его не выдумывает.
+    expect(result.seekForwardBlocked).toBe(true);
     const [url, init] = fetchMock.mock.calls[0]! as [string, RequestInit];
     expect(url).toContain('/video-materials/mat_1/progress');
     expect(JSON.parse(init.body as string)).toEqual({
@@ -71,6 +74,11 @@ describe('video progress api', () => {
       positionSeconds: 250,
       ranges: [[0, 250]]
     });
+  });
+
+  it('допуск перемотки на клиенте совпадает с серверным — плеер не откатывает зачтённое', async () => {
+    const mod = await import('./video-progress-api');
+    expect(mod.SEEK_TOLERANCE_SECONDS).toBe(60);
   });
 
   it('частота heartbeat — в пределах 10–15 секунд из ТЗ', () => {

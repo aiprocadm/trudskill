@@ -898,6 +898,13 @@ const ProgramMetaSection = ({
   const [otProgramCodes, setOtProgramCodes] = useState<string[]>(
     courseVersion.otProgramCodes ?? []
   );
+  // Фаза 2 Tasks 6/7 — правила видео-уроков курса (ФТ-B3.1/B3.2).
+  const [videoCompletionPercent, setVideoCompletionPercent] = useState<string>(
+    courseVersion.videoCompletionPercent != null ? String(courseVersion.videoCompletionPercent) : ''
+  );
+  const [noSeekOnFirstView, setNoSeekOnFirstView] = useState<boolean>(
+    Boolean(courseVersion.noSeekOnFirstView)
+  );
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -912,6 +919,12 @@ const ProgramMetaSection = ({
     setRegulatoryBasisCodes(courseVersion.regulatoryBasisCodes ?? []);
     setCommissionId(courseVersion.commissionId ?? '');
     setOtProgramCodes(courseVersion.otProgramCodes ?? []);
+    setVideoCompletionPercent(
+      courseVersion.videoCompletionPercent != null
+        ? String(courseVersion.videoCompletionPercent)
+        : ''
+    );
+    setNoSeekOnFirstView(Boolean(courseVersion.noSeekOnFirstView));
   }, [courseVersion]);
 
   // EDIT form pre-populates current values, so we always send every field: a real value
@@ -925,7 +938,9 @@ const ProgramMetaSection = ({
       finalAssessmentForm,
       regulatoryBasisCodes,
       commissionId,
-      otProgramCodes
+      otProgramCodes,
+      videoCompletionPercent,
+      noSeekOnFirstView
     });
 
   const onSave = async () => {
@@ -1068,6 +1083,27 @@ const ProgramMetaSection = ({
               </option>
             ))}
           </select>
+        </label>
+        <label>
+          Зачёт видео-урока, % просмотра
+          <input
+            type="number"
+            min="1"
+            max="100"
+            value={videoCompletionPercent}
+            onChange={(e) => setVideoCompletionPercent(e.target.value)}
+            disabled={readOnly}
+            placeholder="90"
+          />
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={noSeekOnFirstView}
+            onChange={(e) => setNoSeekOnFirstView(e.target.checked)}
+            disabled={readOnly}
+          />
+          Запретить перемотку вперёд при первом просмотре
         </label>
         <label>
           Аттестационная комиссия

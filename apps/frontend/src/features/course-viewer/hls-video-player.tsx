@@ -3,7 +3,12 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { type PlaybackSourceDto, refreshDelayMs, videoPlaybackApi } from './video-playback-api';
-import { PROGRESS_HEARTBEAT_MS, timeRangesToArray, videoProgressApi } from './video-progress-api';
+import {
+  PROGRESS_HEARTBEAT_MS,
+  SEEK_TOLERANCE_SECONDS,
+  timeRangesToArray,
+  videoProgressApi
+} from './video-progress-api';
 import { watermarkLabel } from './video-watermark';
 import { VideoWatermark } from './video-watermark-overlay';
 import { useAuth } from '../auth/context';
@@ -33,6 +38,11 @@ export const HlsVideoPlayer = ({ material, enrollmentId, onEnded }: Props) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [source, setSource] = useState<PlaybackSourceDto | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // ФТ-B3.2: запрет перемотки вперёд приходит С СЕРВЕРА вместе с ответом на heartbeat —
+  // клиент не решает это сам. Здесь только удобство: не давать мотать туда, где всё
+  // равно не зачтётся. Настоящая проверка — на сервере.
+  const [seekBlocked, setSeekBlocked] = useState(false);
+  const watchedLimitRef = useRef(0);
 
   // Берём ссылку и переспрашиваем её до истечения срока.
   useEffect(() => {
@@ -113,6 +123,10 @@ export const HlsVideoPlayer = ({ material, enrollmentId, onEnded }: Props) => {
           positionSeconds: video.currentTime,
           ranges: timeRangesToArray(video.played)
         })
+        .then((result) => {
+          setSeekBlocked(result.seekForwardBlocked);
+          watchedLimitRef.current = result.maxPositionSeconds;
+        })
         .catch(() => {
           // Потерянный heartbeat не должен ломать просмотр: следующий донесёт то же
           // самое, сервер всё равно объединяет отрезки.
@@ -120,6 +134,19 @@ export const HlsVideoPlayer = ({ material, enrollmentId, onEnded }: Props) => {
     }, PROGRESS_HEARTBEAT_MS);
     return () => clearInterval(timer);
   }, [session, source, material.id, enrollmentId]);
+
+  // Возврат плеера назад при попытке мотнуть вперёд. Назад мотать можно всегда:
+  // пересматривать непонятое нормативные курсы не запрещают.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !seekBlocked) return;
+    const onSeeking = () => {
+      const limit = watchedLimitRef.current + SEEK_TOLERANCE_SECONDS;
+      if (video.currentTime > limit) video.currentTime = watchedLimitRef.current;
+    };
+    video.addEventListener('seeking', onSeeking);
+    return () => video.removeEventListener('seeking', onSeeking);
+  }, [seekBlocked]);
 
   if (error) {
     return (
@@ -151,6 +178,11 @@ export const HlsVideoPlayer = ({ material, enrollmentId, onEnded }: Props) => {
         data-testid="video-player"
       />
       {session ? <VideoWatermark label={watermarkLabel(session.user)} /> : null}
+      {seekBlocked ? (
+        <p className="ui-text-muted" data-testid="video-no-seek-hint">
+          В этом курсе перемотка вперёд недоступна до первого полного просмотра.
+        </p>
+      ) : null}
     </div>
   );
 };

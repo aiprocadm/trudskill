@@ -10,6 +10,8 @@ const filled = {
   finalAssessmentForm: 'test' as const,
   regulatoryBasisCodes: ['PP_2464_2022'],
   commissionId: 'commission_1',
+  videoCompletionPercent: '',
+  noSeekOnFirstView: false,
   otProgramCodes: ['OT-1']
 };
 
@@ -32,6 +34,8 @@ describe('buildProgramMetaPatch (clear-vs-keep)', () => {
       finalAssessmentForm: '',
       regulatoryBasisCodes: [],
       commissionId: '',
+      videoCompletionPercent: '',
+      noSeekOnFirstView: false,
       otProgramCodes: []
     });
     expect(patch.academicHours).toBeNull();

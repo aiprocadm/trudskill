@@ -16,7 +16,15 @@ export interface VideoProgressResultDto {
   lastPositionSeconds: number;
   maxPositionSeconds: number;
   requiredPercent: number;
+  /** ФТ-B3.2: сервер сообщает, что перемотка вперёд сейчас не засчитывается. */
+  seekForwardBlocked: boolean;
 }
+
+/**
+ * Тот же допуск, что на сервере (`NO_SEEK_TOLERANCE_SECONDS`): плеер не должен
+ * возвращать слушателя назад там, где сервер зачёл бы просмотр.
+ */
+export const SEEK_TOLERANCE_SECONDS = 60;
 
 /** Как часто шлём heartbeat — середина интервала 10–15 с из ТЗ. */
 export const PROGRESS_HEARTBEAT_MS = 12_000;

@@ -11,6 +11,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
   MinLength,
@@ -1041,6 +1042,18 @@ export class UpdateProgramMetaRequest {
   @IsArray()
   @IsString({ each: true })
   otProgramCodes?: string[];
+
+  /** Фаза 2 Task 6 (ФТ-B3.1): доля ролика для зачёта видео-урока. `null` → умолчание 90%. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  videoCompletionPercent?: number | null;
+
+  /** Фаза 2 Task 7 (ФТ-B3.2): запрет перемотки вперёд при первом просмотре. */
+  @IsOptional()
+  @IsBoolean()
+  noSeekOnFirstView?: boolean | null;
 }
 
 /** Одна строка пакета документов (внутри `PutCourseDocumentSetRequest.entries`). */

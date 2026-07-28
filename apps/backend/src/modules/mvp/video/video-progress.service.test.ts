@@ -19,7 +19,7 @@ const T = 'tenant_demo';
 const CTX = { tenantId: T, userId: 'u1', permissions: [] } as unknown as RequestContext;
 const DURATION = 600; // 10 минут
 
-function makeState(videoCompletionPercent?: number) {
+function makeState(videoCompletionPercent?: number, noSeekOnFirstView?: boolean) {
   return {
     materials: [
       { tenantId: T, id: 'mat_1', moduleId: 'mod_1', materialType: 'video', minViewSeconds: 60 }
@@ -30,7 +30,8 @@ function makeState(videoCompletionPercent?: number) {
         tenantId: T,
         id: 'cv_1',
         courseId: 'course_1',
-        ...(videoCompletionPercent ? { videoCompletionPercent } : {})
+        ...(videoCompletionPercent ? { videoCompletionPercent } : {}),
+        ...(noSeekOnFirstView ? { noSeekOnFirstView } : {})
       }
     ],
     enrollments: [{ tenantId: T, id: 'enr_1', groupId: 'grp_1', learnerId: 'lrn_1' }],
@@ -39,7 +40,11 @@ function makeState(videoCompletionPercent?: number) {
 }
 
 async function makeService(
-  options: { threshold?: number; durationSeconds?: number | undefined } = {}
+  options: {
+    threshold?: number;
+    durationSeconds?: number | undefined;
+    noSeekOnFirstView?: boolean;
+  } = {}
 ) {
   const assets = new InMemoryVideoAssetsRepository();
   await assets.create({
@@ -63,7 +68,10 @@ async function makeService(
     upsertMaterialProgress
   } as unknown as MvpService;
 
-  const access = new VideoAccessService(makeState(options.threshold), mvp);
+  const access = new VideoAccessService(
+    makeState(options.threshold, options.noSeekOnFirstView),
+    mvp
+  );
   const progressRepo = new InMemoryVideoProgressRepository();
   const service = new VideoProgressService(access, assets, progressRepo, mvp);
   return { service, progressRepo, upsertMaterialProgress, assets };
@@ -295,5 +303,106 @@ describe('VideoProgressService — доступ и возобновление', 
       lastPositionSeconds: 0,
       maxPositionSeconds: 0
     });
+  });
+});
+
+describe('VideoProgressService — антиперемотка (ФТ-B3.2)', () => {
+  const jumpToEnd = {
+    enrollmentId: 'enr_1',
+    positionSeconds: 595,
+    ranges: [
+      [0, 60],
+      [540, 600]
+    ]
+  };
+
+  it('ОБХОД ЗАПРОСОМ МИМО ИНТЕРФЕЙСА: прыжок в конец не засчитывается', async () => {
+    const { service, upsertMaterialProgress } = await makeService({ noSeekOnFirstView: true });
+
+    const result = await service.record(T, 'u1', 'mat_1', jumpToEnd, CTX);
+
+    // Засчитана только реально просмотренная минута, кусок «в конце» отброшен.
+    expect(result.coveragePercent).toBe(10);
+    expect(result.completed).toBe(false);
+    expect(upsertMaterialProgress).not.toHaveBeenCalled();
+    // Максимум не подпрыгнул до 595 — иначе одним прыжком открылся бы весь ролик.
+    expect(result.maxPositionSeconds).toBeLessThan(120);
+    expect(result.seekForwardBlocked).toBe(true);
+  });
+
+  it('при выключенном флаге поведение прежнее — прыжок засчитывается', async () => {
+    const { service } = await makeService();
+
+    const result = await service.record(T, 'u1', 'mat_1', jumpToEnd, CTX);
+
+    expect(result.coveragePercent).toBe(20);
+    expect(result.seekForwardBlocked).toBe(false);
+  });
+
+  it('последовательный просмотр с включённым флагом идёт нормально', async () => {
+    const { service } = await makeService({ noSeekOnFirstView: true });
+
+    await service.record(
+      T,
+      'u1',
+      'mat_1',
+      { enrollmentId: 'enr_1', positionSeconds: 120, ranges: [[0, 120]] },
+      CTX
+    );
+    const second = await service.record(
+      T,
+      'u1',
+      'mat_1',
+      { enrollmentId: 'enr_1', positionSeconds: 240, ranges: [[0, 240]] },
+      CTX
+    );
+
+    expect(second.coveragePercent).toBe(40);
+  });
+
+  it('перемотка назад разрешена и при включённом флаге', async () => {
+    const { service } = await makeService({ noSeekOnFirstView: true });
+    await service.record(
+      T,
+      'u1',
+      'mat_1',
+      { enrollmentId: 'enr_1', positionSeconds: 300, ranges: [[0, 300]] },
+      CTX
+    );
+
+    const back = await service.record(
+      T,
+      'u1',
+      'mat_1',
+      { enrollmentId: 'enr_1', positionSeconds: 100, ranges: [[100, 150]] },
+      CTX
+    );
+
+    expect(back.coveragePercent).toBe(50);
+    // Максимум досмотренного при возврате назад не падает.
+    expect(back.maxPositionSeconds).toBe(300);
+  });
+
+  it('после зачёта перемотка свободна — пересматривать пройденное не запрещено', async () => {
+    const { service } = await makeService({ noSeekOnFirstView: true });
+    // Досматриваем честно до порога.
+    await service.record(
+      T,
+      'u1',
+      'mat_1',
+      { enrollmentId: 'enr_1', positionSeconds: 540, ranges: [[0, 540]] },
+      CTX
+    );
+
+    const afterDone = await service.record(
+      T,
+      'u1',
+      'mat_1',
+      { enrollmentId: 'enr_1', positionSeconds: 600, ranges: [[560, 600]] },
+      CTX
+    );
+
+    expect(afterDone.seekForwardBlocked).toBe(false);
+    expect(afterDone.coveragePercent).toBeGreaterThanOrEqual(90);
   });
 });

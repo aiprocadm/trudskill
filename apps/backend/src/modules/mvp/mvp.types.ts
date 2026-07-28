@@ -765,6 +765,12 @@ export interface ProgramMeta {
    * поэтому миграция не нужна.
    */
   videoCompletionPercent?: number;
+  /**
+   * Фаза 2 Task 7 (ФТ-B3.2): запрет перемотки вперёд при ПЕРВОМ просмотре — типовое
+   * требование к нормативным курсам. Выключен по умолчанию: включение задним числом не
+   * должно ломать уже идущие группы. Персистится JSONB-снапшотом (правило 0016).
+   */
+  noSeekOnFirstView?: boolean;
 }
 
 /** Global lookup из lookup.regulatory_acts. Не tenant-scoped, неизменяемый каталог. */

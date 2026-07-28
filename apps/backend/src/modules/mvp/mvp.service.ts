@@ -6280,6 +6280,13 @@ export class MvpService {
     }
     if (request.commissionId !== undefined) cv.commissionId = request.commissionId ?? undefined;
     if (request.otProgramCodes !== undefined) cv.otProgramCodes = request.otProgramCodes;
+    // Фаза 2 Tasks 6/7 — правила видео-уроков курса (ФТ-B3.1/B3.2).
+    if (request.videoCompletionPercent !== undefined) {
+      cv.videoCompletionPercent = request.videoCompletionPercent ?? undefined;
+    }
+    if (request.noSeekOnFirstView !== undefined) {
+      cv.noSeekOnFirstView = request.noSeekOnFirstView ?? undefined;
+    }
     cv.updatedAt = this.now();
 
     this.audit(

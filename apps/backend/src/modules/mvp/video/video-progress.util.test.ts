@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   DEFAULT_COMPLETION_PERCENT,
+  NO_SEEK_TOLERANCE_SECONDS,
   accumulateRanges,
   completionThreshold,
   coverageRatio,
   coveredSeconds,
+  dropSeekedAheadRanges,
   mergeRanges
 } from './video-progress.util.js';
 
@@ -147,5 +149,50 @@ describe('accumulateRanges', () => {
 
   it('пустой heartbeat сохраняет накопленное', () => {
     expect(accumulateRanges([[0, 60]], [])).toEqual([[0, 60]]);
+  });
+});
+
+describe('dropSeekedAheadRanges (ФТ-B3.2)', () => {
+  it('выбрасывает отрезок, до которого слушатель прыгнул', () => {
+    // Досмотрел до 100-й секунды, прыгнул на 3000-ю — новый отрезок далеко впереди.
+    expect(
+      dropSeekedAheadRanges(
+        [
+          [0, 100],
+          [3000, 3060]
+        ],
+        100
+      )
+    ).toEqual([[0, 100]]);
+  });
+
+  it('обычное воспроизведение вперёд не режется', () => {
+    // Между heartbeat-ами позиция уходит вперёд — это продолжение того же отрезка.
+    expect(dropSeekedAheadRanges([[0, 112]], 100)).toEqual([[0, 112]]);
+  });
+
+  it('допуск переживает несколько потерянных heartbeat-ов', () => {
+    // Три потерянных сообщения подряд: 36 секунд вперёд — честный слушатель не наказан.
+    expect(dropSeekedAheadRanges([[100, 136]], 100)).toEqual([[100, 136]]);
+    expect(NO_SEEK_TOLERANCE_SECONDS).toBeGreaterThanOrEqual(36);
+  });
+
+  it('отрезок ровно на границе допуска сохраняется, за границей — нет', () => {
+    expect(dropSeekedAheadRanges([[160, 200]], 100)).toEqual([[160, 200]]);
+    expect(dropSeekedAheadRanges([[161, 200]], 100)).toEqual([]);
+  });
+
+  it('перемотка назад разрешена — пересматривать непонятое не запрещено', () => {
+    expect(dropSeekedAheadRanges([[10, 40]], 100)).toEqual([[10, 40]]);
+  });
+
+  it('мусор пропускается дальше — его отбракует mergeRanges, а не это правило', () => {
+    const garbage = ['сломай', null, [1]];
+    expect(dropSeekedAheadRanges(garbage, 100)).toEqual(garbage);
+  });
+
+  it('с нулевого максимума доступен только старт ролика в пределах допуска', () => {
+    expect(dropSeekedAheadRanges([[0, 30]], 0)).toEqual([[0, 30]]);
+    expect(dropSeekedAheadRanges([[600, 660]], 0)).toEqual([]);
   });
 });

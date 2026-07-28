@@ -97,3 +97,39 @@ export function accumulateRanges(
 ): WatchedRange[] {
   return mergeRanges([...stored, ...incoming], durationSeconds);
 }
+
+/**
+ * Допуск антиперемотки, секунды (ФТ-B3.2).
+ *
+ * Обычное воспроизведение уходит вперёд от засчитанного максимума на интервал между
+ * heartbeat'ами (12 с). Если сообщение потерялось — на два-три интервала. Берём 60 с:
+ * потерянные сообщения не наказывают честного слушателя, а прыжок в конец урока
+ * (минуты и десятки минут) всё равно отсекается.
+ */
+export const NO_SEEK_TOLERANCE_SECONDS = 60;
+
+/**
+ * Отсечение отрезков, до которых слушатель «прыгнул» (ФТ-B3.2).
+ *
+ * Ключ к правилу: `video.played` браузера устроен так, что непрерывное воспроизведение
+ * ПРОДОЛЖАЕТ существующий отрезок (он начинается не позже уже досмотренного максимума),
+ * а перемотка вперёд создаёт НОВЫЙ отрезок, начинающийся далеко впереди. Поэтому
+ * достаточно выбросить отрезки, начинающиеся за пределами «максимум + допуск».
+ *
+ * Правило серверное намеренно: запрет в интерфейсе снимается через инструменты
+ * разработчика за минуту, а зачёт даёт сервер.
+ */
+export function dropSeekedAheadRanges(
+  ranges: readonly unknown[],
+  maxPositionSeconds: number,
+  toleranceSeconds: number = NO_SEEK_TOLERANCE_SECONDS
+): unknown[] {
+  const limit = Math.max(0, maxPositionSeconds) + toleranceSeconds;
+  return ranges.filter((range) => {
+    if (!Array.isArray(range) || range.length !== 2) return true; // мусор отбракует mergeRanges
+    const [from, to] = range as [unknown, unknown];
+    if (typeof from !== 'number' || typeof to !== 'number') return true;
+    // Ориентируемся на начало отрезка: перевёрнутые пары развернёт mergeRanges.
+    return Math.min(from, to) <= limit;
+  });
+}
