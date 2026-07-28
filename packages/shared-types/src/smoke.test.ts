@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { HealthStatus } from './index';
+import type { HealthStatus } from './index.js';
 
 describe('shared-types', () => {
   it('exposes HealthStatus type shape', () => {

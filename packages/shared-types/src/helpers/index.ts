@@ -1,4 +1,4 @@
-import type { TenantId } from '../ids/index';
+import type { TenantId } from '../ids/index.js';
 
 export interface TenantContext {
   tenantId: TenantId;

@@ -1,4 +1,4 @@
-import { fieldId } from '../a11y/visually-hidden';
+import { fieldId } from '../a11y/visually-hidden.js';
 
 import type { ReactElement, ReactNode, SelectHTMLAttributes } from 'react';
 

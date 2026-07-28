@@ -16,8 +16,8 @@ import { CurrentContext } from '../../common/decorators/current-context.decorato
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
 import { PermissionGuard } from '../iam/permission.guard.js';
-
-import type {
+import {
+  // ВАЖНО: значения, а не `import type` — см. пояснение в auth.controller.ts.
   CreateCredentialDto,
   CreateExportTaskDto,
   CreateProviderDto,
@@ -26,6 +26,7 @@ import type {
   UpdateCredentialDto,
   UpdateProviderDto
 } from './dto/integrations.dto.js';
+
 import type { RequestContext } from '../../common/context/request-context.js';
 
 // SECURITY: these controllers were TenantGuard-only — any authenticated tenant user (including a

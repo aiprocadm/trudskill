@@ -1,4 +1,4 @@
-import { StatCard } from '../components/stat-card/index';
+import { StatCard } from '../components/stat-card/index.js';
 
 import type { ReactElement, ReactNode } from 'react';
 

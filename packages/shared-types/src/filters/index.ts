@@ -1,4 +1,4 @@
-import type { ISODateString } from '../core/index';
+import type { ISODateString } from '../core/index.js';
 
 export interface DateRangeFilter {
   from?: ISODateString;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { HealthResponseContract } from './index';
+import type { HealthResponseContract } from './index.js';
 
 describe('api-contracts', () => {
   it('builds health response contract envelope', () => {

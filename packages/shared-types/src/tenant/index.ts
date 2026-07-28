@@ -1,5 +1,5 @@
-import type { ISODateString } from '../core/index';
-import type { TenantId, UserId } from '../ids/index';
+import type { ISODateString } from '../core/index.js';
+import type { TenantId, UserId } from '../ids/index.js';
 
 export interface ActorRef {
   id: UserId;

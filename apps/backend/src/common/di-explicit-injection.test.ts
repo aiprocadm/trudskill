@@ -25,7 +25,13 @@ const SRC = join(dirname(fileURLToPath(import.meta.url)), '..');
 const FACTORY_INSTANTIATED = new Set([
   'clamav-antivirus.scanner.ts',
   'smtp-mailer.service.ts',
-  'email-magic-link-email-sender.ts'
+  'email-magic-link-email-sender.ts',
+  // Последние два параметра конструктора — примитивы со значениями по умолчанию
+  // (флаг и режим запуска). Объявленные классом, они заставляли Nest искать
+  // в контейнере Boolean и String: собранное приложение падало на старте.
+  // Теперь оба создаются фабрикой в своих модулях.
+  'webinar-provider-resolver.service.ts',
+  'payment-provider-resolver.service.ts'
 ]);
 // Types Nest resolves without a provider token / not DI.
 const NON_DI_TYPES = new Set(['Logger', 'Reflector']);

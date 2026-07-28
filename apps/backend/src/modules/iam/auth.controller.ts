@@ -19,15 +19,21 @@ import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import QRCode from 'qrcode';
 
 import { authCookie } from './auth-cookie.util.js';
+// ВАЖНО: значения, а не `import type`. Классы форм используются как тип
+// параметра @Body(), и компилятор кладёт этот тип в метаданные, по которым
+// работает проверка данных. При импорте «только типом» биндинг стирается,
+// в метаданных оказывается Function, и проверка отвергает ЛЮБЫЕ поля
+// («property … should not exist»). Под tsx не проявлялось: esbuild метаданные
+// не эмитит, и проверка просто пропускалась.
 import {
-  type CreateUserDto,
-  type LoginDto,
-  type LogoutDto,
-  type RefreshDto,
-  type SetUserRolesDto,
-  type UpdateUserDto
+  CreateUserDto,
+  LoginDto,
+  LogoutDto,
+  RefreshDto,
+  SetUserRolesDto,
+  UpdateUserDto
 } from './dto/login.dto.js';
-import { type MagicLinkRedeemDto, type MagicLinkRequestDto } from './dto/magic-link.dto.js';
+import { MagicLinkRedeemDto, MagicLinkRequestDto } from './dto/magic-link.dto.js';
 import { TotpCodeDto, TotpVerifyDto } from './dto/totp.dto.js';
 import { toSessionResponse } from './iam-response.mapper.js';
 import { RequirePermissions } from './permission.decorator.js';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createTestTenant, createTestUser } from './index';
+import { createTestTenant, createTestUser } from './index.js';
 
 describe('test-utils', () => {
   it('creates tenant and user fixtures', () => {

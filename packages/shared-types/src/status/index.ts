@@ -1,4 +1,4 @@
-import type { ISODateString } from '../core/index';
+import type { ISODateString } from '../core/index.js';
 
 export interface StatusModel<TStatus extends string = string> {
   status: TStatus;
@@ -11,4 +11,4 @@ export interface LifecycleState {
   isArchived: boolean;
 }
 
-export * from './health';
+export * from './health.js';

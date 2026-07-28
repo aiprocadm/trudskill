@@ -34,6 +34,19 @@ const nextConfig: NextConfig = {
     return [
       { source: '/api/v1/scorm-content/:path*', destination: `${apiBase}/scorm-content/:path*` }
     ];
+  },
+  // Пакеты воркспейса объявлены как ESM и их относительные импорты несут расширение
+  // `.js` — иначе собранный код не запускается под Node (см. packages/*/src). Сюда же
+  // они попадают ИСХОДНИКАМИ (`.ts`) через алиасы tsconfig, поэтому сборщику нужно
+  // разрешить искать `./x.ts` по запросу `./x.js`. Без этого сборка падает с
+  // «Module not found: Can't resolve './common/contracts.js'».
+  webpack(config) {
+    config.resolve.extensionAlias = {
+      ...config.resolve.extensionAlias,
+      '.js': ['.ts', '.tsx', '.js'],
+      '.jsx': ['.tsx', '.jsx']
+    };
+    return config;
   }
 };
 

@@ -3,7 +3,9 @@ import {
   type CanActivate,
   type ExecutionContext,
   HttpException,
+  Inject,
   Injectable,
+  Optional,
   UnauthorizedException
 } from '@nestjs/common';
 
@@ -13,7 +15,19 @@ import { resolveRequestContext } from '../utils/request.js';
 
 @Injectable()
 export class TenantGuard implements CanActivate {
-  constructor(private readonly secretsService = new SecretsService()) {}
+  // @Inject — по правилу репозитория (см. di-explicit-injection.test.ts): под tsx
+  // метаданные типов не эмитятся, поэтому внедрение «по типу» там не работает.
+  //
+  // @Optional — потому что SecretsService объявлен в InfrastructureModule и НЕ
+  // глобален, а охранник применяется и в модулях, которые этот модуль не
+  // импортируют. Без @Optional собранное приложение падало на старте
+  // с UnknownDependenciesException. Теперь: есть в контейнере — берём оттуда,
+  // нет — срабатывает значение по умолчанию, как и раньше.
+  constructor(
+    @Optional()
+    @Inject(SecretsService)
+    private readonly secretsService: SecretsService = new SecretsService()
+  ) {}
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
