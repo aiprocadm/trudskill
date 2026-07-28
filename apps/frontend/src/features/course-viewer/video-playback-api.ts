@@ -15,6 +15,8 @@ export interface PlaybackSourceDto {
   kind: 'hls' | 'progressive';
   expiresInSeconds: number;
   durationSeconds?: number;
+  /** ФТ-B3.3: секунда, с которой продолжить просмотр. 0 — урок ещё не открывали. */
+  lastPositionSeconds: number;
 }
 
 export const videoPlaybackApi = {
