@@ -75,6 +75,7 @@ import { InMemoryVideoAssetsRepository } from './video/in-memory-video-assets.re
 import { InMemoryVideoProviderSettingsRepository } from './video/in-memory-video-provider-settings.repository.js';
 import { PostgresVideoAssetsRepository } from './video/postgres-video-assets.repository.js';
 import { PostgresVideoProviderSettingsRepository } from './video/postgres-video-provider-settings.repository.js';
+import { TenantStorageService } from './video/tenant-storage.service.js';
 import { VIDEO_ASSETS_REPOSITORY } from './video/video-assets.repository.js';
 import { VideoProviderResolver } from './video/video-provider-resolver.service.js';
 import { VIDEO_PROVIDER_SETTINGS_REPOSITORY } from './video/video-provider-settings.repository.js';
@@ -149,6 +150,7 @@ import {
           : new PostgresVideoAssetsRepository(db),
       inject: [DatabaseService]
     },
+    TenantStorageService,
     VideoService,
     MvpBulkEnqueueService,
     PostgresMvpPersistenceBackend,

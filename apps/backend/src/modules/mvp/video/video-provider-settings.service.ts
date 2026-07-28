@@ -26,10 +26,7 @@ export class VideoProviderSettingsService {
     };
   }
 
-  async save(
-    tenantId: string,
-    input: VideoProviderSettingsInput
-  ): Promise<VideoProviderSettings> {
+  async save(tenantId: string, input: VideoProviderSettingsInput): Promise<VideoProviderSettings> {
     return this.repo.upsert(tenantId, input);
   }
 }

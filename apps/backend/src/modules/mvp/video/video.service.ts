@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 
+import { StorageLimitExceededError, TenantStorageService } from './tenant-storage.service.js';
 import {
   VIDEO_ASSETS_REPOSITORY,
   type VideoAssetRow,
@@ -51,7 +52,8 @@ export class VideoService {
   constructor(
     @Inject(VIDEO_ASSETS_REPOSITORY) private readonly assets: VideoAssetsRepository,
     @Inject(VideoProviderResolver) private readonly providers: VideoProviderResolver,
-    @Inject(FilesService) private readonly files: FilesService
+    @Inject(FilesService) private readonly files: FilesService,
+    @Inject(TenantStorageService) private readonly storage: TenantStorageService
   ) {}
 
   async createAsset(
@@ -75,6 +77,17 @@ export class VideoService {
         code: 'file_too_large',
         message: 'Файл больше 4 ГБ — такой ролик нужно разрезать на части'
       });
+    }
+
+    // ФТ-B1.3: место проверяем ДО создания ассета и до любой заливки — иначе методист
+    // узнал бы о переполнении после часа загрузки четырёхгигабайтного ролика.
+    try {
+      await this.storage.assertFits(tenantId, input.sizeBytes);
+    } catch (error) {
+      if (error instanceof StorageLimitExceededError) {
+        throw new BadRequestException({ code: 'storage_limit_exceeded', message: error.message });
+      }
+      throw error;
     }
 
     const assetId = `vasset_${randomUUID()}`;
@@ -232,7 +245,17 @@ export class VideoService {
         // Хранилище могло само вычистить брошенную загрузку — это не повод не дать удалить ассет.
         .catch(() => undefined);
     }
+    // ФТ-B1.3: без удаления файла место осталось бы занятым — строка в storage.files
+    // переживает ассет, и счётчик продолжал бы её считать.
+    if (asset.fileId) {
+      await this.files.deleteFile(tenantId, asset.fileId).catch(() => undefined);
+    }
     await this.assets.delete(tenantId, assetId);
+  }
+
+  /** Сколько места занято и сколько осталось (ФТ-B1.3) — для интерфейса загрузки. */
+  async getStorageUsage(tenantId: string) {
+    return this.storage.getUsage(tenantId);
   }
 
   /** Пометить ассет упавшим с человекочитаемой причиной (ФТ-A1.5-подход: текст, а не код). */

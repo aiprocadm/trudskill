@@ -8,6 +8,7 @@ import {
   VIDEO_MIME_TYPES,
   type UploadProgress,
   type VideoAssetDto,
+  formatBytes,
   uploadVideoFile,
   videoApi
 } from './api';
@@ -56,12 +57,18 @@ export function VideoUploadSection() {
     enabled: Boolean(session && materialId),
     queryFn: async () => {
       const result = await videoApi.listByMaterial(session!, materialId);
-      setPolling(
-        result.items.some((item) => item.status !== 'ready' && item.status !== 'failed')
-      );
+      setPolling(result.items.some((item) => item.status !== 'ready' && item.status !== 'failed'));
       return result;
     },
     ...(polling ? { refetchInterval: 5000 } : {})
+  });
+
+  // ФТ-B1.3: остаток места виден ДО выбора файла — иначе методист узнает о лимите
+  // после часа заливки четырёхгигабайтного ролика.
+  const storageQuery = useQuery({
+    queryKey: ['video-storage', session?.user.id],
+    enabled: Boolean(session),
+    queryFn: () => videoApi.storage(session!)
   });
 
   const upload = async (file: File) => {
@@ -76,6 +83,8 @@ export function VideoUploadSection() {
         await videoApi.attach(session, assetId, materialId);
         await queryClient.invalidateQueries({ queryKey: ['video-assets'] });
       }
+      // Место изменилось — обновляем счётчик, иначе он врёт до перезагрузки страницы.
+      await queryClient.invalidateQueries({ queryKey: ['video-storage'] });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось загрузить видео');
     } finally {
@@ -92,6 +101,16 @@ export function VideoUploadSection() {
         Поддерживаются MP4, MOV, MKV и WebM до 4 ГБ. После загрузки видео обрабатывается — это
         занимает время, статус обновляется сам.
       </p>
+
+      {storageQuery.data ? (
+        <p data-testid="video-storage-usage">
+          {storageQuery.data.limitBytes === null
+            ? `Занято в хранилище: ${formatBytes(storageQuery.data.usedBytes)} (лимит не задан)`
+            : `Занято ${formatBytes(storageQuery.data.usedBytes)} из ${formatBytes(
+                storageQuery.data.limitBytes
+              )}, свободно ${formatBytes(storageQuery.data.remainingBytes ?? 0)}`}
+        </p>
+      ) : null}
 
       <div className="ui-inline">
         <label>
@@ -151,7 +170,10 @@ export function VideoUploadSection() {
             onClick={() =>
               void videoApi
                 .remove(session!, item.id)
-                .then(() => queryClient.invalidateQueries({ queryKey: ['video-assets'] }))
+                .then(async () => {
+                  await queryClient.invalidateQueries({ queryKey: ['video-assets'] });
+                  await queryClient.invalidateQueries({ queryKey: ['video-storage'] });
+                })
                 .catch((err: unknown) =>
                   setError(err instanceof Error ? err.message : 'Не удалось удалить видео')
                 )

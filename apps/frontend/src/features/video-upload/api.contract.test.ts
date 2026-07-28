@@ -1,6 +1,10 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import type { uploadVideoFile as UploadVideoFile, videoApi as VideoApi } from './api';
+import type {
+  formatBytes as FormatBytes,
+  uploadVideoFile as UploadVideoFile,
+  videoApi as VideoApi
+} from './api';
 import type { UserSession } from '../../entities/session/model';
 
 const session = {
@@ -12,6 +16,7 @@ describe('video upload api contract (ФТ-B1.1)', () => {
   const fetchMock = vi.fn();
   let videoApi: typeof VideoApi;
   let uploadVideoFile: typeof UploadVideoFile;
+  let formatBytes: typeof FormatBytes;
 
   const envelope = (data: unknown) =>
     new Response(
@@ -22,8 +27,7 @@ describe('video upload api contract (ФТ-B1.1)', () => {
       { status: 200, headers: { 'content-type': 'application/json' } }
     );
 
-  const partOk = (etag: string) =>
-    new Response(null, { status: 200, headers: { ETag: etag } });
+  const partOk = (etag: string) => new Response(null, { status: 200, headers: { ETag: etag } });
 
   beforeAll(async () => {
     process.env.NEXT_PUBLIC_API_BASE_URL ??= 'http://localhost:3001/api/v1';
@@ -32,6 +36,7 @@ describe('video upload api contract (ФТ-B1.1)', () => {
     const mod = await import('./api');
     videoApi = mod.videoApi;
     uploadVideoFile = mod.uploadVideoFile;
+    formatBytes = mod.formatBytes;
   });
 
   afterEach(() => {
@@ -143,9 +148,7 @@ describe('video upload api contract (ФТ-B1.1)', () => {
   it('не-видео и слишком большой файл отсекаются до обращения к серверу', async () => {
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(uploadVideoFile(session, videoFile(4, 'application/pdf'))).rejects.toThrow(
-      /MP4/
-    );
+    await expect(uploadVideoFile(session, videoFile(4, 'application/pdf'))).rejects.toThrow(/MP4/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -165,5 +168,28 @@ describe('video upload api contract (ФТ-B1.1)', () => {
     await videoApi.remove(session, 'v1');
     const [, removeInit] = fetchMock.mock.calls[1]! as [string, RequestInit];
     expect(removeInit.method).toBe('DELETE');
+  });
+
+  it('storage отдаёт занятое место и остаток (ФТ-B1.3)', async () => {
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock.mockResolvedValueOnce(
+      envelope({
+        usedBytes: 3 * 1024 ** 3,
+        limitBytes: 10 * 1024 ** 3,
+        remainingBytes: 7 * 1024 ** 3
+      })
+    );
+
+    const usage = await videoApi.storage(session);
+
+    expect(usage.remainingBytes).toBe(7 * 1024 ** 3);
+    const [url] = fetchMock.mock.calls[0]! as [string, RequestInit];
+    expect(url).toContain('/video-assets/storage');
+  });
+
+  it('formatBytes показывает гигабайты, а не голые числа', () => {
+    expect(formatBytes(2.5 * 1024 ** 3)).toBe('2.5 ГБ');
+    expect(formatBytes(700 * 1024 ** 2)).toBe('700 МБ');
+    expect(formatBytes(10)).toBe('1 КБ');
   });
 });

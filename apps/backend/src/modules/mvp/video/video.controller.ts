@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Inject, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Inject,
+  Param,
+  Post,
+  Query,
+  UseGuards
+} from '@nestjs/common';
 import { Type } from 'class-transformer';
 import {
   IsArray,
@@ -129,6 +139,17 @@ export class VideoController {
     return this.video
       .listByMaterial(c.tenantId!, materialId)
       .then((items) => ({ items, total: items.length }));
+  }
+
+  /**
+   * Остаток места (ФТ-B1.3). Маршрут объявлен ДО `:id` — иначе Nest примет «storage»
+   * за идентификатор ассета и отдаст 404.
+   */
+  @Get('storage')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('video.read')
+  storage(@CurrentContext() c: RequestContext) {
+    return this.video.getStorageUsage(c.tenantId!);
   }
 
   @Get(':id')
