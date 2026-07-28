@@ -1,10 +1,14 @@
 import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   ListBucketsCommand,
   ListObjectsV2Command,
   PutObjectCommand,
-  S3Client
+  S3Client,
+  UploadPartCommand
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Injectable } from '@nestjs/common';
@@ -12,6 +16,8 @@ import { Injectable } from '@nestjs/common';
 import { backendEnv } from '../../env.js';
 
 import type {
+  MultipartPart,
+  MultipartUploadRef,
   PresignedDownloadParams,
   PresignedUploadParams,
   StorageClient,
@@ -114,6 +120,74 @@ export class S3StorageClient implements StorageClient {
       continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
     } while (continuationToken);
     return keys;
+  }
+
+  /**
+   * Загрузка по частям (ФТ-B1.1). Видео 2–4 ГБ одним PUT не проходит, а обрыв на середине
+   * часовой заливки означал бы «начни сначала»; здесь заново шлётся только упавшая часть.
+   */
+  async createMultipartUpload(params: {
+    key: string;
+    contentType: string;
+  }): Promise<MultipartUploadRef> {
+    const response = await this.getClient().send(
+      new CreateMultipartUploadCommand({
+        Bucket: backendEnv.S3_BUCKET,
+        Key: params.key,
+        ContentType: params.contentType
+      })
+    );
+    if (!response.UploadId) {
+      throw new Error('S3 did not return an UploadId for the multipart upload');
+    }
+    return { key: params.key, uploadId: response.UploadId };
+  }
+
+  async createPresignedPartUrl(params: {
+    key: string;
+    uploadId: string;
+    partNumber: number;
+    expiresInSeconds?: number;
+  }): Promise<string> {
+    const command = new UploadPartCommand({
+      Bucket: backendEnv.S3_BUCKET,
+      Key: params.key,
+      UploadId: params.uploadId,
+      PartNumber: params.partNumber
+    });
+    return getSignedUrl(this.getClient(), command, {
+      expiresIn: params.expiresInSeconds ?? 900
+    });
+  }
+
+  async completeMultipartUpload(params: {
+    key: string;
+    uploadId: string;
+    parts: MultipartPart[];
+  }): Promise<void> {
+    await this.getClient().send(
+      new CompleteMultipartUploadCommand({
+        Bucket: backendEnv.S3_BUCKET,
+        Key: params.key,
+        UploadId: params.uploadId,
+        MultipartUpload: {
+          // S3 требует строго возрастающий порядок номеров — клиент может прислать вразнобой.
+          Parts: [...params.parts]
+            .sort((a, b) => a.partNumber - b.partNumber)
+            .map((part) => ({ PartNumber: part.partNumber, ETag: part.etag }))
+        }
+      })
+    );
+  }
+
+  async abortMultipartUpload(params: { key: string; uploadId: string }): Promise<void> {
+    await this.getClient().send(
+      new AbortMultipartUploadCommand({
+        Bucket: backendEnv.S3_BUCKET,
+        Key: params.key,
+        UploadId: params.uploadId
+      })
+    );
   }
 
   private getClient(): S3Client {

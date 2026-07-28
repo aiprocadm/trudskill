@@ -68,3 +68,64 @@ describe('S3StorageClient.listObjectKeys', () => {
     expect(keys).toEqual([]);
   });
 });
+
+/** Загрузка по частям (ФТ-B1.1, Фаза 2 Task 2) — видео 2–4 ГБ одним PUT не проходит. */
+describe('S3StorageClient — multipart', () => {
+  const withSend = (result: unknown) => {
+    const send = vi.fn().mockResolvedValue(result);
+    const client = new S3StorageClient();
+    (client as unknown as { client: { send: typeof send } }).client = { send } as never;
+    return { client, send };
+  };
+
+  it('createMultipartUpload возвращает UploadId', async () => {
+    const { client, send } = withSend({ UploadId: 'upl_1' });
+
+    const ref = await client.createMultipartUpload({
+      key: 'video/t/lesson.mp4',
+      contentType: 'video/mp4'
+    });
+
+    expect(ref).toEqual({ key: 'video/t/lesson.mp4', uploadId: 'upl_1' });
+    const [command] = send.mock.calls[0] as [{ input: Record<string, unknown> }];
+    expect(command.input).toMatchObject({ Key: 'video/t/lesson.mp4', ContentType: 'video/mp4' });
+  });
+
+  it('S3 без UploadId — падаем сразу, а не отдаём наверх пустоту', async () => {
+    const { client } = withSend({});
+    await expect(
+      client.createMultipartUpload({ key: 'k', contentType: 'video/mp4' })
+    ).rejects.toThrow(/UploadId/);
+  });
+
+  it('completeMultipartUpload сортирует части по номеру — S3 требует возрастания', async () => {
+    const { client, send } = withSend({});
+
+    await client.completeMultipartUpload({
+      key: 'video/t/lesson.mp4',
+      uploadId: 'upl_1',
+      // Клиент прислал вразнобой: части заливаются параллельно и финишируют как придётся.
+      parts: [
+        { partNumber: 3, etag: '"c"' },
+        { partNumber: 1, etag: '"a"' },
+        { partNumber: 2, etag: '"b"' }
+      ]
+    });
+
+    const [command] = send.mock.calls[0] as [{ input: { MultipartUpload: { Parts: unknown[] } } }];
+    expect(command.input.MultipartUpload.Parts).toEqual([
+      { PartNumber: 1, ETag: '"a"' },
+      { PartNumber: 2, ETag: '"b"' },
+      { PartNumber: 3, ETag: '"c"' }
+    ]);
+  });
+
+  it('abortMultipartUpload шлёт команду отмены', async () => {
+    const { client, send } = withSend({});
+
+    await client.abortMultipartUpload({ key: 'video/t/lesson.mp4', uploadId: 'upl_1' });
+
+    const [command] = send.mock.calls[0] as [{ input: Record<string, unknown> }];
+    expect(command.input).toMatchObject({ Key: 'video/t/lesson.mp4', UploadId: 'upl_1' });
+  });
+});

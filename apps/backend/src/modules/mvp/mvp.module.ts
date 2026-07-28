@@ -71,11 +71,16 @@ import { FilesModule } from '../files/files.module.js';
 import { IamModule } from '../iam/iam.module.js';
 import { OrgModule } from '../org/org.module.js';
 import { TenantModule } from '../tenant/tenant.module.js';
+import { InMemoryVideoAssetsRepository } from './video/in-memory-video-assets.repository.js';
 import { InMemoryVideoProviderSettingsRepository } from './video/in-memory-video-provider-settings.repository.js';
+import { PostgresVideoAssetsRepository } from './video/postgres-video-assets.repository.js';
 import { PostgresVideoProviderSettingsRepository } from './video/postgres-video-provider-settings.repository.js';
+import { VIDEO_ASSETS_REPOSITORY } from './video/video-assets.repository.js';
 import { VideoProviderResolver } from './video/video-provider-resolver.service.js';
 import { VIDEO_PROVIDER_SETTINGS_REPOSITORY } from './video/video-provider-settings.repository.js';
 import { VideoProviderSettingsService } from './video/video-provider-settings.service.js';
+import { VideoController } from './video/video.controller.js';
+import { VideoService } from './video/video.service.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import { FakeVideoProvider } from '../../infrastructure/video-provider/fake-video.provider.js';
 import {
@@ -98,6 +103,7 @@ import {
   ],
   controllers: [
     MvpController,
+    VideoController,
     MvpInternalWorkerController,
     OtRegistryController,
     FrdoRegistryController,
@@ -133,6 +139,17 @@ import {
         ])
     },
     VideoProviderResolver,
+    // Фаза 2 Task 2 (ФТ-B1.1) — загрузка видео методистом.
+    PostgresVideoAssetsRepository,
+    {
+      provide: VIDEO_ASSETS_REPOSITORY,
+      useFactory: (db: DatabaseService) =>
+        backendEnv.ALLOW_IN_MEMORY_STATE
+          ? new InMemoryVideoAssetsRepository()
+          : new PostgresVideoAssetsRepository(db),
+      inject: [DatabaseService]
+    },
+    VideoService,
     MvpBulkEnqueueService,
     PostgresMvpPersistenceBackend,
     PostgresRecertificationDraftsRepository,

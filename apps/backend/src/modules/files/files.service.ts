@@ -15,6 +15,7 @@ import type {
   AntivirusScanner,
   AntivirusVerdict
 } from '../../infrastructure/antivirus/antivirus.scanner.js';
+import type { MultipartPart } from '../../infrastructure/storage/storage.client.js';
 import type { PoolClient } from 'pg';
 
 export interface FileMetadata {
@@ -61,6 +62,23 @@ export interface UploadIntent {
   uploadUrl: string;
   storageKey: string;
   expiresInSeconds: number;
+}
+
+/**
+ * Размер части при загрузке по частям (ФТ-B1.1, Фаза 2 Task 2) — 32 МБ.
+ * S3 требует не меньше 5 МБ на часть (кроме последней) и не больше 10 000 частей:
+ * при 32 МБ потолок — 312 ГБ, с огромным запасом к требуемым ТЗ 2–4 ГБ, а повторная
+ * отправка упавшей части остаётся дешёвой.
+ */
+export const MULTIPART_PART_SIZE_BYTES = 32 * 1024 * 1024;
+const S3_MAX_PARTS = 10_000;
+
+export interface MultipartUploadIntent {
+  fileId: string;
+  storageKey: string;
+  uploadId: string;
+  partSizeBytes: number;
+  partCount: number;
 }
 
 @Injectable()
@@ -171,6 +189,107 @@ export class FilesService {
       contentLength: input.sizeBytes
     });
     return { fileId: file.id, uploadUrl, storageKey, expiresInSeconds: UPLOAD_URL_TTL_SECONDS };
+  }
+
+  /**
+   * Интент загрузки по частям (ФТ-B1.1) — для файлов, которые не проходят одним PUT.
+   * Файл регистрируется в `storage.files` ровно так же, как обычная загрузка, поэтому
+   * антивирусный гейт (ФТ-G5) работает без единой строчки дополнительного кода.
+   */
+  async createMultipartUploadIntent(
+    tenantId: string,
+    input: UploadIntentInput,
+    options?: UploadIntentOptions
+  ): Promise<MultipartUploadIntent> {
+    const allowlist = options?.mimeAllowlist ?? SUBMISSION_MIME_ALLOWLIST;
+    if (!allowlist.has(input.contentType)) {
+      throw new BadRequestException({
+        code: 'unsupported_media_type',
+        message: 'File type is not allowed'
+      });
+    }
+    const maxBytes = options?.maxBytes ?? SUBMISSION_MAX_BYTES;
+    if (input.sizeBytes <= 0 || input.sizeBytes > maxBytes) {
+      throw new BadRequestException({
+        code: 'file_too_large',
+        message: 'File exceeds the allowed size'
+      });
+    }
+    const partCount = Math.ceil(input.sizeBytes / MULTIPART_PART_SIZE_BYTES);
+    if (partCount > S3_MAX_PARTS) {
+      throw new BadRequestException({
+        code: 'file_too_large',
+        message: 'File exceeds the maximum number of upload parts'
+      });
+    }
+    const prefix = options?.keyPrefix ?? 'submissions';
+    const safeName = input.originalName.replace(/[^\w.\-]+/g, '_').slice(-80);
+    const storageKey = `${prefix}/${tenantId}/${this.uploadId()}_${safeName}`;
+    const file = await this.register({
+      tenantId,
+      storageKey,
+      originalName: input.originalName,
+      mimeType: input.contentType,
+      sizeBytes: input.sizeBytes
+    });
+    const upload = await this.storage.createMultipartUpload({
+      key: storageKey,
+      contentType: input.contentType
+    });
+    return {
+      fileId: file.id,
+      storageKey,
+      uploadId: upload.uploadId,
+      partSizeBytes: MULTIPART_PART_SIZE_BYTES,
+      partCount
+    };
+  }
+
+  /** Подписанный PUT одной части. Номера частей — от 1 до `partCount` включительно. */
+  async createPartUploadUrl(params: {
+    storageKey: string;
+    uploadId: string;
+    partNumber: number;
+  }): Promise<{ uploadUrl: string; expiresInSeconds: number }> {
+    if (!Number.isInteger(params.partNumber) || params.partNumber < 1) {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'partNumber must be a positive integer'
+      });
+    }
+    const uploadUrl = await this.storage.createPresignedPartUrl({
+      key: params.storageKey,
+      uploadId: params.uploadId,
+      partNumber: params.partNumber,
+      expiresInSeconds: UPLOAD_URL_TTL_SECONDS
+    });
+    return { uploadUrl, expiresInSeconds: UPLOAD_URL_TTL_SECONDS };
+  }
+
+  async completeMultipartUpload(params: {
+    storageKey: string;
+    uploadId: string;
+    parts: MultipartPart[];
+  }): Promise<void> {
+    if (!params.parts.length) {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'parts must not be empty'
+      });
+    }
+    await this.storage.completeMultipartUpload({
+      key: params.storageKey,
+      uploadId: params.uploadId,
+      parts: params.parts
+    });
+  }
+
+  /** Отмена: без неё залитые части остаются в хранилище и молча занимают место. */
+  async abortMultipartUpload(params: { storageKey: string; uploadId: string }): Promise<void> {
+    await this.storage.abortMultipartUpload({
+      key: params.storageKey,
+      uploadId: params.uploadId
+    });
   }
 
   async createDownloadUrl(tenantId: string, fileId: string): Promise<string> {
