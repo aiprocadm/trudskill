@@ -9,7 +9,23 @@ import { AdapterResolver } from '../services/adapter-resolver.service.js';
 import { ProviderRegistry } from '../services/provider-registry.service.js';
 
 @Module({
-  providers: [ProviderRegistry, AdapterResolver, FrdoAdapter, EisotAdapter, EmailAdapter, WebinarAdapter, ProctoringAdapter],
-  exports: [ProviderRegistry, AdapterResolver, FrdoAdapter, EisotAdapter, EmailAdapter, WebinarAdapter, ProctoringAdapter]
+  providers: [
+    ProviderRegistry,
+    AdapterResolver,
+    FrdoAdapter,
+    EisotAdapter,
+    EmailAdapter,
+    WebinarAdapter,
+    ProctoringAdapter
+  ],
+  exports: [
+    ProviderRegistry,
+    AdapterResolver,
+    FrdoAdapter,
+    EisotAdapter,
+    EmailAdapter,
+    WebinarAdapter,
+    ProctoringAdapter
+  ]
 })
 export class ProvidersModule {}

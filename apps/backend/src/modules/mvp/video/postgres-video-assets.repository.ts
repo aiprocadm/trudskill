@@ -96,6 +96,14 @@ export class PostgresVideoAssetsRepository implements VideoAssetsRepository {
     return rows.map(toRow);
   }
 
+  async findByProviderAssetId(providerAssetId: string): Promise<VideoAssetRow | null> {
+    const rows = await this.db.query<Row>(
+      `select ${SELECT_COLUMNS} from learning.video_assets where provider_asset_id = $1`,
+      [providerAssetId]
+    );
+    return rows[0] ? toRow(rows[0]) : null;
+  }
+
   async update(
     tenantId: string,
     id: string,

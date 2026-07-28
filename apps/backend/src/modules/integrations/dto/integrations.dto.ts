@@ -15,7 +15,8 @@ export class ListQueryDto {
 export class CreateProviderDto {
   @IsString() code!: string;
   @IsString() name!: string;
-  @IsIn(['frdo', 'eisot', 'email', 'webinar', 'proctoring', 'scorm', 'trainer']) providerType!: ProviderType;
+  @IsIn(['frdo', 'eisot', 'email', 'webinar', 'proctoring', 'scorm', 'trainer'])
+  providerType!: ProviderType;
   @IsOptional() @IsBoolean() isActive?: boolean;
 }
 

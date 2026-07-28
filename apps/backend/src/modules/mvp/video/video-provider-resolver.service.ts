@@ -40,4 +40,22 @@ export class VideoProviderResolver {
     }
     return this.registry.get(cfg.providerCode) ?? this.noop;
   }
+
+  /**
+   * Разбор вебхука без тенанта (ФТ-B1.2). Вебхук приходит снаружи и не знает ни наших
+   * тенантов, ни того, какой адаптер его породил, — поэтому пробуем все зарегистрированные
+   * по очереди и берём первый, который ОПОЗНАЛ и ПРОВЕРИЛ подпись. Адаптер, которому
+   * событие не принадлежит, вернёт `null` (подпись не сойдётся), так что перебор безопасен.
+   */
+  async parseWebhookWithAnyProvider(
+    raw: Buffer,
+    headers: Record<string, string | undefined>
+  ): Promise<Awaited<ReturnType<VideoProvider['parseWebhook']>>> {
+    for (const provider of this.registry.values()) {
+      if (provider.code === 'noop') continue;
+      const events = await provider.parseWebhook(raw, headers);
+      if (events) return events;
+    }
+    return null;
+  }
 }

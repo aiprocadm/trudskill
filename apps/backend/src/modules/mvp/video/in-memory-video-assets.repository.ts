@@ -42,6 +42,10 @@ export class InMemoryVideoAssetsRepository implements VideoAssetsRepository {
     );
   }
 
+  async findByProviderAssetId(providerAssetId: string): Promise<VideoAssetRow | null> {
+    return [...this.rows.values()].find((row) => row.providerAssetId === providerAssetId) ?? null;
+  }
+
   async update(
     tenantId: string,
     id: string,

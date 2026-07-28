@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { assertAppliedMigrationUnchanged, computeMigrationSqlChecksum } from './migration-integrity.js';
+import {
+  assertAppliedMigrationUnchanged,
+  computeMigrationSqlChecksum
+} from './migration-integrity.js';
 
 describe('migration-integrity', () => {
   it('allows unchanged applied migration', () => {

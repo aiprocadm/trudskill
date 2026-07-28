@@ -20,7 +20,9 @@ describe('EsignStateMachine', () => {
 
   it('enforces signed_at for signed participant', () => {
     expect(() => EsignStateMachine.assertSignedHasSignedAt('signed')).toThrow();
-    expect(() => EsignStateMachine.assertSignedHasSignedAt('signed', new Date().toISOString())).not.toThrow();
+    expect(() =>
+      EsignStateMachine.assertSignedHasSignedAt('signed', new Date().toISOString())
+    ).not.toThrow();
   });
 
   it('requires participant to act as themselves', () => {

@@ -35,6 +35,12 @@ export interface VideoAssetsRepository {
   /** Всегда в рамках тенанта: чужой ассет не должен находиться даже по точному id. */
   findById(tenantId: string, id: string): Promise<VideoAssetRow | null>;
   listByMaterial(tenantId: string, materialId: string): Promise<VideoAssetRow[]>;
+  /**
+   * Поиск по идентификатору провайдера. Единственное место БЕЗ tenantId в сигнатуре:
+   * вебхук провайдера приходит со своим id и понятия не имеет о наших тенантах.
+   * Тенант берётся ИЗ НАЙДЕННОЙ строки — сам вебхук его выбирать не может.
+   */
+  findByProviderAssetId(providerAssetId: string): Promise<VideoAssetRow | null>;
   update(tenantId: string, id: string, patch: UpdateVideoAssetInput): Promise<VideoAssetRow | null>;
   delete(tenantId: string, id: string): Promise<boolean>;
 }

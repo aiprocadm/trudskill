@@ -91,10 +91,12 @@ import { VideoProgressService } from './video/video-progress.service.js';
 import { VideoProviderResolver } from './video/video-provider-resolver.service.js';
 import { VIDEO_PROVIDER_SETTINGS_REPOSITORY } from './video/video-provider-settings.repository.js';
 import { VideoProviderSettingsService } from './video/video-provider-settings.service.js';
+import { VideoWebhookController } from './video/video-webhook.controller.js';
 import { VideoController } from './video/video.controller.js';
 import { VideoService } from './video/video.service.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import { FakeVideoProvider } from '../../infrastructure/video-provider/fake-video.provider.js';
+import { KinescopeVideoProvider } from '../../infrastructure/video-provider/kinescope-video.provider.js';
 import {
   NoopVideoProvider,
   VIDEO_PROVIDER_REGISTRY,
@@ -117,6 +119,7 @@ import {
     MvpController,
     VideoController,
     VideoPlaybackController,
+    VideoWebhookController,
     MvpInternalWorkerController,
     OtRegistryController,
     FrdoRegistryController,
@@ -148,7 +151,17 @@ import {
       useFactory: (): VideoProviderRegistry =>
         new Map<VideoProviderCode, VideoProvider>([
           ['noop', new NoopVideoProvider()],
-          ['fake', new FakeVideoProvider()]
+          ['fake', new FakeVideoProvider()],
+          // ФТ-B1.2: готовый видеосервис (решение владельца по вопросу №1 от 2026-07-28).
+          // Без KINESCOPE_API_TOKEN адаптер спит и резолвер отдаёт noop.
+          [
+            'kinescope',
+            new KinescopeVideoProvider({
+              apiUrl: backendEnv.KINESCOPE_API_URL,
+              apiToken: backendEnv.KINESCOPE_API_TOKEN,
+              webhookSecret: backendEnv.KINESCOPE_WEBHOOK_SECRET
+            })
+          ]
         ])
     },
     VideoProviderResolver,

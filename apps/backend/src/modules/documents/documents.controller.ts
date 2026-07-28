@@ -339,12 +339,7 @@ export class DocumentsController {
     // ФТ-A7.1: предпросмотр показывает НАСТОЯЩИЕ подпись и печать центра — заглушек тут
     // быть не может, админ проверяет именно как факсимиле встанет на бланк.
     const images = await this.inspection.previewImages(c.tenantId!);
-    const pdf = await this.inspection.preview(
-      c.tenantId!,
-      version.fileId,
-      demoVariables(),
-      images
-    );
+    const pdf = await this.inspection.preview(c.tenantId!, version.fileId, demoVariables(), images);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="preview-${id}.pdf"`);
     res.setHeader('Content-Length', String(pdf.length));
