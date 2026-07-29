@@ -3,6 +3,11 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { selectIdentityImagesToPurge } from './identity-image-retention.js';
 import { AuditService } from '../../audit/audit.service.js';
 import { FilesService } from '../../files/files.service.js';
+import {
+  DEFAULT_IDENTITY_IMAGE_RETENTION_DAYS,
+  identityImageRetentionDays
+} from '../../tenant/tenant-identity-settings.js';
+import { TenantService } from '../../tenant/tenant.service.js';
 
 import type { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
 
@@ -18,12 +23,27 @@ export class IdentityRetentionScanner {
 
   constructor(
     @Inject(FilesService) private readonly filesService: FilesService,
-    @Inject(AuditService) private readonly auditService: AuditService
+    @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(TenantService) private readonly tenantService: TenantService
   ) {}
 
   /** Returns the number of records whose images were purged. */
   async scanTenant(tenantId: string, asOf: string, state: InMemoryMvpState): Promise<number> {
-    const due = selectIdentityImagesToPurge(asOf, state.identityVerifications);
+    // ФТ-C3.1 (Фаза 3 Task 7): срок хранения задаёт сам учебный центр. Центру с
+    // повышенными требованиями нужно 30 дней, а не 90 — и это его решение, а не наше.
+    // Сбой чтения реквизитов не имеет права остановить удаление ПДн: падаем к умолчанию.
+    let retentionDays: number;
+    try {
+      retentionDays = identityImageRetentionDays(await this.tenantService.getRequisites(tenantId));
+    } catch (err) {
+      retentionDays = DEFAULT_IDENTITY_IMAGE_RETENTION_DAYS;
+      this.logger.warn(
+        `Identity retention settings unreadable tenant=${tenantId}, falling back to ${retentionDays} days: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
+    }
+    const due = selectIdentityImagesToPurge(asOf, state.identityVerifications, retentionDays);
     let purged = 0;
     for (const record of due) {
       try {

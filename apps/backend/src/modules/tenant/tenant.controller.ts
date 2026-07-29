@@ -1,8 +1,18 @@
-import { Body, Controller, Get, Inject, Put, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Inject, Put, UseGuards } from '@nestjs/common';
 
+import {
+  DEFAULT_IDENTITY_IMAGE_RETENTION_DAYS,
+  MAX_IDENTITY_IMAGE_RETENTION_DAYS,
+  MIN_IDENTITY_IMAGE_RETENTION_DAYS,
+  TENANT_IDENTITY_SETTINGS_KEY,
+  isValidRetentionDays,
+  readTenantIdentitySettings
+} from './tenant-identity-settings.js';
 import { TenantService } from './tenant.service.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
+import { RequirePermissions } from '../iam/permission.decorator.js';
+import { PermissionGuard } from '../iam/permission.guard.js';
 
 import type { RequestContext } from '../../common/context/request-context.js';
 
@@ -40,6 +50,54 @@ export class TenantController {
     @Body() body: { legalName?: string; taxNumber?: string; payload?: Record<string, unknown> }
   ) {
     return this.tenantService.updateRequisites(context.tenantId!, body);
+  }
+
+  /**
+   * ФТ-C3.1 (Фаза 3 Task 7): срок хранения снимков идентификации.
+   *
+   * Отдельная ручка, а не правка сырого `payload` через `PUT /tenant/requisites`:
+   * значение проверяется, и менять его может только тот, кому доверена настройка
+   * идентификации. Срок удаления паспортов — не то поле, которое стоит править вслепую.
+   */
+  @Get('identity-settings')
+  async identitySettings(@CurrentContext() context: RequestContext) {
+    const requisites = await this.tenantService.getRequisites(context.tenantId!);
+    const settings = readTenantIdentitySettings(requisites);
+    return {
+      imageRetentionDays: settings.imageRetentionDays ?? DEFAULT_IDENTITY_IMAGE_RETENTION_DAYS,
+      /** Значение не задано центром — работает умолчание. */
+      isDefault: settings.imageRetentionDays === undefined,
+      defaultDays: DEFAULT_IDENTITY_IMAGE_RETENTION_DAYS,
+      minDays: MIN_IDENTITY_IMAGE_RETENTION_DAYS,
+      maxDays: MAX_IDENTITY_IMAGE_RETENTION_DAYS
+    };
+  }
+
+  @Put('identity-settings')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('identity.configure')
+  async updateIdentitySettings(
+    @CurrentContext() context: RequestContext,
+    @Body() body: { imageRetentionDays?: number | null }
+  ) {
+    const raw = body?.imageRetentionDays;
+    // null = «вернуть умолчание»: центр должен уметь отказаться от своей настройки.
+    const next = raw === null || raw === undefined ? undefined : raw;
+    if (next !== undefined && !isValidRetentionDays(next)) {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: `Срок хранения — целое число от ${MIN_IDENTITY_IMAGE_RETENTION_DAYS} до ${MAX_IDENTITY_IMAGE_RETENTION_DAYS} дней`
+      });
+    }
+    const current = await this.tenantService.getRequisites(context.tenantId!);
+    const settings = { ...readTenantIdentitySettings(current) };
+    if (next === undefined) delete settings.imageRetentionDays;
+    else settings.imageRetentionDays = next;
+
+    await this.tenantService.updateRequisites(context.tenantId!, {
+      payload: { [TENANT_IDENTITY_SETTINGS_KEY]: settings }
+    });
+    return this.identitySettings(context);
   }
 
   @Get('commission')
