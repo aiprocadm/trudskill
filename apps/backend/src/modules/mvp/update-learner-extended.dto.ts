@@ -72,6 +72,18 @@ export class UpdateLearnerExtendedRequest {
   @MaxLength(10) // ISO YYYY-MM-DD
   dateOfBirth?: string | null;
 
+  /**
+   * Фаза 3 Task 5 (ФТ-C1.3) — телефон для второго канала доставки. Формат НЕ валидируем
+   * жёстко: в базу исторически грузили «8 (999) 123-45-67» и «+7 999 …», и отказать
+   * оператору кадров в сохранении привычной записи хуже, чем принять её и нормализовать
+   * перед отправкой (`normalizePhone` вернёт null на неотправляемое).
+   */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(32)
+  phone?: string | null;
+
   @IsOptional()
   @IsString()
   @IsIn(['active', 'archived'])

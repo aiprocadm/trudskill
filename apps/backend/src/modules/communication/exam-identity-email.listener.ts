@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 
 import { NotificationDispatcher } from './notification-dispatcher.service.js';
+import { SmsChannelService } from './sms/sms-channel.service.js';
 import { IDENTITY_VERIFICATION_REJECTED_EVENT } from '../mvp/identity-verification-rejected.event.js';
 import { PRE_EXAM_AUTH_REQUESTED_EVENT } from '../mvp/pre-exam-auth-requested.event.js';
 
@@ -18,7 +19,8 @@ export class ExamIdentityEmailListener {
   private readonly logger = new Logger(ExamIdentityEmailListener.name);
 
   constructor(
-    @Inject(NotificationDispatcher) private readonly dispatcher: NotificationDispatcher
+    @Inject(NotificationDispatcher) private readonly dispatcher: NotificationDispatcher,
+    @Inject(SmsChannelService) private readonly sms: SmsChannelService
   ) {}
 
   @OnEvent(PRE_EXAM_AUTH_REQUESTED_EVENT, { async: true })
@@ -26,6 +28,20 @@ export class ExamIdentityEmailListener {
     if (!payload.recipient?.email) {
       return;
     }
+
+    /*
+     * Фаза 3 Task 5 (ФТ-C1.3): СМС — ВТОРОЙ канал доставки той же ссылки. Он идёт ПЕРВЫМ
+     * в коде, но это не приоритет: `SmsChannelService.send` не бросает и возвращает false,
+     * если канал выключен. Порядок выбран так, чтобы падение email-диспетчера (которое
+     * ловится ниже) не отменяло уже отправленную СМС и наоборот — каналы независимы.
+     * Токен и гейт не трогаем вовсе: меняется только транспорт.
+     */
+    await this.sms.send(
+      payload.tenantId,
+      payload.recipient.phone,
+      `Подтверждение личности для экзамена: ${payload.verifyUrl}`
+    );
+
     try {
       await this.dispatcher.dispatch({
         tenantId: payload.tenantId,

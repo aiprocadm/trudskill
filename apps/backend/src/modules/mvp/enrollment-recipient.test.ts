@@ -55,4 +55,25 @@ describe('learnerRecipient', () => {
   it('omits userId when the learner has no IAM link', () => {
     expect(learnerRecipient(learner({ email: 'ivan@example.com' }))).not.toHaveProperty('userId');
   });
+
+  it('прокидывает телефон для второго канала доставки (ФТ-C1.3, Фаза 3 Task 5)', () => {
+    expect(
+      learnerRecipient(learner({ email: 'ivan@example.com', phone: '8 999 123-45-67' }))
+    ).toEqual({
+      email: 'ivan@example.com',
+      name: 'Иванов Иван',
+      // Как ввели: к E.164 приводит сам канал перед отправкой.
+      phone: '8 999 123-45-67'
+    });
+  });
+
+  it('без телефона поля phone нет вовсе (exactOptionalPropertyTypes)', () => {
+    expect(learnerRecipient(learner({ email: 'ivan@example.com' }))).not.toHaveProperty('phone');
+  });
+
+  it('телефон без email не создаёт получателя — контакт разрешается через почту', () => {
+    // Осознанное ограничение ветки A: слушатель без email не получает НИ письма, ни СМС.
+    // Так было и до второго канала; менять контракт получателя — отдельная задача.
+    expect(learnerRecipient(learner({ email: undefined, phone: '+79991234567' }))).toBeUndefined();
+  });
 });

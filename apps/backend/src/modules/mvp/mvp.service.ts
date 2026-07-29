@@ -621,6 +621,7 @@ export class MvpService {
       organizationUnitId?: string;
       learnerNo?: string;
       dateOfBirth?: string;
+      phone?: string;
     },
     context: RequestContext
   ): Learner {
@@ -640,6 +641,7 @@ export class MvpService {
     if (request.organizationUnitId) entity.organizationUnitId = request.organizationUnitId;
     if (request.learnerNo) entity.learnerNo = request.learnerNo;
     if (request.dateOfBirth) entity.dateOfBirth = request.dateOfBirth;
+    if (request.phone) entity.phone = request.phone;
     this.state.learners.push(entity);
     this.audit(
       tenantId,
@@ -717,6 +719,7 @@ export class MvpService {
       organizationUnitId?: string | null;
       learnerNo?: string | null;
       dateOfBirth?: string | null;
+      phone?: string | null;
       status?: string;
       linkedIamUserId?: string | null;
     },
@@ -750,6 +753,7 @@ export class MvpService {
     if (request.learnerNo !== undefined) current.learnerNo = request.learnerNo?.trim() || undefined;
     if (request.dateOfBirth !== undefined)
       current.dateOfBirth = request.dateOfBirth?.trim() || undefined;
+    if (request.phone !== undefined) current.phone = request.phone?.trim() || undefined;
     if (request.status !== undefined) current.status = request.status;
     if (request.linkedIamUserId !== undefined)
       current.linkedIamUserId = request.linkedIamUserId ?? undefined;
