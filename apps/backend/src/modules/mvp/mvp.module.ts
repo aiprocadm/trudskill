@@ -11,8 +11,13 @@ import { ESIA_SERVICE_CONFIG, EsiaService, type EsiaServiceConfig } from './esia
 import { FrdoRegistryXlsxWriter } from './frdo-registry/frdo-registry-xlsx.writer.js';
 import { FrdoRegistryController } from './frdo-registry/frdo-registry.controller.js';
 import { FrdoRegistryService } from './frdo-registry/frdo-registry.service.js';
+import { IdentityPolicyController } from './identity/identity-policy.controller.js';
+import { IDENTITY_POLICY_REPOSITORY } from './identity/identity-policy.repository.js';
+import { IdentityPolicyService } from './identity/identity-policy.service.js';
 import { IdentityRetentionScanner } from './identity/identity-retention-scanner.service.js';
 import { IdentityRetentionSchedulerService } from './identity/identity-retention-scheduler.service.js';
+import { InMemoryIdentityPolicyRepository } from './identity/in-memory-identity-policy.repository.js';
+import { PostgresIdentityPolicyRepository } from './identity/postgres-identity-policy.repository.js';
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MvpPersistenceRepositoryAdapter } from './infrastructure/mvp-persistence.repository.adapter.js';
 import { MVP_PERSISTENCE_BACKEND } from './infrastructure/mvp-persistence.token.js';
@@ -118,6 +123,7 @@ import {
   controllers: [
     MvpController,
     VideoController,
+    IdentityPolicyController,
     VideoPlaybackController,
     VideoWebhookController,
     MvpInternalWorkerController,
@@ -195,6 +201,17 @@ import {
     RemindersSchedulerService,
     DocumentRevokedEmailListener,
     IdentityRetentionScanner,
+    // ФТ-C1 (Фаза 3 Task 1) — политика идентификации как данные.
+    PostgresIdentityPolicyRepository,
+    {
+      provide: IDENTITY_POLICY_REPOSITORY,
+      useFactory: (db: DatabaseService) =>
+        backendEnv.ALLOW_IN_MEMORY_STATE
+          ? new InMemoryIdentityPolicyRepository()
+          : new PostgresIdentityPolicyRepository(db),
+      inject: [DatabaseService]
+    },
+    IdentityPolicyService,
     // ФТ-E2 (Task 12): закрытие истёкших попыток без участия клиента.
     ExpiredAttemptsScanner,
     ExpiredAttemptsSchedulerService,
