@@ -28,6 +28,7 @@ import {
 } from '../../components/state-wrappers';
 import { frontendEnv } from '../../lib/config/env';
 import { useAuth } from '../auth/context';
+import { useConsentDocuments, useConsentToggle, useMyConsents } from '../consents/hooks';
 
 import type { IdentityVerificationStatus } from './types';
 import type { ReactElement } from 'react';
@@ -39,8 +40,23 @@ export function LearnerIdentityScreen(): ReactElement {
 
   const [selfie, setSelfie] = useState<File | null>(null);
   const [passport, setPassport] = useState<File | null>(null);
-  const [consent, setConsent] = useState(false);
   const [esiaPending, setEsiaPending] = useState(false);
+
+  /*
+   * ФТ-C3.2 (Фаза 3 Task 6): согласий ДВА и они независимы, поэтому галочки хранятся не
+   * в состоянии экрана, а на сервере: снятая галочка — это отзыв согласия, а отзыв обязан
+   * пережить перезагрузку страницы. Отзыв одного вида не трогает другой.
+   */
+  const consents = useMyConsents();
+  const consentDocuments = useConsentDocuments();
+  const consentToggle = useConsentToggle();
+  const personalDataGranted = consents.data?.personalData.granted ?? false;
+  const photoGranted = consents.data?.photo.granted ?? false;
+
+  const onToggleConsent = async (kind: 'personal_data' | 'photo', next: boolean) => {
+    const ok = await consentToggle.toggle(kind, next);
+    if (ok) await consents.refetch();
+  };
 
   const onEsiaIdentity = async () => {
     if (!session) return;
@@ -69,7 +85,6 @@ export function LearnerIdentityScreen(): ReactElement {
     if (ok) {
       setSelfie(null);
       setPassport(null);
-      setConsent(false);
       void my.refetch();
     }
   };
@@ -123,19 +138,57 @@ export function LearnerIdentityScreen(): ReactElement {
             <label className="ui-inline">
               <input
                 type="checkbox"
-                checked={consent}
-                disabled={submission.isPending}
-                onChange={(e) => setConsent(e.target.checked)}
+                data-testid="consent-personal-data"
+                checked={personalDataGranted}
+                disabled={submission.isPending || consentToggle.pendingKind !== null}
+                onChange={(e) => void onToggleConsent('personal_data', e.target.checked)}
               />
               <span>Даю согласие на обработку персональных данных (152-ФЗ)</span>
             </label>
+            {consentDocuments.data?.personal_data ? (
+              <details className="ui-text-muted">
+                <summary>Текст согласия на обработку данных</summary>
+                <p>{consentDocuments.data.personal_data.body}</p>
+              </details>
+            ) : null}
 
+            <label className="ui-inline">
+              <input
+                type="checkbox"
+                data-testid="consent-photo"
+                checked={photoGranted}
+                disabled={submission.isPending || consentToggle.pendingKind !== null}
+                onChange={(e) => void onToggleConsent('photo', e.target.checked)}
+              />
+              <span>
+                Отдельно даю согласие на фотографирование и обработку изображения моего лица
+              </span>
+            </label>
+            {consentDocuments.data?.photo ? (
+              <details className="ui-text-muted">
+                <summary>Текст согласия на фото</summary>
+                <p>{consentDocuments.data.photo.body}</p>
+              </details>
+            ) : null}
+
+            {!photoGranted ? (
+              // Отказ от фото — законное право слушателя, и он должен видеть последствие
+              // ЯВНО, а не упереться в молча заблокированную кнопку.
+              <p className="ui-text-muted" data-testid="photo-consent-required">
+                Без согласия на фото подтверждение личности по документам недоступно. Согласие
+                на обработку данных при этом остаётся в силе — его снимать не нужно.
+              </p>
+            ) : null}
+
+            {consentToggle.error ? <SectionError message={consentToggle.error} /> : null}
             {submission.error ? <SectionError message={submission.error} /> : null}
 
             <button
               type="button"
               className="ui-button ui-button--primary"
-              disabled={!selfie || !passport || !consent || submission.isPending}
+              disabled={
+                !selfie || !passport || !personalDataGranted || !photoGranted || submission.isPending
+              }
               onClick={() => void onSubmit()}
             >
               {submission.isPending ? 'Отправка…' : 'Отправить на проверку'}
@@ -296,6 +349,11 @@ export function AdminIdentityDetailScreen({ id }: { id: string }): ReactElement 
           <div className="kv-list__row">
             <dt>Согласие на обработку ПДн</dt>
             <dd>{formatDateShort(detail.consentAt)}</dd>
+          </div>
+          <div className="kv-list__row">
+            {/* ФТ-C3.2: отдельное согласие на фото — отдельная строка доказательной базы. */}
+            <dt>Согласие на фото</dt>
+            <dd>{formatDateShort(detail.photoConsentAt)}</dd>
           </div>
         </dl>
       </SectionCard>

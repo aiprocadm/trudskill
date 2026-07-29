@@ -3,6 +3,11 @@ import { Module, Scope } from '@nestjs/common';
 import { backendEnv } from '../../env.js';
 import { ExpiredAttemptsScanner } from './assessment/expired-attempts.scanner.service.js';
 import { ExpiredAttemptsSchedulerService } from './assessment/expired-attempts.scheduler.service.js';
+import { ConsentController } from './consents/consent.controller.js';
+import { CONSENT_REPOSITORY } from './consents/consent.repository.js';
+import { ConsentService } from './consents/consent.service.js';
+import { InMemoryConsentRepository } from './consents/in-memory-consent.repository.js';
+import { PostgresConsentRepository } from './consents/postgres-consent.repository.js';
 import { EisotTestingRegistryController } from './eisot-testing-registry/eisot-testing-registry.controller.js';
 import { EisotTestingRegistryService } from './eisot-testing-registry/eisot-testing-registry.service.js';
 import { EisotTestingXlsxWriter } from './eisot-testing-registry/eisot-testing-xlsx.writer.js';
@@ -131,6 +136,7 @@ import {
     VideoController,
     IdentityPolicyController,
     SimpleSignatureController,
+    ConsentController,
     VideoPlaybackController,
     VideoWebhookController,
     MvpInternalWorkerController,
@@ -231,6 +237,17 @@ import {
       inject: [DatabaseService]
     },
     SimpleSignatureService,
+    // ФТ-C3.2 (Фаза 3 Task 6) — раздельные согласия на ПДн и на фото.
+    PostgresConsentRepository,
+    {
+      provide: CONSENT_REPOSITORY,
+      useFactory: (db: DatabaseService) =>
+        backendEnv.ALLOW_IN_MEMORY_STATE
+          ? new InMemoryConsentRepository()
+          : new PostgresConsentRepository(db),
+      inject: [DatabaseService]
+    },
+    ConsentService,
     // ФТ-E2 (Task 12): закрытие истёкших попыток без участия клиента.
     ExpiredAttemptsScanner,
     ExpiredAttemptsSchedulerService,

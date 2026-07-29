@@ -500,7 +500,14 @@ export interface IdentityVerification extends BaseEntity {
   verificationStatus: IdentityVerificationStatus;
   selfieFileId?: string;
   passportFileId?: string;
+  /** Согласие на обработку персональных данных (152-ФЗ). */
   consentAt?: string;
+  /**
+   * ФТ-C3.2 (Фаза 3 Task 6): согласие на фото — ОТДЕЛЬНЫЙ факт, а не часть согласия на
+   * ПДн. Отзыв одного не отзывает другое, поэтому и метки времени две. Источник правды —
+   * `learning.consent_facts` (0069); здесь снимок на момент подачи.
+   */
+  photoConsentAt?: string;
   submittedAt?: string;
   reviewedByActorId?: string;
   reviewedAt?: string;

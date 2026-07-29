@@ -149,7 +149,11 @@ describe('MVP HTTP integration (domain invariants)', () => {
       { LearnersBulkImportService },
       { IDENTITY_POLICY_REPOSITORY },
       { IdentityPolicyService },
-      { InMemoryIdentityPolicyRepository }
+      { InMemoryIdentityPolicyRepository },
+      { CONSENT_REPOSITORY },
+      { ConsentService },
+      { InMemoryConsentRepository },
+      { LegalLogWriter }
     ] = await Promise.all([
       import('@nestjs/core'),
       import('@nestjs/throttler'),
@@ -174,7 +178,11 @@ describe('MVP HTTP integration (domain invariants)', () => {
       import('./learners-bulk-import.service.js'),
       import('./identity/identity-policy.repository.js'),
       import('./identity/identity-policy.service.js'),
-      import('./identity/in-memory-identity-policy.repository.js')
+      import('./identity/in-memory-identity-policy.repository.js'),
+      import('./consents/consent.repository.js'),
+      import('./consents/consent.service.js'),
+      import('./consents/in-memory-consent.repository.js'),
+      import('./esignature/legal-log.writer.js')
     ]);
 
     issueSignedAccessToken = cryptoImport.issueSignedAccessToken;
@@ -208,6 +216,11 @@ describe('MVP HTTP integration (domain invariants)', () => {
         // а не настоящее хранилище политик.
         { provide: IDENTITY_POLICY_REPOSITORY, useClass: InMemoryIdentityPolicyRepository },
         IdentityPolicyService,
+        // ФТ-C3.2 (Фаза 3 Task 6): контроллер проверяет согласие на фото перед подачей
+        // документов. Хранилище и журнал — заглушки: тесту нужна граница прав.
+        { provide: CONSENT_REPOSITORY, useClass: InMemoryConsentRepository },
+        { provide: LegalLogWriter, useValue: { write: async () => undefined } },
+        ConsentService,
         {
           provide: MvpRequestPersistenceInterceptor,
           scope: Scope.REQUEST,
