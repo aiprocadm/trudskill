@@ -744,3 +744,136 @@ describe('identity gates — политика идентификации (ФТ-C
     ).not.toThrow();
   });
 });
+
+/**
+ * ФТ-C1.2 (Фаза 3 Task 4): повторная подача после отклонения и требование фото.
+ *
+ * План велел «довести UX повторной подачи». Разведка показала, что механика уже есть:
+ * `startIdentityVerification` блокируется только на approved и pending, а отклонённая
+ * запись не мешает начать новую. Значит задача — не переписать, а ЗАКРЕПИТЬ поведение
+ * тестом: отклонённая запись обязана сохраняться (это доказательная база), а слушатель
+ * обязан иметь возможность подать заново без обращения в поддержку.
+ */
+/** Полный путь до «на проверке»: черновик → файлы и согласие → отправка. */
+async function submitForReview(service: MvpService) {
+  const draft = service.startIdentityVerification(T, 'u_l1', {}, ctxL1);
+  await service.submitIdentityVerification(
+    T,
+    'u_l1',
+    draft.id,
+    { selfieFileId: 'f_s', passportFileId: 'f_p', consent: true },
+    ctxL1
+  );
+  return draft;
+}
+
+describe('identity verification — повторная подача после отклонения (ФТ-C1.2)', () => {
+  it('после отклонения слушатель может подать заново', async () => {
+    const { service } = makeService();
+    const { enrollment } = seedFinalExam(service, true, true);
+
+    const first = await submitForReview(service);
+    service.reviewIdentityVerification(
+      T,
+      ADMIN,
+      first.id,
+      { decision: 'reject', rejectionReason: 'Паспорт нечитаем' },
+      ctx
+    );
+
+    const second = service.startIdentityVerification(T, 'u_l1', {}, ctxL1);
+
+    expect(second.id).not.toBe(first.id);
+    expect(second.verificationStatus).toBe('draft');
+    expect(enrollment).toBeDefined();
+  });
+
+  it('ОТКЛОНЁННАЯ ЗАПИСЬ СОХРАНЯЕТСЯ — это доказательная база, а не мусор', async () => {
+    const { service } = makeService();
+    seedFinalExam(service, true, true);
+
+    const first = await submitForReview(service);
+    service.reviewIdentityVerification(
+      T,
+      ADMIN,
+      first.id,
+      { decision: 'reject', rejectionReason: 'Паспорт нечитаем' },
+      ctx
+    );
+    service.startIdentityVerification(T, 'u_l1', {}, ctxL1);
+
+    const rejected = service.listIdentityVerifications(T, {}).find((v) => v.id === first.id);
+    expect(rejected?.verificationStatus).toBe('rejected');
+    // Причина отклонения должна остаться: по ней слушатель понимает, что исправлять.
+    expect(rejected?.rejectionReason).toBe('Паспорт нечитаем');
+  });
+
+  it('подтверждённая личность не переоткрывается повторной подачей', async () => {
+    const { service } = makeService();
+    seedFinalExam(service, true, true);
+
+    const first = await submitForReview(service);
+    service.reviewIdentityVerification(T, ADMIN, first.id, { decision: 'approve' }, ctx);
+
+    expect(() => service.startIdentityVerification(T, 'u_l1', {}, ctxL1)).toThrow();
+  });
+
+  it('пока заявка на проверке, вторую подать нельзя — очередь не засоряется', async () => {
+    const { service } = makeService();
+    seedFinalExam(service, true, true);
+
+    await submitForReview(service);
+
+    expect(() => service.startIdentityVerification(T, 'u_l1', {}, ctxL1)).toThrow();
+  });
+});
+
+describe('identity gates — требование фото (ФТ-C1.2)', () => {
+  const photoPolicy = {
+    level: 2 as const,
+    requirePhotoBeforeExam: true,
+    source: 'tenant' as const
+  };
+
+  it('подтверждение через ЕСИА не проходит, когда центр требует фото', () => {
+    const { service } = makeService();
+    const { test, enrollment } = seedFinalExam(service, false, true);
+    // ЕСИА подтверждает личность, но фотографии не даёт.
+    service.approveIdentityViaEsia(T, enrollment.learnerId, ctx);
+
+    let err: unknown;
+    try {
+      service.startAttempt(T, 'u_l1', startArgs(test, enrollment), ctxL1, photoPolicy);
+    } catch (e) {
+      err = e;
+    }
+    expect((err as { getResponse: () => unknown }).getResponse()).toMatchObject({
+      code: 'identity_photo_required'
+    });
+  });
+
+  it('подтверждение с фотографией проходит', async () => {
+    const { service } = makeService();
+    const { test, enrollment } = seedFinalExam(service, false, true);
+    const record = await submitForReview(service);
+    service.reviewIdentityVerification(T, ADMIN, record.id, { decision: 'approve' }, ctx);
+
+    expect(() =>
+      service.startAttempt(T, 'u_l1', startArgs(test, enrollment), ctxL1, photoPolicy)
+    ).not.toThrow();
+  });
+
+  it('без флага фото подтверждение через ЕСИА достаточно', () => {
+    const { service } = makeService();
+    const { test, enrollment } = seedFinalExam(service, false, true);
+    service.approveIdentityViaEsia(T, enrollment.learnerId, ctx);
+
+    expect(() =>
+      service.startAttempt(T, 'u_l1', startArgs(test, enrollment), ctxL1, {
+        level: 2,
+        requirePhotoBeforeExam: false,
+        source: 'tenant'
+      })
+    ).not.toThrow();
+  });
+});
