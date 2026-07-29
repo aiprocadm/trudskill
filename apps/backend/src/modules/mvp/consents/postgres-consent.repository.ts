@@ -120,11 +120,13 @@ export class PostgresConsentRepository implements ConsentRepository {
     return rows[0] ? this.toFact(rows[0]) : null;
   }
 
-  async insertFact(input: Omit<ConsentFactRow, 'id' | 'grantedAt'>): Promise<ConsentFactRow> {
+  async insertFact(
+    input: Omit<ConsentFactRow, 'id' | 'grantedAt'> & { grantedAt?: string }
+  ): Promise<ConsentFactRow> {
     const rows = await this.db.query<FactDbRow>(
       `insert into learning.consent_facts
-         (id, tenant_id, learner_id, kind, document_version, body_hash, revoked_at, ip, user_agent)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         (id, tenant_id, learner_id, kind, document_version, body_hash, granted_at, revoked_at, ip, user_agent)
+       values ($1, $2, $3, $4, $5, $6, coalesce($7::timestamptz, now()), $8, $9, $10)
        returning ${FACT_COLUMNS}`,
       [
         `cfact_${randomUUID()}`,
@@ -133,6 +135,8 @@ export class PostgresConsentRepository implements ConsentRepository {
         input.kind,
         input.documentVersion ?? null,
         input.bodyHash ?? null,
+        // Пусто = «сейчас»; заполнено только при переносе исторического согласия.
+        input.grantedAt ?? null,
         input.revokedAt ?? null,
         input.ip ?? null,
         input.userAgent ?? null

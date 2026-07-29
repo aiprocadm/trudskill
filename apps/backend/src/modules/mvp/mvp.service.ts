@@ -15,7 +15,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { computeAnalyticsDashboard } from './analytics-dashboard.js';
 import { shuffle } from './assessment/shuffle.util.js';
 import { gradeAnswer } from './assessment-autograde.service.js';
-import { type PhotoConsentGate } from './consents/consent.js';
+import { type PhotoConsentGate, legacyConsentEvidence } from './consents/consent.js';
 import { ENROLLMENT_COMPLETED_EVENT } from './enrollment-completed.event.js';
 import { ENROLLMENT_INVITED_EVENT } from './enrollment-invited.event.js';
 import { learnerRecipient } from './enrollment-recipient.js';
@@ -4106,7 +4106,9 @@ export class MvpService {
     // ФТ-C3.2: без согласия на фото путь «селфи + паспорт» закрыт целиком — загрузка
     // не начинается. Проверка стоит ПОСЛЕ проверки владения записью: иначе по коду
     // ошибки можно было бы прощупывать чужие заявки.
-    await consentGate?.(record.learnerId);
+    // Историческое согласие (одна общая галочка до разделения) берём из самой записи —
+    // это настоящий источник правды, в отличие от таблицы, которую код не заполняет.
+    await consentGate?.(record.learnerId, legacyConsentEvidence(record));
     if (record.verificationStatus !== 'draft') {
       throw new PreconditionFailedException({
         code: 'identity_verification_not_editable',
@@ -4131,7 +4133,7 @@ export class MvpService {
     this.assertActorMatchesLearnerIamLink(tenantId, actorId, record.learnerId, context.permissions);
     // ФТ-C3.2: согласие на фото проверяется и здесь, а не только при загрузке файла —
     // отзыв мог случиться между загрузкой и подачей.
-    const photoConsentAt = await consentGate?.(record.learnerId);
+    const photoConsentAt = await consentGate?.(record.learnerId, legacyConsentEvidence(record));
     if (record.verificationStatus !== 'draft') {
       throw new PreconditionFailedException({
         code: 'identity_verification_not_editable',

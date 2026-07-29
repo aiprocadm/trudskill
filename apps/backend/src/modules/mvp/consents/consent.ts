@@ -27,7 +27,54 @@ export const hashConsentBody = hashAgreementBody;
  * 75 тестовых файлах, и новая обязательная зависимость превратила бы задачу про согласия
  * в массовую правку тестов.
  */
-export type PhotoConsentGate = (learnerId: string) => Promise<string | undefined>;
+export type PhotoConsentGate = (
+  learnerId: string,
+  legacy?: LegacyConsentEvidence
+) => Promise<string | undefined>;
+
+/**
+ * Доказательство согласия, данного ДО разделения согласий (одна общая галочка).
+ *
+ * Зачем оно нужно. Миграция `0069` переносит старые согласия SQL-запросом из
+ * `learning.identity_verifications`, но эту таблицу код НЕ заполняет: записи
+ * идентификации живут в JSONB-снимке состояния (`mvp-collections.ts`). Значит перенос
+ * фактически пустой, и слушатель, подавший документы до разделения, окажется «без
+ * согласия» — ему закроют повторную подачу, хотя согласие он давал.
+ *
+ * Настоящий источник правды — сама запись идентификации, поэтому доказательство берётся
+ * из неё и передаётся в проверку.
+ */
+export interface LegacyConsentEvidence {
+  /** Историческое поле `consentAt` записи идентификации. */
+  consentAt: string;
+  /** Фото реально загружено — только тогда историческое согласие покрывает и фото. */
+  hasPhoto: boolean;
+}
+
+/**
+ * Собирает историческое доказательство из записи идентификации.
+ *
+ * Правило то же, что в SQL-переносе миграции 0069: общая галочка засчитывается как
+ * согласие на обработку данных всегда, а как согласие на ФОТО — только если фотография
+ * реально загружена. Иначе мы задним числом «получили» согласие, которого человек не
+ * давал, — ровно тот дефект, ради устранения которого согласия и разделяют.
+ */
+export function legacyConsentEvidence(record: {
+  consentAt?: string;
+  selfieFileId?: string;
+  passportFileId?: string;
+}): LegacyConsentEvidence | undefined {
+  if (!record.consentAt) return undefined;
+  return {
+    consentAt: record.consentAt,
+    hasPhoto: Boolean(record.selfieFileId || record.passportFileId)
+  };
+}
+
+/** Покрывает ли историческое согласие данный вид. */
+export function legacyCovers(kind: ConsentKind, legacy: LegacyConsentEvidence): boolean {
+  return kind === 'personal_data' ? true : legacy.hasPhoto;
+}
 
 export interface ConsentDocumentSnapshot {
   version: number;

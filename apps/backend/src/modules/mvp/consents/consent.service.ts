@@ -1,10 +1,17 @@
-import { BadRequestException, Inject, Injectable, PreconditionFailedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  PreconditionFailedException
+} from '@nestjs/common';
 
 import {
   CONSENT_KINDS,
   type ConsentKind,
   type ConsentState,
+  type LegacyConsentEvidence,
   hashConsentBody,
+  legacyCovers,
   resolveConsentState
 } from './consent.js';
 import {
@@ -61,7 +68,11 @@ export class ConsentService {
    * изменился: правка пробелов не должна порождать версию, под которой никто не
    * подписывался.
    */
-  async saveDocument(tenantId: string, kind: ConsentKind, body: string): Promise<ConsentDocumentRow> {
+  async saveDocument(
+    tenantId: string,
+    kind: ConsentKind,
+    body: string
+  ): Promise<ConsentDocumentRow> {
     const trimmed = body.trim();
     if (trimmed.length < 20) {
       throw new BadRequestException({
@@ -92,11 +103,7 @@ export class ConsentService {
   }
 
   /** Действует ли согласие прямо сейчас — то, на что смотрят запреты. */
-  async hasActiveConsent(
-    tenantId: string,
-    learnerId: string,
-    kind: ConsentKind
-  ): Promise<boolean> {
+  async hasActiveConsent(tenantId: string, learnerId: string, kind: ConsentKind): Promise<boolean> {
     const fact = await this.repo.findLatestFact(tenantId, learnerId, kind);
     return Boolean(fact && !fact.revokedAt);
   }
@@ -112,6 +119,72 @@ export class ConsentService {
       message:
         'Нужно согласие на фотографирование и обработку изображения — без него подтверждение личности по документу недоступно'
     });
+  }
+
+  /**
+   * Ленивый перенос исторического согласия в новое хранилище фактов.
+   *
+   * SQL-перенос в миграции `0069` читает `learning.identity_verifications`, которую код
+   * не заполняет: записи живут в JSONB-снимке состояния. Поэтому перенос переносит ноль
+   * строк, и слушатель, подавший документы до разделения согласий, оказывается «без
+   * согласия» — ему закрывают повторную подачу, хотя согласие он давал.
+   *
+   * Здесь тот же перенос выполняется в момент, когда согласие реально понадобилось, и
+   * из настоящего источника правды — самой записи идентификации. Это НЕ фабрикация:
+   * переносится уже зафиксированный факт, с `documentVersion = undefined`, потому что
+   * текста согласия в системе тогда не существовало и приписывать ему версию нельзя.
+   * После первого срабатывания факт лежит в БД, и мостик больше не нужен.
+   */
+  async materializeLegacyConsents(
+    tenantId: string,
+    learnerId: string,
+    legacy: LegacyConsentEvidence | undefined
+  ): Promise<void> {
+    if (!legacy) return;
+    for (const kind of CONSENT_KINDS) {
+      if (!legacyCovers(kind, legacy)) continue;
+      const existing = await this.repo.findLatestFact(tenantId, learnerId, kind);
+      // Есть любой факт — новее исторического; в том числе ОТЗЫВ, который нельзя
+      // молча перекрыть воскрешённым старым согласием.
+      if (existing) continue;
+
+      // documentVersion и bodyHash намеренно пусты: текста согласия тогда не
+      // существовало, и приписывать ему версию значило бы сфабриковать доказательство.
+      const fact = await this.repo.insertFact({
+        tenantId,
+        learnerId,
+        kind,
+        grantedAt: legacy.consentAt
+      });
+
+      await this.legalLog.write({
+        tenantId,
+        entityType: 'learning.learner',
+        entityId: learnerId,
+        eventType: `consent.${kind}_granted`,
+        description: `Перенесено историческое согласие на ${KIND_TITLES[kind]}`,
+        payload: { kind, legacy: true, originalConsentAt: legacy.consentAt, factId: fact.id }
+      });
+    }
+  }
+
+  /**
+   * Оба согласия обязательны ДО загрузки снимка (ФТ-C3.2).
+   *
+   * Раньше здесь проверялось только согласие на фото, а согласие на обработку данных —
+   * лишь на шаге подачи. Разница практическая: паспорт к тому моменту уже лежал в
+   * хранилище. Фотография сама по себе персональные данные, поэтому без согласия на их
+   * обработку принимать её нельзя.
+   */
+  async assertIdentityConsents(tenantId: string, learnerId: string): Promise<void> {
+    if (!(await this.hasActiveConsent(tenantId, learnerId, 'personal_data'))) {
+      throw new PreconditionFailedException({
+        code: 'consent_required',
+        message:
+          'Нужно согласие на обработку персональных данных — без него документы не принимаются'
+      });
+    }
+    await this.assertPhotoConsent(tenantId, learnerId);
   }
 
   /**
