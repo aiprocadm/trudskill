@@ -41,7 +41,13 @@ export interface ConsentRepository {
     learnerId: string,
     kind: ConsentKind
   ): Promise<ConsentFactRow | null>;
-  insertFact(input: Omit<ConsentFactRow, 'id' | 'grantedAt'>): Promise<ConsentFactRow>;
+  /**
+   * `grantedAt` задаётся ТОЛЬКО при переносе исторического согласия: дата должна остаться
+   * той, когда человек согласие дал, а не той, когда мы это заметили.
+   */
+  insertFact(
+    input: Omit<ConsentFactRow, 'id' | 'grantedAt'> & { grantedAt?: string }
+  ): Promise<ConsentFactRow>;
   /** Отзыв последнего действующего согласия. `null`, если отзывать нечего. */
   revokeLatestFact(
     tenantId: string,

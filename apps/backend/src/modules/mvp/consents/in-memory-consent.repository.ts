@@ -63,11 +63,14 @@ export class InMemoryConsentRepository implements ConsentRepository {
     );
   }
 
-  async insertFact(input: Omit<ConsentFactRow, 'id' | 'grantedAt'>): Promise<ConsentFactRow> {
+  async insertFact(
+    input: Omit<ConsentFactRow, 'id' | 'grantedAt'> & { grantedAt?: string }
+  ): Promise<ConsentFactRow> {
     const row: ConsentFactRow = {
       id: `cfact_${randomUUID()}`,
-      grantedAt: new Date().toISOString(),
-      ...input
+      ...input,
+      // Исторический перенос сохраняет исходную дату; обычная выдача — «сейчас».
+      grantedAt: input.grantedAt ?? new Date().toISOString()
     };
     this.facts.push(row);
     return row;

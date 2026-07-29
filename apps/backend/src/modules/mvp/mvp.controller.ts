@@ -87,7 +87,7 @@ import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
 import { PermissionGuard } from '../iam/permission.guard.js';
 
-import type { PhotoConsentGate } from './consents/consent.js';
+import type { LegacyConsentEvidence, PhotoConsentGate } from './consents/consent.js';
 import type { BaseFilterQuery } from './mvp.dto.js';
 import type { CommissionStatus } from './mvp.types.js';
 import type { RequestContext } from '../../common/context/request-context.js';
@@ -984,13 +984,17 @@ export class MvpController {
    * чтобы по коду ошибки нельзя было прощупывать чужие заявки.
    */
   private photoConsentGate(tenantId: string): PhotoConsentGate {
-    return async (learnerId: string) => {
-      await this.consents.assertPhotoConsent(tenantId, learnerId);
+    return async (learnerId: string, legacy?: LegacyConsentEvidence) => {
+      // Сначала переносим историческое согласие, иначе слушатель, подавший документы
+      // до разделения согласий, окажется «без согласия» и не сможет подать заново.
+      await this.consents.materializeLegacyConsents(tenantId, learnerId, legacy);
+      // Оба согласия, а не только фото: снимок — это тоже персональные данные, и
+      // принимать его без согласия на их обработку нельзя.
+      await this.consents.assertIdentityConsents(tenantId, learnerId);
       const state = await this.consents.getState(tenantId, learnerId, 'photo');
       return state.grantedAt;
     };
   }
-
 
   @Post('identity-verifications')
   @UseGuards(PermissionGuard)
