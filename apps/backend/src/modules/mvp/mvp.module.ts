@@ -8,6 +8,12 @@ import { EisotTestingRegistryService } from './eisot-testing-registry/eisot-test
 import { EisotTestingXlsxWriter } from './eisot-testing-registry/eisot-testing-xlsx.writer.js';
 import { EsiaController } from './esia/esia.controller.js';
 import { ESIA_SERVICE_CONFIG, EsiaService, type EsiaServiceConfig } from './esia/esia.service.js';
+import { InMemorySimpleSignatureRepository } from './esignature/in-memory-simple-signature.repository.js';
+import { LegalLogWriter } from './esignature/legal-log.writer.js';
+import { PostgresSimpleSignatureRepository } from './esignature/postgres-simple-signature.repository.js';
+import { SimpleSignatureController } from './esignature/simple-signature.controller.js';
+import { SIMPLE_SIGNATURE_REPOSITORY } from './esignature/simple-signature.repository.js';
+import { SimpleSignatureService } from './esignature/simple-signature.service.js';
 import { FrdoRegistryXlsxWriter } from './frdo-registry/frdo-registry-xlsx.writer.js';
 import { FrdoRegistryController } from './frdo-registry/frdo-registry.controller.js';
 import { FrdoRegistryService } from './frdo-registry/frdo-registry.service.js';
@@ -124,6 +130,7 @@ import {
     MvpController,
     VideoController,
     IdentityPolicyController,
+    SimpleSignatureController,
     VideoPlaybackController,
     VideoWebhookController,
     MvpInternalWorkerController,
@@ -212,6 +219,18 @@ import {
       inject: [DatabaseService]
     },
     IdentityPolicyService,
+    // ФТ-C1.1 (Фаза 3 Task 3) — ПЭП: соглашение и подписанные действия.
+    LegalLogWriter,
+    PostgresSimpleSignatureRepository,
+    {
+      provide: SIMPLE_SIGNATURE_REPOSITORY,
+      useFactory: (db: DatabaseService) =>
+        backendEnv.ALLOW_IN_MEMORY_STATE
+          ? new InMemorySimpleSignatureRepository()
+          : new PostgresSimpleSignatureRepository(db),
+      inject: [DatabaseService]
+    },
+    SimpleSignatureService,
     // ФТ-E2 (Task 12): закрытие истёкших попыток без участия клиента.
     ExpiredAttemptsScanner,
     ExpiredAttemptsSchedulerService,
