@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { Inject, Injectable, NotFoundException, Optional, Scope } from '@nestjs/common';
 
+import { buildReadinessReport } from '../registry-readiness.js';
 import { validateRostechnadzorRow } from './rostechnadzor-preflight.js';
 import { buildRostechnadzorRows } from './rostechnadzor-rows.js';
 import { RostechnadzorXlsxWriter } from './rostechnadzor-xlsx.writer.js';
@@ -153,6 +154,10 @@ export class RostechnadzorRegistryService {
     }
 
     const errors = [...gatherErrors, ...preflightErrors];
+
+    // Блокируют только пробелы в данных строки, а не исключение кандидата из выгрузки.
+
+    const blocked = preflightErrors.length > 0;
     const exported = valid.length;
     const validIds = new Set(valid.map((r) => r.enrollmentId));
     const failed = new Set(
@@ -171,11 +176,21 @@ export class RostechnadzorRegistryService {
       totalCandidates: total,
       exportedRows: exported,
       failedRows: failed,
-      batchStatus: failed ? (exported ? 'partial' : 'failed') : 'generated',
+      /*
+       * ФТ-C4.1 (Фаза 3 Task 8): выгрузка НЕ собирается, пока есть ПРОБЕЛЫ В ДАННЫХ
+       * (preflight): для отправки в госреестр «частичный успех» опасен — пропущенные
+       * люди в реестре просто не появятся, и центр этого не заметит.
+       *
+       * А вот кандидаты, которые в выгрузку не входят по существу (не сдал экзамен,
+       * битая связь сущности), блокировать не должны: группа, где часть людей ещё не
+       * сдала, — норма, и запрещать из-за них выгрузку остальных было бы абсурдом.
+       * Поэтому гейт смотрит на preflight, а не на все ошибки подряд.
+       */
+      batchStatus: blocked ? 'failed' : failed ? (exported ? 'partial' : 'failed') : 'generated',
       generatedBy: ctx.userId ?? ''
     };
 
-    if (exported) {
+    if (exported && !blocked) {
       const buffer = await this.xlsx.build(valid);
       const storageKey = `${tenantId}/rostechnadzor-registry/${batch.id}.xlsx`;
       const meta = await this.files.register({
@@ -240,7 +255,9 @@ export class RostechnadzorRegistryService {
       exported,
       failed,
       rows: valid,
-      errors
+      errors,
+      // Поимённо: методисту нужен ответ «кого дозаполнить», а не перечень ошибок по полям.
+      readiness: buildReadinessReport(preflightErrors)
     };
   }
 

@@ -26,9 +26,15 @@ export function validateEisotTestingRow(row: EisotTestingRow): EisotTestingRowEr
   if (!row.employerName?.trim()) push('employerName', 'Наименование работодателя отсутствует');
 
   // СНИЛС опционален; но если указан — должен быть валиден (ловим опечатки ввода).
-  if (row.snils?.trim()) {
+  // ФТ-C4.1 (Фаза 3 Task 8): СНИЛС обязателен. Раньше пустой СНИЛС давал пустую ячейку —
+  // файл уходил в реестр, а человек в нём фактически не опознавался. Отсутствие поля
+  // должно быть видно ДО отправки, а не приходить ошибкой реестра через недели.
+  if (!row.snils?.trim()) {
+    push('snils', 'СНИЛС не заполнен — без него запись в реестре не принимается');
+  } else {
     const snils = normalizeSnils(row.snils);
-    if (snils.length !== 11 || !isValidSnilsChecksum(snils)) push('snils', 'Некорректный СНИЛС');
+    if (snils.length !== 11 || !isValidSnilsChecksum(snils))
+      push('snils', 'СНИЛС не проходит проверку контрольной суммы — вероятна опечатка');
   }
   // ИНН опционален; но если указан — 10 или 12 цифр.
   if (row.employerInn?.trim() && !INN_RE.test(row.employerInn.trim()))

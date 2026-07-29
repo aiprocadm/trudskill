@@ -44,11 +44,14 @@ describe('validateRostechnadzorRow', () => {
     expect(fields).toContain('knowledgeCheckDate');
   });
 
-  it('validates СНИЛС checksum only when present', () => {
-    expect(validateRostechnadzorRow(row({ snils: '' }))).toEqual([]);
-    expect(
-      validateRostechnadzorRow(row({ snils: '123-456-789 00' })).map((e) => e.field)
-    ).toContain('snils');
+  it('ФТ-C4.1: пустой СНИЛС — теперь ОШИБКА, а не пустая ячейка в файле', () => {
+    const errs = validateRostechnadzorRow(row({ snils: '' }));
+    expect(errs.some((e) => e.field === 'snils')).toBe(true);
+  });
+
+  it('битая контрольная сумма ловится и объясняется как опечатка', () => {
+    const errs = validateRostechnadzorRow(row({ snils: '111-111-111 11' }));
+    expect(errs.some((e) => e.field === 'snils')).toBe(true);
   });
 
   it('validates ИНН format only when present', () => {

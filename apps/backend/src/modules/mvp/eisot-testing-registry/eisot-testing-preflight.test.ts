@@ -25,10 +25,14 @@ describe('validateEisotTestingRow', () => {
     expect(validateEisotTestingRow(valid)).toHaveLength(0);
   });
 
-  it('accepts a row with no СНИЛС / no ИНН / no birth date (optional)', () => {
-    expect(
-      validateEisotTestingRow({ ...valid, snils: '', employerInn: '', dateOfBirth: '' })
-    ).toHaveLength(0);
+  it('ФТ-C4.1: пустой СНИЛС — теперь ОШИБКА, а не пустая ячейка в файле', () => {
+    const errs = validateEisotTestingRow({ ...valid, snils: '' });
+    expect(errs.some((e) => e.field === 'snils')).toBe(true);
+  });
+
+  it('битая контрольная сумма ловится и объясняется как опечатка', () => {
+    const errs = validateEisotTestingRow({ ...valid, snils: '111-111-111 11' });
+    expect(errs.some((e) => e.field === 'snils')).toBe(true);
   });
 
   it('rejects missing ФИО and missing employer', () => {
