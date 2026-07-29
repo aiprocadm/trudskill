@@ -5,7 +5,13 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 import { identityVerificationApi } from './api';
-import { fileUnavailableLabel, formatDateShort, formatIdentityStatus } from './format';
+import {
+  fileUnavailableLabel,
+  formatDateShort,
+  formatIdentityStatus,
+  formatWaitingTime,
+  isWaitingTooLong
+} from './format';
 import {
   useIdentityDetail,
   useIdentityQueue,
@@ -170,6 +176,8 @@ interface QueueRow {
   snilsView: string;
   statusView: string;
   submittedAtView: string;
+  /** ФТ-C1.2: сколько заявка ждёт — висящая заявка это заблокированный экзамен. */
+  waitingView: string;
   actionView: ReactElement;
 }
 
@@ -185,6 +193,9 @@ export function AdminIdentityQueueScreen(): ReactElement {
     snilsView: item.learnerSnils ?? '—',
     statusView: formatIdentityStatus(item.verificationStatus),
     submittedAtView: formatDateShort(item.submittedAt),
+    waitingView: isWaitingTooLong(item.submittedAt)
+      ? `${formatWaitingTime(item.submittedAt)} ⚠`
+      : formatWaitingTime(item.submittedAt),
     actionView: (
       <Link href={`/admin/identity-verifications/${item.id}`} className="ui-button">
         Открыть
@@ -226,6 +237,7 @@ export function AdminIdentityQueueScreen(): ReactElement {
               { key: 'snilsView', title: 'СНИЛС' },
               { key: 'statusView', title: 'Статус' },
               { key: 'submittedAtView', title: 'Отправлено' },
+              { key: 'waitingView', title: 'Ждёт' },
               { key: 'actionView', title: '', render: (row) => row.actionView }
             ]}
             rows={rows}

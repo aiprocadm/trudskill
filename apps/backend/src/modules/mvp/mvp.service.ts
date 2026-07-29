@@ -3997,6 +3997,32 @@ export class MvpService {
       test.courseId
     );
     if (!requiredByPolicy && !requiredByGroupCourse) return;
+
+    /*
+     * ФТ-C1.2 (Фаза 3 Task 4), `requirePhotoBeforeExam`: центр требует подтверждение
+     * ИМЕННО С ФОТО — подтверждения через ЕСИА недостаточно.
+     *
+     * ОГРАНИЧЕНИЕ, поднятое владельцу: ТЗ говорит «фото непосредственно перед
+     * экзаменом», но не определяет «непосредственно» — минуты, часы, дни? Захват
+     * снимка на конкретную попытку и правило свежести требуют решения владельца
+     * (открытый вопрос №8 в статус-трекере). Здесь реализована проверяемая часть:
+     * метод подтверждения обязан быть фотографическим.
+     */
+    if (identityPolicy?.requirePhotoBeforeExam) {
+      const photoApproved = this.state.identityVerifications.find(
+        (item) =>
+          item.tenantId === tenantId &&
+          item.learnerId === enrollment.learnerId &&
+          item.verificationStatus === 'approved' &&
+          item.method === 'selfie_passport'
+      );
+      if (!photoApproved) {
+        throw new PreconditionFailedException({
+          code: 'identity_photo_required',
+          message: 'Для этого экзамена требуется подтверждение личности с фотографией'
+        });
+      }
+    }
     if (this.findApprovedIdentityVerification(tenantId, enrollment.learnerId)) return;
     throw new PreconditionFailedException({
       code: 'identity_verification_required',
