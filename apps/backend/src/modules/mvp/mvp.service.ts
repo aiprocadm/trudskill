@@ -15,6 +15,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { computeAnalyticsDashboard } from './analytics-dashboard.js';
 import { shuffle } from './assessment/shuffle.util.js';
 import { gradeAnswer } from './assessment-autograde.service.js';
+import { type PhotoConsentGate } from './consents/consent.js';
 import { ENROLLMENT_COMPLETED_EVENT } from './enrollment-completed.event.js';
 import { ENROLLMENT_INVITED_EVENT } from './enrollment-invited.event.js';
 import { learnerRecipient } from './enrollment-recipient.js';
@@ -4097,10 +4098,15 @@ export class MvpService {
     actorId: string | undefined,
     verificationId: string,
     request: { originalName: string; contentType: string; sizeBytes: number },
-    context: RequestContext
+    context: RequestContext,
+    consentGate?: PhotoConsentGate
   ): Promise<UploadIntent> {
     const record = this.getById(this.state.identityVerifications, tenantId, verificationId);
     this.assertActorMatchesLearnerIamLink(tenantId, actorId, record.learnerId, context.permissions);
+    // ФТ-C3.2: без согласия на фото путь «селфи + паспорт» закрыт целиком — загрузка
+    // не начинается. Проверка стоит ПОСЛЕ проверки владения записью: иначе по коду
+    // ошибки можно было бы прощупывать чужие заявки.
+    await consentGate?.(record.learnerId);
     if (record.verificationStatus !== 'draft') {
       throw new PreconditionFailedException({
         code: 'identity_verification_not_editable',
@@ -4118,10 +4124,14 @@ export class MvpService {
     actorId: string | undefined,
     verificationId: string,
     request: { selfieFileId: string; passportFileId: string; consent: boolean },
-    context: RequestContext
+    context: RequestContext,
+    consentGate?: PhotoConsentGate
   ): Promise<IdentityVerification> {
     const record = this.getById(this.state.identityVerifications, tenantId, verificationId);
     this.assertActorMatchesLearnerIamLink(tenantId, actorId, record.learnerId, context.permissions);
+    // ФТ-C3.2: согласие на фото проверяется и здесь, а не только при загрузке файла —
+    // отзыв мог случиться между загрузкой и подачей.
+    const photoConsentAt = await consentGate?.(record.learnerId);
     if (record.verificationStatus !== 'draft') {
       throw new PreconditionFailedException({
         code: 'identity_verification_not_editable',
@@ -4154,6 +4164,10 @@ export class MvpService {
     record.selfieFileId = request.selfieFileId;
     record.passportFileId = request.passportFileId;
     record.consentAt = now;
+    // ФТ-C3.2: в записи хранится момент согласия ИМЕННО НА ФОТО — отдельно от согласия
+    // на обработку данных. Источник правды — факт согласия (0069), здесь снимок для
+    // «личного дела», чтобы его сборка не зависела от второго запроса.
+    if (photoConsentAt) record.photoConsentAt = photoConsentAt;
     record.submittedAt = now;
     record.verificationStatus = 'pending';
     record.updatedAt = now;

@@ -16,6 +16,7 @@ import {
 import { IsString, ValidateIf } from 'class-validator';
 
 import { AddTestQuestionRequest, ReorderTestQuestionRequest } from './add-test-question.dto.js';
+import { ConsentService } from './consents/consent.service.js';
 import { CreateCounterpartyExtendedRequest } from './create-counterparty-extended.dto.js';
 import { IdentityPolicyService } from './identity/identity-policy.service.js';
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
@@ -86,6 +87,7 @@ import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
 import { PermissionGuard } from '../iam/permission.guard.js';
 
+import type { PhotoConsentGate } from './consents/consent.js';
 import type { BaseFilterQuery } from './mvp.dto.js';
 import type { CommissionStatus } from './mvp.types.js';
 import type { RequestContext } from '../../common/context/request-context.js';
@@ -111,7 +113,8 @@ export class MvpController {
     @Inject(LearnerPdfCardService) private readonly learnerPdfCardService: LearnerPdfCardService,
     @Inject(LearnersBulkImportService)
     private readonly learnersBulkImport: LearnersBulkImportService,
-    @Inject(IdentityPolicyService) private readonly identityPolicies: IdentityPolicyService
+    @Inject(IdentityPolicyService) private readonly identityPolicies: IdentityPolicyService,
+    @Inject(ConsentService) private readonly consents: ConsentService
   ) {}
 
   @Get('counterparties')
@@ -975,6 +978,20 @@ export class MvpController {
 
   // ─── Phase 4 Plan A: documentary identity verification ───
 
+  /**
+   * ФТ-C3.2 (Фаза 3 Task 6): согласие на фото — условие всего пути «селфи + паспорт».
+   * Проверка передаётся в сервис функцией и срабатывает ПОСЛЕ проверки владения записью,
+   * чтобы по коду ошибки нельзя было прощупывать чужие заявки.
+   */
+  private photoConsentGate(tenantId: string): PhotoConsentGate {
+    return async (learnerId: string) => {
+      await this.consents.assertPhotoConsent(tenantId, learnerId);
+      const state = await this.consents.getState(tenantId, learnerId, 'photo');
+      return state.grantedAt;
+    };
+  }
+
+
   @Post('identity-verifications')
   @UseGuards(PermissionGuard)
   @RequirePermissions('identity.submit')
@@ -992,7 +1009,14 @@ export class MvpController {
     @Body() raw: unknown
   ) {
     const b = assertValidDto(CreateUploadUrlRequest, raw);
-    return this.mvpService.createIdentityVerificationUploadIntent(c.tenantId!, c.userId, id, b, c);
+    return this.mvpService.createIdentityVerificationUploadIntent(
+      c.tenantId!,
+      c.userId,
+      id,
+      b,
+      c,
+      this.photoConsentGate(c.tenantId!)
+    );
   }
 
   @Post('identity-verifications/:id/submit')
@@ -1004,7 +1028,14 @@ export class MvpController {
     @Body() raw: unknown
   ) {
     const b = assertValidDto(SubmitIdentityVerificationRequest, raw);
-    return this.mvpService.submitIdentityVerification(c.tenantId!, c.userId, id, b, c);
+    return this.mvpService.submitIdentityVerification(
+      c.tenantId!,
+      c.userId,
+      id,
+      b,
+      c,
+      this.photoConsentGate(c.tenantId!)
+    );
   }
 
   @Get('identity-verifications/me')

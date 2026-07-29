@@ -7,7 +7,10 @@ export interface IdentityVerificationDto {
   verificationStatus: IdentityVerificationStatus;
   selfieFileId?: string;
   passportFileId?: string;
+  /** Согласие на обработку персональных данных. */
   consentAt?: string;
+  /** ФТ-C3.2: ОТДЕЛЬНОЕ согласие на фото — отзыв одного не отзывает другое. */
+  photoConsentAt?: string;
   submittedAt?: string;
   reviewedAt?: string;
   rejectionReason?: string;
