@@ -146,7 +146,10 @@ describe('MVP HTTP integration (domain invariants)', () => {
       { MvpService },
       { InMemoryMvpState },
       { LearnerPdfCardService },
-      { LearnersBulkImportService }
+      { LearnersBulkImportService },
+      { IDENTITY_POLICY_REPOSITORY },
+      { IdentityPolicyService },
+      { InMemoryIdentityPolicyRepository }
     ] = await Promise.all([
       import('@nestjs/core'),
       import('@nestjs/throttler'),
@@ -168,7 +171,10 @@ describe('MVP HTTP integration (domain invariants)', () => {
       import('./mvp.service.js'),
       import('./infrastructure/in-memory-mvp.state.js'),
       import('./learner-pdf-card.service.js'),
-      import('./learners-bulk-import.service.js')
+      import('./learners-bulk-import.service.js'),
+      import('./identity/identity-policy.repository.js'),
+      import('./identity/identity-policy.service.js'),
+      import('./identity/in-memory-identity-policy.repository.js')
     ]);
 
     issueSignedAccessToken = cryptoImport.issueSignedAccessToken;
@@ -197,6 +203,11 @@ describe('MVP HTTP integration (domain invariants)', () => {
           scope: Scope.REQUEST,
           useClass: LearnersBulkImportService
         },
+        // ФТ-C1 (Фаза 3 Task 2): контроллер разрешает политику идентификации перед
+        // стартом попытки. Репозиторий — in-memory: этому тесту нужна граница прав,
+        // а не настоящее хранилище политик.
+        { provide: IDENTITY_POLICY_REPOSITORY, useClass: InMemoryIdentityPolicyRepository },
+        IdentityPolicyService,
         {
           provide: MvpRequestPersistenceInterceptor,
           scope: Scope.REQUEST,

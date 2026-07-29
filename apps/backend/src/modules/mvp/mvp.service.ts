@@ -22,6 +22,11 @@ import {
   summarizeCounterpartyProgress,
   summarizeGroupProgress
 } from './group-progress-summary.service.js';
+import {
+  type EffectiveIdentityPolicy,
+  requiresDocumentIdentity,
+  requiresExamControl
+} from './identity/identity-policy.js';
 import { IDENTITY_VERIFICATION_REJECTED_EVENT } from './identity-verification-rejected.event.js';
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from './infrastructure/mvp-state.token.js';
@@ -3340,11 +3345,18 @@ export class MvpService {
     if (attempts.length >= attemptLimit) return 'failed';
     return 'submitted';
   }
+  /**
+   * @param identityPolicy действующая политика идентификации (ФТ-C1). Разрешается
+   * контроллером ДО вызова: сам метод синхронный, а политика лежит в отдельной таблице.
+   * Не передана — работают только прежние флаги группы-курса (обратная совместимость
+   * для внутренних вызовов и тестов).
+   */
   startAttempt(
     tenantId: string,
     actorId: string | undefined,
     request: StartAttemptRequest,
-    context: RequestContext
+    context: RequestContext,
+    identityPolicy?: EffectiveIdentityPolicy
   ): TestAttempt {
     const test = this.getById(this.state.tests, tenantId, request.testId);
     const enrollment = this.getById(this.state.enrollments, tenantId, request.enrollmentId);
@@ -3374,9 +3386,9 @@ export class MvpService {
     // Wave 1 gates: последовательность модулей (A), минимальное время (B), аутентификация (C).
     this.assertModuleSequenceGate(tenantId, enrollment.id, test);
     this.assertMinViewGate(tenantId, enrollment.id, test);
-    this.assertPreExamAuthGate(tenantId, enrollment, test);
+    this.assertPreExamAuthGate(tenantId, enrollment, test, identityPolicy);
     // Phase 4 Plan A: documentary identity (selfie+passport) — per-learner.
-    this.assertIdentityVerificationGate(tenantId, enrollment, test);
+    this.assertIdentityVerificationGate(tenantId, enrollment, test, identityPolicy);
     // Phase 4 Plan B: webcam recording must be running for proctored finals.
     this.assertProctoringGate(tenantId, enrollment, test);
     const delegationAuditMetadata = this.delegatedLearningAuditMetadata(
@@ -3621,9 +3633,26 @@ export class MvpService {
    * and only when the group-course requires it. After verification the consumed
    * token persists, so repeat attempts of the same exam are not re-prompted.
    */
-  private assertPreExamAuthGate(tenantId: string, enrollment: Enrollment, test: TestEntity): void {
+  private assertPreExamAuthGate(
+    tenantId: string,
+    enrollment: Enrollment,
+    test: TestEntity,
+    identityPolicy?: EffectiveIdentityPolicy
+  ): void {
     if (test.moduleId) return; // intermediate module tests are never identity-gated
-    if (!this.groupCourseRequiresPreExamAuth(tenantId, enrollment.groupId, test.courseId)) return;
+    /*
+     * ФТ-C1 (Фаза 3 Task 2): требование включается ЛИБО политикой тенанта (уровень 3),
+     * ЛИБО флагом на связке группа-курс. Именно «либо», а не замена: флаги остались с
+     * прежних фаз на уже идущих группах, и включение политики не должно их ослаблять,
+     * а выключение — открывать то, что центр явно ужесточил на группе.
+     */
+    const requiredByPolicy = identityPolicy ? requiresExamControl(identityPolicy) : false;
+    const requiredByGroupCourse = this.groupCourseRequiresPreExamAuth(
+      tenantId,
+      enrollment.groupId,
+      test.courseId
+    );
+    if (!requiredByPolicy && !requiredByGroupCourse) return;
     if (this.findPreExamVerification(tenantId, enrollment.id, test.id)) return;
     throw new PreconditionFailedException({
       code: 'pre_exam_auth_required',
@@ -3955,11 +3984,19 @@ export class MvpService {
   private assertIdentityVerificationGate(
     tenantId: string,
     enrollment: Enrollment,
-    test: TestEntity
+    test: TestEntity,
+    identityPolicy?: EffectiveIdentityPolicy
   ): void {
     if (test.moduleId) return;
-    if (!this.groupCourseRequiresIdentityVerification(tenantId, enrollment.groupId, test.courseId))
-      return;
+    // ФТ-C1: уровень 2 и выше требует подтверждения личности документом; флаг на
+    // группе-курсе остаётся независимым ужесточением (см. комментарий в assertPreExamAuthGate).
+    const requiredByPolicy = identityPolicy ? requiresDocumentIdentity(identityPolicy) : false;
+    const requiredByGroupCourse = this.groupCourseRequiresIdentityVerification(
+      tenantId,
+      enrollment.groupId,
+      test.courseId
+    );
+    if (!requiredByPolicy && !requiredByGroupCourse) return;
     if (this.findApprovedIdentityVerification(tenantId, enrollment.learnerId)) return;
     throw new PreconditionFailedException({
       code: 'identity_verification_required',

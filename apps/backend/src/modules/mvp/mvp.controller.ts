@@ -17,6 +17,7 @@ import { IsString, ValidateIf } from 'class-validator';
 
 import { AddTestQuestionRequest, ReorderTestQuestionRequest } from './add-test-question.dto.js';
 import { CreateCounterpartyExtendedRequest } from './create-counterparty-extended.dto.js';
+import { IdentityPolicyService } from './identity/identity-policy.service.js';
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
 import { LearnerPdfCardService } from './learner-pdf-card.service.js';
 import { BulkImportLearnersRequest } from './learners-bulk-import.dto.js';
@@ -109,7 +110,8 @@ export class MvpController {
     @Inject(MvpBulkEnqueueService) private readonly mvpBulkEnqueue: MvpBulkEnqueueService,
     @Inject(LearnerPdfCardService) private readonly learnerPdfCardService: LearnerPdfCardService,
     @Inject(LearnersBulkImportService)
-    private readonly learnersBulkImport: LearnersBulkImportService
+    private readonly learnersBulkImport: LearnersBulkImportService,
+    @Inject(IdentityPolicyService) private readonly identityPolicies: IdentityPolicyService
   ) {}
 
   @Get('counterparties')
@@ -943,9 +945,16 @@ export class MvpController {
   @Post('attempts/start')
   @UseGuards(PermissionGuard)
   @RequirePermissions('assessment.attempts.take')
-  startAttempt(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+  async startAttempt(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
     const b = assertValidDto(StartAttemptRequest, raw);
-    return this.mvpService.startAttempt(c.tenantId!, c.userId, b, c);
+    // ФТ-C1: политика лежит в отдельной таблице (`0066`), а startAttempt синхронный —
+    // поэтому действующий уровень разрешается здесь и передаётся внутрь.
+    const test = this.mvpService.getTest(c.tenantId!, b.testId);
+    const identityPolicy = await this.identityPolicies.effectiveForCourse(
+      c.tenantId!,
+      test.courseId
+    );
+    return this.mvpService.startAttempt(c.tenantId!, c.userId, b, c, identityPolicy);
   }
 
   @Post('attempts/request-pre-exam-token')

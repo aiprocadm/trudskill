@@ -636,3 +636,111 @@ describe('identity verification gate', () => {
     });
   });
 });
+
+/**
+ * ФТ-C1 (Фаза 3 Task 2): гейты читают ПОЛИТИКУ, а не только флаги группы-курса.
+ *
+ * Смысл: центр задаёт уровень один раз в настройках, а не проставляет галочки на каждой
+ * группе — любая забытая группа была бы дырой в требовании. При этом флаги остаются
+ * независимым ужесточением: включение политики не должно ослаблять уже настроенные
+ * идущие группы, а выключение — открывать то, что центр явно ужесточил.
+ */
+describe('identity gates — политика идентификации (ФТ-C1)', () => {
+  const policy = (level: number) => ({
+    level: level as 0 | 1 | 2 | 3,
+    requirePhotoBeforeExam: false,
+    source: 'tenant' as const
+  });
+
+  it('ОБХОД ЗАПРОСОМ МИМО ИНТЕРФЕЙСА: уровень 2 закрывает экзамен без подтверждения', () => {
+    const { service } = makeService();
+    // Флаг на группе-курсе НЕ выставлен — требование приходит только из политики.
+    const { test, enrollment } = seedFinalExam(service, false);
+
+    let err: unknown;
+    try {
+      service.startAttempt(T, ADMIN, startArgs(test, enrollment), ctx, policy(2));
+    } catch (e) {
+      err = e;
+    }
+    expect((err as { getResponse: () => unknown }).getResponse()).toMatchObject({
+      code: 'identity_verification_required'
+    });
+  });
+
+  it('уровень 3 требует ещё и одноразовый код на экзамен', () => {
+    const { service } = makeService();
+    const { test, enrollment } = seedFinalExam(service, false);
+
+    let err: unknown;
+    try {
+      service.startAttempt(T, ADMIN, startArgs(test, enrollment), ctx, policy(3));
+    } catch (e) {
+      err = e;
+    }
+    // Код проверяется раньше документа — важно лишь, что экзамен закрыт.
+    expect((err as { getResponse: () => { code: string } }).getResponse().code).toMatch(
+      /pre_exam_auth_required|identity_verification_required/
+    );
+  });
+
+  it('уровни 0 и 1 экзамен не закрывают — идентификация документом не требуется', () => {
+    const { service } = makeService();
+    const { test, enrollment } = seedFinalExam(service, false);
+
+    expect(() =>
+      service.startAttempt(T, ADMIN, startArgs(test, enrollment), ctx, policy(0))
+    ).not.toThrow();
+  });
+
+  it('уровень 1 (ПЭП) сам по себе документ не требует', () => {
+    const { service } = makeService();
+    const { test, enrollment } = seedFinalExam(service, false);
+
+    expect(() =>
+      service.startAttempt(T, ADMIN, startArgs(test, enrollment), ctx, policy(1))
+    ).not.toThrow();
+  });
+
+  it('ФЛАГ ГРУППЫ ОСТАЁТСЯ УЖЕСТОЧЕНИЕМ: политика 0 не открывает то, что закрыто флагом', () => {
+    const { service } = makeService();
+    // Центр снял требование в политике, но на конкретной группе оно выставлено явно.
+    const { test, enrollment } = seedFinalExam(service, true);
+
+    let err: unknown;
+    try {
+      service.startAttempt(T, ADMIN, startArgs(test, enrollment), ctx, policy(0));
+    } catch (e) {
+      err = e;
+    }
+    expect((err as { getResponse: () => unknown }).getResponse()).toMatchObject({
+      code: 'identity_verification_required'
+    });
+  });
+
+  it('без переданной политики поведение прежнее — обратная совместимость', () => {
+    const { service } = makeService();
+    const { test, enrollment } = seedFinalExam(service, false);
+
+    expect(() => service.startAttempt(T, ADMIN, startArgs(test, enrollment), ctx)).not.toThrow();
+  });
+
+  it('промежуточный тест модуля не гейтится даже на уровне 3 — учёба встала бы', () => {
+    const { service } = makeService();
+    const { course, test, enrollment } = seedFinalExam(service, false);
+    // Настоящий модуль, а не выдуманный id: тест обязан проверять гейт, а не падать
+    // на несвязанном поиске сущности.
+    const version = service.createCourseVersion(T, course.id);
+    const moduleEntity = service.createModule(
+      T,
+      ADMIN,
+      { courseVersionId: version.id, title: 'M1', minViewSeconds: 0, isRequired: true },
+      ctx
+    );
+    service.getTest(T, test.id).moduleId = moduleEntity.id;
+
+    expect(() =>
+      service.startAttempt(T, ADMIN, startArgs(test, enrollment), ctx, policy(3))
+    ).not.toThrow();
+  });
+});
