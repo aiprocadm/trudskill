@@ -54,6 +54,9 @@ export function useIdentitySubmission() {
     setError(null);
     try {
       const draft = await identityVerificationApi.start(session, {});
+      // ФТ-C3.2: сначала согласия, только потом файлы. Порядок здесь — не стиль, а
+      // требование: без согласия на фото сервер не выдаст ссылку для загрузки.
+      await identityVerificationApi.grantConsents(session, draft.id, { pii: true, photo: true });
       const uploadOne = async (file: File) => {
         const intent = await identityVerificationApi.createUploadUrl(session, draft.id, {
           originalName: file.name,
@@ -68,7 +71,8 @@ export function useIdentitySubmission() {
       await identityVerificationApi.submit(session, draft.id, {
         selfieFileId,
         passportFileId,
-        consent: true
+        consent: true,
+        photoConsent: true
       });
       await queryClient.invalidateQueries({ queryKey: ['identity-verification', 'me'] });
       return true;

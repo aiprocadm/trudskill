@@ -48,7 +48,10 @@ export interface UploadIntent {
 export interface SubmitIdentityVerificationPayload {
   selfieFileId: string;
   passportFileId: string;
+  /** Согласие на обработку ПДн (152-ФЗ). */
   consent: true;
+  /** ФТ-C3.2: отдельное согласие на обработку фотографии. */
+  photoConsent: true;
 }
 
 export interface ReviewIdentityVerificationPayload {

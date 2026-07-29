@@ -1157,9 +1157,50 @@ export class SubmitIdentityVerificationRequest {
   @MinLength(1)
   passportFileId!: string;
 
+  /** Согласие на обработку ПДн (152-ФЗ). */
   @IsBoolean()
   @Equals(true)
   consent!: boolean;
+
+  /**
+   * ФТ-C3.2 (Фаза 3 Task 6): ОТДЕЛЬНОЕ согласие на обработку фотографии.
+   *
+   * Необязательное в схеме, но обязательное по смыслу: без него сервис откажет с
+   * `photo_consent_required`. Схема мягкая намеренно — отказ от фото это законный
+   * выбор человека, и он должен получить внятное объяснение последствий, а не
+   * «ошибка валидации поля».
+   */
+  @IsOptional()
+  @IsBoolean()
+  photoConsent?: boolean;
+}
+
+/** ФТ-C3.2: выдача согласий по отдельности (до загрузки фото). */
+export class GrantIdentityConsentsRequest {
+  @IsOptional()
+  @IsBoolean()
+  pii?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  photo?: boolean;
+}
+
+/** ФТ-C3.2: отзыв одного согласия; отзыв одного не отзывает другое. */
+export class RevokeIdentityConsentRequest {
+  @IsIn(['pii', 'photo'])
+  kind!: 'pii' | 'photo';
+}
+
+/** ФТ-C3.2: текст согласия, редактируемый учебным центром. */
+export class SaveConsentTextRequest {
+  @IsIn(['pii', 'photo'])
+  kind!: 'pii' | 'photo';
+
+  @IsString()
+  @MinLength(20)
+  @MaxLength(20000)
+  body!: string;
 }
 
 /** Phase 4 Plan A: manual review decision. */

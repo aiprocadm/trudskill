@@ -45,6 +45,37 @@ export const identityVerificationApi = {
       body: payload,
       ...withAuth(session)
     }),
+  /**
+   * ФТ-C3.2: согласия фиксируются ДО загрузки снимка — иначе паспорт уже лежит в
+   * хранилище к моменту, когда человека спрашивают, согласен ли он его отдавать.
+   */
+  grantConsents: (
+    session: UserSession,
+    id: string,
+    payload: { pii?: boolean; photo?: boolean }
+  ): Promise<IdentityVerificationDto> =>
+    apiRequest<IdentityVerificationDto>(`/identity-verifications/${id}/consents`, {
+      method: 'POST',
+      body: payload,
+      ...withAuth(session)
+    }),
+  revokeConsent: (
+    session: UserSession,
+    id: string,
+    kind: 'pii' | 'photo'
+  ): Promise<IdentityVerificationDto> =>
+    apiRequest<IdentityVerificationDto>(`/identity-verifications/${id}/consents/revoke`, {
+      method: 'POST',
+      body: { kind },
+      ...withAuth(session)
+    }),
+  consentTexts: (
+    session: UserSession
+  ): Promise<Record<'pii' | 'photo', { version: number; body: string } | null>> =>
+    apiRequest<Record<'pii' | 'photo', { version: number; body: string } | null>>(
+      '/consent-texts',
+      { method: 'GET', ...withAuth(session) }
+    ),
   submit: (
     session: UserSession,
     id: string,

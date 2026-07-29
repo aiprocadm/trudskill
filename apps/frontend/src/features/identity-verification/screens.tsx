@@ -39,7 +39,10 @@ export function LearnerIdentityScreen(): ReactElement {
 
   const [selfie, setSelfie] = useState<File | null>(null);
   const [passport, setPassport] = useState<File | null>(null);
+  // ФТ-C3.2: два НЕЗАВИСИМЫХ согласия. Фото лица — почти биометрия, и человек вправе
+  // согласиться на обработку данных, но отказаться от съёмки.
   const [consent, setConsent] = useState(false);
+  const [photoConsent, setPhotoConsent] = useState(false);
   const [esiaPending, setEsiaPending] = useState(false);
 
   const onEsiaIdentity = async () => {
@@ -70,6 +73,7 @@ export function LearnerIdentityScreen(): ReactElement {
       setSelfie(null);
       setPassport(null);
       setConsent(false);
+      setPhotoConsent(false);
       void my.refetch();
     }
   };
@@ -130,12 +134,36 @@ export function LearnerIdentityScreen(): ReactElement {
               <span>Даю согласие на обработку персональных данных (152-ФЗ)</span>
             </label>
 
+            <label className="ui-inline">
+              <input
+                type="checkbox"
+                checked={photoConsent}
+                disabled={submission.isPending}
+                onChange={(e) => setPhotoConsent(e.target.checked)}
+              />
+              <span>
+                Отдельно даю согласие на обработку моей фотографии (селфи и фото документа)
+              </span>
+            </label>
+
+            {consent && !photoConsent ? (
+              /*
+               * Отказ от фото — законный выбор, и последствия надо назвать ПРЯМО, а не
+               * молча не пустить человека на экзамен. Это и есть критерий приёмки ФТ-C3.2.
+               */
+              <p className="ui-text-muted">
+                Без согласия на обработку фотографии подтверждение личности с фото недоступно —
+                экзамены, требующие такого подтверждения, вы сдать не сможете. Обратитесь в учебный
+                центр, чтобы уточнить альтернативы.
+              </p>
+            ) : null}
+
             {submission.error ? <SectionError message={submission.error} /> : null}
 
             <button
               type="button"
               className="ui-button ui-button--primary"
-              disabled={!selfie || !passport || !consent || submission.isPending}
+              disabled={!selfie || !passport || !consent || !photoConsent || submission.isPending}
               onClick={() => void onSubmit()}
             >
               {submission.isPending ? 'Отправка…' : 'Отправить на проверку'}

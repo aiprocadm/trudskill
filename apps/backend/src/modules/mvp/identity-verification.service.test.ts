@@ -108,6 +108,8 @@ describe('identity verification lifecycle', () => {
       ctx
     );
     const draft = service.startIdentityVerification(T, 'u_l1', {}, ctx);
+    // ФТ-C3.2: согласия даются ДО загрузки снимка, иначе intent не выдаётся.
+    service.grantIdentityConsents(T, 'u_l1', draft.id, { pii: true, photo: true }, ctx);
     await service.createIdentityVerificationUploadIntent(
       T,
       'u_l1',
@@ -140,7 +142,7 @@ describe('identity verification lifecycle', () => {
       T,
       'u_l1',
       draft.id,
-      { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true },
+      { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true, photoConsent: true },
       ctx
     );
     expect(result.verificationStatus).toBe('pending');
@@ -168,7 +170,12 @@ describe('identity verification lifecycle', () => {
         T,
         'u_l1',
         draft.id,
-        { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true },
+        {
+          selfieFileId: 'f_selfie',
+          passportFileId: 'f_passport',
+          consent: true,
+          photoConsent: true
+        },
         ctx
       );
     } catch (e) {
@@ -193,7 +200,7 @@ describe('identity verification lifecycle', () => {
       T,
       'u_l1',
       draft.id,
-      { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true },
+      { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true, photoConsent: true },
       ctx
     );
     const approved = service.reviewIdentityVerification(
@@ -234,7 +241,7 @@ describe('identity verification lifecycle', () => {
       T,
       'u_l1',
       draft.id,
-      { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true },
+      { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true, photoConsent: true },
       ctx
     );
     const rejected = service.reviewIdentityVerification(
@@ -279,7 +286,7 @@ describe('identity verification lifecycle', () => {
       T,
       'u_l1',
       draft.id,
-      { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true },
+      { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true, photoConsent: true },
       ctx
     );
     service.reviewIdentityVerification(T, ADMIN, draft.id, { decision: 'approve' }, ctx);
@@ -299,7 +306,7 @@ describe('identity verification lifecycle', () => {
       T,
       'u_l1',
       draft.id,
-      { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true },
+      { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true, photoConsent: true },
       ctx
     );
     const rejected = service.reviewIdentityVerification(
@@ -352,7 +359,7 @@ describe('identity verification lifecycle', () => {
       T,
       'u_l1',
       draft.id,
-      { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true },
+      { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true, photoConsent: true },
       ctx
     );
     service.reviewIdentityVerification(T, ADMIN, draft.id, { decision: 'approve' }, ctx);
@@ -412,7 +419,7 @@ describe('identity verification lifecycle', () => {
       T,
       'u_l1',
       draft.id,
-      { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true },
+      { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true, photoConsent: true },
       ctx
     );
     // Now record is pending — upload intent should throw identity_verification_not_editable
@@ -447,7 +454,7 @@ describe('identity verification lifecycle', () => {
       T,
       'u_l1',
       draft.id,
-      { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true },
+      { selfieFileId: 'f_selfie', passportFileId: 'f_passport', consent: true, photoConsent: true },
       ctx
     );
     // Selfie download throws the same 423 HttpException that FilesService throws for infected files
@@ -484,7 +491,12 @@ describe('identity verification lifecycle', () => {
         T,
         'u_l1',
         draft.id,
-        { selfieFileId: 'same_file', passportFileId: 'same_file', consent: true },
+        {
+          selfieFileId: 'same_file',
+          passportFileId: 'same_file',
+          consent: true,
+          photoConsent: true
+        },
         ctx
       );
     } catch (e) {
@@ -603,7 +615,7 @@ describe('identity verification gate', () => {
       T,
       'u_l1',
       draft.id,
-      { selfieFileId: 'f_s', passportFileId: 'f_p', consent: true },
+      { selfieFileId: 'f_s', passportFileId: 'f_p', consent: true, photoConsent: true },
       ctxL1
     );
     service.reviewIdentityVerification(T, ADMIN, draft.id, { decision: 'approve' }, ctx);
@@ -620,7 +632,7 @@ describe('identity verification gate', () => {
       T,
       'u_l1',
       draft.id,
-      { selfieFileId: 'f_s', passportFileId: 'f_p', consent: true },
+      { selfieFileId: 'f_s', passportFileId: 'f_p', consent: true, photoConsent: true },
       ctxL1
     );
     service.reviewIdentityVerification(T, ADMIN, draft.id, { decision: 'reject' }, ctx);
@@ -761,7 +773,7 @@ async function submitForReview(service: MvpService) {
     T,
     'u_l1',
     draft.id,
-    { selfieFileId: 'f_s', passportFileId: 'f_p', consent: true },
+    { selfieFileId: 'f_s', passportFileId: 'f_p', consent: true, photoConsent: true },
     ctxL1
   );
   return draft;
@@ -875,5 +887,150 @@ describe('identity gates — требование фото (ФТ-C1.2)', () => {
         source: 'tenant'
       })
     ).not.toThrow();
+  });
+});
+
+/**
+ * ФТ-C3.2 (Фаза 3 Task 6): раздельные согласия на ПДн и на фото.
+ *
+ * Смысл разделения: фотография лица — почти биометрия, и человек вправе согласиться на
+ * обработку данных, но отказаться от съёмки. Одна общая галочка такого выбора не даёт.
+ */
+describe('раздельные согласия на ПДн и на фото (ФТ-C3.2)', () => {
+  it('без согласия на фото загрузка снимка НЕ принимается', async () => {
+    const { service } = makeService();
+    seedFinalExam(service, true, true);
+    const draft = service.startIdentityVerification(T, 'u_l1', {}, ctxL1);
+    service.grantIdentityConsents(T, 'u_l1', draft.id, { pii: true }, ctxL1);
+
+    await expect(
+      service.createIdentityVerificationUploadIntent(
+        T,
+        'u_l1',
+        draft.id,
+        { originalName: 'selfie.jpg', contentType: 'image/jpeg', sizeBytes: 1000 },
+        ctxL1
+      )
+    ).rejects.toMatchObject({ response: { code: 'consent_required' } });
+  });
+
+  it('вообще без согласий загрузка не принимается', async () => {
+    const { service } = makeService();
+    seedFinalExam(service, true, true);
+    const draft = service.startIdentityVerification(T, 'u_l1', {}, ctxL1);
+
+    await expect(
+      service.createIdentityVerificationUploadIntent(
+        T,
+        'u_l1',
+        draft.id,
+        { originalName: 'selfie.jpg', contentType: 'image/jpeg', sizeBytes: 1000 },
+        ctxL1
+      )
+    ).rejects.toMatchObject({ response: { code: 'consent_required' } });
+  });
+
+  it('с обоими согласиями загрузка проходит', async () => {
+    const { service } = makeService();
+    seedFinalExam(service, true, true);
+    const draft = service.startIdentityVerification(T, 'u_l1', {}, ctxL1);
+    service.grantIdentityConsents(T, 'u_l1', draft.id, { pii: true, photo: true }, ctxL1);
+
+    await expect(
+      service.createIdentityVerificationUploadIntent(
+        T,
+        'u_l1',
+        draft.id,
+        { originalName: 'selfie.jpg', contentType: 'image/jpeg', sizeBytes: 1000 },
+        ctxL1
+      )
+    ).resolves.toBeDefined();
+  });
+
+  it('подача без согласия на фото отклоняется ВНЯТНО, а не молча', async () => {
+    const { service } = makeService();
+    seedFinalExam(service, true, true);
+    const draft = service.startIdentityVerification(T, 'u_l1', {}, ctxL1);
+
+    await expect(
+      service.submitIdentityVerification(
+        T,
+        'u_l1',
+        draft.id,
+        { selfieFileId: 'f_s', passportFileId: 'f_p', consent: true },
+        ctxL1
+      )
+    ).rejects.toMatchObject({ response: { code: 'photo_consent_required' } });
+  });
+
+  it('отзыв согласия на фото НЕ отзывает согласие на ПДн', async () => {
+    const { service } = makeService();
+    seedFinalExam(service, true, true);
+    const draft = service.startIdentityVerification(T, 'u_l1', {}, ctxL1);
+    service.grantIdentityConsents(T, 'u_l1', draft.id, { pii: true, photo: true }, ctxL1);
+
+    const after = service.revokeIdentityConsent(T, 'u_l1', draft.id, 'photo', ctxL1);
+
+    expect(after.photoConsentRevokedAt).toBeDefined();
+    expect(after.piiConsentRevokedAt).toBeUndefined();
+  });
+
+  it('отзыв согласия на фото НЕ отменяет уже принятое решение модератора', async () => {
+    const { service } = makeService();
+    seedFinalExam(service, true, true);
+    const draft = await submitForReview(service);
+    await service.reviewIdentityVerification(T, ADMIN, draft.id, { decision: 'approve' }, ctx);
+
+    const after = service.revokeIdentityConsent(T, 'u_l1', draft.id, 'photo', ctxL1);
+
+    // Отозвать согласие на будущее можно; отменить задним числом состоявшуюся проверку
+    // личности нельзя — иначе исчезнет доказательство, кто сдавал экзамен.
+    expect(after.verificationStatus).toBe('approved');
+    expect(after.reviewedAt).toBeDefined();
+  });
+
+  it('после отзыва загрузка снова закрыта', async () => {
+    const { service } = makeService();
+    seedFinalExam(service, true, true);
+    const draft = service.startIdentityVerification(T, 'u_l1', {}, ctxL1);
+    service.grantIdentityConsents(T, 'u_l1', draft.id, { pii: true, photo: true }, ctxL1);
+    service.revokeIdentityConsent(T, 'u_l1', draft.id, 'photo', ctxL1);
+
+    await expect(
+      service.createIdentityVerificationUploadIntent(
+        T,
+        'u_l1',
+        draft.id,
+        { originalName: 'selfie.jpg', contentType: 'image/jpeg', sizeBytes: 1000 },
+        ctxL1
+      )
+    ).rejects.toMatchObject({ response: { code: 'consent_required' } });
+  });
+
+  it('передумавший дважды может согласиться снова', async () => {
+    const { service } = makeService();
+    seedFinalExam(service, true, true);
+    const draft = service.startIdentityVerification(T, 'u_l1', {}, ctxL1);
+    service.grantIdentityConsents(T, 'u_l1', draft.id, { pii: true, photo: true }, ctxL1);
+    service.revokeIdentityConsent(T, 'u_l1', draft.id, 'photo', ctxL1);
+    service.grantIdentityConsents(T, 'u_l1', draft.id, { photo: true }, ctxL1);
+
+    await expect(
+      service.createIdentityVerificationUploadIntent(
+        T,
+        'u_l1',
+        draft.id,
+        { originalName: 'selfie.jpg', contentType: 'image/jpeg', sizeBytes: 1000 },
+        ctxL1
+      )
+    ).resolves.toBeDefined();
+  });
+
+  it('пустой запрос согласий отклоняется — нечего фиксировать', () => {
+    const { service } = makeService();
+    seedFinalExam(service, true, true);
+    const draft = service.startIdentityVerification(T, 'u_l1', {}, ctxL1);
+
+    expect(() => service.grantIdentityConsents(T, 'u_l1', draft.id, {}, ctxL1)).toThrow();
   });
 });

@@ -126,7 +126,8 @@ describe('identityVerificationApi envelope compatibility (Phase 4 Plan A)', () =
     const result = await identityVerificationApi.submit(session, 'idv_1', {
       selfieFileId: 'file_1',
       passportFileId: 'file_2',
-      consent: true
+      consent: true,
+      photoConsent: true
     });
 
     expect(result.verificationStatus).toBe('pending');

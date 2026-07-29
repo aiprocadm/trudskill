@@ -500,7 +500,17 @@ export interface IdentityVerification extends BaseEntity {
   verificationStatus: IdentityVerificationStatus;
   selfieFileId?: string;
   passportFileId?: string;
+  /**
+   * Историческое поле: одна общая галочка до разделения согласий (Фаза 3 Task 6).
+   * Новые записи заполняют `piiConsentAt`/`photoConsentAt`; разбор — `resolveConsents`.
+   */
   consentAt?: string;
+  /** ФТ-C3.2: согласие на обработку ПДн (152-ФЗ) — отдельно от согласия на фото. */
+  piiConsentAt?: string;
+  piiConsentRevokedAt?: string;
+  /** ФТ-C3.2: согласие на фото/изображение лица — зона, граничащая с биометрией. */
+  photoConsentAt?: string;
+  photoConsentRevokedAt?: string;
   submittedAt?: string;
   reviewedByActorId?: string;
   reviewedAt?: string;

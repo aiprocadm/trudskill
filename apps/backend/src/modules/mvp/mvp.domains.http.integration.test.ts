@@ -149,7 +149,11 @@ describe('MVP HTTP integration (domain invariants)', () => {
       { LearnersBulkImportService },
       { IDENTITY_POLICY_REPOSITORY },
       { IdentityPolicyService },
-      { InMemoryIdentityPolicyRepository }
+      { InMemoryIdentityPolicyRepository },
+      { CONSENT_TEXT_REPOSITORY },
+      { ConsentTextService },
+      { InMemoryConsentTextRepository },
+      { LegalLogWriter }
     ] = await Promise.all([
       import('@nestjs/core'),
       import('@nestjs/throttler'),
@@ -174,7 +178,11 @@ describe('MVP HTTP integration (domain invariants)', () => {
       import('./learners-bulk-import.service.js'),
       import('./identity/identity-policy.repository.js'),
       import('./identity/identity-policy.service.js'),
-      import('./identity/in-memory-identity-policy.repository.js')
+      import('./identity/in-memory-identity-policy.repository.js'),
+      import('./consents/consent-text.repository.js'),
+      import('./consents/consent-text.service.js'),
+      import('./consents/in-memory-consent-text.repository.js'),
+      import('./esignature/legal-log.writer.js')
     ]);
 
     issueSignedAccessToken = cryptoImport.issueSignedAccessToken;
@@ -208,6 +216,12 @@ describe('MVP HTTP integration (domain invariants)', () => {
         // а не настоящее хранилище политик.
         { provide: IDENTITY_POLICY_REPOSITORY, useClass: InMemoryIdentityPolicyRepository },
         IdentityPolicyService,
+        // ФТ-C3.2: контроллер пишет факты согласий в юридический журнал. Журнал ходит в
+        // БД, которой в этом тесте нет, — подменяем заглушкой: проверяем HTTP-границу,
+        // а не запись в Postgres.
+        { provide: CONSENT_TEXT_REPOSITORY, useClass: InMemoryConsentTextRepository },
+        { provide: LegalLogWriter, useValue: { write: async () => undefined } },
+        ConsentTextService,
         {
           provide: MvpRequestPersistenceInterceptor,
           scope: Scope.REQUEST,

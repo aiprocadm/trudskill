@@ -16,6 +16,7 @@ import {
 import { IsString, ValidateIf } from 'class-validator';
 
 import { AddTestQuestionRequest, ReorderTestQuestionRequest } from './add-test-question.dto.js';
+import { ConsentTextService } from './consents/consent-text.service.js';
 import { CreateCounterpartyExtendedRequest } from './create-counterparty-extended.dto.js';
 import { IdentityPolicyService } from './identity/identity-policy.service.js';
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
@@ -46,14 +47,17 @@ import {
   CreateSimpleRegistryRequest,
   CreateTestRequest,
   CreateUploadUrlRequest,
+  GrantIdentityConsentsRequest,
   ImportQuestionsRequest,
   PatchTestRulesRequest,
   PutCourseDocumentSetRequest,
   RequestPreExamTokenRequest,
   ReturnSubmissionRequest,
   ReviewIdentityVerificationRequest,
+  RevokeIdentityConsentRequest,
   SaveAnswerRequest,
   SaveAttemptAnswerRequest,
+  SaveConsentTextRequest,
   SetProctoringOverrideRequest,
   StartAttemptRequest,
   StartProctoringRecordingRequest,
@@ -111,7 +115,8 @@ export class MvpController {
     @Inject(LearnerPdfCardService) private readonly learnerPdfCardService: LearnerPdfCardService,
     @Inject(LearnersBulkImportService)
     private readonly learnersBulkImport: LearnersBulkImportService,
-    @Inject(IdentityPolicyService) private readonly identityPolicies: IdentityPolicyService
+    @Inject(IdentityPolicyService) private readonly identityPolicies: IdentityPolicyService,
+    @Inject(ConsentTextService) private readonly consentTexts: ConsentTextService
   ) {}
 
   @Get('counterparties')
@@ -993,6 +998,57 @@ export class MvpController {
   ) {
     const b = assertValidDto(CreateUploadUrlRequest, raw);
     return this.mvpService.createIdentityVerificationUploadIntent(c.tenantId!, c.userId, id, b, c);
+  }
+
+  @Post('identity-verifications/:id/consents')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('identity.submit')
+  async grantIdentityConsents(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(GrantIdentityConsentsRequest, raw);
+    const record = this.mvpService.grantIdentityConsents(c.tenantId!, c.userId, id, b, c);
+    // Факт согласия — в юридический журнал (append-only), а не только в состояние:
+    // состояние показывает «как сейчас», журнал доказывает «что и когда произошло».
+    if (b.pii === true) {
+      await this.consentTexts.recordGranted(c.tenantId!, record.learnerId, 'pii', c);
+    }
+    if (b.photo === true) {
+      await this.consentTexts.recordGranted(c.tenantId!, record.learnerId, 'photo', c);
+    }
+    return record;
+  }
+
+  @Post('identity-verifications/:id/consents/revoke')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('identity.submit')
+  async revokeIdentityConsent(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(RevokeIdentityConsentRequest, raw);
+    const record = this.mvpService.revokeIdentityConsent(c.tenantId!, c.userId, id, b.kind, c);
+    await this.consentTexts.recordRevoked(c.tenantId!, record.learnerId, b.kind, c);
+    return record;
+  }
+
+  /** Тексты согласий тенанта — форма слушателя показывает их до галочек. */
+  @Get('consent-texts')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('identity.submit')
+  getConsentTexts(@CurrentContext() c: RequestContext) {
+    return this.consentTexts.getAll(c.tenantId!);
+  }
+
+  @Post('consent-texts')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('consents.configure')
+  saveConsentText(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(SaveConsentTextRequest, raw);
+    return this.consentTexts.save(c.tenantId!, b.kind, b.body);
   }
 
   @Post('identity-verifications/:id/submit')

@@ -3,6 +3,10 @@ import { Module, Scope } from '@nestjs/common';
 import { backendEnv } from '../../env.js';
 import { ExpiredAttemptsScanner } from './assessment/expired-attempts.scanner.service.js';
 import { ExpiredAttemptsSchedulerService } from './assessment/expired-attempts.scheduler.service.js';
+import { CONSENT_TEXT_REPOSITORY } from './consents/consent-text.repository.js';
+import { ConsentTextService } from './consents/consent-text.service.js';
+import { InMemoryConsentTextRepository } from './consents/in-memory-consent-text.repository.js';
+import { PostgresConsentTextRepository } from './consents/postgres-consent-text.repository.js';
 import { EisotTestingRegistryController } from './eisot-testing-registry/eisot-testing-registry.controller.js';
 import { EisotTestingRegistryService } from './eisot-testing-registry/eisot-testing-registry.service.js';
 import { EisotTestingXlsxWriter } from './eisot-testing-registry/eisot-testing-xlsx.writer.js';
@@ -219,6 +223,17 @@ import {
       inject: [DatabaseService]
     },
     IdentityPolicyService,
+    // ФТ-C3.2 (Фаза 3 Task 6) — раздельные согласия: тексты редактирует тенант,
+    // факты согласия и отзыва пишутся в юридический журнал.
+    {
+      provide: CONSENT_TEXT_REPOSITORY,
+      useFactory: (db: DatabaseService) =>
+        backendEnv.ALLOW_IN_MEMORY_STATE
+          ? new InMemoryConsentTextRepository()
+          : new PostgresConsentTextRepository(db),
+      inject: [DatabaseService]
+    },
+    ConsentTextService,
     // ФТ-C1.1 (Фаза 3 Task 3) — ПЭП: соглашение и подписанные действия.
     LegalLogWriter,
     PostgresSimpleSignatureRepository,

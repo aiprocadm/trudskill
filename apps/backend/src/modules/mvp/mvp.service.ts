@@ -15,6 +15,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { computeAnalyticsDashboard } from './analytics-dashboard.js';
 import { shuffle } from './assessment/shuffle.util.js';
 import { gradeAnswer } from './assessment-autograde.service.js';
+import { type ConsentKind, mayUploadIdentityImages, resolveConsents } from './consents/consent.js';
 import { ENROLLMENT_COMPLETED_EVENT } from './enrollment-completed.event.js';
 import { ENROLLMENT_INVITED_EVENT } from './enrollment-invited.event.js';
 import { learnerRecipient } from './enrollment-recipient.js';
@@ -4107,17 +4108,117 @@ export class MvpService {
         message: 'Files can only be attached to a draft verification'
       });
     }
+    // ФТ-C3.2 (Фаза 3 Task 6): без согласия на фото загрузка не принимается. Раньше
+    // согласие спрашивали только на submit — то есть снимок паспорта уже лежал в
+    // хранилище к моменту, когда человека спрашивали, согласен ли он его отдавать.
+    if (!mayUploadIdentityImages(resolveConsents(record))) {
+      throw new PreconditionFailedException({
+        code: 'consent_required',
+        message: 'Требуются согласия на обработку персональных данных и на фотографию'
+      });
+    }
     return this.filesService.createUploadIntent(tenantId, request, {
       keyPrefix: 'identity',
       mimeAllowlist: IDENTITY_MIME_ALLOWLIST
     });
   }
 
+  /**
+   * Выдача согласий по отдельности (ФТ-C3.2, Фаза 3 Task 6).
+   *
+   * Отдельный шаг нужен потому, что согласие на фото обязано быть ДО загрузки снимка,
+   * а не после. Факт согласия пишется в юридический журнал вызывающим слоем — здесь
+   * только состояние и аудит.
+   */
+  grantIdentityConsents(
+    tenantId: string,
+    actorId: string | undefined,
+    verificationId: string,
+    request: { pii?: boolean; photo?: boolean },
+    context: RequestContext
+  ): IdentityVerification {
+    const record = this.getById(this.state.identityVerifications, tenantId, verificationId);
+    this.assertActorMatchesLearnerIamLink(tenantId, actorId, record.learnerId, context.permissions);
+    if (request.pii !== true && request.photo !== true) {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'Нечего фиксировать: не указано ни одного согласия'
+      });
+    }
+    const oldValues = { ...record };
+    const now = this.now();
+    if (request.pii === true) {
+      record.piiConsentAt = now;
+      delete record.piiConsentRevokedAt;
+    }
+    if (request.photo === true) {
+      record.photoConsentAt = now;
+      delete record.photoConsentRevokedAt;
+    }
+    record.updatedAt = now;
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.identity_consent_granted',
+      'learning.identity_verification',
+      record.id,
+      oldValues,
+      record,
+      context
+    );
+    return record;
+  }
+
+  /**
+   * Отзыв ОДНОГО согласия (ФТ-C3.2).
+   *
+   * Отзыв одного не отзывает другое — это и есть смысл разделения. Решение модератора
+   * при этом не трогаем: отозвать согласие на будущее можно, а отменить задним числом
+   * состоявшуюся проверку личности нельзя, иначе исчезнет доказательство того, что
+   * экзамен сдавал именно этот человек. Снимки уйдут по обычному сроку хранения.
+   */
+  revokeIdentityConsent(
+    tenantId: string,
+    actorId: string | undefined,
+    verificationId: string,
+    kind: ConsentKind,
+    context: RequestContext
+  ): IdentityVerification {
+    const record = this.getById(this.state.identityVerifications, tenantId, verificationId);
+    this.assertActorMatchesLearnerIamLink(tenantId, actorId, record.learnerId, context.permissions);
+    const oldValues = { ...record };
+    const now = this.now();
+    if (kind === 'pii') {
+      record.piiConsentRevokedAt = now;
+    } else {
+      record.photoConsentRevokedAt = now;
+    }
+    record.updatedAt = now;
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.identity_consent_revoked',
+      'learning.identity_verification',
+      record.id,
+      oldValues,
+      record,
+      context,
+      { kind }
+    );
+    return record;
+  }
+
   async submitIdentityVerification(
     tenantId: string,
     actorId: string | undefined,
     verificationId: string,
-    request: { selfieFileId: string; passportFileId: string; consent: boolean },
+    request: {
+      selfieFileId: string;
+      passportFileId: string;
+      consent: boolean;
+      /** ФТ-C3.2: отдельное согласие на фото. Отсутствие = отказ, а не «забыли». */
+      photoConsent?: boolean;
+    },
     context: RequestContext
   ): Promise<IdentityVerification> {
     const record = this.getById(this.state.identityVerifications, tenantId, verificationId);
@@ -4132,6 +4233,23 @@ export class MvpService {
       throw new BadRequestException({
         code: 'consent_required',
         message: 'Consent to personal data processing is required (152-ФЗ)'
+      });
+    }
+    // Фиксируем согласия ДО проверок: дальше по коду они уже должны быть разрешающими.
+    const consentNow = this.now();
+    record.piiConsentAt = consentNow;
+    delete record.piiConsentRevokedAt;
+    if (request.photoConsent === true) {
+      record.photoConsentAt = consentNow;
+      delete record.photoConsentRevokedAt;
+    }
+    if (!resolveConsents(record).photo.granted) {
+      // Отказ от фото — законный выбор, и человеку надо сказать о последствиях прямо,
+      // а не молча не пустить его на экзамен.
+      throw new BadRequestException({
+        code: 'photo_consent_required',
+        message:
+          'Требуется отдельное согласие на обработку фотографии. Без него подтверждение личности с фото недоступно'
       });
     }
     if (request.selfieFileId === request.passportFileId) {
@@ -4153,6 +4271,7 @@ export class MvpService {
     const now = this.now();
     record.selfieFileId = request.selfieFileId;
     record.passportFileId = request.passportFileId;
+    // Историческое поле сохраняем: по нему читают старые выгрузки и экраны.
     record.consentAt = now;
     record.submittedAt = now;
     record.verificationStatus = 'pending';
