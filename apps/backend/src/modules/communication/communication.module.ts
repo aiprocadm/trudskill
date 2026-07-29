@@ -23,6 +23,11 @@ import { PostgresEmailDeliveriesRepository } from './postgres-email-deliveries.r
 import { PostgresEmailTemplatesRepository } from './postgres-email-templates.repository.js';
 import { PostgresWebinarProviderSettingsRepository } from './postgres-webinar-provider-settings.repository.js';
 import { PostgresWebinarsRepository } from './postgres-webinars.repository.js';
+import { InMemorySmsProviderSettingsRepository } from './sms/in-memory-sms-provider-settings.repository.js';
+import { PostgresSmsProviderSettingsRepository } from './sms/postgres-sms-provider-settings.repository.js';
+import { SmsChannelService } from './sms/sms-channel.service.js';
+import { SMS_PROVIDER_SETTINGS_REPOSITORY } from './sms/sms-provider-settings.repository.js';
+import { SmsProviderSettingsService } from './sms/sms-provider-settings.service.js';
 import { NoopWebPushSender } from './web-push/noop-web-push-sender.js';
 import { WEB_PUSH_SENDER } from './web-push/web-push-sender.js';
 import { WebPushSender } from './web-push/web-push-sender.service.js';
@@ -38,6 +43,14 @@ import { DatabaseService } from '../../infrastructure/database/database.service.
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { MAILER, NoopMailer } from '../../infrastructure/mailer/mailer.service.js';
 import { SmtpMailer } from '../../infrastructure/mailer/smtp-mailer.service.js';
+import { FakeSmsProvider } from '../../infrastructure/sms-provider/fake-sms.provider.js';
+import {
+  NoopSmsProvider,
+  SMS_PROVIDER_REGISTRY,
+  type SmsProvider,
+  type SmsProviderCode,
+  type SmsProviderRegistry
+} from '../../infrastructure/sms-provider/sms.provider.js';
 import { FakeWebinarProvider } from '../../infrastructure/webinar-provider/fake-webinar.provider.js';
 import { JitsiWebinarProvider } from '../../infrastructure/webinar-provider/jitsi-webinar.provider.js';
 import {
@@ -110,6 +123,36 @@ import { PostgresMvpPersistenceBackend } from '../mvp/infrastructure/postgres-mv
           backendEnv.NODE_ENV
         ),
       inject: [WEBINAR_PROVIDER_REGISTRY, WebinarProviderSettingsService]
+    },
+    /*
+     * Фаза 3 Task 5 (ФТ-C1.3): шов СМС — ВТОРОЙ канал доставки одноразовой ссылки.
+     * Поставляется спящим: реестр знает только `noop` и `fake`, адаптер конкретного
+     * оператора подключается отдельно (открытый вопрос №4 / Фаза 4 вместе с биллингом).
+     */
+    {
+      provide: SMS_PROVIDER_SETTINGS_REPOSITORY,
+      useFactory: (db: DatabaseService) =>
+        backendEnv.ALLOW_IN_MEMORY_STATE
+          ? new InMemorySmsProviderSettingsRepository()
+          : new PostgresSmsProviderSettingsRepository(db),
+      inject: [DatabaseService]
+    },
+    SmsProviderSettingsService,
+    {
+      provide: SMS_PROVIDER_REGISTRY,
+      useFactory: (): SmsProviderRegistry =>
+        new Map<SmsProviderCode, SmsProvider>([
+          ['noop', new NoopSmsProvider()],
+          ['fake', new FakeSmsProvider()]
+        ])
+    },
+    // Фабрикой, а не классом — та же причина, что у WebinarProviderResolver выше:
+    // примитивный параметр конструктора (NODE_ENV) Nest ищет в контейнере как String.
+    {
+      provide: SmsChannelService,
+      useFactory: (registry: SmsProviderRegistry, settings: SmsProviderSettingsService) =>
+        new SmsChannelService(registry, settings, backendEnv.NODE_ENV),
+      inject: [SMS_PROVIDER_REGISTRY, SmsProviderSettingsService]
     },
     ChatService,
     {

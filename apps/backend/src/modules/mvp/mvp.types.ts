@@ -45,6 +45,15 @@ export interface Learner extends BaseEntity {
   position?: string;
   /** Wave 2 ФРДО — дата рождения слушателя (ISO YYYY-MM-DD); нужна для выгрузки в ФИС ФРДО. */
   dateOfBirth?: string;
+  /**
+   * Фаза 3 Task 5 (ФТ-C1.3) — телефон для ВТОРОГО канала доставки (СМС). Хранится как ввели;
+   * к E.164 приводится перед отправкой (`normalizePhone`), потому что в базе исторически
+   * лежит всё подряд: «8 (999) …», «+7 999 …», «79991234567».
+   *
+   * Это ПДн: логи его редактируют (`redaction.util.ts`), в аудит он попадает так же, как
+   * email — фактом изменения карточки, а не отдельной записью.
+   */
+  phone?: string;
 }
 
 export interface Direction extends BaseEntity {
