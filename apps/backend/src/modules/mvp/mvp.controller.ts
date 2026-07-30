@@ -10,14 +10,18 @@ import {
   Post,
   Put,
   Query,
+  Res,
+  StreamableFile,
   UseGuards,
   UseInterceptors
 } from '@nestjs/common';
+import { convertHtmlToPdf } from '@trudskill/docx-render';
 import { IsString, ValidateIf } from 'class-validator';
 
 import { AddTestQuestionRequest, ReorderTestQuestionRequest } from './add-test-question.dto.js';
 import { ConsentService } from './consents/consent.service.js';
 import { CreateCounterpartyExtendedRequest } from './create-counterparty-extended.dto.js';
+import { backendEnv } from '../../env.js';
 import { IdentityPolicyService } from './identity/identity-policy.service.js';
 import { LearnerDossierService } from './identity/learner-dossier.service.js';
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
@@ -93,6 +97,7 @@ import type { LegacyConsentEvidence, PhotoConsentGate } from './consents/consent
 import type { BaseFilterQuery } from './mvp.dto.js';
 import type { CommissionStatus } from './mvp.types.js';
 import type { RequestContext } from '../../common/context/request-context.js';
+import type { Response } from 'express';
 
 /**
  * Phase 2 Plan C — mini-DTO для PATCH /groups/:id/counterparty.
@@ -229,13 +234,42 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('learners.read')
   async getLearnerDossier(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.learnerDossierService.compose(c.tenantId!, c.userId, id, c, async (actorId) => {
-      // getUser бросает на отсутствующем пользователе (удалённый модератор) — для дела
-      // это не ошибка: покажем идентификатор вместо имени.
-      const user = await this.iamService.getUser(c.tenantId!, actorId).catch(() => undefined);
-      if (!user) return undefined;
-      return user.displayName || user.email || undefined;
-    });
+    return this.learnerDossierService.compose(c.tenantId!, c.userId, id, c, (actorId) =>
+      this.lookupActorName(c.tenantId!, actorId)
+    );
+  }
+
+  /**
+   * ФИО актора для дела. `getUser` бросает на отсутствующем пользователе (удалённый
+   * модератор) — для дела это не ошибка: покажем идентификатор вместо имени.
+   */
+  private async lookupActorName(tenantId: string, actorId: string): Promise<string | undefined> {
+    const user = await this.iamService.getUser(tenantId, actorId).catch(() => undefined);
+    if (!user) return undefined;
+    return user.displayName || user.email || undefined;
+  }
+
+  /** То же дело одним PDF — файл, который физически отдают проверяющему. */
+  @Get('learners/:id/dossier.pdf')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learners.read')
+  async getLearnerDossierPdf(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    const { pdf, fileName } = await this.learnerDossierService.composePdf(
+      c.tenantId!,
+      c.userId,
+      id,
+      c,
+      { gotenbergUrl: backendEnv.GOTENBERG_URL, convert: convertHtmlToPdf },
+      (actorId) => this.lookupActorName(c.tenantId!, actorId)
+    );
+    res.setHeader('Content-Type', 'application/pdf');
+    // inline: дело чаще смотрят, чем сохраняют; имя файла без ПДн.
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+    return new StreamableFile(pdf);
   }
 
   @Post('learners')
