@@ -261,7 +261,7 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Updated By
 
-Claude (Fable 5) — §5.221: программа покрытия, порция 1 — бэкенд 72,0%→73,8% (+54 теста: pg-репозитории и esign-контроллер).
+Claude (Fable 5) — §5.222: программа покрытия, порция 2 — бэкенд 73,8%→74,6% (webinars и chat репозитории).
 
 ### Last Updated At
 
