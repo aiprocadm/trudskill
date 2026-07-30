@@ -2808,6 +2808,10 @@ _Изначально записана как §5.155; перенумерова�
 
 **Тесты:** +9 изоляции по контрагенту (итого isolation: 21); 11 заглушек IAM дополнены.
 
+### 5.223 Программа покрытия — порция 3 (74,6% → 75,2% бэкенда)
+
+**Ветка:** `test/2026-07-31-coverage-uplift-3`. Ещё два pg-репозитория с нулём, 14 тестов (+191 строка): `postgres-video-assets.repository` (bigint-размер строкой → Number, НУЛЕВАЯ длительность не теряется — проверка на null, не на falsy; в update «undefined = не менять, null = стереть» через пары флаг+значение, coalesce не годится) и `postgres-recertification-drafts.repository` (кроновый повтор не плодит второй черновик — on conflict возвращает существующий; истекающие первыми; решение пишется вместе с решившим). 2725 тестов зелёные. **Очередь порции 4:** `postgres-documents-persistence.backend` (224), `video.controller` (118, valid-DTO), `variable-catalog` (107), хвосты `mvp.service` (адресно по непокрытым строкам), `iam.service`/`auth.service`.
+
 ### 5.222 Программа покрытия — порция 2 (73,8% → 74,6% бэкенда)
 
 **Ветка:** `test/2026-07-31-coverage-uplift-2`. Ещё два pg-репозитория с нулевым покрытием, 18 тестов (+286 строк): `postgres-webinars.repository` (сортировка НЕ из пользовательской строки — защита от инъекции проверена буквально; upsert посещаемости по вебхуку; поиск по provider_session_id — единственный запрос без tenant_id, вебхук снаружи тенантов не знает) и `postgres-chat.repository` (диалоги видны только участнику через join; unread растёт у всех КРОМЕ отправителя; диалог+участники одной транзакцией — иначе диалог-сирота). Все 2711 тестов зелёные. **Очередь порции 3:** `postgres-documents-persistence.backend` (224), `video.controller` (118, valid-DTO паттерн), `variable-catalog` (107), `postgres-video-assets` (96), `postgres-recertification-drafts` (95), хвосты `mvp.service`/`iam.service`/`auth.service` адресно.
