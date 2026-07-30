@@ -261,7 +261,7 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Updated By
 
-Claude (Opus 5) — §5.214: Фаза 3 Task 9 (часть 2) — PDF личного дела; в проект добавлен HTML→PDF конвертер.
+Claude (Opus 5) — §5.215: Фаза 3 Task 10 (часть 1) — проверки готовности к экзамену: комиссия ≥3 с председателем, СНИЛС слушателей.
 
 ### Last Updated At
 
