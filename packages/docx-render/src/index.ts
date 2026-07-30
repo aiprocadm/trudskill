@@ -16,7 +16,11 @@ export type { RenderDocxOptions, TemplateTag } from './docx-render.js';
 /** Картинки в бланке (ФТ-A7.1): подпись руководителя и печать учебного центра. */
 export { DocxImageError, detectImageContentType } from './docx-image.js';
 export type { DocxImage } from './docx-image.js';
-export { DocumentConversionError, convertDocxToPdf } from './gotenberg-convert.js';
+export {
+  convertDocxToPdf,
+  convertHtmlToPdf,
+  DocumentConversionError
+} from './gotenberg-convert.js';
 export type { GotenbergDeps } from './gotenberg-convert.js';
 /** Тестовые хелперы: собирают валидный DOCX кодом — вместо бинарных фикстур в git. */
 export { buildDocx, p, readDocumentXml, splitRunsP, tinyPng } from './docx-fixture.js';
