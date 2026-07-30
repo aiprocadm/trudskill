@@ -32,6 +32,7 @@ import { MvpBulkEnqueueService } from './mvp-bulk-enqueue.service.js';
 import {
   AddCommissionMemberRequest,
   AddTestQuestionsRequest,
+  CloseGroupWithChecksRequest,
   CompleteAssignmentReviewRequest,
   CompleteAttemptReviewRequest,
   CreateAnswerHttpRequest,
@@ -288,6 +289,24 @@ export class MvpController {
     @Query('courseId') courseId: string
   ) {
     return this.mvpService.getExamReadiness(c.tenantId!, groupId, courseId);
+  }
+
+  /**
+   * ФТ-E3 (Фаза 3 Task 10) — «одна кнопка»: проверки → протокол и удостоверения.
+   *
+   * Право `documents.generate`: операция выпускает документы, и решать это должен тот,
+   * кому доверен выпуск, а не тот, кто просто видит группу.
+   */
+  @Post('groups/:groupId/close')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.generate')
+  closeGroupWithChecks(
+    @CurrentContext() c: RequestContext,
+    @Param('groupId') groupId: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(CloseGroupWithChecksRequest, raw);
+    return this.mvpService.closeGroupWithChecks(c.tenantId!, c.userId, { ...b, groupId }, c);
   }
 
   @Post('learners')

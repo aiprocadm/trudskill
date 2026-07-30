@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  ArrayMinSize,
   Equals,
   IsArray,
   IsBoolean,
@@ -1148,6 +1149,26 @@ export class CreateIdentityVerificationRequest {
 }
 
 /** Phase 4 Plan A: attach the uploaded files + 152-ФЗ consent; moves draft → pending. */
+/** ФТ-E3 (Фаза 3 Task 10): закрытие группы с проверками готовности. */
+export class CloseGroupWithChecksRequest {
+  @IsString()
+  @MinLength(1)
+  courseId!: string;
+
+  @IsString()
+  @MinLength(1)
+  protocolTemplateId!: string;
+
+  @IsString()
+  @MinLength(1)
+  certificateTemplateId!: string;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  enrollmentIds!: string[];
+}
+
 export class SubmitIdentityVerificationRequest {
   @IsString()
   @MinLength(1)
