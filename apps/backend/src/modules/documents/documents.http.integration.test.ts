@@ -46,7 +46,12 @@ describe('Documents HTTP integration (permission boundaries)', () => {
     isSessionActive: vi.fn().mockResolvedValue(true)
   };
   const iamServiceMock = {
-    resolvePermissions: vi.fn().mockResolvedValue(['documents.read'])
+    resolvePermissions: vi.fn().mockResolvedValue(['documents.read']),
+    // ФТ-E5: гвард берёт права и привязку одной загрузкой; заглушка делегирует
+    // своей же resolvePermissions, сохраняя переопределения в тестах.
+    resolveActorScope: async (t: string, u: string) => ({
+      permissions: await iamServiceMock.resolvePermissions(t, u)
+    })
   };
 
   beforeAll(async () => {

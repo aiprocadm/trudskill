@@ -261,7 +261,7 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Updated By
 
-Claude (Opus 5) — §5.219: Фаза 4 Task 1 (фундамент) — роль представителя заказчика, привязка к контрагенту, чистая логика скоупа.
+Claude (Fable 5) — §5.220: Фаза 4 Task 1 срез 2 — скоуп представителя применён в выборках, тест изоляции по контрагенту.
 
 ### Last Updated At
 

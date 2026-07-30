@@ -58,7 +58,12 @@ describe('Phase 3 Plan C — HTTP boundary (upload-url / file-url / return / com
 
   const authServiceMock = { isSessionActive: vi.fn().mockResolvedValue(true) };
   const iamServiceMock = {
-    resolvePermissions: vi.fn().mockResolvedValue(['assessment.submissions.submit'])
+    resolvePermissions: vi.fn().mockResolvedValue(['assessment.submissions.submit']),
+    // ФТ-E5: гвард берёт права и привязку одной загрузкой; заглушка делегирует
+    // своей же resolvePermissions, сохраняя переопределения в тестах.
+    resolveActorScope: async (t: string, u: string) => ({
+      permissions: await iamServiceMock.resolvePermissions(t, u)
+    })
   };
 
   beforeAll(async () => {

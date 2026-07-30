@@ -36,7 +36,12 @@ describe('Integrations HTTP integration (permission boundaries)', () => {
   ) => string;
 
   const authServiceMock = { isSessionActive: vi.fn().mockResolvedValue(true) };
-  const iamServiceMock = { resolvePermissions: vi.fn().mockResolvedValue(['integrations.read']) };
+  const iamServiceMock = {
+    resolvePermissions: vi.fn().mockResolvedValue(['integrations.read']),
+    resolveActorScope: async (t: string, u: string) => ({
+      permissions: await iamServiceMock.resolvePermissions(t, u)
+    })
+  };
 
   beforeAll(async () => {
     const [

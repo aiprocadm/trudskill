@@ -24,7 +24,12 @@ describe('PermissionGuard session checks', () => {
     const reflector = {
       getAllAndOverride: vi.fn().mockReturnValue(['courses.write'])
     } as unknown as Reflector;
-    const iamService = { resolvePermissions: vi.fn().mockResolvedValue(['courses.read']) };
+    const iamService = {
+      resolvePermissions: vi.fn().mockResolvedValue(['courses.read']),
+      resolveActorScope: async (t: string, u: string) => ({
+        permissions: await iamService.resolvePermissions(t, u)
+      })
+    };
     const authService = { isSessionActive: vi.fn().mockResolvedValue(true) };
     const guard = new PermissionGuard(reflector, iamService as never, authService as never);
 
@@ -46,7 +51,12 @@ describe('PermissionGuard session checks', () => {
     const reflector = {
       getAllAndOverride: vi.fn().mockReturnValue(['documents.read'])
     } as unknown as Reflector;
-    const iamService = { resolvePermissions: vi.fn().mockResolvedValue(['documents.read']) };
+    const iamService = {
+      resolvePermissions: vi.fn().mockResolvedValue(['documents.read']),
+      resolveActorScope: async (t: string, u: string) => ({
+        permissions: await iamService.resolvePermissions(t, u)
+      })
+    };
     const authService = { isSessionActive: vi.fn().mockResolvedValue(false) };
     const guard = new PermissionGuard(reflector, iamService as never, authService as never);
 
@@ -76,7 +86,12 @@ describe('PermissionGuard session checks', () => {
           key === REQUIRED_PERMISSIONS ? ['documents.read'] : []
         )
     } as unknown as Reflector;
-    const iamService = { resolvePermissions: vi.fn().mockResolvedValue(['documents.read']) };
+    const iamService = {
+      resolvePermissions: vi.fn().mockResolvedValue(['documents.read']),
+      resolveActorScope: async (t: string, u: string) => ({
+        permissions: await iamService.resolvePermissions(t, u)
+      })
+    };
     const authService = { isSessionActive: vi.fn().mockResolvedValue(true) };
     const guard = new PermissionGuard(reflector, iamService as never, authService as never);
 

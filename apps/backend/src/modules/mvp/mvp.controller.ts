@@ -131,7 +131,7 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('counterparties.read')
   listCounterparties(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    return this.mvpService.listCounterparties(c.tenantId!, q);
+    return this.mvpService.listCounterparties(c.tenantId!, q, { counterpartyId: c.counterpartyId });
   }
   @Get('counterparties/lookup')
   @UseGuards(PermissionGuard)
@@ -143,7 +143,7 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('counterparties.read')
   getCounterparty(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.mvpService.getCounterparty(c.tenantId!, id);
+    return this.mvpService.getCounterparty(c.tenantId!, id, { counterpartyId: c.counterpartyId });
   }
   @Post('counterparties')
   @UseGuards(PermissionGuard)
@@ -193,6 +193,9 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('counterparties.read', 'enrollments.read')
   getCounterpartyProgressSummary(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    // ФТ-E5: сначала гейт скоупа — представитель не может запросить сводку чужого
+    // контрагента, подставив его идентификатор в URL. Чужой = «не найдено».
+    this.mvpService.getCounterparty(c.tenantId!, id, { counterpartyId: c.counterpartyId });
     return this.mvpService.getCounterpartyProgressSummary(c.tenantId!, id);
   }
 
@@ -200,7 +203,7 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('learners.read')
   listLearners(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    return this.mvpService.listLearners(c.tenantId!, q);
+    return this.mvpService.listLearners(c.tenantId!, q, { counterpartyId: c.counterpartyId });
   }
   @Get('learners/lookup')
   @UseGuards(PermissionGuard)
@@ -519,7 +522,7 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('groups.read')
   listGroups(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    return this.mvpService.listGroups(c.tenantId!, q);
+    return this.mvpService.listGroups(c.tenantId!, q, { counterpartyId: c.counterpartyId });
   }
   @Get('groups/lookup')
   @UseGuards(PermissionGuard)
@@ -607,7 +610,8 @@ export class MvpController {
   listEnrollments(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
     return this.mvpService.listEnrollments(c.tenantId!, q, {
       actorId: c.userId,
-      permissions: c.permissions
+      permissions: c.permissions,
+      actor: { counterpartyId: c.counterpartyId }
     });
   }
   @Get('reports/kpi-snapshot')

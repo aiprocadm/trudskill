@@ -16,6 +16,11 @@ import { computeAnalyticsDashboard } from './analytics-dashboard.js';
 import { shuffle } from './assessment/shuffle.util.js';
 import { gradeAnswer } from './assessment-autograde.service.js';
 import { type PhotoConsentGate, legacyConsentEvidence } from './consents/consent.js';
+import {
+  type CounterpartyScope,
+  resolveCounterpartyScope,
+  scopeAllows
+} from './counterparty-scope.js';
 import { ENROLLMENT_COMPLETED_EVENT } from './enrollment-completed.event.js';
 import { ENROLLMENT_INVITED_EVENT } from './enrollment-invited.event.js';
 import { learnerRecipient } from './enrollment-recipient.js';
@@ -182,6 +187,8 @@ interface LookupItem {
 interface MvpAssessmentReadAccess {
   actorId?: string;
   permissions?: string[];
+  /** ФТ-E5: привязка актора к контрагенту (скоуп представителя заказчика). */
+  actor?: { counterpartyId?: string };
 }
 
 /**
@@ -349,11 +356,45 @@ export class MvpService {
   /** V1.1 AV gate: logs best-effort proactive scan failures (the download gate re-scans lazily). */
   private readonly avScanLogger = new Logger('AvScan');
 
-  listCounterparties(tenantId: string, query: BaseFilterQuery): ListResponse<Counterparty> {
-    return this.list(this.state.counterparties, tenantId, query);
+  /**
+   * ФТ-E5 (Фаза 4 Task 1): скоуп представителя заказчика.
+   *
+   * Фильтрация идёт ДО пагинации — иначе представитель получил бы «пустые страницы» с
+   * правильным total по всему центру, а total сам по себе раскрывает размер клиентской
+   * базы. Персонал (актор без привязки) не ограничен.
+   */
+  private counterpartyScopeOf(actor?: { counterpartyId?: string }): CounterpartyScope {
+    return resolveCounterpartyScope(actor ?? {});
   }
 
-  getCounterparty(tenantId: string, id: string): Counterparty {
+  /** Группы, принадлежащие контрагенту скоупа. Группа без заказчика — внутренняя, не видна. */
+  private scopedGroupIds(tenantId: string, scope: CounterpartyScope): Set<string> {
+    return new Set(
+      this.state.groups
+        .filter((g) => g.tenantId === tenantId && scopeAllows(scope, g.counterpartyId))
+        .map((g) => g.id)
+    );
+  }
+
+  listCounterparties(
+    tenantId: string,
+    query: BaseFilterQuery,
+    actor?: { counterpartyId?: string }
+  ): ListResponse<Counterparty> {
+    const scope = this.counterpartyScopeOf(actor);
+    const source = scope.restricted
+      ? this.state.counterparties.filter((c) => scopeAllows(scope, c.id))
+      : this.state.counterparties;
+    return this.list(source, tenantId, query);
+  }
+
+  getCounterparty(tenantId: string, id: string, actor?: { counterpartyId?: string }): Counterparty {
+    const scope = this.counterpartyScopeOf(actor);
+    if (scope.restricted && !scopeAllows(scope, id)) {
+      // 404, а не 403: отказ, отличающий чужую запись от несуществующей, сам выдаёт
+      // факт её существования.
+      throw new NotFoundException({ code: 'not_found', message: 'Counterparty not found' });
+    }
     return this.getById(this.state.counterparties, tenantId, id);
   }
 
@@ -520,8 +561,27 @@ export class MvpService {
     return current;
   }
 
-  listLearners(tenantId: string, query: BaseFilterQuery): ListResponse<Learner> {
-    return this.list(this.state.learners, tenantId, query);
+  listLearners(
+    tenantId: string,
+    query: BaseFilterQuery,
+    actor?: { counterpartyId?: string }
+  ): ListResponse<Learner> {
+    const scope = this.counterpartyScopeOf(actor);
+    if (!scope.restricted) {
+      return this.list(this.state.learners, tenantId, query);
+    }
+    // «Сотрудник заказчика» выводится через зачисления в группы этого заказчика:
+    // прямой привязки на карточке слушателя в снимке состояния нет, а заводить второй
+    // источник правды ради скоупа значило бы получить два расходящихся ответа на
+    // вопрос «чей это сотрудник».
+    const groupIds = this.scopedGroupIds(tenantId, scope);
+    const learnerIds = new Set(
+      this.state.enrollments
+        .filter((e) => e.tenantId === tenantId && groupIds.has(e.groupId))
+        .map((e) => e.learnerId)
+    );
+    const source = this.state.learners.filter((l) => learnerIds.has(l.id));
+    return this.list(source, tenantId, query);
   }
 
   getLearner(tenantId: string, id: string): Learner {
@@ -1207,8 +1267,16 @@ export class MvpService {
     return current;
   }
 
-  listGroups(tenantId: string, query: BaseFilterQuery): ListResponse<GroupEntity> {
-    return this.list(this.state.groups, tenantId, query);
+  listGroups(
+    tenantId: string,
+    query: BaseFilterQuery,
+    actor?: { counterpartyId?: string }
+  ): ListResponse<GroupEntity> {
+    const scope = this.counterpartyScopeOf(actor);
+    const source = scope.restricted
+      ? this.state.groups.filter((g) => scopeAllows(scope, g.counterpartyId))
+      : this.state.groups;
+    return this.list(source, tenantId, query);
   }
   getGroup(tenantId: string, id: string): GroupEntity {
     return this.getById(this.state.groups, tenantId, id);
@@ -1433,12 +1501,18 @@ export class MvpService {
     // enrollments — mirrors listAttempts. Staff with assessment.read.cross_learner/learners.act_as
     // are unrestricted (scope === null).
     const scope = this.restrictLearnerIdsForAssessmentList(tenantId, access);
-    const source =
+    let source =
       scope === null
         ? this.state.enrollments
         : this.state.enrollments.filter(
             (e) => e.tenantId === tenantId && scope.includes(e.learnerId)
           );
+    // ФТ-E5: представитель заказчика видит только зачисления в группы своего контрагента.
+    const cpScope = this.counterpartyScopeOf(access?.actor);
+    if (cpScope.restricted) {
+      const groupIds = this.scopedGroupIds(tenantId, cpScope);
+      source = source.filter((e) => groupIds.has(e.groupId));
+    }
     return this.list(source, tenantId, query);
   }
 
