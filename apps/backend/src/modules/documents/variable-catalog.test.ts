@@ -18,6 +18,8 @@ import {
   VARIABLE_CATALOG,
   allVariableCodes,
   classifyPlaceholders,
+  demoVariables,
+  imageVariableCodes,
   isKnownVariable
 } from './variable-catalog.js';
 
@@ -280,5 +282,40 @@ describe('classifyPlaceholders (основа таблицы ФТ-A3.2)', () => {
     expect(isKnownVariable('document.number')).toBe(true);
     expect(isKnownVariable('group_learners_count')).toBe(true);
     expect(isKnownVariable('nope.nope')).toBe(false);
+  });
+});
+
+describe('demoVariables — демо-словарь предпросмотра', () => {
+  it('КАЖДЫЙ код каталога имеет демо-значение', () => {
+    // Забытая новая переменная показала бы в предпросмотре сырой плейсхолдер —
+    // админ решил бы, что шаблон сломан.
+    const values = demoVariables();
+    const missing = VARIABLE_CATALOG.map((e) => e.code).filter((code) => !(code in values));
+    expect(missing).toEqual([]);
+  });
+
+  it('в словаре нет кодов, которых нет в каталоге', () => {
+    // Осиротевшее демо-значение маскирует удаление переменной из каталога.
+    const values = demoVariables();
+    const known = new Set(VARIABLE_CATALOG.map((e) => e.code));
+    const orphans = Object.keys(values).filter((code) => !known.has(code));
+    expect(orphans).toEqual([]);
+  });
+
+  it('картинки в демо — пустые заглушки: реальные печать и подпись подставляются отдельно', () => {
+    const values = demoVariables();
+    for (const code of imageVariableCodes()) {
+      expect(values[code]).toBe('');
+    }
+  });
+
+  it('текстовые демо-значения непустые — предпросмотр не должен зиять дырами', () => {
+    const values = demoVariables();
+    const images = new Set(imageVariableCodes());
+    const empty = Object.entries(values)
+      .filter(([code]) => !images.has(code))
+      .filter(([, v]) => String(v).trim() === '')
+      .map(([code]) => code);
+    expect(empty).toEqual([]);
   });
 });

@@ -261,7 +261,7 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Updated By
 
-Claude (Fable 5) — §5.224: программа покрытия, порция 4 — бэкенд 75,2%→75,5% (video.controller: валидация тел до сервиса).
+Claude (Fable 5) — §5.225: программа покрытия, порция 5 — бэкенд 75,5%→76,0% (demoVariables каталога + outbox-издатель).
 
 ### Last Updated At
 
