@@ -19,6 +19,7 @@ import { type PhotoConsentGate, legacyConsentEvidence } from './consents/consent
 import { ENROLLMENT_COMPLETED_EVENT } from './enrollment-completed.event.js';
 import { ENROLLMENT_INVITED_EVENT } from './enrollment-invited.event.js';
 import { learnerRecipient } from './enrollment-recipient.js';
+import { type ExamReadinessReport, buildExamReadiness } from './exam-readiness.js';
 import {
   summarizeCounterpartyProgress,
   summarizeGroupProgress
@@ -6227,6 +6228,59 @@ export class MvpService {
       context
     );
     return current;
+  }
+
+  /**
+   * Готовность группы к экзамену (ФТ-E3.2, Фаза 3 Task 10).
+   *
+   * Проверяем ДО старта, а не после: протокол, подписанный комиссией из двух человек,
+   * или удостоверение без СНИЛС — брак, который вскрывается у проверяющего через
+   * месяцы, когда пересдавать поздно. Дешевле не пустить, чем переделывать.
+   *
+   * Комиссия берётся из программы курса (`ProgramMeta.commissionId`): она привязана
+   * к программе, а не к группе, — одна комиссия аттестует по нескольким группам.
+   */
+  getExamReadiness(tenantId: string, groupId: string, courseId: string): ExamReadinessReport {
+    const groupCourse = this.state.groupCourses.find(
+      (gc) => gc.tenantId === tenantId && gc.groupId === groupId && gc.courseId === courseId
+    );
+    const courseVersion = groupCourse?.courseVersionId
+      ? this.state.courseVersions.find(
+          (cv) => cv.tenantId === tenantId && cv.id === groupCourse.courseVersionId
+        )
+      : undefined;
+
+    const commissionId = courseVersion?.commissionId;
+    // Комиссия не назначена — это тоже блокирующая проблема, а не «проверять нечего».
+    const members = commissionId
+      ? this.state.commissionMembers.filter(
+          (m) => m.tenantId === tenantId && m.commissionId === commissionId
+        )
+      : [];
+
+    const learnerIds = new Set(
+      this.state.enrollments
+        .filter((e) => e.tenantId === tenantId && e.groupId === groupId)
+        .map((e) => e.learnerId)
+    );
+    const learners = this.state.learners
+      .filter((l) => l.tenantId === tenantId && learnerIds.has(l.id))
+      .map((l) => ({
+        id: l.id,
+        fullName: [l.lastName, l.firstName, l.middleName].filter(Boolean).join(' '),
+        ...(l.snils ? { snils: l.snils } : {})
+      }));
+
+    const report = buildExamReadiness(members, learners);
+    if (!commissionId) {
+      report.issues.unshift({
+        scope: 'program',
+        code: 'commission_not_assigned',
+        message: 'Программе не назначена аттестационная комиссия'
+      });
+      report.ready = false;
+    }
+    return report;
   }
 
   listCommissionMembers(tenantId: string, commissionId: string): CommissionMember[] {

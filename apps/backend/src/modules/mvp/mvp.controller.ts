@@ -272,6 +272,24 @@ export class MvpController {
     return new StreamableFile(pdf);
   }
 
+  /**
+   * ФТ-E3.2 (Фаза 3 Task 10) — готовность группы к экзамену.
+   *
+   * Отдельная ручка нужна, чтобы методист увидел список ДО назначения экзамена, а не
+   * упёрся в отказ при старте: чинить состав комиссии и СНИЛСы за час до аттестации —
+   * ровно та ситуация, ради избежания которой проверка и существует.
+   */
+  @Get('groups/:groupId/exam-readiness')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('enrollments.read')
+  getExamReadiness(
+    @CurrentContext() c: RequestContext,
+    @Param('groupId') groupId: string,
+    @Query('courseId') courseId: string
+  ) {
+    return this.mvpService.getExamReadiness(c.tenantId!, groupId, courseId);
+  }
+
   @Post('learners')
   @UseGuards(PermissionGuard)
   @RequirePermissions('learners.write')
