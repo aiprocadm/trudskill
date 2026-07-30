@@ -261,7 +261,7 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Updated By
 
-Claude (Opus 5) — §5.213: Фаза 3 Task 9 (часть 1) — «личное дело слушателя»: доказательная цепочка из четырёх разделов; PDF-рендер отдельным PR.
+Claude (Opus 5) — §5.214: Фаза 3 Task 9 (часть 2) — PDF личного дела; в проект добавлен HTML→PDF конвертер.
 
 ### Last Updated At
 

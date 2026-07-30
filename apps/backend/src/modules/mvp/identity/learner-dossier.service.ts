@@ -1,5 +1,7 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { convertHtmlToPdf } from '@trudskill/docx-render';
 
+import { renderDossierHtml } from './learner-dossier.html.js';
 import {
   type DossierDocument,
   type DossierExamSession,
@@ -180,5 +182,29 @@ export class LearnerDossierService {
       markUnavailable();
       return [];
     }
+  }
+
+  /**
+   * Дело одним PDF (ФТ-C2) — то, что физически отдают проверяющему.
+   *
+   * Рендер синхронный, а не через очередь документов: дело собирается из уже готовых
+   * данных и нужно «здесь и сейчас», в отличие от удостоверений, которые печатаются
+   * пачками и терпят ожидание.
+   */
+  async composePdf(
+    tenantId: string,
+    actorId: string | undefined,
+    learnerId: string,
+    ctx: RequestContext,
+    deps: { gotenbergUrl: string; convert: typeof convertHtmlToPdf },
+    userLookup?: DossierUserLookup
+  ): Promise<{ pdf: Buffer; fileName: string }> {
+    const dossier = await this.compose(tenantId, actorId, learnerId, ctx, userLookup);
+    const pdf = await deps.convert(renderDossierHtml(dossier), {
+      gotenbergUrl: deps.gotenbergUrl
+    });
+    // Имя файла — из идентификатора, а не из ФИО: ПДн не должны утекать в имена файлов,
+    // логи прокси и историю загрузок браузера.
+    return { pdf, fileName: `dossier-${learnerId}.pdf` };
   }
 }
