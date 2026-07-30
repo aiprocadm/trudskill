@@ -12,7 +12,13 @@ const makeService = () => {
   } as any;
   const realtimeEvents = { publish: vi.fn() } as any;
 
-  return new EsignService(new InMemoryEsignState(), auditService, documentsService, realtimeEvents);
+  return new EsignService(
+    new InMemoryEsignState(),
+    auditService,
+    documentsService,
+    realtimeEvents,
+    { write: async () => undefined } as unknown as LegalLogWriter
+  );
 };
 
 const ctx = {

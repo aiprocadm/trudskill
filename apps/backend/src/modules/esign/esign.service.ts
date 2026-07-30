@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { ESIGN_STATE } from './esign-state.token.js';
 import { EsignStateMachine } from './esign.policy.js';
@@ -6,6 +6,7 @@ import { InMemoryEsignState } from './in-memory-esign.state.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 import { DocumentsService } from '../documents/documents.service.js';
+import { LegalLogWriter } from '../mvp/esignature/legal-log.writer.js';
 
 import type {
   CreateEsignApplicationFileRequest,
@@ -30,11 +31,14 @@ import type { RequestContext } from '../../common/context/request-context.js';
 
 @Injectable()
 export class EsignService {
+  private readonly logger = new Logger(EsignService.name);
+
   constructor(
     @Inject(ESIGN_STATE) private readonly state: InMemoryEsignState,
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(DocumentsService) private readonly documentsService: DocumentsService,
-    @Inject(RealtimeEventsService) private readonly realtimeEvents: RealtimeEventsService
+    @Inject(RealtimeEventsService) private readonly realtimeEvents: RealtimeEventsService,
+    @Inject(LegalLogWriter) private readonly legalLogWriter: LegalLogWriter
   ) {}
 
   listApplications(tenantId: string, q: EsignBaseFilter) {
@@ -756,6 +760,41 @@ export class EsignService {
       payload: (payload as Record<string, unknown>) ?? {},
       createdAt: this.now()
     });
+
+    /*
+     * И В БАЗУ (append-only `esign.legal_log_entries`, миграция 0004).
+     *
+     * **Найденный дефект.** Таблица существовала с 0004 и защищена триггером от
+     * изменений, но записи складывались ТОЛЬКО в память: юридический журнал — то самое,
+     * на чём держится доказательная сила подписи, — не переживал перезапуск приложения.
+     * Для «личного дела слушателя» (Task 9) это критично: проверяющему нужна цепочка
+     * доказательств, а не то, что случайно уцелело в памяти процесса.
+     *
+     * Запись намеренно НЕ ожидается: журнал не должен ронять и не должен задерживать
+     * пользовательское действие. Но и «выбросить» промис нельзя — необработанное
+     * отклонение способно уронить процесс целиком, а это ровно та авария, от которой
+     * журнал должен защищать. Поэтому ошибка гасится явным `catch`: пропавшая запись
+     * видна в логе, подписание не срывается, процесс жив.
+     * Чтение по-прежнему идёт из памяти: перевод чтения на БД — отдельная задача,
+     * иначе пришлось бы менять сигнатуры всех списочных методов на асинхронные.
+     */
+    void this.legalLogWriter
+      .write({
+        tenantId,
+        actorId,
+        entityType,
+        entityId,
+        eventType,
+        description,
+        payload: (payload as Record<string, unknown>) ?? {}
+      })
+      .catch((err: unknown) => {
+        this.logger.error(
+          `Durable legal log write failed tenant=${tenantId} event=${eventType}: ${
+            err instanceof Error ? err.message : String(err)
+          }`
+        );
+      });
   }
   private writeAudit(
     tenantId: string,

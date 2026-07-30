@@ -269,9 +269,14 @@ describe('stage13 business e2e flows (service-level)', () => {
     const audit = new AuditService();
     const realtime = new RealtimeEventsService();
     const documents = new DocumentsService(new InMemoryDocumentsState(), audit, realtime);
-    const esign = new EsignService(new InMemoryEsignState(), audit, documents, {
-      publish: vi.fn()
-    } as any);
+    const esign = new EsignService(
+      new InMemoryEsignState(),
+      audit,
+      documents,
+      { publish: vi.fn() } as any,
+      // Юридический журнал пишется и в БД; в сервисном тесте базы нет — заглушка.
+      { write: async () => undefined } as any
+    );
 
     const template = documents.createTemplate(
       'tenant_demo',

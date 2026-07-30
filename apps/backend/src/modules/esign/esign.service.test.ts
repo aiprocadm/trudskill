@@ -17,7 +17,8 @@ function makeService() {
       new InMemoryEsignState(),
       auditService,
       documentsService,
-      realtimeEvents
+      realtimeEvents,
+      { write: async () => undefined } as unknown as LegalLogWriter
     ),
     auditService,
     documentsService,
@@ -395,7 +396,9 @@ describe('EsignService', () => {
       finalizeDocument: vi.fn()
     } as any;
     const realtimeEvents = { publish: vi.fn() } as any;
-    const service = new EsignService(state, auditService, documentsService, realtimeEvents);
+    const service = new EsignService(state, auditService, documentsService, realtimeEvents, {
+      write: async () => undefined
+    } as unknown as LegalLogWriter);
 
     const now = new Date().toISOString();
     const sharedId = 'esapp_duplicate_id_cross_tenant';
@@ -421,5 +424,55 @@ describe('EsignService', () => {
     expect(() => service.getApplication('tenant_a', 'esapp_only_other_tenant')).toThrow(
       NotFoundException
     );
+  });
+});
+
+describe('юридический журнал переживает перезапуск (durable legal log)', () => {
+  /**
+   * **Найденный дефект.** Таблица `esign.legal_log_entries` существует с миграции 0004 и
+   * защищена триггером от изменений, но записи складывались ТОЛЬКО в память: журнал, на
+   * котором держится доказательная сила подписи, не переживал перезапуск приложения.
+   * Для «личного дела слушателя» (Task 9) это критично.
+   */
+  function harness(legalWrite: (entry: unknown) => Promise<void>) {
+    const state = new InMemoryEsignState();
+    const service = new EsignService(
+      state,
+      { write: vi.fn() } as any,
+      { getDocument: vi.fn(), finalizeDocument: vi.fn() } as any,
+      { publish: vi.fn() } as any,
+      { write: legalWrite } as any
+    );
+    return { service, state };
+  }
+
+  it('событие журнала уходит В БАЗУ, а не только в память', () => {
+    const writes: Array<Record<string, unknown>> = [];
+    const { service, state } = harness(async (entry) => {
+      writes.push(entry as Record<string, unknown>);
+    });
+
+    service.createApplication('t1', 'learner_1', { learnerId: 'learner_1' } as any, ctx);
+
+    expect(state.legalLogEntries.length).toBeGreaterThan(0);
+    // Ключевая проверка: та же запись отправлена в durable-журнал.
+    expect(writes.length).toBe(state.legalLogEntries.length);
+    expect(writes[0]).toMatchObject({
+      tenantId: 't1',
+      entityType: state.legalLogEntries[0]!.entityType,
+      eventType: state.legalLogEntries[0]!.eventType
+    });
+  });
+
+  it('падение записи в журнал НЕ срывает пользовательское действие', () => {
+    // Пропавшая запись — дыра в доказательной цепочке, её видно в логах; но срывать
+    // подписание из-за недоступной БД журнала нельзя.
+    const { service } = harness(async () => {
+      throw new Error('db down');
+    });
+
+    expect(() =>
+      service.createApplication('t1', 'learner_1', { learnerId: 'learner_1' } as any, ctx)
+    ).not.toThrow();
   });
 });
