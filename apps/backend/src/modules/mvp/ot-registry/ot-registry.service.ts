@@ -9,6 +9,7 @@ import {
   Scope
 } from '@nestjs/common';
 
+import { buildReadinessReport } from '../registry-readiness.js';
 import { validateRegistryRow } from './ot-registry-preflight.js';
 import { matchResponseToRecords, parseRegistryResponse } from './ot-registry-response.parser.js';
 import { buildRegistryRows } from './ot-registry-rows.js';
@@ -201,6 +202,8 @@ export class OtRegistryService {
 
     // FIX #4 — gather-errors first, then preflight errors.
     const errors: OtRegistryRowError[] = [...gatherErrors, ...preflightErrors];
+    // Блокируют только пробелы в данных строки, а не исключение кандидата из выгрузки.
+    const blocked = preflightErrors.length > 0;
     const exported = valid.length;
     // Count distinct failed candidates, not raw error objects. A комплексный course
     // emits one row per (enrollment × program) and validateRegistryRow pushes one
@@ -225,12 +228,22 @@ export class OtRegistryService {
       totalCandidates: total,
       exportedRows: exported,
       failedRows: failed,
-      batchStatus: failed ? (exported ? 'partial' : 'failed') : 'generated',
+      /*
+       * ФТ-C4.1 (Фаза 3 Task 8): выгрузка НЕ собирается, пока есть ПРОБЕЛЫ В ДАННЫХ
+       * (preflight): для отправки в госреестр «частичный успех» опасен — пропущенные
+       * люди в реестре просто не появятся, и центр этого не заметит.
+       *
+       * А вот кандидаты, которые в выгрузку не входят по существу (не сдал экзамен,
+       * битая связь сущности), блокировать не должны: группа, где часть людей ещё не
+       * сдала, — норма, и запрещать из-за них выгрузку остальных было бы абсурдом.
+       * Поэтому гейт смотрит на preflight, а не на все ошибки подряд.
+       */
+      batchStatus: blocked ? 'failed' : failed ? (exported ? 'partial' : 'failed') : 'generated',
       generatedBy: ctx.userId ?? '',
       format
     };
 
-    if (exported) {
+    if (exported && !blocked) {
       const buffer = format === 'xml' ? this.xml.build(valid) : await this.xlsx.build(valid);
       const contentType = format === 'xml' ? this.xml.contentType : this.xlsx.contentType;
       const storageKey = `${tenantId}/ot-registry/${batch.id}.${format}`;
@@ -302,7 +315,9 @@ export class OtRegistryService {
       exported,
       failed,
       rows: valid,
-      errors
+      errors,
+      // Поимённо: методисту нужен ответ «кого дозаполнить», а не перечень ошибок по полям.
+      readiness: buildReadinessReport(preflightErrors)
     };
   }
 

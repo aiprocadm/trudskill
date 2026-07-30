@@ -28,8 +28,16 @@ describe('validateFrdoRow', () => {
     expect(validateFrdoRow(valid)).toHaveLength(0);
   });
 
-  it('accepts a row with no СНИЛС and no birth date (optional)', () => {
-    expect(validateFrdoRow({ ...valid, snils: '', dateOfBirth: '' })).toHaveLength(0);
+  it('ФТ-C4.1: пустой СНИЛС — теперь ОШИБКА, а не пустая ячейка в файле', () => {
+    // Раньше запись уходила в реестр без СНИЛС, и человек в ней не опознавался.
+    const errs = validateFrdoRow({ ...valid, snils: '' });
+    expect(errs.some((e) => e.field === 'snils')).toBe(true);
+  });
+
+  it('дата рождения пока НЕ блокирует — колонку добавили без заполнения', () => {
+    // Осознанное решение: требовать её сейчас значило бы остановить все выгрузки.
+    // Вынесено владельцу отдельным вопросом.
+    expect(validateFrdoRow({ ...valid, dateOfBirth: '' })).toHaveLength(0);
   });
 
   it('rejects missing number / bad date / missing name / kind / program, and a malformed СНИЛС', () => {

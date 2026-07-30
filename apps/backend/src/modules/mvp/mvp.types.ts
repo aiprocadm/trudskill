@@ -1,3 +1,4 @@
+import type { RegistryReadinessReport } from './registry-readiness.js';
 import type { ExportSignatureStatus } from '../../infrastructure/export-signature/export-signature.provider.js';
 
 export type EntityStatus = string;
@@ -881,6 +882,8 @@ export interface OtRegistryExportOutcome {
   signatureFileId?: string;
   rows: OtRegistryRow[];
   errors: OtRegistryRowError[];
+  /** ФТ-C4.1: поимённый список тех, из-за кого выгрузка не собрана. */
+  readiness: RegistryReadinessReport;
 }
 
 export interface OtRegistryResponseRow {
@@ -970,6 +973,8 @@ export interface FrdoRegistryExportOutcome {
   signatureFileId?: string;
   rows: FrdoRegistryRow[];
   errors: FrdoRegistryRowError[];
+  /** ФТ-C4.1: поимённый список тех, из-за кого выгрузка не собрана. */
+  readiness: RegistryReadinessReport;
 }
 
 // === ЕИСОТ «лица на тестирование» (Минтруд / ЛКОТ) — ростер по фильтру ===
@@ -1032,6 +1037,8 @@ export interface EisotTestingExportOutcome {
   signatureFileId?: string;
   rows: EisotTestingRow[];
   errors: EisotTestingRowError[];
+  /** ФТ-C4.1: поимённый список тех, из-за кого выгрузка не собрана. */
+  readiness: RegistryReadinessReport;
 }
 
 // === Ростехнадзор (аттестация по промышленной безопасности) — Phase 6 ===
@@ -1098,6 +1105,8 @@ export interface RostechnadzorExportOutcome {
   signatureFileId?: string;
   rows: RostechnadzorRow[];
   errors: RostechnadzorRowError[];
+  /** ФТ-C4.1: поимённый список тех, из-за кого выгрузка не собрана. */
+  readiness: RegistryReadinessReport;
 }
 
 // === Минздрав-НМО (непрерывное медобразование, ЗЕТ) — Phase 6 ===
@@ -1164,6 +1173,8 @@ export interface NmoExportOutcome {
   signatureFileId?: string;
   rows: NmoRow[];
   errors: NmoRowError[];
+  /** ФТ-C4.1: поимённый список тех, из-за кого выгрузка не собрана. */
+  readiness: RegistryReadinessReport;
 }
 
 /** Запись в пакете выходных документов курса (§5.3). PUT-семантика: replace all on save. */

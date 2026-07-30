@@ -43,8 +43,13 @@ describe('validateNmoRow', () => {
     );
   });
 
-  it('validates СНИЛС checksum only when present', () => {
-    expect(validateNmoRow(row({ snils: '' }))).toEqual([]);
-    expect(validateNmoRow(row({ snils: '123-456-789 00' })).map((e) => e.field)).toContain('snils');
+  it('ФТ-C4.1: пустой СНИЛС — теперь ОШИБКА, а не пустая ячейка в файле', () => {
+    const errs = validateNmoRow(row({ snils: '' }));
+    expect(errs.some((e) => e.field === 'snils')).toBe(true);
+  });
+
+  it('битая контрольная сумма ловится и объясняется как опечатка', () => {
+    const errs = validateNmoRow(row({ snils: '111-111-111 11' }));
+    expect(errs.some((e) => e.field === 'snils')).toBe(true);
   });
 });

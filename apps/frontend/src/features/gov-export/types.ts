@@ -1,3 +1,16 @@
+/** ФТ-C4.1: поимённый список тех, из-за кого выгрузка не собрана (зеркало backend). */
+export interface RegistryReadinessLearner {
+  learnerId: string;
+  fullName: string;
+  problems: Array<{ field: string; message: string }>;
+}
+
+export interface RegistryReadinessReport {
+  ready: boolean;
+  blockedLearners: number;
+  learners: RegistryReadinessLearner[];
+}
+
 // ОТ-реестр (Минтруд/ЕИСОТ) — frontend types mirroring apps/backend/src/modules/mvp/mvp.types.ts
 
 export interface OtTrainingProgram {
@@ -75,6 +88,7 @@ export interface OtRegistryExportOutcome {
   failed: number;
   rows: OtRegistryRow[];
   errors: OtRegistryRowError[];
+  readiness: RegistryReadinessReport;
 }
 
 export interface OtRegistryResponseRow {
@@ -144,6 +158,7 @@ export interface FrdoRegistryExportOutcome {
   failed: number;
   rows: FrdoRegistryRow[];
   errors: FrdoRegistryRowError[];
+  readiness: RegistryReadinessReport;
 }
 
 // === ЕИСОТ «лица на тестирование» (Минтруд / ЛКОТ) ===
@@ -197,6 +212,7 @@ export interface EisotTestingExportOutcome {
   failed: number;
   rows: EisotTestingRow[];
   errors: EisotTestingRowError[];
+  readiness: RegistryReadinessReport;
 }
 
 // === Ростехнадзор (промышленная безопасность) — Phase 6 ===
@@ -251,6 +267,7 @@ export interface RostechnadzorExportOutcome {
   failed: number;
   rows: RostechnadzorRow[];
   errors: RostechnadzorRowError[];
+  readiness: RegistryReadinessReport;
 }
 
 // === Минздрав-НМО (НМО, ЗЕТ) — Phase 6 ===
@@ -304,4 +321,5 @@ export interface NmoExportOutcome {
   failed: number;
   rows: NmoRow[];
   errors: NmoRowError[];
+  readiness: RegistryReadinessReport;
 }

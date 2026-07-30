@@ -20,6 +20,7 @@ import {
   useOtRegistryBatches,
   useRostechnadzorBatches
 } from '../../src/features/gov-export/hooks';
+import { ReadinessNotice } from '../../src/features/gov-export/readiness';
 import { useExportTasks, useSyncLogs } from '../../src/features/integrations/hooks';
 import { apiRequest } from '../../src/lib/api/client';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
@@ -337,6 +338,7 @@ export default function GovExportPage() {
                 Экспортировано: {otOutcome.exported} / {otOutcome.total}. Ошибок: {otOutcome.failed}
                 .
               </p>
+              {otOutcome.readiness ? <ReadinessNotice readiness={otOutcome.readiness} /> : null}
               {otOutcome.errors.length > 0 ? (
                 <ul>
                   {otOutcome.errors.map((e) => (
@@ -429,6 +431,7 @@ export default function GovExportPage() {
                 Экспортировано: {frdoOutcome.exported} / {frdoOutcome.total}. Ошибок:{' '}
                 {frdoOutcome.failed}.
               </p>
+              {frdoOutcome.readiness ? <ReadinessNotice readiness={frdoOutcome.readiness} /> : null}
               {frdoOutcome.errors.length > 0 ? (
                 <ul>
                   {frdoOutcome.errors.map((e) => (
@@ -511,6 +514,9 @@ export default function GovExportPage() {
                 Экспортировано: {eisotOutcome.exported} / {eisotOutcome.total}. Ошибок:{' '}
                 {eisotOutcome.failed}.
               </p>
+              {eisotOutcome.readiness ? (
+                <ReadinessNotice readiness={eisotOutcome.readiness} />
+              ) : null}
               {eisotOutcome.errors.length > 0 ? (
                 <ul>
                   {eisotOutcome.errors.map((e) => (
@@ -603,6 +609,9 @@ export default function GovExportPage() {
                 Экспортировано: {rostechOutcome.exported} / {rostechOutcome.total}. Ошибок:{' '}
                 {rostechOutcome.failed}.
               </p>
+              {rostechOutcome.readiness ? (
+                <ReadinessNotice readiness={rostechOutcome.readiness} />
+              ) : null}
               {rostechOutcome.errors.length > 0 ? (
                 <ul>
                   {rostechOutcome.errors.map((e) => (
@@ -690,6 +699,7 @@ export default function GovExportPage() {
                 Экспортировано: {nmoOutcome.exported} / {nmoOutcome.total}. Ошибок:{' '}
                 {nmoOutcome.failed}.
               </p>
+              {nmoOutcome.readiness ? <ReadinessNotice readiness={nmoOutcome.readiness} /> : null}
               {nmoOutcome.errors.length > 0 ? (
                 <ul>
                   {nmoOutcome.errors.map((e) => (

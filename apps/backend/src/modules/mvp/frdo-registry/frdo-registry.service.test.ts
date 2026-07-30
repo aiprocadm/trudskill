@@ -262,3 +262,47 @@ describe('FrdoRegistryService.exportFrdoRegistry', () => {
     await expect(h.service.getBatchSignatureUrl(TENANT, batch.id)).rejects.toThrow();
   });
 });
+
+describe('ФТ-C4.1 — выгрузка не собирается при пробелах в данных (Фаза 3 Task 8)', () => {
+  it('слушатель без СНИЛС блокирует файл и назван ПОИМЁННО', async () => {
+    const h = makeHarness([doc()]);
+    seed(h.state);
+    h.state.learners[0]!.snils = undefined;
+
+    const outcome = await h.service.exportFrdoRegistry(TENANT, {}, ctx);
+
+    // Файла нет: неполный файл в реестре хуже, чем его отсутствие — пропущенные люди
+    // в реестре просто не появятся, и центр этого не заметит.
+    expect(outcome.fileId).toBeUndefined();
+    expect(h.storagePut).not.toHaveBeenCalled();
+    expect(h.state.frdoRegistryBatches[0]!.batchStatus).toBe('failed');
+
+    // Методист видит, КОГО дозаполнить.
+    expect(outcome.readiness.ready).toBe(false);
+    expect(outcome.readiness.blockedLearners).toBe(1);
+    expect(outcome.readiness.learners[0]!.fullName).toContain('Иванов');
+    expect(outcome.readiness.learners[0]!.problems.some((p) => p.field === 'snils')).toBe(true);
+  });
+
+  it('невалидная контрольная сумма СНИЛС тоже блокирует', async () => {
+    const h = makeHarness([doc()]);
+    seed(h.state);
+    h.state.learners[0]!.snils = '111-111-111 11';
+
+    const outcome = await h.service.exportFrdoRegistry(TENANT, {}, ctx);
+
+    expect(outcome.fileId).toBeUndefined();
+    expect(outcome.readiness.blockedLearners).toBe(1);
+  });
+
+  it('когда пробелов нет — выгрузка собирается и список пуст', async () => {
+    const h = makeHarness([doc()]);
+    seed(h.state);
+
+    const outcome = await h.service.exportFrdoRegistry(TENANT, {}, ctx);
+
+    expect(outcome.fileId).toBe('file_x');
+    expect(outcome.readiness.ready).toBe(true);
+    expect(outcome.readiness.learners).toEqual([]);
+  });
+});
