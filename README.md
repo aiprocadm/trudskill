@@ -261,7 +261,7 @@ V1 roadmap (см. [docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md](docs
 
 ### Last Updated By
 
-Claude (Fable 5) — §5.220: Фаза 4 Task 1 срез 2 — скоуп представителя применён в выборках, тест изоляции по контрагенту.
+Claude (Fable 5) — §5.221: программа покрытия, порция 1 — бэкенд 72,0%→73,8% (+54 теста: pg-репозитории и esign-контроллер).
 
 ### Last Updated At
 
