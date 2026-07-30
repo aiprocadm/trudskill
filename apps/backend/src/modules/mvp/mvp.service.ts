@@ -158,6 +158,7 @@ import type {
 import type { ReportEntityKey, ResolveCtx } from './report-builder/report-types.js';
 import type { BuildReportRequestDto, SaveReportTemplateDto } from './report-builder.dto.js';
 import type { RequestContext } from '../../common/context/request-context.js';
+import type { CloseGroupResult } from '../documents/documents.dto.js';
 import type {
   DocumentSignatureStatus,
   GeneratedDocumentEntity
@@ -6281,6 +6282,69 @@ export class MvpService {
       report.ready = false;
     }
     return report;
+  }
+
+  /**
+   * Закрытие группы С ПРОВЕРКАМИ (ФТ-E3, Фаза 3 Task 10 часть 2) — «одна кнопка».
+   *
+   * Собирает готовые части в один шаг: проверка готовности (ФТ-E3.2) → выпуск протокола
+   * и удостоверений (`closeGroup`, Фаза 1). Выгрузка в реестр остаётся отдельным
+   * действием: она уходит во внешнюю систему и требует своей проверки полноты (ФТ-C4.1),
+   * а связывать «выпустили документы» и «отправили в госреестр» в одну неразрывную
+   * операцию опасно — откатить отправку нельзя.
+   *
+   * **Почему метод здесь, а не в `DocumentsService`.** Проверка готовности смотрит на
+   * комиссии и слушателей, которых модуль документов не видит: импорт `MvpModule` в
+   * `DocumentsModule` дал бы цикл (явный запрет в `documents.module.ts`). Цикл не ломает
+   * сборку и не виден типам — он ВЕШАЕТ приложение при старте.
+   */
+  closeGroupWithChecks(
+    tenantId: string,
+    actorId: string | undefined,
+    request: {
+      groupId: string;
+      courseId: string;
+      protocolTemplateId: string;
+      certificateTemplateId: string;
+      enrollmentIds: string[];
+    },
+    context: RequestContext
+  ): CloseGroupResult & { readiness: ExamReadinessReport } {
+    const readiness = this.getExamReadiness(tenantId, request.groupId, request.courseId);
+    if (!readiness.ready) {
+      // Документы НЕ выпускаются: протокол с неполной комиссией или удостоверение без
+      // СНИЛС — брак, который вскроется у проверяющего, когда исправлять уже поздно.
+      throw new PreconditionFailedException({
+        code: 'exam_not_ready',
+        message: 'Группу нельзя закрыть: есть незаполненные данные',
+        issues: readiness.issues
+      });
+    }
+
+    const result = this.documentsService.closeGroup(
+      tenantId,
+      actorId,
+      {
+        groupId: request.groupId,
+        protocolTemplateId: request.protocolTemplateId,
+        certificateTemplateId: request.certificateTemplateId,
+        enrollmentIds: request.enrollmentIds
+      },
+      context
+    );
+
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.group_closed_with_checks',
+      'learning.group',
+      request.groupId,
+      undefined,
+      { created: result.created, retried: result.retried, courseId: request.courseId },
+      context
+    );
+
+    return { ...result, readiness };
   }
 
   listCommissionMembers(tenantId: string, commissionId: string): CommissionMember[] {

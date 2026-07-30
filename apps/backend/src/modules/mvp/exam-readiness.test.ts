@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { PreconditionFailedException } from '@nestjs/common';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   MIN_COMMISSION_MEMBERS,
@@ -7,6 +8,7 @@ import {
   checkLearners,
   commissionMemberName
 } from './exam-readiness.js';
+import { MvpService } from './mvp.service.js';
 
 import type { CommissionMember } from './mvp.types.js';
 
@@ -146,5 +148,91 @@ describe('commissionMemberName', () => {
     expect(commissionMemberName(member({ externalFullName: undefined, userId: 'u_1' }))).toBe(
       'u_1'
     );
+  });
+});
+
+/**
+ * ФТ-E3 (Фаза 3 Task 10 часть 2) — «одна кнопка»: проверки перед выпуском документов.
+ *
+ * Проверяем связку на уровне сервиса: незакрытая готовность обязана остановить выпуск,
+ * иначе протокол с неполной комиссией уйдёт в печать.
+ */
+describe('closeGroupWithChecks — связка проверок и выпуска документов', () => {
+  const T = 'tenant_demo';
+  const ctx = {
+    tenantId: T,
+    requestId: 'r1',
+    correlationId: 'c1',
+    userId: 'u_admin'
+  } as never;
+
+  function harness(ready: boolean) {
+    const closeGroup = vi.fn(() => ({
+      protocol: { id: 'task_p' },
+      certificates: [{ id: 'task_c' }],
+      created: 2,
+      retried: 0
+    }));
+    const service = {
+      documentsService: { closeGroup },
+      getExamReadiness: () =>
+        ready
+          ? { ready: true, issues: [] }
+          : {
+              ready: false,
+              issues: [
+                {
+                  scope: 'commission' as const,
+                  code: 'commission_too_small',
+                  message: 'мало людей'
+                }
+              ]
+            },
+      audit: vi.fn(),
+      closeGroupWithChecks: MvpService.prototype.closeGroupWithChecks
+    };
+    return { service, closeGroup };
+  }
+
+  const request = {
+    groupId: 'grp_1',
+    courseId: 'crs_1',
+    protocolTemplateId: 'tpl_p',
+    certificateTemplateId: 'tpl_c',
+    enrollmentIds: ['enr_1']
+  };
+
+  it('незакрытая готовность ОСТАНАВЛИВАЕТ выпуск документов', () => {
+    const h = harness(false);
+
+    expect(() =>
+      h.service.closeGroupWithChecks.call(h.service, T, 'u_admin', request, ctx)
+    ).toThrow(PreconditionFailedException);
+    // Ключевое: ни одной задачи на документы не заведено.
+    expect(h.closeGroup).not.toHaveBeenCalled();
+  });
+
+  it('отказ называет причины — методисту нужно знать, что чинить', () => {
+    const h = harness(false);
+    try {
+      h.service.closeGroupWithChecks.call(h.service, T, 'u_admin', request, ctx);
+      throw new Error('должно было бросить');
+    } catch (err) {
+      const response = (err as { response?: { code?: string; issues?: unknown[] } }).response;
+      expect(response?.code).toBe('exam_not_ready');
+      expect(response?.issues).toHaveLength(1);
+    }
+  });
+
+  it('при готовой группе документы выпускаются одним вызовом', () => {
+    const h = harness(true);
+
+    const result = h.service.closeGroupWithChecks.call(h.service, T, 'u_admin', request, ctx);
+
+    expect(h.closeGroup).toHaveBeenCalledTimes(1);
+    expect(result.created).toBe(2);
+    // Отчёт о готовности возвращается вместе с результатом: он часть доказательства,
+    // что документы выпущены на проверенных данных.
+    expect(result.readiness.ready).toBe(true);
   });
 });
