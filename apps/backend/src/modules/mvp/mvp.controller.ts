@@ -19,6 +19,7 @@ import { AddTestQuestionRequest, ReorderTestQuestionRequest } from './add-test-q
 import { ConsentService } from './consents/consent.service.js';
 import { CreateCounterpartyExtendedRequest } from './create-counterparty-extended.dto.js';
 import { IdentityPolicyService } from './identity/identity-policy.service.js';
+import { LearnerDossierService } from './identity/learner-dossier.service.js';
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
 import { LearnerPdfCardService } from './learner-pdf-card.service.js';
 import { BulkImportLearnersRequest } from './learners-bulk-import.dto.js';
@@ -86,6 +87,7 @@ import { CurrentContext } from '../../common/decorators/current-context.decorato
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
 import { PermissionGuard } from '../iam/permission.guard.js';
+import { IamService } from '../iam/services/iam.service.js';
 
 import type { LegacyConsentEvidence, PhotoConsentGate } from './consents/consent.js';
 import type { BaseFilterQuery } from './mvp.dto.js';
@@ -114,7 +116,9 @@ export class MvpController {
     @Inject(LearnersBulkImportService)
     private readonly learnersBulkImport: LearnersBulkImportService,
     @Inject(IdentityPolicyService) private readonly identityPolicies: IdentityPolicyService,
-    @Inject(ConsentService) private readonly consents: ConsentService
+    @Inject(ConsentService) private readonly consents: ConsentService,
+    @Inject(LearnerDossierService) private readonly learnerDossierService: LearnerDossierService,
+    @Inject(IamService) private readonly iamService: IamService
   ) {}
 
   @Get('counterparties')
@@ -214,6 +218,26 @@ export class MvpController {
   getLearnerPdfCard(@CurrentContext() c: RequestContext, @Param('id') id: string) {
     return this.learnerPdfCardService.composeData(c.tenantId!, c.userId, id, c);
   }
+  /**
+   * ФТ-C2 (Фаза 3 Task 9) — «личное дело слушателя»: один документ для проверяющего.
+   *
+   * Право то же, что у карточки (`learners.read`): дело — это те же персональные данные,
+   * собранные в одном месте. Чужой тенант получает 404, а не 403: 403 подтвердил бы,
+   * что такой слушатель существует.
+   */
+  @Get('learners/:id/dossier')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learners.read')
+  async getLearnerDossier(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.learnerDossierService.compose(c.tenantId!, c.userId, id, c, async (actorId) => {
+      // getUser бросает на отсутствующем пользователе (удалённый модератор) — для дела
+      // это не ошибка: покажем идентификатор вместо имени.
+      const user = await this.iamService.getUser(c.tenantId!, actorId).catch(() => undefined);
+      if (!user) return undefined;
+      return user.displayName || user.email || undefined;
+    });
+  }
+
   @Post('learners')
   @UseGuards(PermissionGuard)
   @RequirePermissions('learners.write')

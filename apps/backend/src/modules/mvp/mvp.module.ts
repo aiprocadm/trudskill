@@ -14,6 +14,7 @@ import { EisotTestingXlsxWriter } from './eisot-testing-registry/eisot-testing-x
 import { EsiaController } from './esia/esia.controller.js';
 import { ESIA_SERVICE_CONFIG, EsiaService, type EsiaServiceConfig } from './esia/esia.service.js';
 import { InMemorySimpleSignatureRepository } from './esignature/in-memory-simple-signature.repository.js';
+import { LegalLogReader } from './esignature/legal-log.reader.js';
 import { LegalLogWriter } from './esignature/legal-log.writer.js';
 import { PostgresSimpleSignatureRepository } from './esignature/postgres-simple-signature.repository.js';
 import { SimpleSignatureController } from './esignature/simple-signature.controller.js';
@@ -28,6 +29,7 @@ import { IdentityPolicyService } from './identity/identity-policy.service.js';
 import { IdentityRetentionScanner } from './identity/identity-retention-scanner.service.js';
 import { IdentityRetentionSchedulerService } from './identity/identity-retention-scheduler.service.js';
 import { InMemoryIdentityPolicyRepository } from './identity/in-memory-identity-policy.repository.js';
+import { LearnerDossierService } from './identity/learner-dossier.service.js';
 import { PostgresIdentityPolicyRepository } from './identity/postgres-identity-policy.repository.js';
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MvpPersistenceRepositoryAdapter } from './infrastructure/mvp-persistence.repository.adapter.js';
@@ -225,6 +227,9 @@ import {
       inject: [DatabaseService]
     },
     IdentityPolicyService,
+    // ФТ-C2 (Фаза 3 Task 9) — «личное дело слушателя»: сборка из существующих источников.
+    LegalLogReader,
+    LearnerDossierService,
     // ФТ-C1.1 (Фаза 3 Task 3) — ПЭП: соглашение и подписанные действия.
     LegalLogWriter,
     PostgresSimpleSignatureRepository,

@@ -153,7 +153,9 @@ describe('MVP HTTP integration (domain invariants)', () => {
       { CONSENT_REPOSITORY },
       { ConsentService },
       { InMemoryConsentRepository },
-      { LegalLogWriter }
+      { LegalLogWriter },
+      { LearnerDossierService },
+      { LegalLogReader }
     ] = await Promise.all([
       import('@nestjs/core'),
       import('@nestjs/throttler'),
@@ -182,7 +184,9 @@ describe('MVP HTTP integration (domain invariants)', () => {
       import('./consents/consent.repository.js'),
       import('./consents/consent.service.js'),
       import('./consents/in-memory-consent.repository.js'),
-      import('./esignature/legal-log.writer.js')
+      import('./esignature/legal-log.writer.js'),
+      import('./identity/learner-dossier.service.js'),
+      import('./esignature/legal-log.reader.js')
     ]);
 
     issueSignedAccessToken = cryptoImport.issueSignedAccessToken;
@@ -221,6 +225,11 @@ describe('MVP HTTP integration (domain invariants)', () => {
         { provide: CONSENT_REPOSITORY, useClass: InMemoryConsentRepository },
         { provide: LegalLogWriter, useValue: { write: async () => undefined } },
         ConsentService,
+        // ФТ-C2: контроллер отдаёт «личное дело». Журнал и IAM ходят в БД, которой в
+        // этом тесте нет, — подменяем заглушками: проверяется HTTP-граница, не выборка.
+        { provide: LegalLogReader, useValue: { listByActor: async () => [] } },
+        { provide: IamService, useValue: { getUser: async () => undefined } },
+        LearnerDossierService,
         {
           provide: MvpRequestPersistenceInterceptor,
           scope: Scope.REQUEST,
