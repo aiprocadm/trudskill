@@ -93,6 +93,9 @@ describe('MVP HTTP integration (domain invariants)', () => {
         perms.push('assessment.read.cross_learner', 'learners.act_as');
       }
       return Promise.resolve(perms);
+    }),
+    resolveActorScope: async (t: string, u: string) => ({
+      permissions: await iamServiceMock.resolvePermissions(t, u)
     })
   };
   const noopFilesService = {

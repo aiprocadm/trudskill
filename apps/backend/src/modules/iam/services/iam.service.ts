@@ -253,12 +253,13 @@ export class IamService {
       password_hash: string;
       status: 'active' | 'blocked';
       display_name: string;
+      counterparty_id: string | null;
       totp_secret_encrypted: string | null;
       totp_enabled: boolean;
       totp_last_used_step: string | number | null;
     }>(
       `
-        select id, tenant_id, login, email, password_hash, status, display_name, totp_secret_encrypted, totp_enabled, totp_last_used_step
+        select id, tenant_id, login, email, password_hash, status, display_name, counterparty_id, totp_secret_encrypted, totp_enabled, totp_last_used_step
         from iam.users
         where tenant_id = $1 and id = $2 and deleted_at is null
         limit 1
@@ -817,9 +818,34 @@ export class IamService {
     }));
   }
 
+  /**
+   * ФТ-E5 (Фаза 4): права актора ВМЕСТЕ с его привязкой к контрагенту — одной загрузкой.
+   *
+   * Гвард ставит привязку в `RequestContext` на каждом запросе, поэтому отдельный поход
+   * в БД за ней означал бы лишний запрос на каждый вызов API. Пользователь и так
+   * загружается при разрешении прав — привязка едет тем же рейсом.
+   */
+  async resolveActorScope(
+    tenantId: string,
+    userId: string
+  ): Promise<{ permissions: string[]; counterpartyId?: string }> {
+    const user = await this.getUser(tenantId, userId);
+    const permissions = await this.resolvePermissionsForLoadedUser(tenantId, userId);
+    return {
+      permissions,
+      ...(user.counterpartyId ? { counterpartyId: user.counterpartyId } : {})
+    };
+  }
+
   async resolvePermissions(tenantId: string, userId: string): Promise<string[]> {
     await this.getUser(tenantId, userId);
+    return this.resolvePermissionsForLoadedUser(tenantId, userId);
+  }
 
+  private async resolvePermissionsForLoadedUser(
+    tenantId: string,
+    userId: string
+  ): Promise<string[]> {
     if (!this.databaseService) {
       // DB-less fallback (dev / unit tests only): there is no per-role permission map here —
       // just a flat staff permission set — so every seeded user resolves to that full set.
@@ -863,6 +889,7 @@ export class IamService {
     password_hash: string;
     status: 'active' | 'blocked';
     display_name: string;
+    counterparty_id?: string | null;
     totp_secret_encrypted?: string | null;
     totp_enabled?: boolean;
     // pg отдаёт bigint строкой — нормализуем в number.
@@ -876,6 +903,7 @@ export class IamService {
       passwordHash: row.password_hash,
       status: row.status,
       displayName: row.display_name,
+      counterpartyId: row.counterparty_id ?? null,
       totpEnabled: row.totp_enabled ?? false,
       totpSecretEncrypted: row.totp_secret_encrypted ?? null,
       totpLastUsedStep: row.totp_last_used_step == null ? null : Number(row.totp_last_used_step)

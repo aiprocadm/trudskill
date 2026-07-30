@@ -52,11 +52,17 @@ export class PermissionGuard implements CanActivate {
       });
     }
 
-    const resolved = await this.iamService.resolvePermissions(
+    const scope = await this.iamService.resolveActorScope(
       requestContext.tenantId,
       requestContext.userId
     );
+    const resolved = scope.permissions;
     requestContext.permissions = resolved;
+    // ФТ-E5: привязка представителя к контрагенту — основание скоупа выборок портала.
+    // Ставится из личности актора, а не из параметров запроса: те подменяются.
+    if (scope.counterpartyId) {
+      requestContext.counterpartyId = scope.counterpartyId;
+    }
 
     const hasAll = required.every((permission) => resolved.includes(permission));
     if (!hasAll) {

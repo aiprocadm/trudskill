@@ -41,7 +41,12 @@ describe('Payments HTTP integration (permission boundaries + unguarded webhook)'
     isSessionActive: vi.fn().mockResolvedValue(true)
   };
   const iamServiceMock = {
-    resolvePermissions: vi.fn().mockResolvedValue(['payments.read'])
+    resolvePermissions: vi.fn().mockResolvedValue(['payments.read']),
+    // ФТ-E5: гвард берёт права и привязку одной загрузкой; заглушка делегирует
+    // своей же resolvePermissions, сохраняя переопределения в тестах.
+    resolveActorScope: async (t: string, u: string) => ({
+      permissions: await iamServiceMock.resolvePermissions(t, u)
+    })
   };
 
   // Stub order returned by the service
