@@ -18,10 +18,12 @@ interface Row {
   scope_id: string | null;
   level: number;
   require_photo_before_exam: boolean;
+  photo_max_age_hours: number | null;
   updated_at: string;
 }
 
-const COLUMNS = 'id, tenant_id, scope, scope_id, level, require_photo_before_exam, updated_at';
+const COLUMNS =
+  'id, tenant_id, scope, scope_id, level, require_photo_before_exam, photo_max_age_hours, updated_at';
 
 function toRow(row: Row): IdentityPolicyRow {
   return {
@@ -30,6 +32,7 @@ function toRow(row: Row): IdentityPolicyRow {
     scope: row.scope,
     level: Number(row.level),
     requirePhotoBeforeExam: row.require_photo_before_exam,
+    ...(row.photo_max_age_hours === null ? {} : { photoMaxAgeHours: row.photo_max_age_hours }),
     updatedAt: row.updated_at,
     ...(row.scope_id ? { scopeId: row.scope_id } : {})
   };
@@ -50,13 +53,14 @@ export class PostgresIdentityPolicyRepository implements IdentityPolicyRepositor
   async save(tenantId: string, input: SaveIdentityPolicyInput): Promise<IdentityPolicyRow> {
     const rows = await this.db.query<Row>(
       `insert into learning.identity_policies
-         (id, tenant_id, scope, scope_id, level, require_photo_before_exam, updated_at)
+         (id, tenant_id, scope, scope_id, level, require_photo_before_exam, photo_max_age_hours, updated_at)
        values ($1, $2, $3, $4, $5, $6, now())
        -- Уникальность по (tenant, scope, scope_id): повторное сохранение той же области
        -- обновляет запись, а не заводит вторую с конфликтующим уровнем.
        on conflict (tenant_id, scope, coalesce(scope_id, '')) do update set
          level = excluded.level,
          require_photo_before_exam = excluded.require_photo_before_exam,
+         photo_max_age_hours = excluded.photo_max_age_hours,
          updated_at = now()
        returning ${COLUMNS}`,
       [
@@ -65,7 +69,8 @@ export class PostgresIdentityPolicyRepository implements IdentityPolicyRepositor
         input.scope,
         input.scopeId ?? null,
         input.level,
-        input.requirePhotoBeforeExam
+        input.requirePhotoBeforeExam,
+        input.photoMaxAgeHours ?? null
       ]
     );
     return toRow(rows[0]!);

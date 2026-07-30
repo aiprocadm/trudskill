@@ -13,6 +13,8 @@ export interface SaveIdentityPolicyInput {
   scopeId?: string | undefined;
   level: number;
   requirePhotoBeforeExam: boolean;
+  /** ФТ-C1.2: срок годности подтверждения с фото в часах; пусто = умолчание 24 ч. */
+  photoMaxAgeHours?: number | undefined;
 }
 
 export interface IdentityPolicyRepository {
