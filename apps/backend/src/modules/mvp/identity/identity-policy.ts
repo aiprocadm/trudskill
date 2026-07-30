@@ -23,11 +23,15 @@ export interface IdentityPolicyRecord {
   scopeId?: string;
   level: number;
   requirePhotoBeforeExam?: boolean;
+  /** ФТ-C1.2: сколько часов подтверждение с фото действительно. Пусто = умолчание. */
+  photoMaxAgeHours?: number;
 }
 
 export interface EffectiveIdentityPolicy {
   level: IdentityLevel;
   requirePhotoBeforeExam: boolean;
+  /** Действующий срок годности подтверждения с фото, в часах. */
+  photoMaxAgeHours: number;
   /** Откуда взят уровень — админу нужно понимать, какую запись править. */
   source: IdentityPolicyScope | 'default';
 }
@@ -65,11 +69,17 @@ export function resolveIdentityPolicy(
 
   const winner = byScope('course') ?? byScope('direction') ?? byScope('tenant');
   if (!winner) {
-    return { level: 0, requirePhotoBeforeExam: false, source: 'default' };
+    return {
+      level: 0,
+      requirePhotoBeforeExam: false,
+      photoMaxAgeHours: DEFAULT_PHOTO_MAX_AGE_HOURS,
+      source: 'default'
+    };
   }
   return {
     level: normalizeLevel(winner.level),
     requirePhotoBeforeExam: winner.requirePhotoBeforeExam === true,
+    photoMaxAgeHours: normalizePhotoMaxAgeHours(winner.photoMaxAgeHours),
     source: winner.scope
   };
 }
@@ -87,4 +97,59 @@ export function requiresExamControl(policy: EffectiveIdentityPolicy): boolean {
 /** Требуется ли подписанное соглашение об электронном взаимодействии (уровень 1 и выше). */
 export function requiresSimpleSignature(policy: EffectiveIdentityPolicy): boolean {
   return policy.level >= 1;
+}
+
+/**
+ * Срок годности подтверждения личности с фотографией (ФТ-C1.2).
+ *
+ * **Ответ владельца от 2026-07-29** на вопрос «что значит „непосредственно перед
+ * экзаменом“»: 24 часа, снимок ОДИН на слушателя (не на каждую попытку), срок
+ * настраивается администратором.
+ *
+ * Почему не «навсегда»: подтверждение, сделанное полгода назад, ничего не говорит о том,
+ * кто сидит за компьютером сегодня. Почему не «15 минут»: человека пришлось бы
+ * фотографировать перед каждой попыткой, а модератор проверяет заявки не мгновенно —
+ * слушатель просто не успел бы к экзамену.
+ */
+export const DEFAULT_PHOTO_MAX_AGE_HOURS = 24;
+export const MIN_PHOTO_MAX_AGE_HOURS = 1;
+export const MAX_PHOTO_MAX_AGE_HOURS = 720;
+
+/**
+ * Приведение срока к допустимому. Мусор и выход за границы — умолчание.
+ *
+ * Как и с уровнем политики: опечатка в настройке не должна ни запереть экзамен всей
+ * группе, ни молча отменить требование свежести. Умолчание — предсказуемая середина.
+ */
+export function normalizePhotoMaxAgeHours(value: unknown): number {
+  if (
+    typeof value !== 'number' ||
+    !Number.isInteger(value) ||
+    value < MIN_PHOTO_MAX_AGE_HOURS ||
+    value > MAX_PHOTO_MAX_AGE_HOURS
+  ) {
+    return DEFAULT_PHOTO_MAX_AGE_HOURS;
+  }
+  return value;
+}
+
+/**
+ * Свежо ли подтверждение на момент `now`.
+ *
+ * Отсчёт ведётся от момента РЕШЕНИЯ МОДЕРАТОРА (`reviewedAt`), а не от подачи: пока
+ * заявку не проверили, подтверждения ещё нет. Если решения нет — считать нечего.
+ */
+export function isPhotoVerificationFresh(
+  reviewedAt: string | undefined,
+  maxAgeHours: number,
+  now: Date = new Date()
+): boolean {
+  if (!reviewedAt) return false;
+  const reviewed = new Date(reviewedAt);
+  if (Number.isNaN(reviewed.getTime())) return false;
+  const ageMs = now.getTime() - reviewed.getTime();
+  // Отрицательный возраст (часы сервера разъехались) считаем свежим: запирать человека
+  // из-за рассинхронизации часов хуже, чем пропустить.
+  if (ageMs < 0) return true;
+  return ageMs <= maxAgeHours * 3600_000;
 }

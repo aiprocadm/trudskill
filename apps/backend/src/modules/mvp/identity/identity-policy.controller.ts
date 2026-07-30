@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Inject, Post, Query, UseGuards } from '@nestjs/common';
 import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
 
+import { MAX_PHOTO_MAX_AGE_HOURS, MIN_PHOTO_MAX_AGE_HOURS } from './identity-policy.js';
 import { IdentityPolicyService } from './identity-policy.service.js';
 import { assertValidDto } from '../../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../../common/decorators/current-context.decorator.js';
@@ -30,6 +31,16 @@ class SaveIdentityPolicyDto {
   @IsOptional()
   @IsBoolean()
   requirePhotoBeforeExam?: boolean;
+
+  /**
+   * ФТ-C1.2: сколько часов подтверждение с фото считается действительным.
+   * Не задано — умолчание 24 часа (ответ владельца от 2026-07-29).
+   */
+  @IsOptional()
+  @IsInt()
+  @Min(MIN_PHOTO_MAX_AGE_HOURS)
+  @Max(MAX_PHOTO_MAX_AGE_HOURS)
+  photoMaxAgeHours?: number;
 }
 
 /**

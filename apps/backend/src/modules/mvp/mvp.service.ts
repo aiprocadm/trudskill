@@ -25,6 +25,8 @@ import {
 } from './group-progress-summary.service.js';
 import {
   type EffectiveIdentityPolicy,
+  isPhotoVerificationFresh,
+  normalizePhotoMaxAgeHours,
   requiresDocumentIdentity,
   requiresExamControl
 } from './identity/identity-policy.js';
@@ -4025,6 +4027,24 @@ export class MvpService {
         throw new PreconditionFailedException({
           code: 'identity_photo_required',
           message: 'Для этого экзамена требуется подтверждение личности с фотографией'
+        });
+      }
+      /*
+       * ФТ-C1.2, ответ владельца от 2026-07-29: подтверждение должно быть СВЕЖИМ —
+       * по умолчанию не старше 24 часов, срок настраивается администратором.
+       *
+       * Подтверждение полугодовой давности ничего не говорит о том, кто сидит за
+       * компьютером сегодня; ради этого требование «непосредственно перед экзаменом»
+       * в ТЗ и написано. Снимок при этом ОДИН на слушателя, а не на каждую попытку:
+       * так решил владелец, и это заметно дешевле для человека.
+       */
+      // Срок берём через нормализацию: политика могла прийти из старого вызова без
+      // этого поля, и запирать из-за отсутствующей настройки нельзя.
+      const maxAgeHours = normalizePhotoMaxAgeHours(identityPolicy.photoMaxAgeHours);
+      if (!isPhotoVerificationFresh(photoApproved.reviewedAt, maxAgeHours)) {
+        throw new PreconditionFailedException({
+          code: 'identity_photo_expired',
+          message: `Подтверждение личности устарело: для этого экзамена оно действительно ${maxAgeHours} ч. Пройдите подтверждение заново`
         });
       }
     }

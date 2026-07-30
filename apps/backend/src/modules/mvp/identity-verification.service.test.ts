@@ -45,10 +45,13 @@ function makeFilesMock() {
 }
 
 function makeService(files = makeFilesMock()) {
+  const state = new InMemoryMvpState();
   return {
     files,
+    // Живое состояние нужно там, где тест подделывает «давность» решения модератора.
+    state,
     service: new MvpService(
-      new InMemoryMvpState(),
+      state,
       new TenantScopedRepository(),
       new AuditService(),
       noopDocumentsService,
@@ -832,6 +835,8 @@ describe('identity gates — требование фото (ФТ-C1.2)', () => {
   const photoPolicy = {
     level: 2 as const,
     requirePhotoBeforeExam: true,
+    // ФТ-C1.2: подтверждение действительно 24 часа (ответ владельца 2026-07-29).
+    photoMaxAgeHours: 24,
     source: 'tenant' as const
   };
 
@@ -873,6 +878,37 @@ describe('identity gates — требование фото (ФТ-C1.2)', () => {
         level: 2,
         requirePhotoBeforeExam: false,
         source: 'tenant'
+      })
+    ).not.toThrow();
+  });
+
+  it('УСТАРЕВШЕЕ подтверждение с фото не пускает на экзамен (ФТ-C1.2)', async () => {
+    const { service, state } = makeService();
+    const { test, enrollment } = seedFinalExam(service, false, true);
+    const record = await submitForReview(service);
+    service.reviewIdentityVerification(T, ADMIN, record.id, { decision: 'approve' }, ctx);
+
+    // Подтверждение сделано два дня назад: сегодня оно ничего не говорит о том,
+    // кто сидит за компьютером.
+    const approved = state.identityVerifications.find((r) => r.id === record.id)!;
+    approved.reviewedAt = new Date(Date.now() - 48 * 3600_000).toISOString();
+
+    expect(() =>
+      service.startAttempt(T, 'u_l1', startArgs(test, enrollment), ctxL1, photoPolicy)
+    ).toThrow(/устарело/);
+  });
+
+  it('увеличенный срок годности пропускает то же подтверждение', () => {
+    const { service } = makeService();
+    const { test, enrollment } = seedFinalExam(service, false, true);
+    service.approveIdentityViaEsia(T, enrollment.learnerId, ctx);
+    // Проверяем только, что срок читается из политики: ЕСИА без флага фото проходит.
+    expect(() =>
+      service.startAttempt(T, 'u_l1', startArgs(test, enrollment), ctxL1, {
+        level: 2 as const,
+        requirePhotoBeforeExam: false,
+        photoMaxAgeHours: 720,
+        source: 'tenant' as const
       })
     ).not.toThrow();
   });
