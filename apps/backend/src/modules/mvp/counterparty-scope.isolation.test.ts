@@ -26,16 +26,55 @@ const STAFF = {};
 
 function harness() {
   const state = new InMemoryMvpState();
+  // Заглушка повторяет реальную пагинацию listDocuments (по умолчанию 20 строк):
+  // скоуп обязан фильтровать ДО пагинации, и заглушка без пагинации не поймала бы регресс.
+  const generatedDocs: Array<{
+    id: string;
+    tenantId: string;
+    documentType: string;
+    name: string;
+    sourceEntityType: string;
+    sourceEntityId: string;
+    status: string;
+    generatedAt: string;
+  }> = [];
   const service = new MvpService(
     state,
     new TenantScopedRepository(),
     new AuditService(),
     {
-      listDocuments: () => ({ items: [], page: 1, pageSize: 50, total: 0 })
+      listDocuments: (tenantId: string, q: { page?: number; pageSize?: number }) => {
+        const rows = generatedDocs.filter((d) => d.tenantId === tenantId);
+        const page = q.page ?? 1;
+        const pageSize = q.pageSize ?? 20;
+        return {
+          items: rows.slice((page - 1) * pageSize, page * pageSize),
+          page,
+          pageSize,
+          total: rows.length
+        };
+      }
     } as unknown as DocumentsService,
     { createUploadIntent: vi.fn() } as unknown as FilesService,
     new EventEmitter2()
   );
+
+  let docSeq = 0;
+  const addDoc = (enrollmentId: string) => {
+    docSeq += 1;
+    const doc = {
+      id: `doc_${docSeq}`,
+      tenantId: T,
+      documentType: 'certificate',
+      name: `Удостоверение ${docSeq}`,
+      sourceEntityType: 'enrollment',
+      sourceEntityId: enrollmentId,
+      status: 'issued',
+      generatedAt: '2026-07-31T00:00:00.000Z'
+    };
+    generatedDocs.push(doc);
+    return doc;
+  };
 
   const cpA = service.createCounterparty(T, 'u_admin', { code: 'A', name: 'Завод А' }, ctx);
   const cpB = service.createCounterparty(T, 'u_admin', { code: 'B', name: 'Завод Б' }, ctx);
@@ -68,6 +107,7 @@ function harness() {
   return {
     service,
     state,
+    addDoc,
     cpA,
     cpB,
     repA,
@@ -138,5 +178,43 @@ describe('изоляция по контрагенту (ФТ-E5)', () => {
   it('вызовы БЕЗ актора (существующие места) не ограничены — обратная совместимость', () => {
     const h = harness();
     expect(h.service.listGroups(T, {}).total).toBe(3);
+  });
+
+  it('документы портала: только документы сотрудников своего заказчика', () => {
+    const h = harness();
+    const docA = h.addDoc(h.enrA.id);
+    h.addDoc(h.enrB.id);
+    const list = h.service.listPortalDocuments(T, {}, h.repA);
+    expect(list.items.map((d) => d.id)).toEqual([docA.id]);
+    expect(list.items[0]!.learnerId).toBe(h.learnerA.id);
+  });
+
+  it('документы портала: представители разных заказчиков не пересекаются', () => {
+    const h = harness();
+    h.addDoc(h.enrA.id);
+    h.addDoc(h.enrB.id);
+    const a = h.service.listPortalDocuments(T, {}, h.repA).items.map((d) => d.id);
+    const b = h.service.listPortalDocuments(T, {}, h.repB).items.map((d) => d.id);
+    expect(a.filter((id) => b.includes(id))).toEqual([]);
+    expect(a).toHaveLength(1);
+    expect(b).toHaveLength(1);
+  });
+
+  it('документы портала: скоуп применяется ДО пагинации хранилища документов', () => {
+    // 25 чужих документов заполняют первую «страницу по умолчанию» (20 строк) хранилища.
+    // Если бы скоуп фильтровал уже отрезанную страницу, документ представителя А пропал бы.
+    const h = harness();
+    for (let i = 0; i < 25; i += 1) h.addDoc(h.enrB.id);
+    const docA = h.addDoc(h.enrA.id);
+    const list = h.service.listPortalDocuments(T, {}, h.repA);
+    expect(list.items.map((d) => d.id)).toEqual([docA.id]);
+    expect(list.total).toBe(1);
+  });
+
+  it('документы портала: персонал без привязки видит документы всех зачислений', () => {
+    const h = harness();
+    h.addDoc(h.enrA.id);
+    h.addDoc(h.enrB.id);
+    expect(h.service.listPortalDocuments(T, {}, STAFF).total).toBe(2);
   });
 });

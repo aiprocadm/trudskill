@@ -22,8 +22,10 @@ export const routeMeta: RouteMetaEntry[] = [
   { pattern: '/academy', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/crm/deals', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   {
+    // ФТ-E5: отдельное право портала. `counterparties.read` означает «видеть справочник
+    // контрагентов центра» — ровно ту клиентскую базу, которую представитель видеть не должен.
     pattern: '/counterparty-portal',
-    meta: { public: false, requiredPermissions: ['counterparties.read'] }
+    meta: { public: false, requiredPermissions: ['portal.read'] }
   },
   {
     pattern: '/question-import',
@@ -342,8 +344,8 @@ export const navigationModel: NavigationItem[] = [
   },
   {
     href: '/counterparty-portal',
-    label: 'Кабинет контрагента',
-    requiredPermissions: ['counterparties.read'],
+    label: 'Портал заказчика',
+    requiredPermissions: ['portal.read'],
     navSlot: 'more'
   },
   {

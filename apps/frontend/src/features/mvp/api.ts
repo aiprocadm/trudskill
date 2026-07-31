@@ -30,6 +30,7 @@ import type {
   Learner,
   ListResponse,
   Material,
+  PortalDocument,
   ProgramMetaPatch,
   Progress,
   Question,
@@ -91,6 +92,18 @@ export const mvpApi = {
   listCounterparties: (session: UserSession, query: BaseFilterQuery) =>
     apiRequest<ListResponse<Counterparty>>(
       `/counterparties${queryString(query)}`,
+      withAuth(session)
+    ),
+
+  // ФТ-E5 (Фаза 4 Task 1, срез 3) — портал заказчика: отдельные ручки под правом
+  // portal.read; сервер скоупит выдачу по контрагенту представителя.
+  listPortalLearners: (session: UserSession, query: BaseFilterQuery) =>
+    apiRequest<ListResponse<Learner>>(`/portal/learners${queryString(query)}`, withAuth(session)),
+  listPortalGroups: (session: UserSession, query: BaseFilterQuery) =>
+    apiRequest<ListResponse<Group>>(`/portal/groups${queryString(query)}`, withAuth(session)),
+  listPortalDocuments: (session: UserSession, query: BaseFilterQuery) =>
+    apiRequest<ListResponse<PortalDocument>>(
+      `/portal/documents${queryString(query)}`,
       withAuth(session)
     ),
   getCounterparty: (session: UserSession, id: string) =>

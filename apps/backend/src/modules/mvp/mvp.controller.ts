@@ -199,6 +199,32 @@ export class MvpController {
     return this.mvpService.getCounterpartyProgressSummary(c.tenantId!, id);
   }
 
+  // ФТ-E5 (Фаза 4 Task 1, срез 3) — портал заказчика. Отдельное право `portal.read`
+  // (миграция 0071): `learners.read`/`groups.read`/`documents.read` означают «видеть
+  // данные ПО ВСЕМУ центру» и представителю не выдаются. Скоуп по контрагенту актора
+  // применяется в сервисе; персонал (без привязки) видит всё — менеджер должен видеть
+  // то же, что и клиент, когда разбирает его обращение.
+  @Get('portal/learners')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('portal.read')
+  listPortalLearners(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
+    return this.mvpService.listLearners(c.tenantId!, q, { counterpartyId: c.counterpartyId });
+  }
+  @Get('portal/groups')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('portal.read')
+  listPortalGroups(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
+    return this.mvpService.listGroups(c.tenantId!, q, { counterpartyId: c.counterpartyId });
+  }
+  @Get('portal/documents')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('portal.read')
+  listPortalDocuments(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
+    return this.mvpService.listPortalDocuments(c.tenantId!, q, {
+      counterpartyId: c.counterpartyId
+    });
+  }
+
   @Get('learners')
   @UseGuards(PermissionGuard)
   @RequirePermissions('learners.read')

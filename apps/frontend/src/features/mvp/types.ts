@@ -59,6 +59,17 @@ export interface Learner extends BaseEntity {
   linkedIamUserId?: string;
 }
 
+/** ФТ-E5: строка «Документы» портала заказчика — проекция без содержимого и ПДн-словаря. */
+export interface PortalDocument extends BaseEntity {
+  documentType: string;
+  name: string;
+  documentNumber?: string;
+  documentDate?: string;
+  validUntil?: string;
+  learnerId?: string;
+  learnerName?: string;
+}
+
 export interface Direction extends BaseEntity {
   code: string;
   name: string;

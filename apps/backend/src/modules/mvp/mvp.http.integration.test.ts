@@ -279,6 +279,20 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         };
       }
 
+      // ФТ-E5 срез 3 — портал заказчика: отдельное право portal.read,
+      // counterparties.read/learners.read сюда НЕ подходят (они «про весь центр»).
+      @Get('portal/learners')
+      @RequirePermissions('portal.read')
+      listPortalLearners(@CurrentContext() context: { tenantId?: string }) {
+        return { items: [], page: 1, page_size: 20, total: 0, tenantId: context.tenantId };
+      }
+
+      @Get('portal/documents')
+      @RequirePermissions('portal.read')
+      listPortalDocuments(@CurrentContext() context: { tenantId?: string }) {
+        return { items: [], page: 1, page_size: 20, total: 0, tenantId: context.tenantId };
+      }
+
       // Wave 2 — ОТ registry export (POST requires write; GET requires read)
       @Post('ot-registry/exports')
       @RequirePermissions('regulatory.export.write')
@@ -1253,6 +1267,52 @@ describe('MVP HTTP integration (permission boundaries)', () => {
       };
       expect(payload.data.counterpartyId).toBe('cp-1');
       expect(payload.data.totalLearners).toBe(0);
+      expect(payload.meta.requestId).toBeTruthy();
+    });
+  });
+
+  // === ФТ-E5 срез 3 — портал заказчика: portal.read boundary ===
+  describe('counterparty portal (portal.read)', () => {
+    it('GET /portal/learners — 403 с counterparties.read: право «про весь центр» не открывает портал', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce([
+        'counterparties.read',
+        'learners.read'
+      ]);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['manager'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/portal/learners`, {
+        headers: {
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        }
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('GET /portal/documents — 200 с portal.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['portal.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_rep', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['rep'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/portal/documents`, {
+        headers: {
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        }
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as {
+        data: { items: unknown[]; total: number };
+        meta: { requestId: string };
+      };
+      expect(payload.data.items).toEqual([]);
       expect(payload.meta.requestId).toBeTruthy();
     });
   });

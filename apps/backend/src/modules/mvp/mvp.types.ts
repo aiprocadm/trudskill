@@ -29,6 +29,22 @@ export interface Counterparty extends BaseEntity {
   note?: string;
 }
 
+/**
+ * ФТ-E5 (Фаза 4 Task 1): строка списка «Документы» портала заказчика. Проекция
+ * GeneratedDocumentEntity без содержимого и variablesSnapshot (там ПДн) — представителю
+ * достаточно факта выдачи, номера и срока. `status` не скрывает отзыв: показать
+ * отозванный документ действующим значило бы обмануть заказчика.
+ */
+export interface PortalDocument extends BaseEntity {
+  documentType: string;
+  name: string;
+  documentNumber?: string;
+  documentDate?: string;
+  validUntil?: string;
+  learnerId?: string;
+  learnerName?: string;
+}
+
 export interface Learner extends BaseEntity {
   learnerNo?: string;
   firstName: string;
