@@ -1,8 +1,11 @@
+/** ФТ-D2.1: жизненный цикл арендатора; множество зафиксировано CHECK-ограничением (0072). */
+export type TenantStatus = 'trial' | 'active' | 'suspended' | 'archived';
+
 export interface Tenant {
   id: string;
   code: string;
   name: string;
-  status: 'active' | 'suspended';
+  status: TenantStatus;
 }
 
 export interface TenantSettings {
