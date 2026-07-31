@@ -51,6 +51,10 @@ describe('mvp api envelope compatibility', () => {
       session: UserSession,
       payload: { code: string; name: string }
     ) => Promise<{ id: string; code: string }>;
+    listPortalDocuments: (
+      session: UserSession,
+      query: { page: number }
+    ) => Promise<{ items: Array<{ id: string; learnerName?: string }> }>;
   };
 
   beforeAll(async () => {
@@ -81,6 +85,27 @@ describe('mvp api envelope compatibility', () => {
     const result = await mvpApi.listUsers(session, { page: 1 });
 
     expect(result.items).toHaveLength(1);
+  });
+
+  it('listPortalDocuments reads data from envelope and hits /portal/documents', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        envelope({
+          items: [{ id: 'doc1', learnerName: 'Иванов Иван' }],
+          page: 1,
+          pageSize: 20,
+          total: 1
+        }),
+        { status: 200 }
+      )
+    );
+
+    const result = await mvpApi.listPortalDocuments(session, { page: 1 });
+
+    expect(result.items[0]?.id).toBe('doc1');
+    expect(result.items[0]?.learnerName).toBe('Иванов Иван');
+    const requestedUrl = String(fetchMock.mock.calls[0]?.[0]);
+    expect(requestedUrl).toContain('/portal/documents');
   });
 
   it('listCounterparties reads data from envelope', async () => {

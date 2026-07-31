@@ -73,6 +73,13 @@ export const useCounterpartiesList = (query: BaseFilterQuery) =>
   useMvpQuery('counterparties', query, (s) => mvpApi.listCounterparties(s, query));
 export const useCounterparty = (id: string) =>
   useMvpQuery('counterparty', id, (s) => mvpApi.getCounterparty(s, id));
+// ФТ-E5 — портал заказчика (portal.read, серверный скоуп по контрагенту).
+export const usePortalLearners = (query: BaseFilterQuery) =>
+  useMvpQuery('portalLearners', query, (s) => mvpApi.listPortalLearners(s, query));
+export const usePortalGroups = (query: BaseFilterQuery) =>
+  useMvpQuery('portalGroups', query, (s) => mvpApi.listPortalGroups(s, query));
+export const usePortalDocuments = (query: BaseFilterQuery) =>
+  useMvpQuery('portalDocuments', query, (s) => mvpApi.listPortalDocuments(s, query));
 export const useDirectionsList = (query: BaseFilterQuery) =>
   useMvpQuery('directions', query, (s) => mvpApi.listDirections(s, query));
 export const useCoursesList = (query: BaseFilterQuery) =>

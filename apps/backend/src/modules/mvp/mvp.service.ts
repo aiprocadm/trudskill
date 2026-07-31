@@ -139,6 +139,7 @@ import type {
   MaterialProgress,
   ModuleProgress,
   OtTrainingProgram,
+  PortalDocument,
   PreExamToken,
   ProctoringChunkIssue,
   ProctoringOverride,
@@ -582,6 +583,69 @@ export class MvpService {
     );
     const source = this.state.learners.filter((l) => learnerIds.has(l.id));
     return this.list(source, tenantId, query);
+  }
+
+  /**
+   * ФТ-E5 (Фаза 4 Task 1, срез 3): документы для портала заказчика. Документ привязан
+   * к зачислению (`sourceEntityType='enrollment'`), поэтому «документы представителя» =
+   * документы зачислений в группы его контрагента. Живёт здесь, а не в модуле документов:
+   * тому неоткуда узнать про группы и зачисления (mvp → documents уже есть, обратное —
+   * цикл), а два расходящихся ответа на «чьё это зачисление» недопустимы.
+   */
+  listPortalDocuments(
+    tenantId: string,
+    query: BaseFilterQuery,
+    actor?: { counterpartyId?: string }
+  ): ListResponse<PortalDocument> {
+    const scope = this.counterpartyScopeOf(actor);
+    const enrollmentById = new Map(
+      this.state.enrollments.filter((e) => e.tenantId === tenantId).map((e) => [e.id, e])
+    );
+    const groupIds = scope.restricted ? this.scopedGroupIds(tenantId, scope) : null;
+    // pageSize = MAX_SAFE_INTEGER: listDocuments пагинирует по умолчанию 20 строками,
+    // а скоуп обязан фильтровать ДО пагинации — иначе документ представителя, попавший
+    // за первую страницу общего хранилища, «исчезал» бы из его выдачи.
+    const rows = this.documentsService
+      .listDocuments(tenantId, {
+        sourceEntityType: 'enrollment',
+        pageSize: Number.MAX_SAFE_INTEGER
+      })
+      .items.filter((d) => {
+        if (!d.sourceEntityId) return false;
+        const enrollment = enrollmentById.get(d.sourceEntityId);
+        if (!enrollment) return false;
+        return groupIds === null || groupIds.has(enrollment.groupId);
+      })
+      .map((d): PortalDocument => {
+        const enrollment = enrollmentById.get(d.sourceEntityId!);
+        const learner = enrollment
+          ? this.state.learners.find(
+              (l) => l.tenantId === tenantId && l.id === enrollment.learnerId
+            )
+          : undefined;
+        return {
+          id: d.id,
+          tenantId: d.tenantId,
+          status: d.status,
+          createdAt: d.generatedAt,
+          updatedAt: d.generatedAt,
+          documentType: d.documentType,
+          name: d.name,
+          ...(d.documentNumber ? { documentNumber: d.documentNumber } : {}),
+          ...(d.documentDate ? { documentDate: d.documentDate } : {}),
+          ...(d.validUntil ? { validUntil: d.validUntil } : {}),
+          ...(learner
+            ? {
+                learnerId: learner.id,
+                learnerName: [learner.lastName, learner.firstName, learner.middleName]
+                  .filter(Boolean)
+                  .join(' ')
+              }
+            : {})
+        };
+      });
+    rows.sort((a, b) => (a.createdAt === b.createdAt ? 0 : a.createdAt < b.createdAt ? 1 : -1));
+    return this.list(rows, tenantId, query);
   }
 
   getLearner(tenantId: string, id: string): Learner {
