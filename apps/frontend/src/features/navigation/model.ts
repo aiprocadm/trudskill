@@ -22,6 +22,11 @@ export const routeMeta: RouteMetaEntry[] = [
   { pattern: '/academy', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/crm/deals', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   {
+    // ФТ-D2.2: платформенная админка — только platform_admin (0073).
+    pattern: '/platform/tenants',
+    meta: { public: false, requiredPermissions: ['platform.tenants.read'] }
+  },
+  {
     // ФТ-E5: отдельное право портала. `counterparties.read` означает «видеть справочник
     // контрагентов центра» — ровно ту клиентскую базу, которую представитель видеть не должен.
     pattern: '/counterparty-portal',
@@ -288,6 +293,13 @@ export const navigationModel: NavigationItem[] = [
   },
   { href: '/reports', label: 'Отчеты', requiredPermissions: ['tenant.read'] },
   { href: '/settings', label: 'Настройки', requiredPermissions: ['iam.manage_roles'] },
+  {
+    // ФТ-D2.2: право есть только у platform_admin (0073) — у админов центров пункт скрыт.
+    href: '/platform/tenants',
+    label: 'Арендаторы платформы',
+    requiredPermissions: ['platform.tenants.read'],
+    navSlot: 'more'
+  },
   {
     href: '/admin/question-banks',
     label: 'Банки вопросов',

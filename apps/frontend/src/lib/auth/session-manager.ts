@@ -33,6 +33,15 @@ export const sessionManager = {
     sessionStore.set(session);
     return session;
   },
+  /**
+   * ФТ-D2.2 (срез 3): принять уже собранную сессию (вход «от имени» из платформенной
+   * админки). Токены выданы сервером impersonate-ручкой, refresh-cookie уже стоит —
+   * остаётся сделать сессию текущей, как это делает login.
+   */
+  adopt(session: UserSession): UserSession {
+    sessionStore.set(session);
+    return session;
+  },
   /** Второй шаг 2FA-логина: challenge из login/redeem + код из приложения. */
   async verifyTotp(challengeToken: string, code: string): Promise<UserSession> {
     const tokens = await authApi.verifyTotp({ challengeToken, code });
