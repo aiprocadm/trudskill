@@ -204,6 +204,25 @@ export class AuthService {
     return tokens;
   }
 
+  /**
+   * ФТ-D2.2 (Фаза 4 Task 3): вход «от имени» для поддержки платформы. Выдаёт обычную
+   * сессию ЦЕЛЕВОГО пользователя. TOTP-гейт цели сознательно не проходится: личность
+   * актора уже подтверждена его собственной платформенной сессией (включая его 2FA),
+   * а второй фактор чужого пользователя поддержке недоступен по определению.
+   * ОБЯЗАТЕЛЬНАЯ запись в аудит — на вызывающей стороне (PlatformTenantsService)
+   * ДО выдачи сессии: сбой журнала отменяет вход.
+   */
+  async issueImpersonatedSession(
+    tenantId: string,
+    userId: string
+  ): Promise<Awaited<ReturnType<AuthService['createSession']>>> {
+    const user = await this.iamService.getUser(tenantId, userId);
+    if (user.status === 'blocked') {
+      throw new UnauthorizedException({ code: 'user_blocked', message: 'User is blocked' });
+    }
+    return this.createSession(user, true);
+  }
+
   /** Второй шаг логина (ФТ-G3): challenge из issueSessionForUser + верный TOTP-код → сессия. */
   async verifyTotpAndLogin(
     tenantId: string,

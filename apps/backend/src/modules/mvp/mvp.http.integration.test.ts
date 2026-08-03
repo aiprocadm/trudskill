@@ -306,6 +306,13 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         return { id: 't_stub', code: body.code ?? '', status: 'trial' };
       }
 
+      // Срез 2: вход «от имени» — отдельное право, platform.tenants.* его НЕ включает.
+      @Post('platform/tenants/:id/impersonate')
+      @RequirePermissions('platform.impersonate')
+      impersonatePlatformTenant(@Param('id') id: string) {
+        return { tenantId: id, userId: 'u_stub', session: { sessionId: 's_stub' } };
+      }
+
       // Wave 2 — ОТ registry export (POST requires write; GET requires read)
       @Post('ot-registry/exports')
       @RequirePermissions('regulatory.export.write')
@@ -1385,6 +1392,64 @@ describe('MVP HTTP integration (permission boundaries)', () => {
       expect(response.status).toBe(201);
       const payload = (await response.json()) as { data: { status: string } };
       expect(payload.data.status).toBe('trial');
+    });
+  });
+
+  // === ФТ-D2.2 срез 2 — вход «от имени»: platform.impersonate boundary ===
+  describe('platform impersonation (platform.impersonate)', () => {
+    it('POST /platform/tenants/:id/impersonate — 403 даже с platform.tenants.write: это отдельное право', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce([
+        'platform.tenants.read',
+        'platform.tenants.write'
+      ]);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_platform_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's1',
+          roles: ['platform_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/platform/tenants/t1/impersonate`, {
+        method: 'POST',
+        headers: {
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({})
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('POST /platform/tenants/:id/impersonate — 201 с platform.impersonate', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['platform.impersonate']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_platform_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['platform_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/platform/tenants/t1/impersonate`, {
+        method: 'POST',
+        headers: {
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({})
+      });
+      expect(response.status).toBe(201);
+      const payload = (await response.json()) as { data: { tenantId: string } };
+      expect(payload.data.tenantId).toBe('t1');
     });
   });
 
