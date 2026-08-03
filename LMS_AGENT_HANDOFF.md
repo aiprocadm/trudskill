@@ -2871,6 +2871,22 @@ _Изначально записана как §5.155; перенумерова�
 
 **Тесты:** `tenant.service.test.ts` переписан (1 → 9: без БД каждая ручка — 503; с БД — строка как есть включая `trial`, отсутствующий тенант — `tenant_not_found`; SQL `listActiveTenantIds` включает `trial`+`active` и не включает `suspended`/`archived`); `migrations.0072.test.ts` — 4 (CHECK ровно на четыре статуса, fail-closed нормализация, порядок UPDATE→CONSTRAINT, транзакция/идемпотентность). `pnpm test:migrations` 51. Указатель миграций в CLAUDE.md → `0072`.
 
+### 5.228 Фаза 4 Task 3 (срез 1) — платформенная админка тенантов: API (ФТ-D2.2)
+
+**Ветка:** `feat/2026-07-31-tz-faza4-platform-admin` (после §5.227/PR #376).
+
+**Что сделано:**
+
+1. **Новый модуль `platform`** (`platform-tenants.{service,controller,dto}.ts` + `platform.module.ts`, зарегистрирован в `app.module.ts`): `GET /platform/tenants` (кросс-тенантный список), `POST /platform/tenants` (создание, статус по умолчанию `trial`), `PATCH /platform/tenants/:id/status`. Это единственный контур, которому положено видеть все тенанты.
+2. **Права `platform.tenants.read|write` (миграция `0073`) выданы ТОЛЬКО роли `platform_admin`.** Сид `0010` когда-то раздал tenant_admin все права скопом — повторить это здесь означало бы дать каждому арендатору админку всех остальных. HTTP-граница закреплена: полный набор «своих» прав арендатора (`tenant.read`+`counterparties.read`+`learners.read`+`iam.manage_roles`) → 403.
+3. **Создание тенанта — один атомарный SQL (CTE):** тенант + клон ролей тенанта платформы + их права. Атомарность нужна, чтобы сбой между запросами не оставил тенант без ролей (в него нельзя было бы войти). **`platform_admin` не клонируется** — платформенная роль существует только у владельца платформы. Шаблон ролей — тенант АКТОРА (без зашитого `tenant_demo`). Дубль кода → 409 `tenant_code_taken`.
+4. **Аудит `writeCritical`** на создание (`platform.tenant_created`, пишется в аудит НОВОГО тенанта — его журнал должен начинаться с факта создания) и смену статуса (`platform.tenant_status_changed`, old/new): suspended отключает арендатора, по журналу должно быть видно, кто и когда.
+5. Без БД — та же честная 503 `tenant_store_unavailable`, что и в ФТ-D2.1 (§5.227).
+
+**Сознательно не сделано (остаток Task 3):** вход «от имени» (impersonation) с обязательным аудитом — срез 2 (нужна выдача сессии в auth-контуре); экраны платформенной админки — срез 3.
+
+**Тесты:** `platform-tenants.service.test.ts` 6 (список, 503 без БД, дефолт trial + клон ролей без platform_admin + аудит, 409 на дубль кода, смена статуса с old/new, 404), `platform-tenants.dto-validation.test.ts` 5 (код только `[a-z0-9-]` — он попадает в URL, статусы вне жизненного цикла отбиваются), `migrations.0073.test.ts` 3, HTTP-граница +2 (101 в файле). Полный `pnpm ci:check` exit 0: бэкенд **2775** (+16), фронт 792. По дороге дважды ловились флейки полного прогона (таймаут vitest-воркера на `eisot-testing-export.dto-validation`, 45s-таймауты `auth.controller.contract` + `mvp.domains.http` под CPU-нагрузкой) — изолированные прогоны зелёные, повторный полный — зелёный; класс сбоев описан в CLAUDE.md Gotchas.
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |
