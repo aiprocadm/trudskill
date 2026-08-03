@@ -30,6 +30,29 @@ function forceLegacyPasswordHashForTest(iam: IamService, userId: string) {
   user.passwordHash = LEGACY_SEED_PASSWORD_HASH;
 }
 
+describe('impersonated session (ФТ-D2.2)', () => {
+  it('выдаёт сессию целевого пользователя с его ролями и правами', async () => {
+    const audit = new AuditService();
+    const iam = new IamService(audit);
+    const auth = new AuthService(iam, audit, new SecretsService());
+
+    const session = await auth.issueImpersonatedSession('tenant_demo', 'u_tenant_admin');
+    expect(session.sessionId).toBeTruthy();
+    expect(session.claims.tenant_id).toBe('tenant_demo');
+    expect(session.claims.role_codes).toContain('tenant_admin');
+  });
+
+  it('заблокированный пользователь — отказ: имперсонация не обходит блокировку', async () => {
+    const audit = new AuditService();
+    const iam = new IamService(audit);
+    const auth = new AuthService(iam, audit, new SecretsService());
+
+    await expect(auth.issueImpersonatedSession('tenant_demo', 'u_blocked')).rejects.toThrow(
+      UnauthorizedException
+    );
+  });
+});
+
 describe('auth foundation', () => {
   it('rehashes legacy sha256 password to scrypt on successful login', async () => {
     const audit = new AuditService();

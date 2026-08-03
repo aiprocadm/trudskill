@@ -11,6 +11,7 @@ import {
 
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import { AuditService } from '../audit/audit.service.js';
+import { AuthService } from '../iam/services/auth.service.js';
 
 import type { RequestContext } from '../../common/context/request-context.js';
 import type { Tenant, TenantStatus } from '../tenant/tenant.types.js';
@@ -27,7 +28,8 @@ export class PlatformTenantsService {
     @Optional()
     @Inject(DatabaseService)
     private readonly databaseService: DatabaseService | undefined,
-    @Inject(AuditService) private readonly auditService: AuditService
+    @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(AuthService) private readonly authService: AuthService
   ) {}
 
   /** Как в TenantService (ФТ-D2.1): без БД тенантов не существует — 503, а не выдумка. */
@@ -146,5 +148,79 @@ export class PlatformTenantsService {
       correlationId: context.correlationId
     });
     return updated;
+  }
+
+  /**
+   * Вход «от имени» (ФТ-D2.2). Именно запись в аудите отличает поддержку от
+   * злоупотребления, поэтому она пишется `writeCritical` ДО выдачи сессии — сбой
+   * журнала отменяет вход. Лучше след без входа, чем вход без следа (падение после
+   * записи оставит запись без сессии — это осознанная асимметрия).
+   *
+   * Цель по умолчанию — активный tenant_admin арендатора: поддержка входит «как
+   * администратор центра», конкретного сотрудника указывают явно.
+   */
+  async impersonate(
+    actorId: string | undefined,
+    tenantId: string,
+    requestedUserId: string | undefined,
+    context: RequestContext
+  ) {
+    const db = this.requireDb();
+    const tenants = await db.query<Tenant>(
+      'select id, code, name, status from core.tenants where id = $1',
+      [tenantId]
+    );
+    const tenant = tenants[0];
+    if (!tenant) {
+      throw new NotFoundException({ code: 'tenant_not_found', message: 'Tenant not found' });
+    }
+    if (tenant.status === 'archived') {
+      // Офбординг замораживает кабинет: входить «от имени» в архив нельзя даже поддержке.
+      throw new ConflictException({
+        code: 'tenant_archived',
+        message: 'Tenant is archived; impersonation is not allowed'
+      });
+    }
+
+    let targetUserId = requestedUserId;
+    if (!targetUserId) {
+      const admins = await db.query<{ id: string }>(
+        `select u.id
+         from iam.users u
+         join iam.user_roles ur on ur.tenant_id = u.tenant_id and ur.user_id = u.id
+         join iam.roles r on r.tenant_id = ur.tenant_id and r.id = ur.role_id
+         where u.tenant_id = $1 and r.code = 'tenant_admin' and u.status = 'active'
+         order by u.id
+         limit 1`,
+        [tenantId]
+      );
+      targetUserId = admins[0]?.id;
+    }
+    if (!targetUserId) {
+      throw new NotFoundException({
+        code: 'impersonation_target_not_found',
+        message: 'No active tenant_admin to impersonate; specify userId explicitly'
+      });
+    }
+
+    await this.auditService.writeCritical({
+      tenantId,
+      actorId,
+      action: 'platform.impersonation_started',
+      entityType: 'iam.user',
+      entityId: targetUserId,
+      metadata: {
+        impersonation: true,
+        platformActorId: actorId,
+        platformTenantId: context.tenantId
+      },
+      requestId: context.requestId,
+      correlationId: context.correlationId,
+      ip: context.ip,
+      userAgent: context.userAgent
+    });
+
+    const session = await this.authService.issueImpersonatedSession(tenantId, targetUserId);
+    return { tenantId, userId: targetUserId, session };
   }
 }

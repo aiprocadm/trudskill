@@ -36,3 +36,12 @@ export class ChangePlatformTenantStatusRequest {
   @IsIn(TENANT_STATUSES)
   status!: TenantStatus;
 }
+
+/** `POST /platform/tenants/:id/impersonate` — вход «от имени» (по умолчанию tenant_admin). */
+export class ImpersonatePlatformTenantRequest {
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  userId?: string;
+}

@@ -6,6 +6,9 @@ import { PlatformTenantsService } from './platform-tenants.service.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 import type { DatabaseService } from '../../infrastructure/database/database.service.js';
 import type { AuditService } from '../audit/audit.service.js';
+import type { AuthService } from '../iam/services/auth.service.js';
+
+const authStub = { issueImpersonatedSession: vi.fn() } as unknown as AuthService;
 
 /**
  * ФТ-D2.2 (Фаза 4 Task 3): платформенная админка тенантов — список, создание,
@@ -28,7 +31,8 @@ function makeHarness(rowsBySqlFragment: Record<string, unknown[] | (() => unknow
   const writeCritical = vi.fn(async () => ({}) as never);
   const service = new PlatformTenantsService(
     { query } as unknown as DatabaseService,
-    { writeCritical } as unknown as AuditService
+    { writeCritical } as unknown as AuditService,
+    authStub
   );
   return { service, query, writeCritical };
 }
@@ -46,9 +50,11 @@ describe('PlatformTenantsService.listTenants', () => {
   });
 
   it('без БД — честная 503, как у TenantService (ФТ-D2.1)', async () => {
-    const service = new PlatformTenantsService(undefined, {
-      writeCritical: vi.fn()
-    } as unknown as AuditService);
+    const service = new PlatformTenantsService(
+      undefined,
+      { writeCritical: vi.fn() } as unknown as AuditService,
+      authStub
+    );
     await expect(service.listTenants()).rejects.toThrow(ServiceUnavailableException);
   });
 });

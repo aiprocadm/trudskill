@@ -2,7 +2,8 @@ import { Body, Controller, Get, Inject, Param, Patch, Post, UseGuards } from '@n
 
 import {
   ChangePlatformTenantStatusRequest,
-  CreatePlatformTenantRequest
+  CreatePlatformTenantRequest,
+  ImpersonatePlatformTenantRequest
 } from './platform-tenants.dto.js';
 import { PlatformTenantsService } from './platform-tenants.service.js';
 import { assertValidDto } from '../../common/app-validation.pipe.js';
@@ -48,5 +49,15 @@ export class PlatformTenantsController {
   ) {
     const dto = assertValidDto(ChangePlatformTenantStatusRequest, body);
     return this.service.changeStatus(c.userId, id, dto.status, c);
+  }
+
+  // Отдельное право (0074): видеть список тенантов и входить в их кабинеты — разные
+  // полномочия; аудит пишется ДО выдачи сессии в сервисе.
+  @Post(':id/impersonate')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('platform.impersonate')
+  impersonate(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() body: unknown) {
+    const dto = assertValidDto(ImpersonatePlatformTenantRequest, body ?? {});
+    return this.service.impersonate(c.userId, id, dto.userId, c);
   }
 }
