@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Patch, Post, Res, UseGuards } from '@nestjs/common';
 
 import {
   ChangePlatformTenantStatusRequest,
@@ -9,10 +9,12 @@ import { PlatformTenantsService } from './platform-tenants.service.js';
 import { assertValidDto } from '../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
+import { authCookie } from '../iam/auth-cookie.util.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
 import { PermissionGuard } from '../iam/permission.guard.js';
 
 import type { RequestContext } from '../../common/context/request-context.js';
+import type { Response } from 'express';
 
 /**
  * ФТ-D2.2 (Фаза 4 Task 3) — платформенная админка тенантов. Единственный контур,
@@ -53,11 +55,28 @@ export class PlatformTenantsController {
 
   // Отдельное право (0074): видеть список тенантов и входить в их кабинеты — разные
   // полномочия; аудит пишется ДО выдачи сессии в сервисе.
+  // Срез 3: cookie ставятся как при обычном логине — без них сессия «от имени» из UI
+  // живёт только TTL access-токена; refreshToken наружу ходит ТОЛЬКО cookie.
   @Post(':id/impersonate')
   @UseGuards(PermissionGuard)
   @RequirePermissions('platform.impersonate')
-  impersonate(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() body: unknown) {
+  async impersonate(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: Response
+  ) {
     const dto = assertValidDto(ImpersonatePlatformTenantRequest, body ?? {});
-    return this.service.impersonate(c.userId, id, dto.userId, c);
+    const result = await this.service.impersonate(c.userId, id, dto.userId, c);
+    authCookie.attachRefreshAndCsrfCookies(
+      response,
+      result.session.refreshToken,
+      result.session.csrfToken
+    );
+    return {
+      tenantId: result.tenantId,
+      userId: result.userId,
+      session: authCookie.toPublicTokens(result.session)
+    };
   }
 }

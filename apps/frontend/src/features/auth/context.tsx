@@ -15,6 +15,8 @@ interface AuthContextValue {
   login: (login: string, password: string) => Promise<UserSession | TotpChallengeResponse>;
   loginWithMagicLink: (token: string) => Promise<UserSession | TotpChallengeResponse>;
   verifyTotp: (challengeToken: string, code: string) => Promise<UserSession>;
+  /** ФТ-D2.2 (срез 3): сделать текущей сессию, выданную входом «от имени». */
+  adoptSession: (session: UserSession) => void;
   logout: () => Promise<void>;
   refresh: () => Promise<UserSession | null>;
 }
@@ -54,6 +56,10 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         const nextSession = await sessionManager.verifyTotp(challengeToken, code);
         setSession(nextSession);
         return nextSession;
+      },
+      adoptSession: (nextSession) => {
+        sessionManager.adopt(nextSession);
+        setSession(nextSession);
       },
       logout: async () => {
         await sessionManager.logout();

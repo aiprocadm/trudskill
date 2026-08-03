@@ -2901,6 +2901,22 @@ _Изначально записана как §5.155; перенумерова�
 
 **Тесты:** `platform-impersonation.service.test.ts` 6 (порядок «аудит → сессия», сбой журнала отменяет вход, приоритет явной цели, отказ по архиву, 404, нет цели), `auth.service.test.ts` +2 (сессия с ролями цели; заблокированный — 401), `migrations.0074.test.ts` 3, HTTP-граница +2 (103 в файле). Харнес среза 1 дополнен третьим аргументом конструктора (AuthService).
 
+### 5.230 Фаза 4 Task 3 (срез 3) — экраны платформенной админки + cookie у impersonate (ФТ-D2.2)
+
+**Ветка:** `feat/2026-08-03-tz-faza4-platform-admin-ui` (после §5.229/PR #378). **Task 3 закрыт целиком.**
+
+**Что сделано:**
+
+1. **`POST /platform/tenants/:id/impersonate` теперь ставит refresh+csrf cookie, как `/auth/login`, и не возвращает `refreshToken` в теле** (`authCookie.attachRefreshAndCsrfCookies` + `toPublicTokens`). Без этого сессия «от имени» из UI жила бы только TTL access-токена (15 мин) и не переживала перезагрузку страницы, а refresh-токен светился бы в JSON — у логина он ходит только cookie.
+2. **Экран `/platform/tenants`** (`features/platform-tenants/`): список арендаторов (код/название/статус), создание (валидация кода той же маской, что DTO сервера), переводы статусов, «Войти от имени» с confirm-предупреждением про аудит. Переходы статусов UI сужает до осмысленных (`nextStatusOptions`: из архива — только в приостановленные), сервер по-прежнему принимает любые валидные — это презентация, не бизнес-правило. Кнопки скрываются по правам сессии (`platform.tenants.write` / `platform.impersonate`).
+3. **Переключение сессии:** `hydrateImpersonatedSession` собирает `UserSession` цели — `/auth/me` и роли запрашиваются с ЯВНЫМ `x-tenant-id` цели (дефолтный заголовок клиента указывает на тенант платформы — TenantGuard ответил бы `tenant_header_mismatch`); `sessionManager.adopt` + `adoptSession` в AuthContext делают её текущей, редирект на `/`. Возврат в платформенную админку — обычный выход и вход (осознанно: две живые сессии в одной вкладке — это две правды о «текущем пользователе»).
+4. **Маршрут и меню:** `routeMeta` `/platform/tenants` под `platform.tenants.read`, пункт «Арендаторы платформы» в блоке «Настройки и система» (`navSlot: 'more'`) — у админов центров права нет, пункт скрыт.
+5. **Живой прогон** (бэкенд из worktree на dev-базе): логин `platform_admin` → список → impersonate: `Set-Cookie` оба стоят, в теле только публичные поля токенов, выданный токен работает в целевом кабинете (`/auth/me` → `tenant_admin`, 75 прав).
+
+**Тесты:** бэкенд +2 (`platform-tenants.controller.test.ts`: cookie ставятся; refreshToken/csrfToken в теле нет) → **2791**; фронт +8 (`api.contract.test.ts`: статусы = CHECK 0072, конверт, PATCH статуса, credentials у impersonate, hydrate с явным тенантом цели) → **800**. `ci:check` exit 0.
+
+**Остаток Task 3:** нет — срезы 1–3 закрыты. **Дальше:** Task 4 — ФТ-D3.1 тема тенанта (white-label).
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |

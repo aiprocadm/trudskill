@@ -140,7 +140,8 @@ export const NAV_GROUPS: NavGroup[] = [
       '/telephony',
       '/admin/payments/settings',
       '/admin/webinars/settings',
-      '/admin/licenses'
+      '/admin/licenses',
+      '/platform/tenants'
     ]
   }
 ];
