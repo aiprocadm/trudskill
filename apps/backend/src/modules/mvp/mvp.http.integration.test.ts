@@ -293,6 +293,19 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         return { items: [], page: 1, page_size: 20, total: 0, tenantId: context.tenantId };
       }
 
+      // ФТ-D2.2 — платформенная админка тенантов: только platform.tenants.*
+      @Get('platform/tenants')
+      @RequirePermissions('platform.tenants.read')
+      listPlatformTenants() {
+        return [];
+      }
+
+      @Post('platform/tenants')
+      @RequirePermissions('platform.tenants.write')
+      createPlatformTenant(@Body() body: { code?: string }) {
+        return { id: 't_stub', code: body.code ?? '', status: 'trial' };
+      }
+
       // Wave 2 — ОТ registry export (POST requires write; GET requires read)
       @Post('ot-registry/exports')
       @RequirePermissions('regulatory.export.write')
@@ -1314,6 +1327,64 @@ describe('MVP HTTP integration (permission boundaries)', () => {
       };
       expect(payload.data.items).toEqual([]);
       expect(payload.meta.requestId).toBeTruthy();
+    });
+  });
+
+  // === ФТ-D2.2 — платформенная админка тенантов: platform.tenants.* boundary ===
+  describe('platform tenants admin (platform.tenants.*)', () => {
+    it('GET /platform/tenants — 403 для tenant_admin арендатора: кросс-тенантный список только платформе', async () => {
+      // Полный набор «своих» прав арендатора не открывает чужие тенанты.
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce([
+        'tenant.read',
+        'counterparties.read',
+        'learners.read',
+        'iam.manage_roles'
+      ]);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_tenant_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's1',
+          roles: ['tenant_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/platform/tenants`, {
+        headers: {
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        }
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('POST /platform/tenants — 200 с platform.tenants.write', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['platform.tenants.write']);
+      const token = issueSignedAccessToken(
+        {
+          sub: 'u_platform_admin',
+          tenant_id: 'tenant_demo',
+          session_id: 's_active',
+          roles: ['platform_admin']
+        },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/platform/tenants`, {
+        method: 'POST',
+        headers: {
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ code: 'uc1', name: 'Новый центр' })
+      });
+      expect(response.status).toBe(201);
+      const payload = (await response.json()) as { data: { status: string } };
+      expect(payload.data.status).toBe('trial');
     });
   });
 

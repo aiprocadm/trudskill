@@ -140,7 +140,7 @@ When adding a feature, the typical test trio: unit tests for the service, DTO va
 - **Pre-commit** runs `lint-staged` (ESLint `--max-warnings=0 --fix --cache` + Prettier) on staged files only. Pre-existing lint failures elsewhere do NOT block your commit; check your own file with `npx eslint <path> --max-warnings=0`.
 - **Pre-push** runs `pnpm typecheck` across the whole monorepo.
 - **Never bypass hooks** (no `--no-verify`) unless explicitly asked. If a hook fails, fix root cause and create a new commit (not `--amend` — the failed commit didn't happen).
-- **Migrations** are numbered SQL in [`apps/backend/migrations/`](apps/backend/migrations/). **Don't edit historical files.** Latest is `0072_core_tenants_status_check.sql` as of 2026-07-31. Pick the next number for new ones.
+- **Migrations** are numbered SQL in [`apps/backend/migrations/`](apps/backend/migrations/). **Don't edit historical files.** Latest is `0073_iam_platform_tenants_permissions.sql` as of 2026-07-31. Pick the next number for new ones.
 - **PR description** template: `## Summary` (1-3 bullets) + `## Test plan` (checklist). PRs are squash-merged.
 
 ## Gotchas (Windows + Cyrillic path)
