@@ -6,9 +6,11 @@ import {
   ServiceUnavailableException
 } from '@nestjs/common';
 
+import { TENANT_BRANDING_KEY, readTenantBranding } from './tenant-branding.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 
+import type { TenantBranding } from './tenant-branding.js';
 import type {
   Tenant,
   TenantCommission,
@@ -127,6 +129,50 @@ export class TenantService {
       [tenantId, JSON.stringify({ ...next.payload, locale: next.locale, timezone: next.timezone })]
     );
     return this.getSettings(tenantId);
+  }
+
+  /**
+   * ФТ-D3.1: бренд центра. Отсутствие строки настроек — не ошибка, а «бренда нет»:
+   * тема по умолчанию должна краситься и у только что созданного арендатора.
+   */
+  async getBranding(tenantId: string): Promise<TenantBranding> {
+    try {
+      return readTenantBranding(await this.getSettings(tenantId));
+    } catch (err) {
+      if (err instanceof NotFoundException) return {};
+      throw err;
+    }
+  }
+
+  /**
+   * Частичное обновление: пришедшие поля заменяют текущие (undefined = сброс),
+   * не пришедшие — сохраняются. Upsert напрямую, а не через updateSettings:
+   * у свежесозданного арендатора строки настроек ещё нет, и updateSettings
+   * упал бы NotFound раньше своего же upsert-а.
+   */
+  async updateBranding(
+    tenantId: string,
+    patch: Record<string, string | undefined>
+  ): Promise<TenantBranding> {
+    const current = await this.getBranding(tenantId);
+    const next: Record<string, string> = {};
+    for (const field of ['displayName', 'logoUrl', 'brandColor', 'accentColor'] as const) {
+      const value = field in patch ? patch[field] : current[field];
+      if (value !== undefined) next[field] = value;
+    }
+    // id обязателен (PK без default) — вскрыто живым прогоном: INSERT без id падает
+    // not-null constraint; конфликт ловится по unique(tenant_id), поэтому детерминированный
+    // id по образцу сида безопасен.
+    await this.requireDb().query(
+      `insert into org.tenant_settings (id, tenant_id, payload)
+       values (concat('tenant_settings_', $1::text), $1, jsonb_build_object('${TENANT_BRANDING_KEY}', $2::jsonb))
+       on conflict (tenant_id) do update
+         set payload = coalesce(org.tenant_settings.payload, '{}'::jsonb)
+           || jsonb_build_object('${TENANT_BRANDING_KEY}', $2::jsonb),
+             updated_at = now()`,
+      [tenantId, JSON.stringify(next)]
+    );
+    return this.getBranding(tenantId);
   }
 
   async updateRequisites(

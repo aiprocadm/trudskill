@@ -78,6 +78,20 @@ function VerifyCard({ data }: { data: VerifyResult }) {
   const isRevoked = data.status === 'revoked';
   return (
     <div className="ui-stack">
+      {/* ФТ-D3.1: бренд выдавшего центра — логотип и имя над результатом проверки */}
+      {data.issuerLogoUrl || data.issuerName ? (
+        <p className="ui-text-muted" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {data.issuerLogoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- внешний URL центра
+            <img
+              src={data.issuerLogoUrl}
+              alt=""
+              style={{ maxHeight: 32, maxWidth: 140, objectFit: 'contain' }}
+            />
+          ) : null}
+          {data.issuerName ? <span>{data.issuerName}</span> : null}
+        </p>
+      ) : null}
       {/* Заметная плашка статуса: зелёная «Действителен» / красная «Аннулирован» из токенов темы */}
       <p className={`ui-callout ${isRevoked ? 'ui-callout--danger' : 'ui-callout--success'}`}>
         <strong>{isRevoked ? 'Аннулирован' : 'Действителен'}</strong>

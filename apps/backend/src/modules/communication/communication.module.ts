@@ -65,9 +65,12 @@ import { MvpPersistenceRepositoryAdapter } from '../mvp/infrastructure/mvp-persi
 import { MVP_PERSISTENCE_BACKEND } from '../mvp/infrastructure/mvp-persistence.token.js';
 import { MvpTenantRunner } from '../mvp/infrastructure/mvp-tenant-runner.service.js';
 import { PostgresMvpPersistenceBackend } from '../mvp/infrastructure/postgres-mvp-persistence.backend.js';
+import { TenantModule } from '../tenant/tenant.module.js';
 
 @Module({
-  imports: [InfrastructureModule, IamModule],
+  // TenantModule — ради подписи бренда в письмах (ФТ-D3.1): диспетчер резолвит
+  // имя центра через TenantService (@Optional, тесты живут и без него).
+  imports: [InfrastructureModule, IamModule, TenantModule],
   controllers: [
     NotificationsController,
     ChatController,

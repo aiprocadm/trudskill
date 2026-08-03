@@ -7,6 +7,8 @@ import { type PropsWithChildren, useCallback, useEffect, useMemo, useRef, useSta
 
 import { CommandPalette } from './command-palette';
 import { useAuth } from '../../features/auth/context';
+import { useTenantBranding } from '../../features/branding/context';
+import { resolveWordmark } from '../../features/branding/theme';
 import { useNotificationsList, useNotificationsRealtime } from '../../features/communication/hooks';
 import { buildBreadcrumbs } from '../../features/navigation/breadcrumbs';
 import { buildCommandItems } from '../../features/navigation/command-palette';
@@ -24,6 +26,8 @@ const formatUnreadBadge = (total: number | undefined) => {
 export const AppShell = ({ children }: PropsWithChildren) => {
   const pathname = usePathname();
   const { session, logout } = useAuth();
+  // ФТ-D3.1: название и логотип центра в шапке; без бренда — wordmark платформы.
+  const branding = useTenantBranding();
   const groups = getGroupedNavigation(session);
   const primaryRole = getPrimaryRoleBlueprint(session);
   const breadcrumbItems = useMemo(() => buildBreadcrumbs(pathname), [pathname]);
@@ -116,7 +120,15 @@ export const AppShell = ({ children }: PropsWithChildren) => {
         className={`app-shell__sidebar ${mobileNavOpen ? 'is-drawer-open' : ''}`}
       >
         <h2 className="app-shell__brand">
-          <span className="ui-wordmark">trudskill</span>
+          {branding.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- внешний URL центра, домены заранее неизвестны
+            <img
+              src={branding.logoUrl}
+              alt=""
+              style={{ maxHeight: 28, maxWidth: 120, objectFit: 'contain' }}
+            />
+          ) : null}
+          <span className="ui-wordmark">{resolveWordmark(branding)}</span>
         </h2>
         {primaryRole ? <p className="app-shell__role">Роль: {primaryRole.displayName}</p> : null}
         <nav className="app-shell__nav" aria-label="Основные разделы">

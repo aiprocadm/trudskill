@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { EMAIL_DELIVERIES_REPOSITORY, type RecipientKind } from './email-deliveries.repository.js';
 import {
@@ -10,6 +10,8 @@ import { EMAIL_TEMPLATES_REPOSITORY } from './email-templates.repository.js';
 import { toPushNotification } from './web-push/template-push-mapping.js';
 import { WEB_PUSH_SENDER } from './web-push/web-push-sender.js';
 import { MAILER } from '../../infrastructure/mailer/mailer.service.js';
+import { resolveTenantDisplayName } from '../tenant/tenant-branding.js';
+import { TenantService } from '../tenant/tenant.service.js';
 
 import type { EmailDeliveriesRepository } from './email-deliveries.repository.js';
 import type { EmailTemplatesRepository } from './email-templates.repository.js';
@@ -59,8 +61,26 @@ export class NotificationDispatcher {
     @Inject(MAILER) private readonly mailer: MailerService,
     @Inject(EMAIL_TEMPLATES_REPOSITORY) private readonly templates: EmailTemplatesRepository,
     @Inject(EMAIL_DELIVERIES_REPOSITORY) private readonly deliveries: EmailDeliveriesRepository,
-    @Inject(WEB_PUSH_SENDER) private readonly pushSender: WebPushSenderPort
+    @Inject(WEB_PUSH_SENDER) private readonly pushSender: WebPushSenderPort,
+    // ФТ-D3.1: подпись бренда. @Optional — существующие тесты собирают диспетчер
+    // четырьмя аргументами; без сервиса подпись падает к нейтральной.
+    @Optional() @Inject(TenantService) private readonly tenantService?: TenantService
   ) {}
+
+  /**
+   * Имя центра для подписи письма: бренд → название тенанта → нейтральное.
+   * Любой сбой чтения — нейтральная подпись: письмо важнее витрины, и
+   * renderTemplate превратил бы незаполненную переменную в пустоту
+   * («С уважением, .»), поэтому значение подставляется ВСЕГДА.
+   */
+  private async resolveTenantSignature(tenantId: string): Promise<string> {
+    if (!this.tenantService) return 'учебный центр';
+    const [tenant, branding] = await Promise.all([
+      this.tenantService.getTenantById(tenantId).catch(() => null),
+      this.tenantService.getBranding(tenantId).catch(() => ({}))
+    ]);
+    return resolveTenantDisplayName(branding, tenant?.name ?? null);
+  }
 
   /**
    * Per-recipient idempotency + throw-safety: each `mailer.send` is wrapped in try/catch, so a
@@ -87,7 +107,12 @@ export class NotificationDispatcher {
 
     const override = await this.templates.getOverride(input.tenantId, input.templateKey);
     const base = override ?? EMAIL_TEMPLATE_DEFAULTS[input.templateKey];
-    const rendered = renderTemplate(base, input.variables);
+    // Явно переданный tenantName уважается — диспетчер лишь гарантирует дефолт.
+    const variables =
+      'tenantName' in input.variables
+        ? input.variables
+        : { ...input.variables, tenantName: await this.resolveTenantSignature(input.tenantId) };
+    const rendered = renderTemplate(base, variables);
 
     const sent: DispatchRecipient[] = [];
     let skipped = 0;
