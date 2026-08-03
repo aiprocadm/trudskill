@@ -8,6 +8,7 @@ import { DOCUMENTS_PERSISTENCE_BACKEND } from './infrastructure/documents-persis
 import { MemoryDocumentsPersistenceBackend } from './infrastructure/memory-documents-persistence.backend.js';
 import { PublicVerifyController } from './public-verify.controller.js';
 import { AuditService } from '../audit/audit.service.js';
+import { TenantService } from '../tenant/tenant.service.js';
 
 import type { GeneratedDocumentEntity } from './documents.types.js';
 
@@ -32,13 +33,25 @@ function makeDoc(overrides: Partial<GeneratedDocumentEntity> = {}): GeneratedDoc
   };
 }
 
-function makeService() {
+// ФТ-D3.1: заглушка TenantService для подписи центра; поведение переопределяется в тестах.
+function makeTenantServiceStub(
+  overrides: { getTenantById?: () => Promise<unknown>; getBranding?: () => Promise<unknown> } = {}
+) {
+  return {
+    getTenantById:
+      overrides.getTenantById ??
+      (async () => ({ id: 't1', code: 'demo', name: 'Demo Tenant', status: 'active' })),
+    getBranding: overrides.getBranding ?? (async () => ({}))
+  } as never;
+}
+
+function makeService(tenantService = makeTenantServiceStub()) {
   // The public path has NO tenant context and NO request-scoped state — it must find
   // documents cross-tenant in the DURABLE backend. We seed the backend (not a hand-held
   // service state), which is exactly the production wiring the old test failed to exercise.
   const backend = new MemoryDocumentsPersistenceBackend();
   const audit = new AuditService();
-  const controller = new PublicVerifyController(backend, audit);
+  const controller = new PublicVerifyController(backend, audit, tenantService);
 
   async function seed(doc: GeneratedDocumentEntity): Promise<void> {
     const state = new InMemoryDocumentsState();
@@ -61,6 +74,49 @@ describe('PublicVerifyController (Plan C §5.8)', () => {
     expect(result.documentNumber).toBe('N-1');
     expect(result.documentType).toBe('certificate');
     expect(result.issueDate).toBe('2026-05-26');
+  });
+
+  // === ФТ-D3.1 — подпись выдавшего центра на публичной странице ===
+
+  it('без бренда issuerName = название тенанта, логотип/цвет не отдаются', async () => {
+    const { controller, seed } = makeService();
+    await seed(makeDoc({ id: 'gdoc_issuer', qrToken: 'issuertoken1234567890' }));
+    const result = await controller.verify('issuertoken1234567890');
+    expect(result.issuerName).toBe('Demo Tenant');
+    expect(result.issuerLogoUrl).toBeUndefined();
+    expect(result.issuerBrandColor).toBeUndefined();
+  });
+
+  it('бренд перекрывает название и добавляет логотип и цвет', async () => {
+    const tenantService = makeTenantServiceStub({
+      getBranding: async () => ({
+        displayName: 'УЦ «Пример»',
+        logoUrl: 'https://cdn.example.ru/logo.png',
+        brandColor: '#3b4fe4'
+      })
+    });
+    const { controller, seed } = makeService(tenantService);
+    await seed(makeDoc({ id: 'gdoc_brand', qrToken: 'brandtoken12345678901' }));
+    const result = await controller.verify('brandtoken12345678901');
+    expect(result.issuerName).toBe('УЦ «Пример»');
+    expect(result.issuerLogoUrl).toBe('https://cdn.example.ru/logo.png');
+    expect(result.issuerBrandColor).toBe('#3b4fe4');
+  });
+
+  it('сбой чтения бренда не валит публичную проверку — ответ без подписи центра', async () => {
+    const tenantService = makeTenantServiceStub({
+      getTenantById: async () => {
+        throw new Error('db down');
+      },
+      getBranding: async () => {
+        throw new Error('db down');
+      }
+    });
+    const { controller, seed } = makeService(tenantService);
+    await seed(makeDoc({ id: 'gdoc_nobrand', qrToken: 'nobrandtoken123456789' }));
+    const result = await controller.verify('nobrandtoken123456789');
+    expect(result.status).toBe('valid');
+    expect(result.issuerName).toBeUndefined();
   });
 
   it('throws NotFoundException with document_not_found code for unknown token', async () => {
@@ -118,7 +174,7 @@ describe('PublicVerifyController (Plan C §5.8)', () => {
 });
 
 describe('PublicVerifyController PII protection', () => {
-  it('response does NOT include learnerFullName, snils, programTitle, issuerName, academicHours', async () => {
+  it('response does NOT include learnerFullName, snils, programTitle, academicHours', async () => {
     const { controller, seed } = makeService();
     await seed(makeDoc({ id: 'gdoc_pii', qrToken: 'pii_token_1234567890ab' }));
     const result = await controller.verify('pii_token_1234567890ab');
@@ -126,7 +182,9 @@ describe('PublicVerifyController PII protection', () => {
     expect(keys).not.toContain('learnerFullName');
     expect(keys).not.toContain('snils');
     expect(keys).not.toContain('programTitle');
-    expect(keys).not.toContain('issuerName');
+    // issuerName — НЕ ПДн слушателя, а имя выдавшей организации: с ФТ-D3.1 оно
+    // намеренно публично (подпись центра на странице проверки). tenantId по-прежнему скрыт.
+    expect(keys).not.toContain('tenantId');
     expect(keys).not.toContain('academicHours');
   });
 
@@ -182,7 +240,8 @@ describe('PublicVerifyController rate-limit enforcement (HTTP, ФТ-G2)', () => 
           provide: DOCUMENTS_PERSISTENCE_BACKEND,
           useValue: new MemoryDocumentsPersistenceBackend()
         },
-        { provide: AuditService, useValue: new AuditService() }
+        { provide: AuditService, useValue: new AuditService() },
+        { provide: TenantService, useValue: makeTenantServiceStub() }
       ]
     })
     class TestModule {}

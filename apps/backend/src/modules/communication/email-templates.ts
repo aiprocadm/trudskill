@@ -22,7 +22,7 @@ export const EMAIL_TEMPLATE_DEFAULTS: Record<EmailTemplateKey, EmailTemplateBody
       'Вы записаны на обучение по программе «{{courseTitle}}». ' +
       'Войдите в личный кабинет, чтобы приступить к занятиям: {{loginUrl}}\n' +
       'Для входа укажите этот e-mail — ссылка для входа придёт на него.\n\n' +
-      'С уважением, учебный центр.'
+      'С уважением, {{tenantName}}.'
   },
   course_completed: {
     subject: 'Курс «{{courseTitle}}» завершён',
@@ -30,7 +30,7 @@ export const EMAIL_TEMPLATE_DEFAULTS: Record<EmailTemplateKey, EmailTemplateBody
       'Здравствуйте, {{learnerName}}!\n\n' +
       'Вы успешно завершили обучение по программе «{{courseTitle}}». ' +
       'Выданные документы доступны в личном кабинете.\n\n' +
-      'С уважением, учебный центр.'
+      'С уважением, {{tenantName}}.'
   },
   recertification_due: {
     subject: 'Истекает срок действия удостоверения по программе «{{courseTitle}}»',
@@ -39,7 +39,7 @@ export const EMAIL_TEMPLATE_DEFAULTS: Record<EmailTemplateKey, EmailTemplateBody
       'Срок действия вашего удостоверения по программе «{{courseTitle}}» истекает {{validUntil}}. ' +
       'Для продления необходимо пройти переаттестацию. ' +
       'Учебный центр свяжется с вами для записи на ближайший поток.\n\n' +
-      'С уважением, учебный центр.'
+      'С уважением, {{tenantName}}.'
   },
   course_deadline: {
     subject: 'Приближается срок завершения обучения по программе «{{courseTitle}}»',
@@ -47,7 +47,7 @@ export const EMAIL_TEMPLATE_DEFAULTS: Record<EmailTemplateKey, EmailTemplateBody
       'Здравствуйте, {{learnerName}}!\n\n' +
       'Срок завершения обучения по программе «{{courseTitle}}» — {{deadline}}. ' +
       'Пожалуйста, завершите оставшиеся материалы и итоговое тестирование в личном кабинете до этой даты.\n\n' +
-      'С уважением, учебный центр.'
+      'С уважением, {{tenantName}}.'
   },
   document_revoked: {
     subject: 'Документ по программе «{{courseTitle}}» аннулирован',
@@ -56,7 +56,7 @@ export const EMAIL_TEMPLATE_DEFAULTS: Record<EmailTemplateKey, EmailTemplateBody
       'Выданный вам документ по программе «{{courseTitle}}» был аннулирован. ' +
       'Причина: {{reason}}. ' +
       'По вопросам перевыпуска обратитесь в учебный центр.\n\n' +
-      'С уважением, учебный центр.'
+      'С уважением, {{tenantName}}.'
   },
   // Ссылка одноразовая и живёт 15 минут (PRE_EXAM_TOKEN_TTL_MS) — в письме это
   // проговаривается, чтобы слушатель не откладывал переход.
@@ -67,7 +67,7 @@ export const EMAIL_TEMPLATE_DEFAULTS: Record<EmailTemplateKey, EmailTemplateBody
       'Для допуска к итоговому тестированию по программе «{{courseTitle}}» подтвердите личность, ' +
       'перейдя по ссылке: {{verifyUrl}}\n' +
       'Ссылка одноразовая и действует 15 минут. Если вы не запрашивали допуск — проигнорируйте это письмо.\n\n' +
-      'С уважением, учебный центр.'
+      'С уважением, {{tenantName}}.'
   },
   identity_verification_rejected: {
     subject: 'Проверка личности не пройдена',
@@ -76,7 +76,7 @@ export const EMAIL_TEMPLATE_DEFAULTS: Record<EmailTemplateKey, EmailTemplateBody
       'Загруженные вами документы для проверки личности отклонены. ' +
       'Причина: {{reason}}.\n' +
       'Пожалуйста, загрузите документы повторно в личном кабинете.\n\n' +
-      'С уважением, учебный центр.'
+      'С уважением, {{tenantName}}.'
   },
   // Staff-facing (sent to the configured notification recipients, not a learner): a center
   // license/accreditation is approaching its expiry date.

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { InMemoryEmailDeliveriesState } from './in-memory-email-deliveries.state.js';
 import { NotificationDispatcher } from './notification-dispatcher.service.js';
 
-function make() {
+function make(tenantService?: unknown) {
   const mailer = { send: vi.fn().mockResolvedValue({ status: 'sent' }) };
   const templates = { getOverride: vi.fn().mockResolvedValue(null) };
   const deliveries = new InMemoryEmailDeliveriesState();
@@ -12,7 +12,8 @@ function make() {
     mailer as never,
     templates as never,
     deliveries as never,
-    pushSender as never
+    pushSender as never,
+    tenantService as never
   );
   return { dispatcher, mailer, deliveries, pushSender };
 }
@@ -250,5 +251,48 @@ describe('NotificationDispatcher push fan-out (Phase 10 Track C)', () => {
     });
     const [, userIds] = pushSender.sendToUsers.mock.calls[0];
     expect(userIds).toEqual(['u1', 'u3']);
+  });
+});
+
+// === ФТ-D3.1 (Фаза 4 Task 4) — подпись бренда в письмах ===
+describe('NotificationDispatcher tenant signature', () => {
+  it('без TenantService подпись нейтральная — «учебный центр», не пустота', async () => {
+    const { dispatcher, mailer } = make();
+    await dispatcher.dispatch(baseInput);
+    const [message] = mailer.send.mock.calls[0];
+    expect(message.body).toContain('С уважением, учебный центр.');
+    expect(message.body).not.toContain('{{tenantName}}');
+  });
+
+  it('бренд-имя центра попадает в подпись; сбой чтения не валит отправку', async () => {
+    const tenantService = {
+      getTenantById: vi.fn().mockResolvedValue({ id: 't1', name: 'Demo Tenant' }),
+      getBranding: vi.fn().mockResolvedValue({ displayName: 'УЦ «Пример»' })
+    };
+    const { dispatcher, mailer } = make(tenantService);
+    await dispatcher.dispatch(baseInput);
+    expect(mailer.send.mock.calls[0][0].body).toContain('С уважением, УЦ «Пример».');
+
+    const broken = {
+      getTenantById: vi.fn().mockRejectedValue(new Error('db down')),
+      getBranding: vi.fn().mockRejectedValue(new Error('db down'))
+    };
+    const second = make(broken);
+    await second.dispatcher.dispatch(baseInput);
+    expect(second.mailer.send.mock.calls[0][0].body).toContain('С уважением, учебный центр.');
+  });
+
+  it('явно переданный tenantName уважается — диспетчер не перекрывает его', async () => {
+    const tenantService = {
+      getTenantById: vi.fn(),
+      getBranding: vi.fn()
+    };
+    const { dispatcher, mailer } = make(tenantService);
+    await dispatcher.dispatch({
+      ...baseInput,
+      variables: { ...baseInput.variables, tenantName: 'Особый центр' }
+    });
+    expect(mailer.send.mock.calls[0][0].body).toContain('С уважением, Особый центр.');
+    expect(tenantService.getTenantById).not.toHaveBeenCalled();
   });
 });

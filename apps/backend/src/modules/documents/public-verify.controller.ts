@@ -4,6 +4,8 @@ import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { DOCUMENTS_PERSISTENCE_BACKEND } from './infrastructure/documents-persistence.token.js';
 import { type PublicVerifyResult, buildPublicVerifyResult } from './public-verify.util.js';
 import { AuditService } from '../audit/audit.service.js';
+import { resolveTenantDisplayName } from '../tenant/tenant-branding.js';
+import { TenantService } from '../tenant/tenant.service.js';
 
 import type { DocumentsPersistenceBackend } from './infrastructure/documents-persistence.backend.js';
 
@@ -29,7 +31,8 @@ export class PublicVerifyController {
   constructor(
     @Inject(DOCUMENTS_PERSISTENCE_BACKEND)
     private readonly persistence: DocumentsPersistenceBackend,
-    @Inject(AuditService) private readonly auditService: AuditService
+    @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(TenantService) private readonly tenantService: TenantService
   ) {}
 
   @Get('verify/:token')
@@ -57,6 +60,23 @@ export class PublicVerifyController {
         message: 'Документ с таким QR-кодом не найден'
       });
     }
-    return buildPublicVerifyResult(found.document);
+    const result = buildPublicVerifyResult(found.document);
+    // ФТ-D3.1: подпись выдавшего центра. Изъятый документ (not_found) центра не называет —
+    // «тихое» архивирование не должно подтверждать сам факт связи с центром.
+    if (result.status !== 'not_found') {
+      try {
+        const [tenant, branding] = await Promise.all([
+          this.tenantService.getTenantById(found.document.tenantId),
+          this.tenantService.getBranding(found.document.tenantId)
+        ]);
+        result.issuerName = resolveTenantDisplayName(branding, tenant.name);
+        if (branding.logoUrl) result.issuerLogoUrl = branding.logoUrl;
+        if (branding.brandColor) result.issuerBrandColor = branding.brandColor;
+      } catch {
+        // Публичная проверка подлинности важнее витрины: сбой чтения бренда
+        // не валит ответ, страница просто остаётся без подписи центра.
+      }
+    }
+    return result;
   }
 }

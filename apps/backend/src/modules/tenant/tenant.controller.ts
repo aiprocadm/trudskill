@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Get, Inject, Put, UseGuards } from '@nestjs/common';
 
+import { validateBrandingInput } from './tenant-branding.js';
 import {
   DEFAULT_IDENTITY_IMAGE_RETENTION_DAYS,
   MAX_IDENTITY_IMAGE_RETENTION_DAYS,
@@ -50,6 +51,38 @@ export class TenantController {
     @Body() body: { legalName?: string; taxNumber?: string; payload?: Record<string, unknown> }
   ) {
     return this.tenantService.updateRequisites(context.tenantId!, body);
+  }
+
+  /**
+   * ФТ-D3.1 (Фаза 4 Task 4): бренд центра. Чтение — любому авторизованному
+   * пользователю тенанта (тема красится каждому), запись — отдельное право
+   * `tenant.branding.configure` (0075): витрину центра правит администрация.
+   */
+  @Get('branding')
+  async branding(@CurrentContext() context: RequestContext) {
+    const branding = await this.tenantService.getBranding(context.tenantId!);
+    return { branding, isDefault: Object.keys(branding).length === 0 };
+  }
+
+  @Put('branding')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('tenant.branding.configure')
+  async updateBranding(
+    @CurrentContext() context: RequestContext,
+    @Body() body: Record<string, unknown>
+  ) {
+    const { branding, issues } = validateBrandingInput(body ?? {});
+    if (issues.length > 0) {
+      // Строгая запись: «#зелёненький» — это ошибка админу, а не молчаливый дефолт
+      // (терпимое чтение прикрывает только данные, попавшие в payload в обход ручки).
+      throw new BadRequestException({
+        code: 'invalid_branding',
+        message: 'Branding payload is invalid',
+        issues
+      });
+    }
+    const updated = await this.tenantService.updateBranding(context.tenantId!, branding);
+    return { branding: updated, isDefault: Object.keys(updated).length === 0 };
   }
 
   /**

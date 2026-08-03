@@ -20,6 +20,9 @@ export interface PublicVerifyResult {
   academicHours?: number;
   /** Краткое имя выдавшей организации (без tenant_id). */
   issuerName?: string;
+  /** ФТ-D3.1: бренд выдавшего центра на публичной странице (без tenant_id). */
+  issuerLogoUrl?: string;
+  issuerBrandColor?: string;
   /** Заполнены только для status='revoked'. */
   revokedAt?: string;
   revocationReason?: string;

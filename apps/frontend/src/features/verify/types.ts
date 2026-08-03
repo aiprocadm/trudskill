@@ -14,6 +14,9 @@ export interface VerifyResult {
   programTitle?: string;
   academicHours?: number;
   issuerName?: string;
+  /** ФТ-D3.1: бренд выдавшего центра (white-label) на публичной странице. */
+  issuerLogoUrl?: string;
+  issuerBrandColor?: string;
   revokedAt?: string;
   revocationReason?: string;
 }
