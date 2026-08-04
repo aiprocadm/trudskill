@@ -1,13 +1,12 @@
 {
   "extends": "../../tooling/typescript/tsconfig.frontend.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
       "@trudskill/shared-types": ["../../packages/shared-types/src/index.ts"],
       "@trudskill/api-contracts": ["../../packages/api-contracts/src/index.ts"],
       "@trudskill/test-utils": ["../../packages/test-utils/src/index.ts"],
       "@trudskill/ui": ["../../packages/ui/src/index.tsx"],
-      "@tanstack/react-query": ["src/lib/query/react-query-shim.tsx"]
+      "@tanstack/react-query": ["./src/lib/query/react-query-shim.tsx"]
     },
     "isolatedModules": true,
     "tsBuildInfoFile": ".turbo/tsconfig.tsbuildinfo"
@@ -16,8 +15,8 @@
     "next-env.d.ts",
     "app/**/*.ts",
     "app/**/*.tsx",
-    "src/**/*.ts",
-    "src/**/*.tsx",
+    "./src/**/*.ts",
+    "./src/**/*.tsx",
     ".next/types/**/*.ts"
   ]
 }

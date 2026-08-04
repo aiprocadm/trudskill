@@ -1,20 +1,24 @@
 {
   "extends": "../../tooling/typescript/tsconfig.package.json",
   "compilerOptions": {
+    // Пакет собирается изолированно и потребляет соседей через node_modules
+    // (project references + dist). Раньше это же обеспечивал `baseUrl: "."`, который
+    // ЛОМАЛ унаследованные из tsconfig.base пути (они указывали внутрь пакета и не
+    // находились). TypeScript 7 удалил baseUrl — объявляем отказ от путей явно.
+    "paths": {},
     "rootDir": "src",
     "outDir": "dist",
     "tsBuildInfoFile": "dist/.tsbuildinfo",
-    "baseUrl": ".",
     "module": "ESNext",
     "moduleResolution": "Bundler"
   },
   "include": [
-    "src/**/*"
+    "./src/**/*"
   ],
   "exclude": [
     "dist",
     "node_modules",
-    "src/**/*.test.ts",
-    "src/**/*.test.tsx"
+    "./src/**/*.test.ts",
+    "./src/**/*.test.tsx"
   ]
 }
