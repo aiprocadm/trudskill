@@ -59,7 +59,7 @@ export const NAV_GROUPS: NavGroup[] = [
     id: 'courses',
     label: 'Курсы и контент',
     icon: BookOpenIcon,
-    hrefs: ['/courses', '/materials', '/scorm', '/directions', '/admin/webinars']
+    hrefs: ['/courses', '/library', '/materials', '/scorm', '/directions', '/admin/webinars']
   },
   {
     id: 'assessment',

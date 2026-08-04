@@ -320,6 +320,19 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         return { plan: null, activeLearners: { used: 0, limit: null } };
       }
 
+      // ФТ-D6: библиотека курсов. Наполняет платформа, копирует себе центр.
+      @Post('platform/library/courses')
+      @RequirePermissions('library.publish')
+      publishLibraryCourse(@Body() body: { courseId?: string }) {
+        return { id: 'lib_stub', code: body.courseId ?? '' };
+      }
+
+      @Post('library/courses/:id/copy')
+      @RequirePermissions('courses.write')
+      copyLibraryCourse(@Param('id') id: string) {
+        return { courseId: 'course_stub', code: id, materialsNeedingContent: 0 };
+      }
+
       // ФТ-D5.1: счета аренды. Выставляет платформа, свои счета видит арендатор.
       @Post('platform/rental-invoices')
       @RequirePermissions('platform.tenants.write')
@@ -1477,6 +1490,47 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         body: JSON.stringify({ code: 'basic' })
       });
       expect(response.status).toBe(403);
+    });
+  });
+
+  // === ФТ-D6 — библиотека курсов: границы прав ===
+  describe('platform library permission boundaries (ФТ-D6)', () => {
+    it('POST /platform/library/courses — 403 у центра даже с полным набором «своих» прав', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce([
+        'courses.read',
+        'courses.write',
+        'tenant.usage.read',
+        'iam.manage_roles'
+      ]);
+      const token = issueSignedAccessToken(
+        { sub: 'u_tadmin', tenant_id: 'tenant_demo', session_id: 's1', roles: ['tenant_admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/platform/library/courses`, {
+        method: 'POST',
+        headers: {
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ courseId: 'c1', sourceTenantId: 'tenant_demo' })
+      });
+      expect(response.status).toBe(403);
+    });
+
+    it('POST /library/courses/:id/copy — 201 у центра с courses.write: копия его работа', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['courses.write']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_method', tenant_id: 'tenant_demo', session_id: 's1', roles: ['methodist'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/library/courses/lib_1/copy`, {
+        method: 'POST',
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(201);
     });
   });
 
