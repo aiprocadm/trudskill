@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 
+import { PlatformHealthController } from './platform-health.controller.js';
+import { PlatformHealthService } from './platform-health.service.js';
 import { PlatformPlansController } from './platform-plans.controller.js';
 import { PlatformPlansService } from './platform-plans.service.js';
 import { PlatformTenantsController } from './platform-tenants.controller.js';
@@ -28,11 +30,13 @@ import { IamModule } from '../iam/iam.module.js';
     PlatformTenantsController,
     PlatformPlansController,
     RentalBillingController,
-    PublicTenantController
+    PublicTenantController,
+    PlatformHealthController
   ],
   providers: [
     PlatformTenantsService,
     PlatformPlansService,
+    PlatformHealthService,
     RentalBillingService,
     RentalBillingSchedulerService,
     // ФТ-D5.1: реестр адаптеров биллинга. Рабочий по умолчанию — `manual`

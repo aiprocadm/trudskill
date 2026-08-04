@@ -2,7 +2,11 @@ import nextPlugin from '@next/eslint-plugin-next';
 import tseslint from '@typescript-eslint/eslint-plugin';
 import parser from '@typescript-eslint/parser';
 import prettier from 'eslint-config-prettier';
-import eslintPluginImport from 'eslint-plugin-import';
+// eslint-plugin-import поддерживает ESLint максимум 9-й: на 10-м он падает
+// `sourceCode.getTokenOrCommentBefore is not a function` — причём ТОЛЬКО когда
+// правилу нужно ИСПРАВИТЬ порядок импортов, поэтому поломка всплывает не сразу.
+// import-x — поддерживаемый форк с заявленной поддержкой ESLint 10.
+import eslintPluginImport from 'eslint-plugin-import-x';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import globals from 'globals';
 
@@ -32,7 +36,7 @@ export default [
     },
     plugins: {
       '@typescript-eslint': tseslint,
-      import: eslintPluginImport
+      'import-x': eslintPluginImport
     },
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
@@ -41,7 +45,7 @@ export default [
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' }
       ],
       'sort-imports': ['error', { ignoreDeclarationSort: true }],
-      'import/order': [
+      'import-x/order': [
         'error',
         {
           groups: ['builtin', 'external', 'internal', ['parent', 'sibling', 'index'], 'type'],
