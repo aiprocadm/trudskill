@@ -32,6 +32,12 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['tenant.usage.read'] }
   },
   {
+    // ФТ-D2.3: мастер онбординга — видеть готовность центра может любой сотрудник,
+    // сами шаги записываются своими правами на своих экранах.
+    pattern: '/onboarding',
+    meta: { public: false, requiredPermissions: ['tenant.read'] }
+  },
+  {
     // ФТ-E5: отдельное право портала. `counterparties.read` означает «видеть справочник
     // контрагентов центра» — ровно ту клиентскую базу, которую представитель видеть не должен.
     pattern: '/counterparty-portal',
@@ -310,6 +316,13 @@ export const navigationModel: NavigationItem[] = [
     href: '/admin/usage',
     label: 'Использование',
     requiredPermissions: ['tenant.usage.read'],
+    navSlot: 'more'
+  },
+  {
+    // ФТ-D2.3: мастер онбординга нового центра.
+    href: '/onboarding',
+    label: 'Настройка центра',
+    requiredPermissions: ['tenant.read'],
     navSlot: 'more'
   },
   {

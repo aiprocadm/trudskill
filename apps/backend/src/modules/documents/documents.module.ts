@@ -81,6 +81,9 @@ const persistenceBackendClass =
       }
     }
   ],
-  exports: [DocumentsService, DocumentsTenantRunner]
+  // DOCUMENTS_PERSISTENCE_BACKEND экспортируется для ЧИТАЮЩИХ потребителей вне модуля
+  // (ФТ-D2.3: онбординг считает шаблоны). DocumentsTenantRunner для этого не годится —
+  // он всегда пишет снимок обратно, а подсчёту записывать нечего.
+  exports: [DocumentsService, DocumentsTenantRunner, DOCUMENTS_PERSISTENCE_BACKEND]
 })
 export class DocumentsModule {}
