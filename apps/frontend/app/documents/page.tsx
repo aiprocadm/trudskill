@@ -14,13 +14,13 @@ import {
 import { useAuth } from '../../src/features/auth/context';
 import { useTaskRealtime } from '../../src/features/communication/hooks';
 import { NumberingRulesSection } from '../../src/features/numbering/screens';
-import { TenantImagesSection } from '../../src/features/tenant-images/screens';
 import {
   type TemplateParseResult,
   fetchPreviewPdfUrl,
   putTemplateFile,
   templatesApi
 } from '../../src/features/templates/api';
+import { TenantImagesSection } from '../../src/features/tenant-images/screens';
 import { apiRequest } from '../../src/lib/api/client';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 

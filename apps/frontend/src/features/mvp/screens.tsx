@@ -61,12 +61,12 @@ import { ApiClientError } from '../../lib/api/client';
 import { frontendEnv } from '../../lib/config/env';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
-import { LearningJournalSection } from '../learning-journal/screens';
 import { CourseViewerScreen } from '../course-viewer/course-viewer-screen';
 import { useOtTrainingPrograms } from '../gov-export/hooks';
 import { IssueOrderModal } from '../group-orders/issue-order-modal';
 import { useLearnerHomeData } from '../learner-home/use-learner-home-data';
 import { LearnerPdfCardSections } from '../learner-pdf-card/learner-pdf-card-sections';
+import { LearningJournalSection } from '../learning-journal/screens';
 import { proctoringApi } from '../proctoring/api';
 import { scormApi } from '../scorm/api';
 
