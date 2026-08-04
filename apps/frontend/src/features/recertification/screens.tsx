@@ -1,9 +1,11 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import { DataTable, LoadingState, StatusChip } from '@trudskill/ui';
 import { type ReactElement, useState } from 'react';
 
 import { ApproveRecertModal } from './approve-recert-modal';
+import { URGENCY_LABELS, formatDaysLeft, recertificationApi } from './expiring';
 import { formatRemaining, formatSnils } from './format';
 import { useRecertificationMutations, useRecertificationQueue } from './hooks';
 import { RECERT_STATUS_LABELS, type RecertificationDraftStatus } from './types';
@@ -14,6 +16,7 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import { useAuth } from '../auth/context';
 
 const STATUS_FILTER_OPTIONS: Array<{ value: RecertificationDraftStatus | ''; label: string }> = [
   { value: 'pending', label: 'Ожидают' },
@@ -139,6 +142,8 @@ export function RecertificationQueueScreen(): ReactElement {
         }
       />
 
+      <ExpiringDocumentsSection />
+
       <SectionCard title="Очередь переаттестации">
         <div className="ui-inline" style={{ marginBottom: 12 }}>
           <label className="ui-inline" style={{ gap: 4 }}>
@@ -194,5 +199,79 @@ export function RecertificationQueueScreen(): ReactElement {
         onClose={() => setApproveTarget(null)}
       />
     </PageContainer>
+  );
+}
+
+/**
+ * ФТ-E4 (Фаза 4 Task 9): дашборд «истекающие удостоверения».
+ *
+ * Живёт рядом с очередью переаттестации, а не отдельным экраном: это две стороны одной
+ * работы — «что истекает» и «кого перезачислить». Просроченные показываются НАРАВНЕ с
+ * истекающими и первыми: срок, вышедший вчера, — самая срочная строка, а не архив.
+ */
+export function ExpiringDocumentsSection(): ReactElement {
+  const { session } = useAuth();
+  const expiringQuery = useQuery({
+    queryKey: ['recert-expiring', session?.user.tenantId],
+    enabled: Boolean(session),
+    queryFn: () => recertificationApi.listExpiring(session!)
+  });
+
+  const data = expiringQuery.data;
+
+  return (
+    <SectionCard title="Истекающие удостоверения">
+      {expiringQuery.isLoading ? <LoadingState message="Считаем сроки…" /> : null}
+      {expiringQuery.error ? (
+        <SectionError
+          message={
+            expiringQuery.error instanceof Error
+              ? expiringQuery.error.message
+              : 'Не удалось загрузить сроки'
+          }
+        />
+      ) : null}
+
+      {data ? (
+        <div className="ui-stack">
+          <p className="ui-text-muted">
+            Документы, срок которых уже вышел или выходит в ближайшие {data.horizonDays} дней —
+            ровно те, по которым идут напоминания (за 60, 30 и 7 дней).
+          </p>
+          {data.summary.expired > 0 ? (
+            <p className="ui-callout ui-callout--danger">
+              Просрочено: {data.summary.expired}. Эти слушатели работают без действующего
+              удостоверения.
+            </p>
+          ) : null}
+          {data.summary.critical > 0 ? (
+            <p className="ui-callout ui-callout--warning">
+              Истекает в течение недели: {data.summary.critical}.
+            </p>
+          ) : null}
+
+          {data.items.length ? (
+            <DataTable
+              columns={[
+                { key: 'learnerTitle', title: 'Слушатель' },
+                { key: 'numberTitle', title: '№ документа' },
+                { key: 'validUntil', title: 'Действует до' },
+                { key: 'daysTitle', title: 'Срок' },
+                { key: 'urgencyTitle', title: 'Состояние' }
+              ]}
+              rows={data.items.map((item) => ({
+                ...item,
+                learnerTitle: item.learnerName ?? '—',
+                numberTitle: item.documentNumber ?? '—',
+                daysTitle: formatDaysLeft(item.daysLeft),
+                urgencyTitle: URGENCY_LABELS[item.urgency]
+              }))}
+            />
+          ) : (
+            <SectionEmpty message="Ближайшие два месяца сроки не истекают" />
+          )}
+        </div>
+      ) : null}
+    </SectionCard>
   );
 }

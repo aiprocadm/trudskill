@@ -24,6 +24,7 @@ import {
   SectionError
 } from '../../components/state-wrappers';
 import { useDirectionsList, useDomainMutations } from '../mvp/hooks';
+import { RECERT_PRESETS } from '../recertification/expiring';
 
 /**
  * Мастер создания курса (ФТ-E1, Фаза 2 Task 11b).
@@ -239,6 +240,34 @@ export function CourseWizardScreen() {
                 onChange={(e) => patch({ academicHours: e.target.value })}
               />
             </label>
+            {/* ФТ-E4: периодичность переобучения. Пресеты — из практики регулируемого ДПО;
+                пустое поле означает «бессрочно», это осмысленный вариант, а не пропуск. */}
+            <label>
+              Переобучение каждые, мес.
+              <input
+                type="number"
+                min="1"
+                max="120"
+                placeholder="пусто = бессрочно"
+                value={draft.recertificationPeriodMonths}
+                onChange={(e) => patch({ recertificationPeriodMonths: e.target.value })}
+              />
+            </label>
+            <div className="ui-inline">
+              {RECERT_PRESETS.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() =>
+                    patch({
+                      recertificationPeriodMonths: preset.months ? String(preset.months) : ''
+                    })
+                  }
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
             <label>
               Вид обучения
               <select

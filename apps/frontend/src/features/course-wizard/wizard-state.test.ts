@@ -208,3 +208,28 @@ describe('buildCreationPlan — что уйдёт на сервер', () => {
     expect(buildCreationPlan(filled({ directionId: 'dir_1' })).course.directionId).toBe('dir_1');
   });
 });
+
+// === ФТ-E4 (Фаза 4 Task 9) — периодичность переобучения в мастере ===
+describe('периодичность переобучения (ФТ-E4)', () => {
+  it('пустая периодичность допустима и означает «бессрочно»', () => {
+    const draft = { ...emptyDraft(), title: 'Курс', code: 'c1', recertificationPeriodMonths: '' };
+    expect(validateStep('program', draft)).toEqual([]);
+    expect(buildCreationPlan(draft).programMeta.recertificationPeriodMonths).toBeNull();
+  });
+
+  it('значение из пресета доходит до плана создания курса', () => {
+    const draft = { ...emptyDraft(), title: 'Курс', code: 'c1', recertificationPeriodMonths: '36' };
+    expect(buildCreationPlan(draft).programMeta.recertificationPeriodMonths).toBe(36);
+  });
+
+  it('мусор в периодичности — понятная ошибка шага, а не молчаливое «бессрочно»', () => {
+    const draft = {
+      ...emptyDraft(),
+      title: 'Курс',
+      code: 'c1',
+      recertificationPeriodMonths: 'три года'
+    };
+    const errors = validateStep('program', draft);
+    expect(errors.map((e) => e.field)).toContain('recertificationPeriodMonths');
+  });
+});

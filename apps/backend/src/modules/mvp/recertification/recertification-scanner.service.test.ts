@@ -16,7 +16,7 @@ function doc(over: Record<string, unknown> = {}) {
     sourceEntityType: 'enrollment',
     sourceEntityId: 'enr1',
     status: 'generated',
-    validUntil: '2026-08-01', // 57 days out → 90-day milestone
+    validUntil: '2026-08-01', // 57 дней вперёд → окно 60 дней (ФТ-E4)
     ...over
   };
 }
@@ -64,23 +64,23 @@ function make(over: { dispatch?: ReturnType<typeof vi.fn>; docs?: unknown[] } = 
 
 describe('scanForRecertification (pure)', () => {
   it('selects documents within the horizon (including expired), ignores far/none/revoked', () => {
-    expect(scanForRecertification(ASOF, [doc()] as never, 90).map((c) => c.documentId)).toEqual([
+    expect(scanForRecertification(ASOF, [doc()] as never, 60).map((c) => c.documentId)).toEqual([
       'gdoc1'
     ]);
     expect(
-      scanForRecertification(ASOF, [doc({ validUntil: '2026-01-01' })] as never, 90)
+      scanForRecertification(ASOF, [doc({ validUntil: '2026-01-01' })] as never, 60)
     ).toHaveLength(1);
     const skip = [
       doc({ id: 'far', validUntil: '2027-01-01' }),
       doc({ id: 'none', validUntil: undefined }),
       doc({ id: 'rev', status: 'revoked', revokedAt: '2026-05-01' })
     ];
-    expect(scanForRecertification(ASOF, skip as never, 90)).toHaveLength(0);
+    expect(scanForRecertification(ASOF, skip as never, 60)).toHaveLength(0);
   });
 });
 
 describe('RecertificationScanner.scanTenant', () => {
-  it('creates a draft and dispatches a recertification_due email with the 90-day dedupKey', async () => {
+  it('creates a draft and dispatches a recertification_due email with the 60-day dedupKey', async () => {
     const { scanner, drafts, dispatch } = make();
     const summary = await scanner.scanTenant('t1', ASOF, state() as never);
     expect(summary.draftsCreated).toBe(1);
@@ -90,7 +90,7 @@ describe('RecertificationScanner.scanTenant', () => {
     expect(arg.templateKey).toBe('recertification_due');
     expect(arg.recipients[0].email).toBe('ivan@example.com');
     expect(arg.variables.courseTitle).toBe('Охрана труда');
-    expect(arg.dedupKey).toMatch(/^recert:.+:90$/);
+    expect(arg.dedupKey).toMatch(/^recert:.+:60$/);
   });
 
   it('re-uses the existing draft on a second scan (no new draft) and still dispatches (dispatcher dedups)', async () => {
@@ -99,7 +99,7 @@ describe('RecertificationScanner.scanTenant', () => {
     const summary = await scanner.scanTenant('t1', ASOF, state() as never);
     expect(summary.draftsCreated).toBe(0);
     expect((await drafts.list('t1', {})).length).toBe(1);
-    expect(dispatch.mock.calls.every((c) => /^recert:.+:90$/.test(c[0].dedupKey))).toBe(true);
+    expect(dispatch.mock.calls.every((c) => /^recert:.+:60$/.test(c[0].dedupKey))).toBe(true);
   });
 
   it('uses the 7-day dedupKey for an already-expired document', async () => {
@@ -136,12 +136,12 @@ describe('RecertificationScanner.scanTenant', () => {
     expect(summary.emailsDispatched).toBe(2);
   });
 
-  it('progresses through the 90 → 30 → 7 dedupKeys as the deadline approaches', async () => {
+  it('progresses through the 60 → 30 → 7 dedupKeys as the deadline approaches', async () => {
     const { scanner, dispatch } = make(); // default doc validUntil = '2026-08-01'
     await scanner.scanTenant('t1', '2026-06-05', state() as never); // 57 days out → 90
     await scanner.scanTenant('t1', '2026-07-10', state() as never); // 22 days out → 30
     await scanner.scanTenant('t1', '2026-07-28', state() as never); // 4 days out  → 7
     const milestones = dispatch.mock.calls.map((c) => String(c[0].dedupKey).split(':').pop());
-    expect(milestones).toEqual(['90', '30', '7']);
+    expect(milestones).toEqual(['60', '30', '7']);
   });
 });
