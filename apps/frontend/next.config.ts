@@ -40,6 +40,12 @@ const nextConfig: NextConfig = {
   // они попадают ИСХОДНИКАМИ (`.ts`) через алиасы tsconfig, поэтому сборщику нужно
   // разрешить искать `./x.ts` по запросу `./x.js`. Без этого сборка падает с
   // «Module not found: Can't resolve './common/contracts.js'».
+  // Next 16 включил Turbopack по умолчанию, НО он не умеет подменять расширение
+  // `.js` → `.ts` (аналога webpack `extensionAlias` у него нет) — сборка падает
+  // на 391 неразрешённом импорте. Поэтому сборка идёт через `next build --webpack`.
+  // Настоящее лечение — перестать тянуть пакеты воркспейса ИСХОДНИКАМИ через алиасы
+  // tsconfig и потреблять собранный `dist`; тогда алиас расширений станет не нужен
+  // и Turbopack заработает. Это отдельная задача.
   webpack(config) {
     config.resolve.extensionAlias = {
       ...config.resolve.extensionAlias,
