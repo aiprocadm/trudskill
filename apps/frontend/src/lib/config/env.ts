@@ -6,6 +6,12 @@ const frontendEnvSchema = z.object({
   NEXT_PUBLIC_REALTIME_URL: z.string().url(),
   PUBLIC_BASE_URL: z.string().url().default('http://localhost:3000'),
   NEXT_PUBLIC_DEFAULT_TENANT_ID: z.string().min(1).default('tenant_demo'),
+  /**
+   * ФТ-D3.2: базовый домен аренды (`lms.example.ru`). Пока пуст — поддоменов нет,
+   * арендатор берётся из NEXT_PUBLIC_DEFAULT_TENANT_ID (прежнее поведение), поэтому
+   * выкладка кода не ждёт DNS и wildcard-сертификата.
+   */
+  NEXT_PUBLIC_TENANT_BASE_DOMAIN: z.string().default(''),
   // ЕСИА (Госуслуги) OAuth seam. Ships dormant (false) — custom boolean parse, same rule as
   // backend ESIA_ENABLED: z.coerce.boolean would turn string "false" → true, which is unsafe for
   // a login flag.
@@ -20,6 +26,7 @@ export const frontendEnv = frontendEnvSchema.parse({
   NEXT_PUBLIC_REALTIME_URL: process.env.NEXT_PUBLIC_REALTIME_URL,
   PUBLIC_BASE_URL: process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000',
   NEXT_PUBLIC_DEFAULT_TENANT_ID: process.env.NEXT_PUBLIC_DEFAULT_TENANT_ID ?? 'tenant_demo',
+  NEXT_PUBLIC_TENANT_BASE_DOMAIN: process.env.NEXT_PUBLIC_TENANT_BASE_DOMAIN ?? '',
   NEXT_PUBLIC_ESIA_ENABLED: process.env.NEXT_PUBLIC_ESIA_ENABLED
 });
 

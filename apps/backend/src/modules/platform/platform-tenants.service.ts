@@ -56,6 +56,24 @@ export class PlatformTenantsService {
    * запросами. platform_admin НЕ клонируется: платформенная роль существует только
    * у владельца платформы, иначе каждый арендатор получал бы админку всех остальных.
    */
+  /**
+   * ФТ-D3.2: публичный резолв по коду из поддомена — нужен ДО входа, на странице логина.
+   * Отдаёт только то, что и так видно на странице входа. Архивный НЕ отдаётся вовсе:
+   * офбординг означает, что центра больше нет, и подтверждать посторонним «он тут был»
+   * незачем; приостановленный отдаётся со статусом — его слушателям нужна причина.
+   */
+  async findPublicByCode(
+    code: string
+  ): Promise<{ id: string; code: string; name: string; status: TenantStatus } | null> {
+    if (!/^[a-z0-9][a-z0-9-]{0,39}$/.test(code)) return null;
+    const rows = await this.requireDb().query<Tenant>(
+      `select id, code, name, status from core.tenants
+       where code = $1 and status <> 'archived'`,
+      [code]
+    );
+    return rows[0] ?? null;
+  }
+
   async createTenant(
     actorId: string | undefined,
     request: { code: string; name: string; status?: TenantStatus },

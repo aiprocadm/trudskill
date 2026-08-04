@@ -55,6 +55,10 @@ const PUBLIC_CONTROLLERS: ReadonlyArray<{ file: string; why: string }> = [
     why: 'платформенная сверка СКВОЗЬ тенанты (умышленно cross-tenant); защищён WorkerCallbackGuard'
   },
   {
+    file: 'platform/public-tenant.controller.ts',
+    why: 'резолв арендатора по коду из поддомена (ФТ-D3.2) — нужен ДО входа, на странице логина; отдаёт только публичное (id/код/название/статус), архивный не отдаётся вовсе, перебор ограничен rate limit (ФТ-G2)'
+  },
+  {
     file: 'mvp/scorm/scorm-content.controller.ts',
     why: 'раздача SCORM в iframe (заголовки слать нельзя); доступ — HMAC-токен в URL, tenantId берётся из подписанного payload, ключ S3 привязан к тенанту'
   }
