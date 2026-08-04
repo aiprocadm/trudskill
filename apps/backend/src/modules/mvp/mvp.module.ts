@@ -49,6 +49,8 @@ import { NmoRegistryController } from './nmo-registry/nmo-registry.controller.js
 import { NmoRegistryService } from './nmo-registry/nmo-registry.service.js';
 import { NmoXlsxWriter } from './nmo-registry/nmo-xlsx.writer.js';
 import { NotificationRecipientsController } from './notification-recipients.controller.js';
+import { TenantOnboardingController } from './onboarding/tenant-onboarding.controller.js';
+import { TenantOnboardingService } from './onboarding/tenant-onboarding.service.js';
 import { OtRegistryXlsxWriter } from './ot-registry/ot-registry-xlsx.writer.js';
 import { OtRegistryXmlWriter } from './ot-registry/ot-registry-xml.writer.js';
 import { OtRegistryController } from './ot-registry/ot-registry.controller.js';
@@ -141,6 +143,7 @@ import {
   controllers: [
     MvpController,
     TenantUsageController,
+    TenantOnboardingController,
     VideoController,
     IdentityPolicyController,
     SimpleSignatureController,
@@ -204,6 +207,7 @@ import {
     },
     TenantStorageService,
     TenantUsageService,
+    TenantOnboardingService,
     VideoService,
     MvpBulkEnqueueService,
     PostgresMvpPersistenceBackend,
