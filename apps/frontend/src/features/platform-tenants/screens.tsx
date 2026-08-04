@@ -7,6 +7,13 @@ import { useState } from 'react';
 
 import { type PlatformPlanDto, hydrateImpersonatedSession, platformTenantsApi } from './api';
 import {
+  INVOICE_STATUS_LABELS,
+  formatIsoDate,
+  formatKopecks,
+  isOverdue,
+  parseRublesToKopecks
+} from './invoices';
+import {
   type PlatformTenantDto,
   type PlatformTenantStatus,
   TENANT_STATUS_LABELS,
@@ -74,6 +81,7 @@ export function PlatformTenantsSection() {
       await action();
       await queryClient.invalidateQueries({ queryKey: ['platform-tenants'] });
       await queryClient.invalidateQueries({ queryKey: ['platform-plans'] });
+      await queryClient.invalidateQueries({ queryKey: ['platform-invoices'] });
     } catch (err) {
       setError(err instanceof Error ? err.message : failure);
     } finally {
@@ -200,6 +208,8 @@ export function PlatformTenantsSection() {
       </SectionCard>
 
       {canWrite ? <PlatformPlansSection busy={busy} plans={plans} run={run} /> : null}
+
+      {canWrite ? <RentalInvoicesSection busy={busy} tenants={tenants} run={run} /> : null}
 
       {canWrite ? (
         <SectionCard title="Новый арендатор">
@@ -351,6 +361,164 @@ function PlatformPlansSection({
           onClick={() => void createPlan()}
         >
           Создать тариф
+        </button>
+      </div>
+    </SectionCard>
+  );
+}
+
+/**
+ * ФТ-D5.1: счета аренды — выставление, список, отметка оплаты.
+ * Grace и приостановку за неоплату считает сервер; интерфейс лишь подсвечивает просрочку.
+ */
+function RentalInvoicesSection({
+  busy,
+  tenants,
+  run
+}: {
+  busy: boolean;
+  tenants: PlatformTenantDto[];
+  run: (action: () => Promise<unknown>, failure: string) => Promise<void>;
+}) {
+  const { session } = useAuth();
+  const invoicesQuery = useQuery({
+    queryKey: ['platform-invoices', session?.user.id],
+    enabled: Boolean(session),
+    queryFn: () => platformTenantsApi.listInvoices(session!)
+  });
+  const invoices = invoicesQuery.data ?? [];
+  const today = new Date().toISOString().slice(0, 10);
+
+  const [tenantId, setTenantId] = useState('');
+  const [number, setNumber] = useState('');
+  const [periodStart, setPeriodStart] = useState('');
+  const [periodEnd, setPeriodEnd] = useState('');
+  const [amount, setAmount] = useState('');
+  const [dueAt, setDueAt] = useState('');
+
+  const amountKopecks = parseRublesToKopecks(amount);
+  const targetTenant = tenantId || tenants[0]?.id || '';
+  const formIsValid =
+    Boolean(targetTenant) &&
+    number.trim().length > 0 &&
+    /^\d{4}-\d{2}-\d{2}$/.test(periodStart) &&
+    /^\d{4}-\d{2}-\d{2}$/.test(periodEnd) &&
+    periodEnd >= periodStart &&
+    amountKopecks !== null;
+
+  const issue = () =>
+    run(async () => {
+      await platformTenantsApi.issueInvoice(session!, {
+        tenantId: targetTenant,
+        number: number.trim(),
+        periodStart,
+        periodEnd,
+        amountKopecks: amountKopecks!,
+        ...(dueAt ? { dueAt } : {})
+      });
+      setNumber('');
+      setAmount('');
+    }, 'Не удалось выставить счёт');
+
+  const markPaid = (invoiceId: string) =>
+    run(
+      () => platformTenantsApi.markInvoicePaid(session!, invoiceId),
+      'Не удалось отметить оплату'
+    );
+
+  const tenantName = (id: string) => tenants.find((t) => t.id === id)?.name ?? id;
+
+  return (
+    <SectionCard title="Счета аренды">
+      <p className="ui-text-muted">
+        Счёт «счёт + акт»: печатная форма собирается нашим движком, оплата отмечается вручную после
+        поступления средств. Неоплата дольше отсрочки тарифа приостанавливает кабинет — это делает
+        сервер, ежедневно.
+      </p>
+
+      {invoicesQuery.isLoading ? <LoadingState message="Загрузка счетов…" /> : null}
+      {invoicesQuery.error ? (
+        <SectionError
+          message={
+            invoicesQuery.error instanceof Error
+              ? invoicesQuery.error.message
+              : 'Не удалось загрузить счета'
+          }
+        />
+      ) : null}
+
+      {!invoicesQuery.isLoading && invoices.length ? (
+        <DataTable
+          columns={[
+            { key: 'number', title: '№' },
+            { key: 'tenantTitle', title: 'Арендатор' },
+            { key: 'periodTitle', title: 'Период' },
+            { key: 'amountTitle', title: 'Сумма' },
+            { key: 'dueTitle', title: 'Оплатить до' },
+            { key: 'statusTitle', title: 'Статус' }
+          ]}
+          rows={invoices.map((item) => ({
+            ...item,
+            tenantTitle: tenantName(item.tenantId),
+            periodTitle: `${formatIsoDate(item.periodStart)} — ${formatIsoDate(item.periodEnd)}`,
+            amountTitle: formatKopecks(item.amountKopecks, item.currency),
+            dueTitle: formatIsoDate(item.dueAt),
+            statusTitle: isOverdue(item, today)
+              ? `${INVOICE_STATUS_LABELS[item.status]} (просрочен)`
+              : INVOICE_STATUS_LABELS[item.status]
+          }))}
+        />
+      ) : null}
+      {!invoicesQuery.isLoading && !invoicesQuery.error && !invoices.length ? (
+        <SectionEmpty message="Счетов пока нет" />
+      ) : null}
+
+      {invoices
+        .filter((item) => item.status === 'issued')
+        .map((item) => (
+          <div key={item.id} className="ui-inline">
+            <span>
+              Счёт {item.number} ({tenantName(item.tenantId)}):
+            </span>
+            <button type="button" disabled={busy} onClick={() => void markPaid(item.id)}>
+              Отметить оплаченным
+            </button>
+          </div>
+        ))}
+
+      <div className="ui-inline">
+        <label>
+          Арендатор
+          <select value={targetTenant} onChange={(e) => setTenantId(e.target.value)}>
+            {tenants.map((tenant) => (
+              <option key={tenant.id} value={tenant.id}>
+                {tenant.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Номер счёта
+          <input value={number} onChange={(e) => setNumber(e.target.value)} placeholder="СЧ-1" />
+        </label>
+        <label>
+          Период с
+          <input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} />
+        </label>
+        <label>
+          по
+          <input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} />
+        </label>
+        <label>
+          Сумма, ₽
+          <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="15 000" />
+        </label>
+        <label>
+          Оплатить до
+          <input type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
+        </label>
+        <button type="button" disabled={busy || !formIsValid} onClick={() => void issue()}>
+          Выставить счёт
         </button>
       </div>
     </SectionCard>
