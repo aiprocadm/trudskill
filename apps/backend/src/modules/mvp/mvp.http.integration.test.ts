@@ -306,6 +306,20 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         return { id: 't_stub', code: body.code ?? '', status: 'trial' };
       }
 
+      // ФТ-D4: тарифы — часть управления арендаторами (platform.tenants.write).
+      @Post('platform/plans')
+      @RequirePermissions('platform.tenants.write')
+      createPlatformPlan(@Body() body: { code?: string }) {
+        return { id: 'plan_stub', code: body.code ?? '' };
+      }
+
+      // ФТ-D4.2: использование тарифа — отдельное право администрации центра.
+      @Get('tenant/usage')
+      @RequirePermissions('tenant.usage.read')
+      getTenantUsage() {
+        return { plan: null, activeLearners: { used: 0, limit: null } };
+      }
+
       // Срез 2: вход «от имени» — отдельное право, platform.tenants.* его НЕ включает.
       @Post('platform/tenants/:id/impersonate')
       @RequirePermissions('platform.impersonate')
@@ -1396,6 +1410,63 @@ describe('MVP HTTP integration (permission boundaries)', () => {
   });
 
   // === ФТ-D2.2 срез 2 — вход «от имени»: platform.impersonate boundary ===
+  // === ФТ-D4 — тарифы и использование: границы прав ===
+  describe('plans and usage permission boundaries (ФТ-D4)', () => {
+    it('GET /tenant/usage — 403 с полным набором «обычных» прав без tenant.usage.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce([
+        'tenant.read',
+        'learners.read',
+        'learners.write',
+        'iam.manage_roles'
+      ]);
+      const token = issueSignedAccessToken(
+        { sub: 'u_staff', tenant_id: 'tenant_demo', session_id: 's1', roles: ['methodist'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/tenant/usage`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(403);
+    });
+
+    it('GET /tenant/usage — 200 с tenant.usage.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['tenant.usage.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_admin', tenant_id: 'tenant_demo', session_id: 's1', roles: ['tenant_admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/tenant/usage`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(200);
+    });
+
+    it('POST /platform/plans — 403 без platform.tenants.write (права арендатора не открывают тарифы)', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce([
+        'tenant.usage.read',
+        'iam.manage_roles',
+        'tenant.read'
+      ]);
+      const token = issueSignedAccessToken(
+        { sub: 'u_tadmin', tenant_id: 'tenant_demo', session_id: 's1', roles: ['tenant_admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/platform/plans`, {
+        method: 'POST',
+        headers: {
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ code: 'basic' })
+      });
+      expect(response.status).toBe(403);
+    });
+  });
+
   describe('platform impersonation (platform.impersonate)', () => {
     it('POST /platform/tenants/:id/impersonate — 403 даже с platform.tenants.write: это отдельное право', async () => {
       iamServiceMock.resolvePermissions.mockResolvedValueOnce([

@@ -53,8 +53,47 @@ export const platformTenantsApi = {
       body: userId ? { userId } : {},
       auth: auth(session),
       credentials: 'include'
-    })
+    }),
+
+  // === ФТ-D4: тарифы платформы ===
+  listPlans: (session: UserSession) =>
+    apiRequest<PlatformPlanDto[]>('/platform/plans', { auth: auth(session) }),
+
+  createPlan: (session: UserSession, input: CreatePlanInput) =>
+    apiRequest<PlatformPlanDto>('/platform/plans', {
+      method: 'POST',
+      body: input,
+      auth: auth(session)
+    }),
+
+  assignPlan: (session: UserSession, tenantId: string, planId: string) =>
+    apiRequest<{ tenantId: string; planId: string; status: string }>(
+      `/platform/tenants/${tenantId}/plan`,
+      { method: 'POST', body: { planId }, auth: auth(session) }
+    )
 };
+
+export interface PlatformPlanDto {
+  id: string;
+  code: string;
+  name: string;
+  activeLearnersLimit: number | null;
+  staffLimit: number | null;
+  storageLimitBytes: number | null;
+  features: { proctoring?: boolean; scorm?: boolean; api?: boolean; webinars?: boolean };
+}
+
+export interface CreatePlanInput {
+  code: string;
+  name: string;
+  activeLearnersLimit?: number;
+  staffLimit?: number;
+  storageLimitBytes?: number;
+  proctoring?: boolean;
+  scorm?: boolean;
+  api?: boolean;
+  webinars?: boolean;
+}
 
 /**
  * Сборка UserSession целевого тенанта из токенов impersonate. Отличие от
