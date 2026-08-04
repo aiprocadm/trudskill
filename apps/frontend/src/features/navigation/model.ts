@@ -38,6 +38,11 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['tenant.read'] }
   },
   {
+    // ФТ-D6: каталог курсов платформы — читают все, кто работает с курсами.
+    pattern: '/library',
+    meta: { public: false, requiredPermissions: ['courses.read'] }
+  },
+  {
     // ФТ-E5: отдельное право портала. `counterparties.read` означает «видеть справочник
     // контрагентов центра» — ровно ту клиентскую базу, которую представитель видеть не должен.
     pattern: '/counterparty-portal',
@@ -323,6 +328,13 @@ export const navigationModel: NavigationItem[] = [
     href: '/onboarding',
     label: 'Настройка центра',
     requiredPermissions: ['tenant.read'],
+    navSlot: 'more'
+  },
+  {
+    // ФТ-D6: библиотека готовых программ платформы.
+    href: '/library',
+    label: 'Библиотека курсов',
+    requiredPermissions: ['courses.read'],
     navSlot: 'more'
   },
   {

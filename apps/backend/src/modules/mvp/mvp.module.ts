@@ -40,6 +40,8 @@ import { MvpTenantRunner } from './infrastructure/mvp-tenant-runner.service.js';
 import { PostgresMvpPersistenceBackend } from './infrastructure/postgres-mvp-persistence.backend.js';
 import { LearnerPdfCardService } from './learner-pdf-card.service.js';
 import { LearnersBulkImportService } from './learners-bulk-import.service.js';
+import { PlatformLibraryController } from './library/platform-library.controller.js';
+import { PlatformLibraryService } from './library/platform-library.service.js';
 import { MvpBulkEnqueueService } from './mvp-bulk-enqueue.service.js';
 import { MvpEnrollmentService } from './mvp-enrollment.service.js';
 import { MvpInternalWorkerController } from './mvp-internal-worker.controller.js';
@@ -144,6 +146,7 @@ import {
     MvpController,
     TenantUsageController,
     TenantOnboardingController,
+    PlatformLibraryController,
     VideoController,
     IdentityPolicyController,
     SimpleSignatureController,
@@ -208,6 +211,7 @@ import {
     TenantStorageService,
     TenantUsageService,
     TenantOnboardingService,
+    { provide: PlatformLibraryService, scope: Scope.REQUEST, useClass: PlatformLibraryService },
     VideoService,
     MvpBulkEnqueueService,
     PostgresMvpPersistenceBackend,

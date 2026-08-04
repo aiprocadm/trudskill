@@ -55,6 +55,9 @@ describe('getGroupedNavigation', () => {
     const courses = groups.find((g) => g.id === 'courses');
     expect(courses?.items.map((i) => i.href)).toEqual([
       '/courses',
+      // ФТ-D6: библиотека платформы стоит сразу за курсами — методист приходит за
+      // готовой программой туда же, где заводит свои.
+      '/library',
       '/materials',
       '/scorm',
       '/directions',
