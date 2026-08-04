@@ -1,0 +1,58 @@
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
+
+import { RentalBillingService } from './rental-billing.service.js';
+import { DatabaseService } from '../../infrastructure/database/database.service.js';
+
+/** Свой ключ advisory-лока (528_491 reminders, 528_492 retention, 528_493 attempts заняты). */
+const RENTAL_BILLING_LOCK_KEY = 528_494;
+
+/**
+ * ФТ-D5.1: ежедневный обход просрочки аренды.
+ *
+ * Раз в сутки, а не раз в пять минут: grace измеряется рабочими днями, и приостановка
+ * на несколько часов раньше или позже ничего не меняет — а вот лишние обходы по всем
+ * счетам платформы стоят запросов. Время — раннее утро UTC, до рабочего дня в РФ:
+ * приостановка должна случиться ДО того, как центр начнёт учить людей в этот день.
+ *
+ * Advisory-лок: при нескольких экземплярах приложения обход делает один.
+ */
+@Injectable()
+export class RentalBillingSchedulerService {
+  private readonly logger = new Logger(RentalBillingSchedulerService.name);
+
+  constructor(
+    @Inject(RentalBillingService) private readonly billing: RentalBillingService,
+    @Inject(DatabaseService) private readonly db: DatabaseService
+  ) {}
+
+  @Cron('15 3 * * *', { name: 'rental-billing-overdue-sweep', timeZone: 'UTC' })
+  async handleSweep(): Promise<void> {
+    try {
+      await this.runSweep(new Date().toISOString().slice(0, 10));
+    } catch (err) {
+      this.logger.error(
+        `Rental billing sweep failed: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  }
+
+  async runSweep(today: string): Promise<number> {
+    return this.db.withTransaction(async (client) => {
+      const lockRows = await this.db.query<{ locked: boolean }>(
+        'select pg_try_advisory_xact_lock($1) as locked',
+        [RENTAL_BILLING_LOCK_KEY],
+        client
+      );
+      if (!lockRows[0]?.locked) {
+        this.logger.log('Another instance holds the rental-billing lock; skipping.');
+        return 0;
+      }
+      const suspended = await this.billing.suspendOverdueTenants(today);
+      if (suspended.length > 0) {
+        this.logger.warn(`Suspended ${suspended.length} tenant(s) for non-payment.`);
+      }
+      return suspended.length;
+    });
+  }
+}

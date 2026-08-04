@@ -70,8 +70,48 @@ export const platformTenantsApi = {
     apiRequest<{ tenantId: string; planId: string; status: string }>(
       `/platform/tenants/${tenantId}/plan`,
       { method: 'POST', body: { planId }, auth: auth(session) }
-    )
+    ),
+
+  // === ФТ-D5.1: счета аренды ===
+  listInvoices: (session: UserSession) =>
+    apiRequest<RentalInvoiceDto[]>('/platform/rental-invoices', { auth: auth(session) }),
+
+  issueInvoice: (session: UserSession, input: IssueInvoiceInput) =>
+    apiRequest<RentalInvoiceDto>('/platform/rental-invoices', {
+      method: 'POST',
+      body: input,
+      auth: auth(session)
+    }),
+
+  markInvoicePaid: (session: UserSession, invoiceId: string) =>
+    apiRequest<RentalInvoiceDto>(`/platform/rental-invoices/${invoiceId}/paid`, {
+      method: 'POST',
+      auth: auth(session)
+    })
 };
+
+/** ФТ-D5.1: счёт аренды. Суммы — в копейках (деньги дробным типом не ходят). */
+export interface RentalInvoiceDto {
+  id: string;
+  tenantId: string;
+  number: string;
+  periodStart: string;
+  periodEnd: string;
+  amountKopecks: number;
+  currency: string;
+  status: 'issued' | 'paid' | 'cancelled';
+  dueAt: string;
+  paidAt: string | null;
+}
+
+export interface IssueInvoiceInput {
+  tenantId: string;
+  number: string;
+  periodStart: string;
+  periodEnd: string;
+  amountKopecks: number;
+  dueAt?: string;
+}
 
 export interface PlatformPlanDto {
   id: string;

@@ -320,6 +320,19 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         return { plan: null, activeLearners: { used: 0, limit: null } };
       }
 
+      // ФТ-D5.1: счета аренды. Выставляет платформа, свои счета видит арендатор.
+      @Post('platform/rental-invoices')
+      @RequirePermissions('platform.tenants.write')
+      issueRentalInvoice(@Body() body: { number?: string }) {
+        return { id: 'rinv_stub', number: body.number ?? '', status: 'issued' };
+      }
+
+      @Get('tenant/rental-invoices')
+      @RequirePermissions('tenant.usage.read')
+      listOwnRentalInvoices() {
+        return [];
+      }
+
       // Срез 2: вход «от имени» — отдельное право, platform.tenants.* его НЕ включает.
       @Post('platform/tenants/:id/impersonate')
       @RequirePermissions('platform.impersonate')
@@ -1464,6 +1477,45 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         body: JSON.stringify({ code: 'basic' })
       });
       expect(response.status).toBe(403);
+    });
+  });
+
+  // === ФТ-D5.1 — счета аренды: границы прав ===
+  describe('rental invoices permission boundaries (ФТ-D5.1)', () => {
+    it('POST /platform/rental-invoices — 403 у арендатора даже с tenant.usage.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce([
+        'tenant.usage.read',
+        'tenant.read',
+        'iam.manage_roles'
+      ]);
+      const token = issueSignedAccessToken(
+        { sub: 'u_tadmin', tenant_id: 'tenant_demo', session_id: 's1', roles: ['tenant_admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/platform/rental-invoices`, {
+        method: 'POST',
+        headers: {
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ number: 'СЧ-1' })
+      });
+      expect(response.status).toBe(403);
+    });
+
+    it('GET /tenant/rental-invoices — 200 у арендатора с tenant.usage.read (свои счета)', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['tenant.usage.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_tadmin', tenant_id: 'tenant_demo', session_id: 's1', roles: ['tenant_admin'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/tenant/rental-invoices`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(200);
     });
   });
 
