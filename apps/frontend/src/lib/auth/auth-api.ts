@@ -1,4 +1,5 @@
 import { apiRequest } from '../api/client';
+import { resolveCurrentTenantId } from '../tenant/current-tenant';
 
 import type { LoginRequest, LoginResponse, LogoutRequest, MeResponse } from '../api/types';
 
@@ -43,11 +44,14 @@ export interface TotpSetupResponse {
 }
 
 export const authApi = {
-  login: (payload: LoginRequest) =>
+  // ФТ-D3.2: вход идёт в тот центр, чей адрес открыт. Без поддомена — арендатор
+  // из настроек, то есть прежнее поведение.
+  login: async (payload: LoginRequest) =>
     apiRequest<LoginResponse | TotpChallengeResponse>('/auth/login', {
       method: 'POST',
       body: payload,
-      credentials: 'include'
+      credentials: 'include',
+      auth: { tenantHint: await resolveCurrentTenantId() }
     }),
   verifyTotp: (payload: { challengeToken: string; code: string }) =>
     apiRequest<LoginResponse>('/auth/2fa/verify', {
