@@ -8,7 +8,19 @@ import globals from 'globals';
 
 export default [
   {
-    ignores: ['**/dist/**', '**/.next/**', '**/node_modules/**', '**/coverage/**', '**/*.d.ts']
+    ignores: [
+      '**/dist/**',
+      '**/.next/**',
+      '**/node_modules/**',
+      '**/coverage/**',
+      '**/*.d.ts',
+      // Служебный воркер PWA генерируется serwist при сборке (он в .gitignore).
+      // `next lint` его не видел, а `eslint .` — видит, и линтовать сгенерированный
+      // минифицированный файл бессмысленно.
+      '**/public/sw.js',
+      '**/public/swe-worker-*.js',
+      '**/public/workbox-*.js'
+    ]
   },
   {
     files: ['**/*.{ts,tsx,js,jsx,mjs,cjs}'],
