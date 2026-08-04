@@ -197,7 +197,7 @@ importers:
         version: 19.0.0(react@19.0.0)
       scorm-again:
         specifier: ^3.0.5
-        version: 3.0.5
+        version: 3.2.0
       serwist:
         specifier: ^9.5.11
         version: 9.5.11(browserslist@4.28.2)(typescript@5.9.3)
@@ -3828,8 +3828,8 @@ packages:
   scheduler@0.25.0:
     resolution: {integrity: sha512-xFVuu11jh+xcO7JOAGJNOXld8/TcEHK/4CituBUeUb5hqxJLj9YuemAEuvm9gQ/+pgXYfbQuqAkiYu+u7YEsNA==}
 
-  scorm-again@3.0.5:
-    resolution: {integrity: sha512-UW4VvfGrB7+izNtABATQrp6ztPUV43Poyah3CbMdMkeF0gTrKu8RsnYXy2LRGmnIN2rPvQ6fnVk3HPYmAMiyVg==}
+  scorm-again@3.2.0:
+    resolution: {integrity: sha512-DWiVf0GMY+m7+HBdZHfZc/DRNwtAo2ZaZTehAhhpGuJ8TSLVyRUCsdFsZFYkuITOfoGddWOkK2KOB41wGOI39w==}
     engines: {node: '>=20.19.0'}
 
   semver@6.3.1:
@@ -8549,7 +8549,7 @@ snapshots:
 
   scheduler@0.25.0: {}
 
-  scorm-again@3.0.5: {}
+  scorm-again@3.2.0: {}
 
   semver@6.3.1: {}
 
