@@ -42,7 +42,7 @@
     "@types/adm-zip": "^0.5.8",
     "@types/amqplib": "^0.10.8",
     "@types/express": "^5.0.6",
-    "@types/nodemailer": "^6.4.17",
+    "@types/nodemailer": "^8.0.0",
     "@types/pg": "^8.20.0",
     "@types/qrcode": "^1.5.6",
     "@types/web-push": "^3.6.4"
