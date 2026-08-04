@@ -77,7 +77,7 @@ services:
   # локалку загрузкой базы сигнатур. Поднять при необходимости: `docker compose up -d clamav`
   # и выставить ANTIVIRUS_ENABLED=true. Первый старт долгий — freshclam качает базу.
   clamav:
-    image: clamav/clamav:1.4
+    image: clamav/clamav:1.5.3
     ports:
       - '3310:3310'
     volumes:
