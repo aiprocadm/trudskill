@@ -2,7 +2,7 @@
 # Серверные порты приложения пробрасываются из контейнера `app`; БД доступна только внутри compose-сети.
 services:
   app:
-    image: mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm
+    image: mcr.microsoft.com/devcontainers/typescript-node:5-22-bookworm
     volumes:
       - ..:/workspaces/cdoprof:cached
     working_dir: /workspaces/cdoprof
