@@ -22,6 +22,7 @@ import {
 } from './types';
 import { SectionCard, SectionEmpty, SectionError } from '../../components/state-wrappers';
 import { useAuth } from '../auth/context';
+import { PlatformHealthSection } from '../platform-health/screens';
 
 /**
  * ФТ-D2.2 (Фаза 4 Task 3, срез 3): экраны платформенной админки тенантов.
@@ -206,6 +207,8 @@ export function PlatformTenantsSection() {
           </div>
         ))}
       </SectionCard>
+
+      <PlatformHealthSection />
 
       {canWrite ? <PlatformPlansSection busy={busy} plans={plans} run={run} /> : null}
 
