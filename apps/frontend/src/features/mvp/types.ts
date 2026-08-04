@@ -102,6 +102,8 @@ export interface CourseVersion extends BaseEntity {
   noSeekOnFirstView?: boolean | null;
   /** Фаза 2 Task 11 (ФТ-E1): строгий порядок прохождения модулей. */
   sequentialModules?: boolean | null;
+  /** ФТ-E4 (Фаза 4 Task 9): срок действия удостоверения, мес.; `null` = бессрочно. */
+  recertificationPeriodMonths?: number | null;
 }
 
 export interface CourseModule extends BaseEntity {

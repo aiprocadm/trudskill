@@ -1,3 +1,5 @@
+import { parseRecertMonths } from '../recertification/expiring';
+
 import type { FinalAssessmentForm, StudyForm, TrainingType } from '../mvp/types';
 
 /**
@@ -43,6 +45,8 @@ export interface CourseWizardDraft {
   description: string;
   directionId: string;
   academicHours: string;
+  /** ФТ-E4: срок действия удостоверения, мес. Пусто = бессрочно. */
+  recertificationPeriodMonths: string;
   trainingType: TrainingType | '';
   studyForm: StudyForm | '';
   finalAssessmentForm: FinalAssessmentForm | '';
@@ -58,6 +62,7 @@ export const emptyDraft = (): CourseWizardDraft => ({
   description: '',
   directionId: '',
   academicHours: '',
+  recertificationPeriodMonths: '',
   trainingType: '',
   studyForm: '',
   finalAssessmentForm: '',
@@ -97,6 +102,16 @@ export function validateStep(step: WizardStep, draft: CourseWizardDraft): Wizard
     // инспектору нечего показать. Но обязательными делаем только положительные числа.
     if (draft.academicHours && (!Number.isFinite(hours) || hours <= 0)) {
       errors.push({ field: 'academicHours', message: 'Часы: положительное число' });
+    }
+    // ФТ-E4: периодичность переобучения. Пусто = бессрочно и ошибкой не считается.
+    if (
+      draft.recertificationPeriodMonths &&
+      !parseRecertMonths(draft.recertificationPeriodMonths).valid
+    ) {
+      errors.push({
+        field: 'recertificationPeriodMonths',
+        message: 'Периодичность: целое число месяцев от 1 до 120 или пусто (бессрочно)'
+      });
     }
   }
 
@@ -193,6 +208,8 @@ export interface CourseCreationPlan {
   course: { code: string; title: string; description: string; directionId?: string };
   programMeta: {
     academicHours: number | null;
+    /** ФТ-E4: null = удостоверение бессрочно, напоминания о переобучении не шлются. */
+    recertificationPeriodMonths: number | null;
     trainingType: TrainingType | null;
     studyForm: StudyForm | null;
     finalAssessmentForm: FinalAssessmentForm | null;
@@ -217,6 +234,7 @@ export interface CourseCreationPlan {
 export function buildCreationPlan(draft: CourseWizardDraft): CourseCreationPlan {
   const hours = Number(draft.academicHours);
   const percent = Number(draft.videoCompletionPercent);
+  const recertMonths = parseRecertMonths(draft.recertificationPeriodMonths);
   return {
     course: {
       code: draft.code.trim(),
@@ -226,6 +244,7 @@ export function buildCreationPlan(draft: CourseWizardDraft): CourseCreationPlan 
     },
     programMeta: {
       academicHours: draft.academicHours && Number.isFinite(hours) && hours > 0 ? hours : null,
+      recertificationPeriodMonths: recertMonths.valid ? recertMonths.months : null,
       trainingType: draft.trainingType || null,
       studyForm: draft.studyForm || null,
       finalAssessmentForm: draft.finalAssessmentForm || null,

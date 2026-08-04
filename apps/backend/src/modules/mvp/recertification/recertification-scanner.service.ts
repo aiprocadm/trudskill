@@ -18,8 +18,15 @@ import {
 
 import type { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
 
-/** Phase 5B — окно опережения: документы с validUntil ≤ today+90d попадают в скан. */
-export const RECERT_HORIZON_DAYS = 90;
+/**
+ * Окно опережения скана: документы с `validUntil ≤ today+60d`.
+ *
+ * ФТ-E4 (Фаза 4 Task 9): совпадает с САМЫМ ДАЛЬНИМ окном напоминаний (60). Горизонт шире
+ * дальнего окна означал бы, что документ попадает в скан, но письма не заслуживает —
+ * лишняя работа на каждом ночном проходе; уже, чем окно — что письмо за 60 дней никогда
+ * не уйдёт. Поэтому значения связаны намеренно.
+ */
+export const RECERT_HORIZON_DAYS = 60;
 
 export interface RecertCandidate {
   documentId: string;

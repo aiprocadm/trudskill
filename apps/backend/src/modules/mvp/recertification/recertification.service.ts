@@ -1,5 +1,6 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 
+import { selectExpiringDocuments, summarize } from './expiring-documents.util.js';
 import {
   RECERTIFICATION_DRAFTS_REPOSITORY,
   type RecertificationDraftRow,
@@ -7,9 +8,11 @@ import {
   type RecertificationDraftsRepository
 } from './recertification-drafts.repository.js';
 import {
+  RECERT_HORIZON_DAYS,
   type RecertScanSummary,
   RecertificationScanner
 } from './recertification-scanner.service.js';
+import { DocumentsTenantRunner } from '../../documents/documents-tenant-runner.service.js';
 import { MVP_STATE } from '../infrastructure/mvp-state.token.js';
 import { MvpService } from '../mvp.service.js';
 import {
@@ -41,8 +44,22 @@ export class RecertificationService {
     private readonly drafts: RecertificationDraftsRepository,
     @Inject(MVP_STATE) private readonly state: InMemoryMvpState,
     @Inject(MvpService) private readonly mvp: MvpService,
-    @Inject(RecertificationScanner) private readonly scanner: RecertificationScanner
+    @Inject(RecertificationScanner) private readonly scanner: RecertificationScanner,
+    @Inject(DocumentsTenantRunner) private readonly documentsRunner: DocumentsTenantRunner
   ) {}
+
+  /**
+   * ФТ-E4: дашборд «истекающие удостоверения». Горизонт совпадает с окном скана
+   * напоминаний — методист видит ровно те документы, по которым уже идут письма.
+   */
+  async listExpiring(tenantId: string, today: string, horizonDays = RECERT_HORIZON_DAYS) {
+    const documents = await this.documentsRunner.runWithTenantDocuments(
+      tenantId,
+      async (docs) => docs.listDocuments(tenantId, { pageSize: Number.MAX_SAFE_INTEGER }).items
+    );
+    const items = selectExpiringDocuments(today, documents as never, horizonDays);
+    return { items, summary: summarize(items), horizonDays };
+  }
 
   /** Manual per-tenant scan (HTTP-triggered). The interceptor has already loaded `this.state`. */
   runScan(tenantId: string, asOf: string, _ctx: RequestContext): Promise<RecertScanSummary> {

@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
-import { RECERT_MILESTONES, pickMilestone } from './milestone.util.js';
+import { LICENSE_EXPIRY_MILESTONES, pickMilestone } from './milestone.util.js';
 import { buildStaffRecipients } from './reminder-recipients.js';
 import { addDays } from '../../../common/utils/date-math.util.js';
 import { NotificationDispatcher } from '../../communication/notification-dispatcher.service.js';
@@ -19,8 +19,9 @@ export interface LicenseExpiryScanSummary {
  * Phase 5C-2 — nightly license-expiry reminder. Unlike recert/deadline, a license is not tied
  * to a learner, so the audience is the tenant's configured notification staff
  * (`buildStaffRecipients`). Opt-in: when no staff are configured the scan does nothing (and
- * skips the DB query). Reuses the 90/30/7 milestone cadence + send-once dedup of the other
- * reminders. Runs from the shared `RemindersSchedulerService` cron with the loaded MVP state.
+ * skips the DB query). Свои окна 90/30/7 (`LICENSE_EXPIRY_MILESTONES`) — шире, чем у переобучения:
+ * продление лицензии занимает месяцы, и предупреждать о нём надо раньше. Send-once dedup
+ * общий с остальными напоминаниями. Runs from the shared `RemindersSchedulerService` cron with the loaded MVP state.
  */
 @Injectable()
 export class LicenseExpiryScanner {
@@ -47,7 +48,7 @@ export class LicenseExpiryScanner {
     let remindersDispatched = 0;
     for (const license of expiring) {
       if (!license.validUntil) continue;
-      const milestone = pickMilestone(asOf, license.validUntil, RECERT_MILESTONES);
+      const milestone = pickMilestone(asOf, license.validUntil, LICENSE_EXPIRY_MILESTONES);
       if (milestone === null) continue;
 
       try {

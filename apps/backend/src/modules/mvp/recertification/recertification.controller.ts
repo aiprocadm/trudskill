@@ -40,6 +40,14 @@ export class RecertificationController {
     });
   }
 
+  /** ФТ-E4 (Фаза 4 Task 9): дашборд «истекающие удостоверения» — чтение того же контура. */
+  @Get('recertification/expiring')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('recertification.read')
+  async expiring(@CurrentContext() c: RequestContext) {
+    return this.service.listExpiring(c.tenantId!, new Date().toISOString().slice(0, 10));
+  }
+
   @Post('recertification/scan')
   @UseGuards(PermissionGuard)
   @RequirePermissions('recertification.write')
