@@ -57,6 +57,11 @@ export default [
       '@next/next': nextPlugin
     },
     rules: {
+      // Правила Next.js перенесены сюда из apps/frontend/.eslintrc.json вместе с уходом
+      // от `next lint` (он удалён в Next 16 и несовместим с ESLint 10). Раскрываем весь
+      // набор `core-web-vitals`, иначе переезд молча потерял бы 20 из 21 правила.
+      ...nextPlugin.configs.recommended.rules,
+      ...nextPlugin.configs['core-web-vitals'].rules,
       '@next/next/no-img-element': 'warn',
       // Иконки только через <Icon icon={...} /> из @trudskill/ui.
       // no-restricted-imports НЕ мёржится между блоками — дублируем глобальный patterns.

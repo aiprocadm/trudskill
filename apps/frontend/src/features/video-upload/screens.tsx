@@ -5,8 +5,8 @@ import { LoadingState, StatusChip } from '@trudskill/ui';
 import { useState } from 'react';
 
 import {
-  VIDEO_MIME_TYPES,
   type UploadProgress,
+  VIDEO_MIME_TYPES,
   type VideoAssetDto,
   formatBytes,
   uploadVideoFile,
