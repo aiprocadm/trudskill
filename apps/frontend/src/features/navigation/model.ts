@@ -27,6 +27,11 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['platform.tenants.read'] }
   },
   {
+    // ФТ-D4.2: использование тарифа — администрация центра (0076).
+    pattern: '/admin/usage',
+    meta: { public: false, requiredPermissions: ['tenant.usage.read'] }
+  },
+  {
     // ФТ-E5: отдельное право портала. `counterparties.read` означает «видеть справочник
     // контрагентов центра» — ровно ту клиентскую базу, которую представитель видеть не должен.
     pattern: '/counterparty-portal',
@@ -298,6 +303,13 @@ export const navigationModel: NavigationItem[] = [
     href: '/platform/tenants',
     label: 'Арендаторы платформы',
     requiredPermissions: ['platform.tenants.read'],
+    navSlot: 'more'
+  },
+  {
+    // ФТ-D4.2: экран «Использование» — тариф и лимиты центра.
+    href: '/admin/usage',
+    label: 'Использование',
+    requiredPermissions: ['tenant.usage.read'],
     navSlot: 'more'
   },
   {

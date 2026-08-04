@@ -5,7 +5,7 @@ import { DataTable, LoadingState } from '@trudskill/ui';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { hydrateImpersonatedSession, platformTenantsApi } from './api';
+import { type PlatformPlanDto, hydrateImpersonatedSession, platformTenantsApi } from './api';
 import {
   type PlatformTenantDto,
   type PlatformTenantStatus,
@@ -43,6 +43,24 @@ export function PlatformTenantsSection() {
     queryFn: () => platformTenantsApi.list(session!)
   });
 
+  // ФТ-D4: тарифы для назначения арендаторам (чтение — то же право, что список тенантов).
+  const plansQuery = useQuery({
+    queryKey: ['platform-plans', session?.user.id],
+    enabled: Boolean(session),
+    queryFn: () => platformTenantsApi.listPlans(session!)
+  });
+  const plans = plansQuery.data ?? [];
+  const [planChoice, setPlanChoice] = useState<Record<string, string>>({});
+
+  const assignPlan = (tenant: PlatformTenantDto) => {
+    const planId = planChoice[tenant.id] ?? plans[0]?.id;
+    if (!planId) return;
+    return run(
+      () => platformTenantsApi.assignPlan(session!, tenant.id, planId),
+      'Не удалось назначить тариф'
+    );
+  };
+
   const tenants = tenantsQuery.data ?? [];
   const rows = tenants.map((tenant) => ({
     ...tenant,
@@ -55,6 +73,7 @@ export function PlatformTenantsSection() {
     try {
       await action();
       await queryClient.invalidateQueries({ queryKey: ['platform-tenants'] });
+      await queryClient.invalidateQueries({ queryKey: ['platform-plans'] });
     } catch (err) {
       setError(err instanceof Error ? err.message : failure);
     } finally {
@@ -157,9 +176,30 @@ export function PlatformTenantsSection() {
                 Войти от имени
               </button>
             ) : null}
+            {canWrite && plans.length > 0 ? (
+              <>
+                <select
+                  value={planChoice[tenant.id] ?? plans[0]!.id}
+                  onChange={(event) =>
+                    setPlanChoice((prev) => ({ ...prev, [tenant.id]: event.target.value }))
+                  }
+                >
+                  {plans.map((plan) => (
+                    <option key={plan.id} value={plan.id}>
+                      {plan.name}
+                    </option>
+                  ))}
+                </select>
+                <button type="button" disabled={busy} onClick={() => void assignPlan(tenant)}>
+                  Назначить тариф
+                </button>
+              </>
+            ) : null}
           </div>
         ))}
       </SectionCard>
+
+      {canWrite ? <PlatformPlansSection busy={busy} plans={plans} run={run} /> : null}
 
       {canWrite ? (
         <SectionCard title="Новый арендатор">
@@ -197,5 +237,122 @@ export function PlatformTenantsSection() {
         </SectionCard>
       ) : null}
     </>
+  );
+}
+
+/**
+ * ФТ-D4: тарифы платформы — список и создание. Байты в форме вводятся гигабайтами:
+ * владелец платформы думает в ГБ, а не в 53687091200.
+ */
+function PlatformPlansSection({
+  busy,
+  plans,
+  run
+}: {
+  busy: boolean;
+  plans: PlatformPlanDto[];
+  run: (action: () => Promise<unknown>, failure: string) => Promise<void>;
+}) {
+  const { session } = useAuth();
+  const [code, setCode] = useState('');
+  const [name, setName] = useState('');
+  const [learners, setLearners] = useState('');
+  const [staff, setStaff] = useState('');
+  const [storageGb, setStorageGb] = useState('');
+  const [flags, setFlags] = useState({
+    proctoring: false,
+    scorm: false,
+    api: false,
+    webinars: false
+  });
+
+  const codeIsValid = /^[a-z0-9][a-z0-9-]*$/.test(code) && code.length <= 40;
+  const toInt = (value: string) => {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed >= 1 ? parsed : undefined;
+  };
+
+  const createPlan = () =>
+    run(async () => {
+      const storage = toInt(storageGb);
+      await platformTenantsApi.createPlan(session!, {
+        code,
+        name: name.trim(),
+        ...(toInt(learners) ? { activeLearnersLimit: toInt(learners)! } : {}),
+        ...(toInt(staff) ? { staffLimit: toInt(staff)! } : {}),
+        ...(storage ? { storageLimitBytes: storage * 1024 ** 3 } : {}),
+        ...flags
+      });
+      setCode('');
+      setName('');
+      setLearners('');
+      setStaff('');
+      setStorageGb('');
+    }, 'Не удалось создать тариф');
+
+  const limitText = (plan: PlatformPlanDto) =>
+    [
+      plan.activeLearnersLimit !== null ? `${plan.activeLearnersLimit} слушателей/мес` : null,
+      plan.staffLimit !== null ? `${plan.staffLimit} сотрудников` : null,
+      plan.storageLimitBytes !== null
+        ? `${(plan.storageLimitBytes / 1024 ** 3).toFixed(0)} ГБ`
+        : null
+    ]
+      .filter(Boolean)
+      .join(', ') || 'без лимитов';
+
+  return (
+    <SectionCard title="Тарифы платформы">
+      {plans.length ? (
+        <ul>
+          {plans.map((plan) => (
+            <li key={plan.id}>
+              <strong>{plan.name}</strong> ({plan.code}): {limitText(plan)}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="ui-text-muted">Тарифов пока нет — создайте первый.</p>
+      )}
+      <div className="ui-inline">
+        <label>
+          Код
+          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="basic" />
+        </label>
+        <label>
+          Название
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Базовый" />
+        </label>
+        <label>
+          Слушателей/мес
+          <input value={learners} onChange={(e) => setLearners(e.target.value)} placeholder="∞" />
+        </label>
+        <label>
+          Сотрудников
+          <input value={staff} onChange={(e) => setStaff(e.target.value)} placeholder="∞" />
+        </label>
+        <label>
+          Хранилище, ГБ
+          <input value={storageGb} onChange={(e) => setStorageGb(e.target.value)} placeholder="∞" />
+        </label>
+        {(Object.keys(flags) as (keyof typeof flags)[]).map((key) => (
+          <label key={key}>
+            <input
+              type="checkbox"
+              checked={flags[key]}
+              onChange={(e) => setFlags((prev) => ({ ...prev, [key]: e.target.checked }))}
+            />
+            {{ proctoring: 'Прокторинг', scorm: 'SCORM', api: 'API', webinars: 'Вебинары' }[key]}
+          </label>
+        ))}
+        <button
+          type="button"
+          disabled={busy || !codeIsValid || name.trim().length === 0}
+          onClick={() => void createPlan()}
+        >
+          Создать тариф
+        </button>
+      </div>
+    </SectionCard>
   );
 }

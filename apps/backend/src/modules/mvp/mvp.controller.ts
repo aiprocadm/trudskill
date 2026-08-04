@@ -87,6 +87,7 @@ import { BuildReportRequestDto, SaveReportTemplateDto } from './report-builder.d
 import { UpdateCounterpartyExtendedRequest } from './update-counterparty-extended.dto.js';
 import { UpdateLearnerExtendedRequest } from './update-learner-extended.dto.js';
 import { UpdateTestRuleRequest } from './update-test-rule.dto.js';
+import { TenantUsageService } from './usage/tenant-usage.service.js';
 import { assertValidDto } from '../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
@@ -124,7 +125,8 @@ export class MvpController {
     @Inject(IdentityPolicyService) private readonly identityPolicies: IdentityPolicyService,
     @Inject(ConsentService) private readonly consents: ConsentService,
     @Inject(LearnerDossierService) private readonly learnerDossierService: LearnerDossierService,
-    @Inject(IamService) private readonly iamService: IamService
+    @Inject(IamService) private readonly iamService: IamService,
+    @Inject(TenantUsageService) private readonly tenantUsage: TenantUsageService
   ) {}
 
   @Get('counterparties')
@@ -341,8 +343,11 @@ export class MvpController {
   @Post('learners')
   @UseGuards(PermissionGuard)
   @RequirePermissions('learners.write')
-  createLearner(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+  async createLearner(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
     const b = assertValidDto(CreateSimpleRegistryRequest, raw);
+    // ФТ-D4.2, мягкая деградация: при исчерпанном лимите тарифа НОВЫХ слушателей
+    // не добавить (409), идущие группы этот гейт не трогает.
+    await this.tenantUsage.assertCanAddLearners(c.tenantId!);
     return this.mvpService.createLearner(c.tenantId!, c.userId, b, c);
   }
   /**
@@ -353,8 +358,11 @@ export class MvpController {
   @Post('learners/bulk-import')
   @UseGuards(PermissionGuard)
   @RequirePermissions('learners.write', 'enrollments.write')
-  bulkImportLearners(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+  async bulkImportLearners(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
     const b = assertValidDto(BulkImportLearnersRequest, raw);
+    // ФТ-D4.2: гейт на входе пачки. Осознанно допускаем перелёт внутри одной пачки
+    // (проверка ДО импорта): частичный отказ посреди Excel хуже небольшого перелёта.
+    await this.tenantUsage.assertCanAddLearners(c.tenantId!);
     return this.learnersBulkImport.bulkImportLearners(c.tenantId!, c.userId, b, c);
   }
   @Put('learners/:id')

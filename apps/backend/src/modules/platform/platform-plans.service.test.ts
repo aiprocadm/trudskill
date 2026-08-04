@@ -1,0 +1,102 @@
+import 'reflect-metadata';
+import { ConflictException, NotFoundException } from '@nestjs/common';
+import { describe, expect, it, vi } from 'vitest';
+
+import { PlatformPlansService, readPlanFeatures } from './platform-plans.service.js';
+
+import type { RequestContext } from '../../common/context/request-context.js';
+
+const context = { requestId: 'r1', correlationId: 'c1' } as RequestContext;
+
+function make(queryImpl: (sql: string, params?: unknown[]) => Promise<unknown[]>) {
+  const query = vi.fn(queryImpl);
+  const audit = { writeCritical: vi.fn().mockResolvedValue({}) };
+  const service = new PlatformPlansService({ query } as never, audit as never);
+  return { service, query, audit };
+}
+
+describe('PlatformPlansService (ФТ-D4)', () => {
+  it('readPlanFeatures: не-boolean и неизвестные ключи отбрасываются', () => {
+    expect(readPlanFeatures({ proctoring: true, scorm: 'да', magic: true, api: false })).toEqual({
+      proctoring: true,
+      api: false
+    });
+    expect(readPlanFeatures(null)).toEqual({});
+    expect(readPlanFeatures([true])).toEqual({});
+  });
+
+  it('createPlan: занятый code — 409 plan_code_taken, INSERT не выполняется', async () => {
+    const { service, query } = make(async (sql) => {
+      if (sql.includes('select id from core.plans where code')) return [{ id: 'plan_basic' }];
+      throw new Error('unexpected query');
+    });
+    await expect(
+      service.createPlan('u1', { code: 'basic', name: 'Базовый' }, context)
+    ).rejects.toMatchObject({ constructor: ConflictException });
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+
+  it('createPlan: пишет план, аудит и возвращает нормализованные features', async () => {
+    const inserted: unknown[][] = [];
+    const { service, audit } = make(async (sql, params) => {
+      if (sql.includes('select id from core.plans where code')) return [];
+      if (sql.startsWith('insert into core.plans')) {
+        inserted.push(params!);
+        return [];
+      }
+      return [
+        {
+          id: 'plan_basic',
+          code: 'basic',
+          name: 'Базовый',
+          activeLearnersLimit: 100,
+          staffLimit: null,
+          storageLimitBytes: null,
+          features: { scorm: true, magic: true }
+        }
+      ];
+    });
+    const plan = await service.createPlan(
+      'u1',
+      { code: 'basic', name: 'Базовый', activeLearnersLimit: 100, features: { scorm: true } },
+      context
+    );
+    expect(plan.features).toEqual({ scorm: true });
+    expect(JSON.parse(inserted[0]![6] as string)).toEqual({ scorm: true });
+    expect(audit.writeCritical).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'platform.plan_created', tenantId: 'platform' })
+    );
+  });
+
+  it('assignPlan: отменяет прежнюю активную подписку, создаёт новую, аудит в журнал тенанта', async () => {
+    const calls: string[] = [];
+    const { service, audit } = make(async (sql) => {
+      calls.push(sql.trim().split(/\s+/).slice(0, 2).join(' '));
+      if (sql.includes('from core.plans') || sql.includes('from core.tenants')) {
+        return [{ id: 'x' }];
+      }
+      return [];
+    });
+    const result = await service.assignPlan('u_admin', 't1', 'plan_basic', context);
+    expect(result.status).toBe('active');
+    expect(calls).toContain('update core.tenant_subscriptions');
+    expect(calls).toContain('insert into');
+    expect(audit.writeCritical).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'platform.plan_assigned', tenantId: 't1' })
+    );
+  });
+
+  it('assignPlan: несуществующий план — 404 plan_not_found', async () => {
+    const { service } = make(async (sql) =>
+      sql.includes('from core.plans') ? [] : [{ id: 't1' }]
+    );
+    await expect(service.assignPlan('u1', 't1', 'plan_none', context)).rejects.toMatchObject({
+      constructor: NotFoundException
+    });
+  });
+
+  it('getActivePlan: нет активной подписки — null (все лимиты = безлимит)', async () => {
+    const { service } = make(async () => []);
+    await expect(service.getActivePlan('t1')).resolves.toBeNull();
+  });
+});

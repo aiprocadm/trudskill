@@ -158,7 +158,8 @@ describe('MVP HTTP integration (domain invariants)', () => {
       { InMemoryConsentRepository },
       { LegalLogWriter },
       { LearnerDossierService },
-      { LegalLogReader }
+      { LegalLogReader },
+      { TenantUsageService }
     ] = await Promise.all([
       import('@nestjs/core'),
       import('@nestjs/throttler'),
@@ -189,7 +190,8 @@ describe('MVP HTTP integration (domain invariants)', () => {
       import('./consents/in-memory-consent.repository.js'),
       import('./esignature/legal-log.writer.js'),
       import('./identity/learner-dossier.service.js'),
-      import('./esignature/legal-log.reader.js')
+      import('./esignature/legal-log.reader.js'),
+      import('./usage/tenant-usage.service.js')
     ]);
 
     issueSignedAccessToken = cryptoImport.issueSignedAccessToken;
@@ -233,6 +235,12 @@ describe('MVP HTTP integration (domain invariants)', () => {
         { provide: LegalLogReader, useValue: { listByActor: async () => [] } },
         { provide: IamService, useValue: { getUser: async () => undefined } },
         LearnerDossierService,
+        // ФТ-D4.2 (Фаза 4 Task 5): гейт лимита слушателей на создании. Заглушка-пропуск:
+        // здесь проверяются доменные инварианты, лимиты тарифа покрыты юнитами гейта.
+        {
+          provide: TenantUsageService,
+          useValue: { assertCanAddLearners: async () => undefined, getUsage: async () => null }
+        },
         {
           provide: MvpRequestPersistenceInterceptor,
           scope: Scope.REQUEST,

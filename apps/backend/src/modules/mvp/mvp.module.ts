@@ -71,6 +71,8 @@ import { RostechnadzorXlsxWriter } from './rostechnadzor-registry/rostechnadzor-
 import { ScormContentController } from './scorm/scorm-content.controller.js';
 import { ScormController } from './scorm/scorm.controller.js';
 import { ScormService } from './scorm/scorm.service.js';
+import { TenantUsageController } from './usage/tenant-usage.controller.js';
+import { TenantUsageService } from './usage/tenant-usage.service.js';
 import {
   ESIA_IDENTITY_PROVIDER,
   NoopEsiaProvider
@@ -100,6 +102,7 @@ import { PostgresVideoAssetsRepository } from './video/postgres-video-assets.rep
 import { PostgresVideoProgressRepository } from './video/postgres-video-progress.repository.js';
 import { PostgresVideoProviderSettingsRepository } from './video/postgres-video-provider-settings.repository.js';
 import { TenantStorageService } from './video/tenant-storage.service.js';
+import { PlatformModule } from '../platform/platform.module.js';
 import { VideoAccessService } from './video/video-access.service.js';
 import { VIDEO_ASSETS_REPOSITORY } from './video/video-assets.repository.js';
 import { VideoPlaybackController } from './video/video-playback.controller.js';
@@ -131,10 +134,13 @@ import {
     DocumentsModule,
     OrgModule,
     CommunicationModule,
-    TenantModule
+    TenantModule,
+    // ФТ-D4: тариф тенанта для счётчиков использования и гейта новых слушателей.
+    PlatformModule
   ],
   controllers: [
     MvpController,
+    TenantUsageController,
     VideoController,
     IdentityPolicyController,
     SimpleSignatureController,
@@ -197,6 +203,7 @@ import {
       inject: [DatabaseService]
     },
     TenantStorageService,
+    TenantUsageService,
     VideoService,
     MvpBulkEnqueueService,
     PostgresMvpPersistenceBackend,

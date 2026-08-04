@@ -141,6 +141,7 @@ export const NAV_GROUPS: NavGroup[] = [
       '/admin/payments/settings',
       '/admin/webinars/settings',
       '/admin/licenses',
+      '/admin/usage',
       '/platform/tenants'
     ]
   }
