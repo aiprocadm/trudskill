@@ -97,7 +97,7 @@ importers:
         version: 0.5.17
       amqplib:
         specifier: ^1.0.2
-        version: 1.0.2
+        version: 1.2.0
       class-transformer:
         specifier: ^0.5.1
         version: 0.5.1
@@ -249,7 +249,7 @@ importers:
         version: link:../../packages/shared-types
       amqplib:
         specifier: ^1.0.2
-        version: 1.0.2
+        version: 1.2.0
       pg:
         specifier: ^8.20.0
         version: 8.20.0
@@ -1826,8 +1826,8 @@ packages:
   ajv@6.14.0:
     resolution: {integrity: sha512-IWrosm/yrn43eiKqkfkHis7QioDleaXQHdDVPKg0FSwwd/DuvyX79TZnFOnYpB7dcsFAMmtFztZuXPDvSePkFw==}
 
-  amqplib@1.0.2:
-    resolution: {integrity: sha512-QFzavIs3FxXA9/PWOiY/j5Arr7KFT0b1TYYsq9f5PyZ3Dv5H5hQXTK3fZTUUzzOo2BF1o/Vk5bHAKzlL40LfDA==}
+  amqplib@1.2.0:
+    resolution: {integrity: sha512-WVvkHAaL848/zjpJXXnN/80nPhCrwxlXWQFHTRDjbEGkwaKK+Ht+8iAC4LeKEzQTOJKxNnUGVLNy/70iFHkeEg==}
     engines: {node: '>=18'}
 
   ansi-escapes@7.3.0:
@@ -6267,7 +6267,7 @@ snapshots:
       json-schema-traverse: 0.4.1
       uri-js: 4.4.1
 
-  amqplib@1.0.2:
+  amqplib@1.2.0:
     dependencies:
       buffer-more-ints: 1.0.0
 
