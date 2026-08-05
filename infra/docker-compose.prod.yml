@@ -2,7 +2,7 @@ name: cdoprof
 
 services:
   postgres:
-    image: postgres:16
+    image: postgres:18
     env_file: .env.production
     volumes:
       - postgres-data:/var/lib/postgresql/data
