@@ -256,9 +256,11 @@ export const routeMeta: RouteMetaEntry[] = [
    * перенаправление ролей стало сверяться с картой доступа.
    */
   { pattern: '/learner', meta: { public: false, requiredPermissions: ['enrollments.read'] } },
-  // ФТ-H2 (Фаза 5 Task 2): сводка методиста. Право то же, что у списка групп — экран
-  // не показывает ничего, чего методист не увидел бы, открыв группы вручную.
-  { pattern: '/methodist', meta: { public: false, requiredPermissions: ['groups.read'] } },
+  // ФТ-H2 (Фаза 5 Task 2): сводка по обучению. Право `courses.read`, а не `groups.read`:
+  // у методиста прав на группы и зачисления нет вовсе (проверено на живой базе), и под
+  // `groups.read` экран был бы закрыт ровно от того, для кого сделан. Разделы внутри
+  // гейтятся по правам актора на сервере.
+  { pattern: '/methodist', meta: { public: false, requiredPermissions: ['courses.read'] } },
   { pattern: '/documents', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/registry', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/notifications', meta: { public: false, requiredPermissions: ['tenant.read'] } },
@@ -499,7 +501,7 @@ export const navigationModel: NavigationItem[] = [
   {
     href: '/methodist',
     label: 'Обучение: сводка',
-    requiredPermissions: ['groups.read'],
+    requiredPermissions: ['courses.read'],
     navSlot: 'more'
   },
   { href: '/registry', label: 'Реестр', requiredPermissions: ['tenant.read'], navSlot: 'more' },

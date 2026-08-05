@@ -50,16 +50,25 @@ export function MethodistHomeScreen() {
   }
 
   const data = dashboard.data;
+  // Скрытый раздел показывается как «нет доступа», а не исчезает: пропавший блок
+  // читается как поломка, и человек идёт искать несуществующую проблему.
+  const hidden = (key: string) => data.hiddenSections.includes(key);
 
   return (
     <PageContainer>
       <PageHeader
         title="Обучение: сводка"
-        subtitle={`Групп в работе: ${data.totals.activeGroups} · слушателей: ${data.totals.activeLearners}`}
+        subtitle={
+          hidden('schedule')
+            ? 'Сроки и группы доступны сотрудникам с правом на зачисления'
+            : `Групп в работе: ${data.totals.activeGroups} · слушателей: ${data.totals.activeLearners}`
+        }
       />
 
       <SectionCard title={`Просрочено (${data.overdueGroups.length})`}>
-        {data.overdueGroups.length === 0 ? (
+        {hidden('schedule') ? (
+          <SectionEmpty message="Нет доступа к срокам обучения" />
+        ) : data.overdueGroups.length === 0 ? (
           <SectionEmpty message="Просрочек нет" />
         ) : (
           <ul className="ui-stack">
@@ -76,7 +85,9 @@ export function MethodistHomeScreen() {
       <SectionCard
         title={`Ближайшие сроки, ${data.horizonDays} дн. (${data.upcomingDeadlines.length})`}
       >
-        {data.upcomingDeadlines.length === 0 ? (
+        {hidden('schedule') ? (
+          <SectionEmpty message="Нет доступа к срокам обучения" />
+        ) : data.upcomingDeadlines.length === 0 ? (
           <SectionEmpty message="В ближайшие две недели сроков нет" />
         ) : (
           <ul className="ui-stack">
@@ -90,8 +101,10 @@ export function MethodistHomeScreen() {
         )}
       </SectionCard>
 
-      <SectionCard title={`Ждут проверки (${data.reviewQueue.total})`}>
-        {data.reviewQueue.total === 0 ? (
+      <SectionCard title={`Ждут проверки (${data.reviewQueue?.total ?? 0})`}>
+        {!data.reviewQueue ? (
+          <SectionEmpty message="Проверка работ не входит в ваши задачи" />
+        ) : data.reviewQueue.total === 0 ? (
           <SectionEmpty message="Непроверенных работ нет" />
         ) : (
           <p className="ui-prose-muted">
@@ -112,8 +125,10 @@ export function MethodistHomeScreen() {
             </p>
             <ul className="ui-stack">
               {data.coursesWithoutExam.map((item) => (
-                <li key={`${item.groupId}:${item.courseId}`}>
-                  {item.groupName} —{' '}
+                <li key={`${item.groupId ?? 'all'}:${item.courseId}`}>
+                  {/* Название группы приходит только тем, кому разрешено видеть состав
+                      обучения; остальным показывается сама программа. */}
+                  {item.groupName ? `${item.groupName} — ` : ''}
                   <Link href={`/courses/${item.courseId}`}>{item.courseTitle}</Link>
                 </li>
               ))}
