@@ -29,7 +29,7 @@ describe('resolveRoleHome (ФТ-H2, Фаза 5 Task 1)', () => {
       counterparty_rep: '/counterparty-portal',
       tenant_admin: '/workspace',
       platform_admin: '/workspace',
-      methodist: '/courses',
+      methodist: '/methodist',
       manager: '/groups'
     };
 
@@ -49,7 +49,7 @@ describe('resolveRoleHome (ФТ-H2, Фаза 5 Task 1)', () => {
   it('синонимы ролей распознаются', () => {
     expect(resolveRoleHome(session(['student']), allowAll)).toBe('/learner');
     expect(resolveRoleHome(session(['Admin']), allowAll)).toBe('/workspace');
-    expect(resolveRoleHome(session(['methodologist']), allowAll)).toBe('/courses');
+    expect(resolveRoleHome(session(['methodologist']), allowAll)).toBe('/methodist');
   });
 
   it('при нескольких ролях выигрывает более ранняя в таблице', () => {
@@ -96,7 +96,7 @@ describe('resolveRoleHome (ФТ-H2, Фаза 5 Task 1)', () => {
       ['counterparty_rep', ['portal.read'], '/counterparty-portal'],
       ['tenant_admin', ['tenant.read'], '/workspace'],
       ['platform_admin', ['tenant.read'], '/workspace'],
-      ['methodist', ['courses.read'], '/courses'],
+      ['methodist', ['groups.read'], '/methodist'],
       ['manager', ['groups.read'], '/groups']
     ];
     for (const [role, permissions, href] of byRole) {

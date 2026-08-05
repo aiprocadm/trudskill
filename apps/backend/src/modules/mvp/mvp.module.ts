@@ -8,6 +8,7 @@ import { CONSENT_REPOSITORY } from './consents/consent.repository.js';
 import { ConsentService } from './consents/consent.service.js';
 import { InMemoryConsentRepository } from './consents/in-memory-consent.repository.js';
 import { PostgresConsentRepository } from './consents/postgres-consent.repository.js';
+import { MethodistDashboardService } from './dashboards/methodist-dashboard.service.js';
 import { EisotTestingRegistryController } from './eisot-testing-registry/eisot-testing-registry.controller.js';
 import { EisotTestingRegistryService } from './eisot-testing-registry/eisot-testing-registry.service.js';
 import { EisotTestingXlsxWriter } from './eisot-testing-registry/eisot-testing-xlsx.writer.js';
@@ -248,6 +249,12 @@ import {
     LearnerDossierService,
     // ФТ-G6 (Фаза 4 Task 12) — права субъекта ПДн: выгрузка и обезличивание.
     LearnerPiiService,
+    // ФТ-H2 (Фаза 5 Task 2) — дашборд методиста: считается из состояния на лету.
+    {
+      provide: MethodistDashboardService,
+      scope: Scope.REQUEST,
+      useClass: MethodistDashboardService
+    },
     // ФТ-C1.1 (Фаза 3 Task 3) — ПЭП: соглашение и подписанные действия.
     LegalLogWriter,
     PostgresSimpleSignatureRepository,

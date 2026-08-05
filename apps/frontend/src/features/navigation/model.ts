@@ -256,6 +256,9 @@ export const routeMeta: RouteMetaEntry[] = [
    * перенаправление ролей стало сверяться с картой доступа.
    */
   { pattern: '/learner', meta: { public: false, requiredPermissions: ['enrollments.read'] } },
+  // ФТ-H2 (Фаза 5 Task 2): сводка методиста. Право то же, что у списка групп — экран
+  // не показывает ничего, чего методист не увидел бы, открыв группы вручную.
+  { pattern: '/methodist', meta: { public: false, requiredPermissions: ['groups.read'] } },
   { pattern: '/documents', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/registry', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/notifications', meta: { public: false, requiredPermissions: ['tenant.read'] } },
@@ -489,6 +492,14 @@ export const navigationModel: NavigationItem[] = [
     href: '/workspace',
     label: 'Оперативная панель',
     requiredPermissions: ['tenant.read'],
+    navSlot: 'more'
+  },
+  // ФТ-H2 (Фаза 5 Task 2): сводка методиста. Пункт нужен и в навигации, а не только
+  // как точка приземления: методист уходит с неё в группы и возвращается обратно.
+  {
+    href: '/methodist',
+    label: 'Обучение: сводка',
+    requiredPermissions: ['groups.read'],
     navSlot: 'more'
   },
   { href: '/registry', label: 'Реестр', requiredPermissions: ['tenant.read'], navSlot: 'more' },

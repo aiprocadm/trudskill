@@ -86,11 +86,18 @@ describe('MVP HTTP integration (domain invariants)', () => {
   });
   /** Токены `tokenFor()` используют `sub=u_domain_http_actor` — ему нужен bypass list/GET для staff-сценариев. */
   const MVP_HTTP_STAFF_SUB = 'u_domain_http_actor';
+  /** Актор с полным набором прав МИНУС `groups.read`. */
+  const MVP_HTTP_NO_GROUPS_SUB = 'u_domain_http_no_groups';
   const iamServiceMock = {
     resolvePermissions: vi.fn().mockImplementation((_tenantId: string, userId: string) => {
       const perms = [...MVP_DOMAIN_HTTP_PERMS];
       if (userId === MVP_HTTP_STAFF_SUB) {
         perms.push('assessment.read.cross_learner', 'learners.act_as');
+      }
+      // Актор без `groups.read` — нужен, чтобы проверять границу прав на закрытых
+      // ручках (Фаза 5 Task 2). Отдельный `sub`, чтобы не трогать остальные сценарии.
+      if (userId === MVP_HTTP_NO_GROUPS_SUB) {
+        return Promise.resolve(perms.filter((code) => code !== 'groups.read'));
       }
       return Promise.resolve(perms);
     }),
@@ -160,7 +167,8 @@ describe('MVP HTTP integration (domain invariants)', () => {
       { LearnerDossierService },
       { LegalLogReader },
       { TenantUsageService },
-      { LearnerPiiService }
+      { LearnerPiiService },
+      { MethodistDashboardService }
     ] = await Promise.all([
       import('@nestjs/core'),
       import('@nestjs/throttler'),
@@ -193,7 +201,8 @@ describe('MVP HTTP integration (domain invariants)', () => {
       import('./identity/learner-dossier.service.js'),
       import('./esignature/legal-log.reader.js'),
       import('./usage/tenant-usage.service.js'),
-      import('./pii/learner-pii.service.js')
+      import('./pii/learner-pii.service.js'),
+      import('./dashboards/methodist-dashboard.service.js')
     ]);
 
     issueSignedAccessToken = cryptoImport.issueSignedAccessToken;
@@ -240,6 +249,13 @@ describe('MVP HTTP integration (domain invariants)', () => {
         // ФТ-G6 (Фаза 4 Task 12): контроллер отдаёт выгрузку и обезличивание ПДн.
         // Сервис настоящий — зависимости у него те же, что у «личного дела».
         { provide: LearnerPiiService, scope: Scope.REQUEST, useClass: LearnerPiiService },
+        // ФТ-H2 (Фаза 5 Task 2): контроллер отдаёт дашборд методиста; сервису нужно
+        // только состояние тенанта, которое здесь уже поднято.
+        {
+          provide: MethodistDashboardService,
+          scope: Scope.REQUEST,
+          useClass: MethodistDashboardService
+        },
         // ФТ-D4.2 (Фаза 4 Task 5): гейт лимита слушателей на создании. Заглушка-пропуск:
         // здесь проверяются доменные инварианты, лимиты тарифа покрыты юнитами гейта.
         {
@@ -300,10 +316,10 @@ describe('MVP HTTP integration (domain invariants)', () => {
     'x-tenant-id': 'tenant_demo'
   });
 
-  const tokenFor = (sessionId: string): string =>
+  const tokenFor = (sessionId: string, sub = 'u_domain_http_actor'): string =>
     issueSignedAccessToken(
       {
-        sub: 'u_domain_http_actor',
+        sub,
         tenant_id: 'tenant_demo',
         session_id: sessionId,
         roles: ['tenant_admin']
@@ -311,6 +327,24 @@ describe('MVP HTTP integration (domain invariants)', () => {
       process.env.AUTH_JWT_SECRET ?? 'secret_value_123',
       3600
     );
+
+  // ФТ-H2 (Фаза 5 Task 2) — граница прав дашборда методиста.
+  it('HTTP GET /dashboards/methodist: 200 с groups.read', async () => {
+    const res = await fetch(`${apiBaseUrl}/dashboards/methodist`, {
+      headers: hdr(tokenFor('sess_methodist_dashboard_ok'))
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { totals: unknown; reviewQueue: unknown } };
+    expect(body.data.totals).toBeDefined();
+    expect(body.data.reviewQueue).toBeDefined();
+  });
+
+  it('HTTP GET /dashboards/methodist: 403 без groups.read', async () => {
+    const res = await fetch(`${apiBaseUrl}/dashboards/methodist`, {
+      headers: hdr(tokenFor('sess_methodist_dashboard_denied', MVP_HTTP_NO_GROUPS_SUB))
+    });
+    expect(res.status).toBe(403);
+  });
 
   it('HTTP GET /courses/:id: tenant_demo JWT cannot read course stored only under tenant_other', async () => {
     expect(memoryMvpPersistenceRef).toBeDefined();
