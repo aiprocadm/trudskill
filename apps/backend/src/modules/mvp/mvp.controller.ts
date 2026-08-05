@@ -83,6 +83,7 @@ import {
   VerifyPreExamTokenRequest
 } from './mvp.dto.js';
 import { MvpService } from './mvp.service.js';
+import { LearnerPiiService } from './pii/learner-pii.service.js';
 import { BuildReportRequestDto, SaveReportTemplateDto } from './report-builder.dto.js';
 import { UpdateCounterpartyExtendedRequest } from './update-counterparty-extended.dto.js';
 import { UpdateLearnerExtendedRequest } from './update-learner-extended.dto.js';
@@ -125,6 +126,7 @@ export class MvpController {
     @Inject(IdentityPolicyService) private readonly identityPolicies: IdentityPolicyService,
     @Inject(ConsentService) private readonly consents: ConsentService,
     @Inject(LearnerDossierService) private readonly learnerDossierService: LearnerDossierService,
+    @Inject(LearnerPiiService) private readonly learnerPiiService: LearnerPiiService,
     @Inject(IamService) private readonly iamService: IamService,
     @Inject(TenantUsageService) private readonly tenantUsage: TenantUsageService
   ) {}
@@ -302,6 +304,38 @@ export class MvpController {
     // inline: дело чаще смотрят, чем сохраняют; имя файла без ПДн.
     res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
     return new StreamableFile(pdf);
+  }
+
+  /**
+   * ФТ-G6 (Фаза 4 Task 12) — выгрузка персональных данных слушателя (152-ФЗ ст. 14).
+   *
+   * Право `learners.pii.manage`, а не `learners.read`: карточку смотрит любой методист,
+   * а полную выгрузку со СНИЛСом, телефоном и привязкой к учётной записи — только
+   * администрация центра, отрабатывающая заявление субъекта.
+   */
+  @Get('learners/:id/personal-data')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learners.pii.manage')
+  exportLearnerPersonalData(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.learnerPiiService.exportPersonalData(c.tenantId!, c.userId, id, c);
+  }
+
+  /**
+   * ФТ-G6 — прекращение обработки по отзыву согласия.
+   *
+   * `POST .../erasure`, а не `DELETE .../personal-data`: DELETE обещает удаление, а здесь
+   * происходит обезличивание — документы об обучении по закону остаются. Ответ перечисляет
+   * и стёртое, и сохранённое с основанием, чтобы администратор мог ответить заявителю.
+   */
+  @Post('learners/:id/personal-data/erasure')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('learners.pii.manage')
+  eraseLearnerPersonalData(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() body: { reason?: string }
+  ) {
+    return this.learnerPiiService.erasePersonalData(c.tenantId!, c.userId, id, c, body?.reason);
   }
 
   /**

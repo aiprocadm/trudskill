@@ -43,6 +43,18 @@ export interface LearnerEditFormState {
   status: LearnerStatus;
 }
 
+/**
+ * ФТ-G6: отчёт об обезличивании. Перечисляет и стёртое, и СОХРАНЁННОЕ с основанием —
+ * администратору этим отвечать заявителю, а «данные удалены» без оговорок было бы
+ * неправдой: документы об обучении остаются.
+ */
+export interface LearnerErasureReport {
+  learnerId: string;
+  erasedFields: string[];
+  retained: { what: string; reason: string }[];
+  identityImagesPurged: number;
+}
+
 export interface UpdateLearnerProfilePayload {
   firstName?: string;
   lastName?: string;

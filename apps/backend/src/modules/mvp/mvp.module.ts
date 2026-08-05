@@ -57,6 +57,7 @@ import { OtRegistryXlsxWriter } from './ot-registry/ot-registry-xlsx.writer.js';
 import { OtRegistryXmlWriter } from './ot-registry/ot-registry-xml.writer.js';
 import { OtRegistryController } from './ot-registry/ot-registry.controller.js';
 import { OtRegistryService } from './ot-registry/ot-registry.service.js';
+import { LearnerPiiService } from './pii/learner-pii.service.js';
 import { ProctoringRetentionScanner } from './proctoring/proctoring-retention-scanner.service.js';
 import { ProctoringRetentionSchedulerService } from './proctoring/proctoring-retention-scheduler.service.js';
 import { InMemoryRecertificationDraftsState } from './recertification/in-memory-recertification-drafts.state.js';
@@ -245,6 +246,8 @@ import {
     // ФТ-C2 (Фаза 3 Task 9) — «личное дело слушателя»: сборка из существующих источников.
     LegalLogReader,
     LearnerDossierService,
+    // ФТ-G6 (Фаза 4 Task 12) — права субъекта ПДн: выгрузка и обезличивание.
+    LearnerPiiService,
     // ФТ-C1.1 (Фаза 3 Task 3) — ПЭП: соглашение и подписанные действия.
     LegalLogWriter,
     PostgresSimpleSignatureRepository,

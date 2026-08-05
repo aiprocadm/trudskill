@@ -5,6 +5,7 @@ import { useState } from 'react';
 
 import { STATUS_LABEL, buildUpdatePayload } from './format';
 import { useUpdateLearnerProfile } from './hooks';
+import { LearnerPiiPanel } from './learner-pii-panel';
 
 import type { LearnerEditFormState, LearnerListItem, LearnerStatus } from './types';
 
@@ -160,6 +161,14 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
           </button>
         </div>
       </form>
+
+      {/* ФТ-G6: панель вне <form> — обезличивание не должно уехать по случайному Enter
+          в текстовом поле, как отправка формы. */}
+      <LearnerPiiPanel
+        learnerId={learner.id}
+        learnerLabel={[learner.lastName, learner.firstName].filter(Boolean).join(' ')}
+        onErased={onSaved}
+      />
     </Dialog>
   );
 }
