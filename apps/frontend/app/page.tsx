@@ -7,6 +7,7 @@ import { useEffect, useMemo } from 'react';
 import { PageContainer, PageHeader, SectionCard } from '../src/components/state-wrappers';
 import { useAuth } from '../src/features/auth/context';
 import { getPrimaryRoleBlueprint } from '../src/features/navigation/role-blueprints';
+import { resolveRoleHome } from '../src/features/navigation/role-home';
 import { getJourneyByRole } from '../src/features/navigation/role-journeys';
 import { recordJourneyStep, startMetricTimer } from '../src/lib/analytics/ux-metrics';
 import { ProtectedPage } from '../src/widgets/shell/protected-page';
@@ -84,12 +85,13 @@ export default function DashboardPage() {
     startMetricTimer('time_to_start_learning');
   }, []);
 
+  // ФТ-H2 (Фаза 5 Task 1): каждая роль приземляется на СВОЙ экран, а не на витрину
+  // ссылок. Раньше перенаправлялся только слушатель, а `manager` и `counterparty_rep`
+  // видели пустую страницу с надписью «Роль не определена».
   useEffect(() => {
     if (loading || !session) return;
-    const roles = new Set((session.roles ?? []).map(normalizeRole));
-    if (roles.has('learner')) {
-      router.replace('/learner');
-    }
+    const home = resolveRoleHome(session);
+    if (home) router.replace(home);
   }, [loading, router, session]);
 
   const role = useMemo(() => getPrimaryRoleBlueprint(session ?? null), [session]);
