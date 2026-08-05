@@ -46,10 +46,9 @@ export const ROLE_HOME_ROUTES: ReadonlyArray<{ role: string; href: string }> = [
   { role: 'counterparty_rep', href: '/counterparty-portal' },
   { role: 'tenant_admin', href: '/workspace' },
   { role: 'platform_admin', href: '/workspace' },
-  // Методист живёт программами и материалами, менеджер — группами и клиентами.
-  // Собственных дашбордов у них пока нет (Фаза 5 Task 2) — до тех пор ведём на
-  // основной рабочий раздел, а не на витрину ссылок.
-  { role: 'methodist', href: '/courses' },
+  // Фаза 5 Task 2: у методиста появилась своя сводка — ведём на неё, а не на список
+  // курсов. У менеджера дашборда нет, поэтому он идёт в основной рабочий раздел.
+  { role: 'methodist', href: '/methodist' },
   { role: 'manager', href: '/groups' }
 ];
 

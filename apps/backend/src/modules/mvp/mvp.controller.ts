@@ -21,6 +21,7 @@ import { IsString, ValidateIf } from 'class-validator';
 import { AddTestQuestionRequest, ReorderTestQuestionRequest } from './add-test-question.dto.js';
 import { ConsentService } from './consents/consent.service.js';
 import { CreateCounterpartyExtendedRequest } from './create-counterparty-extended.dto.js';
+import { MethodistDashboardService } from './dashboards/methodist-dashboard.service.js';
 import { backendEnv } from '../../env.js';
 import { IdentityPolicyService } from './identity/identity-policy.service.js';
 import { LearnerDossierService } from './identity/learner-dossier.service.js';
@@ -127,6 +128,8 @@ export class MvpController {
     @Inject(ConsentService) private readonly consents: ConsentService,
     @Inject(LearnerDossierService) private readonly learnerDossierService: LearnerDossierService,
     @Inject(LearnerPiiService) private readonly learnerPiiService: LearnerPiiService,
+    @Inject(MethodistDashboardService)
+    private readonly methodistDashboardService: MethodistDashboardService,
     @Inject(IamService) private readonly iamService: IamService,
     @Inject(TenantUsageService) private readonly tenantUsage: TenantUsageService
   ) {}
@@ -304,6 +307,20 @@ export class MvpController {
     // inline: дело чаще смотрят, чем сохраняют; имя файла без ПДн.
     res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
     return new StreamableFile(pdf);
+  }
+
+  /**
+   * ФТ-H2 (Фаза 5 Task 2) — дашборд методиста: «где сейчас горит по обучению».
+   *
+   * Право существующее — `groups.read`: дашборд не показывает ничего, чего методист
+   * не увидел бы, открыв списки групп и зачислений вручную. Заводить ради сводки
+   * отдельное право значило бы плодить миграцию и раздачу без нового полномочия.
+   */
+  @Get('dashboards/methodist')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('groups.read')
+  getMethodistDashboard(@CurrentContext() c: RequestContext) {
+    return this.methodistDashboardService.compose(c.tenantId!);
   }
 
   /**

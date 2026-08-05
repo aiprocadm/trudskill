@@ -39,7 +39,16 @@ export const NAV_GROUPS: NavGroup[] = [
     id: 'overview',
     label: 'Обзор',
     icon: LayoutDashboardIcon,
-    hrefs: ['/', '/workspace', '/student/dashboard', '/learning/calendar', '/admin/cockpit']
+    // `/methodist` — сводка методиста (ФТ-H2, Фаза 5 Task 2): такой же обзорный экран,
+    // как `/workspace` у администратора, поэтому живёт в том же блоке.
+    hrefs: [
+      '/',
+      '/workspace',
+      '/methodist',
+      '/student/dashboard',
+      '/learning/calendar',
+      '/admin/cockpit'
+    ]
   },
   {
     id: 'my-learning',
