@@ -88,7 +88,7 @@ describe('MVP HTTP integration (domain invariants)', () => {
   const MVP_HTTP_STAFF_SUB = 'u_domain_http_actor';
   /** Акторы с полным набором прав МИНУС одно — для проверки границ и гейтинга разделов. */
   const MVP_HTTP_NO_COURSES_SUB = 'u_domain_http_no_courses';
-  const MVP_HTTP_NO_ENROLLMENTS_SUB = 'u_domain_http_no_enrollments';
+  const MVP_HTTP_NO_GROUPS_SUB = 'u_domain_http_no_groups';
   const iamServiceMock = {
     resolvePermissions: vi.fn().mockImplementation((_tenantId: string, userId: string) => {
       const perms = [...MVP_DOMAIN_HTTP_PERMS];
@@ -100,8 +100,8 @@ describe('MVP HTTP integration (domain invariants)', () => {
       if (userId === MVP_HTTP_NO_COURSES_SUB) {
         return Promise.resolve(perms.filter((code) => code !== 'courses.read'));
       }
-      if (userId === MVP_HTTP_NO_ENROLLMENTS_SUB) {
-        return Promise.resolve(perms.filter((code) => code !== 'enrollments.read'));
+      if (userId === MVP_HTTP_NO_GROUPS_SUB) {
+        return Promise.resolve(perms.filter((code) => code !== 'groups.read'));
       }
       return Promise.resolve(perms);
     }),
@@ -350,9 +350,11 @@ describe('MVP HTTP integration (domain invariants)', () => {
     expect(res.status).toBe(403);
   });
 
-  it('HTTP GET /dashboards/methodist: без права на зачисления сроки скрыты', async () => {
+  it('HTTP GET /dashboards/methodist: без права на группы сроки скрыты', async () => {
+    // Сроки закрыты `groups.read`, а НЕ `enrollments.read`: последнее есть и у
+    // слушателя — оно про свои зачисления, а не про чужие.
     const res = await fetch(`${apiBaseUrl}/dashboards/methodist`, {
-      headers: hdr(tokenFor('sess_methodist_dashboard_no_enroll', MVP_HTTP_NO_ENROLLMENTS_SUB))
+      headers: hdr(tokenFor('sess_methodist_dashboard_no_groups', MVP_HTTP_NO_GROUPS_SUB))
     });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { data: { hiddenSections: string[] } };

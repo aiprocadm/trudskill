@@ -40,8 +40,12 @@ function harness() {
   return new MethodistDashboardService(state);
 }
 
-const METHODIST = ['courses.read', 'assessment.tests.read', 'assessment.reviews.review'];
-const MANAGER = ['courses.read', 'groups.read', 'enrollments.read'];
+// Наборы прав взяты с боевой базы (`iam.role_permissions`), а не выдуманы: именно
+// расхождение выдуманных прав с настоящими и породило ошибку первой версии.
+const METHODIST = ['courses.read', 'courses.write', 'assessment.reviews.review'];
+const MANAGER = ['courses.read', 'groups.read', 'enrollments.read', 'assessment.reviews.review'];
+/** У слушателя ЕСТЬ `courses.read` и `enrollments.read` — но только на СВОИ данные. */
+const LEARNER = ['courses.read', 'enrollments.read'];
 
 describe('MethodistDashboardService — гейтинг разделов по правам (ФТ-H2)', () => {
   it('методист НЕ получает сроки: прав на зачисления у него нет', () => {
@@ -63,10 +67,21 @@ describe('MethodistDashboardService — гейтинг разделов по п�
     expect(JSON.stringify(result)).not.toContain('Группа 1');
   });
 
-  it('менеджер получает и сроки, и группы в пробелах', () => {
+  it('менеджер получает сроки, но НЕ методические пробелы', () => {
+    // Менеджер ведёт группы и сроки; доделывать программы — не его работа, и права
+    // `courses.write` у него нет.
     const result = harness().compose(T, MANAGER, ASOF);
 
     expect(result.hiddenSections).not.toContain('schedule');
+    expect(result.overdueGroups).toHaveLength(1);
+    expect(result.hiddenSections).toContain('coursesWithoutExam');
+  });
+
+  it('администратор видит всё — и пробелы с привязкой к группам', () => {
+    const admin = [...MANAGER, 'courses.write'];
+    const result = harness().compose(T, admin, ASOF);
+
+    expect(result.hiddenSections).toHaveLength(0);
     expect(result.overdueGroups).toHaveLength(1);
     expect(result.coursesWithoutExam[0]?.groupName).toBe('Группа 1');
   });
@@ -74,19 +89,20 @@ describe('MethodistDashboardService — гейтинг разделов по п�
   it('очередь проверки приходит только проверяющему', () => {
     expect(harness().compose(T, METHODIST, ASOF).reviewQueue).toBeDefined();
 
-    const manager = harness().compose(T, MANAGER, ASOF);
-    expect(manager.reviewQueue).toBeUndefined();
-    expect(manager.hiddenSections).toContain('reviewQueue');
+    const noReview = harness().compose(T, ['groups.read', 'enrollments.read'], ASOF);
+    expect(noReview.reviewQueue).toBeUndefined();
+    expect(noReview.hiddenSections).toContain('reviewQueue');
   });
 
-  it('актор без единого права получает пустую сводку, а не чужие данные', () => {
-    const result = harness().compose(T, [], ASOF);
+  it('СЛУШАТЕЛЬ не попадает на экран персонала — отказ, а не пустая сводка', () => {
+    // У слушателя есть `enrollments.read` (свои зачисления) и `courses.read`. Гейт по
+    // ним открыл бы ему сроки ВСЕХ групп центра — живой прогон это и показал.
+    // Ни один раздел ему не положен, значит это чужой экран, а не пустая сводка.
+    expect(() => harness().compose(T, LEARNER, ASOF)).toThrow();
+  });
 
-    expect(result.hiddenSections).toEqual(
-      expect.arrayContaining(['schedule', 'coursesWithoutExam', 'reviewQueue'])
-    );
-    expect(result.coursesWithoutExam).toHaveLength(0);
-    expect(JSON.stringify(result)).not.toContain('Охрана труда');
+  it('актор без единого права получает отказ', () => {
+    expect(() => harness().compose(T, [], ASOF)).toThrow();
   });
 
   it('чужой тенант в выдачу не попадает', () => {
