@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 
 import {
   type CourseWithoutExam,
@@ -83,9 +83,12 @@ export class MethodistDashboardService {
 
     const hiddenSections: string[] = [];
 
-    // Сроки и группы — только по праву на зачисления: именно оно разрешает видеть,
-    // кто и до какого числа учится.
-    const canSeeSchedule = can('enrollments.read');
+    // Сроки и группы — по `groups.read`, а НЕ по `enrollments.read`. Это не придирка:
+    // `enrollments.read` есть и у слушателя — оно разрешает видеть СВОИ зачисления,
+    // а не чужие. Гейт по нему открыл бы слушателю сроки всех групп центра. Живой
+    // прогон это и показал: слушатель получал сводку с незакрытым разделом сроков.
+    // `groups.read` выдан только менеджеру и администрации — тем, кто ведёт группы.
+    const canSeeSchedule = can('groups.read');
     const schedule = canSeeSchedule
       ? buildMethodistDashboard(
           {
@@ -101,10 +104,11 @@ export class MethodistDashboardService {
       : emptyScheduleSections(asOf, horizonDays);
     if (!canSeeSchedule) hiddenSections.push('schedule');
 
-    // Пробелы в программах — по праву на курсы: это разговор о содержании обучения,
-    // а не о людях. Без права на зачисления они считаются ПО КУРСАМ, без названий
-    // групп: иначе состав обучения утёк бы тому, кому его видеть не разрешено.
-    const canSeeCourseGaps = can('courses.read');
+    // Пробелы в программах — по `courses.write`, а не `courses.read`: читать курсы
+    // может и слушатель, а «в какой программе не доделан экзамен» — внутренняя
+    // методическая кухня центра. Без права на группы пробелы считаются ПО КУРСАМ,
+    // без названий групп: иначе состав обучения утёк бы тому, кому его не выдавали.
+    const canSeeCourseGaps = can('courses.write');
     let coursesWithoutExam: CourseWithoutExam[] = [];
     if (!canSeeCourseGaps) {
       hiddenSections.push('coursesWithoutExam');
@@ -136,6 +140,16 @@ export class MethodistDashboardService {
       };
     } else {
       hiddenSections.push('reviewQueue');
+    }
+
+    // Если человеку не положен НИ ОДИН раздел — это не пустая сводка, а чужой экран.
+    // Отдавать пустышку значило бы пустить слушателя на страницу персонала: он ничего
+    // не увидит, но будет думать, что должен был.
+    if (hiddenSections.length === 3) {
+      throw new ForbiddenException({
+        code: 'permission_denied',
+        message: 'Сводка по обучению доступна сотрудникам центра'
+      });
     }
 
     return {

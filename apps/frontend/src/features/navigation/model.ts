@@ -256,10 +256,10 @@ export const routeMeta: RouteMetaEntry[] = [
    * перенаправление ролей стало сверяться с картой доступа.
    */
   { pattern: '/learner', meta: { public: false, requiredPermissions: ['enrollments.read'] } },
-  // ФТ-H2 (Фаза 5 Task 2): сводка по обучению. Право `courses.read`, а не `groups.read`:
-  // у методиста прав на группы и зачисления нет вовсе (проверено на живой базе), и под
-  // `groups.read` экран был бы закрыт ровно от того, для кого сделан. Разделы внутри
-  // гейтятся по правам актора на сервере.
+  // ФТ-H2 (Фаза 5 Task 2): сводка по обучению. Право `courses.read` — самое широкое из
+  // тех, что нужны хотя бы одному разделу; окончательное решение принимает сервер,
+  // который гейтит разделы по правам актора и отвечает отказом, если не положен ни один
+  // (у слушателя `courses.read` есть, но экран персонала ему не открывается).
   { pattern: '/methodist', meta: { public: false, requiredPermissions: ['courses.read'] } },
   { pattern: '/documents', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/registry', meta: { public: false, requiredPermissions: ['tenant.read'] } },

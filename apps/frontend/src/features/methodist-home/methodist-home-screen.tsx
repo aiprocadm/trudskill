@@ -60,7 +60,7 @@ export function MethodistHomeScreen() {
         title="Обучение: сводка"
         subtitle={
           hidden('schedule')
-            ? 'Сроки и группы доступны сотрудникам с правом на зачисления'
+            ? 'Сроки и группы доступны тем, кто ведёт группы'
             : `Групп в работе: ${data.totals.activeGroups} · слушателей: ${data.totals.activeLearners}`
         }
       />
@@ -116,7 +116,9 @@ export function MethodistHomeScreen() {
       </SectionCard>
 
       <SectionCard title={`Программы без итогового экзамена (${data.coursesWithoutExam.length})`}>
-        {data.coursesWithoutExam.length === 0 ? (
+        {hidden('coursesWithoutExam') ? (
+          <SectionEmpty message="Доработка программ не входит в ваши задачи" />
+        ) : data.coursesWithoutExam.length === 0 ? (
           <SectionEmpty message="У всех программ в группах есть опубликованный экзамен" />
         ) : (
           <>
