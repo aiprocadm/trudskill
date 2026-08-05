@@ -310,17 +310,23 @@ export class MvpController {
   }
 
   /**
-   * ФТ-H2 (Фаза 5 Task 2) — дашборд методиста: «где сейчас горит по обучению».
+   * ФТ-H2 (Фаза 5 Task 2) — сводка по обучению: «где сейчас горит».
    *
-   * Право существующее — `groups.read`: дашборд не показывает ничего, чего методист
-   * не увидел бы, открыв списки групп и зачислений вручную. Заводить ради сводки
-   * отдельное право значило бы плодить миграцию и раздачу без нового полномочия.
+   * **Право `courses.read`, а не `groups.read` — это выяснилось живым прогоном.**
+   * У методиста в этой системе НЕТ прав на группы и зачисления: его роль про
+   * содержание (курсы, материалы, тесты), а группами и сроками ведает менеджер.
+   * Ручка под `groups.read` была бы закрыта ровно от того, для кого написана.
+   *
+   * Наполнение разделов гейтится ПО ПРАВАМ актора внутри сервиса: сроки — по
+   * `enrollments.read`, очередь — по `assessment.reviews.review`. Так один адрес
+   * честно работает и для методиста, и для менеджера, и для администратора, не
+   * показывая никому лишнего.
    */
   @Get('dashboards/methodist')
   @UseGuards(PermissionGuard)
-  @RequirePermissions('groups.read')
+  @RequirePermissions('courses.read')
   getMethodistDashboard(@CurrentContext() c: RequestContext) {
-    return this.methodistDashboardService.compose(c.tenantId!);
+    return this.methodistDashboardService.compose(c.tenantId!, c.permissions ?? []);
   }
 
   /**

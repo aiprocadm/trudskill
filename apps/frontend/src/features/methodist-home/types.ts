@@ -17,10 +17,11 @@ export interface OverdueGroup {
 }
 
 export interface CourseWithoutExam {
-  groupId: string;
-  groupName: string;
   courseId: string;
   courseTitle: string;
+  /** Группа приходит только тем, кому разрешено видеть состав обучения. */
+  groupId?: string;
+  groupName?: string;
 }
 
 export interface MethodistDashboard {
@@ -36,9 +37,12 @@ export interface MethodistDashboard {
     overdueGroups: number;
     coursesWithoutExam: number;
   };
-  reviewQueue: {
+  /** Приходит только тем, кто проверяет работы. */
+  reviewQueue?: {
     pendingAttempts: number;
     pendingSubmissions: number;
     total: number;
   };
+  /** Разделы, скрытые из-за нехватки прав — показываются как «нет доступа». */
+  hiddenSections: string[];
 }

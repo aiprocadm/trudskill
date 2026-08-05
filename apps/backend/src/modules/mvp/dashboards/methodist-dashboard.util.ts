@@ -49,10 +49,34 @@ export interface OverdueGroup {
 }
 
 export interface CourseWithoutExam {
-  groupId: string;
-  groupName: string;
   courseId: string;
   courseTitle: string;
+  /**
+   * Группа указывается только тем, кому разрешено видеть состав обучения. Методист
+   * прав на группы и зачисления НЕ имеет (проверено на живой базе), и название
+   * группы в его выдаче было бы утечкой — поэтому поля необязательные.
+   */
+  groupId?: string;
+  groupName?: string;
+}
+
+/**
+ * Курсы без ОПУБЛИКОВАННОГО итогового теста — разговор о содержании обучения, а не
+ * о людях. Итоговый тест — тот, что не привязан к модулю (`moduleId` пуст); тесты
+ * модулей промежуточные и экзамена не заменяют.
+ */
+export function coursesMissingFinalExam(
+  courses: Course[],
+  tests: TestEntity[]
+): CourseWithoutExam[] {
+  const covered = new Set(
+    tests
+      .filter((test) => !test.moduleId && !test.isArchived && Boolean(test.publishedAt))
+      .map((test) => test.courseId)
+  );
+  return courses
+    .filter((course) => !course.isArchived && !covered.has(course.id))
+    .map((course) => ({ courseId: course.id, courseTitle: course.title }));
 }
 
 export interface MethodistDashboard {
@@ -148,9 +172,8 @@ export function buildMethodistDashboard(
     }
   }
 
-  // Курс в группе без ОПУБЛИКОВАННОГО итогового теста: слушатели дойдут до конца
-  // программы и упрутся в отсутствующий экзамен. Итоговый — тот, что не привязан к
-  // модулю (`moduleId` пуст); тесты модулей промежуточные и экзамена не заменяют.
+  // Курс В ГРУППЕ без опубликованного итогового теста: слушатели дойдут до конца
+  // программы и упрутся в отсутствующий экзамен.
   const publishedFinalExamCourseIds = new Set(
     input.tests
       .filter((test) => !test.moduleId && !test.isArchived && Boolean(test.publishedAt))
