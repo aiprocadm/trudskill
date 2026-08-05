@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository
 
-CDOProf — LMS/СДО platform for regulated professional education (ОТ, ПБ, медицина, МЧС, обязательные аттестации). `pnpm` 9.12.3 + Turborepo monorepo. Local path is `D:\Кодинг\7. Trudskill\Trudskill\Trudskill` (Windows, **Cyrillic + spaces — see Gotchas**).
+CDOProf — LMS/СДО platform for regulated professional education (ОТ, ПБ, медицина, МЧС, обязательные аттестации). `pnpm` 11.20.0 + Turborepo monorepo. Local path is `D:\Кодинг\7. Trudskill\Trudskill\Trudskill` (Windows, **Cyrillic + spaces — see Gotchas**).
 
 ## Documentation hierarchy (SSOT)
 
@@ -153,6 +153,14 @@ The repo path contains Cyrillic (`Кодинг`). This affects:
 - Frontend full suite (`pnpm test:frontend`) works fine.
 
 PowerShell-specific (the default shell on this machine): use `$null`, not `/dev/null`; use `$env:VAR`, not `$VAR`. Bash is available via the `Bash` tool for POSIX scripts.
+
+## Gotchas (pnpm 11)
+
+Проект перешёл на pnpm 11.20.0 (2026-08-05). Две особенности, о которые легко споткнуться:
+
+- **Установочные скрипты зависимостей по умолчанию НЕ выполняются**, и неразрешённый скрипт — это **ошибка** установки (`ERR_PNPM_IGNORED_BUILDS`), а не предупреждение. Ответ по каждому пакету задаётся в `pnpm-workspace.yaml` → `allowBuilds`. Новая зависимость с установочным скриптом уронит `pnpm install`, пока её туда не впишут: `true` — если без скрипта пакет не работает (нативный бинарник), `false` — если скрипт печатает баннер или готовит то, чем мы не пользуемся.
+- **`confirmModulesPurge: false` в `pnpm-workspace.yaml` убирать нельзя.** pnpm 11 переспрашивает перед сносом `node_modules`, а без терминала просто отказывается работать (`ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`). Наши установки идут из CI и из cron автообновления стенда — подтвердить там некому.
+- Версия pnpm берётся из поля `packageManager`: старый pnpm 9 сам скачает и запустит 11.20.0, руками обновлять ничего не нужно. Поэтому же `pnpm --version` в проекте всегда печатает версию из `package.json`, а не установленную.
 
 ## Domain-specific patterns
 
