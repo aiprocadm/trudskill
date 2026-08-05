@@ -91,7 +91,7 @@ services:
     restart: unless-stopped
 
   supertokens:
-    image: registry.supertokens.io/supertokens/supertokens-postgresql:9.3
+    image: registry.supertokens.io/supertokens/supertokens-postgresql:12.0
     env_file: .env.production
     depends_on:
       postgres:
