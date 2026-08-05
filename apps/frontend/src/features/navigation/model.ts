@@ -245,6 +245,17 @@ export const routeMeta: RouteMetaEntry[] = [
     pattern: '/learner/payments',
     meta: { public: false, requiredPermissions: ['payments.self_purchase'] }
   },
+  /**
+   * Главная кабинета слушателя. **Строго ПОСЛЕ всех `/learner/*`:** совпадение ищется
+   * по префиксу и берётся первое, поэтому запись выше перехватила бы все внутренние
+   * страницы кабинета и навязала им своё право.
+   *
+   * Записи здесь не было вовсе, и это ломало кабинет вживую: неизвестный маршрут
+   * считается `not-found`, а `ProtectedRoute` на этом уводит на `/not-found` — то есть
+   * слушатель после входа выпадал из кабинета. Обнаружено при Фазе 5 Task 1, когда
+   * перенаправление ролей стало сверяться с картой доступа.
+   */
+  { pattern: '/learner', meta: { public: false, requiredPermissions: ['enrollments.read'] } },
   { pattern: '/documents', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/registry', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/notifications', meta: { public: false, requiredPermissions: ['tenant.read'] } },

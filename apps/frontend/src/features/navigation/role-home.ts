@@ -1,0 +1,76 @@
+import { evaluateRouteAccess } from './helpers';
+
+import type { UserSession } from '../../entities/session/model';
+
+/**
+ * ФТ-H2 (Фаза 5 Task 1): куда человек попадает сразу после входа.
+ *
+ * **Зачем это вообще понадобилось.** Настоящие дашборды в системе уже написаны —
+ * кабинет слушателя (`/learner`) и attention center администратора (`/workspace`)
+ * тянут живые данные. Но корневая страница о них не знала и показывала витрину
+ * из плиток-ссылок: то есть вход уводил ОТ работающего дашборда к оглавлению.
+ * Слушателя она перенаправляла (это было зашито прямо в компонент), остальные роли —
+ * нет, а `manager` и `counterparty_rep` вдобавок не имели ни одной плитки и видели
+ * пустую страницу с надписью «Роль не определена».
+ *
+ * **Почему таблица, а не ветвление в компоненте.** Маршрут роли — это данные: их
+ * можно проверить тестом, перечислить в обзоре и поменять, не трогая разметку.
+ * Ветвление `if (roles.has(...)) router.replace(...)` в JSX разрастается с каждой
+ * новой ролью и незаметно расходится с правами.
+ */
+
+/** Синонимы ролей, встречающиеся в сессиях; те же, что в `role-blueprints`. */
+const ROLE_ALIASES: Record<string, string> = {
+  student: 'learner',
+  admin: 'tenant_admin',
+  administrator: 'tenant_admin',
+  methodologist: 'methodist'
+};
+
+export const normalizeRoleCode = (role: string): string => {
+  const lowered = role.toLowerCase();
+  return ROLE_ALIASES[lowered] ?? lowered;
+};
+
+/**
+ * Домашний маршрут роли. **Порядок = приоритет**, когда ролей у человека несколько.
+ *
+ * Слушатель стоит первым намеренно: так вело себя перенаправление ДО этой правки, и
+ * менять точку приземления у тех, кто одновременно учится и администрирует, в рамках
+ * задачи «довести перенаправление до остальных ролей» было бы отдельным решением.
+ * Если понадобится отдавать приоритет рабочей роли — меняется порядок этого списка,
+ * и больше ничего.
+ */
+export const ROLE_HOME_ROUTES: ReadonlyArray<{ role: string; href: string }> = [
+  { role: 'learner', href: '/learner' },
+  { role: 'counterparty_rep', href: '/counterparty-portal' },
+  { role: 'tenant_admin', href: '/workspace' },
+  { role: 'platform_admin', href: '/workspace' },
+  // Методист живёт программами и материалами, менеджер — группами и клиентами.
+  // Собственных дашбордов у них пока нет (Фаза 5 Task 2) — до тех пор ведём на
+  // основной рабочий раздел, а не на витрину ссылок.
+  { role: 'methodist', href: '/courses' },
+  { role: 'manager', href: '/groups' }
+];
+
+/**
+ * Куда вести сессию. `null` — вести некуда, показывается витрина-запасной вариант.
+ *
+ * Доступность маршрута проверяется теми же правилами, что и обычная навигация:
+ * права роли могли измениться миграцией, и перенаправление на закрытую страницу
+ * выбросило бы человека на «доступ запрещён» сразу после успешного входа —
+ * то есть выглядело бы как поломка входа.
+ */
+export const resolveRoleHome = (
+  session: UserSession | null,
+  canAccess: (href: string) => boolean = (href) => evaluateRouteAccess(href, session).kind === 'ok'
+): string | null => {
+  if (!session) return null;
+  const roles = new Set((session.roles ?? []).map(normalizeRoleCode));
+  for (const entry of ROLE_HOME_ROUTES) {
+    if (!roles.has(entry.role)) continue;
+    if (!canAccess(entry.href)) continue;
+    return entry.href;
+  }
+  return null;
+};
