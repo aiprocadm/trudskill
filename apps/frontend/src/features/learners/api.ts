@@ -1,6 +1,7 @@
 import { apiRequest } from '../../lib/api/client';
 
 import type {
+  LearnerErasureReport,
   LearnerListItem,
   LearnersListFilters,
   LearnersListResponse,
@@ -38,6 +39,25 @@ export const learnersApi = {
     apiRequest<LearnerListItem>(`/learners/${learnerId}/profile`, {
       method: 'PATCH',
       body: payload,
+      ...withAuth(session)
+    }),
+
+  /** ФТ-G6: выгрузка ПДн по заявлению субъекта (152-ФЗ ст. 14). */
+  exportPersonalData: (session: UserSession, learnerId: string): Promise<unknown> =>
+    apiRequest<unknown>(`/learners/${learnerId}/personal-data`, {
+      method: 'GET',
+      ...withAuth(session)
+    }),
+
+  /** ФТ-G6: обезличивание по отзыву согласия. POST, а не DELETE — документы остаются. */
+  erasePersonalData: (
+    session: UserSession,
+    learnerId: string,
+    reason?: string
+  ): Promise<LearnerErasureReport> =>
+    apiRequest<LearnerErasureReport>(`/learners/${learnerId}/personal-data/erasure`, {
+      method: 'POST',
+      body: reason ? { reason } : {},
       ...withAuth(session)
     })
 };

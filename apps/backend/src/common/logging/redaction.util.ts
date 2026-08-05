@@ -1,6 +1,7 @@
 const REDACTED = '[REDACTED]';
 
 const SENSITIVE_KEY_PATTERNS = [
+  // Секреты и доступы.
   /password/i,
   /secret/i,
   /token/i,
@@ -9,9 +10,23 @@ const SENSITIVE_KEY_PATTERNS = [
   /cookie/i,
   /presigned/i,
   /signature/i,
+  // Контакты.
   /email/i,
   /phone/i,
-  /pii/i
+  /pii/i,
+  // ФТ-G6 (Фаза 4 Task 12): персональные данные слушателя. До этой правки в журнал
+  // открытым текстом попадали ФИО, СНИЛС и дата рождения — то есть ровно те сведения,
+  // ради которых 152-ФЗ и написан. Редактировались только контакты и секреты.
+  /^(first|last|middle|full)[_-]?name$/i,
+  /^name$/i,
+  /snils/i,
+  /passport/i,
+  /^date[_-]?of[_-]?birth$/i,
+  /birth[_-]?date/i,
+  /^address$/i,
+  // Слепой индекс СНИЛС: сам по себе не читается, но позволяет сопоставлять людей
+  // между записями журнала — это тоже идентификатор.
+  /snils[_-]?hash/i
 ];
 
 const isSensitiveKey = (key: string) => SENSITIVE_KEY_PATTERNS.some((pattern) => pattern.test(key));

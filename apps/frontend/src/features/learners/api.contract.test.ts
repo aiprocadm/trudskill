@@ -145,4 +145,45 @@ describe('learnersApi envelope compatibility', () => {
     expect(body.lastName).toBe('Петров');
     expect(body.position).toBe('Инженер');
   });
+
+  // === ФТ-G6 (Фаза 4 Task 12): права субъекта персональных данных ===
+
+  it('exportPersonalData ходит GET на /personal-data и разворачивает конверт', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(envelope({ subject: { learnerId: 'l_abc' } }), { status: 200 })
+    );
+
+    const result = (await learnersApi.exportPersonalData(session, 'l_abc')) as {
+      subject: { learnerId: string };
+    };
+
+    expect(result.subject.learnerId).toBe('l_abc');
+    const [calledUrl, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(calledUrl).toContain('/learners/l_abc/personal-data');
+    expect(init.method).toBe('GET');
+  });
+
+  it('erasePersonalData шлёт POST на /erasure — не DELETE: документы остаются', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        envelope({
+          learnerId: 'l_abc',
+          erasedFields: ['snils'],
+          retained: [{ what: 'выданные документы: 2', reason: 'по закону' }],
+          identityImagesPurged: 1
+        }),
+        { status: 200 }
+      )
+    );
+
+    const report = await learnersApi.erasePersonalData(session, 'l_abc', 'заявление №7');
+
+    expect(report.erasedFields).toEqual(['snils']);
+    expect(report.retained[0]?.what).toContain('выданные документы');
+
+    const [calledUrl, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(calledUrl).toContain('/learners/l_abc/personal-data/erasure');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ reason: 'заявление №7' });
+  });
 });
