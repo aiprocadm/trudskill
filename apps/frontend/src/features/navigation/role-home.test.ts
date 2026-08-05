@@ -96,7 +96,8 @@ describe('resolveRoleHome (ФТ-H2, Фаза 5 Task 1)', () => {
       ['counterparty_rep', ['portal.read'], '/counterparty-portal'],
       ['tenant_admin', ['tenant.read'], '/workspace'],
       ['platform_admin', ['tenant.read'], '/workspace'],
-      ['methodist', ['groups.read'], '/methodist'],
+      // У методиста нет прав на группы и зачисления — сводка открывается `courses.read`.
+      ['methodist', ['courses.read'], '/methodist'],
       ['manager', ['groups.read'], '/groups']
     ];
     for (const [role, permissions, href] of byRole) {

@@ -60,13 +60,14 @@ describe('methodistHomeApi (ФТ-H2, Фаза 5 Task 2)', () => {
         overdueGroups: 0,
         coursesWithoutExam: 0
       },
-      reviewQueue: { pendingAttempts: 2, pendingSubmissions: 1, total: 3 }
+      reviewQueue: { pendingAttempts: 2, pendingSubmissions: 1, total: 3 },
+      hiddenSections: []
     };
     fetchMock.mockResolvedValueOnce(new Response(envelope(payload), { status: 200 }));
 
     return methodistHomeApi.loadDashboard(session).then((result) => {
       expect(result.upcomingDeadlines[0]?.groupName).toBe('Группа 1');
-      expect(result.reviewQueue.total).toBe(3);
+      expect(result.reviewQueue?.total).toBe(3);
 
       // Один запрос, не веер: сводка собирается на сервере за один проход по состоянию.
       expect(fetchMock).toHaveBeenCalledTimes(1);
