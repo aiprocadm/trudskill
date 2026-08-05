@@ -137,7 +137,10 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 
 /* Тренажёр теста — варианты ответа как выбираемые карточки */
 .test-options { display: grid; gap: 8px; }
-.ui-option { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+/* ФТ-H5: вариант ответа — тач-зона не меньше 44px по высоте. Прежние 12px отступов
+   давали ~43px при одной строке текста: на телефоне промах по соседнему варианту в
+   экзамене стоит балла, и «почти достаточно» здесь не годится. */
+.ui-option { display: flex; align-items: center; gap: 10px; padding: 12px 14px; min-height: 44px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); cursor: pointer; transition: border-color .15s ease, background .15s ease; }
 .ui-option:hover { border-color: var(--ui-brand-600); background: var(--ui-surface-muted); }
 .ui-option:has(input:checked) { border-color: var(--ui-brand-600); background: var(--ui-surface-accent); }
 .ui-option input { accent-color: var(--ui-brand-600); width: 18px; height: 18px; flex: none; margin: 0; }
@@ -148,6 +151,12 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 .test-timer--warning { background: color-mix(in srgb, var(--ui-warning-600) 14%, var(--ui-surface)); border-color: var(--ui-warning-600); color: var(--ui-warning-700); }
 .test-timer--danger { background: color-mix(in srgb, var(--ui-danger-600) 14%, var(--ui-surface)); border-color: var(--ui-danger-600); color: var(--ui-danger-600); }
 .test-nav { display: flex; justify-content: space-between; gap: 12px; }
+/* ФТ-H5: состояние сохранности ответов. Показывается всегда — в спокойном виде тоже,
+   иначе появление плашки само по себе читалось бы как новая беда. */
+.test-connection { margin: 0; padding: 8px 12px; border-radius: var(--ui-radius-md); border: 1px solid var(--ui-border); background: var(--ui-surface-muted); color: var(--ui-text-muted); font-size: 13px; }
+.test-connection--saving { color: var(--ui-text); }
+.test-connection--warning { border-color: var(--ui-warning-600); background: color-mix(in srgb, var(--ui-warning-600) 12%, var(--ui-surface)); color: var(--ui-warning-700); }
+.test-connection--danger { border-color: var(--ui-danger-600); background: color-mix(in srgb, var(--ui-danger-600) 12%, var(--ui-surface)); color: var(--ui-danger-600); font-weight: 600; }
 /* Результат теста — заметный баннер успеха/провала */
 .test-result__banner { display: flex; align-items: center; gap: 16px; padding: 20px; border-radius: var(--ui-radius-lg); border: 1px solid var(--ui-border); }
 .test-result__banner--pass { background: color-mix(in srgb, var(--ui-success-600) 12%, var(--ui-surface)); border-color: var(--ui-success-600); }

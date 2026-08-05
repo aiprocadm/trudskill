@@ -4,6 +4,7 @@ import { LoadingState } from '@trudskill/ui';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
+import { LEAVE_CONFIRMATION, resolveConnectionStatus } from './connection';
 import { formatTimeRemaining, remainingMsFromExpiry } from './format';
 import {
   useAttempt,
@@ -55,6 +56,34 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
   const hydratedRef = useRef(false);
   const dirtyRef = useRef<Set<string>>(new Set());
 
+  /*
+   * ФТ-H5: число несохранённых ответов — в состоянии, а не только в ref.
+   *
+   * `dirtyRef` не вызывает перерисовку, поэтому по нему нельзя ни показать признак
+   * сохранности, ни включить предупреждение при уходе со страницы. Держим счётчик
+   * рядом и обновляем его там же, где меняется сам набор.
+   */
+  const [unsavedCount, setUnsavedCount] = useState(0);
+  const syncUnsaved = () => setUnsavedCount(dirtyRef.current.size);
+  const markDirty = (questionId: string) => {
+    dirtyRef.current.add(questionId);
+    syncUnsaved();
+  };
+  const [online, setOnline] = useState(true);
+
+  // Признак связи берём у браузера. Начальное значение читаем в эффекте, а не при
+  // первом рендере: на сервере `navigator` не существует, и гидратация разошлась бы.
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    update();
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => {
+      window.removeEventListener('online', update);
+      window.removeEventListener('offline', update);
+    };
+  }, []);
+
   const current: AttemptQuestion | undefined = questions?.[currentIndex];
 
   // Hydrate drafts once from the server-echoed saved answers (resume support).
@@ -96,12 +125,20 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
     const draft = drafts[questionId];
     if (!draft) return;
     dirtyRef.current.delete(questionId);
+    syncUnsaved();
     const payload: SaveAnswerPayload = {
       questionId,
       ...(draft.selectedOptionIds ? { selectedOptionIds: draft.selectedOptionIds } : {}),
       ...(draft.textAnswer !== undefined ? { textAnswer: draft.textAnswer } : {})
     };
-    await saveAnswer.mutate(attemptId, payload);
+    const saved = await saveAnswer.mutate(attemptId, payload);
+    // ФТ-H5: неудача возвращает пометку обратно. Иначе экран показал бы «всё
+    // сохранено» ровно там, где ответ до сервера не дошёл, — худшая из возможных
+    // подсказок на экзамене.
+    if (!saved) {
+      dirtyRef.current.add(questionId);
+      syncUnsaved();
+    }
   };
 
   const handleSubmit = async () => {
@@ -146,6 +183,9 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
   const attemptIdRef = useRef(attemptId);
   attemptIdRef.current = attemptId;
 
+  const draftsRef = useRef(drafts);
+  draftsRef.current = drafts;
+
   const currentId = current?.id;
   useEffect(() => {
     if (!currentId) return;
@@ -158,10 +198,37 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
         ...(draft.selectedOptionIds ? { selectedOptionIds: draft.selectedOptionIds } : {}),
         ...(draft.textAnswer !== undefined ? { textAnswer: draft.textAnswer } : {})
       };
-      void saveAnswerRef.current.mutate(attemptIdRef.current, payload);
+      void saveAnswerRef.current.mutate(attemptIdRef.current, payload).then((saved) => {
+        // ФТ-H5: раньше автосохранение НИКОГДА не снимало пометку, и «несохранённых»
+        // становилось столько же, сколько отвеченных вопросов. Снимаем — но только
+        // если человек за время запроса не изменил ответ снова: `setDrafts` создаёт
+        // новый объект на каждое изменение, поэтому сравнения по ссылке достаточно.
+        if (!saved) return;
+        if (draftsRef.current[currentId] !== draft) return;
+        dirtyRef.current.delete(currentId);
+        syncUnsaved();
+      });
     }, AUTOSAVE_DELAY_MS);
     return () => clearTimeout(handle);
   }, [currentId, drafts]);
+
+  /*
+   * ФТ-H5: предупреждение при уходе со страницы, пока есть несохранённый ответ.
+   *
+   * Браузер показывает своё окно и игнорирует наш текст — задать можно только сам
+   * факт вопроса. Вешаем обработчик ТОЛЬКО когда терять есть что: постоянный
+   * `beforeunload` мешает обычному выходу и отключает восстановление вкладки.
+   */
+  useEffect(() => {
+    if (unsavedCount === 0) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = LEAVE_CONFIRMATION;
+      return LEAVE_CONFIRMATION;
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [unsavedCount]);
 
   if (attemptLoading || questionsLoading) return <LoadingState />;
   if (attemptError || questionsError || !attempt || !questions) {
@@ -172,7 +239,7 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
   }
 
   const setChoice = (questionId: string, optionId: string, multiple: boolean) => {
-    dirtyRef.current.add(questionId);
+    markDirty(questionId);
     setDrafts((prev) => {
       const existing = prev[questionId]?.selectedOptionIds ?? [];
       const selectedOptionIds = multiple
@@ -185,7 +252,7 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
   };
 
   const setText = (questionId: string, textAnswer: string) => {
-    dirtyRef.current.add(questionId);
+    markDirty(questionId);
     setDrafts((prev) => ({ ...prev, [questionId]: { textAnswer } }));
   };
 
@@ -207,10 +274,26 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
     (t) => t.testId === testId && t.enrollmentId === attempt.enrollmentId
   );
 
+  const connection = resolveConnectionStatus({
+    online,
+    unsavedCount,
+    saving: saveAnswer.isPending,
+    lastError: saveAnswer.error
+  });
+
   return (
     <PageContainer>
       <PageHeader title="Прохождение теста" />
       <ProctoringRecIndicator />
+      {/* ФТ-H5: состояние сохранности видно ВСЕГДА, а не только когда что-то сломалось.
+          Индикатор, появляющийся лишь при беде, читается как новая беда; постоянный —
+          как приборная панель, по которой сразу видно норму. */}
+      <p
+        className={`test-connection test-connection--${connection.level}`}
+        role={connection.level === 'danger' ? 'alert' : 'status'}
+      >
+        {connection.message}
+      </p>
       {attemptInProgress && testSummary ? (
         <ProctoringResumeBanner
           enrollmentId={attempt.enrollmentId}
