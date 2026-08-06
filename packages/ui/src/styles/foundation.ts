@@ -235,4 +235,12 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .ui-toolbar > * { width: 100%; }
   .ui-hero__cta { width: 100%; justify-content: center; }
 }
+/* ФТ-H4 (Фаза 5): телефон ≤480px — кабинет читается на 360px без горизонтальной
+   прокрутки, кнопки навигации теста растягиваются в удобные тач-зоны. */
+@media (max-width: 480px) {
+  .ui-page,.ui-page-container { padding: 14px 12px; gap: 14px; }
+  .ui-section-card { padding: 16px 14px; }
+  .test-nav > * { flex: 1 1 auto; }
+  .kv-list__row, .ui-data-list__row { flex-wrap: wrap; }
+}
 `;

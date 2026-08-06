@@ -481,6 +481,40 @@ export const AppShell = ({ children }: PropsWithChildren) => {
             white-space: normal;
           }
         }
+        /* ФТ-H4 (Фаза 5): телефон ≤480px. Шапка с фиксированной высотой 64px не
+           вмещает перенос строк и наезжает на заголовок страницы — высота строки
+           становится по содержимому. Пункты меню — тач-зоны не ниже 44px. */
+        @media (max-width: 480px) {
+          .app-shell__content {
+            grid-template-rows: auto 1fr;
+          }
+          .app-shell__topbar {
+            padding: 8px 12px;
+          }
+          /* Крошки с nowrap вылезали за 360px и давали горизонтальную прокрутку. */
+          .app-shell__crumb {
+            white-space: normal;
+          }
+          .app-shell__menu-toggle {
+            height: 44px;
+          }
+          .app-shell__group-header {
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+          }
+          /* :global — ссылки рендерит next/link, и scoped-класс styled-jsx на них
+             не попадает (давний дефект каркаса); без :global правило мёртвое. */
+          .app-shell__sidebar :global(.app-shell__link),
+          .app-shell__topbar :global(.app-shell__notif-link) {
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+          }
+          .app-shell__search {
+            height: 44px;
+          }
+        }
       `}</style>
     </div>
   );
