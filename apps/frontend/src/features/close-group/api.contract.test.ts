@@ -51,6 +51,46 @@ describe('close-group api contract (ФТ-A5)', () => {
     fetchMock.mockReset();
   });
 
+  it('closeChain зовёт цепочку без списка зачислений и передаёт ключ идемпотентности', async () => {
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock.mockResolvedValueOnce(
+      envelope({
+        eligible: 2,
+        skipped: [
+          {
+            enrollmentId: 'e3',
+            learnerId: 'l3',
+            fullName: 'Несдавший Пётр',
+            code: 'exam_not_passed',
+            message: 'Проверка знаний не сдана'
+          }
+        ],
+        documents: { protocolTaskId: 't1', certificates: 2, created: 3, retried: 0 },
+        registry: { batchId: 'b1', total: 2, exported: 2, failed: 0, errors: [] },
+        cached: false
+      })
+    );
+
+    const result = await closeGroupApi.closeChain(session, {
+      groupId: 'g1',
+      courseId: 'c1',
+      protocolTemplateId: 'tpl_p',
+      certificateTemplateId: 'tpl_c',
+      idempotencyKey: 'key-1'
+    });
+
+    expect(result.eligible).toBe(2);
+    expect(result.skipped[0]?.code).toBe('exam_not_passed');
+    const [url, init] = fetchMock.mock.calls[0]! as [string, RequestInit];
+    expect(url).toContain('/groups/g1/close-chain');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    expect(body.idempotencyKey).toBe('key-1');
+    expect(body.courseId).toBe('c1');
+    // Список зачислений цепочке не передаётся — отбор сдавших делает сервер.
+    expect('enrollmentIds' in body).toBe(false);
+  });
+
   it('close отправляет состав группы одним запросом', async () => {
     vi.stubGlobal('fetch', fetchMock);
     fetchMock.mockResolvedValueOnce(

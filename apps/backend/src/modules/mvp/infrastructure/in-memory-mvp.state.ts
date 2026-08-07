@@ -8,6 +8,7 @@ import type {
   AssignmentSubmission,
   AttemptAnswer,
   BulkEnrollmentIdempotencyRecord,
+  CloseGroupChainIdempotencyRecord,
   Commission,
   CommissionMember,
   Counterparty,
@@ -82,6 +83,8 @@ export class InMemoryMvpState {
   bulkEnrollmentIdempotency: BulkEnrollmentIdempotencyRecord[] = [];
   /** Phase 2 Plan A — idempotency для bulk-import учеников из Excel. */
   bulkImportIdempotency: BulkImportIdempotencyRecord[] = [];
+  /** ФТ-E3 (Фаза 5 Task 7) — idempotency цепочки «экзамен → протокол → реестр». */
+  closeGroupChainIdempotency: CloseGroupChainIdempotencyRecord[] = [];
   // Pillar A — Plan A collections (§5.2, §5.3)
   commissions: Commission[] = [];
   commissionMembers: CommissionMember[] = [];

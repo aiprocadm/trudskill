@@ -42,6 +42,47 @@ export interface GroupClosureStatusDto {
   isComplete: boolean;
 }
 
+/**
+ * ФТ-E3 (Фаза 5 Task 7): цепочка «экзамен → протокол → документы → строки реестра».
+ * Список зачислений не передаётся — сервер сам отбирает сдавших; отсеянные
+ * возвращаются поимённо с причиной (частичный успех).
+ */
+export interface CloseGroupChainInput {
+  groupId: string;
+  courseId: string;
+  protocolTemplateId: string;
+  certificateTemplateId: string;
+  /** Повтор с тем же ключом возвращает прежний отчёт и не создаёт вторую выгрузку. */
+  idempotencyKey: string;
+}
+
+export interface ChainSkippedDto {
+  enrollmentId: string;
+  learnerId: string;
+  fullName: string;
+  code: string;
+  message: string;
+}
+
+export interface CloseGroupChainOutcomeDto {
+  eligible: number;
+  skipped: ChainSkippedDto[];
+  documents: {
+    protocolTaskId: string;
+    certificates: number;
+    created: number;
+    retried: number;
+  } | null;
+  registry: {
+    batchId: string;
+    total: number;
+    exported: number;
+    failed: number;
+    errors: Array<{ enrollmentId: string; fullName: string; field: string; message: string }>;
+  } | null;
+  cached: boolean;
+}
+
 const auth = (session: UserSession) => ({
   accessToken: session.tokens.accessToken,
   tenantId: session.user.tenantId,
@@ -53,6 +94,18 @@ export const closeGroupApi = {
     apiRequest<CloseGroupResultDto>('/admin/documents/close-group', {
       method: 'POST',
       body: input,
+      auth: auth(session)
+    }),
+
+  closeChain: (session: UserSession, input: CloseGroupChainInput) =>
+    apiRequest<CloseGroupChainOutcomeDto>(`/groups/${input.groupId}/close-chain`, {
+      method: 'POST',
+      body: {
+        courseId: input.courseId,
+        protocolTemplateId: input.protocolTemplateId,
+        certificateTemplateId: input.certificateTemplateId,
+        idempotencyKey: input.idempotencyKey
+      },
       auth: auth(session)
     }),
 

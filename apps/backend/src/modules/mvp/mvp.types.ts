@@ -902,6 +902,48 @@ export interface OtRegistryExportOutcome {
   readiness: RegistryReadinessReport;
 }
 
+/**
+ * ФТ-E3 (Фаза 5 Task 7): отчёт цепочки «экзамен → протокол → документы → реестр».
+ * `skipped` — частичный успех: поимённый отсев, не отменяющий выпуск остальным.
+ */
+export interface CloseGroupChainOutcome {
+  /** Сколько зачислений дошло до протокола и удостоверений. */
+  eligible: number;
+  skipped: Array<{
+    enrollmentId: string;
+    learnerId: string;
+    fullName: string;
+    code: string;
+    message: string;
+  }>;
+  /** null — довести до документов было некого. */
+  documents: {
+    protocolTaskId: string;
+    certificates: number;
+    created: number;
+    retried: number;
+  } | null;
+  /** null — выгрузка не создавалась (нет ни одного кандидата). */
+  registry: {
+    batchId: string;
+    total: number;
+    exported: number;
+    failed: number;
+    errors: OtRegistryRowError[];
+  } | null;
+  /** true — отчёт взят из идемпотентного кэша (повтор с тем же ключом). */
+  cached: boolean;
+}
+
+export interface CloseGroupChainIdempotencyRecord {
+  /** NOT NULL id обязателен: снапшот-хранилище ключует каждую запись по нему. */
+  id: string;
+  tenantId: string;
+  idempotencyKey: string;
+  outcome: CloseGroupChainOutcome;
+  createdAt: string;
+}
+
 export interface OtRegistryResponseRow {
   snils: string;
   protocolNumber: string;

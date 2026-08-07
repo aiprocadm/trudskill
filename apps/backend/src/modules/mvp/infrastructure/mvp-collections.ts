@@ -27,6 +27,7 @@ export const MVP_COLLECTIONS = [
   'assignmentReviews',
   'bulkEnrollmentIdempotency',
   'bulkImportIdempotency',
+  'closeGroupChainIdempotency',
   'commissions',
   'commissionMembers',
   'courseDocumentSets',

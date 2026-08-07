@@ -301,6 +301,14 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         return { downloadUrl: `/api/v1/files/file_${id}/download` };
       }
 
+      // ФТ-E3 Фаза 5 Task 7 — цепочка «экзамен → протокол → реестр»: выпускает
+      // документы И создаёт выгрузку, поэтому требуются ОБА права сразу.
+      @Post('groups/:groupId/close-chain')
+      @RequirePermissions('documents.generate', 'regulatory.export.write')
+      closeGroupChain(@Param('groupId') groupId: string) {
+        return { eligible: 0, skipped: [], documents: null, registry: null, groupId };
+      }
+
       // ФТ-D2.2 — платформенная админка тенантов: только platform.tenants.*
       @Get('platform/tenants')
       @RequirePermissions('platform.tenants.read')
@@ -1418,6 +1426,54 @@ describe('MVP HTTP integration (permission boundaries)', () => {
       expect(response.status).toBe(200);
       const payload = (await response.json()) as { data: { downloadUrl: string } };
       expect(payload.data.downloadUrl).toContain('/download');
+    });
+  });
+
+  // === ФТ-E3 Фаза 5 Task 7 — цепочка закрытия группы: нужны ОБА права ===
+  describe('close-group chain (documents.generate + regulatory.export.write)', () => {
+    it('POST /groups/:id/close-chain — 403 с одним documents.generate: выгрузку в реестр это право не открывает', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['documents.generate']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['manager'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/groups/g1/close-chain`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({})
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('POST /groups/:id/close-chain — 200 с обоими правами', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce([
+        'documents.generate',
+        'regulatory.export.write'
+      ]);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['manager'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/groups/g1/close-chain`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({})
+      });
+      expect(response.status).toBe(201);
+      const payload = (await response.json()) as { data: { groupId: string } };
+      expect(payload.data.groupId).toBe('g1');
     });
   });
 
