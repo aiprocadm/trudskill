@@ -53,6 +53,12 @@ function harness() {
           pageSize,
           total: rows.length
         };
+      },
+      // Как настоящий getDocument: несуществующий id -> NotFoundException (см. must()).
+      getDocument: (tenantId: string, id: string) => {
+        const row = generatedDocs.find((d) => d.tenantId === tenantId && d.id === id);
+        if (!row) throw new NotFoundException(`Entity ${id} not found`);
+        return row;
       }
     } as unknown as DocumentsService,
     { createUploadIntent: vi.fn() } as unknown as FilesService,
@@ -70,7 +76,8 @@ function harness() {
       sourceEntityType: 'enrollment',
       sourceEntityId: enrollmentId,
       status: 'issued',
-      generatedAt: '2026-07-31T00:00:00.000Z'
+      generatedAt: '2026-07-31T00:00:00.000Z',
+      fileId: `file_${docSeq}`
     };
     generatedDocs.push(doc);
     return doc;
@@ -216,5 +223,50 @@ describe('изоляция по контрагенту (ФТ-E5)', () => {
     h.addDoc(h.enrA.id);
     h.addDoc(h.enrB.id);
     expect(h.service.listPortalDocuments(T, {}, STAFF).total).toBe(2);
+  });
+});
+
+describe('скачивание документа портала (ФТ-E5, Фаза 5 Task 6)', () => {
+  it('представитель получает ссылку на документ СВОЕГО сотрудника', () => {
+    const h = harness();
+    const docA = h.addDoc(h.enrA.id);
+    const result = h.service.getPortalDocumentDownload(T, docA.id, h.repA);
+    expect(result.downloadUrl).toContain(`/files/${docA.fileId}/download`);
+  });
+
+  it('анти-IDOR: документ сотрудника ЧУЖОГО заказчика — «не найдено», а не «запрещено»', () => {
+    const h = harness();
+    const docB = h.addDoc(h.enrB.id);
+    expect(() => h.service.getPortalDocumentDownload(T, docB.id, h.repA)).toThrow(
+      NotFoundException
+    );
+  });
+
+  it('несуществующий документ — тоже 404: ответы про чужое и про несуществующее неразличимы', () => {
+    const h = harness();
+    expect(() => h.service.getPortalDocumentDownload(T, 'doc_ghost', h.repA)).toThrow(
+      NotFoundException
+    );
+  });
+
+  it('документ, выпущенный НЕ по зачислению, представителю не отдаётся', () => {
+    const h = harness();
+    const doc = h.addDoc(h.enrA.id);
+    (doc as { sourceEntityType: string }).sourceEntityType = 'group';
+    expect(() => h.service.getPortalDocumentDownload(T, doc.id, h.repA)).toThrow(NotFoundException);
+  });
+
+  it('документ без файла — 404 и для владельца: скачивать нечего', () => {
+    const h = harness();
+    const doc = h.addDoc(h.enrA.id);
+    (doc as { fileId: string }).fileId = '';
+    expect(() => h.service.getPortalDocumentDownload(T, doc.id, h.repA)).toThrow(NotFoundException);
+  });
+
+  it('персонал центра (без привязки) скачивает любой документ — как раньше', () => {
+    const h = harness();
+    const docB = h.addDoc(h.enrB.id);
+    const result = h.service.getPortalDocumentDownload(T, docB.id, STAFF);
+    expect(result.downloadUrl).toContain(`/files/${docB.fileId}/download`);
   });
 });

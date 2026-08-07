@@ -231,6 +231,18 @@ export class MvpController {
       counterpartyId: c.counterpartyId
     });
   }
+  // ФТ-E5 (Фаза 5 Task 6): скачивание — под тем же portal.read с проверкой владения
+  // в сервисе (чужой документ -> 404). Раньше скачать мог только персонал через
+  // documents/:id/download под documents.read — правом «видеть документы всего центра»,
+  // которое представителю не выдаётся.
+  @Get('portal/documents/:id/download')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('portal.read')
+  downloadPortalDocument(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.mvpService.getPortalDocumentDownload(c.tenantId!, id, {
+      counterpartyId: c.counterpartyId
+    });
+  }
 
   @Get('learners')
   @UseGuards(PermissionGuard)
