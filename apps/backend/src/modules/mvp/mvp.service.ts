@@ -648,6 +648,50 @@ export class MvpService {
     return this.list(rows, tenantId, query);
   }
 
+  /**
+   * ФТ-E5 (Фаза 5 Task 6): представитель заказчика скачивает документ СВОЕГО сотрудника.
+   *
+   * Владение: документ выпущен по зачислению (`sourceEntityType='enrollment'`) в группу
+   * контрагента актора — тот же вывод «чей это сотрудник», что и в listPortalDocuments.
+   * Чужой, несуществующий или выпущенный не по зачислению документ — 404, а не 403:
+   * отказ, отличающий чужую запись от несуществующей, сам выдаёт факт её существования.
+   * Персонал (актор без привязки) не ограничен — менеджер должен уметь скачать то же,
+   * что и клиент, когда разбирает его обращение.
+   */
+  getPortalDocumentDownload(
+    tenantId: string,
+    documentId: string,
+    actor?: { counterpartyId?: string }
+  ): { downloadUrl: string } {
+    const notFound = () =>
+      new NotFoundException({ code: 'not_found', message: 'Document not found' });
+    let doc;
+    try {
+      doc = this.documentsService.getDocument(tenantId, documentId);
+    } catch {
+      // Единый 404 и на несуществующий id — см. комментарий выше.
+      throw notFound();
+    }
+    if (doc.sourceEntityType !== 'enrollment' || !doc.sourceEntityId) throw notFound();
+    const enrollment = this.state.enrollments.find(
+      (e) => e.tenantId === tenantId && e.id === doc.sourceEntityId
+    );
+    if (!enrollment) throw notFound();
+    const scope = this.counterpartyScopeOf(actor);
+    if (scope.restricted && !this.scopedGroupIds(tenantId, scope).has(enrollment.groupId)) {
+      throw notFound();
+    }
+    // Свой документ без файла — не анти-IDOR-случай, но скачивать нечего.
+    if (!doc.fileId) {
+      throw new NotFoundException({
+        code: 'document_file_missing',
+        message: 'Document has no file yet'
+      });
+    }
+    const prefix = backendEnv.API_PREFIX.replace(/\/$/, '');
+    return { downloadUrl: `${prefix}/files/${doc.fileId}/download` };
+  }
+
   getLearner(tenantId: string, id: string): Learner {
     return this.getById(this.state.learners, tenantId, id);
   }

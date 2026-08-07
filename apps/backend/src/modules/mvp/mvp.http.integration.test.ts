@@ -293,6 +293,14 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         return { items: [], page: 1, page_size: 20, total: 0, tenantId: context.tenantId };
       }
 
+      // ФТ-E5 Фаза 5 Task 6 — скачивание документа портала: то же portal.read,
+      // проверка владения живёт в сервисе (здесь — только граница права).
+      @Get('portal/documents/:id/download')
+      @RequirePermissions('portal.read')
+      downloadPortalDocument(@Param('id') id: string) {
+        return { downloadUrl: `/api/v1/files/file_${id}/download` };
+      }
+
       // ФТ-D2.2 — платформенная админка тенантов: только platform.tenants.*
       @Get('platform/tenants')
       @RequirePermissions('platform.tenants.read')
@@ -1374,6 +1382,42 @@ describe('MVP HTTP integration (permission boundaries)', () => {
       };
       expect(payload.data.items).toEqual([]);
       expect(payload.meta.requestId).toBeTruthy();
+    });
+
+    it('GET /portal/documents/:id/download — 403 с documents.read: скачивание портала не открывается правом «про весь центр»', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['documents.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['manager'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/portal/documents/doc_1/download`, {
+        headers: {
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        }
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('GET /portal/documents/:id/download — 200 с portal.read', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['portal.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_rep', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['rep'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/portal/documents/doc_1/download`, {
+        headers: {
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        }
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as { data: { downloadUrl: string } };
+      expect(payload.data.downloadUrl).toContain('/download');
     });
   });
 
