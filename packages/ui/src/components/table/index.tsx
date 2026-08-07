@@ -78,7 +78,11 @@ export function DataTable<T extends object>({
             rows.map((r, i) => (
               <tr key={resolveRowKey(r, i)}>
                 {columns.map((c) => (
-                  <td key={String(c.key)}>{c.render ? c.render(r) : String(r[c.key] ?? '')}</td>
+                  // data-label — подпись ячейки в карточном режиме на телефоне (≤480px);
+                  // колонка без заголовка (действия) остаётся без подписи.
+                  <td key={String(c.key)} {...(c.title ? { 'data-label': c.title } : {})}>
+                    {c.render ? c.render(r) : String(r[c.key] ?? '')}
+                  </td>
                 ))}
               </tr>
             ))

@@ -75,4 +75,10 @@ export const courseViewerStyles = `
   .course-viewer-layout { grid-template-columns: 1fr; }
   .course-toc { position: static; max-height: none; }
 }
+/* ФТ-H4 (Фаза 5): телефон — пункт оглавления должен быть попадаем пальцем. */
+@media (max-width: 480px) {
+  .course-toc__material { min-height: 44px; }
+  .course-toc__module-summary { min-height: 44px; align-items: center; }
+  .course-player { padding: 12px; }
+}
 `;

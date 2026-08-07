@@ -120,6 +120,7 @@ CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs lint+typecheck,
 - **State wrappers** for screens: `PageContainer`, `PageHeader`, `SectionCard`, `SectionEmpty`, `SectionError`, `FieldError`, `LoadingState` from `src/components/`.
 - **Shared UI** primitives (`DataTable`, `Column`, `StatusChip`, `FilterBar`) from `@trudskill/ui`.
 - **API contract tests** stub global `fetch` with `vi.stubGlobal` and assert envelope unwrap + payload shape. See `api.contract.test.ts` per feature.
+- **Мобильная проверка 360px обязательна (ФТ-H4).** Каждый новый/изменённый экран проверяется на ширине 360px: без горизонтальной прокрутки (`document.documentElement.scrollWidth === 360`), тач-зоны ≥44×44px (решение владельца №C). Брейкпоинт телефона — `@media (max-width: 480px)` (см. `packages/ui/src/styles/*.ts`); кнопки/поля там становятся 44px автоматически, а `DataTable` превращается в карточки (подписи ячеек — `data-label` из заголовка колонки; сторожевые тесты `phone-breakpoint.test.ts` и `data-label.test.tsx`). Не выносите таблицу из `DataTable` в самодельную разметку — потеряете карточный режим.
 
 ## Test categorization
 

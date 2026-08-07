@@ -34,4 +34,11 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .ui-button__icon { display: inline-flex; }
 .ui-button__icon svg { width: 16px; height: 16px; }
 .ui-button--loading:disabled { opacity: 1; }
+/* ФТ-H4 (Фаза 5): тач-зоны на телефоне — решение владельца №C: не меньше 44×44px.
+   Базовые 40px оставлены для десктопа; радио/чекбокс внутри .ui-option не трогаем —
+   тач-зоной там служит вся карточка варианта (у неё свой min-height: 44px). */
+@media (max-width: 480px) {
+  button,.ui-button,.ui-button-primary,.ui-button-secondary,.ui-button-ghost,.ui-button-danger { height: 44px; }
+  .ui-input,.ui-select,input,select { height: 44px; }
+}
 `;
