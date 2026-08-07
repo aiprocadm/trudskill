@@ -73,6 +73,11 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['regulatory.export.read'] }
   },
   { pattern: '/mailings', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  // ФТ-H1 (Фаза 5 Task 8): страницы, найденные сверкой ВНЕ карты доступа. Маршрут
+  // вне карты считается not-found, и ProtectedPage выбрасывала посетителя — тот же
+  // класс бага, что был у /learner (§5.241). Права — как у соседних админ-стабов.
+  { pattern: '/forms', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  { pattern: '/module-empty', meta: { public: false } },
   { pattern: '/telephony', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/workspace', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   {
@@ -285,12 +290,21 @@ export const routeMeta: RouteMetaEntry[] = [
   { pattern: '/login', meta: { public: true } },
   { pattern: '/logout', meta: { public: true } },
   { pattern: '/forbidden', meta: { public: true } },
-  { pattern: '/not-found', meta: { public: true } }
+  { pattern: '/not-found', meta: { public: true } },
+  // ФТ-H1 (Фаза 5 Task 8): публичные страницы, жившие вне карты доступа.
+  // Проверка подлинности по QR и вход на экзамен по токену обязаны открываться
+  // без сессии; «центр не найден» — посадочная резолвера поддоменов (ФТ-D3.2).
+  { pattern: '/verify', meta: { public: true } },
+  { pattern: '/exam-auth', meta: { public: true } },
+  { pattern: '/tenant-not-found', meta: { public: true } }
 ];
 
 /** Порядок — логические блоки по ТЗ СДО. */
 export const navigationModel: NavigationItem[] = [
   { href: '/', label: 'Главная' },
+  // ФТ-H1 (Фаза 5 Task 8): '/learner' стоял в блоке «Моё обучение», но пункта меню
+  // не имел — блок ссылался в пустоту, и в кабинет нельзя было вернуться из меню.
+  { href: '/learner', label: 'Мой кабинет', requiredPermissions: ['enrollments.read'] },
   { href: '/learner/courses', label: 'Мои курсы', requiredPermissions: ['enrollments.read'] },
   {
     href: '/learner/documents',
