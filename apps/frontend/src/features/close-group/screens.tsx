@@ -1,11 +1,13 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { closeGroupApi, describeProgress } from './api';
 import { SectionCard, SectionError } from '../../components/state-wrappers';
 import { useAuth } from '../auth/context';
+
+import type { CloseGroupChainOutcomeDto } from './api';
 
 /**
  * Закрытие группы одной кнопкой (ФТ-A5, Фаза 1 Task 7b).
@@ -26,6 +28,19 @@ export function CloseGroupSection() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // ФТ-E3 (Фаза 5 Task 7): цепочка «экзамен → протокол → документы → реестр».
+  const [courseId, setCourseId] = useState('');
+  const [chainReport, setChainReport] = useState<CloseGroupChainOutcomeDto | null>(null);
+  const trimmedCourse = courseId.trim();
+  // Ключ идемпотентности живёт, пока не изменились входные данные: повторный клик
+  // с теми же полями возвращает прежний отчёт, а не выпускает вторую выгрузку.
+  // Зависимости шире тела memo намеренно: ключ должен смениться при любом
+  // изменении входных полей, иначе повтор вернул бы отчёт про другую группу.
+  const chainKey = useMemo(
+    () => crypto.randomUUID(),
+    [groupId, courseId, protocolTemplateId, certificateTemplateId]
+  );
 
   const trimmedGroup = groupId.trim();
   const enrollmentIds = enrollments
@@ -89,6 +104,27 @@ export function CloseGroupSection() {
       await closeGroupApi.downloadPackage(session!, trimmedGroup);
       return 'Комплект скачан';
     }, 'Не удалось скачать комплект');
+
+  const canChain =
+    Boolean(trimmedGroup) &&
+    Boolean(trimmedCourse) &&
+    Boolean(protocolTemplateId.trim()) &&
+    Boolean(certificateTemplateId.trim());
+
+  const runChain = () =>
+    run(async () => {
+      const report = await closeGroupApi.closeChain(session!, {
+        groupId: trimmedGroup,
+        courseId: trimmedCourse,
+        protocolTemplateId: protocolTemplateId.trim(),
+        certificateTemplateId: certificateTemplateId.trim(),
+        idempotencyKey: chainKey
+      });
+      setChainReport(report);
+      if (report.cached) return 'Повтор: показан прежний отчёт, ничего не выпускалось заново';
+      if (report.eligible === 0) return 'Довести до документов некого — причины в отчёте ниже';
+      return `Дошло до документов: ${report.eligible} чел., отсеяно: ${report.skipped.length}`;
+    }, 'Не удалось запустить цепочку');
 
   const status = statusQuery.data;
 
@@ -157,6 +193,79 @@ export function CloseGroupSection() {
           ) : null}
         </p>
       ) : null}
+
+      {/* ФТ-E3 (Фаза 5 Task 7): цепочка. Список сдавших не вводится — сервер сам
+          отбирает по результатам экзамена и отчитывается по отсеянным поимённо. */}
+      <div className="ui-stack" style={{ marginTop: 20 }}>
+        <p className="ui-subheading">Цепочка: экзамен → протокол → документы → реестр</p>
+        <p className="ui-text-muted">
+          Одна операция по группе: сервер сам отбирает сдавших, ставит протокол и удостоверения,
+          затем собирает строки выгрузки в реестр. Отсеянные — поимённо с причиной; повторный запуск
+          с теми же полями ничего не дублирует.
+        </p>
+        <div className="ui-inline">
+          <input
+            value={courseId}
+            onChange={(e) => setCourseId(e.target.value)}
+            placeholder="ID курса (для проверки готовности)"
+          />
+          <button
+            type="button"
+            className="ui-button ui-button--primary"
+            onClick={() => void runChain()}
+            disabled={busy || !canChain}
+          >
+            Запустить цепочку
+          </button>
+        </div>
+
+        {chainReport ? (
+          <div className="ui-stack" data-testid="chain-report">
+            <p>
+              Дошло до документов: <strong>{chainReport.eligible}</strong>
+              {chainReport.cached ? ' (повтор — отчёт из кэша)' : ''}
+            </p>
+            {chainReport.documents ? (
+              <p className="ui-text-muted">
+                Документы: задач поставлено {chainReport.documents.created}, перезапущено упавших{' '}
+                {chainReport.documents.retried}, удостоверений {chainReport.documents.certificates}
+              </p>
+            ) : null}
+            {chainReport.registry ? (
+              <p className="ui-text-muted">
+                Реестр: строк {chainReport.registry.total}, готово {chainReport.registry.exported},
+                с ошибками {chainReport.registry.failed}
+              </p>
+            ) : null}
+            {chainReport.skipped.length > 0 ? (
+              <div>
+                <p className="ui-subheading">Отсеяны ({chainReport.skipped.length})</p>
+                <ul className="ui-bare-list">
+                  {chainReport.skipped.map((s) => (
+                    <li key={s.enrollmentId}>
+                      {s.fullName || s.enrollmentId} — {s.message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {chainReport.registry && chainReport.registry.errors.length > 0 ? (
+              <div>
+                <p className="ui-subheading">
+                  Ошибки строк реестра ({chainReport.registry.errors.length})
+                </p>
+                <ul className="ui-bare-list">
+                  {chainReport.registry.errors.map((e, i) => (
+                    <li key={`${e.enrollmentId}-${e.field}-${i}`}>
+                      {e.fullName || e.enrollmentId}: {e.field} — {e.message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     </SectionCard>
   );
 }

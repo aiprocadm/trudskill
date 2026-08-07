@@ -3,6 +3,8 @@ import { Module, Scope } from '@nestjs/common';
 import { backendEnv } from '../../env.js';
 import { ExpiredAttemptsScanner } from './assessment/expired-attempts.scanner.service.js';
 import { ExpiredAttemptsSchedulerService } from './assessment/expired-attempts.scheduler.service.js';
+import { CloseGroupChainController } from './close-group-chain.controller.js';
+import { CloseGroupChainService } from './close-group-chain.service.js';
 import { ConsentController } from './consents/consent.controller.js';
 import { CONSENT_REPOSITORY } from './consents/consent.repository.js';
 import { ConsentService } from './consents/consent.service.js';
@@ -157,6 +159,7 @@ import {
     VideoWebhookController,
     MvpInternalWorkerController,
     OtRegistryController,
+    CloseGroupChainController,
     FrdoRegistryController,
     EisotTestingRegistryController,
     RostechnadzorRegistryController,
@@ -291,6 +294,7 @@ import {
     OtRegistryXlsxWriter,
     OtRegistryXmlWriter,
     { provide: OtRegistryService, scope: Scope.REQUEST, useClass: OtRegistryService },
+    { provide: CloseGroupChainService, scope: Scope.REQUEST, useClass: CloseGroupChainService },
     FrdoRegistryXlsxWriter,
     { provide: FrdoRegistryService, scope: Scope.REQUEST, useClass: FrdoRegistryService },
     EisotTestingXlsxWriter,

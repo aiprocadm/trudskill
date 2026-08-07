@@ -1169,6 +1169,34 @@ export class CloseGroupWithChecksRequest {
   enrollmentIds!: string[];
 }
 
+/**
+ * ФТ-E3 (Фаза 5 Task 7): цепочка «экзамен → протокол → документы → реестр».
+ * Список зачислений НЕ передаётся — цепочка сама отбирает сдавших и отчитывается
+ * по отсеянным поимённо (частичный успех).
+ */
+export class CloseGroupChainRequest {
+  @IsString()
+  @MinLength(1)
+  courseId!: string;
+
+  @IsString()
+  @MinLength(1)
+  protocolTemplateId!: string;
+
+  @IsString()
+  @MinLength(1)
+  certificateTemplateId!: string;
+
+  /** Повтор с тем же ключом возвращает прежний отчёт и не создаёт вторую выгрузку. */
+  @IsString()
+  @MinLength(1)
+  idempotencyKey!: string;
+
+  @IsOptional()
+  @IsIn(['xlsx', 'xml'])
+  format?: 'xlsx' | 'xml';
+}
+
 export class SubmitIdentityVerificationRequest {
   @IsString()
   @MinLength(1)
