@@ -23,6 +23,8 @@ export interface LearningJournalEntryDto {
   materialSeconds: number;
   videoSeconds: number;
   testSeconds: number;
+  /** ФТ-F4 (Фаза 5 Task 9): посещённые вебинары группы. */
+  webinarSeconds: number;
 }
 
 export interface LearningJournalDto {

@@ -62,4 +62,20 @@ describe('webinars api', () => {
     expect(url).toContain('/webinars/provider-settings');
     expect(init.method).toBe('PUT');
   });
+
+  it('ФТ-F4: joinWebinar отмечает посещение POST-ом и возвращает ссылку на комнату', async () => {
+    const mod = await import('./api');
+    const spy = vi.fn().mockResolvedValueOnce(
+      new Response(envelope({ attendanceStatus: 'joined', joinUrl: 'https://join/room' }), {
+        status: 201
+      })
+    );
+    vi.stubGlobal('fetch', spy);
+    const res = await mod.joinWebinar('w1');
+    expect(res.attendanceStatus).toBe('joined');
+    expect(res.joinUrl).toBe('https://join/room');
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toContain('/webinars/w1/join');
+    expect(init.method).toBe('POST');
+  });
 });

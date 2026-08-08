@@ -63,6 +63,16 @@ export class WebinarsController {
     return this.service.listMine(ctx.tenantId!, ctx.userId!);
   }
 
+  // ФТ-F4 (Фаза 5 Task 9): слушатель отмечает посещение при подключении к комнате.
+  // То же право, что и «мои вебинары»; актор сопоставляется с участником в сервисе,
+  // не участнику — 404 (чужой вебинар неотличим от несуществующего).
+  @Post(':id/join')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('webinars.attend')
+  join(@CurrentContext() ctx: RequestContext, @Param('id') id: string) {
+    return this.service.joinAsParticipant(ctx.tenantId!, ctx.userId!, id);
+  }
+
   @Get('provider-settings')
   @UseGuards(PermissionGuard)
   @RequirePermissions('webinars.configure')

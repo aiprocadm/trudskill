@@ -10,6 +10,7 @@ import {
   type VideoProgressRepository
 } from './video-progress.repository.js';
 import { coveredSeconds } from './video-progress.util.js';
+import { WebinarsService } from '../../communication/webinars.service.js';
 import { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from '../infrastructure/mvp-state.token.js';
 
@@ -32,6 +33,8 @@ export interface LearningJournalEntry extends LearningHoursRow {
   materialSeconds: number;
   videoSeconds: number;
   testSeconds: number;
+  /** ФТ-F4 (Фаза 5 Task 9): посещённые вебинары группы; неотмеченные не считаются. */
+  webinarSeconds: number;
 }
 
 export interface LearningJournal {
@@ -47,7 +50,9 @@ export interface LearningJournal {
 export class LearningHoursService {
   constructor(
     @Inject(MVP_STATE) private readonly state: InMemoryMvpState,
-    @Inject(VIDEO_PROGRESS_REPOSITORY) private readonly videoProgress: VideoProgressRepository
+    @Inject(VIDEO_PROGRESS_REPOSITORY) private readonly videoProgress: VideoProgressRepository,
+    // ФТ-F4: посещённые вебинары группы — часть доказательной базы часов.
+    @Inject(WebinarsService) private readonly webinars: WebinarsService
   ) {}
 
   async getGroupJournal(tenantId: string, groupId: string): Promise<LearningJournal> {
@@ -60,6 +65,8 @@ export class LearningHoursService {
     const enrollments = this.state.enrollments.filter(
       (e) => e.tenantId === tenantId && e.groupId === groupId
     );
+    // ФТ-F4: секунды посещённых вебинаров по слушателям — одним запросом на группу.
+    const webinarSecondsByLearner = await this.webinars.groupAttendanceSeconds(tenantId, groupId);
 
     const entries: LearningJournalEntry[] = [];
     for (const enrollment of enrollments) {
@@ -77,10 +84,13 @@ export class LearningHoursService {
         .filter((a) => a.tenantId === tenantId && a.enrollmentId === enrollment.id)
         .reduce((sum, a) => sum + attemptSeconds(a), 0);
 
+      const webinarSeconds = webinarSecondsByLearner.get(enrollment.learnerId) ?? 0;
+
       const hours = calculateLearningHours({
         materialSeconds,
         videoSeconds,
         testSeconds,
+        webinarSeconds,
         ...(plannedAcademicHours !== undefined ? { plannedAcademicHours } : {})
       });
 
@@ -92,6 +102,7 @@ export class LearningHoursService {
         materialSeconds,
         videoSeconds: Math.round(videoSeconds),
         testSeconds,
+        webinarSeconds,
         ...hours
       });
     }
@@ -140,7 +151,7 @@ export class LearningHoursService {
 
 /** Заголовки CSV журнала часов — порядок колонок фиксирован. */
 export const LEARNING_JOURNAL_CSV_HEADER =
-  '№;Слушатель;Статус зачисления;Факт, ак. ч;План, ак. ч;Выполнение, %;Материалы, мин;Видео, мин;Тесты, мин';
+  '№;Слушатель;Статус зачисления;Факт, ак. ч;План, ак. ч;Выполнение, %;Материалы, мин;Видео, мин;Тесты, мин;Вебинары, мин';
 
 function csvEscape(value: string): string {
   if (value.includes(';') || value.includes('"') || value.includes('\n')) {
@@ -165,7 +176,8 @@ export function renderLearningJournalCsv(journal: LearningJournal): string {
       entry.completionPercent !== undefined ? String(entry.completionPercent) : '',
       minutes(entry.materialSeconds),
       minutes(entry.videoSeconds),
-      minutes(entry.testSeconds)
+      minutes(entry.testSeconds),
+      minutes(entry.webinarSeconds)
     ].join(';')
   );
   return '﻿' + [LEARNING_JOURNAL_CSV_HEADER, ...body].join('\r\n');

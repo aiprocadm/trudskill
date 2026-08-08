@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 
+import { joinWebinar } from './api';
 import { useMyWebinars, useProviderSettings, useWebinars } from './hooks';
 import { WEBINAR_STATUS_LABELS, type WebinarProviderCode } from './types';
 import {
@@ -115,11 +116,28 @@ export function WebinarProviderSettingsScreen() {
 
 export function MyWebinarsScreen() {
   const { items, error } = useMyWebinars();
+  // ФТ-F4 (Фаза 5 Task 9): посещение фиксируется ДО открытия комнаты — иначе
+  // закрытая вкладка съедала бы факт посещения, а с ним и часы в журнале группы.
+  const [joined, setJoined] = useState<Record<string, boolean>>({});
+  const [joinError, setJoinError] = useState<string | null>(null);
+
+  const connect = async (id: string) => {
+    setJoinError(null);
+    try {
+      const result = await joinWebinar(id);
+      setJoined((prev) => ({ ...prev, [id]: true }));
+      if (result.joinUrl) window.open(result.joinUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      setJoinError(err instanceof Error ? err.message : 'Не удалось отметить посещение');
+    }
+  };
+
   return (
     <PageContainer>
       <PageHeader title="Мои вебинары" subtitle="Подключение к занятиям" />
       <SectionCard title="Список">
         {error ? <SectionError message={error} /> : null}
+        {joinError ? <SectionError message={joinError} /> : null}
         {items.length === 0 && !error ? <SectionEmpty message="Вебинаров пока нет." /> : null}
         {items.map((w) => (
           <div key={w.id} className="ui-list-row">
@@ -127,16 +145,16 @@ export function MyWebinarsScreen() {
             <div className="ui-list-row-meta">
               {WEBINAR_STATUS_LABELS[w.status]} ·{' '}
               {new Date(w.plannedStartAt).toLocaleString('ru-RU')}
+              {joined[w.id] ? ' · посещение отмечено' : ''}
             </div>
             {w.joinUrl ? (
-              <a
+              <button
+                type="button"
                 className="ui-button ui-button--primary"
-                href={w.joinUrl}
-                target="_blank"
-                rel="noreferrer"
+                onClick={() => void connect(w.id)}
               >
                 Подключиться
-              </a>
+              </button>
             ) : (
               <span className="ui-list-row-meta">Ссылка появится позже</span>
             )}

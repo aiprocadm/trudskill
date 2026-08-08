@@ -134,6 +134,65 @@ export class WebinarsService {
     await this.repository.upsertParticipantAttendance(tenantId, webinarId, update);
   }
 
+  /**
+   * ФТ-F4 (Фаза 5 Task 9): слушатель отмечает посещение при подключении к комнате.
+   *
+   * Глубокая интеграция с площадкой — [P2], вне фазы: без вебхука факт подключения
+   * знает только наша кнопка «Подключиться». Не участник получает «не найдено» —
+   * чужой вебинар неотличим от несуществующего (тот же принцип, что в портале).
+   * Повтор идемпотентен: joinedAt ставится один раз, точный durationSeconds от
+   * вебхука (если придёт) не затирается.
+   */
+  async joinAsParticipant(tenantId: string, actorRef: string, webinarId: string) {
+    const webinar = await this.get(tenantId, webinarId);
+    const { items } = await this.repository.listParticipants(tenantId, webinarId, {
+      page: 1,
+      pageSize: 500
+    });
+    const me = items.find((p) => p.learnerId === actorRef || p.userId === actorRef);
+    if (!me) throw new NotFoundException('Webinar not found');
+    if (me.attendanceStatus === 'invited') {
+      await this.repository.upsertParticipantAttendance(tenantId, webinarId, {
+        participantRef: actorRef,
+        attendanceStatus: 'joined',
+        joinedAt: new Date().toISOString()
+      });
+    }
+    return {
+      attendanceStatus: 'joined' as const,
+      ...(webinar.joinUrl ? { joinUrl: webinar.joinUrl } : {})
+    };
+  }
+
+  /**
+   * ФТ-F4: секунды посещённых вебинаров по слушателям группы — для журнала часов.
+   * Точная длительность от вебхука площадки предпочтительнее плановой; без неё
+   * засчитывается плановая длительность вебинара. Неотмеченные не учитываются.
+   */
+  async groupAttendanceSeconds(tenantId: string, groupId: string): Promise<Map<string, number>> {
+    const { items } = await this.repository.list(tenantId, { page: 1, pageSize: 500 });
+    const groupWebinars = items.filter((w) => w.groupId === groupId && w.status !== 'cancelled');
+    const seconds = new Map<string, number>();
+    for (const webinar of groupWebinars) {
+      const planned = Math.max(
+        0,
+        Math.round((Date.parse(webinar.plannedEndAt) - Date.parse(webinar.plannedStartAt)) / 1000)
+      );
+      const { items: parts } = await this.repository.listParticipants(tenantId, webinar.id, {
+        page: 1,
+        pageSize: 500
+      });
+      for (const p of parts) {
+        if (p.attendanceStatus === 'invited') continue;
+        const key = p.learnerId ?? p.userId;
+        if (!key) continue;
+        const value = p.durationSeconds ?? planned;
+        seconds.set(key, (seconds.get(key) ?? 0) + value);
+      }
+    }
+    return seconds;
+  }
+
   /** Webhook tenant resolution: locate a webinar by its provider session id (cross-tenant). */
   async findByProviderSessionId(providerSessionId: string) {
     return this.repository.findByProviderSessionId(providerSessionId);

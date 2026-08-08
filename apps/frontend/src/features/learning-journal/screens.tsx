@@ -49,7 +49,8 @@ export function LearningJournalSection({ groupId }: { groupId: string }) {
     completionTitle: entry.completionPercent !== undefined ? `${entry.completionPercent}%` : '—',
     materialsTitle: `${toMinutes(entry.materialSeconds)} мин`,
     videoTitle: `${toMinutes(entry.videoSeconds)} мин`,
-    testTitle: `${toMinutes(entry.testSeconds)} мин`
+    testTitle: `${toMinutes(entry.testSeconds)} мин`,
+    webinarTitle: `${toMinutes(entry.webinarSeconds)} мин`
   }));
 
   return (
@@ -98,7 +99,8 @@ export function LearningJournalSection({ groupId }: { groupId: string }) {
             { key: 'completionTitle', title: 'Выполнение' },
             { key: 'materialsTitle', title: 'Материалы' },
             { key: 'videoTitle', title: 'Видео' },
-            { key: 'testTitle', title: 'Тесты' }
+            { key: 'testTitle', title: 'Тесты' },
+            { key: 'webinarTitle', title: 'Вебинары' }
           ]}
           rows={rows}
         />
