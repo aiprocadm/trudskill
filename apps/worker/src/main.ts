@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { invokeBackendBulkEnrollment } from './bulk-enrollment-callback.js';
 import { runDocumentJob } from './document-job.js';
 import { workerEnv } from './env.js';
+import { createHeartbeat, startHealthServer, startIdleTicker } from './health-server.js';
 import { type WorkerEnvelope, consumeMessage } from './message-consumer.js';
 
 const require = createRequire(import.meta.url);
@@ -61,6 +62,16 @@ const log = (
 };
 
 const db = new Pool({ connectionString: workerEnv.DATABASE_URL, max: 10 });
+
+/*
+ * Признак жизни воркера (Фаза 6 Task 5). Обновляется на КАЖДОМ сообщении — в том числе
+ * на неудачном: «воркер работает» и «работа удаётся» — разные вопросы, и путать их
+ * нельзя, иначе поток ошибок выглядел бы как смерть процесса.
+ */
+const heartbeat = createHeartbeat();
+const tick = () => {
+  heartbeat.lastTickAt = Date.now();
+};
 
 function computeBackoffMs(retryCount: number): number {
   const exponential = workerEnv.WORKER_BACKOFF_BASE_MS * 2 ** Math.max(0, retryCount - 1);
@@ -214,6 +225,8 @@ async function bootstrap(): Promise<void> {
           throw outcome.error;
         }
 
+        heartbeat.processed += 1;
+        tick();
         channel.ack(msg);
         log('info', 'worker_message_processed', {
           messageId: parsed.messageId,
@@ -254,6 +267,8 @@ async function bootstrap(): Promise<void> {
             return;
           }
 
+          heartbeat.retried += 1;
+          tick();
           channel.ack(msg);
           log('warn', 'worker_message_requeued_with_backoff', {
             queue: workerEnv.DOCUMENT_GENERATION_QUEUE,
@@ -264,6 +279,9 @@ async function bootstrap(): Promise<void> {
           return;
         }
 
+        heartbeat.deadLettered += 1;
+        heartbeat.failed += 1;
+        tick();
         channel.nack(msg, false, false);
         log('error', 'worker_message_dead_lettered', {
           queue: workerEnv.DOCUMENT_GENERATION_QUEUE,
@@ -274,6 +292,31 @@ async function bootstrap(): Promise<void> {
     },
     { noAck: false }
   );
+
+  /*
+   * Отметка «я на связи» раз в минуту, пока живо соединение с очередью.
+   *
+   * Без неё живость ломалась ровно там, где нужнее всего: ночью очередь пуста, сообщений
+   * нет, отметка не обновляется — и через пять минут исправный воркер отчитывался «завис»,
+   * а docker принимался его перезапускать. Пустой цикл — это НЕ зависание.
+   *
+   * Тикаем только при открытом соединении: если связь с RabbitMQ потеряна, воркер молчит
+   * по делу, и это должно быть видно. `unref` — чтобы таймер не держал процесс при остановке.
+   */
+  let connectionAlive = true;
+  connection.on('close', () => {
+    connectionAlive = false;
+  });
+  connection.on('error', () => {
+    connectionAlive = false;
+  });
+  const idleTicker = startIdleTicker(heartbeat, () => connectionAlive);
+
+  // Служебная ручка: docker проверяет ею живость, скрипт тревог — молчание воркера.
+  startHealthServer(heartbeat, {
+    port: workerEnv.WORKER_HEALTH_PORT,
+    stallThresholdMs: workerEnv.WORKER_STALL_THRESHOLD_MS
+  });
 
   log('info', 'worker_bootstrap_complete', {
     event_type: 'worker_startup',
@@ -286,6 +329,7 @@ async function bootstrap(): Promise<void> {
 
   const shutdown = async (signal: string) => {
     log('info', 'worker_shutdown_started', { signal });
+    clearInterval(idleTicker);
     await channel.close();
     await connection.close();
     await db.end();

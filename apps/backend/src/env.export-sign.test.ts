@@ -42,7 +42,9 @@ const strictBase = {
   SCORM_CONTENT_TOKEN_SECRET: 'prod-scorm-content-token-secret',
   // ESIA_STATE_SECRET defaults to a dev value the strict-profile refinement rejects (added by
   // PR #258); set a non-dev value so staging/prod fixtures parse for reasons unrelated to it.
-  ESIA_STATE_SECRET: 'prod-esia-state-secret-ok'
+  ESIA_STATE_SECRET: 'prod-esia-state-secret-ok',
+  // Фаза 6 Task 5: ручка метрик в проде обязана быть закрыта токеном.
+  METRICS_TOKEN: 'prod-metrics-token-ok-123'
 } as const;
 
 describe('EXPORT_SIGN_* env', () => {

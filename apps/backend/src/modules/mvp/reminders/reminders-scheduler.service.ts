@@ -3,6 +3,7 @@ import { Cron } from '@nestjs/schedule';
 
 import { CourseDeadlineScanner } from './course-deadline-scanner.service.js';
 import { LicenseExpiryScanner } from './license-expiry-scanner.service.js';
+import { recordSchedulerRun } from '../../../common/metrics/scheduler-heartbeat.js';
 import { backendEnv } from '../../../env.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 import { TenantService } from '../../tenant/tenant.service.js';
@@ -34,7 +35,13 @@ export class RemindersSchedulerService {
     this.logger.log(`Starting nightly reminders scan asOf=${asOf}`);
     try {
       await this.runScanAllTenants(asOf);
+      // Отметка «отработал» (Фаза 6 Task 6): молчание планировщика дольше своего
+      // интервала иначе неотличимо от «работы не было».
+      recordSchedulerRun('reminders-daily-scan', 'ok', { expectedIntervalMs: 24 * 60 * 60 * 1000 });
     } catch (err) {
+      recordSchedulerRun('reminders-daily-scan', 'error', {
+        expectedIntervalMs: 24 * 60 * 60 * 1000
+      });
       this.logger.error(
         `Nightly reminders scan failed: ${err instanceof Error ? err.message : String(err)}`
       );

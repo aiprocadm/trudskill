@@ -1,6 +1,8 @@
 import 'reflect-metadata';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { MetricsService } from '../../common/metrics/metrics.service.js';
+
 import type { INestApplication } from '@nestjs/common';
 
 const requiredEnv: Record<string, string> = {
@@ -139,7 +141,8 @@ async function bootstrapHealthHttpApp(opts: {
       { provide: RedisService, useValue: redisMock },
       { provide: RabbitMqService, useValue: rabbitMock },
       { provide: S3StorageClient, useValue: storageMock },
-      { provide: SecretsService, useValue: secretsMock }
+      { provide: SecretsService, useValue: secretsMock },
+      MetricsService
     ]
   })
   class TestHealthAppModule {}

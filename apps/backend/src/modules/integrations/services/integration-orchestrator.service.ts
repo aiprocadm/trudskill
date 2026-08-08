@@ -321,10 +321,12 @@ export class IntegrationOrchestratorService {
           createdAt: new Date().toISOString()
         };
         this.state.deadLetters.push(deadLetter);
-        this.metrics?.setDlqSize(
-          this.state.deadLetters.filter((entry) => entry.tenantId === tenantId).length,
-          { queue: 'integrations_export', tenant_id: tenantId }
-        );
+        // Считаем ВСЕ письма в карантине, а не только этого центра (Фаза 6 Task 5):
+        // лейбл `tenant_id` из метрик убран (он плодит по ряду на каждый центр), поэтому
+        // на общий датчик надо отчитываться суммой — иначе в нём останется значение
+        // того центра, который записал последним. Разбивка по центрам живёт на экране
+        // «Здоровье арендаторов».
+        this.metrics?.setDlqSize(this.state.deadLetters.length, { queue: 'integrations_export' });
         this.state.logs.push({
           id: this.id('log'),
           tenantId,

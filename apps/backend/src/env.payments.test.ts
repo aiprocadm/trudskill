@@ -40,7 +40,9 @@ const strictBase = {
   DOCUMENTS_PERSISTENCE_DRIVER: 'postgres',
   ALLOW_IN_MEMORY_STATE: false,
   SCORM_CONTENT_TOKEN_SECRET: 'prod-scorm-content-token-secret',
-  ESIA_STATE_SECRET: 'prod-esia-state-secret-ok'
+  ESIA_STATE_SECRET: 'prod-esia-state-secret-ok',
+  // Фаза 6 Task 5: ручка метрик в проде обязана быть закрыта токеном.
+  METRICS_TOKEN: 'prod-metrics-token-ok-123'
 } as const;
 
 describe('PAYMENTS_* env', () => {

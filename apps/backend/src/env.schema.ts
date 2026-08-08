@@ -60,6 +60,15 @@ export const backendEnvSchema = z
       .transform((v) => v === true || v === 'true')
       .default(false),
     /** Active signing provider. 'noop' until a КриптоПро adapter is wired (Phase 6 follow-up). */
+    /**
+     * Токен для чтения `/metrics` (Фаза 6 Task 5).
+     *
+     * Метрики — это карта нагрузки: по ним видно, какие центры активны, когда идут
+     * экзамены и где тонко. Наружу их отдавать некому. Пусто в разработке — читаются
+     * свободно; в production пустое значение запрещено (см. superRefine ниже), чтобы
+     * «забыли задать» не превращалось в «открыто всем».
+     */
+    METRICS_TOKEN: z.string().min(16).optional(),
     ESIGN_PROVIDER: z.enum(['noop', 'cryptopro', 'fake']).default('noop'),
     /** Human-readable signer (organisation) name stamped onto the document for display. */
     ESIGN_SIGNER_NAME: z.string().min(1).default('CDOProf'),
@@ -390,6 +399,17 @@ export const backendEnvSchema = z
         path: ['ESIGN_PROVIDER'],
         message:
           'ESIGN_PROVIDER=fake is forbidden in production — it fakes signatures (use cryptopro)'
+      });
+    }
+
+    // Фаза 6 Task 5: метрики в production закрыты токеном. Отказ на старте, а не тихая
+    // отдача всем желающим: незаданный токен — это не «настройка по умолчанию», а
+    // открытая наружу карта нагрузки центра.
+    if (!env.METRICS_TOKEN && env.NODE_ENV === 'production') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['METRICS_TOKEN'],
+        message: 'METRICS_TOKEN is required in production — /metrics must not be public'
       });
     }
 

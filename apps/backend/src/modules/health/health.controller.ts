@@ -1,5 +1,6 @@
 import { Controller, Get, Inject, ServiceUnavailableException } from '@nestjs/common';
 
+import { MetricsService } from '../../common/metrics/metrics.service.js';
 import { backendEnv } from '../../env.js';
 import { RedisService } from '../../infrastructure/cache/redis.service.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
@@ -14,7 +15,8 @@ export class HealthController {
     @Inject(RedisService) private readonly redis: RedisService,
     @Inject(RabbitMqService) private readonly rabbit: RabbitMqService,
     @Inject(S3StorageClient) private readonly storage: S3StorageClient,
-    @Inject(SecretsService) private readonly secrets: SecretsService
+    @Inject(SecretsService) private readonly secrets: SecretsService,
+    @Inject(MetricsService) private readonly metrics: MetricsService
   ) {}
 
   @Get('live')
@@ -42,6 +44,17 @@ export class HealthController {
         this.storage.ping(),
         this.db.getOutboxReadiness(backendEnv.READINESS_OUTBOX_BACKLOG_THRESHOLD)
       ]);
+
+    /*
+     * Публикуем очередь задач как метрику (Фаза 6 Task 6).
+     *
+     * Готовность на глубину очереди НЕ краснеет намеренно: перезапуск контейнера
+     * очередь не разгребает, а вот вывести сервис из-под нагрузки из-за копящихся
+     * документов — сделать хуже. Поэтому глубина уходит в метрику, а будит людей
+     * скрипт тревог (`infra/ops-alerts.sh`).
+     */
+    this.metrics.setGauge('document_tasks_backlog', queue.backlog);
+    this.metrics.setGauge('outbox_backlog', outbox.backlog);
 
     const checks = {
       database: {
