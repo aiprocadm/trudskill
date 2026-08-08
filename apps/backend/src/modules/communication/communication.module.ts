@@ -5,6 +5,7 @@ import { CHAT_REPOSITORY } from './chat.repository.js';
 import { ChatService } from './chat.service.js';
 import { EMAIL_DELIVERIES_REPOSITORY } from './email-deliveries.repository.js';
 import { EmailNotificationsController } from './email-notifications.controller.js';
+import { EmailResendService } from './email-resend.service.js';
 import { EMAIL_TEMPLATES_REPOSITORY } from './email-templates.repository.js';
 import { EnrollmentEmailListener } from './enrollment-email.listener.js';
 import { ExamIdentityEmailListener } from './exam-identity-email.listener.js';
@@ -79,6 +80,7 @@ import { TenantModule } from '../tenant/tenant.module.js';
     EmailNotificationsController
   ],
   providers: [
+    EmailResendService,
     { provide: NOTIFICATIONS_STATE, useClass: InMemoryNotificationsState },
     PostgresChatRepository,
     { provide: CHAT_REPOSITORY, useClass: PostgresChatRepository },

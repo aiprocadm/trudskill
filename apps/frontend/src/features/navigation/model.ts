@@ -168,6 +168,12 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['tenant.read'] }
   },
   {
+    // Экран «Эксплуатация» (Фаза 6 Task 8). Право то же, что у карантина на бэкенде:
+    // разбирать застрявшие выпуски и письма — работа администрации, не методиста.
+    pattern: '/admin/operations',
+    meta: { public: false, requiredPermissions: ['operations.quarantine.read'] }
+  },
+  {
     pattern: '/admin/licenses',
     meta: { public: false, requiredPermissions: ['auth.manage_sessions'] }
   },
@@ -621,6 +627,12 @@ export const navigationModel: NavigationItem[] = [
     href: '/admin/issuance-journal',
     label: 'Журнал выдачи',
     requiredPermissions: ['tenant.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/admin/operations',
+    label: 'Эксплуатация',
+    requiredPermissions: ['operations.quarantine.read'],
     navSlot: 'more'
   },
   {

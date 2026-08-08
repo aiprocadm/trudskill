@@ -151,6 +151,8 @@ export const NAV_GROUPS: NavGroup[] = [
       '/admin/webinars/settings',
       '/admin/licenses',
       '/admin/usage',
+      // Экран «Эксплуатация» (Фаза 6 Task 8): что не доехало и кнопки, чтобы это починить.
+      '/admin/operations',
       '/onboarding',
       '/platform/tenants'
     ]
