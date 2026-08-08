@@ -723,6 +723,45 @@ describe('MVP HTTP integration (permission boundaries)', () => {
       deleteReportTemplate(@Param('id') id: string) {
         return { id };
       }
+
+      // Фаза 6 Task 1 (дефект D) — кабинет слушателя. Право то же, что у списка
+      // зачислений (`enrollments.read`): ручка не расширяет доступ, она лишь сама
+      // резолвит карточку слушателя по привязке к IAM-пользователю.
+      @Get('me/enrollments')
+      @RequirePermissions('enrollments.read')
+      listMyEnrollments(@CurrentContext() context: { tenantId?: string; userId?: string }) {
+        return {
+          items: [
+            {
+              id: 'enrollment_1',
+              tenantId: context.tenantId,
+              learnerId: 'learner_1',
+              groupId: 'group_1',
+              status: 'active',
+              enrolledAt: '2026-08-08T00:00:00.000Z',
+              courseId: 'course_1',
+              courseTitle: 'Курс по безопасности'
+            }
+          ]
+        };
+      }
+
+      /*
+       * Фаза 6 Task 1 — закрытая утечка ПДн. Раздел отчётов (в том числе конструктор,
+       * выгружающий ФИО и СНИЛС всего центра) был закрыт правом `enrollments.read`,
+       * которое ЕСТЬ у роли «слушатель». Теперь признак — `learners.read`.
+       */
+      @Post('reports/builder/export')
+      @RequirePermissions('learners.read')
+      exportReport() {
+        return { fileName: 'report.xlsx', mimeType: 'application/vnd.ms-excel' };
+      }
+
+      @Get('groups/:groupId/exam-readiness')
+      @RequirePermissions('groups.read')
+      examReadiness(@Param('groupId') groupId: string) {
+        return { groupId, ready: true, issues: [] };
+      }
     }
 
     @Module({
@@ -3308,6 +3347,133 @@ describe('MVP HTTP integration (permission boundaries)', () => {
       };
       expect(typeof payload.data.uploadUrl).toBe('string');
       expect(payload.data.fileId).toBe('file_stub');
+      expect(payload.meta.requestId).toBeTruthy();
+    });
+  });
+
+  // === Фаза 6 Task 1 — утечка ПДн: отчёты центра закрыты от слушателя ===
+  describe('отчёты центра: learners.read вместо enrollments.read', () => {
+    // НАСТОЯЩИЙ набор прав роли `learner` из живой базы. Здесь важно именно это:
+    // с ним раздел отчётов был открыт, потому что `enrollments.read` в нём есть.
+    const LEARNER_PERMISSIONS = [
+      'assessment.tests.read',
+      'courses.read',
+      'enrollments.read',
+      'materials.read',
+      'progress.read',
+      'tenant.read',
+      'video.read'
+    ];
+
+    it('403: слушатель не выгружает отчёт с ФИО и СНИЛС всего центра', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(LEARNER_PERMISSIONS);
+      const token = issueSignedAccessToken(
+        { sub: 'u_learner', tenant_id: 'tenant_demo', session_id: 's1', roles: ['learner'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/reports/builder/export`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ entityKey: 'learners' })
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('201: персонал с learners.read отчёт выгружает', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['learners.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_manager', tenant_id: 'tenant_demo', session_id: 's2', roles: ['manager'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/reports/builder/export`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-tenant-id': 'tenant_demo',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ entityKey: 'learners' })
+      });
+      expect(response.status).toBe(201);
+    });
+
+    it('403: готовность группы (там ФИО и проблемы со СНИЛС) слушателю тоже закрыта', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(LEARNER_PERMISSIONS);
+      const token = issueSignedAccessToken(
+        { sub: 'u_learner', tenant_id: 'tenant_demo', session_id: 's3', roles: ['learner'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/groups/g1/exam-readiness`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(403);
+    });
+
+    it('200: у персонала с groups.read готовность группы открывается', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['groups.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_manager', tenant_id: 'tenant_demo', session_id: 's4', roles: ['manager'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/groups/g1/exam-readiness`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(200);
+    });
+  });
+
+  // === Фаза 6 Task 1 (дефект D) — кабинет слушателя: GET /me/enrollments ===
+  describe('GET /me/enrollments (enrollments.read)', () => {
+    it('403 permission_denied без enrollments.read: courses.read кабинет не открывает', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['courses.read', 'materials.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_learner', tenant_id: 'tenant_demo', session_id: 's1', roles: ['learner'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/me/enrollments`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(403);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('permission_denied');
+    });
+
+    it('401 auth_required без токена', async () => {
+      const response = await fetch(`${apiBaseUrl}/me/enrollments`, {
+        headers: { 'x-tenant-id': 'tenant_demo' }
+      });
+      expect(response.status).toBe(401);
+      const payload = (await response.json()) as { error: { code: string } };
+      expect(payload.error.code).toBe('auth_required');
+    });
+
+    it('200 с enrollments.read: конверт + courseId в строке', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['enrollments.read']);
+      const token = issueSignedAccessToken(
+        { sub: 'u_learner', tenant_id: 'tenant_demo', session_id: 's_active', roles: ['learner'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/me/enrollments`, {
+        headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as {
+        data: { items: Array<{ id: string; courseId?: string }> };
+        meta: { requestId: string };
+      };
+      expect(payload.data.items[0]?.courseId).toBe('course_1');
       expect(payload.meta.requestId).toBeTruthy();
     });
   });

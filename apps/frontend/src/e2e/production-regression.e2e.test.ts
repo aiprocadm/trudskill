@@ -19,10 +19,20 @@ const buildSession = (permissions: string[], roles: string[] = []): UserSession 
 });
 
 describe('production regression by roles', () => {
-  it('methodist has access to assessment and reports', () => {
+  /*
+   * Фаза 6 Task 1. Раньше здесь утверждалось, что методисту открыты и проверка знаний,
+   * и отчёты. По интерфейсу так и было (страница требовала `tenant.read`), но пользы
+   * от этого не было никакой: у роли `methodist` в живой базе нет ни `enrollments.read`,
+   * ни `learners.read`, поэтому КАЖДЫЙ запрос отчёта возвращал ему отказ. Страница
+   * открывалась и упиралась в пустоту.
+   *
+   * Теперь интерфейс говорит то же, что и сервер. Нужен ли методисту доступ к отчётам —
+   * вопрос продукта: это выдача права миграцией, а не правка гейта (см. §5.252).
+   */
+  it('методисту открыта проверка знаний, но не отчёты центра (как и на сервере)', () => {
     const methodist = buildSession(['assessment.tests.read', 'tenant.read']);
     expect(evaluateRouteAccess('/assessment', methodist)).toEqual({ kind: 'ok' });
-    expect(evaluateRouteAccess('/reports', methodist)).toEqual({ kind: 'ok' });
+    expect(evaluateRouteAccess('/reports', methodist)).toEqual({ kind: 'forbidden' });
   });
 
   it('learner cannot access admin settings', () => {

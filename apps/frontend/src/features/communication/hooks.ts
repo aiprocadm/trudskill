@@ -1,11 +1,13 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { type RequestOptions, apiRequest } from '../../lib/api/client';
 import { realtimeClient } from '../../lib/realtime/client';
 import { useAuth } from '../auth/context';
+
+import type { RealtimeEventEnvelope } from '@trudskill/api-contracts';
 
 export interface NotificationDto {
   id: string;
@@ -44,41 +46,76 @@ const authHeaders = (session: ReturnType<typeof useAuth>['session']): RequestOpt
   };
 };
 
-export const useNotificationsRealtime = (onRefresh: () => void) => {
+/**
+ * Тело эффекта живой подписки, вынесенное из хука.
+ *
+ * Наружу торчит ради теста: React-рендерера в проекте нет, а проверить нужно
+ * главное — колбэк берётся из ref в момент события, поэтому его пересоздание
+ * на рендере не требует переподписки.
+ */
+export const openRealtimeSubscription = (
+  room: string | null,
+  token: string | null,
+  callbackRef: { current: (event: RealtimeEventEnvelope) => void }
+) => {
+  if (!room || !token) return undefined;
+  return realtimeClient.subscribe(room, token, (event) => callbackRef.current(event));
+};
+
+/*
+ * Колбэки экранов — новая стрелка на каждый рендер. Держать их в зависимостях
+ * эффекта нельзя: подписка пересобиралась бы после каждой перерисовки, а
+ * перерисовку вызывает само событие — получался самоподдерживающийся круг
+ * (Фаза 6, дефект A: шторм realtime). Последняя версия колбэка живёт в ref, а
+ * эффект зависит только от того, что реально определяет соединение: комната и
+ * токен. Приём тот же, что в test-attempt-screen.tsx (handleSubmitRef).
+ */
+const useRealtimeRoom = (
+  room: string | null,
+  token: string | null,
+  onEvent: (event: RealtimeEventEnvelope) => void
+) => {
+  const callbackRef = useRef(onEvent);
+  callbackRef.current = onEvent;
+
+  useEffect(() => openRealtimeSubscription(room, token, callbackRef), [room, token]);
+};
+
+/**
+ * `onRefresh` нужен только тем экранам, которые тянут уведомления мимо ключа
+ * `['notifications']`: этот ключ хук и так сбрасывает сам. Кто читает через
+ * `useNotificationsList`, колбэк не передаёт — иначе на каждое событие уходило
+ * бы по два одинаковых запроса.
+ */
+export const useNotificationsRealtime = (onRefresh?: () => void) => {
   const { session } = useAuth();
   const queryClient = useQueryClient();
-  useEffect(() => {
-    if (!session) return;
-    const room = `user:${session.user.id}`;
-    return realtimeClient.subscribe(room, session.tokens.accessToken, () => {
+  useRealtimeRoom(
+    session ? `user:${session.user.id}` : null,
+    session?.tokens.accessToken ?? null,
+    () => {
       void queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      onRefresh();
-    });
-  }, [onRefresh, queryClient, session]);
+      onRefresh?.();
+    }
+  );
 };
 
 export const useTaskRealtime = (taskId: string | undefined, onRefresh: () => void) => {
   const { session } = useAuth();
-  useEffect(() => {
-    if (!session || !taskId) return;
-    return realtimeClient.subscribe(
-      `task:${session.user.tenantId}:${taskId}`,
-      session.tokens.accessToken,
-      () => onRefresh()
-    );
-  }, [onRefresh, session, taskId]);
+  useRealtimeRoom(
+    session && taskId ? `task:${session.user.tenantId}:${taskId}` : null,
+    session?.tokens.accessToken ?? null,
+    () => onRefresh()
+  );
 };
 
 export const useChatRealtime = (dialogId: string | undefined, onRefresh: () => void) => {
   const { session } = useAuth();
-  useEffect(() => {
-    if (!session || !dialogId) return;
-    return realtimeClient.subscribe(
-      `dialog:${session.user.tenantId}:${dialogId}`,
-      session.tokens.accessToken,
-      () => onRefresh()
-    );
-  }, [dialogId, onRefresh, session]);
+  useRealtimeRoom(
+    session && dialogId ? `dialog:${session.user.tenantId}:${dialogId}` : null,
+    session?.tokens.accessToken ?? null,
+    () => onRefresh()
+  );
 };
 
 export const useNotificationsList = (page = 1, pageSize = 20, filter = '') => {

@@ -14,6 +14,9 @@ jobs:
   deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    # Деплой держит SSH-сессию, пока сервер собирает образы: без ограничения зависшая
+    # сборка висела бы до дефолтных 6 часов и жгла минуты runner-а.
+    timeout-minutes: 30
     steps:
       - name: Deploy over SSH (build on server)
         uses: appleboy/ssh-action@v1.2.5
@@ -21,6 +24,10 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          # У самого действия свой предел на команду, по умолчанию 10 минут — он
+          # наступил бы РАНЬШЕ 30-минутного потолка джобы и оборвал бы сборку образов
+          # на сервере посреди работы. Держим их согласованными.
+          command_timeout: 25m
           script_stop: true
           script: |
             set -euo pipefail

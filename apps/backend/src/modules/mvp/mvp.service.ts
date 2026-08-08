@@ -134,6 +134,7 @@ import type {
   KpiSnapshotDto,
   Learner,
   LearnerAssignmentSummary,
+  LearnerEnrollmentSummary,
   LearnerTestSummary,
   Material,
   MaterialProgress,
@@ -2023,6 +2024,53 @@ export class MvpService {
         if (aKey !== bKey) return bKey.localeCompare(aKey);
         return b.id.localeCompare(a.id);
       });
+    return { items };
+  }
+
+  /**
+   * Фаза 6 Task 1 (дефект D) — зачисления текущего IAM-актора для кабинета слушателя.
+   *
+   * Почему это ручка сервера, а не фильтр на фронте. В зачислении лежит идентификатор
+   * КАРТОЧКИ слушателя (`learner_*`), а кабинет знает только идентификатор пользователя
+   * IAM — совпадений между ними нет никогда, поэтому «Мои курсы» были пусты. Узнать свою
+   * карточку фронт не может: право «читать слушателей центра» слушателю не выдаётся и
+   * выдаваться не должно, так что связку обязан делать сервер.
+   *
+   * Курс отдаётся здесь же: у зачисления его нет, он висит на группе через `group_courses`.
+   *
+   * Без привязки — пустой список, а не 403: так же ведут себя `/me/documents` и `/me/tests`,
+   * и админ с `enrollments.read` просто видит здесь пустоту, а не ошибку.
+   */
+  listMyEnrollments(
+    tenantId: string,
+    actorId: string | undefined
+  ): { items: LearnerEnrollmentSummary[] } {
+    if (!actorId) return { items: [] };
+    const learnerIds = this.resolveActorLearnerIds(tenantId, actorId);
+    if (learnerIds.size === 0) return { items: [] };
+    const items = this.state.enrollments
+      .filter((e) => e.tenantId === tenantId && learnerIds.has(e.learnerId))
+      .map((e) => {
+        const course = this.resolveEnrollmentCourse(tenantId, e);
+        return {
+          id: e.id,
+          tenantId: e.tenantId,
+          groupId: e.groupId,
+          learnerId: e.learnerId,
+          status: e.status,
+          enrolledAt: e.enrolledAt,
+          createdAt: e.createdAt,
+          updatedAt: e.updatedAt,
+          ...(e.completedAt !== undefined ? { completedAt: e.completedAt } : {}),
+          ...(e.plannedEndAt !== undefined ? { plannedEndAt: e.plannedEndAt } : {}),
+          ...(course.id !== undefined ? { courseId: course.id, courseTitle: course.title } : {})
+        };
+      })
+      .sort((a, b) =>
+        a.enrolledAt === b.enrolledAt
+          ? a.id.localeCompare(b.id)
+          : b.enrolledAt.localeCompare(a.enrolledAt)
+      );
     return { items };
   }
 
@@ -6048,16 +6096,29 @@ export class MvpService {
     );
   }
 
-  /** Ограничение list-эндпойнтов строками слушателя, привязанного к JWT (кроме админских ролей). */
+  /**
+   * Ограничение list-эндпойнтов строками слушателя, привязанного к JWT.
+   *
+   * Порядок проверок — fail-closed. Раньше «нет привязки к карточке слушателя» значило
+   * «ограничений нет», и любой пользователь с `enrollments.read` без карточки получал
+   * зачисления ВСЕГО центра — отбор отказывал в открытую. Теперь право на широкий обзор
+   * даёт только bypass-право, а не отсутствие привязки: неизвестный актор видит пусто.
+   *
+   * `actorId === undefined` — это внутренний вызов сервиса (реестры, выгрузки, воркер):
+   * актора нет, ограничивать нечего.
+   *
+   * Проверено по правам ролей на стенде: `enrollments.read` есть у learner, manager,
+   * tenant_admin, platform_admin; у всех, кроме learner, есть и `assessment.read.cross_learner`,
+   * и `learners.act_as`. То же самое для `progress.read` / `assessment.*.read` — там
+   * добавляется methodist, у которого bypass тоже есть. Персонал центра ничего не теряет.
+   */
   private restrictLearnerIdsForAssessmentList(
     tenantId: string,
     access: MvpAssessmentReadAccess | undefined
   ): string[] | null {
     if (!access?.actorId) return null;
-    const bound = this.learnerIdsBoundToIamActor(tenantId, access.actorId);
-    if (!bound) return null;
     if (this.hasAssessmentReadBypass(access)) return null;
-    return bound;
+    return this.learnerIdsBoundToIamActor(tenantId, access.actorId) ?? [];
   }
 
   /** GET по сущности слушателя с linkedIamUserId: свой JWT или bypass-роль. */

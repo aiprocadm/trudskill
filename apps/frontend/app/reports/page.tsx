@@ -4,14 +4,12 @@ import { DataTable, FilterBar } from '@trudskill/ui';
 import { useMemo, useState } from 'react';
 
 import { PageContainer, PageHeader, SectionCard } from '../../src/components/state-wrappers';
-import { useAuth } from '../../src/features/auth/context';
 import {
   useAssignments,
   useCoursesList,
   useEnrollments,
   useGroupsList,
   useKpiSnapshot,
-  useLearnerCourses,
   useQuestionBanks,
   useTests
 } from '../../src/features/mvp/hooks';
@@ -20,7 +18,6 @@ import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 import type { KpiFilterQuery } from '../../src/features/mvp/types';
 
 export default function ReportsPage() {
-  const { session } = useAuth();
   const [status, setStatus] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -33,7 +30,6 @@ export default function ReportsPage() {
   const banks = useQuestionBanks({ page: 1, page_size: 1 });
   const assignments = useAssignments({ page: 1, page_size: 1 });
   const enrollments = useEnrollments({ page: 1, page_size: 200 });
-  const learnerCourses = useLearnerCourses(session?.user.id ?? '');
   const kpiQuery: KpiFilterQuery = {
     ...(from ? { created_from: from } : {}),
     ...(to ? { created_to: to } : {}),
@@ -240,8 +236,12 @@ export default function ReportsPage() {
             ]}
             rows={[
               {
+                // «Назначено» — это все зачисления центра в выборке, и остальные счётчики
+                // строки считаются по ней же. Раньше сюда попадал ответ на запрос
+                // «зачисления слушателя с идентификатором текущего пользователя IAM» —
+                // такого слушателя не существует, и отчёт стабильно показывал 0.
                 role: 'Слушатель',
-                assigned: learnerCourses.data?.total ?? 0,
+                assigned: enrollments.data?.total ?? 0,
                 active: progressCounters.active,
                 completed: progressCounters.completed,
                 suspended: progressCounters.suspended + progressCounters.pending

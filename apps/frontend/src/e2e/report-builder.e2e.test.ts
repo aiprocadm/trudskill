@@ -21,18 +21,20 @@ const admin: UserSession = {
   },
   tokens: { accessToken: 'a', sessionId: 's1', expiresIn: 1000 },
   roles: ['tenant_admin'],
-  permissions: ['enrollments.read']
+  // Фаза 6 Task 1: раздел отчётов закрыт `learners.read` — `enrollments.read`
+  // есть у слушателя, и с ним он выгружал ФИО и СНИЛС всего центра.
+  permissions: ['learners.read']
 };
 const noPerms: UserSession = { ...admin, permissions: [] };
 
 describe('report builder E2E smoke', () => {
-  it('route /admin/reports/builder requires enrollments.read', () => {
+  it('route /admin/reports/builder requires learners.read', () => {
     expect(evaluateRouteAccess('/admin/reports/builder', admin)).toEqual({ kind: 'ok' });
     expect(evaluateRouteAccess('/admin/reports/builder', noPerms)).toEqual({ kind: 'forbidden' });
     expect(evaluateRouteAccess('/admin/reports/builder', null)).toEqual({ kind: 'redirect-login' });
   });
 
-  it('nav «Конструктор отчётов» visible only with enrollments.read', () => {
+  it('nav «Конструктор отчётов» visible only with learners.read', () => {
     expect(getVisibleNavigation(admin).map((i) => i.href)).toContain('/admin/reports/builder');
     expect(getVisibleNavigation(noPerms).map((i) => i.href)).not.toContain(
       '/admin/reports/builder'

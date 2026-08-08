@@ -149,7 +149,21 @@ describe('изоляция по контрагенту (ФТ-E5)', () => {
 
   it('зачисления: только в группы своего заказчика', () => {
     const h = harness();
-    const list = h.service.listEnrollments(T, {}, { actor: h.repA });
+    /*
+     * `actorId` передаётся не для красоты: контроллер всегда шлёт его (`c.userId`),
+     * и с Фазы 6 именно от него зависит отбор (без привязки к карточке слушателя —
+     * пусто, fail-closed). Тест без actorId проверял бы путь, по которому продакшен
+     * не ходит, и молча пережил бы поломку портала.
+     */
+    const list = h.service.listEnrollments(
+      T,
+      {},
+      {
+        actorId: 'u_rep_a',
+        permissions: ['portal.read', 'enrollments.read', 'assessment.read.cross_learner'],
+        actor: h.repA
+      }
+    );
     expect(list.items.map((e) => e.id)).toEqual([h.enrA.id]);
   });
 

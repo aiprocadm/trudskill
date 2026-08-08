@@ -1,11 +1,11 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   buildProgressMap,
   useCourseTree,
-  useLearnerEnrollmentForCourse,
   useModuleGateState,
   useUpsertMaterialProgress
 } from './hooks';
@@ -21,8 +21,10 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import { useAuth } from '../auth/context';
 import { LearnerDocumentsList } from '../learner-documents/documents-list';
 import { useMyDocuments } from '../learner-documents/hooks';
+import { mvpApi } from '../mvp/api';
 import { useCourse, useLearnerCourseProgress } from '../mvp/hooks';
 
 import type { Material } from '../mvp/types';
@@ -43,6 +45,30 @@ const findFirstUnlockedNotStarted = (
   return null;
 };
 
+/**
+ * Зачисление текущего слушателя на этот курс.
+ *
+ * Плеер раньше искал его в общем списке `/enrollments?learner_id=<id пользователя IAM>`.
+ * В зачислении лежит идентификатор КАРТОЧКИ слушателя, поэтому список приходил пустым,
+ * `enrollmentId` навсегда оставался null — а без него отчёт о просмотре не отправляется,
+ * то есть прогресс не сохранялся вообще. `/me/enrollments` резолвит карточку на сервере
+ * и отдаёт курс группы, по нему и выбираем нужную строку.
+ */
+const useMyEnrollmentForCourse = (courseId: string) => {
+  const { session } = useAuth();
+  const query = useQuery({
+    queryKey: ['mvp', 'myEnrollments', session?.user.id ?? ''],
+    enabled: Boolean(session),
+    queryFn: () => mvpApi.listMyEnrollments(session!)
+  });
+  const forCourse = (query.data?.items ?? []).filter((item) => item.courseId === courseId);
+  const enrollment = forCourse.find((item) => item.status === 'active') ?? forCourse[0] ?? null;
+  return {
+    enrollmentId: enrollment?.id ?? null,
+    error: query.error instanceof Error ? query.error.message : null
+  };
+};
+
 interface Props {
   courseId: string;
 }
@@ -55,7 +81,7 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
     loading: progressLoading,
     error: progressError
   } = useLearnerCourseProgress(courseId);
-  const { enrollmentId, error: enrollmentError } = useLearnerEnrollmentForCourse(courseId);
+  const { enrollmentId, error: enrollmentError } = useMyEnrollmentForCourse(courseId);
   const upsertProgress = useUpsertMaterialProgress(courseId);
 
   const progressByMaterial = useMemo(() => buildProgressMap(progress?.items ?? null), [progress]);

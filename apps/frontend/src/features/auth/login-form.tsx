@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { type FormEvent, useMemo, useRef, useState } from 'react';
 
 import { useAuth } from './context';
+import { resolveNextTarget } from './next-target';
 import {
   FieldError,
   FieldHelp,
@@ -12,18 +13,16 @@ import {
 } from '../../components/form-feedback';
 import { ApiClientError } from '../../lib/api/client';
 
-export const resolveSafeNextPath = (next: string | null): string => {
-  if (!next) {
-    return '/';
-  }
-
-  const trimmed = next.trim();
-  if (!trimmed.startsWith('/') || trimmed.startsWith('//')) {
-    return '/';
-  }
-
-  return trimmed;
-};
+/**
+ * Куда вести после входа. Разбор `next` живёт в `next-target.ts` — единственном месте,
+ * где чужая строка превращается в адрес перехода.
+ *
+ * Здесь раньше была своя проверка «начинается с одного слэша». Она пропускала
+ * `/\evil.com` и `/<таб>/evil.com`: браузер считает обратный слэш и управляющие символы
+ * разделителями, и такой адрес уводил на чужой сайт с формой-двойником. Две проверки
+ * одного и того же в двух файлах — как раз то, из-за чего дыра дожила до сюда.
+ */
+export const resolveSafeNextPath = (next: string | null): string => resolveNextTarget(next, '/');
 
 export const LoginForm = () => {
   const router = useRouter();

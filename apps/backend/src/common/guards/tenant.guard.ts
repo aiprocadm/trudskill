@@ -73,6 +73,12 @@ export class TenantGuard implements CanActivate {
     const isTenantBootstrapRoute =
       requestPath.endsWith('/auth/login') ||
       requestPath.endsWith('/auth/refresh') ||
+      // Первый шаг восстановления сессии после перезагрузки страницы (F5): фронт делает
+      // GET /auth/csrf, чтобы получить пару к csrf-cookie, и только потом POST /auth/refresh.
+      // Bearer'а на этом шаге ещё нет — без bootstrap'а восстановление падало всегда.
+      // Лишнего ручка не открывает: она лишь возвращает значение уже пришедшей cookie,
+      // а без неё сама бросает 401.
+      requestPath.endsWith('/auth/csrf') ||
       // Второй шаг 2FA-логина (ФТ-G3): bearer-токена ещё нет, авторизует подписанный
       // challenge в теле запроса; сравнение по PATH — как и у остальных bootstrap-роутов.
       requestPath.endsWith('/auth/2fa/verify');

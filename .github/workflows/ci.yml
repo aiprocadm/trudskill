@@ -9,10 +9,17 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Набор джоб дословно накрывает корневой `pnpm ci:check`
+# (lint → typecheck → contracts:lint → contracts:typecheck → test:unit → build),
+# просто разложенный по параллельным джобам ради времени прогона.
+# У каждой джобы обязателен timeout-minutes: без него зависший шаг висит до дефолтных
+# 6 часов и сжигает минуты runner-а — именно так CI и стал дорогим до отключения Actions.
 jobs:
   tests_python:
     name: Python (pytest)
     runs-on: ubuntu-latest
+    # Один smoke-файл: ставится pip-окружение и почти сразу отрабатывает.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -28,6 +35,8 @@ jobs:
   lint_typecheck:
     name: Lint + Typecheck
     runs-on: ubuntu-latest
+    # Установка зависимостей + turbo lint/typecheck по 9 пакетам (typecheck ещё и собирает зависимости).
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -43,11 +52,20 @@ jobs:
         run: pnpm lint
       - name: Typecheck
         run: pnpm typecheck
+      # Отдельные шаги контрактов есть и в ci:check: contracts:lint — свой линтер правил DTO
+      # (turbo lint его не запускает), contracts:typecheck держит проверку даже если пакет
+      # когда-нибудь выпадет из turbo-графа typecheck.
+      - name: Contracts lint
+        run: pnpm contracts:lint
+      - name: Contracts typecheck
+        run: pnpm contracts:typecheck
 
   tests_backend:
     name: Backend tests
     runs-on: ubuntu-latest
     needs: lint_typecheck
+    # Самая тяжёлая джоба: ~352 файла тестов бэкенда, fileParallelism отключён конфигом.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -59,18 +77,19 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Backend unit/integration/migrations/security/isolation
-        run: |
-          pnpm test:backend
-          pnpm test:integration
-          pnpm test:migrations
-          pnpm test:security
-          pnpm test:isolation
+      # Один прогон вместо пяти. Скрипты test:integration / test:migrations / test:security /
+      # test:isolation — это фильтры по именам файлов внутри apps/backend/src, то есть строгие
+      # подмножества test:backend; раньше те же 31 файл гонялись повторно, плюс каждый прогон
+      # заново поднимал vitest. Ничего не потеряно: проверено сверкой списков файлов.
+      - name: Backend tests (включая integration/migrations/security/isolation)
+        run: pnpm test:backend
 
   tests_frontend_and_contracts:
-    name: Frontend + Contract tests
+    name: Frontend + contracts + packages tests
     runs-on: ubuntu-latest
     needs: lint_typecheck
+    # ~182 файла: фронт, контракты и остальные пакеты; фронтовый набор идёт за считанные минуты.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -82,15 +101,19 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Frontend and API contract checks
-        run: |
-          pnpm test:frontend
-          pnpm test:contracts
+      # Вместе с джобой tests_backend это ровно `pnpm test:unit` (turbo run test по всем пакетам).
+      # Раньше здесь были только frontend и api-contracts, а тесты ui / worker / realtime /
+      # shared-types / docx-render / test-utils в CI не запускались вовсе. Фильтр-исключение,
+      # а не перечисление пакетов: новый пакет подхватится сам.
+      - name: Tests for every package except backend
+        run: pnpm exec turbo run test --filter='!@trudskill/backend'
 
   contract_drift_check:
     name: Contract drift check (required)
     runs-on: ubuntu-latest
     needs: lint_typecheck
+    # Только регенерация контрактов и сравнение с закоммиченным — минуты.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -105,37 +128,17 @@ jobs:
       - name: Verify generated API contract artifacts are up-to-date
         run: pnpm --filter @trudskill/api-contracts contracts:check-generated
 
-  frontend_typecheck_build:
-    name: Frontend typecheck + build gate
-    runs-on: ubuntu-latest
-    needs: lint_typecheck
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 11.20.0
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Frontend typecheck
-        run: pnpm --filter @trudskill/frontend typecheck
-      - name: Build shared UI package (frontend dependency)
-        run: pnpm --filter @trudskill/ui build
-      - name: Frontend build
-        run: pnpm --filter @trudskill/frontend build
+  # Джоба frontend_typecheck_build удалена как полный дубль: `pnpm typecheck` уже включает
+  # @trudskill/frontend, а `pnpm build` — и @trudskill/ui, и @trudskill/frontend (next build).
+  # Чтобы не потерять ранний сигнал о поломке сборки, build теперь ждёт только lint_typecheck
+  # и идёт параллельно тестам, а дорогой docker-smoke — уже после зелёных тестов.
 
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs:
-      - tests_backend
-      - tests_frontend_and_contracts
-      - frontend_typecheck_build
-      - contract_drift_check
-      - tests_python
+    needs: lint_typecheck
+    # Долгая часть — next build --webpack у фронта.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -153,7 +156,14 @@ jobs:
   backend_image_smoke:
     name: Backend image smoke test
     runs-on: ubuntu-latest
-    needs: build
+    needs:
+      - build
+      - tests_backend
+      - tests_frontend_and_contracts
+      - contract_drift_check
+      - tests_python
+    # Сборка образа с нуля (кеша слоёв на runner-е нет) + до 60 с ожидания health-эндпоинта.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
       - name: Build backend image

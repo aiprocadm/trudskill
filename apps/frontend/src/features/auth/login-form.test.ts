@@ -27,4 +27,15 @@ describe('login form error mapping', () => {
     expect(resolveSafeNextPath('//evil.example')).toBe('/');
     expect(resolveSafeNextPath('courses')).toBe('/');
   });
+
+  /*
+   * Фаза 6 Task 1: форма входа теперь пользуется строгим разбором из `next-target.ts`.
+   * Эти три варианта — те самые, что проходили сквозь прежнюю проверку «начинается
+   * с одного слэша» и уводили человека на чужой сайт с формой-двойником.
+   */
+  it('не уводит на чужой сайт обратным слэшем, управляющим символом и точечным сегментом', () => {
+    expect(resolveSafeNextPath('/\\evil.example')).toBe('/');
+    expect(resolveSafeNextPath('/\t/evil.example')).toBe('/');
+    expect(resolveSafeNextPath('/..//evil.example')).toBe('/');
+  });
 });
