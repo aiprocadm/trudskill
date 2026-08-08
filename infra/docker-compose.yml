@@ -1,5 +1,19 @@
+# Ротация журналов контейнеров (Фаза 6 Task 3).
+#
+# По умолчанию docker пишет журнал каждого контейнера в json-файл БЕЗ предела: он растёт,
+# пока не кончится диск. Диск здесь общий с базой, MinIO (видео курсов и прокторинга) и
+# каталогом бэкапов, поэтому переполнение = Postgres встаёт в read-only И ночной бэкап
+# не снимается одновременно. Полгигабайта на сервис (5 файлов по 100 МБ) хватает на
+# разбор аварии и не съедает место.
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '100m'
+    max-file: '5'
+
 services:
   postgres:
+    logging: *default-logging
     image: postgres:18
     environment:
       POSTGRES_DB: cdoprof
@@ -16,6 +30,7 @@ services:
       retries: 5
 
   redis:
+    logging: *default-logging
     image: redis:8
     ports:
       - '6379:6379'
@@ -28,6 +43,7 @@ services:
       retries: 5
 
   rabbitmq:
+    logging: *default-logging
     image: rabbitmq:4.3-management
     ports:
       - '5672:5672'
@@ -44,6 +60,7 @@ services:
       retries: 5
 
   minio:
+    logging: *default-logging
     image: minio/minio:latest
     command: server /data --console-address ':9001'
     environment:
@@ -61,6 +78,7 @@ services:
       retries: 5
 
   minio-init:
+    logging: *default-logging
     image: minio/mc:latest
     depends_on:
       minio:
@@ -77,6 +95,7 @@ services:
   # локалку загрузкой базы сигнатур. Поднять при необходимости: `docker compose up -d clamav`
   # и выставить ANTIVIRUS_ENABLED=true. Первый старт долгий — freshclam качает базу.
   clamav:
+    logging: *default-logging
     image: clamav/clamav:1.5.3
     ports:
       - '3310:3310'
@@ -94,6 +113,7 @@ services:
   # чтобы не конфликтовать с фронтендом на :3000. Здесь только инфраструктура — сам движок
   # рендера (worker → Gotenberg) подключается в Фазе 1 (ЭПИК A). Health-эндпоинт: GET /health.
   gotenberg:
+    logging: *default-logging
     image: gotenberg/gotenberg:8
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
@@ -103,6 +123,7 @@ services:
       start_period: 30s
 
   supertokens:
+    logging: *default-logging
     image: registry.supertokens.io/supertokens/supertokens-postgresql:12.0
     environment:
       POSTGRESQL_CONNECTION_URI: postgresql://postgres:postgres@postgres:5432/cdoprof
@@ -123,6 +144,7 @@ services:
       retries: 5
 
   backend:
+    logging: *default-logging
     build:
       context: ..
       dockerfile: apps/backend/Dockerfile
@@ -148,6 +170,7 @@ services:
       retries: 5
 
   realtime:
+    logging: *default-logging
     build:
       context: ..
       dockerfile: apps/realtime/Dockerfile
@@ -160,6 +183,7 @@ services:
       - '3002:3002'
 
   worker:
+    logging: *default-logging
     build:
       context: ..
       dockerfile: apps/worker/Dockerfile

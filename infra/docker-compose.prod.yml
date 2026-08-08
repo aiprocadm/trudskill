@@ -1,7 +1,21 @@
 name: cdoprof
 
+# Ротация журналов контейнеров (Фаза 6 Task 3).
+#
+# По умолчанию docker пишет журнал каждого контейнера в json-файл БЕЗ предела: он растёт,
+# пока не кончится диск. Диск здесь общий с базой, MinIO (видео курсов и прокторинга) и
+# каталогом бэкапов, поэтому переполнение = Postgres встаёт в read-only И ночной бэкап
+# не снимается одновременно. Полгигабайта на сервис (5 файлов по 100 МБ) хватает на
+# разбор аварии и не съедает место.
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '100m'
+    max-file: '5'
+
 services:
   postgres:
+    logging: *default-logging
     image: postgres:18
     env_file: .env.production
     volumes:
@@ -14,6 +28,7 @@ services:
       retries: 5
 
   redis:
+    logging: *default-logging
     image: redis:8
     volumes:
       - redis-data:/data
@@ -25,6 +40,7 @@ services:
       retries: 5
 
   rabbitmq:
+    logging: *default-logging
     image: rabbitmq:4.3-management
     env_file: .env.production
     volumes:
@@ -37,6 +53,7 @@ services:
       retries: 5
 
   minio:
+    logging: *default-logging
     image: minio/minio:latest
     command: server /data --console-address ':9001'
     env_file: .env.production
@@ -50,6 +67,7 @@ services:
       retries: 5
 
   minio-init:
+    logging: *default-logging
     image: minio/mc:latest
     depends_on:
       minio:
@@ -66,6 +84,7 @@ services:
   # ANTIVIRUS_ENABLED=true в .env.production. Первый старт долгий — freshclam качает базу
   # сигнатур (start_period 120s). База persists в томе clamav-data, чтобы не качать повторно.
   clamav:
+    logging: *default-logging
     image: clamav/clamav:1.5.3
     env_file: .env.production
     volumes:
@@ -81,6 +100,7 @@ services:
   # Gotenberg (ФТ-A1.3): DOCX→PDF (LibreOffice внутри). Внутренний порт 3000 (по имени сервиса).
   # Инфраструктура готова к Фазе 1; сам рендер (worker → Gotenberg) подключается там. GET /health.
   gotenberg:
+    logging: *default-logging
     image: gotenberg/gotenberg:8
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
@@ -91,6 +111,7 @@ services:
     restart: unless-stopped
 
   supertokens:
+    logging: *default-logging
     image: registry.supertokens.io/supertokens/supertokens-postgresql:12.0
     env_file: .env.production
     depends_on:
@@ -104,6 +125,7 @@ services:
       retries: 5
 
   backend:
+    logging: *default-logging
     build:
       context: ..
       dockerfile: apps/backend/Dockerfile
@@ -129,6 +151,7 @@ services:
       retries: 5
 
   realtime:
+    logging: *default-logging
     build:
       context: ..
       dockerfile: apps/realtime/Dockerfile
@@ -139,6 +162,7 @@ services:
     restart: unless-stopped
 
   worker:
+    logging: *default-logging
     build:
       context: ..
       dockerfile: apps/worker/Dockerfile
@@ -153,6 +177,7 @@ services:
     restart: unless-stopped
 
   frontend:
+    logging: *default-logging
     build:
       context: ..
       dockerfile: apps/frontend/Dockerfile
@@ -167,6 +192,7 @@ services:
     restart: unless-stopped
 
   caddy:
+    logging: *default-logging
     image: caddy:2
     depends_on:
       - frontend
