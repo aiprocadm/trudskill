@@ -15,6 +15,16 @@ export const listParticipants = (
 
 export const listMyWebinars = (): Promise<Webinar[]> => apiRequest<Webinar[]>('/webinars/mine');
 
+/**
+ * ФТ-F4 (Фаза 5 Task 9): отметка посещения при подключении. Сервер ставит
+ * `joined` (идемпотентно) и возвращает ссылку на комнату — фронт открывает её
+ * ПОСЛЕ отметки, чтобы посещение не терялось из-за закрытой вкладки.
+ */
+export const joinWebinar = (id: string): Promise<{ attendanceStatus: string; joinUrl?: string }> =>
+  apiRequest<{ attendanceStatus: string; joinUrl?: string }>(`/webinars/${id}/join`, {
+    method: 'POST'
+  });
+
 export const getProviderSettings = (): Promise<ProviderSettings> =>
   apiRequest<ProviderSettings>('/webinars/provider-settings');
 

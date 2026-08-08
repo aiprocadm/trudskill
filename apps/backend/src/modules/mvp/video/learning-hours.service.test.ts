@@ -14,6 +14,7 @@ import {
   toAcademicHours
 } from './learning-hours.util.js';
 
+import type { WebinarsService } from '../../communication/webinars.service.js';
 import type { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
 
 /**
@@ -149,10 +150,17 @@ function makeState(): InMemoryMvpState {
   } as unknown as InMemoryMvpState;
 }
 
+/** ФТ-F4: заглушка посещений вебинаров; по умолчанию никто не отмечался. */
+const webinarsStub = (map: Map<string, number> = new Map()): WebinarsService =>
+  ({ groupAttendanceSeconds: async () => map }) as unknown as WebinarsService;
+
 describe('LearningHoursService.getGroupJournal', () => {
   const makeService = () => {
     const videoProgress = new InMemoryVideoProgressRepository();
-    return { service: new LearningHoursService(makeState(), videoProgress), videoProgress };
+    return {
+      service: new LearningHoursService(makeState(), videoProgress, webinarsStub()),
+      videoProgress
+    };
   };
 
   it('считает журнал по всем зачислениям группы и не берёт чужую группу', async () => {
@@ -164,6 +172,25 @@ describe('LearningHoursService.getGroupJournal', () => {
     expect(journal.plannedAcademicHours).toBe(40);
     expect(journal.entries).toHaveLength(2);
     expect(journal.entries.map((e) => e.enrollmentId)).not.toContain('enr_x');
+  });
+
+  it('ФТ-F4: посещённый вебинар виден в журнале часов, неотмеченный — нет', async () => {
+    const videoProgress = new InMemoryVideoProgressRepository();
+    // lrn_1 отметился на вебинаре (90 минут), lrn_2 — нет.
+    const service = new LearningHoursService(
+      makeState(),
+      videoProgress,
+      webinarsStub(new Map([['lrn_1', 5400]]))
+    );
+
+    const journal = await service.getGroupJournal(T, 'grp_1');
+    const attended = journal.entries.find((e) => e.learnerId === 'lrn_1');
+    const absent = journal.entries.find((e) => e.learnerId === 'lrn_2');
+
+    expect(attended?.webinarSeconds).toBe(5400);
+    expect(absent?.webinarSeconds).toBe(0);
+    // Вебинарные секунды входят в факт: у отметившегося факт больше на 5400.
+    expect((attended?.factSeconds ?? 0) - 5400).toBeGreaterThanOrEqual(0);
   });
 
   it('первыми показывает тех, кто не добрал часы', async () => {
@@ -220,7 +247,7 @@ describe('LearningHoursService.getGroupJournal', () => {
 describe('renderLearningJournalCsv', () => {
   it('открывается в Excel: BOM и разделитель «;» — как в книге выдачи', async () => {
     const videoProgress = new InMemoryVideoProgressRepository();
-    const service = new LearningHoursService(makeState(), videoProgress);
+    const service = new LearningHoursService(makeState(), videoProgress, webinarsStub());
     const csv = renderLearningJournalCsv(await service.getGroupJournal(T, 'grp_1'));
 
     expect(csv.startsWith('﻿')).toBe(true);
@@ -232,7 +259,11 @@ describe('renderLearningJournalCsv', () => {
   it('точка с запятой в ФИО не разваливает колонки', async () => {
     const state = makeState();
     (state.learners as unknown as Array<{ lastName: string }>)[0]!.lastName = 'Яко;влев';
-    const service = new LearningHoursService(state, new InMemoryVideoProgressRepository());
+    const service = new LearningHoursService(
+      state,
+      new InMemoryVideoProgressRepository(),
+      webinarsStub()
+    );
 
     const csv = renderLearningJournalCsv(await service.getGroupJournal(T, 'grp_1'));
 

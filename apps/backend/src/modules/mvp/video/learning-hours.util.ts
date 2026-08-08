@@ -16,6 +16,8 @@ export interface LearningHoursInput {
   videoSeconds: number;
   /** Время в тестовых попытках, секунды. */
   testSeconds: number;
+  /** ФТ-F4 (Фаза 5 Task 9): время посещённых вебинаров группы, секунды. */
+  webinarSeconds?: number;
   /** Плановые часы программы; не заданы — сравнивать не с чем. */
   plannedAcademicHours?: number;
 }
@@ -50,12 +52,15 @@ export function toAcademicHours(seconds: number): number {
  * Видео-время НЕ складывается с временем материалов: видео-урок — это тоже материал,
  * и его секунды уже лежат в `material_progress`. Берём максимум из двух источников —
  * покрытие видео точнее (Task 6), но для не-видео материалов существует только
- * `material_progress`.
+ * `material_progress`. Вебинары (ФТ-F4) — отдельная активность вне материалов,
+ * их секунды складываются.
  */
 export function calculateLearningHours(input: LearningHoursInput): LearningHoursRow {
   const safe = (value: number): number => (Number.isFinite(value) && value > 0 ? value : 0);
   const factSeconds = Math.round(
-    Math.max(safe(input.materialSeconds), safe(input.videoSeconds)) + safe(input.testSeconds)
+    Math.max(safe(input.materialSeconds), safe(input.videoSeconds)) +
+      safe(input.testSeconds) +
+      safe(input.webinarSeconds ?? 0)
   );
   const factHours = toAcademicHours(factSeconds);
   const plannedHours =

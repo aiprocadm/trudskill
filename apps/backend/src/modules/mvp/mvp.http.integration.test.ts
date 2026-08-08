@@ -309,6 +309,14 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         return { eligible: 0, skipped: [], documents: null, registry: null, groupId };
       }
 
+      // ФТ-F4 Фаза 5 Task 9 — отметка посещения вебинара: право слушателя
+      // webinars.attend; staff-право webinars.read «видеть» не значит «отмечаться».
+      @Post('webinars/:id/join')
+      @RequirePermissions('webinars.attend')
+      joinWebinar(@Param('id') id: string) {
+        return { attendanceStatus: 'joined', webinarId: id };
+      }
+
       // ФТ-D2.2 — платформенная админка тенантов: только platform.tenants.*
       @Get('platform/tenants')
       @RequirePermissions('platform.tenants.read')
