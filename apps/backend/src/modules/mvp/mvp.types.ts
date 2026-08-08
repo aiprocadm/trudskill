@@ -177,6 +177,28 @@ export interface Enrollment extends BaseEntity {
   proctoringOverride?: ProctoringOverride;
 }
 
+/**
+ * Фаза 6 Task 1 — строка «моего» зачисления для кабинета слушателя (`GET /me/enrollments`).
+ *
+ * Курс лежит здесь, а не собирается кабинетом: у `Enrollment` своего `courseId` нет,
+ * курс висит на ГРУППЕ через `group_courses`. Без этого поля кабинету пришлось бы
+ * ходить за связкой отдельно — правами на неё слушатель не обладает.
+ */
+export interface LearnerEnrollmentSummary {
+  id: string;
+  tenantId: string;
+  groupId: string;
+  learnerId: string;
+  status: EnrollmentStatus;
+  enrolledAt: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+  plannedEndAt?: string;
+  courseId?: string;
+  courseTitle?: string;
+}
+
 /** Результат одной операции массового назначения (`POST /enrollments/bulk`). */
 export interface BulkEnrollmentItemError {
   learnerId: string;

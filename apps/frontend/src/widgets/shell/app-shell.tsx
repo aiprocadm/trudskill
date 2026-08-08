@@ -74,7 +74,12 @@ export const AppShell = ({ children }: PropsWithChildren) => {
     return () => window.removeEventListener('keydown', onKey);
   }, [paletteOpen, openPalette, closePalette]);
 
-  useNotificationsRealtime(() => void unread.refetch());
+  /*
+   * Счётчик непрочитанных обновляет сам хук — он сбрасывает ключ `['notifications']`,
+   * на котором висит `useNotificationsList` выше. Свой колбэк здесь давал второй
+   * запрос на каждое событие и новую стрелку на каждый рендер (Фаза 6, дефект A).
+   */
+  useNotificationsRealtime();
 
   useEffect(() => {
     setMobileNavOpen(false);

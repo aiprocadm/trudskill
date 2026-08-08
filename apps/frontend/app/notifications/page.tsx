@@ -26,9 +26,14 @@ export default function NotificationsPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState('');
-  const { data, loading, error, refetch } = useNotificationsList(page, 20, filter);
+  const { data, loading, error } = useNotificationsList(page, 20, filter);
 
-  useNotificationsRealtime(() => void refetch());
+  /*
+   * Без своего колбэка: хук на событие сам сбрасывает ключ `['notifications']`, на котором
+   * сидит список выше. Переданный `refetch` добавлял ВТОРОЙ такой же запрос на каждое
+   * событие — та же беда, что убрана из шапки (Фаза 6, дефект A).
+   */
+  useNotificationsRealtime();
 
   const markAllRead = async () => {
     if (!session) return;

@@ -43,6 +43,16 @@ import type {
 } from './types';
 import type { UserSession } from '../../entities/session/model';
 
+/**
+ * Фаза 6 Task 1 (дефект D) — строка «моего» зачисления из `GET /me/enrollments`.
+ *
+ * Название курса приходит с сервера вместе с `courseId`: у зачисления своего курса нет,
+ * он висит на группе, а прав ходить за связкой «группа → курс» у слушателя нет.
+ */
+export interface MyEnrollmentRow extends Enrollment {
+  courseTitle?: string;
+}
+
 export const withAuth = (session: UserSession) => ({
   auth: {
     userId: session.user.id,
@@ -221,6 +231,13 @@ export const mvpApi = {
     }),
   listEnrollments: (session: UserSession, query: BaseFilterQuery) =>
     apiRequest<ListResponse<Enrollment>>(`/enrollments${queryString(query)}`, withAuth(session)),
+  /**
+   * Зачисления текущего пользователя-слушателя. Фильтровать общий `/enrollments` по
+   * `learner_id` для этого нельзя: фронт знает идентификатор пользователя IAM, а в
+   * зачислении лежит идентификатор карточки слушателя — это разные ключи.
+   */
+  listMyEnrollments: (session: UserSession) =>
+    apiRequest<{ items: MyEnrollmentRow[] }>('/me/enrollments', withAuth(session)),
   createEnrollment: (session: UserSession, payload: { groupId: string; learnerId: string }) =>
     apiRequest<Enrollment>('/enrollments', { method: 'POST', body: payload, ...withAuth(session) }),
   createBulkEnrollments: (

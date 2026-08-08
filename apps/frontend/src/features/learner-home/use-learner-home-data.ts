@@ -6,7 +6,7 @@ import { useAuth } from '../auth/context';
 import { mvpApi } from '../mvp/api';
 
 import type { EnrollmentWithDetails } from './types';
-import type { Course, Enrollment, ListResponse, Progress } from '../mvp/types';
+import type { Course, Enrollment, Progress } from '../mvp/types';
 
 export interface AssembleInput {
   enrollments: Enrollment[];
@@ -29,16 +29,19 @@ interface CourseDetailsBundle {
 
 export const useLearnerHomeData = () => {
   const { session } = useAuth();
-  const learnerId = session?.user.id ?? '';
+  const userId = session?.user.id ?? '';
 
+  // Кабинет спрашивает «мои» зачисления у сервера. Раньше здесь был общий список
+  // с фильтром `learner_id = session.user.id`, но это идентификатор пользователя IAM,
+  // а в зачислении лежит идентификатор КАРТОЧКИ слушателя — совпадений не было никогда,
+  // и «Мои курсы» всегда оставались пустыми.
   const enrollmentsQuery = useQuery({
-    queryKey: ['mvp', 'learnerHomeEnrollments', learnerId],
-    enabled: Boolean(session) && learnerId.length > 0,
-    queryFn: () =>
-      mvpApi.listEnrollments(session!, { learner_id: learnerId, page: 1, page_size: 50 })
+    queryKey: ['mvp', 'myEnrollments', userId],
+    enabled: Boolean(session),
+    queryFn: () => mvpApi.listMyEnrollments(session!)
   });
 
-  const enrollments = (enrollmentsQuery.data as ListResponse<Enrollment> | undefined)?.items ?? [];
+  const enrollments: Enrollment[] = enrollmentsQuery.data?.items ?? [];
   const courseIds = Array.from(
     new Set(enrollments.map((e) => e.courseId).filter((id): id is string => Boolean(id)))
   ).sort();

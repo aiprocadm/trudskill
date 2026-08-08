@@ -382,7 +382,10 @@ export class MvpController {
    */
   @Get('groups/:groupId/exam-readiness')
   @UseGuards(PermissionGuard)
-  @RequirePermissions('enrollments.read')
+  // Фаза 6 Task 1: было `enrollments.read` — право, которое есть у СЛУШАТЕЛЯ, а отчёт
+  // отдаёт состав группы с проблемами по СНИЛС. Сводка про группу — значит `groups.read`
+  // (по живой базе: manager, tenant_admin, platform_admin; у методиста и слушателя нет).
+  @RequirePermissions('groups.read')
   getExamReadiness(
     @CurrentContext() c: RequestContext,
     @Param('groupId') groupId: string,
@@ -671,7 +674,8 @@ export class MvpController {
   // Phase 2 Plan C — сводный прогресс по конкретной группе.
   @Get('groups/:id/progress-summary')
   @UseGuards(PermissionGuard)
-  @RequirePermissions('enrollments.read')
+  // Фаза 6 Task 1: прогресс всей группы — данные персонала, не слушателя (см. exam-readiness).
+  @RequirePermissions('groups.read')
   getGroupProgressSummary(@CurrentContext() c: RequestContext, @Param('id') id: string) {
     return this.mvpService.getGroupProgressSummary(c.tenantId!, id);
   }
@@ -717,39 +721,50 @@ export class MvpController {
       actor: { counterpartyId: c.counterpartyId }
     });
   }
+  /*
+   * Фаза 6 Task 1 — закрытая утечка персональных данных.
+   *
+   * Весь раздел отчётов был закрыт правом `enrollments.read`, а оно ЕСТЬ у роли
+   * «слушатель» (проверено в живой базе). То есть любой вошедший слушатель мог открыть
+   * конструктор и выгрузить до 50 000 строк с ФИО и СНИЛС всех слушателей центра.
+   *
+   * Правильный признак — `learners.read` («видеть карточки слушателей»): он есть ровно
+   * у manager, tenant_admin и platform_admin. Методист и представитель заказчика доступа
+   * к отчётам не теряют: у них нет и `enrollments.read`, то есть его не было и раньше.
+   */
   @Get('reports/kpi-snapshot')
   @UseGuards(PermissionGuard)
-  @RequirePermissions('enrollments.read')
+  @RequirePermissions('learners.read')
   getKpiSnapshot(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
     return this.mvpService.getKpiSnapshot(c.tenantId!, q);
   }
   @Get('reports/analytics-dashboard')
   @UseGuards(PermissionGuard)
-  @RequirePermissions('enrollments.read')
+  @RequirePermissions('learners.read')
   getAnalyticsDashboard(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
     return this.mvpService.getAnalyticsDashboard(c.tenantId!, q);
   }
   @Get('reports/builder/entities')
   @UseGuards(PermissionGuard)
-  @RequirePermissions('enrollments.read')
+  @RequirePermissions('learners.read')
   getReportEntities() {
     return this.mvpService.getReportEntitiesMeta();
   }
   @Post('reports/builder/preview')
   @UseGuards(PermissionGuard)
-  @RequirePermissions('enrollments.read')
+  @RequirePermissions('learners.read')
   previewReport(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
     return this.mvpService.previewReport(c.tenantId!, assertValidDto(BuildReportRequestDto, raw));
   }
   @Post('reports/builder/export')
   @UseGuards(PermissionGuard)
-  @RequirePermissions('enrollments.read')
+  @RequirePermissions('learners.read')
   exportReport(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
     return this.mvpService.exportReport(c.tenantId!, assertValidDto(BuildReportRequestDto, raw));
   }
   @Get('reports/builder/templates')
   @UseGuards(PermissionGuard)
-  @RequirePermissions('enrollments.read')
+  @RequirePermissions('learners.read')
   listReportTemplates(@CurrentContext() c: RequestContext) {
     return this.mvpService.listReportTemplates(c.tenantId!);
   }
@@ -806,6 +821,20 @@ export class MvpController {
   @RequirePermissions('enrollments.read')
   listMyDocuments(@CurrentContext() c: RequestContext) {
     return this.mvpService.listMyDocuments(c.tenantId!, c.userId);
+  }
+  /**
+   * Фаза 6 Task 1 (дефект D) — зачисления текущего IAM-актора (кабинет слушателя).
+   *
+   * Кабинет не знает идентификатор своей КАРТОЧКИ слушателя (`learner_*`) и не может
+   * его узнать: право «читать слушателей центра» слушателю не выдаётся. Поэтому связку
+   * «IAM-пользователь → карточка → зачисления» делает сервис, а курс группы приходит
+   * в ответе готовым. Без привязки — пустой список, а не 403 (как у `me/documents`).
+   */
+  @Get('me/enrollments')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('enrollments.read')
+  listMyEnrollments(@CurrentContext() c: RequestContext) {
+    return this.mvpService.listMyEnrollments(c.tenantId!, c.userId);
   }
   /**
    * Phase 3 Plan B — агрегированный список тестов для текущего IAM-актора (слушатель).

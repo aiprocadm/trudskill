@@ -20,7 +20,10 @@ const adminSession: UserSession = {
     'iam.manage_roles',
     'auth.manage_sessions',
     'courses.read',
-    'groups.read'
+    'groups.read',
+    // Фаза 6 Task 1: раздел отчётов закрыт `learners.read`. У роли tenant_admin оно
+    // в живой базе есть — фикстура догоняет действительность, а не обходит проверку.
+    'learners.read'
   ]
 };
 

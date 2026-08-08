@@ -65,7 +65,9 @@ export const routeMeta: RouteMetaEntry[] = [
     pattern: '/learner/webinars',
     meta: { public: false, requiredPermissions: ['webinars.attend'] }
   },
-  { pattern: '/reports', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  // Фаза 6 Task 1: было `tenant.read` — оно есть у слушателя, и он видел раздел
+  // отчётов по всему центру. Теперь как на бэкенде: `learners.read`.
+  { pattern: '/reports', meta: { public: false, requiredPermissions: ['learners.read'] } },
   { pattern: '/proctoring', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/scorm', meta: { public: false, requiredPermissions: ['materials.read'] } },
   {
@@ -98,11 +100,11 @@ export const routeMeta: RouteMetaEntry[] = [
   },
   {
     pattern: '/admin/analytics',
-    meta: { public: false, requiredPermissions: ['enrollments.read'] }
+    meta: { public: false, requiredPermissions: ['learners.read'] }
   },
   {
     pattern: '/admin/reports/builder',
-    meta: { public: false, requiredPermissions: ['enrollments.read'] }
+    meta: { public: false, requiredPermissions: ['learners.read'] }
   },
   {
     pattern: '/admin/commissions',
@@ -337,7 +339,7 @@ export const navigationModel: NavigationItem[] = [
     label: 'Календарь',
     requiredPermissions: ['enrollments.read']
   },
-  { href: '/reports', label: 'Отчеты', requiredPermissions: ['tenant.read'] },
+  { href: '/reports', label: 'Отчеты', requiredPermissions: ['learners.read'] },
   { href: '/settings', label: 'Настройки', requiredPermissions: ['iam.manage_roles'] },
   {
     // ФТ-D2.2: право есть только у platform_admin (0073) — у админов центров пункт скрыт.
@@ -546,13 +548,13 @@ export const navigationModel: NavigationItem[] = [
   {
     href: '/admin/analytics',
     label: 'Аналитика',
-    requiredPermissions: ['enrollments.read'],
+    requiredPermissions: ['learners.read'],
     navSlot: 'more'
   },
   {
     href: '/admin/reports/builder',
     label: 'Конструктор отчётов',
-    requiredPermissions: ['enrollments.read'],
+    requiredPermissions: ['learners.read'],
     navSlot: 'more'
   },
   {

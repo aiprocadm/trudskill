@@ -55,6 +55,9 @@ describe('mvp api envelope compatibility', () => {
       session: UserSession,
       query: { page: number }
     ) => Promise<{ items: Array<{ id: string; learnerName?: string }> }>;
+    listMyEnrollments: (session: UserSession) => Promise<{
+      items: Array<{ id: string; courseId?: string; courseTitle?: string; status: string }>;
+    }>;
   };
 
   beforeAll(async () => {
@@ -106,6 +109,36 @@ describe('mvp api envelope compatibility', () => {
     expect(result.items[0]?.learnerName).toBe('Иванов Иван');
     const requestedUrl = String(fetchMock.mock.calls[0]?.[0]);
     expect(requestedUrl).toContain('/portal/documents');
+  });
+
+  // Фаза 6 Task 1 (дефект D): кабинет обязан спрашивать «мои» зачисления у сервера,
+  // а не фильтровать общий список по идентификатору IAM-пользователя — в зачислении
+  // лежит идентификатор карточки слушателя, и совпадений не бывает никогда.
+  it('listMyEnrollments ходит в /me/enrollments без query по learner_id', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        envelope({
+          items: [
+            {
+              id: 'enrollment_1',
+              status: 'active',
+              courseId: 'course_1',
+              courseTitle: 'Охрана труда'
+            }
+          ]
+        }),
+        { status: 200 }
+      )
+    );
+
+    const result = await mvpApi.listMyEnrollments(session);
+
+    expect(result.items[0]?.id).toBe('enrollment_1');
+    // Курс приходит с сервера: у зачисления своего courseId нет, он висит на группе.
+    expect(result.items[0]?.courseId).toBe('course_1');
+    const requestedUrl = String(fetchMock.mock.calls[0]?.[0]);
+    expect(requestedUrl).toContain('/me/enrollments');
+    expect(requestedUrl).not.toContain('learner_id');
   });
 
   it('listCounterparties reads data from envelope', async () => {
