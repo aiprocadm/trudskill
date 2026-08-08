@@ -264,7 +264,17 @@ export const backendEnvSchema = z
     JOB_EXCHANGE: z.string().min(1).default('jobs.topic'),
     /** Routing key публикации задачи массового зачисления. */
     JOB_ROUTING_BULK_ENROLLMENT: z.string().min(1).default('lms.bulk_enrollment'),
-    JOB_ROUTING_DOCUMENT: z.string().min(1).default('lms.document_generation')
+    JOB_ROUTING_DOCUMENT: z.string().min(1).default('lms.document_generation'),
+    /**
+     * Фаза 6 Task 7: задача, висящая в `running` дольше этого срока, считается зависшей
+     * (воркер умер с сообщением в руках) и возвращается в очередь. Пятнадцать минут —
+     * это заведомо дольше любого честного выпуска документа вместе с конвертацией в PDF.
+     */
+    DOCUMENT_TASK_STUCK_MINUTES: z.coerce.number().int().positive().default(15),
+    DOCUMENT_TASK_REAPER_ENABLED: z
+      .union([z.boolean(), z.string()])
+      .transform((v) => (typeof v === 'string' ? v === 'true' : v))
+      .default(true)
   })
   .superRefine((env, ctx) => {
     const devSecrets = [
