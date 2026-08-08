@@ -5,12 +5,17 @@ import { runDocumentJob } from './document-job.js';
 import { workerEnv } from './env.js';
 import { createHeartbeat, startHealthServer, startIdleTicker } from './health-server.js';
 import { type WorkerEnvelope, consumeMessage } from './message-consumer.js';
+import { storeQuarantinedMessage } from './quarantine-store.js';
+import {
+  computeBackoffMs,
+  decideRetry,
+  extractRetryCount,
+  parseQuarantinedMessage
+} from './retry-policy.js';
 
 const require = createRequire(import.meta.url);
 const amqp = require('amqplib') as any;
 const { Pool } = require('pg') as any;
-
-type RetryDecision = 'retry' | 'dead-letter';
 
 const REDACTED = '[REDACTED]';
 const SENSITIVE_KEY_PATTERNS = [
@@ -73,33 +78,14 @@ const tick = () => {
   heartbeat.lastTickAt = Date.now();
 };
 
-function computeBackoffMs(retryCount: number): number {
-  const exponential = workerEnv.WORKER_BACKOFF_BASE_MS * 2 ** Math.max(0, retryCount - 1);
-  return Math.min(workerEnv.WORKER_BACKOFF_MAX_MS, exponential);
-}
-
-function extractRetryCount(message: any): number {
-  const current = message.properties.headers['x-retry-count'];
-  if (typeof current === 'number' && Number.isFinite(current)) {
-    return current;
-  }
-
-  return 0;
-}
-
-function decideRetry(retryCount: number, error: unknown): RetryDecision {
-  if (retryCount >= workerEnv.WORKER_MAX_RETRIES) {
-    return 'dead-letter';
-  }
-
-  const errorName = error instanceof Error ? error.name : 'UnknownError';
-  const nonRetryable = new Set(['ValidationError', 'NonRetryableJobError']);
-  if (nonRetryable.has(errorName)) {
-    return 'dead-letter';
-  }
-
-  return 'retry';
-}
+/**
+ * Пределы повторов одним объектом — их читает вынесенная политика (`retry-policy.ts`).
+ */
+const RETRY_LIMITS = {
+  maxRetries: workerEnv.WORKER_MAX_RETRIES,
+  backoffBaseMs: workerEnv.WORKER_BACKOFF_BASE_MS,
+  backoffMaxMs: workerEnv.WORKER_BACKOFF_MAX_MS
+};
 
 async function hasBeenProcessed(messageId: string): Promise<boolean> {
   const result = await db.query(
@@ -187,6 +173,56 @@ async function bootstrap(): Promise<void> {
 
   await channel.prefetch(workerEnv.WORKER_PREFETCH);
 
+  /*
+   * Консьюмер карантина (Фаза 6 Task 7).
+   *
+   * Очередь `jobs.dead-letter` наполнялась с самого начала, но её никто не читал:
+   * сообщения копились в RabbitMQ, и увидеть их можно было только через админку
+   * брокера — то есть на практике никогда. Неудавшийся выпуск удостоверения пропадал
+   * молча.
+   *
+   * Теперь каждое такое сообщение записывается в `documents.job_quarantine`: его видно
+   * в списке и можно переотправить. Сообщение ВСЕГДА подтверждается (ack) — держать его
+   * в очереди незачем, запись в базе и есть карантин. Если запись не удалась (база
+   * недоступна), сообщение возвращается в очередь: потерять его хуже, чем разобрать позже.
+   */
+  await channel.consume(
+    workerEnv.WORKER_DLQ_QUEUE,
+    async (msg: any) => {
+      if (!msg) {
+        return;
+      }
+      try {
+        const parsed = parseQuarantinedMessage(msg.content, msg.properties, msg.fields?.routingKey);
+        await storeQuarantinedMessage(db, {
+          ...parsed,
+          queueName: workerEnv.WORKER_DLQ_QUEUE,
+          headers: msg.properties?.headers ?? null
+        });
+        heartbeat.deadLettered += 1;
+        tick();
+        channel.ack(msg);
+        log('warn', 'worker_message_quarantined', {
+          queue: workerEnv.WORKER_DLQ_QUEUE,
+          messageId: parsed.messageId,
+          tenantId: parsed.tenantId,
+          jobType: parsed.jobType,
+          retryCount: parsed.retryCount,
+          error: parsed.lastError
+        });
+      } catch (error) {
+        // Не смогли записать — вернуть в очередь. Молчаливая потеря здесь означала бы
+        // ровно ту беду, которую задача и закрывает.
+        channel.nack(msg, false, true);
+        log('error', 'worker_quarantine_write_failed', {
+          queue: workerEnv.WORKER_DLQ_QUEUE,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    },
+    { noAck: false }
+  );
+
   await channel.consume(
     workerEnv.DOCUMENT_GENERATION_QUEUE,
     async (msg: any) => {
@@ -194,6 +230,8 @@ async function bootstrap(): Promise<void> {
         return;
       }
 
+      // Читается безопасно: сообщение без заголовков раньше роняло ВЕСЬ консьюмер,
+      // потому что вызов стоит вне try (см. retry-policy.ts).
       const retryCount = extractRetryCount(msg);
       const body = msg.content.toString('utf8');
 
@@ -235,12 +273,12 @@ async function bootstrap(): Promise<void> {
           retryCount
         });
       } catch (error) {
-        const decision = decideRetry(retryCount, error);
+        const decision = decideRetry(retryCount, error, RETRY_LIMITS);
         const errorMessage = error instanceof Error ? error.message : 'unknown worker error';
 
         if (decision === 'retry') {
           const nextRetryCount = retryCount + 1;
-          const delayMs = computeBackoffMs(nextRetryCount);
+          const delayMs = computeBackoffMs(nextRetryCount, RETRY_LIMITS);
           const headers = {
             ...msg.properties.headers,
             'x-retry-count': nextRetryCount,

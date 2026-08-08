@@ -24,6 +24,7 @@ import {
 } from './documents.service.js';
 import { GroupPackageService } from './group-package.service.js';
 import { DocumentsRequestPersistenceInterceptor } from './infrastructure/documents-request-persistence.interceptor.js';
+import { JobQuarantineService } from './job-quarantine.service.js';
 import { validateProtocolTemplate } from './protocol-compliance.js';
 import { TemplateInspectionService } from './template-inspection.service.js';
 import { demoVariables } from './variable-catalog.js';
@@ -82,7 +83,8 @@ export class DocumentsController {
     @Inject(TemplateInspectionService) private readonly inspection: TemplateInspectionService,
     @Inject(GroupPackageService) private readonly groupPackages: GroupPackageService,
     @Inject(FilesService) private readonly files: FilesService,
-    @Inject(TenantService) private readonly tenants: TenantService
+    @Inject(TenantService) private readonly tenants: TenantService,
+    @Inject(JobQuarantineService) private readonly quarantine: JobQuarantineService
   ) {}
 
   /**
@@ -502,8 +504,50 @@ export class DocumentsController {
   @Post('document-tasks/:id/retry')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
-  retryTask(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.documentsService.retryTask(c.tenantId!, id);
+  async retryTask(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    const task = this.documentsService.retryTask(c.tenantId!, id);
+    // Фаза 6 Task 7: РАНЬШЕ «Повторить» только меняло статус на `queued` и на этом всё —
+    // сообщение в очередь не уходило, задача висела «в очереди» вечно, а человек был
+    // уверен, что перезапустил её. Теперь публикуется настоящий job.
+    await this.enqueue.publishQueuedTasks(c.tenantId!, [task], {
+      ...(c.requestId ? { requestId: c.requestId } : {}),
+      ...(c.correlationId ? { correlationId: c.correlationId } : {})
+    });
+    return task;
+  }
+
+  // --- Карантин упавших задач (ФТ-I1, Фаза 6 Task 7) -------------------------------
+  // Очередь `jobs.dead-letter` наполнялась с Фазы 0, но читать её было некому.
+  @Get('job-quarantine')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('operations.quarantine.read')
+  listQuarantine(
+    @CurrentContext() c: RequestContext,
+    @Query('status') status?: string,
+    @Query('limit') limit?: string
+  ) {
+    return this.quarantine.list(c.tenantId!, {
+      ...(status ? { status } : {}),
+      ...(limit ? { limit: Number(limit) } : {})
+    });
+  }
+
+  @Post('job-quarantine/:id/republish')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('operations.quarantine.write')
+  republishQuarantined(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.quarantine.republish(c.tenantId!, id, c);
+  }
+
+  @Post('job-quarantine/:id/discard')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('operations.quarantine.write')
+  discardQuarantined(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() body?: { reason?: string }
+  ) {
+    return this.quarantine.discard(c.tenantId!, id, body?.reason, c);
   }
   @Post('document-tasks/:id/cancel')
   @UseGuards(PermissionGuard)

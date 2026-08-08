@@ -16,15 +16,17 @@ import { DocumentsPersistenceRepositoryAdapter } from './infrastructure/document
 import { DOCUMENTS_PERSISTENCE_BACKEND } from './infrastructure/documents-persistence.token.js';
 import { DocumentsRequestPersistenceInterceptor } from './infrastructure/documents-request-persistence.interceptor.js';
 import { MemoryDocumentsPersistenceBackend } from './infrastructure/memory-documents-persistence.backend.js';
+import { JobQuarantineService } from './job-quarantine.service.js';
+import { StuckTasksReaperService } from './stuck-tasks-reaper.service.js';
 import { TemplateInspectionService } from './template-inspection.service.js';
-import {
-  DOCUMENT_SIGNATURE_PROVIDER,
-  NoopDocumentSignatureProvider
-} from '../../infrastructure/document-signature/document-signature.provider.js';
 import { FakeDocumentSignatureProvider } from '../../infrastructure/document-signature/fake-document-signature.provider.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { PostgresDocumentsPersistenceBackend } from './infrastructure/postgres-documents-persistence.backend.js';
+import {
+  DOCUMENT_SIGNATURE_PROVIDER,
+  NoopDocumentSignatureProvider
+} from '../../infrastructure/document-signature/document-signature.provider.js';
 import { FilesModule } from '../files/files.module.js';
 import { IamModule } from '../iam/iam.module.js';
 import { MvpPersistenceRepositoryAdapter } from '../mvp/infrastructure/mvp-persistence.repository.adapter.js';
@@ -49,6 +51,8 @@ const persistenceBackendClass =
     { provide: DocumentsService, scope: Scope.REQUEST, useClass: DocumentsService },
     DocumentsTenantRunner,
     DocumentsEnqueueService,
+    JobQuarantineService,
+    StuckTasksReaperService,
     // Сборщик словаря переменных (Task 4) читает MVP-состояние. MvpTenantRunner собираем
     // из инфраструктуры напрямую — импорт MvpModule дал бы цикл (он импортирует documents).
     PostgresMvpPersistenceBackend,

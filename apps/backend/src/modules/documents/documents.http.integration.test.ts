@@ -125,8 +125,15 @@ describe('Documents HTTP integration (permission boundaries)', () => {
         const isDocumentsGenerate = method === 'POST' && routePath.includes('/documents/generate');
         const isDocumentsSign = method === 'POST' && /\/documents\/[^/]+\/sign$/.test(routePath);
 
+        // Карантин закрыт ОТДЕЛЬНЫМ правом (Фаза 6 Task 7): разбирать застрявшие выпуски
+        // документов — не то же самое, что читать и править шаблоны.
+        const isQuarantine = routePath.includes('/job-quarantine');
+
         let required: string[];
-        if (method === 'GET') {
+        if (isQuarantine) {
+          required =
+            method === 'GET' ? ['operations.quarantine.read'] : ['operations.quarantine.write'];
+        } else if (method === 'GET') {
           required = ['documents.read'];
         } else if (method === 'POST') {
           if (isDocumentsSign) {
@@ -182,6 +189,22 @@ describe('Documents HTTP integration (permission boundaries)', () => {
         return {
           items: [{ id: 'tpl_1', tenantId: context.tenantId, name: 'Шаблон приказа' }]
         };
+      }
+
+      // Карантин упавших задач (Фаза 6 Task 7): проверяем ГРАНИЦУ ПРАВ.
+      // Право отдельное — разбирать застрявшие выпуски документов не работа методиста.
+      @Get('job-quarantine')
+      @UseGuards(TestPermissionGuard)
+      @RequirePermissions('operations.quarantine.read')
+      listQuarantine(@CurrentContext() context: { tenantId?: string }) {
+        return { items: [{ id: 'qtn_1', tenantId: context.tenantId }], total: 1 };
+      }
+
+      @Post('job-quarantine/:id/republish')
+      @UseGuards(TestPermissionGuard)
+      @RequirePermissions('operations.quarantine.write')
+      republishQuarantined(@CurrentContext() context: { tenantId?: string }) {
+        return { id: 'qtn_1', tenantId: context.tenantId, status: 'republished' };
       }
 
       @Post('templates')
@@ -775,5 +798,74 @@ describe('Documents HTTP integration (permission boundaries)', () => {
     expect(payload.data.status).toBe('signed');
     expect(payload.meta.requestId).toBeTruthy();
     expect(payload.meta.correlationId).toBeTruthy();
+  });
+
+  it('карантин закрыт отдельным правом: documents.read его не открывает', async () => {
+    // Читать шаблоны и разбирать застрявшие выпуски — работа разного веса.
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['documents.read']);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_methodist',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: ['methodist']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/job-quarantine`, {
+      headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+    });
+
+    expect(response.status).toBe(403);
+  });
+
+  it('с operations.quarantine.read список карантина отдаётся в конверте', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['operations.quarantine.read']);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_admin',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: ['tenant_admin']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/job-quarantine`, {
+      headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+    });
+
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      data: { items: Array<{ tenantId: string }> };
+      meta: { requestId: string };
+    };
+    expect(payload.data.items[0]?.tenantId).toBe('tenant_demo');
+    expect(payload.meta.requestId).toBeTruthy();
+  });
+
+  it('переотправка требует права на запись, одного чтения мало', async () => {
+    // Иначе увидевший карантин мог бы вернуть в работу чужой выпуск документа.
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['operations.quarantine.read']);
+    const token = issueSignedAccessToken(
+      {
+        sub: 'u_viewer',
+        tenant_id: 'tenant_demo',
+        session_id: 's_active',
+        roles: ['tenant_admin']
+      },
+      process.env.AUTH_JWT_SECRET!,
+      60
+    );
+
+    const response = await fetch(`${apiBaseUrl}/job-quarantine/qtn_1/republish`, {
+      method: 'POST',
+      headers: { 'x-tenant-id': 'tenant_demo', authorization: `Bearer ${token}` }
+    });
+
+    expect(response.status).toBe(403);
   });
 });

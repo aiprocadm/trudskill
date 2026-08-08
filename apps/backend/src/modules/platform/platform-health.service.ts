@@ -76,11 +76,19 @@ export class PlatformHealthService {
          to_json(ex.last_at)#>>'{}' as "lastExportAt",
          to_json(al.last_at)#>>'{}' as "lastActivityAt"
        from core.tenants t
+       /*
+        * Фаза 6 Task 7: РАНЬШЕ здесь читалась таблица documents.document_tasks,
+        * в которую приложение НИКОГДА не писало (проверено на стенде: 0 строк при
+        * работающих центрах). Экран здоровья показывал нули независимо от того, что
+        * происходит на самом деле, — то есть выглядел исправным всегда.
+        * Задачи живут снимком состояния в documents.runtime_documents.
+        */
        left join lateral (
          select
-           count(*) filter (where status in ('queued', 'running')) as queued,
-           count(*) filter (where status = 'failed') as failed
-         from documents.document_tasks where tenant_id = t.id
+           count(*) filter (where data->>'status' in ('queued', 'running')) as queued,
+           count(*) filter (where data->>'status' = 'failed') as failed
+         from documents.runtime_documents
+         where tenant_id = t.id and collection = 'tasks'
        ) dt on true
        left join lateral (
          select
@@ -88,10 +96,15 @@ export class PlatformHealthService {
            count(*) filter (where status = 'failed') as failed
          from integrations.sync_jobs where tenant_id = t.id
        ) sj on true
+       /*
+        * Карантин (Фаза 6 Task 7). Таблица integrations.dead_letters тоже никем не
+        * заполнялась. Настоящий карантин — documents.job_quarantine: туда консьюмер
+        * складывает всё, что не удалось обработать за десять попыток.
+        */
        left join lateral (
          select count(*) as total
-         from integrations.dead_letters
-         where tenant_id = t.id and status <> 'resolved'
+         from documents.job_quarantine
+         where tenant_id = t.id and status = 'quarantined'
        ) dl on true
        left join lateral (
          select
