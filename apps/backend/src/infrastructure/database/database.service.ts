@@ -98,13 +98,24 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     lagThresholdSeconds: number;
   }): Promise<QueueReadiness> {
     try {
+      /*
+       * Считаем по РЕАЛЬНОМУ источнику (Фаза 6 Task 5).
+       *
+       * Раньше здесь была таблица `integrations.sync_jobs` со статусом `retry`, и это
+       * было двойное расхождение с действительностью: приложение в эту таблицу никогда
+       * не пишет (задачи живут снимком в `documents.runtime_documents`), а статуса
+       * `retry` нет даже в её CHECK-ограничении. Проверка всегда возвращала ноль,
+       * то есть готовность не покраснела бы и при полностью забитой очереди.
+       */
       const rows = await this.query<{ backlog: number; lag_seconds: number | null }>(
         `
           select
             count(*)::int as backlog,
-            coalesce(extract(epoch from now() - min(requested_at)), 0)::int as lag_seconds
-          from integrations.sync_jobs
-          where status in ('queued', 'retry')
+            coalesce(extract(epoch from now() - min((data->>'createdAt')::timestamptz)), 0)::int
+              as lag_seconds
+          from documents.runtime_documents
+          where collection = 'tasks'
+            and data->>'status' in ('queued', 'running')
         `
       );
       const backlog = Number(rows[0]?.backlog ?? 0);
@@ -133,11 +144,17 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   async getOutboxReadiness(backlogThreshold: number): Promise<OutboxReadiness> {
     try {
+      /*
+       * Тоже реальный источник (Фаза 6 Task 5): `core.outbox_events` — это и есть
+       * outbox, с ним работает OutboxPublisherService. Прежний запрос смотрел в
+       * `integrations.dead_letters` со статусами `queued`/`retry`, которых нет в её
+       * CHECK-ограничении, — то есть измерял не то и всегда возвращал ноль.
+       */
       const rows = await this.query<{ backlog: number }>(
         `
           select count(*)::int as backlog
-          from integrations.dead_letters
-          where status in ('queued', 'retry')
+          from core.outbox_events
+          where status in ('pending', 'failed')
         `
       );
       const backlog = Number(rows[0]?.backlog ?? 0);

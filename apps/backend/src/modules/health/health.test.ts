@@ -10,6 +10,7 @@ vi.mock('../../env.js', () => ({
 }));
 
 import { HealthController } from './health.controller.js';
+import { MetricsService } from '../../common/metrics/metrics.service.js';
 import { RedisService } from '../../infrastructure/cache/redis.service.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import { RabbitMqService } from '../../infrastructure/messaging/rabbitmq.service.js';
@@ -55,7 +56,8 @@ describe('health controller', () => {
       new RedisService(),
       new RabbitMqService(),
       new S3StorageClient(),
-      new SecretsService()
+      new SecretsService(),
+      new MetricsService()
     );
 
     const ready = await controller.ready();
@@ -102,7 +104,8 @@ describe('health controller', () => {
       new RedisService(),
       new RabbitMqService(),
       new S3StorageClient(),
-      new SecretsService()
+      new SecretsService(),
+      new MetricsService()
     );
 
     await expect(controller.ready()).rejects.toBeInstanceOf(ServiceUnavailableException);
@@ -114,7 +117,8 @@ describe('health controller', () => {
       new RedisService(),
       new RabbitMqService(),
       new S3StorageClient(),
-      new SecretsService()
+      new SecretsService(),
+      new MetricsService()
     );
 
     expect(controller.startup()).toEqual({ status: 'ok', started: true });
@@ -126,7 +130,8 @@ describe('health controller', () => {
       new RedisService(),
       new RabbitMqService(),
       new S3StorageClient(),
-      new SecretsService()
+      new SecretsService(),
+      new MetricsService()
     );
 
     expect(controller.live()).toEqual({ status: 'ok', service: 'backend' });
@@ -170,7 +175,8 @@ describe('health controller', () => {
       new RedisService(),
       new RabbitMqService(),
       new S3StorageClient(),
-      new SecretsService()
+      new SecretsService(),
+      new MetricsService()
     );
 
     const ready = await controller.ready();
@@ -219,7 +225,8 @@ describe('health controller', () => {
       new RedisService(),
       new RabbitMqService(),
       new S3StorageClient(),
-      new SecretsService()
+      new SecretsService(),
+      new MetricsService()
     );
 
     await expect(controller.ready()).rejects.toMatchObject({

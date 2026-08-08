@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
 import { ExpiredAttemptsScanner } from './expired-attempts.scanner.service.js';
+import { recordSchedulerRun } from '../../../common/metrics/scheduler-heartbeat.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 import { TenantService } from '../../tenant/tenant.service.js';
 import { MvpTenantRunner } from '../infrastructure/mvp-tenant-runner.service.js';
@@ -34,7 +35,11 @@ export class ExpiredAttemptsSchedulerService {
   async handleSweep(): Promise<void> {
     try {
       await this.runSweepAllTenants(new Date().toISOString());
+      // Отметка «отработал» (Фаза 6 Task 6): молчание планировщика дольше своего
+      // интервала иначе неотличимо от «работы не было».
+      recordSchedulerRun('expired-attempts-sweep', 'ok', { expectedIntervalMs: 5 * 60 * 1000 });
     } catch (err) {
+      recordSchedulerRun('expired-attempts-sweep', 'error', { expectedIntervalMs: 5 * 60 * 1000 });
       this.logger.error(
         `Expired attempts sweep failed: ${err instanceof Error ? err.message : String(err)}`
       );

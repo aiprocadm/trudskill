@@ -21,6 +21,10 @@ const workerEnvSchema = z.object({
   RELEASE_VERSION: z.string().default('dev'),
   WORKER_CONCURRENCY: z.coerce.number().int().positive().default(5),
   WORKER_PREFETCH: z.coerce.number().int().positive().default(20),
+  /** Порт служебной ручки воркера (/healthz, /metrics). Наружу не публикуется. */
+  WORKER_HEALTH_PORT: z.coerce.number().int().positive().default(3030),
+  /** Молчание дольше этого срока считается зависанием воркера. */
+  WORKER_STALL_THRESHOLD_MS: z.coerce.number().int().positive().default(300_000),
   WORKER_MAX_RETRIES: z.coerce.number().int().nonnegative().default(10),
   WORKER_BACKOFF_BASE_MS: z.coerce.number().int().positive().default(1_000),
   WORKER_BACKOFF_MAX_MS: z.coerce.number().int().positive().default(300_000),

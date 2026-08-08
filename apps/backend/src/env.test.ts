@@ -31,7 +31,10 @@ const strictValidEnv = {
   SCORM_CONTENT_TOKEN_SECRET: 'prod-scorm-content-token-secret',
   // ESIA_STATE_SECRET defaults to a dev value the strict-profile refinement rejects (added by
   // PR #258); set a non-dev value so staging/prod fixtures parse for reasons unrelated to it.
-  ESIA_STATE_SECRET: 'prod-esia-state-secret-ok'
+  ESIA_STATE_SECRET: 'prod-esia-state-secret-ok',
+  // Фаза 6 Task 5: ручка метрик в проде обязана быть закрыта токеном — иначе наружу
+  // торчат пути, коды ответов и объёмы запросов.
+  METRICS_TOKEN: 'prod-metrics-token-ok-123'
 } as const;
 
 const issueMessages = (input: Record<string, unknown>) => {
@@ -115,6 +118,20 @@ describe('backend env schema profile validation', () => {
     });
 
     expect(parsed.success).toBe(true);
+  });
+
+  it('прод не стартует без токена на ручку метрик', () => {
+    // До Фазы 6 `/metrics` был открыт всем: наружу торчали пути, коды ответов и объёмы.
+    // Забыть переменную легко, поэтому её отсутствие останавливает старт, а не «пропускается».
+    const withoutToken: Record<string, unknown> = { ...strictValidEnv };
+    delete withoutToken.METRICS_TOKEN;
+    const messages = issueMessages({
+      ...withoutToken,
+      NODE_ENV: 'production',
+      DEPLOYMENT_PROFILE: 'prod'
+    });
+
+    expect(messages.join(' ')).toMatch(/METRICS_TOKEN/);
   });
 
   it('allows SECRETS_PROVIDER=env in production with strong secrets (single-VPS deploy model)', () => {

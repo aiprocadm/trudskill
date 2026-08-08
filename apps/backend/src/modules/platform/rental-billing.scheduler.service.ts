@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
 import { RentalBillingService } from './rental-billing.service.js';
+import { recordSchedulerRun } from '../../common/metrics/scheduler-heartbeat.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 
 /** Свой ключ advisory-лока (528_491 reminders, 528_492 retention, 528_493 attempts заняты). */
@@ -30,7 +31,15 @@ export class RentalBillingSchedulerService {
   async handleSweep(): Promise<void> {
     try {
       await this.runSweep(new Date().toISOString().slice(0, 10));
+      // Отметка «отработал» (Фаза 6 Task 6): молчание планировщика дольше своего
+      // интервала иначе неотличимо от «работы не было».
+      recordSchedulerRun('rental-billing-overdue-sweep', 'ok', {
+        expectedIntervalMs: 24 * 60 * 60 * 1000
+      });
     } catch (err) {
+      recordSchedulerRun('rental-billing-overdue-sweep', 'error', {
+        expectedIntervalMs: 24 * 60 * 60 * 1000
+      });
       this.logger.error(
         `Rental billing sweep failed: ${err instanceof Error ? err.message : String(err)}`
       );

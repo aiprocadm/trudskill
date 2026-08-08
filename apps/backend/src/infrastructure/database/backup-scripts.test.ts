@@ -146,3 +146,92 @@ describe('ротация журналов контейнеров', () => {
     }
   );
 });
+
+/**
+ * Сторож скрипта тревог (ФТ-I2, Фаза 6 Task 6).
+ *
+ * Тревоги — это последняя линия: если они молчат по ошибке, авария будет обнаружена
+ * звонком клиента. Закрепляем свойства, без которых скрипт врёт молчанием:
+ *  - `set -e` НЕ включён: упавшая первая проверка не должна отменять остальные;
+ *  - каждая проверка увеличивает счётчик проблем и код выхода становится 1 —
+ *    иначе cron считает запуск успешным и никто ничего не узнает;
+ *  - у сетевых запросов есть предел ожидания: подвисший curl съедает следующий запуск.
+ */
+describe('infra/ops-alerts.sh — сигналы аварий', () => {
+  const script = read('ops-alerts.sh');
+
+  it('одна упавшая проверка не отменяет остальные', () => {
+    expect(script).toContain('set -uo pipefail');
+    expect(script).not.toMatch(/^set -e(?:uo)?[^\S\n]*$/m);
+  });
+
+  it('проблемы дают ненулевой код выхода — молчание cron означает «всё в порядке»', () => {
+    expect(script).toMatch(/if \[ "\$problems" -gt 0 \]/);
+    expect(script).toContain('exit 1');
+  });
+
+  it('у сетевых проверок есть предел ожидания', () => {
+    // Только настоящие вызовы: строки-комментарии про curl проверять нечего.
+    const curls = (script.match(/^[^#\n]*\bcurl [^\n]*/gm) ?? []).filter(
+      (line) => !line.trimStart().startsWith('#')
+    );
+    expect(curls.length).toBeGreaterThanOrEqual(2);
+    for (const call of curls) {
+      expect(call, `curl без --max-time: ${call}`).toContain('--max-time');
+    }
+  });
+
+  it('проверяются все семь аварий: бэкенд, воркер, очередь, планировщики, копия, диск, 5xx', () => {
+    expect(script).toContain('/health/ready');
+    expect(script).toContain('/healthz');
+    expect(script).toContain('document_tasks_backlog');
+    expect(script).toContain('scheduler_overdue');
+    expect(script).toMatch(/db-\*\.sql\.gz/);
+    expect(script).toContain('df -P');
+    expect(script).toContain('http_requests_total');
+  });
+
+  it('всплеск 5xx считается по приросту, а не по общему счётчику', () => {
+    // Счётчик с момента старта растёт вечно: по нему «сломалось сейчас» неотличимо от
+    // «сломалось месяц назад». Поэтому скрипт помнит прошлое значение.
+    expect(script).toContain('STATE_FILE');
+    expect(script).toMatch(/delta=\$\(\(errors_now - errors_prev\)\)/);
+  });
+
+  it('зависший воркер (503) отличается от умершего — это разные поломки', () => {
+    expect(script).toMatch(/503\)/);
+  });
+});
+
+/**
+ * Сторож живости воркера (ФТ-I1, Фаза 6 Task 5).
+ *
+ * Воркер был единственным сервисом без проверки живости: умерший выглядел как живой,
+ * очередь просто копилась. Проверка не должна исчезнуть при следующей правке compose.
+ */
+describe('infra/docker-compose.prod.yml — живость воркера', () => {
+  const compose = read('docker-compose.prod.yml');
+  const workerBlock = compose.slice(
+    compose.indexOf('\n  worker:'),
+    compose.indexOf('\n  frontend:')
+  );
+
+  it('у воркера есть healthcheck на /healthz', () => {
+    expect(workerBlock).toContain('healthcheck:');
+    expect(workerBlock).toContain('/healthz');
+  });
+
+  it('порт служебной ручки берётся из окружения, а не зашит', () => {
+    expect(workerBlock).toContain('WORKER_HEALTH_PORT');
+  });
+
+  it('журналы всех сервисов ротируются', () => {
+    const servicesBlock = compose.slice(
+      compose.indexOf('\nservices:'),
+      compose.indexOf('\nvolumes:')
+    );
+    const serviceCount = (servicesBlock.match(/^ {2}[a-z][a-z0-9-]*:$/gm) ?? []).length;
+    const loggingCount = (servicesBlock.match(/logging: \*default-logging/g) ?? []).length;
+    expect(loggingCount).toBe(serviceCount);
+  });
+});

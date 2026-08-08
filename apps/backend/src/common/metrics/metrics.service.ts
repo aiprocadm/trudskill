@@ -107,6 +107,28 @@ export class MetricsService {
       );
     }
 
+    /*
+     * Перцентили, а не только среднее (Фаза 6 Task 5).
+     *
+     * Требование ТЗ §12.1 звучит как «p95 списков меньше 300 мс» — по среднему его
+     * проверить нельзя в принципе: среднее прячет как раз те запросы, из-за которых
+     * люди жалуются. Замеры уже копятся (последняя тысяча на маршрут), не хватало
+     * только расчёта.
+     */
+    lines.push('# HELP http_request_duration_ms Quantiles of HTTP request duration');
+    lines.push('# TYPE http_request_duration_ms summary');
+    for (const [key, values] of this.durationBuckets) {
+      const [method, route] = key.split(':');
+      if (!values.length) continue;
+      const labels = `method="${method}",route="${route}"`;
+      for (const q of [0.5, 0.95, 0.99]) {
+        lines.push(
+          `http_request_duration_ms{${labels},quantile="${q}"} ${this.percentile(values, q).toFixed(2)}`
+        );
+      }
+      lines.push(`http_request_duration_ms_count{${labels}} ${values.length}`);
+    }
+
     this.renderCustomCounters(lines);
     this.renderCustomDurations(lines);
     this.renderCustomGauges(lines);
@@ -157,9 +179,44 @@ export class MetricsService {
     }
   }
 
+  /**
+   * Лейблы, которые нельзя класть в метрики (Фаза 6 Task 5).
+   *
+   * Каждое новое значение лейбла — это отдельный временной ряд, который сборщик хранит
+   * вечно. Идентификатор центра, пользователя или слушателя даёт столько рядов, сколько
+   * их вообще есть в системе: на арендной платформе это неограниченный рост памяти
+   * сборщика. Разбивка по центрам — задача экрана «Здоровье арендаторов», а не метрик.
+   *
+   * ВАЖНО для тех, кто пишет новые метрики: если лейбл отсеян, отчитывайтесь СУММОЙ по
+   * всем центрам. Иначе на общий ряд будут писать несколько источников, и в датчике
+   * останется значение последнего.
+   */
+  private static readonly HIGH_CARDINALITY_LABELS = new Set([
+    'tenant_id',
+    'tenantId',
+    'user_id',
+    'userId',
+    'learner_id',
+    'learnerId',
+    'enrollment_id',
+    'document_id'
+  ]);
+
+  /**
+   * Перцентиль по накопленным замерам. Метод «ближайшего ранга»: без интерполяции,
+   * зато значение всегда равно одному из реально измеренных — на выборке в тысячу
+   * замеров разница с интерполяцией меньше, чем разброс самих измерений.
+   */
+  private percentile(values: number[], quantile: number): number {
+    const sorted = [...values].sort((a, b) => a - b);
+    const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil(quantile * sorted.length) - 1));
+    return sorted[index] ?? 0;
+  }
+
   private seriesKey(name: string, labels: Record<string, string>) {
     const normalized = Object.fromEntries(
       Object.entries(labels)
+        .filter(([k]) => !MetricsService.HIGH_CARDINALITY_LABELS.has(k))
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([k, v]) => [k, String(v)])
     );

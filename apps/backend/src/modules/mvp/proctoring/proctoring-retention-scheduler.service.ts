@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
 import { ProctoringRetentionScanner } from './proctoring-retention-scanner.service.js';
+import { recordSchedulerRun } from '../../../common/metrics/scheduler-heartbeat.js';
 import { backendEnv } from '../../../env.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 import { TenantService } from '../../tenant/tenant.service.js';
@@ -33,7 +34,15 @@ export class ProctoringRetentionSchedulerService {
     this.logger.log(`Starting proctoring video retention purge asOf=${asOf}`);
     try {
       await this.runPurgeAllTenants(asOf);
+      // Отметка «отработал» (Фаза 6 Task 6): молчание планировщика дольше своего
+      // интервала иначе неотличимо от «работы не было».
+      recordSchedulerRun('proctoring-video-retention', 'ok', {
+        expectedIntervalMs: 24 * 60 * 60 * 1000
+      });
     } catch (err) {
+      recordSchedulerRun('proctoring-video-retention', 'error', {
+        expectedIntervalMs: 24 * 60 * 60 * 1000
+      });
       this.logger.error(
         `Proctoring retention purge failed: ${err instanceof Error ? err.message : String(err)}`
       );
