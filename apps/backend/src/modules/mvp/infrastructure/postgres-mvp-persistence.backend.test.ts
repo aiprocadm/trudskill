@@ -98,10 +98,17 @@ describe('PII at-rest encryption (ФТ-C3.3, Фаза 0 Task 7)', () => {
       stored,
       db: {
         withTransaction: async (fn: (c: typeof client) => Promise<void>) => fn(client),
-        query: vi.fn(async (_sql: string, params: unknown[]) => {
-          const col = params[1] as string;
-          return (stored.get(col) ?? []).map((data) => ({ data }));
-        })
+        /*
+         * Чтение состояния идёт ОДНИМ запросом на весь тенант (§12.1, 2026-08-09):
+         * раньше на каждую из ~50 коллекций уходил отдельный `select`, то есть полсотни
+         * обращений к базе на каждый запрос пользователя. Подделка отвечает так же, как
+         * настоящая база: строки с указанием коллекции.
+         */
+        query: vi.fn(async () =>
+          [...stored.entries()].flatMap(([collection, items]) =>
+            items.map((data) => ({ collection, data }))
+          )
+        )
       }
     };
   }

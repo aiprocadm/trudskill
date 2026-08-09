@@ -92,23 +92,42 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
     this.applySnapshot(state, snapshot);
   }
 
+  /**
+   * Чтение состояния тенанта ОДНИМ запросом (§12.1, 2026-08-09).
+   *
+   * РАНЬШЕ здесь был цикл по коллекциям: на каждую — свой `select`. Коллекций около
+   * пятидесяти, то есть полсотни обращений к базе на КАЖДЫЙ запрос пользователя, включая
+   * простой показ списка. Замер: всё состояние центра с 500 слушателями читается одним
+   * запросом за 2,8 мс, а полсотни отдельных запросов стоили в разы дороже — именно эта
+   * цена и умножалась под нагрузкой (см. docs/LOAD_TEST_RESULTS.md).
+   *
+   * Результат тот же: те же строки, тот же порядок группировки по коллекциям.
+   */
   private async readSnapshot(
     tenantId: string,
     tableName: string
   ): Promise<Record<MvpCollection, unknown[]>> {
     const snapshot = {} as Record<MvpCollection, unknown[]>;
-
     for (const col of MVP_COLLECTIONS) {
-      const rows = await this.db.query<{ data: unknown }>(
-        `select data from ${tableName} where tenant_id = $1 and collection = $2`,
-        [tenantId, col]
-      );
+      snapshot[col] = [];
+    }
+
+    const rows = await this.db.query<{ collection: string; data: unknown }>(
+      `select collection, data from ${tableName} where tenant_id = $1`,
+      [tenantId]
+    );
+
+    const known = new Set<string>(MVP_COLLECTIONS);
+    for (const row of rows) {
+      if (!known.has(row.collection)) {
+        // Коллекция, о которой этот код ещё не знает (например, осталась от прежней
+        // версии). Молча пропускаем: раньше её просто не запрашивали.
+        continue;
+      }
+      const target = snapshot[row.collection as MvpCollection];
       // ФТ-C3.3: ПДн слушателей зашифрованы at-rest — в память кладём открытые значения,
       // остальной рантайм (реестры/ЕСИА/поиск) шифрования не видит.
-      snapshot[col] =
-        col === 'learners'
-          ? rows.map((row) => decryptLearnerPiiAtRest(row.data))
-          : rows.map((row) => row.data);
+      target.push(row.collection === 'learners' ? decryptLearnerPiiAtRest(row.data) : row.data);
     }
 
     return snapshot;
