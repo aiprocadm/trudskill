@@ -21,6 +21,10 @@ export class InMemoryEmailDeliveriesState implements EmailDeliveriesRepository {
     return row;
   }
 
+  async findById(tenantId: string, id: string): Promise<EmailDeliveryRow | null> {
+    return this.deliveries.find((r) => r.id === id && r.tenantId === tenantId) ?? null;
+  }
+
   async list(
     tenantId: string,
     query: EmailDeliveriesQuery = {}

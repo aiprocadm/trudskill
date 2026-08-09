@@ -152,6 +152,9 @@ export class NotificationDispatcher {
         recipientEmail: recipient.email,
         recipientKind: recipient.kind,
         subject: rendered.subject,
+        // Фаза 6 Task 8: сохраняем тело КАК ОТПРАВЛЕНО — иначе повторная отправка
+        // пересобрала бы письмо из сегодняшних данных и ушло бы ДРУГОЕ письмо.
+        body: rendered.body,
         status: result.status,
         ...(result.providerMessageId ? { providerMessageId: result.providerMessageId } : {}),
         ...(result.error ? { error: result.error } : {}),

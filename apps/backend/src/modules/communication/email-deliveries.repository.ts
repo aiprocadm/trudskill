@@ -19,6 +19,14 @@ export interface EmailDeliveryRow {
   relatedEntityId?: string;
   /** Phase 5B-2 — send-once key (feature:entity:milestone); undefined when not deduped. */
   dedupKey?: string;
+  /**
+   * Фаза 6 Task 8: тело письма КАК ОТПРАВЛЕНО. Нужно для повторной отправки — собрать его
+   * заново нельзя, шаблон и данные с тех пор могли измениться, и слушатель получил бы
+   * ДРУГОЕ письмо под видом повтора. У писем, отправленных до этой правки, тела нет.
+   */
+  body?: string;
+  /** Ссылка на исходное письмо, если это повтор: в журнале видно, что это не новое. */
+  resentFromId?: string;
   createdAt: string;
 }
 
@@ -31,6 +39,8 @@ export interface EmailDeliveriesQuery {
 
 export interface EmailDeliveriesRepository {
   record(seed: EmailDeliverySeed): Promise<EmailDeliveryRow>;
+  /** Одно письмо своего центра. `null`, если письма нет ИЛИ оно чужое. */
+  findById(tenantId: string, id: string): Promise<EmailDeliveryRow | null>;
   list(
     tenantId: string,
     query: EmailDeliveriesQuery

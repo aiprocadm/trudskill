@@ -25,6 +25,8 @@ interface EmailDeliveryDbRow {
   related_entity_type: string | null;
   related_entity_id: string | null;
   dedup_key: string | null;
+  body: string | null;
+  resent_from_id: string | null;
   created_at: string;
   total_count?: string;
 }
@@ -38,8 +40,9 @@ export class PostgresEmailDeliveriesRepository implements EmailDeliveriesReposit
     const rows = await this.db.query<EmailDeliveryDbRow>(
       `insert into communication.email_deliveries
          (id, tenant_id, template_key, recipient_email, recipient_kind, subject, status,
-          provider_message_id, error, related_entity_type, related_entity_id, dedup_key, created_at)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, now())
+          provider_message_id, error, related_entity_type, related_entity_id, dedup_key,
+          body, resent_from_id, created_at)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, now())
        returning *`,
       [
         id,
@@ -53,10 +56,21 @@ export class PostgresEmailDeliveriesRepository implements EmailDeliveriesReposit
         seed.error ?? null,
         seed.relatedEntityType ?? null,
         seed.relatedEntityId ?? null,
-        seed.dedupKey ?? null
+        seed.dedupKey ?? null,
+        seed.body ?? null,
+        seed.resentFromId ?? null
       ]
     );
     return this.map(rows[0]!);
+  }
+
+  async findById(tenantId: string, id: string): Promise<EmailDeliveryRow | null> {
+    // Фильтр по tenant_id прямо в запросе: чужое письмо не должно даже прочитаться.
+    const rows = await this.db.query<EmailDeliveryDbRow>(
+      `select * from communication.email_deliveries where id = $1 and tenant_id = $2`,
+      [id, tenantId]
+    );
+    return rows[0] ? this.map(rows[0]) : null;
   }
 
   async list(
@@ -114,6 +128,8 @@ export class PostgresEmailDeliveriesRepository implements EmailDeliveriesReposit
       ...(row.related_entity_type ? { relatedEntityType: row.related_entity_type } : {}),
       ...(row.related_entity_id ? { relatedEntityId: row.related_entity_id } : {}),
       ...(row.dedup_key ? { dedupKey: row.dedup_key } : {}),
+      ...(row.body ? { body: row.body } : {}),
+      ...(row.resent_from_id ? { resentFromId: row.resent_from_id } : {}),
       createdAt: row.created_at
     };
   }

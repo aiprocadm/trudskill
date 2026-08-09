@@ -5,6 +5,7 @@ import {
   Get,
   Inject,
   Param,
+  Post,
   Put,
   UseGuards
 } from '@nestjs/common';
@@ -13,6 +14,7 @@ import {
   EMAIL_DELIVERIES_REPOSITORY,
   type EmailDeliveriesRepository
 } from './email-deliveries.repository.js';
+import { EmailResendService } from './email-resend.service.js';
 import { EMAIL_TEMPLATE_DEFAULTS, type EmailTemplateKey } from './email-templates.js';
 import {
   EMAIL_TEMPLATES_REPOSITORY,
@@ -34,7 +36,8 @@ const KNOWN_TEMPLATE_KEYS = Object.keys(EMAIL_TEMPLATE_DEFAULTS) as EmailTemplat
 export class EmailNotificationsController {
   constructor(
     @Inject(EMAIL_TEMPLATES_REPOSITORY) private readonly templates: EmailTemplatesRepository,
-    @Inject(EMAIL_DELIVERIES_REPOSITORY) private readonly deliveries: EmailDeliveriesRepository
+    @Inject(EMAIL_DELIVERIES_REPOSITORY) private readonly deliveries: EmailDeliveriesRepository,
+    @Inject(EmailResendService) private readonly resendService: EmailResendService
   ) {}
 
   @Get('email-deliveries')
@@ -42,6 +45,18 @@ export class EmailNotificationsController {
   @RequirePermissions('notifications.read')
   async listDeliveries(@CurrentContext() c: RequestContext) {
     return this.deliveries.list(c.tenantId!, {});
+  }
+
+  /**
+   * Повторная отправка письма (Фаза 6 Task 8). Отдельного права не заводим: `notifications.write`
+   * и так означает «управлять рассылками центра», а дробить его ради одной кнопки — лишняя
+   * сущность в матрице прав.
+   */
+  @Post('email-deliveries/:id/resend')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('notifications.write')
+  async resendDelivery(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.resendService.resend(c.tenantId!, id, c);
   }
 
   @Get('email-templates')
