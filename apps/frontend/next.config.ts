@@ -14,6 +14,15 @@ const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../
 const withSerwist = withSerwistInit({
   swSrc: 'src/app/sw.ts',
   swDest: 'public/sw.js',
+  /*
+   * Страница НЕ перезагружается сама при возврате сети (Фаза 6 Task 11).
+   *
+   * По умолчанию Serwist перезагружает вкладку, как только интернет вернулся. На экзамене
+   * это катастрофа: у слушателя на секунду моргнул Wi-Fi — и страница перезагрузилась
+   * посреди попытки, с потерей несохранённых ответов. Пусть лучше человек сам решит,
+   * когда обновлять.
+   */
+  reloadOnOnline: false,
   disable: process.env.NODE_ENV === 'development'
 });
 

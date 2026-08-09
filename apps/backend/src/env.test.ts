@@ -120,6 +120,30 @@ describe('backend env schema profile validation', () => {
     expect(parsed.success).toBe(true);
   });
 
+  it('мок ЕСИА невозможен в проде — это вход под любым слушателем по его СНИЛС', () => {
+    // Мок-провайдер не проверяет ничего: пускает по переданному СНИЛС. А СНИЛС есть
+    // в приказах и договорах — то есть в проде это вход под чужой учётной записью.
+    const messages = issueMessages({
+      ...strictValidEnv,
+      NODE_ENV: 'production',
+      DEPLOYMENT_PROFILE: 'prod',
+      ESIA_PROVIDER: 'mock'
+    });
+
+    expect(messages.join(' ')).toMatch(/ESIA_PROVIDER=mock is forbidden in production/);
+  });
+
+  it('в staging мок ЕСИА разрешён — там владелец смотрит контур до боевого', () => {
+    const parsed = backendEnvSchema.safeParse({
+      ...strictValidEnv,
+      NODE_ENV: 'staging',
+      DEPLOYMENT_PROFILE: 'staging',
+      ESIA_PROVIDER: 'mock'
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
   it('прод не стартует без токена на ручку метрик', () => {
     // До Фазы 6 `/metrics` был открыт всем: наружу торчали пути, коды ответов и объёмы.
     // Забыть переменную легко, поэтому её отсутствие останавливает старт, а не «пропускается».

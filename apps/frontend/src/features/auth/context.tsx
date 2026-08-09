@@ -23,6 +23,33 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+/**
+ * Стереть всё, что браузер запомнил, при выходе (ФТ-H6, Фаза 6 Task 11).
+ *
+ * ЗАЧЕМ. Cache Storage переживает выход из системы. На общем компьютере учебного класса —
+ * самый обычный случай для центра — следующий человек открыл бы страницу и увидел списки,
+ * ФИО и оценки предыдущего.
+ *
+ * Чистим двумя путями: сами (на случай, если service worker не запущен) и просьбой к
+ * service worker (он умеет стереть и свои предзагруженные файлы). Ошибки глушим намеренно:
+ * невозможность почистить кэш не должна мешать человеку выйти.
+ */
+export async function clearBrowserCaches(): Promise<void> {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    if ('caches' in window) {
+      const names = await caches.keys();
+      await Promise.all(names.map((name) => caches.delete(name)));
+    }
+    const registration = await navigator.serviceWorker?.getRegistration();
+    registration?.active?.postMessage({ type: 'CLEAR_CACHES' });
+  } catch {
+    // Молча: выход важнее уборки.
+  }
+}
+
 export const AuthProvider = ({ children }: PropsWithChildren) => {
   const [session, setSession] = useState<UserSession | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,6 +91,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       logout: async () => {
         await sessionManager.logout();
         setSession(null);
+        await clearBrowserCaches();
       },
       refresh: async () => {
         const refreshed = await sessionManager.tryRefresh();

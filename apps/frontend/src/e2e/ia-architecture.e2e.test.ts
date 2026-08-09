@@ -56,7 +56,10 @@ const SERVICE_ROUTES = new Set([
   '/admin/ui-kit',
   '/exam-auth/[token]',
   '/tenant-not-found',
-  '/module-empty'
+  '/module-empty',
+  // Страница «нет интернета» (Фаза 6 Task 11): её показывает service worker при обрыве
+  // связи, кликом на неё не попадают — в меню ей делать нечего.
+  '/offline'
 ]);
 
 /**
