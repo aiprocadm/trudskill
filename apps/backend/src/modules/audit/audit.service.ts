@@ -57,6 +57,41 @@ export type AuditWritePayload = Omit<AuditLogRecord, 'id' | 'createdAt'> & {
   correlationId?: string;
 };
 
+/** Отбор журнала. Все текстовые поля — поиск по вхождению, как было в прежнем фильтре. */
+export interface AuditListFilter {
+  actor?: string;
+  entity?: string;
+  action?: string;
+  entityId?: string;
+  requestId?: string;
+  createdFrom?: string;
+  createdTo?: string;
+  limit?: number;
+  offset?: number;
+}
+
+/** Тот же отбор для памяти (режим без базы) — чтобы поведение не разъезжалось. */
+function matchesFilter(record: AuditLogRecord, filter: AuditListFilter): boolean {
+  if (filter.actor && !record.actorId?.includes(filter.actor)) return false;
+  if (filter.entity && !record.entityType.includes(filter.entity)) return false;
+  if (filter.action && !record.action.includes(filter.action)) return false;
+  if (filter.entityId && !record.entityId?.includes(filter.entityId)) return false;
+  if (filter.requestId && !record.requestId?.includes(filter.requestId)) return false;
+  if (
+    filter.createdFrom &&
+    new Date(record.createdAt).getTime() < new Date(filter.createdFrom).getTime()
+  ) {
+    return false;
+  }
+  if (
+    filter.createdTo &&
+    new Date(record.createdAt).getTime() > new Date(filter.createdTo).getTime()
+  ) {
+    return false;
+  }
+  return true;
+}
+
 @Injectable()
 export class AuditService {
   private readonly records: AuditLogRecord[] = [];
@@ -176,15 +211,45 @@ export class AuditService {
     return result;
   }
 
-  /** Без непустого `tenantId` возвращает `[]` (защита от cross-tenant read). */
-  async list(tenantId?: string): Promise<AuditLogRecord[]> {
+  /**
+   * Журнал аудита с фильтрами и постранично (Фаза 6 Task 9).
+   *
+   * РАНЬШЕ читался ЦЕЛИКОМ: `select ... where tenant_id = $1 order by created_at desc` без
+   * предела, а фильтры применялись уже в памяти — то есть поиск по одному действию всё
+   * равно вытаскивал весь журнал центра. У работающего центра это сотни тысяч строк:
+   * экран открывался всё дольше, а на большом объёме процесс просто съедал память.
+   * Теперь и отбор, и предел живут в SQL.
+   *
+   * Без непустого `tenantId` возвращает пусто (защита от чтения чужого журнала).
+   */
+  async list(tenantId?: string, filter: AuditListFilter = {}): Promise<AuditLogRecord[]> {
+    const page = await this.listPage(tenantId, filter);
+    return page.items;
+  }
+
+  async listPage(
+    tenantId?: string,
+    filter: AuditListFilter = {}
+  ): Promise<{ items: AuditLogRecord[]; total: number; limit: number; offset: number }> {
     const tid = tenantId?.trim();
+    // Предел сверху жёсткий: запрос `?limit=1000000` не должен возвращать нас к прежнему
+    // поведению «весь журнал в память».
+    const limit = Math.min(Math.max(filter.limit ?? 100, 1), 500);
+    const offset = Math.max(filter.offset ?? 0, 0);
     if (!tid) {
-      return [];
+      return { items: [], total: 0, limit, offset };
     }
 
     if (!this.databaseService) {
-      return this.records.filter((record) => record.tenantId === tid);
+      const matched = this.records.filter(
+        (record) => record.tenantId === tid && matchesFilter(record, filter)
+      );
+      return {
+        items: matched.slice(offset, offset + limit),
+        total: matched.length,
+        limit,
+        offset
+      };
     }
 
     const rows = await this.databaseService.query<{
@@ -201,6 +266,7 @@ export class AuditService {
       ip: string | null;
       user_agent: string | null;
       created_at: string;
+      total_count: string;
     }>(
       `
         select
@@ -216,15 +282,35 @@ export class AuditService {
           request_id,
           ip,
           user_agent,
-          created_at::text as created_at
+          created_at::text as created_at,
+          count(*) over()::text as total_count
         from audit.audit_log
         where tenant_id = $1
+          and ($2::text is null or actor_id like '%' || $2 || '%')
+          and ($3::text is null or entity_type like '%' || $3 || '%')
+          and ($4::text is null or action like '%' || $4 || '%')
+          and ($5::text is null or entity_id like '%' || $5 || '%')
+          and ($6::text is null or request_id like '%' || $6 || '%')
+          and ($7::timestamptz is null or created_at >= $7)
+          and ($8::timestamptz is null or created_at <= $8)
         order by created_at desc
+        limit $9 offset $10
       `,
-      [tid]
+      [
+        tid,
+        filter.actor ?? null,
+        filter.entity ?? null,
+        filter.action ?? null,
+        filter.entityId ?? null,
+        filter.requestId ?? null,
+        filter.createdFrom ?? null,
+        filter.createdTo ?? null,
+        limit,
+        offset
+      ]
     );
 
-    return rows.map((row) => ({
+    const items = rows.map((row) => ({
       id: row.id,
       tenantId: row.tenant_id,
       actorId: row.actor_id ?? undefined,
@@ -239,5 +325,7 @@ export class AuditService {
       userAgent: row.user_agent ?? undefined,
       createdAt: row.created_at
     }));
+
+    return { items, total: Number(rows[0]?.total_count ?? 0), limit, offset };
   }
 }

@@ -271,6 +271,25 @@ export const backendEnvSchema = z
      * это заведомо дольше любого честного выпуска документа вместе с конвертацией в PDF.
      */
     DOCUMENT_TASK_STUCK_MINUTES: z.coerce.number().int().positive().default(15),
+    /**
+     * Сроки хранения (Фаза 6 Task 9). Таблицы росли без всякой чистки.
+     *
+     * `PROCESSED_MESSAGE_RETENTION_DAYS` — самый чувствительный: это отметки «сообщение
+     * уже обработано». Срок заведомо больше любого окна повторов (десять попыток с
+     * задержкой до пяти минут), иначе старое сообщение обработается повторно и выпустится
+     * второе удостоверение.
+     *
+     * `AUDIT_RETENTION_DAYS` = 0 означает «хранить вечно» и является значением по
+     * умолчанию: срок хранения журнала аудита — решение владельца, а не разработчика.
+     */
+    SESSION_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
+    MAGIC_LINK_RETENTION_DAYS: z.coerce.number().int().positive().default(7),
+    PROCESSED_MESSAGE_RETENTION_DAYS: z.coerce.number().int().positive().default(14),
+    AUDIT_RETENTION_DAYS: z.coerce.number().int().nonnegative().default(0),
+    RETENTION_SWEEP_ENABLED: z
+      .union([z.boolean(), z.string()])
+      .transform((v) => (typeof v === 'string' ? v === 'true' : v))
+      .default(true),
     DOCUMENT_TASK_REAPER_ENABLED: z
       .union([z.boolean(), z.string()])
       .transform((v) => (typeof v === 'string' ? v === 'true' : v))
