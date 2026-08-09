@@ -80,6 +80,9 @@ export const routeMeta: RouteMetaEntry[] = [
   // класс бага, что был у /learner (§5.241). Права — как у соседних админ-стабов.
   { pattern: '/forms', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/module-empty', meta: { public: false } },
+  // Страница «нет интернета» (Фаза 6 Task 11): показывается при обрыве связи, в том числе
+  // когда человек ещё не вошёл, — поэтому публичная.
+  { pattern: '/offline', meta: { public: true } },
   { pattern: '/telephony', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/workspace', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   {

@@ -490,6 +490,26 @@ export const backendEnvSchema = z
           'EXPORT_SIGN_PROVIDER=fake is forbidden in production — it fakes signatures (use cryptopro)'
       });
     }
+
+    /*
+     * ESIA_PROVIDER='mock' в проде — ДЫРА В АУТЕНТИФИКАЦИИ (Фаза 6 Task 11).
+     *
+     * Мок-провайдер не проверяет ничего: он выдаёт вход по любому переданному СНИЛС. В
+     * production это значит, что войти можно под ЛЮБЫМ зачисленным слушателем, зная только
+     * его СНИЛС — а СНИЛС есть в приказах и договорах. Закрываем так же, как поддельного
+     * подписанта выгрузок: старт прода с таким значением невозможен.
+     *
+     * Именно в production, а не в staging: staging — это место, где владелец смотрит
+     * контур ЕСИА до подключения боевого.
+     */
+    if (env.ESIA_PROVIDER === 'mock' && env.NODE_ENV === 'production') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ESIA_PROVIDER'],
+        message:
+          'ESIA_PROVIDER=mock is forbidden in production — it authenticates anyone by SNILS (use esia or noop)'
+      });
+    }
   });
 
 export type BackendEnv = z.infer<typeof backendEnvSchema>;
