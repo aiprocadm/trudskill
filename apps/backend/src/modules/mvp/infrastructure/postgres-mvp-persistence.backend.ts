@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { MVP_COLLECTIONS, type MvpCollection } from './mvp-collections.js';
@@ -46,6 +48,18 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
   }
 
   async saveFromState(tenantId: string, state: InMemoryMvpState): Promise<void> {
+    /*
+     * Чтение не должно ничего писать (Фаза 6 Task 10).
+     *
+     * Состояние центра сохранялось в конце КАЖДОГО запроса — включая обычный показ списка.
+     * При 500 слушателях это «удалить всё и вставить заново» на каждый клик: замер дал
+     * p95 = 30 секунд при требовании §12 в 300 мс. Если отпечаток совпал с тем, что
+     * загрузили, менять в базе нечего.
+     */
+    if (state.loadedFingerprint !== null && this.fingerprint(state) === state.loadedFingerprint) {
+      return;
+    }
+
     await this.writeOrchestrator.persist({
       tenantId,
       state,
@@ -106,6 +120,23 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
       target.length = 0;
       target.push(...(snapshot[col] ?? []));
     }
+    // Запоминаем, каким состояние пришло: в конце запроса сравним и не будем писать зря.
+    state.loadedFingerprint = this.fingerprint(state);
+  }
+
+  /**
+   * Отпечаток состояния (Фаза 6 Task 10).
+   *
+   * Считается по ОТКРЫТЫМ значениям в памяти, а не по тому, что лежит в базе: шифрование
+   * ПДн при записи даёт каждый раз разный шифртекст, и сравнивать его было бы бессмысленно.
+   */
+  private fingerprint(state: InMemoryMvpState): string {
+    const hash = createHash('sha1');
+    for (const col of MVP_COLLECTIONS) {
+      hash.update(col);
+      hash.update(JSON.stringify(this.pick(state, col)));
+    }
+    return hash.digest('hex');
   }
 
   private async writeSnapshotToTable(
@@ -120,14 +151,33 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
           col
         ]);
         const items = this.pick(state, col) as Array<{ id: string; tenantId: string }>;
-        for (const entity of items) {
-          // ФТ-C3.3: снилс — только шифртекстом + слепой индекс; legacy-plaintext строки
-          // перешифровываются здесь же при первом сохранении состояния тенанта.
-          const atRest = col === 'learners' ? encryptLearnerPiiAtRest(entity) : entity;
+        /*
+         * Вставка ПАЧКАМИ (Фаза 6 Task 10). Раньше на каждую сущность уходил отдельный
+         * запрос: у центра с 500 слушателями это больше тысячи обращений к базе на одно
+         * сохранение. Значения те же, обращений — в сотни раз меньше.
+         */
+        const CHUNK = 500;
+        for (let start = 0; start < items.length; start += CHUNK) {
+          const chunk = items.slice(start, start + CHUNK);
+          const values: unknown[] = [];
+          const placeholders: string[] = [];
+          chunk.forEach((entity, index) => {
+            // ФТ-C3.3: снилс — только шифртекстом + слепой индекс; legacy-plaintext строки
+            // перешифровываются здесь же при сохранении состояния тенанта.
+            const atRest = col === 'learners' ? encryptLearnerPiiAtRest(entity) : entity;
+            const base = index * 4;
+            placeholders.push(
+              `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}::jsonb, now(), now())`
+            );
+            values.push(tenantId, col, entity.id, JSON.stringify(atRest));
+          });
+          if (placeholders.length === 0) {
+            continue;
+          }
           await client.query(
             `insert into ${tableName} (tenant_id, collection, id, data, created_at, updated_at)
-             values ($1, $2, $3, $4::jsonb, now(), now())`,
-            [tenantId, col, entity.id, JSON.stringify(atRest)]
+             values ${placeholders.join(', ')}`,
+            values
           );
         }
       }
