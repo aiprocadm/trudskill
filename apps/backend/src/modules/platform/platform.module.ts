@@ -10,6 +10,7 @@ import { PublicTenantController } from './public-tenant.controller.js';
 import { RentalBillingController } from './rental-billing.controller.js';
 import { RentalBillingSchedulerService } from './rental-billing.scheduler.service.js';
 import { RentalBillingService } from './rental-billing.service.js';
+import { RetentionSweeperService } from './retention-sweeper.service.js';
 import { backendEnv } from '../../env.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { ManualRentalBillingProvider } from '../../infrastructure/rental-billing/manual-rental-billing.provider.js';
@@ -34,6 +35,7 @@ import { IamModule } from '../iam/iam.module.js';
     PlatformHealthController
   ],
   providers: [
+    RetentionSweeperService,
     PlatformTenantsService,
     PlatformPlansService,
     PlatformHealthService,

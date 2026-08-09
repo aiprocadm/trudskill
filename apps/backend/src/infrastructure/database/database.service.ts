@@ -197,7 +197,43 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Ключ блокировки миграций. Число произвольное, но постоянное: важно лишь, чтобы все
+   * экземпляры бэкенда брали ОДИН и тот же ключ.
+   */
+  private static readonly MIGRATIONS_LOCK_KEY = 528_501;
+
+  /**
+   * Накатывание миграций под блокировкой (Фаза 6 Task 9).
+   *
+   * ЗАЧЕМ. Раньше миграции шли без всякой блокировки. При одновременном старте двух
+   * экземпляров (перевыкатка, `docker compose up --scale`, перезапуск после сбоя) оба
+   * читали список применённых, оба видели одну и ту же новую миграцию и оба начинали её
+   * применять. В лучшем случае второй падал на «таблица уже существует» и контейнер уходил
+   * в цикл перезапусков; в худшем — миграция без `IF NOT EXISTS` обрывалась на середине.
+   *
+   * `pg_advisory_lock` — блокировка уровня СЕАНСА (не транзакции): её держит один
+   * выделенный клиент, пока идут все миграции. Второй экземпляр на этой строке просто
+   * ждёт, а дождавшись — видит, что применять уже нечего.
+   */
   async runMigrations(): Promise<void> {
+    const lockClient = await this.getPool().connect();
+    try {
+      await lockClient.query('select pg_advisory_lock($1)', [DatabaseService.MIGRATIONS_LOCK_KEY]);
+      await this.runMigrationsUnderLock();
+    } finally {
+      // Снять блокировку обязательно, иначе следующий старт будет ждать вечно.
+      try {
+        await lockClient.query('select pg_advisory_unlock($1)', [
+          DatabaseService.MIGRATIONS_LOCK_KEY
+        ]);
+      } finally {
+        lockClient.release();
+      }
+    }
+  }
+
+  private async runMigrationsUnderLock(): Promise<void> {
     await this.withTransaction(async (client) => {
       await client.query('create schema if not exists core');
       await client.query(`
