@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
+import { MVP_COLLECTIONS } from './mvp-collections.js';
+
 import type { BulkImportIdempotencyRecord } from '../learners-bulk-import.types.js';
 import type {
   AnswerOption,
@@ -55,17 +57,114 @@ import type {
 @Injectable()
 export class InMemoryMvpState {
   /**
-   * Отпечаток состояния на момент загрузки (Фаза 6 Task 10).
+   * ЛЕНИВАЯ РАСКЛАДКА КОЛЛЕКЦИЙ (§12.1, 2026-08-09).
    *
-   * ЗАЧЕМ. Состояние центра сохраняется в конце КАЖДОГО запроса — включая обычное чтение
-   * списка. При 500 слушателях это означало «удалить всё и вставить заново» на каждый показ
-   * страницы: замер показал p95 = 30 секунд при требовании §12 в 300 мс. По отпечатку видно,
-   * что запрос ничего не менял, и тогда писать не нужно вовсе.
+   * ЗАЧЕМ. Состояние центра читается из базы одним запросом — это дёшево (3 мс). Дорого
+   * другое: разложить полторы тысячи записей по полусотне коллекций, расшифровав по пути
+   * ПДн всех слушателей. И платил за это КАЖДЫЙ запрос, хотя обычный показ списка трогает
+   * одну-две коллекции: списку слушателей не нужны ни история статусов зачислений, ни
+   * кэши идемпотентности, ни сорок остальных коллекций.
    *
-   * Живёт на состоянии, а не в сервисе, потому что состояние — запросно-скоупное: у каждого
-   * запроса свой экземпляр, и перепутать чужой отпечаток невозможно.
+   * ЧТО ДЕЛАЕМ. Сырые строки кладутся как есть, а раскладываются по первому обращению —
+   * и только те, к которым обратились. Сервисы при этом не меняются ни строчкой: они как
+   * читали `state.learners`, так и читают.
+   *
+   * Ссылка на массив стабильна: `push`/`splice` из сервисов работают как раньше.
    */
-  loadedFingerprint: string | null = null;
+  private readonly rawByCollection = new Map<string, unknown[]>();
+
+  private readonly materialized = new Map<string, unknown[]>();
+
+  /**
+   * Отпечаток коллекции на момент раскладки. По нему в конце запроса видно, менялась ли
+   * она: нетронутая коллекция измениться не могла в принципе, а тронутая сравнивается
+   * только сама с собой — вместо хеширования всего состояния целиком.
+   */
+  private readonly fingerprintAtLoad = new Map<string, string>();
+
+  /**
+   * Коллекции, которые надо переписать, даже если их содержимое в памяти не менялось.
+   *
+   * Единственный такой случай — старые строки с незашифрованными ПДн: они приходят из базы
+   * «как есть», в памяти выглядят точно так же и потому по отпечатку считались бы
+   * неизменными. Перешифровать их нужно, иначе ПДн так и останутся открытыми навсегда.
+   */
+  private readonly forcedDirty = new Set<string>();
+
+  /** Как превратить сырые строки в записи коллекции (для слушателей — расшифровка ПДн). */
+  private materializer: ((collection: string, raw: unknown[]) => unknown[]) | null = null;
+
+  constructor() {
+    for (const collection of MVP_COLLECTIONS) {
+      Object.defineProperty(this, collection, {
+        enumerable: true,
+        configurable: true,
+        get: () => this.readCollection(collection),
+        set: (value: unknown[]) => {
+          this.materialized.set(collection, value);
+          this.fingerprintAtLoad.delete(collection);
+        }
+      });
+    }
+  }
+
+  private readCollection(collection: string): unknown[] {
+    const existing = this.materialized.get(collection);
+    if (existing) {
+      return existing;
+    }
+    const raw = this.rawByCollection.get(collection) ?? [];
+    const items = this.materializer ? this.materializer(collection, raw) : [...raw];
+    this.materialized.set(collection, items);
+    // Отпечаток снимаем СРАЗУ после раскладки — до того, как сервис успеет что-то поменять.
+    this.fingerprintAtLoad.set(collection, JSON.stringify(items));
+    return items;
+  }
+
+  /** Загрузка кладёт сюда сырые строки; раскладка произойдёт по первому обращению. */
+  setRawSnapshot(
+    raw: Map<string, unknown[]>,
+    materializer: (collection: string, rawItems: unknown[]) => unknown[]
+  ): void {
+    this.rawByCollection.clear();
+    this.materialized.clear();
+    this.fingerprintAtLoad.clear();
+    this.forcedDirty.clear();
+    for (const [collection, items] of raw) {
+      this.rawByCollection.set(collection, items);
+    }
+    this.materializer = materializer;
+  }
+
+  /** Пометить коллекцию как требующую записи независимо от отпечатка. */
+  markDirty(collection: string): void {
+    this.forcedDirty.add(collection);
+  }
+
+  /** Коллекции, к которым запрос обращался. Остальные заведомо не менялись. */
+  touchedCollections(): string[] {
+    return [...this.materialized.keys()];
+  }
+
+  /**
+   * Менялась ли коллекция с момента раскладки. Нетронутая — «нет» без всякой проверки:
+   * до неё просто не дошли руки, и в базе она осталась прежней.
+   */
+  hasChanged(collection: string): boolean {
+    if (this.forcedDirty.has(collection)) {
+      return true;
+    }
+    const items = this.materialized.get(collection);
+    if (!items) {
+      return false;
+    }
+    const before = this.fingerprintAtLoad.get(collection);
+    if (before === undefined) {
+      // Коллекцию присвоили целиком (`state.x = [...]`) — считаем изменённой.
+      return true;
+    }
+    return JSON.stringify(items) !== before;
+  }
 
   counterparties: Counterparty[] = [];
   learners: Learner[] = [];

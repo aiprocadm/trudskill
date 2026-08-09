@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { MVP_COLLECTIONS, type MvpCollection } from './mvp-collections.js';
@@ -7,7 +5,8 @@ import { MvpWriteOrchestrator } from './mvp-write.orchestrator.js';
 import { backendEnv } from '../../../env.js';
 import {
   decryptLearnerPiiAtRest,
-  encryptLearnerPiiAtRest
+  encryptLearnerPiiAtRest,
+  isEncryptedPiiValue
 } from '../../../infrastructure/crypto/pii-crypto.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 
@@ -18,6 +17,18 @@ import type { PoolClient } from 'pg';
 const LEGACY_TABLE = 'learning.mvp_runtime_documents';
 const NORMALIZED_TABLE = 'learning.mvp_stage1_runtime_documents';
 const RECONCILIATION_TABLE = 'learning.mvp_reconciliation_log';
+
+/**
+ * Строка слушателя со СТАРЫМ, ещё не зашифрованным снилсом. Такие остались от времён до
+ * шифрования ПДн at-rest (ФТ-C3.3) и должны перешифроваться при ближайшем сохранении.
+ */
+function hasLegacyPlaintextPii(item: unknown): boolean {
+  const learner = item as { snils?: unknown } | null;
+  if (!learner || typeof learner !== 'object' || typeof learner.snils !== 'string') {
+    return false;
+  }
+  return !isEncryptedPiiValue(learner.snils);
+}
 
 @Injectable()
 export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
@@ -49,14 +60,14 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
 
   async saveFromState(tenantId: string, state: InMemoryMvpState): Promise<void> {
     /*
-     * Чтение не должно ничего писать (Фаза 6 Task 10).
+     * Чтение не должно ничего писать (Фаза 6 Task 10, уточнено 2026-08-09).
      *
      * Состояние центра сохранялось в конце КАЖДОГО запроса — включая обычный показ списка.
-     * При 500 слушателях это «удалить всё и вставить заново» на каждый клик: замер дал
-     * p95 = 30 секунд при требовании §12 в 300 мс. Если отпечаток совпал с тем, что
-     * загрузили, менять в базе нечего.
+     * При 500 слушателях это «удалить всё и вставить заново» на каждый клик. Теперь пишем
+     * только те коллекции, к которым запрос обращался И которые действительно изменились;
+     * если таких нет — не пишем вовсе.
      */
-    if (state.loadedFingerprint !== null && this.fingerprint(state) === state.loadedFingerprint) {
+    if (state.touchedCollections().every((collection) => !state.hasChanged(collection))) {
       return;
     }
 
@@ -83,53 +94,80 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
     await this.writeSnapshotToTable(tenantId, state, NORMALIZED_TABLE);
   }
 
+  /**
+   * Обычный путь загрузки: одна выборка + ЛЕНИВАЯ раскладка (§12.1).
+   *
+   * Строки кладутся в состояние как есть; коллекция превращается в записи по первому
+   * обращению. Запрос списка слушателей платит за одну коллекцию, а не за полсотни.
+   */
   private async loadModelIntoState(
     tenantId: string,
     state: InMemoryMvpState,
     tableName: string
   ): Promise<void> {
-    const snapshot = await this.readSnapshot(tenantId, tableName);
-    this.applySnapshot(state, snapshot);
+    const raw = await this.readRawSnapshot(tenantId, tableName);
+    state.setRawSnapshot(raw, (collection, rawItems) => {
+      /*
+       * Старые строки с ОТКРЫТЫМ снилсом надо перешифровать. В памяти они выглядят так же,
+       * как расшифрованные, поэтому по отпечатку сошли бы за «не менялись» — и ПДн остались
+       * бы открытыми навсегда. Помечаем коллекцию к записи явно.
+       */
+      if (collection === 'learners' && rawItems.some((item) => hasLegacyPlaintextPii(item))) {
+        state.markDirty(collection);
+      }
+      return this.materializeCollection(collection, rawItems);
+    });
   }
 
   /**
-   * Чтение состояния тенанта ОДНИМ запросом (§12.1, 2026-08-09).
+   * Чтение состояния тенанта ОДНИМ запросом + ЛЕНИВАЯ раскладка (§12.1).
    *
-   * РАНЬШЕ здесь был цикл по коллекциям: на каждую — свой `select`. Коллекций около
-   * пятидесяти, то есть полсотни обращений к базе на КАЖДЫЙ запрос пользователя, включая
-   * простой показ списка. Замер: всё состояние центра с 500 слушателями читается одним
-   * запросом за 2,8 мс, а полсотни отдельных запросов стоили в разы дороже — именно эта
-   * цена и умножалась под нагрузкой (см. docs/LOAD_TEST_RESULTS.md).
+   * Раньше здесь был цикл по коллекциям: на каждую свой `select`. Коллекций около
+   * пятидесяти, то есть полсотни обращений к базе на КАЖДЫЙ запрос пользователя. Замер:
+   * всё состояние центра с 500 слушателями читается одним запросом за 3 мс.
    *
-   * Результат тот же: те же строки, тот же порядок группировки по коллекциям.
+   * Дальше строки НЕ раскладываются сразу: обычный запрос списка трогает одну-две
+   * коллекции из полусотни, а платил за все (см. docs/LOAD_TEST_RESULTS.md). Раскладка
+   * происходит по первому обращению — этим занимается само состояние.
    */
-  private async readSnapshot(
+  private async readRawSnapshot(
     tenantId: string,
     tableName: string
-  ): Promise<Record<MvpCollection, unknown[]>> {
-    const snapshot = {} as Record<MvpCollection, unknown[]>;
-    for (const col of MVP_COLLECTIONS) {
-      snapshot[col] = [];
-    }
-
+  ): Promise<Map<string, unknown[]>> {
+    const raw = new Map<string, unknown[]>();
     const rows = await this.db.query<{ collection: string; data: unknown }>(
       `select collection, data from ${tableName} where tenant_id = $1`,
       [tenantId]
     );
-
-    const known = new Set<string>(MVP_COLLECTIONS);
     for (const row of rows) {
-      if (!known.has(row.collection)) {
-        // Коллекция, о которой этот код ещё не знает (например, осталась от прежней
-        // версии). Молча пропускаем: раньше её просто не запрашивали.
-        continue;
+      const list = raw.get(row.collection);
+      if (list) {
+        list.push(row.data);
+      } else {
+        raw.set(row.collection, [row.data]);
       }
-      const target = snapshot[row.collection as MvpCollection];
-      // ФТ-C3.3: ПДн слушателей зашифрованы at-rest — в память кладём открытые значения,
-      // остальной рантайм (реестры/ЕСИА/поиск) шифрования не видит.
-      target.push(row.collection === 'learners' ? decryptLearnerPiiAtRest(row.data) : row.data);
     }
+    return raw;
+  }
 
+  /**
+   * Раскладка одной коллекции. ФТ-C3.3: ПДн слушателей зашифрованы at-rest — в память
+   * кладём открытые значения, остальной рантайм шифрования не видит. Расшифровка теперь
+   * платится только за ту коллекцию, которую действительно открыли.
+   */
+  private materializeCollection(collection: string, raw: unknown[]): unknown[] {
+    return collection === 'learners' ? raw.map((item) => decryptLearnerPiiAtRest(item)) : [...raw];
+  }
+
+  private async readSnapshot(
+    tenantId: string,
+    tableName: string
+  ): Promise<Record<MvpCollection, unknown[]>> {
+    const raw = await this.readRawSnapshot(tenantId, tableName);
+    const snapshot = {} as Record<MvpCollection, unknown[]>;
+    for (const col of MVP_COLLECTIONS) {
+      snapshot[col] = this.materializeCollection(col, raw.get(col) ?? []);
+    }
     return snapshot;
   }
 
@@ -139,23 +177,6 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
       target.length = 0;
       target.push(...(snapshot[col] ?? []));
     }
-    // Запоминаем, каким состояние пришло: в конце запроса сравним и не будем писать зря.
-    state.loadedFingerprint = this.fingerprint(state);
-  }
-
-  /**
-   * Отпечаток состояния (Фаза 6 Task 10).
-   *
-   * Считается по ОТКРЫТЫМ значениям в памяти, а не по тому, что лежит в базе: шифрование
-   * ПДн при записи даёт каждый раз разный шифртекст, и сравнивать его было бы бессмысленно.
-   */
-  private fingerprint(state: InMemoryMvpState): string {
-    const hash = createHash('sha1');
-    for (const col of MVP_COLLECTIONS) {
-      hash.update(col);
-      hash.update(JSON.stringify(this.pick(state, col)));
-    }
-    return hash.digest('hex');
   }
 
   private async writeSnapshotToTable(
@@ -163,8 +184,21 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
     state: InMemoryMvpState,
     tableName: string
   ): Promise<void> {
+    /*
+     * Пишем только тронутые и изменившиеся коллекции (§12.1, 2026-08-09).
+     *
+     * Нетронутая коллекция измениться не могла: до неё в этом запросе даже не обратились,
+     * а в базе она лежит ровно такой, какой её прочитали. Раньше переписывались все
+     * полсотни — на каждый запрос.
+     */
+    const collectionsToWrite = MVP_COLLECTIONS.filter((col) => state.hasChanged(col));
+
+    if (collectionsToWrite.length === 0) {
+      return;
+    }
+
     await this.db.withTransaction(async (client: PoolClient) => {
-      for (const col of MVP_COLLECTIONS) {
+      for (const col of collectionsToWrite) {
         await client.query(`delete from ${tableName} where tenant_id = $1 and collection = $2`, [
           tenantId,
           col
