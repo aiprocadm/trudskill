@@ -235,3 +235,42 @@ describe('infra/docker-compose.prod.yml — живость воркера', () =
     expect(loggingCount).toBe(serviceCount);
   });
 });
+
+/**
+ * Несколько экземпляров бэкенда (§12.1, 2026-08-09).
+ *
+ * Замер показал: под нагрузкой в 50 сессий бэкенд занимает 94% ОДНОГО ядра при восьми на
+ * машине — Node обрабатывает запросы по очереди в одном потоке. Лечится не кодом, а
+ * запуском нескольких копий за прокси. Свойства ниже — то, без чего это молча не работает.
+ */
+describe('масштабирование бэкенда за прокси', () => {
+  const caddyfile = read('Caddyfile');
+  const compose = read('docker-compose.prod.yml');
+
+  it('прокси ищет экземпляры динамически, а не запоминает адрес при старте', () => {
+    // Со статическим адресом Caddy разрешает имя ОДИН раз: добавленные позже копии
+    // никогда не получат ни одного запроса, и масштабирование окажется бутафорией.
+    expect(caddyfile).toContain('dynamic a');
+    expect(caddyfile).toContain('name backend');
+  });
+
+  it('запросы раскладываются по наименее занятому экземпляру', () => {
+    expect(caddyfile).toContain('lb_policy least_conn');
+  });
+
+  it('неотвечающий экземпляр выводится из ротации', () => {
+    expect(caddyfile).toContain('health_uri /api/v1/health/live');
+  });
+
+  it('порт бэкенда наружу не публикуется — иначе вторая копия не поднимется', () => {
+    const backendBlock = compose.slice(
+      compose.indexOf('\n  backend:'),
+      compose.indexOf('\n  realtime:')
+    );
+    expect(backendBlock).not.toMatch(/^\s+ports:/m);
+  });
+
+  it('у бэкенда нет фиксированного имени контейнера — оно мешает масштабированию', () => {
+    expect(compose).not.toContain('container_name');
+  });
+});
