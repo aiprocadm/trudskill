@@ -21,13 +21,15 @@ export class WorkspaceController {
 
   @Get('tasks/inbox')
   @RequirePermissions('tenant.read')
-  getTasksInbox(@CurrentContext() context: RequestContext) {
-    return { items: this.workspaceService.getTasksInbox(context.tenantId!) };
+  async getTasksInbox(@CurrentContext() context: RequestContext) {
+    // БЕЗ `await` сюда попадал бы Promise: в JSON он превращается в пустой объект `{}`,
+    // и экран падал с «filter is not a function» — список ждали, а получали объект.
+    return { items: await this.workspaceService.getTasksInbox(context.tenantId!) };
   }
 
   @Get('blockers')
   @RequirePermissions('tenant.read')
-  getBlockers(@CurrentContext() context: RequestContext) {
-    return { items: this.workspaceService.getBlockers(context.tenantId!) };
+  async getBlockers(@CurrentContext() context: RequestContext) {
+    return { items: await this.workspaceService.getBlockers(context.tenantId!) };
   }
 }
