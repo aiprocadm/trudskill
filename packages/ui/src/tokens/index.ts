@@ -72,7 +72,9 @@ export const lightThemeVars = {
   '--ui-hero-cta-bg': '#ff7a45',
   '--ui-hero-cta-bg-hover': '#ea6326',
   '--ui-hero-cta-text': '#0f172a',
-  '--ui-hero-seal': 'rgba(255, 255, 255, 0.10)'
+  '--ui-hero-seal': 'rgba(255, 255, 255, 0.10)',
+  // Затемнение под выдвижным меню на узком экране (UI-020).
+  '--ui-overlay': 'rgba(15, 23, 42, 0.45)'
 } as const;
 
 // Тёмная тема — те же роли, осветлённые версии бренда/акцента для контраста на тёмном фоне.
@@ -117,7 +119,10 @@ export const darkThemeVars = {
   '--ui-hero-cta-bg': '#ff8a5c',
   '--ui-hero-cta-bg-hover': '#ff9e78',
   '--ui-hero-cta-text': '#1a1205',
-  '--ui-hero-seal': 'rgba(255, 255, 255, 0.08)'
+  '--ui-hero-seal': 'rgba(255, 255, 255, 0.08)',
+  // В тёмной теме подложка страницы уже тёмная — затемнение плотнее, иначе выдвинутое
+  // меню не отделяется от фона.
+  '--ui-overlay': 'rgba(2, 6, 23, 0.66)'
 } as const;
 
 // CSS-мост: базовые (не зависящие от темы) переменные — отступы, радиусы, типографика.
@@ -134,6 +139,11 @@ export const baseVars = {
   '--ui-radius-md': `${radius.md}px`,
   '--ui-radius-lg': `${radius.lg}px`,
   '--ui-radius-pill': `${radius.pill}px`,
+  // UI-020: размеры оболочки. Раньше жили числами внутри styled-jsx каркаса,
+  // где их не видел ни один сторож дисциплины.
+  '--ui-sidebar-width': '260px',
+  '--ui-sidebar-drawer-width': '300px',
+  '--ui-topbar-height': '64px',
   '--ui-font-size-xs': '12px',
   '--ui-font-size-sm': '13px',
   '--ui-font-size-md': '15px',

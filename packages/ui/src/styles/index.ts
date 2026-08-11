@@ -2,7 +2,7 @@ import { chatStyles } from './chat.js';
 import { courseViewerStyles } from './course-viewer.js';
 import { formStyles } from './forms.js';
 import { foundationStyles } from './foundation.js';
-import { layoutStyles } from './layout.js';
+import { appShellStyles, commandPaletteStyles, layoutStyles } from './layout.js';
 import { modalStyles } from './modal.js';
 import { tableStyles } from './tables.js';
 
@@ -11,6 +11,8 @@ export const uiStyleLayers = {
   forms: formStyles,
   tables: tableStyles,
   layout: layoutStyles,
+  appShell: appShellStyles,
+  commandPalette: commandPaletteStyles,
   chat: chatStyles,
   modal: modalStyles,
   courseViewer: courseViewerStyles
