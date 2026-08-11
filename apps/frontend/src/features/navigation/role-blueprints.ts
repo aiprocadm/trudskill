@@ -7,66 +7,111 @@ export interface RoleBlueprint {
   primaryNav: string[];
 }
 
+/*
+ * Фаза 1 ТЗ редизайна (IA-013, IA-002): главное меню роли — ≤7 пунктов, порядок = частота.
+ * Прежние списки начинались с `/` и не вели ни в один рабочий раздел: у администратора
+ * было `['/', '/users', '/reports', '/audit', '/settings']` — четыре из семи его сценариев
+ * (зачислить, закрыть группу, найти слушателя, поправить курс) не покрывались вовсе.
+ * Формулировки topJobs — проверяемые сценарии JOB-*, а не обобщения вроде «поддерживать структуру».
+ */
 const roleBlueprints: RoleBlueprint[] = [
   {
     role: 'learner',
-    displayName: 'Студент',
+    displayName: 'Слушатель',
     topJobs: [
       'Продолжить обучение с последнего места',
       'Сдать задание или пройти тест',
-      'Проверить дедлайны и уведомления',
-      'Отследить прогресс и результаты',
-      'Связаться с преподавателем'
+      'Посмотреть свои документы',
+      'Проверить сроки и уведомления'
     ],
-    primaryNav: ['/', '/learner/courses', '/assessment', '/notifications', '/chat']
+    primaryNav: [
+      '/learner',
+      '/learner/courses',
+      '/learner/tests',
+      '/learner/documents',
+      '/notifications',
+      '/chat'
+    ]
   },
   {
     role: 'methodist',
     displayName: 'Методист',
     topJobs: [
-      'Подготовить программу и структуру курса',
-      'Управлять контентом и версиями',
-      'Собирать тесты и назначения',
-      'Передавать курс на публикацию',
-      'Контролировать качество материалов'
+      'Собрать программу и структуру курса',
+      'Обновить материалы и версии',
+      'Собрать тест и назначить его группе',
+      'Передать курс на публикацию'
     ],
-    primaryNav: ['/', '/courses', '/learning/calendar', '/materials', '/assessment', '/reports']
+    primaryNav: ['/methodist', '/courses', '/materials', '/assessment', '/groups', '/reports']
   },
   {
     role: 'teacher',
     displayName: 'Преподаватель',
     topJobs: [
       'Проверить задания и выставить оценку',
-      'Отслеживать прогресс группы',
-      'Публиковать материалы и задания',
-      'Отвечать на сообщения студентов',
-      'Планировать обучение по дедлайнам'
+      'Посмотреть прогресс группы',
+      'Ответить слушателю',
+      'Спланировать занятия по срокам'
     ],
-    primaryNav: ['/', '/groups', '/learning/calendar', '/assessment', '/courses', '/notifications']
+    primaryNav: [
+      '/groups',
+      '/teacher/review',
+      '/teacher/grading-center',
+      '/learning/calendar',
+      '/courses',
+      '/notifications'
+    ]
+  },
+  {
+    role: 'manager',
+    displayName: 'Менеджер',
+    topJobs: [
+      'Зачислить слушателя в группу',
+      'Найти слушателя и ответить на вопрос',
+      'Вести заказчика и его сотрудников',
+      'Проверить выданные документы'
+    ],
+    primaryNav: ['/groups', '/learners', '/counterparties', '/documents', '/reports']
   },
   {
     role: 'tenant_admin',
     displayName: 'Администратор',
     topJobs: [
-      'Управлять пользователями и ролями',
-      'Контролировать доступы и безопасность',
-      'Поддерживать структуру LMS',
-      'Отслеживать проблемные точки',
-      'Собирать отчеты по активности'
+      'Увидеть, что горит, сразу после входа',
+      'Зачислить слушателя в группу',
+      'Закрыть группу и выдать документы',
+      'Выгрузить реестр в надзор',
+      'Найти слушателя и увидеть всё по нему',
+      'Поправить курс и тест, не теряя связей',
+      'Найти нужную настройку центра'
     ],
-    primaryNav: ['/', '/users', '/reports', '/audit', '/settings']
+    primaryNav: [
+      '/workspace',
+      '/learners',
+      '/groups',
+      '/assessment',
+      '/documents',
+      '/reports',
+      '/settings'
+    ]
   },
   {
     role: 'platform_admin',
     displayName: 'Администратор платформы',
     topJobs: [
-      'Контролировать системную доступность',
-      'Настраивать роли и уровни доступа',
-      'Аудировать действия и сессии',
-      'Вести интеграции и выгрузки',
-      'Устранять инциденты по данным'
+      'Следить за состоянием учебных центров',
+      'Завести центр и назначить тариф',
+      'Разобрать сбой в очередях и выгрузках',
+      'Проверить журнал действий'
     ],
-    primaryNav: ['/', '/users', '/audit', '/integrations', '/reports']
+    primaryNav: [
+      '/workspace',
+      '/platform/tenants',
+      '/admin/licenses',
+      '/audit',
+      '/admin/operations',
+      '/settings'
+    ]
   }
 ];
 
@@ -77,6 +122,9 @@ const roleAliases: Record<string, string> = {
   tutor: 'teacher',
   methodologist: 'methodist'
 };
+
+/** Полный список для сторожевых тестов — без привязки к сессии. */
+export const getRoleBlueprints = (): RoleBlueprint[] => roleBlueprints;
 
 const normalizeRole = (role: string) => roleAliases[role] ?? role;
 
