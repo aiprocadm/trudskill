@@ -34,7 +34,7 @@ export const foundationStyles = `
 .entry-card + .entry-card { margin-top: 10px; }
 /* Слайд-овер дровер (создание/редактирование сущностей) — фикс. панель справа + затемнение */
 .ui-drawer { position: fixed; top: 0; right: 0; z-index: 10050; isolation: isolate; height: 100vh; width: min(480px, 100vw); background: var(--ui-surface); border-left: 1px solid var(--ui-border); box-shadow: var(--ui-shadow-strong); overflow-y: auto; padding: 20px; display: grid; gap: 16px; align-content: start; }
-.ui-drawer::before { content: ''; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); z-index: -1; pointer-events: none; }
+.ui-drawer::before { content: ''; position: fixed; inset: 0; background: var(--ui-overlay); z-index: -1; pointer-events: none; }
 .ui-drawer-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .ui-drawer-header h2 { margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--ui-text); }
 /* Формы внутри дроверов/модалок */
