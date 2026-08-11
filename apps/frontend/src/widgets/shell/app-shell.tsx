@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { type PropsWithChildren, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CommandPalette } from './command-palette';
+import { dismissNavHint, shouldShowNavHint } from './nav-hint';
 import { useAuth } from '../../features/auth/context';
 import { useTenantBranding } from '../../features/branding/context';
 import { resolveWordmark } from '../../features/branding/theme';
@@ -97,6 +98,17 @@ export const AppShell = ({ children }: PropsWithChildren) => {
     if (activeInMore) setMoreOpen(true);
   }, [activeInMore]);
 
+  // IA-020: подсказка читается только на клиенте — на сервере localStorage нет.
+  const [hintVisible, setHintVisible] = useState(false);
+  useEffect(() => {
+    setHintVisible(shouldShowNavHint((key) => localStorage.getItem(key)));
+  }, []);
+
+  const closeHint = useCallback(() => {
+    dismissNavHint((key, value) => localStorage.setItem(key, value));
+    setHintVisible(false);
+  }, []);
+
   const unreadLabel = formatUnreadBadge(unread.data?.total);
 
   return (
@@ -137,6 +149,14 @@ export const AppShell = ({ children }: PropsWithChildren) => {
           <span className="ui-wordmark">{resolveWordmark(branding)}</span>
         </h2>
         {primaryRole ? <p className="app-shell__role">Роль: {primaryRole.displayName}</p> : null}
+        {hintVisible ? (
+          <div className="app-shell__hint" role="status" data-testid="nav-hint">
+            <p>Меню стало короче. Всё остальное — в разделе «Ещё» и по Ctrl+K.</p>
+            <button type="button" className="app-shell__hint-close" onClick={closeHint}>
+              Понятно
+            </button>
+          </div>
+        ) : null}
         <nav className="app-shell__nav" aria-label="Основные разделы">
           {mainItems.map((item) => {
             const active = isItemActive(item.href);
