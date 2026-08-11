@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { type PropsWithChildren, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CommandPalette } from './command-palette';
+import { NavHint } from './nav-hint';
 import { useAuth } from '../../features/auth/context';
 import { useTenantBranding } from '../../features/branding/context';
 import { resolveWordmark } from '../../features/branding/theme';
@@ -218,6 +219,7 @@ export const AppShell = ({ children }: PropsWithChildren) => {
             </div>
           ) : null}
         </nav>
+        <NavHint />
       </aside>
       <div className="app-shell__content" id="app-shell-main" tabIndex={-1}>
         <header className="app-shell__topbar">
