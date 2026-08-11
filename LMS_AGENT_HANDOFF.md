@@ -4060,6 +4060,63 @@ RBAC и URL, ослаблять сторожей или молча расшир�
 
 **Дальше:** Фаза 1 «Навигация и оболочка» — план в `docs/superpowers/plans/` + апрув владельца перед кодом.
 
+### 5.259 Фаза 1 редизайна — меню из семи пунктов вместо семидесяти (ЗАКРЫТА)
+
+**Дата:** 2026-08-11. **Ветка:** `worktree-ui-redesign-faza1-navigation`. **ТЗ:** редизайн интерфейса, Фаза 1
+(`IA-011`, `IA-013`, `IA-002`, `IA-015`, `IA-020`, `UI-020`, `UI-021`, `UI-009`, `UI-008`, `TXT-001`, `UI-022`).
+План — `docs/superpowers/plans/2026-08-11-ui-redesign-faza1-navigation.md`.
+
+**Главное: работа была уже сделана и лежала неподключённой.** `getNavigationView` написана, покрыта тестом,
+54 из 71 пункта размечены `navSlot: 'more'`, `primaryNav` заведены у всех ролей — а `app-shell.tsx:31` брал
+`getGroupedNavigation` и рисовал все 70 пунктов в десяти раскрывающихся блоках. Фаза свелась к подключению
+готового механизма и наведению порядка вокруг него.
+
+**Что сделано:**
+
+1. **Меню ролей (`IA-013`, `IA-002`).** Списки переписаны по ТЗ §4.4. У администратора было
+   `['/', '/users', '/reports', '/audit', '/settings']` — ни одного `/admin/*` и четыре из семи сценариев роли
+   не покрыты; стало `/workspace`, `/learners`, `/groups`, `/assessment`, `/documents`, `/reports`, `/settings`.
+   Добавлена роль **`manager`**: в файле её не было вовсе, хотя дом роли задан в `role-home.ts` — меню
+   собиралось запасным путём «первые семь по порядку». `topJobs` заменены с обобщений на сценарии `JOB-*`.
+2. **Второй уровень (`IA-015`).** `buildMoreSections` в `nav-groups.ts` раскладывает всё, что не попало
+   в главное меню, по тем же 10 блокам ИА; порядок внутри блока — из `NAV_GROUPS`, а не из порядка выпадения.
+   Пункт вне блоков уходит в «Прочее»: сирот сейчас нет, но терять ссылку молча нельзя.
+3. **Каркас (`IA-011`).** Плоский список + кнопка «Ещё». Переход на страницу из второго уровня раскрывает
+   «Ещё» — пункт обязан быть виден там, где пользователь стоит.
+4. **Подсказка (`IA-020`).** `widgets/shell/nav-hint.ts`, ключ `cdoprof.ui.nav-hint.v1`, хранилище передаётся
+   параметром (модуль импортируется и на сервере). Единственное изменение фазы, которое можно принять
+   за пропажу разделов, — поэтому объясняется в интерфейсе.
+5. **CSS оболочки (`UI-020`, `UI-021`, `UI-009`, `UI-022`).** 288 строк каркаса и 76 строк палитры переехали
+   из `<style jsx>` в `packages/ui/src/styles/layout.ts`; вместе со styled-jsx исчез обход `:global(...)`,
+   помеченный в коде как «давний дефект каркаса». Хардкод заменён токенами — добавлены `--ui-overlay`
+   (светлая и тёмная тема), `--ui-sidebar-width`, `--ui-sidebar-drawer-width`, `--ui-topbar-height`.
+   Заголовки блоков меню лишились `uppercase` и `letter-spacing`, вес 700 → 600. Новый сторож
+   `styled-jsx-ban.e2e.test.ts` не даёт слою вернуться (исключение — календарь, он переезжает в Фазе 6).
+   `app-shell.tsx`: 526 → 276 строк.
+6. **Сторожа (`IA-019`).** `navigation-shell.e2e.test.ts` проверял только факт импорта двух модулей — то есть
+   каркас можно было сломать, не уронив ни одного теста. Теперь держит бюджет ≤7 и полноту второго уровня.
+7. **Регламенты (`UI-008`, `TXT-001`).** `FRONTEND_UX_GOVERNANCE.md` §2 — одно первичное действие;
+   §1 — `next actions` → «Разобрать», `inbox tasks` → «Задачи», добавлен `severity` → «Критичность».
+   Открытых расхождений между регламентом и ТЗ не осталось.
+
+**Найдено попутно (в журнал расхождений трекера, записи 12 и 13):** слепая зона сторожа каркаса;
+роли **`teacher` нет ни в одной живой базе** (`iam.roles` = counterparty_rep, learner, manager, methodist,
+platform_admin, tenant_admin) и нет в бэкенде, при этом она описана в `role-blueprints.ts`; обратный случай —
+`counterparty_rep` в базе есть, а blueprint отсутствует (его `primaryNav` — Фаза 6 вместе с порталом заказчика).
+
+**Границы соблюдены:** URL не менялись, контракты и RBAC не тронуты, `ia-architecture.e2e.test.ts` остался
+зелёным **без единой правки** (критерий приёмки фазы), `getGroupedNavigation` сохранена для крошек (`IA-012`).
+`UI-009` закрыт частично — по заголовкам меню; hero, seal и тень идут Фазой 6, как в дорожной карте.
+
+**Файлы:** `apps/frontend/src/features/navigation/{role-blueprints.ts,role-blueprints.test.ts,nav-groups.ts,nav-groups.test.ts,helpers.test.ts}`,
+`apps/frontend/src/widgets/shell/{app-shell.tsx,command-palette.tsx,nav-hint.ts,nav-hint.test.ts}`,
+`apps/frontend/src/e2e/{navigation-shell,lms-role-flows,styled-jsx-ban}.e2e.test.ts`,
+`packages/ui/src/styles/{layout.ts,index.ts,smoke-visual.test.tsx}`, `packages/ui/src/tokens/index.ts`,
+`docs/FRONTEND_UX_GOVERNANCE.md`, `docs/TZ_UI_REDESIGN_STATUS.md`, `README.md`, `LMS_AGENT_HANDOFF.md`.
+
+**Дальше:** Фаза 2 «Эталонный реестр и карточка» — `/learners` и `/learners/[id]` как образцы для остальных
+30 экранов, расширение сторожа `unified-states` (`IA-001`) и починка 9 нарушителей. Перед кодом — план + апрув.
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |
