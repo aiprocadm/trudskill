@@ -86,4 +86,14 @@ describe('оболочка приложения', () => {
   it('IA-011: оболочка собирает меню через getNavigationView', () => {
     expect(shellSource).toContain('getNavigationView');
   });
+
+  /*
+   * UI-022. CSS каркаса уехал в packages/ui/src/styles/shell.ts, где его видят
+   * сторожа токенов и тач-зон. Внутри <style jsx> они слепы — там и накопился
+   * хардкод подложки и радиусов. Без этой проверки слой вернётся при первой же
+   * правке «по-быстрому».
+   */
+  it('UI-022: в оболочке нет styled-jsx — CSS живёт в пакете под сторожами', () => {
+    expect(shellSource).not.toContain('<style jsx>');
+  });
 });

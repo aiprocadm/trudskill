@@ -16,11 +16,15 @@ describe('ui style layers smoke/visual coverage', () => {
       'forms',
       'tables',
       'layout',
+      // Слой каркаса появился в Фазе 1 редизайна (UI-020): 288 строк CSS оболочки
+      // переехали из <style jsx> в пакет, где их видят сторожа токенов.
+      'shell',
       'chat',
       'modal',
       'courseViewer'
     ]);
     expect(uiStyleLayers.layout).toContain('.ui-dashboard-grid');
+    expect(uiStyleLayers.shell).toContain('.app-shell__nav');
     expect(uiStyleLayers.chat).toContain('.ui-chat-layout');
     expect(uiStyleLayers.tables).toContain('.ui-table-wrap');
   });
