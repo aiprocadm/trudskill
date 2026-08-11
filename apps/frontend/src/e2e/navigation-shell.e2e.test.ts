@@ -24,6 +24,7 @@ const readShellSource = (name: string) =>
   );
 
 const shellSource = readShellSource('app-shell.tsx');
+const paletteSource = readShellSource('command-palette.tsx');
 
 /*
  * Администратор центра: в живой базе роли выданы ВСЕ права без исключения
@@ -95,5 +96,9 @@ describe('оболочка приложения', () => {
    */
   it('UI-022: в оболочке нет styled-jsx — CSS живёт в пакете под сторожами', () => {
     expect(shellSource).not.toContain('<style jsx>');
+  });
+
+  it('UI-022: в палитре команд нет styled-jsx', () => {
+    expect(paletteSource).not.toContain('<style jsx>');
   });
 });

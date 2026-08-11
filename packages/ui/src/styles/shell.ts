@@ -228,4 +228,74 @@ export const shellStyles = `
   .app-shell__notif-link { min-height: 44px; display: flex; align-items: center; }
   .app-shell__search { height: 44px; }
 }
+
+/* Палитра команд (UI-021). Приехала сюда же: это часть каркаса, а её 76 строк
+   были такой же слепой зоной для сторожей — внутри лежали та же подложка rgba и
+   радиусы 14px и 10px мимо шкалы. */
+.cmdk {
+  position: fixed;
+  inset: 0;
+  z-index: 13000;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 12vh;
+}
+.cmdk__scrim {
+  position: absolute;
+  inset: 0;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: var(--ui-overlay);
+  cursor: pointer;
+}
+.cmdk__dialog {
+  position: relative;
+  width: min(560px, 92vw);
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  box-shadow: var(--ui-shadow-strong);
+  overflow: hidden;
+}
+.cmdk__input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--ui-border);
+  color: var(--ui-text-muted);
+}
+/* 16px — вне шкалы намеренно: Safari на iOS увеличивает страницу при фокусе в
+   поле с размером меньше 16px, и палитра прыгает под пальцем. */
+.cmdk__input {
+  flex: 1 1 auto;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 16px;
+  color: var(--ui-text);
+}
+.cmdk__list { list-style: none; margin: 0; padding: 6px; max-height: 52vh; overflow-y: auto; }
+.cmdk__option {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--ui-radius-md);
+  cursor: pointer;
+  color: var(--ui-text);
+}
+.cmdk__option.is-active {
+  background: var(--ui-nav-active-bg, var(--ui-surface-muted));
+  color: var(--ui-nav-active-text, var(--ui-brand-700));
+}
+.cmdk__option-group {
+  font-size: var(--ui-font-size-xs);
+  color: var(--ui-text-muted);
+  white-space: nowrap;
+}
+.cmdk__empty { padding: 16px 12px; color: var(--ui-text-muted); text-align: center; }
 `;
