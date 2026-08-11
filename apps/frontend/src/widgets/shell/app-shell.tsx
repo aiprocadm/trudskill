@@ -6,13 +6,15 @@ import { usePathname } from 'next/navigation';
 import { type PropsWithChildren, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CommandPalette } from './command-palette';
+import { NavHint } from './nav-hint';
 import { useAuth } from '../../features/auth/context';
 import { useTenantBranding } from '../../features/branding/context';
 import { resolveWordmark } from '../../features/branding/theme';
 import { useNotificationsList, useNotificationsRealtime } from '../../features/communication/hooks';
 import { buildBreadcrumbs } from '../../features/navigation/breadcrumbs';
 import { buildCommandItems } from '../../features/navigation/command-palette';
-import { getGroupedNavigation } from '../../features/navigation/nav-groups';
+import { getNavigationView } from '../../features/navigation/helpers';
+import { groupItemsByNavGroup } from '../../features/navigation/nav-groups';
 import { ChevronDownIcon, SearchIcon } from '../../features/navigation/nav-icons';
 import { getPrimaryRoleBlueprint } from '../../features/navigation/role-blueprints';
 
@@ -28,7 +30,12 @@ export const AppShell = ({ children }: PropsWithChildren) => {
   const { session, logout } = useAuth();
   // ФТ-D3.1: название и логотип центра в шапке; без бренда — wordmark платформы.
   const branding = useTenantBranding();
-  const groups = getGroupedNavigation(session);
+  /*
+   * IA-011: короткое меню роли (≤7) + всё остальное вторым уровнем. Разбиение по
+   * 10 блокам ИА никуда не делось — оно применяется к содержимому «Ещё».
+   */
+  const navView = getNavigationView(session);
+  const moreGroups = useMemo(() => groupItemsByNavGroup(navView.more), [navView.more]);
   const primaryRole = getPrimaryRoleBlueprint(session);
   const breadcrumbItems = useMemo(() => buildBreadcrumbs(pathname), [pathname]);
   const unread = useNotificationsList(1, 1, 'unread');
@@ -36,10 +43,15 @@ export const AppShell = ({ children }: PropsWithChildren) => {
 
   const isItemActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
-  // Блок с активной страницей (для авто-раскрытия). Вычисляем на каждый рендер — дёшево.
-  const activeGroupId =
-    groups.find((group) => group.items.some((item) => isItemActive(item.href)))?.id ?? null;
+  /*
+   * Активная страница может лежать во втором уровне — тогда «Ещё» и её блок
+   * раскрываются сами. Без этого человек на странице из «Ещё» не видит, где он
+   * находится, и меню выглядит так, будто раздел исчез.
+   */
+  const activeMoreGroupId =
+    moreGroups.find((group) => group.items.some((item) => isItemActive(item.href)))?.id ?? null;
 
+  const [moreOpen, setMoreOpen] = useState(false);
   // Ручные раскрытия пользователя поверх авто-раскрытия активного блока.
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
@@ -87,14 +99,16 @@ export const AppShell = ({ children }: PropsWithChildren) => {
 
   // Блок с активной страницей всегда раскрыт (не схлопываем ручные раскрытия пользователя).
   useEffect(() => {
-    if (activeGroupId) {
-      setOpenGroups((prev) => (prev[activeGroupId] ? prev : { ...prev, [activeGroupId]: true }));
-    }
-  }, [activeGroupId]);
+    if (!activeMoreGroupId) return;
+    setMoreOpen(true);
+    setOpenGroups((prev) =>
+      prev[activeMoreGroupId] ? prev : { ...prev, [activeMoreGroupId]: true }
+    );
+  }, [activeMoreGroupId]);
 
-  const isGroupOpen = (id: string) => openGroups[id] ?? id === activeGroupId;
+  const isGroupOpen = (id: string) => openGroups[id] ?? id === activeMoreGroupId;
   const toggleGroup = (id: string) =>
-    setOpenGroups((prev) => ({ ...prev, [id]: !(prev[id] ?? id === activeGroupId) }));
+    setOpenGroups((prev) => ({ ...prev, [id]: !(prev[id] ?? id === activeMoreGroupId) }));
 
   const unreadLabel = formatUnreadBadge(unread.data?.total);
 
@@ -137,43 +151,75 @@ export const AppShell = ({ children }: PropsWithChildren) => {
         </h2>
         {primaryRole ? <p className="app-shell__role">Роль: {primaryRole.displayName}</p> : null}
         <nav className="app-shell__nav" aria-label="Основные разделы">
-          {groups.map((group) => {
-            const open = isGroupOpen(group.id);
-            const regionId = `nav-group-${group.id}`;
+          {navView.main.map((item) => {
+            const active = isItemActive(item.href);
             return (
-              <div className="app-shell__group" key={group.id}>
-                <button
-                  type="button"
-                  className="app-shell__group-header"
-                  aria-expanded={open}
-                  aria-controls={regionId}
-                  onClick={() => toggleGroup(group.id)}
-                >
-                  <Icon icon={group.icon} size={20} />
-                  <span className="app-shell__group-title">{group.label}</span>
-                  <span className={`app-shell__chevron ${open ? 'is-open' : ''}`}>
-                    <Icon icon={ChevronDownIcon} size={16} />
-                  </span>
-                </button>
-                <div id={regionId} className="app-shell__group-items ui-stack" hidden={!open}>
-                  {group.items.map((item) => {
-                    const active = isItemActive(item.href);
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={`app-shell__link ${active ? 'is-active' : ''}`}
-                        aria-current={active ? 'page' : undefined}
-                      >
-                        {item.label}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`app-shell__link ${active ? 'is-active' : ''}`}
+                aria-current={active ? 'page' : undefined}
+              >
+                {item.label}
+              </Link>
             );
           })}
+          {moreGroups.length ? (
+            <div className="app-shell__more">
+              <button
+                type="button"
+                className="app-shell__more-toggle"
+                aria-expanded={moreOpen}
+                aria-controls="app-shell-more"
+                onClick={() => setMoreOpen((open) => !open)}
+              >
+                <span className="app-shell__more-title">Ещё</span>
+                <span className={`app-shell__chevron ${moreOpen ? 'is-open' : ''}`}>
+                  <Icon icon={ChevronDownIcon} size={16} />
+                </span>
+              </button>
+              <div id="app-shell-more" className="app-shell__more-panel" hidden={!moreOpen}>
+                {moreGroups.map((group) => {
+                  const open = isGroupOpen(group.id);
+                  const regionId = `nav-group-${group.id}`;
+                  return (
+                    <div className="app-shell__group" key={group.id}>
+                      <button
+                        type="button"
+                        className="app-shell__group-header"
+                        aria-expanded={open}
+                        aria-controls={regionId}
+                        onClick={() => toggleGroup(group.id)}
+                      >
+                        <Icon icon={group.icon} size={20} />
+                        <span className="app-shell__group-title">{group.label}</span>
+                        <span className={`app-shell__chevron ${open ? 'is-open' : ''}`}>
+                          <Icon icon={ChevronDownIcon} size={16} />
+                        </span>
+                      </button>
+                      <div id={regionId} className="app-shell__group-items ui-stack" hidden={!open}>
+                        {group.items.map((item) => {
+                          const active = isItemActive(item.href);
+                          return (
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              className={`app-shell__link ${active ? 'is-active' : ''}`}
+                              aria-current={active ? 'page' : undefined}
+                            >
+                              {item.label}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
         </nav>
+        <NavHint />
       </aside>
       <div className="app-shell__content" id="app-shell-main" tabIndex={-1}>
         <header className="app-shell__topbar">
@@ -233,294 +279,6 @@ export const AppShell = ({ children }: PropsWithChildren) => {
         <div className="ui-app-shell-main">{children}</div>
       </div>
       <CommandPalette open={paletteOpen} items={commandItems} onClose={closePalette} />
-      <style jsx>{`
-        .app-shell {
-          min-height: 100vh;
-          display: grid;
-          grid-template-columns: 260px 1fr;
-          position: relative;
-        }
-        .app-shell__menu-toggle {
-          display: none;
-        }
-        .app-shell__skip-link {
-          position: absolute;
-          top: -40px;
-          left: 12px;
-          z-index: 12000;
-          background: var(--ui-surface);
-          color: var(--ui-text);
-          padding: 8px 10px;
-          border: 1px solid var(--ui-border);
-          border-radius: 8px;
-          text-decoration: none;
-        }
-        .app-shell__skip-link:focus {
-          top: 12px;
-        }
-        .app-shell__backdrop {
-          display: none;
-        }
-        .app-shell__sidebar {
-          border-right: 1px solid var(--ui-border);
-          padding: 16px;
-          background: var(--ui-nav-sidebar-bg, var(--ui-surface));
-        }
-        .app-shell__brand {
-          margin: 0 0 14px;
-          color: var(--ui-nav-text, var(--ui-text));
-        }
-        .app-shell__role {
-          margin: 0 0 16px;
-          font-size: 13px;
-          color: var(--ui-nav-text-muted, var(--ui-text-muted));
-        }
-        .app-shell__link {
-          text-decoration: none;
-          color: var(--ui-nav-text, var(--ui-text));
-          padding: 10px 12px;
-          border-radius: 10px;
-          font-weight: 600;
-        }
-        .app-shell__link:hover {
-          background: var(--ui-nav-hover-bg, var(--ui-surface-muted));
-          color: var(--ui-nav-text, var(--ui-text));
-        }
-        .app-shell__link.is-active {
-          color: var(--ui-nav-active-text, var(--ui-brand-700));
-          background: var(--ui-nav-active-bg);
-        }
-        .app-shell__nav {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-        .app-shell__group {
-          display: flex;
-          flex-direction: column;
-        }
-        .app-shell__group-header {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          width: 100%;
-          padding: 10px 12px;
-          border: none;
-          background: transparent;
-          border-radius: 10px;
-          color: var(--ui-nav-text, var(--ui-text));
-          font-weight: 700;
-          font-size: 13px;
-          text-transform: uppercase;
-          letter-spacing: 0.02em;
-          cursor: pointer;
-        }
-        .app-shell__group-header:hover {
-          background: var(--ui-nav-hover-bg, var(--ui-surface-muted));
-        }
-        .app-shell__group-title {
-          flex: 1 1 auto;
-          text-align: left;
-        }
-        .app-shell__chevron {
-          display: inline-flex;
-          color: var(--ui-nav-text-muted, var(--ui-text-muted));
-          transition: transform 0.18s ease;
-        }
-        .app-shell__chevron.is-open {
-          transform: rotate(180deg);
-        }
-        .app-shell__group-items {
-          gap: 2px;
-          padding: 2px 0 6px 12px;
-        }
-        .app-shell__group-items[hidden] {
-          display: none;
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .app-shell__chevron {
-            transition: none;
-          }
-        }
-        .app-shell__content {
-          display: grid;
-          grid-template-rows: 64px auto;
-          min-width: 0;
-        }
-        .app-shell__topbar {
-          border-bottom: 1px solid var(--ui-border);
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 0 16px;
-          gap: 12px;
-          background: var(--ui-surface);
-          flex-wrap: wrap;
-        }
-        .app-shell__breadcrumbs {
-          color: var(--ui-text-muted);
-          font-size: 14px;
-          min-width: 0;
-          flex: 1 1 200px;
-        }
-        .app-shell__crumb {
-          white-space: nowrap;
-        }
-        .app-shell__crumb-link {
-          color: var(--ui-text-muted);
-          text-decoration: none;
-        }
-        .app-shell__crumb-link:hover {
-          color: var(--ui-brand-700);
-          text-decoration: underline;
-        }
-        .app-shell__crumb-current {
-          color: var(--ui-text);
-          font-weight: 500;
-        }
-        .app-shell__crumb-block {
-          color: var(--ui-text-muted);
-          font-weight: 500;
-        }
-        .app-shell__userbar {
-          flex: 0 1 auto;
-          justify-content: flex-end;
-          gap: 12px;
-        }
-        .app-shell__search {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          height: 36px;
-          padding: 0 10px;
-          border: 1px solid var(--ui-border);
-          border-radius: 10px;
-          background: var(--ui-surface);
-          color: var(--ui-text-muted);
-          cursor: pointer;
-          font-size: 13px;
-        }
-        .app-shell__search:hover {
-          color: var(--ui-text);
-        }
-        .app-shell__kbd {
-          font-size: 11px;
-          border: 1px solid var(--ui-border);
-          border-radius: 6px;
-          padding: 1px 5px;
-          color: var(--ui-text-muted);
-        }
-        .app-shell__meta {
-          font-size: 13px;
-          color: var(--ui-text-muted);
-          max-width: 140px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        .app-shell__notif-link {
-          text-decoration: none;
-          color: inherit;
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-        }
-        @media (max-width: 1024px) {
-          .app-shell {
-            grid-template-columns: 1fr;
-          }
-          .app-shell__menu-toggle {
-            display: inline-flex;
-            position: fixed;
-            top: 12px;
-            left: 12px;
-            z-index: 10001;
-            align-items: center;
-            height: 40px;
-            padding: 0 14px;
-            border-radius: 10px;
-            border: 1px solid var(--ui-border);
-            background: var(--ui-surface);
-            color: var(--ui-text);
-            font-weight: 600;
-            cursor: pointer;
-            box-shadow: var(--ui-shadow);
-          }
-          .app-shell__backdrop {
-            display: block;
-            position: fixed;
-            inset: 0;
-            z-index: 9998;
-            border: none;
-            padding: 0;
-            margin: 0;
-            background: rgba(15, 23, 42, 0.45);
-            cursor: pointer;
-          }
-          .app-shell__sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            bottom: 0;
-            width: min(300px, 88vw);
-            z-index: 10000;
-            transform: translateX(-102%);
-            transition: transform 0.2s ease;
-            box-shadow: var(--ui-shadow-strong);
-            overflow-y: auto;
-            border-right: 1px solid var(--ui-border);
-          }
-          .app-shell__sidebar.is-drawer-open {
-            transform: translateX(0);
-          }
-          .app-shell__sidebar .ui-stack {
-            flex-direction: column;
-            flex-wrap: unset;
-            overflow-x: visible;
-            padding-bottom: 0;
-          }
-          .app-shell__content {
-            padding-top: 56px;
-          }
-          .app-shell__link {
-            white-space: normal;
-          }
-        }
-        /* ФТ-H4 (Фаза 5): телефон ≤480px. Шапка с фиксированной высотой 64px не
-           вмещает перенос строк и наезжает на заголовок страницы — высота строки
-           становится по содержимому. Пункты меню — тач-зоны не ниже 44px. */
-        @media (max-width: 480px) {
-          .app-shell__content {
-            grid-template-rows: auto 1fr;
-          }
-          .app-shell__topbar {
-            padding: 8px 12px;
-          }
-          /* Крошки с nowrap вылезали за 360px и давали горизонтальную прокрутку. */
-          .app-shell__crumb {
-            white-space: normal;
-          }
-          .app-shell__menu-toggle {
-            height: 44px;
-          }
-          .app-shell__group-header {
-            min-height: 44px;
-            display: flex;
-            align-items: center;
-          }
-          /* :global — ссылки рендерит next/link, и scoped-класс styled-jsx на них
-             не попадает (давний дефект каркаса); без :global правило мёртвое. */
-          .app-shell__sidebar :global(.app-shell__link),
-          .app-shell__topbar :global(.app-shell__notif-link) {
-            min-height: 44px;
-            display: flex;
-            align-items: center;
-          }
-          .app-shell__search {
-            height: 44px;
-          }
-        }
-      `}</style>
     </div>
   );
 };

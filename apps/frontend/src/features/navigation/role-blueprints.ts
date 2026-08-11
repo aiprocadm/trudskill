@@ -7,66 +7,118 @@ export interface RoleBlueprint {
   primaryNav: string[];
 }
 
-const roleBlueprints: RoleBlueprint[] = [
+/*
+ * Экспортируется ради сторожевого теста: состав короткого меню — продуктовое
+ * решение ТЗ редизайна §4.4, а не деталь реализации, и разъехаться с ТЗ он не должен.
+ *
+ * ПОРЯДОК ЗАПИСЕЙ ЗНАЧИМ. getSessionRoleBlueprints фильтрует этот массив и
+ * сохраняет порядок объявления, а getNavigationView берёт меню у ПЕРВОЙ роли.
+ * Поэтому список идёт от самой полной роли к самой узкой: администратор, которому
+ * дополнительно выдали роль менеджера, должен увидеть меню администратора, а не
+ * менеджера. Тот же принцип, что в таблице домашних маршрутов role-home.ts.
+ */
+export const roleBlueprints: RoleBlueprint[] = [
   {
-    role: 'learner',
-    displayName: 'Студент',
+    role: 'platform_admin',
+    displayName: 'Администратор платформы',
     topJobs: [
-      'Продолжить обучение с последнего места',
-      'Сдать задание или пройти тест',
-      'Проверить дедлайны и уведомления',
-      'Отследить прогресс и результаты',
-      'Связаться с преподавателем'
+      'Проверить здоровье арендаторов',
+      'Завести или приостановить центр',
+      'Разобрать очередь и сбои',
+      'Проверить лицензии и оплату',
+      'Поднять журнал действий'
     ],
-    primaryNav: ['/', '/learner/courses', '/assessment', '/notifications', '/chat']
+    primaryNav: [
+      '/workspace',
+      '/platform/tenants',
+      '/admin/licenses',
+      '/audit',
+      '/admin/operations',
+      '/settings'
+    ]
+  },
+  {
+    role: 'tenant_admin',
+    displayName: 'Администратор',
+    // ТЗ §3.1: формулировки — результат для человека, а не обязанность роли.
+    topJobs: [
+      'Увидеть, что горит сегодня',
+      'Зачислить слушателя в группу',
+      'Закрыть группу и выдать документы',
+      'Выгрузить реестр в надзор',
+      'Найти слушателя и ответить по нему'
+    ],
+    primaryNav: [
+      '/workspace',
+      '/learners',
+      '/groups',
+      '/assessment',
+      '/documents',
+      '/reports',
+      '/settings'
+    ]
+  },
+  {
+    role: 'manager',
+    displayName: 'Менеджер',
+    topJobs: [
+      'Зачислить слушателя в группу',
+      'Собрать группу под заказчика',
+      'Выдать документы группе',
+      'Ответить заказчику по прогрессу',
+      'Выгрузить отчёт'
+    ],
+    primaryNav: ['/groups', '/learners', '/counterparties', '/documents', '/reports']
   },
   {
     role: 'methodist',
     displayName: 'Методист',
     topJobs: [
-      'Подготовить программу и структуру курса',
-      'Управлять контентом и версиями',
-      'Собирать тесты и назначения',
-      'Передавать курс на публикацию',
-      'Контролировать качество материалов'
+      'Собрать программу курса',
+      'Обновить материалы и версии',
+      'Собрать тест и задания',
+      'Передать курс на публикацию',
+      'Найти пробелы в программах'
     ],
-    primaryNav: ['/', '/courses', '/learning/calendar', '/materials', '/assessment', '/reports']
+    primaryNav: ['/methodist', '/courses', '/materials', '/assessment', '/groups', '/reports']
   },
   {
     role: 'teacher',
     displayName: 'Преподаватель',
     topJobs: [
-      'Проверить задания и выставить оценку',
-      'Отслеживать прогресс группы',
-      'Публиковать материалы и задания',
-      'Отвечать на сообщения студентов',
-      'Планировать обучение по дедлайнам'
+      'Проверить работы в очереди',
+      'Посмотреть прогресс группы',
+      'Ответить слушателям',
+      'Спланировать занятия',
+      'Открыть материалы курса'
     ],
-    primaryNav: ['/', '/groups', '/learning/calendar', '/assessment', '/courses', '/notifications']
+    primaryNav: [
+      '/groups',
+      '/teacher/review',
+      '/teacher/grading-center',
+      '/learning/calendar',
+      '/courses',
+      '/notifications'
+    ]
   },
   {
-    role: 'tenant_admin',
-    displayName: 'Администратор',
+    role: 'learner',
+    displayName: 'Слушатель',
     topJobs: [
-      'Управлять пользователями и ролями',
-      'Контролировать доступы и безопасность',
-      'Поддерживать структуру LMS',
-      'Отслеживать проблемные точки',
-      'Собирать отчеты по активности'
+      'Продолжить обучение с последнего места',
+      'Сдать тест или задание',
+      'Проверить сроки',
+      'Забрать документы об обучении',
+      'Написать преподавателю'
     ],
-    primaryNav: ['/', '/users', '/reports', '/audit', '/settings']
-  },
-  {
-    role: 'platform_admin',
-    displayName: 'Администратор платформы',
-    topJobs: [
-      'Контролировать системную доступность',
-      'Настраивать роли и уровни доступа',
-      'Аудировать действия и сессии',
-      'Вести интеграции и выгрузки',
-      'Устранять инциденты по данным'
-    ],
-    primaryNav: ['/', '/users', '/audit', '/integrations', '/reports']
+    primaryNav: [
+      '/learner',
+      '/learner/courses',
+      '/learner/tests',
+      '/learner/documents',
+      '/notifications',
+      '/chat'
+    ]
   }
 ];
 
@@ -75,7 +127,8 @@ const roleAliases: Record<string, string> = {
   administrator: 'tenant_admin',
   teacher: 'teacher',
   tutor: 'teacher',
-  methodologist: 'methodist'
+  methodologist: 'methodist',
+  sales_manager: 'manager'
 };
 
 const normalizeRole = (role: string) => roleAliases[role] ?? role;

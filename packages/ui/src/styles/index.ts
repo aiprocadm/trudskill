@@ -4,6 +4,7 @@ import { formStyles } from './forms.js';
 import { foundationStyles } from './foundation.js';
 import { layoutStyles } from './layout.js';
 import { modalStyles } from './modal.js';
+import { shellStyles } from './shell.js';
 import { tableStyles } from './tables.js';
 
 export const uiStyleLayers = {
@@ -11,6 +12,7 @@ export const uiStyleLayers = {
   forms: formStyles,
   tables: tableStyles,
   layout: layoutStyles,
+  shell: shellStyles,
   chat: chatStyles,
   modal: modalStyles,
   courseViewer: courseViewerStyles

@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { navigationModel } from './model';
-import { NAV_GROUPS, getGroupedNavigation, resolveGroupForPath } from './nav-groups';
+import {
+  NAV_GROUPS,
+  getGroupedNavigation,
+  groupItemsByNavGroup,
+  resolveGroupForPath
+} from './nav-groups';
 
 import type { UserSession } from '../../entities/session/model';
 
@@ -76,6 +81,38 @@ describe('getGroupedNavigation', () => {
     expect(ids).toContain('overview');
     expect(ids).toContain('settings');
     expect(ids.indexOf('overview')).toBeLessThan(ids.indexOf('settings'));
+  });
+});
+
+describe('группировка произвольного набора пунктов (IA-015)', () => {
+  it('раскладывает переданные пункты по блокам ИА, пустые блоки отбрасывает', () => {
+    const items = [
+      { href: '/courses', label: 'Курсы' },
+      { href: '/audit', label: 'Журнал действий' }
+    ];
+    const groups = groupItemsByNavGroup(items);
+    expect(groups.map((group) => group.id)).toEqual(['courses', 'reports']);
+    expect(groups[0]?.items.map((item) => item.href)).toEqual(['/courses']);
+  });
+
+  it('пункт вне 10 блоков не теряется — попадает в служебный блок', () => {
+    // Иначе раздел исчезнет из интерфейса молча: ровно так уже пропадали /forms и
+    // /module-empty (§5.249). Потеря маршрута — критерий провала фазы (ТЗ §1.3).
+    const groups = groupItemsByNavGroup([{ href: '/unknown-route', label: 'Неизвестный' }]);
+    const allHrefs = groups.flatMap((group) => group.items.map((item) => item.href));
+    expect(allHrefs).toContain('/unknown-route');
+  });
+
+  it('порядок пунктов внутри блока — как в NAV_GROUPS, а не как во входном массиве', () => {
+    const groups = groupItemsByNavGroup([
+      { href: '/materials', label: 'Материалы' },
+      { href: '/courses', label: 'Курсы' }
+    ]);
+    expect(groups[0]?.items.map((item) => item.href)).toEqual(['/courses', '/materials']);
+  });
+
+  it('пустой вход → пустой результат', () => {
+    expect(groupItemsByNavGroup([])).toEqual([]);
   });
 });
 

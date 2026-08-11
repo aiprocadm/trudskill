@@ -31,6 +31,15 @@ describe('baseVars — CSS-мост токенов', () => {
     expect(vars['--ui-line-height-normal']).toBe('1.5');
   });
 
+  it('подложка всплывающих слоёв объявлена в обеих темах', () => {
+    expect(lightThemeVars['--ui-overlay']).toBeTruthy();
+    expect(darkThemeVars['--ui-overlay']).toBeTruthy();
+  });
+
+  it('в тёмной теме подложка плотнее — под ней тёмный фон, а не светлый', () => {
+    expect(darkThemeVars['--ui-overlay']).not.toBe(lightThemeVars['--ui-overlay']);
+  });
+
   it('ключи baseVars не пересекаются с ключами тем (base проигрывал бы теме)', () => {
     const themeKeys = new Set([...Object.keys(lightThemeVars), ...Object.keys(darkThemeVars)]);
     for (const key of Object.keys(baseVars)) {

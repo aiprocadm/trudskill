@@ -35,4 +35,23 @@ describe('телефонный брейкпоинт 480px (ФТ-H4)', () => {
     const phone = uiStyleLayers.courseViewer.split('@media (max-width: 480px)')[1] ?? '';
     expect(phone).toMatch(/\.course-toc__material\s*\{[^}]*min-height:\s*44px/);
   });
+
+  /*
+   * Каркас (Фаза 1 редизайна, UI-020). Пока эти правила жили в <style jsx>, сторож
+   * их не видел — и вдобавок они промахивались мимо ссылок: их рендерит next/link,
+   * scoped-класс styled-jsx на них не попадал, из-за чего приходилось писать
+   * :global(...) с пометкой «давний дефект каркаса». Слой стал глобальным, обход
+   * не нужен, а живой прогон на 360px показал 44px у всех шести элементов.
+   */
+  it('пункты меню и кнопки каркаса на телефоне не ниже 44px', () => {
+    const phone = uiStyleLayers.shell.split('@media (max-width: 480px)')[1] ?? '';
+    expect(phone).toMatch(/\.app-shell__link,[\s\S]{0,60}\{[^}]*min-height:\s*44px/);
+    expect(phone).toMatch(/\.app-shell__more-toggle,[\s\S]{0,60}\{[^}]*min-height:\s*44px/);
+    expect(phone).toMatch(/\.app-shell__menu-toggle\s*\{[^}]*height:\s*44px/);
+    expect(phone).toMatch(/\.app-shell__search\s*\{[^}]*height:\s*44px/);
+  });
+
+  it('правила каркаса для ссылок больше не идут через :global — обход не нужен', () => {
+    expect(uiStyleLayers.shell).not.toContain(':global(');
+  });
 });
