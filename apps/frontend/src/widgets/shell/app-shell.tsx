@@ -12,7 +12,8 @@ import { resolveWordmark } from '../../features/branding/theme';
 import { useNotificationsList, useNotificationsRealtime } from '../../features/communication/hooks';
 import { buildBreadcrumbs } from '../../features/navigation/breadcrumbs';
 import { buildCommandItems } from '../../features/navigation/command-palette';
-import { getGroupedNavigation } from '../../features/navigation/nav-groups';
+import { getNavigationView } from '../../features/navigation/helpers';
+import { buildMoreSections } from '../../features/navigation/nav-groups';
 import { ChevronDownIcon, SearchIcon } from '../../features/navigation/nav-icons';
 import { getPrimaryRoleBlueprint } from '../../features/navigation/role-blueprints';
 
@@ -28,7 +29,15 @@ export const AppShell = ({ children }: PropsWithChildren) => {
   const { session, logout } = useAuth();
   // ФТ-D3.1: название и логотип центра в шапке; без бренда — wordmark платформы.
   const branding = useTenantBranding();
-  const groups = getGroupedNavigation(session);
+  /*
+   * IA-011: меню собирается из двух слоёв — короткий главный список роли (≤7) и
+   * второй уровень «Ещё» с тем же разбиением на 10 блоков ИА. Раньше здесь стоял
+   * getGroupedNavigation, и пользователь получал сразу все 70 пунктов; сама
+   * getNavigationView была написана и покрыта тестом, но никем не вызывалась.
+   */
+  const { main: mainItems, more: moreItems } = useMemo(() => getNavigationView(session), [session]);
+  const moreSections = useMemo(() => buildMoreSections(moreItems), [moreItems]);
+  const [moreOpen, setMoreOpen] = useState(false);
   const primaryRole = getPrimaryRoleBlueprint(session);
   const breadcrumbItems = useMemo(() => buildBreadcrumbs(pathname), [pathname]);
   const unread = useNotificationsList(1, 1, 'unread');
@@ -36,12 +45,9 @@ export const AppShell = ({ children }: PropsWithChildren) => {
 
   const isItemActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
-  // Блок с активной страницей (для авто-раскрытия). Вычисляем на каждый рендер — дёшево.
-  const activeGroupId =
-    groups.find((group) => group.items.some((item) => isItemActive(item.href)))?.id ?? null;
-
-  // Ручные раскрытия пользователя поверх авто-раскрытия активного блока.
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  // Если активная страница уехала во второй уровень, «Ещё» открыто — иначе пользователь
+  // не видит, где он находится.
+  const activeInMore = moreItems.some((item) => isItemActive(item.href));
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   const paletteReturnRef = useRef<HTMLElement | null>(null);
@@ -85,16 +91,11 @@ export const AppShell = ({ children }: PropsWithChildren) => {
     setMobileNavOpen(false);
   }, [pathname]);
 
-  // Блок с активной страницей всегда раскрыт (не схлопываем ручные раскрытия пользователя).
+  // Переход на страницу из второго уровня раскрывает «Ещё»: пункт меню должен быть виден
+  // там, где пользователь сейчас стоит.
   useEffect(() => {
-    if (activeGroupId) {
-      setOpenGroups((prev) => (prev[activeGroupId] ? prev : { ...prev, [activeGroupId]: true }));
-    }
-  }, [activeGroupId]);
-
-  const isGroupOpen = (id: string) => openGroups[id] ?? id === activeGroupId;
-  const toggleGroup = (id: string) =>
-    setOpenGroups((prev) => ({ ...prev, [id]: !(prev[id] ?? id === activeGroupId) }));
+    if (activeInMore) setMoreOpen(true);
+  }, [activeInMore]);
 
   const unreadLabel = formatUnreadBadge(unread.data?.total);
 
@@ -137,42 +138,59 @@ export const AppShell = ({ children }: PropsWithChildren) => {
         </h2>
         {primaryRole ? <p className="app-shell__role">Роль: {primaryRole.displayName}</p> : null}
         <nav className="app-shell__nav" aria-label="Основные разделы">
-          {groups.map((group) => {
-            const open = isGroupOpen(group.id);
-            const regionId = `nav-group-${group.id}`;
+          {mainItems.map((item) => {
+            const active = isItemActive(item.href);
             return (
-              <div className="app-shell__group" key={group.id}>
-                <button
-                  type="button"
-                  className="app-shell__group-header"
-                  aria-expanded={open}
-                  aria-controls={regionId}
-                  onClick={() => toggleGroup(group.id)}
-                >
-                  <Icon icon={group.icon} size={20} />
-                  <span className="app-shell__group-title">{group.label}</span>
-                  <span className={`app-shell__chevron ${open ? 'is-open' : ''}`}>
-                    <Icon icon={ChevronDownIcon} size={16} />
-                  </span>
-                </button>
-                <div id={regionId} className="app-shell__group-items ui-stack" hidden={!open}>
-                  {group.items.map((item) => {
-                    const active = isItemActive(item.href);
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={`app-shell__link ${active ? 'is-active' : ''}`}
-                        aria-current={active ? 'page' : undefined}
-                      >
-                        {item.label}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`app-shell__link ${active ? 'is-active' : ''}`}
+                aria-current={active ? 'page' : undefined}
+              >
+                {item.label}
+              </Link>
             );
           })}
+
+          {moreSections.length > 0 ? (
+            <div className="app-shell__more">
+              <button
+                type="button"
+                className="app-shell__more-toggle"
+                aria-expanded={moreOpen}
+                aria-controls="app-shell-more"
+                onClick={() => setMoreOpen((open) => !open)}
+              >
+                <span className="app-shell__group-title">Ещё</span>
+                <span className={`app-shell__chevron ${moreOpen ? 'is-open' : ''}`}>
+                  <Icon icon={ChevronDownIcon} size={16} />
+                </span>
+              </button>
+              <div id="app-shell-more" className="ui-stack" hidden={!moreOpen}>
+                {moreSections.map((section) => (
+                  <section className="app-shell__more-section" key={section.id}>
+                    <p className="app-shell__group-title">
+                      <Icon icon={section.icon} size={20} />
+                      {section.label}
+                    </p>
+                    {section.items.map((item) => {
+                      const active = isItemActive(item.href);
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={`app-shell__link ${active ? 'is-active' : ''}`}
+                          aria-current={active ? 'page' : undefined}
+                        >
+                          {item.label}
+                        </Link>
+                      );
+                    })}
+                  </section>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </nav>
       </aside>
       <div className="app-shell__content" id="app-shell-main" tabIndex={-1}>

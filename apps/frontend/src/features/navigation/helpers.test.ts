@@ -155,3 +155,35 @@ describe('navigation helpers', () => {
     expect(label('/admin/cockpit')).toBe('Панель администратора');
   });
 });
+
+describe('состав меню после Фазы 1 редизайна (IA-011, IA-013)', () => {
+  // Права берём из самой модели навигации: администратор с полным набором — худший
+  // случай для бюджета меню, именно на нём проверяется потолок в семь пунктов.
+  const fullAdmin: UserSession = {
+    ...adminSession,
+    permissions: navigationModel.flatMap((item) => item.requiredPermissions ?? [])
+  };
+
+  it('главное меню не длиннее семи пунктов', () => {
+    expect(getNavigationView(fullAdmin).main.length).toBeLessThanOrEqual(7);
+  });
+
+  it('меню начинается с оперативной панели, а не с реестра пользователей', () => {
+    expect(getNavigationView(fullAdmin).main[0]?.href).toBe('/workspace');
+  });
+
+  it('ежедневные разделы администратора видны сразу', () => {
+    const main = getNavigationView(fullAdmin).main.map((item) => item.href);
+    expect(main).toContain('/learners');
+    expect(main).toContain('/groups');
+    expect(main).toContain('/documents');
+  });
+
+  it('ни один доступный пункт не теряется между главным меню и «Ещё»', () => {
+    const view = getNavigationView(fullAdmin);
+    const shown = new Set([...view.main, ...view.more].map((item) => item.href));
+    for (const item of getVisibleNavigation(fullAdmin)) {
+      expect(shown, item.href).toContain(item.href);
+    }
+  });
+});
