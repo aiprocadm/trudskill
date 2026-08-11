@@ -11,14 +11,66 @@ CDOProf — LMS/СДО platform for regulated professional education (ОТ, ПБ
 When docs disagree, follow the order in [docs/DOCUMENTATION_MAP.md](docs/DOCUMENTATION_MAP.md):
 
 1. Customer-signed protocol (e.g. ТЗ §47 Appendix Б).
-2. [SDOPROF_TZ_FINAL.md](SDOPROF_TZ_FINAL.md) — product spec / §39 acceptance criteria / §41 backlog. **Действующее дельта-ТЗ поверх него** — [TZ_TRUDSKILL_ARENDNAYA_SDO.md](TZ_TRUDSKILL_ARENDNAYA_SDO.md) (цели «аренда/полноценная СДО»: эпики A–I, требования ФТ-\*, дорожная карта фаз 0–6; в рамках его эпиков при конфликте деталей приоритет у него). Живой статус выполнения — [docs/TZ_ARENDNAYA_SDO_STATUS.md](docs/TZ_ARENDNAYA_SDO_STATUS.md).
+2. [SDOPROF_TZ_FINAL.md](SDOPROF_TZ_FINAL.md) — product spec / §39 acceptance criteria / §41 backlog. **Поверх него — два действующих дельта-ТЗ, разделённых по предмету:**
+   - **Поведение, функции, права** — [TZ_TRUDSKILL_ARENDNAYA_SDO.md](TZ_TRUDSKILL_ARENDNAYA_SDO.md) (эпики A–I, ФТ-\*, фазы 0–6; в рамках его эпиков при конфликте деталей приоритет у него). Статус — [docs/TZ_ARENDNAYA_SDO_STATUS.md](docs/TZ_ARENDNAYA_SDO_STATUS.md).
+   - **Представление (интерфейс)** — [docs/TZ_UI_REDESIGN_TRUDSKILL.md](docs/TZ_UI_REDESIGN_TRUDSKILL.md) (ИА, визуальный язык, компоненты, тексты интерфейса, ребрендинг UI; требования `IA-*`/`UI-*`/`CMP-*`/`TPL-*`/`TXT-*`/`A11Y-*`/`BR-*`, фазы 0–8; по вопросам представления приоритет у него). Статус — [docs/TZ_UI_REDESIGN_STATUS.md](docs/TZ_UI_REDESIGN_STATUS.md).
 3. Code + tests; described in [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §5.\* (sequentially numbered, currently up to §5.166) and [docs/TZ_MVP_TRACEABILITY.md](docs/TZ_MVP_TRACEABILITY.md) (BL → file paths).
 4. [README.md](README.md) §2 «AI Agent State» — operational snapshot.
 
-For «продолжай по ТЗ» tasks, read in this order:
-README §2 → LMS_AGENT_HANDOFF §1 (date/branch) + §5 (recent work) + §13 (Known Issues) → **TZ_TRUDSKILL_ARENDNAYA_SDO §13 (дорожная карта) + docs/TZ_ARENDNAYA_SDO_STATUS.md** (текущая фаза; что сделано / частично / не начато / переделать по каждому ФТ; открытые вопросы, блокирующие фазу) → SDOPROF_TZ_FINAL §41 ↔ TZ_MVP_TRACEABILITY (детальные требования).
+### «Продолжай по ТЗ» — что делать
 
-Rules for TZ phases (ТЗ §13/§15): перед фазой — план в `docs/superpowers/plans/` + апрув владельца; URL/RBAC/контракты `packages/api-contracts` не ломать; миграции только аддитивные; фаза заканчивается зелёным `pnpm ci:check`, обновлением handoff и статусов в `docs/TZ_ARENDNAYA_SDO_STATUS.md`.
+**Шаг 0. Определить, о каком из двух ТЗ речь** (полное правило — [DOCUMENTATION_MAP.md#tz-routing](docs/DOCUMENTATION_MAP.md#tz-routing)):
+
+- сказано «по интерфейсу / по редизайну / по UI / по дизайну» **или** задача про экран, меню, вёрстку, компонент, цвет, тексты интерфейса, ребрендинг UI → **ТЗ редизайна**;
+- сказано «по аренде / по функциям / по эксплуатации» **или** задача про ручку API, право, миграцию, очередь, интеграцию, документ → **ТЗ «Арендная СДО»**;
+- **сказано без уточнения и без задачи** → прочитать оба трекера и одним коротким сообщением показать владельцу текущую точку каждого, спросив, какой продолжать. **Не выбирать молча.**
+
+**Шаг 1. Порядок чтения:**
+README §2 → LMS_AGENT_HANDOFF §1 (date/branch) + §5 (recent work) + §13 (Known Issues) → **статус-трекер выбранного ТЗ** (текущая фаза; что сделано / частично / не начато / переделать; открытые вопросы и решения владельца, блокирующие фазу) → дорожная карта фаз в самом ТЗ → SDOPROF_TZ_FINAL §41 ↔ TZ_MVP_TRACEABILITY (детальные требования).
+
+Rules for TZ phases (одинаковы для обоих ТЗ): перед фазой — план в `docs/superpowers/plans/` + апрув владельца; URL/RBAC/контракты `packages/api-contracts` не ломать; миграции только аддитивные; фаза = один PR = один обратимый шаг, ≤30 файлов; фаза заканчивается зелёным `pnpm ci:check`, обновлением handoff и статусов в трекере своего ТЗ.
+
+Специфика ТЗ редизайна: у него **шесть развилок с принятым решением по умолчанию** — они work **не блокируют**, действовать по умолчанию, пока владелец не сказал иначе. Шесть мест, где редизайн меняет поведение, а не только вид (§4.9), требуют предупреждения владельца перед реализацией.
+
+## Сверка логики с ТЗ
+
+Работа по коду **включает сверку** затронутого участка с ТЗ — это обязанность, а не инициатива. Смысл: код за 250+ сессий накопил дрейф от документов, и молчаливое «сделал как просили» этот дрейф закрепляет.
+
+**Когда сверять** (не «всегда всё», иначе сверка превращается в ритуал):
+
+1. Правишь экран или компонент → сверить с ТЗ редизайна: бюджеты плотности (§13.2), шаблон страницы (§7), чек-лист миграции экрана (§15.1), тексты (§9).
+2. Правишь ручку, право или доменное правило → сверить с ФТ в `TZ_ARENDNAYA_SDO_STATUS.md` и §39 приёмки базового ТЗ.
+3. Читаешь код по соседству с задачей и видишь расхождение → **записать**, даже если чинить не будешь.
+
+**Что делать с найденным** — по классу расхождения:
+
+| Класс             | Признак                                                                                                                | Действие                                                                                          |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **Дефект логики** | Пользователь получает не тот результат: неверный расчёт, утечка между тенантами, fail-open в правах, потерянные данные | Чинить немедленно, независимо от текущей задачи. Права и изоляция — всегда приоритет над версткой |
+| **Дефект UX**     | Результат верный, но человек его не находит или не понимает                                                            | Чинить, если экран и так в работе. Иначе — в журнал                                               |
+| **Дрейф**         | Код разошёлся с записанным решением (готовый механизм не подключён, регламенты противоречат)                           | В журнал + в план ближайшей подходящей фазы                                                       |
+| **Слепая зона**   | Сторожевой тест не покрывает то, что должен                                                                            | В журнал; расширять сторожа **в той же фазе**, где чинятся его нарушители                         |
+
+**Куда записывать:** таблица «Журнал расхождений «код ↔ ТЗ»» в [docs/TZ_UI_REDESIGN_STATUS.md](docs/TZ_UI_REDESIGN_STATUS.md) — одна строка на расхождение, исправленные не удаляются. Расхождения по поведению — туда же, с пометкой класса; если оно тянет на ФТ, продублировать строкой в `TZ_ARENDNAYA_SDO_STATUS.md`.
+
+**Границы — сверка не даёт права чинить всё подряд:**
+
+- **Не править** исторические миграции, контракты `packages/api-contracts`, RBAC-модель и URL маршрутов (ТЗ редизайна §14.1) — только через решение владельца.
+- **Не ослаблять сторожевые тесты.** Инвариант можно осознанно изменить с объяснением в описании PR; удалить — нельзя. Красный сторож после правки хардкода — это он работает, а не мешает.
+- **Не расширять задачу молча.** Найденное вне рамок задачи идёт в журнал и (при весе) в `mcp__ccd_session__spawn_task`, а не в текущий диф.
+- **Не чинить на догадке.** Наборы прав брать из `iam.role_permissions` живой базы, а не из названия роли и не из текста ТЗ (см. §5.242 — на этом уже обожглись дважды за одну сессию).
+
+## Продукт должен быть понятен пользователю любого уровня
+
+Целевой пользователь — администратор учебного центра, не инженер. При выборе между «технически чисто» и «человеку понятно» выигрывает второе; при выборе между «красиво» и «предсказуемо» — второе. Пять правил, действующих на **любом** экране, а не только в фазах редизайна:
+
+1. **Экран отвечает «что делать дальше».** Одно первичное действие, очевидное глазом (`UI-007`). «Обновить» — не действие.
+2. **Ни одного сырого URL, ID, кода или англицизма как значения** в таблице или подписи. `severity` → «Критичность», `/admin/tests` → название раздела ссылкой.
+3. **Пустой экран объясняет: что это, зачем, что сделать первым** (`TPL-006`). Формулировка «Нет данных» запрещена.
+4. **Ошибка говорит, что произошло и что делать**, технический код — под спойлером (`TXT-004`). «Ошибка 500» пользователю ничего не сообщает.
+5. **Кнопка называет результат и не переименовывается по ходу сценария** (`TXT-002`, `TXT-003`): «Закрыть группу» — так же в реестре, в карточке, в подтверждении и в сообщении об успехе.
+
+Массовые операции — по принципу частичного успеха: валидные строки принимаются, отказы показываются **поимённо с причиной**, вся пачка из-за одной плохой строки не отменяется.
 
 ## Plan-driven workflow
 
@@ -112,6 +164,11 @@ CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs lint+typecheck,
 
 ## Frontend conventions
 
+**Любая правка экрана идёт по ТЗ редизайна** ([docs/TZ_UI_REDESIGN_TRUDSKILL.md](docs/TZ_UI_REDESIGN_TRUDSKILL.md)): выбрать шаблон страницы (§7), уложиться в бюджеты плотности (§13.2 — ≤7 пунктов меню, **1** первичное действие, ≤3 блока до сгиба, ≤3 фильтра, ≤7 колонок, ≤3 клика до частой задачи), пройти чек-лист миграции экрана (§15.1). Требования ТЗ (`IA-*`, `UI-*`, `CMP-*`) указываются в описании PR. Оперативный регламент [FRONTEND_UX_GOVERNANCE.md](docs/FRONTEND_UX_GOVERNANCE.md) **подчинён** ТЗ: при расхождении правится governance, а не ТЗ (первое известное расхождение — §2 разрешает 2 первичных действия против 1 по ТЗ).
+
+- **Компонент берётся из `@trudskill/ui`, а не пишется локально.** Новых внешних UI-библиотек не вводится (`RISK-002`), Tailwind и второй дизайн-системы не появляется. Если нужного компонента нет — он добавляется в пакет, а не в экран.
+- **Никакого `<style jsx>` и хардкода цветов/радиусов** — только токены. Сторожа `token-discipline.test.ts` / `touch-targets.test.ts` читают `uiGlobalStyles`, поэтому CSS внутри styled-jsx им невиден: это не разрешение, а слепая зона (`UI-020`, `UI-022`).
+- **Подтверждение опасного действия — `ConfirmDialog`, не `confirm()`.** ⚠️ В коде живут обе формы вызова: `window.confirm(` и голый `confirm(`. Поиск только по первой даёт неполный результат.
 - **Mutations use `useState` + async/await, NOT React Query mutations.** See `useDomainMutations` `wrap` pattern in [`apps/frontend/src/features/mvp/hooks.ts`](apps/frontend/src/features/mvp/hooks.ts:131). Reference examples: `CommissionDetailsScreen.onSaveEditInfo`, `useBulkImportMutation`.
 - **`exactOptionalPropertyTypes: true`.** `{ name?: string }` does NOT accept `{ name: undefined }`. Use conditional spread: `{ name, ...(value ? { extra: value } : {}) }`.
 - **No React Testing Library in deps.** «E2E» tests in [`src/e2e/`](apps/frontend/src/e2e/) are permission/routing assertions via `evaluateRouteAccess` + `getVisibleNavigation` + pure-function pipeline integration + dynamic-import smoke. Don't write `render()` tests — match the convention in `canonical-e2e-readiness.e2e.test.ts` and `admin-bulk-enrollment.e2e.test.ts`.
@@ -176,6 +233,8 @@ PowerShell-specific (the default shell on this machine): use `$null`, not `/dev/
 Per [docs/DOCUMENTATION_MAP.md §agent-handoff-protocol](docs/DOCUMENTATION_MAP.md#agent-handoff-protocol):
 
 1. Update [README.md](README.md) §2 «AI Agent State»: Current Stage / Last Completed Task / Current Task / Next Task / Last Updated At / By.
-2. Append a `### 5.XX` entry to [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §5 (sequentially numbered, currently up to §5.90) with: summary, files changed, test status, deviations.
-3. If working from a plan in `docs/superpowers/plans/`, cross-link the plan from the handoff entry and tick off completed checkboxes in the plan file.
-4. If you spawned new follow-up work (e.g. via `mcp__ccd_session__spawn_task`), mention it so the next agent doesn't duplicate it.
+2. Append a `### 5.XX` entry to [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §5 with: summary, files changed, test status, deviations. **Номер брать из файла, а не из этой строки и не из README** — оба отстают (на 2026-08-11 handoff дошёл до §5.258, а README называл текущим §5.253).
+3. Update the status tracker of the ТЗ you worked on: [TZ_ARENDNAYA_SDO_STATUS.md](docs/TZ_ARENDNAYA_SDO_STATUS.md) (поведение) или [TZ_UI_REDESIGN_STATUS.md](docs/TZ_UI_REDESIGN_STATUS.md) (интерфейс) — статусы требований + журнал сессий.
+4. **Записать в журнал расхождений** ([TZ_UI_REDESIGN_STATUS.md](docs/TZ_UI_REDESIGN_STATUS.md)) всё, что сверка выявила по ходу, — включая исправленное в этой же сессии.
+5. If working from a plan in `docs/superpowers/plans/`, cross-link the plan from the handoff entry and tick off completed checkboxes in the plan file.
+6. If you spawned new follow-up work (e.g. via `mcp__ccd_session__spawn_task`), mention it so the next agent doesn't duplicate it.

@@ -4,6 +4,19 @@
 
 - **[docs/DOCUMENTATION_MAP.md](docs/DOCUMENTATION_MAP.md#agent-handoff-protocol)** — порядок чтения документов, что обновлять после сессии, иерархия при противоречиях.
 
-Краткий порядок: `README.md` (блок **AI Agent State**) → `LMS_AGENT_HANDOFF.md` → `SDOPROF_TZ_FINAL.md` → `docs/TZ_MVP_TRACEABILITY.md`.
+Краткий порядок: `README.md` (блок **AI Agent State**) → `LMS_AGENT_HANDOFF.md` → **статус-трекер нужного ТЗ** → `SDOPROF_TZ_FINAL.md` → `docs/TZ_MVP_TRACEABILITY.md`.
 
-Правило Cursor с тем же смыслом: [.cursor/rules/lms-multi-agent-handoff.mdc](.cursor/rules/lms-multi-agent-handoff.mdc).
+## Два действующих ТЗ — сначала определить, о каком речь
+
+| Предмет задачи                                                                             | ТЗ                                                                   | Трекер (читать первым)                                             |
+| ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| **Представление**: экран, меню, вёрстка, компонент, цвет, тексты интерфейса, ребрендинг UI | [docs/TZ_UI_REDESIGN_TRUDSKILL.md](docs/TZ_UI_REDESIGN_TRUDSKILL.md) | [docs/TZ_UI_REDESIGN_STATUS.md](docs/TZ_UI_REDESIGN_STATUS.md)     |
+| **Поведение**: ручка API, право, миграция, очередь, интеграция, документ, эксплуатация     | [TZ_TRUDSKILL_ARENDNAYA_SDO.md](TZ_TRUDSKILL_ARENDNAYA_SDO.md)       | [docs/TZ_ARENDNAYA_SDO_STATUS.md](docs/TZ_ARENDNAYA_SDO_STATUS.md) |
+
+Если «продолжай по ТЗ» сказано **без уточнения и без задачи** — прочитать оба трекера и одним коротким сообщением спросить владельца, какой продолжать. Полное правило маршрутизации: [DOCUMENTATION_MAP.md#tz-routing](docs/DOCUMENTATION_MAP.md#tz-routing).
+
+## Сверка логики с ТЗ — обязанность, а не инициатива
+
+Любая работа по коду включает сверку затронутого участка с ТЗ. Что делать с найденным расхождением — в [`CLAUDE.md` § «Сверка логики с ТЗ»](CLAUDE.md). Коротко: **нашёл — записал в журнал расхождений**, чинить в этой же сессии только если это в рамках задачи и не ломает границы ТЗ.
+
+Правило Cursor с тем же смыслом: `.cursor/rules/lms-multi-agent-handoff.mdc` (если файл присутствует в рабочей копии).
