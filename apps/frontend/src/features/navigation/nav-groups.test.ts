@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { navigationModel } from './model';
-import { NAV_GROUPS, getGroupedNavigation, resolveGroupForPath } from './nav-groups';
+import {
+  NAV_GROUPS,
+  buildMoreSections,
+  getGroupedNavigation,
+  resolveGroupForPath
+} from './nav-groups';
 
 import type { UserSession } from '../../entities/session/model';
 
@@ -95,5 +100,33 @@ describe('resolveGroupForPath', () => {
 
   it('неизвестный путь → null', () => {
     expect(resolveGroupForPath('/nope/here')).toBeNull();
+  });
+});
+
+describe('buildMoreSections (IA-015)', () => {
+  it('раскладывает пункты по блокам ИА и сохраняет порядок блока', () => {
+    const sections = buildMoreSections([
+      { href: '/materials', label: 'Материалы' },
+      { href: '/courses', label: 'Курсы' },
+      { href: '/audit', label: 'Журнал действий' }
+    ]);
+    const courses = sections.find((section) => section.id === 'courses');
+    // Порядок берётся из NAV_GROUPS.hrefs, а не из порядка входного массива.
+    expect(courses?.items.map((item) => item.href)).toEqual(['/courses', '/materials']);
+  });
+
+  it('не возвращает пустые блоки', () => {
+    const sections = buildMoreSections([{ href: '/audit', label: 'Журнал действий' }]);
+    expect(sections.every((section) => section.items.length > 0)).toBe(true);
+  });
+
+  it('пункт вне десяти блоков не теряется', () => {
+    const sections = buildMoreSections([{ href: '/unknown-route', label: 'Неизвестный' }]);
+    const all = sections.flatMap((section) => section.items.map((item) => item.href));
+    expect(all).toContain('/unknown-route');
+  });
+
+  it('пустой вход даёт пустой второй уровень', () => {
+    expect(buildMoreSections([])).toEqual([]);
   });
 });

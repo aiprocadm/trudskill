@@ -184,6 +184,39 @@ export const getGroupedNavigation = (session: UserSession | null): NavGroupView[
 };
 
 /**
+ * Раскладка пунктов второго уровня «Ещё» по блокам ИА (IA-015).
+ *
+ * Порядок внутри блока — как в NAV_GROUPS.hrefs, чтобы «Ещё» читалось одинаково у всех
+ * ролей независимо от того, в каком порядке пункты выпали из главного меню.
+ * Пункт, не попавший ни в один блок, уходит в «Прочее»: сирот сейчас нет (это стережёт
+ * тест «каждый пункт в ровно одном блоке»), но молча терять ссылку нельзя — именно так
+ * страницы становятся недостижимыми.
+ */
+export const buildMoreSections = (moreItems: NavigationItem[]): NavGroupView[] => {
+  const byHref = new Map(moreItems.map((item) => [item.href, item]));
+  const used = new Set<string>();
+
+  const sections = NAV_GROUPS.map((group) => {
+    const items = group.hrefs
+      .map((href) => byHref.get(href))
+      .filter((item): item is NavigationItem => Boolean(item));
+    items.forEach((item) => used.add(item.href));
+    return { id: group.id, label: group.label, icon: group.icon, items };
+  }).filter((section) => section.items.length > 0);
+
+  const orphans = moreItems.filter((item) => !used.has(item.href));
+  if (orphans.length) {
+    sections.push({
+      id: 'other',
+      label: 'Прочее',
+      icon: SettingsIcon,
+      items: orphans
+    });
+  }
+  return sections;
+};
+
+/**
  * Определяет блок для произвольного пути (для хлебных крошек).
  * Длиннейший префикс-матч среди всех group.hrefs; '/' матчит только сам корень.
  */
