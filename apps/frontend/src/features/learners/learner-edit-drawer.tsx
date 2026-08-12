@@ -1,6 +1,6 @@
 'use client';
 
-import { Dialog } from '@trudskill/ui';
+import { DetailDrawer } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { STATUS_LABEL, buildUpdatePayload } from './format';
@@ -45,8 +45,16 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
     if (result) onSaved();
   };
 
+  // CMP-010: карточка открывается боковой панелью, а не модалкой поверх экрана —
+  // список остаётся виден, и правка не выбивает из контекста.
   return (
-    <Dialog open onClose={onClose} title="Редактировать ученика">
+    <DetailDrawer
+      open
+      onClose={onClose}
+      title="Карточка слушателя"
+      subtitle={[learner.lastName, learner.firstName].filter(Boolean).join(' ')}
+      width="md"
+    >
       <form onSubmit={(e) => void handleSubmit(e)} className="ui-stack">
         <label className="ui-field">
           <span className="ui-field-label">Фамилия *</span>
@@ -143,7 +151,7 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
           </div>
         ) : null}
 
-        <div className="ui-modal-actions">
+        <div className="ui-inline">
           <button
             type="button"
             className="ui-button"
@@ -169,6 +177,6 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
         learnerLabel={[learner.lastName, learner.firstName].filter(Boolean).join(' ')}
         onErased={onSaved}
       />
-    </Dialog>
+    </DetailDrawer>
   );
 }
