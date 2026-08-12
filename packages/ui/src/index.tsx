@@ -6,6 +6,7 @@ export * from './components/table/index.js';
 export * from './components/table/column-picker.js';
 export * from './components/table/selection.js';
 export * from './components/table/column-config.js';
+export * from './components/bulk-action-bar/index.js';
 export * from './components/filters/index.js';
 export * from './components/forms/index.js';
 export * from './components/badges/index.js';

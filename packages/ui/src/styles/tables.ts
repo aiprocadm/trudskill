@@ -30,6 +30,24 @@ export const tableStyles = `
 .ui-table tbody tr[data-selected='true']:hover td { background: var(--ui-surface-accent); }
 .ui-table-wrap--compact .ui-table th,
 .ui-table-wrap--compact .ui-table td { padding: 6px 11px; }
+/* CMP-011: панель массовых действий — липкая полоса под списком. */
+.ui-bulk-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-sm);
+  padding: var(--ui-space-md);
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  box-shadow: var(--ui-shadow-strong);
+}
+.ui-bulk-bar__row { display: flex; gap: var(--ui-space-sm); flex-wrap: wrap; align-items: center; }
+.ui-bulk-bar__count { font-weight: var(--ui-font-weight-semibold); }
+.ui-bulk-bar__outcome p { margin: 0 0 var(--ui-space-xs); }
+.ui-bulk-bar__failures { margin: 0; padding-left: var(--ui-space-lg); color: var(--ui-text-muted); font-size: var(--ui-font-size-sm); }
 /* CMP-003: два ряда панели фильтров — видимые и раскрываемые «Ещё фильтры». */
 .ui-filter-bar { flex-direction: column; align-items: stretch; }
 .ui-filter-bar__row { display: flex; gap: var(--ui-space-sm); flex-wrap: wrap; align-items: center; }
