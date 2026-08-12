@@ -23,6 +23,9 @@ export const foundationStyles = `
 .ui-empty,.ui-error,.ui-loading { border: 1px dashed var(--ui-border); border-radius: var(--ui-radius-md); background: var(--ui-surface-muted); padding: 16px; color: var(--ui-text-muted); }
 .ui-error { border-color: var(--ui-error-border); color: var(--ui-danger-600); }
 .ui-empty-hint { margin: 10px 0 0; font-size: 0.875rem; line-height: 1.5; color: var(--ui-text-muted); }
+/* CMP-014: пустое состояние предлагает первое действие, а не просто сообщает о пустоте. */
+.ui-empty-action { margin: var(--ui-space-lg) 0 0; }
+.ui-empty-action .ui-button-primary { display: inline-flex; align-items: center; text-decoration: none; }
 .ui-filter-bar,.ui-inline,.ui-toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 .ui-stack { display:flex; flex-direction:column; gap:12px; }
 .ui-grid { display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
