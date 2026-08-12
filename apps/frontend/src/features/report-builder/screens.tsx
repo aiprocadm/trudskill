@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, LoadingState } from '@trudskill/ui';
+import { DataTable, LoadingState, useConfirmDialog } from '@trudskill/ui';
 import { type ReactElement, useMemo, useState } from 'react';
 
 import { useReportBuilderMutations, useReportEntities, useReportTemplates } from './hooks';
@@ -24,6 +24,7 @@ function formatCell(value: string | number | null): string {
 }
 
 export function ReportBuilderScreen(): ReactElement {
+  const { ask, dialog } = useConfirmDialog();
   const { data: meta, isLoading: metaLoading, error: metaError } = useReportEntities();
   const { data: templates } = useReportTemplates();
   const {
@@ -102,8 +103,20 @@ export function ReportBuilderScreen(): ReactElement {
     resetNotices();
   };
 
-  const onDeleteTemplate = async (id: string) => {
-    if (!window.confirm('Удалить шаблон?')) return;
+  // CMP-006: подтверждение удаления — диалог приложения.
+  const onDeleteTemplate = (id: string) => {
+    ask(
+      {
+        title: 'Удалить шаблон отчёта',
+        message: 'Шаблон исчезнет из списка. Уже выгруженные отчёты останутся на месте.',
+        confirmLabel: 'Удалить шаблон',
+        tone: 'danger'
+      },
+      () => void runDeleteTemplate(id)
+    );
+  };
+
+  const runDeleteTemplate = async (id: string) => {
     resetNotices();
     try {
       await deleteTemplate(id);
@@ -296,6 +309,7 @@ export function ReportBuilderScreen(): ReactElement {
           ) : null}
         </>
       ) : null}
+      {dialog}
     </PageContainer>
   );
 }

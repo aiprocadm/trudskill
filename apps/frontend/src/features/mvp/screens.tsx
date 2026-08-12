@@ -1,6 +1,13 @@
 'use client';
 
-import { AsyncSection, DataTable, FilterBar, LoadingState, StatusChip } from '@trudskill/ui';
+import {
+  AsyncSection,
+  DataTable,
+  FilterBar,
+  LoadingState,
+  StatusChip,
+  useConfirmDialog
+} from '@trudskill/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, type ReactElement, useEffect, useMemo, useRef, useState } from 'react';
@@ -2734,6 +2741,7 @@ export const CommissionsPageScreen = () => {
 };
 
 export const CommissionDetailsScreen = ({ id }: { id: string }) => {
+  const { ask, dialog } = useConfirmDialog();
   const { data, loading, error, refetch } = useCommission(id);
   const { updateCommission, archiveCommission, addCommissionMember, removeCommissionMember } =
     useDomainMutations();
@@ -2816,14 +2824,42 @@ export const CommissionDetailsScreen = ({ id }: { id: string }) => {
     }
   };
 
-  const onArchive = async () => {
-    if (!confirm('Заархивировать комиссию? Её нельзя будет привязать к новым курсам.')) return;
+  /*
+   * CMP-006. Здесь стояли ДВА подтверждения, написанных голой формой вызова — без префикса
+   * `window`. Поиск по строке «window .confirm» их не находил, поэтому в аудите ТЗ они всплыли
+   * отдельной находкой. Оба переведены на диалог приложения.
+   */
+  const onArchive = () => {
+    ask(
+      {
+        title: 'Заархивировать комиссию',
+        message:
+          'Комиссию нельзя будет привязать к новым курсам. Уже выданные протоколы и документы останутся на месте.',
+        confirmLabel: 'Заархивировать',
+        tone: 'danger'
+      },
+      () => void runArchive()
+    );
+  };
+
+  const runArchive = async () => {
     await archiveCommission(id);
     await refetch();
   };
 
-  const onRemove = async (memberId: string) => {
-    if (!confirm('Удалить члена комиссии?')) return;
+  const onRemove = (memberId: string) => {
+    ask(
+      {
+        title: 'Удалить члена комиссии',
+        message: 'Человек перестанет числиться в составе комиссии.',
+        confirmLabel: 'Удалить из состава',
+        tone: 'danger'
+      },
+      () => void runRemove(memberId)
+    );
+  };
+
+  const runRemove = async (memberId: string) => {
     await removeCommissionMember(id, memberId);
     await refetch();
   };
@@ -2977,6 +3013,7 @@ export const CommissionDetailsScreen = ({ id }: { id: string }) => {
           ) : null}
         </>
       ) : null}
+      {dialog}
     </PageContainer>
   );
 };

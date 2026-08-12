@@ -54,11 +54,19 @@ export const Dialog = ({
   </Modal>
 );
 
+/**
+ * Подтверждение опасного действия (CMP-005).
+ *
+ * `tone: 'danger'` красит кнопку подтверждения в цвет опасности. Это не украшение:
+ * в браузерном `confirm()` обе кнопки выглядели одинаково, и «Удалить» ничем не
+ * отличалось от «Сохранить» — человек подтверждал на автомате.
+ */
 export const ConfirmDialog = ({
   title,
   message,
   confirmLabel = 'Подтвердить',
   cancelLabel = 'Отмена',
+  tone = 'default',
   onConfirm,
   onCancel
 }: {
@@ -66,6 +74,7 @@ export const ConfirmDialog = ({
   message?: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  tone?: 'default' | 'danger';
   onConfirm: () => void;
   onCancel: () => void;
 }) => (
@@ -81,7 +90,9 @@ export const ConfirmDialog = ({
       </button>
       <button
         type="button"
-        className="ui-button ui-button--primary"
+        className={
+          tone === 'danger' ? 'ui-button ui-button-danger' : 'ui-button ui-button--primary'
+        }
         onClick={() => {
           onConfirm();
           onCancel();

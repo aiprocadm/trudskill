@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, LoadingState, StatusChip } from '@trudskill/ui';
+import { DataTable, LoadingState, StatusChip, useConfirmDialog } from '@trudskill/ui';
 import { type FormEvent, type ReactElement, useState } from 'react';
 
 import { useLicenses, useLicensesMutations } from './hooks';
@@ -44,6 +44,7 @@ interface LicenseRow extends TrainingLicense {
  * (требует separate modal/route); revoke — кнопка в строке.
  */
 export function LicensesView() {
+  const { ask, dialog } = useConfirmDialog();
   const [statusFilter, setStatusFilter] = useState<LicenseStatus | ''>('');
   const { data, isLoading, error } = useLicenses(statusFilter === '' ? undefined : statusFilter);
   const { createPending, revokePending, createLicense, revokeLicense } = useLicensesMutations();
@@ -94,9 +95,18 @@ export function LicensesView() {
     }
   };
 
-  const onRevoke = async (id: string) => {
-    if (!window.confirm('Отозвать лицензию? Это действие нельзя отменить.')) return;
-    await revokeLicense(id);
+  // CMP-006: диалог приложения вместо window.confirm — тот не переводится,
+  // не проходит проверку на 360px и не отличает опасное действие от обычного.
+  const onRevoke = (id: string) => {
+    ask(
+      {
+        title: 'Отозвать лицензию',
+        message: 'Отзыв нельзя отменить. Без действующей лицензии нельзя опубликовать программу.',
+        confirmLabel: 'Отозвать лицензию',
+        tone: 'danger'
+      },
+      () => void revokeLicense(id)
+    );
   };
 
   return (
@@ -227,6 +237,7 @@ export function LicensesView() {
           </button>
         </form>
       </SectionCard>
+      {dialog}
     </PageContainer>
   );
 }

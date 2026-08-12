@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { DataTable, LoadingState, StatusChip } from '@trudskill/ui';
+import { DataTable, LoadingState, StatusChip, useConfirmDialog } from '@trudskill/ui';
 import { type ReactElement, useState } from 'react';
 
 import { ApproveRecertModal } from './approve-recert-modal';
@@ -36,6 +36,7 @@ interface QueueRow {
 }
 
 export function RecertificationQueueScreen(): ReactElement {
+  const { ask, dialog } = useConfirmDialog();
   const today = new Date().toISOString().slice(0, 10);
   const [statusFilter, setStatusFilter] = useState<RecertificationDraftStatus | ''>('pending');
   const { data, isLoading, error } = useRecertificationQueue(
@@ -68,13 +69,26 @@ export function RecertificationQueueScreen(): ReactElement {
     setApproveTarget(null);
   };
 
-  const onReject = async (id: string) => {
-    if (!window.confirm('Убрать запись из очереди?')) return;
-    const reason = window.prompt('Причина (необязательно)') ?? undefined;
+  // CMP-006: были подряд window.confirm и window.prompt — два окна браузера на одно действие.
+  // Теперь один диалог приложения с полем причины.
+  const onReject = (id: string) => {
+    ask(
+      {
+        title: 'Убрать запись из очереди',
+        message: 'Слушатель не попадёт в переаттестацию по этой записи.',
+        confirmLabel: 'Убрать из очереди',
+        tone: 'danger',
+        input: { label: 'Причина (необязательно)', placeholder: 'Например: уволен' }
+      },
+      (reason) => void runReject(id, reason)
+    );
+  };
+
+  const runReject = async (id: string, reason: string | undefined) => {
     setNotice(null);
     setActionError(null);
     try {
-      await rejectDraft(id, reason || undefined);
+      await rejectDraft(id, reason);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Не удалось убрать запись');
     }
@@ -198,6 +212,7 @@ export function RecertificationQueueScreen(): ReactElement {
         onSuccess={onApproveSuccess}
         onClose={() => setApproveTarget(null)}
       />
+      {dialog}
     </PageContainer>
   );
 }
