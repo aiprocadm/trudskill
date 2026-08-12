@@ -166,55 +166,41 @@ const normalizePath = (path: string) => {
 };
 
 /**
- * Раскладывает видимые (по правам) пункты меню по блокам.
- * Надстройка над RBAC: источник — getVisibleNavigation (правами не управляем).
- * Пустые блоки отбрасываются. Порядок пунктов — по group.hrefs.
+ * Раскладывает ПЕРЕДАННЫЕ пункты по блокам ИА. Пустые блоки отбрасываются,
+ * порядок внутри блока — по group.hrefs.
+ *
+ * Отделена от getGroupedNavigation, потому что второй уровень меню («Ещё»)
+ * группирует не все видимые пункты, а только те, что не попали в короткое меню
+ * роли (IA-015).
+ *
+ * Пункт, не найденный ни в одном блоке, уходит в служебный блок, а не исчезает:
+ * потеря раздела из интерфейса — критерий провала фазы (ТЗ §1.3), а сторож
+ * ia-architecture следит за маршрутами, но не за пунктами меню.
  */
-export const getGroupedNavigation = (session: UserSession | null): NavGroupView[] => {
-  const visible = getVisibleNavigation(session);
-  const byHref = new Map(visible.map((item) => [item.href, item]));
-  return NAV_GROUPS.map((group) => ({
-    id: group.id,
-    label: group.label,
-    icon: group.icon,
-    items: group.hrefs
+export const groupItemsByNavGroup = (items: NavigationItem[]): NavGroupView[] => {
+  const byHref = new Map(items.map((item) => [item.href, item]));
+  const placed = new Set<string>();
+
+  const groups = NAV_GROUPS.map((group) => {
+    const groupItems = group.hrefs
       .map((href) => byHref.get(href))
-      .filter((item): item is NavigationItem => Boolean(item))
-  })).filter((group) => group.items.length > 0);
+      .filter((item): item is NavigationItem => Boolean(item));
+    groupItems.forEach((item) => placed.add(item.href));
+    return { id: group.id, label: group.label, icon: group.icon, items: groupItems };
+  }).filter((group) => group.items.length > 0);
+
+  const orphans = items.filter((item) => !placed.has(item.href));
+  if (!orphans.length) return groups;
+
+  return [...groups, { id: 'other', label: 'Прочее', icon: LayoutDashboardIcon, items: orphans }];
 };
 
 /**
- * Раскладка пунктов второго уровня «Ещё» по блокам ИА (IA-015).
- *
- * Порядок внутри блока — как в NAV_GROUPS.hrefs, чтобы «Ещё» читалось одинаково у всех
- * ролей независимо от того, в каком порядке пункты выпали из главного меню.
- * Пункт, не попавший ни в один блок, уходит в «Прочее»: сирот сейчас нет (это стережёт
- * тест «каждый пункт в ровно одном блоке»), но молча терять ссылку нельзя — именно так
- * страницы становятся недостижимыми.
+ * Все видимые (по правам) пункты меню, разложенные по блокам.
+ * Надстройка над RBAC: источник — getVisibleNavigation (правами не управляем).
  */
-export const buildMoreSections = (moreItems: NavigationItem[]): NavGroupView[] => {
-  const byHref = new Map(moreItems.map((item) => [item.href, item]));
-  const used = new Set<string>();
-
-  const sections = NAV_GROUPS.map((group) => {
-    const items = group.hrefs
-      .map((href) => byHref.get(href))
-      .filter((item): item is NavigationItem => Boolean(item));
-    items.forEach((item) => used.add(item.href));
-    return { id: group.id, label: group.label, icon: group.icon, items };
-  }).filter((section) => section.items.length > 0);
-
-  const orphans = moreItems.filter((item) => !used.has(item.href));
-  if (orphans.length) {
-    sections.push({
-      id: 'other',
-      label: 'Прочее',
-      icon: SettingsIcon,
-      items: orphans
-    });
-  }
-  return sections;
-};
+export const getGroupedNavigation = (session: UserSession | null): NavGroupView[] =>
+  groupItemsByNavGroup(getVisibleNavigation(session));
 
 /**
  * Определяет блок для произвольного пути (для хлебных крошек).

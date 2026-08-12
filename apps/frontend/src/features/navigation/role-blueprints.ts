@@ -8,82 +8,45 @@ export interface RoleBlueprint {
 }
 
 /*
- * Фаза 1 ТЗ редизайна (IA-013, IA-002): главное меню роли — ≤7 пунктов, порядок = частота.
- * Прежние списки начинались с `/` и не вели ни в один рабочий раздел: у администратора
- * было `['/', '/users', '/reports', '/audit', '/settings']` — четыре из семи его сценариев
- * (зачислить, закрыть группу, найти слушателя, поправить курс) не покрывались вовсе.
- * Формулировки topJobs — проверяемые сценарии JOB-*, а не обобщения вроде «поддерживать структуру».
+ * Экспортируется ради сторожевого теста: состав короткого меню — продуктовое
+ * решение ТЗ редизайна §4.4, а не деталь реализации, и разъехаться с ТЗ он не должен.
+ *
+ * ПОРЯДОК ЗАПИСЕЙ ЗНАЧИМ. getSessionRoleBlueprints фильтрует этот массив и
+ * сохраняет порядок объявления, а getNavigationView берёт меню у ПЕРВОЙ роли.
+ * Поэтому список идёт от самой полной роли к самой узкой: администратор, которому
+ * дополнительно выдали роль менеджера, должен увидеть меню администратора, а не
+ * менеджера. Тот же принцип, что в таблице домашних маршрутов role-home.ts.
  */
-const roleBlueprints: RoleBlueprint[] = [
+export const roleBlueprints: RoleBlueprint[] = [
   {
-    role: 'learner',
-    displayName: 'Слушатель',
+    role: 'platform_admin',
+    displayName: 'Администратор платформы',
     topJobs: [
-      'Продолжить обучение с последнего места',
-      'Сдать задание или пройти тест',
-      'Посмотреть свои документы',
-      'Проверить сроки и уведомления'
+      'Проверить здоровье арендаторов',
+      'Завести или приостановить центр',
+      'Разобрать очередь и сбои',
+      'Проверить лицензии и оплату',
+      'Поднять журнал действий'
     ],
     primaryNav: [
-      '/learner',
-      '/learner/courses',
-      '/learner/tests',
-      '/learner/documents',
-      '/notifications',
-      '/chat'
+      '/workspace',
+      '/platform/tenants',
+      '/admin/licenses',
+      '/audit',
+      '/admin/operations',
+      '/settings'
     ]
-  },
-  {
-    role: 'methodist',
-    displayName: 'Методист',
-    topJobs: [
-      'Собрать программу и структуру курса',
-      'Обновить материалы и версии',
-      'Собрать тест и назначить его группе',
-      'Передать курс на публикацию'
-    ],
-    primaryNav: ['/methodist', '/courses', '/materials', '/assessment', '/groups', '/reports']
-  },
-  {
-    role: 'teacher',
-    displayName: 'Преподаватель',
-    topJobs: [
-      'Проверить задания и выставить оценку',
-      'Посмотреть прогресс группы',
-      'Ответить слушателю',
-      'Спланировать занятия по срокам'
-    ],
-    primaryNav: [
-      '/groups',
-      '/teacher/review',
-      '/teacher/grading-center',
-      '/learning/calendar',
-      '/courses',
-      '/notifications'
-    ]
-  },
-  {
-    role: 'manager',
-    displayName: 'Менеджер',
-    topJobs: [
-      'Зачислить слушателя в группу',
-      'Найти слушателя и ответить на вопрос',
-      'Вести заказчика и его сотрудников',
-      'Проверить выданные документы'
-    ],
-    primaryNav: ['/groups', '/learners', '/counterparties', '/documents', '/reports']
   },
   {
     role: 'tenant_admin',
     displayName: 'Администратор',
+    // ТЗ §3.1: формулировки — результат для человека, а не обязанность роли.
     topJobs: [
-      'Увидеть, что горит, сразу после входа',
+      'Увидеть, что горит сегодня',
       'Зачислить слушателя в группу',
       'Закрыть группу и выдать документы',
       'Выгрузить реестр в надзор',
-      'Найти слушателя и увидеть всё по нему',
-      'Поправить курс и тест, не теряя связей',
-      'Найти нужную настройку центра'
+      'Найти слушателя и ответить по нему'
     ],
     primaryNav: [
       '/workspace',
@@ -96,21 +59,65 @@ const roleBlueprints: RoleBlueprint[] = [
     ]
   },
   {
-    role: 'platform_admin',
-    displayName: 'Администратор платформы',
+    role: 'manager',
+    displayName: 'Менеджер',
     topJobs: [
-      'Следить за состоянием учебных центров',
-      'Завести центр и назначить тариф',
-      'Разобрать сбой в очередях и выгрузках',
-      'Проверить журнал действий'
+      'Зачислить слушателя в группу',
+      'Собрать группу под заказчика',
+      'Выдать документы группе',
+      'Ответить заказчику по прогрессу',
+      'Выгрузить отчёт'
+    ],
+    primaryNav: ['/groups', '/learners', '/counterparties', '/documents', '/reports']
+  },
+  {
+    role: 'methodist',
+    displayName: 'Методист',
+    topJobs: [
+      'Собрать программу курса',
+      'Обновить материалы и версии',
+      'Собрать тест и задания',
+      'Передать курс на публикацию',
+      'Найти пробелы в программах'
+    ],
+    primaryNav: ['/methodist', '/courses', '/materials', '/assessment', '/groups', '/reports']
+  },
+  {
+    role: 'teacher',
+    displayName: 'Преподаватель',
+    topJobs: [
+      'Проверить работы в очереди',
+      'Посмотреть прогресс группы',
+      'Ответить слушателям',
+      'Спланировать занятия',
+      'Открыть материалы курса'
     ],
     primaryNav: [
-      '/workspace',
-      '/platform/tenants',
-      '/admin/licenses',
-      '/audit',
-      '/admin/operations',
-      '/settings'
+      '/groups',
+      '/teacher/review',
+      '/teacher/grading-center',
+      '/learning/calendar',
+      '/courses',
+      '/notifications'
+    ]
+  },
+  {
+    role: 'learner',
+    displayName: 'Слушатель',
+    topJobs: [
+      'Продолжить обучение с последнего места',
+      'Сдать тест или задание',
+      'Проверить сроки',
+      'Забрать документы об обучении',
+      'Написать преподавателю'
+    ],
+    primaryNav: [
+      '/learner',
+      '/learner/courses',
+      '/learner/tests',
+      '/learner/documents',
+      '/notifications',
+      '/chat'
     ]
   }
 ];
@@ -120,11 +127,9 @@ const roleAliases: Record<string, string> = {
   administrator: 'tenant_admin',
   teacher: 'teacher',
   tutor: 'teacher',
-  methodologist: 'methodist'
+  methodologist: 'methodist',
+  sales_manager: 'manager'
 };
-
-/** Полный список для сторожевых тестов — без привязки к сессии. */
-export const getRoleBlueprints = (): RoleBlueprint[] => roleBlueprints;
 
 const normalizeRole = (role: string) => roleAliases[role] ?? role;
 

@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { navigationModel } from './model';
 import {
   NAV_GROUPS,
-  buildMoreSections,
   getGroupedNavigation,
+  groupItemsByNavGroup,
   resolveGroupForPath
 } from './nav-groups';
 
@@ -84,6 +84,38 @@ describe('getGroupedNavigation', () => {
   });
 });
 
+describe('группировка произвольного набора пунктов (IA-015)', () => {
+  it('раскладывает переданные пункты по блокам ИА, пустые блоки отбрасывает', () => {
+    const items = [
+      { href: '/courses', label: 'Курсы' },
+      { href: '/audit', label: 'Журнал действий' }
+    ];
+    const groups = groupItemsByNavGroup(items);
+    expect(groups.map((group) => group.id)).toEqual(['courses', 'reports']);
+    expect(groups[0]?.items.map((item) => item.href)).toEqual(['/courses']);
+  });
+
+  it('пункт вне 10 блоков не теряется — попадает в служебный блок', () => {
+    // Иначе раздел исчезнет из интерфейса молча: ровно так уже пропадали /forms и
+    // /module-empty (§5.249). Потеря маршрута — критерий провала фазы (ТЗ §1.3).
+    const groups = groupItemsByNavGroup([{ href: '/unknown-route', label: 'Неизвестный' }]);
+    const allHrefs = groups.flatMap((group) => group.items.map((item) => item.href));
+    expect(allHrefs).toContain('/unknown-route');
+  });
+
+  it('порядок пунктов внутри блока — как в NAV_GROUPS, а не как во входном массиве', () => {
+    const groups = groupItemsByNavGroup([
+      { href: '/materials', label: 'Материалы' },
+      { href: '/courses', label: 'Курсы' }
+    ]);
+    expect(groups[0]?.items.map((item) => item.href)).toEqual(['/courses', '/materials']);
+  });
+
+  it('пустой вход → пустой результат', () => {
+    expect(groupItemsByNavGroup([])).toEqual([]);
+  });
+});
+
 describe('resolveGroupForPath', () => {
   it('точный путь пункта → его блок', () => {
     expect(resolveGroupForPath('/courses')?.id).toBe('courses');
@@ -100,33 +132,5 @@ describe('resolveGroupForPath', () => {
 
   it('неизвестный путь → null', () => {
     expect(resolveGroupForPath('/nope/here')).toBeNull();
-  });
-});
-
-describe('buildMoreSections (IA-015)', () => {
-  it('раскладывает пункты по блокам ИА и сохраняет порядок блока', () => {
-    const sections = buildMoreSections([
-      { href: '/materials', label: 'Материалы' },
-      { href: '/courses', label: 'Курсы' },
-      { href: '/audit', label: 'Журнал действий' }
-    ]);
-    const courses = sections.find((section) => section.id === 'courses');
-    // Порядок берётся из NAV_GROUPS.hrefs, а не из порядка входного массива.
-    expect(courses?.items.map((item) => item.href)).toEqual(['/courses', '/materials']);
-  });
-
-  it('не возвращает пустые блоки', () => {
-    const sections = buildMoreSections([{ href: '/audit', label: 'Журнал действий' }]);
-    expect(sections.every((section) => section.items.length > 0)).toBe(true);
-  });
-
-  it('пункт вне десяти блоков не теряется', () => {
-    const sections = buildMoreSections([{ href: '/unknown-route', label: 'Неизвестный' }]);
-    const all = sections.flatMap((section) => section.items.map((item) => item.href));
-    expect(all).toContain('/unknown-route');
-  });
-
-  it('пустой вход даёт пустой второй уровень', () => {
-    expect(buildMoreSections([])).toEqual([]);
   });
 });

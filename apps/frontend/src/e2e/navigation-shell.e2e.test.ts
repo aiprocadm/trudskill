@@ -1,32 +1,54 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
 import { getNavigationView, getVisibleNavigation } from '../features/navigation/helpers';
 import { navigationModel } from '../features/navigation/model';
-import { buildMoreSections } from '../features/navigation/nav-groups';
 
 import type { UserSession } from '../entities/session/model';
 
 /*
- * IA-019. До Фазы 1 редизайна этот файл проверял только то, что два модуля импортируются:
- * инварианта сайдбара здесь не было вовсе, хотя ТЗ §4.8 исходило из обратного. Каркас можно
- * было сломать, не уронив ни одного теста. Теперь сторож держит бюджет меню и полноту
- * второго уровня — расхождение записано в журнал docs/TZ_UI_REDESIGN_STATUS.md.
+ * До Фазы 1 этот файл проверял ровно одно: что модуль оболочки импортируется.
+ * Инвариантов у каркаса не было ни одного — при том что ТЗ §4.8 считало, будто
+ * здесь охраняется структура сайдбара. Теперь охраняется.
+ *
+ * Пути — от файла, а не от process.cwd(): cwd различается между запуском из
+ * корня и из apps/frontend (грабля из CLAUDE.md).
  */
-const fullAdmin: UserSession = {
+const readShellSource = (name: string) =>
+  readFileSync(
+    resolve(dirname(fileURLToPath(import.meta.url)), `../widgets/shell/${name}`),
+    'utf8'
+  );
+
+const shellSource = readShellSource('app-shell.tsx');
+const paletteSource = readShellSource('command-palette.tsx');
+
+/*
+ * Администратор центра: в живой базе роли выданы ВСЕ права без исключения
+ * (0010_iam_role_permissions_and_seed.sql:98-108 — join iam.permissions on true).
+ * Поэтому сессия собирается из полного набора прав меню, а не из вручную
+ * выписанного списка: иначе тест проверял бы выдуманную роль.
+ */
+const adminSession: UserSession = {
   user: {
     id: 'u_admin',
     tenantId: 'tenant_demo',
     login: 'admin',
     email: null,
     status: 'active',
-    displayName: 'Admin'
+    displayName: 'Админ'
   },
-  tokens: { accessToken: 'a', sessionId: 's1', expiresIn: 1000 },
+  tokens: { accessToken: 'a', sessionId: 's1', expiresIn: 300 },
   roles: ['tenant_admin'],
-  permissions: navigationModel.flatMap((item) => item.requiredPermissions ?? [])
+  permissions: Array.from(
+    new Set(navigationModel.flatMap((item) => item.requiredPermissions ?? []))
+  )
 };
 
-describe('каркас навигации', () => {
+describe('оболочка приложения', () => {
   it('AppShell импортируется без ошибок', async () => {
     const mod = await import('../widgets/shell/app-shell');
     expect(typeof mod.AppShell).toBe('function');
@@ -37,25 +59,46 @@ describe('каркас навигации', () => {
     expect(typeof mod.CommandPalette).toBe('function');
   });
 
-  it('в главном меню не больше семи пунктов', () => {
-    expect(getNavigationView(fullAdmin).main.length).toBeLessThanOrEqual(7);
+  it('GOAL-1: администратору видно не больше 7 пунктов сразу', () => {
+    expect(getNavigationView(adminSession).main.length).toBeLessThanOrEqual(7);
   });
 
-  it('всё, что не попало в главное меню, доступно во втором уровне', () => {
-    const view = getNavigationView(fullAdmin);
-    const inMore = new Set(
-      buildMoreSections(view.more).flatMap((section) => section.items.map((item) => item.href))
-    );
-    for (const item of view.more) {
-      expect(inMore, item.href).toContain(item.href);
-    }
+  it('GOAL-1: сокращение реально что-то сокращает — пунктов у роли заметно больше семи', () => {
+    // Сторож самой метрики: если пунктов вдруг стало ≤7, проверка выше проходит
+    // по построению и перестаёт что-либо доказывать.
+    expect(getVisibleNavigation(adminSession).length).toBeGreaterThan(20);
   });
 
-  it('ни один доступный по правам раздел не исчезает из меню целиком', () => {
-    const view = getNavigationView(fullAdmin);
-    const shown = new Set([...view.main, ...view.more].map((item) => item.href));
-    for (const item of getVisibleNavigation(fullAdmin)) {
-      expect(shown, item.href).toContain(item.href);
-    }
+  it('GOAL-5: ни один видимый пункт не потерян — main + more покрывают всё', () => {
+    const view = getNavigationView(adminSession);
+    const shown = [...view.main, ...view.more].map((item) => item.href).sort();
+    const visible = getVisibleNavigation(adminSession)
+      .map((item) => item.href)
+      .sort();
+    expect(shown).toEqual(visible);
+  });
+
+  it('пункт не может оказаться одновременно в главном меню и в «Ещё»', () => {
+    const view = getNavigationView(adminSession);
+    const mainSet = new Set(view.main.map((item) => item.href));
+    expect(view.more.filter((item) => mainSet.has(item.href))).toEqual([]);
+  });
+
+  it('IA-011: оболочка собирает меню через getNavigationView', () => {
+    expect(shellSource).toContain('getNavigationView');
+  });
+
+  /*
+   * UI-022. CSS каркаса уехал в packages/ui/src/styles/shell.ts, где его видят
+   * сторожа токенов и тач-зон. Внутри <style jsx> они слепы — там и накопился
+   * хардкод подложки и радиусов. Без этой проверки слой вернётся при первой же
+   * правке «по-быстрому».
+   */
+  it('UI-022: в оболочке нет styled-jsx — CSS живёт в пакете под сторожами', () => {
+    expect(shellSource).not.toContain('<style jsx>');
+  });
+
+  it('UI-022: в палитре команд нет styled-jsx', () => {
+    expect(paletteSource).not.toContain('<style jsx>');
   });
 });

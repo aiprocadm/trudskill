@@ -11,22 +11,20 @@ describe('ui style layers smoke/visual coverage', () => {
   });
 
   it('keeps layer boundaries explicit and deterministic', () => {
-    // UI-020/UI-021: слои оболочки и палитры добавлены Фазой 1 редизайна — CSS каркаса
-    // переехал сюда из styled-jsx, где его не видели сторожа токенов и тач-зон.
     expect(Object.keys(uiStyleLayers)).toEqual([
       'foundation',
       'forms',
       'tables',
       'layout',
-      'appShell',
-      'commandPalette',
+      // Слой каркаса появился в Фазе 1 редизайна (UI-020): 288 строк CSS оболочки
+      // переехали из <style jsx> в пакет, где их видят сторожа токенов.
+      'shell',
       'chat',
       'modal',
       'courseViewer'
     ]);
-    expect(uiStyleLayers.appShell).toContain('.app-shell__nav');
-    expect(uiStyleLayers.commandPalette).toContain('.cmdk__dialog');
     expect(uiStyleLayers.layout).toContain('.ui-dashboard-grid');
+    expect(uiStyleLayers.shell).toContain('.app-shell__nav');
     expect(uiStyleLayers.chat).toContain('.ui-chat-layout');
     expect(uiStyleLayers.tables).toContain('.ui-table-wrap');
   });
