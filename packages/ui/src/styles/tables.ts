@@ -30,6 +30,13 @@ export const tableStyles = `
 .ui-table tbody tr[data-selected='true']:hover td { background: var(--ui-surface-accent); }
 .ui-table-wrap--compact .ui-table th,
 .ui-table-wrap--compact .ui-table td { padding: 6px 11px; }
+/* CMP-003: два ряда панели фильтров — видимые и раскрываемые «Ещё фильтры». */
+.ui-filter-bar { flex-direction: column; align-items: stretch; }
+.ui-filter-bar__row { display: flex; gap: var(--ui-space-sm); flex-wrap: wrap; align-items: center; }
+.ui-filter-bar__row--secondary {
+  padding-top: var(--ui-space-sm);
+  border-top: 1px solid var(--ui-border);
+}
 /* CMP-002: выбор колонок. Список раскрывается под кнопкой в панели фильтров. */
 .ui-column-picker { position: relative; display: inline-flex; }
 .ui-column-picker__list {
