@@ -198,6 +198,24 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 .stat-card__label { font-size: 13px; color: var(--ui-text-muted); }
 .stat-card__value { font-size: 1.6rem; font-weight: 700; color: var(--ui-text); font-variant-numeric: tabular-nums; line-height: 1.1; }
 .stat-card__sub { font-size: 12px; color: var(--ui-text-muted); }
+/* CMP-004: сравнение и переход. Тон отделён от направления — рост блокеров это «вверх» и «плохо». */
+.stat-card__trend { font-size: var(--ui-font-size-sm); font-weight: var(--ui-font-weight-semibold); }
+.stat-card__trend--positive { color: var(--ui-success-600); }
+.stat-card__trend--negative { color: var(--ui-danger-600); }
+.stat-card__trend--neutral { color: var(--ui-text-muted); }
+.stat-card--link { text-decoration: none; color: inherit; transition: border-color .15s ease, box-shadow .15s ease; }
+.stat-card--link:hover { border-color: var(--ui-brand-600); box-shadow: var(--ui-shadow); }
+/* CMP-013: очередь «Разобрать» — один список по убыванию срочности, а не оглавление по типам. */
+.ui-attention__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--ui-space-xs); }
+.ui-attention__item { border-left: 3px solid var(--ui-border); border-radius: var(--ui-radius-sm); background: var(--ui-surface); }
+.ui-attention__item--high { border-left-color: var(--ui-danger-600); }
+.ui-attention__item--medium { border-left-color: var(--ui-warning-600); }
+.ui-attention__item--low { border-left-color: var(--ui-neutral-500); }
+.ui-attention__link { display: flex; flex-direction: column; gap: 2px; padding: var(--ui-space-sm) var(--ui-space-md); min-height: 44px; justify-content: center; text-decoration: none; color: var(--ui-text); }
+.ui-attention__link:hover { background: var(--ui-surface-muted); }
+.ui-attention__title { font-weight: var(--ui-font-weight-semibold); }
+.ui-attention__meta { font-size: var(--ui-font-size-sm); color: var(--ui-text-muted); }
+.ui-attention__rest { margin: var(--ui-space-sm) 0 0; font-size: var(--ui-font-size-sm); color: var(--ui-text-muted); }
 
 .ui-skeleton-line {
   height: 12px;
