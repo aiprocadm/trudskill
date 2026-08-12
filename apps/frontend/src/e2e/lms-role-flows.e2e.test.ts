@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { evaluateRouteAccess, getVisibleNavigation } from '../features/navigation/helpers';
+import {
+  evaluateRouteAccess,
+  getNavigationView,
+  getVisibleNavigation
+} from '../features/navigation/helpers';
 
 import type { UserSession } from '../entities/session/model';
 
@@ -43,5 +47,13 @@ describe('lms role flows', () => {
   it('authenticated user can access core lms modules with permissions', () => {
     expect(evaluateRouteAccess('/courses', adminSession)).toEqual({ kind: 'ok' });
     expect(evaluateRouteAccess('/groups', adminSession)).toEqual({ kind: 'ok' });
+  });
+
+  // IA-013: путь роли начинается с меню. Ежедневные разделы администратора обязаны быть
+  // видны сразу, иначе короткое меню экономит клики не тому, кому нужно.
+  it('администратор видит группы и отчёты в главном меню', () => {
+    const main = getNavigationView(adminSession).main.map((item) => item.href);
+    expect(main).toContain('/groups');
+    expect(main).toContain('/reports');
   });
 });

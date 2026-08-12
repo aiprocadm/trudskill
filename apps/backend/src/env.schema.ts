@@ -16,6 +16,18 @@ function localhostToIpv4LoopbackUrl(urlString: string): string {
 
 const loopbackNormalizedUrlSchema = z.string().url().transform(localhostToIpv4LoopbackUrl);
 
+/**
+ * Разбор булевых переменных окружения.
+ *
+ * `z.coerce.boolean()` использовать НЕЛЬЗЯ: он приводит по правилам JS, где любая непустая
+ * строка истинна, поэтому `FLAG=false` превращается в `true` — настройка делает ровно обратное
+ * тому, что написано. В файле это уже знали (см. ANTIVIRUS_ENABLED), но четыре флага оставались
+ * на `coerce` до 2026-08-12. Здесь тот же разбор одним общим местом, чтобы не расходилось дальше.
+ */
+const booleanFromEnv = z
+  .union([z.boolean(), z.enum(['true', 'false'])])
+  .transform((value) => value === true || value === 'true');
+
 const deploymentProfileSchema = z.enum(['dev', 'staging', 'prod']);
 const secretsProviderSchema = z.enum(['env', 'vault', 'kms']);
 
@@ -234,17 +246,20 @@ export const backendEnvSchema = z
     REALTIME_PUBLIC_URL: z.string().url(),
     /** Должен совпадать с REALTIME_PUBLISH_KEY у сервиса realtime (заголовок x-realtime-key). */
     REALTIME_PUBLISH_KEY: z.string().min(10),
-    ALLOW_IN_MEMORY_STATE: z.coerce.boolean().default(false),
+    // Тот же разбор, что у ANTIVIRUS_ENABLED: z.coerce.boolean() отображает строку "false" → true,
+    // то есть ALLOW_IN_MEMORY_STATE=false ВКЛЮЧАЛ хранение в памяти. В проде это ловилось запретом
+    // ниже (приложение просто не стартовало), вне прода — молча теряло данные между запусками.
+    ALLOW_IN_MEMORY_STATE: booleanFromEnv.default(false),
     /** `memory` — in-process arrays; `postgres` — learning.mvp_runtime_documents (JSON per entity). */
     MVP_PERSISTENCE_DRIVER: z.enum(['memory', 'postgres']).default('memory'),
     /** `memory` — снимок в процессе на запрос; `postgres` — documents.runtime_documents + JSON по сущности. */
     DOCUMENTS_PERSISTENCE_DRIVER: z.enum(['memory', 'postgres']).default('memory'),
     LMS_READ_MODEL: z.enum(['legacy', 'normalized', 'shadow']).default('legacy'),
     DOCUMENTS_READ_MODEL: z.enum(['legacy', 'normalized', 'shadow']).default('legacy'),
-    LMS_DUAL_WRITE_ENABLED: z.coerce.boolean().default(false),
-    DOCUMENTS_DUAL_WRITE_ENABLED: z.coerce.boolean().default(false),
+    LMS_DUAL_WRITE_ENABLED: booleanFromEnv.default(false),
+    DOCUMENTS_DUAL_WRITE_ENABLED: booleanFromEnv.default(false),
     INTEGRATION_WEBHOOK_SECRET: z.string().min(10).optional(),
-    OUTBOX_PUBLISHER_ENABLED: z.coerce.boolean().default(true),
+    OUTBOX_PUBLISHER_ENABLED: booleanFromEnv.default(true),
     OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(1_000),
     OUTBOX_BATCH_SIZE: z.coerce.number().int().positive().max(500).default(50),
     OUTBOX_MAX_RETRIES: z.coerce.number().int().nonnegative().default(10),

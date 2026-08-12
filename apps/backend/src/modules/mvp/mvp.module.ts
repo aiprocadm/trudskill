@@ -202,7 +202,21 @@ import {
           ]
         ])
     },
-    VideoProviderResolver,
+    /*
+     * Через фабрику, а не классом: третий параметр конструктора — примитив (`nodeEnv: string`)
+     * со значением по умолчанию. Под tsx это незаметно (esbuild не эмитит метаданные типов),
+     * а в собранном виде Nest пытается внедрить `String` и падает
+     * «Nest can't resolve dependencies of the VideoProviderResolver ... argument String at index [2]».
+     * Тот же дефект уже чинили у WebinarProviderResolver и PaymentProviderResolver (§5.187);
+     * при добавлении видео (Фаза 2 Task 1) его повторили, и это не всплывало, потому что образ
+     * бэкенда не собирался вовсе — обнаружено 2026-08-12, когда smoke-тест впервые дошёл до запуска.
+     */
+    {
+      provide: VideoProviderResolver,
+      useFactory: (registry: VideoProviderRegistry, settings: VideoProviderSettingsService) =>
+        new VideoProviderResolver(registry, settings, backendEnv.NODE_ENV),
+      inject: [VIDEO_PROVIDER_REGISTRY, VideoProviderSettingsService]
+    },
     // Фаза 2 Task 2 (ФТ-B1.1) — загрузка видео методистом.
     PostgresVideoAssetsRepository,
     {

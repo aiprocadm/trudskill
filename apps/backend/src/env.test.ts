@@ -303,4 +303,52 @@ describe('antivirus scan gate env', () => {
       backendEnvSchema.parse({ ...validDevEnv, ANTIVIRUS_ENABLED: 'false' }).ANTIVIRUS_ENABLED
     ).toBe(false);
   });
+
+  /*
+   * z.coerce.boolean() приводит по правилам JS: любая непустая строка истинна, поэтому
+   * FLAG=false означало ВКЛЮЧЕНО. На четырёх флагах это жило до 2026-08-12 — обнаружено,
+   * когда smoke-тест образа впервые дошёл до запуска и упал с «ALLOW_IN_MEMORY_STATE must be
+   * false», хотя в переменных окружения стояло ровно false.
+   */
+  it('булевы переменные окружения читают строку "false" как ложь', () => {
+    const parsed = backendEnvSchema.parse({
+      ...validDevEnv,
+      ALLOW_IN_MEMORY_STATE: 'false',
+      LMS_DUAL_WRITE_ENABLED: 'false',
+      DOCUMENTS_DUAL_WRITE_ENABLED: 'false',
+      OUTBOX_PUBLISHER_ENABLED: 'false'
+    });
+    expect(parsed.ALLOW_IN_MEMORY_STATE).toBe(false);
+    expect(parsed.LMS_DUAL_WRITE_ENABLED).toBe(false);
+    expect(parsed.DOCUMENTS_DUAL_WRITE_ENABLED).toBe(false);
+    expect(parsed.OUTBOX_PUBLISHER_ENABLED).toBe(false);
+  });
+
+  it('булевы переменные окружения читают строку "true" как истину', () => {
+    const parsed = backendEnvSchema.parse({
+      ...validDevEnv,
+      ALLOW_IN_MEMORY_STATE: 'true',
+      OUTBOX_PUBLISHER_ENABLED: 'true'
+    });
+    expect(parsed.ALLOW_IN_MEMORY_STATE).toBe(true);
+    expect(parsed.OUTBOX_PUBLISHER_ENABLED).toBe(true);
+  });
+});
+
+describe('сторож разбора булевых переменных окружения', () => {
+  it('ни одно поле схемы не объявлено через приведение к булеву', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { dirname, resolve } = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const source = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), './env.schema.ts'),
+      'utf8'
+    );
+    // Ищем именно объявление поля («ИМЯ: z.coerce.boolean(»), а не упоминания в комментариях —
+    // их в файле много, они как раз предупреждают об этой ловушке.
+    const offenders = source
+      .split('\n')
+      .filter((line) => /^\s*[A-Z0-9_]+\s*:\s*z\.coerce\.boolean\s*\(/.test(line));
+    expect(offenders).toEqual([]);
+  });
 });

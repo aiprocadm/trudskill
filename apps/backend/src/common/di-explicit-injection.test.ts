@@ -31,7 +31,10 @@ const FACTORY_INSTANTIATED = new Set([
   // в контейнере Boolean и String: собранное приложение падало на старте.
   // Теперь оба создаются фабрикой в своих модулях.
   'webinar-provider-resolver.service.ts',
-  'payment-provider-resolver.service.ts'
+  'payment-provider-resolver.service.ts',
+  // Тот же случай, добавлен видео-резолвером в Фазе 2 и пропущен: в списке его не было,
+  // а собранный образ падал «argument String at index [2]». Переведён на фабрику 2026-08-12.
+  'video-provider-resolver.service.ts'
 ]);
 // Types Nest resolves without a provider token / not DI.
 const NON_DI_TYPES = new Set(['Logger', 'Reflector']);
