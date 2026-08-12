@@ -204,6 +204,14 @@ jobs:
             -e REALTIME_PUBLISH_KEY=ci-smoke-realtime-publish-key \
             -e ALLOW_IN_MEMORY_STATE=false \
             -e INTEGRATION_WEBHOOK_SECRET=ci-smoke-webhook-secret \
+            -e DEPLOYMENT_PROFILE=prod \
+            -e MVP_PERSISTENCE_DRIVER=postgres \
+            -e DOCUMENTS_PERSISTENCE_DRIVER=postgres \
+            -e SCORM_CONTENT_TOKEN_SECRET=ci-smoke-scorm-token-secret-1234567890 \
+            -e ESIA_STATE_SECRET=ci-smoke-esia-state-secret-1234567890 \
+            -e METRICS_TOKEN=ci-smoke-metrics-token-1234567890 \
+            -e INTEGRATION_CRYPTO_KEYS=v1:Y2ktc21va2Uta2V5Y2ktc21va2Uta2V5Y2ktc21va2U= \
+            -e INTEGRATION_CRYPTO_ACTIVE_KEY_VERSION=v1 \
             cdoprof-backend-smoke:${{ github.sha }}
 
           cleanup() {
