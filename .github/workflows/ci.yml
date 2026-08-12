@@ -150,8 +150,17 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      # Витрина валидирует NEXT_PUBLIC_* схемой Zod на пререндере, а .env.local в gitignore —
+      # поэтому в CI сборка падала на первой же статической странице («/audit»), хотя локально
+      # проходила у всех, у кого этот файл создан руками. Значения здесь — заглушки: сборка
+      # проверяет, что страницы рендерятся, а не что адреса рабочие.
       - name: Build all packages/apps
         run: pnpm build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:3001/api/v1
+          NEXT_PUBLIC_REALTIME_URL: ws://localhost:3002
+          PUBLIC_BASE_URL: http://localhost:3000
+          NEXT_PUBLIC_DEFAULT_TENANT_ID: tenant_demo
 
   backend_image_smoke:
     name: Backend image smoke test
