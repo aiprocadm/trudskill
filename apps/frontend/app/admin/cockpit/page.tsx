@@ -1,10 +1,13 @@
-import { AdminCockpitScreen } from '../../../src/features/mvp/screens';
-import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
+import { redirect } from 'next/navigation';
 
+/*
+ * IA-016.3 — ⚠️ ЭТО МЕНЯЕТ ПОВЕДЕНИЕ, а не только вид (ТЗ §4.9).
+ *
+ * «Панель администратора» и «Оперативная панель» отвечали на один и тот же вопрос «что
+ * сейчас происходит», и человеку приходилось помнить, что где. Адрес сохранён редиректом,
+ * чтобы сохранённые ссылки и закладки не приводили в никуда; сами виджеты кокпита
+ * (сессии, очередь, интеграции, аудит) переехали в нижнюю зону `/workspace`.
+ */
 export default function AdminCockpitPage() {
-  return (
-    <ProtectedPage>
-      <AdminCockpitScreen />
-    </ProtectedPage>
-  );
+  redirect('/workspace');
 }
