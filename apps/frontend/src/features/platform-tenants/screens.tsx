@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { DataTable, LoadingState } from '@trudskill/ui';
+import { DataTable, LoadingState, useConfirmDialog } from '@trudskill/ui';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
@@ -33,6 +33,7 @@ import { PlatformHealthSection } from '../platform-health/screens';
  */
 
 export function PlatformTenantsSection() {
+  const { ask, dialog } = useConfirmDialog();
   const { session, adoptSession } = useAuth();
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -107,15 +108,20 @@ export function PlatformTenantsSection() {
       'Не удалось сменить статус'
     );
 
-  const impersonate = async (tenant: PlatformTenantDto) => {
-    if (
-      !window.confirm(
-        `Войти в кабинет «${tenant.name}» от имени его администратора? ` +
-          'Текущая платформенная сессия завершится, действие попадёт в аудит.'
-      )
-    ) {
-      return;
-    }
+  // CMP-006: вход «от имени» — действие с последствиями (смена сессии + запись в аудит),
+  // подтверждается диалогом приложения, а не окном браузера.
+  const impersonate = (tenant: PlatformTenantDto) => {
+    ask(
+      {
+        title: 'Войти от имени администратора центра',
+        message: `Вы войдёте в кабинет «${tenant.name}». Текущая платформенная сессия завершится, действие попадёт в журнал аудита.`,
+        confirmLabel: 'Войти от имени'
+      },
+      () => void runImpersonate(tenant)
+    );
+  };
+
+  const runImpersonate = async (tenant: PlatformTenantDto) => {
     setBusy(true);
     setError(null);
     try {
@@ -249,6 +255,7 @@ export function PlatformTenantsSection() {
           </div>
         </SectionCard>
       ) : null}
+      {dialog}
     </>
   );
 }

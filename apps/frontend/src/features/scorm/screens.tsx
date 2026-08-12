@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, LoadingState, StatusChip } from '@trudskill/ui';
+import { DataTable, LoadingState, StatusChip, useConfirmDialog } from '@trudskill/ui';
 import { useRef, useState } from 'react';
 
 import { putFileToPresignedUrl, scormApi } from './api';
@@ -81,6 +81,7 @@ interface TableRow {
 }
 
 export function ScormPackagesScreen(): ReactElement {
+  const { ask, dialog } = useConfirmDialog();
   const { session } = useAuth();
   const { packages, loading, error, reload } = useScormPackages();
 
@@ -133,9 +134,22 @@ export function ScormPackagesScreen(): ReactElement {
     }
   };
 
-  const handleDelete = async (pkg: ScormPackageDto) => {
+  // CMP-006: удаление подтверждается диалогом приложения, а не окном браузера.
+  const handleDelete = (pkg: ScormPackageDto) => {
     if (!session) return;
-    if (!window.confirm(`Удалить пакет «${pkg.title}»?`)) return;
+    ask(
+      {
+        title: 'Удалить учебный пакет',
+        message: `Пакет «${pkg.title}» будет удалён. Слушатели потеряют доступ к его материалам.`,
+        confirmLabel: 'Удалить пакет',
+        tone: 'danger'
+      },
+      () => void runDelete(pkg)
+    );
+  };
+
+  const runDelete = async (pkg: ScormPackageDto) => {
+    if (!session) return;
     setActionError(null);
     try {
       await scormApi.remove(session, pkg.id);
@@ -248,6 +262,7 @@ export function ScormPackagesScreen(): ReactElement {
           <DataTable<TableRow> columns={columns} rows={rows} />
         )}
       </SectionCard>
+      {dialog}
     </PageContainer>
   );
 }

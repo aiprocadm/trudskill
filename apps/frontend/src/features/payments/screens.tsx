@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, LoadingState } from '@trudskill/ui';
+import { DataTable, LoadingState, useConfirmDialog } from '@trudskill/ui';
 import { type ReactElement, useState } from 'react';
 
 import { payOrder } from './api';
@@ -130,6 +130,7 @@ interface ItemFormRow {
 const defaultItem = (): ItemFormRow => ({ groupId: '', learnerId: '', amountRubles: '' });
 
 export function OrdersScreen(): ReactElement {
+  const { ask, dialog } = useConfirmDialog();
   const [statusFilter, setStatusFilter] = useState<OrderStatus | ''>('');
   const { data, loading, error } = useOrders(statusFilter || undefined);
   const { markPaidPending, cancelPending, createPending, markPaid, cancel, create } =
@@ -153,8 +154,9 @@ export function OrdersScreen(): ReactElement {
     setShowForm(false);
   };
 
-  const onMarkPaid = async (id: string) => {
-    if (!window.confirm(`Отметить заказ ${id} как оплаченный?`)) return;
+  // CMP-006: подтверждение — диалог приложения. Деньги подтверждают осознанно,
+  // а окно браузера человек закрывает на автомате.
+  const runMarkPaid = async (id: string) => {
     setNotice(null);
     setActionError(null);
     try {
@@ -165,8 +167,18 @@ export function OrdersScreen(): ReactElement {
     }
   };
 
-  const onCancel = async (id: string) => {
-    if (!window.confirm(`Отменить заказ ${id}?`)) return;
+  const onMarkPaid = (id: string) => {
+    ask(
+      {
+        title: 'Отметить заказ оплаченным',
+        message: `Заказ ${id} будет считаться оплаченным. Отметка попадёт в отчёты по оплатам.`,
+        confirmLabel: 'Отметить оплаченным'
+      },
+      () => void runMarkPaid(id)
+    );
+  };
+
+  const runCancel = async (id: string) => {
     setNotice(null);
     setActionError(null);
     try {
@@ -175,6 +187,19 @@ export function OrdersScreen(): ReactElement {
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Не удалось отменить заказ');
     }
+  };
+
+  const onCancel = (id: string) => {
+    ask(
+      {
+        title: 'Отменить заказ',
+        message: `Заказ ${id} будет отменён. Отменённый заказ нельзя вернуть в работу.`,
+        confirmLabel: 'Отменить заказ',
+        cancelLabel: 'Оставить как есть',
+        tone: 'danger'
+      },
+      () => void runCancel(id)
+    );
   };
 
   const onSubmitCreate = async (e: React.FormEvent) => {
@@ -405,6 +430,7 @@ export function OrdersScreen(): ReactElement {
           />
         ) : null}
       </SectionCard>
+      {dialog}
     </PageContainer>
   );
 }

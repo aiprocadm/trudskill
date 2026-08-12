@@ -12,6 +12,7 @@ export * from './components/filters/index.js';
 export * from './components/forms/index.js';
 export * from './components/badges/index.js';
 export * from './components/dialogs/index.js';
+export * from './components/dialogs/use-confirm.js';
 export * from './components/pagination/index.js';
 export * from './components/search/index.js';
 export * from './components/select/index.js';
