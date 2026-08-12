@@ -1,49 +1,11 @@
 'use client';
 
-import {
-  type PropsWithChildren,
-  type RefObject,
-  useCallback,
-  useEffect,
-  useId,
-  useRef
-} from 'react';
+import { type PropsWithChildren, useId, useRef } from 'react';
 
-const FOCUSABLE =
-  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+import { useOverlayEscapeAndScrollLock, useOverlayFocus } from '../overlay/focus.js';
 
-const listFocusable = (root: HTMLElement) =>
-  Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-    (el) => !el.hasAttribute('data-modal-skip')
-  );
-
-const useModalFocus = (panelRef: RefObject<HTMLElement | null>, open: boolean) => {
-  useEffect(() => {
-    if (!open || !panelRef.current) return;
-    const root = panelRef.current;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Tab') return;
-      const items = listFocusable(root);
-      if (items.length === 0) return;
-      const first = items[0]!;
-      const last = items[items.length - 1]!;
-      const active = document.activeElement as HTMLElement | null;
-      if (event.shiftKey) {
-        if (active === first || !root.contains(active)) {
-          event.preventDefault();
-          last.focus();
-        }
-      } else if (active === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    root.addEventListener('keydown', onKeyDown);
-    const items = listFocusable(root);
-    (items[0] ?? root).focus();
-    return () => root.removeEventListener('keydown', onKeyDown);
-  }, [open, panelRef]);
-};
+// Ловушка фокуса и Esc переехали в ../overlay/focus.js при появлении DetailDrawer (CMP-010):
+// две копии одной механики неизбежно разъезжаются.
 
 export const Modal = ({
   open,
@@ -54,25 +16,8 @@ export const Modal = ({
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = `ui-modal-title-${useId().replace(/:/g, '')}`;
 
-  useModalFocus(panelRef, open);
-
-  const onEscape = useCallback(
-    (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    },
-    [onClose]
-  );
-
-  useEffect(() => {
-    if (!open) return;
-    document.addEventListener('keydown', onEscape);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onEscape);
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [open, onEscape]);
+  useOverlayFocus(panelRef, open);
+  useOverlayEscapeAndScrollLock(open, onClose);
 
   if (!open) return null;
 
