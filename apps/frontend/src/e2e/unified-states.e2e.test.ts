@@ -21,8 +21,10 @@ import { describe, expect, it } from 'vitest';
 const FEATURES_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'features');
 
 const FETCH_MARKERS = /\b(isLoading|isPending|useQuery)\b/;
+// DetailDrawer (CMP-010) добавлен в Фазе 2: он рисует загрузку, ошибку с повтором и
+// содержимое сам — то есть является такой же общей обёрткой состояний, как AsyncSection.
 const WRAPPER_MARKERS =
-  /\b(AsyncSection|ListPage|LoadingState|SectionError|SectionEmpty|ListSkeleton)\b/;
+  /\b(AsyncSection|ListPage|LoadingState|SectionError|SectionEmpty|ListSkeleton|DetailDrawer)\b/;
 
 /**
  * Витрина ui-kit — явное исключение по плану Фазы 5 (решение владельца):
@@ -30,10 +32,38 @@ const WRAPPER_MARKERS =
  * Сегодня она проходит правило и так; исключение закреплено, чтобы витрина
  * могла свободно меняться, не ломая сторожа.
  */
-const EXCEPTIONS = new Set(['ui-kit/gallery-screen.tsx']);
+const EXCEPTIONS = new Set([
+  'features/ui-kit/gallery-screen.tsx',
+  /*
+   * Долг, вскрытый расширением охвата в Фазе 2 (IA-001). Каждая строка — не «разрешение»,
+   * а запись в очередь с указанием фазы; список закрывается по мере переезда экранов.
+   * Записано в журнал расхождений трекера, чтобы долг не растворился в зелёном тесте.
+   *
+   * Четыре дровера и модалка ждут переезда на DetailDrawer — это волны Фазы 4:
+   */
+  'features/assessment-admin/assignment-edit-drawer.tsx',
+  'features/assessment-admin/question-bank-edit-drawer.tsx',
+  'features/assessment-admin/question-editor-drawer.tsx',
+  'features/clients/client-edit-drawer.tsx',
+  'features/group-orders/issue-order-modal.tsx',
+  // Вспомогательный селектор внутри формы, не экран: своих состояний не показывает.
+  'features/clients/group-counterparty-picker.tsx',
+  // Провайдер контекста бренда: данные тянет, но интерфейса не рисует вовсе.
+  'features/branding/context.tsx',
+  // Карточка на дашборде слушателя — Фаза 6 (экраны слушателя и преподавателя).
+  'features/learner-home/recent-documents-card.tsx'
+]);
 
-const isScreenFile = (name: string): boolean =>
-  name.endsWith('.tsx') && !name.endsWith('.test.tsx') && name.includes('screen');
+/*
+ * IA-001 (Фаза 2 редизайна): охват расширен. Прежний сканер брал только `src/features` и
+ * только файлы со словом «screen» в имени — вся папка `app/**` (включая `/documents` на
+ * 766 строк) и десятки файлов `features/` оставались вне проверки. Правило не может
+ * действовать «для файлов с удачным именем».
+ */
+const APP_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'app');
+
+const isScannedFile = (name: string): boolean =>
+  name.endsWith('.tsx') && !name.endsWith('.test.tsx');
 
 const collectScreenFiles = (dir: string): string[] => {
   const out: string[] = [];
@@ -41,7 +71,7 @@ const collectScreenFiles = (dir: string): string[] => {
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) {
       out.push(...collectScreenFiles(full));
-    } else if (isScreenFile(entry)) {
+    } else if (isScannedFile(entry)) {
       out.push(full);
     }
   }
@@ -67,17 +97,26 @@ describe('единые состояния экранов (ФТ-H3)', () => {
     expect(violatesUnifiedStates(presentational)).toBe(false);
   });
 
-  it('каждый экран с данными в features/* использует общие обёртки', () => {
-    const files = collectScreenFiles(FEATURES_DIR);
-    // Сторож самого сканера: если экранов «вдруг» стало мало — сломался поиск,
+  it('каждый файл с данными в features/* и app/* использует общие обёртки', () => {
+    const files = [
+      ...collectScreenFiles(FEATURES_DIR).map((file) => ({
+        rel: `features/${relative(FEATURES_DIR, file).replace(/\\/g, '/')}`,
+        file
+      })),
+      ...collectScreenFiles(APP_DIR).map((file) => ({
+        rel: `app/${relative(APP_DIR, file).replace(/\\/g, '/')}`,
+        file
+      }))
+    ];
+    // Сторож самого сканера: если файлов «вдруг» стало мало — сломался поиск,
     // а не наступило счастье.
-    expect(files.length).toBeGreaterThan(40);
+    expect(files.length).toBeGreaterThan(150);
 
     const offenders = files
-      .map((file) => relative(FEATURES_DIR, file).replace(/\\/g, '/'))
-      .filter((rel) => !EXCEPTIONS.has(rel))
-      .filter((rel) => violatesUnifiedStates(readFileSync(join(FEATURES_DIR, rel), 'utf8')));
+      .filter((entry) => !EXCEPTIONS.has(entry.rel))
+      .filter((entry) => violatesUnifiedStates(readFileSync(entry.file, 'utf8')))
+      .map((entry) => entry.rel);
 
-    expect(offenders, 'экраны с данными без общих обёрток состояний').toEqual([]);
+    expect(offenders, 'файлы с данными без общих обёрток состояний').toEqual([]);
   });
 });
