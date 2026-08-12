@@ -20,6 +20,16 @@ export const tableStyles = `
 /* Кнопка сортировки в заголовке — сброс дефолтного вида <button> (рамка/высота протекали из глобального стиля) */
 .ui-table-sort { background: none; border: none; padding: 0; height: auto; font: inherit; font-weight: 600; color: var(--ui-text-muted); cursor: pointer; display: inline-flex; align-items: center; gap: 2px; }
 .ui-table-sort:hover { color: var(--ui-text); background: none; }
+/* CMP-001: выделение строк, действия строки, плотная раскладка. */
+.ui-table-select { width: 1%; white-space: nowrap; }
+.ui-table-checkbox { width: 18px; height: 18px; cursor: pointer; accent-color: var(--ui-brand-600); }
+.ui-table-actions { width: 1%; white-space: nowrap; text-align: right; }
+.ui-table-actions .ui-button-link + .ui-button-link { margin-left: var(--ui-space-md); }
+.ui-button-link--danger { color: var(--ui-danger-600); }
+.ui-table tbody tr[data-selected='true'] td { background: var(--ui-surface-accent); }
+.ui-table tbody tr[data-selected='true']:hover td { background: var(--ui-surface-accent); }
+.ui-table-wrap--compact .ui-table th,
+.ui-table-wrap--compact .ui-table td { padding: 6px 11px; }
 /* ФТ-H4 (Фаза 5): телефон ≤480px — таблица превращается в карточки.
    Горизонтальная прокрутка таблицы на 360px нечитаема; вместо неё каждая строка
    становится карточкой, а подпись ячейки берётся из data-label (его проставляет
@@ -37,5 +47,11 @@ export const tableStyles = `
   /* Закрепление первой колонки не имеет смысла без горизонтальной прокрутки. */
   .ui-table-wrap--sticky-first .ui-table th:first-child,
   .ui-table-wrap--sticky-first .ui-table td:first-child { position: static; box-shadow: none; }
+  /* CMP-001 на телефоне: выделение и действия — обычные строки карточки, тач-зона 44px. */
+  .ui-table-select, .ui-table-actions { width: auto; text-align: left; }
+  .ui-table-checkbox { width: 24px; height: 24px; }
+  .ui-table td.ui-table-actions { display: flex; flex-wrap: wrap; gap: var(--ui-space-md); }
+  .ui-table td.ui-table-actions .ui-button-link { min-height: 44px; display: inline-flex; align-items: center; }
+  .ui-table td.ui-table-actions .ui-button-link + .ui-button-link { margin-left: 0; }
 }
 `;
