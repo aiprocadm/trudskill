@@ -1,3 +1,4 @@
+import { resolveVisibleColumns } from './column-config.js';
 import { selectionState, toggleAll, toggleKey } from './selection.js';
 
 import type { RowKey } from './selection.js';
@@ -18,7 +19,7 @@ export interface RowAction {
 }
 
 export function DataTable<T extends object>({
-  columns,
+  columns: columnsSource,
   rows,
   stickyFirstColumn = false,
   sortBy,
@@ -30,7 +31,8 @@ export function DataTable<T extends object>({
   selectedKeys,
   onSelectionChange,
   rowActions,
-  density = 'comfortable'
+  density = 'comfortable',
+  visibleColumnKeys
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -49,7 +51,12 @@ export function DataTable<T extends object>({
   onSelectionChange?: (keys: RowKey[]) => void;
   rowActions?: (row: T) => RowAction[];
   density?: 'comfortable' | 'compact';
+  /** CMP-002: какие колонки показывать. Не задано — показываются все. */
+  visibleColumnKeys?: string[];
 }): ReactElement {
+  const allColumnKeys = columnsSource.map((c) => String(c.key));
+  const visible = new Set(resolveVisibleColumns(allColumnKeys, visibleColumnKeys));
+  const columns = columnsSource.filter((c) => visible.has(String(c.key)));
   const wrapClasses = ['ui-table-wrap'];
   if (stickyFirstColumn) wrapClasses.push('ui-table-wrap--sticky-first');
   if (density === 'compact') wrapClasses.push('ui-table-wrap--compact');

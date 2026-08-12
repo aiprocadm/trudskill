@@ -30,6 +30,36 @@ export const tableStyles = `
 .ui-table tbody tr[data-selected='true']:hover td { background: var(--ui-surface-accent); }
 .ui-table-wrap--compact .ui-table th,
 .ui-table-wrap--compact .ui-table td { padding: 6px 11px; }
+/* CMP-002: выбор колонок. Список раскрывается под кнопкой в панели фильтров. */
+.ui-column-picker { position: relative; display: inline-flex; }
+.ui-column-picker__list {
+  position: absolute;
+  top: calc(100% + var(--ui-space-xs));
+  left: 0;
+  z-index: 20;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-xs);
+  padding: var(--ui-space-md);
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  box-shadow: var(--ui-shadow-strong);
+}
+.ui-column-picker__item { display: flex; align-items: center; gap: var(--ui-space-sm); font-size: var(--ui-font-size-sm); }
+.ui-badge-count {
+  margin-left: var(--ui-space-sm);
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: var(--ui-radius-pill);
+  background: var(--ui-brand-600);
+  color: var(--ui-on-accent, #fff);
+  font-size: var(--ui-font-size-xs);
+  line-height: 20px;
+  display: inline-block;
+  text-align: center;
+}
 /* ФТ-H4 (Фаза 5): телефон ≤480px — таблица превращается в карточки.
    Горизонтальная прокрутка таблицы на 360px нечитаема; вместо неё каждая строка
    становится карточкой, а подпись ячейки берётся из data-label (его проставляет
