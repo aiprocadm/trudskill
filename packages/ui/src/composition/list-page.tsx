@@ -3,7 +3,8 @@ import { FilterBar } from '../components/filters/index.js';
 import { Pagination } from '../components/pagination/index.js';
 import { DataTable } from '../components/table/index.js';
 
-import type { Column } from '../components/table/index.js';
+import type { EmptyStateAction } from '../components/states/index.js';
+import type { Column, RowAction } from '../components/table/index.js';
 import type { ReactElement, ReactNode } from 'react';
 
 export interface ListPageProps<T extends object> {
@@ -15,6 +16,10 @@ export interface ListPageProps<T extends object> {
   onRetry?: () => void;
   emptyMessage?: string;
   emptyHint?: string;
+  /** TPL-006: что сделать первым, когда список пуст. */
+  emptyAction?: EmptyStateAction;
+  /** CMP-001: действия строки — в своей колонке, а не кнопками внутри данных. */
+  rowActions?: (row: T) => RowAction[];
   rowKey?: (row: T, index: number) => string | number;
   page?: number;
   totalPages?: number;
@@ -31,6 +36,8 @@ export function ListPage<T extends object>({
   onRetry,
   emptyMessage,
   emptyHint,
+  emptyAction,
+  rowActions,
   rowKey,
   page,
   totalPages,
@@ -48,8 +55,14 @@ export function ListPage<T extends object>({
         {...(onRetry ? { onRetry } : {})}
         {...(emptyMessage ? { emptyMessage } : {})}
         {...(emptyHint ? { emptyHint } : {})}
+        {...(emptyAction ? { emptyAction } : {})}
       >
-        <DataTable<T> columns={columns} rows={rows} {...(rowKey ? { rowKey } : {})} />
+        <DataTable<T>
+          columns={columns}
+          rows={rows}
+          {...(rowKey ? { rowKey } : {})}
+          {...(rowActions ? { rowActions } : {})}
+        />
         {showPagination ? (
           <Pagination page={page} totalPages={totalPages} onPageChange={onPageChange} />
         ) : null}
