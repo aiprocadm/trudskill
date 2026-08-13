@@ -33,12 +33,6 @@ import {
   useEnrollmentCertificatesForCompleted,
   useEnrollments,
   useExamResults,
-  useGroup,
-  useGroupCourses,
-  useGroupsList,
-  useLearner,
-  useLearnerCourseProgress,
-  useLearnerCourses,
   useMaterials,
   useModules,
   useQuestionBanks,
@@ -51,6 +45,7 @@ import {
   useUsersList
 } from './hooks';
 import { buildCommissionInfoPayload, buildProgramMetaPatch } from './payloads';
+import { MutationError, PaginationControls, readApiMessage } from './screen-helpers';
 import { FieldError, FormErrorSummary, useFocusFirstError } from '../../components/form-feedback';
 import {
   PageContainer,
@@ -70,11 +65,7 @@ import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 import { CourseViewerScreen } from '../course-viewer/course-viewer-screen';
 import { useOtTrainingPrograms } from '../gov-export/hooks';
-import { IssueOrderModal } from '../group-orders/issue-order-modal';
 import { useLearnerHomeData } from '../learner-home/use-learner-home-data';
-import { LearnerPdfCardSections } from '../learner-pdf-card/learner-pdf-card-sections';
-import { LearningJournalSection } from '../learning-journal/screens';
-import { proctoringApi } from '../proctoring/api';
 import { scormApi } from '../scorm/api';
 
 import type {
@@ -205,45 +196,6 @@ const UsersFilterBar = ({
   </div>
 );
 
-const PaginationControls = ({
-  page,
-  setPage,
-  total,
-  pageSize
-}: {
-  page: number;
-  setPage: (page: number) => void;
-  total: number | undefined;
-  pageSize: number;
-}) => {
-  const canPrev = page > 1;
-  const canNext = total ? page * pageSize < total : true;
-  return (
-    <div className="ui-inline">
-      <button type="button" disabled={!canPrev} onClick={() => setPage(page - 1)}>
-        Назад
-      </button>
-      <span>Страница {page}</span>
-      <button type="button" disabled={!canNext} onClick={() => setPage(page + 1)}>
-        Далее
-      </button>
-    </div>
-  );
-};
-
-const readApiMessage = (error: unknown) => {
-  if (error instanceof ApiClientError) return error.normalized.message;
-  if (error instanceof Error) return error.message;
-  return 'Не удалось выполнить действие';
-};
-
-const ProgressBar = ({ value }: { value: number }) => (
-  <div className="ui-stack" style={{ gap: 4 }}>
-    <progress max={100} value={value} />
-    <small className="ui-text-muted">{value}%</small>
-  </div>
-);
-
 const ListSkeleton = ({ lines = 4 }: { lines?: number }) => (
   <div className="ui-skeleton-block" aria-hidden>
     {Array.from({ length: lines }, (_, i) => (
@@ -251,9 +203,6 @@ const ListSkeleton = ({ lines = 4 }: { lines?: number }) => (
     ))}
   </div>
 );
-
-const MutationError = ({ message }: { message: string | null }) =>
-  message ? <SectionError message={message} /> : null;
 
 const toTableRows = <T extends object>(rows: T[]): Record<string, unknown>[] =>
   rows as unknown as Record<string, unknown>[];
@@ -435,79 +384,7 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
   );
 };
 
-export const LearnerDetailsScreen = ({ id }: { id: string }) => {
-  const { data: learner, loading, error, refetch } = useLearner(id);
-  const { data: enrollmentPage, loading: enrollmentsLoading } = useLearnerCourses(id);
-  const enrollments = enrollmentPage?.items ?? [];
-
-  return (
-    <PageContainer>
-      <PageHeader
-        title="Карточка слушателя"
-        actions={<Link href="/learners">← Реестр слушателей</Link>}
-      />
-      {loading ? <LoadingState message="Загрузка…" /> : null}
-      {error ? <SectionError message={error} onRetry={() => void refetch()} /> : null}
-      {learner ? (
-        <>
-          <SectionCard title="Основные данные">
-            <div className="ui-inline" style={{ justifyContent: 'space-between' }}>
-              <div>
-                <p className="profile-name">{`${learner.lastName} ${learner.firstName}`.trim()}</p>
-                <p className="ui-text-muted" style={{ margin: '2px 0 0', fontSize: 13 }}>
-                  ID: {learner.id}
-                </p>
-              </div>
-              <StatusChip status={learner.status} />
-            </div>
-            <dl className="kv-list">
-              <div className="kv-list__row">
-                <dt>Код (learnerNo)</dt>
-                <dd>{learner.learnerNo ?? '—'}</dd>
-              </div>
-              <div className="kv-list__row">
-                <dt>Email</dt>
-                <dd>{learner.email ?? '—'}</dd>
-              </div>
-              <div className="kv-list__row">
-                <dt>Подразделение</dt>
-                <dd>{learner.organizationUnitId ?? '—'}</dd>
-              </div>
-              <div className="kv-list__row">
-                <dt>Связанный IAM user</dt>
-                <dd>{learner.linkedIamUserId ?? '—'}</dd>
-              </div>
-            </dl>
-          </SectionCard>
-          <SectionCard title="Зачисления">
-            {enrollmentsLoading ? <LoadingState message="Загрузка зачислений…" /> : null}
-            {!enrollmentsLoading && enrollments.length === 0 ? (
-              <SectionEmpty message="Нет зачислений для этого слушателя" />
-            ) : null}
-            {!enrollmentsLoading && enrollments.length > 0 ? (
-              <DataTable
-                columns={[
-                  { key: 'courseId', title: 'Курс (id)' },
-                  { key: 'groupId', title: 'Группа' },
-                  { key: 'status', title: 'Статус' },
-                  { key: 'enrolledAt', title: 'Зачислен' }
-                ]}
-                rows={enrollments.map((e) => ({
-                  courseId: e.courseId ?? '—',
-                  groupId: e.groupId,
-                  status: e.status,
-                  enrolledAt: e.enrolledAt
-                }))}
-              />
-            ) : null}
-          </SectionCard>
-          {/* Pillar A Plan C §5.11 — личное дело: учебная история + документы + PDF stub */}
-          <LearnerPdfCardSections learnerId={id} />
-        </>
-      ) : null}
-    </PageContainer>
-  );
-};
+// LearnerDetailsScreen переехал в features/learners/learner-detail-screen.tsx (Фаза 4 срез 2, SCR-001).
 
 export const CounterpartiesPageScreen = () => {
   const [q, setQ] = useState('');
@@ -1595,307 +1472,7 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
   );
 };
 
-export const GroupsPageScreen = () => {
-  const { session } = useAuth();
-  const canCreateGroup = hasPermission(session?.permissions ?? [], 'groups.write');
-  const [page, setPage] = useState(1);
-  const { data, loading, error } = useGroupsList({ page, page_size: 20 });
-  return (
-    <PageContainer>
-      <PageHeader
-        title="Группы"
-        actions={
-          canCreateGroup ? (
-            <Link href="/groups/new">Создать группу</Link>
-          ) : (
-            <small>Недостаточно прав для создания группы</small>
-          )
-        }
-      />
-      <SectionCard title="Реестр групп">
-        <AsyncSection
-          isLoading={loading}
-          error={error ? new Error(error) : undefined}
-          isEmpty={!data?.items.length}
-          loadingMessage="Загрузка…"
-          emptyMessage="Нет групп"
-        >
-          <ul>
-            {(data?.items ?? []).map((group) => (
-              <li key={group.id}>
-                <Link href={`/groups/${group.id}`}>{group.name}</Link>
-              </li>
-            ))}
-          </ul>
-        </AsyncSection>
-        <PaginationControls page={page} setPage={setPage} total={data?.total} pageSize={20} />
-      </SectionCard>
-    </PageContainer>
-  );
-};
-
-export const GroupCreateScreen = () => {
-  const router = useRouter();
-  const { saveGroup } = useDomainMutations();
-  const [code, setCode] = useState('');
-  const [name, setName] = useState('');
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<{ code?: string; name?: string }>({});
-  const codeRef = useRef<HTMLInputElement>(null);
-  const nameRef = useRef<HTMLInputElement>(null);
-
-  const formErrors = useMemo(
-    () =>
-      Object.entries(fieldErrors).map(([field, message]) => ({
-        field,
-        message: message ?? ''
-      })),
-    [fieldErrors]
-  );
-
-  useFocusFirstError(formErrors, {
-    code: codeRef.current,
-    name: nameRef.current
-  });
-
-  const onSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    const nextFieldErrors: typeof fieldErrors = {};
-    if (code.trim().length < 2) nextFieldErrors.code = 'Код группы: минимум 2 символа.';
-    if (name.trim().length < 3) nextFieldErrors.name = 'Название: минимум 3 символа.';
-    setFieldErrors(nextFieldErrors);
-    if (Object.keys(nextFieldErrors).length) return;
-
-    try {
-      const created = await saveGroup(null, {
-        code: code.trim(),
-        name: name.trim(),
-        status: 'draft'
-      });
-      router.push(`/groups/${created.id}`);
-    } catch (createError) {
-      setSaveError(readApiMessage(createError));
-    }
-  };
-
-  return (
-    <PageContainer>
-      <PageHeader title="Мастер создания группы" />
-      <SectionCard title="Основные атрибуты">
-        <form
-          onSubmit={(event) => void onSubmit(event)}
-          className="ui-form"
-          style={{ maxWidth: 480 }}
-          noValidate
-        >
-          <FormErrorSummary id="group-create-summary" errors={formErrors} />
-          <label htmlFor="group-code" className="ui-field">
-            <span className="ui-field-label">Код</span>
-            <input
-              id="group-code"
-              ref={codeRef}
-              required
-              placeholder="Код"
-              value={code}
-              onChange={(event) => setCode(event.target.value)}
-              aria-invalid={Boolean(fieldErrors.code)}
-              aria-describedby={fieldErrors.code ? 'group-code-error' : undefined}
-            />
-            <FieldError id="group-code-error" message={fieldErrors.code} />
-          </label>
-          <label htmlFor="group-name" className="ui-field">
-            <span className="ui-field-label">Название</span>
-            <input
-              id="group-name"
-              ref={nameRef}
-              required
-              placeholder="Название"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              aria-invalid={Boolean(fieldErrors.name)}
-              aria-describedby={fieldErrors.name ? 'group-name-error' : undefined}
-            />
-            <FieldError id="group-name-error" message={fieldErrors.name} />
-          </label>
-          <button type="submit">Создать</button>
-          {saveError ? <SectionError message={saveError} /> : null}
-        </form>
-      </SectionCard>
-    </PageContainer>
-  );
-};
-
-export const GroupDetailsScreen = ({ id }: { id: string }) => {
-  const { session } = useAuth();
-  const { data: group } = useGroup(id);
-  const { data: courses } = useCoursesList({ page: 1, page_size: 20 });
-  const { data: groupCourses, refetch: refetchCourses } = useGroupCourses(id);
-  const { data: enrollments, refetch: refetchEnrollments } = useEnrollments({ group_id: id });
-  const { data: progress } = useLearnerCourseProgress(groupCourses?.items[0]?.courseId);
-  const { createGroupCourse, createEnrollment } = useDomainMutations();
-  const [selectedCourseId, setSelectedCourseId] = useState('');
-  const [learnerId, setLearnerId] = useState('');
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [issueOrderOpen, setIssueOrderOpen] = useState(false);
-
-  // Pillar A Plan B §5.7: caller отвечает за фильтрацию только completed-enrollment'ов.
-  const completedEnrollmentIds = useMemo(
-    () => (enrollments?.items ?? []).filter((e) => e.status === 'completed').map((e) => e.id),
-    [enrollments]
-  );
-
-  const averageProgress = useMemo(() => {
-    if (!progress?.items.length) return 0;
-    const total = progress.items.reduce((sum, item) => sum + item.progressPercent, 0);
-    return Math.round(total / progress.items.length);
-  }, [progress]);
-
-  // Карта id→название курса для читаемого списка курсов группы (вместо сырых id).
-  const courseTitleById = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const course of courses?.items ?? []) map[course.id] = course.title;
-    return map;
-  }, [courses]);
-
-  return (
-    <PageContainer>
-      <PageHeader
-        title={group?.name ?? 'Карточка группы'}
-        actions={
-          <button type="button" className="ui-button" onClick={() => setIssueOrderOpen(true)}>
-            Сгенерировать приказ
-          </button>
-        }
-      />
-      <SectionCard title="Общая информация">
-        <dl className="kv-list">
-          <div className="kv-list__row">
-            <dt>Код</dt>
-            <dd>{group?.code ?? '—'}</dd>
-          </div>
-          <div className="kv-list__row">
-            <dt>Статус</dt>
-            <dd>
-              <StatusChip status={group?.status ?? 'draft'} />
-            </dd>
-          </div>
-        </dl>
-      </SectionCard>
-      <SectionCard title="Курсы группы">
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!selectedCourseId) return;
-            void createGroupCourse({ groupId: id, courseId: selectedCourseId })
-              .then(() => {
-                setSelectedCourseId('');
-                return refetchCourses();
-              })
-              .catch((groupCourseError) => setSaveError(readApiMessage(groupCourseError)));
-          }}
-          className="ui-inline"
-          style={{ marginBottom: 8 }}
-        >
-          <select
-            value={selectedCourseId}
-            onChange={(event) => setSelectedCourseId(event.target.value)}
-          >
-            <option value="">Выберите курс для назначения</option>
-            {courses?.items.map((course) => (
-              <option key={course.id} value={course.id}>
-                {course.title}
-              </option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            className="ui-button ui-button--primary"
-            disabled={!selectedCourseId}
-          >
-            Назначить курс
-          </button>
-        </form>
-        <ul className="ui-stack" style={{ gap: 0, listStyle: 'none', padding: 0, margin: 0 }}>
-          {groupCourses?.items.map((item) => (
-            <li key={item.id} className="ui-list-row">
-              {courseTitleById[item.courseId] ?? item.courseId}
-            </li>
-          ))}
-        </ul>
-      </SectionCard>
-      <SectionCard title="Зачисления и прогресс">
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!learnerId.trim()) return;
-            void createEnrollment({ groupId: id, learnerId: learnerId.trim() })
-              .then(() => {
-                setLearnerId('');
-                return refetchEnrollments();
-              })
-              .catch((enrollmentError) => setSaveError(readApiMessage(enrollmentError)));
-          }}
-          className="ui-inline"
-          style={{ marginBottom: 8 }}
-        >
-          <input
-            value={learnerId}
-            onChange={(event) => setLearnerId(event.target.value)}
-            placeholder="ID слушателя"
-          />
-          <button
-            type="submit"
-            className="ui-button ui-button--primary"
-            disabled={!learnerId.trim()}
-          >
-            Зачислить слушателя
-          </button>
-        </form>
-        <ul>
-          {enrollments?.items.map((item) => (
-            <li key={item.id} className="ui-inline" style={{ gap: 8, flexWrap: 'wrap' }}>
-              <span>{item.learnerId}</span>
-              <StatusChip status={item.status} />
-              {/* Phase 4 Plan B: per-student proctoring override (PATCH needs learners.write). */}
-              {session && hasPermission(session.permissions, 'learners.write') ? (
-                <label className="ui-inline" style={{ gap: 4 }}>
-                  <span>Прокторинг:</span>
-                  <select
-                    value={item.proctoringOverride ?? ''}
-                    aria-label={`Прокторинг для слушателя ${item.learnerId}`}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      void proctoringApi
-                        .setOverride(session, item.id, {
-                          override: value === 'require' || value === 'exempt' ? value : null
-                        })
-                        .then(() => refetchEnrollments())
-                        .catch((overrideError) => setSaveError(readApiMessage(overrideError)));
-                    }}
-                  >
-                    <option value="">наследуется</option>
-                    <option value="require">требуется</option>
-                    <option value="exempt">освобождён</option>
-                  </select>
-                </label>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-        <ProgressBar value={averageProgress} />
-        <MutationError message={saveError} />
-      </SectionCard>
-      {/* ФТ-B3.4: доказательная база на проверке ГИТ/Минтруда. */}
-      <LearningJournalSection groupId={id} />
-      <IssueOrderModal
-        open={issueOrderOpen}
-        groupId={id}
-        enrollmentIds={completedEnrollmentIds}
-        onClose={() => setIssueOrderOpen(false)}
-      />
-    </PageContainer>
-  );
-};
+// Экраны групп переехали в features/groups/ (Фаза 4 срез 2, SCR-001).
 
 export const LearnerCoursesScreen = () => {
   const { data, isLoading, error } = useLearnerHomeData();
