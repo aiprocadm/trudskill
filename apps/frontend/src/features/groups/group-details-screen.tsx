@@ -17,16 +17,13 @@ import {
   useGroupCourses,
   useLearnerCourseProgress
 } from '../mvp/hooks';
-import { MutationError, ProgressBar, readApiMessage } from '../mvp/screen-helpers';
+import {
+  ENROLLMENT_STATUS_LABEL,
+  MutationError,
+  ProgressBar,
+  readApiMessage
+} from '../mvp/screen-helpers';
 import { proctoringApi } from '../proctoring/api';
-
-const ENROLLMENT_STATUS_LABEL: Record<string, string> = {
-  pending: 'Ожидает',
-  active: 'Учится',
-  suspended: 'Приостановлен',
-  completed: 'Завершил',
-  cancelled: 'Отменён'
-};
 
 /*
  * TPL-002 (Фаза 4 срез 3). Что изменилось против перенесённой версии:

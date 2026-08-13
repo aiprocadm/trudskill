@@ -35,6 +35,31 @@ export const PaginationControls = ({
   );
 };
 
+/**
+ * Статусы зачисления по-русски (`TXT-006`).
+ *
+ * Словарь жил в двух файлах одновременно (`mvp/screens.tsx` и карточка группы). Карточке
+ * слушателя он нужен третьим — вместо третьей копии он переехал сюда, в общий слой.
+ */
+export const ENROLLMENT_STATUS_LABEL: Record<string, string> = {
+  pending: 'Ожидает',
+  active: 'Учится',
+  suspended: 'Приостановлен',
+  completed: 'Завершил',
+  cancelled: 'Отменён'
+};
+
+/**
+ * Дата человеку — днём, месяцем и годом, а не машинной строкой `2026-03-12T00:00:00Z`.
+ * Пустое значение остаётся прочерком: выдумывать «сегодня» вместо отсутствующей даты нельзя.
+ */
+export const formatDate = (value: string | undefined | null): string => {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString('ru-RU');
+};
+
 export const readApiMessage = (error: unknown) => {
   if (error instanceof ApiClientError) return error.normalized.message;
   if (error instanceof Error) return error.message;

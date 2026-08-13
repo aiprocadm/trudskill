@@ -37,6 +37,22 @@ export const ALL_TEMPLATE_TYPES: TemplateType[] = [
   'contract'
 ];
 
+/**
+ * Состояния документа по-русски (`TXT-006`).
+ *
+ * В фильтре статуса выпадающий список показывал коды как есть — `generated`, `final`,
+ * `archived`. Администратор учебного центра не обязан знать, что «final» это «выдан».
+ */
+export const DOCUMENT_STATUS_LABELS: Record<string, string> = {
+  generated: 'Подготовлен',
+  final: 'Выдан',
+  archived: 'В архиве',
+  revoked: 'Аннулирован'
+};
+
+/** Порядок в фильтре — от рабочего состояния к завершённому. */
+export const FILTERABLE_DOCUMENT_STATUSES = ['generated', 'final', 'archived'];
+
 export interface IssuedDocument {
   id: string;
   documentNumber?: string;

@@ -32,6 +32,37 @@ describe('ListPage — каркас списочного экрана', () => {
     expect(async.props.isEmpty).toBe(true);
   });
 
+  it('действие пустого экрана доходит до AsyncSection (TPL-006)', () => {
+    // Пустой реестр обязан говорить, что сделать первым, — иначе человек упирается в тупик.
+    const el = ListPage<Row>({
+      columns,
+      rows: [],
+      isLoading: false,
+      emptyAction: { label: 'Показать все', onSelect: () => {} }
+    });
+    const [, async] = el.props.children as any[];
+    expect(async.props.emptyAction.label).toBe('Показать все');
+  });
+
+  it('без действия свойство не передаётся вовсе (exactOptionalPropertyTypes)', () => {
+    const el = ListPage<Row>({ columns, rows: [], isLoading: false });
+    const [, async] = el.props.children as any[];
+    expect('emptyAction' in async.props).toBe(false);
+  });
+
+  it('действия строки уходят в таблицу, а не рисуются внутри данных (CMP-001)', () => {
+    const el = ListPage<Row>({
+      columns,
+      rows: [{ id: '1', name: 'A' }],
+      isLoading: false,
+      rowActions: () => [{ label: 'Аннулировать', onSelect: () => {} }]
+    });
+    const [, async] = el.props.children as any[];
+    const [table] = async.props.children as any[];
+    expect(table.props.rowActions).toBeTypeOf('function');
+    expect(table.props.rowActions({ id: '1', name: 'A' })[0].label).toBe('Аннулировать');
+  });
+
   it('пагинация рендерится только при заданных page/totalPages/onPageChange', () => {
     const el = ListPage<Row>({
       columns,

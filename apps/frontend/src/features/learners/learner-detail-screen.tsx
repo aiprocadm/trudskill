@@ -1,7 +1,8 @@
 'use client';
 
-import { DataTable, LoadingState, StatusChip } from '@trudskill/ui';
+import { DataTable, DetailLayout, KeyValueList, LoadingState, StatusChip } from '@trudskill/ui';
 import Link from 'next/link';
+import { useMemo } from 'react';
 
 import {
   PageContainer,
@@ -11,81 +12,114 @@ import {
   SectionError
 } from '../../components/state-wrappers';
 import { LearnerPdfCardSections } from '../learner-pdf-card/learner-pdf-card-sections';
-import { useLearner, useLearnerCourses } from '../mvp/hooks';
+import { useCoursesList, useGroupsList, useLearner, useLearnerCourses } from '../mvp/hooks';
+import { ENROLLMENT_STATUS_LABEL, formatDate } from '../mvp/screen-helpers';
 
 /*
- * Перенесён «как есть» из features/mvp/screens.tsx (§8.3, порядок 1; правило SCR-001:
- * перенос и редизайн — разные шаги). Редизайн карточки под TPL-002 — следующий срез.
+ * TPL-002 — эталон карточки (ТЗ §8.2). Что изменилось против перенесённой версии:
+ *
+ * 1. Раскладка `DetailLayout`: слева работа со слушателем, справа сводка `KeyValueList`.
+ * 2. **Из карточки убраны сырые идентификаторы.** Было: заголовок «Карточка слушателя»
+ *    (одинаковый для всех людей), строка `ID: 3f7a…`, подпись «Код (learnerNo)»,
+ *    «Связанный IAM user» с идентификатором, а в зачислениях — «Курс (id)» и «Группа»
+ *    кодами, статус кодом, дата машинной строкой. Ни одно из этих значений человеку
+ *    ничего не сообщает (правило «ни одного сырого ID как значения»).
+ * 3. Названия курса и группы берутся из справочников по идентификаторам — ручки,
+ *    отдающей зачисления сразу с названиями, в контракте нет, а контракт в фазах
+ *    редизайна не меняется.
  */
+
+const PAGE_SIZE = 100;
+
 export const LearnerDetailsScreen = ({ id }: { id: string }) => {
   const { data: learner, loading, error, refetch } = useLearner(id);
   const { data: enrollmentPage, loading: enrollmentsLoading } = useLearnerCourses(id);
+  const { data: coursePage } = useCoursesList({ page: 1, page_size: PAGE_SIZE });
+  const { data: groupPage } = useGroupsList({ page: 1, page_size: PAGE_SIZE });
+
   const enrollments = enrollmentPage?.items ?? [];
+
+  const courseName = useMemo(
+    () => new Map((coursePage?.items ?? []).map((course) => [course.id, course.title])),
+    [coursePage]
+  );
+  const groupName = useMemo(
+    () => new Map((groupPage?.items ?? []).map((group) => [group.id, group.name])),
+    [groupPage]
+  );
+
+  const fullName = learner ? `${learner.lastName} ${learner.firstName}`.trim() : '';
 
   return (
     <PageContainer>
       <PageHeader
-        title="Карточка слушателя"
-        actions={<Link href="/learners">← Реестр слушателей</Link>}
+        title={fullName || 'Слушатель'}
+        subtitle="Личное дело: где учится, что уже получил"
+        actions={
+          <Link className="ui-button-link" href="/learners">
+            ← Все слушатели
+          </Link>
+        }
       />
-      {loading ? <LoadingState message="Загрузка…" /> : null}
+      {loading ? <LoadingState message="Загружаем карточку…" /> : null}
       {error ? <SectionError message={error} onRetry={() => void refetch()} /> : null}
       {learner ? (
-        <>
-          <SectionCard title="Основные данные">
-            <div className="ui-inline" style={{ justifyContent: 'space-between' }}>
-              <div>
-                <p className="profile-name">{`${learner.lastName} ${learner.firstName}`.trim()}</p>
-                <p className="ui-text-muted" style={{ margin: '2px 0 0', fontSize: 13 }}>
-                  ID: {learner.id}
-                </p>
-              </div>
-              <StatusChip status={learner.status} />
-            </div>
-            <dl className="kv-list">
-              <div className="kv-list__row">
-                <dt>Код (learnerNo)</dt>
-                <dd>{learner.learnerNo ?? '—'}</dd>
-              </div>
-              <div className="kv-list__row">
-                <dt>Email</dt>
-                <dd>{learner.email ?? '—'}</dd>
-              </div>
-              <div className="kv-list__row">
-                <dt>Подразделение</dt>
-                <dd>{learner.organizationUnitId ?? '—'}</dd>
-              </div>
-              <div className="kv-list__row">
-                <dt>Связанный IAM user</dt>
-                <dd>{learner.linkedIamUserId ?? '—'}</dd>
-              </div>
-            </dl>
-          </SectionCard>
-          <SectionCard title="Зачисления">
-            {enrollmentsLoading ? <LoadingState message="Загрузка зачислений…" /> : null}
+        <DetailLayout
+          aside={
+            <SectionCard title="Коротко">
+              <KeyValueList
+                items={[
+                  { label: 'Состояние', value: <StatusChip status={learner.status} /> },
+                  { label: 'Личный номер', value: learner.learnerNo ?? 'не присвоен' },
+                  { label: 'Почта', value: learner.email ?? 'не указана' },
+                  {
+                    /*
+                     * Раньше здесь печатался идентификатор учётной записи. Администратору
+                     * важно другое: сможет ли человек войти в кабинет.
+                     */
+                    label: 'Вход в кабинет',
+                    value: learner.linkedIamUserId ? 'открыт' : 'не открыт'
+                  },
+                  { label: 'Заведён', value: formatDate(learner.createdAt) }
+                ]}
+              />
+            </SectionCard>
+          }
+        >
+          <SectionCard title="Обучение">
+            {enrollmentsLoading ? <LoadingState message="Загружаем зачисления…" /> : null}
             {!enrollmentsLoading && enrollments.length === 0 ? (
-              <SectionEmpty message="Нет зачислений для этого слушателя" />
+              <SectionEmpty
+                message="Слушатель пока никуда не зачислен"
+                hint="Зачисление делается в карточке учебной группы — там же виден весь её состав."
+              />
             ) : null}
             {!enrollmentsLoading && enrollments.length > 0 ? (
               <DataTable
                 columns={[
-                  { key: 'courseId', title: 'Курс (id)' },
-                  { key: 'groupId', title: 'Группа' },
-                  { key: 'status', title: 'Статус' },
+                  { key: 'course', title: 'Курс' },
+                  { key: 'group', title: 'Группа' },
+                  { key: 'status', title: 'Состояние' },
                   { key: 'enrolledAt', title: 'Зачислен' }
                 ]}
-                rows={enrollments.map((e) => ({
-                  courseId: e.courseId ?? '—',
-                  groupId: e.groupId,
-                  status: e.status,
-                  enrolledAt: e.enrolledAt
+                rows={enrollments.map((item) => ({
+                  course: courseName.get(item.courseId ?? '') ?? '—',
+                  group: groupName.get(item.groupId) ? (
+                    <Link className="ui-link" href={`/groups/${item.groupId}`}>
+                      {groupName.get(item.groupId)}
+                    </Link>
+                  ) : (
+                    '—'
+                  ),
+                  status: ENROLLMENT_STATUS_LABEL[item.status] ?? item.status,
+                  enrolledAt: formatDate(item.enrolledAt)
                 }))}
               />
             ) : null}
           </SectionCard>
           {/* Pillar A Plan C §5.11 — личное дело: учебная история + документы + PDF stub */}
           <LearnerPdfCardSections learnerId={id} />
-        </>
+        </DetailLayout>
       ) : null}
     </PageContainer>
   );
