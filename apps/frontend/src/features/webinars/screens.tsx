@@ -63,53 +63,59 @@ export function WebinarsAdminScreen() {
   );
 }
 
-export function WebinarProviderSettingsScreen() {
+/*
+ * IA-018: тело настроек — секция для общего экрана «Настройки».
+ * Экран-обёртка сохранён (его проверяет сторож webinars.e2e).
+ */
+export function WebinarProviderSettingsSection() {
   const { settings, error, saving, save } = useProviderSettings();
   const [code, setCode] = useState<WebinarProviderCode>('noop');
   const [baseUrl, setBaseUrl] = useState('');
   const [enabled, setEnabled] = useState(false);
 
   return (
+    <SectionCard title="Провайдер вебинаров">
+      {error ? <SectionError message={error} /> : null}
+      {settings ? (
+        <div className="ui-list-row-meta">
+          Текущий: {settings.providerCode} · {settings.enabled ? 'включён' : 'выключен'}
+        </div>
+      ) : null}
+      <div className="ui-inline">
+        <select value={code} onChange={(e) => setCode(e.target.value as WebinarProviderCode)}>
+          {PROVIDERS.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+        <input
+          placeholder="Base URL"
+          value={baseUrl}
+          onChange={(e) => setBaseUrl(e.target.value)}
+        />
+        <label>
+          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />{' '}
+          Включён
+        </label>
+        <button
+          type="button"
+          className="ui-button ui-button--primary"
+          disabled={saving}
+          onClick={() => save({ providerCode: code, enabled, ...(baseUrl ? { baseUrl } : {}) })}
+        >
+          Сохранить
+        </button>
+      </div>
+    </SectionCard>
+  );
+}
+
+export function WebinarProviderSettingsScreen() {
+  return (
     <PageContainer>
       <PageHeader title="Провайдер вебинаров" subtitle="Выбор площадки для этого учебного центра" />
-      <SectionCard title="Настройки">
-        {error ? <SectionError message={error} /> : null}
-        {settings ? (
-          <div className="ui-list-row-meta">
-            Текущий: {settings.providerCode} · {settings.enabled ? 'включён' : 'выключен'}
-          </div>
-        ) : null}
-        <div className="ui-inline">
-          <select value={code} onChange={(e) => setCode(e.target.value as WebinarProviderCode)}>
-            {PROVIDERS.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-          <input
-            placeholder="Base URL"
-            value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
-          />
-          <label>
-            <input
-              type="checkbox"
-              checked={enabled}
-              onChange={(e) => setEnabled(e.target.checked)}
-            />{' '}
-            Включён
-          </label>
-          <button
-            type="button"
-            className="ui-button ui-button--primary"
-            disabled={saving}
-            onClick={() => save({ providerCode: code, enabled, ...(baseUrl ? { baseUrl } : {}) })}
-          >
-            Сохранить
-          </button>
-        </div>
-      </SectionCard>
+      <WebinarProviderSettingsSection />
     </PageContainer>
   );
 }

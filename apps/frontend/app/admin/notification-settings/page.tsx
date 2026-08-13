@@ -1,10 +1,9 @@
-import { NotificationRecipientsScreen } from '../../../src/features/notification-recipients/screens';
-import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
+import { redirect } from 'next/navigation';
 
+/*
+ * IA-018 — ⚠️ меняет поведение (ТЗ §4.9). Адреса для копий писем стали разделом
+ * общего экрана настроек; старый адрес сохранён редиректом на якорь.
+ */
 export default function AdminNotificationSettingsPage() {
-  return (
-    <ProtectedPage>
-      <NotificationRecipientsScreen />
-    </ProtectedPage>
-  );
+  redirect('/settings#notifications');
 }

@@ -64,4 +64,32 @@ export const layoutStyles = `
     grid-template-columns: 1fr;
   }
 }
+/* IA-018: оглавление настроек — плитки разделов вместо 14 пунктов меню. */
+.ui-settings-toc {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--ui-space-sm);
+}
+.ui-settings-toc__link {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 44px;
+  justify-content: center;
+  padding: var(--ui-space-sm) var(--ui-space-md);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  text-decoration: none;
+}
+.ui-settings-toc__link:hover {
+  border-color: var(--ui-brand-600);
+  box-shadow: var(--ui-shadow);
+}
+.ui-settings-toc__title { font-weight: var(--ui-font-weight-semibold); }
+.ui-settings-toc__hint { font-size: var(--ui-font-size-sm); color: var(--ui-text-muted); }
 `;
