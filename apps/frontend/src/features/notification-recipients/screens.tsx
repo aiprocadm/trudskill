@@ -13,7 +13,11 @@ import {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function NotificationRecipientsScreen(): ReactElement {
+/*
+ * IA-018: тело настроек — секция для общего экрана «Настройки».
+ * Экран-обёртка сохранён (его импортирует страница-редирект и проверяют тесты).
+ */
+export function NotificationRecipientsSection(): ReactElement {
   const { data, isLoading, error } = useNotificationRecipients();
   const { save, savePending } = useNotificationRecipientsMutation();
 
@@ -52,62 +56,71 @@ export function NotificationRecipientsScreen(): ReactElement {
   };
 
   return (
+    <SectionCard title="Уведомления сотрудникам">
+      <p className="ui-text-muted">
+        Адреса, на которые дублируются письма о переаттестации, приближении срока и отзыве документа
+        (помимо слушателя и заказчика). Пустой список — копии выключены.
+      </p>
+      {isLoading ? <LoadingState message="Загрузка настроек…" /> : null}
+      {error ? <SectionError message="Не удалось загрузить настройки уведомлений" /> : null}
+
+      {!isLoading && !error ? (
+        <div className="ui-stack" style={{ gap: 12 }}>
+          {emails.map((email, index) => (
+            <div key={index} className="ui-inline" style={{ gap: 8 }}>
+              <input
+                type="email"
+                className="ui-input"
+                style={{ minWidth: 280 }}
+                placeholder="curator@example.ru"
+                value={email}
+                onChange={(e) => setAt(index, e.target.value)}
+                aria-label={`Email сотрудника ${index + 1}`}
+              />
+              <button type="button" className="ui-button" onClick={() => removeAt(index)}>
+                Убрать
+              </button>
+            </div>
+          ))}
+
+          <div>
+            <button type="button" className="ui-button" onClick={addRow}>
+              + Добавить адрес
+            </button>
+          </div>
+
+          {hasInvalid ? (
+            <p className="ui-callout ui-callout--danger">
+              Проверьте формат адресов — есть некорректные.
+            </p>
+          ) : null}
+          {notice ? <p className="ui-callout">{notice}</p> : null}
+          {actionError ? <SectionError message={actionError} /> : null}
+
+          <div>
+            <button
+              type="button"
+              className="ui-button ui-button--primary"
+              disabled={savePending || hasInvalid}
+              onClick={() => void onSave()}
+            >
+              {savePending ? 'Сохраняем…' : 'Сохранить'}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </SectionCard>
+  );
+}
+
+export function NotificationRecipientsScreen(): ReactElement {
+  return (
     <PageContainer>
       <PageHeader
         title="Уведомления сотрудникам"
-        subtitle="Адреса, на которые дублируются письма о переаттестации, приближении дедлайна и отзыве документа (помимо слушателя и заказчика). Пустой список — копии выключены."
+        subtitle="Адреса, на которые дублируются письма о переаттестации, приближении срока и отзыве документа."
       />
-
-      <SectionCard title="Адреса сотрудников">
-        {isLoading ? <LoadingState message="Загрузка настроек…" /> : null}
-        {error ? <SectionError message="Не удалось загрузить настройки уведомлений" /> : null}
-
-        {!isLoading && !error ? (
-          <div className="ui-stack" style={{ gap: 12 }}>
-            {emails.map((email, index) => (
-              <div key={index} className="ui-inline" style={{ gap: 8 }}>
-                <input
-                  type="email"
-                  className="ui-input"
-                  style={{ minWidth: 280 }}
-                  placeholder="curator@example.ru"
-                  value={email}
-                  onChange={(e) => setAt(index, e.target.value)}
-                  aria-label={`Email сотрудника ${index + 1}`}
-                />
-                <button type="button" className="ui-button" onClick={() => removeAt(index)}>
-                  Убрать
-                </button>
-              </div>
-            ))}
-
-            <div>
-              <button type="button" className="ui-button" onClick={addRow}>
-                + Добавить адрес
-              </button>
-            </div>
-
-            {hasInvalid ? (
-              <p className="ui-callout ui-callout--danger">
-                Проверьте формат адресов — есть некорректные.
-              </p>
-            ) : null}
-            {notice ? <p className="ui-callout">{notice}</p> : null}
-            {actionError ? <SectionError message={actionError} /> : null}
-
-            <div>
-              <button
-                type="button"
-                className="ui-button ui-button--primary"
-                disabled={savePending || hasInvalid}
-                onClick={() => void onSave()}
-              >
-                {savePending ? 'Сохраняем…' : 'Сохранить'}
-              </button>
-            </div>
-          </div>
-        ) : null}
-      </SectionCard>
+      <NotificationRecipientsSection />
     </PageContainer>
   );
 }

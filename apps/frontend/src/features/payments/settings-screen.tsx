@@ -25,7 +25,11 @@ const PROVIDERS: PaymentProviderCode[] = [
   'robokassa'
 ];
 
-export function PaymentProviderSettingsScreen() {
+/*
+ * IA-018: тело настроек живёт секцией — его встраивает общий экран «Настройки».
+ * Экран-обёртка ниже сохранён: его проверяет сторож payments-settings.e2e.
+ */
+export function PaymentProviderSettingsSection() {
   const [settings, setSettings] = useState<PaymentProviderSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,45 +72,51 @@ export function PaymentProviderSettingsScreen() {
   };
 
   return (
+    <SectionCard title="Платёжный провайдер">
+      {error ? <SectionError message={error} /> : null}
+      {loading ? (
+        <LoadingState />
+      ) : (
+        <>
+          {settings ? (
+            <div className="ui-list-row-meta">
+              Текущий: {settings.providerCode} · {settings.enabled ? 'включён' : 'выключен'}
+            </div>
+          ) : null}
+          <div className="ui-inline">
+            <select value={code} onChange={(e) => setCode(e.target.value as PaymentProviderCode)}>
+              {PROVIDERS.map((p) => (
+                <option key={p} value={p}>
+                  {PAYMENT_PROVIDER_LABELS[p]}
+                </option>
+              ))}
+            </select>
+            <label>
+              <input
+                type="checkbox"
+                checked={enabled}
+                onChange={(e) => setEnabled(e.target.checked)}
+              />{' '}
+              Включён
+            </label>
+            <button type="button" className="ui-button" disabled={saving} onClick={save}>
+              Сохранить
+            </button>
+          </div>
+        </>
+      )}
+    </SectionCard>
+  );
+}
+
+export function PaymentProviderSettingsScreen() {
+  return (
     <PageContainer>
       <PageHeader
         title="Платёжный провайдер"
         subtitle="Выбор провайдера оплаты для этого учебного центра"
       />
-      <SectionCard title="Настройки">
-        {error ? <SectionError message={error} /> : null}
-        {loading ? (
-          <LoadingState />
-        ) : (
-          <>
-            {settings ? (
-              <div className="ui-list-row-meta">
-                Текущий: {settings.providerCode} · {settings.enabled ? 'включён' : 'выключен'}
-              </div>
-            ) : null}
-            <div className="ui-inline">
-              <select value={code} onChange={(e) => setCode(e.target.value as PaymentProviderCode)}>
-                {PROVIDERS.map((p) => (
-                  <option key={p} value={p}>
-                    {PAYMENT_PROVIDER_LABELS[p]}
-                  </option>
-                ))}
-              </select>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={enabled}
-                  onChange={(e) => setEnabled(e.target.checked)}
-                />{' '}
-                Включён
-              </label>
-              <button type="button" className="ui-button" disabled={saving} onClick={save}>
-                Сохранить
-              </button>
-            </div>
-          </>
-        )}
-      </SectionCard>
+      <PaymentProviderSettingsSection />
     </PageContainer>
   );
 }
