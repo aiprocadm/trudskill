@@ -41,7 +41,7 @@ export const foundationStyles = `
 .ui-drawer-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .ui-drawer-header h2 { margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--ui-text); }
 /* Формы внутри дроверов/модалок */
-.ui-form { display: grid; gap: 12px; }
+.ui-form { display: grid; gap: 12px; max-width: var(--ui-form-max); }
 .ui-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 .ui-fieldset { border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); padding: 12px 14px; display: grid; gap: 10px; }
 .ui-option-row { justify-content: space-between; width: 100%; }
@@ -69,6 +69,17 @@ legend { font-size: 13px; font-weight: 600; color: var(--ui-text-muted); padding
 .ui-step { border: 1px solid var(--ui-border); border-radius: var(--ui-radius-pill); padding: 4px 12px; font-size: 12px; color: var(--ui-text-muted); background: var(--ui-surface-muted); }
 .ui-step--active { color: #fff; border-color: var(--ui-brand-600); background: var(--ui-brand-600); }
 .ui-step--done { color: #fff; border-color: var(--ui-success-600); background: var(--ui-success-600); }
+/* TPL-004: шаг — кнопка (доступен с клавиатуры), но выглядит как текст внутри пилюли. */
+.ui-step__button { background: none; border: none; padding: 0; height: auto; font: inherit; color: inherit; cursor: pointer; }
+.ui-step__button:disabled { cursor: default; opacity: 1; }
+.ui-step__button:hover { background: none; }
+/* TPL-004 §7.4: на телефоне полоса шагов уступает место строке «Шаг 2 из 3» —
+   пилюли на 360px переносятся в три ряда и съедают экран до первого поля. */
+.ui-stepper__counter { display: none; margin: 0; font-size: 13px; font-weight: var(--ui-font-weight-semibold); color: var(--ui-text-muted); }
+@media (max-width: 480px) {
+  .ui-stepper { display: none; }
+  .ui-stepper__counter { display: block; }
+}
 
 /* Плашки-уведомления (info/warning/success/danger) — единый тематический паттерн */
 .ui-callout { border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); padding: 12px 14px; margin: 0; display: flex; gap: 10px; align-items: flex-start; line-height: 1.5; color: var(--ui-text); background: var(--ui-surface-muted); }

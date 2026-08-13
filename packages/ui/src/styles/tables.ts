@@ -46,8 +46,10 @@ export const tableStyles = `
 }
 .ui-bulk-bar__row { display: flex; gap: var(--ui-space-sm); flex-wrap: wrap; align-items: center; }
 .ui-bulk-bar__count { font-weight: var(--ui-font-weight-semibold); }
-.ui-bulk-bar__outcome p { margin: 0 0 var(--ui-space-xs); }
-.ui-bulk-bar__failures { margin: 0; padding-left: var(--ui-space-lg); color: var(--ui-text-muted); font-size: var(--ui-font-size-sm); }
+/* CMP-011: итог операции — та же разметка в панели реестра и на экране импорта. */
+.ui-outcome p { margin: 0 0 var(--ui-space-xs); }
+.ui-outcome__summary { font-weight: var(--ui-font-weight-semibold); }
+.ui-outcome__failures { margin: 0; padding-left: var(--ui-space-lg); color: var(--ui-text-muted); font-size: var(--ui-font-size-sm); display: grid; gap: var(--ui-space-xs); }
 /* CMP-003: два ряда панели фильтров — видимые и раскрываемые «Ещё фильтры». */
 .ui-filter-bar { flex-direction: column; align-items: stretch; }
 .ui-filter-bar__row { display: flex; gap: var(--ui-space-sm); flex-wrap: wrap; align-items: center; }

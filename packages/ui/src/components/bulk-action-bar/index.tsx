@@ -1,3 +1,6 @@
+import { OperationOutcome } from '../operation-outcome/index.js';
+
+import type { BulkOutcome } from '../operation-outcome/index.js';
 import type { ReactElement } from 'react';
 
 export interface BulkAction {
@@ -7,18 +10,9 @@ export interface BulkAction {
   disabled?: boolean;
 }
 
-/**
- * Итог массовой операции (CMP-011).
- *
- * Частичный успех — обязательное состояние, а не опциональное: в системе действует принцип
- * «валидные строки принимаются, отказы показываются поимённо с причиной». Сводка вида
- * «12 из 15» без имён оставляет человека без ответа на вопрос «а что с остальными тремя».
- */
-export interface BulkOutcome {
-  total: number;
-  succeeded: number;
-  failures: Array<{ label: string; reason: string }>;
-}
+// Тип итога переехал в `operation-outcome` (им пользуется и экран импорта).
+// Реэкспорт оставлен, чтобы не переписывать импорты в приложении.
+export type { BulkOutcome } from '../operation-outcome/index.js';
 
 export const BulkActionBar = ({
   selectedCount,
@@ -61,25 +55,7 @@ export const BulkActionBar = ({
         </div>
       ) : null}
 
-      {outcome ? (
-        <div className="ui-bulk-bar__outcome" role="status">
-          <p>
-            Готово: {outcome.succeeded} из {outcome.total}
-          </p>
-          {outcome.failures.length > 0 ? (
-            <>
-              <p className="ui-text-muted">Не удалось:</p>
-              <ul className="ui-bulk-bar__failures">
-                {outcome.failures.map((failure) => (
-                  <li key={failure.label}>
-                    {failure.label} — {failure.reason}
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : null}
-        </div>
-      ) : null}
+      {outcome ? <OperationOutcome outcome={outcome} /> : null}
     </div>
   );
 };

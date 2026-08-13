@@ -31,6 +31,12 @@ describe('телефонный брейкпоинт 480px (ФТ-H4)', () => {
     expect(phone).toMatch(/\.ui-input[^{]*\{[^}]*height:\s*44px/);
   });
 
+  it('полоса шагов мастера на телефоне заменяется строкой «Шаг N из M» (TPL-004 §7.4)', () => {
+    const phone = uiStyleLayers.foundation.split('@media (max-width: 480px)')[1] ?? '';
+    expect(phone).toMatch(/\.ui-stepper\s*\{[^}]*display:\s*none/);
+    expect(phone).toMatch(/\.ui-stepper__counter\s*\{[^}]*display:\s*block/);
+  });
+
   it('пункты оглавления курса на телефоне не ниже 44px', () => {
     const phone = uiStyleLayers.courseViewer.split('@media (max-width: 480px)')[1] ?? '';
     expect(phone).toMatch(/\.course-toc__material\s*\{[^}]*min-height:\s*44px/);
