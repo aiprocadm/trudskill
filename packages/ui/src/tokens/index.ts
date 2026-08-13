@@ -148,5 +148,8 @@ export const baseVars = {
   '--ui-font-weight-semibold': '600',
   '--ui-font-weight-bold': '700',
   '--ui-line-height-tight': '1.2',
-  '--ui-line-height-normal': '1.5'
+  '--ui-line-height-normal': '1.5',
+  // TPL-004: одна колонка формы. Шире 720px строка ввода перестаёт читаться как поле,
+  // а глаз теряет связь между подписью слева и значением справа.
+  '--ui-form-max': '720px'
 } as const;

@@ -7,6 +7,8 @@ export * from './components/table/column-picker.js';
 export * from './components/table/selection.js';
 export * from './components/table/column-config.js';
 export * from './components/bulk-action-bar/index.js';
+export * from './components/operation-outcome/index.js';
+export * from './components/wizard-steps/index.js';
 export * from './components/detail-drawer/index.js';
 export * from './components/filters/index.js';
 export * from './components/forms/index.js';

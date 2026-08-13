@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable } from '@trudskill/ui';
+import { DataTable, StatusChip } from '@trudskill/ui';
 
 import type { ClassifiedParsedRow } from './types';
 import type { Column } from '@trudskill/ui';
@@ -23,15 +23,21 @@ const columns: Column<PreviewRow>[] = [
   { key: 'position', title: 'Должность' },
   {
     key: 'status',
-    title: 'Статус',
+    title: 'Что будет со строкой',
+    /*
+     * Цвет брался из `--ui-success-700` и `--ui-error-700` — таких переменных в палитре нет
+     * НИКОГДА не было, поэтому браузер молча подставлял запасные `green`/`red` мимо палитры
+     * (и мимо контраста в тёмной теме). Бейдж берёт цвет из токенов и, главное, называет
+     * последствие: человеку важно не «валидно», а «зачислим / не зачислим».
+     */
     render: (row) =>
       row.status === 'valid' ? (
-        <span style={{ color: 'var(--ui-success-700, green)' }}>Валидно</span>
+        <StatusChip status="completed" label="Зачислим" />
       ) : (
-        <span style={{ color: 'var(--ui-error-700, red)' }}>Ошибка</span>
+        <StatusChip status="failed" label="Пропустим" />
       )
   },
-  { key: 'errorsText', title: 'Замечания' }
+  { key: 'errorsText', title: 'Что не так' }
 ];
 
 export const PreviewTable = ({ rows }: { rows: ClassifiedParsedRow[] }) => {

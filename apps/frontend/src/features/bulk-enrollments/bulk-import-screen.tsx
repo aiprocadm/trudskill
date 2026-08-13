@@ -1,9 +1,12 @@
 'use client';
 
+import { OperationOutcome, WizardSteps } from '@trudskill/ui';
+import Link from 'next/link';
 import { type ChangeEvent, useMemo, useState } from 'react';
 
 import { parseExcelBuffer } from './excel-parser';
 import { useBulkImportMutation } from './hooks';
+import { buildImportOutcome, successfulRows } from './outcome';
 import { PreviewTable } from './preview-table';
 import { classifyParsedRows } from './validators';
 import {
@@ -15,7 +18,15 @@ import {
 } from '../../components/state-wrappers';
 import { useGroupsList } from '../mvp/hooks';
 
-import type { BulkImportOutcomeRow, ClassifiedParsedRow, ParseError, ParsedRow } from './types';
+import type { ClassifiedParsedRow, ParseError, ParsedRow } from './types';
+
+const STEPS = [
+  { id: 'file', title: 'Файл' },
+  { id: 'check', title: 'Проверка' },
+  { id: 'result', title: 'Результат' }
+];
+
+type StepId = 'file' | 'check' | 'result';
 
 function newIdempotencyKey(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -24,20 +35,15 @@ function newIdempotencyKey(): string {
   return `idem_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function statusLabel(status: BulkImportOutcomeRow['status']): string {
-  switch (status) {
-    case 'created':
-      return 'Создан + зачислен';
-    case 'reused':
-      return 'Переиспользован + зачислен';
-    case 'enrolled_only':
-      return 'Уже был зачислен';
-    case 'failed':
-      return 'Ошибка';
-  }
-}
-
+/**
+ * Мастер массового зачисления (TPL-004, волна 1 §8.2).
+ *
+ * Было: четыре пронумерованных блока, открытых одновременно, и кнопка загрузки внизу —
+ * человек мог нажать её, не выбрав группу, и не понимал, чего не хватает. Стало: три шага,
+ * на каждом одно первичное действие, которое называет результат.
+ */
 export const BulkImportScreen = () => {
+  const [step, setStep] = useState<StepId>('file');
   const [fileName, setFileName] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParsedRow[]>([]);
   const [parseErrors, setParseErrors] = useState<ParseError[]>([]);
@@ -59,28 +65,22 @@ export const BulkImportScreen = () => {
     setParseErrors(result.errors);
     setClassified(result.errors.length === 0 ? classifyParsedRows(result.rows) : []);
     setIdempotencyKey(newIdempotencyKey());
+    if (result.errors.length === 0 && result.rows.length > 0) setStep('check');
   };
 
-  const validCount = useMemo(
-    () => classified.filter((r) => r.classification === 'valid').length,
+  const validRows = useMemo(
+    () => classified.filter((r) => r.classification === 'valid').map((r) => r.row),
     [classified]
   );
-  const invalidCount = classified.length - validCount;
+  const invalidCount = classified.length - validRows.length;
+  const selectedGroup = groups.data?.items.find((g) => g.id === groupId);
+
   const canSubmit =
-    parsed.length > 0 &&
-    parseErrors.length === 0 &&
-    Boolean(groupId) &&
-    validCount > 0 &&
-    !mutation.isSubmitting &&
-    !mutation.outcome;
+    Boolean(groupId) && validRows.length > 0 && !mutation.isSubmitting && !mutation.outcome;
 
   const onSubmit = async () => {
-    const validRows = classified.filter((cr) => cr.classification === 'valid').map((cr) => cr.row);
-    await mutation.submit({
-      idempotencyKey,
-      groupId,
-      rows: validRows
-    });
+    const result = await mutation.submit({ idempotencyKey, groupId, rows: validRows });
+    if (result) setStep('result');
   };
 
   const onReset = () => {
@@ -91,113 +91,168 @@ export const BulkImportScreen = () => {
     setGroupId('');
     setIdempotencyKey(newIdempotencyKey());
     mutation.reset();
+    setStep('file');
   };
+
+  const outcome = buildImportOutcome(classified, mutation.outcome);
+  const enrolled = successfulRows(classified, mutation.outcome);
 
   return (
     <PageContainer>
       <PageHeader
-        title="Массовая загрузка слушателей"
-        subtitle="Excel/CSV — система создаст недостающих учётков и зачислит всех валидных в выбранную группу"
+        title="Зачисление списком"
+        subtitle="Файл из Excel: система заведёт недостающих слушателей и зачислит их в выбранную группу"
       />
 
-      <SectionCard title="1. Загрузить файл">
-        <div className="ui-stack">
-          <input
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            onChange={(e) => void onFileChange(e)}
-            aria-label="Файл с учениками"
-          />
-          {fileName ? (
-            <div>
-              <strong>Файл:</strong> {fileName}
-            </div>
-          ) : null}
-          {parseErrors.length > 0 ? (
-            <SectionError message={parseErrors.map((e) => e.message).join('; ')} />
-          ) : null}
-          <p style={{ fontSize: 13, color: 'var(--ui-text-muted)' }}>
-            Обязательные колонки: <strong>ФИО</strong>, <strong>Email</strong>. Опциональные:{' '}
-            <strong>СНИЛС</strong>, <strong>Должность</strong>. Принимаются синонимы заголовков
-            (например, «Имя» вместо «ФИО»).
-          </p>
-        </div>
-      </SectionCard>
+      <WizardSteps
+        steps={STEPS}
+        currentId={step}
+        label="Шаги зачисления списком"
+        /*
+         * Назад вернуться можно, вперёд — нет: шаг без файла нечего проверять.
+         * После зачисления назад тоже нельзя: там осталась бы кнопка, которая уже
+         * ничего не сделает. Путь назад один и понятный — «Загрузить ещё файл».
+         */
+        {...(mutation.outcome ? {} : { onSelect: (id: string) => setStep(id as StepId) })}
+      />
 
-      <SectionCard title="2. Выбрать учебную группу">
-        {groups.loading ? (
-          <SectionEmpty message="Загрузка списка групп…" />
-        ) : groups.data ? (
-          <label className="ui-stack">
-            Группа
-            <select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
-              <option value="">— выбрать —</option>
-              {groups.data.items.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name} ({g.code})
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : (
-          <SectionError message="Не удалось загрузить группы" />
-        )}
-      </SectionCard>
-
-      {classified.length > 0 ? (
-        <SectionCard title="3. Предпросмотр">
-          <p>
-            Валидно: <strong style={{ color: 'var(--ui-success-700, green)' }}>{validCount}</strong>
-            {' · '}Ошибок:{' '}
-            <strong style={{ color: invalidCount > 0 ? 'var(--ui-error-700, red)' : undefined }}>
-              {invalidCount}
-            </strong>
-            {' · '}Всего: {classified.length}
-          </p>
-          <PreviewTable rows={classified} />
+      {step === 'file' ? (
+        <SectionCard title="Файл со слушателями">
+          <div className="ui-stack">
+            <p className="ui-hint">
+              Нужны две колонки: <strong>ФИО</strong> и <strong>Email</strong>. По желанию —{' '}
+              <strong>СНИЛС</strong> и <strong>Должность</strong>. Заголовки можно писать привычными
+              словами: «Имя» вместо «ФИО» система поймёт.
+            </p>
+            <label className="ui-field">
+              <span className="ui-field-label">Файл Excel или CSV</span>
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={(e) => void onFileChange(e)}
+                aria-label="Файл со списком слушателей"
+              />
+            </label>
+            {fileName ? <p className="ui-hint">Выбран файл: {fileName}</p> : null}
+            {parseErrors.length > 0 ? (
+              <SectionError message={parseErrors.map((e) => e.message).join('; ')} />
+            ) : null}
+            {parsed.length === 0 && fileName && parseErrors.length === 0 ? (
+              <SectionEmpty message="В файле нет ни одной строки со слушателем. Проверьте, что данные начинаются со второй строки, под заголовками." />
+            ) : null}
+            {classified.length > 0 ? (
+              <div className="ui-form-actions">
+                <button
+                  type="button"
+                  className="ui-button--primary"
+                  onClick={() => setStep('check')}
+                >
+                  Далее: проверка
+                </button>
+              </div>
+            ) : null}
+          </div>
         </SectionCard>
       ) : null}
 
-      <SectionCard title="4. Отправить">
-        {mutation.error ? <SectionError message={mutation.error} /> : null}
-        <div className="ui-stack" style={{ flexDirection: 'row', gap: '0.5rem' }}>
-          <button
-            type="button"
-            className="ui-button"
-            onClick={() => void onSubmit()}
-            disabled={!canSubmit}
-          >
-            {mutation.isSubmitting ? 'Загружаем…' : `Загрузить ${validCount} валидных строк`}
-          </button>
-          <button
-            type="button"
-            className="ui-button-link"
-            onClick={onReset}
-            disabled={mutation.isSubmitting}
-          >
-            Сбросить
-          </button>
-        </div>
-      </SectionCard>
+      {step === 'check' ? (
+        <>
+          <SectionCard title="Куда зачисляем">
+            {groups.loading ? (
+              <SectionEmpty message="Загружаем список групп…" />
+            ) : groups.data ? (
+              <label className="ui-field">
+                <span className="ui-field-label">Учебная группа</span>
+                <select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
+                  <option value="">— выберите группу —</option>
+                  {groups.data.items.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name} ({g.code})
+                    </option>
+                  ))}
+                </select>
+                <p className="ui-field-hint">
+                  Все подходящие строки файла попадут в эту группу одним действием.
+                </p>
+              </label>
+            ) : (
+              <SectionError message="Не удалось загрузить список групп. Обновите страницу или попробуйте позже." />
+            )}
+          </SectionCard>
 
-      {mutation.outcome ? (
-        <SectionCard title="Результат">
-          <p>
-            Создано: <strong>{mutation.outcome.created}</strong>
-            {' · '}Переиспользовано: <strong>{mutation.outcome.reused}</strong>
-            {' · '}Новых зачислений: <strong>{mutation.outcome.enrolled}</strong>
-            {' · '}Ошибок: <strong>{mutation.outcome.failed}</strong>
-            {' · '}Всего: {mutation.outcome.total}
-          </p>
-          <ul className="ui-stack" style={{ gap: '0.25rem' }}>
-            {mutation.outcome.rows.map((r) => (
-              <li key={r.rowNumber}>
-                Строка {r.rowNumber}: <strong>{statusLabel(r.status)}</strong>
-                {r.errorMessage ? ` — ${r.errorMessage}` : null}
-                {r.learnerId ? ` (учётка ${r.learnerId})` : null}
-              </li>
-            ))}
-          </ul>
+          <SectionCard title={`Что в файле: ${classified.length} строк`}>
+            <p className="ui-hint">
+              Зачислим: <strong>{validRows.length}</strong>.{' '}
+              {invalidCount > 0
+                ? `Не пройдут проверку: ${invalidCount} — они останутся в файле, их можно исправить и загрузить снова.`
+                : 'Все строки прошли проверку.'}
+            </p>
+            <PreviewTable rows={classified} />
+            {mutation.error ? <SectionError message={mutation.error} /> : null}
+            {validRows.length === 0 ? (
+              <SectionError message="Ни одна строка файла не прошла проверку — зачислять нечего. Исправьте замечания в таблице выше и загрузите файл заново." />
+            ) : null}
+            <div className="ui-form-actions">
+              <button type="button" className="ui-button-link" onClick={() => setStep('file')}>
+                Выбрать другой файл
+              </button>
+              <button
+                type="button"
+                className="ui-button--primary"
+                onClick={() => void onSubmit()}
+                disabled={!canSubmit}
+              >
+                {mutation.isSubmitting
+                  ? 'Зачисляем…'
+                  : `Зачислить ${validRows.length} в группу${selectedGroup ? ` «${selectedGroup.name}»` : ''}`}
+              </button>
+            </div>
+          </SectionCard>
+        </>
+      ) : null}
+
+      {step === 'result' ? (
+        <SectionCard title="Что получилось">
+          <OperationOutcome
+            outcome={outcome}
+            successVerb="Зачислено"
+            failuresTitle="Не зачислены — построчно:"
+          >
+            {outcome.failures.length > 0 ? (
+              <p className="ui-hint">
+                Исправьте эти строки в файле и загрузите его снова — уже зачисленных повторная
+                загрузка не тронет.
+              </p>
+            ) : null}
+          </OperationOutcome>
+
+          {enrolled.length > 0 ? (
+            <ul className="ui-bare-list">
+              {enrolled.map((row) => (
+                <li key={row.label}>
+                  {row.learnerId ? (
+                    <Link className="ui-link" href={`/learners/${row.learnerId}`}>
+                      {row.label}
+                    </Link>
+                  ) : (
+                    row.label
+                  )}{' '}
+                  — {row.status}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          <div className="ui-form-actions">
+            <button type="button" className="ui-button-link" onClick={onReset}>
+              Загрузить ещё файл
+            </button>
+            {groupId ? (
+              <Link className="ui-button--primary" href={`/groups/${groupId}`}>
+                Открыть группу
+              </Link>
+            ) : null}
+          </div>
         </SectionCard>
       ) : null}
     </PageContainer>
