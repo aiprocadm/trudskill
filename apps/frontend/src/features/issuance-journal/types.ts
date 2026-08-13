@@ -1,41 +1,18 @@
 /**
  * Pillar A Plan B §5.6 — типы для UI книги выдачи документов.
  *
- * Дублируем backend-union для UI-кода — фронт должен иметь свой source of truth,
- * чтобы можно было статически проверять русские лейблы в селектах. Если backend
- * добавит/удалит тип — frontend упадёт в compile, и мы это поймём при сборке.
+ * Виды документов переехали в `features/documents/document-types.ts`: экран шаблонов держал
+ * вторую копию того же списка прямо в разметке. Реэкспорт оставлен, чтобы не переписывать
+ * импорты книги выдачи. Фронт по-прежнему имеет свой источник правды: если сервер добавит
+ * или уберёт вид документа, сборка упадёт на несоответствии.
  */
-export type TemplateType =
-  | 'certificate'
-  | 'protocol'
-  | 'order'
-  | 'diploma'
-  | 'attestation'
-  | 'reference'
-  | 'report'
-  | 'contract';
+import type { TemplateType } from '../documents/document-types';
 
-export const TEMPLATE_TYPE_LABELS: Record<TemplateType, string> = {
-  certificate: 'Удостоверение',
-  protocol: 'Протокол',
-  order: 'Приказ',
-  diploma: 'Диплом',
-  attestation: 'Свидетельство об аттестации',
-  reference: 'Справка',
-  report: 'Отчёт',
-  contract: 'Договор'
-};
-
-export const ALL_TEMPLATE_TYPES: TemplateType[] = [
-  'certificate',
-  'protocol',
-  'order',
-  'diploma',
-  'attestation',
-  'reference',
-  'report',
-  'contract'
-];
+export {
+  ALL_TEMPLATE_TYPES,
+  TEMPLATE_TYPE_LABELS,
+  type TemplateType
+} from '../documents/document-types';
 
 /**
  * Состояния документа по-русски (`TXT-006`).

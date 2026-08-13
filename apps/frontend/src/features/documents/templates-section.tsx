@@ -1,102 +1,75 @@
 'use client';
 
-import { DataTable, LoadingState, StatusChip } from '@trudskill/ui';
-import { useState } from 'react';
+import { ListPage, StatusChip } from '@trudskill/ui';
 
-import { type TemplateDto, documentsApi } from './api';
-import { SectionCard, SectionEmpty } from '../../components/state-wrappers';
-import { useAuth } from '../auth/context';
+import { type TemplateDto } from './api';
+import { templateTypeLabel } from './document-types';
+import { formatDate } from '../mvp/screen-helpers';
+
+import type { ReactElement } from 'react';
+
+interface TemplateRow {
+  id: string;
+  name: string;
+  typeView: string;
+  versionView: string;
+  updatedView: string;
+  statusView: ReactElement;
+}
 
 /*
- * Перенесён «как есть» из documents-screen.tsx (§8.3, SCR-001: перенос и редизайн — разные
- * шаги). Разметка и поведение дословно прежние; редизайн под TPL-001 — следующим коммитом.
+ * TPL-001 (Фаза 4, срез 7). Что изменилось против перенесённой версии:
+ *
+ * 1. Каркас реестра `ListPage` вместо таблицы плюс самодельные состояния.
+ * 2. **Состояния шаблонов рисовались отдельной строкой бейджей ПОД таблицей** — кружки
+ *    подряд, не привязанные ни к одной строке. Понять по ним, какой шаблон черновик, было
+ *    невозможно. Теперь состояние — колонка строки.
+ * 3. Вид документа словом, дата по-русски (было «Обновлен: 2026-03-12T09:15:00.000Z»).
+ * 4. Действия строки: «Настроить бланк» и «Выпустить документ». Раньше шаблон выбирался
+ *    в выпадающем списке ДРУГОГО блока ниже по странице, а секция настройки писала
+ *    «Сначала выберите шаблон в блоке генерации».
  */
 export const TemplatesSection = ({
   templates,
   isLoading,
-  templateType,
-  onTemplateTypeChange,
-  onCreated,
-  onError
+  onSetup,
+  onGenerate,
+  onCreate
 }: {
   templates: TemplateDto[];
   isLoading: boolean;
-  templateType: string;
-  onTemplateTypeChange: (value: string) => void;
-  onCreated: () => Promise<unknown>;
-  onError: (message: string | null) => void;
+  onSetup: (templateId: string) => void;
+  onGenerate: (templateId: string) => void;
+  onCreate: () => void;
 }) => {
-  const { session } = useAuth();
-  const [templateName, setTemplateName] = useState('');
-
-  const createTemplate = async () => {
-    if (!session || !templateName.trim()) return;
-    try {
-      onError(null);
-      await documentsApi.createTemplate(session, {
-        name: templateName.trim(),
-        templateType
-      });
-      setTemplateName('');
-      await onCreated();
-    } catch (createError) {
-      onError(createError instanceof Error ? createError.message : 'Не удалось создать шаблон');
-    }
-  };
+  const rows: TemplateRow[] = templates.map((item) => ({
+    id: item.id ?? item.name,
+    name: item.name,
+    typeView: templateTypeLabel(item.type ?? item.templateType),
+    versionView: item.currentVersion ?? 'бланк не загружен',
+    updatedView: formatDate(item.updatedAt),
+    statusView: <StatusChip status={item.status} />
+  }));
 
   return (
-    <SectionCard title="Реестр шаблонов">
-      {isLoading ? <LoadingState message="Загрузка шаблонов…" /> : null}
-      {!isLoading && templates.length ? (
-        <>
-          <DataTable
-            columns={[
-              { key: 'name', title: 'Шаблон' },
-              { key: 'type', title: 'Тип' },
-              { key: 'currentVersion', title: 'Версия' },
-              { key: 'updatedAt', title: 'Обновлен' }
-            ]}
-            rows={templates}
-          />
-          <div className="ui-inline">
-            {templates.map((item) => (
-              <StatusChip key={item.name} status={item.status} />
-            ))}
-          </div>
-        </>
-      ) : null}
-      {!isLoading && !templates.length ? <SectionEmpty message="Шаблоны не найдены" /> : null}
-      <div className="ui-stack">
-        <strong>Создать шаблон</strong>
-        <div className="ui-inline">
-          <input
-            value={templateName}
-            onChange={(event) => setTemplateName(event.target.value)}
-            placeholder="Название шаблона"
-          />
-          <select
-            value={templateType}
-            onChange={(event) => onTemplateTypeChange(event.target.value)}
-          >
-            {/* Pillar A Plan B §5.4: 7 регулируемых типов + contract grandfathered. */}
-            <option value="certificate">Удостоверение</option>
-            <option value="protocol">Протокол</option>
-            <option value="order">Приказ</option>
-            <option value="diploma">Диплом</option>
-            <option value="attestation">Свидетельство об аттестации</option>
-            <option value="reference">Справка</option>
-            <option value="report">Отчёт</option>
-            <option value="contract">Договор</option>
-          </select>
-          <button
-            type="button"
-            onClick={() => void createTemplate()}
-            disabled={!templateName.trim()}
-          >
-            Создать шаблон
-          </button>
-        </div>
-      </div>
-    </SectionCard>
+    <ListPage<TemplateRow>
+      columns={[
+        { key: 'name', title: 'Шаблон' },
+        { key: 'typeView', title: 'Вид документа' },
+        { key: 'versionView', title: 'Версия бланка' },
+        { key: 'updatedView', title: 'Изменён' },
+        { key: 'statusView', title: 'Состояние', render: (row) => row.statusView }
+      ]}
+      rows={rows}
+      isLoading={isLoading}
+      rowKey={(row) => row.id}
+      rowActions={(row) => [
+        { label: 'Настроить бланк', onSelect: () => onSetup(row.id) },
+        { label: 'Выпустить документ', onSelect: () => onGenerate(row.id) }
+      ]}
+      emptyMessage="Здесь появятся шаблоны документов"
+      emptyHint="Шаблон — это бланк Word с метками вида «{ФИО}»: система подставляет в них данные слушателя и выпускает готовый документ."
+      emptyAction={{ label: 'Создать первый шаблон', onSelect: onCreate }}
+    />
   );
 };
