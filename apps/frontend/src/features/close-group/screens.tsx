@@ -17,11 +17,16 @@ import type { CloseGroupChainOutcomeDto } from './api';
  * (это же и есть штатный «перезапуск» из ФТ-A5.3). Готовый комплект скачивается
  * одним ZIP — ходить по 25 документам поштучно нереально.
  */
-export function CloseGroupSection() {
+export function CloseGroupSection({ groupId: fixedGroupId }: { groupId?: string } = {}) {
   const { session } = useAuth();
   const queryClient = useQueryClient();
 
-  const [groupId, setGroupId] = useState('');
+  /*
+   * Фаза 4 срез 3: секцию открывают из карточки группы, где группа уже известна —
+   * тогда поле ввода не показывается, чтобы человек не переписывал идентификатор
+   * руками из адресной строки. Без пропа поведение прежнее (журнал выдачи).
+   */
+  const [groupId, setGroupId] = useState(fixedGroupId ?? '');
   const [protocolTemplateId, setProtocolTemplateId] = useState('');
   const [certificateTemplateId, setCertificateTemplateId] = useState('');
   const [enrollments, setEnrollments] = useState('');
@@ -140,11 +145,13 @@ export function CloseGroupSection() {
 
       <div className="ui-stack" style={{ marginTop: 12 }}>
         <div className="ui-inline">
-          <input
-            value={groupId}
-            onChange={(e) => setGroupId(e.target.value)}
-            placeholder="ID группы"
-          />
+          {fixedGroupId ? null : (
+            <input
+              value={groupId}
+              onChange={(e) => setGroupId(e.target.value)}
+              placeholder="ID группы"
+            />
+          )}
           <input
             value={protocolTemplateId}
             onChange={(e) => setProtocolTemplateId(e.target.value)}

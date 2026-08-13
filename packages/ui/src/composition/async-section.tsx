@@ -1,5 +1,6 @@
 import { EmptyState, ErrorState, LoadingState } from '../components/states/index.js';
 
+import type { EmptyStateAction } from '../components/states/index.js';
 import type { ReactElement, ReactNode } from 'react';
 
 export interface AsyncSectionProps {
@@ -10,6 +11,11 @@ export interface AsyncSectionProps {
   loadingMessage?: string;
   emptyMessage?: string;
   emptyHint?: string;
+  /**
+   * CMP-014: первое действие на пустом экране. Опционально — экраны без него
+   * ведут себя как прежде.
+   */
+  emptyAction?: EmptyStateAction;
   children: ReactNode;
 }
 
@@ -23,6 +29,7 @@ export const AsyncSection = ({
   loadingMessage,
   emptyMessage,
   emptyHint,
+  emptyAction,
   children
 }: AsyncSectionProps): ReactElement => {
   if (isLoading) {
@@ -46,6 +53,7 @@ export const AsyncSection = ({
       <EmptyState
         {...(emptyMessage ? { message: emptyMessage } : {})}
         {...(emptyHint ? { hint: emptyHint } : {})}
+        {...(emptyAction ? { action: emptyAction } : {})}
       />
     );
   }

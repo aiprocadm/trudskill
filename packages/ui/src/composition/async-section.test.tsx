@@ -38,4 +38,25 @@ describe('AsyncSection — единая цепочка состояний', () =
     const el = AsyncSection({ isLoading: false, children: 'DATA' });
     expect(el.props.children).toBe('DATA');
   });
+
+  /*
+   * CMP-014: пустой экран объясняет, что сделать первым. Действие прокидывается
+   * через обёртку — иначе каждый экран рисовал бы своё пустое состояние в обход
+   * общей цепочки и терял бы единообразие, ради которого обёртка и заводилась.
+   */
+  it('пустое состояние передаёт первое действие в EmptyState', () => {
+    const el = AsyncSection({
+      isLoading: false,
+      isEmpty: true,
+      emptyMessage: 'Групп пока нет',
+      emptyAction: { label: 'Создать первую группу', href: '/groups/new' },
+      children: 'DATA'
+    });
+    expect(el.props.action).toEqual({ label: 'Создать первую группу', href: '/groups/new' });
+  });
+
+  it('без действия пустое состояние остаётся прежним', () => {
+    const el = AsyncSection({ isLoading: false, isEmpty: true, children: 'DATA' });
+    expect(el.props.action).toBeUndefined();
+  });
 });
