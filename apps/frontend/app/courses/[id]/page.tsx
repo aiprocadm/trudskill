@@ -1,4 +1,4 @@
-import { CourseDetailsScreen } from '../../../src/features/mvp/screens';
+import { CourseDetailsScreen } from '../../../src/features/courses/courses-screens';
 import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
 
 export default async function CoursePage({ params }: { params: Promise<{ id: string }> }) {
