@@ -75,3 +75,12 @@ export const ProgressBar = ({ value }: { value: number }) => (
 
 export const MutationError = ({ message }: { message: string | null }) =>
   message ? <SectionError message={message} /> : null;
+
+/**
+ * Приведение строк к виду, который принимает таблица пакета.
+ *
+ * Жило в монолите; понадобилось вынесенным экранам — перенесено в общий слой (§8.3),
+ * чтобы не заводить вторую такую же функцию.
+ */
+export const toTableRows = <T extends object>(rows: T[]): Record<string, unknown>[] =>
+  rows as unknown as Record<string, unknown>[];
