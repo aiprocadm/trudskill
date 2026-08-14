@@ -133,11 +133,17 @@ describe('navigation helpers', () => {
     ]);
   });
 
-  it('nav: 3 сироты присутствуют в меню', () => {
+  /*
+   * Было три «сироты», добавленных в меню, чтобы страница не терялась. Настройки вебинаров
+   * с среза 4 живут секцией в `/settings`, а их прежний адрес стал перенаправлением —
+   * пункт меню на редирект убран в срезе 13 (`IA-017`). Правило теста прежнее: страница
+   * не должна быть недостижимой, поэтому проверяем достижимость, а не конкретный пункт.
+   */
+  it('nav: прежние «сироты» достижимы из меню', () => {
     const hrefs = navigationModel.map((item) => item.href);
     expect(hrefs).toContain('/admin/issuance-journal');
     expect(hrefs).toContain('/admin/licenses');
-    expect(hrefs).toContain('/admin/webinars/settings');
+    expect(hrefs).toContain('/settings');
   });
 
   it('nav: заглушки /mailings и /crm/deals скрыты из меню, но страницы доступны', () => {
@@ -152,7 +158,18 @@ describe('navigation helpers', () => {
     const label = (href: string) => navigationModel.find((i) => i.href === href)?.label ?? '';
     expect(label('/student/dashboard')).toBe('Панель студента');
     expect(label('/teacher/grading-center')).toBe('Центр проверки работ');
-    expect(label('/admin/cockpit')).toBe('Панель администратора');
+  });
+
+  /*
+   * Проверяем ПРАВИЛО, а не три знакомых пункта: ни одна подпись меню не написана
+   * латиницей. Прежний тест сторожил `/admin/cockpit`, который в срезе 13 ушёл из меню
+   * (стал перенаправлением на `/workspace`), — правило от этого не исчезло.
+   */
+  it('nav: подпись меню написана по-русски (название стандарта в скобках допустимо)', () => {
+    // «SCORM» — имя отраслевого стандарта, как «PDF»: его не переводят. Но подпись целиком
+    // из латиницы человеку ничего не говорит, поэтому требуем кириллицу в подписи.
+    const foreign = navigationModel.filter((item) => !/[А-Яа-яЁё]/.test(item.label));
+    expect(foreign.map((item) => `${item.label} → ${item.href}`)).toEqual([]);
   });
 });
 

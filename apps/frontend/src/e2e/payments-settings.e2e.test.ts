@@ -47,9 +47,22 @@ describe('/admin/payments/settings access', () => {
 });
 
 describe('payments settings — navigation visibility', () => {
-  it('settings nav item (/admin/payments/settings) visible with payments.configure', () => {
-    const hrefs = getVisibleNavigation(makeSession(['payments.configure'])).map((i) => i.href);
-    expect(hrefs).toContain('/admin/payments/settings');
+  /*
+   * Срез 4 собрал настройки в `/settings` (секция «Оплата»), срез 13 убрал из меню пункт,
+   * ведущий на редирект. Правило прежнее: человек с правом настроить оплату доходит до
+   * настроек из меню — только теперь через общий вход.
+   */
+  /*
+   * Срез 4 собрал настройки в `/settings` (секция «Оплата»), срез 13 убрал из меню пункт,
+   * ведущий на редирект. Право `payments.configure` по миграции 0056 выдаётся только
+   * `platform_admin` и `tenant_admin` — у них же есть `iam.manage_roles`, которым закрыт
+   * общий вход в настройки. Сессия в тесте отражает эту связку, а не одно право в вакууме.
+   */
+  it('настройки достижимы из меню у роли, которая настраивает оплату', () => {
+    const hrefs = getVisibleNavigation(makeSession(['payments.configure', 'iam.manage_roles'])).map(
+      (i) => i.href
+    );
+    expect(hrefs).toContain('/settings');
   });
 
   it('settings nav item (/admin/payments/settings) NOT visible with only payments.read', () => {

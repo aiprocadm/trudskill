@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -70,6 +70,24 @@ const SERVICE_ROUTES = new Set([
 const HIDDEN_STUB_ROUTES = new Set(['/mailings', '/crm/deals', '/forms']);
 
 /**
+ * Маршруты-перенаправления (`IA-017`): дубль экрана убран, но адрес сохранён, чтобы
+ * работали закладки и старые ссылки. Это НЕ разделы продукта — блока ИА и пункта меню
+ * у них быть не должно (иначе в меню снова два входа в одно место).
+ *
+ * Список вычисляется по коду страниц, а не выписан руками: рукописный список протух бы
+ * на первом же новом редиректе.
+ */
+const isRedirectPage = (route: string): boolean => {
+  const file = join(APP_DIR, ...route.split('/').filter(Boolean), 'page.tsx');
+  try {
+    const source = readFileSync(file, 'utf8');
+    return source.includes('redirect(') && !source.includes('return (');
+  } catch {
+    return false;
+  }
+};
+
+/**
  * Принадлежность блоку. Правило то же, что у карты доступа: побеждает самое
  * ДЛИННОЕ совпадение — '/learner/documents' принадлежит блоку «Документы»
  * (точный пункт), а не «Моё обучение» (префикс '/learner').
@@ -122,7 +140,7 @@ describe('информационная архитектура (ФТ-H1)', () => 
 
   it('каждый маршрут принадлежит ровно одному блоку ИА, объявлен служебным или скрытой заглушкой', () => {
     const problems = routes
-      .filter((r) => !SERVICE_ROUTES.has(r) && !HIDDEN_STUB_ROUTES.has(r))
+      .filter((r) => !SERVICE_ROUTES.has(r) && !HIDDEN_STUB_ROUTES.has(r) && !isRedirectPage(r))
       .map((r) => ({ route: r, groups: belongsToGroup(r) }))
       .filter((row) => row.groups.length !== 1);
     expect(problems, 'маршруты-сироты (нет блока) или дубли (блоков больше одного)').toEqual([]);
@@ -134,6 +152,19 @@ describe('информационная архитектура (ФТ-H1)', () => 
       (r) => !routeSet.has(r) || belongsToGroup(r).length > 0
     );
     expect(stale, 'записи служебного списка без маршрута или уже накрытые блоком').toEqual([]);
+  });
+
+  it('маршрут-перенаправление не имеет ни блока ИА, ни пункта меню (IA-017)', () => {
+    const navSet = new Set(navigationModel.map((item) => item.href));
+    const redirects = routes.filter(isRedirectPage);
+    expect(redirects.length, 'редиректов не найдено — проверять нечего').toBeGreaterThan(0);
+    // Вложенный адрес наследует блок родителя (`/admin/webinars/settings` живёт под
+    // «Вебинарами») — это нормально. Проверяем ТОЧНОЕ вхождение: собственный пункт блока.
+    const listedInGroup = new Set(NAV_GROUPS.flatMap((group) => group.hrefs));
+    const exposed = redirects.filter((r) => navSet.has(r) || listedInGroup.has(r));
+    expect(exposed, 'редирект попал в меню или в блок — это второй вход в тот же раздел').toEqual(
+      []
+    );
   });
 
   it('скрытые заглушки: страница существует и знакома карте, но в меню её нет', () => {

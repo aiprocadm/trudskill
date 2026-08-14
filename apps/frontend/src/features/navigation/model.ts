@@ -278,9 +278,24 @@ export const routeMeta: RouteMetaEntry[] = [
   // (у слушателя `courses.read` есть, но экран персонала ему не открывается).
   { pattern: '/methodist', meta: { public: false, requiredPermissions: ['courses.read'] } },
   { pattern: '/documents', meta: { public: false, requiredPermissions: ['tenant.read'] } },
-  { pattern: '/registry', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  /*
+   * IA-017: `/registry` — редирект на `/audit` (тот же журнал, тот же источник данных).
+   * Право выровнено с сервером: ручка `/audit/events` требует `auth.manage_sessions`,
+   * а маршрут обещал `tenant.read` — роль с этим правом открывала раздел и получала отказ.
+   */
+  {
+    pattern: '/registry',
+    meta: { public: false, requiredPermissions: ['auth.manage_sessions'] }
+  },
   { pattern: '/notifications', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/chat', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  /*
+   * Срез 13: проверялась гипотеза «после переезда настроек оплаты внутрь `/settings` человек
+   * с `payments.configure`, но без права на роли, потерял путь». По миграции 0056 это право
+   * выдаётся только `platform_admin` и `tenant_admin`, а у них есть и `iam.manage_roles`
+   * (0010 выдаёт админу центра ВСЕ права) — то есть дыра теоретическая, живой роли без пути нет.
+   * Право маршрута оставлено прежним: ослаблять доступ ради искусственной сессии из теста нельзя.
+   */
   { pattern: '/settings', meta: { public: false, requiredPermissions: ['iam.manage_roles'] } },
   { pattern: '/integrations', meta: { public: false, requiredPermissions: ['tenant.read'] } },
   { pattern: '/exports', meta: { public: false, requiredPermissions: ['tenant.read'] } },
@@ -493,7 +508,14 @@ export const navigationModel: NavigationItem[] = [
     requiredPermissions: ['tenant.read'],
     navSlot: 'more'
   },
-  { href: '/scorm', label: 'SCORM', requiredPermissions: ['materials.read'], navSlot: 'more' },
+  /* «SCORM» — имя отраслевого стандарта учебных пакетов; само по себе оно администратору
+     учебного центра ничего не говорит, поэтому в подписи есть и русские слова. */
+  {
+    href: '/scorm',
+    label: 'Учебные пакеты (SCORM)',
+    requiredPermissions: ['materials.read'],
+    navSlot: 'more'
+  },
   { href: '/chat', label: 'Чат', requiredPermissions: ['tenant.read'], navSlot: 'more' },
   {
     href: '/gov-export',
@@ -529,7 +551,6 @@ export const navigationModel: NavigationItem[] = [
     requiredPermissions: ['courses.read'],
     navSlot: 'more'
   },
-  { href: '/registry', label: 'Реестр', requiredPermissions: ['tenant.read'], navSlot: 'more' },
   {
     href: '/audit',
     label: 'Аудит',
@@ -546,12 +567,6 @@ export const navigationModel: NavigationItem[] = [
     href: '/teacher/grading-center',
     label: 'Центр проверки работ',
     requiredPermissions: ['assessment.reviews.review'],
-    navSlot: 'more'
-  },
-  {
-    href: '/admin/cockpit',
-    label: 'Панель администратора',
-    requiredPermissions: ['auth.manage_sessions'],
     navSlot: 'more'
   },
   {
@@ -579,12 +594,6 @@ export const navigationModel: NavigationItem[] = [
     navSlot: 'more'
   },
   {
-    href: '/admin/learners',
-    label: 'Ученики',
-    requiredPermissions: ['learners.read'],
-    navSlot: 'more'
-  },
-  {
     href: '/admin/clients',
     label: 'Компании',
     requiredPermissions: ['counterparties.read'],
@@ -597,21 +606,9 @@ export const navigationModel: NavigationItem[] = [
     navSlot: 'more'
   },
   {
-    href: '/admin/notification-settings',
-    label: 'Настройки уведомлений',
-    requiredPermissions: ['notifications.read'],
-    navSlot: 'more'
-  },
-  {
     href: '/admin/orders',
     label: 'Заказы',
     requiredPermissions: ['payments.read'],
-    navSlot: 'more'
-  },
-  {
-    href: '/admin/payments/settings',
-    label: 'Платёжный провайдер',
-    requiredPermissions: ['payments.configure'],
     navSlot: 'more'
   },
   {
@@ -636,12 +633,6 @@ export const navigationModel: NavigationItem[] = [
     href: '/admin/operations',
     label: 'Эксплуатация',
     requiredPermissions: ['operations.quarantine.read'],
-    navSlot: 'more'
-  },
-  {
-    href: '/admin/webinars/settings',
-    label: 'Настройки вебинаров',
-    requiredPermissions: ['webinars.configure'],
     navSlot: 'more'
   },
   {
