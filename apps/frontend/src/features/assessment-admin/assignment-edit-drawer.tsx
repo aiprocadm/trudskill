@@ -3,6 +3,7 @@
 import { useState } from 'react';
 
 import { useCreateAssignment, useUpdateAssignment } from './hooks';
+import { CourseSelect } from '../courses/course-picker';
 
 import type { AssignmentListItem } from './types';
 
@@ -67,18 +68,14 @@ export function AssignmentEditDrawer({ assignment, onClose, onSaved }: Props) {
       </header>
 
       <form className="ui-form" onSubmit={submit}>
+        {/* Курс просили ввести идентификатором — администратор его нигде не видит. */}
         {!isEditing && (
-          <label className="ui-field">
-            <span>ID курса</span>
-            <input
-              type="text"
-              className="ui-input"
-              value={courseId}
-              onChange={(e) => setCourseId(e.target.value)}
-              required
-              maxLength={64}
-            />
-          </label>
+          <CourseSelect
+            value={courseId}
+            onChange={setCourseId}
+            required
+            hint="Задание получат слушатели этого курса."
+          />
         )}
 
         <label className="ui-field">

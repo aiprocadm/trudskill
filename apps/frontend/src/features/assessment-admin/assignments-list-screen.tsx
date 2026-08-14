@@ -1,29 +1,26 @@
 'use client';
 
-import {
-  DataTable,
-  FilterBar,
-  LoadingState,
-  Pagination,
-  SearchInput,
-  StatusChip
-} from '@trudskill/ui';
+import { FilterBar, ListPage, SearchInput, StatusChip } from '@trudskill/ui';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import { AssignmentEditDrawer } from './assignment-edit-drawer';
 import { formatEntityStatus } from './format';
 import { useAssignmentsList } from './hooks';
-import {
-  PageContainer,
-  PageHeader,
-  SectionCard,
-  SectionEmpty,
-  SectionError
-} from '../../components/state-wrappers';
+import { PageContainer, PageHeader } from '../../components/state-wrappers';
+import { CourseSelect, courseNameCell, useCourseNames } from '../courses/course-picker';
 
-import type { AssignmentListItem, EntityStatus } from './types';
-import type { Column } from '@trudskill/ui';
+import type { EntityStatus } from './types';
+import type { ReactElement } from 'react';
+
+interface AssignmentRow {
+  id: string;
+  titleView: ReactElement;
+  courseView: string;
+  maxScoreView: string;
+  reviewView: string;
+  statusView: ReactElement;
+}
 
 const PAGE_SIZE = 20;
 
@@ -32,6 +29,8 @@ export function AssignmentsListScreen() {
   const [status, setStatus] = useState<'' | EntityStatus>('');
   const [page, setPage] = useState(1);
   const [creating, setCreating] = useState(false);
+  const [courseId, setCourseId] = useState('');
+  const courseNames = useCourseNames();
 
   const filters = useMemo(
     () => ({
@@ -46,79 +45,92 @@ export function AssignmentsListScreen() {
   const list = useAssignmentsList(filters);
   const totalPages = list.data ? Math.max(1, Math.ceil(list.data.total / PAGE_SIZE)) : 1;
 
-  const columns: Column<AssignmentListItem>[] = [
-    {
-      key: 'title',
-      title: 'Название',
-      render: (a) => <Link href={`/admin/assignments/${a.id}`}>{a.title}</Link>
-    },
-    { key: 'courseId', title: 'Курс', render: (a) => a.courseId },
-    { key: 'maxScore', title: 'Макс балл', render: (a) => a.maxScore.toString() },
-    {
-      key: 'isReviewRequired',
-      title: 'Ревью',
-      render: (a) => (a.isReviewRequired ? 'Требуется' : 'Не требуется')
-    },
-    {
-      key: 'status',
-      title: 'Статус',
-      render: (a) => <StatusChip status={formatEntityStatus(a.status)} />
-    }
-  ];
+  // Фильтр по курсу сервер не принимает — отбираем на месте, по уже полученной странице.
+  const rows: AssignmentRow[] = (list.data?.items ?? [])
+    .filter((item) => !courseId || item.courseId === courseId)
+    .map((item) => ({
+      id: item.id,
+      titleView: (
+        <Link className="ui-link" href={`/admin/assignments/${item.id}`}>
+          {item.title}
+        </Link>
+      ),
+      courseView: courseNameCell(courseNames, item.courseId),
+      maxScoreView: `${item.maxScore}`,
+      reviewView: item.isReviewRequired ? 'Проверяет преподаватель' : 'Проверяется автоматически',
+      statusView: <StatusChip status={formatEntityStatus(item.status)} />
+    }));
 
   return (
     <PageContainer>
       <PageHeader
         title="Задания"
-        subtitle="Шаблоны практических работ: создание, ревью, архив."
+        subtitle="Практические работы, которые слушатель выполняет и сдаёт на проверку"
         actions={
-          <button type="button" className="ui-button-primary" onClick={() => setCreating(true)}>
+          <button type="button" className="ui-button--primary" onClick={() => setCreating(true)}>
             Создать задание
           </button>
         }
       />
 
-      <FilterBar>
-        <SearchInput
-          value={q}
-          onChange={(v) => {
-            setQ(v);
-            setPage(1);
-          }}
-        />
-        <select
-          className="ui-select"
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value as '' | EntityStatus);
-            setPage(1);
-          }}
-          aria-label="Статус"
-        >
-          <option value="">Все статусы</option>
-          <option value="draft">Черновик</option>
-          <option value="published">Опубликован</option>
-          <option value="archived">В архиве</option>
-        </select>
-      </FilterBar>
-
-      <SectionCard title="Список заданий">
-        {list.isLoading ? (
-          <LoadingState message="Загрузка…" />
-        ) : list.error ? (
-          <SectionError
-            message={list.error instanceof Error ? list.error.message : 'Не удалось загрузить'}
-            onRetry={() => void list.refetch()}
-          />
-        ) : !list.data || list.data.items.length === 0 ? (
-          <SectionEmpty message="Заданий нет" hint="Создайте первое задание." />
-        ) : (
+      <FilterBar
+        activeCount={[q, status, courseId].filter(Boolean).length}
+        onReset={() => {
+          setQ('');
+          setStatus('');
+          setCourseId('');
+          setPage(1);
+        }}
+        primary={
           <>
-            <DataTable<AssignmentListItem> columns={columns} rows={list.data.items} />
-            <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+            <SearchInput
+              value={q}
+              onChange={(value) => {
+                setQ(value);
+                setPage(1);
+              }}
+            />
+            <CourseSelect value={courseId} onChange={setCourseId} label="Курс" />
+            <label className="ui-field">
+              <span className="ui-field-label">Состояние</span>
+              <select
+                className="ui-select"
+                value={status}
+                onChange={(event) => {
+                  setStatus(event.target.value as '' | EntityStatus);
+                  setPage(1);
+                }}
+              >
+                <option value="">Любое</option>
+                <option value="draft">Черновик</option>
+                <option value="published">Опубликован</option>
+                <option value="archived">В архиве</option>
+              </select>
+            </label>
           </>
-        )}
-      </SectionCard>
+        }
+      />
+
+      <ListPage<AssignmentRow>
+        columns={[
+          { key: 'titleView', title: 'Название', render: (row) => row.titleView },
+          { key: 'courseView', title: 'Курс' },
+          { key: 'maxScoreView', title: 'Максимальный балл' },
+          { key: 'reviewView', title: 'Как проверяется' },
+          { key: 'statusView', title: 'Состояние', render: (row) => row.statusView }
+        ]}
+        rows={rows}
+        isLoading={list.isLoading}
+        error={list.error}
+        onRetry={() => void list.refetch()}
+        rowKey={(row) => row.id}
+        emptyMessage="Здесь появятся задания"
+        emptyHint="Задание — практическая работа, которую слушатель выполняет и сдаёт: её проверяет преподаватель или система."
+        emptyAction={{ label: 'Создать первое задание', onSelect: () => setCreating(true) }}
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
 
       {creating && (
         <AssignmentEditDrawer

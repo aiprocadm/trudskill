@@ -4,6 +4,7 @@ import { DataTable, FilterBar } from '@trudskill/ui';
 import { useMemo, useState } from 'react';
 
 import { PageContainer, PageHeader, SectionCard } from '../../src/components/state-wrappers';
+import { CourseSelect } from '../../src/features/courses/course-picker';
 import {
   useAssignments,
   useCoursesList,
@@ -26,6 +27,8 @@ export default function ReportsPage() {
   const [kpiDrilldown, setKpiDrilldown] = useState(false);
   const courses = useCoursesList({ page: 1, page_size: 1 });
   const groups = useGroupsList({ page: 1, page_size: 1 });
+  // Существующий запрос тянет одну запись ради счётчика «всего» — для выбора нужен список.
+  const groupOptions = useGroupsList({ page: 1, page_size: 100 });
   const tests = useTests({ page: 1, page_size: 1 });
   const banks = useQuestionBanks({ page: 1, page_size: 1 });
   const assignments = useAssignments({ page: 1, page_size: 1 });
@@ -135,47 +138,64 @@ export default function ReportsPage() {
             </>
           }
         />
-        <SectionCard title="Параметры отчёта">
-          <FilterBar>
-            <label>
-              С
-              <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
-            </label>
-            <label>
-              По
-              <input type="date" value={to} onChange={(event) => setTo(event.target.value)} />
-            </label>
-            <label>
-              KPI: курс (id)
-              <input
-                placeholder="course_id опционально"
-                value={kpiCourseId}
-                onChange={(event) => setKpiCourseId(event.target.value)}
-              />
-            </label>
-            <label>
-              KPI: группа (id)
-              <input
-                placeholder="group_id опционально"
-                value={kpiGroupId}
-                onChange={(event) => setKpiGroupId(event.target.value)}
-              />
-            </label>
-            <select value={status} onChange={(event) => setStatus(event.target.value)}>
-              <option value="">Все</option>
-              <option value="active">Только с данными</option>
-              <option value="empty">Только пустые</option>
-            </select>
-            <label className="ui-stack">
-              <input
-                type="checkbox"
-                checked={kpiDrilldown}
-                onChange={(event) => setKpiDrilldown(event.target.checked)}
-              />
-              KPI: детализация зачислений
-            </label>
-          </FilterBar>
-        </SectionCard>
+        <FilterBar
+          activeCount={[from, to, kpiCourseId, kpiGroupId, status].filter(Boolean).length}
+          onReset={() => {
+            setFrom('');
+            setTo('');
+            setKpiCourseId('');
+            setKpiGroupId('');
+            setStatus('');
+          }}
+          primary={
+            <>
+              <label className="ui-field">
+                <span className="ui-field-label">Период с</span>
+                <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
+              </label>
+              <label className="ui-field">
+                <span className="ui-field-label">по</span>
+                <input type="date" value={to} onChange={(event) => setTo(event.target.value)} />
+              </label>
+              {/* Было поле «KPI: курс (id)» с подсказкой course_id — идентификатор администратору неоткуда взять. */}
+              <CourseSelect value={kpiCourseId} onChange={setKpiCourseId} label="Курс" />
+            </>
+          }
+          secondary={
+            <>
+              <label className="ui-field">
+                <span className="ui-field-label">Учебная группа</span>
+                <select value={kpiGroupId} onChange={(event) => setKpiGroupId(event.target.value)}>
+                  <option value="">Все группы</option>
+                  {(groupOptions.data?.items ?? []).map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name} ({group.code})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="ui-field">
+                <span className="ui-field-label">Строки отчёта</span>
+                <select value={status} onChange={(event) => setStatus(event.target.value)}>
+                  <option value="">Все</option>
+                  <option value="active">Только с данными</option>
+                  <option value="empty">Только пустые</option>
+                </select>
+              </label>
+              <label className="ui-field">
+                <span className="ui-field-label">Показатели обучения</span>
+                <span className="ui-inline">
+                  <input
+                    type="checkbox"
+                    checked={kpiDrilldown}
+                    onChange={(event) => setKpiDrilldown(event.target.checked)}
+                  />
+                  <span>Показать разбивку по зачислениям</span>
+                </span>
+              </label>
+            </>
+          }
+        />
         <SectionCard title="KPI обучения">
           {kpi.error ? (
             <p className="ui-text-muted">Не удалось загрузить KPI: {kpi.error}</p>

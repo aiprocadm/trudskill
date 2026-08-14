@@ -18,7 +18,12 @@ export function BarChart({
   const labelGutter = 140;
   const layout = computeBarChartLayout(data, { width, barHeight, gap });
   if (data.length === 0) {
-    return <p className="ui-text-muted">Нет данных для графика</p>;
+    // TXT-005: «Нет данных» запрещено — человеку нужно понимать, почему пусто.
+    return (
+      <p className="ui-text-muted">
+        За выбранный период и отбор считать нечего — попробуйте расширить период.
+      </p>
+    );
   }
   return (
     <svg
