@@ -7,6 +7,8 @@ import { BarChart } from './charts';
 import { formatDays, formatPercent } from './format';
 import { useAnalyticsDashboard } from './hooks';
 import { PageContainer, PageHeader, SectionCard } from '../../components/state-wrappers';
+import { CourseSelect } from '../courses/course-picker';
+import { useCounterpartiesList, useGroupsList } from '../mvp/hooks';
 
 import type { AnalyticsFilterQuery } from './types';
 
@@ -16,6 +18,8 @@ export function AnalyticsDashboardScreen() {
   const [clientId, setClientId] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const groups = useGroupsList({ page: 1, page_size: 100 });
+  const counterparties = useCounterpartiesList({ page: 1, page_size: 100 });
 
   const query: AnalyticsFilterQuery = {
     ...(courseId.trim() ? { course_id: courseId.trim() } : {}),
@@ -31,43 +35,67 @@ export function AnalyticsDashboardScreen() {
     <PageContainer>
       <PageHeader
         title="Аналитика обучения"
-        subtitle="Завершаемость, сдача экзаменов, средний срок и балл, drop-off — с фильтром по курсу, группе и компании"
+        subtitle="Завершаемость, сдача экзаменов, средний срок и балл — с отбором по курсу, группе и заказчику"
       />
-      <SectionCard title="Фильтр">
-        <FilterBar>
-          <label>
-            Курс (id)
-            <input
-              value={courseId}
-              onChange={(e) => setCourseId(e.target.value)}
-              placeholder="course_id"
-            />
-          </label>
-          <label>
-            Группа (id)
-            <input
-              value={groupId}
-              onChange={(e) => setGroupId(e.target.value)}
-              placeholder="group_id"
-            />
-          </label>
-          <label>
-            Компания (id)
-            <input
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              placeholder="client_id"
-            />
-          </label>
-          <label>
-            С<input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          </label>
-          <label>
-            По
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-          </label>
-        </FilterBar>
-      </SectionCard>
+      <FilterBar
+        activeCount={[courseId, groupId, clientId, from, to].filter(Boolean).length}
+        onReset={() => {
+          setCourseId('');
+          setGroupId('');
+          setClientId('');
+          setFrom('');
+          setTo('');
+        }}
+        primary={
+          <>
+            {/* Было три поля с подсказками course_id / group_id / client_id: администратор
+                должен был откуда-то взять идентификаторы и вставить их руками. */}
+            <CourseSelect value={courseId} onChange={setCourseId} label="Курс" />
+            <label className="ui-field">
+              <span className="ui-field-label">Учебная группа</span>
+              <select
+                className="ui-select"
+                value={groupId}
+                onChange={(e) => setGroupId(e.target.value)}
+              >
+                <option value="">Все группы</option>
+                {(groups.data?.items ?? []).map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name} ({group.code})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="ui-field">
+              <span className="ui-field-label">Заказчик</span>
+              <select
+                className="ui-select"
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+              >
+                <option value="">Все заказчики</option>
+                {(counterparties.data?.items ?? []).map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        }
+        secondary={
+          <>
+            <label className="ui-field">
+              <span className="ui-field-label">Зачислены с</span>
+              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            </label>
+            <label className="ui-field">
+              <span className="ui-field-label">по</span>
+              <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            </label>
+          </>
+        }
+      />
 
       <AsyncSection
         isLoading={dash.loading}

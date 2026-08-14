@@ -3,6 +3,7 @@
 import { useState } from 'react';
 
 import { useCreateQuestionBank, useUpdateQuestionBank } from './hooks';
+import { CourseSelect } from '../courses/course-picker';
 
 import type { QuestionBankListItem } from './types';
 
@@ -74,16 +75,13 @@ export function QuestionBankEditDrawer({ bank, onClose, onSaved }: Props) {
           />
         </label>
 
-        <label className="ui-field">
-          <span>ID курса (опционально)</span>
-          <input
-            type="text"
-            className="ui-input"
-            value={courseId}
-            onChange={(e) => setCourseId(e.target.value)}
-            maxLength={64}
-          />
-        </label>
+        {/* Курс выбирается по названию: идентификатор администратору неоткуда взять. */}
+        <CourseSelect
+          value={courseId}
+          onChange={setCourseId}
+          label="Курс (по желанию)"
+          hint="Банк можно не привязывать к курсу — тогда его вопросы доступны любому тесту."
+        />
 
         <label className="ui-field">
           <span>Код (опционально)</span>
