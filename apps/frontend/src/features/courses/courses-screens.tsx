@@ -1,6 +1,6 @@
 'use client';
 
-import { AsyncSection, FilterBar, StatusChip } from '@trudskill/ui';
+import { FilterBar, ListPage, StatusChip } from '@trudskill/ui';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -30,12 +30,7 @@ import {
   useRegulatoryActs
 } from '../mvp/hooks';
 import { buildProgramMetaPatch } from '../mvp/payloads';
-import {
-  MutationError,
-  PaginationControls,
-  RegistryControls,
-  readApiMessage
-} from '../mvp/screen-helpers';
+import { MutationError, formatDate, readApiMessage } from '../mvp/screen-helpers';
 import { scormApi } from '../scorm/api';
 
 import type {
@@ -48,12 +43,41 @@ import type {
   TrainingType
 } from '../mvp/types';
 import type { ScormPackageDto } from '../scorm/types';
+import type { ReactElement } from 'react';
+
+const PAGE_SIZE = 20;
+
+/** Состояния курса по-русски: общий `RegistryControls` печатал коды как есть. */
+const COURSE_STATUS_OPTIONS = [
+  { value: 'draft', label: 'Черновик' },
+  { value: 'published', label: 'Опубликован' },
+  { value: 'archived', label: 'В архиве' }
+];
 
 /*
  * Перенесены «как есть» из features/mvp/screens.tsx (§8.3, порядок 5; правило SCR-001:
  * перенос и редизайн — разные шаги). Редизайн — следующим коммитом.
  */
 
+interface CourseRow {
+  id: string;
+  titleView: ReactElement;
+  codeView: string;
+  updatedView: string;
+  statusView: ReactElement;
+}
+
+/*
+ * TPL-001 (Фаза 4, срез 10, волна 3). Что изменилось:
+ *
+ * 1. Реестр был списком `<ul>` со ссылками и бейджем состояния — ни сравнить курсы,
+ *    ни понять, когда их правили, было нельзя. Теперь таблица на каркасе `ListPage`.
+ * 2. Отбор по состоянию показывал КОДЫ (`draft`, `published`, `archived` и ещё шесть)
+ *    — общий `RegistryControls` монолита печатает значения как есть.
+ * 3. «Нет курсов» — пустой экран без объяснения и без первого действия (`CMP-014`).
+ * 4. Право на создание сообщалось надписью «Недостаточно прав для создания курса»
+ *    вместо того, чтобы просто не показывать кнопку.
+ */
 export const CoursesPageScreen = () => {
   const { session } = useAuth();
   const canCreateCourse = hasPermission(session?.permissions ?? [], 'courses.write');
@@ -61,57 +85,122 @@ export const CoursesPageScreen = () => {
   const [status, setStatus] = useState('');
   const [directionId, setDirectionId] = useState('');
   const [page, setPage] = useState(1);
-  const { data, loading, error } = useCoursesList({
+  const { data, loading, error, refetch } = useCoursesList({
     q,
     status,
     page,
-    page_size: 20,
+    page_size: PAGE_SIZE,
     direction_id: directionId || undefined
   });
   const { data: directions } = useDirectionsList({ page: 1, page_size: 100 });
+
+  const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
+
+  const rows: CourseRow[] = (data?.items ?? []).map((course) => ({
+    id: course.id,
+    titleView: (
+      <Link className="ui-link" href={`/courses/${course.id}`}>
+        {course.title}
+      </Link>
+    ),
+    codeView: course.code || '—',
+    updatedView: formatDate(course.updatedAt),
+    statusView: <StatusChip status={course.status} />
+  }));
 
   return (
     <PageContainer>
       <PageHeader
         title="Курсы"
+        subtitle="Программы обучения центра: состав модулей, часы, правила аттестации"
         actions={
           canCreateCourse ? (
-            <Link href="/courses/new">Создать курс</Link>
-          ) : (
-            <small>Недостаточно прав для создания курса</small>
-          )
+            <Link className="ui-button--primary" href="/courses/new">
+              Создать курс
+            </Link>
+          ) : null
         }
       />
-      <SectionCard title="Реестр курсов">
-        <RegistryControls q={q} setQ={setQ} status={status} setStatus={setStatus} />
-        <FilterBar>
-          <select value={directionId} onChange={(event) => setDirectionId(event.target.value)}>
-            <option value="">Все направления</option>
-            {directions?.items.map((direction) => (
-              <option key={direction.id} value={direction.id}>
-                {direction.name}
-              </option>
-            ))}
-          </select>
-        </FilterBar>
-        <AsyncSection
-          isLoading={loading}
-          error={error ? new Error(error) : undefined}
-          isEmpty={!data?.items.length}
-          loadingMessage="Загрузка…"
-          emptyMessage="Нет курсов"
-        >
-          <ul>
-            {(data?.items ?? []).map((course) => (
-              <li key={course.id}>
-                <Link href={`/courses/${course.id}`}>{course.title}</Link>{' '}
-                <StatusChip status={course.status} />
-              </li>
-            ))}
-          </ul>
-        </AsyncSection>
-        <PaginationControls page={page} setPage={setPage} total={data?.total} pageSize={20} />
-      </SectionCard>
+
+      <FilterBar
+        activeCount={[q, status, directionId].filter(Boolean).length}
+        onReset={() => {
+          setQ('');
+          setStatus('');
+          setDirectionId('');
+          setPage(1);
+        }}
+        primary={
+          <>
+            <label className="ui-field">
+              <span className="ui-field-label">Поиск по названию</span>
+              <input
+                value={q}
+                onChange={(event) => {
+                  setQ(event.target.value);
+                  setPage(1);
+                }}
+              />
+            </label>
+            <label className="ui-field">
+              <span className="ui-field-label">Направление</span>
+              <select
+                value={directionId}
+                onChange={(event) => {
+                  setDirectionId(event.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="">Все направления</option>
+                {directions?.items.map((direction) => (
+                  <option key={direction.id} value={direction.id}>
+                    {direction.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="ui-field">
+              <span className="ui-field-label">Состояние</span>
+              <select
+                value={status}
+                onChange={(event) => {
+                  setStatus(event.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="">Любое</option>
+                {COURSE_STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        }
+      />
+
+      <ListPage<CourseRow>
+        columns={[
+          { key: 'titleView', title: 'Курс', render: (row) => row.titleView },
+          { key: 'codeView', title: 'Код' },
+          { key: 'updatedView', title: 'Изменён' },
+          { key: 'statusView', title: 'Состояние', render: (row) => row.statusView }
+        ]}
+        rows={rows}
+        isLoading={loading}
+        error={error ? new Error(error) : undefined}
+        onRetry={() => void refetch()}
+        rowKey={(row) => row.id}
+        emptyMessage="Здесь появятся курсы"
+        emptyHint="Курс — программа обучения: модули с материалами, часы и правила итоговой аттестации. По курсу собираются учебные группы."
+        {...(canCreateCourse
+          ? { emptyAction: { label: 'Создать первый курс', href: '/courses/new' } }
+          : {})}
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
     </PageContainer>
   );
 };
