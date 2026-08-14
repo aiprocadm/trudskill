@@ -50,14 +50,17 @@ describe('admin learners management E2E smoke', () => {
     expect(evaluateRouteAccess('/admin/learners', null)).toEqual({ kind: 'redirect-login' });
   });
 
-  it('nav: «Ученики» visible to session with learners.read', () => {
-    expect(getVisibleNavigation(sessionWithRead).map((i) => i.href)).toContain('/admin/learners');
+  /*
+   * IA-017 (срез 13): пункт «Ученики» вёл на `/admin/learners`, а тот с среза 1 —
+   * редирект на `/learners`. В меню стояли ДВА входа в один реестр; дубль убран.
+   * Правило теста прежнее: человек с правом видит реестр слушателей, без права — нет.
+   */
+  it('nav: реестр слушателей виден сессии с learners.read', () => {
+    expect(getVisibleNavigation(sessionWithRead).map((i) => i.href)).toContain('/learners');
   });
 
-  it('nav: «Ученики» hidden without learners.read', () => {
-    expect(getVisibleNavigation(sessionWithoutRead).map((i) => i.href)).not.toContain(
-      '/admin/learners'
-    );
+  it('nav: реестр слушателей скрыт без learners.read', () => {
+    expect(getVisibleNavigation(sessionWithoutRead).map((i) => i.href)).not.toContain('/learners');
   });
 
   it('pipeline: formatFullName assembles Russian ФИО with patronym', () => {

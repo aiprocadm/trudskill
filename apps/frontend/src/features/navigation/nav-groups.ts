@@ -41,14 +41,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: LayoutDashboardIcon,
     // `/methodist` — сводка методиста (ФТ-H2, Фаза 5 Task 2): такой же обзорный экран,
     // как `/workspace` у администратора, поэтому живёт в том же блоке.
-    hrefs: [
-      '/',
-      '/workspace',
-      '/methodist',
-      '/student/dashboard',
-      '/learning/calendar',
-      '/admin/cockpit'
-    ]
+    hrefs: ['/', '/workspace', '/methodist', '/student/dashboard', '/learning/calendar']
   },
   {
     id: 'my-learning',
@@ -91,7 +84,7 @@ export const NAV_GROUPS: NavGroup[] = [
     id: 'people',
     label: 'Люди и группы',
     icon: UsersIcon,
-    hrefs: ['/learners', '/admin/learners', '/groups', '/admin/bulk-enrollments']
+    hrefs: ['/learners', '/groups', '/admin/bulk-enrollments']
   },
   {
     id: 'clients',
@@ -125,7 +118,6 @@ export const NAV_GROUPS: NavGroup[] = [
       '/admin/reports/builder',
       '/gov-export',
       '/exports',
-      '/registry',
       '/audit'
     ]
   },
@@ -133,7 +125,7 @@ export const NAV_GROUPS: NavGroup[] = [
     id: 'communications',
     label: 'Коммуникации',
     icon: MessagesSquareIcon,
-    hrefs: ['/notifications', '/chat', '/admin/notification-settings']
+    hrefs: ['/notifications', '/chat']
   },
   {
     id: 'settings',
@@ -147,8 +139,6 @@ export const NAV_GROUPS: NavGroup[] = [
       '/academy',
       '/academy/requisites',
       '/telephony',
-      '/admin/payments/settings',
-      '/admin/webinars/settings',
       '/admin/licenses',
       '/admin/usage',
       // Экран «Эксплуатация» (Фаза 6 Task 8): что не доехало и кнопки, чтобы это починить.
