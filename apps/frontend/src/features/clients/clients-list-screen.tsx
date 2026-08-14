@@ -1,26 +1,13 @@
 'use client';
 
-import {
-  DataTable,
-  FilterBar,
-  LoadingState,
-  Pagination,
-  SearchInput,
-  StatusChip
-} from '@trudskill/ui';
+import { FilterBar, ListPage, SearchInput, StatusChip } from '@trudskill/ui';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import { ClientEditDrawer } from './client-edit-drawer';
 import { CLIENT_STATUS_LABEL, formatInn, formatPhone } from './format';
 import { useClientsList } from './hooks';
-import {
-  PageContainer,
-  PageHeader,
-  SectionCard,
-  SectionEmpty,
-  SectionError
-} from '../../components/state-wrappers';
+import { PageContainer, PageHeader } from '../../components/state-wrappers';
 
 import type { ClientListItem, ClientStatus, ClientsListFilters } from './types';
 import type { Column } from '@trudskill/ui';
@@ -63,7 +50,7 @@ export function ClientsListScreen() {
     },
     {
       key: 'contactEmail',
-      title: 'Email',
+      title: 'Почта',
       render: (row) => row.contactEmail ?? '—'
     },
     {
@@ -86,7 +73,7 @@ export function ClientsListScreen() {
         title="Компании"
         subtitle="Компании-заказчики обучения: создание, поиск, редактирование контактов, прогресс по группам."
         actions={
-          <button type="button" className="ui-button-primary" onClick={() => setCreating(true)}>
+          <button type="button" className="ui-button--primary" onClick={() => setCreating(true)}>
             Добавить компанию
           </button>
         }
@@ -115,28 +102,20 @@ export function ClientsListScreen() {
         </select>
       </FilterBar>
 
-      <SectionCard title="Список компаний">
-        {list.isLoading ? (
-          <LoadingState message="Загрузка…" />
-        ) : list.error ? (
-          <SectionError
-            message={
-              list.error instanceof Error ? list.error.message : 'Не удалось загрузить список'
-            }
-            onRetry={() => void list.refetch()}
-          />
-        ) : !list.data || list.data.items.length === 0 ? (
-          <SectionEmpty
-            message="Компаний нет"
-            hint="По текущим фильтрам ни одной записи не найдено."
-          />
-        ) : (
-          <>
-            <DataTable<ClientListItem> columns={columns} rows={list.data.items} />
-            <Pagination page={page} totalPages={totalPages} onPageChange={(p) => setPage(p)} />
-          </>
-        )}
-      </SectionCard>
+      <ListPage<ClientListItem>
+        columns={columns}
+        rows={list.data?.items ?? []}
+        isLoading={list.isLoading}
+        error={list.error}
+        onRetry={() => void list.refetch()}
+        rowKey={(row) => row.id}
+        emptyMessage="Здесь появятся компании-заказчики"
+        emptyHint="Компания — организация, которая направляет сотрудников на обучение и оплачивает его. Её заводят при первом договоре или заявке."
+        emptyAction={{ label: 'Добавить первую компанию', onSelect: () => setCreating(true) }}
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
 
       {creating ? (
         <ClientEditDrawer
