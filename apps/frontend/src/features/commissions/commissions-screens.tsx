@@ -1,6 +1,15 @@
 'use client';
 
-import { AsyncSection, DataTable, LoadingState, StatusChip, useConfirmDialog } from '@trudskill/ui';
+import {
+  DataTable,
+  DetailDrawer,
+  Form,
+  FormActions,
+  ListPage,
+  LoadingState,
+  StatusChip,
+  useConfirmDialog
+} from '@trudskill/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
@@ -26,9 +35,22 @@ import type {
 import type { Column } from '@trudskill/ui';
 import type { ReactElement } from 'react';
 
+interface CommissionRow {
+  id: string;
+  nameView: ReactElement;
+  codeView: string;
+  statusView: ReactElement;
+}
+
 /*
- * Перенесены «как есть» из features/mvp/screens.tsx (§8.3, порядок 7; правило SCR-001).
- * Редизайн — следующим коммитом.
+ * TPL-001 (Фаза 4, срез 11, волна 3). Что изменилось в реестре:
+ *
+ * 1. Форма создания стояла постоянным блоком ПОД таблицей, а пустой экран отправлял
+ *    к ней словами «Создайте первую комиссию ниже». Теперь это первичное действие
+ *    в шапке и панель; пустой экран объясняет, зачем комиссия нужна.
+ * 2. Кнопка «Обновить» рядом с отбором убрана — обновление не действие (`UI-007`).
+ * 3. Колонка-пустышка со ссылкой «Открыть» убрана: ссылка теперь на названии.
+ * 4. Отбор: «Активные»/«Архивные» → «Действующие»/«В архиве».
  */
 
 // === Pillar A — Plan A: commissions admin screens ===
@@ -53,6 +75,7 @@ export const CommissionsPageScreen = () => {
   const [description, setDescription] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   const onCreate = async (e: FormEvent) => {
     e.preventDefault();
@@ -81,86 +104,109 @@ export const CommissionsPageScreen = () => {
     }
   };
 
-  const commissionColumns: Column<Commission>[] = [
-    { key: 'code', title: 'Код' },
-    { key: 'name', title: 'Название' },
-    {
-      key: 'status',
-      title: 'Статус',
-      render: (row) => <StatusChip status={row.status} />
-    },
-    {
-      key: 'id',
-      title: '',
-      render: (row) => <Link href={`/admin/commissions/${row.id}`}>Открыть</Link>
-    }
-  ];
+  const rows: CommissionRow[] = (data?.items ?? []).map((item: Commission) => ({
+    id: item.id,
+    nameView: (
+      <Link className="ui-link" href={`/admin/commissions/${item.id}`}>
+        {item.name}
+      </Link>
+    ),
+    codeView: item.code,
+    statusView: <StatusChip status={item.status} />
+  }));
 
   return (
     <PageContainer>
       <PageHeader
         title="Аттестационные комиссии"
-        subtitle="Составы для регулируемого ДПО — подписывают пакеты выходных документов"
+        subtitle="Состав, который подписывает протоколы и удостоверения слушателей"
+        actions={
+          <button type="button" className="ui-button--primary" onClick={() => setCreating(true)}>
+            Создать комиссию
+          </button>
+        }
       />
-      <SectionCard title="Реестр комиссий">
-        <div className="ui-inline" style={{ marginBottom: 12 }}>
-          <label>
-            Статус:&nbsp;
+
+      <ListPage<CommissionRow>
+        filters={
+          <label className="ui-field">
+            <span className="ui-field-label">Состояние</span>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as CommissionStatus | '')}
             >
-              <option value="active">Активные</option>
-              <option value="archived">Архивные</option>
-              <option value="">Все</option>
+              <option value="active">Действующие</option>
+              <option value="archived">В архиве</option>
+              <option value="">Любое</option>
             </select>
           </label>
-          <button type="button" className="ui-button" onClick={() => void refetch()}>
-            Обновить
-          </button>
-        </div>
-        <AsyncSection
-          isLoading={loading}
-          error={error ? new Error(error) : undefined}
-          isEmpty={!!data && data.items.length === 0}
-          loadingMessage="Загрузка…"
-          emptyMessage="Комиссии не созданы"
-          emptyHint="Создайте первую комиссию ниже"
-        >
-          <DataTable columns={commissionColumns} rows={data?.items ?? []} />
-        </AsyncSection>
-      </SectionCard>
+        }
+        columns={[
+          { key: 'nameView', title: 'Комиссия', render: (row) => row.nameView },
+          { key: 'codeView', title: 'Код' },
+          { key: 'statusView', title: 'Состояние', render: (row) => row.statusView }
+        ]}
+        rows={rows}
+        isLoading={loading}
+        error={error ? new Error(error) : undefined}
+        onRetry={() => void refetch()}
+        rowKey={(row) => row.id}
+        emptyMessage="Здесь появятся аттестационные комиссии"
+        emptyHint="Комиссия — состав из председателя, членов и секретаря. Она подписывает протоколы проверки знаний и удостоверения, поэтому без неё документы не выпускаются."
+        emptyAction={{ label: 'Создать первую комиссию', onSelect: () => setCreating(true) }}
+      />
 
-      <SectionCard title="Создать новую комиссию">
-        <form onSubmit={(e) => void onCreate(e)} className="ui-stack">
-          <label>
-            Код
-            <input
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="например, OT_2026"
-              required
-            />
-          </label>
-          <label>
-            Название
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Комиссия по охране труда"
-              required
-            />
-          </label>
-          <label>
-            Описание (необязательно)
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} />
-          </label>
-          {saveError ? <FieldError id="commission-create-error" message={saveError} /> : null}
-          <button type="submit" className="ui-button ui-button--primary" disabled={saving}>
-            {saving ? 'Создаём…' : 'Создать комиссию'}
-          </button>
-        </form>
-      </SectionCard>
+      {creating ? (
+        <DetailDrawer
+          open={true}
+          title="Новая комиссия"
+          width="sm"
+          hasUnsavedChanges={Boolean(code.trim() || name.trim())}
+          onClose={() => setCreating(false)}
+        >
+          <Form onSubmit={(e) => void onCreate(e)} noValidate>
+            <label htmlFor="commission-name" className="ui-field">
+              <span className="ui-field-label">Название комиссии</span>
+              <input
+                id="commission-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Комиссия по охране труда"
+                required
+              />
+              <p className="ui-field-hint">Так комиссия будет названа в протоколе.</p>
+            </label>
+            <label htmlFor="commission-code" className="ui-field">
+              <span className="ui-field-label">Короткий код</span>
+              <input
+                id="commission-code"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="ОТ-2026"
+                required
+              />
+              <p className="ui-field-hint">Метка для документов и выгрузок.</p>
+            </label>
+            <label htmlFor="commission-description" className="ui-field">
+              <span className="ui-field-label">Описание (по желанию)</span>
+              <textarea
+                id="commission-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </label>
+            {saveError ? <FieldError id="commission-create-error" message={saveError} /> : null}
+            <FormActions>
+              <button type="button" className="ui-button-link" onClick={() => setCreating(false)}>
+                Отмена
+              </button>
+              <button type="submit" className="ui-button--primary" disabled={saving}>
+                {saving ? 'Создаём…' : 'Создать комиссию'}
+              </button>
+            </FormActions>
+          </Form>
+        </DetailDrawer>
+      ) : null}
     </PageContainer>
   );
 };
