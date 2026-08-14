@@ -1,9 +1,17 @@
 'use client';
 
-import { DataTable, FilterBar, LoadingState, StatusChip } from '@trudskill/ui';
+import { DataTable, FilterBar, StatusChip, WizardSteps } from '@trudskill/ui';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
+import {
+  ATTEMPT_STATUS_LABELS,
+  CATALOG_STATUS_LABELS,
+  CATALOG_STATUS_OPTIONS,
+  REVIEW_STATUS_LABELS,
+  attemptResultText,
+  statusLabel
+} from './labels';
 import {
   PageContainer,
   PageHeader,
@@ -17,6 +25,7 @@ import {
   startMetricTimer
 } from '../../lib/analytics/ux-metrics';
 import { useAuth } from '../auth/context';
+import { useLearnersList } from '../learners/hooks';
 import {
   showActAsLearnerAction,
   showOpenLearnerRegistryAction
@@ -29,32 +38,37 @@ import {
   useDomainMutations,
   useEnrollments,
   useExamResults,
-  useQuestionBanks,
+  useGroupsList,
   useTests
 } from '../mvp/hooks';
-import { MutationError, readApiMessage, toTableRows } from '../mvp/screen-helpers';
+import { MutationError, formatDate, readApiMessage } from '../mvp/screen-helpers';
 
-import type { AssignmentSubmission, Attempt, ExamResult } from '../mvp/types';
-import type { Column } from '@trudskill/ui';
+const PAGE = { page: 1, page_size: 100 };
+
+const ATTEMPT_STEPS = [
+  { id: 'test', title: 'Тест' },
+  { id: 'learner', title: 'Слушатель' },
+  { id: 'result', title: 'Результат' }
+];
 
 /*
- * Перенесён «как есть» из features/mvp/screens.tsx (§8.3, порядок 4; правило SCR-001:
- * перенос и редизайн — разные шаги). Редизайн — следующим коммитом.
+ * Волна 2 §8.1 (Фаза 4, срез 8). Что изменилось против перенесённой версии:
+ *
+ * 1. **Было девять блоков подряд** при бюджете «≤3 до сгиба»: фильтры, банки вопросов,
+ *    тесты, назначенные задания, сценарий сдачи, попытки, результаты, очередь проверок,
+ *    завершение проверок, история. Три из них — банки, тесты и задания — просто повторяли
+ *    содержимое СВОИХ экранов (`/admin/question-banks`, `/admin/tests`, `/admin/assignments`)
+ *    в виде таблиц только для чтения. Убраны, вместо них ссылки на эти экраны.
+ * 2. **Ни одной фамилии на экране.** Слушатель, тест, задание и зачисление показывались
+ *    идентификаторами: `<code>3f7a…</code>`, «Submission ID», «Review ID», а зачисление
+ *    в выпадающем списке выбиралось по идентификатору (журнал, запись 39).
+ * 3. Пояснения были написаны для разработчика: «запуск попытки / субмиты с learnerId этого
+ *    зачисления (IAM: learners.act_as)».
+ * 4. Результат попытки печатался машинной строкой `score=8/10, passed=да`.
+ * 5. Шаги сценария — своя копия разметки степпера; теперь общий `WizardSteps` (запись 36).
  */
-const STATUS_OPTIONS = ['draft', 'active', 'archived'];
-
-const ENROLLMENT_STATUS_LABEL: Record<string, string> = {
-  pending: 'ожидает',
-  active: 'активно',
-  completed: 'завершено',
-  suspended: 'приостановлено',
-  cancelled: 'отменено',
-  draft: 'черновик'
-};
-
 export const AssessmentDashboardScreen = () => {
   const { session } = useAuth();
-  const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
   const [groupId, setGroupId] = useState('');
   const [selectedTestId, setSelectedTestId] = useState('');
@@ -63,162 +77,68 @@ export const AssessmentDashboardScreen = () => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const { startAttempt, getAttemptResult, completeAssignmentReview, updateAssignmentReview } =
     useDomainMutations();
-  const {
-    data: banks,
-    loading: banksLoading,
-    error: banksError
-  } = useQuestionBanks({
-    page: 1,
-    page_size: 20,
-    q,
-    status
-  });
-  const {
-    data: tests,
-    loading: testsLoading,
-    error: testsError
-  } = useTests({
-    page: 1,
-    page_size: 20,
-    q,
-    status
-  });
-  const {
-    data: assignments,
-    loading: assignmentsLoading,
-    error: assignmentsError
-  } = useAssignments({
-    page: 1,
-    page_size: 20,
-    group_id: groupId || undefined
+
+  const { data: tests } = useTests({ ...PAGE, status });
+  const { data: assignments } = useAssignments({
+    ...PAGE,
+    ...(groupId ? { group_id: groupId } : {})
   });
   const { data: enrollments } = useEnrollments({
-    group_id: groupId || undefined,
-    page: 1,
-    page_size: 20
+    ...PAGE,
+    ...(groupId ? { group_id: groupId } : {})
   });
-  const { data: submissions } = useAssignmentSubmissions({
-    page: 1,
-    page_size: 50,
+  const { data: submissions, error: submissionsError } = useAssignmentSubmissions({
+    ...PAGE,
     status: 'submitted'
   });
-  const {
-    data: attempts,
-    loading: attemptsLoading,
-    error: attemptsError
-  } = useAttempts({ page: 1, page_size: 20 });
-  const {
-    data: examResults,
-    loading: examResultsLoading,
-    error: examResultsError
-  } = useExamResults({ page: 1, page_size: 20 });
-  const { data: reviews } = useAssignmentReviews({ page: 1, page_size: 50 });
-  const canCrossLearner = showOpenLearnerRegistryAction(session?.permissions);
+  const { data: attempts, error: attemptsError } = useAttempts(PAGE);
+  const { data: examResults, error: examResultsError } = useExamResults(PAGE);
+  const { data: reviews } = useAssignmentReviews(PAGE);
+  const { data: groups } = useGroupsList(PAGE);
+  const { data: learners } = useLearnersList({ page: 1, pageSize: 100 });
+
+  const canOpenLearner = showOpenLearnerRegistryAction(session?.permissions);
   const canActAsLearner = showActAsLearnerAction(session?.permissions);
 
-  const submissionColumns: Column<AssignmentSubmission>[] = [
-    { key: 'id', title: 'Submission ID' },
-    { key: 'assignmentId', title: 'Задание' },
-    {
-      key: 'learnerId',
-      title: 'Слушатель и доступ',
-      render: (row) => (
-        <span className="ui-stack" style={{ gap: 4 }}>
-          <code>{row.learnerId}</code>
-          {canCrossLearner ? (
-            <Link
-              href="/learners"
-              data-testid={`assessment-open-learner-sub-${row.id}`}
-              title={`ID слушателя: ${row.learnerId}`}
-            >
-              Реестр слушателя
-            </Link>
-          ) : null}
-          {canActAsLearner ? (
-            <span className="ui-text-muted" data-testid={`assessment-act-as-learner-sub-${row.id}`}>
-              Отметить за слушателя: запуск попытки / субмиты с learnerId этого зачисления (IAM:
-              learners.act_as).
-            </span>
-          ) : null}
-        </span>
-      )
-    },
-    { key: 'status', title: 'Статус' },
-    { key: 'submittedAt', title: 'Отправлено' }
-  ];
+  const learnerName = useMemo(
+    () =>
+      new Map(
+        (learners?.items ?? []).map((item) => [
+          item.id,
+          `${item.lastName} ${item.firstName}`.trim()
+        ])
+      ),
+    [learners]
+  );
+  const testTitle = useMemo(
+    () => new Map((tests?.items ?? []).map((item) => [item.id, item.title])),
+    [tests]
+  );
+  const assignmentTitle = useMemo(
+    () => new Map((assignments?.items ?? []).map((item) => [item.id, item.title])),
+    [assignments]
+  );
 
-  const attemptsColumns: Column<Attempt>[] = [
-    { key: 'id', title: 'Попытка' },
-    { key: 'testId', title: 'Тест' },
-    { key: 'enrollmentId', title: 'Зачисление' },
-    {
-      key: 'learnerId',
-      title: 'Слушатель и доступ',
-      render: (row) => (
-        <span className="ui-stack" style={{ gap: 4 }}>
-          <code>{row.learnerId}</code>
-          {canCrossLearner ? (
-            <Link
-              href="/learners"
-              data-testid={`assessment-open-learner-att-${row.id}`}
-              title={`ID слушателя: ${row.learnerId}`}
-            >
-              Реестр слушателя
-            </Link>
-          ) : null}
-          {canActAsLearner ? (
-            <span className="ui-text-muted" data-testid={`assessment-act-as-learner-att-${row.id}`}>
-              Сценарий сдачи: выберите зачисление с этим learnerId.
-            </span>
-          ) : null}
-        </span>
-      )
-    },
-    { key: 'status', title: 'Статус' },
-    { key: 'startedAt', title: 'Начато' }
-  ];
-
-  const examResultColumns: Column<ExamResult>[] = [
-    { key: 'id', title: 'Результат' },
-    { key: 'testId', title: 'Тест' },
-    {
-      key: 'learnerId',
-      title: 'Слушатель и доступ',
-      render: (row) => (
-        <span className="ui-stack" style={{ gap: 4 }}>
-          <code>{row.learnerId}</code>
-          {canCrossLearner ? (
-            <Link
-              href="/learners"
-              data-testid={`assessment-open-learner-exam-${row.id}`}
-              title={`ID слушателя: ${row.learnerId}`}
-            >
-              Реестр слушателя
-            </Link>
-          ) : null}
-          {canActAsLearner ? (
-            <span
-              className="ui-text-muted"
-              data-testid={`assessment-act-as-learner-exam-${row.id}`}
-            >
-              Результат по строке; делегируйте мутации через актуальное зачисление слушателя.
-            </span>
-          ) : null}
-        </span>
-      )
-    },
-    { key: 'finalScore', title: 'Балл' },
-    { key: 'passed', title: 'Зачёт' }
-  ];
+  /** Слушатель — имя, и ссылка на карточку, если право разрешает выходить за своего. */
+  const learnerCell = (learnerId: string) => {
+    const name = learnerName.get(learnerId) ?? 'нет в справочнике';
+    return canOpenLearner ? (
+      <Link className="ui-link" href={`/learners/${learnerId}`}>
+        {name}
+      </Link>
+    ) : (
+      name
+    );
+  };
 
   const onStartAttempt = async () => {
     if (!selectedTestId || !selectedEnrollmentId || !session) {
-      setSaveError('Выберите тест и зачисление');
+      setSaveError('Выберите тест и слушателя');
       return;
     }
     const enrollmentRecord = enrollments?.items.find((e) => e.id === selectedEnrollmentId);
     if (!enrollmentRecord) {
-      setSaveError('Не найдено выбранное зачисление (проверьте фильтр group_id)');
+      setSaveError('Выбранное зачисление не найдено — проверьте, та ли выбрана группа');
       return;
     }
     setSaveError(null);
@@ -231,9 +151,7 @@ export const AssessmentDashboardScreen = () => {
         learnerId: enrollmentRecord.learnerId
       });
       const result = await getAttemptResult(attempt.id);
-      setAttemptResult(
-        `Попытка ${attempt.id}: score=${result.finalScore}/${result.maxScore}, passed=${result.passed ? 'да' : 'нет'}`
-      );
+      setAttemptResult(attemptResultText(result.finalScore, result.maxScore, result.passed));
       completeMetricTimer('time_to_submit_assignment', { flow: 'assessment_attempt' });
     } catch (error) {
       setSaveError(readApiMessage(error));
@@ -241,236 +159,261 @@ export const AssessmentDashboardScreen = () => {
     }
   };
 
-  const flowStep = !selectedTestId ? 1 : !selectedEnrollmentId ? 2 : !attemptResult ? 3 : 4;
+  const currentStep = !selectedTestId ? 'test' : !selectedEnrollmentId ? 'learner' : 'result';
 
   return (
     <PageContainer>
-      <PageHeader title="Оценивание и контроль знаний" />
-      <SectionCard title="Фильтры">
-        <FilterBar>
-          <input value={q} onChange={(event) => setQ(event.target.value)} placeholder="Поиск" />
-          <select value={status} onChange={(event) => setStatus(event.target.value)}>
-            <option value="">Все статусы</option>
-            {STATUS_OPTIONS.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-          <input
-            value={groupId}
-            onChange={(event) => setGroupId(event.target.value)}
-            placeholder="Фильтр по group_id"
-          />
-        </FilterBar>
-      </SectionCard>
-      <SectionCard title="Банки вопросов">
-        {banksLoading ? <LoadingState message="Загрузка банков вопросов..." /> : null}
-        {banksError ? <SectionError message={banksError} /> : null}
-        <p>Всего: {banks?.total ?? 0}</p>
-        {banks?.items.length ? (
-          <DataTable
-            columns={[
-              { key: 'code', title: 'Код' },
-              { key: 'title', title: 'Название' }
-            ]}
-            rows={toTableRows(banks.items)}
-          />
-        ) : null}
-      </SectionCard>
-      <SectionCard title="Тесты">
-        {testsLoading ? <LoadingState message="Загрузка тестов..." /> : null}
-        {testsError ? <SectionError message={testsError} /> : null}
-        <p>Всего: {tests?.total ?? 0}</p>
-        {tests?.items.length ? (
+      <PageHeader
+        title="Оценивание"
+        subtitle="Что требует проверки, как идут попытки и чем закончились экзамены"
+        actions={
+          <Link className="ui-button-secondary" href="/admin/tests">
+            Тесты и банки вопросов
+          </Link>
+        }
+      />
+
+      <FilterBar
+        onReset={() => {
+          setStatus('');
+          setGroupId('');
+        }}
+        activeCount={[status, groupId].filter(Boolean).length}
+        primary={
           <>
-            <DataTable
-              columns={[
-                { key: 'code', title: 'Код' },
-                { key: 'title', title: 'Название' },
-                { key: 'status', title: 'Статус' }
-              ]}
-              rows={toTableRows(tests.items)}
-            />
-            <FilterBar>
+            <label className="ui-field">
+              <span className="ui-field-label">Учебная группа</span>
               <select
-                value={selectedTestId}
-                onChange={(event) => setSelectedTestId(event.target.value)}
-                aria-label="Выберите тест"
+                value={groupId}
+                onChange={(event) => {
+                  setGroupId(event.target.value);
+                  setSelectedEnrollmentId('');
+                }}
               >
-                <option value="">Выберите тест для запуска попытки</option>
-                {tests.items.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.title}
+                <option value="">Все группы</option>
+                {(groups?.items ?? []).map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name} ({group.code})
                   </option>
                 ))}
               </select>
-            </FilterBar>
+            </label>
+            <label className="ui-field">
+              <span className="ui-field-label">Состояние теста</span>
+              <select value={status} onChange={(event) => setStatus(event.target.value)}>
+                <option value="">Любое</option>
+                {CATALOG_STATUS_OPTIONS.map((item) => (
+                  <option key={item} value={item}>
+                    {statusLabel(CATALOG_STATUS_LABELS, item)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        }
+      />
+
+      <SectionCard title="Ждут проверки преподавателя">
+        <p className="ui-hint">
+          Срок проверки — двое суток с момента отправки. Сейчас в очереди:{' '}
+          {submissions?.items.length ?? 0}.
+        </p>
+        {submissionsError ? <SectionError message={submissionsError} /> : null}
+        {submissions?.items.length ? (
+          <DataTable
+            columns={[
+              { key: 'learner', title: 'Слушатель' },
+              { key: 'assignment', title: 'Задание' },
+              { key: 'submitted', title: 'Отправлено' }
+            ]}
+            rows={submissions.items.map((item) => ({
+              learner: learnerCell(item.learnerId),
+              assignment: assignmentTitle.get(item.assignmentId) ?? 'задание не найдено',
+              submitted: formatDate(item.submittedAt)
+            }))}
+          />
+        ) : (
+          <SectionEmpty
+            message="Проверять пока нечего"
+            hint="Сюда попадают работы слушателей сразу после отправки — они ждут оценки преподавателя."
+          />
+        )}
+        {canActAsLearner ? (
+          <p className="ui-hint">
+            У вас есть право действовать от лица слушателя: запускать попытку и отправлять работу за
+            него. Такое действие помечается в журнале как выполненное по поручению.
+          </p>
+        ) : null}
+      </SectionCard>
+
+      <SectionCard title="Провести тест за слушателя">
+        <WizardSteps steps={ATTEMPT_STEPS} currentId={currentStep} label="Шаги сдачи теста" />
+        <div className="ui-inline">
+          <label className="ui-field">
+            <span className="ui-field-label">Тест</span>
+            <select
+              value={selectedTestId}
+              onChange={(event) => setSelectedTestId(event.target.value)}
+            >
+              <option value="">— выберите тест —</option>
+              {(tests?.items ?? []).map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.title}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="ui-field">
+            <span className="ui-field-label">Слушатель</span>
+            {/* Раньше здесь стоял список зачислений, подписанных идентификаторами. */}
+            <select
+              value={selectedEnrollmentId}
+              onChange={(event) => setSelectedEnrollmentId(event.target.value)}
+            >
+              <option value="">— выберите слушателя —</option>
+              {(enrollments?.items ?? []).map((item) => (
+                <option key={item.id} value={item.id}>
+                  {learnerName.get(item.learnerId) ?? 'нет в справочнике'}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="ui-button--primary"
+            onClick={() => void onStartAttempt()}
+            disabled={!selectedTestId || !selectedEnrollmentId}
+          >
+            Провести тест
+          </button>
+        </div>
+        <MutationError message={saveError} />
+        {attemptResult ? (
+          <>
+            <p className="ui-callout ui-callout--success">{attemptResult}</p>
+            <div className="ui-inline">
+              <span className="ui-text-muted">Насколько удобно прошло?</span>
+              <button
+                type="button"
+                className="ui-button-secondary"
+                onClick={() =>
+                  recordMetric('csat_after_submission', 5, { flow: 'assessment_attempt' })
+                }
+              >
+                Удобно
+              </button>
+              <button
+                type="button"
+                className="ui-button"
+                onClick={() =>
+                  recordMetric('csat_after_submission', 2, { flow: 'assessment_attempt' })
+                }
+              >
+                Есть что улучшить
+              </button>
+            </div>
           </>
         ) : null}
       </SectionCard>
-      <SectionCard title="Назначенные задания">
-        {assignmentsLoading ? <LoadingState message="Загрузка назначений..." /> : null}
-        {assignmentsError ? <SectionError message={assignmentsError} /> : null}
-        <p>Всего: {assignments?.total ?? 0}</p>
-        {assignments?.items.length ? (
-          <DataTable
-            columns={[
-              { key: 'id', title: 'ID' },
-              { key: 'testId', title: 'Тест' },
-              { key: 'groupId', title: 'Группа' },
-              { key: 'status', title: 'Статус' }
-            ]}
-            rows={toTableRows(assignments.items)}
-          />
-        ) : null}
-      </SectionCard>
-      <SectionCard title="Сценарий сдачи задания">
-        <ol className="ui-stepper">
-          <li className={`ui-step ${flowStep > 1 ? 'ui-step--done' : 'ui-step--active'}`}>
-            1. Открыть задание
-          </li>
-          <li
-            className={`ui-step ${
-              flowStep > 2 ? 'ui-step--done' : flowStep === 2 ? 'ui-step--active' : ''
-            }`}
-          >
-            2. Проверить данные
-          </li>
-          <li
-            className={`ui-step ${
-              flowStep > 3 ? 'ui-step--done' : flowStep === 3 ? 'ui-step--active' : ''
-            }`}
-          >
-            3. Отправить
-          </li>
-          <li className={`ui-step ${flowStep === 4 ? 'ui-step--active' : ''}`}>4. Подтверждение</li>
-        </ol>
-        <FilterBar>
-          <select
-            value={selectedEnrollmentId}
-            onChange={(event) => setSelectedEnrollmentId(event.target.value)}
-            aria-label="Выберите зачисление"
-          >
-            <option value="">Выберите зачисление</option>
-            {enrollments?.items.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.id} ({ENROLLMENT_STATUS_LABEL[item.status] ?? item.status})
-              </option>
-            ))}
-          </select>
-          <button type="button" onClick={() => void onStartAttempt()}>
-            Запустить попытку и получить результат
-          </button>
-        </FilterBar>
-        <MutationError message={saveError} />
-        {attemptResult ? <p>{attemptResult}</p> : null}
-        {attemptResult ? (
-          <div className="ui-inline">
-            <span className="ui-text-muted">Оцените удобство отправки:</span>
-            <button
-              type="button"
-              className="ui-button ui-button--secondary"
-              onClick={() =>
-                recordMetric('csat_after_submission', 5, { flow: 'assessment_attempt' })
-              }
-            >
-              Хорошо
-            </button>
-            <button
-              type="button"
-              className="ui-button"
-              onClick={() =>
-                recordMetric('csat_after_submission', 2, { flow: 'assessment_attempt' })
-              }
-            >
-              Нужно улучшить
-            </button>
-          </div>
-        ) : null}
-      </SectionCard>
-      <SectionCard title="Попытки">
-        {attemptsLoading ? <LoadingState message="Загрузка попыток…" /> : null}
+
+      <SectionCard title="Попытки и результаты">
         {attemptsError ? <SectionError message={attemptsError} /> : null}
-        {!attemptsLoading && !attempts?.items?.length ? (
-          <SectionEmpty message="Нет попыток в выборке" />
-        ) : null}
-        {attempts?.items.length ? (
-          <DataTable<Attempt> columns={attemptsColumns} rows={attempts.items} />
-        ) : null}
-      </SectionCard>
-      <SectionCard title="Результаты экзаменов">
-        {examResultsLoading ? <LoadingState message="Загрузка результатов…" /> : null}
         {examResultsError ? <SectionError message={examResultsError} /> : null}
-        {!examResultsLoading && !examResults?.items?.length ? (
-          <SectionEmpty message="Нет результатов в выборке" />
-        ) : null}
+        <h3 className="ui-subheading">Идущие и завершённые попытки</h3>
+        {attempts?.items.length ? (
+          <DataTable
+            columns={[
+              { key: 'learner', title: 'Слушатель' },
+              { key: 'test', title: 'Тест' },
+              { key: 'state', title: 'Состояние' },
+              { key: 'started', title: 'Начата' }
+            ]}
+            rows={attempts.items.map((item) => ({
+              learner: learnerCell(item.learnerId),
+              test: testTitle.get(item.testId) ?? 'тест не найден',
+              state: statusLabel(ATTEMPT_STATUS_LABELS, item.status),
+              started: formatDate(item.startedAt)
+            }))}
+          />
+        ) : (
+          <SectionEmpty
+            message="Попыток пока не было"
+            hint="Попытка появляется, когда слушатель начинает тест — сам или под руководством преподавателя."
+          />
+        )}
+        <h3 className="ui-subheading">Итоги экзаменов</h3>
         {examResults?.items.length ? (
-          <DataTable<ExamResult> columns={examResultColumns} rows={examResults.items} />
-        ) : null}
-      </SectionCard>
-      <SectionCard title="Очередь проверок преподавателя">
-        <p className="ui-text-muted">
-          SLA проверки: 48 часов. Заявок в очереди: {submissions?.items.length ?? 0}
-        </p>
-        {submissions?.items.length ? (
-          <DataTable<AssignmentSubmission> columns={submissionColumns} rows={submissions.items} />
+          <DataTable
+            columns={[
+              { key: 'learner', title: 'Слушатель' },
+              { key: 'test', title: 'Тест' },
+              { key: 'score', title: 'Балл' },
+              { key: 'result', title: 'Итог' }
+            ]}
+            rows={examResults.items.map((item) => ({
+              learner: learnerCell(item.learnerId),
+              test: testTitle.get(item.testId) ?? 'тест не найден',
+              score: `${item.finalScore} из ${item.maxScore}`,
+              result: item.passed ? 'Зачёт' : 'Не зачтено'
+            }))}
+          />
         ) : (
-          <SectionEmpty message="Новых submissions на проверку нет" />
+          <SectionEmpty message="Итогов экзаменов пока нет" />
         )}
       </SectionCard>
-      <SectionCard title="Завершение проверок и SLA">
-        {reviews?.items.length ? (
-          <div className="ui-stack">
-            {reviews.items.slice(0, 10).map((review) => (
-              <div key={review.id} className="ui-inline">
-                <StatusChip status={review.status} />
-                <span>{review.id}</span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    void completeAssignmentReview(review.id, {
-                      score: review.score ?? 80,
-                      comment: review.comment ?? 'Проверка завершена в рамках SLA'
-                    }).catch((error) => setSaveError(readApiMessage(error)))
-                  }
-                  disabled={review.status === 'completed'}
-                >
-                  Завершить
-                </button>
-                <button
-                  type="button"
-                  className="ui-button ui-button--secondary"
-                  onClick={() =>
-                    void updateAssignmentReview(review.id, {
-                      reviewStatus: 'in_review',
-                      comment: `Апелляция зарегистрирована: ${new Date().toISOString()}`
-                    }).catch((error) => setSaveError(readApiMessage(error)))
-                  }
-                >
-                  Зарегистрировать апелляцию
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <SectionEmpty message="Проверки отсутствуют" />
-        )}
-      </SectionCard>
-      <SectionCard title="История изменений оценивания">
+
+      <SectionCard title="Проверки преподавателя">
         {reviews?.items.length ? (
           <DataTable
             columns={[
-              { key: 'id', title: 'Review ID' },
-              { key: 'status', title: 'Статус' },
+              { key: 'learner', title: 'Слушатель' },
+              { key: 'state', title: 'Состояние', render: (row) => row.state },
               { key: 'score', title: 'Балл' },
               { key: 'comment', title: 'Комментарий' },
-              { key: 'updatedAt', title: 'Обновлено' }
+              { key: 'updated', title: 'Изменено' }
             ]}
-            rows={toTableRows(reviews.items)}
+            rows={reviews.items.map((item) => ({
+              id: item.id,
+              learner: assignmentTitle.get(item.assignmentId) ?? 'задание не найдено',
+              state: (
+                <StatusChip
+                  status={item.status}
+                  label={statusLabel(REVIEW_STATUS_LABELS, item.status)}
+                />
+              ),
+              score: item.score ?? '—',
+              comment: item.comment ?? '—',
+              updated: formatDate(item.updatedAt)
+            }))}
+            rowKey={(row) => String(row.id)}
+            rowActions={(row) => {
+              const review = reviews.items.find((item) => item.id === row.id);
+              if (!review || review.status === 'completed') return [];
+              return [
+                {
+                  label: 'Завершить проверку',
+                  onSelect: () =>
+                    void completeAssignmentReview(review.id, {
+                      score: review.score ?? 80,
+                      comment: review.comment ?? 'Проверка завершена в срок'
+                    }).catch((error) => setSaveError(readApiMessage(error)))
+                },
+                {
+                  label: 'Принять апелляцию',
+                  onSelect: () =>
+                    void updateAssignmentReview(review.id, {
+                      reviewStatus: 'in_review',
+                      comment: 'Слушатель подал апелляцию — работа возвращена на проверку'
+                    }).catch((error) => setSaveError(readApiMessage(error)))
+                }
+              ];
+            }}
           />
         ) : (
-          <SectionEmpty message="История проверок пока пуста" />
+          <SectionEmpty
+            message="Проверок пока не было"
+            hint="Здесь видно, что проверено, с каким баллом и когда."
+          />
         )}
       </SectionCard>
     </PageContainer>
