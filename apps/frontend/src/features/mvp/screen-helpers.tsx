@@ -1,5 +1,7 @@
 'use client';
 
+import { FilterBar } from '@trudskill/ui';
+
 import { SectionError } from '../../components/state-wrappers';
 import { ApiClientError } from '../../lib/api/client';
 
@@ -84,3 +86,48 @@ export const MutationError = ({ message }: { message: string | null }) =>
  */
 export const toTableRows = <T extends object>(rows: T[]): Record<string, unknown>[] =>
   rows as unknown as Record<string, unknown>[];
+
+/*
+ * Поиск и отбор по состоянию — общая пара для реестров монолита.
+ * Перенесены в общий слой (§8.3) при выносе экранов курсов: ими пользуются оба места.
+ */
+export const STATUS_OPTIONS = [
+  'active',
+  'blocked',
+  'draft',
+  'archived',
+  'published',
+  'pending',
+  'suspended',
+  'completed',
+  'cancelled'
+] as const;
+
+export const RegistryControls = ({
+  q,
+  setQ,
+  status,
+  setStatus
+}: {
+  q: string;
+  setQ: (v: string) => void;
+  status: string;
+  setStatus: (v: string) => void;
+}) => (
+  <FilterBar>
+    <input
+      placeholder="Поиск"
+      value={q}
+      onChange={(event) => setQ(event.target.value)}
+      aria-label="Поиск"
+    />
+    <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Статус">
+      <option value="">Все статусы</option>
+      {STATUS_OPTIONS.map((option) => (
+        <option key={option} value={option}>
+          {option}
+        </option>
+      ))}
+    </select>
+  </FilterBar>
+);
