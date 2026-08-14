@@ -1,4 +1,4 @@
-import { CommissionDetailsScreen } from '../../../../src/features/mvp/screens';
+import { CommissionDetailsScreen } from '../../../../src/features/commissions/commissions-screens';
 import { ProtectedPage } from '../../../../src/widgets/shell/protected-page';
 
 export default async function AdminCommissionDetailsPage({
