@@ -65,11 +65,16 @@ describe('короткие меню ролей (IA-013)', () => {
   });
 
   it('роль manager имеет своё меню (ТЗ §4.4)', () => {
+    /*
+     * Срез 15: `/counterparties` и `/admin/clients` были двумя экранами одной сущности.
+     * По решению владельца остались «Компании» (`/admin/clients`), прежний адрес —
+     * перенаправление. Короткое меню менеджера ведёт на оставшийся экран.
+     */
     const manager = roleBlueprints.find((item) => item.role === 'manager');
     expect(manager?.primaryNav).toEqual([
       '/groups',
       '/learners',
-      '/counterparties',
+      '/admin/clients',
       '/documents',
       '/reports'
     ]);

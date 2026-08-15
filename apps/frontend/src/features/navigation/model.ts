@@ -442,12 +442,6 @@ export const navigationModel: NavigationItem[] = [
     navSlot: 'more'
   },
   {
-    href: '/counterparties',
-    label: 'Контрагенты',
-    requiredPermissions: ['counterparties.read'],
-    navSlot: 'more'
-  },
-  {
     href: '/counterparty-portal',
     label: 'Портал заказчика',
     requiredPermissions: ['portal.read'],

@@ -90,7 +90,7 @@ export const NAV_GROUPS: NavGroup[] = [
     id: 'clients',
     label: 'Клиенты и продажи',
     icon: Building2Icon,
-    hrefs: ['/counterparties', '/admin/clients', '/counterparty-portal', '/admin/orders']
+    hrefs: ['/admin/clients', '/counterparty-portal', '/admin/orders']
   },
   {
     id: 'documents',
