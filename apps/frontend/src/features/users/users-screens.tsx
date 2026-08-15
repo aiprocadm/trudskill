@@ -1,6 +1,6 @@
 'use client';
 
-import { AsyncSection, DataTable, FilterBar, LoadingState, StatusChip } from '@trudskill/ui';
+import { DataTable, FilterBar, ListPage, LoadingState, StatusChip } from '@trudskill/ui';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -21,67 +21,36 @@ import {
   useUserSessions,
   useUsersList
 } from '../mvp/hooks';
-import {
-  PaginationControls,
-  STATUS_OPTIONS,
-  readApiMessage,
-  toTableRows
-} from '../mvp/screen-helpers';
+import { readApiMessage } from '../mvp/screen-helpers';
+
+import type { ReactElement } from 'react';
+
+const PAGE_SIZE = 20;
+
+interface UserRow {
+  id: string;
+  nameView: ReactElement;
+  login: string;
+  statusView: ReactElement;
+}
+
+/** Состояния учётной записи словами: общий отбор монолита печатал коды. */
+const USER_STATUS_OPTIONS = [
+  { value: 'active', label: 'Работает' },
+  { value: 'blocked', label: 'Заблокирован' },
+  { value: 'archived', label: 'В архиве' }
+];
 
 /*
- * Перенесены «как есть» из features/mvp/screens.tsx (§8.3, порядок 8; правило SCR-001).
- * Редизайн — следующим коммитом.
+ * TPL-001 (Фаза 4, срез 17, волна 4). Что изменилось:
+ *
+ * 1. **Каждый пользователь выводился ДВАЖДЫ**: строкой таблицы и ниже — ссылкой
+ *    «Открыть карточку Иванов И.» с бейджем состояния. Список из двадцати человек
+ *    занимал сорок строк, а карточка открывалась только из нижнего дубля.
+ * 2. Пометка «Только просмотр» повторялась у КАЖДОЙ строки — сообщение о правах,
+ *    размноженное по числу пользователей.
+ * 3. Отбор по состоянию показывал коды (`active`, `blocked`, …).
  */
-
-const UsersFilterBar = ({
-  q,
-  setQ,
-  status,
-  setStatus,
-  role,
-  setRole,
-  roles
-}: {
-  q: string;
-  setQ: (v: string) => void;
-  status: string;
-  setStatus: (v: string) => void;
-  role: string;
-  setRole: (v: string) => void;
-  roles: { id: string; code: string; name: string }[] | null | undefined;
-}) => (
-  <div className="ui-toolbar">
-    <FilterBar>
-      <input
-        placeholder="Поиск"
-        value={q}
-        onChange={(event) => setQ(event.target.value)}
-        aria-label="Поиск"
-      />
-      <select
-        value={status}
-        onChange={(event) => setStatus(event.target.value)}
-        aria-label="Статус"
-      >
-        <option value="">Все статусы</option>
-        {STATUS_OPTIONS.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-      <select value={role} onChange={(event) => setRole(event.target.value)} aria-label="Роль">
-        <option value="">Все роли</option>
-        {roles?.map((item) => (
-          <option key={item.id} value={item.code}>
-            {item.name}
-          </option>
-        ))}
-      </select>
-    </FilterBar>
-  </div>
-);
-
 export const UsersPageScreen = () => {
   const { session } = useAuth();
   const canManage = hasPermission(session?.permissions ?? [], 'iam.manage_roles');
@@ -89,56 +58,116 @@ export const UsersPageScreen = () => {
   const [status, setStatus] = useState('');
   const [role, setRole] = useState('');
   const [page, setPage] = useState(1);
-  const { data, loading, error } = useUsersList({
+  const { data, loading, error, refetch } = useUsersList({
     q,
     status,
     page,
-    page_size: 20,
+    page_size: PAGE_SIZE,
     sort: role ? `role:${role}` : undefined
   });
   const { data: roles } = useRoles();
 
+  const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
+
+  const rows: UserRow[] = (data?.items ?? []).map((user) => ({
+    id: user.id,
+    nameView: (
+      <Link className="ui-link" href={`/users/${user.id}`}>
+        {user.displayName}
+      </Link>
+    ),
+    login: user.login,
+    statusView: <StatusChip status={user.status} />
+  }));
+
   return (
     <PageContainer>
-      <PageHeader title="Пользователи" />
-      <SectionCard title="Реестр пользователей">
-        <UsersFilterBar
-          q={q}
-          setQ={setQ}
-          status={status}
-          setStatus={setStatus}
-          role={role}
-          setRole={setRole}
-          roles={roles}
-        />
-        <AsyncSection
-          isLoading={loading}
-          error={error ? new Error(error) : undefined}
-          isEmpty={!data?.items.length}
-          loadingMessage="Загрузка списка пользователей…"
-          emptyMessage="Нет пользователей"
-        >
-          <DataTable
-            stickyFirstColumn
-            columns={[
-              { key: 'displayName', title: 'ФИО' },
-              { key: 'login', title: 'Логин' },
-              { key: 'status', title: 'Статус' }
-            ]}
-            rows={toTableRows(data?.items ?? [])}
-          />
-          <div className="ui-stack" style={{ gap: 8 }}>
-            {(data?.items ?? []).map((user) => (
-              <div key={user.id} className="ui-inline">
-                <Link href={`/users/${user.id}`}>Открыть карточку {user.displayName}</Link>
-                <StatusChip status={user.status} />
-                {!canManage ? <small>Только просмотр</small> : null}
-              </div>
-            ))}
-          </div>
-        </AsyncSection>
-        <PaginationControls page={page} setPage={setPage} total={data?.total} pageSize={20} />
-      </SectionCard>
+      <PageHeader
+        title="Люди и доступ"
+        subtitle="Сотрудники учебного центра: кто заходит в систему и что может делать"
+        actions={
+          canManage ? null : (
+            /* Пометка о правах — один раз в шапке, а не у каждой строки списка. */
+            <span className="ui-text-muted">Права на изменение нет — только просмотр</span>
+          )
+        }
+      />
+
+      <FilterBar
+        activeCount={[q, status, role].filter(Boolean).length}
+        onReset={() => {
+          setQ('');
+          setStatus('');
+          setRole('');
+          setPage(1);
+        }}
+        primary={
+          <>
+            <label className="ui-field">
+              <span className="ui-field-label">Поиск по имени или логину</span>
+              <input
+                value={q}
+                onChange={(event) => {
+                  setQ(event.target.value);
+                  setPage(1);
+                }}
+              />
+            </label>
+            <label className="ui-field">
+              <span className="ui-field-label">Роль</span>
+              <select
+                value={role}
+                onChange={(event) => {
+                  setRole(event.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="">Любая</option>
+                {(roles ?? []).map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {item.name || item.code}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="ui-field">
+              <span className="ui-field-label">Состояние</span>
+              <select
+                value={status}
+                onChange={(event) => {
+                  setStatus(event.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="">Любое</option>
+                {USER_STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        }
+      />
+
+      <ListPage<UserRow>
+        columns={[
+          { key: 'nameView', title: 'Сотрудник', render: (row) => row.nameView },
+          { key: 'login', title: 'Логин' },
+          { key: 'statusView', title: 'Состояние', render: (row) => row.statusView }
+        ]}
+        rows={rows}
+        isLoading={loading}
+        error={error ? new Error(error) : undefined}
+        onRetry={() => void refetch()}
+        rowKey={(row) => row.id}
+        emptyMessage="Здесь появятся сотрудники центра"
+        emptyHint="Это люди, которые заходят в систему и работают с обучением: методисты, менеджеры, администраторы. Слушатели живут в своём разделе."
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
     </PageContainer>
   );
 };
