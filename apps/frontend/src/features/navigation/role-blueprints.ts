@@ -68,7 +68,7 @@ export const roleBlueprints: RoleBlueprint[] = [
       'Ответить заказчику по прогрессу',
       'Выгрузить отчёт'
     ],
-    primaryNav: ['/groups', '/learners', '/counterparties', '/documents', '/reports']
+    primaryNav: ['/groups', '/learners', '/admin/clients', '/documents', '/reports']
   },
   {
     role: 'methodist',

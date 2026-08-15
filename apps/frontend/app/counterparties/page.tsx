@@ -1,10 +1,13 @@
-import { CounterpartiesPageScreen } from '../../src/features/counterparties/counterparties-screens';
-import { ProtectedPage } from '../../src/widgets/shell/protected-page';
+import { redirect } from 'next/navigation';
 
+/*
+ * IA-017 — ⚠️ меняет поведение (ТЗ §4.9). Решение владельца от 2026-08-14.
+ *
+ * `/counterparties` («Заказчики обучения») и `/admin/clients` («Компании») были двумя
+ * экранами ОДНОЙ сущности: оба читали ручку `/counterparties` и оба висели в меню.
+ * Владелец выбрал «Компании» — там ИНН, контакты, карточка и сводка обучения.
+ * Адрес сохранён перенаправлением, чтобы работали закладки и старые ссылки.
+ */
 export default function CounterpartiesPage() {
-  return (
-    <ProtectedPage>
-      <CounterpartiesPageScreen />
-    </ProtectedPage>
-  );
+  redirect('/admin/clients');
 }

@@ -1,11 +1,11 @@
-import { CounterpartyDetailsScreen } from '../../../src/features/counterparties/counterparties-screens';
-import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
+import { redirect } from 'next/navigation';
 
+/*
+ * IA-017: карточка заказчика сведена с карточкой компании (решение владельца).
+ * Идентификатор тот же — сущность одна, поэтому старая ссылка открывает ту же
+ * организацию, только на оставшемся экране.
+ */
 export default async function CounterpartyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return (
-    <ProtectedPage>
-      <CounterpartyDetailsScreen id={id} />
-    </ProtectedPage>
-  );
+  redirect(`/admin/clients/${id}`);
 }
