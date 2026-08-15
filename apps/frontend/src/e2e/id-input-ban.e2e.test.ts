@@ -26,8 +26,7 @@ const KNOWN: Record<string, string> = {
   'src/features/close-group/screens.tsx':
     'волна 1 (закрытие группы вызывается из карточки, форма осталась прежней): группа, шаблоны, список сдавших',
   'src/features/groups/group-details-screen.tsx':
-    'волна 1: добавление слушателя в группу по идентификатору',
-  'src/features/payments/screens.tsx': 'волна 4: оплаты — плательщик и группа'
+    'волна 1: добавление слушателя в группу по идентификатору'
 };
 
 const collect = (dir: string, acc: string[] = []): string[] => {
