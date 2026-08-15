@@ -131,3 +131,15 @@ export const RegistryControls = ({
     </select>
   </FilterBar>
 );
+
+/*
+ * Скелет списка на время загрузки. Жил в монолите; после выноса пользователей понадобился
+ * и там, и здесь — перенесён в общий слой (§8.3), а не продублирован.
+ */
+export const ListSkeleton = ({ lines = 4 }: { lines?: number }) => (
+  <div className="ui-skeleton-block" aria-hidden>
+    {Array.from({ length: lines }, (_, i) => (
+      <div key={i} className="ui-skeleton-line" style={{ width: `${70 + (i % 3) * 10}%` }} />
+    ))}
+  </div>
+);
