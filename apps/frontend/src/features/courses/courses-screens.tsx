@@ -1,9 +1,10 @@
 'use client';
 
-import { FilterBar, ListPage, StatusChip } from '@trudskill/ui';
+import { DataTable, FilterBar, ListPage, StatusChip } from '@trudskill/ui';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+import { materialTypeLabel, publishBlockers, viewTimeLabel } from './labels';
 import { FieldError } from '../../components/form-feedback';
 import {
   PageContainer,
@@ -760,60 +761,83 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
       });
   }, [materialType, scormPackagesLoaded, session]);
 
+  const blockers = publishBlockers({
+    hasVersion: Boolean(latestVersionId),
+    hasModule: Boolean(modules?.items?.length),
+    hasMaterial: Boolean(materials?.items?.length)
+  });
+  const readyToPublish = blockers.length === 0;
+
   return (
     <PageContainer>
-      <PageHeader title={course?.title ?? 'Карточка курса'} />
-      <SectionCard title="Общие данные">
-        <p>Код: {course?.code}</p>
-        <StatusChip status={course?.status ?? 'draft'} />
-        <div className="ui-inline">
-          {canPublish ? (
-            <button
-              disabled={!latestVersionId || !modules?.items?.length || !materials?.items?.length}
-              onClick={() =>
-                void publishCourse(id)
-                  .then(refetch)
-                  .catch((publishError) => setSaveError(readApiMessage(publishError)))
-              }
-            >
-              Опубликовать
-            </button>
-          ) : null}
-          {canArchive ? (
-            <button
-              onClick={() =>
-                void archiveCourse(id)
-                  .then(refetch)
-                  .catch((archiveError) => setSaveError(readApiMessage(archiveError)))
-              }
-            >
-              Архивировать
-            </button>
-          ) : null}
-        </div>
-        {!latestVersionId || !modules?.items?.length || !materials?.items?.length ? (
-          <p className="ui-text-muted">
-            Для публикации курса требуется минимум 1 версия, 1 модуль и 1 материал.
-          </p>
-        ) : null}
-        <MutationError message={saveError} />
-      </SectionCard>
-      <SectionCard title="Версии курса">
+      <PageHeader
+        title={course?.title ?? 'Курс'}
+        subtitle="Программа обучения: версии, модули и материалы"
+        actions={
+          /* UI-007: одно первичное действие. Архивирование — вторичное, рядом. */
+          <span className="ui-inline">
+            {canArchive ? (
+              <button
+                type="button"
+                className="ui-button-secondary"
+                onClick={() =>
+                  void archiveCourse(id)
+                    .then(refetch)
+                    .catch((archiveError) => setSaveError(readApiMessage(archiveError)))
+                }
+              >
+                В архив
+              </button>
+            ) : null}
+            {canPublish ? (
+              <button
+                type="button"
+                className="ui-button--primary"
+                disabled={!readyToPublish}
+                onClick={() =>
+                  void publishCourse(id)
+                    .then(refetch)
+                    .catch((publishError) => setSaveError(readApiMessage(publishError)))
+                }
+              >
+                Опубликовать курс
+              </button>
+            ) : null}
+          </span>
+        }
+      />
+      <MutationError message={saveError} />
+      <SectionCard title="Версии программы">
+        <p className="ui-hint">
+          Новая версия нужна, когда программа меняется, а прежние выпуски документов должны остаться
+          привязанными к старой редакции.
+        </p>
+        {versions?.items.length ? (
+          <DataTable
+            columns={[
+              { key: 'versionView', title: 'Версия' },
+              { key: 'stateView', title: 'Состояние', render: (row) => row.stateView }
+            ]}
+            rows={versions.items.map((item) => ({
+              id: item.id,
+              versionView: `Версия ${item.versionNo}`,
+              stateView: <StatusChip status={item.status} />
+            }))}
+            rowKey={(row) => String(row.id)}
+          />
+        ) : (
+          <SectionEmpty
+            message="Версий пока нет"
+            hint="Пока нет версии, курс нельзя наполнить модулями и опубликовать."
+          />
+        )}
         <button
           type="button"
-          className="ui-button ui-button--primary"
+          className="ui-button-secondary"
           onClick={() => void createCourseVersion(id).then(refetchVersions)}
         >
           Добавить версию
         </button>
-        <ul className="ui-list">
-          {versions?.items.map((item) => (
-            <li key={item.id} className="ui-inline" style={{ gap: 8, padding: '8px 0' }}>
-              <span>v{item.versionNo}</span>
-              <StatusChip status={item.status} />
-            </li>
-          ))}
-        </ul>
       </SectionCard>
       {latestVersion ? (
         <>
@@ -860,13 +884,27 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
             Добавить модуль
           </button>
         </form>
-        <ul>
-          {modules?.items.map((item) => (
-            <li key={item.id}>
-              {item.sortOrder + 1}. {item.title} ({item.minViewSeconds}s)
-            </li>
-          ))}
-        </ul>
+        {modules?.items.length ? (
+          <DataTable
+            columns={[
+              { key: 'orderView', title: '№' },
+              { key: 'title', title: 'Модуль' },
+              { key: 'viewTimeView', title: 'Минимум просмотра' }
+            ]}
+            rows={modules.items.map((item) => ({
+              id: item.id,
+              orderView: item.sortOrder + 1,
+              title: item.title,
+              viewTimeView: viewTimeLabel(item.minViewSeconds)
+            }))}
+            rowKey={(row) => String(row.id)}
+          />
+        ) : (
+          <SectionEmpty
+            message="Модулей пока нет"
+            hint="Модуль — раздел программы; внутри него лежат материалы, которые изучает слушатель."
+          />
+        )}
       </SectionCard>
       <SectionCard title="Материалы модуля">
         <form
@@ -946,15 +984,42 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
             Добавить материал
           </button>
         </form>
-        <ul>
-          {materials?.items.map((item) => (
-            <li key={item.id}>
-              {item.sortOrder + 1}. {item.title} [{item.materialType}] min_view_seconds=
-              {item.minViewSeconds}
-            </li>
-          ))}
-        </ul>
+        {materials?.items.length ? (
+          <DataTable
+            columns={[
+              { key: 'orderView', title: '№' },
+              { key: 'title', title: 'Материал' },
+              { key: 'typeView', title: 'Вид' },
+              { key: 'viewTimeView', title: 'Минимум просмотра' }
+            ]}
+            rows={materials.items.map((item) => ({
+              id: item.id,
+              orderView: item.sortOrder + 1,
+              title: item.title,
+              typeView: materialTypeLabel(item.materialType),
+              viewTimeView: viewTimeLabel(item.minViewSeconds)
+            }))}
+            rowKey={(row) => String(row.id)}
+          />
+        ) : (
+          <SectionEmpty
+            message="Материалов пока нет"
+            hint="Материал — то, что слушатель читает или смотрит: текст, видео, файл или учебный пакет."
+          />
+        )}
       </SectionCard>
+
+      {canPublish && !readyToPublish ? (
+        <SectionCard title="Что мешает опубликовать курс">
+          {/* Было одной фразой «требуется минимум 1 версия, 1 модуль и 1 материал» —
+              человек не понимал, чего именно не хватает ЕМУ. */}
+          <ul className="ui-bare-list">
+            {blockers.map((blocker) => (
+              <li key={blocker}>{blocker}</li>
+            ))}
+          </ul>
+        </SectionCard>
+      ) : null}
     </PageContainer>
   );
 };
