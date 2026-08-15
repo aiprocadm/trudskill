@@ -1,7 +1,14 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { DataTable, LoadingState, StatusChip, useConfirmDialog } from '@trudskill/ui';
+import {
+  DataTable,
+  FilterBar,
+  ListPage,
+  LoadingState,
+  StatusChip,
+  useConfirmDialog
+} from '@trudskill/ui';
 import { type ReactElement, useState } from 'react';
 
 import { ApproveRecertModal } from './approve-recert-modal';
@@ -32,7 +39,9 @@ interface QueueRow {
   validUntil: string;
   remainingView: string;
   statusView: ReactElement;
-  actionsView: ReactElement;
+  /** Нужны для текста подтверждения: «Перезачислить Иванова на курс…». */
+  learnerName: string;
+  courseTitle: string;
 }
 
 export function RecertificationQueueScreen(): ReactElement {
@@ -108,35 +117,8 @@ export function RecertificationQueueScreen(): ReactElement {
     validUntil: draft.validUntil,
     remainingView: formatRemaining(draft.validUntil, today),
     statusView: <StatusChip status={RECERT_STATUS_LABELS[draft.status]} />,
-    actionsView:
-      draft.status === 'pending' ? (
-        <span className="ui-inline" style={{ gap: 8 }}>
-          <button
-            type="button"
-            className="ui-button ui-button--primary"
-            onClick={() =>
-              setApproveTarget({
-                id: draft.id,
-                learnerName: draft.learnerName,
-                courseTitle: draft.courseTitle
-              })
-            }
-            disabled={approvePending}
-          >
-            Перезачислить
-          </button>
-          <button
-            type="button"
-            className="ui-button"
-            onClick={() => void onReject(draft.id)}
-            disabled={rejectPending}
-          >
-            Убрать
-          </button>
-        </span>
-      ) : (
-        <span className="ui-text-muted">—</span>
-      )
+    learnerName: draft.learnerName,
+    courseTitle: draft.courseTitle
   }));
 
   return (
@@ -147,21 +129,24 @@ export function RecertificationQueueScreen(): ReactElement {
         actions={
           <button
             type="button"
-            className="ui-button"
+            className="ui-button--primary"
             onClick={() => void onScan()}
             disabled={scanPending}
           >
-            {scanPending ? 'Проверяем…' : 'Проверить сейчас'}
+            {scanPending ? 'Проверяем сроки…' : 'Проверить сроки'}
           </button>
         }
       />
 
       <ExpiringDocumentsSection />
 
-      <SectionCard title="Очередь переаттестации">
-        <div className="ui-inline" style={{ marginBottom: 12 }}>
-          <label className="ui-inline" style={{ gap: 4 }}>
-            <span>Статус:</span>
+      {notice ? <p className="ui-callout ui-callout--success">{notice}</p> : null}
+      {actionError ? <SectionError message={actionError} /> : null}
+
+      <FilterBar
+        primary={
+          <label className="ui-field">
+            <span className="ui-field-label">Состояние</span>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as RecertificationDraftStatus | '')}
@@ -173,33 +158,46 @@ export function RecertificationQueueScreen(): ReactElement {
               ))}
             </select>
           </label>
-        </div>
+        }
+      />
 
-        {notice ? <p className="ui-callout">{notice}</p> : null}
-        {actionError ? <SectionError message={actionError} /> : null}
-
-        {isLoading ? <LoadingState message="Загрузка очереди…" /> : null}
-        {error ? <SectionError message="Не удалось загрузить очередь переаттестации" /> : null}
-        {!isLoading && !error && rows.length === 0 ? (
-          <SectionEmpty
-            message="Сейчас никому не нужна переаттестация"
-            hint="Нажмите «Проверить сейчас», чтобы проверить сроки удостоверений"
-          />
-        ) : null}
-        {!isLoading && !error && rows.length > 0 ? (
-          <DataTable<QueueRow>
-            columns={[
-              { key: 'learnerView', title: 'Слушатель', render: (row) => row.learnerView },
-              { key: 'courseView', title: 'Курс' },
-              { key: 'validUntil', title: 'Действует до' },
-              { key: 'remainingView', title: 'Осталось' },
-              { key: 'statusView', title: 'Статус', render: (row) => row.statusView },
-              { key: 'actionsView', title: 'Действие', render: (row) => row.actionsView }
-            ]}
-            rows={rows}
-          />
-        ) : null}
-      </SectionCard>
+      <ListPage<QueueRow>
+        columns={[
+          { key: 'learnerView', title: 'Слушатель', render: (row) => row.learnerView },
+          { key: 'courseView', title: 'Курс' },
+          { key: 'validUntil', title: 'Действует до' },
+          { key: 'remainingView', title: 'Осталось' },
+          { key: 'statusView', title: 'Состояние', render: (row) => row.statusView }
+        ]}
+        rows={rows}
+        isLoading={isLoading}
+        error={error ? new Error('Не удалось загрузить очередь переаттестации') : undefined}
+        rowKey={(row) => row.id}
+        rowActions={(row) =>
+          row.status === 'pending'
+            ? [
+                {
+                  label: 'Перезачислить',
+                  disabled: approvePending,
+                  onSelect: () =>
+                    setApproveTarget({
+                      id: row.id,
+                      learnerName: row.learnerName,
+                      courseTitle: row.courseTitle
+                    })
+                },
+                {
+                  label: 'Убрать из очереди',
+                  danger: true,
+                  disabled: rejectPending,
+                  onSelect: () => void onReject(row.id)
+                }
+              ]
+            : []
+        }
+        emptyMessage="Сейчас никому не нужна переаттестация"
+        emptyHint="Сюда попадают слушатели, у которых заканчивается срок действия удостоверения. Проверка сроков идёт сама; кнопкой в шапке её можно запустить прямо сейчас."
+      />
 
       <ApproveRecertModal
         open={approveTarget !== null}

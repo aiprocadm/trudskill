@@ -46,8 +46,20 @@ const EXCEPTIONS = new Set([
   'features/assessment-admin/question-editor-drawer.tsx',
   'features/clients/client-edit-drawer.tsx',
   'features/group-orders/issue-order-modal.tsx',
-  // Вспомогательный селектор внутри формы, не экран: своих состояний не показывает.
+  /*
+   * Подборщики значений внутри форм — не экраны: загрузка показывается прямо в списке
+   * («Загружаем слушателей…»), а обёртки состояний рассчитаны на страницу целиком.
+   * Первый попал сюда в Фазе 2; остальные — из срезов 9, 12 и 16, где поля
+   * «вставьте идентификатор» заменялись выбором по имени.
+   *
+   * ⚠️ Сторож видел не все: `course-picker` и `group-picker` используют поле `loading`,
+   * а признак сканера — `isLoading`, поэтому они проходили молча. Записаны явно, чтобы
+   * слепая зона была видна списком, а не удачей в имени переменной.
+   */
   'features/clients/group-counterparty-picker.tsx',
+  'features/courses/course-picker.tsx',
+  'features/groups/group-picker.tsx',
+  'features/learners/learner-picker.tsx',
   // Провайдер контекста бренда: данные тянет, но интерфейса не рисует вовсе.
   'features/branding/context.tsx',
   // Карточка на дашборде слушателя — Фаза 6 (экраны слушателя и преподавателя).
