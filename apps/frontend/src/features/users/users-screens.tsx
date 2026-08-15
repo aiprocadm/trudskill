@@ -1,0 +1,291 @@
+'use client';
+
+import { DataTable, FilterBar, ListPage, LoadingState, StatusChip } from '@trudskill/ui';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+
+import {
+  PageContainer,
+  PageHeader,
+  SectionCard,
+  SectionEmpty,
+  SectionError
+} from '../../components/state-wrappers';
+import { hasPermission } from '../../lib/rbac/permissions';
+import { useAuth } from '../auth/context';
+import {
+  useDomainMutations,
+  useRoles,
+  useUser,
+  useUserRoles,
+  useUserSessions,
+  useUsersList
+} from '../mvp/hooks';
+import { readApiMessage } from '../mvp/screen-helpers';
+
+import type { ReactElement } from 'react';
+
+const PAGE_SIZE = 20;
+
+interface UserRow {
+  id: string;
+  nameView: ReactElement;
+  login: string;
+  statusView: ReactElement;
+}
+
+/** Состояния учётной записи словами: общий отбор монолита печатал коды. */
+const USER_STATUS_OPTIONS = [
+  { value: 'active', label: 'Работает' },
+  { value: 'blocked', label: 'Заблокирован' },
+  { value: 'archived', label: 'В архиве' }
+];
+
+/*
+ * TPL-001 (Фаза 4, срез 17, волна 4). Что изменилось:
+ *
+ * 1. **Каждый пользователь выводился ДВАЖДЫ**: строкой таблицы и ниже — ссылкой
+ *    «Открыть карточку Иванов И.» с бейджем состояния. Список из двадцати человек
+ *    занимал сорок строк, а карточка открывалась только из нижнего дубля.
+ * 2. Пометка «Только просмотр» повторялась у КАЖДОЙ строки — сообщение о правах,
+ *    размноженное по числу пользователей.
+ * 3. Отбор по состоянию показывал коды (`active`, `blocked`, …).
+ */
+export const UsersPageScreen = () => {
+  const { session } = useAuth();
+  const canManage = hasPermission(session?.permissions ?? [], 'iam.manage_roles');
+  const [q, setQ] = useState('');
+  const [status, setStatus] = useState('');
+  const [role, setRole] = useState('');
+  const [page, setPage] = useState(1);
+  const { data, loading, error, refetch } = useUsersList({
+    q,
+    status,
+    page,
+    page_size: PAGE_SIZE,
+    sort: role ? `role:${role}` : undefined
+  });
+  const { data: roles } = useRoles();
+
+  const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
+
+  const rows: UserRow[] = (data?.items ?? []).map((user) => ({
+    id: user.id,
+    nameView: (
+      <Link className="ui-link" href={`/users/${user.id}`}>
+        {user.displayName}
+      </Link>
+    ),
+    login: user.login,
+    statusView: <StatusChip status={user.status} />
+  }));
+
+  return (
+    <PageContainer>
+      <PageHeader
+        title="Люди и доступ"
+        subtitle="Сотрудники учебного центра: кто заходит в систему и что может делать"
+        actions={
+          canManage ? null : (
+            /* Пометка о правах — один раз в шапке, а не у каждой строки списка. */
+            <span className="ui-text-muted">Права на изменение нет — только просмотр</span>
+          )
+        }
+      />
+
+      <FilterBar
+        activeCount={[q, status, role].filter(Boolean).length}
+        onReset={() => {
+          setQ('');
+          setStatus('');
+          setRole('');
+          setPage(1);
+        }}
+        primary={
+          <>
+            <label className="ui-field">
+              <span className="ui-field-label">Поиск по имени или логину</span>
+              <input
+                value={q}
+                onChange={(event) => {
+                  setQ(event.target.value);
+                  setPage(1);
+                }}
+              />
+            </label>
+            <label className="ui-field">
+              <span className="ui-field-label">Роль</span>
+              <select
+                value={role}
+                onChange={(event) => {
+                  setRole(event.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="">Любая</option>
+                {(roles ?? []).map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {item.name || item.code}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="ui-field">
+              <span className="ui-field-label">Состояние</span>
+              <select
+                value={status}
+                onChange={(event) => {
+                  setStatus(event.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="">Любое</option>
+                {USER_STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        }
+      />
+
+      <ListPage<UserRow>
+        columns={[
+          { key: 'nameView', title: 'Сотрудник', render: (row) => row.nameView },
+          { key: 'login', title: 'Логин' },
+          { key: 'statusView', title: 'Состояние', render: (row) => row.statusView }
+        ]}
+        rows={rows}
+        isLoading={loading}
+        error={error ? new Error(error) : undefined}
+        onRetry={() => void refetch()}
+        rowKey={(row) => row.id}
+        emptyMessage="Здесь появятся сотрудники центра"
+        emptyHint="Это люди, которые заходят в систему и работают с обучением: методисты, менеджеры, администраторы. Слушатели живут в своём разделе."
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
+    </PageContainer>
+  );
+};
+
+export const UserDetailsScreen = ({ id }: { id: string }) => {
+  const { session } = useAuth();
+  const canManageRoles = hasPermission(session?.permissions ?? [], 'iam.manage_roles');
+  const { data: user, loading, error, refetch } = useUser(id);
+  const { data: userRoles } = useUserRoles(id);
+  const { data: allRoles } = useRoles();
+  const { data: sessions } = useUserSessions(id);
+  const { setUserRoles, revokeSession } = useDomainMutations();
+  const [selected, setSelected] = useState<string[]>([]);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelected(userRoles?.map((role) => role.code) ?? []);
+  }, [userRoles]);
+
+  const onSaveRoles = async () => {
+    try {
+      setSaveError(null);
+      await setUserRoles(id, selected);
+      await refetch();
+    } catch (saveActionError) {
+      setSaveError(readApiMessage(saveActionError));
+    }
+  };
+
+  return (
+    <PageContainer>
+      <PageHeader title="Карточка пользователя" />
+      {loading ? <LoadingState message="Загрузка…" /> : null}
+      {error ? <SectionError message={error} onRetry={() => void refetch()} /> : null}
+      {user ? (
+        <>
+          <SectionCard title="Основные данные">
+            <div className="ui-inline" style={{ justifyContent: 'space-between' }}>
+              <p className="profile-name">{user.displayName}</p>
+              <StatusChip status={user.status} />
+            </div>
+            <dl className="kv-list">
+              <div className="kv-list__row">
+                <dt>Логин</dt>
+                <dd>{user.login}</dd>
+              </div>
+              <div className="kv-list__row">
+                <dt>Организация</dt>
+                <dd>{user.tenantId}</dd>
+              </div>
+            </dl>
+          </SectionCard>
+          <SectionCard title="Роли и права">
+            <p>Текущие роли: {userRoles?.map((roleItem) => roleItem.code).join(', ') || '—'}</p>
+            <div className="ui-stack" style={{ gap: 8 }}>
+              {allRoles?.map((roleItem) => (
+                <label key={roleItem.id}>
+                  <input
+                    disabled={!canManageRoles}
+                    type="checkbox"
+                    checked={selected.includes(roleItem.code)}
+                    onChange={(event) =>
+                      setSelected((current) =>
+                        event.target.checked
+                          ? [...new Set([...current, roleItem.code])]
+                          : current.filter((item) => item !== roleItem.code)
+                      )
+                    }
+                  />{' '}
+                  {roleItem.name}
+                </label>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="ui-button ui-button--primary"
+              disabled={!canManageRoles}
+              onClick={() => void onSaveRoles()}
+            >
+              Сохранить роли
+            </button>
+            {saveError ? <SectionError message={saveError} /> : null}
+          </SectionCard>
+          <SectionCard title="Сессии">
+            {sessions?.length ? (
+              <DataTable
+                columns={[
+                  { key: 'id', title: 'Session ID' },
+                  { key: 'expiresAt', title: 'Истекает' },
+                  { key: 'revokedAt', title: 'Отозвана' }
+                ]}
+                rows={sessions}
+              />
+            ) : (
+              <SectionEmpty message="Активные сессии не найдены" />
+            )}
+            {canManageRoles ? (
+              <div className="ui-inline">
+                {sessions
+                  ?.filter((row) => !row.revokedAt)
+                  .map((row) => (
+                    <button
+                      key={row.id}
+                      type="button"
+                      className="ui-button ui-button--ghost"
+                      aria-label={`Отозвать сессию ${row.id}`}
+                      onClick={() => void revokeSession(row.id)}
+                    >
+                      Отозвать
+                    </button>
+                  ))}
+              </div>
+            ) : null}
+          </SectionCard>
+        </>
+      ) : null}
+    </PageContainer>
+  );
+};
+
+// LearnerDetailsScreen переехал в features/learners/learner-detail-screen.tsx (Фаза 4 срез 2, SCR-001).
