@@ -25,6 +25,7 @@ export * from './components/icon/index.js';
 export * from './components/button/index.js';
 export * from './components/skeleton/index.js';
 export * from './components/stat-card/index.js';
+export * from './components/progress-bar/index.js';
 export * from './components/attention-widget/index.js';
 export * from './components/key-value-list/index.js';
 export * from './components/callout/index.js';

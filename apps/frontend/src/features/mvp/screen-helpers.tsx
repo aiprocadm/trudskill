@@ -68,13 +68,6 @@ export const readApiMessage = (error: unknown) => {
   return 'Не удалось выполнить действие';
 };
 
-export const ProgressBar = ({ value }: { value: number }) => (
-  <div className="ui-stack" style={{ gap: 4 }}>
-    <progress max={100} value={value} />
-    <small className="ui-text-muted">{value}%</small>
-  </div>
-);
-
 export const MutationError = ({ message }: { message: string | null }) =>
   message ? <SectionError message={message} /> : null;
 

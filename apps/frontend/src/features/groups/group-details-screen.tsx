@@ -1,6 +1,6 @@
 'use client';
 
-import { DetailDrawer, DetailLayout, KeyValueList, StatusChip } from '@trudskill/ui';
+import { DetailDrawer, DetailLayout, KeyValueList, ProgressBar, StatusChip } from '@trudskill/ui';
 import { useMemo, useState } from 'react';
 
 import { PageContainer, PageHeader, SectionCard } from '../../components/state-wrappers';
@@ -17,12 +17,7 @@ import {
   useGroupCourses,
   useLearnerCourseProgress
 } from '../mvp/hooks';
-import {
-  ENROLLMENT_STATUS_LABEL,
-  MutationError,
-  ProgressBar,
-  readApiMessage
-} from '../mvp/screen-helpers';
+import { ENROLLMENT_STATUS_LABEL, MutationError, readApiMessage } from '../mvp/screen-helpers';
 import { proctoringApi } from '../proctoring/api';
 
 /*
@@ -114,7 +109,11 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
                 { label: 'Курсов назначено', value: String(groupCourses?.items.length ?? 0) }
               ]}
             />
-            <ProgressBar value={averageProgress} />
+            <ProgressBar
+              value={averageProgress}
+              label="Средний прогресс группы"
+              caption={`Средний прогресс группы — ${averageProgress}%`}
+            />
           </SectionCard>
         }
       >

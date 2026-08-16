@@ -1,3 +1,4 @@
+import { ProgressBar } from '@trudskill/ui';
 import Link from 'next/link';
 
 import { SectionCard } from './state-wrappers';
@@ -24,8 +25,11 @@ export const FeatureComingSoon = ({
 }: FeatureComingSoonProps) => (
   <>
     <SectionCard title="Статус реализации">
-      <p className="ui-prose-muted">Готовность: {Math.max(0, Math.min(100, progress))}%</p>
-      <progress max={100} value={Math.max(0, Math.min(100, progress))} />
+      <ProgressBar
+        value={progress}
+        label="Готовность раздела"
+        caption={`Готовность: ${Math.max(0, Math.min(100, progress))}%`}
+      />
       <p className="ui-prose-muted">Плановый срок: {eta}</p>
     </SectionCard>
     <SectionCard title="Доступно уже сейчас">
