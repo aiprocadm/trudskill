@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -17,6 +17,14 @@ const ALLOWED = new Set<string>([
   'app/learning/calendar/page.tsx'
 ]);
 
+/*
+ * Путь приводится к косым чертам вида `app/...`, иначе на Windows сюда приходит
+ * `app\learning\calendar\page.tsx`, ни одно исключение не совпадает и сторож краснеет
+ * на пустом месте. Та же форма, что у соседних сторожей (`empty-states-explain`,
+ * `id-input-ban`, `latin-titles-ban`, `one-word-per-thing`, `unified-states`).
+ */
+const relFromApp = (file: string): string => relative(APP_ROOT, file).replace(/\\/g, '/');
+
 const collectTsx = (dir: string, acc: string[] = []): string[] => {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.name === 'node_modules' || entry.name === '.next' || entry.name === 'dist') continue;
@@ -27,14 +35,24 @@ const collectTsx = (dir: string, acc: string[] = []): string[] => {
   return acc;
 };
 
+const withStyledJsx = collectTsx(APP_ROOT)
+  .filter((file) => readFileSync(file, 'utf8').includes('<style jsx'))
+  .map(relFromApp)
+  .sort();
+
 describe('запрет styled-jsx во фронтенде (UI-022)', () => {
   it('в компонентах нет <style jsx>, кроме явных исключений', () => {
-    const root = APP_ROOT;
-    const offenders = collectTsx(root)
-      .map((file) => ({ file, source: readFileSync(file, 'utf8') }))
-      .filter((entry) => entry.source.includes('<style jsx'))
-      .map((entry) => entry.file.slice(root.length + 1))
-      .filter((file) => !ALLOWED.has(file));
+    const offenders = withStyledJsx.filter((file) => !ALLOWED.has(file));
     expect(offenders).toEqual([]);
+  });
+
+  /*
+   * Без этой проверки промах в записи исключения (иной регистр, разделители пути, переезд
+   * файла) остался бы незаметным: список молча перестал бы что-либо разрешать. Так уже
+   * случалось на Windows — сторож падал на файле, который в списке есть.
+   */
+  it('список исключений не содержит несуществующих записей', () => {
+    const stale = [...ALLOWED].filter((file) => !withStyledJsx.includes(file));
+    expect(stale, 'исключение никого не описывает — уберите его из ALLOWED').toEqual([]);
   });
 });
