@@ -349,7 +349,7 @@ const ProgramMetaSection = ({
   };
 
   return (
-    <SectionCard title="Нормативные параметры программы (Pillar A)">
+    <SectionCard title="Нормативные параметры программы">
       {readOnly ? (
         <p className="ui-text-muted">
           Версия опубликована — параметры доступны только для просмотра.
@@ -625,7 +625,7 @@ const DocumentSetSection = ({
   });
 
   return (
-    <SectionCard title="Выходные документы курса (пакет, Pillar A)">
+    <SectionCard title="Документы по окончании курса">
       <p className="ui-text-muted" style={{ marginBottom: 8 }}>
         Документы выпускаются по порядку при завершении зачисления. Шаблоны привязаны к tenant.
       </p>

@@ -66,8 +66,8 @@ export default function CrmDealsPage() {
     <ProtectedPage>
       <PageContainer>
         <PageHeader
-          title="CRM · Сделки"
-          subtitle="Сделки: стадии, контрагенты, промокоды, договоры"
+          title="Сделки"
+          subtitle="Договорённости с компаниями об обучении сотрудников: на какой стадии каждая и на какую сумму"
         />
         <SectionCard title="Создать сделку">
           {counterparties.loading || groups.loading ? (

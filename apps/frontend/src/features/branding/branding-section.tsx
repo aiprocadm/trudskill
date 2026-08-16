@@ -61,7 +61,7 @@ export function BrandingSettingsSection() {
   };
 
   return (
-    <SectionCard title="Бренд центра (white-label)">
+    <SectionCard title="Оформление под ваш центр">
       <p className="ui-text-muted">
         Название, логотип и цвета вашего центра: в шапке кабинета, в письмах слушателям и на
         публичной странице проверки документов. Пустое поле возвращает значение по умолчанию.
