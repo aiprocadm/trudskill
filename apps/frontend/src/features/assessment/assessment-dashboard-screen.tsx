@@ -325,7 +325,7 @@ export const AssessmentDashboardScreen = () => {
             columns={[
               { key: 'learner', title: 'Слушатель' },
               { key: 'test', title: 'Тест' },
-              { key: 'state', title: 'Состояние' },
+              { key: 'state', title: 'Статус' },
               { key: 'started', title: 'Начата' }
             ]}
             rows={attempts.items.map((item) => ({
@@ -367,7 +367,7 @@ export const AssessmentDashboardScreen = () => {
           <DataTable
             columns={[
               { key: 'learner', title: 'Слушатель' },
-              { key: 'state', title: 'Состояние', render: (row) => row.state },
+              { key: 'state', title: 'Статус', render: (row) => row.state },
               { key: 'score', title: 'Балл' },
               { key: 'comment', title: 'Комментарий' },
               { key: 'updated', title: 'Изменено' }

@@ -130,7 +130,7 @@ export const CommissionsPageScreen = () => {
       <ListPage<CommissionRow>
         filters={
           <label className="ui-field">
-            <span className="ui-field-label">Состояние</span>
+            <span className="ui-field-label">Статус</span>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as CommissionStatus | '')}
@@ -144,7 +144,7 @@ export const CommissionsPageScreen = () => {
         columns={[
           { key: 'nameView', title: 'Комиссия', render: (row) => row.nameView },
           { key: 'codeView', title: 'Код' },
-          { key: 'statusView', title: 'Состояние', render: (row) => row.statusView }
+          { key: 'statusView', title: 'Статус', render: (row) => row.statusView }
         ]}
         rows={rows}
         isLoading={loading}

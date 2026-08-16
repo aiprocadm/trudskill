@@ -338,7 +338,7 @@ export const GovExportScreen = () => {
             columns={[
               { key: 'providerView', title: 'Реестр' },
               { key: 'typeView', title: 'Что выгружали' },
-              { key: 'statusView', title: 'Состояние' }
+              { key: 'statusView', title: 'Статус' }
             ]}
             rows={tasks.data.map((task) => ({
               ...task,

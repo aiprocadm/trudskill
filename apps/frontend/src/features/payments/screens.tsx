@@ -299,7 +299,7 @@ export function OrdersScreen(): ReactElement {
       <FilterBar
         primary={
           <label className="ui-field">
-            <span className="ui-field-label">Состояние</span>
+            <span className="ui-field-label">Статус</span>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as OrderStatus | '')}
@@ -318,7 +318,7 @@ export function OrdersScreen(): ReactElement {
         columns={[
           { key: 'buyerView', title: 'Покупатель' },
           { key: 'kindView', title: 'Кто платит' },
-          { key: 'statusView', title: 'Состояние' },
+          { key: 'statusView', title: 'Статус' },
           { key: 'totalView', title: 'Сумма' }
         ]}
         rows={rows}

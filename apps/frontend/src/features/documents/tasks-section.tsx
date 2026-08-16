@@ -77,7 +77,7 @@ export const TasksSection = ({
       ) : (
         <DataTable<TaskRow>
           columns={[
-            { key: 'statusView', title: 'Состояние', render: (row) => row.statusView },
+            { key: 'statusView', title: 'Статус', render: (row) => row.statusView },
             { key: 'sourceView', title: 'Откуда запущено' },
             { key: 'requestedView', title: 'Запрошено' },
             { key: 'finishedView', title: 'Завершено' }
@@ -109,7 +109,7 @@ export const TasksSection = ({
         >
           <KeyValueList
             items={[
-              { label: 'Состояние', value: taskStatusLabel(selected.status) },
+              { label: 'Статус', value: taskStatusLabel(selected.status) },
               { label: 'Откуда запущено', value: taskSourceLabel(selected.source) },
               { label: 'Запрошено', value: formatDate(selected.requestedAt) },
               { label: 'Завершено', value: formatDate(selected.finishedAt) }

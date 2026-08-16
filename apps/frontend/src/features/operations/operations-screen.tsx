@@ -11,6 +11,7 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import { templateTypeLabel } from '../documents/document-types';
 
 import type { OperationsTab } from './types';
 
@@ -127,7 +128,7 @@ export function OperationsScreen(): ReactElement {
           {tasks.data && tasks.data.items.length > 0 ? (
             <DataTable<TaskRow>
               columns={[
-                { key: 'idView', title: 'Задача' },
+                { key: 'idView', title: 'Что выпускалось' },
                 { key: 'statusView', title: 'Статус', render: (row) => row.statusView },
                 { key: 'errorView', title: 'Ошибка' },
                 { key: 'startedView', title: 'Начата' },
@@ -136,7 +137,11 @@ export function OperationsScreen(): ReactElement {
               rows={tasks.data.items.map(
                 (task): TaskRow => ({
                   id: task.id,
-                  idView: task.documentType ? `${task.documentType} · ${task.id}` : task.id,
+                  /*
+                   * Было «certificate · 3f7a-…»: вид документа кодом и идентификатор задачи.
+                   * Человеку нужен вид документа словом — по нему он и опознаёт задачу.
+                   */
+                  idView: templateTypeLabel(task.documentType),
                   statusView: <StatusChip status={task.status} />,
                   errorView: task.errorMessage ?? '—',
                   startedView: formatDateTime(task.startedAt),

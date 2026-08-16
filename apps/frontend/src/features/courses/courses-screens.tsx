@@ -161,7 +161,7 @@ export const CoursesPageScreen = () => {
               </select>
             </label>
             <label className="ui-field">
-              <span className="ui-field-label">Состояние</span>
+              <span className="ui-field-label">Статус</span>
               <select
                 value={status}
                 onChange={(event) => {
@@ -186,7 +186,7 @@ export const CoursesPageScreen = () => {
           { key: 'titleView', title: 'Курс', render: (row) => row.titleView },
           { key: 'codeView', title: 'Код' },
           { key: 'updatedView', title: 'Изменён' },
-          { key: 'statusView', title: 'Состояние', render: (row) => row.statusView }
+          { key: 'statusView', title: 'Статус', render: (row) => row.statusView }
         ]}
         rows={rows}
         isLoading={loading}
@@ -816,7 +816,7 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
           <DataTable
             columns={[
               { key: 'versionView', title: 'Версия' },
-              { key: 'stateView', title: 'Состояние', render: (row) => row.stateView }
+              { key: 'stateView', title: 'Статус', render: (row) => row.stateView }
             ]}
             rows={versions.items.map((item) => ({
               id: item.id,

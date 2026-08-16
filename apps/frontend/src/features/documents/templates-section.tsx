@@ -58,7 +58,7 @@ export const TemplatesSection = ({
         { key: 'typeView', title: 'Вид документа' },
         { key: 'versionView', title: 'Версия бланка' },
         { key: 'updatedView', title: 'Изменён' },
-        { key: 'statusView', title: 'Состояние', render: (row) => row.statusView }
+        { key: 'statusView', title: 'Статус', render: (row) => row.statusView }
       ]}
       rows={rows}
       isLoading={isLoading}

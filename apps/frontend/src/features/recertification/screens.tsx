@@ -146,7 +146,7 @@ export function RecertificationQueueScreen(): ReactElement {
       <FilterBar
         primary={
           <label className="ui-field">
-            <span className="ui-field-label">Состояние</span>
+            <span className="ui-field-label">Статус</span>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as RecertificationDraftStatus | '')}
@@ -167,7 +167,7 @@ export function RecertificationQueueScreen(): ReactElement {
           { key: 'courseView', title: 'Курс' },
           { key: 'validUntil', title: 'Действует до' },
           { key: 'remainingView', title: 'Осталось' },
-          { key: 'statusView', title: 'Состояние', render: (row) => row.statusView }
+          { key: 'statusView', title: 'Статус', render: (row) => row.statusView }
         ]}
         rows={rows}
         isLoading={isLoading}
@@ -270,7 +270,7 @@ export function ExpiringDocumentsSection(): ReactElement {
                 { key: 'numberTitle', title: '№ документа' },
                 { key: 'validUntil', title: 'Действует до' },
                 { key: 'daysTitle', title: 'Срок' },
-                { key: 'urgencyTitle', title: 'Состояние' }
+                { key: 'urgencyTitle', title: 'Статус' }
               ]}
               rows={data.items.map((item) => ({
                 ...item,
