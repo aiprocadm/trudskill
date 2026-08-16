@@ -67,7 +67,6 @@ export default function EsignProcessesPage() {
           {rows.length ? (
             <DataTable
               columns={[
-                { key: 'id', title: 'ID' },
                 { key: 'mode', title: 'Режим' },
                 { key: 'status', title: 'Статус' },
                 { key: 'createdAt', title: 'Создано' }

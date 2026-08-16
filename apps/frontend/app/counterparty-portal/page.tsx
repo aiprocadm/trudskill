@@ -40,7 +40,7 @@ export default function CounterpartyPortalPage() {
               columns={[
                 { key: 'lastName', title: 'Фамилия' },
                 { key: 'firstName', title: 'Имя' },
-                { key: 'email', title: 'Email' },
+                { key: 'email', title: 'Почта' },
                 { key: 'status', title: 'Статус' }
               ]}
               rows={learners.data.items}

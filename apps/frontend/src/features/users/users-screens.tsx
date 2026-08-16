@@ -255,7 +255,7 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
             {sessions?.length ? (
               <DataTable
                 columns={[
-                  { key: 'id', title: 'Session ID' },
+                  { key: 'id', title: 'Сеанс' },
                   { key: 'expiresAt', title: 'Истекает' },
                   { key: 'revokedAt', title: 'Отозвана' }
                 ]}

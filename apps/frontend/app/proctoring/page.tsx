@@ -38,7 +38,7 @@ export default function ProctoringPage() {
           {assignments.data?.items.length ? (
             <DataTable
               columns={[
-                { key: 'id', title: 'Assignment ID' },
+                { key: 'id', title: 'Задание' },
                 { key: 'title', title: 'Название' },
                 { key: 'status', title: 'Статус' }
               ]}
@@ -56,7 +56,7 @@ export default function ProctoringPage() {
               columns={[
                 { key: 'providerCode', title: 'Провайдер' },
                 { key: 'entityType', title: 'Сущность' },
-                { key: 'statusCode', title: 'HTTP' },
+                { key: 'statusCode', title: 'Ответ сервиса' },
                 { key: 'status', title: 'Статус' }
               ]}
               rows={proctoringLogs}

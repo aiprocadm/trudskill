@@ -439,7 +439,6 @@ export const GovExportScreen = () => {
             {otBatches.data.length ? (
               <DataTable
                 columns={[
-                  { key: 'id', title: 'ID' },
                   { key: 'batchStatus', title: 'Статус' },
                   { key: 'exportedRows', title: 'Экспортировано' },
                   { key: 'failedRows', title: 'Ошибок' },
@@ -534,7 +533,6 @@ export const GovExportScreen = () => {
             {frdoBatches.data.length ? (
               <DataTable
                 columns={[
-                  { key: 'id', title: 'ID' },
                   { key: 'batchStatus', title: 'Статус' },
                   { key: 'exportedRows', title: 'Экспортировано' },
                   { key: 'failedRows', title: 'Ошибок' },
@@ -621,7 +619,6 @@ export const GovExportScreen = () => {
             {eisotBatches.data.length ? (
               <DataTable
                 columns={[
-                  { key: 'id', title: 'ID' },
                   { key: 'batchStatus', title: 'Статус' },
                   { key: 'exportedRows', title: 'Экспортировано' },
                   { key: 'failedRows', title: 'Ошибок' },
@@ -710,7 +707,6 @@ export const GovExportScreen = () => {
             {rostechBatches.data.length ? (
               <DataTable
                 columns={[
-                  { key: 'id', title: 'ID' },
                   { key: 'batchStatus', title: 'Статус' },
                   { key: 'exportedRows', title: 'Экспортировано' },
                   { key: 'failedRows', title: 'Ошибок' },
@@ -796,7 +792,6 @@ export const GovExportScreen = () => {
             {nmoBatches.data.length ? (
               <DataTable
                 columns={[
-                  { key: 'id', title: 'ID' },
                   { key: 'batchStatus', title: 'Статус' },
                   { key: 'exportedRows', title: 'Экспортировано' },
                   { key: 'failedRows', title: 'Ошибок' },

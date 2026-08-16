@@ -24,6 +24,36 @@ import {
   SectionError
 } from '../../components/state-wrappers';
 import { apiRequest } from '../../lib/api/client';
+import { formatDate } from '../mvp/screen-helpers';
+
+/*
+ * Экран говорил по-английски: колонки «Name», «Status», «Secret», «Provider», «Creds»,
+ * «Active creds», «Last sync», пустое состояние «Нет credentials», а раздел назывался
+ * «Подключения тенанта» — слово «тенант» администратору учебного центра ничего не говорит.
+ */
+const PROVIDER_TYPE_LABELS: Record<string, string> = {
+  lms: 'Обмен курсами',
+  crm: 'Обмен заявками',
+  hr: 'Обмен сотрудниками',
+  registry: 'Государственный реестр',
+  payment: 'Приём оплаты',
+  telephony: 'Телефония'
+};
+
+const CREDENTIAL_STATUS_LABELS: Record<string, string> = {
+  active: 'Работает',
+  inactive: 'Выключено',
+  blocked: 'Заблокировано',
+  archived: 'В архиве'
+};
+
+const SYNC_STATUS_LABELS: Record<string, string> = {
+  ok: 'прошёл успешно',
+  success: 'прошёл успешно',
+  error: 'завершился ошибкой',
+  failed: 'завершился ошибкой',
+  pending: 'идёт сейчас'
+};
 
 export const IntegrationSettingsScreen = () => {
   const { data: providers, loading: providersLoading, error: providersError } = useProviders();
@@ -87,14 +117,17 @@ export const IntegrationSettingsScreen = () => {
       setName('');
       setSecret('');
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Не удалось создать credentials');
+      setSaveError(error instanceof Error ? error.message : 'Не удалось добавить подключение');
     }
   };
 
   return (
     <PageContainer>
-      <PageHeader title="Настройки интеграций" />
-      <SectionCard title="Реестр провайдеров">
+      <PageHeader
+        title="Обмен данными"
+        subtitle="Внешние системы, с которыми центр обменивается данными: подключения и состояние связи"
+      />
+      <SectionCard title="Доступные системы">
         {providersLoading ? <LoadingState message="Загрузка провайдеров…" /> : null}
         {providersError ? <SectionError message={providersError} /> : null}
         {providersRows.length ? (
@@ -103,30 +136,42 @@ export const IntegrationSettingsScreen = () => {
             sortDir={providerSort}
             onSort={({ dir }) => setProviderSort(dir)}
             columns={[
+              { key: 'name', title: 'Система', sortable: true },
               { key: 'code', title: 'Код' },
-              { key: 'name', title: 'Провайдер', sortable: true },
-              { key: 'providerType', title: 'Тип' }
+              { key: 'typeView', title: 'Что умеет' }
             ]}
-            rows={providersRows}
+            rows={providersRows.map((row) => ({
+              ...row,
+              typeView: PROVIDER_TYPE_LABELS[String(row.providerType)] ?? row.providerType
+            }))}
           />
         ) : (
-          <SectionEmpty message="Провайдеры не найдены" />
+          <SectionEmpty
+            message="Список систем пуст"
+            hint="Сюда попадают системы, с которыми платформа умеет обмениваться данными."
+          />
         )}
       </SectionCard>
-      <SectionCard title="Подключения тенанта">
+      <SectionCard title="Подключения вашего центра">
         {credentialsLoading ? <LoadingState message="Загрузка учётных данных…" /> : null}
         {credentialsError ? <SectionError message={credentialsError} /> : null}
         {credentials.length ? (
           <DataTable
             columns={[
-              { key: 'name', title: 'Name' },
-              { key: 'status', title: 'Status' },
-              { key: 'secretMasked', title: 'Secret' }
+              { key: 'name', title: 'Как назвали' },
+              { key: 'statusView', title: 'Состояние' },
+              { key: 'secretMasked', title: 'Ключ доступа' }
             ]}
-            rows={credentials}
+            rows={credentials.map((row) => ({
+              ...row,
+              statusView: CREDENTIAL_STATUS_LABELS[row.status] ?? row.status
+            }))}
           />
         ) : (
-          <SectionEmpty message="Нет credentials" />
+          <SectionEmpty
+            message="Подключений пока нет"
+            hint="Подключение — ключ доступа к внешней системе. Без него обмен данными не пойдёт."
+          />
         )}
         <FormErrorSummary
           id="integration-credential-summary"
@@ -135,7 +180,7 @@ export const IntegrationSettingsScreen = () => {
         />
         <FilterBar>
           <label htmlFor="providerId" className="ui-field" style={{ minWidth: 220 }}>
-            <span className="ui-field-label">Провайдер</span>
+            <span className="ui-field-label">Внешняя система</span>
             <select
               id="providerId"
               ref={providerRef}
@@ -144,7 +189,7 @@ export const IntegrationSettingsScreen = () => {
               aria-invalid={Boolean(fieldErrors.providerId)}
               aria-describedby={fieldErrors.providerId ? 'provider-error' : undefined}
             >
-              <option value="">Провайдер</option>
+              <option value="">— выберите систему —</option>
               {providers.map((provider) => (
                 <option key={provider.id} value={provider.id}>
                   {provider.name}
@@ -173,11 +218,11 @@ export const IntegrationSettingsScreen = () => {
             <FieldError id="credential-name-error" message={fieldErrors.name} />
           </label>
           <label htmlFor="credential-secret" className="ui-field" style={{ minWidth: 220 }}>
-            <span className="ui-field-label">Секрет</span>
+            <span className="ui-field-label">Ключ доступа</span>
             <input
               id="credential-secret"
               ref={secretRef}
-              placeholder="Секрет"
+              placeholder="Ключ из личного кабинета внешней системы"
               value={secret}
               onChange={(event) => setSecret(event.target.value)}
               aria-invalid={Boolean(fieldErrors.secret)}
@@ -189,37 +234,44 @@ export const IntegrationSettingsScreen = () => {
                 .join(' ')}
             />
             <FieldHelp id="credential-secret-help">
-              Хранится в masked-виде после сохранения.
+              После сохранения ключ показывается не полностью — прочитать его целиком нельзя.
             </FieldHelp>
             <FieldError id="credential-secret-error" message={fieldErrors.secret} />
           </label>
           <button
-            className="ui-button ui-button--primary"
+            className="ui-button--primary"
             onClick={() => void onCreateCredential()}
             type="button"
           >
-            Создать
+            Добавить подключение
           </button>
         </FilterBar>
         {saveError ? <SectionError message={saveError} /> : null}
       </SectionCard>
-      <SectionCard title="Диагностика провайдеров">
+      <SectionCard title="Состояние обмена">
         {diagnostics.loading ? <LoadingState message="Загрузка диагностики..." /> : null}
         {diagnostics.error ? <SectionError message={diagnostics.error} /> : null}
         {diagnostics.data.length ? (
           <DataTable
             columns={[
-              { key: 'providerCode', title: 'Provider' },
-              { key: 'providerType', title: 'Type' },
-              { key: 'credentialsCount', title: 'Creds' },
-              { key: 'activeCredentials', title: 'Active creds' },
-              { key: 'lastSyncStatus', title: 'Last sync' },
-              { key: 'lastSyncAt', title: 'Last sync at' }
+              { key: 'providerView', title: 'Система' },
+              { key: 'credentialsCount', title: 'Подключений' },
+              { key: 'activeCredentials', title: 'Из них работают' },
+              { key: 'lastSyncStatusView', title: 'Последний обмен' },
+              { key: 'lastSyncAtView', title: 'Когда' }
             ]}
-            rows={diagnostics.data}
+            rows={diagnostics.data.map((row) => ({
+              ...row,
+              providerView: row.providerCode,
+              lastSyncStatusView: SYNC_STATUS_LABELS[row.lastSyncStatus ?? ''] ?? 'обменов не было',
+              lastSyncAtView: formatDate(row.lastSyncAt)
+            }))}
           />
         ) : (
-          <SectionEmpty message="Диагностика провайдеров недоступна" />
+          <SectionEmpty
+            message="Данных о состоянии обмена пока нет"
+            hint="Строка появится, как только по подключению пройдёт первый обмен."
+          />
         )}
       </SectionCard>
     </PageContainer>
@@ -245,10 +297,9 @@ export const ExportTasksScreen = () => {
         {data.length ? (
           <DataTable
             columns={[
-              { key: 'id', title: 'Task ID' },
-              { key: 'providerCode', title: 'Provider' },
-              { key: 'exportType', title: 'Type' },
-              { key: 'status', title: 'Status' }
+              { key: 'providerCode', title: 'Система' },
+              { key: 'exportType', title: 'Что выгружали' },
+              { key: 'status', title: 'Состояние' }
             ]}
             rows={data}
           />
@@ -289,10 +340,10 @@ export const SyncLogsScreen = () => {
         {filtered.length ? (
           <DataTable
             columns={[
-              { key: 'providerCode', title: 'Provider' },
-              { key: 'entityType', title: 'Entity' },
-              { key: 'statusCode', title: 'HTTP' },
-              { key: 'status', title: 'Status' }
+              { key: 'providerCode', title: 'Система' },
+              { key: 'entityType', title: 'Что отправляли' },
+              { key: 'statusCode', title: 'Ответ сервиса' },
+              { key: 'status', title: 'Состояние' }
             ]}
             rows={filtered}
           />
