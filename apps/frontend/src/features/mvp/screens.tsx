@@ -171,79 +171,79 @@ interface RoleWidget {
 
 const roleWidgets: RoleWidget[] = [
   {
-    title: 'Continue learning',
+    title: 'Продолжить обучение',
     note: 'Вернуться к последнему модулю и материалу.',
     href: '/learner/courses',
     allowedRoles: ['learner']
   },
   {
-    title: 'Deadlines',
+    title: 'Ближайшие сроки',
     note: 'Проверить задания и тесты на ближайшие 7 дней.',
     href: '/assessment',
     allowedRoles: ['learner']
   },
   {
-    title: 'Attempts',
+    title: 'Мои попытки',
     note: 'История попыток и результаты оценивания.',
     href: '/assessment',
     allowedRoles: ['learner']
   },
   {
-    title: 'Docs',
+    title: 'Мои документы',
     note: 'Быстрый доступ к учебным и правовым документам.',
     href: '/documents',
     allowedRoles: ['learner']
   },
   {
-    title: 'Notifications',
+    title: 'Уведомления',
     note: 'Новые сообщения, объявления и напоминания.',
     href: '/notifications',
     allowedRoles: ['learner']
   },
   {
-    title: 'Webinar',
+    title: 'Ближайшие вебинары',
     note: 'Запланированные онлайн-занятия и ссылки на эфир.',
     href: '/learner/webinars',
     allowedRoles: ['learner']
   },
   {
-    title: 'Submission queue',
+    title: 'Работы на проверку',
     note: 'Очередь работ студентов, требующих проверки.',
     href: '/assessment',
     allowedRoles: ['teacher']
   },
   {
-    title: 'Rubrics',
+    title: 'Критерии оценивания',
     note: 'Критерии оценивания и шаблоны комментариев.',
     href: '/assessment',
     allowedRoles: ['teacher']
   },
   {
-    title: 'At risk learners',
+    title: 'Кто отстаёт',
     note: 'Студенты с низким прогрессом и просрочками.',
     href: '/groups',
     allowedRoles: ['teacher']
   },
   {
-    title: 'Sessions',
+    title: 'Сеансы входа',
     note: 'Активные сессии пользователей и подозрительные входы.',
     href: '/users',
     allowedRoles: ['tenant_admin', 'platform_admin']
   },
   {
-    title: 'Queue',
+    title: 'Очередь задач',
     note: 'Очереди задач и интеграционных джобов.',
     href: '/exports',
     allowedRoles: ['tenant_admin', 'platform_admin']
   },
   {
-    title: 'Integrations',
+    title: 'Обмен данными',
     note: 'Статус коннекторов и диагностика синхронизаций.',
     href: '/integrations',
     allowedRoles: ['tenant_admin', 'platform_admin']
   },
   {
-    title: 'Audit health',
+    title: 'Состояние журнала действий',
     note: 'Покрытие аудита, ошибки и деградация логов.',
     href: '/audit',
     allowedRoles: ['tenant_admin', 'platform_admin']

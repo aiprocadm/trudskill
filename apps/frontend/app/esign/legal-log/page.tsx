@@ -86,9 +86,8 @@ export default function EsignLegalLogPage() {
               columns={[
                 { key: 'createdAt', title: 'Дата' },
                 { key: 'eventType', title: 'Событие' },
-                { key: 'actorId', title: 'Actor' },
-                { key: 'entityType', title: 'Entity' },
-                { key: 'id', title: 'ID' }
+                { key: 'actorId', title: 'Кто' },
+                { key: 'entityType', title: 'Над чем' }
               ]}
               rows={filtered}
             />

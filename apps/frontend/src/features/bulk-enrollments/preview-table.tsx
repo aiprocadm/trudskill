@@ -18,7 +18,7 @@ interface PreviewRow {
 const columns: Column<PreviewRow>[] = [
   { key: 'rowNumber', title: '№' },
   { key: 'fullName', title: 'ФИО' },
-  { key: 'email', title: 'Email' },
+  { key: 'email', title: 'Почта' },
   { key: 'snils', title: 'СНИЛС' },
   { key: 'position', title: 'Должность' },
   {

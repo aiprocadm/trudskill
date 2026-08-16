@@ -64,7 +64,6 @@ export default function EsignApplicationsPage() {
           {rows.length ? (
             <DataTable
               columns={[
-                { key: 'id', title: 'ID' },
                 { key: 'applicantId', title: 'Заявитель' },
                 { key: 'status', title: 'Статус' },
                 { key: 'createdAt', title: 'Создано' }
