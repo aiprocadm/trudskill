@@ -54,7 +54,10 @@ export default function EsignApplicationsPage() {
   return (
     <ProtectedPage>
       <PageContainer>
-        <PageHeader title="НЭП — заявки" subtitle="Реестр заявок и workflow согласования" />
+        <PageHeader
+          title="НЭП — заявки"
+          subtitle="Заявки на электронную подпись и ход их согласования"
+        />
         <SectionCard title="Заявки">
           {loading ? <LoadingState message="Загрузка заявок..." /> : null}
           {error ? <SectionError message={error} /> : null}
