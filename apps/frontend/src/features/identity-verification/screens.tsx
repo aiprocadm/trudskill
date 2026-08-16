@@ -1,7 +1,15 @@
 'use client';
 
-import { DataTable, LoadingState } from '@trudskill/ui';
-import Link from 'next/link';
+import {
+  DetailLayout,
+  FormField,
+  KeyValueList,
+  ListPage,
+  LoadingState,
+  SelectField,
+  StatusChip
+} from '@trudskill/ui';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { identityVerificationApi } from './api';
@@ -23,7 +31,6 @@ import {
   PageContainer,
   PageHeader,
   SectionCard,
-  SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
 import { frontendEnv } from '../../lib/config/env';
@@ -175,8 +182,8 @@ export function LearnerIdentityScreen(): ReactElement {
               // Отказ от фото — законное право слушателя, и он должен видеть последствие
               // ЯВНО, а не упереться в молча заблокированную кнопку.
               <p className="ui-text-muted" data-testid="photo-consent-required">
-                Без согласия на фото подтверждение личности по документам недоступно. Согласие
-                на обработку данных при этом остаётся в силе — его снимать не нужно.
+                Без согласия на фото подтверждение личности по документам недоступно. Согласие на
+                обработку данных при этом остаётся в силе — его снимать не нужно.
               </p>
             ) : null}
 
@@ -187,7 +194,11 @@ export function LearnerIdentityScreen(): ReactElement {
               type="button"
               className="ui-button ui-button--primary"
               disabled={
-                !selfie || !passport || !personalDataGranted || !photoGranted || submission.isPending
+                !selfie ||
+                !passport ||
+                !personalDataGranted ||
+                !photoGranted ||
+                submission.isPending
               }
               onClick={() => void onSubmit()}
             >
@@ -227,14 +238,14 @@ interface QueueRow {
   id: string;
   learnerNameView: string;
   snilsView: string;
-  statusView: string;
+  statusView: ReactElement;
   submittedAtView: string;
   /** ФТ-C1.2: сколько заявка ждёт — висящая заявка это заблокированный экзамен. */
-  waitingView: string;
-  actionView: ReactElement;
+  waitingView: ReactElement;
 }
 
 export function AdminIdentityQueueScreen(): ReactElement {
+  const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<IdentityVerificationStatus | undefined>(
     'pending'
   );
@@ -244,59 +255,68 @@ export function AdminIdentityQueueScreen(): ReactElement {
     id: item.id,
     learnerNameView: item.learnerName || '—',
     snilsView: item.learnerSnils ?? '—',
-    statusView: formatIdentityStatus(item.verificationStatus),
+    statusView: (
+      <StatusChip
+        status={item.verificationStatus}
+        label={formatIdentityStatus(item.verificationStatus)}
+      />
+    ),
     submittedAtView: formatDateShort(item.submittedAt),
-    waitingView: isWaitingTooLong(item.submittedAt)
-      ? `${formatWaitingTime(item.submittedAt)} ⚠`
-      : formatWaitingTime(item.submittedAt),
-    actionView: (
-      <Link href={`/admin/identity-verifications/${item.id}`} className="ui-button">
-        Открыть
-      </Link>
+    /*
+     * Долгое ожидание — не значок «⚠» внутри текста, а отдельный признак: экзамен
+     * заблокирован, пока заявку не разобрали. Цвет не единственный носитель смысла —
+     * рядом стоит слово (WCAG 1.4.1).
+     */
+    waitingView: isWaitingTooLong(item.submittedAt) ? (
+      <StatusChip
+        status="blocked"
+        label={`${formatWaitingTime(item.submittedAt)} — ждёт дольше суток`}
+      />
+    ) : (
+      <span>{formatWaitingTime(item.submittedAt)}</span>
     )
   }));
 
   return (
     <PageContainer>
       <PageHeader
-        title="Идентификация личности"
-        subtitle="Заявки слушателей на подтверждение личности (селфи + паспорт)"
+        title="Подтверждение личности"
+        subtitle="Заявки слушателей: селфи и фото паспорта. Пока заявка не разобрана, слушателя не пустит на итоговый экзамен."
       />
 
-      <SectionCard title="Очередь идентификации">
-        <div className="ui-inline" style={{ marginBottom: 12 }}>
-          <span>Статус:</span>
-          {STATUS_FILTER_OPTIONS.map((opt) => (
-            <button
-              key={opt.value ?? 'all'}
-              type="button"
-              className={statusFilter === opt.value ? 'ui-button ui-subheading' : 'ui-button'}
-              onClick={() => setStatusFilter(opt.value)}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-
-        {isLoading ? <LoadingState message="Загрузка очереди…" /> : null}
-        {error ? <SectionError message="Не удалось загрузить очередь идентификации" /> : null}
-        {!isLoading && !error && rows.length === 0 ? (
-          <SectionEmpty message="Заявок нет" hint="Нет заявок с выбранным статусом" />
-        ) : null}
-        {!isLoading && !error && rows.length > 0 ? (
-          <DataTable<QueueRow>
-            columns={[
-              { key: 'learnerNameView', title: 'Слушатель' },
-              { key: 'snilsView', title: 'СНИЛС' },
-              { key: 'statusView', title: 'Статус' },
-              { key: 'submittedAtView', title: 'Отправлено' },
-              { key: 'waitingView', title: 'Ждёт' },
-              { key: 'actionView', title: '', render: (row) => row.actionView }
-            ]}
-            rows={rows}
+      <ListPage<QueueRow>
+        filters={
+          <SelectField
+            label="Статус"
+            value={statusFilter ?? ''}
+            onChange={(e) =>
+              setStatusFilter(
+                e.target.value === '' ? undefined : (e.target.value as IdentityVerificationStatus)
+              )
+            }
+            options={STATUS_FILTER_OPTIONS.map((o) => ({ value: o.value ?? '', label: o.label }))}
           />
-        ) : null}
-      </SectionCard>
+        }
+        columns={[
+          { key: 'learnerNameView', title: 'Слушатель' },
+          { key: 'snilsView', title: 'СНИЛС' },
+          { key: 'statusView', title: 'Статус', render: (row) => row.statusView },
+          { key: 'submittedAtView', title: 'Отправлено' },
+          { key: 'waitingView', title: 'Ждёт', render: (row) => row.waitingView }
+        ]}
+        rows={rows}
+        isLoading={isLoading}
+        error={error ? new Error('Не удалось загрузить очередь заявок') : undefined}
+        rowKey={(row) => row.id}
+        rowActions={(row) => [
+          {
+            label: 'Открыть заявку',
+            onSelect: () => router.push(`/admin/identity-verifications/${row.id}`)
+          }
+        ]}
+        emptyMessage="Заявок на проверку нет"
+        emptyHint="Слушатель присылает селфи и фото паспорта перед итоговым экзаменом. Заявка появится здесь, как только он их отправит."
+      />
     </PageContainer>
   );
 }
@@ -328,132 +348,126 @@ export function AdminIdentityDetailScreen({ id }: { id: string }): ReactElement 
   return (
     <PageContainer>
       <PageHeader
-        title={`Идентификация: ${detail.learnerName}`}
-        subtitle={formatIdentityStatus(detail.verificationStatus)}
+        title={detail.learnerName}
+        subtitle={`Подтверждение личности — ${formatIdentityStatus(detail.verificationStatus)}`}
       />
 
-      <SectionCard title="Данные слушателя (для сверки с паспортом)">
-        <dl className="kv-list">
-          <div className="kv-list__row">
-            <dt>ФИО</dt>
-            <dd>{detail.learnerName}</dd>
-          </div>
-          <div className="kv-list__row">
-            <dt>СНИЛС</dt>
-            <dd>{detail.learnerSnils ?? '—'}</dd>
-          </div>
-          <div className="kv-list__row">
-            <dt>Дата рождения</dt>
-            <dd>{detail.learnerDateOfBirth ?? '—'}</dd>
-          </div>
-          <div className="kv-list__row">
-            <dt>Согласие на обработку ПДн</dt>
-            <dd>{formatDateShort(detail.consentAt)}</dd>
-          </div>
-          <div className="kv-list__row">
-            {/* ФТ-C3.2: отдельное согласие на фото — отдельная строка доказательной базы. */}
-            <dt>Согласие на фото</dt>
-            <dd>{formatDateShort(detail.photoConsentAt)}</dd>
-          </div>
-        </dl>
-      </SectionCard>
-
-      <SectionCard title="Документы">
-        {detail.imagesPurgedAt ? (
-          <p className="ui-text-muted">
-            Изображения удалены по сроку хранения ({formatDateShort(detail.imagesPurgedAt)})
-          </p>
-        ) : (
-          <div className="ui-stack">
-            <div>
-              <p>
-                <strong>Селфи:</strong>
-              </p>
-              {detail.selfieUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- presigned MinIO URL, next/image needs static domain config
-                <img
-                  src={detail.selfieUrl}
-                  alt="Селфи"
-                  style={{ maxWidth: 320, display: 'block', marginTop: 8 }}
-                />
-              ) : (
-                <p className="ui-text-muted">
-                  {detail.selfieFileError
-                    ? `Селфи: ${fileUnavailableLabel(detail.selfieFileError)}`
-                    : 'Селфи: нет файла'}
+      <DetailLayout
+        aside={
+          <SectionCard title="Сверьте с паспортом">
+            <KeyValueList
+              items={[
+                { label: 'ФИО', value: detail.learnerName },
+                { label: 'СНИЛС', value: detail.learnerSnils ?? '—' },
+                { label: 'Дата рождения', value: formatDateShort(detail.learnerDateOfBirth) },
+                { label: 'Согласие на обработку данных', value: formatDateShort(detail.consentAt) },
+                /* ФТ-C3.2: отдельное согласие на фото — отдельная строка доказательной базы. */
+                { label: 'Согласие на фото', value: formatDateShort(detail.photoConsentAt) }
+              ]}
+            />
+          </SectionCard>
+        }
+      >
+        <SectionCard title="Документы">
+          {detail.imagesPurgedAt ? (
+            <p className="ui-text-muted">
+              Изображения удалены по сроку хранения ({formatDateShort(detail.imagesPurgedAt)})
+            </p>
+          ) : (
+            <div className="ui-stack">
+              <div>
+                <p>
+                  <strong>Селфи:</strong>
                 </p>
-              )}
-            </div>
-            <div>
-              <p>
-                <strong>Паспорт:</strong>
-              </p>
-              {detail.passportUrl ? (
-                <>
-                  {!isPdf(detail.passportUrl) ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- presigned MinIO URL, next/image needs static domain config
-                    <img
-                      src={detail.passportUrl}
-                      alt="Паспорт"
-                      style={{ maxWidth: 480, display: 'block', marginTop: 8 }}
-                    />
-                  ) : null}
-                  <a
-                    href={detail.passportUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ display: 'inline-block', marginTop: 8 }}
-                  >
-                    Открыть документ
-                  </a>
-                </>
-              ) : (
-                <p className="ui-text-muted">
-                  {detail.passportFileError
-                    ? `Паспорт: ${fileUnavailableLabel(detail.passportFileError)}`
-                    : 'Паспорт: нет файла'}
+                {detail.selfieUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- presigned MinIO URL, next/image needs static domain config
+                  <img src={detail.selfieUrl} alt="Селфи" className="ui-doc-preview" />
+                ) : (
+                  <p className="ui-text-muted">
+                    {detail.selfieFileError
+                      ? `Селфи: ${fileUnavailableLabel(detail.selfieFileError)}`
+                      : 'Селфи: нет файла'}
+                  </p>
+                )}
+              </div>
+              <div>
+                <p>
+                  <strong>Паспорт:</strong>
                 </p>
-              )}
+                {detail.passportUrl ? (
+                  <>
+                    {!isPdf(detail.passportUrl) ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- presigned MinIO URL, next/image needs static domain config
+                      <img
+                        src={detail.passportUrl}
+                        alt="Паспорт"
+                        className="ui-doc-preview ui-doc-preview--wide"
+                      />
+                    ) : null}
+                    <a
+                      href={detail.passportUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="ui-doc-link"
+                    >
+                      Открыть документ
+                    </a>
+                  </>
+                ) : (
+                  <p className="ui-text-muted">
+                    {detail.passportFileError
+                      ? `Паспорт: ${fileUnavailableLabel(detail.passportFileError)}`
+                      : 'Паспорт: нет файла'}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        )}
-      </SectionCard>
+          )}
+        </SectionCard>
 
-      {detail.verificationStatus === 'pending' ? (
-        <SectionCard title="Решение">
-          <div className="ui-stack">
-            <label className="ui-stack">
-              <span>Причина отклонения (для «Отклонить»)</span>
-              <input
-                type="text"
+        {detail.verificationStatus === 'pending' ? (
+          <SectionCard title="Решение">
+            <div className="ui-stack">
+              {/*
+               * Причина отклонения обязательна. Сервер её не требует, и раньше заявку можно
+               * было отклонить молча: слушатель видел «Отклонена» без единого слова о том,
+               * что переснять, и звонил в центр. `TXT-004` — сообщение говорит, что делать.
+               */}
+              <FormField
+                label="Причина отклонения"
+                hint="Слушатель увидит эту причину и по ней поймёт, что переснять. Для подтверждения личности заполнять не нужно."
                 value={reason}
                 disabled={isPending}
                 onChange={(e) => setReason(e.target.value)}
-                style={{ width: '100%' }}
               />
-            </label>
-            {reviewError ? <SectionError message={reviewError} /> : null}
-            <div className="ui-inline">
-              <button
-                type="button"
-                className="ui-button ui-button--primary"
-                disabled={isPending}
-                onClick={() => void onApprove()}
-              >
-                {isPending ? 'Сохраняем…' : 'Подтвердить личность'}
-              </button>
-              <button
-                type="button"
-                className="ui-button ui-button--danger"
-                disabled={isPending}
-                onClick={() => void onReject()}
-              >
-                Отклонить
-              </button>
+              {reviewError ? <SectionError message={reviewError} /> : null}
+              <div className="ui-inline">
+                <button
+                  type="button"
+                  className="ui-button-primary"
+                  disabled={isPending}
+                  onClick={() => void onApprove()}
+                >
+                  {isPending ? 'Сохраняем…' : 'Подтвердить личность'}
+                </button>
+                <button
+                  type="button"
+                  className="ui-button ui-button--danger"
+                  disabled={isPending || reason.trim() === ''}
+                  title={
+                    reason.trim() === ''
+                      ? 'Укажите причину — слушатель должен её увидеть'
+                      : undefined
+                  }
+                  onClick={() => void onReject()}
+                >
+                  Отклонить заявку
+                </button>
+              </div>
             </div>
-          </div>
-        </SectionCard>
-      ) : null}
+          </SectionCard>
+        ) : null}
+      </DetailLayout>
     </PageContainer>
   );
 }

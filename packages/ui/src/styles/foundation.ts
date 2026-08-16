@@ -107,6 +107,11 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 .ui-progress__track--warning .ui-progress__fill { background: var(--ui-warning-600); }
 .ui-progress__track--danger .ui-progress__fill { background: var(--ui-danger-600); }
 .ui-progress__caption { color: var(--ui-text-muted); font-variant-numeric: tabular-nums; }
+/* Превью присланного документа (селфи, паспорт, скан) на экране проверки. */
+.ui-doc-preview { display: block; margin-top: 8px; max-width: 320px; width: 100%; border-radius: var(--ui-radius-md); border: 1px solid var(--ui-border); }
+.ui-doc-preview--wide { max-width: 480px; }
+.ui-doc-link { display: inline-block; margin-top: 8px; }
+.ui-video-player { display: block; width: 100%; max-width: 640px; border-radius: var(--ui-radius-md); background: var(--ui-neutral-900, #000); }
 
 /* Герой «Следующий шаг» — доминанта экрана ученика */
 .ui-hero { position: relative; overflow: hidden; isolation: isolate; border-radius: var(--ui-radius-lg); padding: clamp(22px, 3vw, 32px); background: var(--ui-hero-bg); color: var(--ui-hero-text); box-shadow: var(--ui-shadow-strong); display: grid; gap: 14px; }
