@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { LoadingState } from '@trudskill/ui';
+import { LoadingState, ProgressBar } from '@trudskill/ui';
 import Link from 'next/link';
 
 import { onboardingApi } from './api';
@@ -83,22 +83,11 @@ export function OnboardingScreen() {
               </strong>{' '}
               — {percent}%
             </p>
-            <div
-              role="progressbar"
-              aria-valuenow={percent}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              style={{ background: 'var(--ui-surface-muted)', borderRadius: 6, height: 8 }}
-            >
-              <div
-                style={{
-                  width: `${percent}%`,
-                  height: 8,
-                  borderRadius: 6,
-                  background: status.ready ? 'var(--ui-success-600)' : 'var(--ui-brand-600)'
-                }}
-              />
-            </div>
+            <ProgressBar
+              value={percent}
+              label="Настройка центра"
+              tone={status.ready ? 'ok' : 'brand'}
+            />
             {status.ready ? (
               <p className="ui-callout ui-callout--success">
                 Центр настроен: можно зачислять слушателей и выдавать документы.

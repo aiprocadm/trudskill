@@ -607,13 +607,16 @@ export const navigationModel: NavigationItem[] = [
   },
   {
     href: '/admin/identity-verifications',
-    label: 'Идентификация',
+    // TXT-003: у слушателя этот же раздел называется «Подтверждение личности» —
+    // одно понятие не должно менять имя при переходе между кабинетами.
+    label: 'Подтверждение личности',
     requiredPermissions: ['identity.read'],
     navSlot: 'more'
   },
   {
     href: '/admin/proctoring-recordings',
-    label: 'Записи прокторинга',
+    // «Прокторинг» — жаргон: администратор учебного центра такого слова не знает.
+    label: 'Видеозаписи экзаменов',
     requiredPermissions: ['proctoring.read'],
     navSlot: 'more'
   },

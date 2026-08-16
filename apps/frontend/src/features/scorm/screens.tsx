@@ -234,7 +234,7 @@ export function ScormPackagesScreen(): ReactElement {
     <PageContainer>
       <PageHeader
         title="SCORM-пакеты"
-        subtitle="Загружайте готовые курсы SCORM 1.2 (zip) — после обработки их можно привязать к материалу курса."
+        subtitle="Загружайте готовые курсы SCORM 1.2 одним архивом — после обработки их можно привязать к материалу курса."
       />
       <SectionCard title="Загрузить пакет">
         {uploadError ? <SectionError message={uploadError} /> : null}

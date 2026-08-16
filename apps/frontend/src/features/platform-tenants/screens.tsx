@@ -1,7 +1,15 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { DataTable, LoadingState, useConfirmDialog } from '@trudskill/ui';
+import {
+  DataTable,
+  DetailDrawer,
+  FormActions,
+  LoadingState,
+  SelectField,
+  StatusChip,
+  useConfirmDialog
+} from '@trudskill/ui';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
@@ -24,6 +32,8 @@ import { SectionCard, SectionEmpty, SectionError } from '../../components/state-
 import { useAuth } from '../auth/context';
 import { PlatformHealthSection } from '../platform-health/screens';
 
+import type { ReactElement } from 'react';
+
 /**
  * ФТ-D2.2 (Фаза 4 Task 3, срез 3): экраны платформенной админки тенантов.
  *
@@ -31,6 +41,29 @@ import { PlatformHealthSection } from '../platform-health/screens';
  * ЗАМЕНЯЕТ текущую сессию сессией целевого тенанта (аудит пишется на сервере ДО
  * выдачи сессии); возврат в платформенную админку — обычный выход и вход заново.
  */
+
+interface TenantRow {
+  id: string;
+  name: string;
+  code: string;
+  statusView: ReactElement;
+}
+
+/**
+ * Действие называет результат, а не стрелку.
+ *
+ * Раньше кнопки подписывались «→ Приостановлен»: стрелка требует догадки, а название
+ * состояния — не название действия (`TXT-002`).
+ */
+function statusActionLabel(status: PlatformTenantStatus): string {
+  const labels: Record<string, string> = {
+    active: 'Включить работу центра',
+    trial: 'Перевести на пробный период',
+    suspended: 'Приостановить центр',
+    closed: 'Закрыть центр'
+  };
+  return labels[status] ?? `Перевести в «${TENANT_STATUS_LABELS[status] ?? status}»`;
+}
 
 export function PlatformTenantsSection() {
   const { ask, dialog } = useConfirmDialog();
@@ -60,6 +93,7 @@ export function PlatformTenantsSection() {
   });
   const plans = plansQuery.data ?? [];
   const [planChoice, setPlanChoice] = useState<Record<string, string>>({});
+  const [planTarget, setPlanTarget] = useState<PlatformTenantDto | null>(null);
 
   const assignPlan = (tenant: PlatformTenantDto) => {
     const planId = planChoice[tenant.id] ?? plans[0]?.id;
@@ -71,9 +105,16 @@ export function PlatformTenantsSection() {
   };
 
   const tenants = tenantsQuery.data ?? [];
-  const rows = tenants.map((tenant) => ({
-    ...tenant,
-    statusTitle: TENANT_STATUS_LABELS[tenant.status] ?? tenant.status
+  const rows: TenantRow[] = tenants.map((tenant) => ({
+    id: tenant.id,
+    name: tenant.name,
+    code: tenant.code,
+    statusView: (
+      <StatusChip
+        status={tenant.status}
+        label={TENANT_STATUS_LABELS[tenant.status] ?? tenant.status}
+      />
+    )
   }));
 
   const run = async (action: () => Promise<unknown>, failure: string) => {
@@ -156,13 +197,47 @@ export function PlatformTenantsSection() {
         {tenantsQuery.isLoading ? <LoadingState message="Загрузка арендаторов…" /> : null}
 
         {!tenantsQuery.isLoading && rows.length ? (
-          <DataTable
+          <DataTable<TenantRow>
             columns={[
-              { key: 'code', title: 'Код' },
-              { key: 'name', title: 'Название' },
-              { key: 'statusTitle', title: 'Статус' }
+              { key: 'name', title: 'Учебный центр' },
+              { key: 'code', title: 'Код в адресах' },
+              { key: 'statusView', title: 'Статус', render: (row) => row.statusView }
             ]}
             rows={rows}
+            rowKey={(row) => row.id}
+            rowActions={(row) => {
+              const tenant = tenants.find((x) => x.id === row.id);
+              if (!tenant) return [];
+              return [
+                ...(canWrite
+                  ? nextStatusOptions(tenant.status).map((status) => ({
+                      label: statusActionLabel(status),
+                      /* Приостановка и закрытие — опасные: центр перестаёт работать. */
+                      danger: status !== 'active',
+                      disabled: busy,
+                      onSelect: () => void changeStatus(tenant, status)
+                    }))
+                  : []),
+                ...(canWrite && plans.length > 0
+                  ? [
+                      {
+                        label: 'Сменить тариф',
+                        disabled: busy,
+                        onSelect: () => setPlanTarget(tenant)
+                      }
+                    ]
+                  : []),
+                ...(mayImpersonate && canImpersonate(tenant.status)
+                  ? [
+                      {
+                        label: 'Войти от имени',
+                        disabled: busy,
+                        onSelect: () => impersonate(tenant)
+                      }
+                    ]
+                  : [])
+              ];
+            }}
           />
         ) : null}
         {!tenantsQuery.isLoading && !tenantsQuery.error && !rows.length ? (
@@ -171,51 +246,44 @@ export function PlatformTenantsSection() {
             hint="Арендатор — учебный центр, работающий на платформе. Его заводят при подключении по договору."
           />
         ) : null}
-
-        {tenants.map((tenant) => (
-          <div key={tenant.id} className="ui-inline">
-            <span>
-              {tenant.name} ({TENANT_STATUS_LABELS[tenant.status] ?? tenant.status}):
-            </span>
-            {canWrite
-              ? nextStatusOptions(tenant.status).map((status) => (
-                  <button
-                    key={status}
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void changeStatus(tenant, status)}
-                  >
-                    → {TENANT_STATUS_LABELS[status]}
-                  </button>
-                ))
-              : null}
-            {mayImpersonate && canImpersonate(tenant.status) ? (
-              <button type="button" disabled={busy} onClick={() => void impersonate(tenant)}>
-                Войти от имени
-              </button>
-            ) : null}
-            {canWrite && plans.length > 0 ? (
-              <>
-                <select
-                  value={planChoice[tenant.id] ?? plans[0]!.id}
-                  onChange={(event) =>
-                    setPlanChoice((prev) => ({ ...prev, [tenant.id]: event.target.value }))
-                  }
-                >
-                  {plans.map((plan) => (
-                    <option key={plan.id} value={plan.id}>
-                      {plan.name}
-                    </option>
-                  ))}
-                </select>
-                <button type="button" disabled={busy} onClick={() => void assignPlan(tenant)}>
-                  Назначить тариф
-                </button>
-              </>
-            ) : null}
-          </div>
-        ))}
       </SectionCard>
+
+      <DetailDrawer
+        open={planTarget !== null}
+        onClose={() => setPlanTarget(null)}
+        title="Тариф центра"
+        subtitle={planTarget?.name ?? ''}
+      >
+        <SelectField
+          label="Тариф"
+          hint="Тариф задаёт лимиты: сколько слушателей в месяц, сколько сотрудников, сколько места под файлы"
+          value={planTarget ? (planChoice[planTarget.id] ?? plans[0]?.id ?? '') : ''}
+          onChange={(event) =>
+            planTarget
+              ? setPlanChoice((prev) => ({ ...prev, [planTarget.id]: event.target.value }))
+              : undefined
+          }
+          options={plans.map((plan) => ({ value: plan.id, label: plan.name }))}
+        />
+        <FormActions>
+          <button
+            type="button"
+            className="ui-button-primary"
+            disabled={busy}
+            onClick={() => {
+              if (!planTarget) return;
+              const target = planTarget;
+              setPlanTarget(null);
+              void assignPlan(target);
+            }}
+          >
+            Назначить тариф
+          </button>
+          <button type="button" className="ui-button" onClick={() => setPlanTarget(null)}>
+            Отмена
+          </button>
+        </FormActions>
+      </DetailDrawer>
 
       <PlatformHealthSection />
 
@@ -327,15 +395,24 @@ function PlatformPlansSection({
   return (
     <SectionCard title="Тарифы платформы">
       {plans.length ? (
-        <ul>
-          {plans.map((plan) => (
-            <li key={plan.id}>
-              <strong>{plan.name}</strong> ({plan.code}): {limitText(plan)}
-            </li>
-          ))}
-        </ul>
+        <DataTable
+          columns={[
+            { key: 'name', title: 'Название' },
+            { key: 'limitsTitle', title: 'Что входит' }
+          ]}
+          rows={plans.map((plan) => ({
+            id: plan.id,
+            name: plan.name,
+            /* Код тарифа («basic_2024») в скобках рядом с названием убран: он системный. */
+            limitsTitle: limitText(plan)
+          }))}
+          rowKey={(row) => row.id}
+        />
       ) : (
-        <p className="ui-text-muted">Тарифов пока нет — создайте первый.</p>
+        <SectionEmpty
+          message="Тарифов пока нет"
+          hint="Тариф задаёт лимиты центра: сколько слушателей в месяц, сотрудников и места под файлы. Создайте первый в форме ниже."
+        />
       )}
       <div className="ui-inline">
         <label>
@@ -463,8 +540,8 @@ function RentalInvoicesSection({
       {!invoicesQuery.isLoading && invoices.length ? (
         <DataTable
           columns={[
-            { key: 'number', title: '№' },
-            { key: 'tenantTitle', title: 'Арендатор' },
+            { key: 'number', title: 'Номер' },
+            { key: 'tenantTitle', title: 'Учебный центр' },
             { key: 'periodTitle', title: 'Период' },
             { key: 'amountTitle', title: 'Сумма' },
             { key: 'dueTitle', title: 'Оплатить до' },
@@ -477,9 +554,26 @@ function RentalInvoicesSection({
             amountTitle: formatKopecks(item.amountKopecks, item.currency),
             dueTitle: formatIsoDate(item.dueAt),
             statusTitle: isOverdue(item, today)
-              ? `${INVOICE_STATUS_LABELS[item.status]} (просрочен)`
+              ? `${INVOICE_STATUS_LABELS[item.status]} — просрочен`
               : INVOICE_STATUS_LABELS[item.status]
           }))}
+          rowKey={(row) => row.id}
+          /*
+           * Отметка оплаты жила ОТДЕЛЬНЫМ списком под таблицей: каждый неоплаченный счёт
+           * выводился второй раз строкой с кнопкой. Действие переехало в строку — счёт
+           * называется один раз, как в реестре пользователей после среза 17.
+           */
+          rowActions={(row) =>
+            row.status === 'issued'
+              ? [
+                  {
+                    label: 'Отметить оплаченным',
+                    disabled: busy,
+                    onSelect: () => void markPaid(row.id)
+                  }
+                ]
+              : []
+          }
         />
       ) : null}
       {!invoicesQuery.isLoading && !invoicesQuery.error && !invoices.length ? (
@@ -488,19 +582,6 @@ function RentalInvoicesSection({
           hint="Счёт за аренду выставляется по тарифу центра — первый появится после начала расчётного периода."
         />
       ) : null}
-
-      {invoices
-        .filter((item) => item.status === 'issued')
-        .map((item) => (
-          <div key={item.id} className="ui-inline">
-            <span>
-              Счёт {item.number} ({tenantName(item.tenantId)}):
-            </span>
-            <button type="button" disabled={busy} onClick={() => void markPaid(item.id)}>
-              Отметить оплаченным
-            </button>
-          </div>
-        ))}
 
       <div className="ui-inline">
         <label>
