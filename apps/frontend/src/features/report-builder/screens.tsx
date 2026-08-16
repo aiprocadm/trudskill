@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, LoadingState, useConfirmDialog } from '@trudskill/ui';
+import { DataTable, FormField, LoadingState, SelectField, useConfirmDialog } from '@trudskill/ui';
 import { type ReactElement, useMemo, useState } from 'react';
 
 import { useReportBuilderMutations, useReportEntities, useReportTemplates } from './hooks';
@@ -13,11 +13,29 @@ import {
   SectionError
 } from '../../components/state-wrappers';
 
-import type { BuilderState, ReportEntityKey, ReportPreview, ReportTemplate } from './types';
+import type {
+  BuilderState,
+  ReportEntityKey,
+  ReportEntityMeta,
+  ReportPreview,
+  ReportTemplate
+} from './types';
 
 const EMPTY_STATE: BuilderState = { entityKey: '', selectedFields: [], filters: [] };
 
 type PreviewRow = Record<string, string | number | null> & { id: string };
+
+interface TemplateRow {
+  id: string;
+  name: string;
+  aboutView: string;
+  columnsView: string;
+}
+
+/** Название набора данных словом; незнакомый ключ показываем как есть, а не прячем. */
+function entityLabel(entities: ReportEntityMeta[], key: string): string {
+  return entities.find((e) => e.key === key)?.label ?? key;
+}
 
 function formatCell(value: string | number | null): string {
   return value === null || value === undefined || value === '' ? '—' : String(value);
@@ -143,25 +161,24 @@ export function ReportBuilderScreen(): ReactElement {
       {meta ? (
         <>
           <SectionCard title="Параметры отчёта">
-            <label className="ui-inline" style={{ marginBottom: 12 }}>
-              <span>Сущность:</span>
-              <select
-                value={state.entityKey}
-                onChange={(e) => onSelectEntity(e.target.value as ReportEntityKey | '')}
-              >
-                <option value="">— выберите —</option>
-                {meta.entities.map((ent) => (
-                  <option key={ent.key} value={ent.key}>
-                    {ent.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <SelectField
+              label="О чём отчёт"
+              hint="От этого зависит, какие столбцы и условия отбора доступны дальше"
+              value={state.entityKey}
+              onChange={(e) => onSelectEntity(e.target.value as ReportEntityKey | '')}
+            >
+              <option value="">— выберите —</option>
+              {meta.entities.map((ent) => (
+                <option key={ent.key} value={ent.key}>
+                  {ent.label}
+                </option>
+              ))}
+            </SelectField>
 
             {currentEntity ? (
               <>
-                <fieldset className="ui-fieldset" style={{ marginBottom: 12 }}>
-                  <legend>Поля</legend>
+                <fieldset className="ui-fieldset">
+                  <legend>Столбцы отчёта</legend>
                   <div className="ui-inline">
                     {currentEntity.fields.map((f) => (
                       <label key={f.key} className="ui-inline">
@@ -182,8 +199,8 @@ export function ReportBuilderScreen(): ReactElement {
                 </fieldset>
 
                 {currentEntity.filters.length > 0 ? (
-                  <fieldset className="ui-fieldset" style={{ marginBottom: 12 }}>
-                    <legend>Фильтры</legend>
+                  <fieldset className="ui-fieldset">
+                    <legend>Условия отбора</legend>
                     <div className="ui-inline">
                       {currentEntity.filters.map((flt) => {
                         const current = state.filters.find((x) => x.key === flt.key)?.value ?? '';
@@ -215,15 +232,15 @@ export function ReportBuilderScreen(): ReactElement {
                     onClick={() => void onPreview()}
                     disabled={!canRun(state) || previewPending}
                   >
-                    {previewPending ? 'Строим…' : 'Превью'}
+                    {previewPending ? 'Считаем…' : 'Показать пример строк'}
                   </button>
                   <button
                     type="button"
-                    className="ui-button ui-button--primary"
+                    className="ui-button-primary"
                     onClick={() => void onExport()}
                     disabled={!canRun(state) || exportPending}
                   >
-                    {exportPending ? 'Готовим файл…' : 'Скачать XLSX'}
+                    {exportPending ? 'Готовим файл…' : 'Скачать в Excel'}
                   </button>
                 </div>
               </>
@@ -240,16 +257,16 @@ export function ReportBuilderScreen(): ReactElement {
 
           {currentEntity ? (
             <SectionCard title="Сохранённые шаблоны">
-              <div className="ui-inline" style={{ marginBottom: 12 }}>
-                <input
-                  type="text"
-                  placeholder="Название шаблона"
+              <div className="ui-inline">
+                <FormField
+                  label="Название шаблона"
+                  hint="По нему вы найдёте набор столбцов и условий в следующий раз"
                   value={templateName}
                   onChange={(e) => setTemplateName(e.target.value)}
                 />
                 <button
                   type="button"
-                  className="ui-button ui-button--primary"
+                  className="ui-button"
                   onClick={() => void onSave()}
                   disabled={!canRun(state) || savePending}
                 >
@@ -262,43 +279,48 @@ export function ReportBuilderScreen(): ReactElement {
                   hint="Шаблон запоминает выбранные поля и условия, чтобы не собирать отчёт заново."
                 />
               ) : (
-                <ul className="ui-list">
-                  {(templates ?? []).map((tpl) => (
-                    <li
-                      key={tpl.id}
-                      className="ui-inline"
-                      style={{ justifyContent: 'space-between' }}
-                    >
-                      <span>
-                        {tpl.name} <span className="ui-text-muted">({tpl.entityKey})</span>
-                      </span>
-                      <span className="ui-inline">
-                        <button
-                          type="button"
-                          className="ui-button"
-                          onClick={() => onLoadTemplate(tpl)}
-                        >
-                          Загрузить
-                        </button>
-                        <button
-                          type="button"
-                          className="ui-button"
-                          onClick={() => void onDeleteTemplate(tpl.id)}
-                        >
-                          Удалить
-                        </button>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                <DataTable<TemplateRow>
+                  columns={[
+                    { key: 'name', title: 'Название' },
+                    { key: 'aboutView', title: 'О чём' },
+                    { key: 'columnsView', title: 'Столбцов' }
+                  ]}
+                  rows={(templates ?? []).map((tpl) => ({
+                    id: tpl.id,
+                    name: tpl.name,
+                    /*
+                     * Раньше рядом с названием стоял код сущности — «Отчёт по ОТ (learners)».
+                     * Показываем то же словом, из справочника, который прислал сервер.
+                     */
+                    aboutView: entityLabel(meta.entities, tpl.entityKey),
+                    columnsView: String(tpl.selectedFields.length)
+                  }))}
+                  rowKey={(row) => row.id}
+                  rowActions={(row) => {
+                    const tpl = (templates ?? []).find((x) => x.id === row.id);
+                    return tpl
+                      ? [
+                          { label: 'Загрузить шаблон', onSelect: () => onLoadTemplate(tpl) },
+                          {
+                            label: 'Удалить шаблон',
+                            danger: true,
+                            onSelect: () => onDeleteTemplate(tpl.id)
+                          }
+                        ]
+                      : [];
+                  }}
+                />
               )}
             </SectionCard>
           ) : null}
 
           {previewData ? (
-            <SectionCard
-              title={`Превью${previewData.truncated ? ` (показаны первые ${previewData.rows.length} из ${previewData.total})` : ` (${previewData.total})`}`}
-            >
+            <SectionCard title="Пример строк отчёта">
+              <p className="ui-text-muted">
+                {previewData.truncated
+                  ? `Показаны первые ${previewData.rows.length} строк из ${previewData.total}. В файл попадут все.`
+                  : `Строк в отчёте: ${previewData.total}.`}
+              </p>
               {previewData.rows.length === 0 ? (
                 <SectionEmpty
                   message="Нет строк по заданным условиям"

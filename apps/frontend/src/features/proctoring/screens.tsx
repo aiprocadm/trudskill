@@ -1,7 +1,14 @@
 'use client';
 
-import { DataTable, LoadingState } from '@trudskill/ui';
-import Link from 'next/link';
+import {
+  KeyValueList,
+  ListPage,
+  LoadingState,
+  ProgressBar,
+  SelectField,
+  StatusChip
+} from '@trudskill/ui';
+import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { getActiveProctoring, setActiveProctoring } from './active-recording';
@@ -18,9 +25,9 @@ import {
   PageContainer,
   PageHeader,
   SectionCard,
-  SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import { ATTEMPT_STATUS_LABELS, statusLabel } from '../assessment/labels';
 import { useAuth } from '../auth/context';
 
 import type { MediaRecorderLike, MediaStreamLike } from './recorder';
@@ -269,13 +276,13 @@ interface QueueRow {
   id: string;
   learnerNameView: string;
   courseTitleView: string;
-  statusView: string;
+  statusView: ReactElement;
   startedAtView: string;
-  chunksView: string;
-  actionView: ReactElement;
+  videoView: string;
 }
 
 export function AdminProctoringQueueScreen(): ReactElement {
+  const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<ProctoringRecordingStatus | undefined>(
     undefined
   );
@@ -285,56 +292,63 @@ export function AdminProctoringQueueScreen(): ReactElement {
     id: item.id,
     learnerNameView: item.learnerName || '—',
     courseTitleView: item.courseTitle || '—',
-    statusView: formatProctoringStatus(item.recordingStatus),
+    statusView: (
+      <StatusChip
+        status={item.recordingStatus}
+        label={formatProctoringStatus(item.recordingStatus)}
+      />
+    ),
     startedAtView: formatDateShort(item.startedAt),
-    chunksView: item.purgedAt ? 'удалена по сроку' : String(item.chunks.length),
-    actionView: (
-      <Link href={`/admin/proctoring-recordings/${item.id}`} className="ui-button">
-        Открыть
-      </Link>
-    )
+    /*
+     * Колонка про видео, а не про «фрагменты»: количество кусков записи — внутренняя
+     * подробность загрузки, администратору важно, есть ли что смотреть.
+     */
+    videoView: item.purgedAt
+      ? 'удалено по сроку хранения'
+      : item.chunks.length === 0
+        ? 'нет'
+        : 'есть'
   }));
 
   return (
     <PageContainer>
       <PageHeader
-        title="Записи прокторинга"
-        subtitle="Видеозаписи итоговых экзаменов (веб-камера слушателя)"
+        title="Видеозаписи экзаменов"
+        subtitle="Запись с камеры слушателя во время итогового экзамена. Хранится ограниченный срок, потом удаляется автоматически."
       />
-      <SectionCard title="Сеансы записи">
-        <div className="ui-inline" style={{ marginBottom: 12 }}>
-          <span>Статус:</span>
-          {STATUS_FILTER_OPTIONS.map((opt) => (
-            <button
-              key={opt.value ?? 'all'}
-              type="button"
-              className={statusFilter === opt.value ? 'ui-button ui-subheading' : 'ui-button'}
-              aria-pressed={statusFilter === opt.value}
-              onClick={() => setStatusFilter(opt.value)}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        {isLoading ? <LoadingState message="Загрузка…" /> : null}
-        {error ? <SectionError message="Не удалось загрузить записи прокторинга" /> : null}
-        {!isLoading && !error && rows.length === 0 ? (
-          <SectionEmpty message="Записей нет" hint="Нет сеансов с выбранным статусом" />
-        ) : null}
-        {!isLoading && !error && rows.length > 0 ? (
-          <DataTable<QueueRow>
-            columns={[
-              { key: 'learnerNameView', title: 'Слушатель' },
-              { key: 'courseTitleView', title: 'Курс' },
-              { key: 'statusView', title: 'Статус' },
-              { key: 'startedAtView', title: 'Начата' },
-              { key: 'chunksView', title: 'Фрагменты' },
-              { key: 'actionView', title: '', render: (row) => row.actionView }
-            ]}
-            rows={rows}
+      <ListPage<QueueRow>
+        filters={
+          <SelectField
+            label="Статус"
+            value={statusFilter ?? ''}
+            onChange={(e) =>
+              setStatusFilter(
+                e.target.value === '' ? undefined : (e.target.value as ProctoringRecordingStatus)
+              )
+            }
+            options={STATUS_FILTER_OPTIONS.map((o) => ({ value: o.value ?? '', label: o.label }))}
           />
-        ) : null}
-      </SectionCard>
+        }
+        columns={[
+          { key: 'learnerNameView', title: 'Слушатель' },
+          { key: 'courseTitleView', title: 'Курс' },
+          { key: 'statusView', title: 'Статус', render: (row) => row.statusView },
+          { key: 'startedAtView', title: 'Начата' },
+          { key: 'videoView', title: 'Видео' }
+        ]}
+        rows={rows}
+        isLoading={isLoading}
+        error={error ? new Error('Не удалось загрузить видеозаписи экзаменов') : undefined}
+        rowKey={(row) => row.id}
+        rowActions={(row) => [
+          {
+            label: 'Смотреть запись',
+            onSelect: () => router.push(`/admin/proctoring-recordings/${row.id}`)
+          }
+        ]}
+        emptyMessage="Видеозаписей пока нет"
+        emptyHint="Запись создаётся, когда слушатель сдаёт экзамен с включённым наблюдением. Наблюдение включается в настройках курса или группы."
+      />
     </PageContainer>
   );
 }
@@ -417,21 +431,28 @@ export function AdminProctoringDetailScreen({ id }: { id: string }): ReactElemen
   return (
     <PageContainer>
       <PageHeader
-        title={`Запись: ${detail.learnerName || detail.id}`}
-        subtitle={`${detail.courseTitle} · ${formatProctoringStatus(detail.recordingStatus)}`}
+        title={detail.learnerName || 'Видеозапись экзамена'}
+        subtitle={`${detail.courseTitle} — ${formatProctoringStatus(detail.recordingStatus)}`}
       />
       <SectionCard title="Сеанс">
-        <p>
-          <strong>Согласие на видеозапись (152-ФЗ):</strong> {formatDateShort(detail.consentAt)}
-        </p>
-        <p>
-          <strong>Начата:</strong> {formatDateShort(detail.startedAt)} · <strong>Завершена:</strong>{' '}
-          {formatDateShort(detail.completedAt)}
-        </p>
-        <p>
-          <strong>Попытка:</strong> {detail.attemptId ?? '—'}
-          {detail.attemptStatus ? ` (${detail.attemptStatus})` : ''}
-        </p>
+        <KeyValueList
+          items={[
+            { label: 'Согласие на видеозапись (152-ФЗ)', value: formatDateShort(detail.consentAt) },
+            { label: 'Начата', value: formatDateShort(detail.startedAt) },
+            { label: 'Завершена', value: formatDateShort(detail.completedAt) },
+            /*
+             * Раньше здесь стоял идентификатор попытки и её код в скобках («3f7a-… (in_progress)»).
+             * Администратору важно состояние экзамена словом, а идентификатор ему ни о чём
+             * не говорит — правило продукта: ни одного кода как значения.
+             */
+            {
+              label: 'Экзамен',
+              value: detail.attemptStatus
+                ? statusLabel(ATTEMPT_STATUS_LABELS, detail.attemptStatus)
+                : 'ещё не начинался'
+            }
+          ]}
+        />
       </SectionCard>
       <SectionCard title="Видео">
         {detail.purgedAt ? (
@@ -445,7 +466,7 @@ export function AdminProctoringDetailScreen({ id }: { id: string }): ReactElemen
               <ul className="ui-list">
                 {detail.chunkIssues.map((issue) => (
                   <li key={`${issue.sequence}:${issue.code}`} className="ui-text-muted">
-                    ⚠ {chunkIssueLabel(issue)}
+                    {chunkIssueLabel(issue)}
                   </li>
                 ))}
               </ul>
@@ -454,32 +475,45 @@ export function AdminProctoringDetailScreen({ id }: { id: string }): ReactElemen
               <ul className="ui-list" data-testid="proctoring-assemble-warnings">
                 {assembleWarnings.map((warning) => (
                   <li key={warning} className="ui-text-muted">
-                    ⚠ {warning}
+                    {warning}
                   </li>
                 ))}
               </ul>
             ) : null}
             {detail.playbackChunks.length === 0 ? (
-              <p className="ui-text-muted">Нет доступных фрагментов</p>
+              <p className="ui-text-muted">
+                Видео не записалось: слушатель начал экзамен, но ни одной части записи не пришло.
+              </p>
             ) : videoUrl ? (
               // eslint-disable-next-line jsx-a11y/media-has-caption -- Phase 10B: out-of-scope; proctoring recordings (MediaRecorder chunks) have no caption track. Captions not applicable to silent exam-screen captures.
               <video
                 controls
                 src={videoUrl}
                 aria-label={`Запись экзамена — ${detail.learnerName || detail.id}`}
-                style={{ maxWidth: 640, width: '100%' }}
+                className="ui-video-player"
               />
             ) : (
-              <button
-                type="button"
-                className="ui-button"
-                disabled={isAssembling}
-                onClick={() => void onAssemble()}
-              >
-                {isAssembling
-                  ? `Скачиваем фрагменты…${assembleProgress ? ` ${assembleProgress.done} из ${assembleProgress.total}` : ''}`
-                  : `Собрать и воспроизвести (${detail.playbackChunks.length} фрагм.)`}
-              </button>
+              <div className="ui-stack">
+                <button
+                  type="button"
+                  className="ui-button-primary"
+                  disabled={isAssembling}
+                  onClick={() => void onAssemble()}
+                >
+                  {isAssembling ? 'Загружаем запись…' : 'Посмотреть запись'}
+                </button>
+                {/*
+                 * Запись экзамена — сотни мегабайт: без полосы ожидание выглядит как зависший
+                 * экран. Раньше ход загрузки был спрятан в подписи кнопки («5 из 20»).
+                 */}
+                {isAssembling && assembleProgress ? (
+                  <ProgressBar
+                    value={(assembleProgress.done / Math.max(1, assembleProgress.total)) * 100}
+                    label="Загрузка записи"
+                    caption={`Загружено ${assembleProgress.done} из ${assembleProgress.total} частей`}
+                  />
+                ) : null}
+              </div>
             )}
             {playerError ? <SectionError message={playerError} /> : null}
           </div>

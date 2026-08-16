@@ -196,7 +196,7 @@ export default function ReportsPage() {
             </>
           }
         />
-        <SectionCard title="KPI обучения">
+        <SectionCard title="Показатели обучения">
           {kpi.error ? (
             <p className="ui-text-muted">Не удалось загрузить KPI: {kpi.error}</p>
           ) : null}

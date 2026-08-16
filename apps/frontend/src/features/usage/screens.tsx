@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { LoadingState } from '@trudskill/ui';
+import { LoadingState, ProgressBar, type ProgressTone } from '@trudskill/ui';
 
 import { usageApi } from './api';
 import {
@@ -12,7 +12,7 @@ import {
   usageLevel,
   usagePercent
 } from './types';
-import { SectionCard, SectionError } from '../../components/state-wrappers';
+import { SectionCard, SectionEmpty, SectionError } from '../../components/state-wrappers';
 import { useAuth } from '../auth/context';
 
 /**
@@ -25,6 +25,15 @@ const LEVEL_TEXT: Record<Exclude<UsageLevel, 'unlimited' | 'ok'>, string> = {
   warning: 'использовано больше 80% лимита',
   critical: 'использовано больше 95% лимита — пора расширять тариф',
   exceeded: 'лимит исчерпан'
+};
+
+/** Тон полосы: заполнение и «хорошо ли это» — разные вещи, поэтому считается отдельно. */
+const TONE_BY_LEVEL: Record<UsageLevel, ProgressTone> = {
+  unlimited: 'brand',
+  ok: 'ok',
+  warning: 'warning',
+  critical: 'danger',
+  exceeded: 'danger'
 };
 
 function MetricRow({
@@ -46,31 +55,15 @@ function MetricRow({
     <div className="ui-stack" style={{ gap: 4 }}>
       <p>
         <strong>{label}:</strong> {render(used)}
-        {limit !== null ? ` из ${render(limit)}` : ' (безлимит)'}
-        {percent !== null ? ` — ${percent}%` : ''}
+        {limit !== null ? ` из ${render(limit)}` : ' (без ограничения)'}
       </p>
       {percent !== null ? (
-        <div
-          role="progressbar"
-          aria-valuenow={percent}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          style={{ background: 'var(--ui-surface-muted)', borderRadius: 6, height: 8 }}
-        >
-          <div
-            style={{
-              width: `${percent}%`,
-              height: 8,
-              borderRadius: 6,
-              background:
-                level === 'ok'
-                  ? 'var(--ui-success-600)'
-                  : level === 'warning'
-                    ? 'var(--ui-warning-600)'
-                    : 'var(--ui-danger-600)'
-            }}
-          />
-        </div>
+        <ProgressBar
+          value={percent}
+          label={label}
+          caption={`${percent}% лимита`}
+          tone={TONE_BY_LEVEL[level]}
+        />
       ) : null}
       {level === 'warning' || level === 'critical' || level === 'exceeded' ? (
         <p
@@ -115,7 +108,7 @@ export function TenantUsageScreen() {
           data.plan ? (
             <div className="ui-stack">
               <p>
-                <strong>{data.plan.name}</strong> ({data.plan.code})
+                <strong>{data.plan.name}</strong>
               </p>
               <p className="ui-text-muted">
                 Доступно по тарифу:{' '}
@@ -130,6 +123,12 @@ export function TenantUsageScreen() {
               платформы.
             </p>
           )
+        ) : null}
+        {!usageQuery.isLoading && !usageQuery.error && !data ? (
+          <SectionEmpty
+            message="Данные о тарифе пока не пришли"
+            hint="Тариф и счётчики появляются после первого расчётного периода центра. Тариф назначает администратор платформы."
+          />
         ) : null}
       </SectionCard>
 

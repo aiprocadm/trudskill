@@ -1,6 +1,16 @@
 'use client';
 
-import { DataTable, LoadingState, StatusChip, useConfirmDialog } from '@trudskill/ui';
+import {
+  DetailDrawer,
+  Form,
+  FormActions,
+  FormField,
+  ListPage,
+  SelectField,
+  StatusChip,
+  TextareaField,
+  useConfirmDialog
+} from '@trudskill/ui';
 import { type FormEvent, type ReactElement, useState } from 'react';
 
 import { useLicenses, useLicensesMutations } from './hooks';
@@ -13,13 +23,8 @@ import {
   type LicenseType,
   type TrainingLicense
 } from './types';
-import {
-  PageContainer,
-  PageHeader,
-  SectionCard,
-  SectionEmpty,
-  SectionError
-} from '../../components/state-wrappers';
+import { PageContainer, PageHeader, SectionError } from '../../components/state-wrappers';
+import { formatDate } from '../mvp/screen-helpers';
 
 const STATUS_FILTER_OPTIONS: Array<{ value: LicenseStatus | ''; label: string }> = [
   { value: '', label: 'Все' },
@@ -28,20 +33,26 @@ const STATUS_FILTER_OPTIONS: Array<{ value: LicenseStatus | ''; label: string }>
   { value: 'revoked', label: 'Отозванные' }
 ];
 
+const EMPTY_DRAFT: CreateLicensePayload = {
+  licenseType: 'education_license',
+  licenseNumber: '',
+  issuerName: '',
+  issuedAt: ''
+};
+
 interface LicenseRow extends TrainingLicense {
-  no: string;
   typeView: string;
-  numberView: string;
   validityView: string;
   statusView: ReactElement;
-  actionsView: ReactElement;
 }
 
 /**
- * Pillar A Plan C §5.10 — UI лицензий учебного центра.
+ * Реестр лицензий и аккредитаций центра (Pillar A Plan C §5.10).
  *
- * Реестр + минимальная форма создания. Edit вынесен в follow-up
- * (требует separate modal/route); revoke — кнопка в строке.
+ * Шаблон `TPL-001`: первичное действие «Добавить лицензию» — в шапке, форма открывается
+ * панелью. Раньше форма из шести полей висела развёрнутой под таблицей — экран отвечал
+ * «заполни меня» вместо «вот твои лицензии», а первичного действия глазом было не найти
+ * (`UI-007`). Та же беда чинилась на заказах в срезе 16 и на закрытии группы в срезе 6.
  */
 export function LicensesView() {
   const { ask, dialog } = useConfirmDialog();
@@ -49,23 +60,22 @@ export function LicensesView() {
   const { data, isLoading, error } = useLicenses(statusFilter === '' ? undefined : statusFilter);
   const { createPending, revokePending, createLicense, revokeLicense } = useLicensesMutations();
 
-  const [draft, setDraft] = useState<CreateLicensePayload>({
-    licenseType: 'education_license',
-    licenseNumber: '',
-    issuerName: '',
-    issuedAt: ''
-  });
+  const [formOpen, setFormOpen] = useState(false);
+  const [draft, setDraft] = useState<CreateLicensePayload>(EMPTY_DRAFT);
   const [validUntil, setValidUntil] = useState('');
   const [notes, setNotes] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
-  const resetForm = () => {
-    setDraft({
-      licenseType: 'education_license',
-      licenseNumber: '',
-      issuerName: '',
-      issuedAt: ''
-    });
+  const touched =
+    draft.licenseNumber.trim() !== '' ||
+    draft.issuerName.trim() !== '' ||
+    draft.issuedAt !== '' ||
+    validUntil !== '' ||
+    notes.trim() !== '';
+
+  const closeForm = () => {
+    setFormOpen(false);
+    setDraft(EMPTY_DRAFT);
     setValidUntil('');
     setNotes('');
     setFormError(null);
@@ -89,154 +99,145 @@ export function LicensesView() {
       const trimmedNotes = notes.trim();
       if (trimmedNotes) payload.notes = trimmedNotes;
       await createLicense(payload);
-      resetForm();
+      closeForm();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Не удалось создать лицензию');
+      setFormError(err instanceof Error ? err.message : 'Не удалось добавить лицензию');
     }
   };
 
   // CMP-006: диалог приложения вместо window.confirm — тот не переводится,
   // не проходит проверку на 360px и не отличает опасное действие от обычного.
-  const onRevoke = (id: string) => {
+  const onRevoke = (license: TrainingLicense) => {
     ask(
       {
         title: 'Отозвать лицензию',
-        message: 'Отзыв нельзя отменить. Без действующей лицензии нельзя опубликовать программу.',
+        message: `Лицензия № ${license.licenseNumber} (${LICENSE_TYPE_LABELS[license.licenseType]}) перестанет действовать. Отзыв нельзя отменить, а без действующей лицензии нельзя опубликовать программу.`,
         confirmLabel: 'Отозвать лицензию',
         tone: 'danger'
       },
-      () => void revokeLicense(id)
+      () => void revokeLicense(license.id)
     );
   };
+
+  const rows: LicenseRow[] = (data?.items ?? []).map((license) => ({
+    ...license,
+    typeView: LICENSE_TYPE_LABELS[license.licenseType],
+    validityView: license.validUntil
+      ? `${formatDate(license.issuedAt)} — ${formatDate(license.validUntil)}`
+      : `${formatDate(license.issuedAt)} — бессрочно`,
+    statusView: <StatusChip status={LICENSE_STATUS_LABELS[license.status]} />
+  }));
 
   return (
     <PageContainer>
       <PageHeader
         title="Лицензии и аккредитации"
-        subtitle="Образовательные лицензии центра, аккредитации, членство в СРО. Без активной лицензии нельзя опубликовать программу."
+        subtitle="Образовательные лицензии центра, аккредитации, членство в СРО. Без действующей лицензии нельзя опубликовать программу."
+        actions={
+          <button type="button" className="ui-button-primary" onClick={() => setFormOpen(true)}>
+            Добавить лицензию
+          </button>
+        }
       />
 
-      <SectionCard title="Реестр лицензий">
-        <div className="ui-inline" style={{ marginBottom: 12, gap: 8 }}>
-          <label className="ui-inline" style={{ gap: 4 }}>
-            <span>Статус:</span>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as LicenseStatus | '')}
-            >
-              {STATUS_FILTER_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        {isLoading ? <LoadingState message="Загрузка реестра…" /> : null}
-        {error ? <SectionError message="Не удалось загрузить лицензии" /> : null}
-        {!isLoading && !error && (data?.items.length ?? 0) === 0 ? (
-          <SectionEmpty
-            message="Лицензии не добавлены"
-            hint="Добавьте первую лицензию в форме ниже"
+      <ListPage<LicenseRow>
+        filters={
+          <SelectField
+            label="Статус"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as LicenseStatus | '')}
+            options={STATUS_FILTER_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
           />
-        ) : null}
-        {!isLoading && data && data.items.length > 0 ? (
-          <DataTable<LicenseRow>
-            columns={[
-              { key: 'no', title: '№' },
-              { key: 'typeView', title: 'Тип' },
-              { key: 'numberView', title: 'Номер' },
-              { key: 'issuerName', title: 'Орган выдачи' },
-              { key: 'validityView', title: 'Срок действия' },
-              { key: 'statusView', title: 'Статус', render: (row) => row.statusView },
-              { key: 'actionsView', title: 'Действия', render: (row) => row.actionsView }
-            ]}
-            rows={data.items.map(
-              (license, idx): LicenseRow => ({
-                ...license,
-                no: String(idx + 1),
-                typeView: LICENSE_TYPE_LABELS[license.licenseType],
-                numberView: license.licenseNumber,
-                validityView: `${license.issuedAt}${license.validUntil ? ` — ${license.validUntil}` : ' — бессрочно'}`,
-                statusView: <StatusChip status={LICENSE_STATUS_LABELS[license.status]} />,
-                actionsView:
-                  license.status === 'active' ? (
-                    <button
-                      type="button"
-                      className="ui-button"
-                      onClick={() => void onRevoke(license.id)}
-                      disabled={revokePending}
-                    >
-                      Отозвать
-                    </button>
-                  ) : (
-                    <span className="ui-text-muted">—</span>
-                  )
-              })
-            )}
-          />
-        ) : null}
-      </SectionCard>
+        }
+        columns={[
+          { key: 'typeView', title: 'Вид' },
+          { key: 'licenseNumber', title: 'Номер' },
+          { key: 'issuerName', title: 'Орган выдачи' },
+          { key: 'validityView', title: 'Срок действия' },
+          { key: 'statusView', title: 'Статус', render: (row) => row.statusView }
+        ]}
+        rows={rows}
+        isLoading={isLoading}
+        error={error ? new Error('Не удалось загрузить лицензии') : undefined}
+        rowKey={(row) => row.id}
+        rowActions={(row) =>
+          row.status === 'active'
+            ? [
+                {
+                  label: 'Отозвать',
+                  danger: true,
+                  disabled: revokePending,
+                  onSelect: () => onRevoke(row)
+                }
+              ]
+            : []
+        }
+        emptyMessage="Лицензии не добавлены"
+        emptyHint="Лицензия подтверждает право центра обучать по программе. Пока её нет, программу нельзя опубликовать."
+        emptyAction={{ label: 'Добавить лицензию', onSelect: () => setFormOpen(true) }}
+      />
 
-      <SectionCard title="Добавить лицензию">
-        <form onSubmit={(e) => void onSubmit(e)} className="ui-stack" style={{ gap: 8 }}>
-          <label className="ui-stack" style={{ gap: 4 }}>
-            <span>Тип</span>
-            <select
-              value={draft.licenseType}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, licenseType: e.target.value as LicenseType }))
-              }
-            >
-              {ALL_LICENSE_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {LICENSE_TYPE_LABELS[t]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="ui-stack" style={{ gap: 4 }}>
-            <span>Номер</span>
-            <input
-              value={draft.licenseNumber}
-              onChange={(e) => setDraft((d) => ({ ...d, licenseNumber: e.target.value }))}
-              placeholder="Л-2024-001"
-              required
-            />
-          </label>
-          <label className="ui-stack" style={{ gap: 4 }}>
-            <span>Орган выдачи</span>
-            <input
-              value={draft.issuerName}
-              onChange={(e) => setDraft((d) => ({ ...d, issuerName: e.target.value }))}
-              placeholder="Рособрнадзор"
-              required
-            />
-          </label>
-          <label className="ui-stack" style={{ gap: 4 }}>
-            <span>Дата выдачи</span>
-            <input
-              type="date"
-              value={draft.issuedAt}
-              onChange={(e) => setDraft((d) => ({ ...d, issuedAt: e.target.value }))}
-              required
-            />
-          </label>
-          <label className="ui-stack" style={{ gap: 4 }}>
-            <span>Действительна до (необязательно)</span>
-            <input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
-          </label>
-          <label className="ui-stack" style={{ gap: 4 }}>
-            <span>Заметки</span>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
-          </label>
+      <DetailDrawer
+        open={formOpen}
+        onClose={closeForm}
+        title="Добавить лицензию"
+        subtitle="Данные берутся из бланка лицензии"
+        hasUnsavedChanges={touched}
+      >
+        <Form onSubmit={(e) => void onSubmit(e)}>
+          <SelectField
+            label="Вид"
+            value={draft.licenseType}
+            onChange={(e) =>
+              setDraft((d) => ({ ...d, licenseType: e.target.value as LicenseType }))
+            }
+            options={ALL_LICENSE_TYPES.map((t) => ({ value: t, label: LICENSE_TYPE_LABELS[t] }))}
+          />
+          <FormField
+            label="Номер"
+            value={draft.licenseNumber}
+            onChange={(e) => setDraft((d) => ({ ...d, licenseNumber: e.target.value }))}
+            placeholder="Л-2024-001"
+            required
+          />
+          <FormField
+            label="Орган выдачи"
+            value={draft.issuerName}
+            onChange={(e) => setDraft((d) => ({ ...d, issuerName: e.target.value }))}
+            placeholder="Рособрнадзор"
+            required
+          />
+          <FormField
+            label="Дата выдачи"
+            type="date"
+            value={draft.issuedAt}
+            onChange={(e) => setDraft((d) => ({ ...d, issuedAt: e.target.value }))}
+            required
+          />
+          <FormField
+            label="Действует до"
+            type="date"
+            hint="Оставьте пустым, если лицензия бессрочная"
+            value={validUntil}
+            onChange={(e) => setValidUntil(e.target.value)}
+          />
+          <TextareaField
+            label="Заметки"
+            hint="Например, на какие направления обучения распространяется"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
           {formError ? <SectionError message={formError} /> : null}
-          <button type="submit" className="ui-button" disabled={createPending}>
-            {createPending ? 'Сохраняем…' : 'Добавить лицензию'}
-          </button>
-        </form>
-      </SectionCard>
+          <FormActions>
+            <button type="submit" className="ui-button-primary" disabled={createPending}>
+              {createPending ? 'Сохраняем…' : 'Добавить лицензию'}
+            </button>
+            <button type="button" className="ui-button" onClick={closeForm}>
+              Отмена
+            </button>
+          </FormActions>
+        </Form>
+      </DetailDrawer>
       {dialog}
     </PageContainer>
   );
