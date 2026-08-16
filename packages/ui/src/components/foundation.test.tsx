@@ -89,6 +89,30 @@ describe('ui foundation components', () => {
 
     const emptyRow = body.props.children as ReactElement;
     const emptyCell = emptyRow.props.children as ReactElement;
-    expect(emptyCell.props.children).toBe('Пусто');
+    // Ячейка пустой таблицы теперь несёт две части: сообщение и (если задано) пояснение.
+    const [message, hint] = emptyCell.props.children as [string, ReactElement | null];
+    expect(message).toBe('Пусто');
+    expect(hint).toBeNull();
+  });
+
+  /*
+   * TPL-006: пустая таблица объясняет, что это за раздел. Раньше `DataTable` умела только
+   * сообщение, и экран, переведённый на неё, терял пояснение — сторож пустых состояний
+   * этого не видел, потому что искал только тег `SectionEmpty`.
+   */
+  it('DataTable показывает пояснение к пустому состоянию, когда оно задано', () => {
+    const wrap = DataTable({
+      columns: [{ key: 'name', title: 'Название' }],
+      rows: [],
+      emptyMessage: 'Задач нет',
+      emptyHint: 'Задачи появляются по ходу обучения группы.'
+    });
+    const table = wrap.props.children as ReactElement;
+    const [, body] = table.props.children as ReactElement[];
+    const emptyCell = (body.props.children as ReactElement).props.children as ReactElement;
+    const [message, hint] = emptyCell.props.children as [string, ReactElement];
+    expect(message).toBe('Задач нет');
+    expect(hint.props.children).toBe('Задачи появляются по ходу обучения группы.');
+    expect(hint.props.className).toBe('ui-empty-hint');
   });
 });

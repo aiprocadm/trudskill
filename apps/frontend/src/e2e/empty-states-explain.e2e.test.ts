@@ -19,6 +19,15 @@ import { APP_ROOT, fromApp } from './app-root';
 
 const ROOTS = [fromApp('src', 'features'), fromApp('app')];
 const EMPTY_TAG = /<(?:SectionEmpty|EmptyState)\b(?:[^>]|\n)*?\/>/g;
+/*
+ * Второй способ задать пустое состояние — свойствами композиции (`ListPage`, `AsyncSection`,
+ * `DataTable`). Сторож среза 21 видел только тег и пропускал этот путь: экран, переведённый
+ * на `ListPage` без пояснения, проходил молча. Нашлось при переводе очередей проверки
+ * в срезе 23 — три места на оперативной панели.
+ */
+const EMPTY_PROP = /emptyMessage=(?:"[^"]*"|\{[^}]*\})/g;
+/** Пояснение ищется в окрестности вызова: свойства одного элемента стоят рядом. */
+const PROP_WINDOW = 600;
 
 /**
  * Известные места на момент среза 21. Все — кабинеты слушателя и преподавателя-методиста:
@@ -60,12 +69,26 @@ const scan = () => {
   let explained = 0;
   for (const file of files) {
     const source = readFileSync(file, 'utf8');
+    const shortPath = relative(APP_ROOT, file).replace(/\\/g, '/');
+
     for (const match of source.match(EMPTY_TAG) ?? []) {
       if (match.includes('hint') || match.includes('action')) {
         explained += 1;
         continue;
       }
-      silent.push(relative(APP_ROOT, file).replace(/\\/g, '/'));
+      silent.push(shortPath);
+    }
+
+    for (const match of source.matchAll(EMPTY_PROP)) {
+      const around = source.slice(
+        Math.max(0, match.index - PROP_WINDOW),
+        match.index + match[0].length + PROP_WINDOW
+      );
+      if (around.includes('emptyHint') || around.includes('emptyAction')) {
+        explained += 1;
+        continue;
+      }
+      silent.push(shortPath);
     }
   }
   return { silent: [...new Set(silent)].sort(), explained };

@@ -205,6 +205,7 @@ export default function WorkspacePage() {
               ]}
               rows={workspace.data.summary.nextActions}
               emptyMessage="Подсказок пока нет"
+              emptyHint="Подсказки появляются, когда системе есть что предложить: незакрытая группа, невыданные документы, истекающие сроки."
             />
           ) : (
             <SectionEmpty
@@ -240,6 +241,7 @@ export default function WorkspacePage() {
             ]}
             rows={filteredTasks}
             emptyMessage="По этому фильтру задач нет"
+            emptyHint="Снимите часть условий отбора или загляните позже — задачи появляются по ходу обучения."
           />
         </SectionCard>
 
@@ -273,6 +275,7 @@ export default function WorkspacePage() {
             ]}
             rows={filteredBlockers}
             emptyMessage="По этому фильтру блокеров нет"
+            emptyHint="Блокер — то, что мешает группе идти дальше: нет комиссии, не хватает документов, не назначен экзамен."
           />
         </SectionCard>
 

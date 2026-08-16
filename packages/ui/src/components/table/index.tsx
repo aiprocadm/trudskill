@@ -26,6 +26,7 @@ export function DataTable<T extends object>({
   sortDir = 'asc',
   onSort,
   emptyMessage = 'Пока пусто',
+  emptyHint,
   rowKey,
   selectable = false,
   selectedKeys,
@@ -42,6 +43,12 @@ export function DataTable<T extends object>({
   sortDir?: 'asc' | 'desc';
   onSort?: (next: { key: keyof T; dir: 'asc' | 'desc' }) => void;
   emptyMessage?: string;
+  /**
+   * TPL-006: пустая таблица объясняет, что это за раздел и что сделать первым.
+   * Отдельное свойство, а не часть сообщения: заголовок и пояснение читаются по-разному
+   * и в вёрстке стоят на разных строках.
+   */
+  emptyHint?: string;
   /** Стабильный ключ строки; по умолчанию r.id/r.key, иначе индекс (fallback). */
   rowKey?: (row: T, index: number) => string | number;
   /* CMP-001. Всё ниже опционально: без этих свойств таблица ведёт себя как прежде —
@@ -138,6 +145,7 @@ export function DataTable<T extends object>({
             <tr>
               <td colSpan={totalColumns} className="ui-text-muted">
                 {emptyMessage}
+                {emptyHint ? <p className="ui-empty-hint">{emptyHint}</p> : null}
               </td>
             </tr>
           ) : (
