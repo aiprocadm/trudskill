@@ -8,6 +8,7 @@ import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 import { CloseGroupSection } from '../close-group/screens';
 import { IssueOrderModal } from '../group-orders/issue-order-modal';
+import { learnerNameCell, useLearnerNames } from '../learners/learner-picker';
 import { LearningJournalSection } from '../learning-journal/screens';
 import {
   useCoursesList,
@@ -38,6 +39,7 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
   const { data: courses } = useCoursesList({ page: 1, page_size: 20 });
   const { data: groupCourses, refetch: refetchCourses } = useGroupCourses(id);
   const { data: enrollments, refetch: refetchEnrollments } = useEnrollments({ group_id: id });
+  const learnerNames = useLearnerNames();
   const { data: progress } = useLearnerCourseProgress(groupCourses?.items[0]?.courseId);
   const { createGroupCourse, createEnrollment } = useDomainMutations();
   const [selectedCourseId, setSelectedCourseId] = useState('');
@@ -187,7 +189,8 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
           <ul className="ui-stack" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {enrollments?.items.map((item) => (
               <li key={item.id} className="ui-inline" style={{ gap: 8, flexWrap: 'wrap' }}>
-                <span>{item.learnerId}</span>
+                {/* Список зачисленных состоял из идентификаторов вместо фамилий. */}
+                <span>{learnerNameCell(learnerNames, item.learnerId)}</span>
                 {/* TXT-006: статус словом, а не кодом `active`/`completed`. */}
                 <StatusChip status={ENROLLMENT_STATUS_LABEL[item.status] ?? item.status} />
                 {/* Phase 4 Plan B: per-student proctoring override (PATCH needs learners.write). */}
