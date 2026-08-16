@@ -1,3 +1,4 @@
+import { AA_NORMAL_TEXT, contrastRatio } from '@trudskill/ui';
 import { describe, expect, it } from 'vitest';
 
 import { brandingToThemeVars, darkenHexColor, isHexColor, resolveWordmark } from './theme';
@@ -41,5 +42,60 @@ describe('branding theme (ФТ-D3.1)', () => {
     expect(isHexColor('#AABBCC')).toBe(true);
     expect(isHexColor('#abc')).toBe(false);
     expect(isHexColor('aabbcc')).toBe(false);
+  });
+
+  /*
+   * UI-005: цвет текста на первичной кнопке считается ОТ цвета арендатора.
+   *
+   * Было: `--ui-on-accent` оставался тёмным (#0f172a) при любом фирменном цвете — правило
+   * выведено для светлого коралла. Центр с тёмно-синим акцентом получал тёмный текст на
+   * тёмной кнопке и не мог прочитать собственную первичную кнопку.
+   */
+  describe('текст на фирменной кнопке читается при любом цвете центра (UI-005)', () => {
+    const cases: Array<{ color: string; expected: string; why: string }> = [
+      { color: '#ff7a45', expected: '#0f172a', why: 'коралл платформы — светлый' },
+      { color: '#1e3a8a', expected: '#ffffff', why: 'тёмно-синий — тот самый провальный случай' },
+      { color: '#facc15', expected: '#0f172a', why: 'ярко-жёлтый' },
+      { color: '#000000', expected: '#ffffff', why: 'чёрный' },
+      { color: '#ffffff', expected: '#0f172a', why: 'белый' },
+      /*
+       * Точка перелома лежит НЕ на «половине шкалы»: на #808080 выигрывает ещё тёмный текст
+       * (4.52:1 против 3.95:1), и лишь около #767676 выбор переворачивается на белый
+       * (4.54:1 против 3.93:1). Так работает гамма-коррекция яркости — «серый ровно
+       * посередине» на глаз и «серый посередине» по контрасту это разные цвета.
+       */
+      { color: '#808080', expected: '#0f172a', why: 'средне-серый, тёмный текст ещё выигрывает' },
+      { color: '#767676', expected: '#ffffff', why: 'чуть темнее — выбор переворачивается' }
+    ];
+
+    for (const { color, expected, why } of cases) {
+      it(`${color} (${why}) → текст ${expected}`, () => {
+        const vars = brandingToThemeVars({ accentColor: color });
+        expect(vars['--ui-on-accent']).toBe(expected);
+        // Блок «Следующий шаг» красится тем же акцентом — и текст там тот же.
+        expect(vars['--ui-hero-cta-text']).toBe(expected);
+      });
+    }
+
+    it('выбранный текст действительно проходит AA на этом цвете', () => {
+      for (const { color } of cases) {
+        const vars = brandingToThemeVars({ accentColor: color });
+        const ratio = contrastRatio(vars['--ui-on-accent'] as string, color);
+        expect(ratio, `цвет ${color}: контраст ${ratio}`).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+      }
+    });
+
+    /*
+     * UI-006 зафиксирован тестом, а не только словами: боковое меню НЕ отдаётся арендатору.
+     * Иначе следующий заход «дочинит» это как недоделку, и светло-жёлтый фирменный цвет
+     * сделает меню нечитаемым.
+     */
+    it('цвета бокового меню арендатору не отдаются (UI-006)', () => {
+      const vars = brandingToThemeVars({ brandColor: '#facc15', accentColor: '#facc15' });
+      const navVars = Object.keys(vars).filter((key) => key.startsWith('--ui-nav-'));
+      expect(navVars, 'боковое меню остаётся тёмной поверхностью с гарантией контраста').toEqual(
+        []
+      );
+    });
   });
 });
