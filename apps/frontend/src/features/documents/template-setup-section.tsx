@@ -195,7 +195,7 @@ export const TemplateSetupSection = ({
         <DataTable
           columns={[
             { key: 'versionNo', title: 'Версия' },
-            { key: 'stateView', title: 'Состояние' }
+            { key: 'stateView', title: 'Статус' }
           ]}
           rows={versionsQuery.data.items.map((item) => ({
             versionNo: item.versionNo,

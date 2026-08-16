@@ -69,7 +69,7 @@ export const LearnerDetailsScreen = ({ id }: { id: string }) => {
             <SectionCard title="Коротко">
               <KeyValueList
                 items={[
-                  { label: 'Состояние', value: <StatusChip status={learner.status} /> },
+                  { label: 'Статус', value: <StatusChip status={learner.status} /> },
                   { label: 'Личный номер', value: learner.learnerNo ?? 'не присвоен' },
                   { label: 'Почта', value: learner.email ?? 'не указана' },
                   {
@@ -99,7 +99,7 @@ export const LearnerDetailsScreen = ({ id }: { id: string }) => {
                 columns={[
                   { key: 'course', title: 'Курс' },
                   { key: 'group', title: 'Группа' },
-                  { key: 'status', title: 'Состояние' },
+                  { key: 'status', title: 'Статус' },
                   { key: 'enrolledAt', title: 'Зачислен' }
                 ]}
                 rows={enrollments.map((item) => ({

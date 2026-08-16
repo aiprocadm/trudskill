@@ -148,7 +148,7 @@ export function IssuanceJournalView() {
               />
             </label>
             <label className="ui-field">
-              <span className="ui-field-label">Состояние</span>
+              <span className="ui-field-label">Статус</span>
               <select
                 value={filter.status ?? ''}
                 onChange={(e) => updateFilter({ status: e.target.value || null })}
@@ -199,7 +199,7 @@ export function IssuanceJournalView() {
           { key: 'documentDateView', title: 'Дата выдачи' },
           { key: 'documentNumberView', title: 'Номер' },
           { key: 'documentTypeView', title: 'Вид документа' },
-          { key: 'statusView', title: 'Состояние', render: (row) => row.statusView }
+          { key: 'statusView', title: 'Статус', render: (row) => row.statusView }
         ]}
         rows={rows}
         isLoading={isLoading}

@@ -131,7 +131,7 @@ export const UsersPageScreen = () => {
               </select>
             </label>
             <label className="ui-field">
-              <span className="ui-field-label">Состояние</span>
+              <span className="ui-field-label">Статус</span>
               <select
                 value={status}
                 onChange={(event) => {
@@ -155,7 +155,7 @@ export const UsersPageScreen = () => {
         columns={[
           { key: 'nameView', title: 'Сотрудник', render: (row) => row.nameView },
           { key: 'login', title: 'Логин' },
-          { key: 'statusView', title: 'Состояние', render: (row) => row.statusView }
+          { key: 'statusView', title: 'Статус', render: (row) => row.statusView }
         ]}
         rows={rows}
         isLoading={loading}

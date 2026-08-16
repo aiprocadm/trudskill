@@ -92,7 +92,7 @@ export function AssignmentsListScreen() {
             />
             <CourseSelect value={courseId} onChange={setCourseId} label="Курс" />
             <label className="ui-field">
-              <span className="ui-field-label">Состояние</span>
+              <span className="ui-field-label">Статус</span>
               <select
                 className="ui-select"
                 value={status}
@@ -117,7 +117,7 @@ export function AssignmentsListScreen() {
           { key: 'courseView', title: 'Курс' },
           { key: 'maxScoreView', title: 'Максимальный балл' },
           { key: 'reviewView', title: 'Как проверяется' },
-          { key: 'statusView', title: 'Состояние', render: (row) => row.statusView }
+          { key: 'statusView', title: 'Статус', render: (row) => row.statusView }
         ]}
         rows={rows}
         isLoading={list.isLoading}

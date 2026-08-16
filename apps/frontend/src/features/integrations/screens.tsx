@@ -159,7 +159,7 @@ export const IntegrationSettingsScreen = () => {
           <DataTable
             columns={[
               { key: 'name', title: 'Как назвали' },
-              { key: 'statusView', title: 'Состояние' },
+              { key: 'statusView', title: 'Статус' },
               { key: 'secretMasked', title: 'Ключ доступа' }
             ]}
             rows={credentials.map((row) => ({
@@ -299,7 +299,7 @@ export const ExportTasksScreen = () => {
             columns={[
               { key: 'providerCode', title: 'Система' },
               { key: 'exportType', title: 'Что выгружали' },
-              { key: 'status', title: 'Состояние' }
+              { key: 'status', title: 'Статус' }
             ]}
             rows={data}
           />
@@ -343,7 +343,7 @@ export const SyncLogsScreen = () => {
               { key: 'providerCode', title: 'Система' },
               { key: 'entityType', title: 'Что отправляли' },
               { key: 'statusCode', title: 'Ответ сервиса' },
-              { key: 'status', title: 'Состояние' }
+              { key: 'status', title: 'Статус' }
             ]}
             rows={filtered}
           />

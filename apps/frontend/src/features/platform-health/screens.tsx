@@ -3,13 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { DataTable, LoadingState } from '@trudskill/ui';
 
-import {
-  HEALTH_LABELS,
-  formatMoment,
-  healthLevel,
-  healthProblems,
-  platformHealthApi
-} from './api';
+import { HEALTH_LABELS, formatMoment, healthLevel, healthProblems, platformHealthApi } from './api';
 import { SectionCard, SectionEmpty, SectionError } from '../../components/state-wrappers';
 import { useAuth } from '../auth/context';
 
@@ -41,8 +35,8 @@ export function PlatformHealthSection() {
   return (
     <SectionCard title="Здоровье арендаторов">
       <p className="ui-text-muted">
-        Состояние очередей и задач по каждому центру. Показаны только счётчики — содержимое
-        задач и документов арендаторов здесь недоступно.
+        Состояние очередей и задач по каждому центру. Показаны только счётчики — содержимое задач и
+        документов арендаторов здесь недоступно.
       </p>
 
       {healthQuery.isLoading ? <LoadingState message="Собираем состояние…" /> : null}
@@ -77,7 +71,7 @@ export function PlatformHealthSection() {
             <DataTable
               columns={[
                 { key: 'name', title: 'Центр' },
-                { key: 'levelTitle', title: 'Состояние' },
+                { key: 'levelTitle', title: 'Статус' },
                 { key: 'problemsTitle', title: 'Что не так' },
                 { key: 'queueTitle', title: 'В работе' },
                 { key: 'lastActivityTitle', title: 'Последняя активность' },
