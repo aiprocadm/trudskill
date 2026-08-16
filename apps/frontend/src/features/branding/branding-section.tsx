@@ -1,6 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
+import { AA_NORMAL_TEXT, contrastRatio } from '@trudskill/ui';
 import { useEffect, useState } from 'react';
 
 import { brandingApi } from './api';
@@ -60,6 +61,14 @@ export function BrandingSettingsSection() {
     }
   };
 
+  /* Лучший из двух вариантов текста — ровно то, что подставит brandingToThemeVars. */
+  const accentContrast = isHexColor(accentColor)
+    ? Math.max(
+        contrastRatio('#0f172a', accentColor) ?? 0,
+        contrastRatio('#ffffff', accentColor) ?? 0
+      )
+    : null;
+
   return (
     <SectionCard title="Оформление под ваш центр">
       <p className="ui-text-muted">
@@ -107,6 +116,20 @@ export function BrandingSettingsSection() {
         </button>
         {saved ? <span className="ui-text-muted">Сохранено — тема обновится сразу.</span> : null}
       </div>
+
+      {/*
+        UI-005: цвет текста на кнопке подбирается автоматически, но есть цвета, на которых
+        НЕ читается ни тёмный, ни белый — средние по яркости (например, фиолетовый #8b5cf6
+        даёт лучшие 4.2:1 при норме 4.5:1). Запрещать чужой фирменный цвет мы не вправе,
+        а вот предупредить обязаны — иначе слушатель получит кабинет с нечитаемой кнопкой.
+      */}
+      {accentContrast !== null && accentContrast < AA_NORMAL_TEXT ? (
+        <p className="ui-callout ui-callout--warning">
+          На этом акцентном цвете подпись кнопки будет читаться плохо: контраст{' '}
+          {accentContrast.toFixed(1)} при норме 4,5. Возьмите заметно темнее или заметно светлее —
+          средние по яркости цвета не дают контраста ни с тёмным текстом, ни с белым.
+        </p>
+      ) : null}
     </SectionCard>
   );
 }

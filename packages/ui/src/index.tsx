@@ -1,4 +1,5 @@
 export * from './tokens/index.js';
+export * from './tokens/contrast.js';
 export * from './a11y/visually-hidden.js';
 export * from './primitives/layout.js';
 export * from './components/states/index.js';
