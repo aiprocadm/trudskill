@@ -93,7 +93,10 @@ export function PlatformLibraryScreen() {
         />
       ) : null}
       {!libraryQuery.isLoading && !libraryQuery.error && !courses.length ? (
-        <SectionEmpty message="Библиотека пока пуста" />
+        <SectionEmpty
+          message="Библиотека пока пуста"
+          hint="Здесь появятся курсы платформы, доступные вашему центру для подключения."
+        />
       ) : null}
 
       {courses.map((course) => (

@@ -45,7 +45,10 @@ export default function ProctoringPage() {
               rows={assignments.data.items}
             />
           ) : (
-            <SectionEmpty message="Нет назначений для прокторинга" />
+            <SectionEmpty
+              message="Нет назначений для прокторинга"
+              hint="Прокторинг — наблюдение за сдачей экзамена; назначение создаётся вместе с экзаменом."
+            />
           )}
         </SectionCard>
         <SectionCard title="Журнал прокторинга">
@@ -62,7 +65,10 @@ export default function ProctoringPage() {
               rows={proctoringLogs}
             />
           ) : (
-            <SectionEmpty message="Логи прокторинга не найдены" />
+            <SectionEmpty
+              message="Логи прокторинга не найдены"
+              hint="Здесь видно, что происходило во время наблюдения за сдачей."
+            />
           )}
         </SectionCard>
       </PageContainer>

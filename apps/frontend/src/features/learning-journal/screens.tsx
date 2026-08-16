@@ -88,7 +88,12 @@ export function LearningJournalSection({ groupId }: { groupId: string }) {
         </div>
       ) : null}
 
-      {journal && !rows.length ? <SectionEmpty message="В группе пока нет зачислений" /> : null}
+      {journal && !rows.length ? (
+        <SectionEmpty
+          message="В группе пока нет зачислений"
+          hint="Журнал заполняется по мере зачисления слушателей в группу."
+        />
+      ) : null}
 
       {rows.length ? (
         <DataTable

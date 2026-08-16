@@ -47,7 +47,12 @@ export function WebinarsAdminScreen() {
       </SectionCard>
       <SectionCard title="Список">
         {error ? <SectionError message={error} /> : null}
-        {items.length === 0 && !error ? <SectionEmpty message="Вебинаров пока нет." /> : null}
+        {items.length === 0 && !error ? (
+          <SectionEmpty
+            message="Вебинаров пока нет."
+            hint="Вебинар — онлайн-занятие с ссылкой на эфир и отметкой посещения."
+          />
+        ) : null}
         {items.map((w) => (
           <div key={w.id} className="ui-list-row">
             <strong>{w.title}</strong>
@@ -144,7 +149,12 @@ export function MyWebinarsScreen() {
       <SectionCard title="Список">
         {error ? <SectionError message={error} /> : null}
         {joinError ? <SectionError message={joinError} /> : null}
-        {items.length === 0 && !error ? <SectionEmpty message="Вебинаров пока нет." /> : null}
+        {items.length === 0 && !error ? (
+          <SectionEmpty
+            message="Вебинаров пока нет."
+            hint="Вебинар — онлайн-занятие с ссылкой на эфир и отметкой посещения."
+          />
+        ) : null}
         {items.map((w) => (
           <div key={w.id} className="ui-list-row">
             <strong>{w.title}</strong>

@@ -257,7 +257,10 @@ export function ScormPackagesScreen(): ReactElement {
         ) : error ? (
           <SectionError message={error} onRetry={reload} />
         ) : rows.length === 0 ? (
-          <SectionEmpty message="Пока нет пакетов — загрузите zip с курсом SCORM 1.2" />
+          <SectionEmpty
+            message="Пока нет пакетов — загрузите zip с курсом SCORM 1.2"
+            hint="Учебный пакет — готовый курс из внешнего редактора: он проигрывается прямо в системе."
+          />
         ) : (
           <DataTable<TableRow> columns={columns} rows={rows} />
         )}

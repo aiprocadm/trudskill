@@ -155,7 +155,10 @@ export function VideoUploadSection() {
 
       {materialId && assetsQuery.isLoading ? <LoadingState message="Загрузка списка…" /> : null}
       {materialId && !assetsQuery.isLoading && !items.length ? (
-        <SectionEmpty message="К этому материалу видео пока не привязано" />
+        <SectionEmpty
+          message="К этому материалу видео пока не привязано"
+          hint="Загруженное видео слушатель увидит внутри материала курса."
+        />
       ) : null}
 
       {items.map((item) => (

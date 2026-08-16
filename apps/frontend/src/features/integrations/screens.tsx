@@ -304,7 +304,10 @@ export const ExportTasksScreen = () => {
             rows={data}
           />
         ) : (
-          <SectionEmpty message="Задачи не найдены" />
+          <SectionEmpty
+            message="Задачи не найдены"
+            hint="Задача появляется, когда вы запускаете обмен с внешней системой."
+          />
         )}
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           {data.map((task) => (
@@ -348,7 +351,10 @@ export const SyncLogsScreen = () => {
             rows={filtered}
           />
         ) : (
-          <SectionEmpty message="Логи не найдены" />
+          <SectionEmpty
+            message="Логи не найдены"
+            hint="Здесь видно каждую попытку обмена и ответ внешней системы."
+          />
         )}
       </SectionCard>
     </PageContainer>

@@ -249,7 +249,10 @@ export const TemplateSetupSection = ({
               rows={parseResult.known}
             />
           ) : (
-            <SectionEmpty message="В бланке не нашлось ни одной знакомой метки" />
+            <SectionEmpty
+              message="В бланке не нашлось ни одной знакомой метки"
+              hint="Метки пишутся в фигурных скобках, например {ФИО}. Проверьте написание в файле."
+            />
           )}
           {parseResult.unknown.length ? (
             <p role="alert" className="ui-error" data-testid="template-unknown-placeholders">

@@ -88,7 +88,10 @@ export function PlatformHealthSection() {
               }))}
             />
           ) : (
-            <SectionEmpty message="Действующих арендаторов нет" />
+            <SectionEmpty
+              message="Действующих арендаторов нет"
+              hint="Строка появляется, когда учебный центр подключён и работает."
+            />
           )}
         </div>
       ) : null}

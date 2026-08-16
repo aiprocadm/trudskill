@@ -79,7 +79,10 @@ export default function EsignLegalLogPage() {
           {loading ? <LoadingState message="Загрузка legal log..." /> : null}
           {error ? <SectionError message={error} /> : null}
           {!loading && !error && !filtered.length ? (
-            <SectionEmpty message="События не найдены" />
+            <SectionEmpty
+              message="События не найдены"
+              hint="Здесь хранится юридический след подписания: кто, что и когда подписал."
+            />
           ) : null}
           {filtered.length ? (
             <DataTable

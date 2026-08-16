@@ -1,7 +1,9 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { APP_ROOT, fromApp } from './app-root';
 
 /**
  * Одно понятие — одно слово (`TXT-003` по смыслу).
@@ -15,7 +17,7 @@ import { describe, expect, it } from 'vitest';
  * — это имена блоков, а не подпись поля, и под правило не подпадают.
  */
 
-const ROOTS = ['src/features', 'app'];
+const ROOTS = [fromApp('src', 'features'), fromApp('app')];
 
 /** Подпись поля состояния: заголовок колонки, ярлык фильтра, строка сводки. */
 const FORBIDDEN = [/title: 'Состояние'/, /label: 'Состояние'/, /ui-field-label">Состояние</];
@@ -45,7 +47,7 @@ describe('одно понятие — одно слово (TXT-003)', () => {
       return FORBIDDEN.some((pattern) => pattern.test(source));
     });
     expect(
-      offenders.map((file) => file.replace(/\\/g, '/')),
+      offenders.map((file) => relative(APP_ROOT, file).replace(/\\/g, '/')),
       'подпись поля состояния — «Статус» (так в макете ТЗ §7.1), а не «Состояние»'
     ).toEqual([]);
   });

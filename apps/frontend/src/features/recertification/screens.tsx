@@ -281,7 +281,10 @@ export function ExpiringDocumentsSection(): ReactElement {
               }))}
             />
           ) : (
-            <SectionEmpty message="Ближайшие два месяца сроки не истекают" />
+            <SectionEmpty
+              message="Ближайшие два месяца сроки не истекают"
+              hint="Мы проверяем сроки удостоверений сами — если что-то будет истекать, оно появится здесь."
+            />
           )}
         </div>
       ) : null}

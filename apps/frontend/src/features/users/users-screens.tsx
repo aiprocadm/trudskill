@@ -262,7 +262,10 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
                 rows={sessions}
               />
             ) : (
-              <SectionEmpty message="Активные сессии не найдены" />
+              <SectionEmpty
+                message="Активные сессии не найдены"
+                hint="Сеанс появляется, когда человек входит в систему. Здесь его можно завершить принудительно."
+              />
             )}
             {canManageRoles ? (
               <div className="ui-inline">

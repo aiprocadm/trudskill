@@ -358,7 +358,10 @@ export const AssessmentDashboardScreen = () => {
             }))}
           />
         ) : (
-          <SectionEmpty message="Итогов экзаменов пока нет" />
+          <SectionEmpty
+            message="Итогов экзаменов пока нет"
+            hint="Итог появляется, когда слушатель завершает экзамен и работа проверена."
+          />
         )}
       </SectionCard>
 

@@ -436,7 +436,10 @@ export const CommissionDetailsScreen = ({ id }: { id: string }) => {
             {data.members.length > 0 ? (
               <DataTable columns={memberColumns} rows={data.members} />
             ) : (
-              <SectionEmpty message="Члены комиссии не добавлены" />
+              <SectionEmpty
+                message="Члены комиссии не добавлены"
+                hint="Комиссия подписывает протоколы: нужны председатель, секретарь и хотя бы один член."
+              />
             )}
           </SectionCard>
 

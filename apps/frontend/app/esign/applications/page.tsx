@@ -59,7 +59,10 @@ export default function EsignApplicationsPage() {
           {loading ? <LoadingState message="Загрузка заявок..." /> : null}
           {error ? <SectionError message={error} /> : null}
           {!loading && !error && !rows.length ? (
-            <SectionEmpty message="Заявки НЭП не найдены" />
+            <SectionEmpty
+              message="Заявки НЭП не найдены"
+              hint="Заявка нужна, чтобы слушатель получил электронную подпись для документов."
+            />
           ) : null}
           {rows.length ? (
             <DataTable

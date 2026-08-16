@@ -1,7 +1,9 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { APP_ROOT, fromApp } from './app-root';
 
 /**
  * Заголовок колонки или карточки не написан латиницей (`TXT-006`).
@@ -15,7 +17,7 @@ import { describe, expect, it } from 'vitest';
  * они разрешены, но только как часть подписи, а не вся подпись целиком.
  */
 
-const ROOTS = ['src/features', 'app'];
+const ROOTS = [fromApp('src', 'features'), fromApp('app')];
 const TITLE = /title: '([^']+)'/g;
 
 /** Названия форматов и стандартов — их не переводят. */
@@ -58,7 +60,9 @@ describe('заголовки колонок и карточек по-русск�
 
   it('ни один заголовок не написан только латиницей', () => {
     const offenders = files.flatMap((file) =>
-      latinTitles(file).map((title) => `${file.replace(/\\/g, '/')}: «${title}»`)
+      latinTitles(file).map(
+        (title) => `${relative(APP_ROOT, file).replace(/\\/g, '/')}: «${title}»`
+      )
     );
     expect(offenders, 'заголовок латиницей — человеку он ничего не говорит').toEqual([]);
   });

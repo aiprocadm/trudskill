@@ -166,7 +166,10 @@ export function PlatformTenantsSection() {
           />
         ) : null}
         {!tenantsQuery.isLoading && !tenantsQuery.error && !rows.length ? (
-          <SectionEmpty message="Арендаторов пока нет" />
+          <SectionEmpty
+            message="Арендаторов пока нет"
+            hint="Арендатор — учебный центр, работающий на платформе. Его заводят при подключении по договору."
+          />
         ) : null}
 
         {tenants.map((tenant) => (
@@ -480,7 +483,10 @@ function RentalInvoicesSection({
         />
       ) : null}
       {!invoicesQuery.isLoading && !invoicesQuery.error && !invoices.length ? (
-        <SectionEmpty message="Счетов пока нет" />
+        <SectionEmpty
+          message="Счетов пока нет"
+          hint="Счёт за аренду выставляется по тарифу центра — первый появится после начала расчётного периода."
+        />
       ) : null}
 
       {invoices

@@ -1,6 +1,6 @@
 'use client';
 
-import { OperationOutcome, WizardSteps } from '@trudskill/ui';
+import { LoadingState, OperationOutcome, WizardSteps } from '@trudskill/ui';
 import Link from 'next/link';
 import { type ChangeEvent, useMemo, useState } from 'react';
 
@@ -138,7 +138,10 @@ export const BulkImportScreen = () => {
               <SectionError message={parseErrors.map((e) => e.message).join('; ')} />
             ) : null}
             {parsed.length === 0 && fileName && parseErrors.length === 0 ? (
-              <SectionEmpty message="В файле нет ни одной строки со слушателем. Проверьте, что данные начинаются со второй строки, под заголовками." />
+              <SectionEmpty
+                message="В файле нет ни одной строки со слушателем"
+                hint="Первая строка файла считается заголовком колонок, поэтому данные должны начинаться со второй строки."
+              />
             ) : null}
             {classified.length > 0 ? (
               <div className="ui-form-actions">
@@ -159,7 +162,7 @@ export const BulkImportScreen = () => {
         <>
           <SectionCard title="Куда зачисляем">
             {groups.loading ? (
-              <SectionEmpty message="Загружаем список групп…" />
+              <LoadingState message="Загружаем список групп…" />
             ) : groups.data ? (
               <label className="ui-field">
                 <span className="ui-field-label">Учебная группа</span>
