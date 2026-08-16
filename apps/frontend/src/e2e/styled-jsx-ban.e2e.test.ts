@@ -3,6 +3,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { APP_ROOT } from './app-root';
+
 /*
  * UI-022: styled-jsx возвращает слой CSS, невидимый сторожам `token-discipline` и
  * `touch-targets` — они проверяют строку uiGlobalStyles. Пока стили каркаса жили внутри
@@ -27,7 +29,7 @@ const collectTsx = (dir: string, acc: string[] = []): string[] => {
 
 describe('запрет styled-jsx во фронтенде (UI-022)', () => {
   it('в компонентах нет <style jsx>, кроме явных исключений', () => {
-    const root = process.cwd();
+    const root = APP_ROOT;
     const offenders = collectTsx(root)
       .map((file) => ({ file, source: readFileSync(file, 'utf8') }))
       .filter((entry) => entry.source.includes('<style jsx'))

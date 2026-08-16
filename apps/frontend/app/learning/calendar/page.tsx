@@ -144,7 +144,10 @@ export default function LearningCalendarPage() {
           ) : null}
           {enrollments.isLoading ? <LoadingState message="Загрузка…" /> : null}
           {!enrollments.isLoading && enrollments.data && enrollments.data.total === 0 ? (
-            <SectionEmpty message="Нет зачислений в выбранном диапазоне" />
+            <SectionEmpty
+              message="Нет зачислений в выбранном диапазоне"
+              hint="Расширьте период — календарь показывает занятия по зачислениям."
+            />
           ) : null}
           {!enrollments.isLoading && enrollments.data && enrollments.data.total > 0 ? (
             <div className="calendar-grid">

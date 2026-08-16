@@ -331,7 +331,10 @@ export const GovExportScreen = () => {
         {tasks.loading ? <LoadingState message="Загрузка задач..." /> : null}
         {tasks.error ? <SectionError message={tasks.error} /> : null}
         {!tasks.loading && !tasks.error && !tasks.data.length ? (
-          <SectionEmpty message="Задачи выгрузки отсутствуют" />
+          <SectionEmpty
+            message="Задачи выгрузки отсутствуют"
+            hint="Задача появляется, когда вы формируете пакет для реестра."
+          />
         ) : null}
         {tasks.data.length ? (
           <DataTable
@@ -353,7 +356,10 @@ export const GovExportScreen = () => {
         {logs.loading ? <LoadingState message="Загрузка логов..." /> : null}
         {logs.error ? <SectionError message={logs.error} /> : null}
         {!logs.loading && !logs.error && !logs.data.length ? (
-          <SectionEmpty message="Логи отсутствуют" />
+          <SectionEmpty
+            message="Логи отсутствуют"
+            hint="Здесь видно, что и когда ушло в реестр и как ведомство ответило."
+          />
         ) : null}
         {logs.data.length ? (
           <DataTable
@@ -434,7 +440,10 @@ export const GovExportScreen = () => {
             {otBatches.loading ? <LoadingState message="Загрузка истории..." /> : null}
             {otBatches.error ? <SectionError message={otBatches.error} /> : null}
             {!otBatches.loading && !otBatches.error && !otBatches.data.length ? (
-              <SectionEmpty message="Выгрузки отсутствуют" />
+              <SectionEmpty
+                message="Выгрузки отсутствуют"
+                hint="Сформированные пакеты и ответы ведомства появятся здесь."
+              />
             ) : null}
             {otBatches.data.length ? (
               <DataTable
@@ -528,7 +537,10 @@ export const GovExportScreen = () => {
             {frdoBatches.loading ? <LoadingState message="Загрузка истории..." /> : null}
             {frdoBatches.error ? <SectionError message={frdoBatches.error} /> : null}
             {!frdoBatches.loading && !frdoBatches.error && !frdoBatches.data.length ? (
-              <SectionEmpty message="Выгрузки отсутствуют" />
+              <SectionEmpty
+                message="Выгрузки отсутствуют"
+                hint="Сформированные пакеты и ответы ведомства появятся здесь."
+              />
             ) : null}
             {frdoBatches.data.length ? (
               <DataTable
@@ -614,7 +626,10 @@ export const GovExportScreen = () => {
             {eisotBatches.loading ? <LoadingState message="Загрузка истории..." /> : null}
             {eisotBatches.error ? <SectionError message={eisotBatches.error} /> : null}
             {!eisotBatches.loading && !eisotBatches.error && !eisotBatches.data.length ? (
-              <SectionEmpty message="Выгрузки отсутствуют" />
+              <SectionEmpty
+                message="Выгрузки отсутствуют"
+                hint="Сформированные пакеты и ответы ведомства появятся здесь."
+              />
             ) : null}
             {eisotBatches.data.length ? (
               <DataTable
@@ -702,7 +717,10 @@ export const GovExportScreen = () => {
             {rostechBatches.loading ? <LoadingState message="Загрузка истории..." /> : null}
             {rostechBatches.error ? <SectionError message={rostechBatches.error} /> : null}
             {!rostechBatches.loading && !rostechBatches.error && !rostechBatches.data.length ? (
-              <SectionEmpty message="Выгрузки отсутствуют" />
+              <SectionEmpty
+                message="Выгрузки отсутствуют"
+                hint="Сформированные пакеты и ответы ведомства появятся здесь."
+              />
             ) : null}
             {rostechBatches.data.length ? (
               <DataTable
@@ -787,7 +805,10 @@ export const GovExportScreen = () => {
             {nmoBatches.loading ? <LoadingState message="Загрузка истории..." /> : null}
             {nmoBatches.error ? <SectionError message={nmoBatches.error} /> : null}
             {!nmoBatches.loading && !nmoBatches.error && !nmoBatches.data.length ? (
-              <SectionEmpty message="Выгрузки отсутствуют" />
+              <SectionEmpty
+                message="Выгрузки отсутствуют"
+                hint="Сформированные пакеты и ответы ведомства появятся здесь."
+              />
             ) : null}
             {nmoBatches.data.length ? (
               <DataTable

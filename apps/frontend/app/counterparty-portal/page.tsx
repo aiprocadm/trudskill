@@ -46,7 +46,10 @@ export default function CounterpartyPortalPage() {
               rows={learners.data.items}
             />
           ) : learners.loading ? null : (
-            <SectionEmpty message="Сотрудники не найдены" />
+            <SectionEmpty
+              message="Сотрудники не найдены"
+              hint="Здесь компания видит своих сотрудников, направленных на обучение."
+            />
           )}
         </SectionCard>
         <SectionCard title="Группы обучения">
@@ -62,7 +65,10 @@ export default function CounterpartyPortalPage() {
               rows={groups.data.items}
             />
           ) : groups.loading ? null : (
-            <SectionEmpty message="Группы не найдены" />
+            <SectionEmpty
+              message="Группы не найдены"
+              hint="Появятся учебные группы, в которых учатся сотрудники компании."
+            />
           )}
         </SectionCard>
         <SectionCard title="Документы">
@@ -81,7 +87,10 @@ export default function CounterpartyPortalPage() {
               rows={documents.data.items}
             />
           ) : documents.loading ? null : (
-            <SectionEmpty message="Документы не найдены" />
+            <SectionEmpty
+              message="Документы не найдены"
+              hint="Появятся удостоверения и протоколы сотрудников компании."
+            />
           )}
         </SectionCard>
       </PageContainer>

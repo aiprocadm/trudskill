@@ -62,7 +62,10 @@ export default function EsignProcessesPage() {
           {loading ? <LoadingState message="Загрузка процессов..." /> : null}
           {error ? <SectionError message={error} /> : null}
           {!loading && !error && !rows.length ? (
-            <SectionEmpty message="Процессы не найдены" />
+            <SectionEmpty
+              message="Процессы не найдены"
+              hint="Процесс появляется, когда документ уходит на подписание."
+            />
           ) : null}
           {rows.length ? (
             <DataTable

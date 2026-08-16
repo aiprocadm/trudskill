@@ -228,7 +228,10 @@ export function ReportBuilderScreen(): ReactElement {
                 </div>
               </>
             ) : (
-              <SectionEmpty message="Выберите сущность, чтобы выбрать поля и фильтры" />
+              <SectionEmpty
+                message="Выберите сущность, чтобы выбрать поля и фильтры"
+                hint="Сначала выберите, о чём отчёт: о слушателях, группах или документах."
+              />
             )}
 
             {notice ? <p className="ui-callout">{notice}</p> : null}
@@ -254,7 +257,10 @@ export function ReportBuilderScreen(): ReactElement {
                 </button>
               </div>
               {(templates ?? []).length === 0 ? (
-                <SectionEmpty message="Пока нет сохранённых шаблонов" />
+                <SectionEmpty
+                  message="Пока нет сохранённых шаблонов"
+                  hint="Шаблон запоминает выбранные поля и условия, чтобы не собирать отчёт заново."
+                />
               ) : (
                 <ul className="ui-list">
                   {(templates ?? []).map((tpl) => (
@@ -294,7 +300,10 @@ export function ReportBuilderScreen(): ReactElement {
               title={`Превью${previewData.truncated ? ` (показаны первые ${previewData.rows.length} из ${previewData.total})` : ` (${previewData.total})`}`}
             >
               {previewData.rows.length === 0 ? (
-                <SectionEmpty message="Нет строк по заданным условиям" />
+                <SectionEmpty
+                  message="Нет строк по заданным условиям"
+                  hint="Попробуйте расширить период или снять часть условий."
+                />
               ) : (
                 <DataTable<PreviewRow>
                   columns={previewData.columns.map((c) => ({

@@ -1,7 +1,9 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { APP_ROOT, fromApp } from './app-root';
 
 /**
  * Поля «вставьте идентификатор» (правило продукта: ни одного сырого ID как значения).
@@ -16,7 +18,7 @@ import { describe, expect, it } from 'vitest';
  * состояний: список — это очередь, а не разрешение.
  */
 
-const ROOTS = ['src/features', 'app'];
+const ROOTS = [fromApp('src', 'features'), fromApp('app')];
 const ID_PLACEHOLDER = /placeholder=["'][^"']*(?:\bID\b|\bid\b|_id|UUID)[^"']*["']/;
 
 /** Известные места на момент среза 9. Строка = файл + волна, в которую он попадает. */
@@ -43,7 +45,7 @@ const collect = (dir: string, acc: string[] = []): string[] => {
 describe('поля «вставьте идентификатор» (очередь редизайна)', () => {
   const offenders = ROOTS.flatMap((root) => collect(root))
     .filter((file) => ID_PLACEHOLDER.test(readFileSync(file, 'utf8')))
-    .map((file) => file.replace(/\\/g, '/'))
+    .map((file) => relative(APP_ROOT, file).replace(/\\/g, '/'))
     .sort();
 
   it('новых мест, где просят вставить идентификатор, не появилось', () => {

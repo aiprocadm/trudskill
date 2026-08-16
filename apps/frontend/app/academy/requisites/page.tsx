@@ -89,10 +89,15 @@ export default function AcademyRequisitesPage() {
       <PageContainer>
         <PageHeader
           title="Данные учебного заведения"
-          subtitle="Чтение из API tenant/me, tenant/settings, tenant/requisites"
+          subtitle="Название, юридические реквизиты, часовой пояс и язык интерфейса центра"
         />
         <SectionCard title="Реквизиты и настройки">
-          {!session ? <SectionEmpty message="Нет активной сессии" /> : null}
+          {!session ? (
+            <SectionEmpty
+              message="Реквизиты видны после входа"
+              hint="Данные центра подставляются в удостоверения и протоколы, поэтому доступны только вошедшему сотруднику."
+            />
+          ) : null}
           {err ? <SectionError message={err} /> : null}
           {session ? (
             <Form

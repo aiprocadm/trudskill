@@ -82,7 +82,10 @@ export default function ModulePage() {
               rows={rows}
             />
           ) : (
-            <SectionEmpty message="Шаблоны форм еще не добавлены" />
+            <SectionEmpty
+              message="Шаблоны форм еще не добавлены"
+              hint="Форма — анкета, которую заполняет слушатель или заказчик."
+            />
           )}
         </SectionCard>
       </PageContainer>

@@ -49,7 +49,10 @@ export default function TelephonyPage() {
               rows={telephonyProviders}
             />
           ) : (
-            <SectionEmpty message="Провайдеры телефонии/коммуникаций не найдены" />
+            <SectionEmpty
+              message="Провайдеры телефонии/коммуникаций не найдены"
+              hint="Здесь появятся сервисы связи, доступные для подключения."
+            />
           )}
         </SectionCard>
         <SectionCard title="Подключения и секреты">
@@ -72,7 +75,10 @@ export default function TelephonyPage() {
               rows={filteredCredentials}
             />
           ) : (
-            <SectionEmpty message="Подключения не найдены" />
+            <SectionEmpty
+              message="Подключения не найдены"
+              hint="Подключение нужно, чтобы звонки и записи разговоров попадали в систему."
+            />
           )}
         </SectionCard>
       </PageContainer>

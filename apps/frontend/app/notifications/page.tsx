@@ -72,7 +72,10 @@ export default function NotificationsPage() {
           {loading ? <LoadingState message="Загрузка уведомлений…" /> : null}
           {error ? <SectionError message={error} /> : null}
           {!loading && !error && !data?.items.length ? (
-            <SectionEmpty message="Уведомления отсутствуют" />
+            <SectionEmpty
+              message="Уведомления отсутствуют"
+              hint="Сюда приходят напоминания о сроках, приглашения и сообщения о выпуске документов."
+            />
           ) : null}
           {data?.items.length ? (
             <div className="ui-table-wrap">

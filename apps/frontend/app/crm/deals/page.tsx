@@ -149,7 +149,10 @@ export default function CrmDealsPage() {
               </div>
             </>
           ) : (
-            <SectionEmpty message="Сделки не созданы" />
+            <SectionEmpty
+              message="Сделки не созданы"
+              hint="Сделка — договорённость с компанией об обучении сотрудников."
+            />
           )}
         </SectionCard>
       </PageContainer>

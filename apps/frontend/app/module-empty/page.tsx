@@ -12,7 +12,10 @@ export default function ModulePage() {
       <PageContainer>
         <PageHeader title="Раздел в разработке" subtitle="Этот раздел защищён и появится позже" />
         <SectionCard title="Скоро">
-          <SectionEmpty message="Раздел ещё не реализован" />
+          <SectionEmpty
+            message="Раздел ещё не реализован"
+            hint="Ссылка ведёт сюда, потому что раздел зарезервирован под будущую возможность. Вернитесь к нему после обновления системы."
+          />
         </SectionCard>
       </PageContainer>
     </ProtectedPage>

@@ -3,6 +3,7 @@ import { join, relative, sep } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { fromApp } from './app-root';
 import { navigationModel } from '../features/navigation/model';
 import { NAV_GROUPS } from '../features/navigation/nav-groups';
 
@@ -18,7 +19,7 @@ import { NAV_GROUPS } from '../features/navigation/nav-groups';
  * не может устареть. Новый редирект без чистки меню уронит этот прогон.
  */
 
-const APP_DIR = 'app';
+const APP_DIR = fromApp('app');
 
 /** Страница-перенаправление: в теле только `redirect(...)`, разметки нет. */
 const isRedirectPage = (file: string): boolean => {

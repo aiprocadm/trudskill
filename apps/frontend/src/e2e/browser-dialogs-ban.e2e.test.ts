@@ -3,6 +3,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { APP_ROOT } from './app-root';
+
 /*
  * CMP-006. Браузерные окна `confirm()`, `prompt()` и `alert()` запрещены в интерфейсе:
  * они блокируют поток, не переводятся, не стилизуются, не проходят проверку на 360px
@@ -53,7 +55,7 @@ describe('запрет браузерных окон в интерфейсе (CM
   });
 
   it('ни один экран не использует браузерные окна', () => {
-    const root = process.cwd();
+    const root = APP_ROOT;
     const offenders: string[] = [];
     for (const file of [...collect(join(root, 'src')), ...collect(join(root, 'app'))]) {
       const rel = file.slice(root.length + 1).replace(/\\/g, '/');

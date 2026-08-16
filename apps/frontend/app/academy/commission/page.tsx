@@ -44,7 +44,10 @@ export default function AcademyCommissionPage() {
         <SectionCard title="Состав">
           {err ? <SectionError message={err} /> : null}
           {data && data.members.length === 0 ? (
-            <SectionEmpty message="Члены комиссии не заведены (режим БД)" />
+            <SectionEmpty
+              message="Члены комиссии не заведены (режим БД)"
+              hint="Комиссия центра подписывает протоколы проверки знаний."
+            />
           ) : null}
           {data && data.members.length > 0 ? (
             <ul className="ui-ordered-list">

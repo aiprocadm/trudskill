@@ -629,7 +629,12 @@ const DocumentSetSection = ({
       <p className="ui-text-muted" style={{ marginBottom: 8 }}>
         Документы выпускаются по порядку при завершении зачисления. Шаблоны привязаны к tenant.
       </p>
-      {draft.length === 0 ? <SectionEmpty message="Пакет ещё не настроен" /> : null}
+      {draft.length === 0 ? (
+        <SectionEmpty
+          message="Пакет ещё не настроен"
+          hint="Набор документов определяет, что выпускается слушателю по окончании курса."
+        />
+      ) : null}
       {draft.map((entry, idx) => {
         const info = templateNameById[entry.templateId];
         return (
