@@ -7,6 +7,7 @@ import { type PropsWithChildren, useCallback, useEffect, useMemo, useRef, useSta
 
 import { CommandPalette } from './command-palette';
 import { NavHint } from './nav-hint';
+import { ThemeSwitcher } from './theme-switcher';
 import { useAuth } from '../../features/auth/context';
 import { useTenantBranding } from '../../features/branding/context';
 import { resolveWordmark } from '../../features/branding/theme';
@@ -267,9 +268,14 @@ export const AppShell = ({ children }: PropsWithChildren) => {
                 {unreadLabel ?? ''}
               </span>
             </Link>
-            <span className="app-shell__meta" title="Тенант">
-              {session?.user.tenantId}
-            </span>
+            {/*
+              Идентификатор арендатора отсюда убран: он был сырым машинным значением
+              («3f7a-…») с подписью «Тенант» — слово, которого администратор учебного центра
+              не знает. И это был ДУБЛЬ: название центра уже стоит слева в шапке, где ему и
+              место (`resolveWordmark`). Правило продукта: ни одного идентификатора как
+              значения.
+            */}
+            <ThemeSwitcher />
             <span className="app-shell__meta">{session?.user.displayName}</span>
             <button type="button" className="ui-button" onClick={() => logout()}>
               Выйти

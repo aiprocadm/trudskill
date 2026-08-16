@@ -1,5 +1,7 @@
 'use client';
 
+import { useMemo } from 'react';
+
 import { useLearnersList } from './hooks';
 
 import type { ReactElement } from 'react';
@@ -11,6 +13,36 @@ import type { ReactElement } from 'react';
  * экраны просили «ID слушателя» и «UUID слушателя или контрагента» текстом, а взять этот
  * идентификатор человеку было неоткуда.
  */
+
+const NAMES_PAGE = { page: 1, pageSize: 100 } as const;
+
+/**
+ * Справочник «идентификатор → фамилия и имя» для ячеек таблиц и списков.
+ *
+ * Пара к `useCourseNames` из подборщика курсов: экраны выводили `item.learnerId` прямо
+ * значением — список зачисленных в группу состоял из идентификаторов вместо людей.
+ */
+export const useLearnerNames = (): Map<string, string> => {
+  const { data } = useLearnersList(NAMES_PAGE);
+  return useMemo(
+    () =>
+      new Map(
+        (data?.items ?? []).map((item) => [item.id, `${item.lastName} ${item.firstName}`.trim()])
+      ),
+    [data]
+  );
+};
+
+/**
+ * Имя слушателя для ячейки.
+ *
+ * Если человека нет в справочнике (архивный, не попал в первую сотню) — честная фраза
+ * «слушатель не найден», а не идентификатор: код в ячейке ничего не сообщает.
+ */
+export const learnerNameCell = (names: Map<string, string>, learnerId?: string): string => {
+  if (!learnerId) return '—';
+  return names.get(learnerId) ?? 'слушатель не найден';
+};
 
 export const LearnerSelect = ({
   value,
