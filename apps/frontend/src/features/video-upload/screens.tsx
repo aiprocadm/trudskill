@@ -37,6 +37,18 @@ const STATUS_CHIP: Record<VideoAssetDto['status'], string> = {
   failed: 'inactive'
 };
 
+/** Размер в мегабайтах и длительность словами: «12,4 МБ · 5 мин 30 с». */
+const describeAsset = (item: { sizeBytes: number; durationSeconds?: number }): string => {
+  const megabytes = item.sizeBytes / 1024 ** 2;
+  const size =
+    megabytes >= 1 ? `${megabytes.toFixed(1)} МБ` : `${Math.round(item.sizeBytes / 1024)} КБ`;
+  if (item.durationSeconds === undefined) return size;
+  const minutes = Math.floor(item.durationSeconds / 60);
+  const seconds = Math.round(item.durationSeconds % 60);
+  const duration = minutes > 0 ? `${minutes} мин ${seconds} с` : `${seconds} с`;
+  return `${size} · ${duration}`;
+};
+
 export function VideoUploadSection() {
   const { session } = useAuth();
   const queryClient = useQueryClient();
@@ -165,7 +177,12 @@ export function VideoUploadSection() {
         <div key={item.id} className="ui-inline" data-testid="video-asset-row">
           <StatusChip status={STATUS_CHIP[item.status]} />
           <span>{STATUS_LABEL[item.status]}</span>
-          <span>{item.id}</span>
+          {/*
+            Здесь стоял идентификатор записи («3f7a-…»): по нему нельзя понять, какое это
+            видео. Имени файла сервер не присылает, поэтому показываем то, что отличает
+            записи на глаз, — размер и длительность.
+          */}
+          <span>{describeAsset(item)}</span>
           {item.errorMessage ? <span className="ui-error">{item.errorMessage}</span> : null}
           <button
             type="button"

@@ -162,6 +162,14 @@ export const shellStyles = `
   align-items: center;
   gap: 6px;
 }
+/* UI-026: переключатель оформления в шапке — рядом с именем пользователя. */
+.app-shell__theme { display: inline-flex; align-items: center; gap: 6px; }
+.app-shell__theme-label { font-size: var(--ui-font-size-sm); color: var(--ui-text-muted); }
+.app-shell__theme-select { height: 36px; padding: 0 8px; font-size: var(--ui-font-size-sm); }
+/* На узком экране подпись уходит: список и так подписан для чтения с экрана. */
+@media (max-width: 900px) {
+  .app-shell__theme-label { display: none; }
+}
 @media (max-width: 1024px) {
   .app-shell { grid-template-columns: 1fr; }
   .app-shell__menu-toggle {

@@ -13,6 +13,8 @@ import {
 } from '../../components/state-wrappers';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
+import { useTenantBranding } from '../branding/context';
+import { resolveWordmark } from '../branding/theme';
 import {
   useDomainMutations,
   useRoles,
@@ -176,6 +178,7 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
   const { session } = useAuth();
   const canManageRoles = hasPermission(session?.permissions ?? [], 'iam.manage_roles');
   const { data: user, loading, error, refetch } = useUser(id);
+  const branding = useTenantBranding();
   const { data: userRoles } = useUserRoles(id);
   const { data: allRoles } = useRoles();
   const { data: sessions } = useUserSessions(id);
@@ -214,9 +217,14 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
                 <dt>Логин</dt>
                 <dd>{user.login}</dd>
               </div>
+              {/*
+                Здесь стоял идентификатор арендатора («3f7a-…») под подписью «Организация».
+                Сотрудник всегда работает в своём центре, поэтому показываем его название —
+                то же, что стоит в шапке кабинета.
+              */}
               <div className="kv-list__row">
-                <dt>Организация</dt>
-                <dd>{user.tenantId}</dd>
+                <dt>Учебный центр</dt>
+                <dd>{resolveWordmark(branding)}</dd>
               </div>
             </dl>
           </SectionCard>
