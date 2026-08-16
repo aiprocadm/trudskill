@@ -43,6 +43,9 @@ export default function CrmDealsPage() {
     [deals]
   );
 
+  /* Название группы вместо её идентификатора: список групп на экране уже загружен. */
+  const groupName = (id: string) => groups.data?.items.find((item) => item.id === id)?.name ?? id;
+
   const createDeal = () => {
     if (!counterparty || !groupId) return;
     const deal: Deal = {
@@ -63,8 +66,8 @@ export default function CrmDealsPage() {
     <ProtectedPage>
       <PageContainer>
         <PageHeader
-          title="CRM · Сделки"
-          subtitle="Сделки: стадии, контрагенты, промокоды, договоры"
+          title="Сделки"
+          subtitle="Договорённости с компаниями об обучении сотрудников: на какой стадии каждая и на какую сумму"
         />
         <SectionCard title="Создать сделку">
           {counterparties.loading || groups.loading ? (
@@ -110,43 +113,37 @@ export default function CrmDealsPage() {
         <SectionCard title="Реестр сделок">
           {deals.length ? (
             <>
+              {/*
+                Кнопки стадий лежали ОТДЕЛЬНЫМ списком под таблицей и не называли сделку —
+                только стадию. Понять, какая строка чья, можно было лишь по порядку: одна
+                оплошность и переведена чужая сделка. Действия переехали в строку.
+              */}
               <DataTable
                 columns={[
-                  { key: 'counterparty', title: 'Контрагент' },
-                  { key: 'groupId', title: 'Группа' },
+                  { key: 'counterparty', title: 'Заказчик' },
+                  { key: 'groupTitle', title: 'Группа' },
                   { key: 'amount', title: 'Сумма' },
                   { key: 'stage', title: 'Стадия', render: (row) => STAGE_LABELS[row.stage] }
                 ]}
-                rows={deals}
+                rows={deals.map((deal) => ({
+                  ...deal,
+                  /* Идентификатор группы как значение заменён названием. */
+                  groupTitle: groupName(deal.groupId)
+                }))}
+                rowKey={(row) => row.id}
+                rowActions={(row) => [
+                  {
+                    label: 'Перевести в предложение',
+                    onSelect: () => moveDeal(row.id, 'proposal')
+                  },
+                  { label: 'Отметить успешной', onSelect: () => moveDeal(row.id, 'won') },
+                  {
+                    label: 'Отметить отказом',
+                    danger: true,
+                    onSelect: () => moveDeal(row.id, 'lost')
+                  }
+                ]}
               />
-              <div className="ui-stack">
-                {deals.map((deal) => (
-                  <div key={deal.id} className="ui-inline">
-                    <span className="ui-text-muted">{STAGE_LABELS[deal.stage]}</span>
-                    <button
-                      type="button"
-                      className="ui-button ui-button--secondary"
-                      onClick={() => moveDeal(deal.id, 'proposal')}
-                    >
-                      В предложение
-                    </button>
-                    <button
-                      type="button"
-                      className="ui-button ui-button--secondary"
-                      onClick={() => moveDeal(deal.id, 'won')}
-                    >
-                      Успех
-                    </button>
-                    <button
-                      type="button"
-                      className="ui-button ui-button--secondary"
-                      onClick={() => moveDeal(deal.id, 'lost')}
-                    >
-                      Отказ
-                    </button>
-                  </div>
-                ))}
-              </div>
             </>
           ) : (
             <SectionEmpty

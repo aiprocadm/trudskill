@@ -85,11 +85,38 @@ export function PlatformLibraryScreen() {
       {!libraryQuery.isLoading && courses.length ? (
         <DataTable
           columns={[
-            { key: 'code', title: 'Код' },
             { key: 'title', title: 'Программа' },
+            { key: 'code', title: 'Код' },
             { key: 'summary', title: 'Состав' }
           ]}
           rows={courses.map((course) => ({ ...course, summary: describeLibraryCourse(course) }))}
+          rowKey={(row) => row.id}
+          /*
+           * Действия жили ОТДЕЛЬНЫМ списком под таблицей: каждая программа выводилась
+           * второй раз строкой с кнопками. Та же беда, что в реестре пользователей
+           * (срез 17) и у арендаторов платформы.
+           */
+          rowActions={(row) => [
+            ...(canCopy
+              ? [
+                  {
+                    label: 'Скопировать себе',
+                    disabled: busy,
+                    onSelect: () => void copy(row.id)
+                  }
+                ]
+              : []),
+            ...(canPublish
+              ? [
+                  {
+                    label: 'Убрать из библиотеки',
+                    danger: true,
+                    disabled: busy,
+                    onSelect: () => void unpublish(row.id)
+                  }
+                ]
+              : [])
+          ]}
         />
       ) : null}
       {!libraryQuery.isLoading && !libraryQuery.error && !courses.length ? (
@@ -99,23 +126,16 @@ export function PlatformLibraryScreen() {
         />
       ) : null}
 
-      {courses.map((course) => (
-        <div key={course.id} className="ui-inline">
-          <span>{course.title}:</span>
-          {canCopy ? (
-            <button type="button" disabled={busy} onClick={() => void copy(course.id)}>
-              Скопировать себе
-            </button>
-          ) : (
-            <span className="ui-text-muted">нужен доступ «courses.write»</span>
-          )}
-          {canPublish ? (
-            <button type="button" disabled={busy} onClick={() => void unpublish(course.id)}>
-              Убрать из библиотеки
-            </button>
-          ) : null}
-        </div>
-      ))}
+      {/*
+        Раньше здесь же писалось «нужен доступ «courses.write»» — код права как значение
+        на экране. Администратору учебного центра он ничего не говорит.
+      */}
+      {courses.length && !canCopy ? (
+        <p className="ui-text-muted">
+          Подключать программы к центру может сотрудник с правом на редактирование программ.
+          Обратитесь к администратору вашего центра.
+        </p>
+      ) : null}
     </SectionCard>
   );
 }

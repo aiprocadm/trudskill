@@ -45,7 +45,10 @@ export default function ModulePage() {
   return (
     <ProtectedPage>
       <PageContainer>
-        <PageHeader title="Системные формы" subtitle="Шаблоны форм ввода для операций LMS" />
+        <PageHeader
+          title="Системные формы"
+          subtitle="Анкеты, которые заполняют слушатели и заказчики обучения"
+        />
         <SectionCard title="Новый шаблон формы">
           <FilterBar>
             <input

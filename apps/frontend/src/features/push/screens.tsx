@@ -18,18 +18,18 @@ export function PushSettingsScreen(): ReactElement {
 
   if (!push.supported) {
     return (
-      <SectionCard title="Push-уведомления">
+      <SectionCard title="Уведомления на телефон">
         <SectionEmpty
-          message="Push-уведомления недоступны"
-          hint="Не настроены администратором или не поддерживаются вашим браузером."
+          message="Уведомления на устройство недоступны"
+          hint="Их либо не включил администратор центра, либо не поддерживает ваш браузер. Письма на почту приходят как обычно."
         />
       </SectionCard>
     );
   }
 
   return (
-    <SectionCard title="Push-уведомления">
-      <p style={{ marginTop: 0 }}>
+    <SectionCard title="Уведомления на телефон и компьютер">
+      <p>
         Получайте уведомления о записи на курс, завершении обучения, переаттестации и сроках прямо в
         браузере — даже когда вкладка закрыта.
       </p>
@@ -40,11 +40,11 @@ export function PushSettingsScreen(): ReactElement {
         />
       ) : push.isSubscribed ? (
         <button type="button" onClick={() => void push.unsubscribe()} disabled={push.loading}>
-          {push.loading ? 'Отключаем…' : 'Отключить push-уведомления'}
+          {push.loading ? 'Отключаем…' : 'Отключить уведомления'}
         </button>
       ) : (
         <button type="button" onClick={() => void push.subscribe()} disabled={push.loading}>
-          {push.loading ? 'Включаем…' : 'Включить push-уведомления'}
+          {push.loading ? 'Включаем…' : 'Включить уведомления'}
         </button>
       )}
       {push.error ? <SectionError message={push.error} /> : null}

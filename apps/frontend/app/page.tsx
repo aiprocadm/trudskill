@@ -106,7 +106,7 @@ export default function DashboardPage() {
   return (
     <ProtectedPage>
       <PageContainer>
-        <PageHeader title="Панель LMS" subtitle="Быстрый доступ к задачам по вашей роли" />
+        <PageHeader title="Главная" subtitle="Быстрый доступ к задачам по вашей роли" />
         <SectionCard title="Приоритеты на сегодня">
           <div className="ui-dashboard-grid">
             {visibleCards.map((item) => (
