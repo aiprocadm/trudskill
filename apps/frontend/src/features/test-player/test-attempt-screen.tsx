@@ -1,6 +1,6 @@
 'use client';
 
-import { LoadingState } from '@trudskill/ui';
+import { LoadingState, ProgressBar } from '@trudskill/ui';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
@@ -310,10 +310,10 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
             <span className={`test-timer ${timerClass}`}>⏱ {formatTimeRemaining(remainingMs)}</span>
           ) : null}
         </div>
-        <progress
-          max={questions.length}
-          value={currentIndex + 1}
-          aria-label="Прогресс по вопросам"
+        {/* Счётчик «Вопрос N из M» стоит строкой выше — подпись полосе не дублируем. */}
+        <ProgressBar
+          value={((currentIndex + 1) / questions.length) * 100}
+          label="Прогресс по вопросам"
         />
         {q.body ? <p>{q.body}</p> : null}
 

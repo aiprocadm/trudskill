@@ -22,12 +22,12 @@ const ROOTS = [fromApp('src'), fromApp('app')];
 /** Голый `<progress>` и руками собранная полоса `role="progressbar"`. */
 const HANDMADE = /<progress\b|role="progressbar"/;
 
-/** Известные места на момент среза 22 — все в кабинетах слушателя, это волна 6. */
-const KNOWN: Record<string, string> = {
-  'src/features/test-player/test-attempt-screen.tsx':
-    'волна 6: прохождение теста — сколько отвечено',
-  'src/features/course-viewer/course-viewer-screen.tsx': 'волна 6: просмотр курса — общий прогресс'
-};
+/*
+ * Очередь пуста с фазы 6 среза 3: все восемь самодельных полос, найденных сверкой
+ * перед срезом 22, переведены на общий компонент. Сторож остаётся — он ловит НОВУЮ
+ * самодельную полосу в любом экране.
+ */
+const KNOWN: Record<string, string> = {};
 
 const collect = (dir: string, acc: string[] = []): string[] => {
   for (const entry of readdirSync(dir)) {

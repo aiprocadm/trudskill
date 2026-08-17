@@ -137,7 +137,10 @@ export function TestsListScreen() {
       ) : error ? (
         <SectionError message="Не удалось загрузить тесты" />
       ) : !data || data.length === 0 ? (
-        <SectionEmpty message="Нет доступных тестов" />
+        <SectionEmpty
+          message="Тестов пока нет"
+          hint="Тесты появляются вместе с назначенным курсом. Если вы уже учитесь, а теста нет — его ещё не опубликовал учебный центр."
+        />
       ) : (
         <SectionCard title="Доступные тесты">
           <ul className="ui-list">
