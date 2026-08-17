@@ -1,8 +1,10 @@
+import { isValidElement } from 'react';
+
 import { resolveVisibleColumns } from './column-config.js';
 import { selectionState, toggleAll, toggleKey } from './selection.js';
 
 import type { RowKey } from './selection.js';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 export interface Column<T extends object> {
   key: keyof T;
@@ -10,6 +12,13 @@ export interface Column<T extends object> {
   sortable?: boolean;
   render?: (row: T) => string | number | ReactElement | null | undefined;
 }
+
+/*
+ * Ячейка без `render`: готовый React-элемент (напр. ссылка на карточку) выводится как есть.
+ * Раньше он попадал в String() и человек видел «[object Object]» вместо названия.
+ */
+const renderCellValue = (value: unknown): ReactNode =>
+  isValidElement(value) ? value : String(value ?? '');
 
 /** Действие над одной строкой (CMP-001): показывается в последней колонке. */
 export interface RowAction {
@@ -172,7 +181,7 @@ export function DataTable<T extends object>({
                       // data-label — подпись ячейки в карточном режиме на телефоне (≤480px);
                       // колонка без заголовка (действия) остаётся без подписи.
                       <td key={String(c.key)} {...(c.title ? { 'data-label': c.title } : {})}>
-                        {c.render ? c.render(r) : String(r[c.key] ?? '')}
+                        {c.render ? c.render(r) : renderCellValue(r[c.key])}
                       </td>
                     )),
                     ...(showActions

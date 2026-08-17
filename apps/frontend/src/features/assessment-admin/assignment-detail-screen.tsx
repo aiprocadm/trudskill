@@ -13,6 +13,7 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import { useCourseNames } from '../courses/course-picker';
 
 interface Props {
   assignmentId: string;
@@ -21,6 +22,7 @@ interface Props {
 export function AssignmentDetailScreen({ assignmentId }: Props) {
   const assignment = useAssignment(assignmentId);
   const archive = useArchiveAssignment();
+  const courseNames = useCourseNames();
   const [editing, setEditing] = useState(false);
 
   if (assignment.isLoading) return <LoadingState message="Загрузка задания…" />;
@@ -40,7 +42,11 @@ export function AssignmentDetailScreen({ assignmentId }: Props) {
     <PageContainer>
       <PageHeader
         title={a.title}
-        subtitle={`Курс ${a.courseId}${a.moduleId ? ` · модуль ${a.moduleId}` : ''}`}
+        subtitle={
+          /* Название курса вместо сырого courseId; идентификатор модуля человеку не говорит
+             ничего — упоминаем только сам факт привязки (справочника имён модулей в API нет). */
+          `${courseNames.get(a.courseId) ? `Курс «${courseNames.get(a.courseId)}»` : 'Задание курса'}${a.moduleId ? ' · привязано к модулю' : ''}`
+        }
         actions={
           <>
             <button

@@ -51,7 +51,10 @@ const segmentLabels: Record<string, string> = {
 const looksLikeId = (segment: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(segment) ||
   /^c[a-z0-9]{24,}$/i.test(segment) ||
-  (/^[a-z0-9_-]{20,}$/i.test(segment) && segment.includes('-'));
+  (/^[a-z0-9_-]{20,}$/i.test(segment) && segment.includes('-')) ||
+  // Родной формат идентификаторов системы: `learner_89ydse8s`, `group_9z34wx1b` и т.п.
+  // Без этой ветки крошка показывала сырой id вместо «Карточка».
+  /^[a-z]+(?:_[a-z0-9]+)+$/i.test(segment);
 
 const labelForSegment = (segment: string, isLast: boolean): string => {
   if (segmentLabels[segment]) return segmentLabels[segment];
@@ -81,6 +84,9 @@ export const buildBreadcrumbs = (pathname: string): BreadcrumbItem[] => {
     acc += `/${segments[i]}`;
     const fromNav = hrefToLabel.get(acc);
     const isLast = i === segments.length - 1;
+    // Служебный сегмент адреса (`/admin/...`): самостоятельной страницы за ним нет,
+    // а в крошках он печатался сырым словом «admin» между русскими подписями.
+    if (!fromNav && !isLast && segments[i] === 'admin') continue;
     const label = fromNav ?? labelForSegment(segments[i] ?? '', isLast);
     items.push({ label, href: acc });
   }

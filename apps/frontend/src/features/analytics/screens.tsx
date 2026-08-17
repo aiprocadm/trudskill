@@ -124,9 +124,9 @@ export function AnalyticsDashboardScreen() {
                   },
                   { label: 'Средний балл', value: formatPercent(d.averageScorePercent) },
                   {
-                    label: 'Drop-off',
+                    label: 'Забросили обучение',
                     value: d.dropOffCount,
-                    sub: `нет активности > ${d.dropOffThresholdDays} дн.`
+                    sub: `нет активности больше ${d.dropOffThresholdDays} дн.`
                   }
                 ]}
               />

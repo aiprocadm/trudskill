@@ -34,4 +34,15 @@ describe('buildBreadcrumbs', () => {
     const crumbs = buildBreadcrumbs(`/users/${id}`);
     expect(crumbs.at(-1)).toEqual({ label: 'Карточка', href: `/users/${id}` });
   });
+
+  it('skips the structural admin segment', () => {
+    const crumbs = buildBreadcrumbs('/admin/bulk-enrollments');
+    expect(crumbs.map((c) => c.label)).not.toContain('admin');
+  });
+
+  it('labels native prefixed ids (learner_…, group_…) as card', () => {
+    const id = 'learner_89ydse8s';
+    const crumbs = buildBreadcrumbs(`/learners/${id}`);
+    expect(crumbs.at(-1)).toEqual({ label: 'Карточка', href: `/learners/${id}` });
+  });
 });

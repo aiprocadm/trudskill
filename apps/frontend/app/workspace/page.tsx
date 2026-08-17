@@ -15,6 +15,7 @@ import {
   SectionError
 } from '../../src/components/state-wrappers';
 import { useAuth } from '../../src/features/auth/context';
+import { formatDate } from '../../src/features/mvp/screen-helpers';
 // Виджеты бывшего `/admin/cockpit` (IA-016.3). Компонент уже проверяет роли сам.
 import { AdminCockpitScreen as AdminCockpitWidgets } from '../../src/features/mvp/screens';
 import { getPrimaryRoleBlueprint } from '../../src/features/navigation/role-blueprints';
@@ -237,7 +238,7 @@ export default function WorkspacePage() {
                 render: (row) => <Link href={row.route}>{row.title}</Link>
               },
               { key: 'status', title: 'Статус', render: (row) => TASK_STATUS_LABEL[row.status] },
-              { key: 'dueAt', title: 'Срок', render: (row) => row.dueAt ?? '—' }
+              { key: 'dueAt', title: 'Срок', render: (row) => formatDate(row.dueAt) }
             ]}
             rows={filteredTasks}
             emptyMessage="По этому фильтру задач нет"

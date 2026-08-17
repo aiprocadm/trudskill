@@ -4,6 +4,7 @@ import { DataTable, LoadingState, StatusChip } from '@trudskill/ui';
 
 import { useLearnerPdfCard } from './hooks';
 import { SectionCard, SectionEmpty, SectionError } from '../../components/state-wrappers';
+import { ENROLLMENT_STATUS_LABEL, formatDate } from '../mvp/screen-helpers';
 
 import type { ReactElement } from 'react';
 
@@ -37,13 +38,13 @@ export function LearnerPdfCardSections({ learnerId }: { learnerId: string }) {
 
   const onExportPdf = () => {
     window.alert(
-      'Экспорт PDF-карточки ученика пока недоступен.\n\n' +
+      'Экспорт PDF-карточки слушателя пока недоступен.\n\n' +
         'Данные карточки можно просмотреть в секциях выше.'
     );
   };
 
-  if (isLoading) return <LoadingState message="Загрузка карточки ученика…" />;
-  if (error) return <SectionError message="Не удалось загрузить карточку ученика" />;
+  if (isLoading) return <LoadingState message="Загружаем карточку слушателя…" />;
+  if (error) return <SectionError message="Не удалось загрузить карточку слушателя" />;
   if (!data) return null;
 
   return (
@@ -54,10 +55,10 @@ export function LearnerPdfCardSections({ learnerId }: { learnerId: string }) {
         </p>
         <p>СНИЛС: {data.learner.snils ?? '—'}</p>
         <p>Должность: {data.learner.position ?? '—'}</p>
-        <p>Код (learnerNo): {data.learner.learnerNo ?? '—'}</p>
+        <p>Личный номер: {data.learner.learnerNo ?? '—'}</p>
         <p>
           <button type="button" className="ui-button" onClick={onExportPdf}>
-            Экспорт PDF: карточка ученика
+            Экспорт PDF: карточка слушателя
           </button>
         </p>
       </SectionCard>
@@ -65,7 +66,7 @@ export function LearnerPdfCardSections({ learnerId }: { learnerId: string }) {
       <SectionCard title="Учебная история">
         {data.enrollments.length === 0 ? (
           <SectionEmpty
-            message="У ученика нет зачислений"
+            message="У слушателя нет зачислений"
             hint="История появится после первого зачисления на программу"
           />
         ) : (
@@ -84,9 +85,9 @@ export function LearnerPdfCardSections({ learnerId }: { learnerId: string }) {
               trainingType: e.trainingType
                 ? (TRAINING_TYPE_LABELS[e.trainingType] ?? e.trainingType)
                 : '—',
-              enrolledAt: e.enrolledAt.slice(0, 10),
-              completedAt: e.completedAt?.slice(0, 10) ?? '—',
-              status: e.status
+              enrolledAt: formatDate(e.enrolledAt),
+              completedAt: e.completedAt ? formatDate(e.completedAt) : '—',
+              status: ENROLLMENT_STATUS_LABEL[e.status] ?? e.status
             }))}
           />
         )}
