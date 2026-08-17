@@ -4,7 +4,6 @@ import { LoadingState, StatusChip } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { formatEntityStatus } from './format';
-import { useCourseNames } from '../courses/course-picker';
 import {
   useArchiveTest,
   usePublishTest,
@@ -22,6 +21,7 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import { useCourseNames } from '../courses/course-picker';
 
 import type { UpdateTestRulePayload } from './types';
 

@@ -15,11 +15,11 @@ import {
   SectionError
 } from '../../src/components/state-wrappers';
 import { useAuth } from '../../src/features/auth/context';
+import { formatDate } from '../../src/features/mvp/screen-helpers';
 // Виджеты бывшего `/admin/cockpit` (IA-016.3). Компонент уже проверяет роли сам.
 import { AdminCockpitScreen as AdminCockpitWidgets } from '../../src/features/mvp/screens';
 import { getPrimaryRoleBlueprint } from '../../src/features/navigation/role-blueprints';
 import { getJourneyByRole } from '../../src/features/navigation/role-journeys';
-import { formatDate } from '../../src/features/mvp/screen-helpers';
 import { workspaceApi } from '../../src/features/workspace/api';
 import { buildAttentionItems } from '../../src/features/workspace/attention';
 import { recordJourneyStep } from '../../src/lib/analytics/ux-metrics';

@@ -6,7 +6,6 @@ import { useState } from 'react';
 import { AssignmentEditDrawer } from './assignment-edit-drawer';
 import { formatEntityStatus } from './format';
 import { useArchiveAssignment, useAssignment } from './hooks';
-import { useCourseNames } from '../courses/course-picker';
 import {
   PageContainer,
   PageHeader,
@@ -14,6 +13,7 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import { useCourseNames } from '../courses/course-picker';
 
 interface Props {
   assignmentId: string;
