@@ -67,9 +67,15 @@ export function MethodistHomeScreen() {
 
       <SectionCard title={`Просрочено (${data.overdueGroups.length})`}>
         {hidden('schedule') ? (
-          <SectionEmpty message="Нет доступа к срокам обучения" />
+          <SectionEmpty
+            message="Нет доступа к срокам обучения"
+            hint="Раздел виден ролям, которые ведут группы. Если сроки нужны вам — попросите администратора расширить права."
+          />
         ) : data.overdueGroups.length === 0 ? (
-          <SectionEmpty message="Просрочек нет" />
+          <SectionEmpty
+            message="Просрочек нет"
+            hint="Все группы укладываются в сроки — вмешательство не требуется."
+          />
         ) : (
           <ul className="ui-stack">
             {data.overdueGroups.map((item) => (
@@ -86,9 +92,15 @@ export function MethodistHomeScreen() {
         title={`Ближайшие сроки, ${data.horizonDays} дн. (${data.upcomingDeadlines.length})`}
       >
         {hidden('schedule') ? (
-          <SectionEmpty message="Нет доступа к срокам обучения" />
+          <SectionEmpty
+            message="Нет доступа к срокам обучения"
+            hint="Раздел виден ролям, которые ведут группы."
+          />
         ) : data.upcomingDeadlines.length === 0 ? (
-          <SectionEmpty message="В ближайшие две недели сроков нет" />
+          <SectionEmpty
+            message="В ближайшие две недели сроков нет"
+            hint="Когда у группы подойдёт плановая дата завершения, она появится здесь заранее."
+          />
         ) : (
           <ul className="ui-stack">
             {data.upcomingDeadlines.map((item) => (
@@ -103,9 +115,15 @@ export function MethodistHomeScreen() {
 
       <SectionCard title={`Ждут проверки (${data.reviewQueue?.total ?? 0})`}>
         {!data.reviewQueue ? (
-          <SectionEmpty message="Проверка работ не входит в ваши задачи" />
+          <SectionEmpty
+            message="Проверка работ не входит в ваши задачи"
+            hint="Очередь видят роли с правом проверки экзаменов и практических работ."
+          />
         ) : data.reviewQueue.total === 0 ? (
-          <SectionEmpty message="Непроверенных работ нет" />
+          <SectionEmpty
+            message="Непроверенных работ нет"
+            hint="Работы появляются здесь, когда слушатели сдают тесты с развёрнутыми ответами или практические задания."
+          />
         ) : (
           <p className="ui-prose-muted">
             Экзаменационных попыток: {data.reviewQueue.pendingAttempts}, практических работ:{' '}
@@ -117,9 +135,15 @@ export function MethodistHomeScreen() {
 
       <SectionCard title={`Программы без итогового экзамена (${data.coursesWithoutExam.length})`}>
         {hidden('coursesWithoutExam') ? (
-          <SectionEmpty message="Доработка программ не входит в ваши задачи" />
+          <SectionEmpty
+            message="Доработка программ не входит в ваши задачи"
+            hint="Раздел виден ролям, которые редактируют курсы."
+          />
         ) : data.coursesWithoutExam.length === 0 ? (
-          <SectionEmpty message="У всех программ в группах есть опубликованный экзамен" />
+          <SectionEmpty
+            message="У всех программ в группах есть опубликованный экзамен"
+            hint="Слушатели смогут дойти до конца обучения без препятствий."
+          />
         ) : (
           <>
             <p className="ui-hint">

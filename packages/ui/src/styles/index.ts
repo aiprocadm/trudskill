@@ -1,3 +1,4 @@
+import { calendarStyles } from './calendar.js';
 import { chatStyles } from './chat.js';
 import { courseViewerStyles } from './course-viewer.js';
 import { formStyles } from './forms.js';
@@ -15,7 +16,8 @@ export const uiStyleLayers = {
   shell: shellStyles,
   chat: chatStyles,
   modal: modalStyles,
-  courseViewer: courseViewerStyles
+  courseViewer: courseViewerStyles,
+  calendar: calendarStyles
 } as const;
 
 export const uiGlobalStyles = Object.values(uiStyleLayers).join('\n');

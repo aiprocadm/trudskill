@@ -16,9 +16,11 @@ const STATUS_LABELS: Record<string, string> = {
   not_started: 'Не начат',
   in_progress: 'В процессе',
   failed: 'Не пройден',
-  // Documents / signing
+  // Documents / signing — слова сверены с книгой выдачи (issuance-journal, канон):
+  // «generated» это ещё ПОДГОТОВЛЕННЫЙ документ, выданным он становится в «final».
   draft: 'Черновик',
-  generated: 'Выдан',
+  generated: 'Подготовлен',
+  final: 'Выдан',
   signed: 'Подписан',
   revoked: 'Аннулирован'
 };
