@@ -95,7 +95,6 @@ legend { font-size: 13px; font-weight: 600; color: var(--ui-text-muted); padding
 
 /* Вордмарк trudskill (фирменная подпись) — плотный гротеск, тесный трекинг */
 .ui-wordmark { font-family: var(--font-sans), 'Segoe UI', system-ui, sans-serif; font-weight: 800; font-size: 1.3rem; letter-spacing: -0.02em; line-height: 1; display: inline-flex; align-items: baseline; }
-.ui-wordmark__accent { color: var(--ui-hero-eyebrow); }
 
 /* Прогресс-бары курсов — «золото зачёта» вместо дефолтного браузерного вида */
 /* Дорожка — токен ПОВЕРХНОСТИ, не нейтральной шкалы: в тёмной теме neutral-100 остаётся
@@ -121,19 +120,16 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 .ui-video-player { display: block; width: 100%; max-width: 640px; border-radius: var(--ui-radius-md); background: var(--ui-neutral-900, #000); }
 
 /* Герой «Следующий шаг» — доминанта экрана ученика */
-.ui-hero { position: relative; overflow: hidden; isolation: isolate; border-radius: var(--ui-radius-lg); padding: clamp(22px, 3vw, 32px); background: var(--ui-hero-bg); color: var(--ui-hero-text); box-shadow: var(--ui-shadow-strong); display: grid; gap: 14px; }
-.ui-hero__seal { position: absolute; right: -56px; top: 50%; transform: translateY(-50%); width: 280px; height: 280px; border-radius: 50%; z-index: -1; pointer-events: none; opacity: 0.9; background: repeating-conic-gradient(from 0deg, var(--ui-hero-seal) 0deg 1.6deg, transparent 1.6deg 7deg); -webkit-mask: radial-gradient(circle, transparent 33%, #000 34%, #000 60%, transparent 62%); mask: radial-gradient(circle, transparent 33%, #000 34%, #000 60%, transparent 62%); }
-.ui-hero__eyebrow { display: inline-flex; align-items: center; gap: 10px; font-size: 0.76rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ui-hero-eyebrow); margin: 0; }
-.ui-hero__eyebrow::before { content: ''; width: 26px; height: 2px; background: var(--ui-hero-eyebrow); display: inline-block; }
-.ui-hero__title { font-family: var(--font-sans), 'Segoe UI', system-ui, sans-serif; font-size: clamp(1.45rem, 1.05rem + 1.8vw, 2.05rem); line-height: 1.15; font-weight: 800; margin: 0; color: var(--ui-hero-text); letter-spacing: -0.02em; max-width: 30ch; }
+/* UI-009/UI-010: герой — плоская карточка без декора (печать и eyebrow удалены),
+   бренд-акцент несёт заголовок, тень обычная. */
+.ui-hero { border-radius: var(--ui-radius-lg); padding: clamp(22px, 3vw, 32px); background: var(--ui-hero-bg); color: var(--ui-hero-text); box-shadow: var(--ui-shadow); display: grid; gap: 14px; }
+.ui-hero__title { font-family: var(--font-sans), 'Segoe UI', system-ui, sans-serif; font-size: clamp(1.45rem, 1.05rem + 1.8vw, 2.05rem); line-height: 1.15; font-weight: 800; margin: 0; color: var(--ui-brand-700); letter-spacing: -0.02em; max-width: 30ch; }
 .ui-hero__desc { margin: 0; color: var(--ui-hero-muted); font-size: 1rem; line-height: 1.55; max-width: 56ch; }
 .ui-hero__cta { justify-self: start; display: inline-flex; align-items: center; gap: 10px; height: 48px; padding: 0 24px; border-radius: var(--ui-radius-md); background: var(--ui-hero-cta-bg); color: var(--ui-hero-cta-text); border: none; font-family: inherit; font-weight: 700; font-size: 0.98rem; text-decoration: none; cursor: pointer; box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.55); transition: transform .15s ease, background .15s ease, box-shadow .15s ease; }
 .ui-hero__cta::after { content: '\\2192'; font-size: 1.15em; line-height: 1; transition: transform .15s ease; }
-.ui-hero__cta:hover { background: var(--ui-hero-cta-bg-hover); transform: translateY(-1px); box-shadow: 0 16px 30px -12px rgba(0, 0, 0, 0.6); }
+.ui-hero__cta:hover { background: var(--ui-accent-700); transform: translateY(-1px); box-shadow: 0 16px 30px -12px rgba(0, 0, 0, 0.6); }
 .ui-hero__cta:hover::after { transform: translateX(3px); }
 .ui-hero--calm { background: var(--ui-surface); color: var(--ui-text); border: 1px solid var(--ui-border); box-shadow: var(--ui-shadow); }
-.ui-hero--calm .ui-hero__eyebrow { color: var(--ui-brand-700); }
-.ui-hero--calm .ui-hero__eyebrow::before { background: var(--ui-brand-600); }
 .ui-hero--calm .ui-hero__title { color: var(--ui-text); }
 .ui-hero--calm .ui-hero__desc { color: var(--ui-text-muted); }
 .ui-hero--calm .ui-hero__seal { opacity: 0.4; }

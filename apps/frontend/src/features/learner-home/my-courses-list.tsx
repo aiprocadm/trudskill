@@ -1,9 +1,10 @@
 'use client';
 
-import { StatusChip } from '@trudskill/ui';
+import { ProgressBar, StatusChip } from '@trudskill/ui';
 import Link from 'next/link';
 
 import { SectionCard, SectionEmpty } from '../../components/state-wrappers';
+import { ENROLLMENT_STATUS_LABEL } from '../mvp/screen-helpers';
 
 import type { EnrollmentWithDetails } from './types';
 
@@ -38,7 +39,10 @@ export const MyCoursesList = ({ entries, loading }: Props) => {
   if (entries.length === 0) {
     return (
       <SectionCard title="Мои курсы">
-        <SectionEmpty message="Курсы пока не назначены" />
+        <SectionEmpty
+          message="Курсы пока не назначены"
+          hint="Обратитесь к куратору учебного центра — он зачислит вас на обучение, и курс появится здесь."
+        />
       </SectionCard>
     );
   }
@@ -48,7 +52,7 @@ export const MyCoursesList = ({ entries, loading }: Props) => {
       <ul className="learner-home-courses">
         {entries.map((entry) => {
           const title =
-            entry.course?.title ?? `Курс ${entry.enrollment.courseId ?? entry.enrollment.id}`;
+            entry.course?.title ?? 'Курс без названия';
           const percent = computeProgress(entry);
           const href = entry.enrollment.courseId
             ? `/learner/courses/${entry.enrollment.courseId}`
@@ -59,13 +63,15 @@ export const MyCoursesList = ({ entries, loading }: Props) => {
                 <Link href={href} className="learner-home-course__title">
                   {title}
                 </Link>
-                <StatusChip status={entry.enrollment.status} />
+                <StatusChip
+                  status={ENROLLMENT_STATUS_LABEL[entry.enrollment.status] ?? entry.enrollment.status}
+                />
               </div>
-              <progress max={100} value={percent} aria-label={`Прогресс по курсу ${title}`} />
-              <div className="learner-home-course__meta">
-                <span>Прогресс курса</span>
-                <span className="learner-home-course__percent">{percent}%</span>
-              </div>
+              <ProgressBar
+                value={percent}
+                label={`Прогресс по курсу ${title}`}
+                caption={`Пройдено ${percent}%`}
+              />
             </li>
           );
         })}

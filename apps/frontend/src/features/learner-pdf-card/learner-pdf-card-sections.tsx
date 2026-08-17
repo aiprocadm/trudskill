@@ -85,7 +85,10 @@ export function LearnerPdfCardSections({ learnerId }: { learnerId: string }) {
 
       <SectionCard title="Выданные документы">
         {data.documents.length === 0 ? (
-          <SectionEmpty message="Документы не выданы" />
+          <SectionEmpty
+            message="Документы не выданы"
+            hint="Удостоверения и протоколы появляются после закрытия группы — тогда же их увидит и слушатель в своём кабинете."
+          />
         ) : (
           <DataTable
             columns={[

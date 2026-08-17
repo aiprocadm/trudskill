@@ -22,7 +22,11 @@ export const LearnerHomeScreen = () => {
 
   return (
     <PageContainer>
-      <PageHeader title={greeting} subtitle="Главный экран ученика" actions={<RoleSwitcher />} />
+      <PageHeader
+        title={greeting}
+        subtitle="Ваше обучение: следующий шаг, курсы и документы"
+        actions={<RoleSwitcher />}
+      />
       {error ? <SectionError message={error} /> : null}
       <NextStepCard step={nextStep} loading={isLoading} />
       <div className="learner-home-columns">

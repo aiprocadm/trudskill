@@ -72,15 +72,16 @@ export const lightThemeVars = {
   '--ui-nav-text': '#e9ecfb',
   '--ui-nav-text-muted': '#a9afd6',
   '--ui-error-border': '#fecaca',
-  // Герой «Следующий шаг» — индиго-градиент с коралловой CTA (тёмный текст для AA)
-  '--ui-hero-bg': 'linear-gradient(135deg, #2c3ac0 0%, #3b4fe4 55%, #5b6cf0 100%)',
-  '--ui-hero-text': '#f7f9ff',
-  '--ui-hero-muted': '#d4dafb',
-  '--ui-hero-eyebrow': '#c2ccfa',
+  /*
+   * Герой «Следующий шаг» (`UI-009`/`UI-010`): плоская подложка в тон --ui-surface-accent
+   * вместо градиента, бренд-акцент — на заголовке (см. .ui-hero__title). Из переменных
+   * остались пять; hover CTA берёт --ui-accent-700. Контрасты пар — в contrast-audit.
+   */
+  '--ui-hero-bg': '#eef1fe',
+  '--ui-hero-text': '#0f172a',
+  '--ui-hero-muted': '#475569',
   '--ui-hero-cta-bg': '#ff7a45',
-  '--ui-hero-cta-bg-hover': '#ea6326',
   '--ui-hero-cta-text': '#0f172a',
-  '--ui-hero-seal': 'rgba(255, 255, 255, 0.10)',
   /* Подложка всплывающих слоёв: модалка, палитра команд, выдвижное меню. */
   '--ui-overlay': 'rgba(15, 23, 42, 0.45)'
 } as const;
@@ -122,14 +123,12 @@ export const darkThemeVars = {
   '--ui-nav-text': '#e9ecfb',
   '--ui-nav-text-muted': '#9fa8cf',
   '--ui-error-border': '#7f2418',
-  '--ui-hero-bg': 'linear-gradient(135deg, #1b2270 0%, #2c3ac0 100%)',
-  '--ui-hero-text': '#f4f6ff',
-  '--ui-hero-muted': '#c6cdf2',
-  '--ui-hero-eyebrow': '#aeb9f5',
+  /* Герой — плоская подложка в тон тёмного --ui-surface-accent (UI-009/UI-010). */
+  '--ui-hero-bg': '#222c46',
+  '--ui-hero-text': '#f1f5f9',
+  '--ui-hero-muted': '#aeb9cd',
   '--ui-hero-cta-bg': '#ff8a5c',
-  '--ui-hero-cta-bg-hover': '#ff9e78',
   '--ui-hero-cta-text': '#1a1205',
-  '--ui-hero-seal': 'rgba(255, 255, 255, 0.08)',
   /* Под подложкой в тёмной теме лежит тёмный фон: прозрачность 0.45 почти не
      отделяла бы всплывающий слой от страницы, поэтому плотнее и глубже. */
   '--ui-overlay': 'rgba(2, 6, 23, 0.66)'
