@@ -4,6 +4,7 @@ import { LoadingState, StatusChip } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { formatEntityStatus } from './format';
+import { useCourseNames } from '../courses/course-picker';
 import {
   useArchiveTest,
   usePublishTest,
@@ -31,6 +32,7 @@ interface Props {
 export function TestBuilderScreen({ testId }: Props) {
   const test = useTest(testId);
   const questions = useTestQuestions(testId);
+  const courseNames = useCourseNames();
   const updateTest = useUpdateTest();
   const upsertRule = useUpsertTestRule();
   const publish = usePublishTest();
@@ -105,7 +107,7 @@ export function TestBuilderScreen({ testId }: Props) {
     <PageContainer>
       <PageHeader
         title={t.title}
-        subtitle={`Курс ${t.courseId}`}
+        subtitle={courseNames.get(t.courseId) ? `Курс «${courseNames.get(t.courseId)}»` : 'Тест курса'}
         actions={
           <>
             {!isPublished && !isArchived && (
@@ -152,12 +154,9 @@ export function TestBuilderScreen({ testId }: Props) {
             onChange={(e) => setDescription(e.target.value)}
           />
         </label>
-        <button
-          type="button"
-          className="ui-button-primary"
-          onClick={saveMeta}
-          disabled={updateTest.isPending}
-        >
+        {/* UI-003: один акцент на экран — главное действие черновика «Опубликовать» в шапке,
+            кнопки сохранения секций вторичные. */}
+        <button type="button" className="ui-button" onClick={saveMeta} disabled={updateTest.isPending}>
           {updateTest.isPending ? 'Сохранение…' : 'Сохранить параметры'}
         </button>
         {updateTest.error ? <p className="ui-field-error">{updateTest.error}</p> : null}
@@ -233,12 +232,7 @@ export function TestBuilderScreen({ testId }: Props) {
             <span>Дневной сброс попыток</span>
           </label>
         </div>
-        <button
-          type="button"
-          className="ui-button-primary"
-          onClick={saveRule}
-          disabled={upsertRule.isPending}
-        >
+        <button type="button" className="ui-button" onClick={saveRule} disabled={upsertRule.isPending}>
           {upsertRule.isPending ? 'Сохранение…' : 'Сохранить правила'}
         </button>
         {upsertRule.error ? <p className="ui-field-error">{upsertRule.error}</p> : null}
@@ -246,7 +240,7 @@ export function TestBuilderScreen({ testId }: Props) {
 
       <SectionCard title="Вопросы теста">
         <div className="ui-toolbar">
-          <button type="button" className="ui-button-primary" onClick={() => setPickerOpen(true)}>
+          <button type="button" className="ui-button" onClick={() => setPickerOpen(true)}>
             Добавить вопросы
           </button>
         </div>

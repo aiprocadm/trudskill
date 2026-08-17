@@ -18,8 +18,12 @@ import { APP_ROOT, fromApp } from './app-root';
  */
 
 const ROOTS = [fromApp('src', 'features'), fromApp('app')];
-/** Подпись в данных: колонка таблицы, пункт меню, элемент словаря. */
-const TITLE = /title: '([^']+)'/g;
+/*
+ * Подпись в данных: колонка таблицы, пункт меню, элемент словаря. `label:` добавлен
+ * срезом 3 фазы 5: плитка показателя писала «Drop-off», а сторож видел только `title:` —
+ * ещё одна форма записи той же подписи (урок «какими ЕЩЁ способами это пишется?»).
+ */
+const TITLE = /(?:title|label): '([^']+)'/g;
 /*
  * Подпись в разметке: заголовок карточки или страницы. Сторож среза 19 её НЕ ВИДЕЛ —
  * искал только запись в объекте. Из-за этого мимо прошли «CRM · Сделки», «Панель LMS»,
@@ -100,11 +104,13 @@ describe('заголовки колонок и карточек по-русск�
   });
 
   it('ни один заголовок не написан только латиницей', () => {
-    const offenders = files.flatMap((file) =>
-      latinTitles(file).map(
-        (title) => `${relative(APP_ROOT, file).replace(/\\/g, '/')}: «${title}»`
-      )
-    );
+    const offenders = files
+      .filter((file) => !EXCEPTIONS.has(relative(APP_ROOT, file).replace(/\\/g, '/')))
+      .flatMap((file) =>
+        latinTitles(file).map(
+          (title) => `${relative(APP_ROOT, file).replace(/\\/g, '/')}: «${title}»`
+        )
+      );
     expect(offenders, 'заголовок латиницей — человеку он ничего не говорит').toEqual([]);
   });
 

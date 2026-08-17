@@ -78,7 +78,7 @@ export function ClientDetailScreen({ clientId }: ClientDetailScreenProps) {
                 { label: 'Код', value: c.code },
                 { label: 'ИНН', value: formatInn(c.inn) },
                 { label: 'КПП', value: c.kpp ?? '—' },
-                { label: 'Email', value: c.contactEmail ?? '—' },
+                { label: 'Почта', value: c.contactEmail ?? '—' },
                 { label: 'Телефон', value: formatPhone(c.contactPhone) },
                 { label: 'Юр. адрес', value: c.legalAddress ?? '—' },
                 { label: 'Заметка', value: c.note ?? '—' },

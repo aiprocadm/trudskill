@@ -19,6 +19,7 @@ import { useAuth } from '../../src/features/auth/context';
 import { AdminCockpitScreen as AdminCockpitWidgets } from '../../src/features/mvp/screens';
 import { getPrimaryRoleBlueprint } from '../../src/features/navigation/role-blueprints';
 import { getJourneyByRole } from '../../src/features/navigation/role-journeys';
+import { formatDate } from '../../src/features/mvp/screen-helpers';
 import { workspaceApi } from '../../src/features/workspace/api';
 import { buildAttentionItems } from '../../src/features/workspace/attention';
 import { recordJourneyStep } from '../../src/lib/analytics/ux-metrics';
@@ -237,7 +238,7 @@ export default function WorkspacePage() {
                 render: (row) => <Link href={row.route}>{row.title}</Link>
               },
               { key: 'status', title: 'Статус', render: (row) => TASK_STATUS_LABEL[row.status] },
-              { key: 'dueAt', title: 'Срок', render: (row) => row.dueAt ?? '—' }
+              { key: 'dueAt', title: 'Срок', render: (row) => formatDate(row.dueAt) }
             ]}
             rows={filteredTasks}
             emptyMessage="По этому фильтру задач нет"

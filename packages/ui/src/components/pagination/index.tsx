@@ -18,7 +18,7 @@ export const Pagination = ({
       aria-label="Предыдущая страница"
       onClick={() => onPageChange(page - 1)}
     >
-      Prev
+      Назад
     </button>
     <span aria-live="polite">
       {page} / {totalPages}
@@ -29,7 +29,7 @@ export const Pagination = ({
       aria-label="Следующая страница"
       onClick={() => onPageChange(page + 1)}
     >
-      Next
+      Вперёд
     </button>
   </nav>
 );

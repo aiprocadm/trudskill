@@ -35,7 +35,10 @@ export function BarChart({
     >
       {layout.bars.map((bar) => (
         <g key={bar.label} transform={`translate(0, ${bar.y})`}>
-          <text x={0} y={barHeight * 0.7} fontSize={13} fill="var(--color-text-muted)">
+          {/* Токены строго --ui-*: прежние var(--color-*) не существуют нигде в палитре,
+              подписи молча падали в чёрный (в тёмной теме — невидимы), столбики — в
+              запасной цвет мимо палитры и брендирования центра. */}
+          <text x={0} y={barHeight * 0.7} fontSize={13} fill="var(--ui-text-muted)">
             {bar.label.length > 18 ? `${bar.label.slice(0, 17)}…` : bar.label}
           </text>
           <rect
@@ -44,13 +47,13 @@ export function BarChart({
             width={bar.width}
             height={barHeight - 4}
             rx={3}
-            fill="var(--color-primary, #1e40af)"
+            fill="var(--ui-brand-600)"
           />
           <text
             x={labelGutter + bar.width + 6}
             y={barHeight * 0.7}
             fontSize={13}
-            fill="var(--color-text)"
+            fill="var(--ui-text)"
           >
             {bar.value}
           </text>

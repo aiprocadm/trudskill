@@ -72,19 +72,28 @@ export const useQuery = <T,>(options: QueryOptions<T>) => {
 
   const queryKeyHash = JSON.stringify(options.queryKey);
 
+  // Вызывающий код передаёт объект опций и queryFn инлайном — их идентичность меняется на
+  // каждом рендере. Завязывать refetch на эту идентичность нельзя: эффект монтирования тогда
+  // перезапускается после каждого рендера, и запрос уходит в вечный цикл
+  // (запрос → setState → рендер → новый refetch → эффект → запрос). Свежие опции читаются
+  // через ref в момент вызова, а сам refetch стабилен между рендерами.
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+
   const refetch = useCallback(async () => {
-    if (options.enabled === false) return;
+    const current = optionsRef.current;
+    if (current.enabled === false) return;
     setLoading(true);
     setError(null);
     try {
-      const result = await options.queryFn();
+      const result = await current.queryFn();
       if (mounted.current) setData(result);
     } catch (err) {
       if (mounted.current) setError(err);
-      if (!options.meta?.suppressGlobalErrorToast) {
+      if (!current.meta?.suppressGlobalErrorToast) {
         queryErrorListeners.forEach((fn) => {
           try {
-            fn(err, options.queryKey);
+            fn(err, current.queryKey);
           } catch {
             /* ignore listener errors */
           }
@@ -93,7 +102,7 @@ export const useQuery = <T,>(options: QueryOptions<T>) => {
     } finally {
       if (mounted.current) setLoading(false);
     }
-  }, [options]);
+  }, []);
 
   useEffect(() => {
     mounted.current = true;

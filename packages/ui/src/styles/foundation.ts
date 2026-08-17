@@ -51,6 +51,10 @@ export const foundationStyles = `
 .ui-bare-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .ui-link { color: var(--ui-brand-700); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 .ui-link:hover { color: var(--ui-brand-600); }
+/* Ссылка без класса иначе остаётся браузерным синим #0000EE: на тёмных поверхностях это ~1.1:1,
+   текст неотличим от фона. Селектор элементного уровня — любой класс на ссылке перекрывает его. */
+a:not([class]) { color: var(--ui-brand-700); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+a:not([class]):hover { color: var(--ui-brand-600); }
 /* Кнопка-ссылка — вид ссылки, поведение кнопки */
 .ui-link-button, .ui-button-link { background: none; border: none; padding: 0; height: auto; font: inherit; color: var(--ui-brand-700); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .ui-link-button:hover, .ui-button-link:hover { color: var(--ui-brand-600); background: none; }
@@ -94,14 +98,17 @@ legend { font-size: 13px; font-weight: 600; color: var(--ui-text-muted); padding
 .ui-wordmark__accent { color: var(--ui-hero-eyebrow); }
 
 /* Прогресс-бары курсов — «золото зачёта» вместо дефолтного браузерного вида */
-progress { -webkit-appearance: none; appearance: none; width: 100%; height: 9px; border: none; border-radius: var(--ui-radius-pill); background: var(--ui-neutral-100); overflow: hidden; }
-progress::-webkit-progress-bar { background: var(--ui-neutral-100); border-radius: var(--ui-radius-pill); }
+/* Дорожка — токен ПОВЕРХНОСТИ, не нейтральной шкалы: в тёмной теме neutral-100 остаётся
+   почти белым (это оттенок для тёмного текста), и пустая полоса выглядела заполненной.
+   В светлой теме surface-muted и neutral-100 совпадают — вид не меняется. */
+progress { -webkit-appearance: none; appearance: none; width: 100%; height: 9px; border: none; border-radius: var(--ui-radius-pill); background: var(--ui-surface-muted); overflow: hidden; }
+progress::-webkit-progress-bar { background: var(--ui-surface-muted); border-radius: var(--ui-radius-pill); }
 progress::-webkit-progress-value { background: linear-gradient(90deg, var(--ui-brand-700), var(--ui-brand-600)); border-radius: var(--ui-radius-pill); transition: width .4s ease; }
 progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: var(--ui-radius-pill); }
 /* Общая полоса заполнения (компонент ProgressBar): та же геометрия, что у progress выше,
    плюс тон — «сколько заполнено» и «хорошо ли это» задаются раздельно. */
 .ui-progress { display: flex; flex-direction: column; gap: 4px; }
-.ui-progress__track { width: 100%; height: 9px; border-radius: var(--ui-radius-pill); background: var(--ui-neutral-100); overflow: hidden; }
+.ui-progress__track { width: 100%; height: 9px; border-radius: var(--ui-radius-pill); background: var(--ui-surface-muted); overflow: hidden; }
 .ui-progress__fill { height: 100%; border-radius: var(--ui-radius-pill); transition: width .4s ease; background: linear-gradient(90deg, var(--ui-brand-700), var(--ui-brand-600)); }
 .ui-progress__track--ok .ui-progress__fill { background: var(--ui-success-600); }
 .ui-progress__track--warning .ui-progress__fill { background: var(--ui-warning-600); }
