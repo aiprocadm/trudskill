@@ -1,4 +1,4 @@
-import { StudentDashboardScreen } from '../../../src/features/mvp/screens';
+import { StudentDashboardScreen } from '../../../src/features/role-dashboards/role-widgets';
 import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
 
 export default function StudentDashboardPage() {

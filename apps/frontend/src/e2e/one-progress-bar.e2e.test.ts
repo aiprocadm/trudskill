@@ -28,7 +28,7 @@ const KNOWN: Record<string, string> = {
     'волна 6: прохождение теста — сколько отвечено',
   'src/features/learner-home/my-courses-list.tsx': 'волна 6: кабинет слушателя — прогресс по курсу',
   'src/features/course-viewer/course-viewer-screen.tsx': 'волна 6: просмотр курса — общий прогресс',
-  'src/features/mvp/screens.tsx': 'волна 6: остаток монолита — прогресс по курсу у слушателя'
+  'src/features/learner-courses/screens.tsx': 'волна 6: экран «Мои курсы» — прогресс по курсу у слушателя'
 };
 
 const collect = (dir: string, acc: string[] = []): string[] => {
