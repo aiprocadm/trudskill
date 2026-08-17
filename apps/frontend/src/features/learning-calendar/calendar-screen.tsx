@@ -1,7 +1,7 @@
 'use client';
 
-import { LoadingState, StatusChip } from '@trudskill/ui';
 import { useQuery } from '@tanstack/react-query';
+import { LoadingState, StatusChip } from '@trudskill/ui';
 import { useMemo, useState } from 'react';
 
 import {
@@ -11,13 +11,17 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
-import { useAuth } from '../auth/context';
 import { apiRequest } from '../../lib/api/client';
+import { hasPermission } from '../../lib/rbac/permissions';
+import { useAuth } from '../auth/context';
+import { useLearnerNames } from '../learners/learner-picker';
+import { ENROLLMENT_STATUS_LABEL } from '../mvp/screen-helpers';
 
 /*
- * Перенесён «как есть» из app/learning/calendar/page.tsx (`UI-021`, IA-001: экран не живёт
- * в page.tsx). Стили styled-jsx переехали в packages/ui/src/styles/calendar.ts — внутри
- * styled-jsx их не видели сторожа токенов.
+ * `UI-021` / IA-001: экран переехал из app/learning/calendar/page.tsx, стили styled-jsx —
+ * в packages/ui/src/styles/calendar.ts (внутри styled-jsx их не видели сторожа токенов).
+ * Редизайн волны 6: в ячейках фамилии слушателей вместо обрезанных идентификаторов,
+ * статусы словами, подзаголовок без имени поля базы.
  */
 
 interface EnrollmentRow {
@@ -64,6 +68,10 @@ function calendarGrid(month: Date) {
 
 export function LearningCalendarScreen() {
   const { session } = useAuth();
+  // Слушатель видит в календаре только собственные зачисления — справочник имён ему
+  // не нужен и недоступен по правам; без гейта запрос сыпал бы «Permission denied».
+  const canReadLearners = hasPermission(session?.permissions ?? [], 'learners.read');
+  const learnerNames = useLearnerNames({ enabled: canReadLearners });
   const [cursor, setCursor] = useState(() => startOfMonth(new Date()));
 
   const goPrevMonth = () => {
@@ -121,7 +129,7 @@ export function LearningCalendarScreen() {
     <PageContainer>
       <PageHeader
         title="Календарь окончаний"
-        subtitle="Зачисления по плановой дате завершения (planned_end_at)"
+        subtitle="Когда слушатели по плану заканчивают обучение"
         actions={
           <div className="ui-inline">
             <button type="button" onClick={goPrevMonth}>
@@ -146,11 +154,11 @@ export function LearningCalendarScreen() {
             }
           />
         ) : null}
-        {enrollments.isLoading ? <LoadingState message="Загрузка…" /> : null}
+        {enrollments.isLoading ? <LoadingState message="Загружаем календарь…" /> : null}
         {!enrollments.isLoading && enrollments.data && enrollments.data.total === 0 ? (
           <SectionEmpty
-            message="Нет зачислений в выбранном диапазоне"
-            hint="Расширьте период — календарь показывает занятия по зачислениям."
+            message="В этом месяце никто не заканчивает обучение"
+            hint="Листайте месяцы кнопками сверху — календарь показывает плановые даты завершения."
           />
         ) : null}
         {!enrollments.isLoading && enrollments.data && enrollments.data.total > 0 ? (
@@ -173,8 +181,11 @@ export function LearningCalendarScreen() {
                   <ul className="calendar-grid__list">
                     {rows.map((row) => (
                       <li key={row.id}>
-                        <StatusChip status={row.status} />
-                        <span title={row.id}>{row.learnerId.slice(0, 8)}…</span>
+                        <StatusChip
+                          status={row.status}
+                          label={ENROLLMENT_STATUS_LABEL[row.status] ?? row.status}
+                        />
+                        <span>{learnerNames.get(row.learnerId) ?? (canReadLearners ? 'Слушатель' : 'Вы')}</span>
                       </li>
                     ))}
                   </ul>

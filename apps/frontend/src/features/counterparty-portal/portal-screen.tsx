@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, LoadingState } from '@trudskill/ui';
+import { DataTable, LoadingState, StatusChip } from '@trudskill/ui';
 
 import {
   PageContainer,
@@ -10,6 +10,7 @@ import {
   SectionError
 } from '../../components/state-wrappers';
 import { usePortalDocuments, usePortalGroups, usePortalLearners } from '../mvp/hooks';
+import { formatDate } from '../mvp/screen-helpers';
 
 /*
  * Перенесён «как есть» из app/counterparty-portal/page.tsx (IA-001: экран не живёт
@@ -30,7 +31,7 @@ export function CounterpartyPortalScreen() {
         subtitle="Ваши сотрудники, группы обучения и выданные документы"
       />
       <SectionCard title="Мои сотрудники">
-        {learners.loading ? <LoadingState message="Загрузка сотрудников..." /> : null}
+        {learners.loading ? <LoadingState message="Загружаем сотрудников…" /> : null}
         {learners.error ? <SectionError message={learners.error} /> : null}
         {learners.data?.items.length ? (
           <DataTable
@@ -38,7 +39,11 @@ export function CounterpartyPortalScreen() {
               { key: 'lastName', title: 'Фамилия' },
               { key: 'firstName', title: 'Имя' },
               { key: 'email', title: 'Почта' },
-              { key: 'status', title: 'Статус' }
+              {
+                key: 'status',
+                title: 'Статус',
+                render: (row) => <StatusChip status={row.status} />
+              }
             ]}
             rows={learners.data.items}
           />
@@ -50,14 +55,18 @@ export function CounterpartyPortalScreen() {
         )}
       </SectionCard>
       <SectionCard title="Группы обучения">
-        {groups.loading ? <LoadingState message="Загрузка групп..." /> : null}
+        {groups.loading ? <LoadingState message="Загружаем группы…" /> : null}
         {groups.error ? <SectionError message={groups.error} /> : null}
         {groups.data?.items.length ? (
           <DataTable
             columns={[
               { key: 'code', title: 'Группа' },
               { key: 'name', title: 'Название' },
-              { key: 'status', title: 'Статус' }
+              {
+                key: 'status',
+                title: 'Статус',
+                render: (row) => <StatusChip status={row.status} />
+              }
             ]}
             rows={groups.data.items}
           />
@@ -69,7 +78,7 @@ export function CounterpartyPortalScreen() {
         )}
       </SectionCard>
       <SectionCard title="Документы">
-        {documents.loading ? <LoadingState message="Загрузка документов..." /> : null}
+        {documents.loading ? <LoadingState message="Загружаем документы…" /> : null}
         {documents.error ? <SectionError message={documents.error} /> : null}
         {documents.data?.items.length ? (
           <DataTable
@@ -77,9 +86,21 @@ export function CounterpartyPortalScreen() {
               { key: 'name', title: 'Документ' },
               { key: 'learnerName', title: 'Сотрудник' },
               { key: 'documentNumber', title: 'Номер' },
-              { key: 'documentDate', title: 'Дата выдачи' },
-              { key: 'validUntil', title: 'Действует до' },
-              { key: 'status', title: 'Статус' }
+              {
+                key: 'documentDate',
+                title: 'Дата выдачи',
+                render: (row) => formatDate(row.documentDate)
+              },
+              {
+                key: 'validUntil',
+                title: 'Действует до',
+                render: (row) => formatDate(row.validUntil)
+              },
+              {
+                key: 'status',
+                title: 'Статус',
+                render: (row) => <StatusChip status={row.status} />
+              }
             ]}
             rows={documents.data.items}
           />

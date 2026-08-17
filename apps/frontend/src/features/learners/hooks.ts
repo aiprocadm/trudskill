@@ -10,12 +10,16 @@ import { useAuth } from '../auth/context';
 import type { LearnerListItem, LearnersListFilters, UpdateLearnerProfilePayload } from './types';
 import type { BulkOutcome } from '@trudskill/ui';
 
-export function useLearnersList(filters: LearnersListFilters) {
+export function useLearnersList(
+  filters: LearnersListFilters,
+  opts?: { enabled?: boolean; silent?: boolean }
+) {
   const { session } = useAuth();
   return useQuery({
     queryKey: ['learners-list', filters],
-    enabled: Boolean(session),
-    queryFn: () => learnersApi.list(session!, filters)
+    enabled: Boolean(session) && (opts?.enabled ?? true),
+    queryFn: () => learnersApi.list(session!, filters),
+    ...(opts?.silent ? { meta: { suppressGlobalErrorToast: true } } : {})
   });
 }
 
