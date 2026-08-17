@@ -37,8 +37,6 @@ const PROP_WINDOW = 600;
 const KNOWN: Record<string, string> = {
   'src/features/methodist-home/methodist-home-screen.tsx':
     'волна 6: рабочий стол методиста — восемь блоков сроков, проверок и программ',
-  'src/features/test-player/test-result-screen.tsx': 'волна 6: прохождение теста — итог попытки',
-  'src/features/test-player/tests-list-screen.tsx': 'волна 6: прохождение теста — список доступных',
   /*
    * Сама обёртка состояний: она и есть то место, куда `hint` передаётся. Ветка без `hint`
    * существует из-за exactOptionalPropertyTypes — передать `hint={undefined}` нельзя.

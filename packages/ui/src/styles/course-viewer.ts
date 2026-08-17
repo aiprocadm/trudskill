@@ -67,10 +67,8 @@ export const courseViewerStyles = `
 .course-player__text { font-size: 15px; line-height: 1.6; }
 .course-player__external { padding: 12px; border-radius: var(--ui-radius-sm); background: var(--ui-surface-muted); }
 /* Визуальный прогресс по курсу — заметная полоса вверху экрана */
+/* Карточка-обёртка общего прогресса; сама полоса — общий компонент ProgressBar. */
 .course-progress { display: grid; gap: 6px; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); padding: 14px 16px; box-shadow: var(--ui-shadow); }
-.course-progress__row { display: flex; align-items: center; gap: 12px; }
-.course-progress__value { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ui-text); min-width: 3.5ch; text-align: right; }
-.course-progress__caption { margin: 0; font-size: 13px; color: var(--ui-text-muted); }
 @media (max-width: 768px) {
   .course-viewer-layout { grid-template-columns: 1fr; }
   .course-toc { position: static; max-height: none; }

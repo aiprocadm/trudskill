@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { ProgressBar } from '@trudskill/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
@@ -149,10 +150,11 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
 
   const loading = courseLoading || treeLoading || progressLoading;
   const error = courseError ?? treeError ?? progressError ?? enrollmentError;
-  const title = course?.title ?? `Курс ${courseId}`;
+  // Пока название не загрузилось, в заголовке «Курс» — сырой идентификатор человеку не нужен.
+  const title = course?.title ?? 'Курс';
 
   // Phase 1 §4.3 — end-of-learning: документы по этому курсу для текущего
-  // учащегося. `useMyDocuments` сам ограничивает выдачу записями, привязанными
+  // слушателя. `useMyDocuments` сам ограничивает выдачу записями, привязанными
   // к learner.linkedIamUserId — то есть фронт получает только свои документы.
   const { data: myDocuments } = useMyDocuments();
   const courseDocuments = myDocuments?.items.filter((doc) => doc.courseId === courseId) ?? [];
@@ -163,13 +165,11 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
       {error ? <SectionError message={error} /> : null}
       {!loading && totalCount > 0 ? (
         <div className="course-progress">
-          <div className="course-progress__row">
-            <progress max={100} value={completionPercent} aria-label="Общий прогресс по курсу" />
-            <span className="course-progress__value">{completionPercent}%</span>
-          </div>
-          <p className="course-progress__caption">
-            Пройдено {completedCount} из {totalCount} материалов
-          </p>
+          <ProgressBar
+            value={completionPercent}
+            label="Общий прогресс по курсу"
+            caption={`Пройдено ${completedCount} из ${totalCount} материалов — ${completionPercent}%`}
+          />
         </div>
       ) : null}
       {loading ? (

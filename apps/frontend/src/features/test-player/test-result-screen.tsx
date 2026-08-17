@@ -30,7 +30,10 @@ export function TestResultScreen({ attemptId }: TestResultScreenProps) {
       ) : error ? (
         <SectionError message="Не удалось загрузить результат" />
       ) : !result ? (
-        <SectionEmpty message="Результат недоступен" />
+        <SectionEmpty
+          message="Результата пока нет"
+          hint="Он появляется после завершения попытки. Если в тесте есть развёрнутые ответы, итог станет известен после проверки преподавателем."
+        />
       ) : (
         <div className="ui-stack">
           <div
