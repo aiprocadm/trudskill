@@ -1,7 +1,7 @@
 'use client';
 
-import { ProgressBar } from '@trudskill/ui';
 import { useQuery } from '@tanstack/react-query';
+import { ProgressBar } from '@trudskill/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
