@@ -98,6 +98,28 @@ const PAIRS: Pair[] = [
     where: 'кнопка в блоке «Следующий шаг»',
     min: AA_NORMAL_TEXT
   },
+  /*
+   * UI-010: героя расплющили — фон стал измеримым (раньше это был градиент, и пары
+   * «текст на герое» померить было нельзя). Заголовок героя рисуется брендом.
+   */
+  {
+    fg: '--ui-hero-text',
+    bg: '--ui-hero-bg',
+    where: 'текст в блоке «Следующий шаг»',
+    min: AA_NORMAL_TEXT
+  },
+  {
+    fg: '--ui-hero-muted',
+    bg: '--ui-hero-bg',
+    where: 'пояснение в блоке «Следующий шаг»',
+    min: AA_NORMAL_TEXT
+  },
+  {
+    fg: '--ui-brand-700',
+    bg: '--ui-hero-bg',
+    where: 'заголовок блока «Следующий шаг» (бренд-акцент)',
+    min: AA_NORMAL_TEXT
+  },
   {
     fg: '--ui-text',
     bg: '--ui-surface-accent',

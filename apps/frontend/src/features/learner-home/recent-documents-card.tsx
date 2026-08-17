@@ -5,26 +5,18 @@ import Link from 'next/link';
 import { pickRecentDocuments } from './recent-documents';
 import { SectionCard } from '../../components/state-wrappers';
 import { useMyDocuments } from '../learner-documents/hooks';
+// Словарь видов — из общего слоя: здесь жила ТРЕТЬЯ копия, уже разъехавшаяся со словарём
+// карточки слушателя («Свидетельство» против «Свидетельства об аттестации»).
+import { DOCUMENT_TYPE_LABELS, formatDate } from '../mvp/screen-helpers';
 
 import type { ReactElement } from 'react';
 
-const DOCUMENT_TYPE_LABELS: Record<string, string> = {
-  certificate: 'Удостоверение',
-  protocol: 'Протокол',
-  order: 'Приказ',
-  diploma: 'Диплом',
-  attestation: 'Свидетельство',
-  reference: 'Справка',
-  report: 'Отчёт',
-  contract: 'Договор'
-};
-
 /**
- * Phase 1 §4.3 — компактный preview «последние документы» на главной учащегося.
+ * Компактный список «последние документы» на главной слушателя.
  *
  * Поведение:
  * - Скрывается, пока загружается (`isLoading`) — не светим пустым плейсхолдером.
- * - Скрывается, если документов нет совсем — главная не должна пугать учащегося
+ * - Скрывается, если документов нет совсем — главная не должна пугать слушателя
  *   секцией «здесь пусто» (это уже делает `MyCoursesList`).
  * - Полностью переход на `/learner/documents` — здесь только 3 свежих.
  */
@@ -44,7 +36,9 @@ export const RecentDocumentsCard = (): ReactElement | null => {
               {d.documentNumber ? ` №${d.documentNumber}` : ''}
               {d.courseTitle ? ` — ${d.courseTitle}` : ''}
             </div>
-            {d.documentDate ? <span className="ui-text-muted">{d.documentDate}</span> : null}
+            {d.documentDate ? (
+              <span className="ui-text-muted">{formatDate(d.documentDate)}</span>
+            ) : null}
           </li>
         ))}
       </ul>
