@@ -4,7 +4,7 @@
 
 ## 1. Current Date / Session
 
-- Date: 2026-08-17 (UTC+3), последняя запись — §5.291 (фаза 5 редизайна закрыта, PR #526)
+- Date: 2026-08-17 (UTC+3), последняя запись — §5.292 (фаза 6 редизайна: срез 1, PR #527)
 - Agent: Claude Code
 - Repository: `D:/Создание LMS/Cursor LMS/cdoprof-`
 - Branch, if known: `main`
@@ -5553,6 +5553,35 @@ PR #493 построил `LearnersListScreen`, но его не импортир
 сверена после правок: вид не изменился (surface-muted и neutral-100 в светлой палитре
 совпадают побитово).
 
+### 5.292 Фаза 6, срез 1 — план разбиения §8.3 завершён; редизайн «Моих курсов» (ЗАКРЫТ)
+
+**Дата:** 2026-08-17. **PR #527.** Два коммита по SCR-001 (перенос отдельно от редизайна).
+
+**Перенос (порядок 10 — последний): монолит `features/mvp/screens.tsx` удалён полностью**
+(3 019 строк на старте программы → 0). Курсы слушателя → `features/learner-courses/screens.tsx`,
+сетка виджетов по ролям + `StudentDashboardScreen`/`TeacherGradingCenterScreen`/`AdminCockpitScreen`
+→ `features/role-dashboards/role-widgets.tsx`. Общий слой (hooks.ts, screen-helpers.tsx, types)
+остался в `features/mvp/` — как предписывают границы §8.3. Пять точек импорта переведены
+(4 страницы + `/workspace`). Очереди сторожей `one-progress-bar` и `empty-states-explain`
+сами упали на переезде файла — записи переведены на новые пути.
+
+**Редизайн «Моих курсов» (`/learner/courses`):** слушатель видел «Назначение enrollment_x…»
+вместо названия курса у своих документов; статус зачисления кодом `active` в чипе; вид
+документа `(certificate)`; подсказка пустого списка языком администратора («проверьте
+привязку шаблона»). Всё заменено словами; `DOCUMENT_TYPE_LABELS` переехал из
+learner-pdf-card в `mvp/screen-helpers` (третья копия не заведена); голый `<progress>` →
+`ProgressBar` из пакета; фолбэк «Курс course_…» больше не показывает сырой id. Сняты две
+позиции очередей (`one-progress-bar`, `empty-states-explain`) — сторожа это проверяют.
+
+**Открыто (запись 109 журнала):** `/student/dashboard` — «Главная **учащегося**»
+(термин-дрейф + возможный дубль `/learner»), `/teacher/grading-center` — роль `teacher`
+отсутствует в живых базах (запись 21). Перенесены «как есть»; решение — следующие срезы.
+
+**Тесты:** фронт **1117** (170 файлов), сторожа `src/e2e` **286**, typecheck чистый; полный
+`pnpm ci:check` после `rm -rf packages/*/dist` — **exit 0** (первый прогон поймал 1 ошибку
+import-x/order). Живьём: вход слушателем `learner`, `/learner/courses` в обеих темах,
+виджеты «Панели администратора» на `/workspace` после переезда.
+
 ## 6. Files Changed
 
 | File                                                                                 | Change Type        | Purpose                                                                                                                        |
@@ -5883,7 +5912,8 @@ PR #493 построил `LearnersListScreen`, но его не импортир
 
 ## 20. Final Status
 
-- **Актуальный срез (2026-08-17, §5.291, PR #526): фаза 5 редизайна закрыта целиком** (контрасты + переключатель + визуальный прогон волн 1–2 в тёмной теме). Попутно починены вечный цикл запросов в шиме useQuery и маршрут `/learners`, не переключённый на эталонный реестр Фазы 2. Дальше по ТЗ редизайна — Фаза 6 (кабинеты слушателя/преподавателя + накопленные очереди сторожей: `empty-states-explain`, `one-progress-bar`, `id-input-ban`, `browser-dialogs-ban`, `unified-states`, компонента выбора файла), затем 7–8 ребрендинг. CI на GitHub выключен до восстановления лимитов — вердикт даёт локальный `pnpm ci:check`.
+- **Актуальный срез (2026-08-17, §5.292, PR #527): фаза 6 редизайна начата — план разбиения монолита §8.3 завершён** (`mvp/screens.tsx` удалён; «Мои курсы» слушателя отредизайнены). Открыто по фазе 6: остальные экраны кабинетов, судьба `/student/dashboard` и `/teacher/grading-center` (запись 109), очереди сторожей, hero `UI-010`, календарь `UI-021`, компонента выбора файла.
+- Предыдущий (§5.291, PR #526): **фаза 5 редизайна закрыта целиком** (контрасты + переключатель + визуальный прогон волн 1–2 в тёмной теме). Попутно починены вечный цикл запросов в шиме useQuery и маршрут `/learners`, не переключённый на эталонный реестр Фазы 2. Дальше по ТЗ редизайна — Фаза 6 (кабинеты слушателя/преподавателя + накопленные очереди сторожей: `empty-states-explain`, `one-progress-bar`, `id-input-ban`, `browser-dialogs-ban`, `unified-states`, компонента выбора файла), затем 7–8 ребрендинг. CI на GitHub выключен до восстановления лимитов — вердикт даёт локальный `pnpm ci:check`.
 - Build status: последний прогон после §5.89 — `pnpm -s ci:check` зелёный.
 - Backend: аудит делегирования (`metadata`), HTTP IDOR для **GET attempts / exam-results by enrollment**, class-validator MVP + общий **`createAppValidationPipe`**, frontend guard по **`cross_learner` / `learners.act_as`**, корневой Vitest **`test.projects`** и последовательный прогон backend-тестов.
 - Итерация «план к ТЗ/запуску»: добавлены **`POST /enrollments/bulk`** с идемпотентностью в коллекции snapshot **`bulkEnrollmentIdempotency`**, **`GET /reports/kpi-snapshot`**, **`GET /enrollments/:id/certificates`** с проверкой `linkedIamUserId`; UI — KPI на **`/reports`**, сертификаты слушателя в **`LearnerCoursesScreen`**; эксплуатационные заготовки **`docs/LAUNCH_RUNBOOK.md`**, **`docs/BACKUP_ROLLBACK.md`**, трассировка **`docs/TZ_MVP_TRACEABILITY.md`**, NFR-снимок **`docs/NFR_LAUNCH_V1.md`**; доп. контракты в **`packages/api-contracts/src/domains/mvp-metrics/contracts.ts`**.

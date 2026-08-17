@@ -4,7 +4,7 @@ import { DataTable, LoadingState, StatusChip } from '@trudskill/ui';
 
 import { useLearnerPdfCard } from './hooks';
 import { SectionCard, SectionEmpty, SectionError } from '../../components/state-wrappers';
-import { ENROLLMENT_STATUS_LABEL, formatDate } from '../mvp/screen-helpers';
+import { DOCUMENT_TYPE_LABELS, ENROLLMENT_STATUS_LABEL, formatDate } from '../mvp/screen-helpers';
 
 import type { ReactElement } from 'react';
 
@@ -15,16 +15,6 @@ const TRAINING_TYPE_LABELS: Record<string, string> = {
   extraordinary: 'Внеочередное'
 };
 
-const DOCUMENT_TYPE_LABELS: Record<string, string> = {
-  certificate: 'Удостоверение',
-  protocol: 'Протокол',
-  order: 'Приказ',
-  diploma: 'Диплом',
-  attestation: 'Свидетельство об аттестации',
-  reference: 'Справка',
-  report: 'Отчёт',
-  contract: 'Договор'
-};
 
 /**
  * Pillar A Plan C §5.11 — секции «Учебная история», «Выданные документы»
