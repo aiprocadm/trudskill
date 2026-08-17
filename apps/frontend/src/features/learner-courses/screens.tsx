@@ -1,6 +1,6 @@
 'use client';
 
-import { LoadingState, StatusChip } from '@trudskill/ui';
+import { LoadingState, ProgressBar, StatusChip } from '@trudskill/ui';
 import Link from 'next/link';
 import { useEffect, useMemo } from 'react';
 
@@ -16,13 +16,18 @@ import { frontendEnv } from '../../lib/config/env';
 import { CourseViewerScreen } from '../course-viewer/course-viewer-screen';
 import { useLearnerHomeData } from '../learner-home/use-learner-home-data';
 import { type EnrollmentCertsBundle, useEnrollmentCertificatesForCompleted } from '../mvp/hooks';
-import { ListSkeleton } from '../mvp/screen-helpers';
+import {
+  DOCUMENT_TYPE_LABELS,
+  ENROLLMENT_STATUS_LABEL,
+  ListSkeleton
+} from '../mvp/screen-helpers';
 
 import type { EnrollmentCertificateRow } from '../mvp/types';
 
 /*
- * Перенесены «как есть» из features/mvp/screens.tsx (§8.3, порядок 10 — последний;
- * правило SCR-001: перенос и редизайн не смешиваются в одном коммите).
+ * Вынесены из features/mvp/screens.tsx (§8.3, порядок 10 — последний). Редизайн волны 6:
+ * статус зачисления и вид документа — словами, документы подписаны названием курса
+ * (раньше слушатель видел «Назначение enrollment_x…»), полоса прогресса — общая ProgressBar.
  */
 
 const resolveCertificateDownloadHref = (downloadPath: string): string => {
@@ -45,6 +50,15 @@ export const LearnerCoursesScreen = () => {
   const certsQuery = useEnrollmentCertificatesForCompleted(completedEnrollmentIds);
   const certLoading = certsQuery.isLoading;
 
+  // Документы подписываются названием курса — идентификатор зачисления человеку не говорит ничего.
+  const courseTitleByEnrollment = useMemo(
+    () =>
+      new Map(
+        data.map((entry) => [entry.enrollment.id, entry.course?.title ?? 'Курс без названия'])
+      ),
+    [data]
+  );
+
   return (
     <PageContainer>
       <PageHeader
@@ -58,7 +72,7 @@ export const LearnerCoursesScreen = () => {
           <ul className="course-grid">
             {data.map((entry) => {
               const courseId = entry.enrollment.courseId;
-              const title = entry.course?.title ?? `Курс ${courseId ?? entry.enrollment.id}`;
+              const title = entry.course?.title ?? 'Курс без названия';
               const percent =
                 entry.progress.length === 0
                   ? 0
@@ -78,14 +92,16 @@ export const LearnerCoursesScreen = () => {
                   <span className="course-card__banner" aria-hidden />
                   <div className="course-card__head">
                     <h3 className="course-card__title">{title}</h3>
-                    <StatusChip status={entry.enrollment.status} />
+                    <StatusChip
+                      status={ENROLLMENT_STATUS_LABEL[entry.enrollment.status] ?? entry.enrollment.status}
+                    />
                   </div>
                   <div className="course-card__body">
-                    <progress max={100} value={percent} aria-label={`Прогресс по курсу ${title}`} />
-                    <div className="course-card__meta">
-                      <span>Прогресс курса</span>
-                      <span className="course-card__percent">{percent}%</span>
-                    </div>
+                    <ProgressBar
+                      value={percent}
+                      label={`Прогресс по курсу ${title}`}
+                      caption={`Пройдено ${percent}%`}
+                    />
                     <Link href={href} className="ui-button ui-button--primary course-card__cta">
                       {ctaLabel}
                     </Link>
@@ -102,17 +118,22 @@ export const LearnerCoursesScreen = () => {
           />
         ) : null}
       </SectionCard>
-      <SectionCard title="Сертификаты по завершённым программам">
+      <SectionCard title="Мои документы об обучении">
         {!completedEnrollmentIds.length ? (
-          <SectionEmpty message="Завершите обучение, чтобы получить выпуск документа" />
+          <SectionEmpty
+            message="Документов пока нет"
+            hint="Удостоверение и протокол появляются здесь после завершения обучения — их выпускает учебный центр."
+          />
         ) : null}
-        {certLoading ? <LoadingState message="Загрузка списка документов…" /> : null}
+        {certLoading ? <LoadingState message="Загружаем список документов…" /> : null}
         {!certLoading && completedEnrollmentIds.length ? (
           <ul className="ui-stack">
-            {(certsQuery.data ?? []).map((row: EnrollmentCertsBundle) =>
-              row.items.length ? (
-                <li key={row.enrollmentId}>
-                  <span className="ui-text-muted">Назначение {row.enrollmentId}</span>
+            {(certsQuery.data ?? []).map((row: EnrollmentCertsBundle) => (
+              <li key={row.enrollmentId}>
+                <span className="ui-subheading">
+                  {courseTitleByEnrollment.get(row.enrollmentId) ?? 'Курс без названия'}
+                </span>
+                {row.items.length ? (
                   <ul>
                     {row.items.map((doc: EnrollmentCertificateRow) => (
                       <li key={doc.id}>
@@ -123,18 +144,17 @@ export const LearnerCoursesScreen = () => {
                         >
                           {doc.name}
                         </a>{' '}
-                        ({doc.documentType})
+                        — {DOCUMENT_TYPE_LABELS[doc.documentType] ?? doc.documentType}
                       </li>
                     ))}
                   </ul>
-                </li>
-              ) : (
-                <li key={row.enrollmentId}>
-                  Назначение {row.enrollmentId}: документов пока нет (проверьте привязку шаблона в
-                  разделе «Документы»).
-                </li>
-              )
-            )}
+                ) : (
+                  <p className="ui-text-muted">
+                    Документы ещё готовятся — они появятся здесь после выпуска в учебном центре.
+                  </p>
+                )}
+              </li>
+            ))}
           </ul>
         ) : null}
       </SectionCard>

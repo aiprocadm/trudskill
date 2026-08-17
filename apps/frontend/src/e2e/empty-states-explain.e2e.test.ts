@@ -42,7 +42,6 @@ const KNOWN: Record<string, string> = {
   'src/features/learner-home/my-courses-list.tsx': 'волна 6: кабинет слушателя — мои курсы',
   'src/features/learner-pdf-card/learner-pdf-card-sections.tsx':
     'волна 6: карточка слушателя — выданные документы',
-  'src/features/learner-courses/screens.tsx': 'волна 6: экран «Мои курсы» — выпуск документа слушателю',
   /*
    * Сама обёртка состояний: она и есть то место, куда `hint` передаётся. Ветка без `hint`
    * существует из-за exactOptionalPropertyTypes — передать `hint={undefined}` нельзя.
