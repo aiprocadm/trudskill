@@ -190,7 +190,7 @@
 **Files:**
 
 - Create: `apps/backend/migrations/0061_learners_pii_encryption.sql` — аддитивные колонки под зашифрованные значения (или пометка формата), идемпотентно.
-- Create/Modify: `apps/backend/src/infrastructure/crypto/*` — application-level AES-GCM для полей (по образцу шифрования `secret_encrypted` интеграций), мастер-ключ через env (по аналогии с практикой prt_ot_doc).
+- Create/Modify: `apps/backend/src/infrastructure/crypto/*` — application-level AES-GCM для полей (по образцу шифрования `secret_encrypted` интеграций), мастер-ключ через env (по уже отработанной на этом сервере практике).
 - Modify: `modules/mvp/learners-bulk-import.service.ts` и сервисы чтения/записи слушателя — прозрачное шифрование/дешифрование серии/номера паспорта, СНИЛС.
 - Tests: round-trip шифрования; выборки/фильтры по СНИЛС по-прежнему работают (или отдельный хэш-индекс для поиска).
 
