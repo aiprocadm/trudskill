@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { SmtpMailer } from './smtp-mailer.service.js';
 
 describe('SmtpMailer', () => {
-  const config = { host: 'mail', port: 587, from: 'no-reply@cdoprof.local' };
+  const config = { host: 'mail', port: 587, from: 'no-reply@trudskill.local' };
 
   it('sends via the transport and maps the message id', async () => {
     const sendMail = vi.fn().mockResolvedValue({ messageId: 'abc-123' });
@@ -21,7 +21,7 @@ describe('SmtpMailer', () => {
     expect(result.status).toBe('sent');
     expect(result.providerMessageId).toBe('abc-123');
     expect(sendMail).toHaveBeenCalledWith({
-      from: 'no-reply@cdoprof.local',
+      from: 'no-reply@trudskill.local',
       to: 'learner@example.com',
       subject: 'S',
       text: 'B'

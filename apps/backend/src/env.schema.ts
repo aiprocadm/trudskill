@@ -206,12 +206,12 @@ export const backendEnvSchema = z
     /** VAPID private key (base64url). Required when WEB_PUSH_ENABLED=true. */
     VAPID_PRIVATE_KEY: z.string().min(1).optional(),
     /** VAPID subject — mailto: or https: contact for push services. */
-    VAPID_SUBJECT: z.string().min(1).default('mailto:no-reply@cdoprof.local'),
+    VAPID_SUBJECT: z.string().min(1).default('mailto:no-reply@trudskill.local'),
     SMTP_HOST: z.string().min(1).optional(),
     SMTP_PORT: z.coerce.number().int().positive().default(587),
     SMTP_USER: z.string().min(1).optional(),
     SMTP_PASSWORD: z.string().min(1).optional(),
-    SMTP_FROM: z.string().min(1).default('no-reply@cdoprof.local'),
+    SMTP_FROM: z.string().min(1).default('no-reply@trudskill.local'),
     SECRETS_PROVIDER: secretsProviderSchema.default('env'),
     AUTH_JWT_SECRET: z.string().min(10).optional(),
     SESSION_SECRET: z.string().min(10).optional(),

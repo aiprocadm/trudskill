@@ -248,7 +248,7 @@ describe('WEB_PUSH_ENABLED / VAPID env (Phase 10 Track C)', () => {
     expect(env.WEB_PUSH_ENABLED).toBe(false);
     expect(env.VAPID_PUBLIC_KEY).toBeUndefined();
     expect(env.VAPID_PRIVATE_KEY).toBeUndefined();
-    expect(env.VAPID_SUBJECT).toBe('mailto:no-reply@cdoprof.local');
+    expect(env.VAPID_SUBJECT).toBe('mailto:no-reply@trudskill.local');
   });
 
   it('never coerces the string "false" to true', () => {
