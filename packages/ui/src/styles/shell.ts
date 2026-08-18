@@ -119,6 +119,11 @@ export const shellStyles = `
   font-size: 14px;
   min-width: 0;
   flex: 1 1 200px;
+  /* Длинный заголовок раздела раньше уезжал ПОД поиск (запись 107): хвост
+     крошек обрезается многоточием, а не наезжает на соседей. */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .app-shell__crumb { white-space: nowrap; }
 .app-shell__crumb-link { color: var(--ui-text-muted); text-decoration: none; }

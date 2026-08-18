@@ -95,7 +95,6 @@ export const roleBlueprints: RoleBlueprint[] = [
     primaryNav: [
       '/groups',
       '/teacher/review',
-      '/teacher/grading-center',
       '/learning/calendar',
       '/courses',
       '/notifications'

@@ -50,10 +50,18 @@ export function DocumentsScreen() {
         title="Шаблоны документов"
         subtitle="Бланки удостоверений, протоколов и приказов: настройка и выпуск"
         actions={
-          /* UI-007: одно первичное действие. Раньше им была кнопка «Обновить». */
-          <button type="button" className="ui-button--primary" onClick={() => setCreateOpen(true)}>
-            Создать шаблон
-          </button>
+          /* UI-007/UI-003: одно первичное действие И один акцент. Пока шаблонов нет,
+             первое действие предлагает сам пустой экран («Создать первый шаблон») —
+             кнопка в шапке дублировала бы коралл (запись 107). */
+          templates.length > 0 ? (
+            <button
+              type="button"
+              className="ui-button--primary"
+              onClick={() => setCreateOpen(true)}
+            >
+              Создать шаблон
+            </button>
+          ) : null
         }
       />
 

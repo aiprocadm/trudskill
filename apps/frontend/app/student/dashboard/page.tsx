@@ -1,10 +1,12 @@
-import { StudentDashboardScreen } from '../../../src/features/role-dashboards/role-widgets';
-import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
+import { redirect } from 'next/navigation';
 
+/*
+ * Запись 109 журнала — ⚠️ меняет поведение (ТЗ §4.9), владелец предупреждён в PR ДО слияния.
+ *
+ * «Главная учащегося» была сеткой виджетов-ссылок для роли слушателя и дублировала
+ * настоящую главную кабинета `/learner` (следующий шаг, курсы, документы) — два входа
+ * в один кабинет и чужой термин «учащийся». Адрес сохранён редиректом.
+ */
 export default function StudentDashboardPage() {
-  return (
-    <ProtectedPage>
-      <StudentDashboardScreen />
-    </ProtectedPage>
-  );
+  redirect('/learner');
 }

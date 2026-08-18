@@ -1,10 +1,12 @@
-import { TeacherGradingCenterScreen } from '../../../src/features/role-dashboards/role-widgets';
-import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
+import { redirect } from 'next/navigation';
 
+/*
+ * Запись 109 журнала — ⚠️ меняет поведение (ТЗ §4.9), владелец предупреждён в PR ДО слияния.
+ *
+ * «Центр проверки работ» был сеткой виджетов для роли `teacher`, которой нет ни в одной
+ * живой базе (запись 21) — реальные роли видели здесь пустое «нет виджетов». Настоящий
+ * экран проверки работ — `/teacher/review`. Адрес сохранён редиректом.
+ */
 export default function TeacherGradingCenterPage() {
-  return (
-    <ProtectedPage>
-      <TeacherGradingCenterScreen />
-    </ProtectedPage>
-  );
+  redirect('/teacher/review');
 }

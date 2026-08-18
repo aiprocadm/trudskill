@@ -154,10 +154,12 @@ describe('navigation helpers', () => {
     expect(resolveRouteMeta('/crm/deals')).not.toBeNull();
   });
 
-  it('nav: латинские метки русифицированы', () => {
-    const label = (href: string) => navigationModel.find((i) => i.href === href)?.label ?? '';
-    expect(label('/student/dashboard')).toBe('Панель студента');
-    expect(label('/teacher/grading-center')).toBe('Центр проверки работ');
+  it('nav: адреса-редиректы записи 109 из меню убраны', () => {
+    // Фаза 6 срез 8: «Панель студента» и «Центр проверки работ» стали редиректами
+    // (/learner и /teacher/review) — пункт меню на редирект был бы вторым входом.
+    const hrefs = navigationModel.map((i) => i.href);
+    expect(hrefs).not.toContain('/student/dashboard');
+    expect(hrefs).not.toContain('/teacher/grading-center');
   });
 
   /*
