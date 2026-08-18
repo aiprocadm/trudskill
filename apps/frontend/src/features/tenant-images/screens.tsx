@@ -1,8 +1,8 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { LoadingState } from '@trudskill/ui';
-import { useRef, useState } from 'react';
+import { FilePicker, LoadingState } from '@trudskill/ui';
+import { useState } from 'react';
 
 import {
   TENANT_IMAGE_MIMES,
@@ -42,7 +42,6 @@ const MAX_BYTES = 5 * 1024 * 1024;
 export function TenantImagesSection() {
   const { session } = useAuth();
   const queryClient = useQueryClient();
-  const inputs = useRef<Partial<Record<TenantImageSlot, HTMLInputElement | null>>>({});
 
   const [widths, setWidths] = useState<Partial<Record<TenantImageSlot, string>>>({});
   const [busySlot, setBusySlot] = useState<TenantImageSlot | null>(null);
@@ -148,18 +147,13 @@ export function TenantImagesSection() {
                 </p>
                 <p>{current ? 'Загружена' : 'Не загружена — бланк напечатается без неё'}</p>
                 <div className="ui-inline">
-                  <input
-                    ref={(node) => {
-                      inputs.current[slot] = node;
-                    }}
-                    type="file"
+                  <FilePicker
+                    ariaLabel={`${title}: выбрать файл`}
                     accept={TENANT_IMAGE_MIMES.join(',')}
-                    aria-label={`${title}: выбрать файл`}
                     disabled={busySlot !== null}
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
+                    resetAfterSelect
+                    onSelect={(file) => {
                       if (file) void upload(slot, file);
-                      event.target.value = '';
                     }}
                   />
                   <label>

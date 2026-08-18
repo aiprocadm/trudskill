@@ -4,21 +4,12 @@ import { DataTable, StatusChip } from '@trudskill/ui';
 
 import { signatureBadgeLabel } from './signature-badge';
 import { SectionCard, SectionEmpty } from '../../components/state-wrappers';
+// Словарь видов и формат дат — из общего слоя: здесь жила ЧЕТВЁРТАЯ копия словаря.
+import { DOCUMENT_TYPE_LABELS, formatDate } from '../mvp/screen-helpers';
 
 import type { LearnerDocument } from './types';
 import type { Column } from '@trudskill/ui';
 import type { ReactElement } from 'react';
-
-const DOCUMENT_TYPE_LABELS: Record<string, string> = {
-  certificate: 'Удостоверение',
-  protocol: 'Протокол',
-  order: 'Приказ',
-  diploma: 'Диплом',
-  attestation: 'Свидетельство об аттестации',
-  reference: 'Справка',
-  report: 'Отчёт',
-  contract: 'Договор'
-};
 
 interface Props {
   title?: string;
@@ -28,8 +19,7 @@ interface Props {
 }
 
 const downloadStubMessage =
-  'Скачивание PDF пока недоступно.\n\n' +
-  'Подлинность документа можно проверить по QR-коду на странице публичной проверки.';
+  'Скачивание PDF пока недоступно — подлинность можно проверить по QR-коду (ссылка «Проверить»)';
 
 const handleDownloadClick = (
   doc: LearnerDocument,
@@ -39,19 +29,18 @@ const handleDownloadClick = (
     onDownload(doc);
     return;
   }
-  if (!doc.isDownloadable) {
-    window.alert(downloadStubMessage);
-    return;
-  }
+  // Недоступное скачивание не притворяется живой кнопкой: она выключена (см. ниже),
+  // сюда такой клик не доходит. Браузерных окон в интерфейсе нет (CMP-006).
+  if (!doc.isDownloadable) return;
   window.open(doc.downloadUrl, '_blank', 'noopener,noreferrer');
 };
 
 /**
  * Phase 1 §4.3 — табличный вид «Мои документы».
  *
- * Скачивание stub до Phase 5: если `isDownloadable=false`, клик показывает
- * alert «в разработке» вместо открытия URL. Если есть `qrToken`, добавляем
- * ссылку «Проверить подлинность» — она работает прямо сейчас, не зависит от PDF.
+ * Пока PDF не выпускается (`isDownloadable=false`), кнопка «Скачать» выключена
+ * с пояснением в подсказке. Если есть `qrToken`, добавляем ссылку «Проверить» —
+ * она работает прямо сейчас, не зависит от PDF.
  */
 export function LearnerDocumentsList({
   title = 'Мои документы',
@@ -90,7 +79,7 @@ export function LearnerDocumentsList({
     const sigBadge = signatureBadgeLabel(d.signatureStatus);
     return {
       documentNumber: d.documentNumber ?? '—',
-      documentDate: d.documentDate ?? '—',
+      documentDate: formatDate(d.documentDate),
       documentType: DOCUMENT_TYPE_LABELS[d.documentType] ?? d.documentType,
       courseTitle: d.courseTitle || '—',
       statusView: (
@@ -109,9 +98,11 @@ export function LearnerDocumentsList({
             type="button"
             className="ui-button ui-button--ghost"
             data-testid={`download-${d.id}`}
+            disabled={!d.isDownloadable && !onDownload}
+            {...(d.isDownloadable || onDownload ? {} : { title: downloadStubMessage })}
             onClick={() => handleDownloadClick(d, onDownload)}
           >
-            {d.isDownloadable ? 'Скачать' : 'Скачать (скоро)'}
+            Скачать
           </button>
           {d.qrToken ? (
             <a
@@ -147,7 +138,7 @@ function RevocationNotes({ documents }: { documents: LearnerDocument[] }): React
       <ul>
         {revoked.map((d) => (
           <li key={d.id}>
-            {d.documentNumber ?? d.id}: {d.revocationReason}
+            {d.documentNumber ?? 'Документ без номера'}: {d.revocationReason}
           </li>
         ))}
       </ul>

@@ -1,6 +1,6 @@
 'use client';
 
-import { LoadingState } from '@trudskill/ui';
+import { FilePicker, LoadingState } from '@trudskill/ui';
 import { useState } from 'react';
 
 import {
@@ -117,11 +117,11 @@ export function SubmissionScreen({ assignmentId }: { assignmentId: string }) {
       </SectionCard>
 
       <SectionCard title="Файл">
-        <input
-          type="file"
+        <FilePicker
+          ariaLabel="Файл практической работы"
           disabled={!editable || uploadFile.isPending}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
+          resetAfterSelect
+          onSelect={(file) => {
             if (file) void onUpload(file);
           }}
         />

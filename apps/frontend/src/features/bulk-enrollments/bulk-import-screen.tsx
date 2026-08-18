@@ -1,8 +1,8 @@
 'use client';
 
-import { LoadingState, OperationOutcome, WizardSteps } from '@trudskill/ui';
+import { FilePicker, LoadingState, OperationOutcome, WizardSteps } from '@trudskill/ui';
 import Link from 'next/link';
-import { type ChangeEvent, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { parseExcelBuffer } from './excel-parser';
 import { useBulkImportMutation } from './hooks';
@@ -54,8 +54,7 @@ export const BulkImportScreen = () => {
   const groups = useGroupsList({ page: 1, page_size: 100 });
   const mutation = useBulkImportMutation();
 
-  const onFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const onFileChange = async (file: File | null) => {
     if (!file) return;
     setFileName(file.name);
     mutation.reset();
@@ -124,16 +123,15 @@ export const BulkImportScreen = () => {
               <strong>СНИЛС</strong> и <strong>Должность</strong>. Заголовки можно писать привычными
               словами: «Имя» вместо «ФИО» система поймёт.
             </p>
-            <label className="ui-field">
+            <div className="ui-field">
               <span className="ui-field-label">Файл Excel или CSV</span>
-              <input
-                type="file"
+              <FilePicker
+                ariaLabel="Файл со списком слушателей"
                 accept=".xlsx,.xls,.csv"
-                onChange={(e) => void onFileChange(e)}
-                aria-label="Файл со списком слушателей"
+                fileName={fileName}
+                onSelect={(file) => void onFileChange(file)}
               />
-            </label>
-            {fileName ? <p className="ui-hint">Выбран файл: {fileName}</p> : null}
+            </div>
             {parseErrors.length > 0 ? (
               <SectionError message={parseErrors.map((e) => e.message).join('; ')} />
             ) : null}

@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, FilterBar, LoadingState } from '@trudskill/ui';
+import { DataTable, FilePicker, FilterBar, LoadingState } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { govExportApi } from './api';
@@ -475,11 +475,11 @@ export const GovExportScreen = () => {
                       >
                         Скачать
                       </button>
-                      <input
-                        type="file"
+                      <FilePicker
+                        ariaLabel="Файл ответа ведомства (.xlsx)"
                         accept=".xlsx"
-                        onChange={(ev) => {
-                          const file = ev.target.files?.[0];
+                        resetAfterSelect
+                        onSelect={(file) => {
                           if (file) void onUploadResponse(batch.id, file);
                         }}
                       />

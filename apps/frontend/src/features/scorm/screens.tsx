@@ -1,7 +1,7 @@
 'use client';
 
-import { DataTable, LoadingState, StatusChip, useConfirmDialog } from '@trudskill/ui';
-import { useRef, useState } from 'react';
+import { DataTable, FilePicker, LoadingState, StatusChip, useConfirmDialog } from '@trudskill/ui';
+import { useState } from 'react';
 
 import { putFileToPresignedUrl, scormApi } from './api';
 import { useScormPackages } from './hooks';
@@ -85,14 +85,14 @@ export function ScormPackagesScreen(): ReactElement {
   const { session } = useAuth();
   const { packages, loading, error, reload } = useScormPackages();
 
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [packageFile, setPackageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const handleUpload = async () => {
     if (!session) return;
-    const file = fileInputRef.current?.files?.[0];
+    const file = packageFile;
     if (!file) {
       setUploadError('Выберите zip-файл с SCORM-пакетом.');
       return;
@@ -114,7 +114,7 @@ export function ScormPackagesScreen(): ReactElement {
       });
       await scormApi.process(session, pkg.id);
       // Reset input
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      setPackageFile(null);
       reload();
     } catch (err) {
       setUploadError(readErrorMessage(err));
@@ -239,11 +239,12 @@ export function ScormPackagesScreen(): ReactElement {
       <SectionCard title="Загрузить пакет">
         {uploadError ? <SectionError message={uploadError} /> : null}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <input
-            ref={fileInputRef}
-            type="file"
+          <FilePicker
+            ariaLabel="Zip-файл с SCORM-пакетом"
             accept=".zip,application/zip,application/x-zip-compressed"
             disabled={uploading}
+            fileName={packageFile?.name ?? null}
+            onSelect={setPackageFile}
           />
           <button type="button" onClick={() => void handleUpload()} disabled={uploading}>
             {uploading ? 'Загрузка...' : 'Загрузить'}
