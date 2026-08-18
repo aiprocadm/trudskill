@@ -339,7 +339,7 @@ Frontend:
 
 ## 9. Связь с базовой документацией
 
-- [SDOPROF_TZ_FINAL.md](../../../SDOPROF_TZ_FINAL.md) §13 «Тестирование (банк)» — продуктовые требования
+- [TZ_TRUDSKILL_BASE.md](../../../TZ_TRUDSKILL_BASE.md) §13 «Тестирование (банк)» — продуктовые требования
 - [LMS_AGENT_HANDOFF.md](../../../LMS_AGENT_HANDOFF.md) §5.15-5.18 — Pillar A hardening assessment (cross_learner / act_as / IDOR / lifecycle locks)
 - [docs/TZ_MVP_TRACEABILITY.md](../../TZ_MVP_TRACEABILITY.md) — BL → файлы (BL-008 для assessment)
 - [README.md](../../../README.md) §1 «Канонический E2E» — что регрессит при изменении assessment

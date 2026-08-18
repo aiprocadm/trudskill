@@ -39,4 +39,4 @@
 - **Health / readiness:** используйте эндпоинты модуля health backend; в Docker задайте `depends_on` и политику перезапуска для `postgres`, `redis`, `rabbitmq`.
 - **Логи:** worker пишет структурированные JSON-события (`service_name: worker`); backend — стандартный NestJS logger. При согласованных числовых NFR подключите алерты по росту `5xx` и недоступности health.
 - **Очередь массовых назначений:** при `deliveryMode: queued` на `POST /enrollments/bulk` должны работать RabbitMQ, `apps/worker` и совпадающие `WORKER_CALLBACK_SECRET` / `WORKER_CALLBACK_TOKEN` (см. `apps/backend/.env.example`, `apps/worker/.env.example`).
-- **Нагрузка:** после фиксации SLA в NFR — отдельный профиль на `POST /enrollments/bulk` и отчёты (см. SDOPROF_TZ_FINAL.md §706–709).
+- **Нагрузка:** после фиксации SLA в NFR — отдельный профиль на `POST /enrollments/bulk` и отчёты (см. TZ_TRUDSKILL_BASE.md §706–709).

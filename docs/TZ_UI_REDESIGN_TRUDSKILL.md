@@ -2,7 +2,7 @@
 
 > **Статус документа: дельта-ТЗ уровня 2** — наравне с `TZ_TRUDSKILL_ARENDNAYA_SDO.md`, но по своему предмету: **представление (интерфейс)**.
 > При конфликте **по вопросам представления** (навигация, вёрстка, палитра, компоненты, тексты интерфейса) приоритет у этого документа.
-> При конфликте **по вопросам поведения, функций и прав** приоритет у `TZ_TRUDSKILL_ARENDNAYA_SDO.md` (его §15.1) и `SDOPROF_TZ_FINAL.md`.
+> При конфликте **по вопросам поведения, функций и прав** приоритет у `TZ_TRUDSKILL_ARENDNAYA_SDO.md` (его §15.1) и `TZ_TRUDSKILL_BASE.md`.
 > Порядок чтения для агента — `docs/DOCUMENTATION_MAP.md#agent-handoff-protocol`.
 
 **Дата аудита:** 2026-08-11. **Ветка на момент аудита:** `main`.
@@ -1194,13 +1194,13 @@ breadcrumbsSlot?: ReactNode;
 **Файлов со старым брендом в имени — четыре:**
 
 ```
-SDOPROF_TZ_FINAL.md
+TZ_TRUDSKILL_BASE.md
 docs/superpowers/specs/2026-05-21-cdoprof-redesign-design.md      ← не трогаем (BR-001)
 docs/superpowers/specs/2026-06-06-cdoprof-visual-design-system.md ← не трогаем (BR-001)
 docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md           ← не трогаем (BR-001)
 ```
 
-`ID: BR-040.` ⚠️ **Переименование `SDOPROF_TZ_FINAL.md` дороже, чем кажется.** На него ссылаются: `AGENTS.md`, `README.md` (несколько раз), `docs/DOCUMENTATION_MAP.md` (**шесть раз**), `docs/TZ_MVP_TRACEABILITY.md`, `.cursor/rules/lms-multi-agent-handoff.mdc`. Часть ссылок — **с якорями**:
+`ID: BR-040.` ⚠️ **Переименование `TZ_TRUDSKILL_BASE.md` дороже, чем кажется.** На него ссылаются: `AGENTS.md`, `README.md` (несколько раз), `docs/DOCUMENTATION_MAP.md` (**шесть раз**), `docs/TZ_MVP_TRACEABILITY.md`, `.cursor/rules/lms-multi-agent-handoff.mdc`. Часть ссылок — **с якорями**:
 
 ```
 #47-приложение-б-фиксация-границ-пилота-must--вне-scope
@@ -1289,7 +1289,7 @@ infra: backup-scripts.test.ts
 
 ### Фаза 7 · Ребрендинг A и D (безопасные)
 
-Тексты, видимые пользователю; документация; `BR-040` (переименование `SDOPROF_TZ_FINAL.md` со всеми ссылками); `BR-032` (`SMTP_FROM`).
+Тексты, видимые пользователю; документация; `BR-040` (переименование `TZ_TRUDSKILL_BASE.md` со всеми ссылками); `BR-032` (`SMTP_FROM`).
 
 ### Фаза 8 · Ребрендинг B и C (окно обслуживания)
 
@@ -1492,7 +1492,7 @@ infra: backup-scripts.test.ts
 **`AGENTS.md`** — порядок чтения дополняется только при работе по интерфейсу:
 
 ```markdown
-Для задач по интерфейсу после `SDOPROF_TZ_FINAL.md` читать `docs/TZ_UI_REDESIGN_TRUDSKILL.md`.
+Для задач по интерфейсу после `TZ_TRUDSKILL_BASE.md` читать `docs/TZ_UI_REDESIGN_TRUDSKILL.md`.
 ```
 
 ---

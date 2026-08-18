@@ -5,8 +5,8 @@
 | Дата           | 2026-05-30                                                                                                                                                      |
 | Автор          | AI Agent (brainstorming-сессия по 8 инструкциям инкумбента)                                                                                                     |
 | Статус         | Черновик на ревью владельца                                                                                                                                     |
-| Тип            | Продуктовая дорожная карта (gap-анализ паритета), дополняет — не заменяет — `SDOPROF_TZ_FINAL.md` §41 и [V1 roadmap](../plans/2026-05-21-cdoprof-v1-roadmap.md) |
-| Связанные SSOT | `SDOPROF_TZ_FINAL.md` §13–§23 (фич-разделы) и §41/§47 (backlog BL-001…012); `docs/TZ_MVP_TRACEABILITY.md` (BL → код)                                            |
+| Тип            | Продуктовая дорожная карта (gap-анализ паритета), дополняет — не заменяет — `TZ_TRUDSKILL_BASE.md` §41 и [V1 roadmap](../plans/2026-05-21-cdoprof-v1-roadmap.md) |
+| Связанные SSOT | `TZ_TRUDSKILL_BASE.md` §13–§23 (фич-разделы) и §41/§47 (backlog BL-001…012); `docs/TZ_MVP_TRACEABILITY.md` (BL → код)                                            |
 
 ---
 
