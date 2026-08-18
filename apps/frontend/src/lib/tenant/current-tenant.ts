@@ -1,4 +1,4 @@
-import { TENANT_CODE_COOKIE } from './host-resolve';
+import { LEGACY_TENANT_CODE_COOKIE, TENANT_CODE_COOKIE } from './host-resolve';
 import { apiRequest } from '../api/client';
 import { frontendEnv } from '../config/env';
 
@@ -19,16 +19,29 @@ export interface PublicTenantDto {
   status: 'trial' | 'active' | 'suspended' | 'archived';
 }
 
-/** Чтение cookie без зависимостей: middleware ставит её не HttpOnly именно для этого. */
-export const readTenantCodeCookie = (cookieHeader: string | undefined | null): string | null => {
-  if (!cookieHeader) return null;
+const readCookieByName = (cookieHeader: string, cookieName: string): string | null => {
   const entry = cookieHeader
     .split(';')
     .map((part) => part.trim())
-    .find((part) => part.startsWith(`${TENANT_CODE_COOKIE}=`));
+    .find((part) => part.startsWith(`${cookieName}=`));
   if (!entry) return null;
-  const value = entry.slice(TENANT_CODE_COOKIE.length + 1);
+  const value = entry.slice(cookieName.length + 1);
   return value.length > 0 ? decodeURIComponent(value) : null;
+};
+
+/**
+ * Чтение cookie без зависимостей: middleware ставит её не HttpOnly именно для этого.
+ *
+ * BR-020: период двойного чтения — новое имя, при отсутствии прежнее. Без этого у
+ * человека, зашедшего по адресу своего центра до выкатки, код арендатора «потерялся» бы
+ * до следующего прохода middleware.
+ */
+export const readTenantCodeCookie = (cookieHeader: string | undefined | null): string | null => {
+  if (!cookieHeader) return null;
+  return (
+    readCookieByName(cookieHeader, TENANT_CODE_COOKIE) ??
+    readCookieByName(cookieHeader, LEGACY_TENANT_CODE_COOKIE)
+  );
 };
 
 let cachedTenantId: string | null = null;

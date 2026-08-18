@@ -13,7 +13,7 @@ vi.mock('../lib/auth/auth-api', () => ({ authApi: authApiMock }));
 import { sessionManager } from '../lib/auth/session-manager';
 import { sessionStore } from '../lib/auth/session-store';
 
-const KEY = 'cdoprof.session.v1';
+const KEY = 'trudskill.session.v1';
 const originalWindow = globalThis.window;
 
 const createLocalStorage = () => {

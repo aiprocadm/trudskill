@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 
-import { TENANT_CODE_COOKIE, resolveTenantHost } from './src/lib/tenant/host-resolve';
+import {
+  LEGACY_TENANT_CODE_COOKIE,
+  TENANT_CODE_COOKIE,
+  resolveTenantHost
+} from './src/lib/tenant/host-resolve';
 
 import type { NextRequest } from 'next/server';
 
@@ -41,9 +45,13 @@ export function middleware(request: NextRequest): NextResponse {
       sameSite: 'lax',
       httpOnly: false
     });
+    // Запись = миграция: прежнее имя гасится сразу, а не только на уходе с поддомена.
+    response.cookies.delete(LEGACY_TENANT_CODE_COOKIE);
   } else {
     // Ушли с поддомена на базовый домен — прежняя подсказка врала бы про арендатора.
+    // BR-020: гасим и прежнее имя, иначе оно переживёт выкатку и будет читаться дальше.
     response.cookies.delete(TENANT_CODE_COOKIE);
+    response.cookies.delete(LEGACY_TENANT_CODE_COOKIE);
   }
   return response;
 }
