@@ -2,6 +2,7 @@
 
 import {
   DetailLayout,
+  FilePicker,
   FormField,
   KeyValueList,
   ListPage,
@@ -122,25 +123,27 @@ export function LearnerIdentityScreen(): ReactElement {
       {canSubmit ? (
         <SectionCard title="Загрузить документы">
           <div className="ui-stack">
-            <label className="ui-stack">
+            <div className="ui-stack">
               <span>Селфи (фото лица)</span>
-              <input
-                type="file"
+              <FilePicker
+                ariaLabel="Селфи (фото лица)"
                 accept="image/png,image/jpeg"
                 disabled={submission.isPending}
-                onChange={(e) => setSelfie(e.target.files?.[0] ?? null)}
+                fileName={selfie?.name ?? null}
+                onSelect={setSelfie}
               />
-            </label>
+            </div>
 
-            <label className="ui-stack">
+            <div className="ui-stack">
               <span>Фото разворота паспорта</span>
-              <input
-                type="file"
+              <FilePicker
+                ariaLabel="Фото разворота паспорта"
                 accept="image/png,image/jpeg,application/pdf"
                 disabled={submission.isPending}
-                onChange={(e) => setPassport(e.target.files?.[0] ?? null)}
+                fileName={passport?.name ?? null}
+                onSelect={setPassport}
               />
-            </label>
+            </div>
 
             <label className="ui-inline">
               <input

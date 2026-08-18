@@ -1,8 +1,8 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { DataTable, LoadingState } from '@trudskill/ui';
-import { useRef, useState } from 'react';
+import { DataTable, FilePicker, LoadingState } from '@trudskill/ui';
+import { useState } from 'react';
 
 import { documentsApi } from './api';
 import {
@@ -60,7 +60,7 @@ export const TemplateSetupSection = ({
 }) => {
   const { session } = useAuth();
   const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [blankFile, setBlankFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [parseResult, setParseResult] = useState<TemplateParseResult | null>(null);
   const [previewing, setPreviewing] = useState(false);
@@ -87,7 +87,7 @@ export const TemplateSetupSection = ({
    */
   const uploadTemplateVersion = async () => {
     if (!session || !templateId) return;
-    const file = fileInputRef.current?.files?.[0];
+    const file = blankFile;
     if (!file) {
       onError('Выберите файл бланка в формате .docx');
       return;
@@ -108,7 +108,7 @@ export const TemplateSetupSection = ({
       await templatesApi.activateVersion(session, created.id);
       // Сразу показываем, что система распознала в бланке (ФТ-A3.2).
       setParseResult(await templatesApi.parseVariables(session, created.id));
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      setBlankFile(null);
       await queryClient.invalidateQueries({ queryKey: ['documents'] });
       await queryClient.invalidateQueries({ queryKey: ['template-versions'] });
       await queryClient.invalidateQueries({ queryKey: ['template-variables'] });
@@ -209,12 +209,12 @@ export const TemplateSetupSection = ({
         />
       )}
       <div className="ui-inline">
-        <input
-          ref={fileInputRef}
-          type="file"
+        <FilePicker
+          ariaLabel="Файл бланка в формате .docx"
           accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           disabled={uploading}
-          aria-label="Файл бланка в формате .docx"
+          fileName={blankFile?.name ?? null}
+          onSelect={setBlankFile}
         />
         <button
           type="button"

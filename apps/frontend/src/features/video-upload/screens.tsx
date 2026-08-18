@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { LoadingState, StatusChip } from '@trudskill/ui';
+import { FilePicker, LoadingState, StatusChip } from '@trudskill/ui';
 import { useState } from 'react';
 
 import {
@@ -134,15 +134,13 @@ export function VideoUploadSection() {
             aria-label="ID материала"
           />
         </label>
-        <input
-          type="file"
+        <FilePicker
+          ariaLabel="Выбрать видеофайл"
           accept={VIDEO_MIME_TYPES.join(',')}
-          aria-label="Выбрать видеофайл"
           disabled={busy}
-          onChange={(event) => {
-            const file = event.target.files?.[0];
+          resetAfterSelect
+          onSelect={(file) => {
             if (file) void upload(file);
-            event.target.value = '';
           }}
         />
       </div>

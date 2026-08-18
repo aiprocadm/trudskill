@@ -18,20 +18,14 @@ const TRAINING_TYPE_LABELS: Record<string, string> = {
 
 /**
  * Pillar A Plan C §5.11 — секции «Учебная история», «Выданные документы»
- * и кнопка PDF-экспорта для карточки ученика.
+ * и кнопка PDF-экспорта для карточки слушателя.
  *
- * PDF-кнопка показывает alert «В разработке» — реальный binary render
+ * PDF-кнопка выключена с пояснением рядом — реальный binary render
  * отложен до Phase 5 (см. deviation в Plan C Task 12).
  */
 export function LearnerPdfCardSections({ learnerId }: { learnerId: string }) {
   const { data, isLoading, error } = useLearnerPdfCard(learnerId);
 
-  const onExportPdf = () => {
-    window.alert(
-      'Экспорт PDF-карточки слушателя пока недоступен.\n\n' +
-        'Данные карточки можно просмотреть в секциях выше.'
-    );
-  };
 
   if (isLoading) return <LoadingState message="Загружаем карточку слушателя…" />;
   if (error) return <SectionError message="Не удалось загрузить карточку слушателя" />;
@@ -46,10 +40,15 @@ export function LearnerPdfCardSections({ learnerId }: { learnerId: string }) {
         <p>СНИЛС: {data.learner.snils ?? '—'}</p>
         <p>Должность: {data.learner.position ?? '—'}</p>
         <p>Личный номер: {data.learner.learnerNo ?? '—'}</p>
-        <p>
-          <button type="button" className="ui-button" onClick={onExportPdf}>
+        <p className="ui-inline">
+          {/* Недоступное действие не притворяется живой кнопкой и не открывает
+              браузерное окно (CMP-006): выключено с пояснением рядом. */}
+          <button type="button" className="ui-button" disabled>
             Экспорт PDF: карточка слушателя
           </button>
+          <span className="ui-hint">
+            Выгрузка в PDF появится позже — данные карточки уже видны в секциях выше.
+          </span>
         </p>
       </SectionCard>
 
@@ -103,7 +102,7 @@ export function LearnerPdfCardSections({ learnerId }: { learnerId: string }) {
             ]}
             rows={data.documents.map((d) => ({
               documentNumber: d.documentNumber ?? '—',
-              documentDate: d.documentDate ?? '—',
+              documentDate: formatDate(d.documentDate),
               documentType: DOCUMENT_TYPE_LABELS[d.documentType] ?? d.documentType,
               statusView: <StatusChip status={d.status} />
             }))}

@@ -10,6 +10,14 @@ button,.ui-button,.ui-button-primary,.ui-button-secondary,.ui-button-ghost,.ui-b
 /* Ссылка в одежде кнопки (тег a с классом ui-button): без сброса подчёркивание и inline-высота
    выдают в ней ссылку. Правило узкое, чтобы не менять раскладку настоящих кнопок. */
 a.ui-button, a.ui-button-primary, a.ui-button-secondary { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+/* Выбор файла: настоящий input скрыт, но остаётся в фокусном порядке — фокус и
+   недоступность отражаются на видимой кнопке-обёртке. */
+.ui-file-picker { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; }
+.ui-file-picker__input { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.ui-file-picker__button { display: inline-flex; align-items: center; justify-content: center; }
+.ui-file-picker__input:focus-visible ~ .ui-file-picker__button { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.ui-file-picker__input:disabled ~ .ui-file-picker__button { opacity: 0.5; cursor: not-allowed; }
+.ui-file-picker__name { color: var(--ui-text-muted); font-size: var(--ui-font-size-sm); }
 button:hover,.ui-button:hover { background: var(--ui-surface-muted); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 /* Главная кнопка-действие — коралл с тёмным текстом (AA 6.4:1; белый текст на коралле = 2.6:1, провал) */

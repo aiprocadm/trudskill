@@ -27,10 +27,11 @@ const FORBIDDEN = [
  * Экраны слушателя переделываются в Фазе 6, там же уйдут и эти окна: заменять их сейчас
  * значит чинить экран, который через фазу переписывается целиком.
  */
-const EXCEPTIONS = new Set([
-  'src/features/learner-documents/documents-list.tsx',
-  'src/features/learner-pdf-card/learner-pdf-card-sections.tsx'
-]);
+/*
+ * Исключений не осталось: обе заглушки скачивания на экранах слушателя заменены
+ * выключенными кнопками с пояснением (Фаза 6 срез 5). Сторож остаётся ловить новые окна.
+ */
+const EXCEPTIONS = new Set<string>([]);
 
 const collect = (dir: string, acc: string[] = []): string[] => {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
