@@ -64,7 +64,8 @@ export const MyCoursesList = ({ entries, loading }: Props) => {
                   {title}
                 </Link>
                 <StatusChip
-                  status={ENROLLMENT_STATUS_LABEL[entry.enrollment.status] ?? entry.enrollment.status}
+                  status={entry.enrollment.status}
+                  label={ENROLLMENT_STATUS_LABEL[entry.enrollment.status] ?? entry.enrollment.status}
                 />
               </div>
               <ProgressBar

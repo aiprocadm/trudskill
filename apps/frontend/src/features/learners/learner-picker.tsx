@@ -22,8 +22,16 @@ const NAMES_PAGE = { page: 1, pageSize: 100 } as const;
  * Пара к `useCourseNames` из подборщика курсов: экраны выводили `item.learnerId` прямо
  * значением — список зачисленных в группу состоял из идентификаторов вместо людей.
  */
-export const useLearnerNames = (): Map<string, string> => {
-  const { data } = useLearnersList(NAMES_PAGE);
+/*
+ * Справочник «идентификатор → фамилия». `enabled: false` — для экранов, которые видят
+ * и роли без права `learners.read` (например календарь у слушателя): без гейта хук
+ * дёргал бы запретную ручку и сыпал тосты «Permission denied» на каждый заход.
+ */
+export const useLearnerNames = (opts?: { enabled?: boolean }): Map<string, string> => {
+  const { data } = useLearnersList(NAMES_PAGE, {
+    enabled: opts?.enabled ?? true,
+    silent: true
+  });
   return useMemo(
     () =>
       new Map(

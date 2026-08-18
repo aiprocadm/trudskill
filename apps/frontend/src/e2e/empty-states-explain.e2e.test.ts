@@ -35,8 +35,6 @@ const PROP_WINDOW = 600;
  * порядок 10). Трогать их сейчас — значит переделывать экран дважды.
  */
 const KNOWN: Record<string, string> = {
-  'src/features/methodist-home/methodist-home-screen.tsx':
-    'волна 6: рабочий стол методиста — восемь блоков сроков, проверок и программ',
   /*
    * Сама обёртка состояний: она и есть то место, куда `hint` передаётся. Ветка без `hint`
    * существует из-за exactOptionalPropertyTypes — передать `hint={undefined}` нельзя.

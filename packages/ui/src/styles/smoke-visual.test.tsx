@@ -21,7 +21,9 @@ describe('ui style layers smoke/visual coverage', () => {
       'shell',
       'chat',
       'modal',
-      'courseViewer'
+      'courseViewer',
+      // Фаза 6 срез 4 (UI-021): стили календаря переехали из styled-jsx страницы.
+      'calendar'
     ]);
     expect(uiStyleLayers.layout).toContain('.ui-dashboard-grid');
     expect(uiStyleLayers.shell).toContain('.app-shell__nav');

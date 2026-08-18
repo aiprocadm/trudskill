@@ -92,8 +92,10 @@ export const LearnerCoursesScreen = () => {
                   <span className="course-card__banner" aria-hidden />
                   <div className="course-card__head">
                     <h3 className="course-card__title">{title}</h3>
+                    {/* Цвет чип берёт по коду статуса, слово — контекстное («Учится», не «Активен»). */}
                     <StatusChip
-                      status={ENROLLMENT_STATUS_LABEL[entry.enrollment.status] ?? entry.enrollment.status}
+                      status={entry.enrollment.status}
+                      label={ENROLLMENT_STATUS_LABEL[entry.enrollment.status] ?? entry.enrollment.status}
                     />
                   </div>
                   <div className="course-card__body">
