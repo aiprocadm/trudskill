@@ -19,16 +19,20 @@ import { APP_ROOT, fromApp } from './app-root';
  */
 
 const ROOTS = [fromApp('src', 'features'), fromApp('app')];
-const ID_PLACEHOLDER = /placeholder=["'][^"']*(?:\bID\b|\bid\b|_id|UUID)[^"']*["']/;
+/*
+ * Ловим и подписи со словом «ID», и образцы родного формата идентификаторов
+ * («mat_…», «group_…»): поле видео-загрузки с placeholder="mat_..." проходило
+ * мимо прежней записи — в образце не было слова «ID» (слепая зона, срез 6).
+ */
+const ID_PLACEHOLDER =
+  /placeholder=["'][^"']*(?:\bID\b|\bid\b|_id|UUID|\b[a-z]{2,12}_(?:\.\.\.|…))[^"']*["']/;
 
-/** Известные места на момент среза 9. Строка = файл + волна, в которую он попадает. */
-const KNOWN: Record<string, string> = {
-  'app/materials/page.tsx': 'волна 3: материалы — отбор по модулю',
-  'src/features/close-group/screens.tsx':
-    'волна 1 (закрытие группы вызывается из карточки, форма осталась прежней): группа, шаблоны, список сдавших',
-  'src/features/groups/group-details-screen.tsx':
-    'волна 1: добавление слушателя в группу по идентификатору'
-};
+/*
+ * Очередь пуста с фазы 6 среза 6: все 19 полей «вставьте идентификатор», найденные
+ * сплошным поиском в срезе 9, переведены на выбор по названию. Сторож остаётся —
+ * он ловит НОВОЕ такое поле в любом экране.
+ */
+const KNOWN: Record<string, string> = {};
 
 const collect = (dir: string, acc: string[] = []): string[] => {
   for (const entry of readdirSync(dir)) {

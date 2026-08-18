@@ -8,7 +8,7 @@ import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 import { CloseGroupSection } from '../close-group/screens';
 import { IssueOrderModal } from '../group-orders/issue-order-modal';
-import { learnerNameCell, useLearnerNames } from '../learners/learner-picker';
+import { LearnerSelect, learnerNameCell, useLearnerNames } from '../learners/learner-picker';
 import { LearningJournalSection } from '../learning-journal/screens';
 import {
   useCoursesList,
@@ -175,13 +175,8 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
             className="ui-inline"
             style={{ marginBottom: 8 }}
           >
-            <input
-              className="ui-input"
-              value={learnerId}
-              onChange={(event) => setLearnerId(event.target.value)}
-              placeholder="ID слушателя"
-              aria-label="Идентификатор слушателя"
-            />
+            {/* Фаза 6 срез 6 (id-input-ban): выбор по фамилии вместо «вставьте идентификатор». */}
+            <LearnerSelect value={learnerId} onChange={setLearnerId} />
             <button type="submit" className="ui-button-secondary" disabled={!learnerId.trim()}>
               Зачислить слушателя
             </button>
@@ -192,7 +187,7 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
                 {/* Список зачисленных состоял из идентификаторов вместо фамилий. */}
                 <span>{learnerNameCell(learnerNames, item.learnerId)}</span>
                 {/* TXT-006: статус словом, а не кодом `active`/`completed`. */}
-                <StatusChip status={ENROLLMENT_STATUS_LABEL[item.status] ?? item.status} />
+                <StatusChip status={item.status} label={ENROLLMENT_STATUS_LABEL[item.status] ?? item.status} />
                 {/* Phase 4 Plan B: per-student proctoring override (PATCH needs learners.write). */}
                 {session && hasPermission(session.permissions, 'learners.write') ? (
                   <label className="ui-inline" style={{ gap: 4 }}>
