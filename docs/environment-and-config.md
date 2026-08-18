@@ -52,6 +52,22 @@ Configuration is validated via Zod at startup (fail-fast).
   - demo tenant/settings/requisites baseline
   - baseline IAM users/roles/permissions/role bindings
 
+## Имена, оставленные от прежнего бренда (решение `BR-030`)
+
+Ребрендинг CDOProf → trudskill НЕ переименовывает:
+
+- **имя базы данных** `cdoprof` (`infra/docker-compose.yml`, строки подключения);
+- **бакет объектного хранилища** `cdoprof-dev` (`DOCUMENTS_STORAGE_BUCKET`).
+
+Это **данные, а не текст**: пользователь их не видит, а переименование требует остановки
+сервиса, дампа, восстановления и правки всех строк подключения — риск потери данных при
+нулевой пользе. Решение пересматривается только если появится независимая причина
+мигрировать БД или хранилище.
+
+Отдельной подкатегорией (`BR-031`, C-2) отложены переменные `CDOPROF_*` в скриптах
+резервного копирования: их переименование делается **последней задачей** ребрендинга,
+после успешного повторного прогона учений восстановления (`infra/restore-drill.sh`).
+
 ## Security notes
 
 - Production must not use development secrets.

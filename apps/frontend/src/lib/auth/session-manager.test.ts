@@ -138,4 +138,61 @@ describe('session manager', () => {
     expect(session).toBeNull();
     expect(state.session).toBeNull();
   });
+  /*
+   * При заходе прямо на страницу выхода память ВСЕГДА пуста: её заполняет только
+   * успешное восстановление сессии, а оно идёт четырьмя запросами. Если в этом случае
+   * просто почистить локальное хранилище, серверная сессия останется живой, cookie — тоже,
+   * и восстановление, идущее следом, немедленно вернёт человека в кабинет: «Выйти» не
+   * выходит, а на общем компьютере следующий садится под чужой учётной записью (ФТ-H6).
+   */
+  it('выход при пустой памяти поднимает сессию по cookie и отзывает её на сервере', async () => {
+    const { sessionStore } = await import('./session-store');
+    state.session = null;
+    authApiMock.refresh.mockResolvedValue({ accessToken: 'a9', sessionId: 's9', expiresIn: 30 });
+    authApiMock.me.mockResolvedValue({
+      id: 'u_tenant_admin',
+      tenantId: 'tenant_demo',
+      login: 'tenant_admin',
+      email: null,
+      status: 'active',
+      displayName: 'Tenant Admin',
+      permissions: []
+    });
+    authApiMock.userRoles.mockResolvedValue([{ code: 'tenant_admin' }]);
+    authApiMock.logout.mockResolvedValue(undefined);
+
+    await sessionManager.logout();
+
+    expect(authApiMock.refresh).toHaveBeenCalledTimes(1);
+    expect(authApiMock.logout).toHaveBeenCalledTimes(1);
+    expect(authApiMock.logout).toHaveBeenCalledWith({ sessionId: 's9' }, 'a9');
+    expect(sessionStore.clear).toHaveBeenCalled();
+  });
+
+  it('выход без действующей cookie просто чистит хранилище', async () => {
+    const { sessionStore } = await import('./session-store');
+    state.session = null;
+    authApiMock.refresh.mockRejectedValue(new Error('401'));
+
+    await sessionManager.logout();
+
+    expect(authApiMock.logout).not.toHaveBeenCalled();
+    expect(sessionStore.clear).toHaveBeenCalled();
+  });
+
+  it('обычный выход зовёт ручку и тоже чистит хранилище', async () => {
+    const { sessionStore } = await import('./session-store');
+    state.session = {
+      user: { id: 'u1' },
+      tokens: { accessToken: 'a', sessionId: 's1', expiresIn: 10 },
+      roles: [],
+      permissions: []
+    };
+    authApiMock.logout.mockResolvedValue(undefined);
+
+    await sessionManager.logout();
+
+    expect(authApiMock.logout).toHaveBeenCalledTimes(1);
+    expect(sessionStore.clear).toHaveBeenCalledTimes(1);
+  });
 });

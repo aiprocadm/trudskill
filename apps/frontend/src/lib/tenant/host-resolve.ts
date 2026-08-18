@@ -59,5 +59,12 @@ export const resolveTenantHost = (
   return { kind: 'tenant', code: label };
 };
 
-/** Имя cookie с кодом арендатора: ставит middleware, читает клиентский код. */
-export const TENANT_CODE_COOKIE = 'cdoprof_tenant_code';
+/**
+ * Имя cookie с кодом арендатора: ставит middleware, читает клиентский код.
+ *
+ * BR-020/BR-022 — выкатка N периода двойного чтения: пишем всегда новое имя, читаем
+ * новое → при отсутствии старое, при удалении гасим оба.
+ */
+export const TENANT_CODE_COOKIE = 'trudskill_tenant_code';
+/** Прежнее имя — только на период двойного чтения (60 дней). */
+export const LEGACY_TENANT_CODE_COOKIE = 'cdoprof_tenant_code';

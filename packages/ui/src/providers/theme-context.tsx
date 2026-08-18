@@ -22,4 +22,10 @@ export const useUiTheme = (): UiThemeContextValue => {
   return ctx;
 };
 
-export const UI_THEME_STORAGE_KEY = 'cdoprof-ui-theme';
+/*
+ * BR-023 / UI-027 — выкатка N периода двойного чтения: прямое переименование сбросило бы
+ * выбранную тему у всех. Читаем новый ключ → при отсутствии старый, пишем всегда новый.
+ */
+export const UI_THEME_STORAGE_KEY = 'trudskill-ui-theme';
+/** Прежний ключ — только на период двойного чтения (60 дней). */
+export const LEGACY_UI_THEME_STORAGE_KEY = 'cdoprof-ui-theme';
