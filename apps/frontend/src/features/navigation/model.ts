@@ -552,18 +552,6 @@ export const navigationModel: NavigationItem[] = [
     navSlot: 'more'
   },
   {
-    href: '/student/dashboard',
-    label: 'Панель студента',
-    requiredPermissions: ['enrollments.read'],
-    navSlot: 'more'
-  },
-  {
-    href: '/teacher/grading-center',
-    label: 'Центр проверки работ',
-    requiredPermissions: ['assessment.reviews.review'],
-    navSlot: 'more'
-  },
-  {
     href: '/admin/analytics',
     label: 'Аналитика',
     requiredPermissions: ['learners.read'],

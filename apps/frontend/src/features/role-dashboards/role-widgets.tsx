@@ -12,7 +12,8 @@ import {
 /*
  * Перенесены «как есть» из features/mvp/screens.tsx (§8.3, порядок 10 — последний;
  * правило SCR-001: перенос и редизайн не смешиваются в одном коммите).
- * Три экрана-обёртки над общей сеткой виджетов по ролям.
+ * Экран-обёртка над сеткой виджетов по ролям (осталась админская «Панель
+ * администратора» на /workspace; экраны учащегося/учителя стали редиректами — запись 109).
  */
 
 const normalizeRoleCode = (role: string) => {
@@ -36,60 +37,6 @@ interface RoleWidget {
 }
 
 const roleWidgets: RoleWidget[] = [
-  {
-    title: 'Продолжить обучение',
-    note: 'Вернуться к последнему модулю и материалу.',
-    href: '/learner/courses',
-    allowedRoles: ['learner']
-  },
-  {
-    title: 'Ближайшие сроки',
-    note: 'Проверить задания и тесты на ближайшие 7 дней.',
-    href: '/assessment',
-    allowedRoles: ['learner']
-  },
-  {
-    title: 'Мои попытки',
-    note: 'История попыток и результаты оценивания.',
-    href: '/assessment',
-    allowedRoles: ['learner']
-  },
-  {
-    title: 'Мои документы',
-    note: 'Быстрый доступ к учебным и правовым документам.',
-    href: '/documents',
-    allowedRoles: ['learner']
-  },
-  {
-    title: 'Уведомления',
-    note: 'Новые сообщения, объявления и напоминания.',
-    href: '/notifications',
-    allowedRoles: ['learner']
-  },
-  {
-    title: 'Ближайшие вебинары',
-    note: 'Запланированные онлайн-занятия и ссылки на эфир.',
-    href: '/learner/webinars',
-    allowedRoles: ['learner']
-  },
-  {
-    title: 'Работы на проверку',
-    note: 'Очередь работ студентов, требующих проверки.',
-    href: '/assessment',
-    allowedRoles: ['teacher']
-  },
-  {
-    title: 'Критерии оценивания',
-    note: 'Критерии оценивания и шаблоны комментариев.',
-    href: '/assessment',
-    allowedRoles: ['teacher']
-  },
-  {
-    title: 'Кто отстаёт',
-    note: 'Студенты с низким прогрессом и просрочками.',
-    href: '/groups',
-    allowedRoles: ['teacher']
-  },
   {
     title: 'Сеансы входа',
     note: 'Активные сессии пользователей и подозрительные входы.',
@@ -154,22 +101,6 @@ const RoleWidgetGrid = ({
     </PageContainer>
   );
 };
-
-export const StudentDashboardScreen = () => (
-  <RoleWidgetGrid
-    roles={['learner']}
-    title="Главная учащегося"
-    subtitle="Обучение, дедлайны, попытки, документы, уведомления и вебинары"
-  />
-);
-
-export const TeacherGradingCenterScreen = () => (
-  <RoleWidgetGrid
-    roles={['teacher']}
-    title="Центр проверки работ"
-    subtitle="Очередь проверок, критерии оценки и контроль отстающих учащихся"
-  />
-);
 
 export const AdminCockpitScreen = () => (
   <RoleWidgetGrid
