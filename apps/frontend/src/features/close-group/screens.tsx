@@ -1,11 +1,17 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { StatusChip } from '@trudskill/ui';
 import { useMemo, useState } from 'react';
 
 import { closeGroupApi, describeProgress } from './api';
 import { SectionCard, SectionError } from '../../components/state-wrappers';
 import { useAuth } from '../auth/context';
+import { CourseSelect } from '../courses/course-picker';
+import { GroupSelect } from '../groups/group-picker';
+import { useLearnerNames } from '../learners/learner-picker';
+import { useDocumentTemplates, useEnrollments } from '../mvp/hooks';
+import { ENROLLMENT_STATUS_LABEL } from '../mvp/screen-helpers';
 
 import type { CloseGroupChainOutcomeDto } from './api';
 
@@ -29,7 +35,7 @@ export function CloseGroupSection({ groupId: fixedGroupId }: { groupId?: string 
   const [groupId, setGroupId] = useState(fixedGroupId ?? '');
   const [protocolTemplateId, setProtocolTemplateId] = useState('');
   const [certificateTemplateId, setCertificateTemplateId] = useState('');
-  const [enrollments, setEnrollments] = useState('');
+  const [selectedEnrollments, setSelectedEnrollments] = useState<ReadonlySet<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -48,10 +54,30 @@ export function CloseGroupSection({ groupId: fixedGroupId }: { groupId?: string 
   );
 
   const trimmedGroup = groupId.trim();
-  const enrollmentIds = enrollments
-    .split(/[\s,;]+/u)
-    .map((id) => id.trim())
-    .filter(Boolean);
+  const enrollmentIds = [...selectedEnrollments];
+
+  /*
+   * Фаза 6 срез 6 (id-input-ban): вместо «вставьте идентификаторы сдавших» — список
+   * зачислений выбранной группы с фамилиями и флажками. Пока группа не выбрана,
+   * запрос сжат до одной строки — данные не нужны.
+   */
+  const groupEnrollments = useEnrollments(
+    trimmedGroup ? { group_id: trimmedGroup, page_size: 200 } : { page: 1, page_size: 1 }
+  );
+  const learnerNames = useLearnerNames();
+  const groupRows = trimmedGroup ? (groupEnrollments.data?.items ?? []) : [];
+
+  const templates = useDocumentTemplates();
+  const templateOptions = (type: string) =>
+    (templates.data?.items ?? []).filter((t) => t.templateType === type);
+
+  const toggleEnrollment = (id: string) =>
+    setSelectedEnrollments((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   // Пока рендер идёт, прогресс обновляется сам — иначе оператор жмёт F5 и
   // гадает, доехала ли группа. Как только всё готово, опрос прекращается.
@@ -146,29 +172,84 @@ export function CloseGroupSection({ groupId: fixedGroupId }: { groupId?: string 
       <div className="ui-stack" style={{ marginTop: 12 }}>
         <div className="ui-inline">
           {fixedGroupId ? null : (
-            <input
-              value={groupId}
-              onChange={(e) => setGroupId(e.target.value)}
-              placeholder="ID группы"
-            />
+            <GroupSelect value={groupId} onChange={setGroupId} emptyLabel="— выберите группу —" />
           )}
-          <input
-            value={protocolTemplateId}
-            onChange={(e) => setProtocolTemplateId(e.target.value)}
-            placeholder="ID шаблона протокола"
-          />
-          <input
-            value={certificateTemplateId}
-            onChange={(e) => setCertificateTemplateId(e.target.value)}
-            placeholder="ID шаблона удостоверения"
-          />
+          <label className="ui-field">
+            <span className="ui-field-label">Шаблон протокола</span>
+            <select
+              className="ui-select"
+              value={protocolTemplateId}
+              onChange={(e) => setProtocolTemplateId(e.target.value)}
+            >
+              <option value="">— выберите шаблон —</option>
+              {templateOptions('protocol').map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="ui-field">
+            <span className="ui-field-label">Шаблон удостоверения</span>
+            <select
+              className="ui-select"
+              value={certificateTemplateId}
+              onChange={(e) => setCertificateTemplateId(e.target.value)}
+            >
+              <option value="">— выберите шаблон —</option>
+              {templateOptions('certificate').map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
-        <textarea
-          value={enrollments}
-          onChange={(e) => setEnrollments(e.target.value)}
-          placeholder="ID записей сдавших — через пробел, запятую или с новой строки"
-          rows={3}
-        />
+        {trimmedGroup ? (
+          <fieldset className="ui-fieldset">
+            <legend>Сдавшие — им выпускаются удостоверения</legend>
+            {groupRows.length === 0 ? (
+              <p className="ui-hint">
+                В группе пока нет зачислений — закрывать некого. Зачислите слушателей в карточке
+                группы.
+              </p>
+            ) : (
+              <>
+                <div className="ui-inline">
+                  <button
+                    type="button"
+                    className="ui-button"
+                    onClick={() => setSelectedEnrollments(new Set(groupRows.map((r) => r.id)))}
+                  >
+                    Отметить всех
+                  </button>
+                  <button
+                    type="button"
+                    className="ui-button"
+                    onClick={() => setSelectedEnrollments(new Set())}
+                    disabled={selectedEnrollments.size === 0}
+                  >
+                    Снять отметки
+                  </button>
+                </div>
+                {groupRows.map((row) => (
+                  <label key={row.id} className="ui-inline">
+                    <input
+                      type="checkbox"
+                      checked={selectedEnrollments.has(row.id)}
+                      onChange={() => toggleEnrollment(row.id)}
+                    />
+                    <span>{learnerNames.get(row.learnerId) ?? 'Слушатель'}</span>
+                    <StatusChip
+                      status={row.status}
+                      label={ENROLLMENT_STATUS_LABEL[row.status] ?? row.status}
+                    />
+                  </label>
+                ))}
+              </>
+            )}
+          </fieldset>
+        ) : null}
         <div className="ui-inline">
           <button
             type="button"
@@ -211,10 +292,10 @@ export function CloseGroupSection({ groupId: fixedGroupId }: { groupId?: string 
           с теми же полями ничего не дублирует.
         </p>
         <div className="ui-inline">
-          <input
+          <CourseSelect
             value={courseId}
-            onChange={(e) => setCourseId(e.target.value)}
-            placeholder="ID курса (для проверки готовности)"
+            onChange={setCourseId}
+            label="Курс (для проверки готовности)"
           />
           <button
             type="button"

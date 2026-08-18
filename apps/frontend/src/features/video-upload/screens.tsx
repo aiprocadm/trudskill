@@ -14,6 +14,7 @@ import {
 } from './api';
 import { SectionCard, SectionEmpty, SectionError } from '../../components/state-wrappers';
 import { useAuth } from '../auth/context';
+import { useMaterials } from '../mvp/hooks';
 
 /**
  * Загрузка видео методистом (ФТ-B1.1, Фаза 2 Task 2).
@@ -54,6 +55,7 @@ export function VideoUploadSection() {
   const queryClient = useQueryClient();
 
   const [materialId, setMaterialId] = useState('');
+  const allMaterials = useMaterials();
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -125,14 +127,23 @@ export function VideoUploadSection() {
       ) : null}
 
       <div className="ui-inline">
-        <label>
-          ID материала
-          <input
+        {/* Фаза 6 срез 6: выбор материала по названию вместо «вставьте mat_…» —
+            образец без слова «ID» проходил мимо сторожа id-input-ban (слепая зона закрыта). */}
+        <label className="ui-field">
+          <span className="ui-field-label">Материал урока</span>
+          <select
+            className="ui-select"
             value={materialId}
             onChange={(event) => setMaterialId(event.target.value)}
-            placeholder="mat_..."
-            aria-label="ID материала"
-          />
+            aria-label="Материал урока"
+          >
+            <option value="">— выберите материал —</option>
+            {(allMaterials.data?.items ?? []).map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.title}
+              </option>
+            ))}
+          </select>
         </label>
         <FilePicker
           ariaLabel="Выбрать видеофайл"
@@ -147,7 +158,7 @@ export function VideoUploadSection() {
 
       {!materialId ? (
         <p className="ui-text-muted">
-          Укажите ID материала — тогда загруженное видео сразу привяжется к уроку.
+          Выберите материал — тогда загруженное видео сразу привяжется к уроку.
         </p>
       ) : null}
 
