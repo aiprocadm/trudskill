@@ -1,7 +1,7 @@
 'use client';
 
-import { StatusChip } from '@trudskill/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { StatusChip } from '@trudskill/ui';
 import { useMemo, useState } from 'react';
 
 import { closeGroupApi, describeProgress } from './api';
