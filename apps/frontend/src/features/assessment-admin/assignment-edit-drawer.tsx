@@ -1,9 +1,11 @@
 'use client';
 
+import { DetailDrawer } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { useCreateAssignment, useUpdateAssignment } from './hooks';
 import { CourseSelect } from '../courses/course-picker';
+import { useModules } from '../mvp/hooks';
 
 import type { AssignmentListItem } from './types';
 
@@ -24,6 +26,7 @@ export function AssignmentEditDrawer({ assignment, onClose, onSaved }: Props) {
 
   const create = useCreateAssignment();
   const update = useUpdateAssignment();
+  const modules = useModules();
   const isPending = create.isPending || update.isPending;
   const error = create.error || update.error;
 
@@ -54,19 +57,13 @@ export function AssignmentEditDrawer({ assignment, onClose, onSaved }: Props) {
     if (result) onSaved?.(result);
   };
 
+  /* Фаза 6 срез 7 (IA-001): самодельный aside → общий DetailDrawer с едиными состояниями. */
   return (
-    <aside
-      className="ui-drawer"
-      role="dialog"
-      aria-label={isEditing ? 'Редактирование задания' : 'Создание задания'}
+    <DetailDrawer
+      open
+      onClose={onClose}
+      title={isEditing ? 'Редактирование задания' : 'Создание задания'}
     >
-      <header className="ui-drawer-header">
-        <h2>{isEditing ? 'Редактирование задания' : 'Создание задания'}</h2>
-        <button type="button" className="ui-button-ghost" onClick={onClose}>
-          Закрыть
-        </button>
-      </header>
-
       <form className="ui-form" onSubmit={submit}>
         {/* Курс просили ввести идентификатором — администратор его нигде не видит. */}
         {!isEditing && (
@@ -78,15 +75,21 @@ export function AssignmentEditDrawer({ assignment, onClose, onSaved }: Props) {
           />
         )}
 
+        {/* «ID модуля» просили текстом — теперь выбор по названию (необязательный). */}
         <label className="ui-field">
-          <span>ID модуля (опционально)</span>
-          <input
-            type="text"
-            className="ui-input"
+          <span>Модуль (необязательно)</span>
+          <select
+            className="ui-select"
             value={moduleId}
             onChange={(e) => setModuleId(e.target.value)}
-            maxLength={64}
-          />
+          >
+            <option value="">Весь курс</option>
+            {(modules.data?.items ?? []).map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.title}
+              </option>
+            ))}
+          </select>
         </label>
 
         <label className="ui-field">
@@ -129,7 +132,7 @@ export function AssignmentEditDrawer({ assignment, onClose, onSaved }: Props) {
             checked={isReviewRequired}
             onChange={(e) => setIsReviewRequired(e.target.checked)}
           />
-          <span>Требуется ревью</span>
+          <span>Требуется проверка преподавателем</span>
         </label>
 
         {error ? <p className="ui-field-error">{error}</p> : null}
@@ -143,6 +146,6 @@ export function AssignmentEditDrawer({ assignment, onClose, onSaved }: Props) {
           </button>
         </div>
       </form>
-    </aside>
+    </DetailDrawer>
   );
 }

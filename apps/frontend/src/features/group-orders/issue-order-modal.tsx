@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { DetailDrawer } from '@trudskill/ui';
 import { useMemo, useState } from 'react';
 
 import { groupOrdersApi } from './api';
@@ -97,18 +98,11 @@ export function IssueOrderModal({
   if (!open) return null;
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Сгенерировать приказ по группе"
-      className="ui-modal"
-    >
-      <div className="ui-modal-content">
-        <div className="ui-modal-header">
-          <h2>Сгенерировать приказ по группе</h2>
-        </div>
+    /* Фаза 6 срез 7 (IA-001): самодельная модалка → общий DetailDrawer. */
+    <DetailDrawer open onClose={onClose} title="Сгенерировать приказ по группе">
+      <div className="ui-stack">
         <p>
-          Учеников будет включено в приказ: <strong>{enrollmentIds.length}</strong>
+          Слушателей будет включено в приказ: <strong>{enrollmentIds.length}</strong>
         </p>
 
         {templatesQuery.isLoading ? <p>Загрузка шаблонов…</p> : null}
@@ -170,6 +164,6 @@ export function IssueOrderModal({
           </button>
         </div>
       </div>
-    </div>
+    </DetailDrawer>
   );
 }

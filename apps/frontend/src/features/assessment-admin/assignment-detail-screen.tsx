@@ -77,7 +77,7 @@ export function AssignmentDetailScreen({ assignmentId }: Props) {
         <dl className="ui-defs">
           <dt>Максимальный балл</dt>
           <dd>{a.maxScore}</dd>
-          <dt>Требуется ревью</dt>
+          <dt>Проверка преподавателем</dt>
           <dd>{a.isReviewRequired ? 'Да' : 'Нет'}</dd>
           <dt>Описание</dt>
           <dd>{a.description ?? '—'}</dd>

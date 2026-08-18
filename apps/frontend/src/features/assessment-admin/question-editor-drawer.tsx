@@ -1,5 +1,6 @@
 'use client';
 
+import { DetailDrawer } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { QUESTION_TYPE_LABEL } from './format';
@@ -119,17 +120,7 @@ export function QuestionEditorDrawer({ bankId, question, onClose, onSaved }: Pro
   };
 
   return (
-    <aside
-      className="ui-drawer"
-      role="dialog"
-      aria-label={isEditing ? 'Редактирование вопроса' : 'Создание вопроса'}
-    >
-      <header className="ui-drawer-header">
-        <h2>{isEditing ? 'Редактирование вопроса' : 'Создание вопроса'}</h2>
-        <button type="button" className="ui-button-ghost" onClick={onClose}>
-          Закрыть
-        </button>
-      </header>
+    <DetailDrawer open onClose={onClose} title={isEditing ? 'Редактирование вопроса' : 'Создание вопроса'}>
 
       <form className="ui-form" onSubmit={submit}>
         <label className="ui-field">
@@ -288,6 +279,6 @@ export function QuestionEditorDrawer({ bankId, question, onClose, onSaved }: Pro
           </button>
         </div>
       </form>
-    </aside>
+    </DetailDrawer>
   );
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { DetailDrawer } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { useCreateQuestionBank, useUpdateQuestionBank } from './hooks';
@@ -40,17 +41,7 @@ export function QuestionBankEditDrawer({ bank, onClose, onSaved }: Props) {
   };
 
   return (
-    <aside
-      className="ui-drawer"
-      role="dialog"
-      aria-label={isEditing ? 'Редактирование банка' : 'Создание банка'}
-    >
-      <header className="ui-drawer-header">
-        <h2>{isEditing ? 'Редактирование банка' : 'Создание банка'}</h2>
-        <button type="button" className="ui-button-ghost" onClick={onClose}>
-          Закрыть
-        </button>
-      </header>
+    <DetailDrawer open onClose={onClose} title={isEditing ? 'Редактирование банка' : 'Создание банка'}>
 
       <form className="ui-form" onSubmit={submit}>
         <label className="ui-field">
@@ -105,6 +96,6 @@ export function QuestionBankEditDrawer({ bank, onClose, onSaved }: Props) {
           </button>
         </div>
       </form>
-    </aside>
+    </DetailDrawer>
   );
 }
