@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository
 
-CDOProf — LMS/СДО platform for regulated professional education (ОТ, ПБ, медицина, МЧС, обязательные аттестации). `pnpm` 11.20.0 + Turborepo monorepo. Local path is `D:\Кодинг\7. Trudskill\Trudskill\Trudskill` (Windows, **Cyrillic + spaces — see Gotchas**).
+trudskill (прежнее имя — CDOProf) — LMS/СДО platform for regulated professional education (ОТ, ПБ, медицина, МЧС, обязательные аттестации). `pnpm` 11.20.0 + Turborepo monorepo. Local path is `D:\Кодинг\7. Trudskill\Trudskill\Trudskill` (Windows, **Cyrillic + spaces — see Gotchas**).
 
 ## Documentation hierarchy (SSOT)
 
 When docs disagree, follow the order in [docs/DOCUMENTATION_MAP.md](docs/DOCUMENTATION_MAP.md):
 
 1. Customer-signed protocol (e.g. ТЗ §47 Appendix Б).
-2. [SDOPROF_TZ_FINAL.md](SDOPROF_TZ_FINAL.md) — product spec / §39 acceptance criteria / §41 backlog. **Поверх него — два действующих дельта-ТЗ, разделённых по предмету:**
+2. [TZ_TRUDSKILL_BASE.md](TZ_TRUDSKILL_BASE.md) — product spec / §39 acceptance criteria / §41 backlog. **Поверх него — два действующих дельта-ТЗ, разделённых по предмету:**
    - **Поведение, функции, права** — [TZ_TRUDSKILL_ARENDNAYA_SDO.md](TZ_TRUDSKILL_ARENDNAYA_SDO.md) (эпики A–I, ФТ-\*, фазы 0–6; в рамках его эпиков при конфликте деталей приоритет у него). Статус — [docs/TZ_ARENDNAYA_SDO_STATUS.md](docs/TZ_ARENDNAYA_SDO_STATUS.md).
    - **Представление (интерфейс)** — [docs/TZ_UI_REDESIGN_TRUDSKILL.md](docs/TZ_UI_REDESIGN_TRUDSKILL.md) (ИА, визуальный язык, компоненты, тексты интерфейса, ребрендинг UI; требования `IA-*`/`UI-*`/`CMP-*`/`TPL-*`/`TXT-*`/`A11Y-*`/`BR-*`, фазы 0–8; по вопросам представления приоритет у него). Статус — [docs/TZ_UI_REDESIGN_STATUS.md](docs/TZ_UI_REDESIGN_STATUS.md).
 3. Code + tests; described in [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §5.\* (sequentially numbered, currently up to §5.166) and [docs/TZ_MVP_TRACEABILITY.md](docs/TZ_MVP_TRACEABILITY.md) (BL → file paths).
@@ -26,7 +26,7 @@ When docs disagree, follow the order in [docs/DOCUMENTATION_MAP.md](docs/DOCUMEN
 - **сказано без уточнения и без задачи** → прочитать оба трекера и одним коротким сообщением показать владельцу текущую точку каждого, спросив, какой продолжать. **Не выбирать молча.**
 
 **Шаг 1. Порядок чтения:**
-README §2 → LMS_AGENT_HANDOFF §1 (date/branch) + §5 (recent work) + §13 (Known Issues) → **статус-трекер выбранного ТЗ** (текущая фаза; что сделано / частично / не начато / переделать; открытые вопросы и решения владельца, блокирующие фазу) → дорожная карта фаз в самом ТЗ → SDOPROF_TZ_FINAL §41 ↔ TZ_MVP_TRACEABILITY (детальные требования).
+README §2 → LMS_AGENT_HANDOFF §1 (date/branch) + §5 (recent work) + §13 (Known Issues) → **статус-трекер выбранного ТЗ** (текущая фаза; что сделано / частично / не начато / переделать; открытые вопросы и решения владельца, блокирующие фазу) → дорожная карта фаз в самом ТЗ → TZ_TRUDSKILL_BASE §41 ↔ TZ_MVP_TRACEABILITY (детальные требования).
 
 Rules for TZ phases (одинаковы для обоих ТЗ): перед фазой — план в `docs/superpowers/plans/` + апрув владельца; URL/RBAC/контракты `packages/api-contracts` не ломать; миграции только аддитивные; фаза = один PR = один обратимый шаг, ≤30 файлов; фаза заканчивается зелёным `pnpm ci:check`, обновлением handoff и статусов в трекере своего ТЗ.
 

@@ -2,7 +2,7 @@
 
 ## 1. Project Overview
 
-CDOProf — монорепозиторий LMS/СДО платформы для обучающихся, преподавателей/кураторов и администраторов.
+trudskill (прежнее имя — CDOProf) — монорепозиторий LMS/СДО платформы для обучающихся, преподавателей/кураторов и администраторов.
 
 ### Основные роли
 
@@ -42,7 +42,7 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
   - [`.cursor/rules/lms-multi-agent-handoff.mdc`](.cursor/rules/lms-multi-agent-handoff.mdc) (правило Cursor, `alwaysApply`)
   - [`docs/DOCUMENTATION_MAP.md` — протокол передачи](docs/DOCUMENTATION_MAP.md#agent-handoff-protocol)
 - Требования и пилот (продуктовый канон и приёмка):
-  - [`SDOPROF_TZ_FINAL.md`](SDOPROF_TZ_FINAL.md)
+  - [`TZ_TRUDSKILL_BASE.md`](TZ_TRUDSKILL_BASE.md)
   - [`TZ_TRUDSKILL_ARENDNAYA_SDO.md`](TZ_TRUDSKILL_ARENDNAYA_SDO.md) — **действующее дельта-ТЗ «Арендная СДО»** по **поведению, функциям и правам** (эпики A–I, фазы 0–6; в рамках его эпиков приоритет деталей у него)
   - [`docs/TZ_ARENDNAYA_SDO_STATUS.md`](docs/TZ_ARENDNAYA_SDO_STATUS.md) — статус выполнения дельта-ТЗ (что сделано / частично / переделать)
   - [`docs/TZ_UI_REDESIGN_TRUDSKILL.md`](docs/TZ_UI_REDESIGN_TRUDSKILL.md) — **действующее дельта-ТЗ по интерфейсу** (ИА, визуальный язык, компоненты, тексты, ребрендинг UI; фазы 0–8; по вопросам представления приоритет у него)
@@ -90,7 +90,9 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 ### Current Stage
 
-**2026-08-18 (текущее, §5.300, ветка `worktree-ui-faza7-srez1`, PR #535):** **Фаза 7 редизайна начата — категория A ребрендинга:** письма входа, TOTP issuer (`BR-010`), дефолты `SMTP_FROM`/`VAPID_SUBJECT` (`BR-032`), OpenAPI title — на trudskill; контракты перегенерированы, тесты кат. E в том же PR. **`BR-011`: подписанты НЕ меняются** (запись 114 — надзорные выгрузки). Вопросы владельцу: реальный почтовый домен, уведомление о новом имени TOTP. Дальше: срез 2 — категория D (документация, `BR-040`/`BR-041`).
+**2026-08-18 (текущее, §5.301, ветка `worktree-ui-faza7-srez2`, PR #536):** **ФАЗА 7 РЕДИЗАЙНА ЗАВЕРШЕНА** (срезы 1–2, PR #535/#536). Срез 2: `SDOPROF_TZ_FINAL.md` → **`TZ_TRUDSKILL_BASE.md`** (`BR-040`/`BR-041` — 20 файлов, ~60 ссылок одним коммитом, якоря сохранены, старого имени ноль); живые заголовки (`MET-004`, AGENTS, README/CLAUDE). Вопросы владельцу: реальный почтовый домен (BR-032), уведомление о новом имени TOTP. Дальше — фаза 8: ключи хранения двойным чтением + две выкатки с интервалом 60 дней, инфраструктура (`BR-031`/C-2 — последними).
+
+**2026-08-18 (§5.300, ветка `worktree-ui-faza7-srez1`, PR #535):** **Фаза 7 редизайна начата — категория A ребрендинга:** письма входа, TOTP issuer (`BR-010`), дефолты `SMTP_FROM`/`VAPID_SUBJECT` (`BR-032`), OpenAPI title — на trudskill; контракты перегенерированы, тесты кат. E в том же PR. **`BR-011`: подписанты НЕ меняются** (запись 114 — надзорные выгрузки). Вопросы владельцу: реальный почтовый домен, уведомление о новом имени TOTP. Дальше: срез 2 — категория D (документация, `BR-040`/`BR-041`).
 
 **2026-08-18 (§5.299, ветка `worktree-ui-faza6-srez8`, PR #534):** **КОДОВАЯ ЧАСТЬ ФАЗЫ 6 РЕДИЗАЙНА ЗАВЕРШЕНА** (срезы 1–8, PR #527–#534). Срез 8: ⚠️ редиректы по §4.9 с предупреждением в PR — `/student/dashboard` → `/learner` (дубль главной кабинета), `/teacher/grading-center` → `/teacher/review` (виджеты на несуществующей роли `teacher`); пункты меню убраны, адреса живы. Хвосты 107: один коралл на `/documents`, крошки с многоточием. Итог фазы: все экраны кабинетов, `UI-010`/`UI-021` ✅, шесть очередей сторожей закрыты. Дальше по ТЗ редизайна — фазы 7–8 (ребрендинг).
 
@@ -304,7 +306,7 @@ CDOProf — монорепозиторий LMS/СДО платформы для 
 
 **2026-07-24 (§5.167, ветка `feat/2026-07-23-tenant-isolation-suite`):** **Фаза 0 «Фундамент» дельта-ТЗ «Арендная СДО» — старт.** План Фазы 0 создан и апрувнут владельцем ([docs/superpowers/plans/2026-07-23-tz-faza0-fundament.md](docs/superpowers/plans/2026-07-23-tz-faza0-fundament.md), PR #306); открытый вопрос №7 решён — **шифрование ПДн делаем в Фазе 0**. Сделан **Task 1 — гейт изоляции тенантов `pnpm test:isolation`** (ФТ-D1.3): контракт `TenantGuard` (эффективный тенант только из токена, `x-tenant-id` не подменяет) + data-layer `enforceTenantScope` + структурный «сторож» контроллеров (любой новый контроллер без `@UseGuards(TenantGuard)` роняет суиту) + шаг в CI. 12 тестов зелёные, typecheck зелёный. **Дальше по Фазе 0:** Task 3 (ClamAV-контейнер) → Task 6 (Gotenberg) → Task 2 (rate limiting `/verify/{qr}`) → Task 4 (email-события) → Task 5 (2FA TOTP) → Task 7 (шифрование ПДн). Каждая — отдельный под-PR.
 
-**2026-07-24 (§5.166, ветка `claude/tz-project-integration-27b955`):** **Принято в работу дельта-ТЗ «Арендная СДО»** — [TZ_TRUDSKILL_ARENDNAYA_SDO.md](TZ_TRUDSKILL_ARENDNAYA_SDO.md) добавлено в корень (гэп-анализ к `SDOPROF_TZ_FINAL.md` по аудиту коммита `ac2af17`: 9 эпиков A–I, требования ФТ-\*, дорожная карта фаз 0–6, приоритеты P0–P2). Создан живой статус-трекер [docs/TZ_ARENDNAYA_SDO_STATUS.md](docs/TZ_ARENDNAYA_SDO_STATUS.md) (статус каждого ФТ: сделано / частично / не начато / переделать; начальные статусы из аудита ТЗ + факта кода, вкл. досрочный прогресс ЭПИКа H по UI redesign §5.162–§5.165). Протокол «продолжай по ТЗ» обновлён в CLAUDE.md / docs/DOCUMENTATION_MAP.md / README (порядок чтения теперь включает дельта-ТЗ §13 + статус-трекер). Docs-only, код не тронут. **Дальше:** решения владельца по открытым вопросам ТЗ §14 (минимум №2 docxtemplater и №7 шифрование ПДн — блокируют фазы 0–1) → план Фазы 0 «Фундамент» в `docs/superpowers/plans/` → апрув → код.
+**2026-07-24 (§5.166, ветка `claude/tz-project-integration-27b955`):** **Принято в работу дельта-ТЗ «Арендная СДО»** — [TZ_TRUDSKILL_ARENDNAYA_SDO.md](TZ_TRUDSKILL_ARENDNAYA_SDO.md) добавлено в корень (гэп-анализ к `TZ_TRUDSKILL_BASE.md` по аудиту коммита `ac2af17`: 9 эпиков A–I, требования ФТ-\*, дорожная карта фаз 0–6, приоритеты P0–P2). Создан живой статус-трекер [docs/TZ_ARENDNAYA_SDO_STATUS.md](docs/TZ_ARENDNAYA_SDO_STATUS.md) (статус каждого ФТ: сделано / частично / не начато / переделать; начальные статусы из аудита ТЗ + факта кода, вкл. досрочный прогресс ЭПИКа H по UI redesign §5.162–§5.165). Протокол «продолжай по ТЗ» обновлён в CLAUDE.md / docs/DOCUMENTATION_MAP.md / README (порядок чтения теперь включает дельта-ТЗ §13 + статус-трекер). Docs-only, код не тронут. **Дальше:** решения владельца по открытым вопросам ТЗ §14 (минимум №2 docxtemplater и №7 шифрование ПДн — блокируют фазы 0–1) → план Фазы 0 «Фундамент» в `docs/superpowers/plans/` → апрув → код.
 
 **2026-07-13 (предыдущее, §5.164, ветка `feat/2026-07-12-ui-phase-3-reference-screens`):** **UI redesign Фаза 3 — эталонные шаблоны экранов (14/14 задач плана) завершена.** 6 переиспользуемых каркасов в `@trudskill/ui` поверх существующего CSS (`AsyncSection`, `StatGrid`, `DetailLayout` двухколоночная, `ListPage`, `Form/FormSection/FormActions`, `SelectField`; новый CSS только `.ui-detail`/`.ui-section-head` на токенах); слоты `actions`/`subtitle` у `SectionCard`; живая витрина `/admin/ui-kit` (под `auth.manage_sessions`, вне меню); 4 пилотных экрана мигрированы **без изменения поведения/данных/прав/URL** (список `learners`→`ListPage`, карточка `clients`→`DetailLayout`+`KeyValueList`, форма `academy/requisites`→`Form`+`FormField`, dashboard `analytics`→`StatGrid`+`AsyncSection`). Полный цикл: brainstorming (визуальный компаньон) → спека → план (14 задач TDD) → subagent-driven исполнение (4 слоя) → adversarial-ревью (2 находки, обе опровергнуты 2/2 скептиками). Гейты: ui **21 файл/68 тестов**, frontend **111 файлов/679 тестов**, typecheck 8/8, ESLint чисто; без миграций/новых прав/бэкенда. **Сужено по YAGNI:** `Drawer`/`Hero`/`DashboardTile` + дедуп каталогов плиток → Фаза 4; a11y accname общего `.ui-field` (наследие `FormField`) → Фаза 6. **Дальше:** Фаза 4 — миграция страниц пачками (список+карточка ≈ 65% экранов; монолит `mvp/screens.tsx` — highest-leverage). Детали — §5.164.
 
@@ -447,7 +449,7 @@ Task 1 — четыре живых дефекта и **утечка ПДн** (с
 
 ### Important Decisions
 
-- Репозиторий: единый **операционный** конспект между агентами — блок `README` + передача сессии в `LMS_AGENT_HANDOFF.md`. Продуктовый канон — `SDOPROF_TZ_FINAL.md`; роли и порядок чтения при фразе «продолжай по ТЗ» — [docs/DOCUMENTATION_MAP.md](docs/DOCUMENTATION_MAP.md#agent-handoff-protocol).
+- Репозиторий: единый **операционный** конспект между агентами — блок `README` + передача сессии в `LMS_AGENT_HANDOFF.md`. Продуктовый канон — `TZ_TRUDSKILL_BASE.md`; роли и порядок чтения при фразе «продолжай по ТЗ» — [docs/DOCUMENTATION_MAP.md](docs/DOCUMENTATION_MAP.md#agent-handoff-protocol).
 - Изменения вносятся малыми итерациями с обязательной фиксацией тестового статуса и рисков.
 - Следующий высокий приоритет: безопасность и устойчивость IAM + контроль доступа по ролям.
 
@@ -461,11 +463,11 @@ Task 1 — четыре живых дефекта и **утечка ПДн** (с
 
 ### Last Updated By
 
-Claude Code — §5.300: ребрендинг категории A — тексты пользователю на trudskill.
+Claude Code — §5.301: фаза 7 завершена; базовое ТЗ переименовано в TZ_TRUDSKILL_BASE.md.
 
 ### Last Updated At
 
-2026-08-18 (§5.300 — фаза 7 срез 1, PR #535).
+2026-08-18 (§5.301 — фаза 7 завершена, PR #536).
 
 ## 3. Current Project Status
 
@@ -490,14 +492,14 @@ Claude Code — §5.300: ребрендинг категории A — текс�
 ### Что делать следующим шагом
 
 1. Открыть [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §14 Recommended Next Steps и §20 Final Status.
-2. Сверить с [docs/TZ_MVP_TRACEABILITY.md](docs/TZ_MVP_TRACEABILITY.md) и при необходимости с §41 [SDOPROF_TZ_FINAL.md](SDOPROF_TZ_FINAL.md).
+2. Сверить с [docs/TZ_MVP_TRACEABILITY.md](docs/TZ_MVP_TRACEABILITY.md) и при необходимости с §41 [TZ_TRUDSKILL_BASE.md](TZ_TRUDSKILL_BASE.md).
 3. Запустить `pnpm -s ci:check` перед и после значимых изменений; обновить этот README и handoff.
 
 ## 4. Iteration Log (текущая итерация)
 
 ### Измененные файлы
 
-- `README.md`, `docs/DOCUMENTATION_MAP.md`, `LMS_AGENT_HANDOFF.md`, `SDOPROF_TZ_FINAL.md`, `AGENTS.md`, `.cursor/rules/lms-multi-agent-handoff.mdc` (протокол многоагентной передачи, Cursor rule `alwaysApply`, устранение противоречий README vs handoff).
+- `README.md`, `docs/DOCUMENTATION_MAP.md`, `LMS_AGENT_HANDOFF.md`, `TZ_TRUDSKILL_BASE.md`, `AGENTS.md`, `.cursor/rules/lms-multi-agent-handoff.mdc` (протокол многоагентной передачи, Cursor rule `alwaysApply`, устранение противоречий README vs handoff).
 
 ### Принятые решения в итерации
 
@@ -509,7 +511,7 @@ Claude Code — §5.300: ребрендинг категории A — текс�
 
 ## 5. Backlog (приоритезированный)
 
-Укрупнённый продуктовый backlog и BL — только в [SDOPROF_TZ_FINAL.md](SDOPROF_TZ_FINAL.md) §41 и матрице [docs/TZ_MVP_TRACEABILITY.md](docs/TZ_MVP_TRACEABILITY.md). Ниже — **репозиторные** приоритеты, если не задан иной порядок:
+Укрупнённый продуктовый backlog и BL — только в [TZ_TRUDSKILL_BASE.md](TZ_TRUDSKILL_BASE.md) §41 и матрице [docs/TZ_MVP_TRACEABILITY.md](docs/TZ_MVP_TRACEABILITY.md). Ниже — **репозиторные** приоритеты, если не задан иной порядок:
 
 1. **P0 Security/Auth:** см. [docs/security-remediation-roadmap.md](docs/security-remediation-roadmap.md) и handoff §10.
 2. **P0 Reliability:** health/readiness/metrics, [docs/operations-runbook.md](docs/operations-runbook.md).

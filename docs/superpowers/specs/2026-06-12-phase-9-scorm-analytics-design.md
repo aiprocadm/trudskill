@@ -3,7 +3,7 @@
 **Дата:** 2026-06-12
 **Статус:** утверждён по делегированию владельца (решения по умолчанию, ревью на уровне PR)
 **Roadmap:** `docs/superpowers/plans/2026-05-21-cdoprof-v1-roadmap.md` Phase 9 (SCORM 1.2 плеер, загрузка zip, прогресс через SCORM API, дашборд админа)
-**ТЗ:** SDOPROF_TZ_FINAL §28 (SCORM 1.2/2004 = Should), legacy-parity gap #11 (`docs/superpowers/specs/2026-05-30-legacy-parity-roadmap.md`)
+**ТЗ:** TZ_TRUDSKILL_BASE §28 (SCORM 1.2/2004 = Should), legacy-parity gap #11 (`docs/superpowers/specs/2026-05-30-legacy-parity-roadmap.md`)
 
 ## Декомпозиция
 

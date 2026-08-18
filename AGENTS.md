@@ -1,10 +1,10 @@
-# Инструкции для агентов (LMS / СДО Проф)
+# Инструкции для агентов (LMS trudskill)
 
 Репозиторий рассчитан на работу **нескольких агентов** подряд. Единый регламент передачи и трактовки фразы **«продолжай по ТЗ»** зафиксирован здесь:
 
 - **[docs/DOCUMENTATION_MAP.md](docs/DOCUMENTATION_MAP.md#agent-handoff-protocol)** — порядок чтения документов, что обновлять после сессии, иерархия при противоречиях.
 
-Краткий порядок: `README.md` (блок **AI Agent State**) → `LMS_AGENT_HANDOFF.md` → **статус-трекер нужного ТЗ** → `SDOPROF_TZ_FINAL.md` → `docs/TZ_MVP_TRACEABILITY.md`.
+Краткий порядок: `README.md` (блок **AI Agent State**) → `LMS_AGENT_HANDOFF.md` → **статус-трекер нужного ТЗ** → `TZ_TRUDSKILL_BASE.md` → `docs/TZ_MVP_TRACEABILITY.md`.
 
 ## Два действующих ТЗ — сначала определить, о каком речь
 
