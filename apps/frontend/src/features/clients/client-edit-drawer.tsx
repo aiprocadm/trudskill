@@ -1,6 +1,6 @@
 'use client';
 
-import { Dialog } from '@trudskill/ui';
+import { DetailDrawer } from '@trudskill/ui';
 import { useState } from 'react';
 
 import {
@@ -49,7 +49,7 @@ export function ClientEditDrawer({ client, onClose, onSaved }: ClientEditDrawerP
   const title = mode === 'create' ? 'Добавить компанию' : `Редактировать «${client?.name ?? ''}»`;
 
   return (
-    <Dialog open onClose={onClose} title={title}>
+    <DetailDrawer open onClose={onClose} title={title}>
       <form onSubmit={(e) => void handleSubmit(e)} className="ui-stack">
         <label className="ui-field">
           <span className="ui-field-label">Код *</span>
@@ -103,7 +103,7 @@ export function ClientEditDrawer({ client, onClose, onSaved }: ClientEditDrawerP
         </label>
 
         <label className="ui-field">
-          <span className="ui-field-label">Email</span>
+          <span className="ui-field-label">Почта</span>
           <input
             className="ui-input"
             type="email"
@@ -179,6 +179,6 @@ export function ClientEditDrawer({ client, onClose, onSaved }: ClientEditDrawerP
           </button>
         </div>
       </form>
-    </Dialog>
+    </DetailDrawer>
   );
 }
