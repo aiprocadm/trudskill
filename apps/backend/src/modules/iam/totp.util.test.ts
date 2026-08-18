@@ -90,11 +90,11 @@ describe('buildOtpauthUrl', () => {
     const url = buildOtpauthUrl({
       secretBase32: 'ABC234',
       accountName: 'tenant_admin@tenant_demo',
-      issuer: 'CDOProf'
+      issuer: 'trudskill'
     });
-    expect(url).toContain('otpauth://totp/CDOProf:tenant_admin%40tenant_demo?');
+    expect(url).toContain('otpauth://totp/trudskill:tenant_admin%40tenant_demo?');
     expect(url).toContain('secret=ABC234');
-    expect(url).toContain('issuer=CDOProf');
+    expect(url).toContain('issuer=trudskill');
     expect(url).toContain('period=30');
     expect(url).toContain('digits=6');
   });

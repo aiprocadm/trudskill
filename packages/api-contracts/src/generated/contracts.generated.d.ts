@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE. DO NOT EDIT.
-// SOURCE_SHA256: deba011d574f088ed03bf71cd1f777cffe530accb583eabd99a3d79cb483d841
+// SOURCE_SHA256: 8e9a09f7d928a13589a42be6e286a7d6949a8d256feb18e3b23562d1c44eb0bc
 export type GeneratedOpenApiVersion = 'v1';
 
 export interface GeneratedClientConfig {

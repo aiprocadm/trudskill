@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "CDOProf API",
+    "title": "trudskill API",
     "version": "1.0.0",
     "description": "Versioned API contracts for /api/v1 with envelope/meta and critical route coverage."
   },

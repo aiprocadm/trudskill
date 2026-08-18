@@ -19,7 +19,7 @@ describe('EmailMagicLinkEmailSender', () => {
     const msg = mailer.send.mock.calls[0]![0];
     expect(msg.to).toBe('user@example.ru');
     expect(msg.templateKey).toBe('magic_link');
-    expect(msg.subject).toContain('CDOProf');
+    expect(msg.subject).toContain('trudskill');
     expect(msg.body).toContain('/login/magic-link/tok-123');
   });
 

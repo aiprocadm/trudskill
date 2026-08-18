@@ -308,7 +308,9 @@ export class AuthService {
       otpauthUrl: buildOtpauthUrl({
         secretBase32: secret,
         accountName: `${user.login}@${tenantId}`,
-        issuer: 'CDOProf'
+        // BR-010: смена issuer не ломает существующие привязки (секрет тот же),
+        // новое имя видно только при первичной привязке в приложении-аутентификаторе.
+        issuer: 'trudskill'
       })
     };
   }

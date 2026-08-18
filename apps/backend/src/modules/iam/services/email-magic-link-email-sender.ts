@@ -17,7 +17,7 @@ export class EmailMagicLinkEmailSender implements MagicLinkEmailSender {
     const body = [
       'Здравствуйте!',
       '',
-      'Чтобы войти в CDOProf, перейдите по ссылке (действует 15 минут):',
+      'Чтобы войти в trudskill, перейдите по ссылке (действует 15 минут):',
       url,
       '',
       'Если вы не запрашивали вход, просто проигнорируйте это письмо.'
@@ -25,7 +25,7 @@ export class EmailMagicLinkEmailSender implements MagicLinkEmailSender {
 
     const result = await this.mailer.send({
       to: input.email,
-      subject: 'Вход в CDOProf',
+      subject: 'Вход в trudskill',
       body,
       templateKey: 'magic_link'
     });
