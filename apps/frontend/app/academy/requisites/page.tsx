@@ -11,12 +11,21 @@ import {
   SectionError
 } from '../../../src/components/state-wrappers';
 import { useAuth } from '../../../src/features/auth/context';
+import { hasPermission } from '../../../src/lib/rbac/permissions';
 import { tenantApi } from '../../../src/lib/tenant/tenant-api';
 import { pushGlobalSuccessToast } from '../../../src/lib/toast/global-handlers';
 import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
 
 export default function AcademyRequisitesPage() {
   const { session } = useAuth();
+  /*
+   * Реквизиты подставляются в выдаваемые удостоверения и протоколы, поэтому правит их
+   * только администрация центра (право заведено миграцией 0083). Экран при этом открыт
+   * шире — по `tenant.read`, которое есть у всех ролей, включая слушателя: смотреть данные
+   * своего центра можно, менять — нет. Форму без права не показываем совсем, чтобы человек
+   * не заполнял поля и не упирался в отказ на кнопке.
+   */
+  const canEdit = hasPermission(session?.permissions ?? [], 'tenant.settings.write');
   const [err, setErr] = useState<string | null>(null);
   const [legalName, setLegalName] = useState('');
   const [taxNumber, setTaxNumber] = useState('');
@@ -99,7 +108,13 @@ export default function AcademyRequisitesPage() {
             />
           ) : null}
           {err ? <SectionError message={err} /> : null}
-          {session ? (
+          {session && !canEdit ? (
+            <SectionEmpty
+              message="У вас нет прав на изменение данных центра"
+              hint="Реквизиты подставляются в удостоверения и протоколы, поэтому их правит только администрация учебного центра. Обратитесь к администратору."
+            />
+          ) : null}
+          {session && canEdit ? (
             <Form
               onSubmit={(event) => {
                 event.preventDefault();

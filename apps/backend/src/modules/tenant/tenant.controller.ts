@@ -37,7 +37,17 @@ export class TenantController {
     return this.tenantService.getRequisites(context.tenantId!);
   }
 
+  /*
+   * Правка карточки центра — операция администрации, а не «любого вошедшего».
+   *
+   * Раньше обе ручки стояли без права, и это было опаснее, чем выглядит: экран «Реквизиты»
+   * открыт по праву `tenant.read`, которое есть у ВСЕХ ролей, включая слушателя. А из
+   * реквизитов берутся юридическое название, ИНН и картинки подписи с печатью, которые
+   * попадают в ВЫДАВАЕМЫЕ документы. Право заведено миграцией 0083.
+   */
   @Put('settings')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('tenant.settings.write')
   async updateSettings(
     @CurrentContext() context: RequestContext,
     @Body() body: { locale?: string; timezone?: string; payload?: Record<string, unknown> }
@@ -46,6 +56,8 @@ export class TenantController {
   }
 
   @Put('requisites')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('tenant.settings.write')
   async updateRequisites(
     @CurrentContext() context: RequestContext,
     @Body() body: { legalName?: string; taxNumber?: string; payload?: Record<string, unknown> }
