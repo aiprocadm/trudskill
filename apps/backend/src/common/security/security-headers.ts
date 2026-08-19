@@ -51,6 +51,7 @@ export const parseCspDirectives = (policy: string | undefined): Record<string, s
     const parts = chunk.trim().split(/\s+/).filter(Boolean);
     if (!parts.length) continue;
     const [name, ...values] = parts;
+    if (!name) continue;
     result[name] = values;
   }
   return result;
