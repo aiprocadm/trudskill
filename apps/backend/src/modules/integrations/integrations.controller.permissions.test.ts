@@ -35,13 +35,25 @@ describe('Integrations controllers require integrations.* permissions', () => {
         expect(guards).toContain(PermissionGuard);
       });
 
-      it('declares an integrations.read or integrations.write permission on EVERY handler', () => {
+      /*
+       * Инвариант «каждый обработчик объявляет право» сохранён; расширено ДОПУСТИМОЕ
+       * множество прав — добавлено платформенное `platform.integrations.write` (ФТ-D1,
+       * миграция 0082). Причина: каталог провайдеров один на всех арендаторов, и право
+       * арендатора `integrations.write` позволяло администратору одного учебного центра
+       * выключить провайдера остальным. Ослаблением это не является — наоборот, часть
+       * ручек стала строже; см. `platform-catalog.isolation.test.ts`.
+       */
+      it('declares a known integrations permission on EVERY handler', () => {
         for (const method of handlerNames(ctor)) {
           const perms = requiredPermissions(ctor, method);
           expect(perms, `${ctor.name}.${method} is missing @RequirePermissions`).toBeDefined();
           expect(perms!.length).toBeGreaterThan(0);
           for (const perm of perms!) {
-            expect(['integrations.read', 'integrations.write']).toContain(perm);
+            expect([
+              'integrations.read',
+              'integrations.write',
+              'platform.integrations.write'
+            ]).toContain(perm);
           }
         }
       });
@@ -58,5 +70,22 @@ describe('Integrations controllers require integrations.* permissions', () => {
     expect(requiredPermissions(IntegrationsController, 'listProviders')).toEqual([
       'integrations.read'
     ]);
+  });
+
+  /*
+   * ФТ-D1: каталог провайдеров платформенный. Выключение провайдера действует на ВСЕХ
+   * арендаторов, поэтому арендаторскому `integrations.write` здесь делать нечего.
+   */
+  it('gates provider mutations with the platform-level permission', () => {
+    for (const method of [
+      'createProvider',
+      'patchProvider',
+      'activateProvider',
+      'deactivateProvider'
+    ]) {
+      expect(requiredPermissions(IntegrationsController, method), method).toEqual([
+        'platform.integrations.write'
+      ]);
+    }
   });
 });
