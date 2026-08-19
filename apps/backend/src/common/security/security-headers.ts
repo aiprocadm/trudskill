@@ -91,6 +91,26 @@ const scormPolicy = (): string =>
 const apiPermissionsPolicy = (): string =>
   ['camera=()', 'microphone=()', 'geolocation=()', 'payment=()', 'usb=()'].join(', ');
 
+/**
+ * Ставит заголовки на КАЖДЫЙ ответ, включая ответы об ошибке и запросы, до контроллера
+ * не дошедшие. Именно поэтому это middleware, а не перехватчик ответа: перехватчик
+ * работает только там, где отработал контроллер, и страница ошибки осталась бы голой.
+ *
+ * Общая фабрика на боевой код и на тест — чтобы проверка не разъехалась с тем, что
+ * реально выставляется в `main.ts`.
+ */
+export const createSecurityHeadersMiddleware =
+  (isProduction: boolean) =>
+  (
+    _request: unknown,
+    response: { setHeader: (name: string, value: string) => void },
+    next: () => void
+  ): void => {
+    const headers = buildSecurityHeaders({ isProduction, kind: 'api' });
+    for (const [name, value] of Object.entries(headers)) response.setHeader(name, value);
+    next();
+  };
+
 export const buildSecurityHeaders = ({
   isProduction,
   kind

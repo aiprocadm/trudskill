@@ -7,6 +7,7 @@ import { HttpExceptionEnvelopeFilter } from './common/filters/http-exception.fil
 import { RequestContextInterceptor } from './common/interceptors/request-context.interceptor.js';
 import { RequestObservabilityInterceptor } from './common/interceptors/request-observability.interceptor.js';
 import { ResponseEnvelopeInterceptor } from './common/interceptors/response-envelope.interceptor.js';
+import { createSecurityHeadersMiddleware } from './common/security/security-headers.js';
 import { backendEnv } from './env.js';
 
 async function bootstrap() {
@@ -14,6 +15,12 @@ async function bootstrap() {
     rawBody: true,
     cors: { origin: backendEnv.CORS_ORIGIN, credentials: true }
   });
+  /*
+   * ФТ-G7 — заголовки безопасности. Ставятся ДО всего остального, чтобы попасть и в ответы
+   * об ошибке, и в запросы, до контроллера не дошедшие: страница ошибки уходит в тот же
+   * браузер и защищена быть обязана.
+   */
+  app.use(createSecurityHeadersMiddleware(backendEnv.NODE_ENV === 'production'));
   app.useGlobalPipes(createAppValidationPipe());
   app.useGlobalFilters(new HttpExceptionEnvelopeFilter());
   app.useGlobalInterceptors(

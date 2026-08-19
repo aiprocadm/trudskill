@@ -2,6 +2,7 @@ import { Controller, Get, Inject, NotFoundException, Param, Res } from '@nestjs/
 
 import { verifyScormContentToken } from './scorm-content-token.js';
 import { contentTypeForPath } from './scorm-zip-guards.js';
+import { buildSecurityHeaders } from '../../../common/security/security-headers.js';
 import { backendEnv } from '../../../env.js';
 import { S3StorageClient } from '../../../infrastructure/storage/s3-storage.client.js';
 
@@ -54,7 +55,22 @@ export class ScormContentController {
       const stream = await this.storage.getObjectStream({ key });
       res.setHeader('Content-Type', contentTypeForPath(rest));
       res.setHeader('Cache-Control', 'private, max-age=3600');
-      res.setHeader('X-Content-Type-Options', 'nosniff');
+      /*
+       * ФТ-G7. Здесь отдаётся ЧУЖОЙ код — html и js учебного курса из загруженного пакета,
+       * поэтому политика ставится прямо тут, а не только общим middleware: защита кода,
+       * который мы не писали, не должна зависеть от порядка подключения обработчиков.
+       * Общая политика API курсу не годится — она запрещает скрипты, и не запустился бы
+       * ни один курс; набор `scorm` разрешает курсу его собственные скрипты и стили, но
+       * закрывает отправку данных наружу и подмену базового адреса.
+       */
+      for (const [name, value] of Object.entries(
+        buildSecurityHeaders({
+          isProduction: backendEnv.NODE_ENV === 'production',
+          kind: 'scorm'
+        })
+      )) {
+        res.setHeader(name, value);
+      }
       stream.on('error', () => {
         if (!res.headersSent) {
           res.status(404).end();
