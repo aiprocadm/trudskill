@@ -53,22 +53,22 @@ export class IntegrationsController {
     return this.orchestrator.getProvider(id);
   }
   @Post('providers')
-  @RequirePermissions('integrations.write')
+  @RequirePermissions('platform.integrations.write')
   createProvider(@Body() body: CreateProviderDto) {
     return this.orchestrator.createProvider(body);
   }
   @Patch('providers/:id')
-  @RequirePermissions('integrations.write')
+  @RequirePermissions('platform.integrations.write')
   patchProvider(@Param('id') id: string, @Body() body: UpdateProviderDto) {
     return this.orchestrator.patchProvider(id, body);
   }
   @Post('providers/:id/activate')
-  @RequirePermissions('integrations.write')
+  @RequirePermissions('platform.integrations.write')
   activateProvider(@Param('id') id: string) {
     return this.orchestrator.patchProvider(id, { isActive: true });
   }
   @Post('providers/:id/deactivate')
-  @RequirePermissions('integrations.write')
+  @RequirePermissions('platform.integrations.write')
   deactivateProvider(@Param('id') id: string) {
     return this.orchestrator.patchProvider(id, { isActive: false });
   }
