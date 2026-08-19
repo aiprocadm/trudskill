@@ -13,13 +13,13 @@
 
 ## Какие ключи переименованы
 
-| Что | Было | Стало | Где живёт |
-| --- | --- | --- | --- |
-| Cookie обновления сессии | `cdoprof_refresh_token` | `trudskill_refresh_token` | `apps/backend/src/modules/iam/auth-cookie.util.ts` |
-| Cookie защиты от подделки запросов | `cdoprof_csrf_token` | `trudskill_csrf_token` | там же |
-| Cookie кода учебного центра | `cdoprof_tenant_code` | `trudskill_tenant_code` | `apps/frontend/src/lib/tenant/host-resolve.ts` |
-| Снимок сессии в браузере | `cdoprof.session.v1` | `trudskill.session.v1` | `apps/frontend/src/lib/auth/session-store.ts` |
-| Выбранное оформление | `cdoprof-ui-theme` | `trudskill-ui-theme` | `packages/ui/src/providers/theme-context.tsx` |
+| Что                                | Было                    | Стало                     | Где живёт                                          |
+| ---------------------------------- | ----------------------- | ------------------------- | -------------------------------------------------- |
+| Cookie обновления сессии           | `cdoprof_refresh_token` | `trudskill_refresh_token` | `apps/backend/src/modules/iam/auth-cookie.util.ts` |
+| Cookie защиты от подделки запросов | `cdoprof_csrf_token`    | `trudskill_csrf_token`    | там же                                             |
+| Cookie кода учебного центра        | `cdoprof_tenant_code`   | `trudskill_tenant_code`   | `apps/frontend/src/lib/tenant/host-resolve.ts`     |
+| Снимок сессии в браузере           | `cdoprof.session.v1`    | `trudskill.session.v1`    | `apps/frontend/src/lib/auth/session-store.ts`      |
+| Выбранное оформление               | `cdoprof-ui-theme`      | `trudskill-ui-theme`      | `packages/ui/src/providers/theme-context.tsx`      |
 
 Номер версии значения (`.v1`) намеренно **не сбрасывался** — меняется только имя бренда.
 
@@ -27,20 +27,40 @@
 
 Правило на все пять ключей одинаковое:
 
-1. **Пишем всегда по-новому.**
-2. **Читаем новое, а если его нет — старое.**
-3. **Запись = переезд**: старое значение гасится (cookie) или удаляется (localStorage)
-   тем же действием. Это не уборка ради красоты, а защита — см. ниже.
-4. **Выход гасит оба имени.**
+Общее для всех пяти ключей:
 
-### Почему пункт 3 обязателен
+1. **Читаем новое имя, а если его нет — прежнее.**
+2. **Выход гасит оба имени.**
 
-Cookie обновления сессии одноразовая: сервер выдаёт новую и запоминает, что прежняя
-потрачена; повторное предъявление потраченной считается кражей и **отзывает все сессии
-человека на всех устройствах**. Если бы старая cookie осталась лежать в браузере с
-потраченным значением (а живёт она до 7 суток), то любой откат кода — в том числе
-автоматический откат стенда по расписанию — заставил бы сервер прочитать именно её и
-поднять ложную тревогу о краже. Гашение при записи закрывает этот сценарий.
+А вот **что происходит с прежним именем при записи — у трёх видов ключей по-разному**, и
+это не небрежность, а три разных ответа на вопрос «что будет, если код откатят назад».
+
+| Вид ключа                                     | При записи                                                 | Почему так                                                                                                                          |
+| --------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Cookie сессии и защиты от подделки            | пишутся **оба имени, одним и тем же актуальным значением** | см. ниже — единственный вариант, переживающий откат                                                                                 |
+| Cookie кода учебного центра, выбор оформления | пишутся **оба имени**                                      | значение не одноразовое; при откате прежнее имя даёт верный ответ                                                                   |
+| Снимок сессии в браузере (`localStorage`)     | пишется новое, **прежнее удаляется**                       | источник истины — cookie, при откате снимок восстановится сам; а лежать он не должен, потому что содержит ФИО, роли и права (ФТ-H6) |
+
+### Почему cookie сессии пишется под ОБА имени (⚠️ отступление от буквы `BR-020` п.1)
+
+ТЗ говорит «старый ключ не удаляется». Буквально это значит: под прежним именем остаётся
+то, что там лежало — **потраченный** одноразовый токен. Cookie обновления сессии
+одноразовая: сервер выдаёт новую и запоминает, что прежняя потрачена, а повторное
+предъявление потраченной считается кражей и **отзывает все сессии человека на всех
+устройствах**. Живёт она до 7 суток, так что любой откат кода — в том числе автоматический
+откат стенда по расписанию — заставил бы сервер прочитать именно её и поднять ложную
+тревогу о краже.
+
+Обратный вариант — **гасить** прежнее имя при записи — ломает то, ради чего окно и
+заводилось: после отката старый код не найдёт вообще ничего и разлогинит всех разом.
+
+Поэтому выбран третий путь: **под прежним именем всегда лежит актуальное значение**. Откат
+проходит и без разлогина, и без ложной тревоги. Обоснование — запись 115 журнала
+расхождений в [TZ_UI_REDESIGN_STATUS.md](./TZ_UI_REDESIGN_STATUS.md); цель `BR-020`
+(«откат без потерь») достигается точнее, чем её буквальная формулировка.
+
+⚠️ **Не «упрощайте» это обратно к гашению.** Тесты в `auth-cookie.util.test.ts` закрепляют
+запись обоих имён одним значением; если они мешают — сначала перечитайте абзац выше.
 
 ### Почему пара cookie читается независимо, а не «обе новые или обе старые»
 
@@ -55,33 +75,40 @@ Cookie обновления сессии одноразовая: сервер в
 
 ### Что именно удалить
 
-| Файл | Что убрать |
-| --- | --- |
-| `apps/backend/src/modules/iam/auth-cookie.util.ts` | константы `LEGACY_REFRESH_COOKIE_NAME`, `LEGACY_CSRF_COOKIE_NAME`; ветки `?? readCookie(..., LEGACY_*)` в `readRefreshCookie`/`readCsrfCookie`; гашение legacy в `attach*`/`clear*`; поля `legacyRefreshCookieName`, `legacyCsrfCookieName` |
-| `apps/frontend/src/lib/auth/session-store.ts` | `LEGACY_KEY`, ветку чтения старого ключа в `hydrateFromStorage`, `safeRemove(store, LEGACY_KEY)` в `set`/`clear` |
-| `apps/frontend/src/lib/tenant/host-resolve.ts` | `LEGACY_TENANT_CODE_COOKIE` |
-| `apps/frontend/src/lib/tenant/current-tenant.ts` | второй вызов `readCookieByName` со старым именем |
-| `apps/frontend/middleware.ts` | оба `cookies.delete(LEGACY_TENANT_CODE_COOKIE)` |
-| `packages/ui/src/providers/theme-context.tsx` | `LEGACY_UI_THEME_STORAGE_KEY` |
-| `packages/ui/src/providers/theme-provider.tsx` | второй `getItem` в `readStoredThemeChoice`, `removeItem(LEGACY_…)` в `setChoice` |
-| `packages/ui/src/index.tsx` | реэкспорт `LEGACY_UI_THEME_STORAGE_KEY` |
-| тесты | блоки «период двойного чтения» в `auth-cookie.util.test.ts`, `session-store.test.ts`, `current-tenant.test.ts`, `theme-provider.test.ts` |
+| Файл                                               | Что убрать                                                                                                                                                                                                                                                                                                                                                        |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/backend/src/modules/iam/auth-cookie.util.ts` | константы `LEGACY_REFRESH_COOKIE_NAME`, `LEGACY_CSRF_COOKIE_NAME`; ветки `?? readCookie(..., LEGACY_*)` в `readRefreshCookie`/`readCsrfCookie`; **запись** legacy в `attachRefreshCookie`/`attachRefreshAndCsrfCookies`/`attachCsrfCookie` и **гашение** legacy в `clearRefreshCookie`/`clearAuthCookies`; поля `legacyRefreshCookieName`, `legacyCsrfCookieName` |
+| `apps/frontend/src/lib/auth/session-store.ts`      | `LEGACY_KEY`, ветку чтения старого ключа в `hydrateFromStorage`, `safeRemove(store, LEGACY_KEY)` в `set`/`clear`                                                                                                                                                                                                                                                  |
+| `apps/frontend/src/lib/tenant/host-resolve.ts`     | `LEGACY_TENANT_CODE_COOKIE`                                                                                                                                                                                                                                                                                                                                       |
+| `apps/frontend/src/lib/tenant/current-tenant.ts`   | второй вызов `readCookieByName` со старым именем                                                                                                                                                                                                                                                                                                                  |
+| `apps/frontend/middleware.ts`                      | оба `cookies.delete(LEGACY_TENANT_CODE_COOKIE)`                                                                                                                                                                                                                                                                                                                   |
+| `packages/ui/src/providers/theme-context.tsx`      | `LEGACY_UI_THEME_STORAGE_KEY`                                                                                                                                                                                                                                                                                                                                     |
+| `packages/ui/src/providers/theme-provider.tsx`     | второй `getItem` в `readStoredThemeChoice`, `removeItem(LEGACY_…)` в `setChoice`                                                                                                                                                                                                                                                                                  |
+| `packages/ui/src/index.tsx`                        | реэкспорт `LEGACY_UI_THEME_STORAGE_KEY`                                                                                                                                                                                                                                                                                                                           |
+| тесты                                              | блоки «период двойного чтения» в `auth-cookie.util.test.ts`, `session-store.test.ts`, `current-tenant.test.ts`, `theme-provider.test.ts`                                                                                                                                                                                                                          |
 
 ### Чего делать НЕ нужно
 
-- **Отдельная чистка cookie не требуется.** Старые истекают сами: их срок равен
-  `REFRESH_TOKEN_TTL_SECONDS` (по умолчанию 7 суток), и после выкатки N их больше никто
-  не продлевает. К моменту N+1 их не останется ни у кого.
-- **Чистка localStorage тоже не нужна отдельным кодом**: старые ключи удаляются при первой
-  же записи (вход, обновление сессии, смена темы) ещё в выкатке N. Кто за 60 дней ни разу
-  не заходил — у того при первом заходе сработает та же запись.
+- **Отдельная чистка cookie не требуется.** После выкатки N+1 сервер перестаёт их
+  продлевать, и они истекают сами: срок равен `REFRESH_TOKEN_TTL_SECONDS` (по умолчанию
+  7 суток). Мёртвая cookie с чужим именем браузеру не мешает.
+- **Снимок сессии в браузере чистить тоже не нужно**: прежний ключ удаляется при первой же
+  записи (вход, обновление сессии) ещё в выкатке N. Кто за 60 дней ни разу не заходил — у
+  того он удалится при первом заходе.
+- **Ключ темы после N+1 останется у тех, кто за 60 дней не заходил.** Это осознанная
+  плата: одна мёртвая строка в хранилище браузера, при следующем заходе человек просто
+  получит системное оформление и сможет переключить заново.
 
 ### Проверка перед выкаткой N+1
 
 1. `pnpm ci:check` — зелёный.
-2. `grep -rn "cdoprof_\|cdoprof\.\|cdoprof-" apps packages --include='*.ts' --include='*.tsx' | grep -v dist` — пусто.
+2. `grep -rn "cdoprof" apps packages --include='*.ts' --include='*.tsx' | grep -v dist` —
+   должны остаться **ровно две** строки, и обе законны по `BR-030`:
+   `apps/backend/src/env.schema.ts` (`SUPERTOKENS_APP_NAME`) и `apps/worker/src/env.ts`
+   (`DOCUMENTS_STORAGE_BUCKET`). Всё остальное — недоделанная уборка.
 3. Живой вход на стенде: войти, обновить страницу (F5), выйти — сессия держится, выход
-   действительно выходит.
+   действительно выходит. Отдельно проверить вход **прямо по адресу `/logout`** (закладка,
+   новая вкладка): на этом сценарии дефект уже ловили — запись 116.
 
 ## Что осталось за рамками (решения зафиксированы)
 
