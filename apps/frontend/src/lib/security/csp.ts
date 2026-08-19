@@ -63,13 +63,36 @@ const toOrigin = (value: string | null): string | null => {
   }
 };
 
+/**
+ * Адрес соединения реального времени задан со схемой `ws://`, но клиент ходит туда ДВУМЯ
+ * способами: обычным потоком событий по http и веб-сокетом по ws
+ * (`lib/realtime/client.ts` сам подменяет схему). Для политики `ws://host` и `http://host` —
+ * РАЗНЫЕ источники, поэтому нужны оба.
+ *
+ * ⚠️ Найдено живой проверкой в браузере, а не тестом: тест подтверждал, что адрес попал в
+ * директиву, и молчал о том, что клиент стучится по другой схеме. В бою уведомления были бы
+ * заблокированы, а на экране это выглядело бы просто как «оповещения не приходят».
+ */
+const realtimeSources = (value: string | null): string[] => {
+  const origin = toOrigin(value);
+  if (!origin) return [];
+  const paired = origin.startsWith('wss:')
+    ? origin.replace(/^wss:/, 'https:')
+    : origin.startsWith('ws:')
+      ? origin.replace(/^ws:/, 'http:')
+      : origin.startsWith('https:')
+        ? origin.replace(/^https:/, 'wss:')
+        : origin.replace(/^http:/, 'ws:');
+  return [origin, paired];
+};
+
 export const buildContentSecurityPolicy = ({
   nonce,
   apiOrigin,
   realtimeOrigin,
   isProduction
 }: ContentSecurityPolicyOptions): string => {
-  const connect = ["'self'", toOrigin(apiOrigin), toOrigin(realtimeOrigin)].filter(
+  const connect = ["'self'", toOrigin(apiOrigin), ...realtimeSources(realtimeOrigin)].filter(
     (value): value is string => Boolean(value)
   );
 

@@ -60,6 +60,28 @@ describe('политика безопасности страницы (ФТ-G7)',
     expect(connect).toContain('wss://rt.example.ru');
   });
 
+  /*
+   * Живая проверка в браузере поймала то, чего не видел тест: клиент ходит на сервер
+   * уведомлений ДВУМЯ способами — потоком событий по http и веб-сокетом по ws, а для
+   * политики это РАЗНЫЕ источники. С одной схемой уведомления молча не приходили бы,
+   * и выглядело бы это не как ошибка, а как «оповещения почему-то не работают».
+   */
+  it('для сервера уведомлений разрешены обе схемы — и поток событий, и веб-сокет', () => {
+    const connect = parseCspDirectives(options({ realtimeOrigin: 'ws://rt.example.ru' }))[
+      'connect-src'
+    ];
+    expect(connect).toContain('ws://rt.example.ru');
+    expect(connect).toContain('http://rt.example.ru');
+  });
+
+  it('защищённый адрес уведомлений тоже даёт обе схемы', () => {
+    const connect = parseCspDirectives(options({ realtimeOrigin: 'wss://rt.example.ru' }))[
+      'connect-src'
+    ];
+    expect(connect).toContain('wss://rt.example.ru');
+    expect(connect).toContain('https://rt.example.ru');
+  });
+
   it('незаданные адреса не превращаются в мусорные источники', () => {
     const connect = parseCspDirectives(options({ apiOrigin: null, realtimeOrigin: null }))[
       'connect-src'
