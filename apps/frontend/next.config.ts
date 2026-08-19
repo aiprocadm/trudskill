@@ -34,6 +34,12 @@ const nextConfig: NextConfig = {
   // ESLint runs as a dedicated CI job (`pnpm lint`); skip it during the image build for speed.
   // TypeScript checking stays ON during the build — do not disable it.
   eslint: { ignoreDuringBuilds: true },
+  /*
+   * ФТ-G7 — заголовков безопасности здесь НЕТ сознательно, все они ставятся в
+   * `middleware.ts`. Причина: файл настроек компилируется отдельно и не может импортировать
+   * исходники из `src` (сборка падает с MODULE_NOT_FOUND), а дублировать список заголовков
+   * в двух местах — верный способ получить два разных списка. Один источник надёжнее.
+   */
   // Phase 9 (D6): same-origin for SCORM iframe in dev. In prod Caddy routes /api/v1/*
   // to the backend BEFORE Next, so this rewrite never fires. NEXT_PUBLIC_API_BASE_URL already
   // contains /api/v1, so the destination is ${apiBase}/scorm-content/:path*.
