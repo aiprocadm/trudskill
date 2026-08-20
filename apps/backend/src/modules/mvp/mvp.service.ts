@@ -662,7 +662,8 @@ export class MvpService {
   getPortalDocumentDownload(
     tenantId: string,
     documentId: string,
-    actor?: { counterpartyId?: string }
+    actor?: { counterpartyId?: string; userId?: string },
+    ctx?: RequestContext
   ): { downloadUrl: string } {
     const notFound = () =>
       new NotFoundException({ code: 'not_found', message: 'Document not found' });
@@ -688,6 +689,38 @@ export class MvpService {
         code: 'document_file_missing',
         message: 'Document has no file yet'
       });
+    }
+    /*
+     * ФТ-G1: запись в журнал делается ЗДЕСЬ — после всех проверок доступа, а не раньше.
+     * Иначе в журнале центра оседали бы идентификаторы чужих документов, которые
+     * представитель запрашивал наугад: это и ложный след для разбирательства, и лишняя
+     * подсказка тому, кто перебирает адреса.
+     */
+    if (ctx) {
+      this.audit(
+        tenantId,
+        actor?.userId,
+        'documents.downloaded',
+        'documents.generated_document',
+        doc.id,
+        undefined,
+        undefined,
+        ctx,
+        {
+          documentNumber: doc.documentNumber,
+          documentName: doc.name,
+          documentType: doc.documentType,
+          /*
+           * Здесь слушатель известен точно: зачисление уже найдено выше при проверке
+           * доступа. В журнале это главное поле — по нему отвечают субъекту ПДн на вопрос
+           * «кто выгружал мои документы».
+           */
+          learnerId: enrollment.learnerId,
+          // Скачивание из портала заказчика — отдельный канал, и в разбирательстве важно,
+          // что документ забрал представитель компании, а не сотрудник центра.
+          channel: 'counterparty_portal'
+        }
+      );
     }
     const prefix = backendEnv.API_PREFIX.replace(/\/$/, '');
     return { downloadUrl: `${prefix}/files/${doc.fileId}/download` };

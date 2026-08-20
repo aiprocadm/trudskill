@@ -591,6 +591,53 @@ export class DocumentsService {
   getDocument(tenantId: string, id: string) {
     return this.must(this.state.generatedDocuments, tenantId, id);
   }
+
+  /**
+   * ФТ-G1 — скачивание документа с записью в журнал действий.
+   *
+   * Зачем отдельный метод, а не запись в контроллере. Скачанный документ — это удостоверение
+   * или протокол с фамилией, СНИЛСом и датой рождения слушателя. Если файл уйдёт наружу,
+   * учебный центр обязан ответить, кто и когда его выгружал — перед слушателем и перед
+   * проверкой по 152-ФЗ. Раньше в журнале был только выпуск документа: видно, что бумагу
+   * создали, и не видно, кто её потом скачивал.
+   *
+   * Запись делается ПОСЛЕ проверки принадлежности центру: чужой документ не должен ни
+   * отдаваться, ни оставлять следа в чужом журнале.
+   */
+  getDocumentForDownload(
+    tenantId: string,
+    id: string,
+    actorId: string | undefined,
+    ctx?: RequestContext
+  ) {
+    const document = this.must(this.state.generatedDocuments, tenantId, id);
+    this.auditService.write({
+      tenantId,
+      actorId,
+      action: 'documents.downloaded',
+      entityType: 'documents.generated_document',
+      entityId: document.id,
+      metadata: {
+        /*
+         * Что кладём и почему именно это. Прямого поля «слушатель» у документа нет: он
+         * привязан к тому, на основании чего выдан (`sourceEntityType` + `sourceEntityId`,
+         * обычно зачисление). Поэтому в записи — номер и название бумаги, чтобы человек
+         * опознал её без похода в базу, вид документа и ссылка на основание, по которой
+         * при разбирательстве находится слушатель.
+         */
+        documentNumber: document.documentNumber,
+        documentName: document.name,
+        documentType: document.documentType,
+        sourceEntityType: document.sourceEntityType,
+        sourceEntityId: document.sourceEntityId
+      },
+      requestId: ctx?.requestId,
+      correlationId: ctx?.correlationId,
+      ip: ctx?.ip,
+      userAgent: ctx?.userAgent
+    });
+    return document;
+  }
   generateDocument(
     tenantId: string,
     actorId: string | undefined,
