@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { STATUS_LABEL, buildUpdatePayload } from './format';
 import { useUpdateLearnerProfile } from './hooks';
 import { LearnerPiiPanel } from './learner-pii-panel';
+import { snilsInputHint } from '../../lib/snils';
 
 import type { LearnerEditFormState, LearnerListItem, LearnerStatus } from './types';
 
@@ -37,9 +38,16 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  // Подсказка по СНИЛС считается на каждый ввод: правило одно на весь фронт (`lib/snils`)
+  // и зеркалит серверное — сервер всё равно отклонит, но человек узнает об этом сразу.
+  const snilsHint = snilsInputHint(form.snils);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.firstName.trim() || !form.lastName.trim()) return;
+    // Не отправляем заведомо неверный номер: иначе ответ придёт ошибкой 400, и человеку
+    // придётся возвращаться к тому же полю через сообщение об ошибке сверху формы.
+    if (snilsHint) return;
     const payload = buildUpdatePayload(form);
     const result = await mutation.mutate(learner.id, payload);
     if (result) onSaved();
@@ -96,14 +104,29 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
           />
         </label>
 
+        {/* Образец в поле сам проходит контрольную сумму: прежний «123-456-789 01» её
+            не проходил — форма показывала пример номера, который сама же и отвергнет,
+            если его перепечатать. */}
         <label className="ui-field">
           <span className="ui-field-label">СНИЛС</span>
           <input
             className="ui-input"
             value={form.snils}
             onChange={(e) => setField('snils', e.target.value)}
-            placeholder="123-456-789 01"
+            placeholder="112-233-445 95"
+            aria-invalid={snilsHint ? true : undefined}
+            aria-describedby={snilsHint ? 'learner-snils-hint' : undefined}
           />
+          {/*
+            ФТ-C4.1: опечатка в СНИЛС ловится здесь, а не через месяцы на выгрузке в
+            госреестр. Подсказка появляется только когда номер набран целиком — иначе
+            она горела бы на каждой промежуточной цифре.
+          */}
+          {snilsHint ? (
+            <span id="learner-snils-hint" className="ui-field-error" role="alert">
+              {snilsHint}
+            </span>
+          ) : null}
         </label>
 
         <label className="ui-field">

@@ -2932,7 +2932,9 @@ describe('MvpService — updateLearnerExtended (Phase 2 Plan B §Task2)', () => 
         firstName: 'Пётр',
         middleName: 'Сергеевич',
         email: 'new@x.ru',
-        snils: '123-456-789 01',
+        // Номер обязан сходиться по контрольной сумме (ФТ-C4.1): с этого среза сервис
+        // отклоняет произвольные цифры, поэтому «123-456-789 01» здесь больше не годится.
+        snils: '112-233-445 95',
         position: 'инженер',
         status: 'archived'
       },
@@ -2943,7 +2945,7 @@ describe('MvpService — updateLearnerExtended (Phase 2 Plan B §Task2)', () => 
     expect(updated.lastName).toBe('Иванов'); // не трогали
     expect(updated.middleName).toBe('Сергеевич');
     expect(updated.email).toBe('new@x.ru');
-    expect(updated.snils).toBe('123-456-789 01');
+    expect(updated.snils).toBe('112-233-445 95');
     expect(updated.position).toBe('инженер');
     expect(updated.status).toBe('archived');
     expect(
@@ -2970,7 +2972,7 @@ describe('MvpService — updateLearnerExtended (Phase 2 Plan B §Task2)', () => 
         lastName: 'B',
         middleName: 'C',
         email: 'a@b.ru',
-        snils: '111-111-111 02',
+        snils: '111-111-111 45',
         position: 'p'
       },
       ctx

@@ -1,3 +1,5 @@
+import { isValidSnilsChecksum, normalizeSnils } from '../../lib/snils';
+
 import type { ClassifiedParsedRow, ParsedRow, RowError } from './types';
 
 /**
@@ -14,27 +16,12 @@ import type { ClassifiedParsedRow, ParsedRow, RowError } from './types';
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const FIO_PART_RE = /^[А-ЯЁ][а-яё]+(?:-[А-ЯЁ][а-яё]+)?$/;
 
-export function normalizeSnils(input: string): string {
-  return input.replace(/\D/g, '');
-}
-
-export function isValidSnilsChecksum(digits: string): boolean {
-  if (digits.length !== 11 || !/^\d{11}$/.test(digits)) return false;
-  let sum = 0;
-  for (let i = 0; i < 9; i++) {
-    sum += Number(digits[i]) * (9 - i);
-  }
-  let computed: number;
-  if (sum < 100) {
-    computed = sum;
-  } else if (sum === 100 || sum === 101) {
-    computed = 0;
-  } else {
-    const mod = sum % 101;
-    computed = mod === 100 || mod === 101 ? 0 : mod;
-  }
-  return computed === Number(digits.slice(9, 11));
-}
+/*
+ * Правило СНИЛС переехало в `src/lib/snils` — общее место фронта. Здесь оставлен
+ * реэкспорт: код правила один на всех (импорт, форма карточки), а прежние импорты
+ * из этого файла продолжают работать.
+ */
+export { isValidSnilsChecksum, normalizeSnils };
 
 export function classifyParsedRows(rows: ParsedRow[]): ClassifiedParsedRow[] {
   // Pre-pass: in-file дубликаты

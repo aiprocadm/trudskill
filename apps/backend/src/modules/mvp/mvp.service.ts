@@ -52,6 +52,7 @@ import { buildReport } from './report-builder/build-report.js';
 import { getEntity, listReportEntityMeta } from './report-builder/report-entities.js';
 import { ReportXlsxWriter } from './report-builder/report-xlsx.writer.js';
 import { aggregateReviewerQueue } from './reviewer-queue.service.js';
+import { isValidSnilsChecksum, normalizeSnils } from './snils.util.js';
 import { backendEnv } from '../../env.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -811,6 +812,35 @@ export class MvpService {
   }
 
   /**
+   * ФТ-C4.1 — СНИЛС проверяется по контрольной сумме **при вводе**.
+   *
+   * Проверка существовала в трёх местах: массовый импорт из Excel, допуск к экзамену и
+   * preflight пяти госреестров. Ручной ввод в карточке был единственным путём, где номер
+   * сохранялся как есть, — а именно так его и вбивают чаще всего.
+   *
+   * Цена пропуска отложенная: опечатка лежит в базе месяцами и всплывает в день сдачи
+   * отчётности, когда выгрузка блокируется целиком (ФТ-C4.1 запрещает «частичный успех»,
+   * иначе человек в реестре просто не появится и центр этого не заметит). На этапе ввода
+   * ошибка стоит одной секунды: рядом сидит тот, кто держит зелёную карточку в руках.
+   *
+   * Пустое значение — не ошибка: СНИЛС обязателен для ВЫГРУЗКИ, а не для карточки, и
+   * заводить слушателя без него можно (это ловит preflight, когда дойдёт до реестра).
+   */
+  private assertSnilsChecksum(snils: string | null | undefined): void {
+    const raw = snils?.trim();
+    if (!raw) return;
+    const digits = normalizeSnils(raw);
+    if (digits.length !== 11 || !isValidSnilsChecksum(digits)) {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message:
+          'СНИЛС не проходит проверку контрольной суммы — вероятна опечатка. ' +
+          'Проверьте 11 цифр по зелёной карточке.'
+      });
+    }
+  }
+
+  /**
    * Phase 2 Plan A — создание учётка с полным набором полей (email/snils/middleName/position).
    * `createLearner` не принимает эти поля (только firstName+lastName из `name.split`).
    * Этот метод используется `LearnersBulkImportService` при импорте из Excel.
@@ -832,6 +862,8 @@ export class MvpService {
     },
     context: RequestContext
   ): Learner {
+    // До создания записи: половина заведённой карточки хуже, чем отказ на входе.
+    this.assertSnilsChecksum(request.snils);
     const entity: Learner = {
       id: this.id('learner'),
       tenantId,
@@ -934,6 +966,9 @@ export class MvpService {
   ): Learner {
     const current = this.getById(this.state.learners, tenantId, learnerId);
     const oldValues: Learner = { ...current };
+
+    // До первой записи в `current`: иначе часть полей уже применена, а правка отклонена.
+    this.assertSnilsChecksum(request.snils);
 
     // Anti-IDOR: смена linkedIamUserId на другой непустой → conflict.
     if (
@@ -4141,17 +4176,15 @@ export class MvpService {
 
   // ─── ЕСИА (Госуслуги) OAuth seam helpers ──────────────────────────────────
 
-  /** Digits-only normalisation so '112-233-445 95' and '11223344595' compare equal. */
-  private normalizeSnils(snils: string | undefined): string {
-    return (snils ?? '').replace(/\D/g, '');
-  }
-
   /** Learners in this tenant whose СНИЛС matches (normalised). Empty when none — caller denies. */
   findLearnersBySnils(tenantId: string, snils: string): Learner[] {
-    const target = this.normalizeSnils(snils);
+    // Нормализация — общая утилита `snils.util`: та же, которой пользуются импорт,
+    // preflight реестров и проверка при вводе. Своя копия здесь жила отдельно и
+    // могла разойтись с ними незаметно.
+    const target = normalizeSnils(snils);
     if (target.length === 0) return [];
     return this.state.learners.filter(
-      (l) => l.tenantId === tenantId && this.normalizeSnils(l.snils) === target
+      (l) => l.tenantId === tenantId && normalizeSnils(l.snils ?? '') === target
     );
   }
 
