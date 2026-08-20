@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FilePicker, LoadingState, StatusChip } from '@trudskill/ui';
+import { FilePicker, LoadingState, type SemanticStatus, StatusChip } from '@trudskill/ui';
 import { useState } from 'react';
 
 import {
@@ -31,11 +31,16 @@ const STATUS_LABEL: Record<VideoAssetDto['status'], string> = {
   failed: 'Ошибка'
 };
 
-const STATUS_CHIP: Record<VideoAssetDto['status'], string> = {
+/**
+ * Цвет чипа для состояния записи (`UI-023`). «Ошибка» раньше стояла как `inactive` —
+ * серый цвет «просто выключено»; для неудачной загрузки это неверно, есть отдельный
+ * красный `failed`, иначе сорванная загрузка не отличается от неактивной записи.
+ */
+const STATUS_CHIP: Record<VideoAssetDto['status'], SemanticStatus> = {
   uploading: 'pending',
   processing: 'pending',
   ready: 'active',
-  failed: 'inactive'
+  failed: 'failed'
 };
 
 /** Размер в мегабайтах и длительность словами: «12,4 МБ · 5 мин 30 с». */
@@ -184,8 +189,12 @@ export function VideoUploadSection() {
 
       {items.map((item) => (
         <div key={item.id} className="ui-inline" data-testid="video-asset-row">
-          <StatusChip status={STATUS_CHIP[item.status]} />
-          <span>{STATUS_LABEL[item.status]}</span>
+          {/*
+            Подпись — внутри чипа, а не рядом с ним. Раньше чип подставлял свою подпись
+            по ключу цвета («Ожидает»), а сосед показывал состояние записи
+            («Обрабатывается»): два разных слова об одном и том же в одной строке.
+          */}
+          <StatusChip status={STATUS_CHIP[item.status]} label={STATUS_LABEL[item.status]} />
           {/*
             Здесь стоял идентификатор записи («3f7a-…»): по нему нельзя понять, какое это
             видео. Имени файла сервер не присылает, поэтому показываем то, что отличает

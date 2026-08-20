@@ -53,7 +53,7 @@ export function QuestionBankDetailScreen({ bankId }: Props) {
     {
       key: 'status',
       title: 'Статус',
-      render: (q) => <StatusChip status={formatEntityStatus(q.status)} />
+      render: (q) => <StatusChip status={q.status} label={formatEntityStatus(q.status)} />
     }
   ];
 

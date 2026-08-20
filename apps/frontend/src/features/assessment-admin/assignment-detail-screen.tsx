@@ -68,7 +68,7 @@ export function AssignmentDetailScreen({ assignmentId }: Props) {
                 {archive.isPending ? 'Архивация…' : 'Архивировать'}
               </button>
             )}
-            <StatusChip status={formatEntityStatus(a.status)} />
+            <StatusChip status={a.status} label={formatEntityStatus(a.status)} />
           </>
         }
       />

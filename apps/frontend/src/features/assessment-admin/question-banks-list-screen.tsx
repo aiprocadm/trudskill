@@ -56,7 +56,7 @@ export function QuestionBanksListScreen() {
         </Link>
       ),
       courseView: courseNameCell(courseNames, item.courseId),
-      statusView: <StatusChip status={formatEntityStatus(item.status)} />
+      statusView: <StatusChip status={item.status} label={formatEntityStatus(item.status)} />
     }));
 
   return (

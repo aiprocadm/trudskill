@@ -18,6 +18,7 @@ import {
   ALL_LICENSE_TYPES,
   type CreateLicensePayload,
   LICENSE_STATUS_LABELS,
+  LICENSE_STATUS_TONE,
   LICENSE_TYPE_LABELS,
   type LicenseStatus,
   type LicenseType,
@@ -125,7 +126,12 @@ export function LicensesView() {
     validityView: license.validUntil
       ? `${formatDate(license.issuedAt)} — ${formatDate(license.validUntil)}`
       : `${formatDate(license.issuedAt)} — бессрочно`,
-    statusView: <StatusChip status={LICENSE_STATUS_LABELS[license.status]} />
+    statusView: (
+      <StatusChip
+        status={LICENSE_STATUS_TONE[license.status]}
+        label={LICENSE_STATUS_LABELS[license.status]}
+      />
+    )
   }));
 
   return (

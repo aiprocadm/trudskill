@@ -61,7 +61,7 @@ export function ClientsListScreen() {
     {
       key: 'status',
       title: 'Статус',
-      render: (row) => <StatusChip status={CLIENT_STATUS_LABEL[row.status]} />
+      render: (row) => <StatusChip status={row.status} label={CLIENT_STATUS_LABEL[row.status]} />
     }
   ];
 
