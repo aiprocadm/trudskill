@@ -39,13 +39,28 @@ export const EmptyState = ({
     ) : null}
   </div>
 );
+/**
+ * `TXT-004`: сверху — что произошло и что делать, техническая часть — под спойлером.
+ *
+ * Администратору учебного центра код ошибки не говорит ничего, а поддержке без него не найти
+ * причину. Спойлер разводит эти два интереса и не заставляет одного читать нужное другому.
+ */
 export const ErrorState = ({
-  message = 'Не удалось загрузить данные'
+  message = 'Не удалось загрузить данные',
+  details
 }: {
   message?: string;
+  /** Код, ответ сервера, номер запроса — одной строкой. Без него спойлера нет. */
+  details?: string;
 }): ReactElement => (
   <div className="ui-error" role="alert">
     {message}
+    {details ? (
+      <details className="ui-text-muted">
+        <summary>Подробности</summary>
+        <span>{details}</span>
+      </details>
+    ) : null}
   </div>
 );
 export const LoadingState = ({ message = 'Загрузка…' }: { message?: string }): ReactElement => (

@@ -95,15 +95,7 @@ export function TenantUsageScreen() {
     <>
       <SectionCard title="Тариф">
         {usageQuery.isLoading ? <LoadingState message="Загрузка использования…" /> : null}
-        {usageQuery.error ? (
-          <SectionError
-            message={
-              usageQuery.error instanceof Error
-                ? usageQuery.error.message
-                : 'Не удалось загрузить использование'
-            }
-          />
-        ) : null}
+        {usageQuery.error ? <SectionError error={usageQuery.error} /> : null}
         {data ? (
           data.plan ? (
             <div className="ui-stack">

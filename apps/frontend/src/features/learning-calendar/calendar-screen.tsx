@@ -145,15 +145,7 @@ export function LearningCalendarScreen() {
         }
       />
       <SectionCard title={monthLabel(cursor)}>
-        {enrollments.error ? (
-          <SectionError
-            message={
-              enrollments.error instanceof Error
-                ? enrollments.error.message
-                : 'Не удалось загрузить зачисления'
-            }
-          />
-        ) : null}
+        {enrollments.error ? <SectionError error={enrollments.error} /> : null}
         {enrollments.isLoading ? <LoadingState message="Загружаем календарь…" /> : null}
         {!enrollments.isLoading && enrollments.data && enrollments.data.total === 0 ? (
           <SectionEmpty
@@ -185,7 +177,10 @@ export function LearningCalendarScreen() {
                           status={row.status}
                           label={ENROLLMENT_STATUS_LABEL[row.status] ?? row.status}
                         />
-                        <span>{learnerNames.get(row.learnerId) ?? (canReadLearners ? 'Слушатель' : 'Вы')}</span>
+                        <span>
+                          {learnerNames.get(row.learnerId) ??
+                            (canReadLearners ? 'Слушатель' : 'Вы')}
+                        </span>
                       </li>
                     ))}
                   </ul>

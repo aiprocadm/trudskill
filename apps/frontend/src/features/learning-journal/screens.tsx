@@ -60,15 +60,7 @@ export function LearningJournalSection({ groupId }: { groupId: string }) {
         проверке просят файл, а не экран, — рядом кнопка выгрузки.
       </p>
 
-      {journalQuery.error ? (
-        <SectionError
-          message={
-            journalQuery.error instanceof Error
-              ? journalQuery.error.message
-              : 'Не удалось загрузить журнал'
-          }
-        />
-      ) : null}
+      {journalQuery.error ? <SectionError error={journalQuery.error} /> : null}
       {error ? <SectionError message={error} /> : null}
       {journalQuery.isLoading ? <LoadingState message="Считаем часы…" /> : null}
 

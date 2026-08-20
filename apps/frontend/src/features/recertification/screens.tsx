@@ -240,15 +240,7 @@ export function ExpiringDocumentsSection(): ReactElement {
   return (
     <SectionCard title="Истекающие удостоверения">
       {expiringQuery.isLoading ? <LoadingState message="Считаем сроки…" /> : null}
-      {expiringQuery.error ? (
-        <SectionError
-          message={
-            expiringQuery.error instanceof Error
-              ? expiringQuery.error.message
-              : 'Не удалось загрузить сроки'
-          }
-        />
-      ) : null}
+      {expiringQuery.error ? <SectionError error={expiringQuery.error} /> : null}
 
       {data ? (
         <div className="ui-stack">

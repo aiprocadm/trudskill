@@ -40,15 +40,7 @@ export function PlatformHealthSection() {
       </p>
 
       {healthQuery.isLoading ? <LoadingState message="Собираем состояние…" /> : null}
-      {healthQuery.error ? (
-        <SectionError
-          message={
-            healthQuery.error instanceof Error
-              ? healthQuery.error.message
-              : 'Не удалось загрузить состояние'
-          }
-        />
-      ) : null}
+      {healthQuery.error ? <SectionError error={healthQuery.error} /> : null}
 
       {data ? (
         <div className="ui-stack">

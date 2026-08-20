@@ -115,7 +115,11 @@ export function TenantImagesSection() {
   };
 
   const remove = (slot: TenantImageSlot) =>
-    run(slot, () => tenantImagesApi.save(session!, slot, { fileId: null }), 'Не удалось убрать картинку');
+    run(
+      slot,
+      () => tenantImagesApi.save(session!, slot, { fileId: null }),
+      'Не удалось убрать картинку'
+    );
 
   return (
     <SectionCard title="Подпись и печать">
@@ -124,15 +128,7 @@ export function TenantImagesSection() {
         Юридически это факсимиле: усиленная подпись выдаётся отдельно, через электронную подпись.
       </p>
 
-      {imagesQuery.error ? (
-        <SectionError
-          message={
-            imagesQuery.error instanceof Error
-              ? imagesQuery.error.message
-              : 'Не удалось загрузить настройки'
-          }
-        />
-      ) : null}
+      {imagesQuery.error ? <SectionError error={imagesQuery.error} /> : null}
       {error ? <SectionError message={error} /> : null}
       {imagesQuery.isLoading ? <LoadingState message="Загрузка настроек…" /> : null}
 
