@@ -32,7 +32,7 @@ export const foundationStyles = `
 .ui-list { list-style:none; margin:0; padding:0; display:grid; gap:0; }
 .ui-list-title { font-weight: 600; color: var(--ui-text); font-size: 0.97rem; }
 /* Карточка-строка списка (тесты, задания и т.п.) */
-.entry-card { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); padding: 14px; transition: border-color .15s ease, box-shadow .15s ease; }
+.entry-card { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); padding: 14px; transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
 .entry-card:hover { border-color: var(--ui-brand-600); box-shadow: var(--ui-shadow); }
 .entry-card + .entry-card { margin-top: 10px; }
 /* Слайд-овер дровер (создание/редактирование сущностей) — фикс. панель справа + затемнение */
@@ -102,13 +102,13 @@ legend { font-size: 13px; font-weight: 600; color: var(--ui-text-muted); padding
    В светлой теме surface-muted и neutral-100 совпадают — вид не меняется. */
 progress { -webkit-appearance: none; appearance: none; width: 100%; height: 9px; border: none; border-radius: var(--ui-radius-pill); background: var(--ui-surface-muted); overflow: hidden; }
 progress::-webkit-progress-bar { background: var(--ui-surface-muted); border-radius: var(--ui-radius-pill); }
-progress::-webkit-progress-value { background: linear-gradient(90deg, var(--ui-brand-700), var(--ui-brand-600)); border-radius: var(--ui-radius-pill); transition: width .4s ease; }
+progress::-webkit-progress-value { background: linear-gradient(90deg, var(--ui-brand-700), var(--ui-brand-600)); border-radius: var(--ui-radius-pill); transition: width var(--ui-duration-slow) var(--ui-ease); }
 progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: var(--ui-radius-pill); }
 /* Общая полоса заполнения (компонент ProgressBar): та же геометрия, что у progress выше,
    плюс тон — «сколько заполнено» и «хорошо ли это» задаются раздельно. */
 .ui-progress { display: flex; flex-direction: column; gap: 4px; }
 .ui-progress__track { width: 100%; height: 9px; border-radius: var(--ui-radius-pill); background: var(--ui-surface-muted); overflow: hidden; }
-.ui-progress__fill { height: 100%; border-radius: var(--ui-radius-pill); transition: width .4s ease; background: linear-gradient(90deg, var(--ui-brand-700), var(--ui-brand-600)); }
+.ui-progress__fill { height: 100%; border-radius: var(--ui-radius-pill); transition: width var(--ui-duration-slow) var(--ui-ease); background: linear-gradient(90deg, var(--ui-brand-700), var(--ui-brand-600)); }
 .ui-progress__track--ok .ui-progress__fill { background: var(--ui-success-600); }
 .ui-progress__track--warning .ui-progress__fill { background: var(--ui-warning-600); }
 .ui-progress__track--danger .ui-progress__fill { background: var(--ui-danger-600); }
@@ -125,8 +125,8 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 .ui-hero { border-radius: var(--ui-radius-lg); padding: clamp(22px, 3vw, 32px); background: var(--ui-hero-bg); color: var(--ui-hero-text); box-shadow: var(--ui-shadow); display: grid; gap: 14px; }
 .ui-hero__title { font-family: var(--font-sans), 'Segoe UI', system-ui, sans-serif; font-size: clamp(1.45rem, 1.05rem + 1.8vw, 2.05rem); line-height: 1.15; font-weight: 800; margin: 0; color: var(--ui-brand-700); letter-spacing: -0.02em; max-width: 30ch; }
 .ui-hero__desc { margin: 0; color: var(--ui-hero-muted); font-size: 1rem; line-height: 1.55; max-width: 56ch; }
-.ui-hero__cta { justify-self: start; display: inline-flex; align-items: center; gap: 10px; height: 48px; padding: 0 24px; border-radius: var(--ui-radius-md); background: var(--ui-hero-cta-bg); color: var(--ui-hero-cta-text); border: none; font-family: inherit; font-weight: 700; font-size: 0.98rem; text-decoration: none; cursor: pointer; box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.55); transition: transform .15s ease, background .15s ease, box-shadow .15s ease; }
-.ui-hero__cta::after { content: '\\2192'; font-size: 1.15em; line-height: 1; transition: transform .15s ease; }
+.ui-hero__cta { justify-self: start; display: inline-flex; align-items: center; gap: 10px; height: 48px; padding: 0 24px; border-radius: var(--ui-radius-md); background: var(--ui-hero-cta-bg); color: var(--ui-hero-cta-text); border: none; font-family: inherit; font-weight: 700; font-size: 0.98rem; text-decoration: none; cursor: pointer; box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.55); transition: transform var(--ui-duration-fast) var(--ui-ease), background var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
+.ui-hero__cta::after { content: '\\2192'; font-size: 1.15em; line-height: 1; transition: transform var(--ui-duration-fast) var(--ui-ease); }
 .ui-hero__cta:hover { background: var(--ui-accent-700); transform: translateY(-1px); box-shadow: 0 16px 30px -12px rgba(0, 0, 0, 0.6); }
 .ui-hero__cta:hover::after { transform: translateX(3px); }
 .ui-hero--calm { background: var(--ui-surface); color: var(--ui-text); border: 1px solid var(--ui-border); box-shadow: var(--ui-shadow); }
@@ -141,7 +141,7 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 .learner-home-columns > :first-child { flex: 2 1 420px; }
 /* Карточки списка «Мои курсы» — лёгкие строки с подсветкой при наведении */
 .learner-home-courses { display: grid; gap: 4px; list-style: none; padding: 0; margin: 0; }
-.learner-home-course { display: grid; gap: 9px; padding: 12px 14px; border-radius: var(--ui-radius-md); transition: background .15s ease; }
+.learner-home-course { display: grid; gap: 9px; padding: 12px 14px; border-radius: var(--ui-radius-md); transition: background var(--ui-duration-fast) var(--ui-ease); }
 .learner-home-course:hover { background: var(--ui-surface-muted); }
 .learner-home-course__head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .learner-home-course__title { font-weight: 600; color: var(--ui-text); text-decoration: none; }
@@ -155,7 +155,7 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 
 /* Каталог курсов ученика — адаптивная сетка карточек */
 .course-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); gap: 14px; list-style: none; padding: 0; margin: 0; }
-.course-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); background: var(--ui-surface); box-shadow: var(--ui-shadow); transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
+.course-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); background: var(--ui-surface); box-shadow: var(--ui-shadow); transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
 .course-card:hover { border-color: var(--ui-brand-600); box-shadow: var(--ui-shadow-strong); transform: translateY(-2px); }
 /* Декоративная «обложка» — фирменная полоска индиго→коралл (без картинок) */
 .course-card__banner { height: 6px; border-radius: var(--ui-radius-pill); background: linear-gradient(90deg, var(--ui-brand-600), var(--ui-accent-600)); }
@@ -171,7 +171,7 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 /* ФТ-H5: вариант ответа — тач-зона не меньше 44px по высоте. Прежние 12px отступов
    давали ~43px при одной строке текста: на телефоне промах по соседнему варианту в
    экзамене стоит балла, и «почти достаточно» здесь не годится. */
-.ui-option { display: flex; align-items: center; gap: 10px; padding: 12px 14px; min-height: 44px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+.ui-option { display: flex; align-items: center; gap: 10px; padding: 12px 14px; min-height: 44px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); cursor: pointer; transition: border-color var(--ui-duration-fast) var(--ui-ease), background var(--ui-duration-fast) var(--ui-ease); }
 .ui-option:hover { border-color: var(--ui-brand-600); background: var(--ui-surface-muted); }
 .ui-option:has(input:checked) { border-color: var(--ui-brand-600); background: var(--ui-surface-accent); }
 .ui-option input { accent-color: var(--ui-brand-600); width: 18px; height: 18px; flex: none; margin: 0; }
@@ -231,7 +231,7 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 .stat-card__trend--positive { color: var(--ui-success-600); }
 .stat-card__trend--negative { color: var(--ui-danger-600); }
 .stat-card__trend--neutral { color: var(--ui-text-muted); }
-.stat-card--link { text-decoration: none; color: inherit; transition: border-color .15s ease, box-shadow .15s ease; }
+.stat-card--link { text-decoration: none; color: inherit; transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
 .stat-card--link:hover { border-color: var(--ui-brand-600); box-shadow: var(--ui-shadow); }
 /* CMP-013: очередь «Разобрать» — один список по убыванию срочности, а не оглавление по типам. */
 .ui-attention__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--ui-space-xs); }
@@ -245,18 +245,20 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 .ui-attention__meta { font-size: var(--ui-font-size-sm); color: var(--ui-text-muted); }
 .ui-attention__rest { margin: var(--ui-space-sm) 0 0; font-size: var(--ui-font-size-sm); color: var(--ui-text-muted); }
 
+/*
+ * UI-029: загрузка НЕ анимируется. Здесь была бесконечная бегущая подсветка — она не
+ * заканчивается никогда и продолжает двигаться всё время, пока данные едут. Людям, которым
+ * движение противопоказано (вестибулярные нарушения, склонность к укачиванию, мигрень),
+ * такая полоса мешает физически, а пользы не несёт: смысл скелетона в том, что он ПОКАЗЫВАЕТ
+ * форму будущего содержимого, а не в том, что он мерцает.
+ */
 .ui-skeleton-line {
   height: 12px;
   border-radius: 6px;
-  background: linear-gradient(90deg, var(--ui-surface-muted) 25%, var(--ui-border) 50%, var(--ui-surface-muted) 75%);
-  background-size: 200% 100%;
-  animation: ui-skeleton-shimmer 1.2s ease-in-out infinite;
+  background: var(--ui-surface-muted);
+  border: 1px solid var(--ui-border);
 }
 .ui-skeleton-block { display: grid; gap: 10px; padding: 4px 0; }
-@keyframes ui-skeleton-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
 @keyframes ui-spin { to { transform: rotate(360deg); } }
 @keyframes ui-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 .ui-ordered-list { margin: 0; padding-left: 20px; color: var(--ui-text-muted); line-height: 1.7; }
@@ -266,7 +268,7 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible,summary:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; border-radius: var(--ui-radius-sm); }
 
 @media (prefers-reduced-motion: no-preference) {
-  .ui-page > *,.ui-page-container > * { animation: ui-rise .5s cubic-bezier(.21,.68,.24,1) both; }
+  .ui-page > *,.ui-page-container > * { animation: ui-rise var(--ui-duration-slow) cubic-bezier(.21,.68,.24,1) both; }
   .ui-page > *:nth-child(1),.ui-page-container > *:nth-child(1) { animation-delay: .02s; }
   .ui-page > *:nth-child(2),.ui-page-container > *:nth-child(2) { animation-delay: .08s; }
   .ui-page > *:nth-child(3),.ui-page-container > *:nth-child(3) { animation-delay: .14s; }
