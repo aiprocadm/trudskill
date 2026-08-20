@@ -1,9 +1,9 @@
 'use client';
 
-import { FilterBar } from '@trudskill/ui';
+import { FilterBar, statusAccessibleLabel } from '@trudskill/ui';
 
 import { SectionError } from '../../components/state-wrappers';
-import { ApiClientError } from '../../lib/api/client';
+import { describeError } from '../../lib/errors/error-text';
 
 /*
  * Общий слой экранов монолита (§8.3 «Границы разбиения»): пока последний экран не уехал
@@ -77,11 +77,14 @@ export const formatDate = (value: string | undefined | null): string => {
   return parsed.toLocaleDateString('ru-RU');
 };
 
-export const readApiMessage = (error: unknown) => {
-  if (error instanceof ApiClientError) return error.normalized.message;
-  if (error instanceof Error) return error.message;
-  return 'Не удалось выполнить действие';
-};
+/**
+ * `TXT-004`: текст ошибки для человека — что произошло и что делать.
+ *
+ * Раньше эта функция брала `normalized.message`, то есть **сырое сообщение сервера**, и тем
+ * самым обходила человеческий текст: двенадцать экранов показывали через неё «Unexpected API
+ * error» и подобное. Теперь разбор общий — тот же, что у `SectionError`.
+ */
+export const readApiMessage = (error: unknown) => describeError(error).message;
 
 export const MutationError = ({ message }: { message: string | null }) =>
   message ? <SectionError message={message} /> : null;
@@ -129,11 +132,15 @@ export const RegistryControls = ({
       onChange={(event) => setQ(event.target.value)}
       aria-label="Поиск"
     />
+    {/*
+      Подпись — по-русски: фильтр показывал человеку машинные значения («active», «blocked»,
+      «cancelled»), хотя готовая подпись статуса уже жила в пакете рядом с чипом.
+    */}
     <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Статус">
       <option value="">Все статусы</option>
       {STATUS_OPTIONS.map((option) => (
         <option key={option} value={option}>
-          {option}
+          {statusAccessibleLabel(option)}
         </option>
       ))}
     </select>

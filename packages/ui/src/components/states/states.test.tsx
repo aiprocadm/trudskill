@@ -34,8 +34,14 @@ describe('состояния — русские дефолты', () => {
     expect(action).toBeNull();
   });
 
+  /*
+   * Инвариант изменён осознанно (TXT-004): у ошибки появился необязательный спойлер
+   * «Подробности», поэтому `children` — это пара «текст + спойлер», а не одна строка.
+   * Проверяется по-прежнему главное: первым идёт объяснение для человека.
+   */
   it('ErrorState: «Не удалось загрузить данные»', () => {
-    expect(ErrorState({}).props.children).toBe('Не удалось загрузить данные');
+    const kids = ErrorState({}).props.children as unknown[];
+    expect(kids[0]).toBe('Не удалось загрузить данные');
   });
 
   it('LoadingState: «Загрузка…»', () => {
@@ -43,6 +49,7 @@ describe('состояния — русские дефолты', () => {
   });
 
   it('переопределение message сохраняется', () => {
-    expect(ErrorState({ message: 'Сбой сети' }).props.children).toBe('Сбой сети');
+    const kids = ErrorState({ message: 'Сбой сети' }).props.children as unknown[];
+    expect(kids[0]).toBe('Сбой сети');
   });
 });

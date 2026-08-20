@@ -27,3 +27,9 @@ export const StatusChip = ({
     </span>
   );
 };
+
+/*
+ * Русская подпись статуса нужна не только чипу: фильтр реестра показывал значения
+ * латиницей («active», «blocked»), потому что взять готовую подпись было неоткуда.
+ */
+export { statusAccessibleLabel } from './status-label.js';

@@ -112,15 +112,7 @@ export function NumberingRulesSection() {
         может быть один нумератор на тип; новый заменяет прежний.
       </p>
 
-      {rulesQuery.error ? (
-        <SectionError
-          message={
-            rulesQuery.error instanceof Error
-              ? rulesQuery.error.message
-              : 'Не удалось загрузить нумераторы'
-          }
-        />
-      ) : null}
+      {rulesQuery.error ? <SectionError error={rulesQuery.error} /> : null}
       {error ? <SectionError message={error} /> : null}
       {rulesQuery.isLoading ? <LoadingState message="Загрузка нумераторов…" /> : null}
 

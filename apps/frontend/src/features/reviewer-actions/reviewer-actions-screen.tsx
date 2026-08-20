@@ -247,7 +247,7 @@ export function ReviewerActionsScreen() {
               />
             ) : (
               <SectionEmpty
-                message="Pending attempts отсутствуют"
+                message="Работ на проверке нет"
                 hint="Попытки с эссе-вопросами появятся здесь после отправки учащимися."
               />
             )}
@@ -261,7 +261,7 @@ export function ReviewerActionsScreen() {
               />
             ) : (
               <SectionEmpty
-                message="Pending submissions отсутствуют"
+                message="Сданных заданий на проверке нет"
                 hint="Практические работы появятся здесь после отправки учащимися."
               />
             )}

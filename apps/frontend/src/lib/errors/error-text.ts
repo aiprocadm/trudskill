@@ -1,0 +1,194 @@
+import type { NormalizedApiError } from './api-error';
+
+/**
+ * `TXT-004` — «Ошибка объясняет, что произошло и что делать. Технический код — под спойлером
+ * „Подробности“, не в основном тексте».
+ *
+ * Целевой пользователь — администратор учебного центра, не инженер. «Unexpected API error»,
+ * «Verification link is invalid», «tenant_header_mismatch» не говорят ему ни что случилось,
+ * ни что делать. Здесь техническая ошибка превращается в две фразы: событие и действие.
+ *
+ * **Русское сообщение сервера сохраняется.** Часть наших ошибок уже написана по-человечески
+ * («СНИЛС не проходит проверку контрольной суммы — вероятна опечатка»), и в ней вся конкретика:
+ * заменить её общим «данные не подходят» — значит выбросить единственное полезное, что было.
+ * Поэтому: если сервер ответил по-русски — это «что произошло», а «что делать» дописывается.
+ */
+
+export interface ErrorText {
+  /** Что произошло — одной фразой, без кодов и терминов. */
+  what: string;
+  /** Что делать дальше — конкретное действие, а не «попробуйте позже». */
+  next: string;
+}
+
+/**
+ * Тексты по коду ошибки. Список — реальные коды бэкенда (`code: '...'` в исключениях),
+ * отобранные по частоте и по тому, насколько человек может на них повлиять.
+ */
+const BY_CODE: Record<string, ErrorText> = {
+  validation_error: {
+    what: 'Данные в форме не подходят.',
+    next: 'Проверьте заполненные поля и сохраните ещё раз.'
+  },
+  not_found: {
+    what: 'Запись не найдена — возможно, её удалили или у ссылки истёк срок.',
+    next: 'Вернитесь к списку и откройте запись заново.'
+  },
+  domain_rule_violation: {
+    what: 'Действие сейчас невозможно: мешает состояние записи.',
+    next: 'Обновите страницу и проверьте текущий статус — часть шагов доступна только по порядку.'
+  },
+  permission_denied: {
+    what: 'У вашей роли нет прав на это действие.',
+    next: 'Попросите администратора центра выдать доступ или выполнить действие за вас.'
+  },
+  forbidden: {
+    what: 'Доступ к этому разделу закрыт для вашей роли.',
+    next: 'Попросите администратора центра открыть доступ.'
+  },
+  auth_required: {
+    what: 'Вход не выполнен или срок сессии истёк.',
+    next: 'Войдите заново — данные формы при этом не сохранятся.'
+  },
+  session_inactive: {
+    what: 'Сессия завершена — вход был выполнен слишком давно или с другого устройства.',
+    next: 'Войдите заново.'
+  },
+  invalid_totp_code: {
+    what: 'Код подтверждения не подошёл.',
+    next: 'Проверьте код в приложении — он меняется каждые 30 секунд — и введите свежий.'
+  },
+  conflict: {
+    what: 'Такая запись уже есть.',
+    next: 'Откройте существующую запись или измените отличающее поле — номер, код или почту.'
+  },
+  precondition_failed: {
+    what: 'Шаг нельзя выполнить: предыдущий ещё не завершён.',
+    next: 'Обновите страницу и посмотрите, какого шага не хватает.'
+  },
+  too_many_requests: {
+    what: 'Слишком много попыток подряд — доступ временно ограничен.',
+    next: 'Подождите минуту и повторите.'
+  },
+  file_too_large: {
+    what: 'Файл слишком большой.',
+    next: 'Уменьшите файл или разбейте его на части и загрузите снова.'
+  },
+  unsupported_media_type: {
+    what: 'Такой тип файла загрузить нельзя.',
+    next: 'Сохраните файл в поддерживаемом формате и повторите загрузку.'
+  },
+  file_infected: {
+    what: 'Файл не загружен: антивирус нашёл в нём угрозу.',
+    next: 'Проверьте файл на своём компьютере и загрузите заведомо чистую копию.'
+  },
+  file_scan_failed: {
+    what: 'Файл не удалось проверить антивирусом.',
+    next: 'Повторите загрузку через несколько минут; если повторится — сообщите администратору.'
+  },
+  file_not_found: {
+    what: 'Файл не найден — возможно, его удалили.',
+    next: 'Загрузите файл заново.'
+  },
+  tenant_not_found: {
+    what: 'Учебный центр не определён.',
+    next: 'Войдите заново; если не поможет — сообщите администратору платформы.'
+  },
+  user_not_found: {
+    what: 'Пользователь не найден.',
+    next: 'Проверьте адрес почты или выберите человека из списка.'
+  },
+  consent_required: {
+    what: 'Не хватает согласия слушателя.',
+    next: 'Попросите слушателя подтвердить согласие в личном кабинете и повторите.'
+  },
+  photo_consent_required: {
+    what: 'Не хватает согласия слушателя на обработку фотографии.',
+    next: 'Попросите слушателя дать согласие в личном кабинете и повторите.'
+  },
+  identity_verification_required: {
+    what: 'Личность слушателя не подтверждена — без этого шаг закрыт.',
+    next: 'Дождитесь проверки документов или проверьте их в очереди подтверждений.'
+  },
+  scorm_package_not_ready: {
+    what: 'Учебный пакет ещё обрабатывается.',
+    next: 'Подождите пару минут и обновите страницу.'
+  },
+  internal_error: {
+    what: 'Сбой на стороне сервера — с вашими данными ничего не случилось.',
+    next: 'Повторите через минуту; если повторится — передайте администратору номер запроса из подробностей.'
+  }
+};
+
+/** Запасной вариант по коду ответа: код ошибки может быть новым, а смысл статуса — прежний. */
+const BY_STATUS: Array<{ from: number; to: number; text: ErrorText }> = [
+  { from: 400, to: 400, text: BY_CODE.validation_error! },
+  { from: 401, to: 401, text: BY_CODE.auth_required! },
+  { from: 403, to: 403, text: BY_CODE.forbidden! },
+  { from: 404, to: 404, text: BY_CODE.not_found! },
+  { from: 409, to: 409, text: BY_CODE.conflict! },
+  { from: 412, to: 412, text: BY_CODE.precondition_failed! },
+  { from: 413, to: 413, text: BY_CODE.file_too_large! },
+  { from: 415, to: 415, text: BY_CODE.unsupported_media_type! },
+  { from: 429, to: 429, text: BY_CODE.too_many_requests! },
+  { from: 500, to: 599, text: BY_CODE.internal_error! }
+];
+
+const FALLBACK: ErrorText = {
+  what: 'Действие не выполнено.',
+  next: 'Повторите ещё раз; если повторится — передайте администратору номер запроса из подробностей.'
+};
+
+/** Сообщение сервера годится человеку, если оно написано по-русски и не является кодом. */
+const serverMessageIsHuman = (message: string): boolean => {
+  const trimmed = message.trim();
+  if (!/[А-Яа-яЁё]/.test(trimmed)) return false;
+  // «validation_error», «tenant_header_mismatch» — это код, даже если рядом есть русские буквы.
+  if (/^[a-z][a-z0-9_]+$/.test(trimmed)) return false;
+  return true;
+};
+
+export function errorText(error: NormalizedApiError): ErrorText {
+  const byCode = BY_CODE[error.code];
+  if (byCode) return byCode;
+  const byStatus = BY_STATUS.find((r) => error.status >= r.from && error.status <= r.to);
+  return byStatus?.text ?? FALLBACK;
+}
+
+/**
+ * Готовая фраза для показа: «что произошло» + «что делать».
+ *
+ * Технический код сюда не попадает никогда — его место в спойлере «Подробности».
+ */
+export function humanErrorMessage(error: NormalizedApiError): string {
+  const text = errorText(error);
+  const what = serverMessageIsHuman(error.message) ? error.message.trim() : text.what;
+  const withDot = /[.!?…]$/.test(what) ? what : `${what}.`;
+  return `${withDot} ${text.next}`;
+}
+
+/**
+ * Строка для спойлера «Подробности»: то, что нужно разработчику и поддержке, — и ровно то,
+ * что не нужно администратору центра в основном тексте.
+ */
+/**
+ * Разбор пойманной ошибки на две части: что показать человеку и что спрятать под спойлер.
+ *
+ * Принимает `unknown`, потому что в `catch` попадает что угодно. Ошибка запроса приносит
+ * технические подробности, обычная — только текст: выдумывать ей код не нужно.
+ */
+export function describeError(error: unknown): { message: string; details?: string } {
+  const normalized = (error as { normalized?: NormalizedApiError } | null)?.normalized;
+  if (normalized && typeof normalized.code === 'string') {
+    return { message: humanErrorMessage(normalized), details: errorDetailsLine(normalized) };
+  }
+  if (error instanceof Error && error.message.trim()) return { message: error.message };
+  return { message: `${FALLBACK.what} ${FALLBACK.next}` };
+}
+
+export function errorDetailsLine(error: NormalizedApiError): string {
+  const parts = [`код: ${error.code}`, `ответ: ${error.status}`];
+  if (error.requestId) parts.push(`запрос: ${error.requestId}`);
+  if (error.message?.trim()) parts.push(`ответ сервера: ${error.message.trim()}`);
+  return parts.join(' · ');
+}

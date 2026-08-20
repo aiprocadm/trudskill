@@ -70,15 +70,7 @@ export function PlatformLibraryScreen() {
       </p>
 
       {libraryQuery.isLoading ? <LoadingState message="Загрузка библиотеки…" /> : null}
-      {libraryQuery.error ? (
-        <SectionError
-          message={
-            libraryQuery.error instanceof Error
-              ? libraryQuery.error.message
-              : 'Не удалось загрузить библиотеку'
-          }
-        />
-      ) : null}
+      {libraryQuery.error ? <SectionError error={libraryQuery.error} /> : null}
       {error ? <SectionError message={error} /> : null}
       {notice ? <p className="ui-callout ui-callout--success">{notice}</p> : null}
 

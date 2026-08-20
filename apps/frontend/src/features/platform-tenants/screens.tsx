@@ -184,15 +184,7 @@ export function PlatformTenantsSection() {
           имени» администратора центра. Каждый вход «от имени» пишется в аудит целевого тенанта.
         </p>
 
-        {tenantsQuery.error ? (
-          <SectionError
-            message={
-              tenantsQuery.error instanceof Error
-                ? tenantsQuery.error.message
-                : 'Не удалось загрузить арендаторов'
-            }
-          />
-        ) : null}
+        {tenantsQuery.error ? <SectionError error={tenantsQuery.error} /> : null}
         {error ? <SectionError message={error} /> : null}
         {tenantsQuery.isLoading ? <LoadingState message="Загрузка арендаторов…" /> : null}
 
@@ -527,15 +519,7 @@ function RentalInvoicesSection({
       </p>
 
       {invoicesQuery.isLoading ? <LoadingState message="Загрузка счетов…" /> : null}
-      {invoicesQuery.error ? (
-        <SectionError
-          message={
-            invoicesQuery.error instanceof Error
-              ? invoicesQuery.error.message
-              : 'Не удалось загрузить счета'
-          }
-        />
-      ) : null}
+      {invoicesQuery.error ? <SectionError error={invoicesQuery.error} /> : null}
 
       {!invoicesQuery.isLoading && invoices.length ? (
         <DataTable

@@ -60,7 +60,7 @@ export function ReviewerQueueScreen() {
               />
             ) : (
               <SectionEmpty
-                message="Pending attempts отсутствуют"
+                message="Работ на проверке нет"
                 hint="Plans B+C добавят попытки и активные действия."
               />
             )}
@@ -74,7 +74,7 @@ export function ReviewerQueueScreen() {
               />
             ) : (
               <SectionEmpty
-                message="Pending submissions отсутствуют"
+                message="Сданных заданий на проверке нет"
                 hint="Plan C добавит submission/review lifecycle."
               />
             )}

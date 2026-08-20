@@ -95,4 +95,35 @@ describe('api client envelope contract', () => {
     });
     expect(payload.id).toBe('cred-1');
   });
+
+  /*
+   * TXT-004: связка «словарь → класс ошибки». Экраны показывают `message`, поэтому здесь
+   * решается, что увидит человек. Без этого теста легко вернуть `super(normalized.message)`
+   * и молча откатить весь срез — словарь останется на месте, но перестанет применяться.
+   */
+  it('в message — объяснение по-русски, а не ответ сервера слово в слово', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          error: { code: 'internal_error', message: 'Unexpected API error' },
+          meta: { requestId: 'req_7', correlationId: 'c', timestamp: '2026-01-01T00:00:00.000Z' }
+        }),
+        { status: 500, headers: { 'content-type': 'application/json' } }
+      )
+    );
+
+    const failure = (await apiClient.get('/integrations/providers').catch((e) => e)) as Error & {
+      details: string;
+      normalized: { message: string };
+    };
+
+    expect(failure.message).toMatch(/[А-Яа-яЁё]/);
+    expect(failure.message).not.toContain('Unexpected API error');
+    expect(failure.message).not.toContain('internal_error');
+
+    // Технические данные не потеряны: они уезжают в спойлер «Подробности».
+    expect(failure.details).toContain('internal_error');
+    expect(failure.details).toContain('req_7');
+    expect(failure.normalized.message).toBe('Unexpected API error');
+  });
 });

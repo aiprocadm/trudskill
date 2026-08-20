@@ -1,5 +1,7 @@
 import { EmptyState, ErrorState, LoadingState } from '@trudskill/ui';
 
+import { describeError } from '../lib/errors/error-text';
+
 import type { PropsWithChildren, ReactNode } from 'react';
 
 export const GlobalLoading = ({ message }: { message?: string }) => (
@@ -10,16 +12,35 @@ export const GlobalError = ({ message }: { message?: string }) => (
   <ErrorState message={message ?? 'Произошла непредвиденная ошибка'} />
 );
 
-export const SectionError = ({ message, onRetry }: { message?: string; onRetry?: () => void }) => (
-  <div className="ui-stack">
-    <ErrorState message={message ?? 'Не удалось загрузить секцию'} />
-    {onRetry ? (
-      <button type="button" className="ui-button" onClick={onRetry}>
-        Повторить
-      </button>
-    ) : null}
-  </div>
-);
+/**
+ * `TXT-004`: можно передать саму пойманную ошибку (`error`) вместо готовой строки — тогда
+ * человек увидит объяснение «что произошло и что делать», а код, ответ сервера и номер
+ * запроса уедут под спойлер «Подробности». Приём строки сохранён: не все места ловят объект.
+ */
+export const SectionError = ({
+  message,
+  error,
+  onRetry
+}: {
+  message?: string;
+  error?: unknown;
+  onRetry?: () => void;
+}) => {
+  const view = error === undefined ? undefined : describeError(error);
+  return (
+    <div className="ui-stack">
+      <ErrorState
+        message={view?.message ?? message ?? 'Не удалось загрузить секцию'}
+        {...(view?.details ? { details: view.details } : {})}
+      />
+      {onRetry ? (
+        <button type="button" className="ui-button" onClick={onRetry}>
+          Повторить
+        </button>
+      ) : null}
+    </div>
+  );
+};
 
 export const SectionEmpty = ({ message, hint }: { message?: string; hint?: string }) => {
   const resolvedMessage = message ?? 'Пока нет данных';

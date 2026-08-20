@@ -1,15 +1,33 @@
 import { frontendEnv } from '../config/env';
 import { type NormalizedApiError, normalizeApiError } from '../errors/api-error';
+import { errorDetailsLine, humanErrorMessage } from '../errors/error-text';
 
 import type {
   GeneratedApiResponseEnvelope as ApiResponseEnvelope,
   GeneratedApiPath
 } from '@trudskill/api-contracts/src/generated/contracts.generated';
 
+/**
+ * Ошибка запроса к серверу.
+ *
+ * `TXT-004`: в `message` лежит текст ДЛЯ ЧЕЛОВЕКА — что произошло и что делать. Раньше туда
+ * попадало сообщение сервера слово в слово («Unexpected API error», «Verification link is
+ * invalid»), а экраны показывают именно `message` — все 57 мест в приложении. Одна правка
+ * здесь исправляет их разом; конкретика русских серверных сообщений при этом сохраняется
+ * (см. `humanErrorMessage`).
+ *
+ * Технические данные никуда не деваются: код, статус и исходный ответ лежат в `normalized`,
+ * а готовая строка для спойлера «Подробности» — в `details`.
+ */
 export class ApiClientError extends Error {
   constructor(public readonly normalized: NormalizedApiError) {
-    super(normalized.message);
+    super(humanErrorMessage(normalized));
     this.name = 'ApiClientError';
+  }
+
+  /** Строка для спойлера «Подробности»: код, статус, номер запроса, ответ сервера. */
+  get details(): string {
+    return errorDetailsLine(this.normalized);
   }
 }
 

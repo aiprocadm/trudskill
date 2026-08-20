@@ -65,15 +65,7 @@ export function OnboardingScreen() {
     <>
       <SectionCard title="Готовность центра">
         {statusQuery.isLoading ? <LoadingState message="Проверяем настройки…" /> : null}
-        {statusQuery.error ? (
-          <SectionError
-            message={
-              statusQuery.error instanceof Error
-                ? statusQuery.error.message
-                : 'Не удалось загрузить состояние онбординга'
-            }
-          />
-        ) : null}
+        {statusQuery.error ? <SectionError error={statusQuery.error} /> : null}
 
         {status ? (
           <div className="ui-stack">
