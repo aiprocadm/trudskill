@@ -122,10 +122,17 @@ export class TenantService {
       timezone: patch.timezone ?? current.timezone,
       payload: { ...current.payload, ...(patch.payload ?? {}) }
     };
+    /*
+     * `id` заполняется явно: колонка объявлена `not null` без значения по умолчанию, и без
+     * него ПЕРВОЕ сохранение падало ошибкой сервера — центр не мог задать даже часовой пояс.
+     * Идентификатор выводится из арендатора (а не случайный), чтобы у центра оставалась
+     * ровно одна строка настроек и повторное сохранение обновляло её же.
+     * Тот же приём применён ниже, в ветке брендирования.
+     */
     await db.query(
-      `insert into org.tenant_settings (tenant_id, payload)
-       values ($1, $2::jsonb)
-       on conflict (tenant_id) do update set payload = excluded.payload`,
+      `insert into org.tenant_settings (id, tenant_id, payload)
+       values (concat('tenant_settings_', $1::text), $1, $2::jsonb)
+       on conflict (tenant_id) do update set payload = excluded.payload, updated_at = now()`,
       [tenantId, JSON.stringify({ ...next.payload, locale: next.locale, timezone: next.timezone })]
     );
     return this.getSettings(tenantId);
@@ -188,10 +195,16 @@ export class TenantService {
       payload: { ...current.payload, ...(patch.payload ?? {}) }
     };
     await db.query(
-      `insert into org.tenant_requisites (tenant_id, legal_name, tax_number, payload)
-       values ($1, $2, $3, $4::jsonb)
+      /*
+       * `id` — та же история, что и у настроек: без него первое сохранение реквизитов
+       * падало ошибкой сервера. Реквизиты не «просто карточка»: юридическое название, ИНН
+       * и ссылки на подпись с печатью попадают в выдаваемые удостоверения.
+       */
+      `insert into org.tenant_requisites (id, tenant_id, legal_name, tax_number, payload)
+       values (concat('tenant_requisites_', $1::text), $1, $2, $3, $4::jsonb)
        on conflict (tenant_id)
-       do update set legal_name = excluded.legal_name, tax_number = excluded.tax_number, payload = excluded.payload`,
+       do update set legal_name = excluded.legal_name, tax_number = excluded.tax_number,
+                     payload = excluded.payload, updated_at = now()`,
       [tenantId, next.legalName, next.taxNumber, JSON.stringify(next.payload)]
     );
     return this.getRequisites(tenantId);

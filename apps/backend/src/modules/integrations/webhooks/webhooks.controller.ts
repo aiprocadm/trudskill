@@ -3,6 +3,8 @@ import { Body, Controller, Headers, Inject, Param, Post, UseGuards } from '@nest
 import { CurrentContext } from '../../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../../common/guards/tenant.guard.js';
 import { backendEnv } from '../../../env.js';
+import { RequirePermissions } from '../../iam/permission.decorator.js';
+import { PermissionGuard } from '../../iam/permission.guard.js';
 import { WebhookDto } from '../dto/integrations.dto.js';
 import { AdapterResolver } from '../services/adapter-resolver.service.js';
 import { IdempotencyService } from '../services/idempotency.service.js';
@@ -25,17 +27,18 @@ export class WebhooksController {
     @Inject(IntegrationCryptoService) private readonly crypto: IntegrationCryptoService
   ) {}
 
-  @Post(':providerCode')
-  handle(
-    @CurrentContext() ctx: RequestContext,
-    @Param('providerCode') providerCode: string,
-    @Body() body: WebhookDto,
-    @Headers('x-signature') signature?: string
-  ) {
-    return this.process(ctx, providerCode, body.eventType ?? 'default', body, signature);
-  }
-
+  /*
+   * ⚠️ Объявлен ВЫШЕ `@Post(':providerCode')` намеренно, и переставлять нельзя.
+   * NestJS сопоставляет маршруты в порядке объявления: пока этот блок стоял ниже,
+   * запрос `POST /webhooks/reprocess-failed` попадал в обработчик внешнего вебхука —
+   * «reprocess-failed» принималось за код провайдера, и ручка отвечала «неверная подпись».
+   * То есть переобработка не работала вообще. Закреплено сторожем `route-shadowing`.
+   *
+   * Право: это административная операция своего центра, а не внешний вызов.
+   */
   @Post('reprocess-failed')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('integrations.write')
   reprocessFailed(
     @CurrentContext() ctx: RequestContext,
     @Body('providerCode') providerCode?: string
@@ -50,6 +53,16 @@ export class WebhooksController {
       }
     );
     return { accepted: true, queued: failed.length };
+  }
+
+  @Post(':providerCode')
+  handle(
+    @CurrentContext() ctx: RequestContext,
+    @Param('providerCode') providerCode: string,
+    @Body() body: WebhookDto,
+    @Headers('x-signature') signature?: string
+  ) {
+    return this.process(ctx, providerCode, body.eventType ?? 'default', body, signature);
   }
 
   @Post(':providerCode/:eventType')
