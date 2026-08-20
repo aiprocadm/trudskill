@@ -3,6 +3,8 @@
  * чтобы лейблы статусов проверялись на этапе компиляции (как в licenses/types.ts).
  */
 
+import type { SemanticStatus } from '@trudskill/ui';
+
 export type RecertificationDraftStatus = 'pending' | 'approved' | 'rejected';
 
 /** Raw row as returned by reject/scan endpoints (без обогащения). */
@@ -39,4 +41,15 @@ export const RECERT_STATUS_LABELS: Record<RecertificationDraftStatus, string> = 
   pending: 'Ожидает',
   approved: 'Одобрен',
   rejected: 'Отклонён'
+};
+
+/**
+ * Цвет чипа для статуса заявки на переаттестацию (`UI-023`): доменный статус
+ * сопоставляется ключу общей палитры. «Ожидает» — работа впереди, «Одобрен» — успех,
+ * «Отклонён» — отказ. Раньше в цвет уходила подпись, и вся очередь была серой.
+ */
+export const RECERT_STATUS_TONE: Record<RecertificationDraftStatus, SemanticStatus> = {
+  pending: 'pending',
+  approved: 'completed',
+  rejected: 'failed'
 };

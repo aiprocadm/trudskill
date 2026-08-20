@@ -70,7 +70,7 @@ export function LearnersListScreen() {
     {
       key: 'status',
       title: 'Статус',
-      render: (row) => <StatusChip status={STATUS_LABEL[row.status]} />
+      render: (row) => <StatusChip status={row.status} label={STATUS_LABEL[row.status]} />
     }
   ];
 
