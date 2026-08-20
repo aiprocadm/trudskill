@@ -58,7 +58,7 @@ export function AssignmentsListScreen() {
       courseView: courseNameCell(courseNames, item.courseId),
       maxScoreView: `${item.maxScore}`,
       reviewView: item.isReviewRequired ? 'Проверяет преподаватель' : 'Проверяется автоматически',
-      statusView: <StatusChip status={formatEntityStatus(item.status)} />
+      statusView: <StatusChip status={item.status} label={formatEntityStatus(item.status)} />
     }));
 
   return (

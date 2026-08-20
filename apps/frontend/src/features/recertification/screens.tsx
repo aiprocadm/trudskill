@@ -15,7 +15,7 @@ import { ApproveRecertModal } from './approve-recert-modal';
 import { URGENCY_LABELS, formatDaysLeft, recertificationApi } from './expiring';
 import { formatRemaining, formatSnils } from './format';
 import { useRecertificationMutations, useRecertificationQueue } from './hooks';
-import { RECERT_STATUS_LABELS, type RecertificationDraftStatus } from './types';
+import { RECERT_STATUS_LABELS, RECERT_STATUS_TONE, type RecertificationDraftStatus } from './types';
 import {
   PageContainer,
   PageHeader,
@@ -116,7 +116,12 @@ export function RecertificationQueueScreen(): ReactElement {
     courseView: draft.courseTitle || '—',
     validUntil: draft.validUntil,
     remainingView: formatRemaining(draft.validUntil, today),
-    statusView: <StatusChip status={RECERT_STATUS_LABELS[draft.status]} />,
+    statusView: (
+      <StatusChip
+        status={RECERT_STATUS_TONE[draft.status]}
+        label={RECERT_STATUS_LABELS[draft.status]}
+      />
+    ),
     learnerName: draft.learnerName,
     courseTitle: draft.courseTitle
   }));

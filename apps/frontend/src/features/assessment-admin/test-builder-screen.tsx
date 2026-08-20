@@ -107,7 +107,9 @@ export function TestBuilderScreen({ testId }: Props) {
     <PageContainer>
       <PageHeader
         title={t.title}
-        subtitle={courseNames.get(t.courseId) ? `Курс «${courseNames.get(t.courseId)}»` : 'Тест курса'}
+        subtitle={
+          courseNames.get(t.courseId) ? `Курс «${courseNames.get(t.courseId)}»` : 'Тест курса'
+        }
         actions={
           <>
             {!isPublished && !isArchived && (
@@ -131,7 +133,7 @@ export function TestBuilderScreen({ testId }: Props) {
                 {archive.isPending ? 'Архивация…' : 'Архивировать'}
               </button>
             )}
-            <StatusChip status={formatEntityStatus(t.status)} />
+            <StatusChip status={t.status} label={formatEntityStatus(t.status)} />
           </>
         }
       />
@@ -156,7 +158,12 @@ export function TestBuilderScreen({ testId }: Props) {
         </label>
         {/* UI-003: один акцент на экран — главное действие черновика «Опубликовать» в шапке,
             кнопки сохранения секций вторичные. */}
-        <button type="button" className="ui-button" onClick={saveMeta} disabled={updateTest.isPending}>
+        <button
+          type="button"
+          className="ui-button"
+          onClick={saveMeta}
+          disabled={updateTest.isPending}
+        >
           {updateTest.isPending ? 'Сохранение…' : 'Сохранить параметры'}
         </button>
         {updateTest.error ? <p className="ui-field-error">{updateTest.error}</p> : null}
@@ -232,7 +239,12 @@ export function TestBuilderScreen({ testId }: Props) {
             <span>Дневной сброс попыток</span>
           </label>
         </div>
-        <button type="button" className="ui-button" onClick={saveRule} disabled={upsertRule.isPending}>
+        <button
+          type="button"
+          className="ui-button"
+          onClick={saveRule}
+          disabled={upsertRule.isPending}
+        >
           {upsertRule.isPending ? 'Сохранение…' : 'Сохранить правила'}
         </button>
         {upsertRule.error ? <p className="ui-field-error">{upsertRule.error}</p> : null}

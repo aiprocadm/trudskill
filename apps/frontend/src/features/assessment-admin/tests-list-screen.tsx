@@ -68,7 +68,7 @@ export function TestsListScreen() {
     ),
     courseView: courseNameCell(courseNames, test.courseId),
     rulesView: formatTestRule(test.rules).slice(0, 2).join(' · '),
-    statusView: <StatusChip status={formatEntityStatus(test.status)} />
+    statusView: <StatusChip status={test.status} label={formatEntityStatus(test.status)} />
   }));
 
   return (

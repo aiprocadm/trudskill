@@ -6,6 +6,8 @@
  * без правок здесь падает TypeScript на этапе билда.
  */
 
+import type { SemanticStatus } from '@trudskill/ui';
+
 export type LicenseType = 'education_license' | 'accreditation' | 'sro_membership' | 'other';
 
 export type LicenseStatus = 'active' | 'expired' | 'revoked';
@@ -30,6 +32,21 @@ export const LICENSE_STATUS_LABELS: Record<LicenseStatus, string> = {
   active: 'Действует',
   expired: 'Истекла',
   revoked: 'Отозвана'
+};
+
+/**
+ * Цвет чипа для статуса лицензии (`UI-023`).
+ *
+ * Палитра статусов общая на весь продукт (13 ключей, 5 цветов), доменных статусов
+ * больше — поэтому сопоставление пишется явно. «Истекла» — предупреждение: документ
+ * ещё вчера был в порядке, а сегодня работа встанет. «Отозвана» — отказ, обратной
+ * дороги нет. До этого среза сюда по ошибке уходила готовая подпись, и все лицензии
+ * в реестре красились одинаковым серым.
+ */
+export const LICENSE_STATUS_TONE: Record<LicenseStatus, SemanticStatus> = {
+  active: 'active',
+  expired: 'archived',
+  revoked: 'cancelled'
 };
 
 export interface TrainingLicense {
