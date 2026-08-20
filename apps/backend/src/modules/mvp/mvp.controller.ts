@@ -239,9 +239,13 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('portal.read')
   downloadPortalDocument(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.mvpService.getPortalDocumentDownload(c.tenantId!, id, {
-      counterpartyId: c.counterpartyId
-    });
+    // ФТ-G1: скачивание из портала тоже пишется в журнал — документ содержит ПДн слушателя.
+    return this.mvpService.getPortalDocumentDownload(
+      c.tenantId!,
+      id,
+      { counterpartyId: c.counterpartyId, userId: c.userId },
+      c
+    );
   }
 
   @Get('learners')
