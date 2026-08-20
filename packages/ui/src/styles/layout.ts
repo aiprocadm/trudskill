@@ -9,7 +9,7 @@ export const layoutStyles = `
   text-decoration: none;
   color: var(--ui-text);
   background: var(--ui-surface);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease);
 }
 .ui-dashboard-tile:hover { border-color: var(--ui-brand-600); box-shadow: var(--ui-shadow); }
 .ui-dashboard-tile-title { font-weight: 600; margin-bottom: 6px; }

@@ -83,7 +83,7 @@ export const shellStyles = `
 .app-shell__chevron {
   display: inline-flex;
   color: var(--ui-nav-text-muted, var(--ui-text-muted));
-  transition: transform 0.18s ease;
+  transition: transform var(--ui-duration-base) var(--ui-ease);
 }
 .app-shell__chevron.is-open { transform: rotate(180deg); }
 .app-shell__group { display: flex; flex-direction: column; }
@@ -100,8 +100,29 @@ export const shellStyles = `
   gap: 8px;
 }
 .app-shell__hint-text { margin: 0; font-size: var(--ui-font-size-sm); line-height: 1.4; }
+/*
+ * UI-030 — настройка «поменьше движения» уважается ВЕЗДЕ.
+ *
+ * Раньше здесь гасился ровно один переход — шеврон бокового меню, — а остальные полтора
+ * десятка (кнопки, поля, панели, полоса прогресса) продолжали двигаться. Человек, который
+ * попросил систему не двигать картинку, всё равно получал движение: при вестибулярных
+ * нарушениях, склонности к укачиванию и мигрени это не придирка, а физическая помеха.
+ *
+ * Правило одно и на всё: длительности сводятся к неразличимо малым, повторы отменяются,
+ * плавная прокрутка выключается. Не transition: none, а почти нулевая длительность —
+ * так обработчики transitionend, на которых держится часть логики, всё равно срабатывают.
+ */
 @media (prefers-reduced-motion: reduce) {
-  .app-shell__chevron { transition: none; }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
 }
 .app-shell__content { display: grid; grid-template-rows: 64px auto; min-width: 0; }
 .app-shell__topbar {
@@ -213,7 +234,7 @@ export const shellStyles = `
     width: min(300px, 88vw);
     z-index: 10000;
     transform: translateX(-102%);
-    transition: transform 0.2s ease;
+    transition: transform var(--ui-duration-base) var(--ui-ease);
     box-shadow: var(--ui-shadow-strong);
     overflow-y: auto;
     border-right: 1px solid var(--ui-border);

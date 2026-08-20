@@ -1,12 +1,12 @@
 export const formStyles = `
-.ui-input,.ui-select,.ui-textarea,input,select,textarea { height: 40px; border: 1px solid var(--ui-border-strong); border-radius: var(--ui-radius-md); padding: 0 12px; background: var(--ui-surface); color: var(--ui-text); font-family: inherit; font-size: 0.95rem; transition: border-color .15s ease, box-shadow .15s ease; }
+.ui-input,.ui-select,.ui-textarea,input,select,textarea { height: 40px; border: 1px solid var(--ui-border-strong); border-radius: var(--ui-radius-md); padding: 0 12px; background: var(--ui-surface); color: var(--ui-text); font-family: inherit; font-size: 0.95rem; transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
 .ui-input:focus,.ui-select:focus,.ui-textarea:focus,input:focus,select:focus,textarea:focus { border-color: var(--ui-brand-600); }
 textarea,.ui-textarea { min-height: 88px; padding: 9px 12px; }
 .ui-field { display: grid; gap: 6px; }
 .ui-field-label { font-size: 13px; font-weight: 600; color: var(--ui-text-muted); }
 .ui-field-hint { font-size: 12px; color: var(--ui-text-muted); margin: 0; }
 .ui-field-error { font-size: 12px; color: var(--ui-danger-600); margin: 0; }
-button,.ui-button,.ui-button-primary,.ui-button-secondary,.ui-button-ghost,.ui-button-danger { height: 40px; border: 1px solid var(--ui-border-strong); border-radius: var(--ui-radius-md); background: var(--ui-surface); padding: 0 14px; cursor: pointer; font-family: inherit; font-size: 0.93rem; font-weight: 600; transition: background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .15s ease; color: var(--ui-text); text-decoration: none; }
+button,.ui-button,.ui-button-primary,.ui-button-secondary,.ui-button-ghost,.ui-button-danger { height: 40px; border: 1px solid var(--ui-border-strong); border-radius: var(--ui-radius-md); background: var(--ui-surface); padding: 0 14px; cursor: pointer; font-family: inherit; font-size: 0.93rem; font-weight: 600; transition: background var(--ui-duration-fast) var(--ui-ease), border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); color: var(--ui-text); text-decoration: none; }
 /* Ссылка в одежде кнопки (тег a с классом ui-button): без сброса подчёркивание и inline-высота
    выдают в ней ссылку. Правило узкое, чтобы не менять раскладку настоящих кнопок. */
 a.ui-button, a.ui-button-primary, a.ui-button-secondary { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
@@ -27,16 +27,30 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .ui-button--ghost,.ui-button-ghost { background: transparent; border-color: transparent; color: var(--ui-brand-700); }
 .ui-button--ghost:hover,.ui-button-ghost:hover { background: var(--ui-surface-muted); }
 .ui-button--danger,.ui-button-danger { background: var(--ui-danger-600); border-color: var(--ui-danger-600); color: #fff; }
-.ui-button--loading { position: relative; color: transparent; pointer-events: none; }
-.ui-button--loading::after {
-  content: '';
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid var(--ui-border);
-  border-top-color: var(--ui-text);
-  animation: ui-spin 0.75s linear infinite;
+/*
+ * UI-029/UI-030 — «занято» показывается по-разному, смотря разрешено ли движение.
+ *
+ * Кнопка в работе всегда заблокирована и помечена aria-busy, это не зависит от настроек.
+ * А вот ВИДИМЫЙ признак разный:
+ *   • движение разрешено — текст прячется, вместо него крутится колечко;
+ *   • движение запрещено — колечка нет, и текст ОСТАЁТСЯ ВИДИМЫМ.
+ *
+ * Почему нельзя просто убрать анимацию: текст прятался в общем правиле, и без колечка
+ * человек получил бы пустую серую кнопку без единого слова — хуже, чем было.
+ */
+.ui-button--loading { position: relative; pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .ui-button--loading { color: transparent; }
+  .ui-button--loading::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--ui-border);
+    border-top-color: var(--ui-text);
+    animation: ui-spin var(--ui-duration-slow) linear infinite;
+  }
 }
 /* Спиннер подстраивается под цвет текста кнопки: тёмный на коралле, белый на красной */
 .ui-button--primary.ui-button--loading::after { border-color: rgba(15,23,42,0.25); border-top-color: var(--ui-on-accent); }
