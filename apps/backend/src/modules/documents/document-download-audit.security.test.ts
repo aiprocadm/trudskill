@@ -19,7 +19,12 @@ import type { RequestContext } from '../../common/context/request-context.js';
  * документ когда-то выпустили.
  *
  * Инвариант: получение ссылки на скачивание оставляет запись в журнале — с тем, кто скачал,
- * какой документ и какого слушателя он касается.
+ * какой это документ и на каком основании он выдан (по основанию находится слушатель).
+ *
+ * ⚠️ Урок этого файла. Сначала тест проверял поля `learnerId` и `documentKind` — я взял их
+ * из головы, и тест зеленел, потому что заглушка состояния типизирована `as never`. Поймала
+ * ошибку только проверка типов: у документа таких полей нет вовсе. **Нетипизированная
+ * заглушка проверяет придуманную модель, а не настоящую.**
  */
 
 const context = (): RequestContext => ({
@@ -45,9 +50,12 @@ const makeService = () => {
         id: 'doc_1',
         tenantId: 't1',
         fileId: 'file_1',
-        learnerId: 'lrn_1',
-        documentKind: 'certificate',
+        name: 'Удостоверение о проверке знаний',
+        documentType: 'certificate',
         documentNumber: 'УД-000123',
+        // Слушатель у документа НЕ хранится прямо: он находится через основание выдачи.
+        sourceEntityType: 'enrollment',
+        sourceEntityId: 'enr_1',
         status: 'final'
       }
     ],
@@ -87,15 +95,21 @@ describe('скачивание документа попадает в журна
     expect(entry.actorId).toBe('u_admin');
     expect(entry.entityId).toBe('doc_1');
     expect(entry.tenantId).toBe('t1');
-    // Без слушателя запись бесполезна для ответа субъекту ПДн: «чьи данные выгрузили».
-    expect((entry.metadata as Record<string, unknown> | undefined)?.learnerId).toBe('lrn_1');
+    /*
+     * Прямого поля «слушатель» у документа нет — он привязан к основанию выдачи. В записи
+     * должна остаться ссылка на это основание, иначе по журналу не ответить субъекту ПДн,
+     * чьи именно данные выгрузили.
+     */
+    const metadata = entry.metadata as Record<string, unknown>;
+    expect(metadata.sourceEntityType).toBe('enrollment');
+    expect(metadata.sourceEntityId).toBe('enr_1');
   });
 
   /*
-   * Номер документа в записи — чтобы администратор мог сопоставить её с бумагой на руках,
+   * Номер и название в записи — чтобы администратор сопоставил её с бумагой на руках,
    * не заглядывая в базу по идентификатору.
    */
-  it('в записи есть номер документа — по нему человек и опознаёт бумагу', () => {
+  it('в записи есть номер и название документа — по ним человек опознаёт бумагу', () => {
     const { service, write } = makeService();
 
     service.getDocumentForDownload('t1', 'doc_1', 'u_admin', context());
@@ -103,6 +117,8 @@ describe('скачивание документа попадает в журна
     const entry = write.mock.calls[0]![0] as Record<string, unknown>;
     const metadata = entry.metadata as Record<string, unknown>;
     expect(metadata.documentNumber).toBe('УД-000123');
+    expect(metadata.documentName).toBe('Удостоверение о проверке знаний');
+    expect(metadata.documentType).toBe('certificate');
   });
 
   it('несуществующий документ не создаёт записи о скачивании', () => {

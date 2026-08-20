@@ -707,9 +707,15 @@ export class MvpService {
         undefined,
         ctx,
         {
-          learnerId: doc.learnerId,
           documentNumber: doc.documentNumber,
-          documentKind: doc.documentKind,
+          documentName: doc.name,
+          documentType: doc.documentType,
+          /*
+           * Здесь слушатель известен точно: зачисление уже найдено выше при проверке
+           * доступа. В журнале это главное поле — по нему отвечают субъекту ПДн на вопрос
+           * «кто выгружал мои документы».
+           */
+          learnerId: enrollment.learnerId,
           // Скачивание из портала заказчика — отдельный канал, и в разбирательстве важно,
           // что документ забрал представитель компании, а не сотрудник центра.
           channel: 'counterparty_portal'

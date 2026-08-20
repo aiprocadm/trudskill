@@ -618,11 +618,18 @@ export class DocumentsService {
       entityType: 'documents.generated_document',
       entityId: document.id,
       metadata: {
-        // Слушатель и номер — чтобы по записи можно было ответить «чьи данные и какая бумага»,
-        // не разбирая идентификаторы по базе.
-        learnerId: document.learnerId,
+        /*
+         * Что кладём и почему именно это. Прямого поля «слушатель» у документа нет: он
+         * привязан к тому, на основании чего выдан (`sourceEntityType` + `sourceEntityId`,
+         * обычно зачисление). Поэтому в записи — номер и название бумаги, чтобы человек
+         * опознал её без похода в базу, вид документа и ссылка на основание, по которой
+         * при разбирательстве находится слушатель.
+         */
         documentNumber: document.documentNumber,
-        documentKind: document.documentKind
+        documentName: document.name,
+        documentType: document.documentType,
+        sourceEntityType: document.sourceEntityType,
+        sourceEntityId: document.sourceEntityId
       },
       requestId: ctx?.requestId,
       correlationId: ctx?.correlationId,
