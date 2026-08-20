@@ -34,7 +34,8 @@ import {
   isPhotoVerificationFresh,
   normalizePhotoMaxAgeHours,
   requiresDocumentIdentity,
-  requiresExamControl
+  requiresExamControl,
+  requiresSimpleSignature
 } from './identity/identity-policy.js';
 import { IDENTITY_VERIFICATION_REJECTED_EVENT } from './identity-verification-rejected.event.js';
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
@@ -3663,7 +3664,13 @@ export class MvpService {
     actorId: string | undefined,
     request: StartAttemptRequest,
     context: RequestContext,
-    identityPolicy?: EffectiveIdentityPolicy
+    identityPolicy?: EffectiveIdentityPolicy,
+    /**
+     * ФТ-C1 уровень 1: состояние соглашения об электронном взаимодействии.
+     * Разрешается снаружи (контроллером), потому что метод синхронный, а соглашение живёт
+     * в отдельной таблице — тот же приём, что у согласия на фото (`PhotoConsentGate`).
+     */
+    electronicAgreement?: { signedAt?: string | undefined }
   ): TestAttempt {
     const test = this.getById(this.state.tests, tenantId, request.testId);
     const enrollment = this.getById(this.state.enrollments, tenantId, request.enrollmentId);
@@ -3693,6 +3700,10 @@ export class MvpService {
     // Wave 1 gates: последовательность модулей (A), минимальное время (B), аутентификация (C).
     this.assertModuleSequenceGate(tenantId, enrollment.id, test);
     this.assertMinViewGate(tenantId, enrollment.id, test);
+    // ФТ-C1, уровень 1 (ПЭП). Проверяется ПЕРВЫМ среди уровней: соглашение об электронном
+    // взаимодействии — основание для того, чтобы ответы на тест вообще считались подписанными.
+    // Без него уровни 2 и 3 собирают доказательства личности для действия, не имеющего подписи.
+    this.assertElectronicAgreementGate(identityPolicy, electronicAgreement);
     this.assertPreExamAuthGate(tenantId, enrollment, test, identityPolicy);
     // Phase 4 Plan A: documentary identity (selfie+passport) — per-learner.
     this.assertIdentityVerificationGate(tenantId, enrollment, test, identityPolicy);
@@ -3904,6 +3915,31 @@ export class MvpService {
         message: `Minimum study time not met (${moduleEntity.minViewSeconds - studied}s remaining)`
       });
     }
+  }
+
+  /**
+   * ФТ-C1, уровень 1 — «Соглашение об электронном взаимодействии» подписано.
+   *
+   * До этого среза уровень 1 существовал только на бумаге: `requiresSimpleSignature` была
+   * написана и покрыта тестом, но не вызывалась ниоткуда, а `signAction` (подпись действия)
+   * — тоже. Центр мог включить уровень в настройках и считать, что собирает подписи, тогда
+   * как не собиралось ничего: ответы на тесты оставались обычными кликами.
+   *
+   * Отказ — 412, а не 403: дело не в правах, а в незавершённом шаге, который слушатель может
+   * пройти сам за полминуты.
+   */
+  private assertElectronicAgreementGate(
+    identityPolicy: EffectiveIdentityPolicy | undefined,
+    electronicAgreement: { signedAt?: string | undefined } | undefined
+  ): void {
+    if (!identityPolicy || !requiresSimpleSignature(identityPolicy)) return;
+    if (electronicAgreement?.signedAt) return;
+    throw new PreconditionFailedException({
+      code: 'electronic_agreement_required',
+      message:
+        'Нельзя начать экзамен: не подписано соглашение об электронном взаимодействии. ' +
+        'Откройте его в личном кабинете и подтвердите — это займёт полминуты.'
+    });
   }
 
   // ─── Feature C: Pre-exam identity authentication (Wave 1 Plan 2 / Приказ №816) ───

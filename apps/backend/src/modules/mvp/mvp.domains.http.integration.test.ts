@@ -168,6 +168,7 @@ describe('MVP HTTP integration (domain invariants)', () => {
       { ConsentService },
       { InMemoryConsentRepository },
       { LegalLogWriter },
+      { SimpleSignatureService },
       { LearnerDossierService },
       { LegalLogReader },
       { TenantUsageService },
@@ -202,6 +203,7 @@ describe('MVP HTTP integration (domain invariants)', () => {
       import('./consents/consent.service.js'),
       import('./consents/in-memory-consent.repository.js'),
       import('./esignature/legal-log.writer.js'),
+      import('./esignature/simple-signature.service.js'),
       import('./identity/learner-dossier.service.js'),
       import('./esignature/legal-log.reader.js'),
       import('./usage/tenant-usage.service.js'),
@@ -243,6 +245,22 @@ describe('MVP HTTP integration (domain invariants)', () => {
         // ФТ-C3.2 (Фаза 3 Task 6): контроллер проверяет согласие на фото перед подачей
         // документов. Хранилище и журнал — заглушки: тесту нужна граница прав.
         { provide: CONSENT_REPOSITORY, useClass: InMemoryConsentRepository },
+        /*
+         * ФТ-C1 §5.315: контроллер получил зависимость подписи ПЭП. Заглушка, а не настоящий
+         * сервис: этим тестам нужны доменные инварианты, а не соглашение. «Соглашение принято»
+         * — иначе экзаменационные проверки спотыкались бы о чужой гейт.
+         */
+        {
+          provide: SimpleSignatureService,
+          useValue: {
+            getStatus: async () => ({
+              hasAgreement: true,
+              acceptedAt: '2026-01-01T00:00:00.000Z',
+              acceptanceRequired: false
+            }),
+            signAction: async () => true
+          }
+        },
         { provide: LegalLogWriter, useValue: { write: async () => undefined } },
         ConsentService,
         // ФТ-C2: контроллер отдаёт «личное дело». Журнал и IAM ходят в БД, которой в
