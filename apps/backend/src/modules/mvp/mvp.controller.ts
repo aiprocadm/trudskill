@@ -15,6 +15,7 @@ import {
   UseGuards,
   UseInterceptors
 } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { convertHtmlToPdf } from '@trudskill/docx-render';
 import { IsString, ValidateIf } from 'class-validator';
 
@@ -85,6 +86,7 @@ import {
 } from './mvp.dto.js';
 import { MvpService } from './mvp.service.js';
 import { LearnerPiiService } from './pii/learner-pii.service.js';
+import { PRE_EXAM_REQUEST_RATE_LIMIT, PRE_EXAM_VERIFY_RATE_LIMIT } from './pre-exam-rate-limit.js';
 import { BuildReportRequestDto, SaveReportTemplateDto } from './report-builder.dto.js';
 import { UpdateCounterpartyExtendedRequest } from './update-counterparty-extended.dto.js';
 import { UpdateLearnerExtendedRequest } from './update-learner-extended.dto.js';
@@ -1195,8 +1197,15 @@ export class MvpController {
     return this.mvpService.startAttempt(c.tenantId!, c.userId, b, c, identityPolicy);
   }
 
+  /*
+   * ФТ-G2: обе ручки кода допуска — под пределом частоты. Числа и объяснение, почему
+   * они такие, лежат в `pre-exam-rate-limit.ts`; `ThrottlerGuard` обязателен рядом с
+   * `@Throttle` — глобального guard в приложении нет, и без него предел молча «спит»
+   * (эта же ошибка однажды обезоружила лимит на публичной проверке документа, §5.169).
+   */
   @Post('attempts/request-pre-exam-token')
-  @UseGuards(PermissionGuard)
+  @UseGuards(PermissionGuard, ThrottlerGuard)
+  @Throttle({ default: PRE_EXAM_REQUEST_RATE_LIMIT })
   @RequirePermissions('assessment.attempts.take')
   requestPreExamToken(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
     const b = assertValidDto(RequestPreExamTokenRequest, raw);
@@ -1204,7 +1213,8 @@ export class MvpController {
   }
 
   @Post('attempts/verify-pre-exam-token')
-  @UseGuards(PermissionGuard)
+  @UseGuards(PermissionGuard, ThrottlerGuard)
+  @Throttle({ default: PRE_EXAM_VERIFY_RATE_LIMIT })
   @RequirePermissions('assessment.attempts.take')
   verifyPreExamToken(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
     const b = assertValidDto(VerifyPreExamTokenRequest, raw);
