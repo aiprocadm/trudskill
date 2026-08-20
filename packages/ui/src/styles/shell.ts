@@ -137,7 +137,7 @@ export const shellStyles = `
 }
 .app-shell__breadcrumbs {
   color: var(--ui-text-muted);
-  font-size: 14px;
+  font-size: var(--ui-font-size-sm);
   min-width: 0;
   flex: 1 1 200px;
   /* Длинный заголовок раздела раньше уезжал ПОД поиск (запись 107): хвост
@@ -167,7 +167,7 @@ export const shellStyles = `
 }
 .app-shell__search:hover { color: var(--ui-text); }
 .app-shell__kbd {
-  font-size: 11px;
+  font-size: var(--ui-font-size-xs);
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-sm);
   padding: 1px 5px;
@@ -309,7 +309,7 @@ export const shellStyles = `
   border: none;
   outline: none;
   background: transparent;
-  font-size: 16px;
+  font-size: var(--ui-font-size-md);
   color: var(--ui-text);
 }
 .cmdk__list { list-style: none; margin: 0; padding: 6px; max-height: 52vh; overflow-y: auto; }

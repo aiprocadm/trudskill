@@ -24,6 +24,13 @@ describe('baseVars — CSS-мост токенов', () => {
     expect(vars['--ui-font-size-md']).toBe('15px');
     expect(vars['--ui-font-size-lg']).toBe('17px');
     expect(vars['--ui-font-size-xl']).toBe('22px');
+    // UI-015: новые ступени и ширины обязаны попасть в мост CSS-переменных — иначе токен
+    // объявлен в коде, а в стилях его нет, и шкала молча расходится с разметкой.
+    expect(vars['--ui-font-size-2xl']).toBe('28px');
+    expect(vars['--ui-font-size-3xl']).toBe('34px');
+    expect(vars['--ui-measure']).toBe('68ch');
+    expect(vars['--ui-measure-narrow']).toBe('48ch');
+    expect(vars['--ui-content-max']).toBe('1280px');
     expect(vars['--ui-font-weight-medium']).toBe('500');
     expect(vars['--ui-font-weight-semibold']).toBe('600');
     expect(vars['--ui-font-weight-bold']).toBe('700');
