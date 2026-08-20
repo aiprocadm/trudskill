@@ -8,7 +8,7 @@ export const calendarStyles = `
 .calendar-grid__dow { font-size: var(--ui-font-size-sm); font-weight: 600; text-align: center; color: var(--ui-text-muted); }
 .calendar-grid__cell { border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); min-height: 88px; padding: 4px; background: var(--ui-surface); }
 .calendar-grid__cell--muted { opacity: 0.45; }
-.calendar-grid__day { font-weight: 600; font-size: 13px; }
-.calendar-grid__list { list-style: none; margin: 4px 0 0; padding: 0; font-size: 12px; }
+.calendar-grid__day { font-weight: 600; font-size: var(--ui-font-size-sm); }
+.calendar-grid__list { list-style: none; margin: 4px 0 0; padding: 0; font-size: var(--ui-font-size-xs); }
 .calendar-grid__list li { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
 `;
