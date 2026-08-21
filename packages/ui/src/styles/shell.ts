@@ -45,7 +45,7 @@ export const shellStyles = `
   color: var(--ui-nav-text, var(--ui-text));
   padding: 10px 12px;
   border-radius: var(--ui-radius-md);
-  font-weight: 600;
+  font-weight: var(--ui-font-weight-semibold);
 }
 .app-shell__link:hover {
   background: var(--ui-nav-hover-bg, var(--ui-surface-muted));
@@ -73,8 +73,8 @@ export const shellStyles = `
 /* UI-009: на заголовке блока стояли четыре усилителя разом — uppercase,
    letter-spacing, вес 700 и уменьшенный размер. Это неглавный элемент, он
    отделяется расстоянием, а не криком. */
-.app-shell__more-toggle { font-weight: 600; font-size: var(--ui-font-size-md); }
-.app-shell__group-header { font-weight: 600; font-size: var(--ui-font-size-sm); }
+.app-shell__more-toggle { font-weight: var(--ui-font-weight-semibold); font-size: var(--ui-font-size-md); }
+.app-shell__group-header { font-weight: var(--ui-font-weight-semibold); font-size: var(--ui-font-size-sm); }
 .app-shell__more-toggle:hover,
 .app-shell__group-header:hover { background: var(--ui-nav-hover-bg, var(--ui-surface-muted)); }
 .app-shell__more-title,
@@ -99,7 +99,7 @@ export const shellStyles = `
   flex-direction: column;
   gap: 8px;
 }
-.app-shell__hint-text { margin: 0; font-size: var(--ui-font-size-sm); line-height: 1.4; }
+.app-shell__hint-text { margin: 0; font-size: var(--ui-font-size-sm); line-height: var(--ui-line-height-normal); }
 /*
  * UI-030 — настройка «поменьше движения» уважается ВЕЗДЕ.
  *
@@ -149,8 +149,8 @@ export const shellStyles = `
 .app-shell__crumb { white-space: nowrap; }
 .app-shell__crumb-link { color: var(--ui-text-muted); text-decoration: none; }
 .app-shell__crumb-link:hover { color: var(--ui-brand-700); text-decoration: underline; }
-.app-shell__crumb-current { color: var(--ui-text); font-weight: 500; }
-.app-shell__crumb-block { color: var(--ui-text-muted); font-weight: 500; }
+.app-shell__crumb-current { color: var(--ui-text); font-weight: var(--ui-font-weight-medium); }
+.app-shell__crumb-block { color: var(--ui-text-muted); font-weight: var(--ui-font-weight-medium); }
 .app-shell__userbar { flex: 0 1 auto; justify-content: flex-end; gap: 12px; }
 .app-shell__search {
   display: inline-flex;
@@ -211,7 +211,7 @@ export const shellStyles = `
     border: 1px solid var(--ui-border);
     background: var(--ui-surface);
     color: var(--ui-text);
-    font-weight: 600;
+    font-weight: var(--ui-font-weight-semibold);
     cursor: pointer;
     box-shadow: var(--ui-shadow);
   }

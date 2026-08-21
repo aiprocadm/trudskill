@@ -3,10 +3,10 @@ export const formStyles = `
 .ui-input:focus,.ui-select:focus,.ui-textarea:focus,input:focus,select:focus,textarea:focus { border-color: var(--ui-brand-600); }
 textarea,.ui-textarea { min-height: 88px; padding: 9px 12px; }
 .ui-field { display: grid; gap: 6px; }
-.ui-field-label { font-size: var(--ui-font-size-sm); font-weight: 600; color: var(--ui-text-muted); }
+.ui-field-label { font-size: var(--ui-font-size-sm); font-weight: var(--ui-font-weight-semibold); color: var(--ui-text-muted); }
 .ui-field-hint { font-size: var(--ui-font-size-xs); color: var(--ui-text-muted); margin: 0; }
 .ui-field-error { font-size: var(--ui-font-size-xs); color: var(--ui-danger-600); margin: 0; }
-button,.ui-button,.ui-button-primary,.ui-button-secondary,.ui-button-ghost,.ui-button-danger { height: 40px; border: 1px solid var(--ui-border-strong); border-radius: var(--ui-radius-md); background: var(--ui-surface); padding: 0 14px; cursor: pointer; font-family: inherit; font-size: var(--ui-font-size-md); font-weight: 600; transition: background var(--ui-duration-fast) var(--ui-ease), border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); color: var(--ui-text); text-decoration: none; }
+button,.ui-button,.ui-button-primary,.ui-button-secondary,.ui-button-ghost,.ui-button-danger { height: 40px; border: 1px solid var(--ui-border-strong); border-radius: var(--ui-radius-md); background: var(--ui-surface); padding: 0 14px; cursor: pointer; font-family: inherit; font-size: var(--ui-font-size-md); font-weight: var(--ui-font-weight-semibold); transition: background var(--ui-duration-fast) var(--ui-ease), border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); color: var(--ui-text); text-decoration: none; }
 /* Ссылка в одежде кнопки (тег a с классом ui-button): без сброса подчёркивание и inline-высота
    выдают в ней ссылку. Правило узкое, чтобы не менять раскладку настоящих кнопок. */
 a.ui-button, a.ui-button-primary, a.ui-button-secondary { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }

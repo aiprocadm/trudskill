@@ -61,5 +61,5 @@ export const modalStyles = `
 .ui-modal { position: fixed; inset: 0; z-index: 10050; display: grid; place-items: center; padding: 16px; background: var(--ui-overlay); overflow-y: auto; }
 .ui-modal-content { width: min(640px, 100%); max-height: min(90vh, 720px); overflow: auto; background: var(--ui-surface); color: var(--ui-text); border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); padding: 20px; box-shadow: var(--ui-shadow-strong); display: grid; gap: 14px; }
 .ui-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.ui-modal-header h2 { margin: 0; font-size: var(--ui-font-size-lg); font-weight: 700; color: var(--ui-text); }
+.ui-modal-header h2 { margin: 0; font-size: var(--ui-font-size-lg); font-weight: var(--ui-font-weight-bold); color: var(--ui-text); }
 `;
