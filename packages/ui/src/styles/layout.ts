@@ -11,7 +11,7 @@ export const layoutStyles = `
   background: var(--ui-surface);
   transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease);
 }
-.ui-dashboard-tile:hover { border-color: var(--ui-brand-600); box-shadow: var(--ui-shadow); }
+.ui-dashboard-tile:hover { border-color: var(--ui-brand-600); }
 .ui-dashboard-tile-title { font-weight: 600; margin-bottom: 6px; }
 .ui-dashboard-tile-note { font-size: var(--ui-font-size-sm); color: var(--ui-text-muted); line-height: 1.4; }
 .ui-centered-page,
@@ -88,7 +88,6 @@ export const layoutStyles = `
 }
 .ui-settings-toc__link:hover {
   border-color: var(--ui-brand-600);
-  box-shadow: var(--ui-shadow);
 }
 .ui-settings-toc__title { font-weight: var(--ui-font-weight-semibold); }
 .ui-settings-toc__hint { font-size: var(--ui-font-size-sm); color: var(--ui-text-muted); }

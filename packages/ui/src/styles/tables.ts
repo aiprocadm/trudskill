@@ -42,7 +42,7 @@ export const tableStyles = `
   background: var(--ui-surface);
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-md);
-  box-shadow: var(--ui-shadow-strong);
+  box-shadow: var(--ui-shadow);
 }
 .ui-bulk-bar__row { display: flex; gap: var(--ui-space-sm); flex-wrap: wrap; align-items: center; }
 .ui-bulk-bar__count { font-weight: var(--ui-font-weight-semibold); }
@@ -72,7 +72,7 @@ export const tableStyles = `
   background: var(--ui-surface);
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-md);
-  box-shadow: var(--ui-shadow-strong);
+  box-shadow: var(--ui-shadow);
 }
 .ui-column-picker__item { display: flex; align-items: center; gap: var(--ui-space-sm); font-size: var(--ui-font-size-sm); }
 .ui-badge-count {

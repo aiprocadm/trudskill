@@ -69,7 +69,7 @@ export const pickNextStep = (entries: EnrollmentWithDetails[]): NextStep | null 
       kind: 'completed_all',
       href: '/learner/courses',
       cta: 'Открыть мои курсы',
-      headline: 'Все курсы завершены — отлично!',
+      headline: 'Все курсы завершены',
       description: 'Документы доступны в разделе «Мои курсы».'
     };
   }
