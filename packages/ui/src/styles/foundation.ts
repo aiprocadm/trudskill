@@ -23,7 +23,7 @@ export const foundationStyles = `
 .ui-page-subtitle { margin:6px 0 0; color: var(--ui-text-muted); font-size: var(--ui-font-size-md); line-height: 1.5; max-width: var(--ui-measure); }
 /* UI-019: у статичной карточки тени нет — её отделяют фон, рамка и расстояние.
    Тень оставлена только всплывающим слоям: модалке, выдвижной панели, палитре, выпадашке. */
-.ui-section-card,.ui-card { background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: var(--ui-radius-lg); }
+.ui-section-card,.ui-card { background: var(--ui-surface); border-radius: var(--ui-radius-lg); }
 .ui-section-card { padding: 20px; display:grid; gap:14px; }
 .ui-section-title { margin:0; font-size: var(--ui-font-size-lg); font-weight: 650; letter-spacing: -0.01em; color: var(--ui-text); display:flex; align-items:center; gap:9px; }
 .ui-section-title::before { content:''; width:4px; height:1.05em; border-radius:var(--ui-radius-pill); background: var(--ui-brand-600); flex:none; }
@@ -40,7 +40,7 @@ export const foundationStyles = `
 .ui-list { list-style:none; margin:0; padding:0; display:grid; gap:0; }
 .ui-list-title { font-weight: 600; color: var(--ui-text); font-size: var(--ui-font-size-md); }
 /* Карточка-строка списка (тесты, задания и т.п.) */
-.entry-card { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); padding: 14px; transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
+.entry-card { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; border-radius: var(--ui-radius-md); padding: 14px; transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
 .entry-card:hover { border-color: var(--ui-brand-600); }
 .entry-card + .entry-card { margin-top: 10px; }
 /* Слайд-овер дровер (создание/редактирование сущностей) — фикс. панель справа + затемнение */
@@ -137,7 +137,7 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 .ui-hero__cta::after { content: '\\2192'; font-size: 1.15em; line-height: 1; transition: transform var(--ui-duration-fast) var(--ui-ease); }
 .ui-hero__cta:hover { background: var(--ui-accent-700); transform: translateY(-1px); box-shadow: 0 16px 30px -12px rgba(0, 0, 0, 0.6); }
 .ui-hero__cta:hover::after { transform: translateX(3px); }
-.ui-hero--calm { background: var(--ui-surface); color: var(--ui-text); border: 1px solid var(--ui-border); }
+.ui-hero--calm { background: var(--ui-surface); color: var(--ui-text); }
 .ui-hero--calm .ui-hero__title { color: var(--ui-text); }
 .ui-hero--calm .ui-hero__desc { color: var(--ui-text-muted); }
 .ui-hero--calm .ui-hero__seal { opacity: 0.4; }
@@ -163,7 +163,7 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 
 /* Каталог курсов ученика — адаптивная сетка карточек */
 .course-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); gap: 14px; list-style: none; padding: 0; margin: 0; }
-.course-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); background: var(--ui-surface); transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
+.course-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: var(--ui-radius-md); background: var(--ui-surface); transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
 .course-card:hover { border-color: var(--ui-brand-600); transform: translateY(-2px); }
 /* Декоративная «обложка» — фирменная полоска индиго→коралл (без картинок) */
 .course-card__banner { height: 6px; border-radius: var(--ui-radius-pill); background: linear-gradient(90deg, var(--ui-brand-600), var(--ui-accent-600)); }
@@ -230,7 +230,7 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 .ui-muted { color: var(--ui-text-muted); }
 /* Карточки-метрики для дашбордов (аналитика, cockpit) */
 .stat-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-.stat-card { border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); background: var(--ui-surface); padding: 16px; display: grid; gap: 4px; align-content: start; }
+.stat-card { border-radius: var(--ui-radius-md); background: var(--ui-surface); padding: 16px; display: grid; gap: 4px; align-content: start; }
 .stat-card__label { font-size: var(--ui-font-size-sm); color: var(--ui-text-muted); }
 .stat-card__value { font-size: var(--ui-font-size-2xl); font-weight: 700; color: var(--ui-text); font-variant-numeric: tabular-nums; line-height: 1.1; }
 .stat-card__sub { font-size: var(--ui-font-size-xs); color: var(--ui-text-muted); }
