@@ -166,7 +166,9 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 .course-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: var(--ui-radius-md); background: var(--ui-surface); transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
 .course-card:hover { border-color: var(--ui-brand-600); transform: translateY(-2px); }
 /* Декоративная «обложка» — фирменная полоска индиго→коралл (без картинок) */
-.course-card__banner { height: 6px; border-radius: var(--ui-radius-pill); background: linear-gradient(90deg, var(--ui-brand-600), var(--ui-accent-600)); }
+/* UI-003: коралл — только у первичной кнопки. Декоративная полоса карточки курса красилась
+   в коралл тоже: сетка из десяти карточек давала десять акцентных пятен на экран. */
+.course-card__banner { height: 6px; border-radius: var(--ui-radius-pill); background: linear-gradient(90deg, var(--ui-brand-700), var(--ui-brand-600)); }
 .course-card__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .course-card__title { margin: 0; font-size: var(--ui-font-size-md); font-weight: 650; line-height: 1.3; color: var(--ui-text); }
 .course-card__body { display: grid; gap: 8px; margin-top: auto; }
