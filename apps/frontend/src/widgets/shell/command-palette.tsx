@@ -71,7 +71,7 @@ export const CommandPalette = ({ open, items, onClose }: CommandPaletteProps) =>
         aria-label="Быстрый переход по разделам"
       >
         <div className="cmdk__input-row">
-          <Icon icon={SearchIcon} size={18} />
+          <Icon icon={SearchIcon} size={20} />
           <input
             ref={inputRef}
             className="cmdk__input"

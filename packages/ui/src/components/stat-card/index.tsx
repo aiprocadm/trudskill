@@ -13,6 +13,19 @@ export interface StatCardTrend {
   tone: 'positive' | 'negative' | 'neutral';
 }
 
+/**
+ * Направление тренда словами (`UI-024`, WCAG 1.1.1).
+ *
+ * Раньше здесь стояли стрелки «↑ ↓ →» под `aria-hidden`, а рядом — только величина
+ * («12%»). Читалка произносила «12%» без направления: рост это или падение, человек
+ * не узнавал. Стрелка осталась глазами, а смысл теперь есть и голосом.
+ */
+const DIRECTION_LABEL: Record<StatCardTrend['direction'], string> = {
+  up: 'рост',
+  down: 'снижение',
+  flat: 'без изменений'
+};
+
 const DIRECTION_SIGN: Record<StatCardTrend['direction'], string> = {
   up: '↑',
   down: '↓',
@@ -41,7 +54,9 @@ export const StatCard = ({
       <span className="stat-card__value">{value}</span>
       {trend ? (
         <span className={`stat-card__trend stat-card__trend--${trend.tone}`}>
-          <span aria-hidden>{DIRECTION_SIGN[trend.direction]}</span> {trend.value}
+          <span aria-hidden>{DIRECTION_SIGN[trend.direction]}</span>
+          <span className="ui-visually-hidden">{DIRECTION_LABEL[trend.direction]}: </span>
+          {trend.value}
         </span>
       ) : null}
       {sub ? <span className="stat-card__sub">{sub}</span> : null}

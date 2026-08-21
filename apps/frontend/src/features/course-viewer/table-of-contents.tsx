@@ -1,15 +1,31 @@
 'use client';
 
+import { Icon } from '@trudskill/ui';
+
+import { CheckCircleIcon, CircleIcon, ClockIcon, LockIcon } from '../navigation/nav-icons';
+
 import type { CourseTree, LockState, ProgressByMaterial } from './types';
 import type { Progress } from '../mvp/types';
+import type { LucideIcon } from '@trudskill/ui';
 
 type ProgressStatus = Progress['status'];
 
-const statusIcon = (status: ProgressStatus | undefined, isLocked: boolean): string => {
-  if (isLocked) return '🔒';
-  if (status === 'completed') return '✓';
-  if (status === 'in_progress') return '⏳';
-  return '☐';
+/**
+ * Значок состояния урока (`UI-024`).
+ *
+ * Раньше здесь стояли символы «🔒 ✓ ⏳ ☐» под `aria-hidden` — читалка их не произносила,
+ * и слушатель со скринридером слышал только название урока, не зная, пройден он, идёт или
+ * закрыт. Теперь состояние — иконка с подписью: `Icon` с `label` отдаёт `role="img"` и
+ * `aria-label`, то есть смысл доходит и глазами, и голосом.
+ */
+const statusIcon = (
+  status: ProgressStatus | undefined,
+  isLocked: boolean
+): { icon: LucideIcon; label: string } => {
+  if (isLocked) return { icon: LockIcon, label: 'Закрыт: сначала пройдите предыдущие уроки' };
+  if (status === 'completed') return { icon: CheckCircleIcon, label: 'Пройден' };
+  if (status === 'in_progress') return { icon: ClockIcon, label: 'В процессе' };
+  return { icon: CircleIcon, label: 'Не начат' };
 };
 
 const moduleProgress = (materialsCount: number, completedCount: number): string =>
@@ -56,7 +72,11 @@ export const TableOfContents = ({
           >
             <summary className="course-toc__module-summary">
               <span className="course-toc__module-title">
-                {moduleLocked ? '🔒 ' : ''}
+                {moduleLocked ? (
+                  <>
+                    <Icon icon={LockIcon} size={16} label="Раздел закрыт" />{' '}
+                  </>
+                ) : null}
                 {node.module.title}
               </span>
               <span className="course-toc__module-counter ui-text-muted">
@@ -88,8 +108,12 @@ export const TableOfContents = ({
                         if (!isLocked) onSelect(material.id);
                       }}
                     >
-                      <span aria-hidden className="course-toc__material-icon">
-                        {statusIcon(status, isLocked)}
+                      <span className="course-toc__material-icon">
+                        <Icon
+                          icon={statusIcon(status, isLocked).icon}
+                          size={16}
+                          label={statusIcon(status, isLocked).label}
+                        />
                       </span>
                       <span className="course-toc__material-title">{material.title}</span>
                     </button>
