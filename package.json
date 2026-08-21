@@ -21,6 +21,7 @@
     "docker:down": "docker compose -f infra/docker-compose.yml down",
     "prepare": "husky",
     "env:check": "tsx scripts/check-env.ts",
+    "seed:staging": "pnpm --filter @trudskill/backend seed:staging",
     "contracts:lint": "pnpm --filter @trudskill/api-contracts contracts:lint",
     "contracts:build": "pnpm --filter @trudskill/api-contracts build",
     "contracts:typecheck": "pnpm --filter @trudskill/api-contracts typecheck",
