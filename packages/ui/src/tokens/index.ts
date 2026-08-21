@@ -56,10 +56,12 @@ export const lightThemeVars = {
   '--ui-border-strong': '#7c8aa0',
   '--ui-text': '#0f172a',
   '--ui-text-muted': '#475569',
-  '--ui-neutral-50': '#f8fafc',
-  '--ui-neutral-100': '#f1f5f9',
-  '--ui-neutral-300': '#cbd5e1',
-  '--ui-neutral-700': '#334155',
+  /*
+   * UI-002: нейтралей ровно две, и у каждой роль. Ступени 50/100/300/700 были объявлены
+   * «на вырост» и не применялись нигде — удалены (кандидаты сверены по uiGlobalStyles,
+   * компонентам пакета и всему фронту). `-900` — подложка медиа: letterbox видеоплеера,
+   * одинаково тёмная в обеих темах. `-500` (ниже) — цвет нейтрального статуса.
+   */
   '--ui-neutral-900': '#0f172a',
   '--ui-brand-600': '#3b4fe4',
   '--ui-brand-700': '#2c3ac0',
@@ -75,6 +77,7 @@ export const lightThemeVars = {
   '--ui-warning-600': '#b45309',
   '--ui-warning-700': '#92400e',
   '--ui-danger-600': '#dc2626',
+  /* Цвет нейтрального статуса: «неактивен», «черновик» в semanticStatusMap, чип-запас. */
   '--ui-neutral-500': '#64748b',
   '--ui-focus': '#3b4fe4',
   '--ui-shadow': shadows.sm,
@@ -112,10 +115,6 @@ export const darkThemeVars = {
   '--ui-border-strong': '#6b7891',
   '--ui-text': '#f1f5f9',
   '--ui-text-muted': '#aeb9cd',
-  '--ui-neutral-50': '#f6f8fb',
-  '--ui-neutral-100': '#e6ebf2',
-  '--ui-neutral-300': '#9aa6ba',
-  '--ui-neutral-700': '#46536b',
   '--ui-neutral-900': '#0b1120',
   '--ui-brand-600': '#6b7bf0',
   '--ui-brand-700': '#a9b5f8',
