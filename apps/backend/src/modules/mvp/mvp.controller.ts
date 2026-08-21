@@ -24,6 +24,7 @@ import { ConsentService } from './consents/consent.service.js';
 import { CreateCounterpartyExtendedRequest } from './create-counterparty-extended.dto.js';
 import { MethodistDashboardService } from './dashboards/methodist-dashboard.service.js';
 import { backendEnv } from '../../env.js';
+import { SimpleSignatureService } from './esignature/simple-signature.service.js';
 import { IdentityPolicyService } from './identity/identity-policy.service.js';
 import { LearnerDossierService } from './identity/learner-dossier.service.js';
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
@@ -133,7 +134,9 @@ export class MvpController {
     @Inject(MethodistDashboardService)
     private readonly methodistDashboardService: MethodistDashboardService,
     @Inject(IamService) private readonly iamService: IamService,
-    @Inject(TenantUsageService) private readonly tenantUsage: TenantUsageService
+    @Inject(TenantUsageService) private readonly tenantUsage: TenantUsageService,
+    // ФТ-C1 уровень 1: состояние соглашения об электронном взаимодействии и подпись действий.
+    @Inject(SimpleSignatureService) private readonly simpleSignature: SimpleSignatureService
   ) {}
 
   @Get('counterparties')
@@ -1194,7 +1197,14 @@ export class MvpController {
       c.tenantId!,
       test.courseId
     );
-    return this.mvpService.startAttempt(c.tenantId!, c.userId, b, c, identityPolicy);
+    // ФТ-C1 уровень 1: соглашение об электронном взаимодействии живёт в своей таблице (`0067`),
+    // поэтому его состояние тоже разрешается здесь и передаётся внутрь. `acceptedAt` приходит
+    // только когда принята ДЕЙСТВУЮЩАЯ редакция текста: переписали соглашение — нужна новая
+    // подпись, иначе центр опирался бы на согласие с текстом, которого уже нет.
+    const signature = await this.simpleSignature.getStatus(c.tenantId!, c.userId ?? '');
+    return this.mvpService.startAttempt(c.tenantId!, c.userId, b, c, identityPolicy, {
+      signedAt: signature.acceptedAt
+    });
   }
 
   /*
@@ -1430,11 +1440,31 @@ export class MvpController {
     const b = assertValidDto(SaveAttemptAnswerRequest, raw);
     return this.mvpService.saveAnswer(c.tenantId!, c.userId, id, b, c);
   }
+  /**
+   * ФТ-C1 уровень 1: сданный тест — то самое действие, которое ТЗ называет подписанным ПЭП.
+   *
+   * Подпись ставится ПОСЛЕ успешной сдачи и не влияет на результат: `signAction` возвращает
+   * `false`, если соглашение не принято, и тогда запись в журнале юридически значимых действий
+   * просто не появляется — «подписывать» без соглашения нельзя, это была бы подделка. Экзамены
+   * на уровне 0 (соглашение не требуется) идут как раньше.
+   */
   @Post('attempts/:id/submit')
   @UseGuards(PermissionGuard)
   @RequirePermissions('assessment.attempts.take')
-  submitAttempt(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.mvpService.submitAttempt(c.tenantId!, c.userId, id, c);
+  async submitAttempt(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    const attempt = this.mvpService.submitAttempt(c.tenantId!, c.userId, id, c);
+    await this.simpleSignature.signAction(
+      c.tenantId!,
+      c.userId ?? '',
+      {
+        entityType: 'assessment.attempt',
+        entityId: id,
+        eventType: 'assessment.attempt_submitted',
+        description: 'Слушатель сдал тест'
+      },
+      c
+    );
+    return attempt;
   }
   @Post('attempts/:id/finish')
   @UseGuards(PermissionGuard)

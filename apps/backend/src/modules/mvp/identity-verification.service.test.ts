@@ -14,6 +14,13 @@ const noopDocumentsService = {
   listDocuments: () => ({ items: [], page: 1, pageSize: 50, total: 0 })
 } as unknown as DocumentsService;
 
+/*
+ * ФТ-C1 §5.315: уровни накопительные — с уровня 1 нужно подписанное соглашение об
+ * электронном взаимодействии. Эти тесты про уровни 2 и 3, поэтому соглашение в них
+ * подписано: иначе каждый из них спотыкался бы о чужой гейт, а не о свой.
+ */
+const SIGNED_AGREEMENT = { signedAt: '2026-01-01T00:00:00.000Z' };
+
 const T = 'tenant_demo';
 const ADMIN = 'u_tenant_admin';
 const ctx: RequestContext = {
@@ -662,7 +669,7 @@ describe('identity gates — политика идентификации (ФТ-C
 
     let err: unknown;
     try {
-      service.startAttempt(T, ADMIN, startArgs(test, enrollment), ctx, policy(2));
+      service.startAttempt(T, ADMIN, startArgs(test, enrollment), ctx, policy(2), SIGNED_AGREEMENT);
     } catch (e) {
       err = e;
     }
@@ -677,7 +684,7 @@ describe('identity gates — политика идентификации (ФТ-C
 
     let err: unknown;
     try {
-      service.startAttempt(T, ADMIN, startArgs(test, enrollment), ctx, policy(3));
+      service.startAttempt(T, ADMIN, startArgs(test, enrollment), ctx, policy(3), SIGNED_AGREEMENT);
     } catch (e) {
       err = e;
     }
@@ -701,7 +708,7 @@ describe('identity gates — политика идентификации (ФТ-C
     const { test, enrollment } = seedFinalExam(service, false);
 
     expect(() =>
-      service.startAttempt(T, ADMIN, startArgs(test, enrollment), ctx, policy(1))
+      service.startAttempt(T, ADMIN, startArgs(test, enrollment), ctx, policy(1), SIGNED_AGREEMENT)
     ).not.toThrow();
   });
 
@@ -743,7 +750,7 @@ describe('identity gates — политика идентификации (ФТ-C
     service.getTest(T, test.id).moduleId = moduleEntity.id;
 
     expect(() =>
-      service.startAttempt(T, ADMIN, startArgs(test, enrollment), ctx, policy(3))
+      service.startAttempt(T, ADMIN, startArgs(test, enrollment), ctx, policy(3), SIGNED_AGREEMENT)
     ).not.toThrow();
   });
 });
@@ -848,7 +855,14 @@ describe('identity gates — требование фото (ФТ-C1.2)', () => {
 
     let err: unknown;
     try {
-      service.startAttempt(T, 'u_l1', startArgs(test, enrollment), ctxL1, photoPolicy);
+      service.startAttempt(
+        T,
+        'u_l1',
+        startArgs(test, enrollment),
+        ctxL1,
+        photoPolicy,
+        SIGNED_AGREEMENT
+      );
     } catch (e) {
       err = e;
     }
@@ -864,7 +878,14 @@ describe('identity gates — требование фото (ФТ-C1.2)', () => {
     service.reviewIdentityVerification(T, ADMIN, record.id, { decision: 'approve' }, ctx);
 
     expect(() =>
-      service.startAttempt(T, 'u_l1', startArgs(test, enrollment), ctxL1, photoPolicy)
+      service.startAttempt(
+        T,
+        'u_l1',
+        startArgs(test, enrollment),
+        ctxL1,
+        photoPolicy,
+        SIGNED_AGREEMENT
+      )
     ).not.toThrow();
   });
 
@@ -874,11 +895,18 @@ describe('identity gates — требование фото (ФТ-C1.2)', () => {
     service.approveIdentityViaEsia(T, enrollment.learnerId, ctx);
 
     expect(() =>
-      service.startAttempt(T, 'u_l1', startArgs(test, enrollment), ctxL1, {
-        level: 2,
-        requirePhotoBeforeExam: false,
-        source: 'tenant'
-      })
+      service.startAttempt(
+        T,
+        'u_l1',
+        startArgs(test, enrollment),
+        ctxL1,
+        {
+          level: 2,
+          requirePhotoBeforeExam: false,
+          source: 'tenant'
+        },
+        SIGNED_AGREEMENT
+      )
     ).not.toThrow();
   });
 
@@ -894,7 +922,14 @@ describe('identity gates — требование фото (ФТ-C1.2)', () => {
     approved.reviewedAt = new Date(Date.now() - 48 * 3600_000).toISOString();
 
     expect(() =>
-      service.startAttempt(T, 'u_l1', startArgs(test, enrollment), ctxL1, photoPolicy)
+      service.startAttempt(
+        T,
+        'u_l1',
+        startArgs(test, enrollment),
+        ctxL1,
+        photoPolicy,
+        SIGNED_AGREEMENT
+      )
     ).toThrow(/устарело/);
   });
 
@@ -904,12 +939,19 @@ describe('identity gates — требование фото (ФТ-C1.2)', () => {
     service.approveIdentityViaEsia(T, enrollment.learnerId, ctx);
     // Проверяем только, что срок читается из политики: ЕСИА без флага фото проходит.
     expect(() =>
-      service.startAttempt(T, 'u_l1', startArgs(test, enrollment), ctxL1, {
-        level: 2 as const,
-        requirePhotoBeforeExam: false,
-        photoMaxAgeHours: 720,
-        source: 'tenant' as const
-      })
+      service.startAttempt(
+        T,
+        'u_l1',
+        startArgs(test, enrollment),
+        ctxL1,
+        {
+          level: 2 as const,
+          requirePhotoBeforeExam: false,
+          photoMaxAgeHours: 720,
+          source: 'tenant' as const
+        },
+        SIGNED_AGREEMENT
+      )
     ).not.toThrow();
   });
 });
