@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { LoadingState, ProgressBar } from '@trudskill/ui';
+import { Icon, LoadingState, ProgressBar } from '@trudskill/ui';
 import Link from 'next/link';
 
 import { onboardingApi } from './api';
@@ -13,6 +13,7 @@ import {
 } from './types';
 import { SectionCard, SectionError } from '../../components/state-wrappers';
 import { useAuth } from '../auth/context';
+import { CheckCircleIcon, CircleIcon } from '../navigation/nav-icons';
 
 /**
  * ФТ-D2.3: мастер онбординга — чек-лист из шести шагов со ссылками на настоящие экраны.
@@ -29,7 +30,15 @@ function StepRow({ step, canDo }: { step: OnboardingStepDto; canDo: boolean }) {
     <div className="ui-stack" style={{ gap: 2 }}>
       <p>
         <strong>
-          {step.done ? '✓ ' : '○ '}
+          {/*
+            UI-024: состояние шага — иконка с подписью, а не символ «✓ / ○». Символ
+            приходилось бы прятать от читалки, и тогда «сделано» слышно бы не было.
+          */}
+          <Icon
+            icon={step.done ? CheckCircleIcon : CircleIcon}
+            size={16}
+            label={step.done ? 'Шаг выполнен' : 'Шаг не выполнен'}
+          />{' '}
           {meta.title}
         </strong>
         {step.detail ? <span className="ui-text-muted"> — {step.detail}</span> : null}

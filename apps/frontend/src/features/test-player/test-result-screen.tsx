@@ -1,6 +1,6 @@
 'use client';
 
-import { LoadingState } from '@trudskill/ui';
+import { Icon, LoadingState } from '@trudskill/ui';
 import Link from 'next/link';
 
 import { formatScoreLine } from './format';
@@ -12,6 +12,7 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import { CheckCircleIcon, CircleXIcon } from '../navigation/nav-icons';
 
 interface TestResultScreenProps {
   testId: string;
@@ -41,8 +42,13 @@ export function TestResultScreen({ attemptId }: TestResultScreenProps) {
               result.passed ? 'pass' : 'fail'
             }`}
           >
+            {/*
+              UI-024: значок — иконка набора, а не символ. Здесь он декоративный
+              (aria-hidden): рядом стоит заголовок «Тест пройден / не пройден», и
+              дублировать его голосом незачем.
+            */}
             <span className="test-result__icon" aria-hidden>
-              {result.passed ? '✓' : '✕'}
+              <Icon icon={result.passed ? CheckCircleIcon : CircleXIcon} size={24} />
             </span>
             <div>
               <h2 className="test-result__headline">
