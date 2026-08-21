@@ -1,21 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  LEGACY_UI_THEME_STORAGE_KEY,
-  UI_THEME_STORAGE_KEY
-} from './theme-context.js';
-import {
-  buildThemeVars,
-  migrateThemeChoice,
-  readStoredThemeChoice
-} from './theme-provider.js';
+import { LEGACY_UI_THEME_STORAGE_KEY, UI_THEME_STORAGE_KEY } from './theme-context.js';
+import { buildThemeVars, migrateThemeChoice, readStoredThemeChoice } from './theme-provider.js';
 
 // Страж load-bearing строки: провайдер обязан подмешивать baseVars к переменным темы.
 describe('buildThemeVars', () => {
   it('light: содержит и базовый токен, и токен темы', () => {
     const vars = buildThemeVars('light') as Record<string, string>;
     expect(vars['--ui-radius-md']).toBe('12px');
-    expect(vars['--ui-bg']).toBe('#f8fafc');
+    /*
+     * Значение изменено осознанно (UI-014): фон страницы сделан заметнее, чтобы карточка
+     * отделялась ФОНОМ, а не рамкой. Прежняя пара «#f8fafc ↔ #ffffff» давала контраст 1.04 —
+     * на глаз один и тот же цвет, и без рамки карточка растворялась.
+     */
+    expect(vars['--ui-bg']).toBe('#eef2f7');
   });
 
   it('dark: тема меняется, базовые токены те же', () => {
@@ -35,7 +33,9 @@ describe('readStoredThemeChoice (двойное чтение ключа темы
   });
 
   it('читает ПРЕЖНИЙ ключ, когда нового ещё нет', () => {
-    expect(readStoredThemeChoice(storageOf({ [LEGACY_UI_THEME_STORAGE_KEY]: 'dark' }))).toBe('dark');
+    expect(readStoredThemeChoice(storageOf({ [LEGACY_UI_THEME_STORAGE_KEY]: 'dark' }))).toBe(
+      'dark'
+    );
   });
 
   it('когда есть оба — берёт НОВЫЙ', () => {
