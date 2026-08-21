@@ -21,7 +21,9 @@ export const foundationStyles = `
  * таблицы и заголовки не трогаем — им ширина нужна.
  */
 .ui-page-subtitle { margin:6px 0 0; color: var(--ui-text-muted); font-size: var(--ui-font-size-md); line-height: 1.5; max-width: var(--ui-measure); }
-.ui-section-card,.ui-card { background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: var(--ui-radius-lg); box-shadow: var(--ui-shadow); }
+/* UI-019: у статичной карточки тени нет — её отделяют фон, рамка и расстояние.
+   Тень оставлена только всплывающим слоям: модалке, выдвижной панели, палитре, выпадашке. */
+.ui-section-card,.ui-card { background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: var(--ui-radius-lg); }
 .ui-section-card { padding: 20px; display:grid; gap:14px; }
 .ui-section-title { margin:0; font-size: var(--ui-font-size-lg); font-weight: 650; letter-spacing: -0.01em; color: var(--ui-text); display:flex; align-items:center; gap:9px; }
 .ui-section-title::before { content:''; width:4px; height:1.05em; border-radius:var(--ui-radius-pill); background: var(--ui-brand-600); flex:none; }
@@ -39,7 +41,7 @@ export const foundationStyles = `
 .ui-list-title { font-weight: 600; color: var(--ui-text); font-size: var(--ui-font-size-md); }
 /* Карточка-строка списка (тесты, задания и т.п.) */
 .entry-card { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); padding: 14px; transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
-.entry-card:hover { border-color: var(--ui-brand-600); box-shadow: var(--ui-shadow); }
+.entry-card:hover { border-color: var(--ui-brand-600); }
 .entry-card + .entry-card { margin-top: 10px; }
 /* Слайд-овер дровер (создание/редактирование сущностей) — фикс. панель справа + затемнение */
 .ui-drawer { position: fixed; top: 0; right: 0; z-index: 10050; isolation: isolate; height: 100vh; width: min(480px, 100vw); background: var(--ui-surface); border-left: 1px solid var(--ui-border); box-shadow: var(--ui-shadow-strong); overflow-y: auto; padding: 20px; display: grid; gap: 16px; align-content: start; }
@@ -128,14 +130,14 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 /* Герой «Следующий шаг» — доминанта экрана ученика */
 /* UI-009/UI-010: герой — плоская карточка без декора (печать и eyebrow удалены),
    бренд-акцент несёт заголовок, тень обычная. */
-.ui-hero { border-radius: var(--ui-radius-lg); padding: clamp(22px, 3vw, 32px); background: var(--ui-hero-bg); color: var(--ui-hero-text); box-shadow: var(--ui-shadow); display: grid; gap: 14px; }
+.ui-hero { border-radius: var(--ui-radius-lg); padding: clamp(22px, 3vw, 32px); background: var(--ui-hero-bg); color: var(--ui-hero-text); display: grid; gap: 14px; }
 .ui-hero__title { font-family: var(--font-sans), 'Segoe UI', system-ui, sans-serif; font-size: clamp(var(--ui-font-size-xl), 1.05rem + 1.8vw, var(--ui-font-size-3xl)); line-height: 1.15; font-weight: 800; margin: 0; color: var(--ui-brand-700); letter-spacing: -0.02em; max-width: 30ch; }
 .ui-hero__desc { margin: 0; color: var(--ui-hero-muted); font-size: var(--ui-font-size-md); line-height: 1.55; max-width: 56ch; }
 .ui-hero__cta { justify-self: start; display: inline-flex; align-items: center; gap: 10px; height: 48px; padding: 0 24px; border-radius: var(--ui-radius-md); background: var(--ui-hero-cta-bg); color: var(--ui-hero-cta-text); border: none; font-family: inherit; font-weight: 700; font-size: var(--ui-font-size-md); text-decoration: none; cursor: pointer; box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.55); transition: transform var(--ui-duration-fast) var(--ui-ease), background var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
 .ui-hero__cta::after { content: '\\2192'; font-size: 1.15em; line-height: 1; transition: transform var(--ui-duration-fast) var(--ui-ease); }
 .ui-hero__cta:hover { background: var(--ui-accent-700); transform: translateY(-1px); box-shadow: 0 16px 30px -12px rgba(0, 0, 0, 0.6); }
 .ui-hero__cta:hover::after { transform: translateX(3px); }
-.ui-hero--calm { background: var(--ui-surface); color: var(--ui-text); border: 1px solid var(--ui-border); box-shadow: var(--ui-shadow); }
+.ui-hero--calm { background: var(--ui-surface); color: var(--ui-text); border: 1px solid var(--ui-border); }
 .ui-hero--calm .ui-hero__title { color: var(--ui-text); }
 .ui-hero--calm .ui-hero__desc { color: var(--ui-text-muted); }
 .ui-hero--calm .ui-hero__seal { opacity: 0.4; }
@@ -161,8 +163,8 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 
 /* Каталог курсов ученика — адаптивная сетка карточек */
 .course-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); gap: 14px; list-style: none; padding: 0; margin: 0; }
-.course-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); background: var(--ui-surface); box-shadow: var(--ui-shadow); transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
-.course-card:hover { border-color: var(--ui-brand-600); box-shadow: var(--ui-shadow-strong); transform: translateY(-2px); }
+.course-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); background: var(--ui-surface); transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
+.course-card:hover { border-color: var(--ui-brand-600); transform: translateY(-2px); }
 /* Декоративная «обложка» — фирменная полоска индиго→коралл (без картинок) */
 .course-card__banner { height: 6px; border-radius: var(--ui-radius-pill); background: linear-gradient(90deg, var(--ui-brand-600), var(--ui-accent-600)); }
 .course-card__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
@@ -238,7 +240,7 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 .stat-card__trend--negative { color: var(--ui-danger-600); }
 .stat-card__trend--neutral { color: var(--ui-text-muted); }
 .stat-card--link { text-decoration: none; color: inherit; transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
-.stat-card--link:hover { border-color: var(--ui-brand-600); box-shadow: var(--ui-shadow); }
+.stat-card--link:hover { border-color: var(--ui-brand-600); }
 /* CMP-013: очередь «Разобрать» — один список по убыванию срочности, а не оглавление по типам. */
 .ui-attention__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--ui-space-xs); }
 .ui-attention__item { border-left: 3px solid var(--ui-border); border-radius: var(--ui-radius-sm); background: var(--ui-surface); }

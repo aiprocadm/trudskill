@@ -291,7 +291,8 @@ export const shellStyles = `
   background: var(--ui-surface);
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-lg);
-  box-shadow: var(--ui-shadow-strong);
+  /* UI-019: сильная тень — только у модалки и выдвижной панели; палитре хватает обычной. */
+  box-shadow: var(--ui-shadow);
   overflow: hidden;
 }
 .cmdk__input-row {
