@@ -14,7 +14,7 @@ export const foundationStyles = `
 /* UI-017: потолок контента. Токен --ui-content-max был объявлен и не применялся нигде —
    потолок существовал на бумаге (запись 163). Реестр занимает всю доступную ширину ВНУТРИ
    потолка; форма дополнительно ужимается своим --ui-form-max. */
-.ui-page,.ui-page-container { display: grid; gap: 18px; padding: 24px clamp(16px, 3vw, 32px); width: 100%; max-width: var(--ui-content-max); margin-inline: auto; }
+.ui-page,.ui-page-container { display: grid; gap: var(--ui-space-lg); padding: 24px clamp(16px, 3vw, 32px); width: 100%; max-width: var(--ui-content-max); margin-inline: auto; }
 .ui-page-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
 .ui-page-title { margin:0; font-size: clamp(var(--ui-font-size-xl), 1.2rem + 1vw, var(--ui-font-size-2xl)); font-weight: var(--ui-font-weight-bold); letter-spacing: -0.025em; line-height: var(--ui-line-height-tight); color: var(--ui-text); }
 /*
@@ -27,7 +27,8 @@ export const foundationStyles = `
 /* UI-019: у статичной карточки тени нет — её отделяют фон, рамка и расстояние.
    Тень оставлена только всплывающим слоям: модалке, выдвижной панели, палитре, выпадашке. */
 .ui-section-card,.ui-card { background: var(--ui-surface); border-radius: var(--ui-radius-lg); }
-.ui-section-card { padding: 20px; display:grid; gap:14px; }
+/* UI-016, контекст «карточка объекта»: внутренний отступ lg (16). Прежние 20 и 14 — вне шкалы. */
+.ui-section-card { padding: var(--ui-space-lg); display:grid; gap: var(--ui-space-md); }
 .ui-section-title { margin:0; font-size: var(--ui-font-size-lg); font-weight: var(--ui-font-weight-bold); letter-spacing: -0.01em; color: var(--ui-text); display:flex; align-items:center; gap:9px; }
 .ui-section-title::before { content:''; width:4px; height:1.05em; border-radius:var(--ui-radius-pill); background: var(--ui-brand-600); flex:none; }
 .ui-section-head { display:flex; justify-content:space-between; align-items:flex-start; gap: var(--ui-space-md); }
@@ -38,12 +39,12 @@ export const foundationStyles = `
 .ui-empty-action { margin: var(--ui-space-lg) 0 0; }
 .ui-empty-action .ui-button-primary { display: inline-flex; align-items: center; text-decoration: none; }
 .ui-filter-bar,.ui-inline,.ui-toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-.ui-stack { display:flex; flex-direction:column; gap:12px; }
+.ui-stack { display:flex; flex-direction:column; gap: var(--ui-space-md); }
 .ui-grid { display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 .ui-list { list-style:none; margin:0; padding:0; display:grid; gap:0; }
 .ui-list-title { font-weight: var(--ui-font-weight-semibold); color: var(--ui-text); font-size: var(--ui-font-size-md); }
 /* Карточка-строка списка (тесты, задания и т.п.) */
-.entry-card { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; border-radius: var(--ui-radius-md); padding: 14px; transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
+.entry-card { display: flex; flex-direction: column; gap: var(--ui-space-sm); align-items: flex-start; border-radius: var(--ui-radius-md); padding: var(--ui-space-lg); transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
 .entry-card:hover { border-color: var(--ui-brand-600); }
 .entry-card + .entry-card { margin-top: 10px; }
 /* Слайд-овер дровер (создание/редактирование сущностей) — фикс. панель справа + затемнение */
@@ -235,7 +236,7 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 .ui-muted { color: var(--ui-text-muted); }
 /* Карточки-метрики для дашбордов (аналитика, cockpit) */
 .stat-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-.stat-card { border-radius: var(--ui-radius-md); background: var(--ui-surface); padding: 16px; display: grid; gap: 4px; align-content: start; }
+.stat-card { border-radius: var(--ui-radius-md); background: var(--ui-surface); padding: var(--ui-space-lg); display: grid; gap: 4px; align-content: start; }
 .stat-card__label { font-size: var(--ui-font-size-sm); color: var(--ui-text-muted); }
 .stat-card__value { font-size: var(--ui-font-size-2xl); font-weight: var(--ui-font-weight-bold); color: var(--ui-text); font-variant-numeric: tabular-nums; line-height: var(--ui-line-height-tight); }
 .stat-card__sub { font-size: var(--ui-font-size-xs); color: var(--ui-text-muted); }
@@ -303,7 +304,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
    прокрутки, кнопки навигации теста растягиваются в удобные тач-зоны. */
 @media (max-width: 480px) {
   .ui-page,.ui-page-container { padding: 14px 12px; gap: 14px; }
-  .ui-section-card { padding: 16px 14px; }
+  .ui-section-card { padding: var(--ui-space-lg) var(--ui-space-md); }
   .test-nav > * { flex: 1 1 auto; }
   .kv-list__row, .ui-data-list__row { flex-wrap: wrap; }
 }

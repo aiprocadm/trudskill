@@ -13,8 +13,10 @@ export const tableStyles = `
   background: var(--ui-surface-muted);
 }
 .ui-table { width: 100%; border-collapse: collapse; font-size: var(--ui-font-size-sm); }
-.ui-table th { text-align: left; background: var(--ui-surface-muted); color: var(--ui-text-muted); padding: 11px; font-weight: var(--ui-font-weight-semibold); white-space: nowrap; }
-.ui-table td { border-top: 1px solid var(--ui-border); padding: 11px; color: var(--ui-text); vertical-align: middle; }
+/* UI-016, контекст «реестр»: строка таблицы — 44px. height у ячейки работает как минимум:
+   однострочная строка получает ровно 44 (текст 22.5 + 8+8 меньше), многострочная растёт. */
+.ui-table th { text-align: left; background: var(--ui-surface-muted); color: var(--ui-text-muted); height: 44px; padding: var(--ui-space-sm) var(--ui-space-md); font-weight: var(--ui-font-weight-semibold); white-space: nowrap; }
+.ui-table td { border-top: 1px solid var(--ui-border); height: 44px; padding: var(--ui-space-sm) var(--ui-space-md); color: var(--ui-text); vertical-align: middle; }
 .ui-table tbody tr { transition: background var(--ui-duration-fast) var(--ui-ease); }
 .ui-table tbody tr:hover td { background: var(--ui-surface-muted); }
 /* Кнопка сортировки в заголовке — сброс дефолтного вида <button> (рамка/высота протекали из глобального стиля) */
