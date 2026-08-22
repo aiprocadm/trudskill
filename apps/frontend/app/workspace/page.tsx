@@ -96,7 +96,7 @@ export default function WorkspacePage() {
 
   return (
     <ProtectedPage>
-      <PageContainer>
+      <PageContainer spacious>
         <PageHeader
           title="Оперативная панель"
           subtitle="Что требует внимания прямо сейчас"

@@ -21,7 +21,7 @@ export const LearnerHomeScreen = () => {
     : 'Главная';
 
   return (
-    <PageContainer>
+    <PageContainer spacious>
       <PageHeader
         title={greeting}
         subtitle="Ваше обучение: следующий шаг, курсы и документы"

@@ -42,7 +42,7 @@ export function MethodistHomeScreen() {
   // useQuery, и поля `isError` у неё нет.
   if (dashboard.error || !dashboard.data) {
     return (
-      <PageContainer>
+      <PageContainer spacious>
         <PageHeader title="Обучение: сводка" />
         <SectionError message="Не удалось загрузить сводку" />
       </PageContainer>
@@ -55,7 +55,7 @@ export function MethodistHomeScreen() {
   const hidden = (key: string) => data.hiddenSections.includes(key);
 
   return (
-    <PageContainer>
+    <PageContainer spacious>
       <PageHeader
         title="Обучение: сводка"
         subtitle={

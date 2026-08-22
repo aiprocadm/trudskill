@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { lightThemeVars } from './index.js';
+import { baseVars, lightThemeVars } from './index.js';
 import { uiGlobalStyles } from '../styles/index.js';
 
 /**
@@ -18,10 +18,8 @@ import { uiGlobalStyles } from '../styles/index.js';
  * Сторож держит правило «объявлено — значит применяется» для ВСЕХ токенов темы, а не только
  * нейтралей: следующий «токен на вырост» покраснеет здесь же.
  *
- * Оговорка: `baseVars` (типографика, отступы) сторож сознательно не трогает. Токены записи 163
- * применил срез 29 (`type-rhythm`), `--ui-space-xl` — срез 30 (`density-contexts`, разворот
- * карточки). Не применён остался ровно один — `--ui-space-xxl`: «между блоками просторного
- * контекста» из `UI-016`, ждёт шаблонного класса дашборда (`TPL-005`).
+ * С среза 31 правило держится и для `baseVars`: последний неприменённый токен
+ * (`--ui-space-xxl`) заработал в просторном контексте `UI-016`, исключений не осталось.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -51,12 +49,15 @@ describe('UI-002 · у каждого токена темы есть место 
     expect(sources.length).toBeGreaterThan(20);
   });
 
-  it.each(Object.keys(lightThemeVars))('%s применяется в пакете', (token) => {
-    // Граница после имени обязательна: иначе «--ui-neutral-50» находился бы как
-    // префикс «--ui-neutral-500» — ровно так разведка этого среза сначала и соврала.
-    const usage = new RegExp(`${token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![0-9a-zA-Z-])`);
-    expect(usage.test(blob), `токен ${token} объявлен, но не применяется нигде`).toBe(true);
-  });
+  it.each([...Object.keys(lightThemeVars), ...Object.keys(baseVars)])(
+    '%s применяется в пакете',
+    (token) => {
+      // Граница после имени обязательна: иначе «--ui-neutral-50» находился бы как
+      // префикс «--ui-neutral-500» — ровно так разведка этого среза сначала и соврала.
+      const usage = new RegExp(`${token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![0-9a-zA-Z-])`);
+      expect(usage.test(blob), `токен ${token} объявлен, но не применяется нигде`).toBe(true);
+    }
+  );
 
   it('шкала нейтралей — ровно две ступени с ролями: 500 (статус) и 900 (подложка медиа)', () => {
     const neutrals = Object.keys(lightThemeVars).filter((k) => k.startsWith('--ui-neutral-'));
