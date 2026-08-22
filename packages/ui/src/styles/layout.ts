@@ -49,7 +49,8 @@ export const layoutStyles = `
 .ui-detail {
   display: grid;
   grid-template-columns: minmax(0, 1.7fr) minmax(0, 320px);
-  gap: var(--ui-space-lg);
+  /* UI-016, контекст «карточка»: между блоками — xl (24). */
+  gap: var(--ui-space-xl);
   align-items: start;
 }
 .ui-detail__main,
