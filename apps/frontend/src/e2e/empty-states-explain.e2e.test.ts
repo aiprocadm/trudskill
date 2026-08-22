@@ -36,10 +36,13 @@ const PROP_WINDOW = 600;
  */
 const KNOWN: Record<string, string> = {
   /*
+   * CMP-020: определение обёртки SectionEmpty переехало в пакет (`composition/page-shell`),
+   * поэтому прежняя запись про `state-wrappers.tsx` снята — файла-определения в очереди
+   * больше нет, прослойка не содержит пустых состояний.
+   *
    * Сама обёртка состояний: она и есть то место, куда `hint` передаётся. Ветка без `hint`
    * существует из-за exactOptionalPropertyTypes — передать `hint={undefined}` нельзя.
    */
-  'src/components/state-wrappers.tsx': 'не экран: определение обёртки SectionEmpty'
 };
 
 const collect = (dir: string, acc: string[] = []): string[] => {

@@ -1,99 +1,42 @@
-import { EmptyState, ErrorState, LoadingState } from '@trudskill/ui';
+import { SectionError as PackageSectionError } from '@trudskill/ui';
 
 import { describeError } from '../lib/errors/error-text';
 
-import type { PropsWithChildren, ReactNode } from 'react';
-
-export const GlobalLoading = ({ message }: { message?: string }) => (
-  <LoadingState message={message ?? 'Загрузка приложения...'} />
-);
-
-export const GlobalError = ({ message }: { message?: string }) => (
-  <ErrorState message={message ?? 'Произошла непредвиденная ошибка'} />
-);
-
 /**
- * `TXT-004`: можно передать саму пойманную ошибку (`error`) вместо готовой строки — тогда
- * человек увидит объяснение «что произошло и что делать», а код, ответ сервера и номер
- * запроса уедут под спойлер «Подробности». Приём строки сохранён: не все места ловят объект.
+ * `CMP-020`: каркас страницы и обёртки состояний переехали в пакет
+ * (`@trudskill/ui`, `composition/page-shell`). Этот файл — прослойка на одну фазу:
+ * реэкспорт сохраняет рабочими импорты десятков экранов, волны переезда меняют их
+ * на прямой импорт из пакета вместе с правкой самих экранов.
+ *
+ * Единственное, что остаётся здесь по существу, — разбор пойманной ошибки (`TXT-004`):
+ * словарь `describeError` знает коды нашего сервера, и в бренд-нейтральный пакет ему
+ * нельзя — по той же причине, по которой `CMP-022` оставляет в приложении `FieldError`.
  */
+export {
+  GlobalError,
+  GlobalLoading,
+  PageContainer,
+  PageHeader,
+  SectionCard,
+  SectionEmpty
+} from '@trudskill/ui';
+
 export const SectionError = ({
   message,
   error,
   onRetry
 }: {
   message?: string;
+  /** Пойманная ошибка целиком: текст для человека и спойлер «Подробности» соберутся сами. */
   error?: unknown;
   onRetry?: () => void;
 }) => {
   const view = error === undefined ? undefined : describeError(error);
   return (
-    <div className="ui-stack">
-      <ErrorState
-        message={view?.message ?? message ?? 'Не удалось загрузить секцию'}
-        {...(view?.details ? { details: view.details } : {})}
-      />
-      {onRetry ? (
-        <button type="button" className="ui-button" onClick={onRetry}>
-          Повторить
-        </button>
-      ) : null}
-    </div>
+    <PackageSectionError
+      {...((view?.message ?? message) ? { message: view?.message ?? message } : {})}
+      {...(view?.details ? { details: view.details } : {})}
+      {...(onRetry ? { onRetry } : {})}
+    />
   );
 };
-
-export const SectionEmpty = ({ message, hint }: { message?: string; hint?: string }) => {
-  const resolvedMessage = message ?? 'Пока нет данных';
-  if (hint !== undefined && hint !== '') {
-    return <EmptyState message={resolvedMessage} hint={hint} />;
-  }
-  return <EmptyState message={resolvedMessage} />;
-};
-
-export const SectionCard = ({
-  title,
-  subtitle,
-  actions,
-  children
-}: PropsWithChildren<{ title: string; subtitle?: string; actions?: ReactNode }>) => (
-  <section className="ui-section-card">
-    <div className="ui-section-head">
-      <div>
-        <h3 className="ui-section-title">{title}</h3>
-        {subtitle ? <p className="ui-page-subtitle">{subtitle}</p> : null}
-      </div>
-      {actions ? <div className="ui-inline">{actions}</div> : null}
-    </div>
-    {children}
-  </section>
-);
-
-export const PageHeader = ({
-  title,
-  subtitle,
-  actions
-}: {
-  title: string;
-  subtitle?: string;
-  actions?: ReactNode;
-}) => (
-  <header className="ui-page-header">
-    <div>
-      <h1 className="ui-page-title">{title}</h1>
-      {subtitle ? <p className="ui-page-subtitle">{subtitle}</p> : null}
-    </div>
-    {actions ? <div className="ui-inline">{actions}</div> : null}
-  </header>
-);
-
-/**
- * `UI-016`: у дашборда и формы — просторный контекст (между блоками 32, карточки 24).
- * Обычные экраны остаются плотными; модификатор включают только «обзорные» страницы,
- * где человек читает сводку, а не работает со списком.
- */
-export const PageContainer = ({
-  children,
-  spacious
-}: PropsWithChildren<{ spacious?: boolean }>) => (
-  <main className={spacious ? 'ui-page ui-page--spacious' : 'ui-page'}>{children}</main>
-);
