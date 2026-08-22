@@ -86,6 +86,14 @@ export const PageHeader = ({
   </header>
 );
 
-export const PageContainer = ({ children }: PropsWithChildren) => (
-  <main className="ui-page">{children}</main>
+/**
+ * `UI-016`: у дашборда и формы — просторный контекст (между блоками 32, карточки 24).
+ * Обычные экраны остаются плотными; модификатор включают только «обзорные» страницы,
+ * где человек читает сводку, а не работает со списком.
+ */
+export const PageContainer = ({
+  children,
+  spacious
+}: PropsWithChildren<{ spacious?: boolean }>) => (
+  <main className={spacious ? 'ui-page ui-page--spacious' : 'ui-page'}>{children}</main>
 );

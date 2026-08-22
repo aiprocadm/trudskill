@@ -15,6 +15,11 @@ export const foundationStyles = `
    потолок существовал на бумаге (запись 163). Реестр занимает всю доступную ширину ВНУТРИ
    потолка; форма дополнительно ужимается своим --ui-form-max. */
 .ui-page,.ui-page-container { display: grid; gap: var(--ui-space-lg); padding: 24px clamp(16px, 3vw, 32px); width: 100%; max-width: var(--ui-content-max); margin-inline: auto; }
+/* UI-016, контекст «просторно» (дашборд, форма): между блоками xxl (32), внутренний отступ
+   карточек xl (24). Отдельный модификатор, потому что один универсальный каркас не может быть
+   одновременно плотным для реестра и просторным для дашборда. */
+.ui-page--spacious,.ui-page-container--spacious { gap: var(--ui-space-xxl); }
+.ui-page--spacious .ui-section-card,.ui-page-container--spacious .ui-section-card { padding: var(--ui-space-xl); }
 .ui-page-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
 .ui-page-title { margin:0; font-size: clamp(var(--ui-font-size-xl), 1.2rem + 1vw, var(--ui-font-size-2xl)); font-weight: var(--ui-font-weight-bold); letter-spacing: -0.025em; line-height: var(--ui-line-height-tight); color: var(--ui-text); }
 /*
