@@ -13,12 +13,12 @@ export const tableStyles = `
   background: var(--ui-surface-muted);
 }
 .ui-table { width: 100%; border-collapse: collapse; font-size: var(--ui-font-size-sm); }
-.ui-table th { text-align: left; background: var(--ui-surface-muted); color: var(--ui-text-muted); padding: 11px; font-weight: 600; white-space: nowrap; }
+.ui-table th { text-align: left; background: var(--ui-surface-muted); color: var(--ui-text-muted); padding: 11px; font-weight: var(--ui-font-weight-semibold); white-space: nowrap; }
 .ui-table td { border-top: 1px solid var(--ui-border); padding: 11px; color: var(--ui-text); vertical-align: middle; }
 .ui-table tbody tr { transition: background var(--ui-duration-fast) var(--ui-ease); }
 .ui-table tbody tr:hover td { background: var(--ui-surface-muted); }
 /* Кнопка сортировки в заголовке — сброс дефолтного вида <button> (рамка/высота протекали из глобального стиля) */
-.ui-table-sort { background: none; border: none; padding: 0; height: auto; font: inherit; font-weight: 600; color: var(--ui-text-muted); cursor: pointer; display: inline-flex; align-items: center; gap: 2px; }
+.ui-table-sort { background: none; border: none; padding: 0; height: auto; font: inherit; font-weight: var(--ui-font-weight-semibold); color: var(--ui-text-muted); cursor: pointer; display: inline-flex; align-items: center; gap: 2px; }
 .ui-table-sort:hover { color: var(--ui-text); background: none; }
 /* CMP-001: выделение строк, действия строки, плотная раскладка. */
 .ui-table-select { width: 1%; white-space: nowrap; }
@@ -99,7 +99,7 @@ export const tableStyles = `
   .ui-table tr + tr { margin-top: 10px; }
   .ui-table td { border-top: none; padding: 6px 0; word-break: break-word; }
   .ui-table td[data-label] { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-  .ui-table td[data-label]::before { content: attr(data-label); flex: none; font-size: var(--ui-font-size-sm); font-weight: 600; color: var(--ui-text-muted); }
+  .ui-table td[data-label]::before { content: attr(data-label); flex: none; font-size: var(--ui-font-size-sm); font-weight: var(--ui-font-weight-semibold); color: var(--ui-text-muted); }
   .ui-table tbody tr:hover td { background: transparent; }
   /* Закрепление первой колонки не имеет смысла без горизонтальной прокрутки. */
   .ui-table-wrap--sticky-first .ui-table th:first-child,

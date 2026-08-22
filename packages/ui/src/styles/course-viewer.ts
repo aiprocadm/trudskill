@@ -22,7 +22,7 @@ export const courseViewerStyles = `
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  font-weight: 600;
+  font-weight: var(--ui-font-weight-semibold);
   cursor: pointer;
   padding: 4px 0;
 }
@@ -43,7 +43,7 @@ export const courseViewerStyles = `
   color: var(--ui-text);
 }
 .course-toc__material:hover:not(:disabled) { background: var(--ui-surface-muted); }
-.course-toc__material--current { border-color: var(--ui-brand-600); background: var(--ui-surface-accent); font-weight: 600; }
+.course-toc__material--current { border-color: var(--ui-brand-600); background: var(--ui-surface-accent); font-weight: var(--ui-font-weight-semibold); }
 .course-toc__material--locked { color: var(--ui-text-muted); cursor: not-allowed; }
 .course-toc__material-icon { width: 18px; text-align: center; }
 .course-toc__material-title { flex: 1; }
@@ -64,7 +64,7 @@ export const courseViewerStyles = `
   text-align: center;
 }
 .course-player__video, .course-player__pdf { width: 100%; max-height: 70vh; border: 0; border-radius: var(--ui-radius-sm); background: #000; }
-.course-player__text { font-size: var(--ui-font-size-md); line-height: 1.6; }
+.course-player__text { font-size: var(--ui-font-size-md); line-height: var(--ui-line-height-normal); }
 .course-player__external { padding: 12px; border-radius: var(--ui-radius-sm); background: var(--ui-surface-muted); }
 /* Визуальный прогресс по курсу — заметная полоса вверху экрана */
 /* Карточка-обёртка общего прогресса; сама полоса — общий компонент ProgressBar. */
