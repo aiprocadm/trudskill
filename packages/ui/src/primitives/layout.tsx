@@ -1,8 +1,10 @@
 import type { CSSProperties, PropsWithChildren, ReactElement } from 'react';
 
-export function PageContainer({ children }: PropsWithChildren): ReactElement {
-  return <main className="ui-page-container">{children}</main>;
-}
+/*
+ * PageContainer жил здесь примитивом без просторного режима; с переездом каркаса страницы
+ * в composition/page-shell (CMP-020) канонической стала та версия — двум одноимённым
+ * компонентам в одном пакете не место.
+ */
 
 export function Section({ children }: PropsWithChildren): ReactElement {
   return <section>{children}</section>;

@@ -4,3 +4,4 @@ export * from './detail-layout.js';
 export * from './list-page.js';
 export * from './form.js';
 export * from './select-field.js';
+export * from './page-shell.js';

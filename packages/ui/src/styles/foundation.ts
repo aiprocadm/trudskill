@@ -20,6 +20,14 @@ export const foundationStyles = `
    одновременно плотным для реестра и просторным для дашборда. */
 .ui-page--spacious,.ui-page-container--spacious { gap: var(--ui-space-xxl); }
 .ui-page--spacious .ui-section-card,.ui-page-container--spacious .ui-section-card { padding: var(--ui-space-xl); }
+/* CMP-015: меню «Ещё» в шапке — вторичные действия не соревнуются с первичной кнопкой. */
+.ui-header-menu { position: relative; }
+.ui-header-menu > summary { list-style: none; cursor: pointer; }
+.ui-header-menu > summary::-webkit-details-marker { display: none; }
+.ui-header-menu[open] > summary { border-color: var(--ui-brand-600); }
+.ui-header-menu__list { position: absolute; right: 0; top: calc(100% + 4px); z-index: 200; min-width: 220px; display: grid; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); box-shadow: var(--ui-shadow); padding: var(--ui-space-xs); }
+.ui-header-menu__item { text-align: left; background: none; border: none; font: inherit; color: var(--ui-text); padding: 10px 12px; min-height: 44px; border-radius: var(--ui-radius-sm); cursor: pointer; }
+.ui-header-menu__item:hover { background: var(--ui-surface-muted); }
 .ui-page-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
 .ui-page-title { margin:0; font-size: clamp(var(--ui-font-size-xl), 1.2rem + 1vw, var(--ui-font-size-2xl)); font-weight: var(--ui-font-weight-bold); letter-spacing: -0.025em; line-height: var(--ui-line-height-tight); color: var(--ui-text); }
 /*
