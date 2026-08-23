@@ -189,10 +189,9 @@ const renderMenuItem = (action: PageAction): ReactElement =>
  * второй primary некуда передать. Остальные действия уходят в меню «Ещё» и рисуются
  * нейтральными: они не соревнуются с первичной кнопкой (`UI-003`).
  *
- * `actions` — переходный слот на время волнового переезда (`CMP-020`): им пользуются
- * экраны, ещё не переведённые на `primaryAction`. Слот исключает первичную кнопку на
- * уровне типа, чтобы «переходность» не стала способом обойти бюджет. Список оставшихся
- * держит сторож `page-header-actions-ratchet` — новым файлам слот недоступен.
+ * Переходного слота `actions` больше нет: волны 1–3 (`CMP-020`) перевели все 26 экранов,
+ * и слот удалён вместе с последним пользователем — иначе «временное» пережило бы всех.
+ * Сторож `page-header-actions-ratchet` остался и держит запрет на возврат.
  */
 export type PageHeaderProps = {
   title: string;
@@ -208,20 +207,12 @@ export type PageHeaderProps = {
    * «переходный» `actions` не умер бы никогда.
    */
   toolsSlot?: ReactNode;
-} & (
-  | {
-      primaryAction?: PageAction;
-      secondaryActions?: PageAction[];
-      actions?: never;
-    }
-  | { actions?: ReactNode; primaryAction?: never; secondaryActions?: never }
-);
+  primaryAction?: PageAction;
+  secondaryActions?: PageAction[];
+};
 
 export const PageHeader = (props: PageHeaderProps): ReactElement => {
-  const { title, subtitle, breadcrumbsSlot } = props;
-  const primaryAction = 'primaryAction' in props ? props.primaryAction : undefined;
-  const secondaryActions = 'secondaryActions' in props ? props.secondaryActions : undefined;
-  const legacyActions = 'actions' in props ? props.actions : undefined;
+  const { title, subtitle, breadcrumbsSlot, primaryAction, secondaryActions } = props;
   const toolsSlot = props.toolsSlot;
   const menuActions =
     secondaryActions?.length && secondaryActions.length > 1 ? secondaryActions : undefined;
@@ -234,10 +225,9 @@ export const PageHeader = (props: PageHeaderProps): ReactElement => {
         <h1 className="ui-page-title">{title}</h1>
         {subtitle ? <p className="ui-page-subtitle">{subtitle}</p> : null}
       </div>
-      {primaryAction || secondaryActions?.length || legacyActions || toolsSlot ? (
+      {primaryAction || secondaryActions?.length || toolsSlot ? (
         <div className="ui-inline">
           {toolsSlot ?? null}
-          {legacyActions ?? null}
           {inlineSecondary ? renderSecondary(inlineSecondary) : null}
           {primaryAction ? renderPrimary(primaryAction) : null}
           {menuActions ? (

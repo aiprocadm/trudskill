@@ -75,25 +75,11 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
         title={group?.name ?? 'Карточка группы'}
         // exactOptionalPropertyTypes: undefined как значение не принимается — условный спред.
         {...(group?.code ? { subtitle: `Код группы: ${group.code}` } : {})}
-        actions={
-          <>
-            {/* UI-007: одно первичное действие. Остальное — вторичным видом. */}
-            <button
-              type="button"
-              className="ui-button ui-button--primary"
-              onClick={() => setCloseOpen(true)}
-            >
-              Закрыть группу
-            </button>
-            <button
-              type="button"
-              className="ui-button-secondary"
-              onClick={() => setIssueOrderOpen(true)}
-            >
-              Сгенерировать приказ
-            </button>
-          </>
-        }
+        // UI-007: одно первичное действие. Остальное — вторичным видом.
+        primaryAction={{ label: 'Закрыть группу', onSelect: () => setCloseOpen(true) }}
+        secondaryActions={[
+          { label: 'Сгенерировать приказ', onSelect: () => setIssueOrderOpen(true) }
+        ]}
       />
 
       <DetailLayout
@@ -187,7 +173,10 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
                 {/* Список зачисленных состоял из идентификаторов вместо фамилий. */}
                 <span>{learnerNameCell(learnerNames, item.learnerId)}</span>
                 {/* TXT-006: статус словом, а не кодом `active`/`completed`. */}
-                <StatusChip status={item.status} label={ENROLLMENT_STATUS_LABEL[item.status] ?? item.status} />
+                <StatusChip
+                  status={item.status}
+                  label={ENROLLMENT_STATUS_LABEL[item.status] ?? item.status}
+                />
                 {/* Phase 4 Plan B: per-student proctoring override (PATCH needs learners.write). */}
                 {session && hasPermission(session.permissions, 'learners.write') ? (
                   <label className="ui-inline" style={{ gap: 4 }}>

@@ -55,11 +55,6 @@ export const LearnerDetailsScreen = ({ id }: { id: string }) => {
       <PageHeader
         title={fullName || 'Слушатель'}
         subtitle="Личное дело: где учится, что уже получил"
-        actions={
-          <Link className="ui-button-link" href="/learners">
-            ← Все слушатели
-          </Link>
-        }
       />
       {loading ? <LoadingState message="Загружаем карточку…" /> : null}
       {error ? <SectionError message={error} onRetry={() => void refetch()} /> : null}

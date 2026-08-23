@@ -285,9 +285,20 @@ export const ExportTasksScreen = () => {
     <PageContainer>
       <PageHeader
         title="Задачи выгрузки"
-        actions={
-          <button onClick={() => setLive((c) => !c)} aria-pressed={live}>
-            {live ? 'Остановить live-обновление' : 'Включить live-обновление'}
+        /*
+          Тумблер автообновления — не действие страницы, а настройка показа: он живёт в
+          служебном слоте (CMP-020). Подпись при этом неподвижна (TXT-003): нажатое
+          состояние сообщает `aria-pressed`, а не второе название. Заодно ушло «live»:
+          англицизм как значение на экране запрещён.
+        */
+        toolsSlot={
+          <button
+            type="button"
+            className="ui-button ui-button--secondary"
+            onClick={() => setLive((c) => !c)}
+            aria-pressed={live}
+          >
+            Обновлять автоматически
           </button>
         }
       />
@@ -333,7 +344,7 @@ export const SyncLogsScreen = () => {
       <SectionCard title="Журнал синхронизации">
         <FilterBar>
           <input
-            placeholder="Фильтр по provider"
+            placeholder="Фильтр по системе"
             value={provider}
             onChange={(event) => setProvider(event.target.value)}
           />

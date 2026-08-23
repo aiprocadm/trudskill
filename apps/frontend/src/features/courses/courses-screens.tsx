@@ -774,38 +774,32 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
       <PageHeader
         title={course?.title ?? 'Курс'}
         subtitle="Программа обучения: версии, модули и материалы"
-        actions={
-          /* UI-007: одно первичное действие. Архивирование — вторичное, рядом. */
-          <span className="ui-inline">
-            {canArchive ? (
-              <button
-                type="button"
-                className="ui-button-secondary"
-                onClick={() =>
-                  void archiveCourse(id)
-                    .then(refetch)
-                    .catch((archiveError) => setSaveError(readApiMessage(archiveError)))
-                }
-              >
-                В архив
-              </button>
-            ) : null}
-            {canPublish ? (
-              <button
-                type="button"
-                className="ui-button--primary"
-                disabled={!readyToPublish}
-                onClick={() =>
+        /* UI-007: одно первичное действие — публикация. Архивирование вторично. */
+        {...(canPublish
+          ? {
+              primaryAction: {
+                label: 'Опубликовать курс',
+                disabled: !readyToPublish,
+                onSelect: () =>
                   void publishCourse(id)
                     .then(refetch)
                     .catch((publishError) => setSaveError(readApiMessage(publishError)))
+              }
+            }
+          : {})}
+        {...(canArchive
+          ? {
+              secondaryActions: [
+                {
+                  label: 'В архив',
+                  onSelect: () =>
+                    void archiveCourse(id)
+                      .then(refetch)
+                      .catch((archiveError) => setSaveError(readApiMessage(archiveError)))
                 }
-              >
-                Опубликовать курс
-              </button>
-            ) : null}
-          </span>
-        }
+              ]
+            }
+          : {})}
       />
       <MutationError message={saveError} />
       <SectionCard title="Версии программы">
