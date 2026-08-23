@@ -39,13 +39,9 @@ export const GroupsPageScreen = () => {
       <PageHeader
         title="Группы"
         subtitle="Учебные группы центра: состав, назначенные курсы, закрытие с выдачей документов."
-        actions={
-          canCreateGroup ? (
-            <Link className="ui-button ui-button--primary" href="/groups/new">
-              Создать группу
-            </Link>
-          ) : null
-        }
+        {...(canCreateGroup
+          ? { primaryAction: { label: 'Создать группу', href: '/groups/new' } }
+          : {})}
       />
       <SectionCard title="Реестр групп">
         <AsyncSection

@@ -72,11 +72,7 @@ export function ClientsListScreen() {
       <PageHeader
         title="Компании"
         subtitle="Компании-заказчики обучения: создание, поиск, редактирование контактов, прогресс по группам."
-        actions={
-          <button type="button" className="ui-button--primary" onClick={() => setCreating(true)}>
-            Добавить компанию
-          </button>
-        }
+        primaryAction={{ label: 'Добавить компанию', onSelect: () => setCreating(true) }}
       />
 
       <FilterBar>

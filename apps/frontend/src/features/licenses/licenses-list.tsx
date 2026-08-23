@@ -139,11 +139,7 @@ export function LicensesView() {
       <PageHeader
         title="Лицензии и аккредитации"
         subtitle="Образовательные лицензии центра, аккредитации, членство в СРО. Без действующей лицензии нельзя опубликовать программу."
-        actions={
-          <button type="button" className="ui-button-primary" onClick={() => setFormOpen(true)}>
-            Добавить лицензию
-          </button>
-        }
+        primaryAction={{ label: 'Добавить лицензию', onSelect: () => setFormOpen(true) }}
       />
 
       <ListPage<LicenseRow>

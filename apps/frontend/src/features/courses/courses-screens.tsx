@@ -114,13 +114,9 @@ export const CoursesPageScreen = () => {
       <PageHeader
         title="Курсы"
         subtitle="Программы обучения центра: состав модулей, часы, правила аттестации"
-        actions={
-          canCreateCourse ? (
-            <Link className="ui-button--primary" href="/courses/new">
-              Создать курс
-            </Link>
-          ) : null
-        }
+        {...(canCreateCourse
+          ? { primaryAction: { label: 'Создать курс', href: '/courses/new' } }
+          : {})}
       />
 
       <FilterBar

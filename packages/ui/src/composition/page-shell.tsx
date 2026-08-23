@@ -1,3 +1,4 @@
+import { Button } from '../components/button/index.js';
 import { EmptyState, ErrorState, LoadingState } from '../components/states/index.js';
 
 import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
@@ -12,11 +13,30 @@ import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
  * на одну фазу (реэкспорт + разбор ошибок приложения), экраны переводятся волнами.
  */
 
-/** Действие шапки: подпись называет результат (`TXT-002`), обработчик его выполняет. */
-export interface PageAction {
-  label: string;
-  onSelect: () => void;
-}
+/**
+ * Действие шапки: подпись называет результат (`TXT-002`), а дальше одно из двух —
+ * обработчик либо адрес.
+ *
+ * Форма с `href` появилась при переезде экранов (`CMP-020`, волна 1): половина первичных
+ * действий продукта — это переход («Создать курс» ведёт на `/courses/new`), и ссылку надо
+ * оставить ссылкой. Иначе теряются средняя кнопка мыши, «открыть в новой вкладке» и
+ * подсказка адреса в строке состояния, а незрячий слышит «кнопка» там, где переход.
+ * Прецедент в пакете уже был: действие пустого состояния (`EmptyState`) устроено так же.
+ */
+export type PageAction =
+  | {
+      label: string;
+      onSelect: () => void;
+      disabled?: boolean;
+      /**
+       * Действие выполняется прямо сейчас. Подпись при этом **не меняется** (`TXT-003`):
+       * занятость показывает крутилка внутри кнопки, а не второе название. Экран
+       * переаттестации переименовывал кнопку «Проверить сроки» в «Проверяем сроки…» —
+       * человек терял из виду, что он вообще нажал.
+       */
+      busy?: boolean;
+    }
+  | { label: string; href: string };
 
 export const GlobalLoading = ({ message }: { message?: string }): ReactElement => (
   <LoadingState message={message ?? 'Загрузка приложения...'} />
@@ -97,6 +117,49 @@ export const PageContainer = ({
 );
 
 /**
+ * Одно действие шапки. Переход рисуется ссылкой, а не кнопкой с обработчиком: тег выбирается
+ * по смыслу действия, а внешний вид у обоих одинаковый (`.ui-button` + модификатор).
+ */
+const renderPrimary = (action: PageAction): ReactElement =>
+  'href' in action ? (
+    <a className="ui-button ui-button--primary" href={action.href}>
+      {action.label}
+    </a>
+  ) : (
+    <Button
+      variant="primary"
+      onClick={action.onSelect}
+      {...(action.disabled ? { disabled: true } : {})}
+      {...(action.busy ? { loading: true } : {})}
+    >
+      {action.label}
+    </Button>
+  );
+
+/*
+ * Пункт меню «Ещё» — не кнопка дизайн-системы: у него нет рамки и фиксированной высоты
+ * кнопки, он строка выпадающего списка. Поэтому здесь голая разметка со своим классом,
+ * а не `Button` с добавленным классом (`ui-button` навесил бы кнопке рамку внутри меню).
+ */
+const renderMenuItem = (action: PageAction): ReactElement =>
+  'href' in action ? (
+    <a key={action.label} className="ui-header-menu__item" role="menuitem" href={action.href}>
+      {action.label}
+    </a>
+  ) : (
+    <button
+      key={action.label}
+      type="button"
+      role="menuitem"
+      className="ui-header-menu__item"
+      onClick={action.onSelect}
+      {...(action.disabled ? { disabled: true } : {})}
+    >
+      {action.label}
+    </button>
+  );
+
+/**
  * Шапка страницы (`CMP-015`).
  *
  * ⚠️ `primaryAction` — **не массив**, и это осознанное ограничение типа: бюджет `UI-007`
@@ -138,32 +201,14 @@ export const PageHeader = (props: PageHeaderProps): ReactElement => {
       {primaryAction || secondaryActions?.length || legacyActions ? (
         <div className="ui-inline">
           {legacyActions ?? null}
-          {primaryAction ? (
-            <button
-              type="button"
-              className="ui-button ui-button--primary"
-              onClick={primaryAction.onSelect}
-            >
-              {primaryAction.label}
-            </button>
-          ) : null}
+          {primaryAction ? renderPrimary(primaryAction) : null}
           {secondaryActions?.length ? (
             <details className="ui-header-menu">
               <summary className="ui-button" aria-label="Ещё действия">
                 Ещё
               </summary>
               <div className="ui-header-menu__list" role="menu">
-                {secondaryActions.map((action) => (
-                  <button
-                    key={action.label}
-                    type="button"
-                    role="menuitem"
-                    className="ui-header-menu__item"
-                    onClick={action.onSelect}
-                  >
-                    {action.label}
-                  </button>
-                ))}
+                {secondaryActions.map((action) => renderMenuItem(action))}
               </div>
             </details>
           ) : null}

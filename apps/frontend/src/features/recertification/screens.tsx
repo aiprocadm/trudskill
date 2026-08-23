@@ -131,16 +131,15 @@ export function RecertificationQueueScreen(): ReactElement {
       <PageHeader
         title="Нужна переаттестация"
         subtitle="Слушатели, у которых истекает срок действия удостоверения. «Перезачислить» — выбрать группу и зачислить повторно; «Убрать» — скрыть запись."
-        actions={
-          <button
-            type="button"
-            className="ui-button--primary"
-            onClick={() => void onScan()}
-            disabled={scanPending}
-          >
-            {scanPending ? 'Проверяем сроки…' : 'Проверить сроки'}
-          </button>
-        }
+        /*
+         * TXT-003: подпись одна и та же всегда. Раньше кнопка переименовывалась в
+         * «Проверяем сроки…» — теперь занятость показывает крутилка внутри кнопки.
+         */
+        primaryAction={{
+          label: 'Проверить сроки',
+          onSelect: () => void onScan(),
+          busy: scanPending
+        }}
       />
 
       <ExpiringDocumentsSection />

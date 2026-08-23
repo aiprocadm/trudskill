@@ -76,11 +76,7 @@ export function TestsListScreen() {
       <PageHeader
         title="Тесты"
         subtitle="Проверка знаний по курсу: правила, вопросы из банка, публикация"
-        actions={
-          <button type="button" className="ui-button--primary" onClick={() => setCreating(true)}>
-            Создать тест
-          </button>
-        }
+        primaryAction={{ label: 'Создать тест', onSelect: () => setCreating(true) }}
       />
 
       <FilterBar

@@ -285,12 +285,8 @@ export function OrdersScreen(): ReactElement {
       <PageHeader
         title="Заказы"
         subtitle="Счета за обучение: кто платит, за кого и сколько"
-        actions={
-          /* TXT-003: кнопка называется одинаково всегда, а не «Скрыть форму» через раз. */
-          <button type="button" className="ui-button--primary" onClick={() => setShowForm(true)}>
-            Создать заказ
-          </button>
-        }
+        /* TXT-003: кнопка называется одинаково всегда, а не «Скрыть форму» через раз. */
+        primaryAction={{ label: 'Создать заказ', onSelect: () => setShowForm(true) }}
       />
 
       {notice ? <p className="ui-callout ui-callout--success">{notice}</p> : null}
