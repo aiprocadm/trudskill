@@ -62,27 +62,19 @@ export function QuestionBankDetailScreen({ bankId }: Props) {
       <PageHeader
         title={bank.title}
         subtitle={bank.description ?? 'Банк вопросов для тестов и заданий'}
-        actions={
-          <>
-            <button
-              type="button"
-              className="ui-button ui-button--primary"
-              onClick={() => setEditing(true)}
-            >
-              Редактировать
-            </button>
-            {!bank.isArchived && (
-              <button
-                type="button"
-                className="ui-button"
-                onClick={() => void archive.mutate(bankId).then(() => void bankQuery.refetch())}
-                disabled={archive.isPending}
-              >
-                {archive.isPending ? 'Архивация…' : 'Архивировать'}
-              </button>
-            )}
-          </>
-        }
+        primaryAction={{ label: 'Редактировать', onSelect: () => setEditing(true) }}
+        {...(!bank.isArchived
+          ? {
+              secondaryActions: [
+                {
+                  label: 'Архивировать',
+                  onSelect: () => void archive.mutate(bankId).then(() => void bankQuery.refetch()),
+                  disabled: archive.isPending,
+                  busy: archive.isPending
+                }
+              ]
+            }
+          : {})}
       />
 
       <SectionCard title="Параметры">

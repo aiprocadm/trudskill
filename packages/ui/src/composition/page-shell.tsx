@@ -136,6 +136,28 @@ const renderPrimary = (action: PageAction): ReactElement =>
     </Button>
   );
 
+/**
+ * Второстепенное действие, показанное кнопкой. Единственное второстепенное действие в меню
+ * не прячут: «Ещё» из одного пункта — это два нажатия вместо одного и скрытая от глаз
+ * возможность. Меню начинается с двух пунктов.
+ */
+const renderSecondary = (action: PageAction): ReactElement =>
+  'href' in action ? (
+    <a key={action.label} className="ui-button ui-button--secondary" href={action.href}>
+      {action.label}
+    </a>
+  ) : (
+    <Button
+      key={action.label}
+      variant="secondary"
+      onClick={action.onSelect}
+      {...(action.disabled ? { disabled: true } : {})}
+      {...(action.busy ? { loading: true } : {})}
+    >
+      {action.label}
+    </Button>
+  );
+
 /*
  * Пункт меню «Ещё» — не кнопка дизайн-системы: у него нет рамки и фиксированной высоты
  * кнопки, он строка выпадающего списка. Поэтому здесь голая разметка со своим классом,
@@ -176,6 +198,16 @@ export type PageHeaderProps = {
   title: string;
   subtitle?: string;
   breadcrumbsSlot?: ReactNode;
+  /**
+   * Служебное содержимое шапки, которое **не является действием страницы**: значок статуса
+   * объекта, переключатель роли, листание месяцев в календаре.
+   *
+   * Слот появился в волне 2 `CMP-020`: часть переходного слота `actions` держали именно такие
+   * вещи, и переводить их в `primaryAction`/`secondaryActions` было бы враньём: бюджет
+   * `UI-007` считает действия, а значок статуса ничего не делает. Без отдельного слота
+   * «переходный» `actions` не умер бы никогда.
+   */
+  toolsSlot?: ReactNode;
 } & (
   | {
       primaryAction?: PageAction;
@@ -190,6 +222,10 @@ export const PageHeader = (props: PageHeaderProps): ReactElement => {
   const primaryAction = 'primaryAction' in props ? props.primaryAction : undefined;
   const secondaryActions = 'secondaryActions' in props ? props.secondaryActions : undefined;
   const legacyActions = 'actions' in props ? props.actions : undefined;
+  const toolsSlot = props.toolsSlot;
+  const menuActions =
+    secondaryActions?.length && secondaryActions.length > 1 ? secondaryActions : undefined;
+  const inlineSecondary = secondaryActions?.length === 1 ? secondaryActions[0] : undefined;
 
   return (
     <header className="ui-page-header">
@@ -198,17 +234,19 @@ export const PageHeader = (props: PageHeaderProps): ReactElement => {
         <h1 className="ui-page-title">{title}</h1>
         {subtitle ? <p className="ui-page-subtitle">{subtitle}</p> : null}
       </div>
-      {primaryAction || secondaryActions?.length || legacyActions ? (
+      {primaryAction || secondaryActions?.length || legacyActions || toolsSlot ? (
         <div className="ui-inline">
+          {toolsSlot ?? null}
           {legacyActions ?? null}
+          {inlineSecondary ? renderSecondary(inlineSecondary) : null}
           {primaryAction ? renderPrimary(primaryAction) : null}
-          {secondaryActions?.length ? (
+          {menuActions ? (
             <details className="ui-header-menu">
               <summary className="ui-button" aria-label="Ещё действия">
                 Ещё
               </summary>
               <div className="ui-header-menu__list" role="menu">
-                {secondaryActions.map((action) => renderMenuItem(action))}
+                {menuActions.map((action) => renderMenuItem(action))}
               </div>
             </details>
           ) : null}

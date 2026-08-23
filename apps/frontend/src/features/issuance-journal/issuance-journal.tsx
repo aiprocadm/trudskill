@@ -112,18 +112,15 @@ export function IssuanceJournalView() {
       <PageHeader
         title="Книга выдачи документов"
         subtitle="Все выпущенные удостоверения, протоколы и приказы — с выгрузкой для проверяющих"
-        actions={
-          <button
-            type="button"
-            className="ui-button-secondary"
-            onClick={() => {
+        secondaryActions={[
+          {
+            label: 'Скачать таблицей',
+            onSelect: () => {
               if (session) void issuanceJournalApi.downloadCsv(session, filter);
-            }}
-            disabled={!session || (data?.total ?? 0) === 0}
-          >
-            Скачать таблицей
-          </button>
-        }
+            },
+            disabled: !session || (data?.total ?? 0) === 0
+          }
+        ]}
       />
 
       <FilterBar

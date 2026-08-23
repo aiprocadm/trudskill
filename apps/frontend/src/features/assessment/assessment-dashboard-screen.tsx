@@ -166,11 +166,7 @@ export const AssessmentDashboardScreen = () => {
       <PageHeader
         title="Оценивание"
         subtitle="Что требует проверки, как идут попытки и чем закончились экзамены"
-        actions={
-          <Link className="ui-button-secondary" href="/admin/tests">
-            Тесты и банки вопросов
-          </Link>
-        }
+        secondaryActions={[{ label: 'Тесты и банки вопросов', href: '/admin/tests' }]}
       />
 
       <FilterBar

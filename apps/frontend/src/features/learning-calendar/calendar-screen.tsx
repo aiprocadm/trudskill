@@ -130,7 +130,7 @@ export function LearningCalendarScreen() {
       <PageHeader
         title="Календарь окончаний"
         subtitle="Когда слушатели по плану заканчивают обучение"
-        actions={
+        toolsSlot={
           <div className="ui-inline">
             <button type="button" onClick={goPrevMonth}>
               Назад

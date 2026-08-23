@@ -110,32 +110,29 @@ export function TestBuilderScreen({ testId }: Props) {
         subtitle={
           courseNames.get(t.courseId) ? `Курс «${courseNames.get(t.courseId)}»` : 'Тест курса'
         }
-        actions={
-          <>
-            {!isPublished && !isArchived && (
-              <button
-                type="button"
-                className="ui-button-primary"
-                onClick={onPublish}
-                disabled={!hasQuestions || publish.isPending}
-                title={!hasQuestions ? 'Сначала добавьте вопросы' : ''}
-              >
-                {publish.isPending ? 'Публикация…' : 'Опубликовать'}
-              </button>
-            )}
-            {!isArchived && (
-              <button
-                type="button"
-                className="ui-button"
-                onClick={onArchive}
-                disabled={archive.isPending}
-              >
-                {archive.isPending ? 'Архивация…' : 'Архивировать'}
-              </button>
-            )}
-            <StatusChip status={t.status} label={formatEntityStatus(t.status)} />
-          </>
-        }
+        toolsSlot={<StatusChip status={t.status} label={formatEntityStatus(t.status)} />}
+        {...(!isPublished && !isArchived
+          ? {
+              primaryAction: {
+                label: 'Опубликовать',
+                onSelect: onPublish,
+                disabled: !hasQuestions || publish.isPending,
+                busy: publish.isPending
+              }
+            }
+          : {})}
+        {...(!isArchived
+          ? {
+              secondaryActions: [
+                {
+                  label: 'Архивировать',
+                  onSelect: onArchive,
+                  disabled: archive.isPending,
+                  busy: archive.isPending
+                }
+              ]
+            }
+          : {})}
       />
 
       <SectionCard title="Параметры">

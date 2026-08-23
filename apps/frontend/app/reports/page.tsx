@@ -123,20 +123,8 @@ export default function ReportsPage() {
         <PageHeader
           title="Отчётность"
           subtitle="Выгрузки по курсам, группам, экзаменам и документам"
-          actions={
-            <>
-              <button
-                type="button"
-                className="ui-button ui-button--secondary"
-                onClick={exportKpiCsv}
-              >
-                KPI → CSV
-              </button>
-              <button type="button" className="ui-button ui-button--primary" onClick={exportCsv}>
-                Табличные отчёты CSV
-              </button>
-            </>
-          }
+          primaryAction={{ label: 'Скачать табличные отчёты', onSelect: exportCsv }}
+          secondaryActions={[{ label: 'Скачать сводку KPI', onSelect: exportKpiCsv }]}
         />
         <FilterBar
           activeCount={[from, to, kpiCourseId, kpiGroupId, status].filter(Boolean).length}
