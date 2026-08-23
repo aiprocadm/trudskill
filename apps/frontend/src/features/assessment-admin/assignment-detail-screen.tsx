@@ -47,30 +47,21 @@ export function AssignmentDetailScreen({ assignmentId }: Props) {
              ничего — упоминаем только сам факт привязки (справочника имён модулей в API нет). */
           `${courseNames.get(a.courseId) ? `Курс «${courseNames.get(a.courseId)}»` : 'Задание курса'}${a.moduleId ? ' · привязано к модулю' : ''}`
         }
-        actions={
-          <>
-            <button
-              type="button"
-              className="ui-button ui-button--primary"
-              onClick={() => setEditing(true)}
-            >
-              Редактировать
-            </button>
-            {!a.isArchived && (
-              <button
-                type="button"
-                className="ui-button"
-                onClick={() =>
-                  void archive.mutate(assignmentId).then(() => void assignment.refetch())
+        toolsSlot={<StatusChip status={a.status} label={formatEntityStatus(a.status)} />}
+        primaryAction={{ label: 'Редактировать', onSelect: () => setEditing(true) }}
+        {...(!a.isArchived
+          ? {
+              secondaryActions: [
+                {
+                  label: 'Архивировать',
+                  onSelect: () =>
+                    void archive.mutate(assignmentId).then(() => void assignment.refetch()),
+                  disabled: archive.isPending,
+                  busy: archive.isPending
                 }
-                disabled={archive.isPending}
-              >
-                {archive.isPending ? 'Архивация…' : 'Архивировать'}
-              </button>
-            )}
-            <StatusChip status={a.status} label={formatEntityStatus(a.status)} />
-          </>
-        }
+              ]
+            }
+          : {})}
       />
 
       <SectionCard title="Параметры">

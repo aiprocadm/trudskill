@@ -25,7 +25,7 @@ export const LearnerHomeScreen = () => {
       <PageHeader
         title={greeting}
         subtitle="Ваше обучение: следующий шаг, курсы и документы"
-        actions={<RoleSwitcher />}
+        toolsSlot={<RoleSwitcher />}
       />
       {error ? <SectionError message={error} /> : null}
       <NextStepCard step={nextStep} loading={isLoading} />

@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, DetailLayout, KeyValueList, LoadingState } from '@trudskill/ui';
+import { DetailLayout, KeyValueList, LoadingState } from '@trudskill/ui';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -63,11 +63,7 @@ export function ClientDetailScreen({ clientId }: ClientDetailScreenProps) {
       <PageHeader
         title={c.name}
         subtitle={c.legalName ?? CLIENT_STATUS_LABEL[c.status]}
-        actions={
-          <Button variant="primary" onClick={() => setEditing(true)}>
-            Редактировать
-          </Button>
-        }
+        primaryAction={{ label: 'Редактировать', onSelect: () => setEditing(true) }}
       />
 
       <DetailLayout

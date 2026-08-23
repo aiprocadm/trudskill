@@ -33,20 +33,10 @@ const FRONTEND = join(HERE, '..', '..');
  * действие. Пути — от `apps/frontend`, разделитель прямой слэш.
  */
 const ALLOWED = [
-  'app/reports/page.tsx',
-  'app/workspace/page.tsx',
-  'src/features/assessment-admin/assignment-detail-screen.tsx',
-  'src/features/assessment-admin/question-bank-detail-screen.tsx',
-  'src/features/assessment-admin/test-builder-screen.tsx',
-  'src/features/assessment/assessment-dashboard-screen.tsx',
-  'src/features/clients/client-detail-screen.tsx',
   'src/features/courses/courses-screens.tsx',
   'src/features/groups/group-details-screen.tsx',
   'src/features/integrations/screens.tsx',
-  'src/features/issuance-journal/issuance-journal.tsx',
-  'src/features/learner-home/learner-home-screen.tsx',
   'src/features/learners/learner-detail-screen.tsx',
-  'src/features/learning-calendar/calendar-screen.tsx',
   'src/features/users/users-screens.tsx'
 ];
 
@@ -96,8 +86,8 @@ describe('CMP-020 · переходный слот actions только сокр
   });
 
   it('остаток CMP-020 виден числом, а не на словах', () => {
-    // Волна 1 (срез 33) увела 11 экранов из 26. Число здесь — не украшение: оно обязано
-    // уменьшаться, и следующая волна начинается с его правки вниз.
-    expect(ALLOWED.length).toBeLessThanOrEqual(15);
+    // Волна 1 (срез 33) увела 11 экранов из 26, волна 2 (срез 34) — ещё 10. Число здесь —
+    // не украшение: оно обязано уменьшаться, и следующая волна начинается с его правки вниз.
+    expect(ALLOWED.length).toBeLessThanOrEqual(5);
   });
 });

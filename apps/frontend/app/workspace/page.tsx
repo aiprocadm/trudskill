@@ -105,15 +105,7 @@ export default function WorkspacePage() {
            * не работа пользователя, а служебная кнопка. Первичного действия у панели
            * наблюдения нет вовсе: бюджет требует «не более одного», а не «ровно одно».
            */
-          actions={
-            <button
-              type="button"
-              className="ui-button-secondary"
-              onClick={() => void workspace.refetch()}
-            >
-              Обновить
-            </button>
-          }
+          secondaryActions={[{ label: 'Обновить', onSelect: () => void workspace.refetch() }]}
         />
         {workspace.error ? (
           <SectionError message={resolveWorkspaceErrorMessage(workspace.error)} />

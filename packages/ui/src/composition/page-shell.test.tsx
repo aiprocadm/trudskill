@@ -64,6 +64,37 @@ describe('CMP-015 · PageHeader', () => {
     }
   });
 
+  it('единственное второстепенное действие остаётся кнопкой, а не прячется в меню', () => {
+    // «Ещё» из одного пункта — два нажатия вместо одного и спрятанная от глаз возможность.
+    // Меню начинается с двух пунктов; одиночное действие рисуется нейтральной кнопкой.
+    const el = PageHeader({
+      title: 'Книга выдачи',
+      secondaryActions: [{ label: 'Скачать таблицей', onSelect: () => undefined }]
+    });
+
+    const menu = flatten(el).find((node) => (node as { type?: unknown }).type === 'details');
+    expect(menu, 'меню «Ещё» не должно появляться ради одного пункта').toBeFalsy();
+    const buttons = flatten(el).filter((node) => propsOf(node)?.variant === 'secondary');
+    expect(buttons).toHaveLength(1);
+    expect(propsOf(buttons[0]).children).toBe('Скачать таблицей');
+  });
+
+  it('служебное содержимое живёт в своём слоте и не считается действием (CMP-020, волна 2)', () => {
+    // Значок статуса, переключатель роли, листание месяцев — не действия страницы. Пока
+    // им не было своего слота, они держали переходный `actions` и мешали его закрыть.
+    const chip = { type: 'span', props: { children: 'Опубликован' } } as never;
+    const el = PageHeader({
+      title: 'Тест курса',
+      toolsSlot: chip,
+      primaryAction: { label: 'Опубликовать', onSelect: () => undefined }
+    });
+
+    const texts = flatten(el).map((node) => propsOf(node)?.children);
+    expect(texts).toContain('Опубликован');
+    const primaries = flatten(el).filter((node) => propsOf(node)?.variant === 'primary');
+    expect(primaries, 'служебный слот не должен считаться первичным действием').toHaveLength(1);
+  });
+
   it('заголовок и подзаголовок на месте', () => {
     const el = PageHeader({ title: 'Слушатели', subtitle: 'Реестр' });
     const texts = flatten(el).map((node) => propsOf(node)?.children);
