@@ -120,11 +120,7 @@ export const CommissionsPageScreen = () => {
       <PageHeader
         title="Аттестационные комиссии"
         subtitle="Состав, который подписывает протоколы и удостоверения слушателей"
-        actions={
-          <button type="button" className="ui-button--primary" onClick={() => setCreating(true)}>
-            Создать комиссию
-          </button>
-        }
+        primaryAction={{ label: 'Создать комиссию', onSelect: () => setCreating(true) }}
       />
 
       <ListPage<CommissionRow>

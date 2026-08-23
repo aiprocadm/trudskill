@@ -64,11 +64,7 @@ export function QuestionBanksListScreen() {
       <PageHeader
         title="Банки вопросов"
         subtitle="Наборы вопросов, из которых собираются тесты курса"
-        actions={
-          <button type="button" className="ui-button--primary" onClick={() => setCreating(true)}>
-            Создать банк
-          </button>
-        }
+        primaryAction={{ label: 'Создать банк', onSelect: () => setCreating(true) }}
       />
 
       <FilterBar

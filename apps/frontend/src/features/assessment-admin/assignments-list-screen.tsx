@@ -66,11 +66,7 @@ export function AssignmentsListScreen() {
       <PageHeader
         title="Задания"
         subtitle="Практические работы, которые слушатель выполняет и сдаёт на проверку"
-        actions={
-          <button type="button" className="ui-button--primary" onClick={() => setCreating(true)}>
-            Создать задание
-          </button>
-        }
+        primaryAction={{ label: 'Создать задание', onSelect: () => setCreating(true) }}
       />
 
       <FilterBar

@@ -6,10 +6,13 @@ textarea,.ui-textarea { min-height: 88px; padding: 9px 12px; }
 .ui-field-label { font-size: var(--ui-font-size-sm); font-weight: var(--ui-font-weight-semibold); color: var(--ui-text-muted); }
 .ui-field-hint { font-size: var(--ui-font-size-xs); color: var(--ui-text-muted); margin: 0; }
 .ui-field-error { font-size: var(--ui-font-size-xs); color: var(--ui-danger-600); margin: 0; }
-button,.ui-button,.ui-button-primary,.ui-button-secondary,.ui-button-ghost,.ui-button-danger { height: 40px; border: 1px solid var(--ui-border-strong); border-radius: var(--ui-radius-md); background: var(--ui-surface); padding: 0 14px; cursor: pointer; font-family: inherit; font-size: var(--ui-font-size-md); font-weight: var(--ui-font-weight-semibold); transition: background var(--ui-duration-fast) var(--ui-ease), border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); color: var(--ui-text); text-decoration: none; }
+button,.ui-button,.ui-button--primary,.ui-button--secondary,.ui-button--ghost,.ui-button--danger,.ui-button-primary,.ui-button-secondary,.ui-button-ghost,.ui-button-danger { height: 40px; border: 1px solid var(--ui-border-strong); border-radius: var(--ui-radius-md); background: var(--ui-surface); padding: 0 14px; cursor: pointer; font-family: inherit; font-size: var(--ui-font-size-md); font-weight: var(--ui-font-weight-semibold); transition: background var(--ui-duration-fast) var(--ui-ease), border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); color: var(--ui-text); text-decoration: none; }
 /* Ссылка в одежде кнопки (тег a с классом ui-button): без сброса подчёркивание и inline-высота
-   выдают в ней ссылку. Правило узкое, чтобы не менять раскладку настоящих кнопок. */
-a.ui-button, a.ui-button-primary, a.ui-button-secondary { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+   выдают в ней ссылку. Правило узкое, чтобы не менять раскладку настоящих кнопок.
+   Оба написания модификатора перечислены намеренно: правило выше применяется к тегу
+   button само собой, а ссылке класс нужен поимённо — и ссылка с одним лишь
+   ui-button--primary оставалась без высоты, отступов и радиуса (журнал, запись 171). */
+a.ui-button, a.ui-button--primary, a.ui-button--secondary, a.ui-button--ghost, a.ui-button--danger, a.ui-button-primary, a.ui-button-secondary { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
 /* Выбор файла: настоящий input скрыт, но остаётся в фокусном порядке — фокус и
    недоступность отражаются на видимой кнопке-обёртке. */
 .ui-file-picker { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; }
@@ -63,7 +66,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
    Базовые 40px оставлены для десктопа; радио/чекбокс внутри .ui-option не трогаем —
    тач-зоной там служит вся карточка варианта (у неё свой min-height: 44px). */
 @media (max-width: 480px) {
-  button,.ui-button,.ui-button-primary,.ui-button-secondary,.ui-button-ghost,.ui-button-danger { height: 44px; }
+  button,.ui-button,.ui-button--primary,.ui-button--secondary,.ui-button--ghost,.ui-button--danger,.ui-button-primary,.ui-button-secondary,.ui-button-ghost,.ui-button-danger { height: 44px; }
   .ui-input,.ui-select,input,select { height: 44px; }
 }
 `;
