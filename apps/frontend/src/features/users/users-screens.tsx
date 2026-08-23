@@ -87,12 +87,14 @@ export const UsersPageScreen = () => {
       <PageHeader
         title="Люди и доступ"
         subtitle="Сотрудники учебного центра: кто заходит в систему и что может делать"
-        actions={
-          canManage ? null : (
-            /* Пометка о правах — один раз в шапке, а не у каждой строки списка. */
-            <span className="ui-text-muted">Права на изменение нет — только просмотр</span>
-          )
-        }
+        {...(canManage
+          ? {}
+          : {
+              /* Пометка о правах — не действие: живёт в служебном слоте (CMP-020). */
+              toolsSlot: (
+                <span className="ui-text-muted">Права на изменение нет — только просмотр</span>
+              )
+            })}
       />
 
       <FilterBar
@@ -229,7 +231,12 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
             </dl>
           </SectionCard>
           <SectionCard title="Роли и права">
-            <p>Текущие роли: {userRoles?.map((roleItem) => roleItem.code).join(', ') || '—'}</p>
+            {/*
+              Здесь печатались коды ролей латиницей («tenant_admin, teacher») — при том что
+              в списке ниже те же роли подписаны по-русски. Название роли у нас есть, надо
+              было просто его взять.
+            */}
+            <p>Текущие роли: {userRoles?.map((roleItem) => roleItem.name).join(', ') || '—'}</p>
             <div className="ui-stack" style={{ gap: 8 }}>
               {allRoles?.map((roleItem) => (
                 <label key={roleItem.id}>
