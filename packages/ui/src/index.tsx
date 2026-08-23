@@ -31,7 +31,6 @@ export * from './components/file-picker/index.js';
 export * from './components/attention-widget/index.js';
 export * from './components/key-value-list/index.js';
 export * from './components/callout/index.js';
-export * from './patterns/registry.js';
 export * from './composition/index.js';
 export * from './providers/theme-provider.js';
 export {

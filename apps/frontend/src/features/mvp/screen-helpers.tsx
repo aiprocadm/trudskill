@@ -11,32 +11,6 @@ import { describeError } from '../../lib/errors/error-text';
  * Вынесены при разбиении волны 1 (Фаза 4 редизайна, срез 2) — экраны групп и карточка
  * слушателя переехали в свои папки, а эти помощники нужны и им, и оставшимся экранам.
  */
-export const PaginationControls = ({
-  page,
-  setPage,
-  total,
-  pageSize
-}: {
-  page: number;
-  setPage: (page: number) => void;
-  total: number | undefined;
-  pageSize: number;
-}) => {
-  const canPrev = page > 1;
-  const canNext = total ? page * pageSize < total : true;
-  return (
-    <div className="ui-inline">
-      <button type="button" disabled={!canPrev} onClick={() => setPage(page - 1)}>
-        Назад
-      </button>
-      <span>Страница {page}</span>
-      <button type="button" disabled={!canNext} onClick={() => setPage(page + 1)}>
-        Далее
-      </button>
-    </div>
-  );
-};
-
 /**
  * Статусы зачисления по-русски (`TXT-006`).
  *
