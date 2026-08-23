@@ -447,11 +447,12 @@ export function AdminIdentityDetailScreen({ id }: { id: string }): ReactElement 
               <div className="ui-inline">
                 <button
                   type="button"
-                  className="ui-button-primary"
+                  className={`ui-button-primary ${isPending ? 'ui-button--loading' : ''}`}
                   disabled={isPending}
                   onClick={() => void onApprove()}
                 >
-                  {isPending ? 'Сохраняем…' : 'Подтвердить личность'}
+                  {/* TXT-003: подпись неподвижна, занятость показывает крутилка. */}
+                  Подтвердить личность
                 </button>
                 <button
                   type="button"

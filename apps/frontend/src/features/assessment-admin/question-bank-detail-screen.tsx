@@ -103,9 +103,14 @@ export function QuestionBankDetailScreen({ bankId }: Props) {
             <option value="text">Краткий текст</option>
             <option value="essay">Развёрнутый ответ</option>
           </select>
+          {/*
+            UI-007: первичное действие экрана — «Редактировать» в шапке. Добавление вопроса
+            относится к секции, а не ко всей странице, и потому рисуется вторичным видом:
+            две коралловые кнопки рядом означают «выбирай сам, что важнее».
+          */}
           <button
             type="button"
-            className="ui-button-primary"
+            className="ui-button ui-button--secondary"
             onClick={() => setCreatingQuestion(true)}
           >
             Добавить вопрос
