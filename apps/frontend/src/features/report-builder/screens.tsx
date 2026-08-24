@@ -228,19 +228,19 @@ export function ReportBuilderScreen(): ReactElement {
                 <div className="ui-inline">
                   <button
                     type="button"
-                    className="ui-button"
+                    className={`ui-button ${previewPending ? 'ui-button--loading' : ''}`}
                     onClick={() => void onPreview()}
                     disabled={!canRun(state) || previewPending}
                   >
-                    {previewPending ? 'Считаем…' : 'Показать пример строк'}
+                    Показать пример строк
                   </button>
                   <button
                     type="button"
-                    className="ui-button-primary"
+                    className={`ui-button-primary ${exportPending ? 'ui-button--loading' : ''}`}
                     onClick={() => void onExport()}
                     disabled={!canRun(state) || exportPending}
                   >
-                    {exportPending ? 'Готовим файл…' : 'Скачать в Excel'}
+                    Скачать в Excel
                   </button>
                 </div>
               </>
@@ -266,11 +266,11 @@ export function ReportBuilderScreen(): ReactElement {
                 />
                 <button
                   type="button"
-                  className="ui-button"
+                  className={`ui-button ${savePending ? 'ui-button--loading' : ''}`}
                   onClick={() => void onSave()}
                   disabled={!canRun(state) || savePending}
                 >
-                  {savePending ? 'Сохраняем…' : 'Сохранить шаблон'}
+                  Сохранить шаблон
                 </button>
               </div>
               {(templates ?? []).length === 0 ? (

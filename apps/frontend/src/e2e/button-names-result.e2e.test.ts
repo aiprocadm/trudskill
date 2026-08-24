@@ -81,6 +81,14 @@ const labelsOf = (source: string): string[] => {
     out.push((m[1] as string).trim());
   }
   for (const m of source.matchAll(/label:\s*'([^']+)'/g)) out.push((m[1] as string).trim());
+  // Подпись-выражение: `{busy ? 'Загрузка…' : 'Загрузить'}`. Слепая зона первой версии
+  // сторожа — её нашёл экран SCORM, где так пряталось сразу два нарушения: голый глагол
+  // и подпись, меняющаяся по ходу (`TXT-003`).
+  for (const m of source.matchAll(
+    /\{[^{}]*\?\s*'([^']{2,40})'\s*:\s*'([^']{2,40})'[^{}]*\}\s*\n\s*<\/(?:button|Button)>/g
+  )) {
+    out.push((m[1] as string).trim(), (m[2] as string).trim());
+  }
   return out;
 };
 

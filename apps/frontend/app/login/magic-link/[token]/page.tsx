@@ -115,8 +115,12 @@ export default function MagicLinkRedeemPage() {
               {errorMessage}
             </p>
           ) : null}
-          <button className="ui-button ui-button--primary" type="submit" disabled={totpPending}>
-            {totpPending ? 'Проверяем...' : 'Подтвердить'}
+          <button
+            className={`ui-button ui-button--primary ${totpPending ? 'ui-button--loading' : ''}`}
+            type="submit"
+            disabled={totpPending}
+          >
+            Подтвердить код
           </button>
         </form>
       </main>

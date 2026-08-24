@@ -27,13 +27,11 @@ const PENDING = [
   'app/forms/page.tsx',
   'src/features/assessment-admin/question-bank-detail-screen.tsx',
   'src/features/commissions/commissions-screens.tsx',
-  'src/features/communication/notifications-screen.tsx',
   'src/features/groups/groups-list-screen.tsx',
   'src/features/learners/learner-detail-screen.tsx',
   'src/features/learners/learners-list-screen.tsx',
   'src/features/payments/screens.tsx',
   'src/features/recertification/screens.tsx',
-  'src/features/scorm/screens.tsx',
   'src/features/users/users-screens.tsx'
 ];
 
@@ -83,7 +81,7 @@ describe('GOAL-4 · реестры переезжают на каркас диз
   });
 
   it('остаток виден числом и обязан убывать', () => {
-    // Волна 1 (срез 40) перевела 4 реестра: материалы и три экрана подписания.
-    expect(PENDING.length).toBeLessThanOrEqual(12);
+    // Волна 1 (срез 40) — 4 реестра, волна 2 (срез 41) — уведомления и SCORM-пакеты.
+    expect(PENDING.length).toBeLessThanOrEqual(10);
   });
 });

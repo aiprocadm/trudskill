@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, FilePicker, LoadingState, StatusChip, useConfirmDialog } from '@trudskill/ui';
+import { FilePicker, ListPage, StatusChip, useConfirmDialog } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { putFileToPresignedUrl, scormApi } from './api';
@@ -9,7 +9,6 @@ import {
   PageContainer,
   PageHeader,
   SectionCard,
-  SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
 import { useAuth } from '../auth/context';
@@ -246,25 +245,29 @@ export function ScormPackagesScreen(): ReactElement {
             fileName={packageFile?.name ?? null}
             onSelect={setPackageFile}
           />
-          <button type="button" onClick={() => void handleUpload()} disabled={uploading}>
-            {uploading ? 'Загрузка...' : 'Загрузить'}
+          {/* TXT-002/TXT-003: подпись называет результат и не меняется по ходу. */}
+          <button
+            type="button"
+            className={uploading ? 'ui-button--loading' : ''}
+            onClick={() => void handleUpload()}
+            disabled={uploading}
+          >
+            Загрузить пакет
           </button>
         </div>
       </SectionCard>
       <SectionCard title="Пакеты">
         {actionError ? <SectionError message={actionError} /> : null}
-        {loading ? (
-          <LoadingState message="Загрузка пакетов..." />
-        ) : error ? (
-          <SectionError message={error} onRetry={reload} />
-        ) : rows.length === 0 ? (
-          <SectionEmpty
-            message="Пока нет пакетов — загрузите zip с курсом SCORM 1.2"
-            hint="Учебный пакет — готовый курс из внешнего редактора: он проигрывается прямо в системе."
-          />
-        ) : (
-          <DataTable<TableRow> columns={columns} rows={rows} />
-        )}
+        {/* GOAL-4: каркас списка — из дизайн-системы вместо лесенки из четырёх веток. */}
+        <ListPage<TableRow>
+          isLoading={loading}
+          error={error}
+          onRetry={reload}
+          rows={rows}
+          columns={columns}
+          emptyMessage="Пока нет пакетов — загрузите zip с курсом SCORM 1.2"
+          emptyHint="Учебный пакет — готовый курс из внешнего редактора: он проигрывается прямо в системе."
+        />
       </SectionCard>
       {dialog}
     </PageContainer>

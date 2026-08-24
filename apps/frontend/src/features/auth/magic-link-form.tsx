@@ -117,11 +117,11 @@ export const MagicLinkForm = () => {
         </p>
       ) : null}
       <button
-        className="ui-button ui-button--primary"
+        className={`ui-button ui-button--primary ${status === 'sending' ? 'ui-button--loading' : ''}`}
         type="submit"
         disabled={status === 'sending'}
       >
-        {status === 'sending' ? 'Отправляем...' : 'Отправить ссылку'}
+        Отправить ссылку
       </button>
       <EsiaLoginButton tenantId={frontendEnv.NEXT_PUBLIC_DEFAULT_TENANT_ID} />
     </form>

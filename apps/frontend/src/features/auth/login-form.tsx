@@ -131,8 +131,12 @@ export const LoginForm = () => {
             {error}
           </p>
         ) : null}
-        <button className="ui-button ui-button--primary" type="submit" disabled={pending}>
-          {pending ? 'Проверяем...' : 'Подтвердить'}
+        <button
+          className={`ui-button ui-button--primary ${pending ? 'ui-button--loading' : ''}`}
+          type="submit"
+          disabled={pending}
+        >
+          Подтвердить код
         </button>
         <button
           className="ui-button"
@@ -204,8 +208,12 @@ export const LoginForm = () => {
           {error}
         </p>
       ) : null}
-      <button className="ui-button ui-button--primary" type="submit" disabled={pending}>
-        {pending ? 'Входим...' : 'Войти'}
+      <button
+        className={`ui-button ui-button--primary ${pending ? 'ui-button--loading' : ''}`}
+        type="submit"
+        disabled={pending}
+      >
+        Войти
       </button>
     </form>
   );

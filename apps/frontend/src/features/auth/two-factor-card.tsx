@@ -116,12 +116,12 @@ export const TwoFactorCard = () => {
           </p>
           {codeInput('totp-disable-code')}
           <button
-            className="ui-button"
+            className={`ui-button ${saving ? 'ui-button--loading' : ''}`}
             type="button"
             disabled={saving || !/^\d{6}$/.test(code.trim())}
             onClick={disable}
           >
-            {saving ? 'Выключаем…' : 'Выключить 2FA'}
+            Выключить 2FA
           </button>
         </>
       ) : setup ? (
@@ -144,12 +144,12 @@ export const TwoFactorCard = () => {
           </p>
           {codeInput('totp-confirm-code')}
           <button
-            className="ui-button ui-button--primary"
+            className={`ui-button ui-button--primary ${saving ? 'ui-button--loading' : ''}`}
             type="button"
             disabled={saving || !/^\d{6}$/.test(code.trim())}
             onClick={confirm}
           >
-            {saving ? 'Подтверждаем…' : 'Подтвердить и включить'}
+            Подтвердить и включить
           </button>
         </>
       ) : (
@@ -159,12 +159,12 @@ export const TwoFactorCard = () => {
             код из приложения-аутентификатора.
           </p>
           <button
-            className="ui-button ui-button--primary"
+            className={`ui-button ui-button--primary ${saving ? 'ui-button--loading' : ''}`}
             type="button"
             disabled={saving}
             onClick={startSetup}
           >
-            {saving ? 'Готовим…' : 'Включить 2FA'}
+            Включить 2FA
           </button>
         </>
       )}

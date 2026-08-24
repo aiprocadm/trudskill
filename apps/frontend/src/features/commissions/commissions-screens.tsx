@@ -203,8 +203,12 @@ export const CommissionsPageScreen = () => {
               <button type="button" className="ui-button-link" onClick={() => setCreating(false)}>
                 Отмена
               </button>
-              <button type="submit" className="ui-button--primary" disabled={saving}>
-                {saving ? 'Создаём…' : 'Создать комиссию'}
+              <button
+                type="submit"
+                className={`ui-button--primary ${saving ? 'ui-button--loading' : ''}`}
+                disabled={saving}
+              >
+                Создать комиссию
               </button>
             </FormActions>
           </Form>
@@ -402,8 +406,12 @@ export const CommissionDetailsScreen = ({ id }: { id: string }) => {
                   <FieldError id="commission-edit-info-error" message={editError} />
                 ) : null}
                 <div className="ui-inline">
-                  <button type="submit" className="ui-button" disabled={savingEdit}>
-                    {savingEdit ? 'Сохранение…' : 'Сохранить'}
+                  <button
+                    type="submit"
+                    className={`ui-button ${savingEdit ? 'ui-button--loading' : ''}`}
+                    disabled={savingEdit}
+                  >
+                    Сохранить сведения
                   </button>
                   <button
                     type="button"
@@ -482,8 +490,12 @@ export const CommissionDetailsScreen = ({ id }: { id: string }) => {
                 {addError ? (
                   <FieldError id="commission-add-member-error" message={addError} />
                 ) : null}
-                <button type="submit" className="ui-button" disabled={adding}>
-                  {adding ? 'Добавляем…' : 'Добавить'}
+                <button
+                  type="submit"
+                  className={`ui-button ${adding ? 'ui-button--loading' : ''}`}
+                  disabled={adding}
+                >
+                  Добавить члена комиссии
                 </button>
               </form>
             </SectionCard>

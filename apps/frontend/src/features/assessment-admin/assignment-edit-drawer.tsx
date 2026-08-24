@@ -141,8 +141,12 @@ export function AssignmentEditDrawer({ assignment, onClose, onSaved }: Props) {
           <button type="button" className="ui-button" onClick={onClose} disabled={isPending}>
             Отмена
           </button>
-          <button type="submit" className="ui-button-primary" disabled={isPending || !title.trim()}>
-            {isPending ? 'Сохранение…' : 'Сохранить'}
+          <button
+            type="submit"
+            className={`ui-button-primary ${isPending ? 'ui-button--loading' : ''}`}
+            disabled={isPending || !title.trim()}
+          >
+            Сохранить задание
           </button>
         </div>
       </form>

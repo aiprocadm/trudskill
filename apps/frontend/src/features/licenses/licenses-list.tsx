@@ -234,8 +234,12 @@ export function LicensesView() {
           />
           {formError ? <SectionError message={formError} /> : null}
           <FormActions>
-            <button type="submit" className="ui-button-primary" disabled={createPending}>
-              {createPending ? 'Сохраняем…' : 'Добавить лицензию'}
+            <button
+              type="submit"
+              className={`ui-button-primary ${createPending ? 'ui-button--loading' : ''}`}
+              disabled={createPending}
+            >
+              Добавить лицензию
             </button>
             <button type="button" className="ui-button" onClick={closeForm}>
               Отмена

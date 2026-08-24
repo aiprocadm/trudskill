@@ -172,10 +172,10 @@ export function ClientEditDrawer({ client, onClose, onSaved }: ClientEditDrawerP
           </button>
           <button
             type="submit"
-            className="ui-button ui-button--primary"
+            className={`ui-button ui-button--primary ${mutation.isPending ? 'ui-button--loading' : ''}`}
             disabled={mutation.isPending}
           >
-            {mutation.isPending ? 'Сохранение…' : 'Сохранить'}
+            Сохранить компанию
           </button>
         </div>
       </form>
