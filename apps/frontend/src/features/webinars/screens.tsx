@@ -41,7 +41,7 @@ export function WebinarsAdminScreen() {
               })
             }
           >
-            Создать
+            Создать вебинар
           </button>
         </div>
       </SectionCard>
@@ -109,7 +109,7 @@ export function WebinarProviderSettingsSection() {
           disabled={saving}
           onClick={() => save({ providerCode: code, enabled, ...(baseUrl ? { baseUrl } : {}) })}
         >
-          Сохранить
+          Сохранить настройки провайдера
         </button>
       </div>
     </SectionCard>

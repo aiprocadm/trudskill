@@ -473,7 +473,7 @@ export const GovExportScreen = () => {
                         onClick={() => void onDownloadOt(batch.id)}
                         disabled={!batch.fileId}
                       >
-                        Скачать
+                        Скачать файл выгрузки
                       </button>
                       <FilePicker
                         ariaLabel="Файл ответа ведомства (.xlsx)"
@@ -569,7 +569,7 @@ export const GovExportScreen = () => {
                       onClick={() => void onDownloadFrdo(batch.id)}
                       disabled={!batch.fileId}
                     >
-                      Скачать
+                      Скачать файл выгрузки
                     </button>
                   )
                 }))}
@@ -658,7 +658,7 @@ export const GovExportScreen = () => {
                       onClick={() => void onDownloadEisot(batch.id)}
                       disabled={!batch.fileId}
                     >
-                      Скачать
+                      Скачать файл выгрузки
                     </button>
                   )
                 }))}
@@ -749,7 +749,7 @@ export const GovExportScreen = () => {
                       onClick={() => void onDownloadRostech(batch.id)}
                       disabled={!batch.fileId}
                     >
-                      Скачать
+                      Скачать файл выгрузки
                     </button>
                   )
                 }))}
@@ -837,7 +837,7 @@ export const GovExportScreen = () => {
                       onClick={() => void onDownloadNmo(batch.id)}
                       disabled={!batch.fileId}
                     >
-                      Скачать
+                      Скачать файл выгрузки
                     </button>
                   )
                 }))}

@@ -217,7 +217,7 @@ export function VideoUploadSection() {
                 )
             }
           >
-            Удалить
+            Удалить видео
           </button>
         </div>
       ))}

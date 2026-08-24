@@ -223,7 +223,7 @@ export function ScormPackagesScreen(): ReactElement {
             </button>
           ) : null}
           <button type="button" onClick={() => void handleDelete(row._raw)}>
-            Удалить
+            Удалить пакет
           </button>
         </span>
       )

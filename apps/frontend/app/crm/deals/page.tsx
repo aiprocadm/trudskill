@@ -103,7 +103,7 @@ export default function CrmDealsPage() {
               onClick={createDeal}
               disabled={!counterparty || !groupId}
             >
-              Добавить
+              Создать сделку
             </button>
           </FilterBar>
           <p>

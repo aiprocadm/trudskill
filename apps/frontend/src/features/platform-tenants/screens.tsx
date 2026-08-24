@@ -313,7 +313,7 @@ export function PlatformTenantsSection() {
               disabled={busy || !codeIsValid || !nameIsValid}
               onClick={() => void createTenant()}
             >
-              Создать
+              Создать учебный центр
             </button>
           </div>
         </SectionCard>

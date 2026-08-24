@@ -352,7 +352,7 @@ export const CommissionDetailsScreen = ({ id }: { id: string }) => {
       title: '',
       render: (row) => (
         <button type="button" className="ui-button-link" onClick={() => void onRemove(row.id)}>
-          Удалить
+          Исключить из комиссии
         </button>
       )
     }
@@ -427,7 +427,7 @@ export const CommissionDetailsScreen = ({ id }: { id: string }) => {
                 {data.status === 'active' ? (
                   <div>
                     <button type="button" className="ui-button" onClick={onStartEditInfo}>
-                      Изменить
+                      Изменить сведения
                     </button>
                   </div>
                 ) : null}

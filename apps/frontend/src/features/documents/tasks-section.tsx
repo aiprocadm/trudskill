@@ -88,7 +88,7 @@ export const TasksSection = ({
             const task = tasks.find((item) => item.id === row.id);
             if (!task) return [];
             return [
-              { label: 'Подробнее', onSelect: () => setSelected(task) },
+              { label: 'Открыть задачу', onSelect: () => setSelected(task) },
               ...(canRetry(task)
                 ? [{ label: 'Повторить', onSelect: () => void run('retry', task.id) }]
                 : []),
