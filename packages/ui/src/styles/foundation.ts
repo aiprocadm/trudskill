@@ -19,6 +19,9 @@ export const foundationStyles = `
    карточек xl (24). Отдельный модификатор, потому что один универсальный каркас не может быть
    одновременно плотным для реестра и просторным для дашборда. */
 .ui-page--spacious,.ui-page-container--spacious { gap: var(--ui-space-xxl); }
+/* GOAL-3: «ниже сгиба» — разметочная граница, а не украшение. Вид не меняется:
+   контейнер повторяет сетку страницы, поэтому расстояния между блоками те же. */
+.ui-below-fold { display: grid; gap: inherit; }
 .ui-page--spacious .ui-section-card,.ui-page-container--spacious .ui-section-card { padding: var(--ui-space-xl); }
 /* CMP-015: меню «Ещё» в шапке — вторичные действия не соревнуются с первичной кнопкой. */
 .ui-header-menu { position: relative; }

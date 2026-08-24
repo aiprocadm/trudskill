@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import { getNavigationView, getVisibleNavigation } from '../features/navigation/helpers';
 import { navigationModel } from '../features/navigation/model';
+import { roleBlueprints } from '../features/navigation/role-blueprints';
 
 import type { UserSession } from '../entities/session/model';
 
@@ -67,6 +68,44 @@ describe('оболочка приложения', () => {
     // Сторож самой метрики: если пунктов вдруг стало ≤7, проверка выше проходит
     // по построению и перестаёт что-либо доказывать.
     expect(getVisibleNavigation(adminSession).length).toBeGreaterThan(20);
+  });
+
+  /*
+   * MET-002: метрика «пунктов меню, видимых роли» должна считаться тестом, а не глазами
+   * в день замера. Считается на той же функции, что рисует меню, и для КАЖДОЙ роли из
+   * чертежей — иначе новая роль въезжает с меню любой длины и никто не замечает.
+   *
+   * ⚠️ Права здесь взяты полным набором. Это верно ровно для одной роли — администратора
+   * центра, которому в живой базе выданы все права (журнал 11). Для узких ролей набор
+   * меньше, а значит и меню короче: проверка «не длиннее семи» на полном наборе — это
+   * проверка худшего случая, и она строже, а не слабее. Настоящие наборы прав узких ролей
+   * живут в миграциях `iam.role_permissions`, и мерить их надо на живой базе, а не
+   * выдумывать здесь список.
+   */
+  it('MET-002: ни одной роли меню не показывает больше 7 пунктов сразу', () => {
+    const tooLong = roleBlueprints
+      .map((blueprint) => ({
+        role: blueprint.role,
+        count: getNavigationView({ ...adminSession, roles: [blueprint.role] }).main.length
+      }))
+      .filter((row) => row.count > 7)
+      .map((row) => `${row.role}: ${row.count}`);
+
+    expect(tooLong, 'меню роли длиннее бюджета §13.2').toEqual([]);
+  });
+
+  /*
+   * Обратная сторона той же метрики: «Ещё» — законный склад, но если он растёт без счёта,
+   * сокращение ИА оказывается пряткой. Число фиксируется, чтобы рост был виден на ревью.
+   */
+  it('MET-002: остаток в «Ещё» посчитан, а не оставлен без присмотра', () => {
+    const view = getNavigationView(adminSession);
+    expect(view.main.length + view.more.length).toBe(getVisibleNavigation(adminSession).length);
+    expect(
+      view.more.length,
+      'в «Ещё» стало больше пунктов, чем было при замере. Это не запрет — это повод ' +
+        'проверить, не прячется ли туда работа вместо того, чтобы попасть в блок ИА.'
+    ).toBeLessThanOrEqual(60);
   });
 
   it('GOAL-5: ни один видимый пункт не потерян — main + more покрывают всё', () => {
