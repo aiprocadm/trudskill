@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, FilterBar, ListPage, LoadingState, StatusChip } from '@trudskill/ui';
+import { FilterBar, ListPage, LoadingState, StatusChip } from '@trudskill/ui';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -8,7 +8,6 @@ import {
   PageContainer,
   PageHeader,
   SectionCard,
-  SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
 import { hasPermission } from '../../lib/rbac/permissions';
@@ -23,7 +22,7 @@ import {
   useUserSessions,
   useUsersList
 } from '../mvp/hooks';
-import { readApiMessage } from '../mvp/screen-helpers';
+import { formatDate, readApiMessage } from '../mvp/screen-helpers';
 
 import type { ReactElement } from 'react';
 
@@ -176,6 +175,15 @@ export const UsersPageScreen = () => {
   );
 };
 
+/** Строка таблицы сеансов: к полям сессии добавлены готовые к показу значения. */
+interface SessionRow {
+  id: string;
+  expiresAt: string;
+  revokedAt?: string;
+  validUntil: string;
+  stateView: string;
+}
+
 export const UserDetailsScreen = ({ id }: { id: string }) => {
   const { session } = useAuth();
   const canManageRoles = hasPermission(session?.permissions ?? [], 'iam.manage_roles');
@@ -267,38 +275,33 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
             {saveError ? <SectionError message={saveError} /> : null}
           </SectionCard>
           <SectionCard title="Сессии">
-            {sessions?.length ? (
-              <DataTable
-                columns={[
-                  { key: 'id', title: 'Сеанс' },
-                  { key: 'expiresAt', title: 'Истекает' },
-                  { key: 'revokedAt', title: 'Отозвана' }
-                ]}
-                rows={sessions}
-              />
-            ) : (
-              <SectionEmpty
-                message="Активные сессии не найдены"
-                hint="Сеанс появляется, когда человек входит в систему. Здесь его можно завершить принудительно."
-              />
-            )}
-            {canManageRoles ? (
-              <div className="ui-inline">
-                {sessions
-                  ?.filter((row) => !row.revokedAt)
-                  .map((row) => (
-                    <button
-                      key={row.id}
-                      type="button"
-                      className="ui-button ui-button--ghost"
-                      aria-label={`Отозвать сессию ${row.id}`}
-                      onClick={() => void revokeSession(row.id)}
-                    >
-                      Отозвать
-                    </button>
-                  ))}
-              </div>
-            ) : null}
+            {/*
+              GOAL-4 + CMP-001. Было три беды сразу: колонка «Сеанс» печатала машинный
+              идентификатор, даты показывались как есть, а кнопки «Отозвать» лежали
+              ОТДЕЛЬНЫМ списком под таблицей — какая кнопка какому сеансу, человек понимал
+              лишь по порядку. Действие переехало в строку, идентификатор убран: человеку
+              важно, до какого времени действует вход и завершён ли он.
+            */}
+            <ListPage<SessionRow>
+              isLoading={false}
+              rows={(sessions ?? []).map((row) => ({
+                ...row,
+                validUntil: formatDate(row.expiresAt),
+                stateView: row.revokedAt ? `Завершён ${formatDate(row.revokedAt)}` : 'Действует'
+              }))}
+              rowKey={(row) => row.id}
+              emptyMessage="Активные сессии не найдены"
+              emptyHint="Сеанс появляется, когда человек входит в систему. Здесь его можно завершить принудительно."
+              columns={[
+                { key: 'validUntil', title: 'Действует до' },
+                { key: 'stateView', title: 'Статус' }
+              ]}
+              rowActions={(row) =>
+                canManageRoles && !row.revokedAt
+                  ? [{ label: 'Завершить сеанс', onSelect: () => void revokeSession(row.id) }]
+                  : []
+              }
+            />
           </SectionCard>
         </>
       ) : null}

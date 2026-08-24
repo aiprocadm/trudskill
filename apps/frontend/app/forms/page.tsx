@@ -1,14 +1,9 @@
 'use client';
 
-import { DataTable, FilterBar } from '@trudskill/ui';
+import { FilterBar, ListPage } from '@trudskill/ui';
 import { useState } from 'react';
 
-import {
-  PageContainer,
-  PageHeader,
-  SectionCard,
-  SectionEmpty
-} from '../../src/components/state-wrappers';
+import { PageContainer, PageHeader, SectionCard } from '../../src/components/state-wrappers';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
 type SystemFormTemplate = {
@@ -75,21 +70,27 @@ export default function ModulePage() {
           </FilterBar>
         </SectionCard>
         <SectionCard title="Реестр форм">
-          {rows.length ? (
-            <DataTable
-              columns={[
-                { key: 'name', title: 'Название' },
-                { key: 'target', title: 'Назначение', render: (row) => TARGET_LABELS[row.target] },
-                { key: 'status', title: 'Статус', render: (row) => STATUS_LABELS[row.status] }
-              ]}
-              rows={rows}
-            />
-          ) : (
-            <SectionEmpty
-              message="Шаблоны форм еще не добавлены"
-              hint="Форма — анкета, которую заполняет слушатель или заказчик."
-            />
-          )}
+          {/*
+            GOAL-4: каркас списка — из дизайн-системы.
+
+            ⚠️ Раздел пока ничего не сохраняет: серверной части у системных форм нет
+            (`grep` по бэкенду не находит ни ручки, ни таблицы), список живёт в памяти
+            страницы и исчезает при перезагрузке. Экран, который выглядит рабочим и молча
+            теряет введённое, — обман; поэтому пустое состояние говорит об этом прямо.
+            Записано в журнал расхождений (запись 197).
+          */}
+          <ListPage<SystemFormTemplate>
+            isLoading={false}
+            rows={rows}
+            rowKey={(row) => row.id}
+            emptyMessage="Шаблоны форм ещё не добавлены"
+            emptyHint="Форма — анкета, которую заполняет слушатель или заказчик. Раздел готовится: добавленные здесь шаблоны пока не сохраняются на сервере и пропадут при перезагрузке страницы."
+            columns={[
+              { key: 'name', title: 'Название' },
+              { key: 'target', title: 'Назначение', render: (row) => TARGET_LABELS[row.target] },
+              { key: 'status', title: 'Статус', render: (row) => STATUS_LABELS[row.status] }
+            ]}
+          />
         </SectionCard>
       </PageContainer>
     </ProtectedPage>

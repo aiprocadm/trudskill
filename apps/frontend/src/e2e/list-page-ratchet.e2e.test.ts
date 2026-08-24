@@ -23,16 +23,12 @@ const FRONTEND = join(HERE, '..', '..');
 
 /** Реестры, ещё не переведённые на `ListPage`. Список только сокращается. */
 const PENDING = [
-  'app/crm/deals/page.tsx',
-  'app/forms/page.tsx',
   'src/features/assessment-admin/question-bank-detail-screen.tsx',
   'src/features/commissions/commissions-screens.tsx',
   'src/features/groups/groups-list-screen.tsx',
   'src/features/learners/learner-detail-screen.tsx',
   'src/features/learners/learners-list-screen.tsx',
-  'src/features/payments/screens.tsx',
-  'src/features/recertification/screens.tsx',
-  'src/features/users/users-screens.tsx'
+  'src/features/payments/screens.tsx'
 ];
 
 const collect = (dir: string, acc: string[] = []): string[] => {
@@ -81,7 +77,8 @@ describe('GOAL-4 · реестры переезжают на каркас диз
   });
 
   it('остаток виден числом и обязан убывать', () => {
-    // Волна 1 (срез 40) — 4 реестра, волна 2 (срез 41) — уведомления и SCORM-пакеты.
-    expect(PENDING.length).toBeLessThanOrEqual(10);
+    // Волны 1–3 (срезы 40–42): 4 + 2 + 4 реестра. Остаток — крупные экраны с несколькими
+    // таблицами и «эталоны» фазы 2, которым нужен отдельный разбор.
+    expect(PENDING.length).toBeLessThanOrEqual(6);
   });
 });
