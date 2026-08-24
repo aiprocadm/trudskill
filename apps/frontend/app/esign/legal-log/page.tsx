@@ -1,16 +1,12 @@
 'use client';
 
-import { DataTable, FilterBar, LoadingState } from '@trudskill/ui';
+import { ListPage } from '@trudskill/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import {
-  PageContainer,
-  PageHeader,
-  SectionCard,
-  SectionEmpty,
-  SectionError
-} from '../../../src/components/state-wrappers';
+import { PageContainer, PageHeader, SectionCard } from '../../../src/components/state-wrappers';
+import { formatDateTime } from '../../../src/features/assessment-admin/format';
 import { useAuth } from '../../../src/features/auth/context';
+import { formatEsignEvent } from '../../../src/features/esignature/labels';
 import { apiRequest } from '../../../src/lib/api/client';
 import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
 
@@ -43,7 +39,7 @@ export default function EsignLegalLogPage() {
       });
       setRows(result.items);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Ошибка загрузки legal log');
+      setError(e instanceof Error ? e.message : 'Не удалось загрузить журнал');
     } finally {
       setLoading(false);
     }
@@ -66,35 +62,44 @@ export default function EsignLegalLogPage() {
           subtitle="Журнал юридически значимых событий (только добавление)"
         />
         <SectionCard title="События">
-          <FilterBar>
-            <input
-              value={actorFilter}
-              onChange={(event) => setActorFilter(event.target.value)}
-              placeholder="Фильтр по actor"
-            />
-            <button type="button" onClick={() => void load()}>
-              Обновить
-            </button>
-          </FilterBar>
-          {loading ? <LoadingState message="Загрузка legal log..." /> : null}
-          {error ? <SectionError message={error} /> : null}
-          {!loading && !error && !filtered.length ? (
-            <SectionEmpty
-              message="События не найдены"
-              hint="Здесь хранится юридический след подписания: кто, что и когда подписал."
-            />
-          ) : null}
-          {filtered.length ? (
-            <DataTable
-              columns={[
-                { key: 'createdAt', title: 'Дата' },
-                { key: 'eventType', title: 'Событие' },
-                { key: 'actorId', title: 'Кто' },
-                { key: 'entityType', title: 'Над чем' }
-              ]}
-              rows={filtered}
-            />
-          ) : null}
+          {/*
+            GOAL-4: каркас списка — из дизайн-системы. Заодно ушли англицизмы: «Фильтр по
+            actor» и «Загрузка legal log…» человеку ничего не говорят, а коды событий вида
+            `esign.participant.signed` печатались как значение колонки.
+          */}
+          <ListPage<EsignEvent>
+            isLoading={loading}
+            error={error}
+            onRetry={() => void load()}
+            rows={filtered}
+            rowKey={(row) => row.id}
+            emptyMessage="События не найдены"
+            emptyHint="Здесь хранится юридический след подписания: кто, что и когда подписал."
+            filters={
+              <label className="ui-field">
+                <span className="ui-field-label">Кто совершил</span>
+                <input
+                  value={actorFilter}
+                  onChange={(event) => setActorFilter(event.target.value)}
+                  placeholder="Начните вводить"
+                />
+              </label>
+            }
+            columns={[
+              {
+                key: 'createdAt',
+                title: 'Когда',
+                render: (row) => (row.createdAt ? formatDateTime(row.createdAt) : '—')
+              },
+              {
+                key: 'eventType',
+                title: 'Что произошло',
+                render: (row) => formatEsignEvent(row.eventType)
+              },
+              { key: 'actorId', title: 'Кто', render: (row) => row.actorId ?? '—' },
+              { key: 'entityType', title: 'Над чем', render: (row) => row.entityType ?? '—' }
+            ]}
+          />
         </SectionCard>
       </PageContainer>
     </ProtectedPage>

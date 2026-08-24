@@ -1,16 +1,10 @@
 'use client';
 
-import { DataTable, FilterBar, LoadingState } from '@trudskill/ui';
+import { ListPage } from '@trudskill/ui';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
-import {
-  PageContainer,
-  PageHeader,
-  SectionCard,
-  SectionEmpty,
-  SectionError
-} from '../../src/components/state-wrappers';
+import { PageContainer, PageHeader, SectionCard } from '../../src/components/state-wrappers';
 import { materialTypeLabel, viewTimeLabel } from '../../src/features/courses/labels';
 import { useMaterials, useModules } from '../../src/features/mvp/hooks';
 import { VideoUploadSection } from '../../src/features/video-upload/screens';
@@ -31,55 +25,52 @@ export default function MaterialsHubPage() {
       <PageContainer>
         <PageHeader title="Учебный контент" subtitle="Модули и материалы курсов" />
         <SectionCard title="Реестр материалов">
-          <FilterBar>
-            <label className="ui-field">
-              <span className="ui-field-label">Модуль</span>
-              <select
-                className="ui-select"
-                value={moduleId}
-                onChange={(event) => setModuleId(event.target.value)}
-              >
-                <option value="">Все модули</option>
-                {(modules.data?.items ?? []).map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <Link href="/courses">Открыть карточки курсов</Link>
-          </FilterBar>
-          {loading ? <LoadingState message="Загружаем материалы…" /> : null}
-          {error ? <SectionError message={error} /> : null}
-          {!loading && !error && !data?.items.length ? (
-            <SectionEmpty
-              message="Материалы не найдены"
-              hint="Добавьте материалы в карточке курса."
-            />
-          ) : null}
-          {data?.items.length ? (
-            <DataTable
-              columns={[
-                { key: 'title', title: 'Название' },
-                {
-                  key: 'materialType',
-                  title: 'Вид',
-                  render: (row) => materialTypeLabel(row.materialType)
-                },
-                {
-                  key: 'moduleId',
-                  title: 'Модуль',
-                  render: (row) => moduleTitle.get(row.moduleId) ?? 'Модуль без названия'
-                },
-                {
-                  key: 'minViewSeconds',
-                  title: 'Минимальный просмотр',
-                  render: (row) => viewTimeLabel(row.minViewSeconds)
-                }
-              ]}
-              rows={data.items}
-            />
-          ) : null}
+          {/* GOAL-4: каркас списка — из дизайн-системы, состояния не переписываются руками. */}
+          <ListPage
+            isLoading={loading}
+            error={error}
+            rows={data?.items ?? []}
+            emptyMessage="Материалы не найдены"
+            emptyHint="Добавьте материалы в карточке курса."
+            filters={
+              <>
+                <label className="ui-field">
+                  <span className="ui-field-label">Модуль</span>
+                  <select
+                    className="ui-select"
+                    value={moduleId}
+                    onChange={(event) => setModuleId(event.target.value)}
+                  >
+                    <option value="">Все модули</option>
+                    {(modules.data?.items ?? []).map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <Link href="/courses">Открыть карточки курсов</Link>
+              </>
+            }
+            columns={[
+              { key: 'title', title: 'Название' },
+              {
+                key: 'materialType',
+                title: 'Вид',
+                render: (row) => materialTypeLabel(row.materialType)
+              },
+              {
+                key: 'moduleId',
+                title: 'Модуль',
+                render: (row) => moduleTitle.get(row.moduleId) ?? 'Модуль без названия'
+              },
+              {
+                key: 'minViewSeconds',
+                title: 'Минимальный просмотр',
+                render: (row) => viewTimeLabel(row.minViewSeconds)
+              }
+            ]}
+          />
         </SectionCard>
         <VideoUploadSection />
       </PageContainer>
