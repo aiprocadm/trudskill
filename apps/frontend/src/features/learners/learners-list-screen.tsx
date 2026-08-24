@@ -8,6 +8,7 @@ import {
   DataTable,
   FilterBar,
   Pagination,
+  SavedViews,
   SearchInput,
   StatusChip
 } from '@trudskill/ui';
@@ -17,9 +18,11 @@ import { STATUS_LABEL, formatFullName, formatSnils } from './format';
 import { useArchiveLearners, useLearnersList } from './hooks';
 import { LearnerCreateDrawer } from './learner-create-drawer';
 import { LearnerEditDrawer } from './learner-edit-drawer';
+import { LEARNER_PRESET_VIEWS, matchesQuery, readSavedViews, writeSavedViews } from './saved-views';
 import { PageContainer, PageHeader } from '../../components/state-wrappers';
 
 import type { LearnerListItem, LearnerStatus, LearnersListFilters } from './types';
+import type { SavedView } from '@trudskill/ui';
 import type { BulkOutcome, Column, RowKey } from '@trudskill/ui';
 
 const PAGE_SIZE = 20;
@@ -40,6 +43,11 @@ export function LearnersListScreen() {
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<LearnerListItem | null>(null);
   const [creating, setCreating] = useState(false);
+  /*
+    CMP-012. Свои отборы читаются один раз при первом отрисовывании: хранилище браузера
+    синхронное, и дёргать его на каждый ввод в поиске незачем.
+  */
+  const [ownViews, setOwnViews] = useState<SavedView[]>(() => readSavedViews());
   const [selected, setSelected] = useState<RowKey[]>([]);
   const [visibleColumns, setVisibleColumns] = useState<string[]>(DEFAULT_COLUMNS);
   const [confirmingArchive, setConfirmingArchive] = useState(false);
@@ -78,6 +86,10 @@ export function LearnersListScreen() {
 
   const totalPages = list.data ? Math.max(1, Math.ceil(list.data.total / PAGE_SIZE)) : 1;
   const activeFilters = (q.trim() ? 1 : 0) + (status ? 1 : 0);
+  /* Подсвечен тот отбор, чьи значения сейчас и стоят в фильтрах. */
+  const activeView = [...LEARNER_PRESET_VIEWS, ...ownViews].find((view) =>
+    matchesQuery(view, { q, status })
+  );
 
   const selectedLearners = rows.filter((row) => selected.includes(row.id));
 
@@ -106,6 +118,36 @@ export function LearnersListScreen() {
       />
 
       <div className="ui-stack">
+        {/*
+          CMP-012: быстрые отборы. Приходят с тремя готовыми — пустой список «сохранённых»
+          бесполезен: им нельзя воспользоваться, пока сам что-нибудь не сохранишь.
+        */}
+        <SavedViews
+          views={[...LEARNER_PRESET_VIEWS, ...ownViews]}
+          {...(activeView ? { activeId: activeView.id } : {})}
+          onApply={(id) => {
+            const view = [...LEARNER_PRESET_VIEWS, ...ownViews].find((item) => item.id === id);
+            if (!view) return;
+            setQ(view.query.q ?? '');
+            setStatus((view.query.status ?? '') as '' | LearnerStatus);
+            setPage(1);
+          }}
+          onSave={(label) => {
+            const view: SavedView = {
+              id: `own-${label}-${status}-${q}`,
+              label,
+              query: { q, status }
+            };
+            const next = [...ownViews.filter((item) => item.id !== view.id), view];
+            setOwnViews(next);
+            writeSavedViews(next);
+          }}
+          onDelete={(id) => {
+            const next = ownViews.filter((item) => item.id !== id);
+            setOwnViews(next);
+            writeSavedViews(next);
+          }}
+        />
         <FilterBar
           primary={
             <>
