@@ -157,11 +157,11 @@ export function TestBuilderScreen({ testId }: Props) {
             кнопки сохранения секций вторичные. */}
         <button
           type="button"
-          className="ui-button"
+          className={`ui-button ${updateTest.isPending ? 'ui-button--loading' : ''}`}
           onClick={saveMeta}
           disabled={updateTest.isPending}
         >
-          {updateTest.isPending ? 'Сохранение…' : 'Сохранить параметры'}
+          Сохранить параметры
         </button>
         {updateTest.error ? <p className="ui-field-error">{updateTest.error}</p> : null}
       </SectionCard>
@@ -238,11 +238,11 @@ export function TestBuilderScreen({ testId }: Props) {
         </div>
         <button
           type="button"
-          className="ui-button"
+          className={`ui-button ${upsertRule.isPending ? 'ui-button--loading' : ''}`}
           onClick={saveRule}
           disabled={upsertRule.isPending}
         >
-          {upsertRule.isPending ? 'Сохранение…' : 'Сохранить правила'}
+          Сохранить правила
         </button>
         {upsertRule.error ? <p className="ui-field-error">{upsertRule.error}</p> : null}
       </SectionCard>

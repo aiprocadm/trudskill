@@ -145,13 +145,14 @@ export default function AcademyRequisitesPage() {
                 onChange={(event) => setTimezone(event.target.value)}
               />
               <FormField
-                label="Локаль"
+                label="Язык интерфейса"
                 value={locale}
                 onChange={(event) => setLocale(event.target.value)}
               />
               <FormActions>
                 <Button variant="primary" type="submit" loading={saving}>
-                  {saving ? 'Сохранение...' : 'Сохранить изменения'}
+                  {/* TXT-003: занятость показывает сам компонент (loading), подпись неподвижна. */}
+                  Сохранить изменения
                 </Button>
               </FormActions>
             </Form>

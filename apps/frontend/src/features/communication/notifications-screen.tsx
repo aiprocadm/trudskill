@@ -2,19 +2,16 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  DataTable,
-  FilterBar,
+  ListPage,
   LookupSelect,
   PageContainer,
   PageHeader,
-  Pagination,
   SectionCard,
   StatusChip
 } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { communicationApi, useNotificationsList, useNotificationsRealtime } from './hooks';
-import { SectionError } from '../../components/state-wrappers';
 import { useAuth } from '../auth/context';
 import { formatDate } from '../mvp/screen-helpers';
 import { PushSettingsScreen } from '../push/screens';
@@ -109,38 +106,40 @@ export function NotificationsScreen(): ReactElement {
           : {})}
       />
       <SectionCard title="Уведомления">
-        <FilterBar>
-          <LookupSelect items={FILTERS} value={filter} onChange={setFilter} label="Показывать" />
-        </FilterBar>
-        {error ? <SectionError message={error} /> : null}
-        {!error ? (
-          <div className="ui-table-wrap">
-            <DataTable<NotificationDto>
-              columns={[
-                { key: 'subjectText', title: 'Тема' },
-                { key: 'bodyText', title: 'Текст' },
-                {
-                  key: 'status',
-                  title: 'Статус',
-                  render: (row) => <NotificationStatus status={row.status} />
-                },
-                { key: 'createdAt', title: 'Создано', render: (row) => formatDate(row.createdAt) }
-              ]}
-              rows={loading ? [] : items}
-              rowKey={(row) => row.id}
-              rowActions={(row) =>
-                row.status === 'read'
-                  ? []
-                  : [{ label: 'Отметить прочитанным', onSelect: () => void markRead(row.id) }]
-              }
-              emptyMessage={loading ? 'Загружаем уведомления…' : 'Уведомлений пока нет'}
-              {...(loading ? {} : { emptyHint: emptyHint(filter) })}
-            />
-          </div>
-        ) : null}
-        {!error && totalPages > 1 ? (
-          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
-        ) : null}
+        {/*
+          GOAL-4: каркас списка — из дизайн-системы. Заодно ушли две самоделки: внешняя
+          обёртка `ui-table-wrap` (таблица оборачивает себя сама — была двойная) и
+          состояние загрузки, изображённое пустой таблицей с подписью «Загружаем…».
+        */}
+        <ListPage<NotificationDto>
+          isLoading={loading}
+          error={error}
+          rows={items}
+          rowKey={(row) => row.id}
+          emptyMessage="Уведомлений пока нет"
+          emptyHint={emptyHint(filter)}
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          filters={
+            <LookupSelect items={FILTERS} value={filter} onChange={setFilter} label="Показывать" />
+          }
+          rowActions={(row) =>
+            row.status === 'read'
+              ? []
+              : [{ label: 'Отметить прочитанным', onSelect: () => void markRead(row.id) }]
+          }
+          columns={[
+            { key: 'subjectText', title: 'Тема' },
+            { key: 'bodyText', title: 'Текст' },
+            {
+              key: 'status',
+              title: 'Статус',
+              render: (row) => <NotificationStatus status={row.status} />
+            },
+            { key: 'createdAt', title: 'Создано', render: (row) => formatDate(row.createdAt) }
+          ]}
+        />
       </SectionCard>
       <PushSettingsScreen />
     </PageContainer>

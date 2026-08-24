@@ -118,11 +118,12 @@ export function TestQuestionPicker({ testId, defaultBankId, onClose, onAdded }: 
           </button>
           <button
             type="button"
-            className="ui-button-primary"
+            className={`ui-button-primary ${add.isPending ? 'ui-button--loading' : ''}`}
             onClick={submit}
             disabled={add.isPending || selected.size === 0}
           >
-            {add.isPending ? 'Добавление…' : `Добавить ${selected.size}`}
+            {/* TXT-003: подпись не меняется по ходу — меняется только число выбранных. */}
+            {`Добавить вопросы (${selected.size})`}
           </button>
         </div>
       </div>

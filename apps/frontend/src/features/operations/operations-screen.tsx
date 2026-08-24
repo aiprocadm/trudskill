@@ -149,11 +149,11 @@ export function OperationsScreen(): ReactElement {
                     task.status === 'failed' ? (
                       <button
                         type="button"
-                        className="ui-button"
+                        className={`ui-button ${actions.busyId === task.id ? 'ui-button--loading' : ''}`}
                         disabled={actions.busyId === task.id}
                         onClick={() => void actions.retryTask(task.id)}
                       >
-                        {actions.busyId === task.id ? 'Повторяем…' : 'Повторить'}
+                        Повторить
                       </button>
                     ) : (
                       // «Повторить» есть только у упавших: перезапуск идущей задачи
@@ -202,11 +202,11 @@ export function OperationsScreen(): ReactElement {
                       {job.replayable ? (
                         <button
                           type="button"
-                          className="ui-button"
+                          className={`ui-button ${actions.busyId === job.id ? 'ui-button--loading' : ''}`}
                           disabled={actions.busyId === job.id}
                           onClick={() => void actions.republish(job.id)}
                         >
-                          {actions.busyId === job.id ? 'Отправляем…' : 'Вернуть в работу'}
+                          Вернуть в работу
                         </button>
                       ) : (
                         // Тело сообщения не разбирается — отправлять его снова бессмысленно,
@@ -258,11 +258,11 @@ export function OperationsScreen(): ReactElement {
                   actionsView: mail.body ? (
                     <button
                       type="button"
-                      className="ui-button"
+                      className={`ui-button ${actions.busyId === mail.id ? 'ui-button--loading' : ''}`}
                       disabled={actions.busyId === mail.id}
                       onClick={() => void actions.resendEmail(mail.id)}
                     >
-                      {actions.busyId === mail.id ? 'Отправляем…' : 'Отправить повторно'}
+                      Отправить повторно
                     </button>
                   ) : (
                     // Письма, отправленные до обновления, хранятся без тела: повторить их

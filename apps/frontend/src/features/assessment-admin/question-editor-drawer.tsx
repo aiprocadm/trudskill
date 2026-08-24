@@ -120,8 +120,11 @@ export function QuestionEditorDrawer({ bankId, question, onClose, onSaved }: Pro
   };
 
   return (
-    <DetailDrawer open onClose={onClose} title={isEditing ? 'Редактирование вопроса' : 'Создание вопроса'}>
-
+    <DetailDrawer
+      open
+      onClose={onClose}
+      title={isEditing ? 'Редактирование вопроса' : 'Создание вопроса'}
+    >
       <form className="ui-form" onSubmit={submit}>
         <label className="ui-field">
           <span>Тип вопроса</span>
@@ -274,8 +277,12 @@ export function QuestionEditorDrawer({ bankId, question, onClose, onSaved }: Pro
           <button type="button" className="ui-button" onClick={onClose} disabled={isPending}>
             Отмена
           </button>
-          <button type="submit" className="ui-button-primary" disabled={isPending || !title.trim()}>
-            {isPending ? 'Сохранение…' : 'Сохранить'}
+          <button
+            type="submit"
+            className={`ui-button-primary ${isPending ? 'ui-button--loading' : ''}`}
+            disabled={isPending || !title.trim()}
+          >
+            Сохранить вопрос
           </button>
         </div>
       </form>

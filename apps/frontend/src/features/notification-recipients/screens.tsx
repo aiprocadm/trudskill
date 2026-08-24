@@ -100,11 +100,11 @@ export function NotificationRecipientsSection(): ReactElement {
           <div>
             <button
               type="button"
-              className="ui-button ui-button--primary"
+              className={`ui-button ui-button--primary ${savePending ? 'ui-button--loading' : ''}`}
               disabled={savePending || hasInvalid}
               onClick={() => void onSave()}
             >
-              {savePending ? 'Сохраняем…' : 'Сохранить'}
+              Сохранить получателей
             </button>
           </div>
         </div>

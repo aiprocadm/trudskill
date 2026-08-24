@@ -185,10 +185,10 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
           </button>
           <button
             type="submit"
-            className="ui-button ui-button--primary"
+            className={`ui-button ui-button--primary ${mutation.isPending ? 'ui-button--loading' : ''}`}
             disabled={mutation.isPending}
           >
-            {mutation.isPending ? 'Сохранение…' : 'Сохранить'}
+            Сохранить слушателя
           </button>
         </div>
       </form>

@@ -195,7 +195,7 @@ export function LearnerIdentityScreen(): ReactElement {
 
             <button
               type="button"
-              className="ui-button ui-button--primary"
+              className={`ui-button ui-button--primary ${submission.isPending ? 'ui-button--loading' : ''}`}
               disabled={
                 !selfie ||
                 !passport ||
@@ -205,7 +205,7 @@ export function LearnerIdentityScreen(): ReactElement {
               }
               onClick={() => void onSubmit()}
             >
-              {submission.isPending ? 'Отправка…' : 'Отправить на проверку'}
+              Отправить на проверку
             </button>
             {frontendEnv.NEXT_PUBLIC_ESIA_ENABLED && (
               <button
