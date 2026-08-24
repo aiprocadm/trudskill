@@ -23,6 +23,42 @@ export function useLearnersList(
   });
 }
 
+/** Состояние заведения слушателя: тот же приём, что у правки профиля (useState + await). */
+export interface CreateLearnerState {
+  isPending: boolean;
+  error: string | null;
+}
+
+export function useCreateLearner() {
+  const { session } = useAuth();
+  const [state, setState] = useState<CreateLearnerState>({ isPending: false, error: null });
+
+  const mutate = async (payload: { name: string; code: string; organizationUnitId?: string }) => {
+    if (!session) return null;
+    setState({ isPending: true, error: null });
+    try {
+      const created = await learnersApi.create(session, payload);
+      setState({ isPending: false, error: null });
+      return created;
+    } catch (error) {
+      /*
+       * Ответ 409 приходит, когда исчерпан лимит слушателей по тарифу (ФТ-D4.2). Общее
+       * «Ошибка 409» человеку ничего не говорит, поэтому причина названа словами.
+       */
+      const message =
+        error instanceof ApiClientError && error.normalized.status === 409
+          ? 'Достигнут предел числа слушателей по вашему тарифу. Закройте старые группы или обратитесь к администратору платформы.'
+          : error instanceof Error
+            ? error.message
+            : 'Не удалось завести слушателя';
+      setState({ isPending: false, error: message });
+      return null;
+    }
+  };
+
+  return { ...state, mutate };
+}
+
 export interface UpdateLearnerProfileState {
   isPending: boolean;
   error: string | null;

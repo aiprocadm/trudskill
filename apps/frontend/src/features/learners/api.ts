@@ -31,6 +31,27 @@ export const learnersApi = {
     });
   },
 
+  /**
+   * Заведение слушателя поштучно.
+   *
+   * До среза 44 такого пути в интерфейсе не было вовсе: единственным способом добавить
+   * человека оставался массовый импорт Excel — даже когда человек один. Ручка на сервере
+   * при этом существовала (`POST /learners`, право `learners.write`).
+   *
+   * `name` уходит одной строкой «Фамилия Имя Отчество»: сервер разбирает её тем же
+   * разбором, что и массовый импорт (`parseFullName`), поэтому карточка получается
+   * одинаковой независимо от пути ввода.
+   */
+  create: (
+    session: UserSession,
+    payload: { name: string; code: string; organizationUnitId?: string }
+  ): Promise<LearnerListItem> =>
+    apiRequest<LearnerListItem>('/learners', {
+      method: 'POST',
+      body: payload,
+      ...withAuth(session)
+    }),
+
   updateProfile: (
     session: UserSession,
     learnerId: string,

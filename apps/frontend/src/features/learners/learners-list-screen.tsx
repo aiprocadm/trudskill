@@ -15,6 +15,7 @@ import { useMemo, useState } from 'react';
 
 import { STATUS_LABEL, formatFullName, formatSnils } from './format';
 import { useArchiveLearners, useLearnersList } from './hooks';
+import { LearnerCreateDrawer } from './learner-create-drawer';
 import { LearnerEditDrawer } from './learner-edit-drawer';
 import { PageContainer, PageHeader } from '../../components/state-wrappers';
 
@@ -38,6 +39,7 @@ export function LearnersListScreen() {
   const [status, setStatus] = useState<'' | LearnerStatus>('');
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<LearnerListItem | null>(null);
+  const [creating, setCreating] = useState(false);
   const [selected, setSelected] = useState<RowKey[]>([]);
   const [visibleColumns, setVisibleColumns] = useState<string[]>(DEFAULT_COLUMNS);
   const [confirmingArchive, setConfirmingArchive] = useState(false);
@@ -92,6 +94,15 @@ export function LearnersListScreen() {
       <PageHeader
         title="Слушатели"
         subtitle="Реестр слушателей: поиск, массовые операции и правка карточки без ухода со списка."
+        /*
+          UI-007. Первичного действия у эталонного реестра не было вовсе: экран не отвечал
+          на вопрос «как завести человека», и единственным путём оставался массовый импорт
+          Excel — даже когда человек один (журнал 200). Пока панель открыта, действие
+          шапки не показывается: оно уже нажато.
+        */
+        {...(creating
+          ? {}
+          : { primaryAction: { label: 'Завести слушателя', onSelect: () => setCreating(true) } })}
       />
 
       <div className="ui-stack">
@@ -180,6 +191,16 @@ export function LearnersListScreen() {
           confirmLabel="Архивировать"
           onConfirm={() => void runArchive()}
           onCancel={() => setConfirmingArchive(false)}
+        />
+      ) : null}
+
+      {creating ? (
+        <LearnerCreateDrawer
+          onClose={() => setCreating(false)}
+          onCreated={() => {
+            setCreating(false);
+            void list.refetch();
+          }}
         />
       ) : null}
 

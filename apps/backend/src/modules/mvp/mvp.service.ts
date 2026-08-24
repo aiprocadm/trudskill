@@ -25,6 +25,7 @@ import { ENROLLMENT_COMPLETED_EVENT } from './enrollment-completed.event.js';
 import { ENROLLMENT_INVITED_EVENT } from './enrollment-invited.event.js';
 import { learnerRecipient } from './enrollment-recipient.js';
 import { type ExamReadinessReport, buildExamReadiness } from './exam-readiness.js';
+import { parseFullName } from './fio.js';
 import {
   summarizeCounterpartyProgress,
   summarizeGroupProgress
@@ -784,13 +785,24 @@ export class MvpService {
     request: CreateSimpleRegistryRequest,
     context: RequestContext
   ): Learner {
-    const [firstName, lastName] = request.name.split(' ');
+    /*
+     * ⚠️ Дефект логики, найденный при подключении формы «Добавить слушателя» (срез 44).
+     * Здесь стоял наивный `request.name.split(' ')`, и «Иванов Иван Иванович» превращался
+     * в имя «Иванов», фамилию «Иван», а отчество терялось совсем. Дальше это ФИО едет в
+     * удостоверение и протокол, то есть в документ с юридической силой.
+     *
+     * Разбор берётся у массового импорта (`parseFullName`): русская запись — «Фамилия Имя
+     * [Отчество]». Один разбор на оба пути ввода — иначе один и тот же человек, заведённый
+     * руками и импортом, получает разные карточки.
+     */
+    const parsed = parseFullName(request.name);
     const entity: Learner = {
       id: this.id('learner'),
       tenantId,
       learnerNo: request.code,
-      firstName: firstName ?? request.name,
-      lastName: lastName ?? '',
+      firstName: parsed.firstName || request.name,
+      lastName: parsed.lastName,
+      ...(parsed.middleName ? { middleName: parsed.middleName } : {}),
       email: undefined,
       organizationUnitId: request.organizationUnitId?.trim() || undefined,
       linkedIamUserId: request.linkedIamUserId?.trim() || undefined,
