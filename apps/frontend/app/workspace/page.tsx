@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { AttentionWidget, DataTable, StatCard } from '@trudskill/ui';
+import { AttentionWidget, BelowFold, DataTable, StatCard } from '@trudskill/ui';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
@@ -159,123 +159,132 @@ export default function WorkspacePage() {
           />
         </SectionCard>
 
-        {/* Зона 3 — ниже сгиба: подробности для тех, кому нужен полный список. */}
-        {journey ? (
-          <SectionCard title={`Сценарий роли: ${journey.title}`}>
-            <p className="ui-prose-muted ui-prose-muted--tight">{journey.description}</p>
-            <div className="ui-stack">
-              {journey.steps.slice(0, 3).map((step) => (
-                <Link
-                  key={step.id}
-                  href={step.href}
-                  onClick={() =>
-                    recordJourneyStep(
-                      role?.role ?? 'learner',
-                      'workspace_flow',
-                      step.metricStep,
-                      'success'
-                    )
-                  }
-                >
-                  {step.label}
-                </Link>
-              ))}
-            </div>
-          </SectionCard>
-        ) : null}
+        {/*
+          Зона 3 — ниже сгиба: подробности для тех, кому нужен полный список.
+          Граница вынесена в `BelowFold`, а не в комментарий: `GOAL-3` требует, чтобы на
+          первом экране было не больше трёх блоков, и это должно проверяться сторожем,
+          а не памятью того, кто правит файл следующим.
+        */}
+        <BelowFold>
+          {journey ? (
+            <SectionCard title={`Сценарий роли: ${journey.title}`}>
+              <p className="ui-prose-muted ui-prose-muted--tight">{journey.description}</p>
+              <div className="ui-stack">
+                {journey.steps.slice(0, 3).map((step) => (
+                  <Link
+                    key={step.id}
+                    href={step.href}
+                    onClick={() =>
+                      recordJourneyStep(
+                        role?.role ?? 'learner',
+                        'workspace_flow',
+                        step.metricStep,
+                        'success'
+                      )
+                    }
+                  >
+                    {step.label}
+                  </Link>
+                ))}
+              </div>
+            </SectionCard>
+          ) : null}
 
-        <SectionCard title="Следующие действия">
-          {workspace.data?.summary.nextActions.length ? (
+          <SectionCard title="Следующие действия">
+            {workspace.data?.summary.nextActions.length ? (
+              <DataTable
+                // IA-016.1: колонки «Маршрут» больше нет — адрес страницы это не данные.
+                // Название ведёт туда же, куда вёл сырой URL.
+                columns={[
+                  {
+                    key: 'title',
+                    title: 'Задача',
+                    render: (row) => <Link href={row.route}>{row.title}</Link>
+                  }
+                ]}
+                rows={workspace.data.summary.nextActions}
+                emptyMessage="Подсказок пока нет"
+                emptyHint="Подсказки появляются, когда системе есть что предложить: незакрытая группа, невыданные документы, истекающие сроки."
+              />
+            ) : (
+              <SectionEmpty
+                message="Подсказок пока нет"
+                hint="Система предложит следующий шаг, когда в работе появятся группы и зачисления."
+              />
+            )}
+          </SectionCard>
+
+          <SectionCard title="Задачи">
+            <div className="ui-inline">
+              <select
+                className="ui-select"
+                value={taskStatus}
+                onChange={(event) => setTaskStatus(event.target.value as typeof taskStatus)}
+                aria-label="Статус задачи"
+              >
+                <option value="all">Все статусы</option>
+                <option value="open">Открыта</option>
+                <option value="in_progress">В работе</option>
+                <option value="overdue">Просрочена</option>
+              </select>
+            </div>
             <DataTable
-              // IA-016.1: колонки «Маршрут» больше нет — адрес страницы это не данные.
-              // Название ведёт туда же, куда вёл сырой URL.
               columns={[
                 {
                   key: 'title',
                   title: 'Задача',
                   render: (row) => <Link href={row.route}>{row.title}</Link>
+                },
+                { key: 'status', title: 'Статус', render: (row) => TASK_STATUS_LABEL[row.status] },
+                { key: 'dueAt', title: 'Срок', render: (row) => formatDate(row.dueAt) }
+              ]}
+              rows={filteredTasks}
+              emptyMessage="По этому фильтру задач нет"
+              emptyHint="Снимите часть условий отбора или загляните позже — задачи появляются по ходу обучения."
+            />
+          </SectionCard>
+
+          <SectionCard title="Блокеры">
+            <div className="ui-inline">
+              <select
+                className="ui-select"
+                value={blockerSeverity}
+                onChange={(event) =>
+                  setBlockerSeverity(event.target.value as typeof blockerSeverity)
+                }
+                aria-label="Критичность блокера"
+              >
+                {/* TXT-001/TXT-006: было «Все severity» — англицизм в значении фильтра. */}
+                <option value="all">Любая критичность</option>
+                <option value="low">Низкая</option>
+                <option value="medium">Средняя</option>
+                <option value="high">Высокая</option>
+              </select>
+            </div>
+            <DataTable
+              columns={[
+                {
+                  key: 'title',
+                  title: 'Блокер',
+                  render: (row) => <Link href={row.route}>{row.title}</Link>
+                },
+                {
+                  key: 'severity',
+                  title: 'Критичность',
+                  render: (row) => SEVERITY_LABEL[row.severity]
                 }
               ]}
-              rows={workspace.data.summary.nextActions}
-              emptyMessage="Подсказок пока нет"
-              emptyHint="Подсказки появляются, когда системе есть что предложить: незакрытая группа, невыданные документы, истекающие сроки."
+              rows={filteredBlockers}
+              emptyMessage="По этому фильтру блокеров нет"
+              emptyHint="Блокер — то, что мешает группе идти дальше: нет комиссии, не хватает документов, не назначен экзамен."
             />
-          ) : (
-            <SectionEmpty
-              message="Подсказок пока нет"
-              hint="Система предложит следующий шаг, когда в работе появятся группы и зачисления."
-            />
-          )}
-        </SectionCard>
+          </SectionCard>
 
-        <SectionCard title="Задачи">
-          <div className="ui-inline">
-            <select
-              className="ui-select"
-              value={taskStatus}
-              onChange={(event) => setTaskStatus(event.target.value as typeof taskStatus)}
-              aria-label="Статус задачи"
-            >
-              <option value="all">Все статусы</option>
-              <option value="open">Открыта</option>
-              <option value="in_progress">В работе</option>
-              <option value="overdue">Просрочена</option>
-            </select>
-          </div>
-          <DataTable
-            columns={[
-              {
-                key: 'title',
-                title: 'Задача',
-                render: (row) => <Link href={row.route}>{row.title}</Link>
-              },
-              { key: 'status', title: 'Статус', render: (row) => TASK_STATUS_LABEL[row.status] },
-              { key: 'dueAt', title: 'Срок', render: (row) => formatDate(row.dueAt) }
-            ]}
-            rows={filteredTasks}
-            emptyMessage="По этому фильтру задач нет"
-            emptyHint="Снимите часть условий отбора или загляните позже — задачи появляются по ходу обучения."
-          />
-        </SectionCard>
-
-        <SectionCard title="Блокеры">
-          <div className="ui-inline">
-            <select
-              className="ui-select"
-              value={blockerSeverity}
-              onChange={(event) => setBlockerSeverity(event.target.value as typeof blockerSeverity)}
-              aria-label="Критичность блокера"
-            >
-              {/* TXT-001/TXT-006: было «Все severity» — англицизм в значении фильтра. */}
-              <option value="all">Любая критичность</option>
-              <option value="low">Низкая</option>
-              <option value="medium">Средняя</option>
-              <option value="high">Высокая</option>
-            </select>
-          </div>
-          <DataTable
-            columns={[
-              {
-                key: 'title',
-                title: 'Блокер',
-                render: (row) => <Link href={row.route}>{row.title}</Link>
-              },
-              {
-                key: 'severity',
-                title: 'Критичность',
-                render: (row) => SEVERITY_LABEL[row.severity]
-              }
-            ]}
-            rows={filteredBlockers}
-            emptyMessage="По этому фильтру блокеров нет"
-            emptyHint="Блокер — то, что мешает группе идти дальше: нет комиссии, не хватает документов, не назначен экзамен."
-          />
-        </SectionCard>
-
-        {/* IA-016.3: виджеты бывшей «Панели администратора» — сессии, очередь, интеграции,
+          {/* IA-016.3: виджеты бывшей «Панели администратора» — сессии, очередь, интеграции,
             состояние аудита. Экран `/admin/cockpit` отвечал на тот же вопрос «что сейчас
             происходит», поэтому его адрес стал редиректом, а содержимое живёт здесь. */}
-        <AdminCockpitWidgets />
+          <AdminCockpitWidgets />
+        </BelowFold>
       </PageContainer>
     </ProtectedPage>
   );
