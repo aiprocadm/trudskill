@@ -99,6 +99,17 @@ legend { font-size: var(--ui-font-size-sm); font-weight: var(--ui-font-weight-se
 .ui-list-row-meta { font-size: var(--ui-font-size-sm); color: var(--ui-text-muted); margin-top: 4px; }
 .ui-stepper { display: flex; gap: 8px; flex-wrap: wrap; margin: 0; padding: 0; list-style: none; }
 .ui-step { border: 1px solid var(--ui-border); border-radius: var(--ui-radius-pill); padding: 4px 12px; font-size: var(--ui-font-size-xs); color: var(--ui-text-muted); background: var(--ui-surface-muted); }
+/* CMP-012: быстрые отборы списка. Вид — «таблетка», как у шагов мастера: это не кнопка
+   действия, а переключатель среза, и соревноваться с первичной кнопкой ему нельзя. */
+.ui-saved-views { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ui-space-xs); }
+.ui-saved-views__label { font-size: var(--ui-font-size-sm); color: var(--ui-text-muted); }
+.ui-saved-views__item { display: inline-flex; align-items: center; gap: 2px; }
+.ui-saved-views__input { max-width: 220px; }
+.ui-chip { border: 1px solid var(--ui-border); border-radius: var(--ui-radius-pill); padding: 6px 14px; min-height: 32px; font-size: var(--ui-font-size-sm); color: var(--ui-text); background: var(--ui-surface); cursor: pointer; }
+.ui-chip:hover { background: var(--ui-surface-muted); }
+.ui-chip--active { border-color: var(--ui-brand-600); color: var(--ui-brand-600); font-weight: var(--ui-font-weight-semibold); }
+.ui-saved-views__remove { border: none; background: none; color: var(--ui-text-muted); cursor: pointer; font-size: var(--ui-font-size-md); line-height: 1; padding: 4px 6px; border-radius: var(--ui-radius-sm); }
+.ui-saved-views__remove:hover { color: var(--ui-danger-600); background: var(--ui-surface-muted); }
 .ui-step--active { color: #fff; border-color: var(--ui-brand-600); background: var(--ui-brand-600); }
 .ui-step--done { color: #fff; border-color: var(--ui-success-600); background: var(--ui-success-600); }
 /* TPL-004: шаг — кнопка (доступен с клавиатуры), но выглядит как текст внутри пилюли. */
@@ -111,6 +122,9 @@ legend { font-size: var(--ui-font-size-sm); font-weight: var(--ui-font-weight-se
 @media (max-width: 480px) {
   .ui-stepper { display: none; }
   .ui-stepper__counter { display: block; }
+  /* ФТ-H4: на телефоне «таблетка» отбора и крестик — полноценная тач-зона 44px. */
+  .ui-chip { min-height: 44px; }
+  .ui-saved-views__remove { min-width: 44px; min-height: 44px; }
 }
 
 /* Плашки-уведомления (info/warning/success/danger) — единый тематический паттерн */
