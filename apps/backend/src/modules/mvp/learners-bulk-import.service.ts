@@ -1,7 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
 
+import { parseFullName } from './fio.js';
 import { MvpService } from './mvp.service.js';
 import { isValidSnilsChecksum, normalizeSnils } from './snils.util.js';
+
+/**
+ * Разбор ФИО живёт в `./fio.js`: его понадобилось звать и ручному созданию слушателя, а
+ * импортировать ЭТОТ файл из `MvpService` нельзя — здесь сам `MvpService` и есть
+ * зависимость, вышел бы круг. Реэкспорт оставлен, чтобы не трогать места вызова и тесты.
+ */
+export { parseFullName };
 
 import type { BulkImportLearnersRequest } from './learners-bulk-import.dto.js';
 import type {
@@ -167,23 +175,6 @@ export function classifyRows(
   }
 
   return result;
-}
-
-/** Парсит «Фамилия Имя [Отчество]» в части. Возвращает безопасные fallback'и для коротких имён. */
-export function parseFullName(fullName: string): {
-  firstName: string;
-  lastName: string;
-  middleName?: string;
-} {
-  const parts = fullName.trim().split(/\s+/);
-  if (parts.length === 1) return { lastName: '', firstName: parts[0]! };
-  if (parts.length === 2) return { lastName: parts[0]!, firstName: parts[1]! };
-  const [lastName, firstName, ...middleParts] = parts;
-  return {
-    lastName: lastName!,
-    firstName: firstName!,
-    middleName: middleParts.join(' ')
-  };
 }
 
 /**

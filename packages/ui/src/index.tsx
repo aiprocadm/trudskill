@@ -22,6 +22,7 @@ export * from './components/select/index.js';
 export * from './components/date-range/index.js';
 export * from './components/async-status/index.js';
 export * from './components/permission/index.js';
+export * from './components/preview-notice/index.js';
 export * from './components/icon/index.js';
 export * from './components/button/index.js';
 export * from './components/skeleton/index.js';

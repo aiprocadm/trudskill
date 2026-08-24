@@ -1,6 +1,6 @@
 'use client';
 
-import { FilterBar, ListPage, LoadingState } from '@trudskill/ui';
+import { FilterBar, ListPage, LoadingState, PreviewNotice } from '@trudskill/ui';
 import { useMemo, useState } from 'react';
 
 import {
@@ -109,6 +109,15 @@ export default function CrmDealsPage() {
             В работе: {stats.inProgress} · Успешно: {stats.won}
           </p>
         </SectionCard>
+        {/*
+          Сделки складываются в память страницы: серверной части у раздела нет, и при
+          перезагрузке список пуст. Раздел скрыт из меню как заглушка, но по прямой ссылке
+          на него заходят — значит он обязан сказать о себе сам (срез 44).
+        */}
+        <PreviewNotice
+          what="Сделки"
+          instead="Договорённости с компаниями сейчас ведутся в разделе «Заказчики»."
+        />
         <SectionCard title="Реестр сделок">
           {/*
             GOAL-4: каркас списка — из дизайн-системы.

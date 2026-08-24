@@ -1,7 +1,6 @@
 'use client';
 
-import { FilterBar, ListPage } from '@trudskill/ui';
-import { useState } from 'react';
+import { ListPage, PreviewNotice } from '@trudskill/ui';
 
 import { PageContainer, PageHeader, SectionCard } from '../../src/components/state-wrappers';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
@@ -24,18 +23,8 @@ const STATUS_LABELS: Record<SystemFormTemplate['status'], string> = {
 };
 
 export default function ModulePage() {
-  const [name, setName] = useState('');
-  const [target, setTarget] = useState<SystemFormTemplate['target']>('learner');
-  const [rows, setRows] = useState<SystemFormTemplate[]>([]);
-
-  const addTemplate = () => {
-    if (!name.trim()) return;
-    setRows((curr) => [
-      { id: `form_${Date.now()}`, name: name.trim(), target, status: 'draft' },
-      ...curr
-    ]);
-    setName('');
-  };
+  /* Пока серверной части нет, список всегда пуст — но экран показывает, чем он станет. */
+  const rows: SystemFormTemplate[] = [];
 
   return (
     <ProtectedPage>
@@ -44,31 +33,16 @@ export default function ModulePage() {
           title="Системные формы"
           subtitle="Анкеты, которые заполняют слушатели и заказчики обучения"
         />
-        <SectionCard title="Новый шаблон формы">
-          <FilterBar>
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Название формы"
-            />
-            <select
-              value={target}
-              onChange={(event) => setTarget(event.target.value as typeof target)}
-            >
-              <option value="learner">Слушатель</option>
-              <option value="group">Группа</option>
-              <option value="counterparty">Контрагент</option>
-            </select>
-            <button
-              type="button"
-              className="ui-button ui-button--primary"
-              onClick={addTemplate}
-              disabled={!name.trim()}
-            >
-              Добавить шаблон
-            </button>
-          </FilterBar>
-        </SectionCard>
+        {/*
+          Форма добавления убрана намеренно (срез 44). Она складывала шаблон в память
+          страницы: человек заполнял поля, видел строку в таблице и уходил, считая работу
+          сделанной, — а при следующем открытии не находил ничего. Ввод, который заведомо
+          пропадёт, хуже отсутствующего ввода. Вернётся вместе с серверной частью.
+        */}
+        <PreviewNotice
+          what="Шаблоны системных форм"
+          instead="Анкеты для слушателей пока собираются в разделе «Документы» через шаблоны документов."
+        />
         <SectionCard title="Реестр форм">
           {/*
             GOAL-4: каркас списка — из дизайн-системы.
