@@ -120,7 +120,14 @@ export const CommissionsPageScreen = () => {
       <PageHeader
         title="Аттестационные комиссии"
         subtitle="Состав, который подписывает протоколы и удостоверения слушателей"
-        primaryAction={{ label: 'Создать комиссию', onSelect: () => setCreating(true) }}
+        /*
+          UI-007: пока форма создания открыта, первичного действия у шапки нет. Иначе на
+          экране две первичные кнопки: уже нажатая «Создать комиссию» и «Сохранить» в форме —
+          и первая продолжает звать туда, где человек уже находится.
+        */
+        {...(creating
+          ? {}
+          : { primaryAction: { label: 'Создать комиссию', onSelect: () => setCreating(true) } })}
       />
 
       <ListPage<CommissionRow>

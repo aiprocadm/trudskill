@@ -286,7 +286,10 @@ export function OrdersScreen(): ReactElement {
         title="Заказы"
         subtitle="Счета за обучение: кто платит, за кого и сколько"
         /* TXT-003: кнопка называется одинаково всегда, а не «Скрыть форму» через раз. */
-        primaryAction={{ label: 'Создать заказ', onSelect: () => setShowForm(true) }}
+        /* UI-007: открытая форма забирает первичное действие себе. */
+        {...(showForm
+          ? {}
+          : { primaryAction: { label: 'Создать заказ', onSelect: () => setShowForm(true) } })}
       />
 
       {notice ? <p className="ui-callout ui-callout--success">{notice}</p> : null}
@@ -453,10 +456,11 @@ export function OrdersScreen(): ReactElement {
               </button>
               <button
                 type="submit"
-                className="ui-button--primary"
+                className={`ui-button--primary ${createPending ? 'ui-button--loading' : ''}`}
                 disabled={createPending || !canSubmit}
               >
-                {createPending ? 'Создаём…' : 'Создать заказ'}
+                {/* TXT-003: подпись не меняется по ходу — занятость показывает класс загрузки. */}
+                Создать заказ
               </button>
             </FormActions>
           </Form>
