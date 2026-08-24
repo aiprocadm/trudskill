@@ -102,7 +102,7 @@ export function LearnerDocumentsList({
             {...(d.isDownloadable || onDownload ? {} : { title: downloadStubMessage })}
             onClick={() => handleDownloadClick(d, onDownload)}
           >
-            Скачать
+            Скачать документ
           </button>
           {d.qrToken ? (
             <a

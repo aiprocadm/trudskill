@@ -100,7 +100,7 @@ export function PaymentProviderSettingsSection() {
               Включён
             </label>
             <button type="button" className="ui-button" disabled={saving} onClick={save}>
-              Сохранить
+              Сохранить настройки оплаты
             </button>
           </div>
         </>

@@ -266,9 +266,8 @@ export function TestBuilderScreen({ testId }: Props) {
                   type="button"
                   className="ui-button-ghost"
                   onClick={() => void onRemoveQuestion(tq.questionId)}
-                  aria-label={`Удалить вопрос ${tq.questionId}`}
                 >
-                  Удалить
+                  Удалить вопрос
                 </button>
               </li>
             ))}

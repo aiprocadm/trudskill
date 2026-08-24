@@ -101,7 +101,7 @@ export default function ChatPage() {
                 style={{ flex: '1 1 200px', minWidth: 0 }}
               />
               <button type="submit" className="ui-button ui-button--primary">
-                Отправить
+                Отправить сообщение
               </button>
             </form>
           </section>

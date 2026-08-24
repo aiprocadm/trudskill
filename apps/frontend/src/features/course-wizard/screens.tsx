@@ -460,12 +460,18 @@ export function CourseWizardScreen() {
             Назад
           </button>
           {step === 'review' ? (
-            <button type="button" onClick={() => void create()} disabled={busy}>
-              {busy ? 'Создаём…' : 'Создать курс'}
+            <button
+              type="button"
+              className={busy ? 'ui-button--loading' : ''}
+              onClick={() => void create()}
+              disabled={busy}
+            >
+              {/* TXT-003: подпись неподвижна, занятость показывает крутилка. */}
+              Создать курс
             </button>
           ) : (
             <button type="button" onClick={goNext}>
-              Далее
+              {`Далее: ${STEP_TITLES[nextStep(step, draft)].toLowerCase()}`}
             </button>
           )}
         </div>

@@ -71,7 +71,7 @@ export const GroupsPageScreen = () => {
             ]}
             rows={data?.items ?? []}
             rowActions={(row) => [
-              { label: 'Открыть', onSelect: () => router.push(`/groups/${row.id}`) }
+              { label: 'Открыть группу', onSelect: () => router.push(`/groups/${row.id}`) }
             ]}
           />
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

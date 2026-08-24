@@ -390,7 +390,7 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
               setCurrentIndex((i) => Math.min(questions.length - 1, i + 1));
             }}
           >
-            Далее
+            Следующий вопрос
           </button>
         )}
       </div>

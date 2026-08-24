@@ -658,24 +658,33 @@ const DocumentSetSection = ({
               />{' '}
               Авто-выпуск
             </label>
+            {/*
+              Стрелка без подписи требует догадки, а незрячему читается как «стрелка вверх»
+              (прецедент — журнал 86). Значок оставлен глазу, смысл — в подписи для
+              вспомогательных технологий.
+            */}
             <button
               type="button"
               className="ui-button-link"
               onClick={() => move(idx, -1)}
               disabled={idx === 0}
+              aria-label="Поднять выше в программе"
+              title="Поднять выше в программе"
             >
-              ↑
+              <span aria-hidden="true">↑</span>
             </button>
             <button
               type="button"
               className="ui-button-link"
               onClick={() => move(idx, 1)}
               disabled={idx === draft.length - 1}
+              aria-label="Опустить ниже в программе"
+              title="Опустить ниже в программе"
             >
-              ↓
+              <span aria-hidden="true">↓</span>
             </button>
             <button type="button" className="ui-button-link" onClick={() => removeEntry(idx)}>
-              Удалить
+              Удалить из программы
             </button>
           </div>
         );
