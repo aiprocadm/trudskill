@@ -1,13 +1,12 @@
 'use client';
 
-import { DataTable, FilterBar, LoadingState } from '@trudskill/ui';
+import { FilterBar, ListPage, LoadingState } from '@trudskill/ui';
 import { useMemo, useState } from 'react';
 
 import {
   PageContainer,
   PageHeader,
   SectionCard,
-  SectionEmpty,
   SectionError
 } from '../../../src/components/state-wrappers';
 import { useCounterpartiesList, useGroupsList } from '../../../src/features/mvp/hooks';
@@ -111,46 +110,34 @@ export default function CrmDealsPage() {
           </p>
         </SectionCard>
         <SectionCard title="Реестр сделок">
-          {deals.length ? (
-            <>
-              {/*
-                Кнопки стадий лежали ОТДЕЛЬНЫМ списком под таблицей и не называли сделку —
-                только стадию. Понять, какая строка чья, можно было лишь по порядку: одна
-                оплошность и переведена чужая сделка. Действия переехали в строку.
-              */}
-              <DataTable
-                columns={[
-                  { key: 'counterparty', title: 'Заказчик' },
-                  { key: 'groupTitle', title: 'Группа' },
-                  { key: 'amount', title: 'Сумма' },
-                  { key: 'stage', title: 'Стадия', render: (row) => STAGE_LABELS[row.stage] }
-                ]}
-                rows={deals.map((deal) => ({
-                  ...deal,
-                  /* Идентификатор группы как значение заменён названием. */
-                  groupTitle: groupName(deal.groupId)
-                }))}
-                rowKey={(row) => row.id}
-                rowActions={(row) => [
-                  {
-                    label: 'Перевести в предложение',
-                    onSelect: () => moveDeal(row.id, 'proposal')
-                  },
-                  { label: 'Отметить успешной', onSelect: () => moveDeal(row.id, 'won') },
-                  {
-                    label: 'Отметить отказом',
-                    danger: true,
-                    onSelect: () => moveDeal(row.id, 'lost')
-                  }
-                ]}
-              />
-            </>
-          ) : (
-            <SectionEmpty
-              message="Сделки не созданы"
-              hint="Сделка — договорённость с компанией об обучении сотрудников."
-            />
-          )}
+          {/*
+            GOAL-4: каркас списка — из дизайн-системы.
+            Кнопки стадий когда-то лежали ОТДЕЛЬНЫМ списком под таблицей и не называли
+            сделку — только стадию. Понять, какая строка чья, можно было лишь по порядку:
+            одна оплошность и переведена чужая сделка. Действия живут в строке.
+          */}
+          <ListPage
+            isLoading={false}
+            rows={deals.map((deal) => ({
+              ...deal,
+              /* Идентификатор группы как значение заменён названием. */
+              groupTitle: groupName(deal.groupId)
+            }))}
+            rowKey={(row) => row.id}
+            emptyMessage="Сделки не созданы"
+            emptyHint="Сделка — договорённость с компанией об обучении сотрудников."
+            columns={[
+              { key: 'counterparty', title: 'Заказчик' },
+              { key: 'groupTitle', title: 'Группа' },
+              { key: 'amount', title: 'Сумма' },
+              { key: 'stage', title: 'Стадия', render: (row) => STAGE_LABELS[row.stage] }
+            ]}
+            rowActions={(row) => [
+              { label: 'Перевести в предложение', onSelect: () => moveDeal(row.id, 'proposal') },
+              { label: 'Отметить успешной', onSelect: () => moveDeal(row.id, 'won') },
+              { label: 'Отметить отказом', danger: true, onSelect: () => moveDeal(row.id, 'lost') }
+            ]}
+          />
         </SectionCard>
       </PageContainer>
     </ProtectedPage>

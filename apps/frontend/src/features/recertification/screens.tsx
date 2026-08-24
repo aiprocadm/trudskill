@@ -1,14 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import {
-  DataTable,
-  FilterBar,
-  ListPage,
-  LoadingState,
-  StatusChip,
-  useConfirmDialog
-} from '@trudskill/ui';
+import { FilterBar, ListPage, StatusChip, useConfirmDialog } from '@trudskill/ui';
 import { type ReactElement, useState } from 'react';
 
 import { ApproveRecertModal } from './approve-recert-modal';
@@ -20,7 +13,6 @@ import {
   PageContainer,
   PageHeader,
   SectionCard,
-  SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
 import { useAuth } from '../auth/context';
@@ -238,9 +230,6 @@ export function ExpiringDocumentsSection(): ReactElement {
 
   return (
     <SectionCard title="Истекающие удостоверения">
-      {expiringQuery.isLoading ? <LoadingState message="Считаем сроки…" /> : null}
-      {expiringQuery.error ? <SectionError error={expiringQuery.error} /> : null}
-
       {data ? (
         <div className="ui-stack">
           <p className="ui-text-muted">
@@ -258,32 +247,29 @@ export function ExpiringDocumentsSection(): ReactElement {
               Истекает в течение недели: {data.summary.critical}.
             </p>
           ) : null}
-
-          {data.items.length ? (
-            <DataTable
-              columns={[
-                { key: 'learnerTitle', title: 'Слушатель' },
-                { key: 'numberTitle', title: '№ документа' },
-                { key: 'validUntil', title: 'Действует до' },
-                { key: 'daysTitle', title: 'Срок' },
-                { key: 'urgencyTitle', title: 'Статус' }
-              ]}
-              rows={data.items.map((item) => ({
-                ...item,
-                learnerTitle: item.learnerName ?? '—',
-                numberTitle: item.documentNumber ?? '—',
-                daysTitle: formatDaysLeft(item.daysLeft),
-                urgencyTitle: URGENCY_LABELS[item.urgency]
-              }))}
-            />
-          ) : (
-            <SectionEmpty
-              message="Ближайшие два месяца сроки не истекают"
-              hint="Мы проверяем сроки удостоверений сами — если что-то будет истекать, оно появится здесь."
-            />
-          )}
         </div>
       ) : null}
+      {/* GOAL-4: вторая таблица экрана тоже на каркасе — состояния не пишутся руками. */}
+      <ListPage
+        isLoading={expiringQuery.isLoading}
+        error={expiringQuery.error}
+        rows={(data?.items ?? []).map((item) => ({
+          ...item,
+          learnerTitle: item.learnerName ?? '—',
+          numberTitle: item.documentNumber ?? '—',
+          daysTitle: formatDaysLeft(item.daysLeft),
+          urgencyTitle: URGENCY_LABELS[item.urgency]
+        }))}
+        emptyMessage="Ближайшие два месяца сроки не истекают"
+        emptyHint="Мы проверяем сроки удостоверений сами — если что-то будет истекать, оно появится здесь."
+        columns={[
+          { key: 'learnerTitle', title: 'Слушатель' },
+          { key: 'numberTitle', title: '№ документа' },
+          { key: 'validUntil', title: 'Действует до' },
+          { key: 'daysTitle', title: 'Срок' },
+          { key: 'urgencyTitle', title: 'Статус' }
+        ]}
+      />
     </SectionCard>
   );
 }
