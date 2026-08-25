@@ -169,6 +169,36 @@ describe('session manager', () => {
     expect(sessionStore.clear).toHaveBeenCalled();
   });
 
+  it('неподтверждённый сервером выход не выдаётся за успешный (журнал 119)', async () => {
+    /*
+     * Сеть отвалилась на отзыве сеанса. Локально выйти надо в любом случае — иначе человек
+     * останется залогиненным на экране. Но сеанс на сервере жив до истечения срока, и на
+     * общем компьютере учебного центра это чужой доступ. Значит ошибка обязана дойти
+     * наверх, а не утонуть в `finally`.
+     */
+    const { sessionStore } = await import('./session-store');
+    const { LogoutNotConfirmedError } = await import('./session-manager');
+    state.session = {
+      user: {
+        id: 'u1',
+        tenantId: 't1',
+        login: 'l',
+        email: null,
+        status: 'active',
+        displayName: 'X'
+      },
+      tokens: { accessToken: 'a1', sessionId: 's1', expiresIn: 300 },
+      roles: [],
+      permissions: []
+    };
+    authApiMock.logout.mockRejectedValue(new Error('network down'));
+
+    await expect(sessionManager.logout()).rejects.toBeInstanceOf(LogoutNotConfirmedError);
+
+    // Локальная часть выхода всё равно доведена до конца.
+    expect(sessionStore.clear).toHaveBeenCalled();
+  });
+
   it('выход без действующей cookie просто чистит хранилище', async () => {
     const { sessionStore } = await import('./session-store');
     state.session = null;

@@ -13,6 +13,23 @@ const hydrateSession = async (tokens: UserSession['tokens']): Promise<UserSessio
   return { user, tokens, roles: roleCodes, permissions: user.permissions };
 };
 
+/**
+ * Выход прошёл на устройстве, но сервер отзыв не подтвердил.
+ *
+ * Отдельный класс, а не просто проброс, чтобы экран мог отличить «выйти не удалось вовсе»
+ * от «вышли здесь, но сеанс на сервере может быть ещё жив» — это разные сообщения человеку.
+ */
+export class LogoutNotConfirmedError extends Error {
+  constructor(readonly cause: unknown) {
+    super(
+      'Выход выполнен на этом устройстве, но сервер не подтвердил завершение сеанса. ' +
+        'Если вы за чужим компьютером, завершите сеанс вручную в разделе «Люди и доступ» ' +
+        'или попросите об этом администратора.'
+    );
+    this.name = 'LogoutNotConfirmedError';
+  }
+}
+
 export const sessionManager = {
   getCurrentSession: () => sessionStore.get(),
   async login(login: string, password: string): Promise<UserSession | TotpChallengeResponse> {
@@ -82,11 +99,24 @@ export const sessionManager = {
       this.clear();
       return;
     }
+    /*
+     * ⚠️ Сбой отзыва нельзя проглатывать (журнал 119).
+     *
+     * Локальное хранилище чистится в любом случае — иначе человек, нажавший «Выйти»,
+     * остался бы залогиненным на экране, и это хуже. Но если сервер не подтвердил отзыв
+     * (нет сети, 500), сессия там **живёт до истечения срока**: на общем компьютере
+     * учебного центра это чужой доступ к чужому личному делу.
+     *
+     * Поэтому ошибка не гасится, а поднимается наверх с признаком `serverRevokeFailed` —
+     * вызывающий обязан сказать человеку, что выход прошёл только на этом устройстве.
+     */
     try {
       await authApi.logout({ sessionId: session.tokens.sessionId }, session.tokens.accessToken);
-    } finally {
+    } catch (error) {
       this.clear();
+      throw new LogoutNotConfirmedError(error);
     }
+    this.clear();
   },
   clear() {
     sessionStore.clear();
