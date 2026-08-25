@@ -89,9 +89,21 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         setSession(nextSession);
       },
       logout: async () => {
-        await sessionManager.logout();
+        /*
+         * Журнал 119. Даже если сервер не подтвердил отзыв, на этом устройстве человек
+         * вышел: экран обязан обновиться, а кэши — очиститься. Но молчать о неподтверждённом
+         * отзыве нельзя, поэтому ошибка поднимается дальше — уже после того, как местная
+         * часть выхода доведена до конца.
+         */
+        let notConfirmed: unknown = null;
+        try {
+          await sessionManager.logout();
+        } catch (error) {
+          notConfirmed = error;
+        }
         setSession(null);
         await clearBrowserCaches();
+        if (notConfirmed) throw notConfirmed;
       },
       refresh: async () => {
         const refreshed = await sessionManager.tryRefresh();

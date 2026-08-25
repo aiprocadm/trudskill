@@ -57,6 +57,12 @@ export const AppShell = ({ children }: PropsWithChildren) => {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   const [paletteOpen, setPaletteOpen] = useState(false);
+  /*
+    Журнал 119: выход мог не подтвердиться сервером (нет сети, 500). На устройстве человек
+    вышел, но сеанс на сервере жив до истечения срока — на общем компьютере учебного центра
+    это чужой доступ. Молчать нельзя, поэтому предупреждение показывается прямо в шапке.
+  */
+  const [logoutWarning, setLogoutWarning] = useState<string | null>(null);
   const paletteReturnRef = useRef<HTMLElement | null>(null);
   const commandItems = useMemo(() => buildCommandItems(session), [session]);
 
@@ -277,11 +283,29 @@ export const AppShell = ({ children }: PropsWithChildren) => {
             */}
             <ThemeSwitcher />
             <span className="app-shell__meta">{session?.user.displayName}</span>
-            <button type="button" className="ui-button" onClick={() => logout()}>
+            <button
+              type="button"
+              className="ui-button"
+              onClick={() => {
+                setLogoutWarning(null);
+                void logout().catch((error: unknown) => {
+                  setLogoutWarning(
+                    error instanceof Error
+                      ? error.message
+                      : 'Выход выполнен на этом устройстве, но сервер не подтвердил завершение сеанса.'
+                  );
+                });
+              }}
+            >
               Выйти
             </button>
           </div>
         </header>
+        {logoutWarning ? (
+          <p className="ui-callout ui-callout--warning" role="alert">
+            {logoutWarning}
+          </p>
+        ) : null}
         <div className="ui-app-shell-main">{children}</div>
       </div>
       <CommandPalette open={paletteOpen} items={commandItems} onClose={closePalette} />
