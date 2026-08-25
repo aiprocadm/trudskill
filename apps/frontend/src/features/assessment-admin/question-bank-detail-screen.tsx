@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, LoadingState, StatusChip } from '@trudskill/ui';
+import { ListPage, LoadingState, StatusChip } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { formatEntityStatus, formatQuestionScore, formatQuestionType } from './format';
@@ -11,7 +11,6 @@ import {
   PageContainer,
   PageHeader,
   SectionCard,
-  SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
 
@@ -116,13 +115,14 @@ export function QuestionBankDetailScreen({ bankId }: Props) {
             Добавить вопрос
           </button>
         </div>
-        {questionsQuery.isLoading ? (
-          <LoadingState message="Загрузка…" />
-        ) : questionsQuery.data && questionsQuery.data.items.length > 0 ? (
-          <DataTable<QuestionListItem> columns={columns} rows={questionsQuery.data.items} />
-        ) : (
-          <SectionEmpty message="Вопросов нет" hint="Добавьте первый вопрос в банк." />
-        )}
+        {/* GOAL-4 волна 4: список вопросов на общем каркасе вместо лесенки из трёх веток. */}
+        <ListPage<QuestionListItem>
+          isLoading={questionsQuery.isLoading}
+          rows={questionsQuery.data?.items ?? []}
+          columns={columns}
+          emptyMessage="Вопросов нет"
+          emptyHint="Добавьте первый вопрос в банк."
+        />
       </SectionCard>
 
       {editing && (

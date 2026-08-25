@@ -10,6 +10,12 @@ interface Row {
 }
 const columns = [{ key: 'name' as const, title: 'Имя' }];
 
+/*
+ * ⚠️ Тесты читают детей по позиции. В волне 4 `GOAL-4` между фильтрами и телом появился
+ * слот панели (`toolbar`) — массовые действия и настройка колонок эталонного реестра, —
+ * поэтому тело сместилось на третью позицию. Инвариант не ослаблен: проверяется тот же
+ * состав, просто у каркаса стало три слота вместо двух.
+ */
 describe('ListPage — каркас списочного экрана', () => {
   it('оборачивает фильтры в FilterBar и тело в AsyncSection', () => {
     const el = ListPage<Row>({
@@ -19,7 +25,7 @@ describe('ListPage — каркас списочного экрана', () => {
       isLoading: false
     });
     expect(el.props.className).toBe('ui-stack');
-    const [filters, async] = el.props.children as any[];
+    const [filters, , async] = el.props.children as any[];
     expect(filters.type).toBe(FilterBar);
     expect(async.type).toBe(AsyncSection);
     expect(async.props.isEmpty).toBe(false);
@@ -27,7 +33,7 @@ describe('ListPage — каркас списочного экрана', () => {
 
   it('пустые rows → isEmpty=true у AsyncSection', () => {
     const el = ListPage<Row>({ columns, rows: [], isLoading: false });
-    const [filters, async] = el.props.children as any[];
+    const [filters, , async] = el.props.children as any[];
     expect(filters).toBeNull();
     expect(async.props.isEmpty).toBe(true);
   });
@@ -40,13 +46,13 @@ describe('ListPage — каркас списочного экрана', () => {
       isLoading: false,
       emptyAction: { label: 'Показать все', onSelect: () => {} }
     });
-    const [, async] = el.props.children as any[];
+    const [, , async] = el.props.children as any[];
     expect(async.props.emptyAction.label).toBe('Показать все');
   });
 
   it('без действия свойство не передаётся вовсе (exactOptionalPropertyTypes)', () => {
     const el = ListPage<Row>({ columns, rows: [], isLoading: false });
-    const [, async] = el.props.children as any[];
+    const [, , async] = el.props.children as any[];
     expect('emptyAction' in async.props).toBe(false);
   });
 
@@ -57,7 +63,7 @@ describe('ListPage — каркас списочного экрана', () => {
       isLoading: false,
       rowActions: () => [{ label: 'Аннулировать', onSelect: () => {} }]
     });
-    const [, async] = el.props.children as any[];
+    const [, , async] = el.props.children as any[];
     const [table] = async.props.children as any[];
     expect(table.props.rowActions).toBeTypeOf('function');
     expect(table.props.rowActions({ id: '1', name: 'A' })[0].label).toBe('Аннулировать');
@@ -72,7 +78,7 @@ describe('ListPage — каркас списочного экрана', () => {
       totalPages: 3,
       onPageChange: () => {}
     });
-    const [, async] = el.props.children as any[];
+    const [, , async] = el.props.children as any[];
     const [, pagination] = async.props.children as any[];
     expect(pagination).not.toBeNull();
     expect(pagination.props.totalPages).toBe(3);
