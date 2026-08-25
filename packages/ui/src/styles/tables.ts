@@ -108,7 +108,16 @@ export const tableStyles = `
   .ui-table-wrap--sticky-first .ui-table td:first-child { position: static; box-shadow: none; }
   /* CMP-001 на телефоне: выделение и действия — обычные строки карточки, тач-зона 44px. */
   .ui-table-select, .ui-table-actions { width: auto; text-align: left; }
-  .ui-table-checkbox { width: 24px; height: 24px; }
+  /*
+    ФТ-H4, решение владельца №C: тач-зона 44×44. Комментарий рядом это обещал, а флажок
+    выделения строки оставался 24×24 — палец промахивался ровно там, где идёт массовая
+    работа (выбрать нескольких слушателей и заархивировать). Ревизия 2026-08-25.
+
+    Увеличивается ЗОНА, а не значок: флажок 44×44 выглядел бы огромным квадратом посреди
+    карточки. Ячейка становится полем нажатия, сам значок остаётся 24px.
+  */
+  .ui-table-select { display: flex; align-items: center; min-height: 44px; }
+  .ui-table-checkbox { width: 24px; height: 24px; min-width: 24px; margin: 10px; }
   .ui-table td.ui-table-actions { display: flex; flex-wrap: wrap; gap: var(--ui-space-md); }
   .ui-table td.ui-table-actions .ui-button-link { min-height: 44px; display: inline-flex; align-items: center; }
   .ui-table td.ui-table-actions .ui-button-link + .ui-button-link { margin-left: 0; }
