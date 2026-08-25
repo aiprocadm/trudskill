@@ -1,40 +1,107 @@
 'use client';
 
-import { DataTable, LoadingState, StatusChip } from '@trudskill/ui';
+import { BelowFold, ListPage, StatCard, StatusChip } from '@trudskill/ui';
+import { useMemo } from 'react';
 
-import {
-  PageContainer,
-  PageHeader,
-  SectionCard,
-  SectionEmpty,
-  SectionError
-} from '../../components/state-wrappers';
+import { URGENCY_LABEL, documentExpiries, expirySummary, needsAttention } from './attention';
+import { PageContainer, PageHeader, SectionCard } from '../../components/state-wrappers';
 import { usePortalDocuments, usePortalGroups, usePortalLearners } from '../mvp/hooks';
 import { formatDate } from '../mvp/screen-helpers';
 
+/** Строка очереди: готовые к показу значения, без вычислений в разметке. */
+interface AttentionRow {
+  id: string;
+  learner: string;
+  document: string;
+  validUntil: string;
+  urgency: string;
+}
+
 /*
- * Перенесён «как есть» из app/counterparty-portal/page.tsx (IA-001: экран не живёт
- * в page.tsx). ФТ-E5: данные приходят из /portal/* — сервер сам скоупит выдачу по
- * контрагенту представителя, поэтому здесь нет ни выбора компании, ни фильтров
- * «по всему центру»: представитель видит только своих сотрудников, их группы
- * и выданные документы.
+ * ФТ-H2 · дашборд заказчика обучения.
+ *
+ * Экран был оглавлением из трёх списков — сотрудники, группы, документы — и на вопрос
+ * «что мне делать» не отвечал: представитель компании сам просматривал документы и сверял
+ * сроки. А вопрос у него ровно один и денежный: у кого из его людей заканчивается
+ * удостоверение. Сотрудник с истёкшим документом к работе не допускается.
+ *
+ * Поэтому сверху — сроки: три числа и очередь «требует внимания», отсортированная по
+ * срочности. Списки остались, но ушли ниже сгиба (`GOAL-3`): это справочник, к которому
+ * обращаются по надобности, а не то, с чего начинают день.
+ *
+ * Данные прежние: `/portal/*` сам скоупит выдачу по контрагенту представителя, никаких
+ * новых ручек — счёт идёт по уже приходящим документам.
  */
 export function CounterpartyPortalScreen() {
   const learners = usePortalLearners({ page: 1, page_size: 20 });
   const groups = usePortalGroups({ page: 1, page_size: 20 });
   const documents = usePortalDocuments({ page: 1, page_size: 20 });
 
+  const expiries = useMemo(
+    () => documentExpiries(documents.data?.items ?? [], new Date()),
+    [documents.data]
+  );
+  const summary = useMemo(() => expirySummary(expiries), [expiries]);
+  const queue = useMemo(() => needsAttention(expiries), [expiries]);
+
   return (
-    <PageContainer>
+    <PageContainer spacious>
       <PageHeader
-        title="Портал заказчика"
-        subtitle="Ваши сотрудники, группы обучения и выданные документы"
+        title="Обучение сотрудников"
+        subtitle="Сроки удостоверений, группы обучения и выданные документы вашей компании"
       />
-      <SectionCard title="Мои сотрудники">
-        {learners.loading ? <LoadingState message="Загружаем сотрудников…" /> : null}
-        {learners.error ? <SectionError message={learners.error} /> : null}
-        {learners.data?.items.length ? (
-          <DataTable
+
+      {/* Зона 1 — три числа. Каждое отвечает на «сколько людей меня подводит прямо сейчас». */}
+      <div className="ui-dashboard-grid">
+        <StatCard
+          label="Просрочено"
+          value={String(summary.expired)}
+          sub="сотрудники без действующего удостоверения"
+        />
+        <StatCard
+          label="Истекает на этой неделе"
+          value={String(summary.critical)}
+          sub="успеть записать на переобучение"
+        />
+        <StatCard
+          label="Истекает в течение месяца"
+          value={String(summary.soon)}
+          sub="пора планировать"
+        />
+      </div>
+
+      {/* Зона 2 — очередь, а не оглавление: сначала то, что горит. */}
+      <SectionCard title="Требует внимания">
+        <ListPage<AttentionRow>
+          isLoading={documents.loading}
+          error={documents.error ? new Error(documents.error) : undefined}
+          rows={queue.map((item) => ({
+            id: item.document.id,
+            learner: item.document.learnerName ?? 'Имя не передано',
+            document: item.document.name,
+            validUntil: formatDate(item.document.validUntil),
+            urgency: URGENCY_LABEL[item.urgency]
+          }))}
+          rowKey={(row) => row.id}
+          emptyMessage="Сроки в порядке"
+          emptyHint="Здесь появятся сотрудники, у которых заканчивается удостоверение: за два месяца, за месяц и за неделю до конца срока."
+          columns={[
+            { key: 'learner', title: 'Сотрудник' },
+            { key: 'document', title: 'Документ' },
+            { key: 'validUntil', title: 'Действует до' },
+            { key: 'urgency', title: 'Статус' }
+          ]}
+        />
+      </SectionCard>
+
+      <BelowFold>
+        <SectionCard title="Мои сотрудники">
+          <ListPage
+            isLoading={learners.loading}
+            error={learners.error ? new Error(learners.error) : undefined}
+            rows={learners.data?.items ?? []}
+            emptyMessage="Сотрудники не найдены"
+            emptyHint="Здесь компания видит своих сотрудников, направленных на обучение."
             columns={[
               { key: 'lastName', title: 'Фамилия' },
               { key: 'firstName', title: 'Имя' },
@@ -45,20 +112,16 @@ export function CounterpartyPortalScreen() {
                 render: (row) => <StatusChip status={row.status} />
               }
             ]}
-            rows={learners.data.items}
           />
-        ) : learners.loading ? null : (
-          <SectionEmpty
-            message="Сотрудники не найдены"
-            hint="Здесь компания видит своих сотрудников, направленных на обучение."
-          />
-        )}
-      </SectionCard>
-      <SectionCard title="Группы обучения">
-        {groups.loading ? <LoadingState message="Загружаем группы…" /> : null}
-        {groups.error ? <SectionError message={groups.error} /> : null}
-        {groups.data?.items.length ? (
-          <DataTable
+        </SectionCard>
+
+        <SectionCard title="Группы обучения">
+          <ListPage
+            isLoading={groups.loading}
+            error={groups.error ? new Error(groups.error) : undefined}
+            rows={groups.data?.items ?? []}
+            emptyMessage="Группы не найдены"
+            emptyHint="Появятся учебные группы, в которых учатся сотрудники компании."
             columns={[
               { key: 'code', title: 'Группа' },
               { key: 'name', title: 'Название' },
@@ -68,20 +131,16 @@ export function CounterpartyPortalScreen() {
                 render: (row) => <StatusChip status={row.status} />
               }
             ]}
-            rows={groups.data.items}
           />
-        ) : groups.loading ? null : (
-          <SectionEmpty
-            message="Группы не найдены"
-            hint="Появятся учебные группы, в которых учатся сотрудники компании."
-          />
-        )}
-      </SectionCard>
-      <SectionCard title="Документы">
-        {documents.loading ? <LoadingState message="Загружаем документы…" /> : null}
-        {documents.error ? <SectionError message={documents.error} /> : null}
-        {documents.data?.items.length ? (
-          <DataTable
+        </SectionCard>
+
+        <SectionCard title="Документы">
+          <ListPage
+            isLoading={documents.loading}
+            error={documents.error ? new Error(documents.error) : undefined}
+            rows={documents.data?.items ?? []}
+            emptyMessage="Документы не найдены"
+            emptyHint="Появятся удостоверения и протоколы сотрудников компании."
             columns={[
               { key: 'name', title: 'Документ' },
               { key: 'learnerName', title: 'Сотрудник' },
@@ -102,15 +161,9 @@ export function CounterpartyPortalScreen() {
                 render: (row) => <StatusChip status={row.status} />
               }
             ]}
-            rows={documents.data.items}
           />
-        ) : documents.loading ? null : (
-          <SectionEmpty
-            message="Документы не найдены"
-            hint="Появятся удостоверения и протоколы сотрудников компании."
-          />
-        )}
-      </SectionCard>
+        </SectionCard>
+      </BelowFold>
     </PageContainer>
   );
 }
