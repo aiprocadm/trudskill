@@ -84,15 +84,29 @@ export const authApi = {
       auth: { accessToken },
       credentials: 'include'
     }),
+  /**
+   * Восстановление сессии по cookie.
+   *
+   * ⚠️ Журнал 120. Раньше оба запроса шли БЕЗ подсказки арендатора, то есть с центром по
+   * умолчанию: на поддомене любого другого центра каждая перезагрузка страницы кончалась
+   * отказом, и человека выбрасывало на вход. Вход (`login`) подсказку передавал давно —
+   * восстановление про неё забыли, хотя это ровно тот же довходной запрос.
+   *
+   * Подсказка резолвится один раз на оба запроса: `/auth/csrf` тоже довходной, и без
+   * центра он выдаст токен не того арендатора.
+   */
   refresh: async () => {
+    const tenantHint = await resolveCurrentTenantId();
     const csrf = await apiRequest<{ csrfToken: string }>('/auth/csrf', {
       method: 'GET',
-      credentials: 'include'
+      credentials: 'include',
+      auth: { tenantHint }
     });
     return apiRequest<LoginResponse>('/auth/refresh', {
       method: 'POST',
       credentials: 'include',
-      headers: { 'x-csrf-token': csrf.csrfToken }
+      headers: { 'x-csrf-token': csrf.csrfToken },
+      auth: { tenantHint }
     });
   },
   logout: (payload: LogoutRequest, accessToken: string) =>
