@@ -86,7 +86,30 @@ export const apiRequestEnvelope = async <T>(
   if (options.body !== undefined) {
     requestInit.body = JSON.stringify(options.body);
   }
-  const response = await fetch(`${frontendEnv.NEXT_PUBLIC_API_BASE_URL}${path}`, requestInit);
+  /*
+   * Обрыв связи — тоже ответ человеку, и он обязан быть человеческим.
+   *
+   * `fetch` при отсутствии сети бросает не ошибку с кодом, а `TypeError` браузера:
+   * «Failed to fetch» в одном браузере, «NetworkError when attempting to fetch resource»
+   * в другом. Этот текст доходил до экрана как есть — по-английски и без ответа на
+   * вопрос «что мне делать». Правило `TXT-004` действует и здесь.
+   *
+   * Статус 0 — признак «ответа не было вовсе»: он отличает обрыв связи от ответа сервера
+   * с ошибкой, и по нему экран может решить, предлагать ли повтор.
+   */
+  let response: Response;
+  try {
+    response = await fetch(`${frontendEnv.NEXT_PUBLIC_API_BASE_URL}${path}`, requestInit);
+  } catch (networkError) {
+    throw new ApiClientError(
+      normalizeApiError(0, {
+        error: {
+          code: 'network_unavailable',
+          message: networkError instanceof Error ? networkError.message : 'network request failed'
+        }
+      })
+    );
+  }
 
   if (!response.ok) {
     const payload = await toJson(response);
