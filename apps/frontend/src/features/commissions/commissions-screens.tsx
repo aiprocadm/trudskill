@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  DataTable,
   DetailDrawer,
   Form,
   FormActions,
@@ -19,7 +18,6 @@ import {
   PageContainer,
   PageHeader,
   SectionCard,
-  SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
 import { ApiClientError } from '../../lib/api/client';
@@ -444,14 +442,14 @@ export const CommissionDetailsScreen = ({ id }: { id: string }) => {
           </SectionCard>
 
           <SectionCard title="Состав комиссии">
-            {data.members.length > 0 ? (
-              <DataTable columns={memberColumns} rows={data.members} />
-            ) : (
-              <SectionEmpty
-                message="Члены комиссии не добавлены"
-                hint="Комиссия подписывает протоколы: нужны председатель, секретарь и хотя бы один член."
-              />
-            )}
+            {/* GOAL-4 волна 4: состав комиссии на общем каркасе. */}
+            <ListPage
+              isLoading={false}
+              rows={data.members}
+              columns={memberColumns}
+              emptyMessage="Члены комиссии не добавлены"
+              emptyHint="Комиссия подписывает протоколы: нужны председатель, секретарь и хотя бы один член."
+            />
           </SectionCard>
 
           {data.status === 'active' ? (

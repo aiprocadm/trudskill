@@ -1,6 +1,6 @@
 'use client';
 
-import { AsyncSection, DataTable, Pagination, StatusChip } from '@trudskill/ui';
+import { ListPage, StatusChip } from '@trudskill/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -44,38 +44,36 @@ export const GroupsPageScreen = () => {
           : {})}
       />
       <SectionCard title="Реестр групп">
-        <AsyncSection
+        {/* GOAL-4 волна 4: реестр групп на общем каркасе. */}
+        <ListPage<Group>
           isLoading={loading}
           error={error ? new Error(error) : undefined}
-          isEmpty={!data?.items.length}
-          loadingMessage="Загрузка…"
+          rows={data?.items ?? []}
           emptyMessage="Групп пока нет"
           emptyHint="Группа объединяет слушателей одной программы: по ней назначают курсы, ведут журнал часов и выдают документы."
           {...(canCreateGroup
             ? { emptyAction: { label: 'Создать первую группу', href: '/groups/new' } }
             : {})}
-        >
-          <DataTable<Group>
-            columns={[
-              {
-                key: 'name',
-                title: 'Название',
-                render: (row) => <Link href={`/groups/${row.id}`}>{row.name}</Link>
-              },
-              { key: 'code', title: 'Код' },
-              {
-                key: 'status',
-                title: 'Статус',
-                render: (row) => <StatusChip status={row.status} />
-              }
-            ]}
-            rows={data?.items ?? []}
-            rowActions={(row) => [
-              { label: 'Открыть группу', onSelect: () => router.push(`/groups/${row.id}`) }
-            ]}
-          />
-          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
-        </AsyncSection>
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          columns={[
+            {
+              key: 'name',
+              title: 'Название',
+              render: (row) => <Link href={`/groups/${row.id}`}>{row.name}</Link>
+            },
+            { key: 'code', title: 'Код' },
+            {
+              key: 'status',
+              title: 'Статус',
+              render: (row) => <StatusChip status={row.status} />
+            }
+          ]}
+          rowActions={(row) => [
+            { label: 'Открыть группу', onSelect: () => router.push(`/groups/${row.id}`) }
+          ]}
+        />
       </SectionCard>
     </PageContainer>
   );

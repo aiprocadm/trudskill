@@ -1,13 +1,11 @@
 'use client';
 
 import {
-  DataTable,
   DetailDrawer,
   FilterBar,
   Form,
   FormActions,
   ListPage,
-  LoadingState,
   useConfirmDialog
 } from '@trudskill/ui';
 import { type ReactElement, useState } from 'react';
@@ -19,7 +17,6 @@ import {
   PageContainer,
   PageHeader,
   SectionCard,
-  SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
 import { ClientSelect, GroupSelect } from '../groups/group-picker';
@@ -104,22 +101,20 @@ export function MyPaymentsScreen(): ReactElement {
         {notice ? <p className="ui-callout">{notice}</p> : null}
         {payError ? <p className="ui-callout">{payError}</p> : null}
 
-        {loading ? <LoadingState message="Загрузка заказов…" /> : null}
-        {error ? <SectionError message="Не удалось загрузить заказы" /> : null}
-        {!loading && !error && rows.length === 0 ? (
-          <SectionEmpty message="Заказов пока нет" hint="Здесь появятся ваши платёжные заказы" />
-        ) : null}
-        {!loading && !error && rows.length > 0 ? (
-          <DataTable<MyOrderRow>
-            columns={[
-              { key: 'descriptionView', title: 'Описание' },
-              { key: 'totalView', title: 'Сумма' },
-              { key: 'statusView', title: 'Статус', render: (row) => row.statusView },
-              { key: 'actionsView', title: 'Действия', render: (row) => row.actionsView }
-            ]}
-            rows={rows}
-          />
-        ) : null}
+        {/* GOAL-4 волна 4: список заказов слушателя на общем каркасе. */}
+        <ListPage<MyOrderRow>
+          isLoading={loading}
+          {...(error ? { error: new Error('Не удалось загрузить заказы') } : {})}
+          rows={rows}
+          emptyMessage="Заказов пока нет"
+          emptyHint="Здесь появятся ваши платёжные заказы"
+          columns={[
+            { key: 'descriptionView', title: 'Описание' },
+            { key: 'totalView', title: 'Сумма' },
+            { key: 'statusView', title: 'Статус', render: (row) => row.statusView },
+            { key: 'actionsView', title: 'Действия', render: (row) => row.actionsView }
+          ]}
+        />
       </SectionCard>
     </PageContainer>
   );

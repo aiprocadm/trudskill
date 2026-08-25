@@ -1,13 +1,11 @@
 'use client';
 
 import {
-  AsyncSection,
   BulkActionBar,
   ColumnPicker,
   ConfirmDialog,
-  DataTable,
   FilterBar,
-  Pagination,
+  ListPage,
   SavedViews,
   SearchInput,
   StatusChip
@@ -188,25 +186,29 @@ export function LearnersListScreen() {
           }
         />
 
-        <AsyncSection
+        {/*
+          GOAL-4 волна 4: эталонный реестр переехал на каркас дизайн-системы. Раньше он
+          собирался вручную, потому что каркас не умел выделения строк и настройки колонок
+          — то есть массовых операций. Каркас, которым не может пользоваться эталон, это не
+          общий каркас; поэтому расширен он, а экран стал короче.
+        */}
+        <ListPage<LearnerListItem>
           isLoading={list.isLoading}
           error={list.error}
-          isEmpty={rows.length === 0}
           onRetry={() => void list.refetch()}
+          rows={rows}
+          columns={columns}
+          visibleColumnKeys={visibleColumns}
+          selectable
+          selectedKeys={selected}
+          onSelectionChange={setSelected}
+          rowActions={(row) => [{ label: 'Открыть карточку', onSelect: () => setEditing(row) }]}
           emptyMessage="Слушателей пока нет"
           emptyHint="Здесь появятся люди, которых вы зачислите на обучение. Начните с добавления первого."
-        >
-          <DataTable<LearnerListItem>
-            columns={columns}
-            rows={rows}
-            visibleColumnKeys={visibleColumns}
-            selectable
-            selectedKeys={selected}
-            onSelectionChange={setSelected}
-            rowActions={(row) => [{ label: 'Открыть карточку', onSelect: () => setEditing(row) }]}
-          />
-          <Pagination page={page} totalPages={totalPages} onPageChange={(p) => setPage(p)} />
-        </AsyncSection>
+          page={page}
+          totalPages={totalPages}
+          onPageChange={(p) => setPage(p)}
+        />
 
         <BulkActionBar
           selectedCount={selected.length}

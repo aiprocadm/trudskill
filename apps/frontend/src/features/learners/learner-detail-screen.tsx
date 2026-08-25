@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, DetailLayout, KeyValueList, LoadingState, StatusChip } from '@trudskill/ui';
+import { DetailLayout, KeyValueList, ListPage, LoadingState, StatusChip } from '@trudskill/ui';
 import Link from 'next/link';
 import { useMemo } from 'react';
 
@@ -8,7 +8,6 @@ import {
   PageContainer,
   PageHeader,
   SectionCard,
-  SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
 import { LearnerPdfCardSections } from '../learner-pdf-card/learner-pdf-card-sections';
@@ -82,35 +81,30 @@ export const LearnerDetailsScreen = ({ id }: { id: string }) => {
           }
         >
           <SectionCard title="Обучение">
-            {enrollmentsLoading ? <LoadingState message="Загружаем зачисления…" /> : null}
-            {!enrollmentsLoading && enrollments.length === 0 ? (
-              <SectionEmpty
-                message="Слушатель пока никуда не зачислен"
-                hint="Зачисление делается в карточке учебной группы — там же виден весь её состав."
-              />
-            ) : null}
-            {!enrollmentsLoading && enrollments.length > 0 ? (
-              <DataTable
-                columns={[
-                  { key: 'course', title: 'Курс' },
-                  { key: 'group', title: 'Группа' },
-                  { key: 'status', title: 'Статус' },
-                  { key: 'enrolledAt', title: 'Зачислен' }
-                ]}
-                rows={enrollments.map((item) => ({
-                  course: courseName.get(item.courseId ?? '') ?? '—',
-                  group: groupName.get(item.groupId) ? (
-                    <Link className="ui-link" href={`/groups/${item.groupId}`}>
-                      {groupName.get(item.groupId)}
-                    </Link>
-                  ) : (
-                    '—'
-                  ),
-                  status: ENROLLMENT_STATUS_LABEL[item.status] ?? item.status,
-                  enrolledAt: formatDate(item.enrolledAt)
-                }))}
-              />
-            ) : null}
+            {/* GOAL-4 волна 4: секция с таблицей — на общем каркасе, состояния не вручную. */}
+            <ListPage
+              isLoading={enrollmentsLoading}
+              rows={enrollments.map((item) => ({
+                course: courseName.get(item.courseId ?? '') ?? '—',
+                group: groupName.get(item.groupId) ? (
+                  <Link className="ui-link" href={`/groups/${item.groupId}`}>
+                    {groupName.get(item.groupId)}
+                  </Link>
+                ) : (
+                  '—'
+                ),
+                status: ENROLLMENT_STATUS_LABEL[item.status] ?? item.status,
+                enrolledAt: formatDate(item.enrolledAt)
+              }))}
+              emptyMessage="Слушатель пока никуда не зачислен"
+              emptyHint="Зачисление делается в карточке учебной группы — там же виден весь её состав."
+              columns={[
+                { key: 'course', title: 'Курс' },
+                { key: 'group', title: 'Группа' },
+                { key: 'status', title: 'Статус' },
+                { key: 'enrolledAt', title: 'Зачислен' }
+              ]}
+            />
           </SectionCard>
           {/* Pillar A Plan C §5.11 — личное дело: учебная история + документы + PDF stub */}
           <LearnerPdfCardSections learnerId={id} />

@@ -21,15 +21,14 @@ import { describe, expect, it } from 'vitest';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FRONTEND = join(HERE, '..', '..');
 
-/** Реестры, ещё не переведённые на `ListPage`. Список только сокращается. */
-const PENDING = [
-  'src/features/assessment-admin/question-bank-detail-screen.tsx',
-  'src/features/commissions/commissions-screens.tsx',
-  'src/features/groups/groups-list-screen.tsx',
-  'src/features/learners/learner-detail-screen.tsx',
-  'src/features/learners/learners-list-screen.tsx',
-  'src/features/payments/screens.tsx'
-];
+/**
+ * Реестры, ещё не переведённые на `ListPage`. **Список пуст: волна 4 (срез 48) увела
+ * последние шесть.** Путь: 16 → 12 → 10 → 6 → 0.
+ *
+ * Сторож остаётся и работает уже не счётчиком остатка, а запретом: новый реестр, собранный
+ * вручную, в пустой список не попадёт и покрасит проверку.
+ */
+const PENDING: string[] = [];
 
 const collect = (dir: string, acc: string[] = []): string[] => {
   for (const entry of readdirSync(dir)) {
@@ -76,9 +75,9 @@ describe('GOAL-4 · реестры переезжают на каркас диз
     ).toEqual([]);
   });
 
-  it('остаток виден числом и обязан убывать', () => {
-    // Волны 1–3 (срезы 40–42): 4 + 2 + 4 реестра. Остаток — крупные экраны с несколькими
-    // таблицами и «эталоны» фазы 2, которым нужен отдельный разбор.
-    expect(PENDING.length).toBeLessThanOrEqual(6);
+  it('остаток — ноль: ручных реестров не осталось', () => {
+    // Волны 1–4 (срезы 40–42, 48): 4 + 2 + 4 + 6. Эталоны переехали последними — ради них
+    // каркас научился выделению строк и настройке колонок, а не наоборот.
+    expect(PENDING).toEqual([]);
   });
 });
