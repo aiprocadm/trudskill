@@ -12,6 +12,7 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import { FORMS, withPlural } from '../../lib/format/plural';
 
 import type {
   BuilderState,
@@ -318,7 +319,7 @@ export function ReportBuilderScreen(): ReactElement {
             <SectionCard title="Пример строк отчёта">
               <p className="ui-text-muted">
                 {previewData.truncated
-                  ? `Показаны первые ${previewData.rows.length} строк из ${previewData.total}. В файл попадут все.`
+                  ? `Показаны первые ${withPlural(previewData.rows.length, FORMS.row)} из ${previewData.total}. В файл попадут все.`
                   : `Строк в отчёте: ${previewData.total}.`}
               </p>
               {previewData.rows.length === 0 ? (

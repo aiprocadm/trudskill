@@ -16,6 +16,7 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import { FORMS, withPlural } from '../../lib/format/plural';
 import { useGroupsList } from '../mvp/hooks';
 
 import type { ClassifiedParsedRow, ParseError, ParsedRow } from './types';
@@ -181,7 +182,7 @@ export const BulkImportScreen = () => {
             )}
           </SectionCard>
 
-          <SectionCard title={`Что в файле: ${classified.length} строк`}>
+          <SectionCard title={`Что в файле: ${withPlural(classified.length, FORMS.row)}`}>
             <p className="ui-hint">
               Зачислим: <strong>{validRows.length}</strong>.{' '}
               {invalidCount > 0
