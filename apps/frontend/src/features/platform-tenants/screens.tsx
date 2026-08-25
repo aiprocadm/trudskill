@@ -46,6 +46,8 @@ interface TenantRow {
   id: string;
   name: string;
   code: string;
+  /** Назначенный тариф или «не назначен» — журнал 87. */
+  planName: string;
   statusView: ReactElement;
 }
 
@@ -109,6 +111,7 @@ export function PlatformTenantsSection() {
     id: tenant.id,
     name: tenant.name,
     code: tenant.code,
+    planName: tenant.planName ?? 'не назначен',
     statusView: (
       <StatusChip
         status={tenant.status}
@@ -193,6 +196,12 @@ export function PlatformTenantsSection() {
             columns={[
               { key: 'name', title: 'Учебный центр' },
               { key: 'code', title: 'Код в адресах' },
+              {
+                key: 'planName',
+                title: 'Тариф',
+                /* Журнал 87: тариф назначается на этом экране — значит и виден должен быть здесь. */
+                render: (row) => row.planName
+              },
               { key: 'statusView', title: 'Статус', render: (row) => row.statusView }
             ]}
             rows={rows}
