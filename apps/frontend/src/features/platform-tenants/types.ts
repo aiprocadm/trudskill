@@ -31,6 +31,12 @@ export interface PlatformTenantDto {
   code: string;
   name: string;
   status: PlatformTenantStatus;
+  /**
+   * Назначенный тариф. `null` — тариф не назначен, лимитов нет (журнал 87).
+   * Раньше поля не было вовсе: тариф назначали на этом экране, а увидеть назначенное
+   * было негде.
+   */
+  planName?: string | null;
 }
 
 /**

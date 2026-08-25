@@ -43,9 +43,25 @@ export class PlatformTenantsService {
     return this.databaseService;
   }
 
-  async listTenants(): Promise<Tenant[]> {
-    return this.requireDb().query<Tenant>(
-      'select id, code, name, status from core.tenants order by created_at desc, id'
+  /**
+   * Список арендаторов с назначенным тарифом.
+   *
+   * Тариф добавлен в ответ по журналу расхождений (запись 87): назначение тарифа делается
+   * на этом же экране, а увидеть назначенное было нельзя — администратор платформы не знал
+   * лимитов центра, пока не откроет форму назначения. Поле аддитивное: прежние читатели
+   * ответа его просто не замечают.
+   *
+   * Присоединение — левое: тариф может быть не назначен вовсе (тогда лимитов нет), и такой
+   * центр обязан остаться в списке.
+   */
+  async listTenants(): Promise<Array<Tenant & { planName: string | null }>> {
+    return this.requireDb().query<Tenant & { planName: string | null }>(
+      `select t.id, t.code, t.name, t.status, p.name as "planName"
+         from core.tenants t
+         left join core.tenant_subscriptions s
+           on s.tenant_id = t.id and s.status = 'active'
+         left join core.plans p on p.id = s.plan_id
+        order by t.created_at desc, t.id`
     );
   }
 

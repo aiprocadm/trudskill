@@ -170,7 +170,8 @@ export function ProctoringStartPanel({
 }
 
 /**
- * ● REC badge for the attempt screen. Reads the module-level holder at render time —
+ * Индикатор «идёт запись» на экране попытки. Читает модульный держатель во время
+ * отрисовки —
  * it mounts AFTER the recording started (navigation to the attempt page), so a static
  * read is sufficient; no subscription machinery for v1.
  */
@@ -184,7 +185,12 @@ export function ProctoringRecIndicator(): ReactElement | null {
       aria-label="Идёт видеозапись экзамена"
       data-testid="proctoring-rec-indicator"
     >
-      ● REC
+      {/*
+        Журнал 148: индикатор был подписан латиницей «REC» — слово из аппаратуры, а не из
+        языка продукта. Сторож `latin-titles-ban` его не видел: он проверяет заголовки, а
+        это значок. Кружок оставлен глазу, смысл — словом.
+      */}
+      <span aria-hidden="true">●</span> Идёт запись
     </span>
   );
 }
@@ -204,7 +210,7 @@ export function ProctoringResumeBanner({
 }: {
   enrollmentId: string;
   courseId: string;
-  /** Lets the attempt screen re-render so the top-level ● REC indicator reappears. */
+  /** Позволяет экрану попытки перерисоваться, чтобы индикатор «Идёт запись» вернулся. */
   onResumed: () => void;
 }): ReactElement | null {
   const { session } = useAuth();
