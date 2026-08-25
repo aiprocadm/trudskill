@@ -1,9 +1,13 @@
 # Local development
 
-1. `cp .env.example .env`
-2. `pnpm install`
-3. `docker compose -f infra/docker-compose.yml up -d postgres redis rabbitmq minio minio-init`
-4. Start services:
+1. `cp .env.example .env` — переменные для бэкенда, очереди и инфраструктуры.
+2. `cp apps/frontend/.env.example apps/frontend/.env` — **отдельный шаг для фронтенда.**
+   Next.js читает переменные только из своей папки, поэтому корневой `.env` ему не подходит:
+   без этого файла `pnpm --filter @trudskill/frontend build` падает на разборе переменных
+   (журнал расхождений, запись 20).
+3. `pnpm install`
+4. `docker compose -f infra/docker-compose.yml up -d postgres redis rabbitmq minio minio-init`
+5. Start services:
    - backend: `pnpm --filter @trudskill/backend dev`
    - worker: `pnpm --filter @trudskill/worker dev`
    - realtime: `pnpm --filter @trudskill/realtime dev`
