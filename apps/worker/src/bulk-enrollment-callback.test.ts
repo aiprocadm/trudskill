@@ -38,9 +38,11 @@ describe('bulk-enrollment-callback', () => {
   });
 
   it('posts correct URL, headers and JSON body', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ data: { ok: true }, meta: {} }), { status: 200 })
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ data: { ok: true }, meta: {} }), { status: 200 })
+      );
     const envelope: BulkEnrollmentJobEnvelope = {
       ...demoEnvelope(),
       correlation_id: 'corr-z'
@@ -68,29 +70,50 @@ describe('bulk-enrollment-callback', () => {
   });
 
   it('maps envelope forbidden response to NonRetryableJobError', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ error: { code: 'forbidden' } }), { status: 403 })
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ error: { code: 'forbidden' } }), { status: 403 })
+      );
     await expect(
-      invokeBackendBulkEnrollment('http://x', 'tok', demoEnvelope(), fetchMock as unknown as typeof fetch)
+      invokeBackendBulkEnrollment(
+        'http://x',
+        'tok',
+        demoEnvelope(),
+        fetchMock as unknown as typeof fetch
+      )
     ).rejects.toThrow(NonRetryableJobError);
   });
 
   it('maps validation_error on 400 to NonRetryableJobError', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ error: { code: 'validation_error' } }), { status: 400 })
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ error: { code: 'validation_error' } }), { status: 400 })
+      );
     await expect(
-      invokeBackendBulkEnrollment('http://x', 'tok', demoEnvelope(), fetchMock as unknown as typeof fetch)
+      invokeBackendBulkEnrollment(
+        'http://x',
+        'tok',
+        demoEnvelope(),
+        fetchMock as unknown as typeof fetch
+      )
     ).rejects.toThrow(/bulk callback rejected: validation_error/);
   });
 
   it('maps 500 with internal_error to generic Error (retryable path)', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ error: { code: 'internal_error' } }), { status: 500 })
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ error: { code: 'internal_error' } }), { status: 500 })
+      );
     await expect(
-      invokeBackendBulkEnrollment('http://x', 'tok', demoEnvelope(), fetchMock as unknown as typeof fetch)
+      invokeBackendBulkEnrollment(
+        'http://x',
+        'tok',
+        demoEnvelope(),
+        fetchMock as unknown as typeof fetch
+      )
     ).rejects.toThrow(/bulk_enrollment callback failed http=500/);
   });
 });

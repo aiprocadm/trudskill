@@ -108,6 +108,7 @@
 - Contract tests для cross-service boundaries.
 
 Приоритет покрытия:
+
 - tenant isolation;
 - authz;
 - document lifecycle/readiness;
@@ -125,6 +126,7 @@
 3. `docs/ENTERPRISE_OPERATIONAL_NEXT_STEPS.md`
 
 С обязательной фиксацией:
+
 - что доведено до corporate-usable state;
 - что улучшено без rewrite;
 - что осталось stub/mock/deferred;

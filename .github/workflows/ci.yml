@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 # Набор джоб дословно накрывает корневой `pnpm ci:check`
-# (lint → typecheck → contracts:lint → contracts:typecheck → test:unit → build),
+# (format:check → lint → typecheck → contracts:lint → contracts:typecheck → test:unit → build),
 # просто разложенный по параллельным джобам ради времени прогона.
 # У каждой джобы обязателен timeout-minutes: без него зависший шаг висит до дефолтных
 # 6 часов и сжигает минуты runner-а — именно так CI и стал дорогим до отключения Actions.
@@ -48,6 +48,10 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      # Проверка формата стояла в package.json, но не запускалась НИГДЕ: ни в ci:check,
+      # ни в CI. Правило без проверки — не правило: формат успел разъехаться на 59 файлов.
+      - name: Format check
+        run: pnpm format:check
       - name: Lint
         run: pnpm lint
       - name: Typecheck

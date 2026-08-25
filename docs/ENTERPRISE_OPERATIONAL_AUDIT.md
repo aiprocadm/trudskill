@@ -76,18 +76,18 @@
 
 Ниже перечислены требуемые для проверки факты и их статус в текущем snapshot.
 
-| Факт из ТЗ | Статус в текущем репозитории | Комментарий |
-|---|---|---|
-| `backend/app/api/routes/ws_stub.py` = deferred websocket | **Не найдено** | Python backend structure отсутствует; используется NestJS (`apps/backend/src`). |
-| `backend/app/celery/tasks/document_jobs_required.py` = deferred semantics | **Не найдено** | Celery контур отсутствует. |
-| `backend/app/services/pipeline_step_handlers.py` = deferred stages | **Не найдено** | Python services tree отсутствует. |
-| `backend/app/services/integrations/stubs.py` = stub providers | **Не найдено** | Не найдено соответствующего пути/модуля. |
-| `backend/app/api/routes/approval_signing_v1.py` = stub/internal-fallback provider path | **Не найдено** | Approval API в snapshot отсутствует. |
-| `backend/app/api/routes/approval_orchestration.py` = mock provider path | **Не найдено** | Orchestration route отсутствует. |
-| `backend/app/api/routes/edo_workflow.py` = mock/stub semantics | **Не найдено** | EDO workflow route отсутствует. |
-| `frontend/vite.config.ts` already has `vite-plugin-pwa` | **Не найдено** | Frontend на Next.js, файла `vite.config.ts` нет. |
-| `/api/pwa/bootstrap` returns user/permissions/dictionaries/offline/sync/diagnostics | **Не найдено** | PWA bootstrap API route в snapshot отсутствует. |
-| many pages use real snapshot APIs but need maturity | **Не подтверждено** | Большинство domain pages отсутствуют. |
+| Факт из ТЗ                                                                             | Статус в текущем репозитории | Комментарий                                                                     |
+| -------------------------------------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------- |
+| `backend/app/api/routes/ws_stub.py` = deferred websocket                               | **Не найдено**               | Python backend structure отсутствует; используется NestJS (`apps/backend/src`). |
+| `backend/app/celery/tasks/document_jobs_required.py` = deferred semantics              | **Не найдено**               | Celery контур отсутствует.                                                      |
+| `backend/app/services/pipeline_step_handlers.py` = deferred stages                     | **Не найдено**               | Python services tree отсутствует.                                               |
+| `backend/app/services/integrations/stubs.py` = stub providers                          | **Не найдено**               | Не найдено соответствующего пути/модуля.                                        |
+| `backend/app/api/routes/approval_signing_v1.py` = stub/internal-fallback provider path | **Не найдено**               | Approval API в snapshot отсутствует.                                            |
+| `backend/app/api/routes/approval_orchestration.py` = mock provider path                | **Не найдено**               | Orchestration route отсутствует.                                                |
+| `backend/app/api/routes/edo_workflow.py` = mock/stub semantics                         | **Не найдено**               | EDO workflow route отсутствует.                                                 |
+| `frontend/vite.config.ts` already has `vite-plugin-pwa`                                | **Не найдено**               | Frontend на Next.js, файла `vite.config.ts` нет.                                |
+| `/api/pwa/bootstrap` returns user/permissions/dictionaries/offline/sync/diagnostics    | **Не найдено**               | PWA bootstrap API route в snapshot отсутствует.                                 |
+| many pages use real snapshot APIs but need maturity                                    | **Не подтверждено**          | Большинство domain pages отсутствуют.                                           |
 
 ## 9) Итоговый аудит-рейтинг (Wave 0)
 

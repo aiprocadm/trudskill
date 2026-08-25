@@ -39,7 +39,8 @@ export const platformHealthApi = {
 /** Что именно сломано у центра — человеческими словами. */
 export const healthProblems = (t: TenantHealthDto): string[] => {
   const problems: string[] = [];
-  if (t.documentTasksFailed > 0) problems.push(`документы не выпустились: ${t.documentTasksFailed}`);
+  if (t.documentTasksFailed > 0)
+    problems.push(`документы не выпустились: ${t.documentTasksFailed}`);
   if (t.syncJobsFailed > 0) problems.push(`обмен не прошёл: ${t.syncJobsFailed}`);
   if (t.deadLetters > 0) problems.push(`сообщений в карантине: ${t.deadLetters}`);
   if (t.exportsFailed > 0) problems.push(`выгрузок в реестры не прошло: ${t.exportsFailed}`);
@@ -72,8 +73,18 @@ export const formatMoment = (iso: string | null): string => {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
   const months = [
-    'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
-    'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'
+    'января',
+    'февраля',
+    'марта',
+    'апреля',
+    'мая',
+    'июня',
+    'июля',
+    'августа',
+    'сентября',
+    'октября',
+    'ноября',
+    'декабря'
   ];
   const hh = String(d.getHours()).padStart(2, '0');
   const mm = String(d.getMinutes()).padStart(2, '0');

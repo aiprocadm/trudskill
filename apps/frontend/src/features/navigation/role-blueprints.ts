@@ -92,13 +92,7 @@ export const roleBlueprints: RoleBlueprint[] = [
       'Спланировать занятия',
       'Открыть материалы курса'
     ],
-    primaryNav: [
-      '/groups',
-      '/teacher/review',
-      '/learning/calendar',
-      '/courses',
-      '/notifications'
-    ]
+    primaryNav: ['/groups', '/teacher/review', '/learning/calendar', '/courses', '/notifications']
   },
   {
     role: 'learner',

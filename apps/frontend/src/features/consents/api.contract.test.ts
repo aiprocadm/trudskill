@@ -86,9 +86,7 @@ describe('consentsApi envelope compatibility', () => {
   });
 
   it('revoke: отзывается ровно указанный вид, второй в запрос не попадает', async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response(envelope(state('photo', false)), { status: 200 })
-    );
+    fetchMock.mockResolvedValueOnce(new Response(envelope(state('photo', false)), { status: 200 }));
 
     const result = await consentsApi.revoke(session, 'photo');
     expect(result.granted).toBe(false);

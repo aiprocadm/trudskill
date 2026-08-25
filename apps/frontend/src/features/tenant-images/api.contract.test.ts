@@ -52,7 +52,12 @@ describe('tenant images api contract (ФТ-A7.1)', () => {
   it('uploadUrl передаёт тип содержимого — им же подписывается интент', async () => {
     vi.stubGlobal('fetch', fetchMock);
     fetchMock.mockResolvedValueOnce(
-      envelope({ fileId: 'f1', uploadUrl: 'https://s3/PUT', storageKey: 'k', expiresInSeconds: 900 })
+      envelope({
+        fileId: 'f1',
+        uploadUrl: 'https://s3/PUT',
+        storageKey: 'k',
+        expiresInSeconds: 900
+      })
     );
 
     await tenantImagesApi.uploadUrl(session, {

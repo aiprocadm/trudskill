@@ -15,6 +15,11 @@ export const courseAuthoringEndpoints = {
 export const enrollmentProgressEndpoints = {
   groups: ['/groups', '/groups/:id', '/group-courses', '/group-courses/:id'],
   /** GET /enrollments supports planned_end_from, planned_end_to (ISO), group_id, learner_id, page_size */
-  enrollments: ['/enrollments', '/enrollments/:id', '/enrollments/:id/status', '/enrollments/:id/status-history'],
+  enrollments: [
+    '/enrollments',
+    '/enrollments/:id',
+    '/enrollments/:id/status',
+    '/enrollments/:id/status-history'
+  ],
   progress: ['/progress', '/progress/:id', '/progress/materials/:materialId']
 } as const;

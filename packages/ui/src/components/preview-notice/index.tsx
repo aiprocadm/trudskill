@@ -22,8 +22,8 @@ export const PreviewNotice = ({
   instead?: string;
 }): ReactElement => (
   <p className="ui-callout ui-callout--warning" role="status">
-    <strong>Раздел готовится.</strong> {what} пока не сохраняются: они исчезнут при
-    перезагрузке страницы.
+    <strong>Раздел готовится.</strong> {what} пока не сохраняются: они исчезнут при перезагрузке
+    страницы.
     {instead ? ` ${instead}` : ''}
   </p>
 );

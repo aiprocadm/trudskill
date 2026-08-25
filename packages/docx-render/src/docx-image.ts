@@ -92,7 +92,9 @@ const EXTENSION_BY_MIME: Record<string, string> = {
 /** Размер картинки на бланке в EMU (единицы Office) с сохранением пропорций. */
 export function imageExtentEmu(image: DocxImage): { cx: number; cy: number } {
   const pixels =
-    EXTENSION_BY_MIME[image.contentType] === 'png' ? readPngSize(image.data) : readJpegSize(image.data);
+    EXTENSION_BY_MIME[image.contentType] === 'png'
+      ? readPngSize(image.data)
+      : readJpegSize(image.data);
   if (!pixels || pixels.width <= 0 || pixels.height <= 0) {
     throw new DocxImageError(
       `не удалось прочитать размеры изображения (${image.contentType}); поддерживаются PNG и JPEG`

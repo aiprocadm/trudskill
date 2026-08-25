@@ -142,9 +142,7 @@ export const authCookie = {
       csrfCookie(LEGACY_CSRF_COOKIE_NAME, csrfToken)
     ]);
   },
-  clearRefreshCookie(response: {
-    setHeader: (name: string, value: string | string[]) => void;
-  }) {
+  clearRefreshCookie(response: { setHeader: (name: string, value: string | string[]) => void }) {
     // Гасим и старое имя: иначе «Выйти» оставит рабочий refresh под прежним ключом.
     response.setHeader('Set-Cookie', [
       expiredCookie(REFRESH_COOKIE_NAME, true),
@@ -160,7 +158,9 @@ export const authCookie = {
     ]);
   },
   readRefreshCookie(headers: Record<string, string | string[] | undefined>): string | null {
-    return readCookie(headers, REFRESH_COOKIE_NAME) ?? readCookie(headers, LEGACY_REFRESH_COOKIE_NAME);
+    return (
+      readCookie(headers, REFRESH_COOKIE_NAME) ?? readCookie(headers, LEGACY_REFRESH_COOKIE_NAME)
+    );
   },
   readCsrfCookie(headers: Record<string, string | string[] | undefined>): string | null {
     return readCookie(headers, CSRF_COOKIE_NAME) ?? readCookie(headers, LEGACY_CSRF_COOKIE_NAME);

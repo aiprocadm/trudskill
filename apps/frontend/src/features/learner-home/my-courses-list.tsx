@@ -51,8 +51,7 @@ export const MyCoursesList = ({ entries, loading }: Props) => {
     <SectionCard title="Мои курсы">
       <ul className="learner-home-courses">
         {entries.map((entry) => {
-          const title =
-            entry.course?.title ?? 'Курс без названия';
+          const title = entry.course?.title ?? 'Курс без названия';
           const percent = computeProgress(entry);
           const href = entry.enrollment.courseId
             ? `/learner/courses/${entry.enrollment.courseId}`
@@ -65,7 +64,9 @@ export const MyCoursesList = ({ entries, loading }: Props) => {
                 </Link>
                 <StatusChip
                   status={entry.enrollment.status}
-                  label={ENROLLMENT_STATUS_LABEL[entry.enrollment.status] ?? entry.enrollment.status}
+                  label={
+                    ENROLLMENT_STATUS_LABEL[entry.enrollment.status] ?? entry.enrollment.status
+                  }
                 />
               </div>
               <ProgressBar
