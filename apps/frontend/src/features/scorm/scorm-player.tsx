@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { scormApi } from './api';
 import { buildCommitPayload, buildInitialCmi } from './cmi-mapping';
+import { clearUnsavedProgress, markUnsavedProgress, readUnsavedProgress } from './unsaved-progress';
 import { SectionError } from '../../components/state-wrappers';
 import { useAuth } from '../auth/context';
 
@@ -47,6 +48,8 @@ export const ScormPlayer = ({ material, enrollmentId, onCompleted }: Props) => {
   const [playerState, setPlayerState] = useState<PlayerState>({ phase: 'loading' });
   const [apiReady, setApiReady] = useState(false);
   const [saveNote, setSaveNote] = useState<string | null>(null);
+  /* Пометка о неудачной прошлой отправке: читается один раз, при открытии курса. */
+  const [unsavedAt] = useState<string | null>(() => readUnsavedProgress(material.id));
 
   // Keep a stable ref to the current attempt so the commit callback always
   // sees the latest value without re-registering listeners.
@@ -135,6 +138,7 @@ export const ScormPlayer = ({ material, enrollmentId, onCompleted }: Props) => {
             // Keep the attempt ref current (backend may update fields).
             attemptRef.current = updated;
 
+            clearUnsavedProgress(material.id);
             if (mountedRef.current) {
               const now = new Date();
               const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -146,8 +150,17 @@ export const ScormPlayer = ({ material, enrollmentId, onCompleted }: Props) => {
               onCompletedRef.current?.();
             }
           } catch {
+            /*
+              TXT-004: прежний текст «Не удалось сохранить прогресс» не отвечал на вопрос
+              «и что теперь». Человек на середине занятия должен понимать главное: пока
+              связи нет, пройденное может не засчитаться — значит закрывать страницу рано.
+            */
+            markUnsavedProgress(material.id);
             if (mountedRef.current) {
-              setSaveNote('Не удалось сохранить прогресс');
+              setSaveNote(
+                'Не удалось сохранить прогресс: нет связи с сервером. Не закрывайте страницу — ' +
+                  'пока прогресс не сохранён, пройденное может не засчитаться.'
+              );
             }
           }
         };
@@ -239,8 +252,15 @@ export const ScormPlayer = ({ material, enrollmentId, onCompleted }: Props) => {
             });
             try {
               await scormApi.commit(currentSession, currentAttempt.id, payload);
+              clearUnsavedProgress(material.id);
             } catch {
-              // Best-effort: ignore.
+              /*
+                Показать сообщение здесь нельзя — экран уже уходит. Но и молчать нельзя:
+                это последняя порция прогресса, и её потеря означает, что человек пройдёт
+                урок заново, не понимая почему. Помечаем неудачу и предупреждаем при
+                следующем открытии этого же курса.
+              */
+              markUnsavedProgress(material.id);
             }
           }
         }
@@ -258,6 +278,13 @@ export const ScormPlayer = ({ material, enrollmentId, onCompleted }: Props) => {
 
   return (
     <div className="scorm-player">
+      {unsavedAt ? (
+        <p className="ui-callout ui-callout--warning" role="status">
+          В прошлый раз прогресс этого курса не сохранился (
+          {new Date(unsavedAt).toLocaleString('ru-RU')}). Возможно, часть занятия не засчитана —
+          пройдите последний фрагмент ещё раз.
+        </p>
+      ) : null}
       {saveNote ? (
         <p className="scorm-player__save-note ui-text-muted" aria-live="polite">
           {saveNote}
