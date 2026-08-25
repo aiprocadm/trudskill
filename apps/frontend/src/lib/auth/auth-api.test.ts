@@ -5,6 +5,7 @@ const fetchMock = vi.fn();
 describe('auth api envelope compatibility', () => {
   let authApi: {
     me: (accessToken: string) => Promise<{ id: string; login: string }>;
+    refresh: () => Promise<{ accessToken: string }>;
     magicLinkRequest: (payload: { email: string }) => Promise<{ status: 'sent' }>;
     magicLinkRedeem: (payload: {
       token: string;
@@ -27,6 +28,62 @@ describe('auth api envelope compatibility', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     fetchMock.mockReset();
+  });
+
+  it('восстановление сессии сообщает серверу, какой это учебный центр (журнал 120)', async () => {
+    /*
+     * На поддомене центра, отличного от центра по умолчанию, оба довходных запроса
+     * (`/auth/csrf` и `/auth/refresh`) уходили без подсказки арендатора — и каждая
+     * перезагрузка страницы выбрасывала человека на вход. Вход подсказку передавал
+     * давно; восстановление про неё забыли.
+     */
+    /*
+     * Тесты фронта идут в node-окружении, где `document` нет вовсе — подменяем его так же,
+     * как хранилище в тестах сессии. Резолв арендатора читает cookie именно отсюда.
+     */
+    Object.defineProperty(globalThis, 'document', {
+      value: { cookie: 'trudskill_tenant_code=uc-nord' },
+      configurable: true
+    });
+
+    /*
+     * Ответ выбирается по адресу, а не по порядку вызовов: резолв арендатора кэшируется
+     * в модуле, и завязка на очередь ломается от соседнего теста.
+     */
+    const envelope = (data: unknown) =>
+      new Response(
+        JSON.stringify({
+          data,
+          meta: { requestId: 'r', correlationId: 'c', timestamp: '2026-08-23T00:00:00.000Z' }
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        }
+      );
+
+    fetchMock.mockImplementation((input: unknown) => {
+      const url = String(input);
+      if (url.includes('/public/tenants/by-code/')) {
+        return Promise.resolve(
+          envelope({ id: 'tenant_nord', code: 'uc-nord', name: 'Норд', status: 'active' })
+        );
+      }
+      if (url.includes('/auth/csrf')) return Promise.resolve(envelope({ csrfToken: 'c1' }));
+      return Promise.resolve(envelope({ accessToken: 'a1', sessionId: 's1', expiresIn: 300 }));
+    });
+
+    await authApi.refresh();
+
+    const tenantHeaderFor = (fragment: string): string | null => {
+      const call = fetchMock.mock.calls.find(([input]) => String(input).includes(fragment));
+      return new Headers((call?.[1] as RequestInit | undefined)?.headers).get('x-tenant-id');
+    };
+
+    expect(tenantHeaderFor('/auth/csrf')).toBe('tenant_nord');
+    expect(tenantHeaderFor('/auth/refresh')).toBe('tenant_nord');
+
+    Reflect.deleteProperty(globalThis, 'document');
   });
 
   it('me unwraps backend envelope', async () => {
