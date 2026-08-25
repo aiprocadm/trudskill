@@ -1,10 +1,6 @@
 import { apiRequest } from '../../lib/api/client';
 
-import type {
-  WorkspaceBlockerItem,
-  WorkspaceSummary,
-  WorkspaceTaskItem
-} from './types';
+import type { WorkspaceBlockerItem, WorkspaceSummary, WorkspaceTaskItem } from './types';
 import type { UserSession } from '../../entities/session/model';
 
 const withAuth = (session: UserSession) => ({

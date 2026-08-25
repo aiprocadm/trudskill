@@ -5,7 +5,9 @@ import { getJourneyByRole, roleJourneys } from './role-journeys';
 describe('role journeys', () => {
   it('contains all critical LMS roles', () => {
     const roles = roleJourneys.map((item) => item.role);
-    expect(roles).toEqual(expect.arrayContaining(['learner', 'teacher', 'methodist', 'tenant_admin']));
+    expect(roles).toEqual(
+      expect.arrayContaining(['learner', 'teacher', 'methodist', 'tenant_admin'])
+    );
   });
 
   it('returns journey for known role and null for unknown role', () => {

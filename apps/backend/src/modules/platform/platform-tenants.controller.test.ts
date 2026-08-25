@@ -54,7 +54,9 @@ describe('PlatformTenantsController.impersonate (срез 3)', () => {
     expect(setHeader).toHaveBeenCalledTimes(1);
     const [name, value] = setHeader.mock.calls[0] as [string, string[]];
     expect(name).toBe('Set-Cookie');
-    expect(value.some((c) => c.startsWith('trudskill_refresh_token=refresh_token_value'))).toBe(true);
+    expect(value.some((c) => c.startsWith('trudskill_refresh_token=refresh_token_value'))).toBe(
+      true
+    );
     expect(value.some((c) => c.startsWith('trudskill_csrf_token=csrf_token_value'))).toBe(true);
   });
 

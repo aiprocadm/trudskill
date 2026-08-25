@@ -39,7 +39,8 @@ vi.mock('react', () => ({
     }
     const setter = (next: unknown) => {
       const slot = runtime.slots[i] as Slot;
-      slot.value = typeof next === 'function' ? (next as (p: unknown) => unknown)(slot.value) : next;
+      slot.value =
+        typeof next === 'function' ? (next as (p: unknown) => unknown)(slot.value) : next;
     };
     return [(runtime.slots[i] as Slot).value, setter];
   },

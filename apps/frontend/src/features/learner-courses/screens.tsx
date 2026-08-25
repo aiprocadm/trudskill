@@ -16,11 +16,7 @@ import { frontendEnv } from '../../lib/config/env';
 import { CourseViewerScreen } from '../course-viewer/course-viewer-screen';
 import { useLearnerHomeData } from '../learner-home/use-learner-home-data';
 import { type EnrollmentCertsBundle, useEnrollmentCertificatesForCompleted } from '../mvp/hooks';
-import {
-  DOCUMENT_TYPE_LABELS,
-  ENROLLMENT_STATUS_LABEL,
-  ListSkeleton
-} from '../mvp/screen-helpers';
+import { DOCUMENT_TYPE_LABELS, ENROLLMENT_STATUS_LABEL, ListSkeleton } from '../mvp/screen-helpers';
 
 import type { EnrollmentCertificateRow } from '../mvp/types';
 
@@ -95,7 +91,9 @@ export const LearnerCoursesScreen = () => {
                     {/* Цвет чип берёт по коду статуса, слово — контекстное («Учится», не «Активен»). */}
                     <StatusChip
                       status={entry.enrollment.status}
-                      label={ENROLLMENT_STATUS_LABEL[entry.enrollment.status] ?? entry.enrollment.status}
+                      label={
+                        ENROLLMENT_STATUS_LABEL[entry.enrollment.status] ?? entry.enrollment.status
+                      }
                     />
                   </div>
                   <div className="course-card__body">

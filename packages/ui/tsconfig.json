@@ -13,13 +13,6 @@
     "module": "ESNext",
     "moduleResolution": "Bundler"
   },
-  "include": [
-    "./src/**/*"
-  ],
-  "exclude": [
-    "dist",
-    "node_modules",
-    "./src/**/*.test.ts",
-    "./src/**/*.test.tsx"
-  ]
+  "include": ["./src/**/*"],
+  "exclude": ["dist", "node_modules", "./src/**/*.test.ts", "./src/**/*.test.tsx"]
 }

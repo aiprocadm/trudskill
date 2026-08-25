@@ -70,7 +70,9 @@ describe('вид согласия', () => {
 
 describe('hashConsentBody', () => {
   it('игнорирует перевод строк и хвостовые пробелы — Word не должен плодить версии', () => {
-    expect(hashConsentBody('Текст\r\nвторая строка  ')).toBe(hashConsentBody('Текст\nвторая строка'));
+    expect(hashConsentBody('Текст\r\nвторая строка  ')).toBe(
+      hashConsentBody('Текст\nвторая строка')
+    );
   });
 
   it('различает содержательно разные тексты', () => {

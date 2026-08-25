@@ -15,7 +15,9 @@ describe('migration 0069', () => {
   });
 
   it('знает ровно два вида согласия и не даёт завести третий незаметно', () => {
-    expect(sql).toMatch(/consent_documents_kind_chk CHECK \(kind IN \('personal_data', 'photo'\)\)/);
+    expect(sql).toMatch(
+      /consent_documents_kind_chk CHECK \(kind IN \('personal_data', 'photo'\)\)/
+    );
     expect(sql).toMatch(/consent_facts_kind_chk CHECK \(kind IN \('personal_data', 'photo'\)\)/);
   });
 
@@ -27,7 +29,9 @@ describe('migration 0069', () => {
   });
 
   it('переносит существующий consent_at как согласие на ПДн', () => {
-    expect(sql).toMatch(/INSERT INTO learning\.consent_facts[\s\S]*'personal_data'[\s\S]*FROM learning\.identity_verifications/);
+    expect(sql).toMatch(
+      /INSERT INTO learning\.consent_facts[\s\S]*'personal_data'[\s\S]*FROM learning\.identity_verifications/
+    );
     expect(sql).toContain('v.consent_at IS NOT NULL');
   });
 

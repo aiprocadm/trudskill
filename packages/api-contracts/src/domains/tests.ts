@@ -34,7 +34,11 @@ export const assessmentEndpoints = [
 ] as const;
 
 export const gradingQueueEndpoints = {
-  submissions: ['/assignment-submissions', '/assignment-submissions/:id', '/assignment-submissions/:id/submit'],
+  submissions: [
+    '/assignment-submissions',
+    '/assignment-submissions/:id',
+    '/assignment-submissions/:id/submit'
+  ],
   reviews: ['/assignment-reviews', '/assignment-reviews/:id', '/assignment-reviews/:id/complete'],
   results: ['/exam-results', '/exam-results/:id', '/exam-results/by-enrollment/:enrollmentId']
 } as const;

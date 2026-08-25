@@ -55,9 +55,7 @@
     "/health": {
       "get": {
         "operationId": "healthCheck",
-        "tags": [
-          "system"
-        ],
+        "tags": ["system"],
         "responses": {
           "200": {
             "description": "Health response",
@@ -78,9 +76,7 @@
     "/auth/login": {
       "post": {
         "operationId": "authLogin",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "requestBody": {
           "required": true,
           "content": {
@@ -110,9 +106,7 @@
     "/auth/refresh": {
       "post": {
         "operationId": "authRefresh",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "$ref": "#/components/responses/AuthTokensResponse"
@@ -129,9 +123,7 @@
     "/auth/logout": {
       "post": {
         "operationId": "authLogout",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "requestBody": {
           "required": true,
           "content": {
@@ -155,9 +147,7 @@
     "/auth/me": {
       "get": {
         "operationId": "authMe",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "$ref": "#/components/responses/UserResponse"
@@ -174,9 +164,7 @@
     "/auth/sessions": {
       "get": {
         "operationId": "authListSessions",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "$ref": "#/components/responses/SessionListResponse"
@@ -190,9 +178,7 @@
     "/auth/sessions/{id}": {
       "delete": {
         "operationId": "authRevokeSession",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "parameters": [
           {
             "$ref": "#/components/parameters/IdPathParam"
@@ -211,9 +197,7 @@
     "/courses": {
       "get": {
         "operationId": "listCourses",
-        "tags": [
-          "courses"
-        ],
+        "tags": ["courses"],
         "parameters": [
           {
             "$ref": "#/components/parameters/PageParam"
@@ -242,9 +226,7 @@
       },
       "post": {
         "operationId": "createCourse",
-        "tags": [
-          "courses"
-        ],
+        "tags": ["courses"],
         "requestBody": {
           "required": true,
           "content": {
@@ -268,9 +250,7 @@
     "/courses/{id}": {
       "get": {
         "operationId": "getCourse",
-        "tags": [
-          "courses"
-        ],
+        "tags": ["courses"],
         "parameters": [
           {
             "$ref": "#/components/parameters/IdPathParam"
@@ -287,9 +267,7 @@
       },
       "put": {
         "operationId": "updateCourse",
-        "tags": [
-          "courses"
-        ],
+        "tags": ["courses"],
         "parameters": [
           {
             "$ref": "#/components/parameters/IdPathParam"
@@ -318,9 +296,7 @@
     "/courses/{id}/publish": {
       "post": {
         "operationId": "publishCourse",
-        "tags": [
-          "courses"
-        ],
+        "tags": ["courses"],
         "parameters": [
           {
             "$ref": "#/components/parameters/IdPathParam"
@@ -339,9 +315,7 @@
     "/courses/{id}/archive": {
       "post": {
         "operationId": "archiveCourse",
-        "tags": [
-          "courses"
-        ],
+        "tags": ["courses"],
         "parameters": [
           {
             "$ref": "#/components/parameters/IdPathParam"
@@ -360,9 +334,7 @@
     "/enrollments": {
       "get": {
         "operationId": "listEnrollments",
-        "tags": [
-          "enrollments"
-        ],
+        "tags": ["enrollments"],
         "parameters": [
           {
             "$ref": "#/components/parameters/PageParam"
@@ -385,9 +357,7 @@
       },
       "post": {
         "operationId": "createEnrollment",
-        "tags": [
-          "enrollments"
-        ],
+        "tags": ["enrollments"],
         "requestBody": {
           "required": true,
           "content": {
@@ -411,9 +381,7 @@
     "/enrollments/{id}": {
       "get": {
         "operationId": "getEnrollment",
-        "tags": [
-          "enrollments"
-        ],
+        "tags": ["enrollments"],
         "parameters": [
           {
             "$ref": "#/components/parameters/IdPathParam"
@@ -432,9 +400,7 @@
     "/enrollments/{id}/status": {
       "patch": {
         "operationId": "changeEnrollmentStatus",
-        "tags": [
-          "enrollments"
-        ],
+        "tags": ["enrollments"],
         "parameters": [
           {
             "$ref": "#/components/parameters/IdPathParam"
@@ -463,9 +429,7 @@
     "/question-banks": {
       "get": {
         "operationId": "listQuestionBanks",
-        "tags": [
-          "assessment"
-        ],
+        "tags": ["assessment"],
         "responses": {
           "200": {
             "$ref": "#/components/responses/QuestionBankListResponse"
@@ -477,9 +441,7 @@
       },
       "post": {
         "operationId": "createQuestionBank",
-        "tags": [
-          "assessment"
-        ],
+        "tags": ["assessment"],
         "requestBody": {
           "required": true,
           "content": {
@@ -503,9 +465,7 @@
     "/tests": {
       "get": {
         "operationId": "listTests",
-        "tags": [
-          "assessment"
-        ],
+        "tags": ["assessment"],
         "responses": {
           "200": {
             "$ref": "#/components/responses/TestListResponse"
@@ -517,9 +477,7 @@
       },
       "post": {
         "operationId": "createTest",
-        "tags": [
-          "assessment"
-        ],
+        "tags": ["assessment"],
         "requestBody": {
           "required": true,
           "content": {
@@ -543,9 +501,7 @@
     "/tests/{id}": {
       "patch": {
         "operationId": "updateTest",
-        "tags": [
-          "assessment"
-        ],
+        "tags": ["assessment"],
         "parameters": [
           {
             "$ref": "#/components/parameters/IdPathParam"
@@ -574,9 +530,7 @@
     "/tests/{id}/publish": {
       "post": {
         "operationId": "publishTest",
-        "tags": [
-          "assessment"
-        ],
+        "tags": ["assessment"],
         "parameters": [
           {
             "$ref": "#/components/parameters/IdPathParam"
@@ -595,9 +549,7 @@
     "/attempts/start": {
       "post": {
         "operationId": "startAttempt",
-        "tags": [
-          "assessment"
-        ],
+        "tags": ["assessment"],
         "requestBody": {
           "required": true,
           "content": {
@@ -621,9 +573,7 @@
     "/attempts/{id}/answers": {
       "post": {
         "operationId": "saveAttemptAnswer",
-        "tags": [
-          "assessment"
-        ],
+        "tags": ["assessment"],
         "parameters": [
           {
             "$ref": "#/components/parameters/IdPathParam"
@@ -653,9 +603,7 @@
     "/attempts/{id}/submit": {
       "post": {
         "operationId": "submitAttempt",
-        "tags": [
-          "assessment"
-        ],
+        "tags": ["assessment"],
         "parameters": [
           {
             "$ref": "#/components/parameters/IdPathParam"
@@ -674,9 +622,7 @@
     "/attempts/{id}/result": {
       "get": {
         "operationId": "getAttemptResult",
-        "tags": [
-          "assessment"
-        ],
+        "tags": ["assessment"],
         "parameters": [
           {
             "$ref": "#/components/parameters/IdPathParam"
@@ -695,9 +641,7 @@
     "/assignments": {
       "get": {
         "operationId": "listAssignments",
-        "tags": [
-          "assessment"
-        ],
+        "tags": ["assessment"],
         "responses": {
           "200": {
             "$ref": "#/components/responses/AssignmentListResponse"
@@ -709,9 +653,7 @@
       },
       "post": {
         "operationId": "createAssignment",
-        "tags": [
-          "assessment"
-        ],
+        "tags": ["assessment"],
         "requestBody": {
           "required": true,
           "content": {
@@ -736,9 +678,7 @@
     "/assignments/{id}": {
       "patch": {
         "operationId": "updateAssignment",
-        "tags": [
-          "assessment"
-        ],
+        "tags": ["assessment"],
         "parameters": [
           {
             "$ref": "#/components/parameters/IdPathParam"
@@ -768,9 +708,7 @@
     "/assignment-submissions": {
       "post": {
         "operationId": "createAssignmentSubmission",
-        "tags": [
-          "assessment"
-        ],
+        "tags": ["assessment"],
         "requestBody": {
           "required": true,
           "content": {
@@ -795,9 +733,7 @@
     "/assignment-submissions/{id}/submit": {
       "post": {
         "operationId": "submitAssignmentSubmission",
-        "tags": [
-          "assessment"
-        ],
+        "tags": ["assessment"],
         "parameters": [
           {
             "$ref": "#/components/parameters/IdPathParam"
@@ -816,9 +752,7 @@
     "/assignment-reviews": {
       "post": {
         "operationId": "createAssignmentReview",
-        "tags": [
-          "assessment"
-        ],
+        "tags": ["assessment"],
         "requestBody": {
           "required": true,
           "content": {
@@ -843,9 +777,7 @@
     "/documents": {
       "get": {
         "operationId": "listDocuments",
-        "tags": [
-          "documents"
-        ],
+        "tags": ["documents"],
         "responses": {
           "200": {
             "$ref": "#/components/responses/DocumentListResponse"
@@ -859,9 +791,7 @@
     "/documents/{id}": {
       "get": {
         "operationId": "getDocument",
-        "tags": [
-          "documents"
-        ],
+        "tags": ["documents"],
         "parameters": [
           {
             "$ref": "#/components/parameters/IdPathParam"
@@ -880,9 +810,7 @@
     "/documents/generate": {
       "post": {
         "operationId": "generateDocument",
-        "tags": [
-          "documents"
-        ],
+        "tags": ["documents"],
         "requestBody": {
           "required": true,
           "content": {
@@ -907,9 +835,7 @@
     "/documents/{id}/download": {
       "get": {
         "operationId": "documentDownloadLink",
-        "tags": [
-          "documents"
-        ],
+        "tags": ["documents"],
         "parameters": [
           {
             "$ref": "#/components/parameters/IdPathParam"
@@ -928,9 +854,7 @@
     "/files/{id}/download": {
       "get": {
         "operationId": "fileDownload",
-        "tags": [
-          "files"
-        ],
+        "tags": ["files"],
         "parameters": [
           {
             "$ref": "#/components/parameters/IdPathParam"
@@ -1011,11 +935,7 @@
     "schemas": {
       "ApiMeta": {
         "type": "object",
-        "required": [
-          "requestId",
-          "correlationId",
-          "timestamp"
-        ],
+        "required": ["requestId", "correlationId", "timestamp"],
         "properties": {
           "requestId": {
             "type": "string"
@@ -1031,9 +951,7 @@
       },
       "ErrorDetails": {
         "type": "object",
-        "required": [
-          "message"
-        ],
+        "required": ["message"],
         "properties": {
           "field": {
             "type": "string"
@@ -1048,10 +966,7 @@
       },
       "ApiError": {
         "type": "object",
-        "required": [
-          "code",
-          "message"
-        ],
+        "required": ["code", "message"],
         "properties": {
           "code": {
             "type": "string",
@@ -1085,10 +1000,7 @@
       },
       "ErrorResponse": {
         "type": "object",
-        "required": [
-          "error",
-          "meta"
-        ],
+        "required": ["error", "meta"],
         "properties": {
           "error": {
             "$ref": "#/components/schemas/ApiError"
@@ -1100,9 +1012,7 @@
       },
       "SuccessFlag": {
         "type": "object",
-        "required": [
-          "success"
-        ],
+        "required": ["success"],
         "properties": {
           "success": {
             "type": "boolean"
@@ -1111,11 +1021,7 @@
       },
       "AuthTokens": {
         "type": "object",
-        "required": [
-          "accessToken",
-          "sessionId",
-          "expiresIn"
-        ],
+        "required": ["accessToken", "sessionId", "expiresIn"],
         "properties": {
           "accessToken": {
             "type": "string"
@@ -1130,10 +1036,7 @@
       },
       "LoginRequest": {
         "type": "object",
-        "required": [
-          "login",
-          "password"
-        ],
+        "required": ["login", "password"],
         "properties": {
           "login": {
             "type": "string"
@@ -1145,9 +1048,7 @@
       },
       "LogoutRequest": {
         "type": "object",
-        "required": [
-          "sessionId"
-        ],
+        "required": ["sessionId"],
         "properties": {
           "sessionId": {
             "type": "string"
@@ -1156,13 +1057,7 @@
       },
       "UserPublic": {
         "type": "object",
-        "required": [
-          "id",
-          "tenantId",
-          "login",
-          "status",
-          "displayName"
-        ],
+        "required": ["id", "tenantId", "login", "status", "displayName"],
         "properties": {
           "id": {
             "type": "string"
@@ -1174,10 +1069,7 @@
             "type": "string"
           },
           "email": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "status": {
             "type": "string"
@@ -1189,12 +1081,7 @@
       },
       "SessionPublic": {
         "type": "object",
-        "required": [
-          "id",
-          "tenantId",
-          "userId",
-          "expiresAt"
-        ],
+        "required": ["id", "tenantId", "userId", "expiresAt"],
         "properties": {
           "id": {
             "type": "string"
@@ -1217,13 +1104,7 @@
       },
       "BaseEntity": {
         "type": "object",
-        "required": [
-          "id",
-          "tenantId",
-          "status",
-          "createdAt",
-          "updatedAt"
-        ],
+        "required": ["id", "tenantId", "status", "createdAt", "updatedAt"],
         "properties": {
           "id": {
             "type": "string"
@@ -1251,11 +1132,7 @@
           },
           {
             "type": "object",
-            "required": [
-              "code",
-              "title",
-              "isArchived"
-            ],
+            "required": ["code", "title", "isArchived"],
             "properties": {
               "code": {
                 "type": "string"
@@ -1280,12 +1157,7 @@
           },
           {
             "type": "object",
-            "required": [
-              "groupId",
-              "learnerId",
-              "status",
-              "enrolledAt"
-            ],
+            "required": ["groupId", "learnerId", "status", "enrolledAt"],
             "properties": {
               "groupId": {
                 "type": "string"
@@ -1314,11 +1186,7 @@
           },
           {
             "type": "object",
-            "required": [
-              "code",
-              "title",
-              "isArchived"
-            ],
+            "required": ["code", "title", "isArchived"],
             "properties": {
               "code": {
                 "type": "string"
@@ -1346,11 +1214,7 @@
           },
           {
             "type": "object",
-            "required": [
-              "title",
-              "courseId",
-              "rules"
-            ],
+            "required": ["title", "courseId", "rules"],
             "properties": {
               "title": {
                 "type": "string"
@@ -1502,13 +1366,7 @@
           },
           {
             "type": "object",
-            "required": [
-              "courseId",
-              "title",
-              "isReviewRequired",
-              "maxScore",
-              "isArchived"
-            ],
+            "required": ["courseId", "title", "isReviewRequired", "maxScore", "isArchived"],
             "properties": {
               "courseId": {
                 "type": "string"
@@ -1542,12 +1400,7 @@
           },
           {
             "type": "object",
-            "required": [
-              "assignmentId",
-              "enrollmentId",
-              "learnerId",
-              "status"
-            ],
+            "required": ["assignmentId", "enrollmentId", "learnerId", "status"],
             "properties": {
               "assignmentId": {
                 "type": "string"
@@ -1582,13 +1435,7 @@
           },
           {
             "type": "object",
-            "required": [
-              "assignmentId",
-              "submissionId",
-              "enrollmentId",
-              "reviewerId",
-              "status"
-            ],
+            "required": ["assignmentId", "submissionId", "enrollmentId", "reviewerId", "status"],
             "properties": {
               "assignmentId": {
                 "type": "string"
@@ -1617,9 +1464,7 @@
       },
       "Document": {
         "type": "object",
-        "required": [
-          "id"
-        ],
+        "required": ["id"],
         "properties": {
           "id": {
             "type": "string"
@@ -1638,10 +1483,7 @@
       },
       "DocumentTask": {
         "type": "object",
-        "required": [
-          "id",
-          "status"
-        ],
+        "required": ["id", "status"],
         "properties": {
           "id": {
             "type": "string"
@@ -1654,9 +1496,7 @@
       },
       "DownloadLink": {
         "type": "object",
-        "required": [
-          "downloadUrl"
-        ],
+        "required": ["downloadUrl"],
         "properties": {
           "downloadUrl": {
             "type": "string"
@@ -1665,9 +1505,7 @@
       },
       "CourseMutationRequest": {
         "type": "object",
-        "required": [
-          "title"
-        ],
+        "required": ["title"],
         "properties": {
           "code": {
             "type": "string"
@@ -1685,10 +1523,7 @@
       },
       "EnrollmentCreateRequest": {
         "type": "object",
-        "required": [
-          "groupId",
-          "learnerId"
-        ],
+        "required": ["groupId", "learnerId"],
         "properties": {
           "groupId": {
             "type": "string"
@@ -1700,9 +1535,7 @@
       },
       "EnrollmentStatusUpdateRequest": {
         "type": "object",
-        "required": [
-          "status"
-        ],
+        "required": ["status"],
         "properties": {
           "status": {
             "type": "string"
@@ -1711,9 +1544,7 @@
       },
       "QuestionBankMutationRequest": {
         "type": "object",
-        "required": [
-          "title"
-        ],
+        "required": ["title"],
         "properties": {
           "code": {
             "type": "string"
@@ -1728,10 +1559,7 @@
       },
       "TestMutationRequest": {
         "type": "object",
-        "required": [
-          "title",
-          "courseId"
-        ],
+        "required": ["title", "courseId"],
         "properties": {
           "title": {
             "type": "string"
@@ -1753,11 +1581,7 @@
       },
       "StartAttemptRequest": {
         "type": "object",
-        "required": [
-          "testId",
-          "enrollmentId",
-          "learnerId"
-        ],
+        "required": ["testId", "enrollmentId", "learnerId"],
         "properties": {
           "testId": {
             "type": "string"
@@ -1772,24 +1596,15 @@
       },
       "HealthResponse": {
         "type": "object",
-        "required": [
-          "data",
-          "meta"
-        ],
+        "required": ["data", "meta"],
         "properties": {
           "data": {
             "type": "object",
-            "required": [
-              "status",
-              "service",
-              "timestamp"
-            ],
+            "required": ["status", "service", "timestamp"],
             "properties": {
               "status": {
                 "type": "string",
-                "enum": [
-                  "ok"
-                ]
+                "enum": ["ok"]
               },
               "service": {
                 "type": "string"
@@ -1807,10 +1622,7 @@
       },
       "Envelope": {
         "type": "object",
-        "required": [
-          "data",
-          "meta"
-        ],
+        "required": ["data", "meta"],
         "properties": {
           "data": {
             "type": "object"

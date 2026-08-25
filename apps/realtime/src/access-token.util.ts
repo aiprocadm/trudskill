@@ -4,7 +4,8 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 const ACCESS_ALG = 'HS256' as const;
 const ACCESS_TYP = 'JWT' as const;
 
-const encodeBase64Url = (input: string): string => Buffer.from(input, 'utf-8').toString('base64url');
+const encodeBase64Url = (input: string): string =>
+  Buffer.from(input, 'utf-8').toString('base64url');
 const decodeBase64Url = (input: string): string =>
   Buffer.from(input, 'base64url').toString('utf-8');
 

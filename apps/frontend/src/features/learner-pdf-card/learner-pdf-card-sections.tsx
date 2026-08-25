@@ -15,7 +15,6 @@ const TRAINING_TYPE_LABELS: Record<string, string> = {
   extraordinary: 'Внеочередное'
 };
 
-
 /**
  * Pillar A Plan C §5.11 — секции «Учебная история», «Выданные документы»
  * и кнопка PDF-экспорта для карточки слушателя.
@@ -25,7 +24,6 @@ const TRAINING_TYPE_LABELS: Record<string, string> = {
  */
 export function LearnerPdfCardSections({ learnerId }: { learnerId: string }) {
   const { data, isLoading, error } = useLearnerPdfCard(learnerId);
-
 
   if (isLoading) return <LoadingState message="Загружаем карточку слушателя…" />;
   if (error) return <SectionError message="Не удалось загрузить карточку слушателя" />;

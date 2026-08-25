@@ -16,9 +16,13 @@ const stamp = { data: PNG, contentType: 'image/png' };
 
 describe('renderDocx — картинки', () => {
   it('заменяет тег {%…} на рисунок с медиа-файлом, связью и типом содержимого', () => {
-    const docx = renderDocx(buildDocx(p('Печать: {%tenant.stamp_image}')), {}, {
-      images: { 'tenant.stamp_image': stamp }
-    });
+    const docx = renderDocx(
+      buildDocx(p('Печать: {%tenant.stamp_image}')),
+      {},
+      {
+        images: { 'tenant.stamp_image': stamp }
+      }
+    );
 
     const zip = new PizZip(docx);
     const xml = readDocumentXml(docx);
@@ -52,12 +56,16 @@ describe('renderDocx — картинки', () => {
   it('две разные картинки получают разные связи, одна и та же — общий медиа-файл', () => {
     const body =
       p('{%tenant.signature_image} {%tenant.stamp_image}') + p('ещё раз {%tenant.stamp_image}');
-    const docx = renderDocx(buildDocx(body), {}, {
-      images: {
-        'tenant.signature_image': { data: tinyPng(30, 10, [1, 2, 3]), contentType: 'image/png' },
-        'tenant.stamp_image': stamp
+    const docx = renderDocx(
+      buildDocx(body),
+      {},
+      {
+        images: {
+          'tenant.signature_image': { data: tinyPng(30, 10, [1, 2, 3]), contentType: 'image/png' },
+          'tenant.stamp_image': stamp
+        }
       }
-    });
+    );
 
     const zip = new PizZip(docx);
     expect(Object.keys(zip.files).filter((n) => n.startsWith('word/media/'))).toHaveLength(2);
@@ -76,17 +84,27 @@ describe('renderDocx — картинки', () => {
 
   it('неподдерживаемый формат — понятная терминальная ошибка, а не падение рендера', () => {
     expect(() =>
-      renderDocx(buildDocx(p('{%tenant.stamp_image}')), {}, {
-        images: { 'tenant.stamp_image': { data: PNG, contentType: 'image/svg+xml' } }
-      })
+      renderDocx(
+        buildDocx(p('{%tenant.stamp_image}')),
+        {},
+        {
+          images: { 'tenant.stamp_image': { data: PNG, contentType: 'image/svg+xml' } }
+        }
+      )
     ).toThrow(TemplateRenderError);
   });
 
   it('битый файл картинки — тоже понятная ошибка', () => {
     expect(() =>
-      renderDocx(buildDocx(p('{%tenant.stamp_image}')), {}, {
-        images: { 'tenant.stamp_image': { data: Buffer.from('не картинка'), contentType: 'image/png' } }
-      })
+      renderDocx(
+        buildDocx(p('{%tenant.stamp_image}')),
+        {},
+        {
+          images: {
+            'tenant.stamp_image': { data: Buffer.from('не картинка'), contentType: 'image/png' }
+          }
+        }
+      )
     ).toThrow(/размеры изображения/);
   });
 });
@@ -131,7 +149,9 @@ describe('размер картинки на бланке', () => {
 describe('разбор бланка', () => {
   it('различает обычные теги и теги-картинки (ФТ-A3.2)', () => {
     const tags = extractTemplateTags(
-      buildDocx(p('{tenant.name} {%tenant.stamp_image} {#group_learners}{full_name}{/group_learners}'))
+      buildDocx(
+        p('{tenant.name} {%tenant.stamp_image} {#group_learners}{full_name}{/group_learners}')
+      )
     );
     expect(tags).toEqual([
       { name: 'tenant.name', kind: 'value' },

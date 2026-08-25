@@ -9,3 +9,11 @@ coverage
 # и порождает конфликты между параллельными сессиями.
 pnpm-lock.yaml
 package-lock.json
+
+# Машинно-генерируемое: форматировать бессмысленно — следующая генерация
+# перезапишет файл, и проверка формата снова покраснеет.
+packages/api-contracts/src/generated
+apps/frontend/next-env.d.ts
+apps/frontend/public/sw.js
+apps/frontend/public/workbox-*.js
+**/*.map

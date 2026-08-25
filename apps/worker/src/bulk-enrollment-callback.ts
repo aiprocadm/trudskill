@@ -78,6 +78,8 @@ export async function invokeBackendBulkEnrollment(
     if (NON_RETRYABLE_CALLBACK_CODES.has(errCode)) {
       throw new NonRetryableJobError(`bulk callback rejected: ${errCode || 'unknown'}`);
     }
-    throw new Error(`bulk_enrollment callback failed http=${res.status} body=${String(text).slice(0, 500)}`);
+    throw new Error(
+      `bulk_enrollment callback failed http=${res.status} body=${String(text).slice(0, 500)}`
+    );
   }
 }
