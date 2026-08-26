@@ -228,9 +228,19 @@ export class PostgresPaymentsRepository implements PaymentsRepository {
 
     const payment = this.mapPayment(payments[0]);
 
-    const orders = await this.db.query<OrderDbRow>(`select * from payments.orders where id = $1`, [
-      payment.orderId
-    ]);
+    /*
+     * Заказ ищется в границах ТОГО ЖЕ центра, что и платёж (ревизия 2026-08-26).
+     *
+     * Вебхук платёжного сервиса приходит без арендатора — он и не может его знать, — поэтому
+     * платёж находится по внешнему идентификатору, а центр берётся из найденной записи. Это
+     * законно. Но дальше заказ доставался по одному `id`, без сверки с центром платежа: если
+     * записи разъедутся, вебхук свяжет платёж одного центра с заказом другого и пометит
+     * оплаченным чужое обучение. Условие ниже стоит ноль по цене и убирает целый класс.
+     */
+    const orders = await this.db.query<OrderDbRow>(
+      `select * from payments.orders where tenant_id = $1 and id = $2`,
+      [payment.tenantId, payment.orderId]
+    );
     if (!orders[0]) return null;
 
     const items = await this.db.query<OrderItemDbRow>(
