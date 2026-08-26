@@ -13,6 +13,8 @@ import { formatDate } from '../mvp/screen-helpers';
 type AuditEvent = {
   id: string;
   actorId?: string;
+  /** Имя приходит с сервера — экран его не ищет и не додумывает. */
+  actorName?: string;
   action: string;
   entityType: string;
   entityId?: string;
@@ -53,8 +55,17 @@ export const AuditScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<AuditEvent[]>([]);
 
+  /*
+   * Ревизия 2026-08-26. Здесь стоял справочник имён на 100 записей, и ненайденный
+   * идентификатор превращался в «система». В центре с полутысячей сотрудников журнал
+   * приписывал действие человека системе — вранье ровно там, где разбирают спор. Имя
+   * теперь приходит с сервера; экран различает три разных случая и ни один не выдаёт
+   * за другой: действие системы, действие человека, действие из удалённой учётной записи.
+   *
+   * Список сотрудников остаётся — но только для отбора «Кто сделал», а не для подстановки
+   * имён в строки журнала.
+   */
   const { data: users } = useUsersList({ page: 1, page_size: 100 });
-  const userName = new Map((users?.items ?? []).map((user) => [user.id, user.displayName]));
 
   const load = async () => {
     if (!session) return;
@@ -97,10 +108,16 @@ export const AuditScreen = () => {
     void load();
   }, [session, search, from, to, actor, entityId, requestId]);
 
+  /** Три случая, и ни один не выдаётся за другой. */
+  const describeActor = (event: AuditEvent) => {
+    if (!event.actorId) return 'Система';
+    return event.actorName ?? 'Удалённая учётная запись';
+  };
+
   const tableRows: AuditRow[] = rows.map((event) => ({
     id: event.id,
     whenView: formatDate(event.createdAt),
-    whoView: (event.actorId ? userName.get(event.actorId) : undefined) ?? 'система',
+    whoView: describeActor(event),
     whatView: describeAction(event.action),
     overWhatView: entityLabel(event.entityType)
   }));

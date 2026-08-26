@@ -40,6 +40,8 @@ export interface AuditLogRecord {
   id: string;
   tenantId: string;
   actorId?: string;
+  /** Имя действующего лица: подставляет сервер, чтобы экран не гадал по справочнику. */
+  actorName?: string;
   action: string;
   entityType: string;
   entityId?: string;
@@ -256,6 +258,7 @@ export class AuditService {
       id: string;
       tenant_id: string;
       actor_id: string | null;
+      actor_name: string | null;
       action: string;
       entity_type: string;
       entity_id: string | null;
@@ -269,31 +272,41 @@ export class AuditService {
       total_count: string;
     }>(
       `
+        -- Имя действующего лица подставляет СЕРВЕР (ревизия 2026-08-26).
+        -- Экран собирал справочник имён отдельным запросом на 100 записей и на ненайденном
+        -- идентификаторе писал «система». В центре, где сотрудников больше сотни, журнал
+        -- приписывал действие человека системе — то есть врал ровно там, где по нему
+        -- разбирают спор. Соединение дешевле справочника и не имеет потолка; удалённая
+        -- учётная запись даёт пусто, и экран говорит об этом прямо.
         select
-          id,
-          tenant_id,
-          actor_id,
-          action,
-          entity_type,
-          entity_id,
-          old_values,
-          new_values,
-          metadata,
-          request_id,
-          ip,
-          user_agent,
-          created_at::text as created_at,
+          l.id,
+          l.tenant_id,
+          l.actor_id,
+          u.display_name as actor_name,
+          l.action,
+          l.entity_type,
+          l.entity_id,
+          l.old_values,
+          l.new_values,
+          l.metadata,
+          l.request_id,
+          l.ip,
+          l.user_agent,
+          l.created_at::text as created_at,
           count(*) over()::text as total_count
-        from audit.audit_log
-        where tenant_id = $1
-          and ($2::text is null or actor_id like '%' || $2 || '%')
-          and ($3::text is null or entity_type like '%' || $3 || '%')
-          and ($4::text is null or action like '%' || $4 || '%')
-          and ($5::text is null or entity_id like '%' || $5 || '%')
-          and ($6::text is null or request_id like '%' || $6 || '%')
-          and ($7::timestamptz is null or created_at >= $7)
-          and ($8::timestamptz is null or created_at <= $8)
-        order by created_at desc
+        from audit.audit_log l
+        left join iam.users u
+          on u.id = l.actor_id
+         and u.tenant_id = l.tenant_id
+        where l.tenant_id = $1
+          and ($2::text is null or l.actor_id like '%' || $2 || '%')
+          and ($3::text is null or l.entity_type like '%' || $3 || '%')
+          and ($4::text is null or l.action like '%' || $4 || '%')
+          and ($5::text is null or l.entity_id like '%' || $5 || '%')
+          and ($6::text is null or l.request_id like '%' || $6 || '%')
+          and ($7::timestamptz is null or l.created_at >= $7)
+          and ($8::timestamptz is null or l.created_at <= $8)
+        order by l.created_at desc
         limit $9 offset $10
       `,
       [
@@ -314,6 +327,7 @@ export class AuditService {
       id: row.id,
       tenantId: row.tenant_id,
       actorId: row.actor_id ?? undefined,
+      ...(row.actor_name ? { actorName: row.actor_name } : {}),
       action: row.action,
       entityType: row.entity_type,
       entityId: row.entity_id ?? undefined,
