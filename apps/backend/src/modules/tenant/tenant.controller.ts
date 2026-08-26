@@ -69,7 +69,7 @@ export class TenantController {
     @CurrentContext() context: RequestContext,
     @Body() body: { locale?: string; timezone?: string; payload?: Record<string, unknown> }
   ) {
-    return this.tenantService.updateSettings(context.tenantId!, body);
+    return this.tenantService.updateSettings(context.tenantId!, body, context);
   }
 
   @Put('requisites')
@@ -79,7 +79,7 @@ export class TenantController {
     @CurrentContext() context: RequestContext,
     @Body() body: { legalName?: string; taxNumber?: string; payload?: Record<string, unknown> }
   ) {
-    return this.tenantService.updateRequisites(context.tenantId!, body);
+    return this.tenantService.updateRequisites(context.tenantId!, body, context);
   }
 
   /**
@@ -158,9 +158,11 @@ export class TenantController {
     if (next === undefined) delete settings.imageRetentionDays;
     else settings.imageRetentionDays = next;
 
-    await this.tenantService.updateRequisites(context.tenantId!, {
-      payload: { [TENANT_IDENTITY_SETTINGS_KEY]: settings }
-    });
+    await this.tenantService.updateRequisites(
+      context.tenantId!,
+      { payload: { [TENANT_IDENTITY_SETTINGS_KEY]: settings } },
+      context
+    );
     return this.identitySettings(context);
   }
 

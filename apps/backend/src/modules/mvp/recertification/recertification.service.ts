@@ -12,6 +12,7 @@ import {
   type RecertScanSummary,
   RecertificationScanner
 } from './recertification-scanner.service.js';
+import { AuditService } from '../../audit/audit.service.js';
 import { DocumentsTenantRunner } from '../../documents/documents-tenant-runner.service.js';
 import { MVP_STATE } from '../infrastructure/mvp-state.token.js';
 import { MvpService } from '../mvp.service.js';
@@ -45,8 +46,38 @@ export class RecertificationService {
     @Inject(MVP_STATE) private readonly state: InMemoryMvpState,
     @Inject(MvpService) private readonly mvp: MvpService,
     @Inject(RecertificationScanner) private readonly scanner: RecertificationScanner,
-    @Inject(DocumentsTenantRunner) private readonly documentsRunner: DocumentsTenantRunner
+    @Inject(DocumentsTenantRunner) private readonly documentsRunner: DocumentsTenantRunner,
+    @Inject(AuditService) private readonly auditService: AuditService
   ) {}
+
+  /*
+   * След решения по переаттестации (ревизия 2026-08-26, ФТ-G1).
+   *
+   * Одобрение создаёт зачисление, и зачисление в журнале видно, — а вот САМО РЕШЕНИЕ нет.
+   * Отклонение не оставляло следа вообще: человек не пошёл на переаттестацию, и по журналу
+   * нельзя было сказать, кто и почему так решил. Для обязательного обучения это ровно тот
+   * вопрос, который задают потом.
+   */
+  private auditDecision(
+    tenantId: string,
+    action: string,
+    draftId: string,
+    newValues: Record<string, unknown>,
+    ctx: RequestContext
+  ) {
+    this.auditService.write({
+      tenantId,
+      ...(ctx.userId ? { actorId: ctx.userId } : {}),
+      action,
+      entityType: 'recertification_draft',
+      entityId: draftId,
+      newValues,
+      ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
+      ...(ctx.correlationId ? { correlationId: ctx.correlationId } : {}),
+      ...(ctx.ip ? { ip: ctx.ip } : {}),
+      ...(ctx.userAgent ? { userAgent: ctx.userAgent } : {})
+    });
+  }
 
   /**
    * ФТ-E4: дашборд «истекающие удостоверения». Горизонт совпадает с окном скана
@@ -128,7 +159,19 @@ export class RecertificationService {
       });
     }
 
-    return this.drafts.markApproved(tenantId, draftId, enrollmentId, ctx.userId);
+    const approved = await this.drafts.markApproved(tenantId, draftId, enrollmentId, ctx.userId);
+    this.auditDecision(
+      tenantId,
+      'learning.recertification_approved',
+      draftId,
+      {
+        learnerId: draft.learnerId,
+        targetGroupId,
+        enrollmentId
+      },
+      ctx
+    );
+    return approved;
   }
 
   async rejectDraft(
@@ -144,6 +187,17 @@ export class RecertificationService {
         message: 'Черновик переаттестации не найден'
       });
     }
-    return this.drafts.markRejected(tenantId, draftId, reason, ctx.userId);
+    const rejected = await this.drafts.markRejected(tenantId, draftId, reason, ctx.userId);
+    this.auditDecision(
+      tenantId,
+      'learning.recertification_rejected',
+      draftId,
+      {
+        learnerId: draft.learnerId,
+        ...(reason ? { reason } : {})
+      },
+      ctx
+    );
+    return rejected;
   }
 }

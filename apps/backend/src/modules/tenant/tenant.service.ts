@@ -9,6 +9,7 @@ import {
 import { TENANT_BRANDING_KEY, readTenantBranding } from './tenant-branding.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
+import { AuditService } from '../audit/audit.service.js';
 
 import type { TenantBranding } from './tenant-branding.js';
 import type {
@@ -18,6 +19,7 @@ import type {
   TenantSettings,
   TenantStatus
 } from './tenant.types.js';
+import type { RequestContext } from '../../common/context/request-context.js';
 
 /**
  * ФТ-D2.1 (Фаза 4 Task 2): единственный источник тенантов — БД. In-memory фоллбека
@@ -31,7 +33,13 @@ export class TenantService {
 
   constructor(
     @Inject(TenantScopedRepository) private readonly tenantScopedRepository: TenantScopedRepository,
-    @Optional() @Inject(DatabaseService) private readonly databaseService?: DatabaseService
+    @Optional() @Inject(DatabaseService) private readonly databaseService?: DatabaseService,
+    /*
+     * Аудит — ПОСЛЕДНИМ аргументом и необязательным. Тесты собирают сервис позиционно
+     * (`new TenantService(repo, db)`), и вставка в середину списка тихо подменяет им базу:
+     * ровно это и случилось при первой попытке — десять тестов покраснели.
+     */
+    @Optional() @Inject(AuditService) private readonly auditService?: AuditService
   ) {}
 
   /** Фейл-клоузед: без БД тенантов НЕ СУЩЕСТВУЕТ — понятная 503, а не демо-подмена. */
@@ -112,7 +120,8 @@ export class TenantService {
 
   async updateSettings(
     tenantId: string,
-    patch: { locale?: string; timezone?: string; payload?: Record<string, unknown> }
+    patch: { locale?: string; timezone?: string; payload?: Record<string, unknown> },
+    ctx?: RequestContext
   ): Promise<TenantSettings> {
     const db = this.requireDb();
     const current = await this.getSettings(tenantId);
@@ -135,6 +144,7 @@ export class TenantService {
        on conflict (tenant_id) do update set payload = excluded.payload, updated_at = now()`,
       [tenantId, JSON.stringify({ ...next.payload, locale: next.locale, timezone: next.timezone })]
     );
+    await this.audit('tenant.settings_updated', tenantId, current, next, ctx);
     return this.getSettings(tenantId);
   }
 
@@ -184,7 +194,8 @@ export class TenantService {
 
   async updateRequisites(
     tenantId: string,
-    patch: { legalName?: string; taxNumber?: string; payload?: Record<string, unknown> }
+    patch: { legalName?: string; taxNumber?: string; payload?: Record<string, unknown> },
+    ctx?: RequestContext
   ): Promise<TenantRequisites> {
     const db = this.requireDb();
     const current = await this.getRequisites(tenantId);
@@ -207,7 +218,44 @@ export class TenantService {
                      payload = excluded.payload, updated_at = now()`,
       [tenantId, next.legalName, next.taxNumber, JSON.stringify(next.payload)]
     );
+    await this.audit('tenant.requisites_updated', tenantId, current, next, ctx);
     return this.getRequisites(tenantId);
+  }
+
+  /*
+   * След в журнале действий (ревизия 2026-08-26, ФТ-G1).
+   *
+   * Правка карточки центра не оставляла следа вообще. А это не «карточка»: отсюда в
+   * выдаваемое удостоверение попадают юридическое название, ИНН и картинки подписи с
+   * печатью. Подмену такого рода потом не с чем сопоставить — журнал молчал о том, кто и
+   * когда её сделал.
+   *
+   * `writeCritical` (а не `write`): запись ждётся, как у лицензий и входа. Потерять след
+   * изменения документа с юридической силой хуже, чем задержать ответ на миллисекунды.
+   * Аудит опционален в конструкторе — тесты поднимают сервис без него, и молчаливое
+   * отсутствие здесь допустимо: это не путь пользователя, а сборка.
+   */
+  private async audit(
+    action: string,
+    tenantId: string,
+    oldValues: unknown,
+    newValues: unknown,
+    ctx?: RequestContext
+  ) {
+    if (!this.auditService) return;
+    await this.auditService.writeCritical({
+      tenantId,
+      ...(ctx?.userId ? { actorId: ctx.userId } : {}),
+      action,
+      entityType: 'tenant',
+      entityId: tenantId,
+      oldValues: (oldValues as Record<string, unknown>) ?? {},
+      newValues: (newValues as Record<string, unknown>) ?? {},
+      ...(ctx?.requestId ? { requestId: ctx.requestId } : {}),
+      ...(ctx?.correlationId ? { correlationId: ctx.correlationId } : {}),
+      ...(ctx?.ip ? { ip: ctx.ip } : {}),
+      ...(ctx?.userAgent ? { userAgent: ctx.userAgent } : {})
+    });
   }
 
   /**

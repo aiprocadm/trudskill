@@ -163,9 +163,12 @@ export class DocumentsController {
     } else {
       delete images[slot as TenantImageSlot];
     }
-    const saved = await this.tenants.updateRequisites(c.tenantId!, {
-      payload: { [TENANT_DOCUMENT_IMAGES_KEY]: images }
-    });
+    /* Подпись и печать печатаются в удостоверении — смена слота идёт в журнал (ФТ-G1). */
+    const saved = await this.tenants.updateRequisites(
+      c.tenantId!,
+      { payload: { [TENANT_DOCUMENT_IMAGES_KEY]: images } },
+      c
+    );
     return { images: readTenantDocumentImages(saved) };
   }
 
