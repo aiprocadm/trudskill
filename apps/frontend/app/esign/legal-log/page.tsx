@@ -33,8 +33,24 @@ export default function EsignLegalLogPage() {
    */
   const { data: users } = useUsersList({ page: 1, page_size: 100 });
   const userName = new Map((users?.items ?? []).map((user) => [user.id, user.displayName]));
-  const actorLabel = (id?: string) =>
-    id ? (userName.get(id) ?? 'Учётная запись удалена') : 'Система';
+  const usersShown = users?.items?.length ?? 0;
+  const usersTotal = users?.total ?? 0;
+  const namesIncomplete = usersShown < usersTotal;
+
+  /*
+   * Ревизия 2026-08-26, вторая правка этого экрана. Первая подставила имена по справочнику
+   * и на ненайденном идентификаторе писала «Учётная запись удалена» — то есть утверждала
+   * то, чего не знала: справочник грузится страницей и в крупном центре обрывается.
+   * Утверждать «удалена» про действующего сотрудника в юридическом журнале нельзя.
+   *
+   * Три случая различаются честно, а неполнота справочника называется прямо под таблицей.
+   */
+  const actorLabel = (id?: string) => {
+    if (!id) return 'Система';
+    const name = userName.get(id);
+    if (name) return name;
+    return namesIncomplete ? 'Имя не загружено' : 'Удалённая учётная запись';
+  };
 
   const load = useCallback(async () => {
     if (!session) return;
@@ -99,6 +115,12 @@ export default function EsignLegalLogPage() {
                   onChange={(event) => setActorFilter(event.target.value)}
                   placeholder="Фамилия или имя"
                 />
+                {namesIncomplete ? (
+                  <p className="ui-field-hint">
+                    Справочник имён загружен не полностью ({usersShown} из {usersTotal}) — часть
+                    строк показана без имени, и отбор по ним не сработает.
+                  </p>
+                ) : null}
               </label>
             }
             columns={[
