@@ -39,8 +39,19 @@ const infraFailureLikely = (detail: string): boolean =>
 
 /** Non-production: клиент может увидеть детали; в production только безопасные тексты для типичных infra-сбоев */
 const INTERNAL_ERROR_FALLBACK_MESSAGE = 'Unexpected server error';
-const DATABASE_UNAVAILABLE_MESSAGE =
+/**
+ * Ревизия 2026-08-26. Здесь стоял единственный текст — по-английски и с инструкцией
+ * «docker compose up postgres». В разработке это полезно, а в продакшене уходило
+ * пользователю: администратор учебного центра докер не запускает, зато из подсказки узнаёт,
+ * на чём мы работаем и как называется наша переменная окружения.
+ *
+ * Теперь текстов два: разработчику — прежняя подсказка, человеку — что произошло и что
+ * делать. Подробности в обоих случаях остаются в журнале.
+ */
+const DATABASE_UNAVAILABLE_DEV_MESSAGE =
   'Database unavailable: ensure PostgreSQL is running (e.g. docker compose up postgres) and DATABASE_URL matches your instance.';
+const SERVICE_UNAVAILABLE_MESSAGE =
+  'Сервис временно недоступен — данные не потеряны. Повторите через несколько минут; если не поможет, передайте администратору номер запроса.';
 
 @Injectable()
 @Catch()
@@ -81,9 +92,11 @@ export class HttpExceptionEnvelopeFilter implements ExceptionFilter {
       payload = {
         code: BackendHttpErrorCodes.internal_error,
         message: devDetail
-          ? detail
+          ? infra
+            ? DATABASE_UNAVAILABLE_DEV_MESSAGE
+            : detail
           : infra
-            ? DATABASE_UNAVAILABLE_MESSAGE
+            ? SERVICE_UNAVAILABLE_MESSAGE
             : INTERNAL_ERROR_FALLBACK_MESSAGE
       };
     }
