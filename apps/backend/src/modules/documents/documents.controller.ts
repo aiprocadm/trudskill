@@ -19,9 +19,21 @@ import {
 import { DocumentsEnqueueService } from './documents-enqueue.service.js';
 import {
   CloseGroupDto,
+  CreateNumberingRuleDto,
+  CreateTemplateBindingDto,
+  CreateTemplateDto,
+  CreateTemplateVariableDto,
+  CreateTemplateVersionDto,
   DocumentReasonDto,
   GenerateDocumentDto,
-  IssueGroupOrderDto
+  GenerateDocumentsBatchDto,
+  IssueGroupOrderDto,
+  TenantImageSlotDto,
+  UpdateNumberingRuleDto,
+  UpdateTemplateBindingDto,
+  UpdateTemplateDto,
+  UpdateTemplateVariableDto,
+  UpdateTemplateVersionDto
 } from './documents.request-dto.js';
 import { DocumentsService, type IssuedDocumentFilter } from './documents.service.js';
 import { GroupPackageService } from './group-package.service.js';
@@ -44,20 +56,7 @@ import {
 } from '../tenant/tenant-document-images.js';
 import { TenantService } from '../tenant/tenant.service.js';
 
-import type {
-  BaseFilter,
-  CreateNumberingRuleRequest,
-  CreateTemplateBindingRequest,
-  CreateTemplateRequest,
-  CreateTemplateVariableRequest,
-  CreateTemplateVersionRequest,
-  GenerateDocumentsBatchRequest,
-  UpdateNumberingRuleRequest,
-  UpdateTemplateBindingRequest,
-  UpdateTemplateRequest,
-  UpdateTemplateVariableRequest,
-  UpdateTemplateVersionRequest
-} from './documents.dto.js';
+import type { BaseFilter } from './documents.dto.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 import type { Response } from 'express';
 
@@ -140,8 +139,9 @@ export class DocumentsController {
   async updateTenantImage(
     @CurrentContext() c: RequestContext,
     @Param('slot') slot: string,
-    @Body() b: { fileId?: string | null; widthMm?: number }
+    @Body() raw: unknown
   ) {
+    const b = assertValidDto(TenantImageSlotDto, raw);
     if (!(TENANT_IMAGE_SLOTS as readonly string[]).includes(slot)) {
       throw new BadRequestException({
         code: 'validation_error',
@@ -213,7 +213,8 @@ export class DocumentsController {
   @Post('templates')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
-  createTemplate(@CurrentContext() c: RequestContext, @Body() b: CreateTemplateRequest) {
+  createTemplate(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateTemplateDto, raw);
     return this.documentsService.createTemplate(c.tenantId!, c.userId, b, c);
   }
   @Get('templates/:id')
@@ -228,8 +229,9 @@ export class DocumentsController {
   patchTemplate(
     @CurrentContext() c: RequestContext,
     @Param('id') id: string,
-    @Body() b: UpdateTemplateRequest
+    @Body() raw: unknown
   ) {
+    const b = assertValidDto(UpdateTemplateDto, raw);
     return this.documentsService.updateTemplate(c.tenantId!, c.userId, id, b, c);
   }
   @Post('templates/:id/archive')
@@ -270,10 +272,8 @@ export class DocumentsController {
   @Post('template-versions')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
-  async createTemplateVersion(
-    @CurrentContext() c: RequestContext,
-    @Body() b: CreateTemplateVersionRequest
-  ) {
+  async createTemplateVersion(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateTemplateVersionDto, raw);
     // ФТ-A3.1: раньше fileId принимался «на честном слове» — версия могла ссылаться на
     // несуществующий или чужой файл, и это всплывало только при выдаче документа.
     // Проверяем файл сразу: он тенантный, прошёл AV-гейт и читается как DOCX-шаблон.
@@ -292,8 +292,9 @@ export class DocumentsController {
   patchTemplateVersion(
     @CurrentContext() c: RequestContext,
     @Param('id') id: string,
-    @Body() b: UpdateTemplateVersionRequest
+    @Body() raw: unknown
   ) {
+    const b = assertValidDto(UpdateTemplateVersionDto, raw);
     return this.documentsService.updateTemplateVersion(c.tenantId!, id, b);
   }
   @Post('template-versions/:id/activate')
@@ -361,10 +362,8 @@ export class DocumentsController {
   @Post('template-variables')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
-  createTemplateVariable(
-    @CurrentContext() c: RequestContext,
-    @Body() b: CreateTemplateVariableRequest
-  ) {
+  createTemplateVariable(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateTemplateVariableDto, raw);
     return this.documentsService.createTemplateVariable(c.tenantId!, c.userId, b, c);
   }
   @Get('template-variables/:id')
@@ -379,8 +378,9 @@ export class DocumentsController {
   patchTemplateVariable(
     @CurrentContext() c: RequestContext,
     @Param('id') id: string,
-    @Body() b: UpdateTemplateVariableRequest
+    @Body() raw: unknown
   ) {
+    const b = assertValidDto(UpdateTemplateVariableDto, raw);
     return this.documentsService.updateTemplateVariable(c.tenantId!, c.userId, id, b, c);
   }
   @Delete('template-variables/:id')
@@ -399,10 +399,8 @@ export class DocumentsController {
   @Post('template-bindings')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
-  createTemplateBinding(
-    @CurrentContext() c: RequestContext,
-    @Body() b: CreateTemplateBindingRequest
-  ) {
+  createTemplateBinding(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateTemplateBindingDto, raw);
     return this.documentsService.createTemplateBinding(c.tenantId!, c.userId, b, c);
   }
   @Get('template-bindings/:id')
@@ -417,8 +415,9 @@ export class DocumentsController {
   patchTemplateBinding(
     @CurrentContext() c: RequestContext,
     @Param('id') id: string,
-    @Body() b: UpdateTemplateBindingRequest
+    @Body() raw: unknown
   ) {
+    const b = assertValidDto(UpdateTemplateBindingDto, raw);
     return this.documentsService.updateTemplateBinding(c.tenantId!, c.userId, id, b, c);
   }
   @Delete('template-bindings/:id')
@@ -462,10 +461,8 @@ export class DocumentsController {
   @Post('documents/generate/batch')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.generate')
-  async generateDocumentsBatch(
-    @CurrentContext() c: RequestContext,
-    @Body() b: GenerateDocumentsBatchRequest
-  ) {
+  async generateDocumentsBatch(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(GenerateDocumentsBatchDto, raw);
     const result = this.documentsService.generateDocumentsBatch(c.tenantId!, c.userId, b, c);
     await this.enqueue.publishQueuedTasks(c.tenantId!, result.items, {
       requestId: c.requestId,
@@ -577,7 +574,8 @@ export class DocumentsController {
   @Post('numbering-rules')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
-  createRule(@CurrentContext() c: RequestContext, @Body() b: CreateNumberingRuleRequest) {
+  createRule(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateNumberingRuleDto, raw);
     return this.documentsService.createNumberingRule(c.tenantId!, b);
   }
   @Get('numbering-rules/:id')
@@ -589,11 +587,8 @@ export class DocumentsController {
   @Patch('numbering-rules/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
-  patchRule(
-    @CurrentContext() c: RequestContext,
-    @Param('id') id: string,
-    @Body() b: UpdateNumberingRuleRequest
-  ) {
+  patchRule(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() raw: unknown) {
+    const b = assertValidDto(UpdateNumberingRuleDto, raw);
     return this.documentsService.updateNumberingRule(c.tenantId!, id, b);
   }
   @Post('numbering-rules/:id/activate')

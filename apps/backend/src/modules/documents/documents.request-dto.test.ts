@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
   CloseGroupDto,
+  CreateNumberingRuleDto,
+  CreateTemplateDto,
+  CreateTemplateVariableDto,
   DocumentReasonDto,
   GenerateDocumentDto,
-  IssueGroupOrderDto
+  IssueGroupOrderDto,
+  TenantImageSlotDto
 } from './documents.request-dto.js';
 import { assertValidDto } from '../../common/app-validation.pipe.js';
 
@@ -122,5 +126,90 @@ describe('причина отзыва и перевыпуска', () => {
 
   it('пустая причина отклоняется — отзыв документа объясняют', () => {
     expect(() => assertValidDto(DocumentReasonDto, { reason: '' })).toThrow();
+  });
+});
+
+describe('бланк документа: вход проверяется (порция 13)', () => {
+  it('обычный бланк проходит', () => {
+    expect(
+      assertValidDto(CreateTemplateDto, { name: 'Удостоверение ОТ', templateType: 'certificate' })
+        .templateType
+    ).toBe('certificate');
+  });
+
+  it('выдуманный вид бланка отклоняется', () => {
+    expect(() =>
+      assertValidDto(CreateTemplateDto, { name: 'Бумажка', templateType: 'бумажка' })
+    ).toThrow();
+  });
+});
+
+describe('переменная бланка', () => {
+  const valid = {
+    templateVersionId: 'tplv_1',
+    variableCode: 'learner.fio',
+    displayName: 'ФИО слушателя',
+    categoryCode: 'learner',
+    dataType: 'string'
+  };
+
+  it('обычная переменная проходит', () => {
+    expect(assertValidDto(CreateTemplateVariableDto, valid).variableCode).toBe('learner.fio');
+  });
+
+  it('кириллица в коде отклоняется — движок подстановки её не найдёт и оставит сырой тег', () => {
+    expect(() =>
+      assertValidDto(CreateTemplateVariableDto, { ...valid, variableCode: 'фио' })
+    ).toThrow();
+  });
+
+  it('пробел в коде отклоняется', () => {
+    expect(() =>
+      assertValidDto(CreateTemplateVariableDto, { ...valid, variableCode: 'learner fio' })
+    ).toThrow();
+  });
+
+  it('выдуманная категория отклоняется', () => {
+    expect(() =>
+      assertValidDto(CreateTemplateVariableDto, { ...valid, categoryCode: 'кадры' })
+    ).toThrow();
+  });
+});
+
+describe('правило нумерации', () => {
+  it('обычное правило проходит', () => {
+    expect(
+      assertValidDto(CreateNumberingRuleDto, { documentType: 'certificate', startCounter: 137 })
+        .startCounter
+    ).toBe(137);
+  });
+
+  it('отрицательный стартовый номер отклоняется', () => {
+    expect(() =>
+      assertValidDto(CreateNumberingRuleDto, { documentType: 'certificate', startCounter: -5 })
+    ).toThrow();
+  });
+
+  it('выдуманный период сброса отклоняется', () => {
+    expect(() =>
+      assertValidDto(CreateNumberingRuleDto, {
+        documentType: 'certificate',
+        resetPeriod: 'квартал'
+      })
+    ).toThrow();
+  });
+});
+
+describe('слот подписи и печати', () => {
+  it('привязка файла проходит', () => {
+    expect(assertValidDto(TenantImageSlotDto, { fileId: 'fil_1', widthMm: 40 }).widthMm).toBe(40);
+  });
+
+  it('отвязка (пустое тело) проходит — это намеренная форма', () => {
+    expect(assertValidDto(TenantImageSlotDto, {})).toBeTruthy();
+  });
+
+  it('печать шириной в метр отклоняется — это ошибка ввода', () => {
+    expect(() => assertValidDto(TenantImageSlotDto, { fileId: 'fil_1', widthMm: 1000 })).toThrow();
   });
 });

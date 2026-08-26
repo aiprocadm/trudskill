@@ -36,31 +36,20 @@ const MODULES = join(SRC, 'modules');
  * Осталось с ревизии 2026-08-26. Чинить порциями; добавлять сюда новое — нельзя.
  *
  * Раздел электронной подписи (12 ручек) убран из очереди порцией 12 — там вход решает
- * доказательную силу документа, поэтому он шёл первым.
+ * доказательную силу документа, поэтому он шёл первым. Порция 13 забрала шаблоны, версии,
+ * переменные, привязки, правила нумерации, пакетный выпуск, слот подписи/печати и
+ * обезличивание персональных данных: из этих записей рождается сам документ.
  */
 const QUEUE = new Set([
   'communication/chat.controller.ts POST ',
   'communication/chat.controller.ts POST :id/messages',
   'documents/documents.controller.ts POST tenant-images/upload-url',
-  'documents/documents.controller.ts PUT tenant-images/:slot',
   'documents/documents.controller.ts POST templates/upload-url',
-  'documents/documents.controller.ts POST templates',
-  'documents/documents.controller.ts PATCH templates/:id',
   'documents/documents.controller.ts POST templates/:id/set-current-version',
-  'documents/documents.controller.ts POST template-versions',
-  'documents/documents.controller.ts PATCH template-versions/:id',
-  'documents/documents.controller.ts POST template-variables',
-  'documents/documents.controller.ts PATCH template-variables/:id',
-  'documents/documents.controller.ts POST template-bindings',
-  'documents/documents.controller.ts PATCH template-bindings/:id',
-  'documents/documents.controller.ts POST documents/generate/batch',
   'documents/documents.controller.ts POST job-quarantine/:id/discard',
-  'documents/documents.controller.ts POST numbering-rules',
-  'documents/documents.controller.ts PATCH numbering-rules/:id',
   'integrations/webhooks/webhooks.controller.ts POST reprocess-failed',
   'migration/backfill/backfill.controller.ts POST runs',
   'migration/backfill/backfill.controller.ts POST runs/start',
-  'mvp/mvp.controller.ts POST learners/:id/personal-data/erasure',
   'tenant/tenant.controller.ts PUT branding',
   'tenant/tenant.controller.ts PUT identity-settings'
 ]);
