@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
@@ -9,6 +10,7 @@ import {
   Scope
 } from '@nestjs/common';
 
+import { findRecentIdenticalBatch } from '../registry-exports/recent-identical-batch.js';
 import { buildReadinessReport } from '../registry-readiness.js';
 import { validateRegistryRow } from './ot-registry-preflight.js';
 import { matchResponseToRecords, parseRegistryResponse } from './ot-registry-response.parser.js';
@@ -83,6 +85,26 @@ export class OtRegistryService {
     filter: OtRegistryExportFilter,
     ctx: RequestContext
   ): Promise<OtRegistryExportOutcome> {
+    /*
+     * Защита от двойной отправки (ревизия 2026-08-26). Подробности и обоснование —
+     * в `registry-exports/recent-identical-batch.ts`.
+     */
+    const recent = findRecentIdenticalBatch(this.state.otRegistryBatches, {
+      tenantId,
+      filter,
+      actorId: ctx.userId,
+      nowIso: new Date().toISOString()
+    });
+    if (recent) {
+      throw new ConflictException({
+        code: 'export_duplicate_recent',
+        message:
+          'Такая выгрузка уже собрана меньше минуты назад — откройте её в списке выгрузок. ' +
+          'Если нужна свежая, повторите через минуту или измените отбор.',
+        batchId: recent.id
+      });
+    }
+
     const programsByCode = new Map(this.mvp.listOtTrainingPrograms().map((p) => [p.code, p]));
 
     // Exhaust every page so a tenant with >1000 candidates is never silently truncated.

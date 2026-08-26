@@ -1,7 +1,15 @@
 import { randomUUID } from 'node:crypto';
 
-import { Inject, Injectable, NotFoundException, Optional, Scope } from '@nestjs/common';
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional,
+  Scope
+} from '@nestjs/common';
 
+import { findRecentIdenticalBatch } from '../registry-exports/recent-identical-batch.js';
 import { buildReadinessReport } from '../registry-readiness.js';
 import { validateRostechnadzorRow } from './rostechnadzor-preflight.js';
 import { buildRostechnadzorRows } from './rostechnadzor-rows.js';
@@ -65,6 +73,26 @@ export class RostechnadzorRegistryService {
     filter: RostechnadzorExportFilter,
     ctx: RequestContext
   ): Promise<RostechnadzorExportOutcome> {
+    /*
+     * Защита от двойной отправки (ревизия 2026-08-26). Подробности и обоснование —
+     * в `registry-exports/recent-identical-batch.ts`.
+     */
+    const recent = findRecentIdenticalBatch(this.state.rostechnadzorRegistryBatches, {
+      tenantId,
+      filter,
+      actorId: ctx.userId,
+      nowIso: new Date().toISOString()
+    });
+    if (recent) {
+      throw new ConflictException({
+        code: 'export_duplicate_recent',
+        message:
+          'Такая выгрузка уже собрана меньше минуты назад — откройте её в списке выгрузок. ' +
+          'Если нужна свежая, повторите через минуту или измените отбор.',
+        batchId: recent.id
+      });
+    }
+
     // Exhaust every page so a tenant with >1000 candidates is never silently truncated.
     const completed = collectAllPages((page, pageSize) =>
       this.mvp.listEnrollments(tenantId, {

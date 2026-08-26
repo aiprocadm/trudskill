@@ -306,3 +306,35 @@ describe('ФТ-C4.1 — выгрузка не собирается при про
     expect(outcome.readiness.learners).toEqual([]);
   });
 });
+
+describe('двойное нажатие «Выгрузить» не плодит пакеты (ревизия 2026-08-26)', () => {
+  /*
+   * Каждый вызов собирал новый подписанный пакет. Отправить в ФРДО дубль — это не «лишняя
+   * строка в списке», а обращение, которое центр потом разбирает с регулятором.
+   */
+  it('второй такой же запрос отклоняется со ссылкой на готовый пакет', async () => {
+    const h = makeHarness([doc()]);
+    seed(h.state);
+
+    const first = await h.service.exportFrdoRegistry(TENANT, {}, ctx);
+    expect(first.exported).toBe(1);
+
+    await expect(h.service.exportFrdoRegistry(TENANT, {}, ctx)).rejects.toMatchObject({
+      response: { code: 'export_duplicate_recent', batchId: first.batchId }
+    });
+
+    // Второго пакета в состоянии не появилось — именно это и защищаем.
+    expect(h.state.frdoRegistryBatches).toHaveLength(1);
+  });
+
+  it('другой отбор собирается сразу, а не упирается в защиту', async () => {
+    const h = makeHarness([doc()]);
+    seed(h.state);
+
+    await h.service.exportFrdoRegistry(TENANT, {}, ctx);
+    const other = await h.service.exportFrdoRegistry(TENANT, { from: '2020-01-01' }, ctx);
+
+    expect(other.batchId).toBeTruthy();
+    expect(h.state.frdoRegistryBatches).toHaveLength(2);
+  });
+});
