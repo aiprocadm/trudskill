@@ -19,17 +19,18 @@ export function ReviewerQueueScreen() {
   const queue = useReviewerQueue();
 
   const attemptColumns: Column<ReviewerQueueListItem>[] = [
-    { key: 'learnerId', title: 'Учащийся', render: (i) => i.learnerId },
-    { key: 'testId', title: 'Тест', render: (i) => i.testId ?? '—' },
+    /* Ревизия: были идентификаторы вместо имён; «Учащийся» → «Слушатель» (одно слово на понятие). */
+    { key: 'learnerId', title: 'Слушатель', render: (i) => i.learnerName ?? 'Имя не передано' },
+    { key: 'testId', title: 'Тест', render: (i) => i.testTitle ?? 'Без названия' },
     { key: 'submittedAt', title: 'Отправлено', render: (i) => formatDateTime(i.submittedAt) }
   ];
 
   const submissionColumns: Column<ReviewerQueueListItem>[] = [
-    { key: 'learnerId', title: 'Учащийся', render: (i) => i.learnerId },
+    { key: 'learnerId', title: 'Слушатель', render: (i) => i.learnerName ?? 'Имя не передано' },
     {
       key: 'assignmentId',
       title: 'Задание',
-      render: (i) => i.assignmentId ?? '—'
+      render: (i) => i.assignmentTitle ?? 'Без названия'
     },
     { key: 'submittedAt', title: 'Отправлено', render: (i) => formatDateTime(i.submittedAt) }
   ];

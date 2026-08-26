@@ -64,3 +64,21 @@ export const formatEsignApplicationStatus = (code: string): string =>
 
 export const formatEsignProcessStatus = (code: string): string =>
   ESIGN_PROCESS_STATUS_LABEL[code] ?? `Статус (код ${code})`;
+
+/**
+ * Над чем совершено событие. Колонка «Над чем» печатала машинный тип: «esign.application»,
+ * «esign.participant» — то же нарушение правила «ни одного кода как значения», просто с
+ * другой стороны таблицы (ревизия 2026-08-25). Значения взяты из вызовов `writeLegal`
+ * в `esign.service.ts`, а не придуманы.
+ */
+export const ESIGN_ENTITY_LABEL: Record<string, string> = {
+  'esign.application': 'Заявка на подпись',
+  'esign.application_file': 'Файл заявки',
+  'esign.process': 'Процесс подписания',
+  'esign.participant': 'Участник подписания',
+  'iam.user': 'Учётная запись'
+};
+
+/** Неизвестный тип не выдаётся за название — подписывается как код (как и у событий). */
+export const formatEsignEntity = (code: string): string =>
+  ESIGN_ENTITY_LABEL[code] ?? `Объект (код ${code})`;

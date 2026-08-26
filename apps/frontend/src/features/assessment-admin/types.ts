@@ -226,6 +226,10 @@ export interface ReviewerQueueListItem {
   testId?: string;
   assignmentId?: string;
   submittedAt: string;
+  /** Имена вместо идентификаторов — сервер отдаёт их с ревизии 2026-08-25. */
+  learnerName?: string;
+  testTitle?: string;
+  assignmentTitle?: string;
 }
 
 export interface ReviewerQueueResponse {

@@ -20,6 +20,7 @@ import {
   SectionError
 } from '../../components/state-wrappers';
 import { useAuth } from '../auth/context';
+import { formatDate } from '../mvp/screen-helpers';
 
 import type { ReviewerQueueItem } from './types';
 import type { Column } from '@trudskill/ui';
@@ -197,11 +198,20 @@ function AttemptActions({ item }: { item: ReviewerQueueItem }) {
 export function ReviewerActionsScreen() {
   const queue = useReviewerQueue();
 
+  /*
+   * Ревизия 2026-08-25. Экран показывал идентификаторы: «Учащийся lrn_a3f9…», «Тест
+   * tst_71c…», а дату — машинной строкой. Преподаватель на своём основном экране не знал,
+   * чью работу проверяет. Имена приходят с сервера (поля добавлены аддитивно); если
+   * справочник не нашёл запись — так и написано словами, а не пустотой.
+   *
+   * Слово «Учащийся» заменено на «Слушатель»: одно понятие — одно слово (TXT-003), а
+   * везде в продукте человек, который учится, называется слушателем.
+   */
   const attemptColumns: Column<ReviewerQueueItem>[] = [
     { key: 'kind', title: 'Тип', render: (i) => formatQueueKind(i.kind) },
-    { key: 'learnerId', title: 'Учащийся', render: (i) => i.learnerId },
-    { key: 'testId', title: 'Тест', render: (i) => i.testId ?? '—' },
-    { key: 'submittedAt', title: 'Отправлено', render: (i) => i.submittedAt },
+    { key: 'learnerId', title: 'Слушатель', render: (i) => i.learnerName ?? 'Имя не передано' },
+    { key: 'testId', title: 'Тест', render: (i) => i.testTitle ?? 'Без названия' },
+    { key: 'submittedAt', title: 'Отправлено', render: (i) => formatDate(i.submittedAt) },
     {
       key: 'id',
       title: 'Действия',
@@ -211,9 +221,9 @@ export function ReviewerActionsScreen() {
 
   const submissionColumns: Column<ReviewerQueueItem>[] = [
     { key: 'kind', title: 'Тип', render: (i) => formatQueueKind(i.kind) },
-    { key: 'learnerId', title: 'Учащийся', render: (i) => i.learnerId },
-    { key: 'assignmentId', title: 'Задание', render: (i) => i.assignmentId ?? '—' },
-    { key: 'submittedAt', title: 'Отправлено', render: (i) => i.submittedAt },
+    { key: 'learnerId', title: 'Слушатель', render: (i) => i.learnerName ?? 'Имя не передано' },
+    { key: 'assignmentId', title: 'Задание', render: (i) => i.assignmentTitle ?? 'Без названия' },
+    { key: 'submittedAt', title: 'Отправлено', render: (i) => formatDate(i.submittedAt) },
     {
       key: 'id',
       title: 'Действия',
@@ -248,7 +258,7 @@ export function ReviewerActionsScreen() {
             ) : (
               <SectionEmpty
                 message="Работ на проверке нет"
-                hint="Попытки с эссе-вопросами появятся здесь после отправки учащимися."
+                hint="Попытки с эссе-вопросами появятся здесь после отправки слушателями."
               />
             )}
           </SectionCard>
@@ -262,7 +272,7 @@ export function ReviewerActionsScreen() {
             ) : (
               <SectionEmpty
                 message="Сданных заданий на проверке нет"
-                hint="Практические работы появятся здесь после отправки учащимися."
+                hint="Практические работы появятся здесь после отправки слушателями."
               />
             )}
           </SectionCard>

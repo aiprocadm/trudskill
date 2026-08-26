@@ -14,6 +14,15 @@ export interface ReviewerQueueItem {
   testId?: string;
   assignmentId?: string;
   submittedAt: string;
+  /**
+   * Имена вместо идентификаторов (ревизия 2026-08-25). Очередь отдавала только
+   * идентификаторы, и преподаватель видел «Учащийся lrn_a3f9…» — то есть не знал, чью
+   * работу проверяет. Поля необязательные: если справочник не нашёл запись, экран
+   * покажет это словами, а не пустотой.
+   */
+  learnerName?: string;
+  testTitle?: string;
+  assignmentTitle?: string;
   /** Plan C: manual-grading payload — present only for attempt items with essay answers. */
   essayAnswers?: ReviewerQueueEssayAnswer[];
   /** V1.1 AV gate: attached submission file id (submission items only). */

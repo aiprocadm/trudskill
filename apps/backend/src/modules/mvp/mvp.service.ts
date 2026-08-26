@@ -3474,10 +3474,44 @@ export class MvpService {
       .map((s) => s.fileId)
       .filter((id): id is string => Boolean(id));
     const statusMap = await this.filesService.getAntivirusStatuses(tenantId, submissionFileIds);
+
+    /*
+     * Имена вместо идентификаторов (ревизия 2026-08-25).
+     *
+     * Очередь отдавала только `learnerId`, `testId` и `assignmentId`, и экран показывал их
+     * как есть: преподаватель видел «Учащийся lrn_a3f9…» и не знал, чью работу проверяет.
+     * Поля добавлены аддитивно — прежние читатели ответа их просто не замечают.
+     *
+     * Справочники собираются один раз в словари: очередь бывает длинной, а поиск по массиву
+     * на каждую строку — это N×M на ровном месте.
+     */
+    const learnerName = new Map(
+      this.state.learners
+        .filter((l) => l.tenantId === tenantId)
+        .map((l) => [l.id, [l.lastName, l.firstName, l.middleName].filter(Boolean).join(' ')])
+    );
+    const testName = new Map(
+      this.state.tests.filter((t) => t.tenantId === tenantId).map((t) => [t.id, t.title])
+    );
+    const assignmentName = new Map(
+      this.state.assignments.filter((a) => a.tenantId === tenantId).map((a) => [a.id, a.title])
+    );
+
+    const withNames = <T extends { learnerId: string; testId?: string; assignmentId?: string }>(
+      item: T
+    ): T & { learnerName?: string; testTitle?: string; assignmentTitle?: string } => ({
+      ...item,
+      ...(learnerName.get(item.learnerId) ? { learnerName: learnerName.get(item.learnerId) } : {}),
+      ...(item.testId && testName.get(item.testId) ? { testTitle: testName.get(item.testId) } : {}),
+      ...(item.assignmentId && assignmentName.get(item.assignmentId)
+        ? { assignmentTitle: assignmentName.get(item.assignmentId) }
+        : {})
+    });
+
     return {
-      pendingAttempts: snapshot.pendingAttempts,
+      pendingAttempts: snapshot.pendingAttempts.map(withNames),
       pendingSubmissions: snapshot.pendingSubmissions.map((s) => ({
-        ...s,
+        ...withNames(s),
         antivirusStatus: s.fileId ? (statusMap.get(s.fileId) ?? null) : null
       }))
     };
