@@ -2,10 +2,16 @@ import {
   ArrayMaxSize,
   ArrayNotEmpty,
   IsArray,
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsObject,
   IsOptional,
   IsString,
   Matches,
+  Max,
   MaxLength,
+  Min,
   MinLength
 } from 'class-validator';
 
@@ -141,4 +147,342 @@ export class DocumentReasonDto {
   @MinLength(3, { message: 'reason: объясните причину словами — минимум 3 символа' })
   @MaxLength(500)
   reason!: string;
+}
+
+/* ===========================================================================
+ * Шаблоны, версии, переменные, привязки и правила нумерации (порция 13).
+ *
+ * Из этих записей рождается документ: шаблон задаёт бланк, переменные — что в него
+ * подставится, правило нумерации — номер, под которым документ уйдёт в реестр. Мусор
+ * здесь не «ломает экран», а попадает в бумагу, которую центр выдаёт человеку.
+ * =========================================================================== */
+
+const TEMPLATE_TYPES = [
+  'certificate',
+  'protocol',
+  'order',
+  'diploma',
+  'attestation',
+  'reference',
+  'report',
+  'contract'
+] as const;
+
+const VARIABLE_CATEGORIES = [
+  'tenant',
+  'group',
+  'learner',
+  'counterparty',
+  'course',
+  'commission',
+  'document',
+  'program',
+  'enrollment',
+  'group_learners'
+] as const;
+
+const RESET_PERIODS = ['none', 'year', 'month'] as const;
+
+export class CreateTemplateDto {
+  @IsString()
+  @MinLength(2, { message: 'name: слишком короткое название бланка' })
+  @MaxLength(200)
+  name!: string;
+
+  @IsIn(TEMPLATE_TYPES, {
+    message: `templateType: ожидается одно из: ${TEMPLATE_TYPES.join(', ')}`
+  })
+  templateType!: (typeof TEMPLATE_TYPES)[number];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  description?: string;
+}
+
+export class UpdateTemplateDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2, { message: 'name: слишком короткое название бланка' })
+  @MaxLength(200)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  description?: string;
+
+  @IsOptional()
+  @IsIn(['active', 'archived'], { message: 'status: ожидается active или archived' })
+  status?: 'active' | 'archived';
+}
+
+export class CreateTemplateVersionDto {
+  @IsString()
+  @Matches(ID, { message: 'templateId: недопустимый формат' })
+  templateId!: string;
+
+  @IsString()
+  @Matches(ID, { message: 'fileId: недопустимый формат' })
+  fileId!: string;
+
+  @IsOptional()
+  @IsObject({ message: 'variablesSchema: ожидается объект' })
+  variablesSchema?: Record<string, unknown>;
+}
+
+export class UpdateTemplateVersionDto {
+  @IsOptional()
+  @IsBoolean({ message: 'isActive: ожидается да/нет' })
+  isActive?: boolean;
+
+  @IsOptional()
+  @IsObject({ message: 'variablesSchema: ожидается объект' })
+  variablesSchema?: Record<string, unknown>;
+}
+
+/**
+ * Код переменной подставляется в бланк как `{{code}}`. Пробелы и кириллица здесь не
+ * работают: движок подстановки их не найдёт, и в документе останется сырой тег.
+ */
+const VARIABLE_CODE = /^[a-zA-Z][a-zA-Z0-9_.]{0,63}$/;
+
+export class CreateTemplateVariableDto {
+  @IsString()
+  @Matches(ID, { message: 'templateVersionId: недопустимый формат' })
+  templateVersionId!: string;
+
+  @IsString()
+  @Matches(VARIABLE_CODE, {
+    message: 'variableCode: латиница, цифры, точка и подчёркивание; начинается с буквы'
+  })
+  variableCode!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  displayName!: string;
+
+  @IsIn(VARIABLE_CATEGORIES, {
+    message: `categoryCode: ожидается одно из: ${VARIABLE_CATEGORIES.join(', ')}`
+  })
+  categoryCode!: (typeof VARIABLE_CATEGORIES)[number];
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  dataType!: string;
+
+  @IsOptional()
+  @IsBoolean({ message: 'isRequired: ожидается да/нет' })
+  isRequired?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  description?: string;
+}
+
+export class UpdateTemplateVariableDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  displayName?: string;
+
+  @IsOptional()
+  @IsIn(VARIABLE_CATEGORIES, {
+    message: `categoryCode: ожидается одно из: ${VARIABLE_CATEGORIES.join(', ')}`
+  })
+  categoryCode?: (typeof VARIABLE_CATEGORIES)[number];
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  dataType?: string;
+
+  @IsOptional()
+  @IsBoolean({ message: 'isRequired: ожидается да/нет' })
+  isRequired?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  description?: string;
+}
+
+const BIND_TYPES = ['direction', 'course', 'group'] as const;
+
+export class CreateTemplateBindingDto {
+  @IsString()
+  @Matches(ID, { message: 'templateId: недопустимый формат' })
+  templateId!: string;
+
+  /* К чему привязан бланк: к направлению, курсу или конкретной группе. */
+  @IsIn(BIND_TYPES, { message: `bindType: ожидается одно из: ${BIND_TYPES.join(', ')}` })
+  bindType!: (typeof BIND_TYPES)[number];
+
+  @IsOptional()
+  @IsString()
+  @Matches(ID, { message: 'directionId: недопустимый формат' })
+  directionId?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(ID, { message: 'courseId: недопустимый формат' })
+  courseId?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(ID, { message: 'groupId: недопустимый формат' })
+  groupId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  attachMode?: string;
+
+  @IsOptional()
+  @IsBoolean({ message: 'inheritToChildren: ожидается да/нет' })
+  inheritToChildren?: boolean;
+
+  /* Приоритет решает, какой бланк победит при нескольких привязках. */
+  @IsOptional()
+  @IsInt({ message: 'priority: ожидается целое число' })
+  @Min(0)
+  @Max(1000)
+  priority?: number;
+}
+
+export class UpdateTemplateBindingDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  attachMode?: string;
+
+  @IsOptional()
+  @IsBoolean({ message: 'inheritToChildren: ожидается да/нет' })
+  inheritToChildren?: boolean;
+
+  @IsOptional()
+  @IsInt({ message: 'priority: ожидается целое число' })
+  @Min(0)
+  @Max(1000)
+  priority?: number;
+}
+
+export class GenerateDocumentsBatchDto {
+  @IsString()
+  @Matches(ID, { message: 'idempotencyKey: недопустимый формат' })
+  idempotencyKey!: string;
+
+  @IsString()
+  @Matches(ID, { message: 'templateId: недопустимый формат' })
+  templateId!: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(ID, { message: 'templateVersionId: недопустимый формат' })
+  templateVersionId?: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  sourceEntityType!: string;
+
+  @IsArray()
+  @ArrayNotEmpty({ message: 'sourceEntityIds: нужен хотя бы один объект' })
+  @ArrayMaxSize(MAX_ENROLLMENTS, {
+    message: `sourceEntityIds: не больше ${MAX_ENROLLMENTS} за один раз`
+  })
+  @IsString({ each: true })
+  @Matches(ID, { each: true, message: 'sourceEntityIds: недопустимый формат идентификатора' })
+  sourceEntityIds!: string[];
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  documentType!: string;
+}
+
+/**
+ * Правила нумерации. Номер документа — то, по чему его находят в реестре и в проверке,
+ * поэтому шаблон номера и стартовый счётчик проверяются строго.
+ *
+ * `startCounter` только вперёд — откат назад повторно выдал бы уже использованные номера
+ * (это записано в самом интерфейсе `UpdateNumberingRuleRequest`). Здесь проверяется лишь
+ * форма: неотрицательное целое; «только вперёд» решает сервис, у него есть текущее значение.
+ */
+export class CreateNumberingRuleDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  documentType!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  prefix?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  suffix?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  pattern?: string;
+
+  @IsOptional()
+  @IsIn(RESET_PERIODS, { message: `resetPeriod: ожидается одно из: ${RESET_PERIODS.join(', ')}` })
+  resetPeriod?: (typeof RESET_PERIODS)[number];
+
+  @IsOptional()
+  @IsInt({ message: 'startCounter: ожидается целое число' })
+  @Min(0, { message: 'startCounter: номер не бывает отрицательным' })
+  startCounter?: number;
+}
+
+export class UpdateNumberingRuleDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  prefix?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  suffix?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  pattern?: string;
+
+  @IsOptional()
+  @IsIn(RESET_PERIODS, { message: `resetPeriod: ожидается одно из: ${RESET_PERIODS.join(', ')}` })
+  resetPeriod?: (typeof RESET_PERIODS)[number];
+
+  @IsOptional()
+  @IsInt({ message: 'startCounter: ожидается целое число' })
+  @Min(0, { message: 'startCounter: номер не бывает отрицательным' })
+  startCounter?: number;
+}
+
+/** Привязка загруженного файла к слоту подписи или печати. */
+export class TenantImageSlotDto {
+  /* `null` — намеренная форма «отвязать картинку», поэтому строка не обязательна. */
+  @IsOptional()
+  @IsString()
+  @Matches(ID, { message: 'fileId: недопустимый формат' })
+  fileId?: string | null;
+
+  /* Ширина в миллиметрах: печать шириной в метр — ошибка ввода, а не пожелание. */
+  @IsOptional()
+  @IsInt({ message: 'widthMm: ожидается целое число миллиметров' })
+  @Min(1, { message: 'widthMm: ширина должна быть положительной' })
+  @Max(200, { message: 'widthMm: слишком большая ширина для бланка' })
+  widthMm?: number;
 }

@@ -56,6 +56,7 @@ import {
   CreateSimpleRegistryRequest,
   CreateTestRequest,
   CreateUploadUrlRequest,
+  ErasePersonalDataDto,
   ImportQuestionsRequest,
   PatchTestRulesRequest,
   PutCourseDocumentSetRequest,
@@ -377,9 +378,15 @@ export class MvpController {
   eraseLearnerPersonalData(
     @CurrentContext() c: RequestContext,
     @Param('id') id: string,
-    @Body() body: { reason?: string }
+    @Body() raw: unknown
   ) {
-    return this.learnerPiiService.erasePersonalData(c.tenantId!, c.userId, id, c, body?.reason);
+    /*
+     * Ревизия 2026-08-26: тело описано литералом и не проверялось. Обезличивание
+     * необратимо, а причина попадает в ответ, которым администратор отвечает заявителю, —
+     * поэтому число или объект вместо строки здесь останавливаются на входе.
+     */
+    const body = assertValidDto(ErasePersonalDataDto, raw);
+    return this.learnerPiiService.erasePersonalData(c.tenantId!, c.userId, id, c, body.reason);
   }
 
   /**
