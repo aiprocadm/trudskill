@@ -40,6 +40,44 @@ const handlerNames = Object.getOwnPropertyNames(EsignController.prototype).filte
   (n) => n !== 'constructor'
 );
 
+/*
+ * Тела запросов для ручек, которые с ревизии 2026-08-26 проверяют вход (§5.360).
+ *
+ * Раньше сюда шли строки-заглушки `'arg1'`: тела никто не проверял, и любая строка
+ * доезжала до сервиса. Теперь проверка отклонит мусор раньше вызова, поэтому перебор
+ * подаёт настоящие тела — иначе тест доказывал бы не делегирование, а работу проверки.
+ *
+ * Ручка без записи здесь получит строку и упадёт — это намеренно: новая ручка с телом
+ * должна быть внесена сюда осознанно, а не проехать мимо сторожа изоляции.
+ */
+const BODIES: Record<string, unknown> = {
+  createApplication: { learnerId: 'lrn_1' },
+  patchApplication: { expiresAt: '2026-12-31' },
+  rejectApplication: { reason: 'паспорт нечитаем' },
+  createApplicationFile: { applicationId: 'esa_1', fileId: 'fil_1' },
+  rejectApplicationFile: { reason: 'скан не читается' },
+  createProcess: { idempotencyKey: 'idem_1', generatedDocumentId: 'doc_1' },
+  startProcess: { idempotencyKey: 'idem_1' },
+  createParticipant: {
+    processId: 'prc_1',
+    participantType: 'commission_member',
+    participantUserId: 'usr_1',
+    signOrder: 1
+  },
+  patchParticipant: { signOrder: 2 },
+  sign: { idempotencyKey: 'sign_1' },
+  reject: { idempotencyKey: 'rej_1' },
+  skip: { idempotencyKey: 'skip_1' }
+};
+
+/** Тело у этих ручек идёт вторым аргументом после контекста, у остальных — третьим. */
+const BODY_SECOND = new Set([
+  'createApplication',
+  'createProcess',
+  'createApplicationFile',
+  'createParticipant'
+]);
+
 describe('EsignController — делегирование под тенантом актора', () => {
   it('в контроллере есть ручки', () => {
     expect(handlerNames.length).toBeGreaterThanOrEqual(30);
@@ -53,7 +91,14 @@ describe('EsignController — делегирование под тенантом
         name
       ]!;
 
-      const result = handler.call(controller, ctx, 'arg1', 'arg2', 'arg3');
+      const body = BODIES[name];
+      const args = body
+        ? BODY_SECOND.has(name)
+          ? [body, 'arg2', 'arg3']
+          : ['arg1', body, 'arg3']
+        : ['arg1', 'arg2', 'arg3'];
+
+      const result = handler.call(controller, ctx, ...args);
 
       expect(calls).toHaveLength(1);
       expect(calls[0]!.args[0]).toBe('tenant_demo');
