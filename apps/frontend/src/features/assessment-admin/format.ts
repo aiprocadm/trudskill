@@ -62,13 +62,13 @@ export function formatReviewerQueueItem(item: ReviewerQueueListItem): {
 } {
   if (item.kind === 'attempt') {
     return {
-      title: `Попытка теста ${item.testId ?? ''}`.trim(),
-      subtitle: `Учащийся ${item.learnerId} — отправлено ${formatDateTime(item.submittedAt)}`
+      title: `Попытка теста «${item.testTitle ?? 'Без названия'}»`,
+      subtitle: `${item.learnerName ?? 'Имя не передано'} — отправлено ${formatDateTime(item.submittedAt)}`
     };
   }
   return {
-    title: `Практическая работа ${item.assignmentId ?? ''}`.trim(),
-    subtitle: `Учащийся ${item.learnerId} — отправлено ${formatDateTime(item.submittedAt)}`
+    title: `Практическая работа «${item.assignmentTitle ?? 'Без названия'}»`,
+    subtitle: `${item.learnerName ?? 'Имя не передано'} — отправлено ${formatDateTime(item.submittedAt)}`
   };
 }
 

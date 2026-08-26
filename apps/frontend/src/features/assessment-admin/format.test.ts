@@ -110,12 +110,31 @@ describe('formatReviewerQueueItem', () => {
       tenantId: 't1',
       learnerId: 'L42',
       testId: 'test_x',
-      submittedAt: '2026-05-30T10:00:00Z'
+      submittedAt: '2026-05-30T10:00:00Z',
+      learnerName: 'Иванов Иван Иванович',
+      testTitle: 'Электробезопасность, II группа'
     };
     const result = formatReviewerQueueItem(item);
     expect(result.title).toContain('Попытка теста');
-    expect(result.title).toContain('test_x');
-    expect(result.subtitle).toContain('L42');
+    // Ревизия 2026-08-25: в подписи должно быть название и имя, а не идентификаторы.
+    expect(result.title).toContain('Электробезопасность, II группа');
+    expect(result.title).not.toContain('test_x');
+    expect(result.subtitle).toContain('Иванов Иван Иванович');
+    expect(result.subtitle).not.toContain('L42');
+  });
+
+  it('говорит словами, когда имя или название не пришли', () => {
+    const item: ReviewerQueueListItem = {
+      kind: 'attempt',
+      id: 'a2',
+      tenantId: 't1',
+      learnerId: 'L42',
+      testId: 'test_x',
+      submittedAt: '2026-05-30T10:00:00Z'
+    };
+    const result = formatReviewerQueueItem(item);
+    expect(result.title).toContain('Без названия');
+    expect(result.subtitle).toContain('Имя не передано');
   });
 
   it('formats submission-kind correctly', () => {
@@ -125,12 +144,15 @@ describe('formatReviewerQueueItem', () => {
       tenantId: 't1',
       learnerId: 'L7',
       assignmentId: 'asn_y',
-      submittedAt: '2026-05-30T10:00:00Z'
+      submittedAt: '2026-05-30T10:00:00Z',
+      learnerName: 'Петрова Мария Сергеевна',
+      assignmentTitle: 'Отчёт по стажировке'
     };
     const result = formatReviewerQueueItem(item);
     expect(result.title).toContain('Практическая работа');
-    expect(result.title).toContain('asn_y');
-    expect(result.subtitle).toContain('L7');
+    expect(result.title).toContain('Отчёт по стажировке');
+    expect(result.title).not.toContain('asn_y');
+    expect(result.subtitle).toContain('Петрова Мария Сергеевна');
   });
 });
 

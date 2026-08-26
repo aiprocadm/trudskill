@@ -6,7 +6,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PageContainer, PageHeader, SectionCard } from '../../../src/components/state-wrappers';
 import { formatDateTime } from '../../../src/features/assessment-admin/format';
 import { useAuth } from '../../../src/features/auth/context';
-import { formatEsignEvent } from '../../../src/features/esignature/labels';
+import { formatEsignEntity, formatEsignEvent } from '../../../src/features/esignature/labels';
+import { useUsersList } from '../../../src/features/mvp/hooks';
 import { apiRequest } from '../../../src/lib/api/client';
 import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
 
@@ -24,6 +25,16 @@ export default function EsignLegalLogPage() {
   const [error, setError] = useState<string | null>(null);
   const [actorFilter, setActorFilter] = useState('');
   const [rows, setRows] = useState<EsignEvent[]>([]);
+
+  /*
+   * Ревизия 2026-08-25. Колонка «Кто» печатала идентификатор учётной записи, а отбор искал
+   * по нему же: человек не знал ни кого он видит, ни что вводить в поле. Приём тот же, что
+   * в журнале аудита, — справочник имён подтягивается списком и подставляется на месте.
+   */
+  const { data: users } = useUsersList({ page: 1, page_size: 100 });
+  const userName = new Map((users?.items ?? []).map((user) => [user.id, user.displayName]));
+  const actorLabel = (id?: string) =>
+    id ? (userName.get(id) ?? 'Учётная запись удалена') : 'Система';
 
   const load = useCallback(async () => {
     if (!session) return;
@@ -50,8 +61,13 @@ export default function EsignLegalLogPage() {
   }, [load]);
 
   const filtered = useMemo(
-    () => rows.filter((item) => (actorFilter ? item.actorId?.includes(actorFilter) : true)),
-    [actorFilter, rows]
+    () =>
+      rows.filter((item) =>
+        actorFilter
+          ? actorLabel(item.actorId).toLowerCase().includes(actorFilter.trim().toLowerCase())
+          : true
+      ),
+    [actorFilter, rows, users]
   );
 
   return (
@@ -81,7 +97,7 @@ export default function EsignLegalLogPage() {
                 <input
                   value={actorFilter}
                   onChange={(event) => setActorFilter(event.target.value)}
-                  placeholder="Начните вводить"
+                  placeholder="Фамилия или имя"
                 />
               </label>
             }
@@ -96,8 +112,12 @@ export default function EsignLegalLogPage() {
                 title: 'Что произошло',
                 render: (row) => formatEsignEvent(row.eventType)
               },
-              { key: 'actorId', title: 'Кто', render: (row) => row.actorId ?? '—' },
-              { key: 'entityType', title: 'Над чем', render: (row) => row.entityType ?? '—' }
+              { key: 'actorId', title: 'Кто', render: (row) => actorLabel(row.actorId) },
+              {
+                key: 'entityType',
+                title: 'Над чем',
+                render: (row) => (row.entityType ? formatEsignEntity(row.entityType) : '—')
+              }
             ]}
           />
         </SectionCard>
