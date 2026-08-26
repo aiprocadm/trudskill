@@ -1,4 +1,4 @@
-import { Controller, Headers, Inject, Param, Post, Req, Res } from '@nestjs/common';
+import { Controller, Headers, Inject, Logger, Param, Post, Req, Res } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 
 import { PaymentFulfillmentService } from './payment-fulfillment.service.js';
@@ -21,6 +21,8 @@ import type { Request, Response } from 'express';
  */
 @Controller('payments')
 export class PaymentsWebhookController {
+  private readonly logger = new Logger(PaymentsWebhookController.name);
+
   constructor(
     @Inject(PaymentProviderResolver) private readonly resolver: PaymentProviderResolver,
     @Inject(PAYMENTS_REPOSITORY) private readonly repo: PaymentsRepository,
@@ -45,6 +47,7 @@ export class PaymentsWebhookController {
 
     const provider = this.resolver.fromRegistry(providerCode);
     if (!provider) {
+      this.logger.warn(`payment.webhook ignored: поставщик ${providerCode} не подключён`);
       sendAck({ ok: true });
       return;
     }
@@ -54,6 +57,12 @@ export class PaymentsWebhookController {
     const ack = () => provider.webhookAck?.(event, raw) ?? { ok: true };
 
     if (!event) {
+      /*
+       * Событие не разобралось: либо подпись не сошлась, либо поставщик сменил формат.
+       * Отвечаем «принято» (иначе он будет слать это вечно), но молчать нельзя — иначе
+       * оплаты перестанут подтверждаться, а узнать об этом будет неоткуда.
+       */
+      this.logger.warn(`payment.webhook ignored: событие ${providerCode} не разобралось`);
       sendAck(ack());
       return;
     }
@@ -65,6 +74,9 @@ export class PaymentsWebhookController {
       providerCode as PaymentEntity['provider']
     );
     if (!found) {
+      this.logger.warn(
+        `payment.webhook ignored: платёж ${event.providerPaymentId} (${providerCode}) не найден`
+      );
       sendAck(ack());
       return;
     }
@@ -74,6 +86,10 @@ export class PaymentsWebhookController {
     // Defense-in-depth: even with the scoped lookup, re-assert the stored payment belongs to the
     // provider that sent this webhook before mutating anything.
     if (payment.provider !== providerCode) {
+      this.logger.error(
+        `payment.webhook rejected: платёж ${payment.id} принадлежит ${payment.provider}, ` +
+          `а событие пришло от ${providerCode}`
+      );
       sendAck(ack());
       return;
     }
@@ -82,6 +98,15 @@ export class PaymentsWebhookController {
     // are about to fulfill. The signature already binds the amount, so a mismatch means
     // misconfiguration or tampering — ACK (so the acquirer stops retrying) but do not fulfill.
     if (event.amount !== undefined && event.amount !== payment.amount) {
+      /*
+       * Уровень «ошибка», а не «предупреждение»: комментарий выше называет причины —
+       * неверная настройка или подделка. И то и другое требует, чтобы кто-то узнал.
+       * Раньше несовпадение суммы не оставляло следа вообще.
+       */
+      this.logger.error(
+        `payment.webhook rejected: сумма события ${event.amount} не сходится с платежом ` +
+          `${payment.id} (${payment.amount})`
+      );
       sendAck(ack());
       return;
     }
