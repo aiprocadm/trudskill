@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Inject, Param, Post, Query, UseGuards } from '@nestjs/common';
 
+import { CreateDialogDto, PostMessageDto } from './chat.request-dto.js';
 import { ChatService } from './chat.service.js';
+import { assertValidDto } from '../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
 
@@ -21,17 +23,9 @@ export class ChatController {
   }
 
   @Post()
-  create(
-    @CurrentContext() ctx: RequestContext,
-    @Body()
-    body: {
-      type: 'direct' | 'entity_linked' | 'support';
-      participantUserIds: string[];
-      relatedEntityType?: string;
-      relatedEntityId?: string;
-      assignedUserId?: string;
-    }
-  ) {
+  create(@CurrentContext() ctx: RequestContext, @Body() raw: unknown) {
+    /* Ревизия 2026-08-26: тело-литерал не проверялось (см. chat.request-dto.ts). */
+    const body = assertValidDto(CreateDialogDto, raw);
     return this.service.createDialog(ctx.tenantId!, ctx.userId!, body);
   }
 
@@ -57,8 +51,9 @@ export class ChatController {
   postMessage(
     @CurrentContext() ctx: RequestContext,
     @Param('id') id: string,
-    @Body() body: { textBody: string }
+    @Body() raw: unknown
   ) {
+    const body = assertValidDto(PostMessageDto, raw);
     return this.service.postMessage(ctx.tenantId!, id, ctx.userId!, body.textBody);
   }
 

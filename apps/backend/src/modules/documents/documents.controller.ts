@@ -24,10 +24,13 @@ import {
   CreateTemplateDto,
   CreateTemplateVariableDto,
   CreateTemplateVersionDto,
+  CreateUploadUrlDto,
+  DiscardQuarantinedDto,
   DocumentReasonDto,
   GenerateDocumentDto,
   GenerateDocumentsBatchDto,
   IssueGroupOrderDto,
+  SetCurrentVersionDto,
   TenantImageSlotDto,
   UpdateNumberingRuleDto,
   UpdateTemplateBindingDto,
@@ -95,17 +98,10 @@ export class DocumentsController {
   @Post('tenant-images/upload-url')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
-  createTenantImageUploadUrl(
-    @CurrentContext() c: RequestContext,
-    @Body() b: { originalName?: string; sizeBytes?: number; contentType?: string }
-  ) {
-    const sizeBytes = Number(b?.sizeBytes);
-    if (!Number.isInteger(sizeBytes) || sizeBytes <= 0) {
-      throw new BadRequestException({
-        code: 'validation_error',
-        message: 'sizeBytes must be a positive integer'
-      });
-    }
+  createTenantImageUploadUrl(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    /* Форма проверяется классом (ревизия 2026-08-26), список типов — ниже, он доменный. */
+    const b = assertValidDto(CreateUploadUrlDto, raw);
+    const sizeBytes = b.sizeBytes;
     const contentType = b?.contentType ?? 'image/png';
     if (!TENANT_IMAGE_MIMES.has(contentType)) {
       throw new BadRequestException({
@@ -181,10 +177,8 @@ export class DocumentsController {
   @Post('templates/upload-url')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
-  createTemplateUploadUrl(
-    @CurrentContext() c: RequestContext,
-    @Body() b: { originalName?: string; sizeBytes?: number }
-  ) {
+  createTemplateUploadUrl(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateUploadUrlDto, raw);
     const sizeBytes = Number(b?.sizeBytes);
     if (!Number.isInteger(sizeBytes) || sizeBytes <= 0) {
       throw new BadRequestException({
@@ -252,8 +246,9 @@ export class DocumentsController {
   setCurrentVersion(
     @CurrentContext() c: RequestContext,
     @Param('id') id: string,
-    @Body() b: { templateVersionId: string }
+    @Body() raw: unknown
   ) {
+    const b = assertValidDto(SetCurrentVersionDto, raw);
     return this.documentsService.setCurrentVersion(
       c.tenantId!,
       c.userId,
@@ -554,9 +549,10 @@ export class DocumentsController {
   discardQuarantined(
     @CurrentContext() c: RequestContext,
     @Param('id') id: string,
-    @Body() body?: { reason?: string }
+    @Body() raw: unknown
   ) {
-    return this.quarantine.discard(c.tenantId!, id, body?.reason, c);
+    const body = assertValidDto(DiscardQuarantinedDto, raw ?? {});
+    return this.quarantine.discard(c.tenantId!, id, body.reason, c);
   }
   @Post('document-tasks/:id/cancel')
   @UseGuards(PermissionGuard)

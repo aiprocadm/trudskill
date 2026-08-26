@@ -1,5 +1,7 @@
 import { Body, Controller, Headers, Inject, Param, Post, UseGuards } from '@nestjs/common';
 
+import { ReprocessFailedDto } from './webhooks.request-dto.js';
+import { assertValidDto } from '../../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../../common/guards/tenant.guard.js';
 import { backendEnv } from '../../../env.js';
@@ -39,10 +41,12 @@ export class WebhooksController {
   @Post('reprocess-failed')
   @UseGuards(PermissionGuard)
   @RequirePermissions('integrations.write')
-  reprocessFailed(
-    @CurrentContext() ctx: RequestContext,
-    @Body('providerCode') providerCode?: string
-  ) {
+  reprocessFailed(@CurrentContext() ctx: RequestContext, @Body() raw: unknown) {
+    /*
+     * Ревизия 2026-08-26. Раньше поле выдёргивалось из тела как есть: `@Body('providerCode')`
+     * отдаёт что прислали, включая объект или число, и дальше это уходило в отбор записей.
+     */
+    const { providerCode } = assertValidDto(ReprocessFailedDto, raw ?? {});
     const failed = this.orchestrator.listFailedWebhookLogs(ctx.tenantId!, providerCode);
     this.orchestrator.publishIntegrationEvent(
       ctx.tenantId!,
