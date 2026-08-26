@@ -22,17 +22,34 @@ import type { RequestContext } from '../../common/context/request-context.js';
 export class TenantController {
   constructor(@Inject(TenantService) private readonly tenantService: TenantService) {}
 
+  /*
+   * Ревизия 2026-08-26. Чтение карточки центра стояло БЕЗ права: экран `/academy/*` закрыт
+   * `tenant.read`, а сама ручка отдавала данные любому вошедшему — то есть защита жила
+   * только на фронте. Представитель компании-заказчика, у которого `tenant.read` нет
+   * (проверено по `iam.role_permissions` живой базы, а не по названию роли), мог прочитать
+   * реквизиты и состав аттестационной комиссии обычным запросом.
+   *
+   * Содержимое сегодня безобидно (название, ИНН, ФИО членов комиссии — они и так печатаются
+   * в удостоверении), поэтому это не дыра, а fail-open: право не объявлено, и завтра в тот же
+   * `payload` положат что-нибудь чувствительное. Ставим то право, которое уже требует экран.
+   */
   @Get('me')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('tenant.read')
   async me(@CurrentContext() context: RequestContext) {
     return this.tenantService.getTenantById(context.tenantId!);
   }
 
   @Get('settings')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('tenant.read')
   async settings(@CurrentContext() context: RequestContext) {
     return this.tenantService.getSettings(context.tenantId!);
   }
 
   @Get('requisites')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('tenant.read')
   async requisites(@CurrentContext() context: RequestContext) {
     return this.tenantService.getRequisites(context.tenantId!);
   }
@@ -105,6 +122,8 @@ export class TenantController {
    * идентификации. Срок удаления паспортов — не то поле, которое стоит править вслепую.
    */
   @Get('identity-settings')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('tenant.read')
   async identitySettings(@CurrentContext() context: RequestContext) {
     const requisites = await this.tenantService.getRequisites(context.tenantId!);
     const settings = readTenantIdentitySettings(requisites);
@@ -146,6 +165,8 @@ export class TenantController {
   }
 
   @Get('commission')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('tenant.read')
   async commission(@CurrentContext() context: RequestContext) {
     return this.tenantService.getCommission(context.tenantId!);
   }
