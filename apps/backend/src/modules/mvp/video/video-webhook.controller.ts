@@ -1,4 +1,4 @@
-import { Controller, Headers, Inject, Post, RawBodyRequest, Req } from '@nestjs/common';
+import { Controller, Headers, Inject, Logger, Post, RawBodyRequest, Req } from '@nestjs/common';
 
 import { VIDEO_ASSETS_REPOSITORY, type VideoAssetsRepository } from './video-assets.repository.js';
 import { VideoProviderResolver } from './video-provider-resolver.service.js';
@@ -21,6 +21,8 @@ import type { Request } from 'express';
  */
 @Controller('internal/webhooks/video')
 export class VideoWebhookController {
+  private readonly logger = new Logger(VideoWebhookController.name);
+
   constructor(
     @Inject(VIDEO_ASSETS_REPOSITORY) private readonly assets: VideoAssetsRepository,
     @Inject(VideoProviderResolver) private readonly providers: VideoProviderResolver
@@ -36,12 +38,23 @@ export class VideoWebhookController {
     // Тенанта в вебхуке нет, поэтому подпись проверяют все адаптеры по очереди —
     // событие применит тот, который его опознал (см. parseWebhookWithAnyProvider).
     const events = await this.providers.parseWebhookWithAnyProvider(raw, headers);
-    if (!events?.length) return { ok: true, applied: 0 };
+    if (!events?.length) {
+      /*
+       * Ни один адаптер не опознал событие. Отвечаем «принято» — повторные доставки тут
+       * норма, и заставлять видеосервис ретраить бессмысленно. Но молчать нельзя: если
+       * формат сменится, видео перестанут переходить в «готово», а в журнале будет пусто.
+       */
+      this.logger.warn('video.webhook ignored: событие не опознал ни один видеосервис');
+      return { ok: true, applied: 0 };
+    }
 
     let applied = 0;
     for (const event of events) {
       const asset = await this.assets.findByProviderAssetId(event.providerAssetId);
-      if (!asset) continue;
+      if (!asset) {
+        this.logger.warn(`video.webhook ignored: запись ${event.providerAssetId} не найдена`);
+        continue;
+      }
       // Терминальные ассеты не переписываем: повторная доставка вебхука — норма.
       if (asset.status === 'ready' || asset.status === 'failed') continue;
 

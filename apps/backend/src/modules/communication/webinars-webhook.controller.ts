@@ -1,4 +1,4 @@
-import { Controller, Headers, Inject, Post, Req, Res } from '@nestjs/common';
+import { Controller, Headers, Inject, Logger, Post, Req, Res } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 
 import { WebinarProviderResolver } from './webinar-provider-resolver.service.js';
@@ -20,6 +20,8 @@ import type { Request, Response } from 'express';
  */
 @Controller('webinars')
 export class WebinarsWebhookController {
+  private readonly logger = new Logger(WebinarsWebhookController.name);
+
   constructor(
     @Inject(WebinarProviderResolver) private readonly resolver: WebinarProviderResolver,
     @Inject(WebinarsService) private readonly service: WebinarsService
@@ -45,15 +47,20 @@ export class WebinarsWebhookController {
     try {
       body = JSON.parse(raw.toString('utf8'));
     } catch {
+      this.logger.warn('webinar.webhook ignored: тело запроса не разобралось как JSON');
       sendAck({ ok: true });
       return;
     }
     if (typeof body.providerSessionId !== 'string') {
+      this.logger.warn('webinar.webhook ignored: в событии нет идентификатора сессии');
       sendAck({ ok: true });
       return;
     }
     const webinar = await this.service.findByProviderSessionId(body.providerSessionId);
     if (!webinar) {
+      this.logger.warn(
+        `webinar.webhook ignored: вебинар по сессии ${body.providerSessionId} не найден`
+      );
       sendAck({ ok: true });
       return;
     }
