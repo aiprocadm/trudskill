@@ -29,6 +29,7 @@ infra/.env.production
 # Кэш Python-тестов
 __pycache__/
 *.pyc
+.pytest_cache/
 
 # Изолированные рабочие копии Claude Code
 .claude/worktrees/
