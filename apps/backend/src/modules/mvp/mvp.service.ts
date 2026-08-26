@@ -48,6 +48,7 @@ import {
   generatePreExamToken,
   hashPreExamToken
 } from './pre-exam-token.js';
+import { isAbandonedRecording } from './proctoring/abandoned-recording.js';
 import { resolveProctoringRequirement } from './proctoring/proctoring-requirement.js';
 import { REGULATORY_ACTS_SEED } from './regulatory-acts.seed.js';
 import { buildReport } from './report-builder/build-report.js';
@@ -5046,6 +5047,12 @@ export class MvpService {
       ...record,
       learnerName,
       courseTitle: course?.title ?? '',
+      /*
+       * Ревизия 2026-08-26: запись, начатая давно и всё ещё числящаяся идущей, — скорее
+       * всего оборванная (закрыли вкладку, пропала связь). Признак вычисляется, данные не
+       * меняются: см. `proctoring/abandoned-recording.ts`.
+       */
+      connectionLost: isAbandonedRecording(record, this.now()),
       ...(attempt ? { attemptStatus: attempt.status } : {})
     };
   }

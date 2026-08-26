@@ -609,6 +609,11 @@ export interface ProctoringRecording extends BaseEntity {
 export interface ProctoringRecordingView extends ProctoringRecording {
   learnerName: string;
   courseTitle: string;
+  /**
+   * Запись числится идущей, но начата давно — связь с браузером слушателя, скорее всего,
+   * потеряна. Вычисляется при чтении, в данных не хранится (ревизия 2026-08-26).
+   */
+  connectionLost?: boolean;
   attemptStatus?: AttemptStatus;
 }
 
