@@ -1,7 +1,15 @@
 import { randomUUID } from 'node:crypto';
 
-import { Inject, Injectable, NotFoundException, Optional, Scope } from '@nestjs/common';
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional,
+  Scope
+} from '@nestjs/common';
 
+import { findRecentIdenticalBatch } from '../registry-exports/recent-identical-batch.js';
 import { buildReadinessReport } from '../registry-readiness.js';
 import { validateFrdoRow } from './frdo-registry-preflight.js';
 import { buildFrdoRows } from './frdo-registry-rows.js';
@@ -65,6 +73,26 @@ export class FrdoRegistryService {
     filter: FrdoRegistryExportFilter,
     ctx: RequestContext
   ): Promise<FrdoRegistryExportOutcome> {
+    /*
+     * Защита от двойной отправки (ревизия 2026-08-26). Подробности и обоснование —
+     * в `registry-exports/recent-identical-batch.ts`.
+     */
+    const recent = findRecentIdenticalBatch(this.state.frdoRegistryBatches, {
+      tenantId,
+      filter,
+      actorId: ctx.userId,
+      nowIso: new Date().toISOString()
+    });
+    if (recent) {
+      throw new ConflictException({
+        code: 'export_duplicate_recent',
+        message:
+          'Такая выгрузка уже собрана меньше минуты назад — откройте её в списке выгрузок. ' +
+          'Если нужна свежая, повторите через минуту или измените отбор.',
+        batchId: recent.id
+      });
+    }
+
     const kindsByType = new Map(
       this.mvp.listFrdoDocumentKinds().map((k) => [k.templateType as string, k])
     );
