@@ -5,6 +5,7 @@ import {
   type EmailDeliveriesRepository,
   type EmailDeliveryRow
 } from './email-deliveries.repository.js';
+import { maskEmail } from '../../common/logging/mask-pii.js';
 import { MAILER } from '../../infrastructure/mailer/mailer.service.js';
 import { AuditService } from '../audit/audit.service.js';
 
@@ -99,7 +100,7 @@ export class EmailResendService {
     });
 
     this.logger.log(
-      `Email ${original.id} resent to ${original.recipientEmail} with status ${result.status}`
+      `Email ${original.id} resent to ${maskEmail(original.recipientEmail)} with status ${result.status}`
     );
     return recorded;
   }

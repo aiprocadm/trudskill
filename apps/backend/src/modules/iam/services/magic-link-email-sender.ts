@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import { maskEmail } from '../../../common/logging/mask-pii.js';
 import { backendEnv } from '../../../env.js';
 
 export interface SendMagicLinkInput {
@@ -30,12 +31,14 @@ export class LoggingMagicLinkEmailSender implements MagicLinkEmailSender {
     // print the token there and tell the operator how to fix the configuration.
     if (backendEnv.NODE_ENV === 'production') {
       this.logger.warn(
-        `magic_link.delivery to=${input.email} url=<redacted in production> — ` +
+        `magic_link.delivery to=${maskEmail(input.email)} url=<redacted in production> — ` +
           'set NOTIFICATIONS_EMAIL_ENABLED=true with SMTP_* to deliver magic links by email'
       );
       return;
     }
     const url = buildMagicLinkUrl(input.rawToken);
-    this.logger.log(`magic_link.delivery to=${input.email} url=${url} (Phase 1: log-only)`);
+    this.logger.log(
+      `magic_link.delivery to=${maskEmail(input.email)} url=${url} (Phase 1: log-only)`
+    );
   }
 }
