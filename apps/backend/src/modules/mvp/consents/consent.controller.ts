@@ -67,7 +67,7 @@ export class ConsentController {
     @Body() raw: unknown
   ) {
     const body = assertValidDto(SaveConsentDocumentDto, raw);
-    return this.consents.saveDocument(c.tenantId!, this.assertKind(kind), body.body);
+    return this.consents.saveDocument(c.tenantId!, this.assertKind(kind), body.body, c);
   }
 
   /** Состояние обоих согласий текущего слушателя. */

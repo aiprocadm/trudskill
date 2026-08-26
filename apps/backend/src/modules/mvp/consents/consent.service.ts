@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  Optional,
   PreconditionFailedException
 } from '@nestjs/common';
 
@@ -20,6 +21,7 @@ import {
   type ConsentFactRow,
   type ConsentRepository
 } from './consent.repository.js';
+import { AuditService } from '../../audit/audit.service.js';
 import { LegalLogWriter } from '../esignature/legal-log.writer.js';
 
 import type { RequestContext } from '../../../common/context/request-context.js';
@@ -49,7 +51,9 @@ const KIND_TITLES: Record<ConsentKind, string> = {
 export class ConsentService {
   constructor(
     @Inject(CONSENT_REPOSITORY) private readonly repo: ConsentRepository,
-    @Inject(LegalLogWriter) private readonly legalLog: LegalLogWriter
+    @Inject(LegalLogWriter) private readonly legalLog: LegalLogWriter,
+    /* Последним и необязательным: тесты собирают сервис позиционно (см. §5.357). */
+    @Optional() @Inject(AuditService) private readonly auditService?: AuditService
   ) {}
 
   getDocument(tenantId: string, kind: ConsentKind): Promise<ConsentDocumentRow | null> {
@@ -71,7 +75,8 @@ export class ConsentService {
   async saveDocument(
     tenantId: string,
     kind: ConsentKind,
-    body: string
+    body: string,
+    ctx?: RequestContext
   ): Promise<ConsentDocumentRow> {
     const trimmed = body.trim();
     if (trimmed.length < 20) {
@@ -83,7 +88,32 @@ export class ConsentService {
     const bodyHash = hashConsentBody(trimmed);
     const current = await this.repo.findCurrentDocument(tenantId, kind);
     if (current && current.bodyHash === bodyHash) return current;
-    return this.repo.insertDocument(tenantId, kind, trimmed, bodyHash);
+    const saved = await this.repo.insertDocument(tenantId, kind, trimmed, bodyHash);
+
+    /*
+     * След в журнале действий (ревизия 2026-08-26, ФТ-G1).
+     *
+     * Текст согласия — юридический документ: под ним подписывается слушатель, и на него
+     * потом ссылаются при проверке обработки персональных данных. Публикация новой версии
+     * не оставляла следа вообще — по журналу нельзя было сказать, кто и когда сменил
+     * формулировку, под которой люди уже подписались.
+     *
+     * Пишем отпечаток текста, а не сам текст: журнал не место для юридических простыней,
+     * а отпечаток однозначно указывает на версию в `consent_documents`.
+     */
+    this.auditService?.write({
+      tenantId,
+      ...(ctx?.userId ? { actorId: ctx.userId } : {}),
+      action: 'consents.document_published',
+      entityType: 'consent_document',
+      entityId: `${kind}:v${saved.version}`,
+      newValues: { kind, bodyHash, length: trimmed.length },
+      ...(ctx?.requestId ? { requestId: ctx.requestId } : {}),
+      ...(ctx?.correlationId ? { correlationId: ctx.correlationId } : {}),
+      ...(ctx?.ip ? { ip: ctx.ip } : {}),
+      ...(ctx?.userAgent ? { userAgent: ctx.userAgent } : {})
+    });
+    return saved;
   }
 
   async getState(tenantId: string, learnerId: string, kind: ConsentKind): Promise<ConsentState> {

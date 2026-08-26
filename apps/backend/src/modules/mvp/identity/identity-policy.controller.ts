@@ -79,7 +79,7 @@ export class IdentityPolicyController {
   @RequirePermissions('identity.configure')
   save(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
     const body = assertValidDto(SaveIdentityPolicyDto, raw);
-    return this.policies.save(c.tenantId!, body);
+    return this.policies.save(c.tenantId!, body, c);
   }
 
   @Delete()
@@ -94,7 +94,7 @@ export class IdentityPolicyController {
       return { deleted: false };
     }
     return {
-      deleted: await this.policies.remove(c.tenantId!, scope as IdentityPolicyScope, scopeId)
+      deleted: await this.policies.remove(c.tenantId!, scope as IdentityPolicyScope, scopeId, c)
     };
   }
 }
