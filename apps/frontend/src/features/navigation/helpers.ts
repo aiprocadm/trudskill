@@ -10,8 +10,36 @@ const normalizePath = (path: string) => {
   return withoutQuery.replace(/\/+$/, '') || '/';
 };
 
-const isPatternMatch = (path: string, pattern: string) =>
-  path === pattern || (pattern !== '/' && path.startsWith(`${pattern}/`));
+/*
+ * Ревизия 2026-08-26. Сопоставление шло по СТРОКЕ, а в реестре есть шаблоны с подстановкой:
+ * `/admin/tests/[id]`, `/learner/tests/[testId]/attempt/[attemptId]`. Реальный путь выглядит
+ * как `/learner/tests/tst_71c/attempt/att_3` — с литеральными скобками он не совпадал НИКОГДА,
+ * и такие правила просто не работали: доступ решало более общее правило раздела.
+ *
+ * Для семи записей это ничего не меняло (право то же, что у раздела), а для трёх меняло:
+ * прохождение теста, просмотр результата и сдача работы объявлены строже, чем сам раздел.
+ * Методист, у которого есть чтение тестов, но нет `assessment.attempts.take` (сверено по
+ * `iam.role_permissions` живой базы), открывал экран прохождения чужого теста. Данные он
+ * оттуда не получал — ручки требуют своё право, — но вместо честного «нет доступа» видел
+ * экран и ошибку в нём.
+ *
+ * Теперь сегмент `[что-угодно]` совпадает с любым непустым сегментом пути. Префиксное
+ * поведение сохранено: шаблон короче пути по-прежнему покрывает всё, что ниже.
+ */
+const isPatternMatch = (path: string, pattern: string) => {
+  if (path === pattern) return true;
+  if (pattern === '/') return false;
+  if (!pattern.includes('[')) return path.startsWith(`${pattern}/`);
+
+  const pathSegments = path.split('/').filter(Boolean);
+  const patternSegments = pattern.split('/').filter(Boolean);
+  if (pathSegments.length < patternSegments.length) return false;
+  return patternSegments.every((segment, index) =>
+    segment.startsWith('[') && segment.endsWith(']')
+      ? Boolean(pathSegments[index])
+      : segment === pathSegments[index]
+  );
+};
 
 export const resolveRouteMeta = (path: string): RouteMeta | null => {
   const normalized = normalizePath(path);

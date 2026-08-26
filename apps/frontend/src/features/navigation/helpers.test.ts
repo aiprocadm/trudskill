@@ -1,3 +1,7 @@
+import { readdirSync, statSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -6,7 +10,7 @@ import {
   getVisibleNavigation,
   resolveRouteMeta
 } from './helpers';
-import { navigationModel } from './model';
+import { navigationModel, routeMeta } from './model';
 
 import type { UserSession } from '../../entities/session/model';
 
@@ -204,5 +208,100 @@ describe('состав меню после Фазы 1 редизайна (IA-011
     for (const item of getVisibleNavigation(fullAdmin)) {
       expect(shown, item.href).toContain(item.href);
     }
+  });
+});
+
+describe('правила с подстановкой действительно применяются (ревизия 2026-08-26)', () => {
+  /*
+   * Реестр содержит шаблоны вида `/learner/tests/[testId]/attempt/[attemptId]`, а
+   * сопоставление шло по строке — с литеральными скобками такой шаблон не совпадал
+   * НИКОГДА. Правило существовало и молчало: доступ решало более общее правило раздела,
+   * то есть объявленное строгое право не применялось вовсе.
+   */
+  const methodist: UserSession = {
+    ...adminSession,
+    roles: ['methodist'],
+    /* Набор взят из `iam.role_permissions` живой базы: у методиста ЕСТЬ чтение тестов и
+       заданий, но НЕТ прохождения попыток и сдачи работ. */
+    permissions: ['tenant.read', 'assessment.tests.read', 'assessment.assignments.read']
+  };
+
+  it('прохождение теста закрыто тому, у кого нет права проходить', () => {
+    expect(evaluateRouteAccess('/learner/tests/tst_71c/attempt/att_3', methodist).kind).toBe(
+      'forbidden'
+    );
+  });
+
+  it('сдача практической работы закрыта тому, у кого нет права сдавать', () => {
+    expect(evaluateRouteAccess('/learner/assignments/asn_9/submit', methodist).kind).toBe(
+      'forbidden'
+    );
+  });
+
+  it('список тестов при этом остаётся открытым — правило раздела не сломано', () => {
+    expect(evaluateRouteAccess('/learner/tests', methodist).kind).toBe('ok');
+  });
+
+  it('карточка берёт правило карточки, а не раздела', () => {
+    expect(resolveRouteMeta('/admin/tests/tst_1')?.requiredPermissions).toEqual([
+      'assessment.tests.read'
+    ]);
+  });
+
+  it('обычные разделы по-прежнему покрывают всё, что ниже', () => {
+    expect(resolveRouteMeta('/learners/lrn_42/history')?.requiredPermissions).toEqual([
+      'learners.read'
+    ]);
+  });
+
+  it('шаблон длиннее пути не совпадает', () => {
+    expect(resolveRouteMeta('/learner/tests/tst_1/attempt')?.requiredPermissions).toEqual([
+      'assessment.tests.read'
+    ]);
+  });
+});
+
+describe('в реестре нет мёртвых правил', () => {
+  /*
+   * Правило, под которое не подходит ни одна страница продукта, — это не защита, а запись,
+   * которую читают и считают защитой. Проверяем прямо по файловой системе `app/`.
+   */
+  const APP = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'app');
+
+  const pages = (dir: string, acc: string[] = []): string[] => {
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) {
+        pages(full, acc);
+        continue;
+      }
+      if (entry === 'page.tsx') acc.push(full);
+    }
+    return acc;
+  };
+
+  /** Путь страницы с подставленным значением вместо динамического сегмента. */
+  const routeOf = (file: string) => {
+    const rel = file
+      .slice(APP.length + 1)
+      .replace(/\\/g, '/')
+      .replace(/\/page\.tsx$/, '');
+    if (!rel || rel === 'page.tsx') return '/';
+    return '/' + rel.replace(/\[\.\.\.[^\]]+\]/g, 'sample').replace(/\[[^\]]+\]/g, 'sample');
+  };
+
+  it('каждое правило описывает хотя бы одну существующую страницу', () => {
+    const routes = pages(APP).map(routeOf);
+    const dead = routeMeta
+      .filter((entry) => !routes.some((route) => resolveRouteMeta(route) === entry.meta))
+      .map((entry) => entry.pattern)
+      .filter(
+        (pattern) => !routes.some((route) => route === pattern || route.startsWith(`${pattern}/`))
+      )
+      .sort();
+    expect(
+      dead,
+      'правило доступа не подходит ни к одной странице — оно не работает, а выглядит защитой'
+    ).toEqual([]);
   });
 });
