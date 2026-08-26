@@ -35,6 +35,11 @@ export interface ProctoringRecordingView extends ProctoringRecordingDto {
   learnerName: string;
   courseTitle: string;
   attemptStatus?: AttemptStatus;
+  /**
+   * Запись числится идущей, но начата давно: связь с браузером слушателя потеряна.
+   * Считает сервер при чтении списка (ревизия 2026-08-26).
+   */
+  connectionLost?: boolean;
 }
 
 /** Mirrors the backend `ProctoringChunkIssue['code']` union (mvp.types.ts). */

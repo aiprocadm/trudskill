@@ -298,10 +298,20 @@ export function AdminProctoringQueueScreen(): ReactElement {
     id: item.id,
     learnerNameView: item.learnerName || '—',
     courseTitleView: item.courseTitle || '—',
+    /*
+     * Ревизия 2026-08-26. Запись, начатая давно и всё ещё числящаяся идущей, выглядела так
+     * же, как экзамен, который идёт прямо сейчас: администратор не мог их отличить, а по
+     * этим записям потом разбирают, кто сдавал. Признак считает сервер (`connectionLost`),
+     * и подпись говорит ровно то, что известно: связь потеряна, а не «запись прервана».
+     */
     statusView: (
       <StatusChip
-        status={item.recordingStatus}
-        label={formatProctoringStatus(item.recordingStatus)}
+        status={item.connectionLost ? 'failed' : item.recordingStatus}
+        label={
+          item.connectionLost
+            ? 'Идёт запись — связь потеряна'
+            : formatProctoringStatus(item.recordingStatus)
+        }
       />
     ),
     startedAtView: formatDateShort(item.startedAt),
