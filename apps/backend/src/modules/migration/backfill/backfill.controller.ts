@@ -1,9 +1,9 @@
 import { Body, Controller, Get, Inject, Param, Post, Query, UseGuards } from '@nestjs/common';
 
+import { CreateAndRunBackfillDto, CreateBackfillRunDto } from './backfill.request-dto.js';
 import { BackfillService } from './backfill.service.js';
+import { assertValidDto } from '../../../common/app-validation.pipe.js';
 import { WorkerCallbackGuard } from '../../mvp/infrastructure/worker-callback.guard.js';
-
-import type { BackfillDomain } from './backfill.types.js';
 
 // SECURITY: backfill operates ACROSS tenants (platform-level reconciliation), so TenantGuard —
 // which derives a single tenant from the caller's JWT — does not fit. These ops-only routes are
@@ -16,12 +16,15 @@ export class BackfillController {
   constructor(@Inject(BackfillService) private readonly backfill: BackfillService) {}
 
   @Post('runs')
-  createRun(@Body() body: { domain: BackfillDomain; batchSize?: number }) {
+  createRun(@Body() raw: unknown) {
+    /* Ревизия 2026-08-26: тело-литерал не проверялось (см. backfill.request-dto.ts). */
+    const body = assertValidDto(CreateBackfillRunDto, raw);
     return this.backfill.createRun(body.domain, body.batchSize);
   }
 
   @Post('runs/start')
-  createAndRun(@Body() body: { domain: BackfillDomain; batchSize?: number; maxBatches?: number }) {
+  createAndRun(@Body() raw: unknown) {
+    const body = assertValidDto(CreateAndRunBackfillDto, raw);
     return this.backfill.createAndRun(body.domain, body.batchSize, body.maxBatches);
   }
 

@@ -33,27 +33,23 @@ const SRC = resolve(HERE, '..');
 const MODULES = join(SRC, 'modules');
 
 /**
- * Осталось с ревизии 2026-08-26. Чинить порциями; добавлять сюда новое — нельзя.
+ * Ручки, которые проверяют вход НЕ классом, — с объяснением почему.
  *
- * Раздел электронной подписи (12 ручек) убран из очереди порцией 12 — там вход решает
- * доказательную силу документа, поэтому он шёл первым. Порция 13 забрала шаблоны, версии,
- * переменные, привязки, правила нумерации, пакетный выпуск, слот подписи/печати и
- * обезличивание персональных данных: из этих записей рождается сам документ.
+ * Очередь ревизии 2026-08-26 разобрана до конца (порции 11–14): 44 места закрыты
+ * проверяемыми классами. Осталось два, где проверка есть, но своя — доменная, и она
+ * строже, чем дал бы класс. Переписывать их значило бы ослабить проверку ради
+ * единообразия.
+ *
+ * Это НЕ очередь и НЕ разрешение: новая ручка без проверки валит тест. Чтобы попасть
+ * сюда, нужна причина — как у этих двух.
  */
-const QUEUE = new Set([
-  'communication/chat.controller.ts POST ',
-  'communication/chat.controller.ts POST :id/messages',
-  'documents/documents.controller.ts POST tenant-images/upload-url',
-  'documents/documents.controller.ts POST templates/upload-url',
-  'documents/documents.controller.ts POST templates/:id/set-current-version',
-  'documents/documents.controller.ts POST job-quarantine/:id/discard',
-  'integrations/webhooks/webhooks.controller.ts POST reprocess-failed',
-  'migration/backfill/backfill.controller.ts POST runs',
-  'migration/backfill/backfill.controller.ts POST runs/start',
-  'tenant/tenant.controller.ts PUT branding',
-  'tenant/tenant.controller.ts PUT identity-settings'
-]);
-
+const ALLOWED: Record<string, string> = {
+  'tenant/tenant.controller.ts PUT branding':
+    'своя проверка `validateBrandingInput`: разбирает цвета и логотип и возвращает СПИСОК проблем — «#зелёненький» получает внятный отказ, а не общий «неверный формат»',
+  'tenant/tenant.controller.ts PUT identity-settings':
+    'своя проверка `isValidRetentionDays` с границами из настроек модуля; `null` там — намеренная форма «вернуть умолчание»'
+};
+const QUEUE = new Set(Object.keys(ALLOWED));
 const VALIDATOR_DECORATOR =
   /@(IsString|IsInt|IsNumber|IsBoolean|IsArray|IsOptional|IsEnum|IsUUID|IsEmail|ValidateNested|MinLength|MaxLength|ArrayMaxSize|ArrayNotEmpty|Min|Max|Matches|IsDateString|IsIn|IsNotEmpty|IsObject)\b/;
 
@@ -133,8 +129,15 @@ describe('тело запроса проверяется, а не берётся
     ).toEqual([]);
   });
 
-  it('очередь не врёт: исправленных мест в ней не осталось', () => {
+  it('список не врёт: ручек, уже проверяющих тело классом, в нём не осталось', () => {
     const fixed = [...QUEUE].filter((key) => !unprotected.includes(key)).sort();
-    expect(fixed, 'ручка уже проверяет тело — уберите её из очереди').toEqual([]);
+    expect(fixed, 'ручка уже проверяет тело классом — уберите её из списка').toEqual([]);
+  });
+
+  it('у каждого исключения записана причина, а не отписка', () => {
+    const vague = Object.entries(ALLOWED)
+      .filter(([, why]) => why.trim().length < 30)
+      .map(([key]) => key);
+    expect(vague).toEqual([]);
   });
 });

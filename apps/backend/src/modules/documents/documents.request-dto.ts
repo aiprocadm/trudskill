@@ -486,3 +486,49 @@ export class TenantImageSlotDto {
   @Max(200, { message: 'widthMm: слишком большая ширина для бланка' })
   widthMm?: number;
 }
+
+/* ===========================================================================
+ * Остаток очереди (порция 14): загрузка файлов, установка текущей версии,
+ * снятие задачи с карантина.
+ * =========================================================================== */
+
+/**
+ * Запрос ссылки на загрузку. Размер и тип содержимого проверялись прямо в обработчике —
+ * доменная часть (список разрешённых типов) там и остаётся, а форма переехала сюда, чтобы
+ * правило «вход описан классом» действовало без исключений.
+ *
+ * Потолок в 50 МБ — общий предел для бланков и картинок центра: файл больше означает, что
+ * человек грузит не то (скан в исходном разрешении вместо готовой печати).
+ */
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+
+export class CreateUploadUrlDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  originalName?: string;
+
+  @IsInt({ message: 'sizeBytes: ожидается целое число байт' })
+  @Min(1, { message: 'sizeBytes: размер должен быть положительным' })
+  @Max(MAX_UPLOAD_BYTES, { message: 'sizeBytes: файл слишком большой' })
+  sizeBytes!: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  contentType?: string;
+}
+
+export class SetCurrentVersionDto {
+  @IsString()
+  @Matches(ID, { message: 'templateVersionId: недопустимый формат' })
+  templateVersionId!: string;
+}
+
+/** Причина снятия задачи с карантина — попадает в журнал операций. */
+export class DiscardQuarantinedDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
+}
