@@ -18,16 +18,19 @@ import {
 
 import { DocumentsEnqueueService } from './documents-enqueue.service.js';
 import {
-  DocumentsService,
-  type IssueGroupOrderRequest,
-  type IssuedDocumentFilter
-} from './documents.service.js';
+  CloseGroupDto,
+  DocumentReasonDto,
+  GenerateDocumentDto,
+  IssueGroupOrderDto
+} from './documents.request-dto.js';
+import { DocumentsService, type IssuedDocumentFilter } from './documents.service.js';
 import { GroupPackageService } from './group-package.service.js';
 import { DocumentsRequestPersistenceInterceptor } from './infrastructure/documents-request-persistence.interceptor.js';
 import { JobQuarantineService } from './job-quarantine.service.js';
 import { validateProtocolTemplate } from './protocol-compliance.js';
 import { TemplateInspectionService } from './template-inspection.service.js';
 import { demoVariables } from './variable-catalog.js';
+import { assertValidDto } from '../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { FilesService } from '../files/files.service.js';
@@ -43,13 +46,11 @@ import { TenantService } from '../tenant/tenant.service.js';
 
 import type {
   BaseFilter,
-  CloseGroupRequest,
   CreateNumberingRuleRequest,
   CreateTemplateBindingRequest,
   CreateTemplateRequest,
   CreateTemplateVariableRequest,
   CreateTemplateVersionRequest,
-  GenerateDocumentRequest,
   GenerateDocumentsBatchRequest,
   UpdateNumberingRuleRequest,
   UpdateTemplateBindingRequest,
@@ -442,7 +443,13 @@ export class DocumentsController {
   @Post('documents/generate')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.generate')
-  async generateDocument(@CurrentContext() c: RequestContext, @Body() b: GenerateDocumentRequest) {
+  async generateDocument(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    /*
+     * Ревизия 2026-08-26: тело было типизировано ИНТЕРФЕЙСОМ, а интерфейс при сборке
+     * исчезает — общий проверяющий видел `Object` и пропускал что угодно. Здесь выпускается
+     * документ с юридической силой, поэтому вход проверяется явно.
+     */
+    const b = assertValidDto(GenerateDocumentDto, raw);
     const task = this.documentsService.generateDocument(c.tenantId!, c.userId, b, c);
     // ФТ-A1.1: job в очередь. Race «сообщение обогнало сохранение состояния» разруливает
     // worker (retry c backoff), повторная публикация того же taskId безопасна (claim в start).
@@ -641,7 +648,9 @@ export class DocumentsController {
   @Post('admin/documents/group-orders')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.write')
-  issueGroupOrder(@CurrentContext() c: RequestContext, @Body() b: IssueGroupOrderRequest) {
+  issueGroupOrder(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    /* Ревизия 2026-08-26: тело-интерфейс не проверялось (см. documents.request-dto.ts). */
+    const b = assertValidDto(IssueGroupOrderDto, raw);
     return this.documentsService.issueGroupOrder(c.tenantId!, c.userId, b, c);
   }
 
@@ -653,7 +662,9 @@ export class DocumentsController {
   @Post('admin/documents/close-group')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.generate')
-  closeGroup(@CurrentContext() c: RequestContext, @Body() b: CloseGroupRequest) {
+  closeGroup(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    /* «Закрыть группу» выпускает протокол и удостоверения — вход проверяется явно. */
+    const b = assertValidDto(CloseGroupDto, raw);
     return this.documentsService.closeGroup(c.tenantId!, c.userId, b, c);
   }
 
@@ -694,8 +705,9 @@ export class DocumentsController {
   revokeDocument(
     @CurrentContext() c: RequestContext,
     @Param('id') id: string,
-    @Body() b: { reason: string }
+    @Body() raw: unknown
   ) {
+    const b = assertValidDto(DocumentReasonDto, raw);
     return this.documentsService.revokeDocument(c.tenantId!, c.userId, id, b.reason, c);
   }
 
@@ -705,8 +717,9 @@ export class DocumentsController {
   reissueDocument(
     @CurrentContext() c: RequestContext,
     @Param('id') id: string,
-    @Body() b: { reason: string }
+    @Body() raw: unknown
   ) {
+    const b = assertValidDto(DocumentReasonDto, raw);
     return this.documentsService.reissueDocument(c.tenantId!, c.userId, id, b.reason, c);
   }
 }

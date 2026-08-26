@@ -9,7 +9,9 @@ import {
   isValidRetentionDays,
   readTenantIdentitySettings
 } from './tenant-identity-settings.js';
+import { UpdateTenantRequisitesDto, UpdateTenantSettingsDto } from './tenant.request-dto.js';
 import { TenantService } from './tenant.service.js';
+import { assertValidDto } from '../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
@@ -65,20 +67,18 @@ export class TenantController {
   @Put('settings')
   @UseGuards(PermissionGuard)
   @RequirePermissions('tenant.settings.write')
-  async updateSettings(
-    @CurrentContext() context: RequestContext,
-    @Body() body: { locale?: string; timezone?: string; payload?: Record<string, unknown> }
-  ) {
+  async updateSettings(@CurrentContext() context: RequestContext, @Body() raw: unknown) {
+    /* Ревизия 2026-08-26: тело-литерал не проверялось (см. tenant.request-dto.ts). */
+    const body = assertValidDto(UpdateTenantSettingsDto, raw);
     return this.tenantService.updateSettings(context.tenantId!, body, context);
   }
 
   @Put('requisites')
   @UseGuards(PermissionGuard)
   @RequirePermissions('tenant.settings.write')
-  async updateRequisites(
-    @CurrentContext() context: RequestContext,
-    @Body() body: { legalName?: string; taxNumber?: string; payload?: Record<string, unknown> }
-  ) {
+  async updateRequisites(@CurrentContext() context: RequestContext, @Body() raw: unknown) {
+    /* Юридическое название и ИНН печатаются в удостоверении — вход проверяется. */
+    const body = assertValidDto(UpdateTenantRequisitesDto, raw);
     return this.tenantService.updateRequisites(context.tenantId!, body, context);
   }
 
