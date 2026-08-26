@@ -23,6 +23,32 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const BACKEND_SRC = join(HERE, '..', '..');
 
 /** Что нельзя писать в журнал значением. */
+/**
+ * Персональные данные в журнале (ревизия 2026-08-26).
+ *
+ * Довод тот же, что и у секретов, и для этого продукта он весомее: центр учит людей по
+ * обязательным программам, и в журнал легко утекает то, что защищено 152-ФЗ. Ревизия нашла
+ * два места, где адрес электронной почты писался целиком — включая ветку, работающую в
+ * продакшене.
+ *
+ * Полный запрет был бы вреден: «письмо не дошло» разбирают именно по журналу. Поэтому
+ * правило мягче — значение МАСКИРУЕТСЯ (`maskEmail`, `maskSnils`, `maskFullName` из
+ * `common/logging/mask-pii.ts`), а не выбрасывается.
+ */
+const PII_NAMES = [
+  'email',
+  'recipientEmail',
+  'snils',
+  'passportNumber',
+  'passportSeries',
+  'fullName',
+  'firstName',
+  'lastName',
+  'middleName',
+  'birthDate',
+  'phone'
+];
+
 const SECRET_NAMES = [
   'password',
   'passwordHash',
@@ -51,20 +77,65 @@ const collect = (dir: string, acc: string[] = []): string[] => {
 };
 
 /**
- * Вызовы журналирования и их аргументы. Разбор построчный: тег вызова может занимать
- * несколько строк, но имя секрета в аргументах видно и так — а сложный разбор здесь
- * дал бы ложную уверенность, что мы «понимаем» код.
+ * Вызовы журналирования вместе с аргументами.
+ *
+ * **Здесь была дыра** (найдена ревизией 2026-08-26 проверкой мутацией). Разбор шёл строго
+ * построчно, а форматтер регулярно переносит длинный аргумент на следующую строку:
+ *
+ * ```
+ * this.logger.log(
+ *   `Email ${id} resent to ${recipientEmail} …`   // ← эта строка в выборку НЕ попадала
+ * );
+ * ```
+ *
+ * То есть сторож видел `logger.log(` и не видел того, что в него передают. Комментарий на
+ * этом месте уверял, что «имя секрета в аргументах видно и так» — оно видно не было.
+ * Теперь берётся окно: строка вызова плюс следующие четыре, чего хватает на любой перенос,
+ * который делает форматтер.
  */
-const loggingLines = (source: string): string[] =>
-  source
-    .split('\n')
-    .filter((line) => /(?:logger|console)\.(?:log|error|warn|debug|verbose)\(/.test(line));
+const LOG_CALL = /(?:logger|console)\.(?:log|error|warn|debug|verbose)\(/;
+const WINDOW_LINES = 4;
+
+const loggingLines = (source: string): string[] => {
+  const lines = source.split('\n');
+  const windows: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (!LOG_CALL.test(lines[i]!)) continue;
+    windows.push(lines.slice(i, i + 1 + WINDOW_LINES).join(' '));
+  }
+  return windows;
+};
 
 describe('ФТ-G4 · секреты не попадают в журнал', () => {
   const files = collect(BACKEND_SRC);
 
   it('сканер видит код бэкенда', () => {
     expect(files.length).toBeGreaterThan(100);
+  });
+
+  it('в журнал не пишется персональное значение без маскирования', () => {
+    const offenders: string[] = [];
+
+    for (const file of files) {
+      const rel = relative(BACKEND_SRC, file).split(sep).join('/');
+      for (const line of loggingLines(readFileSync(file, 'utf8'))) {
+        for (const name of PII_NAMES) {
+          /* Ищем подстановку значения: `${...email}` или `{ email }`. */
+          const interpolated = new RegExp(`\\$\\{[^}]*\\b${name}\\b`, 'i');
+          const shorthand = new RegExp(`[{,]\\s*${name}\\s*[,}]`);
+          if (!interpolated.test(line) && !shorthand.test(line)) continue;
+          /* Маскирующие помощники — как раз то, ради чего правило и смягчено. */
+          if (/mask(Email|Snils|FullName)\(/.test(line)) continue;
+          offenders.push(`${rel}: ${line.trim().slice(0, 110)}`);
+        }
+      }
+    }
+
+    expect(
+      offenders.sort(),
+      'персональные данные в журнале: заверните значение в maskEmail / maskSnils / maskFullName — ' +
+        'журналы читают шире, чем базу, и попадают в выгрузки и тикеты'
+    ).toEqual([]);
   });
 
   it('в журнал не пишется значение, похожее на секрет', () => {
