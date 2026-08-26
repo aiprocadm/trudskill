@@ -88,6 +88,7 @@ import {
 } from './mvp.dto.js';
 import { MvpService } from './mvp.service.js';
 import { LearnerPiiService } from './pii/learner-pii.service.js';
+import { toPortalLearnerView } from './portal/portal-learner-view.js';
 import { PRE_EXAM_REQUEST_RATE_LIMIT, PRE_EXAM_VERIFY_RATE_LIMIT } from './pre-exam-rate-limit.js';
 import { BuildReportRequestDto, SaveReportTemplateDto } from './report-builder.dto.js';
 import { UpdateCounterpartyExtendedRequest } from './update-counterparty-extended.dto.js';
@@ -221,7 +222,15 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('portal.read')
   listPortalLearners(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    return this.mvpService.listLearners(c.tenantId!, q, { counterpartyId: c.counterpartyId });
+    /*
+     * Ревизия 2026-08-26: портал отдавал карточку слушателя целиком — со СНИЛСом, датой
+     * рождения и телефоном, — хотя экран показывает четыре колонки. Это единственное место,
+     * где данные уходят ЗА ПРЕДЕЛЫ центра, к внешней компании (см. portal-learner-view.ts).
+     */
+    const page = this.mvpService.listLearners(c.tenantId!, q, {
+      counterpartyId: c.counterpartyId
+    });
+    return { ...page, items: page.items.map(toPortalLearnerView) };
   }
   @Get('portal/groups')
   @UseGuards(PermissionGuard)
@@ -354,9 +363,13 @@ export class MvpController {
   /**
    * ФТ-G6 (Фаза 4 Task 12) — выгрузка персональных данных слушателя (152-ФЗ ст. 14).
    *
-   * Право `learners.pii.manage`, а не `learners.read`: карточку смотрит любой методист,
-   * а полную выгрузку со СНИЛСом, телефоном и привязкой к учётной записи — только
-   * администрация центра, отрабатывающая заявление субъекта.
+   * Право `learners.pii.manage`, а не `learners.read`: список слушателей открыт менеджеру,
+   * который ведёт клиентов, а полную выгрузку со СНИЛСом, телефоном и привязкой к учётной
+   * записи отдаёт только администрация центра, отрабатывающая заявление субъекта.
+   *
+   * Ревизия 2026-08-26: здесь стояло «карточку смотрит любой методист» — по живой базе
+   * `learners.read` у методиста нет вовсе, и это верно (в его меню слушателей и не должно
+   * быть). Комментарий писался при другом наборе прав и вводил в заблуждение.
    */
   @Get('learners/:id/personal-data')
   @UseGuards(PermissionGuard)
