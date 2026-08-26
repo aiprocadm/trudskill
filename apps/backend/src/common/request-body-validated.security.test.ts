@@ -32,7 +32,12 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC = resolve(HERE, '..');
 const MODULES = join(SRC, 'modules');
 
-/** Осталось с ревизии 2026-08-26. Чинить порциями; добавлять сюда новое — нельзя. */
+/**
+ * Осталось с ревизии 2026-08-26. Чинить порциями; добавлять сюда новое — нельзя.
+ *
+ * Раздел электронной подписи (12 ручек) убран из очереди порцией 12 — там вход решает
+ * доказательную силу документа, поэтому он шёл первым.
+ */
 const QUEUE = new Set([
   'communication/chat.controller.ts POST ',
   'communication/chat.controller.ts POST :id/messages',
@@ -52,18 +57,6 @@ const QUEUE = new Set([
   'documents/documents.controller.ts POST job-quarantine/:id/discard',
   'documents/documents.controller.ts POST numbering-rules',
   'documents/documents.controller.ts PATCH numbering-rules/:id',
-  'esign/esign.controller.ts POST applications',
-  'esign/esign.controller.ts PATCH applications/:id',
-  'esign/esign.controller.ts POST applications/:id/reject',
-  'esign/esign.controller.ts POST application-files',
-  'esign/esign.controller.ts POST application-files/:id/reject',
-  'esign/esign.controller.ts POST processes',
-  'esign/esign.controller.ts POST processes/:id/start',
-  'esign/esign.controller.ts POST participants',
-  'esign/esign.controller.ts PATCH participants/:id',
-  'esign/esign.controller.ts POST participants/:id/sign',
-  'esign/esign.controller.ts POST participants/:id/reject',
-  'esign/esign.controller.ts POST participants/:id/skip',
   'integrations/webhooks/webhooks.controller.ts POST reprocess-failed',
   'migration/backfill/backfill.controller.ts POST runs',
   'migration/backfill/backfill.controller.ts POST runs/start',

@@ -11,25 +11,25 @@ import {
   UseGuards
 } from '@nestjs/common';
 
+import {
+  CreateEsignApplicationDto,
+  CreateEsignApplicationFileDto,
+  CreateSigningParticipantDto,
+  CreateSigningProcessDto,
+  EsignReasonDto,
+  ParticipantActionDto,
+  StartSigningProcessDto,
+  UpdateEsignApplicationDto,
+  UpdateSigningParticipantDto
+} from './esign.request-dto.js';
 import { EsignService } from './esign.service.js';
+import { assertValidDto } from '../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
 import { PermissionGuard } from '../iam/permission.guard.js';
 
-import type {
-  CreateEsignApplicationFileRequest,
-  CreateEsignApplicationRequest,
-  CreateSigningParticipantRequest,
-  CreateSigningProcessRequest,
-  EsignBaseFilter,
-  ParticipantActionRequest,
-  RejectEsignApplicationFileRequest,
-  RejectEsignApplicationRequest,
-  StartSigningProcessRequest,
-  UpdateEsignApplicationRequest,
-  UpdateSigningParticipantRequest
-} from './esign.dto.js';
+import type { EsignBaseFilter } from './esign.dto.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 
 @Controller('esign')
@@ -45,7 +45,8 @@ export class EsignController {
   @Post('applications')
   @UseGuards(PermissionGuard)
   @RequirePermissions('esign.applications.write')
-  createApplication(@CurrentContext() c: RequestContext, @Body() b: CreateEsignApplicationRequest) {
+  createApplication(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateEsignApplicationDto, raw);
     return this.esignService.createApplication(c.tenantId!, c.userId, b, c);
   }
   @Get('applications/:id')
@@ -60,8 +61,9 @@ export class EsignController {
   patchApplication(
     @CurrentContext() c: RequestContext,
     @Param('id') id: string,
-    @Body() b: UpdateEsignApplicationRequest
+    @Body() raw: unknown
   ) {
+    const b = assertValidDto(UpdateEsignApplicationDto, raw);
     return this.esignService.updateApplication(c.tenantId!, c.userId, id, b);
   }
   @Post('applications/:id/submit')
@@ -88,8 +90,9 @@ export class EsignController {
   rejectApplication(
     @CurrentContext() c: RequestContext,
     @Param('id') id: string,
-    @Body() b: RejectEsignApplicationRequest
+    @Body() raw: unknown
   ) {
+    const b = assertValidDto(EsignReasonDto, raw);
     return this.esignService.rejectApplication(c.tenantId!, c.userId, id, b);
   }
   @Post('applications/:id/reuse-check')
@@ -107,10 +110,8 @@ export class EsignController {
   @Post('application-files')
   @UseGuards(PermissionGuard)
   @RequirePermissions('esign.applications.write')
-  createApplicationFile(
-    @CurrentContext() c: RequestContext,
-    @Body() b: CreateEsignApplicationFileRequest
-  ) {
+  createApplicationFile(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateEsignApplicationFileDto, raw);
     return this.esignService.createApplicationFile(c.tenantId!, c.userId, b);
   }
   @Get('application-files/:id')
@@ -131,8 +132,9 @@ export class EsignController {
   rejectApplicationFile(
     @CurrentContext() c: RequestContext,
     @Param('id') id: string,
-    @Body() b: RejectEsignApplicationFileRequest
+    @Body() raw: unknown
   ) {
+    const b = assertValidDto(EsignReasonDto, raw);
     return this.esignService.rejectApplicationFile(c.tenantId!, c.userId, id, b);
   }
   @Delete('application-files/:id')
@@ -150,7 +152,8 @@ export class EsignController {
   @Post('processes')
   @UseGuards(PermissionGuard)
   @RequirePermissions('esign.processes.write')
-  createProcess(@CurrentContext() c: RequestContext, @Body() b: CreateSigningProcessRequest) {
+  createProcess(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateSigningProcessDto, raw);
     return this.esignService.createProcess(c.tenantId!, c.userId, b);
   }
   @Get('processes/:id')
@@ -162,11 +165,8 @@ export class EsignController {
   @Post('processes/:id/start')
   @UseGuards(PermissionGuard)
   @RequirePermissions('esign.processes.write')
-  startProcess(
-    @CurrentContext() c: RequestContext,
-    @Param('id') id: string,
-    @Body() b: StartSigningProcessRequest
-  ) {
+  startProcess(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() raw: unknown) {
+    const b = assertValidDto(StartSigningProcessDto, raw);
     return this.esignService.startProcess(c.tenantId!, c.userId, id, b);
   }
   @Post('processes/:id/cancel')
@@ -190,10 +190,8 @@ export class EsignController {
   @Post('participants')
   @UseGuards(PermissionGuard)
   @RequirePermissions('esign.processes.write')
-  createParticipant(
-    @CurrentContext() c: RequestContext,
-    @Body() b: CreateSigningParticipantRequest
-  ) {
+  createParticipant(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CreateSigningParticipantDto, raw);
     return this.esignService.createParticipant(c.tenantId!, c.userId, b);
   }
   @Patch('participants/:id')
@@ -202,8 +200,9 @@ export class EsignController {
   patchParticipant(
     @CurrentContext() c: RequestContext,
     @Param('id') id: string,
-    @Body() b: UpdateSigningParticipantRequest
+    @Body() raw: unknown
   ) {
+    const b = assertValidDto(UpdateSigningParticipantDto, raw);
     return this.esignService.updateParticipant(c.tenantId!, id, b);
   }
   @Post('participants/:id/invite')
@@ -221,31 +220,22 @@ export class EsignController {
   @Post('participants/:id/sign')
   @UseGuards(PermissionGuard)
   @RequirePermissions('esign.participants.sign')
-  sign(
-    @CurrentContext() c: RequestContext,
-    @Param('id') id: string,
-    @Body() b: ParticipantActionRequest
-  ) {
+  sign(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() raw: unknown) {
+    const b = assertValidDto(ParticipantActionDto, raw);
     return this.esignService.signParticipant(c.tenantId!, c.userId, id, b);
   }
   @Post('participants/:id/reject')
   @UseGuards(PermissionGuard)
   @RequirePermissions('esign.participants.sign')
-  reject(
-    @CurrentContext() c: RequestContext,
-    @Param('id') id: string,
-    @Body() b: ParticipantActionRequest
-  ) {
+  reject(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() raw: unknown) {
+    const b = assertValidDto(ParticipantActionDto, raw);
     return this.esignService.rejectParticipant(c.tenantId!, c.userId, id, b);
   }
   @Post('participants/:id/skip')
   @UseGuards(PermissionGuard)
   @RequirePermissions('esign.processes.write')
-  skip(
-    @CurrentContext() c: RequestContext,
-    @Param('id') id: string,
-    @Body() b: ParticipantActionRequest
-  ) {
+  skip(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() raw: unknown) {
+    const b = assertValidDto(ParticipantActionDto, raw);
     return this.esignService.skipParticipant(c.tenantId!, c.userId, id, b);
   }
   @Get('events') @UseGuards(PermissionGuard) @RequirePermissions('esign.processes.read') listEvents(
