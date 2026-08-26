@@ -110,11 +110,12 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['learners.read'] }
   },
   {
-    pattern: '/admin/commissions',
+    /* Карточка — раньше раздела: иначе правило карточки не выбирается никогда (ревизия 2026-08-26). */
+    pattern: '/admin/commissions/[id]',
     meta: { public: false, requiredPermissions: ['learning.commissions.read'] }
   },
   {
-    pattern: '/admin/commissions/[id]',
+    pattern: '/admin/commissions',
     meta: { public: false, requiredPermissions: ['learning.commissions.read'] }
   },
   {
