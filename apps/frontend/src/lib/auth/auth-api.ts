@@ -123,16 +123,21 @@ export const authApi = {
       auth: { accessToken },
       credentials: 'include'
     }),
-  magicLinkRequest: (payload: MagicLinkRequestPayload) =>
+  // Ревизия 2026-08-27 (порция 23): обе ручки довходные — подсказка арендатора обязана
+  // ехать с запросом (как у login/refresh), иначе на поддомене центра ссылка уйдёт
+  // в арендатора по умолчанию (тот же класс, что запись 214 журнала про refresh).
+  magicLinkRequest: async (payload: MagicLinkRequestPayload) =>
     apiRequest<MagicLinkRequestResponse>('/auth/magic-link/request', {
       method: 'POST',
       body: payload,
-      credentials: 'include'
+      credentials: 'include',
+      auth: { tenantHint: await resolveCurrentTenantId() }
     }),
-  magicLinkRedeem: (payload: MagicLinkRedeemPayload) =>
+  magicLinkRedeem: async (payload: MagicLinkRedeemPayload) =>
     apiRequest<LoginResponse | TotpChallengeResponse>('/auth/magic-link/redeem', {
       method: 'POST',
       body: payload,
-      credentials: 'include'
+      credentials: 'include',
+      auth: { tenantHint: await resolveCurrentTenantId() }
     })
 };

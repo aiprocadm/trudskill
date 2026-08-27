@@ -156,3 +156,53 @@ describe('TenantGuard — bootstrap-маршрут /auth/csrf', () => {
     ).toThrow(UnauthorizedException);
   });
 });
+
+/*
+ * Ревизия 2026-08-27 (порция 23, журнал 268): вход по ссылке на почту довходной ПО
+ * ОПРЕДЕЛЕНИЮ — bearer'а на форме входа нет. Обе ручки magic-link обязаны быть
+ * bootstrap-маршрутами; без этого запрос отбивался 401 ещё до контроллера и письмо
+ * не уходило никогда. Ровно этот класс уже чинили для /auth/csrf (#469).
+ */
+describe('TenantGuard — bootstrap-маршруты magic-link', () => {
+  const makeRequest = (headers: Record<string, string>, path: string) => ({
+    ip: '127.0.0.1',
+    path,
+    url: path,
+    route: { path },
+    header: (name: string) => headers[name.toLowerCase()],
+    context: undefined as { tenantId?: string; userId?: string } | undefined
+  });
+
+  const makeContext = (request: ReturnType<typeof makeRequest>) =>
+    ({ switchToHttp: () => ({ getRequest: () => request }) }) as never;
+
+  it('пускает обе ручки magic-link без bearer, когда пришёл x-tenant-id', () => {
+    const guard = makeGuard();
+    for (const path of ['/api/v1/auth/magic-link/request', '/api/v1/auth/magic-link/redeem']) {
+      const request = makeRequest({ 'x-tenant-id': 'tenant_demo' }, path);
+      expect(guard.canActivate(makeContext(request)), path).toBe(true);
+      expect(request.context?.tenantId).toBe('tenant_demo');
+      // Пользователь при этом НЕ считается опознанным: bearer'а не было.
+      expect(request.context?.userId).toBeUndefined();
+    }
+  });
+
+  it('не пускает magic-link без x-tenant-id — как и остальные bootstrap-маршруты', () => {
+    const guard = makeGuard();
+    for (const path of ['/api/v1/auth/magic-link/request', '/api/v1/auth/magic-link/redeem']) {
+      expect(() => guard.canActivate(makeContext(makeRequest({}, path))), path).toThrow(
+        UnauthorizedException
+      );
+    }
+  });
+
+  it('соседний путь с magic-link в строке запроса не пролезает', () => {
+    const guard = makeGuard();
+    const path = '/api/v1/auth/me';
+    const request = {
+      ...makeRequest({ 'x-tenant-id': 'tenant_demo' }, path),
+      url: `${path}?next=/auth/magic-link/request`
+    };
+    expect(() => guard.canActivate(makeContext(request))).toThrow(UnauthorizedException);
+  });
+});

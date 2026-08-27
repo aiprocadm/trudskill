@@ -81,7 +81,14 @@ export class TenantGuard implements CanActivate {
       requestPath.endsWith('/auth/csrf') ||
       // Второй шаг 2FA-логина (ФТ-G3): bearer-токена ещё нет, авторизует подписанный
       // challenge в теле запроса; сравнение по PATH — как и у остальных bootstrap-роутов.
-      requestPath.endsWith('/auth/2fa/verify');
+      requestPath.endsWith('/auth/2fa/verify') ||
+      // Ревизия 2026-08-27 (порция 23, журнал 268): вход по ссылке на почту довходной
+      // ПО ОПРЕДЕЛЕНИЮ — bearer'а на форме входа нет. Без этих двух строк запрос
+      // отбивался 401 ещё до контроллера, и письмо не уходило никогда (ровно этот
+      // класс уже чинили для /auth/csrf). Redeem авторизует одноразовый токен из
+      // письма, а блокировку пользователя проверяет единый гейт issueSessionForUser.
+      requestPath.endsWith('/auth/magic-link/request') ||
+      requestPath.endsWith('/auth/magic-link/redeem');
     if (isTenantBootstrapRoute && requestContext.requestedTenantId) {
       requestContext.tenantId = requestContext.requestedTenantId;
       return true;
