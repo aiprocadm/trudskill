@@ -20,6 +20,7 @@ import {
   RedisRealtimeEventStore,
   RedisStreamsRealtimePubSub
 } from './realtime-backend.js';
+import { canAccessRoom } from './room-access.js';
 
 const roomSchema = z
   .string()
@@ -131,17 +132,9 @@ class RealtimeController {
     res.on('close', () => clearInterval(timer));
   }
 
+  /** Правило доступа вынесено чистой функцией и покрыто тестами (порция 36, журнал 282). */
   private canAccess(session: Session, room: string): boolean {
-    if (!session.tenantId || !session.userId) return false;
-    const parts = room.split(':');
-    const type = parts[0];
-    if (type === 'tenant') return parts[1] === session.tenantId;
-    if (type === 'user') return parts[1] === session.userId;
-    if (type === 'task' || type === 'dialog' || type === 'webinar') {
-      const tenantInRoom = parts[1];
-      return Boolean(tenantInRoom && tenantInRoom === session.tenantId);
-    }
-    return false;
+    return canAccessRoom(session, room);
   }
 }
 
