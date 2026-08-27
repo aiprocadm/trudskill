@@ -13,7 +13,8 @@ import type {
   CourseDocumentSetEntryDraft,
   EnrollmentCertificateRow,
   KpiFilterQuery,
-  ProgramMetaPatch
+  ProgramMetaPatch,
+  UsersListQuery
 } from './types';
 
 export interface EnrollmentCertsBundle {
@@ -61,7 +62,7 @@ export const useMvpQuery = <T>(
   };
 };
 
-export const useUsersList = (query: BaseFilterQuery) =>
+export const useUsersList = (query: UsersListQuery) =>
   useMvpQuery('users', query, (s) => mvpApi.listUsers(s, query));
 export const useUser = (id: string) => useMvpQuery('user', id, (s) => mvpApi.getUser(s, id));
 export const useRoles = () => useMvpQuery('roles', null, (s) => mvpApi.listRoles(s));

@@ -6,6 +6,12 @@ import type {
 export type { BaseFilterQuery, SessionDto };
 
 /** Параметры `GET /reports/kpi-snapshot` (расширяет тип спискового фильтра). */
+/**
+ * Порция 29 (журнал 278): отбор людей по роли. Отдельный тип, потому что общий
+ * `BaseFilterQuery` генерируется из контрактов, а этот параметр есть только у списка людей.
+ */
+export type UsersListQuery = BaseFilterQuery & { role?: string };
+
 export type KpiFilterQuery = BaseFilterQuery & {
   created_from?: string;
   created_to?: string;

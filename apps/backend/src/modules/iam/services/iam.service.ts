@@ -384,12 +384,38 @@ export class IamService {
     };
   }
 
+  /**
+   * @param query.role код роли — отбор по носителям роли.
+   *
+   * Ревизия 2026-08-27 (порция 29, журнал 278): экран «Люди и доступ» отправлял выбранную
+   * роль в параметре сортировки, которого этот метод не читает вовсе, — список приходил
+   * целиком, а фильтр выглядел применённым. Отбор живёт здесь, а не на клиенте: клиент
+   * отфильтровал бы только текущую страницу и врал бы иначе.
+   */
   async listUsers(
     tenantId: string,
-    query?: { q?: string; status?: string; page?: number; pageSize?: number; sort?: string }
+    query?: {
+      q?: string;
+      status?: string;
+      page?: number;
+      pageSize?: number;
+      sort?: string;
+      role?: string;
+    }
   ): Promise<{ items: User[]; total: number; page: number; pageSize: number }> {
     const page = Math.max(1, query?.page ?? 1);
     const pageSize = Math.min(100, Math.max(1, query?.pageSize ?? 20));
+    const roleCode = query?.role?.trim();
+    // Отбор ПЕРЕД пагинацией: иначе счётчик и число страниц врали бы про весь список.
+    const keepByRole = async (users: User[]): Promise<User[]> => {
+      if (!roleCode) return users;
+      const kept: User[] = [];
+      for (const user of users) {
+        const roles = await this.getUserRoles(tenantId, user.id);
+        if (roles.some((role) => role.code === roleCode)) kept.push(user);
+      }
+      return kept;
+    };
 
     if (!this.databaseService) {
       let rows = this.fallbackUsers.filter((user) => user.tenantId === tenantId);
@@ -403,7 +429,8 @@ export class IamService {
         );
       }
       if (query?.status) rows = rows.filter((user) => user.status === query.status);
-      const sorted = [...rows].sort((a, b) => a.displayName.localeCompare(b.displayName));
+      const byRole = await keepByRole(rows);
+      const sorted = [...byRole].sort((a, b) => a.displayName.localeCompare(b.displayName));
       const start = (page - 1) * pageSize;
       return { items: sorted.slice(start, start + pageSize), total: sorted.length, page, pageSize };
     }
@@ -439,10 +466,11 @@ export class IamService {
               .includes(query.q.toLowerCase())
           : true
       );
+    const byRole = await keepByRole(filtered);
     const start = (page - 1) * pageSize;
     return {
-      items: filtered.slice(start, start + pageSize),
-      total: filtered.length,
+      items: byRole.slice(start, start + pageSize),
+      total: byRole.length,
       page,
       pageSize
     };

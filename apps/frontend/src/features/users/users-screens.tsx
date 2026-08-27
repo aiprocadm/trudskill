@@ -64,7 +64,9 @@ export const UsersPageScreen = () => {
     status,
     page,
     page_size: PAGE_SIZE,
-    sort: role ? `role:${role}` : undefined
+    // Порция 29 (журнал 278): роль уходит СВОИМ параметром. Раньше её клали в `sort`,
+    // которого сервер не читает: список приходил целиком, а фильтр выглядел применённым.
+    ...(role ? { role } : {})
   });
   const { data: roles } = useRoles();
 
