@@ -1,3 +1,4 @@
+import { noteServerTime } from './server-clock';
 import { frontendEnv } from '../config/env';
 import { type NormalizedApiError, normalizeApiError } from '../errors/api-error';
 import { errorDetailsLine, humanErrorMessage } from '../errors/error-text';
@@ -98,6 +99,9 @@ export const apiRequestEnvelope = async <T>(
    * с ошибкой, и по нему экран может решить, предлагать ли повтор.
    */
   let response: Response;
+  // Порция 25: засечки вокруг запроса — по ним сверяются часы устройства с часами
+  // сервера (см. server-clock.ts). Обратный отсчёт попытки должен идти по серверу.
+  const sentAtMs = Date.now();
   try {
     response = await fetch(`${frontendEnv.NEXT_PUBLIC_API_BASE_URL}${path}`, requestInit);
   } catch (networkError) {
@@ -136,6 +140,7 @@ export const apiRequestEnvelope = async <T>(
     );
   }
 
+  noteServerTime(payload.meta.timestamp, sentAtMs, Date.now());
   return payload;
 };
 

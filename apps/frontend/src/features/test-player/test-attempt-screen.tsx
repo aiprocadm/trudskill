@@ -19,6 +19,7 @@ import {
   SectionCard,
   SectionError
 } from '../../components/state-wrappers';
+import { serverNow } from '../../lib/api/server-clock';
 import { useAuth } from '../auth/context';
 import { stopAndCompleteActiveProctoring } from '../proctoring/active-recording';
 import { ProctoringRecIndicator, ProctoringResumeBanner } from '../proctoring/screens';
@@ -101,13 +102,19 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
     if (Object.keys(seed).length > 0) setDrafts(seed);
   }, [questions]);
 
-  // Countdown timer.
+  /*
+   * Countdown timer.
+   *
+   * Ревизия 2026-08-27 (порция 25): отсчёт идёт по часам СЕРВЕРА (`serverNow`), а не
+   * по часам устройства. Отстающие часы слушателя показывали лишние минуты, автосдача
+   * уезжала за срок — и попытка обнулялась вместе со всеми ответами.
+   */
   useEffect(() => {
     if (!attempt?.expiresAt) {
       setRemainingMs(null);
       return;
     }
-    const tick = () => setRemainingMs(remainingMsFromExpiry(attempt.expiresAt, Date.now()));
+    const tick = () => setRemainingMs(remainingMsFromExpiry(attempt.expiresAt, serverNow()));
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);

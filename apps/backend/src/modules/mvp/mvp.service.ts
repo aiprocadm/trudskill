@@ -264,6 +264,20 @@ export function mapDocumentToLearnerDto(
 
 const DEFAULT_GROUP_COURSE_DURATION_DAYS = 90;
 
+/**
+ * Ревизия 2026-08-27 (порция 25, журнал 275) — технологический допуск на сдачу попытки.
+ *
+ * Плеер сдаёт работу, когда таймер дошёл до нуля, поэтому запрос физически приходит на
+ * сервер ПОЗЖЕ срока: тик таймера раз в секунду плюс дорога по сети. Сравнение сроков
+ * без допуска объявляло такую — совершенно своевременную — сдачу просроченной, ответы
+ * не оценивались, а попытка списывалась из лимита.
+ *
+ * Десять секунд покрывают тик, медленную сеть и мелкое расхождение часов, но не дают
+ * выигрыша по существу: сдача, опоздавшая заметно, по-прежнему становится просроченной
+ * (сторож анти-чита в `test-player.service.test.ts` проверяет минутное опоздание).
+ */
+const ATTEMPT_EXPIRY_GRACE_MS = 10_000;
+
 /** Обход ограничения linkedIam/list-scope для GET/list assessment — только через IAM permission. */
 const ASSESSMENT_READ_CROSS_LEARNER_PERMISSION = 'assessment.read.cross_learner';
 /** Делегирование: мутации прогресса/субмиссий/попыток для слушателя с linkedIamUserId от имени преподавателя/L&D. */
@@ -5201,7 +5215,9 @@ export class MvpService {
         code: 'attempt_terminal',
         message: 'Cannot update answers in terminal state'
       });
-    if (attempt.expiresAt && new Date(attempt.expiresAt) <= new Date()) {
+    // Допуск (порция 25): последний ответ улетает на сервер вместе с автосдачей — уже
+    // после нуля на таймере. Внутри допуска он ещё принимается, дальше — нет.
+    if (this.isAttemptPastGrace(attempt)) {
       attempt.status = 'expired';
       throw new PreconditionFailedException({
         code: 'attempt_expired',
@@ -5304,13 +5320,17 @@ export class MvpService {
 
     if (['submitted', 'finished', 'expired', 'invalidated'].includes(attempt.status))
       return attempt;
-    if (attempt.expiresAt && new Date(attempt.expiresAt) <= new Date()) {
+    if (this.isAttemptPastGrace(attempt)) {
       // Time limit elapsed: finalize as expired (terminal) instead of accepting a
       // late submission. An expired attempt is excluded from the exam result
       // (finalize/recalculate only count submitted|finished), so it cannot pass —
-      // this mirrors finishAttempt/assertAttemptWritable, which already treat
-      // expiry as terminal. Without the early return the status was overwritten to
-      // 'submitted' below, silently bypassing the time limit.
+      // this mirrors finishAttempt, which also treats expiry as terminal. Without
+      // the early return the status was overwritten to 'submitted' below, silently
+      // bypassing the time limit.
+      //
+      // Ревизия 2026-08-27 (порция 25): сравнение идёт с технологическим допуском —
+      // сдача, отправленная по нулю таймера, доезжает до сервера уже после срока и
+      // до этой правки обнулялась вместе со всеми ответами.
       attempt.status = 'expired';
       attempt.finishedAt = this.now();
       attempt.updatedAt = this.now();
@@ -6206,17 +6226,16 @@ export class MvpService {
     return ids;
   }
 
-  private assertAttemptWritable(attempt: Attempt): void {
-    if (attempt.expiresAt && new Date(attempt.expiresAt).getTime() < Date.now()) {
-      attempt.status = 'expired';
-      attempt.finishedAt = this.now();
-    }
-    if (['submitted', 'finished', 'expired', 'invalidated'].includes(attempt.status)) {
-      throw new PreconditionFailedException({
-        code: 'attempt_readonly',
-        message: 'Attempt is in terminal state'
-      });
-    }
+  /**
+   * Срок попытки вышел ОКОНЧАТЕЛЬНО — с учётом технологического допуска
+   * (`ATTEMPT_EXPIRY_GRACE_MS`, порция 25). Единственная точка сравнения сроков:
+   * пока таких мест было два (сохранение ответа и сдача), они могли разъехаться.
+   */
+  private isAttemptPastGrace(attempt: Attempt): boolean {
+    if (!attempt.expiresAt) return false;
+    const expiresAtMs = new Date(attempt.expiresAt).getTime();
+    if (!Number.isFinite(expiresAtMs)) return false;
+    return Date.now() - expiresAtMs > ATTEMPT_EXPIRY_GRACE_MS;
   }
 
   private recalculateExamResult(
