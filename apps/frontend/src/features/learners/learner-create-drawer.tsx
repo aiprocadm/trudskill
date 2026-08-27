@@ -1,6 +1,6 @@
 'use client';
 
-import { DetailDrawer } from '@trudskill/ui';
+import { DetailDrawer, DrawerCancelButton } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { useCreateLearner } from './hooks';
@@ -116,9 +116,7 @@ export function LearnerCreateDrawer({ onClose, onCreated }: LearnerCreateDrawerP
             {/* TXT-002/TXT-003: подпись называет результат и не меняется по ходу. */}
             Завести слушателя
           </button>
-          <button type="button" className="ui-button" onClick={onClose}>
-            Отмена
-          </button>
+          <DrawerCancelButton className="ui-button" onFallbackClose={onClose} />
         </div>
       </form>
     </DetailDrawer>
