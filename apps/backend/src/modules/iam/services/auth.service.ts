@@ -160,6 +160,13 @@ export class AuthService {
     context: RequestContext,
     options: IssueSessionOptions
   ): Promise<Awaited<ReturnType<AuthService['createSession']>>> {
+    // Ревизия 2026-08-27 (порция 22): проверка блокировки живёт в ЕДИНОМ гейте — иначе
+    // каждый новый способ входа (ЕСИА, magic-link) обязан помнить о ней сам, и ЕСИА
+    // с magic-link уже не помнили. Стоит ДО TOTP: заблокированному не выдаётся даже challenge.
+    if (user.status === 'blocked') {
+      this.metrics?.incrementAuthFailure({ reason: 'user_blocked', phase: 'issue_session' });
+      throw new UnauthorizedException({ code: 'user_blocked', message: 'User is blocked' });
+    }
     if (user.totpEnabled === true && options.twoFactorSatisfied !== true) {
       // ФТ-G3: единый гейт на ВСЕ способы входа. Challenge — подписанный конверт с TTL 5 мин;
       // сессии, куки и auth-события появляются только после верного кода (verifyTotpAndLogin).
@@ -436,6 +443,16 @@ export class AuthService {
       throw new UnauthorizedException({ code: 'session_expired', message: 'Session expired' });
     }
     const user = await this.iamService.getUser(tenantId, activeSession.userId);
+    /*
+     * Ревизия 2026-08-27 (порция 22): без этой проверки блокировка не отбирала доступ —
+     * живая вкладка продлевала цепочку сессий бессрочно (каждая ротация даёт новый срок).
+     * Заодно гасим ВСЮ семью сессий: отказ заблокированному — не «попробуйте позже».
+     */
+    if (user.status === 'blocked') {
+      this.metrics?.incrementAuthFailure({ reason: 'user_blocked', phase: 'refresh' });
+      await this.revokeAllSessionsForUserInternal(tenantId, user.id);
+      throw new UnauthorizedException({ code: 'user_blocked', message: 'User is blocked' });
+    }
     const persistRelational = await this.shouldPersistRelationalSideEffects(tenantId, user.id);
     const nextTokens = await this.createSession(user, persistRelational, activeSession.jti);
     await this.pushAuthEvent(tenantId, user.id, 'refresh', persistRelational);
@@ -600,6 +617,35 @@ export class AuthService {
         entityId: userId,
         requestId: context.requestId,
         correlationId: context.correlationId
+      },
+      { skipDatabase: !persistRelational }
+    );
+  }
+
+  /**
+   * Ревизия 2026-08-27 (порция 22, журнал 266): рычаг администратора. Блокировка обязана
+   * отбирать доступ НЕМЕДЛЕННО, а не после истечения токена — до этого убить чужие сессии
+   * было нечем (`logout-all` работает только со своими). Зовётся из PUT /users/:id при
+   * переводе в blocked; actor в журнале — тот, кто заблокировал, а не сам заблокированный.
+   */
+  async revokeAllSessionsForUser(
+    tenantId: string,
+    userId: string,
+    context: RequestContext
+  ): Promise<void> {
+    await this.revokeAllSessionsForUserInternal(tenantId, userId);
+    const persistRelational = await this.shouldPersistRelationalSideEffects(tenantId, userId);
+    await this.auditService.writeCritical(
+      {
+        tenantId,
+        actorId: context.userId,
+        action: 'auth.sessions_revoked_on_block',
+        entityType: 'iam.user',
+        entityId: userId,
+        requestId: context.requestId,
+        correlationId: context.correlationId,
+        ip: context.ip,
+        userAgent: context.userAgent
       },
       { skipDatabase: !persistRelational }
     );

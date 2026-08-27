@@ -391,6 +391,12 @@ export class AuthController {
     @Body() payload: UpdateUserDto
   ) {
     const user = await this.iamService.updateUser(context.tenantId!, id, payload);
+    // Ревизия 2026-08-27 (порция 22): блокировка отбирает доступ сразу — живые сессии
+    // отзываются здесь же, а не доживают до конца срока токена. Повторная блокировка
+    // безвредна (отзыв идемпотентен).
+    if (payload.status === 'blocked') {
+      await this.authService.revokeAllSessionsForUser(context.tenantId!, id, context);
+    }
     return this.iamService.toPublicUser(user);
   }
 
