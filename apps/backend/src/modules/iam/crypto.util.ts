@@ -137,3 +137,15 @@ export const issueToken = (): string =>
 
 export const hashRefreshToken = (token: string, secret: string): string =>
   createHmac('sha256', secret).update(`refresh:${token}`).digest('hex');
+
+/**
+ * Ревизия 2026-08-27 (порция 31, журнал 269) — хэш, под который не подходит НИКАКОЙ пароль.
+ *
+ * Нужен там, где учётная запись заводится без пароля: вход у такого человека один — по
+ * ссылке на почту. Значение намеренно не похоже ни на scrypt-запись, ни на 64 шестнадцатеричных
+ * знака, поэтому `verifyPassword` отвергает любую попытку (тот же приём, что у нейтрализации
+ * утёкшего демо-пароля в `seed-credential-hygiene`).
+ */
+export function unusablePasswordHash(): string {
+  return `disabled:${randomBytes(32).toString('hex')}`;
+}

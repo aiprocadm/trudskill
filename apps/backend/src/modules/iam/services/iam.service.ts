@@ -1,10 +1,16 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 
-import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional
+} from '@nestjs/common';
 
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 import { AuditService } from '../../audit/audit.service.js';
-import { hashPassword } from '../crypto.util.js';
+import { hashPassword, unusablePasswordHash } from '../crypto.util.js';
 import { toUserResponse } from '../iam-response.mapper.js';
 
 import type { Permission, Role, User, UserPublicDto } from '../iam.types.js';
@@ -476,6 +482,18 @@ export class IamService {
     };
   }
 
+  /**
+   * Ревизия 2026-08-27 (порция 31, журнал 269): БЕЗ пароля учётка создаётся без
+   * возможности входа по паролю.
+   *
+   * Раньше пустое поле означало публично известный `Password123!` — он лежит и в
+   * документации стенда, и в демо-миграции, то есть администратор заводил сотрудника,
+   * а получал учётку, в которую может войти любой, кто читал наши же документы.
+   * Исправить её потом было нечем: ручек смены и сброса пароля в продукте нет.
+   *
+   * Вход у такого человека один — по ссылке на почту (работает с порции 23), поэтому
+   * почта в этом случае обязательна: иначе войти было бы нечем вовсе.
+   */
   async createUser(
     tenantId: string,
     payload: {
@@ -487,13 +505,20 @@ export class IamService {
     },
     auditMeta?: { actorId?: string; requestId?: string; correlationId?: string }
   ): Promise<User> {
+    if (!payload.password && !payload.email) {
+      throw new BadRequestException({
+        code: 'user_login_method_required',
+        message: 'Укажите пароль или адрес почты: без пароля человек входит по ссылке на почту'
+      });
+    }
+    const passwordHash = payload.password ? hashPassword(payload.password) : unusablePasswordHash();
     if (!this.databaseService) {
       const user: User = {
         id: `u_${payload.login}`,
         tenantId,
         login: payload.login,
         email: payload.email ?? null,
-        passwordHash: hashPassword(payload.password ?? 'Password123!'),
+        passwordHash,
         status: payload.status ?? 'active',
         displayName: payload.displayName
       };
@@ -522,7 +547,7 @@ export class IamService {
         tenantId,
         payload.login,
         payload.email ?? null,
-        hashPassword(payload.password ?? 'Password123!'),
+        passwordHash,
         payload.status ?? 'active',
         payload.displayName
       ]
