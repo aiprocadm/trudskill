@@ -22,6 +22,7 @@ import {
   scopeAllows
 } from './counterparty-scope.js';
 import { ENROLLMENT_COMPLETED_EVENT } from './enrollment-completed.event.js';
+import { buildEnrollmentCompletedPayload } from './enrollment-completed.payload.js';
 import { ENROLLMENT_INVITED_EVENT } from './enrollment-invited.event.js';
 import { learnerRecipient } from './enrollment-recipient.js';
 import { type ExamReadinessReport, buildExamReadiness } from './exam-readiness.js';
@@ -2526,43 +2527,19 @@ export class MvpService {
       context
     );
     if (request.status === 'completed') {
-      const groupCourses = this.state.groupCourses.filter(
-        (gc) => gc.tenantId === tenantId && gc.groupId === enrollment.groupId
+      /*
+       * Порция 37 (журнал 273): сборка события вынесена чистой функцией — её зовёт и
+       * часовой добор невыпущенного. Раньше она жила только здесь, поэтому повторить
+       * потерянное событие было неоткуда.
+       */
+      this.events.emit(
+        ENROLLMENT_COMPLETED_EVENT,
+        buildEnrollmentCompletedPayload(this.state, tenantId, enrollment, {
+          ...(actorId ? { actorId } : {}),
+          ...(context.requestId ? { requestId: context.requestId } : {}),
+          ...(context.correlationId ? { correlationId: context.correlationId } : {})
+        })
       );
-      const courseIds = groupCourses.map((gc) => gc.courseId);
-      const documentSet = groupCourses
-        .filter((gc) => gc.courseVersionId)
-        .flatMap((gc) => {
-          const version = this.getCourseVersion(tenantId, gc.courseVersionId as string);
-          return this.getCourseDocumentSet(tenantId, gc.courseVersionId as string).map((entry) => ({
-            courseVersionId: gc.courseVersionId as string,
-            templateId: entry.templateId,
-            position: entry.position,
-            isRequired: entry.isRequired,
-            autoIssueOnCompletion: entry.autoIssueOnCompletion,
-            ...(version.recertificationPeriodMonths
-              ? { recertificationPeriodMonths: version.recertificationPeriodMonths }
-              : {})
-          }));
-        });
-      const completedRecipient = learnerRecipient(
-        this.state.learners.find((l) => l.tenantId === tenantId && l.id === enrollment.learnerId)
-      );
-      const completedCourseTitle = this.resolveGroupCourseTitle(tenantId, enrollment.groupId);
-      this.events.emit(ENROLLMENT_COMPLETED_EVENT, {
-        tenantId,
-        enrollmentId: enrollment.id,
-        learnerId: enrollment.learnerId,
-        groupId: enrollment.groupId,
-        groupCourseIds: courseIds,
-        actorId,
-        requestId: context.requestId,
-        correlationId: context.correlationId,
-        documentSet,
-        ...(completedRecipient ? { recipient: completedRecipient } : {}),
-        ...(enrollment.completedAt ? { completedAt: enrollment.completedAt } : {}),
-        ...(completedCourseTitle ? { courseTitle: completedCourseTitle } : {})
-      });
     }
     return enrollment;
   }
