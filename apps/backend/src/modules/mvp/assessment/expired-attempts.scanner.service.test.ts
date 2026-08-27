@@ -14,8 +14,19 @@ import type { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js'
 const T = 'tenant_demo';
 const NOW = '2026-07-28T12:00:00.000Z';
 
-function makeState(attempts: unknown[]): InMemoryMvpState {
-  return { attempts } as unknown as InMemoryMvpState;
+/**
+ * Порция 30 (журнал 285): сканер теперь ещё и считает баллы по сохранённым в срок
+ * ответам, поэтому состоянию нужны все коллекции, которых требует подсчёт.
+ */
+function makeState(attempts: unknown[], over: Record<string, unknown> = {}): InMemoryMvpState {
+  return {
+    attempts,
+    tests: [],
+    questions: [],
+    answerOptions: [],
+    attemptAnswers: [],
+    ...over
+  } as unknown as InMemoryMvpState;
 }
 
 function makeScanner() {
@@ -27,8 +38,10 @@ function makeScanner() {
 const attempt = (over: Record<string, unknown> = {}) => ({
   tenantId: T,
   id: 'att_1',
+  testId: 'test_1',
   status: 'in_progress',
   expiresAt: '2026-07-28T11:00:00.000Z',
+  questionOrder: [],
   ...over
 });
 
@@ -102,5 +115,79 @@ describe('ExpiredAttemptsScanner', () => {
 
     expect(scanner.scanTenant(T, NOW, state)).toBe(1);
     expect(scanner.scanTenant(T, NOW, state)).toBe(0);
+  });
+});
+
+/*
+ * Ревизия 2026-08-27 (порция 30, журнал 285) — решение владельца передано агенту:
+ * ответы, сохранённые В СРОК, не пропадают. Этот путь главный: чаще всего попытка
+ * истекает не «на секунду позже кнопки», а потому что человек закрыл вкладку.
+ */
+describe('сканер оценивает закрываемую попытку (порция 30)', () => {
+  const withOneQuestion = (answerText: string | undefined) =>
+    makeState([attempt({ questionOrder: ['q1'] })], {
+      tests: [{ tenantId: T, id: 'test_1', rules: { passingScore: 2 } }],
+      questions: [
+        {
+          tenantId: T,
+          id: 'q1',
+          type: 'number_input',
+          score: 2,
+          numericExpected: 4,
+          numericTolerance: 0.01
+        }
+      ],
+      answerOptions: [],
+      attemptAnswers:
+        answerText === undefined
+          ? []
+          : [
+              {
+                tenantId: T,
+                id: 'ans1',
+                attemptId: 'att_1',
+                questionId: 'q1',
+                textAnswer: answerText
+              }
+            ]
+    });
+
+  it('верный ответ, данный до звонка, засчитан', () => {
+    const { scanner } = makeScanner();
+    const state = withOneQuestion('4');
+
+    expect(scanner.scanTenant(T, NOW, state)).toBe(1);
+
+    const closed = state.attempts[0] as unknown as {
+      status: string;
+      score: number;
+      passed: boolean;
+    };
+    expect(closed.status).toBe('expired');
+    expect(closed.score).toBe(2);
+    expect(closed.passed).toBe(true);
+  });
+
+  it('брошенная без ответов попытка закрывается нулём, а не зачётом', () => {
+    const { scanner } = makeScanner();
+    const state = withOneQuestion(undefined);
+
+    scanner.scanTenant(T, NOW, state);
+
+    const closed = state.attempts[0] as unknown as { score: number; passed: boolean };
+    expect(closed.score).toBe(0);
+    expect(closed.passed).toBe(false);
+  });
+
+  it('в журнале виден балл: попытку оценили, а не просто сняли с висяка', () => {
+    const { scanner, write } = makeScanner();
+    scanner.scanTenant(T, NOW, withOneQuestion('4'));
+
+    expect(write).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'assessment.attempt_expired_by_timer',
+        newValues: expect.objectContaining({ score: 2 })
+      })
+    );
   });
 });

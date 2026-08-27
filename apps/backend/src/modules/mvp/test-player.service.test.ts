@@ -301,16 +301,23 @@ describe('submitAttempt — time limit enforcement (CRITICAL)', () => {
 
     const submitted = service.submitAttempt(T, ADMIN, attempt.id, ctx);
 
-    // The time limit must be enforced: a late submit is finalized as expired,
-    // never accepted as a passing submission (mirrors finishAttempt semantics).
+    /*
+     * Лимит времени соблюдается: поздняя сдача закрывается ПРОСРОЧЕННОЙ и обычной
+     * сдачей («submitted») не становится никогда.
+     *
+     * ⚠️ Инвариант уточнён ревизией 2026-08-27 (порция 30, журнал 285) — решение
+     * владельца передано агенту. Раньше здесь проверялось ещё и «просроченная не может
+     * дать зачёт», то есть ответы, данные ДО звонка, обнулялись. Теперь они считаются:
+     * лишнего времени это не даёт, потому что ответы ПОСЛЕ истечения сервер не принимает
+     * (проверяется ниже) — оценивается ровно записанное вовремя.
+     */
     expect(submitted.status).toBe('expired');
-    expect(submitted.passed).toBeFalsy();
+    expect(submitted.score).toBe(2);
 
-    // An expired attempt must not produce a passing exam result.
-    const passing = service['state'].examResults.find(
-      (r) => r.enrollmentId === enrollment.id && r.passed
-    );
-    expect(passing).toBeUndefined();
+    // Лимит времени не удлиняется: дослать ответ после срока нельзя.
+    expect(() =>
+      service.saveAttemptAnswer(T, ADMIN, attempt.id, { questionId: q.id, textAnswer: '3.14' }, ctx)
+    ).toThrow();
   });
 
   it('finishAttempt on an elapsed attempt preserves expired status (does not resurrect to finished)', () => {
@@ -338,13 +345,16 @@ describe('submitAttempt — time limit enforcement (CRITICAL)', () => {
 
     const finished = service.finishAttempt(T, ADMIN, attempt.id, ctx);
 
-    // finishAttempt must NOT overwrite the terminal 'expired' state with 'finished'.
+    /*
+     * finishAttempt НЕ имеет права перевести терминальное «просрочено» в «завершено»:
+     * иначе истёкшая попытка засчиталась бы как обычная, обойдя лимит времени.
+     *
+     * ⚠️ Инвариант уточнён ревизией 2026-08-27 (порция 30, журнал 285): проверка
+     * «просроченная не даёт зачёта» снята сознательно — ответы, сохранённые в срок,
+     * теперь оцениваются (см. соседний тест и attempt-expiry-grace.service.test.ts).
+     * Здесь остаётся то, что защищает лимит: статус не подменяется.
+     */
     expect(finished.status).toBe('expired');
-    expect(finished.passed).toBeFalsy();
-    const passing = service['state'].examResults.find(
-      (r) => r.enrollmentId === enrollment.id && r.passed
-    );
-    expect(passing).toBeUndefined();
   });
 });
 
