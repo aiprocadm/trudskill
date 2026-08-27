@@ -11,6 +11,7 @@ import {
   toEditFormState
 } from './format';
 import { useCreateClient, useUpdateClientProfile } from './hooks';
+import { isFormDirty } from '../../lib/forms/dirty';
 
 import type { ClientEditFormState, ClientListItem, ClientStatus } from './types';
 
@@ -24,6 +25,10 @@ interface ClientEditDrawerProps {
 export function ClientEditDrawer({ client, onClose, onSaved }: ClientEditDrawerProps) {
   const mode: 'create' | 'edit' = client ? 'edit' : 'create';
   const [form, setForm] = useState<ClientEditFormState>(() =>
+    client ? toEditFormState(client) : emptyClientForm()
+  );
+  // CMP-010 (порция 28): панель обязана предупредить, что закрытие потеряет правки.
+  const [initialForm] = useState<ClientEditFormState>(() =>
     client ? toEditFormState(client) : emptyClientForm()
   );
   const createMut = useCreateClient();
@@ -49,7 +54,12 @@ export function ClientEditDrawer({ client, onClose, onSaved }: ClientEditDrawerP
   const title = mode === 'create' ? 'Добавить компанию' : `Редактировать «${client?.name ?? ''}»`;
 
   return (
-    <DetailDrawer open onClose={onClose} title={title}>
+    <DetailDrawer
+      open
+      onClose={onClose}
+      title={title}
+      hasUnsavedChanges={isFormDirty(form, initialForm)}
+    >
       <form onSubmit={(e) => void handleSubmit(e)} className="ui-stack">
         <label className="ui-field">
           <span className="ui-field-label">Код *</span>

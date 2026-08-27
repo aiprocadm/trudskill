@@ -5,6 +5,7 @@ import { useState } from 'react';
 
 import { QUESTION_TYPE_LABEL } from './format';
 import { useCreateQuestion, useUpdateQuestion } from './hooks';
+import { isFormDirty } from '../../lib/forms/dirty';
 
 import type {
   AnswerOptionPayload,
@@ -50,6 +51,25 @@ export function QuestionEditorDrawer({ bankId, question, onClose, onSaved }: Pro
     question?.numericTolerance !== undefined ? String(question.numericTolerance) : ''
   );
   const [expectedAnswer, setExpectedAnswer] = useState(question?.expectedAnswer ?? '');
+  // CMP-010 (порция 28): вопрос с вариантами — самая долгая форма раздела; закрытие
+  // по Esc или клику мимо панели обязано спросить подтверждение.
+  const hasUnsavedChanges = isFormDirty(
+    { type, title, body, score, answerOptions, numericExpected, numericTolerance, expectedAnswer },
+    {
+      type: question?.type ?? 'single_choice',
+      title: question?.title ?? '',
+      body: question?.body ?? '',
+      score: String(question?.score ?? 1),
+      answerOptions:
+        question?.answerOptions?.map((o) => ({ text: o.text, isCorrect: o.isCorrect })) ??
+        EMPTY_OPTIONS,
+      numericExpected:
+        question?.numericExpected !== undefined ? String(question.numericExpected) : '',
+      numericTolerance:
+        question?.numericTolerance !== undefined ? String(question.numericTolerance) : '',
+      expectedAnswer: question?.expectedAnswer ?? ''
+    }
+  );
 
   const create = useCreateQuestion();
   const update = useUpdateQuestion();
@@ -124,6 +144,7 @@ export function QuestionEditorDrawer({ bankId, question, onClose, onSaved }: Pro
       open
       onClose={onClose}
       title={isEditing ? 'Редактирование вопроса' : 'Создание вопроса'}
+      hasUnsavedChanges={hasUnsavedChanges}
     >
       <form className="ui-form" onSubmit={submit}>
         <label className="ui-field">

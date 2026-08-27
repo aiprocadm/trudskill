@@ -5,6 +5,7 @@ import { DetailDrawer } from '@trudskill/ui';
 import { useMemo, useState } from 'react';
 
 import { groupOrdersApi } from './api';
+import { isFormDirty } from '../../lib/forms/dirty';
 import { useAuth } from '../auth/context';
 import { mvpApi } from '../mvp/api';
 
@@ -70,6 +71,11 @@ export function IssueOrderModal({
 
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // CMP-010 (порция 28): выбранные бланки — тоже работа, закрытие требует подтверждения.
+  const hasUnsavedChanges = isFormDirty(
+    { orderTemplateId, certTemplateId },
+    { orderTemplateId: '', certTemplateId: '' }
+  );
 
   const submit = async () => {
     if (!session) {
@@ -99,7 +105,12 @@ export function IssueOrderModal({
 
   return (
     /* Фаза 6 срез 7 (IA-001): самодельная модалка → общий DetailDrawer. */
-    <DetailDrawer open onClose={onClose} title="Сгенерировать приказ по группе">
+    <DetailDrawer
+      open
+      onClose={onClose}
+      title="Сгенерировать приказ по группе"
+      hasUnsavedChanges={hasUnsavedChanges}
+    >
       <div className="ui-stack">
         <p>
           Слушателей будет включено в приказ: <strong>{enrollmentIds.length}</strong>

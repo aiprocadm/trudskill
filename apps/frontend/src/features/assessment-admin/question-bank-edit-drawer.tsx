@@ -4,6 +4,7 @@ import { DetailDrawer } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { useCreateQuestionBank, useUpdateQuestionBank } from './hooks';
+import { isFormDirty } from '../../lib/forms/dirty';
 import { CourseSelect } from '../courses/course-picker';
 
 import type { QuestionBankListItem } from './types';
@@ -20,6 +21,16 @@ export function QuestionBankEditDrawer({ bank, onClose, onSaved }: Props) {
   const [description, setDescription] = useState(bank?.description ?? '');
   const [courseId, setCourseId] = useState(bank?.courseId ?? '');
   const [code, setCode] = useState(bank?.code ?? '');
+  // CMP-010 (порция 28): закрытие с заполненными полями требует подтверждения.
+  const hasUnsavedChanges = isFormDirty(
+    { title, description, courseId, code },
+    {
+      title: bank?.title ?? '',
+      description: bank?.description ?? '',
+      courseId: bank?.courseId ?? '',
+      code: bank?.code ?? ''
+    }
+  );
 
   const create = useCreateQuestionBank();
   const update = useUpdateQuestionBank();
@@ -45,6 +56,7 @@ export function QuestionBankEditDrawer({ bank, onClose, onSaved }: Props) {
       open
       onClose={onClose}
       title={isEditing ? 'Редактирование банка' : 'Создание банка'}
+      hasUnsavedChanges={hasUnsavedChanges}
     >
       <form className="ui-form" onSubmit={submit}>
         <label className="ui-field">

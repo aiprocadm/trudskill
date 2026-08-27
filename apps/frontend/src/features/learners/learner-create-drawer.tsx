@@ -4,6 +4,7 @@ import { DetailDrawer } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { useCreateLearner } from './hooks';
+import { isFormDirty } from '../../lib/forms/dirty';
 
 interface LearnerCreateDrawerProps {
   onClose: () => void;
@@ -28,6 +29,11 @@ export function LearnerCreateDrawer({ onClose, onCreated }: LearnerCreateDrawerP
   const [fullName, setFullName] = useState('');
   const [learnerNo, setLearnerNo] = useState('');
   const [unit, setUnit] = useState('');
+  // CMP-010 (порция 28): создание с заполненными полями не должно теряться молча.
+  const hasUnsavedChanges = isFormDirty(
+    { fullName, learnerNo, unit },
+    { fullName: '', learnerNo: '', unit: '' }
+  );
   const creation = useCreateLearner();
 
   const canSubmit = fullName.trim().length > 0 && learnerNo.trim().length > 0;
@@ -44,7 +50,13 @@ export function LearnerCreateDrawer({ onClose, onCreated }: LearnerCreateDrawerP
   };
 
   return (
-    <DetailDrawer open onClose={onClose} title="Новый слушатель" width="md">
+    <DetailDrawer
+      open
+      onClose={onClose}
+      title="Новый слушатель"
+      width="md"
+      hasUnsavedChanges={hasUnsavedChanges}
+    >
       <form onSubmit={(e) => void handleSubmit(e)} className="ui-stack">
         <label className="ui-field">
           <span className="ui-field-label">Фамилия, имя и отчество *</span>

@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { STATUS_LABEL, buildUpdatePayload } from './format';
 import { useUpdateLearnerProfile } from './hooks';
 import { LearnerPiiPanel } from './learner-pii-panel';
+import { isFormDirty } from '../../lib/forms/dirty';
 import { snilsInputHint } from '../../lib/snils';
 
 import type { LearnerEditFormState, LearnerListItem, LearnerStatus } from './types';
@@ -32,6 +33,8 @@ function toFormState(learner: LearnerListItem): LearnerEditFormState {
 
 export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDrawerProps) {
   const [form, setForm] = useState<LearnerEditFormState>(() => toFormState(learner));
+  // CMP-010 (порция 28): панель обязана предупредить, что закрытие потеряет правки.
+  const [initialForm] = useState<LearnerEditFormState>(() => toFormState(learner));
   const mutation = useUpdateLearnerProfile();
 
   function setField<K extends keyof LearnerEditFormState>(key: K, value: LearnerEditFormState[K]) {
@@ -59,6 +62,7 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
     <DetailDrawer
       open
       onClose={onClose}
+      hasUnsavedChanges={isFormDirty(form, initialForm)}
       title="Карточка слушателя"
       subtitle={[learner.lastName, learner.firstName].filter(Boolean).join(' ')}
       width="md"

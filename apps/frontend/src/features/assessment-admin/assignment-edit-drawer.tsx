@@ -4,6 +4,7 @@ import { DetailDrawer } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { useCreateAssignment, useUpdateAssignment } from './hooks';
+import { isFormDirty } from '../../lib/forms/dirty';
 import { CourseSelect } from '../courses/course-picker';
 import { useModules } from '../mvp/hooks';
 
@@ -23,6 +24,18 @@ export function AssignmentEditDrawer({ assignment, onClose, onSaved }: Props) {
   const [description, setDescription] = useState(assignment?.description ?? '');
   const [maxScore, setMaxScore] = useState<string>(String(assignment?.maxScore ?? 100));
   const [isReviewRequired, setIsReviewRequired] = useState(assignment?.isReviewRequired ?? true);
+  // CMP-010 (порция 28): закрытие с заполненными полями требует подтверждения.
+  const hasUnsavedChanges = isFormDirty(
+    { courseId, moduleId, title, description, maxScore, isReviewRequired },
+    {
+      courseId: assignment?.courseId ?? '',
+      moduleId: assignment?.moduleId ?? '',
+      title: assignment?.title ?? '',
+      description: assignment?.description ?? '',
+      maxScore: String(assignment?.maxScore ?? 100),
+      isReviewRequired: assignment?.isReviewRequired ?? true
+    }
+  );
 
   const create = useCreateAssignment();
   const update = useUpdateAssignment();
@@ -63,6 +76,7 @@ export function AssignmentEditDrawer({ assignment, onClose, onSaved }: Props) {
       open
       onClose={onClose}
       title={isEditing ? 'Редактирование задания' : 'Создание задания'}
+      hasUnsavedChanges={hasUnsavedChanges}
     >
       <form className="ui-form" onSubmit={submit}>
         {/* Курс просили ввести идентификатором — администратор его нигде не видит. */}
