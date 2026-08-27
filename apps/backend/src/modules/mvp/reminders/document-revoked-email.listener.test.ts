@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DocumentRevokedEmailListener } from './document-revoked-email.listener.js';
+import { TenantSerialGateway } from '../../../infrastructure/request/tenant-serial.gateway.js';
 
 function fakeState() {
   return {
@@ -26,7 +27,11 @@ function make(dispatch = vi.fn().mockResolvedValue(undefined)) {
     runWithTenantState: async (_t: string, fn: (state: unknown) => Promise<unknown>) =>
       fn(fakeState())
   };
-  const listener = new DocumentRevokedEmailListener(mvpRunner as never, { dispatch } as never);
+  const listener = new DocumentRevokedEmailListener(
+    mvpRunner as never,
+    { dispatch } as never,
+    new TenantSerialGateway()
+  );
   return { listener, dispatch };
 }
 
@@ -59,7 +64,11 @@ describe('DocumentRevokedEmailListener', () => {
           notificationStaffRecipients: [{ tenantId: 't1', email: 'admin@uc.ru' }]
         })
     };
-    const listener = new DocumentRevokedEmailListener(mvpRunner as never, { dispatch } as never);
+    const listener = new DocumentRevokedEmailListener(
+      mvpRunner as never,
+      { dispatch } as never,
+      new TenantSerialGateway()
+    );
     await listener.handle(payload as never);
     const arg = dispatch.mock.calls[0]![0];
     const emails = arg.recipients.map((r: { email: string }) => r.email);
