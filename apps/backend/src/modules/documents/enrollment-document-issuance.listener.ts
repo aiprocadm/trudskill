@@ -4,6 +4,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { DocumentsEnqueueService } from './documents-enqueue.service.js';
 import { DocumentsTenantRunner } from './documents-tenant-runner.service.js';
 import { addMonths } from '../../common/utils/date-math.util.js';
+import { TenantSerialGateway } from '../../infrastructure/request/tenant-serial.gateway.js';
 import { AuditService } from '../audit/audit.service.js';
 import {
   ENROLLMENT_COMPLETED_EVENT,
@@ -34,13 +35,25 @@ export class EnrollmentDocumentIssuanceListener {
   constructor(
     @Inject(DocumentsTenantRunner) private readonly documentsRunner: DocumentsTenantRunner,
     @Inject(DocumentsEnqueueService) private readonly enqueue: DocumentsEnqueueService,
-    @Inject(AuditService) private readonly auditService: AuditService
+    @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(TenantSerialGateway) private readonly tenantGateway: TenantSerialGateway
   ) {}
 
   @OnEvent(ENROLLMENT_COMPLETED_EVENT, { async: true })
   handleEnrollmentCompleted(payload: EnrollmentCompletedPayload): void {
     setImmediate(() => {
-      void this.issueDocuments(payload);
+      /*
+       * Ревизия 2026-08-27 (порция 26, журнал 271). Здесь ветка ОТПОЧКОВЫВАЕТСЯ от
+       * запроса, который завершил зачисление, и по наследству получает его замки
+       * арендатора (так устроен AsyncLocalStorage). Считая замок своим, выдача шла
+       * ПАРАЛЛЕЛЬНО с чужой критической секцией, а сохранение переписывает снимок
+       * домена целиком — победитель затирал только что выпущенные удостоверения,
+       * причём в журнале оставалась запись «выдано». Отсоединяемся ровно в точке
+       * форка: дальше выдача честно встаёт в очередь арендатора.
+       */
+      this.tenantGateway.runDetached(() => {
+        void this.issueDocuments(payload);
+      });
     });
   }
 

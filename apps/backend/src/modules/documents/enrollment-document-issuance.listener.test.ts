@@ -64,7 +64,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       );
     });
 
-    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit, gateway);
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
       enrollmentId: 'enrollment_x',
@@ -118,7 +118,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       );
     });
 
-    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit, gateway);
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
       enrollmentId: 'enrollment_y',
@@ -186,7 +186,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       );
     });
 
-    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit, gateway);
     const payload = {
       tenantId: 'tenant_demo',
       enrollmentId: 'enrollment_dup',
@@ -214,7 +214,12 @@ describe('EnrollmentDocumentIssuanceListener', () => {
         throw new Error('documents backend unavailable');
       }
     } as unknown as DocumentsTenantRunner;
-    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(
+      runner,
+      noopEnqueue,
+      audit,
+      new TenantSerialGateway()
+    );
 
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
@@ -275,7 +280,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       );
     });
 
-    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit, gateway);
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
       enrollmentId: 'enrollment_cross_tenant',
@@ -347,7 +352,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       templateCertId = cert.id;
     });
 
-    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit, gateway);
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
       enrollmentId: 'enrollment_set_1',
@@ -430,7 +435,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       templateCertId = cert.id;
     });
 
-    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit, gateway);
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
       enrollmentId: 'enrollment_recert',
@@ -506,7 +511,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       templateManualId = manualTpl.id;
     });
 
-    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit, gateway);
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
       enrollmentId: 'enrollment_set_2',
@@ -591,7 +596,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       templateBId = b.id;
     });
 
-    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit, gateway);
     const payload = {
       tenantId: 'tenant_demo',
       enrollmentId: 'enrollment_set_3',
@@ -663,7 +668,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       templateGoodId = good.id;
     });
 
-    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit, gateway);
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
       enrollmentId: 'enrollment_partial',
@@ -715,7 +720,12 @@ describe('EnrollmentDocumentIssuanceListener', () => {
         throw new Error('tenant runner unavailable');
       }
     } as unknown as DocumentsTenantRunner;
-    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(
+      runner,
+      noopEnqueue,
+      audit,
+      new TenantSerialGateway()
+    );
 
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
@@ -786,7 +796,7 @@ describe('EnrollmentDocumentIssuanceListener', () => {
       );
     });
 
-    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit);
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit, gateway);
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
       enrollmentId: 'enrollment_fallback',
@@ -803,5 +813,100 @@ describe('EnrollmentDocumentIssuanceListener', () => {
     const docs = new DocumentsService(state, audit, realtime);
     const tasks = docs.listDocumentTasks('tenant_demo', {});
     expect(tasks.total).toBe(1);
+  });
+});
+
+/*
+ * Ревизия 2026-08-27 (порция 26, журнал 271) — сторож на точку форка.
+ *
+ * Слушатель запускается из-под критической секции запроса, который завершил зачисление
+ * (`setImmediate` наследует контекст замков). Если отсоединение в точке форка потеряют,
+ * выдача снова пойдёт ПАРАЛЛЕЛЬНО с чужой секцией того же арендатора, а сохранение
+ * переписывает снимок домена целиком — уже выпущенное будет затёрто без следа.
+ */
+describe('выдача документов не влезает в чужую секцию арендатора (порция 26)', () => {
+  it('работа слушателя начинается только после выхода из чужой секции', async () => {
+    const audit = new AuditService();
+    const realtime = new RealtimeEventsService();
+    const persistence = new MemoryDocumentsPersistenceBackend();
+    const gateway = new TenantSerialGateway();
+    const runner = new DocumentsTenantRunner(persistence, gateway, audit, realtime);
+    const ctx = {
+      requestId: 'r_guard',
+      correlationId: 'c_guard',
+      ip: '127.0.0.1',
+      userAgent: 'vitest',
+      tenantId: 'tenant_demo',
+      userId: 'u1',
+      roles: [],
+      permissions: [],
+      method: 'POST',
+      path: '/api/v1/documents',
+      timestamp: new Date().toISOString()
+    };
+
+    await runner.runWithTenantDocuments('tenant_demo', async (documents) => {
+      const template = documents.createTemplate(
+        'tenant_demo',
+        'u1',
+        { name: 'Cert', templateType: 'certificate' },
+        ctx
+      );
+      const version = documents.createTemplateVersion('tenant_demo', 'u1', {
+        templateId: template.id,
+        fileId: 'file_guard'
+      });
+      documents.activateTemplateVersion('tenant_demo', 'u1', version.id, ctx);
+      documents.createTemplateBinding(
+        'tenant_demo',
+        undefined,
+        {
+          templateId: template.id,
+          bindType: 'group',
+          groupId: 'group_guard',
+          priority: 100
+        },
+        ctx
+      );
+    });
+
+    const listener = new EnrollmentDocumentIssuanceListener(runner, noopEnqueue, audit, gateway);
+    let tasksSeenInsideForeignSection = -1;
+
+    // Секция другого запроса того же арендатора: событие летит ИЗНУТРИ неё.
+    await gateway.runExclusive('tenant_demo', async () => {
+      listener.handleEnrollmentCompleted({
+        tenantId: 'tenant_demo',
+        enrollmentId: 'enrollment_guard',
+        learnerId: 'learner_guard',
+        groupId: 'group_guard',
+        groupCourseIds: ['course_guard'],
+        actorId: 'u1'
+      });
+      await flushDeferred();
+      const inside = new InMemoryDocumentsState();
+      await persistence.loadIntoState('tenant_demo', inside);
+      tasksSeenInsideForeignSection = new DocumentsService(
+        inside,
+        audit,
+        realtime
+      ).listDocumentTasks('tenant_demo', {}).total;
+    });
+    // Пока чужая секция держала арендатора, выдача не имела права ничего записать.
+    expect(tasksSeenInsideForeignSection).toBe(0);
+
+    // А после выхода из секции — обязана выполниться (ждём, но не бесконечно).
+    const countTasks = async (): Promise<number> => {
+      const snapshot = new InMemoryDocumentsState();
+      await persistence.loadIntoState('tenant_demo', snapshot);
+      return new DocumentsService(snapshot, audit, realtime).listDocumentTasks('tenant_demo', {})
+        .total;
+    };
+    let total = 0;
+    for (let i = 0; i < 50 && total === 0; i++) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 10));
+      total = await countTasks();
+    }
+    expect(total).toBe(1);
   });
 });

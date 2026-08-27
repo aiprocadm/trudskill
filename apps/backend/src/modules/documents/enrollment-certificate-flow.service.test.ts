@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { EnrollmentDocumentIssuanceListener } from './enrollment-document-issuance.listener.js';
+import { TenantSerialGateway } from '../../infrastructure/request/tenant-serial.gateway.js';
 
 // Task 2 (ФТ-A1.1): слушатель публикует job'ы после сохранения состояния — в юнитах глушим.
 // Без этого аргумента auditService уезжал на позицию enqueue и падал в setImmediate
@@ -23,9 +24,12 @@ describe('EnrollmentDocumentIssuanceListener (BL-007)', () => {
       }
     };
     const auditWrite = vi.fn();
-    const listener = new EnrollmentDocumentIssuanceListener(runner as any, noopEnqueue, {
-      write: auditWrite
-    } as any);
+    const listener = new EnrollmentDocumentIssuanceListener(
+      runner as any,
+      noopEnqueue,
+      { write: auditWrite } as any,
+      new TenantSerialGateway()
+    );
 
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
@@ -63,9 +67,12 @@ describe('EnrollmentDocumentIssuanceListener (BL-007)', () => {
         await fn(docs);
       }
     };
-    const listener = new EnrollmentDocumentIssuanceListener(runner as any, noopEnqueue, {
-      write: vi.fn()
-    } as any);
+    const listener = new EnrollmentDocumentIssuanceListener(
+      runner as any,
+      noopEnqueue,
+      { write: vi.fn() } as any,
+      new TenantSerialGateway()
+    );
 
     listener.handleEnrollmentCompleted({
       tenantId: 'tenant_demo',
