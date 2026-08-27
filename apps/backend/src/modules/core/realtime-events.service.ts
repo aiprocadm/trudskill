@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import { resolveRealtimeRooms } from './realtime-rooms.js';
 import { backendEnv } from '../../env.js';
 
 export interface RealtimeEventEnvelope {
@@ -46,17 +47,12 @@ export class RealtimeEventsService {
     );
   }
 
+  /**
+   * Порция 36 (журнал 282): правило «у кого есть адресат — тому и уходит» вынесено
+   * чистой функцией и покрыто тестами. Раньше КАЖДОЕ событие дублировалось в общую
+   * комнату центра, куда пускают любого вошедшего.
+   */
   private resolveRooms(event: RealtimeEventEnvelope): string[] {
-    const rooms = [`tenant:${event.tenant_id}`];
-    const payload = event.payload as Record<string, unknown>;
-    if (typeof payload.recipient_user_id === 'string')
-      rooms.push(`user:${payload.recipient_user_id}`);
-    if (typeof payload.task_id === 'string')
-      rooms.push(`task:${event.tenant_id}:${payload.task_id}`);
-    if (typeof payload.dialog_id === 'string')
-      rooms.push(`dialog:${event.tenant_id}:${payload.dialog_id}`);
-    if (typeof payload.webinar_id === 'string')
-      rooms.push(`webinar:${event.tenant_id}:${payload.webinar_id}`);
-    return rooms;
+    return resolveRealtimeRooms(event);
   }
 }
