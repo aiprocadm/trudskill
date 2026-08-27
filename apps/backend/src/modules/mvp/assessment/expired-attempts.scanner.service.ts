@@ -1,5 +1,8 @@
+import { randomUUID } from 'node:crypto';
+
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
+import { gradeAttemptFromState } from './grade-attempt.js';
 import { AuditService } from '../../audit/audit.service.js';
 
 import type { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
@@ -14,9 +17,15 @@ import type { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js'
  *
  * Теперь сервер закрывает такие попытки сам, не дожидаясь клиента.
  *
- * Оценку здесь НЕ выставляем: подсчёт баллов живёт в `MvpService` и зависит от типа
- * вопросов и ручной проверки. Задача сканера — снять «висяк», а не пересчитать экзамен;
- * попытка помечается `expired`, и дальше её обрабатывает обычный путь.
+ * ⚠️ Ревизия 2026-08-27 (порция 30, журнал 285). Раньше оценка здесь НЕ выставлялась —
+ * с оговоркой «дальше её обрабатывает обычный путь». Обычный путь не обрабатывал: попытка
+ * навсегда оставалась с нулём, и ответы, честно данные до звонка, пропадали. Теперь сканер
+ * СЧИТАЕТ баллы по сохранённым в срок ответам — тем же подсчётом, что и сдача (общая
+ * функция `gradeAttemptFromState`). Лишнего времени это не даёт: ответы после истечения
+ * сервер не принимает, поэтому засчитывается ровно записанное вовремя.
+ *
+ * Именно этот путь — главный: чаще всего попытка истекает не «на секунду позже кнопки»,
+ * а потому, что человек закрыл вкладку.
  */
 @Injectable()
 export class ExpiredAttemptsScanner {
@@ -37,6 +46,15 @@ export class ExpiredAttemptsScanner {
       if (new Date(attempt.expiresAt).getTime() > now) continue;
 
       const previousStatus = attempt.status;
+      const test = state.tests.find(
+        (item) => item.tenantId === tenantId && item.id === attempt.testId
+      );
+      const score = gradeAttemptFromState(state, tenantId, attempt, {
+        now: () => asOf,
+        makeAnswerId: () => `ans_${randomUUID().replace(/-/g, '')}`
+      });
+      attempt.score = score;
+      if (test) attempt.passed = score >= test.rules.passingScore;
       attempt.status = 'expired';
       attempt.finishedAt = attempt.finishedAt ?? asOf;
       attempt.updatedAt = asOf;
@@ -49,7 +67,9 @@ export class ExpiredAttemptsScanner {
         entityType: 'assessment.attempt',
         entityId: attempt.id,
         oldValues: { status: previousStatus },
-        newValues: { status: 'expired', finishedAt: attempt.finishedAt }
+        // Балл в журнале: по нему видно, что попытку не просто «сняли с висяка»,
+        // а оценили по сохранённому в срок (журнал 285).
+        newValues: { status: 'expired', finishedAt: attempt.finishedAt, score }
       });
     }
     if (closed) {

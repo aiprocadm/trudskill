@@ -13,8 +13,8 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { computeAnalyticsDashboard } from './analytics-dashboard.js';
+import { gradeAttemptFromState } from './assessment/grade-attempt.js';
 import { shuffle } from './assessment/shuffle.util.js';
-import { gradeAnswer } from './assessment-autograde.service.js';
 import { type PhotoConsentGate, legacyConsentEvidence } from './consents/consent.js';
 import {
   type CounterpartyScope,
@@ -5331,9 +5331,23 @@ export class MvpService {
       // Ревизия 2026-08-27 (порция 25): сравнение идёт с технологическим допуском —
       // сдача, отправленная по нулю таймера, доезжает до сервера уже после срока и
       // до этой правки обнулялась вместе со всеми ответами.
+      /*
+       * Ревизия 2026-08-27 (порция 30, журнал 285): попытка закрывается просроченной,
+       * НО оценивается по ответам, сохранённым в срок. Раньше они пропадали, а попытка
+       * при этом списывалась из лимита. Лишнего времени это не даёт: ответы после
+       * истечения сервер не принимает, поэтому засчитывается ровно записанное вовремя.
+       */
+      const expiredTest = this.getById(this.state.tests, tenantId, attempt.testId);
+      const expiredScore = gradeAttemptFromState(this.state, tenantId, attempt, {
+        now: () => this.now(),
+        makeAnswerId: () => this.id('ans')
+      });
+      attempt.score = expiredScore;
+      attempt.passed = expiredScore >= expiredTest.rules.passingScore;
       attempt.status = 'expired';
       attempt.finishedAt = this.now();
       attempt.updatedAt = this.now();
+      this.finalizeExamResult(tenantId, actorId, attempt, context, delegationAuditMetadata);
       this.audit(
         tenantId,
         actorId,
@@ -5348,42 +5362,11 @@ export class MvpService {
       return attempt;
     }
     const test = this.getById(this.state.tests, tenantId, attempt.testId);
-    const answers = this.state.attemptAnswers.filter(
-      (item) => item.tenantId === tenantId && item.attemptId === attempt.id
-    );
-    let score = 0;
-    for (const qid of attempt.questionOrder) {
-      const question = this.getById(this.state.questions, tenantId, qid);
-      const options = this.state.answerOptions.filter(
-        (item) => item.tenantId === tenantId && item.questionId === qid
-      );
-      let answer = answers.find((item) => item.questionId === qid);
-      const graded = gradeAnswer({ question, options, answer });
-      // §5.160: a manual-grade question (essay / misconfigured auto) left UNANSWERED has no
-      // answer row, so its `autoGraded:false` marker would be lost — the attempt would look
-      // fully auto-graded and publish a premature pass before mandatory human review (the
-      // unanswered-essay hole in §5.156), and the reviewer could not score it
-      // (completeAttemptReview throws "No answer recorded" without a row). Seed a stub answer
-      // row so the attempt is flagged pending review and is reviewable.
-      if (!answer && !graded.autoGraded) {
-        answer = {
-          id: this.id('ans'),
-          tenantId,
-          attemptId: attempt.id,
-          questionId: qid,
-          status: 'active',
-          createdAt: this.now(),
-          updatedAt: this.now()
-        };
-        this.state.attemptAnswers.push(answer);
-      }
-      if (answer) {
-        answer.score = graded.score;
-        answer.autoGraded = graded.autoGraded;
-        answer.updatedAt = this.now();
-      }
-      score += graded.score;
-    }
+    // Порция 30: подсчёт вынесен в общую функцию — её же зовёт сканер просроченных попыток.
+    const score = gradeAttemptFromState(this.state, tenantId, attempt, {
+      now: () => this.now(),
+      makeAnswerId: () => this.id('ans')
+    });
     attempt.score = score;
     attempt.passed = score >= test.rules.passingScore;
     attempt.status = 'submitted';
@@ -5640,7 +5623,10 @@ export class MvpService {
         item.tenantId === tenantId &&
         item.enrollmentId === attempt.enrollmentId &&
         item.testId === attempt.testId &&
-        ['submitted', 'finished'].includes(item.status)
+        // Порция 30 (журнал 285): просроченная попытка тоже считается — она оценена по
+        // ответам, сохранённым в срок. Берётся всё равно ЛУЧШАЯ, поэтому брошенная
+        // попытка на ноль не может испортить успешную.
+        ['submitted', 'finished', 'expired'].includes(item.status)
     );
     const best = attempts.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0] ?? attempt;
     const test = this.getById(this.state.tests, tenantId, attempt.testId);
@@ -6253,7 +6239,8 @@ export class MvpService {
         // Must match finalizeExamResult's filter. A 'submitted' attempt is terminal
         // for auto-graded tests (only finishAttempt/review reach 'finished'); counting
         // only 'finished' here made a plain getAttemptResult read flip passed → false.
-        ['submitted', 'finished'].includes(item.status)
+        // Порция 30 (журнал 285): 'expired' тоже считается — см. finalizeExamResult.
+        ['submitted', 'finished', 'expired'].includes(item.status)
     );
     const best = [...attempts].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0];
     const test = this.getById(this.state.tests, tenantId, testId);

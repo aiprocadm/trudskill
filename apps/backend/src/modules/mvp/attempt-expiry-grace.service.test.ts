@@ -159,8 +159,10 @@ describe('своевременная сдача не пропадает: тех�
     expireBy(service, attempt.id, 30_000);
 
     const submitted = service.submitAttempt(T, ADMIN, attempt.id, ctx);
+    // Статус говорит правду: время вышло. Баллы при этом считаются по сохранённому
+    // в срок (порция 30) — но обычной сдачей попытка не становится.
     expect(submitted.status).toBe('expired');
-    expect(submitted.passed).toBeFalsy();
+    expect(submitted.submittedAt).toBeUndefined();
   });
 
   it('ответ, присланный далеко за сроком, не принимается', () => {
@@ -170,5 +172,70 @@ describe('своевременная сдача не пропадает: тех�
     expect(() =>
       service.saveAttemptAnswer(T, ADMIN, attempt.id, { questionId: q.id, textAnswer: '4' }, ctx)
     ).toThrow();
+  });
+});
+
+/*
+ * Ревизия 2026-08-27 (порция 30, журнал 285) — РЕШЕНИЕ: истёкшая попытка оценивается
+ * по ответам, сохранённым В СРОК.
+ *
+ * Раньше она не оценивалась вовсе: ответы, честно данные до звонка, пропадали, а попытка
+ * при этом списывалась из лимита. Довод в пользу оценки решающий — ответы ПОСЛЕ истечения
+ * сервер не принимает, поэтому оценивать сохранённое не значит дать лишнее время: лазейки
+ * нет. С бумажной работой поступают так же — по звонку её собирают и проверяют написанное,
+ * а не выбрасывают за то, что человек не отнёс её сам.
+ *
+ * Инвариант анти-чита сохраняется: статус остаётся «просрочена» (время действительно
+ * вышло), поздние ответы не принимаются, лимит времени не удлиняется.
+ */
+describe('истёкшая попытка оценивается по сохранённому в срок (порция 30)', () => {
+  it('ответ, данный вовремя, засчитан — статус при этом «просрочена»', () => {
+    const { service, q, attempt } = seedAttempt();
+    service.saveAttemptAnswer(T, ADMIN, attempt.id, { questionId: q.id, textAnswer: '4' }, ctx);
+    expireBy(service, attempt.id, 30_000);
+
+    const finalized = service.submitAttempt(T, ADMIN, attempt.id, ctx);
+
+    expect(finalized.status).toBe('expired');
+    expect(finalized.score).toBe(2);
+    expect(finalized.passed).toBe(true);
+  });
+
+  it('результат экзамена учитывает просроченную попытку', () => {
+    const { service, q, attempt } = seedAttempt();
+    service.saveAttemptAnswer(T, ADMIN, attempt.id, { questionId: q.id, textAnswer: '4' }, ctx);
+    expireBy(service, attempt.id, 30_000);
+    service.submitAttempt(T, ADMIN, attempt.id, ctx);
+
+    expect(service.getAttemptResult(T, attempt.id).passed).toBe(true);
+  });
+
+  it('без единого ответа просроченная попытка даёт ноль, а не зачёт', () => {
+    const { service, attempt } = seedAttempt();
+    expireBy(service, attempt.id, 30_000);
+
+    const finalized = service.submitAttempt(T, ADMIN, attempt.id, ctx);
+    expect(finalized.status).toBe('expired');
+    expect(finalized.score).toBe(0);
+    expect(finalized.passed).toBe(false);
+  });
+
+  it('лимит времени не удлиняется: ответ после срока по-прежнему не принимается', () => {
+    const { service, q, attempt } = seedAttempt();
+    expireBy(service, attempt.id, 30_000);
+
+    expect(() =>
+      service.saveAttemptAnswer(T, ADMIN, attempt.id, { questionId: q.id, textAnswer: '4' }, ctx)
+    ).toThrow();
+  });
+
+  it('повторная сдача просроченной ничего не пересчитывает', () => {
+    const { service, q, attempt } = seedAttempt();
+    service.saveAttemptAnswer(T, ADMIN, attempt.id, { questionId: q.id, textAnswer: '4' }, ctx);
+    expireBy(service, attempt.id, 30_000);
+    const first = service.submitAttempt(T, ADMIN, attempt.id, ctx);
+    const again = service.submitAttempt(T, ADMIN, attempt.id, ctx);
+    expect(again.score).toBe(first.score);
+    expect(again.status).toBe('expired');
   });
 });
