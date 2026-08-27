@@ -112,6 +112,16 @@ export const mvpApi = {
     apiRequest<ListResponse<Learner>>(`/portal/learners${queryString(query)}`, withAuth(session)),
   listPortalGroups: (session: UserSession, query: BaseFilterQuery) =>
     apiRequest<ListResponse<Group>>(`/portal/groups${queryString(query)}`, withAuth(session)),
+  /**
+   * Порция 32 (журнал 265): скачивание документа сотрудника. Ручка с проверкой владения
+   * и записью в журнал существовала с ФТ-E5, но в портале не было кнопки — представитель
+   * компании видел список и не мог взять сам документ.
+   */
+  downloadPortalDocument: (session: UserSession, documentId: string) =>
+    apiRequest<{ downloadUrl: string }>(
+      `/portal/documents/${documentId}/download`,
+      withAuth(session)
+    ),
   listPortalDocuments: (session: UserSession, query: BaseFilterQuery) =>
     apiRequest<ListResponse<PortalDocument>>(
       `/portal/documents${queryString(query)}`,

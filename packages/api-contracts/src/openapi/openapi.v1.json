@@ -850,25 +850,6 @@
           }
         }
       }
-    },
-    "/files/{id}/download": {
-      "get": {
-        "operationId": "fileDownload",
-        "tags": ["files"],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/IdPathParam"
-          }
-        ],
-        "responses": {
-          "302": {
-            "description": "Redirect to storage object"
-          },
-          "default": {
-            "$ref": "#/components/responses/DefaultError"
-          }
-        }
-      }
     }
   },
   "components": {
