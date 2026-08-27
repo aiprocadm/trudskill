@@ -6461,8 +6461,28 @@ export class MvpService {
     tenantId: string,
     query: BaseFilterQuery
   ): ListResponse<T> {
-    const page = query.page ?? 1;
-    const pageSize = query.page_size ?? 20;
+    /*
+     * Ревизия 2026-08-27 (порция 24, журнал 277). Параметры строки запроса приходят
+     * СТРОКАМИ (тип интерфейса врёт): вычитание в `(page-1)*pageSize` маскировало это,
+     * а сложение в `from + pageSize` СКЛЕИВАЛО строки — `?page=2&page_size=20` резал
+     * slice(20, "2020"), сто страниц вместо одной. И потолка у page_size не было вовсе:
+     * один запрос отдавал всю таблицу слушателей со СНИЛС.
+     *
+     * Потолок 200 применяется ТОЛЬКО к строковым значениям — то есть пришедшим с
+     * проволоки (@Query() без класса-DTO ничего не преобразует). Внутренние вызовы
+     * передают ЧИСЛА и потолка не имеют: госвыгрузки собирают зачисления страницами
+     * по 1000, и молчаливая обрезка до 200 была бы дефектом хуже исходного.
+     */
+    const sizeFromWire = typeof (query.page_size as unknown) === 'string';
+    const rawPage = Number(query.page ?? 1);
+    const rawSize = Number(query.page_size ?? 20);
+    const page = Number.isFinite(rawPage) && rawPage >= 1 ? Math.trunc(rawPage) : 1;
+    const pageSize =
+      Number.isFinite(rawSize) && rawSize >= 1
+        ? sizeFromWire
+          ? Math.min(200, Math.trunc(rawSize))
+          : Math.trunc(rawSize)
+        : 20;
     let items = source.filter((item) => item.tenantId === tenantId);
     if (query.q) {
       const q = query.q.toLowerCase();
