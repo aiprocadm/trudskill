@@ -99,3 +99,95 @@ describe('TenantSerialGateway', () => {
     }
   );
 });
+
+/*
+ * Ревизия 2026-08-27 (порция 26, журнал 271).
+ *
+ * Реентрантность определяется по AsyncLocalStorage — а его контекст наследуют и
+ * ОТСОЕДИНЁННЫЕ ветки: `setImmediate`, обработчики событий, любые фоновые продолжения.
+ * Слушатель выдачи документов стартует именно так изнутри критической секции запроса,
+ * поэтому считал замок «уже своим» и работал ПАРАЛЛЕЛЬНО с чужой секцией того же
+ * арендатора. Сохранение переписывает весь снимок домена целиком, так что победитель
+ * затирал свежевыпущенные удостоверения — тихо, с записью «выдано» в журнале.
+ */
+describe('TenantSerialGateway — замок не утекает в фоновые ветки (порция 26)', () => {
+  it(
+    'работа, стартовавшая форком изнутри секции, ждёт очереди, а не идёт вперёд',
+    { timeout: 2000 },
+    async () => {
+      const gw = new TenantSerialGateway();
+      const order: string[] = [];
+      let detached: Promise<unknown> | undefined;
+
+      await gw.runExclusive('t1', async () => {
+        order.push('секция:начало');
+        // Так стартует слушатель события: отдельной веткой, но из-под секции.
+        detached = new Promise((resolve) => {
+          setImmediate(() => {
+            resolve(
+              gw.runDetached(() =>
+                gw.runExclusive('t1', async () => {
+                  order.push('фоновая работа');
+                })
+              )
+            );
+          });
+        });
+        await tick(30);
+        order.push('секция:конец');
+      });
+      await detached;
+
+      expect(order).toEqual(['секция:начало', 'секция:конец', 'фоновая работа']);
+    }
+  );
+
+  it(
+    'ветка, пережившая секцию, замок не наследует — даже без явного отсоединения',
+    { timeout: 2000 },
+    async () => {
+      const gw = new TenantSerialGateway();
+      const order: string[] = [];
+      let leaked: Promise<unknown> | undefined;
+
+      await gw.runExclusive('t1', async () => {
+        // Ветка запомнит контекст секции, но выполнится уже после её завершения.
+        leaked = new Promise((resolve) => {
+          setTimeout(() => {
+            resolve(
+              gw.runExclusive('t1', async () => {
+                order.push('поздняя ветка');
+              })
+            );
+          }, 20);
+        });
+        order.push('секция');
+      });
+
+      // Пока поздняя ветка ждёт, занимаем замок надолго: если она сочтёт его «своим»,
+      // то влезет внутрь этой секции — порядок это покажет.
+      const holder = gw.runExclusive('t1', async () => {
+        order.push('вторая секция:начало');
+        await tick(60);
+        order.push('вторая секция:конец');
+      });
+
+      await Promise.all([holder, leaked]);
+      expect(order).toEqual([
+        'секция',
+        'вторая секция:начало',
+        'вторая секция:конец',
+        'поздняя ветка'
+      ]);
+    }
+  );
+
+  it('честная вложенность по-прежнему не ждёт сама себя', { timeout: 2000 }, async () => {
+    const gw = new TenantSerialGateway();
+    const result = await gw.runExclusive('t1', async () => {
+      const inner = await gw.runExclusive('t1', async () => 'внутри');
+      return `снаружи:${inner}`;
+    });
+    expect(result).toBe('снаружи:внутри');
+  });
+});
