@@ -221,13 +221,15 @@ export class AuthService {
    */
   async issueImpersonatedSession(
     tenantId: string,
-    userId: string
+    userId: string,
+    /** Порция 33 (журнал 270): кто именно из поддержки входит — попадёт в журнал. */
+    impersonatedBy?: string
   ): Promise<Awaited<ReturnType<AuthService['createSession']>>> {
     const user = await this.iamService.getUser(tenantId, userId);
     if (user.status === 'blocked') {
       throw new UnauthorizedException({ code: 'user_blocked', message: 'User is blocked' });
     }
-    return this.createSession(user, true);
+    return this.createSession(user, true, undefined, impersonatedBy);
   }
 
   /** Второй шаг логина (ФТ-G3): challenge из issueSessionForUser + верный TOTP-код → сессия. */
@@ -454,7 +456,14 @@ export class AuthService {
       throw new UnauthorizedException({ code: 'user_blocked', message: 'User is blocked' });
     }
     const persistRelational = await this.shouldPersistRelationalSideEffects(tenantId, user.id);
-    const nextTokens = await this.createSession(user, persistRelational, activeSession.jti);
+    // Порция 33 (журнал 270): признак «вошли от имени» переносится в новую сессию —
+    // иначе он исчез бы при первом обновлении токена, а доступ остался бы.
+    const nextTokens = await this.createSession(
+      user,
+      persistRelational,
+      activeSession.jti,
+      activeSession.impersonatedBy
+    );
     await this.pushAuthEvent(tenantId, user.id, 'refresh', persistRelational);
     await this.auditService.writeCritical(
       {
@@ -524,11 +533,13 @@ export class AuthService {
       rotated_at: string | null;
       consumed_at: string | null;
       revoke_reason: string | null;
+      impersonated_by: string | null;
     }>(
       `
         select id, tenant_id, user_id, jti, parent_jti, refresh_token_hash, csrf_token_hash,
                expires_at::text as expires_at, revoked_at::text as revoked_at,
-               rotated_at::text as rotated_at, consumed_at::text as consumed_at, revoke_reason
+               rotated_at::text as rotated_at, consumed_at::text as consumed_at, revoke_reason,
+               impersonated_by
         from iam.sessions
         where tenant_id = $1 and user_id = $2
         order by created_at desc
@@ -551,7 +562,9 @@ export class AuthService {
           revokedAt: row.revoked_at ?? undefined,
           rotatedAt: row.rotated_at ?? undefined,
           consumedAt: row.consumed_at ?? undefined,
-          revokeReason: row.revoke_reason ?? undefined
+          revokeReason: row.revoke_reason ?? undefined,
+          // Порция 33 (журнал 270): признак «вошли от имени» переживает ротацию токена.
+          impersonatedBy: row.impersonated_by ?? undefined
         }
       ])
     );
@@ -695,7 +708,17 @@ export class AuthService {
     );
   }
 
-  private async createSession(user: User, persistRelational: boolean, parentJti?: string) {
+  /**
+   * @param impersonatedBy порция 33 (журнал 270): кто из поддержки вошёл «от имени».
+   * Признак кладётся и в сессию, и в токен — по нему каждое последующее действие
+   * помечается в журнале, иначе действия поддержки неотличимы от действий клиента.
+   */
+  private async createSession(
+    user: User,
+    persistRelational: boolean,
+    parentJti?: string,
+    impersonatedBy?: string
+  ) {
     const refreshToken = issueToken();
     const csrfToken = issueToken();
     const session: Session = {
@@ -706,7 +729,8 @@ export class AuthService {
       parentJti,
       refreshTokenHash: this.hashSessionToken(refreshToken),
       csrfTokenHash: this.hashCsrfToken(csrfToken),
-      expiresAt: new Date(Date.now() + backendEnv.REFRESH_TOKEN_TTL_SECONDS * 1000).toISOString()
+      expiresAt: new Date(Date.now() + backendEnv.REFRESH_TOKEN_TTL_SECONDS * 1000).toISOString(),
+      ...(impersonatedBy ? { impersonatedBy } : {})
     };
 
     if (!this.databaseService || !persistRelational) {
@@ -722,9 +746,10 @@ export class AuthService {
             parent_jti,
             refresh_token_hash,
             csrf_token_hash,
-            expires_at
+            expires_at,
+            impersonated_by
           )
-          values ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz)
+          values ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9)
         `,
         [
           session.id,
@@ -734,7 +759,8 @@ export class AuthService {
           session.parentJti ?? null,
           session.refreshTokenHash,
           session.csrfTokenHash!,
-          session.expiresAt
+          session.expiresAt,
+          session.impersonatedBy ?? null
         ]
       );
     }
@@ -747,7 +773,8 @@ export class AuthService {
         sub: user.id,
         tenant_id: user.tenantId,
         session_id: session.id,
-        roles: roleCodes
+        roles: roleCodes,
+        ...(session.impersonatedBy ? { impersonated_by: session.impersonatedBy } : {})
       },
       this.secretsService.getJwtSigningSecret(),
       backendEnv.ACCESS_TOKEN_TTL_SECONDS
@@ -821,11 +848,13 @@ export class AuthService {
       rotated_at: string | null;
       consumed_at: string | null;
       revoke_reason: string | null;
+      impersonated_by: string | null;
     }>(
       `
         select id, tenant_id, user_id, jti, parent_jti, refresh_token_hash, csrf_token_hash,
                expires_at::text as expires_at, revoked_at::text as revoked_at,
-               rotated_at::text as rotated_at, consumed_at::text as consumed_at, revoke_reason
+               rotated_at::text as rotated_at, consumed_at::text as consumed_at, revoke_reason,
+               impersonated_by
         from iam.sessions
         where id = $1 and tenant_id = $2 and ($3::text is null or user_id = $3)
         limit 1
@@ -847,7 +876,8 @@ export class AuthService {
         revokedAt: row.revoked_at ?? undefined,
         rotatedAt: row.rotated_at ?? undefined,
         consumedAt: row.consumed_at ?? undefined,
-        revokeReason: row.revoke_reason ?? undefined
+        revokeReason: row.revoke_reason ?? undefined,
+        impersonatedBy: row.impersonated_by ?? undefined
       };
     }
 

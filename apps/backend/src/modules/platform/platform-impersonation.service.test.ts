@@ -75,7 +75,16 @@ describe('PlatformTenantsService.impersonate', () => {
         userAgent: 'vitest'
       })
     );
-    expect(issueImpersonatedSession).toHaveBeenCalledWith('t1', 'u_target_admin');
+    /*
+     * Порция 33 (журнал 270): третьим аргументом идёт КТО из поддержки вошёл. Признак
+     * доезжает до сессии и оттуда помечает каждое последующее действие в журнале —
+     * без него действия поддержки неотличимы от действий самого центра.
+     */
+    expect(issueImpersonatedSession).toHaveBeenCalledWith(
+      't1',
+      'u_target_admin',
+      'u_platform_admin'
+    );
   });
 
   it('сбой журнала ОТМЕНЯЕТ вход — сессия не выдаётся', async () => {
@@ -90,7 +99,7 @@ describe('PlatformTenantsService.impersonate', () => {
     const { service, issueImpersonatedSession } = makeHarness();
     const result = await service.impersonate('u_platform_admin', 't1', 'u_custom', ctx);
     expect(result.userId).toBe('u_custom');
-    expect(issueImpersonatedSession).toHaveBeenCalledWith('t1', 'u_custom');
+    expect(issueImpersonatedSession).toHaveBeenCalledWith('t1', 'u_custom', 'u_platform_admin');
   });
 
   it('архивный тенант — отказ: офбординг замораживает кабинет', async () => {

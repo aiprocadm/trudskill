@@ -57,6 +57,12 @@ export interface AuditLogRecord {
 /** Поля записи до материализации `id` / `createdAt`; `correlationId` вкладывается в `metadata.correlation_id`. */
 export type AuditWritePayload = Omit<AuditLogRecord, 'id' | 'createdAt'> & {
   correlationId?: string;
+  /**
+   * Порция 33 (журнал 270): действие совершено поддержкой платформы «от имени» актора.
+   * Попадает в `metadata` пометкой — по журналу должно быть видно, что это сделал не
+   * сам клиент; тот же приём, что `metadata.delegated` у преподавателя за слушателя.
+   */
+  impersonatedBy?: string;
 };
 
 /** Отбор журнала. Все текстовые поля — поиск по вхождению, как было в прежнем фильтре. */
@@ -193,11 +199,21 @@ export class AuditService {
   }
 
   private buildRecord(record: AuditWritePayload): AuditLogRecord {
-    const { correlationId, metadata: incomingMetadata, oldValues, newValues, ...base } = record;
+    const {
+      correlationId,
+      impersonatedBy,
+      metadata: incomingMetadata,
+      oldValues,
+      newValues,
+      ...base
+    } = record;
     const metadata: Record<string, unknown> | undefined = (() => {
       const merged: Record<string, unknown> = {
         ...(incomingMetadata ?? {}),
-        ...(correlationId ? { correlation_id: correlationId } : {})
+        ...(correlationId ? { correlation_id: correlationId } : {}),
+        // Порция 33 (журнал 270): и признак, и КТО именно — по журналу отвечают на
+        // вопрос «это наш клиент или наш сотрудник поддержки».
+        ...(impersonatedBy ? { impersonated: true, impersonated_by: impersonatedBy } : {})
       };
       return Object.keys(merged).length ? merged : undefined;
     })();

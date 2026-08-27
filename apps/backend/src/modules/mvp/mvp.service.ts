@@ -7244,6 +7244,9 @@ export class MvpService {
       metadata,
       requestId: context.requestId,
       correlationId: context.correlationId,
+      // Порция 33 (журнал 270): если под учётной записью работает поддержка платформы,
+      // журнал обязан это назвать — иначе действие неотличимо от действия самого клиента.
+      ...(context.impersonatedBy ? { impersonatedBy: context.impersonatedBy } : {}),
       ip: context.ip,
       userAgent: context.userAgent
     });
