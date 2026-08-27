@@ -1317,8 +1317,14 @@ export class DocumentsService {
     return 'all';
   }
   private page<T>(rows: T[], query: BaseFilter) {
-    const page = query.page ?? 1;
-    const pageSize = query.pageSize ?? 20;
+    // Ревизия 2026-08-27 (порция 24): HTTP-параметры приходят строками — без разбора
+    // `from + pageSize` склеивал строки (slice до миллиона). Потолка здесь НЕТ намеренно:
+    // внутренние вызовы законно просят огромные страницы (скоупинг портала фильтрует ДО
+    // пагинации); потолок HTTP-границы документов — отдельная запись журнала (283).
+    const rawPage = Number(query.page ?? 1);
+    const rawSize = Number(query.pageSize ?? 20);
+    const page = Number.isFinite(rawPage) && rawPage >= 1 ? Math.trunc(rawPage) : 1;
+    const pageSize = Number.isFinite(rawSize) && rawSize >= 1 ? Math.trunc(rawSize) : 20;
     const search = query.search?.toLowerCase();
     const filtered = search
       ? rows.filter((x) => JSON.stringify(x).toLowerCase().includes(search))
