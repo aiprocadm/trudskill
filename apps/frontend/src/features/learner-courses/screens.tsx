@@ -12,8 +12,8 @@ import {
   SectionError
 } from '../../components/state-wrappers';
 import { completeMetricTimer, startMetricTimer } from '../../lib/analytics/ux-metrics';
-import { frontendEnv } from '../../lib/config/env';
 import { CourseViewerScreen } from '../course-viewer/course-viewer-screen';
+import { useDocumentDownload } from '../learner-documents/hooks';
 import { useLearnerHomeData } from '../learner-home/use-learner-home-data';
 import { type EnrollmentCertsBundle, useEnrollmentCertificatesForCompleted } from '../mvp/hooks';
 import { DOCUMENT_TYPE_LABELS, ENROLLMENT_STATUS_LABEL, ListSkeleton } from '../mvp/screen-helpers';
@@ -26,17 +26,16 @@ import type { EnrollmentCertificateRow } from '../mvp/types';
  * (раньше слушатель видел «Назначение enrollment_x…»), полоса прогресса — общая ProgressBar.
  */
 
-const resolveCertificateDownloadHref = (downloadPath: string): string => {
-  try {
-    const apiRoot = new URL(frontendEnv.NEXT_PUBLIC_API_BASE_URL);
-    return `${apiRoot.origin}${downloadPath}`;
-  } catch {
-    return downloadPath;
-  }
-};
+/*
+ * Ревизия 2026-08-26 (порция 21): прежний способ скачивания — прямая ссылка на адрес
+ * из ответа — не работал никогда: адрес указывал на несуществующий маршрут, а браузерный
+ * переход не несёт Bearer-заголовок. Теперь клик зовёт ручку скачивания с авторизацией
+ * (useDocumentDownload) и открывает подписанную ссылку хранилища.
+ */
 
 export const LearnerCoursesScreen = () => {
   const { data, isLoading, error } = useLearnerHomeData();
+  const certificateDownload = useDocumentDownload();
 
   const completedEnrollmentIds = useMemo(
     () => data.filter((e) => e.enrollment.status === 'completed').map((e) => e.enrollment.id),
@@ -119,6 +118,7 @@ export const LearnerCoursesScreen = () => {
         ) : null}
       </SectionCard>
       <SectionCard title="Мои документы об обучении">
+        {certificateDownload.error ? <SectionError error={certificateDownload.error} /> : null}
         {!completedEnrollmentIds.length ? (
           <SectionEmpty
             message="Документов пока нет"
@@ -137,13 +137,14 @@ export const LearnerCoursesScreen = () => {
                   <ul>
                     {row.items.map((doc: EnrollmentCertificateRow) => (
                       <li key={doc.id}>
-                        <a
-                          href={resolveCertificateDownloadHref(doc.downloadUrl)}
-                          target="_blank"
-                          rel="noreferrer"
+                        <button
+                          type="button"
+                          className="ui-link-button"
+                          disabled={certificateDownload.busyId === doc.id}
+                          onClick={() => void certificateDownload.download(doc.id)}
                         >
                           {doc.name}
-                        </a>{' '}
+                        </button>{' '}
                         — {DOCUMENT_TYPE_LABELS[doc.documentType] ?? doc.documentType}
                       </li>
                     ))}

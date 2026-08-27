@@ -1,7 +1,7 @@
 'use client';
 
 import { LearnerDocumentsList } from './documents-list';
-import { useMyDocuments } from './hooks';
+import { useDocumentDownload, useMyDocuments } from './hooks';
 import {
   PageContainer,
   PageHeader,
@@ -11,6 +11,7 @@ import {
 
 export const LearnerDocumentsScreen = () => {
   const { data, isLoading, error } = useMyDocuments();
+  const download = useDocumentDownload();
   const documents = data?.items ?? [];
 
   return (
@@ -20,12 +21,17 @@ export const LearnerDocumentsScreen = () => {
         subtitle="Удостоверения, свидетельства и протоколы, выданные по итогам обучения"
       />
       {error instanceof Error ? <SectionError message={error.message} /> : null}
+      {download.error ? <SectionError error={download.error} /> : null}
       {isLoading ? (
         <SectionCard title="Загрузка…">
           <p className="ui-text-muted">Готовим список ваших документов…</p>
         </SectionCard>
       ) : (
-        <LearnerDocumentsList documents={documents} />
+        <LearnerDocumentsList
+          documents={documents}
+          onDownload={(doc) => void download.download(doc.id)}
+          downloadBusyId={download.busyId}
+        />
       )}
     </PageContainer>
   );

@@ -24,7 +24,7 @@ import {
 } from '../../components/state-wrappers';
 import { useAuth } from '../auth/context';
 import { LearnerDocumentsList } from '../learner-documents/documents-list';
-import { useMyDocuments } from '../learner-documents/hooks';
+import { useDocumentDownload, useMyDocuments } from '../learner-documents/hooks';
 import { mvpApi } from '../mvp/api';
 import { useCourse, useLearnerCourseProgress } from '../mvp/hooks';
 
@@ -157,6 +157,7 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
   // слушателя. `useMyDocuments` сам ограничивает выдачу записями, привязанными
   // к learner.linkedIamUserId — то есть фронт получает только свои документы.
   const { data: myDocuments } = useMyDocuments();
+  const documentDownload = useDocumentDownload();
   const courseDocuments = myDocuments?.items.filter((doc) => doc.courseId === courseId) ?? [];
 
   return (
@@ -219,11 +220,14 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
           </section>
         </div>
       ) : null}
+      {documentDownload.error ? <SectionError error={documentDownload.error} /> : null}
       {courseDocuments.length > 0 ? (
         <LearnerDocumentsList
           title="Документы по этому курсу"
           showCourse={false}
           documents={courseDocuments}
+          onDownload={(doc) => void documentDownload.download(doc.id)}
+          downloadBusyId={documentDownload.busyId}
         />
       ) : null}
     </PageContainer>

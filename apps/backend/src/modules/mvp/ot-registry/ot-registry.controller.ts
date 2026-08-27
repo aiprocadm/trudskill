@@ -13,6 +13,7 @@ import { OtRegistryService } from './ot-registry.service.js';
 import { assertValidDto } from '../../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../../common/guards/tenant.guard.js';
+import { DocumentsRequestPersistenceInterceptor } from '../../documents/infrastructure/documents-request-persistence.interceptor.js';
 import { RequirePermissions } from '../../iam/permission.decorator.js';
 import { PermissionGuard } from '../../iam/permission.guard.js';
 import { MvpRequestPersistenceInterceptor } from '../infrastructure/mvp-request-persistence.interceptor.js';
@@ -21,8 +22,13 @@ import { ImportOtRegistryResponseDto } from '../ot-registry-import.dto.js';
 
 import type { RequestContext } from '../../../common/context/request-context.js';
 
+/*
+ * Ревизия 2026-08-26 (порция 21): сервис читает протоколы через request-scoped
+ * `DocumentsService`, чьё состояние грузит только его собственный перехватчик.
+ * Без него выгрузка уходила в реестр с пустыми номером и датой протокола — тихо.
+ */
 @Controller('ot-registry')
-@UseInterceptors(MvpRequestPersistenceInterceptor)
+@UseInterceptors(MvpRequestPersistenceInterceptor, DocumentsRequestPersistenceInterceptor)
 @UseGuards(TenantGuard)
 export class OtRegistryController {
   constructor(@Inject(OtRegistryService) private readonly service: OtRegistryService) {}

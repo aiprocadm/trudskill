@@ -214,7 +214,8 @@ describe('MvpService.listEnrollmentDocuments — Phase 1 §4.3', () => {
     const { service } = makeFixture(docs);
     const result = service.listEnrollmentDocuments(TENANT, 'enr_self', { actorId: 'u_alice' });
     expect(result.items[0].isDownloadable).toBe(true);
-    expect(result.items[0].downloadUrl).toMatch(/\/files\/file_abc\/download$/);
+    // Порция 21: адрес указывает на живую ручку скачивания кабинета (по id документа).
+    expect(result.items[0].downloadUrl).toMatch(/\/me\/documents\/d_file\/download$/);
   });
 
   it('attaches courseTitle resolved via groupCourse → course', () => {

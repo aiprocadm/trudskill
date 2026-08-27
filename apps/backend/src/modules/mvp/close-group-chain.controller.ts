@@ -6,6 +6,7 @@ import { CloseGroupChainRequest } from './mvp.dto.js';
 import { assertValidDto } from '../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
+import { DocumentsRequestPersistenceInterceptor } from '../documents/infrastructure/documents-request-persistence.interceptor.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
 import { PermissionGuard } from '../iam/permission.guard.js';
 
@@ -21,8 +22,13 @@ import type { RequestContext } from '../../common/context/request-context.js';
  * Права: цепочка ВЫПУСКАЕТ документы и СОЗДАЁТ выгрузку в реестр — требуются оба
  * права сразу; одного `documents.generate` (как у «закрыть группу») мало.
  */
+/*
+ * Ревизия 2026-08-26 (порция 21): цепочка выпускает документы через request-scoped
+ * `DocumentsService` — без его перехватчика она падала «Template not found» на
+ * существующем шаблоне, а выпуск не сохранялся бы вовсе.
+ */
 @Controller()
-@UseInterceptors(MvpRequestPersistenceInterceptor)
+@UseInterceptors(MvpRequestPersistenceInterceptor, DocumentsRequestPersistenceInterceptor)
 @UseGuards(TenantGuard)
 export class CloseGroupChainController {
   constructor(

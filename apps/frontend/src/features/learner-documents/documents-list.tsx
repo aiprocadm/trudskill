@@ -15,25 +15,18 @@ interface Props {
   title?: string;
   showCourse?: boolean;
   documents: LearnerDocument[];
-  onDownload?: (doc: LearnerDocument) => void;
+  /**
+   * Ревизия 2026-08-26 (порция 21): обязателен. Скачивание идёт через ручку
+   * с авторизацией (см. useDocumentDownload) — прежний запасной путь открывал
+   * адрес прямым переходом без Bearer-заголовка и всегда получал отказ.
+   */
+  onDownload: (doc: LearnerDocument) => void;
+  /** id документа, который сейчас скачивается — его кнопка выключена. */
+  downloadBusyId?: string | null;
 }
 
 const downloadStubMessage =
   'Скачивание PDF пока недоступно — подлинность можно проверить по QR-коду (ссылка «Проверить»)';
-
-const handleDownloadClick = (
-  doc: LearnerDocument,
-  onDownload: ((doc: LearnerDocument) => void) | undefined
-): void => {
-  if (onDownload) {
-    onDownload(doc);
-    return;
-  }
-  // Недоступное скачивание не притворяется живой кнопкой: она выключена (см. ниже),
-  // сюда такой клик не доходит. Браузерных окон в интерфейсе нет (CMP-006).
-  if (!doc.isDownloadable) return;
-  window.open(doc.downloadUrl, '_blank', 'noopener,noreferrer');
-};
 
 /**
  * Phase 1 §4.3 — табличный вид «Мои документы».
@@ -46,7 +39,8 @@ export function LearnerDocumentsList({
   title = 'Мои документы',
   showCourse = true,
   documents,
-  onDownload
+  onDownload,
+  downloadBusyId
 }: Props): ReactElement {
   if (documents.length === 0) {
     return (
@@ -98,9 +92,11 @@ export function LearnerDocumentsList({
             type="button"
             className="ui-button ui-button--ghost"
             data-testid={`download-${d.id}`}
-            disabled={!d.isDownloadable && !onDownload}
-            {...(d.isDownloadable || onDownload ? {} : { title: downloadStubMessage })}
-            onClick={() => handleDownloadClick(d, onDownload)}
+            disabled={!d.isDownloadable || downloadBusyId === d.id}
+            {...(d.isDownloadable ? {} : { title: downloadStubMessage })}
+            onClick={() => {
+              if (d.isDownloadable) onDownload(d);
+            }}
           >
             Скачать документ
           </button>

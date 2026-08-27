@@ -98,6 +98,7 @@ import { TenantUsageService } from './usage/tenant-usage.service.js';
 import { assertValidDto } from '../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
+import { DocumentsRequestPersistenceInterceptor } from '../documents/infrastructure/documents-request-persistence.interceptor.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
 import { PermissionGuard } from '../iam/permission.guard.js';
 import { IamService } from '../iam/services/iam.service.js';
@@ -119,6 +120,16 @@ class SetGroupCounterpartyRequest {
   counterpartyId!: string | null;
 }
 
+/*
+ * Ревизия 2026-08-26 (порция 21): состояние ДОКУМЕНТОВ — отдельный request-scoped state
+ * со своим перехватчиком. `MvpRequestPersistenceInterceptor` его НЕ грузит и НЕ сохраняет,
+ * поэтому каждый маршрут этого контроллера, который ходит в `DocumentsService`
+ * (кабинеты, портал, закрытие группы, комплект документов курса), несёт ВТОРОЙ
+ * перехватчик `DocumentsRequestPersistenceInterceptor` на себе. На весь контроллер его
+ * не вешаем сознательно: это load+save полного снимка документов на каждый запрос,
+ * а документы нужны лишь горстке маршрутов (§12.1 — цена списков и так на пределе).
+ * Замок тенанта у обоих перехватчиков один и реентрантный — порядок безопасен.
+ */
 @Controller()
 @UseInterceptors(MvpRequestPersistenceInterceptor)
 @UseGuards(TenantGuard)
@@ -241,6 +252,7 @@ export class MvpController {
   @Get('portal/documents')
   @UseGuards(PermissionGuard)
   @RequirePermissions('portal.read')
+  @UseInterceptors(DocumentsRequestPersistenceInterceptor)
   listPortalDocuments(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
     return this.mvpService.listPortalDocuments(c.tenantId!, q, {
       counterpartyId: c.counterpartyId
@@ -253,6 +265,7 @@ export class MvpController {
   @Get('portal/documents/:id/download')
   @UseGuards(PermissionGuard)
   @RequirePermissions('portal.read')
+  @UseInterceptors(DocumentsRequestPersistenceInterceptor)
   downloadPortalDocument(@CurrentContext() c: RequestContext, @Param('id') id: string) {
     // ФТ-G1: скачивание из портала тоже пишется в журнал — документ содержит ПДн слушателя.
     return this.mvpService.getPortalDocumentDownload(
@@ -432,6 +445,7 @@ export class MvpController {
   @Post('groups/:groupId/close')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.generate')
+  @UseInterceptors(DocumentsRequestPersistenceInterceptor)
   closeGroupWithChecks(
     @CurrentContext() c: RequestContext,
     @Param('groupId') groupId: string,
@@ -816,6 +830,7 @@ export class MvpController {
   @Get('enrollments/:id/certificates')
   @UseGuards(PermissionGuard)
   @RequirePermissions('enrollments.read')
+  @UseInterceptors(DocumentsRequestPersistenceInterceptor)
   listEnrollmentCertificates(
     @CurrentContext() c: RequestContext,
     @Param('id') enrollmentId: string
@@ -833,6 +848,7 @@ export class MvpController {
   @Get('enrollments/:id/documents')
   @UseGuards(PermissionGuard)
   @RequirePermissions('enrollments.read')
+  @UseInterceptors(DocumentsRequestPersistenceInterceptor)
   listEnrollmentDocuments(@CurrentContext() c: RequestContext, @Param('id') enrollmentId: string) {
     return this.mvpService.listEnrollmentDocuments(c.tenantId!, enrollmentId, {
       actorId: c.userId,
@@ -848,8 +864,28 @@ export class MvpController {
   @Get('me/documents')
   @UseGuards(PermissionGuard)
   @RequirePermissions('enrollments.read')
+  @UseInterceptors(DocumentsRequestPersistenceInterceptor)
   listMyDocuments(@CurrentContext() c: RequestContext) {
     return this.mvpService.listMyDocuments(c.tenantId!, c.userId);
+  }
+  /**
+   * Ревизия 2026-08-26 (порция 21): скачивание СВОЕГО документа из кабинета.
+   *
+   * До этого списки кабинета указывали `downloadUrl` на маршрут, которого не существовало
+   * ни в одном контроллере, — кнопка «Скачать документ» всегда открывала 404. Скачивать
+   * напрямую по ссылке нельзя: авторизация — Bearer-заголовком, браузерный переход его
+   * не несёт. Поэтому кабинет по клику зовёт эту ручку и открывает присланную
+   * подписанную ссылку хранилища (тот же приём, что у материалов и выгрузок реестров).
+   *
+   * Право то же, что у списка (`enrollments.read`); владение — как в портале заказчика:
+   * чужой или несуществующий документ отвечает единым 404.
+   */
+  @Get('me/documents/:id/download')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('enrollments.read')
+  @UseInterceptors(DocumentsRequestPersistenceInterceptor)
+  downloadMyDocument(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.mvpService.getMyDocumentDownload(c.tenantId!, c.userId, id, c);
   }
   /**
    * Фаза 6 Task 1 (дефект D) — зачисления текущего IAM-актора (кабинет слушателя).
@@ -1841,6 +1877,7 @@ export class MvpController {
   @Put('course-versions/:id/document-set')
   @UseGuards(PermissionGuard)
   @RequirePermissions('learning.course_document_sets.write')
+  @UseInterceptors(DocumentsRequestPersistenceInterceptor)
   setCourseDocumentSet(
     @CurrentContext() c: RequestContext,
     @Param('id') id: string,
