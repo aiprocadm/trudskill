@@ -40,6 +40,7 @@ import {
 } from './documents.request-dto.js';
 import { DocumentsService, type IssuedDocumentFilter } from './documents.service.js';
 import { GroupPackageService } from './group-package.service.js';
+import { capHttpPageSize } from './http-page-cap.js';
 import { DocumentsRequestPersistenceInterceptor } from './infrastructure/documents-request-persistence.interceptor.js';
 import { JobQuarantineService } from './job-quarantine.service.js';
 import { validateProtocolTemplate } from './protocol-compliance.js';
@@ -202,7 +203,7 @@ export class DocumentsController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.read')
   listTemplates(@CurrentContext() c: RequestContext, @Query() q: BaseFilter) {
-    return this.documentsService.listTemplates(c.tenantId!, q);
+    return this.documentsService.listTemplates(c.tenantId!, capHttpPageSize(q));
   }
   @Post('templates')
   @UseGuards(PermissionGuard)
@@ -262,7 +263,7 @@ export class DocumentsController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.read')
   listTemplateVersions(@CurrentContext() c: RequestContext, @Query() q: BaseFilter) {
-    return this.documentsService.listTemplateVersions(c.tenantId!, q);
+    return this.documentsService.listTemplateVersions(c.tenantId!, capHttpPageSize(q));
   }
   @Post('template-versions')
   @UseGuards(PermissionGuard)
@@ -352,7 +353,7 @@ export class DocumentsController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.read')
   listTemplateVariables(@CurrentContext() c: RequestContext, @Query() q: BaseFilter) {
-    return this.documentsService.listTemplateVariables(c.tenantId!, q);
+    return this.documentsService.listTemplateVariables(c.tenantId!, capHttpPageSize(q));
   }
   @Post('template-variables')
   @UseGuards(PermissionGuard)
@@ -389,7 +390,7 @@ export class DocumentsController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.read')
   listTemplateBindings(@CurrentContext() c: RequestContext, @Query() q: BaseFilter) {
-    return this.documentsService.listTemplateBindings(c.tenantId!, q);
+    return this.documentsService.listTemplateBindings(c.tenantId!, capHttpPageSize(q));
   }
   @Post('template-bindings')
   @UseGuards(PermissionGuard)
@@ -426,7 +427,7 @@ export class DocumentsController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.read')
   listDocuments(@CurrentContext() c: RequestContext, @Query() q: BaseFilter) {
-    return this.documentsService.listDocuments(c.tenantId!, q);
+    return this.documentsService.listDocuments(c.tenantId!, capHttpPageSize(q));
   }
   @Get('documents/:id')
   @UseGuards(PermissionGuard)
@@ -501,7 +502,7 @@ export class DocumentsController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.read')
   listTasks(@CurrentContext() c: RequestContext, @Query() q: BaseFilter) {
-    return this.documentsService.listDocumentTasks(c.tenantId!, q);
+    return this.documentsService.listDocumentTasks(c.tenantId!, capHttpPageSize(q));
   }
   @Get('document-tasks/:id')
   @UseGuards(PermissionGuard)
@@ -569,7 +570,7 @@ export class DocumentsController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.read')
   listRules(@CurrentContext() c: RequestContext, @Query() q: BaseFilter) {
-    return this.documentsService.listNumberingRules(c.tenantId!, q);
+    return this.documentsService.listNumberingRules(c.tenantId!, capHttpPageSize(q));
   }
   @Post('numbering-rules')
   @UseGuards(PermissionGuard)

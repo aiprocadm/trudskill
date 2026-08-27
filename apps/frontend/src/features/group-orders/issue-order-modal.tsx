@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { DetailDrawer } from '@trudskill/ui';
+import { DetailDrawer, DrawerCancelButton } from '@trudskill/ui';
 import { useMemo, useState } from 'react';
 
 import { groupOrdersApi } from './api';
@@ -162,9 +162,7 @@ export function IssueOrderModal({
         {error ? <p className="ui-callout ui-callout--danger">Ошибка: {error}</p> : null}
 
         <div className="ui-modal-actions">
-          <button type="button" className="ui-button" onClick={onClose}>
-            Отмена
-          </button>
+          <DrawerCancelButton className="ui-button" onFallbackClose={onClose} />
           <button
             type="button"
             className="ui-button ui-button--primary"

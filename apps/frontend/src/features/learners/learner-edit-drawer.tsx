@@ -1,6 +1,6 @@
 'use client';
 
-import { DetailDrawer } from '@trudskill/ui';
+import { DetailDrawer, DrawerCancelButton } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { STATUS_LABEL, buildUpdatePayload } from './format';
@@ -179,14 +179,11 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
         ) : null}
 
         <div className="ui-inline">
-          <button
-            type="button"
+          <DrawerCancelButton
             className="ui-button"
-            onClick={onClose}
             disabled={mutation.isPending}
-          >
-            Отмена
-          </button>
+            onFallbackClose={onClose}
+          />
           <button
             type="submit"
             className={`ui-button ui-button--primary ${mutation.isPending ? 'ui-button--loading' : ''}`}

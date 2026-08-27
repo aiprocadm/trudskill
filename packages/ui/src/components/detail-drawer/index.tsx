@@ -1,11 +1,29 @@
 'use client';
 
-import { useId, useRef, useState } from 'react';
+import { createContext, useContext, useId, useRef, useState } from 'react';
 
 import { useOverlayEscapeAndScrollLock, useOverlayFocus } from '../overlay/focus.js';
 import { ErrorState, LoadingState } from '../states/index.js';
 
 import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
+
+/**
+ * Ревизия 2026-08-27 (порция 34, журнал 288) — «закрытие с проверкой» для содержимого панели.
+ *
+ * Esc и клик мимо панели спрашивают подтверждение при несохранённых правках, а кнопка
+ * «Отмена» внутри формы закрывала напрямую и стирала заполненное молча: подтверждение
+ * живёт ВНУТРИ панели, и её содержимому нужен доступ к тому же закрытию.
+ *
+ * Контекст, а не новый проп: кнопка «Отмена» лежит глубоко в разметке формы, и тащить
+ * функцию через все уровни значило бы менять сигнатуры ради одного обработчика.
+ */
+const DrawerCloseContext = createContext<(() => void) | null>(null);
+
+/**
+ * Закрыть панель ТАК ЖЕ, как это делают Esc и клик мимо неё: с подтверждением, если есть
+ * несохранённые правки. Вне панели возвращает `null` — вызывающий сам решает, что делать.
+ */
+export const useDrawerRequestClose = (): (() => void) | null => useContext(DrawerCloseContext);
 
 /**
  * Боковая панель деталей (CMP-010).
@@ -99,10 +117,18 @@ export const DetailDrawer = ({
               ) : null}
             </div>
           ) : null}
-          {!isLoading && !error ? children : null}
+          {!isLoading && !error ? (
+            <DrawerCloseContext.Provider value={requestClose}>
+              {children}
+            </DrawerCloseContext.Provider>
+          ) : null}
         </div>
 
-        {footer ? <footer className="ui-drawer__footer">{footer}</footer> : null}
+        {footer ? (
+          <footer className="ui-drawer__footer">
+            <DrawerCloseContext.Provider value={requestClose}>{footer}</DrawerCloseContext.Provider>
+          </footer>
+        ) : null}
 
         {confirmingClose ? (
           <div
@@ -127,5 +153,40 @@ export const DetailDrawer = ({
         ) : null}
       </div>
     </div>
+  );
+};
+
+/**
+ * Кнопка отказа от правок внутри боковой панели (порция 34, журнал 288).
+ *
+ * Закрывает панель ТЕМ ЖЕ путём, что Esc и клик мимо неё, — то есть с подтверждением,
+ * если есть несохранённые правки. Отдельный компонент нужен потому, что кнопка лежит
+ * глубоко в разметке формы: хук контекста в теле формы вернул бы `null` (провайдер
+ * находится ниже, внутри самой панели).
+ *
+ * `onFallbackClose` — путь для случая, когда кнопку используют вне панели: тогда
+ * подтверждать нечем и закрытие идёт напрямую.
+ */
+export const DrawerCancelButton = ({
+  children = 'Отмена',
+  className = 'ui-button',
+  disabled = false,
+  onFallbackClose
+}: {
+  children?: ReactNode;
+  className?: string;
+  disabled?: boolean;
+  onFallbackClose?: () => void;
+}): ReactElement => {
+  const requestClose = useDrawerRequestClose();
+  return (
+    <button
+      type="button"
+      className={className}
+      disabled={disabled}
+      onClick={() => (requestClose ?? onFallbackClose)?.()}
+    >
+      {children}
+    </button>
   );
 };

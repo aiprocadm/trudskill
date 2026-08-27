@@ -1,6 +1,6 @@
 'use client';
 
-import { DetailDrawer } from '@trudskill/ui';
+import { DetailDrawer, DrawerCancelButton } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { useCreateAssignment, useUpdateAssignment } from './hooks';
@@ -152,9 +152,11 @@ export function AssignmentEditDrawer({ assignment, onClose, onSaved }: Props) {
         {error ? <p className="ui-field-error">{error}</p> : null}
 
         <div className="ui-form-actions">
-          <button type="button" className="ui-button" onClick={onClose} disabled={isPending}>
-            Отмена
-          </button>
+          <DrawerCancelButton
+            className="ui-button"
+            disabled={isPending}
+            onFallbackClose={onClose}
+          />
           <button
             type="submit"
             className={`ui-button-primary ${isPending ? 'ui-button--loading' : ''}`}
