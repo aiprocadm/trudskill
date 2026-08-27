@@ -280,3 +280,74 @@ describe('AuthService.issueSessionForUser', () => {
     expect(rotated.refreshToken).not.toEqual(issued.refreshToken);
   });
 });
+
+/*
+ * Ревизия 2026-08-27 (порция 22, журнал 266–267): блокировка обязана отбирать доступ
+ * НЕМЕДЛЕННО и ЛЮБЫМ способом входа. До починки: refresh не смотрел статус и продлевал
+ * цепочку бессрочно, issueSessionForUser (ЕСИА, magic-link) выдавал сессию заблокированному,
+ * а отозвать чужие сессии администратору было нечем.
+ */
+describe('блокировка отбирает доступ немедленно (ревизия, порция 22)', () => {
+  const makeAuth = () => {
+    const audit = new AuditService();
+    const iam = new IamService(audit);
+    const auth = new AuthService(iam, audit, new SecretsService());
+    return { iam, auth };
+  };
+
+  it('issueSessionForUser отказывает заблокированному — единый гейт для ЕСИА и magic-link', async () => {
+    const { iam, auth } = makeAuth();
+    const blocked = await iam.getUser('tenant_demo', 'u_blocked');
+    for (const authMethod of ['esia', 'magic_link'] as const) {
+      await expect(
+        auth.issueSessionForUser(blocked, context, { authMethod, databaseBacked: false })
+      ).rejects.toMatchObject({ response: { code: 'user_blocked' } });
+    }
+  });
+
+  it('отказ заблокированному стоит ДО TOTP-гейта: блокировка не выдаёт challenge', async () => {
+    const { iam, auth } = makeAuth();
+    const blocked = await iam.getUser('tenant_demo', 'u_blocked');
+    const withTotp = { ...blocked, totpEnabled: true };
+    await expect(
+      auth.issueSessionForUser(withTotp, context, { authMethod: 'esia', databaseBacked: false })
+    ).rejects.toMatchObject({ response: { code: 'user_blocked' } });
+  });
+
+  it('refresh отказывает заблокированному и гасит всю семью его сессий', async () => {
+    const { iam, auth } = makeAuth();
+    const login = await auth.login(
+      'tenant_demo',
+      { login: 'tenant_admin', password: 'Password123!' },
+      context
+    );
+    const userId = 'u_tenant_admin';
+    await iam.updateUser('tenant_demo', userId, { status: 'blocked' });
+
+    await expect(
+      auth.refresh('tenant_demo', login.refreshToken, login.csrfToken, context)
+    ).rejects.toMatchObject({ response: { code: 'user_blocked' } });
+    // Отказ — не «попробуйте позже»: семья сессий отозвана, живых не осталось.
+    await expect(auth.isSessionActive('tenant_demo', userId, login.sessionId)).resolves.toBe(false);
+  });
+
+  it('revokeAllSessionsForUser гасит все живые сессии пользователя (рычаг администратора)', async () => {
+    const { auth } = makeAuth();
+    const first = await auth.login(
+      'tenant_demo',
+      { login: 'tenant_admin', password: 'Password123!' },
+      context
+    );
+    const second = await auth.login(
+      'tenant_demo',
+      { login: 'tenant_admin', password: 'Password123!' },
+      context
+    );
+    const userId = 'u_tenant_admin';
+    await auth.revokeAllSessionsForUser('tenant_demo', userId, context);
+    await expect(auth.isSessionActive('tenant_demo', userId, first.sessionId)).resolves.toBe(false);
+    await expect(auth.isSessionActive('tenant_demo', userId, second.sessionId)).resolves.toBe(
+      false
+    );
+  });
+});
