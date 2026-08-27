@@ -17,6 +17,7 @@ import { DOCUMENTS_PERSISTENCE_BACKEND } from './infrastructure/documents-persis
 import { DocumentsRequestPersistenceInterceptor } from './infrastructure/documents-request-persistence.interceptor.js';
 import { MemoryDocumentsPersistenceBackend } from './infrastructure/memory-documents-persistence.backend.js';
 import { JobQuarantineService } from './job-quarantine.service.js';
+import { MissedIssuanceSchedulerService } from './missed-issuance.scheduler.service.js';
 import { StuckTasksReaperService } from './stuck-tasks-reaper.service.js';
 import { TemplateInspectionService } from './template-inspection.service.js';
 import { FakeDocumentSignatureProvider } from '../../infrastructure/document-signature/fake-document-signature.provider.js';
@@ -53,6 +54,8 @@ const persistenceBackendClass =
     DocumentsEnqueueService,
     JobQuarantineService,
     StuckTasksReaperService,
+    // Порция 37 (журнал 273): добор документов, чей выпуск потерялся вместе с процессом.
+    MissedIssuanceSchedulerService,
     // Сборщик словаря переменных (Task 4) читает MVP-состояние. MvpTenantRunner собираем
     // из инфраструктуры напрямую — импорт MvpModule дал бы цикл (он импортирует documents).
     PostgresMvpPersistenceBackend,
