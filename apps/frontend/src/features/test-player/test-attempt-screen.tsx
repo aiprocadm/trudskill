@@ -13,6 +13,7 @@ import {
   useSaveAnswer,
   useSubmitAttempt
 } from './hooks';
+import { UNSAVED_ANSWER_SUBMIT_MESSAGE, shouldBlockSubmit } from './submit-guard';
 import {
   PageContainer,
   PageHeader,
@@ -65,6 +66,8 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
    * рядом и обновляем его там же, где меняется сам набор.
    */
   const [unsavedCount, setUnsavedCount] = useState(0);
+  // Порция 27: почему сдача не состоялась — человек должен это видеть, а не гадать.
+  const [submitBlocked, setSubmitBlocked] = useState<string | null>(null);
   const syncUnsaved = () => setUnsavedCount(dirtyRef.current.size);
   const markDirty = (questionId: string) => {
     dirtyRef.current.add(questionId);
@@ -148,8 +151,24 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
     }
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async ({ auto = false }: { auto?: boolean } = {}) => {
     if (current) await flushDraft(current.id);
+    /*
+     * Ревизия 2026-08-27 (порция 27, журнал 280): досохранение могло не удаться (связь,
+     * ошибка сервера) — тогда пометка «несохранён» возвращается на место. Раньше сдача
+     * шла дальше, и попытка финализировалась БЕЗ последнего ответа, а человек видел
+     * «Тест завершён». Сдачу по кнопке останавливаем; автосдаче по таймеру выбора нет.
+     */
+    if (
+      shouldBlockSubmit({
+        auto,
+        currentAnswerUnsaved: Boolean(current && dirtyRef.current.has(current.id))
+      })
+    ) {
+      setSubmitBlocked(UNSAVED_ANSWER_SUBMIT_MESSAGE);
+      return;
+    }
+    setSubmitBlocked(null);
     const result = await submitAttempt.mutate(attemptId);
     if (result) {
       // Phase 4 Plan B: stop the webcam recording and complete the session (fire-and-forget —
@@ -173,7 +192,7 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
     if (remainingMs === null || autoSubmittedRef.current) return;
     if (remainingMs <= 0) {
       autoSubmittedRef.current = true;
-      void handleSubmitRef.current();
+      void handleSubmitRef.current({ auto: true });
     }
   }, [remainingMs]);
 
@@ -402,6 +421,7 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
         )}
       </div>
 
+      {submitBlocked ? <SectionError message={submitBlocked} /> : null}
       {submitAttempt.error ? <SectionError message={submitAttempt.error} /> : null}
     </PageContainer>
   );

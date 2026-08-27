@@ -1,8 +1,9 @@
 'use client';
 
 import { FilePicker, LoadingState } from '@trudskill/ui';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
+import { canSaveDraft, shouldHydrateDraft } from './draft-rules';
 import {
   formatAntivirusStatusLearner,
   formatSubmissionStatus,
@@ -34,11 +35,34 @@ export function SubmissionScreen({ assignmentId }: { assignmentId: string }) {
 
   const [answerText, setAnswerText] = useState('');
   const [submissionId, setSubmissionId] = useState<string | null>(null);
+  /*
+   * Признак подстановки — СОСТОЯНИЕ, а не ref: при пустом сохранённом ответе
+   * `setAnswerText('')` ничего не меняет, перерисовки не будет, и кнопка сохранения
+   * осталась бы заблокированной навсегда.
+   */
+  const [draftHydrated, setDraftHydrated] = useState(false);
 
   // Resolve the active submission id before the early returns so the data hook is called
   // unconditionally (rules of hooks). The full DTO carries the file's antivirus status (V1.1).
   const activeSubmissionId = submissionId ?? summary?.submissionId ?? null;
   const submission = useSubmission(activeSubmissionId);
+
+  /*
+   * Ревизия 2026-08-27 (порция 27, журнал 279): подставляем сохранённый ответ в поле.
+   * Экран всегда стартовал с пустого — сервер текст отдавал, но в поле он не попадал
+   * никогда, и человек, вернувшийся к заданию, видел пустоту вместо своей работы.
+   * Подставляем ОДИН раз: дальше поле принадлежит человеку, перетирать его правки нельзя.
+   */
+  const serverAnswerText = submission.data?.answerText;
+  useEffect(() => {
+    if (!shouldHydrateDraft({ alreadyHydrated: draftHydrated, serverText: serverAnswerText }))
+      return;
+    setDraftHydrated(true);
+    setAnswerText(serverAnswerText ?? '');
+  }, [serverAnswerText, draftHydrated]);
+
+  // Пока сохранённый ответ не подставлен, сохранять нельзя: пустое поле затёрло бы его.
+  const awaitingServerDraft = activeSubmissionId !== null && !draftHydrated;
 
   if (assignments.isLoading) return <LoadingState />;
   if (!summary) {
@@ -108,11 +132,26 @@ export function SubmissionScreen({ assignmentId }: { assignmentId: string }) {
         />
         <button
           type="button"
-          disabled={!editable || updateSubmission.isPending}
+          disabled={
+            !canSaveDraft({
+              editable,
+              saving: updateSubmission.isPending,
+              awaitingServerDraft
+            })
+          }
+          {...(awaitingServerDraft
+            ? { title: 'Загружаем сохранённый ответ — секунду, чтобы не затереть написанное' }
+            : {})}
           onClick={() => void onSaveText()}
         >
           Сохранить черновик
         </button>
+        {awaitingServerDraft && submission.error ? (
+          <SectionError
+            message="Не удалось загрузить сохранённый ответ. Пока он не загружен, сохранять нельзя — иначе написанное раньше будет затёрто."
+            onRetry={() => void submission.refetch()}
+          />
+        ) : null}
         {updateSubmission.error ? <SectionError message={updateSubmission.error} /> : null}
       </SectionCard>
 
