@@ -51,6 +51,9 @@ export class TenantGuard implements CanActivate {
         requestContext.tenantId = claims.tenant_id;
         requestContext.sessionId = claims.session_id;
         requestContext.roles = claims.roles;
+        // Порция 33 (журнал 270): признак «вошли от имени» — из токена в контекст,
+        // чтобы журнал знал, кто на самом деле совершает действие.
+        if (claims.impersonated_by) requestContext.impersonatedBy = claims.impersonated_by;
         return true;
       } catch (error) {
         if (error instanceof HttpException) {

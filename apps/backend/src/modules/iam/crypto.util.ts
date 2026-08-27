@@ -66,6 +66,12 @@ export interface AccessTokenClaims {
   tenant_id: string;
   session_id: string;
   roles: string[];
+  /**
+   * Порция 33 (журнал 270): вход «от имени» — идентификатор сотрудника поддержки.
+   * Едет в токене, чтобы каждый запрос знал это без обращения к базе; источник
+   * правды — колонка сессии.
+   */
+  impersonated_by?: string;
   iat: number;
   exp: number;
 }

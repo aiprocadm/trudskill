@@ -42,6 +42,12 @@ export interface Session {
   refreshTokenHash: string;
   csrfTokenHash?: string;
   expiresAt: string;
+  /**
+   * Порция 33 (журнал 270): кто из поддержки вошёл «от имени» владельца сессии.
+   * Пусто — обычный вход. Живёт в сессии, а не только в токене: иначе пометка
+   * исчезла бы при первом обновлении токена, а доступ остался бы.
+   */
+  impersonatedBy?: string;
   rotatedAt?: string;
   consumedAt?: string;
   revokedAt?: string;

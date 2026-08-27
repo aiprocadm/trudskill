@@ -254,7 +254,13 @@ export class PlatformTenantsService {
       userAgent: context.userAgent
     });
 
-    const session = await this.authService.issueImpersonatedSession(tenantId, targetUserId);
+    // Порция 33 (журнал 270): кто именно из поддержки входит — признак живёт в сессии
+    // и попадает в журнал на КАЖДОМ последующем действии, а не только на самом входе.
+    const session = await this.authService.issueImpersonatedSession(
+      tenantId,
+      targetUserId,
+      actorId
+    );
     return { tenantId, userId: targetUserId, session };
   }
 }
