@@ -61,7 +61,11 @@ function harness() {
         return row;
       }
     } as unknown as DocumentsService,
-    { createUploadIntent: vi.fn() } as unknown as FilesService,
+    {
+      createUploadIntent: vi.fn(),
+      // Порция 21: скачивание отдаёт подписанную ссылку хранилища вместо мёртвого пути.
+      createDownloadUrl: async (_t: string, fileId: string) => `https://storage.example/${fileId}`
+    } as unknown as FilesService,
     new EventEmitter2()
   );
 
@@ -241,46 +245,50 @@ describe('изоляция по контрагенту (ФТ-E5)', () => {
 });
 
 describe('скачивание документа портала (ФТ-E5, Фаза 5 Task 6)', () => {
-  it('представитель получает ссылку на документ СВОЕГО сотрудника', () => {
+  it('представитель получает ссылку на документ СВОЕГО сотрудника', async () => {
     const h = harness();
     const docA = h.addDoc(h.enrA.id);
-    const result = h.service.getPortalDocumentDownload(T, docA.id, h.repA);
-    expect(result.downloadUrl).toContain(`/files/${docA.fileId}/download`);
+    const result = await h.service.getPortalDocumentDownload(T, docA.id, h.repA);
+    expect(result.downloadUrl).toBe(`https://storage.example/${docA.fileId}`);
   });
 
-  it('анти-IDOR: документ сотрудника ЧУЖОГО заказчика — «не найдено», а не «запрещено»', () => {
+  it('анти-IDOR: документ сотрудника ЧУЖОГО заказчика — «не найдено», а не «запрещено»', async () => {
     const h = harness();
     const docB = h.addDoc(h.enrB.id);
-    expect(() => h.service.getPortalDocumentDownload(T, docB.id, h.repA)).toThrow(
+    await expect(h.service.getPortalDocumentDownload(T, docB.id, h.repA)).rejects.toThrow(
       NotFoundException
     );
   });
 
-  it('несуществующий документ — тоже 404: ответы про чужое и про несуществующее неразличимы', () => {
+  it('несуществующий документ — тоже 404: ответы про чужое и про несуществующее неразличимы', async () => {
     const h = harness();
-    expect(() => h.service.getPortalDocumentDownload(T, 'doc_ghost', h.repA)).toThrow(
+    await expect(h.service.getPortalDocumentDownload(T, 'doc_ghost', h.repA)).rejects.toThrow(
       NotFoundException
     );
   });
 
-  it('документ, выпущенный НЕ по зачислению, представителю не отдаётся', () => {
+  it('документ, выпущенный НЕ по зачислению, представителю не отдаётся', async () => {
     const h = harness();
     const doc = h.addDoc(h.enrA.id);
     (doc as { sourceEntityType: string }).sourceEntityType = 'group';
-    expect(() => h.service.getPortalDocumentDownload(T, doc.id, h.repA)).toThrow(NotFoundException);
+    await expect(h.service.getPortalDocumentDownload(T, doc.id, h.repA)).rejects.toThrow(
+      NotFoundException
+    );
   });
 
-  it('документ без файла — 404 и для владельца: скачивать нечего', () => {
+  it('документ без файла — 404 и для владельца: скачивать нечего', async () => {
     const h = harness();
     const doc = h.addDoc(h.enrA.id);
     (doc as { fileId: string }).fileId = '';
-    expect(() => h.service.getPortalDocumentDownload(T, doc.id, h.repA)).toThrow(NotFoundException);
+    await expect(h.service.getPortalDocumentDownload(T, doc.id, h.repA)).rejects.toThrow(
+      NotFoundException
+    );
   });
 
-  it('персонал центра (без привязки) скачивает любой документ — как раньше', () => {
+  it('персонал центра (без привязки) скачивает любой документ — как раньше', async () => {
     const h = harness();
     const docB = h.addDoc(h.enrB.id);
-    const result = h.service.getPortalDocumentDownload(T, docB.id, STAFF);
-    expect(result.downloadUrl).toContain(`/files/${docB.fileId}/download`);
+    const result = await h.service.getPortalDocumentDownload(T, docB.id, STAFF);
+    expect(result.downloadUrl).toBe(`https://storage.example/${docB.fileId}`);
   });
 });

@@ -250,7 +250,11 @@ export function mapDocumentToLearnerDto(
     enrollmentId,
     courseId,
     courseTitle,
-    downloadUrl: hasFile ? `${apiPrefix}/files/${doc.fileId}/download` : '',
+    // Ревизия 2026-08-26 (порция 21): раньше адрес указывал на «files/:id/download»,
+    // которого не существовало ни в одном контроллере, — кнопка скачивания всегда
+    // открывала 404. Теперь это адрес живой ручки; кабинет зовёт её с авторизацией
+    // и открывает присланную подписанную ссылку хранилища.
+    downloadUrl: hasFile ? `${apiPrefix}/me/documents/${doc.id}/download` : '',
     isDownloadable: hasFile,
     revocationReason: doc.revocationReason,
     replacedByDocumentId: doc.replacedByDocumentId,
@@ -663,12 +667,12 @@ export class MvpService {
    * Персонал (актор без привязки) не ограничен — менеджер должен уметь скачать то же,
    * что и клиент, когда разбирает его обращение.
    */
-  getPortalDocumentDownload(
+  async getPortalDocumentDownload(
     tenantId: string,
     documentId: string,
     actor?: { counterpartyId?: string; userId?: string },
     ctx?: RequestContext
-  ): { downloadUrl: string } {
+  ): Promise<{ downloadUrl: string }> {
     const notFound = () =>
       new NotFoundException({ code: 'not_found', message: 'Document not found' });
     let doc;
@@ -726,8 +730,72 @@ export class MvpService {
         }
       );
     }
-    const prefix = backendEnv.API_PREFIX.replace(/\/$/, '');
-    return { downloadUrl: `${prefix}/files/${doc.fileId}/download` };
+    /*
+     * Ревизия 2026-08-26 (порция 21): раньше здесь строился адрес «files/:id/download»,
+     * которого не существовало ни в одном контроллере, — ручка честно проверяла владение,
+     * писала журнал и отдавала мёртвую ссылку. Теперь отдаётся подписанная ссылка
+     * хранилища (внутри — антивирусный гейт, как у материалов и выгрузок реестров).
+     */
+    return { downloadUrl: await this.filesService.createDownloadUrl(tenantId, doc.fileId) };
+  }
+
+  /**
+   * Ревизия 2026-08-26 (порция 21): скачивание СВОЕГО документа из кабинета слушателя.
+   *
+   * Владение: документ выпущен по зачислению, а зачисление принадлежит карточке
+   * слушателя, привязанной к текущему IAM-пользователю (`linkedIamUserId`) — та же
+   * связка, что в `listMyDocuments`. Чужой, несуществующий или выпущенный не по
+   * зачислению документ — единый 404 (см. довод в `getPortalDocumentDownload`).
+   */
+  async getMyDocumentDownload(
+    tenantId: string,
+    actorId: string | undefined,
+    documentId: string,
+    ctx: RequestContext
+  ): Promise<{ downloadUrl: string }> {
+    const notFound = () =>
+      new NotFoundException({ code: 'not_found', message: 'Document not found' });
+    if (!actorId) throw notFound();
+    let doc;
+    try {
+      doc = this.documentsService.getDocument(tenantId, documentId);
+    } catch {
+      throw notFound();
+    }
+    if (doc.sourceEntityType !== 'enrollment' || !doc.sourceEntityId) throw notFound();
+    const enrollment = this.state.enrollments.find(
+      (e) => e.tenantId === tenantId && e.id === doc.sourceEntityId
+    );
+    if (!enrollment) throw notFound();
+    if (!this.resolveActorLearnerIds(tenantId, actorId).has(enrollment.learnerId)) {
+      throw notFound();
+    }
+    if (!doc.fileId) {
+      throw new NotFoundException({
+        code: 'document_file_missing',
+        message: 'Document has no file yet'
+      });
+    }
+    // ФТ-G1: запись — после всех проверок доступа (см. довод в портальной ручке).
+    this.audit(
+      tenantId,
+      actorId,
+      'documents.downloaded',
+      'documents.generated_document',
+      doc.id,
+      undefined,
+      undefined,
+      ctx,
+      {
+        documentNumber: doc.documentNumber,
+        documentName: doc.name,
+        documentType: doc.documentType,
+        learnerId: enrollment.learnerId,
+        // Отдельный канал: документ забрал сам слушатель из кабинета, а не сотрудник центра.
+        channel: 'learner_cabinet'
+      }
+    );
+    return { downloadUrl: await this.filesService.createDownloadUrl(tenantId, doc.fileId) };
   }
 
   getLearner(tenantId: string, id: string): Learner {
@@ -2005,7 +2073,8 @@ export class MvpService {
         id: d.id,
         documentType: d.documentType,
         name: d.name,
-        downloadUrl: `${prefix}/files/${d.fileId}/download`
+        // Адрес живой ручки скачивания (см. mapDocumentToLearnerDto — прежний путь был мёртв).
+        downloadUrl: `${prefix}/me/documents/${d.id}/download`
       }))
     };
   }
@@ -2024,10 +2093,9 @@ export class MvpService {
    * `qrToken` отдаём — это публичная часть, ссылается на `/verify/[token]`
    * (см. PublicVerifyController) и нужна для UX «показать QR в кабинете».
    *
-   * `downloadUrl` указывает на `/files/:id/download` (тот же путь, что у
-   * админских certificates) — реальный stream PDF появится в Phase 5, когда
-   * подключится document generation pipeline; до тех пор фронт показывает
-   * stub-сообщение.
+   * `downloadUrl` указывает на живую ручку `/me/documents/:id/download`
+   * (ревизия 2026-08-26, порция 21: прежний путь `/files/:id/download` не был
+   * реализован ни в одном контроллере — кнопка скачивания всегда открывала 404).
    */
   listEnrollmentDocuments(
     tenantId: string,

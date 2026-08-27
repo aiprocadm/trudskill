@@ -14,6 +14,7 @@ import { AuthService } from '../iam/services/auth.service.js';
 import { IamService } from '../iam/services/iam.service.js';
 
 import type { MemoryMvpPersistenceBackend } from './infrastructure/memory-mvp-persistence.backend.js';
+import type { InMemoryDocumentsState as DocumentsStateShape } from '../documents/in-memory-documents.state.js';
 
 /** Права для полного охвата `mvp`-маршрутов, используемых в этом HTTP suite. */
 const MVP_DOMAIN_HTTP_PERMS: readonly string[] = [
@@ -77,6 +78,14 @@ describe('MVP HTTP integration (domain invariants)', () => {
     | undefined;
   /** Для сидирования изолированного snapshot другого tenant в HTTP cross-tenant тесте. */
   let memoryMvpPersistenceRef: MemoryMvpPersistenceBackend | undefined;
+  // Порция 21: прямой доступ к памяти документов — сеять данные «выпущенные вне запроса».
+  let memoryDocumentsPersistenceRef:
+    | {
+        loadIntoState: (tenantId: string, state: DocumentsStateShape) => Promise<void>;
+        saveFromState: (tenantId: string, state: DocumentsStateShape) => Promise<void>;
+      }
+    | undefined;
+  let makeDocumentsState: (() => DocumentsStateShape) | undefined;
 
   const authServiceMock = { isSessionActive: vi.fn().mockResolvedValue(true) };
   const publishBulkJobMock = vi.fn().mockResolvedValue({
@@ -110,19 +119,18 @@ describe('MVP HTTP integration (domain invariants)', () => {
     })
   };
   const noopFilesService = {
-    ensureMaterialLink: async (): Promise<undefined> => undefined
+    ensureMaterialLink: async (): Promise<undefined> => undefined,
+    // Ревизия 2026-08-26 (порция 21): скачивание документа кабинета отдаёт подписанную
+    // ссылку хранилища — здесь достаточно узнаваемой константы.
+    createDownloadUrl: async (): Promise<string> => 'https://storage.example/presigned'
   } as unknown as FilesService;
-  const documentTemplates: Array<{ id: string; tenantId: string; name: string }> = [];
-  const noopDocumentsService = {
-    listDocuments: () => ({ items: [], page: 1, pageSize: 200, total: 0 }),
-    getTemplate: (tenantId: string, id: string) => {
-      const tpl = documentTemplates.find((t) => t.tenantId === tenantId && t.id === id);
-      if (!tpl) {
-        throw new Error(`template ${id} not found in ${tenantId}`);
-      }
-      return tpl;
-    }
-  } as unknown as DocumentsService;
+  /*
+   * Ревизия 2026-08-26 (порция 21): DocumentsService здесь НАСТОЯЩИЙ, а не заглушка.
+   * Прежняя заглушка прятала главный дефект стыка: request-scoped состояние документов
+   * на маршрутах MVP никто не загружал, и /me/documents, портал, закрытие группы и
+   * госвыгрузки работали поверх пустых массивов. Теперь suite проверяет стык целиком:
+   * маршрут → перехватчик документов → память → ответ.
+   */
 
   beforeAll(async () => {
     const requiredEnv: Record<string, string> = {
@@ -173,7 +181,14 @@ describe('MVP HTTP integration (domain invariants)', () => {
       { LegalLogReader },
       { TenantUsageService },
       { LearnerPiiService },
-      { MethodistDashboardService }
+      { MethodistDashboardService },
+      { DOCUMENTS_STATE },
+      { InMemoryDocumentsState },
+      { MemoryDocumentsPersistenceBackend },
+      { DOCUMENTS_PERSISTENCE_BACKEND },
+      { DocumentsRequestPersistenceInterceptor },
+      { DocumentsTenantRunner },
+      { RealtimeEventsService }
     ] = await Promise.all([
       import('@nestjs/core'),
       import('@nestjs/throttler'),
@@ -208,7 +223,14 @@ describe('MVP HTTP integration (domain invariants)', () => {
       import('./esignature/legal-log.reader.js'),
       import('./usage/tenant-usage.service.js'),
       import('./pii/learner-pii.service.js'),
-      import('./dashboards/methodist-dashboard.service.js')
+      import('./dashboards/methodist-dashboard.service.js'),
+      import('../documents/documents-state.token.js'),
+      import('../documents/in-memory-documents.state.js'),
+      import('../documents/infrastructure/memory-documents-persistence.backend.js'),
+      import('../documents/infrastructure/documents-persistence.token.js'),
+      import('../documents/infrastructure/documents-request-persistence.interceptor.js'),
+      import('../documents/documents-tenant-runner.service.js'),
+      import('../core/realtime-events.service.js')
     ]);
 
     issueSignedAccessToken = cryptoImport.issueSignedAccessToken;
@@ -299,7 +321,18 @@ describe('MVP HTTP integration (domain invariants)', () => {
         { provide: AuthService, useValue: authServiceMock },
         { provide: IamService, useValue: iamServiceMock },
         { provide: FilesService, useValue: noopFilesService },
-        { provide: DocumentsService, useValue: noopDocumentsService }
+        // Настоящий контур документов (порция 21): request-scoped состояние + перехватчик.
+        { provide: DOCUMENTS_STATE, scope: Scope.REQUEST, useClass: InMemoryDocumentsState },
+        { provide: DocumentsService, scope: Scope.REQUEST, useClass: DocumentsService },
+        MemoryDocumentsPersistenceBackend,
+        { provide: DOCUMENTS_PERSISTENCE_BACKEND, useExisting: MemoryDocumentsPersistenceBackend },
+        {
+          provide: DocumentsRequestPersistenceInterceptor,
+          scope: Scope.REQUEST,
+          useClass: DocumentsRequestPersistenceInterceptor
+        },
+        DocumentsTenantRunner,
+        { provide: RealtimeEventsService, useValue: { publish: () => undefined } }
       ]
     })
     class MvpDomainsHttpIntegrationRootModule {}
@@ -325,8 +358,21 @@ describe('MVP HTTP integration (domain invariants)', () => {
     const port = typeof address === 'object' && address && 'port' in address ? address.port : 0;
     apiBaseUrl = `http://127.0.0.1:${port}${process.env.API_PREFIX ?? '/api/v1'}`;
     memoryMvpPersistenceRef = created.get(MemoryMvpPersistenceBackend);
+    memoryDocumentsPersistenceRef = created.get(MemoryDocumentsPersistenceBackend);
+    makeDocumentsState = () => new InMemoryDocumentsState();
     app = created;
   }, 120_000);
+
+  /** Порция 21: изменить снимок документов тенанта, не потеряв уже посеянное. */
+  const seedDocuments = async (
+    tenantId: string,
+    mutate: (state: DocumentsStateShape) => void
+  ): Promise<void> => {
+    const state = makeDocumentsState!();
+    await memoryDocumentsPersistenceRef!.loadIntoState(tenantId, state);
+    mutate(state);
+    await memoryDocumentsPersistenceRef!.saveFromState(tenantId, state);
+  };
 
   afterAll(async () => {
     if (app) await app.close();
@@ -2454,10 +2500,29 @@ describe('MVP HTTP integration (domain invariants)', () => {
       const t = tokenFor(`sess_pillar_a_docset_seq_${Date.now()}`);
       const cvId = await makeCourseVersionForDocSet(t, 'DSEQ');
 
-      documentTemplates.push(
-        { id: 'tpl_pa_proto', tenantId: 'tenant_demo', name: 'Protocol' },
-        { id: 'tpl_pa_cert', tenantId: 'tenant_demo', name: 'Certificate' }
-      );
+      const now = new Date().toISOString();
+      await seedDocuments('tenant_demo', (s) => {
+        s.templates.push(
+          {
+            id: 'tpl_pa_proto',
+            tenantId: 'tenant_demo',
+            name: 'Protocol',
+            templateType: 'protocol',
+            status: 'active',
+            createdAt: now,
+            updatedAt: now
+          },
+          {
+            id: 'tpl_pa_cert',
+            tenantId: 'tenant_demo',
+            name: 'Certificate',
+            templateType: 'certificate',
+            status: 'active',
+            createdAt: now,
+            updatedAt: now
+          }
+        );
+      });
 
       const res = await fetch(`${apiBaseUrl}/course-versions/${cvId}/document-set`, {
         method: 'PUT',
@@ -2488,10 +2553,29 @@ describe('MVP HTTP integration (domain invariants)', () => {
       const t = tokenFor(`sess_pillar_a_docset_ok_${Date.now()}`);
       const cvId = await makeCourseVersionForDocSet(t, 'DOK');
 
-      documentTemplates.push(
-        { id: 'tpl_pa_ok_proto', tenantId: 'tenant_demo', name: 'Protocol' },
-        { id: 'tpl_pa_ok_cert', tenantId: 'tenant_demo', name: 'Certificate' }
-      );
+      const now = new Date().toISOString();
+      await seedDocuments('tenant_demo', (s) => {
+        s.templates.push(
+          {
+            id: 'tpl_pa_ok_proto',
+            tenantId: 'tenant_demo',
+            name: 'Protocol',
+            templateType: 'protocol',
+            status: 'active',
+            createdAt: now,
+            updatedAt: now
+          },
+          {
+            id: 'tpl_pa_ok_cert',
+            tenantId: 'tenant_demo',
+            name: 'Certificate',
+            templateType: 'certificate',
+            status: 'active',
+            createdAt: now,
+            updatedAt: now
+          }
+        );
+      });
 
       const putRes = await fetch(`${apiBaseUrl}/course-versions/${cvId}/document-set`, {
         method: 'PUT',
@@ -2525,6 +2609,149 @@ describe('MVP HTTP integration (domain invariants)', () => {
       expect(body.data.items).toHaveLength(2);
       expect(body.data.items[0]?.position).toBe(0);
       expect(body.data.items[1]?.position).toBe(1);
+    });
+  });
+
+  /*
+   * Ревизия 2026-08-26 (порция 21) — стык «маршрут MVP → состояние документов».
+   * До порции 21 состояние документов на маршрутах MVP никто не загружал: кабинет
+   * всегда видел пустоту, а скачивание отвечало 404 на существующий документ.
+   * Эти тесты падают, если с маршрута снять DocumentsRequestPersistenceInterceptor.
+   */
+  describe('documents state wiring (порция 21)', () => {
+    const LEARNER_ID = 'lrn_p21_docs';
+    const ENROLLMENT_ID = 'enr_p21_docs';
+    const ALIEN_ENROLLMENT_ID = 'enr_p21_alien';
+    const DOC_ID = 'gdoc_p21_mine';
+    const ALIEN_DOC_ID = 'gdoc_p21_alien';
+
+    beforeAll(async () => {
+      const now = new Date().toISOString();
+      // Карточка слушателя привязана к актору токена; чужое зачисление — к другой карточке.
+      const snapshots = (
+        memoryMvpPersistenceRef as unknown as {
+          snapshots: Map<string, Record<MvpCollection, unknown[]>>;
+        }
+      ).snapshots;
+      const snap =
+        snapshots.get('tenant_demo') ??
+        (() => {
+          const empty = {} as Record<MvpCollection, unknown[]>;
+          for (const col of MVP_COLLECTIONS) empty[col] = [];
+          snapshots.set('tenant_demo', empty);
+          return empty;
+        })();
+      snap.learners.push(
+        {
+          id: LEARNER_ID,
+          tenantId: 'tenant_demo',
+          firstName: 'Пётр',
+          lastName: 'Проверочный',
+          status: 'active',
+          linkedIamUserId: 'u_domain_http_actor',
+          createdAt: now,
+          updatedAt: now
+        },
+        {
+          id: 'lrn_p21_alien',
+          tenantId: 'tenant_demo',
+          firstName: 'Чужой',
+          lastName: 'Слушатель',
+          status: 'active',
+          createdAt: now,
+          updatedAt: now
+        }
+      );
+      snap.enrollments.push(
+        {
+          id: ENROLLMENT_ID,
+          tenantId: 'tenant_demo',
+          learnerId: LEARNER_ID,
+          groupId: 'grp_p21_docs',
+          status: 'completed',
+          createdAt: now,
+          updatedAt: now
+        },
+        {
+          id: ALIEN_ENROLLMENT_ID,
+          tenantId: 'tenant_demo',
+          learnerId: 'lrn_p21_alien',
+          groupId: 'grp_p21_docs',
+          status: 'completed',
+          createdAt: now,
+          updatedAt: now
+        }
+      );
+      // Документы «выпущены вне запроса» (как это делает слушатель событий через runner).
+      await seedDocuments('tenant_demo', (s) => {
+        s.generatedDocuments.push(
+          {
+            id: DOC_ID,
+            tenantId: 'tenant_demo',
+            templateId: 'tpl_p21',
+            templateVersionId: 'tplv_p21',
+            documentType: 'certificate',
+            name: 'Удостоверение о проверке стыка',
+            sourceEntityType: 'enrollment',
+            sourceEntityId: ENROLLMENT_ID,
+            fileId: 'file_p21',
+            status: 'final',
+            documentNumber: 'П21-001',
+            documentDate: '2026-08-26',
+            isFinal: true,
+            generatedAt: now
+          },
+          {
+            id: ALIEN_DOC_ID,
+            tenantId: 'tenant_demo',
+            templateId: 'tpl_p21',
+            templateVersionId: 'tplv_p21',
+            documentType: 'certificate',
+            name: 'Чужое удостоверение',
+            sourceEntityType: 'enrollment',
+            sourceEntityId: ALIEN_ENROLLMENT_ID,
+            fileId: 'file_p21_alien',
+            status: 'final',
+            isFinal: true,
+            generatedAt: now
+          }
+        );
+      });
+    });
+
+    it('HTTP GET /me/documents видит документ, выпущенный вне запроса', async () => {
+      const res = await fetch(`${apiBaseUrl}/me/documents`, {
+        headers: hdr(tokenFor('sess_p21_my_docs'))
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        data: { items: Array<{ id: string; downloadUrl: string; isDownloadable: boolean }> };
+      };
+      const mine = body.data.items.find((d) => d.id === DOC_ID);
+      expect(mine, 'документ, выпущенный вне запроса, обязан быть виден в кабинете').toBeDefined();
+      expect(mine!.isDownloadable).toBe(true);
+      // Адрес указывает на ЖИВУЮ ручку скачивания, а не на несуществующий маршрут.
+      expect(mine!.downloadUrl).toBe(`/api/v1/me/documents/${DOC_ID}/download`);
+      // Чужой документ в «моих» не показывается.
+      expect(body.data.items.some((d) => d.id === ALIEN_DOC_ID)).toBe(false);
+    });
+
+    it('HTTP GET /me/documents/:id/download отдаёт подписанную ссылку хранилища', async () => {
+      const res = await fetch(`${apiBaseUrl}/me/documents/${DOC_ID}/download`, {
+        headers: hdr(tokenFor('sess_p21_my_download'))
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { data: { downloadUrl: string } };
+      expect(body.data.downloadUrl).toBe('https://storage.example/presigned');
+    });
+
+    it('HTTP GET /me/documents/:id/download: чужой документ — единый 404', async () => {
+      const res = await fetch(`${apiBaseUrl}/me/documents/${ALIEN_DOC_ID}/download`, {
+        headers: hdr(tokenFor('sess_p21_alien_download'))
+      });
+      expect(res.status).toBe(404);
+      const body = (await res.json()) as { error: { code: string } };
+      expect(body.error.code).toBe('not_found');
     });
   });
 });

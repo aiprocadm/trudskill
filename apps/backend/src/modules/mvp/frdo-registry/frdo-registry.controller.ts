@@ -13,6 +13,7 @@ import { FrdoRegistryService } from './frdo-registry.service.js';
 import { assertValidDto } from '../../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../../common/guards/tenant.guard.js';
+import { DocumentsRequestPersistenceInterceptor } from '../../documents/infrastructure/documents-request-persistence.interceptor.js';
 import { RequirePermissions } from '../../iam/permission.decorator.js';
 import { PermissionGuard } from '../../iam/permission.guard.js';
 import { CreateFrdoRegistryExportDto } from '../frdo-registry-export.dto.js';
@@ -20,8 +21,12 @@ import { MvpRequestPersistenceInterceptor } from '../infrastructure/mvp-request-
 
 import type { RequestContext } from '../../../common/context/request-context.js';
 
+/*
+ * Ревизия 2026-08-26 (порция 21): сервис читает выпущенные документы через request-scoped
+ * `DocumentsService` — без его перехватчика выгрузка собиралась поверх пустого состояния.
+ */
 @Controller('frdo-registry')
-@UseInterceptors(MvpRequestPersistenceInterceptor)
+@UseInterceptors(MvpRequestPersistenceInterceptor, DocumentsRequestPersistenceInterceptor)
 @UseGuards(TenantGuard)
 export class FrdoRegistryController {
   constructor(@Inject(FrdoRegistryService) private readonly service: FrdoRegistryService) {}

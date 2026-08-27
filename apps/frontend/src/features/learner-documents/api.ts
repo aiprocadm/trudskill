@@ -15,5 +15,15 @@ export const learnerDocumentsApi = {
   listForEnrollment: (session: UserSession, enrollmentId: string) =>
     apiRequest<LearnerDocumentsResponse>(`/enrollments/${enrollmentId}/documents`, {
       auth: auth(session)
+    }),
+  /**
+   * Ревизия 2026-08-26 (порция 21): скачивание идёт через ручку с авторизацией —
+   * она проверяет владение, пишет журнал и отдаёт подписанную ссылку хранилища.
+   * Прямое открытие адреса из списка невозможно: браузерный переход не несёт
+   * Bearer-заголовок.
+   */
+  getDownload: (session: UserSession, documentId: string) =>
+    apiRequest<{ downloadUrl: string }>(`/me/documents/${documentId}/download`, {
+      auth: auth(session)
     })
 };

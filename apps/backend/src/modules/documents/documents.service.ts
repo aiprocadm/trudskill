@@ -611,6 +611,14 @@ export class DocumentsService {
     ctx?: RequestContext
   ) {
     const document = this.must(this.state.generatedDocuments, tenantId, id);
+    // Ревизия 2026-08-26 (порция 21): без файла скачивать нечего — отказ ДО записи
+    // в журнал, иначе журнал фиксирует «выгрузку», которая не могла состояться.
+    if (!document.fileId) {
+      throw new NotFoundException({
+        code: 'document_file_missing',
+        message: 'Document has no file yet'
+      });
+    }
     this.auditService.write({
       tenantId,
       actorId,

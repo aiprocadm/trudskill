@@ -486,11 +486,15 @@ export class DocumentsController {
   @Get('documents/:id/download')
   @UseGuards(PermissionGuard)
   @RequirePermissions('documents.read')
-  downloadDocument(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+  async downloadDocument(@CurrentContext() c: RequestContext, @Param('id') id: string) {
     // ФТ-G1: скачивание пишется в журнал — документ содержит ПДн слушателя, и центр обязан
     // уметь ответить, кто и когда его выгружал.
     const doc = this.documentsService.getDocumentForDownload(c.tenantId!, id, c.userId, c);
-    return { downloadUrl: `/api/v1/files/${doc.fileId}/download` };
+    // Ревизия 2026-08-26 (порция 21): раньше здесь строился адрес «files/:id/download»,
+    // которого не существовало ни в одном контроллере, — журнал фиксировал скачивания,
+    // которые физически не могли состояться. Теперь отдаётся подписанная ссылка
+    // хранилища (внутри — антивирусный гейт).
+    return { downloadUrl: await this.files.createDownloadUrl(c.tenantId!, doc.fileId!) };
   }
 
   @Get('document-tasks')

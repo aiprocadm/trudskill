@@ -8,7 +8,8 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards
+  UseGuards,
+  UseInterceptors
 } from '@nestjs/common';
 
 import {
@@ -26,13 +27,21 @@ import { EsignService } from './esign.service.js';
 import { assertValidDto } from '../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
+import { DocumentsRequestPersistenceInterceptor } from '../documents/infrastructure/documents-request-persistence.interceptor.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
 import { PermissionGuard } from '../iam/permission.guard.js';
 
 import type { EsignBaseFilter } from './esign.dto.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 
+/*
+ * Ревизия 2026-08-26 (порция 21): сервис НЭП ходит в документы через request-scoped
+ * `DocumentsService` (создание процесса читает документ, финализация — помечает его
+ * подписанным). Без перехватчика документов создание процесса отвечало 404 на ЛЮБОЙ
+ * реальный документ, а отметка финализации испарялась вместе с запросом.
+ */
 @Controller('esign')
+@UseInterceptors(DocumentsRequestPersistenceInterceptor)
 @UseGuards(TenantGuard)
 export class EsignController {
   constructor(@Inject(EsignService) private readonly esignService: EsignService) {}

@@ -88,6 +88,19 @@ const persistenceBackendClass =
   // DOCUMENTS_PERSISTENCE_BACKEND экспортируется для ЧИТАЮЩИХ потребителей вне модуля
   // (ФТ-D2.3: онбординг считает шаблоны). DocumentsTenantRunner для этого не годится —
   // он всегда пишет снимок обратно, а подсчёту записывать нечего.
-  exports: [DocumentsService, DocumentsTenantRunner, DOCUMENTS_PERSISTENCE_BACKEND]
+  // DocumentsRequestPersistenceInterceptor экспортируется для контроллеров ДРУГИХ модулей,
+  // чьи сервисы работают через request-scoped DocumentsService (mvp, esign, реестры):
+  // без него их маршруты читают и пишут пустое, никогда не сохраняемое состояние документов.
+  // DOCUMENTS_STATE экспортируется вместе с ним: класс-перехватчик из @UseInterceptors
+  // инстанцируется в модуле КОНТРОЛЛЕРА, и его зависимости должны быть видимы там
+  // (это поймал сторож DI-графа app.module.di.test.ts). Провайдер остаётся один —
+  // request-scoped экземпляр состояния общий у перехватчика и DocumentsService.
+  exports: [
+    DocumentsService,
+    DocumentsTenantRunner,
+    DOCUMENTS_PERSISTENCE_BACKEND,
+    DocumentsRequestPersistenceInterceptor,
+    DOCUMENTS_STATE
+  ]
 })
 export class DocumentsModule {}

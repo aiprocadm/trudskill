@@ -35,7 +35,7 @@ describe('LearnerDocument type (Phase 1 §4.3)', () => {
       enrollmentId: 'enr_1',
       courseId: 'course_1',
       courseTitle: 'Охрана труда',
-      downloadUrl: '/api/v1/files/file_x/download',
+      downloadUrl: '/api/v1/me/documents/d_2/download',
       isDownloadable: true,
       revocationReason: 'Ошибка ФИО',
       replacedByDocumentId: 'd_3',
