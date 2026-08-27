@@ -35,6 +35,25 @@ export const URGENCY_LABEL: Record<ExpiryUrgency, string> = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * Ревизия 2026-08-27 (порция 29, журнал 276): срок действия — КАЛЕНДАРНАЯ дата, документ
+ * действует до конца своего последнего дня. Раньше вычитались моменты времени и результат
+ * округлялся вниз, поэтому в сам последний день выходило «-1 день» и портал писал
+ * «Просрочено» ещё действующему удостоверению — заказчик отстранял человека от работы на
+ * день раньше срока. Считаем разницу ДНЕЙ календаря, а не часов между отметками времени.
+ */
+const calendarDay = (value: Date): number =>
+  Date.UTC(value.getFullYear(), value.getMonth(), value.getDate());
+
+const daysUntilEndOfDay = (validUntil: string, now: Date): number => {
+  const parsed = new Date(validUntil);
+  if (Number.isNaN(parsed.getTime())) return 0;
+  // Срок хранится календарной датой (`2026-08-27`) и разбирается как полночь UTC —
+  // берём именно её день, иначе часовой пояс устройства сдвинул бы срок на сутки.
+  const untilDay = Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate());
+  return Math.round((untilDay - calendarDay(now)) / DAY_MS);
+};
+
 const urgencyOf = (daysLeft: number): ExpiryUrgency => {
   if (daysLeft < 0) return 'expired';
   if (daysLeft <= 7) return 'critical';
@@ -55,8 +74,7 @@ export const documentExpiries = (documents: PortalDocument[], now: Date): Docume
   documents
     .filter((document) => Boolean(document.validUntil))
     .map((document) => {
-      const until = new Date(document.validUntil as string).getTime();
-      const daysLeft = Math.floor((until - now.getTime()) / DAY_MS);
+      const daysLeft = daysUntilEndOfDay(document.validUntil as string, now);
       return { document, daysLeft, urgency: urgencyOf(daysLeft) };
     })
     // Сначала то, что горит. Очередь, а не оглавление: человеку нужен порядок действий.

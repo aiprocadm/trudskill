@@ -97,3 +97,47 @@ describe('сроки удостоверений сотрудников зака�
     expect(rows.map((row) => row.urgency)).toEqual(['critical', 'soon']);
   });
 });
+
+/*
+ * Ревизия 2026-08-27 (порция 29, журнал 276).
+ *
+ * Срок действия — КАЛЕНДАРНАЯ дата: удостоверение действует до конца своего последнего
+ * дня. Считалось же вычитанием моментов времени с округлением вниз, поэтому в сам
+ * последний день выходило «-1 день» и портал писал «Просрочено» ещё действующему
+ * документу. Заказчик отстранял человека от работы на день раньше, а учебный центр в
+ * тот же момент видел «истекает сегодня» — и стороны спорили о сроках.
+ */
+describe('последний день действия — ещё действует (порция 29)', () => {
+  const midday = new Date('2026-08-27T12:00:00.000Z');
+
+  it('в последний день документ не просрочен', () => {
+    const [row] = documentExpiries([doc('today', '2026-08-27')], midday);
+    expect(row?.daysLeft).toBe(0);
+    expect(row?.urgency).toBe('critical');
+  });
+
+  it('дата с временем внутри дня считается так же — по календарю', () => {
+    const [row] = documentExpiries([doc('today-iso', '2026-08-27T00:00:00.000Z')], midday);
+    expect(row?.urgency).toBe('critical');
+  });
+
+  it('со следующего дня — просрочено', () => {
+    const [row] = documentExpiries([doc('yesterday', '2026-08-26')], midday);
+    expect(row?.daysLeft).toBe(-1);
+    expect(row?.urgency).toBe('expired');
+  });
+
+  it('поздний вечер последнего дня — всё ещё действует', () => {
+    const lateEvening = new Date('2026-08-27T23:30:00.000Z');
+    const [row] = documentExpiries([doc('tonight', '2026-08-27')], lateEvening);
+    expect(row?.urgency).toBe('critical');
+  });
+
+  it('счётчик «просрочено» не завышается за счёт последнего дня', () => {
+    const rows = documentExpiries(
+      [doc('a', '2026-08-27'), doc('b', '2026-08-26'), doc('c', '2026-08-28')],
+      midday
+    );
+    expect(expirySummary(rows).expired).toBe(1);
+  });
+});

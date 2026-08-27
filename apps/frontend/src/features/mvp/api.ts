@@ -39,7 +39,8 @@ import type {
   RoleEntity,
   SessionDto,
   TestEntity,
-  UserEntity
+  UserEntity,
+  UsersListQuery
 } from './types';
 import type { UserSession } from '../../entities/session/model';
 
@@ -70,7 +71,7 @@ export const queryString = (query: BaseFilterQuery = {}) => {
 };
 
 export const mvpApi = {
-  listUsers: (session: UserSession, query: BaseFilterQuery) =>
+  listUsers: (session: UserSession, query: UsersListQuery) =>
     apiRequest<ListResponse<UserEntity>>(`/users${queryString(query)}`, withAuth(session)),
   getUser: (session: UserSession, id: string) =>
     apiRequest<UserEntity>(`/users/${id}`, withAuth(session)),

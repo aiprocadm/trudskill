@@ -345,12 +345,16 @@ export class AuthController {
     @Query('status') status?: 'active' | 'blocked',
     @Query('page') page = '1',
     @Query('page_size') pageSize = '20',
-    @Query('sort') sort?: string
+    @Query('sort') sort?: string,
+    // Порция 29: настоящий фильтр по роли — раньше экран слал его в `sort`, который
+    // ручка не читает, и список приходил целиком при «активном» фильтре.
+    @Query('role') role?: string
   ) {
     const result = await this.iamService.listUsers(context.tenantId!, {
       q,
       status,
       sort,
+      ...(role ? { role } : {}),
       page: Number(page),
       pageSize: Number(pageSize)
     });
