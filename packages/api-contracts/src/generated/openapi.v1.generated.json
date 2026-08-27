@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE. DO NOT EDIT.
-// SOURCE_SHA256: 8e9a09f7d928a13589a42be6e286a7d6949a8d256feb18e3b23562d1c44eb0bc
+// SOURCE_SHA256: 085b58d6168fdc61c4112cd57657a2fc7ebe800f9b018d6ee8b2656ae8da9f27
 {
   "openapi": "3.1.0",
   "info": {
@@ -920,27 +920,6 @@
         "responses": {
           "200": {
             "$ref": "#/components/responses/DownloadLinkResponse"
-          },
-          "default": {
-            "$ref": "#/components/responses/DefaultError"
-          }
-        }
-      }
-    },
-    "/files/{id}/download": {
-      "get": {
-        "operationId": "fileDownload",
-        "tags": [
-          "files"
-        ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/IdPathParam"
-          }
-        ],
-        "responses": {
-          "302": {
-            "description": "Redirect to storage object"
           },
           "default": {
             "$ref": "#/components/responses/DefaultError"
@@ -2383,4 +2362,3 @@
     ]
   }
 }
-

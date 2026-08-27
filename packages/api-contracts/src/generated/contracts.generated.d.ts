@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE. DO NOT EDIT.
-// SOURCE_SHA256: 8e9a09f7d928a13589a42be6e286a7d6949a8d256feb18e3b23562d1c44eb0bc
+// SOURCE_SHA256: 085b58d6168fdc61c4112cd57657a2fc7ebe800f9b018d6ee8b2656ae8da9f27
 export type GeneratedOpenApiVersion = 'v1';
 
 export interface GeneratedClientConfig {
@@ -37,8 +37,7 @@ export type GeneratedApiPath =
   | '/documents'
   | '/documents/{id}'
   | '/documents/generate'
-  | '/documents/{id}/download'
-  | '/files/{id}/download';
+  | '/documents/{id}/download';
 
 export interface GeneratedApiMeta {
   requestId: string;

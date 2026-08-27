@@ -4,7 +4,13 @@ import { BelowFold, ListPage, StatCard, StatusChip } from '@trudskill/ui';
 import { useMemo } from 'react';
 
 import { URGENCY_LABEL, documentExpiries, expirySummary, needsAttention } from './attention';
-import { PageContainer, PageHeader, SectionCard } from '../../components/state-wrappers';
+import { usePortalDocumentDownload } from './use-document-download';
+import {
+  PageContainer,
+  PageHeader,
+  SectionCard,
+  SectionError
+} from '../../components/state-wrappers';
 import { usePortalDocuments, usePortalGroups, usePortalLearners } from '../mvp/hooks';
 import { formatDate } from '../mvp/screen-helpers';
 
@@ -36,6 +42,8 @@ export function CounterpartyPortalScreen() {
   const learners = usePortalLearners({ page: 1, page_size: 20 });
   const groups = usePortalGroups({ page: 1, page_size: 20 });
   const documents = usePortalDocuments({ page: 1, page_size: 20 });
+  // Порция 32 (журнал 265): документ можно взять из портала — ручка была, кнопки не было.
+  const documentDownload = usePortalDocumentDownload();
 
   const expiries = useMemo(
     () => documentExpiries(documents.data?.items ?? [], new Date()),
@@ -135,12 +143,20 @@ export function CounterpartyPortalScreen() {
         </SectionCard>
 
         <SectionCard title="Документы">
+          {documentDownload.error ? <SectionError error={documentDownload.error} /> : null}
           <ListPage
             isLoading={documents.loading}
             error={documents.error ? new Error(documents.error) : undefined}
             rows={documents.data?.items ?? []}
             emptyMessage="Документы не найдены"
             emptyHint="Появятся удостоверения и протоколы сотрудников компании."
+            rowActions={(row) => [
+              {
+                label: 'Скачать документ',
+                onSelect: () => void documentDownload.download(row.id),
+                disabled: documentDownload.busyId === row.id
+              }
+            ]}
             columns={[
               { key: 'name', title: 'Документ' },
               { key: 'learnerName', title: 'Сотрудник' },

@@ -405,7 +405,6 @@ export class IamService {
       status?: string;
       page?: number;
       pageSize?: number;
-      sort?: string;
       role?: string;
     }
   ): Promise<{ items: User[]; total: number; page: number; pageSize: number }> {
