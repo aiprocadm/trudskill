@@ -1,4 +1,5 @@
 import { Inter } from 'next/font/google';
+import { connection } from 'next/server';
 
 import { AppProviders } from '../src/app/providers';
 
@@ -27,7 +28,22 @@ const inter = Inter({
   fallback: ['Segoe UI', 'system-ui', 'Arial', 'sans-serif']
 });
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+/**
+ * ФТ-G7. Ждём настоящий запрос, прежде чем рисовать страницу.
+ *
+ * Политика безопасности помечает наши скрипты одноразовым числом и велит браузеру
+ * выполнять только помеченные. Пометить их можно лишь во время ответа на живой запрос:
+ * при сборке заранее ни запроса, ни числа ещё нет, и в готовый HTML метка не попадёт.
+ * Без этой строки браузер блокирует ВСЕ скрипты сайта, и человек видит вечную надпись
+ * «Загрузка приложения...» — ровно так стенд и лежал (сторож
+ * `src/e2e/csp-nonce-needs-dynamic.e2e.test.ts`).
+ *
+ * Цена решения: страницы больше не отдаются из заготовок, каждая собирается на запрос.
+ * Для системы, где почти весь экран — личные данные вошедшего человека, заготовки и так
+ * были пустой оболочкой, а безопасность дороже долей секунды.
+ */
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  await connection();
   return (
     <html lang="ru" className={inter.variable}>
       <body style={{ margin: 0, fontFamily: 'var(--font-sans), Segoe UI, system-ui, sans-serif' }}>
