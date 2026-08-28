@@ -187,7 +187,8 @@ describe('ScormService.createPackageUploadIntent', () => {
       sizeBytes: 1024
     });
 
-    const callOptions = (filesMock.createUploadIntent as ReturnType<typeof vi.fn>).mock.calls[0][2];
+    const callOptions = (filesMock.createUploadIntent as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[2];
     expect(callOptions.mimeAllowlist.has('application/zip')).toBe(true);
     expect(callOptions.mimeAllowlist.has('application/x-zip-compressed')).toBe(true);
   });

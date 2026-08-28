@@ -16,7 +16,9 @@ const T = 'tenant_demo';
 const GB = 1024 ** 3;
 
 function makeService(options: { used?: number; limit?: unknown; noSettings?: boolean } = {}) {
-  const query = vi.fn(async () => [{ used: String(options.used ?? 0) }]);
+  const query = vi.fn(async (_sql: string, _params?: unknown[]) => [
+    { used: String(options.used ?? 0) }
+  ]);
   const db = { query } as unknown as DatabaseService;
   const getSettings = vi.fn(async () => {
     if (options.noSettings) throw new Error('tenant_settings_not_found');

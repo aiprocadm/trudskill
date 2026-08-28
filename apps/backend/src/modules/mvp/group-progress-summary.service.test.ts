@@ -5,6 +5,8 @@ import {
   summarizeGroupProgress
 } from './group-progress-summary.service.js';
 
+import type { EnrollmentStatus } from './mvp.types.js';
+
 const ENR_BASE = { groupId: 'g-1' };
 
 describe('summarizeGroupProgress (Phase 2 Plan C Task 5)', () => {
@@ -129,7 +131,8 @@ describe('summarizeCounterpartyProgress (Phase 2 Plan C Task 5)', () => {
           id: 'e1',
           groupId: 'g-1',
           learnerId: 'l1',
-          status: 'unknown-future-status'
+          // Нарочно неизвестный статус: проверяем, что сводка не падает на будущем значении.
+          status: 'unknown-future-status' as EnrollmentStatus
         }
       ],
       groupCourses: []

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MvpService } from './mvp.service.js';
+import { requireAt } from '../../common/testing/require-at.test-util.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 import { AuditService } from '../audit/audit.service.js';
 
@@ -437,7 +438,7 @@ describe('getAttemptQuestions — answer-safe projection', () => {
 
     const views = service.getAttemptQuestions(T, ADMIN, attempt.id, ctx);
     expect(views).toHaveLength(1);
-    const view = views[0];
+    const view = requireAt(views, 0, 'вопрос попытки');
     expect(view.title).toBe('Pick');
     expect(view.body).toBe('Choose one');
     expect(Object.keys(view)).not.toContain('explanation');
@@ -478,7 +479,11 @@ describe('getAttemptQuestions — answer-safe projection', () => {
       ctx
     );
     service.saveAttemptAnswer(T, ADMIN, attempt.id, { questionId: q.id, textAnswer: 'draft' }, ctx);
-    const view = service.getAttemptQuestions(T, ADMIN, attempt.id, ctx)[0];
+    const view = requireAt(
+      service.getAttemptQuestions(T, ADMIN, attempt.id, ctx),
+      0,
+      'вопрос попытки'
+    );
     expect(view.textAnswer).toBe('draft');
   });
 });
@@ -535,8 +540,8 @@ describe('listMyTests — learner test dashboard', () => {
       attemptLimit: 2,
       maxScore: 2
     });
-    expect(beforeStart[0].bestScore).toBeUndefined();
-    expect(beforeStart[0].activeAttemptId).toBeUndefined();
+    expect(beforeStart[0]?.bestScore).toBeUndefined();
+    expect(beforeStart[0]?.activeAttemptId).toBeUndefined();
 
     const attempt = service.startAttempt(
       T,
@@ -563,8 +568,8 @@ describe('listMyTests — learner test dashboard', () => {
     service.submitAttempt(T, learnerUser, attempt.id, ctx);
 
     const afterPass = service.listMyTests(T, learnerUser)[0];
-    expect(afterPass.status).toBe('passed');
-    expect(afterPass.bestScore).toBe(2);
+    expect(afterPass?.status).toBe('passed');
+    expect(afterPass?.bestScore).toBe(2);
   });
 
   it('reports submitted (not passed) while an essay still awaits manual review, then passed after review', () => {
@@ -632,7 +637,7 @@ describe('listMyTests — learner test dashboard', () => {
     // Auto-subtotal (2) already clears passingScore (2), so the raw attempt.passed flag is true —
     // but the essay is unreviewed, so the dashboard must NOT show "passed" yet.
     const pending = service.listMyTests(T, learnerUser)[0];
-    expect(pending.status).toBe('submitted');
+    expect(pending?.status).toBe('submitted');
 
     service.completeAttemptReview(
       T,
@@ -641,7 +646,7 @@ describe('listMyTests — learner test dashboard', () => {
       { answerScores: [{ questionId: essay.id, score: 5 }] },
       ctx
     );
-    expect(service.listMyTests(T, learnerUser)[0].status).toBe('passed');
+    expect(service.listMyTests(T, learnerUser)[0]?.status).toBe('passed');
   });
 
   it('reports submitted (not failed) at the attempt limit while an essay awaits review, then passed after review', () => {
@@ -709,7 +714,7 @@ describe('listMyTests — learner test dashboard', () => {
     // Auto-subtotal (2) is below passingScore (5) and the single attempt is used up — but the
     // essay (worth 5) is unreviewed, so the dashboard must NOT prematurely show "failed".
     const pending = service.listMyTests(T, learnerUser)[0];
-    expect(pending.status).toBe('submitted');
+    expect(pending?.status).toBe('submitted');
 
     service.completeAttemptReview(
       T,
@@ -718,7 +723,7 @@ describe('listMyTests — learner test dashboard', () => {
       { answerScores: [{ questionId: essay.id, score: 5 }] },
       ctx
     );
-    expect(service.listMyTests(T, learnerUser)[0].status).toBe('passed');
+    expect(service.listMyTests(T, learnerUser)[0]?.status).toBe('passed');
   });
 
   it('reports failed when attempts are exhausted without a pass', () => {
@@ -771,7 +776,7 @@ describe('listMyTests — learner test dashboard', () => {
     service.submitAttempt(T, learnerUser, attempt.id, ctx);
 
     const summary = service.listMyTests(T, learnerUser)[0];
-    expect(summary.status).toBe('failed');
-    expect(summary.bestScore).toBe(0);
+    expect(summary?.status).toBe('failed');
+    expect(summary?.bestScore).toBe(0);
   });
 });

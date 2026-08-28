@@ -64,7 +64,9 @@ function makeFilesMock() {
 }
 
 function harness() {
-  const legalLog = { write: vi.fn(async () => undefined) };
+  const legalLog = {
+    write: vi.fn(async (_entry: Parameters<LegalLogWriter['write']>[0]) => undefined)
+  };
   const consents = new ConsentService(
     new InMemoryConsentRepository(),
     legalLog as unknown as LegalLogWriter

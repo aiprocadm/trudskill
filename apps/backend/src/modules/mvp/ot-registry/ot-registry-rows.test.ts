@@ -32,12 +32,12 @@ describe('buildRegistryRows', () => {
     const rows = buildRegistryRows([bundle]);
     expect(rows).toHaveLength(2);
     expect(rows.map((r) => r.programRegistryId)).toEqual([1, 4]);
-    expect(rows[0].fullName).toBe('Иванов Иван Иванович');
-    expect(rows[0].knowledgeCheckDate).toBe('10.03.2026');
-    expect(rows[0].result).toBe('удовлетворительно');
+    expect(rows[0]?.fullName).toBe('Иванов Иван Иванович');
+    expect(rows[0]?.knowledgeCheckDate).toBe('10.03.2026');
+    expect(rows[0]?.result).toBe('удовлетворительно');
   });
   it('marks неудовлетворительно when exam not passed', () => {
     const rows = buildRegistryRows([{ ...bundle, examPassed: false }]);
-    expect(rows[0].result).toBe('неудовлетворительно');
+    expect(rows[0]?.result).toBe('неудовлетворительно');
   });
 });

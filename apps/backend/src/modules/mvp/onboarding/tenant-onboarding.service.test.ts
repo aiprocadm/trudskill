@@ -38,7 +38,7 @@ function make(data: Fixture = {}) {
     })
   };
   const db = {
-    query: vi.fn(async () => [{ count: data.licenses ?? 0 }])
+    query: vi.fn(async (_sql: string, _params?: unknown[]) => [{ count: data.licenses ?? 0 }])
   };
   const service = new TenantOnboardingService(
     tenants as never,

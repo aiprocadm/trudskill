@@ -74,7 +74,8 @@ function makeFixture(documents: GeneratedDocumentEntity[]): Fixture {
     createdAt: '2026-04-01T00:00:00.000Z',
     updatedAt: '2026-04-01T00:00:00.000Z',
     groupId: 'g_1',
-    courseId: 'course_ot'
+    courseId: 'course_ot',
+    sortOrder: 0
   };
   state.groupCourses.push(groupCourse);
 
@@ -205,24 +206,24 @@ describe('MvpService.listEnrollmentDocuments — Phase 1 §4.3', () => {
     const docs = [makeDoc({ id: 'd_no_file', fileId: '' })];
     const { service } = makeFixture(docs);
     const result = service.listEnrollmentDocuments(TENANT, 'enr_self', { actorId: 'u_alice' });
-    expect(result.items[0].isDownloadable).toBe(false);
-    expect(result.items[0].downloadUrl).toBe('');
+    expect(result.items[0]?.isDownloadable).toBe(false);
+    expect(result.items[0]?.downloadUrl).toBe('');
   });
 
   it('marks isDownloadable=true and builds downloadUrl when fileId present', () => {
     const docs = [makeDoc({ id: 'd_file', fileId: 'file_abc' })];
     const { service } = makeFixture(docs);
     const result = service.listEnrollmentDocuments(TENANT, 'enr_self', { actorId: 'u_alice' });
-    expect(result.items[0].isDownloadable).toBe(true);
+    expect(result.items[0]?.isDownloadable).toBe(true);
     // Порция 21: адрес указывает на живую ручку скачивания кабинета (по id документа).
-    expect(result.items[0].downloadUrl).toMatch(/\/me\/documents\/d_file\/download$/);
+    expect(result.items[0]?.downloadUrl).toMatch(/\/me\/documents\/d_file\/download$/);
   });
 
   it('attaches courseTitle resolved via groupCourse → course', () => {
     const docs = [makeDoc({ id: 'd_ct' })];
     const { service } = makeFixture(docs);
     const result = service.listEnrollmentDocuments(TENANT, 'enr_self', { actorId: 'u_alice' });
-    expect(result.items[0].courseTitle).toBe('Охрана труда');
+    expect(result.items[0]?.courseTitle).toBe('Охрана труда');
   });
 });
 

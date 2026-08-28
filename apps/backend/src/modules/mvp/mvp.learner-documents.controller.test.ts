@@ -5,17 +5,27 @@ import { describe, expect, it } from 'vitest';
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MvpController } from './mvp.controller.js';
 import { MvpService } from './mvp.service.js';
+import { unusedDependency } from '../../common/testing/unused-dependency.test-util.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 import { AuditService } from '../audit/audit.service.js';
 import { REQUIRED_PERMISSIONS } from '../iam/permission.decorator.js';
 
+import type { ConsentService } from './consents/consent.service.js';
+import type { MethodistDashboardService } from './dashboards/methodist-dashboard.service.js';
+import type { SimpleSignatureService } from './esignature/simple-signature.service.js';
+import type { IdentityPolicyService } from './identity/identity-policy.service.js';
+import type { LearnerDossierService } from './identity/learner-dossier.service.js';
 import type { LearnerPdfCardService } from './learner-pdf-card.service.js';
+import type { LearnersBulkImportService } from './learners-bulk-import.service.js';
 import type { MvpBulkEnqueueService } from './mvp-bulk-enqueue.service.js';
 import type { Course, Enrollment, GroupCourse, Learner } from './mvp.types.js';
+import type { LearnerPiiService } from './pii/learner-pii.service.js';
+import type { TenantUsageService } from './usage/tenant-usage.service.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 import type { DocumentsService } from '../documents/documents.service.js';
 import type { GeneratedDocumentEntity } from '../documents/documents.types.js';
 import type { FilesService } from '../files/files.service.js';
+import type { IamService } from '../iam/services/iam.service.js';
 
 const TENANT = 'tenant_demo';
 
@@ -126,10 +136,23 @@ function makeController(documents: GeneratedDocumentEntity[]) {
     new EventEmitter2()
   );
 
-  // Контроллер не зовёт две другие зависимости в новых маршрутах — даём заглушки.
-  const stubBulkEnqueue = {} as unknown as MvpBulkEnqueueService;
-  const stubLearnerPdfCard = {} as unknown as LearnerPdfCardService;
-  const controller = new MvpController(service, stubBulkEnqueue, stubLearnerPdfCard);
+  // Контроллеру нужны двенадцать зависимостей; маршруты документов слушателя работают
+  // только через MvpService. Остальные — громкие заглушки: обращение к неподставленной
+  // зависимости бросает с её именем, а не оседает молчаливым undefined.
+  const controller = new MvpController(
+    service,
+    unusedDependency<MvpBulkEnqueueService>('MvpBulkEnqueueService'),
+    unusedDependency<LearnerPdfCardService>('LearnerPdfCardService'),
+    unusedDependency<LearnersBulkImportService>('LearnersBulkImportService'),
+    unusedDependency<IdentityPolicyService>('IdentityPolicyService'),
+    unusedDependency<ConsentService>('ConsentService'),
+    unusedDependency<LearnerDossierService>('LearnerDossierService'),
+    unusedDependency<LearnerPiiService>('LearnerPiiService'),
+    unusedDependency<MethodistDashboardService>('MethodistDashboardService'),
+    unusedDependency<IamService>('IamService'),
+    unusedDependency<TenantUsageService>('TenantUsageService'),
+    unusedDependency<SimpleSignatureService>('SimpleSignatureService')
+  );
 
   return { controller, service, state };
 }
@@ -163,8 +186,8 @@ describe('MvpController — learner documents endpoints (Phase 1 §4.3)', () => 
     const { controller } = makeController(docs);
     const result = controller.listMyDocuments(ctx({ userId: 'u_alice' }));
     expect(result.items.map((d) => d.id)).toEqual(['d_alice']);
-    expect(result.items[0].courseTitle).toBe('Охрана труда');
-    expect(result.items[0].courseId).toBe('course_1');
+    expect(result.items[0]?.courseTitle).toBe('Охрана труда');
+    expect(result.items[0]?.courseId).toBe('course_1');
   });
 
   it('GET /me/documents возвращает пустой items для актора без linkedIamUserId', () => {

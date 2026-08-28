@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { InMemoryMvpState } from './in-memory-mvp.state.js';
+import { requireAt } from '../../../common/testing/require-at.test-util.js';
 
 /**
  * Ленивая раскладка состояния (§12.1, 2026-08-09).
@@ -87,7 +88,8 @@ describe('пишется только изменившееся', () => {
     const state = new InMemoryMvpState();
     state.setRawSnapshot(makeRaw(), (_c, raw) => [...raw]);
 
-    (state.learners[0] as { name: string }).name = 'Петров';
+    (requireAt(state.learners, 0, 'слушатель снимка') as unknown as { name: string }).name =
+      'Петров';
 
     expect(state.hasChanged('learners')).toBe(true);
   });

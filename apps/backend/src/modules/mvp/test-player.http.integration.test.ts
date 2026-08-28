@@ -1,6 +1,9 @@
 import 'reflect-metadata';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import type { Type } from '@nestjs/common';
+import type { Reflector as NestReflector } from '@nestjs/core';
+
 /**
  * Phase 3 Plan B — HTTP integration boundary tests для НОВЫХ learner test-player endpoints.
  *
@@ -110,10 +113,11 @@ describe('Phase 3 Plan B — test-player HTTP boundary', () => {
 
     @Injectable()
     class TestPermissionGuard {
-      constructor(@Inject(Reflector) private readonly reflector: Reflector) {}
+      constructor(@Inject(Reflector) private readonly reflector: NestReflector) {}
       async canActivate(context: {
-        getHandler: () => unknown;
-        getClass: () => unknown;
+        // Reflector принимает цели поиска метаданных, а не `unknown`.
+        getHandler: () => Type<unknown>;
+        getClass: () => Type<unknown>;
         switchToHttp: () => {
           getRequest: () => {
             context?: { tenantId?: string; userId?: string; sessionId?: string };
@@ -264,9 +268,9 @@ describe('Phase 3 Plan B — test-player HTTP boundary', () => {
       meta: { requestId: string; timestamp: string };
     };
     expect(p.data).toHaveLength(1);
-    expect(p.data[0].id).toBe('q1');
-    expect(Object.keys(p.data[0])).not.toContain('explanation');
-    expect(Object.keys(p.data[0].options[0])).not.toContain('isCorrect');
+    expect(p.data[0]?.id).toBe('q1');
+    expect(Object.keys(p.data[0] ?? {})).not.toContain('explanation');
+    expect(Object.keys(p.data[0]?.options[0] ?? {})).not.toContain('isCorrect');
     expect(p.meta.requestId).toBeTruthy();
   });
 
@@ -296,8 +300,8 @@ describe('Phase 3 Plan B — test-player HTTP boundary', () => {
       data: Array<{ testId: string; status: string; maxScore: number }>;
       meta: { requestId: string };
     };
-    expect(p.data[0].testId).toBe('test_1');
-    expect(p.data[0].status).toBe('not_started');
-    expect(p.data[0].maxScore).toBe(2);
+    expect(p.data[0]?.testId).toBe('test_1');
+    expect(p.data[0]?.status).toBe('not_started');
+    expect(p.data[0]?.maxScore).toBe(2);
   });
 });

@@ -223,9 +223,9 @@ describe('mvp service domain rules', () => {
       ctx
     );
     const courseProgress = service.listProgress('tenant_demo', {}).items[0];
-    expect(courseProgress.status).toBe('completed');
-    expect(courseProgress.progressPercent).toBe(100);
-    expect(courseProgress.calculatedAt).toBeDefined();
+    expect(courseProgress?.status).toBe('completed');
+    expect(courseProgress?.progressPercent).toBe(100);
+    expect(courseProgress?.calculatedAt).toBeDefined();
   });
 
   it('rejects progress update when enrollment group is not linked to material course', () => {
@@ -2121,7 +2121,7 @@ describe('MvpService — commissions (Plan A §5.2)', () => {
       service.createCommission('tenant_other', ctx.userId, { code: 'A', name: 'A2' }, ctx);
       const items = service.listCommissions('tenant_demo');
       expect(items).toHaveLength(1);
-      expect(items[0].tenantId).toBe('tenant_demo');
+      expect(items[0]?.tenantId).toBe('tenant_demo');
     });
 
     it('listCommissionMembers returns members sorted by positionInOrder', () => {
@@ -2675,7 +2675,7 @@ describe('MvpService — course document sets (Plan A §5.3)', () => {
 
     const set = service.getCourseDocumentSet('tenant_demo', courseVersionId);
     expect(set).toHaveLength(1);
-    expect(set[0].templateId).toBe('tpl_b');
+    expect(set[0]?.templateId).toBe('tpl_b');
   });
 
   it('allows clearing the set by passing empty entries', () => {
