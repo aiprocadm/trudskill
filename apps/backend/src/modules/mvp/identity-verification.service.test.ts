@@ -1,11 +1,13 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { describe, expect, it, vi } from 'vitest';
 
+import { DEFAULT_PHOTO_MAX_AGE_HOURS } from './identity/identity-policy.js';
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MvpService } from './mvp.service.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 import { AuditService } from '../audit/audit.service.js';
 
+import type { EffectiveIdentityPolicy, IdentityLevel } from './identity/identity-policy.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 import type { DocumentsService } from '../documents/documents.service.js';
 import type { FilesService } from '../files/files.service.js';
@@ -32,6 +34,15 @@ const ctx: RequestContext = {
   userAgent: 'vitest'
 };
 
+// Политика собирается полностью: без photoMaxAgeHours это не EffectiveIdentityPolicy,
+// а похожий на неё объект — раньше разницу никто не проверял.
+const policy = (level: number): EffectiveIdentityPolicy => ({
+  level: level as IdentityLevel,
+  requirePhotoBeforeExam: false,
+  photoMaxAgeHours: DEFAULT_PHOTO_MAX_AGE_HOURS,
+  source: 'tenant'
+});
+
 function makeFilesMock() {
   return {
     createUploadIntent: vi.fn(async () => ({
@@ -43,11 +54,14 @@ function makeFilesMock() {
     getAntivirusStatuses: vi.fn(
       async (_t: string, ids: string[]) => new Map(ids.map((id) => [id, 'clean']))
     ),
-    createDownloadUrl: vi.fn(async () => 'https://minio.local/GET-signed'),
+    createDownloadUrl: vi.fn(
+      async (_tenantId: string, _fileId: string) => 'https://minio.local/GET-signed'
+    ),
     ensureMaterialLink: async () => undefined
   } as unknown as FilesService & {
     createUploadIntent: ReturnType<typeof vi.fn>;
     getAntivirusStatuses: ReturnType<typeof vi.fn>;
+    createDownloadUrl: ReturnType<typeof vi.fn>;
   };
 }
 
@@ -132,7 +146,7 @@ describe('identity verification lifecycle', () => {
     );
     // Check mimeAllowlist contains image/jpeg but not application/msword
     const callArgs = (files as ReturnType<typeof makeFilesMock>).createUploadIntent.mock.calls[0];
-    const opts = callArgs[2] as { mimeAllowlist: ReadonlySet<string> };
+    const opts = callArgs?.[2] as { mimeAllowlist: ReadonlySet<string> };
     expect(opts.mimeAllowlist.has('image/jpeg')).toBe(true);
     expect(opts.mimeAllowlist.has('application/msword')).toBe(false);
   });
@@ -656,12 +670,6 @@ describe('identity verification gate', () => {
  * идущие группы, а выключение — открывать то, что центр явно ужесточил.
  */
 describe('identity gates — политика идентификации (ФТ-C1)', () => {
-  const policy = (level: number) => ({
-    level: level as 0 | 1 | 2 | 3,
-    requirePhotoBeforeExam: false,
-    source: 'tenant' as const
-  });
-
   it('ОБХОД ЗАПРОСОМ МИМО ИНТЕРФЕЙСА: уровень 2 закрывает экзамен без подтверждения', () => {
     const { service } = makeService();
     // Флаг на группе-курсе НЕ выставлен — требование приходит только из политики.
@@ -900,11 +908,7 @@ describe('identity gates — требование фото (ФТ-C1.2)', () => {
         'u_l1',
         startArgs(test, enrollment),
         ctxL1,
-        {
-          level: 2,
-          requirePhotoBeforeExam: false,
-          source: 'tenant'
-        },
+        policy(2),
         SIGNED_AGREEMENT
       )
     ).not.toThrow();

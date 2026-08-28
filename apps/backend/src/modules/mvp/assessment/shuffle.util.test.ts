@@ -38,7 +38,8 @@ describe('shuffle', () => {
 
     for (let i = 0; i < runs; i += 1) {
       shuffle(source).forEach((item, position) => {
-        counts.get(item)![position] += 1;
+        const row = counts.get(item)!;
+        row[position] = (row[position] ?? 0) + 1;
       });
     }
 

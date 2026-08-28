@@ -16,7 +16,7 @@ describe('MvpTenantRunner', () => {
         enrolledAt: '2026-01-01T00:00:00.000Z'
       } as never);
     });
-    const saveFromState = vi.fn();
+    const saveFromState = vi.fn((_tenantId: string, _state: unknown) => undefined);
     const persistence = { loadIntoState, saveFromState };
     const runner = new MvpTenantRunner(persistence as never, new TenantSerialGateway());
 
@@ -33,7 +33,7 @@ describe('MvpTenantRunner', () => {
 describe('MvpTenantRunner.runWithTenantStateAndSave', () => {
   function makeWriteRunner() {
     const loadIntoState = vi.fn(async () => undefined);
-    const saveFromState = vi.fn(async () => undefined);
+    const saveFromState = vi.fn(async (_tenantId: string, _state: unknown) => undefined);
     const persistence = { loadIntoState, saveFromState };
     const runner = new MvpTenantRunner(persistence as never, new TenantSerialGateway());
     return { runner, loadIntoState, saveFromState };

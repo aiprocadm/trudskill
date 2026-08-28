@@ -12,7 +12,16 @@ import { DOUBLE_SUBMIT_WINDOW_MS, findRecentIdenticalBatch } from './recent-iden
 const NOW = '2026-08-26T10:00:00.000Z';
 const at = (offsetMs: number) => new Date(Date.parse(NOW) - offsetMs).toISOString();
 
-const batch = (over: Partial<Parameters<typeof findRecentIdenticalBatch>[0][number]> = {}) => ({
+/** Форма пакета в тестах: то же, что ждёт отбор, плюс `id` — по нему проверяем, КАКОЙ найден. */
+type TestBatch = {
+  id: string;
+  tenantId: string;
+  createdAt: string;
+  generatedBy: string;
+  sourceFilterJson: Record<string, unknown>;
+};
+
+const batch = (over: Partial<TestBatch> = {}): TestBatch => ({
   id: 'frb_1',
   tenantId: 't1',
   createdAt: at(5_000),

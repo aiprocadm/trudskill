@@ -72,7 +72,8 @@ function makeServiceWithFixtures() {
     createdAt: '2026-04-01T00:00:00.000Z',
     updatedAt: '2026-04-01T00:00:00.000Z',
     groupId: 'g_1',
-    courseId: 'course_1'
+    courseId: 'course_1',
+    sortOrder: 0
   };
   state.groupCourses.push(groupCourse);
 
@@ -101,7 +102,10 @@ function makeServiceWithFixtures() {
       documentType: 'certificate',
       status: 'final',
       generatedAt: '2026-05-01T00:00:00.000Z',
-      payloadRef: 'ref_1'
+      templateId: 'tpl_1',
+      name: 'Удостоверение',
+      fileId: 'file_1',
+      isFinal: true
     },
     {
       id: 'doc_other_tenant',
@@ -112,7 +116,10 @@ function makeServiceWithFixtures() {
       documentType: 'certificate',
       status: 'final',
       generatedAt: '2026-05-01T00:00:00.000Z',
-      payloadRef: 'ref_2'
+      templateId: 'tpl_1',
+      name: 'Удостоверение',
+      fileId: 'file_2',
+      isFinal: true
     }
   ];
 

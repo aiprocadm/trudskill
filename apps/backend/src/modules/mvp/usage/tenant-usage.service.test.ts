@@ -19,7 +19,11 @@ function make({
   plan = null as unknown,
   learners = 0,
   staff = 0,
-  storage = { usedBytes: 0, limitBytes: null as number | null, remainingBytes: null }
+  storage = {
+    usedBytes: 0,
+    limitBytes: null as number | null,
+    remainingBytes: null as number | null
+  }
 } = {}) {
   const db = {
     query: vi.fn(async (sql: string) => {

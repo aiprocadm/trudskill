@@ -1,3 +1,4 @@
+import { type Logger } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import { MvpWriteOrchestrator } from './mvp-write.orchestrator.js';
@@ -7,8 +8,8 @@ const state = {} as never;
 
 describe('MvpWriteOrchestrator', () => {
   it('writes normalized first and legacy second when dual-write is enabled', async () => {
-    const logger = { error: vi.fn() } as never;
-    const orchestrator = new MvpWriteOrchestrator(logger);
+    const logger = { error: vi.fn() };
+    const orchestrator = new MvpWriteOrchestrator(logger as unknown as Logger);
     const callOrder: string[] = [];
 
     await orchestrator.persist({
@@ -33,8 +34,8 @@ describe('MvpWriteOrchestrator', () => {
   });
 
   it('logs and compensates when legacy write fails after normalized success', async () => {
-    const logger = { error: vi.fn() } as never;
-    const orchestrator = new MvpWriteOrchestrator(logger);
+    const logger = { error: vi.fn() };
+    const orchestrator = new MvpWriteOrchestrator(logger as unknown as Logger);
     const reconciliationLogs: string[] = [];
 
     await expect(

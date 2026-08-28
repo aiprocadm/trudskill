@@ -14,7 +14,7 @@ import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { AuthService } from '../iam/services/auth.service.js';
 import { IamService } from '../iam/services/iam.service.js';
 
-import type { DocumentsService } from '../documents/documents.service.js';
+import type { RequestContext } from '../../common/context/request-context.js';
 import type { FilesService } from '../files/files.service.js';
 
 const noopDocumentsService = {
@@ -25,7 +25,9 @@ const noopFilesService = {
   ensureMaterialLink: async () => undefined
 } as unknown as FilesService;
 
-const baseCtx = {
+// Контекст запроса объявлен своим типом: поля method/path/timestamp, которые тут стояли,
+// в RequestContext не существуют — под `as const` этого никто не замечал.
+const baseCtx: RequestContext = {
   requestId: 'req_stage13_e2e',
   correlationId: 'corr_stage13_e2e',
   tenantId: 'tenant_demo',
@@ -33,11 +35,8 @@ const baseCtx = {
   roles: ['tenant_admin'],
   permissions: ['*'],
   ip: '127.0.0.1',
-  userAgent: 'vitest',
-  method: 'POST',
-  path: '/api/v1/stage13',
-  timestamp: new Date().toISOString()
-} as const;
+  userAgent: 'vitest'
+};
 
 describe('stage13 business e2e flows (service-level)', () => {
   it('completes auth flow: login -> refresh -> me -> logout and blocks blocked user', async () => {

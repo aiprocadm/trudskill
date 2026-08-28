@@ -68,7 +68,7 @@ describe('createLearner · разбор русского ФИО', () => {
     const learner = service.createLearner(
       'tenant_demo',
       'u_admin',
-      { name: 'Ким Сергей Ли Хван' },
+      { name: 'Ким Сергей Ли Хван', code: 'L-2' },
       ctx
     );
 
@@ -80,7 +80,12 @@ describe('createLearner · разбор русского ФИО', () => {
   it('«Фамилия Имя» без отчества — отчество не выдумывается', () => {
     const service = makeService();
 
-    const learner = service.createLearner('tenant_demo', 'u_admin', { name: 'Петров Пётр' }, ctx);
+    const learner = service.createLearner(
+      'tenant_demo',
+      'u_admin',
+      { name: 'Петров Пётр', code: 'L-3' },
+      ctx
+    );
 
     expect(learner.lastName).toBe('Петров');
     expect(learner.firstName).toBe('Пётр');
@@ -90,7 +95,12 @@ describe('createLearner · разбор русского ФИО', () => {
   it('одно слово считается именем, а не фамилией, и не пропадает', () => {
     const service = makeService();
 
-    const learner = service.createLearner('tenant_demo', 'u_admin', { name: 'Мадонна' }, ctx);
+    const learner = service.createLearner(
+      'tenant_demo',
+      'u_admin',
+      { name: 'Мадонна', code: 'L-4' },
+      ctx
+    );
 
     expect(learner.firstName).toBe('Мадонна');
     expect(learner.lastName).toBe('');
@@ -102,7 +112,7 @@ describe('createLearner · разбор русского ФИО', () => {
     const manual = service.createLearner(
       'tenant_demo',
       'u_admin',
-      { name: 'Сидорова Анна Петровна' },
+      { name: 'Сидорова Анна Петровна', code: 'L-5' },
       ctx
     );
 

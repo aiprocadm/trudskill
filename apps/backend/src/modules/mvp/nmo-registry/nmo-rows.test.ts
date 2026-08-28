@@ -46,7 +46,7 @@ describe('buildNmoRows', () => {
     const [row] = buildNmoRows([
       bundle({ creditUnits: undefined, learner: learner({ snils: undefined }) })
     ]);
-    expect(row.creditUnits).toBe('');
-    expect(row.snils).toBe('');
+    expect(row?.creditUnits).toBe('');
+    expect(row?.snils).toBe('');
   });
 });

@@ -1,6 +1,9 @@
 import 'reflect-metadata';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import type { Type } from '@nestjs/common';
+import type { Reflector as NestReflector } from '@nestjs/core';
+
 /**
  * Phase 3 Plan A — HTTP integration boundary tests для НОВЫХ admin assessment endpoints.
  *
@@ -118,10 +121,11 @@ describe('Phase 3 Plan A — assessment admin HTTP boundary', () => {
 
     @Injectable()
     class TestPermissionGuard {
-      constructor(@Inject(Reflector) private readonly reflector: Reflector) {}
+      constructor(@Inject(Reflector) private readonly reflector: NestReflector) {}
       async canActivate(context: {
-        getHandler: () => unknown;
-        getClass: () => unknown;
+        // Reflector принимает цели поиска метаданных, а не `unknown`.
+        getHandler: () => Type<unknown>;
+        getClass: () => Type<unknown>;
         switchToHttp: () => {
           getRequest: () => {
             context?: { tenantId?: string; userId?: string; sessionId?: string };

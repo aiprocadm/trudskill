@@ -61,9 +61,9 @@ describe('buildRostechnadzorRows', () => {
         protocol: { documentNumber: '', documentDate: '' }
       })
     ]);
-    expect(row.snils).toBe('');
-    expect(row.position).toBe('');
-    expect(row.middleName).toBe('');
-    expect(row.knowledgeCheckDate).toBe('');
+    expect(row?.snils).toBe('');
+    expect(row?.position).toBe('');
+    expect(row?.middleName).toBe('');
+    expect(row?.knowledgeCheckDate).toBe('');
   });
 });

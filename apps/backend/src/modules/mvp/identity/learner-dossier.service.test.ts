@@ -5,7 +5,7 @@ import { LearnerDossierService } from './learner-dossier.service.js';
 import { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
 
 import type { RequestContext } from '../../../common/context/request-context.js';
-import type { AuditService } from '../../audit/audit.service.js';
+import type { AuditService, AuditWritePayload } from '../../audit/audit.service.js';
 import type { DocumentsService } from '../../documents/documents.service.js';
 import type { LegalLogReader } from '../esignature/legal-log.reader.js';
 
@@ -28,7 +28,7 @@ const base = {
 
 function harness(options: { legalEntries?: unknown[]; legalThrows?: boolean } = {}) {
   const state = new InMemoryMvpState();
-  const writeCritical = vi.fn(async () => undefined);
+  const writeCritical = vi.fn(async (_record: AuditWritePayload) => undefined);
   const documents = {
     listDocuments: () => ({
       items: [

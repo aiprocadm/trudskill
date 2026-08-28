@@ -33,6 +33,9 @@ describe('IDOR — learner-pdf-card cannot read across tenant', () => {
     mvpState.learners.push({
       id: 'learner_a',
       tenantId: 'tenantA',
+      status: 'active',
+      createdAt: '2026-04-01T00:00:00.000Z',
+      updatedAt: '2026-04-01T00:00:00.000Z',
       firstName: 'Анна',
       lastName: 'Иванова',
       snils: '111-111-111 11'

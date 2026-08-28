@@ -5,6 +5,8 @@ import type { DatabaseService } from '../../infrastructure/database/database.ser
 import type { S3StorageClient } from '../../infrastructure/storage/s3-storage.client.js';
 import type { AuditService } from '../audit/audit.service.js';
 import type { FilesService as FilesGate } from '../files/files.service.js';
+import type { Type } from '@nestjs/common';
+import type { Reflector as NestReflector } from '@nestjs/core';
 
 /**
  * Phase 3 Plan C — HTTP integration boundary tests for the 4 new endpoints.
@@ -122,10 +124,11 @@ describe('Phase 3 Plan C — HTTP boundary (upload-url / file-url / return / com
 
     @Injectable()
     class TestPermissionGuard {
-      constructor(@Inject(Reflector) private readonly reflector: Reflector) {}
+      constructor(@Inject(Reflector) private readonly reflector: NestReflector) {}
       async canActivate(context: {
-        getHandler: () => unknown;
-        getClass: () => unknown;
+        // Reflector принимает цели поиска метаданных, а не `unknown`.
+        getHandler: () => Type<unknown>;
+        getClass: () => Type<unknown>;
         switchToHttp: () => {
           getRequest: () => {
             context?: { tenantId?: string; userId?: string; sessionId?: string };

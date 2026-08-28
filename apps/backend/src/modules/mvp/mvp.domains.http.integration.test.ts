@@ -354,8 +354,10 @@ describe('MVP HTTP integration (domain invariants)', () => {
 
     await created.listen(0, '127.0.0.1');
 
-    const address = created.getHttpServer().address() as Socket | { port: number };
-    const port = typeof address === 'object' && address && 'port' in address ? address.port : 0;
+    // `Socket` тут был мимо: address() отдаёт адрес, а не сокет. Приводим так же,
+    // как остальные интеграционные тесты репозитория.
+    const address = created.getHttpServer().address() as { port: number } | null;
+    const port = address?.port ?? 0;
     apiBaseUrl = `http://127.0.0.1:${port}${process.env.API_PREFIX ?? '/api/v1'}`;
     memoryMvpPersistenceRef = created.get(MemoryMvpPersistenceBackend);
     memoryDocumentsPersistenceRef = created.get(MemoryDocumentsPersistenceBackend);

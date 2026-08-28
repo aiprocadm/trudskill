@@ -1,6 +1,9 @@
 import 'reflect-metadata';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { Type } from '@nestjs/common';
+import type { Reflector as NestReflector } from '@nestjs/core';
+
 const requiredEnv: Record<string, string> = {
   NODE_ENV: 'test',
   BACKEND_PORT: '3001',
@@ -108,11 +111,12 @@ describe('MVP HTTP integration (permission boundaries)', () => {
 
     @Injectable()
     class TestPermissionGuard {
-      constructor(@Inject(Reflector) private readonly reflector: Reflector) {}
+      constructor(@Inject(Reflector) private readonly reflector: NestReflector) {}
 
       async canActivate(context: {
-        getHandler: () => unknown;
-        getClass: () => unknown;
+        // Reflector принимает цели поиска метаданных, а не `unknown`.
+        getHandler: () => Type<unknown>;
+        getClass: () => Type<unknown>;
         switchToHttp: () => {
           getRequest: () => {
             context?: { tenantId?: string; userId?: string; sessionId?: string };
@@ -698,12 +702,6 @@ describe('MVP HTTP integration (permission boundaries)', () => {
       @RequirePermissions('enrollments.read')
       previewReport(@CurrentContext() context: { tenantId?: string }) {
         return { columns: [], rows: [], total: 0, truncated: false, tenantId: context.tenantId };
-      }
-
-      @Post('reports/builder/export')
-      @RequirePermissions('enrollments.read')
-      exportReport() {
-        return { fileName: 'report.xlsx', mimeType: 'application/x', contentBase64: '' };
       }
 
       @Get('reports/builder/templates')

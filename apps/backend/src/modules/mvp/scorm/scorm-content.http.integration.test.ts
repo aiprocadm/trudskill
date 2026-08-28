@@ -143,8 +143,8 @@ describe('ScormContentController (HTTP integration)', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toBe('text/javascript');
     // Verify the S3 key contains the full path
-    const [lastCall] = getObjectStreamMock.mock.calls.slice(-1);
-    expect(lastCall[0].key).toBe('scorm/tenant_demo/scp_test/content/js/app.js');
+    const lastCall = getObjectStreamMock.mock.calls.at(-1);
+    expect(lastCall?.[0]?.key).toBe('scorm/tenant_demo/scp_test/content/js/app.js');
   });
 
   it('expired token → 404 (no details)', async () => {

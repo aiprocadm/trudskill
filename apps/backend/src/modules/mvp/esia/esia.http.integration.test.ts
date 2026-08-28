@@ -6,6 +6,8 @@
 //
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import type { EsiaIdentityProvider } from '../../../infrastructure/esia/esia-identity.provider.js';
+
 describe('ЕСИА HTTP (dormant)', () => {
   let app:
     | { close: () => Promise<void>; getHttpServer: () => { address: () => { port: number } } }
@@ -28,7 +30,7 @@ describe('ЕСИА HTTP (dormant)', () => {
 
     @Controller()
     class StubEsiaController {
-      private readonly provider = new NoopEsiaProvider();
+      private readonly provider: EsiaIdentityProvider = new NoopEsiaProvider();
 
       @Get('auth/esia/authorize')
       authorize(@Query('purpose') _p: string, @Res({ passthrough: true }) res: any): void {

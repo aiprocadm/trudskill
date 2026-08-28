@@ -61,7 +61,9 @@ async function makeHarness() {
 
 const request = (body: unknown, sign = true): [RawBodyRequest<Request>, Record<string, string>] => {
   const raw = Buffer.from(JSON.stringify(body), 'utf8');
-  const headers = sign
+  // Тип объявлен явно: без него ветка «без подписи» сужала запись до пустого объекта,
+  // и заголовки переставали быть Record<string, string>.
+  const headers: Record<string, string> = sign
     ? { 'x-kinescope-signature': createHmac('sha256', SECRET).update(raw).digest('hex') }
     : {};
   return [{ rawBody: raw } as RawBodyRequest<Request>, headers];

@@ -9,6 +9,7 @@ import { AuditService } from '../audit/audit.service.js';
 
 import type { Counterparty, Enrollment, GroupEntity, Learner } from './mvp.types.js';
 import type { RequestContext } from '../../common/context/request-context.js';
+import type { AuditLogRecord } from '../audit/audit.service.js';
 import type { DocumentsService } from '../documents/documents.service.js';
 import type { FilesService } from '../files/files.service.js';
 
@@ -31,7 +32,16 @@ const ctx: RequestContext = {
 function makeService() {
   const state = new InMemoryMvpState();
   const audit = new AuditService();
-  vi.spyOn(audit, 'write').mockImplementation(() => undefined);
+  // Метод отдаёт запись журнала: возвращаем её же, а не undefined — иначе двойник
+  // обещает не то, что обещает настоящий сервис.
+  vi.spyOn(audit, 'write').mockImplementation(
+    (record) =>
+      ({
+        ...record,
+        id: 'audit_stub',
+        createdAt: '2026-01-01T00:00:00.000Z'
+      }) as AuditLogRecord
+  );
   const service = new MvpService(
     state,
     new TenantScopedRepository(),

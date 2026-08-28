@@ -40,7 +40,7 @@ describe('registry response round-trip', () => {
     ];
     const result = matchResponseToRecords(parsed, records);
     expect(result.matched).toBe(1);
-    expect(records[0].registrationNumber).toBe('РН-777');
+    expect(records[0]?.registrationNumber).toBe('РН-777');
   });
 
   it('reports unmatched response rows', async () => {

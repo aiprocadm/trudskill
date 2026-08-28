@@ -74,7 +74,9 @@ function harness() {
   const test = service.createTest(
     T,
     ctx.userId,
-    { courseId: course.id, title: 'Итоговый тест', passingScore: 1 },
+    // Проходной балл живёт в `rules`, а не в корне запроса: пока тесты не проверялись
+    // типами, поле в корне молча игнорировалось.
+    { courseId: course.id, title: 'Итоговый тест', rules: { passingScore: 1 } },
     ctx
   );
 

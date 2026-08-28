@@ -104,7 +104,9 @@ describe('reminders nightly scan (nested MvpTenantRunner → DocumentsTenantRunn
         loadIntoState: vi.fn(async (_tenantId: string, state: InMemoryDocumentsState) => {
           seedDocsState(state);
         }),
-        saveFromState: vi.fn(async () => undefined)
+        saveFromState: vi.fn(async () => undefined),
+        // Метод появился в интерфейсе позже двойника; напоминания его не зовут.
+        findGeneratedDocumentByQrToken: vi.fn(async (_token: string) => null)
       };
       const fakeAudit = { write: vi.fn(), writeCritical: vi.fn() };
       const fakeRealtime = { publish: vi.fn() };

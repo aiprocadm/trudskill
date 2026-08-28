@@ -71,9 +71,9 @@ describe('mvp service concurrency-lite invariants', () => {
       )
     ]);
 
-    const fulfilled = [first, second].filter(
-      (item): item is PromiseFulfilledResult<unknown> => item.status === 'fulfilled'
-    );
+    // Тип-предикат должен сужать РОВНО тот тип, что пришёл: `unknown` внутри
+    // PromiseFulfilledResult шире значения и предикатом быть не может.
+    const fulfilled = [first, second].filter((item) => item.status === 'fulfilled');
     const rejected = [first, second].filter(
       (item): item is PromiseRejectedResult => item.status === 'rejected'
     );
