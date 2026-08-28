@@ -8,7 +8,7 @@
     "seed:staging": "tsx scripts/seed-staging.ts",
     "build": "tsc -p tsconfig.json",
     "lint": "eslint src --max-warnings=0",
-    "typecheck": "pnpm --filter @trudskill/shared-types build && pnpm --filter @trudskill/api-contracts build && pnpm --filter @trudskill/docx-render build && tsc -p tsconfig.json --noEmit",
+    "typecheck": "pnpm --filter @trudskill/shared-types build && pnpm --filter @trudskill/api-contracts build && pnpm --filter @trudskill/docx-render build && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "test": "vitest run --no-file-parallelism",
     "ops:neutralize-known-passwords": "tsx scripts/neutralize-known-passwords.ts"
   },
