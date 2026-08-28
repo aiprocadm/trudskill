@@ -1,3 +1,4 @@
+import { type Logger } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DocumentsWriteOrchestrator } from './documents-write.orchestrator.js';
@@ -7,8 +8,8 @@ const state = {} as never;
 
 describe('DocumentsWriteOrchestrator', () => {
   it('writes normalized first and legacy second when dual-write is enabled', async () => {
-    const logger = { error: vi.fn() } as never;
-    const orchestrator = new DocumentsWriteOrchestrator(logger);
+    const logger = { error: vi.fn() };
+    const orchestrator = new DocumentsWriteOrchestrator(logger as unknown as Logger);
     const callOrder: string[] = [];
 
     await orchestrator.persist({
@@ -33,8 +34,8 @@ describe('DocumentsWriteOrchestrator', () => {
   });
 
   it('logs normalized write failures and does not call compensation', async () => {
-    const logger = { error: vi.fn() } as never;
-    const orchestrator = new DocumentsWriteOrchestrator(logger);
+    const logger = { error: vi.fn() };
+    const orchestrator = new DocumentsWriteOrchestrator(logger as unknown as Logger);
     const compensation = vi.fn();
     const reconciliationLogs: string[] = [];
 

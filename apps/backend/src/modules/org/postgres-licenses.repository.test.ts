@@ -42,7 +42,7 @@ const row = {
 const license: TrainingLicense = {
   id: 'lic_1',
   tenantId: 't1',
-  licenseType: 'education',
+  licenseType: 'education_license',
   licenseNumber: 'Л035-001',
   issuerName: 'Рособрнадзор',
   issuedAt: '2024-01-10',

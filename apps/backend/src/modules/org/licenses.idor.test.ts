@@ -35,7 +35,7 @@ describe('IDOR — licenses :id endpoints reject cross-tenant', () => {
       'tA',
       'aa',
       {
-        licenseType: 'general',
+        licenseType: 'education_license',
         licenseNumber: 'L',
         issuerName: 'M',
         issuedAt: '2026-01-01'
@@ -51,7 +51,7 @@ describe('IDOR — licenses :id endpoints reject cross-tenant', () => {
       'tA',
       'aa',
       {
-        licenseType: 'general',
+        licenseType: 'education_license',
         licenseNumber: 'L',
         issuerName: 'M',
         issuedAt: '2026-01-01'
@@ -69,7 +69,7 @@ describe('IDOR — licenses :id endpoints reject cross-tenant', () => {
       'tA',
       'aa',
       {
-        licenseType: 'general',
+        licenseType: 'education_license',
         licenseNumber: 'L',
         issuerName: 'M',
         issuedAt: '2026-01-01'
@@ -85,7 +85,7 @@ describe('IDOR — licenses :id endpoints reject cross-tenant', () => {
       'tA',
       'aa',
       {
-        licenseType: 'general',
+        licenseType: 'education_license',
         licenseNumber: 'L1',
         issuerName: 'M',
         issuedAt: '2026-01-01'
@@ -96,7 +96,7 @@ describe('IDOR — licenses :id endpoints reject cross-tenant', () => {
       'tB',
       'ab',
       {
-        licenseType: 'general',
+        licenseType: 'education_license',
         licenseNumber: 'L2',
         issuerName: 'M',
         issuedAt: '2026-01-01'

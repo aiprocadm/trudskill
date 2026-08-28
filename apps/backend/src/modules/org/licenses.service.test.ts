@@ -138,7 +138,7 @@ describe('LicensesService — CRUD (Plan C §5.10)', () => {
     await service.create('tenant_a', ctx.userId, baseRequest, ctx);
     await service.create('tenant_b', ctx.userId, baseRequest, ctx);
     expect(await service.list('tenant_a')).toHaveLength(1);
-    expect((await service.list('tenant_a'))[0].tenantId).toBe('tenant_a');
+    expect((await service.list('tenant_a'))[0]?.tenantId).toBe('tenant_a');
   });
 
   it('list filters by status when provided', async () => {

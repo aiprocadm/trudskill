@@ -138,8 +138,8 @@ describe('Idempotency — generateDocumentsBatch retry', () => {
       ctx
     );
 
-    expect(first.items[0].id).toBe(second.items[0].id);
-    expect(first.items[1].id).toBe(second.items[1].id);
+    expect(first.items[0]?.id).toBe(second.items[0]?.id);
+    expect(first.items[1]?.id).toBe(second.items[1]?.id);
     expect(service.listDocumentTasks('t1', {}).total).toBe(2);
   });
 });

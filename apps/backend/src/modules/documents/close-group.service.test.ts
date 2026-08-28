@@ -5,7 +5,8 @@ import { InMemoryDocumentsState } from './in-memory-documents.state.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
-import type { RequestContext } from '../../common/request-context.js';
+import type { TemplateType } from './documents.types.js';
+import type { RequestContext } from '../../common/context/request-context.js';
 
 /**
  * ФТ-A5 «закрыть группу» (Фаза 1 Task 7a).
@@ -33,7 +34,7 @@ const ctx: RequestContext = {
 const makeService = () => {
   const state = new InMemoryDocumentsState();
   const service = new DocumentsService(state, new AuditService(), new RealtimeEventsService());
-  const template = (name: string, templateType: string) => {
+  const template = (name: string, templateType: TemplateType) => {
     const tpl = service.createTemplate('t1', 'u1', { name, templateType }, ctx);
     const version = service.createTemplateVersion('t1', 'u1', {
       templateId: tpl.id,

@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { EsignService } from './esign.service.js';
 import { InMemoryEsignState } from './in-memory-esign.state.js';
 
+import type { LegalLogWriter } from '../mvp/esignature/legal-log.writer.js';
+
 const makeService = () => {
   const auditService = { write: vi.fn() } as any;
   const documentsService = {

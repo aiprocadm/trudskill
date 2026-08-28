@@ -95,14 +95,23 @@ const members = [
   }
 ] as never;
 
-const document = {
-  ...base,
+const document: GeneratedDocumentEntity = {
+  tenantId: base.tenantId,
   id: 'gdoc1',
+  templateId: 'tpl1',
+  templateVersionId: 'tplv1',
   documentType: 'certificate',
+  name: 'Удостоверение',
+  sourceEntityType: 'enrollment',
+  sourceEntityId: 'enr1',
+  fileId: 'file1',
+  status: 'generated',
+  isFinal: false,
+  generatedAt: '2026-07-26T00:00:00.000Z',
   documentNumber: '26-ОТ-0001',
   documentDate: '2026-07-26',
   qrToken: 'tok123'
-} as GeneratedDocumentEntity;
+};
 
 const acts = [
   {

@@ -36,7 +36,7 @@ describe('Licenses audit — writeCritical on create/update/revoke', () => {
       't1',
       'u1',
       {
-        licenseType: 'general',
+        licenseType: 'education_license',
         licenseNumber: 'L-1',
         issuerName: 'Минобр',
         issuedAt: '2026-01-01'
@@ -54,7 +54,7 @@ describe('Licenses audit — writeCritical on create/update/revoke', () => {
       't1',
       'u1',
       {
-        licenseType: 'general',
+        licenseType: 'education_license',
         licenseNumber: 'L-2',
         issuerName: 'Минобр',
         issuedAt: '2026-01-01'
@@ -78,7 +78,7 @@ describe('Licenses audit — writeCritical on create/update/revoke', () => {
       't1',
       'u1',
       {
-        licenseType: 'general',
+        licenseType: 'education_license',
         licenseNumber: 'L-3',
         issuerName: 'Минобр',
         issuedAt: '2026-01-01'

@@ -176,7 +176,7 @@ describe('PostgresPaymentsRepository — маппинг и параметры', 
     const repo = new PostgresPaymentsRepository(db);
     await repo.updatePaymentStatus('t1', 'pay_1', 'succeeded', '2026-01-01');
     await repo.updateOrderStatus('t1', 'ord_1', 'paid');
-    await repo.markItemFulfilled('t1', 'oi_1', 'fulfilled', 'enr_1');
+    await repo.markItemFulfilled('t1', 'oi_1', 'enrolled', 'enr_1');
 
     for (const call of calls) {
       expect(call.sql).toContain('tenant_id = $1');
