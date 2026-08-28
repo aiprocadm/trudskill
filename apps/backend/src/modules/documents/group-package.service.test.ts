@@ -9,6 +9,7 @@ import { InMemoryDocumentsState } from './in-memory-documents.state.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
+import type { TemplateType } from './documents.types.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 import type { S3StorageClient } from '../../infrastructure/storage/s3-storage.client.js';
 import type { FilesService } from '../files/files.service.js';
@@ -33,7 +34,7 @@ const ctx = {
 function makeStack() {
   const state = new InMemoryDocumentsState();
   const documents = new DocumentsService(state, new AuditService(), new RealtimeEventsService());
-  const template = (name: string, templateType: string) => {
+  const template = (name: string, templateType: TemplateType) => {
     const tpl = documents.createTemplate(T, 'u1', { name, templateType }, ctx);
     const version = documents.createTemplateVersion(T, 'u1', {
       templateId: tpl.id,

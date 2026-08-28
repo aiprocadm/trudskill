@@ -8,7 +8,7 @@ import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
 import type { RequestContext } from '../../common/context/request-context.js';
-import type { FilesService } from '../files/files.service.js';
+import type { FilesService, UploadIntent, UploadIntentOptions } from '../files/files.service.js';
 
 const T = 'tenant_demo';
 const ctx: RequestContext = {
@@ -33,30 +33,50 @@ function makeHarness() {
   };
   let uploadSeq = 0;
   const files = {
-    createDownloadUrl: vi.fn(async () => 'https://s3.local/GET-template'),
+    createDownloadUrl: vi.fn(async (_tenantId: string, _fileId: string) =>
+      Promise.resolve('https://s3.local/GET-template')
+    ),
     // Реальный files-модуль выдаёт НОВЫЙ fileId на каждый интент — DOCX и PDF не должны слиться.
-    createUploadIntent: vi.fn(async (_t: string, input: { originalName: string }) => {
-      uploadSeq += 1;
-      return {
-        fileId: `file_result_${uploadSeq}`,
-        uploadUrl: `https://s3.local/PUT-${uploadSeq}`,
-        storageKey: `generated-documents/t/${input.originalName}`,
-        expiresInSeconds: 900
-      };
-    })
+    createUploadIntent: vi.fn(
+      async (
+        _t: string,
+        input: { originalName: string },
+        _options?: UploadIntentOptions
+      ): Promise<UploadIntent> => {
+        uploadSeq += 1;
+        return {
+          fileId: `file_result_${uploadSeq}`,
+          uploadUrl: `https://s3.local/PUT-${uploadSeq}`,
+          storageKey: `generated-documents/t/${input.originalName}`,
+          expiresInSeconds: 900
+        };
+      }
+    )
   };
   // Сборщик словаря (Task 4) в этих тестах заглушен — его собственные тесты отдельно.
   const variables = {
-    build: vi.fn(async () => ({ 'document.number': 'N-1', 'learner.full_name': 'Иванов И. И.' }))
+    build: vi.fn(
+      async (): Promise<Record<string, string>> => ({
+        'document.number': 'N-1',
+        'learner.full_name': 'Иванов И. И.'
+      })
+    )
   };
   // Реквизиты тенанта: из них берутся подпись и печать (ФТ-A7.1).
   const tenants = {
-    getRequisites: vi.fn(async () => ({
-      tenantId: 't',
-      legalName: 'ООО УЦ',
-      taxNumber: '7701',
-      payload: {}
-    }))
+    getRequisites: vi.fn(
+      async (): Promise<{
+        tenantId: string;
+        legalName: string;
+        taxNumber: string;
+        payload: Record<string, unknown>;
+      }> => ({
+        tenantId: 't',
+        legalName: 'ООО УЦ',
+        taxNumber: '7701',
+        payload: {}
+      })
+    )
   };
   const controller = new DocumentsInternalWorkerController(
     runner as never,
@@ -87,6 +107,8 @@ function seedTask(documents: DocumentsService) {
     {
       idempotencyKey: `idem-${seedCounter}`,
       templateId: template.id,
+      sourceEntityType: 'enrollment',
+      sourceEntityId: `enr_${seedCounter}`,
       documentType: 'certificate'
     },
     ctx
@@ -224,16 +246,16 @@ describe('DocumentsInternalWorkerController (Фаза 1 Task 2)', () => {
 
   it('result-upload-intent asks files-module for a DOCX/PDF-only presigned PUT', async () => {
     const { controller, files } = makeHarness();
-    const res = (await controller.resultUploadIntent({
+    const res = await controller.resultUploadIntent({
       tenantId: T,
       taskId: 'dtask_1',
       sizeBytes: 12_345
-    })) as Record<string, unknown>;
+    });
     expect(res.fileId).toBe('file_result_1');
     const [tenantArg, inputArg, optionsArg] = files.createUploadIntent.mock.calls[0]!;
     expect(tenantArg).toBe(T);
     expect(inputArg).toMatchObject({ originalName: 'dtask_1.docx', sizeBytes: 12_345 });
-    expect((optionsArg as { keyPrefix: string }).keyPrefix).toBe('generated-documents');
+    expect(optionsArg?.keyPrefix).toBe('generated-documents');
   });
 
   it('result-upload-intent derives the .pdf extension from the content type (ФТ-A1.3)', async () => {

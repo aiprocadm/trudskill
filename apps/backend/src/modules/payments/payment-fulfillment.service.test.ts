@@ -18,7 +18,7 @@ function makeEnrollment(byGroup: Record<string, { learnerId: string; enrollmentI
     enrollIntoGroup: vi.fn(async (_t: string, _u: string, body: any) => ({
       groupId: body.groupId,
       idempotencyKey: body.idempotencyKey,
-      created: byGroup[body.groupId].map((r) => ({ id: r.enrollmentId, learnerId: r.learnerId })),
+      created: byGroup[body.groupId]?.map((r) => ({ id: r.enrollmentId, learnerId: r.learnerId })),
       skippedExisting: [],
       errors: []
     }))

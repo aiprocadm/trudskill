@@ -266,10 +266,10 @@ describe('resolveCommissionVariables', () => {
       positionInOrder: number;
     }>;
     expect(list).toHaveLength(3);
-    expect(list[0].fullName).toBe('Иванов И.И.');
-    expect(list[0].role).toBe('chairman');
-    expect(list[1].fullName).toBe('Сидорова А.А.');
-    expect(list[2].fullName).toBe('Петров П.П.');
+    expect(list[0]?.fullName).toBe('Иванов И.И.');
+    expect(list[0]?.role).toBe('chairman');
+    expect(list[1]?.fullName).toBe('Сидорова А.А.');
+    expect(list[2]?.fullName).toBe('Петров П.П.');
   });
 
   it('returns empty string for unknown commission variable', () => {
@@ -566,8 +566,8 @@ describe('resolveGroupLearnersVariables (Plan B §5.7)', () => {
     const result = resolveGroupLearnersVariables(ctx, ['group_learners']);
     const arr = result['group_learners'] as GroupLearnerView[];
     expect(arr).toHaveLength(2);
-    expect(arr[0].fullName).toBe('Иванов Иван Сергеевич');
-    expect(arr[1].fullName).toBe('Петров Пётр');
+    expect(arr[0]?.fullName).toBe('Иванов Иван Сергеевич');
+    expect(arr[1]?.fullName).toBe('Петров Пётр');
   });
 
   it('each item has real snils/position/middleName when set on Learner (Plan C §5.11)', () => {
@@ -653,6 +653,6 @@ describe('resolveGroupLearnersVariables (Plan B §5.7)', () => {
     const result = resolveGroupLearnersVariables(ctx, ['group_learners']);
     const arr = result['group_learners'] as GroupLearnerView[];
     expect(arr).toHaveLength(1);
-    expect(arr[0].fullName).toBe('Иванов Иван Сергеевич');
+    expect(arr[0]?.fullName).toBe('Иванов Иван Сергеевич');
   });
 });

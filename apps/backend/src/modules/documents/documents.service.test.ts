@@ -4,7 +4,9 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { DOCUMENT_REVOKED_EVENT } from './document-revoked.event.js';
 import { DocumentsService } from './documents.service.js';
+import { type TemplateType, type VariableCategoryCode } from './documents.types.js';
 import { InMemoryDocumentsState } from './in-memory-documents.state.js';
+import { requireAt } from '../../common/testing/require-at.test-util.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
@@ -179,7 +181,10 @@ describe('DocumentsService', () => {
     });
 
     let seq = 0;
-    const startTaskFor = (service: DocumentsService, documentType = 'certificate') => {
+    const startTaskFor = (
+      service: DocumentsService,
+      documentType: TemplateType = 'certificate'
+    ) => {
       seq += 1;
       const template = service.createTemplate(
         't1',
@@ -193,6 +198,9 @@ describe('DocumentsService', () => {
       });
       service.activateTemplateVersion('t1', 'u1', version.id, ctx);
       const task = service.generateDocument('t1', 'u1', {
+        // Ключ идемпотентности обязателен по договору: без него все вызовы делят
+        // одну ячейку кэша `t1:undefined`, и второй выпуск молча вернул бы первый.
+        idempotencyKey: `idem-${seq}`,
         templateId: template.id,
         sourceEntityType: 'enrollment',
         sourceEntityId: `e${seq}`,
@@ -656,7 +664,8 @@ describe('DocumentsService', () => {
           templateVersionId: version.id,
           variableCode: 'x',
           displayName: 'X',
-          categoryCode: 'unknown',
+          // Нарочно недопустимый код: проверяем, что домен его отвергает.
+          categoryCode: 'unknown' as VariableCategoryCode,
           dataType: 'string'
         },
         ctx
@@ -1196,7 +1205,7 @@ describe('DocumentsService.listIssuedDocuments (Plan B §5.6)', () => {
     const { service } = seedService();
     const res = service.listIssuedDocuments('t1', { from: '2026-05-10', to: '2026-05-31' });
     expect(res.total).toBe(1);
-    expect(res.items[0].id).toBe('gdoc_2');
+    expect(res.items[0]?.id).toBe('gdoc_2');
   });
 
   it('filters by document types (multi)', () => {
@@ -1219,14 +1228,14 @@ describe('DocumentsService.listIssuedDocuments (Plan B §5.6)', () => {
     });
     const res = service.listIssuedDocuments('t1', { types: ['order'] });
     expect(res.total).toBe(1);
-    expect(res.items[0].documentType).toBe('order');
+    expect(res.items[0]?.documentType).toBe('order');
   });
 
   it('filters by status', () => {
     const { service } = seedService();
     const res = service.listIssuedDocuments('t1', { status: 'final' });
     expect(res.total).toBe(1);
-    expect(res.items[0].id).toBe('gdoc_2');
+    expect(res.items[0]?.id).toBe('gdoc_2');
   });
 
   it('sorts by documentDate desc by default (newest first)', () => {
@@ -1240,7 +1249,7 @@ describe('DocumentsService.listIssuedDocuments (Plan B §5.6)', () => {
     const res = service.listIssuedDocuments('t1', { limit: 1, offset: 1 });
     expect(res.total).toBe(2);
     expect(res.items).toHaveLength(1);
-    expect(res.items[0].id).toBe('gdoc_1');
+    expect(res.items[0]?.id).toBe('gdoc_1');
   });
 
   it('filters by groupOrderDocumentId for tracing cascade', () => {
@@ -1264,7 +1273,7 @@ describe('DocumentsService.listIssuedDocuments (Plan B §5.6)', () => {
     });
     const res = service.listIssuedDocuments('t1', { groupOrderDocumentId: 'gdoc_order_parent' });
     expect(res.total).toBe(1);
-    expect(res.items[0].id).toBe('gdoc_in_order');
+    expect(res.items[0]?.id).toBe('gdoc_in_order');
   });
 
   it('clamps offset and limit to safe values', () => {
@@ -2090,7 +2099,7 @@ describe('DocumentsService signing (Phase 6)', () => {
   it('finalize without a provider leaves the document unsigned (back-compat)', async () => {
     const { service, state } = makeSignServiceWith(undefined);
     await service.finalizeDocument('t1', 'user_1', 'gdoc_sig', signCtx);
-    expect(state.generatedDocuments[0].signatureStatus).toBeUndefined();
+    expect(state.generatedDocuments[0]?.signatureStatus).toBeUndefined();
   });
 
   it('finalize with a signing provider stamps signed metadata', async () => {
@@ -2101,7 +2110,7 @@ describe('DocumentsService signing (Phase 6)', () => {
     });
     const { service, state } = makeSignServiceWith(provider);
     await service.finalizeDocument('t1', 'user_1', 'gdoc_sig', signCtx);
-    const d = state.generatedDocuments[0];
+    const d = requireAt(state.generatedDocuments, 0, 'подписанный документ');
     expect(d.signatureStatus).toBe('signed');
     expect(d.signatureProvider).toBe('cryptopro');
     expect(d.signatureRef).toBe('sig_abc');
@@ -2116,7 +2125,7 @@ describe('DocumentsService signing (Phase 6)', () => {
     const { service, state } = makeSignServiceWith(provider);
     const result = await service.finalizeDocument('t1', 'user_1', 'gdoc_sig', signCtx);
     expect(result.isFinal).toBe(true);
-    expect(state.generatedDocuments[0].signatureStatus).toBe('failed');
+    expect(state.generatedDocuments[0]?.signatureStatus).toBe('failed');
   });
 
   it('finalizeDocument is idempotent: a second finalize does not re-sign the document', async () => {
@@ -2138,18 +2147,19 @@ describe('DocumentsService signing (Phase 6)', () => {
     expect(second.isFinal).toBe(true);
     expect(second.signatureRef).toBe('sig_once');
     expect(provider.calls).toHaveLength(1);
-    expect(state.generatedDocuments[0].status).toBe('final');
+    expect(state.generatedDocuments[0]?.status).toBe('final');
   });
 
   it('signDocument re-signs an already-final document on demand', async () => {
     const provider = new StubSignatureProvider({ status: 'signed', signatureRef: 'sig_2' });
     const { service, state } = makeSignServiceWith(provider);
-    state.generatedDocuments[0].status = 'final';
-    state.generatedDocuments[0].isFinal = true;
-    state.generatedDocuments[0].signatureStatus = 'failed';
+    const seeded = requireAt(state.generatedDocuments, 0, 'засеянный документ');
+    seeded.status = 'final';
+    seeded.isFinal = true;
+    seeded.signatureStatus = 'failed';
     await service.signDocument('t1', 'user_1', 'gdoc_sig', signCtx);
-    expect(state.generatedDocuments[0].signatureStatus).toBe('signed');
-    expect(state.generatedDocuments[0].signatureRef).toBe('sig_2');
+    expect(state.generatedDocuments[0]?.signatureStatus).toBe('signed');
+    expect(state.generatedDocuments[0]?.signatureRef).toBe('sig_2');
   });
 
   it('signDocument rejects a non-final (generated) document', async () => {
@@ -2162,9 +2172,10 @@ describe('DocumentsService signing (Phase 6)', () => {
   it('signDocument rejects a revoked document', async () => {
     const provider = new StubSignatureProvider({ status: 'signed' });
     const { service, state } = makeSignServiceWith(provider);
-    state.generatedDocuments[0].status = 'final';
-    state.generatedDocuments[0].isFinal = true;
-    state.generatedDocuments[0].status = 'revoked'; // revoked keeps isFinal=true
+    const seeded = requireAt(state.generatedDocuments, 0, 'засеянный документ');
+    seeded.status = 'final';
+    seeded.isFinal = true;
+    seeded.status = 'revoked'; // revoked keeps isFinal=true
     await expect(service.signDocument('t1', 'user_1', 'gdoc_sig', signCtx)).rejects.toThrow();
   });
 

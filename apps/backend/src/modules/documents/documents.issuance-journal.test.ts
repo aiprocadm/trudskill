@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { type DocumentsEnqueueService } from './documents-enqueue.service.js';
 import {
   DocumentsController,
   ISSUANCE_JOURNAL_CSV_HARD_CAP,
@@ -7,12 +8,36 @@ import {
   renderIssuanceJournalCsv
 } from './documents.controller.js';
 import { DocumentsService } from './documents.service.js';
+import { type GroupPackageService } from './group-package.service.js';
 import { InMemoryDocumentsState } from './in-memory-documents.state.js';
+import { type JobQuarantineService } from './job-quarantine.service.js';
+import { type TemplateInspectionService } from './template-inspection.service.js';
+import { unusedDependency } from '../../common/testing/unused-dependency.test-util.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
+import { type FilesService } from '../files/files.service.js';
+import { type TenantService } from '../tenant/tenant.service.js';
 
 import type { GeneratedDocumentEntity } from './documents.types.js';
 import type { RequestContext } from '../../common/context/request-context.js';
+
+/**
+ * Контроллеру документов нужны семь зависимостей, а журналу выдачи из них работает
+ * ровно одна — `DocumentsService`. Остальные шесть подставлены громкими заглушками:
+ * молчаливый `undefined` (как было, пока тесты не проверялись типами) прячет промах
+ * до первого обращения, и падает он уже вне теста.
+ */
+function makeJournalController(service: DocumentsService): DocumentsController {
+  return new DocumentsController(
+    service,
+    unusedDependency<DocumentsEnqueueService>('DocumentsEnqueueService'),
+    unusedDependency<TemplateInspectionService>('TemplateInspectionService'),
+    unusedDependency<GroupPackageService>('GroupPackageService'),
+    unusedDependency<FilesService>('FilesService'),
+    unusedDependency<TenantService>('TenantService'),
+    unusedDependency<JobQuarantineService>('JobQuarantineService')
+  );
+}
 
 const ctx: RequestContext = {
   requestId: 'r1',
@@ -22,10 +47,7 @@ const ctx: RequestContext = {
   tenantId: 't1',
   userId: 'u1',
   roles: [],
-  permissions: [],
-  method: 'GET',
-  path: '/admin/documents/issuance-journal',
-  timestamp: new Date().toISOString()
+  permissions: []
 };
 
 function makeDoc(overrides: Partial<GeneratedDocumentEntity> = {}): GeneratedDocumentEntity {
@@ -67,14 +89,14 @@ describe('renderIssuanceJournalCsv (Plan B §5.6)', () => {
     ]);
     const lines = csv.replace(/^﻿/, '').split('\r\n');
     expect(lines).toHaveLength(3); // header + 2 rows
-    expect(lines[1].split(';')[0]).toBe('1');
-    expect(lines[2].split(';')[0]).toBe('2');
+    expect(lines[1]?.split(';')[0]).toBe('1');
+    expect(lines[2]?.split(';')[0]).toBe('2');
   });
 
   it('uses ; as separator (Excel ru-locale default)', () => {
     const csv = renderIssuanceJournalCsv([makeDoc()]);
     const dataRow = csv.replace(/^﻿/, '').split('\r\n')[1];
-    expect(dataRow.split(';')).toHaveLength(7);
+    expect(dataRow?.split(';')).toHaveLength(7);
   });
 
   it('quotes documentNumber that contains ; or "', () => {
@@ -91,14 +113,14 @@ describe('renderIssuanceJournalCsv (Plan B §5.6)', () => {
     const csv = renderIssuanceJournalCsv([
       makeDoc({ documentDate: undefined, documentNumber: undefined })
     ]);
-    const cells = csv.replace(/^﻿/, '').split('\r\n')[1].split(';');
+    const cells = (csv.replace(/^﻿/, '').split('\r\n')[1] ?? '').split(';');
     expect(cells[1]).toBe('');
     expect(cells[2]).toBe('');
   });
 
   it('renders groupOrderDocumentId in the last column', () => {
     const csv = renderIssuanceJournalCsv([makeDoc({ groupOrderDocumentId: 'gdoc_order_123' })]);
-    const cells = csv.replace(/^﻿/, '').split('\r\n')[1].split(';');
+    const cells = (csv.replace(/^﻿/, '').split('\r\n')[1] ?? '').split(';');
     expect(cells[6]).toBe('gdoc_order_123');
   });
 });
@@ -107,7 +129,7 @@ describe('DocumentsController issuance journal endpoints', () => {
   function makeController() {
     const state = new InMemoryDocumentsState();
     const service = new DocumentsService(state, new AuditService(), new RealtimeEventsService());
-    const controller = new DocumentsController(service);
+    const controller = makeJournalController(service);
     return { state, service, controller };
   }
 
@@ -116,7 +138,7 @@ describe('DocumentsController issuance journal endpoints', () => {
     state.generatedDocuments.push(makeDoc({ id: 'g1' }));
     const page = controller.listIssuanceJournal(ctx, {});
     expect(page.total).toBe(1);
-    expect(page.items[0].id).toBe('g1');
+    expect(page.items[0]?.id).toBe('g1');
   });
 
   it('listIssuanceJournal parses comma-less query (single type as string)', () => {
@@ -125,7 +147,7 @@ describe('DocumentsController issuance journal endpoints', () => {
     state.generatedDocuments.push(makeDoc({ id: 'g2', documentType: 'order' }));
     const page = controller.listIssuanceJournal(ctx, { types: 'order' });
     expect(page.total).toBe(1);
-    expect(page.items[0].documentType).toBe('order');
+    expect(page.items[0]?.documentType).toBe('order');
   });
 
   it('listIssuanceJournal supports multi types array (NestJS parses ?types=a&types=b)', () => {
@@ -155,7 +177,7 @@ describe('DocumentsController.issueGroupOrder (Plan B §5.7)', () => {
   function makeController() {
     const state = new InMemoryDocumentsState();
     const service = new DocumentsService(state, new AuditService(), new RealtimeEventsService());
-    const controller = new DocumentsController(service);
+    const controller = makeJournalController(service);
     state.templates.push(
       {
         id: 'tpl_order',
@@ -213,7 +235,7 @@ describe('DocumentsController.issueGroupOrder (Plan B §5.7)', () => {
     });
     expect(res.order.documentType).toBe('order');
     expect(res.certificates).toHaveLength(1);
-    expect(res.certificates[0].groupOrderDocumentId).toBe(res.order.id);
+    expect(res.certificates[0]?.groupOrderDocumentId).toBe(res.order.id);
     expect(res.alreadyExisted).toBe(false);
   });
 

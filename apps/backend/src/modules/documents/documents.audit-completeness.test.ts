@@ -60,12 +60,12 @@ describe('Audit completeness — finalizeDocument', () => {
       actorId: 'u1',
       tenantId: 't1'
     });
-    expect(finalized[0].newValues).toMatchObject({ status: 'final', isFinal: true });
-    expect(finalized[0].oldValues).toMatchObject({ status: 'generated', isFinal: false });
-    expect(finalized[0].metadata).toMatchObject({ correlation_id: 'c1' });
-    expect(finalized[0].ip).toBe('127.0.0.1');
-    expect(finalized[0].userAgent).toBe('vitest');
-    expect(finalized[0].requestId).toBe('r1');
+    expect(finalized[0]?.newValues).toMatchObject({ status: 'final', isFinal: true });
+    expect(finalized[0]?.oldValues).toMatchObject({ status: 'generated', isFinal: false });
+    expect(finalized[0]?.metadata).toMatchObject({ correlation_id: 'c1' });
+    expect(finalized[0]?.ip).toBe('127.0.0.1');
+    expect(finalized[0]?.userAgent).toBe('vitest');
+    expect(finalized[0]?.requestId).toBe('r1');
   });
 });
 
@@ -82,8 +82,8 @@ describe('Audit completeness — archiveDocument', () => {
       actorId: 'u1',
       tenantId: 't1'
     });
-    expect(archived[0].newValues).toMatchObject({ status: 'archived' });
-    expect(archived[0].oldValues).toMatchObject({ status: 'generated' });
+    expect(archived[0]?.newValues).toMatchObject({ status: 'archived' });
+    expect(archived[0]?.oldValues).toMatchObject({ status: 'generated' });
   });
 
   it('idempotent — повторный archive не пишет второй audit-event', async () => {
@@ -301,7 +301,7 @@ describe('Audit completeness — task audit includes ip/userAgent', () => {
     const { audit } = makeServiceWithDoc();
     const events = audit['records'].filter((e) => e.action === 'documents.task.completed');
     expect(events).toHaveLength(1);
-    expect(events[0].ip).toBe('127.0.0.1');
-    expect(events[0].userAgent).toBe('vitest');
+    expect(events[0]?.ip).toBe('127.0.0.1');
+    expect(events[0]?.userAgent).toBe('vitest');
   });
 });
