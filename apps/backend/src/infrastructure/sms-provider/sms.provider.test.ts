@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { FakeSmsProvider } from './fake-sms.provider.js';
 import { normalizePhone } from './phone.util.js';
-import { NoopSmsProvider } from './sms.provider.js';
+import { NoopSmsProvider, type SmsProvider } from './sms.provider.js';
 
 describe('NoopSmsProvider', () => {
   it('называет себя noop', () => {
@@ -10,7 +10,7 @@ describe('NoopSmsProvider', () => {
   });
 
   it('отвечает null и НЕ бросает — спящий канал не имеет права уронить доменный флоу', async () => {
-    const provider = new NoopSmsProvider();
+    const provider: SmsProvider = new NoopSmsProvider();
     await expect(
       provider.send({ tenantId: 't1', to: '+79991234567', text: 'код' })
     ).resolves.toBeNull();

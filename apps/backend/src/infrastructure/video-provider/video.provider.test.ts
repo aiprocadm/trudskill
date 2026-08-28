@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { FakeVideoProvider } from './fake-video.provider.js';
-import { NoopVideoProvider } from './video.provider.js';
+import { NoopVideoProvider, type VideoProvider } from './video.provider.js';
 
 /**
  * Шов видео-провайдера (ФТ-B1.1, Фаза 2 Task 1).
@@ -10,7 +10,8 @@ import { NoopVideoProvider } from './video.provider.js';
  * провайдера не должен ронять страницу курса — видео просто не воспроизводится.
  */
 describe('NoopVideoProvider', () => {
-  const noop = new NoopVideoProvider();
+  // Тип интерфейса, а не класса: тест зовёт шов так же, как продукт.
+  const noop: VideoProvider = new NoopVideoProvider();
 
   it('на всё отвечает null и ничего не бросает', async () => {
     await expect(
@@ -32,7 +33,7 @@ describe('NoopVideoProvider', () => {
 });
 
 describe('FakeVideoProvider (staging-only)', () => {
-  const fake = new FakeVideoProvider();
+  const fake: VideoProvider = new FakeVideoProvider();
 
   it('выдаёт цель загрузки, самопомеченную как ненастоящую', async () => {
     const target = await fake.createUploadTarget({

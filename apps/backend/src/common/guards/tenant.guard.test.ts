@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { issueSignedAccessToken } from '../../modules/iam/crypto.util.js';
 
 import type { TenantGuard } from './tenant.guard.js';
+import type { SecretsService } from '../../infrastructure/secrets/secrets.service.js';
 
 vi.mock('../../env.js', () => ({
   backendEnv: {
@@ -11,7 +12,7 @@ vi.mock('../../env.js', () => ({
   }
 }));
 
-let TenantGuardClass: { new (): TenantGuard };
+let TenantGuardClass: { new (secrets?: SecretsService): TenantGuard };
 
 beforeAll(async () => {
   ({ TenantGuard: TenantGuardClass } = await import('./tenant.guard.js'));

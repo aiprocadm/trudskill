@@ -135,7 +135,8 @@ describe('DI uses explicit @Inject (tsx/esbuild has no decorator metadata)', () 
           const p = raw.trim();
           if (!p || p.includes('@Inject')) continue;
           const m = p.match(/:\s*([A-Z][A-Za-z0-9_]*)\b/);
-          if (!m || NON_DI_TYPES.has(m[1])) continue;
+          const typeName = m?.[1];
+          if (!typeName || NON_DI_TYPES.has(typeName)) continue;
           offenders.push(`${file.replace(SRC, 'src')} -> ${p.replace(/\s+/g, ' ')}`);
         }
       }

@@ -5,6 +5,7 @@ import { issueSignedAccessToken } from '../../modules/iam/crypto.util.js';
 
 import type { TenantGuard } from './tenant.guard.js';
 import type { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
+import type { SecretsService } from '../../infrastructure/secrets/secrets.service.js';
 
 /**
  * Контракт изоляции тенантов на границе запроса (ФТ-D1, ТЗ «Арендная СДО» Фаза 0).
@@ -25,7 +26,7 @@ vi.mock('../../env.js', () => ({
   backendEnv: { AUTH_JWT_SECRET: SECRET }
 }));
 
-let TenantGuardClass: { new (secrets?: unknown): TenantGuard };
+let TenantGuardClass: { new (secrets?: SecretsService): TenantGuard };
 let TenantScopedRepositoryClass: { new (): TenantScopedRepository };
 
 type Headers = Record<string, string>;
@@ -41,7 +42,9 @@ function makeContext(headers: Headers, path = '/api/v1/learners') {
   return { req, execution: { switchToHttp: () => ({ getRequest: () => req }) } };
 }
 
-const newGuard = () => new TenantGuardClass({ getJwtSigningSecret: () => SECRET });
+// Заглушка секретов: охраннику нужен только один метод, полный сервис здесь не нужен.
+const newGuard = () =>
+  new TenantGuardClass({ getJwtSigningSecret: () => SECRET } as unknown as SecretsService);
 
 const tokenFor = (tenantId: string, sub = 'u1', ttlSeconds = 300) =>
   issueSignedAccessToken(

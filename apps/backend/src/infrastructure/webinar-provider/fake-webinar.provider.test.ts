@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 
 import { FakeWebinarProvider } from './fake-webinar.provider.js';
 
+import type { WebinarProvider } from './webinar.provider.js';
+
 describe('FakeWebinarProvider', () => {
   it('createSession returns synthetic, self-marked URLs', async () => {
     const s = await new FakeWebinarProvider().createSession({
@@ -24,12 +26,14 @@ describe('FakeWebinarProvider', () => {
         events: [{ participantRef: 'l1', type: 'joined', occurredAt: '2026-07-01T10:00:00.000Z' }]
       })
     );
-    const events = await new FakeWebinarProvider().parseWebhook(raw, {});
+    const events = await (new FakeWebinarProvider() as WebinarProvider).parseWebhook(raw, {});
     expect(events?.[0]?.participantRef).toBe('l1');
     expect(events?.[0]?.type).toBe('joined');
   });
 
   it('parseWebhook returns null for garbage', async () => {
-    expect(await new FakeWebinarProvider().parseWebhook(Buffer.from('not json'), {})).toBeNull();
+    expect(
+      await (new FakeWebinarProvider() as WebinarProvider).parseWebhook(Buffer.from('not json'), {})
+    ).toBeNull();
   });
 });

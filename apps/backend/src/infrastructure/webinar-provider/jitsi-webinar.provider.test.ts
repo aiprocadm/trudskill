@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 
 import { JitsiWebinarProvider } from './jitsi-webinar.provider.js';
 
+import type { WebinarProvider } from './webinar.provider.js';
+
 describe('JitsiWebinarProvider (skeleton)', () => {
   it('has code "jitsi"', () => {
     expect(new JitsiWebinarProvider('https://meet.example.org').code).toBe('jitsi');
@@ -21,7 +23,10 @@ describe('JitsiWebinarProvider (skeleton)', () => {
 
   it('parseWebhook returns null', async () => {
     expect(
-      await new JitsiWebinarProvider('https://meet.example.org').parseWebhook(Buffer.from('{}'), {})
+      await (new JitsiWebinarProvider('https://meet.example.org') as WebinarProvider).parseWebhook(
+        Buffer.from('{}'),
+        {}
+      )
     ).toBeNull();
   });
 });

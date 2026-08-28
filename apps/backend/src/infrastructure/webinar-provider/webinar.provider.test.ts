@@ -1,15 +1,19 @@
 // apps/backend/src/infrastructure/webinar-provider/webinar.provider.test.ts
 import { describe, expect, it } from 'vitest';
 
-import { NoopWebinarProvider } from './webinar.provider.js';
+import { NoopWebinarProvider, type WebinarProvider } from './webinar.provider.js';
 
 describe('NoopWebinarProvider', () => {
+  // Тип интерфейса, а не класса: тест обязан звать шов так же, как его зовёт продукт,
+  // и заодно доказывает, что заглушка договору соответствует.
+  const noop: WebinarProvider = new NoopWebinarProvider();
+
   it('has id "noop"', () => {
-    expect(new NoopWebinarProvider().code).toBe('noop');
+    expect(noop.code).toBe('noop');
   });
 
   it('createSession returns null (provider asleep)', async () => {
-    const result = await new NoopWebinarProvider().createSession({
+    const result = await noop.createSession({
       tenantId: 't1',
       webinarId: 'w1',
       title: 'Intro',
@@ -20,7 +24,7 @@ describe('NoopWebinarProvider', () => {
   });
 
   it('parseWebhook returns null', async () => {
-    const events = await new NoopWebinarProvider().parseWebhook(Buffer.from('{}'), {});
+    const events = await noop.parseWebhook(Buffer.from('{}'), {});
     expect(events).toBeNull();
   });
 });

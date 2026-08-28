@@ -43,8 +43,8 @@ function buildImportMap(file: string, src: string): Map<string, string> {
   const map = new Map<string, string>();
   const re = /import\s+(?:type\s+)?\{([\s\S]*?)\}\s+from\s+['"]([^'"]+)['"]/g;
   for (const match of src.matchAll(re)) {
-    const target = resolveSpecifier(file, match[2]);
-    for (const raw of match[1].split(',')) {
+    const target = resolveSpecifier(file, match[2] ?? '');
+    for (const raw of (match[1] ?? '').split(',')) {
       const name = raw.replace(/\s+as\s+\w+/, '').trim();
       if (name) map.set(name, target);
     }

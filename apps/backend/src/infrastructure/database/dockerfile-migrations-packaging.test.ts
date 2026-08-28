@@ -35,7 +35,7 @@ describe('backend Dockerfile migration packaging', () => {
     // Isolate the final (runtime) build stage — everything after the last `FROM`.
     const stageStarts = [...contents.matchAll(/^FROM .*$/gm)];
     expect(stageStarts.length, 'expected at least one FROM stage').toBeGreaterThan(0);
-    const runtimeStage = contents.slice(stageStarts[stageStarts.length - 1].index ?? 0);
+    const runtimeStage = contents.slice(stageStarts[stageStarts.length - 1]?.index ?? 0);
 
     const copiesMigrations = runtimeStage
       .split('\n')
