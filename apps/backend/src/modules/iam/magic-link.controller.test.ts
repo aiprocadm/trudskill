@@ -11,6 +11,7 @@ import {
   type SendMagicLinkInput
 } from './services/magic-link-email-sender.js';
 import { MagicLinkService } from './services/magic-link.service.js';
+import { requireAt } from '../../common/testing/require-at.test-util.js';
 import { SecretsService } from '../../infrastructure/secrets/secrets.service.js';
 
 import type { RequestContext } from '../../common/context/request-context.js';
@@ -69,8 +70,8 @@ describe('AuthController.requestMagicLink', () => {
 
     expect(result).toEqual({ status: 'sent' });
     expect(sender.sent).toHaveLength(1);
-    expect(sender.sent[0].email).toBe('new@example.ru');
-    expect(sender.sent[0].rawToken).toMatch(/^[A-Za-z0-9_-]{40,}$/);
+    expect(sender.sent[0]?.email).toBe('new@example.ru');
+    expect(sender.sent[0]?.rawToken).toMatch(/^[A-Za-z0-9_-]{40,}$/);
   });
 
   it('always returns "sent" even for unknown email (no enumeration)', async () => {
@@ -98,7 +99,7 @@ describe('AuthController.redeemMagicLink', () => {
     const { controller, sender, iam } = makeController();
 
     await controller.requestMagicLink(context, { email: 'flow@example.ru' });
-    const rawToken = sender.sent[0].rawToken;
+    const rawToken = requireAt(sender.sent, 0, 'отправленное письмо').rawToken;
 
     const tokens = await controller.redeemMagicLink(
       context,
@@ -119,7 +120,7 @@ describe('AuthController.redeemMagicLink', () => {
     const { controller, sender, audit } = makeController();
 
     await controller.requestMagicLink(context, { email: 'audited@example.ru' });
-    const rawToken = sender.sent[0].rawToken;
+    const rawToken = requireAt(sender.sent, 0, 'отправленное письмо').rawToken;
 
     await controller.redeemMagicLink(
       context,
@@ -147,7 +148,7 @@ describe('AuthController.redeemMagicLink', () => {
     const { controller, sender } = makeController();
 
     await controller.requestMagicLink(context, { email: 'replay@example.ru' });
-    const rawToken = sender.sent[0].rawToken;
+    const rawToken = requireAt(sender.sent, 0, 'отправленное письмо').rawToken;
 
     await controller.redeemMagicLink(
       context,
@@ -168,7 +169,7 @@ describe('AuthController.redeemMagicLink', () => {
     const { controller, sender, iam } = makeController();
 
     await controller.requestMagicLink(context, { email: '  MIXED@x.RU  ' });
-    const rawToken = sender.sent[0].rawToken;
+    const rawToken = requireAt(sender.sent, 0, 'отправленное письмо').rawToken;
 
     await controller.redeemMagicLink(
       context,

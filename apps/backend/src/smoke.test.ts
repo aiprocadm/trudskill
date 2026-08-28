@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { backendEnv } from './env';
+import { backendEnv } from './env.js';
 
 describe('backend env', () => {
   it('has default port when omitted', () => {

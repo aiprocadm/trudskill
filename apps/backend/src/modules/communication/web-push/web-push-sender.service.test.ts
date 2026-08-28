@@ -24,6 +24,7 @@ vi.mock('../../../env.js', () => ({
 }));
 
 import { WebPushSender } from './web-push-sender.service.js';
+import { requireAt } from '../../../common/testing/require-at.test-util.js';
 import { InMemoryMvpState } from '../../mvp/infrastructure/in-memory-mvp.state.js';
 
 import type { MvpTenantRunner } from '../../mvp/infrastructure/mvp-tenant-runner.service.js';
@@ -88,7 +89,11 @@ describe('WebPushSender', () => {
     const { sender } = makeSender([sub('https://p/a')]);
     await sender.sendToUsers('t1', ['u1'], { title: 'T', body: 'B', url: '/x' });
 
-    const [subscriptionArg, payloadArg] = sendNotification.mock.calls[0];
+    const [subscriptionArg, payloadArg] = requireAt(
+      sendNotification.mock.calls,
+      0,
+      'вызов web-push'
+    );
     expect(subscriptionArg).toEqual({
       endpoint: 'https://p/a',
       keys: { p256dh: 'p256', auth: 'auth' }

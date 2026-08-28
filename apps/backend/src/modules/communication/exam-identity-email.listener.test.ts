@@ -7,6 +7,7 @@ import { NotificationDispatcher } from './notification-dispatcher.service.js';
 import { InMemorySmsProviderSettingsRepository } from './sms/in-memory-sms-provider-settings.repository.js';
 import { SmsChannelService } from './sms/sms-channel.service.js';
 import { SmsProviderSettingsService } from './sms/sms-provider-settings.service.js';
+import { NoopWebPushSender } from './web-push/noop-web-push-sender.js';
 import { FakeSmsProvider } from '../../infrastructure/sms-provider/fake-sms.provider.js';
 import {
   NoopSmsProvider,
@@ -26,7 +27,12 @@ function makeDispatcher() {
   };
   const templates = new InMemoryEmailTemplatesState();
   const deliveries = new InMemoryEmailDeliveriesState();
-  const dispatcher = new NotificationDispatcher(mailer, templates, deliveries);
+  const dispatcher = new NotificationDispatcher(
+    mailer,
+    templates,
+    deliveries,
+    new NoopWebPushSender()
+  );
   return { dispatcher, deliveries, sent };
 }
 

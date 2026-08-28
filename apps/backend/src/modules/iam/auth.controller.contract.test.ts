@@ -133,7 +133,9 @@ describe('AuthController public user contract', () => {
   it('does not leak refresh token in auth response payload', async () => {
     const [{ authCookie }] = await Promise.all([import('./auth-cookie.util.js')]);
 
-    const response = authCookie.toPublicTokens({
+    // Тип входа csrfToken не предусматривает, но проверка именно в том, что его НЕ
+    // прокинет наружу даже если он придёт: расширяем тип, а не убираем поле.
+    const withSecrets: Parameters<typeof authCookie.toPublicTokens>[0] & { csrfToken: string } = {
       accessToken: 'access',
       sessionId: 'session',
       expiresIn: 900,
@@ -145,7 +147,8 @@ describe('AuthController public user contract', () => {
         permission_codes: ['iam.manage_roles'],
         session_id: 'session'
       }
-    });
+    };
+    const response = authCookie.toPublicTokens(withSecrets);
 
     expect(response).not.toHaveProperty('refreshToken');
     expect(response).not.toHaveProperty('csrfToken');

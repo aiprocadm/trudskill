@@ -60,8 +60,8 @@ describe('MagicLinkService.requestLink', () => {
     expect(rawToken).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(rawToken.length).toBeGreaterThanOrEqual(40);
     expect(repo.saved).toHaveLength(1);
-    expect(repo.saved[0].tokenHash).not.toBe(rawToken);
-    expect(repo.saved[0].tokenHash).toHaveLength(64); // sha-256 hex
+    expect(repo.saved[0]?.tokenHash).not.toBe(rawToken);
+    expect(repo.saved[0]?.tokenHash).toHaveLength(64); // sha-256 hex
   });
 
   it('normalizes the email (lowercase, trim) before storing', async () => {
@@ -70,7 +70,7 @@ describe('MagicLinkService.requestLink', () => {
       email: '  User@Example.RU  '
     });
 
-    expect(repo.saved[0].email).toBe('user@example.ru');
+    expect(repo.saved[0]?.email).toBe('user@example.ru');
   });
 
   it('records request IP and user-agent when provided', async () => {
@@ -81,8 +81,8 @@ describe('MagicLinkService.requestLink', () => {
       userAgent: 'curl/8.0'
     });
 
-    expect(repo.saved[0].requestIp).toBe('1.2.3.4');
-    expect(repo.saved[0].requestUserAgent).toBe('curl/8.0');
+    expect(repo.saved[0]?.requestIp).toBe('1.2.3.4');
+    expect(repo.saved[0]?.requestUserAgent).toBe('curl/8.0');
   });
 
   it('sets expiresAt to now + ttlMs (within 1 second)', async () => {
@@ -90,7 +90,7 @@ describe('MagicLinkService.requestLink', () => {
     await service.requestLink({ tenantId: 't1', email: 'a@b.ru' });
     const after = Date.now();
 
-    const expiresMs = repo.saved[0].expiresAt.getTime();
+    const expiresMs = repo.saved[0]?.expiresAt.getTime();
     expect(expiresMs).toBeGreaterThanOrEqual(before + FIFTEEN_MINUTES);
     expect(expiresMs).toBeLessThanOrEqual(after + FIFTEEN_MINUTES + 100);
   });
@@ -120,7 +120,7 @@ describe('MagicLinkService.redeemLink', () => {
     });
 
     expect(result.email).toBe('user@example.ru');
-    expect(repo.saved[0].consumedAt).not.toBeNull();
+    expect(repo.saved[0]?.consumedAt).not.toBeNull();
   });
 
   it('rejects an unknown token with reason="unknown"', async () => {
@@ -233,7 +233,7 @@ describe('MagicLinkService.peekEmail', () => {
     const result = await service.peekEmail({ tenantId: 't1', rawToken });
 
     expect(result.email).toBe('peek@example.ru');
-    expect(repo.saved[0].consumedAt).toBeNull(); // not consumed
+    expect(repo.saved[0]?.consumedAt).toBeNull(); // not consumed
   });
 
   it('throws MagicLinkInvalidError for an unknown token', async () => {

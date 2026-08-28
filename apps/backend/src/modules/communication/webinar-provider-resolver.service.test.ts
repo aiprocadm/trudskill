@@ -6,10 +6,13 @@ import { WebinarProviderSettingsService } from './webinar-provider-settings.serv
 import { FakeWebinarProvider } from '../../infrastructure/webinar-provider/fake-webinar.provider.js';
 import {
   NoopWebinarProvider,
+  type WebinarProvider,
+  type WebinarProviderCode,
   type WebinarProviderRegistry
 } from '../../infrastructure/webinar-provider/webinar.provider.js';
 
-const registry: WebinarProviderRegistry = new Map([
+// Тип элементов задан явно: иначе Map выводится по первой паре и вторую не принимает.
+const registry: WebinarProviderRegistry = new Map<WebinarProviderCode, WebinarProvider>([
   ['noop', new NoopWebinarProvider()],
   ['fake', new FakeWebinarProvider()]
 ]);
