@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { WizardSteps } from './index.js';
+import { propsOf, textOf } from '../../testing/element.test-util.js';
 
 import type { ReactElement } from 'react';
 
@@ -11,12 +12,12 @@ const STEPS = [
 ];
 
 const stepItems = (element: ReactElement): ReactElement[] => {
-  const [, list] = element.props.children as ReactElement[];
-  return list.props.children as ReactElement[];
+  const [, list] = propsOf(element).children as ReactElement[];
+  return propsOf(list).children as ReactElement[];
 };
 
 const counterOf = (element: ReactElement): ReactElement =>
-  (element.props.children as ReactElement[])[0] as ReactElement;
+  (propsOf(element).children as ReactElement[])[0] as ReactElement;
 
 describe('шаги мастера (TPL-004)', () => {
   it('без шагов ничего не рисует', () => {
@@ -26,9 +27,9 @@ describe('шаги мастера (TPL-004)', () => {
   it('пройденные шаги отличаются от текущего и от будущих', () => {
     const element = WizardSteps({ steps: STEPS, currentId: 'check' }) as ReactElement;
     const [first, second, third] = stepItems(element);
-    expect(first?.props.className).toContain('ui-step--done');
-    expect(second?.props.className).toContain('ui-step--active');
-    expect(third?.props.className).toBe('ui-step');
+    expect(propsOf(first).className).toContain('ui-step--done');
+    expect(propsOf(second).className).toContain('ui-step--active');
+    expect(propsOf(third).className).toBe('ui-step');
   });
 
   it('вперёд перепрыгнуть нельзя — непроверенный шаг дал бы половинчатый результат', () => {
@@ -38,8 +39,8 @@ describe('шаги мастера (TPL-004)', () => {
       onSelect: () => {}
     }) as ReactElement;
     const [first, second] = stepItems(element);
-    expect(first?.props.children.props.disabled).toBe(true); // текущий — некуда идти
-    expect(second?.props.children.props.disabled).toBe(true); // будущий — закрыт
+    expect(propsOf(propsOf(first).children).disabled).toBe(true); // текущий — некуда идти
+    expect(propsOf(propsOf(second).children).disabled).toBe(true); // будущий — закрыт
   });
 
   it('назад вернуться можно', () => {
@@ -49,30 +50,30 @@ describe('шаги мастера (TPL-004)', () => {
       onSelect: () => {}
     }) as ReactElement;
     const [first] = stepItems(element);
-    expect(first?.props.children.props.disabled).toBe(false);
+    expect(propsOf(propsOf(first).children).disabled).toBe(false);
   });
 
   it('без обработчика шаги только показываются', () => {
     const element = WizardSteps({ steps: STEPS, currentId: 'result' }) as ReactElement;
     for (const item of stepItems(element)) {
-      expect(item.props.children.props.disabled).toBe(true);
+      expect(propsOf(propsOf(item).children).disabled).toBe(true);
     }
   });
 
   it('текущий шаг помечен для программ чтения с экрана', () => {
     const element = WizardSteps({ steps: STEPS, currentId: 'check' }) as ReactElement;
     const [, second] = stepItems(element);
-    expect(second?.props.children.props['aria-current']).toBe('step');
+    expect(propsOf(propsOf(second).children)['aria-current']).toBe('step');
   });
 
   it('на телефоне вместо полосы читается «Шаг 2 из 3» с названием', () => {
     // §7.4: пилюли на 360px переносятся в три ряда и вытесняют первое поле за сгиб.
     const element = WizardSteps({ steps: STEPS, currentId: 'check' }) as ReactElement;
-    expect(counterOf(element).props.children.join('')).toBe('Шаг 2 из 3: Проверка');
+    expect(textOf(counterOf(element))).toBe('Шаг 2 из 3: Проверка');
   });
 
   it('неизвестный текущий шаг не роняет счётчик', () => {
     const element = WizardSteps({ steps: STEPS, currentId: 'нет-такого' }) as ReactElement;
-    expect(counterOf(element).props.children.join('')).toBe('Шаг 1 из 3: Файл');
+    expect(textOf(counterOf(element))).toBe('Шаг 1 из 3: Файл');
   });
 });

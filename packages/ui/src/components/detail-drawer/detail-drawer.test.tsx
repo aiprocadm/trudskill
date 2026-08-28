@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { DetailDrawer, DrawerCancelButton } from './index.js';
+import { propsOf } from '../../testing/element.test-util.js';
 
 import type * as ReactModule from 'react';
 
 vi.mock('react', async () => {
-  const actual = await vi.importActual<ReactModule>('react');
+  const actual = await vi.importActual<typeof ReactModule>('react');
   // Компонент вызывается как функция (в пакете нет RTL), поэтому хуки состояния и эффектов
   // подменяются на предсказуемые заглушки: проверяется разметка и ветвление, не реакт.
   return {
@@ -52,7 +53,7 @@ describe('панель деталей (CMP-010)', () => {
 
   it('ширина задаётся классом из трёх допустимых', () => {
     const drawer = DetailDrawer({ open: true, onClose: noop, title: 'Слушатель', width: 'lg' });
-    const panel = (drawer?.props.children as unknown[])[1] as { props: { className: string } };
+    const panel = (propsOf(drawer).children as unknown[])[1] as { props: { className: string } };
     expect(panel.props.className).toContain('ui-drawer--lg');
   });
 

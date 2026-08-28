@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { KeyValueList } from './index.js';
+import { propsOf } from '../../testing/element.test-util.js';
 
 import type { ReactElement } from 'react';
 
@@ -13,15 +14,15 @@ describe('KeyValueList — канонический key/value список (dl.k
       ]
     });
     expect(el.type).toBe('dl');
-    expect(el.props.className).toBe('kv-list');
-    const rows = el.props.children as ReactElement[];
+    expect(propsOf(el).className).toBe('kv-list');
+    const rows = propsOf(el).children as ReactElement[];
     expect(rows).toHaveLength(2);
-    const [dt, dd] = rows[0]?.props.children as ReactElement[];
-    expect(rows[0]?.props.className).toBe('kv-list__row');
-    expect(dt.type).toBe('dt');
-    expect(dt.props.children).toBe('ИНН');
-    expect(dd.type).toBe('dd');
-    expect(dd.props.children).toBe('7701234567');
+    const [dt, dd] = propsOf(rows[0]).children as ReactElement[];
+    expect(propsOf(rows[0]).className).toBe('kv-list__row');
+    expect(dt?.type).toBe('dt');
+    expect(propsOf(dt).children).toBe('ИНН');
+    expect(dd?.type).toBe('dd');
+    expect(propsOf(dd).children).toBe('7701234567');
   });
 
   it('дубли label не конфликтуют по key', () => {
@@ -31,7 +32,7 @@ describe('KeyValueList — канонический key/value список (dl.k
         { label: 'Телефон', value: '+7 901' }
       ]
     });
-    const rows = el.props.children as ReactElement[];
+    const rows = propsOf(el).children as ReactElement[];
     expect(rows[0]?.key).toBe('Телефон-0');
     expect(rows[1]?.key).toBe('Телефон-1');
   });

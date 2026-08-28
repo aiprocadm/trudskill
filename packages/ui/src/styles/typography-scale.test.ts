@@ -46,8 +46,11 @@ describe('UI-011: шкала размеров', () => {
   });
 
   it('ступени возрастают и не повторяются', () => {
+    // Ключ собирается из строки, поэтому словарь читаем как словарь: без этого
+    // индекс по вычисленному ключу молча становится `any`.
+    const vars = baseVars as Record<string, string | undefined>;
     const steps = ['xs', 'sm', 'md', 'lg', 'xl', '2xl', '3xl'].map((key) =>
-      Number.parseInt(String(baseVars[`--ui-font-size-${key}`] ?? '0'), 10)
+      Number.parseInt(vars[`--ui-font-size-${key}`] ?? '0', 10)
     );
     for (let i = 1; i < steps.length; i += 1) {
       expect(steps[i]!, `ступень ${i} не больше предыдущей`).toBeGreaterThan(steps[i - 1]!);

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { StatGrid } from './stat-grid.js';
 import { StatCard } from '../components/stat-card/index.js';
+import { propsOf } from '../testing/element.test-util.js';
 
 describe('StatGrid — ряд KPI поверх StatCard', () => {
   it('рендерит div.stat-grid со StatCard на каждый элемент', () => {
@@ -11,8 +12,8 @@ describe('StatGrid — ряд KPI поверх StatCard', () => {
         { label: 'Групп', value: 37, sub: 'активных' }
       ]
     });
-    expect(el.props.className).toBe('stat-grid');
-    const cards = el.props.children as any[];
+    expect(propsOf(el).className).toBe('stat-grid');
+    const cards = propsOf(el).children as any[];
     expect(cards).toHaveLength(2);
     expect(cards[0].type).toBe(StatCard);
     expect(cards[0].props.label).toBe('Слушателей');
@@ -22,7 +23,7 @@ describe('StatGrid — ряд KPI поверх StatCard', () => {
 
   it('sub опускается, если не задан (exactOptionalPropertyTypes)', () => {
     const el = StatGrid({ items: [{ label: 'A', value: 1 }] });
-    const [card] = el.props.children as any[];
+    const [card] = propsOf(el).children as any[];
     expect(card.props.sub).toBeUndefined();
   });
 });
