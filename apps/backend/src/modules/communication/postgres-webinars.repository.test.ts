@@ -36,7 +36,7 @@ const webinarRow = {
   planned_end_at: 'e',
   join_url: null,
   host_url: null,
-  status: 'scheduled',
+  status: 'planned',
   created_by: 'u1',
   created_at: 'c',
   updated_at: 'u',
@@ -49,7 +49,7 @@ const webinar: WebinarRow = {
   title: 'Вводный вебинар',
   plannedStartAt: 's',
   plannedEndAt: 'e',
-  status: 'scheduled',
+  status: 'planned',
   createdBy: 'u1',
   createdAt: 'c',
   updatedAt: 'u'

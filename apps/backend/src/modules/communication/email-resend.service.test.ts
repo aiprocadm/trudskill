@@ -30,7 +30,7 @@ const makeService = async (
 
   const original = await deliveries.record({
     tenantId: over.tenantId ?? 'tenant_a',
-    templateKey: 'enrollment_created',
+    templateKey: 'enrollment_invite',
     recipientEmail: 'learner@example.com',
     recipientKind: 'learner',
     subject: 'Вы зачислены на курс',

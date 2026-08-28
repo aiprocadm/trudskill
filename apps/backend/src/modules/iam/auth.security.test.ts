@@ -17,7 +17,8 @@ const context = {
 
 describe('AuthService security flows', () => {
   it('blocks refresh token replay after rotation', async () => {
-    const auth = new AuthService(new IamService(), new AuditService(), new SecretsService());
+    const audit = new AuditService();
+    const auth = new AuthService(new IamService(audit), audit, new SecretsService());
     const login = await auth.login(
       'tenant_demo',
       { login: 'tenant_admin', password: 'Password123!' },
@@ -33,7 +34,8 @@ describe('AuthService security flows', () => {
   });
 
   it('blocks refresh after explicit session logout', async () => {
-    const auth = new AuthService(new IamService(), new AuditService(), new SecretsService());
+    const audit = new AuditService();
+    const auth = new AuthService(new IamService(audit), audit, new SecretsService());
     const login = await auth.login(
       'tenant_demo',
       { login: 'tenant_admin', password: 'Password123!' },
@@ -49,7 +51,7 @@ describe('AuthService security flows', () => {
 
   it('revokes all active sessions and logs the auth event', async () => {
     const audit = new AuditService();
-    const auth = new AuthService(new IamService(), audit, new SecretsService());
+    const auth = new AuthService(new IamService(audit), audit, new SecretsService());
 
     await auth.login('tenant_demo', { login: 'tenant_admin', password: 'Password123!' }, context);
     await auth.login('tenant_demo', { login: 'tenant_admin', password: 'Password123!' }, context);

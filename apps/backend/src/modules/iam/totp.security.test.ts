@@ -18,7 +18,8 @@ const context = {
 };
 
 function makeAuth() {
-  return new AuthService(new IamService(), new AuditService(), new SecretsService());
+  const audit = new AuditService();
+  return new AuthService(new IamService(audit), audit, new SecretsService());
 }
 
 /** Полный цикл включения 2FA у tenant_admin: setup → confirm текущим кодом. */
@@ -111,7 +112,7 @@ describe('2FA TOTP (ФТ-G3)', () => {
   it('magic-link and esia session issuance are gated too (issueSessionForUser)', async () => {
     const auth = makeAuth();
     await enableTotp(auth);
-    const iam = new IamService();
+    const iam = new IamService(new AuditService());
     const { user } = (await iam.findUserByLogin(T, 'tenant_admin'))!;
     // Пользователь из свежего IamService не знает про включённую 2FA — берём защищаемого юзера
     // из того же инстанса, что и auth (in-memory состояние живёт в IamService).

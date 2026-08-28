@@ -6,7 +6,9 @@ import { InMemoryChatState } from './in-memory-chat.state.js';
 import { InMemoryNotificationsState } from './in-memory-notifications.state.js';
 import { InMemoryWebinarsState } from './in-memory-webinars.state.js';
 import { NotificationsService } from './notifications.service.js';
+import { type WebinarProviderResolver } from './webinar-provider-resolver.service.js';
 import { WebinarsService } from './webinars.service.js';
+import { unusedDependency } from '../../common/testing/unused-dependency.test-util.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
 describe('Communication foundations', () => {
@@ -40,10 +42,13 @@ describe('Communication foundations', () => {
   });
 
   it('supports webinar CRUD foundation', async () => {
-    const webinars = new WebinarsService(new InMemoryWebinarsState(), new RealtimeEventsService());
+    const webinars = new WebinarsService(
+      new InMemoryWebinarsState(),
+      new RealtimeEventsService(),
+      unusedDependency<WebinarProviderResolver>('WebinarProviderResolver')
+    );
     const webinar = await webinars.create('t1', 'u1', {
       title: 'W1',
-      status: 'planned',
       plannedStartAt: new Date().toISOString(),
       plannedEndAt: new Date(Date.now() + 3600_000).toISOString()
     });
@@ -93,7 +98,11 @@ describe('Communication foundations', () => {
 
   it('scopes webinars.get by tenantId when id collides across tenants', async () => {
     const state = new InMemoryWebinarsState();
-    const webinars = new WebinarsService(state, new RealtimeEventsService());
+    const webinars = new WebinarsService(
+      state,
+      new RealtimeEventsService(),
+      unusedDependency<WebinarProviderResolver>('WebinarProviderResolver')
+    );
     const now = new Date().toISOString();
     const sharedId = 'web_same_id';
     const base = {
@@ -159,8 +168,8 @@ describe('Communication foundations', () => {
 
     const da = await chat.getDialog('tenant_a', sharedDialogId, 'u1');
     const db = await chat.getDialog('tenant_b', sharedDialogId, 'u2');
-    expect(da.tenantId).toBe('tenant_a');
-    expect(db.tenantId).toBe('tenant_b');
+    expect(da?.tenantId).toBe('tenant_a');
+    expect(db?.tenantId).toBe('tenant_b');
     await expect(chat.getDialog('tenant_a', sharedDialogId, 'u2')).rejects.toBeInstanceOf(
       ForbiddenException
     );

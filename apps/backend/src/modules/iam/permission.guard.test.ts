@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { type ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { type Reflector } from '@nestjs/core';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -33,7 +33,7 @@ describe('PermissionGuard session checks', () => {
     const authService = { isSessionActive: vi.fn().mockResolvedValue(true) };
     const guard = new PermissionGuard(reflector, iamService as never, authService as never);
 
-    const context = buildContext({}) as never;
+    const context = buildContext({});
     const request = context.switchToHttp().getRequest();
     request.context = {
       requestId: 'req_missing_perm',
@@ -43,7 +43,9 @@ describe('PermissionGuard session checks', () => {
       sessionId: 's_active_1'
     };
 
-    await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+    await expect(guard.canActivate(context as unknown as ExecutionContext)).rejects.toThrow(
+      ForbiddenException
+    );
     expect(iamService.resolvePermissions).toHaveBeenCalledWith('tenant_demo', 'u_learner_1');
   });
 
@@ -60,7 +62,7 @@ describe('PermissionGuard session checks', () => {
     const authService = { isSessionActive: vi.fn().mockResolvedValue(false) };
     const guard = new PermissionGuard(reflector, iamService as never, authService as never);
 
-    const context = buildContext({}) as never;
+    const context = buildContext({});
     const request = context.switchToHttp().getRequest();
     request.context = {
       requestId: 'req_1',
@@ -70,7 +72,9 @@ describe('PermissionGuard session checks', () => {
       sessionId: 's_revoked'
     };
 
-    await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+    await expect(guard.canActivate(context as unknown as ExecutionContext)).rejects.toThrow(
+      ForbiddenException
+    );
     expect(authService.isSessionActive).toHaveBeenCalledWith(
       'tenant_demo',
       'u_tenant_admin',
@@ -95,7 +99,7 @@ describe('PermissionGuard session checks', () => {
     const authService = { isSessionActive: vi.fn().mockResolvedValue(true) };
     const guard = new PermissionGuard(reflector, iamService as never, authService as never);
 
-    const context = buildContext({}) as never;
+    const context = buildContext({});
     const request = context.switchToHttp().getRequest();
     request.context = {
       requestId: 'req_2',
@@ -105,7 +109,7 @@ describe('PermissionGuard session checks', () => {
       sessionId: 's_active'
     };
 
-    await expect(guard.canActivate(context)).resolves.toBe(true);
+    await expect(guard.canActivate(context as unknown as ExecutionContext)).resolves.toBe(true);
   });
 
   it('blocks unauthenticated request before permission checks', async () => {
@@ -116,14 +120,16 @@ describe('PermissionGuard session checks', () => {
     const authService = { isSessionActive: vi.fn() };
     const guard = new PermissionGuard(reflector, iamService as never, authService as never);
 
-    const context = buildContext({}) as never;
+    const context = buildContext({});
     const request = context.switchToHttp().getRequest();
     request.context = {
       requestId: 'req_auth_required',
       correlationId: 'corr_auth_required'
     };
 
-    await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+    await expect(guard.canActivate(context as unknown as ExecutionContext)).rejects.toThrow(
+      ForbiddenException
+    );
     expect(authService.isSessionActive).not.toHaveBeenCalled();
     expect(iamService.resolvePermissions).not.toHaveBeenCalled();
   });

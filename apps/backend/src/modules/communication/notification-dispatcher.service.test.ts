@@ -2,12 +2,28 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { InMemoryEmailDeliveriesState } from './in-memory-email-deliveries.state.js';
 import { NotificationDispatcher } from './notification-dispatcher.service.js';
+import { requireAt } from '../../common/testing/require-at.test-util.js';
+
+import type { WebPushSenderPort } from './web-push/web-push-sender.js';
+import type { EmailMessage, SendResult } from '../../infrastructure/mailer/mailer.service.js';
 
 function make(tenantService?: unknown) {
-  const mailer = { send: vi.fn().mockResolvedValue({ status: 'sent' }) };
+  // Параметры заглушек объявлены как у настоящих швов: иначе тип вызова — пустой
+  // кортеж, и тест не может прочитать, С ЧЕМ шов позвали.
+  const mailer = {
+    send: vi.fn(async (_message: EmailMessage): Promise<SendResult> => ({ status: 'sent' }))
+  };
   const templates = { getOverride: vi.fn().mockResolvedValue(null) };
   const deliveries = new InMemoryEmailDeliveriesState();
-  const pushSender = { sendToUsers: vi.fn().mockResolvedValue(undefined) };
+  const pushSender = {
+    sendToUsers: vi.fn(
+      async (
+        _tenantId: string,
+        _userIds: string[],
+        _notification: Parameters<WebPushSenderPort['sendToUsers']>[2]
+      ) => undefined
+    )
+  };
   const dispatcher = new NotificationDispatcher(
     mailer as never,
     templates as never,
@@ -55,7 +71,7 @@ describe('NotificationDispatcher dedup', () => {
       ...baseInput,
       recipients: [
         { email: 'dup@x.com', kind: 'learner' as const },
-        { email: 'dup@x.com', kind: 'staff' as const }
+        { email: 'dup@x.com', kind: 'curator' as const }
       ]
     });
     expect(mailer.send).toHaveBeenCalledTimes(1);
@@ -68,7 +84,7 @@ describe('NotificationDispatcher dedup', () => {
     const result = await dispatcher.dispatch({
       ...baseInput,
       recipients: [
-        { email: 'Curator@x.com', kind: 'staff' as const },
+        { email: 'Curator@x.com', kind: 'curator' as const },
         { email: ' curator@x.com ', kind: 'learner' as const }
       ]
     });
@@ -208,7 +224,11 @@ describe('NotificationDispatcher push fan-out (Phase 10 Track C)', () => {
     await dispatcher.dispatch(withUserId);
 
     expect(pushSender.sendToUsers).toHaveBeenCalledTimes(1);
-    const [tenantId, userIds, notification] = pushSender.sendToUsers.mock.calls[0];
+    const [tenantId, userIds, notification] = requireAt(
+      pushSender.sendToUsers.mock.calls,
+      0,
+      'вызов отправки push'
+    );
     expect(tenantId).toBe('t1');
     expect(userIds).toEqual(['u1']);
     expect(notification.title).toBe('Истекает срок действия удостоверения по программе «ОТ»');
@@ -249,7 +269,7 @@ describe('NotificationDispatcher push fan-out (Phase 10 Track C)', () => {
         { email: 'c@x.com', kind: 'learner' as const, userId: 'u3' }
       ]
     });
-    const [, userIds] = pushSender.sendToUsers.mock.calls[0];
+    const [, userIds] = requireAt(pushSender.sendToUsers.mock.calls, 0, 'вызов отправки push');
     expect(userIds).toEqual(['u1', 'u3']);
   });
 });
@@ -259,7 +279,7 @@ describe('NotificationDispatcher tenant signature', () => {
   it('без TenantService подпись нейтральная — «учебный центр», не пустота', async () => {
     const { dispatcher, mailer } = make();
     await dispatcher.dispatch(baseInput);
-    const [message] = mailer.send.mock.calls[0];
+    const [message] = requireAt(mailer.send.mock.calls, 0, 'отправленное письмо');
     expect(message.body).toContain('С уважением, учебный центр.');
     expect(message.body).not.toContain('{{tenantName}}');
   });
@@ -271,7 +291,9 @@ describe('NotificationDispatcher tenant signature', () => {
     };
     const { dispatcher, mailer } = make(tenantService);
     await dispatcher.dispatch(baseInput);
-    expect(mailer.send.mock.calls[0][0].body).toContain('С уважением, УЦ «Пример».');
+    expect(requireAt(mailer.send.mock.calls, 0, 'письмо')[0].body).toContain(
+      'С уважением, УЦ «Пример».'
+    );
 
     const broken = {
       getTenantById: vi.fn().mockRejectedValue(new Error('db down')),
@@ -279,7 +301,9 @@ describe('NotificationDispatcher tenant signature', () => {
     };
     const second = make(broken);
     await second.dispatcher.dispatch(baseInput);
-    expect(second.mailer.send.mock.calls[0][0].body).toContain('С уважением, учебный центр.');
+    expect(requireAt(second.mailer.send.mock.calls, 0, 'письмо')[0].body).toContain(
+      'С уважением, учебный центр.'
+    );
   });
 
   it('явно переданный tenantName уважается — диспетчер не перекрывает его', async () => {
@@ -292,7 +316,9 @@ describe('NotificationDispatcher tenant signature', () => {
       ...baseInput,
       variables: { ...baseInput.variables, tenantName: 'Особый центр' }
     });
-    expect(mailer.send.mock.calls[0][0].body).toContain('С уважением, Особый центр.');
+    expect(requireAt(mailer.send.mock.calls, 0, 'письмо')[0].body).toContain(
+      'С уважением, Особый центр.'
+    );
     expect(tenantService.getTenantById).not.toHaveBeenCalled();
   });
 });

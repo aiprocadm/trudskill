@@ -5,6 +5,7 @@ import { EnrollmentEmailListener } from './enrollment-email.listener.js';
 import { InMemoryEmailDeliveriesState } from './in-memory-email-deliveries.state.js';
 import { InMemoryEmailTemplatesState } from './in-memory-email-templates.state.js';
 import { NotificationDispatcher } from './notification-dispatcher.service.js';
+import { NoopWebPushSender } from './web-push/noop-web-push-sender.js';
 import { NoopMailer } from '../../infrastructure/mailer/mailer.service.js';
 
 describe('email templates', () => {
@@ -84,7 +85,12 @@ describe('email deliveries journal (in-memory)', () => {
 function makeDispatcher() {
   const templates = new InMemoryEmailTemplatesState();
   const deliveries = new InMemoryEmailDeliveriesState();
-  const dispatcher = new NotificationDispatcher(new NoopMailer(), templates, deliveries);
+  const dispatcher = new NotificationDispatcher(
+    new NoopMailer(),
+    templates,
+    deliveries,
+    new NoopWebPushSender()
+  );
   return { dispatcher, templates, deliveries };
 }
 
