@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { FakePaymentProvider } from './fake-payment.provider.js';
 
+import type { PaymentProvider } from './payment.provider.js';
+
 describe('FakePaymentProvider', () => {
   it('returns a synthetic confirmation url + pending status', async () => {
-    const provider = new FakePaymentProvider();
+    const provider: PaymentProvider = new FakePaymentProvider();
     const result = await provider.createPayment({
       tenantId: 't1',
       orderId: 'o1',
@@ -18,7 +20,7 @@ describe('FakePaymentProvider', () => {
     expect(result.confirmationUrl).toContain('o1');
   });
   it('parses a fake webhook into a succeeded event', async () => {
-    const provider = new FakePaymentProvider();
+    const provider: PaymentProvider = new FakePaymentProvider();
     const raw = Buffer.from(
       JSON.stringify({ providerPaymentId: 'fake-pay:o1', status: 'succeeded' })
     );
@@ -30,7 +32,7 @@ describe('FakePaymentProvider', () => {
     });
   });
   it('returns null for an unparseable webhook body', async () => {
-    const provider = new FakePaymentProvider();
+    const provider: PaymentProvider = new FakePaymentProvider();
     const event = await provider.parseWebhook(Buffer.from('not-json'), {});
     expect(event).toBeNull();
   });

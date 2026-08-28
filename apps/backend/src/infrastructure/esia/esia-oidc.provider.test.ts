@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import { EsiaOidcProvider } from './esia-oidc.provider.js';
 
+import type { EsiaIdentityProvider } from './esia-identity.provider.js';
+
 describe('EsiaOidcProvider (stub)', () => {
-  const p = new EsiaOidcProvider({
+  const p: EsiaIdentityProvider = new EsiaOidcProvider({
     clientId: 'mn',
     authorizeUrl: 'https://esia/aas',
     scopes: 'openid'

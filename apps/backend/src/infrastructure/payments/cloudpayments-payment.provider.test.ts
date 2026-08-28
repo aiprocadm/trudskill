@@ -35,7 +35,7 @@ describe('CloudPaymentsProvider.createPayment', () => {
       status: 'pending',
       confirmationUrl: 'https://pay/cp-1'
     });
-    const [url, init] = fetchMock.mock.calls[0];
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
     expect(url).toBe('https://api.cloudpayments.ru/orders/create');
     expect((init as any).headers.Authorization).toBe(
       'Basic ' + Buffer.from('pid:secret').toString('base64')

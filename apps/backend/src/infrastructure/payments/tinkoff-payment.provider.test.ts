@@ -5,6 +5,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { TinkoffPaymentProvider, tinkoffToken } from './tinkoff-payment.provider.js';
 
+import type { PaymentProvider } from './payment.provider.js';
+
 const cfg = {
   terminalKey: 'TERM1',
   password: 'pw',
@@ -51,7 +53,7 @@ describe('TinkoffPaymentProvider.createPayment', () => {
       status: 'pending',
       confirmationUrl: 'https://pay/t-900'
     });
-    const body = JSON.parse((fetchMock.mock.calls[0][1] as any).body);
+    const body = JSON.parse((fetchMock.mock.calls[0]?.[1] as any).body);
     expect(body.Amount).toBe(150000);
     expect(body.OrderId).toBe('o1');
     expect(typeof body.Token).toBe('string');
@@ -79,17 +81,17 @@ describe('TinkoffPaymentProvider.parseWebhook', () => {
     return Buffer.from(JSON.stringify({ ...base, Token: token }));
   }
   it('verifies the token and maps CONFIRMED → succeeded', async () => {
-    const p = new TinkoffPaymentProvider(cfg, vi.fn() as unknown as typeof fetch);
+    const p: PaymentProvider = new TinkoffPaymentProvider(cfg, vi.fn() as unknown as typeof fetch);
     const ev = await p.parseWebhook(notif({}), {});
     expect(ev).toMatchObject({ providerPaymentId: '900', status: 'succeeded' });
   });
   it('surfaces the kopeck Amount for the webhook cross-check', async () => {
-    const p = new TinkoffPaymentProvider(cfg, vi.fn() as unknown as typeof fetch);
+    const p: PaymentProvider = new TinkoffPaymentProvider(cfg, vi.fn() as unknown as typeof fetch);
     const ev = await p.parseWebhook(notif({ Amount: 150000 }), {});
     expect(ev?.amount).toBe(150000);
   });
   it('returns null on a bad token', async () => {
-    const p = new TinkoffPaymentProvider(cfg, vi.fn() as unknown as typeof fetch);
+    const p: PaymentProvider = new TinkoffPaymentProvider(cfg, vi.fn() as unknown as typeof fetch);
     const raw = Buffer.from(
       JSON.stringify({
         TerminalKey: 'TERM1',
@@ -101,21 +103,21 @@ describe('TinkoffPaymentProvider.parseWebhook', () => {
     expect(await p.parseWebhook(raw, {})).toBeNull();
   });
   it('returns null when Token is missing entirely', async () => {
-    const p = new TinkoffPaymentProvider(cfg, vi.fn() as unknown as typeof fetch);
+    const p: PaymentProvider = new TinkoffPaymentProvider(cfg, vi.fn() as unknown as typeof fetch);
     const raw = Buffer.from(
       JSON.stringify({ TerminalKey: 'TERM1', PaymentId: '900', Status: 'CONFIRMED' })
     );
     expect(await p.parseWebhook(raw, {})).toBeNull();
   });
   it('returns null when TerminalKey does not match', async () => {
-    const p = new TinkoffPaymentProvider(cfg, vi.fn() as unknown as typeof fetch);
+    const p: PaymentProvider = new TinkoffPaymentProvider(cfg, vi.fn() as unknown as typeof fetch);
     const base = { TerminalKey: 'OTHER', PaymentId: '900', Status: 'CONFIRMED' };
     const token = tinkoffToken(base, 'pw');
     const raw = Buffer.from(JSON.stringify({ ...base, Token: token }));
     expect(await p.parseWebhook(raw, {})).toBeNull();
   });
   it('acks with the literal OK', () => {
-    const p = new TinkoffPaymentProvider(cfg, vi.fn() as unknown as typeof fetch);
-    expect(p.webhookAck()).toBe('OK');
+    const p: PaymentProvider = new TinkoffPaymentProvider(cfg, vi.fn() as unknown as typeof fetch);
+    expect(p.webhookAck?.(null, Buffer.from(''))).toBe('OK');
   });
 });

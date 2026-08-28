@@ -43,7 +43,7 @@ describe('YookassaPaymentProvider.createPayment', () => {
       status: 'pending',
       confirmationUrl: 'https://pay/yk-1'
     });
-    const [url, init] = fetchMock.mock.calls[0];
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
     expect(url).toBe('https://api.yookassa.ru/v3/payments');
     expect((init as any).headers['Idempotence-Key']).toBe('o1');
     expect((init as any).headers.Authorization).toBe(
@@ -80,7 +80,7 @@ describe('YookassaPaymentProvider.parseWebhook', () => {
     const p = new YookassaPaymentProvider(cfg, fetchMock as unknown as typeof fetch);
     const ev = await p.parseWebhook(notif('yk-1'), {});
     expect(ev).toMatchObject({ providerPaymentId: 'yk-1', status: 'succeeded' });
-    expect(fetchMock.mock.calls[0][0]).toBe('https://api.yookassa.ru/v3/payments/yk-1');
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('https://api.yookassa.ru/v3/payments/yk-1');
   });
 
   it('returns null when the API says the payment is still pending (spoofed body)', async () => {

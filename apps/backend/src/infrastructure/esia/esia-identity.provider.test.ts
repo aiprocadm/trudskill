@@ -1,10 +1,10 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 
-import { NoopEsiaProvider } from './esia-identity.provider.js';
+import { type EsiaIdentityProvider, NoopEsiaProvider } from './esia-identity.provider.js';
 
 describe('NoopEsiaProvider', () => {
-  const p = new NoopEsiaProvider();
+  const p: EsiaIdentityProvider = new NoopEsiaProvider();
 
   it('buildAuthorizeUrl refuses when ЕСИА is disabled', () => {
     expect(() => p.buildAuthorizeUrl({ state: 's', purpose: 'login', redirectUri: 'r' })).toThrow(

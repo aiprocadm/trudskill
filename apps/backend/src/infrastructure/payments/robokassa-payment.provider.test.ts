@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 
 import { RobokassaProvider, orderToInvId } from './robokassa-payment.provider.js';
 
+import type { PaymentProvider } from './payment.provider.js';
+
 const cfg = {
   merchantLogin: 'shop',
   password1: 'p1',
@@ -17,7 +19,7 @@ function md5(s: string) {
 
 describe('RobokassaProvider.createPayment', () => {
   it('builds a signed redirect URL (no HTTP) with rubles OutSum', async () => {
-    const p = new RobokassaProvider(cfg);
+    const p: PaymentProvider = new RobokassaProvider(cfg);
     const res = await p.createPayment({
       tenantId: 't1',
       orderId: 'o1',
@@ -37,7 +39,7 @@ describe('RobokassaProvider.createPayment', () => {
 
 describe('RobokassaProvider.parseWebhook', () => {
   it('verifies the ResultURL md5 and maps to succeeded', async () => {
-    const p = new RobokassaProvider(cfg);
+    const p: PaymentProvider = new RobokassaProvider(cfg);
     const body = `OutSum=1500.00&InvId=42&SignatureValue=${md5('1500.00:42:p2')}`;
     const ev = await p.parseWebhook(Buffer.from(body), {
       'content-type': 'application/x-www-form-urlencoded'
@@ -47,14 +49,14 @@ describe('RobokassaProvider.parseWebhook', () => {
     expect(ev?.amount).toBe(150000);
   });
   it('returns null on a bad signature', async () => {
-    const p = new RobokassaProvider(cfg);
+    const p: PaymentProvider = new RobokassaProvider(cfg);
     const ev = await p.parseWebhook(Buffer.from('OutSum=1500.00&InvId=42&SignatureValue=bad'), {});
     expect(ev).toBeNull();
   });
   it('acks with OK{InvId}', async () => {
-    const p = new RobokassaProvider(cfg);
+    const p: PaymentProvider = new RobokassaProvider(cfg);
     const raw = Buffer.from(`OutSum=1500.00&InvId=42&SignatureValue=${md5('1500.00:42:p2')}`);
     const ev = await p.parseWebhook(raw, {});
-    expect(p.webhookAck(ev, raw)).toBe('OK42');
+    expect(p.webhookAck?.(ev, raw)).toBe('OK42');
   });
 });

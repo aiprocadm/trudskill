@@ -8,7 +8,7 @@ import {
   mvpDomainTableList,
   mvpDomainTables,
   mvpTablesWithSoftDelete
-} from './mvp-domain.schema';
+} from './mvp-domain.schema.js';
 
 const projectRoot = process.cwd();
 const migrationsDirCandidates = [
