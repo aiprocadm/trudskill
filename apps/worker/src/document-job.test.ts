@@ -159,7 +159,11 @@ describe('runDocumentJob (Фаза 1 Task 2)', () => {
 
   it('missing callback token → NonRetryableJobError', async () => {
     await expect(
-      runDocumentJob(envelope, { backendPublicUrl: 'http://b', callbackToken: undefined })
+      runDocumentJob(envelope, {
+        backendPublicUrl: 'http://b',
+        callbackToken: undefined,
+        gotenbergUrl: 'http://g'
+      })
     ).rejects.toBeInstanceOf(NonRetryableJobError);
   });
 });

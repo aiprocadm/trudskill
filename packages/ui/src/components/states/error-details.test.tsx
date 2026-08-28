@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ErrorState } from './index.js';
+import { propsOf } from '../../testing/element.test-util.js';
 
 /**
  * `TXT-004`: технический код — под спойлером «Подробности», не в основном тексте.
@@ -35,9 +36,9 @@ describe('ErrorState · подробности под спойлером', () =>
       type: string;
       props: { children: unknown };
     }>;
-    expect(summary.type).toBe('summary');
-    expect(summary.props.children).toBe('Подробности');
-    expect(body.props.children).toBe('код: internal_error');
+    expect(summary?.type).toBe('summary');
+    expect(propsOf(summary).children).toBe('Подробности');
+    expect(propsOf(body).children).toBe('код: internal_error');
   });
 
   it('основной текст остаётся первым — спойлер не подменяет объяснение', () => {

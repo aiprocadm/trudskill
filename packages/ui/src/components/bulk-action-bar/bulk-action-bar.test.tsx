@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { BulkActionBar } from './index.js';
+import { propsOf } from '../../testing/element.test-util.js';
 
 import type { ReactElement } from 'react';
 
@@ -13,9 +14,9 @@ describe('панель массовых действий (CMP-011)', () => {
 
   it('показывает число выделенных строк', () => {
     const bar = BulkActionBar({ selectedCount: 12, actions: [], onClear: noop }) as ReactElement;
-    const [row] = bar.props.children as ReactElement[];
-    const [count] = row.props.children as ReactElement[];
-    expect(count.props.children).toEqual(['Выделено: ', 12]);
+    const [row] = propsOf(bar).children as ReactElement[];
+    const [count] = propsOf(row).children as ReactElement[];
+    expect(propsOf(count).children).toEqual(['Выделено: ', 12]);
   });
 
   it('опасное действие оформляется отдельно', () => {
@@ -24,9 +25,9 @@ describe('панель массовых действий (CMP-011)', () => {
       actions: [{ label: 'Архивировать', onSelect: noop, danger: true }],
       onClear: noop
     }) as ReactElement;
-    const [row] = bar.props.children as ReactElement[];
-    const [, buttons] = row.props.children as ReactElement[][];
-    expect(buttons[0]?.props.className).toBe('ui-button-danger');
+    const [row] = propsOf(bar).children as ReactElement[];
+    const [, buttons] = propsOf(row).children as ReactElement[][];
+    expect(propsOf(buttons?.[0]).className).toBe('ui-button-danger');
   });
 
   it('во время выполнения действия заблокированы — повторное нажатие невозможно', () => {
@@ -36,9 +37,9 @@ describe('панель массовых действий (CMP-011)', () => {
       onClear: noop,
       isRunning: true
     }) as ReactElement;
-    const [row] = bar.props.children as ReactElement[];
-    const [, buttons] = row.props.children as ReactElement[][];
-    expect(buttons[0]?.props.disabled).toBe(true);
+    const [row] = propsOf(bar).children as ReactElement[];
+    const [, buttons] = propsOf(row).children as ReactElement[][];
+    expect(propsOf(buttons?.[0]).disabled).toBe(true);
   });
 
   it('частичный успех показывает отказы ПОИМЁННО с причиной', () => {
@@ -54,7 +55,7 @@ describe('панель массовых действий (CMP-011)', () => {
         failures: [{ label: 'Иванов И. И.', reason: 'нет СНИЛС' }]
       }
     }) as ReactElement;
-    const [, outcome] = bar.props.children as ReactElement[];
+    const [, outcome] = propsOf(bar).children as ReactElement[];
     const rendered = JSON.stringify(outcome);
     expect(rendered).toContain('Иванов И. И.');
     expect(rendered).toContain('нет СНИЛС');

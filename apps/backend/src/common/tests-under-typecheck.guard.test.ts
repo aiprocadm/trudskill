@@ -90,3 +90,96 @@ describe('тесты бэкенда под проверкой типов (жур
     expect(countTests(join(backendRoot, 'src'))).toBeGreaterThan(100);
   });
 });
+
+/**
+ * То же требование, но ко ВСЕМУ репозиторию (журнал 296).
+ *
+ * Разбор 2026-08-28 показал: тесты прятались от проверки типов не только у бэкенда —
+ * так же были устроены `@trudskill/ui` (239 ошибок), `docx-render`, `worker`, `realtime`,
+ * `api-contracts`, `shared-types`, `test-utils`. Правило простое: если конфигурация СБОРКИ
+ * пакета исключает тесты (и правильно делает — в `dist` им не место), у пакета обязана быть
+ * отдельная конфигурация проверки, и она обязана запускаться его гейтом `typecheck`.
+ */
+describe('тесты под проверкой типов — по всему репозиторию (журнал 296)', () => {
+  const repoRoot = join(backendRoot, '..', '..');
+
+  /** Конфигурации TypeScript допускают комментарии — обычный JSON.parse на них спотыкается. */
+  const readJsonc = (file: string): Record<string, unknown> =>
+    JSON.parse(
+      readFileSync(file, 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+    ) as Record<string, unknown>;
+
+  const packagesWithTests = (): string[] => {
+    const found: string[] = [];
+    for (const group of ['apps', 'packages']) {
+      const groupDir = join(repoRoot, group);
+      for (const entry of readdirSync(groupDir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const dir = join(groupDir, entry.name);
+        const hasTests = (from: string): boolean => {
+          for (const item of readdirSync(from, { withFileTypes: true })) {
+            if (item.name === 'node_modules' || item.name === 'dist' || item.name === '.next') {
+              continue;
+            }
+            const full = join(from, item.name);
+            if (item.isDirectory()) {
+              if (hasTests(full)) return true;
+            } else if (/\.test\.tsx?$/.test(item.name)) {
+              return true;
+            }
+          }
+          return false;
+        };
+        try {
+          readFileSync(join(dir, 'tsconfig.json'), 'utf8');
+        } catch {
+          continue;
+        }
+        if (hasTests(dir)) found.push(dir);
+      }
+    }
+    return found;
+  };
+
+  it('каждый пакет, прячущий тесты от сборки, проверяет их отдельной конфигурацией', () => {
+    const offenders: string[] = [];
+
+    for (const dir of packagesWithTests()) {
+      const exclude = (readJsonc(join(dir, 'tsconfig.json')).exclude ?? []) as string[];
+      const hidesTests = exclude.some((pattern) => pattern.includes('.test.'));
+      if (!hidesTests) continue; // тесты и так в общей проверке (так устроен фронтенд)
+
+      const name = dir.slice(repoRoot.length + 1);
+      let testConfigExists = true;
+      try {
+        readFileSync(join(dir, 'tsconfig.test.json'), 'utf8');
+      } catch {
+        testConfigExists = false;
+      }
+      if (!testConfigExists) {
+        offenders.push(`${name}: нет tsconfig.test.json`);
+        continue;
+      }
+
+      const scripts = (readJsonc(join(dir, 'package.json')).scripts ?? {}) as Record<
+        string,
+        string
+      >;
+      if (!(scripts.typecheck ?? '').includes('tsconfig.test.json')) {
+        offenders.push(`${name}: скрипт typecheck не гоняет tsconfig.test.json`);
+      }
+    }
+
+    expect(
+      offenders,
+      `Тесты этих пакетов снова невидимы для проверки типов:\n${offenders.join('\n')}`
+    ).toEqual([]);
+  });
+
+  it('пакетов с тестами найдено достаточно — обход не молчит вхолостую', () => {
+    // Инвентарь, который ничего не нашёл, делает проверку выше бессмысленно зелёной.
+    expect(packagesWithTests().length).toBeGreaterThanOrEqual(6);
+  });
+});

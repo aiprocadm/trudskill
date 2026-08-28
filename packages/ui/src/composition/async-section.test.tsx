@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { AsyncSection } from './async-section.js';
 import { EmptyState, ErrorState, LoadingState } from '../components/states/index.js';
+import { propsOf } from '../testing/element.test-util.js';
 
 describe('AsyncSection — единая цепочка состояний', () => {
   it('isLoading → LoadingState (первым приоритетом)', () => {
@@ -16,8 +17,8 @@ describe('AsyncSection — единая цепочка состояний', () =
       onRetry: () => {},
       children: 'DATA'
     });
-    expect(el.props.className).toBe('ui-stack');
-    const [err, retry] = el.props.children as any[];
+    expect(propsOf(el).className).toBe('ui-stack');
+    const [err, retry] = propsOf(el).children as any[];
     expect(err.type).toBe(ErrorState);
     expect(err.props.message).toBe('boom');
     expect(retry.props.children).toBe('Повторить');
@@ -25,7 +26,7 @@ describe('AsyncSection — единая цепочка состояний', () =
 
   it('error без onRetry → без кнопки', () => {
     const el = AsyncSection({ isLoading: false, error: 'x', children: 'DATA' });
-    const [, retry] = el.props.children as any[];
+    const [, retry] = propsOf(el).children as any[];
     expect(retry).toBeNull();
   });
 
@@ -36,7 +37,7 @@ describe('AsyncSection — единая цепочка состояний', () =
 
   it('готово → Fragment с children', () => {
     const el = AsyncSection({ isLoading: false, children: 'DATA' });
-    expect(el.props.children).toBe('DATA');
+    expect(propsOf(el).children).toBe('DATA');
   });
 
   /*
@@ -52,11 +53,11 @@ describe('AsyncSection — единая цепочка состояний', () =
       emptyAction: { label: 'Создать первую группу', href: '/groups/new' },
       children: 'DATA'
     });
-    expect(el.props.action).toEqual({ label: 'Создать первую группу', href: '/groups/new' });
+    expect(propsOf(el).action).toEqual({ label: 'Создать первую группу', href: '/groups/new' });
   });
 
   it('без действия пустое состояние остаётся прежним', () => {
     const el = AsyncSection({ isLoading: false, isEmpty: true, children: 'DATA' });
-    expect(el.props.action).toBeUndefined();
+    expect(propsOf(el).action).toBeUndefined();
   });
 });

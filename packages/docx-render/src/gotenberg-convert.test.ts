@@ -136,8 +136,13 @@ describe('convertHtmlToPdf (ФТ-C2)', () => {
 
   it('200, но тело не PDF — считаем сбоем сервиса', async () => {
     // Иначе в дело уехал бы файл, который не откроется у проверяющего.
-    const fetchFn = (async () => new Response(new Uint8Array(Buffer.from('<html>oops'))),
-    { status: 200 }) as unknown as typeof fetch;
+    // Скобка стояла не там: `(f, { status: 200 })` — оператор запятая, и в fetchFn
+    // попадал ОБЪЕКТ, а не функция. Тест падал на «fetchFn is not a function»
+    // и проходил по неверной причине — ответ 200 он не проверял вовсе.
+    const fetchFn = (async () =>
+      new Response(new Uint8Array(Buffer.from('<html>oops')), {
+        status: 200
+      })) as unknown as typeof fetch;
 
     await expect(
       convertHtmlToPdf('<h1>x</h1>', { gotenbergUrl: 'http://g', fetchFn })

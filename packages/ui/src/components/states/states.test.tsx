@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { EmptyState, ErrorState, LoadingState } from './index.js';
+import { propsOf } from '../../testing/element.test-util.js';
 
 import type { ReactElement } from 'react';
 
@@ -13,24 +14,24 @@ describe('состояния — русские дефолты', () => {
    */
   it('EmptyState: дефолт осмысленный, «Нет данных» запрещено', () => {
     const el = EmptyState({});
-    const [message] = el.props.children as unknown[];
+    const [message] = propsOf(el).children as unknown[];
     expect(message).not.toBe('Нет данных');
     expect(String(message).length).toBeGreaterThan(0);
   });
 
   it('EmptyState: действие рендерится ссылкой или кнопкой (CMP-014)', () => {
     const withHref = EmptyState({ action: { label: 'Добавить', href: '/learners/new' } });
-    const [, , actionWithHref] = withHref.props.children as ReactElement[];
-    expect(actionWithHref.props.children.props.href).toBe('/learners/new');
+    const [, , actionWithHref] = propsOf(withHref).children as ReactElement[];
+    expect(propsOf(propsOf(actionWithHref).children).href).toBe('/learners/new');
 
     const withHandler = EmptyState({ action: { label: 'Добавить', onSelect: () => {} } });
-    const [, , actionWithHandler] = withHandler.props.children as ReactElement[];
-    expect(actionWithHandler.props.children.props.type).toBe('button');
+    const [, , actionWithHandler] = propsOf(withHandler).children as ReactElement[];
+    expect(propsOf(propsOf(actionWithHandler).children).type).toBe('button');
   });
 
   it('EmptyState без действия не рисует лишних узлов', () => {
     const el = EmptyState({});
-    const [, , action] = el.props.children as unknown[];
+    const [, , action] = propsOf(el).children as unknown[];
     expect(action).toBeNull();
   });
 
@@ -40,16 +41,16 @@ describe('состояния — русские дефолты', () => {
    * Проверяется по-прежнему главное: первым идёт объяснение для человека.
    */
   it('ErrorState: «Не удалось загрузить данные»', () => {
-    const kids = ErrorState({}).props.children as unknown[];
+    const kids = propsOf(ErrorState({})).children as unknown[];
     expect(kids[0]).toBe('Не удалось загрузить данные');
   });
 
   it('LoadingState: «Загрузка…»', () => {
-    expect(LoadingState({}).props.children).toBe('Загрузка…');
+    expect(propsOf(LoadingState({})).children).toBe('Загрузка…');
   });
 
   it('переопределение message сохраняется', () => {
-    const kids = ErrorState({ message: 'Сбой сети' }).props.children as unknown[];
+    const kids = propsOf(ErrorState({ message: 'Сбой сети' })).children as unknown[];
     expect(kids[0]).toBe('Сбой сети');
   });
 });

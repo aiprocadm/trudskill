@@ -15,29 +15,26 @@ const item = (over: Partial<AttentionItem> & { id: string }): AttentionItem => (
 
 describe('очередь «Разобрать» (CMP-013)', () => {
   it('критичное идёт первым независимо от типа элемента', () => {
-    const sorted = sortByUrgency(
-      [item({ id: 'a', severity: 'low' }), item({ id: 'b', severity: 'high' })],
-      NOW
-    );
+    const sorted = sortByUrgency([
+      item({ id: 'a', severity: 'low' }),
+      item({ id: 'b', severity: 'high' })
+    ]);
     expect(sorted.map((i) => i.id)).toEqual(['b', 'a']);
   });
 
   it('при равной критичности вперёд идёт то, у чего срок ближе', () => {
-    const sorted = sortByUrgency(
-      [
-        item({ id: 'later', dueAt: '2026-08-20T00:00:00Z' }),
-        item({ id: 'sooner', dueAt: '2026-08-13T00:00:00Z' })
-      ],
-      NOW
-    );
+    const sorted = sortByUrgency([
+      item({ id: 'later', dueAt: '2026-08-20T00:00:00Z' }),
+      item({ id: 'sooner', dueAt: '2026-08-13T00:00:00Z' })
+    ]);
     expect(sorted.map((i) => i.id)).toEqual(['sooner', 'later']);
   });
 
   it('элементы без срока не вытесняют срочные', () => {
-    const sorted = sortByUrgency(
-      [item({ id: 'no-date' }), item({ id: 'dated', dueAt: '2026-08-13T00:00:00Z' })],
-      NOW
-    );
+    const sorted = sortByUrgency([
+      item({ id: 'no-date' }),
+      item({ id: 'dated', dueAt: '2026-08-13T00:00:00Z' })
+    ]);
     expect(sorted.map((i) => i.id)).toEqual(['dated', 'no-date']);
   });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { OperationOutcome } from './index.js';
+import { propsOf, textOf } from '../../testing/element.test-util.js';
 
 import type { ReactElement } from 'react';
 
@@ -9,8 +10,8 @@ describe('итог операции (CMP-011)', () => {
     const element = OperationOutcome({
       outcome: { total: 15, succeeded: 12, failures: [] }
     }) as ReactElement;
-    const [summary] = element.props.children as ReactElement[];
-    expect(summary.props.children.join('')).toBe('Готово: 12 из 15');
+    const [summary] = propsOf(element).children as ReactElement[];
+    expect(textOf(summary)).toBe('Готово: 12 из 15');
   });
 
   it('глагол сводки задаётся операцией — «зачислено», а не всегда «готово»', () => {
@@ -18,8 +19,8 @@ describe('итог операции (CMP-011)', () => {
       outcome: { total: 3, succeeded: 3, failures: [] },
       successVerb: 'Зачислено'
     }) as ReactElement;
-    const [summary] = element.props.children as ReactElement[];
-    expect(summary.props.children.join('')).toContain('Зачислено: 3 из 3');
+    const [summary] = propsOf(element).children as ReactElement[];
+    expect(textOf(summary)).toContain('Зачислено: 3 из 3');
   });
 
   it('отказы показаны ПОИМЁННО с причиной', () => {
@@ -40,7 +41,7 @@ describe('итог операции (CMP-011)', () => {
     const element = OperationOutcome({
       outcome: { total: 4, succeeded: 4, failures: [] }
     }) as ReactElement;
-    const [, failures] = element.props.children as ReactElement[];
+    const [, failures] = propsOf(element).children as ReactElement[];
     expect(failures).toBeNull();
   });
 
@@ -48,6 +49,6 @@ describe('итог операции (CMP-011)', () => {
     const element = OperationOutcome({
       outcome: { total: 1, succeeded: 0, failures: [{ label: 'Пётр', reason: 'нет почты' }] }
     }) as ReactElement;
-    expect(element.props.role).toBe('status');
+    expect(propsOf(element).role).toBe('status');
   });
 });
