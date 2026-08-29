@@ -13,6 +13,7 @@ import { MVP_PERSISTENCE_BACKEND } from './mvp-persistence.token.js';
 import { MVP_STATE } from './mvp-state.token.js';
 import { MetricsService } from '../../../common/metrics/metrics.service.js';
 import { resolveRequestContext } from '../../../common/utils/request.js';
+import { TenantStateConflictError } from '../../../infrastructure/database/tenant-state-version.js';
 import { TenantSerialGateway } from '../../../infrastructure/request/tenant-serial.gateway.js';
 
 import type { MvpPersistenceBackend } from './mvp-persistence.backend.js';
@@ -80,6 +81,13 @@ export class MvpRequestPersistenceInterceptor implements NestInterceptor {
               backend,
               result: 'error'
             });
+            if (error instanceof TenantStateConflictError) {
+              // Отдельный счётчик: обычная ошибка записи и «нас опередили» —
+              // разные события, и путать их в одной метрике нельзя.
+              this.metrics.incrementCounter('tenant_state_conflict_total', {
+                scope: 'mvp'
+              });
+            }
             throw error;
           } finally {
             this.metrics.observeDuration(

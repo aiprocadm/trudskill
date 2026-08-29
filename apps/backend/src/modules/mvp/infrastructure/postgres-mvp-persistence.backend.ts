@@ -9,6 +9,10 @@ import {
   isEncryptedPiiValue
 } from '../../../infrastructure/crypto/pii-crypto.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
+import {
+  bumpTenantStateVersion,
+  readTenantStateVersion
+} from '../../../infrastructure/database/tenant-state-version.js';
 
 import type { InMemoryMvpState } from './in-memory-mvp.state.js';
 import type { MvpPersistenceBackend } from './mvp-persistence.backend.js';
@@ -39,6 +43,12 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
 
   async loadIntoState(tenantId: string, state: InMemoryMvpState): Promise<void> {
     const readModel = backendEnv.LMS_READ_MODEL;
+    // Версия снимка на момент чтения (журнал 272/292) — запись сверит её с текущей.
+    state.stateVersionAtLoad = await readTenantStateVersion(
+      (sql, params) => this.db.query<{ version: string | number }>(sql, params),
+      tenantId,
+      'mvp'
+    );
 
     if (readModel === 'normalized') {
       await this.loadModelIntoState(tenantId, state, NORMALIZED_TABLE);
@@ -84,6 +94,14 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
       logReconciliationIssue: (currentTenantId, payload) =>
         this.logReconciliationIssue(currentTenantId, payload)
     });
+  }
+
+  /**
+   * Таблица, из которой читают. Только она сторожит версию снимка: `shadow` читает legacy,
+   * поэтому legacy же и сторожит.
+   */
+  private authoritativeTable(): string {
+    return backendEnv.LMS_READ_MODEL === 'normalized' ? NORMALIZED_TABLE : LEGACY_TABLE;
   }
 
   async writeLegacy(tenantId: string, state: InMemoryMvpState): Promise<void> {
@@ -198,6 +216,16 @@ export class PostgresMvpPersistenceBackend implements MvpPersistenceBackend {
     }
 
     await this.db.withTransaction(async (client: PoolClient) => {
+      /*
+       * Сверка версии — ПЕРВЫМ делом в транзакции (журнал 272/292). Если снимок успел
+       * поменять другой экземпляр, дальше идти нельзя: запись переписывает коллекции
+       * целиком и стёрла бы чужие изменения молча. Сторожит только та таблица, ИЗ КОТОРОЙ
+       * читают: при двойной записи снимок пишется дважды.
+       */
+      if (tableName === this.authoritativeTable()) {
+        await bumpTenantStateVersion(client, tenantId, 'mvp', state.stateVersionAtLoad ?? 0);
+      }
+
       for (const col of collectionsToWrite) {
         await client.query(`delete from ${tableName} where tenant_id = $1 and collection = $2`, [
           tenantId,

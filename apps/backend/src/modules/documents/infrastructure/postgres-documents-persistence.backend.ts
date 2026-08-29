@@ -11,6 +11,10 @@ import {
   encryptDocumentSnapshotAtRest
 } from '../../../infrastructure/crypto/pii-crypto.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
+import {
+  bumpTenantStateVersion,
+  readTenantStateVersion
+} from '../../../infrastructure/database/tenant-state-version.js';
 
 import type { GeneratedDocumentEntity } from '../documents.types.js';
 import type { InMemoryDocumentsState } from '../in-memory-documents.state.js';
@@ -37,6 +41,12 @@ export class PostgresDocumentsPersistenceBackend implements DocumentsPersistence
 
   async loadIntoState(tenantId: string, state: InMemoryDocumentsState): Promise<void> {
     const readModel = backendEnv.DOCUMENTS_READ_MODEL;
+    // Версия снимка на момент чтения (журнал 272/292) — запись сверит её с текущей.
+    state.stateVersionAtLoad = await readTenantStateVersion(
+      (sql, params) => this.db.query<{ version: string | number }>(sql, params),
+      tenantId,
+      'documents'
+    );
 
     if (readModel === 'normalized') {
       const normalized = await this.readSnapshot(tenantId, NORMALIZED_TABLE);
@@ -59,6 +69,16 @@ export class PostgresDocumentsPersistenceBackend implements DocumentsPersistence
   }
 
   async saveFromState(tenantId: string, state: InMemoryDocumentsState): Promise<void> {
+    /*
+     * Чтение не должно ничего писать (журнал 299). Правило применили к состоянию mvp ещё
+     * в Фазе 6, но к документам — нет: снимок переписывался на КАЖДЫЙ запрос, включая
+     * обычный показ списка. Заодно это убирает лишние конфликты версий: запрос, который
+     * ничего не менял, не имеет права двигать версию.
+     */
+    if (!state.hasChangedSinceLoad()) {
+      return;
+    }
+
     await this.writeOrchestrator.persist({
       tenantId,
       state,
@@ -80,6 +100,15 @@ export class PostgresDocumentsPersistenceBackend implements DocumentsPersistence
 
   async writeNormalized(tenantId: string, state: InMemoryDocumentsState): Promise<void> {
     await this.writeSnapshot(tenantId, state, NORMALIZED_TABLE);
+  }
+
+  /**
+   * Таблица, из которой читают. Версию снимка сторожит ТОЛЬКО она: при двойной записи
+   * снимок пишется дважды, и вторая сверка заведомо не совпала бы — версию уже увеличила
+   * первая. `shadow` читает legacy, поэтому legacy же и сторожит.
+   */
+  private authoritativeTable(): string {
+    return backendEnv.DOCUMENTS_READ_MODEL === 'normalized' ? NORMALIZED_TABLE : LEGACY_TABLE;
   }
 
   async findGeneratedDocumentByQrToken(
@@ -143,6 +172,9 @@ export class PostgresDocumentsPersistenceBackend implements DocumentsPersistence
 
     state.idem.clear();
     for (const [k, v] of snapshot.idemEntries) state.idem.set(k, v);
+
+    // Отпечаток снимаем СРАЗУ после раскладки — до того, как обработчик что-то поменяет.
+    state.captureLoadFingerprint();
   }
 
   private async writeSnapshot(
@@ -151,6 +183,15 @@ export class PostgresDocumentsPersistenceBackend implements DocumentsPersistence
     tableName: string
   ): Promise<void> {
     await this.db.withTransaction(async (client: PoolClient) => {
+      /*
+       * Сверка версии — ПЕРВЫМ делом в транзакции (журнал 272/292). Если снимок успел
+       * поменять другой экземпляр, дальше идти нельзя: запись переписывает коллекции
+       * целиком и стёрла бы чужие изменения молча.
+       */
+      if (tableName === this.authoritativeTable()) {
+        await bumpTenantStateVersion(client, tenantId, 'documents', state.stateVersionAtLoad ?? 0);
+      }
+
       for (const col of DOCUMENTS_ARRAY_COLLECTIONS) {
         await client.query(`delete from ${tableName} where tenant_id = $1 and collection = $2`, [
           tenantId,

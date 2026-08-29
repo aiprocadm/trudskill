@@ -25,6 +25,15 @@ function makeMvp(state: InMemoryMvpState): MvpService {
 }
 
 /**
+ * Вставка СНИМКА состояния, а не любая вставка вообще. Запись состояния делает ещё одну —
+ * версию снимка (журнал 272/292), у неё другая форма параметров, и двойник, ловивший всё
+ * подряд, разбирал её как JSON и падал.
+ */
+function isSnapshotInsert(sql: string): boolean {
+  return /^insert into \S*runtime_documents/i.test(sql.trimStart());
+}
+
+/**
  * Fake DatabaseService whose `id` column is NOT NULL — mirrors the real
  * `learning.mvp_runtime_documents` schema (PK = tenant_id, collection, id).
  * Any INSERT with a null/undefined id throws, exactly as Postgres would.
@@ -32,7 +41,7 @@ function makeMvp(state: InMemoryMvpState): MvpService {
 function makeFakeDb(inserts: Array<{ collection: string; id: unknown }>) {
   const client = {
     query: vi.fn(async (sql: string, params: unknown[]) => {
-      if (sql.trimStart().startsWith('insert into')) {
+      if (isSnapshotInsert(sql)) {
         const id = params[2];
         inserts.push({ collection: params[1] as string, id });
         if (id === undefined || id === null) {
@@ -85,7 +94,7 @@ describe('PII at-rest encryption (ФТ-C3.3, Фаза 0 Task 7)', () => {
     const stored = new Map<string, unknown[]>();
     const client = {
       query: vi.fn(async (sql: string, params: unknown[]) => {
-        if (sql.trimStart().startsWith('insert into')) {
+        if (isSnapshotInsert(sql)) {
           const col = params[1] as string;
           const list = stored.get(col) ?? [];
           list.push(JSON.parse(params[3] as string));
