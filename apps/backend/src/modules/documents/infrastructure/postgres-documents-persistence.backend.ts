@@ -5,6 +5,7 @@ import {
   type DocumentsArrayCollection
 } from './documents-collections.js';
 import { DocumentsWriteOrchestrator } from './documents-write.orchestrator.js';
+import { claimIssuedNumbers } from './issued-number-claims.js';
 import { backendEnv } from '../../../env.js';
 import {
   decryptDocumentSnapshotAtRest,
@@ -190,6 +191,12 @@ export class PostgresDocumentsPersistenceBackend implements DocumentsPersistence
        */
       if (tableName === this.authoritativeTable()) {
         await bumpTenantStateVersion(client, tenantId, 'documents', state.stateVersionAtLoad ?? 0);
+        /*
+         * Заявка на номера (журнал 272) — вторая, независимая линия обороны. Версия снимка
+         * ловит «нас опередили» вообще, а ключ таблицы заявок делает дубль номера физически
+         * невозможным, даже если версия почему-то совпала.
+         */
+        await claimIssuedNumbers(client, tenantId, state.reservations);
       }
 
       for (const col of DOCUMENTS_ARRAY_COLLECTIONS) {
