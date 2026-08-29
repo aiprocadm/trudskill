@@ -10,6 +10,7 @@ import { type Observable, defaultIfEmpty, defer, from, lastValueFrom, mergeMap, 
 
 import { MetricsService } from '../../../common/metrics/metrics.service.js';
 import { resolveRequestContext } from '../../../common/utils/request.js';
+import { TenantStateConflictError } from '../../../infrastructure/database/tenant-state-version.js';
 import { TenantSerialGateway } from '../../../infrastructure/request/tenant-serial.gateway.js';
 import { DOCUMENTS_STATE } from '../documents-state.token.js';
 import { DOCUMENTS_PERSISTENCE_BACKEND } from './documents-persistence.token.js';
@@ -86,6 +87,13 @@ export class DocumentsRequestPersistenceInterceptor implements NestInterceptor {
               backend,
               result: 'error'
             });
+            if (error instanceof TenantStateConflictError) {
+              // Отдельный счётчик: обычная ошибка записи и «нас опередили» — разные
+              // события, и путать их в одной метрике нельзя.
+              this.metrics.incrementCounter('tenant_state_conflict_total', {
+                scope: 'documents'
+              });
+            }
             throw error;
           } finally {
             this.metrics.observeDuration(
