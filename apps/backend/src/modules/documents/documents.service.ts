@@ -39,6 +39,7 @@ import {
   maskFullName
 } from './public-verify.util.js';
 import { MetricsService } from '../../common/metrics/metrics.service.js';
+import { periodKeyIn, todayIn } from '../../common/utils/tenant-calendar.js';
 import {
   DOCUMENT_SIGNATURE_PROVIDER,
   type DocumentSignatureProvider,
@@ -799,7 +800,7 @@ export class DocumentsService {
       })(),
       status: 'generated',
       documentNumber: reserved.reservedNumber,
-      documentDate: this.now().slice(0, 10),
+      documentDate: todayIn(this.state.tenantTimezone, new Date(this.now())),
       isFinal: false,
       generatedBy,
       generatedAt: this.now(),
@@ -1309,12 +1310,12 @@ export class DocumentsService {
     return reset === 'none' ? '{prefix}{counter}{suffix}' : '{prefix}{period}-{counter}{suffix}';
   }
 
+  /**
+   * Период номера — в часовом поясе ЦЕНТРА (журнал 300). По UTC удостоверение, выпущенное
+   * 1 января в 06:00 в Новосибирске, попадало в серию ПРОШЛОГО года.
+   */
   private periodKey(reset: 'none' | 'year' | 'month') {
-    const d = new Date();
-    if (reset === 'year') return `${d.getUTCFullYear()}`;
-    if (reset === 'month')
-      return `${d.getUTCFullYear()}-${`${d.getUTCMonth() + 1}`.padStart(2, '0')}`;
-    return 'all';
+    return periodKeyIn(this.state.tenantTimezone, reset, new Date(this.now()));
   }
   private page<T>(rows: T[], query: BaseFilter) {
     // Ревизия 2026-08-27 (порция 24): HTTP-параметры приходят строками — без разбора

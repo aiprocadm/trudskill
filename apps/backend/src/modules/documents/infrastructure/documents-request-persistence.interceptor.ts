@@ -14,6 +14,7 @@ import { TenantStateConflictError } from '../../../infrastructure/database/tenan
 import { TenantSerialGateway } from '../../../infrastructure/request/tenant-serial.gateway.js';
 import { DOCUMENTS_STATE } from '../documents-state.token.js';
 import { DOCUMENTS_PERSISTENCE_BACKEND } from './documents-persistence.token.js';
+import { TenantTimezoneService } from '../../../infrastructure/tenant/tenant-timezone.service.js';
 
 import type { InMemoryDocumentsState } from '../in-memory-documents.state.js';
 import type { DocumentsPersistenceBackend } from './documents-persistence.backend.js';
@@ -25,7 +26,8 @@ export class DocumentsRequestPersistenceInterceptor implements NestInterceptor {
     @Inject(MetricsService) private readonly metrics: MetricsService,
     @Inject(DOCUMENTS_PERSISTENCE_BACKEND)
     private readonly persistence: DocumentsPersistenceBackend,
-    @Inject(TenantSerialGateway) private readonly tenantGateway: TenantSerialGateway
+    @Inject(TenantSerialGateway) private readonly tenantGateway: TenantSerialGateway,
+    @Inject(TenantTimezoneService) private readonly timezones: TenantTimezoneService
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
@@ -49,6 +51,9 @@ export class DocumentsRequestPersistenceInterceptor implements NestInterceptor {
             Date.now() - enqueuedAt,
             { backend }
           );
+
+          // Дата документа и период его номера считаются в поясе ЦЕНТРА (журнал 300).
+          this.state.tenantTimezone = await this.timezones.resolve(tenantId);
 
           const loadStarted = Date.now();
           try {

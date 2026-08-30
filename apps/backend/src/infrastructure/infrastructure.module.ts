@@ -8,6 +8,7 @@ import { RabbitMqService } from './messaging/rabbitmq.service.js';
 import { TenantSerialGateway } from './request/tenant-serial.gateway.js';
 import { SecretsService } from './secrets/secrets.service.js';
 import { S3StorageClient } from './storage/s3-storage.client.js';
+import { TenantTimezoneService } from './tenant/tenant-timezone.service.js';
 
 @Module({
   providers: [
@@ -18,7 +19,8 @@ import { S3StorageClient } from './storage/s3-storage.client.js';
     S3StorageClient,
     TenantScopedRepository,
     TenantSerialGateway,
-    SecretsService
+    SecretsService,
+    TenantTimezoneService
   ],
   exports: [
     DatabaseService,
@@ -28,7 +30,8 @@ import { S3StorageClient } from './storage/s3-storage.client.js';
     S3StorageClient,
     TenantScopedRepository,
     TenantSerialGateway,
-    SecretsService
+    SecretsService,
+    TenantTimezoneService
   ]
 })
 export class InfrastructureModule {}

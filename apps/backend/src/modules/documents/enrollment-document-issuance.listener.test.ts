@@ -7,6 +7,7 @@ import { InMemoryDocumentsState } from './in-memory-documents.state.js';
 import { MemoryDocumentsPersistenceBackend } from './infrastructure/memory-documents-persistence.backend.js';
 import { addMonths } from '../../common/utils/date-math.util.js';
 import { TenantSerialGateway } from '../../infrastructure/request/tenant-serial.gateway.js';
+import { TenantTimezoneService } from '../../infrastructure/tenant/tenant-timezone.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
@@ -24,7 +25,13 @@ describe('EnrollmentDocumentIssuanceListener', () => {
     const realtime = new RealtimeEventsService();
     const persistence = new MemoryDocumentsPersistenceBackend();
     const gateway = new TenantSerialGateway();
-    const runner = new DocumentsTenantRunner(persistence, gateway, audit, realtime);
+    const runner = new DocumentsTenantRunner(
+      persistence,
+      gateway,
+      audit,
+      realtime,
+      new TenantTimezoneService()
+    );
 
     await runner.runWithTenantDocuments('tenant_demo', async (documents) => {
       const ctx = {
@@ -94,7 +101,13 @@ describe('EnrollmentDocumentIssuanceListener', () => {
     const realtime = new RealtimeEventsService();
     const persistence = new MemoryDocumentsPersistenceBackend();
     const gateway = new TenantSerialGateway();
-    const runner = new DocumentsTenantRunner(persistence, gateway, audit, realtime);
+    const runner = new DocumentsTenantRunner(
+      persistence,
+      gateway,
+      audit,
+      realtime,
+      new TenantTimezoneService()
+    );
 
     await runner.runWithTenantDocuments('tenant_demo', async (documents) => {
       const ctx = {
@@ -146,7 +159,13 @@ describe('EnrollmentDocumentIssuanceListener', () => {
     const realtime = new RealtimeEventsService();
     const persistence = new MemoryDocumentsPersistenceBackend();
     const gateway = new TenantSerialGateway();
-    const runner = new DocumentsTenantRunner(persistence, gateway, audit, realtime);
+    const runner = new DocumentsTenantRunner(
+      persistence,
+      gateway,
+      audit,
+      realtime,
+      new TenantTimezoneService()
+    );
 
     await runner.runWithTenantDocuments('tenant_demo', async (documents) => {
       const ctx = {
@@ -240,7 +259,13 @@ describe('EnrollmentDocumentIssuanceListener', () => {
     const realtime = new RealtimeEventsService();
     const persistence = new MemoryDocumentsPersistenceBackend();
     const gateway = new TenantSerialGateway();
-    const runner = new DocumentsTenantRunner(persistence, gateway, audit, realtime);
+    const runner = new DocumentsTenantRunner(
+      persistence,
+      gateway,
+      audit,
+      realtime,
+      new TenantTimezoneService()
+    );
 
     await runner.runWithTenantDocuments('tenant_other', async (documents) => {
       const ctx = {
@@ -307,7 +332,13 @@ describe('EnrollmentDocumentIssuanceListener', () => {
     const realtime = new RealtimeEventsService();
     const persistence = new MemoryDocumentsPersistenceBackend();
     const gateway = new TenantSerialGateway();
-    const runner = new DocumentsTenantRunner(persistence, gateway, audit, realtime);
+    const runner = new DocumentsTenantRunner(
+      persistence,
+      gateway,
+      audit,
+      realtime,
+      new TenantTimezoneService()
+    );
 
     let templateProtocolId = '';
     let templateCertId = '';
@@ -404,7 +435,13 @@ describe('EnrollmentDocumentIssuanceListener', () => {
     const realtime = new RealtimeEventsService();
     const persistence = new MemoryDocumentsPersistenceBackend();
     const gateway = new TenantSerialGateway();
-    const runner = new DocumentsTenantRunner(persistence, gateway, audit, realtime);
+    const runner = new DocumentsTenantRunner(
+      persistence,
+      gateway,
+      audit,
+      realtime,
+      new TenantTimezoneService()
+    );
 
     let templateCertId = '';
     await runner.runWithTenantDocuments('tenant_demo', async (documents) => {
@@ -471,7 +508,13 @@ describe('EnrollmentDocumentIssuanceListener', () => {
     const realtime = new RealtimeEventsService();
     const persistence = new MemoryDocumentsPersistenceBackend();
     const gateway = new TenantSerialGateway();
-    const runner = new DocumentsTenantRunner(persistence, gateway, audit, realtime);
+    const runner = new DocumentsTenantRunner(
+      persistence,
+      gateway,
+      audit,
+      realtime,
+      new TenantTimezoneService()
+    );
 
     let templateAutoId = '';
     let templateManualId = '';
@@ -551,7 +594,13 @@ describe('EnrollmentDocumentIssuanceListener', () => {
     const realtime = new RealtimeEventsService();
     const persistence = new MemoryDocumentsPersistenceBackend();
     const gateway = new TenantSerialGateway();
-    const runner = new DocumentsTenantRunner(persistence, gateway, audit, realtime);
+    const runner = new DocumentsTenantRunner(
+      persistence,
+      gateway,
+      audit,
+      realtime,
+      new TenantTimezoneService()
+    );
 
     let templateAId = '';
     let templateBId = '';
@@ -637,7 +686,13 @@ describe('EnrollmentDocumentIssuanceListener', () => {
     const realtime = new RealtimeEventsService();
     const persistence = new MemoryDocumentsPersistenceBackend();
     const gateway = new TenantSerialGateway();
-    const runner = new DocumentsTenantRunner(persistence, gateway, audit, realtime);
+    const runner = new DocumentsTenantRunner(
+      persistence,
+      gateway,
+      audit,
+      realtime,
+      new TenantTimezoneService()
+    );
 
     let templateGoodId = '';
     await runner.runWithTenantDocuments('tenant_demo', async (documents) => {
@@ -756,7 +811,13 @@ describe('EnrollmentDocumentIssuanceListener', () => {
     const realtime = new RealtimeEventsService();
     const persistence = new MemoryDocumentsPersistenceBackend();
     const gateway = new TenantSerialGateway();
-    const runner = new DocumentsTenantRunner(persistence, gateway, audit, realtime);
+    const runner = new DocumentsTenantRunner(
+      persistence,
+      gateway,
+      audit,
+      realtime,
+      new TenantTimezoneService()
+    );
 
     await runner.runWithTenantDocuments('tenant_demo', async (documents) => {
       const ctx = {
@@ -830,7 +891,13 @@ describe('выдача документов не влезает в чужую с
     const realtime = new RealtimeEventsService();
     const persistence = new MemoryDocumentsPersistenceBackend();
     const gateway = new TenantSerialGateway();
-    const runner = new DocumentsTenantRunner(persistence, gateway, audit, realtime);
+    const runner = new DocumentsTenantRunner(
+      persistence,
+      gateway,
+      audit,
+      realtime,
+      new TenantTimezoneService()
+    );
     const ctx = {
       requestId: 'r_guard',
       correlationId: 'c_guard',

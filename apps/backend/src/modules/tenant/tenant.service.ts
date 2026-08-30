@@ -9,6 +9,7 @@ import {
 import { TENANT_BRANDING_KEY, readTenantBranding } from './tenant-branding.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
+import { TenantTimezoneService } from '../../infrastructure/tenant/tenant-timezone.service.js';
 import { AuditService } from '../audit/audit.service.js';
 
 import type { TenantBranding } from './tenant-branding.js';
@@ -39,7 +40,11 @@ export class TenantService {
      * (`new TenantService(repo, db)`), и вставка в середину списка тихо подменяет им базу:
      * ровно это и случилось при первой попытке — десять тестов покраснели.
      */
-    @Optional() @Inject(AuditService) private readonly auditService?: AuditService
+    @Optional() @Inject(AuditService) private readonly auditService?: AuditService,
+    /* По тому же правилу — последним и необязательным (журнал 300). */
+    @Optional()
+    @Inject(TenantTimezoneService)
+    private readonly tenantTimezones?: TenantTimezoneService
   ) {}
 
   /** Фейл-клоузед: без БД тенантов НЕ СУЩЕСТВУЕТ — понятная 503, а не демо-подмена. */
@@ -145,6 +150,9 @@ export class TenantService {
       [tenantId, JSON.stringify({ ...next.payload, locale: next.locale, timezone: next.timezone })]
     );
     await this.audit('tenant.settings_updated', tenantId, current, next, ctx);
+    // Пояс запомнен на минуту — после правки настройки забываем его, чтобы новый
+    // подхватился сразу, а не «когда-нибудь в течение минуты» (журнал 300).
+    this.tenantTimezones?.forget(tenantId);
     return this.getSettings(tenantId);
   }
 
