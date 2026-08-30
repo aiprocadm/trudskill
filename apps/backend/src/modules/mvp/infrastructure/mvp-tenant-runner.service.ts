@@ -3,6 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { InMemoryMvpState } from './in-memory-mvp.state.js';
 import { MVP_PERSISTENCE_BACKEND } from './mvp-persistence.token.js';
 import { TenantSerialGateway } from '../../../infrastructure/request/tenant-serial.gateway.js';
+import { TenantTimezoneService } from '../../../infrastructure/tenant/tenant-timezone.service.js';
 
 import type { MvpPersistenceBackend } from './mvp-persistence.backend.js';
 
@@ -17,7 +18,10 @@ export class MvpTenantRunner {
     @Inject(MVP_PERSISTENCE_BACKEND)
     private readonly persistence: MvpPersistenceBackend,
     @Inject(TenantSerialGateway)
-    private readonly tenantGateway: TenantSerialGateway
+    private readonly tenantGateway: TenantSerialGateway,
+    // Пояс центра — ПОСЛЕДНИМ аргументом: тесты собирают бегунок позиционно.
+    @Inject(TenantTimezoneService)
+    private readonly timezones: TenantTimezoneService
   ) {}
 
   async runWithTenantState<R>(
@@ -26,6 +30,8 @@ export class MvpTenantRunner {
   ): Promise<R> {
     return this.tenantGateway.runExclusive(tenantId, async () => {
       const state = new InMemoryMvpState();
+      // Календарные даты считаются в поясе ЦЕНТРА (журнал 301).
+      state.tenantTimezone = await this.timezones.resolve(tenantId);
       await this.persistence.loadIntoState(tenantId, state);
       return fn(state);
     });
@@ -48,6 +54,8 @@ export class MvpTenantRunner {
   ): Promise<R> {
     return this.tenantGateway.runExclusive(tenantId, async () => {
       const state = new InMemoryMvpState();
+      // Календарные даты считаются в поясе ЦЕНТРА (журнал 301).
+      state.tenantTimezone = await this.timezones.resolve(tenantId);
       await this.persistence.loadIntoState(tenantId, state);
       try {
         return await fn(state);

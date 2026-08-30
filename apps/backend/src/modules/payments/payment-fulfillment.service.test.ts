@@ -5,6 +5,7 @@ import { InMemoryPaymentsRepository } from './in-memory-payments.repository.js';
 import { PaymentFulfillmentService } from './payment-fulfillment.service.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 import { TenantSerialGateway } from '../../infrastructure/request/tenant-serial.gateway.js';
+import { TenantTimezoneService } from '../../infrastructure/tenant/tenant-timezone.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { InMemoryMvpState } from '../mvp/infrastructure/in-memory-mvp.state.js';
 import { MemoryMvpPersistenceBackend } from '../mvp/infrastructure/memory-mvp-persistence.backend.js';
@@ -126,7 +127,7 @@ describe('PaymentFulfillmentService', () => {
     await backend.saveFromState('t1', seed);
 
     const enrollment = new MvpEnrollmentService(
-      new MvpTenantRunner(backend, new TenantSerialGateway()),
+      new MvpTenantRunner(backend, new TenantSerialGateway(), new TenantTimezoneService()),
       new TenantScopedRepository(),
       new AuditService(),
       new EventEmitter2()

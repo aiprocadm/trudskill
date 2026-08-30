@@ -2,6 +2,7 @@ import { lastValueFrom, of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MvpRequestPersistenceInterceptor } from './mvp-request-persistence.interceptor.js';
+import { TenantTimezoneService } from '../../../infrastructure/tenant/tenant-timezone.service.js';
 
 class TestBackend {
   loadIntoState = vi.fn().mockResolvedValue(undefined);
@@ -17,7 +18,13 @@ function makeInterceptor(backend: TestBackend) {
   const tenantGateway = {
     runExclusive: (_t: string, fn: () => unknown) => fn()
   } as never;
-  return new MvpRequestPersistenceInterceptor(state, metrics, backend as never, tenantGateway);
+  return new MvpRequestPersistenceInterceptor(
+    state,
+    metrics,
+    backend as never,
+    tenantGateway,
+    new TenantTimezoneService()
+  );
 }
 
 function makeCtx(req: object) {

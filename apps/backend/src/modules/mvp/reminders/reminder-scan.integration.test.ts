@@ -99,7 +99,11 @@ describe('reminders nightly scan (nested MvpTenantRunner → DocumentsTenantRunn
         }),
         saveFromState: vi.fn(async () => undefined)
       };
-      const mvpRunner = new MvpTenantRunner(fakeMvpPersistence, gateway);
+      const mvpRunner = new MvpTenantRunner(
+        fakeMvpPersistence,
+        gateway,
+        new TenantTimezoneService()
+      );
 
       const fakeDocsPersistence: DocumentsPersistenceBackend = {
         loadIntoState: vi.fn(async (_tenantId: string, state: InMemoryDocumentsState) => {

@@ -3,10 +3,13 @@ import {
   ConflictException,
   Inject,
   Injectable,
-  NotFoundException
+  NotFoundException,
+  Optional
 } from '@nestjs/common';
 
 import { LICENSES_REPOSITORY } from './licenses.repository.js';
+import { todayIn } from '../../common/utils/tenant-calendar.js';
+import { TenantTimezoneService } from '../../infrastructure/tenant/tenant-timezone.service.js';
 import { AuditService } from '../audit/audit.service.js';
 
 import type { CreateLicenseRequest, UpdateLicenseRequest } from './licenses.dto.js';
@@ -29,7 +32,16 @@ import type { RequestContext } from '../../common/context/request-context.js';
 export class LicensesService {
   constructor(
     @Inject(LICENSES_REPOSITORY) private readonly repo: LicensesRepository,
-    @Inject(AuditService) private readonly auditService: AuditService
+    @Inject(AuditService) private readonly auditService: AuditService,
+    /*
+     * Часовой пояс центра — ПОСЛЕДНИМ и необязательным (журнал 301): пять мест собирают
+     * сервис позиционно, и вставка в середину списка тихо подменила бы им журнал аудита.
+     * Без него считаем по поясу по умолчанию — так же, как считалось раньше по UTC, но
+     * ближе к правде.
+     */
+    @Optional()
+    @Inject(TenantTimezoneService)
+    private readonly timezones?: TenantTimezoneService
   ) {}
 
   list(tenantId: string, status?: LicenseStatus): Promise<TrainingLicense[]> {
@@ -199,7 +211,9 @@ export class LicensesService {
     directionId?: string
   ): Promise<TrainingLicense[]> {
     const active = await this.repo.list(tenantId, 'active');
-    const today = this.now().slice(0, 10);
+    // «Сегодня» — по календарю ЦЕНТРА (журнал 301): срок действия лицензии включительный,
+    // и по UTC центр за Уралом терял право публиковать курсы на несколько часов раньше.
+    const today = todayIn(await this.timezones?.resolve(tenantId), new Date(this.now()));
     return active.filter((l) => {
       // Time-expired license fails the publish gate even though status stays 'active'
       // (nothing flips active→expired). validUntil is inclusive; undefined = бессрочная.

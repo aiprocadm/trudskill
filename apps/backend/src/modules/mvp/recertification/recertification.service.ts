@@ -12,6 +12,7 @@ import {
   type RecertScanSummary,
   RecertificationScanner
 } from './recertification-scanner.service.js';
+import { todayIn } from '../../../common/utils/tenant-calendar.js';
 import { AuditService } from '../../audit/audit.service.js';
 import { DocumentsTenantRunner } from '../../documents/documents-tenant-runner.service.js';
 import { MVP_STATE } from '../infrastructure/mvp-state.token.js';
@@ -83,7 +84,15 @@ export class RecertificationService {
    * ФТ-E4: дашборд «истекающие удостоверения». Горизонт совпадает с окном скана
    * напоминаний — методист видит ровно те документы, по которым уже идут письма.
    */
-  async listExpiring(tenantId: string, today: string, horizonDays = RECERT_HORIZON_DAYS) {
+  /**
+   * `today` по умолчанию — календарь ЦЕНТРА (журнал 301). Планировщик передаёт свою дату
+   * явно; экран не должен знать про часовые пояса вовсе.
+   */
+  async listExpiring(
+    tenantId: string,
+    today: string = todayIn(this.state.tenantTimezone),
+    horizonDays = RECERT_HORIZON_DAYS
+  ) {
     const documents = await this.documentsRunner.runWithTenantDocuments(
       tenantId,
       async (docs) => docs.listDocuments(tenantId, { pageSize: Number.MAX_SAFE_INTEGER }).items
@@ -93,7 +102,11 @@ export class RecertificationService {
   }
 
   /** Manual per-tenant scan (HTTP-triggered). The interceptor has already loaded `this.state`. */
-  runScan(tenantId: string, asOf: string, _ctx: RequestContext): Promise<RecertScanSummary> {
+  runScan(
+    tenantId: string,
+    asOf: string = todayIn(this.state.tenantTimezone),
+    _ctx?: RequestContext
+  ): Promise<RecertScanSummary> {
     return this.scanner.scanTenant(tenantId, asOf, this.state);
   }
 

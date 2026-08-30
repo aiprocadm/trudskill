@@ -15,6 +15,7 @@ import { MetricsService } from '../../../common/metrics/metrics.service.js';
 import { resolveRequestContext } from '../../../common/utils/request.js';
 import { TenantStateConflictError } from '../../../infrastructure/database/tenant-state-version.js';
 import { TenantSerialGateway } from '../../../infrastructure/request/tenant-serial.gateway.js';
+import { TenantTimezoneService } from '../../../infrastructure/tenant/tenant-timezone.service.js';
 
 import type { MvpPersistenceBackend } from './mvp-persistence.backend.js';
 
@@ -24,7 +25,8 @@ export class MvpRequestPersistenceInterceptor implements NestInterceptor {
     @Inject(MVP_STATE) private readonly state: InMemoryMvpState,
     @Inject(MetricsService) private readonly metrics: MetricsService,
     @Inject(MVP_PERSISTENCE_BACKEND) private readonly persistence: MvpPersistenceBackend,
-    @Inject(TenantSerialGateway) private readonly tenantGateway: TenantSerialGateway
+    @Inject(TenantSerialGateway) private readonly tenantGateway: TenantSerialGateway,
+    @Inject(TenantTimezoneService) private readonly timezones: TenantTimezoneService
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
@@ -46,6 +48,9 @@ export class MvpRequestPersistenceInterceptor implements NestInterceptor {
           this.metrics.observeDuration('mvp_persistence_queue_wait_ms', Date.now() - enqueuedAt, {
             backend
           });
+
+          // Календарные даты считаются в поясе ЦЕНТРА (журнал 301).
+          this.state.tenantTimezone = await this.timezones.resolve(tenantId);
 
           const loadStarted = Date.now();
           try {

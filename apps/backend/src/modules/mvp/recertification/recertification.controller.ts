@@ -45,14 +45,16 @@ export class RecertificationController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('recertification.read')
   async expiring(@CurrentContext() c: RequestContext) {
-    return this.service.listExpiring(c.tenantId!, new Date().toISOString().slice(0, 10));
+    // Дату считает сервис — по календарю центра (журнал 301).
+    return this.service.listExpiring(c.tenantId!);
   }
 
   @Post('recertification/scan')
   @UseGuards(PermissionGuard)
   @RequirePermissions('recertification.write')
   async scan(@CurrentContext() c: RequestContext) {
-    return this.service.runScan(c.tenantId!, new Date().toISOString().slice(0, 10), c);
+    // Дату считает сервис — по календарю центра (журнал 301).
+    return this.service.runScan(c.tenantId!, undefined, c);
   }
 
   @Post('recertification-drafts/:id/approve')

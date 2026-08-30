@@ -8,6 +8,7 @@ import { MvpEnrollmentService } from './mvp-enrollment.service.js';
 import { MvpInternalWorkerController } from './mvp-internal-worker.controller.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 import { TenantSerialGateway } from '../../infrastructure/request/tenant-serial.gateway.js';
+import { TenantTimezoneService } from '../../infrastructure/tenant/tenant-timezone.service.js';
 import { AuditService } from '../audit/audit.service.js';
 
 const TENANT = 't_worker';
@@ -49,7 +50,11 @@ function seedBackend(): MemoryMvpPersistenceBackend {
 }
 
 function makeController(backend: MemoryMvpPersistenceBackend): MvpInternalWorkerController {
-  const runner = new MvpTenantRunner(backend, new TenantSerialGateway());
+  const runner = new MvpTenantRunner(
+    backend,
+    new TenantSerialGateway(),
+    new TenantTimezoneService()
+  );
   const enrollment = new MvpEnrollmentService(
     runner,
     new TenantScopedRepository(),

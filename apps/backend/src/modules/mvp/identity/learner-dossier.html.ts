@@ -1,3 +1,5 @@
+import { DEFAULT_TENANT_TIMEZONE } from '../../../common/utils/tenant-calendar.js';
+
 import type { LearnerDossier } from './learner-dossier.js';
 
 /**
@@ -26,15 +28,33 @@ function cell(value: string | number | boolean | undefined): string {
   return escapeHtml(String(value));
 }
 
-/** ДД.ММ.ГГГГ ЧЧ:ММ — проверяющий читает даты, а не ISO-строки. */
-export function formatMoment(iso: string | undefined): string {
+/**
+ * ДД.ММ.ГГГГ ЧЧ:ММ — проверяющий читает даты, а не ISO-строки.
+ *
+ * Время печатается в часовом поясе ЦЕНТРА (журнал 301). Раньше здесь стоял UTC, и человек
+ * в Новосибирске видел в досье время на семь часов раньше того, что было на самом деле —
+ * а по этим отметкам разбирают, когда слушателя подтвердили и когда он сдавал.
+ */
+export function formatMoment(iso: string | undefined, timezone?: string): string {
   if (!iso) return EMPTY;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return escapeHtml(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(d.getUTCDate())}.${pad(d.getUTCMonth() + 1)}.${d.getUTCFullYear()} ${pad(
-    d.getUTCHours()
-  )}:${pad(d.getUTCMinutes())}`;
+  const zone = timezone?.trim() || DEFAULT_TENANT_TIMEZONE;
+  try {
+    return new Intl.DateTimeFormat('ru-RU', {
+      timeZone: zone,
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+      .format(d)
+      .replace(', ', ' ');
+  } catch {
+    // Пояс с опечаткой не должен лишать проверяющего досье — печатаем по умолчанию.
+    return formatMoment(iso, DEFAULT_TENANT_TIMEZONE);
+  }
 }
 
 const IDENTITY_STATUS: Record<string, string> = {
@@ -58,18 +78,20 @@ function emptyNote(text: string): string {
   return `<p class="empty">${escapeHtml(text)}</p>`;
 }
 
-export function renderDossierHtml(dossier: LearnerDossier): string {
+export function renderDossierHtml(dossier: LearnerDossier, timezone?: string): string {
   const d = dossier;
+  // Все отметки времени в досье печатаются в поясе центра (журнал 301).
+  const moment = (iso: string | undefined): string => formatMoment(iso, timezone);
 
   const identityRows = [
     ['Статус', IDENTITY_STATUS[d.identity.status] ?? d.identity.status],
     ['Способ', d.identity.method ? METHOD_LABEL[d.identity.method] : undefined],
-    ['Подана', formatMoment(d.identity.submittedAt)],
-    ['Решение принято', formatMoment(d.identity.reviewedAt)],
+    ['Подана', moment(d.identity.submittedAt)],
+    ['Решение принято', moment(d.identity.reviewedAt)],
     ['Кем', d.identity.reviewedBy],
     ['Причина отклонения', d.identity.rejectionReason],
     // Про удалённые снимки говорим прямо: иначе проверяющий решит, что их не было.
-    ['Снимки удалены по сроку хранения', formatMoment(d.identity.imagesPurgedAt)]
+    ['Снимки удалены по сроку хранения', moment(d.identity.imagesPurgedAt)]
   ]
     .filter(([, value]) => value !== undefined)
     .map(([label, value]) => `<tr><th>${escapeHtml(label!)}</th><td>${cell(value)}</td></tr>`)
@@ -79,7 +101,7 @@ export function renderDossierHtml(dossier: LearnerDossier): string {
     ? `<table><thead><tr><th>Испытание</th><th>Начато</th><th>Длительность</th><th>Результат</th><th>Личность подтверждена</th></tr></thead><tbody>${d.exams
         .map(
           (e) =>
-            `<tr><td>${cell(e.testTitle)}</td><td>${formatMoment(e.startedAt)}</td><td>${
+            `<tr><td>${cell(e.testTitle)}</td><td>${moment(e.startedAt)}</td><td>${
               e.durationMinutes === undefined ? 'не завершено' : `${e.durationMinutes} мин`
             }</td><td>${
               e.passed === undefined
@@ -87,7 +109,7 @@ export function renderDossierHtml(dossier: LearnerDossier): string {
                 : `${e.passed ? 'сдан' : 'не сдан'}${
                     e.score === undefined ? '' : ` (${e.score}/${cell(e.maxScore)})`
                   }`
-            }</td><td>${formatMoment(e.identityVerifiedAt)}</td></tr>`
+            }</td><td>${moment(e.identityVerifiedAt)}</td></tr>`
         )
         .join('')}</tbody></table>`
     : emptyNote('Экзаменационных сессий нет');
@@ -101,7 +123,7 @@ export function renderDossierHtml(dossier: LearnerDossier): string {
             )}</td><td>${cell(doc.status)}${
               // Отзыв показываем рядом со статусом: скрыть его значило бы выдать
               // недействующий документ за действующий.
-              doc.revokedAt ? ` (отозван ${formatMoment(doc.revokedAt)})` : ''
+              doc.revokedAt ? ` (отозван ${moment(doc.revokedAt)})` : ''
             }</td></tr>`
         )
         .join('')}</tbody></table>`
@@ -116,7 +138,7 @@ export function renderDossierHtml(dossier: LearnerDossier): string {
       ? `<table><thead><tr><th>Когда</th><th>Действие</th><th>Чем подписано</th><th>Адрес</th></tr></thead><tbody>${d.signedActions
           .map(
             (a) =>
-              `<tr><td>${formatMoment(a.at)}</td><td>${cell(a.description)}</td><td>${cell(
+              `<tr><td>${moment(a.at)}</td><td>${cell(a.description)}</td><td>${cell(
                 a.signedWith
               )}</td><td>${cell(a.ip)}</td></tr>`
           )
@@ -143,7 +165,7 @@ export function renderDossierHtml(dossier: LearnerDossier): string {
 <p class="meta">${escapeHtml(d.learner.fullName)}${
     d.learner.snils ? ` · СНИЛС ${escapeHtml(d.learner.snils)}` : ''
   }${d.learner.dateOfBirth ? ` · д.р. ${escapeHtml(d.learner.dateOfBirth)}` : ''}<br>
-Сформировано ${formatMoment(d.generatedAt)}</p>
+Сформировано ${moment(d.generatedAt)}</p>
 ${section('Подтверждение личности', `<table><tbody>${identityRows}</tbody></table>`)}
 ${section('Экзаменационные сессии', exams)}
 ${section('Выданные документы', documents)}
