@@ -29,6 +29,7 @@ import { PostgresSmsProviderSettingsRepository } from './sms/postgres-sms-provid
 import { SmsChannelService } from './sms/sms-channel.service.js';
 import { SMS_PROVIDER_SETTINGS_REPOSITORY } from './sms/sms-provider-settings.repository.js';
 import { SmsProviderSettingsService } from './sms/sms-provider-settings.service.js';
+import { SmsController } from './sms/sms.controller.js';
 import { NoopWebPushSender } from './web-push/noop-web-push-sender.js';
 import { WEB_PUSH_SENDER } from './web-push/web-push-sender.js';
 import { WebPushSender } from './web-push/web-push-sender.service.js';
@@ -77,7 +78,8 @@ import { TenantModule } from '../tenant/tenant.module.js';
     ChatController,
     WebinarsController,
     WebinarsWebhookController,
-    EmailNotificationsController
+    EmailNotificationsController,
+    SmsController
   ],
   providers: [
     EmailResendService,

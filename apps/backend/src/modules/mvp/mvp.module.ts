@@ -81,6 +81,7 @@ import { ScormController } from './scorm/scorm.controller.js';
 import { ScormService } from './scorm/scorm.service.js';
 import { TenantUsageController } from './usage/tenant-usage.controller.js';
 import { TenantUsageService } from './usage/tenant-usage.service.js';
+import { VideoProviderSettingsController } from './video/video-provider-settings.controller.js';
 import {
   ESIA_IDENTITY_PROVIDER,
   NoopEsiaProvider
@@ -152,6 +153,7 @@ import {
     TenantOnboardingController,
     PlatformLibraryController,
     VideoController,
+    VideoProviderSettingsController,
     IdentityPolicyController,
     SimpleSignatureController,
     ConsentController,

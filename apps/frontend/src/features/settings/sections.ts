@@ -29,6 +29,8 @@ export const SETTINGS_LINK_SECTIONS: SettingsSection[] = [
   { id: 'payments', title: 'Оплата', hint: 'Платёжный провайдер центра' },
   { id: 'notifications', title: 'Уведомления', hint: 'Кому дублировать письма' },
   { id: 'webinars', title: 'Вебинары', hint: 'Площадка для занятий' },
+  { id: 'sms', title: 'Оповещения по СМС', hint: 'Дублировать письма сообщениями' },
+  { id: 'video', title: 'Видео в курсах', hint: 'Где хранятся учебные видео' },
   {
     id: 'integrations',
     title: 'Интеграции',

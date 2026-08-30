@@ -8,7 +8,9 @@
  * (провайдер или self-hosted) подключаются в реестр в Task 10 — от ответа на открытый
  * вопрос №1 зависит только он, а весь остальной код Фазы 2 пишется против этого шва.
  */
-export type VideoProviderCode = 'noop' | 'fake' | 'selfhosted' | 'kinescope' | 'vk';
+/** Перечень кодов — один источник и для типа, и для проверки тела запроса (как у платежей). */
+export const VIDEO_PROVIDER_CODES = ['noop', 'fake', 'selfhosted', 'kinescope', 'vk'] as const;
+export type VideoProviderCode = (typeof VIDEO_PROVIDER_CODES)[number];
 
 /** Куда методисту лить файл: прямо провайдеру или в наш S3 (self-hosted). */
 export interface CreateUploadTargetInput {
