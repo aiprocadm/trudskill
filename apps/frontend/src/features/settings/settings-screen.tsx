@@ -11,6 +11,8 @@ import { TwoFactorCard } from '../auth/two-factor-card';
 import { BrandingSettingsSection } from '../branding/branding-section';
 import { NotificationRecipientsSection } from '../notification-recipients/screens';
 import { PaymentProviderSettingsSection } from '../payments/settings-screen';
+import { SmsProviderSettingsSection } from '../sms/settings-section';
+import { VideoProviderSettingsSection } from '../video-upload/provider-settings-section';
 import { WebinarProviderSettingsSection } from '../webinars/screens';
 
 /*
@@ -72,6 +74,14 @@ export function SettingsScreen() {
       </div>
       <div id="webinars">
         <WebinarProviderSettingsSection />
+      </div>
+
+      {/* Обе секции сами скрываются без прав sms.configure / video.configure (журнал 309). */}
+      <div id="sms">
+        <SmsProviderSettingsSection />
+      </div>
+      <div id="video">
+        <VideoProviderSettingsSection />
       </div>
 
       {/* ФТ-D3.1: секция сама скрывается без права tenant.branding.configure */}

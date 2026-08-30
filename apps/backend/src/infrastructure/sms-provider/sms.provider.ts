@@ -13,7 +13,9 @@
  * пишется против этого шва. Правило шва: секреты (API-ключи) живут в env/секрет-хранилище,
  * в БД лежит только несекретная конфигурация (код провайдера, имя отправителя, флаг).
  */
-export type SmsProviderCode = 'noop' | 'fake' | 'smsc' | 'smsru' | 'mts';
+/** Перечень кодов — один источник и для типа, и для проверки тела запроса (как у платежей). */
+export const SMS_PROVIDER_CODES = ['noop', 'fake', 'smsc', 'smsru', 'mts'] as const;
+export type SmsProviderCode = (typeof SMS_PROVIDER_CODES)[number];
 
 export interface SendSmsInput {
   tenantId: string;
