@@ -96,12 +96,42 @@ export class TenantStorageService {
     return Number(rows[0]?.used ?? 0);
   }
 
+  /**
+   * Действующий лимит места (журнал 307).
+   *
+   * Раньше здесь читался ТОЛЬКО ручной ключ настроек, а экран использования показывал лимит
+   * ТАРИФА (`plan.storageLimitBytes ?? ручной ключ`). Получались два разных числа про одно и
+   * то же: центру показывали 1 ГБ по тарифу, а заливку ограничивал ручной ключ — или не
+   * ограничивал вовсе, если ключа не было. Порядок теперь ОДИН и тот же в обоих местах:
+   * сначала тариф, потом ручной ключ как наследие «до тарифов».
+   */
   private async limitBytes(tenantId: string): Promise<number | null> {
+    const planLimit = await this.planStorageLimit(tenantId);
+    if (planLimit !== null) return planLimit;
     // Нет настроек у тенанта — значит и лимита нет; это не повод падать.
     const settings = await this.tenants.getSettings(tenantId).catch(() => undefined);
     const raw = settings?.payload?.[STORAGE_LIMIT_SETTINGS_KEY];
     if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return null;
     return raw;
+  }
+
+  /** Лимит места из действующей подписки центра. Нет тарифа — `null`, решает ручной ключ. */
+  private async planStorageLimit(tenantId: string): Promise<number | null> {
+    const rows = await this.db
+      .query<{ storageLimitBytes: number | string | null }>(
+        `select p.storage_limit_bytes as "storageLimitBytes"
+           from core.plans p
+           join core.tenant_subscriptions s on s.plan_id = p.id
+          where s.tenant_id = $1 and s.status = 'active'
+          limit 1`,
+        [tenantId]
+      )
+      .catch(() => []);
+    const raw = rows[0]?.storageLimitBytes;
+    if (raw === null || raw === undefined) return null;
+    // pg отдаёт bigint СТРОКОЙ — та же грабля, что при разборе тарифов платформы.
+    const limit = Number(raw);
+    return Number.isFinite(limit) && limit > 0 ? limit : null;
   }
 }
 

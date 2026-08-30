@@ -47,6 +47,7 @@ import {
 import { MagicLinkInvalidError, MagicLinkService } from './services/magic-link.service.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
+import { TenantStaffLimitService } from '../../infrastructure/tenant/tenant-staff-limit.service.js';
 
 import type { RequestContext } from '../../common/context/request-context.js';
 import type { Request, Response } from 'express';
@@ -62,7 +63,10 @@ export class AuthController {
     @Inject(MagicLinkService)
     private readonly magicLinkService: MagicLinkService,
     @Inject(MAGIC_LINK_EMAIL_SENDER)
-    private readonly magicLinkEmailSender: MagicLinkEmailSender
+    private readonly magicLinkEmailSender: MagicLinkEmailSender,
+    /* Лимит сотрудников — последним аргументом (журнал 306). */
+    @Inject(TenantStaffLimitService)
+    private readonly staffLimit: TenantStaffLimitService
   ) {}
 
   @Post('auth/login')
@@ -423,6 +427,24 @@ export class AuthController {
     @Param('id') id: string,
     @Body() payload: SetUserRolesDto
   ) {
+    /*
+     * ФТ-D4.2, лимит сотрудников (журнал 306). Гейт стоит ЗДЕСЬ, а не на создании учётки:
+     * сотрудником делает не сама учётка, а НЕ-слушательская роль — так же считает и отчёт
+     * использования. Учётка без ролей и учётка слушателя лимита не занимают.
+     *
+     * Проверяем только когда роль ДОБАВЛЯЕТСЯ впервые: снятие ролей и повторная выдача тех же
+     * самых не должны упираться в исчерпанный лимит, иначе центр не сможет даже исправить
+     * ошибку в правах.
+     */
+    const becomesStaff =
+      payload.roleCodes.some((code) => code !== 'learner') &&
+      !(await this.iamService.getUserRoles(context.tenantId!, id)).some(
+        (role) => role.code !== 'learner'
+      );
+    if (becomesStaff) {
+      await this.staffLimit.assertCanAddStaff(context.tenantId!);
+    }
+
     return this.iamService.setUserRoles(
       context.tenantId!,
       id,
