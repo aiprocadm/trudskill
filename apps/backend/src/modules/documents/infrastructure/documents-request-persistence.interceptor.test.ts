@@ -2,6 +2,7 @@ import { lastValueFrom, of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DocumentsRequestPersistenceInterceptor } from './documents-request-persistence.interceptor.js';
+import { TenantTimezoneService } from '../../../infrastructure/tenant/tenant-timezone.service.js';
 
 class TestBackend {
   loadIntoState = vi.fn().mockResolvedValue(undefined);
@@ -21,7 +22,8 @@ function makeInterceptor(backend: TestBackend) {
     state,
     metrics,
     backend as never,
-    tenantGateway
+    tenantGateway,
+    new TenantTimezoneService()
   );
 }
 

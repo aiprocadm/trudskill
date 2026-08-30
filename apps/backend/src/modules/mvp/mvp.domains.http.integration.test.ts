@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { MVP_COLLECTIONS, type MvpCollection } from './infrastructure/mvp-collections.js';
 import { createAppValidationPipe } from '../../common/app-validation.pipe.js';
+import { TenantTimezoneService } from '../../infrastructure/tenant/tenant-timezone.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { DocumentsService } from '../documents/documents.service.js';
 import { FilesService } from '../files/files.service.js';
@@ -248,6 +249,8 @@ describe('MVP HTTP integration (domain invariants)', () => {
         AuditService,
         TenantScopedRepository,
         MetricsService,
+        // Перехватчик документов спрашивает часовой пояс центра (журнал 300).
+        TenantTimezoneService,
         MemoryMvpPersistenceBackend,
         { provide: MVP_PERSISTENCE_BACKEND, useExisting: MemoryMvpPersistenceBackend },
         TenantSerialGateway,

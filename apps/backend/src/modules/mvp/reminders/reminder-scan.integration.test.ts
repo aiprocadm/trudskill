@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { TenantSerialGateway } from '../../../infrastructure/request/tenant-serial.gateway.js';
+import { TenantTimezoneService } from '../../../infrastructure/tenant/tenant-timezone.service.js';
 import { DocumentsTenantRunner } from '../../documents/documents-tenant-runner.service.js';
 import { InMemoryDocumentsState } from '../../documents/in-memory-documents.state.js';
 import { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
@@ -114,7 +115,8 @@ describe('reminders nightly scan (nested MvpTenantRunner → DocumentsTenantRunn
         fakeDocsPersistence,
         gateway,
         fakeAudit as never,
-        fakeRealtime as never
+        fakeRealtime as never,
+        new TenantTimezoneService()
       );
 
       const drafts = new InMemoryRecertificationDraftsState();
