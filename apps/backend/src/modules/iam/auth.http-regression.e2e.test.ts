@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { TenantStaffLimitService } from '../../infrastructure/tenant/tenant-staff-limit.service.js';
+
 const requiredEnv: Record<string, string> = {
   NODE_ENV: 'test',
   BACKEND_PORT: '3001',
@@ -112,6 +114,8 @@ describe('IAM HTTP regressions (integration/e2e)', () => {
       providers: [
         AuditService,
         IamService,
+        // Гейт лимита сотрудников на выдаче роли (журнал 306): без базы он молчит.
+        TenantStaffLimitService,
         AuthService,
         PermissionGuard,
         SecretsService,

@@ -11,6 +11,7 @@ import {
 } from './services/magic-link-email-sender.js';
 import { MagicLinkService } from './services/magic-link.service.js';
 import { SecretsService } from '../../infrastructure/secrets/secrets.service.js';
+import { TenantStaffLimitService } from '../../infrastructure/tenant/tenant-staff-limit.service.js';
 
 import type { RequestContext } from '../../common/context/request-context.js';
 
@@ -37,7 +38,13 @@ const makeController = () => {
     ttlMs: 15 * 60 * 1000
   });
   return {
-    controller: new AuthController(auth, iam, magicLinkService, new NoopEmailSender()),
+    controller: new AuthController(
+      auth,
+      iam,
+      magicLinkService,
+      new NoopEmailSender(),
+      new TenantStaffLimitService()
+    ),
     auth,
     iam
   };

@@ -13,6 +13,7 @@ import {
 import { MagicLinkService } from './services/magic-link.service.js';
 import { requireAt } from '../../common/testing/require-at.test-util.js';
 import { SecretsService } from '../../infrastructure/secrets/secrets.service.js';
+import { TenantStaffLimitService } from '../../infrastructure/tenant/tenant-staff-limit.service.js';
 
 import type { RequestContext } from '../../common/context/request-context.js';
 import type { Response } from 'express';
@@ -55,7 +56,13 @@ const makeController = () => {
   const sender = new CapturingEmailSender();
 
   return {
-    controller: new AuthController(auth, iam, magicLinkService, sender),
+    controller: new AuthController(
+      auth,
+      iam,
+      magicLinkService,
+      sender,
+      new TenantStaffLimitService()
+    ),
     sender,
     iam,
     audit

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { TenantStaffLimitService } from '../../infrastructure/tenant/tenant-staff-limit.service.js';
+
 import type { RequestContext } from '../../common/context/request-context.js';
 
 const requiredEnv: Record<string, string> = {
@@ -80,7 +82,8 @@ describe('AuthController public user contract', () => {
         authService,
         iamService,
         magicLinkService,
-        magicLinkEmailSender
+        magicLinkEmailSender,
+        new TenantStaffLimitService()
       ),
       audit
     };
