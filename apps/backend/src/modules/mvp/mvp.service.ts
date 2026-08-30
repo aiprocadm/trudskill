@@ -57,6 +57,7 @@ import { getEntity, listReportEntityMeta } from './report-builder/report-entitie
 import { ReportXlsxWriter } from './report-builder/report-xlsx.writer.js';
 import { aggregateReviewerQueue } from './reviewer-queue.service.js';
 import { isValidSnilsChecksum, normalizeSnils } from './snils.util.js';
+import { todayIn } from '../../common/utils/tenant-calendar.js';
 import { backendEnv } from '../../env.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -3824,13 +3825,20 @@ export class MvpService {
 
     const learnerId = enrollment.learnerId;
     const now = new Date(this.now());
-    const dayKey = now.toISOString().slice(0, 10);
+    /*
+     * «Сегодня» — по календарю ЦЕНТРА, а не по UTC (журнал 301). Дневной лимит попыток
+     * обязан сбрасываться в местную полночь: у центра в Новосибирске по UTC он сбрасывался
+     * в 07:00 утра, а слушатель в Москве терял попытки на три часа раньше срока. Сравнивать
+     * надо обе стороны в одном календаре, иначе граница суток разъезжается.
+     */
+    const timezone = this.state.tenantTimezone;
+    const dayKey = todayIn(timezone, now);
     const attempts = this.state.attempts.filter(
       (item) =>
         item.tenantId === tenantId && item.testId === request.testId && item.learnerId === learnerId
     );
     const bounded = test.rules.dailyResetEnabled
-      ? attempts.filter((item) => item.startedAt.slice(0, 10) === dayKey)
+      ? attempts.filter((item) => todayIn(timezone, new Date(item.startedAt)) === dayKey)
       : attempts;
     if (bounded.length >= test.rules.attemptLimit)
       throw new PreconditionFailedException({
@@ -6432,11 +6440,6 @@ export class MvpService {
       if (end > maxEnd) maxEnd = end;
     }
     return new Date(maxEnd).toISOString();
-  }
-
-  private dayBucket(enabled: boolean): string | undefined {
-    if (!enabled) return undefined;
-    return new Date().toISOString().slice(0, 10);
   }
 
   private list<T extends BaseEntity>(

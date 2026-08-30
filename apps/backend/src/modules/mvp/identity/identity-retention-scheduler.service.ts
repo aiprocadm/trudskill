@@ -30,6 +30,12 @@ export class IdentityRetentionSchedulerService {
     if (!backendEnv.IDENTITY_IMAGE_RETENTION_ENABLED) {
       return;
     }
+    /*
+     * Здесь UTC — ОСОЗНАННО (журнал 301). Срок хранения фото задан в ДНЯХ и считается
+     * от даты подтверждения: сдвиг границы суток на несколько часов не меняет, попадёт
+     * ли запись в уборку, а только когда именно её уберут той же ночью. Календарь центра
+     * здесь дал бы разные даты у разных центров при одном обходе — без всякой пользы.
+     */
     const asOf = new Date().toISOString().slice(0, 10);
     this.logger.log(`Starting identity image retention purge asOf=${asOf}`);
     try {

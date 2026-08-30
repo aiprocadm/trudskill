@@ -16,7 +16,9 @@ import {
   resolveProgramVariables
 } from './pillar-a-variables.js';
 import { allVariableCodes } from './variable-catalog.js';
+import { todayIn } from '../../common/utils/tenant-calendar.js';
 import { backendEnv } from '../../env.js';
+import { TenantTimezoneService } from '../../infrastructure/tenant/tenant-timezone.service.js';
 import { MvpTenantRunner } from '../mvp/infrastructure/mvp-tenant-runner.service.js';
 import { REGULATORY_ACTS_SEED } from '../mvp/regulatory-acts.seed.js';
 import { LicensesService } from '../org/licenses.service.js';
@@ -50,8 +52,15 @@ export class DocumentVariablesBuilder {
   constructor(
     @Inject(MvpTenantRunner) private readonly mvpRunner: MvpTenantRunner,
     @Optional() @Inject(TenantService) private readonly tenants?: TenantService,
-    @Optional() @Inject(LicensesService) private readonly licenses?: LicensesService
+    @Optional() @Inject(LicensesService) private readonly licenses?: LicensesService,
+    /* Пояс центра — последним и необязательным (журнал 301). */
+    @Optional()
+    @Inject(TenantTimezoneService)
+    private readonly timezones?: TenantTimezoneService
   ) {}
+
+  /** Пояс центра, разрешённый на время сборки словаря. */
+  private tenantTimezone: string | undefined = undefined;
 
   /**
    * @param document уже созданный документ (номер, дата, QR) — если он есть на момент
@@ -65,6 +74,8 @@ export class DocumentVariablesBuilder {
     document?: GeneratedDocumentEntity;
   }): Promise<Record<string, unknown>> {
     const codes = allVariableCodes();
+    // Пояс центра нужен запасной дате выпуска (журнал 301) — разрешаем один раз на сборку.
+    this.tenantTimezone = await this.timezones?.resolve(params.tenantId);
     const [mvpVariables, tenantVariables] = await Promise.all([
       this.buildFromMvpState(params.tenantId, params.task, codes),
       this.buildTenantVariables(params.tenantId, codes)
@@ -93,7 +104,12 @@ export class DocumentVariablesBuilder {
     },
     codes: string[]
   ): Record<string, unknown> {
-    const issueDate = params.document?.documentDate ?? new Date().toISOString().slice(0, 10);
+    /*
+     * Запасная дата — по календарю центра, а не по UTC (журнал 301). Она подставляется,
+     * когда бланк рисуют ДО выпуска (предпросмотр): в поясе за Уралом UTC-дата показывала
+     * вчерашний день, и предпросмотр расходился с тем, что окажется на документе.
+     */
+    const issueDate = params.document?.documentDate ?? todayIn(this.tenantTimezone);
     const snapshotDocument: GeneratedDocumentEntity = {
       ...(params.document ??
         ({

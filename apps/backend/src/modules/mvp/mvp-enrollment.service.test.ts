@@ -7,6 +7,7 @@ import { MvpTenantRunner } from './infrastructure/mvp-tenant-runner.service.js';
 import { MvpEnrollmentService } from './mvp-enrollment.service.js';
 import { TenantScopedRepository } from '../../infrastructure/database/tenant-repository.js';
 import { TenantSerialGateway } from '../../infrastructure/request/tenant-serial.gateway.js';
+import { TenantTimezoneService } from '../../infrastructure/tenant/tenant-timezone.service.js';
 import { AuditService } from '../audit/audit.service.js';
 
 import type { RequestContext } from '../../common/context/request-context.js';
@@ -47,7 +48,11 @@ function seedBackend(): MemoryMvpPersistenceBackend {
 }
 
 function makeService(backend: MemoryMvpPersistenceBackend): MvpEnrollmentService {
-  const runner = new MvpTenantRunner(backend, new TenantSerialGateway());
+  const runner = new MvpTenantRunner(
+    backend,
+    new TenantSerialGateway(),
+    new TenantTimezoneService()
+  );
   return new MvpEnrollmentService(
     runner,
     new TenantScopedRepository(),

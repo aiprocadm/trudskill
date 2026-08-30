@@ -44,6 +44,7 @@ export class ProctoringRetentionSchedulerService {
     if (!backendEnv.PROCTORING_VIDEO_RETENTION_ENABLED) {
       return;
     }
+    /* UTC осознанно — по той же причине, что и в уборке фото подтверждения (журнал 301). */
     const asOf = new Date().toISOString().slice(0, 10);
     this.logger.log(`Starting proctoring video retention purge asOf=${asOf}`);
     try {

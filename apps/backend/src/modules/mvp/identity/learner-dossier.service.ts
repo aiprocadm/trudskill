@@ -200,7 +200,8 @@ export class LearnerDossierService {
     userLookup?: DossierUserLookup
   ): Promise<{ pdf: Buffer; fileName: string }> {
     const dossier = await this.compose(tenantId, actorId, learnerId, ctx, userLookup);
-    const pdf = await deps.convert(renderDossierHtml(dossier), {
+    // Время в досье печатается в поясе центра (журнал 301).
+    const pdf = await deps.convert(renderDossierHtml(dossier, this.state.tenantTimezone), {
       gotenbergUrl: deps.gotenbergUrl
     });
     // Имя файла — из идентификатора, а не из ФИО: ПДн не должны утекать в имена файлов,
