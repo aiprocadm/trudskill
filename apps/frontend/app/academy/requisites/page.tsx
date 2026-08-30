@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Form, FormActions, FormField } from '@trudskill/ui';
+import { Button, Form, FormActions, FormField, SelectField } from '@trudskill/ui';
 import { useEffect, useState } from 'react';
 
 import {
@@ -11,6 +11,11 @@ import {
   SectionError
 } from '../../../src/components/state-wrappers';
 import { useAuth } from '../../../src/features/auth/context';
+import {
+  DEFAULT_TIMEZONE,
+  RUSSIAN_TIMEZONES,
+  SUPPORTED_LOCALES
+} from '../../../src/features/tenant-settings/timezones';
 import { hasPermission } from '../../../src/lib/rbac/permissions';
 import { tenantApi } from '../../../src/lib/tenant/tenant-api';
 import { pushGlobalSuccessToast } from '../../../src/lib/toast/global-handlers';
@@ -48,7 +53,14 @@ export default function AcademyRequisitesPage() {
           setLegalName(requisites.legalName ?? '');
           setTaxNumber(requisites.taxNumber ?? '');
           setAcademyName(String(settings.payload?.academyName ?? me.name ?? ''));
-          setTimezone(settings.timezone ?? 'Europe/Moscow');
+          // Пояс, сохранённый до появления выбора, может не совпасть ни с одним пунктом:
+          // тогда показываем значение по умолчанию явно, а не первый пункт списка молча.
+          const savedTimezone = settings.timezone ?? DEFAULT_TIMEZONE;
+          setTimezone(
+            RUSSIAN_TIMEZONES.some((zone) => zone.value === savedTimezone)
+              ? savedTimezone
+              : DEFAULT_TIMEZONE
+          );
           setLocale(settings.locale ?? 'ru-RU');
         }
       } catch (e) {
@@ -139,14 +151,24 @@ export default function AcademyRequisitesPage() {
                 value={academyName}
                 onChange={(event) => setAcademyName(event.target.value)}
               />
-              <FormField
+              {/*
+                Выбор, а не свободный ввод (журнал 303): пояс печатался руками, опечатка
+                сохранялась, а расчёт дат молча уходил на московский календарь. На экране —
+                город, на сервер уходит зона: сырой код значением быть не должен.
+              */}
+              <SelectField
                 label="Часовой пояс"
+                hint="По нему считаются даты удостоверений и сроки обучения центра"
                 value={timezone}
+                options={RUSSIAN_TIMEZONES}
                 onChange={(event) => setTimezone(event.target.value)}
               />
-              <FormField
+              {/* Языков пока один — поле показывает ровно то, что продукт умеет (журнал 304). */}
+              <SelectField
                 label="Язык интерфейса"
+                hint="Других переводов пока нет"
                 value={locale}
+                options={SUPPORTED_LOCALES}
                 onChange={(event) => setLocale(event.target.value)}
               />
               <FormActions>

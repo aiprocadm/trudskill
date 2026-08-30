@@ -1,4 +1,16 @@
-import { IsObject, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import {
+  IsObject,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+  Validate,
+  ValidatorConstraint,
+  type ValidatorConstraintInterface
+} from 'class-validator';
+
+import { SUPPORTED_LOCALES, isRealTimeZone, isSupportedLocale } from './tenant-settings-values.js';
 
 /**
  * Проверяемый вход карточки учебного центра (ревизия 2026-08-26).
@@ -14,19 +26,49 @@ import { IsObject, IsOptional, IsString, Matches, MaxLength, MinLength } from 'c
  * работу вместо того, чтобы помочь. Проверяется форма — цифры и разумная длина.
  */
 
+/** Пояс должен существовать, а не просто быть похожим на пояс (журнал 303). */
+@ValidatorConstraint({ name: 'realTimeZone', async: false })
+export class RealTimeZoneRule implements ValidatorConstraintInterface {
+  validate(value: unknown): boolean {
+    return typeof value === 'string' && isRealTimeZone(value);
+  }
+
+  defaultMessage(): string {
+    return 'timezone: такого часового пояса не существует. Пример: «Europe/Moscow», «Asia/Novosibirsk»';
+  }
+}
+
+/** Язык — только тот, который продукт умеет (журнал 304). */
+@ValidatorConstraint({ name: 'supportedLocale', async: false })
+export class SupportedLocaleRule implements ValidatorConstraintInterface {
+  validate(value: unknown): boolean {
+    return typeof value === 'string' && isSupportedLocale(value);
+  }
+
+  defaultMessage(): string {
+    return `locale: доступен только ${SUPPORTED_LOCALES.join(', ')} — других переводов в продукте пока нет`;
+  }
+}
+
 export class UpdateTenantSettingsDto {
-  /** Язык интерфейса: `ru`, `ru-RU`. */
+  /**
+   * Язык интерфейса. Проверяется по списку языков, которые продукт умеет НА САМОМ ДЕЛЕ
+   * (журнал 304): перевода пока нет ни одного, и принимать «en-US» значило бы обещать то,
+   * чего не существует.
+   */
   @IsOptional()
   @IsString()
-  @Matches(/^[a-z]{2}(-[A-Z]{2})?$/, { message: 'locale: ожидается вид «ru» или «ru-RU»' })
+  @Validate(SupportedLocaleRule)
   locale?: string;
 
-  /** Часовой пояс: `Europe/Moscow`, `Asia/Novosibirsk`. */
+  /**
+   * Часовой пояс: `Europe/Moscow`, `Asia/Novosibirsk`. Проверяется по НАСТОЯЩЕМУ списку зон,
+   * а не по узору (журнал 303): узор пропускал `Europe/Atlantis`, а с тех пор как по поясу
+   * считаются даты удостоверений и сроки, опечатка молча уводила расчёт на пояс по умолчанию.
+   */
   @IsOptional()
   @IsString()
-  @Matches(/^[A-Za-z]+\/[A-Za-z_+-]+$/, {
-    message: 'timezone: ожидается вид «Europe/Moscow»'
-  })
+  @Validate(RealTimeZoneRule)
   timezone?: string;
 
   @IsOptional()
