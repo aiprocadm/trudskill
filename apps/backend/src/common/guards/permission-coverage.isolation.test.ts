@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -53,12 +53,33 @@ const ENFORCED_ELSEWHERE: ReadonlyArray<EnforcedElsewhere> = [
   }
 ];
 
+/**
+ * Убирает комментарии `--` до конца строки.
+ *
+ * Нужно до разбора: вставка режется по первой `;`, а точка с запятой бывает и в
+ * КОММЕНТАРИИ (`0031`) — тогда половина кортежей теряется молча. Двойное тире внутри
+ * строкового литерала комментарием не считается, поэтому режем только там, где кавычки
+ * до него закрыты (их чётное число).
+ */
+const withoutSqlComments = (sql: string): string =>
+  sql
+    .split('\n')
+    .map((line) => {
+      for (let i = 0; i < line.length - 1; i += 1) {
+        if (line[i] !== '-' || line[i + 1] !== '-') continue;
+        const quotesBefore = (line.slice(0, i).match(/'/g) ?? []).length;
+        if (quotesBefore % 2 === 0) return line.slice(0, i);
+      }
+      return line;
+    })
+    .join('\n');
+
 /** Коды прав, заводимых миграциями в `iam.permissions`. */
 const seededPermissions = (): string[] => {
   const codes = new Set<string>();
   for (const entry of readdirSync(MIGRATIONS)) {
     if (!entry.endsWith('.sql')) continue;
-    const sql = readFileSync(resolve(MIGRATIONS, entry), 'utf8');
+    const sql = withoutSqlComments(readFileSync(resolve(MIGRATIONS, entry), 'utf8'));
     // Кортежи ('p_код', 'домен.действие', 'описание') внутри вставки в iam.permissions.
     for (const statement of sql.split(/insert\s+into\s+iam\.permissions/i).slice(1)) {
       const body = statement.split(';')[0] ?? '';
@@ -144,5 +165,72 @@ describe('право проверяется или объяснено, кем о
     expect(seededPermissions().length).toBeGreaterThan(50);
     expect(permissionsRequiredByHandlers().size).toBeGreaterThan(50);
     expect(MODULES.split(sep).length).toBeGreaterThan(1);
+  });
+
+  it('инвентарь не спотыкается о точку с запятой внутри SQL-комментария', () => {
+    // Первая редакция разбора резала вставку по первому `;` — а в `0031` точка с запятой
+    // стоит в КОММЕНТАРИИ перед двумя последними кортежами, и оба права оставались невидимы.
+    // Обе стороны инварианта при этом были зелёными: права и так проверялись ручками, то есть
+    // сторож молчал по счастливой случайности, а не по построению (тот же класс, что запись 134).
+    const seeded = seededPermissions();
+    expect(seeded).toContain('documents.read');
+    expect(seeded).toContain('documents.write');
+  });
+});
+
+/**
+ * Третья сторона того же вопроса: **право, названное в интерфейсе, существует.**
+ *
+ * Интерфейс называет права в двух местах: карта навигации (кто видит раздел) и мастер
+ * первичной настройки (что человек может сделать сам). Опечатка тут не ломает сборку и
+ * не краснит ни один тест — она молча превращает возможность в недостижимую: право,
+ * которого нет в модели, не может быть ни у кого, включая владельца центра.
+ *
+ * Так и нашёлся дефект (журнал 311): шаг «Шаблоны документов» требовал `documents.templates` —
+ * это имя ТАБЛИЦЫ, а не право. Настоящее право на загрузку бланка — `documents.write`.
+ * Владелец центра, у которого все права, видел «Нужен доступ documents.templates — попросите
+ * администратора» и шёл просить сам у себя.
+ *
+ * Проверка живёт здесь, а не во фронтовом тесте, потому что канон прав — миграции: заводить
+ * второй разбор в другом приложении значило бы завести и второй источник правды.
+ */
+const FRONTEND_PERMISSION_SOURCES: ReadonlyArray<{ file: string; pattern: RegExp; why: string }> = [
+  {
+    file: 'features/onboarding/types.ts',
+    pattern: /requiredPermission:\s*'([^']+)'/g,
+    why: 'мастер первичной настройки: право решает, показать шаг или совет «попросите доступ»'
+  },
+  {
+    file: 'features/navigation/model.ts',
+    pattern: /'([a-z_]+(?:\.[a-z_]+)+)'/g,
+    why: 'карта навигации: право решает, виден ли раздел и пускает ли маршрут'
+  }
+];
+
+const FRONTEND_FEATURES = resolve(HERE, '../../../../frontend/src');
+
+describe('интерфейс не называет прав, которых нет в модели', () => {
+  it('каждое право, названное во фронте, заведено миграцией', () => {
+    const seeded = new Set(seededPermissions());
+    const unknown: string[] = [];
+
+    for (const source of FRONTEND_PERMISSION_SOURCES) {
+      const path = resolve(FRONTEND_FEATURES, source.file);
+      // Молча пропустить пропавший файл нельзя: немой сторож хуже отсутствующего.
+      expect(existsSync(path), `не найден источник прав фронта: ${source.file}`).toBe(true);
+      const text = readFileSync(path, 'utf8');
+      for (const match of text.matchAll(source.pattern)) {
+        const code = match[1];
+        if (!code || seeded.has(code)) continue;
+        unknown.push(`${source.file}: ${code}`);
+      }
+    }
+
+    expect(
+      [...new Set(unknown)].sort(),
+      'Интерфейс называет право, которого нет в `iam.permissions`. Такое право не может быть ' +
+        'ни у кого: раздел невидим, шаг мастера недостижим, а человеку показывается совет ' +
+        'просить несуществующий доступ. Возьмите настоящий код из миграции.'
+    ).toEqual([]);
   });
 });

@@ -38,6 +38,11 @@ export interface OnboardingStepMeta {
   href: string;
   /** Право, без которого шаг не сделать: подсказываем, к кому идти. */
   requiredPermission: string;
+  /**
+   * Как назвать нехватку доступа ЧЕЛОВЕКУ. Код права («documents.write») ему ничего не
+   * говорит и просить по нему нечего — правило продукта запрещает сырые коды как значения.
+   */
+  accessLabel: string;
 }
 
 export const ONBOARDING_STEP_META: Record<OnboardingStepId, OnboardingStepMeta> = {
@@ -45,37 +50,46 @@ export const ONBOARDING_STEP_META: Record<OnboardingStepId, OnboardingStepMeta> 
     title: 'Реквизиты центра',
     hint: 'Название организации и ИНН — они попадают в удостоверения и протоколы.',
     href: '/academy/requisites',
-    requiredPermission: 'tenant.read'
+    requiredPermission: 'tenant.read',
+    accessLabel: 'к реквизитам центра'
   },
   license: {
     title: 'Лицензия и аккредитация',
     hint: 'Действующая образовательная лицензия: без неё документы выдавать нельзя.',
     href: '/admin/licenses',
-    requiredPermission: 'org.licenses.write'
+    requiredPermission: 'org.licenses.write',
+    accessLabel: 'к лицензиям и аккредитациям'
   },
   branding: {
     title: 'Логотип и цвета',
     hint: 'Название, логотип и фирменные цвета — в кабинете, письмах и проверке документов.',
     href: '/settings',
-    requiredPermission: 'tenant.branding.configure'
+    requiredPermission: 'tenant.branding.configure',
+    accessLabel: 'к оформлению центра'
   },
   commission: {
     title: 'Аттестационная комиссия',
     hint: 'Председатель и члены комиссии подписывают протоколы.',
     href: '/academy/commission',
-    requiredPermission: 'learning.commissions.write'
+    requiredPermission: 'learning.commissions.write',
+    accessLabel: 'к аттестационной комиссии'
   },
   template: {
     title: 'Шаблоны документов',
     hint: 'Загрузите свой бланк удостоверения или протокола — по нему печатаются документы.',
     href: '/documents',
-    requiredPermission: 'documents.templates'
+    // `documents.write` — право на загрузку бланка (POST /documents/templates). Прежде здесь
+    // стояло `documents.templates` — имя ТАБЛИЦЫ, а не право: такого права нет ни у кого,
+    // и шаг был недостижим даже для владельца центра (журнал 311).
+    requiredPermission: 'documents.write',
+    accessLabel: 'к шаблонам документов'
   },
   course: {
     title: 'Первый курс',
     hint: 'Создайте курс мастером — с программой, часами и правилами прохождения.',
     href: '/courses',
-    requiredPermission: 'courses.write'
+    requiredPermission: 'courses.write',
+    accessLabel: 'к созданию курсов'
   }
 };
 

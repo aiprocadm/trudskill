@@ -26,6 +26,19 @@ describe('onboarding meta (ФТ-D2.3)', () => {
     }
   });
 
+  it('шаг объясняет нехватку доступа по-русски, а не кодом права', () => {
+    // Правило продукта: ни одного сырого кода как значения. Раньше человеку показывали
+    // «Нужен доступ documents.write» — он не знает ни таких слов, ни у кого их просить.
+    // Форму права здесь НЕ проверяем: существует ли оно на самом деле, сверяет сторож
+    // `permission-coverage.isolation.test.ts` — канон прав в миграциях (журнал 311, 312).
+    for (const id of ONBOARDING_STEP_IDS) {
+      const meta = ONBOARDING_STEP_META[id];
+      expect(meta.accessLabel.length).toBeGreaterThan(0);
+      expect(meta.accessLabel).not.toMatch(/[a-z_]+\.[a-z_.]+/);
+      expect(meta.accessLabel).toMatch(/[а-яё]/i);
+    }
+  });
+
   it('каждый шаг ведёт на СУЩЕСТВУЮЩИЙ маршрут — мастер не обещает несуществующих экранов', () => {
     const patterns = routeMeta.map((entry) => entry.pattern);
     for (const id of ONBOARDING_STEP_IDS) {
