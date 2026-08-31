@@ -108,7 +108,7 @@ pnpm --filter @trudskill/frontend exec vitest run src/<path>.test.ts --no-file-p
 npx eslint <path> --max-warnings=0
 
 pnpm dev:stack           # docker compose infra + dev backend + dev frontend
-pnpm docker:infra        # postgres + redis + rabbitmq + minio + supertokens only
+pnpm docker:infra        # postgres + redis + rabbitmq + minio only
 pnpm contracts:generate  # regenerate OpenAPI/Zod from contracts
 ```
 

@@ -212,6 +212,10 @@ export const backendEnvSchema = z
     SMTP_USER: z.string().min(1).optional(),
     SMTP_PASSWORD: z.string().min(1).optional(),
     SMTP_FROM: z.string().min(1).default('no-reply@trudskill.local'),
+    // `vault`/`kms` НЕ ходят во внешнее хранилище: значения зеркалируются в окружение
+    // под префиксом (`VAULT_SECRET_AUTH_JWT_V1` и т.п.) чем-то внешним — агентом Vault,
+    // init-контейнером. Поэтому адреса и токена хранилища здесь нет: приложение их не читает,
+    // а требовать живой токен ради ничего — расширять поверхность атаки (журнал 316).
     SECRETS_PROVIDER: secretsProviderSchema.default('env'),
     AUTH_JWT_SECRET: z.string().min(10).optional(),
     SESSION_SECRET: z.string().min(10).optional(),
@@ -220,11 +224,6 @@ export const backendEnvSchema = z
     SESSION_SECRET_KEY_REF: z.string().min(3).default('session.cookie'),
     SESSION_SECRET_VERSION: z.string().min(1).default('latest'),
     SECRET_ROTATION_MAX_AGE_DAYS: z.coerce.number().int().positive().default(30),
-    VAULT_ADDR: z.string().url().optional(),
-    VAULT_TOKEN: z.string().min(10).optional(),
-    VAULT_MOUNT: z.string().min(1).default('secret'),
-    KMS_ENDPOINT: z.string().url().optional(),
-    KMS_KEY_RING: z.string().min(1).optional(),
     ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(900),
     REFRESH_TOKEN_TTL_SECONDS: z.coerce
       .number()
@@ -263,16 +262,6 @@ export const backendEnvSchema = z
     OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(1_000),
     OUTBOX_BATCH_SIZE: z.coerce.number().int().positive().max(500).default(50),
     OUTBOX_MAX_RETRIES: z.coerce.number().int().nonnegative().default(10),
-    AUTH_PROVIDER: z.enum(['legacy', 'supertokens']).default('legacy'),
-    SUPERTOKENS_CORE_URI: z
-      .string()
-      .url()
-      .default('http://localhost:3567')
-      .transform(localhostToIpv4LoopbackUrl),
-    SUPERTOKENS_API_KEY: z.string().min(8).optional(),
-    SUPERTOKENS_APP_NAME: z.string().min(1).default('cdoprof'),
-    SUPERTOKENS_API_DOMAIN: z.string().url().optional(),
-    SUPERTOKENS_WEBSITE_DOMAIN: z.string().url().optional(),
     /** Общий секрет worker → backend для `POST .../internal/worker/*` (очередь массовых назначений). */
     WORKER_CALLBACK_SECRET: z.string().min(8).optional(),
     /** Exchange RabbitMQ для фоновых job (совпадает с `WORKER_EXCHANGE` в apps/worker). */
@@ -352,18 +341,46 @@ export const backendEnvSchema = z
       }
     }
 
-    if (env.SECRETS_PROVIDER === 'vault' && (!env.VAULT_ADDR || !env.VAULT_TOKEN)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'VAULT_ADDR and VAULT_TOKEN are required when SECRETS_PROVIDER=vault'
-      });
-    }
+    // Требуем ИМЕННО то, что читает `SecretsService`: провайдеры `vault`/`kms` —
+    // это `MirroredRemoteSecretProvider`, он берёт уже зеркалированные в окружение значения
+    // по префиксу (`VAULT_SECRET_*` / `KMS_SECRET_*`) и никуда не ходит. Прежняя проверка
+    // требовала `VAULT_ADDR`/`VAULT_TOKEN` — то есть боевой токен хранилища ради ничего —
+    // и НЕ требовала переменных, без которых приложение падает на первом же входе
+    // пользователя вместо отказа при старте (журнал 316).
+    if (env.SECRETS_PROVIDER === 'vault' || env.SECRETS_PROVIDER === 'kms') {
+      const prefix = env.SECRETS_PROVIDER === 'vault' ? 'VAULT_SECRET' : 'KMS_SECRET';
+      const mirrored: ReadonlyArray<{ keyRef: string; version: string }> = [
+        {
+          keyRef: env.AUTH_JWT_SECRET_KEY_REF ?? 'auth.jwt',
+          version: env.AUTH_JWT_SECRET_VERSION ?? 'latest'
+        },
+        {
+          keyRef: env.SESSION_SECRET_KEY_REF ?? 'session.cookie',
+          version: env.SESSION_SECRET_VERSION ?? 'latest'
+        }
+      ];
 
-    if (env.SECRETS_PROVIDER === 'kms' && (!env.KMS_ENDPOINT || !env.KMS_KEY_RING)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'KMS_ENDPOINT and KMS_KEY_RING are required when SECRETS_PROVIDER=kms'
-      });
+      for (const { keyRef, version } of mirrored) {
+        const normalized = keyRef.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+        const base = `${prefix}_${normalized}`;
+        // `latest` разрешает любую версию: `..._V1`, `..._V2026_08` — провайдер берёт старшую.
+        const present =
+          version === 'latest'
+            ? Object.entries(process.env).some(
+                ([key, value]) => Boolean(value) && key.startsWith(`${base}_V`)
+              )
+            : Boolean(process.env[`${base}_V${version}`]);
+
+        if (!present) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              version === 'latest'
+                ? `${base}_V<version> is required when SECRETS_PROVIDER=${env.SECRETS_PROVIDER} (mirrored secret for ${keyRef})`
+                : `${base}_V${version} is required when SECRETS_PROVIDER=${env.SECRETS_PROVIDER} (mirrored secret for ${keyRef})`
+          });
+        }
+      }
     }
 
     if (env.NOTIFICATIONS_EMAIL_ENABLED === true && !env.SMTP_HOST) {

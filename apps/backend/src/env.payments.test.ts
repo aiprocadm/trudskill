@@ -32,9 +32,12 @@ const devBase = {
 // field under test. Mirrors env.export-sign.test.ts strictBase.
 const strictBase = {
   ...baseEnv,
-  SECRETS_PROVIDER: 'vault',
-  VAULT_ADDR: 'https://vault.internal',
-  VAULT_TOKEN: 'vault-token-123456',
+  // Строгий профиль с провайдером `env` — так же, как в `infra/.env.production.example`:
+  // одиночный VPS, внешнего хранилища секретов нет. Путь `vault`/`kms` со своими
+  // требованиями проверяется отдельно в `env.secrets-provider.test.ts` (журнал 316).
+  SECRETS_PROVIDER: 'env',
+  AUTH_JWT_SECRET: 'prod-jwt-secret-not-placeholder',
+  SESSION_SECRET: 'prod-session-secret-not-placeholder',
   INTEGRATION_WEBHOOK_SECRET: 'prod-webhook-secret-ok',
   MVP_PERSISTENCE_DRIVER: 'postgres',
   DOCUMENTS_PERSISTENCE_DRIVER: 'postgres',

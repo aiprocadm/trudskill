@@ -119,21 +119,18 @@ openssl rand -hex 32
 | `SESSION_SECRET`             | Independent secret                                                                               |
 | `REALTIME_PUBLISH_KEY`       | Independent secret                                                                               |
 | `INTEGRATION_WEBHOOK_SECRET` | Independent secret                                                                               |
-| `SUPERTOKENS_API_KEY`        | Generate once                                                                                    |
-| `API_KEYS`                   | **Must equal `SUPERTOKENS_API_KEY` exactly**                                                     |
 | `SCORM_CONTENT_TOKEN_SECRET` | Independent secret — signs SCORM iframe content URLs (a prod boot guard rejects the dev default) |
 
 > **SCORM (Phase 9 Plan A):** the SCORM player serves package content from a same-origin path (`/api/v1/scorm-content/…`). This is already covered by the existing Caddy route `@api path /api/v1/*` (`infra/Caddyfile`) — **no extra Caddy config needed**. Tune `SCORM_PACKAGE_MAX_BYTES` (default 300 MB) only if courses exceed it; `SCORM_CONTENT_TOKEN_TTL_SECONDS` (default 4 h) is the player-session token lifetime.
 
 ### Passwords — pairs that must match:
 
-| Left side (URL)                                        | Right side (container var)  |
-| ------------------------------------------------------ | --------------------------- |
-| `CHANGE_ME_DB_PASSWORD` in `DATABASE_URL`              | `POSTGRES_PASSWORD`         |
-| `CHANGE_ME_RABBIT_PASSWORD` in `RABBITMQ_URL`          | `RABBITMQ_DEFAULT_PASS`     |
-| `CHANGE_ME_MINIO_USER` in `S3_ACCESS_KEY`              | `MINIO_ROOT_USER`           |
-| `CHANGE_ME_MINIO_PASSWORD` in `S3_SECRET_KEY`          | `MINIO_ROOT_PASSWORD`       |
-| `CHANGE_ME_DB_PASSWORD` in `POSTGRESQL_CONNECTION_URI` | same as `POSTGRES_PASSWORD` |
+| Left side (URL)                               | Right side (container var) |
+| --------------------------------------------- | -------------------------- |
+| `CHANGE_ME_DB_PASSWORD` in `DATABASE_URL`     | `POSTGRES_PASSWORD`        |
+| `CHANGE_ME_RABBIT_PASSWORD` in `RABBITMQ_URL` | `RABBITMQ_DEFAULT_PASS`    |
+| `CHANGE_ME_MINIO_USER` in `S3_ACCESS_KEY`     | `MINIO_ROOT_USER`          |
+| `CHANGE_ME_MINIO_PASSWORD` in `S3_SECRET_KEY` | `MINIO_ROOT_PASSWORD`      |
 
 ### Domain — replace every occurrence of `YOUR_DOMAIN`:
 
@@ -142,8 +139,6 @@ PUBLIC_DOMAIN=academy.example.ru
 PUBLIC_BASE_URL=https://academy.example.ru
 CORS_ORIGIN=https://academy.example.ru
 BACKEND_PUBLIC_URL=https://academy.example.ru
-SUPERTOKENS_API_DOMAIN=https://academy.example.ru
-SUPERTOKENS_WEBSITE_DOMAIN=https://academy.example.ru
 REALTIME_PUBLIC_URL=https://academy.example.ru
 NEXT_PUBLIC_API_BASE_URL=https://academy.example.ru/api/v1
 NEXT_PUBLIC_REALTIME_URL=wss://academy.example.ru/ws
