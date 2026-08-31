@@ -72,7 +72,10 @@ export function scanForRecertification(
  * Singleton scan body shared by the request-scoped RecertificationService (manual endpoint) and
  * the nightly RemindersSchedulerService. Reads MVP data from the passed-in state (so it works
  * both inside an HTTP request and inside the cron via MvpTenantRunner). Dispatches a
- * `recertification_due` notice once per 90/30/7 milestone (deduped by the dispatcher).
+ * `recertification_due` notice once per milestone from `RECERT_MILESTONES` (deduped by the
+ * dispatcher). Числа НЕ дублируем здесь: комментарий уже врал — обещал 90/30/7, тогда как
+ * окна переаттестации по ТЗ равны 60/30/7 (90/30/7 — у срока лицензии центра, это другой
+ * сканер). Пусть единственным источником остаётся константа.
  */
 @Injectable()
 export class RecertificationScanner {
