@@ -75,6 +75,10 @@ export function buildPublicVerifyResult(doc: GeneratedDocumentEntity): PublicVer
   if (doc.documentDate) result.issueDate = doc.documentDate;
   // Уже замаскировано на выпуске (ФТ-A6.1) — отдаём как есть.
   if (doc.learnerNamePublic) result.learnerFullName = doc.learnerNamePublic;
+  // Программа и часы — то, ради чего страницу и открывают: инспектор проверяет не только
+  // подлинность бланка, но и по какой программе и в каком объёме обучен человек.
+  if (doc.programTitlePublic) result.programTitle = doc.programTitlePublic;
+  if (typeof doc.academicHoursPublic === 'number') result.academicHours = doc.academicHoursPublic;
   if (doc.status === 'revoked') {
     if (doc.revokedAt) result.revokedAt = doc.revokedAt;
     if (doc.revocationReason) result.revocationReason = doc.revocationReason;

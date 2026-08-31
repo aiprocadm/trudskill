@@ -798,6 +798,21 @@ export class DocumentsService {
         );
         return masked ? { learnerNamePublic: masked } : {};
       })(),
+      // Программа и объём — по той же причине и в том же месте: на публичном пути снимок
+      // вырезается, а без этих двух полей страница проверки не отвечает на главный вопрос
+      // инспектора — «по какой программе и на сколько часов» (журнал 322). ПДн здесь нет,
+      // поэтому берём как есть, но ТОЛЬКО эти два ключа — остальное из снимка наружу не идёт.
+      ...(() => {
+        const snapshot = artifacts?.variablesSnapshot;
+        const title = snapshot?.['course.title'];
+        const hours = snapshot?.['program.academic_hours'];
+        return {
+          ...(typeof title === 'string' && title ? { programTitlePublic: title } : {}),
+          ...(typeof hours === 'number' && Number.isFinite(hours)
+            ? { academicHoursPublic: hours }
+            : {})
+        };
+      })(),
       status: 'generated',
       documentNumber: reserved.reservedNumber,
       documentDate: todayIn(this.state.tenantTimezone, new Date(this.now())),
