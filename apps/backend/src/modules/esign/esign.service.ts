@@ -28,6 +28,7 @@ import type {
   SigningProcessEntity
 } from './esign.types.js';
 import type { RequestContext } from '../../common/context/request-context.js';
+import type { RealtimeEventName } from '@trudskill/api-contracts';
 
 @Injectable()
 export class EsignService {
@@ -818,7 +819,11 @@ export class EsignService {
       userAgent: ctx.userAgent
     });
   }
-  private publishRealtime(tenantId: string, eventName: string, payload: Record<string, unknown>) {
+  private publishRealtime(
+    tenantId: string,
+    eventName: RealtimeEventName,
+    payload: Record<string, unknown>
+  ) {
     this.realtimeEvents.publish({
       event_name: eventName,
       version: 'v1',
