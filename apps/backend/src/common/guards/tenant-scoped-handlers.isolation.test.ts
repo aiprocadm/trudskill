@@ -38,6 +38,10 @@ interface Allowed {
  */
 const WITHOUT_TENANT: ReadonlyArray<Allowed> = [
   // --- Служебные проверки состояния: живы ли процесс и зависимости. Арендатора нет вовсе.
+  {
+    handler: 'health/health.controller.ts::Get ',
+    why: 'общая проверка доступности: отвечает за процесс, а не за данные центра'
+  },
   { handler: 'health/health.controller.ts::Get live', why: 'проверка живости процесса' },
   { handler: 'health/health.controller.ts::Get startup', why: 'проверка запуска' },
   { handler: 'health/health.controller.ts::Get ready', why: 'готовность принимать запросы' },
