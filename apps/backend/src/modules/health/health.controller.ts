@@ -19,6 +19,20 @@ export class HealthController {
     @Inject(MetricsService) private readonly metrics: MetricsService
   ) {}
 
+  /**
+   * Общая проверка доступности — та самая, что объявлена контрактом (`HealthResponse`).
+   *
+   * Ответ намеренно не зависит ни от базы, ни от очереди: это ответ на вопрос «служба
+   * отвечает?», а не «всё ли здорово внутри». Для второго есть `ready`, который и должен
+   * краснеть при неполадках зависимостей. Маршрута не существовало до 31.08.2026, хотя
+   * контракт его обещал: система наблюдения, настроенная по контракту, читала бы 404 как
+   * «служба лежит» (журнал 321).
+   */
+  @Get()
+  health() {
+    return { status: 'ok', service: 'backend', timestamp: new Date().toISOString() };
+  }
+
   @Get('live')
   live() {
     return { status: 'ok', service: 'backend' };
