@@ -50,7 +50,7 @@ function StepRow({ step, canDo }: { step: OnboardingStepDto; canDo: boolean }) {
         </p>
       ) : (
         <p className="ui-text-muted">
-          Нужен доступ «{meta.requiredPermission}» — попросите администратора центра.
+          Нужен доступ {meta.accessLabel} — попросите администратора центра.
         </p>
       )}
     </div>
