@@ -35,6 +35,25 @@ describe('buildPublicVerifyResult', () => {
     expect(r.issueDate).toBe('2026-05-26');
   });
 
+  it('показывает программу и часы — без них страница проверки бесполезна (журнал 322)', () => {
+    // Инспектор сканирует QR на удостоверении по охране труда, чтобы узнать: чьё оно, по
+    // какой программе и на сколько часов. Первые два поля страница обещала и не заполняла
+    // НИКОГДА: `programTitle` и `academicHours` не присваивал никто.
+    const r = buildPublicVerifyResult(
+      makeDoc({ programTitlePublic: 'Охрана труда, программа Б', academicHoursPublic: 16 })
+    );
+
+    expect(r.programTitle).toBe('Охрана труда, программа Б');
+    expect(r.academicHours).toBe(16);
+  });
+
+  it('без публичных полей программы ничего не выдумывает', () => {
+    const r = buildPublicVerifyResult(makeDoc());
+
+    expect(r.programTitle).toBeUndefined();
+    expect(r.academicHours).toBeUndefined();
+  });
+
   it('maps a revoked document and exposes the revocation reason but no actor', () => {
     const r = buildPublicVerifyResult(
       makeDoc({

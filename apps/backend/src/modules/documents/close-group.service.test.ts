@@ -228,6 +228,44 @@ describe('ФТ-A6.1 — инициалы сохраняются при выпу�
     expect(doc.variablesSnapshot?.['learner.full_name']).toBe('Иванов Иван Иванович');
   });
 
+  it('программа и часы тоже сохраняются при выпуске — иначе страница проверки нема (журнал 322)', () => {
+    const { service, protocolTemplateId, certificateTemplateId } = makeService();
+    const result = service.closeGroup(
+      't1',
+      'u1',
+      request(['e1'], protocolTemplateId, certificateTemplateId),
+      ctx
+    );
+
+    const doc = service.completeTask('t1', result.certificates[0]!.id, 'file_1', undefined, {
+      variablesSnapshot: {
+        'learner.full_name': 'Иванов Иван Иванович',
+        'course.title': 'Охрана труда, программа Б',
+        'program.academic_hours': 16
+      }
+    });
+
+    expect(doc.programTitlePublic).toBe('Охрана труда, программа Б');
+    expect(doc.academicHoursPublic).toBe(16);
+  });
+
+  it('мусорные значения программы в снапшоте наружу не попадают', () => {
+    const { service, protocolTemplateId, certificateTemplateId } = makeService();
+    const result = service.closeGroup(
+      't1',
+      'u1',
+      request(['e1'], protocolTemplateId, certificateTemplateId),
+      ctx
+    );
+
+    const doc = service.completeTask('t1', result.certificates[0]!.id, 'file_1', undefined, {
+      variablesSnapshot: { 'course.title': '', 'program.academic_hours': 'сорок' }
+    });
+
+    expect(doc.programTitlePublic).toBeUndefined();
+    expect(doc.academicHoursPublic).toBeUndefined();
+  });
+
   it('документ без снапшота не получает поле — старый выпуск не ломается', () => {
     const { service, protocolTemplateId, certificateTemplateId } = makeService();
     const result = service.closeGroup(

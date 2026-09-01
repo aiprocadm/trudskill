@@ -176,6 +176,13 @@ export interface GeneratedDocumentEntity {
    * восстановить ФИО на чтении нечем. Инициалы ПДн не являются.
    */
   learnerNamePublic?: string;
+  /**
+   * Программа и её объём для ПУБЛИЧНОЙ страницы проверки. Персональными данными не являются,
+   * маскировать нечего — но считаются там же, где инициалы: при выдаче, пока снимок под рукой.
+   * На публичном пути снимок вырезается вместе с ПДн, и восстановить их будет нечем (журнал 322).
+   */
+  programTitlePublic?: string;
+  academicHoursPublic?: number;
   /** Phase 6 — статус подписи. undefined для legacy/несписанных документов трактуется как 'unsigned'. */
   signatureStatus?: DocumentSignatureStatus;
   /** Phase 6 — момент подписания (ISO timestamp). */
