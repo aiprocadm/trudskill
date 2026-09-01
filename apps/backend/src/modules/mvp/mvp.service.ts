@@ -3075,6 +3075,9 @@ export class MvpService {
         ? { numericTolerance: request.numericTolerance }
         : {}),
       ...(request.expectedAnswer !== undefined ? { expectedAnswer: request.expectedAnswer } : {}),
+      // Пояснение к правильному ответу теряло СОЗДАНИЕ, хотя изменение его сохраняло:
+      // методист писал разбор, получал 200 и обнаруживал пустоту (журнал 323).
+      ...(request.explanation !== undefined ? { explanation: request.explanation } : {}),
       ...(request.tags !== undefined ? { tags: request.tags } : {})
     };
     this.state.questions.push(entity);
@@ -6047,6 +6050,20 @@ export class MvpService {
     const oldValues = { ...review };
     if (request.score !== undefined) review.score = request.score;
     if (request.comment !== undefined) review.comment = request.comment;
+    // Статус принимался, проверялся и ВЫБРАСЫВАЛСЯ (журнал 324). У колонки `review_status`
+    // в базе значение по умолчанию `pending`, а `/complete` требует `in_review` — значит
+    // проверку в состоянии по умолчанию нельзя было ни взять в работу, ни завершить:
+    // тупик. Завершение здесь по-прежнему запрещено: у `/complete` своя проверка балла и
+    // своя запись в журнал, и обойти их через общее изменение нельзя.
+    if (request.reviewStatus !== undefined) {
+      if (request.reviewStatus === 'completed') {
+        throw new PreconditionFailedException({
+          code: 'domain_rule_violation',
+          message: 'Завершить проверку можно только через complete'
+        });
+      }
+      review.status = request.reviewStatus;
+    }
     review.updatedAt = this.now();
     this.audit(
       tenantId,

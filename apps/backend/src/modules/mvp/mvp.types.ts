@@ -764,7 +764,9 @@ export interface AssignmentReview extends BaseEntity {
   enrollmentId: string;
   reviewerId: string;
   status: AssignmentReviewStatus;
-  reviewStatus?: AssignmentReviewStatus;
+  // Поле-призрак `reviewStatus` убрано: его не писал и не читал НИКТО, а рядом стоял
+  // одноимённый параметр запроса — следующий читатель починил бы дефект присваиванием
+  // в мёртвое поле и снова ничего не изменил бы (журнал 324).
   score?: number;
   comment?: string;
   completedAt?: string;
