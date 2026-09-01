@@ -1,10 +1,10 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron } from '@nestjs/schedule';
 
 import { DocumentsTenantRunner } from './documents-tenant-runner.service.js';
 import { findMissedIssuance } from './missed-issuance.finder.js';
-import { recordSchedulerRun } from '../../common/metrics/scheduler-heartbeat.js';
+import { declareScheduler, recordSchedulerRun } from '../../common/metrics/scheduler-heartbeat.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import { ENROLLMENT_COMPLETED_EVENT } from '../mvp/enrollment-completed.event.js';
 import { buildEnrollmentCompletedPayload } from '../mvp/enrollment-completed.payload.js';
@@ -43,8 +43,20 @@ const ISSUANCE_GRACE_MS = 30 * 60 * 1000;
  * себе грубость: лучше лишний раз проверить, чем пропустить.
  */
 @Injectable()
-export class MissedIssuanceSchedulerService {
+export class MissedIssuanceSchedulerService implements OnModuleInit {
   private readonly logger = new Logger(MissedIssuanceSchedulerService.name);
+
+  /**
+   * Объявляем планировщик при старте (журнал 327): до этого отметка появлялась только
+   * после первого прогона, и «не тот cron / не взялся замок / выключен» выглядели как
+   * ОТСУТСТВИЕ метрики — тревогу на такое не напишешь.
+   */
+  onModuleInit(): void {
+    declareScheduler('missed-issuance-sweep', {
+      expectedIntervalMs: 60 * 60 * 1000,
+      enabled: true
+    });
+  }
 
   constructor(
     @Inject(TenantService) private readonly tenants: TenantService,

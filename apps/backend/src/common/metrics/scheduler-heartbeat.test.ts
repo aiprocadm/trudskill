@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  declareScheduler,
   getSchedulerRuns,
   isSchedulerOverdue,
   recordSchedulerRun,
@@ -98,7 +99,79 @@ describe('отметки планировщиков', () => {
   it('формат Prometheus: HELP и TYPE у каждой метрики', () => {
     recordSchedulerRun('reminders-daily-scan', 'ok', { now: 1_700_000_000_000 });
     const text = renderSchedulerMetrics(1_700_000_000_000);
-    expect((text.match(/^# HELP /gm) ?? []).length).toBe(3);
-    expect((text.match(/^# TYPE /gm) ?? []).length).toBe(3);
+    // Инвариант здесь — «у КАЖДОЙ метрики есть и HELP, и TYPE», а не их число: жёсткая
+    // тройка ломалась от любой новой метрики и заставляла править тест вместо проверки
+    // сути (четвёртой стала `scheduler_enabled`, журнал 327).
+    const help = text.match(/^# HELP (\w+)/gm) ?? [];
+    const type = text.match(/^# TYPE (\w+)/gm) ?? [];
+    expect(help.length).toBe(type.length);
+    expect(help.length).toBeGreaterThanOrEqual(4);
+    expect(help.map((l) => l.replace('# HELP ', ''))).toEqual(
+      type.map((l) => l.replace('# TYPE ', ''))
+    );
+  });
+});
+
+describe('планировщик виден с самого запуска, а не с первого прогона (журнал 327)', () => {
+  beforeEach(() => resetSchedulerRuns());
+
+  it('объявленный, но ни разу не отработавший планировщик ВИДЕН в метриках', () => {
+    // Ровно та беда, ради которой механизм и заводился: «не тот cron, упавшая блокировка,
+    // отключён». Пока отметка появлялась только после первого прогона, все три случая
+    // выглядели как ОТСУТСТВИЕ метрики — тревогу на это не напишешь.
+    declareScheduler('reminders-daily-scan', {
+      expectedIntervalMs: DAY,
+      enabled: true,
+      now: 1_700_000_000_000
+    });
+
+    const text = renderSchedulerMetrics(1_700_000_000_000);
+
+    expect(text).toContain('scheduler_enabled{job="reminders-daily-scan"} 1');
+    expect(text).toContain('scheduler_runs_total{job="reminders-daily-scan",outcome="ok"} 0');
+  });
+
+  it('объявленный и не отработавший дольше двух интервалов — просрочен', () => {
+    const start = 1_700_000_000_000;
+    declareScheduler('reminders-daily-scan', {
+      expectedIntervalMs: DAY,
+      enabled: true,
+      now: start
+    });
+
+    expect(renderSchedulerMetrics(start + 3 * DAY)).toContain(
+      'scheduler_overdue{job="reminders-daily-scan"} 1'
+    );
+  });
+
+  it('намеренно выключенный НЕ считается просроченным, но виден отдельным признаком', () => {
+    // Выключенный намеренно и сломанный обязаны различаться: иначе тревога либо врёт,
+    // либо её отключают.
+    const start = 1_700_000_000_000;
+    declareScheduler('proctoring-retention-sweep', {
+      expectedIntervalMs: DAY,
+      enabled: false,
+      now: start
+    });
+
+    const text = renderSchedulerMetrics(start + 30 * DAY);
+
+    expect(text).toContain('scheduler_enabled{job="proctoring-retention-sweep"} 0');
+    expect(text).toContain('scheduler_overdue{job="proctoring-retention-sweep"} 0');
+  });
+
+  it('объявление не затирает уже накопленные прогоны', () => {
+    const start = 1_700_000_000_000;
+    recordSchedulerRun('reminders-daily-scan', 'ok', { expectedIntervalMs: DAY, now: start });
+    declareScheduler('reminders-daily-scan', {
+      expectedIntervalMs: DAY,
+      enabled: true,
+      now: start + DAY
+    });
+
+    const text = renderSchedulerMetrics(start + DAY);
+
+    expect(text).toContain('scheduler_runs_total{job="reminders-daily-scan",outcome="ok"} 1');
+    expect(text).toContain('scheduler_last_success_age_seconds{job="reminders-daily-scan"} 86400');
   });
 });

@@ -1,8 +1,11 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
 import { IdentityRetentionScanner } from './identity-retention-scanner.service.js';
-import { recordSchedulerRun } from '../../../common/metrics/scheduler-heartbeat.js';
+import {
+  declareScheduler,
+  recordSchedulerRun
+} from '../../../common/metrics/scheduler-heartbeat.js';
 import { backendEnv } from '../../../env.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 import { TenantService } from '../../tenant/tenant.service.js';
@@ -12,8 +15,20 @@ import { MvpTenantRunner } from '../infrastructure/mvp-tenant-runner.service.js'
 const IDENTITY_RETENTION_LOCK_KEY = 528_492;
 
 @Injectable()
-export class IdentityRetentionSchedulerService {
+export class IdentityRetentionSchedulerService implements OnModuleInit {
   private readonly logger = new Logger(IdentityRetentionSchedulerService.name);
+
+  /**
+   * Объявляем планировщик при старте (журнал 327): до этого отметка появлялась только
+   * после первого прогона, и «не тот cron / не взялся замок / выключен» выглядели как
+   * ОТСУТСТВИЕ метрики — тревогу на такое не напишешь.
+   */
+  onModuleInit(): void {
+    declareScheduler('identity-image-retention', {
+      expectedIntervalMs: 24 * 60 * 60 * 1000,
+      enabled: backendEnv.IDENTITY_IMAGE_RETENTION_ENABLED
+    });
+  }
 
   constructor(
     @Inject(TenantService) private readonly tenants: TenantService,

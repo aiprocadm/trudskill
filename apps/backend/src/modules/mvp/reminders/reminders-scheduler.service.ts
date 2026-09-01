@@ -1,9 +1,12 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
 import { CourseDeadlineScanner } from './course-deadline-scanner.service.js';
 import { LicenseExpiryScanner } from './license-expiry-scanner.service.js';
-import { recordSchedulerRun } from '../../../common/metrics/scheduler-heartbeat.js';
+import {
+  declareScheduler,
+  recordSchedulerRun
+} from '../../../common/metrics/scheduler-heartbeat.js';
 import { todayIn } from '../../../common/utils/tenant-calendar.js';
 import { backendEnv } from '../../../env.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
@@ -15,8 +18,20 @@ import { RecertificationScanner } from '../recertification/recertification-scann
 const REMINDERS_SCAN_LOCK_KEY = 528_491;
 
 @Injectable()
-export class RemindersSchedulerService {
+export class RemindersSchedulerService implements OnModuleInit {
   private readonly logger = new Logger(RemindersSchedulerService.name);
+
+  /**
+   * Объявляем планировщик при старте (журнал 327): до этого отметка появлялась только
+   * после первого прогона, и «не тот cron / не взялся замок / выключен» выглядели как
+   * ОТСУТСТВИЕ метрики — тревогу на такое не напишешь.
+   */
+  onModuleInit(): void {
+    declareScheduler('reminders-daily-scan', {
+      expectedIntervalMs: 24 * 60 * 60 * 1000,
+      enabled: backendEnv.RECERTIFICATION_SCAN_ENABLED
+    });
+  }
 
   constructor(
     @Inject(TenantService) private readonly tenants: TenantService,

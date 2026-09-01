@@ -26,6 +26,10 @@ export interface SchedulerRun {
   lastSuccessAt: number | null;
   runs: number;
   failures: number;
+  /** Включён ли планировщик. Выключенный намеренно не считается просроченным. */
+  enabled: boolean;
+  /** Момент объявления при старте — точка отсчёта, пока не было ни одного прогона. */
+  declaredAt: number;
   /** Ожидаемый интервал между прогонами, мс. Нужен, чтобы «молчит» считалось само. */
   expectedIntervalMs: number;
 }
@@ -34,6 +38,40 @@ const runs = new Map<string, SchedulerRun>();
 
 /** Сутки — интервал по умолчанию: четыре из пяти планировщиков ночные. */
 const DEFAULT_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Объявление планировщика при старте (журнал 327).
+ *
+ * До этого отметка появлялась ТОЛЬКО после первого прогона — и три беды, ради которых
+ * механизм заводился («не тот cron, упавшая блокировка, отключён»), выглядели одинаково:
+ * метрики для такого планировщика просто НЕ БЫЛО. Тревогу на отсутствующую метрику не
+ * напишешь, поэтому молчание оставалось невидимым ровно там, где его и ждали.
+ *
+ * Теперь каждый планировщик объявляет себя на старте: метрика существует с первой секунды,
+ * а «ни разу не отработал» становится просрочкой через два интервала. Выключенный намеренно
+ * помечается отдельно и просроченным не считается — иначе тревога либо врёт, либо её
+ * отключают.
+ */
+export const declareScheduler = (
+  job: string,
+  options: { expectedIntervalMs: number; enabled: boolean; now?: number }
+): SchedulerRun => {
+  const now = options.now ?? Date.now();
+  const previous = runs.get(job);
+  const entry: SchedulerRun = {
+    job,
+    // Объявление не затирает уже накопленное: перезапуск модуля не должен «сбрасывать» историю.
+    lastRunAt: previous?.lastRunAt ?? now,
+    lastSuccessAt: previous?.lastSuccessAt ?? null,
+    runs: previous?.runs ?? 0,
+    failures: previous?.failures ?? 0,
+    enabled: options.enabled,
+    declaredAt: previous?.declaredAt ?? now,
+    expectedIntervalMs: options.expectedIntervalMs
+  };
+  runs.set(job, entry);
+  return entry;
+};
 
 export const recordSchedulerRun = (
   job: string,
@@ -48,6 +86,9 @@ export const recordSchedulerRun = (
     lastSuccessAt: outcome === 'ok' ? now : (previous?.lastSuccessAt ?? null),
     runs: (previous?.runs ?? 0) + 1,
     failures: (previous?.failures ?? 0) + (outcome === 'error' ? 1 : 0),
+    // Прогон был — значит планировщик включён, что бы ни было объявлено раньше.
+    enabled: true,
+    declaredAt: previous?.declaredAt ?? now,
     expectedIntervalMs:
       options.expectedIntervalMs ?? previous?.expectedIntervalMs ?? DEFAULT_INTERVAL_MS
   };
@@ -66,8 +107,14 @@ export const resetSchedulerRuns = (): void => {
  * Просрочка считается с запасом вдвое: ночной прогон может сдвинуться на час-другой
  * из-за перезапуска или долгой чистки, и будить людей из-за этого не нужно.
  */
-export const isSchedulerOverdue = (run: SchedulerRun, now: number): boolean =>
-  now - (run.lastSuccessAt ?? run.lastRunAt) > run.expectedIntervalMs * 2;
+export const isSchedulerOverdue = (run: SchedulerRun, now: number): boolean => {
+  // Выключенный намеренно молчит по замыслу — будить из-за него людей нельзя.
+  if (!run.enabled) return false;
+  // Пока прогонов не было, отсчёт идёт от объявления: «ни разу не запустился» — это тоже
+  // просрочка, и именно её раньше не было видно (журнал 327).
+  const since = run.lastSuccessAt ?? (run.runs > 0 ? run.lastRunAt : run.declaredAt);
+  return now - since > run.expectedIntervalMs * 2;
+};
 
 export const renderSchedulerMetrics = (now: number = Date.now()): string => {
   const entries = getSchedulerRuns();
@@ -79,7 +126,7 @@ export const renderSchedulerMetrics = (now: number = Date.now()): string => {
     '# TYPE scheduler_last_success_age_seconds gauge'
   ];
   for (const run of entries) {
-    const since = run.lastSuccessAt ?? run.lastRunAt;
+    const since = run.lastSuccessAt ?? (run.runs > 0 ? run.lastRunAt : run.declaredAt);
     lines.push(
       `scheduler_last_success_age_seconds{job="${run.job}"} ${Math.floor((now - since) / 1000)}`
     );
@@ -91,6 +138,13 @@ export const renderSchedulerMetrics = (now: number = Date.now()): string => {
   for (const run of entries) {
     lines.push(`scheduler_runs_total{job="${run.job}",outcome="ok"} ${run.runs - run.failures}`);
     lines.push(`scheduler_runs_total{job="${run.job}",outcome="error"} ${run.failures}`);
+  }
+  lines.push(
+    '# HELP scheduler_enabled Scheduled job is switched on (0 = disabled on purpose)',
+    '# TYPE scheduler_enabled gauge'
+  );
+  for (const run of entries) {
+    lines.push(`scheduler_enabled{job="${run.job}"} ${run.enabled ? 1 : 0}`);
   }
   lines.push(
     '# HELP scheduler_overdue Scheduled job has not succeeded within twice its interval',

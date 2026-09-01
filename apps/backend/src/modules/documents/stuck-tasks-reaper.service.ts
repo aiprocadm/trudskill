@@ -1,8 +1,8 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
 import { DocumentsEnqueueService } from './documents-enqueue.service.js';
-import { recordSchedulerRun } from '../../common/metrics/scheduler-heartbeat.js';
+import { declareScheduler, recordSchedulerRun } from '../../common/metrics/scheduler-heartbeat.js';
 import { backendEnv } from '../../env.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 
@@ -36,8 +36,20 @@ interface StuckTaskRow {
 }
 
 @Injectable()
-export class StuckTasksReaperService {
+export class StuckTasksReaperService implements OnModuleInit {
   private readonly logger = new Logger(StuckTasksReaperService.name);
+
+  /**
+   * Объявляем планировщик при старте (журнал 327): до этого отметка появлялась только
+   * после первого прогона, и «не тот cron / не взялся замок / выключен» выглядели как
+   * ОТСУТСТВИЕ метрики — тревогу на такое не напишешь.
+   */
+  onModuleInit(): void {
+    declareScheduler('stuck-document-tasks-reaper', {
+      expectedIntervalMs: 5 * 60_000,
+      enabled: backendEnv.DOCUMENT_TASK_REAPER_ENABLED
+    });
+  }
 
   constructor(
     @Inject(DatabaseService) private readonly db: DatabaseService,
