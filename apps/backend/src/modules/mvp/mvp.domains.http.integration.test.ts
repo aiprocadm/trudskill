@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { MVP_COLLECTIONS, type MvpCollection } from './infrastructure/mvp-collections.js';
 import { createAppValidationPipe } from '../../common/app-validation.pipe.js';
+import { TenantPlanFeatureService } from '../../infrastructure/tenant/tenant-plan-feature.service.js';
 import { TenantTimezoneService } from '../../infrastructure/tenant/tenant-timezone.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { DocumentsService } from '../documents/documents.service.js';
@@ -292,6 +293,8 @@ describe('MVP HTTP integration (domain invariants)', () => {
         // этом тесте нет, — подменяем заглушками: проверяется HTTP-граница, не выборка.
         { provide: LegalLogReader, useValue: { listByActor: async () => [] } },
         { provide: IamService, useValue: { getUser: async () => undefined } },
+        // Гейт возможностей тарифа: без базы молчит, но собрать контроллер обязан.
+        TenantPlanFeatureService,
         LearnerDossierService,
         // ФТ-G6 (Фаза 4 Task 12): контроллер отдаёт выгрузку и обезличивание ПДн.
         // Сервис настоящий — зависимости у него те же, что у «личного дела».
@@ -323,6 +326,7 @@ describe('MVP HTTP integration (domain invariants)', () => {
         },
         { provide: AuthService, useValue: authServiceMock },
         { provide: IamService, useValue: iamServiceMock },
+        TenantPlanFeatureService,
         { provide: FilesService, useValue: noopFilesService },
         // Настоящий контур документов (порция 21): request-scoped состояние + перехватчик.
         { provide: DOCUMENTS_STATE, scope: Scope.REQUEST, useClass: InMemoryDocumentsState },

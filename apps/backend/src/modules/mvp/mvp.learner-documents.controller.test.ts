@@ -22,6 +22,7 @@ import type { Course, Enrollment, GroupCourse, Learner } from './mvp.types.js';
 import type { LearnerPiiService } from './pii/learner-pii.service.js';
 import type { TenantUsageService } from './usage/tenant-usage.service.js';
 import type { RequestContext } from '../../common/context/request-context.js';
+import type { TenantPlanFeatureService } from '../../infrastructure/tenant/tenant-plan-feature.service.js';
 import type { DocumentsService } from '../documents/documents.service.js';
 import type { GeneratedDocumentEntity } from '../documents/documents.types.js';
 import type { FilesService } from '../files/files.service.js';
@@ -150,6 +151,7 @@ function makeController(documents: GeneratedDocumentEntity[]) {
     unusedDependency<LearnerPiiService>('LearnerPiiService'),
     unusedDependency<MethodistDashboardService>('MethodistDashboardService'),
     unusedDependency<IamService>('IamService'),
+    unusedDependency<TenantPlanFeatureService>('TenantPlanFeatureService'),
     unusedDependency<TenantUsageService>('TenantUsageService'),
     unusedDependency<SimpleSignatureService>('SimpleSignatureService')
   );

@@ -52,7 +52,14 @@ const PLAN_COLUMNS = `id, code, name,
   storage_limit_bytes as "storageLimitBytes",
   features`;
 
-export const KNOWN_PLAN_FEATURES = ['proctoring', 'scorm', 'api', 'webinars'] as const;
+/**
+ * `api` убран из списка 2026-09-01 (журнал 325): в отличие от трёх остальных, у него нет
+ * определённого смысла — ни в ТЗ, ни в документации не сказано, ЧТО именно он открывает.
+ * Флаг, который ничего не обещает конкретного, невозможно ни соблюсти, ни проверить;
+ * придумывать смысл за владельца хуже, чем убрать. Вернётся, когда смысл будет назван.
+ * Старые тарифы не сломаются: `readPlanFeatures` отбрасывает неизвестные ключи.
+ */
+export const KNOWN_PLAN_FEATURES = ['proctoring', 'scorm', 'webinars'] as const;
 
 /**
  * pg отдаёт bigint СТРОКОЙ (вскрыто живым прогоном: storageLimitBytes='1073741824') —
