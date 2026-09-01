@@ -3,8 +3,18 @@ import { Injectable, Logger } from '@nestjs/common';
 import { resolveRealtimeRooms } from './realtime-rooms.js';
 import { backendEnv } from '../../env.js';
 
+import type { RealtimeEventName } from '@trudskill/api-contracts';
+
+/**
+ * Конверт живого события.
+ *
+ * `event_name` — закрытый союз из контрактов, а НЕ `string`. Прежде здесь стоял `string`, и
+ * ровно в этом месте терялось обещание каталога: девять событий публиковались мимо него, а
+ * компилятор молчал, потому что подходила любая строка (журнал 319). Новое событие теперь
+ * начинается с записи в каталог контрактов — иначе код не соберётся.
+ */
 export interface RealtimeEventEnvelope {
-  event_name: string;
+  event_name: RealtimeEventName;
   version: string;
   tenant_id: string;
   occurred_at: string;

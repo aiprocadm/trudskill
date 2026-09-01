@@ -3,14 +3,31 @@ import { type RedisClientType, createClient } from 'redis';
 
 import { realtimeEnv } from './env.js';
 
+/**
+ * КОПИЯ каталога из `@trudskill/api-contracts` (`websocket/events.ts`).
+ *
+ * Служба realtime намеренно не зависит от пакета контрактов — она поднимается отдельно и
+ * держит минимум зависимостей. Расхождение копии с каноном стережёт
+ * `realtime-catalog.isolation.test.ts` в бэкенде: списки сверяются на равенство.
+ */
 export type RealtimeEventName =
   | 'async_task.status_changed'
   | 'notification.created'
   | 'notification.read'
   | 'chat.message.created'
-  | 'dialog.updated'
-  | 'unread.changed'
-  | 'webinar.updated';
+  | 'webinar.updated'
+  | 'integration.export.requested'
+  | 'integration.export.started'
+  | 'integration.export.failed'
+  | 'integration.export.completed'
+  | 'esign.application.submitted'
+  | 'esign.application.approved'
+  | 'esign.application.rejected'
+  | 'signature.completed'
+  | 'signing.process.completed'
+  | 'integration.webhook.received'
+  | 'integration.webhook.processed'
+  | 'integration.webhook.reprocess_requested';
 
 export type RealtimeEventEnvelope<TPayload = unknown> = {
   event_name: RealtimeEventName;

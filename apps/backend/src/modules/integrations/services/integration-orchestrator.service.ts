@@ -33,6 +33,7 @@ import type {
   Provider,
   SyncLog
 } from '../integrations.types.js';
+import type { RealtimeEventName } from '@trudskill/api-contracts';
 
 interface ListQuery {
   q?: string;
@@ -425,7 +426,11 @@ export class IntegrationOrchestratorService {
     return log;
   }
 
-  publishIntegrationEvent(tenantId: string, eventName: string, payload: Record<string, unknown>) {
+  publishIntegrationEvent(
+    tenantId: string,
+    eventName: RealtimeEventName,
+    payload: Record<string, unknown>
+  ) {
     this.realtime.publish({
       event_name: eventName,
       version: 'v1',

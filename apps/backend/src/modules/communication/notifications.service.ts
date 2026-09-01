@@ -5,6 +5,8 @@ import { NOTIFICATIONS_STATE } from './notifications-state.token.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import { RealtimeEventsService } from '../core/realtime-events.service.js';
 
+import type { RealtimeEventName } from '@trudskill/api-contracts';
+
 const NOTIFICATION_CREATED_EVENT = 'notification.created';
 const NOTIFICATION_READ_EVENT = 'notification.read';
 
@@ -222,7 +224,11 @@ export class NotificationsService {
     return { items: sorted.slice(start, start + pageSize), total: sorted.length, page, pageSize };
   }
 
-  private publish(tenantId: string, eventName: string, payload: Record<string, unknown>) {
+  private publish(
+    tenantId: string,
+    eventName: RealtimeEventName,
+    payload: Record<string, unknown>
+  ) {
     this.realtime.publish({
       event_name: eventName,
       version: 'v1',
