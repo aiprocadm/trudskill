@@ -21,7 +21,8 @@ Configuration is validated via Zod at startup (fail-fast).
   - `AUTH_JWT_SECRET_KEY_REF` + `AUTH_JWT_SECRET_VERSION`
   - `SESSION_SECRET_KEY_REF` + `SESSION_SECRET_VERSION`
 - Rotation policy controls: `SECRET_ROTATION_MAX_AGE_DAYS` and rotation hooks in `SecretsService`.
-- For production (`DEPLOYMENT_PROFILE=prod`), `SECRETS_PROVIDER=env` is forbidden.
+- `SECRETS_PROVIDER=env` **is permitted in every profile, including `prod`** — модель развёртывания одиночная (VPS), внешнего менеджера секретов нет. Запрет, стоявший здесь до 31.08.2026, коду противоречил (см. `env.schema.ts`, комментарий к строгим профилям) и расходился с `infra/.env.production.example`, где отгружается ровно `SECRETS_PROVIDER=env` (журнал 317). Слабые и дефолтные значения секретов запрещены при ЛЮБОМ провайдере.
+- `vault` и `kms` не ходят во внешнее хранилище: значения зеркалируются в окружение под префиксом (`VAULT_SECRET_AUTH_JWT_V1`, `KMS_SECRET_SESSION_COOKIE_V1`) чем-то внешним. Именно эти переменные и требует проверка при старте; адрес и токен хранилища приложение не читает и больше не просит (журнал 316).
 
 ## Optional/defaulted
 

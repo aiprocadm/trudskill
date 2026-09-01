@@ -38,6 +38,10 @@ interface Allowed {
 
 const WITHOUT_PERMISSION: ReadonlyArray<Allowed> = [
   // --- Проверки состояния: обязаны отвечать без аутентификации, иначе бесполезны.
+  {
+    handler: 'health/health.controller.ts::Get ',
+    why: 'общая проверка доступности по контракту: отвечает «служба жива», данных не отдаёт'
+  },
   { handler: 'health/health.controller.ts::Get live', why: 'проверка живости, без данных' },
   { handler: 'health/health.controller.ts::Get startup', why: 'проверка запуска, без данных' },
   { handler: 'health/health.controller.ts::Get ready', why: 'готовность, без данных' },

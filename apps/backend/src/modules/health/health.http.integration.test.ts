@@ -172,6 +172,23 @@ describe('Health HTTP integration (liveness + ready success)', () => {
     if (app) await app.close();
   });
 
+  it('GET /health отвечает ровно тем, что обещает контракт (журнал 321)', async () => {
+    // Контракт объявлял `GET /health` с `HealthResponse` (status/service/timestamp), а
+    // маршрута не существовало: система наблюдения, настроенная по контракту, читала бы
+    // 404 как «служба лежит» — про такой адрес обычно и настраивают проверку доступности.
+    const response = await fetch(`${apiBaseUrl}/health`);
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      data: { status: string; service: string; timestamp: string };
+      meta: { requestId: string };
+    };
+    expect(payload.data.status).toBe('ok');
+    expect(payload.data.service).toBe('backend');
+    // `timestamp` обещан контрактом отдельным полем данных — не тем, что в конверте.
+    expect(Number.isNaN(Date.parse(payload.data.timestamp))).toBe(false);
+    expect(payload.meta.requestId).toBeTruthy();
+  });
+
   it('GET /health/live returns 200 and envelope payload without auth', async () => {
     const response = await fetch(`${apiBaseUrl}/health/live`);
     expect(response.status).toBe(200);
