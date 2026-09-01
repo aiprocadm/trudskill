@@ -98,6 +98,7 @@ import { TenantUsageService } from './usage/tenant-usage.service.js';
 import { assertValidDto } from '../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
+import { TenantPlanFeatureService } from '../../infrastructure/tenant/tenant-plan-feature.service.js';
 import { DocumentsRequestPersistenceInterceptor } from '../documents/infrastructure/documents-request-persistence.interceptor.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
 import { PermissionGuard } from '../iam/permission.guard.js';
@@ -147,6 +148,7 @@ export class MvpController {
     @Inject(MethodistDashboardService)
     private readonly methodistDashboardService: MethodistDashboardService,
     @Inject(IamService) private readonly iamService: IamService,
+    @Inject(TenantPlanFeatureService) private readonly planFeature: TenantPlanFeatureService,
     @Inject(TenantUsageService) private readonly tenantUsage: TenantUsageService,
     // ФТ-C1 уровень 1: состояние соглашения об электронном взаимодействии и подпись действий.
     @Inject(SimpleSignatureService) private readonly simpleSignature: SimpleSignatureService
@@ -1391,7 +1393,11 @@ export class MvpController {
   @Post('proctoring-recordings')
   @UseGuards(PermissionGuard)
   @RequirePermissions('proctoring.submit')
-  startProctoringRecording(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+  async startProctoringRecording(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    // Возможность тарифа — на входе в неё, то есть при старте записи. Догрузка кусков уже
+    // начатой записи не гейтится: обрывать экзамен на середине хуже, чем не начать его
+    // вовсе (журнал 325).
+    await this.planFeature.assertFeature(c.tenantId!, 'proctoring');
     const b = assertValidDto(StartProctoringRecordingRequest, raw);
     return this.mvpService.startProctoringRecording(c.tenantId!, c.userId, b, c);
   }

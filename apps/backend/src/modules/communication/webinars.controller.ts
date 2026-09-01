@@ -21,6 +21,7 @@ import { WebinarsService } from './webinars.service.js';
 import { assertValidDto } from '../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
+import { TenantPlanFeatureService } from '../../infrastructure/tenant/tenant-plan-feature.service.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
 import { PermissionGuard } from '../iam/permission.guard.js';
 
@@ -32,7 +33,8 @@ export class WebinarsController {
   constructor(
     @Inject(WebinarsService) private readonly service: WebinarsService,
     @Inject(WebinarProviderSettingsService)
-    private readonly settings: WebinarProviderSettingsService
+    private readonly settings: WebinarProviderSettingsService,
+    @Inject(TenantPlanFeatureService) private readonly planFeature: TenantPlanFeatureService
   ) {}
 
   @Get()
@@ -50,7 +52,9 @@ export class WebinarsController {
   @Post()
   @UseGuards(PermissionGuard)
   @RequirePermissions('webinars.write')
-  create(@CurrentContext() ctx: RequestContext, @Body() body: unknown) {
+  async create(@CurrentContext() ctx: RequestContext, @Body() body: unknown) {
+    // Возможность тарифа — на входе: заведённые вебинары продолжают жить (журнал 325).
+    await this.planFeature.assertFeature(ctx.tenantId!, 'webinars');
     const dto = assertValidDto(CreateWebinarRequest, body);
     return this.service.create(ctx.tenantId!, ctx.userId!, dto);
   }

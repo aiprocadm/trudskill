@@ -17,9 +17,12 @@ function make(queryImpl: (sql: string, params?: unknown[]) => Promise<unknown[]>
 
 describe('PlatformPlansService (ФТ-D4)', () => {
   it('readPlanFeatures: не-boolean и неизвестные ключи отбрасываются', () => {
+    // `api` с 01.09.2026 не входит в список возможностей и отбрасывается как неизвестный
+    // ключ (журнал 325): у него, в отличие от остальных, нет определённого смысла — что
+    // именно он открывает, не сказано ни в ТЗ, ни в документации, поэтому соблюсти его
+    // нельзя. Старые тарифы со значением `api` от этого не ломаются: чтение терпимое.
     expect(readPlanFeatures({ proctoring: true, scorm: 'да', magic: true, api: false })).toEqual({
-      proctoring: true,
-      api: false
+      proctoring: true
     });
     expect(readPlanFeatures(null)).toEqual({});
     expect(readPlanFeatures([true])).toEqual({});

@@ -47,10 +47,6 @@ export class CreatePlatformPlanRequest {
 
   @IsOptional()
   @IsBoolean()
-  api?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
   webinars?: boolean;
 }
 

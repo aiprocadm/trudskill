@@ -20,6 +20,7 @@ import { ScormService } from './scorm.service.js';
 import { assertValidDto } from '../../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../../common/guards/tenant.guard.js';
+import { TenantPlanFeatureService } from '../../../infrastructure/tenant/tenant-plan-feature.service.js';
 import { RequirePermissions } from '../../iam/permission.decorator.js';
 import { PermissionGuard } from '../../iam/permission.guard.js';
 import { MvpRequestPersistenceInterceptor } from '../infrastructure/mvp-request-persistence.interceptor.js';
@@ -31,7 +32,10 @@ import type { RequestContext } from '../../../common/context/request-context.js'
 @UseInterceptors(MvpRequestPersistenceInterceptor)
 @UseGuards(TenantGuard)
 export class ScormController {
-  constructor(@Inject(ScormService) private readonly scorm: ScormService) {}
+  constructor(
+    @Inject(ScormService) private readonly scorm: ScormService,
+    @Inject(TenantPlanFeatureService) private readonly planFeature: TenantPlanFeatureService
+  ) {}
 
   @Post('scorm-packages/upload-url')
   @UseGuards(PermissionGuard)
@@ -44,7 +48,10 @@ export class ScormController {
   @Post('scorm-packages')
   @UseGuards(PermissionGuard)
   @RequirePermissions('materials.write')
-  register(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+  async register(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    // Возможность тарифа проверяется на ВХОДЕ в неё — при заведении пакета. Уже заведённые
+    // курсы продолжают работать: отбираем новое, а не ломаем действующее (журнал 325).
+    await this.planFeature.assertFeature(c.tenantId!, 'scorm');
     const b = assertValidDto(RegisterScormPackageRequest, raw);
     return this.scorm.registerPackage(c.tenantId!, c.userId, b, c);
   }
