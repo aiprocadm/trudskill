@@ -18,7 +18,15 @@
  * success and mark is safe.
  */
 
-export type WorkerJobType = 'document' | 'integration' | 'notification' | 'bulk_enrollment';
+/**
+ * Типы заданий, которые кто-то публикует. `integration` и `notification` убраны 02.09.2026
+ * (журнал 328): их не публиковал никто, а обрабатывались они ПУСТЫМ `return` — воркер
+ * принимал задание, не делал ничего и помечал выполненным, а метка защиты от повторов
+ * не давала повторить. Пустой обработчик хуже отсутствующего: отсутствующий падает на
+ * `default` («Unknown job type»), задание уходит в повтор и дальше в карантин, то есть
+ * остаётся ВИДИМЫМ. Вернутся вместе со своими публикациями и настоящей обработкой.
+ */
+export type WorkerJobType = 'document' | 'bulk_enrollment';
 
 export interface WorkerEnvelope {
   messageId: string;

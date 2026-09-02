@@ -30,6 +30,16 @@ export interface OutboxReadiness {
   backlog: number;
   backlogThreshold: number;
   healthy: boolean;
+  /**
+   * Механизмом ни разу не пользовались: в таблице нет НИ ОДНОЙ строки.
+   *
+   * Нужно, чтобы «очередь пуста, потому что всё доставлено» не выглядело так же, как
+   * «очередь пуста, потому что доставки нет вовсе». В `core.outbox_events` сегодня не пишет
+   * никто (решение записано в журнале 273), и зелёный сигнал о доставке читался эксплуатантом
+   * как «события уходят исправно» (журнал 329). Признак вычисляется по данным: появится
+   * первая строка — он исчезнет сам, без правки кода.
+   */
+  unused: boolean;
 }
 
 @Injectable()
@@ -158,16 +168,23 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         `
       );
       const backlog = Number(rows[0]?.backlog ?? 0);
+      const totals = await this.query<{ total: number }>(
+        'select count(*)::int as total from core.outbox_events'
+      );
       return {
         backlog,
         backlogThreshold,
-        healthy: backlog <= backlogThreshold
+        healthy: backlog <= backlogThreshold,
+        unused: Number(totals[0]?.total ?? 0) === 0
       };
     } catch {
       return {
         backlog: Number.POSITIVE_INFINITY,
         backlogThreshold,
-        healthy: false
+        healthy: false,
+        // Сбой запроса — это НЕ «механизмом не пользуются»: сказать про него нечего,
+        // и выдавать «не используется» значило бы объяснять поломку удобной причиной.
+        unused: false
       };
     }
   }
