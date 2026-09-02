@@ -123,10 +123,6 @@ async function processJob(envelope: WorkerEnvelope): Promise<void> {
         }
       );
       return;
-    case 'integration':
-      return;
-    case 'notification':
-      return;
     case 'bulk_enrollment': {
       const correlationId = (envelope as { correlation_id?: string }).correlation_id;
       await invokeBackendBulkEnrollment(
