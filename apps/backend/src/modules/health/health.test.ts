@@ -37,7 +37,8 @@ describe('health controller', () => {
     vi.spyOn(DatabaseService.prototype, 'getOutboxReadiness').mockResolvedValue({
       backlog: 1,
       backlogThreshold: 50,
-      healthy: true
+      healthy: true,
+      unused: false
     });
     vi.spyOn(RedisService.prototype, 'ping').mockResolvedValue(true);
     vi.spyOn(RabbitMqService.prototype, 'ping').mockResolvedValue(true);
@@ -85,7 +86,8 @@ describe('health controller', () => {
     vi.spyOn(DatabaseService.prototype, 'getOutboxReadiness').mockResolvedValue({
       backlog: 0,
       backlogThreshold: 50,
-      healthy: true
+      healthy: true,
+      unused: false
     });
     vi.spyOn(RedisService.prototype, 'ping').mockResolvedValue(true);
     vi.spyOn(RabbitMqService.prototype, 'ping').mockResolvedValue(true);
@@ -156,7 +158,8 @@ describe('health controller', () => {
     vi.spyOn(DatabaseService.prototype, 'getOutboxReadiness').mockResolvedValue({
       backlog: 0,
       backlogThreshold: 50,
-      healthy: true
+      healthy: true,
+      unused: false
     });
     vi.spyOn(RedisService.prototype, 'ping').mockResolvedValue(false);
     vi.spyOn(RabbitMqService.prototype, 'ping').mockResolvedValue(true);
@@ -206,7 +209,8 @@ describe('health controller', () => {
     vi.spyOn(DatabaseService.prototype, 'getOutboxReadiness').mockResolvedValue({
       backlog: 0,
       backlogThreshold: 50,
-      healthy: true
+      healthy: true,
+      unused: false
     });
     vi.spyOn(RedisService.prototype, 'ping').mockResolvedValue(true);
     vi.spyOn(RabbitMqService.prototype, 'ping').mockResolvedValue(true);

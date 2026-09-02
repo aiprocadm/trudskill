@@ -90,7 +90,10 @@ export class HealthController {
       outbox: {
         backlog: outbox.backlog,
         threshold: outbox.backlogThreshold,
-        healthy: outbox.healthy
+        healthy: outbox.healthy,
+        // Пустая очередь у механизма, которым не пользуются, — это не «доставка исправна»
+        // (журнал 329). Признак вычисляется по данным и исчезнет сам с первой записью.
+        unused: outbox.unused
       },
       secrets: this.secrets.getRotationPolicy()
     };
