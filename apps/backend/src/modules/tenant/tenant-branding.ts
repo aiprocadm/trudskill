@@ -36,6 +36,7 @@ export const isValidBrandingLogoUrl = (value: unknown): value is string => {
     const parsed = new URL(value);
     return parsed.protocol === 'https:' || parsed.protocol === 'http:';
   } catch {
+    // Не разбирается как адрес — значит логотип задан неверно: ответ проверки, а не сбой.
     return false;
   }
 };

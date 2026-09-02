@@ -10,6 +10,7 @@ function localhostToIpv4LoopbackUrl(urlString: string): string {
     parsed.hostname = '127.0.0.1';
     return parsed.toString();
   } catch {
+    // Строка не разбирается как адрес — отдаём как есть: проверять её будет zod, а не этот помощник.
     return urlString;
   }
 }

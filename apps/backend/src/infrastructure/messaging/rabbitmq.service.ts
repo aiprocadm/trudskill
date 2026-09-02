@@ -38,6 +38,7 @@ export class RabbitMqService {
       await this.getChannel();
       return true;
     } catch {
+      // Недоступность и ЕСТЬ ответ: проверка живости для того и вызывается.
       return false;
     }
   }

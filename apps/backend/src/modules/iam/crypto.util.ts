@@ -31,6 +31,7 @@ export const verifyPassword = (plain: string, hash: string): boolean => {
       try {
         return timingSafeEqual(Buffer.from(computed, 'hex'), Buffer.from(hash, 'hex'));
       } catch {
+        // Разная длина буферов роняет timingSafeEqual — это просто «не совпало».
         return false;
       }
     }

@@ -28,6 +28,7 @@ function isHttpsUrl(value: unknown): value is string {
   try {
     return new URL(value).protocol === 'https:';
   } catch {
+    // Не разбирается как адрес — значит не https: ответ проверки, а не сбой.
     return false;
   }
 }

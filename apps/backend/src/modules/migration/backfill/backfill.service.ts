@@ -480,6 +480,7 @@ export class BackfillService {
     try {
       return JSON.stringify(error);
     } catch {
+      // Ошибка не сериализуется — берём её текстовое представление, других вариантов нет.
       return String(error);
     }
   }

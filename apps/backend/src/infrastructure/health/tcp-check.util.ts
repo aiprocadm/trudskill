@@ -23,6 +23,7 @@ export async function checkTcpEndpoint(target: string, timeoutMs = 1000): Promis
       socket.connect(port, url.hostname);
     });
   } catch {
+    // Не достучались — значит порт закрыт; других исходов у проверки нет.
     return false;
   }
 }

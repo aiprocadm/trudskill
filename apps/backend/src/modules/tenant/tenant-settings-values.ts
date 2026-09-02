@@ -19,6 +19,7 @@ export function isRealTimeZone(value: string): boolean {
     new Intl.DateTimeFormat('en-CA', { timeZone: zone }).format(new Date());
     return true;
   } catch {
+    // Платформа не знает такого пояса — значит он неверен: это ответ проверки, а не сбой.
     return false;
   }
 }

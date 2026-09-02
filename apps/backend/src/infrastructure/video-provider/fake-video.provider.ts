@@ -56,6 +56,7 @@ export class FakeVideoProvider implements VideoProvider {
       }
       return out;
     } catch {
+      // Тело не разбирается — значит вебхук не наш: `null` и есть контракт разбора.
       return null;
     }
   }

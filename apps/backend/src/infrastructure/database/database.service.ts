@@ -67,6 +67,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       await this.query('select 1 as ok');
       return true;
     } catch {
+      // Недоступность и ЕСТЬ ответ: проверка живости для того и вызывается.
       return false;
     }
   }
