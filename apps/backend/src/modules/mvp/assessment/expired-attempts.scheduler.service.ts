@@ -1,8 +1,11 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
 import { ExpiredAttemptsScanner } from './expired-attempts.scanner.service.js';
-import { recordSchedulerRun } from '../../../common/metrics/scheduler-heartbeat.js';
+import {
+  declareScheduler,
+  recordSchedulerRun
+} from '../../../common/metrics/scheduler-heartbeat.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 import { TenantService } from '../../tenant/tenant.service.js';
 import { MvpTenantRunner } from '../infrastructure/mvp-tenant-runner.service.js';
@@ -21,8 +24,20 @@ const EXPIRED_ATTEMPTS_LOCK_KEY = 528_493;
  * сбой на одном тенанте не прерывает обход остальных.
  */
 @Injectable()
-export class ExpiredAttemptsSchedulerService {
+export class ExpiredAttemptsSchedulerService implements OnModuleInit {
   private readonly logger = new Logger(ExpiredAttemptsSchedulerService.name);
+
+  /**
+   * Объявляем планировщик при старте (журнал 327): до этого отметка появлялась только
+   * после первого прогона, и «не тот cron / не взялся замок / выключен» выглядели как
+   * ОТСУТСТВИЕ метрики — тревогу на такое не напишешь.
+   */
+  onModuleInit(): void {
+    declareScheduler('expired-attempts-sweep', {
+      expectedIntervalMs: 5 * 60 * 1000,
+      enabled: true
+    });
+  }
 
   constructor(
     @Inject(TenantService) private readonly tenants: TenantService,

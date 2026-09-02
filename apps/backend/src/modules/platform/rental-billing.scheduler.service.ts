@@ -1,8 +1,8 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
 import { RentalBillingService } from './rental-billing.service.js';
-import { recordSchedulerRun } from '../../common/metrics/scheduler-heartbeat.js';
+import { declareScheduler, recordSchedulerRun } from '../../common/metrics/scheduler-heartbeat.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 
 /** Свой ключ advisory-лока (528_491 reminders, 528_492 retention, 528_493 attempts заняты). */
@@ -19,8 +19,20 @@ const RENTAL_BILLING_LOCK_KEY = 528_494;
  * Advisory-лок: при нескольких экземплярах приложения обход делает один.
  */
 @Injectable()
-export class RentalBillingSchedulerService {
+export class RentalBillingSchedulerService implements OnModuleInit {
   private readonly logger = new Logger(RentalBillingSchedulerService.name);
+
+  /**
+   * Объявляем планировщик при старте (журнал 327): до этого отметка появлялась только
+   * после первого прогона, и «не тот cron / не взялся замок / выключен» выглядели как
+   * ОТСУТСТВИЕ метрики — тревогу на такое не напишешь.
+   */
+  onModuleInit(): void {
+    declareScheduler('rental-billing-overdue-sweep', {
+      expectedIntervalMs: 24 * 60 * 60 * 1000,
+      enabled: true
+    });
+  }
 
   constructor(
     @Inject(RentalBillingService) private readonly billing: RentalBillingService,

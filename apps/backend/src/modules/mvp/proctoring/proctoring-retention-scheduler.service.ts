@@ -1,8 +1,11 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
 import { ProctoringRetentionScanner } from './proctoring-retention-scanner.service.js';
-import { recordSchedulerRun } from '../../../common/metrics/scheduler-heartbeat.js';
+import {
+  declareScheduler,
+  recordSchedulerRun
+} from '../../../common/metrics/scheduler-heartbeat.js';
 import { backendEnv } from '../../../env.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 import { TenantService } from '../../tenant/tenant.service.js';
@@ -26,8 +29,20 @@ import { MvpTenantRunner } from '../infrastructure/mvp-tenant-runner.service.js'
 const PROCTORING_RETENTION_LOCK_KEY = 528_495;
 
 @Injectable()
-export class ProctoringRetentionSchedulerService {
+export class ProctoringRetentionSchedulerService implements OnModuleInit {
   private readonly logger = new Logger(ProctoringRetentionSchedulerService.name);
+
+  /**
+   * Объявляем планировщик при старте (журнал 327): до этого отметка появлялась только
+   * после первого прогона, и «не тот cron / не взялся замок / выключен» выглядели как
+   * ОТСУТСТВИЕ метрики — тревогу на такое не напишешь.
+   */
+  onModuleInit(): void {
+    declareScheduler('proctoring-video-retention', {
+      expectedIntervalMs: 24 * 60 * 60 * 1000,
+      enabled: backendEnv.PROCTORING_VIDEO_RETENTION_ENABLED
+    });
+  }
 
   constructor(
     @Inject(TenantService) private readonly tenants: TenantService,
