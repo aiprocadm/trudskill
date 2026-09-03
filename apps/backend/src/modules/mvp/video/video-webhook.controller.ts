@@ -1,4 +1,14 @@
-import { Controller, Headers, Inject, Logger, Post, RawBodyRequest, Req } from '@nestjs/common';
+import {
+  Controller,
+  Headers,
+  Inject,
+  Logger,
+  Post,
+  RawBodyRequest,
+  Req,
+  UseGuards
+} from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 
 import { VIDEO_ASSETS_REPOSITORY, type VideoAssetsRepository } from './video-assets.repository.js';
 import { VideoProviderResolver } from './video-provider-resolver.service.js';
@@ -29,6 +39,10 @@ export class VideoWebhookController {
   ) {}
 
   @Post()
+  // ФТ-G2: публичная ручка без арендатора — предел частоты, как у вебхуков платежей и
+  // вебинаров (журнал 339). Глобального ThrottlerGuard нет — без @UseGuards он «спит».
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
   async handle(
     @Req() req: RawBodyRequest<Request>,
     @Headers() headers: Record<string, string | undefined>

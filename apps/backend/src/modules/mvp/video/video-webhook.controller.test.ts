@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto';
 
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { describe, expect, it } from 'vitest';
 
 import { InMemoryVideoAssetsRepository } from './in-memory-video-assets.repository.js';
@@ -134,5 +135,18 @@ describe('VideoWebhookController', () => {
     const { controller } = await makeHarness();
     const result = await controller.handle(...request(readyEvent('kine_unknown')));
     expect(result).toEqual({ ok: true, applied: 0 });
+  });
+});
+
+describe('VideoWebhookController rate limit (ФТ-G2)', () => {
+  it('handle применяет ThrottlerGuard и объявляет 60/мин, как соседние вебхуки', () => {
+    // Журнал 339: из трёх публичных вебхуков (платежи, вебинары, видео) предел был у двух.
+    // Глобального ThrottlerGuard нет — без @UseGuards(ThrottlerGuard) любой @Throttle «спит».
+    const handle = VideoWebhookController.prototype.handle;
+    const guards =
+      (Reflect.getMetadata('__guards__', handle) as Array<{ name?: string }> | undefined) ?? [];
+    expect(guards.some((g) => g === ThrottlerGuard || g?.name === 'ThrottlerGuard')).toBe(true);
+    expect(Reflect.getMetadata('THROTTLER:LIMITdefault', handle)).toBe(60);
+    expect(Reflect.getMetadata('THROTTLER:TTLdefault', handle)).toBe(60_000);
   });
 });
