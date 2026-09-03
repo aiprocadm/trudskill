@@ -202,6 +202,7 @@ export class KinescopeVideoProvider implements VideoProvider {
       // ассет и так в `processing`, менять нечего.
       return [];
     } catch {
+      // Тело не разбирается — значит вебхук не наш: `null` и есть контракт разбора.
       return null;
     }
   }

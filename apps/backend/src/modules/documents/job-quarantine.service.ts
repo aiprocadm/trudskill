@@ -69,6 +69,7 @@ const isReplayable = (rawBody: string): boolean => {
     const parsed: unknown = JSON.parse(rawBody);
     return Boolean(parsed) && typeof parsed === 'object' && !Array.isArray(parsed);
   } catch {
+    // Не разбирается как JSON — значит повторять нечего: это и есть ответ проверки.
     return false;
   }
 };

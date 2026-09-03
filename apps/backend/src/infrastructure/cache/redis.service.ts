@@ -13,6 +13,7 @@ export class RedisService {
       const response = await client.ping();
       return response === 'PONG';
     } catch {
+      // Недоступность и ЕСТЬ ответ: проверка живости для того и вызывается.
       return false;
     }
   }

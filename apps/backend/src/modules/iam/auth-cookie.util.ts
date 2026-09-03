@@ -73,6 +73,7 @@ const readCookie = (
   try {
     return decodeURIComponent(rawValue);
   } catch {
+    // Битая cookie — значит значения нет; разбирать нечего и жаловаться некому.
     return null;
   }
 };

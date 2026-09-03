@@ -75,6 +75,7 @@ export class EsiaService {
         ? 'identity'
         : 'login';
     } catch {
+      // Состояние не разбирается — считаем обычным входом: это безопасное умолчание.
       return 'login';
     }
   }

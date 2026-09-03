@@ -39,6 +39,7 @@ export class FakePaymentProvider implements PaymentProvider {
       }
       return { providerPaymentId, status, rawPayload: body };
     } catch {
+      // Тело не разбирается — значит вебхук не наш: `null` и есть контракт разбора.
       return null;
     }
   }

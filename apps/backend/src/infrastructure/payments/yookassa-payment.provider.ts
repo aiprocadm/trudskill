@@ -73,6 +73,7 @@ export class YookassaPaymentProvider implements PaymentProvider {
     try {
       body = JSON.parse(raw.toString('utf8'));
     } catch {
+      // Тело не разбирается — значит вебхук не наш: `null` и есть контракт разбора.
       return null;
     }
     // 'refund.succeeded' is accepted so the re-fetch runs, but it resolves to a no-op:

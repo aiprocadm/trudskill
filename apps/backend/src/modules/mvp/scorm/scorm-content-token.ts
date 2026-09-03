@@ -42,6 +42,7 @@ export function verifyScormContentToken(
       Buffer.from(body, 'base64url').toString('utf8')
     ) as ScormContentTokenPayload;
   } catch {
+    // Токен не разбирается — значит недействителен: `null` и есть ответ проверки.
     return null;
   }
   if (

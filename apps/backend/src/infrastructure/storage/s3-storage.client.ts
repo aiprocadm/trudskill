@@ -35,6 +35,7 @@ export class S3StorageClient implements StorageClient {
       await this.getClient().send(new ListBucketsCommand({}));
       healthy = true;
     } catch {
+      // Недоступность и ЕСТЬ ответ: проверка живости для того и вызывается.
       healthy = false;
     }
 

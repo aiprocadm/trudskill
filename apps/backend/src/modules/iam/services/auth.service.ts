@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   Optional,
   UnauthorizedException
 } from '@nestjs/common';
@@ -72,6 +73,7 @@ export class AuthService {
   private authEvents: AuthEvent[] = [];
   /** AES-256-GCM для TOTP-секретов — тот же application-crypto, что у секретов интеграций. */
   private readonly totpCrypto = new IntegrationCryptoService();
+  private readonly logger = new Logger(AuthService.name);
 
   constructor(
     @Inject(IamService)
@@ -265,6 +267,17 @@ export class AuthService {
     }
     const persistRelational = !this.databaseService || payload.database_backed;
     const step = this.verifyCodeAgainstUser(user, code);
+    if (step === 'undecryptable') {
+      this.logger.error(
+        `TOTP secret for user ${user.id} cannot be decrypted: verification is impossible ` +
+          'until the key is restored. This is an infrastructure fault, not a wrong code.'
+      );
+      this.metrics?.incrementAuthFailure({ reason: 'totp_secret_undecryptable', phase: 'totp' });
+      throw new UnauthorizedException({
+        code: 'invalid_totp_code',
+        message: 'Two-factor code is invalid'
+      });
+    }
     if (step === null) {
       await this.pushAuthEvent(tenantId, user.id, 'totp_failed', persistRelational);
       this.metrics?.incrementAuthFailure({ reason: 'invalid_totp_code', phase: 'totp' });
@@ -339,6 +352,17 @@ export class AuthService {
       });
     }
     const step = this.verifyCodeAgainstUser(user, code);
+    if (step === 'undecryptable') {
+      this.logger.error(
+        `TOTP secret for user ${userId} cannot be decrypted: verification is impossible ` +
+          'until the key is restored. This is an infrastructure fault, not a wrong code.'
+      );
+      this.metrics?.incrementAuthFailure({ reason: 'totp_secret_undecryptable', phase: 'totp' });
+      throw new UnauthorizedException({
+        code: 'invalid_totp_code',
+        message: 'Two-factor code is invalid'
+      });
+    }
     if (step === null) {
       throw new UnauthorizedException({
         code: 'invalid_totp_code',
@@ -410,7 +434,7 @@ export class AuthService {
   }
 
   /** Расшифровать секрет и проверить код с окном ±1 и anti-replay по последнему шагу. */
-  private verifyCodeAgainstUser(user: User, code: string): number | null {
+  private verifyCodeAgainstUser(user: User, code: string): number | 'undecryptable' | null {
     if (!user.totpSecretEncrypted) {
       return null;
     }
@@ -418,7 +442,12 @@ export class AuthService {
     try {
       secret = this.totpCrypto.decrypt(user.totpSecretEncrypted);
     } catch {
-      return null;
+      // Сбой расшифровки — это НЕ ошибка пользователя (журнал 332). Провёрнутый ключ или
+      // побитый шифртекст означают, что человек с ВЕРНЫМ кодом войти не может, и раньше это
+      // было неотличимо от «ввёл не то»: тот же ответ, то же событие, тот же счётчик.
+      // Наружу ответ не меняем — подсказывать нападающему, что именно сломалось, нельзя;
+      // различать должны записи.
+      return 'undecryptable';
     }
     return verifyTotpCode(secret, code, {
       nowMs: Date.now(),

@@ -72,6 +72,7 @@ export class TinkoffPaymentProvider implements PaymentProvider {
     try {
       body = JSON.parse(raw.toString('utf8'));
     } catch {
+      // Тело не разбирается — значит вебхук не наш: `null` и есть контракт разбора.
       return null;
     }
     if (body.TerminalKey !== this.cfg.terminalKey) return null;

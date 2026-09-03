@@ -126,6 +126,7 @@ export class TenantOnboardingService {
       );
       return rows[0]?.count ?? 0;
     } catch {
+      // База недоступна — шаг покажется невыполненным; врать «выполнено» здесь опаснее.
       return 0;
     }
   }
@@ -138,6 +139,7 @@ export class TenantOnboardingService {
       await this.documents.loadIntoState(tenantId, state);
       return state.templates.length;
     } catch {
+      // База недоступна — шаг покажется невыполненным; врать «выполнено» здесь опаснее.
       return 0;
     }
   }

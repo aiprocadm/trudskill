@@ -68,6 +68,7 @@ export class CloudPaymentsProvider implements PaymentProvider {
     try {
       params = new URLSearchParams(raw.toString('utf8'));
     } catch {
+      // Тело не разбирается — значит вебхук не наш: `null` и есть контракт разбора.
       return null;
     }
     const rawPayload = Object.fromEntries(params.entries());
