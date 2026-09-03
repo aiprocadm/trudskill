@@ -69,6 +69,35 @@ describe('TXT-004 · текст ошибки для человека', () => {
     expect(text).not.toContain('nope');
   });
 
+  it('приостановленный или архивный учебный центр — человеку говорят это прямо (журнал 337)', () => {
+    // До 337 такого отказа не было вовсе: приостановленный за неуплату центр работал. Теперь
+    // сервер отвечает `tenant_suspended` / `tenant_archived`, и общая фраза «нет доступа» тут
+    // хуже правды: администратор должен понять, что дело в центре, а не в его пароле.
+    const suspended = humanErrorMessage(
+      err({
+        status: 401,
+        code: 'tenant_suspended',
+        message: 'Tenant is suspended',
+        isAuthError: true
+      })
+    );
+    const archived = humanErrorMessage(
+      err({
+        status: 401,
+        code: 'tenant_archived',
+        message: 'Tenant is archived',
+        isAuthError: true
+      })
+    );
+
+    expect(suspended).toMatch(/приостановлен/i);
+    expect(archived).toMatch(/архив/i);
+    for (const text of [suspended, archived]) {
+      expect(text).not.toMatch(/[A-Za-z]/);
+      expect(text.split(/(?<=[.!?])\s+/).filter(Boolean).length).toBeGreaterThanOrEqual(2);
+    }
+  });
+
   it('технический код и номер запроса живут отдельно — для спойлера «Подробности»', () => {
     const line = errorDetailsLine(
       err({ status: 404, code: 'not_found', requestId: 'req_42', message: 'Entity not found' })

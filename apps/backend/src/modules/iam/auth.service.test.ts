@@ -1,5 +1,5 @@
 import { UnauthorizedException } from '@nestjs/common';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { verifyPassword } from './crypto.util.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -8,6 +8,7 @@ import { IamService } from './services/iam.service.js';
 import { SecretsService } from '../../infrastructure/secrets/secrets.service.js';
 
 import type { User } from './iam.types.js';
+import type { TenantAccessService } from '../../infrastructure/tenant/tenant-access.service.js';
 
 const context = {
   requestId: 'req_1',
@@ -349,5 +350,95 @@ describe('блокировка отбирает доступ немедленн�
     await expect(auth.isSessionActive('tenant_demo', userId, second.sessionId)).resolves.toBe(
       false
     );
+  });
+});
+
+describe('статус арендатора отбирает доступ (журнал 337)', () => {
+  /** Гейт-двойник: отказывает всем, считает вызовы. */
+  const makeAuth = (decision: 'allow' | 'tenant_suspended' | 'tenant_archived') => {
+    const audit = new AuditService();
+    const iam = new IamService(audit);
+    const assertAcceptsSessions = vi.fn(async () => {
+      if (decision === 'allow') return;
+      throw new UnauthorizedException({ code: decision, message: 'Tenant is not active' });
+    });
+    const tenantAccess = { assertAcceptsSessions } as unknown as TenantAccessService;
+    const auth = new AuthService(
+      iam,
+      audit,
+      new SecretsService(),
+      undefined,
+      undefined,
+      tenantAccess
+    );
+    return { iam, auth, audit, assertAcceptsSessions };
+  };
+
+  it('issueSessionForUser отказывает пользователю приостановленного центра — единый гейт для пароля, ЕСИА и magic-link', async () => {
+    const { iam, auth, audit, assertAcceptsSessions } = makeAuth('tenant_suspended');
+    const user = await iam.getUser('tenant_demo', 'u_tenant_admin');
+    for (const authMethod of ['password', 'esia', 'magic_link'] as const) {
+      await expect(
+        auth.issueSessionForUser(user, context, { authMethod, databaseBacked: false })
+      ).rejects.toMatchObject({ response: { code: 'tenant_suspended' } });
+    }
+    expect(assertAcceptsSessions).toHaveBeenCalledWith('tenant_demo');
+    // Отказ у двери: ни сессии, ни записи «вошёл» в журнале.
+    expect((await audit.list('tenant_demo')).some((r) => r.action === 'auth.login')).toBe(false);
+    await expect(auth.listSessions('tenant_demo', user.id)).resolves.toEqual([]);
+  });
+
+  it('отказ приостановленному центру стоит ДО TOTP-гейта: challenge не выдаётся', async () => {
+    const { iam, auth } = makeAuth('tenant_archived');
+    const user = await iam.getUser('tenant_demo', 'u_tenant_admin');
+    await expect(
+      auth.issueSessionForUser({ ...user, totpEnabled: true }, context, {
+        authMethod: 'esia',
+        databaseBacked: false
+      })
+    ).rejects.toMatchObject({ response: { code: 'tenant_archived' } });
+  });
+
+  it('вход по паролю в приостановленный центр — отказ tenant_suspended, а не «неверные данные»', async () => {
+    const { auth } = makeAuth('tenant_suspended');
+    await expect(
+      auth.login('tenant_demo', { login: 'tenant_admin', password: 'Password123!' }, context)
+    ).rejects.toMatchObject({ response: { code: 'tenant_suspended' } });
+  });
+
+  it('refresh отказывает, когда центр приостановили ПОСЛЕ входа: живая вкладка не продлевает доступ', async () => {
+    const { auth, assertAcceptsSessions } = makeAuth('allow');
+    const login = await auth.login(
+      'tenant_demo',
+      { login: 'tenant_admin', password: 'Password123!' },
+      context
+    );
+    assertAcceptsSessions.mockRejectedValueOnce(
+      new UnauthorizedException({ code: 'tenant_suspended', message: 'Tenant is not active' })
+    );
+    await expect(
+      auth.refresh('tenant_demo', login.refreshToken, login.csrfToken, context)
+    ).rejects.toMatchObject({ response: { code: 'tenant_suspended' } });
+    // Refresh-токен уже потреблён ротацией — цепочка на этом кончается, второй попытки нет.
+    await expect(
+      auth.refresh('tenant_demo', login.refreshToken, login.csrfToken, context)
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('сессия «от имени» обновляется и в приостановленном центре: поддержка вошла туда законно', async () => {
+    const { auth, assertAcceptsSessions } = makeAuth('tenant_suspended');
+    const session = await auth.issueImpersonatedSession(
+      'tenant_demo',
+      'u_tenant_admin',
+      'u_support'
+    );
+    const rotated = await auth.refresh(
+      'tenant_demo',
+      session.refreshToken,
+      session.csrfToken,
+      context
+    );
+    expect(rotated.sessionId).not.toBe(session.sessionId);
+    expect(assertAcceptsSessions).not.toHaveBeenCalled();
   });
 });

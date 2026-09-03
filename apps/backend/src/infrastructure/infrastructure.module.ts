@@ -8,6 +8,7 @@ import { RabbitMqService } from './messaging/rabbitmq.service.js';
 import { TenantSerialGateway } from './request/tenant-serial.gateway.js';
 import { SecretsService } from './secrets/secrets.service.js';
 import { S3StorageClient } from './storage/s3-storage.client.js';
+import { TenantAccessService } from './tenant/tenant-access.service.js';
 import { TenantPlanFeatureService } from './tenant/tenant-plan-feature.service.js';
 import { TenantStaffLimitService } from './tenant/tenant-staff-limit.service.js';
 import { TenantTimezoneService } from './tenant/tenant-timezone.service.js';
@@ -24,7 +25,8 @@ import { TenantTimezoneService } from './tenant/tenant-timezone.service.js';
     SecretsService,
     TenantTimezoneService,
     TenantStaffLimitService,
-    TenantPlanFeatureService
+    TenantPlanFeatureService,
+    TenantAccessService
   ],
   exports: [
     DatabaseService,
@@ -37,7 +39,8 @@ import { TenantTimezoneService } from './tenant/tenant-timezone.service.js';
     SecretsService,
     TenantTimezoneService,
     TenantStaffLimitService,
-    TenantPlanFeatureService
+    TenantPlanFeatureService,
+    TenantAccessService
   ]
 })
 export class InfrastructureModule {}
