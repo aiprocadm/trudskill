@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import {
   ForbiddenException,
+  HttpException,
   Inject,
   Injectable,
   Logger,
@@ -14,6 +15,7 @@ import { ensureInMemoryModeAllowed } from '../../../common/runtime/in-memory-mod
 import { backendEnv } from '../../../env.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 import { SecretsService } from '../../../infrastructure/secrets/secrets.service.js';
+import { TenantAccessService } from '../../../infrastructure/tenant/tenant-access.service.js';
 import { AuditService } from '../../audit/audit.service.js';
 import {
   hashPassword,
@@ -87,7 +89,14 @@ export class AuthService {
     private readonly metrics?: MetricsService,
     @Inject(DatabaseService)
     @Optional()
-    private readonly databaseService?: DatabaseService
+    private readonly databaseService?: DatabaseService,
+    /**
+     * Журнал 337: статус арендатора решает, выдавать ли сессию. @Optional — по той же причине,
+     * что у DatabaseService: в памяти (тесты) гейта нет, и он молчит.
+     */
+    @Inject(TenantAccessService)
+    @Optional()
+    private readonly tenantAccess?: TenantAccessService
   ) {
     if (!this.databaseService) {
       ensureInMemoryModeAllowed('AuthService');
@@ -169,6 +178,10 @@ export class AuthService {
       this.metrics?.incrementAuthFailure({ reason: 'user_blocked', phase: 'issue_session' });
       throw new UnauthorizedException({ code: 'user_blocked', message: 'User is blocked' });
     }
+    // Журнал 337: тот же единый гейт — для статуса АРЕНДАТОРА. Приостановленный за неуплату
+    // или архивный центр не выдаёт сессий ни одним способом входа; стоит до TOTP — challenge
+    // тоже не выдаётся.
+    await this.assertTenantAcceptsSessions(user.tenantId, 'issue_session');
     if (user.totpEnabled === true && options.twoFactorSatisfied !== true) {
       // ФТ-G3: единый гейт на ВСЕ способы входа. Challenge — подписанный конверт с TTL 5 мин;
       // сессии, куки и auth-события появляются только после верного кода (verifyTotpAndLogin).
@@ -434,6 +447,20 @@ export class AuthService {
   }
 
   /** Расшифровать секрет и проверить код с окном ±1 и anti-replay по последнему шагу. */
+  /** Журнал 337: отказ по статусу арендатора — с метрикой, как у блокировки пользователя. */
+  private async assertTenantAcceptsSessions(tenantId: string, phase: string): Promise<void> {
+    try {
+      await this.tenantAccess?.assertAcceptsSessions(tenantId);
+    } catch (error) {
+      const code =
+        error instanceof HttpException
+          ? (error.getResponse() as { code?: string }).code
+          : undefined;
+      this.metrics?.incrementAuthFailure({ reason: code ?? 'tenant_unavailable', phase });
+      throw error;
+    }
+  }
+
   private verifyCodeAgainstUser(user: User, code: string): number | 'undecryptable' | null {
     if (!user.totpSecretEncrypted) {
       return null;
@@ -483,6 +510,15 @@ export class AuthService {
       this.metrics?.incrementAuthFailure({ reason: 'user_blocked', phase: 'refresh' });
       await this.revokeAllSessionsForUserInternal(tenantId, user.id);
       throw new UnauthorizedException({ code: 'user_blocked', message: 'User is blocked' });
+    }
+    /*
+     * Журнал 337: центр приостановили ПОСЛЕ входа — живая вкладка не должна продлевать доступ.
+     * Семью не гасим: это «попробуйте после оплаты», а не блокировка; потреблённый refresh-токен
+     * и так кончает цепочку. Сессия «от имени» пропускается: поддержка вошла в приостановленный
+     * центр законно (архивный отбит на входе), и ронять её через 15 минут незачем.
+     */
+    if (!activeSession.impersonatedBy) {
+      await this.assertTenantAcceptsSessions(tenantId, 'refresh');
     }
     const persistRelational = await this.shouldPersistRelationalSideEffects(tenantId, user.id);
     // Порция 33 (журнал 270): признак «вошли от имени» переносится в новую сессию —
