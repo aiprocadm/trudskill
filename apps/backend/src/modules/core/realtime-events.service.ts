@@ -21,6 +21,12 @@ export interface RealtimeEventEnvelope {
   payload: Record<string, unknown>;
 }
 
+/**
+ * Срок публикации в realtime (журнал 335). Вызов не ждут (`void fetch`), но без срока каждый
+ * молчащий ответ висит пять минут — и при недоступном realtime API копит их сотнями.
+ */
+const REALTIME_PUBLISH_TIMEOUT_MS = 5_000;
+
 @Injectable()
 export class RealtimeEventsService {
   private events: RealtimeEventEnvelope[] = [];
@@ -39,7 +45,8 @@ export class RealtimeEventsService {
           'content-type': 'application/json',
           'x-realtime-key': backendEnv.REALTIME_PUBLISH_KEY
         },
-        body: JSON.stringify(event)
+        body: JSON.stringify(event),
+        signal: AbortSignal.timeout(REALTIME_PUBLISH_TIMEOUT_MS)
       }).catch((error: unknown) => {
         const errorName = error instanceof Error ? error.name : 'unknown';
         const errorMessage = error instanceof Error ? error.message : 'unknown error';

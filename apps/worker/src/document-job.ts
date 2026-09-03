@@ -20,6 +20,13 @@ import type { DocxImage } from '@trudskill/docx-render';
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const PDF_MIME = 'application/pdf';
 const INTERNAL_DOCUMENTS_PATH = '/api/v1/internal/worker/documents';
+/**
+ * Сроки выходов наружу (журнал 335). Без них молчащий backend или хранилище держали задание —
+ * и всю очередь документов за ним: `fetch` в Node ждёт заголовки пять минут.
+ */
+const INTERNAL_API_TIMEOUT_MS = 60_000;
+const FILE_TRANSFER_TIMEOUT_MS = 60_000;
+const IMAGE_DOWNLOAD_TIMEOUT_MS = 15_000;
 
 export interface DocumentJobEnvelope {
   readonly messageId: string;
@@ -56,7 +63,9 @@ async function downloadImages(
 ): Promise<Record<string, DocxImage>> {
   const result: Record<string, DocxImage> = {};
   for (const image of images ?? []) {
-    const res = await fetchFn(image.url).catch(() => undefined);
+    const res = await fetchFn(image.url, {
+      signal: AbortSignal.timeout(IMAGE_DOWNLOAD_TIMEOUT_MS)
+    }).catch(() => undefined);
     if (!res?.ok) continue;
     const contentType = (res.headers.get('content-type') ?? 'image/png').split(';')[0]!.trim();
     result[image.name] = {
@@ -88,7 +97,8 @@ export async function runDocumentJob(
         'content-type': 'application/json',
         'x-worker-callback-token': deps.callbackToken!
       },
-      body: JSON.stringify({ tenantId: envelope.tenantId, taskId, ...body })
+      body: JSON.stringify({ tenantId: envelope.tenantId, taskId, ...body }),
+      signal: AbortSignal.timeout(INTERNAL_API_TIMEOUT_MS)
     });
     const text = await res.text();
     let parsed: unknown = null;
@@ -120,7 +130,9 @@ export async function runDocumentJob(
     return;
   }
 
-  const templateRes = await fetchFn(start.templateFileUrl);
+  const templateRes = await fetchFn(start.templateFileUrl, {
+    signal: AbortSignal.timeout(FILE_TRANSFER_TIMEOUT_MS)
+  });
   if (!templateRes.ok) {
     throw new Error(`template download failed http=${templateRes.status}`);
   }
@@ -166,7 +178,8 @@ export async function runDocumentJob(
     const putRes = await fetchFn(intent.uploadUrl, {
       method: 'PUT',
       headers: { 'content-type': contentType, 'content-length': String(body.length) },
-      body: new Uint8Array(body)
+      body: new Uint8Array(body),
+      signal: AbortSignal.timeout(FILE_TRANSFER_TIMEOUT_MS)
     });
     if (!putRes.ok) {
       throw new Error(`result upload failed http=${putRes.status}`);

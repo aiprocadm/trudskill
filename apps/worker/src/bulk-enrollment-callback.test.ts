@@ -69,6 +69,23 @@ describe('bulk-enrollment-callback', () => {
     });
   });
 
+  it('запрос уходит со сроком: молчащий backend не держит воркер вечно (журнал 335)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ data: { ok: true }, meta: {} }), { status: 200 })
+      );
+    await invokeBackendBulkEnrollment(
+      'http://127.0.0.1:3001',
+      'secret-token-xx',
+      demoEnvelope(),
+      fetchMock as unknown as typeof fetch
+    );
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+    expect(init.signal?.aborted).toBe(false);
+  });
+
   it('maps envelope forbidden response to NonRetryableJobError', async () => {
     const fetchMock = vi
       .fn()

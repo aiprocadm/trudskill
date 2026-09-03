@@ -1,5 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
+import { PAYMENT_API_TIMEOUT_MS } from './payment.provider.js';
+
 import type {
   CreatePaymentParams,
   CreatePaymentResult,
@@ -34,7 +36,8 @@ export class CloudPaymentsProvider implements PaymentProvider {
         Currency: params.currency,
         Description: params.description,
         JsonData: { orderId: params.orderId, tenantId: params.tenantId }
-      })
+      }),
+      signal: AbortSignal.timeout(PAYMENT_API_TIMEOUT_MS)
     });
     const body = (await res.json()) as {
       Success?: boolean;

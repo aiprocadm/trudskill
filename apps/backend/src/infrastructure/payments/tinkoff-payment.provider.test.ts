@@ -121,3 +121,24 @@ describe('TinkoffPaymentProvider.parseWebhook', () => {
     expect(p.webhookAck?.(null, Buffer.from(''))).toBe('OK');
   });
 });
+
+describe('TinkoffPaymentProvider срок ожидания (журнал 335)', () => {
+  it('Init уходит с signal — шлюз, который молчит, не держит запрос «Оплатить» вечно', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({ Success: true, PaymentId: '900', PaymentURL: 'https://pay' })
+      );
+    const p = new TinkoffPaymentProvider(cfg, fetchMock as unknown as typeof fetch);
+    await p.createPayment({
+      tenantId: 't1',
+      orderId: 'o1',
+      amount: 100,
+      currency: 'RUB',
+      description: 'x'
+    });
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+    expect(init.signal?.aborted).toBe(false);
+  });
+});

@@ -1,5 +1,7 @@
 import { isIP } from 'node:net';
 
+import { PAYMENT_API_TIMEOUT_MS } from './payment.provider.js';
+
 import type {
   CreatePaymentParams,
   CreatePaymentResult,
@@ -47,7 +49,8 @@ export class YookassaPaymentProvider implements PaymentProvider {
         confirmation: { type: 'redirect', return_url: this.cfg.returnUrl },
         description: params.description,
         metadata: { orderId: params.orderId, tenantId: params.tenantId }
-      })
+      }),
+      signal: AbortSignal.timeout(PAYMENT_API_TIMEOUT_MS)
     });
     if (!res.ok) {
       throw new Error(`yookassa createPayment failed: HTTP ${res.status}`);
@@ -91,7 +94,8 @@ export class YookassaPaymentProvider implements PaymentProvider {
 
     // Re-fetch: trust the authenticated API response, not the notification body.
     const res = await this.fetchImpl(`${this.cfg.apiBase}/payments/${id}`, {
-      headers: { Authorization: this.authHeader() }
+      headers: { Authorization: this.authHeader() },
+      signal: AbortSignal.timeout(PAYMENT_API_TIMEOUT_MS)
     });
     if (!res.ok) return null;
     const payment = (await res.json()) as {

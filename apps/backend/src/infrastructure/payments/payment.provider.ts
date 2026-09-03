@@ -5,6 +5,13 @@
  * provider configured. Real adapters (ЮKassa, Tinkoff, CloudPayments, Robokassa) register into the
  * registry. All amounts are integer kopecks; major-unit conversion happens only inside an adapter.
  */
+/**
+ * Срок ожидания ответа платёжного API (журнал 335). Без него молчащий шлюз держит запрос
+ * «Оплатить» — и вебхук, который перепроверяет платёж, — пять минут: столько Node ждёт
+ * заголовки по умолчанию. Одно число на всех, чтобы новый адаптер не забыл про срок.
+ */
+export const PAYMENT_API_TIMEOUT_MS = 15_000;
+
 export const PAYMENT_PROVIDER_CODES = [
   'noop',
   'fake',

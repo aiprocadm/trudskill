@@ -38,6 +38,8 @@ const DURATION_FIELDS = ['duration', 'duration_seconds', 'length'] as const;
 
 /** Сколько живёт ссылка провайдера по нашим меркам: плеер перезапросит раньше срока. */
 const PROVIDER_PLAYBACK_TTL_SECONDS = 600;
+/** Срок ответа хостинга (журнал 335): молчащий Kinescope не должен держать страницу слушателя. */
+const KINESCOPE_TIMEOUT_MS = 10_000;
 
 interface KinescopeDeps {
   apiUrl: string;
@@ -93,7 +95,8 @@ export class KinescopeVideoProvider implements VideoProvider {
           authorization: `Bearer ${this.deps.apiToken!}`,
           'content-type': 'application/json',
           ...(init?.headers ?? {})
-        }
+        },
+        signal: AbortSignal.timeout(KINESCOPE_TIMEOUT_MS)
       });
       if (!res.ok) return null;
       const body = (await res.json()) as unknown;

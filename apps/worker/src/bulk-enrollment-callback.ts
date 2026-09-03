@@ -17,6 +17,13 @@ export interface BulkEnrollmentJobEnvelope {
 }
 
 export const BULK_ENROLLMENT_CALLBACK_PATH = '/api/v1/internal/worker/mvp/bulk-enrollments';
+/**
+ * Срок ответа backend (журнал 335). Зачисление большой группы идёт прямо в этом запросе,
+ * поэтому срок щедрый; но без него молчащий backend держал воркер пять минут на каждом
+ * сообщении. Обрыв по сроку — обычная ошибка транспорта: повтор с задержкой, ключ
+ * идемпотентности защищает от двойного зачисления.
+ */
+const CALLBACK_TIMEOUT_MS = 120_000;
 
 export function buildBulkEnrollmentCallbackUrl(backendPublicUrl: string): string {
   const base = backendPublicUrl.replace(/\/$/, '');
@@ -62,7 +69,8 @@ export async function invokeBackendBulkEnrollment(
       requestId: envelope.messageId,
       correlationId: envelope.correlation_id,
       payload
-    })
+    }),
+    signal: AbortSignal.timeout(CALLBACK_TIMEOUT_MS)
   });
   const text = await res.text();
   let bodyUnknown: unknown;

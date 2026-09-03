@@ -63,6 +63,16 @@ describe('KinescopeVideoProvider — авторизация и спящий ре
     expect((init.headers as Record<string, string>).authorization).toBe('Bearer tok_1');
   });
 
+  it('запрос уходит со сроком: молчащий хостинг не держит страницу слушателя (журнал 335)', async () => {
+    const { provider, fetchFn } = makeProvider({ response: { hls_link: 'https://cdn/x.m3u8' } });
+
+    await provider.getPlayback({ tenantId: 't', providerAssetId: 'v1' });
+
+    const [, init] = fetchFn.mock.calls[0]! as unknown as [string, RequestInit];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+    expect(init.signal?.aborted).toBe(false);
+  });
+
   it('недоступная сеть не роняет выдачу — провайдер считается спящим', async () => {
     const { provider } = makeProvider({ throws: true });
     await expect(
