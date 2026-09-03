@@ -1,6 +1,34 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
-import { STAGING_TENANT, stagingSeedStatements } from './staging-seed.js';
+import { STAGING_TENANT, isPlatformOnlyPermission, stagingSeedStatements } from './staging-seed.js';
+
+const MIGRATIONS = resolve(dirname(fileURLToPath(import.meta.url)), '../../migrations');
+
+/**
+ * Права, которые миграции выдают ТОЛЬКО роли `platform_admin`, — по самим миграциям, а не по
+ * памяти: появится новое платформенное право — тест узнает о нём без правки.
+ */
+const platformOnlyPermissionsFromMigrations = (): string[] => {
+  const codes = new Set<string>();
+  for (const file of readdirSync(MIGRATIONS).filter((name) => name.endsWith('.sql'))) {
+    const sql = readFileSync(resolve(MIGRATIONS, file), 'utf8');
+    for (const statement of sql.split(';')) {
+      if (!/insert\s+into\s+iam\.role_permissions/i.test(statement)) continue;
+      if (!/r\.code\s*=\s*'platform_admin'/i.test(statement)) continue;
+      for (const match of statement.matchAll(/p\.code\s*(?:=\s*'([^']+)'|in\s*\(([^)]*)\))/gi)) {
+        for (const code of (match[1] ?? match[2] ?? '').split(',')) {
+          const trimmed = code.trim().replace(/^'|'$/g, '');
+          if (trimmed) codes.add(trimmed);
+        }
+      }
+    }
+  }
+  return [...codes].sort();
+};
 
 /**
  * ФТ-I3: «staging с сид-данными ДВУХ тенантов».
@@ -32,6 +60,11 @@ describe('ФТ-I3 · сид второго арендатора для стен�
   it('сид идемпотентен: повторный запуск ничего не ломает', () => {
     // Скрипт запускают на стенде руками и обычно не по одному разу.
     for (const sql of stagingSeedStatements()) {
+      // Удаление с условием идемпотентно само по себе: второй раз ему просто нечего удалять.
+      if (/^\s*delete\s/i.test(sql)) {
+        expect(sql.toLowerCase(), `удаление без условия: ${sql}`).toContain('where');
+        continue;
+      }
       expect(sql.toLowerCase(), `не идемпотентно: ${sql}`).toContain('on conflict');
     }
   });
@@ -57,5 +90,34 @@ describe('ФТ-I3 · сид второго арендатора для стен�
 
     expect(sql).not.toContain('Password123!');
     expect(sql).toMatch(/password_hash/);
+  });
+
+  it('журнал 336: сид не раздаёт арендатору права владельца платформы', () => {
+    // Миграция 0073 прямо говорит: повторить «все права скопом» для tenant_admin — значит дать
+    // каждому арендатору админку всех остальных. Ручки `platform/*` защищены только правом.
+    const platformOnly = platformOnlyPermissionsFromMigrations();
+    expect(platformOnly).toEqual(
+      expect.arrayContaining(['platform.tenants.read', 'platform.impersonate', 'library.publish'])
+    );
+    const leaking = platformOnly.filter((code) => !isPlatformOnlyPermission(code));
+    expect(leaking, 'миграции считают право платформенным, а сид его раздаёт').toEqual([]);
+
+    const grants = stagingSeedStatements().filter(
+      (sql) => sql.includes('iam.role_permissions') && /^\s*insert/i.test(sql)
+    );
+    expect(grants.length).toBeGreaterThan(0);
+    for (const sql of grants) {
+      expect(sql, 'выдача прав без исключения платформенных').toMatch(/not like 'platform\.%'/);
+    }
+  });
+
+  it('журнал 336: уже выданные платформенные права у арендатора отбираются при повторном запуске', () => {
+    // Стенд, засеянный до починки, уже носит эти строки — одного «не выдавать» мало.
+    const revoke = stagingSeedStatements().find((sql) =>
+      /^\s*delete\s+from\s+iam\.role_permissions/i.test(sql)
+    );
+    expect(revoke).toBeDefined();
+    expect(revoke).toContain(STAGING_TENANT.id);
+    expect(revoke).toMatch(/like 'platform\.%'/);
   });
 });
