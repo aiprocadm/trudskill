@@ -19,6 +19,12 @@ import { hashPassword } from '../modules/iam/crypto.util.js';
  * с ролями, у которых нет ни одного права: администратор входит и видит пустой продукт, где
  * каждая ручка отвечает отказом. Это уже случалось в соседнем проекте, поэтому права здесь
  * выдаются тем же запросом-образцом, что и демонстрационному арендатору в `0010`.
+ *
+ * **Кроме прав владельца платформы (журнал 336).** Образец из `0010` раздавал ВСЕ права — и
+ * этот сид повторял его буквально, пока права `platform.*` и `library.publish` не появились
+ * (0073+): администратор «Беты» на стенде видел и создавал арендаторов и входил «от имени».
+ * Миграция 0073 прямо предупреждает: повторить «все скопом» — дать каждому арендатору админку
+ * всех остальных. Ручки `platform/*` защищены только правом, других преград нет.
  */
 
 export const STAGING_TENANT = {
@@ -72,6 +78,21 @@ export function stagingPasswordHash(): string {
 const quote = (value: string): string => `'${value.replace(/'/g, "''")}'`;
 
 /**
+ * Права владельца платформы без префикса `platform.` — их миграции выдают только
+ * `platform_admin`. Список сверяется с миграциями тестом: новое такое право без записи здесь
+ * тест назовёт по имени.
+ */
+const PLATFORM_ONLY_PERMISSIONS = ['library.publish'] as const;
+
+/** Право владельца платформы: арендатор его не получает ни на стенде, ни где-либо ещё. */
+export const isPlatformOnlyPermission = (code: string): boolean =>
+  code.startsWith('platform.') || (PLATFORM_ONLY_PERMISSIONS as readonly string[]).includes(code);
+
+/** SQL-условие «право не платформенное» — одно на выдачу и на отзыв, чтобы они не разошлись. */
+const notPlatformOnly = (column: string): string =>
+  `${column} not like 'platform.%' and ${column} not in (${PLATFORM_ONLY_PERMISSIONS.map(quote).join(', ')})`;
+
+/**
  * SQL сида — отдельными командами, чтобы скрипт мог выполнить их по одной и сказать, на какой
  * именно споткнулся. Каждая команда идемпотентна: скрипт запускают руками и обычно не раз.
  */
@@ -109,12 +130,18 @@ export function stagingSeedStatements(options: { passwordHash?: string } = {}): 
      on conflict (tenant_id, user_id, role_id) do nothing`,
 
     // Без этой строки арендатор рождается с ролями без единого права — вход есть, продукта нет.
+    // Но права владельца платформы (`platform.*`, `library.publish`) арендатору не положены.
     `insert into iam.role_permissions (id, tenant_id, role_id, permission_id)
      select concat('rp_', r.id, '_', p.id), ${t}, r.id, p.id
      from iam.roles r
-     join iam.permissions p on true
+     join iam.permissions p on ${notPlatformOnly('p.code')}
      where r.tenant_id = ${t} and r.code = 'tenant_admin'
      on conflict (tenant_id, role_id, permission_id) do nothing`,
+
+    // Стенд, засеянный до починки 336, уже носит платформенные права — отбираем их.
+    `delete from iam.role_permissions rp
+     using iam.permissions p
+     where rp.tenant_id = ${t} and rp.permission_id = p.id and not (${notPlatformOnly('p.code')})`,
 
     `insert into learning.courses (id, tenant_id, code, title, description, status)
      values ('course_beta_ot', ${t}, 'OT-BETA', 'Охрана труда (Бета)',
