@@ -8,10 +8,9 @@ import type {
 
 export type { WorkspaceBlockerItem, WorkspaceSummary, WorkspaceTaskItem };
 
+/** `TXT-004`: `message` у ошибки запроса — уже человеческий текст; сырой ответ сервера — в `details`. */
 export function resolveWorkspaceErrorMessage(err: unknown): string {
-  return err instanceof ApiClientError
-    ? err.normalized.message
-    : 'Не удалось загрузить рабочую сводку';
+  return err instanceof ApiClientError ? err.message : 'Не удалось загрузить рабочую сводку';
 }
 
 export function resolveWorkspaceState(params: {

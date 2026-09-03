@@ -61,7 +61,7 @@ export const TwoFactorCard = () => {
     } catch (actionError) {
       setError(
         actionError instanceof ApiClientError
-          ? actionError.normalized.message
+          ? actionError.message
           : 'Не удалось выполнить действие'
       );
     } finally {
