@@ -286,3 +286,43 @@ describe('картинки в бланке (ФТ-A7.1, Фаза 1 Task 9)', () =
     expect(calls.some((c) => c.url.includes('GET-stamp'))).toBe(false);
   });
 });
+
+describe('срок у каждого выхода наружу (журнал 335)', () => {
+  it('внутренний API, шаблон, картинка и загрузка результата — все запросы уходят с signal', async () => {
+    const { fetchFn } = makeFetch({
+      template: buildDocx(p('Номер: {document.number}') + p('М.П. {%tenant.stamp_image}')),
+      start: () =>
+        okJson({
+          claimed: true,
+          taskId: 'dtask_1',
+          number: '26-ОТ-0001',
+          templateFileUrl: 'https://s3.local/GET-template',
+          variables: { 'document.number': '26-ОТ-0001', 'tenant.stamp_image': 'file_stamp' },
+          images: [{ name: 'tenant.stamp_image', url: 'https://s3.local/GET-stamp' }]
+        })
+    });
+    await runDocumentJob(envelope, { ...DEPS, fetchFn });
+
+    const calls = (fetchFn as unknown as ReturnType<typeof vi.fn>).mock.calls as Array<
+      [string, RequestInit | undefined]
+    >;
+    const urls = calls.map(([url]) => url);
+    for (const marker of [
+      '/start',
+      'GET-template',
+      'GET-stamp',
+      'PUT-result',
+      'PUT-pdf',
+      '/complete'
+    ]) {
+      expect(
+        urls.some((url) => url.includes(marker)),
+        marker
+      ).toBe(true);
+    }
+    const withoutDeadline = calls
+      .filter(([, init]) => !(init?.signal instanceof AbortSignal) || init.signal.aborted)
+      .map(([url]) => url);
+    expect(withoutDeadline).toEqual([]);
+  });
+});

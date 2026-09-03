@@ -1,5 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
 
+/** Чем создан клиент S3: тесты ниже подменяют `.client`, этот перехват нужен одному — про сроки. */
+const { s3ClientOptions } = vi.hoisted(() => ({ s3ClientOptions: [] as unknown[] }));
+vi.mock('@aws-sdk/client-s3', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  S3Client: class {
+    send = vi.fn().mockResolvedValue({});
+    constructor(options: unknown) {
+      s3ClientOptions.push(options);
+    }
+  }
+}));
+
 import { S3StorageClient } from './s3-storage.client.js';
 
 describe('S3StorageClient.putObject', () => {
@@ -127,5 +139,19 @@ describe('S3StorageClient — multipart', () => {
 
     const [command] = send.mock.calls[0] as [{ input: Record<string, unknown> }];
     expect(command.input).toMatchObject({ Key: 'video/t/lesson.mp4', UploadId: 'upl_1' });
+  });
+});
+
+describe('S3StorageClient срок ожидания (журнал 335)', () => {
+  it('клиент создаётся со сроками подключения и ответа: молчащее хранилище не держит загрузку', async () => {
+    const client = new S3StorageClient();
+    await client.putObject({ key: 'k', body: Buffer.from('a'), contentType: 'text/plain' });
+
+    expect(s3ClientOptions).toHaveLength(1);
+    const [options] = s3ClientOptions as [
+      { requestHandler?: { connectionTimeout?: number; socketTimeout?: number } }
+    ];
+    expect(options.requestHandler?.connectionTimeout ?? 0).toBeGreaterThan(0);
+    expect(options.requestHandler?.socketTimeout ?? 0).toBeGreaterThan(0);
   });
 });

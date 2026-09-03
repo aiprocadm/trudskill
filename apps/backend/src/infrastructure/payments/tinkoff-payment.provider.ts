@@ -1,5 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 
+import { PAYMENT_API_TIMEOUT_MS } from './payment.provider.js';
+
 import type {
   CreatePaymentParams,
   CreatePaymentResult,
@@ -49,7 +51,8 @@ export class TinkoffPaymentProvider implements PaymentProvider {
     const res = await this.fetchImpl(`${this.cfg.apiBase}/v2/Init`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(reqBody)
+      body: JSON.stringify(reqBody),
+      signal: AbortSignal.timeout(PAYMENT_API_TIMEOUT_MS)
     });
     const body = (await res.json()) as {
       Success?: boolean;

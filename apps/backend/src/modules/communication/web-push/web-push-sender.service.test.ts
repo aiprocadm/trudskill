@@ -85,6 +85,18 @@ describe('WebPushSender', () => {
     expect(sendNotification).toHaveBeenCalledTimes(2);
   });
 
+  it('у отправки есть срок: молчащая push-служба не держит рассылку вечно (журнал 335)', async () => {
+    const { sender } = makeSender([sub('https://p/a')]);
+    await sender.sendToUsers('t1', ['u1'], { title: 'T', body: 'B' });
+
+    const [, , options] = requireAt(sendNotification.mock.calls, 0, 'вызов web-push') as [
+      unknown,
+      unknown,
+      { timeout?: number } | undefined
+    ];
+    expect(options?.timeout ?? 0).toBeGreaterThan(0);
+  });
+
   it('payload содержит title/body/url в JSON', async () => {
     const { sender } = makeSender([sub('https://p/a')]);
     await sender.sendToUsers('t1', ['u1'], { title: 'T', body: 'B', url: '/x' });

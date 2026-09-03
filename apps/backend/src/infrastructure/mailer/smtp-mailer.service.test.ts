@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
+const { createTransportMock } = vi.hoisted(() => ({
+  createTransportMock: vi.fn(() => ({ sendMail: vi.fn() }))
+}));
+vi.mock('nodemailer', () => ({ createTransport: createTransportMock }));
+
 import { SmtpMailer } from './smtp-mailer.service.js';
 
 describe('SmtpMailer', () => {
@@ -43,5 +48,19 @@ describe('SmtpMailer', () => {
     expect(createTransport).toHaveBeenCalledWith(config);
     expect(result.status).toBe('failed');
     expect(result.error).toContain('connection refused');
+  });
+});
+
+describe('SmtpMailer срок ожидания (журнал 335)', () => {
+  it('транспорт по умолчанию создаётся со сроками: молчащий SMTP не держит вход по ссылке', () => {
+    new SmtpMailer({ host: 'mail', port: 587, from: 'no-reply@trudskill.local' });
+
+    expect(createTransportMock).toHaveBeenCalledOnce();
+    const [options] = createTransportMock.mock.calls[0] as unknown as [
+      { connectionTimeout?: number; greetingTimeout?: number; socketTimeout?: number }
+    ];
+    expect(options.connectionTimeout ?? 0).toBeGreaterThan(0);
+    expect(options.greetingTimeout ?? 0).toBeGreaterThan(0);
+    expect(options.socketTimeout ?? 0).toBeGreaterThan(0);
   });
 });

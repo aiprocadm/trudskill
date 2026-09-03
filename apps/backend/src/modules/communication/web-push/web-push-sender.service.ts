@@ -11,6 +11,12 @@ import { MvpTenantRunner } from '../../mvp/infrastructure/mvp-tenant-runner.serv
 import type { WebPushNotification, WebPushSenderPort } from './web-push-sender.js';
 
 /**
+ * Срок одной отправки (журнал 335). `web-push` без `timeout` ждёт ответа push-службы
+ * бесконечно, а рассылка ждёт все отправки разом — одна молчащая держит всю.
+ */
+const WEB_PUSH_TIMEOUT_MS = 10_000;
+
+/**
  * Real web-push sender (used when WEB_PUSH_ENABLED=true). Singleton: loads the recipient's
  * subscriptions via MvpTenantRunner (reentrant per-tenant lock — safe to call inside the
  * dispatch request that already holds it), sends each via the `web-push` lib, and prunes
@@ -49,7 +55,8 @@ export class WebPushSender implements WebPushSenderPort {
         try {
           await webpush.sendNotification(
             { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-            payload
+            payload,
+            { timeout: WEB_PUSH_TIMEOUT_MS }
           );
         } catch (error) {
           const statusCode = (error as { statusCode?: number }).statusCode;

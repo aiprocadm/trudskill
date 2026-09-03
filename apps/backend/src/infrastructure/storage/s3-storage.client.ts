@@ -25,6 +25,14 @@ import type {
 } from './storage.client.js';
 import type { Readable } from 'node:stream';
 
+/**
+ * Сроки для S3 (журнал 335). По умолчанию клиент AWS не ограничивает ни подключение, ни
+ * ожидание ответа: молчащее хранилище держало загрузку файла, пока TCP сам не сдастся.
+ * `socketTimeout` — тишина на сокете, а не вся передача: большой файл, который идёт, не срывается.
+ */
+const S3_CONNECTION_TIMEOUT_MS = 5_000;
+const S3_SOCKET_TIMEOUT_MS = 60_000;
+
 @Injectable()
 export class S3StorageClient implements StorageClient {
   private client: S3Client | null = null;
@@ -200,6 +208,10 @@ export class S3StorageClient implements StorageClient {
         credentials: {
           accessKeyId: backendEnv.S3_ACCESS_KEY,
           secretAccessKey: backendEnv.S3_SECRET_KEY
+        },
+        requestHandler: {
+          connectionTimeout: S3_CONNECTION_TIMEOUT_MS,
+          socketTimeout: S3_SOCKET_TIMEOUT_MS
         }
       });
     }

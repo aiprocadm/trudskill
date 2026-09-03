@@ -22,11 +22,23 @@ interface MailTransport {
 
 export type CreateTransport = (config: SmtpMailerConfig) => MailTransport;
 
+/**
+ * Сроки SMTP (журнал 335). Письмо со ссылкой для входа уходит прямо в запросе, и без сроков
+ * молчащий почтовый сервер держал вход по ссылке: у nodemailer подключение ждёт две минуты,
+ * а ответ на письмо — десять.
+ */
+const SMTP_CONNECTION_TIMEOUT_MS = 10_000;
+const SMTP_GREETING_TIMEOUT_MS = 10_000;
+const SMTP_SOCKET_TIMEOUT_MS = 30_000;
+
 const defaultCreateTransport: CreateTransport = (config) =>
   realCreateTransport({
     host: config.host,
     port: config.port,
-    auth: config.user ? { user: config.user, pass: config.password } : undefined
+    auth: config.user ? { user: config.user, pass: config.password } : undefined,
+    connectionTimeout: SMTP_CONNECTION_TIMEOUT_MS,
+    greetingTimeout: SMTP_GREETING_TIMEOUT_MS,
+    socketTimeout: SMTP_SOCKET_TIMEOUT_MS
   }) as unknown as MailTransport;
 
 export class SmtpMailer implements MailerService {

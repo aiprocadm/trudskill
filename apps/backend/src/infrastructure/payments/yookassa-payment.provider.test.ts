@@ -131,3 +131,41 @@ describe('YookassaPaymentProvider.parseWebhook', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('YookassaPaymentProvider срок ожидания (журнал 335)', () => {
+  const signalOf = (fetchMock: ReturnType<typeof vi.fn>, call = 0): AbortSignal | undefined =>
+    (fetchMock.mock.calls[call]?.[1] as RequestInit | undefined)?.signal ?? undefined;
+
+  it('создание платежа уходит с signal', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        id: 'yk-1',
+        status: 'pending',
+        confirmation: { confirmation_url: 'https://pay' }
+      })
+    );
+    const p = new YookassaPaymentProvider(cfg, fetchMock as unknown as typeof fetch);
+    await p.createPayment({
+      tenantId: 't1',
+      orderId: 'o1',
+      amount: 100,
+      currency: 'RUB',
+      description: 'x'
+    });
+    expect(signalOf(fetchMock)).toBeInstanceOf(AbortSignal);
+    expect(signalOf(fetchMock)?.aborted).toBe(false);
+  });
+
+  it('перепроверка платежа из вебхука уходит с signal — молчащий API не держит вебхук вечно', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 'yk-1', status: 'succeeded' }));
+    const p = new YookassaPaymentProvider(cfg, fetchMock as unknown as typeof fetch);
+    await p.parseWebhook(
+      Buffer.from(
+        JSON.stringify({ type: 'notification', event: 'payment.succeeded', object: { id: 'yk-1' } })
+      ),
+      {}
+    );
+    expect(signalOf(fetchMock)).toBeInstanceOf(AbortSignal);
+    expect(signalOf(fetchMock)?.aborted).toBe(false);
+  });
+});
