@@ -1,5 +1,6 @@
 // apps/backend/src/modules/mvp/esia/esia.controller.test.ts
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { describe, expect, it, vi } from 'vitest';
 
 import { EsiaController } from './esia.controller.js';
@@ -51,4 +52,21 @@ describe('EsiaController security boundaries', () => {
     const response = { redirect: vi.fn() } as never;
     expect(() => controller.authorize(undefined, response)).toThrow(BadRequestException);
   });
+});
+
+describe('EsiaController rate limit (ФТ-G2)', () => {
+  // Журнал 339: `auth/esia/*` — та же дверь входа, что и `auth/login` (25/мин), но TenantGuard
+  // пропускает её без bearer, а предела частоты у неё не было. Глобального ThrottlerGuard нет —
+  // без @UseGuards(ThrottlerGuard) на методе любой @Throttle «спит».
+  it.each(['authorize', 'callback', 'identityAuthorize'] as const)(
+    '%s применяет ThrottlerGuard и объявляет 25/мин, как auth/login',
+    (method) => {
+      const handler = EsiaController.prototype[method];
+      const guards =
+        (Reflect.getMetadata('__guards__', handler) as Array<{ name?: string }> | undefined) ?? [];
+      expect(guards.some((g) => g === ThrottlerGuard || g?.name === 'ThrottlerGuard')).toBe(true);
+      expect(Reflect.getMetadata('THROTTLER:LIMITdefault', handler)).toBe(25);
+      expect(Reflect.getMetadata('THROTTLER:TTLdefault', handler)).toBe(60_000);
+    }
+  );
 });

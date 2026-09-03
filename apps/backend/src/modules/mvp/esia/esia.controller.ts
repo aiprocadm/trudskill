@@ -11,6 +11,7 @@ import {
   UseGuards,
   UseInterceptors
 } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 
 import { EsiaService } from './esia.service.js';
 import { CurrentContext } from '../../../common/decorators/current-context.decorator.js';
@@ -26,6 +27,13 @@ import type { RequestContext } from '../../../common/context/request-context.js'
 import type { Response } from 'express';
 
 const frontend = (path: string): string => `${backendEnv.ESIA_FRONTEND_REDIRECT_BASE}${path}`;
+
+/**
+ * ФТ-G2 (журнал 339): `auth/esia/*` — та же дверь входа, что и `auth/login`, и TenantGuard
+ * пропускает её без bearer. Предел тот же, что у пароля (25/мин на адрес); глобального
+ * ThrottlerGuard нет — без `@UseGuards(ThrottlerGuard)` на методе `@Throttle` «спит».
+ */
+const LOGIN_THROTTLE = { default: { limit: 25, ttl: 60_000 } };
 
 @Controller()
 @UseGuards(TenantGuard)
@@ -43,6 +51,8 @@ export class EsiaController {
    * baked into the signed state; the callback reads tenant FROM the state, not the guard context.
    */
   @Get('auth/esia/authorize')
+  @UseGuards(ThrottlerGuard)
+  @Throttle(LOGIN_THROTTLE)
   authorize(
     @Query('tenant_id') tenantId: string | undefined,
     @Res({ passthrough: true }) response: Response
@@ -59,6 +69,8 @@ export class EsiaController {
    * approve without context. Returns the authorize URL as JSON; the SPA navigates to it.
    */
   @Post('auth/esia/identity/authorize')
+  @UseGuards(ThrottlerGuard)
+  @Throttle(LOGIN_THROTTLE)
   identityAuthorize(@CurrentContext() context: RequestContext): { authorizeUrl: string } {
     if (!context.userId || !context.tenantId)
       throw new UnauthorizedException({
@@ -70,6 +82,8 @@ export class EsiaController {
   }
 
   @Get('auth/esia/callback')
+  @UseGuards(ThrottlerGuard)
+  @Throttle(LOGIN_THROTTLE)
   async callback(
     @CurrentContext() context: RequestContext,
     @Query('code') code: string | undefined,
