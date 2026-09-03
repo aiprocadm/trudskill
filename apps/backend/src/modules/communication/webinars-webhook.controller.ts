@@ -1,5 +1,5 @@
-import { Controller, Headers, Inject, Logger, Post, Req, Res } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
+import { Controller, Headers, Inject, Logger, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 
 import { WebinarProviderResolver } from './webinar-provider-resolver.service.js';
 import { WebinarsService } from './webinars.service.js';
@@ -27,7 +27,13 @@ export class WebinarsWebhookController {
     @Inject(WebinarsService) private readonly service: WebinarsService
   ) {}
 
+  /*
+   * ФТ-G2: `ThrottlerGuard` обязателен рядом с `@Throttle` — глобального guard в приложении нет,
+   * и без него предел молча «спит» (журнал 334; тот же класс — §5.169). Ручка публичная и без
+   * арендатора: на каждый запрос разбирается тело и ищется вебинар в базе.
+   */
   @Post('webhook')
+  @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
   async handle(
     @Req() req: Request & { rawBody?: Buffer },
