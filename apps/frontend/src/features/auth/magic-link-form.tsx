@@ -36,7 +36,7 @@ export const MagicLinkForm = () => {
       setStatus('idle');
       setError(
         submitError instanceof ApiClientError
-          ? submitError.normalized.message
+          ? submitError.message
           : 'Не удалось отправить ссылку для входа. Попробуйте ещё раз.'
       );
     }

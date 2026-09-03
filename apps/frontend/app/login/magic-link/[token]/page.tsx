@@ -52,7 +52,7 @@ export default function MagicLinkRedeemPage() {
         setStatus('error');
         setErrorMessage(
           redeemError instanceof ApiClientError
-            ? redeemError.normalized.message
+            ? redeemError.message
             : 'Ссылка недействительна или истекла. Запросите новую.'
         );
       });
@@ -76,9 +76,7 @@ export default function MagicLinkRedeemPage() {
         router.replace(resolveSafeNextPath(searchParams?.get('next') ?? null));
       } catch (verifyError) {
         setErrorMessage(
-          verifyError instanceof ApiClientError
-            ? verifyError.normalized.message
-            : 'Не удалось подтвердить код'
+          verifyError instanceof ApiClientError ? verifyError.message : 'Не удалось подтвердить код'
         );
       } finally {
         setTotpPending(false);

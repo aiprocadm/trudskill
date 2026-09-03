@@ -44,7 +44,7 @@ export default function ExamAuthPage() {
         setStatus('error');
         setErrorMessage(
           verifyError instanceof ApiClientError
-            ? verifyError.normalized.message
+            ? verifyError.message
             : 'Не удалось подтвердить личность. Ссылка недействительна или истекла.'
         );
       });

@@ -4,7 +4,9 @@ import { resolveWorkspaceErrorMessage, resolveWorkspaceState } from './page.util
 import { ApiClientError } from '../../src/lib/api/client';
 
 describe('workspace page state helpers', () => {
-  it('maps ApiClientError to backend message', () => {
+  it('ошибка запроса показывается человеку словами, а не ответом сервера (TXT-004, журнал 338)', () => {
+    // Раньше тест закреплял обратное — «Permission denied» слово в слово. Инвариант изменён
+    // осознанно: сырой ответ сервера живёт в подробностях, человеку — что произошло и что делать.
     const error = new ApiClientError({
       status: 403,
       code: 'permission_denied',
@@ -12,7 +14,12 @@ describe('workspace page state helpers', () => {
       isAuthError: false
     });
 
-    expect(resolveWorkspaceErrorMessage(error)).toBe('Permission denied');
+    const text = resolveWorkspaceErrorMessage(error);
+    expect(text).toMatch(/[А-Яа-яЁё]/);
+    expect(text).not.toMatch(/[A-Za-z]/);
+    expect(text.split(/(?<=[.!?])\s+/).filter(Boolean).length).toBeGreaterThanOrEqual(2);
+    // Сырой ответ никуда не делся — он в подробностях.
+    expect(error.details).toContain('Permission denied');
   });
 
   it('uses fallback message for unknown errors', () => {

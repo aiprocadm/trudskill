@@ -73,9 +73,7 @@ export const LoginForm = () => {
       router.replace(resolveSafeNextPath(searchParams.get('next')));
     } catch (submitError) {
       setError(
-        submitError instanceof ApiClientError
-          ? submitError.normalized.message
-          : 'Не удалось войти в систему'
+        submitError instanceof ApiClientError ? submitError.message : 'Не удалось войти в систему'
       );
     } finally {
       setPending(false);
@@ -95,9 +93,7 @@ export const LoginForm = () => {
       router.replace(resolveSafeNextPath(searchParams.get('next')));
     } catch (submitError) {
       setError(
-        submitError instanceof ApiClientError
-          ? submitError.normalized.message
-          : 'Не удалось подтвердить код'
+        submitError instanceof ApiClientError ? submitError.message : 'Не удалось подтвердить код'
       );
     } finally {
       setPending(false);
