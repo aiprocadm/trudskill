@@ -1,5 +1,15 @@
-import { Controller, Headers, Inject, Logger, Param, Post, Req, Res } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
+import {
+  Controller,
+  Headers,
+  Inject,
+  Logger,
+  Param,
+  Post,
+  Req,
+  Res,
+  UseGuards
+} from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 
 import { PaymentFulfillmentService } from './payment-fulfillment.service.js';
 import { PaymentProviderResolver } from './payment-provider-resolver.service.js';
@@ -29,7 +39,13 @@ export class PaymentsWebhookController {
     @Inject(PaymentFulfillmentService) private readonly fulfillment: PaymentFulfillmentService
   ) {}
 
+  /*
+   * ФТ-G2: `ThrottlerGuard` обязателен рядом с `@Throttle` — глобального guard в приложении нет,
+   * и без него предел молча «спит» (журнал 334; тот же класс — §5.169). Ручка публичная и без
+   * арендатора: на каждый запрос разбирается тело и ищется заказ в базе.
+   */
   @Post('webhook/:providerCode')
+  @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
   async handle(
     @Param('providerCode') providerCode: string,
