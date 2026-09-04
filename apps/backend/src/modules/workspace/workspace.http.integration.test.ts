@@ -46,7 +46,7 @@ describe('Workspace HTTP integration', () => {
     isSessionActive: vi.fn().mockResolvedValue(true)
   };
   const iamServiceMock = {
-    resolvePermissions: vi.fn().mockResolvedValue(['tenant.read']),
+    resolvePermissions: vi.fn().mockResolvedValue(['workspace.read']),
     // ФТ-E5: гвард берёт права и привязку одной загрузкой; заглушка делегирует
     // своей же resolvePermissions, сохраняя переопределения в тестах.
     resolveActorScope: async (t: string, u: string) => ({
@@ -124,7 +124,7 @@ describe('Workspace HTTP integration', () => {
           requestContext.tenantId,
           requestContext.userId
         );
-        if (!permissions.includes('tenant.read')) {
+        if (!permissions.includes('workspace.read')) {
           throw new ForbiddenException({ code: 'permission_denied', message: 'Permission denied' });
         }
         return true;
@@ -194,7 +194,7 @@ describe('Workspace HTTP integration', () => {
     expect(payload.meta.requestId).toBeTruthy();
   });
 
-  it('returns permission_denied envelope when tenant.read is missing', async () => {
+  it('returns permission_denied envelope when workspace.read is missing', async () => {
     iamServiceMock.resolvePermissions.mockResolvedValueOnce([]);
     const token = issueSignedAccessToken(
       {
@@ -253,7 +253,7 @@ describe('Workspace HTTP integration', () => {
   });
 
   it('returns success envelope with workspace data for allowed user', async () => {
-    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['tenant.read']);
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['workspace.read']);
     const token = issueSignedAccessToken(
       {
         sub: 'u_tenant_admin',
@@ -284,7 +284,7 @@ describe('Workspace HTTP integration', () => {
   });
 
   it('returns blockers for JWT tenant scope (tenant t1 seed, not tenant_demo)', async () => {
-    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['tenant.read']);
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['workspace.read']);
     const token = issueSignedAccessToken(
       {
         sub: 'u_other',

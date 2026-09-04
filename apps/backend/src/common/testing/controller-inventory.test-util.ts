@@ -70,9 +70,7 @@ const permissionsIn = (cluster: string): string[] =>
 export const controllerHandlers = (root: string = BACKEND_SRC): ControllerHandler[] => {
   const out: ControllerHandler[] = [];
   for (const file of controllerSources(root)) {
-    const text = readFileSync(file, 'utf8');
-    const prefix = CONTROLLER_PREFIX.exec(text)?.[1] ?? '';
-    const lines = text.split('\n');
+    const lines = readFileSync(file, 'utf8').split('\n');
 
     for (let index = 0; index < lines.length; index += 1) {
       const route = ROUTE_DECORATOR.exec(lines[index] ?? '');
@@ -91,6 +89,9 @@ export const controllerHandlers = (root: string = BACKEND_SRC): ControllerHandle
       while (classStart > 0 && DECORATOR_LINE.test(lines[classStart - 1] ?? '')) classStart -= 1;
       const classCluster = lines.slice(classStart, classLine).join('\n');
       const className = CLASS_LINE.exec(lines[classLine] ?? '')?.[1] ?? '<класс не найден>';
+      // Префикс — у СВОЕГО класса: в одном файле бывает несколько контроллеров
+      // (`integrations` / `exports` / `sync-logs`), и первый `@Controller` файла — не их.
+      const prefix = CONTROLLER_PREFIX.exec(classCluster)?.[1] ?? '';
 
       out.push({
         file: file.slice(root.length + 1),

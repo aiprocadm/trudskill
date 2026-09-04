@@ -1,7 +1,3 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -9,6 +5,11 @@ import {
   controllerHandlers,
   describeHandler
 } from '../testing/controller-inventory.test-util.js';
+import {
+  LEARNER_RIGHTS_SNAPSHOT,
+  learnerGrantsByMigration,
+  reachableByLearner
+} from '../testing/learner-rights.test-util.js';
 
 /**
  * Четырнадцатый сторож семейства «объявлено — кто это исполняет»: **правами слушателя не
@@ -33,41 +34,14 @@ import {
  * Набор прав слушателя читается из миграций (все выдачи `iam.role_permissions`, где
  * роль — `'learner'`) и сверяется со снимком живой базы: новая выдача слушателю обязана
  * появиться в снимке — и тем самым заново пройти этот сторож. Выдача в форме, которую
- * разбор не понимает, роняет отдельный тест, а не молчит.
+ * разбор не понимает, роняет отдельный тест, а не молчит. Разбор и снимок общие для
+ * сторожей «до чего дотягивается слушатель» — `testing/learner-rights.test-util.ts`.
  *
  * Исключения — `EXEMPT`, поимённо и с причиной. Мёртвая запись роняет тест.
  *
  * Проверено подсадным нарушителем: журнал группы под `progress.read` роняет тест и
  * называет маршрут с правом; снятое из снимка право роняет сверку с миграциями.
  */
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-const MIGRATIONS = resolve(HERE, '../../../migrations');
-
-/**
- * Снимок `iam.role_permissions` живой базы для роли `learner` (2026-09-04, 18 прав).
- * Расходится с миграциями — падает тест «набор прав слушателя читается из миграций».
- */
-const LEARNER_RIGHTS_SNAPSHOT: ReadonlySet<string> = new Set([
-  'assessment.assignments.read',
-  'assessment.attempts.read',
-  'assessment.attempts.take',
-  'assessment.results.read',
-  'assessment.submissions.submit',
-  'assessment.tests.read',
-  'courses.read',
-  'enrollments.read',
-  'esign.participants.sign',
-  'identity.submit',
-  'materials.read',
-  'payments.self_purchase',
-  'proctoring.submit',
-  'progress.read',
-  'progress.recalculate',
-  'tenant.read',
-  'video.read',
-  'webinars.attend'
-]);
 
 /**
  * Адрес чужого реестра: сегмент-коллекция людей, за которым идёт параметр. `enrollments`,
@@ -83,51 +57,6 @@ const EXEMPT: ReadonlyArray<{ route: string; why: string }> = [
   }
 ];
 
-/** Выдачи `iam.role_permissions` из миграции — по одной на оператор `INSERT … ;`. */
-const grantStatements = (sql: string): string[] => {
-  const withoutComments = sql
-    .split('\n')
-    .map((line) => line.replace(/--.*$/, ''))
-    .join('\n');
-  return [...withoutComments.matchAll(/insert\s+into\s+iam\.role_permissions[\s\S]*?;/gi)].map(
-    (m) => m[0]
-  );
-};
-
-const codesIn = (text: string): string[] =>
-  [...text.matchAll(/p\.code\s*(?:=\s*'([a-z_.]+)'|in\s*\(([^)]*)\))/gi)].flatMap((m) =>
-    m[1] ? [m[1]] : [...(m[2] ?? '').matchAll(/'([a-z_.]+)'/g)].map((c) => c[1]!)
-  );
-
-/**
- * Какие коды оператор выдаёт слушателю. Если условие про `'learner'` стоит в одной строке
- * с `p.code` — берём коды этой строки (`OR (r.code = 'learner' AND p.code = 'x')`); иначе
- * оператор целиком про слушателя (0038: `r.code = 'learner' AND p.code IN (…)`; 0085:
- * `JOIN … p.code = 'x' WHERE r.code IN (…, 'learner')`) — берём все его коды.
- */
-const learnerCodesIn = (statement: string): string[] => {
-  if (!/r\.code[\s\S]*?'learner'|'learner'[\s\S]*?r\.code/.test(statement)) return [];
-  const lines = statement.split('\n').filter((line) => line.includes("'learner'"));
-  const inline = lines.filter((line) => /p\.code/.test(line)).flatMap(codesIn);
-  return inline.length > 0 ? inline : codesIn(statement);
-};
-
-const learnerGrantsByMigration = (): Array<{ migration: string; codes: string[] }> => {
-  const out: Array<{ migration: string; codes: string[] }> = [];
-  for (const entry of readdirSync(MIGRATIONS).sort()) {
-    if (!entry.endsWith('.sql')) continue;
-    const sql = readFileSync(resolve(MIGRATIONS, entry), 'utf8');
-    for (const statement of grantStatements(sql)) {
-      if (!statement.includes("'learner'")) continue;
-      out.push({ migration: entry, codes: learnerCodesIn(statement) });
-    }
-  }
-  return out;
-};
-
-const reachableByLearner = (h: ControllerHandler): boolean =>
-  h.permissions.every((code) => LEARNER_RIGHTS_SNAPSHOT.has(code));
-
 const registryHandlers = (): ControllerHandler[] =>
   controllerHandlers().filter((h) => REGISTRY_ROUTE.test(h.route.split(' ')[1]!));
 
@@ -136,7 +65,7 @@ const isExempt = (h: ControllerHandler): boolean => EXEMPT.some((e) => h.route =
 const registryReachableByLearner = (): string[] =>
   registryHandlers()
     .filter((h) => !isExempt(h))
-    .filter(reachableByLearner)
+    .filter((h) => reachableByLearner(h.permissions))
     .map(describeHandler)
     .sort();
 

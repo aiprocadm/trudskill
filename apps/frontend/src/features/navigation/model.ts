@@ -17,10 +17,28 @@ export interface NavigationItem {
 
 /** Более специфичные пути должны идти раньше (первое совпадение в evaluateRouteAccess). */
 export const routeMeta: RouteMetaEntry[] = [
-  { pattern: '/academy/requisites', meta: { public: false, requiredPermissions: ['tenant.read'] } },
-  { pattern: '/academy/commission', meta: { public: false, requiredPermissions: ['tenant.read'] } },
-  { pattern: '/academy', meta: { public: false, requiredPermissions: ['tenant.read'] } },
-  { pattern: '/crm/deals', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  /*
+   * Журнал 343 (§5.418): право экрана — право его ДАННЫХ, то же, что на ручках бэкенда,
+   * которые экран вызывает. Пятнадцать экранов сотрудников стояли под `tenant.read` — оно
+   * есть у ВСЕХ ролей, включая слушателя, — и слушатель видел их в меню «Ещё»: одни
+   * отвечали ему 403 (тупик), другие показывали данные сотрудников. Сторож класса —
+   * `apps/backend/src/common/guards/learner-reaches-staff-screen.isolation.test.ts`.
+   *
+   * Реквизиты — форма правки (PUT /tenant/requisites, /tenant/settings под
+   * `tenant.settings.write`); комиссия — состав, как у `/admin/commissions`
+   * (`learning.commissions.read`); «Учебный центр» — узел этих настроек.
+   */
+  {
+    pattern: '/academy/requisites',
+    meta: { public: false, requiredPermissions: ['tenant.settings.write'] }
+  },
+  {
+    pattern: '/academy/commission',
+    meta: { public: false, requiredPermissions: ['learning.commissions.read'] }
+  },
+  { pattern: '/academy', meta: { public: false, requiredPermissions: ['tenant.settings.write'] } },
+  // Сделки читают контрагентов (GET /counterparties) — их право.
+  { pattern: '/crm/deals', meta: { public: false, requiredPermissions: ['counterparties.read'] } },
   {
     // ФТ-D2.2: платформенная админка — только platform_admin (0073).
     pattern: '/platform/tenants',
@@ -32,10 +50,11 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['tenant.usage.read'] }
   },
   {
-    // ФТ-D2.3: мастер онбординга — видеть готовность центра может любой сотрудник,
-    // сами шаги записываются своими правами на своих экранах.
+    // ФТ-D2.3: мастер онбординга — настройка центра, дело его администрации: то же право,
+    // что у реквизитов (журнал 343; прежде `tenant.read` — и слушатель видел ход настройки).
+    // Сами шаги записываются своими правами на своих экранах.
     pattern: '/onboarding',
-    meta: { public: false, requiredPermissions: ['tenant.read'] }
+    meta: { public: false, requiredPermissions: ['tenant.settings.write'] }
   },
   {
     // ФТ-D6: каталог курсов платформы — читают все, кто работает с курсами.
@@ -68,23 +87,29 @@ export const routeMeta: RouteMetaEntry[] = [
   // Фаза 6 Task 1: было `tenant.read` — оно есть у слушателя, и он видел раздел
   // отчётов по всему центру. Теперь как на бэкенде: `learners.read`.
   { pattern: '/reports', meta: { public: false, requiredPermissions: ['learners.read'] } },
-  { pattern: '/proctoring', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  // Журнал 343: право раздела прокторинга, как у записей и настроек (`proctoring.read`).
+  { pattern: '/proctoring', meta: { public: false, requiredPermissions: ['proctoring.read'] } },
   { pattern: '/scorm', meta: { public: false, requiredPermissions: ['materials.read'] } },
   {
     pattern: '/gov-export',
     meta: { public: false, requiredPermissions: ['regulatory.export.read'] }
   },
-  { pattern: '/mailings', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  // Журнал 343: рассылки — доставки и шаблоны писем под `notifications.read`.
+  { pattern: '/mailings', meta: { public: false, requiredPermissions: ['notifications.read'] } },
   // ФТ-H1 (Фаза 5 Task 8): страницы, найденные сверкой ВНЕ карты доступа. Маршрут
   // вне карты считается not-found, и ProtectedPage выбрасывала посетителя — тот же
-  // класс бага, что был у /learner (§5.241). Права — как у соседних админ-стабов.
-  { pattern: '/forms', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  // класс бага, что был у /learner (§5.241). Анкеты собираются в «Документах» (журнал 197),
+  // право — их (журнал 343).
+  { pattern: '/forms', meta: { public: false, requiredPermissions: ['documents.read'] } },
   { pattern: '/module-empty', meta: { public: false } },
   // Страница «нет интернета» (Фаза 6 Task 11): показывается при обрыве связи, в том числе
   // когда человек ещё не вошёл, — поэтому публичная.
   { pattern: '/offline', meta: { public: true } },
-  { pattern: '/telephony', meta: { public: false, requiredPermissions: ['tenant.read'] } },
-  { pattern: '/workspace', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  // Журнал 343: телефония читает поставщиков и ключи интеграций — их право.
+  { pattern: '/telephony', meta: { public: false, requiredPermissions: ['integrations.read'] } },
+  // Журнал 342/343: оперативная панель — рабочий стол сотрудника; право заведено
+  // миграцией 0091 всем ролям центра, кроме слушателя, и стоит на её ручках.
+  { pattern: '/workspace', meta: { public: false, requiredPermissions: ['workspace.read'] } },
   {
     pattern: '/student/dashboard',
     meta: { public: false, requiredPermissions: ['enrollments.read'] }
@@ -168,8 +193,9 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['proctoring.read'] }
   },
   {
+    // Журнал 343: как у ручки GET /admin/documents/issuance-journal.
     pattern: '/admin/issuance-journal',
-    meta: { public: false, requiredPermissions: ['tenant.read'] }
+    meta: { public: false, requiredPermissions: ['documents.read'] }
   },
   {
     // Экран «Эксплуатация» (Фаза 6 Task 8). Право то же, что у карантина на бэкенде:
@@ -278,7 +304,8 @@ export const routeMeta: RouteMetaEntry[] = [
   // который гейтит разделы по правам актора и отвечает отказом, если не положен ни один
   // (у слушателя `courses.read` есть, но экран персонала ему не открывается).
   { pattern: '/methodist', meta: { public: false, requiredPermissions: ['courses.read'] } },
-  { pattern: '/documents', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  // Журнал 343: как у ручек GET /templates, GET /document-tasks.
+  { pattern: '/documents', meta: { public: false, requiredPermissions: ['documents.read'] } },
   /*
    * IA-017: `/registry` — редирект на `/audit` (тот же журнал, тот же источник данных).
    * Право выровнено с сервером: ручка `/audit/events` требует `auth.manage_sessions`,
@@ -298,9 +325,10 @@ export const routeMeta: RouteMetaEntry[] = [
    * Право маршрута оставлено прежним: ослаблять доступ ради искусственной сессии из теста нельзя.
    */
   { pattern: '/settings', meta: { public: false, requiredPermissions: ['iam.manage_roles'] } },
-  { pattern: '/integrations', meta: { public: false, requiredPermissions: ['tenant.read'] } },
-  { pattern: '/exports', meta: { public: false, requiredPermissions: ['tenant.read'] } },
-  { pattern: '/sync-logs', meta: { public: false, requiredPermissions: ['tenant.read'] } },
+  // Журнал 343: все три раздела читают ручки под `integrations.read`.
+  { pattern: '/integrations', meta: { public: false, requiredPermissions: ['integrations.read'] } },
+  { pattern: '/exports', meta: { public: false, requiredPermissions: ['integrations.read'] } },
+  { pattern: '/sync-logs', meta: { public: false, requiredPermissions: ['integrations.read'] } },
   { pattern: '/audit', meta: { public: false, requiredPermissions: ['auth.manage_sessions'] } },
   {
     pattern: '/esign/applications',
@@ -384,7 +412,7 @@ export const navigationModel: NavigationItem[] = [
     // ФТ-D2.3: мастер онбординга нового центра.
     href: '/onboarding',
     label: 'Настройка центра',
-    requiredPermissions: ['tenant.read'],
+    requiredPermissions: ['tenant.settings.write'],
     navSlot: 'more'
   },
   {
@@ -421,19 +449,19 @@ export const navigationModel: NavigationItem[] = [
   {
     href: '/academy',
     label: 'Учебный центр',
-    requiredPermissions: ['tenant.read'],
+    requiredPermissions: ['tenant.settings.write'],
     navSlot: 'more'
   },
   {
     href: '/academy/requisites',
     label: 'Реквизиты учебного центра',
-    requiredPermissions: ['tenant.read'],
+    requiredPermissions: ['tenant.settings.write'],
     navSlot: 'more'
   },
   {
     href: '/academy/commission',
     label: 'Комиссия',
-    requiredPermissions: ['tenant.read'],
+    requiredPermissions: ['learning.commissions.read'],
     navSlot: 'more'
   },
   {
@@ -466,7 +494,12 @@ export const navigationModel: NavigationItem[] = [
     requiredPermissions: ['assessment.questions.write'],
     navSlot: 'more'
   },
-  { href: '/documents', label: 'Документы', requiredPermissions: ['tenant.read'], navSlot: 'more' },
+  {
+    href: '/documents',
+    label: 'Документы',
+    requiredPermissions: ['documents.read'],
+    navSlot: 'more'
+  },
   {
     href: '/esign/applications',
     label: 'НЭП заявки',
@@ -500,7 +533,7 @@ export const navigationModel: NavigationItem[] = [
   {
     href: '/proctoring',
     label: 'Прокторинг',
-    requiredPermissions: ['tenant.read'],
+    requiredPermissions: ['proctoring.read'],
     navSlot: 'more'
   },
   /* «SCORM» — имя отраслевого стандарта учебных пакетов; само по себе оно администратору
@@ -521,21 +554,31 @@ export const navigationModel: NavigationItem[] = [
   {
     href: '/integrations',
     label: 'Интеграции',
-    requiredPermissions: ['tenant.read'],
+    requiredPermissions: ['integrations.read'],
     navSlot: 'more'
   },
-  { href: '/exports', label: 'Экспорт', requiredPermissions: ['tenant.read'], navSlot: 'more' },
+  {
+    href: '/exports',
+    label: 'Экспорт',
+    requiredPermissions: ['integrations.read'],
+    navSlot: 'more'
+  },
   {
     href: '/sync-logs',
     label: 'Журнал синхронизации',
-    requiredPermissions: ['tenant.read'],
+    requiredPermissions: ['integrations.read'],
     navSlot: 'more'
   },
-  { href: '/telephony', label: 'Телефония', requiredPermissions: ['tenant.read'], navSlot: 'more' },
+  {
+    href: '/telephony',
+    label: 'Телефония',
+    requiredPermissions: ['integrations.read'],
+    navSlot: 'more'
+  },
   {
     href: '/workspace',
     label: 'Оперативная панель',
-    requiredPermissions: ['tenant.read'],
+    requiredPermissions: ['workspace.read'],
     navSlot: 'more'
   },
   // ФТ-H2 (Фаза 5 Task 2): сводка методиста. Пункт нужен и в навигации, а не только
@@ -612,7 +655,7 @@ export const navigationModel: NavigationItem[] = [
   {
     href: '/admin/issuance-journal',
     label: 'Журнал выдачи',
-    requiredPermissions: ['tenant.read'],
+    requiredPermissions: ['documents.read'],
     navSlot: 'more'
   },
   {

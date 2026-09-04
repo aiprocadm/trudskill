@@ -54,10 +54,10 @@ describe('proctoring — routing', () => {
     });
   });
 
-  it('the legacy /proctoring stub route is untouched (tenant.read, not proctoring.read)', () => {
-    expect(evaluateRouteAccess('/proctoring', adminWithProctoringRead)).toEqual({
-      kind: 'forbidden'
-    });
+  it('the /proctoring hub is under proctoring.read, like the recordings (журнал 343)', () => {
+    // Прежде узел стоял под `tenant.read` — и слушатель видел «Прокторинг» в меню «Ещё».
+    expect(evaluateRouteAccess('/proctoring', adminWithProctoringRead)).toEqual({ kind: 'ok' });
+    expect(evaluateRouteAccess('/proctoring', adminUnrelated)).toEqual({ kind: 'forbidden' });
   });
 });
 

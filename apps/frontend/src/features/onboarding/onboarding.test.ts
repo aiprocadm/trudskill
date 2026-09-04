@@ -39,6 +39,12 @@ describe('onboarding meta (ФТ-D2.3)', () => {
     }
   });
 
+  it('право шага — право ДЕЙСТВИЯ, а не просмотра: реквизиты правит tenant.settings.write', () => {
+    // Журнал 343: шаг «Реквизиты центра» стоял под `tenant.read`, которое есть у всех, —
+    // мастер говорил «можно», а ручка `PUT /tenant/requisites` (0083) отвечала отказом.
+    expect(ONBOARDING_STEP_META.requisites.requiredPermission).toBe('tenant.settings.write');
+  });
+
   it('каждый шаг ведёт на СУЩЕСТВУЮЩИЙ маршрут — мастер не обещает несуществующих экранов', () => {
     const patterns = routeMeta.map((entry) => entry.pattern);
     for (const id of ONBOARDING_STEP_IDS) {

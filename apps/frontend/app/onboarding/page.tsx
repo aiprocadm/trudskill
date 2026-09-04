@@ -4,8 +4,9 @@ import { PageContainer, PageHeader } from '../../src/components/state-wrappers';
 import { OnboardingScreen } from '../../src/features/onboarding/screens';
 import { ProtectedPage } from '../../src/widgets/shell/protected-page';
 
-// ФТ-D2.3 (Фаза 4 Task 7): мастер онбординга учебного центра. Право tenant.read —
-// видеть, что уже настроено, безобидно; каждый шаг записывается своим правом.
+// ФТ-D2.3 (Фаза 4 Task 7): мастер онбординга учебного центра. Право — администрации центра
+// (`tenant.settings.write`, как у реквизитов; журнал 343 — под `tenant.read` ход настройки
+// видел и слушатель); каждый шаг записывается своим правом.
 export default function OnboardingPage() {
   return (
     <ProtectedPage>
