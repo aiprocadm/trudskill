@@ -116,10 +116,14 @@ export class VideoPlaybackController {
   /**
    * Журнал учебных часов группы (ФТ-B3.4) — доказательная база на проверке ГИТ/Минтруда:
    * фактическое время против плановых часов программы по каждому слушателю.
+   *
+   * Журнал 341: право — `groups.read`, как у карточки группы и её сводки, а не
+   * `progress.read`. Последнее есть у слушателя (оно про СВОЙ прогресс), а журнал —
+   * реестр всей группы: имена, статусы и часы чужих людей, резать его «по себе» нечем.
    */
   @Get('groups/:groupId/learning-journal')
   @UseGuards(PermissionGuard)
-  @RequirePermissions('progress.read')
+  @RequirePermissions('groups.read')
   learningJournal(@CurrentContext() c: RequestContext, @Param('groupId') groupId: string) {
     return this.hours.getGroupJournal(c.tenantId!, groupId);
   }
@@ -127,7 +131,7 @@ export class VideoPlaybackController {
   /** Тот же журнал файлом: на проверке просят выгрузку, а не скриншот. */
   @Get('groups/:groupId/learning-journal.csv')
   @UseGuards(PermissionGuard)
-  @RequirePermissions('progress.read')
+  @RequirePermissions('groups.read')
   @Header('Content-Type', 'text/csv; charset=utf-8')
   async learningJournalCsv(@CurrentContext() c: RequestContext, @Param('groupId') groupId: string) {
     return renderLearningJournalCsv(await this.hours.getGroupJournal(c.tenantId!, groupId));

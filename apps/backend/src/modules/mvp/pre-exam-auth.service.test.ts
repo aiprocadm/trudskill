@@ -270,6 +270,89 @@ describe('pre-exam auth (C) — gate, request, verify', () => {
     );
   });
 
+  /*
+   * Журнал 341: запрос кода допуска — «за себя», как и сам старт попытки. Без этой
+   * проверки любой слушатель центра мог по чужому enrollmentId рассылать чужим людям
+   * письма с живой ссылкой и по `alreadyVerified` узнавать, прошёл ли тот человек допуск.
+   */
+  describe('запрос кода допуска — только за себя (журнал 341)', () => {
+    const OWNER = 'u_owner';
+    const STRANGER = 'u_stranger';
+    const asUser = (userId: string, permissions?: string[]): RequestContext => ({
+      ...ctx,
+      userId,
+      ...(permissions ? { permissions } : {})
+    });
+
+    /** Как seedFinalExam(true), но слушатель привязан к IAM-пользователю OWNER. */
+    function seedLinkedFinalExam(service: MvpService) {
+      const seeded = seedFinalExam(service, true);
+      const linked = service.createLearner(
+        T,
+        ADMIN,
+        { code: 'L_LINKED', name: 'Linked Learner', linkedIamUserId: OWNER },
+        ctx
+      );
+      const enrollment = service.createEnrollment(
+        T,
+        ADMIN,
+        { groupId: seeded.group.id, learnerId: linked.id },
+        ctx
+      );
+      return { test: seeded.test, enrollment };
+    }
+
+    it('чужой пользователь без learners.act_as получает forbidden — письмо не уходит', () => {
+      const service = makeService();
+      const { test, enrollment } = seedLinkedFinalExam(service);
+      const emitted: unknown[] = [];
+      (service as unknown as { events: { emit: (e: string, p: unknown) => void } }).events.emit = (
+        _event,
+        payload
+      ) => {
+        emitted.push(payload);
+      };
+      expectThrowsCode(
+        () =>
+          service.requestPreExamToken(
+            T,
+            STRANGER,
+            startArgs(test, enrollment),
+            asUser(STRANGER, ['assessment.attempts.take'])
+          ),
+        'forbidden'
+      );
+      expect(emitted).toEqual([]);
+      expect((service as unknown as { state: InMemoryMvpState }).state.preExamTokens).toEqual([]);
+    });
+
+    it('сам слушатель — получает ссылку', () => {
+      const service = makeService();
+      const { test, enrollment } = seedLinkedFinalExam(service);
+      expect(
+        service.requestPreExamToken(
+          T,
+          OWNER,
+          startArgs(test, enrollment),
+          asUser(OWNER, ['assessment.attempts.take'])
+        )
+      ).toEqual({ delivered: true, alreadyVerified: false });
+    });
+
+    it('сотрудник с learners.act_as — может запросить за слушателя', () => {
+      const service = makeService();
+      const { test, enrollment } = seedLinkedFinalExam(service);
+      expect(
+        service.requestPreExamToken(
+          T,
+          STRANGER,
+          startArgs(test, enrollment),
+          asUser(STRANGER, ['assessment.attempts.take', 'learners.act_as'])
+        )
+      ).toEqual({ delivered: true, alreadyVerified: false });
+    });
+  });
+
   it('reports alreadyVerified on a second request once verified (no re-prompt)', () => {
     const service = makeService();
     const { test, enrollment } = seedFinalExam(service, true);

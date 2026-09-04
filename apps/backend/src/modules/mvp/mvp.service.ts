@@ -4155,6 +4155,15 @@ export class MvpService {
     context: RequestContext
   ): { delivered: true; alreadyVerified: boolean } {
     const { test, enrollment } = this.resolveAttemptContext(tenantId, request);
+    // Журнал 341: код допуска запрашивают «за себя», как и старт попытки. Иначе любой
+    // слушатель центра по чужому enrollmentId слал чужим людям письма с живой ссылкой и по
+    // `alreadyVerified` узнавал, прошёл ли тот человек допуск. Сотруднику — через learners.act_as.
+    this.assertActorMatchesLearnerIamLink(
+      tenantId,
+      actorId,
+      enrollment.learnerId,
+      context.permissions
+    );
     if (this.findPreExamVerification(tenantId, enrollment.id, test.id)) {
       return { delivered: true, alreadyVerified: true };
     }
