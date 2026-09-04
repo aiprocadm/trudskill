@@ -1589,9 +1589,12 @@ export class MvpController {
       permissions: c.permissions
     });
   }
+  // Журнал 340: пересобирает результаты экзаменов ВСЕГО центра. Результат выводится из правил
+  // теста, поэтому пересчитывает тот, кто ведёт тесты, — не каждый, кто смотрит результаты
+  // (`assessment.results.read` есть у слушателя и преподавателя, 0038/0084).
   @Post('exam-results/recalculate')
   @UseGuards(PermissionGuard)
-  @RequirePermissions('assessment.results.read')
+  @RequirePermissions('assessment.tests.write')
   recalculateExamResults(@CurrentContext() c: RequestContext) {
     return this.mvpService.recalculateExamResults(c.tenantId!);
   }
