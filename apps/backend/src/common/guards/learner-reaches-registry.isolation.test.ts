@@ -6,10 +6,10 @@ import {
   describeHandler
 } from '../testing/controller-inventory.test-util.js';
 import {
-  LEARNER_RIGHTS_SNAPSHOT,
-  learnerGrantsByMigration,
-  reachableByLearner
-} from '../testing/learner-rights.test-util.js';
+  ROLE_RIGHTS_SNAPSHOT,
+  reachableBy,
+  roleGrantsByMigration
+} from '../testing/role-rights.test-util.js';
 
 /**
  * Четырнадцатый сторож семейства «объявлено — кто это исполняет»: **правами слушателя не
@@ -28,14 +28,14 @@ import {
  * который он знает из собственного зачисления.
  *
  * Инвариант: у обработчика с адресом реестра (`REGISTRY_ROUTE`) права не сводятся к
- * набору слушателя. «Сводятся» — все объявленные права входят в `LEARNER_RIGHTS`; ручка
+ * набору слушателя. «Сводятся» — все объявленные права входят в его снимок; ручка
  * без прав вовсе достижима любым вошедшим и тоже считается.
  *
  * Набор прав слушателя читается из миграций (все выдачи `iam.role_permissions`, где
  * роль — `'learner'`) и сверяется со снимком живой базы: новая выдача слушателю обязана
  * появиться в снимке — и тем самым заново пройти этот сторож. Выдача в форме, которую
  * разбор не понимает, роняет отдельный тест, а не молчит. Разбор и снимок общие для
- * сторожей «до чего дотягивается слушатель» — `testing/learner-rights.test-util.ts`.
+ * сторожей «до чего дотягивается роль» — `testing/role-rights.test-util.ts`.
  *
  * Исключения — `EXEMPT`, поимённо и с причиной. Мёртвая запись роняет тест.
  *
@@ -65,27 +65,27 @@ const isExempt = (h: ControllerHandler): boolean => EXEMPT.some((e) => h.route =
 const registryReachableByLearner = (): string[] =>
   registryHandlers()
     .filter((h) => !isExempt(h))
-    .filter((h) => reachableByLearner(h.permissions))
+    .filter((h) => reachableBy('learner', h.permissions))
     .map(describeHandler)
     .sort();
 
 describe('правами слушателя не дотянуться до чужого реестра', () => {
   it('набор прав слушателя читается из миграций и совпадает со снимком живой базы', () => {
-    const fromMigrations = new Set(learnerGrantsByMigration().flatMap((g) => g.codes));
+    const fromMigrations = new Set(roleGrantsByMigration('learner').flatMap((g) => g.codes));
     expect(
       [...fromMigrations].sort(),
-      'Миграции выдают слушателю не то, что записано в LEARNER_RIGHTS_SNAPSHOT. Новое право ' +
+      'Миграции выдают слушателю не то, что записано в ROLE_RIGHTS_SNAPSHOT.learner. Новое право ' +
         'слушателя — впишите в снимок и убедитесь, что тест ниже остался зелёным: каждое ' +
         'новое право слушателя заново открывает ручки, которые под ним стоят.'
-    ).toEqual([...LEARNER_RIGHTS_SNAPSHOT].sort());
+    ).toEqual([...ROLE_RIGHTS_SNAPSHOT.learner].sort());
   });
 
   it('каждая выдача слушателю в миграциях прочитана — незнакомая форма не молчит', () => {
-    for (const { migration, codes } of learnerGrantsByMigration()) {
+    for (const { migration, codes } of roleGrantsByMigration('learner')) {
       expect(
         codes.length,
         `${migration}: оператор INSERT в iam.role_permissions упоминает 'learner', но разбор не ` +
-          'нашёл, какие коды он выдаёт. Либо поправьте разбор (learnerCodesIn), либо ' +
+          'нашёл, какие коды он выдаёт. Либо поправьте разбор (roleCodesIn), либо ' +
           'приведите выдачу к одной из известных форм.'
       ).toBeGreaterThan(0);
     }
@@ -117,6 +117,6 @@ describe('правами слушателя не дотянуться до чу�
     // Страховка от немого сторожа: если разбор адресов сломается, ручек реестра не станет
     // и проверка выше позеленеет ни на чём. Их в бэкенде больше двадцати.
     expect(registryHandlers().length).toBeGreaterThanOrEqual(20);
-    expect(learnerGrantsByMigration().length).toBeGreaterThanOrEqual(7);
+    expect(roleGrantsByMigration('learner').length).toBeGreaterThanOrEqual(7);
   });
 });

@@ -80,6 +80,26 @@ describe('короткие меню ролей (IA-013)', () => {
     ]);
   });
 
+  it('меню методиста ведёт только туда, куда пускают его права (журнал 344)', () => {
+    /*
+     * ТЗ §4.4 ставило методисту «Группы» и «Отчёты», но `groups.read` и `learners.read`
+     * у роли нет (сверено по `iam.role_permissions` живой базы): пункты молча не
+     * показывались, и меню добивалось «Мои тесты» / «Мои задания» из кабинета слушателя.
+     * Вместо них — банки вопросов (сборка тестов) и библиотека курсов (сборка программы):
+     * разделы работы методиста, открытые его правами. Сторож `role-menu-reachable`
+     * в бэкенде сверяет каждый чертёж со снимком прав роли.
+     */
+    const methodist = roleBlueprints.find((item) => item.role === 'methodist');
+    expect(methodist?.primaryNav).toEqual([
+      '/methodist',
+      '/courses',
+      '/materials',
+      '/assessment',
+      '/admin/question-banks',
+      '/library'
+    ]);
+  });
+
   it('getSessionRoleBlueprints находит manager по роли сессии', () => {
     const found = getSessionRoleBlueprints(sessionWithRoles(['manager'])).map((item) => item.role);
     expect(found).toEqual(['manager']);
