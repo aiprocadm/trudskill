@@ -1,8 +1,10 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { describe, expect, it } from 'vitest';
+
+import {
+  type ControllerHandler,
+  controllerHandlers,
+  describeHandler
+} from '../testing/controller-inventory.test-util.js';
 
 /**
  * Тринадцатый сторож семейства «объявлено — кто это исполняет»: **изменяющая ручка не
@@ -33,9 +35,6 @@ import { describe, expect, it } from 'vitest';
  * маршрут с правом.
  */
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const BACKEND_SRC = resolve(HERE, '../..');
-
 /** Сегменты кода права, которые означают «смотреть», а не «менять». */
 const READ_WORDS = new Set(['read', 'view', 'list', 'export', 'download']);
 
@@ -59,85 +58,7 @@ const EXEMPT: ReadonlyArray<{ route: string; why: string }> = [
   }
 ];
 
-const sources = (dir: string): string[] => {
-  const files: string[] = [];
-  for (const entry of readdirSync(dir)) {
-    const full = resolve(dir, entry);
-    if (statSync(full).isDirectory()) {
-      files.push(...sources(full));
-      continue;
-    }
-    if (entry.endsWith('.controller.ts') && !entry.includes('.test.')) files.push(full);
-  }
-  return files;
-};
-
-/** Строка — часть декораторной обвязки, а не тела метода: `@…`, комментарий или закрывающая скобка. */
-const DECORATOR_LINE = /^\s*(?:@|\/\/|\/?\*|[)}\]]+,?\s*$)/;
-/** Сигнатура метода контроллера: `name(` или `async name(`; декораторы сюда не попадают. */
-const METHOD_SIGNATURE =
-  /^\s*(?:public\s+|private\s+|protected\s+)?(?:async\s+)?([A-Za-z_$][\w$]*)\s*(?:<[^>]*>)?\s*\(/;
-const CLASS_LINE = /^\s*(?:export\s+)?(?:abstract\s+)?class\s+([A-Za-z_$][\w$]*)/;
-const ROUTE_DECORATOR = /^\s*@(Get|Post|Put|Patch|Delete|All|Head|Options)\((?:'([^']*)')?\)/;
-const CONTROLLER_PREFIX = /@Controller\((?:'([^']*)')?\)/;
-const REQUIRE_PERMISSIONS = /@RequirePermissions\(([^)]*)\)/g;
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
-
-const joinRoute = (prefix: string, path: string): string =>
-  '/' + [prefix, path].filter(Boolean).join('/').replace(/^\/+/, '').replace(/\/+/g, '/');
-
-type Handler = {
-  file: string;
-  line: number;
-  route: string;
-  className: string;
-  method: string;
-  /** Все коды из `@RequirePermissions` на обработчике и на классе. */
-  permissions: string[];
-};
-
-const permissionsIn = (cluster: string): string[] =>
-  [...cluster.matchAll(REQUIRE_PERMISSIONS)].flatMap((m) =>
-    [...m[1]!.matchAll(/'([^']+)'/g)].map((code) => code[1]!)
-  );
-
-const handlers = (): Handler[] => {
-  const out: Handler[] = [];
-  for (const file of sources(BACKEND_SRC)) {
-    const text = readFileSync(file, 'utf8');
-    const prefix = CONTROLLER_PREFIX.exec(text)?.[1] ?? '';
-    const lines = text.split('\n');
-
-    for (let index = 0; index < lines.length; index += 1) {
-      const route = ROUTE_DECORATOR.exec(lines[index] ?? '');
-      if (!route) continue;
-
-      let start = index;
-      while (start > 0 && DECORATOR_LINE.test(lines[start - 1] ?? '')) start -= 1;
-      let end = index;
-      while (end < lines.length - 1 && !METHOD_SIGNATURE.test(lines[end + 1] ?? '')) end += 1;
-      const cluster = lines.slice(start, end + 1).join('\n');
-      const method = METHOD_SIGNATURE.exec(lines[end + 1] ?? '')?.[1] ?? '<метод не найден>';
-
-      let classLine = start;
-      while (classLine > 0 && !CLASS_LINE.test(lines[classLine] ?? '')) classLine -= 1;
-      let classStart = classLine;
-      while (classStart > 0 && DECORATOR_LINE.test(lines[classStart - 1] ?? '')) classStart -= 1;
-      const classCluster = lines.slice(classStart, classLine).join('\n');
-      const className = CLASS_LINE.exec(lines[classLine] ?? '')?.[1] ?? '<класс не найден>';
-
-      out.push({
-        file: file.slice(BACKEND_SRC.length + 1),
-        line: index + 1,
-        route: `${route[1]!.toUpperCase()} ${joinRoute(prefix, route[2] ?? '')}`,
-        className,
-        method,
-        permissions: [...permissionsIn(cluster), ...permissionsIn(classCluster)]
-      });
-    }
-  }
-  return out;
-};
 
 /**
  * Глагол права — последний сегмент (`regulatory.export.write` — «писать», хотя в середине
@@ -150,19 +71,18 @@ const isReadLike = (code: string): boolean => {
 };
 
 /** Мутации, у которых объявлено хотя бы одно право. */
-const guardedMutations = (): Handler[] =>
-  handlers().filter((h) => MUTATING.has(h.route.split(' ')[0]!) && h.permissions.length > 0);
+const guardedMutations = (): ControllerHandler[] =>
+  controllerHandlers().filter(
+    (h) => MUTATING.has(h.route.split(' ')[0]!) && h.permissions.length > 0
+  );
 
-const isExempt = (h: Handler): boolean => EXEMPT.some((e) => h.route === e.route);
+const isExempt = (h: ControllerHandler): boolean => EXEMPT.some((e) => h.route === e.route);
 
 const mutationsUnderReadOnly = (): string[] =>
   guardedMutations()
     .filter((h) => !isExempt(h))
     .filter((h) => h.permissions.every(isReadLike))
-    .map(
-      (h) =>
-        `${h.route} [${h.permissions.join(', ')}] — ${h.file}:${h.line} ${h.className}.${h.method}`
-    )
+    .map(describeHandler)
     .sort();
 
 describe('изменяющая ручка не закрыта одним лишь правом «смотреть»', () => {
@@ -192,6 +112,6 @@ describe('изменяющая ручка не закрыта одним лиш�
     // Страховка от немого сторожа: если разбор прав сломается, мутаций «под правом» не
     // станет и проверка выше позеленеет ни на чём. Их в бэкенде больше двухсот.
     expect(guardedMutations().length).toBeGreaterThanOrEqual(200);
-    expect(handlers().length).toBeGreaterThanOrEqual(100);
+    expect(controllerHandlers().length).toBeGreaterThanOrEqual(100);
   });
 });
