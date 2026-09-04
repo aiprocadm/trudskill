@@ -167,7 +167,8 @@ describe('E-sign HTTP integration (permission boundaries)', () => {
           } else if (isParticipantInvite) {
             required = ['esign.processes.write'];
           } else if (isReuseCheck) {
-            required = ['esign.applications.read'];
+            // Журнал 340: reuse-check переводит заявку в `reused` — это ведение заявок, не чтение.
+            required = ['esign.applications.write'];
           } else if (isParticipantSign) {
             required = ['esign.participants.sign'];
           } else if (isSubmit) {
@@ -330,7 +331,7 @@ describe('E-sign HTTP integration (permission boundaries)', () => {
 
       @Post('applications/:id/reuse-check')
       @UseGuards(TestPermissionGuard)
-      @RequirePermissions('esign.applications.read')
+      @RequirePermissions('esign.applications.write')
       reuseCheckStub(@CurrentContext() context: { tenantId?: string }, @Param('id') id: string) {
         return { id, tenantId: context.tenantId, reusable: true };
       }
@@ -861,8 +862,9 @@ describe('E-sign HTTP integration (permission boundaries)', () => {
     expect(payload.meta.requestId).toBeTruthy();
   });
 
-  it('returns permission_denied for POST …/applications/:id/reuse-check without esign.applications.read', async () => {
-    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['esign.processes.read']);
+  it('returns permission_denied for POST …/applications/:id/reuse-check with only esign.applications.read', async () => {
+    // Менеджер «только смотрит» (0085): право читать заявки не даёт переводить их в `reused`.
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['esign.applications.read']);
     const token = issueSignedAccessToken(
       {
         sub: 'u_esign_proc_reuse',
@@ -893,8 +895,8 @@ describe('E-sign HTTP integration (permission boundaries)', () => {
     expect(payload.meta.requestId).toBeTruthy();
   });
 
-  it('returns success envelope for POST …/applications/:id/reuse-check with esign.applications.read', async () => {
-    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['esign.applications.read']);
+  it('returns success envelope for POST …/applications/:id/reuse-check with esign.applications.write', async () => {
+    iamServiceMock.resolvePermissions.mockResolvedValueOnce(['esign.applications.write']);
     const token = issueSignedAccessToken(
       {
         sub: 'u_esign_reuse_reader',

@@ -104,9 +104,11 @@ export class EsignController {
     const b = assertValidDto(EsignReasonDto, raw);
     return this.esignService.rejectApplication(c.tenantId!, c.userId, id, b);
   }
+  // Журнал 340: по имени — проверка, по делу — переход одобренной заявки в `reused` и запись в
+  // юридический журнал. Это ведение заявок (0085: «менеджер — только смотрит»), а не чтение.
   @Post('applications/:id/reuse-check')
   @UseGuards(PermissionGuard)
-  @RequirePermissions('esign.applications.read')
+  @RequirePermissions('esign.applications.write')
   reuseCheck(@CurrentContext() c: RequestContext, @Param('id') id: string) {
     return this.esignService.reuseCheck(c.tenantId!, c.userId, id);
   }

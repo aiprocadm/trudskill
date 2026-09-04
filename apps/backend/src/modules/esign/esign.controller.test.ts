@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { EsignController } from './esign.controller.js';
+import { REQUIRED_PERMISSIONS } from '../iam/permission.decorator.js';
 
 import type { EsignService } from './esign.service.js';
 import type { RequestContext } from '../../common/context/request-context.js';
@@ -106,4 +107,22 @@ describe('EsignController — делегирование под тенантом
       expect(result).toEqual({ delegated: calls[0]!.method });
     });
   }
+});
+
+/**
+ * Право на `reuse-check` (журнал 340).
+ *
+ * По имени — проверка, по делу — переход одобренной заявки в `reused` и запись в юридический
+ * журнал. Стояло `esign.applications.read`, которое сид 0085 выдаёт менеджеру со словами
+ * «менеджер — только смотрит». Ведение заявок в том же сиде — `esign.applications.write`
+ * (администрация и методист); его и требует ручка.
+ */
+describe('EsignController — reuse-check меняет заявку, поэтому требует права вести заявки', () => {
+  it('reuseCheck закрыт esign.applications.write, а не read', () => {
+    const required = Reflect.getMetadata(
+      REQUIRED_PERMISSIONS,
+      EsignController.prototype.reuseCheck
+    ) as string[] | undefined;
+    expect(required).toEqual(['esign.applications.write']);
+  });
 });
