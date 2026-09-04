@@ -27,7 +27,9 @@ const adminSession: UserSession = {
     'groups.read',
     // Фаза 6 Task 1: раздел отчётов закрыт `learners.read`. У роли tenant_admin оно
     // в живой базе есть — фикстура догоняет действительность, а не обходит проверку.
-    'learners.read'
+    'learners.read',
+    // Журнал 343: оперативная панель закрыта своим правом (0091) — у tenant_admin оно есть.
+    'workspace.read'
   ]
 };
 

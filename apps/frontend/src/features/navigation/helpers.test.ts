@@ -58,7 +58,8 @@ describe('navigation helpers', () => {
   });
 
   it('resolves workspace route metadata', () => {
-    expect(resolveRouteMeta('/workspace')?.requiredPermissions).toEqual(['tenant.read']);
+    // Журнал 343: своё право (0091), а не `tenant.read`, которое есть и у слушателя.
+    expect(resolveRouteMeta('/workspace')?.requiredPermissions).toEqual(['workspace.read']);
   });
 
   it('normalizes route with query params and trailing slash', () => {
@@ -82,10 +83,12 @@ describe('navigation helpers', () => {
     expect(unreachable).toEqual([]);
   });
 
-  it('shows workspace in navigation for tenant.read permission', () => {
+  it('shows workspace in navigation for workspace.read permission', () => {
+    const staff = { ...adminSession, permissions: ['workspace.read'] };
+    expect(getVisibleNavigation(staff).map((item) => item.href)).toContain('/workspace');
+    // Журнал 343: `tenant.read` есть у слушателя — под ним панель ему больше не показывается.
     const tenantViewer = { ...adminSession, permissions: ['tenant.read'] };
-    const visible = getVisibleNavigation(tenantViewer).map((item) => item.href);
-    expect(visible).toContain('/workspace');
+    expect(getVisibleNavigation(tenantViewer).map((item) => item.href)).not.toContain('/workspace');
   });
 
   it('builds compact main menu with extra items in "more"', () => {
@@ -125,10 +128,12 @@ describe('navigation helpers', () => {
 
   // === Фаза 2 — сироты, заглушки, русификация ===
 
-  it('routeMeta: сирота /admin/issuance-journal доступен как /documents (tenant.read)', () => {
+  it('routeMeta: сирота /admin/issuance-journal доступен как /documents (documents.read)', () => {
+    // Журнал 343: право ручки GET /admin/documents/issuance-journal, то же, что у /documents.
     expect(resolveRouteMeta('/admin/issuance-journal')?.requiredPermissions).toEqual([
-      'tenant.read'
+      'documents.read'
     ]);
+    expect(resolveRouteMeta('/documents')?.requiredPermissions).toEqual(['documents.read']);
   });
 
   it('routeMeta: сирота /admin/licenses — админ-only (auth.manage_sessions)', () => {

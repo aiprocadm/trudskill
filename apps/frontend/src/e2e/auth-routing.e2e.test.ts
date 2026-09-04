@@ -15,7 +15,9 @@ const authorizedSession: UserSession = {
   },
   tokens: { accessToken: 'a', sessionId: 's1', expiresIn: 100 },
   roles: ['tenant_admin'],
-  permissions: ['tenant.read', 'iam.manage_roles', 'auth.manage_sessions']
+  // Журнал 343: «Документы» закрыты правом их ручек — `documents.read`. У tenant_admin оно
+  // в живой базе есть; фикстура догоняет действительность, а не обходит проверку.
+  permissions: ['tenant.read', 'documents.read', 'iam.manage_roles', 'auth.manage_sessions']
 };
 
 describe('auth and routing e2e scenarios (logic-level)', () => {

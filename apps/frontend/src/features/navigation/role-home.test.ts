@@ -94,8 +94,9 @@ describe('resolveRoleHome (ФТ-H2, Фаза 5 Task 1)', () => {
     // которое ей выдаёт миграция, — и этого должно хватать, чтобы дойти до дома.
     const byRole: Array<[string, string[], string]> = [
       ['counterparty_rep', ['portal.read'], '/counterparty-portal'],
-      ['tenant_admin', ['tenant.read'], '/workspace'],
-      ['platform_admin', ['tenant.read'], '/workspace'],
+      // Журнал 343: панель под своим правом (0091), обеим ролям администрации оно выдано.
+      ['tenant_admin', ['workspace.read'], '/workspace'],
+      ['platform_admin', ['workspace.read'], '/workspace'],
       // У методиста нет прав на группы и зачисления — сводка открывается `courses.read`.
       ['methodist', ['courses.read'], '/methodist'],
       ['manager', ['groups.read'], '/groups']

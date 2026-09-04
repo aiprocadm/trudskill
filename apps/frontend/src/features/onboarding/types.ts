@@ -50,7 +50,9 @@ export const ONBOARDING_STEP_META: Record<OnboardingStepId, OnboardingStepMeta> 
     title: 'Реквизиты центра',
     hint: 'Название организации и ИНН — они попадают в удостоверения и протоколы.',
     href: '/academy/requisites',
-    requiredPermission: 'tenant.read',
+    // Право ДЕЙСТВИЯ — сохранить реквизиты (PUT /tenant/requisites, 0083). Прежде стояло
+    // `tenant.read`: мастер говорил «можно», а ручка отвечала отказом (журнал 343).
+    requiredPermission: 'tenant.settings.write',
     accessLabel: 'к реквизитам центра'
   },
   license: {

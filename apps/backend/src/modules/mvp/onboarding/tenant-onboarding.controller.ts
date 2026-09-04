@@ -9,9 +9,12 @@ import { PermissionGuard } from '../../iam/permission.guard.js';
 import type { RequestContext } from '../../../common/context/request-context.js';
 
 /**
- * ФТ-D2.3: статус онбординга центра. Право `tenant.read` — видеть, что уже настроено,
- * безобидно для любого сотрудника; каждый шаг записывается СВОИМ правом (реквизиты,
- * лицензии, бренд, комиссии, шаблоны, курсы) на своих экранах — мастер их не дублирует.
+ * ФТ-D2.3: статус онбординга центра. Настройка центра — дело его администрации, поэтому
+ * право — то же, что у реквизитов (`tenant.settings.write`, 0083) и у экрана `/onboarding`.
+ * Прежде стояло `tenant.read` «безобидно для любого сотрудника» — но оно есть и у
+ * слушателя, и он видел ход настройки центра (журнал 343). Каждый шаг записывается СВОИМ
+ * правом (реквизиты, лицензии, бренд, комиссии, шаблоны, курсы) на своих экранах — мастер
+ * их не дублирует.
  */
 @Controller('tenant')
 @UseGuards(TenantGuard)
@@ -22,7 +25,7 @@ export class TenantOnboardingController {
 
   @Get('onboarding')
   @UseGuards(PermissionGuard)
-  @RequirePermissions('tenant.read')
+  @RequirePermissions('tenant.settings.write')
   getStatus(@CurrentContext() c: RequestContext) {
     return this.onboarding.getStatus(c.tenantId!);
   }

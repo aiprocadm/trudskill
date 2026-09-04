@@ -71,8 +71,11 @@ describe('getGroupedNavigation', () => {
   });
 
   it('порядок блоков соответствует исходному порядку NAV_GROUPS (порядок ТЗ)', () => {
-    // tenant.read освещает несколько несоседних блоков (overview … settings).
-    const ids = getGroupedNavigation(sessionWith(['tenant.read'])).map((g) => g.id);
+    // Права сотрудника освещают несколько несоседних блоков (overview … settings):
+    // `tenant.read` — сообщения, `workspace.read` — панель, `tenant.settings.write` — центр.
+    const ids = getGroupedNavigation(
+      sessionWith(['tenant.read', 'workspace.read', 'tenant.settings.write'])
+    ).map((g) => g.id);
     // getGroupedNavigation не должен переупорядочивать блоки: результат — это NAV_GROUPS
     // в исходном порядке, суженный до непустых блоков.
     const expectedOrder = NAV_GROUPS.map((g) => g.id).filter((id) => ids.includes(id));
