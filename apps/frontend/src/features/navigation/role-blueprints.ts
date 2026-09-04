@@ -80,7 +80,18 @@ export const roleBlueprints: RoleBlueprint[] = [
       'Передать курс на публикацию',
       'Найти пробелы в программах'
     ],
-    primaryNav: ['/methodist', '/courses', '/materials', '/assessment', '/groups', '/reports']
+    // ТЗ §4.4 ставило сюда «Группы» и «Отчёты», но `groups.read` и `learners.read` у роли
+    // нет (живая `iam.role_permissions`): пункты молча не показывались, а меню добивалось
+    // кабинетом слушателя (журнал 344). Вместо них — банки вопросов и библиотека курсов:
+    // разделы работы методиста, открытые его правами. Сторож: `role-menu-reachable`.
+    primaryNav: [
+      '/methodist',
+      '/courses',
+      '/materials',
+      '/assessment',
+      '/admin/question-banks',
+      '/library'
+    ]
   },
   {
     role: 'teacher',

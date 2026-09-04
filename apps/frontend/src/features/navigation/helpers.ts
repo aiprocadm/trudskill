@@ -54,8 +54,38 @@ export const getVisibleNavigation = (session: UserSession | null) => {
   );
 };
 
+/** Кабинет слушателя: «Моё обучение», «Мои тесты», «Мои документы» — разделы «за себя». */
+const isLearnerCabinet = (href: string) => href === '/learner' || href.startsWith('/learner/');
+
+/** Пункты без адресата — общие для любой роли. */
+const SHARED_NAV = new Set(['/', '/notifications', '/chat', '/learning/calendar']);
+
+/*
+ * Журнал 344, 345. Права у сотрудника и слушателя пересекаются (`courses.read`,
+ * `assessment.tests.read` есть у обоих по 0038), поэтому «видно по правам» — ещё не «своё»:
+ * менеджеру по правам виден весь кабинет слушателя, и им добивалось его главное меню;
+ * слушателю по правам видны «Курсы», «Тесты», «Задания» сотрудников — дубли его кабинета
+ * в чужой терминологии, а «Обучение: сводка» отвечала ему отказом. Меню собирается для
+ * адресата: сотруднику — разделы сотрудника, слушателю — его кабинет, общее — всем.
+ * Адресат — по чертежам ролей сессии; без чертежа (представитель заказчика, незнакомая
+ * роль) фильтра нет — показывается всё, что открыто правами. Права это не трогает:
+ * палитра (`getVisibleNavigation`) и доступ по адресу (`evaluateRouteAccess`) — как были.
+ */
+const forAudience = (
+  items: ReturnType<typeof getVisibleNavigation>,
+  session: UserSession | null
+) => {
+  const blueprints = getSessionRoleBlueprints(session);
+  if (!blueprints.length) return items;
+  const asLearner = blueprints.some((item) => item.role === 'learner');
+  const asStaff = blueprints.some((item) => item.role !== 'learner');
+  return items.filter(
+    (item) => SHARED_NAV.has(item.href) || (isLearnerCabinet(item.href) ? asLearner : asStaff)
+  );
+};
+
 export const getNavigationView = (session: UserSession | null) => {
-  const visible = getVisibleNavigation(session);
+  const visible = forAudience(getVisibleNavigation(session), session);
   const baseMain = visible.filter((item) => item.navSlot !== 'more');
   const baseMore = visible.filter((item) => item.navSlot === 'more');
   const roleOrder = getSessionRoleBlueprints(session).flatMap((item) => item.primaryNav);

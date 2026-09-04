@@ -1,14 +1,15 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { describe, expect, it } from 'vitest';
 
 import {
-  LEARNER_RIGHTS_SNAPSHOT,
-  learnerGrantsByMigration,
-  reachableByLearner
-} from '../testing/learner-rights.test-util.js';
+  type Screen,
+  arrayBody,
+  readNavigationModel
+} from '../testing/navigation-model.test-util.js';
+import {
+  ROLE_RIGHTS_SNAPSHOT,
+  reachableBy,
+  roleGrantsByMigration
+} from '../testing/role-rights.test-util.js';
 
 /**
  * Пятнадцатый сторож семейства «объявлено — кто это исполняет»: **правами слушателя не
@@ -33,19 +34,17 @@ import {
  * общий экран из `SHARED`, поимённо и с причиной. «Достижимый» — все объявленные права
  * входят в набор слушателя; без прав вовсе — достижим любым вошедшим и тоже считается.
  * Набор прав слушателя — из миграций со сверкой по снимку живой базы
- * (`testing/learner-rights.test-util.ts`), общий с `learner-reaches-registry`: новая выдача
+ * (`testing/role-rights.test-util.ts`), общий с `learner-reaches-registry`: новая выдача
  * слушателю проходит оба сторожа «до чего дотягивается слушатель» сразу.
  *
  * Сторож живёт в бэкенде, хотя читает фронт: набор прав слушателя — знание миграций.
- * Карта читается с диска регулярным выражением, без сборки фронта; незнакомая форма записи
- * роняет отдельный тест, а не молчит.
+ * Карта читается с диска регулярным выражением, без сборки фронта
+ * (`testing/navigation-model.test-util.ts`); незнакомая форма записи роняет отдельный
+ * тест, а не молчит.
  *
  * Проверено подсадным нарушителем: экран «Документы» под `tenant.read` роняет тест и
  * называет адрес с правом; мёртвая запись в `SHARED` роняет свой тест.
  */
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-const NAVIGATION_MODEL = resolve(HERE, '../../../../frontend/src/features/navigation/model.ts');
 
 /**
  * Экраны, которые слушатель видит по праву, — с причиной. Это не «сотрудники», а общее для
@@ -88,56 +87,6 @@ const SHARED: ReadonlyArray<{ path: string; why: string }> = [
   }
 ];
 
-type Screen = { kind: 'экран' | 'пункт меню'; path: string; permissions: string[] };
-
-/** Комментарии из TypeScript — до разбора: в них тоже встречаются `pattern:` и `href:`. */
-const stripComments = (source: string): string =>
-  source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-
-/** Тело массива `export const <name>… = [ … ];` (закрывающая скобка — с начала строки). */
-const arrayBody = (source: string, name: string): string => {
-  const match = new RegExp(`export const ${name}\\b[^=]*=\\s*\\[([\\s\\S]*?)\\n\\];`).exec(source);
-  if (!match) throw new Error(`в карте навигации не найден массив ${name}`);
-  return match[1]!;
-};
-
-const codesIn = (list: string | undefined): string[] =>
-  [...(list ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1]!);
-
-const ROUTE_ENTRY = /\{\s*pattern:\s*'([^']+)'\s*,\s*meta:\s*\{([^}]*)\}\s*\}/g;
-const NAV_ENTRY = /\{([^{}]*)\}/g;
-
-const readModel = (): { routes: Screen[]; nav: Screen[]; source: string } => {
-  expect(existsSync(NAVIGATION_MODEL), `не найдена карта навигации: ${NAVIGATION_MODEL}`).toBe(
-    true
-  );
-  const source = stripComments(readFileSync(NAVIGATION_MODEL, 'utf8'));
-
-  const routes: Screen[] = [];
-  for (const m of arrayBody(source, 'routeMeta').matchAll(ROUTE_ENTRY)) {
-    const meta = m[2]!;
-    if (/public:\s*true/.test(meta)) continue;
-    routes.push({
-      kind: 'экран',
-      path: m[1]!,
-      permissions: codesIn(/requiredPermissions:\s*\[([^\]]*)\]/.exec(meta)?.[1])
-    });
-  }
-
-  const nav: Screen[] = [];
-  for (const m of arrayBody(source, 'navigationModel').matchAll(NAV_ENTRY)) {
-    const entry = m[1]!;
-    const href = /href:\s*'([^']+)'/.exec(entry)?.[1];
-    if (!href) continue;
-    nav.push({
-      kind: 'пункт меню',
-      path: href,
-      permissions: codesIn(/requiredPermissions:\s*\[([^\]]*)\]/.exec(entry)?.[1])
-    });
-  }
-  return { routes, nav, source };
-};
-
 const isLearnerScreen = (path: string): boolean =>
   path === '/learner' || path.startsWith('/learner/');
 
@@ -146,23 +95,23 @@ const isShared = (path: string): boolean => SHARED.some((s) => s.path === path);
 const describeScreen = (s: Screen): string => `${s.kind} ${s.path} [${s.permissions.join(', ')}]`;
 
 const staffScreensReachableByLearner = (): string[] => {
-  const { routes, nav } = readModel();
+  const { routes, nav } = readNavigationModel();
   return [...routes, ...nav]
     .filter((s) => !isLearnerScreen(s.path) && !isShared(s.path))
-    .filter((s) => reachableByLearner(s.permissions))
+    .filter((s) => reachableBy('learner', s.permissions))
     .map(describeScreen)
     .sort();
 };
 
 describe('правами слушателя не дотянуться до экрана сотрудника', () => {
   it('набор прав слушателя читается из миграций и совпадает со снимком живой базы', () => {
-    const fromMigrations = new Set(learnerGrantsByMigration().flatMap((g) => g.codes));
+    const fromMigrations = new Set(roleGrantsByMigration('learner').flatMap((g) => g.codes));
     expect(
       [...fromMigrations].sort(),
-      'Миграции выдают слушателю не то, что записано в LEARNER_RIGHTS_SNAPSHOT. Новое право ' +
+      'Миграции выдают слушателю не то, что записано в ROLE_RIGHTS_SNAPSHOT.learner. Новое право ' +
         'слушателя — впишите в снимок и убедитесь, что тест ниже остался зелёным: каждое ' +
         'новое право слушателя заново открывает экраны, которые под ним стоят.'
-    ).toEqual([...LEARNER_RIGHTS_SNAPSHOT].sort());
+    ).toEqual([...ROLE_RIGHTS_SNAPSHOT.learner].sort());
   });
 
   it('ни один экран сотрудника и ни один пункт меню не достижимы правами слушателя', () => {
@@ -179,7 +128,7 @@ describe('правами слушателя не дотянуться до эк�
   });
 
   it('каждая запись SHARED ещё существует — мёртвых записей нет', () => {
-    const { routes, nav } = readModel();
+    const { routes, nav } = readNavigationModel();
     const paths = new Set([...routes, ...nav].map((s) => s.path));
     for (const { path } of SHARED) {
       expect(
@@ -190,7 +139,7 @@ describe('правами слушателя не дотянуться до эк�
   });
 
   it('карта навигации прочитана целиком — незнакомая форма записи не молчит', () => {
-    const { routes, nav, source } = readModel();
+    const { routes, nav, source } = readNavigationModel();
     const routeBody = arrayBody(source, 'routeMeta');
     const navBody = arrayBody(source, 'navigationModel');
     const publicRoutes = (routeBody.match(/public:\s*true/g) ?? []).length;

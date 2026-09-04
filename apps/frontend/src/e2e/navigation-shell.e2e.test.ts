@@ -24,6 +24,16 @@ const readShellSource = (name: string) =>
     'utf8'
   );
 
+/*
+ * Журнал 344, 345 (§5.419). Администратору по правам виден и кабинет слушателя
+ * (`/learner/**`), но меню собирается для адресата: сотруднику — разделы сотрудника.
+ * Поэтому «всё видимое» для сотрудника — видимое минус кабинет слушателя; что вычтен
+ * ровно он и ничего больше, проверяет отдельный тест ниже.
+ */
+const isLearnerCabinet = (href: string) => href === '/learner' || href.startsWith('/learner/');
+const staffMenuOf = (session: UserSession) =>
+  getVisibleNavigation(session).filter((item) => !isLearnerCabinet(item.href));
+
 const shellSource = readShellSource('app-shell.tsx');
 const paletteSource = readShellSource('command-palette.tsx');
 
@@ -100,7 +110,7 @@ describe('оболочка приложения', () => {
    */
   it('MET-002: остаток в «Ещё» посчитан, а не оставлен без присмотра', () => {
     const view = getNavigationView(adminSession);
-    expect(view.main.length + view.more.length).toBe(getVisibleNavigation(adminSession).length);
+    expect(view.main.length + view.more.length).toBe(staffMenuOf(adminSession).length);
     expect(
       view.more.length,
       'в «Ещё» стало больше пунктов, чем было при замере. Это не запрет — это повод ' +
@@ -111,10 +121,22 @@ describe('оболочка приложения', () => {
   it('GOAL-5: ни один видимый пункт не потерян — main + more покрывают всё', () => {
     const view = getNavigationView(adminSession);
     const shown = [...view.main, ...view.more].map((item) => item.href).sort();
-    const visible = getVisibleNavigation(adminSession)
+    expect(shown).toEqual(
+      staffMenuOf(adminSession)
+        .map((item) => item.href)
+        .sort()
+    );
+  });
+
+  it('GOAL-5: из меню сотрудника вычтен ровно кабинет слушателя — и ничего кроме', () => {
+    const view = getNavigationView(adminSession);
+    const shown = new Set([...view.main, ...view.more].map((item) => item.href));
+    const dropped = getVisibleNavigation(adminSession)
       .map((item) => item.href)
-      .sort();
-    expect(shown).toEqual(visible);
+      .filter((href) => !shown.has(href));
+    expect(dropped.filter((href) => !isLearnerCabinet(href))).toEqual([]);
+    // Кабинет по правам администратору виден целиком — и целиком не показан.
+    expect(dropped.length).toBeGreaterThanOrEqual(8);
   });
 
   it('пункт не может оказаться одновременно в главном меню и в «Ещё»', () => {

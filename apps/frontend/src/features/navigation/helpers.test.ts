@@ -210,9 +210,101 @@ describe('состав меню после Фазы 1 редизайна (IA-011
   it('ни один доступный пункт не теряется между главным меню и «Ещё»', () => {
     const view = getNavigationView(fullAdmin);
     const shown = new Set([...view.main, ...view.more].map((item) => item.href));
+    // Журнал 345: кабинет слушателя (`/learner/**`) — не раздел администратора; в его меню
+    // он не показывается сознательно (правило адресата ниже). Остальное — без потерь.
     for (const item of getVisibleNavigation(fullAdmin)) {
+      if (item.href === '/learner' || item.href.startsWith('/learner/')) continue;
       expect(shown, item.href).toContain(item.href);
     }
+  });
+});
+
+describe('меню собирается для адресата — сотруднику своё, слушателю своё (журнал 344, 345)', () => {
+  /*
+   * Права — по `iam.role_permissions` живой базы (2026-09-04), подмножеством, которого
+   * хватает, чтобы воспроизвести: у методиста есть чтение курсов, материалов, тестов и
+   * заданий — то есть по правам ему видны и «Мои тесты» / «Мои задания» из кабинета
+   * слушателя, и ими getNavigationView добивал его главное меню до семи. У слушателя есть
+   * те же `courses.read` / `assessment.tests.read` — и в его «Ещё» попадали «Курсы»,
+   * «Тесты», «Задания» сотрудников: дубли его кабинета в чужой терминологии.
+   */
+  const withRoles = (roles: string[], permissions: string[]): UserSession => ({
+    ...adminSession,
+    roles,
+    permissions
+  });
+  const staffRights = [
+    'tenant.read',
+    'courses.read',
+    'materials.read',
+    'assessment.tests.read',
+    'assessment.assignments.read',
+    'assessment.question_banks.read'
+  ];
+  const learnerRights = [
+    'tenant.read',
+    'courses.read',
+    'materials.read',
+    'enrollments.read',
+    'assessment.tests.read',
+    'assessment.assignments.read'
+  ];
+  const isLearnerCabinet = (href: string) => href === '/learner' || href.startsWith('/learner/');
+  const shared = new Set(['/', '/notifications', '/chat', '/learning/calendar']);
+  const hrefs = (items: Array<{ href: string }>) => items.map((item) => item.href);
+
+  it('главное меню сотрудника не добивается кабинетом слушателя', () => {
+    const view = getNavigationView(withRoles(['methodist'], staffRights));
+    expect(hrefs(view.main).filter(isLearnerCabinet)).toEqual([]);
+  });
+
+  it('в «Ещё» сотрудника нет кабинета слушателя', () => {
+    // Менеджер: по живой базе у него есть enrollments.read — им открыт весь кабинет слушателя.
+    const manager = withRoles(
+      ['manager'],
+      ['tenant.read', 'groups.read', 'learners.read', 'enrollments.read', 'courses.read']
+    );
+    const view = getNavigationView(manager);
+    expect(hrefs([...view.main, ...view.more]).filter(isLearnerCabinet)).toEqual([]);
+  });
+
+  it('слушатель не видит разделов сотрудников ни в главном меню, ни в «Ещё»', () => {
+    const view = getNavigationView(withRoles(['learner'], learnerRights));
+    const foreign = hrefs([...view.main, ...view.more]).filter(
+      (href) => !isLearnerCabinet(href) && !shared.has(href)
+    );
+    expect(foreign).toEqual([]);
+  });
+
+  it('слушатель по-прежнему видит свой кабинет и общие пункты', () => {
+    const view = getNavigationView(withRoles(['learner'], learnerRights));
+    const shown = hrefs([...view.main, ...view.more]);
+    expect(shown).toContain('/learner');
+    expect(shown).toContain('/learner/tests');
+    expect(shown).toContain('/learning/calendar');
+    expect(shown).toContain('/');
+  });
+
+  it('у человека с ролями преподавателя и слушателя — и то и другое', () => {
+    const view = getNavigationView(withRoles(['teacher', 'learner'], learnerRights));
+    const shown = hrefs([...view.main, ...view.more]);
+    expect(shown).toContain('/learner/tests');
+    expect(shown).toContain('/courses');
+  });
+
+  it('роль без чертежа меню (представитель заказчика) видит всё, что открыто правами', () => {
+    const session = withRoles(['counterparty_rep'], ['portal.read', 'courses.read']);
+    const shown = new Set(
+      hrefs([...getNavigationView(session).main, ...getNavigationView(session).more])
+    );
+    for (const item of getVisibleNavigation(session)) {
+      expect(shown, item.href).toContain(item.href);
+    }
+  });
+
+  it('пункт, который сессия видит по правам, никуда не пропадает из палитры — фильтр только для меню', () => {
+    const session = withRoles(['learner'], learnerRights);
+    expect(hrefs(getVisibleNavigation(session))).toContain('/courses');
   });
 });
 
