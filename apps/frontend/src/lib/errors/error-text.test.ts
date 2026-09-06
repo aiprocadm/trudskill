@@ -201,4 +201,92 @@ describe('TXT-004 · разбор пойманной ошибки', () => {
     expect(errorDetailsLine(error)).toContain('domain_rule_violation');
     expect(humanErrorMessage(error)).not.toContain('domain_rule_violation');
   });
+  /*
+   * Ревизия 2026-09-06 (§5.422) — класс «текст ошибки отвечает коду, а не статусу».
+   *
+   * Словарь знал 34 кода из 167. Остальные отвечали запасным текстом по статусу — и там, где
+   * статус смысла не несёт, человек читал неправду. Ниже — по одному случаю на каждый статус,
+   * который врал; в каждом проверяется и то, что человек теперь читает, и то, чего он больше
+   * НЕ читает.
+   */
+  it('409 не выдаёт исчерпанный тариф за дубликат записи', () => {
+    const text = humanErrorMessage(
+      err({ status: 409, code: 'staff_limit_reached', message: 'Staff limit reached' })
+    );
+
+    expect(text).toContain('тариф');
+    expect(text).not.toContain('Такая запись уже есть');
+  });
+
+  it('503 не советует «повторить через минуту» там, где повтор не поможет', () => {
+    const text = humanErrorMessage(
+      err({ status: 503, code: 'esia_disabled', message: 'Вход через Госуслуги недоступен' })
+    );
+
+    expect(text).toContain('Госуслуги');
+    expect(text).not.toContain('Повторите через минуту');
+    expect(text).not.toContain('Сбой на стороне сервера');
+  });
+
+  it('422 не советует «повторите ещё раз» — сервер понял запрос и отказал по существу', () => {
+    const text = humanErrorMessage(
+      err({
+        status: 422,
+        code: 'esia_snils_mismatch',
+        message: 'СНИЛС в Госуслугах не совпадает с вашими данными'
+      })
+    );
+
+    expect(text).toContain('учебный центр');
+    expect(text).not.toContain('Повторите ещё раз');
+  });
+
+  it('412 говорит слушателю, что именно открыть, а не «обновите страницу»', () => {
+    const text = humanErrorMessage(
+      err({ status: 412, code: 'module_gate_locked', message: 'Module test must be passed first' })
+    );
+
+    expect(text).toContain('предыдущ');
+    expect(text).not.toContain('какого шага не хватает');
+  });
+
+  it('401 на неверный пароль говорит про пароль, а не только «войдите заново»', () => {
+    const text = humanErrorMessage(
+      err({ status: 401, code: 'invalid_credentials', message: 'Invalid credentials' })
+    );
+
+    expect(text).toContain('пароль');
+    expect(text).not.toContain('срок сессии истёк');
+  });
+
+  it('403 не советует просить права там, где дело в тарифе', () => {
+    const text = humanErrorMessage(
+      err({ status: 403, code: 'plan_feature_unavailable', message: 'Feature not in plan' })
+    );
+
+    expect(text).toContain('тариф');
+    expect(text).not.toContain('для вашей роли');
+  });
+
+  it('404 не отправляет «в список» там, где запись есть, а файла у неё нет', () => {
+    const text = humanErrorMessage(
+      err({
+        status: 404,
+        code: 'frdo_registry_file_not_found',
+        message: 'Batch has no generated file'
+      })
+    );
+
+    expect(text).toContain('не собран');
+    expect(text).not.toContain('Вернитесь к списку');
+  });
+
+  it('400 не выдаёт правило жизненного цикла за ошибку в полях формы', () => {
+    const text = humanErrorMessage(
+      err({ status: 400, code: 'commission_archived', message: 'Commission is archived' })
+    );
+
+    expect(text).toContain('архив');
+    expect(text).not.toContain('Проверьте заполненные поля');
+  });
 });
