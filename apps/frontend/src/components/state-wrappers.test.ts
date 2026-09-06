@@ -25,8 +25,7 @@ describe('SectionError · прослойка разбирает ошибку с�
       normalized: {
         status: 404,
         code: 'not_found',
-        message: 'Entity not found',
-        isAuthError: false
+        message: 'Entity not found'
       }
     });
 

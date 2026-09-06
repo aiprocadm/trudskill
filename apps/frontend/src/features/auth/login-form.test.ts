@@ -8,8 +8,7 @@ describe('login form error mapping', () => {
     const error = new ApiClientError({
       status: 401,
       code: 'invalid_credentials',
-      message: 'Invalid credentials',
-      isAuthError: true
+      message: 'Invalid credentials'
     });
 
     expect(error.normalized.message).toBe('Invalid credentials');

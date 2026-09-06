@@ -1,5 +1,6 @@
 import { authApi } from './auth-api';
 import { sessionStore } from './session-store';
+import { setSessionRecovery } from '../api/client';
 
 import type { TotpChallengeResponse } from './auth-api';
 import type { UserSession } from '../../entities/session/model';
@@ -12,6 +13,9 @@ const hydrateSession = async (tokens: UserSession['tokens']): Promise<UserSessio
   const roleCodes = roles.map((item) => item.code);
   return { user, tokens, roles: roleCodes, permissions: user.permissions };
 };
+
+/** Идущее обновление сессии: один запрос на всех, кто получил 401 разом. */
+let inFlightRecovery: Promise<string | null> | null = null;
 
 /**
  * Выход прошёл на устройстве, но сервер отзыв не подтвердил.
@@ -70,6 +74,26 @@ export const sessionManager = {
     sessionStore.hydrateFromStorage();
     return this.tryRefresh();
   },
+  /*
+   * Журнал 350. Обновление сессии, запрошенное клиентом после 401, — ОДНО на всех.
+   *
+   * Токен обновления одноразовый: бэкенд считает повторное предъявление кражей
+   * (`refresh_replay`) и гасит цепочку сессий. Экран открывает несколько запросов сразу,
+   * и через 15 минут работы все они получают 401 одновременно. Если каждый пойдёт
+   * обновляться сам, первый обновит, а остальные будут выглядеть как кража — и человека
+   * выкинет вместо того, чтобы починить ему сессию.
+   *
+   * Поэтому пока обновление идёт, остальные ждут его результат. Замок снимается в любом
+   * случае: следующее падение обновляет заново.
+   */
+  async recoverSession(): Promise<string | null> {
+    inFlightRecovery ??= this.tryRefresh()
+      .then((session) => session?.tokens.accessToken ?? null)
+      .finally(() => {
+        inFlightRecovery = null;
+      });
+    return inFlightRecovery;
+  },
   async tryRefresh(): Promise<UserSession | null> {
     try {
       const tokens = await authApi.refresh();
@@ -122,3 +146,11 @@ export const sessionManager = {
     sessionStore.clear();
   }
 };
+
+/*
+ * Клиент лежит НИЖЕ слоя сессии и про него ничего не знает — поэтому точку восстановления
+ * ставим отсюда. Так 401 на рабочем запросе один раз обновляет сессию и повторяет запрос,
+ * а если обновить нечем — сессия стирается, и подписчики хранилища (контекст входа)
+ * уводят человека на экран входа.
+ */
+setSessionRecovery(() => sessionManager.recoverSession());
