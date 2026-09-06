@@ -3,7 +3,8 @@ import {
   ConflictException,
   HttpException,
   Inject,
-  Injectable
+  Injectable,
+  NotFoundException
 } from '@nestjs/common';
 
 import { ANTIVIRUS_SCANNER } from '../../infrastructure/antivirus/antivirus.scanner.js';
@@ -320,7 +321,7 @@ export class FilesService {
       [tenantId, fileId]
     );
     if (!rows.length) {
-      throw new BadRequestException({
+      throw new NotFoundException({
         code: 'file_not_found',
         message: 'File not found for tenant'
       });
@@ -365,7 +366,7 @@ export class FilesService {
       [tenantId, fileId]
     );
     if (!rows.length) {
-      throw new BadRequestException({
+      throw new NotFoundException({
         code: 'file_not_found',
         message: 'File not found for tenant'
       });
@@ -446,7 +447,7 @@ export class FilesService {
       [tenantId, fileId]
     );
     if (!fileRows.length) {
-      throw new BadRequestException({
+      throw new NotFoundException({
         code: 'file_not_found',
         message: 'File not found for tenant'
       });

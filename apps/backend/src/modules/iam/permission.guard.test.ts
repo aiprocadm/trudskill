@@ -1,4 +1,4 @@
-import { type ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { type ExecutionContext, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { type Reflector } from '@nestjs/core';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -127,8 +127,13 @@ describe('PermissionGuard session checks', () => {
       correlationId: 'corr_auth_required'
     };
 
+    /*
+     * Ревизия 2026-09-06 (§5.423): здесь стоял `ForbiddenException`. Сессии нет вовсе, и код
+     * ответа — `auth_required` («войдите заново»); 403 говорит человеку «вам сюда нельзя»,
+     * то есть отвечает не на то. Инвариант изменён осознанно: один код — один статус.
+     */
     await expect(guard.canActivate(context as unknown as ExecutionContext)).rejects.toThrow(
-      ForbiddenException
+      UnauthorizedException
     );
     expect(authService.isSessionActive).not.toHaveBeenCalled();
     expect(iamService.resolvePermissions).not.toHaveBeenCalled();

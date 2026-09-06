@@ -3,7 +3,8 @@ import {
   type ExecutionContext,
   ForbiddenException,
   Inject,
-  Injectable
+  Injectable,
+  UnauthorizedException
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
@@ -34,7 +35,11 @@ export class PermissionGuard implements CanActivate {
     const requestContext = resolveRequestContext(request);
 
     if (!requestContext.userId || !requestContext.tenantId) {
-      throw new ForbiddenException({ code: 'auth_required', message: 'Authentication required' });
+      // Сессии нет вовсе — это «войдите», а не «вам сюда нельзя»: код и статус говорят одно.
+      throw new UnauthorizedException({
+        code: 'auth_required',
+        message: 'Authentication required'
+      });
     }
 
     const sessionId = requestContext.sessionId;

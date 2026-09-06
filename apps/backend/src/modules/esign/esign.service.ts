@@ -1,4 +1,11 @@
-import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException
+} from '@nestjs/common';
 
 import { ESIGN_STATE } from './esign-state.token.js';
 import { EsignStateMachine } from './esign.policy.js';
@@ -355,7 +362,7 @@ export class EsignService {
           x.status === 'signed'
       )
     )
-      throw new BadRequestException({
+      throw new ConflictException({
         code: 'conflict',
         message: 'Signed artifact already exists for this generated document'
       });

@@ -2227,15 +2227,17 @@ describe('MvpService — program meta and publish (Plan A §5.1)', () => {
     it('rejects unknown commissionId', () => {
       const service = makeService();
       const { courseVersionId } = seedCourseVersionAndCommission(service);
-      expect(() =>
-        service.updateProgramMeta(
-          'tenant_demo',
-          ctx.userId,
-          courseVersionId,
-          { commissionId: 'commission_nope' },
-          ctx
-        )
-      ).toThrow(BadRequestException);
+      expect(
+        () =>
+          service.updateProgramMeta(
+            'tenant_demo',
+            ctx.userId,
+            courseVersionId,
+            { commissionId: 'commission_nope' },
+            ctx
+          )
+        // §5.423: комиссии нет — это 404. Код `commission_not_found` и статус 400 говорили разное.
+      ).toThrow(NotFoundException);
     });
 
     it('rejects archived commission', () => {
@@ -2748,24 +2750,26 @@ describe('MvpService — course document sets (Plan A §5.3)', () => {
     const service = makeServiceWithTemplates([]);
     const { courseVersionId } = seed(service);
 
-    expect(() =>
-      service.setCourseDocumentSet(
-        'tenant_demo',
-        ctx.userId,
-        courseVersionId,
-        {
-          entries: [
-            {
-              templateId: 'tpl_nope',
-              position: 0,
-              isRequired: true,
-              autoIssueOnCompletion: true
-            }
-          ]
-        },
-        ctx
-      )
-    ).toThrow(BadRequestException);
+    expect(
+      () =>
+        service.setCourseDocumentSet(
+          'tenant_demo',
+          ctx.userId,
+          courseVersionId,
+          {
+            entries: [
+              {
+                templateId: 'tpl_nope',
+                position: 0,
+                isRequired: true,
+                autoIssueOnCompletion: true
+              }
+            ]
+          },
+          ctx
+        )
+      // §5.423: шаблона нет — 404, как в трёх остальных местах с тем же кодом.
+    ).toThrow(NotFoundException);
   });
 
   it('rejects unknown courseVersionId', () => {
@@ -2788,24 +2792,26 @@ describe('MvpService — course document sets (Plan A §5.3)', () => {
   it('rejects template from another tenant', () => {
     const service = makeServiceWithTemplates([{ id: 'tpl_other', tenantId: 'tenant_other' }]);
     const { courseVersionId } = seed(service);
-    expect(() =>
-      service.setCourseDocumentSet(
-        'tenant_demo',
-        ctx.userId,
-        courseVersionId,
-        {
-          entries: [
-            {
-              templateId: 'tpl_other',
-              position: 0,
-              isRequired: true,
-              autoIssueOnCompletion: true
-            }
-          ]
-        },
-        ctx
-      )
-    ).toThrow(BadRequestException);
+    expect(
+      () =>
+        service.setCourseDocumentSet(
+          'tenant_demo',
+          ctx.userId,
+          courseVersionId,
+          {
+            entries: [
+              {
+                templateId: 'tpl_other',
+                position: 0,
+                isRequired: true,
+                autoIssueOnCompletion: true
+              }
+            ]
+          },
+          ctx
+        )
+      // §5.423: шаблона нет — 404, как в трёх остальных местах с тем же кодом.
+    ).toThrow(NotFoundException);
   });
 
   it('getCourseDocumentSet returns entries sorted by position', () => {
