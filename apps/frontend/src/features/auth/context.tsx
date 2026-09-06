@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 import { sessionManager } from '../../lib/auth/session-manager';
+import { sessionStore } from '../../lib/auth/session-store';
 
 import type { UserSession } from '../../entities/session/model';
 import type { TotpChallengeResponse } from '../../lib/auth/auth-api';
@@ -60,6 +61,18 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       .then((nextSession) => setSession(nextSession))
       .finally(() => setLoading(false));
   }, []);
+
+  /*
+   * Журнал 350. Сессия умирает не только по кнопке «Выйти»: токен доступа живёт 15 минут, и
+   * когда обновить его по cookie не удаётся, слой сессии чистит хранилище. Экран об этом не
+   * узнавал — сессия жила в состоянии React, а состояние меняли только вход и выход. Человек
+   * оставался на закрытом экране и на каждое действие читал «Войдите заново», никуда не
+   * переходя, пока не догадывался нажать F5.
+   *
+   * Подписка делает конец сессии видимым: `session` становится `null`, и `ProtectedRoute`
+   * уводит на `/login?next=<куда человек шёл>` — с сохранением адреса и строки запроса.
+   */
+  useEffect(() => sessionStore.subscribe(setSession), []);
 
   const value = useMemo<AuthContextValue>(
     () => ({

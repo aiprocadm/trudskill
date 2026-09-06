@@ -11,7 +11,8 @@ vi.mock('./session-store', () => ({
     }),
     clear: vi.fn(() => {
       state.session = null;
-    })
+    }),
+    subscribe: vi.fn(() => () => undefined)
   }
 }));
 
@@ -224,5 +225,62 @@ describe('session manager', () => {
 
     expect(authApiMock.logout).toHaveBeenCalledTimes(1);
     expect(sessionStore.clear).toHaveBeenCalledTimes(1);
+  });
+  /*
+   * Ревизия 2026-09-06 (§5.424), журнал 350.
+   *
+   * Токен обновления ОДНОРАЗОВЫЙ: бэкенд ловит повтор (`refresh_replay`,
+   * `auth.service.ts`) и гасит всю цепочку сессий. Экран открывает пять запросов сразу —
+   * значит, через 15 минут работы придёт пять ответов 401 подряд. Если каждый пойдёт
+   * обновляться сам, первый обновит, а остальные четыре будут выглядеть как кража токена,
+   * и человека выкинет из системы вместо того, чтобы починить ему сессию.
+   *
+   * Поэтому обновление одно на всех: пока оно идёт, остальные ждут его результат.
+   */
+  it('пять запросов, получивших 401 разом, обновляют сессию ОДИН раз', async () => {
+    let release: (value: unknown) => void = () => undefined;
+    authApiMock.refresh.mockReturnValueOnce(
+      new Promise((resolve) => {
+        release = resolve;
+      })
+    );
+    authApiMock.me.mockResolvedValue({ id: 'u1', email: 'a@b.c', fullName: 'Иванов' });
+    authApiMock.userRoles.mockResolvedValue([]);
+
+    const waiting = [1, 2, 3, 4, 5].map(() => sessionManager.recoverSession());
+    release({ accessToken: 'token_fresh', refreshToken: 'r2', sessionId: 's1' });
+    const tokens = await Promise.all(waiting);
+
+    expect(authApiMock.refresh).toHaveBeenCalledTimes(1);
+    expect(tokens).toEqual([
+      'token_fresh',
+      'token_fresh',
+      'token_fresh',
+      'token_fresh',
+      'token_fresh'
+    ]);
+  });
+
+  it('если обновить не удалось — сессия стирается, а ответ «чинить нечем»', async () => {
+    authApiMock.refresh.mockRejectedValueOnce(new Error('refresh dead'));
+
+    await expect(sessionManager.recoverSession()).resolves.toBeNull();
+    expect(state.session).toBeNull();
+  });
+
+  it('следующее падение обновляет заново — замок не залипает', async () => {
+    authApiMock.refresh.mockRejectedValueOnce(new Error('refresh dead'));
+    await sessionManager.recoverSession();
+
+    authApiMock.refresh.mockResolvedValueOnce({
+      accessToken: 'token_2',
+      refreshToken: 'r3',
+      sessionId: 's1'
+    });
+    authApiMock.me.mockResolvedValue({ id: 'u1', email: 'a@b.c', fullName: 'Иванов' });
+    authApiMock.userRoles.mockResolvedValue([]);
+
+    await expect(sessionManager.recoverSession()).resolves.toBe('token_2');
+    expect(authApiMock.refresh).toHaveBeenCalledTimes(2);
   });
 });

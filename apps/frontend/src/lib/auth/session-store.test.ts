@@ -37,6 +37,21 @@ describe('session store', () => {
     });
   });
 
+  /** Минимальная сессия для проверок подписки. */
+  const session = (id: string) => ({
+    user: {
+      id,
+      tenantId: 'tenant_demo',
+      login: id,
+      email: null,
+      status: 'active',
+      displayName: 'Кто-то'
+    },
+    tokens: { accessToken: 'access', sessionId: 'session', expiresIn: 300 },
+    roles: ['tenant_admin'],
+    permissions: []
+  });
+
   beforeEach(() => {
     sessionStore.clear();
     window.localStorage.clear();
@@ -234,5 +249,43 @@ describe('session store', () => {
         configurable: true
       });
     });
+  });
+  /*
+   * Ревизия 2026-09-06 (§5.424), журнал 350. Хранилище знает о смерти сессии первым, а
+   * экран — последним: `AuthProvider` держит сессию в состоянии React и до этой правки
+   * узнавал о ней только при перезагрузке страницы. Подписка — провод между ними.
+   */
+  it('подписчик узнаёт и о новой сессии, и о её конце', () => {
+    const seen: Array<string | null> = [];
+    const unsubscribe = sessionStore.subscribe((session) => seen.push(session?.user.id ?? null));
+
+    sessionStore.set(session('u1'));
+    sessionStore.clear();
+
+    expect(seen).toEqual(['u1', null]);
+    unsubscribe();
+  });
+
+  it('отписавшийся больше не получает вестей', () => {
+    const seen: Array<string | null> = [];
+    const unsubscribe = sessionStore.subscribe((s) => seen.push(s?.user.id ?? null));
+    unsubscribe();
+
+    sessionStore.set(session('u2'));
+
+    expect(seen).toEqual([]);
+  });
+
+  it('один упавший подписчик не мешает остальным', () => {
+    const seen: string[] = [];
+    const first = sessionStore.subscribe(() => {
+      throw new Error('подписчик сломался');
+    });
+    const second = sessionStore.subscribe(() => seen.push('дошло'));
+
+    expect(() => sessionStore.clear()).not.toThrow();
+    expect(seen).toEqual(['дошло']);
+    first();
+    second();
   });
 });

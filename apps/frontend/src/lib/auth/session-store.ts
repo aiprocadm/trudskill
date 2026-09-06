@@ -18,6 +18,27 @@ type PersistedSession = Omit<UserSession, 'tokens'>;
 
 let memorySession: UserSession | null = null;
 
+/**
+ * Кто хочет знать о смене сессии (журнал 350).
+ *
+ * Хранилище узнаёт о смерти сессии первым — например, когда обновление по cookie не удалось
+ * после 401. Экран же держит сессию в состоянии React и до появления подписки узнавал о ней
+ * только при перезагрузке страницы: человек оставался на закрытом экране и на каждое
+ * действие получал «Войдите заново», никуда при этом не переходя.
+ */
+type SessionListener = (session: UserSession | null) => void;
+const listeners = new Set<SessionListener>();
+
+const notify = (session: UserSession | null): void => {
+  for (const listener of [...listeners]) {
+    try {
+      listener(session);
+    } catch {
+      // Один упавший подписчик не отменяет вестей остальным: сессия важнее их ошибок.
+    }
+  }
+};
+
 const toPersistedSession = (session: UserSession): PersistedSession => ({
   user: session.user,
   roles: session.roles,
@@ -57,8 +78,14 @@ export const sessionStore = {
   get(): UserSession | null {
     return memorySession;
   },
+  /** Подписаться на смену сессии; возвращает отписку. */
+  subscribe(listener: SessionListener): () => void {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  },
   set(session: UserSession) {
     memorySession = session;
+    notify(session);
     const store = storage();
     if (!store) return;
     try {
@@ -76,6 +103,7 @@ export const sessionStore = {
   },
   clear() {
     memorySession = null;
+    notify(null);
     const store = storage();
     if (!store) return;
     safeRemove(store, KEY);

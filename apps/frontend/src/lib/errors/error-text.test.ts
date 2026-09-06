@@ -22,7 +22,6 @@ const err = (over: Partial<NormalizedApiError> = {}): NormalizedApiError => ({
   status: 500,
   code: 'internal_error',
   message: 'Unexpected API error',
-  isAuthError: false,
   ...over
 });
 
@@ -77,16 +76,14 @@ describe('TXT-004 · текст ошибки для человека', () => {
       err({
         status: 401,
         code: 'tenant_suspended',
-        message: 'Tenant is suspended',
-        isAuthError: true
+        message: 'Tenant is suspended'
       })
     );
     const archived = humanErrorMessage(
       err({
         status: 401,
         code: 'tenant_archived',
-        message: 'Tenant is archived',
-        isAuthError: true
+        message: 'Tenant is archived'
       })
     );
 

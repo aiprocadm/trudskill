@@ -10,7 +10,6 @@ export interface NormalizedApiError {
   message: string;
   requestId?: string;
   details?: Array<{ field?: string; message: string; code?: string }>;
-  isAuthError: boolean;
 }
 
 export const normalizeApiError = (
@@ -45,7 +44,6 @@ export const normalizeApiError = (
     code,
     message: envelope?.error?.message ?? fallbackMessage,
     ...(requestId ? { requestId } : {}),
-    ...(details?.length ? { details } : {}),
-    isAuthError: status === 401
+    ...(details?.length ? { details } : {})
   };
 };
