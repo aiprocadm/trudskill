@@ -1,7 +1,7 @@
 import {
   type ApiErrorResponse,
-  BackendHttpErrorCodes,
-  type HttpExceptionResponseJson
+  type HttpExceptionResponseJson,
+  httpErrorCodeForStatus
 } from '@trudskill/api-contracts';
 
 export interface NormalizedApiError {
@@ -22,7 +22,17 @@ export const normalizeApiError = (
     | Partial<ApiErrorResponse>
     | Partial<HttpExceptionResponseJson>
     | undefined;
-  const code = envelope?.error?.code ?? BackendHttpErrorCodes.internal_error;
+  /*
+   * Ревизия 2026-09-06. Здесь стоял `?? internal_error`, и любой ответ без кода — исключение
+   * Nest, брошенное строкой; страница ошибки шлюза; ответ не нашего сервиса — становился
+   * «сбоем сервера». Словарь отвечал на такой код «Сбой на стороне сервера — с вашими
+   * данными ничего не случилось. Повторите через минуту», и человек повторял снова и снова,
+   * хотя сервер был исправен, а мешал его собственный ввод или состояние записи.
+   *
+   * Таблица «статус → код» общая с бэкендом (`@trudskill/api-contracts`), чтобы обе стороны
+   * подписывали безымянную ошибку одинаково.
+   */
+  const code = envelope?.error?.code ?? httpErrorCodeForStatus(status);
   const meta = envelope?.meta as { request_id?: string; requestId?: string } | undefined;
   const requestId = meta?.request_id ?? meta?.requestId;
   const rawDetails = envelope?.error?.details;

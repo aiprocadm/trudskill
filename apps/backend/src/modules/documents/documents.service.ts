@@ -210,7 +210,11 @@ export class DocumentsService {
   ) {
     const tpl = this.getTemplate(tenantId, id);
     const version = this.must(this.state.versions, tenantId, versionId);
-    if (version.templateId !== id) throw new BadRequestException('Template version mismatch');
+    if (version.templateId !== id)
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'Template version mismatch'
+      });
     const oldVersion = tpl.currentVersionId;
     tpl.currentVersionId = version.id;
     tpl.updatedAt = this.now();
@@ -317,7 +321,11 @@ export class DocumentsService {
         x.variableCode === req.variableCode &&
         !x.deletedAt
     );
-    if (duplicate) throw new ConflictException('Variable code already exists');
+    if (duplicate)
+      throw new ConflictException({
+        code: 'template_variable_code_taken',
+        message: 'Variable code already exists'
+      });
     const entity: TemplateVariableEntity = {
       id: this.id('tplvar'),
       tenantId,
@@ -510,7 +518,10 @@ export class DocumentsService {
   retryTask(tenantId: string, id: string) {
     const task = this.getDocumentTask(tenantId, id);
     if (task.status !== 'failed')
-      throw new BadRequestException('Retry allowed only for failed tasks');
+      throw new BadRequestException({
+        code: 'domain_rule_violation',
+        message: 'Retry allowed only for failed tasks'
+      });
     task.status = 'queued';
     this.publishTaskEvent(task);
     task.errorMessage = undefined;
@@ -523,7 +534,10 @@ export class DocumentsService {
   cancelTask(tenantId: string, id: string) {
     const task = this.getDocumentTask(tenantId, id);
     if (!['queued', 'running'].includes(task.status)) {
-      throw new BadRequestException('Cancel allowed only for queued or running tasks');
+      throw new BadRequestException({
+        code: 'domain_rule_violation',
+        message: 'Cancel allowed only for queued or running tasks'
+      });
     }
     task.status = 'cancelled';
     this.publishTaskEvent(task);
@@ -691,9 +705,16 @@ export class DocumentsService {
     }
     const template = this.getTemplate(tenantId, req.templateId);
     if (template.status === 'archived')
-      throw new BadRequestException('Cannot generate documents from archived template');
+      throw new BadRequestException({
+        code: 'domain_rule_violation',
+        message: 'Cannot generate documents from archived template'
+      });
     const versionId = req.templateVersionId ?? template.currentVersionId;
-    if (!versionId) throw new BadRequestException('No template version selected');
+    if (!versionId)
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'No template version selected'
+      });
     this.getTemplateVersion(tenantId, versionId);
     const task: DocumentGenerationTaskEntity = {
       id: this.id('dtask'),
@@ -771,7 +792,11 @@ export class DocumentsService {
       return this.getDocument(tenantId, existing.generatedDocumentId!);
     this.startTask(tenantId, taskId);
     const task = this.getDocumentTask(tenantId, taskId);
-    if (task.status !== 'running') throw new BadRequestException('Task state is not processable');
+    if (task.status !== 'running')
+      throw new BadRequestException({
+        code: 'domain_rule_violation',
+        message: 'Task state is not processable'
+      });
     const reserved = task.numberReservationId
       ? this.getReservation(tenantId, task.numberReservationId)
       : this.reserveNumber(tenantId, task.documentType);
@@ -843,7 +868,10 @@ export class DocumentsService {
   startTask(tenantId: string, id: string) {
     const task = this.getDocumentTask(tenantId, id);
     if (task.status === 'completed' || task.status === 'failed')
-      throw new BadRequestException('Terminal task cannot be started');
+      throw new BadRequestException({
+        code: 'domain_rule_violation',
+        message: 'Terminal task cannot be started'
+      });
     if (task.status === 'running') return task;
     task.status = 'running';
     this.publishTaskEvent(task);
@@ -860,7 +888,10 @@ export class DocumentsService {
   failTask(tenantId: string, id: string, message: string) {
     const task = this.getDocumentTask(tenantId, id);
     if (task.status === 'completed')
-      throw new BadRequestException('Completed task cannot be failed');
+      throw new BadRequestException({
+        code: 'domain_rule_violation',
+        message: 'Completed task cannot be failed'
+      });
     task.status = 'failed';
     this.publishTaskEvent(task);
     task.errorMessage = message;
@@ -903,14 +934,20 @@ export class DocumentsService {
   ) {
     const doc = this.getDocument(tenantId, id);
     if (doc.status === 'archived')
-      throw new BadRequestException('Archived document cannot be finalized');
+      throw new BadRequestException({
+        code: 'domain_rule_violation',
+        message: 'Archived document cannot be finalized'
+      });
     // A revoked document must never be resurrected. The isFinal short-circuit below does NOT
     // cover this: a document revoked while still `generated` keeps isFinal=false, so finalize
     // would otherwise flip it to status='final' + isFinal=true + signed — silently un-revoking a
     // legally annulled document (reachable via esign tryCompleteProcess → finalizeDocument).
     // Mirrors the same guard in signDocument.
     if (doc.status === 'revoked')
-      throw new BadRequestException('Revoked document cannot be finalized');
+      throw new BadRequestException({
+        code: 'domain_rule_violation',
+        message: 'Revoked document cannot be finalized'
+      });
     // Idempotent: finalizing an already-final document is a no-op. Two signing
     // processes completing on the same generatedDocumentId would otherwise each
     // call finalizeDocument → re-run applySignature (double signature) and re-emit
@@ -1088,9 +1125,10 @@ export class DocumentsService {
       if (nextCounter < row.currentCounter) {
         // Откат назад повторно выдал бы уже использованные номера — в регулируемом
         // реестре это дубли, которые нечем развести.
-        throw new BadRequestException(
-          `Numbering cannot go backwards: already issued up to ${row.currentCounter}`
-        );
+        throw new BadRequestException({
+          code: 'domain_rule_violation',
+          message: `Numbering cannot go backwards: already issued up to ${row.currentCounter}`
+        });
       }
       row.currentCounter = nextCounter;
     }
@@ -1213,7 +1251,10 @@ export class DocumentsService {
     if (
       this.state.reservations.some((x) => x.tenantId === tenantId && x.reservedNumber === formatted)
     ) {
-      throw new ConflictException(`Reservation number ${formatted} already exists`);
+      throw new ConflictException({
+        code: 'document_number_taken',
+        message: `Reservation number ${formatted} already exists`
+      });
     }
     // Commit the sequence advance only after the uniqueness check passed.
     rule.currentCounter = nextCounter;
@@ -1304,7 +1345,10 @@ export class DocumentsService {
     }
 
     if (missing.size) {
-      throw new BadRequestException(`Required variables are missing: ${[...missing].join(', ')}`);
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: `Required variables are missing: ${[...missing].join(', ')}`
+      });
     }
 
     return {
@@ -1354,7 +1398,7 @@ export class DocumentsService {
   }
   private must<T extends { tenantId: string; id: string }>(arr: T[], tenantId: string, id: string) {
     const row = arr.find((x) => x.tenantId === tenantId && x.id === id);
-    if (!row) throw new NotFoundException(`Entity ${id} not found`);
+    if (!row) throw new NotFoundException({ code: 'not_found', message: `Entity ${id} not found` });
     return row;
   }
   private id(prefix: string) {
@@ -1429,11 +1473,20 @@ export class DocumentsService {
     groupId?: string
   ) {
     if (bindType === 'direction' && !directionId)
-      throw new BadRequestException('directionId is required for direction binding');
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'directionId is required for direction binding'
+      });
     if (bindType === 'course' && !courseId)
-      throw new BadRequestException('courseId is required for course binding');
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'courseId is required for course binding'
+      });
     if (bindType === 'group' && !groupId)
-      throw new BadRequestException('groupId is required for group binding');
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'groupId is required for group binding'
+      });
   }
 
   // ==========================================================================
@@ -1768,7 +1821,11 @@ export class DocumentsService {
 
   private assertTemplateOfType(tenantId: string, templateId: string, expected: TemplateType) {
     const tpl = this.state.templates.find((t) => t.tenantId === tenantId && t.id === templateId);
-    if (!tpl) throw new NotFoundException(`Template ${templateId} not found`);
+    if (!tpl)
+      throw new NotFoundException({
+        code: 'template_not_found',
+        message: `Template ${templateId} not found`
+      });
     if (tpl.templateType !== expected) {
       throw new BadRequestException({
         code: 'invalid_template_type',
@@ -1801,7 +1858,10 @@ export class DocumentsService {
       (t) => t.tenantId === tenantId && t.id === req.templateId
     );
     if (!orderTpl) {
-      throw new NotFoundException(`Template ${req.templateId} not found`);
+      throw new NotFoundException({
+        code: 'template_not_found',
+        message: `Template ${req.templateId} not found`
+      });
     }
     if (orderTpl.templateType !== 'order') {
       throw new BadRequestException({
@@ -1900,7 +1960,10 @@ export class DocumentsService {
       (t) => t.tenantId === tenantId && t.id === req.certificateTemplateId
     );
     if (!certTpl) {
-      throw new NotFoundException(`Template ${req.certificateTemplateId} not found`);
+      throw new NotFoundException({
+        code: 'template_not_found',
+        message: `Template ${req.certificateTemplateId} not found`
+      });
     }
     const certVersionId =
       certTpl.currentVersionId ??

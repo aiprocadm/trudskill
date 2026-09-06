@@ -98,7 +98,10 @@ export class EsignService {
   ) {
     const application = this.getApplication(tenantId, id);
     if (application.status !== 'draft')
-      throw new BadRequestException('Only draft application can be updated');
+      throw new BadRequestException({
+        code: 'domain_rule_violation',
+        message: 'Only draft application can be updated'
+      });
     application.expiresAt = req.expiresAt ?? application.expiresAt;
     application.updatedAt = this.now();
     application.updatedBy = actorId;
@@ -113,7 +116,10 @@ export class EsignService {
           file.tenantId === tenantId && file.applicationId === app.id && file.status === 'verified'
       )
     )
-      throw new BadRequestException('At least one verified file is required before submit');
+      throw new BadRequestException({
+        code: 'esign_verified_file_required',
+        message: 'At least one verified file is required before submit'
+      });
     app.status = 'submitted';
     app.submittedAt = this.now();
     app.updatedAt = this.now();
@@ -221,7 +227,10 @@ export class EsignService {
   ) {
     const app = this.getApplication(tenantId, req.applicationId);
     if (app.status !== 'draft')
-      throw new BadRequestException('Files can only be uploaded for draft applications');
+      throw new BadRequestException({
+        code: 'domain_rule_violation',
+        message: 'Files can only be uploaded for draft applications'
+      });
     const now = this.now();
     const row: EsignApplicationFileEntity = {
       id: this.id('esfile'),
@@ -250,7 +259,10 @@ export class EsignService {
     const row = this.getApplicationFile(tenantId, id);
     const app = this.getApplication(tenantId, row.applicationId);
     if (app.status !== 'draft')
-      throw new BadRequestException('Can only verify file while application is draft');
+      throw new BadRequestException({
+        code: 'domain_rule_violation',
+        message: 'Can only verify file while application is draft'
+      });
     row.status = 'verified';
     row.verifiedBy = actorId;
     row.verifiedAt = this.now();
@@ -275,7 +287,10 @@ export class EsignService {
     const row = this.getApplicationFile(tenantId, id);
     const app = this.getApplication(tenantId, row.applicationId);
     if (app.status !== 'draft')
-      throw new BadRequestException('Can only reject file while application is draft');
+      throw new BadRequestException({
+        code: 'domain_rule_violation',
+        message: 'Can only reject file while application is draft'
+      });
     row.status = 'rejected';
     row.rejectionReason = req.reason;
     row.updatedBy = actorId;
@@ -295,7 +310,10 @@ export class EsignService {
     const row = this.getApplicationFile(tenantId, id);
     const app = this.getApplication(tenantId, row.applicationId);
     if (app.status !== 'draft')
-      throw new BadRequestException('Can only delete files for draft application');
+      throw new BadRequestException({
+        code: 'domain_rule_violation',
+        message: 'Can only delete files for draft application'
+      });
     this.state.applicationFiles = this.state.applicationFiles.filter(
       (x) => !(x.tenantId === tenantId && x.id === id)
     );
@@ -337,7 +355,10 @@ export class EsignService {
           x.status === 'signed'
       )
     )
-      throw new BadRequestException('Signed artifact already exists for this generated document');
+      throw new BadRequestException({
+        code: 'conflict',
+        message: 'Signed artifact already exists for this generated document'
+      });
     const now = this.now();
     const row: SigningProcessEntity = {
       id: this.id('esproc'),
@@ -385,7 +406,10 @@ export class EsignService {
       (x) => x.tenantId === tenantId && x.processId === process.id
     );
     if (!hasParticipants)
-      throw new BadRequestException('Cannot start signing process without participants');
+      throw new BadRequestException({
+        code: 'signing_participants_required',
+        message: 'Cannot start signing process without participants'
+      });
     process.status = 'prepared';
     EsignStateMachine.transitionProcess(process.status, 'awaiting_participants');
     process.status = 'awaiting_participants';
@@ -451,7 +475,10 @@ export class EsignService {
           x.tenantId === tenantId && x.processId === req.processId && x.signOrder === req.signOrder
       )
     )
-      throw new BadRequestException('Participant sign_order must be unique within process');
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'Participant sign_order must be unique within process'
+      });
     const now = this.now();
     const row: SigningParticipantEntity = {
       id: this.id('espart'),
@@ -847,7 +874,7 @@ export class EsignService {
     id: string
   ): T {
     const value = rows.find((x) => x.tenantId === tenantId && x.id === id);
-    if (!value) throw new NotFoundException('Entity not found');
+    if (!value) throw new NotFoundException({ code: 'not_found', message: 'Entity not found' });
     return value;
   }
   private id(prefix: string) {

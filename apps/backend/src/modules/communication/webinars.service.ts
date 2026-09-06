@@ -78,7 +78,8 @@ export class WebinarsService {
 
   async get(tenantId: string, id: string) {
     const row = await this.repository.get(tenantId, id);
-    if (!row) throw new NotFoundException('Webinar not found');
+    if (!row)
+      throw new NotFoundException({ code: 'webinar_not_found', message: 'Webinar not found' });
     return row;
   }
 
@@ -89,7 +90,8 @@ export class WebinarsService {
       ...body,
       updatedAt: new Date().toISOString()
     });
-    if (!row) throw new NotFoundException('Webinar not found');
+    if (!row)
+      throw new NotFoundException({ code: 'webinar_not_found', message: 'Webinar not found' });
     this.realtime.publish({
       event_name: WEBINAR_UPDATED_EVENT,
       version: 'v1',
@@ -150,7 +152,8 @@ export class WebinarsService {
       pageSize: 500
     });
     const me = items.find((p) => p.learnerId === actorRef || p.userId === actorRef);
-    if (!me) throw new NotFoundException('Webinar not found');
+    if (!me)
+      throw new NotFoundException({ code: 'webinar_not_found', message: 'Webinar not found' });
     if (me.attendanceStatus === 'invited') {
       await this.repository.upsertParticipantAttendance(tenantId, webinarId, {
         participantRef: actorRef,

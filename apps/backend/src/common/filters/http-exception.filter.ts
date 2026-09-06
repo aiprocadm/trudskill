@@ -7,7 +7,7 @@ import {
   Injectable,
   Logger
 } from '@nestjs/common';
-import { BackendHttpErrorCodes } from '@trudskill/api-contracts';
+import { BackendHttpErrorCodes, httpErrorCodeForStatus } from '@trudskill/api-contracts';
 
 import { backendEnv } from '../../env.js';
 import { resolveRequestContext } from '../utils/request.js';
@@ -67,16 +67,51 @@ export class HttpExceptionEnvelopeFilter implements ExceptionFilter {
     let status =
       exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const normalizeHttpPayload = (value: string | object): string | Record<string, unknown> => {
+    /*
+     * Ревизия 2026-09-06. Тело исключения приходит сюда в двух видах. Наш — объектная форма
+     * `{ code, message }` (правило CLAUDE.md). Чужой — то, что Nest делает из строки:
+     * `{ message, error: 'Bad Request', statusCode: 400 }`, без кода. Так бросает сам Nest
+     * (404 на несуществующий адрес, 413 на слишком большое тело), и так бросали 49 наших
+     * мест до этой ревизии.
+     *
+     * Тело без кода уходило в конверт как есть. Фронт кода не находил и подставлял
+     * `internal_error`, а словарь отвечал на него «Сбой на стороне сервера — с вашими
+     * данными ничего не случилось. Повторите через минуту». Человек повторял, и повторялось
+     * то же самое: сервер был исправен, а мешало состояние записи или его собственный ввод.
+     *
+     * Поэтому код проставляется здесь — это последнее место, через которое проходит любая
+     * ошибка, включая те, что бросили не мы. Служебные поля Nest (`error`, `statusCode`)
+     * в конверт не идут: статус человек и так получает, а `'Bad Request'` ему не адресовано.
+     */
+    const normalizeHttpPayload = (
+      value: string | object,
+      httpStatus: number
+    ): Record<string, unknown> => {
+      const fallbackCode = httpErrorCodeForStatus(httpStatus);
       if (typeof value === 'string') {
-        return value;
+        return { code: fallbackCode, message: value };
       }
-      return value as Record<string, unknown>;
+      const body = value as Record<string, unknown>;
+      if (typeof body.code === 'string' && body.code) {
+        return body;
+      }
+      const { message } = body;
+      // `message` у Nest бывает списком — так отвечает штатный ValidationPipe.
+      const text = Array.isArray(message)
+        ? message.map((part) => String(part)).join('; ')
+        : typeof message === 'string' && message
+          ? message
+          : INTERNAL_ERROR_FALLBACK_MESSAGE;
+      // Служебные `error` и `statusCode` Nest в конверт не переносятся — остальное переносится.
+      const carried = Object.fromEntries(
+        Object.entries(body).filter(([key]) => !['message', 'error', 'statusCode'].includes(key))
+      );
+      return { ...carried, code: fallbackCode, message: text };
     };
 
-    let payload: string | Record<string, unknown> =
+    let payload: Record<string, unknown> =
       exception instanceof HttpException
-        ? normalizeHttpPayload(exception.getResponse())
+        ? normalizeHttpPayload(exception.getResponse(), status)
         : {
             code: BackendHttpErrorCodes.internal_error,
             message: INTERNAL_ERROR_FALLBACK_MESSAGE
@@ -117,7 +152,7 @@ export class HttpExceptionEnvelopeFilter implements ExceptionFilter {
     }
 
     response.status(status).json({
-      error: typeof payload === 'string' ? { code: 'error', message: payload } : payload,
+      error: payload,
       meta: {
         requestId: requestContext.requestId,
         correlationId: requestContext.correlationId,
