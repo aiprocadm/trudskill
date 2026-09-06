@@ -44,34 +44,50 @@ const participantTransitions: Record<
 export class EsignStateMachine {
   static transitionApplication(current: EsignApplicationStatus, next: EsignApplicationStatus) {
     if (!appTransitions[current].includes(next))
-      throw new BadRequestException(`Invalid application transition: ${current} -> ${next}`);
+      throw new BadRequestException({
+        code: 'domain_rule_violation',
+        message: `Invalid application transition: ${current} -> ${next}`
+      });
   }
 
   static transitionProcess(current: SigningProcessStatus, next: SigningProcessStatus) {
     if (!processTransitions[current].includes(next))
-      throw new BadRequestException(`Invalid process transition: ${current} -> ${next}`);
+      throw new BadRequestException({
+        code: 'domain_rule_violation',
+        message: `Invalid process transition: ${current} -> ${next}`
+      });
   }
 
   static transitionParticipant(current: SigningParticipantStatus, next: SigningParticipantStatus) {
     if (!participantTransitions[current].includes(next))
-      throw new BadRequestException(`Invalid participant transition: ${current} -> ${next}`);
+      throw new BadRequestException({
+        code: 'domain_rule_violation',
+        message: `Invalid participant transition: ${current} -> ${next}`
+      });
   }
 
   static assertApplicationReusable(status: EsignApplicationStatus) {
     if (status !== 'approved')
-      throw new BadRequestException('Only approved application can be reused');
+      throw new BadRequestException({
+        code: 'domain_rule_violation',
+        message: 'Only approved application can be reused'
+      });
   }
 
   static assertApplicationEligibleForSigning(status: EsignApplicationStatus) {
     if (!['approved', 'reused'].includes(status))
-      throw new BadRequestException(
-        'Application must be approved or reused before signing process'
-      );
+      throw new BadRequestException({
+        code: 'domain_rule_violation',
+        message: 'Application must be approved or reused before signing process'
+      });
   }
 
   static assertProcessMutable(process: SigningProcessEntity) {
     if (process.status === 'signed' || process.status === 'cancelled')
-      throw new BadRequestException('Terminal process is immutable');
+      throw new BadRequestException({
+        code: 'domain_rule_violation',
+        message: 'Terminal process is immutable'
+      });
   }
 
   /**
@@ -84,7 +100,10 @@ export class EsignStateMachine {
    */
   static assertProcessRosterMutable(process: SigningProcessEntity) {
     if (process.status !== 'draft' && process.status !== 'prepared')
-      throw new BadRequestException('Participants can only be changed before signing starts');
+      throw new BadRequestException({
+        code: 'domain_rule_violation',
+        message: 'Participants can only be changed before signing starts'
+      });
   }
 
   static assertSigningOrder(
@@ -97,16 +116,25 @@ export class EsignStateMachine {
       .filter((p) => !['signed', 'skipped', 'rejected', 'expired'].includes(p.status))
       .sort((a, b) => a.signOrder - b.signOrder)[0];
     if (!minPending || minPending.id !== participant.id)
-      throw new BadRequestException('Participant cannot sign out of order for sequential process');
+      throw new BadRequestException({
+        code: 'domain_rule_violation',
+        message: 'Participant cannot sign out of order for sequential process'
+      });
   }
 
   static assertSignedHasSignedAt(nextStatus: SigningParticipantStatus, signedAt?: string) {
     if (nextStatus === 'signed' && !signedAt)
-      throw new BadRequestException('signed_at is required when participant status is signed');
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'signed_at is required when participant status is signed'
+      });
   }
 
   static assertParticipantActor(participantUserId: string, actorId?: string) {
     if (!actorId || participantUserId !== actorId)
-      throw new ConflictException('Participant can act only on their own signing assignment');
+      throw new ConflictException({
+        code: 'signing_assignment_not_yours',
+        message: 'Participant can act only on their own signing assignment'
+      });
   }
 }

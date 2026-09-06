@@ -152,14 +152,20 @@ export class NotificationsService {
       );
       const row = rows[0];
       if (!row || (row.recipient_user_id && row.recipient_user_id !== userId))
-        throw new NotFoundException('Notification not found');
+        throw new NotFoundException({
+          code: 'notification_not_found',
+          message: 'Notification not found'
+        });
       return this.mapRow(row);
     }
     const item = this.notificationStore.notifications.find(
       (entry) => entry.id === id && entry.tenantId === tenantId
     );
     if (!item || (item.recipientUserId && item.recipientUserId !== userId))
-      throw new NotFoundException('Notification not found');
+      throw new NotFoundException({
+        code: 'notification_not_found',
+        message: 'Notification not found'
+      });
     return item;
   }
 

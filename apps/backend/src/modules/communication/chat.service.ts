@@ -36,7 +36,10 @@ export class ChatService {
     }
   ) {
     if (body.type === 'direct' && body.participantUserIds.length !== 2)
-      throw new ForbiddenException('Direct dialog must have exactly 2 participants');
+      throw new ForbiddenException({
+        code: 'direct_dialog_participants',
+        message: 'Direct dialog must have exactly 2 participants'
+      });
     const dialog: ChatDialogRow = {
       id: this.id('dlg'),
       tenantId,
@@ -127,9 +130,11 @@ export class ChatService {
 
   private async assertDialogAccess(tenantId: string, dialogId: string, userId?: string) {
     const dialog = await this.repository.getDialog(tenantId, dialogId);
-    if (!dialog) throw new NotFoundException('Dialog not found');
+    if (!dialog)
+      throw new NotFoundException({ code: 'dialog_not_found', message: 'Dialog not found' });
     const participant = await this.repository.isParticipant(tenantId, dialogId, userId);
-    if (!participant) throw new ForbiddenException('Dialog access denied');
+    if (!participant)
+      throw new ForbiddenException({ code: 'permission_denied', message: 'Dialog access denied' });
   }
 
   private id(prefix: string) {

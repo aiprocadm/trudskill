@@ -140,4 +140,65 @@ describe('TXT-004 · разбор пойманной ошибки', () => {
     expect(view.message).toMatch(/[А-Яа-яЁё]/);
     expect(view.message.split(/(?<=[.!?])\s+/).filter(Boolean).length).toBeGreaterThanOrEqual(2);
   });
+  /*
+   * Ревизия 2026-09-06 — класс «ошибка объявлена в бэкенде, доносит ли она свой смысл».
+   *
+   * 49 бросков в документах, электронной подписи и общении шли строковой формой, без кода.
+   * Фронт кода не находил, подставлял `internal_error`, и на «заявку можно менять только в
+   * черновике» человек читал «Сбой на стороне сервера — с вашими данными ничего не
+   * случилось. Повторите через минуту». Он повторял, и повторялось то же самое.
+   */
+  it('состояние записи больше не выдаётся за сбой сервера', () => {
+    const text = humanErrorMessage(
+      err({
+        status: 400,
+        code: 'domain_rule_violation',
+        message: 'Only draft application can be updated'
+      })
+    );
+
+    expect(text).not.toContain('Сбой на стороне сервера');
+    expect(text).toContain('состояние записи');
+    // Английское сообщение сервера человеку не показывается — его место в спойлере.
+    expect(text).not.toMatch(/[A-Za-z]/);
+  });
+
+  it('коды, на которых общий текст по статусу врал бы, отвечают по существу', () => {
+    // 409 сказал бы «Такая запись уже есть» — а дело в том, что подпись назначена другому.
+    const foreign = humanErrorMessage(
+      err({ status: 409, code: 'signing_assignment_not_yours', message: 'Not your assignment' })
+    );
+    expect(foreign).toContain('назначена');
+    expect(foreign).not.toContain('уже есть');
+
+    // 400 сказал бы «Проверьте заполненные поля» — а надо добавить участников.
+    const noParticipants = humanErrorMessage(
+      err({ status: 400, code: 'signing_participants_required', message: 'No participants' })
+    );
+    expect(noParticipants).toContain('участник');
+    expect(noParticipants).not.toContain('заполненные поля');
+
+    // 403 сказал бы «нет прав» — а личный диалог просто на двоих.
+    const dialog = humanErrorMessage(
+      err({ status: 403, code: 'direct_dialog_participants', message: 'Exactly 2 participants' })
+    );
+    expect(dialog).toContain('двоих');
+    expect(dialog).not.toContain('прав');
+  });
+
+  it('технический код остаётся в спойлере, а не в тексте', () => {
+    const error = err({
+      status: 400,
+      code: 'domain_rule_violation',
+      message: 'Only draft application can be updated',
+      requestId: 'req_7'
+    });
+
+    expect(describeError({ normalized: error })).toEqual({
+      message: humanErrorMessage(error),
+      details: errorDetailsLine(error)
+    });
+    expect(errorDetailsLine(error)).toContain('domain_rule_violation');
+    expect(humanErrorMessage(error)).not.toContain('domain_rule_violation');
+  });
 });
