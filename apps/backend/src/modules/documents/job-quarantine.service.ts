@@ -1,4 +1,11 @@
-import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException
+} from '@nestjs/common';
 
 import { backendEnv } from '../../env.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
@@ -178,7 +185,7 @@ export class JobQuarantineService {
   async republish(tenantId: string, id: string, ctx: RequestContext): Promise<QuarantineItem> {
     const row = await this.requireOwn(tenantId, id);
     if (row.status === 'republished') {
-      throw new BadRequestException({
+      throw new ConflictException({
         code: 'already_republished',
         message: 'Job has already been sent back to the queue'
       });
@@ -245,7 +252,7 @@ export class JobQuarantineService {
   ): Promise<QuarantineItem> {
     const row = await this.requireOwn(tenantId, id);
     if (row.status === 'discarded') {
-      throw new BadRequestException({
+      throw new ConflictException({
         code: 'already_discarded',
         message: 'Job has already been discarded'
       });

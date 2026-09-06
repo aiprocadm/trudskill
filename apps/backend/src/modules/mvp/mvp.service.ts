@@ -4621,7 +4621,7 @@ export class MvpService {
       });
     }
     if (request.consent !== true) {
-      throw new BadRequestException({
+      throw new PreconditionFailedException({
         code: 'consent_required',
         message: 'Consent to personal data processing is required (152-ФЗ)'
       });
@@ -4637,7 +4637,7 @@ export class MvpService {
       request.passportFileId
     ]);
     if (!known.has(request.selfieFileId) || !known.has(request.passportFileId)) {
-      throw new BadRequestException({
+      throw new NotFoundException({
         code: 'file_not_found',
         message: 'Uploaded file not found for tenant'
       });
@@ -4927,7 +4927,7 @@ export class MvpService {
     context: RequestContext
   ): ProctoringRecording {
     if (request.consent !== true) {
-      throw new BadRequestException({
+      throw new PreconditionFailedException({
         code: 'consent_required',
         message: 'Consent to video recording is required (152-ФЗ)'
       });
@@ -6967,7 +6967,7 @@ export class MvpService {
         (c) => c.tenantId === tenantId && c.id === request.commissionId
       );
       if (!commission) {
-        throw new BadRequestException({
+        throw new NotFoundException({
           code: 'commission_not_found',
           message: `Commission ${request.commissionId} not found`
         });
@@ -7057,7 +7057,7 @@ export class MvpService {
       try {
         this.documentsService.getTemplate(tenantId, entry.templateId);
       } catch {
-        throw new BadRequestException({
+        throw new NotFoundException({
           code: 'template_not_found',
           message: `Template ${entry.templateId} not found in tenant`
         });

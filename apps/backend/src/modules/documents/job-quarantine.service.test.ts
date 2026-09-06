@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 
 import { JobQuarantineService } from './job-quarantine.service.js';
@@ -129,8 +129,9 @@ describe('переотправка из карантина', () => {
 
   it('повторная переотправка той же строки запрещена', async () => {
     const { service } = makeService([rowFor({ status: 'republished' })]);
+    // §5.423: «уже вернули в очередь» — занятое состояние, это 409, а не «данные не подошли».
     await expect(service.republish('tenant_a', 'qtn_1', CTX)).rejects.toBeInstanceOf(
-      BadRequestException
+      ConflictException
     );
   });
 
