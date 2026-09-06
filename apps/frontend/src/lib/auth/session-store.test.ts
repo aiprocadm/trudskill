@@ -2,6 +2,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { sessionStore } from './session-store';
 
+import type { UserSession } from '../../entities/session/model';
+
 const KEY = 'trudskill.session.v1';
 const LEGACY_KEY = 'cdoprof.session.v1';
 const originalWindow = globalThis.window;
@@ -38,7 +40,7 @@ describe('session store', () => {
   });
 
   /** Минимальная сессия для проверок подписки. */
-  const session = (id: string) => ({
+  const session = (id: string): UserSession => ({
     user: {
       id,
       tenantId: 'tenant_demo',

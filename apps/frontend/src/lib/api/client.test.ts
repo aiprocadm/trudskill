@@ -8,8 +8,11 @@ const successEnvelope = <T>(data: T) => ({
 });
 
 describe('api client envelope contract', () => {
-  let apiRequest: <T>(path: string) => Promise<T>;
-  let apiRequestEnvelope: <T>(path: string) => Promise<{ data: T; meta: { requestId: string } }>;
+  let apiRequest: <T>(path: string, options?: { auth?: { accessToken?: string } }) => Promise<T>;
+  let apiRequestEnvelope: <T>(
+    path: string,
+    options?: { auth?: { accessToken?: string } }
+  ) => Promise<{ data: T; meta: { requestId: string } }>;
   let apiClient: {
     get: <T>(path: string) => Promise<T>;
     post: <T>(path: string, body?: unknown) => Promise<T>;
@@ -168,7 +171,7 @@ describe('api client envelope contract', () => {
 
     const data = await apiRequest<{ id: string }>('/groups', {
       auth: { accessToken: 'token_stale' }
-    } as never);
+    });
 
     expect(data).toEqual({ id: 'g1' });
     expect(recover).toHaveBeenCalledTimes(1);
@@ -183,7 +186,7 @@ describe('api client envelope contract', () => {
     fetchMock.mockResolvedValueOnce(unauthorized());
 
     await expect(
-      apiRequest('/groups', { auth: { accessToken: 'token_stale' } } as never)
+      apiRequest('/groups', { auth: { accessToken: 'token_stale' } })
     ).rejects.toBeInstanceOf(ApiClientError);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -195,7 +198,7 @@ describe('api client envelope contract', () => {
     fetchMock.mockResolvedValueOnce(unauthorized());
 
     await expect(
-      apiRequest('/groups', { auth: { accessToken: 'token_stale' } } as never)
+      apiRequest('/groups', { auth: { accessToken: 'token_stale' } })
     ).rejects.toBeInstanceOf(ApiClientError);
     expect(recover).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(2);

@@ -10,8 +10,7 @@ describe('workspace page state helpers', () => {
     const error = new ApiClientError({
       status: 403,
       code: 'permission_denied',
-      message: 'Permission denied',
-      isAuthError: false
+      message: 'Permission denied'
     });
 
     const text = resolveWorkspaceErrorMessage(error);
