@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { ConflictException, Inject, Injectable } from '@nestjs/common';
 
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 
@@ -28,6 +28,30 @@ interface LicenseDbRow {
  * `YYYY-MM-DD` strings (node-pg parses `date` to a JS Date by default, which would
  * break the string-based expiry comparison).
  */
+/** Имя индекса, который держит обещание «номер лицензии занят» (миграция 0092). */
+const NUMBER_INDEX = 'uq_training_licenses_tenant_type_number';
+
+/**
+ * Отказ базы по нашему индексу — тот же отказ, что даёт проверка в коде.
+ *
+ * Журнал 353. Проверка «уже есть?» и вставка — две операции: проигравший гонку запрос
+ * узнаёт о занятом номере только от базы. Без перевода это дошло бы до человека как «Сбой на
+ * стороне сервера — повторите через минуту», хотя повторять бесполезно: номер занят.
+ *
+ * Переводится РОВНО наше нарушение. Чужое (другая таблица, другой индекс) уходит наверх как
+ * есть: притворяться, что мы знаем его причину, хуже, чем пропустить.
+ */
+const asNumberConflict = (error: unknown): unknown => {
+  const details = error as { code?: unknown; constraint?: unknown } | null;
+  if (details?.code === '23505' && details.constraint === NUMBER_INDEX) {
+    return new ConflictException({
+      code: 'license_number_conflict',
+      message: 'Лицензия с таким номером и типом уже существует в этом центре'
+    });
+  }
+  return error;
+};
+
 @Injectable()
 export class PostgresLicensesRepository implements LicensesRepository {
   constructor(@Inject(DatabaseService) private readonly db: DatabaseService) {}
@@ -74,6 +98,14 @@ export class PostgresLicensesRepository implements LicensesRepository {
   }
 
   async insert(license: TrainingLicense): Promise<TrainingLicense> {
+    try {
+      return await this.insertRow(license);
+    } catch (error) {
+      throw asNumberConflict(error);
+    }
+  }
+
+  private async insertRow(license: TrainingLicense): Promise<TrainingLicense> {
     const rows = await this.db.query<LicenseDbRow>(
       `insert into org.training_licenses
          (id, tenant_id, license_type, license_number, issuer_name, issued_at, valid_until,

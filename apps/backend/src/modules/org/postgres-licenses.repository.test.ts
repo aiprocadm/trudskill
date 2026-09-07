@@ -11,11 +11,12 @@ import type { DatabaseService } from '../../infrastructure/database/database.ser
  * сломал строковое сравнение сроков).
  */
 type Call = { sql: string; params: unknown[] };
-function fakeDb(rows: unknown[] = []) {
+function fakeDb(rows: unknown[] = [], failWith?: unknown) {
   const calls: Call[] = [];
   const db = {
     query: async (sql: string, params: unknown[] = []) => {
       calls.push({ sql, params });
+      if (failWith) throw failWith;
       return rows;
     }
   } as unknown as DatabaseService;
@@ -111,5 +112,38 @@ describe('PostgresLicensesRepository — маппинг и параметры', 
     expect(calls[0]!.sql).toContain("status = 'active'");
     expect(calls[0]!.sql).toContain('valid_until is not null');
     expect(calls[0]!.params).toEqual(['t1', '2026-12-31']);
+  });
+  /*
+   * Ревизия 2026-09-07 (§5.427), журнал 353. С миграцией 0092 у таблицы появилась
+   * уникальность `(tenant_id, license_type, license_number)` — последняя линия обороны от
+   * двух лицензий с одним номером. Проигравший гонку запрос теперь получает отказ ОТ БАЗЫ,
+   * а не от проверки в коде; без перевода он дошёл бы до человека как «Сбой на стороне
+   * сервера — повторите через минуту», хотя повтор не поможет: номер занят.
+   *
+   * Переводим ровно своё нарушение: чужое (другая таблица, другой индекс) — не наше дело,
+   * и притворяться, что мы знаем его причину, хуже, чем пропустить наверх.
+   */
+  it('отказ базы по номеру лицензии переводится в тот же понятный отказ', async () => {
+    const violation = Object.assign(new Error('duplicate key value violates unique constraint'), {
+      code: '23505',
+      constraint: 'uq_training_licenses_tenant_type_number'
+    });
+    const { db } = fakeDb([], violation);
+    const repo = new PostgresLicensesRepository(db);
+
+    await expect(repo.insert(license)).rejects.toMatchObject({
+      response: { code: 'license_number_conflict' }
+    });
+  });
+
+  it('чужое нарушение уникальности не выдаётся за наше', async () => {
+    const foreign = Object.assign(new Error('duplicate key value violates unique constraint'), {
+      code: '23505',
+      constraint: 'uq_some_other_table'
+    });
+    const { db } = fakeDb([], foreign);
+    const repo = new PostgresLicensesRepository(db);
+
+    await expect(repo.insert(license)).rejects.toBe(foreign);
   });
 });
