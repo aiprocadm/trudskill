@@ -28,3 +28,27 @@ export function formatSnils(snils: string | undefined): string {
   if (digits.length !== 11) return snils;
   return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 9)} ${digits.slice(9, 11)}`;
 }
+
+/**
+ * «Кто и когда решил» — вторая строка под статусом решённой записи (§5.431).
+ *
+ * Перезачислить человека на переаттестацию или убрать его из очереди — решение, за которым
+ * стоит сотрудник центра. Сервер хранил и присылал автора решения, а экран его не показывал:
+ * вопрос «кто убрал слушателя из очереди, у которого истекает удостоверение» выяснялся
+ * только по базе. Для регулируемого центра это ровно тот вопрос, который задают при проверке.
+ *
+ * Имя подставляет СЕРВЕР: справочник имён на стороне экрана врёт на удалённых записях, а
+ * сырой идентификатор человеку показывать нельзя. Нет имени — так и говорим.
+ */
+export function decisionNote(draft: {
+  decidedAt?: string;
+  decidedBy?: string;
+  decidedByName?: string;
+}): string | null {
+  if (!draft.decidedAt && !draft.decidedBy) return null;
+  const who = draft.decidedByName ?? 'учётная запись удалена';
+  const when = draft.decidedAt
+    ? new Date(draft.decidedAt).toLocaleDateString('ru-RU')
+    : 'дата неизвестна';
+  return `${who}, ${when}`;
+}

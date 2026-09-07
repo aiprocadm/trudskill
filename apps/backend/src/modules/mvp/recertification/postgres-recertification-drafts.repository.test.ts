@@ -74,7 +74,7 @@ describe('PostgresRecertificationDraftsRepository — маппинг и пара
     await repo.list('t1', {});
     await repo.list('t1', { status: 'pending' });
 
-    expect(calls[0]!.sql).toContain('order by valid_until asc');
+    expect(calls[0]!.sql).toContain('order by d.valid_until asc, d.id asc');
     expect(calls[0]!.sql).not.toContain('status = $2');
     expect(calls[1]!.sql).toContain('status = $2');
   });

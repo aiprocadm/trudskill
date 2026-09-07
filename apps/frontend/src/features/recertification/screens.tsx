@@ -6,7 +6,7 @@ import { type ReactElement, useState } from 'react';
 
 import { ApproveRecertModal } from './approve-recert-modal';
 import { URGENCY_LABELS, formatDaysLeft, recertificationApi } from './expiring';
-import { formatRemaining, formatSnils } from './format';
+import { decisionNote, formatRemaining, formatSnils } from './format';
 import { useRecertificationMutations, useRecertificationQueue } from './hooks';
 import { RECERT_STATUS_LABELS, RECERT_STATUS_TONE, type RecertificationDraftStatus } from './types';
 import {
@@ -108,11 +108,22 @@ export function RecertificationQueueScreen(): ReactElement {
     courseView: draft.courseTitle || '—',
     validUntil: draft.validUntil,
     remainingView: formatRemaining(draft.validUntil, today),
+    /*
+     * §5.431: у решённой записи видно, КТО и КОГДА решил. Отдельной колонки не заводим —
+     * сведения относятся к статусу и читаются под ним второй строкой.
+     */
     statusView: (
-      <StatusChip
-        status={RECERT_STATUS_TONE[draft.status]}
-        label={RECERT_STATUS_LABELS[draft.status]}
-      />
+      <span className="ui-stack" style={{ gap: 2 }}>
+        <StatusChip
+          status={RECERT_STATUS_TONE[draft.status]}
+          label={RECERT_STATUS_LABELS[draft.status]}
+        />
+        {decisionNote(draft) ? (
+          <span className="ui-text-muted" style={{ fontSize: '0.85em' }}>
+            {decisionNote(draft)}
+          </span>
+        ) : null}
+      </span>
     ),
     learnerName: draft.learnerName,
     courseTitle: draft.courseTitle
