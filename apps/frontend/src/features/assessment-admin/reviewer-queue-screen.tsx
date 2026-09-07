@@ -62,7 +62,7 @@ export function ReviewerQueueScreen() {
             ) : (
               <SectionEmpty
                 message="Работ на проверке нет"
-                hint="Plans B+C добавят попытки и активные действия."
+                hint="Здесь появятся попытки тестов, которые ждут вашей проверки."
               />
             )}
           </SectionCard>
@@ -76,7 +76,7 @@ export function ReviewerQueueScreen() {
             ) : (
               <SectionEmpty
                 message="Сданных заданий на проверке нет"
-                hint="Plan C добавит submission/review lifecycle."
+                hint="Здесь появятся практические работы, сданные слушателями."
               />
             )}
           </SectionCard>

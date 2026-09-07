@@ -94,8 +94,14 @@ export function WebinarProviderSettingsSection() {
             </option>
           ))}
         </select>
+        {/*
+          §5.434: подписью служила английская подсказка «Base URL» — и подписи не было
+          вовсе: текст-подсказка исчезает, как только человек начинает печатать. Теперь
+          подпись читается вспомогательным текстом, а подсказка показывает ОБРАЗЕЦ.
+        */}
         <input
-          placeholder="Base URL"
+          aria-label="Адрес сервиса вебинаров"
+          placeholder="https://webinar.example.ru"
           value={baseUrl}
           onChange={(e) => setBaseUrl(e.target.value)}
         />
