@@ -68,6 +68,13 @@ export interface ReportTemplate {
   selectedFields: string[];
   filters: ReportFilterValue[];
   createdBy?: string;
+  /**
+   * Имя заведшего шаблон — подставляет сервер (§5.432).
+   *
+   * Пусто, если учётной записи больше нет: экран говорит об этом прямо, а не подставляет
+   * «система» и не показывает сырой идентификатор (правило продукта №2).
+   */
+  createdByName?: string | null;
   createdAt: string;
   updatedAt: string;
 }

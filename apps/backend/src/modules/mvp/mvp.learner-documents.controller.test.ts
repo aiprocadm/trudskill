@@ -22,6 +22,7 @@ import type { Course, Enrollment, GroupCourse, Learner } from './mvp.types.js';
 import type { LearnerPiiService } from './pii/learner-pii.service.js';
 import type { TenantUsageService } from './usage/tenant-usage.service.js';
 import type { RequestContext } from '../../common/context/request-context.js';
+import type { UserDisplayNamesService } from '../../common/iam/user-display-names.service.js';
 import type { TenantPlanFeatureService } from '../../infrastructure/tenant/tenant-plan-feature.service.js';
 import type { DocumentsService } from '../documents/documents.service.js';
 import type { GeneratedDocumentEntity } from '../documents/documents.types.js';
@@ -137,7 +138,7 @@ function makeController(documents: GeneratedDocumentEntity[]) {
     new EventEmitter2()
   );
 
-  // Контроллеру нужны двенадцать зависимостей; маршруты документов слушателя работают
+  // Контроллеру нужны четырнадцать зависимостей; маршруты документов слушателя работают
   // только через MvpService. Остальные — громкие заглушки: обращение к неподставленной
   // зависимости бросает с её именем, а не оседает молчаливым undefined.
   const controller = new MvpController(
@@ -153,7 +154,10 @@ function makeController(documents: GeneratedDocumentEntity[]) {
     unusedDependency<IamService>('IamService'),
     unusedDependency<TenantPlanFeatureService>('TenantPlanFeatureService'),
     unusedDependency<TenantUsageService>('TenantUsageService'),
-    unusedDependency<SimpleSignatureService>('SimpleSignatureService')
+    unusedDependency<SimpleSignatureService>('SimpleSignatureService'),
+    // §5.432: контроллер спрашивает имена авторов для списка шаблонов отчётов; маршрутам
+    // документов слушателя эта зависимость не нужна — заглушка громкая, как и остальные.
+    unusedDependency<UserDisplayNamesService>('UserDisplayNamesService')
   );
 
   return { controller, service, state };

@@ -59,6 +59,13 @@ export interface OtRegistryBatch {
   failedRows: number;
   batchStatus: OtRegistryBatchStatus;
   generatedBy: string;
+  /**
+   * Имя собравшего выгрузку — подставляет сервер (§5.432).
+   *
+   * Пусто, если учётной записи больше нет: экран говорит об этом прямо, а не подставляет
+   * «система» и не показывает сырой идентификатор (правило продукта №2).
+   */
+  generatedByName: string | null;
   format?: 'xlsx' | 'xml';
   signatureStatus?: 'unsigned' | 'signed' | 'failed';
   signatureFileId?: string;
@@ -146,6 +153,13 @@ export interface FrdoRegistryBatch {
   failedRows: number;
   batchStatus: 'generated' | 'partial' | 'failed';
   generatedBy: string;
+  /**
+   * Имя собравшего выгрузку — подставляет сервер (§5.432).
+   *
+   * Пусто, если учётной записи больше нет: экран говорит об этом прямо, а не подставляет
+   * «система» и не показывает сырой идентификатор (правило продукта №2).
+   */
+  generatedByName: string | null;
   signatureStatus?: 'unsigned' | 'signed' | 'failed';
   signatureFileId?: string;
 }
@@ -200,6 +214,13 @@ export interface EisotTestingBatch {
   failedRows: number;
   batchStatus: 'generated' | 'partial' | 'failed';
   generatedBy: string;
+  /**
+   * Имя собравшего выгрузку — подставляет сервер (§5.432).
+   *
+   * Пусто, если учётной записи больше нет: экран говорит об этом прямо, а не подставляет
+   * «система» и не показывает сырой идентификатор (правило продукта №2).
+   */
+  generatedByName: string | null;
   signatureStatus?: 'unsigned' | 'signed' | 'failed';
   signatureFileId?: string;
 }
@@ -255,6 +276,13 @@ export interface RostechnadzorBatch {
   failedRows: number;
   batchStatus: 'generated' | 'partial' | 'failed';
   generatedBy: string;
+  /**
+   * Имя собравшего выгрузку — подставляет сервер (§5.432).
+   *
+   * Пусто, если учётной записи больше нет: экран говорит об этом прямо, а не подставляет
+   * «система» и не показывает сырой идентификатор (правило продукта №2).
+   */
+  generatedByName: string | null;
   signatureStatus?: 'unsigned' | 'signed' | 'failed';
   signatureFileId?: string;
 }
@@ -309,6 +337,13 @@ export interface NmoBatch {
   failedRows: number;
   batchStatus: 'generated' | 'partial' | 'failed';
   generatedBy: string;
+  /**
+   * Имя собравшего выгрузку — подставляет сервер (§5.432).
+   *
+   * Пусто, если учётной записи больше нет: экран говорит об этом прямо, а не подставляет
+   * «система» и не показывает сырой идентификатор (правило продукта №2).
+   */
+  generatedByName: string | null;
   signatureStatus?: 'unsigned' | 'signed' | 'failed';
   signatureFileId?: string;
 }

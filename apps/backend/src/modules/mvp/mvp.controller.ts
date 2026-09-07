@@ -98,6 +98,7 @@ import { TenantUsageService } from './usage/tenant-usage.service.js';
 import { assertValidDto } from '../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
+import { UserDisplayNamesService } from '../../common/iam/user-display-names.service.js';
 import { TenantPlanFeatureService } from '../../infrastructure/tenant/tenant-plan-feature.service.js';
 import { DocumentsRequestPersistenceInterceptor } from '../documents/infrastructure/documents-request-persistence.interceptor.js';
 import { RequirePermissions } from '../iam/permission.decorator.js';
@@ -151,7 +152,9 @@ export class MvpController {
     @Inject(TenantPlanFeatureService) private readonly planFeature: TenantPlanFeatureService,
     @Inject(TenantUsageService) private readonly tenantUsage: TenantUsageService,
     // ФТ-C1 уровень 1: состояние соглашения об электронном взаимодействии и подпись действий.
-    @Inject(SimpleSignatureService) private readonly simpleSignature: SimpleSignatureService
+    @Inject(SimpleSignatureService) private readonly simpleSignature: SimpleSignatureService,
+    @Inject(UserDisplayNamesService)
+    private readonly userNames: UserDisplayNamesService
   ) {}
 
   @Get('counterparties')
@@ -810,8 +813,20 @@ export class MvpController {
   @Get('reports/builder/templates')
   @UseGuards(PermissionGuard)
   @RequirePermissions('learners.read')
-  listReportTemplates(@CurrentContext() c: RequestContext) {
-    return this.mvpService.listReportTemplates(c.tenantId!);
+  /*
+   * §5.432: кто завёл шаблон отчёта — видно человеку. Шаблоны живут в снимке состояния
+   * центра, поэтому имя не подставить соединением: спрашиваем разом по всему списку.
+   */
+  async listReportTemplates(@CurrentContext() c: RequestContext) {
+    const templates = this.mvpService.listReportTemplates(c.tenantId!);
+    const names = await this.userNames.namesOf(
+      c.tenantId!,
+      templates.map((template) => template.createdBy)
+    );
+    return templates.map((template) => ({
+      ...template,
+      createdByName: template.createdBy ? (names.get(template.createdBy) ?? null) : null
+    }));
   }
   @Post('reports/builder/templates')
   @UseGuards(PermissionGuard)

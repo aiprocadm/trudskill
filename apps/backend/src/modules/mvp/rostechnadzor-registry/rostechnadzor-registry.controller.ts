@@ -13,6 +13,7 @@ import { RostechnadzorRegistryService } from './rostechnadzor-registry.service.j
 import { assertValidDto } from '../../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../../common/guards/tenant.guard.js';
+import { UserDisplayNamesService } from '../../../common/iam/user-display-names.service.js';
 import { DocumentsRequestPersistenceInterceptor } from '../../documents/infrastructure/documents-request-persistence.interceptor.js';
 import { RequirePermissions } from '../../iam/permission.decorator.js';
 import { PermissionGuard } from '../../iam/permission.guard.js';
@@ -31,7 +32,9 @@ import type { RequestContext } from '../../../common/context/request-context.js'
 @UseGuards(TenantGuard)
 export class RostechnadzorRegistryController {
   constructor(
-    @Inject(RostechnadzorRegistryService) private readonly service: RostechnadzorRegistryService
+    @Inject(RostechnadzorRegistryService) private readonly service: RostechnadzorRegistryService,
+    @Inject(UserDisplayNamesService)
+    private readonly userNames: UserDisplayNamesService
   ) {}
 
   @Post('exports')
@@ -45,8 +48,23 @@ export class RostechnadzorRegistryController {
   @Get('exports')
   @UseGuards(PermissionGuard)
   @RequirePermissions('regulatory.export.read')
-  listExports(@CurrentContext() ctx: RequestContext) {
-    return this.service.listBatches(ctx.tenantId!);
+  /*
+   * §5.432: кто собрал выгрузку — видно человеку.
+   *
+   * Пакеты живут в снимке состояния центра, а не в таблице, поэтому имя не подставить
+   * соединением, как в журнале действий: спрашиваем разом по всей странице (один запрос,
+   * не по строке). Неизвестный идентификатор имени не даёт — экран скажет об этом прямо.
+   */
+  async listExports(@CurrentContext() ctx: RequestContext) {
+    const batches = this.service.listBatches(ctx.tenantId!);
+    const names = await this.userNames.namesOf(
+      ctx.tenantId!,
+      batches.map((batch) => batch.generatedBy)
+    );
+    return batches.map((batch) => ({
+      ...batch,
+      generatedByName: names.get(batch.generatedBy) ?? null
+    }));
   }
 
   @Get('exports/:id')

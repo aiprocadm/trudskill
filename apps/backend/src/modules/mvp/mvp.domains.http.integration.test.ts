@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { MVP_COLLECTIONS, type MvpCollection } from './infrastructure/mvp-collections.js';
 import { createAppValidationPipe } from '../../common/app-validation.pipe.js';
+import { UserDisplayNamesService } from '../../common/iam/user-display-names.service.js';
 import { TenantPlanFeatureService } from '../../infrastructure/tenant/tenant-plan-feature.service.js';
 import { TenantTimezoneService } from '../../infrastructure/tenant/tenant-timezone.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -245,6 +246,8 @@ describe('MVP HTTP integration (domain invariants)', () => {
       controllers: [MvpController],
       providers: [
         Reflector,
+        // §5.432: контроллер спрашивает имена авторов для списка шаблонов отчётов.
+        UserDisplayNamesService,
         TenantGuard,
         SecretsService,
         AuditService,

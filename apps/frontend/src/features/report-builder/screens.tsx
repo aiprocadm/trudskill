@@ -31,7 +31,24 @@ interface TemplateRow {
   name: string;
   aboutView: string;
   columnsView: string;
+  authorView: string;
 }
+
+/**
+ * «Кто завёл шаблон» (§5.432).
+ *
+ * Сервер хранил автора и присылал его, а экран не показывал: по отчёту потом спрашивают
+ * «откуда эти цифры», и первый вопрос — кто этот отчёт настроил. Имя подставляет СЕРВЕР:
+ * сырой идентификатор человеку показывать нельзя (правило продукта №2), а справочник имён
+ * на стороне экрана врёт на удалённых записях.
+ */
+const templateAuthor = (template: {
+  createdBy?: string;
+  createdByName?: string | null;
+}): string => {
+  if (!template.createdBy) return '—';
+  return template.createdByName ?? 'учётная запись удалена';
+};
 
 /** Название набора данных словом; незнакомый ключ показываем как есть, а не прячем. */
 function entityLabel(entities: ReportEntityMeta[], key: string): string {
@@ -284,7 +301,13 @@ export function ReportBuilderScreen(): ReactElement {
                   columns={[
                     { key: 'name', title: 'Название' },
                     { key: 'aboutView', title: 'О чём' },
-                    { key: 'columnsView', title: 'Столбцов' }
+                    { key: 'columnsView', title: 'Столбцов' },
+                    /*
+                     * §5.432: шаблон отчёта заводит человек, и по отчёту потом спрашивают —
+                     * «откуда эти цифры». Колонок было три при бюджете семь (§13.2), место
+                     * есть.
+                     */
+                    { key: 'authorView', title: 'Кто завёл' }
                   ]}
                   rows={(templates ?? []).map((tpl) => ({
                     id: tpl.id,
@@ -294,7 +317,8 @@ export function ReportBuilderScreen(): ReactElement {
                      * Показываем то же словом, из справочника, который прислал сервер.
                      */
                     aboutView: entityLabel(meta.entities, tpl.entityKey),
-                    columnsView: String(tpl.selectedFields.length)
+                    columnsView: String(tpl.selectedFields.length),
+                    authorView: templateAuthor(tpl)
                   }))}
                   rowKey={(row) => row.id}
                   rowActions={(row) => {
