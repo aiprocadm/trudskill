@@ -3,7 +3,7 @@ import { join, relative } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { APP_ROOT, fromApp } from './app-root';
+import { APP_ROOT, fromApp, fromPackages } from './app-root';
 
 /**
  * Одно понятие — одно слово (`TXT-003` по смыслу).
@@ -17,7 +17,12 @@ import { APP_ROOT, fromApp } from './app-root';
  * — это имена блоков, а не подпись поля, и под правило не подпадают.
  */
 
-const ROOTS = [fromApp('src', 'features'), fromApp('app')];
+const ROOTS = [fromApp('src', 'features'), fromApp('app'), fromPackages('ui', 'src')];
+/*
+ * §5.435: общий пакет компонентов смотрится наравне с приложением. Правило кончалось на
+ * границе `apps/frontend`, а человек этой границы не видит: подписи состояний, кнопок и
+ * предупреждений рисует `@trudskill/ui`, и до ревизии их не проверял никто.
+ */
 
 /**
  * Словарь понятий: канонное слово — и слова, которыми его называть нельзя.
@@ -70,6 +75,17 @@ describe('одно понятие — одно слово (TXT-003)', () => {
 
   it('сканер видит достаточно файлов — иначе зелёный ничего не значит', () => {
     expect(files.length).toBeGreaterThan(150);
+  });
+  /*
+   * Прямая проверка, что общий пакет ДЕЙСТВИТЕЛЬНО просматривается (урок §5.426): счётчик
+   * файлов приложения перевалит порог и без пакета, поэтому сломанный путь остался бы
+   * незамеченным — сторож был бы зелёным на неполном списке.
+   */
+  it('сканер видит и общий пакет компонентов, а не только приложение', () => {
+    const fromPackage = files.filter((file) =>
+      file.split('\\').join('/').includes('/packages/ui/src/')
+    );
+    expect(fromPackage.length, 'файлы `@trudskill/ui` в список не попали').toBeGreaterThan(5);
   });
 
   it('каждое понятие подписано своим единственным словом', () => {

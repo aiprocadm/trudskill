@@ -16,3 +16,15 @@ export const APP_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..'
 
 /** Путь внутри приложения: `fromApp('src', 'features')`. */
 export const fromApp = (...parts: string[]): string => join(APP_ROOT, ...parts);
+
+/**
+ * Путь внутри общего пакета компонентов: `fromPackages('ui', 'src')`.
+ *
+ * Зачем (§5.435). Сторожа текста смотрели только `apps/frontend` — а `@trudskill/ui` рисует
+ * подписи, которые видит тот же человек: состояния («Активен», «Аннулирован»), кнопки
+ * («Выбрать файл», «Выгрузить список»), заголовки предупреждений. Сто двадцать семь строк,
+ * и ни одна не проверялась ни на латиницу, ни на тон, ни на единство слов: правило кончалось
+ * на границе приложения, хотя человек этой границы не видит.
+ */
+export const fromPackages = (...parts: string[]): string =>
+  join(APP_ROOT, '..', '..', 'packages', ...parts);

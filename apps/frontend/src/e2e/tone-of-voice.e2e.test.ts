@@ -3,7 +3,7 @@ import { join, relative } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { APP_ROOT, fromApp } from './app-root';
+import { APP_ROOT, fromApp, fromPackages } from './app-root';
 
 /**
  * `TXT-007`: обращение на «вы» со строчной буквы, без восклицательных знаков, без «пожалуйста».
@@ -17,7 +17,12 @@ import { APP_ROOT, fromApp } from './app-root';
  * размывается по одной строке за раз, и заметить это на ревью почти невозможно.
  */
 
-const ROOTS = [fromApp('src'), fromApp('app')];
+const ROOTS = [fromApp('src'), fromApp('app'), fromPackages('ui', 'src')];
+/*
+ * §5.435: общий пакет компонентов смотрится наравне с приложением. Правило кончалось на
+ * границе `apps/frontend`, а человек этой границы не видит: подписи состояний, кнопок и
+ * предупреждений рисует `@trudskill/ui`, и до ревизии их не проверял никто.
+ */
 
 /**
  * «Вы» и его формы с большой буквы ВНУТРИ предложения — это вежливая форма, которую ТЗ
@@ -84,6 +89,17 @@ describe('TXT-007 · тон обращения', () => {
       collect(root).flatMap((file) => literals(readFileSync(file, 'utf8')))
     );
     expect(texts.length).toBeGreaterThan(500);
+  });
+  /*
+   * Прямая проверка, что общий пакет ДЕЙСТВИТЕЛЬНО просматривается (урок §5.426): счётчик
+   * файлов приложения перевалит порог и без пакета, поэтому сломанный путь остался бы
+   * незамеченным — сторож был бы зелёным на неполном списке.
+   */
+  it('сканер видит и общий пакет компонентов, а не только приложение', () => {
+    const fromPackage = ROOTS.flatMap((root) => collect(root)).filter((file) =>
+      file.split('\\').join('/').includes('/packages/ui/src/')
+    );
+    expect(fromPackage.length, 'файлы `@trudskill/ui` в список не попали').toBeGreaterThan(5);
   });
 
   it('«вы» пишется со строчной буквы', () => {
