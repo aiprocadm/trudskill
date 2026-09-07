@@ -1606,6 +1606,11 @@ describe('mvp service domain rules', () => {
       throw new TypeError('cannot read properties of undefined');
     });
 
+    /*
+     * Проверяется ИМЕННО ТА поломка, а не любая: если ловить всё подряд, поломка всё равно
+     * вылетит — но уже другая («getResponse не функция»), и тест «поднимается наверх» стал бы
+     * зелёным по ошибке. Проверено подсадным нарушителем.
+     */
     expect(() =>
       service.createBulkEnrollments(
         'tenant_demo',
@@ -1613,7 +1618,7 @@ describe('mvp service domain rules', () => {
         { idempotencyKey: 'idem-partial-2', groupId: group.id, learnerIds: [learner.id] },
         ctx
       )
-    ).toThrow(TypeError);
+    ).toThrow('cannot read properties of undefined');
   });
 
   it('replay re-attempts a previously-failed learner once it exists (retry, not frozen errors)', () => {
