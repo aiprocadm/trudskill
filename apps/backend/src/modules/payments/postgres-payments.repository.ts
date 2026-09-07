@@ -69,32 +69,42 @@ const rid = (p: string) => `${p}_${Math.random().toString(36).slice(2, 10)}`;
 export class PostgresPaymentsRepository implements PaymentsRepository {
   constructor(@Inject(DatabaseService) private readonly db: DatabaseService) {}
 
+  /*
+   * §5.429: заказ и его товары — ОДНО событие.
+   *
+   * Порознь между строкой заказа и строками товаров умещается падение, и остаётся заказ с
+   * полной суммой, но неполным составом. Человек оплачивает его целиком, а зачислений
+   * получает меньше, чем купил, — и по записям это выглядит как законный заказ, а не как
+   * сбой: разбирать придётся вручную, сверяя с платежом.
+   */
   async createOrder(seed: CreateOrderSeed): Promise<OrderEntity> {
     const orderId = rid('ord');
-    await this.db.query(
-      `insert into payments.orders
-         (id, tenant_id, buyer_type, buyer_id, status, currency, total_amount, description, created_by, created_at, updated_at)
-       values ($1, $2, $3, $4, 'awaiting_payment', $5, $6, $7, $8, now(), now())`,
-      [
-        orderId,
-        seed.tenantId,
-        seed.buyerType,
-        seed.buyerId,
-        seed.currency,
-        seed.items.reduce((s, i) => s + i.unitAmount, 0),
-        seed.description ?? null,
-        seed.createdBy ?? null
-      ]
-    );
-
-    for (const i of seed.items) {
-      await this.db.query(
-        `insert into payments.order_items
-           (id, tenant_id, order_id, group_id, learner_id, unit_amount, fulfillment_status, created_at, updated_at)
-         values ($1, $2, $3, $4, $5, $6, 'pending', now(), now())`,
-        [rid('oi'), seed.tenantId, orderId, i.groupId, i.learnerId, i.unitAmount]
+    await this.db.withTransaction(async (client) => {
+      await client.query(
+        `insert into payments.orders
+           (id, tenant_id, buyer_type, buyer_id, status, currency, total_amount, description, created_by, created_at, updated_at)
+         values ($1, $2, $3, $4, 'awaiting_payment', $5, $6, $7, $8, now(), now())`,
+        [
+          orderId,
+          seed.tenantId,
+          seed.buyerType,
+          seed.buyerId,
+          seed.currency,
+          seed.items.reduce((s, i) => s + i.unitAmount, 0),
+          seed.description ?? null,
+          seed.createdBy ?? null
+        ]
       );
-    }
+
+      for (const i of seed.items) {
+        await client.query(
+          `insert into payments.order_items
+             (id, tenant_id, order_id, group_id, learner_id, unit_amount, fulfillment_status, created_at, updated_at)
+           values ($1, $2, $3, $4, $5, $6, 'pending', now(), now())`,
+          [rid('oi'), seed.tenantId, orderId, i.groupId, i.learnerId, i.unitAmount]
+        );
+      }
+    });
 
     const order = await this.getOrder(seed.tenantId, orderId);
     return order!;
