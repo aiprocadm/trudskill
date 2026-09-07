@@ -190,18 +190,28 @@ export class PlatformPlansService {
       throw new NotFoundException({ code: 'tenant_not_found', message: 'Tenant not found' });
     }
 
-    await db.query(
-      `update core.tenant_subscriptions
-       set status = 'cancelled', cancelled_at = now(), updated_at = now()
-       where tenant_id = $1 and status = 'active'`,
-      [tenantId]
-    );
+    /*
+     * §5.429: снять прежнюю подписку и завести новую — ОДНО событие.
+     *
+     * Порознь между двумя запросами есть окно, в котором у центра НЕТ ДЕЙСТВУЮЩЕГО ТАРИФА:
+     * прежний уже отменён, новый ещё не создан. Если на этом месте оборвётся соединение или
+     * упадёт приложение, окно перестаёт быть мгновением — центр остаётся без тарифа совсем:
+     * возможности закрыты, пределы не считаются, и он стоит, пока кто-нибудь не заметит.
+     */
     const id = `tsub_${tenantId}_${Date.now()}`;
-    await db.query(
-      `insert into core.tenant_subscriptions (id, tenant_id, plan_id, status)
-       values ($1, $2, $3, 'active')`,
-      [id, tenantId, planId]
-    );
+    await db.withTransaction(async (client) => {
+      await client.query(
+        `update core.tenant_subscriptions
+         set status = 'cancelled', cancelled_at = now(), updated_at = now()
+         where tenant_id = $1 and status = 'active'`,
+        [tenantId]
+      );
+      await client.query(
+        `insert into core.tenant_subscriptions (id, tenant_id, plan_id, status)
+         values ($1, $2, $3, 'active')`,
+        [id, tenantId, planId]
+      );
+    });
     // Аудит в журнал ЦЕЛЕВОГО тенанта: смена тарифа — событие его жизни.
     await this.auditService.writeCritical({
       tenantId,

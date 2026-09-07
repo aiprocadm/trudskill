@@ -14,13 +14,30 @@ import type { DatabaseService } from '../../infrastructure/database/database.ser
  */
 type Call = { sql: string; params: unknown[] };
 
-function fakeDb(routes: Array<{ match: string; rows: unknown[] }>) {
+function fakeDb(routes: Array<{ match: string; rows: unknown[] }>, fail?: (sql: string) => void) {
   const calls: Call[] = [];
+  /*
+   * §5.429: заказ пишется под транзакцией, поэтому подделка обязана уметь то же, что настоящая
+   * база, — выдать клиента и откатить всё, если внутри бросили. Иначе тест проверял бы не то,
+   * что работает в бою.
+   */
+  const query = async (sql: string, params: unknown[] = []) => {
+    fail?.(sql);
+    calls.push({ sql, params });
+    const route = routes.find((r) => sql.includes(r.match));
+    return route ? route.rows : [];
+  };
   const db = {
-    query: async (sql: string, params: unknown[] = []) => {
-      calls.push({ sql, params });
-      const route = routes.find((r) => sql.includes(r.match));
-      return route ? route.rows : [];
+    query,
+    withTransaction: async <T>(fn: (client: { query: typeof query }) => Promise<T>) => {
+      const before = calls.length;
+      try {
+        return await fn({ query });
+      } catch (error) {
+        // Откат: записи, сделанные внутри неудавшейся транзакции, до базы не доехали.
+        calls.splice(before);
+        throw error;
+      }
     }
   } as unknown as DatabaseService;
   return { db, calls };
@@ -182,5 +199,36 @@ describe('PostgresPaymentsRepository — маппинг и параметры', 
       expect(call.sql).toContain('tenant_id = $1');
       expect(call.params[0]).toBe('t1');
     }
+  });
+  /*
+   * §5.429. Заказ и его товары — одно событие. Порознь между строкой заказа и строками товаров
+   * умещается падение, и остаётся заказ с полной суммой, но неполным составом: человек
+   * оплачивает его целиком, а зачислений получает меньше, чем купил. По записям это выглядит
+   * законным заказом, а не сбоем, — разбирать пришлось бы вручную, сверяя с платежом.
+   */
+  it('падение на товаре не оставляет заказ без товаров', async () => {
+    let seen = 0;
+    const { db, calls } = fakeDb([], (sql) => {
+      if (!/insert into payments\.order_items/i.test(sql)) return;
+      seen += 1;
+      if (seen === 2) throw new Error('обрыв соединения на втором товаре');
+    });
+    const repo = new PostgresPaymentsRepository(db);
+
+    await expect(
+      repo.createOrder({
+        tenantId: 't1',
+        buyerType: 'learner',
+        buyerId: 'u1',
+        currency: 'RUB',
+        items: [
+          { groupId: 'g1', learnerId: 'l1', unitAmount: 100 },
+          { groupId: 'g1', learnerId: 'l2', unitAmount: 100 }
+        ]
+      } as never)
+    ).rejects.toThrow('обрыв соединения');
+
+    // Ни строки заказа, ни первого товара: транзакция откатила всё.
+    expect(calls.filter((call) => /insert into payments\./i.test(call.sql))).toHaveLength(0);
   });
 });

@@ -160,25 +160,32 @@ export class PostgresChatRepository implements ChatRepository {
     };
   }
 
+  /*
+   * §5.429: сообщение и отметка времени диалога — ОДНО событие. Порознь между ними умещается
+   * падение: сообщение уже есть, а диалог остался со старым временем — и уходит вниз списка,
+   * который сортируется именно по нему. Человек не видит нового сообщения там, где ищет.
+   */
   async createMessage(message: ChatMessageRow) {
-    await this.db.query(
-      `insert into communication.chat_messages
-       (id, tenant_id, dialog_id, sender_user_id, message_type, text_body, sent_at)
-       values ($1,$2,$3,$4,$5,$6,$7::timestamptz)`,
-      [
-        message.id,
-        message.tenantId,
-        message.dialogId,
-        message.senderUserId,
-        message.messageType,
-        message.textBody,
-        message.sentAt
-      ]
-    );
-    await this.db.query(
-      'update communication.chat_dialogs set updated_at = now() where tenant_id = $1 and id = $2',
-      [message.tenantId, message.dialogId]
-    );
+    await this.db.withTransaction(async (client) => {
+      await client.query(
+        `insert into communication.chat_messages
+         (id, tenant_id, dialog_id, sender_user_id, message_type, text_body, sent_at)
+         values ($1,$2,$3,$4,$5,$6,$7::timestamptz)`,
+        [
+          message.id,
+          message.tenantId,
+          message.dialogId,
+          message.senderUserId,
+          message.messageType,
+          message.textBody,
+          message.sentAt
+        ]
+      );
+      await client.query(
+        'update communication.chat_dialogs set updated_at = now() where tenant_id = $1 and id = $2',
+        [message.tenantId, message.dialogId]
+      );
+    });
   }
 
   async incrementUnreadForOtherParticipants(
