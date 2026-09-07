@@ -1,5 +1,5 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
@@ -24,6 +24,7 @@ import { errorThrows } from '../../common/testing/error-throw-inventory.test-uti
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS = resolve(HERE, '..', '..', '..', 'migrations');
+const SRC = resolve(HERE, '..', '..');
 
 /** Коды отказа, которые обещают уникальность. */
 const PROMISES_UNIQUENESS = /_taken$|_conflict$|_duplicate$|_already_exists$/;
@@ -81,6 +82,112 @@ const RULES: Record<string, Rule> = {
 };
 
 /**
+ * Второй вид обещания уникальности — БЕЗ кода отказа.
+ *
+ * Ревизия 2026-09-08 (журнал 356). Первая редакция этого сторожа искала обещания по кодам
+ * (`*_taken`, `*_conflict`) — и не видела мест, где код не бросается вовсе: метод читает
+ * таблицу, не находит записи и вставляет. Обещание там такое же («двух таких не будет»), а
+ * держится оно ровно так же — только ограничением базы. Так и жил дубль участия в вебинаре:
+ * два одновременных входа давали две строки, а по ним считают часы присутствия.
+ *
+ * Ключ — «метод читает ТУ ЖЕ таблицу, в которую потом вставляет».
+ */
+const CHECK_THEN_INSERT: Record<string, { table: string; columns: string[] } | { noRace: string }> =
+  {
+    'modules/communication/postgres-webinars.repository.ts upsertParticipantAttendance': {
+      table: 'communication.webinar_participants',
+      columns: ['tenant_id', 'webinar_id', 'learner_id']
+    },
+    'modules/iam/services/iam.service.ts findOrCreateByEmail': {
+      table: 'iam.users',
+      columns: ['tenant_id', 'email']
+    },
+    'modules/iam/services/iam.service.ts setUserRoles': {
+      table: 'iam.user_roles',
+      columns: ['tenant_id', 'user_id', 'role_id']
+    },
+    'modules/mvp/consents/postgres-consent.repository.ts insertDocument': {
+      table: 'learning.consent_documents',
+      columns: ['tenant_id', 'kind', 'version']
+    },
+    'modules/mvp/esignature/postgres-simple-signature.repository.ts insertAgreement': {
+      table: 'learning.esignature_agreements',
+      columns: ['tenant_id', 'version']
+    },
+    'modules/platform/platform-plans.service.ts createPlan': {
+      table: 'core.plans',
+      columns: ['code']
+    },
+    'modules/platform/platform-tenants.service.ts createTenant': {
+      table: 'core.tenants',
+      columns: ['code']
+    },
+    'modules/payments/postgres-payments.repository.ts createPayment': {
+      noRace:
+        'вставка идёт с `on conflict do nothing` по ключу оплаты — вторая попытка не создаёт ' +
+        'строку, а тихо уступает первой; читающий запрос здесь только для ответа вызывающему'
+    }
+  };
+
+/** Управляющие конструкции — не методы, хотя выглядят так же. */
+const CONTROL_FLOW = new Set(['for', 'if', 'while', 'switch', 'catch', 'do']);
+
+const sourcesUnder = (dir: string, acc: string[] = []): string[] => {
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) {
+      sourcesUnder(full, acc);
+      continue;
+    }
+    if (entry.endsWith('.ts') && !entry.includes('.test.') && !entry.endsWith('.stub.ts')) {
+      acc.push(full);
+    }
+  }
+  return acc;
+};
+
+const blockAt = (source: string, open: number): string => {
+  let depth = 0;
+  for (let index = open; index < source.length; index += 1) {
+    if (source[index] === '{') depth += 1;
+    if (source[index] === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(open, index + 1);
+    }
+  }
+  return source.slice(open);
+};
+
+/** Методы, читающие ту же таблицу, в которую вставляют. */
+const checkThenInsert = (): Array<{ key: string; location: string; table: string }> => {
+  const found: Array<{ key: string; location: string; table: string }> = [];
+  for (const file of sourcesUnder(SRC)) {
+    const source = readFileSync(file, 'utf8');
+    const relativeFile = relative(SRC, file).split('\\').join('/');
+    for (const match of source.matchAll(
+      /(?:async\s+)?([a-zA-Z_$][\w$]*)\s*\([^)]*\)\s*(?::[^{;]+)?\{/g
+    )) {
+      if (CONTROL_FLOW.has(match[1]!)) continue;
+      const open = source.indexOf('{', match.index + match[0].length - 1);
+      if (open === -1) continue;
+      const body = blockAt(source, open);
+      if (body.length > 20_000) continue;
+      const read = /select[^`]*\bfrom\s+([a-z_]+\.[a-z_]+)/i.exec(body);
+      const write = /insert\s+into\s+([a-z_]+\.[a-z_]+)/i.exec(body);
+      if (!read || !write) continue;
+      if (read[1]!.toLowerCase() !== write[1]!.toLowerCase()) continue;
+      const line = source.slice(0, match.index).split('\n').length;
+      found.push({
+        key: `${relativeFile} ${match[1]}`,
+        location: `${relativeFile}:${line}`,
+        table: write[1]!
+      });
+    }
+  }
+  return found;
+};
+
+/**
  * Уникальность из миграций: `unique (…)`, `primary key (…)` и `create unique index`.
  *
  * Первичный ключ считается наравне с уникальным индексом — он держит ровно то же самое
@@ -133,6 +240,7 @@ const sameColumns = (a: string[], b: string[]): boolean =>
   a.length === b.length && [...a].sort().join(',') === [...b].sort().join(',');
 
 const unique = uniquenessInMigrations();
+const readThenWrite = checkThenInsert();
 const thrownCodes = new Set(errorThrows().flatMap((item) => item.codes));
 
 describe('обещание уникальности подперто базой', () => {
@@ -179,5 +287,42 @@ describe('обещание уникальности подперто базой'
       .filter(([, rule]) => rule.noRace.trim().length < 40)
       .map(([code]) => code);
     expect(thin).toEqual([]);
+  });
+  /*
+   * Второй вид обещания — без кода отказа: метод читает таблицу и вставляет, если не нашёл.
+   * Первая редакция сторожа его не видела, и дубль участия в вебинаре прожил незамеченным.
+   */
+  it('«проверил и вставил» тоже подперт базой', () => {
+    const undecided = readThenWrite
+      .filter((place) => !(place.key in CHECK_THEN_INSERT))
+      .map((place) => `${place.location} — читает и вставляет ${place.table}, решения нет`);
+    expect(undecided, `мест без решения: ${undecided.length}`).toEqual([]);
+
+    const unbacked = readThenWrite
+      .map((place) => [place, CHECK_THEN_INSERT[place.key]!] as const)
+      .filter(
+        (entry): entry is [(typeof readThenWrite)[number], { table: string; columns: string[] }] =>
+          'table' in entry[1]
+      )
+      .filter(([, rule]) => {
+        const declared = unique.get(rule.table.toLowerCase()) ?? [];
+        return !declared.some((columns) => sameColumns(columns, rule.columns));
+      })
+      .map(
+        ([place, rule]) =>
+          `${place.location} — обещает уникальность ${rule.table} (${rule.columns.join(', ')}), ` +
+          `а ограничения в миграциях нет`
+      );
+    expect(unbacked, `обещаний без опоры: ${unbacked.length}`).toEqual([]);
+  });
+
+  it('сторож видит «проверил и вставил» там, где это точно есть', () => {
+    const files = new Set(readThenWrite.map((place) => place.key.split(' ')[0]!));
+    for (const file of [
+      'modules/communication/postgres-webinars.repository.ts',
+      'modules/iam/services/iam.service.ts'
+    ]) {
+      expect(files.has(file), `«проверил и вставил» в ${file} не найден`).toBe(true);
+    }
   });
 });

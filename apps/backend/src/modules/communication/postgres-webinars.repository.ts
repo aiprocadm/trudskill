@@ -156,11 +156,17 @@ export class PostgresWebinarsRepository implements WebinarsRepository {
     };
   }
 
+  /*
+   * §5.430: добавить одного и того же участника дважды — не ошибка, а повтор действия
+   * (две вкладки, переотправка приглашения). С миграции 0093 второй раз упирается в
+   * ограничение базы, поэтому повтор гасится здесь: строка остаётся одна, ответ прежний.
+   */
   async addParticipant(row: WebinarParticipantRow) {
     await this.db.query(
       `insert into communication.webinar_participants
        (id, tenant_id, webinar_id, user_id, learner_id, role_code, attendance_status, joined_at, left_at, duration_seconds)
-       values ($1,$2,$3,$4,$5,$6,$7,$8::timestamptz,$9::timestamptz,$10)`,
+       values ($1,$2,$3,$4,$5,$6,$7,$8::timestamptz,$9::timestamptz,$10)
+       on conflict do nothing`,
       [
         `wp_${Math.random().toString(36).slice(2, 10)}`,
         row.tenantId,
@@ -208,10 +214,36 @@ export class PostgresWebinarsRepository implements WebinarsRepository {
       );
       return;
     }
+    /*
+     * §5.430, журнал 356. Проверка выше и эта вставка — две операции: два одновременных входа
+     * одного человека (две вкладки, переподключение, повтор вебхука провайдера) проходят обе
+     * проверки. Раньше это давало ДВЕ строки участия, а по ним считают часы присутствия — и
+     * часы шли в документ об обучении удвоенными.
+     *
+     * `on conflict … do update` — последняя линия обороны: она применяется в момент записи, а
+     * не до неё. Проигравший гонку не вставляет вторую строку, а дописывает своё присутствие
+     * в первую. Проверка выше остаётся: она умеет искать участника и по `user_id`, чего
+     * ограничение по `learner_id` не покрывает.
+     */
     await this.db.query(
       `insert into communication.webinar_participants
        (id, tenant_id, webinar_id, user_id, learner_id, role_code, attendance_status, joined_at, left_at, duration_seconds)
-       values ($1,$2,$3,null,$4,'attendee',$5,$6::timestamptz,$7::timestamptz,$8)`,
+       values ($1,$2,$3,null,$4,'attendee',$5,$6::timestamptz,$7::timestamptz,$8)
+       on conflict (tenant_id, webinar_id, learner_id) where learner_id is not null
+       do update set
+         attendance_status = excluded.attendance_status,
+         joined_at = least(
+           communication.webinar_participants.joined_at,
+           coalesce(excluded.joined_at, communication.webinar_participants.joined_at)
+         ),
+         left_at = greatest(
+           communication.webinar_participants.left_at,
+           coalesce(excluded.left_at, communication.webinar_participants.left_at)
+         ),
+         duration_seconds = greatest(
+           communication.webinar_participants.duration_seconds,
+           coalesce(excluded.duration_seconds, communication.webinar_participants.duration_seconds)
+         )`,
       [
         `wp_${Math.random().toString(36).slice(2, 10)}`,
         tenantId,
