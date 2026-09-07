@@ -56,4 +56,20 @@ describe('код ошибки объявлен — кто его кладёт в
       .map(({ code, location }) => `${location} — ${code}`);
     expect(odd).toEqual([]);
   });
+  /*
+   * Ревизия 2026-09-07 (§5.426). До неё сторож искал только `throw new *Exception(` и не видел
+   * бросков через СВОИ классы поверх исключений Nest (`class TenantStateConflictError extends
+   * ConflictException`, `PaymentBadRequestError`). Шесть кодов проходили мимо всех трёх
+   * проверок семейства, а молчание сторожа читалось как «там всё в порядке».
+   *
+   * Проверка прямая: если разбор своих классов сломается, этот тест покраснеет — а не молча
+   * уменьшится список.
+   */
+  it('видит броски через свои классы поверх исключений', () => {
+    const codes = new Set(throws.flatMap((t) => t.codes));
+    expect(codes.has('tenant_state_conflict')).toBe(true);
+    expect(codes.has('duplicate_document_number')).toBe(true);
+    // Код доводом конструктора: `new PaymentBadRequestError('order_not_payable', …)`.
+    expect(codes.has('order_not_payable')).toBe(true);
+  });
 });

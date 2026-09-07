@@ -24,7 +24,18 @@ export const BACKEND_SRC = resolve(HERE, '..', '..');
 /** Код ошибки: `snake_case`, как в словаре фронта и в `BackendHttpErrorCodes`. */
 export const CODE_SHAPE = /^[a-z][a-z0-9_]*$/;
 
-const THROW = /throw new ([A-Za-z]*Exception)\s*\(/g;
+const THROW = /throw new ([A-Za-z]\w*(?:Exception|Error))\s*\(/g;
+
+/**
+ * Классы-наследники исключений Nest: `class TenantStateConflictError extends ConflictException`.
+ *
+ * Ревизия 2026-09-07. До неё инвентарь искал только `throw new *Exception(` — и шесть бросков
+ * через свои классы (`TenantStateConflictError`, `DuplicateDocumentNumberError`,
+ * `PaymentBadRequestError`, `PaymentForbiddenError`) были ему НЕВИДИМЫ. Сторожа §5.421 и
+ * §5.423 молчали о них не потому, что там всё в порядке, а потому, что они их не видели:
+ * своя обёртка вокруг исключения — законный приём, и слепота к нему была дырой в проверке.
+ */
+const SUBCLASS = /class\s+(\w+)\s+extends\s+([A-Za-z]\w*Exception)\b/g;
 
 /** Исключения Nest → статус ответа. */
 const STATUS_BY_EXCEPTION: Record<string, number> = {
@@ -200,18 +211,59 @@ export type ErrorThrow = {
   shape: string;
 };
 
+/**
+ * Свои классы поверх исключений Nest: имя → исключение-родитель и код из его конструктора.
+ *
+ * Код у такого класса стоит один раз в `super({ code, message })`, а не на каждом броске —
+ * поэтому берётся отсюда. Классы, наследующие обычный `Error` (`ScormManifestError`,
+ * `MagicLinkInvalidError`), сюда НЕ попадают: конвертом человеку они не уходят, их ловят и
+ * переводят выше.
+ */
+const httpSubclasses = (
+  files: string[]
+): Record<string, { parent: string; code?: string; codeFromArgument?: boolean }> => {
+  const found: Record<string, { parent: string; code?: string; codeFromArgument?: boolean }> = {};
+  for (const file of files) {
+    const source = stripComments(readFileSync(file, 'utf8'));
+    for (const match of source.matchAll(SUBCLASS)) {
+      const body = source.slice(match.index, match.index + 900);
+      const code = /super\(\{[\s\S]*?code:\s*'([a-z][a-z0-9_]*)'/.exec(body);
+      // Второй вид: код не зашит в класс, а принимается первым доводом конструктора
+      // (`new PaymentBadRequestError('order_not_payable', 'Заказ не ожидает оплаты')`).
+      const fromArgument = /constructor\s*\(\s*(?:readonly\s+)?code\b/.test(body);
+      found[match[1]!] = {
+        parent: match[2]!,
+        ...(code ? { code: code[1]! } : {}),
+        ...(fromArgument ? { codeFromArgument: true } : {})
+      };
+    }
+  }
+  return found;
+};
+
 export const errorThrows = (root: string = BACKEND_SRC): ErrorThrow[] => {
   const found: ErrorThrow[] = [];
-  for (const file of sourcesUnder(root)) {
+  const files = sourcesUnder(root);
+  const subclasses = httpSubclasses(files);
+  for (const file of files) {
     const source = stripComments(readFileSync(file, 'utf8'));
     const relativeFile = relative(root, file).split('\\').join('/');
     for (const match of source.matchAll(THROW)) {
+      const exception = match[1]!;
+      const subclass = subclasses[exception];
+      /*
+       * `*Error` без родителя-исключения Nest конвертом человеку не уходит: это внутренняя
+       * ошибка, её ловят и переводят выше (`ScormManifestError`, `MagicLinkInvalidError`).
+       * Требовать от неё код ответа значило бы требовать не того.
+       */
+      if (!STATUS_BY_EXCEPTION[exception] && !subclass) continue;
       const line = source.slice(0, match.index).split('\n').length;
       const location = `${relativeFile}:${line}`;
-      const exception = match[1]!;
       const parts = splitTopLevel(argumentsOf(source, match.index + match[0].length - 1));
       const first = parts[0] ?? '';
-      const status = STATUS_BY_EXCEPTION[exception] ?? statusFromArgument(parts[1]);
+      // Свой класс наследует статус того исключения Nest, от которого произошёл.
+      const kind = STATUS_BY_EXCEPTION[exception] ? exception : (subclass?.parent ?? exception);
+      const status = STATUS_BY_EXCEPTION[kind] ?? statusFromArgument(parts[1]);
       const at = (codes: string[], shape: string): ErrorThrow => ({
         location,
         exception,
@@ -219,6 +271,25 @@ export const errorThrows = (root: string = BACKEND_SRC): ErrorThrow[] => {
         status,
         shape
       });
+
+      // У своего класса код стоит в конструкторе, а не на броске.
+      if (subclass) {
+        const codes = subclass.codeFromArgument
+          ? literalCodes(first)
+          : subclass.code
+            ? [subclass.code]
+            : [];
+        found.push({
+          location,
+          exception,
+          codes,
+          status,
+          shape: codes.length
+            ? `свой класс поверх ${subclass.parent}`
+            : `свой класс без кода (${subclass.parent})`
+        });
+        continue;
+      }
 
       if (first.startsWith('{')) {
         const code = propertyValue(first, 'code');

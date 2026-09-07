@@ -61,7 +61,18 @@ const HTTP_STATUS_NAMES: Record<string, number> = {
   SERVICE_UNAVAILABLE: 503
 };
 
-const THROW = /throw new ([A-Za-z]*Exception)\s*\(/g;
+const THROW = /throw new ([A-Za-z]\w*(?:Exception|Error))\s*\(/g;
+
+/**
+ * Свои классы поверх исключений Nest: `class TenantStateConflictError extends
+ * ConflictException`.
+ *
+ * Ревизия 2026-09-07. До неё инвентарь искал только `throw new *Exception(` — и шесть кодов,
+ * которые бэкенд отдаёт через свои классы, были ему НЕВИДИМЫ: сторож молчал о них не потому,
+ * что решение принято, а потому, что он их не видел. Четыре из шести получали текст по
+ * статусу, и текст врал.
+ */
+const SUBCLASS = /class\s+(\w+)\s+extends\s+([A-Za-z]\w*Exception)\b/g;
 
 export type ErrorCodeInventory = {
   /** Код → статусы, с которыми он бросается, и места броска. */
@@ -87,34 +98,72 @@ const codesFromLocalConst = (source: string, name: string): string[] => {
   return declaration ? literalsIn(declaration[1]!, CODE) : [];
 };
 
+/** Имя своего класса → исключение-родитель, код из конструктора и признак «код доводом». */
+const httpSubclasses = (
+  files: string[]
+): Record<string, { parent: string; code?: string; codeFromArgument?: boolean }> => {
+  const found: Record<string, { parent: string; code?: string; codeFromArgument?: boolean }> = {};
+  for (const file of files) {
+    const source = stripComments(readFileSync(file, 'utf8'));
+    for (const match of source.matchAll(SUBCLASS)) {
+      const body = source.slice(match.index, match.index + 900);
+      const code = /super\(\{[\s\S]*?code:\s*'([a-z][a-z0-9_]*)'/.exec(body);
+      const fromArgument = /constructor\s*\(\s*(?:readonly\s+)?code\b/.test(body);
+      found[match[1]!] = {
+        parent: match[2]!,
+        ...(code ? { code: code[1]! } : {}),
+        ...(fromArgument ? { codeFromArgument: true } : {})
+      };
+    }
+  }
+  return found;
+};
+
 export const errorCodeInventory = (root: string = BACKEND_SRC): ErrorCodeInventory => {
   if (!existsSync(root)) throw new Error(`не найден каталог бэкенда: ${root}`);
   const codes: ErrorCodeInventory['codes'] = new Map();
   const unresolvedStatus: ErrorCodeInventory['unresolvedStatus'] = [];
   let throws = 0;
+  const files = sourcesUnder(root);
+  const subclasses = httpSubclasses(files);
 
-  for (const file of sourcesUnder(root)) {
+  for (const file of files) {
     const source = stripComments(readFileSync(file, 'utf8'));
     const relativeFile = relative(root, file).split('\\').join('/');
 
     for (const match of source.matchAll(THROW)) {
       const exception = match[1]!;
+      const subclass = subclasses[exception];
+      // `*Error` без родителя-исключения человеку конвертом не уходит — её ловят выше.
+      if (!STATUS_BY_EXCEPTION[exception] && !subclass) continue;
       const line = source.slice(0, match.index).split('\n').length;
       const location = `${relativeFile}:${line}`;
       const parts = splitTopLevel(argumentsOf(source, match.index + match[0].length - 1).text);
       const first = parts[0] ?? '';
-      if (!first.startsWith('{')) continue;
 
-      throws += 1;
-      const rawCode = propertyValue(first, 'code');
-      if (rawCode === null) continue;
-      let found = literalsIn(rawCode, CODE);
-      if (!found.length && /^[A-Za-z_$][\w$]*$/.test(rawCode)) {
-        found = codesFromLocalConst(source, rawCode);
+      let found: string[];
+      if (subclass) {
+        throws += 1;
+        found = subclass.codeFromArgument
+          ? literalsIn(first, CODE)
+          : subclass.code
+            ? [subclass.code]
+            : [];
+        if (!found.length) continue;
+      } else {
+        if (!first.startsWith('{')) continue;
+        throws += 1;
+        const rawCode = propertyValue(first, 'code');
+        if (rawCode === null) continue;
+        found = literalsIn(rawCode, CODE);
+        if (!found.length && /^[A-Za-z_$][\w$]*$/.test(rawCode)) {
+          found = codesFromLocalConst(source, rawCode);
+        }
+        if (!found.length) continue;
       }
-      if (!found.length) continue;
 
-      const status = STATUS_BY_EXCEPTION[exception] ?? statusFromArgument(parts[1]);
+      const kind = STATUS_BY_EXCEPTION[exception] ? exception : (subclass?.parent ?? exception);
+      const status = STATUS_BY_EXCEPTION[kind] ?? statusFromArgument(parts[1]);
       if (status === null) {
         unresolvedStatus.push({ location, exception });
         continue;
