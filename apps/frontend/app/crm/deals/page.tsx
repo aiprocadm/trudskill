@@ -76,7 +76,8 @@ export default function CrmDealsPage() {
           {groups.error ? <SectionError message={groups.error} /> : null}
           <FilterBar>
             <select value={counterparty} onChange={(event) => setCounterparty(event.target.value)}>
-              <option value="">Контрагент</option>
+              {/* §5.433: та же сущность, что в колонке ниже, — и слово должно быть то же. */}
+              <option value="">Компания</option>
               {counterparties.data?.items.map((item) => (
                 <option key={item.id} value={item.name}>
                   {item.name}
@@ -116,7 +117,7 @@ export default function CrmDealsPage() {
         */}
         <PreviewNotice
           what="Сделки"
-          instead="Договорённости с компаниями сейчас ведутся в разделе «Заказчики»."
+          instead="Договорённости с компаниями сейчас ведутся в разделе «Компании»."
         />
         <SectionCard title="Реестр сделок">
           {/*
@@ -136,7 +137,7 @@ export default function CrmDealsPage() {
             emptyMessage="Сделки не созданы"
             emptyHint="Сделка — договорённость с компанией об обучении сотрудников."
             columns={[
-              { key: 'counterparty', title: 'Заказчик' },
+              { key: 'counterparty', title: 'Компания' },
               { key: 'groupTitle', title: 'Группа' },
               { key: 'amount', title: 'Сумма' },
               { key: 'stage', title: 'Стадия', render: (row) => STAGE_LABELS[row.stage] }

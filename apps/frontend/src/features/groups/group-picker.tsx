@@ -46,11 +46,16 @@ export const GroupSelect = ({
   );
 };
 
+/*
+ * §5.433: «Компания» — одно слово на одну сущность. Раздел, хлебные крошки, сделки и
+ * переменные шаблонов говорят «Компания» (решение владельца IA-017 от 14.08.2026); подпись
+ * выбора говорила «Заказчик».
+ */
 export const ClientSelect = ({
   value,
   onChange,
-  label = 'Заказчик',
-  emptyLabel = 'Все заказчики'
+  label = 'Компания',
+  emptyLabel = 'Все компании'
 }: {
   value: string;
   onChange: (clientId: string) => void;
