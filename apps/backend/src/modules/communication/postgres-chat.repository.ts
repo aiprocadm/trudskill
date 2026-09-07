@@ -29,7 +29,7 @@ export class PostgresChatRepository implements ChatRepository {
        from communication.chat_dialogs d
        join communication.chat_participants p on p.dialog_id = d.id and p.tenant_id = d.tenant_id
        where d.tenant_id = $1 and p.user_id = $2
-       order by d.updated_at ${query.sort === 'updatedAt:asc' ? 'asc' : 'desc'}
+       order by d.updated_at ${query.sort === 'updatedAt:asc' ? 'asc' : 'desc'}, d.id desc
        limit $3 offset $4`,
       [tenantId, userId ?? '', pageSize, offset]
     );
@@ -140,7 +140,7 @@ export class PostgresChatRepository implements ChatRepository {
               count(*) over()::text as total_count
        from communication.chat_messages
        where tenant_id = $1 and dialog_id = $2
-       order by sent_at ${query.sort === 'sentAt:asc' ? 'asc' : 'desc'}
+       order by sent_at ${query.sort === 'sentAt:asc' ? 'asc' : 'desc'}, id desc
        limit $3 offset $4`,
       [tenantId, dialogId, pageSize, offset]
     );

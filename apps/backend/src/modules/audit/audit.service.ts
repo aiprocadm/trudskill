@@ -322,7 +322,7 @@ export class AuditService {
           and ($6::text is null or l.request_id like '%' || $6 || '%')
           and ($7::timestamptz is null or l.created_at >= $7)
           and ($8::timestamptz is null or l.created_at <= $8)
-        order by l.created_at desc
+        order by l.created_at desc, l.id desc
         limit $9 offset $10
       `,
       [

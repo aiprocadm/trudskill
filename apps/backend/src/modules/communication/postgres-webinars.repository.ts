@@ -42,7 +42,7 @@ export class PostgresWebinarsRepository implements WebinarsRepository {
               count(*) over()::text as total_count
        from communication.webinars
        where tenant_id = $1 and ($2::text is null or status = $2)
-       order by updated_at ${query.sort === 'updatedAt:asc' ? 'asc' : 'desc'}
+       order by updated_at ${query.sort === 'updatedAt:asc' ? 'asc' : 'desc'}, id desc
        limit $3 offset $4`,
       [tenantId, query.status ?? null, pageSize, offset]
     );
@@ -136,7 +136,7 @@ export class PostgresWebinarsRepository implements WebinarsRepository {
               count(*) over()::text as total_count
        from communication.webinar_participants
        where tenant_id = $1 and webinar_id = $2
-       order by created_at desc
+       order by created_at desc, id desc
        limit $3 offset $4`,
       [tenantId, webinarId, pageSize, offset]
     );

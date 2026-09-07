@@ -135,4 +135,24 @@ describe('PostgresChatRepository — маппинг и параметры', () =
     expect(calls[0]!.sql).toContain('unread_count = 0');
     expect(calls[0]!.params).toEqual(['t1', 'd1', 'u2']);
   });
+  /*
+   * Ревизия 2026-09-07 (§5.428): у списков, которые листают, порядок обязан быть полным.
+   * Диалоги сортируются по времени последнего сообщения, а сообщения — по времени отправки;
+   * и то и другое повторяется у строк, записанных одной транзакцией. Без неповторимого поля
+   * в хвосте страницы перекрываются: одно сообщение видно дважды, другое — ни разу.
+   */
+  it('диалоги и сообщения листаются в полном порядке', async () => {
+    const { db, calls } = fakeDb([]);
+    const repo = new PostgresChatRepository(db);
+
+    await repo.listDialogs('t1', 'u1', { page: 2, pageSize: 20 });
+    await repo.listMessages('t1', 'd1', { page: 2, pageSize: 20 });
+
+    const orders = calls
+      .map((call) => call.sql.replace(/\s+/g, ' '))
+      .filter((sql) => /order by/i.test(sql));
+    expect(orders).toHaveLength(2);
+    expect(orders[0]).toContain('order by d.updated_at desc, d.id desc');
+    expect(orders[1]).toContain('order by sent_at desc, id desc');
+  });
 });
