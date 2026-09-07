@@ -1,5 +1,6 @@
 import { Module, Scope } from '@nestjs/common';
 
+import { UserDisplayNamesService } from '../../common/iam/user-display-names.service.js';
 import { backendEnv } from '../../env.js';
 import { ExpiredAttemptsScanner } from './assessment/expired-attempts.scanner.service.js';
 import { ExpiredAttemptsSchedulerService } from './assessment/expired-attempts.scheduler.service.js';
@@ -174,6 +175,7 @@ import {
     EsiaController
   ],
   providers: [
+    UserDisplayNamesService,
     // Фаза 2 Task 1 (ФТ-B1.1) — шов видео-провайдера. Реестр мультипровайдерный, АКТИВНЫЙ
     // выбирается пер тенант резолвером; тенант без настройки получает Noop.
     PostgresVideoProviderSettingsRepository,

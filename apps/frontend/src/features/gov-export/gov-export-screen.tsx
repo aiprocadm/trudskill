@@ -5,6 +5,7 @@ import { useState } from 'react';
 
 import { govExportApi } from './api';
 import { exportSignatureBadgeLabel } from './export-signature-badge';
+import { exportedOn } from './format';
 import {
   useEisotTestingBatches,
   useFrdoRegistryBatches,
@@ -24,7 +25,6 @@ import { apiRequest } from '../../lib/api/client';
 import { useAuth } from '../auth/context';
 import { ClientSelect, GroupSelect } from '../groups/group-picker';
 import { useExportTasks, useSyncLogs } from '../integrations/hooks';
-import { formatDate } from '../mvp/screen-helpers';
 
 import type {
   EisotTestingExportOutcome,
@@ -467,7 +467,7 @@ export const GovExportScreen = () => {
                 rows={otBatches.data.map((batch) => ({
                   ...batch,
                   /* Дата шла машинной строкой «2026-08-25T10:00:00.000Z» прямо в колонку. */
-                  createdAt: formatDate(batch.createdAt),
+                  createdAt: exportedOn(batch),
                   signatureView: exportSignatureBadgeLabel(batch.signatureStatus),
                   actionsView: (
                     <span style={{ display: 'flex', gap: 8 }}>
@@ -566,7 +566,7 @@ export const GovExportScreen = () => {
                 rows={frdoBatches.data.map((batch) => ({
                   ...batch,
                   /* Дата шла машинной строкой «2026-08-25T10:00:00.000Z» прямо в колонку. */
-                  createdAt: formatDate(batch.createdAt),
+                  createdAt: exportedOn(batch),
                   signatureView: exportSignatureBadgeLabel(batch.signatureStatus),
                   actionsView: (
                     <button
@@ -657,7 +657,7 @@ export const GovExportScreen = () => {
                 rows={eisotBatches.data.map((batch) => ({
                   ...batch,
                   /* Дата шла машинной строкой «2026-08-25T10:00:00.000Z» прямо в колонку. */
-                  createdAt: formatDate(batch.createdAt),
+                  createdAt: exportedOn(batch),
                   signatureView: exportSignatureBadgeLabel(batch.signatureStatus),
                   actionsView: (
                     <button
@@ -750,7 +750,7 @@ export const GovExportScreen = () => {
                 rows={rostechBatches.data.map((batch) => ({
                   ...batch,
                   /* Дата шла машинной строкой «2026-08-25T10:00:00.000Z» прямо в колонку. */
-                  createdAt: formatDate(batch.createdAt),
+                  createdAt: exportedOn(batch),
                   signatureView: exportSignatureBadgeLabel(batch.signatureStatus),
                   actionsView: (
                     <button
@@ -840,7 +840,7 @@ export const GovExportScreen = () => {
                 rows={nmoBatches.data.map((batch) => ({
                   ...batch,
                   /* Дата шла машинной строкой «2026-08-25T10:00:00.000Z» прямо в колонку. */
-                  createdAt: formatDate(batch.createdAt),
+                  createdAt: exportedOn(batch),
                   signatureView: exportSignatureBadgeLabel(batch.signatureStatus),
                   actionsView: (
                     <button
