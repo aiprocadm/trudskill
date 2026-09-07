@@ -2446,11 +2446,27 @@ export class MvpService {
             });
           continue;
         }
-        if (err instanceof NotFoundException) {
+        /*
+         * §5.425. Здесь ловились ровно два вида отказа — «уже зачислен» и «нет такого», —
+         * потому что ровно их бросает `createEnrollment` сегодня. Любой третий (лимит
+         * тарифа, закрытая группа, доменное правило) уходил в `throw err` и отменял ВСЮ
+         * пачку: администратор зачисляет двести человек, на сто первом правило не пускает —
+         * и не зачислен никто, а кто именно помешал, на экране не видно. Это нарушало
+         * правило частичного успеха (CLAUDE.md) — тихо, до первого нового правила.
+         *
+         * Теперь по строке ловится любой отказ ДОМЕНА: исключение HTTP значит «мы сами
+         * решили не пускать», и такому месту в пачке — своя строка с настоящим кодом.
+         * Поломка (ошибка не-HTTP: опечатка в коде, недоступная база) поднимается наверх:
+         * проглотить её значило бы отчитаться об успехе, которого не было.
+         */
+        if (err instanceof HttpException) {
+          const body = err.getResponse();
+          const details =
+            typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
           errors.push({
             learnerId,
-            code: 'not_found',
-            message: err instanceof Error ? err.message : String(err)
+            code: typeof details.code === 'string' ? details.code : 'domain_rule_violation',
+            message: typeof details.message === 'string' ? details.message : err.message
           });
           continue;
         }

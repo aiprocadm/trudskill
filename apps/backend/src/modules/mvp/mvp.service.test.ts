@@ -6,7 +6,7 @@ import {
   PreconditionFailedException
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MvpService } from './mvp.service.js';
@@ -1482,6 +1482,17 @@ describe('mvp service domain rules', () => {
     expect(listed.items.some((x) => x.id === enrollment.id)).toBe(true);
   });
 
+  /** Служба для проверок массового зачисления — те же шесть зависимостей, что в бою. */
+  const makeBulkService = () =>
+    new MvpService(
+      new InMemoryMvpState(),
+      new TenantScopedRepository(),
+      new AuditService(),
+      noopDocumentsService,
+      noopFilesService,
+      testEmitter
+    );
+
   it('creates bulk enrollments with idempotency key, errors for missing learners', () => {
     const service = new MvpService(
       new InMemoryMvpState(),
@@ -1529,6 +1540,85 @@ describe('mvp service domain rules', () => {
       ctx
     );
     expect(second).toEqual(first);
+  });
+
+  /*
+   * Ревизия 2026-09-07 (§5.425). Правило частичного успеха записано в CLAUDE.md: «валидные
+   * строки принимаются, отказы показываются поимённо с причиной, вся пачка из-за одной плохой
+   * строки не отменяется». Массовое зачисление ловило ровно ДВА вида отказа — «уже зачислен»
+   * и «нет такого» — потому что ровно их и бросает `createEnrollment` сегодня. Любой третий
+   * (лимит тарифа, закрытая группа, доменное правило) уходил через `throw err` и отменял
+   * ВСЮ пачку: администратор зачисляет двести человек, на сто первом правило не пускает —
+   * и не зачислен никто, а какой именно человек помешал, на экране не видно.
+   *
+   * Теперь по строке ловится любой ОТКАЗ ДОМЕНА (исключение HTTP — мы сами решили не пускать),
+   * а поломка (ошибка не-HTTP: опечатка в коде, недоступная база) по-прежнему поднимается
+   * наверх: проглотить её значило бы отчитаться об успехе, которого не было.
+   */
+  it('одна строка с отказом третьего вида не отменяет всю пачку', () => {
+    const service = makeBulkService();
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'G-P', name: 'P' }, ctx);
+    const good = service.createLearner('tenant_demo', ctx.userId, { code: 'L-P1', name: 'A' }, ctx);
+    const blocked = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'L-P2', name: 'B' },
+      ctx
+    );
+
+    const real = service.createEnrollment.bind(service);
+    vi.spyOn(service, 'createEnrollment').mockImplementation((tenantId, actorId, request, c) => {
+      if (request.learnerId === blocked.id) {
+        throw new PreconditionFailedException({
+          code: 'learner_limit_reached',
+          message: 'Лимит тарифа исчерпан'
+        });
+      }
+      return real(tenantId, actorId, request, c);
+    });
+
+    const outcome = service.createBulkEnrollments(
+      'tenant_demo',
+      ctx.userId,
+      { idempotencyKey: 'idem-partial-1', groupId: group.id, learnerIds: [good.id, blocked.id] },
+      ctx
+    );
+
+    expect(outcome.created).toHaveLength(1);
+    expect(outcome.created[0]!.learnerId).toBe(good.id);
+    // Отказ назван поимённо и своим кодом, а не общим «не найдено».
+    expect(outcome.errors).toEqual([
+      { learnerId: blocked.id, code: 'learner_limit_reached', message: 'Лимит тарифа исчерпан' }
+    ]);
+  });
+
+  it('поломка не выдаётся за отказ строки — она поднимается наверх', () => {
+    const service = makeBulkService();
+    const group = service.createGroup('tenant_demo', ctx.userId, { code: 'G-B', name: 'B' }, ctx);
+    const learner = service.createLearner(
+      'tenant_demo',
+      ctx.userId,
+      { code: 'L-B1', name: 'A' },
+      ctx
+    );
+
+    vi.spyOn(service, 'createEnrollment').mockImplementation(() => {
+      throw new TypeError('cannot read properties of undefined');
+    });
+
+    /*
+     * Проверяется ИМЕННО ТА поломка, а не любая: если ловить всё подряд, поломка всё равно
+     * вылетит — но уже другая («getResponse не функция»), и тест «поднимается наверх» стал бы
+     * зелёным по ошибке. Проверено подсадным нарушителем.
+     */
+    expect(() =>
+      service.createBulkEnrollments(
+        'tenant_demo',
+        ctx.userId,
+        { idempotencyKey: 'idem-partial-2', groupId: group.id, learnerIds: [learner.id] },
+        ctx
+      )
+    ).toThrow('cannot read properties of undefined');
   });
 
   it('replay re-attempts a previously-failed learner once it exists (retry, not frozen errors)', () => {
