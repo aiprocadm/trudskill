@@ -38,6 +38,9 @@ const ALLOWED: Record<string, string> = {
     'иначе — вставка; за один вызов выполняется РОВНО ОДНА запись'
 };
 
+/** Управляющие конструкции — не методы, хотя выглядят так же. */
+const CONTROL_FLOW = new Set(['for', 'if', 'while', 'switch', 'catch', 'do']);
+
 /** SQL, который меняет данные. */
 const WRITES = /\b(insert\s+into|update\s+[a-z_.]+\s+set|delete\s+from)\b/i;
 
@@ -91,6 +94,9 @@ const methodsWithWrites = (): Method[] => {
     for (const match of source.matchAll(
       /(?:async\s+)?([a-zA-Z_$][\w$]*)\s*\([^)]*\)\s*(?::[^{;]+)?\{/g
     )) {
+      // `for (…) {` и `if (…) {` под ту же форму подходят, но методами не являются: их тело
+      // живёт ВНУТРИ метода, и транзакция объявлена снаружи.
+      if (CONTROL_FLOW.has(match[1]!)) continue;
       const open = source.indexOf('{', match.index + match[0].length - 1);
       if (open === -1) continue;
       const body = blockAt(source, open);
@@ -109,8 +115,16 @@ const methodsWithWrites = (): Method[] => {
         key: `${relativeFile} ${match[1]}`,
         location: `${relativeFile}:${line}`,
         writes,
-        // Под транзакцией пишут через выданного ею клиента.
-        underTransaction: /withTransaction|client\.query|PoolClient/.test(body)
+        /*
+         * Транзакцию доказывают две вещи: вызов `withTransaction` в теле — либо клиент,
+         * ПОЛУЧЕННЫЙ ПАРАМЕТРОМ (`claimIssuedNumbers(client: PoolClient, …)`): такой метод
+         * работает внутри чужой транзакции.
+         *
+         * Одного `client.query` в теле мало: так выглядит и обычный вызов через переменную с
+         * именем `client`. Первая редакция этого сторожа на такое попадалась — подсадной
+         * нарушитель, вернувший две отдельные записи, прошёл мимо неё.
+         */
+        underTransaction: /withTransaction/.test(body) || /PoolClient/.test(match[0])
       });
     }
   }

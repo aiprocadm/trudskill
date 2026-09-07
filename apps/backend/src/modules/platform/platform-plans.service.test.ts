@@ -16,15 +16,15 @@ const context = { requestId: 'r1', correlationId: 'c1' } as RequestContext;
 function make(queryImpl: (sql: string, params?: unknown[]) => Promise<unknown[]>) {
   const query = vi.fn(queryImpl);
   const committed: string[] = [];
-  const withTransaction = async <T>(fn: (client: { query: typeof query }) => Promise<T>) => {
+  const withTransaction = vi.fn(async <T>(fn: (client: { query: typeof query }) => Promise<T>) => {
     const before = query.mock.calls.length;
     const result = await fn({ query });
     for (const call of query.mock.calls.slice(before)) committed.push(String(call[0]));
     return result;
-  };
+  });
   const audit = { writeCritical: vi.fn().mockResolvedValue({}) };
   const service = new PlatformPlansService({ query, withTransaction } as never, audit as never);
-  return { service, query, audit, committed };
+  return { service, query, audit, committed, withTransaction };
 }
 
 describe('PlatformPlansService (ФТ-D4)', () => {
@@ -121,7 +121,7 @@ describe('PlatformPlansService (ФТ-D4)', () => {
    * считаются, и центр стоит, пока кто-нибудь не заметит.
    */
   it('падение на новой подписке не оставляет центр без тарифа', async () => {
-    const { service, committed } = make(async (sql) => {
+    const { service, committed, withTransaction } = make(async (sql) => {
       if (sql.includes('select id from core.plans where id')) return [{ id: 'plan_pro' }];
       if (sql.includes('select id from core.tenants where id')) return [{ id: 't1' }];
       if (sql.includes('insert into core.tenant_subscriptions')) {
@@ -133,6 +133,9 @@ describe('PlatformPlansService (ФТ-D4)', () => {
     await expect(service.assignPlan('u1', 't1', 'plan_pro', context)).rejects.toThrow(
       'обрыв соединения'
     );
+    // Оба запроса шли ОДНОЙ транзакцией — без этой проверки тест был бы зелёным и тогда,
+    // когда транзакции нет вовсе (проверено подсадным нарушителем).
+    expect(withTransaction).toHaveBeenCalledTimes(1);
     // Отмена прежней подписки не доехала до базы — центр остался на прежнем тарифе.
     expect(committed).toEqual([]);
   });
