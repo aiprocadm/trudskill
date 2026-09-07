@@ -3,6 +3,7 @@
 import { DataTable, LoadingState, StatusChip } from '@trudskill/ui';
 import { type ReactElement, useState } from 'react';
 
+import { formatDateTime, resolutionNote } from './format';
 import { useDocumentTasks, useEmailDeliveries, useOperationActions, useQuarantine } from './hooks';
 import {
   PageContainer,
@@ -38,12 +39,6 @@ const TABS: Array<{ key: OperationsTab; label: string }> = [
   { key: 'quarantine', label: 'Карантин' },
   { key: 'emails', label: 'Письма' }
 ];
-
-const formatDateTime = (iso?: string | null): string => {
-  if (!iso) return '—';
-  const parsed = new Date(iso);
-  return Number.isNaN(parsed.getTime()) ? iso : parsed.toLocaleString('ru-RU');
-};
 
 interface TaskRow {
   id: string;
@@ -196,7 +191,24 @@ export function OperationsScreen(): ReactElement {
                   errorView: job.lastError ?? '—',
                   retryView: String(job.retryCount),
                   quarantinedView: formatDateTime(job.quarantinedAt),
-                  statusView: <StatusChip status={job.status} />,
+                  /*
+                   * §5.431: у разобранного сообщения видно, КТО и КОГДА его разобрал.
+                   *
+                   * Сервер это хранил и присылал, а экран не показывал — «кто отбросил
+                   * упавший выпуск удостоверения» выяснялось только по базе. Отдельной
+                   * колонки не заводим: их и так шесть при бюджете семь (§13.2), а сведения
+                   * относятся к статусу и читаются под ним второй строкой.
+                   */
+                  statusView: (
+                    <span className="ui-stack" style={{ gap: 2 }}>
+                      <StatusChip status={job.status} />
+                      {job.status !== 'quarantined' ? (
+                        <span className="ui-text-muted" style={{ fontSize: '0.85em' }}>
+                          {resolutionNote(job)}
+                        </span>
+                      ) : null}
+                    </span>
+                  ),
                   actionsView: (
                     <span className="ui-inline" style={{ gap: 6, flexWrap: 'wrap' }}>
                       {job.replayable ? (

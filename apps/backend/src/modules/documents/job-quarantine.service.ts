@@ -42,6 +42,13 @@ export interface QuarantineItem {
   quarantinedAt: string;
   resolvedAt: string | null;
   resolvedBy: string | null;
+  /**
+   * Имя разобравшего — подставляет сервер (§5.431).
+   *
+   * Пусто, если разбирал никто (сообщение ещё в карантине) либо учётную запись удалили:
+   * экран скажет об этом прямо, а не подставит «система» и не покажет сырой идентификатор.
+   */
+  resolvedByName: string | null;
   republishCount: number;
   payload: unknown;
   /** Разбирается ли тело как JSON. Неразбираемое переотправить нельзя — только отбросить. */
@@ -61,6 +68,7 @@ interface QuarantineRow {
   quarantined_at: Date | string;
   resolved_at: Date | string | null;
   resolved_by: string | null;
+  resolved_by_name?: string | null;
   republish_count: number;
   payload: unknown;
   raw_body: string;
@@ -105,6 +113,7 @@ export class JobQuarantineService {
       quarantinedAt: toIso(row.quarantined_at)!,
       resolvedAt: toIso(row.resolved_at),
       resolvedBy: row.resolved_by,
+      resolvedByName: row.resolved_by_name ?? null,
       republishCount: row.republish_count,
       payload: row.payload ?? null,
       replayable: isReplayable(row.raw_body)
@@ -125,13 +134,26 @@ export class JobQuarantineService {
     const limit = Math.min(Math.max(options.limit ?? 50, 1), 200);
     const status = options.status;
     const rows = await this.db.query<QuarantineRow>(
-      `select id, tenant_id, message_id, job_type, queue_name, routing_key, retry_count,
-              last_error, status, quarantined_at, resolved_at, resolved_by, republish_count,
-              payload, raw_body
-         from documents.job_quarantine
-        where tenant_id = $1
-          and ($2::text is null or status = $2)
-        order by quarantined_at desc
+      /*
+       * §5.431: имя разобравшего подставляет СЕРВЕР — тем же левым соединением, что и журнал
+       * действий. Экран не может подставить его сам: справочник имён на стороне клиента врёт
+       * на удалённых и на неизвестных учётных записях, а показывать сырой идентификатор
+       * запрещено правилом продукта №2.
+       *
+       * Соединение левое: учётную запись могли удалить, и тогда имя пусто — экран скажет об
+       * этом прямо, а не подставит «система».
+       */
+      `select q.id, q.tenant_id, q.message_id, q.job_type, q.queue_name, q.routing_key,
+              q.retry_count, q.last_error, q.status, q.quarantined_at, q.resolved_at,
+              q.resolved_by, u.display_name as resolved_by_name, q.republish_count,
+              q.payload, q.raw_body
+         from documents.job_quarantine q
+         left join iam.users u
+           on u.id = q.resolved_by
+          and u.tenant_id = q.tenant_id
+        where q.tenant_id = $1
+          and ($2::text is null or q.status = $2)
+        order by q.quarantined_at desc, q.id desc
         limit $3`,
       [tenantId, status ?? null, limit]
     );

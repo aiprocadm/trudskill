@@ -81,7 +81,7 @@ describe('список карантина', () => {
     await service.list('tenant_a');
 
     const [listQuery] = queries;
-    expect(listQuery?.sql).toContain('where tenant_id = $1');
+    expect(listQuery?.sql).toContain('where q.tenant_id = $1');
     expect(listQuery?.params[0]).toBe('tenant_a');
   });
 
@@ -159,5 +159,42 @@ describe('отбрасывание', () => {
     await expect(service.discard('tenant_a', 'qtn_1', undefined, CTX)).rejects.toBeInstanceOf(
       NotFoundException
     );
+  });
+  /*
+   * §5.431. В карантине хранится, КТО разобрал сообщение, но там лежит идентификатор
+   * учётной записи, а показывать сырой идентификатор запрещено правилом продукта №2.
+   * Имя подставляет СЕРВЕР — тем же левым соединением, что и журнал действий: справочник
+   * имён на стороне экрана врёт на удалённых и на неизвестных учётных записях.
+   *
+   * До этой правки экран не показывал разобравшего вовсе: поле `resolvedBy` приходило и не
+   * читалось никем. В карантин попадают упавшие выпуски документов — и «кто это разобрал»
+   * ровно тот вопрос, который задают, когда документ до человека так и не дошёл.
+   */
+  it('имя разобравшего подставляет сервер, а не экран', async () => {
+    const { service, queries } = makeService([
+      rowFor({ status: 'republished', resolved_by: 'user_ops', resolved_by_name: 'Петров П.' })
+    ]);
+
+    const page = await service.list('tenant_a', {});
+
+    // Проверяется не только соединение, но и ВЫБРАННАЯ колонка: без неё имя не доедет,
+    // а соединение останется на месте — на этом подсадной нарушитель прошёл мимо первой
+    // редакции теста.
+    expect(queries[0]!.sql).toContain('left join iam.users');
+    expect(queries[0]!.sql).toContain('u.display_name as resolved_by_name');
+    expect(page.items[0]!.resolvedByName).toBe('Петров П.');
+  });
+
+  it('удалённая учётная запись оставляет имя пустым, а не «системой»', async () => {
+    // Левое соединение даёт пусто — и экран скажет об этом прямо, а не подставит
+    // правдоподобную неправду.
+    const { service } = makeService([
+      rowFor({ status: 'discarded', resolved_by: 'user_gone', resolved_by_name: null })
+    ]);
+
+    const page = await service.list('tenant_a', {});
+
+    expect(page.items[0]!.resolvedBy).toBe('user_gone');
+    expect(page.items[0]!.resolvedByName).toBeNull();
   });
 });

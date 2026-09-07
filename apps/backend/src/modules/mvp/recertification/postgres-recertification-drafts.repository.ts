@@ -22,6 +22,7 @@ interface DraftDbRow {
   reason: string | null;
   decided_at: string | null;
   decided_by: string | null;
+  decided_by_name?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -64,15 +65,30 @@ export class PostgresRecertificationDraftsRepository implements RecertificationD
     tenantId: string,
     query: RecertificationDraftsQuery
   ): Promise<RecertificationDraftRow[]> {
+    /*
+     * §5.431: имя решившего подставляет СЕРВЕР, тем же левым соединением, что и журнал
+     * действий. Экран не может подставить его сам: справочник имён на клиенте врёт на
+     * удалённых учётных записях, а сырой идентификатор показывать нельзя (правило №2).
+     *
+     * Соединение левое: учётную запись могли удалить, и тогда имя пусто — экран скажет об
+     * этом прямо. Сортировка добирает `d.id`, иначе у записей с одинаковым сроком порядок
+     * не определён (§5.428).
+     */
     const rows = query.status
       ? await this.db.query<DraftDbRow>(
-          `select * from learning.recertification_drafts
-           where tenant_id = $1 and status = $2 order by valid_until asc`,
+          `select d.*, u.display_name as decided_by_name
+             from learning.recertification_drafts d
+             left join iam.users u on u.id = d.decided_by and u.tenant_id = d.tenant_id
+            where d.tenant_id = $1 and d.status = $2
+            order by d.valid_until asc, d.id asc`,
           [tenantId, query.status]
         )
       : await this.db.query<DraftDbRow>(
-          `select * from learning.recertification_drafts
-           where tenant_id = $1 order by valid_until asc`,
+          `select d.*, u.display_name as decided_by_name
+             from learning.recertification_drafts d
+             left join iam.users u on u.id = d.decided_by and u.tenant_id = d.tenant_id
+            where d.tenant_id = $1
+            order by d.valid_until asc, d.id asc`,
           [tenantId]
         );
     return rows.map((r) => this.map(r));
@@ -133,6 +149,7 @@ export class PostgresRecertificationDraftsRepository implements RecertificationD
       ...(row.reason ? { reason: row.reason } : {}),
       ...(row.decided_at ? { decidedAt: row.decided_at } : {}),
       ...(row.decided_by ? { decidedBy: row.decided_by } : {}),
+      ...(row.decided_by_name ? { decidedByName: row.decided_by_name } : {}),
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };

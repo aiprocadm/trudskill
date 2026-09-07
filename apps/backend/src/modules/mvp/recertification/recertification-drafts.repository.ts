@@ -14,6 +14,13 @@ export interface RecertificationDraftRow {
   reason?: string;
   decidedAt?: string;
   decidedBy?: string;
+  /**
+   * Имя решившего — подставляет сервер (§5.431).
+   *
+   * Пусто, если решения ещё нет либо учётную запись удалили: экран говорит об этом прямо, а
+   * не подставляет «система» и не показывает сырой идентификатор (правило продукта №2).
+   */
+  decidedByName?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -19,6 +19,14 @@ export interface QuarantinedJob {
   quarantinedAt: string;
   resolvedAt: string | null;
   resolvedBy: string | null;
+  /**
+   * Имя разобравшего — подставляет сервер (§5.431).
+   *
+   * Пусто, если разбирал никто (сообщение ещё в карантине) либо учётную запись удалили:
+   * экран говорит об этом прямо, а не подставляет «система» и не показывает сырой
+   * идентификатор (правило продукта №2).
+   */
+  resolvedByName: string | null;
   republishCount: number;
   /** Неразбираемое сообщение переотправить нельзя — только отбросить. */
   replayable: boolean;
