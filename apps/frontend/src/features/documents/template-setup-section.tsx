@@ -28,7 +28,8 @@ const VARIABLE_CATEGORIES: Array<{ value: string; label: string }> = [
   { value: 'tenant', label: 'Учебный центр' },
   { value: 'group', label: 'Учебная группа' },
   { value: 'learner', label: 'Слушатель' },
-  { value: 'counterparty', label: 'Заказчик' },
+  // §5.433: одно слово на одну сущность — «Компания» (решение владельца IA-017).
+  { value: 'counterparty', label: 'Компания' },
   { value: 'course', label: 'Курс' },
   { value: 'commission', label: 'Комиссия' },
   { value: 'document', label: 'Документ' },

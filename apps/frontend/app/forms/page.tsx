@@ -12,10 +12,15 @@ type SystemFormTemplate = {
   status: 'draft' | 'active';
 };
 
+/*
+ * §5.433: «Компания». Одна и та же сущность (`crm.counterparties`) называлась ТРЕМЯ словами:
+ * «Компании» в меню, «Заказчик» в колонке сделок, «Контрагент» в фильтре и здесь. Канон
+ * задан решением владельца от 14.08.2026 (IA-017): раздел называется «Компании».
+ */
 const TARGET_LABELS: Record<SystemFormTemplate['target'], string> = {
   learner: 'Слушатель',
   group: 'Группа',
-  counterparty: 'Контрагент'
+  counterparty: 'Компания'
 };
 const STATUS_LABELS: Record<SystemFormTemplate['status'], string> = {
   draft: 'Черновик',

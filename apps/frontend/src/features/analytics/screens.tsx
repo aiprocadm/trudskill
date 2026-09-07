@@ -67,7 +67,7 @@ export function AnalyticsDashboardScreen() {
               </select>
             </label>
             <label className="ui-field">
-              <span className="ui-field-label">Заказчик</span>
+              <span className="ui-field-label">Компания</span>
               <select
                 className="ui-select"
                 value={clientId}

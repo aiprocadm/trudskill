@@ -37,7 +37,12 @@ const DOMAIN_LABELS: Record<string, string> = {
   regulatory: 'Отчётность',
   reports: 'Отчёты',
   operations: 'Эксплуатация',
-  crm: 'Заказчики',
+  /*
+   * §5.433: «Компании» — одно слово на одну сущность во всём продукте (решение владельца
+   * IA-017 от 14.08.2026). Раздел журнала называется так же, как раздел в меню, иначе
+   * человек ищет в журнале «Заказчиков», а в меню находит «Компании».
+   */
+  crm: 'Компании',
   identity: 'Проверка личности',
   learner: 'Персональные данные',
   storage: 'Файлы'
@@ -189,8 +194,8 @@ const PHRASES: Record<string, string> = {
   'learning.enrollment_status_changed': 'Статус зачисления изменён',
   'learning.group_close_chain': 'Закрытие группы выполнено цепочкой шагов',
   'learning.group_closed_with_checks': 'Учебная группа закрыта после проверок',
-  'learning.group_counterparty_linked': 'Заказчик привязан к группе',
-  'learning.group_counterparty_unlinked': 'Заказчик отвязан от группы',
+  'learning.group_counterparty_linked': 'Компания привязана к группе',
+  'learning.group_counterparty_unlinked': 'Компания отвязана от группы',
   'learning.learner_linked_to_user': 'Слушатель связан с пользователем',
   'learning.commission_member_removed': 'Член комиссии исключён',
   'learning.course_version_program_meta_updated': 'Сведения о программе в версии курса изменены',
