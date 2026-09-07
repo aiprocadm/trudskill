@@ -83,7 +83,7 @@ export class PostgresEmailDeliveriesRepository implements EmailDeliveriesReposit
       `select *, count(*) over()::text as total_count
        from communication.email_deliveries
        where tenant_id = $1
-       order by created_at desc
+       order by created_at desc, id desc
        limit $2 offset $3`,
       [tenantId, pageSize, (page - 1) * pageSize]
     );
