@@ -23,14 +23,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=infra/ops-lib.sh
 . "$SCRIPT_DIR/ops-lib.sh"
 
-BACKUP_DIR="${CDOPROF_BACKUP_DIR:-/var/backups/cdoprof}"
-PG_IMAGE="${CDOPROF_DRILL_PG_IMAGE:-postgres:18}"
-DRILL_DB="${CDOPROF_DRILL_DB:-cdoprof_drill}"
-DRILL_USER="${CDOPROF_DRILL_USER:-drill}"
-DRILL_PASSWORD="${CDOPROF_DRILL_PASSWORD:-drill}"
+BACKUP_DIR="$(ops_env BACKUP_DIR "/var/backups/cdoprof")"
+PG_IMAGE="$(ops_env DRILL_PG_IMAGE "postgres:18")"
+DRILL_DB="$(ops_env DRILL_DB "cdoprof_drill")"
+DRILL_USER="$(ops_env DRILL_USER "drill")"
+DRILL_PASSWORD="$(ops_env DRILL_PASSWORD "drill")"
 # Порог RTO из ТЗ §12.3 — 4 часа на всё восстановление; здесь проверяется только часть
 # «поднять базу из дампа», поэтому предел куда жёстче и настраивается.
-RTO_BUDGET_SECONDS="${CDOPROF_DRILL_RTO_BUDGET_SECONDS:-1800}"
+RTO_BUDGET_SECONDS="$(ops_env DRILL_RTO_BUDGET_SECONDS "1800")"
 
 DUMP="${1:-}"
 if [ -z "$DUMP" ]; then

@@ -1,5 +1,7 @@
 # CDOProf — One-Time Server Setup Runbook
 
+> **Имена переменных переименованы (`BR-031`, 08.09.2026): `CDOPROF_*` → `TRUDSKILL_*`.** Скрипты пока читают ОБА имени и предупреждают о прежнем — чтобы уже настроенный сервер не потерял настройку молча. Обновите `.env.production` и задания cron; поддержка прежних имён временная.
+
 This runbook walks you through bootstrapping a fresh Ubuntu 22.04+ VPS so CDOProf can be
 deployed and auto-updated via GitHub Actions (CD). The owner provides: a server with root SSH
 access, a domain name with DNS you control, and SMTP credentials for sending notification
@@ -260,6 +262,6 @@ Add the following line (matches the header comment in `infra/backup.sh`):
 0 3 * * *  cd /home/deploy/cdoprof && infra/backup.sh >> /var/log/cdoprof-backup.log 2>&1
 ```
 
-Backups land in `/var/backups/cdoprof` (override with `CDOPROF_BACKUP_DIR`). Retention defaults
-to 14 days (override with `CDOPROF_BACKUP_RETENTION_DAYS`). See `infra/backup.sh` for manual
+Backups land in `/var/backups/cdoprof` (override with `TRUDSKILL_BACKUP_DIR`). Retention defaults
+to 14 days (override with `TRUDSKILL_BACKUP_RETENTION_DAYS`). See `infra/backup.sh` for manual
 restore instructions.

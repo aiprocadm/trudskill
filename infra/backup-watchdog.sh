@@ -12,16 +12,16 @@ set -euo pipefail
 #   30 4 * * * cd /path/to/repo && infra/backup-watchdog.sh >> /var/log/cdoprof-backup.log 2>&1
 #
 # Код возврата: 0 — копия свежая и целая; ненулевой — беда (cron пришлёт письмо,
-# а при заданном CDOPROF_ALERT_CMD уйдёт сообщение в канал).
+# а при заданном TRUDSKILL_ALERT_CMD уйдёт сообщение в канал).
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=infra/ops-lib.sh
 . "$SCRIPT_DIR/ops-lib.sh"
 
-BACKUP_DIR="${CDOPROF_BACKUP_DIR:-/var/backups/cdoprof}"
+BACKUP_DIR="$(ops_env BACKUP_DIR "/var/backups/cdoprof")"
 # 26 часов, а не 24: суточная копия плюс запас на длинный дамп и перевод часов.
-MAX_AGE_HOURS="${CDOPROF_BACKUP_MAX_AGE_HOURS:-26}"
-MIN_FREE_GB="${CDOPROF_MIN_FREE_GB:-5}"
+MAX_AGE_HOURS="$(ops_env BACKUP_MAX_AGE_HOURS "26")"
+MIN_FREE_GB="$(ops_env MIN_FREE_GB "5")"
 
 problems=0
 

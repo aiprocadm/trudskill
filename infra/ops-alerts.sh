@@ -27,16 +27,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=infra/ops-lib.sh
 . "$SCRIPT_DIR/ops-lib.sh"
 
-BACKEND_URL="${CDOPROF_BACKEND_URL:-http://127.0.0.1:3001/api/v1}"
-WORKER_HEALTH_URL="${CDOPROF_WORKER_HEALTH_URL:-http://127.0.0.1:3030/healthz}"
+BACKEND_URL="$(ops_env BACKEND_URL "http://127.0.0.1:3001/api/v1")"
+WORKER_HEALTH_URL="$(ops_env WORKER_HEALTH_URL "http://127.0.0.1:3030/healthz")"
 METRICS_TOKEN="${METRICS_TOKEN:-}"
-BACKUP_DIR="${CDOPROF_BACKUP_DIR:-/var/backups/cdoprof}"
-BACKUP_MAX_AGE_HOURS="${CDOPROF_BACKUP_MAX_AGE_HOURS:-26}"
-QUEUE_BACKLOG_LIMIT="${CDOPROF_QUEUE_BACKLOG_LIMIT:-50}"
-DISK_USED_LIMIT_PERCENT="${CDOPROF_DISK_USED_LIMIT_PERCENT:-85}"
+BACKUP_DIR="$(ops_env BACKUP_DIR "/var/backups/cdoprof")"
+BACKUP_MAX_AGE_HOURS="$(ops_env BACKUP_MAX_AGE_HOURS "26")"
+QUEUE_BACKLOG_LIMIT="$(ops_env QUEUE_BACKLOG_LIMIT "50")"
+DISK_USED_LIMIT_PERCENT="$(ops_env DISK_USED_LIMIT_PERCENT "85")"
 # Всплеск 5xx считается по приросту между запусками, поэтому нужен файл с прошлым значением.
-STATE_FILE="${CDOPROF_ALERTS_STATE_FILE:-${TMPDIR:-/tmp}/cdoprof-alerts-state}"
-ERRORS_5XX_LIMIT="${CDOPROF_ERRORS_5XX_LIMIT:-20}"
+STATE_FILE="$(ops_env ALERTS_STATE_FILE "${TMPDIR:-/tmp}/cdoprof-alerts-state")"
+ERRORS_5XX_LIMIT="$(ops_env ERRORS_5XX_LIMIT "20")"
 
 problems=0
 note() { echo "[тревоги] $1"; }

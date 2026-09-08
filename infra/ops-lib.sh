@@ -5,17 +5,51 @@
 # Держим его отдельно, чтобы три скрипта (бэкап, сторож свежести, учения) не разъехались
 # в том, КАК они сообщают о беде: канал тревоги настраивается в одном месте.
 
+# Значение эксплуатационной настройки: сначала НОВОЕ имя, потом прежнее.
+#
+# ЗАЧЕМ ДВОЙНОЕ ЧТЕНИЕ (BR-031). Эти переменные задаёт человек руками в `.env.production`
+# на сервере и в задании cron. Простое переименование `CDOPROF_*` → `TRUDSKILL_*` ничего бы
+# не сломало ГРОМКО: скрипт просто перестал бы видеть настройку и молча взял значение по
+# умолчанию. Каталог копий уехал бы в другое место, порог свободного места вернулся бы к
+# пяти гигабайтам, канал тревоги отключился бы — и узнали бы об этом в день аварии.
+#
+# Поэтому так же, как с ключами браузера (`BR-020`): читаем оба имени, предупреждаем о
+# прежнем, ждём, пока обновят файлы, и только потом убираем поддержку.
+#
+#   ops_env BACKUP_DIR "/var/backups/cdoprof"   → TRUDSKILL_BACKUP_DIR, иначе CDOPROF_BACKUP_DIR, иначе значение по умолчанию
+#
+# ⚠️ Переименовываются ИМЕНА переменных, а не значения. `/var/backups/cdoprof`,
+# `cdoprof_minio-data` — это существующие каталог и том с данными: по `BR-030` такое
+# остаётся как есть, иначе сервер потеряет из виду уже снятые копии.
+ops_env() {
+  local suffix="$1" fallback="${2-}"
+  local new_name="TRUDSKILL_${suffix}" old_name="CDOPROF_${suffix}"
+  local value="${!new_name-}"
+  if [ -n "$value" ]; then
+    printf '%s' "$value"
+    return 0
+  fi
+  value="${!old_name-}"
+  if [ -n "$value" ]; then
+    echo "[ops] задано прежнее имя ${old_name}; переименуйте его в ${new_name} — поддержка прежнего имени временная" >&2
+    printf '%s' "$value"
+    return 0
+  fi
+  printf '%s' "$fallback"
+}
+
 # Канал тревоги. Пусто — сообщение просто идёт в stderr и в код возврата, и этого уже
 # достаточно для cron (он шлёт письмо владельцу при ненулевом коде). Если задать
-# CDOPROF_ALERT_CMD, текст уйдёт туда: команда получает сообщение на stdin.
-#   пример: CDOPROF_ALERT_CMD='curl -sS -X POST -d @- https://api.telegram.org/bot<токен>/sendMessage?chat_id=<чат>&text'
+# TRUDSKILL_ALERT_CMD, текст уйдёт туда: команда получает сообщение на stdin.
+#   пример: TRUDSKILL_ALERT_CMD='curl -sS -X POST -d @- https://api.telegram.org/bot<токен>/sendMessage?chat_id=<чат>&text'
 ops_alert() {
-  local message="$1"
+  local message="$1" alert_cmd
+  alert_cmd="$(ops_env ALERT_CMD)"
   echo "[ТРЕВОГА] $message" >&2
-  if [ -n "${CDOPROF_ALERT_CMD:-}" ]; then
+  if [ -n "$alert_cmd" ]; then
     # Канал не должен ронять сам скрипт: не смогли доставить — пишем и живём дальше,
     # иначе недоступный телеграм «съел» бы и сам бэкап.
-    printf '%s\n' "$message" | eval "${CDOPROF_ALERT_CMD}" >/dev/null 2>&1 \
+    printf '%s\n' "$message" | eval "$alert_cmd" >/dev/null 2>&1 \
       || echo "[ТРЕВОГА] канал недоступен, сообщение осталось только в журнале" >&2
   fi
 }
@@ -51,5 +85,5 @@ ops_require_space() {
 #   прод:  docker compose -f infra/docker-compose.prod.yml exec -T postgres
 #   стенд: docker exec -i test-postgres
 ops_pg_exec() {
-  echo "${CDOPROF_PG_EXEC:-docker compose -f infra/docker-compose.prod.yml exec -T postgres}"
+  ops_env PG_EXEC 'docker compose -f infra/docker-compose.prod.yml exec -T postgres'
 }
