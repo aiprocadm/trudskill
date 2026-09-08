@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_TIMEZONE, RUSSIAN_TIMEZONES, SUPPORTED_LOCALES } from './timezones';
+import { fromApp } from '../../e2e/app-root';
 
 /**
  * Настройки центра выбираются, а не печатаются (журнал 303/304).
@@ -50,10 +50,13 @@ describe('часовые пояса для выбора', () => {
 });
 
 describe('экран реквизитов', () => {
-  const screen = readFileSync(
-    join(process.cwd(), 'app', 'academy', 'requisites', 'page.tsx'),
-    'utf8'
-  );
+  /*
+   * Путь от ФАЙЛА, а не от текущего каталога: у набора два штатных запуска с разным cwd —
+   * `pnpm test:frontend` из корня репозитория и `vitest` из `apps/frontend`. С `process.cwd()`
+   * этот тест падал с ENOENT при первом и проходил при втором, то есть проверка зависела от
+   * способа запуска, а не от кода.
+   */
+  const screen = readFileSync(fromApp('app', 'academy', 'requisites', 'page.tsx'), 'utf8');
 
   it('пояс и язык выбираются из списка, а не печатаются', () => {
     expect(screen, 'поля настроек обязаны быть выбором').toContain('SelectField');
