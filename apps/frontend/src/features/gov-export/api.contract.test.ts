@@ -45,6 +45,38 @@ describe('govExportApi envelope compatibility', () => {
     fetchMock.mockReset();
   });
 
+  /*
+   * Ровно то место, где тип фронта разошёлся с ответом сервера: тип обещал массив, сервер
+   * присылал `{ items }`. Проверки на эту ручку не было — и на экране курса
+   * `otPrograms?.map(...)` уносил ВСЮ страницу в красный экран «map is not a function».
+   */
+  it('listOtTrainingPrograms GETs /ot-training-programs и разворачивает СПИСОК в обёртке', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        envelope({
+          items: [
+            {
+              code: 'OT_A',
+              registryId: 1,
+              exactName: 'Общие вопросы охраны труда',
+              programKind: 'A',
+              isActive: true
+            }
+          ]
+        }),
+        { status: 200 }
+      )
+    );
+
+    const result = await govExportApi.listOtTrainingPrograms(session);
+
+    expect(fetchMock.mock.calls[0]?.[0]).toContain('/ot-training-programs');
+    /* Именно объект со списком, а не массив: массив тут и был причиной падения. */
+    expect(Array.isArray(result)).toBe(false);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.code).toBe('OT_A');
+  });
+
   it('createOtRegistryExport posts to /ot-registry/exports and unwraps batchId', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(

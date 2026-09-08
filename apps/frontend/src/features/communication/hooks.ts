@@ -153,13 +153,17 @@ export const communicationApi = {
   markAllRead: (session: ReturnType<typeof useAuth>['session']) =>
     apiRequest('/notifications/read-all', { method: 'POST', ...authHeaders(session) }),
   listDialogs: (session: ReturnType<typeof useAuth>['session']) =>
-    apiRequest<DialogDto[]>('/chat/dialogs', authHeaders(session)),
+    /*
+     * Сервер отдаёт список в обёртке `{ items }`. Здесь стоял голый массив — та же ложь типа,
+     * что уронила экран курса (журнал 379); тут она спящая: функцию пока никто не вызывает.
+     */
+    apiRequest<{ items: DialogDto[] }>('/chat/dialogs', authHeaders(session)),
   createDialog: (
     session: ReturnType<typeof useAuth>['session'],
     body: { participantUserId: string; title: string }
   ) => apiRequest('/chat/dialogs', { method: 'POST', body, ...authHeaders(session) }),
   listMessages: (session: ReturnType<typeof useAuth>['session'], dialogId: string) =>
-    apiRequest<MessageDto[]>(`/chat/dialogs/${dialogId}/messages`, authHeaders(session)),
+    apiRequest<{ items: MessageDto[] }>(`/chat/dialogs/${dialogId}/messages`, authHeaders(session)),
   postMessage: (
     session: ReturnType<typeof useAuth>['session'],
     dialogId: string,

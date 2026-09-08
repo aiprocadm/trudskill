@@ -452,7 +452,7 @@ const ProgramMetaSection = ({
             disabled={readOnly}
             size={6}
           >
-            {otPrograms?.map((p) => (
+            {otPrograms?.items.map((p) => (
               <option key={p.code} value={p.code}>
                 {p.registryId}. {p.exactName}
               </option>

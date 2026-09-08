@@ -23,9 +23,9 @@ export default function ChatPage() {
   const refreshDialogs = useCallback(
     () =>
       session &&
-      communicationApi.listDialogs(session).then((rows) => {
-        setDialogs(rows);
-        if (!selectedDialogId && rows[0]?.id) setSelectedDialogId(rows[0].id);
+      communicationApi.listDialogs(session).then(({ items }) => {
+        setDialogs(items);
+        if (!selectedDialogId && items[0]?.id) setSelectedDialogId(items[0].id);
       }),
     [selectedDialogId, session]
   );
@@ -34,7 +34,9 @@ export default function ChatPage() {
     () =>
       session &&
       selectedDialogId &&
-      communicationApi.listMessages(session, selectedDialogId).then((rows) => setMessages(rows)),
+      communicationApi
+        .listMessages(session, selectedDialogId)
+        .then(({ items }) => setMessages(items)),
     [selectedDialogId, session]
   );
 
