@@ -141,14 +141,23 @@ describe('PublicVerifyController (Plan C §5.8)', () => {
     expect(JSON.stringify(result)).not.toContain('secret_tenant');
   });
 
-  it('writes audit entry via writeCritical (awaited)', async () => {
+  /*
+   * Инвариант изменён осознанно 09.09.2026. Здесь проверялось, что запись идёт от центра
+   * `public` — ровно то, из-за чего КАЖДАЯ публичная проверка падала пятисоткой на живой
+   * базе: центра с таким кодом нет, а у журнала внешний ключ на список центров. В памяти
+   * внешних ключей нет, поэтому тест был зелёным, а продукт — сломанным.
+   *
+   * Теперь запись идёт от центра, выдавшего документ. Это и чинит падение, и делает журнал
+   * полезнее: центр видит, что его документ проверяли.
+   */
+  it('пишет в журнал от центра, выдавшего документ, и не светит полный код', async () => {
     const { audit, controller, seed } = makeService();
     const spy = vi.spyOn(audit, 'writeCritical');
-    await seed(makeDoc({ qrToken: 'AbCdEFGhIJKLMNOPQRSTUV' }));
+    await seed(makeDoc({ tenantId: 'tenant_demo', qrToken: 'AbCdEFGhIJKLMNOPQRSTUV' }));
     await controller.verify('AbCdEFGhIJKLMNOPQRSTUV');
     expect(spy).toHaveBeenCalledWith(
       expect.objectContaining({
-        tenantId: 'public',
+        tenantId: 'tenant_demo',
         action: 'documents.qr_verification_requested'
       })
     );
@@ -268,4 +277,57 @@ describe('PublicVerifyController rate-limit enforcement (HTTP, ФТ-G2)', () => 
     const blocked = await fetch(url);
     expect(blocked.status).toBe(429); // 31-й — Too Many Requests
   }, 30_000);
+});
+
+/**
+ * Регресс: публичная проверка падала пятисоткой на КАЖДОМ обращении.
+ *
+ * Журнал писался первой строкой и от имени центра `public`, которого в списке центров нет, а
+ * у журнала внешний ключ на этот список. В памяти (как в тестах выше) внешних ключей нет —
+ * поэтому дефект дожил до живого стенда: проверяющий, сканировавший QR на удостоверении,
+ * видел ошибку сервера вместо ответа «документ подлинный».
+ */
+describe('публичная проверка не падает из-за журнала', () => {
+  it('запись журнала идёт от центра, ВЫДАВШЕГО документ, а не от несуществующего «public»', async () => {
+    const { controller, audit, seed } = makeService();
+    const writeCritical = vi.spyOn(audit, 'writeCritical');
+    await seed(
+      makeDoc({ id: 'gdoc_audit', tenantId: 'tenant_demo', qrToken: 'audittoken1234567890' })
+    );
+
+    await controller.verify('audittoken1234567890');
+
+    const call = writeCritical.mock.calls.at(-1);
+    expect(
+      call?.[0].tenantId,
+      'центр берётся у документа — иначе внешний ключ базы отклонит запись'
+    ).toBe('tenant_demo');
+    /* В базу такая запись идти обязана: центр должен видеть, что его документ проверяли. */
+    expect(call?.[1]?.skipDatabase).toBeUndefined();
+  });
+
+  it('полный код в журнал не попадает — он равносилен доступу к документу', async () => {
+    const { controller, audit, seed } = makeService();
+    const writeCritical = vi.spyOn(audit, 'writeCritical');
+    await seed(makeDoc({ id: 'gdoc_token', qrToken: 'secrettoken123456789' }));
+
+    await controller.verify('secrettoken123456789');
+
+    const entityId = String(writeCritical.mock.calls.at(-1)?.[0].entityId);
+    expect(entityId).not.toContain('secrettoken123456789');
+    expect(entityId).toBe('secr…');
+  });
+
+  it('неизвестный код: ответ «не найдено», а запись в базу НЕ идёт — приписать её некому', async () => {
+    const { controller, audit } = makeService();
+    const writeCritical = vi.spyOn(audit, 'writeCritical');
+
+    await expect(controller.verify('нет_такого_кода_12345')).rejects.toThrow();
+
+    const call = writeCritical.mock.calls.at(-1);
+    expect(
+      call?.[1]?.skipDatabase,
+      'у неизвестного кода нет центра, внешний ключ отклонит запись'
+    ).toBe(true);
+  });
 });
