@@ -1,5 +1,6 @@
 'use client';
 
+import { Modal } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { useGroupsList } from '../mvp/hooks';
@@ -17,6 +18,11 @@ export interface ApproveRecertModalProps {
 }
 
 /**
+ * `CMP-010` (§5.437): окно берётся из пакета. Самодельная разметка `role="dialog"` выглядела
+ * так же, но не умела главного: не удерживала фокус внутри окна, не закрывалась по Esc и не
+ * блокировала прокрутку страницы под собой. Человек с клавиатуры уходил табом за окно и
+ * «терялся», а Esc не работал — притом что во всех остальных окнах продукта работает.
+ *
  * Phase 5C-2 — модалка перезачисления по переаттестации. Загружает группы тенанта
  * (`useGroupsList`, как в массовой загрузке) и делегирует зачисление в `onConfirm`
  * (хук экрана идёт через bulk-enroll path, идемпотентно по черновику). Курс черновика
@@ -36,8 +42,6 @@ export function ApproveRecertModal({
   const [targetGroupId, setTargetGroupId] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  if (!open) return null;
-
   const submit = async () => {
     setError(null);
     try {
@@ -49,65 +53,55 @@ export function ApproveRecertModal({
   };
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Перезачислить на переаттестацию"
-      className="ui-modal"
-    >
-      <div className="ui-modal-content">
-        <div className="ui-modal-header">
-          <h2>Перезачислить на переаттестацию</h2>
+    <Modal open={open} title="Перезачислить на переаттестацию" onClose={onClose}>
+      <p>
+        Слушатель: <strong>{learnerName || '—'}</strong>
+        <br />
+        Истекающий курс: <strong>{courseTitle || '—'}</strong>
+      </p>
+
+      {groups.loading ? <p>Загрузка групп…</p> : null}
+      {groups.error ? (
+        <p className="ui-callout ui-callout--danger">Не удалось загрузить группы</p>
+      ) : null}
+
+      {!groups.loading && !groups.error ? (
+        <div className="ui-stack">
+          <label className="ui-stack" style={{ gap: 4 }}>
+            <span>Группа для перезачисления</span>
+            <select
+              value={targetGroupId}
+              onChange={(event) => setTargetGroupId(event.target.value)}
+            >
+              <option value="">— выберите —</option>
+              {(groups.data?.items ?? []).map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name} ({g.code})
+                </option>
+              ))}
+            </select>
+            {(groups.data?.items ?? []).length === 0 ? (
+              <small>Нет групп. Создайте группу в /groups.</small>
+            ) : null}
+          </label>
         </div>
-        <p>
-          Слушатель: <strong>{learnerName || '—'}</strong>
-          <br />
-          Истекающий курс: <strong>{courseTitle || '—'}</strong>
-        </p>
+      ) : null}
 
-        {groups.loading ? <p>Загрузка групп…</p> : null}
-        {groups.error ? (
-          <p className="ui-callout ui-callout--danger">Не удалось загрузить группы</p>
-        ) : null}
+      {error ? <p className="ui-callout ui-callout--danger">Ошибка: {error}</p> : null}
 
-        {!groups.loading && !groups.error ? (
-          <div className="ui-stack">
-            <label className="ui-stack" style={{ gap: 4 }}>
-              <span>Группа для перезачисления</span>
-              <select
-                value={targetGroupId}
-                onChange={(event) => setTargetGroupId(event.target.value)}
-              >
-                <option value="">— выберите —</option>
-                {(groups.data?.items ?? []).map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name} ({g.code})
-                  </option>
-                ))}
-              </select>
-              {(groups.data?.items ?? []).length === 0 ? (
-                <small>Нет групп. Создайте группу в /groups.</small>
-              ) : null}
-            </label>
-          </div>
-        ) : null}
-
-        {error ? <p className="ui-callout ui-callout--danger">Ошибка: {error}</p> : null}
-
-        <div className="ui-modal-actions">
-          <button type="button" className="ui-button" onClick={onClose} disabled={pending}>
-            Отмена
-          </button>
-          <button
-            type="button"
-            className="ui-button ui-button--primary"
-            disabled={!targetGroupId || pending}
-            onClick={() => void submit()}
-          >
-            {pending ? 'Перезачисляем…' : 'Перезачислить'}
-          </button>
-        </div>
+      <div className="ui-modal-actions">
+        <button type="button" className="ui-button" onClick={onClose} disabled={pending}>
+          Отмена
+        </button>
+        <button
+          type="button"
+          className="ui-button ui-button--primary"
+          disabled={!targetGroupId || pending}
+          onClick={() => void submit()}
+        >
+          {pending ? 'Перезачисляем…' : 'Перезачислить'}
+        </button>
       </div>
-    </div>
+    </Modal>
   );
 }

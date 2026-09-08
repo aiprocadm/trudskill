@@ -1,6 +1,6 @@
 'use client';
 
-import { LoadingState } from '@trudskill/ui';
+import { LoadingState, Modal } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { formatQuestionType } from './format';
@@ -46,87 +46,82 @@ export function TestQuestionPicker({ testId, defaultBankId, onClose, onAdded }: 
     onClose();
   };
 
+  /*
+   * `CMP-010` (§5.437): окно берётся из пакета. Самодельная разметка `role="dialog"` выглядела
+   * так же, но не удерживала фокус внутри окна, не закрывалась по Esc и не блокировала
+   * прокрутку страницы под собой — а во всех остальных окнах продукта это работает.
+   *
+   * Кнопка «Закрыть» в шапке убрана: ровно то же делает «Отмена» в ряду действий, и два
+   * элемента с одним результатом — лишний выбор для человека.
+   */
   return (
-    <div className="ui-modal" role="dialog" aria-label="Подбор вопросов">
-      <div className="ui-modal-content">
-        <header className="ui-modal-header">
-          <h2>Подбор вопросов</h2>
-          <button type="button" className="ui-button-ghost" onClick={onClose}>
-            Закрыть
-          </button>
-        </header>
-
-        <div className="ui-toolbar">
-          <select
-            className="ui-select"
-            value={bankId}
-            onChange={(e) => setBankId(e.target.value)}
-            aria-label="Банк вопросов"
-          >
-            <option value="">— выберите банк —</option>
-            {banks.data?.items.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.title}
-              </option>
-            ))}
-          </select>
-          <select
-            className="ui-select"
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as '' | QuestionType)}
-            aria-label="Фильтр по типу"
-          >
-            <option value="">Все типы</option>
-            <option value="single_choice">Один из списка</option>
-            <option value="multiple_choice">Несколько из списка</option>
-            <option value="number_input">Числовой ответ</option>
-            <option value="text">Краткий текст</option>
-            <option value="essay">Развёрнутый ответ</option>
-          </select>
-        </div>
-
-        {!bankId ? (
-          <p className="ui-hint">Выберите банк, чтобы посмотреть его вопросы.</p>
-        ) : questions.isLoading ? (
-          <LoadingState message="Загрузка вопросов…" />
-        ) : !questions.data || questions.data.items.length === 0 ? (
-          <p className="ui-hint">В этом банке нет вопросов выбранного типа.</p>
-        ) : (
-          <ul className="ui-list">
-            {questions.data.items.map((q) => (
-              <li key={q.id} className="ui-list-row">
-                <label className="ui-inline">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(q.id)}
-                    onChange={() => toggle(q.id)}
-                  />
-                  <span>
-                    <strong>{q.title || '(без заголовка)'}</strong> — {formatQuestionType(q.type)}
-                  </span>
-                </label>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {add.error ? <p className="ui-field-error">{add.error}</p> : null}
-
-        <div className="ui-form-actions">
-          <button type="button" className="ui-button" onClick={onClose}>
-            Отмена
-          </button>
-          <button
-            type="button"
-            className={`ui-button-primary ${add.isPending ? 'ui-button--loading' : ''}`}
-            onClick={submit}
-            disabled={add.isPending || selected.size === 0}
-          >
-            {/* TXT-003: подпись не меняется по ходу — меняется только число выбранных. */}
-            {`Добавить вопросы (${selected.size})`}
-          </button>
-        </div>
+    <Modal open title="Подбор вопросов" onClose={onClose}>
+      <div className="ui-toolbar">
+        <select
+          className="ui-select"
+          value={bankId}
+          onChange={(e) => setBankId(e.target.value)}
+          aria-label="Банк вопросов"
+        >
+          <option value="">— выберите банк —</option>
+          {banks.data?.items.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.title}
+            </option>
+          ))}
+        </select>
+        <select
+          className="ui-select"
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value as '' | QuestionType)}
+          aria-label="Фильтр по типу"
+        >
+          <option value="">Все типы</option>
+          <option value="single_choice">Один из списка</option>
+          <option value="multiple_choice">Несколько из списка</option>
+          <option value="number_input">Числовой ответ</option>
+          <option value="text">Краткий текст</option>
+          <option value="essay">Развёрнутый ответ</option>
+        </select>
       </div>
-    </div>
+
+      {!bankId ? (
+        <p className="ui-hint">Выберите банк, чтобы посмотреть его вопросы.</p>
+      ) : questions.isLoading ? (
+        <LoadingState message="Загрузка вопросов…" />
+      ) : !questions.data || questions.data.items.length === 0 ? (
+        <p className="ui-hint">В этом банке нет вопросов выбранного типа.</p>
+      ) : (
+        <ul className="ui-list">
+          {questions.data.items.map((q) => (
+            <li key={q.id} className="ui-list-row">
+              <label className="ui-inline">
+                <input type="checkbox" checked={selected.has(q.id)} onChange={() => toggle(q.id)} />
+                <span>
+                  <strong>{q.title || '(без заголовка)'}</strong> — {formatQuestionType(q.type)}
+                </span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {add.error ? <p className="ui-field-error">{add.error}</p> : null}
+
+      <div className="ui-form-actions">
+        <button type="button" className="ui-button" onClick={onClose}>
+          Отмена
+        </button>
+        <button
+          type="button"
+          className={`ui-button-primary ${add.isPending ? 'ui-button--loading' : ''}`}
+          onClick={submit}
+          disabled={add.isPending || selected.size === 0}
+        >
+          {/* TXT-003: подпись не меняется по ходу — меняется только число выбранных. */}
+          {`Добавить вопросы (${selected.size})`}
+        </button>
+      </div>
+    </Modal>
   );
 }
