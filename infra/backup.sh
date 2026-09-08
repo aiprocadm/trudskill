@@ -9,7 +9,7 @@ set -euo pipefail
 # ЧТО ИЗМЕНИЛОСЬ В ФАЗЕ 6 (Task 4) и почему:
 #  1. Топология больше не зашита. Прежний скрипт звал прод-compose, которого на стенде
 #     нет, — то есть на стенде он бы не отработал. Теперь способ достучаться до базы
-#     задаётся переменной CDOPROF_PG_EXEC (см. infra/ops-lib.sh).
+#     задаётся переменной TRUDSKILL_PG_EXEC (см. infra/ops-lib.sh).
 #  2. Дамп пишется во временный файл и переименовывается только ПОСЛЕ проверки.
 #     Раньше перенаправление создавало файл ДО запуска pg_dump: сбой на середине
 #     оставлял обрезанный .gz, который по имени и размеру выглядел как настоящая копия.
@@ -25,10 +25,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=infra/ops-lib.sh
 . "$SCRIPT_DIR/ops-lib.sh"
 
-BACKUP_DIR="${CDOPROF_BACKUP_DIR:-/var/backups/cdoprof}"
-RETENTION_DAYS="${CDOPROF_BACKUP_RETENTION_DAYS:-14}"
-MIN_FREE_GB="${CDOPROF_MIN_FREE_GB:-5}"
-MINIO_VOLUME="${CDOPROF_MINIO_VOLUME:-cdoprof_minio-data}"
+BACKUP_DIR="$(ops_env BACKUP_DIR "/var/backups/cdoprof")"
+RETENTION_DAYS="$(ops_env BACKUP_RETENTION_DAYS "14")"
+MIN_FREE_GB="$(ops_env MIN_FREE_GB "5")"
+MINIO_VOLUME="$(ops_env MINIO_VOLUME "cdoprof_minio-data")"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
 # Учётные данные прод-стека; на стенде их подставляет окружение сервиса.
@@ -111,17 +111,17 @@ fi
 # Назначение подключает владелец (вопрос №C плана Фазы 6): команда получает путь к файлу.
 # Пока переменная пуста, копия остаётся только на этом сервере — и это надо помнить:
 # пожар в машинном зале уносит и боевые данные, и «резерв».
-if [ -n "${CDOPROF_OFFSITE_CMD:-}" ]; then
+if [ -n "$(ops_env OFFSITE_CMD "")" ]; then
   echo "[backup] отправка копии вне сервера…"
   for f in "$db_file" "${minio_file:-}"; do
     [ -n "$f" ] && [ -f "$f" ] || continue
-    if ! eval "${CDOPROF_OFFSITE_CMD} \"$f\""; then
+    if ! eval "${offsite_cmd} \"$f\""; then
       ops_alert "Копию не удалось отправить вне сервера: $f"
       exit 1
     fi
   done
 else
-  echo "[backup] ВНИМАНИЕ: копия вне сервера не настроена (CDOPROF_OFFSITE_CMD пуст)"
+  echo "[backup] ВНИМАНИЕ: копия вне сервера не настроена (TRUDSKILL_OFFSITE_CMD пуст)"
 fi
 
 # --- 4. Чистка старого ------------------------------------------------------------

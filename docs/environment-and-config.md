@@ -1,5 +1,7 @@
 # Environment and config
 
+> **Имена переменных переименованы (`BR-031`, 08.09.2026): `CDOPROF_*` → `TRUDSKILL_*`.** Скрипты пока читают ОБА имени и предупреждают о прежнем — чтобы уже настроенный сервер не потерял настройку молча. Обновите `.env.production` и задания cron; поддержка прежних имён временная.
+
 Configuration is validated via Zod at startup (fail-fast).
 
 ## Profiles (explicit)

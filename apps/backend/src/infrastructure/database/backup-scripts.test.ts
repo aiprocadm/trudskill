@@ -274,3 +274,56 @@ describe('масштабирование бэкенда за прокси', () =
     expect(compose).not.toContain('container_name');
   });
 });
+
+/**
+ * `BR-031`: имена настроек переименованы, но настроенный сервер об этом не спотыкается.
+ *
+ * Переменные эксплуатации человек задаёт руками — в `.env.production` и в задании cron.
+ * Простое переименование `CDOPROF_*` → `TRUDSKILL_*` сломало бы всё ТИХО: скрипт перестал бы
+ * видеть настройку и молча взял значение по умолчанию. Каталог копий уехал бы в другое
+ * место, канал тревоги отключился бы, порог свободного места вернулся бы к пяти гигабайтам —
+ * и узнали бы об этом в день аварии.
+ *
+ * Поэтому настройка читается ТОЛЬКО через `ops_env`: новое имя → прежнее → значение по
+ * умолчанию, с предупреждением о прежнем. Сторож следит, чтобы мимо этой двери никто не
+ * прошёл: прямое чтение `CDOPROF_*` или `TRUDSKILL_*` в скрипте — это настройка, у которой
+ * работает лишь одно из двух имён.
+ */
+describe('BR-031 · настройки читаются обоими именами', () => {
+  const SCRIPTS = [
+    'ops-lib.sh',
+    'ops-alerts.sh',
+    'backup.sh',
+    'backup-watchdog.sh',
+    'restore-drill.sh'
+  ];
+
+  /** Строки скрипта без комментариев: пояснения про прежние имена — не чтение настройки. */
+  const codeLines = (script: string): string[] =>
+    script.split('\n').filter((line) => !line.trim().startsWith('#'));
+
+  it('ops_env умеет оба имени и предупреждает о прежнем', () => {
+    const lib = read('ops-lib.sh');
+    expect(lib).toContain('local new_name="TRUDSKILL_${suffix}" old_name="CDOPROF_${suffix}"');
+    /* Предупреждение обязательно: молчаливая поддержка прежнего имени никогда не кончится. */
+    expect(lib).toContain('переименуйте его в ${new_name}');
+  });
+
+  it('ни один скрипт не читает переменную мимо ops_env', () => {
+    const guilty: string[] = [];
+    for (const name of SCRIPTS) {
+      for (const line of codeLines(read(name))) {
+        if (/\$\{?(CDOPROF|TRUDSKILL)_[A-Z0-9_]+/.test(line) && !line.includes('${suffix}')) {
+          guilty.push(`${name}: ${line.trim()}`);
+        }
+      }
+    }
+    expect(guilty).toEqual([]);
+  });
+
+  it('каждая настройка скриптов проходит через ops_env', () => {
+    /* Страховка от зелёного «ни на чём»: если вызовы исчезнут, проверка выше тоже смолкнет. */
+    const calls = SCRIPTS.map((name) => read(name).match(/ops_env [A-Z0-9_]+/g) ?? []).flat();
+    expect(calls.length).toBeGreaterThanOrEqual(18);
+  });
+});

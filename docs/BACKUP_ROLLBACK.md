@@ -1,5 +1,7 @@
 # Резервное копирование и откат
 
+> **Имена переменных переименованы (`BR-031`, 08.09.2026): `CDOPROF_*` → `TRUDSKILL_*`.** Скрипты пока читают ОБА имени и предупреждают о прежнем — чтобы уже настроенный сервер не потерял настройку молча. Обновите `.env.production` и задания cron; поддержка прежних имён временная.
+
 **Состояние на 2026-08-08 (Фаза 6 Task 4 + Task 6):** скрипты написаны и проверены вживую —
 копия снимается, порча обнаруживается, из копии поднимается работоспособная база, а семь
 сигналов аварий проверены искусственной поломкой каждого.
@@ -18,7 +20,7 @@
 | `infra/ops-alerts.sh`      | Семь сигналов аварий (см. ниже) — единственное, что будит людей       | каждые 5 минут                           |
 
 Все они сообщают о беде **ненулевым кодом возврата** — этого достаточно, чтобы cron
-прислал письмо. Если задать `CDOPROF_ALERT_CMD`, тот же текст уйдёт в выбранный канал.
+прислал письмо. Если задать `TRUDSKILL_ALERT_CMD`, тот же текст уйдёт в выбранный канал.
 
 ## Что именно поднимает тревогу (Фаза 6 Task 6)
 
@@ -40,12 +42,12 @@
 хорошо» это разные вещи.
 
 Порог у каждого сигнала свой и меняется переменной окружения:
-`CDOPROF_QUEUE_BACKLOG_LIMIT` (50), `CDOPROF_BACKUP_MAX_AGE_HOURS` (26),
-`CDOPROF_DISK_USED_LIMIT_PERCENT` (85), `CDOPROF_ERRORS_5XX_LIMIT` (20 за 5 минут),
-`CDOPROF_WORKER_HEALTH_URL`.
+`TRUDSKILL_QUEUE_BACKLOG_LIMIT` (50), `TRUDSKILL_BACKUP_MAX_AGE_HOURS` (26),
+`TRUDSKILL_DISK_USED_LIMIT_PERCENT` (85), `TRUDSKILL_ERRORS_5XX_LIMIT` (20 за 5 минут),
+`TRUDSKILL_WORKER_HEALTH_URL`.
 
 Всплеск 5xx считается по **приросту** между запусками (прошлое значение лежит в
-`CDOPROF_ALERTS_STATE_FILE`): счётчик с момента старта растёт вечно, по нему не отличить
+`TRUDSKILL_ALERTS_STATE_FILE`): счётчик с момента старта растёт вечно, по нему не отличить
 «сломалось сейчас» от «сломалось месяц назад». Перезапуск бэкенда обнуляет счётчик — такой
 отрицательный прирост тревогой не считается.
 
@@ -101,22 +103,22 @@ Prometheus — его понимает любой сборщик, ставить
    контейнер Postgres) это:
 
    ```bash
-   CDOPROF_PG_EXEC="docker exec -i test-postgres"
+   TRUDSKILL_PG_EXEC="docker exec -i test-postgres"
    POSTGRES_USER=trudskill_stand_app
    POSTGRES_DB=trudskill_stand
-   CDOPROF_MINIO_VOLUME=infra_minio-data
-   CDOPROF_BACKUP_DIR=/var/backups/cdoprof
+   TRUDSKILL_MINIO_VOLUME=infra_minio-data
+   TRUDSKILL_BACKUP_DIR=/var/backups/cdoprof
    ```
 
    На прод-стеке (docker compose) достаточно значений по умолчанию — они рассчитаны
    именно на него.
 
-3. **Решить про копию вне сервера** (вопрос №C плана Фазы 6). Пока `CDOPROF_OFFSITE_CMD`
+3. **Решить про копию вне сервера** (вопрос №C плана Фазы 6). Пока `TRUDSKILL_OFFSITE_CMD`
    пуст, копия лежит на том же диске, что и данные: пожар или отказ диска уносит и то,
    и другое. Команда получает путь к файлу, например:
 
    ```bash
-   CDOPROF_OFFSITE_CMD='rclone copy --config /root/rclone.conf'
+   TRUDSKILL_OFFSITE_CMD='rclone copy --config /root/rclone.conf'
    ```
 
 ## Целевые показатели
