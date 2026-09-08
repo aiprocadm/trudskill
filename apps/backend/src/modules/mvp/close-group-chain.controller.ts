@@ -2,7 +2,7 @@ import { Body, Controller, Inject, Param, Post, UseGuards, UseInterceptors } fro
 
 import { CloseGroupChainService } from './close-group-chain.service.js';
 import { MvpRequestPersistenceInterceptor } from './infrastructure/mvp-request-persistence.interceptor.js';
-import { CloseGroupChainRequest } from './mvp.dto.js';
+import { CloseGroupChainRequest, CloseGroupsChainBulkRequest } from './mvp.dto.js';
 import { assertValidDto } from '../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
@@ -46,5 +46,19 @@ export class CloseGroupChainController {
   ) {
     const b = assertValidDto(CloseGroupChainRequest, raw);
     return this.chain.runChain(c.tenantId!, c.userId, { ...b, groupId }, c);
+  }
+
+  /**
+   * Массовое закрытие групп (вопрос №13, решение 08.09.2026).
+   *
+   * Тот же контроллер: зависимости те же, права те же. Отдельного пути `:groupId` нет —
+   * группы приходят списком в теле, потому что закрывают пачкой.
+   */
+  @Post('groups/close-chain-bulk')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('documents.generate', 'regulatory.export.write')
+  async closeChainBulk(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    const b = assertValidDto(CloseGroupsChainBulkRequest, raw);
+    return this.chain.runChainBulk(c.tenantId!, c.userId, b, c);
   }
 }

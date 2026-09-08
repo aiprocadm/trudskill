@@ -48,6 +48,12 @@ const DECIDED: Record<string, string> = {
     'статусом `failed`, остальные получатели письмо получают',
   'modules/iam/services/known-password-audit.ts for (const user of input.users)':
     'всё или ничего не грозит: цикл только читает и считает, бросать в нём нечему',
+  'modules/mvp/close-group-chain.service.ts for (const groupId of groupIds)':
+    'частичный успех ВЕРХНЕГО уровня: каждая группа закрывается в своём `try`, отказ ложится ' +
+    'строкой отчёта с причиной человеческим языком и не отменяет остальные — иначе одна ' +
+    'группа без комиссии означала бы работу заново для всех сорока (тесты «неготовая группа ' +
+    'не отменяет остальные» и «группа без курса пропускается с объяснением» в ' +
+    '`close-group-chain.service.test.ts`)',
   'modules/mvp/close-group-chain.ts for (const issue of input.learnerIssues)':
     'всё или ничего не грозит: цикл собирает список проблем группы, бросать в нём нечему',
   'modules/mvp/close-group-chain.ts for (const enrollment of input.enrollments)':

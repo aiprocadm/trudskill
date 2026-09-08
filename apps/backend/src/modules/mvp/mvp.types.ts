@@ -973,6 +973,32 @@ export interface CloseGroupChainOutcome {
   cached: boolean;
 }
 
+/**
+ * Итог массового закрытия групп (вопрос №13 «Арендной СДО», решение 08.09.2026).
+ *
+ * Частичный успех на ДВУХ уровнях. Внутри группы отсеянных поимённо считает сама цепочка
+ * (не сдал, нет СНИЛС, не завершил обучение). Здесь — уровень выше: группа, которую закрыть
+ * нельзя, не отменяет остальные. В конце месяца закрывают десятками, и «вся пачка не прошла
+ * из-за одной группы без комиссии» — это работа заново вместо работы.
+ */
+export interface CloseGroupsBulkOutcome {
+  total: number;
+  closed: number;
+  skipped: number;
+  rows: Array<{
+    groupId: string;
+    /** Название группы, а не идентификатор: отчёт читает человек. */
+    groupName: string;
+    status: 'closed' | 'skipped';
+    /** Почему пропущена — тем же языком, каким об этом сказали бы человеку. */
+    reason?: string;
+    /** Сколько человек получило удостоверения. */
+    issued?: number;
+    /** Кого отсеяло ВНУТРИ группы — поимённо. */
+    skippedLearners?: Array<{ fullName: string; message: string }>;
+  }>;
+}
+
 export interface CloseGroupChainIdempotencyRecord {
   /** NOT NULL id обязателен: снапшот-хранилище ключует каждую запись по нему. */
   id: string;

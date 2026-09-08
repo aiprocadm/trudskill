@@ -313,6 +313,14 @@ describe('MVP HTTP integration (permission boundaries)', () => {
         return { eligible: 0, skipped: [], documents: null, registry: null, groupId };
       }
 
+      // Вопрос №13 — массовое закрытие групп: та же пара прав, что у одиночной цепочки.
+      // Пачка выпускает документы и строит выгрузку ровно так же, просто много раз.
+      @Post('groups/close-chain-bulk')
+      @RequirePermissions('documents.generate', 'regulatory.export.write')
+      closeGroupsChainBulk() {
+        return { total: 0, closed: 0, skipped: 0, rows: [] };
+      }
+
       // ФТ-F4 Фаза 5 Task 9 — отметка посещения вебинара: право слушателя
       // webinars.attend; staff-право webinars.read «видеть» не значит «отмечаться».
       @Post('webinars/:id/join')
@@ -1519,6 +1527,51 @@ describe('MVP HTTP integration (permission boundaries)', () => {
       expect(response.status).toBe(201);
       const payload = (await response.json()) as { data: { groupId: string } };
       expect(payload.data.groupId).toBe('g1');
+    });
+  });
+
+  // === Вопрос №13 — массовое закрытие групп: права те же, что у одиночной цепочки ===
+  describe('close-chain-bulk (documents.generate + regulatory.export.write)', () => {
+    it('POST /groups/close-chain-bulk — 403 с одним documents.generate', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce(['documents.generate']);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['manager'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/groups/close-chain-bulk`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${token}`,
+          'x-tenant-id': 'tenant_demo',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ groupIds: ['g1'] })
+      });
+      expect(response.status).toBe(403);
+    });
+
+    it('POST /groups/close-chain-bulk — 200 с обоими правами', async () => {
+      iamServiceMock.resolvePermissions.mockResolvedValueOnce([
+        'documents.generate',
+        'regulatory.export.write'
+      ]);
+      const token = issueSignedAccessToken(
+        { sub: 'u1', tenant_id: 'tenant_demo', session_id: 's1', roles: ['manager'] },
+        process.env.AUTH_JWT_SECRET!,
+        60
+      );
+      const response = await fetch(`${apiBaseUrl}/groups/close-chain-bulk`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${token}`,
+          'x-tenant-id': 'tenant_demo',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ groupIds: ['g1'] })
+      });
+      /* POST в Nest по умолчанию отвечает 201 — важно, что не 403. */
+      expect(response.status).toBe(201);
     });
   });
 

@@ -89,7 +89,41 @@ const auth = (session: UserSession) => ({
   userId: session.user.id
 });
 
+/** Итог массового закрытия групп (вопрос №13). */
+export interface CloseGroupsBulkOutcomeDto {
+  total: number;
+  closed: number;
+  skipped: number;
+  rows: Array<{
+    groupId: string;
+    groupName: string;
+    status: 'closed' | 'skipped';
+    reason?: string;
+    issued?: number;
+    skippedLearners?: Array<{ fullName: string; message: string }>;
+  }>;
+}
+
 export const closeGroupApi = {
+  /**
+   * Массовое закрытие групп (вопрос №13). Курс не передаётся — сервер берёт его у группы,
+   * а группу с двумя курсами возвращает строкой отчёта, а не молча закрывает наугад.
+   */
+  closeChainBulk: (
+    session: UserSession,
+    input: {
+      groupIds: string[];
+      protocolTemplateId: string;
+      certificateTemplateId: string;
+      idempotencyKey: string;
+    }
+  ) =>
+    apiRequest<CloseGroupsBulkOutcomeDto>('/groups/close-chain-bulk', {
+      method: 'POST',
+      body: input,
+      auth: auth(session)
+    }),
+
   close: (session: UserSession, input: CloseGroupInput) =>
     apiRequest<CloseGroupResultDto>('/admin/documents/close-group', {
       method: 'POST',

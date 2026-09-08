@@ -9,7 +9,7 @@ import { DocumentsService } from '../documents/documents.service.js';
 
 import type { ChainSkippedEnrollment } from './close-group-chain.js';
 import type { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
-import type { CloseGroupChainOutcome } from './mvp.types.js';
+import type { CloseGroupChainOutcome, CloseGroupsBulkOutcome } from './mvp.types.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 
 export interface CloseGroupChainRequestInput {
@@ -38,6 +38,24 @@ export interface CloseGroupChainRequestInput {
  * Живёт отдельным сервисом: `MvpService` не может звать `OtRegistryService`
  * (тот сам зависит от `MvpService` — цикл повесил бы приложение при старте).
  */
+/**
+ * Причина отказа человеческим языком.
+ *
+ * Цепочка бросает `PreconditionFailedException` с перечнем проблем уровня группы («программе
+ * не назначена аттестационная комиссия»). В пачке это не ошибка запроса, а строка отчёта:
+ * без такого разбора человек увидел бы «Ошибка 412» и не понял, что чинить.
+ */
+const describeGroupFailure = (error: unknown): string => {
+  const payload = (error as { response?: unknown })?.response;
+  if (payload !== null && typeof payload === 'object') {
+    const body = payload as { message?: string; issues?: Array<{ message?: string }> };
+    const issues = (body.issues ?? []).map((i) => i.message).filter(Boolean);
+    if (issues.length > 0) return issues.join('; ');
+    if (body.message) return body.message;
+  }
+  return error instanceof Error ? error.message : 'Не удалось закрыть группу';
+};
+
 @Injectable({ scope: Scope.REQUEST })
 export class CloseGroupChainService {
   constructor(
@@ -122,6 +140,122 @@ export class CloseGroupChainService {
       userAgent: context.userAgent
     });
     return outcome;
+  }
+
+  /**
+   * Массовое закрытие групп (вопрос №13, решение 08.09.2026).
+   *
+   * Почему пачкой. Закрытие группы — работа конца месяца, и групп там десятки. Реестр групп
+   * умел выделять строки ещё с волны 4, но чекбоксы были ВЫКЛЮЧЕНЫ намеренно: за ними не
+   * стояло серверной операции, а галочки без действия — обман интерфейса.
+   *
+   * Почему поверх цепочки, а не поверх «закрыть группу». Цепочка сама отбирает сдавших и
+   * отчитывается по отсеянным поимённо; «закрыть группу» требует передать список зачислений,
+   * то есть человек должен был бы выбрать людей в каждой из сорока групп руками.
+   *
+   * Частичный успех. Группа без комиссии, без курса или с двумя курсами не отменяет
+   * остальные — она возвращается строкой с причиной. Иначе одна неготовая группа означала бы
+   * работу заново для всех сорока.
+   */
+  async runChainBulk(
+    tenantId: string,
+    actorId: string | undefined,
+    request: {
+      groupIds: string[];
+      protocolTemplateId: string;
+      certificateTemplateId: string;
+      idempotencyKey: string;
+      format?: 'xlsx' | 'xml';
+    },
+    context: RequestContext
+  ): Promise<CloseGroupsBulkOutcome> {
+    const rows: CloseGroupsBulkOutcome['rows'] = [];
+    /* Дубли в выделении — обычное дело; закрывать одну группу дважды незачем. */
+    const groupIds = [...new Set(request.groupIds.map((id) => id.trim()).filter(Boolean))];
+
+    for (const groupId of groupIds) {
+      const group = this.state.groups.find((g) => g.tenantId === tenantId && g.id === groupId);
+      if (!group) {
+        rows.push({
+          groupId,
+          groupName: groupId,
+          status: 'skipped',
+          reason: 'Группы нет в этом учебном центре'
+        });
+        continue;
+      }
+
+      const courses = this.state.groupCourses.filter(
+        (gc) => gc.tenantId === tenantId && gc.groupId === groupId
+      );
+      if (courses.length === 0) {
+        rows.push({
+          groupId,
+          groupName: group.name,
+          status: 'skipped',
+          reason: 'Группе не назначен курс — назначьте программу и повторите'
+        });
+        continue;
+      }
+      if (courses.length > 1) {
+        /* Выбрать за человека, какой из курсов закрывать, нельзя: документы разные. */
+        rows.push({
+          groupId,
+          groupName: group.name,
+          status: 'skipped',
+          reason: 'В группе несколько курсов — закройте её отдельно, чтобы выбрать нужный'
+        });
+        continue;
+      }
+
+      try {
+        const outcome = await this.runChain(
+          tenantId,
+          actorId,
+          {
+            groupId,
+            courseId: courses[0]!.courseId,
+            protocolTemplateId: request.protocolTemplateId,
+            certificateTemplateId: request.certificateTemplateId,
+            /*
+             * Ключ группы выводится из общего — так повтор всей пачки не выпускает второй
+             * комплект документов ни одной группе (соглашение CLAUDE.md о под-ключах).
+             */
+            idempotencyKey: `${request.idempotencyKey}::${groupId}`,
+            ...(request.format ? { format: request.format } : {})
+          },
+          context
+        );
+        rows.push({
+          groupId,
+          groupName: group.name,
+          status: 'closed',
+          issued: outcome.documents?.certificates ?? 0,
+          ...(outcome.skipped.length > 0
+            ? {
+                skippedLearners: outcome.skipped.map((s) => ({
+                  fullName: s.fullName,
+                  message: s.message
+                }))
+              }
+            : {})
+        });
+      } catch (error) {
+        rows.push({
+          groupId,
+          groupName: group.name,
+          status: 'skipped',
+          reason: describeGroupFailure(error)
+        });
+      }
+    }
+
+    return {
+      total: rows.length,
+      closed: rows.filter((r) => r.status === 'closed').length,
+      skipped: rows.filter((r) => r.status === 'skipped').length,
+      rows
+    };
   }
 
   private async executeSteps(

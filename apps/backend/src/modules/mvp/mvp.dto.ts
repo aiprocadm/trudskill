@@ -1197,6 +1197,43 @@ export class CloseGroupChainRequest {
   format?: 'xlsx' | 'xml';
 }
 
+/**
+ * Массовое закрытие групп (вопрос №13, решение 08.09.2026).
+ *
+ * Шаблоны — общие на всю пачку: в этом и смысл массового закрытия, что бланк протокола и
+ * удостоверения один. Курс НЕ передаётся: он берётся у самой группы, а группа с несколькими
+ * курсами пропускается с объяснением — выбирать за человека, какой из двух курсов закрывать,
+ * нельзя.
+ */
+export class CloseGroupsChainBulkRequest {
+  @IsArray()
+  @ArrayMinSize(1)
+  /*
+   * Потолок в 50 групп — не вкус: закрытие каждой выпускает документы и строит выгрузку в
+   * реестр. Пачка на тысячу групп висела бы минутами, и человек решил бы, что всё зависло.
+   */
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  groupIds!: string[];
+
+  @IsString()
+  @MinLength(1)
+  protocolTemplateId!: string;
+
+  @IsString()
+  @MinLength(1)
+  certificateTemplateId!: string;
+
+  /** Повтор с тем же ключом безопасен: ключ каждой группы выводится из этого. */
+  @IsString()
+  @MinLength(1)
+  idempotencyKey!: string;
+
+  @IsOptional()
+  @IsIn(['xlsx', 'xml'])
+  format?: 'xlsx' | 'xml';
+}
+
 export class SubmitIdentityVerificationRequest {
   @IsString()
   @MinLength(1)

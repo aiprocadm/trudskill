@@ -172,3 +172,155 @@ describe('цепочка «экзамен → протокол → докуме�
     );
   });
 });
+
+/**
+ * Массовое закрытие групп (вопрос №13 «Арендной СДО», решение 08.09.2026).
+ *
+ * Главное, что здесь проверяется, — что пачка НЕ отменяется целиком. Закрытие групп делают
+ * в конце месяца десятками; «не прошло из-за одной группы без комиссии» означало бы работу
+ * заново для всех остальных.
+ */
+describe('массовое закрытие групп — частичный успех', () => {
+  const BULK = {
+    protocolTemplateId: 'tpl_protocol',
+    certificateTemplateId: 'tpl_cert',
+    idempotencyKey: 'bulk-1'
+  };
+
+  /** Готовит состояние: группы с названиями и назначенными курсами. */
+  const withGroups = (h: ReturnType<typeof harness>) => {
+    h.state.groups.push(
+      { ...base, id: 'g1', status: 'active', code: 'ОТ-01', name: 'ОТ-01 Охрана труда' } as never,
+      {
+        ...base,
+        id: 'g2',
+        status: 'active',
+        code: 'ОТ-02',
+        name: 'ОТ-02 Электробезопасность'
+      } as never,
+      { ...base, id: 'g3', status: 'active', code: 'ОТ-03', name: 'ОТ-03 Без курса' } as never,
+      { ...base, id: 'g4', status: 'active', code: 'ОТ-04', name: 'ОТ-04 Два курса' } as never
+    );
+    h.state.groupCourses.push(
+      { ...base, id: 'gc1', groupId: 'g1', courseId: 'c1', sortOrder: 1 } as never,
+      { ...base, id: 'gc2', groupId: 'g2', courseId: 'c2', sortOrder: 1 } as never,
+      { ...base, id: 'gc4a', groupId: 'g4', courseId: 'c1', sortOrder: 1 } as never,
+      { ...base, id: 'gc4b', groupId: 'g4', courseId: 'c2', sortOrder: 2 } as never
+    );
+    return h;
+  };
+
+  it('группа без курса и группа с двумя курсами пропускаются с объяснением, остальные закрываются', async () => {
+    const h = withGroups(harness());
+    const outcome = await h.service.runChainBulk(
+      T,
+      'u_admin',
+      { ...BULK, groupIds: ['g1', 'g3', 'g4'] },
+      ctx
+    );
+
+    expect(outcome.total).toBe(3);
+    expect(outcome.closed).toBe(1);
+    expect(outcome.skipped).toBe(2);
+    /* Отчёт читает человек: названия групп, а не идентификаторы, и причина словами. */
+    expect(outcome.rows.map((r) => [r.groupName, r.status, r.reason])).toEqual([
+      ['ОТ-01 Охрана труда', 'closed', undefined],
+      ['ОТ-03 Без курса', 'skipped', 'Группе не назначен курс — назначьте программу и повторите'],
+      [
+        'ОТ-04 Два курса',
+        'skipped',
+        'В группе несколько курсов — закройте её отдельно, чтобы выбрать нужный'
+      ]
+    ]);
+  });
+
+  it('неготовая группа не отменяет остальные, а причина берётся из проверок', async () => {
+    const h = withGroups(harness());
+    /* Первая группа не готова (нет комиссии), вторая готова. */
+    const readiness = h.service as unknown as {
+      mvp: { getExamReadiness: ReturnType<typeof vi.fn> };
+    };
+    readiness.mvp.getExamReadiness = vi
+      .fn()
+      .mockReturnValueOnce({
+        ready: false,
+        issues: [
+          {
+            scope: 'program',
+            code: 'commission_not_assigned',
+            message: 'Программе не назначена аттестационная комиссия'
+          }
+        ]
+      })
+      .mockReturnValue({ ready: true, issues: [] });
+
+    const outcome = await h.service.runChainBulk(
+      T,
+      'u_admin',
+      { ...BULK, groupIds: ['g1', 'g2'] },
+      ctx
+    );
+
+    expect(outcome.closed).toBe(1);
+    expect(outcome.rows[0]).toMatchObject({
+      groupName: 'ОТ-01 Охрана труда',
+      status: 'skipped',
+      reason: 'Программе не назначена аттестационная комиссия'
+    });
+    expect(outcome.rows[1]).toMatchObject({
+      groupName: 'ОТ-02 Электробезопасность',
+      status: 'closed'
+    });
+  });
+
+  it('чужая группа не закрывается: её просто нет в этом центре', async () => {
+    const h = withGroups(harness());
+    const outcome = await h.service.runChainBulk(
+      T,
+      'u_admin',
+      { ...BULK, groupIds: ['g_from_other_tenant'] },
+      ctx
+    );
+    expect(outcome.rows[0]).toMatchObject({
+      status: 'skipped',
+      reason: 'Группы нет в этом учебном центре'
+    });
+    expect(h.closeGroup).not.toHaveBeenCalled();
+  });
+
+  it('дубли в выделении закрывают группу один раз', async () => {
+    const h = withGroups(harness());
+    const outcome = await h.service.runChainBulk(
+      T,
+      'u_admin',
+      { ...BULK, groupIds: ['g1', 'g1', ' g1 '] },
+      ctx
+    );
+    expect(outcome.total).toBe(1);
+    expect(h.closeGroup).toHaveBeenCalledTimes(1);
+  });
+
+  it('ключ каждой группы выводится из общего — повтор пачки не выпускает второй комплект', async () => {
+    const h = withGroups(harness());
+    await h.service.runChainBulk(T, 'u_admin', { ...BULK, groupIds: ['g1', 'g2'] }, ctx);
+    const first = h.closeGroup.mock.calls.length;
+    const again = await h.service.runChainBulk(
+      T,
+      'u_admin',
+      { ...BULK, groupIds: ['g1', 'g2'] },
+      ctx
+    );
+
+    /* Повтор отвечает тем же отчётом и НЕ идёт в выпуск документов заново. */
+    expect(again.closed).toBe(2);
+    expect(h.closeGroup.mock.calls.length).toBe(first);
+  });
+
+  it('отсеянные внутри группы попадают в отчёт поимённо', async () => {
+    const h = withGroups(harness());
+    const outcome = await h.service.runChainBulk(T, 'u_admin', { ...BULK, groupIds: ['g1'] }, ctx);
+    expect(outcome.rows[0]?.skippedLearners).toEqual([
+      { fullName: 'Несдавший Пётр', message: expect.any(String) }
+    ]);
+  });
+});
