@@ -236,3 +236,58 @@ describe('RentalBillingService.suspendOverdueTenants (ФТ-D5.1 — ключев
     await service.suspendOverdueTenants('2026-08-19');
   });
 });
+
+/**
+ * ФТ-D5.2 — отметка оплаты по уведомлению банка.
+ *
+ * Ключевое отличие от ручной отметки: счёт ищется по идентификатору платежа В БАНКЕ. Наш
+ * идентификатор в уведомлении не приходит, поэтому без сохранённого `provider_invoice_id`
+ * деньги оказались бы «ничьими»: человек заплатил, а счёт остался неоплаченным — и центр
+ * получил бы приостановку после оплаты.
+ */
+describe('RentalBillingService.markPaidByProviderPayment (ФТ-D5.2)', () => {
+  it('находит счёт по платежу банка и отмечает его оплаченным', async () => {
+    /* Второе чтение — уже после обновления: так же ведёт себя настоящая база. */
+    let read = 0;
+    const h = make(async (sql: string) => {
+      if (sql.includes('where provider_invoice_id')) return [{ id: 'rinv_1' }];
+      if (sql.includes('select')) {
+        read += 1;
+        return [invoiceRow({ providerCode: 'yookassa', ...(read > 1 ? { status: 'paid' } : {}) })];
+      }
+      return [];
+    });
+
+    const invoice = await h.service.markPaidByProviderPayment('pay_yk_1', context);
+
+    expect(invoice?.status).toBe('paid');
+    expect(
+      h.query.mock.calls.some((c) => String(c[0]).includes("set status = 'paid'")),
+      'счёт обязан быть помечен оплаченным'
+    ).toBe(true);
+  });
+
+  it('чужой платёж не ломает и не отмечает ничего', async () => {
+    /* На один магазин приходит и то, что нас не касается: это не ошибка, а не наш платёж. */
+    const h = make(async () => []);
+
+    await expect(h.service.markPaidByProviderPayment('pay_alien', context)).resolves.toBeNull();
+    expect(h.query.mock.calls.some((c) => String(c[0]).includes("set status = 'paid'"))).toBe(
+      false
+    );
+  });
+
+  it('повтор уведомления не отмечает счёт дважды', async () => {
+    const h = make(async (sql: string) => {
+      if (sql.includes('where provider_invoice_id')) return [{ id: 'rinv_1' }];
+      if (sql.includes('select')) return [invoiceRow({ status: 'paid', paidAt: '2026-09-01' })];
+      return [];
+    });
+
+    const invoice = await h.service.markPaidByProviderPayment('pay_yk_1', context);
+
+    expect(invoice?.status).toBe('paid');
+    /* Второй записи в журнал критических действий быть не должно. */
+    expect(h.audit.writeCritical).not.toHaveBeenCalled();
+  });
+});

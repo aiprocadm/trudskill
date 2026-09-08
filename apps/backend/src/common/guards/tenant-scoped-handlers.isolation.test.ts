@@ -89,6 +89,10 @@ const WITHOUT_TENANT: ReadonlyArray<Allowed> = [
 
   // --- Внешний вебхук: арендатор резолвится внутри по подписи и коду провайдера.
   {
+    handler: 'platform/rental-billing-webhook.controller.ts::Post rental-billing/webhook',
+    why: 'внешний вебхук банка об оплате АРЕНДЫ; тела запроса не верим — адаптер переспрашивает состояние платежа у банка, счёт находится по provider_invoice_id'
+  },
+  {
     handler: 'integrations/webhooks/webhooks.controller.ts::Post :providerCode',
     why: 'внешний вебхук; подлинность — подпись, арендатор резолвится по данным события'
   },

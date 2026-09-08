@@ -43,6 +43,17 @@ export interface RentalBillingProvider {
    * к моменту вызова, и сбой печати не должен отменять обязательство платить.
    */
   issue(draft: RentalInvoiceDraft): Promise<RentalInvoiceIssueResult | null>;
+  /**
+   * Разбор уведомления банка об оплате (`ФТ-D5.2`). Есть только у автоплатёжных адаптеров:
+   * при «счёт+акт» платёж приходит платёжкой, и отметку ставит человек.
+   *
+   * `null` — уведомление не наше или не про успешную оплату. Метод обязан ПРОВЕРЯТЬ
+   * подлинность, а не верить телу запроса: ручка приёма публичная.
+   */
+  parsePaidNotification?(
+    raw: Buffer,
+    headers: Record<string, string | undefined>
+  ): Promise<{ providerInvoiceId: string } | null>;
 }
 
 export const RENTAL_BILLING_PROVIDER_REGISTRY = Symbol('RENTAL_BILLING_PROVIDER_REGISTRY');

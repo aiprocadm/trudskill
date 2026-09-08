@@ -27,6 +27,10 @@ const MODULES = resolve(dirname(fileURLToPath(import.meta.url)), '../../modules'
 const PUBLIC_CONTROLLERS: ReadonlyArray<{ file: string; why: string }> = [
   { file: 'health/health.controller.ts', why: 'liveness/readiness без тенанта' },
   {
+    file: 'platform/rental-billing-webhook.controller.ts',
+    why: 'внешний вебхук банка об оплате АРЕНДЫ; тела запроса не верим — адаптер переспрашивает состояние платежа у банка, счёт находится по provider_invoice_id'
+  },
+  {
     file: 'payments/payments-webhook.controller.ts',
     why: 'внешний вебхук провайдера; аутентичность — проверка подписи/re-fetch адаптера, тенант резолвится по provider_payment_id'
   },
