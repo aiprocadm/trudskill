@@ -25,8 +25,13 @@ const withAuth = (session: UserSession) => ({
 });
 
 export const govExportApi = {
-  listOtTrainingPrograms: (session: UserSession): Promise<OtTrainingProgram[]> =>
-    apiRequest<OtTrainingProgram[]>('/ot-training-programs', withAuth(session)),
+  listOtTrainingPrograms: (session: UserSession): Promise<{ items: OtTrainingProgram[] }> =>
+    /*
+     * Сервер отдаёт СПИСОК в обёртке `{ items }` — как и справочник нормативных актов рядом.
+     * Здесь стоял голый массив: тип обещал одно, приходило другое, и `otPrograms?.map(...)`
+     * на экране курса падал с «map is not a function», унося ВСЮ страницу в красный экран.
+     */
+    apiRequest<{ items: OtTrainingProgram[] }>('/ot-training-programs', withAuth(session)),
 
   createOtRegistryExport: (
     session: UserSession,
