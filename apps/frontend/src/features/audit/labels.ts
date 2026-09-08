@@ -214,6 +214,7 @@ const PHRASES: Record<string, string> = {
   'documents.enrollment_certificate_failed': 'Удостоверение по зачислению не выдано: ошибка',
   'documents.enrollment_certificate_skipped': 'Выдача удостоверения по зачислению пропущена',
   'documents.qr_verification_requested': 'Проверка подлинности документа запрошена',
+  'documents.qr_verification_failed': 'Проверка подлинности: документ по коду не найден',
   'documents.task.failed': 'Задача выпуска документа не выполнена: ошибка',
   'integration.credentials.created': 'Доступ к интеграции заведён',
   'integration.credentials.secret_rotated': 'Ключ доступа к интеграции заменён',

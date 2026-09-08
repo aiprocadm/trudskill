@@ -39,27 +39,52 @@ export class PublicVerifyController {
   @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   async verify(@Param('token') token: string): Promise<PublicVerifyResult> {
-    // Audit пишется с tenantId='public' для трассировки — не раскрывает
-    // tenant документа. entityId — partial token (первые 4 символа) для
-    // расследований: полный token = доступ к документу, не должен светиться в логе.
-    await this.auditService.writeCritical({
-      tenantId: 'public',
-      action: 'documents.qr_verification_requested',
-      entityType: 'documents.generated',
-      entityId: `${token.slice(0, 4)}…`
-    });
-
     // Дешёвый guard до запроса в хранилище: 128-битный base64url-токен ≈ 22 символа.
     const found =
       token && token.length >= 8
         ? await this.persistence.findGeneratedDocumentByQrToken(token)
         : null;
+
+    /*
+     * Запись в журнал идёт ПОСЛЕ поиска и от имени центра, ВЫДАВШЕГО документ.
+     *
+     * Прежде она шла первой строкой и с `tenantId: 'public'` — центра с таким кодом не
+     * существует, а у журнала внешний ключ на список центров. Из-за этого КАЖДАЯ публичная
+     * проверка падала пятисоткой: проверяющий, сканировавший QR на удостоверении, видел
+     * ошибку сервера вместо ответа. В тестах это не всплывало — там журнал пишется в память,
+     * без базы и без внешних ключей.
+     *
+     * Заодно запись стала полезнее: центр видит в своём журнале, что его документ проверяли.
+     * Полный код в журнал не кладётся — он равносилен доступу к документу; хватает первых
+     * четырёх символов, чтобы связать обращения в расследовании.
+     */
     if (!found) {
+      /*
+       * Неизвестный код приписать некому: центра у него нет. В базу такую попытку не пишем
+       * (внешний ключ), она остаётся в оперативной записи журнала; от перебора кодов защищает
+       * ограничение частоты — тридцать обращений в минуту.
+       */
+      await this.auditService.writeCritical(
+        {
+          tenantId: 'public',
+          action: 'documents.qr_verification_failed',
+          entityType: 'documents.generated',
+          entityId: `${token.slice(0, 4)}…`
+        },
+        { skipDatabase: true }
+      );
       throw new NotFoundException({
         code: 'document_not_found',
         message: 'Документ с таким QR-кодом не найден'
       });
     }
+
+    await this.auditService.writeCritical({
+      tenantId: found.document.tenantId,
+      action: 'documents.qr_verification_requested',
+      entityType: 'documents.generated',
+      entityId: `${token.slice(0, 4)}…`
+    });
     const result = buildPublicVerifyResult(found.document);
     // ФТ-D3.1: подпись выдавшего центра. Изъятый документ (not_found) центра не называет —
     // «тихое» архивирование не должно подтверждать сам факт связи с центром.

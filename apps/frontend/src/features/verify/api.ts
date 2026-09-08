@@ -15,7 +15,15 @@ export async function fetchVerifyDocument(token: string): Promise<VerifyResult |
   });
   if (response.status === 404) return null;
   if (!response.ok) {
-    throw new Error(`Verify failed: HTTP ${response.status}`);
+    /*
+     * Сообщение читает не разработчик, а проверяющий с телефона: он отсканировал QR на
+     * удостоверении и хочет знать, годен документ или нет. Прежде здесь стояло
+     * «Verify failed: HTTP 500» — английская строка с кодом состояния прямо на экране,
+     * запрещённая правилом продукта (`TXT-004`: сказать, что случилось и что делать).
+     */
+    throw new Error(
+      'Не удалось проверить документ: сервис проверки сейчас недоступен. Попробуйте ещё раз через минуту.'
+    );
   }
   const payload = (await response.json()) as { data?: VerifyResult } | VerifyResult;
   // Бэкенд оборачивает в { data, meta } envelope; public endpoint следует тому же.
