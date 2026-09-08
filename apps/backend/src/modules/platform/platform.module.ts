@@ -7,6 +7,7 @@ import { PlatformPlansService } from './platform-plans.service.js';
 import { PlatformTenantsController } from './platform-tenants.controller.js';
 import { PlatformTenantsService } from './platform-tenants.service.js';
 import { PublicTenantController } from './public-tenant.controller.js';
+import { RentalBillingWebhookController } from './rental-billing-webhook.controller.js';
 import { RentalBillingController } from './rental-billing.controller.js';
 import { RentalBillingSchedulerService } from './rental-billing.scheduler.service.js';
 import { RentalBillingService } from './rental-billing.service.js';
@@ -21,6 +22,7 @@ import {
   type RentalBillingProviderCode,
   type RentalBillingProviderRegistry
 } from '../../infrastructure/rental-billing/rental-billing.provider.js';
+import { YookassaRentalBillingProvider } from '../../infrastructure/rental-billing/yookassa-rental-billing.provider.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { IamModule } from '../iam/iam.module.js';
 
@@ -31,6 +33,7 @@ import { IamModule } from '../iam/iam.module.js';
     PlatformTenantsController,
     PlatformPlansController,
     RentalBillingController,
+    RentalBillingWebhookController,
     PublicTenantController,
     PlatformHealthController
   ],
@@ -48,7 +51,27 @@ import { IamModule } from '../iam/iam.module.js';
       useFactory: (): RentalBillingProviderRegistry =>
         new Map<RentalBillingProviderCode, RentalBillingProvider>([
           ['noop', new NoopRentalBillingProvider()],
-          ['manual', new ManualRentalBillingProvider(backendEnv.GOTENBERG_URL)]
+          ['manual', new ManualRentalBillingProvider(backendEnv.GOTENBERG_URL)],
+          /*
+           * ФТ-D5.2: автоплатёж подключается ТОЛЬКО при заданных реквизитах. Пустые ключи
+           * означали бы адаптер, который на каждом счёте ходит в банк и получает отказ, —
+           * а счёт при этом остаётся без ссылки на оплату и выглядит сломанным.
+           */
+          ...(backendEnv.RENTAL_YOOKASSA_SHOP_ID && backendEnv.RENTAL_YOOKASSA_SECRET_KEY
+            ? ([
+                [
+                  'yookassa',
+                  new YookassaRentalBillingProvider({
+                    shopId: backendEnv.RENTAL_YOOKASSA_SHOP_ID,
+                    secretKey: backendEnv.RENTAL_YOOKASSA_SECRET_KEY,
+                    returnUrl: backendEnv.RENTAL_YOOKASSA_RETURN_URL,
+                    apiBase: backendEnv.YOOKASSA_API_BASE,
+                    allowedIps: backendEnv.YOOKASSA_WEBHOOK_IPS.split(','),
+                    ipCheckEnabled: backendEnv.YOOKASSA_WEBHOOK_IP_CHECK
+                  })
+                ]
+              ] as [RentalBillingProviderCode, RentalBillingProvider][])
+            : [])
         ])
     }
   ],

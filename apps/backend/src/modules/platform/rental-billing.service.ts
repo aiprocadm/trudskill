@@ -44,13 +44,15 @@ export interface RentalInvoice {
   issuedAt: string;
   paidAt: string | null;
   providerCode: RentalBillingProviderCode;
+  /** ФТ-D5.2: идентификатор платежа в банке — по нему уведомление находит счёт. */
+  providerInvoiceId?: string | null;
 }
 
 const INVOICE_COLUMNS = `id, tenant_id as "tenantId", plan_id as "planId", number,
   period_start::text as "periodStart", period_end::text as "periodEnd",
   amount_kopecks as "amountKopecks", currency, status,
   due_at::text as "dueAt", issued_at as "issuedAt", paid_at as "paidAt",
-  provider_code as "providerCode"`;
+  provider_code as "providerCode", provider_invoice_id as "providerInvoiceId"`;
 
 /** pg отдаёт bigint строкой — та же грабля, что с лимитами тарифа (§5.232). */
 const normalizeInvoice = (row: RentalInvoice): RentalInvoice => ({
@@ -198,9 +200,25 @@ export class RentalBillingService {
         })
       : null;
 
-    return issued?.document
-      ? { invoice: normalized, document: issued.document }
-      : { invoice: normalized };
+    /*
+     * ФТ-D5.2. Идентификатор платежа в банке сохраняется СРАЗУ: по нему уведомление об
+     * оплате находит счёт. Без этой записи автоплатёж выглядел бы рабочим (ссылка есть,
+     * человек платит), а деньги приходили бы «ничьи» — счёт остался бы неоплаченным, и
+     * центр получил бы приостановку после оплаты.
+     */
+    if (issued?.providerInvoiceId) {
+      await db.query(
+        `update core.rental_invoices set provider_invoice_id = $2, updated_at = now() where id = $1`,
+        [id, issued.providerInvoiceId]
+      );
+      normalized.providerInvoiceId = issued.providerInvoiceId;
+    }
+
+    return {
+      invoice: normalized,
+      ...(issued?.document ? { document: issued.document } : {}),
+      ...(issued?.paymentUrl ? { paymentUrl: issued.paymentUrl } : {})
+    };
   }
 
   /**
@@ -249,6 +267,32 @@ export class RentalBillingService {
       });
     }
     return issued.document;
+  }
+
+  /**
+   * ФТ-D5.2 — отметка оплаты по уведомлению банка.
+   *
+   * Счёт ищется по идентификатору платежа В БАНКЕ: наш идентификатор в уведомлении не
+   * приходит. Неизвестный платёж — это не ошибка: на один магазин может приходить и то,
+   * что нас не касается. Молча игнорируем, но возвращаем `null`, чтобы вызывающий не
+   * отчитался об успехе.
+   *
+   * Повтор уведомления безопасен: `markPaid` на уже оплаченном счёте возвращает его как
+   * есть, второй записи в журнал не делает.
+   */
+  async markPaidByProviderPayment(
+    providerInvoiceId: string,
+    context: RequestContext
+  ): Promise<RentalInvoice | null> {
+    const db = this.requireDb();
+    const rows = await db.query<{ id: string }>(
+      `select id from core.rental_invoices where provider_invoice_id = $1`,
+      [providerInvoiceId]
+    );
+    const found = rows[0];
+    if (!found) return null;
+    /* Плательщик — банк, а не человек: в журнале действие остаётся без исполнителя. */
+    return this.markPaid(undefined, found.id, context);
   }
 
   /**

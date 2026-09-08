@@ -111,6 +111,14 @@ export const backendEnvSchema = z
     YOOKASSA_SHOP_ID: z.string().default(''),
     YOOKASSA_SECRET_KEY: z.string().default(''),
     YOOKASSA_RETURN_URL: z.string().default(''),
+    /*
+     * ФТ-D5.2 — автоплатёж за АРЕНДУ. Отдельный магазин, а не магазин учебного центра:
+     * здесь центр платит платформе, и деньги идут на счёт платформы. Пусто — адаптер не
+     * подключается, и аренда остаётся на «счёт+акт» (`manual`).
+     */
+    RENTAL_YOOKASSA_SHOP_ID: z.string().default(''),
+    RENTAL_YOOKASSA_SECRET_KEY: z.string().default(''),
+    RENTAL_YOOKASSA_RETURN_URL: z.string().default(''),
     YOOKASSA_API_BASE: z.string().default('https://api.yookassa.ru/v3'),
     YOOKASSA_WEBHOOK_IPS: z
       .string()

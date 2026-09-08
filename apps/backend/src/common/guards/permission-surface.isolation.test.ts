@@ -137,6 +137,10 @@ const WITHOUT_PERMISSION: ReadonlyArray<Allowed> = [
     why: 'внешний вебхук видеосервиса, проверка подписи внутри адаптера'
   },
   {
+    handler: 'platform/rental-billing-webhook.controller.ts::Post rental-billing/webhook',
+    why: 'внешний вебхук банка об оплате АРЕНДЫ; тела запроса не верим — адаптер переспрашивает состояние платежа у банка, счёт находится по provider_invoice_id'
+  },
+  {
     handler: 'payments/payments-webhook.controller.ts::Post webhook/:providerCode',
     why: 'внешний вебхук эквайера, проверка подписи + сверка суммы'
   },
