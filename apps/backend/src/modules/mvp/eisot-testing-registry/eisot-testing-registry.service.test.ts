@@ -102,7 +102,6 @@ describe('EisotTestingRegistryService.exportEisotTestingRegistry', () => {
       middleName: 'Иванович',
       snils: '112-233-445 95',
       dateOfBirth: '1990-05-01',
-      dateOfBirth: '1990-05-01',
       position: 'Электрик'
     } as Learner);
     h.state.groups.push({
@@ -315,7 +314,6 @@ describe('EisotTestingRegistryService.exportEisotTestingRegistry', () => {
       firstName: 'Сигма',
       lastName: 'Подписант',
       snils: '112-233-445 95',
-      dateOfBirth: '1990-05-01',
       dateOfBirth: '1985-01-01',
       position: 'Инженер'
     } as Learner);
@@ -381,7 +379,6 @@ describe('EisotTestingRegistryService.exportEisotTestingRegistry', () => {
       firstName: 'Нина',
       lastName: 'Носигнова',
       snils: '112-233-445 95',
-      dateOfBirth: '1990-05-01',
       dateOfBirth: '1990-06-15',
       position: 'Бухгалтер'
     } as Learner);
@@ -446,7 +443,6 @@ describe('EisotTestingRegistryService.exportEisotTestingRegistry', () => {
       firstName: 'Урл',
       lastName: 'Подписантов',
       snils: '112-233-445 95',
-      dateOfBirth: '1990-05-01',
       dateOfBirth: '1985-03-03',
       position: 'Технолог'
     } as Learner);
@@ -509,7 +505,6 @@ describe('EisotTestingRegistryService.exportEisotTestingRegistry', () => {
       firstName: 'Без',
       lastName: 'Урлов',
       snils: '112-233-445 95',
-      dateOfBirth: '1990-05-01',
       dateOfBirth: '1992-07-07',
       position: 'Кладовщик'
     } as Learner);
