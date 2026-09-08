@@ -120,3 +120,82 @@ describe('document snapshot at rest (ФТ-A1.4)', () => {
     expect(restored.fileId).toBe('file_docx');
   });
 });
+
+/**
+ * Расширение шифрования на почту, телефон и дату рождения (журнал 375, 08.09.2026).
+ *
+ * До этого шифровался один СНИЛС: выбрали самый сильный идентификатор и на нём остановились.
+ * Но «ФИО + дата рождения» опознаёт человека не хуже, а почта и телефон — это ещё и способ до
+ * него дотянуться. Тот, кто добрался до дампа базы, получал всё это открытым текстом.
+ */
+describe('шифруются все четыре персональных поля, а не один СНИЛС', () => {
+  const learner = {
+    id: 'lrn_1',
+    firstName: 'Иван',
+    lastName: 'Иванов',
+    snils: '112-233-445 95',
+    email: 'ivanov@example.test',
+    phone: '+7 999 123-45-67',
+    dateOfBirth: '1990-05-01'
+  };
+
+  it('в хранимой записи не остаётся ни одного открытого значения', () => {
+    const stored = encryptLearnerPiiAtRest(learner) as Record<string, string>;
+
+    for (const field of ['snils', 'email', 'phone', 'dateOfBirth']) {
+      expect(stored[field], field).toMatch(/^enc:/);
+    }
+    /* Имя и фамилия остаются открытыми сознательно: по ним идут поиск и сортировка. */
+    expect(stored.firstName).toBe('Иван');
+    expect(stored.lastName).toBe('Иванов');
+  });
+
+  it('чтение возвращает ровно то, что записали', () => {
+    const restored = decryptLearnerPiiAtRest(encryptLearnerPiiAtRest(learner)) as typeof learner;
+    expect(restored).toMatchObject({
+      snils: '112-233-445 95',
+      email: 'ivanov@example.test',
+      phone: '+7 999 123-45-67',
+      dateOfBirth: '1990-05-01'
+    });
+  });
+
+  it('карточка БЕЗ СНИЛСа тоже шифруется — почта не остаётся открытой', () => {
+    /*
+     * Прежняя редакция выходила по одному лишь СНИЛСу: нет его — нечего шифровать. У человека
+     * без СНИЛСа почта и телефон так и лежали бы открытым текстом.
+     */
+    const stored = encryptLearnerPiiAtRest({
+      id: 'lrn_2',
+      firstName: 'Пётр',
+      email: 'petrov@example.test'
+    }) as Record<string, string>;
+    expect(stored.email).toMatch(/^enc:/);
+  });
+
+  it('карточка без СНИЛСа читается: почта расшифровывается сама по себе', () => {
+    const stored = encryptLearnerPiiAtRest({ id: 'lrn_2', email: 'petrov@example.test' });
+    const restored = decryptLearnerPiiAtRest(stored) as { email: string };
+    expect(restored.email).toBe('petrov@example.test');
+  });
+
+  it('пустые значения не шифруются — иначе «не заполнено» не отличить от шифртекста', () => {
+    const stored = encryptLearnerPiiAtRest({ id: 'lrn_3', snils: '', email: '' }) as Record<
+      string,
+      string
+    >;
+    expect(stored.snils).toBe('');
+    expect(stored.email).toBe('');
+  });
+
+  it('старая запись с открытыми полями читается как есть, а не ломается', () => {
+    /* Ленивая миграция: до первого сохранения такие значения продолжают работать. */
+    const legacy = { id: 'lrn_4', snils: '112-233-445 95', email: 'old@example.test' };
+    expect(decryptLearnerPiiAtRest(legacy)).toEqual(legacy);
+  });
+
+  it('повторное шифрование не заворачивает шифртекст во второй слой', () => {
+    const once = encryptLearnerPiiAtRest(learner);
+    expect(encryptLearnerPiiAtRest(once)).toBe(once);
+  });
+});

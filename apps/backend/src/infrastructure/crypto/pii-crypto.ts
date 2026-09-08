@@ -1,7 +1,7 @@
 import { IntegrationCryptoService } from '../../modules/integrations/services/integration-crypto.service.js';
 
 /**
- * Шифрование ПДн слушателей at-rest — ФТ-C3.3, Фаза 0 Task 7.
+ * Шифрование ПДн слушателей at-rest — ФТ-C3.3, Фаза 0 Task 7; расширено 08.09.2026.
  *
  * Learners хранятся в Postgres целыми JSONB-документами (learning.mvp_runtime_documents
  * и stage1-зеркало), поэтому шифрование живёт на границе персистенса: при записи СНИЛС
@@ -11,6 +11,19 @@ import { IntegrationCryptoService } from '../../modules/integrations/services/in
  *
  * Рядом с шифртекстом кладётся слепой индекс `snilsHash` (keyed HMAC по НОРМАЛИЗОВАННЫМ
  * цифрам) — для будущих SQL-выборок/уникальности без расшифровки (индекс — миграция 0061).
+ *
+ * **Что шифруется (расширено 08.09.2026, журнал 375).** Изначально это был один СНИЛС —
+ * выбрали самый сильный идентификатор. Но «ФИО + дата рождения» опознаёт человека не хуже,
+ * а почта и телефон — это ещё и способ до него дотянуться. Поэтому шифруются четыре поля:
+ * СНИЛС, почта, телефон, дата рождения.
+ *
+ * Имя и фамилия НЕ шифруются сознательно: по ним идут сортировка и поиск в реестре, который
+ * открывают десятки раз в день. Зашифровать их значило бы либо расшифровывать весь список на
+ * каждый показ, либо завести слепой индекс на каждую букву — цена, несоразмерная выгоде:
+ * ФИО без остальных полей мало что даёт тому, кто добрался до дампа базы.
+ *
+ * Слепой индекс есть только у СНИЛСа: только по нему предполагались SQL-выборки. Остальные
+ * поля в SQL не ищутся — состояние центра читается целиком и фильтруется в памяти.
  *
  * Legacy-значения без префикса `enc:` читаются как есть (plaintext passthrough) и
  * перешифровываются при первом же сохранении состояния тенанта (lazy-миграция данных).
@@ -36,20 +49,39 @@ interface LearnerAtRest {
   [key: string]: unknown;
 }
 
-/** Перед записью в jsonb: снилс → шифртекст + слепой индекс. Прочие поля не трогаем. */
+/**
+ * Поля карточки слушателя, которые шифруются при хранении.
+ *
+ * Список закрытый и с причиной у каждого поля: «зашифруем всё» невозможно (по имени идёт
+ * поиск), а «зашифруем что вспомнилось» — это и есть та дыра, из-за которой почта и телефон
+ * пролежали открытыми с Фазы 0 до сентября.
+ */
+export const ENCRYPTED_LEARNER_FIELDS = [
+  'snils', // главный идентификатор человека в госреестрах
+  'email', // способ дотянуться до человека; часто совпадает с рабочей почтой
+  'phone', // то же и с меньшей защитой на другом конце
+  'dateOfBirth' // вместе с ФИО опознаёт человека не хуже СНИЛСа
+] as const;
+
+/** Перед записью в jsonb: ПДн → шифртекст (+ слепой индекс у СНИЛСа). */
 export function encryptLearnerPiiAtRest(entity: unknown): unknown {
   const learner = entity as LearnerAtRest | null;
-  if (!learner || typeof learner !== 'object' || typeof learner.snils !== 'string') {
-    return entity;
+  if (!learner || typeof learner !== 'object') return entity;
+
+  const next: LearnerAtRest = { ...learner };
+  let changed = false;
+  for (const field of ENCRYPTED_LEARNER_FIELDS) {
+    const value = learner[field];
+    /*
+     * Пустые значения не шифруем: шифртекст пустой строки занимает место и ничего не
+     * скрывает, а вот отличить «не заполнено» от «зашифровано» после этого сложнее.
+     */
+    if (typeof value !== 'string' || value === '' || isEncryptedPiiValue(value)) continue;
+    next[field] = piiCrypto.encrypt(value);
+    if (field === 'snils') next.snilsHash = snilsBlindIndex(value);
+    changed = true;
   }
-  if (isEncryptedPiiValue(learner.snils)) {
-    return entity;
-  }
-  return {
-    ...learner,
-    snils: piiCrypto.encrypt(learner.snils),
-    snilsHash: snilsBlindIndex(learner.snils)
-  };
+  return changed ? next : entity;
 }
 
 interface GeneratedDocumentAtRest {
@@ -91,15 +123,28 @@ export function decryptDocumentSnapshotAtRest(document: unknown): unknown {
 }
 
 /**
- * После чтения из jsonb: расшифровать снилс (или пропустить legacy-plaintext как есть).
+ * После чтения из jsonb: расшифровать ПДн (или пропустить legacy-plaintext как есть).
  * `snilsHash` — деталь хранения, в память/API не отдаём (при записи посчитается заново).
+ *
+ * Каждое поле проверяется ОТДЕЛЬНО: у слушателя может быть почта и не быть СНИЛСа, и наоборот.
+ * Прежняя редакция выходила по одному лишь незашифрованному СНИЛСу — с четырьмя полями это
+ * означало бы, что почта осталась бы шифртекстом и попала бы в таком виде на экран.
  */
 export function decryptLearnerPiiAtRest(document: unknown): unknown {
   const learner = document as LearnerAtRest | null;
-  if (!learner || typeof learner !== 'object' || !isEncryptedPiiValue(learner.snils)) {
-    return document;
+  if (!learner || typeof learner !== 'object') return document;
+
+  const next: LearnerAtRest = { ...learner };
+  let changed = false;
+  for (const field of ENCRYPTED_LEARNER_FIELDS) {
+    const value = learner[field];
+    if (!isEncryptedPiiValue(value)) continue;
+    next[field] = piiCrypto.decrypt(value);
+    changed = true;
   }
-  const rest = { ...learner };
-  delete rest.snilsHash;
-  return { ...rest, snils: piiCrypto.decrypt(learner.snils) };
+  if ('snilsHash' in next) {
+    delete next.snilsHash;
+    changed = true;
+  }
+  return changed ? next : document;
 }

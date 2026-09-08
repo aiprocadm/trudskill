@@ -4,6 +4,7 @@ import { MVP_COLLECTIONS, type MvpCollection } from './mvp-collections.js';
 import { MvpWriteOrchestrator } from './mvp-write.orchestrator.js';
 import { backendEnv } from '../../../env.js';
 import {
+  ENCRYPTED_LEARNER_FIELDS,
   decryptLearnerPiiAtRest,
   encryptLearnerPiiAtRest,
   isEncryptedPiiValue
@@ -23,15 +24,21 @@ const NORMALIZED_TABLE = 'learning.mvp_stage1_runtime_documents';
 const RECONCILIATION_TABLE = 'learning.mvp_reconciliation_log';
 
 /**
- * Строка слушателя со СТАРЫМ, ещё не зашифрованным снилсом. Такие остались от времён до
- * шифрования ПДн at-rest (ФТ-C3.3) и должны перешифроваться при ближайшем сохранении.
+ * Строка слушателя с ещё НЕ зашифрованными персональными данными. Такие остались от времён
+ * до шифрования at-rest (ФТ-C3.3) и от времён, когда шифровался один лишь СНИЛС (до
+ * 08.09.2026); перешифровываются при ближайшем сохранении состояния центра.
+ *
+ * Проверяются ВСЕ шифруемые поля, а не только СНИЛС: у карточки без СНИЛСа, но с почтой
+ * прежняя проверка отвечала «всё в порядке» — и почта осталась бы открытым текстом навсегда,
+ * потому что перешифровка запускается именно этим признаком.
  */
 function hasLegacyPlaintextPii(item: unknown): boolean {
-  const learner = item as { snils?: unknown } | null;
-  if (!learner || typeof learner !== 'object' || typeof learner.snils !== 'string') {
-    return false;
-  }
-  return !isEncryptedPiiValue(learner.snils);
+  if (!item || typeof item !== 'object') return false;
+  const learner = item as Record<string, unknown>;
+  return ENCRYPTED_LEARNER_FIELDS.some((field) => {
+    const value = learner[field];
+    return typeof value === 'string' && value !== '' && !isEncryptedPiiValue(value);
+  });
 }
 
 @Injectable()
