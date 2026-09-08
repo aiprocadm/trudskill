@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+
+import { fromApp } from '../e2e/app-root';
 
 /**
  * Deploy-readiness guard: the frontend runtime image MUST ship apps/frontend/public/.
@@ -13,10 +14,8 @@ import { describe, expect, it } from 'vitest';
  *
  * This pins the packaging so it can't regress.
  */
-const dockerfilePath = [
-  join(process.cwd(), 'Dockerfile'),
-  join(process.cwd(), 'apps/frontend/Dockerfile')
-].find((path) => existsSync(path));
+/* Путь от файла: подбор из двух кандидатов по cwd угадывал запуск, а тут угадывать нечего. */
+const dockerfilePath = [fromApp('Dockerfile')].find((path) => existsSync(path));
 
 describe('frontend Dockerfile public/ packaging', () => {
   it('runtime stage copies apps/frontend/public into the image', () => {
