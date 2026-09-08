@@ -5,7 +5,6 @@ import { sessionStore } from './session-store';
 import type { UserSession } from '../../entities/session/model';
 
 const KEY = 'trudskill.session.v1';
-const LEGACY_KEY = 'cdoprof.session.v1';
 const originalWindow = globalThis.window;
 
 const createLocalStorage = () => {
@@ -102,11 +101,14 @@ describe('session store', () => {
     expect(window.localStorage.getItem(KEY)).toBeNull();
   });
   /*
-   * BR-020/BR-021 — выкатка N периода двойного чтения. Кейсы ниже доказывают ровно то,
-   * ради чего он затевался: человек с открытой сессией не должен быть разлогинен, а «Выйти»
-   * обязано гасить снимок под ОБОИМИ ключами.
+   * `BR-020` выкатка N+1: окно закрыто — снимок под прежним ключом больше не поднимается.
+   *
+   * Смысл теста стал обратным прежнему. Раньше он доказывал, что человека с открытой сессией
+   * не разлогинит; теперь — что прежний ключ действительно перестал действовать. Это важнее,
+   * чем кажется: снимок сессии содержит ФИО, роли и права, и молча читать его из ключа,
+   * который мы считаем удалённым, — худший из вариантов.
    */
-  describe('период двойного чтения ключа (BR-020/BR-021)', () => {
+  describe('окно двойного чтения закрыто (BR-020/BR-021, выкатка N+1)', () => {
     const persisted = JSON.stringify({
       user: {
         id: 'u_tenant_admin',
@@ -120,87 +122,14 @@ describe('session store', () => {
       permissions: ['iam.manage_roles']
     });
 
-    it('поднимает сессию из ПРЕЖНЕГО ключа, когда нового ещё нет', () => {
-      window.localStorage.setItem(LEGACY_KEY, persisted);
-      const restored = sessionStore.hydrateFromStorage();
-      expect(restored?.user.login).toBe('tenant_admin');
+    it('снимок под ПРЕЖНИМ ключом больше не поднимает сессию', () => {
+      window.localStorage.setItem('cdoprof.session.v1', persisted);
+      expect(sessionStore.hydrateFromStorage()).toBeNull();
     });
 
-    it('когда есть оба ключа — берёт НОВЫЙ', () => {
-      window.localStorage.setItem(LEGACY_KEY, persisted);
-      window.localStorage.setItem(
-        KEY,
-        JSON.stringify({
-          user: {
-            id: 'u_new',
-            tenantId: 'tenant_demo',
-            login: 'new_login',
-            email: null,
-            status: 'active',
-            displayName: 'New'
-          },
-          roles: ['manager'],
-          permissions: []
-        })
-      );
-      expect(sessionStore.hydrateFromStorage()?.user.login).toBe('new_login');
-    });
-
-    it('запись идёт ВСЕГДА в новый ключ, прежний не создаётся', () => {
-      sessionStore.set({
-        user: {
-          id: 'u_tenant_admin',
-          tenantId: 'tenant_demo',
-          login: 'tenant_admin',
-          email: null,
-          status: 'active',
-          displayName: 'Tenant Admin'
-        },
-        tokens: { accessToken: 'access', sessionId: 'session', expiresIn: 300 },
-        roles: ['tenant_admin'],
-        permissions: []
-      });
-      expect(window.localStorage.getItem(KEY)).toBeTruthy();
-      expect(window.localStorage.getItem(LEGACY_KEY)).toBeNull();
-    });
-
-    it('выход гасит ОБА ключа — иначе прежний снимок воскресит сессию', () => {
-      window.localStorage.setItem(LEGACY_KEY, persisted);
+    it('снимок под новым ключом поднимается как прежде', () => {
       window.localStorage.setItem(KEY, persisted);
-      sessionStore.clear();
-      expect(window.localStorage.getItem(KEY)).toBeNull();
-      expect(window.localStorage.getItem(LEGACY_KEY)).toBeNull();
-      expect(sessionStore.hydrateFromStorage()).toBeNull();
-    });
-
-    it('битое значение под прежним ключом вычищается, а не роняет вход', () => {
-      window.localStorage.setItem(LEGACY_KEY, '{не json');
-      expect(sessionStore.hydrateFromStorage()).toBeNull();
-      expect(window.localStorage.getItem(LEGACY_KEY)).toBeNull();
-    });
-
-    /*
-     * localStorage, в отличие от cookie, не истекает никогда: без явной уборки снимок
-     * с ФИО, ролями и правами остался бы под прежним ключом навсегда — на общем
-     * компьютере учебного класса это утечка персональных данных (ФТ-H6).
-     */
-    it('запись ПЕРЕНОСИТ снимок: прежний ключ удаляется сразу', () => {
-      window.localStorage.setItem(LEGACY_KEY, persisted);
-      sessionStore.set({
-        user: {
-          id: 'u_tenant_admin',
-          tenantId: 'tenant_demo',
-          login: 'tenant_admin',
-          email: null,
-          status: 'active',
-          displayName: 'Tenant Admin'
-        },
-        tokens: { accessToken: 'access', sessionId: 'session', expiresIn: 300 },
-        roles: ['tenant_admin'],
-        permissions: []
-      });
-      expect(window.localStorage.getItem(LEGACY_KEY)).toBeNull();
-      expect(window.localStorage.getItem(KEY)).toBeTruthy();
+      expect(sessionStore.hydrateFromStorage()?.user.login).toBe('tenant_admin');
     });
   });
 

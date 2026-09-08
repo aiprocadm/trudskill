@@ -1,18 +1,17 @@
 import type { UserSession } from '../../entities/session/model';
 
 /*
- * BR-020/BR-021 — ВЫКАТКА N периода двойного чтения (60 дней).
+ * BR-020/BR-021 — ВЫКАТКА N+1: окно двойного чтения закрыто.
  *
- * Ключ уже содержит номер версии значения (`.v1`) — версия НЕ сбрасывается, меняется
- * только префикс бренда. Читаем новый ключ → при отсутствии старый; пишем всегда новый;
- * при выходе чистим ОБА (иначе снимок сессии останется под старым ключом и восстановится
- * при следующем заходе — «Выйти» не выйдет).
+ * Ключ содержит номер версии значения (`.v1`) — версия не сбрасывалась, менялся только
+ * префикс бренда. Прежнее имя (`cdoprof.session.v1`) больше не читается и не пишется: у
+ * тех, кто заходил за время окна, снимок уже переехал (запись = миграция), у остальных
+ * он просто не поднимется — человек увидит форму входа.
  *
- * Выкатка N+1 (через 60 дней, отдельный PR): убрать LEGACY_KEY и чтение старого,
- * старые значения дочистить при первом заходе.
+ * Читать снимок из ключа, который мы считаем удалённым, было бы худшим из вариантов: там
+ * ФИО, логин, почта, роли и полный список прав.
  */
 const KEY = 'trudskill.session.v1';
-const LEGACY_KEY = 'cdoprof.session.v1';
 
 type PersistedSession = Omit<UserSession, 'tokens'>;
 
@@ -93,13 +92,6 @@ export const sessionStore = {
     } catch {
       return;
     }
-    /*
-     * Запись — это и есть миграция: снимок переехал под новый ключ, прежний больше
-     * не нужен. Без этой строки под старым ключом бессрочно оставались бы ФИО, логин,
-     * почта, роли и полный список прав — на общем компьютере учебного класса это
-     * прямая утечка персональных данных (ФТ-H6).
-     */
-    safeRemove(store, LEGACY_KEY);
   },
   clear() {
     memorySession = null;
@@ -107,20 +99,13 @@ export const sessionStore = {
     const store = storage();
     if (!store) return;
     safeRemove(store, KEY);
-    safeRemove(store, LEGACY_KEY);
   },
   hydrateFromStorage(): PersistedSession | null {
     const store = storage();
     if (!store) return null;
     let raw: string | null = null;
-    let usedKey = KEY;
     try {
-      // Новый ключ, при его отсутствии — прежний (период двойного чтения).
       raw = store.getItem(KEY);
-      if (raw === null) {
-        usedKey = LEGACY_KEY;
-        raw = store.getItem(LEGACY_KEY);
-      }
     } catch {
       return null;
     }
@@ -128,12 +113,12 @@ export const sessionStore = {
     try {
       const persisted = parsePersistedSession(JSON.parse(raw));
       if (!persisted) {
-        safeRemove(store, usedKey);
+        safeRemove(store, KEY);
         return null;
       }
       return persisted;
     } catch {
-      safeRemove(store, usedKey);
+      safeRemove(store, KEY);
       return null;
     }
   }

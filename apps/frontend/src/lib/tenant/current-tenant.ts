@@ -1,4 +1,4 @@
-import { LEGACY_TENANT_CODE_COOKIE, TENANT_CODE_COOKIE } from './host-resolve';
+import { TENANT_CODE_COOKIE } from './host-resolve';
 import { apiRequest } from '../api/client';
 import { frontendEnv } from '../config/env';
 
@@ -38,10 +38,7 @@ const readCookieByName = (cookieHeader: string, cookieName: string): string | nu
  */
 export const readTenantCodeCookie = (cookieHeader: string | undefined | null): string | null => {
   if (!cookieHeader) return null;
-  return (
-    readCookieByName(cookieHeader, TENANT_CODE_COOKIE) ??
-    readCookieByName(cookieHeader, LEGACY_TENANT_CODE_COOKIE)
-  );
+  return readCookieByName(cookieHeader, TENANT_CODE_COOKIE);
 };
 
 let cachedTenantId: string | null = null;

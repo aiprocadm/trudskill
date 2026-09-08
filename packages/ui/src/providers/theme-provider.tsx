@@ -11,7 +11,6 @@ import {
 } from 'react';
 
 import {
-  LEGACY_UI_THEME_STORAGE_KEY,
   UI_THEME_STORAGE_KEY,
   type UiThemeChoice,
   UiThemeContextProvider
@@ -37,27 +36,20 @@ type ThemeStorage = {
 export const readStoredThemeChoice = (storage: {
   getItem: (key: string) => string | null;
 }): UiThemeChoice | null => {
-  const raw = storage.getItem(UI_THEME_STORAGE_KEY) ?? storage.getItem(LEGACY_UI_THEME_STORAGE_KEY);
+  const raw = storage.getItem(UI_THEME_STORAGE_KEY);
   return raw === 'light' || raw === 'dark' || raw === 'system' ? raw : null;
 };
 
 /**
- * Переезд выбора темы: значение пишется под ОБА ключа (правило окна, см. cookie).
+ * Запись выбора темы (`BR-023`). После выкатки N+1 ключ ровно один.
  *
- * ⚠️ Вызывается не только при переключении тумблера, но и при ЧТЕНИИ на старте. Иначе
- * человек, включивший тёмную тему когда-то давно и с тех пор тумблер не трогавший,
- * так и остался бы жить на прежнем ключе — а вторая выкатка (когда чтение прежнего
- * имени уберут) сбросила бы ему тему в системную. Ровно тот сброс, ради предотвращения
- * которого `BR-023` и написан. Из ключей выкатки тема — единственный, который не
- * переезжает «сам собой» при обычной работе: снимок сессии обновляется при каждом
- * входе, cookie — на каждом запросе, а тему можно не трогать годами.
- *
- * Прежний ключ не удаляется здесь намеренно: он держит откат без потерь и вычищается
- * на выкатке N+1 — так предписывает `BR-020` п.3.
+ * Прежний ключ НЕ вычищается намеренно. Чтобы его стереть, пришлось бы навсегда оставить в
+ * коде его имя — ради одной мёртвой строки в хранилище браузера у тех, кто не заходил всё
+ * окно совместимости. Такой человек при следующем заходе просто получит системное
+ * оформление и переключит тему заново. Решение записано в `docs/REBRANDING_KEYS_ROLLOUT.md`.
  */
 export const migrateThemeChoice = (storage: ThemeStorage, value: UiThemeChoice): void => {
   storage.setItem(UI_THEME_STORAGE_KEY, value);
-  storage.setItem(LEGACY_UI_THEME_STORAGE_KEY, value);
 };
 
 export const UiThemeProvider = ({ children }: PropsWithChildren): ReactElement => {

@@ -28,4 +28,3 @@ export const useUiTheme = (): UiThemeContextValue => {
  */
 export const UI_THEME_STORAGE_KEY = 'trudskill-ui-theme';
 /** Прежний ключ — только на период двойного чтения (60 дней). */
-export const LEGACY_UI_THEME_STORAGE_KEY = 'cdoprof-ui-theme';

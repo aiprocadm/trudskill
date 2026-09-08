@@ -67,4 +67,3 @@ export const resolveTenantHost = (
  */
 export const TENANT_CODE_COOKIE = 'trudskill_tenant_code';
 /** Прежнее имя — только на период двойного чтения (60 дней). */
-export const LEGACY_TENANT_CODE_COOKIE = 'cdoprof_tenant_code';
