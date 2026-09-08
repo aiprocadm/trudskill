@@ -17,6 +17,7 @@ import { FieldError } from '../../components/form-feedback';
 import {
   PageContainer,
   PageHeader,
+  RecordNotFound,
   SectionCard,
   SectionError
 } from '../../components/state-wrappers';
@@ -218,7 +219,7 @@ export const CommissionsPageScreen = () => {
 
 export const CommissionDetailsScreen = ({ id }: { id: string }) => {
   const { ask, dialog } = useConfirmDialog();
-  const { data, loading, error, refetch } = useCommission(id);
+  const { data, loading, error, notFound, refetch } = useCommission(id);
   const { updateCommission, archiveCommission, addCommissionMember, removeCommissionMember } =
     useDomainMutations();
 
@@ -370,6 +371,15 @@ export const CommissionDetailsScreen = ({ id }: { id: string }) => {
         Заархивировать
       </button>
     );
+  }
+
+  /*
+   * Записи нет — говорим это прямо. Прежде открывалась карточка-призрак: заголовок на месте,
+   * разделы пустые, кнопки действий рабочие, а под ними строка ошибки, которую человек
+   * принимает за временный сбой.
+   */
+  if (notFound) {
+    return <RecordNotFound what="Комиссия" backHref="/commissions" backLabel="К списку комиссий" />;
   }
 
   return (

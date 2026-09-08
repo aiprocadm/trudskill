@@ -3,7 +3,12 @@
 import { DetailDrawer, DetailLayout, KeyValueList, ProgressBar, StatusChip } from '@trudskill/ui';
 import { useMemo, useState } from 'react';
 
-import { PageContainer, PageHeader, SectionCard } from '../../components/state-wrappers';
+import {
+  PageContainer,
+  PageHeader,
+  RecordNotFound,
+  SectionCard
+} from '../../components/state-wrappers';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 import { CloseGroupSection } from '../close-group/screens';
@@ -35,7 +40,7 @@ import { proctoringApi } from '../proctoring/api';
  */
 export const GroupDetailsScreen = ({ id }: { id: string }) => {
   const { session } = useAuth();
-  const { data: group } = useGroup(id);
+  const { data: group, notFound } = useGroup(id);
   const { data: courses } = useCoursesList({ page: 1, page_size: 20 });
   const { data: groupCourses, refetch: refetchCourses } = useGroupCourses(id);
   const { data: enrollments, refetch: refetchEnrollments } = useEnrollments({ group_id: id });
@@ -68,6 +73,14 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
   }, [courses]);
 
   const enrollmentCount = enrollments?.items.length ?? 0;
+
+  /*
+   * Записи нет — показываем это прямо. Иначе открывалась ПРИЗРАЧНАЯ карточка: заголовок
+   * «Группа», пустые разделы и рабочие кнопки действий, которые ничего не делают.
+   */
+  if (notFound) {
+    return <RecordNotFound what="Группа" backHref="/groups" backLabel="К списку групп" />;
+  }
 
   return (
     <PageContainer>

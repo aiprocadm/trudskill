@@ -9,6 +9,7 @@ import { FieldError } from '../../components/form-feedback';
 import {
   PageContainer,
   PageHeader,
+  RecordNotFound,
   SectionCard,
   SectionEmpty,
   SectionError
@@ -726,7 +727,7 @@ const DocumentSetSection = ({
 
 export const CourseDetailsScreen = ({ id }: { id: string }) => {
   const { session } = useAuth();
-  const { data: course, refetch } = useCourse(id);
+  const { data: course, notFound, refetch } = useCourse(id);
   const { data: versions, refetch: refetchVersions } = useCourseVersions(id);
   const latestVersionId = versions?.items[versions.items.length - 1]?.id;
   const latestVersion = versions?.items[versions.items.length - 1];
@@ -777,6 +778,14 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
     hasMaterial: Boolean(materials?.items?.length)
   });
   const readyToPublish = blockers.length === 0;
+
+  /*
+   * Записи нет — показываем это прямо. Иначе открывалась ПРИЗРАЧНАЯ карточка: заголовок
+   * «Курс», пустые разделы и рабочие кнопки действий, которые ничего не делают.
+   */
+  if (notFound) {
+    return <RecordNotFound what="Курс" backHref="/courses" backLabel="К списку курсов" />;
+  }
 
   return (
     <PageContainer>

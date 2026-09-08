@@ -18,6 +18,7 @@ import { useWatchTracker } from './use-watch-tracker';
 import {
   PageContainer,
   PageHeader,
+  RecordNotFound,
   SectionCard,
   SectionEmpty,
   SectionError
@@ -75,7 +76,12 @@ interface Props {
 }
 
 export const CourseViewerScreen = ({ courseId }: Props) => {
-  const { data: course, loading: courseLoading, error: courseError } = useCourse(courseId);
+  const {
+    data: course,
+    loading: courseLoading,
+    error: courseError,
+    notFound
+  } = useCourse(courseId);
   const { tree, loading: treeLoading, error: treeError } = useCourseTree(courseId);
   const {
     data: progress,
@@ -159,6 +165,14 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
   const { data: myDocuments } = useMyDocuments();
   const documentDownload = useDocumentDownload();
   const courseDocuments = myDocuments?.items.filter((doc) => doc.courseId === courseId) ?? [];
+
+  /*
+   * Курса нет — слушателю тем более нужен честный ответ: он попал сюда по ссылке из письма
+   * или закладки. Прежде открывался пустой курс с полосой прогресса «0 из 0».
+   */
+  if (notFound) {
+    return <RecordNotFound what="Курс" backHref="/learner/courses" backLabel="К моему обучению" />;
+  }
 
   return (
     <PageContainer>
