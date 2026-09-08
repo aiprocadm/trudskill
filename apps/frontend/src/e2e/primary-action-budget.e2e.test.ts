@@ -30,6 +30,8 @@ const EXPLAINED: Record<string, string> = {
     'мастер из трёх шагов: «Далее: проверка», «Зачислить», «Открыть группу» — на экране одновременно виден ровно один шаг',
   'src/features/commissions/commissions-screens.tsx :: CommissionsPageScreen':
     'кнопка шапки «Создать комиссию» и кнопка отправки формы взаимно исключаются: пока форма открыта, шапка первичного действия не показывает',
+  'src/features/groups/groups-list-screen.tsx :: GroupsPageScreen':
+    'кнопка шапки «Создать группу» и кнопка «Закрыть N групп» в панели массового закрытия: панель открывается поверх экрана и только при выделенных строках',
   'src/features/licenses/licenses-list.tsx :: LicensesView':
     'то же взаимное исключение: открытая форма забирает первичное действие себе',
   'src/features/payments/screens.tsx :: OrdersScreen':
