@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import {
   PageContainer,
   PageHeader,
+  RecordNotFound,
   SectionCard,
   SectionError
 } from '../../components/state-wrappers';
@@ -189,7 +190,7 @@ interface SessionRow {
 export const UserDetailsScreen = ({ id }: { id: string }) => {
   const { session } = useAuth();
   const canManageRoles = hasPermission(session?.permissions ?? [], 'iam.manage_roles');
-  const { data: user, loading, error, refetch } = useUser(id);
+  const { data: user, loading, error, notFound, refetch } = useUser(id);
   const branding = useTenantBranding();
   const { data: userRoles } = useUserRoles(id);
   const { data: allRoles } = useRoles();
@@ -211,6 +212,17 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
       setSaveError(readApiMessage(saveActionError));
     }
   };
+
+  /*
+   * Записи нет — говорим это прямо. Прежде открывалась карточка-призрак: заголовок на месте,
+   * разделы пустые, кнопки действий рабочие, а под ними строка ошибки, которую человек
+   * принимает за временный сбой.
+   */
+  if (notFound) {
+    return (
+      <RecordNotFound what="Пользователь" backHref="/users" backLabel="К списку пользователей" />
+    );
+  }
 
   return (
     <PageContainer>

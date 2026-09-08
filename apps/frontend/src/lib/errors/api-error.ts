@@ -47,3 +47,18 @@ export const normalizeApiError = (
     ...(details?.length ? { details } : {})
   };
 };
+
+/**
+ * Это отказ «такой записи нет», а не поломка связи.
+ *
+ * Разница видна человеку: «не найдено» лечится возвратом к списку, а сбой сети — повтором.
+ * Показать «Курс не найден» при отвалившемся интернете — соврать и увести не туда.
+ *
+ * Проверка по утиному признаку, а не по классу ошибки: `ApiClientError` живёт в клиенте,
+ * который сам импортирует этот файл, — обратный импорт замкнул бы круг.
+ */
+export const isNotFoundError = (error: unknown): boolean => {
+  const normalized = (error as { normalized?: Partial<NormalizedApiError> } | null)?.normalized;
+  if (!normalized) return false;
+  return normalized.status === 404 || normalized.code === 'not_found';
+};

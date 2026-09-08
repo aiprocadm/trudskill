@@ -7,6 +7,7 @@ import { useMemo } from 'react';
 import {
   PageContainer,
   PageHeader,
+  RecordNotFound,
   SectionCard,
   SectionError
 } from '../../components/state-wrappers';
@@ -31,7 +32,7 @@ import { ENROLLMENT_STATUS_LABEL, formatDate } from '../mvp/screen-helpers';
 const PAGE_SIZE = 100;
 
 export const LearnerDetailsScreen = ({ id }: { id: string }) => {
-  const { data: learner, loading, error, refetch } = useLearner(id);
+  const { data: learner, loading, error, notFound, refetch } = useLearner(id);
   const { data: enrollmentPage, loading: enrollmentsLoading } = useLearnerCourses(id);
   const { data: coursePage } = useCoursesList({ page: 1, page_size: PAGE_SIZE });
   const { data: groupPage } = useGroupsList({ page: 1, page_size: PAGE_SIZE });
@@ -48,6 +49,15 @@ export const LearnerDetailsScreen = ({ id }: { id: string }) => {
   );
 
   const fullName = learner ? `${learner.lastName} ${learner.firstName}`.trim() : '';
+
+  /*
+   * Записи нет — говорим это прямо. Прежде открывалась карточка-призрак: заголовок на месте,
+   * разделы пустые, кнопки действий рабочие, а под ними строка ошибки, которую человек
+   * принимает за временный сбой.
+   */
+  if (notFound) {
+    return <RecordNotFound what="Слушатель" backHref="/learners" backLabel="К списку слушателей" />;
+  }
 
   return (
     <PageContainer>

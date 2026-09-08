@@ -3,6 +3,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { mvpApi } from './api';
+import { isNotFoundError } from '../../lib/errors/api-error';
 import { pushGlobalSuccessToast } from '../../lib/toast/global-handlers';
 import { useAuth } from '../auth/context';
 
@@ -55,6 +56,12 @@ export const useMvpQuery = <T>(
   return {
     data: query.data ?? null,
     loading: query.isLoading,
+    /*
+     * Отдельный признак, а не «данных нет»: экран карточки обязан отличать «такой записи
+     * нет» от «связь оборвалась». Первое лечится возвратом к списку, второе — повтором, и
+     * показать «не найдено» при отвалившемся интернете значит увести человека не туда.
+     */
+    notFound: isNotFoundError(query.error),
     error: query.error instanceof Error ? query.error.message : null,
     refetch: async () => {
       await query.refetch();

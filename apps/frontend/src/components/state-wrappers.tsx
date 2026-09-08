@@ -17,6 +17,7 @@ export {
   GlobalLoading,
   PageContainer,
   PageHeader,
+  RecordNotFound,
   SectionCard,
   SectionEmpty
 } from '@trudskill/ui';
