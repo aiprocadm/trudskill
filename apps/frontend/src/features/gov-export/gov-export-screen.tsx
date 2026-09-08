@@ -5,6 +5,7 @@ import { useState } from 'react';
 
 import { govExportApi } from './api';
 import { exportSignatureBadgeLabel } from './export-signature-badge';
+import { describeRowError } from './field-labels';
 import { exportedOn } from './format';
 import {
   useEisotTestingBatches,
@@ -429,9 +430,7 @@ export const GovExportScreen = () => {
               {otOutcome.errors.length > 0 ? (
                 <ul>
                   {otOutcome.errors.map((e) => (
-                    <li key={`${e.enrollmentId}-${e.field}`}>
-                      {e.fullName || e.enrollmentId}: {e.field} — {e.message}
-                    </li>
+                    <li key={`${e.enrollmentId}-${e.field}`}>{describeRowError(e)}</li>
                   ))}
                 </ul>
               ) : null}
@@ -528,9 +527,7 @@ export const GovExportScreen = () => {
               {frdoOutcome.errors.length > 0 ? (
                 <ul>
                   {frdoOutcome.errors.map((e) => (
-                    <li key={`${e.documentId}-${e.field}`}>
-                      {e.fullName || e.documentId}: {e.field} — {e.message}
-                    </li>
+                    <li key={`${e.documentId}-${e.field}`}>{describeRowError(e)}</li>
                   ))}
                 </ul>
               ) : null}
@@ -712,9 +709,7 @@ export const GovExportScreen = () => {
               {rostechOutcome.errors.length > 0 ? (
                 <ul>
                   {rostechOutcome.errors.map((e) => (
-                    <li key={`${e.enrollmentId}-${e.field}`}>
-                      {e.fullName || e.enrollmentId}: {e.field} — {e.message}
-                    </li>
+                    <li key={`${e.enrollmentId}-${e.field}`}>{describeRowError(e)}</li>
                   ))}
                 </ul>
               ) : null}
@@ -802,9 +797,7 @@ export const GovExportScreen = () => {
               {nmoOutcome.errors.length > 0 ? (
                 <ul>
                   {nmoOutcome.errors.map((e) => (
-                    <li key={`${e.documentId}-${e.field}`}>
-                      {e.fullName || e.documentId}: {e.field} — {e.message}
-                    </li>
+                    <li key={`${e.documentId}-${e.field}`}>{describeRowError(e)}</li>
                   ))}
                 </ul>
               ) : null}

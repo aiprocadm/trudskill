@@ -85,6 +85,7 @@ describe('admin learners management E2E smoke', () => {
       middleName: '',
       email: '',
       snils: '111-111-111 45',
+      dateOfBirth: '1990-05-01',
       position: '',
       organizationUnitId: '',
       learnerNo: 'L-001',
