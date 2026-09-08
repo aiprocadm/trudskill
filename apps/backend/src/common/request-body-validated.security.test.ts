@@ -44,6 +44,8 @@ const MODULES = join(SRC, 'modules');
  * сюда, нужна причина — как у этих двух.
  */
 const ALLOWED: Record<string, string> = {
+  'mvp/telegram-bot.controller.ts POST webhook/:secret':
+    'тело присылает Telegram: в обновлении десятки полей, и состав их меняется на их стороне — строгий класс (whitelist + forbidNonWhitelisted) отвергал бы КАЖДОЕ настоящее обновление. Читаются ровно два значения, разбор вынесен в чистую `readTelegramMessage` со своими тестами; доверия телу нет — подлинность даёт секрет в адресе, а ответ уходит только в привязанный чат',
   'tenant/tenant.controller.ts PUT branding':
     'своя проверка `validateBrandingInput`: разбирает цвета и логотип и возвращает СПИСОК проблем — «#зелёненький» получает внятный отказ, а не общий «неверный формат»',
   'tenant/tenant.controller.ts PUT identity-settings':

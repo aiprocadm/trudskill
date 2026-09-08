@@ -7,6 +7,7 @@ import {
   renderTemplate
 } from './email-templates.js';
 import { EMAIL_TEMPLATES_REPOSITORY } from './email-templates.repository.js';
+import { TelegramChannelService } from './telegram/telegram-channel.service.js';
 import { toPushNotification } from './web-push/template-push-mapping.js';
 import { WEB_PUSH_SENDER } from './web-push/web-push-sender.js';
 import { MAILER } from '../../infrastructure/mailer/mailer.service.js';
@@ -64,7 +65,15 @@ export class NotificationDispatcher {
     @Inject(WEB_PUSH_SENDER) private readonly pushSender: WebPushSenderPort,
     // ФТ-D3.1: подпись бренда. @Optional — существующие тесты собирают диспетчер
     // четырьмя аргументами; без сервиса подпись падает к нейтральной.
-    @Optional() @Inject(TenantService) private readonly tenantService?: TenantService
+    @Optional() @Inject(TenantService) private readonly tenantService?: TenantService,
+    /*
+     * ФТ-F3: третий канал. `@Optional` по той же причине, что и подпись бренда, — существующие
+     * тесты собирают диспетчер меньшим числом аргументов; без канала рассылка работает как
+     * раньше, просто без мессенджера.
+     */
+    @Optional()
+    @Inject(TelegramChannelService)
+    private readonly telegram?: TelegramChannelService
   ) {}
 
   /**
@@ -177,6 +186,16 @@ export class NotificationDispatcher {
     const userIds = sent.map((r) => r.userId).filter((id): id is string => Boolean(id));
     if (userIds.length > 0) {
       await this.pushSender.sendToUsers(input.tenantId, userIds, toPushNotification(rendered));
+    }
+
+    /*
+     * ФТ-F3 — то же уведомление в мессенджер, кому он привязан. Канал ТРЕТИЙ и по счёту, и
+     * по важности: его отказы не влияют на итог рассылки (сам сервис не бросает), а
+     * отправка идёт после письма — сначала обязательный канал, потом остальные.
+     */
+    if (this.telegram && userIds.length > 0) {
+      const text = `${rendered.subject}\n\n${rendered.body}`;
+      await Promise.all(userIds.map((id) => this.telegram!.notify(input.tenantId, id, text)));
     }
 
     return { sent: sent.length, skipped, failed };

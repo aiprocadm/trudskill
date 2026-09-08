@@ -30,6 +30,9 @@ import { SmsChannelService } from './sms/sms-channel.service.js';
 import { SMS_PROVIDER_SETTINGS_REPOSITORY } from './sms/sms-provider-settings.repository.js';
 import { SmsProviderSettingsService } from './sms/sms-provider-settings.service.js';
 import { SmsController } from './sms/sms.controller.js';
+import { PostgresTelegramLinksRepository } from './telegram/postgres-telegram-links.repository.js';
+import { TelegramChannelService } from './telegram/telegram-channel.service.js';
+import { TELEGRAM_LINKS_REPOSITORY } from './telegram/telegram-links.repository.js';
 import { NoopWebPushSender } from './web-push/noop-web-push-sender.js';
 import { WEB_PUSH_SENDER } from './web-push/web-push-sender.js';
 import { WebPushSender } from './web-push/web-push-sender.service.js';
@@ -53,6 +56,12 @@ import {
   type SmsProviderCode,
   type SmsProviderRegistry
 } from '../../infrastructure/sms-provider/sms.provider.js';
+import {
+  BotApiTelegramProvider,
+  NoopTelegramProvider,
+  TELEGRAM_PROVIDER,
+  type TelegramProvider
+} from '../../infrastructure/telegram/telegram.provider.js';
 import { FakeWebinarProvider } from '../../infrastructure/webinar-provider/fake-webinar.provider.js';
 import { JitsiWebinarProvider } from '../../infrastructure/webinar-provider/jitsi-webinar.provider.js';
 import {
@@ -83,6 +92,21 @@ import { TenantModule } from '../tenant/tenant.module.js';
   ],
   providers: [
     EmailResendService,
+    /*
+     * ФТ-F3 — третий канал доставки. Реальный бот подключается ТОЛЬКО при заданном токене:
+     * пустой токен означал бы адаптер, который на каждое уведомление ходит в Telegram и
+     * получает отказ, — шум в журнале вместо канала.
+     */
+    PostgresTelegramLinksRepository,
+    { provide: TELEGRAM_LINKS_REPOSITORY, useClass: PostgresTelegramLinksRepository },
+    {
+      provide: TELEGRAM_PROVIDER,
+      useFactory: (): TelegramProvider =>
+        backendEnv.TELEGRAM_BOT_TOKEN
+          ? new BotApiTelegramProvider(backendEnv.TELEGRAM_BOT_TOKEN)
+          : new NoopTelegramProvider()
+    },
+    TelegramChannelService,
     { provide: NOTIFICATIONS_STATE, useClass: InMemoryNotificationsState },
     PostgresChatRepository,
     { provide: CHAT_REPOSITORY, useClass: PostgresChatRepository },
@@ -200,6 +224,9 @@ import { TenantModule } from '../tenant/tenant.module.js';
     }
   ],
   exports: [
+    TELEGRAM_PROVIDER,
+    TELEGRAM_LINKS_REPOSITORY,
+    TelegramChannelService,
     NotificationsService,
     ChatService,
     WebinarsService,

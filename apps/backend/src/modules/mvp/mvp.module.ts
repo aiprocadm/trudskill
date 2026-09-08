@@ -80,6 +80,8 @@ import { RostechnadzorXlsxWriter } from './rostechnadzor-registry/rostechnadzor-
 import { ScormContentController } from './scorm/scorm-content.controller.js';
 import { ScormController } from './scorm/scorm.controller.js';
 import { ScormService } from './scorm/scorm.service.js';
+import { TelegramBotController } from './telegram-bot.controller.js';
+import { TelegramLinkController } from './telegram-link.controller.js';
 import { TenantUsageController } from './usage/tenant-usage.controller.js';
 import { TenantUsageService } from './usage/tenant-usage.service.js';
 import { VideoProviderSettingsController } from './video/video-provider-settings.controller.js';
@@ -126,6 +128,7 @@ import { VideoWebhookController } from './video/video-webhook.controller.js';
 import { VideoController } from './video/video.controller.js';
 import { VideoService } from './video/video.service.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
+import { TELEGRAM_WEBHOOK_SECRET } from '../../infrastructure/telegram/telegram.provider.js';
 import { FakeVideoProvider } from '../../infrastructure/video-provider/fake-video.provider.js';
 import { KinescopeVideoProvider } from '../../infrastructure/video-provider/kinescope-video.provider.js';
 import {
@@ -149,6 +152,8 @@ import {
     PlatformModule
   ],
   controllers: [
+    TelegramBotController,
+    TelegramLinkController,
     MvpController,
     TenantUsageController,
     TenantOnboardingController,
@@ -307,6 +312,8 @@ import {
     ProctoringRetentionSchedulerService,
     { provide: RecertificationService, scope: Scope.REQUEST, useClass: RecertificationService },
     { provide: MVP_PERSISTENCE_BACKEND, useClass: MvpPersistenceRepositoryAdapter },
+    /* ФТ-F3: секрет ручки бота значением контейнера — иначе контроллер нечем проверить. */
+    { provide: TELEGRAM_WEBHOOK_SECRET, useValue: backendEnv.TELEGRAM_WEBHOOK_SECRET },
     { provide: MVP_STATE, scope: Scope.REQUEST, useClass: InMemoryMvpState },
     { provide: MvpService, scope: Scope.REQUEST, useClass: MvpService },
     OtRegistryXlsxWriter,
