@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { LEGACY_TENANT_CODE_COOKIE, TENANT_CODE_COOKIE } from './host-resolve';
+import { TENANT_CODE_COOKIE } from './host-resolve';
 
 import type {
   readTenantCodeCookie as ReadCookie,
@@ -93,13 +93,17 @@ describe('current tenant (ФТ-D3.2)', () => {
 });
 
 /*
- * BR-020/BR-022 — период двойного чтения cookie арендатора: у человека, зашедшего
- * по адресу своего центра до выкатки, код лежит под прежним именем.
+ * `BR-020` выкатка N+1: окно двойного чтения ЗАКРЫТО — прежнее имя cookie больше не читается.
  *
- * Модуль подгружается динамически (как в блоке выше): он читает переменные окружения
- * на импорте, поэтому статический import сломал бы тест.
+ * Тест остался, но поменял смысл на обратный. Раньше он доказывал, что человека с прежней
+ * cookie не выбросит; теперь — что прежнее имя действительно перестало действовать. Без
+ * такой проверки «убрали чтение» держалось бы на честном слове, а вернуть ветку обратно
+ * ничего не мешало бы.
+ *
+ * Модуль подгружается динамически: он читает переменные окружения на импорте, поэтому
+ * статический import сломал бы тест.
  */
-describe('cookie арендатора: период двойного чтения (BR-020)', () => {
+describe('cookie арендатора: окно двойного чтения закрыто (BR-020, выкатка N+1)', () => {
   let readCookie: typeof ReadCookie;
 
   beforeAll(async () => {
@@ -110,16 +114,15 @@ describe('cookie арендатора: период двойного чтени�
     readCookie = mod.readTenantCodeCookie;
   });
 
-  it('читает ПРЕЖНЕЕ имя, когда нового нет', () => {
-    expect(readCookie(`${LEGACY_TENANT_CODE_COOKIE}=demo`)).toBe('demo');
+  it('прежнее имя больше не читается', () => {
+    expect(readCookie('cdoprof_tenant_code=demo')).toBeNull();
   });
 
-  it('когда пришли оба — берёт НОВОЕ', () => {
-    expect(readCookie(`${LEGACY_TENANT_CODE_COOKIE}=old; ${TENANT_CODE_COOKIE}=new`)).toBe('new');
+  it('новое имя читается как прежде', () => {
+    expect(readCookie(`${TENANT_CODE_COOKIE}=demo`)).toBe('demo');
   });
 
-  it('имена: новое по бренду, прежнее сохранено', () => {
+  it('имя cookie — по бренду', () => {
     expect(TENANT_CODE_COOKIE).toBe('trudskill_tenant_code');
-    expect(LEGACY_TENANT_CODE_COOKIE).toBe('cdoprof_tenant_code');
   });
 });

@@ -37,7 +37,6 @@ export * from './composition/index.js';
 export * from './providers/theme-provider.js';
 export {
   useUiTheme,
-  LEGACY_UI_THEME_STORAGE_KEY,
   UI_THEME_STORAGE_KEY,
   type UiThemeChoice,
   type UiThemeContextValue

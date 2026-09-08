@@ -30,8 +30,6 @@ import type { AuthTokensContract } from '@trudskill/api-contracts';
  */
 const REFRESH_COOKIE_NAME = 'trudskill_refresh_token';
 const CSRF_COOKIE_NAME = 'trudskill_csrf_token';
-const LEGACY_REFRESH_COOKIE_NAME = 'cdoprof_refresh_token';
-const LEGACY_CSRF_COOKIE_NAME = 'cdoprof_csrf_token';
 
 const cookieAttributes = () =>
   [
@@ -109,62 +107,42 @@ const csrfCookie = (cookieName: string, value: string): string =>
 export const authCookie = {
   refreshCookieName: REFRESH_COOKIE_NAME,
   csrfCookieName: CSRF_COOKIE_NAME,
-  /** Прежние имена — только для периода двойного чтения (BR-020). */
-  legacyRefreshCookieName: LEGACY_REFRESH_COOKIE_NAME,
-  legacyCsrfCookieName: LEGACY_CSRF_COOKIE_NAME,
   attachRefreshCookie(
     response: { setHeader: (name: string, value: string | string[]) => void },
     refreshToken: string
   ) {
-    response.setHeader('Set-Cookie', [
-      refreshCookie(REFRESH_COOKIE_NAME, refreshToken),
-      refreshCookie(LEGACY_REFRESH_COOKIE_NAME, refreshToken)
-    ]);
+    response.setHeader('Set-Cookie', [refreshCookie(REFRESH_COOKIE_NAME, refreshToken)]);
   },
   attachRefreshAndCsrfCookies(
     response: { setHeader: (name: string, value: string | string[]) => void },
     refreshToken: string,
     csrfToken: string
   ) {
-    // Оба имени получают ОДНО И ТО ЖЕ актуальное значение — см. пояснение в шапке файла.
     response.setHeader('Set-Cookie', [
       refreshCookie(REFRESH_COOKIE_NAME, refreshToken),
-      csrfCookie(CSRF_COOKIE_NAME, csrfToken),
-      refreshCookie(LEGACY_REFRESH_COOKIE_NAME, refreshToken),
-      csrfCookie(LEGACY_CSRF_COOKIE_NAME, csrfToken)
+      csrfCookie(CSRF_COOKIE_NAME, csrfToken)
     ]);
   },
   attachCsrfCookie(
     response: { setHeader: (name: string, value: string | string[]) => void },
     csrfToken: string
   ) {
-    response.setHeader('Set-Cookie', [
-      csrfCookie(CSRF_COOKIE_NAME, csrfToken),
-      csrfCookie(LEGACY_CSRF_COOKIE_NAME, csrfToken)
-    ]);
+    response.setHeader('Set-Cookie', [csrfCookie(CSRF_COOKIE_NAME, csrfToken)]);
   },
   clearRefreshCookie(response: { setHeader: (name: string, value: string | string[]) => void }) {
-    // Гасим и старое имя: иначе «Выйти» оставит рабочий refresh под прежним ключом.
-    response.setHeader('Set-Cookie', [
-      expiredCookie(REFRESH_COOKIE_NAME, true),
-      expiredCookie(LEGACY_REFRESH_COOKIE_NAME, true)
-    ]);
+    response.setHeader('Set-Cookie', [expiredCookie(REFRESH_COOKIE_NAME, true)]);
   },
   clearAuthCookies(response: { setHeader: (name: string, value: string | string[]) => void }) {
     response.setHeader('Set-Cookie', [
       expiredCookie(REFRESH_COOKIE_NAME, true),
-      expiredCookie(CSRF_COOKIE_NAME, false),
-      expiredCookie(LEGACY_REFRESH_COOKIE_NAME, true),
-      expiredCookie(LEGACY_CSRF_COOKIE_NAME, false)
+      expiredCookie(CSRF_COOKIE_NAME, false)
     ]);
   },
   readRefreshCookie(headers: Record<string, string | string[] | undefined>): string | null {
-    return (
-      readCookie(headers, REFRESH_COOKIE_NAME) ?? readCookie(headers, LEGACY_REFRESH_COOKIE_NAME)
-    );
+    return readCookie(headers, REFRESH_COOKIE_NAME);
   },
   readCsrfCookie(headers: Record<string, string | string[] | undefined>): string | null {
-    return readCookie(headers, CSRF_COOKIE_NAME) ?? readCookie(headers, LEGACY_CSRF_COOKIE_NAME);
+    return readCookie(headers, CSRF_COOKIE_NAME);
   },
   toPublicTokens(tokens: AuthTokensContract & { refreshToken?: string }): AuthTokensContract {
     return toAuthResponse(tokens);

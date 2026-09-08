@@ -22,7 +22,7 @@ const setCookieList = (setHeader: ReturnType<typeof vi.fn>): string[] => {
   return Array.isArray(value) ? value : [value];
 };
 
-describe('имена cookie аутентификации (BR-020, период двойного чтения)', () => {
+describe('имена cookie аутентификации (BR-020, выкатка N+1 — окно закрыто)', () => {
   const find = (cookies: string[], name: string): string | undefined =>
     cookies.find((c) => c.startsWith(`${name}=`));
 
@@ -32,38 +32,37 @@ describe('имена cookie аутентификации (BR-020, период �
   };
 
   /*
-   * Обе пары пишутся ОДНИМ значением. Прежнее имя обязано нести АКТУАЛЬНЫЙ токен:
-   * refresh одноразовый, и если под прежним именем осталось бы потраченное значение,
-   * откат кода заставил бы сервер счесть его кражей и отозвать все сессии человека.
-   * Если же прежнего имени не писать вовсе — откат разлогинил бы всех разом.
+   * Окно двойного чтения закрыто: под прежним именем не пишется НИЧЕГО. Проверяется именно
+   * отсутствие — иначе «убрали запись» держалось бы на честном слове, а вернуть строку
+   * обратно ничего не мешало бы.
    */
-  it('значение пишется под ОБА имени, одинаковое', () => {
+  it('пишется только новое имя, прежнего в ответе нет', () => {
     const { setHeader, response } = makeResponse();
     authCookie.attachRefreshAndCsrfCookies(response, 'refresh_value', 'csrf_value');
 
     const cookies = setCookieList(setHeader);
     expect(find(cookies, 'trudskill_refresh_token')).toContain('=refresh_value;');
-    expect(find(cookies, 'cdoprof_refresh_token')).toContain('=refresh_value;');
     expect(find(cookies, 'trudskill_csrf_token')).toContain('=csrf_value;');
-    expect(find(cookies, 'cdoprof_csrf_token')).toContain('=csrf_value;');
+    expect(find(cookies, 'cdoprof_refresh_token')).toBeUndefined();
+    expect(find(cookies, 'cdoprof_csrf_token')).toBeUndefined();
   });
 
-  it('эхо-ручка csrf тоже пишет оба имени одним значением', () => {
+  it('эхо-ручка csrf пишет одно имя', () => {
     const { setHeader, response } = makeResponse();
     authCookie.attachCsrfCookie(response, 'csrf_value');
 
     const cookies = setCookieList(setHeader);
+    expect(cookies).toHaveLength(1);
     expect(find(cookies, 'trudskill_csrf_token')).toContain('=csrf_value;');
-    expect(find(cookies, 'cdoprof_csrf_token')).toContain('=csrf_value;');
   });
 
-  it('одиночная запись refresh пишет оба имени', () => {
+  it('одиночная запись refresh пишет одно имя', () => {
     const { setHeader, response } = makeResponse();
     authCookie.attachRefreshCookie(response, 'refresh_value');
 
     const cookies = setCookieList(setHeader);
+    expect(cookies).toHaveLength(1);
     expect(find(cookies, 'trudskill_refresh_token')).toContain('=refresh_value;');
-    expect(find(cookies, 'cdoprof_refresh_token')).toContain('=refresh_value;');
   });
 
   /*
@@ -82,12 +81,7 @@ describe('имена cookie аутентификации (BR-020, период �
     authCookie.clearAuthCookies(dead);
     const deadCookies = setCookieList(setDead);
 
-    for (const name of [
-      'trudskill_refresh_token',
-      'trudskill_csrf_token',
-      'cdoprof_refresh_token',
-      'cdoprof_csrf_token'
-    ]) {
+    for (const name of ['trudskill_refresh_token', 'trudskill_csrf_token']) {
       const alive = find(liveCookies, name);
       const expired = find(deadCookies, name);
       expect(alive, `живая ${name}`).toBeDefined();
@@ -99,15 +93,15 @@ describe('имена cookie аутентификации (BR-020, период �
     }
   });
 
-  it('читает ПРЕЖНЕЕ имя, когда нового ещё нет — иначе выкатка разлогинила бы всех', () => {
+  it('ПРЕЖНЕЕ имя больше не читается — окно закрыто', () => {
     const headers = headersWith('cdoprof_refresh_token=old_refresh; cdoprof_csrf_token=old_csrf');
-    expect(authCookie.readRefreshCookie(headers)).toBe('old_refresh');
-    expect(authCookie.readCsrfCookie(headers)).toBe('old_csrf');
+    expect(authCookie.readRefreshCookie(headers)).toBeNull();
+    expect(authCookie.readCsrfCookie(headers)).toBeNull();
   });
 
-  it('когда пришли оба имени — берётся НОВОЕ', () => {
+  it('новое имя читается как прежде', () => {
     const headers = headersWith(
-      'cdoprof_refresh_token=old_refresh; trudskill_refresh_token=new_refresh; cdoprof_csrf_token=old_csrf; trudskill_csrf_token=new_csrf'
+      'trudskill_refresh_token=new_refresh; trudskill_csrf_token=new_csrf'
     );
     expect(authCookie.readRefreshCookie(headers)).toBe('new_refresh');
     expect(authCookie.readCsrfCookie(headers)).toBe('new_csrf');
@@ -118,7 +112,7 @@ describe('имена cookie аутентификации (BR-020, период �
     expect(authCookie.readRefreshCookie(headersWith('other=1; alien_refresh_token=x'))).toBeNull();
   });
 
-  it('выход гасит ОБА имени: иначе прежний refresh молча воскресит сессию', () => {
+  it('выход гасит обе живые cookie', () => {
     const { setHeader, response } = makeResponse();
     authCookie.clearAuthCookies(response);
 
@@ -128,19 +122,18 @@ describe('имена cookie аутентификации (BR-020, период �
 
     expect(expired('trudskill_refresh_token')).toBe(true);
     expect(expired('trudskill_csrf_token')).toBe(true);
-    expect(expired('cdoprof_refresh_token')).toBe(true);
-    expect(expired('cdoprof_csrf_token')).toBe(true);
+    /* Прежние имена сервер больше не продлевает — они истекают сами, гасить нечего. */
+    expect(cookies.some((c) => c.startsWith('cdoprof_'))).toBe(false);
   });
 
-  it('гашение refresh-cookie покрывает оба имени и сохраняет HttpOnly и путь', () => {
+  it('гашение refresh-cookie сохраняет HttpOnly и путь', () => {
     const { setHeader, response } = makeResponse();
     authCookie.clearRefreshCookie(response);
 
     const cookies = setCookieList(setHeader);
-    expect(cookies).toHaveLength(2);
+    expect(cookies).toHaveLength(1);
     expect(cookies.every((c) => c.includes('HttpOnly') && c.includes('Path=/'))).toBe(true);
     expect(isExpired(cookies, 'trudskill_refresh_token')).toBe(true);
-    expect(isExpired(cookies, 'cdoprof_refresh_token')).toBe(true);
   });
 
   it('csrf-cookie остаётся доступной скрипту (без HttpOnly) — её читает фронт', () => {
