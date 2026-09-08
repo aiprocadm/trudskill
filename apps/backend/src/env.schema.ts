@@ -116,6 +116,13 @@ export const backendEnvSchema = z
      * здесь центр платит платформе, и деньги идут на счёт платформы. Пусто — адаптер не
      * подключается, и аренда остаётся на «счёт+акт» (`manual`).
      */
+    /*
+     * ФТ-F3 — Telegram-бот. Пусто — канал спит: ни уведомлений, ни ответов на команды.
+     * Секрет ручки вебхука отдельный: по нему Telegram доказывает, что запрос от него.
+     */
+    TELEGRAM_BOT_TOKEN: z.string().default(''),
+    TELEGRAM_WEBHOOK_SECRET: z.string().default(''),
+    TELEGRAM_BOT_USERNAME: z.string().default(''),
     RENTAL_YOOKASSA_SHOP_ID: z.string().default(''),
     RENTAL_YOOKASSA_SECRET_KEY: z.string().default(''),
     RENTAL_YOOKASSA_RETURN_URL: z.string().default(''),

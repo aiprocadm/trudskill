@@ -27,6 +27,10 @@ const MODULES = resolve(dirname(fileURLToPath(import.meta.url)), '../../modules'
 const PUBLIC_CONTROLLERS: ReadonlyArray<{ file: string; why: string }> = [
   { file: 'health/health.controller.ts', why: 'liveness/readiness без тенанта' },
   {
+    file: 'mvp/telegram-bot.controller.ts',
+    why: 'внешний вебхук Telegram; подлинность — секрет в адресе (сравнение постоянное по времени), чат сам по себе ничего не открывает: бот отвечает только привязанному'
+  },
+  {
     file: 'platform/rental-billing-webhook.controller.ts',
     why: 'внешний вебхук банка об оплате АРЕНДЫ; тела запроса не верим — адаптер переспрашивает состояние платежа у банка, счёт находится по provider_invoice_id'
   },

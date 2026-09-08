@@ -80,6 +80,14 @@ const WITHOUT_PERMISSION: ReadonlyArray<Allowed> = [
 
   // --- Личные действия человека над собой: право тут ничего не добавит.
   {
+    handler: 'mvp/telegram-link.controller.ts::Get me/telegram',
+    why: 'человек получает ссылку привязки СВОЕГО чата: идентификатор берётся из сессии, а не из запроса'
+  },
+  {
+    handler: 'mvp/telegram-link.controller.ts::Delete me/telegram',
+    why: 'человек отвязывает СВОЙ чат'
+  },
+  {
     handler: 'mvp/consents/consent.controller.ts::Post me/:kind/grant',
     why: 'человек даёт СВОЁ согласие'
   },
@@ -135,6 +143,10 @@ const WITHOUT_PERMISSION: ReadonlyArray<Allowed> = [
   {
     handler: 'mvp/video/video-webhook.controller.ts::Post ',
     why: 'внешний вебхук видеосервиса, проверка подписи внутри адаптера'
+  },
+  {
+    handler: 'mvp/telegram-bot.controller.ts::Post webhook/:secret',
+    why: 'внешний вебхук Telegram; подлинность — секрет в адресе (сравнение постоянное по времени), чат сам по себе ничего не открывает: бот отвечает только привязанному'
   },
   {
     handler: 'platform/rental-billing-webhook.controller.ts::Post rental-billing/webhook',
