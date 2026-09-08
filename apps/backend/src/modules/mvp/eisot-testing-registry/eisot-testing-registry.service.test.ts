@@ -221,7 +221,8 @@ describe('EisotTestingRegistryService.exportEisotTestingRegistry', () => {
         id: `lrn_big_${i}`,
         firstName: 'Имя',
         lastName: `Фамилия${i}`,
-        snils: '112-233-445 95'
+        snils: '112-233-445 95',
+        dateOfBirth: '1990-05-01'
       } as Learner);
       h.state.enrollments.push({
         ...base,

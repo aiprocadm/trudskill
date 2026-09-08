@@ -24,6 +24,7 @@ function toFormState(learner: LearnerListItem): LearnerEditFormState {
     middleName: learner.middleName ?? '',
     email: learner.email ?? '',
     snils: learner.snils ?? '',
+    dateOfBirth: learner.dateOfBirth ?? '',
     position: learner.position ?? '',
     organizationUnitId: learner.organizationUnitId ?? '',
     learnerNo: learner.learnerNo ?? '',
@@ -131,6 +132,25 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
               {snilsHint}
             </span>
           ) : null}
+        </label>
+
+        {/*
+          Вопрос №12 (решение 08.09.2026): дата рождения обязательна для ВЫГРУЗКИ в
+          госреестры, но не для заведения слушателя — поэтому поле здесь есть, а звёздочки
+          у него нет. Без него отказ выгрузки «заполните дату рождения в карточке» отправлял
+          бы человека туда, где заполнить её нечем.
+        */}
+        <label className="ui-field">
+          <span className="ui-field-label">Дата рождения</span>
+          <input
+            className="ui-input"
+            type="date"
+            value={form.dateOfBirth}
+            onChange={(e) => setField('dateOfBirth', e.target.value)}
+          />
+          <span className="ui-field-hint">
+            Нужна для выгрузки в государственные реестры: по ней там различают однофамильцев.
+          </span>
         </label>
 
         <label className="ui-field">

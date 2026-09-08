@@ -32,6 +32,7 @@ export function buildUpdatePayload(form: LearnerEditFormState) {
     middleName: nullable(form.middleName),
     email: nullable(form.email),
     snils: nullable(form.snils),
+    dateOfBirth: nullable(form.dateOfBirth),
     position: nullable(form.position),
     organizationUnitId: nullable(form.organizationUnitId),
     learnerNo: nullable(form.learnerNo),

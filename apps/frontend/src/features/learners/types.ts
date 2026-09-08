@@ -9,6 +9,8 @@ export interface LearnerListItem {
   middleName?: string;
   email?: string;
   snils?: string;
+  /** Вопрос №12: обязательна для выгрузки в госреестры, но не для заведения слушателя. */
+  dateOfBirth?: string;
   position?: string;
   organizationUnitId?: string;
   linkedIamUserId?: string;
@@ -37,6 +39,7 @@ export interface LearnerEditFormState {
   middleName: string;
   email: string;
   snils: string;
+  dateOfBirth: string;
   position: string;
   organizationUnitId: string;
   learnerNo: string;

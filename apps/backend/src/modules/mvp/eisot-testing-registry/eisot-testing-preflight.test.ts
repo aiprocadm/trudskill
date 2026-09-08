@@ -21,6 +21,19 @@ const valid: EisotTestingRow = {
 };
 
 describe('validateEisotTestingRow', () => {
+  /*
+   * Вопрос №12, решение 08.09.2026: дата рождения обязательна для выгрузки. Список на
+   * тестирование сверяют с работодателем, и однофамильцы в нём — обычное дело.
+   */
+  it('вопрос №12: пустая дата рождения — ОШИБКА', () => {
+    const errs = validateEisotTestingRow({ ...valid, dateOfBirth: '' });
+    expect(errs.some((e) => e.field === 'dateOfBirth')).toBe(true);
+  });
+
+  it('дата рождения в чужом формате тоже не проходит', () => {
+    const errs = validateEisotTestingRow({ ...valid, dateOfBirth: '1990-05-01' });
+    expect(errs.some((e) => e.field === 'dateOfBirth')).toBe(true);
+  });
   it('accepts a complete row', () => {
     expect(validateEisotTestingRow(valid)).toHaveLength(0);
   });
