@@ -92,4 +92,58 @@ export const layoutStyles = `
 }
 .ui-settings-toc__title { font-weight: var(--ui-font-weight-semibold); }
 .ui-settings-toc__hint { font-size: var(--ui-font-size-sm); color: var(--ui-text-muted); }
+.ui-settings-toc__link[aria-current] {
+  border-color: var(--ui-brand-600);
+  background: var(--ui-surface-accent);
+}
+
+/* TPL-005 §7.5: настройки — оглавление слева, содержимое справа. */
+.ui-settings {
+  display: grid;
+  grid-template-columns: var(--ui-settings-nav) 1fr;
+  gap: var(--ui-space-xl);
+  align-items: start;
+}
+.ui-settings__nav {
+  position: sticky;
+  top: var(--ui-space-lg);
+}
+/* В колонке оглавление идёт одной стопкой, а не плитками в несколько столбцов. */
+.ui-settings__nav .ui-settings-toc {
+  grid-template-columns: 1fr;
+}
+.ui-settings__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-lg);
+  min-width: 0;
+}
+/* Выпадающий список нужен только телефону; на остальных ширинах его место — оглавление. */
+.ui-settings__picker {
+  display: none;
+}
+@media (max-width: 1024px) {
+  .ui-settings {
+    grid-template-columns: 1fr;
+  }
+  .ui-settings__nav {
+    position: static;
+  }
+  /* Верхний ряд в ОДИН уровень: разделы уезжают вбок внутри оглавления, а не переносятся. */
+  .ui-settings__nav .ui-settings-toc {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(180px, max-content);
+    overflow-x: auto;
+  }
+}
+@media (max-width: 480px) {
+  .ui-settings__picker {
+    display: grid;
+    gap: var(--ui-space-xs);
+  }
+  .ui-settings__nav .ui-settings-toc {
+    display: none;
+  }
+}
 `;
