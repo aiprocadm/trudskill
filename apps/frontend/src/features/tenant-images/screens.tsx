@@ -12,6 +12,7 @@ import {
   tenantImagesApi
 } from './api';
 import { SectionCard, SectionError } from '../../components/state-wrappers';
+import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 
 /**
@@ -41,6 +42,11 @@ const MAX_BYTES = 5 * 1024 * 1024;
 
 export function TenantImagesSection() {
   const { session } = useAuth();
+  /*
+   * Загрузка бланков и печатей — это выпуск документов, а на экран настроек пускают по праву
+   * управления ролями. Без проверки человек видел кнопки, нажимал и получал отказ сервера.
+   */
+  const canEdit = hasPermission(session?.permissions ?? [], 'documents.write');
   const queryClient = useQueryClient();
 
   const [widths, setWidths] = useState<Partial<Record<TenantImageSlot, string>>>({});
@@ -142,7 +148,8 @@ export function TenantImagesSection() {
                   Тег для бланка: <code>{tag}</code>. {hint}
                 </p>
                 <p>{current ? 'Загружена' : 'Не загружена — бланк напечатается без неё'}</p>
-                <div className="ui-inline">
+                {/* Без права выпуска документов остаётся только просмотр: что загружено и какой ширины. */}
+                <div className="ui-inline" style={{ display: canEdit ? undefined : 'none' }}>
                   <FilePicker
                     ariaLabel={`${title}: выбрать файл`}
                     accept={TENANT_IMAGE_MIMES.join(',')}

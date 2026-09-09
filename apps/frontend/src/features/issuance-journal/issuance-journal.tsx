@@ -16,6 +16,7 @@ import {
   type TemplateType
 } from './types';
 import { PageContainer, PageHeader, SectionCard } from '../../components/state-wrappers';
+import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 import { CloseGroupSection } from '../close-group/screens';
 import { formatDate } from '../mvp/screen-helpers';
@@ -106,6 +107,13 @@ export function IssuanceJournalView() {
     status: doc.status,
     documentNumber: doc.documentNumber
   }));
+
+  /*
+   * Аннулирование и перевыпуск — право выпуска документов, а в книгу выдачи пускают по праву
+   * чтения. Без проверки проверяющий видел «Аннулировать» и получал отказ сервера.
+   */
+  const canWrite = hasPermission(session?.permissions ?? [], 'documents.write');
+  const canGenerate = hasPermission(session?.permissions ?? [], 'documents.generate');
 
   return (
     <PageContainer>
@@ -203,7 +211,7 @@ export function IssuanceJournalView() {
         error={error}
         rowKey={(row) => row.id}
         rowActions={(row) =>
-          row.status === 'revoked'
+          row.status === 'revoked' || !canWrite
             ? []
             : [
                 {
@@ -255,9 +263,12 @@ export function IssuanceJournalView() {
           Закрыть группу и выпустить документы можно прямо в её карточке — или здесь, если под рукой
           номер группы.
         </p>
-        <button type="button" className="ui-button" onClick={() => setCloseGroupOpen(true)}>
-          Открыть закрытие группы
-        </button>
+        {/* Закрытие выпускает документы: без права выпуска кнопку не показываем. */}
+        {canGenerate ? (
+          <button type="button" className="ui-button" onClick={() => setCloseGroupOpen(true)}>
+            Открыть закрытие группы
+          </button>
+        ) : null}
       </SectionCard>
 
       {closeGroupOpen ? (
