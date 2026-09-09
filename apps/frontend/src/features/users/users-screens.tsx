@@ -312,7 +312,21 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
               ]}
               rowActions={(row) =>
                 canManageRoles && !row.revokedAt
-                  ? [{ label: 'Завершить сеанс', onSelect: () => void revokeSession(row.id) }]
+                  ? [
+                      {
+                        label: 'Завершить сеанс',
+                        /*
+                         * Отказ обязан быть виден. Без этого «Завершить сеанс» на упавшем
+                         * запросе не делал НИЧЕГО: сеанс остаётся жив, а человек уверен, что
+                         * выгнал чужое устройство. Ошибка показывается той же строкой, что и
+                         * отказ сохранения ролей, — она уже есть на экране.
+                         */
+                        onSelect: () =>
+                          void revokeSession(row.id).catch((revokeError) =>
+                            setSaveError(readApiMessage(revokeError))
+                          )
+                      }
+                    ]
                   : []
               }
             />
