@@ -8,9 +8,14 @@
  * «map is not a function» (журнал 379) и пятисотка на публичной проверке документа (журнал
  * 380). Оба раза сервер был здоров, журналы чисты, а страница — сломана.
  *
- * Что делает: заходит под каждой указанной ролью, открывает КАЖДУЮ страницу приложения,
- * собирает исключения браузера, неудачные запросы и видимый текст. Ошибка на любой странице —
- * повод разбираться.
+ * Что делает: заходит под каждой указанной ролью, открывает КАЖДУЮ страницу приложения и
+ * собирает две вещи:
+ *   * исключения браузера — страница упала при отрисовке;
+ *   * ОТКАЗЫ ЗАПРОСОВ — сервер ответил ошибкой, даже если экран не упал.
+ *
+ * Второе добавлено 09.09.2026 и добавлено не зря: публичная проверка документа отвечала
+ * пятисоткой на каждом обращении, а страница при этом честно рисовала сообщение об ошибке —
+ * исключения не было, и первая редакция обхода её не замечала (журнал 380).
  *
  * Чего НЕ делает: не проверяет вёрстку, смысл и права. Это дымовая проверка «страница
  * открывается и не падает», а не приёмка.
@@ -128,20 +133,28 @@ const startDoor = () =>
     const server = createServer((req, res) => {
       const toApi = req.url.startsWith(apiPrefix) || req.url.startsWith('/realtime');
       const target = new URL(toApi ? API : APP);
+      /*
+       * `connection: close` и свой агент — не украшение. С переиспользованием соединений
+       * дверь изредка отдавала 502 на живом сервере, и обход показывал ложные «ошибки»:
+       * страница при этом честно уходила на форму входа, потому что сессия не обновилась.
+       * Инструмент, который врёт даже изредка, перестают читать.
+       */
       const up = request(
         {
           hostname: target.hostname,
           port: target.port,
           path: req.url,
           method: req.method,
-          headers: req.headers
+          headers: { ...req.headers, connection: 'close' },
+          agent: false
         },
         (r) => {
           res.writeHead(r.statusCode ?? 502, r.headers);
           r.pipe(res);
         }
       );
-      up.on('error', () => {
+      up.on('error', (error) => {
+        console.log(`  ⚠ дверь не смогла передать запрос ${req.url}: ${String(error)}`);
         res.writeHead(502);
         res.end('door error');
       });
@@ -264,6 +277,15 @@ for (const role of ROLES) {
       ).result?.value ?? ''
     );
     const events = take();
+    /*
+     * Пятисотка — всегда наша беда. Отказ по правам (401/403) на чужой странице — наоборот,
+     * правильное поведение, поэтому он в отдельном списке и не считается ошибкой: роль без
+     * права просто не должна была сюда попасть, и её встречает экран «нет доступа».
+     */
+    const failed = events
+      .filter((e) => e.method === 'Network.responseReceived')
+      .map((e) => ({ status: e.params.response.status, url: String(e.params.response.url) }))
+      .filter((r) => r.status >= 500 || (r.status >= 400 && ![401, 403, 404].includes(r.status)));
     const errors = [
       ...new Set(
         events
@@ -276,9 +298,14 @@ for (const role of ROLES) {
       )
     ];
     if (/Роль:/.test(shown)) sessionSeen = true;
-    if (errors.length) {
+    if (errors.length || failed.length) {
       bad += 1;
-      console.log(`  ✗ ${route}\n      экран: ${shown.slice(0, 140)}\n      ошибка: ${errors[0]}`);
+      console.log(`  ✗ ${route}`);
+      console.log(`      экран: ${shown.slice(0, 140)}`);
+      if (errors[0]) console.log(`      падение: ${errors[0]}`);
+      for (const r of [...new Map(failed.map((f) => [f.url, f])).values()].slice(0, 3)) {
+        console.log(`      запрос отвечает ${r.status}: ${r.url.replace(BASE, '')}`);
+      }
     }
   }
 
