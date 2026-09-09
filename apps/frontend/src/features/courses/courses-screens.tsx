@@ -847,7 +847,15 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
         <button
           type="button"
           className="ui-button-secondary"
-          onClick={() => void createCourseVersion(id).then(refetchVersions)}
+          /*
+           * Отказ обязан быть виден: без этого «Добавить версию» на упавшем запросе молчала,
+           * и человек нажимал её снова и снова, не понимая, почему список версий пуст.
+           */
+          onClick={() =>
+            void createCourseVersion(id)
+              .then(refetchVersions)
+              .catch((versionError) => setSaveError(readApiMessage(versionError)))
+          }
         >
           Добавить версию
         </button>
