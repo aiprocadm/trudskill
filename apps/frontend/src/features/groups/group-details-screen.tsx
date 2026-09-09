@@ -41,6 +41,8 @@ import { proctoringApi } from '../proctoring/api';
 export const GroupDetailsScreen = ({ id }: { id: string }) => {
   const { session } = useAuth();
   const { data: group, notFound } = useGroup(id);
+  const canGenerateDocuments = hasPermission(session?.permissions ?? [], 'documents.generate');
+  const canWriteDocuments = hasPermission(session?.permissions ?? [], 'documents.write');
   const { data: courses } = useCoursesList({ page: 1, page_size: 20 });
   const { data: groupCourses, refetch: refetchCourses } = useGroupCourses(id);
   const { data: enrollments, refetch: refetchEnrollments } = useEnrollments({ group_id: id });
@@ -89,9 +91,17 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
         // exactOptionalPropertyTypes: undefined как значение не принимается — условный спред.
         {...(group?.code ? { subtitle: `Код группы: ${group.code}` } : {})}
         // UI-007: одно первичное действие. Остальное — вторичным видом.
-        primaryAction={{ label: 'Закрыть группу', onSelect: () => setCloseOpen(true) }}
+        /*
+         * Оба действия ВЫПУСКАЮТ документы, а в карточку группы пускают по праву её чтения.
+         * Без проверки человек видел «Закрыть группу», нажимал — и получал отказ сервера.
+         */
+        {...(canGenerateDocuments
+          ? { primaryAction: { label: 'Закрыть группу', onSelect: () => setCloseOpen(true) } }
+          : {})}
         secondaryActions={[
-          { label: 'Сгенерировать приказ', onSelect: () => setIssueOrderOpen(true) }
+          ...(canWriteDocuments
+            ? [{ label: 'Сгенерировать приказ', onSelect: () => setIssueOrderOpen(true) }]
+            : [])
         ]}
       />
 

@@ -4,6 +4,8 @@ import { ListPage, StatusChip } from '@trudskill/ui';
 
 import { type TemplateDto } from './api';
 import { templateTypeLabel } from './document-types';
+import { hasPermission } from '../../lib/rbac/permissions';
+import { useAuth } from '../auth/context';
 import { formatDate } from '../mvp/screen-helpers';
 
 import type { ReactElement } from 'react';
@@ -42,6 +44,9 @@ export const TemplatesSection = ({
   onGenerate: (templateId: string) => void;
   onCreate: () => void;
 }) => {
+  const { session } = useAuth();
+  const canEditTemplates = hasPermission(session?.permissions ?? [], 'documents.write');
+  const canGenerateDocuments = hasPermission(session?.permissions ?? [], 'documents.generate');
   const rows: TemplateRow[] = templates.map((item) => ({
     id: item.id ?? item.name,
     name: item.name,
@@ -64,8 +69,17 @@ export const TemplatesSection = ({
       isLoading={isLoading}
       rowKey={(row) => row.id}
       rowActions={(row) => [
-        { label: 'Настроить бланк', onSelect: () => onSetup(row.id) },
-        { label: 'Выпустить документ', onSelect: () => onGenerate(row.id) }
+        /*
+         * Настройка бланка загружает файлы, выпуск создаёт документ — оба требуют своих прав,
+         * а на экран шаблонов пускают по праву ЧТЕНИЯ документов. Без проверки человек видел
+         * действия, нажимал и получал отказ сервера вместо объяснения.
+         */
+        ...(canEditTemplates
+          ? [{ label: 'Настроить бланк', onSelect: () => onSetup(row.id) }]
+          : []),
+        ...(canGenerateDocuments
+          ? [{ label: 'Выпустить документ', onSelect: () => onGenerate(row.id) }]
+          : [])
       ]}
       emptyMessage="Здесь появятся шаблоны документов"
       emptyHint="Шаблон — это бланк Word с метками вида «{ФИО}»: система подставляет в них данные слушателя и выпускает готовый документ."

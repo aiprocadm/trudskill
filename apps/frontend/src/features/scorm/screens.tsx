@@ -11,6 +11,7 @@ import {
   SectionCard,
   SectionError
 } from '../../components/state-wrappers';
+import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 
 import type { ScormPackageDto, ScormPackageStatus } from './types';
@@ -82,6 +83,11 @@ interface TableRow {
 export function ScormPackagesScreen(): ReactElement {
   const { ask, dialog } = useConfirmDialog();
   const { session } = useAuth();
+  /*
+   * Загрузка и удаление учебных пакетов — право на материалы. На экран пускают по праву
+   * чтения, поэтому без проверки кнопки видел и тот, кому они не положены.
+   */
+  const canEdit = hasPermission(session?.permissions ?? [], 'materials.write');
   const { packages, loading, error, reload } = useScormPackages();
 
   const [packageFile, setPackageFile] = useState<File | null>(null);
@@ -216,14 +222,17 @@ export function ScormPackagesScreen(): ReactElement {
       title: 'Действия',
       render: (row) => (
         <span style={{ display: 'flex', gap: 6 }}>
-          {row.packageStatus === 'uploaded' || row.packageStatus === 'failed' ? (
+          {/* Без права на материалы остаётся просмотр списка: действия не показываются. */}
+          {canEdit && (row.packageStatus === 'uploaded' || row.packageStatus === 'failed') ? (
             <button type="button" onClick={() => void handleProcess(row.id)}>
               Обработать
             </button>
           ) : null}
-          <button type="button" onClick={() => void handleDelete(row._raw)}>
-            Удалить пакет
-          </button>
+          {canEdit ? (
+            <button type="button" onClick={() => void handleDelete(row._raw)}>
+              Удалить пакет
+            </button>
+          ) : null}
         </span>
       )
     }
@@ -237,7 +246,20 @@ export function ScormPackagesScreen(): ReactElement {
       />
       <SectionCard title="Загрузить пакет">
         {uploadError ? <SectionError message={uploadError} /> : null}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        {canEdit ? null : (
+          <p className="ui-hint">
+            Загружать учебные пакеты может методист или администратор центра. Вам доступен просмотр
+            списка.
+          </p>
+        )}
+        <div
+          style={{
+            display: canEdit ? 'flex' : 'none',
+            gap: 8,
+            alignItems: 'center',
+            flexWrap: 'wrap'
+          }}
+        >
           <FilePicker
             ariaLabel="Zip-файл с SCORM-пакетом"
             accept=".zip,application/zip,application/x-zip-compressed"

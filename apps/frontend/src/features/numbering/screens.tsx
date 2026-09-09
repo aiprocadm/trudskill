@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 import { type NumberResetPeriod, type NumberingRuleDto, numberingApi, previewNumber } from './api';
 import { SectionCard, SectionEmpty, SectionError } from '../../components/state-wrappers';
+import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 
 /**
@@ -38,6 +39,12 @@ const typeLabel = (value: string) => DOCUMENT_TYPES.find((t) => t.value === valu
 
 export function NumberingRulesSection() {
   const { session } = useAuth();
+  /*
+   * Правка нумераторов требует права записи документов, а на экран настроек пускают по
+   * праву управления ролями. Без этой проверки человек видел кнопки, нажимал — и получал
+   * отказ сервера; экран показывал ошибку вместо объяснения, что действие ему не положено.
+   */
+  const canEdit = hasPermission(session?.permissions ?? [], 'documents.write');
   const queryClient = useQueryClient();
 
   const [documentType, setDocumentType] = useState<string>('certificate');
@@ -129,7 +136,7 @@ export function NumberingRulesSection() {
             rows={rows}
           />
           <div className="ui-inline">
-            {rows.map((rule) => (
+            {(canEdit ? rows : []).map((rule) => (
               <button
                 key={rule.id}
                 type="button"
@@ -150,7 +157,8 @@ export function NumberingRulesSection() {
         />
       ) : null}
 
-      <div className="ui-stack" style={{ marginTop: 12 }}>
+      {/* Заводить нумераторы может только тот, кому доверен выпуск документов. */}
+      <div className="ui-stack" style={{ marginTop: 12, display: canEdit ? undefined : 'none' }}>
         <strong>Новый нумератор</strong>
         <div className="ui-inline">
           <select value={documentType} onChange={(e) => setDocumentType(e.target.value)}>
