@@ -17,6 +17,14 @@
  * пятисоткой на каждом обращении, а страница при этом честно рисовала сообщение об ошибке —
  * исключения не было, и первая редакция обхода её не замечала (журнал 380).
  *
+ * С флагом `--click` дополнительно НАЖИМАЕТ кнопки на каждой странице — так находятся
+ * падения, которые случаются при открытии окон и панелей, а не при загрузке.
+ *
+ * Почему это безопасно. На время нажатий все ИЗМЕНЯЮЩИЕ запросы (POST/PUT/PATCH/DELETE)
+ * блокируются на сетевом уровне: до сервера они не доходят. Поэтому нажать можно что угодно —
+ * ничего не удалится и не выпустится. Считаются только падения; сообщения об ошибке,
+ * вызванные самой блокировкой, ошибкой не считаются — их там ждать и надо.
+ *
  * Чего НЕ делает: не проверяет вёрстку, смысл и права. Это дымовая проверка «страница
  * открывается и не падает», а не приёмка.
  *
@@ -33,7 +41,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { createServer, request } from 'node:http';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -52,11 +60,20 @@ const ROLES = arg('roles', 'tenant_admin')
 const TENANT = arg('tenant', 'tenant_demo');
 const PASSWORD = arg('password', 'Password123!');
 /*
- * Порт двери обязан совпадать с тем, под который СОБРАНА витрина: адрес сервера зашивается
- * в неё на сборке. Разошлись — страницы откроются, а сессия не поднимется.
+ * Дверь встаёт НА ТОТ ЖЕ адрес, который витрина зовёт по умолчанию (`localhost:3001` из
+ * `.env.local`). Тогда пересобирать её не нужно вовсе: обычная сборка сама придёт в дверь, а
+ * страница и сервер окажутся на одном источнике — и запрет чужого источника не мешает.
+ *
+ * Прежняя редакция требовала собирать витрину под порт двери. Это ловушка: сборку легко
+ * забыть, и обход молча показывает форму входа вместо экранов.
  */
-const DOOR_PORT = Number(arg('door', '3211'));
+const DOOR_PORT = Number(arg('door', '3001'));
 const WAIT_MS = Number(arg('wait', '3000'));
+const CLICK = process.argv.includes('--click');
+/** Печатать видимый текст каждой страницы: нужно, когда обход «ничего не нашёл» и это подозрительно. */
+const VERBOSE = process.argv.includes('--verbose');
+/* Больше шести кнопок на страницу — это уже не дымовая проверка, а полдня ожидания. */
+const MAX_BUTTONS = Number(arg('buttons', '6'));
 const CHROME = arg(
   'chrome',
   `${process.env.HOME}/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome`
@@ -141,7 +158,7 @@ const startDoor = () =>
        */
       const up = request(
         {
-          hostname: target.hostname,
+          hostname: '127.0.0.1',
           port: target.port,
           path: req.url,
           method: req.method,
@@ -161,18 +178,29 @@ const startDoor = () =>
       req.pipe(up);
     });
     server.listen(DOOR_PORT, '127.0.0.1', () => resolve(server));
+    server.on('error', (error) => {
+      console.error(
+        `Порт ${DOOR_PORT} занят (${String(error)}). Если там поднят сервер разработки — остановите его или укажите --door.`
+      );
+      process.exit(1);
+    });
   });
 
 const cdp = (ws) => {
   let seq = 0;
   const pending = new Map();
+  const listeners = new Map();
   let events = [];
   ws.onmessage = (m) => {
     const msg = JSON.parse(m.data);
     if (msg.id && pending.has(msg.id)) {
       pending.get(msg.id)(msg.result);
       pending.delete(msg.id);
-    } else if (msg.method) events.push(msg);
+    } else if (msg.method) {
+      const listener = listeners.get(msg.method);
+      if (listener) listener(msg.params);
+      events.push(msg);
+    }
   };
   return {
     send: (method, params = {}) =>
@@ -185,14 +213,19 @@ const cdp = (ws) => {
       const out = events;
       events = [];
       return out;
-    }
+    },
+    onEvent: (method, handler) => listeners.set(method, handler)
   };
 };
 
 const door = await startDoor();
-const BASE = `http://127.0.0.1:${DOOR_PORT}`;
+/* Именно `localhost`, а не `127.0.0.1`: витрина зовёт сервер так, и cookie должны совпасть. */
+const BASE = `http://localhost:${DOOR_PORT}`;
 
-const routes = routesFromDisk(APP_DIR).sort();
+const ROUTES_FILE = arg('routes', '');
+const routes = ROUTES_FILE
+  ? readFileSync(ROUTES_FILE, 'utf8').split('\n').filter(Boolean)
+  : routesFromDisk(APP_DIR).sort();
 console.log(`Страниц найдено: ${routes.length}. Роли: ${ROLES.join(', ')}. Дверь: ${BASE}`);
 
 const chrome = spawn(
@@ -219,7 +252,26 @@ for (let i = 0; i < 60; i += 1) {
 const targets = await (await fetch('http://127.0.0.1:9333/json/list')).json();
 const ws = new WebSocket(targets.find((t) => t.type === 'page').webSocketDebuggerUrl);
 await new Promise((r) => (ws.onopen = r));
-const { send, take } = cdp(ws);
+const { send, take, onEvent } = cdp(ws);
+if (CLICK) {
+  onEvent('Fetch.requestPaused', (params) => {
+    const method = params.request.method.toUpperCase();
+    /*
+     * Вход и обновление сессии — тоже POST, но без них обход просто не состоится: человек
+     * окажется на форме входа. Они пропускаются; всё остальное изменяющее — нет.
+     */
+    const isAuth = /\/auth\//.test(params.request.url);
+    if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS' || isAuth) {
+      void send('Fetch.continueRequest', { requestId: params.requestId });
+    } else {
+      /* Изменяющий запрос до сервера не доходит — ни одна запись не пострадает. */
+      void send('Fetch.failRequest', {
+        requestId: params.requestId,
+        errorReason: 'BlockedByClient'
+      });
+    }
+  });
+}
 await send('Runtime.enable');
 await send('Page.enable');
 await send('Network.enable');
@@ -252,7 +304,7 @@ for (const role of ROLES) {
     await send('Network.setCookie', {
       name: pair.slice(0, i).trim(),
       value: pair.slice(i + 1),
-      domain: '127.0.0.1',
+      domain: 'localhost',
       path: '/',
       url: BASE
     });
@@ -297,7 +349,70 @@ for (const role of ROLES) {
           )
       )
     ];
+    if (VERBOSE) {
+      console.log(`  · ${route} → ${shown.slice(0, 120)}`);
+      for (const e of events.filter((x) => x.method === 'Network.responseReceived'))
+        if (/api\//.test(e.params.response.url))
+          console.log(
+            `      ${e.params.response.status} ${e.params.response.url.replace(BASE, '')}`
+          );
+      const urls = new Map(
+        events
+          .filter((x) => x.method === 'Network.requestWillBeSent')
+          .map((x) => [x.params.requestId, String(x.params.request.url)])
+      );
+      for (const e of events.filter((x) => x.method === 'Network.loadingFailed').slice(0, 4))
+        console.log(`      НЕ ДОШЁЛ: ${e.params.errorText} ${urls.get(e.params.requestId) ?? ''}`);
+    }
     if (/Роль:/.test(shown)) sessionSeen = true;
+    if (CLICK) {
+      /*
+       * Перехват включается ТОЛЬКО на время нажатий и сразу выключается. Держать его весь
+       * прогон нельзя: под него попадает и вход, и обновление сессии — обход просто не
+       * состоится, а страницы окажутся на форме входа.
+       */
+      await send('Fetch.enable', { patterns: [{ urlPattern: `${BASE}/api/*` }] });
+      const found = await send('Runtime.evaluate', {
+        expression: `
+          Array.from(document.querySelectorAll('button:not([disabled])'))
+            .map((b) => (b.innerText || '').trim())
+            .filter((t) => t && !/выйти|выход/i.test(t))
+            .slice(0, ${MAX_BUTTONS})`,
+        returnByValue: true
+      });
+      for (const label of found.result?.value ?? []) {
+        take();
+        /* Перед каждым нажатием страница открывается заново: состояние чистое. */
+        await send('Page.navigate', { url: BASE + route });
+        await sleep(WAIT_MS);
+        await send('Runtime.evaluate', {
+          expression: `
+            (() => {
+              const button = Array.from(document.querySelectorAll('button:not([disabled])'))
+                .find((b) => (b.innerText || '').trim() === ${JSON.stringify(label)});
+              if (button) button.click();
+            })()`
+        });
+        await sleep(1500);
+        const clickErrors = [
+          ...new Set(
+            take()
+              .filter((e) => e.method === 'Runtime.exceptionThrown')
+              .map((e) =>
+                String(e.params.exceptionDetails?.exception?.description ?? '')
+                  .split('\n')[0]
+                  .slice(0, 150)
+              )
+          )
+        ];
+        if (clickErrors.length) {
+          bad += 1;
+          console.log(`  ✗ ${route} — нажатие «${label}»\n      падение: ${clickErrors[0]}`);
+        }
+      }
+      await send('Fetch.disable');
+    }
+
     if (errors.length || failed.length) {
       bad += 1;
       console.log(`  ✗ ${route}`);
