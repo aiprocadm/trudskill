@@ -48,19 +48,25 @@ const EXPORT_TYPE_LABELS: Record<string, string> = {
   courses: 'Курсы',
   groups: 'Учебные группы'
 };
-/** В журнале обмена состояние тоже приходит кодом. */
+/**
+ * В журнале сборки состояние тоже приходит кодом.
+ *
+ * Подписи говорят о том, что сделала НАША система, и ничего не приписывают ведомству:
+ * обмена с реестром здесь не происходит (журнал 387). Прежние «Принято» и «Ожидает ответа»
+ * описывали чужой поступок, которого не было.
+ */
 const LOG_STATUS_LABELS: Record<string, string> = {
-  ok: 'Принято',
-  success: 'Принято',
-  error: 'Отклонено',
-  failed: 'Отклонено',
-  pending: 'Ожидает ответа'
+  ok: 'Пакет собран',
+  success: 'Пакет собран',
+  error: 'Не собрался',
+  failed: 'Не собрался',
+  pending: 'Собирается'
 };
 
 const TASK_STATUS_LABELS: Record<string, string> = {
   queued: 'В очереди',
   running: 'Формируется',
-  completed: 'Готово',
+  completed: 'Пакет собран',
   failed: 'Ошибка',
   cancelled: 'Отменена'
 };
@@ -299,6 +305,23 @@ export const GovExportScreen = () => {
         subtitle="Государственные выгрузки: XML, валидация, история"
       />
       <SectionCard title="Мастер формирования пакета">
+        {/*
+          Пакет собирается ВНУТРИ системы и наружу не уходит: ни один адаптер провайдера не
+          умеет отправлять (журнал 387). Молчать об этом нельзя — экран показывает «Готово»
+          рядом с названием ведомства, и человек читает это как «Рособрнадзор принял».
+          Держит заметку сторож `export-delivery-is-honest`: появится живая отправка — он
+          потребует заметку снять.
+        */}
+        <p
+          role="note"
+          className="ui-callout ui-callout--warning"
+          style={{ margin: '0 0 12px' }}
+          data-testid="export-wizard-delivery-notice"
+        >
+          ⚠️ Пакет собирается внутри системы и в ведомство не отправляется — прямого обмена с
+          реестрами у продукта пока нет. Чтобы подать сведения, сформируйте файл в разделе нужного
+          реестра ниже и загрузите его в личном кабинете ведомства.
+        </p>
         <FilterBar>
           <select value={providerCode} onChange={(event) => setProviderCode(event.target.value)}>
             <option value="frdo">ФРДО</option>
@@ -354,22 +377,27 @@ export const GovExportScreen = () => {
           />
         ) : null}
       </SectionCard>
-      <SectionCard title="Журнал валидации и синхронизации">
+      {/* «Синхронизация» обещала обмен с ведомством, которого нет: журнал — о своей сборке. */}
+      <SectionCard title="Журнал сборки пакетов">
         {logs.loading ? <LoadingState message="Загрузка логов..." /> : null}
         {logs.error ? <SectionError message={logs.error} /> : null}
         {!logs.loading && !logs.error && !logs.data.length ? (
           <SectionEmpty
-            message="Логи отсутствуют"
-            hint="Здесь видно, что и когда ушло в реестр и как ведомство ответило."
+            message="Пакеты пока не собирали"
+            hint="Здесь видно, какие пакеты и когда собрала система. Подача в ведомство идёт файлом из раздела нужного реестра."
           />
         ) : null}
         {logs.data.length ? (
+          /*
+            Колонки «Что отправляли» и «Ответ сервиса» убраны: отправки нет, а код ответа
+            был внутренним и всегда равнялся 200 — сырой код как значение запрещён правилом
+            продукта и ничего человеку не сообщал.
+          */
           <DataTable
             columns={[
               { key: 'providerView', title: 'Реестр' },
-              { key: 'entityView', title: 'Что отправляли' },
-              { key: 'statusView', title: 'Итог' },
-              { key: 'statusCode', title: 'Ответ сервиса' }
+              { key: 'entityView', title: 'Что собирали' },
+              { key: 'statusView', title: 'Итог' }
             ]}
             rows={logs.data.map((log) => ({
               ...log,
