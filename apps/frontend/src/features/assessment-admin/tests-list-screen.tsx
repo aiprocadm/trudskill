@@ -45,19 +45,18 @@ export function TestsListScreen() {
     () => ({
       ...(q.trim() ? { q: q.trim() } : {}),
       ...(status ? { status } : {}),
+      ...(courseId ? { courseId } : {}),
       page,
       pageSize: PAGE_SIZE
     }),
-    [q, status, page]
+    [q, status, courseId, page]
   );
 
   const list = useTestsList(filters);
   const totalPages = list.data ? Math.max(1, Math.ceil(list.data.total / PAGE_SIZE)) : 1;
 
-  // Фильтр по курсу сервер не принимает — отбираем на месте, по уже полученной странице.
-  const items = (list.data?.items ?? []).filter(
-    (item: TestListItem) => !courseId || item.courseId === courseId
-  );
+  /* Отбор по курсу делает сервер — см. пояснение в списке банков вопросов (журнал 389). */
+  const items: TestListItem[] = list.data?.items ?? [];
 
   const rows: TestRow[] = items.map((test) => ({
     id: test.id,
@@ -96,7 +95,14 @@ export function TestsListScreen() {
                 setPage(1);
               }}
             />
-            <CourseSelect value={courseId} onChange={setCourseId} label="Курс" />
+            <CourseSelect
+              value={courseId}
+              onChange={(value) => {
+                setCourseId(value);
+                setPage(1);
+              }}
+              label="Курс"
+            />
             <label className="ui-field">
               <span className="ui-field-label">Статус</span>
               <select

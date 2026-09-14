@@ -34,6 +34,13 @@ export interface BaseFilterQuery {
   sort?: string;
   q?: string;
   status?: string;
+  /**
+   * Вид записи: у вопроса банка — «один из списка», «свободный ответ» и т. д.
+   *
+   * Отбор по нему давно предлагался человеку на двух экранах и уходил в адрес запроса, а
+   * читать его было некому: список возвращался целиком (журнал 390).
+   */
+  type?: string;
   created_from?: string;
   created_to?: string;
   /** ISO: зачисления с enrolled_at >= from (KPI и отчёты). */

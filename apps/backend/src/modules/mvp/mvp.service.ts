@@ -6519,6 +6519,11 @@ export class MvpService {
     if (query.status) {
       items = items.filter((item) => item.status === query.status);
     }
+    if (query.type) {
+      items = items.filter(
+        (item) => String((item as Record<string, unknown>).type ?? '') === query.type
+      );
+    }
     if (query.group_id) {
       items = items.filter(
         (item) => String((item as Record<string, unknown>).groupId ?? '') === query.group_id

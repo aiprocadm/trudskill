@@ -102,12 +102,18 @@ describe('assessmentAdminApi envelope compatibility (Phase 3 Plan A Task 8)', ()
     fetchMock.mockResolvedValueOnce(
       new Response(envelope({ items: [], total: 0, page: 1, pageSize: 20 }), { status: 200 })
     );
-    await api.questions.listForBank(session, 'qb_1', { type: 'essay', tag: 'safety' });
+    await api.questions.listForBank(session, 'qb_1', { type: 'essay' });
     const [u] = fetchMock.mock.calls[0] as [string, RequestInit];
     const url = new URL(u);
     expect(url.pathname).toMatch(/\/question-banks\/qb_1\/questions$/);
     expect(url.searchParams.get('type')).toBe('essay');
-    expect(url.searchParams.get('tag')).toBe('safety');
+    /*
+     * Отбор по метке убран, а не «временно отключён» (журнал 390): его не задавал ни один
+     * экран и не читал сервер. Проверка того, что мёртвый параметр исправно уходит в адрес,
+     * подтверждала работу того, чего нет, — и создавала впечатление, что отбор по меткам в
+     * продукте есть.
+     */
+    expect(url.searchParams.get('tag')).toBeNull();
   });
 
   it('questions.create — POST /questions with type-aware payload', async () => {

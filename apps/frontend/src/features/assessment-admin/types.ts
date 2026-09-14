@@ -75,7 +75,6 @@ export interface QuestionListItem {
 
 export interface QuestionsForBankFilters {
   type?: QuestionType;
-  tag?: string;
   q?: string;
   page?: number;
   pageSize?: number;
