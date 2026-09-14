@@ -11,24 +11,28 @@ trudskill (прежнее имя — CDOProf) — LMS/СДО platform for regula
 When docs disagree, follow the order in [docs/DOCUMENTATION_MAP.md](docs/DOCUMENTATION_MAP.md):
 
 1. Customer-signed protocol (e.g. ТЗ §47 Appendix Б).
-2. [TZ_TRUDSKILL_BASE.md](TZ_TRUDSKILL_BASE.md) — product spec / §39 acceptance criteria / §41 backlog. **Поверх него — два действующих дельта-ТЗ, разделённых по предмету:**
-   - **Поведение, функции, права** — [TZ_TRUDSKILL_ARENDNAYA_SDO.md](TZ_TRUDSKILL_ARENDNAYA_SDO.md) (эпики A–I, ФТ-\*, фазы 0–6; в рамках его эпиков при конфликте деталей приоритет у него). Статус — [docs/TZ_ARENDNAYA_SDO_STATUS.md](docs/TZ_ARENDNAYA_SDO_STATUS.md).
-   - **Представление (интерфейс)** — [docs/TZ_UI_REDESIGN_TRUDSKILL.md](docs/TZ_UI_REDESIGN_TRUDSKILL.md) (ИА, визуальный язык, компоненты, тексты интерфейса, ребрендинг UI; требования `IA-*`/`UI-*`/`CMP-*`/`TPL-*`/`TXT-*`/`A11Y-*`/`BR-*`, фазы 0–8; по вопросам представления приоритет у него). Статус — [docs/TZ_UI_REDESIGN_STATUS.md](docs/TZ_UI_REDESIGN_STATUS.md).
+2. [TZ_TRUDSKILL_BASE.md](TZ_TRUDSKILL_BASE.md) — product spec / §39 acceptance criteria / §41 backlog. **Поверх него — три действующих дельта-ТЗ, разделённых по предмету:**
+   - **Что делать дальше** — [TZ_TRUDSKILL_STABILIZATION_UX.md](TZ_TRUDSKILL_STABILIZATION_UX.md) (стабилизация, блокеры, UX и развитие; фазы 1–18, решения Р1–Р19, чек-лист приёмки 1–26). **Единственный документ с незакрытыми задачами — активный фронт работ.** Статус — [docs/TZ_STABILIZATION_UX_STATUS.md](docs/TZ_STABILIZATION_UX_STATUS.md).
+   - **Как это должно себя вести** — [TZ_TRUDSKILL_ARENDNAYA_SDO.md](TZ_TRUDSKILL_ARENDNAYA_SDO.md) (эпики A–I, ФТ-\*, фазы 0–6; в рамках его эпиков при конфликте деталей приоритет у него). Требования закрыты, остаётся каноном. Статус — [docs/TZ_ARENDNAYA_SDO_STATUS.md](docs/TZ_ARENDNAYA_SDO_STATUS.md).
+   - **Как это должно выглядеть** — [docs/TZ_UI_REDESIGN_TRUDSKILL.md](docs/TZ_UI_REDESIGN_TRUDSKILL.md) (ИА, визуальный язык, компоненты, тексты интерфейса, ребрендинг UI; требования `IA-*`/`UI-*`/`CMP-*`/`TPL-*`/`TXT-*`/`A11Y-*`/`BR-*`, фазы 0–8; по вопросам представления приоритет у него). Требования закрыты (94 из 94), остаётся каноном. Статус — [docs/TZ_UI_REDESIGN_STATUS.md](docs/TZ_UI_REDESIGN_STATUS.md).
 3. Code + tests; described in [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §5.\* (sequentially numbered, currently up to §5.166) and [docs/TZ_MVP_TRACEABILITY.md](docs/TZ_MVP_TRACEABILITY.md) (BL → file paths).
 4. [README.md](README.md) §2 «AI Agent State» — operational snapshot.
 
 ### «Продолжай по ТЗ» — что делать
 
-**Шаг 0. Определить, о каком из двух ТЗ речь** (полное правило — [DOCUMENTATION_MAP.md#tz-routing](docs/DOCUMENTATION_MAP.md#tz-routing)):
+**Шаг 0. Куда идти** (полное правило — [DOCUMENTATION_MAP.md#tz-routing](docs/DOCUMENTATION_MAP.md#tz-routing)):
 
-- сказано «по интерфейсу / по редизайну / по UI / по дизайну» **или** задача про экран, меню, вёрстку, компонент, цвет, тексты интерфейса, ребрендинг UI → **ТЗ редизайна**;
-- сказано «по аренде / по функциям / по эксплуатации» **или** задача про ручку API, право, миграцию, очередь, интеграцию, документ → **ТЗ «Арендная СДО»**;
-- **сказано без уточнения и без задачи** → прочитать оба трекера и одним коротким сообщением показать владельцу текущую точку каждого, спросив, какой продолжать. **Не выбирать молча.**
+- **без уточнения** (или «по стабилизации / по ревью / по UX / по блокерам») → [docs/TZ_STABILIZATION_UX_STATUS.md](docs/TZ_STABILIZATION_UX_STATUS.md), взять **первую незакрытую позицию очереди выполнения**. Владельца ни о чём не спрашивать: очередь работ есть только в этом ТЗ;
+- сказано «по интерфейсу / по редизайну / по UI / по дизайну» → **ТЗ редизайна**; сказано «по аренде / по функциям / по правам» → **ТЗ «Арендная СДО»**. Оба закрыты по требованиям, поэтому чаще всего они не очередь, а **канон формы и поведения** для текущей задачи нового ТЗ;
+- **задача названа** → задача важнее очереди: найти её в трекере нового ТЗ, форму взять из редизайна, поведение — из «Арендной СДО»;
+- **незакрытых задач нет ни в одном трекере и журнал расхождений пуст** → [**режим ревизии**](docs/AUDIT_MODE.md): взять непройденный класс сверки из реестра, искать дефекты кода, находки писать в журнал расхождений. **Не спрашивать «чем заняться» и не придумывать функциональность.**
 
 **Шаг 1. Порядок чтения:**
-README §2 → LMS_AGENT_HANDOFF §1 (date/branch) + §5 (recent work) + §13 (Known Issues) → **статус-трекер выбранного ТЗ** (текущая фаза; что сделано / частично / не начато / переделать; открытые вопросы и решения владельца, блокирующие фазу) → дорожная карта фаз в самом ТЗ → TZ_TRUDSKILL_BASE §41 ↔ TZ_MVP_TRACEABILITY (детальные требования).
+README §2 → LMS_AGENT_HANDOFF §1 (date/branch) + §5 (recent work) + §13 (Known Issues) → **статус-трекер выбранного ТЗ** (текущая фаза; что сделано / частично / требует сверки / не начато / переделать; решения владельца, блокирующие фазу) → дорожная карта фаз в самом ТЗ → TZ_TRUDSKILL_BASE §41 ↔ TZ_MVP_TRACEABILITY (детальные требования).
 
-Rules for TZ phases (одинаковы для обоих ТЗ): перед фазой — план в `docs/superpowers/plans/` + апрув владельца; URL/RBAC/контракты `packages/api-contracts` не ломать; миграции только аддитивные; фаза = один PR = один обратимый шаг, ≤30 файлов; фаза заканчивается зелёным `pnpm ci:check`, обновлением handoff и статусов в трекере своего ТЗ.
+Rules for TZ phases (одинаковы для всех трёх): перед фазой — план в `docs/superpowers/plans/` + апрув владельца; URL/RBAC/контракты `packages/api-contracts` не ломать; миграции только аддитивные; фаза = один PR = один обратимый шаг, ≤30 файлов; фаза заканчивается зелёным `pnpm ci:check`, обновлением handoff и статусов в трекере своего ТЗ. **`ia-architecture.e2e.test.ts` — жёсткий инвариант всех трёх ТЗ:** конфликт требования с ним — остановиться и спросить, тест под себя не править.
+
+Специфика ТЗ стабилизации: решения **Р1–Р19 закрыты и не переоткрываются** — при невыполнимости описать препятствие и предложить замену, а не спрашивать «как вы хотите». Всё, что выглядит как число (срок, порог, лимит, число попыток), реализуется настройкой со значением по умолчанию, а не константой. Первая работа по этому ТЗ — **обязательный аудит 0.1**, без него задачи Н3, Н4, Я3, Э6 делать запрещено.
 
 Специфика ТЗ редизайна: у него **шесть развилок с принятым решением по умолчанию** — они work **не блокируют**, действовать по умолчанию, пока владелец не сказал иначе. Шесть мест, где редизайн меняет поведение, а не только вид (§4.9), требуют предупреждения владельца перед реализацией.
 
@@ -234,7 +238,7 @@ Per [docs/DOCUMENTATION_MAP.md §agent-handoff-protocol](docs/DOCUMENTATION_MAP.
 
 1. Update [README.md](README.md) §2 «AI Agent State»: Current Stage / Last Completed Task / Current Task / Next Task / Last Updated At / By.
 2. Append a `### 5.XX` entry to [LMS_AGENT_HANDOFF.md](LMS_AGENT_HANDOFF.md) §5 with: summary, files changed, test status, deviations. **Номер брать из файла, а не из этой строки и не из README** — оба отстают (на 2026-08-11 handoff дошёл до §5.258, а README называл текущим §5.253).
-3. Update the status tracker of the ТЗ you worked on: [TZ_ARENDNAYA_SDO_STATUS.md](docs/TZ_ARENDNAYA_SDO_STATUS.md) (поведение) или [TZ_UI_REDESIGN_STATUS.md](docs/TZ_UI_REDESIGN_STATUS.md) (интерфейс) — статусы требований + журнал сессий.
+3. Update the status tracker of the ТЗ you worked on: [TZ_STABILIZATION_UX_STATUS.md](docs/TZ_STABILIZATION_UX_STATUS.md) (активный фронт: статусы задач + очередь + чек-лист приёмки), [TZ_ARENDNAYA_SDO_STATUS.md](docs/TZ_ARENDNAYA_SDO_STATUS.md) (поведение) или [TZ_UI_REDESIGN_STATUS.md](docs/TZ_UI_REDESIGN_STATUS.md) (интерфейс) — статусы требований + журнал сессий. Если сессия шла в [режиме ревизии](docs/AUDIT_MODE.md) — дописать строку в реестр прогнанных классов, даже если результат «чисто».
 4. **Записать в журнал расхождений** ([TZ_UI_REDESIGN_STATUS.md](docs/TZ_UI_REDESIGN_STATUS.md)) всё, что сверка выявила по ходу, — включая исправленное в этой же сессии.
 5. If working from a plan in `docs/superpowers/plans/`, cross-link the plan from the handoff entry and tick off completed checkboxes in the plan file.
 6. If you spawned new follow-up work (e.g. via `mcp__ccd_session__spawn_task`), mention it so the next agent doesn't duplicate it.
