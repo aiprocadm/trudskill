@@ -35,29 +35,33 @@ export function QuestionBanksListScreen() {
     () => ({
       ...(q.trim() ? { q: q.trim() } : {}),
       ...(status ? { status } : {}),
+      ...(courseId ? { courseId } : {}),
       page,
       pageSize: PAGE_SIZE
     }),
-    [q, status, page]
+    [q, status, courseId, page]
   );
 
   const list = useQuestionBanksList(filters);
   const totalPages = list.data ? Math.max(1, Math.ceil(list.data.total / PAGE_SIZE)) : 1;
 
-  // Фильтр по курсу сервер не принимает — отбираем на месте, по уже полученной странице.
-  const rows: BankRow[] = (list.data?.items ?? [])
-    .filter((item) => !courseId || item.courseId === courseId)
-    .map((item) => ({
-      id: item.id,
-      codeView: item.code ?? '—',
-      titleView: (
-        <Link className="ui-link" href={`/admin/question-banks/${item.id}`}>
-          {item.title}
-        </Link>
-      ),
-      courseView: courseNameCell(courseNames, item.courseId),
-      statusView: <StatusChip status={item.status} label={formatEntityStatus(item.status)} />
-    }));
+  /*
+   * Отбор по курсу делает СЕРВЕР. Здесь стоял отбор на месте с объяснением «сервер не
+   * принимает» — неправда: `course_id` есть в `BaseFilterQuery` с самого начала. Отбор по
+   * уже полученной странице показывал совпадения только среди двадцати строк, а счётчик
+   * страниц считался от общего числа БЕЗ отбора (журнал 389).
+   */
+  const rows: BankRow[] = (list.data?.items ?? []).map((item) => ({
+    id: item.id,
+    codeView: item.code ?? '—',
+    titleView: (
+      <Link className="ui-link" href={`/admin/question-banks/${item.id}`}>
+        {item.title}
+      </Link>
+    ),
+    courseView: courseNameCell(courseNames, item.courseId),
+    statusView: <StatusChip status={item.status} label={formatEntityStatus(item.status)} />
+  }));
 
   return (
     <PageContainer>
@@ -84,7 +88,14 @@ export function QuestionBanksListScreen() {
                 setPage(1);
               }}
             />
-            <CourseSelect value={courseId} onChange={setCourseId} label="Курс" />
+            <CourseSelect
+              value={courseId}
+              onChange={(value) => {
+                setCourseId(value);
+                setPage(1);
+              }}
+              label="Курс"
+            />
             <label className="ui-field">
               <span className="ui-field-label">Статус</span>
               <select

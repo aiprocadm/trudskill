@@ -36,30 +36,29 @@ export function AssignmentsListScreen() {
     () => ({
       ...(q.trim() ? { q: q.trim() } : {}),
       ...(status ? { status } : {}),
+      ...(courseId ? { courseId } : {}),
       page,
       pageSize: PAGE_SIZE
     }),
-    [q, status, page]
+    [q, status, courseId, page]
   );
 
   const list = useAssignmentsList(filters);
   const totalPages = list.data ? Math.max(1, Math.ceil(list.data.total / PAGE_SIZE)) : 1;
 
-  // Фильтр по курсу сервер не принимает — отбираем на месте, по уже полученной странице.
-  const rows: AssignmentRow[] = (list.data?.items ?? [])
-    .filter((item) => !courseId || item.courseId === courseId)
-    .map((item) => ({
-      id: item.id,
-      titleView: (
-        <Link className="ui-link" href={`/admin/assignments/${item.id}`}>
-          {item.title}
-        </Link>
-      ),
-      courseView: courseNameCell(courseNames, item.courseId),
-      maxScoreView: `${item.maxScore}`,
-      reviewView: item.isReviewRequired ? 'Проверяет преподаватель' : 'Проверяется автоматически',
-      statusView: <StatusChip status={item.status} label={formatEntityStatus(item.status)} />
-    }));
+  /* Отбор по курсу делает сервер — см. пояснение в списке банков вопросов (журнал 389). */
+  const rows: AssignmentRow[] = (list.data?.items ?? []).map((item) => ({
+    id: item.id,
+    titleView: (
+      <Link className="ui-link" href={`/admin/assignments/${item.id}`}>
+        {item.title}
+      </Link>
+    ),
+    courseView: courseNameCell(courseNames, item.courseId),
+    maxScoreView: `${item.maxScore}`,
+    reviewView: item.isReviewRequired ? 'Проверяет преподаватель' : 'Проверяется автоматически',
+    statusView: <StatusChip status={item.status} label={formatEntityStatus(item.status)} />
+  }));
 
   return (
     <PageContainer>
@@ -86,7 +85,14 @@ export function AssignmentsListScreen() {
                 setPage(1);
               }}
             />
-            <CourseSelect value={courseId} onChange={setCourseId} label="Курс" />
+            <CourseSelect
+              value={courseId}
+              onChange={(value) => {
+                setCourseId(value);
+                setPage(1);
+              }}
+              label="Курс"
+            />
             <label className="ui-field">
               <span className="ui-field-label">Статус</span>
               <select

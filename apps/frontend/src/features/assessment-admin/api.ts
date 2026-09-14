@@ -52,7 +52,7 @@ export const assessmentAdminApi = {
         `/question-banks${qs({
           q: filters.q,
           status: filters.status,
-          courseId: filters.courseId,
+          course_id: filters.courseId,
           page: filters.page,
           page_size: filters.pageSize
         })}`,
@@ -99,7 +99,6 @@ export const assessmentAdminApi = {
       apiRequest<PaginatedListResponse<QuestionListItem>>(
         `/question-banks/${bankId}/questions${qs({
           type: filters.type,
-          tag: filters.tag,
           q: filters.q,
           page: filters.page,
           page_size: filters.pageSize
@@ -138,12 +137,13 @@ export const assessmentAdminApi = {
   tests: {
     list: (
       session: UserSession,
-      filters: { q?: string; status?: string; page?: number; pageSize?: number }
+      filters: { q?: string; status?: string; courseId?: string; page?: number; pageSize?: number }
     ): Promise<PaginatedListResponse<TestListItem>> =>
       apiRequest<PaginatedListResponse<TestListItem>>(
         `/tests${qs({
           q: filters.q,
           status: filters.status,
+          course_id: filters.courseId,
           page: filters.page,
           page_size: filters.pageSize
         })}`,
@@ -220,7 +220,7 @@ export const assessmentAdminApi = {
         `/assignments${qs({
           q: filters.q,
           status: filters.status,
-          courseId: filters.courseId,
+          course_id: filters.courseId,
           page: filters.page,
           page_size: filters.pageSize
         })}`,
