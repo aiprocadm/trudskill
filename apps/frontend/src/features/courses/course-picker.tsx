@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo } from 'react';
+import { DirectorySelect } from '@trudskill/ui';
+import { useMemo, useState } from 'react';
 
 import { useCoursesList } from '../mvp/hooks';
 
@@ -17,7 +18,7 @@ import type { ReactElement } from 'react';
  * курсов из монолита в волне 3.
  */
 
-const PAGE = { page: 1, page_size: 100 };
+const PAGE = { page: 1, page_size: 200 };
 
 /** Идентификатор → название. Нужен таблицам, которые получают от сервера только идентификатор. */
 export const useCourseNames = (): Map<string, string> => {
@@ -50,32 +51,34 @@ export const CourseSelect = ({
   required?: boolean;
   hint?: string;
 }): ReactElement => {
-  const { data, loading } = useCoursesList(PAGE);
+  const [query, setQuery] = useState('');
+  const { data, loading } = useCoursesList({
+    ...PAGE,
+    ...(query.trim() ? { q: query.trim() } : {})
+  });
   const courses = data?.items ?? [];
+  const names = useCourseNames();
 
+  /*
+   * Поиск идёт на СЕРВЕРЕ, а подсказка называет оба числа: список отдаёт страницу, и без
+   * этого центру с тремя сотнями курсов список молча врал бы (журнал 392).
+   */
   return (
-    <label className="ui-field">
-      <span className="ui-field-label">{label}</span>
-      <select
-        className="ui-select"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        required={required}
-        disabled={loading}
-      >
-        <option value="">{loading ? 'Загружаем курсы…' : '— выберите курс —'}</option>
-        {courses.map((course) => (
-          <option key={course.id} value={course.id}>
-            {course.title}
-          </option>
-        ))}
-      </select>
-      {hint ? <p className="ui-field-hint">{hint}</p> : null}
-      {!loading && courses.length === 0 ? (
-        <p className="ui-field-hint">
-          Курсов пока нет — сначала заведите курс в разделе «Программы обучения».
-        </p>
-      ) : null}
-    </label>
+    <DirectorySelect
+      label={label}
+      value={value}
+      onChange={onChange}
+      options={courses.map((course) => ({ value: course.id, label: course.title }))}
+      {...(data ? { total: data.total } : {})}
+      query={query}
+      onQueryChange={setQuery}
+      isLoading={loading}
+      emptyLabel="— выберите курс —"
+      emptyHint={hint ?? 'Курсов пока нет — сначала заведите курс в разделе «Программы обучения».'}
+      {...(names.get(value) ? { selectedLabel: names.get(value)! } : {})}
+      searchLabel="Поиск курса"
+      searchPlaceholder="Название курса"
+      required={required}
+    />
   );
 };

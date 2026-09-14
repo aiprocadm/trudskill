@@ -1,5 +1,8 @@
 'use client';
 
+import { DirectorySelect } from '@trudskill/ui';
+import { useState } from 'react';
+
 import { useClientsList, useSetGroupCounterparty } from './hooks';
 
 /**
@@ -29,7 +32,16 @@ export function GroupCounterpartyPicker({
   currentCounterpartyId,
   onChanged
 }: GroupCounterpartyPickerProps) {
-  const list = useClientsList({ pageSize: 1000 });
+  const [query, setQuery] = useState('');
+  /*
+   * Двести — настоящий потолок запроса с проволоки (журнал 277). Здесь стояла тысяча:
+   * число, которого не будет, — сервер молча отдавал бы двести. Остальное добирается
+   * поиском на сервере, и список честно говорит, сколько показано из скольких (журнал 392).
+   */
+  const list = useClientsList({
+    pageSize: 200,
+    ...(query.trim() ? { q: query.trim() } : {})
+  });
   const mutation = useSetGroupCounterparty();
 
   const handleChange = async (next: string) => {
@@ -40,21 +52,20 @@ export function GroupCounterpartyPicker({
 
   return (
     <div className="ui-field">
-      <span className="ui-field-label">Компания-заказчик</span>
-      <select
-        className="ui-select"
+      <DirectorySelect
+        label="Компания-заказчик"
         value={currentCounterpartyId ?? ''}
-        onChange={(e) => void handleChange(e.target.value)}
-        disabled={mutation.isPending || list.isLoading}
-        aria-label="Компания-заказчик"
-      >
-        <option value="">— не привязана —</option>
-        {list.data?.items.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
-        ))}
-      </select>
+        onChange={(next) => void handleChange(next)}
+        options={(list.data?.items ?? []).map((c) => ({ value: c.id, label: c.name }))}
+        {...(list.data ? { total: list.data.total } : {})}
+        query={query}
+        onQueryChange={setQuery}
+        isLoading={mutation.isPending || list.isLoading}
+        emptyLabel="— не привязана —"
+        emptyHint="Компаний пока нет — заведите компанию в разделе «Компании»."
+        searchLabel="Поиск компании"
+        searchPlaceholder="Название компании"
+      />
       {mutation.error ? (
         <div role="alert" className="ui-error">
           {mutation.error}

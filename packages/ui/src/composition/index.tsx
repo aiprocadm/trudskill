@@ -5,5 +5,6 @@ export * from './settings-layout.js';
 export * from './list-page.js';
 export * from './form.js';
 export * from './select-field.js';
+export * from './directory-select.js';
 export * from './page-shell.js';
 export * from './below-fold.js';

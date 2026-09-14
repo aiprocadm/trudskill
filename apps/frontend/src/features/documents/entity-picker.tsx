@@ -1,7 +1,9 @@
 'use client';
 
-import { useLearnersList } from '../learners/hooks';
-import { useCoursesList, useEnrollments, useGroupsList } from '../mvp/hooks';
+import { CourseSelect } from '../courses/course-picker';
+import { GroupSelect } from '../groups/group-picker';
+import { LearnerSelect, useLearnerNames } from '../learners/learner-picker';
+import { useEnrollments } from '../mvp/hooks';
 
 import type { ReactElement } from 'react';
 
@@ -20,8 +22,6 @@ export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
   enrollment: 'Зачисление слушателя'
 };
 
-const PAGE = { page: 1, page_size: 100 };
-
 export const EntityPicker = ({
   entityType,
   value,
@@ -36,86 +36,45 @@ export const EntityPicker = ({
   groupId: string;
   onGroupIdChange: (id: string) => void;
 }): ReactElement => {
-  const courses = useCoursesList(PAGE);
-  const groups = useGroupsList(PAGE);
-  const learners = useLearnersList({ page: 1, pageSize: 100 });
   const enrollments = useEnrollments(groupId ? { group_id: groupId } : { page: 1, page_size: 1 });
+  const learnerName = useLearnerNames();
 
-  const learnerName = new Map(
-    (learners.data?.items ?? []).map((item) => [
-      item.id,
-      `${item.lastName} ${item.firstName}`.trim()
-    ])
-  );
-
+  /*
+   * Три ветви рисовали свои списки поверх одной страницы справочника — и повторяли то,
+   * что уже умеют общие выборщики. Теперь берутся они: поиск на сервере и честные числа
+   * достаются даром, а дублирования нет (журнал 392).
+   */
   if (entityType === 'course') {
-    return (
-      <label className="ui-field">
-        <span className="ui-field-label">Курс</span>
-        <select value={value} onChange={(e) => onChange(e.target.value)}>
-          <option value="">— выберите курс —</option>
-          {(courses.data?.items ?? []).map((course) => (
-            <option key={course.id} value={course.id}>
-              {course.title}
-            </option>
-          ))}
-        </select>
-      </label>
-    );
+    return <CourseSelect value={value} onChange={onChange} label="Курс" />;
   }
 
   if (entityType === 'group') {
     return (
-      <label className="ui-field">
-        <span className="ui-field-label">Учебная группа</span>
-        <select value={value} onChange={(e) => onChange(e.target.value)}>
-          <option value="">— выберите группу —</option>
-          {(groups.data?.items ?? []).map((group) => (
-            <option key={group.id} value={group.id}>
-              {group.name} ({group.code})
-            </option>
-          ))}
-        </select>
-      </label>
+      <GroupSelect
+        value={value}
+        onChange={onChange}
+        label="Учебная группа"
+        emptyLabel="— выберите группу —"
+      />
     );
   }
 
   if (entityType === 'learner') {
-    return (
-      <label className="ui-field">
-        <span className="ui-field-label">Слушатель</span>
-        <select value={value} onChange={(e) => onChange(e.target.value)}>
-          <option value="">— выберите слушателя —</option>
-          {(learners.data?.items ?? []).map((item) => (
-            <option key={item.id} value={item.id}>
-              {`${item.lastName} ${item.firstName}`.trim()}
-            </option>
-          ))}
-        </select>
-      </label>
-    );
+    return <LearnerSelect value={value} onChange={onChange} label="Слушатель" />;
   }
 
   // Зачисление: их слишком много, чтобы показывать списком целиком, — сначала группа.
   return (
     <>
-      <label className="ui-field">
-        <span className="ui-field-label">Группа</span>
-        <select
-          value={groupId}
-          onChange={(e) => {
-            onGroupIdChange(e.target.value);
-            onChange('');
-          }}
-        >
-          <option value="">— выберите группу —</option>
-          {(groups.data?.items ?? []).map((group) => (
-            <option key={group.id} value={group.id}>
-              {group.name} ({group.code})
-            </option>
-          ))}
-        </select>
-      </label>
+      <GroupSelect
+        value={groupId}
+        onChange={(next) => {
+          onGroupIdChange(next);
+          onChange('');
+        }}
+        label="Группа"
+        emptyLabel="— выберите группу —"
+      />
       <label className="ui-field">
         <span className="ui-field-label">Слушатель в группе</span>
         <select value={value} onChange={(e) => onChange(e.target.value)} disabled={!groupId}>

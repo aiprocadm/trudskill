@@ -1,10 +1,20 @@
 'use client';
 
-import { useMemo } from 'react';
+import { DirectorySelect } from '@trudskill/ui';
+import { useMemo, useState } from 'react';
 
 import { useLearnersList } from './hooks';
 
 import type { ReactElement } from 'react';
+
+/**
+ * Сколько записей справочника просить у сервера за раз.
+ *
+ * Двести — НАСТОЯЩИЙ потолок запроса с проволоки (журнал 277: без потолка один запрос
+ * отдавал всю таблицу слушателей со СНИЛС). Просить больше значит писать число, которого
+ * не будет: обрежется молча. Остальное добирается поиском.
+ */
+export const LOOKUP_PAGE_SIZE = 200;
 
 /*
  * Выбор слушателя по фамилии.
@@ -52,6 +62,13 @@ export const learnerNameCell = (names: Map<string, string>, learnerId?: string):
   return names.get(learnerId) ?? 'слушатель не найден';
 };
 
+/**
+ * Выбор слушателя с поиском НА СЕРВЕРЕ.
+ *
+ * Раньше здесь был обычный список поверх первой сотни: в центре со ста одним слушателем
+ * последний не выбирался никогда, и понять почему было нельзя (журнал 392). Теперь строка
+ * поиска уходит на сервер, а подсказка честно называет, сколько показано из скольких.
+ */
 export const LearnerSelect = ({
   value,
   onChange,
@@ -65,31 +82,34 @@ export const LearnerSelect = ({
   emptyLabel?: string;
   required?: boolean;
 }): ReactElement => {
-  const { data, isLoading } = useLearnersList({ page: 1, pageSize: 100 });
+  const [query, setQuery] = useState('');
+  const { data, isLoading } = useLearnersList({
+    page: 1,
+    pageSize: LOOKUP_PAGE_SIZE,
+    ...(query.trim() ? { q: query.trim() } : {})
+  });
   const learners = data?.items ?? [];
+  const names = useLearnerNames();
 
   return (
-    <label className="ui-field">
-      <span className="ui-field-label">{label}</span>
-      <select
-        className="ui-select"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        required={required}
-        disabled={isLoading}
-      >
-        <option value="">{isLoading ? 'Загружаем слушателей…' : emptyLabel}</option>
-        {learners.map((item) => (
-          <option key={item.id} value={item.id}>
-            {`${item.lastName} ${item.firstName}`.trim()}
-          </option>
-        ))}
-      </select>
-      {!isLoading && learners.length === 0 ? (
-        <p className="ui-field-hint">
-          Слушателей пока нет — сначала заведите их в разделе «Слушатели».
-        </p>
-      ) : null}
-    </label>
+    <DirectorySelect
+      label={label}
+      value={value}
+      onChange={onChange}
+      options={learners.map((item) => ({
+        value: item.id,
+        label: `${item.lastName} ${item.firstName}`.trim()
+      }))}
+      {...(data ? { total: data.total } : {})}
+      query={query}
+      onQueryChange={setQuery}
+      isLoading={isLoading}
+      emptyLabel={emptyLabel}
+      emptyHint="Слушателей пока нет — сначала заведите их в разделе «Слушатели»."
+      {...(names.get(value) ? { selectedLabel: names.get(value)! } : {})}
+      searchLabel="Поиск слушателя"
+      searchPlaceholder="Фамилия или имя"
+      required={required}
+    />
   );
 };
