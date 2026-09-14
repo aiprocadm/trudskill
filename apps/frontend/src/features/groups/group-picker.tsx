@@ -1,5 +1,8 @@
 'use client';
 
+import { DirectorySelect } from '@trudskill/ui';
+import { useState } from 'react';
+
 import { useCounterpartiesList, useGroupsList } from '../mvp/hooks';
 
 import type { ReactElement } from 'react';
@@ -12,7 +15,7 @@ import type { ReactElement } from 'react';
  * и вставить его руками. Парный к `features/courses/course-picker.tsx`.
  */
 
-const PAGE = { page: 1, page_size: 100 };
+const PAGE = { page: 1, page_size: 200 };
 
 export const GroupSelect = ({
   value,
@@ -25,24 +28,31 @@ export const GroupSelect = ({
   label?: string;
   emptyLabel?: string;
 }): ReactElement => {
-  const { data, loading } = useGroupsList(PAGE);
+  const [query, setQuery] = useState('');
+  const { data, loading } = useGroupsList({
+    ...PAGE,
+    ...(query.trim() ? { q: query.trim() } : {})
+  });
+  const options = (data?.items ?? []).map((group) => ({
+    value: group.id,
+    label: `${group.name} (${group.code})`
+  }));
+  /* Поиск на сервере и честные числа — см. `DirectorySelect` (журнал 392). */
   return (
-    <label className="ui-field">
-      <span className="ui-field-label">{label}</span>
-      <select
-        className="ui-select"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        disabled={loading}
-      >
-        <option value="">{loading ? 'Загружаем группы…' : emptyLabel}</option>
-        {(data?.items ?? []).map((group) => (
-          <option key={group.id} value={group.id}>
-            {group.name} ({group.code})
-          </option>
-        ))}
-      </select>
-    </label>
+    <DirectorySelect
+      label={label}
+      value={value}
+      onChange={onChange}
+      options={options}
+      {...(data ? { total: data.total } : {})}
+      query={query}
+      onQueryChange={setQuery}
+      isLoading={loading}
+      emptyLabel={emptyLabel}
+      emptyHint="Учебных групп пока нет — заведите группу в разделе «Группы»."
+      searchLabel="Поиск группы"
+      searchPlaceholder="Название или код группы"
+    />
   );
 };
 
@@ -62,23 +72,25 @@ export const ClientSelect = ({
   label?: string;
   emptyLabel?: string;
 }): ReactElement => {
-  const { data, loading } = useCounterpartiesList(PAGE);
+  const [query, setQuery] = useState('');
+  const { data, loading } = useCounterpartiesList({
+    ...PAGE,
+    ...(query.trim() ? { q: query.trim() } : {})
+  });
   return (
-    <label className="ui-field">
-      <span className="ui-field-label">{label}</span>
-      <select
-        className="ui-select"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        disabled={loading}
-      >
-        <option value="">{loading ? 'Загружаем заказчиков…' : emptyLabel}</option>
-        {(data?.items ?? []).map((item) => (
-          <option key={item.id} value={item.id}>
-            {item.name}
-          </option>
-        ))}
-      </select>
-    </label>
+    <DirectorySelect
+      label={label}
+      value={value}
+      onChange={onChange}
+      options={(data?.items ?? []).map((item) => ({ value: item.id, label: item.name }))}
+      {...(data ? { total: data.total } : {})}
+      query={query}
+      onQueryChange={setQuery}
+      isLoading={loading}
+      emptyLabel={emptyLabel}
+      emptyHint="Компаний пока нет — заведите компанию в разделе «Компании»."
+      searchLabel="Поиск компании"
+      searchPlaceholder="Название компании"
+    />
   );
 };
