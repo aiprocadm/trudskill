@@ -253,6 +253,20 @@ export const backendEnvSchema = z
       .transform((v) => v === true || v === 'true')
       .default(true),
     DB_MIGRATIONS_DIR: z.string().default('migrations'),
+    /*
+     * Пул соединений к базе (ТЗ «Стабилизация, UX и развитие», 1.2, гипотеза «б» — исчерпание
+     * пула). Числа стояли ЗАШИТЫМИ в `database.service.ts`: поднять потолок на стенде было
+     * нельзя иначе как правкой кода и выкаткой. Правило ТЗ: срок, порог и лимит — настройка
+     * со значением по умолчанию.
+     *
+     * Умолчания оставлены прежними, чтобы поведение не изменилось само по себе: смысл правки
+     * в том, чтобы РУЧКА ПОЯВИЛАСЬ, а не в том, чтобы что-то подкрутить вслепую.
+     */
+    /** Куда писать причину падения процесса (ТЗ 1.2): системный журнал владельцу недоступен. */
+    CRASH_LOG_FILE: z.string().default('logs/crash.log'),
+    DB_POOL_MAX: z.coerce.number().int().positive().default(10),
+    DB_POOL_IDLE_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+    DB_POOL_CONNECTION_TIMEOUT_MS: z.coerce.number().int().positive().default(5_000),
     READINESS_QUEUE_BACKLOG_THRESHOLD: z.coerce.number().int().min(0).default(1_000),
     READINESS_QUEUE_LAG_SECONDS_THRESHOLD: z.coerce.number().int().min(0).default(300),
     READINESS_OUTBOX_BACKLOG_THRESHOLD: z.coerce.number().int().min(0).default(500),

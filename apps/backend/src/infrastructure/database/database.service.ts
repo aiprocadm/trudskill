@@ -298,11 +298,17 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   private getPool(): Pool {
     if (!this.pool) {
+      /*
+       * Размер пула — настройка, а не константа (ТЗ 1.2, гипотеза «б»: исчерпание пула).
+       * Раньше потолок 10 был зашит здесь: при подозрении на нехватку соединений поднять его
+       * на стенде можно было только правкой кода и выкаткой — то есть в момент, когда быстрее
+       * всего нужен ответ «дело в пуле или нет», проверить гипотезу было нечем.
+       */
       this.pool = new Pool({
         connectionString: backendEnv.DATABASE_URL,
-        max: 10,
-        idleTimeoutMillis: 30_000,
-        connectionTimeoutMillis: 5_000
+        max: backendEnv.DB_POOL_MAX,
+        idleTimeoutMillis: backendEnv.DB_POOL_IDLE_TIMEOUT_MS,
+        connectionTimeoutMillis: backendEnv.DB_POOL_CONNECTION_TIMEOUT_MS
       });
     }
     return this.pool;

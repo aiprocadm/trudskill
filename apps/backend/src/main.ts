@@ -9,6 +9,14 @@ import { RequestObservabilityInterceptor } from './common/interceptors/request-o
 import { ResponseEnvelopeInterceptor } from './common/interceptors/response-envelope.interceptor.js';
 import { createSecurityHeadersMiddleware } from './common/security/security-headers.js';
 import { backendEnv } from './env.js';
+import { installCrashLog } from './infrastructure/observability/crash-log.js';
+
+/*
+ * Причина падения — в файл (ТЗ 1.2). Ставится ДО поднятия приложения: сбой при самом старте
+ * тоже обязан оставить след. Системный журнал у служб есть, но читать его может только член
+ * групп `adm` / `systemd-journal` — владельцу он недоступен (см. docs/ops/stand.md).
+ */
+installCrashLog(backendEnv.CRASH_LOG_FILE);
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
