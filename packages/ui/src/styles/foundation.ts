@@ -92,8 +92,14 @@ legend { font-size: var(--ui-font-size-sm); font-weight: var(--ui-font-weight-se
 .ui-badge--brand { background: var(--ui-brand-600); }
 .ui-text-muted { color: var(--ui-text-muted); }
 .ui-visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.ui-prose { margin: 0; color: var(--ui-text); line-height: var(--ui-line-height-normal); max-width: var(--ui-measure); }
 .ui-prose-muted { margin: 0; color: var(--ui-text-muted); line-height: var(--ui-line-height-normal); max-width: var(--ui-measure); }
 .ui-prose-muted--tight { margin: 0 0 12px; }
+/* Страница-сообщение системы (ТЗ 2.1/Б3): отказ в доступе, «не найдено», сбой, нет сети.
+   Действия идут строкой — их там одно-два, и столбцом они выглядят как список разделов. */
+.ui-system-message { display: grid; gap: var(--ui-space-md); justify-items: start; max-width: var(--ui-measure); }
+.ui-system-message > .ui-stack { flex-direction: row; flex-wrap: wrap; align-items: center; }
+.ui-system-message > details > summary { cursor: pointer; color: var(--ui-text-muted); font-size: var(--ui-font-size-sm); }
 .ui-list-row { padding: 12px 0; border-bottom: 1px solid var(--ui-border); }
 .ui-list-row:last-child { border-bottom: none; }
 .ui-list-row-meta { font-size: var(--ui-font-size-sm); color: var(--ui-text-muted); margin-top: 4px; }

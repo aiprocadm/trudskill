@@ -1,16 +1,51 @@
 'use client';
 
-import { GlobalError } from '../src/components/state-wrappers';
+import { SystemMessage } from '@trudskill/ui';
 
-export default function GlobalErrorPage({ error, reset }: { error: Error; reset: () => void }) {
+/**
+ * Сбой страницы (ТЗ 2.1 / Б3).
+ *
+ * Как было: `<GlobalError message={error.message} />` — то есть человеку в лицо печаталось
+ * СЛУЖЕБНОЕ сообщение сбоя («Cannot read properties of undefined…»). Это ровно то, что правило
+ * продукта №4 и `TXT-004` запрещают: ошибка обязана сказать, что произошло и что делать, а
+ * технический текст — уйти под спойлер.
+ *
+ * **Оболочка здесь НЕ ставится, и это осознанно.** Сюда попадают в том числе падения самой
+ * оболочки: поставить её на страницу сбоя — значит уронить страницу сбоя тем же сбоем. Для
+ * обычных падений содержимого меню уже сохраняется: внутри оболочки стоит перехватчик
+ * (`ErrorBoundary`, ТЗ 1.1), и до этой страницы такие ошибки просто не доходят.
+ *
+ * `digest` — короткий номер случая, который Next.js кладёт и в журнал сервера. Его называют
+ * поддержке, поэтому он идёт первым в подробностях.
+ */
+export default function ErrorPage({
+  error,
+  reset
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  const details = [
+    error.digest ? `номер случая: ${error.digest}` : null,
+    error.message.trim() ? `сбой: ${error.message.trim()}` : null
+  ]
+    .filter((part): part is string => part !== null)
+    .join(' · ');
+
   return (
     <main className="ui-centered-page">
-      <div className="ui-centered-stack">
-        <GlobalError message={error.message} />
-        <button type="button" className="ui-button" onClick={reset}>
-          Повторить
-        </button>
-      </div>
+      <SystemMessage
+        title="Страница не открылась"
+        what="Раздел не удалось показать из-за сбоя. Данные не потеряны: всё, что было сохранено, осталось на месте."
+        next="Нажмите «Повторить». Если не помогает — обновите страницу или откройте другой раздел."
+        whom="Если сбой повторяется, сообщите администратору учебного центра и назовите номер случая из подробностей."
+        action={
+          <button type="button" className="ui-button" onClick={() => reset()}>
+            Повторить
+          </button>
+        }
+        {...(details ? { details } : {})}
+      />
     </main>
   );
 }

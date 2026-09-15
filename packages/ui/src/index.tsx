@@ -35,6 +35,10 @@ export * from './components/key-value-list/index.js';
 export * from './components/callout/index.js';
 export * from './composition/index.js';
 export * from './providers/theme-provider.js';
+/* Строка оформления наружу нужна ровно одному месту — `app/global-error.tsx`. Та страница
+   ЗАМЕНЯЕТ корневую раскладку, а раскладка и вставляет стили через ThemeProvider: без этого
+   экспорта страница падения раскладки остаётся вообще без оформления (найдено в ТЗ 2.1). */
+export { uiGlobalStyles, uiStyleLayers } from './styles/index.js';
 export {
   useUiTheme,
   UI_THEME_STORAGE_KEY,
