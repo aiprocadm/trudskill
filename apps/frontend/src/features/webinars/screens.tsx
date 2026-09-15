@@ -12,6 +12,7 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import { useAuth } from '../auth/context';
 
 const PROVIDERS: WebinarProviderCode[] = ['noop', 'fake', 'jitsi', 'pruffme', 'zoom', 'bbb'];
 
@@ -73,10 +74,15 @@ export function WebinarsAdminScreen() {
  * Экран-обёртка сохранён (его проверяет сторож webinars.e2e).
  */
 export function WebinarProviderSettingsSection() {
-  const { settings, error, saving, save } = useProviderSettings();
+  const { session } = useAuth();
+  /* Право берётся то же, что требует ручка сервера (`webinars.configure`), — не роль. */
+  const allowed = session?.permissions.includes('webinars.configure') ?? false;
+  const { settings, error, saving, save } = useProviderSettings(allowed);
   const [code, setCode] = useState<WebinarProviderCode>('noop');
   const [baseUrl, setBaseUrl] = useState('');
   const [enabled, setEnabled] = useState(false);
+
+  if (!allowed) return null;
 
   return (
     <SectionCard title="Провайдер вебинаров">

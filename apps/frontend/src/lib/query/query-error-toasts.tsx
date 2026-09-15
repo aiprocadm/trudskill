@@ -1,42 +1,35 @@
 'use client';
 
-import { type PropsWithChildren, useEffect, useRef } from 'react';
+import { type PropsWithChildren, useEffect, useMemo } from 'react';
 
 import { subscribeQueryErrors } from './react-query-shim';
+import { createToastDeduper, messageOf } from '../toast/error-toast-policy';
 import { useToast } from '../toast/toast-provider';
 
-const DEDUPE_MS = 4500;
-
 /**
- * Показывает тост при ошибке запроса (shim @tanstack/react-query).
+ * Показывает всплывашку при ошибке запроса (шим @tanstack/react-query).
  * У запроса можно задать `meta: { suppressGlobalErrorToast: true }`.
+ *
+ * Правило повторов живёт отдельно (`lib/toast/error-toast-policy.ts`) и проверяется без React.
+ * Раньше оно было здесь и гасило по КЛЮЧУ ЗАПРОСА — то есть не гасило вовсе, когда три разных
+ * запроса одного экрана падали одинаково (ТЗ 2.3 / Б5).
  */
 export const QueryErrorToastBridge = ({ children }: PropsWithChildren) => {
   const { pushToast } = useToast();
-  const lastShown = useRef<Map<string, number>>(new Map());
+  const deduper = useMemo(() => createToastDeduper(), []);
 
   useEffect(() => {
-    return subscribeQueryErrors((error, queryKey) => {
+    return subscribeQueryErrors((error) => {
       if (error == null) return;
-      const key = JSON.stringify(queryKey);
-      const now = Date.now();
-      if (now - (lastShown.current.get(key) ?? 0) < DEDUPE_MS) return;
-      lastShown.current.set(key, now);
-
-      const message =
-        error instanceof Error
-          ? error.message
-          : typeof error === 'object' && error !== null && 'message' in error
-            ? String((error as { message: unknown }).message)
-            : String(error);
+      if (!deduper.allow(error, Date.now())) return;
 
       pushToast({
         variant: 'error',
         title: 'Не удалось загрузить данные',
-        message
+        message: messageOf(error)
       });
     });
-  }, [pushToast]);
+  }, [deduper, pushToast]);
 
   return <>{children}</>;
 };

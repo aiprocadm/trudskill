@@ -64,7 +64,10 @@ export const resolveCurrentTenantId = async (): Promise<string> => {
   if (cachedForCode === code && cachedTenantId) return cachedTenantId;
 
   try {
-    const tenant = await apiRequest<PublicTenantDto>(`/public/tenants/by-code/${code}`);
+    /* Публичная ручка: её зовут ДО входа, чтобы понять, в какой центр человек стучится. */
+    const tenant = await apiRequest<PublicTenantDto>(`/public/tenants/by-code/${code}`, {
+      anonymous: true
+    });
     cachedForCode = code;
     cachedTenantId = tenant.id;
     return tenant.id;
