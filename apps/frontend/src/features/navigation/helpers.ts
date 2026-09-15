@@ -118,3 +118,21 @@ export const evaluateRouteAccess = (
   if (!hasPermission(session.permissions, meta.requiredPermissions)) return { kind: 'forbidden' };
   return { kind: 'ok' };
 };
+
+/**
+ * Какой пункт меню считать активным для текущего адреса (ТЗ 2.2, пункт 3).
+ *
+ * Было: пункт подсвечивался, если адрес НАЧИНАЕТСЯ с его ссылки. На вложенных адресах это
+ * зажигало сразу два пункта — на «Моих курсах» горели и «Мой кабинет», и «Мои курсы». Таких
+ * вложенных пар в меню девять, то есть весь кабинет слушателя и настройки центра. Человек
+ * видел два «вы здесь» одновременно и переставал верить подсветке вообще.
+ *
+ * Стало: подходящих пунктов может быть несколько, активным становится САМЫЙ ТОЧНЫЙ — самая
+ * длинная подходящая ссылка. Вложенная страница без своего пункта (карточка курса) по-прежнему
+ * подсвечивает родителя: человеку важно видеть, что он «в Курсах».
+ */
+export const activeNavHref = (pathname: string, hrefs: readonly string[]): string | null => {
+  const matching = hrefs.filter((href) => pathname === href || pathname.startsWith(`${href}/`));
+  if (matching.length === 0) return null;
+  return matching.reduce((longest, href) => (href.length > longest.length ? href : longest));
+};
