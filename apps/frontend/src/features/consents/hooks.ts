@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { consentsApi } from './api';
+import { LEARNER_NOT_LINKED_SHORT, isLearnerNotLinked } from '../../lib/errors/learner-link';
 import { useAuth } from '../auth/context';
 
 import type { ConsentDocumentsDto, ConsentKind, ConsentStatusDto } from './types';
@@ -48,8 +49,8 @@ export function useConsentToggle() {
     } catch (err) {
       const message = err instanceof Error ? err.message : '';
       setError(
-        message.includes('learner_not_linked') || message.includes('No learner profile')
-          ? 'Ваш аккаунт не привязан к карточке слушателя — обратитесь в учебный центр.'
+        isLearnerNotLinked(err)
+          ? LEARNER_NOT_LINKED_SHORT
           : message || 'Не удалось сохранить согласие'
       );
       return false;

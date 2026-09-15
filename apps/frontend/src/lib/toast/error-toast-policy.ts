@@ -60,8 +60,21 @@ export const toastDedupeKey = (error: unknown): string =>
  */
 export const shouldShowErrorToast = (error: unknown): boolean => {
   const code = codeOf(error);
-  return code !== 'auth_required' && code !== 'session_inactive';
+  return !SILENT_CODES.has(code);
 };
+
+/**
+ * Отказы, про которые всплывашка не нужна, — с причиной у каждого.
+ *
+ * `auth_required`/`session_inactive`: слой сессии сам обновляет её, а если обновить нечем —
+ * уводит человека на вход. Сообщение поверх идущего перехода — шум.
+ *
+ * `learner_not_linked` (ТЗ 2.4): это не сбой, а СОСТОЯНИЕ человека — учебный центр ещё не связал
+ * его вход с личным делом. Экран объясняет это целой страницей и даёт кнопку «Написать в учебный
+ * центр»; всплывашка поверх объяснения была бы вторым сообщением об одном и том же, а ТЗ просит
+ * показать ОДНО.
+ */
+const SILENT_CODES = new Set(['auth_required', 'session_inactive', 'learner_not_linked']);
 
 /**
  * Хранилище «что и когда уже показывали».

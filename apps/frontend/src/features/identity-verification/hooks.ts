@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { identityVerificationApi, putFileToPresignedUrl } from './api';
+import { LEARNER_NOT_LINKED_SHORT, isLearnerNotLinked } from '../../lib/errors/learner-link';
 import { useAuth } from '../auth/context';
 
 import type {
@@ -75,8 +76,8 @@ export function useIdentitySubmission() {
     } catch (err) {
       const message = err instanceof Error ? err.message : '';
       setError(
-        message.includes('learner_not_linked') || message.includes('No learner profile')
-          ? 'Ваш аккаунт не привязан к карточке слушателя — обратитесь в учебный центр.'
+        isLearnerNotLinked(err)
+          ? LEARNER_NOT_LINKED_SHORT
           : message || 'Не удалось отправить документы'
       );
       return false;

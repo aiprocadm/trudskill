@@ -8,8 +8,10 @@ import {
   ListPage,
   LoadingState,
   SelectField,
-  StatusChip
+  StatusChip,
+  SystemMessage
 } from '@trudskill/ui';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
@@ -35,6 +37,7 @@ import {
   SectionError
 } from '../../components/state-wrappers';
 import { frontendEnv } from '../../lib/config/env';
+import { LEARNER_NOT_LINKED_TEXT, isLearnerNotLinked } from '../../lib/errors/learner-link';
 import { useAuth } from '../auth/context';
 import { useConsentDocuments, useConsentToggle, useMyConsents } from '../consents/hooks';
 
@@ -77,7 +80,40 @@ export function LearnerIdentityScreen(): ReactElement {
     }
   };
 
-  if (my.isLoading) return <LoadingState message="Загрузка…" />;
+  /*
+   * ТЗ 2.4 (Б6): нет связи с карточкой слушателя — формы нет вовсе.
+   *
+   * Как было: экран показывал живую форму загрузки селфи и паспорта человеку, у которого
+   * отправка заведомо не пройдёт. Он выбирал два файла, ставил две галочки, жал «Отправить на
+   * проверку» — и только тогда узнавал, что учётная запись не связана с личным делом. Галочки
+   * согласий при этом тоже не работали: каждая давала свой отказ.
+   *
+   * Сигнал был на экране всё это время и не читался: `/consents/me` честно отвечает
+   * `learner_not_linked`, потому что согласия дают ЗА карточку слушателя, а карточки нет.
+   *
+   * Почему берём его отсюда, а не из `my`: ручка «мои проверки» отвечает `null` И когда заявки
+   * просто ещё нет, И когда профиля не существует, — эти два случая по её ответу неразличимы.
+   */
+  /* `isError` у нашего слоя загрузки НЕТ — он отдаёт только `data`, `error`, `isLoading`. */
+  if (isLearnerNotLinked(consents.error)) {
+    return (
+      <PageContainer>
+        <SystemMessage
+          title={LEARNER_NOT_LINKED_TEXT.title}
+          what={LEARNER_NOT_LINKED_TEXT.what}
+          next={LEARNER_NOT_LINKED_TEXT.next}
+          whom={LEARNER_NOT_LINKED_TEXT.whom}
+          action={
+            <Link href="/chat" className="ui-button ui-button--primary">
+              Написать в учебный центр
+            </Link>
+          }
+        />
+      </PageContainer>
+    );
+  }
+
+  if (my.isLoading || consents.isLoading) return <LoadingState message="Загрузка…" />;
 
   const record = my.data ?? null;
 
