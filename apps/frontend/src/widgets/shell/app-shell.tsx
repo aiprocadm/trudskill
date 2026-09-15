@@ -14,7 +14,7 @@ import { resolveWordmark } from '../../features/branding/theme';
 import { useNotificationsList, useNotificationsRealtime } from '../../features/communication/hooks';
 import { buildBreadcrumbs } from '../../features/navigation/breadcrumbs';
 import { buildCommandItems } from '../../features/navigation/command-palette';
-import { getNavigationView } from '../../features/navigation/helpers';
+import { activeNavHref, getNavigationView } from '../../features/navigation/helpers';
 import { groupItemsByNavGroup } from '../../features/navigation/nav-groups';
 import { ChevronDownIcon, SearchIcon } from '../../features/navigation/nav-icons';
 import { getPrimaryRoleBlueprint } from '../../features/navigation/role-blueprints';
@@ -42,7 +42,18 @@ export const AppShell = ({ children }: PropsWithChildren) => {
   const unread = useNotificationsList(1, 1, 'unread');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  const isItemActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  /*
+   * ТЗ 2.2, пункт 3: подсвечен ровно ОДИН пункт. Признак «адрес начинается со ссылки» зажигал
+   * два сразу на любом вложенном адресе («Мой кабинет» + «Мои курсы»), а таких пар в меню
+   * девять. Теперь активен самый точный пункт — выбор делает `activeNavHref`, и его держит
+   * сторож `menu-leads-somewhere.e2e.test.ts`.
+   */
+  const allHrefs = useMemo(
+    () => [...navView.main, ...navView.more].map((item) => item.href),
+    [navView.main, navView.more]
+  );
+  const activeHref = activeNavHref(pathname, allHrefs);
+  const isItemActive = (href: string) => href === activeHref;
 
   /*
    * Активная страница может лежать во втором уровне — тогда «Ещё» и её блок
