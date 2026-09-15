@@ -6,5 +6,6 @@ export * from './list-page.js';
 export * from './form.js';
 export * from './select-field.js';
 export * from './directory-select.js';
+export * from './error-boundary.js';
 export * from './page-shell.js';
 export * from './below-fold.js';

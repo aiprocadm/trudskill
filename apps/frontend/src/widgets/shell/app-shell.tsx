@@ -1,6 +1,6 @@
 'use client';
 
-import { Icon, VISUALLY_HIDDEN_CLASS } from '@trudskill/ui';
+import { ErrorBoundary, Icon, VISUALLY_HIDDEN_CLASS } from '@trudskill/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { type PropsWithChildren, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -306,7 +306,14 @@ export const AppShell = ({ children }: PropsWithChildren) => {
             {logoutWarning}
           </p>
         ) : null}
-        <div className="ui-app-shell-main">{children}</div>
+        <div className="ui-app-shell-main">
+          {/*
+            ТЗ 1.1.4: падение одного блока не должно уносить страницу. Перехватчик стоит
+            ВНУТРИ оболочки — меню, крошки и выход остаются рабочими, человек не выпадает
+            из системы. Держит сторож `error-boundary-wraps-content.e2e.test.ts`.
+          */}
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </div>
       </div>
       <CommandPalette open={paletteOpen} items={commandItems} onClose={closePalette} />
     </div>
