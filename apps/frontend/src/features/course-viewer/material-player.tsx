@@ -31,7 +31,11 @@ export const MaterialPlayer = ({ material, onMaterialEnded, enrollmentId }: Prop
     case 'text':
       return <TextViewer material={material} />;
     case 'external_url':
-      return <ExternalLinkViewer material={material} externalUrl={null} />;
+      /*
+       * ТЗ 2.5.a. Здесь стоял жёсткий `null`: просмотрщик всегда сообщал «ссылка пока не задана
+       * администратором», хотя задать её было НЕКУДА — поля не существовало до миграции 0095.
+       */
+      return <ExternalLinkViewer material={material} externalUrl={material.externalUrl ?? null} />;
     case 'scorm':
       if (!enrollmentId) {
         return (

@@ -130,6 +130,10 @@ export interface Material extends BaseEntity {
   fileId?: string;
   /** Phase 9 Plan A: package for materialType='scorm' (FK learning.scorm_packages, status ready). */
   scormPackageId?: string;
+  /** ТЗ 2.5.a: тело текстового материала (`materialType='text'`), простой текст без разметки. */
+  textBody?: string;
+  /** ТЗ 2.5.a: адрес внешнего материала (`materialType='external_url'`), только http/https. */
+  externalUrl?: string;
 }
 
 export interface Group extends BaseEntity {

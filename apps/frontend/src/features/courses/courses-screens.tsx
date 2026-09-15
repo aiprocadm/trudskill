@@ -738,6 +738,10 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
     useDomainMutations();
   const [moduleTitle, setModuleTitle] = useState('');
   const [materialTitle, setMaterialTitle] = useState('');
+  /* Сброс формы одной строкой: так обработка отказа остаётся рядом с вызовом и на виду. */
+  /* ТЗ 2.5.a: содержимое текстового материала и адрес внешнего — хранить их стало где. */
+  const [materialTextBody, setMaterialTextBody] = useState('');
+  const [materialExternalUrl, setMaterialExternalUrl] = useState('');
   const [materialType, setMaterialType] = useState<
     'text' | 'video' | 'file' | 'external_url' | 'scorm'
   >('text');
@@ -746,6 +750,19 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
   const [scormPackagesLoaded, setScormPackagesLoaded] = useState(false);
   const [scormPackagesError, setScormPackagesError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  /**
+   * Очистка формы материала после успешного добавления — одной строкой в месте вызова.
+   *
+   * Вынесено не ради красоты: сторож `mutation-failure-is-visible` проверяет, что обработка
+   * отказа стоит РЯДОМ с вызовом, а четыре сброса подряд отодвигали её за пределы видимости.
+   * Ослаблять сторожа ради длины своего кода — неправильный размен.
+   */
+  const resetMaterialForm = () => {
+    setMaterialTitle('');
+    setScormPackageId('');
+    setMaterialTextBody('');
+    setMaterialExternalUrl('');
+  };
 
   const canPublish = hasPermission(session?.permissions ?? [], 'courses.publish');
   const canArchive = hasPermission(session?.permissions ?? [], 'courses.archive');
@@ -932,17 +949,30 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
           onSubmit={(event) => {
             event.preventDefault();
             if (!selectedModuleId || !materialTitle.trim()) return;
+            /*
+             * Содержимое уходит только тому виду материала, которому принадлежит, — сервер так
+             * же его и хранит. Собрано ОТДЕЛЬНОЙ переменной, а не прямо в вызове: сторож
+             * `mutation-failure-is-visible` ищет обработку отказа рядом с вызовом, и длинный
+             * список полей отодвинул бы её за пределы видимости сторожа.
+             */
+            const content =
+              materialType === 'text'
+                ? { textBody: materialTextBody }
+                : materialType === 'external_url'
+                  ? { externalUrl: materialExternalUrl.trim() }
+                  : materialType === 'scorm' && scormPackageId
+                    ? { scormPackageId }
+                    : {};
             void saveMaterial(null, {
               moduleId: selectedModuleId,
               title: materialTitle.trim(),
               materialType,
               minViewSeconds: materialType === 'scorm' ? 0 : 60,
               isRequired: true,
-              ...(materialType === 'scorm' && scormPackageId ? { scormPackageId } : {})
+              ...content
             })
               .then(() => {
-                setMaterialTitle('');
-                setScormPackageId('');
+                resetMaterialForm();
                 return refetchMaterials();
               })
               .catch((materialError) => setSaveError(readApiMessage(materialError)));
@@ -998,9 +1028,37 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
               )}
             </>
           ) : null}
+          {materialType === 'text' ? (
+            /*
+             * Простой редактор из ТЗ 2.5.a — обычное многострочное поле. Разметки нет намеренно:
+             * она потребовала бы очистки от опасного содержимого, а это отдельная работа вне
+             * объёма решения Р8. Абзацы разделяются пустой строкой и так же показываются.
+             */
+            <textarea
+              value={materialTextBody}
+              onChange={(event) => setMaterialTextBody(event.target.value)}
+              placeholder="Текст материала: то, что прочитает слушатель"
+              rows={4}
+              aria-label="Текст материала"
+            />
+          ) : null}
+          {materialType === 'external_url' ? (
+            <input
+              value={materialExternalUrl}
+              onChange={(event) => setMaterialExternalUrl(event.target.value)}
+              placeholder="Адрес страницы — скопируйте из адресной строки браузера"
+              aria-label="Адрес внешнего материала"
+            />
+          ) : null}
           <button
             type="submit"
-            disabled={!selectedModuleId || (materialType === 'scorm' && !scormPackageId)}
+            disabled={
+              !selectedModuleId ||
+              (materialType === 'scorm' && !scormPackageId) ||
+              /* Пустой текст или пустая ссылка — это материал, который нечем открыть. */
+              (materialType === 'text' && !materialTextBody.trim()) ||
+              (materialType === 'external_url' && !materialExternalUrl.trim())
+            }
           >
             Добавить материал
           </button>

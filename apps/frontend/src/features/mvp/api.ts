@@ -207,6 +207,10 @@ export const mvpApi = {
       minViewSeconds?: number;
       isRequired?: boolean;
       scormPackageId?: string;
+      /** ТЗ 2.5.a: тело текстового материала. */
+      textBody?: string;
+      /** ТЗ 2.5.a: адрес внешнего материала. */
+      externalUrl?: string;
     }
   ) =>
     apiRequest<Material>(id ? `/materials/${id}` : '/materials', {

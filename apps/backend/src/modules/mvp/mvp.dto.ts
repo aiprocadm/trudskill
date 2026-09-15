@@ -195,6 +195,18 @@ export class UpdateModuleRequest {
 
 const materialTypeValues = ['file', 'external_url', 'text', 'video', 'scorm'] as const;
 
+/**
+ * Потолок длины текстового материала (ТЗ 2.5.a).
+ *
+ * **Настройка, а не константа** — правило ТЗ: всё, что выглядит как лимит, задаётся настройкой
+ * со значением по умолчанию. Двести тысяч знаков — это примерно сто страниц: больше одного
+ * учебного текста, но заведомо меньше того, что стоит слать одним полем.
+ */
+export const MATERIAL_TEXT_MAX_LENGTH =
+  Number(process.env.MATERIAL_TEXT_MAX_LENGTH) > 0
+    ? Number(process.env.MATERIAL_TEXT_MAX_LENGTH)
+    : 200_000;
+
 export class CreateMaterialRequest {
   @IsString()
   @MinLength(1)
@@ -224,6 +236,21 @@ export class CreateMaterialRequest {
   @IsOptional()
   @IsString()
   scormPackageId?: string;
+
+  /**
+   * ТЗ 2.5.a: тело текстового материала. Потолок — настройка со значением по умолчанию
+   * (правило ТЗ: лимит задаётся настройкой), читается из окружения на старте.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(MATERIAL_TEXT_MAX_LENGTH)
+  textBody?: string;
+
+  /** ТЗ 2.5.a: адрес внешнего материала. Только http/https — см. `assertExternalUrl`. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  externalUrl?: string;
 }
 
 export class UpdateMaterialRequest {
@@ -257,6 +284,18 @@ export class UpdateMaterialRequest {
   @IsOptional()
   @IsString()
   scormPackageId?: string;
+
+  /** ТЗ 2.5.a: тело текстового материала. Пустая строка = очистить. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(MATERIAL_TEXT_MAX_LENGTH)
+  textBody?: string;
+
+  /** ТЗ 2.5.a: адрес внешнего материала. Пустая строка = очистить. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  externalUrl?: string;
 }
 
 export class CreateGroupCourseRequest {
