@@ -29,6 +29,7 @@ export const courseViewerStyles = `
 .course-toc__materials { list-style: none; margin: 6px 0 0; padding: 0 0 0 10px; }
 .course-toc__material {
   display: flex;
+  flex-wrap: wrap;
   width: 100%;
   align-items: center;
   gap: 8px;
@@ -47,6 +48,8 @@ export const courseViewerStyles = `
 .course-toc__material--locked { color: var(--ui-text-muted); cursor: not-allowed; }
 .course-toc__material-icon { width: 18px; text-align: center; }
 .course-toc__material-title { flex: 1; }
+/* ТЗ 2.5.b: причина замка живёт СТРОКОЙ НИЖЕ названия — в ряд она бы вытеснила само название. */
+.course-toc__material-reason { flex-basis: 100%; padding-left: 26px; font-size: var(--ui-font-size-xs); line-height: var(--ui-line-height-normal); }
 .course-player {
   display: block;
   border: 1px solid var(--ui-border);
