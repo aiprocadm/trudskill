@@ -1,15 +1,33 @@
+'use client';
+
+import { SystemMessage } from '@trudskill/ui';
 import Link from 'next/link';
 
+import { AppShell } from '../src/widgets/shell/app-shell';
+
+/**
+ * Страница не найдена (ТЗ 2.1 / Б3).
+ *
+ * Как было: «404 / Страница не найдена. / Вернуться на главную» вне оболочки. Код вместо
+ * объяснения и ни слова о том, почему так вышло и что делать.
+ *
+ * Сюда же приводит охрана доступа, когда маршрута нет в её матрице: поэтому текст говорит и о
+ * возможной старой ссылке — это самая частая причина у живого человека.
+ */
 export default function NotFound() {
   return (
-    <main className="ui-centered-page">
-      <div className="ui-centered-card">
-        <h1 className="ui-system-title">404</h1>
-        <p className="ui-system-text">Страница не найдена.</p>
-        <Link href="/" className="ui-link-primary">
-          Вернуться на главную
-        </Link>
-      </div>
-    </main>
+    <AppShell>
+      <SystemMessage
+        title="Страница не найдена"
+        what="По этому адресу в системе ничего нет: раздел мог переехать, а ссылка — устареть."
+        next="Откройте нужный раздел из меню слева или вернитесь на главную."
+        whom="Если вы перешли по ссылке из письма или от коллеги — попросите прислать её заново."
+        action={
+          <Link href="/" className="ui-button">
+            На главную
+          </Link>
+        }
+      />
+    </AppShell>
   );
 }
