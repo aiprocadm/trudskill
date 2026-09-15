@@ -22,7 +22,8 @@ export const NavHint = () => {
   return (
     <div className="app-shell__hint" role="status">
       <p className="app-shell__hint-text">
-        Меню стало короче. Всё остальное — в разделе «Ещё» и по Ctrl+K.
+        Разделы собраны в группы. Нажмите на название группы, чтобы раскрыть её, — выбор запомнится.
+        Быстрый поиск по всем разделам — Ctrl+K.
       </p>
       <button
         type="button"
