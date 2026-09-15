@@ -15,7 +15,10 @@ import { useNotificationsList, useNotificationsRealtime } from '../../features/c
 import { buildBreadcrumbs } from '../../features/navigation/breadcrumbs';
 import { buildCommandItems } from '../../features/navigation/command-palette';
 import { activeNavHref, getNavigationView } from '../../features/navigation/helpers';
-import { groupItemsByNavGroup } from '../../features/navigation/nav-groups';
+import {
+  collapseSingleItemGroups,
+  groupItemsByNavGroup
+} from '../../features/navigation/nav-groups';
 import { ChevronDownIcon, SearchIcon } from '../../features/navigation/nav-icons';
 import {
   type OpenGroups,
@@ -43,7 +46,14 @@ export const AppShell = ({ children }: PropsWithChildren) => {
    * разложенные по 10 блокам ИА. Второго этажа («Ещё») больше нет: ТЗ 3.1.
    */
   const navView = getNavigationView(session);
-  const moreGroups = useMemo(() => groupItemsByNavGroup(navView.more), [navView.more]);
+  /*
+   * ТЗ 3.2 (Н4): группа из одного пункта схлопывается — пункт поднимается на верхний уровень.
+   * Заголовок над единственной строкой это лишний клик и обещание, что внутри есть что-то ещё.
+   */
+  const { loose: looseItems, groups: moreGroups } = useMemo(
+    () => collapseSingleItemGroups(groupItemsByNavGroup(navView.more)),
+    [navView.more]
+  );
   const primaryRole = getPrimaryRoleBlueprint(session);
   const breadcrumbItems = useMemo(() => buildBreadcrumbs(pathname), [pathname]);
   const unread = useNotificationsList(1, 1, 'unread');
@@ -190,6 +200,20 @@ export const AppShell = ({ children }: PropsWithChildren) => {
         {primaryRole ? <p className="app-shell__role">Роль: {primaryRole.displayName}</p> : null}
         <nav className="app-shell__nav" aria-label="Основные разделы">
           {navView.main.map((item) => {
+            const active = isItemActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`app-shell__link ${active ? 'is-active' : ''}`}
+                aria-current={active ? 'page' : undefined}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+          {/* ТЗ 3.2: пункты схлопнутых групп — обычными ссылками, рядом с коротким меню роли. */}
+          {looseItems.map((item) => {
             const active = isItemActive(item.href);
             return (
               <Link
