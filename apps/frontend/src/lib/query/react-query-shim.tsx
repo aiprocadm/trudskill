@@ -8,6 +8,8 @@ import {
   useState
 } from 'react';
 
+import { QUERY_RETRY_POLICY, backoffFor } from './retry-policy';
+
 import type { PropsWithChildren } from 'react';
 
 type QueryKey = readonly unknown[];
@@ -80,15 +82,42 @@ export const useQuery = <T,>(options: QueryOptions<T>) => {
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
-  const refetch = useCallback(async () => {
+  /*
+   * Предохранитель ТЗ 1.1.3: автоматические попытки считаются, и после потолка неудач подряд
+   * опрос ОСТАНАВЛИВАЕТСЯ — экран остаётся в состоянии ошибки.
+   *
+   * Что было: `refetchInterval` (восемь экранов, 5–15 секунд) не прекращался никогда. Сервер
+   * лежит, человек видит ошибку, а вкладка продолжает слать запросы до её закрытия. Несколько
+   * вкладок — постоянный поток, который при отказе базы не уменьшается: это и есть задача 1.2.
+   *
+   * Ручное «Повторить» счётчик ОБНУЛЯЕТ: запирать человека нельзя, решение продолжать — его.
+   */
+  const failures = useRef(0);
+  const stopped = useRef(false);
+  const nextAttemptAt = useRef(0);
+
+  const run = useCallback(async (mode: 'auto' | 'manual') => {
     const current = optionsRef.current;
     if (current.enabled === false) return;
+    if (mode === 'manual') {
+      failures.current = 0;
+      stopped.current = false;
+      nextAttemptAt.current = 0;
+    } else {
+      if (stopped.current) return;
+      if (Date.now() < nextAttemptAt.current) return;
+    }
     setLoading(true);
     setError(null);
     try {
       const result = await current.queryFn();
       if (mounted.current) setData(result);
+      failures.current = 0;
+      nextAttemptAt.current = 0;
     } catch (err) {
+      failures.current += 1;
+      nextAttemptAt.current = Date.now() + backoffFor(failures.current);
+      if (failures.current >= QUERY_RETRY_POLICY.maxConsecutiveFailures) stopped.current = true;
       if (mounted.current) setError(err);
       if (!current.meta?.suppressGlobalErrorToast) {
         queryErrorListeners.forEach((fn) => {
@@ -104,26 +133,30 @@ export const useQuery = <T,>(options: QueryOptions<T>) => {
     }
   }, []);
 
+  /** То, что зовёт экран кнопкой «Повторить», — всегда ручная попытка. */
+  const refetch = useCallback(() => run('manual'), [run]);
+
   useEffect(() => {
     mounted.current = true;
-    void refetch();
+    void run('auto');
     return () => {
       mounted.current = false;
     };
-  }, [queryKeyHash, options.enabled, refetch]);
+  }, [queryKeyHash, options.enabled, run]);
 
   useEffect(() => {
-    const unsubscribe = client.subscribe(() => void refetch());
+    /* Обновление после успешной правки — повод считать сервер живым: попытка ручная. */
+    const unsubscribe = client.subscribe(() => void run('manual'));
     return () => {
       unsubscribe();
     };
-  }, [client, queryKeyHash, refetch]);
+  }, [client, queryKeyHash, run]);
 
   useEffect(() => {
     if (!options.refetchInterval) return;
-    const timer = setInterval(() => void refetch(), options.refetchInterval);
+    const timer = setInterval(() => void run('auto'), options.refetchInterval);
     return () => clearInterval(timer);
-  }, [options.refetchInterval, queryKeyHash, refetch]);
+  }, [options.refetchInterval, queryKeyHash, run]);
 
   return useMemo(() => ({ data, error, isLoading, refetch }), [data, error, isLoading, refetch]);
 };
