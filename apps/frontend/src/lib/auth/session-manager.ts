@@ -1,6 +1,6 @@
 import { authApi } from './auth-api';
 import { sessionStore } from './session-store';
-import { setSessionRecovery } from '../api/client';
+import { setSessionAuth, setSessionRecovery } from '../api/client';
 
 import type { TotpChallengeResponse } from './auth-api';
 import type { UserSession } from '../../entities/session/model';
@@ -154,3 +154,24 @@ export const sessionManager = {
  * уводят человека на экран входа.
  */
 setSessionRecovery(() => sessionManager.recoverSession());
+
+/*
+ * Подпись вошедшего — оттуда же и по той же причине (ТЗ 2.3 / Б5).
+ *
+ * Раньше токен обязан был передать каждый вызывающий руками, и двадцать два вызова в пяти
+ * разделах этого не делали: сервер отвечал «вход не выполнен», а человек сидел в системе со
+ * своим именем в шапке. Теперь не передал — берётся отсюда.
+ *
+ * Центр обязателен вместе с токеном: охрана сверяет центр из токена с заголовком запроса, и
+ * один токен без центра на стенде с несколькими центрами дал бы отказ по несовпадению — то же
+ * «вход не выполнен», только по другой причине.
+ */
+setSessionAuth(() => {
+  const session = sessionStore.get();
+  if (!session) return null;
+  return {
+    accessToken: session.tokens.accessToken,
+    tenantId: session.user.tenantId,
+    userId: session.user.id
+  };
+});

@@ -65,12 +65,20 @@ export function useMyWebinars() {
   return { items, error };
 }
 
-export function useProviderSettings() {
+/**
+ * Настройки площадки вебинаров (ТЗ 2.3 / Б5: блок роли, которой он не положен, не показывается).
+ *
+ * `allowed` — есть ли у вошедшего право `webinars.configure`, то есть ровно то, что требует
+ * ручка сервера. Без него запрос не уходит вовсе: иначе человек получил бы отказ и красное
+ * сообщение вместо честного «этого блока для вас нет».
+ */
+export function useProviderSettings(allowed = true) {
   const [settings, setSettings] = useState<ProviderSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (!allowed) return;
     let cancelled = false;
     (async () => {
       try {
@@ -83,7 +91,7 @@ export function useProviderSettings() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [allowed]);
 
   const save = useCallback(async (input: ProviderSettings) => {
     setSaving(true);

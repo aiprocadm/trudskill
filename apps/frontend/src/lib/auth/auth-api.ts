@@ -57,7 +57,9 @@ export const authApi = {
     apiRequest<LoginResponse>('/auth/2fa/verify', {
       method: 'POST',
       body: payload,
-      credentials: 'include'
+      credentials: 'include',
+      /* Сессии ещё нет: вход только подтверждается кодом, подписывать запрос нечем и незачем. */
+      anonymous: true
     }),
   totpStatus: (accessToken: string) =>
     apiRequest<TotpStatusResponse>('/auth/2fa/status', {

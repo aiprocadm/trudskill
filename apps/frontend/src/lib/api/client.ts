@@ -49,11 +49,51 @@ export const setSessionRecovery = (recover: SessionRecovery | null): void => {
   sessionRecovery = recover;
 };
 
+export interface RequestAuth {
+  accessToken?: string;
+  tenantHint?: string;
+  userId?: string;
+  tenantId?: string;
+}
+
+/**
+ * Кто такой вошедший человек прямо сейчас — либо `null`, если не вошёл (ТЗ 2.3 / Б5).
+ *
+ * **Зачем это вообще появилось.** Токен раньше обязан был передать КАЖДЫЙ вызывающий, руками:
+ * `apiRequest('/webinars')` уходил вообще без подписи, сервер честно отвечал «вход не выполнен»,
+ * и человек читал «Войдите заново» — сидя в системе, с собственным именем в шапке. Двадцать два
+ * таких вызова в пяти разделах; на «Обмене данными» их три подряд, поэтому и сообщений было три.
+ * Хуже того, восстановление сессии по 401 такие запросы не спасало: оно включалось только там,
+ * где токен ПЕРЕДАЛИ, — то есть ровно там, где он и так был.
+ *
+ * Забыть подпись было слишком легко, а цена ошибки — экран, который врёт про вход. Поэтому
+ * подпись перестала быть обязанностью вызывающего: не задал `auth` — берётся из сессии.
+ *
+ * Ставит это слой сессии (`lib/auth/session-manager.ts`) — тем же способом, что и
+ * восстановление: клиент лежит НИЖЕ сессии и импортировать её не может, иначе выйдет круг.
+ */
+export type SessionAuthProvider = () => RequestAuth | null;
+
+let sessionAuth: SessionAuthProvider | null = null;
+
+/** Поставить (или снять — `null`) источник подписи вошедшего. */
+export const setSessionAuth = (provider: SessionAuthProvider | null): void => {
+  sessionAuth = provider;
+};
+
 export interface RequestOptions {
   method?: HttpMethod;
   body?: unknown;
   headers?: HeadersInit;
-  auth?: { accessToken?: string; tenantHint?: string; userId?: string; tenantId?: string };
+  auth?: RequestAuth;
+  /**
+   * Запрос идёт ЗАВЕДОМО без подписи вошедшего.
+   *
+   * Нужен там, где подпись не просто лишняя, а вредна: вход и подтверждение кода (сессии ещё
+   * нет), публичные ручки (их читают без входа вовсе). Признак явный, а не «забыли передать» —
+   * в этом вся разница с прежним поведением.
+   */
+  anonymous?: boolean;
   credentials?: RequestCredentials;
 }
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -84,6 +124,17 @@ export const apiRequestEnvelope = async <T>(
   path: GeneratedApiPath | string,
   options: RequestOptions = {}
 ): Promise<ApiResponseEnvelope<T>> => {
+  /*
+   * Подпись берётся у сессии ТОЛЬКО когда вызывающий не задал её сам.
+   *
+   * Заданное не дополняется и не перетирается: `auth: { accessToken }` без центра — это
+   * осознанный выбор вызывающего (так ходят ручки двухфакторного входа), и вмешиваться в него
+   * значило бы менять поведение там, где никто не жаловался.
+   */
+  const auth: RequestAuth | undefined = options.anonymous
+    ? undefined
+    : (options.auth ?? sessionAuth?.() ?? undefined);
+
   const send = async (
     accessToken: string | undefined
   ): Promise<{ response: Response; sentAtMs: number }> => {
@@ -92,9 +143,7 @@ export const apiRequestEnvelope = async <T>(
     headers.set('content-type', 'application/json');
     headers.set('x-correlation-id', crypto.randomUUID());
     const tenantHint =
-      options.auth?.tenantHint ??
-      options.auth?.tenantId ??
-      frontendEnv.NEXT_PUBLIC_DEFAULT_TENANT_ID;
+      auth?.tenantHint ?? auth?.tenantId ?? frontendEnv.NEXT_PUBLIC_DEFAULT_TENANT_ID;
     if (tenantHint) {
       headers.set('x-tenant-id', tenantHint);
     }
@@ -150,8 +199,8 @@ export const apiRequestEnvelope = async <T>(
    * задержал бы ответ человеку. Запрос без токена (вход, обновление сессии) не трогает
    * восстановление вовсе — иначе обновление сессии вызывало бы само себя.
    */
-  let { response, sentAtMs } = await send(options.auth?.accessToken);
-  if (response.status === 401 && options.auth?.accessToken && sessionRecovery) {
+  let { response, sentAtMs } = await send(auth?.accessToken);
+  if (response.status === 401 && auth?.accessToken && sessionRecovery) {
     const freshToken = await sessionRecovery();
     if (freshToken) {
       ({ response, sentAtMs } = await send(freshToken));

@@ -15,6 +15,7 @@ import {
   SectionCard,
   SectionError
 } from '../../components/state-wrappers';
+import { useAuth } from '../auth/context';
 
 const PROVIDERS: PaymentProviderCode[] = [
   'noop',
@@ -30,6 +31,13 @@ const PROVIDERS: PaymentProviderCode[] = [
  * Экран-обёртка ниже сохранён: его проверяет сторож payments-settings.e2e.
  */
 export function PaymentProviderSettingsSection() {
+  const { session } = useAuth();
+  /*
+   * ТЗ 2.3 / Б5: блок, который роли не положен, не показывается и сервер не беспокоит.
+   * Право берётся то же, что требует ручка (`payments.configure`), — не роль: наборы прав
+   * живут в базе и по названию роли не угадываются.
+   */
+  const allowed = session?.permissions.includes('payments.configure') ?? false;
   const [settings, setSettings] = useState<PaymentProviderSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,6 +46,10 @@ export function PaymentProviderSettingsSection() {
   const [enabled, setEnabled] = useState(false);
 
   useEffect(() => {
+    if (!allowed) {
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -56,7 +68,9 @@ export function PaymentProviderSettingsSection() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [allowed]);
+
+  if (!allowed) return null;
 
   const save = async () => {
     setSaving(true);
