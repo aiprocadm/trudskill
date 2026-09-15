@@ -11,6 +11,8 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Circle,
   CircleX,
   ClipboardCheck,
@@ -29,6 +31,9 @@ import type { LucideIcon } from '@trudskill/ui';
 
 // Иконки блоков навигации (10 блоков ИА).
 export const LayoutDashboardIcon: LucideIcon = LayoutDashboard;
+// ТЗ 3.3: стрелки у кнопки «Свернуть меню» — направление показывает, что произойдёт.
+export const ChevronLeftIcon: LucideIcon = ChevronLeft;
+export const ChevronRightIcon: LucideIcon = ChevronRight;
 export const GraduationCapIcon: LucideIcon = GraduationCap;
 export const BookOpenIcon: LucideIcon = BookOpen;
 export const ClipboardCheckIcon: LucideIcon = ClipboardCheck;

@@ -29,11 +29,56 @@ export const shellStyles = `
 }
 .app-shell__skip-link:focus { top: 12px; }
 .app-shell__backdrop { display: none; }
+/*
+ * ТЗ 3.3 (Н2): колонка меню — отдельная фиксированная, со своей прокруткой.
+ *
+ * Как было: колонка ехала вместе с содержимым. Раскрыв группы, человек получал страницу в
+ * несколько экранов, где слева меню, справа пустота; прокручивая длинную таблицу, он терял меню
+ * из виду совсем. Высота в dvh, а не в vh: на телефоне адресная строка браузера то появляется,
+ * то исчезает, и vh там врёт на её высоту. ВНИМАНИЕ: файл — шаблонная строка, обратные кавычки
+ * внутри комментария закрывают её и ломают сборку (поймано здесь же).
+ */
 .app-shell__sidebar {
   border-right: 1px solid var(--ui-border);
   padding: 16px;
   background: var(--ui-nav-sidebar-bg, var(--ui-surface));
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
+/* Свёрнутая колонка: остаются значки. Ширину задаёт сетка оболочки — см. .app-shell--narrow. */
+.app-shell--narrow { grid-template-columns: 64px 1fr; }
+.app-shell--narrow .app-shell__sidebar { padding: 16px 8px; }
+.app-shell--narrow .app-shell__link-label,
+.app-shell--narrow .app-shell__group-title,
+.app-shell--narrow .app-shell__brand .ui-wordmark,
+.app-shell--narrow .app-shell__role,
+.app-shell--narrow .app-shell__chevron,
+.app-shell--narrow .app-shell__group-items,
+.app-shell--narrow .app-shell__hint { display: none; }
+.app-shell--narrow .app-shell__link,
+.app-shell--narrow .app-shell__group-header { justify-content: center; padding: 10px 0; }
+.app-shell__sidebar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 8px;
+  min-height: 44px;
+  background: none;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-nav-text-muted, var(--ui-text-muted));
+  cursor: pointer;
+  font-size: var(--ui-font-size-sm);
+}
+.app-shell__sidebar-toggle:hover { color: var(--ui-nav-text, var(--ui-text)); }
+.app-shell--narrow .app-shell__sidebar-toggle { justify-content: center; }
+.app-shell__link-icon { display: none; }
+.app-shell--narrow .app-shell__link-icon { display: inline-flex; }
 .app-shell__brand { margin: 0 0 14px; color: var(--ui-nav-text, var(--ui-text)); }
 .app-shell__role {
   margin: 0 0 16px;
@@ -197,7 +242,10 @@ export const shellStyles = `
   .app-shell__theme-label { display: none; }
 }
 @media (max-width: 1024px) {
-  .app-shell { grid-template-columns: 1fr; }
+  .app-shell, .app-shell--narrow { grid-template-columns: 1fr; }
+  /* На телефоне колонка выдвижная: прилипание и свёрнутый вид там не при чём. */
+  .app-shell__sidebar { position: fixed; height: 100dvh; }
+  .app-shell__sidebar-toggle { display: none; }
   .app-shell__menu-toggle {
     display: inline-flex;
     position: fixed;
