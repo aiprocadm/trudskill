@@ -13,6 +13,7 @@ import {
   useSaveAnswer,
   useSubmitAttempt
 } from './hooks';
+import { RESEND_POLICY, pendingPayloads, resumeNotice, shouldResend } from './resume-and-resend';
 import { UNSAVED_ANSWER_SUBMIT_MESSAGE, shouldBlockSubmit } from './submit-guard';
 import {
   PageContainer,
@@ -245,6 +246,39 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
    * факт вопроса. Вешаем обработчик ТОЛЬКО когда терять есть что: постоянный
    * `beforeunload` мешает обычному выходу и отключает восстановление вкладки.
    */
+  /*
+   * ТЗ 10.1: досылка несохранённых ответов — та самая, которую экран ОБЕЩАЛ и не делал.
+   *
+   * При пропаже связи он пишет «отправим, как только сеть вернётся», а обработчик события
+   * `online` менял только надпись. Автосохранение перезапускается сменой вопроса или правкой
+   * ответа — то есть человек, ответивший офлайн и оставшийся на том же вопросе, ждал досылки,
+   * которой не будет. На экзамене, где попытка одна, это худший вид неправды.
+   *
+   * Повтор идёт по времени, а не по одному событию `online`: связь возвращается рывками, и
+   * первый же запрос после неё часто ещё падает. Потолка попыток здесь СОЗНАТЕЛЬНО нет, в
+   * отличие от опроса данных (задача 1.1): там остановка ничего не теряет, здесь — теряет
+   * ответ на экзамене.
+   */
+  useEffect(() => {
+    if (!shouldResend({ online, unsavedCount })) return;
+    const resend = () => {
+      for (const payload of pendingPayloads([...dirtyRef.current], draftsRef.current)) {
+        const questionId = payload.questionId;
+        const sentDraft = draftsRef.current[questionId];
+        void saveAnswerRef.current.mutate(attemptIdRef.current, payload).then((saved) => {
+          if (!saved) return;
+          /* Человек мог изменить ответ, пока запрос шёл: тогда пометку снимать нельзя. */
+          if (draftsRef.current[questionId] !== sentDraft) return;
+          dirtyRef.current.delete(questionId);
+          syncUnsaved();
+        });
+      }
+    };
+    resend();
+    const handle = setInterval(resend, RESEND_POLICY.intervalMs);
+    return () => clearInterval(handle);
+  }, [online, unsavedCount]);
+
   useEffect(() => {
     if (unsavedCount === 0) return;
     const warn = (event: BeforeUnloadEvent) => {
@@ -300,6 +334,20 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
     (t) => t.testId === testId && t.enrollmentId === attempt.enrollmentId
   );
 
+  /*
+   * ТЗ 10.1: возвращение в начатую попытку больше не молчит. Ответы подставлялись обратно и
+   * раньше, но человек об этом не знал — тот же экран, те же вопросы, и непонятно, продолжает
+   * он или начал заново. Считаем по ЧЕРНОВИКАМ: это ровно то, что уже лежит на сервере.
+   */
+  const answeredCount = Object.values(drafts).filter(
+    (item) => (item.selectedOptionIds?.length ?? 0) > 0 || (item.textAnswer ?? '') !== ''
+  ).length;
+  const resume = resumeNotice({
+    startedAt: attempt.startedAt,
+    answeredCount,
+    totalCount: questions.length
+  });
+
   const connection = resolveConnectionStatus({
     online,
     unsavedCount,
@@ -311,6 +359,15 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
     <PageContainer>
       <PageHeader title="Прохождение теста" />
       <ProctoringRecIndicator />
+      {resume ? (
+        <p
+          className="ui-callout ui-callout--info"
+          data-testid="attempt-resume-notice"
+          role="status"
+        >
+          {resume}
+        </p>
+      ) : null}
       {/* ФТ-H5: состояние сохранности видно ВСЕГДА, а не только когда что-то сломалось.
           Индикатор, появляющийся лишь при беде, читается как новая беда; постоянный —
           как приборная панель, по которой сразу видно норму. */}
