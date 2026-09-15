@@ -19,7 +19,12 @@ import {
   collapseSingleItemGroups,
   groupItemsByNavGroup
 } from '../../features/navigation/nav-groups';
-import { ChevronDownIcon, SearchIcon } from '../../features/navigation/nav-icons';
+import {
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  SearchIcon
+} from '../../features/navigation/nav-icons';
 import {
   type OpenGroups,
   readOpenGroups,
@@ -28,6 +33,11 @@ import {
   writeOpenGroups
 } from '../../features/navigation/open-groups-state';
 import { getPrimaryRoleBlueprint } from '../../features/navigation/role-blueprints';
+import {
+  iconForHref,
+  readSidebarCollapsed,
+  writeSidebarCollapsed
+} from '../../features/navigation/sidebar-state';
 
 const formatUnreadBadge = (total: number | undefined) => {
   const n = total ?? 0;
@@ -87,9 +97,18 @@ export const AppShell = ({ children }: PropsWithChildren) => {
    * разметка разошлась бы с гидрацией — та же грабля, что у подсказки меню.
    */
   const [openGroups, setOpenGroups] = useState<OpenGroups>({});
+  /* ТЗ 3.3: свёрнутая колонка тоже запоминается — человек настроил ширину один раз. */
+  const [collapsed, setCollapsed] = useState(false);
   useEffect(() => {
     setOpenGroups(readOpenGroups(window.localStorage));
+    setCollapsed(readSidebarCollapsed(window.localStorage));
   }, []);
+
+  const toggleCollapsed = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    writeSidebarCollapsed(window.localStorage, next);
+  };
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   /*
@@ -161,7 +180,7 @@ export const AppShell = ({ children }: PropsWithChildren) => {
   const unreadLabel = formatUnreadBadge(unread.data?.total);
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${collapsed ? 'app-shell--narrow' : ''}`}>
       <a href="#app-shell-main" className="app-shell__skip-link">
         Перейти к основному содержимому
       </a>
@@ -198,6 +217,22 @@ export const AppShell = ({ children }: PropsWithChildren) => {
           <span className="ui-wordmark">{resolveWordmark(branding)}</span>
         </h2>
         {primaryRole ? <p className="app-shell__role">Роль: {primaryRole.displayName}</p> : null}
+        {/*
+          ТЗ 3.3: «Свернуть меню» — остаются значки. Подпись называет РЕЗУЛЬТАТ нажатия
+          (правило продукта №5), а не текущее состояние: «Свернуть меню» сворачивает.
+        */}
+        <button
+          type="button"
+          className="app-shell__sidebar-toggle"
+          aria-expanded={!collapsed}
+          aria-controls="app-shell-nav"
+          onClick={toggleCollapsed}
+        >
+          <Icon icon={collapsed ? ChevronRightIcon : ChevronLeftIcon} size={16} />
+          <span className="app-shell__link-label">
+            {collapsed ? 'Развернуть меню' : 'Свернуть меню'}
+          </span>
+        </button>
         <nav className="app-shell__nav" aria-label="Основные разделы">
           {navView.main.map((item) => {
             const active = isItemActive(item.href);
@@ -207,8 +242,12 @@ export const AppShell = ({ children }: PropsWithChildren) => {
                 href={item.href}
                 className={`app-shell__link ${active ? 'is-active' : ''}`}
                 aria-current={active ? 'page' : undefined}
+                title={collapsed ? item.label : undefined}
               >
-                {item.label}
+                <span className="app-shell__link-icon">
+                  <Icon icon={iconForHref(item.href)} size={16} label={item.label} />
+                </span>
+                <span className="app-shell__link-label">{item.label}</span>
               </Link>
             );
           })}
@@ -221,8 +260,12 @@ export const AppShell = ({ children }: PropsWithChildren) => {
                 href={item.href}
                 className={`app-shell__link ${active ? 'is-active' : ''}`}
                 aria-current={active ? 'page' : undefined}
+                title={collapsed ? item.label : undefined}
               >
-                {item.label}
+                <span className="app-shell__link-icon">
+                  <Icon icon={iconForHref(item.href)} size={16} label={item.label} />
+                </span>
+                <span className="app-shell__link-label">{item.label}</span>
               </Link>
             );
           })}
@@ -259,8 +302,12 @@ export const AppShell = ({ children }: PropsWithChildren) => {
                         href={item.href}
                         className={`app-shell__link ${active ? 'is-active' : ''}`}
                         aria-current={active ? 'page' : undefined}
+                        title={collapsed ? item.label : undefined}
                       >
-                        {item.label}
+                        <span className="app-shell__link-icon">
+                          <Icon icon={iconForHref(item.href)} size={16} label={item.label} />
+                        </span>
+                        <span className="app-shell__link-label">{item.label}</span>
                       </Link>
                     );
                   })}
