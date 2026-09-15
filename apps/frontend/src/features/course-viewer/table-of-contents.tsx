@@ -2,6 +2,7 @@
 
 import { Icon } from '@trudskill/ui';
 
+import { blockingMaterialTitle, lockCaption } from './study-flow';
 import { CheckCircleIcon, CircleIcon, ClockIcon, LockIcon } from '../navigation/nav-icons';
 
 import type { CourseTree, LockState, ProgressByMaterial } from './types';
@@ -20,9 +21,14 @@ type ProgressStatus = Progress['status'];
  */
 const statusIcon = (
   status: ProgressStatus | undefined,
-  isLocked: boolean
+  isLocked: boolean,
+  lockReason: string
 ): { icon: LucideIcon; label: string } => {
-  if (isLocked) return { icon: LockIcon, label: 'Закрыт: сначала пройдите предыдущие уроки' };
+  /*
+   * ТЗ 2.5.b: у замка подпись называет ВИНОВНИКА. Было общее «сначала пройдите предыдущие
+   * уроки» — в модуле из семи материалов это не подсказка, а загадка.
+   */
+  if (isLocked) return { icon: LockIcon, label: lockReason };
   if (status === 'completed') return { icon: CheckCircleIcon, label: 'Пройден' };
   if (status === 'in_progress') return { icon: ClockIcon, label: 'В процессе' };
   return { icon: CircleIcon, label: 'Не начат' };
@@ -87,6 +93,9 @@ export const TableOfContents = ({
               {node.materials.map((material) => {
                 const lock = moduleLocked ? 'locked' : (lockState.get(material.id) ?? 'locked');
                 const isLocked = lock === 'locked';
+                const lockReason = lockCaption(
+                  blockingMaterialTitle(tree, progressByMaterial, material.id)
+                );
                 const status = progressByMaterial.get(material.id)?.status;
                 const isCurrent = material.id === currentMaterialId;
                 const classes = [
@@ -110,12 +119,20 @@ export const TableOfContents = ({
                     >
                       <span className="course-toc__material-icon">
                         <Icon
-                          icon={statusIcon(status, isLocked).icon}
+                          icon={statusIcon(status, isLocked, lockReason).icon}
                           size={16}
-                          label={statusIcon(status, isLocked).label}
+                          label={statusIcon(status, isLocked, lockReason).label}
                         />
                       </span>
                       <span className="course-toc__material-title">{material.title}</span>
+                      {isLocked ? (
+                        <span
+                          className="course-toc__material-reason ui-text-muted"
+                          data-testid={`course-toc-lock-reason-${material.id}`}
+                        >
+                          {lockReason}
+                        </span>
+                      ) : null}
                     </button>
                   </li>
                 );

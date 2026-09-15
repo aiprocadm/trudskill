@@ -13,6 +13,7 @@ import {
 import { computeUnlockedMaterials } from './lock-logic';
 import { MaterialPlayer } from './material-player';
 import { computeModuleLocks } from './module-gate';
+import { nextUnlockedMaterialId, studyButtonState } from './study-flow';
 import { TableOfContents } from './table-of-contents';
 import { useWatchTracker } from './use-watch-tracker';
 import {
@@ -146,6 +147,46 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
     [currentMaterialId, enrollmentId, upsertProgress]
   );
 
+  /*
+   * ТЗ 2.5.b: «Материал изучен → Далее».
+   *
+   * Отправляем набранное время не меньше требуемого: сервер считает материал пройденным именно
+   * по нему (`studiedSeconds >= minViewSeconds`). Обойти требование кнопка не может и не должна
+   * — она включается только когда время уже отсижено, см. `studyButtonState`.
+   */
+  const [studyBusy, setStudyBusy] = useState(false);
+  const [studyError, setStudyError] = useState<string | null>(null);
+  const markStudied = useCallback(async () => {
+    if (!currentMaterial || !currentMaterialId || !enrollmentId) return;
+    setStudyBusy(true);
+    setStudyError(null);
+    try {
+      await upsertProgress({
+        materialId: currentMaterialId,
+        enrollmentId,
+        studiedSeconds: Math.max(currentMaterial.minViewSeconds, studiedSeconds)
+      });
+      const next = nextUnlockedMaterialId(tree ?? [], lockState, currentMaterialId);
+      /*
+       * Следующего открытого нет — остаёмся на месте. Уводить человека в пустоту хуже, чем
+       * оставить его там, где он только что закончил: отметка уже сохранена и видна в оглавлении.
+       */
+      if (next) setCurrentMaterialId(next);
+    } catch (error) {
+      setStudyError(error instanceof Error ? error.message : 'Не удалось сохранить отметку');
+    } finally {
+      setStudyBusy(false);
+    }
+  }, [
+    currentMaterial,
+    currentMaterialId,
+    enrollmentId,
+    lockState,
+    studiedSeconds,
+    tree,
+    upsertProgress
+  ]);
+
   useWatchTracker({
     materialId:
       enrollmentId && currentMaterial?.materialType !== 'scorm' ? currentMaterialId : null,
@@ -153,6 +194,15 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
     onFlush: handleFlush,
     onTick: setStudiedSeconds
   });
+
+  const study = studyButtonState({
+    material: currentMaterial,
+    remainingSeconds,
+    enrollmentId,
+    alreadyCompleted: progressByMaterial.get(currentMaterialId ?? '')?.status === 'completed'
+  });
+  /* Подпись кнопки честная: «далее» обещается только когда дальше действительно есть куда. */
+  const hasNextMaterial = nextUnlockedMaterialId(tree ?? [], lockState, currentMaterialId) !== null;
 
   const loading = courseLoading || treeLoading || progressLoading;
   const error = courseError ?? treeError ?? progressError ?? enrollmentError;
@@ -221,10 +271,32 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
               </p>
             ) : null}
             {currentMaterial ? (
-              <MaterialPlayer
-                material={currentMaterial}
-                {...(enrollmentId ? { enrollmentId } : {})}
-              />
+              <>
+                <MaterialPlayer
+                  material={currentMaterial}
+                  {...(enrollmentId ? { enrollmentId } : {})}
+                />
+                {/*
+                  ТЗ 2.5.b: у каждого материала есть явное «изучено».
+                  Кнопка не гаснет молча: рядом всегда написано, почему она недоступна.
+                */}
+                <div className="ui-stack" data-testid="course-material-done">
+                  {studyError ? <SectionError message={studyError} /> : null}
+                  {study.reason ? (
+                    <p className="ui-text-muted" data-testid="course-material-done-reason">
+                      {study.reason}
+                    </p>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="ui-button ui-button--primary"
+                    disabled={!study.enabled || studyBusy}
+                    onClick={() => void markStudied()}
+                  >
+                    {hasNextMaterial ? 'Материал изучен — далее' : 'Материал изучен'}
+                  </button>
+                </div>
+              </>
             ) : (
               <SectionEmpty
                 message="Выберите материал слева, чтобы начать просмотр."
