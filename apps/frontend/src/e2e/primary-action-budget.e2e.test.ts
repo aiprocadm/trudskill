@@ -37,7 +37,9 @@ const EXPLAINED: Record<string, string> = {
   'src/features/payments/screens.tsx :: OrdersScreen':
     'то же взаимное исключение: открытая форма забирает первичное действие себе',
   'src/features/test-player/test-attempt-screen.tsx :: TestAttemptScreen':
-    'ветка `isLast`: на последнем вопросе «Завершить тест», иначе «Далее» — обе кнопки в коде, на экране всегда одна'
+    'ветка `isLast`: на последнем вопросе «Завершить тест», иначе «Далее» — обе кнопки в коде, на экране всегда одна',
+  'src/features/identity-verification/screens.tsx :: LearnerIdentityScreen':
+    'ТЗ 2.4: у слушателя без связи с карточкой экран ВЫХОДИТ раньше формы и показывает единственное действие «Написать в учебный центр»; «Отправить на проверку» живёт в противоположной ветке и с ним не встречается'
 };
 
 const collect = (dir: string, acc: string[] = []): string[] => {
