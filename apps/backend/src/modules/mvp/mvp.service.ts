@@ -1417,6 +1417,34 @@ export class MvpService {
   getMaterial(tenantId: string, id: string): Material {
     return this.getById(this.state.materials, tenantId, id);
   }
+  /**
+   * Адрес внешнего материала (ТЗ 2.5.a).
+   *
+   * Пускаем только `http`/`https`. Не придирка: в поле, которое потом станет ссылкой на
+   * странице, `javascript:` — это исполняемый код в браузере слушателя, а `file:` — попытка
+   * открыть чужой диск. Проверять обязан сервер: административная часть может быть обойдена,
+   * а данные останутся в базе навсегда.
+   */
+  private assertExternalUrl(raw: string): string {
+    const value = raw.trim();
+    let parsed: URL;
+    try {
+      parsed = new URL(value);
+    } catch {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'Адрес материала должен начинаться с http:// или https://'
+      });
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new BadRequestException({
+        code: 'validation_error',
+        message: 'Адрес материала должен начинаться с http:// или https://'
+      });
+    }
+    return value;
+  }
+
   createMaterial(
     tenantId: string,
     actorId: string | undefined,
@@ -1471,6 +1499,17 @@ export class MvpService {
     if (request.materialType === 'scorm' && request.scormPackageId) {
       entity.scormPackageId = request.scormPackageId;
     }
+    /*
+     * ТЗ 2.5.a. Содержимое кладём ТОЛЬКО тому виду материала, которому оно принадлежит: текст
+     * у ссылки и ссылка у текста — это поля, которые никто никогда не прочитает, ровно тот
+     * класс «объявлено и не используется», который в этом репозитории ловят журналом.
+     */
+    if (request.materialType === 'text' && typeof request.textBody === 'string') {
+      entity.textBody = request.textBody;
+    }
+    if (request.materialType === 'external_url' && typeof request.externalUrl === 'string') {
+      entity.externalUrl = this.assertExternalUrl(request.externalUrl);
+    }
     this.state.materials.push(entity);
     this.audit(
       tenantId,
@@ -1510,6 +1549,16 @@ export class MvpService {
     if (typeof request.fileId === 'string' || request.fileId === null)
       current.fileId = request.fileId ?? undefined;
     if (typeof request.status === 'string') current.status = request.status;
+    /* ТЗ 2.5.a: пустая строка — это осознанная очистка поля, а не «не передали». */
+    if (typeof request.textBody === 'string' && current.materialType === 'text') {
+      current.textBody = request.textBody.length > 0 ? request.textBody : undefined;
+    }
+    if (typeof request.externalUrl === 'string' && current.materialType === 'external_url') {
+      current.externalUrl =
+        request.externalUrl.trim().length > 0
+          ? this.assertExternalUrl(request.externalUrl)
+          : undefined;
+    }
     // For scorm-typed materials, allow updating the referenced package (must be ready).
     if (current.materialType === 'scorm' && request.scormPackageId !== undefined) {
       const pkg = this.state.scormPackages.find(
