@@ -41,7 +41,9 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: LayoutDashboardIcon,
     // `/methodist` — сводка методиста (ФТ-H2, Фаза 5 Task 2): такой же обзорный экран,
     // как `/workspace` у администратора, поэтому живёт в том же блоке.
-    hrefs: ['/', '/workspace', '/methodist', '/learning/calendar']
+    // ТЗ 3.4: «/» — диспетчер (уводит на домашний экран роли), а не раздел; пунктом меню он
+    // был вторым входом в тот же «/workspace» / «/learner». Здесь его нет.
+    hrefs: ['/workspace', '/methodist', '/learning/calendar']
   },
   {
     id: 'my-learning',
@@ -135,7 +137,7 @@ export const NAV_GROUPS: NavGroup[] = [
       '/users',
       '/integrations',
       '/sync-logs',
-      '/academy',
+      // ТЗ 3.4: хаб «/academy» слит с «/settings» (редирект), его четыре ссылки — разделы настроек.
       '/academy/requisites',
       '/telephony',
       '/admin/licenses',

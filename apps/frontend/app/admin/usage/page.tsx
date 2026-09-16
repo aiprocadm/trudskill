@@ -11,7 +11,7 @@ export default function TenantUsagePage() {
     <ProtectedPage>
       <PageContainer>
         <PageHeader
-          title="Использование"
+          title="Потребление"
           subtitle="Тариф, счётчики и лимиты вашего учебного центра"
         />
         <TenantUsageScreen />

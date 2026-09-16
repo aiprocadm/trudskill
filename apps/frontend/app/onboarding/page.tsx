@@ -12,7 +12,7 @@ export default function OnboardingPage() {
     <ProtectedPage>
       <PageContainer>
         <PageHeader
-          title="Настройка центра"
+          title="Запуск центра"
           subtitle="Шесть шагов до первой группы: реквизиты, лицензия, бренд, комиссия, шаблоны, курс"
         />
         <OnboardingScreen />

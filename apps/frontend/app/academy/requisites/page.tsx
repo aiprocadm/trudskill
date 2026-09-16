@@ -109,7 +109,7 @@ export default function AcademyRequisitesPage() {
     <ProtectedPage>
       <PageContainer>
         <PageHeader
-          title="Данные учебного заведения"
+          title="Реквизиты центра"
           subtitle="Название, юридические реквизиты, часовой пояс и язык интерфейса центра"
         />
         <SectionCard title="Реквизиты и настройки">

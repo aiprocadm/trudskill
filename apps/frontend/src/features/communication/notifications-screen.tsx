@@ -94,7 +94,7 @@ export function NotificationsScreen(): ReactElement {
   return (
     <PageContainer>
       <PageHeader
-        title="Центр уведомлений"
+        title="Уведомления"
         subtitle="Напоминания о сроках, приглашения и сообщения о выпуске документов"
         {...(hasUnread
           ? {

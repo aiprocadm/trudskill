@@ -124,7 +124,7 @@ export const IntegrationSettingsScreen = () => {
   return (
     <PageContainer>
       <PageHeader
-        title="Обмен данными"
+        title="Интеграции"
         subtitle="Внешние системы, с которыми центр обменивается данными: подключения и состояние связи"
       />
       <SectionCard title="Доступные системы">
@@ -340,7 +340,7 @@ export const SyncLogsScreen = () => {
 
   return (
     <PageContainer>
-      <PageHeader title="Журнал синхронизации" />
+      <PageHeader title="Журнал обмена" />
       <SectionCard title="Журнал синхронизации">
         <FilterBar>
           <input

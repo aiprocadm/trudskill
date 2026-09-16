@@ -282,7 +282,8 @@ describe('меню собирается для адресата — сотруд
     expect(shown).toContain('/learner');
     expect(shown).toContain('/learner/tests');
     expect(shown).toContain('/learning/calendar');
-    expect(shown).toContain('/');
+    /* ТЗ 3.4: «/» больше не пункт меню (второй вход в «Мой кабинет»); общий пункт — уведомления. */
+    expect(shown).toContain('/notifications');
   });
 
   it('у человека с ролями преподавателя и слушателя — и то и другое', () => {

@@ -121,7 +121,7 @@ export default function ReportsPage() {
     <ProtectedPage>
       <PageContainer>
         <PageHeader
-          title="Отчётность"
+          title="Отчёты"
           subtitle="Выгрузки по курсам, группам, экзаменам и документам"
           primaryAction={{ label: 'Скачать табличные отчёты', onSelect: exportCsv }}
           secondaryActions={[{ label: 'Скачать сводку KPI', onSelect: exportKpiCsv }]}

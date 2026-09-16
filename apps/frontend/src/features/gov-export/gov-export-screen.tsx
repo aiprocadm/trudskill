@@ -301,7 +301,7 @@ export const GovExportScreen = () => {
   return (
     <PageContainer>
       <PageHeader
-        title="Выгрузки ФИС ФРДО / ЕИСОТ"
+        title="Госвыгрузки"
         subtitle="Государственные выгрузки: XML, валидация, история"
       />
       <SectionCard title="Мастер формирования пакета">

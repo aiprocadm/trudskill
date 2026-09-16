@@ -356,7 +356,6 @@ export const routeMeta: RouteMetaEntry[] = [
 
 /** Порядок — логические блоки по ТЗ СДО. */
 export const navigationModel: NavigationItem[] = [
-  { href: '/', label: 'Главная' },
   // ФТ-H1 (Фаза 5 Task 8): '/learner' стоял в блоке «Моё обучение», но пункта меню
   // не имел — блок ссылался в пустоту, и в кабинет нельзя было вернуться из меню.
   { href: '/learner', label: 'Мой кабинет', requiredPermissions: ['enrollments.read'] },
@@ -383,16 +382,16 @@ export const navigationModel: NavigationItem[] = [
     requiredPermissions: ['payments.self_purchase']
   },
   { href: '/courses', label: 'Курсы', requiredPermissions: ['courses.read'] },
-  { href: '/assessment', label: 'Задания и тесты', requiredPermissions: ['assessment.tests.read'] },
-  { href: '/notifications', label: 'Сообщения', requiredPermissions: ['tenant.read'] },
-  { href: '/users', label: 'Пользователи', requiredPermissions: ['iam.manage_roles'] },
+  { href: '/assessment', label: 'Оценивание', requiredPermissions: ['assessment.tests.read'] },
+  { href: '/notifications', label: 'Уведомления', requiredPermissions: ['tenant.read'] },
+  { href: '/users', label: 'Люди и доступ', requiredPermissions: ['iam.manage_roles'] },
   { href: '/groups', label: 'Группы', requiredPermissions: ['groups.read'] },
   {
     href: '/learning/calendar',
-    label: 'Календарь',
+    label: 'Календарь окончаний',
     requiredPermissions: ['enrollments.read']
   },
-  { href: '/reports', label: 'Отчеты', requiredPermissions: ['learners.read'] },
+  { href: '/reports', label: 'Отчёты', requiredPermissions: ['learners.read'] },
   { href: '/settings', label: 'Настройки', requiredPermissions: ['iam.manage_roles'] },
   {
     // ФТ-D2.2: право есть только у platform_admin (0073) — у админов центров пункт скрыт.
@@ -404,14 +403,14 @@ export const navigationModel: NavigationItem[] = [
   {
     // ФТ-D4.2: экран «Использование» — тариф и лимиты центра.
     href: '/admin/usage',
-    label: 'Использование',
+    label: 'Потребление',
     requiredPermissions: ['tenant.usage.read'],
     navSlot: 'more'
   },
   {
     // ФТ-D2.3: мастер онбординга нового центра.
     href: '/onboarding',
-    label: 'Настройка центра',
+    label: 'Запуск центра',
     requiredPermissions: ['tenant.settings.write'],
     navSlot: 'more'
   },
@@ -447,20 +446,14 @@ export const navigationModel: NavigationItem[] = [
     navSlot: 'more'
   },
   {
-    href: '/academy',
-    label: 'Учебный центр',
-    requiredPermissions: ['tenant.settings.write'],
-    navSlot: 'more'
-  },
-  {
     href: '/academy/requisites',
-    label: 'Реквизиты учебного центра',
+    label: 'Реквизиты центра',
     requiredPermissions: ['tenant.settings.write'],
     navSlot: 'more'
   },
   {
     href: '/academy/commission',
-    label: 'Комиссия',
+    label: 'Комиссия центра',
     requiredPermissions: ['learning.commissions.read'],
     navSlot: 'more'
   },
@@ -478,7 +471,7 @@ export const navigationModel: NavigationItem[] = [
   },
   {
     href: '/directions',
-    label: 'Направления',
+    label: 'Направления обучения',
     requiredPermissions: ['directions.read'],
     navSlot: 'more'
   },
@@ -496,25 +489,25 @@ export const navigationModel: NavigationItem[] = [
   },
   {
     href: '/documents',
-    label: 'Документы',
+    label: 'Шаблоны документов',
     requiredPermissions: ['documents.read'],
     navSlot: 'more'
   },
   {
     href: '/esign/applications',
-    label: 'НЭП заявки',
+    label: 'Заявки на НЭП',
     requiredPermissions: ['esign.applications.read'],
     navSlot: 'more'
   },
   {
     href: '/esign/processes',
-    label: 'НЭП подписание',
+    label: 'Подписание документов',
     requiredPermissions: ['esign.processes.read'],
     navSlot: 'more'
   },
   {
     href: '/esign/legal-log',
-    label: 'НЭП журнал',
+    label: 'Журнал НЭП',
     requiredPermissions: ['esign.legal.read'],
     navSlot: 'more'
   },
@@ -559,13 +552,13 @@ export const navigationModel: NavigationItem[] = [
   },
   {
     href: '/exports',
-    label: 'Экспорт',
+    label: 'Задачи выгрузки',
     requiredPermissions: ['integrations.read'],
     navSlot: 'more'
   },
   {
     href: '/sync-logs',
-    label: 'Журнал синхронизации',
+    label: 'Журнал обмена',
     requiredPermissions: ['integrations.read'],
     navSlot: 'more'
   },
@@ -591,13 +584,13 @@ export const navigationModel: NavigationItem[] = [
   },
   {
     href: '/audit',
-    label: 'Аудит',
+    label: 'Журнал действий',
     requiredPermissions: ['auth.manage_sessions'],
     navSlot: 'more'
   },
   {
     href: '/admin/analytics',
-    label: 'Аналитика',
+    label: 'Аналитика обучения',
     requiredPermissions: ['learners.read'],
     navSlot: 'more'
   },
@@ -609,13 +602,13 @@ export const navigationModel: NavigationItem[] = [
   },
   {
     href: '/admin/commissions',
-    label: 'Комиссии',
+    label: 'Аттестационные комиссии',
     requiredPermissions: ['learning.commissions.read'],
     navSlot: 'more'
   },
   {
     href: '/admin/bulk-enrollments',
-    label: 'Массовая загрузка',
+    label: 'Зачисление списком',
     requiredPermissions: ['learners.write', 'enrollments.write'],
     navSlot: 'more'
   },
@@ -641,7 +634,7 @@ export const navigationModel: NavigationItem[] = [
     href: '/admin/identity-verifications',
     // TXT-003: у слушателя этот же раздел называется «Подтверждение личности» —
     // одно понятие не должно менять имя при переходе между кабинетами.
-    label: 'Подтверждение личности',
+    label: 'Проверка личности',
     requiredPermissions: ['identity.read'],
     navSlot: 'more'
   },
@@ -654,7 +647,7 @@ export const navigationModel: NavigationItem[] = [
   },
   {
     href: '/admin/issuance-journal',
-    label: 'Журнал выдачи',
+    label: 'Книга выдачи документов',
     requiredPermissions: ['documents.read'],
     navSlot: 'more'
   },
@@ -666,7 +659,7 @@ export const navigationModel: NavigationItem[] = [
   },
   {
     href: '/admin/licenses',
-    label: 'Лицензии',
+    label: 'Лицензии и аккредитации',
     requiredPermissions: ['auth.manage_sessions'],
     navSlot: 'more'
   }

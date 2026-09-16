@@ -58,7 +58,7 @@ export const getVisibleNavigation = (session: UserSession | null) => {
 const isLearnerCabinet = (href: string) => href === '/learner' || href.startsWith('/learner/');
 
 /** Пункты без адресата — общие для любой роли. */
-const SHARED_NAV = new Set(['/', '/notifications', '/chat', '/learning/calendar']);
+const SHARED_NAV = new Set(['/notifications', '/chat', '/learning/calendar']);
 
 /*
  * Журнал 344, 345. Права у сотрудника и слушателя пересекаются (`courses.read`,
