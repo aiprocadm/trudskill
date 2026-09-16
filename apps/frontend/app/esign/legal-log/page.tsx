@@ -90,7 +90,7 @@ export default function EsignLegalLogPage() {
     <ProtectedPage>
       <PageContainer>
         <PageHeader
-          title="Юридический журнал"
+          title="Журнал НЭП"
           subtitle="Журнал юридически значимых событий (только добавление)"
         />
         <SectionCard title="События">

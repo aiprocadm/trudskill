@@ -1,51 +1,16 @@
-import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
-import { PageContainer, PageHeader, SectionCard } from '../../src/components/state-wrappers';
-import { TzLinks } from '../../src/components/tz/tz-links';
-import { ProtectedPage } from '../../src/widgets/shell/protected-page';
-
+/*
+ * ТЗ «Стабилизация, UX и развитие» 3.4 (Н3), решение Р2 — ⚠️ МЕНЯЕТ ПОВЕДЕНИЕ, не только вид.
+ *
+ * Как было: настройки центра жили в ЧЕТЫРЁХ пунктах — «Настройки» (`/settings`), «Учебный центр»
+ * (этот хаб), «Реквизиты учебного центра» и «Настройка центра». Этот хаб был оглавлением из
+ * четырёх ссылок — на реквизиты, комиссию, шаблоны и… на `/settings`, где те же разделы уже
+ * перечислены. Человек ходил по кругу и не понимал, где «настоящие» настройки.
+ *
+ * Хаб слит с «Настройками»; адрес сохранён редиректом, чтобы закладки и ссылки в письмах вели
+ * туда же, куда вели. Раздел «Реквизиты центра» в настройках ведёт прямо на реквизиты.
+ */
 export default function AcademyHubPage() {
-  return (
-    <ProtectedPage>
-      <PageContainer>
-        <PageHeader
-          title="Учебный центр"
-          subtitle="Реквизиты учебного центра, комиссия, шаблоны документов и нумерация"
-        />
-        <SectionCard title="Ключевые настройки">
-          <TzLinks
-            items={[
-              {
-                href: '/academy/requisites',
-                label: 'Данные учебного заведения и реквизиты',
-                description: 'Наименование, адреса, ИНН, контакты и часовой пояс учебного центра'
-              },
-              {
-                href: '/academy/commission',
-                label: 'Члены комиссии, председатель и секретарь',
-                description:
-                  'Справочник комиссии; привязка к протоколам и приказам — в развитии документооборота'
-              },
-              {
-                href: '/documents',
-                label: 'Шаблоны и генерация документов',
-                description: 'Реестр шаблонов, задания генерации и нумерация документов'
-              },
-              {
-                href: '/settings',
-                label: 'Общие настройки и UI-песочница',
-                description: 'Расширение под параметры документооборота и интеграций'
-              }
-            ]}
-          />
-        </SectionCard>
-        <SectionCard title="Связанные модули">
-          <p className="ui-prose-muted">
-            Нумерация приказов и протоколов настраивается в разделе «Документы». Массовая выдача
-            логинов — в разделе <Link href="/users">Пользователи</Link>.
-          </p>
-        </SectionCard>
-      </PageContainer>
-    </ProtectedPage>
-  );
+  redirect('/settings');
 }

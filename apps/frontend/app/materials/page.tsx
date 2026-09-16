@@ -23,7 +23,7 @@ export default function MaterialsHubPage() {
   return (
     <ProtectedPage>
       <PageContainer>
-        <PageHeader title="Учебный контент" subtitle="Модули и материалы курсов" />
+        <PageHeader title="Материалы" subtitle="Модули и материалы курсов" />
         <SectionCard title="Реестр материалов">
           {/* GOAL-4: каркас списка — из дизайн-системы, состояния не переписываются руками. */}
           <ListPage

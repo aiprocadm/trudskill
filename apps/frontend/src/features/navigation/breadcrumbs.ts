@@ -3,54 +3,39 @@ import { resolveGroupForPath } from './nav-groups';
 
 const hrefToLabel = new Map(navigationModel.map((item) => [item.href, item.label]));
 
-/** Подписи сегментов, если нет точного совпадения с пунктом меню. */
+/**
+ * Подписи сегментов, у которых НЕТ пункта меню, — только они.
+ *
+ * ТЗ 3.4 (Н3). Раньше здесь лежал второй словарь имён разделов, и он спорил с меню: `audit` →
+ * «Аудит» при заголовке «Журнал действий», `assessment` → «Аттестация» при «Оценивании»,
+ * `workspace` → «Рабочее место» при «Оперативной панели», `gov-export` → «Гос. выгрузки» при
+ * «Госвыгрузках». Для точного адреса побеждала подпись меню, и словарь молчал — но стоило
+ * адресу оказаться вложенным, крошки называли раздел третьим словом. Одно имя на раздел живёт
+ * в `navigationModel`; сторож `one-section-one-name` не даёт завести здесь ключ, у которого есть
+ * пункт меню.
+ */
 const segmentLabels: Record<string, string> = {
   new: 'Создание',
-  learner: 'Слушатель',
-  courses: 'Курсы',
-  requisites: 'Реквизиты',
-  commission: 'Комиссия',
   deals: 'Сделки',
   applications: 'Заявки',
   processes: 'Процессы',
-  'legal-log': 'Юридический журнал',
-  exports: 'Экспорты',
-  'sync-logs': 'Журнал синхронизации',
-  integrations: 'Интеграции',
-  notifications: 'Уведомления',
-  documents: 'Документы',
-  materials: 'Материалы',
-  groups: 'Группы',
-  directions: 'Направления',
-  users: 'Пользователи',
   /*
    * §5.433: «Компании» — решение владельца от 14.08.2026 (IA-017): `/counterparties`
    * перенаправляет на `/admin/clients`, и раздел в меню называется «Компании». Хлебные
    * крошки говорили «Контрагенты», то есть третьим словом об одной и той же сущности.
    */
   counterparties: 'Компании',
-  settings: 'Настройки',
-  audit: 'Аудит',
+  /* ТЗ 3.4: хаб `/academy` слит с настройками; сегмент остался у вложенных адресов. */
+  academy: 'Настройки',
   registry: 'Реестр',
-  reports: 'Отчёты',
-  webinars: 'Вебинары',
-  assessment: 'Аттестация',
-  'question-import': 'Импорт вопросов',
-  'gov-export': 'Гос. выгрузки',
-  workspace: 'Рабочее место',
-  chat: 'Чат',
   mailings: 'Рассылки',
-  telephony: 'Телефония',
-  proctoring: 'Прокторинг',
-  scorm: 'SCORM',
   forms: 'Формы',
   module: 'Модуль',
   'module-empty': 'Пустой модуль',
   esign: 'НЭП',
-  learners: 'Слушатели',
   crm: 'CRM',
   learning: 'Обучение',
-  calendar: 'Календарь'
+  platform: 'Платформа'
 };
 
 const looksLikeId = (segment: string) =>

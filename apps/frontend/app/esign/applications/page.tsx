@@ -52,7 +52,7 @@ export default function EsignApplicationsPage() {
     <ProtectedPage>
       <PageContainer>
         <PageHeader
-          title="НЭП — заявки"
+          title="Заявки на НЭП"
           subtitle="Заявки на электронную подпись и ход их согласования"
         />
         <SectionCard title="Заявки">

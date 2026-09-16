@@ -241,7 +241,7 @@ export function ScormPackagesScreen(): ReactElement {
   return (
     <PageContainer>
       <PageHeader
-        title="SCORM-пакеты"
+        title="Учебные пакеты (SCORM)"
         subtitle="Загружайте готовые курсы SCORM 1.2 одним архивом — после обработки их можно привязать к материалу курса."
       />
       <SectionCard title="Загрузить пакет">

@@ -38,7 +38,7 @@ export default function AcademyCommissionPage() {
     <ProtectedPage>
       <PageContainer>
         <PageHeader
-          title="Комиссия учебного центра"
+          title="Комиссия центра"
           subtitle="Состав комиссии: председатель, секретарь и члены"
         />
         <SectionCard title="Состав">

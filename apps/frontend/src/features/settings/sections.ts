@@ -19,11 +19,16 @@ export interface SettingsSection {
  * отдельными экранами: сливать их в один файл ТЗ прямо запрещает.
  */
 export const SETTINGS_LINK_SECTIONS: SettingsSection[] = [
+  /*
+   * ТЗ 3.4: раньше здесь была ссылка на хаб «Учебный центр» (`/academy`), который сам вёл на
+   * реквизиты, комиссию, шаблоны и обратно сюда — четвёртый вход в настройки. Хаб слит с этим
+   * экраном (редирект), а раздел ведёт прямо на реквизиты.
+   */
   {
     id: 'academy',
-    title: 'Учебный центр',
-    hint: 'Название, реквизиты, комиссия',
-    href: '/academy'
+    title: 'Реквизиты центра',
+    hint: 'Название, юридические реквизиты, часовой пояс',
+    href: '/academy/requisites'
   },
   { id: 'users', title: 'Люди и доступ', hint: 'Сотрудники центра и их роли', href: '/users' },
   { id: 'payments', title: 'Оплата', hint: 'Платёжный провайдер центра' },
@@ -41,7 +46,7 @@ export const SETTINGS_LINK_SECTIONS: SettingsSection[] = [
   { id: 'telephony', title: 'Телефония', hint: 'Звонки и записи разговоров', href: '/telephony' },
   {
     id: 'licenses',
-    title: 'Лицензии',
+    title: 'Лицензии и аккредитации',
     hint: 'Образовательная лицензия и аккредитации',
     href: '/admin/licenses'
   },
@@ -59,7 +64,7 @@ export const SETTINGS_LINK_SECTIONS: SettingsSection[] = [
   },
   {
     id: 'platform',
-    title: 'Платформа',
+    title: 'Арендаторы платформы',
     hint: 'Учебные центры и тарифы',
     href: '/platform/tenants'
   },

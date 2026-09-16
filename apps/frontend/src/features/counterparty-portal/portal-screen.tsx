@@ -55,7 +55,7 @@ export function CounterpartyPortalScreen() {
   return (
     <PageContainer spacious>
       <PageHeader
-        title="Обучение сотрудников"
+        title="Портал заказчика"
         subtitle="Сроки удостоверений, группы обучения и выданные документы вашей компании"
       />
 

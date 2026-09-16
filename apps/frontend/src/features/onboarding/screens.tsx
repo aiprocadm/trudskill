@@ -86,7 +86,7 @@ export function OnboardingScreen() {
             </p>
             <ProgressBar
               value={percent}
-              label="Настройка центра"
+              label="Запуск центра"
               tone={status.ready ? 'ok' : 'brand'}
             />
             {status.ready ? (

@@ -319,7 +319,7 @@ export function AdminIdentityQueueScreen(): ReactElement {
   return (
     <PageContainer>
       <PageHeader
-        title="Подтверждение личности"
+        title="Проверка личности"
         subtitle="Заявки слушателей: селфи и фото паспорта. Пока заявка не разобрана, слушателя не пустит на итоговый экзамен."
       />
 
