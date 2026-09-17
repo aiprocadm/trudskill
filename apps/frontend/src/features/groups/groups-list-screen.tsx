@@ -226,13 +226,19 @@ export const GroupsPageScreen = () => {
               <button type="button" className="ui-button" onClick={() => setClosing(false)}>
                 Отмена
               </button>
+              {/*
+                Э4 (ТЗ 5.4): закрытие групп необратимо — кнопка не носит конструктивный
+                оранжевый акцент, хотя панель и открыта ради него. TXT-003: подпись не
+                меняется по ходу (была «Закрываем…»), занятость показывает крутилка.
+              */}
               <button
                 type="button"
-                className="ui-button ui-button--primary"
+                className={`ui-button ui-button--danger${running ? ' ui-button--loading' : ''}`}
                 disabled={running || !protocolTemplateId || !certificateTemplateId}
+                aria-busy={running || undefined}
                 onClick={() => confirmBulkClose()}
               >
-                {running ? 'Закрываем…' : `Закрыть ${selected.length} групп`}
+                {`Закрыть ${selected.length} групп`}
               </button>
             </div>
           </div>

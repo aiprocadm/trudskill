@@ -23,20 +23,39 @@ import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
  * подсказка адреса в строке состояния, а незрячий слышит «кнопка» там, где переход.
  * Прецедент в пакете уже был: действие пустого состояния (`EmptyState`) устроено так же.
  */
+type PageActionBase = {
+  label: string;
+  disabled?: boolean;
+  /**
+   * Действие выполняется прямо сейчас. Подпись при этом **не меняется** (`TXT-003`):
+   * занятость показывает крутилка внутри кнопки, а не второе название. Экран
+   * переаттестации переименовывал кнопку «Проверить сроки» в «Проверяем сроки…» —
+   * человек терял из виду, что он вообще нажал.
+   */
+  busy?: boolean;
+  /**
+   * Необратимое действие: закрыть группу, перевести центр в архив, отозвать лицензию
+   * (для него по Э3 собирается подтверждение с `tone: 'danger'`).
+   *
+   * Во вторичных действиях рисуется красным и уходит в НИЗ меню «Ещё» — порядок считает
+   * сам компонент, а не каждый вызывающий: правило, которое обязан помнить каждый, соблюсти
+   * нельзя (урок Э1).
+   */
+  danger?: boolean;
+};
+
 export type PageAction =
-  | {
-      label: string;
-      onSelect: () => void;
-      disabled?: boolean;
-      /**
-       * Действие выполняется прямо сейчас. Подпись при этом **не меняется** (`TXT-003`):
-       * занятость показывает крутилка внутри кнопки, а не второе название. Экран
-       * переаттестации переименовывал кнопку «Проверить сроки» в «Проверяем сроки…» —
-       * человек терял из виду, что он вообще нажал.
-       */
-      busy?: boolean;
-    }
-  | { label: string; href: string };
+  | (PageActionBase & { onSelect: () => void })
+  | (PageActionBase & { href: string });
+
+/**
+ * Первичное действие экрана (ТЗ «Стабилизация, UX и развитие», 5.4 / Э4).
+ *
+ * Тот же `PageAction`, но `danger` обязан отсутствовать или быть `false`: **главная кнопка
+ * экрана — всегда конструктивное действие**, необратимое живёт во вторичных или в меню «Ещё».
+ * Вычисленную опасность (`danger: isDanger` типа `boolean`) тип тоже не пропустит.
+ */
+export type SafePageAction = PageAction & { danger?: false };
 
 /**
  * `TPL-002` — карточка объекта, которого НЕТ.
@@ -178,13 +197,18 @@ const renderPrimary = (action: PageAction): ReactElement =>
  */
 const renderSecondary = (action: PageAction): ReactElement =>
   'href' in action ? (
-    <a key={action.label} className="ui-button ui-button--secondary" href={action.href}>
+    <a
+      key={action.label}
+      className={`ui-button ${action.danger ? 'ui-button--danger' : 'ui-button--secondary'}`}
+      href={action.href}
+    >
       {action.label}
     </a>
   ) : (
     <Button
       key={action.label}
-      variant="secondary"
+      /* Э4: необратимое действие живёт вторичным — но цветом честно называет себя опасным. */
+      variant={action.danger ? 'danger' : 'secondary'}
       onClick={action.onSelect}
       {...(action.disabled ? { disabled: true } : {})}
       {...(action.busy ? { loading: true } : {})}
@@ -198,9 +222,13 @@ const renderSecondary = (action: PageAction): ReactElement =>
  * кнопки, он строка выпадающего списка. Поэтому здесь голая разметка со своим классом,
  * а не `Button` с добавленным классом (`ui-button` навесил бы кнопке рамку внутри меню).
  */
+/** Э4: опасный пункт меню — красным, как в меню «…» строки таблицы (Э1). */
+const menuItemClass = (action: PageAction): string =>
+  action.danger ? 'ui-header-menu__item ui-header-menu__item--danger' : 'ui-header-menu__item';
+
 const renderMenuItem = (action: PageAction): ReactElement =>
   'href' in action ? (
-    <a key={action.label} className="ui-header-menu__item" role="menuitem" href={action.href}>
+    <a key={action.label} className={menuItemClass(action)} role="menuitem" href={action.href}>
       {action.label}
     </a>
   ) : (
@@ -208,7 +236,7 @@ const renderMenuItem = (action: PageAction): ReactElement =>
       key={action.label}
       type="button"
       role="menuitem"
-      className="ui-header-menu__item"
+      className={menuItemClass(action)}
       onClick={action.onSelect}
       {...(action.disabled ? { disabled: true } : {})}
     >
@@ -242,15 +270,22 @@ export type PageHeaderProps = {
    * «переходный» `actions` не умер бы никогда.
    */
   toolsSlot?: ReactNode;
-  primaryAction?: PageAction;
+  /** Э4: только конструктивное действие — `danger` тип не пропустит. */
+  primaryAction?: SafePageAction;
   secondaryActions?: PageAction[];
 };
 
 export const PageHeader = (props: PageHeaderProps): ReactElement => {
   const { title, subtitle, breadcrumbsSlot, primaryAction, secondaryActions } = props;
   const toolsSlot = props.toolsSlot;
+  /*
+   * Э4: опасные пункты — в НИЗУ меню, отдельно от обычных. Порядок считает компонент, а не
+   * каждый вызывающий: тот же приём, что у меню «…» строки таблицы (Э1).
+   */
   const menuActions =
-    secondaryActions?.length && secondaryActions.length > 1 ? secondaryActions : undefined;
+    secondaryActions?.length && secondaryActions.length > 1
+      ? [...secondaryActions.filter((a) => !a.danger), ...secondaryActions.filter((a) => a.danger)]
+      : undefined;
   const inlineSecondary = secondaryActions?.length === 1 ? secondaryActions[0] : undefined;
 
   return (

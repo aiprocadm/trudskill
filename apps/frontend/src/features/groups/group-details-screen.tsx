@@ -32,12 +32,16 @@ import { proctoringApi } from '../proctoring/api';
  *
  * 1. Раскладка `DetailLayout`: слева работа с группой, справа сводка — на 1024px
  *    боковая колонка уходит вниз, отдельной вёрстки для этого не нужно.
- * 2. **Единственное первичное действие — «Закрыть группу»** (ТЗ §8.2). Раньше первичным
- *    было «Сгенерировать приказ» — частная операция, а закрытие группы вообще жило на
- *    другом экране, где идентификатор группы приходилось вписывать руками из адресной
- *    строки. Теперь `JOB-A3` («закрыть группу и выдать документы») — два клика от
- *    оперативной панели, а сама механика закрытия переиспользуется, а не дублируется.
- * 3. Приказ и прочее — вторичные действия рядом с первичным.
+ * 2. Закрытие группы переехало сюда с отдельного экрана, где идентификатор группы
+ *    приходилось вписывать руками из адресной строки: `JOB-A3` («закрыть группу и выдать
+ *    документы») — два клика от оперативной панели, механика переиспользуется, а не дублируется.
+ *
+ * **ТЗ 5.4 (Э4) переставило акценты.** До него первичным действием карточки было «Закрыть
+ * группу» — и ТЗ называет ровно этот экран своим примером нарушения: «самая яркая кнопка —
+ * „Закрыть группу“ (оранжевая, справа вверху)». Правило: главная кнопка экрана — всегда
+ * конструктивное действие, необратимое — вторичная кнопка или пункт «Ещё». Поэтому первичное
+ * действие теперь «Зачислить слушателя» (повседневная работа с группой), а закрытие стоит
+ * вторичным, красным, под тем же подтверждением с вводом названия группы (Э3).
  */
 export const GroupDetailsScreen = ({ id }: { id: string }) => {
   const { session } = useAuth();
@@ -45,6 +49,14 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
   useObjectCrumb(group?.name, { notFound, failed: Boolean(groupLoadError) });
   const canGenerateDocuments = hasPermission(session?.permissions ?? [], 'documents.generate');
   const canWriteDocuments = hasPermission(session?.permissions ?? [], 'documents.write');
+  /*
+   * Э2: недоступное действие не показывается вхолостую. Обе формы карточки стояли открытыми
+   * любому, кто может ЧИТАТЬ группу, — человек заполнял и получал отказ сервера. Права взяты
+   * те же, что требуют ручки (`POST /enrollments`, `POST /group-courses`), и сверены по живой
+   * `iam.role_permissions`: оба есть у руководителя, администратора центра и платформы.
+   */
+  const canEnroll = hasPermission(session?.permissions ?? [], 'enrollments.write');
+  const canAssignCourse = hasPermission(session?.permissions ?? [], 'groups.write');
   const { data: courses } = useCoursesList({ page: 1, page_size: 20 });
   const { data: groupCourses, refetch: refetchCourses } = useGroupCourses(id);
   const { data: enrollments, refetch: refetchEnrollments } = useEnrollments({ group_id: id });
@@ -56,6 +68,8 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [issueOrderOpen, setIssueOrderOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
+  /* Э4: первичное действие обязано куда-то вести — форма зачисления открывается панелью. */
+  const [enrollOpen, setEnrollOpen] = useState(false);
 
   // Pillar A Plan B §5.7: caller отвечает за фильтрацию только completed-enrollment'ов.
   const completedEnrollmentIds = useMemo(
@@ -92,17 +106,20 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
         title={group?.name ?? 'Карточка группы'}
         // exactOptionalPropertyTypes: undefined как значение не принимается — условный спред.
         {...(group?.code ? { subtitle: `Код группы: ${group.code}` } : {})}
-        // UI-007: одно первичное действие. Остальное — вторичным видом.
         /*
-         * Оба действия ВЫПУСКАЮТ документы, а в карточку группы пускают по праву её чтения.
-         * Без проверки человек видел «Закрыть группу», нажимал — и получал отказ сервера.
+         * UI-007: одно первичное действие. Э4: оно конструктивное — зачисление слушателя.
+         * Выпуск документов и закрытие группы требуют своих прав (`documents.*`), поэтому
+         * стоят вторичными и появляются только у того, кто вправе их выполнить.
          */
-        {...(canGenerateDocuments
-          ? { primaryAction: { label: 'Закрыть группу', onSelect: () => setCloseOpen(true) } }
+        {...(canEnroll
+          ? { primaryAction: { label: 'Зачислить слушателя', onSelect: () => setEnrollOpen(true) } }
           : {})}
         secondaryActions={[
           ...(canWriteDocuments
             ? [{ label: 'Сгенерировать приказ', onSelect: () => setIssueOrderOpen(true) }]
+            : []),
+          ...(canGenerateDocuments
+            ? [{ label: 'Закрыть группу', danger: true, onSelect: () => setCloseOpen(true) }]
             : [])
         ]}
       />
@@ -131,37 +148,40 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
         }
       >
         <SectionCard title="Курсы группы">
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!selectedCourseId) return;
-              void createGroupCourse({ groupId: id, courseId: selectedCourseId })
-                .then(() => {
-                  setSelectedCourseId('');
-                  return refetchCourses();
-                })
-                .catch((groupCourseError) => setSaveError(readApiMessage(groupCourseError)));
-            }}
-            className="ui-inline"
-            style={{ marginBottom: 8 }}
-          >
-            <select
-              className="ui-select"
-              value={selectedCourseId}
-              onChange={(event) => setSelectedCourseId(event.target.value)}
-              aria-label="Курс для назначения"
+          {/* Э2: без права `groups.write` форма не показывается — ручка всё равно откажет. */}
+          {canAssignCourse ? (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!selectedCourseId) return;
+                void createGroupCourse({ groupId: id, courseId: selectedCourseId })
+                  .then(() => {
+                    setSelectedCourseId('');
+                    return refetchCourses();
+                  })
+                  .catch((groupCourseError) => setSaveError(readApiMessage(groupCourseError)));
+              }}
+              className="ui-inline"
+              style={{ marginBottom: 8 }}
             >
-              <option value="">Выберите курс для назначения</option>
-              {courses?.items.map((course) => (
-                <option key={course.id} value={course.id}>
-                  {course.title}
-                </option>
-              ))}
-            </select>
-            <button type="submit" className="ui-button-secondary" disabled={!selectedCourseId}>
-              Назначить курс
-            </button>
-          </form>
+              <select
+                className="ui-select"
+                value={selectedCourseId}
+                onChange={(event) => setSelectedCourseId(event.target.value)}
+                aria-label="Курс для назначения"
+              >
+                <option value="">Выберите курс для назначения</option>
+                {courses?.items.map((course) => (
+                  <option key={course.id} value={course.id}>
+                    {course.title}
+                  </option>
+                ))}
+              </select>
+              <button type="submit" className="ui-button-secondary" disabled={!selectedCourseId}>
+                Назначить курс
+              </button>
+            </form>
+          ) : null}
           <ul className="ui-stack" style={{ gap: 0, listStyle: 'none', padding: 0, margin: 0 }}>
             {groupCourses?.items.map((item) => (
               <li key={item.id} className="ui-list-row">
@@ -172,26 +192,10 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
         </SectionCard>
 
         <SectionCard title="Слушатели группы">
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!learnerId.trim()) return;
-              void createEnrollment({ groupId: id, learnerId: learnerId.trim() })
-                .then(() => {
-                  setLearnerId('');
-                  return refetchEnrollments();
-                })
-                .catch((enrollmentError) => setSaveError(readApiMessage(enrollmentError)));
-            }}
-            className="ui-inline"
-            style={{ marginBottom: 8 }}
-          >
-            {/* Фаза 6 срез 6 (id-input-ban): выбор по фамилии вместо «вставьте идентификатор». */}
-            <LearnerSelect value={learnerId} onChange={setLearnerId} />
-            <button type="submit" className="ui-button-secondary" disabled={!learnerId.trim()}>
-              Зачислить слушателя
-            </button>
-          </form>
+          {/*
+            Э4: форма зачисления переехала в панель — её открывает первичное действие шапки.
+            Держать одну и ту же форму в двух местах нельзя: у действия одно место (Э1).
+          */}
           <ul className="ui-stack" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {enrollments?.items.map((item) => (
               <li key={item.id} className="ui-inline" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -235,6 +239,45 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
         {/* ФТ-B3.4: доказательная база на проверке ГИТ/Минтруда. */}
         <LearningJournalSection groupId={id} />
       </DetailLayout>
+
+      {/* Э4: первичное действие карточки — зачисление; форма открывается панелью рядом. */}
+      <DetailDrawer
+        open={enrollOpen}
+        onClose={() => setEnrollOpen(false)}
+        title="Зачислить слушателя"
+        subtitle={group?.name ?? ''}
+        width="sm"
+        /* CMP-010: слушатель выбран, но не зачислен — закрытие панели переспросит. */
+        hasUnsavedChanges={learnerId.trim().length > 0}
+      >
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!learnerId.trim()) return;
+            void createEnrollment({ groupId: id, learnerId: learnerId.trim() })
+              .then(() => {
+                setLearnerId('');
+                setEnrollOpen(false);
+                return refetchEnrollments();
+              })
+              .catch((enrollmentError) => setSaveError(readApiMessage(enrollmentError)));
+          }}
+          className="ui-stack"
+        >
+          {/* Фаза 6 срез 6 (id-input-ban): выбор по фамилии вместо «вставьте идентификатор». */}
+          <LearnerSelect value={learnerId} onChange={setLearnerId} />
+          <p className="ui-field-hint">
+            Слушатель попадёт в состав группы и получит доступ к её курсам.
+          </p>
+          <button
+            type="submit"
+            className="ui-button ui-button--primary"
+            disabled={!learnerId.trim()}
+          >
+            Зачислить слушателя
+          </button>
+        </form>
+      </DetailDrawer>
 
       {/* CMP-010: закрытие идёт панелью рядом со списком — карточка остаётся видна,
           а группа подставлена сама (раньше её вписывали руками на другом экране). */}

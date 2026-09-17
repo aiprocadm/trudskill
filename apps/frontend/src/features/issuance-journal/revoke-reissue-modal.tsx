@@ -18,19 +18,28 @@ export interface RevokeReissueModalProps {
   onSuccess?: () => void;
 }
 
-const LABELS: Record<RevokeReissueAction, { title: string; submit: string; placeholder: string }> =
-  {
-    revoke: {
-      title: 'Аннулировать документ',
-      submit: 'Аннулировать',
-      placeholder: 'Опишите причину аннулирования (обязательно)'
-    },
-    reissue: {
-      title: 'Перевыпустить документ',
-      submit: 'Перевыпустить',
-      placeholder: 'Опишите причину перевыпуска (обязательно)'
-    }
-  };
+/*
+ * Э4 (ТЗ 5.4): `danger` говорит, каким цветом рисовать кнопку панели. Аннулирование
+ * необратимо — оно не носит конструктивный оранжевый акцент, хотя панель и открыта ради него.
+ * Перевыпуск создаёт новый документ взамен — это конструктивное действие.
+ */
+const LABELS: Record<
+  RevokeReissueAction,
+  { title: string; submit: string; placeholder: string; danger: boolean }
+> = {
+  revoke: {
+    title: 'Аннулировать документ',
+    submit: 'Аннулировать',
+    placeholder: 'Опишите причину аннулирования (обязательно)',
+    danger: true
+  },
+  reissue: {
+    title: 'Перевыпустить документ',
+    submit: 'Перевыпустить',
+    placeholder: 'Опишите причину перевыпуска (обязательно)',
+    danger: false
+  }
+};
 
 export function RevokeReissueModal({
   open,
@@ -92,13 +101,21 @@ export function RevokeReissueModal({
       hasUnsavedChanges={reason.trim().length > 0}
       footer={
         <div className="ui-inline">
+          {/*
+            TXT-003: подпись НЕ меняется по ходу — раньше кнопка на время работы называлась
+            «Выполняем…», и человек терял из виду, что он вообще нажал. Занятость показывает
+            крутилка (`ui-button--loading`), как у остальных кнопок пакета.
+          */}
           <button
             type="button"
-            className="ui-button ui-button--primary"
+            className={`ui-button ${labels.danger ? 'ui-button--danger' : 'ui-button--primary'}${
+              pending ? ' ui-button--loading' : ''
+            }`}
             disabled={!reason.trim() || pending}
+            aria-busy={pending || undefined}
             onClick={() => void submit()}
           >
-            {pending ? 'Выполняем…' : labels.submit}
+            {labels.submit}
           </button>
           <button type="button" className="ui-button" onClick={onClose} disabled={pending}>
             Отмена
