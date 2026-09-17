@@ -21,6 +21,7 @@ import {
   isOverdue,
   parseRublesToKopecks
 } from './invoices';
+import { statusChangeRequest } from './status-confirm';
 import {
   type PlatformTenantDto,
   type PlatformTenantStatus,
@@ -58,11 +59,12 @@ interface TenantRow {
  * состояния — не название действия (`TXT-002`).
  */
 function statusActionLabel(status: PlatformTenantStatus): string {
+  /* ТЗ 5.3: у архива не было своего имени — печаталось «Перевести в «В архиве»». */
   const labels: Record<string, string> = {
     active: 'Включить работу центра',
     trial: 'Перевести на пробный период',
     suspended: 'Приостановить центр',
-    closed: 'Закрыть центр'
+    archived: 'Перевести центр в архив'
   };
   return labels[status] ?? `Перевести в «${TENANT_STATUS_LABELS[status] ?? status}»`;
 }
@@ -146,10 +148,18 @@ export function PlatformTenantsSection() {
       setName('');
     }, 'Не удалось создать арендатора');
 
+  /*
+   * ТЗ 5.3 (Э3): приостановка и архив срабатывали с одного нажатия в меню строки — без диалога.
+   * Диалог называет центр и последствие; архив требует ввести код центра (`statusChangeRequest`).
+   */
   const changeStatus = (tenant: PlatformTenantDto, status: PlatformTenantStatus) =>
-    run(
-      () => platformTenantsApi.changeStatus(session!, tenant.id, status),
-      'Не удалось сменить статус'
+    ask(
+      statusChangeRequest(tenant, status),
+      () =>
+        void run(
+          () => platformTenantsApi.changeStatus(session!, tenant.id, status),
+          'Не удалось сменить статус'
+        )
     );
 
   // CMP-006: вход «от имени» — действие с последствиями (смена сессии + запись в аудит),

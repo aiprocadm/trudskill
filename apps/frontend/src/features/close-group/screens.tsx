@@ -1,16 +1,17 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { StatusChip } from '@trudskill/ui';
+import { StatusChip, useConfirmDialog } from '@trudskill/ui';
 import { useMemo, useState } from 'react';
 
 import { closeGroupApi, describeProgress } from './api';
+import { closeGroupRequest } from './confirm';
 import { SectionCard, SectionError } from '../../components/state-wrappers';
 import { useAuth } from '../auth/context';
 import { CourseSelect } from '../courses/course-picker';
 import { GroupSelect } from '../groups/group-picker';
 import { useLearnerNames } from '../learners/learner-picker';
-import { useDocumentTemplates, useEnrollments } from '../mvp/hooks';
+import { useDocumentTemplates, useEnrollments, useGroupsList } from '../mvp/hooks';
 import { ENROLLMENT_STATUS_LABEL } from '../mvp/screen-helpers';
 
 import type { CloseGroupChainOutcomeDto } from './api';
@@ -25,6 +26,9 @@ import type { CloseGroupChainOutcomeDto } from './api';
  */
 export function CloseGroupSection({ groupId: fixedGroupId }: { groupId?: string } = {}) {
   const { session } = useAuth();
+  /* ТЗ 5.3 (Э3): закрытие группы — необратимо; подтверждается вводом названия группы. */
+  const { ask, dialog } = useConfirmDialog();
+  const { data: groupsPage } = useGroupsList({ page: 1, page_size: 200 });
   const queryClient = useQueryClient();
 
   /*
@@ -113,6 +117,15 @@ export function CloseGroupSection({ groupId: fixedGroupId }: { groupId?: string 
     }
   };
 
+  const groupName = groupsPage?.items.find((g) => g.id === trimmedGroup)?.name ?? trimmedGroup;
+  const confirmClose = () =>
+    ask(
+      closeGroupRequest({ groupName, learnersCount: enrollmentIds.length, mode: 'close' }),
+      () => void closeGroup()
+    );
+  const confirmChain = () =>
+    ask(closeGroupRequest({ groupName, learnersCount: 0, mode: 'chain' }), () => void runChain());
+
   const closeGroup = () =>
     run(async () => {
       const result = await closeGroupApi.close(session!, {
@@ -161,6 +174,7 @@ export function CloseGroupSection({ groupId: fixedGroupId }: { groupId?: string 
 
   return (
     <SectionCard title="Закрыть группу">
+      {dialog}
       <p className="ui-text-muted">
         Одной операцией: протокол на группу и удостоверение каждому сдавшему. Повторное нажатие
         безопасно — добиваются только упавшие, готовые документы не перевыпускаются.
@@ -254,7 +268,7 @@ export function CloseGroupSection({ groupId: fixedGroupId }: { groupId?: string 
           <button
             type="button"
             className="ui-button"
-            onClick={() => void closeGroup()}
+            onClick={() => confirmClose()}
             disabled={busy || !canClose}
           >
             Закрыть группу{enrollmentIds.length ? ` (${enrollmentIds.length} чел.)` : ''}
@@ -300,7 +314,7 @@ export function CloseGroupSection({ groupId: fixedGroupId }: { groupId?: string 
           <button
             type="button"
             className="ui-button ui-button--primary"
-            onClick={() => void runChain()}
+            onClick={() => confirmChain()}
             disabled={busy || !canChain}
           >
             Запустить цепочку

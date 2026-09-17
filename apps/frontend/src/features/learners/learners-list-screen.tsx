@@ -235,6 +235,7 @@ export function LearnersListScreen() {
           title="Архивировать слушателей"
           message={`Выбрано: ${selected.length}. Архивные слушатели не участвуют в новых зачислениях; данные и документы сохраняются.`}
           confirmLabel="Архивировать"
+          tone="danger"
           onConfirm={() => void runArchive()}
           onCancel={() => setConfirmingArchive(false)}
         />

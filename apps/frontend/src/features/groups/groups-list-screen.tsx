@@ -1,6 +1,13 @@
 'use client';
 
-import { BulkActionBar, DetailDrawer, ListPage, SelectField, StatusChip } from '@trudskill/ui';
+import {
+  BulkActionBar,
+  DetailDrawer,
+  ListPage,
+  SelectField,
+  StatusChip,
+  useConfirmDialog
+} from '@trudskill/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -60,6 +67,22 @@ export const GroupsPageScreen = () => {
   const [certificateTemplateId, setCertificateTemplateId] = useState('');
 
   const totalPages = data?.total ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
+
+  /*
+   * ТЗ 5.3 (Э3): закрытие групп необратимо. Ввода названий у пачки не спрашиваем — их много,
+   * а отказы всё равно покажем поимённо (частичный успех); хватает осознанного клика с числом.
+   */
+  const { ask, dialog } = useConfirmDialog();
+  const confirmBulkClose = () =>
+    ask(
+      {
+        title: `Закрыть группы: ${selected.length}`,
+        message: `Каждой из ${selected.length} групп будут выпущены протокол и удостоверения сдавшим. После закрытия состав групп изменить будет нельзя. Отказы покажем поимённо с причиной.`,
+        confirmLabel: `Закрыть ${selected.length} групп`,
+        tone: 'danger'
+      },
+      () => void runBulkClose()
+    );
 
   const runBulkClose = async () => {
     setRunning(true);
@@ -138,6 +161,7 @@ export const GroupsPageScreen = () => {
           ]}
         />
 
+        {dialog}
         {canCloseGroups ? (
           <BulkActionBar
             selectedCount={selected.length}
@@ -206,7 +230,7 @@ export const GroupsPageScreen = () => {
                 type="button"
                 className="ui-button ui-button--primary"
                 disabled={running || !protocolTemplateId || !certificateTemplateId}
-                onClick={() => void runBulkClose()}
+                onClick={() => confirmBulkClose()}
               >
                 {running ? 'Закрываем…' : `Закрыть ${selected.length} групп`}
               </button>
