@@ -1271,6 +1271,20 @@ export class MvpService {
         message: 'Course must have at least one version'
       });
     }
+    /*
+     * ТЗ 5.2 (Э2): возможность действия проверяет сервер, кнопка — отражение. Раньше
+     * «Опубликовать» у опубликованного курса молча ставил тот же статус и писал лишнюю
+     * строку в журнал; кнопка на экране этим и пользовалась.
+     */
+    if (course.status !== 'draft') {
+      throw new ConflictException({
+        code: 'course_not_draft',
+        message:
+          course.status === 'archived'
+            ? 'Курс в архиве — опубликовать его нельзя'
+            : 'Курс уже опубликован — создайте новую версию'
+      });
+    }
     course.status = 'published';
     course.updatedAt = this.now();
     this.audit(
@@ -1293,6 +1307,13 @@ export class MvpService {
     context: RequestContext
   ): Course {
     const course = this.getById(this.state.courses, tenantId, id);
+    /* ТЗ 5.2: архивировать архив нельзя — кнопки «В архив» у него и нет. */
+    if (course.status === 'archived') {
+      throw new ConflictException({
+        code: 'course_already_archived',
+        message: 'Курс уже в архиве'
+      });
+    }
     course.status = 'archived';
     course.isArchived = true;
     course.updatedAt = this.now();

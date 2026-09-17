@@ -11,6 +11,8 @@ import { TasksSection } from './tasks-section';
 import { TemplateSetupSection } from './template-setup-section';
 import { TemplatesSection } from './templates-section';
 import { PageContainer, PageHeader, SectionError } from '../../components/state-wrappers';
+import { hasPermission } from '../../lib/rbac/permissions';
+import { useAuth } from '../auth/context';
 import { useTaskRealtime } from '../communication/hooks';
 import { NumberingRulesSection } from '../numbering/screens';
 import { TenantImagesSection } from '../tenant-images/screens';
@@ -27,6 +29,9 @@ import { TenantImagesSection } from '../tenant-images/screens';
  */
 export function DocumentsScreen() {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
+  /* ТЗ 5.2: «Создать шаблон» без права на бланки — действие вхолостую; скрывается. */
+  const canEditTemplates = hasPermission(session?.permissions ?? [], 'documents.write');
   const [setupTemplateId, setSetupTemplateId] = useState<string | null>(null);
   const [generateTemplateId, setGenerateTemplateId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -52,7 +57,7 @@ export function DocumentsScreen() {
         /* UI-007/UI-003: одно первичное действие И один акцент. Пока шаблонов нет,
            первое действие предлагает сам пустой экран («Создать первый шаблон») —
            кнопка в шапке дублировала бы коралл (запись 107). */
-        {...(templates.length > 0
+        {...(templates.length > 0 && canEditTemplates
           ? { primaryAction: { label: 'Создать шаблон', onSelect: () => setCreateOpen(true) } }
           : {})}
       />

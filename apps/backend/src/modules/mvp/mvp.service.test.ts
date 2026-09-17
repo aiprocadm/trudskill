@@ -66,6 +66,19 @@ describe('mvp service domain rules', () => {
     service.createCourseVersion('tenant_demo', course.id);
     const published = service.publishCourse('tenant_demo', ctx.userId, course.id, ctx);
     expect(published.status).toBe('published');
+
+    /* ТЗ 5.2 (Э2): возможность действия проверяет сервер — второй раз опубликовать нельзя. */
+    expect(() => service.publishCourse('tenant_demo', ctx.userId, course.id, ctx)).toThrow(
+      ConflictException
+    );
+    const archived = service.archiveCourse('tenant_demo', ctx.userId, course.id, ctx);
+    expect(archived.status).toBe('archived');
+    expect(() => service.archiveCourse('tenant_demo', ctx.userId, course.id, ctx)).toThrow(
+      ConflictException
+    );
+    expect(() => service.publishCourse('tenant_demo', ctx.userId, course.id, ctx)).toThrow(
+      ConflictException
+    );
   });
 
   it('enforces unique enrollment by (group, learner)', () => {

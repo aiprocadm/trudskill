@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import {
+  attemptsCaption,
   detectStartGate,
-  formatAttemptsLeft,
   formatLearnerTestStatus,
   formatScoreLine
 } from './format';
@@ -57,7 +57,8 @@ function TestRow({ test }: { test: LearnerTestSummary }) {
     <li className="entry-card">
       <span className="ui-list-title">{test.title}</span>
       <span>{formatLearnerTestStatus(test.status)}</span>
-      <span>{formatAttemptsLeft(test.attemptsUsed, test.attemptLimit)}</span>
+      {/* ТЗ 5.2: подпись отражает состояние — начатая попытка не «0 из 1», а «продолжите её». */}
+      <span>{attemptsCaption(test)}</span>
       {test.bestScore !== undefined ? (
         <span>Лучший результат: {formatScoreLine(test.bestScore, test.maxScore)}</span>
       ) : null}
