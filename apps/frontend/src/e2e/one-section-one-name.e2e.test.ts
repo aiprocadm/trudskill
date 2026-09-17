@@ -70,14 +70,27 @@ const titleSourcesOf = (pageFile: string): string[] => {
 const hasTitle = (files: string[], label: string): boolean =>
   files.some((file) => stripComments(readFileSync(file, 'utf8')).includes(`title="${label}"`));
 
-/** Ключи словаря сегментов крошек — читаются из исходника: словарь не экспортируется. */
-const breadcrumbSegmentKeys = (): string[] => {
+/**
+ * Ключи словаря подписей крошек — читаются из исходника.
+ *
+ * ТЗ 3.5 переключил словарь со слова-сегмента на адрес целиком (`pageLabels`): ключ теперь
+ * `'/courses/new'`, а не `new`. Разборщик обновлён вместе с ним — прежний искал `segmentLabels`
+ * и на новом файле молча вернул бы пустой список, то есть проверка «не спорит с меню» прошла бы
+ * ни о чём. Поэтому здесь же проверяется, что словарь вообще найден.
+ */
+const breadcrumbPageKeys = (): string[] => {
   const code = stripComments(
     readFileSync(fromApp('src', 'features', 'navigation', 'breadcrumbs.ts'), 'utf8')
   );
-  const start = code.indexOf('const segmentLabels');
+  const start = code.indexOf('const pageLabels');
+  expect(start, 'словарь подписей крошек `pageLabels` обязан существовать').toBeGreaterThan(-1);
   const end = code.indexOf('};', start);
-  return [...code.slice(start, end).matchAll(/^\s*'?([a-z-]+)'?:\s*'/gm)].map((m) => m[1]!);
+  const keys = [...code.slice(start, end).matchAll(/^\s*'(\/[^']*)':\s*'/gm)].map((m) => m[1]!);
+  expect(
+    keys.length,
+    'словарь найден, но ни одного ключа не разобрано — разборщик отстал'
+  ).toBeGreaterThan(0);
+  return keys;
 };
 
 describe('один раздел — одно имя — одно место (ТЗ 3.4)', () => {
@@ -111,8 +124,8 @@ describe('один раздел — одно имя — одно место (Т�
   });
 
   it('словарь крошек не спорит с меню', () => {
-    const menuSegments = new Set(navigationModel.map((item) => item.href.slice(1)));
-    const clashing = breadcrumbSegmentKeys().filter((key) => menuSegments.has(key));
+    const menuHrefs = new Set(navigationModel.map((item) => item.href));
+    const clashing = breadcrumbPageKeys().filter((key) => menuHrefs.has(key));
     expect(
       clashing,
       'у сегмента есть пункт меню — имя берётся оттуда; второй словарь называл раздел третьим словом'

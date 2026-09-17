@@ -3,7 +3,15 @@
 import { ErrorBoundary, Icon, VISUALLY_HIDDEN_CLASS } from '@trudskill/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { type PropsWithChildren, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type PropsWithChildren,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore
+} from 'react';
 
 import { CommandPalette } from './command-palette';
 import { NavHint } from './nav-hint';
@@ -25,6 +33,12 @@ import {
   ChevronRightIcon,
   SearchIcon
 } from '../../features/navigation/nav-icons';
+import {
+  getObjectCrumbServerSnapshot,
+  getObjectCrumbSnapshot,
+  objectCrumbFor,
+  subscribeObjectCrumb
+} from '../../features/navigation/object-crumb';
 import {
   type OpenGroups,
   readOpenGroups,
@@ -65,7 +79,21 @@ export const AppShell = ({ children }: PropsWithChildren) => {
     [navView.more]
   );
   const primaryRole = getPrimaryRoleBlueprint(session);
-  const breadcrumbItems = useMemo(() => buildBreadcrumbs(pathname), [pathname]);
+  /*
+   * ТЗ 3.5 (Н5): последняя крошка карточки — имя объекта с сервера. Его знает только экран
+   * карточки; он публикует имя через `useObjectCrumb`, оболочка подписана на хранилище.
+   * Пока имени нет — скелетон, а не «Карточка» и не сырой идентификатор.
+   */
+  const publishedCrumb = useSyncExternalStore(
+    subscribeObjectCrumb,
+    getObjectCrumbSnapshot,
+    getObjectCrumbServerSnapshot
+  );
+  const objectCrumb = objectCrumbFor(publishedCrumb, pathname);
+  const breadcrumbItems = useMemo(
+    () => buildBreadcrumbs(pathname, objectCrumb),
+    [pathname, objectCrumb]
+  );
   const unread = useNotificationsList(1, 1, 'unread');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -326,7 +354,13 @@ export const AppShell = ({ children }: PropsWithChildren) => {
               return (
                 <span key={`${index}-${crumb.label}`} className="app-shell__crumb">
                   {index > 0 ? <span className="app-shell__crumb-sep"> / </span> : null}
-                  {isLast || !crumb.href ? (
+                  {crumb.pending ? (
+                    <span
+                      className="app-shell__crumb-current app-shell__crumb-skeleton ui-skeleton-line"
+                      role="status"
+                      aria-label="Название загружается"
+                    />
+                  ) : isLast || !crumb.href ? (
                     <span
                       className={isLast ? 'app-shell__crumb-current' : 'app-shell__crumb-block'}
                     >

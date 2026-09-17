@@ -24,6 +24,7 @@ import {
   useUsersList
 } from '../mvp/hooks';
 import { formatDate, readApiMessage } from '../mvp/screen-helpers';
+import { useObjectCrumb } from '../navigation/use-object-crumb';
 
 import type { ReactElement } from 'react';
 
@@ -191,6 +192,7 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
   const { session } = useAuth();
   const canManageRoles = hasPermission(session?.permissions ?? [], 'iam.manage_roles');
   const { data: user, loading, error, notFound, refetch } = useUser(id);
+  useObjectCrumb(user?.displayName, { notFound, failed: Boolean(error) });
   const branding = useTenantBranding();
   const { data: userRoles } = useUserRoles(id);
   const { data: allRoles } = useRoles();
@@ -226,7 +228,8 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
 
   return (
     <PageContainer>
-      <PageHeader title="Карточка пользователя" />
+      {/* TPL-002: заголовок карточки — имя объекта, как и последняя крошка (ТЗ 3.5/4.3). */}
+      <PageHeader title={user?.displayName ?? 'Пользователь'} />
       {loading ? <LoadingState message="Загрузка…" /> : null}
       {error ? <SectionError message={error} onRetry={() => void refetch()} /> : null}
       {user ? (

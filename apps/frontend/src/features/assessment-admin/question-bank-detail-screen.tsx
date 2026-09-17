@@ -13,6 +13,7 @@ import {
   SectionCard,
   SectionError
 } from '../../components/state-wrappers';
+import { useObjectCrumb } from '../navigation/use-object-crumb';
 
 import type { QuestionListItem, QuestionType } from './types';
 import type { Column } from '@trudskill/ui';
@@ -23,6 +24,7 @@ interface Props {
 
 export function QuestionBankDetailScreen({ bankId }: Props) {
   const bankQuery = useQuestionBank(bankId);
+  useObjectCrumb(bankQuery.data?.title, { failed: Boolean(bankQuery.error) });
   const [editing, setEditing] = useState(false);
   const [creatingQuestion, setCreatingQuestion] = useState(false);
   const [typeFilter, setTypeFilter] = useState<'' | QuestionType>('');

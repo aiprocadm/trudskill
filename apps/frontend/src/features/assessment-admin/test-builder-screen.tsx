@@ -22,6 +22,7 @@ import {
   SectionError
 } from '../../components/state-wrappers';
 import { useCourseNames } from '../courses/course-picker';
+import { useObjectCrumb } from '../navigation/use-object-crumb';
 
 import type { UpdateTestRulePayload } from './types';
 
@@ -31,6 +32,7 @@ interface Props {
 
 export function TestBuilderScreen({ testId }: Props) {
   const test = useTest(testId);
+  useObjectCrumb(test.data?.title, { failed: Boolean(test.error) });
   const questions = useTestQuestions(testId);
   const courseNames = useCourseNames();
   const updateTest = useUpdateTest();

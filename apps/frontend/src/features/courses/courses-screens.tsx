@@ -33,6 +33,7 @@ import {
 } from '../mvp/hooks';
 import { buildProgramMetaPatch } from '../mvp/payloads';
 import { MutationError, formatDate, readApiMessage } from '../mvp/screen-helpers';
+import { useObjectCrumb } from '../navigation/use-object-crumb';
 import { scormApi } from '../scorm/api';
 
 import type {
@@ -727,7 +728,8 @@ const DocumentSetSection = ({
 
 export const CourseDetailsScreen = ({ id }: { id: string }) => {
   const { session } = useAuth();
-  const { data: course, notFound, refetch } = useCourse(id);
+  const { data: course, error: courseLoadError, notFound, refetch } = useCourse(id);
+  useObjectCrumb(course?.title, { notFound, failed: Boolean(courseLoadError) });
   const { data: versions, refetch: refetchVersions } = useCourseVersions(id);
   const latestVersionId = versions?.items[versions.items.length - 1]?.id;
   const latestVersion = versions?.items[versions.items.length - 1];

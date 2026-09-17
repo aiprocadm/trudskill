@@ -4,7 +4,7 @@ import { Icon, LoadingState } from '@trudskill/ui';
 import Link from 'next/link';
 
 import { formatScoreLine } from './format';
-import { useAttempt, useAttemptResult } from './hooks';
+import { useAttempt, useAttemptResult, useMyTests } from './hooks';
 import {
   PageContainer,
   PageHeader,
@@ -13,15 +13,22 @@ import {
   SectionError
 } from '../../components/state-wrappers';
 import { CheckCircleIcon, CircleXIcon } from '../navigation/nav-icons';
+import { useObjectCrumb } from '../navigation/use-object-crumb';
 
 interface TestResultScreenProps {
   testId: string;
   attemptId: string;
 }
 
-export function TestResultScreen({ attemptId }: TestResultScreenProps) {
+export function TestResultScreen({ testId, attemptId }: TestResultScreenProps) {
   const { data: result, isLoading, error } = useAttemptResult(attemptId || null);
   const { data: attempt } = useAttempt(attemptId || null);
+  /* Имя объекта для крошек — название теста: у результата своего имени нет (ТЗ 3.5). */
+  const { data: myTests } = useMyTests();
+  const testTitle = myTests
+    ? (myTests.find((t) => t.testId === testId)?.title ?? 'Тест')
+    : undefined;
+  useObjectCrumb(testTitle, { failed: Boolean(error) });
 
   return (
     <PageContainer>

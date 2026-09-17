@@ -24,6 +24,7 @@ import {
 import { ApiClientError } from '../../lib/api/client';
 import { useCommission, useCommissions, useDomainMutations } from '../mvp/hooks';
 import { buildCommissionInfoPayload } from '../mvp/payloads';
+import { useObjectCrumb } from '../navigation/use-object-crumb';
 
 import type {
   Commission,
@@ -220,6 +221,7 @@ export const CommissionsPageScreen = () => {
 export const CommissionDetailsScreen = ({ id }: { id: string }) => {
   const { ask, dialog } = useConfirmDialog();
   const { data, loading, error, notFound, refetch } = useCommission(id);
+  useObjectCrumb(data?.name, { notFound, failed: Boolean(error) });
   const { updateCommission, archiveCommission, addCommissionMember, removeCommissionMember } =
     useDomainMutations();
 

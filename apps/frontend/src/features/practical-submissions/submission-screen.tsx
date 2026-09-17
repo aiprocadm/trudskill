@@ -23,10 +23,15 @@ import {
   SectionCard,
   SectionError
 } from '../../components/state-wrappers';
+import { useObjectCrumb } from '../navigation/use-object-crumb';
 
 export function SubmissionScreen({ assignmentId }: { assignmentId: string }) {
   const assignments = useMyAssignments();
   const summary = assignments.data?.find((a) => a.assignmentId === assignmentId);
+  useObjectCrumb(summary?.title, {
+    failed: Boolean(assignments.error),
+    notFound: Boolean(assignments.data) && !summary
+  });
 
   const createSubmission = useCreateSubmission();
   const updateSubmission = useUpdateSubmission();
