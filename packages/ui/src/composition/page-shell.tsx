@@ -114,7 +114,8 @@ export const SectionEmpty = ({
   message?: string;
   hint?: string;
 }): ReactElement => {
-  const resolvedMessage = message ?? 'Пока нет данных';
+  /* ТЗ 4.4: «Нет данных» запрещено — запасной текст тоже говорит по-человечески. */
+  const resolvedMessage = message ?? 'Здесь пока пусто';
   if (hint !== undefined && hint !== '') {
     return <EmptyState message={resolvedMessage} hint={hint} />;
   }

@@ -357,7 +357,7 @@ export const GovExportScreen = () => {
         {tasks.error ? <SectionError message={tasks.error} /> : null}
         {!tasks.loading && !tasks.error && !tasks.data.length ? (
           <SectionEmpty
-            message="Задачи выгрузки отсутствуют"
+            message="Задач выгрузки пока нет"
             hint="Задача появляется, когда вы формируете пакет для реестра."
           />
         ) : null}
@@ -469,8 +469,8 @@ export const GovExportScreen = () => {
             {otBatches.error ? <SectionError message={otBatches.error} /> : null}
             {!otBatches.loading && !otBatches.error && !otBatches.data.length ? (
               <SectionEmpty
-                message="Выгрузки отсутствуют"
-                hint="Сформированные пакеты и ответы ведомства появятся здесь."
+                message="Выгрузок пока нет"
+                hint="Сформируйте пакет для ведомства — он и ответ на него появятся здесь."
               />
             ) : null}
             {otBatches.data.length ? (
@@ -566,8 +566,8 @@ export const GovExportScreen = () => {
             {frdoBatches.error ? <SectionError message={frdoBatches.error} /> : null}
             {!frdoBatches.loading && !frdoBatches.error && !frdoBatches.data.length ? (
               <SectionEmpty
-                message="Выгрузки отсутствуют"
-                hint="Сформированные пакеты и ответы ведомства появятся здесь."
+                message="Выгрузок пока нет"
+                hint="Сформируйте пакет для ведомства — он и ответ на него появятся здесь."
               />
             ) : null}
             {frdoBatches.data.length ? (
@@ -657,8 +657,8 @@ export const GovExportScreen = () => {
             {eisotBatches.error ? <SectionError message={eisotBatches.error} /> : null}
             {!eisotBatches.loading && !eisotBatches.error && !eisotBatches.data.length ? (
               <SectionEmpty
-                message="Выгрузки отсутствуют"
-                hint="Сформированные пакеты и ответы ведомства появятся здесь."
+                message="Выгрузок пока нет"
+                hint="Сформируйте пакет для ведомства — он и ответ на него появятся здесь."
               />
             ) : null}
             {eisotBatches.data.length ? (
@@ -748,8 +748,8 @@ export const GovExportScreen = () => {
             {rostechBatches.error ? <SectionError message={rostechBatches.error} /> : null}
             {!rostechBatches.loading && !rostechBatches.error && !rostechBatches.data.length ? (
               <SectionEmpty
-                message="Выгрузки отсутствуют"
-                hint="Сформированные пакеты и ответы ведомства появятся здесь."
+                message="Выгрузок пока нет"
+                hint="Сформируйте пакет для ведомства — он и ответ на него появятся здесь."
               />
             ) : null}
             {rostechBatches.data.length ? (
@@ -836,8 +836,8 @@ export const GovExportScreen = () => {
             {nmoBatches.error ? <SectionError message={nmoBatches.error} /> : null}
             {!nmoBatches.loading && !nmoBatches.error && !nmoBatches.data.length ? (
               <SectionEmpty
-                message="Выгрузки отсутствуют"
-                hint="Сформированные пакеты и ответы ведомства появятся здесь."
+                message="Выгрузок пока нет"
+                hint="Сформируйте пакет для ведомства — он и ответ на него появятся здесь."
               />
             ) : null}
             {nmoBatches.data.length ? (

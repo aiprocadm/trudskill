@@ -167,7 +167,8 @@ export default function WorkspacePage() {
         */}
         <BelowFold>
           {journey ? (
-            <SectionCard title={`Сценарий роли: ${journey.title}`}>
+            /* ТЗ 4.4: «Сценарий роли: Траектория администратора» → «С чего начать». */
+            <SectionCard title="С чего начать">
               <p className="ui-prose-muted ui-prose-muted--tight">{journey.description}</p>
               <div className="ui-stack">
                 {journey.steps.slice(0, 3).map((step) => (
