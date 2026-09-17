@@ -1,7 +1,9 @@
 import { isValidElement } from 'react';
 
 import { resolveVisibleColumns } from './column-config.js';
+import { type RowAction, splitRowActions } from './row-actions.js';
 import { selectionState, toggleAll, toggleKey } from './selection.js';
+import { OverflowMenu } from '../overflow-menu/index.js';
 
 import type { RowKey } from './selection.js';
 import type { ReactElement, ReactNode } from 'react';
@@ -20,12 +22,37 @@ export interface Column<T extends object> {
 const renderCellValue = (value: unknown): ReactNode =>
   isValidElement(value) ? value : String(value ?? '');
 
-/** Действие над одной строкой (CMP-001): показывается в последней колонке. */
-export interface RowAction {
-  label: string;
-  onSelect: () => void;
-  danger?: boolean;
-}
+/*
+ * Действие над одной строкой (CMP-001): последняя колонка. ТЗ 5.1: в строке — одно основное
+ * действие, остальное в меню «…», опасные внизу отдельной секцией. Правило разбиения — чистая
+ * функция `splitRowActions`, тип переехал туда же.
+ */
+export { type RowAction, type RowActionLayout, splitRowActions } from './row-actions.js';
+
+/**
+ * ТЗ 5.1 (Э1): в строке — одно основное действие, остальное в меню «…», опасные внизу отдельной
+ * секцией. Раньше все действия печатались подряд подчёркнутыми ссылками: у арендаторов
+ * платформы четыре в ряд, опасные красным вперемешку с обычными.
+ */
+const renderRowActions = (actions: RowAction[]): ReactNode => {
+  const layout = splitRowActions(actions);
+  const menu = [...layout.menu, ...layout.danger];
+  return (
+    <>
+      {layout.inline ? (
+        <button
+          type="button"
+          className="ui-button-link"
+          onClick={layout.inline.onSelect}
+          {...(layout.inline.disabled ? { disabled: true } : {})}
+        >
+          {layout.inline.label}
+        </button>
+      ) : null}
+      {menu.length > 0 ? <OverflowMenu items={menu} /> : null}
+    </>
+  );
+};
 
 export function DataTable<T extends object>({
   columns: columnsSource,
@@ -187,20 +214,7 @@ export function DataTable<T extends object>({
                     ...(showActions
                       ? [
                           <td key="__actions" data-label="Действия" className="ui-table-actions">
-                            {rowActions(r).map((action) => (
-                              <button
-                                key={action.label}
-                                type="button"
-                                className={
-                                  action.danger
-                                    ? 'ui-button-link ui-button-link--danger'
-                                    : 'ui-button-link'
-                                }
-                                onClick={action.onSelect}
-                              >
-                                {action.label}
-                              </button>
-                            ))}
+                            {renderRowActions(rowActions(r))}
                           </td>
                         ]
                       : [])

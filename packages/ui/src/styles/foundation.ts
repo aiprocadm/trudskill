@@ -31,6 +31,18 @@ export const foundationStyles = `
 .ui-header-menu__list { position: absolute; right: 0; top: calc(100% + 4px); z-index: 200; min-width: 220px; display: grid; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); box-shadow: var(--ui-shadow); padding: var(--ui-space-xs); }
 .ui-header-menu__item { text-align: left; background: none; border: none; font: inherit; color: var(--ui-text); padding: 10px 12px; min-height: 44px; border-radius: var(--ui-radius-sm); cursor: pointer; }
 .ui-header-menu__item:hover { background: var(--ui-surface-muted); }
+/* ТЗ 5.1 (CMP-001): меню «…» строки таблицы — тот же приём, что «Ещё» в шапке; опасные
+   пункты внизу, за разделителем, красным. */
+.ui-overflow-menu { position: relative; display: inline-block; }
+.ui-overflow-menu > summary { list-style: none; cursor: pointer; }
+.ui-overflow-menu > summary::-webkit-details-marker { display: none; }
+.ui-overflow-menu[open] > summary { border-color: var(--ui-brand-600); }
+.ui-overflow-menu__list { position: absolute; right: 0; top: calc(100% + 4px); z-index: 200; min-width: 220px; display: grid; text-align: left; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); box-shadow: var(--ui-shadow); padding: var(--ui-space-xs); }
+.ui-overflow-menu__item { text-align: left; background: none; border: none; font: inherit; color: var(--ui-text); padding: 10px 12px; min-height: 44px; border-radius: var(--ui-radius-sm); cursor: pointer; white-space: nowrap; }
+.ui-overflow-menu__item:hover { background: var(--ui-surface-muted); }
+.ui-overflow-menu__item:disabled { color: var(--ui-text-muted); cursor: default; background: none; }
+.ui-overflow-menu__item--danger { color: var(--ui-danger-600); }
+.ui-overflow-menu__divider { height: 1px; background: var(--ui-border); margin: var(--ui-space-xs) 0; }
 .ui-page-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
 .ui-page-title { margin:0; font-size: clamp(var(--ui-font-size-xl), 1.2rem + 1vw, var(--ui-font-size-2xl)); font-weight: var(--ui-font-weight-bold); letter-spacing: -0.025em; line-height: var(--ui-line-height-tight); color: var(--ui-text); }
 /*

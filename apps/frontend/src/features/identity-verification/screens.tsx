@@ -351,6 +351,7 @@ export function AdminIdentityQueueScreen(): ReactElement {
         rowActions={(row) => [
           {
             label: 'Открыть заявку',
+            primary: true,
             onSelect: () => router.push(`/admin/identity-verifications/${row.id}`)
           }
         ]}

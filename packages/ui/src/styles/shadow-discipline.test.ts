@@ -25,7 +25,9 @@ const POPUP_LAYERS = [
   'ui-bulk-bar',
   'ui-column-picker',
   // CMP-015: меню «Ещё» в шапке — выпадающий слой поверх страницы.
-  'ui-header-menu'
+  'ui-header-menu',
+  // CMP-001 / ТЗ 5.1: меню «…» строки таблицы — тот же выпадающий слой.
+  'ui-overflow-menu'
 ];
 
 /** Сильная тень — только у этих двух. */

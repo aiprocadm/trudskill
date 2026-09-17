@@ -28,6 +28,9 @@ export const tableStyles = `
 .ui-table-actions { width: 1%; white-space: nowrap; text-align: right; }
 .ui-table-actions .ui-button-link + .ui-button-link { margin-left: var(--ui-space-md); }
 .ui-button-link--danger { color: var(--ui-danger-600); }
+/* ТЗ 5.1: основное действие строки и меню «…» рядом; кнопка «…» компактная, но с тач-зоной. */
+.ui-table-actions .ui-button-link + .ui-overflow-menu { margin-left: var(--ui-space-md); }
+.ui-table-actions .ui-overflow-menu > summary { min-width: 44px; padding-left: var(--ui-space-sm); padding-right: var(--ui-space-sm); }
 .ui-table tbody tr[data-selected='true'] td { background: var(--ui-surface-accent); }
 .ui-table tbody tr[data-selected='true']:hover td { background: var(--ui-surface-accent); }
 .ui-table-wrap--compact .ui-table th,
@@ -121,5 +124,10 @@ export const tableStyles = `
   .ui-table td.ui-table-actions { display: flex; flex-wrap: wrap; gap: var(--ui-space-md); }
   .ui-table td.ui-table-actions .ui-button-link { min-height: 44px; display: inline-flex; align-items: center; }
   .ui-table td.ui-table-actions .ui-button-link + .ui-button-link { margin-left: 0; }
+  /* CMP-001 на телефоне: меню «…» — кнопка внизу карточки, во всю строку. */
+  .ui-table td.ui-table-actions .ui-button-link + .ui-overflow-menu { margin-left: 0; }
+  .ui-table td.ui-table-actions .ui-overflow-menu { display: block; width: 100%; }
+  .ui-table td.ui-table-actions .ui-overflow-menu > summary { width: 100%; min-height: 44px; }
+  .ui-table td.ui-table-actions .ui-overflow-menu__list { position: static; box-shadow: none; }
 }
 `;

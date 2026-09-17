@@ -202,7 +202,9 @@ export function LearnersListScreen() {
           selectable
           selectedKeys={selected}
           onSelectionChange={setSelected}
-          rowActions={(row) => [{ label: 'Открыть карточку', onSelect: () => setEditing(row) }]}
+          rowActions={(row) => [
+            { label: 'Открыть карточку', primary: true, onSelect: () => setEditing(row) }
+          ]}
           emptyMessage="Слушателей пока нет"
           emptyHint="Здесь появятся люди, которых вы зачислите на обучение. Начните с добавления первого."
           page={page}
