@@ -76,7 +76,7 @@ export class IdentityPolicyService {
     if (input.scope === 'tenant' && input.scopeId) {
       throw new BadRequestException({
         code: 'validation_error',
-        message: 'У политики тенанта не может быть привязки к объекту'
+        message: 'У политики учебного центра не может быть привязки к объекту'
       });
     }
     if (input.scope !== 'tenant' && !input.scopeId) {

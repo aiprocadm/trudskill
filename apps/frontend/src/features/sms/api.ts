@@ -1,4 +1,5 @@
 import { apiRequest } from '../../lib/api/client';
+import { providerLabels } from '../texts/providers.ru';
 
 /**
  * Настройка СМС-поставщика центра (ФТ-C1.3, право `sms.configure`).
@@ -9,14 +10,12 @@ import { apiRequest } from '../../lib/api/client';
 export const SMS_PROVIDER_CODES = ['noop', 'fake', 'smsc', 'smsru', 'mts'] as const;
 export type SmsProviderCode = (typeof SMS_PROVIDER_CODES)[number];
 
-/** Русские подписи: код поставщика человеку ничего не говорит (правило «ни одного англицизма как значения»). */
-export const SMS_PROVIDER_LABELS: Record<SmsProviderCode, string> = {
-  noop: 'Не отправлять СМС',
-  fake: 'Проверочный (только для тестового стенда)',
-  smsc: 'SMSC.ru',
-  smsru: 'SMS.ru',
-  mts: 'МТС Коммуникатор'
-};
+/**
+ * Русские подписи — из общего словаря поставщиков (ТЗ 4.2): `noop` и `fake` называются
+ * одинаково во всех списках, а не «Не отправлять СМС» здесь и «Видео выключено» рядом.
+ */
+export const SMS_PROVIDER_LABELS: Record<SmsProviderCode, string> =
+  providerLabels(SMS_PROVIDER_CODES);
 
 export interface SmsProviderSettings {
   tenantId: string;

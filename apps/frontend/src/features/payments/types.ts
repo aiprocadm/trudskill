@@ -1,3 +1,5 @@
+import { providerLabels } from '../texts/providers.ru';
+
 export type OrderStatus = 'draft' | 'awaiting_payment' | 'paid' | 'fulfilled' | 'cancelled';
 
 export interface OrderItem {
@@ -48,14 +50,21 @@ export interface PaymentProviderSettings {
   updatedAt: string;
 }
 
-export const PAYMENT_PROVIDER_LABELS: Record<PaymentProviderCode, string> = {
-  noop: 'Отключено (noop)',
-  fake: 'Тестовый (fake)',
-  yookassa: 'ЮKassa',
-  tinkoff: 'Т-Касса',
-  cloudpayments: 'CloudPayments',
-  robokassa: 'Robokassa'
-};
+export const PAYMENT_PROVIDER_CODES = [
+  'noop',
+  'fake',
+  'yookassa',
+  'tinkoff',
+  'cloudpayments',
+  'robokassa'
+] as const satisfies readonly PaymentProviderCode[];
+
+/**
+ * Русские подписи — из общего словаря поставщиков (ТЗ 4.2). Раньше здесь стояли «Отключено
+ * (noop)» и «Тестовый (fake)»: код в скобках — это техническое значение на экране.
+ */
+export const PAYMENT_PROVIDER_LABELS: Record<PaymentProviderCode, string> =
+  providerLabels(PAYMENT_PROVIDER_CODES);
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   draft: 'Черновик',

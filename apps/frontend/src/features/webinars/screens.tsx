@@ -13,8 +13,11 @@ import {
   SectionError
 } from '../../components/state-wrappers';
 import { useAuth } from '../auth/context';
+import { providerLabels, providerNameRu } from '../texts/providers.ru';
 
 const PROVIDERS: WebinarProviderCode[] = ['noop', 'fake', 'jitsi', 'pruffme', 'zoom', 'bbb'];
+/* ТЗ 4.2: код площадки остаётся в коде и в запросе, на экран попадает имя из общего словаря. */
+const WEBINAR_PROVIDER_LABELS = providerLabels(PROVIDERS);
 
 export function WebinarsAdminScreen() {
   const { items, error, create } = useWebinars();
@@ -60,7 +63,7 @@ export function WebinarsAdminScreen() {
             <div className="ui-list-row-meta">
               {WEBINAR_STATUS_LABELS[w.status]} ·{' '}
               {new Date(w.plannedStartAt).toLocaleString('ru-RU')}
-              {w.providerCode ? ` · ${w.providerCode}` : ' · без провайдера'}
+              {w.providerCode ? ` · ${providerNameRu(w.providerCode)}` : ' · площадка не выбрана'}
             </div>
           </div>
         ))}
@@ -89,14 +92,15 @@ export function WebinarProviderSettingsSection() {
       {error ? <SectionError message={error} /> : null}
       {settings ? (
         <div className="ui-list-row-meta">
-          Текущий: {settings.providerCode} · {settings.enabled ? 'включён' : 'выключен'}
+          Сейчас: {providerNameRu(settings.providerCode)} ·{' '}
+          {settings.enabled ? 'включено' : 'выключено'}
         </div>
       ) : null}
       <div className="ui-inline">
         <select value={code} onChange={(e) => setCode(e.target.value as WebinarProviderCode)}>
           {PROVIDERS.map((p) => (
             <option key={p} value={p}>
-              {p}
+              {WEBINAR_PROVIDER_LABELS[p]}
             </option>
           ))}
         </select>

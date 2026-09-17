@@ -1,4 +1,5 @@
 import { apiRequest } from '../../lib/api/client';
+import { providerLabels } from '../texts/providers.ru';
 
 /**
  * Настройка видеопоставщика центра (ФТ-B1.1, право `video.configure`).
@@ -10,14 +11,9 @@ import { apiRequest } from '../../lib/api/client';
 export const VIDEO_PROVIDER_CODES = ['noop', 'fake', 'selfhosted', 'kinescope', 'vk'] as const;
 export type VideoProviderCode = (typeof VIDEO_PROVIDER_CODES)[number];
 
-/** Русские подписи: код поставщика человеку ничего не говорит. */
-export const VIDEO_PROVIDER_LABELS: Record<VideoProviderCode, string> = {
-  noop: 'Видео выключено',
-  fake: 'Проверочный (только для тестового стенда)',
-  selfhosted: 'Своё хранилище центра',
-  kinescope: 'Kinescope',
-  vk: 'VK Видео'
-};
+/** Русские подписи — из общего словаря поставщиков (ТЗ 4.2): одно имя на код во всех списках. */
+export const VIDEO_PROVIDER_LABELS: Record<VideoProviderCode, string> =
+  providerLabels(VIDEO_PROVIDER_CODES);
 
 export interface VideoProviderSettings {
   tenantId: string;

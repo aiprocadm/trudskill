@@ -625,7 +625,8 @@ const DocumentSetSection = ({
   return (
     <SectionCard title="Документы по окончании курса">
       <p className="ui-text-muted" style={{ marginBottom: 8 }}>
-        Документы выпускаются по порядку при завершении зачисления. Шаблоны привязаны к tenant.
+        Документы выпускаются по порядку при завершении зачисления. Шаблоны — из документов вашего
+        учебного центра.
       </p>
       {draft.length === 0 ? (
         <SectionEmpty
