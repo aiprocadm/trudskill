@@ -311,9 +311,15 @@ export function CloseGroupSection({ groupId: fixedGroupId }: { groupId?: string 
             onChange={setCourseId}
             label="Курс (для проверки готовности)"
           />
+          {/*
+            Э4 (ТЗ 5.4): акцент снят. Подпись нейтральная, но действие то же необратимое
+            закрытие группы: сервер отбирает сдавших, выпускает документы с номерами и готовит
+            строки госвыгрузки. Оранжевая кнопка вела глаз к самой тяжёлой операции панели,
+            а соседняя, более узкая «Закрыть группу», выглядела скромнее.
+          */}
           <button
             type="button"
-            className="ui-button ui-button--primary"
+            className="ui-button"
             onClick={() => confirmChain()}
             disabled={busy || !canChain}
           >

@@ -31,6 +31,8 @@ export const foundationStyles = `
 .ui-header-menu__list { position: absolute; right: 0; top: calc(100% + 4px); z-index: 200; min-width: 220px; display: grid; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); box-shadow: var(--ui-shadow); padding: var(--ui-space-xs); }
 .ui-header-menu__item { text-align: left; background: none; border: none; font: inherit; color: var(--ui-text); padding: 10px 12px; min-height: 44px; border-radius: var(--ui-radius-sm); cursor: pointer; }
 .ui-header-menu__item:hover { background: var(--ui-surface-muted); }
+/* Э4 (ТЗ 5.4): необратимое действие в меню шапки — красным, как в меню «…» строки таблицы. */
+.ui-header-menu__item--danger { color: var(--ui-danger-600); }
 /* ТЗ 5.1 (CMP-001): меню «…» строки таблицы — тот же приём, что «Ещё» в шапке; опасные
    пункты внизу, за разделителем, красным. */
 .ui-overflow-menu { position: relative; display: inline-block; }

@@ -64,6 +64,48 @@ describe('CMP-015 · PageHeader', () => {
     }
   });
 
+  it('опасное вторичное действие — красным и в НИЗУ меню (Э4, ТЗ 5.4)', () => {
+    /*
+     * Порядок считает компонент, а не вызывающий: экран передал опасное действие первым,
+     * а в меню оно обязано оказаться последним — иначе «Закрыть группу» стоит там, куда
+     * человек целится, промахнувшись на пункт.
+     */
+    const el = PageHeader({
+      title: 'Группа ОТ-14',
+      primaryAction: { label: 'Зачислить слушателя', onSelect: () => undefined },
+      secondaryActions: [
+        { label: 'Закрыть группу', danger: true, onSelect: () => undefined },
+        { label: 'Сгенерировать приказ', onSelect: () => undefined }
+      ]
+    });
+
+    const menu = flatten(el).find((node) => (node as { type?: unknown }).type === 'details');
+    const items = flatten(menu).filter((node) =>
+      String(propsOf(node)?.className ?? '').includes('ui-header-menu__item')
+    );
+    expect(items.map((i) => propsOf(i).children)).toEqual([
+      'Сгенерировать приказ',
+      'Закрыть группу'
+    ]);
+    expect(String(propsOf(items[1]).className)).toContain('ui-header-menu__item--danger');
+    expect(String(propsOf(items[0]).className)).not.toContain('danger');
+  });
+
+  it('единственное опасное действие — красная кнопка рядом, а не коралловая', () => {
+    const el = PageHeader({
+      title: 'Лицензия № 77-123',
+      secondaryActions: [{ label: 'Отозвать лицензию', danger: true, onSelect: () => undefined }]
+    });
+
+    const danger = flatten(el).filter((node) => propsOf(node)?.variant === 'danger');
+    expect(danger).toHaveLength(1);
+    expect(propsOf(danger[0]).children).toBe('Отозвать лицензию');
+    expect(
+      flatten(el).filter((node) => propsOf(node)?.variant === 'primary'),
+      'опасное действие не носит конструктивный акцент'
+    ).toHaveLength(0);
+  });
+
   it('единственное второстепенное действие остаётся кнопкой, а не прячется в меню', () => {
     // «Ещё» из одного пункта — два нажатия вместо одного и спрятанная от глаз возможность.
     // Меню начинается с двух пунктов; одиночное действие рисуется нейтральной кнопкой.

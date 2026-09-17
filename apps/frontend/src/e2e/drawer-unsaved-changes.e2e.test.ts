@@ -39,6 +39,18 @@ interface DrawerUsage {
   declaresUnsaved: boolean;
 }
 
+/** Индекс `>`, закрывающего открывающий тег: на нулевой глубине `{}` (стрелки не в счёт). */
+const tagEndOf = (block: string): number => {
+  let depth = 0;
+  for (let i = 0; i < block.length; i += 1) {
+    const ch = block[i];
+    if (ch === '{') depth += 1;
+    else if (ch === '}') depth -= 1;
+    else if (ch === '>' && depth === 0 && i > 0) return i;
+  }
+  return -1;
+};
+
 const collectDrawers = (): DrawerUsage[] => {
   const usages: DrawerUsage[] = [];
   for (const file of walkTsx(FEATURES_ROOT)) {
@@ -48,7 +60,15 @@ const collectDrawers = (): DrawerUsage[] => {
       const closing = source.indexOf('</DetailDrawer>', from);
       if (closing === -1) break;
       const block = source.slice(from, closing);
-      const headEnd = block.indexOf('>');
+      /*
+       * Конец открывающего тега — `>` на НУЛЕВОЙ глубине фигурных скобок.
+       *
+       * Наивный `indexOf('>')` обрывал тег на СТРЕЛКЕ обработчика (`onClose={() => …}`), и
+       * признак `hasUnsavedChanges` замечался, только если он написан ВЫШЕ `onClose`. То есть
+       * сторож зависел от порядка атрибутов: панель с предупреждением считалась панелью без
+       * него. Найдено в ТЗ 5.4 на новой панели зачисления (журнал 447).
+       */
+      const headEnd = tagEndOf(block);
       const head = headEnd === -1 ? block : block.slice(0, headEnd);
       usages.push({
         file: relative(APP_ROOT, file).replace(/\\/g, '/'),
