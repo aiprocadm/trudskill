@@ -72,11 +72,12 @@ export function RecertificationQueueScreen(): ReactElement {
 
   // CMP-006: были подряд window.confirm и window.prompt — два окна браузера на одно действие.
   // Теперь один диалог приложения с полем причины.
-  const onReject = (id: string) => {
+  const onReject = (id: string, learnerName: string) => {
     ask(
       {
         title: 'Убрать запись из очереди',
-        message: 'Слушатель не попадёт в переаттестацию по этой записи.',
+        /* ТЗ 5.3: диалог называет объект — чью запись убираем. */
+        message: `${learnerName || 'Слушатель'} не попадёт в переаттестацию по этой записи.`,
         confirmLabel: 'Убрать из очереди',
         tone: 'danger',
         input: { label: 'Причина (необязательно)', placeholder: 'Например: уволен' }
@@ -197,7 +198,7 @@ export function RecertificationQueueScreen(): ReactElement {
                   label: 'Убрать из очереди',
                   danger: true,
                   disabled: rejectPending,
-                  onSelect: () => void onReject(row.id)
+                  onSelect: () => void onReject(row.id, row.learnerName)
                 }
               ]
             : []

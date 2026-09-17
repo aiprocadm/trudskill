@@ -140,11 +140,12 @@ export function ReportBuilderScreen(): ReactElement {
   };
 
   // CMP-006: подтверждение удаления — диалог приложения.
-  const onDeleteTemplate = (id: string) => {
+  const onDeleteTemplate = (id: string, name: string) => {
     ask(
       {
         title: 'Удалить шаблон отчёта',
-        message: 'Шаблон исчезнет из списка. Уже выгруженные отчёты останутся на месте.',
+        /* ТЗ 5.3: диалог называет объект — какой именно шаблон. */
+        message: `Шаблон «${name}» исчезнет из списка. Уже выгруженные отчёты останутся на месте.`,
         confirmLabel: 'Удалить шаблон',
         tone: 'danger'
       },
@@ -329,7 +330,7 @@ export function ReportBuilderScreen(): ReactElement {
                           {
                             label: 'Удалить шаблон',
                             danger: true,
-                            onSelect: () => onDeleteTemplate(tpl.id)
+                            onSelect: () => onDeleteTemplate(tpl.id, tpl.name)
                           }
                         ]
                       : [];

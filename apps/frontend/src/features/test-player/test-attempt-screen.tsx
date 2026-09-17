@@ -1,10 +1,11 @@
 'use client';
 
-import { LoadingState, ProgressBar } from '@trudskill/ui';
+import { LoadingState, ProgressBar, useConfirmDialog } from '@trudskill/ui';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { LEAVE_CONFIRMATION, resolveConnectionStatus } from './connection';
+import { finishTestRequest } from './finish-confirm';
 import { formatTimeRemaining, remainingMsFromExpiry } from './format';
 import {
   useAttempt,
@@ -47,6 +48,8 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
   } = useAttemptQuestions(attemptId);
   const saveAnswer = useSaveAnswer();
   const submitAttempt = useSubmitAttempt();
+  /* ТЗ 5.3 (Э3): «Завершить тест» по кнопке — с подтверждением; автосдача по таймеру — без. */
+  const { ask: askFinish, dialog: finishDialog } = useConfirmDialog();
   // Fix I1: the resume banner needs enrollmentId+courseId — derived the same way the tests list
   // does (LearnerTestSummary carries courseId; AttemptDto only knows testId+enrollmentId).
   const { data: myTests } = useMyTests();
@@ -364,6 +367,7 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
   return (
     <PageContainer>
       <PageHeader title="Прохождение теста" />
+      {finishDialog}
       <ProctoringRecIndicator />
       {resume ? (
         <p
@@ -466,7 +470,15 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
             type="button"
             className={`ui-button ui-button--primary ${submitAttempt.isPending ? 'ui-button--loading' : ''}`}
             disabled={submitAttempt.isPending}
-            onClick={() => void handleSubmit()}
+            onClick={() =>
+              askFinish(
+                finishTestRequest({
+                  unanswered: questions.length - answeredCount,
+                  total: questions.length
+                }),
+                () => void handleSubmit()
+              )
+            }
           >
             Завершить тест
           </button>

@@ -312,8 +312,8 @@ export const CommissionDetailsScreen = ({ id }: { id: string }) => {
     ask(
       {
         title: 'Заархивировать комиссию',
-        message:
-          'Комиссию нельзя будет привязать к новым курсам. Уже выданные протоколы и документы останутся на месте.',
+        /* ТЗ 5.3: диалог называет объект — какую именно комиссию. */
+        message: `Комиссию «${data?.name ?? '—'}» нельзя будет привязать к новым курсам. Уже выданные протоколы и документы останутся на месте.`,
         confirmLabel: 'Заархивировать',
         tone: 'danger'
       },
@@ -326,11 +326,11 @@ export const CommissionDetailsScreen = ({ id }: { id: string }) => {
     await refetch();
   };
 
-  const onRemove = (memberId: string) => {
+  const onRemove = (memberId: string, fullName: string) => {
     ask(
       {
         title: 'Удалить члена комиссии',
-        message: 'Человек перестанет числиться в составе комиссии.',
+        message: `${fullName || 'Этот человек'} перестанет числиться в составе комиссии.`,
         confirmLabel: 'Удалить из состава',
         tone: 'danger'
       },
@@ -356,7 +356,11 @@ export const CommissionDetailsScreen = ({ id }: { id: string }) => {
       key: 'id',
       title: '',
       render: (row) => (
-        <button type="button" className="ui-button-link" onClick={() => void onRemove(row.id)}>
+        <button
+          type="button"
+          className="ui-button-link"
+          onClick={() => void onRemove(row.id, row.externalFullName ?? '')}
+        >
           Исключить из комиссии
         </button>
       )
