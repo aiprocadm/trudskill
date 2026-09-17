@@ -2,7 +2,7 @@
 
 import { SectionCard } from './state-wrappers';
 import { useAuth } from '../features/auth/context';
-import { getPrimaryRoleBlueprint } from '../features/navigation/role-blueprints';
+import { roleNamesRu } from '../features/texts/roles.ru';
 
 // Инициалы из ФИО: первые буквы первых двух слов (Фамилия Имя → «ФИ»).
 const initialsOf = (name: string): string =>
@@ -16,8 +16,11 @@ const initialsOf = (name: string): string =>
 export const ProfileCard = () => {
   const { session } = useAuth();
   const user = session?.user;
-  const roleLabel =
-    getPrimaryRoleBlueprint(session)?.displayName ?? session?.roles?.join(', ') ?? '—';
+  /*
+   * ТЗ 4.1 (Р1): имя роли — из словаря, по коду. Раньше роль без чертежа (представитель
+   * заказчика) печаталась кодом `counterparty_rep`, а несколько ролей — через запятую кодами.
+   */
+  const roleLabel = roleNamesRu(session?.roles ?? []).join(', ') || '—';
   const displayName = user?.displayName ?? user?.login ?? 'Пользователь';
 
   return (

@@ -51,7 +51,7 @@ export function GroupProgressSection({ clientId }: GroupProgressSectionProps) {
     <SectionCard title="Прогресс обучения">
       <dl className="ui-data-list">
         <div className="ui-data-list__row">
-          <dt>Учеников</dt>
+          <dt>Слушателей</dt>
           <dd>{s.totalLearners}</dd>
         </div>
         <div className="ui-data-list__row">

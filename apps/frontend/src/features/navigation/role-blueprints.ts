@@ -1,3 +1,6 @@
+import { normalizeRoleCode } from './role-code';
+import { ROLE_NAMES_RU } from '../texts/roles.ru';
+
 import type { UserSession } from '../../entities/session/model';
 
 export interface RoleBlueprint {
@@ -13,6 +16,12 @@ export interface RoleBlueprint {
  *
  * ПОРЯДОК ЗАПИСЕЙ ЗНАЧИМ. getSessionRoleBlueprints фильтрует этот массив и
  * сохраняет порядок объявления, а getNavigationView берёт меню у ПЕРВОЙ роли.
+ * Имя роли (`displayName`) — ссылкой на словарь Р1 (`texts/roles.ru.ts`), а не строкой:
+ * у роли одно имя на всё приложение (ТЗ 4.1). Раньше чертёж звал `manager` «Менеджером»,
+ * а `tenant_admin` — «Администратором», при том что список пользователей печатал
+ * «Manager» и «Tenant admin». Массив остаётся литералом `export const … = [ … ];` —
+ * его читают сторожа бэкенда (`navigation-model.test-util.ts`).
+ *
  * Поэтому список идёт от самой полной роли к самой узкой: администратор, которому
  * дополнительно выдали роль менеджера, должен увидеть меню администратора, а не
  * менеджера. Тот же принцип, что в таблице домашних маршрутов role-home.ts.
@@ -20,7 +29,7 @@ export interface RoleBlueprint {
 export const roleBlueprints: RoleBlueprint[] = [
   {
     role: 'platform_admin',
-    displayName: 'Администратор платформы',
+    displayName: ROLE_NAMES_RU.platform_admin,
     topJobs: [
       'Проверить здоровье арендаторов',
       'Завести или приостановить центр',
@@ -39,7 +48,7 @@ export const roleBlueprints: RoleBlueprint[] = [
   },
   {
     role: 'tenant_admin',
-    displayName: 'Администратор',
+    displayName: ROLE_NAMES_RU.tenant_admin,
     // ТЗ §3.1: формулировки — результат для человека, а не обязанность роли.
     topJobs: [
       'Увидеть, что горит сегодня',
@@ -60,7 +69,7 @@ export const roleBlueprints: RoleBlueprint[] = [
   },
   {
     role: 'manager',
-    displayName: 'Менеджер',
+    displayName: ROLE_NAMES_RU.manager,
     topJobs: [
       'Зачислить слушателя в группу',
       'Собрать группу под заказчика',
@@ -72,7 +81,7 @@ export const roleBlueprints: RoleBlueprint[] = [
   },
   {
     role: 'methodist',
-    displayName: 'Методист',
+    displayName: ROLE_NAMES_RU.methodist,
     topJobs: [
       'Собрать программу курса',
       'Обновить материалы и версии',
@@ -95,7 +104,7 @@ export const roleBlueprints: RoleBlueprint[] = [
   },
   {
     role: 'teacher',
-    displayName: 'Преподаватель',
+    displayName: ROLE_NAMES_RU.teacher,
     topJobs: [
       'Проверить работы в очереди',
       'Посмотреть прогресс группы',
@@ -107,7 +116,7 @@ export const roleBlueprints: RoleBlueprint[] = [
   },
   {
     role: 'learner',
-    displayName: 'Слушатель',
+    displayName: ROLE_NAMES_RU.learner,
     topJobs: [
       'Продолжить обучение с последнего места',
       'Сдать тест или задание',
@@ -126,16 +135,8 @@ export const roleBlueprints: RoleBlueprint[] = [
   }
 ];
 
-const roleAliases: Record<string, string> = {
-  admin: 'tenant_admin',
-  administrator: 'tenant_admin',
-  teacher: 'teacher',
-  tutor: 'teacher',
-  methodologist: 'methodist',
-  sales_manager: 'manager'
-};
-
-const normalizeRole = (role: string) => roleAliases[role] ?? role;
+/* Синонимы кодов — одной таблицей на всех, в листе `role-code.ts` (ТЗ 4.1). */
+const normalizeRole = normalizeRoleCode;
 
 export const getSessionRoleBlueprints = (session: UserSession | null): RoleBlueprint[] => {
   if (!session) return [];

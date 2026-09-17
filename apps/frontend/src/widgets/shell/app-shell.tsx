@@ -52,6 +52,7 @@ import {
   readSidebarCollapsed,
   writeSidebarCollapsed
 } from '../../features/navigation/sidebar-state';
+import { roleNamesRu } from '../../features/texts/roles.ru';
 
 const formatUnreadBadge = (total: number | undefined) => {
   const n = total ?? 0;
@@ -79,6 +80,7 @@ export const AppShell = ({ children }: PropsWithChildren) => {
     [navView.more]
   );
   const primaryRole = getPrimaryRoleBlueprint(session);
+  const roleLine = primaryRole?.displayName ?? roleNamesRu(session?.roles ?? [])[0] ?? null;
   /*
    * ТЗ 3.5 (Н5): последняя крошка карточки — имя объекта с сервера. Его знает только экран
    * карточки; он публикует имя через `useObjectCrumb`, оболочка подписана на хранилище.
@@ -244,7 +246,8 @@ export const AppShell = ({ children }: PropsWithChildren) => {
           ) : null}
           <span className="ui-wordmark">{resolveWordmark(branding)}</span>
         </h2>
-        {primaryRole ? <p className="app-shell__role">Роль: {primaryRole.displayName}</p> : null}
+        {/* ТЗ 4.1 (Р1): имя роли — из словаря; у роли без чертежа (представитель заказчика) оно тоже есть. */}
+        {roleLine ? <p className="app-shell__role">Роль: {roleLine}</p> : null}
         {/*
           ТЗ 3.3: «Свернуть меню» — остаются значки. Подпись называет РЕЗУЛЬТАТ нажатия
           (правило продукта №5), а не текущее состояние: «Свернуть меню» сворачивает.

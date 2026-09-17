@@ -67,7 +67,7 @@ export class LearnerPdfCardService {
   ): Promise<LearnerPdfCardAggregate> {
     const learner = this.state.learners.find((l) => l.tenantId === tenantId && l.id === learnerId);
     if (!learner) {
-      throw new NotFoundException({ code: 'learner_not_found', message: 'Ученик не найден' });
+      throw new NotFoundException({ code: 'learner_not_found', message: 'Слушатель не найден' });
     }
 
     // 152-ФЗ access-log. Пишем ТОЛЬКО entityId — никаких ФИО/СНИЛС/email в audit.

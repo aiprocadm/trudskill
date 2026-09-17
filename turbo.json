@@ -18,6 +18,11 @@
     "test": {
       "dependsOn": ["^test", "^build"],
       "outputs": []
+    },
+    "@trudskill/backend#test": {
+      "dependsOn": ["^test", "^build"],
+      "outputs": [],
+      "inputs": ["$TURBO_DEFAULT$", "../frontend/src/**", "../frontend/app/**"]
     }
   }
 }

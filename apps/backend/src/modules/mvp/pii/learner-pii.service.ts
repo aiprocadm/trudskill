@@ -240,7 +240,7 @@ export class LearnerPiiService {
   private requireLearner(tenantId: string, learnerId: string) {
     const learner = this.state.learners.find((l) => l.tenantId === tenantId && l.id === learnerId);
     if (!learner) {
-      throw new NotFoundException({ code: 'learner_not_found', message: 'Ученик не найден' });
+      throw new NotFoundException({ code: 'learner_not_found', message: 'Слушатель не найден' });
     }
     return learner;
   }

@@ -1,4 +1,5 @@
 import { evaluateRouteAccess } from './helpers';
+import { normalizeRoleCode } from './role-code';
 
 import type { UserSession } from '../../entities/session/model';
 
@@ -19,18 +20,12 @@ import type { UserSession } from '../../entities/session/model';
  * новой ролью и незаметно расходится с правами.
  */
 
-/** Синонимы ролей, встречающиеся в сессиях; те же, что в `role-blueprints`. */
-const ROLE_ALIASES: Record<string, string> = {
-  student: 'learner',
-  admin: 'tenant_admin',
-  administrator: 'tenant_admin',
-  methodologist: 'methodist'
-};
+/*
+ * Синонимы ролей живут в листе `role-code.ts` — одной таблицей на маршруты, чертежи и словарь
+ * имён (ТЗ 4.1). Реэкспорт оставлен: вызывающие берут `normalizeRoleCode` отсюда.
+ */
 
-export const normalizeRoleCode = (role: string): string => {
-  const lowered = role.toLowerCase();
-  return ROLE_ALIASES[lowered] ?? lowered;
-};
+export { normalizeRoleCode };
 
 /**
  * Домашний маршрут роли. **Порядок = приоритет**, когда ролей у человека несколько.
