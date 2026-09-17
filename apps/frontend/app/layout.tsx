@@ -10,6 +10,12 @@ import type { ReactNode } from 'react';
 // (App Router metadata route) and is linked automatically; here we add the theme colour and
 // iOS standalone hints so the installed app chrome matches the brand.
 export const metadata: Metadata = {
+  /*
+   * ТЗ 4.3 (Я3), журнал 394: `<title>` не задавала ни одна страница — вкладки были безымянными.
+   * Здесь запасной заголовок для всех страниц (вход, восстановление, ошибки); внутри оболочки
+   * вкладку называет раздел из реестра — `tabTitle` в `app-shell.tsx`, из тех же крошек.
+   */
+  title: { default: 'trudskill', template: '%s — trudskill' },
   applicationName: 'trudskill',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: 'trudskill' }
 };

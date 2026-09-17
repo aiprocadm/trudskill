@@ -51,13 +51,18 @@ describe('buildBreadcrumbs', () => {
     expect(crumbs).toEqual([
       { label: 'Люди и группы' },
       { label: 'Группы', href: '/groups' },
-      { label: 'Группа 360px', href: '/groups/group_9z34wx1b' }
+      { label: 'Группа 360px', href: '/groups/group_9z34wx1b', object: true }
     ]);
   });
 
   it('пока имя едет — скелетон, а не «Карточка» и не идентификатор', () => {
     const last = buildBreadcrumbs('/learners/learner_89ydse8s').at(-1);
-    expect(last).toEqual({ label: '', href: '/learners/learner_89ydse8s', pending: true });
+    expect(last).toEqual({
+      label: '',
+      href: '/learners/learner_89ydse8s',
+      pending: true,
+      object: true
+    });
     expect(buildBreadcrumbs('/users/550e8400-e29b-41d4-a716-446655440000').at(-1)?.pending).toBe(
       true
     );
@@ -83,7 +88,8 @@ describe('buildBreadcrumbs', () => {
       { label: 'Мои тесты', href: '/learner/tests' },
       {
         label: 'Охрана труда: итоговый тест',
-        href: '/learner/tests/test_vc8sf4k5/attempt/attempt_1a2b3c4d'
+        href: '/learner/tests/test_vc8sf4k5/attempt/attempt_1a2b3c4d',
+        object: true
       }
     ]);
   });

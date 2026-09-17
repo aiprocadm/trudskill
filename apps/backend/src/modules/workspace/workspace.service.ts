@@ -45,7 +45,7 @@ export class WorkspaceService {
           {
             id: 'task_publish_course_1',
             tenantId: 'tenant_demo',
-            title: 'Опубликовать обновленный учебный курс',
+            title: 'Опубликовать обновлённый учебный курс',
             status: 'open',
             dueAt: '2099-01-02T12:00:00.000Z',
             route: '/courses'
@@ -77,7 +77,7 @@ export class WorkspaceService {
           {
             id: 'task_publish_course_t1',
             tenantId: 't1',
-            title: 'Опубликовать обновленный учебный курс',
+            title: 'Опубликовать обновлённый учебный курс',
             status: 'open',
             dueAt: '2099-01-02T12:00:00.000Z',
             route: '/courses'

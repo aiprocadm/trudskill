@@ -52,6 +52,7 @@ import {
   readSidebarCollapsed,
   writeSidebarCollapsed
 } from '../../features/navigation/sidebar-state';
+import { tabTitle } from '../../features/navigation/tab-title';
 import { roleNamesRu } from '../../features/texts/roles.ru';
 
 const formatUnreadBadge = (total: number | undefined) => {
@@ -96,6 +97,15 @@ export const AppShell = ({ children }: PropsWithChildren) => {
     () => buildBreadcrumbs(pathname, objectCrumb),
     [pathname, objectCrumb]
   );
+  /*
+   * ТЗ 4.3 (Я3): заголовок вкладки — из тех же крошек, что путь над страницей: одно имя раздела
+   * в меню, заголовке страницы, крошках и вкладке. До гидрации вкладку называет запасной
+   * `<title>` корневой раскладки (журнал 394: раньше его не было ни у одной страницы).
+   */
+  const wordmark = resolveWordmark(branding);
+  useEffect(() => {
+    document.title = tabTitle(breadcrumbItems, wordmark);
+  }, [breadcrumbItems, wordmark]);
   const unread = useNotificationsList(1, 1, 'unread');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 

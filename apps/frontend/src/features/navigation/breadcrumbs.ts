@@ -43,18 +43,20 @@ export type BreadcrumbItem = {
   href?: string;
   /** Имя объекта ещё едет с сервера — оболочка рисует скелетон вместо текста. */
   pending?: boolean;
+  /** Крошка объекта (карточка), а не раздела: заголовок вкладки ставит перед ней раздел (ТЗ 4.3). */
+  object?: true;
 };
 
 const objectCrumb = (object: ObjectCrumb | null, href: string): BreadcrumbItem => {
   switch (object?.status) {
     case 'ready':
-      return { label: object.name, href };
+      return { label: object.name, href, object: true };
     case 'missing':
-      return { label: OBJECT_CRUMB_MISSING, href };
+      return { label: OBJECT_CRUMB_MISSING, href, object: true };
     case 'failed':
-      return { label: OBJECT_CRUMB_FAILED, href };
+      return { label: OBJECT_CRUMB_FAILED, href, object: true };
     default:
-      return { label: '', href, pending: true };
+      return { label: '', href, pending: true, object: true };
   }
 };
 
