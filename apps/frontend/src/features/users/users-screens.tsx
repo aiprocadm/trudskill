@@ -25,6 +25,7 @@ import {
 } from '../mvp/hooks';
 import { formatDate, readApiMessage } from '../mvp/screen-helpers';
 import { useObjectCrumb } from '../navigation/use-object-crumb';
+import { roleNameRu } from '../texts/roles.ru';
 
 import type { ReactElement } from 'react';
 
@@ -132,7 +133,7 @@ export const UsersPageScreen = () => {
                 <option value="">Любая</option>
                 {(roles ?? []).map((item) => (
                   <option key={item.code} value={item.code}>
-                    {item.name || item.code}
+                    {roleNameRu(item.code)}
                   </option>
                 ))}
               </select>
@@ -261,7 +262,10 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
               в списке ниже те же роли подписаны по-русски. Название роли у нас есть, надо
               было просто его взять.
             */}
-            <p>Текущие роли: {userRoles?.map((roleItem) => roleItem.name).join(', ') || '—'}</p>
+            <p>
+              Текущие роли:{' '}
+              {userRoles?.map((roleItem) => roleNameRu(roleItem.code)).join(', ') || '—'}
+            </p>
             <div className="ui-stack" style={{ gap: 8 }}>
               {allRoles?.map((roleItem) => (
                 <label key={roleItem.id}>
@@ -277,7 +281,7 @@ export const UserDetailsScreen = ({ id }: { id: string }) => {
                       )
                     }
                   />{' '}
-                  {roleItem.name}
+                  {roleNameRu(roleItem.code)}
                 </label>
               ))}
             </div>

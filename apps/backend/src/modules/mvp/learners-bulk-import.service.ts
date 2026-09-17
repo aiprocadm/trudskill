@@ -159,7 +159,7 @@ export function classifyRows(
           {
             field: 'row',
             code: 'identity_conflict',
-            message: 'Email и СНИЛС указывают на разных существующих учеников'
+            message: 'Email и СНИЛС указывают на разных существующих слушателей'
           }
         ]
       });

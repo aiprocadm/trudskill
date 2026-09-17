@@ -51,7 +51,7 @@ export class LearnerDossierService {
   ): Promise<LearnerDossier> {
     const learner = this.state.learners.find((l) => l.tenantId === tenantId && l.id === learnerId);
     if (!learner) {
-      throw new NotFoundException({ code: 'learner_not_found', message: 'Ученик не найден' });
+      throw new NotFoundException({ code: 'learner_not_found', message: 'Слушатель не найден' });
     }
 
     // 152-ФЗ access-log: только идентификатор, никаких ФИО/СНИЛС в теле записи.

@@ -80,11 +80,16 @@ export class IamService {
       id: 'r_platform_admin',
       tenantId: 'tenant_demo',
       code: 'platform_admin',
-      name: 'Platform admin'
+      name: 'Администратор платформы'
     },
-    { id: 'r_tenant_admin', tenantId: 'tenant_demo', code: 'tenant_admin', name: 'Tenant admin' },
-    { id: 'r_manager', tenantId: 'tenant_demo', code: 'manager', name: 'Manager' },
-    { id: 'r_methodist', tenantId: 'tenant_demo', code: 'methodist', name: 'Methodist' }
+    {
+      id: 'r_tenant_admin',
+      tenantId: 'tenant_demo',
+      code: 'tenant_admin',
+      name: 'Администратор центра'
+    },
+    { id: 'r_manager', tenantId: 'tenant_demo', code: 'manager', name: 'Руководитель' },
+    { id: 'r_methodist', tenantId: 'tenant_demo', code: 'methodist', name: 'Методист' }
   ];
 
   private readonly fallbackPermissions: Permission[] = [

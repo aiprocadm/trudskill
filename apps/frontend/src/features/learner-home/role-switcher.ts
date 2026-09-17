@@ -11,7 +11,8 @@ const ROLE_HREF: Record<LearnerRoleCode, string> = {
 };
 
 const ROLE_LABEL: Record<LearnerRoleCode, string> = {
-  learner: 'Кабинет ученика',
+  /* ТЗ 4.1 (Р1): роль зовётся «Слушатель» — «ученик» было третьим словом для той же роли. */
+  learner: 'Кабинет слушателя',
   teacher: 'Кабинет преподавателя',
   tenant_admin: 'Кабинет администратора',
   platform_admin: 'Кабинет платформы'
