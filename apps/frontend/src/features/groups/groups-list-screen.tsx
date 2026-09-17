@@ -130,7 +130,11 @@ export const GroupsPageScreen = () => {
             }
           ]}
           rowActions={(row) => [
-            { label: 'Открыть группу', onSelect: () => router.push(`/groups/${row.id}`) }
+            {
+              label: 'Открыть группу',
+              primary: true,
+              onSelect: () => router.push(`/groups/${row.id}`)
+            }
           ]}
         />
 
