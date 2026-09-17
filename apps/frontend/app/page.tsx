@@ -124,7 +124,7 @@ export default function DashboardPage() {
           </p>
         </SectionCard>
         {journey ? (
-          <SectionCard title={journey.title}>
+          <SectionCard title="С чего начать">
             <p className="ui-prose-muted ui-prose-muted--tight">{journey.description}</p>
             <ol className="ui-ordered-list">
               {journey.steps.map((step) => (

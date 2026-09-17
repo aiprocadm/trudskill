@@ -7,9 +7,15 @@ export interface RoleJourneyStep {
   metricStep: string;
 }
 
+/**
+ * Первые шаги роли — блок «С чего начать» на стартовом экране (ТЗ 4.4 / Я4).
+ *
+ * Раньше блок назывался «Сценарий роли: Траектория администратора», а описание звучало как
+ * «Контроль доступов, рисков и операционного состояния LMS» — так никто не говорит. Заголовок
+ * блока теперь один на все роли, а описание отвечает на вопрос «что мне сделать».
+ */
 export interface RoleJourney {
   role: LmsRole;
-  title: string;
   description: string;
   steps: RoleJourneyStep[];
 }
@@ -17,8 +23,7 @@ export interface RoleJourney {
 export const roleJourneys: RoleJourney[] = [
   {
     role: 'learner',
-    title: 'Траектория слушателя',
-    description: 'От входа в систему до завершения учебного шага и проверки результата.',
+    description: 'Откройте свои курсы, пройдите материалы, сдайте тест и посмотрите результат.',
     steps: [
       {
         id: 'open_courses',
@@ -34,7 +39,7 @@ export const roleJourneys: RoleJourney[] = [
       },
       {
         id: 'submit_task',
-        label: 'Сдать задание/тест',
+        label: 'Сдать тест или задание',
         href: '/assessment',
         metricStep: 'submit_task'
       },
@@ -48,8 +53,7 @@ export const roleJourneys: RoleJourney[] = [
   },
   {
     role: 'teacher',
-    title: 'Траектория преподавателя',
-    description: 'Быстрый цикл проверки работ и обратной связи.',
+    description: 'Проверьте работы, напишите отзыв и посмотрите, как идёт группа.',
     steps: [
       {
         id: 'open_queue',
@@ -65,7 +69,7 @@ export const roleJourneys: RoleJourney[] = [
       },
       {
         id: 'send_feedback',
-        label: 'Отправить обратную связь',
+        label: 'Написать отзыв на работу',
         href: '/notifications',
         metricStep: 'send_feedback'
       },
@@ -79,8 +83,7 @@ export const roleJourneys: RoleJourney[] = [
   },
   {
     role: 'methodist',
-    title: 'Траектория методиста',
-    description: 'Подготовка, контроль качества и публикация учебного контента.',
+    description: 'Подготовьте курс, обновите материалы и проверьте тесты перед публикацией.',
     steps: [
       {
         id: 'prepare_course',
@@ -96,7 +99,7 @@ export const roleJourneys: RoleJourney[] = [
       },
       {
         id: 'validate_assessment',
-        label: 'Проверить оценочные материалы',
+        label: 'Проверить тесты и задания',
         href: '/assessment',
         metricStep: 'validate_assessment'
       },
@@ -105,8 +108,8 @@ export const roleJourneys: RoleJourney[] = [
   },
   {
     role: 'tenant_admin',
-    title: 'Траектория администратора',
-    description: 'Контроль доступов, рисков и операционного состояния LMS.',
+    description:
+      'Проверьте людей и права, загляните в журнал действий и разберите, что горит на панели.',
     steps: [
       {
         id: 'check_users',
@@ -122,13 +125,13 @@ export const roleJourneys: RoleJourney[] = [
       },
       {
         id: 'check_workspace',
-        label: 'Оценить блокеры в оперативной панели',
+        label: 'Разобрать, что горит на панели',
         href: '/workspace',
         metricStep: 'check_workspace'
       },
       {
         id: 'apply_fix',
-        label: 'Выполнить корректирующее действие',
+        label: 'Исправить найденное в настройках',
         href: '/settings',
         metricStep: 'apply_fix'
       }
