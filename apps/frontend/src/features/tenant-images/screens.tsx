@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FilePicker, LoadingState } from '@trudskill/ui';
+import { CopyButton, FilePicker, LoadingState } from '@trudskill/ui';
 import { useState } from 'react';
 
 import {
@@ -23,18 +23,30 @@ import { useAuth } from '../auth/context';
  * и занял пол-листа.
  */
 
-const SLOTS: Array<{ slot: TenantImageSlot; title: string; tag: string; hint: string }> = [
+/*
+ * ТЗ 4.2 (Я2): тег — не голым текстом, а кнопкой «Скопировать тег» с пояснением. `tag` —
+ * значение для буфера обмена; на экране он появляется только если буфер недоступен.
+ */
+const SLOTS: Array<{
+  slot: TenantImageSlot;
+  title: string;
+  tag: string;
+  explain: string;
+  hint: string;
+}> = [
   {
     slot: 'signature',
     title: 'Подпись руководителя',
     tag: '{%tenant.signature_image}',
+    explain: 'Вставьте это место в бланк — туда подставится подпись.',
     hint: 'PNG с прозрачным фоном выглядит на бланке аккуратнее всего.'
   },
   {
     slot: 'stamp',
     title: 'Печать учебного центра',
     tag: '{%tenant.stamp_image}',
-    hint: 'Ставьте тег там, где на бланке место «М.П.».'
+    explain: 'Вставьте это место в бланк — туда подставится печать.',
+    hint: 'Ставьте его там, где на бланке место «М.П.».'
   }
 ];
 
@@ -52,6 +64,8 @@ export function TenantImagesSection() {
   const [widths, setWidths] = useState<Partial<Record<TenantImageSlot, string>>>({});
   const [busySlot, setBusySlot] = useState<TenantImageSlot | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /* Итог последнего копирования: какой тег и удалось ли. Неудача — покажем тег текстом. */
+  const [copied, setCopied] = useState<{ slot: TenantImageSlot; ok: boolean } | null>(null);
 
   const imagesQuery = useQuery({
     queryKey: ['tenant-images', session?.user.id],
@@ -139,14 +153,26 @@ export function TenantImagesSection() {
       {imagesQuery.isLoading ? <LoadingState message="Загрузка настроек…" /> : null}
 
       {!imagesQuery.isLoading
-        ? SLOTS.map(({ slot, title, tag, hint }) => {
+        ? SLOTS.map(({ slot, title, tag, explain, hint }) => {
             const current = images[slot];
+            const copyOutcome = copied?.slot === slot ? copied.ok : null;
             return (
               <div key={slot} className="ui-stack">
                 <h4>{title}</h4>
                 <p className="ui-text-muted">
-                  Тег для бланка: <code>{tag}</code>. {hint}
+                  {explain} {hint}
                 </p>
+                <CopyButton
+                  value={tag}
+                  label="Скопировать тег"
+                  copied={copyOutcome === true}
+                  onCopy={(ok) => setCopied({ slot, ok })}
+                />
+                {copyOutcome === false ? (
+                  <p className="ui-text-muted">
+                    Буфер обмена недоступен — впишите тег в бланк вручную: <code>{tag}</code>
+                  </p>
+                ) : null}
                 <p>{current ? 'Загружена' : 'Не загружена — бланк напечатается без неё'}</p>
                 {/* Без права выпуска документов остаётся только просмотр: что загружено и какой ширины. */}
                 <div className="ui-inline" style={{ display: canEdit ? undefined : 'none' }}>

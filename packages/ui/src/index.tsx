@@ -26,6 +26,7 @@ export * from './components/preview-notice/index.js';
 export * from './components/saved-views/index.js';
 export * from './components/icon/index.js';
 export * from './components/button/index.js';
+export * from './components/copy-button/index.js';
 export * from './components/skeleton/index.js';
 export * from './components/stat-card/index.js';
 export * from './components/progress-bar/index.js';

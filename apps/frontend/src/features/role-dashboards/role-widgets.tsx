@@ -45,7 +45,8 @@ const roleWidgets: RoleWidget[] = [
   },
   {
     title: 'Очередь задач',
-    note: 'Очереди задач и интеграционных джобов.',
+    /* ТЗ 4.2: «джобы» — слово из кода; человеку это фоновые задачи. */
+    note: 'Фоновые задачи: выгрузки и обмен данными.',
     href: '/exports',
     allowedRoles: ['tenant_admin', 'platform_admin']
   },
