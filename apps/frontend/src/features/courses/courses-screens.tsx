@@ -4,6 +4,7 @@ import { DataTable, FilterBar, ListPage, StatusChip } from '@trudskill/ui';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+import { canArchiveCourse, courseHeaderAction } from './course-actions';
 import { materialTypeLabel, publishBlockers, viewTimeLabel } from './labels';
 import { FieldError } from '../../components/form-feedback';
 import {
@@ -769,6 +770,8 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
 
   const canPublish = hasPermission(session?.permissions ?? [], 'courses.publish');
   const canArchive = hasPermission(session?.permissions ?? [], 'courses.archive');
+  /* Новая версия — то же право, что у ручки `course-versions/:courseId` (`courses.write`). */
+  const canCreateVersion = hasPermission(session?.permissions ?? [], 'courses.write');
 
   useEffect(() => {
     if (modules?.items?.length && !selectedModuleId) {
@@ -798,6 +801,12 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
     hasMaterial: Boolean(materials?.items?.length)
   });
   const readyToPublish = blockers.length === 0;
+  const headerAction = courseHeaderAction({
+    status: course?.status ?? 'draft',
+    readyToPublish,
+    canPublish,
+    canCreateVersion
+  });
 
   /*
    * Записи нет — показываем это прямо. Иначе открывалась ПРИЗРАЧНАЯ карточка: заголовок
@@ -812,20 +821,26 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
       <PageHeader
         title={course?.title ?? 'Курс'}
         subtitle="Программа обучения: версии, модули и материалы"
-        /* UI-007: одно первичное действие — публикация. Архивирование вторично. */
-        {...(canPublish
+        /*
+         * UI-007: одно первичное действие. ТЗ 5.2 (Э2): какое — решает состояние курса
+         * (`courseHeaderAction`): черновик — «Опубликовать курс», опубликован — «Создать новую
+         * версию», в архиве — ничего. Раньше «Опубликовать курс» висела и у опубликованного.
+         */
+        {...(headerAction
           ? {
               primaryAction: {
-                label: 'Опубликовать курс',
-                disabled: !readyToPublish,
+                label: headerAction.label,
+                ...(headerAction.kind === 'publish' ? { disabled: headerAction.disabled } : {}),
                 onSelect: () =>
-                  void publishCourse(id)
-                    .then(refetch)
-                    .catch((publishError) => setSaveError(readApiMessage(publishError)))
+                  void (
+                    headerAction.kind === 'publish'
+                      ? publishCourse(id).then(refetch)
+                      : createCourseVersion(id).then(refetchVersions)
+                  ).catch((actionError) => setSaveError(readApiMessage(actionError)))
               }
             }
           : {})}
-        {...(canArchive
+        {...(canArchiveCourse(course?.status ?? 'draft', canArchive)
           ? {
               secondaryActions: [
                 {
@@ -864,21 +879,24 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
             hint="Пока нет версии, курс нельзя наполнить модулями и опубликовать."
           />
         )}
-        <button
-          type="button"
-          className="ui-button-secondary"
-          /*
-           * Отказ обязан быть виден: без этого «Добавить версию» на упавшем запросе молчала,
-           * и человек нажимал её снова и снова, не понимая, почему список версий пуст.
-           */
-          onClick={() =>
-            void createCourseVersion(id)
-              .then(refetchVersions)
-              .catch((versionError) => setSaveError(readApiMessage(versionError)))
-          }
-        >
-          Добавить версию
-        </button>
+        {/* У опубликованного курса новая версия — главное действие в шапке; второй кнопке не место. */}
+        {headerAction?.kind === 'new_version' ? null : (
+          <button
+            type="button"
+            className="ui-button-secondary"
+            /*
+             * Отказ обязан быть виден: без этого «Добавить версию» на упавшем запросе молчала,
+             * и человек нажимал её снова и снова, не понимая, почему список версий пуст.
+             */
+            onClick={() =>
+              void createCourseVersion(id)
+                .then(refetchVersions)
+                .catch((versionError) => setSaveError(readApiMessage(versionError)))
+            }
+          >
+            Добавить версию
+          </button>
+        )}
       </SectionCard>
       {latestVersion ? (
         <>

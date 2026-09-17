@@ -17,6 +17,20 @@ export function formatAttemptsLeft(used: number, limit: number): string {
   return `Осталось попыток: ${left} из ${limit}`;
 }
 
+/**
+ * Подпись про попытки по состоянию теста (ТЗ 5.2 / Э2).
+ *
+ * Начатая попытка считается использованной, поэтому у теста с одной попыткой человек видел
+ * «Осталось попыток: 0 из 1» рядом с кнопкой «Продолжить» — цифра говорила «всё», кнопка —
+ * «нет». Пока попытка не завершена, подпись говорит именно это.
+ */
+export function attemptsCaption(
+  test: Pick<LearnerTestSummary, 'attemptsUsed' | 'attemptLimit' | 'activeAttemptId'>
+): string {
+  if (test.activeAttemptId) return 'Попытка начата и не завершена — продолжите её';
+  return formatAttemptsLeft(test.attemptsUsed, test.attemptLimit);
+}
+
 /** ms → "MM:SS"; clamps negatives to 00:00. */
 export function formatTimeRemaining(msRemaining: number): string {
   const total = Math.max(0, Math.floor(msRemaining / 1000));

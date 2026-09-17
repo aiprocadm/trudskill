@@ -118,7 +118,12 @@ export function DataTable<T extends object>({
   const pageKeys = rows.map((row, index) => resolveRowKey(row, index));
   const headerState = selectionState(selection, pageKeys);
   const showSelection = selectable && onSelectionChange !== undefined;
-  const showActions = rowActions !== undefined;
+  /*
+   * ТЗ 5.2 (Э2): недоступное действие скрывается, а не показывается вхолостую. Колонка действий
+   * рисуется, только если хоть у одной строки они есть: руководителю без прав на бланки и выпуск
+   * показывалась пустая колонка «Действия» во всю таблицу шаблонов.
+   */
+  const showActions = rowActions !== undefined && rows.some((r) => rowActions(r).length > 0);
   const totalColumns = columns.length + (showSelection ? 1 : 0) + (showActions ? 1 : 0);
 
   return (

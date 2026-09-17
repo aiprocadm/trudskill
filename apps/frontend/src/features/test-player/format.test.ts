@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  attemptsCaption,
   detectStartGate,
   formatAttemptsLeft,
   formatLearnerTestStatus,
@@ -17,6 +18,11 @@ describe('test-player format', () => {
   });
   it('formats attempts left, clamped at 0', () => {
     expect(formatAttemptsLeft(1, 3)).toBe('Осталось попыток: 2 из 3');
+    /* ТЗ 5.2: начатая попытка — не «0 из 1», а «продолжите её». */
+    expect(attemptsCaption({ attemptsUsed: 1, attemptLimit: 1, activeAttemptId: 'att_1' })).toBe(
+      'Попытка начата и не завершена — продолжите её'
+    );
+    expect(attemptsCaption({ attemptsUsed: 1, attemptLimit: 1 })).toBe('Осталось попыток: 0 из 1');
     expect(formatAttemptsLeft(5, 3)).toBe('Осталось попыток: 0 из 3');
   });
   it('formats mm:ss and clamps negatives', () => {
