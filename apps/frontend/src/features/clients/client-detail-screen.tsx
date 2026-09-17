@@ -15,6 +15,7 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import { useObjectCrumb } from '../navigation/use-object-crumb';
 
 interface ClientDetailScreenProps {
   clientId: string;
@@ -22,6 +23,10 @@ interface ClientDetailScreenProps {
 
 export function ClientDetailScreen({ clientId }: ClientDetailScreenProps) {
   const client = useClient(clientId);
+  useObjectCrumb(client.data?.name, {
+    failed: Boolean(client.error),
+    notFound: !client.isLoading && !client.error && !client.data
+  });
   const [editing, setEditing] = useState(false);
 
   if (client.isLoading) {

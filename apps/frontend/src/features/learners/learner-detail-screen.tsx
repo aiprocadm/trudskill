@@ -14,6 +14,7 @@ import {
 import { LearnerPdfCardSections } from '../learner-pdf-card/learner-pdf-card-sections';
 import { useCoursesList, useGroupsList, useLearner, useLearnerCourses } from '../mvp/hooks';
 import { ENROLLMENT_STATUS_LABEL, formatDate } from '../mvp/screen-helpers';
+import { useObjectCrumb } from '../navigation/use-object-crumb';
 
 /*
  * TPL-002 — эталон карточки (ТЗ §8.2). Что изменилось против перенесённой версии:
@@ -49,6 +50,7 @@ export const LearnerDetailsScreen = ({ id }: { id: string }) => {
   );
 
   const fullName = learner ? `${learner.lastName} ${learner.firstName}`.trim() : '';
+  useObjectCrumb(fullName || undefined, { notFound, failed: Boolean(error) });
 
   /*
    * Записи нет — говорим это прямо. Прежде открывалась карточка-призрак: заголовок на месте,

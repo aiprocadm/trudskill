@@ -29,6 +29,7 @@ import { LearnerDocumentsList } from '../learner-documents/documents-list';
 import { useDocumentDownload, useMyDocuments } from '../learner-documents/hooks';
 import { mvpApi } from '../mvp/api';
 import { useCourse, useLearnerCourseProgress } from '../mvp/hooks';
+import { useObjectCrumb } from '../navigation/use-object-crumb';
 
 import type { Material } from '../mvp/types';
 
@@ -83,6 +84,7 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
     error: courseError,
     notFound
   } = useCourse(courseId);
+  useObjectCrumb(course?.title, { notFound, failed: Boolean(courseError) });
   const { tree, loading: treeLoading, error: treeError } = useCourseTree(courseId);
   const {
     data: progress,

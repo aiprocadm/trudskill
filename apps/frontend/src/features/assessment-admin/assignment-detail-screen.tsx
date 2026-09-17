@@ -14,6 +14,7 @@ import {
   SectionError
 } from '../../components/state-wrappers';
 import { useCourseNames } from '../courses/course-picker';
+import { useObjectCrumb } from '../navigation/use-object-crumb';
 
 interface Props {
   assignmentId: string;
@@ -21,6 +22,7 @@ interface Props {
 
 export function AssignmentDetailScreen({ assignmentId }: Props) {
   const assignment = useAssignment(assignmentId);
+  useObjectCrumb(assignment.data?.title, { failed: Boolean(assignment.error) });
   const archive = useArchiveAssignment();
   const courseNames = useCourseNames();
   const [editing, setEditing] = useState(false);

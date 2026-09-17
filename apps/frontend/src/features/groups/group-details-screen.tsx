@@ -24,6 +24,7 @@ import {
   useLearnerCourseProgress
 } from '../mvp/hooks';
 import { ENROLLMENT_STATUS_LABEL, MutationError, readApiMessage } from '../mvp/screen-helpers';
+import { useObjectCrumb } from '../navigation/use-object-crumb';
 import { proctoringApi } from '../proctoring/api';
 
 /*
@@ -40,7 +41,8 @@ import { proctoringApi } from '../proctoring/api';
  */
 export const GroupDetailsScreen = ({ id }: { id: string }) => {
   const { session } = useAuth();
-  const { data: group, notFound } = useGroup(id);
+  const { data: group, error: groupLoadError, notFound } = useGroup(id);
+  useObjectCrumb(group?.name, { notFound, failed: Boolean(groupLoadError) });
   const canGenerateDocuments = hasPermission(session?.permissions ?? [], 'documents.generate');
   const canWriteDocuments = hasPermission(session?.permissions ?? [], 'documents.write');
   const { data: courses } = useCoursesList({ page: 1, page_size: 20 });

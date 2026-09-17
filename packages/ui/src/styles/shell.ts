@@ -196,6 +196,9 @@ export const shellStyles = `
 .app-shell__crumb-link:hover { color: var(--ui-brand-700); text-decoration: underline; }
 .app-shell__crumb-current { color: var(--ui-text); font-weight: var(--ui-font-weight-medium); }
 .app-shell__crumb-block { color: var(--ui-text-muted); font-weight: var(--ui-font-weight-medium); }
+/* ТЗ 3.5: имя объекта ещё едет с сервера — на его месте полоса-скелетон той же высоты,
+   что строка текста (цвет и скругление — от .ui-skeleton-line; без анимации, UI-029). */
+.app-shell__crumb-skeleton { display: inline-block; width: 120px; vertical-align: middle; }
 .app-shell__userbar { flex: 0 1 auto; justify-content: flex-end; gap: 12px; }
 .app-shell__search {
   display: inline-flex;

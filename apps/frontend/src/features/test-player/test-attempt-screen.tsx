@@ -23,6 +23,7 @@ import {
 } from '../../components/state-wrappers';
 import { serverNow } from '../../lib/api/server-clock';
 import { useAuth } from '../auth/context';
+import { useObjectCrumb } from '../navigation/use-object-crumb';
 import { stopAndCompleteActiveProctoring } from '../proctoring/active-recording';
 import { ProctoringRecIndicator, ProctoringResumeBanner } from '../proctoring/screens';
 
@@ -49,6 +50,11 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
   // Fix I1: the resume banner needs enrollmentId+courseId — derived the same way the tests list
   // does (LearnerTestSummary carries courseId; AttemptDto only knows testId+enrollmentId).
   const { data: myTests } = useMyTests();
+  /* Имя объекта для крошек — название теста: у самой попытки имени нет (ТЗ 3.5). */
+  const testTitle = myTests
+    ? (myTests.find((t) => t.testId === testId)?.title ?? 'Тест')
+    : undefined;
+  useObjectCrumb(testTitle, { failed: Boolean(attemptError) });
   // Bump to re-render after a resumed recording so the top-level ● REC indicator reappears.
   const [, setProctoringResumeTick] = useState(0);
 

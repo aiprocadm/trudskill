@@ -1,85 +1,100 @@
 import { navigationModel } from './model';
 import { resolveGroupForPath } from './nav-groups';
+import { type ObjectCrumb } from './object-crumb';
 
 const hrefToLabel = new Map(navigationModel.map((item) => [item.href, item.label]));
 
 /**
- * Подписи сегментов, у которых НЕТ пункта меню, — только они.
+ * Страницы БЕЗ пункта меню — единственные, чьё имя крошки берут не из меню.
  *
- * ТЗ 3.4 (Н3). Раньше здесь лежал второй словарь имён разделов, и он спорил с меню: `audit` →
- * «Аудит» при заголовке «Журнал действий», `assessment` → «Аттестация» при «Оценивании»,
- * `workspace` → «Рабочее место» при «Оперативной панели», `gov-export` → «Гос. выгрузки» при
- * «Госвыгрузках». Для точного адреса побеждала подпись меню, и словарь молчал — но стоило
- * адресу оказаться вложенным, крошки называли раздел третьим словом. Одно имя на раздел живёт
- * в `navigationModel`; сторож `one-section-one-name` не даёт завести здесь ключ, у которого есть
- * пункт меню.
+ * ТЗ 3.5 (Н5). Ключ — адрес целиком, а не слово-сегмент. Прежний словарь был по сегментам, и
+ * `new` называлось «Создание» сразу для двух разных страниц — «Создание курса» и «Новая
+ * группа»; а сегменты без своей страницы (`esign`, `crm`, `platform`, `learning`) получали
+ * подпись и становились ссылкой в никуда. Имя здесь равно заголовку страницы — это держит
+ * сторож `breadcrumbs-name-the-object`; ключ с пунктом меню запрещён сторожем
+ * `one-section-one-name` (имя тогда берётся из меню, второго словаря быть не должно).
  */
-const segmentLabels: Record<string, string> = {
-  new: 'Создание',
-  deals: 'Сделки',
-  applications: 'Заявки',
-  processes: 'Процессы',
-  /*
-   * §5.433: «Компании» — решение владельца от 14.08.2026 (IA-017): `/counterparties`
-   * перенаправляет на `/admin/clients`, и раздел в меню называется «Компании». Хлебные
-   * крошки говорили «Контрагенты», то есть третьим словом об одной и той же сущности.
-   */
-  counterparties: 'Компании',
-  /* ТЗ 3.4: хаб `/academy` слит с настройками; сегмент остался у вложенных адресов. */
-  academy: 'Настройки',
-  registry: 'Реестр',
-  mailings: 'Рассылки',
-  forms: 'Формы',
-  module: 'Модуль',
-  'module-empty': 'Пустой модуль',
-  esign: 'НЭП',
-  crm: 'CRM',
-  learning: 'Обучение',
-  platform: 'Платформа'
+export const pageLabels: Record<string, string> = {
+  '/courses/new': 'Создание курса',
+  '/groups/new': 'Новая группа',
+  '/crm/deals': 'Сделки',
+  '/forms': 'Системные формы',
+  '/mailings': 'Рассылки и уведомления',
+  '/module-empty': 'Раздел в разработке',
+  '/admin/ui-kit': 'Витрина шаблонов (UI Kit)'
 };
 
-const looksLikeId = (segment: string) =>
+/** Корень кабинета слушателя: под ним своя иерархия, блоки администратора не показываются. */
+export const CABINET_ROOT = '/learner';
+
+/** Подписи крошки объекта, когда имени с сервера нет и не будет. */
+export const OBJECT_CRUMB_MISSING = 'Не найдено';
+export const OBJECT_CRUMB_FAILED = 'Не удалось загрузить';
+
+export const looksLikeId = (segment: string): boolean =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(segment) ||
   /^c[a-z0-9]{24,}$/i.test(segment) ||
   (/^[a-z0-9_-]{20,}$/i.test(segment) && segment.includes('-')) ||
   // Родной формат идентификаторов системы: `learner_89ydse8s`, `group_9z34wx1b` и т.п.
-  // Без этой ветки крошка показывала сырой id вместо «Карточка».
   /^[a-z]+(?:_[a-z0-9]+)+$/i.test(segment);
 
-const labelForSegment = (segment: string, isLast: boolean): string => {
-  if (segmentLabels[segment]) return segmentLabels[segment];
-  if (isLast && looksLikeId(segment)) return 'Карточка';
-  return segment;
+export type BreadcrumbItem = {
+  label: string;
+  href?: string;
+  /** Имя объекта ещё едет с сервера — оболочка рисует скелетон вместо текста. */
+  pending?: boolean;
 };
 
-export type BreadcrumbItem = { label: string; href?: string };
+const objectCrumb = (object: ObjectCrumb | null, href: string): BreadcrumbItem => {
+  switch (object?.status) {
+    case 'ready':
+      return { label: object.name, href };
+    case 'missing':
+      return { label: OBJECT_CRUMB_MISSING, href };
+    case 'failed':
+      return { label: OBJECT_CRUMB_FAILED, href };
+    default:
+      return { label: '', href, pending: true };
+  }
+};
 
-export const buildBreadcrumbs = (pathname: string): BreadcrumbItem[] => {
+/**
+ * Крошки: Блок → Раздел → Имя объекта.
+ *
+ * - «Главной» нет: `/` — диспетчер входа (ТЗ 3.4 объявил его служебным), а у слушателя он вёл
+ *   в «Мой кабинет», и получалось два имени одного места подряд.
+ * - Блок (подпись без ссылки) — только вне кабинета слушателя: там своя иерархия от «Мой
+ *   кабинет», а не «Документы и удостоверения / Мой кабинет / Мои документы».
+ * - Крошка ставится только за сегмент, за которым есть страница: пункт меню или `pageLabels`.
+ *   Служебные слова адреса (`admin`, `attempt`, `platform`, `submit`, `result`) пропускаются —
+ *   раньше они печатались сырыми между русскими подписями.
+ * - Все идентификаторы адреса сворачиваются в ОДНУ крошку объекта: имя даёт экран карточки
+ *   через `useObjectCrumb`, до этого — скелетон.
+ */
+export const buildBreadcrumbs = (
+  pathname: string,
+  object: ObjectCrumb | null = null
+): BreadcrumbItem[] => {
   const normalized = (pathname.split('?')[0] ?? '/').replace(/\/+$/, '') || '/';
-  if (normalized === '/') {
-    return [{ label: 'Главная', href: '/' }];
-  }
+  if (normalized === '/') return [];
 
-  const items: BreadcrumbItem[] = [{ label: 'Главная', href: '/' }];
+  const items: BreadcrumbItem[] = [];
+  const inCabinet = normalized === CABINET_ROOT || normalized.startsWith(`${CABINET_ROOT}/`);
+  const group = inCabinet ? null : resolveGroupForPath(normalized);
+  if (group) items.push({ label: group.label });
 
-  // Крошка блока (раздел меню) — ненавигационная: Блок → Страница → Деталь.
-  const group = resolveGroupForPath(normalized);
-  if (group) {
-    items.push({ label: group.label });
-  }
-
-  const segments = normalized.split('/').filter(Boolean);
   let acc = '';
-  for (let i = 0; i < segments.length; i++) {
-    acc += `/${segments[i]}`;
-    const fromNav = hrefToLabel.get(acc);
-    const isLast = i === segments.length - 1;
-    // Служебный сегмент адреса (`/admin/...`): самостоятельной страницы за ним нет,
-    // а в крошках он печатался сырым словом «admin» между русскими подписями.
-    if (!fromNav && !isLast && segments[i] === 'admin') continue;
-    const label = fromNav ?? labelForSegment(segments[i] ?? '', isLast);
-    items.push({ label, href: acc });
+  let isCard = false;
+  for (const segment of normalized.split('/').filter(Boolean)) {
+    acc += `/${segment}`;
+    const label = hrefToLabel.get(acc) ?? pageLabels[acc];
+    if (label !== undefined) {
+      items.push({ label, href: acc });
+      continue;
+    }
+    if (looksLikeId(segment)) isCard = true;
   }
+  if (isCard) items.push(objectCrumb(object, normalized));
 
   return items;
 };

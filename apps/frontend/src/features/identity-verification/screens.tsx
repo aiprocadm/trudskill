@@ -40,6 +40,7 @@ import { frontendEnv } from '../../lib/config/env';
 import { LEARNER_NOT_LINKED_TEXT, isLearnerNotLinked } from '../../lib/errors/learner-link';
 import { useAuth } from '../auth/context';
 import { useConsentDocuments, useConsentToggle, useMyConsents } from '../consents/hooks';
+import { useObjectCrumb } from '../navigation/use-object-crumb';
 
 import type { IdentityVerificationStatus } from './types';
 import type { ReactElement } from 'react';
@@ -362,6 +363,7 @@ export function AdminIdentityQueueScreen(): ReactElement {
 
 export function AdminIdentityDetailScreen({ id }: { id: string }): ReactElement {
   const { data: detail, isLoading, error, refetch } = useIdentityDetail(id);
+  useObjectCrumb(detail?.learnerName, { failed: Boolean(error) });
   const { review, isPending, error: reviewError } = useIdentityReview();
   const [reason, setReason] = useState('');
 

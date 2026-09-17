@@ -29,6 +29,7 @@ import {
 } from '../../components/state-wrappers';
 import { ATTEMPT_STATUS_LABELS, statusLabel } from '../assessment/labels';
 import { useAuth } from '../auth/context';
+import { useObjectCrumb } from '../navigation/use-object-crumb';
 
 import type { MediaRecorderLike, MediaStreamLike } from './recorder';
 import type { ProctoringRecordingStatus } from './types';
@@ -372,6 +373,9 @@ export function AdminProctoringQueueScreen(): ReactElement {
 export function AdminProctoringDetailScreen({ id }: { id: string }): ReactElement {
   const { session } = useAuth();
   const { data: detail, isLoading, error } = useProctoringDetail(id);
+  useObjectCrumb(detail ? detail.learnerName || 'Видеозапись экзамена' : undefined, {
+    failed: Boolean(error)
+  });
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isAssembling, setIsAssembling] = useState(false);
   const [assembleProgress, setAssembleProgress] = useState<{ done: number; total: number } | null>(
