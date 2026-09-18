@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, ListPage, StatusChip } from '@trudskill/ui';
+import { DataTable, ListPage, PageTabs, StatusChip, TabPanel } from '@trudskill/ui';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -35,6 +35,7 @@ import {
 import { buildProgramMetaPatch } from '../mvp/payloads';
 import { MutationError, formatDate, readApiMessage } from '../mvp/screen-helpers';
 import { useObjectCrumb } from '../navigation/use-object-crumb';
+import { useTabParam } from '../navigation/use-tab-param';
 import { scormApi } from '../scorm/api';
 
 import type {
@@ -237,6 +238,23 @@ const FINAL_ASSESSMENT_OPTIONS: Array<{ value: FinalAssessmentForm; label: strin
   { value: 'exam', label: 'Экзамен' },
   { value: 'defense', label: 'Защита' },
   { value: 'interview', label: 'Собеседование' }
+];
+
+/**
+ * Один уровень вкладок карточки курса (ТЗ 5.7 / Э7).
+ *
+ * Было шесть блоков одной лентой: версии, нормативные параметры, пакет документов, модули,
+ * материалы модуля и подсказка «что мешает опубликовать». Методист, который пришёл добавить
+ * материал, прокручивал мимо всего остального — а «что мешает опубликовать» оказывалось в
+ * самом низу, там, где его уже не ищут (журнал 462).
+ *
+ * «Состав» первым: добавление модулей и материалов — самая частая работа с курсом.
+ */
+const COURSE_TABS = [
+  { id: 'content', label: 'Состав программы' },
+  { id: 'params', label: 'Нормативные параметры' },
+  { id: 'documents', label: 'Документы по окончании' },
+  { id: 'versions', label: 'Версии' }
 ];
 
 const ProgramMetaSection = ({
@@ -742,6 +760,7 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
   const { data: materials, refetch: refetchMaterials } = useMaterials(selectedModuleId);
   const { publishCourse, archiveCourse, createCourseVersion, saveModule, saveMaterial } =
     useDomainMutations();
+  const [tab, setTab] = useTabParam(COURSE_TABS.map((item) => item.id));
   const [moduleTitle, setModuleTitle] = useState('');
   const [materialTitle, setMaterialTitle] = useState('');
   /* Сброс формы одной строкой: так обработка отказа остаётся рядом с вызовом и на виду. */
@@ -857,260 +876,12 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
           : {})}
       />
       <MutationError message={saveError} />
-      <SectionCard title="Версии программы">
-        <p className="ui-hint">
-          Новая версия нужна, когда программа меняется, а прежние выпуски документов должны остаться
-          привязанными к старой редакции.
-        </p>
-        {versions?.items.length ? (
-          <DataTable
-            columns={[
-              { key: 'versionView', title: 'Версия' },
-              { key: 'stateView', title: 'Статус', render: (row) => row.stateView }
-            ]}
-            rows={versions.items.map((item) => ({
-              id: item.id,
-              versionView: `Версия ${item.versionNo}`,
-              stateView: <StatusChip status={item.status} />
-            }))}
-            rowKey={(row) => String(row.id)}
-          />
-        ) : (
-          <SectionEmpty
-            message="Версий пока нет"
-            hint="Пока нет версии, курс нельзя наполнить модулями и опубликовать."
-          />
-        )}
-        {/* У опубликованного курса новая версия — главное действие в шапке; второй кнопке не место. */}
-        {headerAction?.kind === 'new_version' ? null : (
-          <button
-            type="button"
-            className="ui-button-secondary"
-            /*
-             * Отказ обязан быть виден: без этого «Добавить версию» на упавшем запросе молчала,
-             * и человек нажимал её снова и снова, не понимая, почему список версий пуст.
-             */
-            onClick={() =>
-              void createCourseVersion(id)
-                .then(refetchVersions)
-                .catch((versionError) => setSaveError(readApiMessage(versionError)))
-            }
-          >
-            Добавить версию
-          </button>
-        )}
-      </SectionCard>
-      {latestVersion ? (
-        <>
-          <ProgramMetaSection
-            courseVersion={latestVersion}
-            onUpdated={async () => {
-              await refetchVersions();
-            }}
-          />
-          <DocumentSetSection
-            courseVersion={latestVersion}
-            onUpdated={async () => {
-              await refetchVersions();
-            }}
-          />
-        </>
-      ) : null}
-      <SectionCard title="Модули">
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!latestVersionId || !moduleTitle.trim()) return;
-            void saveModule(null, {
-              courseVersionId: latestVersionId,
-              title: moduleTitle.trim(),
-              minViewSeconds: 0,
-              isRequired: true
-            })
-              .then(() => {
-                setModuleTitle('');
-                return refetchModules();
-              })
-              .catch((moduleError) => setSaveError(readApiMessage(moduleError)));
-          }}
-          className="ui-inline"
-          style={{ marginBottom: 8 }}
-        >
-          <input
-            value={moduleTitle}
-            onChange={(event) => setModuleTitle(event.target.value)}
-            placeholder="Название модуля"
-          />
-          <button type="submit" disabled={!latestVersionId}>
-            Добавить модуль
-          </button>
-        </form>
-        {modules?.items.length ? (
-          <DataTable
-            columns={[
-              { key: 'orderView', title: '№' },
-              { key: 'title', title: 'Модуль' },
-              { key: 'viewTimeView', title: 'Минимум просмотра' }
-            ]}
-            rows={modules.items.map((item) => ({
-              id: item.id,
-              orderView: item.sortOrder + 1,
-              title: item.title,
-              viewTimeView: viewTimeLabel(item.minViewSeconds)
-            }))}
-            rowKey={(row) => String(row.id)}
-          />
-        ) : (
-          <SectionEmpty
-            message="Модулей пока нет"
-            hint="Модуль — раздел программы; внутри него лежат материалы, которые изучает слушатель."
-          />
-        )}
-      </SectionCard>
-      <SectionCard title="Материалы модуля">
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!selectedModuleId || !materialTitle.trim()) return;
-            /*
-             * Содержимое уходит только тому виду материала, которому принадлежит, — сервер так
-             * же его и хранит. Собрано ОТДЕЛЬНОЙ переменной, а не прямо в вызове: сторож
-             * `mutation-failure-is-visible` ищет обработку отказа рядом с вызовом, и длинный
-             * список полей отодвинул бы её за пределы видимости сторожа.
-             */
-            const content =
-              materialType === 'text'
-                ? { textBody: materialTextBody }
-                : materialType === 'external_url'
-                  ? { externalUrl: materialExternalUrl.trim() }
-                  : materialType === 'scorm' && scormPackageId
-                    ? { scormPackageId }
-                    : {};
-            void saveMaterial(null, {
-              moduleId: selectedModuleId,
-              title: materialTitle.trim(),
-              materialType,
-              minViewSeconds: materialType === 'scorm' ? 0 : 60,
-              isRequired: true,
-              ...content
-            })
-              .then(() => {
-                resetMaterialForm();
-                return refetchMaterials();
-              })
-              .catch((materialError) => setSaveError(readApiMessage(materialError)));
-          }}
-          className="ui-inline"
-          style={{ marginBottom: 8 }}
-        >
-          <select
-            value={selectedModuleId}
-            onChange={(event) => setSelectedModuleId(event.target.value)}
-          >
-            <option value="">Выберите модуль</option>
-            {modules?.items.map((module) => (
-              <option key={module.id} value={module.id}>
-                {module.title}
-              </option>
-            ))}
-          </select>
-          <input
-            value={materialTitle}
-            onChange={(event) => setMaterialTitle(event.target.value)}
-            placeholder="Название материала"
-          />
-          <select
-            value={materialType}
-            onChange={(event) => {
-              setMaterialType(event.target.value as typeof materialType);
-              setScormPackageId('');
-            }}
-          >
-            <option value="text">Текст</option>
-            <option value="video">Видео</option>
-            <option value="file">Файл</option>
-            <option value="external_url">Внешняя ссылка</option>
-            <option value="scorm">SCORM</option>
-          </select>
-          {materialType === 'scorm' ? (
-            <>
-              {scormPackagesError ? (
-                <SectionError message={scormPackagesError} />
-              ) : (
-                <select
-                  value={scormPackageId}
-                  onChange={(event) => setScormPackageId(event.target.value)}
-                >
-                  <option value="">— выберите SCORM-пакет —</option>
-                  {scormPackages.map((pkg) => (
-                    <option key={pkg.id} value={pkg.id}>
-                      {pkg.title}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </>
-          ) : null}
-          {materialType === 'text' ? (
-            /*
-             * Простой редактор из ТЗ 2.5.a — обычное многострочное поле. Разметки нет намеренно:
-             * она потребовала бы очистки от опасного содержимого, а это отдельная работа вне
-             * объёма решения Р8. Абзацы разделяются пустой строкой и так же показываются.
-             */
-            <textarea
-              value={materialTextBody}
-              onChange={(event) => setMaterialTextBody(event.target.value)}
-              placeholder="Текст материала: то, что прочитает слушатель"
-              rows={4}
-              aria-label="Текст материала"
-            />
-          ) : null}
-          {materialType === 'external_url' ? (
-            <input
-              value={materialExternalUrl}
-              onChange={(event) => setMaterialExternalUrl(event.target.value)}
-              placeholder="Адрес страницы — скопируйте из адресной строки браузера"
-              aria-label="Адрес внешнего материала"
-            />
-          ) : null}
-          <button
-            type="submit"
-            disabled={
-              !selectedModuleId ||
-              (materialType === 'scorm' && !scormPackageId) ||
-              /* Пустой текст или пустая ссылка — это материал, который нечем открыть. */
-              (materialType === 'text' && !materialTextBody.trim()) ||
-              (materialType === 'external_url' && !materialExternalUrl.trim())
-            }
-          >
-            Добавить материал
-          </button>
-        </form>
-        {materials?.items.length ? (
-          <DataTable
-            columns={[
-              { key: 'orderView', title: '№' },
-              { key: 'title', title: 'Материал' },
-              { key: 'typeView', title: 'Вид' },
-              { key: 'viewTimeView', title: 'Минимум просмотра' }
-            ]}
-            rows={materials.items.map((item) => ({
-              id: item.id,
-              orderView: item.sortOrder + 1,
-              title: item.title,
-              typeView: materialTypeLabel(item.materialType),
-              viewTimeView: viewTimeLabel(item.minViewSeconds)
-            }))}
-            rowKey={(row) => String(row.id)}
-          />
-        ) : (
-          <SectionEmpty
-            message="Материалов пока нет"
-            hint="Материал — то, что слушатель читает или смотрит: текст, видео, файл или учебный пакет."
-          />
-        )}
-      </SectionCard>
 
+      {/*
+        ТЗ 5.7 (Э7): подсказка «что мешает опубликовать» стоит НАД вкладками и видна всегда.
+        Она объясняет, почему первичная кнопка выключена; спрятать её во вкладку значило бы
+        оставить человека с неработающей кнопкой без объяснения.
+      */}
       {canPublish && !readyToPublish ? (
         <SectionCard title="Что мешает опубликовать курс">
           {/* Было одной фразой «требуется минимум 1 версия, 1 модуль и 1 материал» —
@@ -1122,6 +893,288 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
           </ul>
         </SectionCard>
       ) : null}
+
+      <PageTabs
+        tabs={COURSE_TABS}
+        activeId={tab}
+        onSelect={setTab}
+        label="Разделы карточки курса"
+      />
+
+      <TabPanel id="versions" activeId={tab}>
+        <SectionCard title="Версии программы">
+          <p className="ui-hint">
+            Новая версия нужна, когда программа меняется, а прежние выпуски документов должны
+            остаться привязанными к старой редакции.
+          </p>
+          {versions?.items.length ? (
+            <DataTable
+              columns={[
+                { key: 'versionView', title: 'Версия' },
+                { key: 'stateView', title: 'Статус', render: (row) => row.stateView }
+              ]}
+              rows={versions.items.map((item) => ({
+                id: item.id,
+                versionView: `Версия ${item.versionNo}`,
+                stateView: <StatusChip status={item.status} />
+              }))}
+              rowKey={(row) => String(row.id)}
+            />
+          ) : (
+            <SectionEmpty
+              message="Версий пока нет"
+              hint="Пока нет версии, курс нельзя наполнить модулями и опубликовать."
+            />
+          )}
+          {/* У опубликованного курса новая версия — главное действие в шапке; второй кнопке не место. */}
+          {headerAction?.kind === 'new_version' ? null : (
+            <button
+              type="button"
+              className="ui-button-secondary"
+              /*
+               * Отказ обязан быть виден: без этого «Добавить версию» на упавшем запросе молчала,
+               * и человек нажимал её снова и снова, не понимая, почему список версий пуст.
+               */
+              onClick={() =>
+                void createCourseVersion(id)
+                  .then(refetchVersions)
+                  .catch((versionError) => setSaveError(readApiMessage(versionError)))
+              }
+            >
+              Добавить версию
+            </button>
+          )}
+        </SectionCard>
+      </TabPanel>
+
+      <TabPanel id="params" activeId={tab}>
+        {latestVersion ? (
+          <ProgramMetaSection
+            courseVersion={latestVersion}
+            onUpdated={async () => {
+              await refetchVersions();
+            }}
+          />
+        ) : (
+          <SectionEmpty
+            message="Параметры появятся вместе с первой версией"
+            hint="Нормативные параметры (часы, периодичность, основание) хранятся в версии программы: создайте версию на вкладке «Версии»."
+          />
+        )}
+      </TabPanel>
+
+      <TabPanel id="documents" activeId={tab}>
+        {latestVersion ? (
+          <DocumentSetSection
+            courseVersion={latestVersion}
+            onUpdated={async () => {
+              await refetchVersions();
+            }}
+          />
+        ) : (
+          <SectionEmpty
+            message="Пакет документов появится вместе с первой версией"
+            hint="Какие документы выйдут слушателю по окончании, задаётся в версии программы: создайте версию на вкладке «Версии»."
+          />
+        )}
+      </TabPanel>
+
+      <TabPanel id="content" activeId={tab}>
+        <SectionCard title="Модули">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!latestVersionId || !moduleTitle.trim()) return;
+              void saveModule(null, {
+                courseVersionId: latestVersionId,
+                title: moduleTitle.trim(),
+                minViewSeconds: 0,
+                isRequired: true
+              })
+                .then(() => {
+                  setModuleTitle('');
+                  return refetchModules();
+                })
+                .catch((moduleError) => setSaveError(readApiMessage(moduleError)));
+            }}
+            className="ui-inline"
+            style={{ marginBottom: 8 }}
+          >
+            <input
+              value={moduleTitle}
+              onChange={(event) => setModuleTitle(event.target.value)}
+              placeholder="Название модуля"
+            />
+            <button type="submit" disabled={!latestVersionId}>
+              Добавить модуль
+            </button>
+          </form>
+          {modules?.items.length ? (
+            <DataTable
+              columns={[
+                { key: 'orderView', title: '№' },
+                { key: 'title', title: 'Модуль' },
+                { key: 'viewTimeView', title: 'Минимум просмотра' }
+              ]}
+              rows={modules.items.map((item) => ({
+                id: item.id,
+                orderView: item.sortOrder + 1,
+                title: item.title,
+                viewTimeView: viewTimeLabel(item.minViewSeconds)
+              }))}
+              rowKey={(row) => String(row.id)}
+            />
+          ) : (
+            <SectionEmpty
+              message="Модулей пока нет"
+              hint="Модуль — раздел программы; внутри него лежат материалы, которые изучает слушатель."
+            />
+          )}
+        </SectionCard>
+        <SectionCard title="Материалы модуля">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!selectedModuleId || !materialTitle.trim()) return;
+              /*
+               * Содержимое уходит только тому виду материала, которому принадлежит, — сервер так
+               * же его и хранит. Собрано ОТДЕЛЬНОЙ переменной, а не прямо в вызове: сторож
+               * `mutation-failure-is-visible` ищет обработку отказа рядом с вызовом, и длинный
+               * список полей отодвинул бы её за пределы видимости сторожа.
+               */
+              const content =
+                materialType === 'text'
+                  ? { textBody: materialTextBody }
+                  : materialType === 'external_url'
+                    ? { externalUrl: materialExternalUrl.trim() }
+                    : materialType === 'scorm' && scormPackageId
+                      ? { scormPackageId }
+                      : {};
+              void saveMaterial(null, {
+                moduleId: selectedModuleId,
+                title: materialTitle.trim(),
+                materialType,
+                minViewSeconds: materialType === 'scorm' ? 0 : 60,
+                isRequired: true,
+                ...content
+              })
+                .then(() => {
+                  resetMaterialForm();
+                  return refetchMaterials();
+                })
+                .catch((materialError) => setSaveError(readApiMessage(materialError)));
+            }}
+            className="ui-inline"
+            style={{ marginBottom: 8 }}
+          >
+            <select
+              value={selectedModuleId}
+              onChange={(event) => setSelectedModuleId(event.target.value)}
+            >
+              <option value="">Выберите модуль</option>
+              {modules?.items.map((module) => (
+                <option key={module.id} value={module.id}>
+                  {module.title}
+                </option>
+              ))}
+            </select>
+            <input
+              value={materialTitle}
+              onChange={(event) => setMaterialTitle(event.target.value)}
+              placeholder="Название материала"
+            />
+            <select
+              value={materialType}
+              onChange={(event) => {
+                setMaterialType(event.target.value as typeof materialType);
+                setScormPackageId('');
+              }}
+            >
+              <option value="text">Текст</option>
+              <option value="video">Видео</option>
+              <option value="file">Файл</option>
+              <option value="external_url">Внешняя ссылка</option>
+              <option value="scorm">SCORM</option>
+            </select>
+            {materialType === 'scorm' ? (
+              <>
+                {scormPackagesError ? (
+                  <SectionError message={scormPackagesError} />
+                ) : (
+                  <select
+                    value={scormPackageId}
+                    onChange={(event) => setScormPackageId(event.target.value)}
+                  >
+                    <option value="">— выберите SCORM-пакет —</option>
+                    {scormPackages.map((pkg) => (
+                      <option key={pkg.id} value={pkg.id}>
+                        {pkg.title}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </>
+            ) : null}
+            {materialType === 'text' ? (
+              /*
+               * Простой редактор из ТЗ 2.5.a — обычное многострочное поле. Разметки нет намеренно:
+               * она потребовала бы очистки от опасного содержимого, а это отдельная работа вне
+               * объёма решения Р8. Абзацы разделяются пустой строкой и так же показываются.
+               */
+              <textarea
+                value={materialTextBody}
+                onChange={(event) => setMaterialTextBody(event.target.value)}
+                placeholder="Текст материала: то, что прочитает слушатель"
+                rows={4}
+                aria-label="Текст материала"
+              />
+            ) : null}
+            {materialType === 'external_url' ? (
+              <input
+                value={materialExternalUrl}
+                onChange={(event) => setMaterialExternalUrl(event.target.value)}
+                placeholder="Адрес страницы — скопируйте из адресной строки браузера"
+                aria-label="Адрес внешнего материала"
+              />
+            ) : null}
+            <button
+              type="submit"
+              disabled={
+                !selectedModuleId ||
+                (materialType === 'scorm' && !scormPackageId) ||
+                /* Пустой текст или пустая ссылка — это материал, который нечем открыть. */
+                (materialType === 'text' && !materialTextBody.trim()) ||
+                (materialType === 'external_url' && !materialExternalUrl.trim())
+              }
+            >
+              Добавить материал
+            </button>
+          </form>
+          {materials?.items.length ? (
+            <DataTable
+              columns={[
+                { key: 'orderView', title: '№' },
+                { key: 'title', title: 'Материал' },
+                { key: 'typeView', title: 'Вид' },
+                { key: 'viewTimeView', title: 'Минимум просмотра' }
+              ]}
+              rows={materials.items.map((item) => ({
+                id: item.id,
+                orderView: item.sortOrder + 1,
+                title: item.title,
+                typeView: materialTypeLabel(item.materialType),
+                viewTimeView: viewTimeLabel(item.minViewSeconds)
+              }))}
+              rowKey={(row) => String(row.id)}
+            />
+          ) : (
+            <SectionEmpty
+              message="Материалов пока нет"
+              hint="Материал — то, что слушатель читает или смотрит: текст, видео, файл или учебный пакет."
+            />
+          )}
+        </SectionCard>
+      </TabPanel>
     </PageContainer>
   );
 };
