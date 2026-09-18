@@ -53,9 +53,13 @@ const BUSY =
  * Кнопки, выключенные по условию и пока молчащие. Список сверяется на РАВЕНСТВО: новая
  * молчащая кнопка не проскочит, а объяснённая потребует уменьшить число.
  *
- * Почему очередь, а не запрет. Таких мест 111 в 49 файлах: причина у каждого своя, и писать
- * её надо словами того экрана, а не шаблоном. Вид «выключено» при этом починен СРАЗУ и везде —
- * это главное, о чём просит ТЗ; объяснения доезжают по мере правки экранов.
+ * Почему очередь, а не запрет. Таких мест было 111 в 49 файлах: причина у каждого своя, и
+ * писать её надо словами того экрана, а не шаблоном. Вид «выключено» при этом починен СРАЗУ и
+ * везде — это главное, о чём просит ТЗ; объяснения доезжают по мере правки экранов.
+ *
+ * **Путь: 111 → 100.** ТЗ 5.10 (Э10) увела одиннадцать мест из карточки курса: у опубликованной
+ * версии параметры больше не форма с `disabled`, а текст. Выключенного поля там не стало
+ * вовсе — это и есть лучший способ убрать запись из очереди.
  */
 const SILENT: Record<string, number> = {
   'app/crm/deals/page.tsx': 1,
@@ -75,7 +79,7 @@ const SILENT: Record<string, number> = {
   'src/features/course-viewer/course-viewer-screen.tsx': 1,
   'src/features/course-viewer/table-of-contents.tsx': 1,
   'src/features/course-wizard/screens.tsx': 2,
-  'src/features/courses/courses-screens.tsx': 16,
+  'src/features/courses/courses-screens.tsx': 5,
   'src/features/documents/create-template-drawer.tsx': 1,
   'src/features/documents/entity-picker.tsx': 1,
   'src/features/documents/generate-document-drawer.tsx': 2,
