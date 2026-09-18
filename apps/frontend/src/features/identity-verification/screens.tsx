@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  BlockedHint,
   DetailLayout,
   FilePicker,
   FormField,
@@ -9,13 +10,15 @@ import {
   LoadingState,
   SelectField,
   StatusChip,
-  SystemMessage
+  SystemMessage,
+  blockedProps
 } from '@trudskill/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { identityVerificationApi } from './api';
+import { identitySubmitBlockedReason } from './blocked';
 import {
   fileUnavailableLabel,
   formatDateShort,
@@ -64,6 +67,14 @@ export function LearnerIdentityScreen(): ReactElement {
   const consentToggle = useConsentToggle();
   const personalDataGranted = consents.data?.personalData.granted ?? false;
   const photoGranted = consents.data?.photo.granted ?? false;
+
+  /* ТЗ 5.8 (Э8): кнопка не просто выключается, а называет недостающее поимённо. */
+  const submitBlockedReason = identitySubmitBlockedReason({
+    selfie: selfie !== null,
+    passport: passport !== null,
+    personalDataGranted,
+    photoGranted
+  });
 
   const onToggleConsent = async (kind: 'personal_data' | 'photo', next: boolean) => {
     const ok = await consentToggle.toggle(kind, next);
@@ -230,20 +241,21 @@ export function LearnerIdentityScreen(): ReactElement {
             {consentToggle.error ? <SectionError message={consentToggle.error} /> : null}
             {submission.error ? <SectionError message={submission.error} /> : null}
 
+            {/*
+              ТЗ 5.8 (Э8): кнопка была выключена молча — человек жал по бледно-оранжевому
+              прямоугольнику и не понимал, чего не хватает (журнал 465). Теперь она серая,
+              а рядом стоит строка с недостающим — поимённо, а не «заполните всё».
+            */}
             <button
               type="button"
               className={`ui-button ui-button--primary ${submission.isPending ? 'ui-button--loading' : ''}`}
-              disabled={
-                !selfie ||
-                !passport ||
-                !personalDataGranted ||
-                !photoGranted ||
-                submission.isPending
-              }
+              {...blockedProps('idv-submit', submitBlockedReason)}
+              disabled={submitBlockedReason !== undefined || submission.isPending}
               onClick={() => void onSubmit()}
             >
               Отправить на проверку
             </button>
+            <BlockedHint hintKey="idv-submit" reason={submitBlockedReason} />
             {frontendEnv.NEXT_PUBLIC_ESIA_ENABLED && (
               <button
                 type="button"

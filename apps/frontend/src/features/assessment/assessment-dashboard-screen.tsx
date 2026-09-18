@@ -1,6 +1,13 @@
 'use client';
 
-import { DataTable, FilterBar, StatusChip, WizardSteps } from '@trudskill/ui';
+import {
+  BlockedHint,
+  DataTable,
+  FilterBar,
+  StatusChip,
+  WizardSteps,
+  blockedProps
+} from '@trudskill/ui';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
@@ -73,6 +80,18 @@ export const AssessmentDashboardScreen = () => {
   const [groupId, setGroupId] = useState('');
   const [selectedTestId, setSelectedTestId] = useState('');
   const [selectedEnrollmentId, setSelectedEnrollmentId] = useState('');
+
+  /*
+   * ТЗ 5.8 (Э8): называем недостающее поимённо. «Выберите тест и слушателя» вместо молчания;
+   * когда не хватает одного из двух — говорим, какого именно.
+   */
+  const conductBlockedReason = !selectedTestId
+    ? !selectedEnrollmentId
+      ? 'Выберите тест и слушателя.'
+      : 'Выберите тест.'
+    : !selectedEnrollmentId
+      ? 'Выберите слушателя.'
+      : undefined;
   const [attemptResult, setAttemptResult] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const { startAttempt, getAttemptResult, completeAssignmentReview, updateAssignmentReview } =
@@ -274,15 +293,20 @@ export const AssessmentDashboardScreen = () => {
               ))}
             </select>
           </label>
+          {/*
+            ТЗ 5.8 (Э8): кнопка была выключена молча. Два списка рядом, и какой из них не
+            заполнен — человек угадывал (журнал 465).
+          */}
           <button
             type="button"
             className="ui-button--primary"
             onClick={() => void onStartAttempt()}
-            disabled={!selectedTestId || !selectedEnrollmentId}
+            {...blockedProps('conduct-test', conductBlockedReason)}
           >
             Провести тест
           </button>
         </div>
+        <BlockedHint hintKey="conduct-test" reason={conductBlockedReason} />
         <MutationError message={saveError} />
         {attemptResult ? (
           <>

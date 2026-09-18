@@ -19,6 +19,21 @@ export function isSubmissionEditable(status: SubmissionStatus): boolean {
   return status === 'not_started' || status === 'draft' || status === 'returned';
 }
 
+/**
+ * Почему «Отправить на проверку» сейчас нельзя (ТЗ 5.8 / Э8).
+ *
+ * Кнопка выключалась молча, и слушатель, уже отправивший работу, жал по ней снова, не понимая,
+ * дошла она или нет (журнал 465). Причина называет СОСТОЯНИЕ работы, а не «недоступно».
+ */
+export function submitBlockedReason(status: SubmissionStatus): string | undefined {
+  if (isSubmissionEditable(status)) return undefined;
+  if (status === 'reviewed') return 'Работа уже проверена — оценка выставлена.';
+  if (status === 'rejected')
+    return 'Работа отклонена. Дождитесь, пока преподаватель вернёт её на доработку.';
+  if (status === 'under_review') return 'Работу уже проверяет преподаватель.';
+  return 'Работа уже отправлена и ждёт проверки преподавателем.';
+}
+
 export function formatMaxScore(maxScore: number): string {
   return `Макс. балл: ${maxScore}`;
 }
