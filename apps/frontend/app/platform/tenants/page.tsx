@@ -1,6 +1,6 @@
 'use client';
 
-import { PageContainer, PageHeader } from '../../../src/components/state-wrappers';
+import { PageContainer } from '../../../src/components/state-wrappers';
 import { PlatformTenantsSection } from '../../../src/features/platform-tenants/screens';
 import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
 
@@ -11,10 +11,10 @@ export default function PlatformTenantsPage() {
   return (
     <ProtectedPage>
       <PageContainer>
-        <PageHeader
-          title="Арендаторы платформы"
-          subtitle="Жизненный цикл учебных центров и вход «от имени» для поддержки"
-        />
+        {/*
+          ТЗ 5.7 (Э7): шапка переехала в саму секцию — первичное действие экрана
+          («Создать учебный центр») знает только она.
+        */}
         <PlatformTenantsSection />
       </PageContainer>
     </ProtectedPage>

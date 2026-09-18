@@ -28,6 +28,7 @@ export * from './components/icon/index.js';
 export * from './components/button/index.js';
 export * from './components/copy-button/index.js';
 export * from './components/overflow-menu/index.js';
+export * from './components/page-tabs/index.js';
 export * from './components/skeleton/index.js';
 export * from './components/stat-card/index.js';
 export * from './components/progress-bar/index.js';

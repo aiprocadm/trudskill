@@ -1,7 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { DetailDrawer } from '@trudskill/ui';
+import { DetailDrawer, PageTabs, TabPanel } from '@trudskill/ui';
 import { useState } from 'react';
 
 import { CreateTemplateDrawer } from './create-template-drawer';
@@ -14,6 +14,7 @@ import { PageContainer, PageHeader, SectionError } from '../../components/state-
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 import { useTaskRealtime } from '../communication/hooks';
+import { useTabParam } from '../navigation/use-tab-param';
 import { NumberingRulesSection } from '../numbering/screens';
 import { TenantImagesSection } from '../tenant-images/screens';
 
@@ -27,6 +28,14 @@ import { TenantImagesSection } from '../tenant-images/screens';
  * выпадающем списке ещё ниже. Стало: шаблон выбирается кликом по своей строке, а настройка
  * и выпуск открываются панелями рядом с ним.
  */
+/** Один уровень вкладок: состав страницы виден строкой, а не прокруткой. */
+const DOCUMENT_TABS = [
+  { id: 'templates', label: 'Бланки' },
+  { id: 'tasks', label: 'Задачи выпуска' },
+  { id: 'numbering', label: 'Нумерация' },
+  { id: 'stamps', label: 'Подпись и печать' }
+];
+
 export function DocumentsScreen() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
@@ -36,6 +45,14 @@ export function DocumentsScreen() {
   const [generateTemplateId, setGenerateTemplateId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  /*
+   * ТЗ 5.7 (Э7): страница была «простынёй» — четыре несвязанных блока одной лентой
+   * (бланки, задачи выпуска, нумераторы, подпись и печать). Человек прокручивал её
+   * целиком, чтобы понять, что здесь вообще есть (журнал 459). Теперь вкладки, и
+   * открытая живёт в адресе: ссылку на нумераторы можно передать.
+   */
+  const [tab, setTab] = useTabParam(DOCUMENT_TABS.map((item) => item.id));
 
   const data = useDocumentsOverview();
   const templates = data.data?.templates ?? [];
@@ -72,18 +89,38 @@ export function DocumentsScreen() {
       ) : null}
       {actionError ? <SectionError message={actionError} /> : null}
 
-      <TemplatesSection
-        templates={templates}
-        isLoading={data.isLoading}
-        onSetup={setSetupTemplateId}
-        onGenerate={setGenerateTemplateId}
-        onCreate={() => setCreateOpen(true)}
+      <PageTabs
+        tabs={DOCUMENT_TABS.map((item) =>
+          item.id === 'tasks' && (data.data?.tasks.length ?? 0) > 0
+            ? { ...item, count: data.data?.tasks.length ?? 0 }
+            : item
+        )}
+        activeId={tab}
+        onSelect={setTab}
+        label="Разделы документов"
       />
 
-      <TasksSection tasks={data.data?.tasks ?? []} onRefetch={() => data.refetch()} />
+      <TabPanel id="templates" activeId={tab}>
+        <TemplatesSection
+          templates={templates}
+          isLoading={data.isLoading}
+          onSetup={setSetupTemplateId}
+          onGenerate={setGenerateTemplateId}
+          onCreate={() => setCreateOpen(true)}
+        />
+      </TabPanel>
 
-      <NumberingRulesSection />
-      <TenantImagesSection />
+      <TabPanel id="tasks" activeId={tab}>
+        <TasksSection tasks={data.data?.tasks ?? []} onRefetch={() => data.refetch()} />
+      </TabPanel>
+
+      <TabPanel id="numbering" activeId={tab}>
+        <NumberingRulesSection />
+      </TabPanel>
+
+      <TabPanel id="stamps" activeId={tab}>
+        <TenantImagesSection />
+      </TabPanel>
 
       <CreateTemplateDrawer
         open={createOpen}

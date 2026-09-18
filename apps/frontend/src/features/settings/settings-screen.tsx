@@ -1,8 +1,8 @@
 'use client';
 
-import { SettingsLayout } from '@trudskill/ui';
+import { SettingsLayout, TabPanel, isEmbeddedSection } from '@trudskill/ui';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 import { visibleSettingsSections } from './sections';
 import { ProfileCard } from '../../components/profile-card';
@@ -11,6 +11,7 @@ import { ThemeAppearanceSettings } from '../../components/theme-appearance-setti
 import { useAuth } from '../auth/context';
 import { TwoFactorCard } from '../auth/two-factor-card';
 import { BrandingSettingsSection } from '../branding/branding-section';
+import { useTabParam } from '../navigation/use-tab-param';
 import { NotificationRecipientsSection } from '../notification-recipients/screens';
 import { PaymentProviderSettingsSection } from '../payments/settings-screen';
 import { SmsProviderSettingsSection } from '../sms/settings-section';
@@ -21,7 +22,7 @@ import { WebinarProviderSettingsSection } from '../webinars/screens';
  * IA-018: единый вход в настройки центра.
  *
  * Было: блок «Настройки и система» на 14 пунктов меню — при бюджете ≤7 человек искал
- * нужную настройку перебором. Стало: один экран с оглавлением и якорями.
+ * нужную настройку перебором. Стало: один экран с оглавлением и вкладками.
  *
  * `TPL-005` (§7.5): оглавление стоит КОЛОНКОЙ СЛЕВА, а не карточкой сверху. Разделов
  * шестнадцать; карточкой сверху они уезжали за край экрана, и дальше человек искал нужный
@@ -32,8 +33,12 @@ import { WebinarProviderSettingsSection } from '../webinars/screens';
  * ⚠️ Экраны настроек НЕ слиты в один файл (ТЗ §4.7): крупные разделы (лицензии,
  * потребление, эксплуатация, интеграции, журнал обмена, телефония, реквизиты центра,
  * пользователи) остаются своими маршрутами и попадают сюда ссылками. Внутрь встроены
- * только три коротких блока настройки провайдеров — их адреса стали редиректами на якоря.
+ * только три коротких блока настройки провайдеров — их адреса стали редиректами на вкладки.
  * Иначе получился бы второй монолит вроде mvp/screens.tsx.
+ *
+ * ТЗ 5.7 (Э7): оглавление разделено на две группы — «Настроить здесь» (кнопки, меняют
+ * содержимое справа) и «Открыть отдельный раздел» (ссылки, уводят на свою страницу). Раньше
+ * по виду они не отличались, и предсказать результат клика было нельзя.
  *
  * Права разделов берутся из карты навигации (`navigationModel`), а не выписываются здесь
  * заново: дублировать список прав — верный способ разойтись с ним при первой же правке.
@@ -41,18 +46,28 @@ import { WebinarProviderSettingsSection } from '../webinars/screens';
 export function SettingsScreen() {
   const { session } = useAuth();
   const sections = visibleSettingsSections(session);
-  const [activeId, setActiveId] = useState('');
+  const embeddedIds = sections.filter(isEmbeddedSection).map((section) => section.id);
 
   /*
-   * Открытый раздел берётся из адреса: на него ведут и оглавление, и редиректы старых
-   * адресов (`/admin/payments/settings` → `/settings#payments`). Отметка нужна не для
-   * красоты — в колонке из шестнадцати строк без неё не видно, где ты стоишь.
+   * ТЗ 5.7 (Э7): открытый раздел живёт в адресе (`?tab=`), а не в якоре. Якорь прокручивал
+   * ленту, поэтому ленту и приходилось держать целиком: шестнадцать разделов подряд, и
+   * человек не понимал, где кончается один и начинается другой (журнал 461).
+   */
+  const [activeId, setActiveId] = useTabParam(embeddedIds, embeddedIds[0] ?? '');
+
+  /*
+   * Старые ссылки с якорем продолжают работать. Три адреса уже редиректят сюда
+   * (`/admin/payments/settings` → `/settings`), и такие ссылки давно разошлись по перепискам:
+   * решение владельца Р2 требует, чтобы смена адреса не оставляла человека ни с чем.
    */
   useEffect(() => {
-    const sync = () => setActiveId(window.location.hash.replace('#', ''));
-    sync();
-    window.addEventListener('hashchange', sync);
-    return () => window.removeEventListener('hashchange', sync);
+    const fromHash = window.location.hash.replace('#', '');
+    if (fromHash && embeddedIds.includes(fromHash)) setActiveId(fromHash);
+    /*
+     * Пустой список зависимостей намеренно: якорь читается ОДИН раз, при заходе по старой
+     * ссылке. Дальше вкладку ведёт адрес, и повтор этого действия перебивал бы выбор
+     * человека каждый раз, когда он переключает вкладку.
+     */
   }, []);
 
   return (
@@ -62,37 +77,36 @@ export function SettingsScreen() {
         subtitle="Параметры учебного центра, интеграции и ваш профиль — в одном месте."
       />
 
-      <SettingsLayout sections={sections} activeId={activeId} link={Link}>
-        {/* Якоря совпадают с идентификаторами разделов: на них ведут редиректы старых адресов. */}
-        <div id="payments">
+      <SettingsLayout sections={sections} activeId={activeId} onSelect={setActiveId} link={Link}>
+        {/* Открыт ровно один раздел: остальные не рисуются вовсе, а не прячутся стилем. */}
+        <TabPanel id="payments" activeId={activeId}>
           <PaymentProviderSettingsSection />
-        </div>
-        <div id="notifications">
+        </TabPanel>
+        <TabPanel id="notifications" activeId={activeId}>
           <NotificationRecipientsSection />
-        </div>
-        <div id="webinars">
+        </TabPanel>
+        <TabPanel id="webinars" activeId={activeId}>
           <WebinarProviderSettingsSection />
-        </div>
+        </TabPanel>
 
         {/* Обе секции сами скрываются без прав sms.configure / video.configure (журнал 309). */}
-        <div id="sms">
+        <TabPanel id="sms" activeId={activeId}>
           <SmsProviderSettingsSection />
-        </div>
-        <div id="video">
+        </TabPanel>
+        <TabPanel id="video" activeId={activeId}>
           <VideoProviderSettingsSection />
-        </div>
+        </TabPanel>
 
         {/* ФТ-D3.1: секция сама скрывается без права tenant.branding.configure */}
-        <div id="branding">
+        <TabPanel id="branding" activeId={activeId}>
           <BrandingSettingsSection />
-        </div>
+        </TabPanel>
 
         {/*
-         * Вход и тема стоят ВНУТРИ якоря профиля: оглавление обещает «Ваши данные, вход и
-         * тема», а прыжок на `#profile` приводил только к данным — остальное надо было
-         * искать прокруткой ниже.
+         * Вход и тема стоят ВНУТРИ раздела профиля: оглавление обещает «Ваши данные, вход и
+         * тема», а раздел, приводящий только к данным, это обещание нарушал.
          */}
-        <div id="profile">
+        <TabPanel id="profile" activeId={activeId}>
           <ProfileCard />
           <SectionCard title="Безопасность">
             <TwoFactorCard />
@@ -100,7 +114,7 @@ export function SettingsScreen() {
           <SectionCard title="Внешний вид">
             <ThemeAppearanceSettings />
           </SectionCard>
-        </div>
+        </TabPanel>
       </SettingsLayout>
     </PageContainer>
   );

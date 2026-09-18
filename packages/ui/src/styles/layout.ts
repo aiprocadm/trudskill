@@ -65,6 +65,40 @@ export const layoutStyles = `
     grid-template-columns: 1fr;
   }
 }
+/*
+ * TPL-002 / ТЗ 5.7 (Э7): вкладки страницы — ОДИН уровень.
+ *
+ * Полоса прокручивается вбок, а не переносится по строкам: на телефоне четыре вкладки в две
+ * строки съедают половину первого экрана. Тач-зона 44px (решение владельца №C).
+ */
+.ui-tabs {
+  display: flex;
+  gap: var(--ui-space-xs);
+  overflow-x: auto;
+  border-bottom: 1px solid var(--ui-border);
+}
+.ui-tab {
+  min-height: 44px;
+  padding: var(--ui-space-sm) var(--ui-space-md);
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--ui-text-muted);
+  font-weight: var(--ui-font-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ui-tab:hover {
+  color: var(--ui-text);
+  background: none;
+}
+/* Открытая вкладка помечена И цветом, И подчёркиванием: цвет один смысл не несёт (WCAG 1.4.1). */
+.ui-tab--active {
+  color: var(--ui-text);
+  border-bottom-color: var(--ui-brand-600);
+}
+
 /* IA-018: оглавление настроек — плитки разделов вместо 14 пунктов меню. */
 .ui-settings-toc {
   list-style: none;
@@ -91,6 +125,23 @@ export const layoutStyles = `
   border-color: var(--ui-brand-600);
 }
 .ui-settings-toc__title { font-weight: var(--ui-font-weight-semibold); }
+/* ТЗ 5.7 (Э7): заголовок группы разделов — «Настроить здесь» против «Открыть отдельный». */
+.ui-settings-toc__group {
+  margin: var(--ui-space-md) 0 var(--ui-space-xs);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+  color: var(--ui-text-muted);
+  text-transform: none;
+}
+.ui-settings-toc__group:first-child { margin-top: 0; }
+/* Встроенный раздел — кнопка: сбрасываем вид кнопки до вида строки оглавления. */
+button.ui-settings-toc__link {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
 .ui-settings-toc__hint { font-size: var(--ui-font-size-sm); color: var(--ui-text-muted); }
 .ui-settings-toc__link[aria-current] {
   border-color: var(--ui-brand-600);

@@ -4,10 +4,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   DataTable,
   DetailDrawer,
+  Form,
   FormActions,
   LoadingState,
+  PageTabs,
   SelectField,
   StatusChip,
+  TabPanel,
   useConfirmDialog
 } from '@trudskill/ui';
 import { useRouter } from 'next/navigation';
@@ -29,8 +32,14 @@ import {
   canImpersonate,
   nextStatusOptions
 } from './types';
-import { SectionCard, SectionEmpty, SectionError } from '../../components/state-wrappers';
+import {
+  PageHeader,
+  SectionCard,
+  SectionEmpty,
+  SectionError
+} from '../../components/state-wrappers';
 import { useAuth } from '../auth/context';
+import { useTabParam } from '../navigation/use-tab-param';
 import { PlatformHealthSection } from '../platform-health/screens';
 
 import type { ReactElement } from 'react';
@@ -69,12 +78,26 @@ function statusActionLabel(status: PlatformTenantStatus): string {
   return labels[status] ?? `Перевести в «${TENANT_STATUS_LABELS[status] ?? status}»`;
 }
 
+/**
+ * Один уровень вкладок (ТЗ 5.7 / Э7). Было пять несвязанных блоков одной лентой: реестр
+ * центров, здоровье платформы, тарифы, счета аренды и форма создания центра посреди всего
+ * этого. Чтобы увидеть счета, страницу прокручивали до конца (журнал 460).
+ */
+const TENANT_TABS = [
+  { id: 'tenants', label: 'Учебные центры' },
+  { id: 'health', label: 'Здоровье платформы' },
+  { id: 'plans', label: 'Тарифы' },
+  { id: 'invoices', label: 'Счета аренды' }
+];
+
 export function PlatformTenantsSection() {
   const { ask, dialog } = useConfirmDialog();
   const { session, adoptSession } = useAuth();
   const queryClient = useQueryClient();
   const router = useRouter();
 
+  const [tab, setTab] = useTabParam(TENANT_TABS.map((item) => item.id));
+  const [createOpen, setCreateOpen] = useState(false);
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -191,153 +214,212 @@ export function PlatformTenantsSection() {
 
   return (
     <>
-      <SectionCard title="Арендаторы платформы">
-        <p className="ui-text-muted">
-          Все учебные центры платформы: статус жизненного цикла, перевод между статусами и вход «от
-          имени» администратора центра. Каждый вход «от имени» пишется в журнал действий того
-          центра, куда вошли.
-        </p>
+      {/*
+        Шапка живёт здесь, а не на странице: первичное действие экрана — «Создать учебный
+        центр», а знает про него только эта секция. Раньше форма создания стояла блоком
+        посреди ленты, ниже тарифов и счетов (ТЗ 5.7: формы создания — в панели).
+      */}
+      <PageHeader
+        title="Арендаторы платформы"
+        subtitle="Жизненный цикл учебных центров и вход «от имени» для поддержки"
+        {...(canWrite
+          ? {
+              primaryAction: {
+                label: 'Создать учебный центр',
+                onSelect: () => setCreateOpen(true)
+              }
+            }
+          : {})}
+      />
 
-        {tenantsQuery.error ? <SectionError error={tenantsQuery.error} /> : null}
-        {error ? <SectionError message={error} /> : null}
-        {tenantsQuery.isLoading ? <LoadingState message="Загрузка арендаторов…" /> : null}
+      <PageTabs tabs={TENANT_TABS} activeId={tab} onSelect={setTab} label="Разделы платформы" />
 
-        {!tenantsQuery.isLoading && rows.length ? (
-          <DataTable<TenantRow>
-            columns={[
-              { key: 'name', title: 'Учебный центр' },
-              { key: 'code', title: 'Код в адресах' },
-              {
-                key: 'planName',
-                title: 'Тариф',
-                /* Журнал 87: тариф назначается на этом экране — значит и виден должен быть здесь. */
-                render: (row) => row.planName
-              },
-              { key: 'statusView', title: 'Статус', render: (row) => row.statusView }
-            ]}
-            rows={rows}
-            rowKey={(row) => row.id}
-            rowActions={(row) => {
-              const tenant = tenants.find((x) => x.id === row.id);
-              if (!tenant) return [];
-              return [
-                ...(canWrite
-                  ? nextStatusOptions(tenant.status).map((status) => ({
-                      label: statusActionLabel(status),
-                      /* Приостановка и закрытие — опасные: центр перестаёт работать. */
-                      danger: status !== 'active',
-                      disabled: busy,
-                      onSelect: () => void changeStatus(tenant, status)
-                    }))
-                  : []),
-                ...(canWrite && plans.length > 0
-                  ? [
-                      {
-                        label: 'Сменить тариф',
-                        disabled: busy,
-                        onSelect: () => setPlanTarget(tenant)
-                      }
-                    ]
-                  : []),
-                ...(mayImpersonate && canImpersonate(tenant.status)
-                  ? [
-                      {
-                        label: 'Войти от имени',
-                        disabled: busy,
-                        onSelect: () => impersonate(tenant)
-                      }
-                    ]
-                  : [])
-              ];
-            }}
-          />
-        ) : null}
-        {!tenantsQuery.isLoading && !tenantsQuery.error && !rows.length ? (
-          <SectionEmpty
-            message="Арендаторов пока нет"
-            hint="Арендатор — учебный центр, работающий на платформе. Его заводят при подключении по договору."
-          />
-        ) : null}
-      </SectionCard>
-
-      <DetailDrawer
-        open={planTarget !== null}
-        onClose={() => setPlanTarget(null)}
-        title="Тариф центра"
-        subtitle={planTarget?.name ?? ''}
-      >
-        <SelectField
-          label="Тариф"
-          hint="Тариф задаёт лимиты: сколько слушателей в месяц, сколько сотрудников, сколько места под файлы"
-          value={planTarget ? (planChoice[planTarget.id] ?? plans[0]?.id ?? '') : ''}
-          onChange={(event) =>
-            planTarget
-              ? setPlanChoice((prev) => ({ ...prev, [planTarget.id]: event.target.value }))
-              : undefined
-          }
-          options={plans.map((plan) => ({ value: plan.id, label: plan.name }))}
-        />
-        <FormActions>
-          <button
-            type="button"
-            className="ui-button-primary"
-            disabled={busy}
-            onClick={() => {
-              if (!planTarget) return;
-              const target = planTarget;
-              setPlanTarget(null);
-              void assignPlan(target);
-            }}
-          >
-            Назначить тариф
-          </button>
-          <button type="button" className="ui-button" onClick={() => setPlanTarget(null)}>
-            Отмена
-          </button>
-        </FormActions>
-      </DetailDrawer>
-
-      <PlatformHealthSection />
-
-      {canWrite ? <PlatformPlansSection busy={busy} plans={plans} run={run} /> : null}
-
-      {canWrite ? <RentalInvoicesSection busy={busy} tenants={tenants} run={run} /> : null}
-
-      {canWrite ? (
-        <SectionCard title="Новый арендатор">
+      <TabPanel id="tenants" activeId={tab}>
+        <SectionCard title="Арендаторы платформы">
           <p className="ui-text-muted">
-            Код — латиница, цифры и дефис (попадает в системные идентификаторы). Новый арендатор
-            создаётся в статусе «Пробный» и получает стандартный набор ролей центра.
+            Все учебные центры платформы: статус жизненного цикла, перевод между статусами и вход
+            «от имени» администратора центра. Каждый вход «от имени» пишется в журнал действий того
+            центра, куда вошли.
           </p>
-          <div className="ui-inline">
-            <label>
-              Код
-              <input
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
-                placeholder="my-center"
-                maxLength={40}
-              />
-            </label>
-            <label>
-              Название
-              <input
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Учебный центр «Пример»"
-                maxLength={200}
-              />
-            </label>
+
+          {tenantsQuery.error ? <SectionError error={tenantsQuery.error} /> : null}
+          {error ? <SectionError message={error} /> : null}
+          {tenantsQuery.isLoading ? <LoadingState message="Загрузка арендаторов…" /> : null}
+
+          {!tenantsQuery.isLoading && rows.length ? (
+            <DataTable<TenantRow>
+              columns={[
+                { key: 'name', title: 'Учебный центр' },
+                { key: 'code', title: 'Код в адресах' },
+                {
+                  key: 'planName',
+                  title: 'Тариф',
+                  /* Журнал 87: тариф назначается на этом экране — значит и виден должен быть здесь. */
+                  render: (row) => row.planName
+                },
+                { key: 'statusView', title: 'Статус', render: (row) => row.statusView }
+              ]}
+              rows={rows}
+              rowKey={(row) => row.id}
+              rowActions={(row) => {
+                const tenant = tenants.find((x) => x.id === row.id);
+                if (!tenant) return [];
+                return [
+                  ...(canWrite
+                    ? nextStatusOptions(tenant.status).map((status) => ({
+                        label: statusActionLabel(status),
+                        /* Приостановка и закрытие — опасные: центр перестаёт работать. */
+                        danger: status !== 'active',
+                        disabled: busy,
+                        onSelect: () => void changeStatus(tenant, status)
+                      }))
+                    : []),
+                  ...(canWrite && plans.length > 0
+                    ? [
+                        {
+                          label: 'Сменить тариф',
+                          disabled: busy,
+                          onSelect: () => setPlanTarget(tenant)
+                        }
+                      ]
+                    : []),
+                  ...(mayImpersonate && canImpersonate(tenant.status)
+                    ? [
+                        {
+                          label: 'Войти от имени',
+                          disabled: busy,
+                          onSelect: () => impersonate(tenant)
+                        }
+                      ]
+                    : [])
+                ];
+              }}
+            />
+          ) : null}
+          {!tenantsQuery.isLoading && !tenantsQuery.error && !rows.length ? (
+            <SectionEmpty
+              message="Арендаторов пока нет"
+              hint="Арендатор — учебный центр, работающий на платформе. Его заводят при подключении по договору."
+            />
+          ) : null}
+        </SectionCard>
+
+        <DetailDrawer
+          open={planTarget !== null}
+          onClose={() => setPlanTarget(null)}
+          title="Тариф центра"
+          subtitle={planTarget?.name ?? ''}
+        >
+          <SelectField
+            label="Тариф"
+            hint="Тариф задаёт лимиты: сколько слушателей в месяц, сколько сотрудников, сколько места под файлы"
+            value={planTarget ? (planChoice[planTarget.id] ?? plans[0]?.id ?? '') : ''}
+            onChange={(event) =>
+              planTarget
+                ? setPlanChoice((prev) => ({ ...prev, [planTarget.id]: event.target.value }))
+                : undefined
+            }
+            options={plans.map((plan) => ({ value: plan.id, label: plan.name }))}
+          />
+          <FormActions>
             <button
               type="button"
+              className="ui-button-primary"
+              disabled={busy}
+              onClick={() => {
+                if (!planTarget) return;
+                const target = planTarget;
+                setPlanTarget(null);
+                void assignPlan(target);
+              }}
+            >
+              Назначить тариф
+            </button>
+            <button type="button" className="ui-button" onClick={() => setPlanTarget(null)}>
+              Отмена
+            </button>
+          </FormActions>
+        </DetailDrawer>
+      </TabPanel>
+
+      <TabPanel id="health" activeId={tab}>
+        <PlatformHealthSection />
+      </TabPanel>
+
+      <TabPanel id="plans" activeId={tab}>
+        {canWrite ? (
+          <PlatformPlansSection busy={busy} plans={plans} run={run} />
+        ) : (
+          <SectionEmpty
+            message="Тарифы доступны только владельцу платформы"
+            hint="Вам открыт просмотр центров и их здоровья."
+          />
+        )}
+      </TabPanel>
+
+      <TabPanel id="invoices" activeId={tab}>
+        {canWrite ? (
+          <RentalInvoicesSection busy={busy} tenants={tenants} run={run} />
+        ) : (
+          <SectionEmpty
+            message="Счета аренды доступны только владельцу платформы"
+            hint="Вам открыт просмотр центров и их здоровья."
+          />
+        )}
+      </TabPanel>
+
+      {/*
+        ТЗ 5.7: форма создания — в боковой панели, а не блоком внизу ленты. Незакрытая
+        панель с введённым кодом предупреждает о потере (CMP-005).
+      */}
+      <DetailDrawer
+        open={createOpen}
+        title="Новый учебный центр"
+        hasUnsavedChanges={code.trim().length > 0 || name.trim().length > 0}
+        onClose={() => setCreateOpen(false)}
+      >
+        <Form>
+          <p className="ui-hint">
+            Код — латиница, цифры и дефис (попадает в системные идентификаторы). Новый центр
+            создаётся в статусе «Пробный» и получает стандартный набор ролей центра.
+          </p>
+          <label className="ui-field">
+            <span className="ui-field-label">Код</span>
+            <input
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              placeholder="my-center"
+              maxLength={40}
+            />
+          </label>
+          <label className="ui-field">
+            <span className="ui-field-label">Название</span>
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Учебный центр «Пример»"
+              maxLength={200}
+            />
+          </label>
+          <FormActions>
+            <button type="button" className="ui-button" onClick={() => setCreateOpen(false)}>
+              Отмена
+            </button>
+            <button
+              type="button"
+              className="ui-button ui-button--primary"
               disabled={busy || !codeIsValid || !nameIsValid}
-              onClick={() => void createTenant()}
+              onClick={() =>
+                void createTenant().then(() => {
+                  setCreateOpen(false);
+                })
+              }
             >
               Создать учебный центр
             </button>
-          </div>
-        </SectionCard>
-      ) : null}
+          </FormActions>
+        </Form>
+      </DetailDrawer>
       {dialog}
     </>
   );
