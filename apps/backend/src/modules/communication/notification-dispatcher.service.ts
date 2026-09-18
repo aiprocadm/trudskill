@@ -7,6 +7,7 @@ import {
   renderTemplate
 } from './email-templates.js';
 import { EMAIL_TEMPLATES_REPOSITORY } from './email-templates.repository.js';
+import { NotificationsService } from './notifications.service.js';
 import { TelegramChannelService } from './telegram/telegram-channel.service.js';
 import { toPushNotification } from './web-push/template-push-mapping.js';
 import { WEB_PUSH_SENDER } from './web-push/web-push-sender.js';
@@ -66,6 +67,13 @@ export class NotificationDispatcher {
     // ФТ-D3.1: подпись бренда. @Optional — существующие тесты собирают диспетчер
     // четырьмя аргументами; без сервиса подпись падает к нейтральной.
     @Optional() @Inject(TenantService) private readonly tenantService?: TenantService,
+    /*
+     * ТЗ 11.1: колокольчик «Уведомления» внутри системы. Необязательная зависимость —
+     * ровно как остальные каналы: без неё письмо всё равно уходит.
+     */
+    @Optional()
+    @Inject(NotificationsService)
+    private readonly notifications?: NotificationsService,
     /*
      * ФТ-F3: третий канал. `@Optional` по той же причине, что и подпись бренда, — существующие
      * тесты собирают диспетчер меньшим числом аргументов; без канала рассылка работает как
@@ -186,6 +194,35 @@ export class NotificationDispatcher {
     const userIds = sent.map((r) => r.userId).filter((id): id is string => Boolean(id));
     if (userIds.length > 0) {
       await this.pushSender.sendToUsers(input.tenantId, userIds, toPushNotification(rendered));
+    }
+
+    /*
+     * ТЗ 11.1: то же событие — в колокольчик «Уведомления» внутри системы.
+     *
+     * **Как было.** Раздел «Уведомления» существовал, и у слушателя это ОДИН ИЗ ПЯТИ пунктов
+     * меню (задача 6.1), но класть в него события было некому: единственным, кто создавал
+     * записи, был чат. Человек, у которого истекает срок обучения, видел в разделе пустоту —
+     * а письмо мог не получить или не заметить (журнал 509).
+     *
+     * Отказ колокольчика не должен ронять рассылку: письмо уже ушло, и повторять его
+     * из-за второстепенного канала нельзя — человек получил бы дубль.
+     */
+    if (this.notifications) {
+      for (const recipient of sent) {
+        try {
+          await this.notifications.create({
+            tenantId: input.tenantId,
+            channelCode: 'in_app',
+            subjectText: rendered.subject,
+            bodyText: rendered.body,
+            ...(recipient.userId ? { recipientUserId: recipient.userId } : {}),
+            ...(input.relatedEntityType ? { relatedEntityType: input.relatedEntityType } : {}),
+            ...(input.relatedEntityId ? { relatedEntityId: input.relatedEntityId } : {})
+          });
+        } catch {
+          /* Канал второстепенный: письмо уже доставлено, повторять рассылку нельзя. */
+        }
+      }
     }
 
     /*
