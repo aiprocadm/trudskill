@@ -180,6 +180,14 @@ export const backendEnvSchema = z
       .union([z.boolean(), z.enum(['true', 'false'])])
       .transform((v) => v === true || v === 'true')
       .default(false),
+    /*
+     * ТЗ 11.2 п.4: адрес-приёмник писем на нерабочем окружении.
+     *
+     * Стенд работает на копии данных с настоящими адресами слушателей. Вне production письмо
+     * НЕ уходит по своему адресу никогда: либо всё перенаправляется сюда, либо не отправляется
+     * вовсе. Пустое значение — безопасное умолчание «не отправлять».
+     */
+    MAIL_REDIRECT_TO: z.string().email().optional(),
     // Recertification/reminders daily scan (Phase 5B-2). Custom boolean parse — NOT
     // z.coerce.boolean (which maps the string "false" → true). Ships dormant (false);
     // ops enables it once SMTP + persistence are ready.
