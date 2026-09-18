@@ -21,7 +21,17 @@ describe('pii-crypto (ФТ-C3.3)', () => {
   it('encrypts snils at rest and adds the blind index; other fields untouched', () => {
     const atRest = encryptLearnerPiiAtRest(learner) as Record<string, unknown>;
     expect(isEncryptedPiiValue(atRest.snils)).toBe(true);
-    expect(String(atRest.snils)).not.toContain('112');
+    /*
+     * Проверяется, что в шифротексте нет ОТКРЫТОГО СНИЛС — целиком и без разделителей.
+     *
+     * Было `not.toContain('112')`: три цифры из номера. Шифротекст — это base64 случайных
+     * байтов, и такая тройка изредка встречается в нём сама по себе; прогон краснел на
+     * ровном месте примерно раз на несколько тысяч (журнал 486). Сторож, падающий случайно,
+     * хуже отсутствующего: красный прогон начинают объяснять словами «наверное, опять флак».
+     * Полное значение совпасть случайно не может, и проверка стала СТРОЖЕ, а не мягче.
+     */
+    expect(String(atRest.snils)).not.toContain(learner.snils);
+    expect(String(atRest.snils)).not.toContain(learner.snils.replace(/\D/g, ''));
     expect(atRest.snilsHash).toMatch(/^[0-9a-f]{64}$/);
     expect(atRest.name).toBe('Иванов Иван');
     expect(atRest.id).toBe('learner_1');

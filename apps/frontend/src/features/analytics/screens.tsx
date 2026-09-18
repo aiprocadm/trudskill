@@ -1,6 +1,7 @@
 'use client';
 
 import { AsyncSection, DataTable, FilterBar, StatGrid } from '@trudskill/ui';
+import Link from 'next/link';
 import { useState } from 'react';
 
 import { BarChart } from './charts';
@@ -137,6 +138,14 @@ export function AnalyticsDashboardScreen() {
                 ariaLabel="Завершённые зачисления по курсам"
                 data={d.byCourse.map((r) => ({ label: r.label, value: r.enrollmentsCompleted }))}
               />
+              {/*
+                Решение владельца Р4 (ТЗ 5.12.8): «Аналитика» показывает, «Отчёты» выгружают.
+                Ссылка ведёт туда, где из этих же чисел делают файл, — иначе человек ищет
+                выгрузку перебором разделов (журнал 483).
+              */}
+              <Link className="ui-link" href="/reports">
+                Выгрузить в отчёт
+              </Link>
             </SectionCard>
 
             <SectionCard title="С какой попытки сдают экзамен">
@@ -148,6 +157,9 @@ export function AnalyticsDashboardScreen() {
                   { label: '3+ попытки', value: d.attemptDistribution.passedThirdPlusAttempt }
                 ]}
               />
+              <Link className="ui-link" href="/reports">
+                Выгрузить в отчёт
+              </Link>
             </SectionCard>
 
             <SectionCard title="Разбивка по курсам">

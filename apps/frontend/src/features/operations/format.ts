@@ -1,11 +1,12 @@
+import { formatDateTime } from '../mvp/screen-helpers';
+
 import type { QuarantinedJob } from './types';
 
-/** Дата и время по-русски; пусто — прочерк, неразбираемое — как пришло. */
-export const formatDateTime = (iso?: string | null): string => {
-  if (!iso) return '—';
-  const parsed = new Date(iso);
-  return Number.isNaN(parsed.getTime()) ? iso : parsed.toLocaleString('ru-RU');
-};
+/**
+ * Дата и время по-русски. ТЗ 5.12.1: формат один на всё приложение — своя копия здесь и в
+ * проверке работ печатали один и тот же момент по-разному (журнал 479).
+ */
+export { formatDateTime };
 
 /**
  * «Кто и когда разобрал» — вторая строка под статусом разобранного сообщения (§5.431).

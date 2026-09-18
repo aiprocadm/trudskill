@@ -8,7 +8,7 @@ import { PageContainer, PageHeader } from '../../components/state-wrappers';
 import { apiRequest } from '../../lib/api/client';
 import { useAuth } from '../auth/context';
 import { useUsersList } from '../mvp/hooks';
-import { formatDate } from '../mvp/screen-helpers';
+import { formatDateTime } from '../mvp/screen-helpers';
 
 type AuditEvent = {
   id: string;
@@ -51,6 +51,8 @@ export const AuditScreen = () => {
   const [actor, setActor] = useState('');
   const [entityId, setEntityId] = useState('');
   const [requestId, setRequestId] = useState('');
+  /* ТЗ 5.12.2: по умолчанию журнал показывает дела людей, а не продления сеансов. */
+  const [includeService, setIncludeService] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<AuditEvent[]>([]);
@@ -79,6 +81,8 @@ export const AuditScreen = () => {
       if (requestId) query.set('request_id', requestId);
       if (from) query.set('created_from', from);
       if (to) query.set('created_to', to);
+      /* Служебные события просим явно: по умолчанию сервер их не отдаёт (ТЗ 5.12.2). */
+      if (includeService) query.set('include_service', '1');
       const result = await apiRequest<{ items: AuditEvent[] }>(
         `/audit/events?${query.toString()}`,
         {
@@ -116,13 +120,20 @@ export const AuditScreen = () => {
 
   const tableRows: AuditRow[] = rows.map((event) => ({
     id: event.id,
-    whenView: formatDate(event.createdAt),
+    /*
+     * ТЗ 5.12.1: дата БЕЗ ВРЕМЕНИ не даёт прочитать порядок событий внутри дня — а именно
+     * порядок и разбирают, когда выясняют, что за чем произошло (журнал 477).
+     */
+    whenView: formatDateTime(event.createdAt),
     whoView: describeActor(event),
     whatView: describeAction(event.action),
     overWhatView: entityLabel(event.entityType)
   }));
 
-  const activeCount = [search, from, to, actor, entityId, requestId].filter(Boolean).length;
+  /* Показ служебных событий — тоже отбор: без него счётчик врал бы «фильтров нет». */
+  const activeCount = [search, from, to, actor, entityId, requestId, includeService].filter(
+    Boolean
+  ).length;
 
   return (
     <PageContainer>
@@ -159,6 +170,21 @@ export const AuditScreen = () => {
         }
         secondaryFilters={
           <>
+            {/*
+              ТЗ 5.12.2: «Сеанс продлён» пишется при каждом обновлении токена — сотни строк в
+              день на сотрудника, и полезное в них тонет. Записи из журнала не удаляются
+              (журнал — доказательство), а прячутся по умолчанию (журнал 478).
+            */}
+            <label className="ui-field">
+              <span className="ui-field-label">Служебные события</span>
+              <select
+                value={includeService ? 'yes' : 'no'}
+                onChange={(event) => setIncludeService(event.target.value === 'yes')}
+              >
+                <option value="no">Скрыть продление сеансов</option>
+                <option value="yes">Показывать всё</option>
+              </select>
+            </label>
             <label className="ui-field">
               <span className="ui-field-label">Кто сделал</span>
               <select value={actor} onChange={(event) => setActor(event.target.value)}>
@@ -191,6 +217,7 @@ export const AuditScreen = () => {
           setActor('');
           setEntityId('');
           setRequestId('');
+          setIncludeService(false);
         }}
         columns={[
           { key: 'whenView', title: 'Когда' },

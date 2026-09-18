@@ -12,7 +12,15 @@ import type { Column } from '@trudskill/ui';
 import type { ReactElement } from 'react';
 
 interface Props {
-  title?: string;
+  /**
+   * Заголовок блока. `null` — блок без своего заголовка (ТЗ 5.12.5).
+   *
+   * На отдельной странице «Мои документы» заголовок повторялся ТРИЖДЫ: заголовок страницы,
+   * заголовок блока и сообщение пустого состояния. Средний уровень не сообщал ничего нового
+   * и только отодвигал содержимое (журнал 481). Внутри курса блок стоит среди других — там
+   * заголовок нужен.
+   */
+  title?: string | null;
   showCourse?: boolean;
   documents: LearnerDocument[];
   /**
@@ -42,14 +50,15 @@ export function LearnerDocumentsList({
   onDownload,
   downloadBusyId
 }: Props): ReactElement {
+  const frame = (children: ReactElement): ReactElement =>
+    title === null ? children : <SectionCard title={title}>{children}</SectionCard>;
+
   if (documents.length === 0) {
-    return (
-      <SectionCard title={title}>
-        <SectionEmpty
-          message="Документы пока не выданы"
-          hint="Они появятся здесь сразу после завершения курса и выпуска документов учебным центром."
-        />
-      </SectionCard>
+    return frame(
+      <SectionEmpty
+        message="Документы пока не выданы"
+        hint="Они появятся здесь сразу после завершения курса и выпуска документов учебным центром."
+      />
     );
   }
 
@@ -116,13 +125,13 @@ export function LearnerDocumentsList({
     };
   });
 
-  return (
-    <SectionCard title={title}>
+  return frame(
+    <>
       <DataTable columns={columns} rows={rows} />
       {documents.some((d) => d.status === 'revoked') ? (
         <RevocationNotes documents={documents} />
       ) : null}
-    </SectionCard>
+    </>
   );
 }
 

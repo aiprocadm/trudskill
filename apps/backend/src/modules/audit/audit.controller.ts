@@ -24,6 +24,8 @@ export class AuditController {
     @Query('request_id') requestId?: string,
     @Query('created_from') createdFrom?: string,
     @Query('created_to') createdTo?: string,
+    /* ТЗ 5.12.2: служебные события («Сеанс продлён») скрыты, пока их не попросят явно. */
+    @Query('include_service') includeService?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string
   ) {
@@ -42,6 +44,7 @@ export class AuditController {
       ...(requestId ? { requestId } : {}),
       ...(createdFrom ? { createdFrom } : {}),
       ...(createdTo ? { createdTo } : {}),
+      ...(includeService === '1' || includeService === 'true' ? { includeService: true } : {}),
       ...(limit ? { limit: Number(limit) } : {}),
       ...(offset ? { offset: Number(offset) } : {})
     });

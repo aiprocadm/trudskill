@@ -66,13 +66,23 @@ export function ClientsListScreen() {
   ];
 
   const totalPages = list.data ? Math.max(1, Math.ceil(list.data.total / PAGE_SIZE)) : 1;
+  const hasClients = (list.data?.items.length ?? 0) > 0;
 
   return (
     <PageContainer>
       <PageHeader
         title="Компании"
         subtitle="Компании-заказчики обучения: создание, поиск, редактирование контактов, прогресс по группам."
-        primaryAction={{ label: 'Добавить компанию', onSelect: () => setCreating(true) }}
+        /*
+          ТЗ 5.12.4: два оранжевых призыва на одном экране — «Добавить компанию» в шапке и
+          «Добавить первую компанию» в пустом состоянии. Глаз выбирает между одинаковыми
+          кнопками, хотя делают они одно и то же (журнал 480). Пока список пуст, зовёт
+          пустой экран — он объясняет, ЧТО это за раздел; как только компании появились,
+          действие переезжает в шапку.
+        */
+        {...(hasClients
+          ? { primaryAction: { label: 'Добавить компанию', onSelect: () => setCreating(true) } }
+          : {})}
       />
 
       <ListPage<ClientListItem>

@@ -1,3 +1,5 @@
+import { formatDateTime } from '../mvp/screen-helpers';
+
 import type { EntityStatus, QuestionType, ReviewerQueueListItem, TestRuleSummary } from './types';
 
 /** Phase 3 Plan A: RU label для каждого типа вопроса. */
@@ -72,11 +74,9 @@ export function formatReviewerQueueItem(item: ReviewerQueueListItem): {
   };
 }
 
-/** Простой RU-форматтер ISO timestamp (без зависимостей: YYYY-MM-DD HH:mm). */
-export function formatDateTime(iso: string): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+/**
+ * Дата и время — общий канон (ТЗ 5.12.1). Здесь был свой формат «2026-09-18 11:45», а в
+ * эксплуатации «18.09.2026, 11:45:12»: один и тот же момент на соседних экранах выглядел
+ * по-разному, и человек читал это как разные данные (журнал 479).
+ */
+export { formatDateTime };

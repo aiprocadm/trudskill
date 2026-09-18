@@ -18,6 +18,15 @@ const frontendEnvSchema = z.object({
   NEXT_PUBLIC_ESIA_ENABLED: z
     .union([z.boolean(), z.enum(['true', 'false'])])
     .transform((v) => v === true || v === 'true')
+    .default(false),
+  /*
+   * Решение владельца Р3 (ТЗ 5.12.6): чат убран из меню всех ролей. Незаконченная функция
+   * хуже отсутствующей — пустой список диалогов без объяснения и без кнопки «Написать» был
+   * тупиком (журнал 482). Код чата НЕ удаляется, он ждёт своей доработки за этим флагом.
+   */
+  NEXT_PUBLIC_CHAT_ENABLED: z
+    .union([z.boolean(), z.enum(['true', 'false'])])
+    .transform((v) => v === true || v === 'true')
     .default(false)
 });
 
@@ -27,7 +36,8 @@ const parsed = frontendEnvSchema.safeParse({
   PUBLIC_BASE_URL: process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000',
   NEXT_PUBLIC_DEFAULT_TENANT_ID: process.env.NEXT_PUBLIC_DEFAULT_TENANT_ID ?? 'tenant_demo',
   NEXT_PUBLIC_TENANT_BASE_DOMAIN: process.env.NEXT_PUBLIC_TENANT_BASE_DOMAIN ?? '',
-  NEXT_PUBLIC_ESIA_ENABLED: process.env.NEXT_PUBLIC_ESIA_ENABLED
+  NEXT_PUBLIC_ESIA_ENABLED: process.env.NEXT_PUBLIC_ESIA_ENABLED,
+  NEXT_PUBLIC_CHAT_ENABLED: process.env.NEXT_PUBLIC_CHAT_ENABLED
 });
 
 if (!parsed.success) {

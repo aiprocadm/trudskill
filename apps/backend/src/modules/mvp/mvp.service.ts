@@ -42,6 +42,7 @@ import {
 import { IDENTITY_VERIFICATION_REJECTED_EVENT } from './identity-verification-rejected.event.js';
 import { InMemoryMvpState } from './infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from './infrastructure/mvp-state.token.js';
+import { completionRate, examPassRate, isGenuinePass } from './learning-metrics.js';
 import { PRE_EXAM_AUTH_REQUESTED_EVENT } from './pre-exam-auth-requested.event.js';
 import {
   PRE_EXAM_TOKEN_TTL_MS,
@@ -1887,7 +1888,12 @@ export class MvpService {
     );
     const completed = scopedEnrollments.filter((e) => e.status === 'completed').length;
     const total = scopedEnrollments.length;
-    const completionRate = total === 0 ? 0 : completed / total;
+    /*
+     * Решение Р4 (ТЗ 5.12.8): завершаемость и сдачу считает ОДИН слой на «Аналитику» и
+     * «Отчёты». Здесь и в `analytics-dashboard.ts` правила совпадали слово в слово — и
+     * именно поэтому их разъезд был вопросом времени (журнал 483).
+     */
+    const rate = completionRate(scopedEnrollments);
 
     const examScoped = this.state.examResults.filter((er) => {
       if (er.tenantId !== tenantId) return false;
@@ -1901,11 +1907,9 @@ export class MvpService {
       }
       return true;
     });
-    // Provisional results (best attempt still awaiting essay review) must not count as
-    // passes — passed is already false while needs_review; the status guard is defensive.
-    const passed = examScoped.filter((er) => er.passed && er.status !== 'needs_review').length;
+    const passed = examScoped.filter(isGenuinePass).length;
     const examTotal = examScoped.length;
-    const examPassRate = examTotal === 0 ? 0 : passed / examTotal;
+    const passRate = examPassRate(examScoped);
 
     const wantBreakdown =
       query.include_enrollment_breakdown === '1' || query.include_enrollment_breakdown === 'true';
@@ -1919,10 +1923,10 @@ export class MvpService {
       },
       enrollmentsTotal: total,
       enrollmentsCompleted: completed,
-      enrollmentCompletionRate: completionRate,
+      enrollmentCompletionRate: rate,
       examResultsInScopeTotal: examTotal,
       examResultsPassed: passed,
-      examPassRate,
+      examPassRate: passRate,
       ...(wantBreakdown
         ? {
             enrollmentBreakdown: scopedEnrollments.map((e) => ({

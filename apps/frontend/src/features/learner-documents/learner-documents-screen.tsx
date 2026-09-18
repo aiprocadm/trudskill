@@ -28,6 +28,8 @@ export const LearnerDocumentsScreen = () => {
         </SectionCard>
       ) : (
         <LearnerDocumentsList
+          /* ТЗ 5.12.5: заголовок уже есть у страницы — второй такой же ничего не добавляет. */
+          title={null}
           documents={documents}
           onDownload={(doc) => void download.download(doc.id)}
           downloadBusyId={download.busyId}

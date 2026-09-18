@@ -74,12 +74,26 @@ export interface AuditListFilter {
   requestId?: string;
   createdFrom?: string;
   createdTo?: string;
+  /** ТЗ 5.12.2: показать служебные события («Сеанс продлён»). По умолчанию они скрыты. */
+  includeService?: boolean;
   limit?: number;
   offset?: number;
 }
 
 /** Тот же отбор для памяти (режим без базы) — чтобы поведение не разъезжалось. */
+/**
+ * Служебные события: нужны для разбора инцидента, но не для чтения журнала человеком
+ * (ТЗ 5.12.2).
+ *
+ * «Сеанс продлён» пишется при каждом обновлении токена — сотни строк в день на одного
+ * сотрудника. Журнал, где полезное тонет в служебном, перестают открывать. Записи НЕ
+ * удаляются (журнал — доказательство, а не лента новостей), а прячутся по умолчанию:
+ * `include_service=1` возвращает их обратно.
+ */
+export const SERVICE_ACTIONS: readonly string[] = ['auth.refresh'];
+
 function matchesFilter(record: AuditLogRecord, filter: AuditListFilter): boolean {
+  if (!filter.includeService && SERVICE_ACTIONS.includes(record.action)) return false;
   if (filter.actor && !record.actorId?.includes(filter.actor)) return false;
   if (filter.entity && !record.entityType.includes(filter.entity)) return false;
   if (filter.action && !record.action.includes(filter.action)) return false;
@@ -322,8 +336,10 @@ export class AuditService {
           and ($6::text is null or l.request_id like '%' || $6 || '%')
           and ($7::timestamptz is null or l.created_at >= $7)
           and ($8::timestamptz is null or l.created_at <= $8)
+          -- ТЗ 5.12.2: служебные события скрыты по умолчанию, но остаются в базе.
+          and ($9::boolean or not (l.action = any($10::text[])))
         order by l.created_at desc, l.id desc
-        limit $9 offset $10
+        limit $11 offset $12
       `,
       [
         tid,
@@ -334,6 +350,8 @@ export class AuditService {
         filter.requestId ?? null,
         filter.createdFrom ?? null,
         filter.createdTo ?? null,
+        Boolean(filter.includeService),
+        SERVICE_ACTIONS,
         limit,
         offset
       ]
