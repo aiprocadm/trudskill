@@ -13,6 +13,7 @@ import {
   questionStatement
 } from './exam-mode';
 import { finishTestRequest } from './finish-confirm';
+import { finishSummary } from './finish-summary';
 import { formatTimeRemaining, remainingMsFromExpiry } from './format';
 import {
   useAttempt,
@@ -81,6 +82,8 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
   const [unsavedCount, setUnsavedCount] = useState(0);
   // Порция 27: почему сдача не состоялась — человек должен это видеть, а не гадать.
   const [submitBlocked, setSubmitBlocked] = useState<string | null>(null);
+  /* ТЗ 6.4 (С4): завершению предшествует экран-сводка — вслепую тест не закончить. */
+  const [showSummary, setShowSummary] = useState(false);
   const syncUnsaved = () => setUnsavedCount(dirtyRef.current.size);
   const markDirty = (questionId: string) => {
     dirtyRef.current.add(questionId);
@@ -353,6 +356,12 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
    */
   const answeredCount = answeredTotal(questions, drafts);
   const marks = questionMarks(questions, drafts, currentIndex);
+  const summary = finishSummary({
+    questions,
+    drafts,
+    ...(testSummary ? { attemptsUsed: testSummary.attemptsUsed } : {}),
+    ...(testSummary ? { attemptLimit: testSummary.attemptLimit } : {})
+  });
   const resume = resumeNotice({
     startedAt: attempt.startedAt,
     answeredCount,
@@ -508,6 +517,67 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
           </ul>
         </nav>
 
+        {/*
+          ТЗ 6.4 (С4): сводка перед завершением. Раньше диалог называл ЧИСЛО неотвеченных
+          (5.3), но не говорил, какие именно, и не давал к ним вернуться — человек знал, что
+          что-то пропустил, и искал перебором (журнал 498). Про последнюю попытку не
+          говорилось вовсе (499).
+        */}
+        {showSummary ? (
+          <SectionCard title="Перед завершением">
+            <p className="ui-question-text">{summary.headline}</p>
+            {summary.unanswered.length > 0 ? (
+              <>
+                <p className="ui-hint">Без ответа — нажмите номер, чтобы вернуться к вопросу:</p>
+                <ul className="exam-map">
+                  {summary.unanswered.map((number) => (
+                    <li key={number}>
+                      <button
+                        type="button"
+                        className="exam-map__item"
+                        onClick={() => {
+                          setShowSummary(false);
+                          setCurrentIndex(number - 1);
+                        }}
+                      >
+                        {number}
+                        <span className="ui-visually-hidden">{`Вернуться к вопросу ${number}`}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+            {summary.lastAttemptWarning ? (
+              <p className="ui-callout ui-callout--warning" role="alert">
+                {summary.lastAttemptWarning}
+              </p>
+            ) : null}
+            <div className="test-nav">
+              <button type="button" className="ui-button" onClick={() => setShowSummary(false)}>
+                Вернуться к вопросам
+              </button>
+              <button
+                type="button"
+                className={`ui-button ui-button--primary ${submitAttempt.isPending ? 'ui-button--loading' : ''}`}
+                disabled={submitAttempt.isPending}
+                onClick={() =>
+                  askFinish(
+                    finishTestRequest({
+                      unanswered: summary.unanswered.length,
+                      total: summary.total,
+                      lastAttempt: summary.lastAttempt
+                    }),
+                    () => void handleSubmit()
+                  )
+                }
+              >
+                Завершить тест
+              </button>
+            </div>
+          </SectionCard>
+        ) : null}
+
         <div className="test-nav">
           <button
             type="button"
@@ -520,24 +590,7 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
           >
             Назад
           </button>
-          {isLast ? (
-            <button
-              type="button"
-              className={`ui-button ui-button--primary ${submitAttempt.isPending ? 'ui-button--loading' : ''}`}
-              disabled={submitAttempt.isPending}
-              onClick={() =>
-                askFinish(
-                  finishTestRequest({
-                    unanswered: questions.length - answeredCount,
-                    total: questions.length
-                  }),
-                  () => void handleSubmit()
-                )
-              }
-            >
-              Завершить тест
-            </button>
-          ) : (
+          {isLast ? null : (
             <button
               type="button"
               className="ui-button ui-button--primary"
@@ -549,6 +602,21 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
               Следующий вопрос
             </button>
           )}
+          {/*
+            ТЗ 6.4 (С4): «Завершить» ведёт на СВОДКУ, а не сразу в подтверждение. Кнопка стоит
+            внизу на каждом вопросе — с картой вопросов (6.2) человек может быть где угодно, и
+            заставлять его долистывать до последнего вопроса ради завершения незачем.
+          */}
+          <button
+            type="button"
+            className={`ui-button ${isLast ? 'ui-button--primary' : ''}`}
+            onClick={() => {
+              void flushDraft(q.id);
+              setShowSummary(true);
+            }}
+          >
+            Завершить тест
+          </button>
         </div>
 
         {submitBlocked ? <SectionError message={submitBlocked} /> : null}

@@ -11,14 +11,26 @@ import type { ConfirmRequest } from '@trudskill/ui';
  * вопросов осталось без ответа. Ввода не требует — на экзамене печатать название теста было бы
  * издевательством; хватает осознанного клика.
  */
-export const finishTestRequest = (input: { unanswered: number; total: number }): ConfirmRequest => {
+export const finishTestRequest = (input: {
+  unanswered: number;
+  total: number;
+  /** ТЗ 6.4 (С4): про последнюю попытку человеку говорят ПРЯМО в диалоге. */
+  lastAttempt?: boolean;
+}): ConfirmRequest => {
   const unanswered = Math.max(0, input.unanswered);
+  const base =
+    unanswered > 0
+      ? `Без ответа: ${unanswered} из ${input.total}. Ответы уйдут на проверку, вернуться к вопросам после завершения не получится.`
+      : `Все ${input.total} ответов уйдут на проверку; вернуться к вопросам после завершения не получится.`;
   return {
     title: 'Завершить тест',
-    message:
-      unanswered > 0
-        ? `Без ответа: ${unanswered} из ${input.total}. Ответы уйдут на проверку, вернуться к вопросам после завершения не получится.`
-        : `Все ${input.total} ответов уйдут на проверку; вернуться к вопросам после завершения не получится.`,
+    /*
+     * Про последнюю попытку — отдельной фразой и в конце: это то, из-за чего человек может
+     * передумать, а не деталь. Раньше об этом не говорилось вовсе (журнал 499).
+     */
+    message: input.lastAttempt
+      ? `${base} Это последняя попытка: пересдать тест не получится.`
+      : base,
     confirmLabel: 'Завершить тест',
     cancelLabel: 'Вернуться к вопросам'
   };
