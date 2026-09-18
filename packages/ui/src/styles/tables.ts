@@ -35,20 +35,37 @@ export const tableStyles = `
 .ui-table tbody tr[data-selected='true']:hover td { background: var(--ui-surface-accent); }
 .ui-table-wrap--compact .ui-table th,
 .ui-table-wrap--compact .ui-table td { padding: 6px 11px; }
-/* CMP-011: панель массовых действий — липкая полоса под списком. */
+/*
+ * CMP-011 / ТЗ 5.5 (Э5): панель массовых действий прилипает к НИЗУ ЭКРАНА.
+ *
+ * Было "position: sticky; bottom: 0" — и это не работало ни разу: панель стоит ПОСЛЕДНИМ
+ * элементом страницы, а прилипание снизу у последнего ребёнка не даёт ничего (двигаться ему
+ * некуда — его обычное место и есть низ родителя). При списке на двадцать строк панель
+ * оказывалась ниже пагинации, и, выделив строку вверху, человек её не видел.
+ *
+ * Теперь "fixed" по низу окна, а слева — ширина колонки меню (переменная --ui-shell-nav, она
+ * же держит саму колонку), чтобы панель стояла ровно над содержимым, а не под меню. На
+ * телефоне переменная равна нулю — панель во всю ширину.
+ *
+ * (Обратные кавычки в комментарии внутри строки стилей закрывают саму строку — журнал 415.)
+ */
 .ui-bulk-bar {
-  position: sticky;
+  position: fixed;
+  left: var(--ui-shell-nav, 0px);
+  right: 0;
   bottom: 0;
-  z-index: 5;
+  z-index: 30;
   display: flex;
   flex-direction: column;
   gap: var(--ui-space-sm);
-  padding: var(--ui-space-md);
+  margin: 0 auto;
+  padding: var(--ui-space-md) clamp(16px, 3vw, 32px);
   background: var(--ui-surface);
-  border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-md);
+  border-top: 1px solid var(--ui-border);
   box-shadow: var(--ui-shadow);
 }
+/* Место под панель в потоке: без него она накрывает последние строки списка. */
+.ui-bulk-bar-spacer { height: 88px; }
 .ui-bulk-bar__row { display: flex; gap: var(--ui-space-sm); flex-wrap: wrap; align-items: center; }
 .ui-bulk-bar__count { font-weight: var(--ui-font-weight-semibold); }
 /* CMP-011: итог операции — та же разметка в панели реестра и на экране импорта. */

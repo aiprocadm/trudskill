@@ -13,7 +13,9 @@
  * страниц входа, и совмещение дало бы файл на 355 строк с двумя назначениями.
  */
 export const shellStyles = `
-.app-shell { min-height: 100vh; display: grid; grid-template-columns: 260px 1fr; position: relative; }
+/* Ширина колонки меню — переменной, а не числом в трёх местах: по ней выравнивается
+   липкая панель массовых действий (ТЗ 5.5), и разъезжаться им нельзя. */
+.app-shell { --ui-shell-nav: 260px; min-height: 100vh; display: grid; grid-template-columns: var(--ui-shell-nav) 1fr; position: relative; }
 .app-shell__menu-toggle { display: none; }
 .app-shell__skip-link {
   position: absolute;
@@ -49,7 +51,7 @@ export const shellStyles = `
   overscroll-behavior: contain;
 }
 /* Свёрнутая колонка: остаются значки. Ширину задаёт сетка оболочки — см. .app-shell--narrow. */
-.app-shell--narrow { grid-template-columns: 64px 1fr; }
+.app-shell--narrow { --ui-shell-nav: 64px; }
 .app-shell--narrow .app-shell__sidebar { padding: 16px 8px; }
 .app-shell--narrow .app-shell__link-label,
 .app-shell--narrow .app-shell__group-title,
@@ -245,7 +247,7 @@ export const shellStyles = `
   .app-shell__theme-label { display: none; }
 }
 @media (max-width: 1024px) {
-  .app-shell, .app-shell--narrow { grid-template-columns: 1fr; }
+  .app-shell, .app-shell--narrow { --ui-shell-nav: 0px; grid-template-columns: 1fr; }
   /* На телефоне колонка выдвижная: прилипание и свёрнутый вид там не при чём. */
   .app-shell__sidebar { position: fixed; height: 100dvh; }
   .app-shell__sidebar-toggle { display: none; }

@@ -30,32 +30,42 @@ export const BulkActionBar = ({
   // Ничего не выделено и нечего показать по итогу — панели нет вовсе.
   if (selectedCount === 0 && !outcome) return null;
 
-  return (
-    <div className="ui-bulk-bar" role="region" aria-label="Массовые действия">
-      {selectedCount > 0 ? (
-        <div className="ui-bulk-bar__row">
-          <span className="ui-bulk-bar__count" aria-live="polite">
-            Выделено: {selectedCount}
-          </span>
-          {actions.map((action) => (
-            <button
-              key={action.label}
-              type="button"
-              className={action.danger ? 'ui-button-danger' : 'ui-button-secondary'}
-              disabled={isRunning || action.disabled === true}
-              onClick={action.onSelect}
-            >
-              {action.label}
-            </button>
-          ))}
-          <button type="button" className="ui-button-link" onClick={onClear} disabled={isRunning}>
-            Снять выделение
-          </button>
-          {isRunning ? <span className="ui-text-muted">Выполняется…</span> : null}
-        </div>
-      ) : null}
+  /*
+   * Э5 + Э4: опасное действие печатается ПОСЛЕДНИМ, за полезными. Порядок считает компонент,
+   * а не каждый вызывающий: «Архивировать» не должно стоять там, куда человек целится, промахнувшись.
+   */
+  const ordered = [...actions.filter((a) => !a.danger), ...actions.filter((a) => a.danger)];
 
-      {outcome ? <OperationOutcome outcome={outcome} /> : null}
-    </div>
+  return (
+    <>
+      <div className="ui-bulk-bar" role="region" aria-label="Массовые действия">
+        {selectedCount > 0 ? (
+          <div className="ui-bulk-bar__row">
+            <span className="ui-bulk-bar__count" aria-live="polite">
+              Выделено: {selectedCount}
+            </span>
+            {ordered.map((action) => (
+              <button
+                key={action.label}
+                type="button"
+                className={action.danger ? 'ui-button-danger' : 'ui-button-secondary'}
+                disabled={isRunning || action.disabled === true}
+                onClick={action.onSelect}
+              >
+                {action.label}
+              </button>
+            ))}
+            <button type="button" className="ui-button-link" onClick={onClear} disabled={isRunning}>
+              Снять выделение
+            </button>
+            {isRunning ? <span className="ui-text-muted">Выполняется…</span> : null}
+          </div>
+        ) : null}
+
+        {outcome ? <OperationOutcome outcome={outcome} /> : null}
+      </div>
+      {/* Панель висит над страницей — место под неё нужно оставить, иначе она накроет список. */}
+      <div className="ui-bulk-bar-spacer" aria-hidden={true} />
+    </>
   );
 };

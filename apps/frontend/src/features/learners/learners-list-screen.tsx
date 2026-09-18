@@ -4,6 +4,7 @@ import {
   BulkActionBar,
   ColumnPicker,
   ConfirmDialog,
+  DetailDrawer,
   FilterBar,
   ListPage,
   SavedViews,
@@ -13,11 +14,15 @@ import {
 import { useMemo, useState } from 'react';
 
 import { STATUS_LABEL, formatFullName, formatSnils } from './format';
-import { useArchiveLearners, useLearnersList } from './hooks';
+import { useArchiveLearners, useEnrollLearnersToGroup, useLearnersList } from './hooks';
 import { LearnerCreateDrawer } from './learner-create-drawer';
 import { LearnerEditDrawer } from './learner-edit-drawer';
 import { LEARNER_PRESET_VIEWS, matchesQuery, readSavedViews, writeSavedViews } from './saved-views';
 import { PageContainer, PageHeader } from '../../components/state-wrappers';
+import { buildCsv, downloadCsv } from '../../lib/export/csv';
+import { hasPermission } from '../../lib/rbac/permissions';
+import { useAuth } from '../auth/context';
+import { GroupSelect } from '../groups/group-picker';
 
 import type { LearnerListItem, LearnerStatus, LearnersListFilters } from './types';
 import type { SavedView } from '@trudskill/ui';
@@ -35,6 +40,32 @@ const PAGE_SIZE = 20;
  */
 const DEFAULT_COLUMNS = ['lastName', 'email', 'snils', 'position', 'status'];
 
+/**
+ * Значение колонки для выгрузки — ПЛОСКИМ текстом (ТЗ 5.5 / Э5).
+ *
+ * Брать `column.render` нельзя: часть колонок возвращает разметку (значок статуса), и в файл
+ * попал бы объект вместо слова. Статус выгружается тем же русским словом, что на экране, —
+ * иначе человек откроет файл и увидит `archived`.
+ */
+const csvValue = (learner: LearnerListItem, key: string): string => {
+  switch (key) {
+    case 'lastName':
+      return formatFullName(learner);
+    case 'snils':
+      return formatSnils(learner.snils);
+    case 'status':
+      return STATUS_LABEL[learner.status];
+    case 'email':
+      return learner.email ?? '';
+    case 'position':
+      return learner.position ?? '';
+    case 'organizationUnitId':
+      return learner.organizationUnitId ?? '';
+    default:
+      return '';
+  }
+};
+
 export function LearnersListScreen() {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<'' | LearnerStatus>('');
@@ -50,6 +81,9 @@ export function LearnersListScreen() {
   const [visibleColumns, setVisibleColumns] = useState<string[]>(DEFAULT_COLUMNS);
   const [confirmingArchive, setConfirmingArchive] = useState(false);
   const [outcome, setOutcome] = useState<BulkOutcome | undefined>(undefined);
+  /* ТЗ 5.5: зачисление выбранных в группу — панель выбора группы рядом со списком. */
+  const [enrollOpen, setEnrollOpen] = useState(false);
+  const [enrollGroupId, setEnrollGroupId] = useState('');
 
   const filters: LearnersListFilters = useMemo(
     () => ({
@@ -61,8 +95,12 @@ export function LearnersListScreen() {
     [q, status, page]
   );
 
+  const { session } = useAuth();
+  /* Право то же, что требует ручка `POST /enrollments/bulk`; сверено по живой iam.role_permissions. */
+  const canEnroll = hasPermission(session?.permissions ?? [], 'enrollments.write');
   const list = useLearnersList(filters);
   const archive = useArchiveLearners();
+  const enroll = useEnrollLearnersToGroup();
   const rows = list.data?.items ?? [];
 
   const columns: Column<LearnerListItem>[] = [
@@ -97,6 +135,34 @@ export function LearnersListScreen() {
     setOutcome(result);
     setSelected([]);
     void list.refetch();
+  };
+
+  /*
+   * ТЗ 5.5 (Э5): в панели было ровно одно действие, и то красное. Теперь полезные — впереди,
+   * опасное — последним (порядок расставляет сам компонент).
+   */
+  const runEnroll = async () => {
+    if (!enrollGroupId) return;
+    const result = await enroll.run(selectedLearners, enrollGroupId, `bulk-enroll-${Date.now()}`);
+    setOutcome(result);
+    setEnrollOpen(false);
+    setEnrollGroupId('');
+    setSelected([]);
+    void list.refetch();
+  };
+
+  /* Выгружается то, что человек видит: выбранные строки и колонки, которые он оставил. */
+  const exportSelected = () => {
+    const shown = columns.filter((column) => visibleColumns.includes(String(column.key)));
+    downloadCsv(
+      'slushateli',
+      buildCsv(
+        shown.map((column) => column.title),
+        selectedLearners.map((learner) =>
+          shown.map((column) => csvValue(learner, String(column.key)))
+        )
+      )
+    );
   };
 
   return (
@@ -216,7 +282,16 @@ export function LearnersListScreen() {
           selectedCount={selected.length}
           isRunning={archive.isRunning}
           {...(outcome ? { outcome } : {})}
+          /*
+            ТЗ 5.5 (Э5): полезные действия, а не одно красное. «Назначить курс» из списка ТЗ
+            здесь нет намеренно: курс назначается ГРУППЕ, а не слушателю, — зачисление в группу
+            и есть путь к курсу (журнал 449).
+          */
           actions={[
+            ...(canEnroll
+              ? [{ label: 'Добавить в группу', onSelect: () => setEnrollOpen(true) }]
+              : []),
+            { label: 'Выгрузить выбранных', onSelect: exportSelected },
             {
               label: 'Архивировать',
               danger: true,
@@ -229,6 +304,36 @@ export function LearnersListScreen() {
           }}
         />
       </div>
+
+      <DetailDrawer
+        open={enrollOpen}
+        onClose={() => setEnrollOpen(false)}
+        title="Добавить в группу"
+        subtitle={`Выбрано слушателей: ${selectedLearners.length}`}
+        width="sm"
+        hasUnsavedChanges={enrollGroupId.trim().length > 0}
+      >
+        <div className="ui-stack">
+          <GroupSelect
+            value={enrollGroupId}
+            onChange={setEnrollGroupId}
+            emptyLabel="Выберите группу"
+          />
+          <p className="ui-field-hint">
+            Слушатели попадут в состав группы и получат доступ к её курсам. Кто уже состоит в группе
+            — останется как есть, второго зачисления не будет.
+          </p>
+          <button
+            type="button"
+            className={`ui-button ui-button--primary${enroll.isRunning ? ' ui-button--loading' : ''}`}
+            disabled={!enrollGroupId || enroll.isRunning}
+            aria-busy={enroll.isRunning || undefined}
+            onClick={() => void runEnroll()}
+          >
+            Добавить в группу
+          </button>
+        </div>
+      </DetailDrawer>
 
       {confirmingArchive ? (
         <ConfirmDialog
