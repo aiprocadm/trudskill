@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import { LicenseExpiryScanner } from './license-expiry-scanner.service.js';
+import { ReminderSettingsService } from './reminder-settings.service.js';
 
 const ASOF = '2026-06-05';
 
@@ -36,7 +37,8 @@ function make(opts: { dispatch?: ReturnType<typeof vi.fn>; expiring?: unknown[] 
   const findActiveExpiringBefore = vi.fn().mockResolvedValue(opts.expiring ?? [license()]);
   const scanner = new LicenseExpiryScanner(
     { findActiveExpiringBefore } as never,
-    { dispatch } as never
+    { dispatch } as never,
+    new ReminderSettingsService()
   );
   return { scanner, dispatch, findActiveExpiringBefore };
 }

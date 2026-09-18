@@ -1,7 +1,8 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
-import { LICENSE_EXPIRY_MILESTONES, pickMilestone } from './milestone.util.js';
+import { pickMilestone } from './milestone.util.js';
 import { buildStaffRecipients } from './reminder-recipients.js';
+import { ReminderSettingsService } from './reminder-settings.service.js';
 import { addDays } from '../../../common/utils/date-math.util.js';
 import { NotificationDispatcher } from '../../communication/notification-dispatcher.service.js';
 import { LicensesService } from '../../org/licenses.service.js';
@@ -9,7 +10,6 @@ import { LicensesService } from '../../org/licenses.service.js';
 import type { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
 
 /** Look-ahead window: active licenses with validUntil ≤ today+90d enter the scan. */
-const LICENSE_EXPIRY_HORIZON_DAYS = 90;
 
 export interface LicenseExpiryScanSummary {
   remindersDispatched: number;
@@ -29,7 +29,9 @@ export class LicenseExpiryScanner {
 
   constructor(
     @Inject(LicensesService) private readonly licenses: LicensesService,
-    @Inject(NotificationDispatcher) private readonly dispatcher: NotificationDispatcher
+    @Inject(NotificationDispatcher) private readonly dispatcher: NotificationDispatcher,
+    /* ТЗ 11.3: окно предупреждения о лицензии тоже настраивается центром. */
+    @Inject(ReminderSettingsService) private readonly settings: ReminderSettingsService
   ) {}
 
   async scanTenant(
@@ -42,13 +44,15 @@ export class LicenseExpiryScanner {
       return { remindersDispatched: 0 };
     }
 
-    const horizon = addDays(asOf, LICENSE_EXPIRY_HORIZON_DAYS);
+    const milestones = await this.settings.milestones(tenantId, 'licenseExpiry');
+    /* Горизонт выборки — самый дальний порог: искать дальше него незачем. */
+    const horizon = addDays(asOf, Math.max(...milestones));
     const expiring = await this.licenses.findActiveExpiringBefore(tenantId, horizon);
 
     let remindersDispatched = 0;
     for (const license of expiring) {
       if (!license.validUntil) continue;
-      const milestone = pickMilestone(asOf, license.validUntil, LICENSE_EXPIRY_MILESTONES);
+      const milestone = pickMilestone(asOf, license.validUntil, milestones);
       if (milestone === null) continue;
 
       try {

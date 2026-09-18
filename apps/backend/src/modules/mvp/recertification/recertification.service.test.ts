@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { InMemoryRecertificationDraftsState } from './in-memory-recertification-drafts.state.js';
 import { RecertificationScanner } from './recertification-scanner.service.js';
 import { RecertificationService } from './recertification.service.js';
+import { ReminderSettingsService } from '../reminders/reminder-settings.service.js';
 
 const ASOF = '2026-06-05';
 
@@ -59,7 +60,12 @@ function make(
       overrides.createBulkEnrollments ??
       vi.fn().mockReturnValue({ created: [{ id: 'enr_new' }], skippedExisting: [], errors: [] })
   };
-  const scanner = new RecertificationScanner(drafts, { dispatch } as never, documents as never);
+  const scanner = new RecertificationScanner(
+    drafts,
+    { dispatch } as never,
+    documents as never,
+    new ReminderSettingsService()
+  );
   /* Журнал действий: заглушка копит записи, чтобы проверить сам факт следа (ФТ-G1). */
   const auditRecords: { action: string; entityId?: string; newValues?: unknown }[] = [];
   const audit = {

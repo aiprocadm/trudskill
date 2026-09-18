@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import { CourseDeadlineScanner } from './course-deadline-scanner.service.js';
+import { ReminderSettingsService } from './reminder-settings.service.js';
 
 const ASOF = '2026-06-05';
 
@@ -38,7 +39,7 @@ function make(
       Promise.resolve({ sent: input.recipients.length, skipped: 0, failed: 0 })
     )
 ) {
-  const scanner = new CourseDeadlineScanner({ dispatch } as never);
+  const scanner = new CourseDeadlineScanner({ dispatch } as never, new ReminderSettingsService());
   return { scanner, dispatch };
 }
 
@@ -98,13 +99,20 @@ describe('CourseDeadlineScanner.scanTenant', () => {
     errorSpy.mockRestore();
   });
 
-  it('progresses through the 14 → 7 → 1 dedupKeys as the deadline approaches', async () => {
+  /*
+   * Инвариант ИЗМЕНЁН осознанно (ТЗ 11.3, журнал 513): было 14 → 7 → 1, стало 14 → 3 → 1.
+   * Решение владельца Р11 называет «за 14, 3 и 1 день»; семёрка в коде была расхождением с
+   * ним, и его никто не замечал. Три дня и семь — разные вещи: за три дня человек ещё успевает
+   * дочитать курс, за семь он про письмо забывает. Проверка не ослаблена: она по-прежнему
+   * требует ровно три ступени в строгом порядке.
+   */
+  it('progresses through the 14 → 3 → 1 dedupKeys as the deadline approaches', async () => {
     const { scanner, dispatch } = make(); // enr1 plannedEndAt = 2026-06-15
     await scanner.scanTenant('t1', '2026-06-05', state() as never); // 10 days out → 14
-    await scanner.scanTenant('t1', '2026-06-10', state() as never); // 5 days out  → 7
+    await scanner.scanTenant('t1', '2026-06-13', state() as never); // 2 days out  → 3
     await scanner.scanTenant('t1', '2026-06-14', state() as never); // 1 day out   → 1
     const milestones = dispatch.mock.calls.map((c) => String(c[0].dedupKey).split(':').pop());
-    expect(milestones).toEqual(['14', '7', '1']);
+    expect(milestones).toEqual(['14', '3', '1']);
   });
 
   it('re-reminds at the same milestone when the deadline (plannedEndAt) changes', async () => {

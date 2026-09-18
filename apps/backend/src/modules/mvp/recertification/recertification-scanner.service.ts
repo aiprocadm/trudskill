@@ -7,7 +7,7 @@ import {
 import { addDays } from '../../../common/utils/date-math.util.js';
 import { NotificationDispatcher } from '../../communication/notification-dispatcher.service.js';
 import { DocumentsTenantRunner } from '../../documents/documents-tenant-runner.service.js';
-import { RECERT_MILESTONES, pickMilestone } from '../reminders/milestone.util.js';
+import { pickMilestone } from '../reminders/milestone.util.js';
 import {
   buildLearnerEmployerRecipients,
   buildStaffRecipients,
@@ -15,6 +15,8 @@ import {
   resolveCourseVersionIdForGroup,
   resolveLearnerDisplay
 } from '../reminders/reminder-recipients.js';
+import { REMINDER_DEFAULTS } from '../reminders/reminder-settings.js';
+import { ReminderSettingsService } from '../reminders/reminder-settings.service.js';
 
 import type { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
 
@@ -26,7 +28,8 @@ import type { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js'
  * лишняя работа на каждом ночном проходе; уже, чем окно — что письмо за 60 дней никогда
  * не уйдёт. Поэтому значения связаны намеренно.
  */
-export const RECERT_HORIZON_DAYS = 60;
+/* Горизонт по умолчанию — самый дальний порог Р11; центр может сдвинуть его настройкой. */
+export const RECERT_HORIZON_DAYS = Math.max(...REMINDER_DEFAULTS.recertification);
 
 export interface RecertCandidate {
   documentId: string;
@@ -72,7 +75,7 @@ export function scanForRecertification(
  * Singleton scan body shared by the request-scoped RecertificationService (manual endpoint) and
  * the nightly RemindersSchedulerService. Reads MVP data from the passed-in state (so it works
  * both inside an HTTP request and inside the cron via MvpTenantRunner). Dispatches a
- * `recertification_due` notice once per milestone from `RECERT_MILESTONES` (deduped by the
+ * `recertification_due` notice once per milestone from the tenant's settings (deduped by the
  * dispatcher). Числа НЕ дублируем здесь: комментарий уже врал — обещал 90/30/7, тогда как
  * окна переаттестации по ТЗ равны 60/30/7 (90/30/7 — у срока лицензии центра, это другой
  * сканер). Пусть единственным источником остаётся константа.
@@ -87,7 +90,10 @@ export class RecertificationScanner {
     @Inject(NotificationDispatcher)
     private readonly dispatcher: NotificationDispatcher,
     @Inject(DocumentsTenantRunner)
-    private readonly documentsRunner: DocumentsTenantRunner
+    private readonly documentsRunner: DocumentsTenantRunner,
+    /* ТЗ 11.3: за сколько дней предупреждать о переаттестации, решает центр. */
+    @Inject(ReminderSettingsService)
+    private readonly settings: ReminderSettingsService
   ) {}
 
   async scanTenant(
@@ -95,13 +101,16 @@ export class RecertificationScanner {
     asOf: string,
     state: InMemoryMvpState
   ): Promise<RecertScanSummary> {
+    const milestones = await this.settings.milestones(tenantId, 'recertification');
+    /* Горизонт выборки — самый дальний порог: искать документы дальше него незачем. */
+    const horizonDays = Math.max(...milestones);
     const candidates = await this.documentsRunner.runWithTenantDocuments(
       tenantId,
       async (documents) =>
         scanForRecertification(
           asOf,
           documents.listDocuments(tenantId, { pageSize: Number.MAX_SAFE_INTEGER }).items,
-          RECERT_HORIZON_DAYS
+          horizonDays
         )
     );
 
@@ -129,7 +138,7 @@ export class RecertificationScanner {
       });
       if (created) draftsCreated++;
 
-      const milestone = pickMilestone(asOf, candidate.validUntil, RECERT_MILESTONES);
+      const milestone = pickMilestone(asOf, candidate.validUntil, milestones);
       if (milestone === null) continue;
 
       const recipients = [
