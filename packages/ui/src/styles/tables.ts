@@ -63,6 +63,11 @@ export const tableStyles = `
   background: var(--ui-surface);
   border-top: 1px solid var(--ui-border);
   box-shadow: var(--ui-shadow);
+  /* ТЗ 14.2 п.4: снизу у телефона системная полоса. Без этого отступа кнопки панели
+     оказываются под ней, и по ним нельзя попасть (на iPhone в режиме приложения —
+     appleWebApp.capable включён). На обычном экране env(...) равен нулю.
+     Обратные кавычки тут запрещены: файл — одна строка в кавычках, журнал 415. */
+  padding-bottom: calc(var(--ui-space-md) + env(safe-area-inset-bottom, 0px));
 }
 /* Место под панель в потоке: без него она накрывает последние строки списка. */
 .ui-bulk-bar-spacer { height: 88px; }

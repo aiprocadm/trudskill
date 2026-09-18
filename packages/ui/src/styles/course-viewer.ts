@@ -14,7 +14,7 @@ export const courseViewerStyles = `
   background: var(--ui-surface);
   position: sticky;
   top: 16px;
-  max-height: calc(100vh - 160px);
+  max-height: calc(100dvh - 160px);
   overflow: auto;
 }
 .course-toc__module { margin: 0 0 8px; }

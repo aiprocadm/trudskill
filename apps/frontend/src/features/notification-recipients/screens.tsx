@@ -70,6 +70,8 @@ export function NotificationRecipientsSection(): ReactElement {
             <div key={index} className="ui-inline" style={{ gap: 8 }}>
               <input
                 type="email"
+                inputMode="email"
+                autoComplete="email"
                 className="ui-input"
                 style={{ minWidth: 280 }}
                 placeholder="curator@example.ru"

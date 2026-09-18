@@ -154,6 +154,7 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
             <input
               className="ui-input"
               type="email"
+              inputMode="email"
               value={form.email}
               onChange={(e) => setField('email', e.target.value)}
               autoComplete="off"
@@ -170,6 +171,7 @@ export function LearnerEditDrawer({ learner, onClose, onSaved }: LearnerEditDraw
               value={form.snils}
               onChange={(e) => setField('snils', e.target.value)}
               placeholder="112-233-445 95"
+              inputMode="numeric"
               aria-invalid={snilsHint ? true : undefined}
               aria-describedby={snilsHint ? 'learner-snils-hint' : undefined}
             />

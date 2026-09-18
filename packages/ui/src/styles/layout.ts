@@ -17,7 +17,7 @@ export const layoutStyles = `
 .ui-centered-page,
 .ui-auth-center,
 .ui-login-center {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
   box-sizing: border-box;
@@ -31,7 +31,7 @@ export const layoutStyles = `
 .ui-auth-card { max-width: 420px; width: 100%; }
 .ui-login-card { width: 100%; max-width: 100%; }
 /* Брендированная страница входа */
-.auth-shell { min-height: 100vh; display: grid; place-items: center; box-sizing: border-box; padding: 24px; background: radial-gradient(1100px 560px at 50% -12%, var(--ui-surface-accent), var(--ui-bg) 70%); }
+.auth-shell { min-height: 100dvh; display: grid; place-items: center; box-sizing: border-box; padding: 24px; background: radial-gradient(1100px 560px at 50% -12%, var(--ui-surface-accent), var(--ui-bg) 70%); }
 .auth-shell__panel { width: 100%; max-width: 420px; display: grid; gap: 16px; }
 .auth-shell__brand { display: grid; gap: 6px; justify-items: center; text-align: center; margin-bottom: 2px; }
 .auth-shell__brand .ui-wordmark { font-size: var(--ui-font-size-3xl); }
