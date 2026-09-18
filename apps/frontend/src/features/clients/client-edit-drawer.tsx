@@ -117,6 +117,7 @@ export function ClientEditDrawer({ client, onClose, onSaved }: ClientEditDrawerP
           <input
             className="ui-input"
             type="email"
+            inputMode="email"
             value={form.contactEmail}
             onChange={(e) => setField('contactEmail', e.target.value)}
             autoComplete="off"
@@ -129,6 +130,9 @@ export function ClientEditDrawer({ client, onClose, onSaved }: ClientEditDrawerP
             className="ui-input"
             value={form.contactPhone}
             onChange={(e) => setField('contactPhone', e.target.value)}
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
           />
         </label>
 

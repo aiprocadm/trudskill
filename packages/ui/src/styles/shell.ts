@@ -15,7 +15,7 @@
 export const shellStyles = `
 /* Ширина колонки меню — переменной, а не числом в трёх местах: по ней выравнивается
    липкая панель массовых действий (ТЗ 5.5), и разъезжаться им нельзя. */
-.app-shell { --ui-shell-nav: 260px; min-height: 100vh; display: grid; grid-template-columns: var(--ui-shell-nav) 1fr; position: relative; }
+.app-shell { --ui-shell-nav: 260px; min-height: 100dvh; display: grid; grid-template-columns: var(--ui-shell-nav) 1fr; position: relative; }
 .app-shell__menu-toggle { display: none; }
 .app-shell__skip-link {
   position: absolute;
@@ -254,8 +254,9 @@ export const shellStyles = `
   .app-shell__menu-toggle {
     display: inline-flex;
     position: fixed;
-    top: 12px;
-    left: 12px;
+    /* ТЗ 14.2 п.4: вырез телефона. На экране без выреза env(...) равен нулю. */
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    left: calc(12px + env(safe-area-inset-left, 0px));
     z-index: 10001;
     align-items: center;
     height: 40px;

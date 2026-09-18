@@ -98,6 +98,7 @@ export const MagicLinkForm = () => {
           className="ui-input"
           name="email"
           type="email"
+          inputMode="email"
           autoComplete="email"
           required
           value={email}

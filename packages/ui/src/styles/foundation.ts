@@ -2,7 +2,7 @@ export const foundationStyles = `
 [data-ui-theme] {
   background: var(--ui-bg);
   color: var(--ui-text);
-  min-height: 100vh;
+  min-height: 100dvh;
   font-family: var(--font-sans), 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
   font-size: var(--ui-font-size-md);
   line-height: var(--ui-line-height-normal);
@@ -92,7 +92,7 @@ export const foundationStyles = `
 .entry-card:hover { border-color: var(--ui-brand-600); }
 .entry-card + .entry-card { margin-top: 10px; }
 /* Слайд-овер дровер (создание/редактирование сущностей) — фикс. панель справа + затемнение */
-.ui-drawer { position: fixed; top: 0; right: 0; z-index: 10050; isolation: isolate; height: 100vh; width: min(480px, 100vw); background: var(--ui-surface); border-left: 1px solid var(--ui-border); box-shadow: var(--ui-shadow-strong); overflow-y: auto; padding: 20px; display: grid; gap: 16px; align-content: start; }
+.ui-drawer { position: fixed; top: 0; right: 0; z-index: 10050; isolation: isolate; height: 100dvh; width: min(480px, 100vw); background: var(--ui-surface); border-left: 1px solid var(--ui-border); box-shadow: var(--ui-shadow-strong); overflow-y: auto; padding: 20px; display: grid; gap: 16px; align-content: start; }
 .ui-drawer::before { content: ''; position: fixed; inset: 0; background: var(--ui-overlay); z-index: -1; pointer-events: none; }
 .ui-drawer-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .ui-drawer-header h2 { margin: 0; font-size: var(--ui-font-size-lg); font-weight: var(--ui-font-weight-bold); color: var(--ui-text); }
@@ -269,8 +269,9 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 .test-connection--warning { border-color: var(--ui-warning-600); background: color-mix(in srgb, var(--ui-warning-600) 12%, var(--ui-surface)); color: var(--ui-warning-700); }
 .test-connection--danger { border-color: var(--ui-danger-600); background: color-mix(in srgb, var(--ui-danger-600) 12%, var(--ui-surface)); color: var(--ui-danger-600); font-weight: var(--ui-font-weight-semibold); }
 /* ТЗ 6.2 (С2): режим экзамена. Страница без оболочки — своя раскладка и своя верхняя полоса. */
-.ui-focus { min-height: 100vh; background: var(--ui-bg); }
-.exam-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px clamp(12px, 3vw, 32px); border-bottom: 1px solid var(--ui-border); background: var(--ui-surface); position: sticky; top: 0; z-index: 20; }
+.ui-focus { min-height: 100dvh; background: var(--ui-bg); }
+/* Верхний отступ — с поправкой на вырез телефона (ТЗ 14.2 п.4): таймер обязан быть виден всегда. */
+.exam-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: calc(12px + env(safe-area-inset-top, 0px)) clamp(12px, 3vw, 32px) 12px; border-bottom: 1px solid var(--ui-border); background: var(--ui-surface); position: sticky; top: 0; z-index: 20; }
 .exam-bar__test { font-weight: var(--ui-font-weight-semibold); margin-right: auto; }
 /* Карта вопросов: видно, что отвечено, что пропущено, и куда можно перейти одним нажатием. */
 .exam-map { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: 0; list-style: none; }
