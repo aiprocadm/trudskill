@@ -1,6 +1,6 @@
 'use client';
 
-import { DataTable, FilterBar, ListPage, StatusChip } from '@trudskill/ui';
+import { DataTable, ListPage, StatusChip } from '@trudskill/ui';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -122,15 +122,13 @@ export const CoursesPageScreen = () => {
           : {})}
       />
 
-      <FilterBar
-        activeCount={[q, status, directionId].filter(Boolean).length}
-        onReset={() => {
-          setQ('');
-          setStatus('');
-          setDirectionId('');
-          setPage(1);
-        }}
-        primary={
+      <ListPage<CourseRow>
+        /*
+          ТЗ 5.6 (Э6): панель отбора — слот каркаса, а не отдельный блок рядом. Порядок
+          «быстрые отборы → поиск и фильтры → колонки → таблица → массовые действия»
+          считает каркас, экран лишь передаёт содержимое.
+        */
+        filters={
           <>
             <label className="ui-field">
               <span className="ui-field-label">Поиск по названию</span>
@@ -178,9 +176,13 @@ export const CoursesPageScreen = () => {
             </label>
           </>
         }
-      />
-
-      <ListPage<CourseRow>
+        activeFilterCount={[q, status, directionId].filter(Boolean).length}
+        onResetFilters={() => {
+          setQ('');
+          setStatus('');
+          setDirectionId('');
+          setPage(1);
+        }}
         columns={[
           { key: 'titleView', title: 'Курс', render: (row) => row.titleView },
           { key: 'codeView', title: 'Код' },

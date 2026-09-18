@@ -48,6 +48,10 @@ const DECIDED: Record<string, string> = {
     'статусом `failed`, остальные получатели письмо получают',
   'modules/iam/services/known-password-audit.ts for (const user of input.users)':
     'всё или ничего не грозит: цикл только читает и считает, бросать в нём нечему',
+  'modules/iam/services/iam.service.ts for (const userId of userIds)':
+    'всё или ничего не грозит: это dev-путь БЕЗ базы у `roleCodesOfUsers` (ТЗ 5.6 / Э6) — ' +
+    'цикл читает роли из карты в памяти и ничего не бросает. Боевой путь идёт мимо цикла: ' +
+    'роли всей страницы берутся ОДНИМ запросом `user_id = any($2)`',
   'modules/mvp/close-group-chain.service.ts for (const groupId of groupIds)':
     'частичный успех ВЕРХНЕГО уровня: каждая группа закрывается в своём `try`, отказ ложится ' +
     'строкой отчёта с причиной человеческим языком и не отменяет остальные — иначе одна ' +

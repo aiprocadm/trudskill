@@ -41,6 +41,11 @@ export interface UserEntity {
   email: string | null;
   status: 'active' | 'blocked';
   displayName: string;
+  /**
+   * Коды ролей человека (ТЗ 5.6 / Э6). Поле необязательное: его отдаёт только список
+   * `GET /users`, карточка одного пользователя берёт роли отдельной ручкой.
+   */
+  roles?: string[];
 }
 
 export interface RoleEntity {

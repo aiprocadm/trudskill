@@ -9,7 +9,23 @@ import type { RowKey } from '../components/table/selection.js';
 import type { ReactElement, ReactNode } from 'react';
 
 export interface ListPageProps<T extends object> {
+  /**
+   * `CMP-012`: быстрые отборы — ПЕРВЫЙ блок списка (ТЗ 5.6 / Э6).
+   *
+   * Раньше экран рисовал их сам, рядом с каркасом, и порядок блоков был на совести
+   * каждого экрана. Правило, которое обязан помнить каждый, соблюсти нельзя (урок Э1):
+   * теперь блок приходит слотом, а порядок считает каркас.
+   */
+  savedViews?: ReactNode;
+  /** Поиск и до трёх фильтров — первый ряд панели отбора. */
   filters?: ReactNode;
+  /** `CMP-003`: остальные фильтры — под кнопкой «Ещё фильтры». */
+  secondaryFilters?: ReactNode;
+  /** Сколько фильтров сейчас задано — показывается на кнопке и включает «Сбросить». */
+  activeFilterCount?: number;
+  onResetFilters?: () => void;
+  /** `CMP-002`: выбор колонок — в той же панели отбора, справа. */
+  columnPicker?: ReactNode;
   columns: Column<T>[];
   rows: T[];
   isLoading: boolean;
@@ -37,13 +53,28 @@ export interface ListPageProps<T extends object> {
   selectedKeys?: RowKey[];
   onSelectionChange?: (keys: RowKey[]) => void;
   visibleColumnKeys?: string[];
-  /** Полоса массовых действий и панель настройки колонок — рисуются экраном. */
-  toolbar?: ReactNode;
+  /** `CMP-011`: массовые действия — ПОСЛЕДНИЙ блок, под таблицей (ТЗ 5.6 / Э6). */
+  bulkBar?: ReactNode;
 }
 
-// Каркас списочного экрана. PageHeader остаётся на уровне экрана (он во frontend).
+/**
+ * Каркас списочного экрана: **один шаблон на все списки** (ТЗ 5.6 / Э6).
+ *
+ * Порядок блоков задаётся здесь и нигде больше: быстрые отборы → поиск и фильтры → выбор
+ * колонок (в той же панели) → таблица → страницы → массовые действия. `PageHeader` остаётся
+ * на уровне экрана: он не часть списка, а часть страницы.
+ *
+ * **Пагинация не показывается, когда страница одна** — «Назад 1 / 1 Вперёд» под списком из
+ * одной строки сообщает ровно ничего и занимает место, которое человек читает как элемент
+ * управления.
+ */
 export function ListPage<T extends object>({
+  savedViews,
   filters,
+  secondaryFilters,
+  activeFilterCount,
+  onResetFilters,
+  columnPicker,
   columns,
   rows,
   isLoading,
@@ -61,14 +92,23 @@ export function ListPage<T extends object>({
   selectedKeys,
   onSelectionChange,
   visibleColumnKeys,
-  toolbar
+  bulkBar
 }: ListPageProps<T>): ReactElement {
   const showPagination =
-    page !== undefined && totalPages !== undefined && onPageChange !== undefined;
+    page !== undefined && totalPages !== undefined && onPageChange !== undefined && totalPages > 1;
+  const hasFilterBar = Boolean(filters) || Boolean(secondaryFilters) || Boolean(columnPicker);
   return (
     <div className="ui-stack">
-      {filters ? <FilterBar>{filters}</FilterBar> : null}
-      {toolbar ?? null}
+      {savedViews ?? null}
+      {hasFilterBar ? (
+        <FilterBar
+          {...(filters ? { primary: filters } : {})}
+          {...(secondaryFilters ? { secondary: secondaryFilters } : {})}
+          {...(activeFilterCount !== undefined ? { activeCount: activeFilterCount } : {})}
+          {...(onResetFilters ? { onReset: onResetFilters } : {})}
+          {...(columnPicker ? { extra: columnPicker } : {})}
+        />
+      ) : null}
       <AsyncSection
         isLoading={isLoading}
         error={error}
@@ -92,6 +132,7 @@ export function ListPage<T extends object>({
           <Pagination page={page} totalPages={totalPages} onPageChange={onPageChange} />
         ) : null}
       </AsyncSection>
+      {bulkBar ?? null}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { DetailDrawer, FilterBar, ListPage, StatusChip } from '@trudskill/ui';
+import { DetailDrawer, ListPage, StatusChip } from '@trudskill/ui';
 import { type ReactElement, useState } from 'react';
 
 import { issuanceJournalApi } from './api';
@@ -131,10 +131,13 @@ export function IssuanceJournalView() {
         ]}
       />
 
-      <FilterBar
-        activeCount={filter.types ? 1 : 0}
-        onReset={() => setFilter({ limit: PAGE_SIZE, offset: 0 })}
-        primary={
+      <ListPage<JournalRow>
+        /*
+          ТЗ 5.6 (Э6): панель отбора — слот каркаса, а не отдельный блок рядом. Порядок
+          «быстрые отборы → поиск и фильтры → колонки → таблица → массовые действия»
+          считает каркас, экран лишь передаёт содержимое.
+        */
+        filters={
           <>
             <label className="ui-field">
               <span className="ui-field-label">Выдано с</span>
@@ -168,7 +171,7 @@ export function IssuanceJournalView() {
             </label>
           </>
         }
-        secondary={
+        secondaryFilters={
           <fieldset className="ui-fieldset">
             <legend>Виды документов</legend>
             <div className="ui-inline">
@@ -197,9 +200,8 @@ export function IssuanceJournalView() {
             </div>
           </fieldset>
         }
-      />
-
-      <ListPage<JournalRow>
+        activeFilterCount={filter.types ? 1 : 0}
+        onResetFilters={() => setFilter({ limit: PAGE_SIZE, offset: 0 })}
         columns={[
           { key: 'documentDateView', title: 'Дата выдачи' },
           { key: 'documentNumberView', title: 'Номер' },

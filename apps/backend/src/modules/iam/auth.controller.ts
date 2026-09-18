@@ -362,8 +362,19 @@ export class AuthController {
       page: Number(page),
       pageSize: Number(pageSize)
     });
+    /*
+     * ТЗ 5.6 (Э6): «колонки соответствуют доступным фильтрам». Отбор по роли здесь был,
+     * а роли в ответе не было — реестр показывал «Сотрудник / Логин / Статус», и человек,
+     * отобравший методистов, не видел на экране ни слова «методист» (журнал 453).
+     */
+    const roleCodes = await this.iamService.roleCodesOfUsers(
+      context.tenantId!,
+      result.items.map((user) => user.id)
+    );
     return {
-      items: this.iamService.toPublicUsers(result.items),
+      items: this.iamService
+        .toPublicUsers(result.items)
+        .map((user) => ({ ...user, roles: roleCodes[user.id] ?? [] })),
       page: result.page,
       pageSize: result.pageSize,
       total: result.total

@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  DetailDrawer,
-  FilterBar,
-  Form,
-  FormActions,
-  ListPage,
-  useConfirmDialog
-} from '@trudskill/ui';
+import { DetailDrawer, Form, FormActions, ListPage, useConfirmDialog } from '@trudskill/ui';
 import { type ReactElement, useState } from 'react';
 
 import { payOrder } from './api';
@@ -38,7 +31,7 @@ interface MyOrderRow {
   descriptionView: string;
   totalView: string;
   statusView: ReactElement;
-  actionsView: ReactElement;
+  canPay: boolean;
 }
 
 export function MyPaymentsScreen(): ReactElement {
@@ -78,19 +71,8 @@ export function MyPaymentsScreen(): ReactElement {
     descriptionView: order.description ?? order.id,
     totalView: `₽ ${(order.totalAmount / 100).toLocaleString('ru-RU')}`,
     statusView: <span>{ORDER_STATUS_LABELS[order.status] ?? order.status}</span>,
-    actionsView:
-      order.status === 'awaiting_payment' ? (
-        <button
-          type="button"
-          className="ui-button ui-button--primary"
-          onClick={() => void onPay(order.id)}
-          disabled={payPending}
-        >
-          Оплатить
-        </button>
-      ) : (
-        <span />
-      )
+    /* Платить можно только по заказу, который ждёт оплаты (Э2). */
+    canPay: order.status === 'awaiting_payment'
   }));
 
   return (
@@ -111,9 +93,25 @@ export function MyPaymentsScreen(): ReactElement {
           columns={[
             { key: 'descriptionView', title: 'Описание' },
             { key: 'totalView', title: 'Сумма' },
-            { key: 'statusView', title: 'Статус', render: (row) => row.statusView },
-            { key: 'actionsView', title: 'Действия', render: (row) => row.actionsView }
+            { key: 'statusView', title: 'Статус', render: (row) => row.statusView }
           ]}
+          /*
+            ТЗ 5.6 (Э6): действие строки — через общее правило. Своя колонка с кнопкой
+            внутри данных печатала пустой `<span/>` у оплаченных заказов: колонка занимала
+            место и не говорила ничего (журнал 454).
+          */
+          rowActions={(row) =>
+            row.canPay
+              ? [
+                  {
+                    label: 'Оплатить',
+                    primary: true,
+                    disabled: payPending,
+                    onSelect: () => void onPay(row.id)
+                  }
+                ]
+              : []
+          }
         />
       </SectionCard>
     </PageContainer>
@@ -299,8 +297,13 @@ export function OrdersScreen(): ReactElement {
       {notice ? <p className="ui-callout ui-callout--success">{notice}</p> : null}
       {actionError ? <SectionError message={actionError} /> : null}
 
-      <FilterBar
-        primary={
+      <ListPage<OrderRow>
+        /*
+          ТЗ 5.6 (Э6): панель отбора — слот каркаса. Раньше она стояла отдельным блоком
+          рядом, и порядок «фильтры → таблица» держался только тем, что автор экрана
+          написал их в этом порядке.
+        */
+        filters={
           <label className="ui-field">
             <span className="ui-field-label">Статус</span>
             <select
@@ -315,9 +318,6 @@ export function OrdersScreen(): ReactElement {
             </select>
           </label>
         }
-      />
-
-      <ListPage<OrderRow>
         columns={[
           { key: 'buyerView', title: 'Покупатель' },
           { key: 'kindView', title: 'Кто платит' },

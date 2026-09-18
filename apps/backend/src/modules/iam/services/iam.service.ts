@@ -784,6 +784,45 @@ export class IamService {
     );
   }
 
+  /**
+   * Коды ролей для НЕСКОЛЬКИХ пользователей сразу — ОДНИМ запросом (ТЗ 5.6 / Э6).
+   *
+   * Экран «Люди и доступ» давал отбор по роли, а колонки с ролью в таблице не было: человек
+   * отбирал вслепую и не видел, что за роль у найденных (журнал 453). Роли берутся только
+   * для строк текущей страницы — их не больше `page_size`, — и одним запросом, а не по
+   * одному на человека: двадцать обращений к базе на каждый показ списка мы уже проходили.
+   */
+  async roleCodesOfUsers(tenantId: string, userIds: string[]): Promise<Record<string, string[]>> {
+    const result: Record<string, string[]> = Object.fromEntries(userIds.map((id) => [id, []]));
+    if (userIds.length === 0) return result;
+
+    if (!this.databaseService) {
+      for (const userId of userIds) {
+        const roleIds = this.fallbackUserRoles.get(userId) ?? [];
+        result[userId] = this.fallbackRoles
+          .filter((role) => role.tenantId === tenantId && roleIds.includes(role.id))
+          .map((role) => role.code)
+          .sort();
+      }
+      return result;
+    }
+
+    const rows = await this.databaseService.query<{ user_id: string; code: string }>(
+      `
+        select ur.user_id, r.code
+        from iam.user_roles ur
+        join iam.roles r on r.id = ur.role_id and r.tenant_id = ur.tenant_id
+        where ur.tenant_id = $1 and ur.user_id = any($2)
+        order by r.code asc
+      `,
+      [tenantId, userIds]
+    );
+    for (const row of rows) {
+      (result[row.user_id] ??= []).push(row.code);
+    }
+    return result;
+  }
+
   async setUserRoles(
     tenantId: string,
     userId: string,

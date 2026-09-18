@@ -1,6 +1,6 @@
 'use client';
 
-import { FilterBar, ListPage, SearchInput, StatusChip } from '@trudskill/ui';
+import { ListPage, SearchInput, StatusChip } from '@trudskill/ui';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
@@ -78,15 +78,13 @@ export function TestsListScreen() {
         primaryAction={{ label: 'Создать тест', onSelect: () => setCreating(true) }}
       />
 
-      <FilterBar
-        activeCount={[q, status, courseId].filter(Boolean).length}
-        onReset={() => {
-          setQ('');
-          setStatus('');
-          setCourseId('');
-          setPage(1);
-        }}
-        primary={
+      <ListPage<TestRow>
+        /*
+          ТЗ 5.6 (Э6): панель отбора — слот каркаса, а не отдельный блок рядом. Порядок
+          «быстрые отборы → поиск и фильтры → колонки → таблица → массовые действия»
+          считает каркас, экран лишь передаёт содержимое.
+        */
+        filters={
           <>
             <SearchInput
               value={q}
@@ -121,9 +119,13 @@ export function TestsListScreen() {
             </label>
           </>
         }
-      />
-
-      <ListPage<TestRow>
+        activeFilterCount={[q, status, courseId].filter(Boolean).length}
+        onResetFilters={() => {
+          setQ('');
+          setStatus('');
+          setCourseId('');
+          setPage(1);
+        }}
         columns={[
           { key: 'titleView', title: 'Название', render: (row) => row.titleView },
           { key: 'courseView', title: 'Курс' },

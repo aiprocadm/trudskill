@@ -5,7 +5,6 @@ import {
   ColumnPicker,
   ConfirmDialog,
   DetailDrawer,
-  FilterBar,
   ListPage,
   SavedViews,
   SearchInput,
@@ -181,129 +180,127 @@ export function LearnersListScreen() {
           : { primaryAction: { label: 'Завести слушателя', onSelect: () => setCreating(true) } })}
       />
 
-      <div className="ui-stack">
-        {/*
+      {/*
+        ТЗ 5.6 (Э6): порядок блоков списка считает каркас, а не экран. Быстрые отборы, поиск
+        с фильтрами, выбор колонок, таблица и массовые действия приходят слотами — собрать их
+        в другом порядке нельзя. Раньше каждый из них рисовался здесь рядом, и порядок жил в
+        памяти автора экрана.
+      */}
+      <ListPage<LearnerListItem>
+        /*
           CMP-012: быстрые отборы. Приходят с тремя готовыми — пустой список «сохранённых»
           бесполезен: им нельзя воспользоваться, пока сам что-нибудь не сохранишь.
-        */}
-        <SavedViews
-          views={[...LEARNER_PRESET_VIEWS, ...ownViews]}
-          {...(activeView ? { activeId: activeView.id } : {})}
-          onApply={(id) => {
-            const view = [...LEARNER_PRESET_VIEWS, ...ownViews].find((item) => item.id === id);
-            if (!view) return;
-            setQ(view.query.q ?? '');
-            setStatus((view.query.status ?? '') as '' | LearnerStatus);
-            setPage(1);
-          }}
-          onSave={(label) => {
-            const view: SavedView = {
-              id: `own-${label}-${status}-${q}`,
-              label,
-              query: { q, status }
-            };
-            const next = [...ownViews.filter((item) => item.id !== view.id), view];
-            setOwnViews(next);
-            writeSavedViews(next);
-          }}
-          onDelete={(id) => {
-            const next = ownViews.filter((item) => item.id !== id);
-            setOwnViews(next);
-            writeSavedViews(next);
-          }}
-        />
-        <FilterBar
-          primary={
-            <>
-              <SearchInput
-                value={q}
-                onChange={(v) => {
-                  setQ(v);
-                  setPage(1);
-                }}
-              />
-              <select
-                className="ui-select"
-                value={status}
-                onChange={(e) => {
-                  setStatus(e.target.value as '' | LearnerStatus);
-                  setPage(1);
-                }}
-                aria-label="Статус"
-              >
-                <option value="">Все статусы</option>
-                <option value="active">{STATUS_LABEL.active}</option>
-                <option value="archived">{STATUS_LABEL.archived}</option>
-              </select>
-            </>
-          }
-          activeCount={activeFilters}
-          onReset={() => {
-            setQ('');
-            setStatus('');
-            setPage(1);
-          }}
-          extra={
-            <ColumnPicker
-              columns={columns.map((c) => ({ key: String(c.key), title: c.title }))}
-              visibleKeys={visibleColumns}
-              onChange={setVisibleColumns}
+        */
+        savedViews={
+          <SavedViews
+            views={[...LEARNER_PRESET_VIEWS, ...ownViews]}
+            {...(activeView ? { activeId: activeView.id } : {})}
+            onApply={(id) => {
+              const view = [...LEARNER_PRESET_VIEWS, ...ownViews].find((item) => item.id === id);
+              if (!view) return;
+              setQ(view.query.q ?? '');
+              setStatus((view.query.status ?? '') as '' | LearnerStatus);
+              setPage(1);
+            }}
+            onSave={(label) => {
+              const view: SavedView = {
+                id: `own-${label}-${status}-${q}`,
+                label,
+                query: { q, status }
+              };
+              const next = [...ownViews.filter((item) => item.id !== view.id), view];
+              setOwnViews(next);
+              writeSavedViews(next);
+            }}
+            onDelete={(id) => {
+              const next = ownViews.filter((item) => item.id !== id);
+              setOwnViews(next);
+              writeSavedViews(next);
+            }}
+          />
+        }
+        filters={
+          <>
+            <SearchInput
+              value={q}
+              onChange={(v) => {
+                setQ(v);
+                setPage(1);
+              }}
             />
-          }
-        />
-
-        {/*
-          GOAL-4 волна 4: эталонный реестр переехал на каркас дизайн-системы. Раньше он
-          собирался вручную, потому что каркас не умел выделения строк и настройки колонок
-          — то есть массовых операций. Каркас, которым не может пользоваться эталон, это не
-          общий каркас; поэтому расширен он, а экран стал короче.
-        */}
-        <ListPage<LearnerListItem>
-          isLoading={list.isLoading}
-          error={list.error}
-          onRetry={() => void list.refetch()}
-          rows={rows}
-          columns={columns}
-          visibleColumnKeys={visibleColumns}
-          selectable
-          selectedKeys={selected}
-          onSelectionChange={setSelected}
-          rowActions={(row) => [
-            { label: 'Открыть карточку', primary: true, onSelect: () => setEditing(row) }
-          ]}
-          emptyMessage="Слушателей пока нет"
-          emptyHint="Здесь появятся люди, которых вы зачислите на обучение. Начните с добавления первого."
-          page={page}
-          totalPages={totalPages}
-          onPageChange={(p) => setPage(p)}
-        />
-
-        <BulkActionBar
-          selectedCount={selected.length}
-          isRunning={archive.isRunning}
-          {...(outcome ? { outcome } : {})}
-          /*
-            ТЗ 5.5 (Э5): полезные действия, а не одно красное. «Назначить курс» из списка ТЗ
-            здесь нет намеренно: курс назначается ГРУППЕ, а не слушателю, — зачисление в группу
-            и есть путь к курсу (журнал 449).
-          */
-          actions={[
-            ...(canEnroll
-              ? [{ label: 'Добавить в группу', onSelect: () => setEnrollOpen(true) }]
-              : []),
-            { label: 'Выгрузить выбранных', onSelect: exportSelected },
-            {
-              label: 'Архивировать',
-              danger: true,
-              onSelect: () => setConfirmingArchive(true)
-            }
-          ]}
-          onClear={() => {
-            setSelected([]);
-            setOutcome(undefined);
-          }}
-        />
-      </div>
+            <select
+              className="ui-select"
+              value={status}
+              onChange={(e) => {
+                setStatus(e.target.value as '' | LearnerStatus);
+                setPage(1);
+              }}
+              aria-label="Статус"
+            >
+              <option value="">Все статусы</option>
+              <option value="active">{STATUS_LABEL.active}</option>
+              <option value="archived">{STATUS_LABEL.archived}</option>
+            </select>
+          </>
+        }
+        activeFilterCount={activeFilters}
+        onResetFilters={() => {
+          setQ('');
+          setStatus('');
+          setPage(1);
+        }}
+        columnPicker={
+          <ColumnPicker
+            columns={columns.map((c) => ({ key: String(c.key), title: c.title }))}
+            visibleKeys={visibleColumns}
+            onChange={setVisibleColumns}
+          />
+        }
+        isLoading={list.isLoading}
+        error={list.error}
+        onRetry={() => void list.refetch()}
+        rows={rows}
+        columns={columns}
+        visibleColumnKeys={visibleColumns}
+        selectable
+        selectedKeys={selected}
+        onSelectionChange={setSelected}
+        rowActions={(row) => [
+          { label: 'Открыть карточку', primary: true, onSelect: () => setEditing(row) }
+        ]}
+        emptyMessage="Слушателей пока нет"
+        emptyHint="Здесь появятся люди, которых вы зачислите на обучение. Начните с добавления первого."
+        page={page}
+        totalPages={totalPages}
+        onPageChange={(p) => setPage(p)}
+        bulkBar={
+          <BulkActionBar
+            selectedCount={selected.length}
+            isRunning={archive.isRunning}
+            {...(outcome ? { outcome } : {})}
+            /*
+              ТЗ 5.5 (Э5): полезные действия, а не одно красное. «Назначить курс» из списка ТЗ
+              здесь нет намеренно: курс назначается ГРУППЕ, а не слушателю, — зачисление в группу
+              и есть путь к курсу (журнал 449).
+            */
+            actions={[
+              ...(canEnroll
+                ? [{ label: 'Добавить в группу', onSelect: () => setEnrollOpen(true) }]
+                : []),
+              { label: 'Выгрузить выбранных', onSelect: exportSelected },
+              {
+                label: 'Архивировать',
+                danger: true,
+                onSelect: () => setConfirmingArchive(true)
+              }
+            ]}
+            onClear={() => {
+              setSelected([]);
+              setOutcome(undefined);
+            }}
+          />
+        }
+      />
 
       <DetailDrawer
         open={enrollOpen}

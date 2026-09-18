@@ -15,6 +15,7 @@ import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 
 import type { ScormPackageDto, ScormPackageStatus } from './types';
+import type { RowAction } from '@trudskill/ui';
 import type { Column } from '@trudskill/ui';
 import type { ReactElement } from 'react';
 
@@ -216,27 +217,24 @@ export function ScormPackagesScreen(): ReactElement {
       key: 'createdAt',
       title: 'Создан',
       render: (row) => formatDate(row.createdAt)
-    },
-    {
-      key: 'id',
-      title: 'Действия',
-      render: (row) => (
-        <span style={{ display: 'flex', gap: 6 }}>
-          {/* Без права на материалы остаётся просмотр списка: действия не показываются. */}
-          {canEdit && (row.packageStatus === 'uploaded' || row.packageStatus === 'failed') ? (
-            <button type="button" onClick={() => void handleProcess(row.id)}>
-              Обработать
-            </button>
-          ) : null}
-          {canEdit ? (
-            <button type="button" onClick={() => void handleDelete(row._raw)}>
-              Удалить пакет
-            </button>
-          ) : null}
-        </span>
-      )
     }
   ];
+
+  /*
+   * ТЗ 5.6 (Э6): действия строки — одним правилом на всё приложение, а не своей колонкой
+   * с кнопками внутри данных (журнал 454). Без права на материалы остаётся просмотр списка:
+   * действий нет, и колонка «Действия» не рисуется вовсе (Э2). «Удалить пакет» необратимо —
+   * компонент печатает его последним и красным, в меню «...».
+   */
+  const packageActions = (row: TableRow): RowAction[] =>
+    canEdit
+      ? [
+          ...(row.packageStatus === 'uploaded' || row.packageStatus === 'failed'
+            ? [{ label: 'Обработать', onSelect: () => void handleProcess(row.id) }]
+            : []),
+          { label: 'Удалить пакет', danger: true, onSelect: () => void handleDelete(row._raw) }
+        ]
+      : [];
 
   return (
     <PageContainer>
@@ -287,6 +285,7 @@ export function ScormPackagesScreen(): ReactElement {
           onRetry={reload}
           rows={rows}
           columns={columns}
+          rowActions={packageActions}
           emptyMessage="Пока нет пакетов — загрузите zip с курсом SCORM 1.2"
           emptyHint="Учебный пакет — готовый курс из внешнего редактора: он проигрывается прямо в системе."
         />
