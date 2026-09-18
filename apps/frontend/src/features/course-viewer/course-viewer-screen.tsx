@@ -263,6 +263,7 @@ export const CourseViewerScreen = ({ courseId }: Props) => {
             progressByMaterial={progressByMaterial}
             lockState={lockState}
             moduleLocks={moduleLocks}
+            moduleGate={moduleGate}
             currentMaterialId={currentMaterialId}
             onSelect={setCurrentMaterialId}
           />

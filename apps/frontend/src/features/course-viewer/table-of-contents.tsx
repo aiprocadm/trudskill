@@ -2,9 +2,11 @@
 
 import { Icon } from '@trudskill/ui';
 
-import { blockingMaterialTitle, lockCaption } from './study-flow';
+import { blockingModuleTitle } from './module-gate';
+import { materialLockReason } from './study-flow';
 import { CheckCircleIcon, CircleIcon, ClockIcon, LockIcon } from '../navigation/nav-icons';
 
+import type { ModuleGateState } from './module-gate';
 import type { CourseTree, LockState, ProgressByMaterial } from './types';
 import type { Progress } from '../mvp/types';
 import type { LucideIcon } from '@trudskill/ui';
@@ -42,6 +44,8 @@ interface Props {
   progressByMaterial: ProgressByMaterial;
   lockState: LockState;
   moduleLocks: LockState;
+  /* ТЗ 6.5: без ворот раздела причина замка считается наполовину. */
+  moduleGate: ModuleGateState;
   currentMaterialId: string | null;
   onSelect: (materialId: string) => void;
 }
@@ -51,6 +55,7 @@ export const TableOfContents = ({
   progressByMaterial,
   lockState,
   moduleLocks,
+  moduleGate,
   currentMaterialId,
   onSelect
 }: Props) => {
@@ -69,6 +74,16 @@ export const TableOfContents = ({
           (m) => progressByMaterial.get(m.id)?.status === 'completed'
         ).length;
         const moduleLocked = moduleLocks.get(node.module.id) === 'locked';
+        /*
+         * ТЗ 6.5 (С5): у закрытого РАЗДЕЛА причины не было вовсе — только значок и слово
+         * «Раздел закрыт». Человек не знал, что именно его открывает (журнал 502).
+         */
+        const moduleBlocker = moduleLocked
+          ? blockingModuleTitle(tree, moduleGate, node.module.id)
+          : null;
+        const moduleReason = moduleBlocker
+          ? `Откроется после того, как вы сдадите тест раздела «${moduleBlocker}»`
+          : 'Откроется после прохождения предыдущих разделов';
         return (
           <details
             key={node.module.id}
@@ -80,7 +95,7 @@ export const TableOfContents = ({
               <span className="course-toc__module-title">
                 {moduleLocked ? (
                   <>
-                    <Icon icon={LockIcon} size={16} label="Раздел закрыт" />{' '}
+                    <Icon icon={LockIcon} size={16} label={moduleReason} />{' '}
                   </>
                 ) : null}
                 {node.module.title}
@@ -88,14 +103,26 @@ export const TableOfContents = ({
               <span className="course-toc__module-counter ui-text-muted">
                 {moduleProgress(node.materials.length, completed)}
               </span>
+              {moduleLocked ? (
+                <span
+                  className="course-toc__material-reason ui-text-muted"
+                  data-testid={`course-toc-module-reason-${node.module.id}`}
+                >
+                  {moduleReason}
+                </span>
+              ) : null}
             </summary>
             <ul className="course-toc__materials">
               {node.materials.map((material) => {
                 const lock = moduleLocked ? 'locked' : (lockState.get(material.id) ?? 'locked');
                 const isLocked = lock === 'locked';
-                const lockReason = lockCaption(
-                  blockingMaterialTitle(tree, progressByMaterial, material.id)
-                );
+                const lockReason = materialLockReason({
+                  tree,
+                  gate: moduleGate,
+                  progress: progressByMaterial,
+                  moduleId: node.module.id,
+                  materialId: material.id
+                });
                 const status = progressByMaterial.get(material.id)?.status;
                 const isCurrent = material.id === currentMaterialId;
                 const classes = [
