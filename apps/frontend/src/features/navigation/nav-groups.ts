@@ -51,12 +51,13 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: GraduationCapIcon,
     hrefs: [
       '/learner',
-      '/learner/courses',
       '/learner/tests',
       '/learner/assignments',
       '/learner/webinars',
       '/learner/payments',
-      '/learner/identity'
+      '/learner/identity',
+      /* ТЗ 6.1 (С1): профиль слушателя — его пятый раздел, живёт в том же блоке. */
+      '/learner/profile'
     ]
   },
   {

@@ -89,7 +89,6 @@ const SILENT: Record<string, number> = {
   'src/features/groups/groups-list-screen.tsx': 1,
   'src/features/identity-verification/screens.tsx': 6,
   'src/features/issuance-journal/revoke-reissue-modal.tsx': 1,
-  'src/features/learner-courses/screens.tsx': 1,
   'src/features/learner-documents/documents-list.tsx': 1,
   'src/features/learners/learner-create-drawer.tsx': 1,
   'src/features/learners/learner-edit-drawer.tsx': 2,

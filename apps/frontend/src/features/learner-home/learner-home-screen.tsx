@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 
+import { MoreInLearning } from './more-in-learning';
 import { MyCoursesList } from './my-courses-list';
 import { pickNextStep } from './next-step';
 import { NextStepCard } from './next-step-card';
@@ -33,6 +34,12 @@ export const LearnerHomeScreen = () => {
         <MyCoursesList entries={data} loading={isLoading} />
         <RecentDocumentsCard />
       </div>
+      {/*
+        ТЗ 6.1 (С1): «Задания», «Вебинары» и «Календарь» ушли из меню внутрь «Обучения».
+        Сначала появился вход отсюда — убрать пункт раньше входа значило бы спрятать раздел
+        насовсем (журнал 491).
+      */}
+      <MoreInLearning />
     </PageContainer>
   );
 };

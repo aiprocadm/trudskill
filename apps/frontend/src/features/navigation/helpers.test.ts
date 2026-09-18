@@ -276,14 +276,22 @@ describe('меню собирается для адресата — сотруд
     expect(foreign).toEqual([]);
   });
 
-  it('слушатель по-прежнему видит свой кабинет и общие пункты', () => {
+  it('у слушателя меню — ровно пять пунктов, все на виду (ТЗ 6.1)', () => {
+    /*
+     * Было двенадцать: семь сверху и пять под «Ещё». ТЗ 6.1 (С1) сводит их к пяти и убирает
+     * второй этаж совсем. Разделы, ушедшие из меню, открываются из содержимого: «Задания»,
+     * «Вебинары» и «Календарь» — с главной кабинета, «Подтверждение личности» и «Оплаты» —
+     * из профиля (журнал 490, 491).
+     */
     const view = getNavigationView(withRoles(['learner'], learnerRights));
-    const shown = hrefs([...view.main, ...view.more]);
-    expect(shown).toContain('/learner');
-    expect(shown).toContain('/learner/tests');
-    expect(shown).toContain('/learning/calendar');
-    /* ТЗ 3.4: «/» больше не пункт меню (второй вход в «Мой кабинет»); общий пункт — уведомления. */
-    expect(shown).toContain('/notifications');
+    expect(hrefs(view.main)).toEqual([
+      '/learner',
+      '/learner/tests',
+      '/learner/documents',
+      '/notifications',
+      '/learner/profile'
+    ]);
+    expect(view.more, 'второго этажа «Ещё» у слушателя нет').toEqual([]);
   });
 
   it('у человека с ролями преподавателя и слушателя — и то и другое', () => {

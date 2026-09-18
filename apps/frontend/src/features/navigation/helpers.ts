@@ -95,6 +95,17 @@ const forAudience = (
   );
 };
 
+/**
+ * Сессия только слушателя — без единой роли сотрудника (ТЗ 6.1 / С1).
+ *
+ * У такого человека меню — РОВНО его чертёж, и второго этажа «Ещё» нет: ТЗ требует пять
+ * пунктов, все на виду. У сотрудника разделов три десятка, и «Ещё» остаётся.
+ */
+const isLearnerOnly = (session: UserSession | null): boolean => {
+  const blueprints = getSessionRoleBlueprints(session);
+  return blueprints.length > 0 && blueprints.every((item) => item.role === 'learner');
+};
+
 export const getNavigationView = (session: UserSession | null) => {
   const visible = forAudience(getVisibleNavigation(session), session);
   const baseMain = visible.filter((item) => item.navSlot !== 'more');
@@ -109,6 +120,15 @@ export const getNavigationView = (session: UserSession | null) => {
   const roleMain = roleOrder
     .map((href) => byHref.get(href))
     .filter((item): item is (typeof visible)[number] => Boolean(item));
+
+  /*
+   * ТЗ 6.1 (С1): у слушателя меню — ровно пять пунктов чертежа, без «Ещё». Разделы, которые
+   * из меню ушли, открываются из содержимого: «Задания», «Вебинары» и «Календарь» — с главной
+   * кабинета, «Подтверждение личности» и «Оплаты» — из профиля (журнал 490, 491).
+   */
+  if (isLearnerOnly(session)) {
+    return { main: roleMain, more: [] };
+  }
   const roleSet = new Set(roleMain.map((item) => item.href));
   const extraMain = baseMain.filter((item) => !roleSet.has(item.href));
   const fullMain = [...roleMain, ...extraMain].slice(0, 7);
