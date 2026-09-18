@@ -22,6 +22,16 @@ a.ui-button, a.ui-button--primary, a.ui-button--secondary, a.ui-button--ghost, a
 /* Выбор файла: та же серая одежда «сейчас нельзя», а не бледная прозрачность (ТЗ 5.8). */
 .ui-file-picker__input:disabled ~ .ui-file-picker__button { background: var(--ui-surface-muted); border-color: var(--ui-border); color: var(--ui-text-muted); opacity: 1; cursor: not-allowed; }
 .ui-file-picker__name { color: var(--ui-text-muted); font-size: var(--ui-font-size-sm); }
+/*
+ * ТЗ 5.9 (Э9): крупная область для перетаскивания — там, где файл несут с телефона или
+ * мышью из папки. Пунктир говорит «сюда можно бросить» без единого слова.
+ */
+.ui-file-picker--drop { flex-direction: column; align-items: flex-start; gap: var(--ui-space-sm); width: 100%; min-height: 96px; justify-content: center; padding: var(--ui-space-md); border: 1px dashed var(--ui-border-strong); border-radius: var(--ui-radius-md); background: var(--ui-surface-muted); }
+.ui-file-picker__call { color: var(--ui-text-muted); font-size: var(--ui-font-size-sm); }
+.ui-file-field { gap: var(--ui-space-xs); }
+/* Превью: человек видит, ТОТ ли файл он выбрал, до отправки. */
+.ui-file-preview { max-width: 200px; max-height: 200px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); object-fit: contain; }
+.ui-file-progress { width: 100%; max-width: 320px; height: 8px; }
 button:hover,.ui-button:hover { background: var(--ui-surface-muted); }
 /*
  * ТЗ 5.8 (Э8): заблокированная кнопка ВЫГЛЯДИТ заблокированной.

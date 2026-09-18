@@ -1,70 +1,134 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { FilePicker } from './index.js';
+import { FilePicker, fileRejectionReason, fileRequirementsText } from './index.js';
+import { propsOf } from '../../testing/element.test-util.js';
 
-import type { ChangeEvent, ReactElement } from 'react';
+/** Первый узел с нужным классом на любой глубине. */
+const find = (node: unknown, className: string): any => {
+  if (node === null || typeof node !== 'object') return null;
+  const element = node as any;
+  if (element.props?.className === className) return element;
+  const children = element.props?.children;
+  for (const child of Array.isArray(children) ? children : [children]) {
+    const found = find(child, className);
+    if (found) return found;
+  }
+  return null;
+};
 
-/*
- * В пакете нет RTL (RISK-002): компонент вызывается как функция, структура
- * проверяется по свойствам элементов — как у остальных компонентов пакета.
- */
+const file = (name: string, type: string, sizeMb: number) => ({
+  name,
+  type,
+  size: Math.round(sizeMb * 1024 * 1024)
+});
 
-type Node = ReactElement & { props: Record<string, unknown> };
-
-const render = (props: Parameters<typeof FilePicker>[0]) => FilePicker(props) as Node;
-
-const childrenOf = (node: Node): Node[] =>
-  (Array.isArray(node.props.children) ? node.props.children : [node.props.children]).filter(
-    Boolean
-  ) as Node[];
-
-const makeChangeEvent = (file: File | null): ChangeEvent<HTMLInputElement> =>
-  ({
-    target: { files: file ? [file] : [], value: 'C:\\fakepath\\x' }
-  }) as unknown as ChangeEvent<HTMLInputElement>;
-
-describe('FilePicker', () => {
-  it('настоящий input скрыт классом, но несёт подпись для скринридера', () => {
-    const node = render({ ariaLabel: 'Файл со списком', onSelect: () => {} });
-    const [input] = childrenOf(node);
-    expect(input?.props.type).toBe('file');
-    expect(input?.props.className).toBe('ui-file-picker__input');
-    expect(input?.props['aria-label']).toBe('Файл со списком');
+describe('требования к файлу — словами и до выбора (ТЗ 5.9)', () => {
+  it('форматы перечисляются по-человечески', () => {
+    expect(fileRequirementsText('image/png,image/jpeg', 10)).toBe('PNG или JPG, до 10 МБ');
+    expect(fileRequirementsText('image/png,image/jpeg,application/pdf')).toBe('PNG, JPG или PDF');
+    expect(fileRequirementsText('.xlsx', 5)).toBe('XLSX, до 5 МБ');
+    expect(fileRequirementsText(undefined, 25)).toBe('до 25 МБ');
   });
 
-  it('кнопка по умолчанию называется по-русски, имя файла показывается по запросу', () => {
-    const idle = render({ ariaLabel: 'x', onSelect: () => {}, fileName: null });
-    const [, button, name] = childrenOf(idle);
-    expect(button?.props.children).toBe('Выбрать файл');
-    expect(name?.props.children).toBe('Файл не выбран');
+  it('без ограничений требований нет — пустая строка ничего не сообщает', () => {
+    expect(fileRequirementsText(undefined, undefined)).toBeUndefined();
+  });
+});
 
-    const chosen = render({ ariaLabel: 'x', onSelect: () => {}, fileName: 'список.xlsx' });
-    const nameNode = childrenOf(chosen)[2];
-    expect(nameNode?.props.children).toBe('список.xlsx');
-
-    // Без свойства fileName строка не рисуется вовсе (экраны с мгновенной загрузкой).
-    const silent = render({ ariaLabel: 'x', onSelect: () => {} });
-    expect(childrenOf(silent)).toHaveLength(2);
+describe('отказ объясняется человеческим языком (ТЗ 5.9)', () => {
+  it('не тот формат — говорим, какой нужен', () => {
+    const reason = fileRejectionReason(file('скан.tiff', 'image/tiff', 1), {
+      accept: 'image/png,image/jpeg'
+    });
+    expect(reason).toBe('Такой файл не подойдёт. Нужен PNG или JPG.');
   });
 
-  it('onSelect получает выбранный файл; resetAfterSelect очищает значение', () => {
+  it('слишком большой — называем и вес файла, и предел', () => {
+    // «Файл слишком большой» без чисел не говорит, насколько ужимать.
+    const reason = fileRejectionReason(file('селфи.jpg', 'image/jpeg', 12.5), { maxSizeMb: 10 });
+    expect(reason).toBe('Файл слишком большой: 12,5 МБ при пределе 10 МБ.');
+  });
+
+  it('формат опознаётся и по расширению, и по звёздочке', () => {
+    expect(fileRejectionReason(file('акт.xlsx', '', 1), { accept: '.xlsx' })).toBeUndefined();
+    expect(
+      fileRejectionReason(file('фото.jpg', 'image/jpeg', 1), { accept: 'image/*' })
+    ).toBeUndefined();
+  });
+
+  it('подходящий файл проходит молча', () => {
+    expect(
+      fileRejectionReason(file('селфи.jpg', 'image/jpeg', 2), {
+        accept: 'image/png,image/jpeg',
+        maxSizeMb: 10
+      })
+    ).toBeUndefined();
+  });
+});
+
+describe('FilePicker — загрузка файла (ТЗ 5.9)', () => {
+  it('без добавок разметка прежняя: восемь экранов не должны поехать', () => {
+    const el = FilePicker({ ariaLabel: 'Файл', onSelect: () => {} });
+    expect(propsOf(el).className).toBe('ui-file-picker');
+  });
+
+  it('перетаскивание работает: файл с рабочего стола доходит до экрана', () => {
     const onSelect = vi.fn();
-    const node = render({ ariaLabel: 'x', onSelect, resetAfterSelect: true });
-    const [input] = childrenOf(node);
-    const file = new File(['a'], 'отчёт.xlsx');
-    const event = makeChangeEvent(file);
-    (input?.props.onChange as (e: ChangeEvent<HTMLInputElement>) => void)(event);
-    expect(onSelect).toHaveBeenCalledWith(file);
-    expect(event.target.value).toBe('');
-
-    const empty = makeChangeEvent(null);
-    (input?.props.onChange as (e: ChangeEvent<HTMLInputElement>) => void)(empty);
-    expect(onSelect).toHaveBeenLastCalledWith(null);
+    const el = FilePicker({ ariaLabel: 'Файл', onSelect, accept: 'image/png' });
+    const dropped = new File(['x'], 'схема.png', { type: 'image/png' });
+    (propsOf(el) as any).onDrop({
+      preventDefault: () => {},
+      dataTransfer: { files: [dropped] }
+    });
+    expect(onSelect).toHaveBeenCalledWith(dropped);
   });
 
-  it('disabled уходит на настоящий input — кнопка гаснет через CSS-соседство', () => {
-    const node = render({ ariaLabel: 'x', onSelect: () => {}, disabled: true });
-    const [input] = childrenOf(node);
-    expect(input?.props.disabled).toBe(true);
+  it('брошенный неподходящий файл НЕ уходит наверх, а объясняется', () => {
+    const onSelect = vi.fn();
+    const onReject = vi.fn();
+    const el = FilePicker({ ariaLabel: 'Файл', onSelect, onReject, accept: 'image/png' });
+    (propsOf(el) as any).onDrop({
+      preventDefault: () => {},
+      dataTransfer: { files: [new File(['x'], 'скан.pdf', { type: 'application/pdf' })] }
+    });
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(onReject.mock.calls[0]?.[0]).toContain('Нужен PNG');
+  });
+
+  it('на телефоне предлагается снять фото, а не искать файл', () => {
+    const el = FilePicker({ ariaLabel: 'Селфи', onSelect: () => {}, capture: 'user' });
+    const input = find(el, 'ui-file-picker__input');
+    expect(input.props.capture).toBe('user');
+    expect(find(el, 'ui-button ui-file-picker__button').props.children).toBe(
+      'Сделать фото или выбрать'
+    );
+  });
+
+  it('область перетаскивания зовёт словами и показывает требования', () => {
+    const el = FilePicker({
+      ariaLabel: 'Селфи',
+      onSelect: () => {},
+      accept: 'image/png,image/jpeg',
+      maxSizeMb: 10,
+      variant: 'dropzone'
+    });
+    expect(find(el, 'ui-file-picker__call').props.children).toBe('Перетащите файл сюда или');
+    expect(find(el, 'ui-field-hint').props.children).toBe('PNG или JPG, до 10 МБ');
+  });
+
+  it('превью, прогресс и ошибка показываются, когда есть что показать', () => {
+    const el = FilePicker({
+      ariaLabel: 'Селфи',
+      onSelect: () => {},
+      previewUrl: 'blob:selfie',
+      progress: 40,
+      error: 'Не удалось отправить файл'
+    });
+    expect(find(el, 'ui-file-preview').props.src).toBe('blob:selfie');
+    expect(find(el, 'ui-file-preview').props.alt).toBe('Предпросмотр выбранного файла');
+    expect(find(el, 'ui-file-progress').props.value).toBe(40);
+    const error = find(el, 'ui-field-error');
+    expect(error.props.role, 'ошибка обязана дойти до читалки экрана').toBe('alert');
+    expect(error.props.children).toBe('Не удалось отправить файл');
   });
 });

@@ -24,6 +24,7 @@ import {
   SectionCard,
   SectionError
 } from '../../components/state-wrappers';
+import { SUBMISSION_ACCEPT, UPLOAD_MAX_SIZE_MB } from '../../lib/files/limits';
 import { useObjectCrumb } from '../navigation/use-object-crumb';
 
 export function SubmissionScreen({ assignmentId }: { assignmentId: string }) {
@@ -81,6 +82,7 @@ export function SubmissionScreen({ assignmentId }: { assignmentId: string }) {
 
   const editable = isSubmissionEditable(summary.status);
   const submitBlocked = submitBlockedReason(summary.status);
+  const [fileError, setFileError] = useState<string | null>(null);
 
   const ensureSubmission = async (): Promise<string | null> => {
     if (activeSubmissionId) return activeSubmissionId;
@@ -163,11 +165,22 @@ export function SubmissionScreen({ assignmentId }: { assignmentId: string }) {
       </SectionCard>
 
       <SectionCard title="Файл">
+        {/*
+          ТЗ 5.9 (Э9): область перетаскивания и требования словами. Раньше здесь была голая
+          кнопка: какой файл примут и сколько он может весить, слушатель узнавал отказом уже
+          после загрузки (журнал 469).
+        */}
         <FilePicker
           ariaLabel="Файл практической работы"
+          accept={SUBMISSION_ACCEPT}
+          maxSizeMb={UPLOAD_MAX_SIZE_MB}
+          variant="dropzone"
           disabled={!editable || uploadFile.isPending}
           resetAfterSelect
+          error={fileError}
+          onReject={setFileError}
           onSelect={(file) => {
+            setFileError(null);
             if (file) void onUpload(file);
           }}
         />
