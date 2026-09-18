@@ -46,8 +46,8 @@ import { WebinarsService } from './webinars.service.js';
 import { backendEnv } from '../../env.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
-import { MAILER, NoopMailer } from '../../infrastructure/mailer/mailer.service.js';
-import { SmtpMailer } from '../../infrastructure/mailer/smtp-mailer.service.js';
+import { MAILER } from '../../infrastructure/mailer/mailer.service.js';
+import { createMailer } from '../../infrastructure/mailer/safe-mailer.js';
 import { FakeSmsProvider } from '../../infrastructure/sms-provider/fake-sms.provider.js';
 import {
   NoopSmsProvider,
@@ -188,16 +188,12 @@ import { TenantModule } from '../tenant/tenant.module.js';
     ChatService,
     {
       provide: MAILER,
-      useFactory: () =>
-        backendEnv.NOTIFICATIONS_EMAIL_ENABLED
-          ? new SmtpMailer({
-              host: backendEnv.SMTP_HOST ?? '',
-              port: backendEnv.SMTP_PORT,
-              from: backendEnv.SMTP_FROM,
-              ...(backendEnv.SMTP_USER ? { user: backendEnv.SMTP_USER } : {}),
-              ...(backendEnv.SMTP_PASSWORD ? { password: backendEnv.SMTP_PASSWORD } : {})
-            })
-          : new NoopMailer()
+      /*
+       * ТЗ 11.2 п.4: транспорт собирает ОДНА фабрика на весь бэкенд, и защита стенда от
+       * случайной рассылки живым людям живёт внутри неё. Своя сборка здесь означала бы, что
+       * защиту можно обойти, просто не вспомнив о ней.
+       */
+      useFactory: () => createMailer(backendEnv)
     },
     PostgresEmailTemplatesRepository,
     { provide: EMAIL_TEMPLATES_REPOSITORY, useClass: PostgresEmailTemplatesRepository },

@@ -24,19 +24,9 @@ import { SeedCredentialHygiene } from './services/seed-credential-hygiene.servic
 import { backendEnv } from '../../env.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
-import { SmtpMailer } from '../../infrastructure/mailer/smtp-mailer.service.js';
+import { createMailer } from '../../infrastructure/mailer/safe-mailer.js';
 
 const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
-
-function buildSmtpMailer(): SmtpMailer {
-  return new SmtpMailer({
-    host: backendEnv.SMTP_HOST ?? '',
-    port: backendEnv.SMTP_PORT,
-    from: backendEnv.SMTP_FROM,
-    ...(backendEnv.SMTP_USER ? { user: backendEnv.SMTP_USER } : {}),
-    ...(backendEnv.SMTP_PASSWORD ? { password: backendEnv.SMTP_PASSWORD } : {})
-  });
-}
 
 const magicLinkProviders: Provider[] = [
   {
@@ -51,7 +41,12 @@ const magicLinkProviders: Provider[] = [
   },
   {
     provide: MAGIC_LINK_EMAIL_SENDER,
-    useFactory: () => createMagicLinkEmailSender(backendEnv, () => buildSmtpMailer())
+    /*
+     * ТЗ 11.2 п.4: ссылка для входа шла мимо защиты стенда — у модуля доступа была СВОЯ
+     * сборка транспорта. Это худший случай из возможных: письмо со ссылкой входа,
+     * ушедшее живому человеку со стенда, пускает его в копию данных (журнал 512).
+     */
+    useFactory: () => createMagicLinkEmailSender(backendEnv, () => createMailer(backendEnv))
   },
   MagicLinkService
 ];
