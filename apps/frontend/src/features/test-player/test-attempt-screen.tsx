@@ -5,6 +5,13 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { LEAVE_CONFIRMATION, resolveConnectionStatus } from './connection';
+import {
+  answeredTotal,
+  leaveExamRequest,
+  questionHeading,
+  questionMarks,
+  questionStatement
+} from './exam-mode';
 import { finishTestRequest } from './finish-confirm';
 import { formatTimeRemaining, remainingMsFromExpiry } from './format';
 import {
@@ -16,15 +23,9 @@ import {
 } from './hooks';
 import { RESEND_POLICY, pendingPayloads, resumeNotice, shouldResend } from './resume-and-resend';
 import { UNSAVED_ANSWER_SUBMIT_MESSAGE, shouldBlockSubmit } from './submit-guard';
-import {
-  PageContainer,
-  PageHeader,
-  SectionCard,
-  SectionError
-} from '../../components/state-wrappers';
+import { PageContainer, SectionCard, SectionError } from '../../components/state-wrappers';
 import { serverNow } from '../../lib/api/server-clock';
 import { useAuth } from '../auth/context';
-import { useObjectCrumb } from '../navigation/use-object-crumb';
 import { stopAndCompleteActiveProctoring } from '../proctoring/active-recording';
 import { ProctoringRecIndicator, ProctoringResumeBanner } from '../proctoring/screens';
 
@@ -50,14 +51,16 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
   const submitAttempt = useSubmitAttempt();
   /* ТЗ 5.3 (Э3): «Завершить тест» по кнопке — с подтверждением; автосдача по таймеру — без. */
   const { ask: askFinish, dialog: finishDialog } = useConfirmDialog();
+  /* ТЗ 6.2 (С2): выход из режима экзамена — только через явное подтверждение. */
+  const { ask: askLeave, dialog: leaveDialog } = useConfirmDialog();
   // Fix I1: the resume banner needs enrollmentId+courseId — derived the same way the tests list
   // does (LearnerTestSummary carries courseId; AttemptDto only knows testId+enrollmentId).
   const { data: myTests } = useMyTests();
-  /* Имя объекта для крошек — название теста: у самой попытки имени нет (ТЗ 3.5). */
-  const testTitle = myTests
-    ? (myTests.find((t) => t.testId === testId)?.title ?? 'Тест')
-    : undefined;
-  useObjectCrumb(testTitle, { failed: Boolean(attemptError) });
+  /*
+   * Название теста — в верхней полосе режима (ТЗ 6.2). Раньше оно уходило в хлебные крошки
+   * оболочки (`useObjectCrumb`), но оболочки на экзамене больше нет, и крошке негде стоять.
+   */
+  const testTitle = myTests ? (myTests.find((t) => t.testId === testId)?.title ?? 'Тест') : '';
   // Bump to re-render after a resumed recording so the top-level ● REC indicator reappears.
   const [, setProctoringResumeTick] = useState(0);
 
@@ -348,9 +351,8 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
    * раньше, но человек об этом не знал — тот же экран, те же вопросы, и непонятно, продолжает
    * он или начал заново. Считаем по ЧЕРНОВИКАМ: это ровно то, что уже лежит на сервере.
    */
-  const answeredCount = Object.values(drafts).filter(
-    (item) => (item.selectedOptionIds?.length ?? 0) > 0 || (item.textAnswer ?? '') !== ''
-  ).length;
+  const answeredCount = answeredTotal(questions, drafts);
+  const marks = questionMarks(questions, drafts, currentIndex);
   const resume = resumeNotice({
     startedAt: attempt.startedAt,
     answeredCount,
@@ -365,139 +367,193 @@ export function TestAttemptScreen({ testId, attemptId }: TestAttemptScreenProps)
   });
 
   return (
-    <PageContainer>
-      <PageHeader title="Прохождение теста" />
-      {finishDialog}
-      <ProctoringRecIndicator />
-      {resume ? (
-        <p
-          className="ui-callout ui-callout--info"
-          data-testid="attempt-resume-notice"
-          role="status"
-        >
-          {resume}
-        </p>
-      ) : null}
-      {/* ФТ-H5: состояние сохранности видно ВСЕГДА, а не только когда что-то сломалось.
-          Индикатор, появляющийся лишь при беде, читается как новая беда; постоянный —
-          как приборная панель, по которой сразу видно норму. */}
-      <p
-        className={`test-connection test-connection--${connection.level}`}
-        role={connection.level === 'danger' ? 'alert' : 'status'}
-      >
-        {connection.message}
-      </p>
-      {attemptInProgress && testSummary ? (
-        <ProctoringResumeBanner
-          enrollmentId={attempt.enrollmentId}
-          courseId={testSummary.courseId}
-          onResumed={() => setProctoringResumeTick((n) => n + 1)}
-        />
-      ) : null}
-      <SectionCard title={q.title}>
-        <div className="test-meta">
-          <span className="test-counter">
-            Вопрос {currentIndex + 1} из {questions.length}
-          </span>
-          {remainingMs !== null ? (
-            <span className={`test-timer ${timerClass}`}>⏱ {formatTimeRemaining(remainingMs)}</span>
-          ) : null}
-        </div>
-        {/* Счётчик «Вопрос N из M» стоит строкой выше — подпись полосе не дублируем. */}
-        <ProgressBar
-          value={((currentIndex + 1) / questions.length) * 100}
-          label="Прогресс по вопросам"
-        />
-        {q.body ? <p>{q.body}</p> : null}
-
-        {q.type === 'single_choice' || q.type === 'multiple_choice' ? (
-          <div className="test-options">
-            {q.options.map((o) => (
-              <label key={o.id} className="ui-option">
-                <input
-                  type={q.type === 'multiple_choice' ? 'checkbox' : 'radio'}
-                  name={q.id}
-                  checked={(draft.selectedOptionIds ?? []).includes(o.id)}
-                  onChange={() => setChoice(q.id, o.id, q.type === 'multiple_choice')}
-                />
-                {o.text}
-              </label>
-            ))}
-          </div>
+    <>
+      {/* ТЗ 6.2 (С2): полоса режима вместо оболочки — только то, что относится к попытке. */}
+      <header className="exam-bar">
+        <span className="exam-bar__test">{testTitle || 'Тест'}</span>
+        <span className="test-counter">{questionHeading(currentIndex, questions.length)}</span>
+        {remainingMs !== null ? (
+          <span className={`test-timer ${timerClass}`}>⏱ {formatTimeRemaining(remainingMs)}</span>
         ) : null}
-
-        {q.type === 'number_input' && (
-          <input
-            type="number"
-            className="ui-input"
-            value={draft.textAnswer ?? ''}
-            onChange={(e) => setText(q.id, e.target.value)}
-          />
-        )}
-
-        {q.type === 'text' && (
-          <input
-            type="text"
-            className="ui-input"
-            value={draft.textAnswer ?? ''}
-            onChange={(e) => setText(q.id, e.target.value)}
-          />
-        )}
-
-        {q.type === 'essay' && (
-          <textarea
-            className="ui-textarea"
-            value={draft.textAnswer ?? ''}
-            onChange={(e) => setText(q.id, e.target.value)}
-          />
-        )}
-      </SectionCard>
-
-      <div className="test-nav">
         <button
           type="button"
           className="ui-button"
-          disabled={currentIndex === 0}
-          onClick={() => {
-            void flushDraft(q.id);
-            setCurrentIndex((i) => Math.max(0, i - 1));
-          }}
+          onClick={() =>
+            askLeave(leaveExamRequest({ answered: answeredCount, total: questions.length }), () =>
+              router.push('/learner/tests')
+            )
+          }
         >
-          Назад
+          Выйти из теста
         </button>
-        {isLast ? (
-          <button
-            type="button"
-            className={`ui-button ui-button--primary ${submitAttempt.isPending ? 'ui-button--loading' : ''}`}
-            disabled={submitAttempt.isPending}
-            onClick={() =>
-              askFinish(
-                finishTestRequest({
-                  unanswered: questions.length - answeredCount,
-                  total: questions.length
-                }),
-                () => void handleSubmit()
-              )
-            }
+      </header>
+      <PageContainer>
+        {finishDialog}
+        {leaveDialog}
+        <ProctoringRecIndicator />
+        {resume ? (
+          <p
+            className="ui-callout ui-callout--info"
+            data-testid="attempt-resume-notice"
+            role="status"
           >
-            Завершить тест
-          </button>
-        ) : (
+            {resume}
+          </p>
+        ) : null}
+        {/* ФТ-H5: состояние сохранности видно ВСЕГДА, а не только когда что-то сломалось.
+          Индикатор, появляющийся лишь при беде, читается как новая беда; постоянный —
+          как приборная панель, по которой сразу видно норму. */}
+        <p
+          className={`test-connection test-connection--${connection.level}`}
+          role={connection.level === 'danger' ? 'alert' : 'status'}
+        >
+          {connection.message}
+        </p>
+        {attemptInProgress && testSummary ? (
+          <ProctoringResumeBanner
+            enrollmentId={attempt.enrollmentId}
+            courseId={testSummary.courseId}
+            onResumed={() => setProctoringResumeTick((n) => n + 1)}
+          />
+        ) : null}
+        {/*
+        ТЗ 6.3 (С3): заголовок — ТОЛЬКО позиция в попытке. Название из банка вопросов несло
+        свой номер («Вопрос 3. Кто отвечает…»), и он расходился со счётчиком, потому что
+        попытка показывает вопросы в своём порядке (журнал 496).
+      */}
+        <SectionCard title={questionHeading(currentIndex, questions.length)}>
+          {/* Счётчик стоит заголовком — подпись полосе не дублируем. */}
+          <ProgressBar
+            value={((currentIndex + 1) / questions.length) * 100}
+            label="Прогресс по вопросам"
+          />
+          {questionStatement(q.title) ? (
+            <p className="ui-question-text">{questionStatement(q.title)}</p>
+          ) : null}
+          {q.body ? <p>{q.body}</p> : null}
+
+          {q.type === 'single_choice' || q.type === 'multiple_choice' ? (
+            <div className="test-options">
+              {q.options.map((o) => (
+                <label key={o.id} className="ui-option">
+                  <input
+                    type={q.type === 'multiple_choice' ? 'checkbox' : 'radio'}
+                    name={q.id}
+                    checked={(draft.selectedOptionIds ?? []).includes(o.id)}
+                    onChange={() => setChoice(q.id, o.id, q.type === 'multiple_choice')}
+                  />
+                  {o.text}
+                </label>
+              ))}
+            </div>
+          ) : null}
+
+          {q.type === 'number_input' && (
+            <input
+              type="number"
+              className="ui-input"
+              value={draft.textAnswer ?? ''}
+              onChange={(e) => setText(q.id, e.target.value)}
+            />
+          )}
+
+          {q.type === 'text' && (
+            <input
+              type="text"
+              className="ui-input"
+              value={draft.textAnswer ?? ''}
+              onChange={(e) => setText(q.id, e.target.value)}
+            />
+          )}
+
+          {q.type === 'essay' && (
+            <textarea
+              className="ui-textarea"
+              value={draft.textAnswer ?? ''}
+              onChange={(e) => setText(q.id, e.target.value)}
+            />
+          )}
+        </SectionCard>
+
+        {/*
+        ТЗ 6.2 (С2): список вопросов с отметками «отвечен / пропущен». Без него человек не
+        знает, что пропустил, пока не дойдёт до конца, — а на экзамене попытка одна.
+      */}
+        <nav aria-label="Вопросы теста">
+          <ul className="exam-map">
+            {marks.map((mark, index) => (
+              <li key={mark.id}>
+                <button
+                  type="button"
+                  className={`exam-map__item ${mark.answered ? 'exam-map__item--answered' : ''} ${
+                    mark.current ? 'exam-map__item--current' : ''
+                  }`}
+                  aria-current={mark.current ? 'true' : undefined}
+                  title={mark.label}
+                  onClick={() => {
+                    void flushDraft(q.id);
+                    setCurrentIndex(index);
+                  }}
+                >
+                  {mark.number}
+                  {mark.answered ? (
+                    <span className="exam-map__mark" aria-hidden="true">
+                      ✓
+                    </span>
+                  ) : null}
+                  <span className="ui-visually-hidden">{mark.label}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <div className="test-nav">
           <button
             type="button"
-            className="ui-button ui-button--primary"
+            className="ui-button"
+            disabled={currentIndex === 0}
             onClick={() => {
               void flushDraft(q.id);
-              setCurrentIndex((i) => Math.min(questions.length - 1, i + 1));
+              setCurrentIndex((i) => Math.max(0, i - 1));
             }}
           >
-            Следующий вопрос
+            Назад
           </button>
-        )}
-      </div>
+          {isLast ? (
+            <button
+              type="button"
+              className={`ui-button ui-button--primary ${submitAttempt.isPending ? 'ui-button--loading' : ''}`}
+              disabled={submitAttempt.isPending}
+              onClick={() =>
+                askFinish(
+                  finishTestRequest({
+                    unanswered: questions.length - answeredCount,
+                    total: questions.length
+                  }),
+                  () => void handleSubmit()
+                )
+              }
+            >
+              Завершить тест
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="ui-button ui-button--primary"
+              onClick={() => {
+                void flushDraft(q.id);
+                setCurrentIndex((i) => Math.min(questions.length - 1, i + 1));
+              }}
+            >
+              Следующий вопрос
+            </button>
+          )}
+        </div>
 
-      {submitBlocked ? <SectionError message={submitBlocked} /> : null}
-      {submitAttempt.error ? <SectionError message={submitAttempt.error} /> : null}
-    </PageContainer>
+        {submitBlocked ? <SectionError message={submitBlocked} /> : null}
+        {submitAttempt.error ? <SectionError message={submitAttempt.error} /> : null}
+      </PageContainer>
+    </>
   );
 }
