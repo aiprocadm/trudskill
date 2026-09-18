@@ -1,3 +1,6 @@
+import { blockingModuleTitle } from './module-gate';
+
+import type { ModuleGateState } from './module-gate';
 import type { CourseTree, LockState, ProgressByMaterial } from './types';
 import type { Material } from '../mvp/types';
 
@@ -72,6 +75,29 @@ export const lockCaption = (blockingTitle: string | null): string =>
   blockingTitle === null
     ? 'Откроется после изучения предыдущих материалов'
     : `Откроется после изучения «${blockingTitle}»`;
+
+/**
+ * Почему закрыт этот материал — одной подписью, учитывающей ОБА замка (ТЗ 6.5 / С5).
+ *
+ * Решение о том, какая причина главнее, живёт здесь, а не в разметке: иначе его нельзя
+ * проверить значениями, а только отрисовкой, которой у нас нет (`RISK-002`).
+ *
+ * Ворота раздела важнее порядка материалов: пока не сдан тест предыдущего раздела, ни один
+ * материал этого раздела не откроется, сколько бы человек ни изучал.
+ */
+export const materialLockReason = (input: {
+  tree: CourseTree;
+  gate: ModuleGateState;
+  progress: ProgressByMaterial;
+  moduleId: string;
+  materialId: string;
+}): string => {
+  /* Имя `module` брать нельзя: в сборке Next это имя занято системой модулей. */
+  const gatingModule = blockingModuleTitle(input.tree, input.gate, input.moduleId);
+  if (gatingModule !== null)
+    return `Откроется после того, как вы сдадите тест раздела «${gatingModule}»`;
+  return lockCaption(blockingMaterialTitle(input.tree, input.progress, input.materialId));
+};
 
 /**
  * Можно ли отметить материал изученным, и если нет — почему.

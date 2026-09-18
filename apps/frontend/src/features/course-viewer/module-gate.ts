@@ -51,6 +51,34 @@ export const computeModuleLocks = (tree: CourseTree, gate: ModuleGateState): Loc
 };
 
 /**
+ * Раздел, чей несданный тест держит дверь (ТЗ 6.5 / С5).
+ *
+ * Замков в курсе ДВА, и они независимы: порядок материалов («не изучил предыдущий») и ворота
+ * раздела («не сдал тест предыдущего раздела»). Подпись у замка считалась только по первому —
+ * и человек, изучивший все материалы, читал «Откроется после изучения предыдущих материалов»,
+ * то есть условие, которое он УЖЕ выполнил (журнал 501). Он перечитывал материалы и звонил в
+ * учебный центр.
+ *
+ * Возвращает название раздела, тест которого закрыл дверь, или `null`, если ворота ни при чём.
+ */
+export const blockingModuleTitle = (
+  tree: CourseTree,
+  gate: ModuleGateState,
+  moduleId: string
+): string | null => {
+  const ordered = [...tree].sort((a, b) => a.module.sortOrder - b.module.sortOrder);
+  for (const node of ordered) {
+    /* Дошли до своего раздела — значит виновника среди предыдущих нет. */
+    if (node.module.id === moduleId) return null;
+    const info = gate.get(node.module.id);
+    const blocks =
+      node.module.isRequired && info?.gatingTestId !== undefined && info.passed === false;
+    if (blocks) return node.module.title;
+  }
+  return null;
+};
+
+/**
  * Строгий порядок модулей (ФТ-E1, Фаза 2 Task 11).
  *
  * Клиентский замок — это подсказка, а не защита: настоящий запрет живёт на сервере
