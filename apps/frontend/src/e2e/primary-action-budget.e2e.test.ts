@@ -37,6 +37,8 @@ const EXPLAINED: Record<string, string> = {
    */
   'src/features/groups/group-details-screen.tsx :: GroupDetailsScreen':
     'ТЗ 5.4 (Э4): первичное действие карточки — «Зачислить слушателя», оно открывает панель, а в панели своя кнопка отправки. На экране одновременно видна ровно одна: пока панель открыта, шапка перекрыта ею',
+  'src/features/learners/learners-list-screen.tsx :: LearnersListScreen':
+    'ТЗ 5.5 (Э5): кнопка шапки «Завести слушателя» и кнопка отправки в панели «Добавить в группу», которую открывает массовое действие. Одновременно не видны: панель перекрывает экран, а действие шапки прячется, пока открыта форма заведения',
   'src/features/licenses/licenses-list.tsx :: LicensesView':
     'то же взаимное исключение: открытая форма забирает первичное действие себе',
   'src/features/payments/screens.tsx :: OrdersScreen':

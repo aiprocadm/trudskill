@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { learnersApi } from './api';
 import { ApiClientError } from '../../lib/api/client';
 import { useAuth } from '../auth/context';
+import { mvpApi } from '../mvp/api';
 
 import type { LearnerListItem, LearnersListFilters, UpdateLearnerProfilePayload } from './types';
 import type { BulkOutcome } from '@trudskill/ui';
@@ -141,6 +142,84 @@ export function useArchiveLearners() {
 
     setIsRunning(false);
     return { total: learners.length, succeeded, failures };
+  };
+
+  return { run, isRunning };
+}
+
+/**
+ * Зачислить выбранных слушателей в группу (ТЗ 5.5 / Э5).
+ *
+ * Панель массовых действий предлагала ровно одно действие — красное «Архивировать». ТЗ просит
+ * 3–5 полезных; «добавить в группу» — первое из его списка, и ручка для него уже есть:
+ * `POST /enrollments/bulk` принимает список слушателей одной пачкой.
+ *
+ * Частичный успех — по правилу репозитория: сервер отвечает поимённо, кто зачислен, кто уже
+ * состоял в группе (это не отказ), а кто не прошёл и почему. Ключ идемпотентности задаёт
+ * вызывающий: повтор с тем же ключом не создаёт вторых зачислений.
+ */
+export function useEnrollLearnersToGroup() {
+  const { session } = useAuth();
+  const [isRunning, setIsRunning] = useState(false);
+
+  const run = async (
+    learners: LearnerListItem[],
+    groupId: string,
+    idempotencyKey: string
+  ): Promise<BulkOutcome> => {
+    const nameOf = (id: string): string => {
+      const learner = learners.find((item) => item.id === id);
+      return learner ? `${learner.lastName} ${learner.firstName}`.trim() : id;
+    };
+    if (!session) {
+      return {
+        total: learners.length,
+        succeeded: 0,
+        failures: learners.map((learner) => ({
+          label: `${learner.lastName} ${learner.firstName}`,
+          reason: 'нет активной сессии'
+        }))
+      };
+    }
+
+    setIsRunning(true);
+    try {
+      const outcome = await mvpApi.createBulkEnrollments(session, {
+        idempotencyKey,
+        groupId,
+        learnerIds: learners.map((learner) => learner.id)
+      });
+      if ('status' in outcome) {
+        /* Очередь: пачка принята, но результат придёт позже — обещать зачисление нельзя. */
+        return {
+          total: learners.length,
+          succeeded: 0,
+          failures: [{ label: 'Зачисление поставлено в очередь', reason: 'итог появится позже' }]
+        };
+      }
+      return {
+        total: learners.length,
+        /* Уже состоявшие в группе — не отказ: результат тот же, человек хотел именно этого. */
+        succeeded: outcome.created.length + outcome.skippedExisting.length,
+        failures: outcome.errors.map((error) => ({
+          label: nameOf(error.learnerId),
+          reason: error.message
+        }))
+      };
+    } catch (err) {
+      return {
+        total: learners.length,
+        succeeded: 0,
+        failures: [
+          {
+            label: 'Зачисление не выполнено',
+            reason: err instanceof ApiClientError ? err.message : 'неизвестная ошибка'
+          }
+        ]
+      };
+    } finally {
+      setIsRunning(false);
+    }
   };
 
   return { run, isRunning };

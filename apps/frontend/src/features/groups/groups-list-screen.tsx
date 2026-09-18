@@ -6,6 +6,7 @@ import {
   ListPage,
   SelectField,
   StatusChip,
+  statusAccessibleLabel,
   useConfirmDialog
 } from '@trudskill/ui';
 import Link from 'next/link';
@@ -18,6 +19,7 @@ import {
   SectionCard,
   SectionError
 } from '../../components/state-wrappers';
+import { buildCsv, downloadCsv } from '../../lib/export/csv';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
 import { closeGroupApi } from '../close-group/api';
@@ -83,6 +85,19 @@ export const GroupsPageScreen = () => {
       },
       () => void runBulkClose()
     );
+
+  /* Выгружается то, что человек видит: выбранные строки реестра. */
+  const exportSelectedGroups = () => {
+    const chosen = (data?.items ?? []).filter((group) => selected.includes(group.id));
+    downloadCsv(
+      'gruppy',
+      buildCsv(
+        ['Название', 'Код', 'Статус'],
+        /* Статус — тем же словом, что показывает значок на экране, а не кодом. */
+        chosen.map((group) => [group.name, group.code, statusAccessibleLabel(group.status)])
+      )
+    );
+  };
 
   const runBulkClose = async () => {
     setRunning(true);
@@ -181,7 +196,18 @@ export const GroupsPageScreen = () => {
                   }
                 }
               : {})}
-            actions={[{ label: 'Закрыть выбранные группы', onSelect: () => setClosing(true) }]}
+            /*
+              ТЗ 5.5 (Э5): в панели было одно действие, и то необратимое. Выгрузка выбранных —
+              полезное; опасное компонент печатает последним и красным.
+            */
+            actions={[
+              { label: 'Выгрузить выбранные', onSelect: exportSelectedGroups },
+              {
+                label: 'Закрыть выбранные группы',
+                danger: true,
+                onSelect: () => setClosing(true)
+              }
+            ]}
             onClear={() => {
               setSelected([]);
               setReport(null);
