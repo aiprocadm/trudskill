@@ -54,10 +54,19 @@ const renderRowActions = (actions: RowAction[]): ReactNode => {
   );
 };
 
+/**
+ * С какого числа колонок таблица считается широкой и закрепляет первую колонку (ТЗ 5.11).
+ *
+ * Шесть — потому что бюджет плотности ТЗ редизайна (§13.2) разрешает не больше семи колонок:
+ * закрепление включается на предпоследнем шаге, когда прокрутка вбок уже вероятна, и не
+ * мешает обычным таблицам из трёх-четырёх колонок.
+ */
+export const WIDE_TABLE_MIN_COLUMNS = 6;
+
 export function DataTable<T extends object>({
   columns: columnsSource,
   rows,
-  stickyFirstColumn = false,
+  stickyFirstColumn,
   sortBy,
   sortDir = 'asc',
   onSort,
@@ -73,7 +82,13 @@ export function DataTable<T extends object>({
 }: {
   columns: Column<T>[];
   rows: T[];
-  /** Закрепляет первую колонку при горизонтальном скролле широких таблиц. */
+  /**
+   * Закрепляет первую колонку при горизонтальной прокрутке широких таблиц.
+   *
+   * Не задано — решает сама таблица по числу колонок. Возможность была и раньше, но её не
+   * включал НИ ОДИН экран: прокручивая широкую таблицу вбок, человек терял из виду, о ком
+   * вообще строка (журнал 475).
+   */
   stickyFirstColumn?: boolean;
   sortBy?: keyof T;
   sortDir?: 'asc' | 'desc';
@@ -101,7 +116,8 @@ export function DataTable<T extends object>({
   const visible = new Set(resolveVisibleColumns(allColumnKeys, visibleColumnKeys));
   const columns = columnsSource.filter((c) => visible.has(String(c.key)));
   const wrapClasses = ['ui-table-wrap'];
-  if (stickyFirstColumn) wrapClasses.push('ui-table-wrap--sticky-first');
+  const pinFirst = stickyFirstColumn ?? columns.length >= WIDE_TABLE_MIN_COLUMNS;
+  if (pinFirst) wrapClasses.push('ui-table-wrap--sticky-first');
   if (density === 'compact') wrapClasses.push('ui-table-wrap--compact');
 
   const resolveRowKey = (row: T, index: number): string | number => {

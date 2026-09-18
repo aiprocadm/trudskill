@@ -59,6 +59,20 @@ export const foundationStyles = `
 .ui-section-card,.ui-card { background: var(--ui-surface); border-radius: var(--ui-radius-lg); }
 /* UI-016, контекст «карточка объекта»: внутренний отступ lg (16). Прежние 20 и 14 — вне шкалы. */
 .ui-section-card { padding: var(--ui-space-lg); display:grid; gap: var(--ui-space-md); }
+/*
+ * ТЗ 5.11 (Э11): страница НЕ едет вбок.
+ *
+ * Карточка курса в окне 1560px имела ширину 2343px — колонки «Вид» и «Минимум просмотра»
+ * уезжали за экран, и горизонтальная полоса появлялась у ВСЕЙ страницы (журнал 474).
+ *
+ * Причина не в таблице. Элемент сетки или флекса по умолчанию имеет "min-width: auto" —
+ * то есть НЕ МОЖЕТ сжаться уже своего содержимого. Обёртка таблицы с собственной
+ * прокруткой ("overflow-x: auto") из-за этого не прокручивалась, а просто росла и
+ * растягивала карточку, страницу и оболочку. Одна строка правил чинит это везде разом:
+ * широкому содержимому возвращается право сжиматься, и его прокрутка наконец включается.
+ */
+.ui-page,.ui-page-container,.ui-section-card,.ui-card { min-width: 0; }
+.ui-page > *,.ui-page-container > *,.ui-section-card > *,.ui-card > *,.ui-stack > * { min-width: 0; }
 .ui-section-title { margin:0; font-size: var(--ui-font-size-lg); font-weight: var(--ui-font-weight-bold); letter-spacing: -0.01em; color: var(--ui-text); display:flex; align-items:center; gap:9px; }
 .ui-section-title::before { content:''; width:4px; height:1.05em; border-radius:var(--ui-radius-pill); background: var(--ui-brand-600); flex:none; }
 .ui-section-head { display:flex; justify-content:space-between; align-items:flex-start; gap: var(--ui-space-md); }
