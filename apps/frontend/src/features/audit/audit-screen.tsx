@@ -1,6 +1,6 @@
 'use client';
 
-import { FilterBar, ListPage } from '@trudskill/ui';
+import { ListPage } from '@trudskill/ui';
 import { useEffect, useState } from 'react';
 
 import { describeAction, entityLabel } from './labels';
@@ -131,17 +131,13 @@ export const AuditScreen = () => {
         subtitle="Кто и что менял в системе — записи хранятся и не редактируются"
       />
 
-      <FilterBar
-        activeCount={activeCount}
-        onReset={() => {
-          setSearch('');
-          setFrom('');
-          setTo('');
-          setActor('');
-          setEntityId('');
-          setRequestId('');
-        }}
-        primary={
+      <ListPage<AuditRow>
+        /*
+          ТЗ 5.6 (Э6): панель отбора — слот каркаса, а не отдельный блок рядом. Порядок
+          «быстрые отборы → поиск и фильтры → колонки → таблица → массовые действия»
+          считает каркас, экран лишь передаёт содержимое.
+        */
+        filters={
           <>
             <label className="ui-field">
               <span className="ui-field-label">Что искать</span>
@@ -161,7 +157,7 @@ export const AuditScreen = () => {
             </label>
           </>
         }
-        secondary={
+        secondaryFilters={
           <>
             <label className="ui-field">
               <span className="ui-field-label">Кто сделал</span>
@@ -187,9 +183,15 @@ export const AuditScreen = () => {
             </label>
           </>
         }
-      />
-
-      <ListPage<AuditRow>
+        activeFilterCount={activeCount}
+        onResetFilters={() => {
+          setSearch('');
+          setFrom('');
+          setTo('');
+          setActor('');
+          setEntityId('');
+          setRequestId('');
+        }}
         columns={[
           { key: 'whenView', title: 'Когда' },
           { key: 'whoView', title: 'Кто' },

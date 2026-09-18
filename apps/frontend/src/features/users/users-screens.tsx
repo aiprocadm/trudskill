@@ -1,6 +1,6 @@
 'use client';
 
-import { FilterBar, ListPage, LoadingState, StatusChip } from '@trudskill/ui';
+import { ListPage, LoadingState, StatusChip } from '@trudskill/ui';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -25,7 +25,7 @@ import {
 } from '../mvp/hooks';
 import { formatDate, readApiMessage } from '../mvp/screen-helpers';
 import { useObjectCrumb } from '../navigation/use-object-crumb';
-import { roleNameRu } from '../texts/roles.ru';
+import { roleNameRu, roleNamesRu } from '../texts/roles.ru';
 
 import type { ReactElement } from 'react';
 
@@ -35,6 +35,7 @@ interface UserRow {
   id: string;
   nameView: ReactElement;
   login: string;
+  rolesView: string;
   statusView: ReactElement;
 }
 
@@ -83,6 +84,12 @@ export const UsersPageScreen = () => {
       </Link>
     ),
     login: user.login,
+    /*
+     * ТЗ 5.6 (Э6): роль показывается русским названием, а не кодом (`tenant_admin`), и не
+     * идентификатором. Человек без роли — «Роль не назначена»: пустая ячейка выглядит как
+     * сбой загрузки, а это обычное состояние только что заведённого сотрудника.
+     */
+    rolesView: roleNamesRu(user.roles ?? []).join(', ') || 'Роль не назначена',
     statusView: <StatusChip status={user.status} />
   }));
 
@@ -101,15 +108,20 @@ export const UsersPageScreen = () => {
             })}
       />
 
-      <FilterBar
-        activeCount={[q, status, role].filter(Boolean).length}
-        onReset={() => {
+      {/*
+        ТЗ 5.6 (Э6): панель отбора — слот каркаса, а не отдельный блок рядом. Порядок
+        «быстрые отборы → поиск и фильтры → колонки → таблица → массовые действия»
+        считает каркас, экран лишь передаёт содержимое.
+      */}
+      <ListPage<UserRow>
+        activeFilterCount={[q, status, role].filter(Boolean).length}
+        onResetFilters={() => {
           setQ('');
           setStatus('');
           setRole('');
           setPage(1);
         }}
-        primary={
+        filters={
           <>
             <label className="ui-field">
               <span className="ui-field-label">Поиск по имени или логину</span>
@@ -157,12 +169,10 @@ export const UsersPageScreen = () => {
             </label>
           </>
         }
-      />
-
-      <ListPage<UserRow>
         columns={[
           { key: 'nameView', title: 'Сотрудник', render: (row) => row.nameView },
           { key: 'login', title: 'Логин' },
+          { key: 'rolesView', title: 'Роль' },
           { key: 'statusView', title: 'Статус', render: (row) => row.statusView }
         ]}
         rows={rows}

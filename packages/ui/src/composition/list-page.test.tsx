@@ -12,12 +12,21 @@ interface Row {
 const columns = [{ key: 'name' as const, title: 'Имя' }];
 
 /*
- * ⚠️ Тесты читают детей по позиции. В волне 4 `GOAL-4` между фильтрами и телом появился
- * слот панели (`toolbar`) — массовые действия и настройка колонок эталонного реестра, —
- * поэтому тело сместилось на третью позицию. Инвариант не ослаблен: проверяется тот же
- * состав, просто у каркаса стало три слота вместо двух.
+ * ⚠️ Тесты читают детей по позиции, и позиции — это и есть проверяемое правило (ТЗ 5.6 / Э6):
+ *
+ *   0 — быстрые отборы, 1 — панель отбора (поиск, фильтры, выбор колонок),
+ *   2 — тело со таблицей и страницами, 3 — массовые действия.
+ *
+ * До Э6 у каркаса было три слота, а быстрые отборы и массовые действия экран рисовал рядом
+ * сам — то есть порядок блоков был на совести каждого экрана. Инвариант не ослаблен: он
+ * расширен с «фильтры и тело» до всего шаблона списка.
  */
-describe('ListPage — каркас списочного экрана', () => {
+const slots = (el: ReturnType<typeof ListPage<Row>>) => {
+  const [savedViews, filterBar, async, bulkBar] = propsOf(el).children as any[];
+  return { savedViews, filterBar, async, bulkBar };
+};
+
+describe('ListPage — единый шаблон списочного экрана', () => {
   it('оборачивает фильтры в FilterBar и тело в AsyncSection', () => {
     const el = ListPage<Row>({
       filters: 'FILTERS',
@@ -26,16 +35,36 @@ describe('ListPage — каркас списочного экрана', () => {
       isLoading: false
     });
     expect(propsOf(el).className).toBe('ui-stack');
-    const [filters, , async] = propsOf(el).children as any[];
-    expect(filters.type).toBe(FilterBar);
+    const { filterBar, async } = slots(el);
+    expect(filterBar.type).toBe(FilterBar);
+    expect(filterBar.props.primary).toBe('FILTERS');
     expect(async.type).toBe(AsyncSection);
     expect(async.props.isEmpty).toBe(false);
   });
 
+  it('порядок блоков задаёт каркас, а не экран (Э6)', () => {
+    const el = ListPage<Row>({
+      savedViews: 'ОТБОРЫ',
+      filters: 'ФИЛЬТРЫ',
+      columnPicker: 'КОЛОНКИ',
+      bulkBar: 'МАССОВЫЕ',
+      columns,
+      rows: [{ id: '1', name: 'A' }],
+      isLoading: false
+    });
+    const { savedViews, filterBar, async, bulkBar } = slots(el);
+    expect(savedViews).toBe('ОТБОРЫ');
+    expect(filterBar.type).toBe(FilterBar);
+    // Выбор колонок — в той же панели отбора, а не отдельной строкой над таблицей.
+    expect(filterBar.props.extra).toBe('КОЛОНКИ');
+    expect(async.type).toBe(AsyncSection);
+    expect(bulkBar).toBe('МАССОВЫЕ');
+  });
+
   it('пустые rows → isEmpty=true у AsyncSection', () => {
     const el = ListPage<Row>({ columns, rows: [], isLoading: false });
-    const [filters, , async] = propsOf(el).children as any[];
-    expect(filters).toBeNull();
+    const { filterBar, async } = slots(el);
+    expect(filterBar).toBeNull();
     expect(async.props.isEmpty).toBe(true);
   });
 
@@ -47,14 +76,12 @@ describe('ListPage — каркас списочного экрана', () => {
       isLoading: false,
       emptyAction: { label: 'Показать все', onSelect: () => {} }
     });
-    const [, , async] = propsOf(el).children as any[];
-    expect(async.props.emptyAction.label).toBe('Показать все');
+    expect(slots(el).async.props.emptyAction.label).toBe('Показать все');
   });
 
   it('без действия свойство не передаётся вовсе (exactOptionalPropertyTypes)', () => {
     const el = ListPage<Row>({ columns, rows: [], isLoading: false });
-    const [, , async] = propsOf(el).children as any[];
-    expect('emptyAction' in async.props).toBe(false);
+    expect('emptyAction' in slots(el).async.props).toBe(false);
   });
 
   it('действия строки уходят в таблицу, а не рисуются внутри данных (CMP-001)', () => {
@@ -64,13 +91,12 @@ describe('ListPage — каркас списочного экрана', () => {
       isLoading: false,
       rowActions: () => [{ label: 'Аннулировать', onSelect: () => {} }]
     });
-    const [, , async] = propsOf(el).children as any[];
-    const [table] = async.props.children as any[];
+    const [table] = slots(el).async.props.children as any[];
     expect(table.props.rowActions).toBeTypeOf('function');
     expect(table.props.rowActions({ id: '1', name: 'A' })[0].label).toBe('Аннулировать');
   });
 
-  it('пагинация рендерится только при заданных page/totalPages/onPageChange', () => {
+  it('пагинация рендерится, когда страниц больше одной', () => {
     const el = ListPage<Row>({
       columns,
       rows: [{ id: '1', name: 'A' }],
@@ -79,9 +105,23 @@ describe('ListPage — каркас списочного экрана', () => {
       totalPages: 3,
       onPageChange: () => {}
     });
-    const [, , async] = propsOf(el).children as any[];
-    const [, pagination] = async.props.children as any[];
+    const [, pagination] = slots(el).async.props.children as any[];
     expect(pagination).not.toBeNull();
     expect(pagination.props.totalPages).toBe(3);
+  });
+
+  it('страница одна — пагинации нет вовсе (ТЗ 5.6)', () => {
+    // «Назад 1 / 1 Вперёд» под списком из одной строки не сообщает ничего, а выглядит
+    // как элемент управления: человек жмёт и ничего не происходит.
+    const el = ListPage<Row>({
+      columns,
+      rows: [{ id: '1', name: 'A' }],
+      isLoading: false,
+      page: 1,
+      totalPages: 1,
+      onPageChange: () => {}
+    });
+    const [, pagination] = slots(el).async.props.children as any[];
+    expect(pagination).toBeNull();
   });
 });

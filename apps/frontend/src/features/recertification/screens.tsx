@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { FilterBar, ListPage, StatusChip, useConfirmDialog } from '@trudskill/ui';
+import { ListPage, StatusChip, useConfirmDialog } from '@trudskill/ui';
 import { type ReactElement, useState } from 'react';
 
 import { ApproveRecertModal } from './approve-recert-modal';
@@ -151,8 +151,13 @@ export function RecertificationQueueScreen(): ReactElement {
       {notice ? <p className="ui-callout ui-callout--success">{notice}</p> : null}
       {actionError ? <SectionError message={actionError} /> : null}
 
-      <FilterBar
-        primary={
+      <ListPage<QueueRow>
+        /*
+          ТЗ 5.6 (Э6): панель отбора — слот каркаса, а не отдельный блок рядом. Порядок
+          «быстрые отборы → поиск и фильтры → колонки → таблица → массовые действия»
+          считает каркас, экран лишь передаёт содержимое.
+        */
+        filters={
           <label className="ui-field">
             <span className="ui-field-label">Статус</span>
             <select
@@ -167,9 +172,6 @@ export function RecertificationQueueScreen(): ReactElement {
             </select>
           </label>
         }
-      />
-
-      <ListPage<QueueRow>
         columns={[
           { key: 'learnerView', title: 'Слушатель', render: (row) => row.learnerView },
           { key: 'courseView', title: 'Курс' },

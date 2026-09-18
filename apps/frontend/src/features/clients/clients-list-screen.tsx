@@ -1,6 +1,6 @@
 'use client';
 
-import { FilterBar, ListPage, SearchInput, StatusChip } from '@trudskill/ui';
+import { ListPage, SearchInput, StatusChip } from '@trudskill/ui';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
@@ -75,30 +75,36 @@ export function ClientsListScreen() {
         primaryAction={{ label: 'Добавить компанию', onSelect: () => setCreating(true) }}
       />
 
-      <FilterBar>
-        <SearchInput
-          value={q}
-          onChange={(v) => {
-            setQ(v);
-            setPage(1);
-          }}
-        />
-        <select
-          className="ui-select"
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value as '' | ClientStatus);
-            setPage(1);
-          }}
-          aria-label="Статус"
-        >
-          <option value="">Все статусы</option>
-          <option value="active">{CLIENT_STATUS_LABEL.active}</option>
-          <option value="archived">{CLIENT_STATUS_LABEL.archived}</option>
-        </select>
-      </FilterBar>
-
       <ListPage<ClientListItem>
+        /*
+          ТЗ 5.6 (Э6): панель отбора — слот каркаса, а не отдельный блок рядом. Порядок
+          «быстрые отборы → поиск и фильтры → колонки → таблица → массовые действия»
+          считает каркас, экран лишь передаёт содержимое.
+        */
+        filters={
+          <>
+            <SearchInput
+              value={q}
+              onChange={(v) => {
+                setQ(v);
+                setPage(1);
+              }}
+            />
+            <select
+              className="ui-select"
+              value={status}
+              onChange={(e) => {
+                setStatus(e.target.value as '' | ClientStatus);
+                setPage(1);
+              }}
+              aria-label="Статус"
+            >
+              <option value="">Все статусы</option>
+              <option value="active">{CLIENT_STATUS_LABEL.active}</option>
+              <option value="archived">{CLIENT_STATUS_LABEL.archived}</option>
+            </select>
+          </>
+        }
         columns={columns}
         rows={list.data?.items ?? []}
         isLoading={list.isLoading}

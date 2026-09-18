@@ -4,6 +4,7 @@ import {
   BulkActionBar,
   DetailDrawer,
   ListPage,
+  SearchInput,
   SelectField,
   StatusChip,
   statusAccessibleLabel,
@@ -27,6 +28,7 @@ import { useDocumentTemplates, useGroupsList } from '../mvp/hooks';
 
 import type { CloseGroupsBulkOutcomeDto } from '../close-group/api';
 import type { Group } from '../mvp/types';
+import type { RowKey } from '@trudskill/ui';
 
 const PAGE_SIZE = 20;
 
@@ -54,7 +56,21 @@ export const GroupsPageScreen = () => {
     hasPermission(session?.permissions ?? [], 'documents.generate') &&
     hasPermission(session?.permissions ?? [], 'regulatory.export.write');
   const [page, setPage] = useState(1);
-  const { data, loading, error, refetch } = useGroupsList({ page, page_size: PAGE_SIZE });
+  /*
+   * ТЗ 5.6 (Э6): у реестра групп не было ни поиска, ни фильтров — при сотне групп
+   * единственным способом найти нужную было листать страницы. Ручка `GET /groups` умела
+   * и поиск (`q`), и отбор по статусу с самого начала: механизм был построен и не подключён
+   * (журнал 452).
+   */
+  const [q, setQ] = useState('');
+  const [status, setStatus] = useState('');
+  const activeFilters = [q, status].filter(Boolean).length;
+  const { data, loading, error, refetch } = useGroupsList({
+    page,
+    page_size: PAGE_SIZE,
+    ...(q ? { q } : {}),
+    ...(status ? { status } : {})
+  });
 
   const [selected, setSelected] = useState<string[]>([]);
   const [closing, setClosing] = useState(false);
@@ -134,8 +150,42 @@ export const GroupsPageScreen = () => {
           : {})}
       />
       <SectionCard title="Реестр групп">
-        {/* GOAL-4 волна 4: реестр групп на общем каркасе. */}
+        {/*
+          GOAL-4 волна 4: реестр групп на общем каркасе. ТЗ 5.6 (Э6): порядок блоков списка
+          считает каркас — поиск и фильтры приходят слотом, массовые действия тоже.
+        */}
         <ListPage<Group>
+          filters={
+            <>
+              <SearchInput
+                value={q}
+                onChange={(value) => {
+                  setQ(value);
+                  setPage(1);
+                }}
+                placeholder="Название или код группы"
+              />
+              <select
+                className="ui-select"
+                value={status}
+                onChange={(event) => {
+                  setStatus(event.target.value);
+                  setPage(1);
+                }}
+                aria-label="Статус"
+              >
+                <option value="">Все статусы</option>
+                <option value="active">{statusAccessibleLabel('active')}</option>
+                <option value="archived">{statusAccessibleLabel('archived')}</option>
+              </select>
+            </>
+          }
+          activeFilterCount={activeFilters}
+          onResetFilters={() => {
+            setQ('');
+            setStatus('');
+            setPage(1);
+          }}
           isLoading={loading}
           error={error ? new Error(error) : undefined}
           rows={data?.items ?? []}
@@ -151,7 +201,7 @@ export const GroupsPageScreen = () => {
             ? {
                 selectable: true,
                 selectedKeys: selected,
-                onSelectionChange: (keys) => setSelected(keys.map(String))
+                onSelectionChange: (keys: RowKey[]) => setSelected(keys.map(String))
               }
             : {})}
           columns={[
@@ -174,46 +224,50 @@ export const GroupsPageScreen = () => {
               onSelect: () => router.push(`/groups/${row.id}`)
             }
           ]}
+          {...(canCloseGroups
+            ? {
+                bulkBar: (
+                  <BulkActionBar
+                    selectedCount={selected.length}
+                    isRunning={running}
+                    {...(report
+                      ? {
+                          outcome: {
+                            total: report.total,
+                            succeeded: report.closed,
+                            /* Отказы — поимённо и с причиной: видно, какую группу дочинить. */
+                            failures: report.rows
+                              .filter((row) => row.status === 'skipped')
+                              .map((row) => ({
+                                label: row.groupName,
+                                reason: row.reason ?? 'Не удалось закрыть'
+                              }))
+                          }
+                        }
+                      : {})}
+                    /*
+                      ТЗ 5.5 (Э5): в панели было одно действие, и то необратимое. Выгрузка
+                      выбранных — полезное; опасное компонент печатает последним и красным.
+                    */
+                    actions={[
+                      { label: 'Выгрузить выбранные', onSelect: exportSelectedGroups },
+                      {
+                        label: 'Закрыть выбранные группы',
+                        danger: true,
+                        onSelect: () => setClosing(true)
+                      }
+                    ]}
+                    onClear={() => {
+                      setSelected([]);
+                      setReport(null);
+                    }}
+                  />
+                )
+              }
+            : {})}
         />
 
         {dialog}
-        {canCloseGroups ? (
-          <BulkActionBar
-            selectedCount={selected.length}
-            isRunning={running}
-            {...(report
-              ? {
-                  outcome: {
-                    total: report.total,
-                    succeeded: report.closed,
-                    /* Отказы — поимённо и с причиной: видно, какую группу дочинить. */
-                    failures: report.rows
-                      .filter((row) => row.status === 'skipped')
-                      .map((row) => ({
-                        label: row.groupName,
-                        reason: row.reason ?? 'Не удалось закрыть'
-                      }))
-                  }
-                }
-              : {})}
-            /*
-              ТЗ 5.5 (Э5): в панели было одно действие, и то необратимое. Выгрузка выбранных —
-              полезное; опасное компонент печатает последним и красным.
-            */
-            actions={[
-              { label: 'Выгрузить выбранные', onSelect: exportSelectedGroups },
-              {
-                label: 'Закрыть выбранные группы',
-                danger: true,
-                onSelect: () => setClosing(true)
-              }
-            ]}
-            onClear={() => {
-              setSelected([]);
-              setReport(null);
-            }}
-          />
-        ) : null}
       </SectionCard>
 
       {closing ? (

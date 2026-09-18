@@ -46,7 +46,8 @@ interface TaskRow {
   statusView: ReactElement;
   errorView: string;
   startedView: string;
-  actionsView: ReactElement;
+  /** Повторять можно только упавшую задачу: повтор идущей выпустил бы документ дважды. */
+  canRetry: boolean;
 }
 
 interface QuarantineRow {
@@ -56,7 +57,8 @@ interface QuarantineRow {
   retryView: string;
   quarantinedView: string;
   statusView: ReactElement;
-  actionsView: ReactElement;
+  /** Сообщение, которое не разбирается, вернуть в работу нельзя — оно тут же вернётся. */
+  replayable: boolean;
 }
 
 interface EmailRow {
@@ -65,7 +67,8 @@ interface EmailRow {
   subjectView: string;
   statusView: ReactElement;
   createdView: string;
-  actionsView: ReactElement;
+  /** Письмо без сохранённого тела повторить дословно нельзя. */
+  canResend: boolean;
 }
 
 export function OperationsScreen(): ReactElement {
@@ -126,9 +129,25 @@ export function OperationsScreen(): ReactElement {
                 { key: 'idView', title: 'Что выпускалось' },
                 { key: 'statusView', title: 'Статус', render: (row) => row.statusView },
                 { key: 'errorView', title: 'Ошибка' },
-                { key: 'startedView', title: 'Начата' },
-                { key: 'actionsView', title: 'Действия', render: (row) => row.actionsView }
+                { key: 'startedView', title: 'Начата' }
               ]}
+              /*
+                ТЗ 5.6 (Э6): действия строки — через общее правило, а не своей колонкой
+                с кнопками внутри данных (журнал 454). «Повторить» есть только у упавших:
+                перезапуск идущей задачи выпустил бы документ дважды. У остальных строк
+                действий нет — и колонка «Действия» не рисуется вовсе (Э2).
+              */
+              rowActions={(row) =>
+                row.canRetry
+                  ? [
+                      {
+                        label: 'Повторить',
+                        disabled: actions.busyId === row.id,
+                        onSelect: () => void actions.retryTask(row.id)
+                      }
+                    ]
+                  : []
+              }
               rows={tasks.data.items.map(
                 (task): TaskRow => ({
                   id: task.id,
@@ -140,21 +159,7 @@ export function OperationsScreen(): ReactElement {
                   statusView: <StatusChip status={task.status} />,
                   errorView: task.errorMessage ?? '—',
                   startedView: formatDateTime(task.startedAt),
-                  actionsView:
-                    task.status === 'failed' ? (
-                      <button
-                        type="button"
-                        className={`ui-button ${actions.busyId === task.id ? 'ui-button--loading' : ''}`}
-                        disabled={actions.busyId === task.id}
-                        onClick={() => void actions.retryTask(task.id)}
-                      >
-                        Повторить
-                      </button>
-                    ) : (
-                      // «Повторить» есть только у упавших: перезапуск идущей задачи
-                      // выпустил бы документ дважды.
-                      <span className="ui-text-muted">—</span>
-                    )
+                  canRetry: task.status === 'failed'
                 })
               )}
             />
@@ -181,8 +186,28 @@ export function OperationsScreen(): ReactElement {
                 { key: 'errorView', title: 'Из-за чего' },
                 { key: 'retryView', title: 'Попыток' },
                 { key: 'quarantinedView', title: 'Отложено' },
-                { key: 'statusView', title: 'Статус', render: (row) => row.statusView },
-                { key: 'actionsView', title: 'Действия', render: (row) => row.actionsView }
+                { key: 'statusView', title: 'Статус', render: (row) => row.statusView }
+              ]}
+              /*
+                ТЗ 5.6 (Э6): одно правило действий строки на всё приложение. «Отбросить»
+                необратимо — компонент печатает его последним и красным, в меню «…».
+              */
+              rowActions={(row) => [
+                ...(row.replayable
+                  ? [
+                      {
+                        label: 'Вернуть в работу',
+                        disabled: actions.busyId === row.id,
+                        onSelect: () => void actions.republish(row.id)
+                      }
+                    ]
+                  : []),
+                {
+                  label: 'Отбросить',
+                  danger: true,
+                  disabled: actions.busyId === row.id,
+                  onSelect: () => void actions.discard(row.id)
+                }
               ]}
               rows={quarantine.data.items.map(
                 (job): QuarantineRow => ({
@@ -199,6 +224,7 @@ export function OperationsScreen(): ReactElement {
                    * колонки не заводим: их и так шесть при бюджете семь (§13.2), а сведения
                    * относятся к статусу и читаются под ним второй строкой.
                    */
+                  replayable: job.replayable,
                   statusView: (
                     <span className="ui-stack" style={{ gap: 2 }}>
                       <StatusChip status={job.status} />
@@ -207,34 +233,17 @@ export function OperationsScreen(): ReactElement {
                           {resolutionNote(job)}
                         </span>
                       ) : null}
-                    </span>
-                  ),
-                  actionsView: (
-                    <span className="ui-inline" style={{ gap: 6, flexWrap: 'wrap' }}>
-                      {job.replayable ? (
-                        <button
-                          type="button"
-                          className={`ui-button ${actions.busyId === job.id ? 'ui-button--loading' : ''}`}
-                          disabled={actions.busyId === job.id}
-                          onClick={() => void actions.republish(job.id)}
-                        >
-                          Вернуть в работу
-                        </button>
-                      ) : (
-                        // Тело сообщения не разбирается — отправлять его снова бессмысленно,
-                        // оно тут же вернётся обратно.
-                        <span className="ui-text-muted" title="Сообщение не разбирается">
-                          не повторяется
+                      {/*
+                        Причина, по которой «Вернуть в работу» не предлагается, обязана
+                        остаться на экране: без неё человек ищет пропавшую кнопку. Тело
+                        сообщения не разбирается — отправлять его снова бессмысленно, оно
+                        тут же вернётся обратно.
+                      */}
+                      {job.status === 'quarantined' && !job.replayable ? (
+                        <span className="ui-text-muted" style={{ fontSize: '0.85em' }}>
+                          Сообщение не разбирается — вернуть в работу нельзя
                         </span>
-                      )}
-                      <button
-                        type="button"
-                        className="ui-button"
-                        disabled={actions.busyId === job.id}
-                        onClick={() => void actions.discard(job.id)}
-                      >
-                        Отбросить
-                      </button>
+                      ) : null}
                     </span>
                   )
                 })
@@ -257,32 +266,41 @@ export function OperationsScreen(): ReactElement {
                 { key: 'recipientView', title: 'Кому' },
                 { key: 'subjectView', title: 'Тема' },
                 { key: 'statusView', title: 'Статус', render: (row) => row.statusView },
-                { key: 'createdView', title: 'Когда' },
-                { key: 'actionsView', title: 'Действия', render: (row) => row.actionsView }
+                { key: 'createdView', title: 'Когда' }
               ]}
+              rowActions={(row) =>
+                row.canResend
+                  ? [
+                      {
+                        label: 'Отправить повторно',
+                        disabled: actions.busyId === row.id,
+                        onSelect: () => void actions.resendEmail(row.id)
+                      }
+                    ]
+                  : []
+              }
               rows={emails.data.items.map(
                 (mail): EmailRow => ({
                   id: mail.id,
                   recipientView: mail.recipientEmail,
                   subjectView: mail.subject,
-                  statusView: <StatusChip status={mail.status} />,
-                  createdView: formatDateTime(mail.createdAt),
-                  actionsView: mail.body ? (
-                    <button
-                      type="button"
-                      className={`ui-button ${actions.busyId === mail.id ? 'ui-button--loading' : ''}`}
-                      disabled={actions.busyId === mail.id}
-                      onClick={() => void actions.resendEmail(mail.id)}
-                    >
-                      Отправить повторно
-                    </button>
-                  ) : (
-                    // Письма, отправленные до обновления, хранятся без тела: повторить их
-                    // дословно нельзя, а пересобирать из шаблона — значит отправить ДРУГОЕ.
-                    <span className="ui-text-muted" title="Тело письма не сохранено">
-                      повтор недоступен
+                  statusView: (
+                    <span className="ui-stack" style={{ gap: 2 }}>
+                      <StatusChip status={mail.status} />
+                      {/*
+                        Письма, отправленные до обновления, хранятся без тела: повторить их
+                        дословно нельзя, а пересобирать из шаблона — значит отправить ДРУГОЕ.
+                        Причина остаётся на экране, иначе человек ищет пропавшую кнопку.
+                      */}
+                      {mail.body ? null : (
+                        <span className="ui-text-muted" style={{ fontSize: '0.85em' }}>
+                          Тело письма не сохранено — повторить нельзя
+                        </span>
+                      )}
                     </span>
-                  )
+                  ),
+                  createdView: formatDateTime(mail.createdAt),
+                  canResend: Boolean(mail.body)
                 })
               )}
             />
