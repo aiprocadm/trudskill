@@ -1,11 +1,18 @@
 'use client';
 
-import { DataTable, ListPage, PageTabs, StatusChip, TabPanel } from '@trudskill/ui';
+import { DataTable, KeyValueList, ListPage, PageTabs, StatusChip, TabPanel } from '@trudskill/ui';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { canArchiveCourse, courseHeaderAction } from './course-actions';
 import { materialTypeLabel, publishBlockers, viewTimeLabel } from './labels';
+import {
+  FINAL_ASSESSMENT_OPTIONS,
+  LEARNER_CATEGORY_OPTIONS,
+  STUDY_FORM_OPTIONS,
+  TRAINING_TYPE_OPTIONS,
+  programMetaView
+} from './program-meta-view';
 import { FieldError } from '../../components/form-feedback';
 import {
   PageContainer,
@@ -216,29 +223,10 @@ export const CoursesPageScreen = () => {
  * закрепить его навсегда, поэтому он удалён (журнал расхождений).
  */
 
-const TRAINING_TYPE_OPTIONS: Array<{ value: TrainingType; label: string }> = [
-  { value: 'primary', label: 'Первичная' },
-  { value: 'repeat', label: 'Повторная' },
-  { value: 'target', label: 'Целевая' },
-  { value: 'extraordinary', label: 'Внеочередная' }
-];
-const LEARNER_CATEGORY_OPTIONS: Array<{ value: LearnerCategory; label: string }> = [
-  { value: 'worker', label: 'Рабочие' },
-  { value: 'specialist', label: 'Специалисты' },
-  { value: 'manager', label: 'Руководители' },
-  { value: 'mixed', label: 'Смешанная' }
-];
-const STUDY_FORM_OPTIONS: Array<{ value: StudyForm; label: string }> = [
-  { value: 'in_person', label: 'Очная' },
-  { value: 'distance', label: 'Дистанционная' },
-  { value: 'blended', label: 'Смешанная' }
-];
-const FINAL_ASSESSMENT_OPTIONS: Array<{ value: FinalAssessmentForm; label: string }> = [
-  { value: 'test', label: 'Тест' },
-  { value: 'exam', label: 'Экзамен' },
-  { value: 'defense', label: 'Защита' },
-  { value: 'interview', label: 'Собеседование' }
-];
+/*
+ * Списки подписей переехали в `program-meta-view.ts` (ТЗ 5.10): их читает и форма, и режим
+ * просмотра. Два списка разошлись бы, и один и тот же вид подготовки назывался бы по-разному.
+ */
 
 /**
  * Один уровень вкладок карточки курса (ТЗ 5.7 / Э7).
@@ -259,16 +247,26 @@ const COURSE_TABS = [
 
 const ProgramMetaSection = ({
   courseVersion,
-  onUpdated
+  onUpdated,
+  onCreateVersion
 }: {
   courseVersion: CourseVersion;
   onUpdated: () => void | Promise<void>;
+  /** ТЗ 5.10: из режима просмотра ведёт единственный путь к правке — новая версия. */
+  onCreateVersion?: () => void;
 }) => {
   const { data: acts } = useRegulatoryActs();
   const { data: otPrograms } = useOtTrainingPrograms();
   const { data: commissions } = useCommissions('active');
   const { updateCourseVersionProgramMeta, publishCourseVersion } = useDomainMutations();
   const readOnly = courseVersion.status !== 'draft';
+
+  /* Коды в значениях запрещены: справочники переводят их в имена (Э6, «ни одного сырого кода»). */
+  const dictionaries = {
+    acts: new Map((acts?.items ?? []).map((a) => [a.code, a.shortName])),
+    otPrograms: new Map((otPrograms?.items ?? []).map((p) => [p.code, p.exactName])),
+    commissions: new Map((commissions?.items ?? []).map((c) => [c.id, `${c.code} — ${c.name}`]))
+  };
 
   const [academicHours, setAcademicHours] = useState<string>(
     courseVersion.academicHours != null ? String(courseVersion.academicHours) : ''
@@ -367,13 +365,31 @@ const ProgramMetaSection = ({
     }
   };
 
+  /*
+   * ТЗ 5.10 (Э10): у опубликованной версии значения показываются ТЕКСТОМ, а не выключенными
+   * полями ввода. Раньше над формой стояла надпись «только для просмотра», а под ней —
+   * одиннадцать обычных на вид полей: человек щёлкал в «Часы (академические)» и не понимал,
+   * почему не печатается (журнал 472).
+   */
+  if (readOnly) {
+    return (
+      <SectionCard title="Нормативные параметры программы">
+        <p className="ui-text-muted">
+          Версия опубликована — параметры доступны только для просмотра. Чтобы изменить их, создайте
+          новую версию: прежние выпуски документов останутся привязанными к этой.
+        </p>
+        <KeyValueList items={programMetaView(courseVersion, dictionaries)} />
+        {onCreateVersion ? (
+          <button type="button" className="ui-button" onClick={onCreateVersion}>
+            Создать новую версию, чтобы изменить
+          </button>
+        ) : null}
+      </SectionCard>
+    );
+  }
+
   return (
     <SectionCard title="Нормативные параметры программы">
-      {readOnly ? (
-        <p className="ui-text-muted">
-          Версия опубликована — параметры доступны только для просмотра.
-        </p>
-      ) : null}
       <div className="ui-stack" style={{ gap: 12 }}>
         <label>
           Часы (академические)
@@ -382,7 +398,6 @@ const ProgramMetaSection = ({
             min={1}
             value={academicHours}
             onChange={(e) => setAcademicHours(e.target.value)}
-            disabled={readOnly}
           />
         </label>
         <label>
@@ -390,7 +405,6 @@ const ProgramMetaSection = ({
           <select
             value={trainingType}
             onChange={(e) => setTrainingType(e.target.value as TrainingType | '')}
-            disabled={readOnly}
           >
             <option value="">— выберите —</option>
             {TRAINING_TYPE_OPTIONS.map((o) => (
@@ -405,7 +419,6 @@ const ProgramMetaSection = ({
           <select
             value={learnerCategory}
             onChange={(e) => setLearnerCategory(e.target.value as LearnerCategory | '')}
-            disabled={readOnly}
           >
             <option value="">— выберите —</option>
             {LEARNER_CATEGORY_OPTIONS.map((o) => (
@@ -420,7 +433,6 @@ const ProgramMetaSection = ({
           <select
             value={studyForm}
             onChange={(e) => setStudyForm(e.target.value as StudyForm | '')}
-            disabled={readOnly}
           >
             <option value="">— выберите —</option>
             {STUDY_FORM_OPTIONS.map((o) => (
@@ -435,7 +447,6 @@ const ProgramMetaSection = ({
           <select
             value={finalAssessmentForm}
             onChange={(e) => setFinalAssessmentForm(e.target.value as FinalAssessmentForm | '')}
-            disabled={readOnly}
           >
             <option value="">— выберите —</option>
             {FINAL_ASSESSMENT_OPTIONS.map((o) => (
@@ -453,7 +464,6 @@ const ProgramMetaSection = ({
             onChange={(e) =>
               setRegulatoryBasisCodes(Array.from(e.target.selectedOptions, (o) => o.value))
             }
-            disabled={readOnly}
             size={6}
           >
             {acts?.items.map((a) => (
@@ -471,7 +481,6 @@ const ProgramMetaSection = ({
             onChange={(e) =>
               setOtProgramCodes(Array.from(e.target.selectedOptions, (o) => o.value))
             }
-            disabled={readOnly}
             size={6}
           >
             {otPrograms?.items.map((p) => (
@@ -489,7 +498,6 @@ const ProgramMetaSection = ({
             max="100"
             value={videoCompletionPercent}
             onChange={(e) => setVideoCompletionPercent(e.target.value)}
-            disabled={readOnly}
             placeholder="90"
           />
         </label>
@@ -498,7 +506,6 @@ const ProgramMetaSection = ({
             type="checkbox"
             checked={noSeekOnFirstView}
             onChange={(e) => setNoSeekOnFirstView(e.target.checked)}
-            disabled={readOnly}
           />
           Запретить перемотку вперёд при первом просмотре
         </label>
@@ -507,17 +514,12 @@ const ProgramMetaSection = ({
             type="checkbox"
             checked={sequentialModules}
             onChange={(e) => setSequentialModules(e.target.checked)}
-            disabled={readOnly}
           />
           Строгий порядок модулей: следующий открывается после закрытия предыдущего
         </label>
         <label>
           Аттестационная комиссия
-          <select
-            value={commissionId}
-            onChange={(e) => setCommissionId(e.target.value)}
-            disabled={readOnly}
-          >
+          <select value={commissionId} onChange={(e) => setCommissionId(e.target.value)}>
             <option value="">— выберите комиссию —</option>
             {commissions?.items.map((c) => (
               <option key={c.id} value={c.id}>
@@ -527,26 +529,23 @@ const ProgramMetaSection = ({
           </select>
         </label>
         {error ? <FieldError id="program-meta-error" message={error} /> : null}
-        {!readOnly ? (
-          <div className="ui-inline" style={{ gap: 8 }}>
-            <button
-              type="button"
-              className="ui-button"
-              disabled={busy}
-              onClick={() => void onSave()}
-            >
-              Сохранить черновик
-            </button>
-            <button
-              type="button"
-              className="ui-button"
-              disabled={busy}
-              onClick={() => void onPublish()}
-            >
-              Опубликовать версию
-            </button>
-          </div>
-        ) : null}
+        {/*
+          ТЗ 5.10: ветка просмотра возвращается выше, поэтому здесь форма всегда живая —
+          проверка `!readOnly` была бы мёртвой.
+        */}
+        <div className="ui-inline" style={{ gap: 8 }}>
+          <button type="button" className="ui-button" disabled={busy} onClick={() => void onSave()}>
+            Сохранить черновик
+          </button>
+          <button
+            type="button"
+            className="ui-button"
+            disabled={busy}
+            onClick={() => void onPublish()}
+          >
+            Опубликовать версию
+          </button>
+        </div>
       </div>
     </SectionCard>
   );
@@ -954,6 +953,11 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
             onUpdated={async () => {
               await refetchVersions();
             }}
+            onCreateVersion={() =>
+              void createCourseVersion(id)
+                .then(refetchVersions)
+                .catch((versionError) => setSaveError(readApiMessage(versionError)))
+            }
           />
         ) : (
           <SectionEmpty
