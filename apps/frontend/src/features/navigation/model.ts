@@ -292,6 +292,14 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['identity.submit'] }
   },
   {
+    /*
+     * ТЗ 6.1 (С1): пятый раздел меню слушателя. Общий экран настроек живёт под правом
+     * `iam.manage_roles`, которого у слушателя нет, — свой профиль ему был негде открыть.
+     */
+    pattern: '/learner/profile',
+    meta: { public: false, requiredPermissions: ['enrollments.read'] }
+  },
+  {
     pattern: '/learner/payments',
     meta: { public: false, requiredPermissions: ['payments.self_purchase'] }
   },
@@ -366,7 +374,11 @@ export const navigationModel: NavigationItem[] = [
   // ФТ-H1 (Фаза 5 Task 8): '/learner' стоял в блоке «Моё обучение», но пункта меню
   // не имел — блок ссылался в пустоту, и в кабинет нельзя было вернуться из меню.
   { href: '/learner', label: 'Мой кабинет', requiredPermissions: ['enrollments.read'] },
-  { href: '/learner/courses', label: 'Мои курсы', requiredPermissions: ['enrollments.read'] },
+  /*
+   * ТЗ 6.1 (С1): «Мои курсы» ушли из меню — главная кабинета показывает те же курсы с
+   * прогрессом и те же документы, только под другими заголовками. Дубль слит редиректом
+   * (решение Р2), карточка курса `/learner/courses/[id]` не тронута (журнал 493).
+   */
   {
     href: '/learner/documents',
     label: 'Мои документы',
@@ -377,6 +389,15 @@ export const navigationModel: NavigationItem[] = [
     href: '/learner/assignments',
     label: 'Мои задания',
     requiredPermissions: ['assessment.assignments.read']
+  },
+  {
+    /*
+     * ТЗ 6.1 (С1): пятый пункт меню слушателя. «Подтверждение личности» и «Мои оплаты»
+     * открываются отсюда — по прямому указанию ТЗ они уходят «в профиль» (журнал 490).
+     */
+    href: '/learner/profile',
+    label: 'Профиль',
+    requiredPermissions: ['enrollments.read']
   },
   {
     href: '/learner/identity',

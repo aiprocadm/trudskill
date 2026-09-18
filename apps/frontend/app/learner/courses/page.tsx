@@ -1,10 +1,17 @@
-import { LearnerCoursesScreen } from '../../../src/features/learner-courses/screens';
-import { ProtectedPage } from '../../../src/widgets/shell/protected-page';
+import { redirect } from 'next/navigation';
 
+/*
+ * ТЗ 6.1 (С1) — слияние дублей, решение владельца Р2 (адрес меняется только при слиянии и
+ * всегда с редиректом).
+ *
+ * «Мои курсы» и главная кабинета показывали ОДНО И ТО ЖЕ: назначенные курсы с прогрессом и
+ * документы об обучении, только под разными заголовками. Это был второй вход в то же место —
+ * ровно то, против чего задача 3.4 («один раздел — одно имя — одно место»). Пока разделов в
+ * меню было двенадцать, дубль просто мешал; при пяти пунктах он занял бы место нужного
+ * раздела (журнал 493).
+ *
+ * Карточка курса (`/learner/courses/[id]`) не тронута: с главной ведут ссылки именно на неё.
+ */
 export default function LearnerCoursesPage() {
-  return (
-    <ProtectedPage>
-      <LearnerCoursesScreen />
-    </ProtectedPage>
-  );
+  redirect('/learner');
 }
