@@ -268,6 +268,21 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 .test-connection--saving { color: var(--ui-text); }
 .test-connection--warning { border-color: var(--ui-warning-600); background: color-mix(in srgb, var(--ui-warning-600) 12%, var(--ui-surface)); color: var(--ui-warning-700); }
 .test-connection--danger { border-color: var(--ui-danger-600); background: color-mix(in srgb, var(--ui-danger-600) 12%, var(--ui-surface)); color: var(--ui-danger-600); font-weight: var(--ui-font-weight-semibold); }
+/* ТЗ 6.2 (С2): режим экзамена. Страница без оболочки — своя раскладка и своя верхняя полоса. */
+.ui-focus { min-height: 100vh; background: var(--ui-bg); }
+.exam-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px clamp(12px, 3vw, 32px); border-bottom: 1px solid var(--ui-border); background: var(--ui-surface); position: sticky; top: 0; z-index: 20; }
+.exam-bar__test { font-weight: var(--ui-font-weight-semibold); margin-right: auto; }
+/* Карта вопросов: видно, что отвечено, что пропущено, и куда можно перейти одним нажатием. */
+.exam-map { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: 0; list-style: none; }
+.exam-map__item { min-width: 44px; min-height: 44px; padding: 0 10px; border-radius: var(--ui-radius-md); border: 1px solid var(--ui-border); background: var(--ui-surface); color: var(--ui-text-muted); font-weight: var(--ui-font-weight-semibold); font-variant-numeric: tabular-nums; cursor: pointer; transition: border-color var(--ui-duration-fast) var(--ui-ease), background var(--ui-duration-fast) var(--ui-ease); }
+.exam-map__item:hover { border-color: var(--ui-brand-600); }
+/* Отвечен и пропущен различаются НЕ ТОЛЬКО цветом: у отвеченного галочка (A11Y — цвет не единственный признак). */
+.exam-map__item--answered { border-color: var(--ui-success-600); background: color-mix(in srgb, var(--ui-success-600) 12%, var(--ui-surface)); color: var(--ui-text); }
+.exam-map__item--current { border-color: var(--ui-brand-600); background: var(--ui-surface-accent); color: var(--ui-text); box-shadow: inset 0 0 0 1px var(--ui-brand-600); }
+.exam-map__mark { margin-left: 4px; }
+/* Текст вопроса: заголовком карточки стоит счётчик, поэтому сам вопрос выделен здесь. */
+.ui-question-text { margin: 0; font-size: var(--ui-font-size-lg); font-weight: var(--ui-font-weight-semibold); line-height: var(--ui-line-height-normal); }
+
 /* Результат теста — заметный баннер успеха/провала */
 .test-result__banner { display: flex; align-items: center; gap: 16px; padding: 20px; border-radius: var(--ui-radius-lg); border: 1px solid var(--ui-border); }
 .test-result__banner--pass { background: color-mix(in srgb, var(--ui-success-600) 12%, var(--ui-surface)); border-color: var(--ui-success-600); }
@@ -372,6 +387,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .ui-page,.ui-page-container { padding: 14px 12px; gap: 14px; }
   .ui-section-card { padding: var(--ui-space-lg) var(--ui-space-md); }
   .test-nav > * { flex: 1 1 auto; }
+  /* ТЗ 6.2 на телефоне: полоса экзамена переносится, название теста не выдавливает таймер. */
+  .exam-bar { padding: 10px 12px; gap: 8px; }
+  .exam-bar__test { flex: 1 1 100%; margin-right: 0; }
   .kv-list__row, .ui-data-list__row { flex-wrap: wrap; }
 }
 `;

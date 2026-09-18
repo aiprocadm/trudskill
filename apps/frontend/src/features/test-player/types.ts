@@ -95,5 +95,11 @@ export interface SaveAnswerPayload {
   textAnswer?: string;
 }
 
+/** Ответ, который человек дал на один вопрос (ещё не обязательно ушедший на сервер). */
+export interface AnswerDraft {
+  selectedOptionIds?: string[];
+  textAnswer?: string;
+}
+
 /** Local-only draft state keyed by questionId (not sent verbatim). */
-export type AnswerDraftMap = Record<string, { selectedOptionIds?: string[]; textAnswer?: string }>;
+export type AnswerDraftMap = Record<string, AnswerDraft>;
