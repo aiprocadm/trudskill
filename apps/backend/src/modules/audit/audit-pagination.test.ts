@@ -14,7 +14,7 @@ const makeService = (rowCount: number) => {
   const db = {
     query: async (sql: string, params: unknown[]) => {
       queries.push({ sql, params });
-      const limit = Number(params[8] ?? 100);
+      const limit = Number(params[10] ?? 100);
       return Array.from({ length: Math.min(limit, rowCount) }, (_, i) => ({
         id: `a_${i}`,
         tenant_id: 'tenant_a',
@@ -42,9 +42,14 @@ describe('журнал аудита читается страницами', () =
 
     await service.listPage('tenant_a', { limit: 50, offset: 100 });
 
-    expect(queries[0]?.sql).toContain('limit $9 offset $10');
-    expect(queries[0]?.params[8]).toBe(50);
-    expect(queries[0]?.params[9]).toBe(100);
+    /*
+     * Номера подстановок сдвинулись на два: ТЗ 5.12.2 добавила в запрос отбор служебных
+     * событий («Сеанс продлён» скрыт по умолчанию). Инвариант тот же — предел и смещение
+     * считает БАЗА, а не память.
+     */
+    expect(queries[0]?.sql).toContain('limit $11 offset $12');
+    expect(queries[0]?.params[10]).toBe(50);
+    expect(queries[0]?.params[11]).toBe(100);
   });
 
   it('предел ограничен сверху — «дай миллион» не вернёт нас к чтению всего журнала', async () => {
@@ -52,7 +57,7 @@ describe('журнал аудита читается страницами', () =
 
     const page = await service.listPage('tenant_a', { limit: 1_000_000 });
 
-    expect(queries[0]?.params[8]).toBe(500);
+    expect(queries[0]?.params[10]).toBe(500);
     expect(page.limit).toBe(500);
   });
 

@@ -157,9 +157,14 @@ describe('formatReviewerQueueItem', () => {
 });
 
 describe('formatDateTime', () => {
-  it('returns formatted date for valid ISO', () => {
+  it('печатает дату и время в общем для приложения виде', () => {
+    /*
+     * ТЗ 5.12.1: формат один на всё приложение. Здесь был свой — «2026-05-30 14:30», а в
+     * эксплуатации «30.05.2026, 17:30:00»: один и тот же момент на соседних экранах
+     * выглядел по-разному (журнал 479). Инвариант не ослаблен — он сведён к общему.
+     */
     const result = formatDateTime('2026-05-30T14:30:00Z');
-    expect(result).toMatch(/^2026-05-30 \d{2}:\d{2}$/);
+    expect(result).toMatch(/^\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}:\d{2}$/);
   });
 
   it('returns "—" for empty input', () => {

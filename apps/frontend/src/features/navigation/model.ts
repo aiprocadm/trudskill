@@ -13,6 +13,13 @@ export interface NavigationItem {
   label: string;
   requiredPermissions?: string[];
   navSlot?: 'main' | 'more';
+  /**
+   * Пункт показывается только при включённом флаге функции (ТЗ 5.12.6, решение Р3).
+   *
+   * Не «скрыть и забыть»: раздел остаётся в модели вместе с правами и слотом, поэтому его
+   * возвращение — это переключатель, а не восстановление удалённого кода по истории.
+   */
+  featureFlag?: 'chat';
 }
 
 /** Более специфичные пути должны идти раньше (первое совпадение в evaluateRouteAccess). */
@@ -537,7 +544,19 @@ export const navigationModel: NavigationItem[] = [
     requiredPermissions: ['materials.read'],
     navSlot: 'more'
   },
-  { href: '/chat', label: 'Чат', requiredPermissions: ['tenant.read'], navSlot: 'more' },
+  /*
+   * Решение владельца Р3 (ТЗ 5.12.6): чат убран из меню ВСЕХ ролей. Пустой список диалогов
+   * без объяснения и без кнопки «Написать» — тупик, а незаконченная функция хуже
+   * отсутствующей (журнал 482). Пункт остаётся в модели и включается флагом функции:
+   * удалять код чата решением Р3 не велено.
+   */
+  {
+    href: '/chat',
+    label: 'Чат',
+    requiredPermissions: ['tenant.read'],
+    navSlot: 'more',
+    featureFlag: 'chat'
+  },
   {
     href: '/gov-export',
     label: 'Госвыгрузки',

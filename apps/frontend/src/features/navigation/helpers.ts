@@ -1,5 +1,6 @@
 import { type RouteMeta, navigationModel, routeMeta } from './model';
 import { getSessionRoleBlueprints } from './role-blueprints';
+import { frontendEnv } from '../../lib/config/env';
 import { hasPermission } from '../../lib/rbac/permissions';
 
 import type { UserSession } from '../../entities/session/model';
@@ -47,10 +48,20 @@ export const resolveRouteMeta = (path: string): RouteMeta | null => {
   return matched?.meta ?? null;
 };
 
+/**
+ * Включена ли функция раздела (ТЗ 5.12.6, решение Р3).
+ *
+ * Пункт без флага виден всегда; пункт с флагом — только когда функция включена. Сейчас
+ * такой один: чат.
+ */
+const featureEnabled = (item: { featureFlag?: 'chat' }): boolean =>
+  item.featureFlag === undefined ||
+  (item.featureFlag === 'chat' && frontendEnv.NEXT_PUBLIC_CHAT_ENABLED);
+
 export const getVisibleNavigation = (session: UserSession | null) => {
   if (!session) return [];
-  return navigationModel.filter((item) =>
-    hasPermission(session.permissions, item.requiredPermissions)
+  return navigationModel.filter(
+    (item) => featureEnabled(item) && hasPermission(session.permissions, item.requiredPermissions)
   );
 };
 

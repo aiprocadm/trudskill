@@ -1,3 +1,6 @@
+/* Решение Р4 (ТЗ 5.12.8): завершаемость и сдачу считает ОДИН слой на аналитику и отчёты. */
+import { examPassRate, isGenuinePass, ratio } from './learning-metrics.js';
+
 import type {
   AnalyticsBreakdownRow,
   AnalyticsDashboardDto,
@@ -34,10 +37,6 @@ export interface AnalyticsInput {
 }
 
 const MS_PER_DAY = 86_400_000;
-
-function ratio(part: number, whole: number): number {
-  return whole === 0 ? 0 : part / whole;
-}
 
 function average(values: number[]): number | null {
   if (values.length === 0) return null;
@@ -93,9 +92,6 @@ export function computeAnalyticsDashboard(input: AnalyticsInput): AnalyticsDashb
         (new Date(e.completedAt as string).getTime() - new Date(e.enrolledAt).getTime()) /
         MS_PER_DAY
     );
-  // A provisional result (best attempt still awaiting essay review) is never a pass —
-  // passed is already false while needs_review; the status guard is defensive.
-  const isGenuinePass = (er: ExamResult): boolean => er.passed && er.status !== 'needs_review';
   const passedExams = scopedExams.filter(isGenuinePass);
   const scorePercents = scopedExams.map(scorePercent).filter((v): v is number => v !== null);
 
@@ -131,7 +127,7 @@ export function computeAnalyticsDashboard(input: AnalyticsInput): AnalyticsDashb
         rowEnrollments.filter((e) => e.status === 'completed').length,
         rowEnrollments.length
       ),
-      examPassRate: ratio(rowExams.filter(isGenuinePass).length, rowExams.length),
+      examPassRate: examPassRate(rowExams),
       averageScorePercent: average(rowScores)
     };
   };
@@ -179,7 +175,7 @@ export function computeAnalyticsDashboard(input: AnalyticsInput): AnalyticsDashb
     completionRate: ratio(completed.length, scoped.length),
     examResultsTotal: scopedExams.length,
     examResultsPassed: passedExams.length,
-    examPassRate: ratio(passedExams.length, scopedExams.length),
+    examPassRate: examPassRate(scopedExams),
     averageCompletionDays: average(completionDays),
     averageScorePercent: average(scorePercents),
     attemptDistribution,
