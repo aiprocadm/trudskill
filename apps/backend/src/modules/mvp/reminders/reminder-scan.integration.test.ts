@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { ReminderSettingsService } from './reminder-settings.service.js';
 import { TenantSerialGateway } from '../../../infrastructure/request/tenant-serial.gateway.js';
 import { TenantTimezoneService } from '../../../infrastructure/tenant/tenant-timezone.service.js';
 import { DocumentsTenantRunner } from '../../documents/documents-tenant-runner.service.js';
@@ -132,7 +133,8 @@ describe('reminders nightly scan (nested MvpTenantRunner → DocumentsTenantRunn
       const recertScanner = new RecertificationScanner(
         drafts,
         { dispatch: fakeDispatch } as never,
-        documentsRunner
+        documentsRunner,
+        new ReminderSettingsService()
       );
 
       const summary = await mvpRunner.runWithTenantState('t1', async (state) =>

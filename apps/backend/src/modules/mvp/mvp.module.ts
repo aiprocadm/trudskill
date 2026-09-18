@@ -1,5 +1,7 @@
 import { Module, Scope } from '@nestjs/common';
 
+import { DocumentRevokedEmailListener } from './reminders/document-revoked-email.listener.js';
+import { LicenseExpiryScanner } from './reminders/license-expiry-scanner.service.js';
 import { UserDisplayNamesService } from '../../common/iam/user-display-names.service.js';
 import { backendEnv } from '../../env.js';
 import { ExpiredAttemptsScanner } from './assessment/expired-attempts.scanner.service.js';
@@ -71,8 +73,7 @@ import { RecertificationScanner } from './recertification/recertification-scanne
 import { RecertificationController } from './recertification/recertification.controller.js';
 import { RecertificationService } from './recertification/recertification.service.js';
 import { CourseDeadlineScanner } from './reminders/course-deadline-scanner.service.js';
-import { DocumentRevokedEmailListener } from './reminders/document-revoked-email.listener.js';
-import { LicenseExpiryScanner } from './reminders/license-expiry-scanner.service.js';
+import { ReminderSettingsService } from './reminders/reminder-settings.service.js';
 import { RemindersSchedulerService } from './reminders/reminders-scheduler.service.js';
 import { RostechnadzorRegistryController } from './rostechnadzor-registry/rostechnadzor-registry.controller.js';
 import { RostechnadzorRegistryService } from './rostechnadzor-registry/rostechnadzor-registry.service.js';
@@ -255,6 +256,8 @@ import {
     // (hydrates+saves tenant MVP state via MvpTenantRunner). NO Scope.REQUEST.
     MvpEnrollmentService,
     CourseDeadlineScanner,
+    /* ТЗ 11.3: пороги напоминаний — настройка центра с умолчаниями Р11. */
+    ReminderSettingsService,
     LicenseExpiryScanner,
     RemindersSchedulerService,
     DocumentRevokedEmailListener,

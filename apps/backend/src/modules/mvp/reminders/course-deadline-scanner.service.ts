@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
-import { COURSE_DEADLINE_MILESTONES, pickMilestone } from './milestone.util.js';
+import { pickMilestone } from './milestone.util.js';
 import {
   buildLearnerEmployerRecipients,
   buildStaffRecipients,
@@ -8,6 +8,7 @@ import {
   resolveCourseVersionIdForGroup,
   resolveLearnerDisplay
 } from './reminder-recipients.js';
+import { ReminderSettingsService } from './reminder-settings.service.js';
 import { NotificationDispatcher } from '../../communication/notification-dispatcher.service.js';
 
 import type { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
@@ -24,7 +25,9 @@ export class CourseDeadlineScanner {
   private readonly logger = new Logger(CourseDeadlineScanner.name);
 
   constructor(
-    @Inject(NotificationDispatcher) private readonly dispatcher: NotificationDispatcher
+    @Inject(NotificationDispatcher) private readonly dispatcher: NotificationDispatcher,
+    /* ТЗ 11.3: пороги задаёт центр; умолчания Р11 живут в `reminder-settings.ts`. */
+    @Inject(ReminderSettingsService) private readonly settings: ReminderSettingsService
   ) {}
 
   async scanTenant(
@@ -33,6 +36,7 @@ export class CourseDeadlineScanner {
     state: InMemoryMvpState
   ): Promise<CourseDeadlineScanSummary> {
     let remindersDispatched = 0;
+    const milestones = await this.settings.milestones(tenantId, 'courseDeadline');
 
     // Staff copy is tenant-wide and loop-invariant — resolve once (mirrors license-expiry-scanner).
     const staffRecipients = buildStaffRecipients(state, tenantId);
@@ -42,7 +46,7 @@ export class CourseDeadlineScanner {
       if (!ACTIVE_STATUSES.has(enrollment.status)) continue;
       if (!enrollment.plannedEndAt) continue;
 
-      const milestone = pickMilestone(asOf, enrollment.plannedEndAt, COURSE_DEADLINE_MILESTONES);
+      const milestone = pickMilestone(asOf, enrollment.plannedEndAt, milestones);
       if (milestone === null) continue;
 
       const recipients = [

@@ -6,6 +6,7 @@ import {
   RecertificationScanner,
   scanForRecertification
 } from './recertification-scanner.service.js';
+import { ReminderSettingsService } from '../reminders/reminder-settings.service.js';
 
 const ASOF = '2026-06-05';
 
@@ -57,7 +58,8 @@ function make(over: { dispatch?: ReturnType<typeof vi.fn>; docs?: unknown[] } = 
   const scanner = new RecertificationScanner(
     drafts,
     { dispatch } as never,
-    documentsRunner as never
+    documentsRunner as never,
+    new ReminderSettingsService()
   );
   return { scanner, drafts, dispatch };
 }
