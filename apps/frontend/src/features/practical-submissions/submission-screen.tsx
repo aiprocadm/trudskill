@@ -1,13 +1,14 @@
 'use client';
 
-import { FilePicker, LoadingState } from '@trudskill/ui';
+import { BlockedHint, FilePicker, LoadingState, blockedProps } from '@trudskill/ui';
 import { useEffect, useState } from 'react';
 
 import { canSaveDraft, shouldHydrateDraft } from './draft-rules';
 import {
   formatAntivirusStatusLearner,
   formatSubmissionStatus,
-  isSubmissionEditable
+  isSubmissionEditable,
+  submitBlockedReason
 } from './format';
 import {
   useCreateSubmission,
@@ -79,6 +80,7 @@ export function SubmissionScreen({ assignmentId }: { assignmentId: string }) {
   }
 
   const editable = isSubmissionEditable(summary.status);
+  const submitBlocked = submitBlockedReason(summary.status);
 
   const ensureSubmission = async (): Promise<string | null> => {
     if (activeSubmissionId) return activeSubmissionId;
@@ -177,13 +179,16 @@ export function SubmissionScreen({ assignmentId }: { assignmentId: string }) {
         {uploadFile.error ? <SectionError message={uploadFile.error} /> : null}
       </SectionCard>
 
+      {/* ТЗ 5.8 (Э8): выключенная кнопка называет состояние работы, а не молчит. */}
       <button
         type="button"
-        disabled={!editable || submitSubmission.isPending}
+        {...blockedProps('submit-practical', submitBlocked)}
+        disabled={submitBlocked !== undefined || submitSubmission.isPending}
         onClick={() => void onSubmit()}
       >
         Отправить на проверку
       </button>
+      <BlockedHint hintKey="submit-practical" reason={submitBlocked} />
       {submitSubmission.error ? <SectionError message={submitSubmission.error} /> : null}
     </PageContainer>
   );

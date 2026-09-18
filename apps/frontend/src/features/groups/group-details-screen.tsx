@@ -1,6 +1,14 @@
 'use client';
 
-import { DetailDrawer, DetailLayout, KeyValueList, ProgressBar, StatusChip } from '@trudskill/ui';
+import {
+  BlockedHint,
+  DetailDrawer,
+  DetailLayout,
+  KeyValueList,
+  ProgressBar,
+  StatusChip,
+  blockedProps
+} from '@trudskill/ui';
 import { useMemo, useState } from 'react';
 
 import {
@@ -64,6 +72,9 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
   const { data: progress } = useLearnerCourseProgress(groupCourses?.items[0]?.courseId);
   const { createGroupCourse, createEnrollment } = useDomainMutations();
   const [selectedCourseId, setSelectedCourseId] = useState('');
+
+  /* ТЗ 5.8 (Э8): «Назначить курс» без выбранного курса молчала — теперь говорит. */
+  const assignCourseBlockedReason = selectedCourseId ? undefined : 'Выберите курс из списка слева.';
   const [learnerId, setLearnerId] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
   const [issueOrderOpen, setIssueOrderOpen] = useState(false);
@@ -150,37 +161,45 @@ export const GroupDetailsScreen = ({ id }: { id: string }) => {
         <SectionCard title="Курсы группы">
           {/* Э2: без права `groups.write` форма не показывается — ручка всё равно откажет. */}
           {canAssignCourse ? (
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (!selectedCourseId) return;
-                void createGroupCourse({ groupId: id, courseId: selectedCourseId })
-                  .then(() => {
-                    setSelectedCourseId('');
-                    return refetchCourses();
-                  })
-                  .catch((groupCourseError) => setSaveError(readApiMessage(groupCourseError)));
-              }}
-              className="ui-inline"
-              style={{ marginBottom: 8 }}
-            >
-              <select
-                className="ui-select"
-                value={selectedCourseId}
-                onChange={(event) => setSelectedCourseId(event.target.value)}
-                aria-label="Курс для назначения"
+            <>
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!selectedCourseId) return;
+                  void createGroupCourse({ groupId: id, courseId: selectedCourseId })
+                    .then(() => {
+                      setSelectedCourseId('');
+                      return refetchCourses();
+                    })
+                    .catch((groupCourseError) => setSaveError(readApiMessage(groupCourseError)));
+                }}
+                className="ui-inline"
+                style={{ marginBottom: 8 }}
               >
-                <option value="">Выберите курс для назначения</option>
-                {courses?.items.map((course) => (
-                  <option key={course.id} value={course.id}>
-                    {course.title}
-                  </option>
-                ))}
-              </select>
-              <button type="submit" className="ui-button-secondary" disabled={!selectedCourseId}>
-                Назначить курс
-              </button>
-            </form>
+                <select
+                  className="ui-select"
+                  value={selectedCourseId}
+                  onChange={(event) => setSelectedCourseId(event.target.value)}
+                  aria-label="Курс для назначения"
+                >
+                  <option value="">Выберите курс для назначения</option>
+                  {courses?.items.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.title}
+                    </option>
+                  ))}
+                </select>
+                {/* ТЗ 5.8 (Э8): кнопка не просто выключается, а называет недостающее (журнал 465). */}
+                <button
+                  type="submit"
+                  className="ui-button-secondary"
+                  {...blockedProps('assign-course', assignCourseBlockedReason)}
+                >
+                  Назначить курс
+                </button>
+              </form>
+              <BlockedHint hintKey="assign-course" reason={assignCourseBlockedReason} />
+            </>
           ) : null}
           <ul className="ui-stack" style={{ gap: 0, listStyle: 'none', padding: 0, margin: 0 }}>
             {groupCourses?.items.map((item) => (

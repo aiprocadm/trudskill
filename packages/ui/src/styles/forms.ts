@@ -19,10 +19,48 @@ a.ui-button, a.ui-button--primary, a.ui-button--secondary, a.ui-button--ghost, a
 .ui-file-picker__input { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .ui-file-picker__button { display: inline-flex; align-items: center; justify-content: center; }
 .ui-file-picker__input:focus-visible ~ .ui-file-picker__button { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
-.ui-file-picker__input:disabled ~ .ui-file-picker__button { opacity: 0.5; cursor: not-allowed; }
+/* Выбор файла: та же серая одежда «сейчас нельзя», а не бледная прозрачность (ТЗ 5.8). */
+.ui-file-picker__input:disabled ~ .ui-file-picker__button { background: var(--ui-surface-muted); border-color: var(--ui-border); color: var(--ui-text-muted); opacity: 1; cursor: not-allowed; }
 .ui-file-picker__name { color: var(--ui-text-muted); font-size: var(--ui-font-size-sm); }
 button:hover,.ui-button:hover { background: var(--ui-surface-muted); }
-button:disabled { opacity: 0.5; cursor: not-allowed; }
+/*
+ * ТЗ 5.8 (Э8): заблокированная кнопка ВЫГЛЯДИТ заблокированной.
+ *
+ * Было полупрозрачностью — и главная кнопка становилась просто бледно-оранжевой: человек читал
+ * это как «кнопка как кнопка» и жал по ней снова и снова (журнал 465). Прозрачность вдобавок
+ * рушит контраст: подпись на 50% прозрачности не проходит AA ни на одном фоне.
+ *
+ * Стало: серый — цвет «сейчас нельзя», один на все виды кнопок. Пара
+ * "--ui-text-muted" на "--ui-surface-muted" измерена и проходит AA (contrast-audit).
+ * ":not(.ui-button--loading)" — занятость это не блокировка: у кнопки с крутилкой свой вид,
+ * и серой она быть не должна.
+ *
+ * (Обратные кавычки в комментарии внутри строки стилей закрывают саму строку — журнал 415.)
+ */
+button:disabled:not(.ui-button--loading),
+.ui-button:disabled:not(.ui-button--loading),
+.ui-button--primary:disabled:not(.ui-button--loading),
+.ui-button-primary:disabled:not(.ui-button--loading),
+.ui-button--secondary:disabled:not(.ui-button--loading),
+.ui-button-secondary:disabled:not(.ui-button--loading),
+.ui-button--danger:disabled:not(.ui-button--loading),
+.ui-button-danger:disabled:not(.ui-button--loading),
+.ui-button--ghost:disabled:not(.ui-button--loading),
+.ui-button-ghost:disabled:not(.ui-button--loading) {
+  background: var(--ui-surface-muted);
+  border-color: var(--ui-border);
+  color: var(--ui-text-muted);
+  box-shadow: none;
+  transform: none;
+  opacity: 1;
+  cursor: not-allowed;
+}
+/* Наведение на выключенную кнопку ничего не меняет: подсветка обещает нажатие. */
+button:disabled:hover,
+.ui-button:disabled:hover {
+  background: var(--ui-surface-muted);
+  transform: none;
+}
 /* Главная кнопка-действие — коралл с тёмным текстом (AA 6.4:1; белый текст на коралле = 2.6:1, провал) */
 .ui-button--primary,.ui-button-primary { background: var(--ui-accent-600); border-color: var(--ui-accent-600); color: var(--ui-on-accent); box-shadow: 0 8px 18px -10px rgba(234, 99, 38, 0.55); }
 .ui-button--primary:hover,.ui-button-primary:hover { background: var(--ui-accent-700); border-color: var(--ui-accent-700); transform: translateY(-1px); }
