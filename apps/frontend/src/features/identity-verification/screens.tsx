@@ -41,6 +41,8 @@ import {
 } from '../../components/state-wrappers';
 import { frontendEnv } from '../../lib/config/env';
 import { LEARNER_NOT_LINKED_TEXT, isLearnerNotLinked } from '../../lib/errors/learner-link';
+import { PASSPORT_ACCEPT, SELFIE_ACCEPT, UPLOAD_MAX_SIZE_MB } from '../../lib/files/limits';
+import { usePreviewUrl } from '../../lib/files/use-preview-url';
 import { useAuth } from '../auth/context';
 import { useConsentDocuments, useConsentToggle, useMyConsents } from '../consents/hooks';
 import { useObjectCrumb } from '../navigation/use-object-crumb';
@@ -55,6 +57,11 @@ export function LearnerIdentityScreen(): ReactElement {
 
   const [selfie, setSelfie] = useState<File | null>(null);
   const [passport, setPassport] = useState<File | null>(null);
+  /* Отказ по формату или размеру — у каждого поля свой: два сообщения рядом неразличимы. */
+  const [selfieError, setSelfieError] = useState<string | null>(null);
+  const [passportError, setPassportError] = useState<string | null>(null);
+  const selfiePreview = usePreviewUrl(selfie);
+  const passportPreview = usePreviewUrl(passport);
   const [esiaPending, setEsiaPending] = useState(false);
 
   /*
@@ -171,14 +178,30 @@ export function LearnerIdentityScreen(): ReactElement {
       {canSubmit ? (
         <SectionCard title="Загрузить документы">
           <div className="ui-stack">
+            {/*
+              ТЗ 5.9 (Э9): селфи делают с ТЕЛЕФОНА. Раньше здесь была кнопка «Выбрать файл» —
+              ни съёмки с камеры, ни перетаскивания, ни превью, ни слова о том, какой файл
+              примут и сколько он может весить; об отказе человек узнавал после отправки
+              (журнал 469).
+            */}
             <div className="ui-stack">
               <span>Селфи (фото лица)</span>
               <FilePicker
                 ariaLabel="Селфи (фото лица)"
-                accept="image/png,image/jpeg"
+                accept={SELFIE_ACCEPT}
+                maxSizeMb={UPLOAD_MAX_SIZE_MB}
+                /* `user` — фронтальная камера: снимок лица, а не окружения. */
+                capture="user"
+                variant="dropzone"
                 disabled={submission.isPending}
                 fileName={selfie?.name ?? null}
-                onSelect={setSelfie}
+                previewUrl={selfiePreview}
+                error={selfieError}
+                onReject={setSelfieError}
+                onSelect={(file) => {
+                  setSelfieError(null);
+                  setSelfie(file);
+                }}
               />
             </div>
 
@@ -186,10 +209,20 @@ export function LearnerIdentityScreen(): ReactElement {
               <span>Фото разворота паспорта</span>
               <FilePicker
                 ariaLabel="Фото разворота паспорта"
-                accept="image/png,image/jpeg,application/pdf"
+                accept={PASSPORT_ACCEPT}
+                maxSizeMb={UPLOAD_MAX_SIZE_MB}
+                /* `environment` — основная камера: ею снимают документ, а не себя. */
+                capture="environment"
+                variant="dropzone"
                 disabled={submission.isPending}
                 fileName={passport?.name ?? null}
-                onSelect={setPassport}
+                previewUrl={passportPreview}
+                error={passportError}
+                onReject={setPassportError}
+                onSelect={(file) => {
+                  setPassportError(null);
+                  setPassport(file);
+                }}
               />
             </div>
 
