@@ -186,7 +186,25 @@ export class AuthController {
       ip: context.ip,
       userAgent: context.userAgent
     });
-    await this.magicLinkEmailSender.sendMagicLink({ email: payload.email, rawToken });
+    /*
+     * ТЗ 13.3 (Р14): письмо приходит от имени учебного центра, а не от платформы. Название
+     * добывается здесь и только для письма; не удалось — письмо всё равно уйдёт, просто от
+     * платформы. Вход важнее подписи (журнал 556).
+     */
+    let tenantName: string | undefined;
+    if (this.tenants) {
+      try {
+        tenantName = (await this.tenants.getTenantById(context.tenantId)).name;
+      } catch {
+        /* Справочник центров недоступен — письмо уйдёт от платформы: вход важнее подписи. */
+        tenantName = undefined;
+      }
+    }
+    await this.magicLinkEmailSender.sendMagicLink({
+      email: payload.email,
+      rawToken,
+      ...(tenantName ? { tenantName } : {})
+    });
 
     return { status: 'sent' };
   }

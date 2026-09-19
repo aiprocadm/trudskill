@@ -7,6 +7,14 @@ export interface EmailMessage {
   body: string;
   /** Template key, carried through for the delivery journal. */
   templateKey: string;
+  /**
+   * Название учебного центра — оно станет ИМЕНЕМ отправителя (ТЗ 13.3, решение Р14).
+   *
+   * Необязательное: письма платформы (например, администратору арендаторов) уходят от
+   * платформы, и подставлять им чужое имя незачем. Адрес отправителя при этом не меняется
+   * никогда — свой домен и свой SMTP это возможность СТАРШЕГО тарифа по тому же Р14.
+   */
+  tenantName?: string;
 }
 
 export interface SendResult {

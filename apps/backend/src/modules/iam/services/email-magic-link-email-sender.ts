@@ -27,7 +27,8 @@ export class EmailMagicLinkEmailSender implements MagicLinkEmailSender {
       to: input.email,
       subject: 'Вход в trudskill',
       body,
-      templateKey: 'magic_link'
+      templateKey: 'magic_link',
+      ...(input.tenantName ? { tenantName: input.tenantName } : {})
     });
 
     if (result.status === 'failed') {

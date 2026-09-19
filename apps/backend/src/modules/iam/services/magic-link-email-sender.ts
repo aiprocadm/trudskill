@@ -6,6 +6,14 @@ import { backendEnv } from '../../../env.js';
 export interface SendMagicLinkInput {
   email: string;
   rawToken: string;
+  /**
+   * Название учебного центра — станет именем отправителя письма (ТЗ 13.3, решение Р14).
+   *
+   * Необязательное: без него письмо уйдёт от платформы, как и раньше. Именно для письма со
+   * ссылкой на вход это важнее всего — человек ждёт письма от своего центра, а получал от
+   * незнакомого сервиса (журнал 556).
+   */
+  tenantName?: string;
 }
 
 export interface MagicLinkEmailSender {
