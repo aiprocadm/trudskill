@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { backendEnv } from '../../env.js';
 import { RabbitMqService } from '../../infrastructure/messaging/rabbitmq.service.js';
+import { BackgroundTasksService } from '../background-tasks/background-tasks.service.js';
 
 import type { CreateBulkEnrollmentsRequest } from './mvp.dto.js';
 
@@ -17,7 +18,17 @@ export interface BulkEnqueueMessagePayload {
 
 @Injectable()
 export class MvpBulkEnqueueService {
-  constructor(@Inject(RabbitMqService) private readonly rabbitMq: RabbitMqService) {}
+  constructor(
+    @Inject(RabbitMqService) private readonly rabbitMq: RabbitMqService,
+    /*
+     * ТЗ 12.2: задача, о судьбе которой человек не может узнать, — это не «фоновая работа»,
+     * а пропажа. Реестр необязателен как зависимость: без него постановка в очередь всё равно
+     * состоится, но человек её не увидит, поэтому в сборке он есть всегда.
+     */
+    @Optional()
+    @Inject(BackgroundTasksService)
+    private readonly tasks?: BackgroundTasksService
+  ) {}
 
   async publishBulkJob(
     tenantId: string,
@@ -49,6 +60,19 @@ export class MvpBulkEnqueueService {
         correlationId
       }
     );
+    /*
+     * Запись в реестре заводится ПОСЛЕ успешной публикации: иначе человек увидел бы задачу,
+     * которой в очереди нет, и ждал бы её вечно.
+     */
+    await this.tasks?.start({
+      tenantId,
+      kind: 'bulk_enrollment',
+      title: `Массовое зачисление: ${body.learnerIds?.length ?? 0} чел.`,
+      messageId,
+      ...(actorId ? { createdBy: actorId } : {}),
+      ...(body.learnerIds ? { totalCount: body.learnerIds.length } : {})
+    });
+
     return {
       status: 'queued',
       messageId,
