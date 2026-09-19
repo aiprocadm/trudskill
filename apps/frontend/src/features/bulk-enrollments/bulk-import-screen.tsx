@@ -6,6 +6,12 @@ import { useMemo, useState } from 'react';
 
 import { parseExcelBuffer } from './excel-parser';
 import { useBulkImportMutation } from './hooks';
+import {
+  ERROR_REPORT_HEADERS,
+  buildErrorReport,
+  downloadTemplate,
+  errorReportFileName
+} from './import-template';
 import { buildImportOutcome, successfulRows } from './outcome';
 import { PreviewTable } from './preview-table';
 import { classifyParsedRows } from './validators';
@@ -16,6 +22,7 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import { buildCsv, downloadCsv } from '../../lib/export/csv';
 import { FORMS, withPlural } from '../../lib/format/plural';
 import { useGroupsList } from '../mvp/hooks';
 
@@ -124,6 +131,16 @@ export const BulkImportScreen = () => {
               <strong>СНИЛС</strong> и <strong>Должность</strong>. Заголовки можно писать привычными
               словами: «Имя» вместо «ФИО» система поймёт.
             </p>
+            {/*
+              ТЗ 12.1: скачиваемый шаблон. Разбор принимает синонимы заголовков, но угадать по
+              пустому экрану, какие колонки система ждёт и что писать в СНИЛС, нельзя. Шаблон
+              превращает «догадайся сам» в «заполни бланк» (журнал 516).
+            */}
+            <div className="ui-form-actions">
+              <button type="button" className="ui-button" onClick={downloadTemplate}>
+                Скачать шаблон для заполнения
+              </button>
+            </div>
             <div className="ui-field">
               <span className="ui-field-label">Файл Excel или CSV</span>
               <FilePicker
@@ -221,10 +238,31 @@ export const BulkImportScreen = () => {
             failuresTitle="Не зачислены — построчно:"
           >
             {outcome.failures.length > 0 ? (
-              <p className="ui-hint">
-                Исправьте эти строки в файле и загрузите его снова — уже зачисленных повторная
-                загрузка не тронет.
-              </p>
+              <>
+                <p className="ui-hint">
+                  Исправьте эти строки в файле и загрузите его снова — уже зачисленных повторная
+                  загрузка не тронет.
+                </p>
+                {/*
+                  ТЗ 12.1: отчёт об ошибках файлом. Список на экране годится для двух строк, но
+                  не для двадцати: его нельзя ни отправить тому, кто прислал список, ни открыть
+                  рядом с исходным файлом (журнал 517).
+                */}
+                <div className="ui-form-actions">
+                  <button
+                    type="button"
+                    className="ui-button"
+                    onClick={() =>
+                      downloadCsv(
+                        errorReportFileName(new Date().toISOString()),
+                        buildCsv([...ERROR_REPORT_HEADERS], buildErrorReport(outcome))
+                      )
+                    }
+                  >
+                    Скачать отчёт об ошибках
+                  </button>
+                </div>
+              </>
             ) : null}
           </OperationOutcome>
 
