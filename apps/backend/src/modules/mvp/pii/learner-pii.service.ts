@@ -10,6 +10,7 @@ import { AuditService } from '../../audit/audit.service.js';
 import { DocumentsService } from '../../documents/documents.service.js';
 import { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
 import { MVP_STATE } from '../infrastructure/mvp-state.token.js';
+import { piiAccessMetadata } from '../pii-masking.js';
 
 import type { RequestContext } from '../../../common/context/request-context.js';
 import type { GeneratedDocumentEntity } from '../../documents/documents.types.js';
@@ -38,6 +39,60 @@ export class LearnerPiiService {
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(DocumentsService) private readonly documentsService: DocumentsService
   ) {}
+
+  /**
+   * Показать персональные данные ЦЕЛИКОМ — по явному действию человека (ТЗ 17.2).
+   *
+   * В списках номера показаны частично: список слушателей открыт менеджеру, который ведёт
+   * клиентов, и преподавателю, который ведёт группу, — им нужно узнать человека в строке, а не
+   * его номер в пенсионном фонде. Полный номер виден только тому, кто нажал «Показать
+   * полностью», и каждое такое нажатие попадает в журнал доступа (журнал 577).
+   *
+   * **Почему запись в журнал обязательна.** Ровно это спрашивают при проверке: кто и когда
+   * видел персональные данные. Просмотр, не оставляющий следа, невозможно ни подтвердить, ни
+   * опровергнуть.
+   *
+   * **Почему запрашивается причина.** Не ради формальности: необходимость назвать причину сама
+   * по себе останавливает праздный просмотр «а что там у этого», и она же помогает разобраться
+   * потом, когда вспомнить обстоятельства уже нельзя.
+   */
+  async revealPersonalData(
+    tenantId: string,
+    actorId: string | undefined,
+    learnerId: string,
+    reason: string | undefined,
+    context: RequestContext
+  ): Promise<{ snils?: string; passport?: string; birthDate?: string }> {
+    const learner = this.requireLearner(tenantId, learnerId) as LearnerLike & {
+      snils?: string;
+      passport?: string;
+      birthDate?: string;
+    };
+
+    await this.auditService.writeCritical({
+      tenantId,
+      actorId,
+      action: 'learners.pii_revealed',
+      entityType: 'learning.learner',
+      entityId: learnerId,
+      metadata: piiAccessMetadata({
+        action: 'pii.revealed',
+        learnerId,
+        fields: ['snils', 'passport', 'birthDate'],
+        ...(reason ? { reason } : {})
+      }),
+      requestId: context.requestId,
+      correlationId: context.correlationId,
+      ip: context.ip,
+      userAgent: context.userAgent
+    });
+
+    return {
+      ...(learner.snils ? { snils: learner.snils } : {}),
+      ...(learner.passport ? { passport: learner.passport } : {}),
+      ...(learner.birthDate ? { birthDate: learner.birthDate } : {})
+    };
+  }
 
   /**
    * Полная выгрузка ПДн слушателя.
