@@ -3,6 +3,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 import { InMemoryDocumentsState } from '../../documents/in-memory-documents.state.js';
 import { DOCUMENTS_PERSISTENCE_BACKEND } from '../../documents/infrastructure/documents-persistence.token.js';
+import { type OnboardingPath, onboardingPath } from '../../platform/tenant-onboarding-path.js';
 import { tenantImageFileId } from '../../tenant/tenant-document-images.js';
 import { TenantService } from '../../tenant/tenant.service.js';
 import { MvpTenantRunner } from '../infrastructure/mvp-tenant-runner.service.js';
@@ -88,6 +89,30 @@ export class TenantOnboardingService {
     private readonly databaseService: DatabaseService | undefined
   ) {}
 
+  /**
+   * Путь подключения глазами центра (ТЗ 13.1) — тем же расчётом, что у платформы.
+   *
+   * Статус центра и наличие тарифа спрашиваются у справочника; не удалось спросить — путь
+   * всё равно строится по тому, что известно: «первая настройка» это главное, что центр может
+   * сделать сам, и молчать о ней из-за недоступного справочника было бы хуже.
+   */
+  async getPath(tenantId: string): Promise<OnboardingPath> {
+    const status = await this.getStatus(tenantId);
+
+    let tenantStatus = 'trial';
+    let hasPlan = false;
+    try {
+      const tenant = await this.tenants.getTenantById(tenantId);
+      tenantStatus = tenant.status;
+      hasPlan = Boolean((tenant as { planName?: string | null }).planName);
+    } catch {
+      /* Справочник недоступен — считаем центр пробным: это не мешает показать первую настройку. */
+      tenantStatus = 'trial';
+    }
+
+    return onboardingPath({ tenantStatus, setupReady: status.ready, hasPlan });
+  }
+
   async getStatus(tenantId: string): Promise<OnboardingStatus> {
     /*
      * Бренд здесь больше не спрашивается: шаг «Логотип и цвета» решение Р6 в мастере не называет,
@@ -130,6 +155,11 @@ export class TenantOnboardingService {
       { id: 'course', done: mvp.courses > 0, detail: `Курсов: ${mvp.courses}` }
     ];
 
+    /*
+     * ТЗ 13.1: путь подключения виден И ЦЕНТРУ, и администратору платформы — один и тот же,
+     * вычисленный одной функцией. Нарисованный дважды, он разъехался бы при первой правке:
+     * центр видел бы «осталось два шага», платформа — «всё готово» (журнал 557).
+     */
     const doneCount = steps.filter((step) => step.done).length;
     /*
      * ТЗ 8.2 (Р6): «готов к работе» — это про ОБЯЗАТЕЛЬНЫЕ шаги, а не про все семь. Центр без

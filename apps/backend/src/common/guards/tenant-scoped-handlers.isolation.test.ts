@@ -184,6 +184,13 @@ const WITHOUT_TENANT: ReadonlyArray<Allowed> = [
     why: 'назначение тарифа арендатору: целевой арендатор приходит в адресе, а не из сессии'
   },
   { handler: 'platform/platform-tenants.controller.ts::Get ', why: 'реестр арендаторов' },
+  {
+    handler: 'platform/platform-tenants.controller.ts::Get :id/onboarding-path',
+    why:
+      'ТЗ 13.1: путь подключения ЧУЖОГО центра — администратор платформы смотрит центр, ' +
+      'названный в адресе, а не свой. Арендатор здесь параметр запроса, а не контекст сессии; ' +
+      'право `platform.tenants.read` есть только у роли платформы'
+  },
   { handler: 'platform/platform-tenants.controller.ts::Post ', why: 'создание арендатора' },
   {
     handler: 'platform/platform-tenants.controller.ts::Patch :id/status',

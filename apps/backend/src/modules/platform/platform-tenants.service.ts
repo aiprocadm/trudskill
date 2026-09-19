@@ -9,9 +9,11 @@ import {
   ServiceUnavailableException
 } from '@nestjs/common';
 
+import { type OnboardingPath, onboardingPath } from './tenant-onboarding-path.js';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { AuthService } from '../iam/services/auth.service.js';
+import { TenantOnboardingService } from '../mvp/onboarding/tenant-onboarding.service.js';
 
 import type { RequestContext } from '../../common/context/request-context.js';
 import type { Tenant, TenantStatus } from '../tenant/tenant.types.js';
@@ -29,7 +31,14 @@ export class PlatformTenantsService {
     @Inject(DatabaseService)
     private readonly databaseService: DatabaseService | undefined,
     @Inject(AuditService) private readonly auditService: AuditService,
-    @Inject(AuthService) private readonly authService: AuthService
+    @Inject(AuthService) private readonly authService: AuthService,
+    /*
+     * Мастер первого запуска — необязательная и ПОСЛЕДНЯЯ зависимость (журнал 526): список
+     * арендаторов работает и там, где модуль мастера не поднят.
+     */
+    @Optional()
+    @Inject(TenantOnboardingService)
+    private readonly onboarding?: TenantOnboardingService
   ) {}
 
   /** Как в TenantService (ФТ-D2.1): без БД тенантов не существует — 503, а не выдумка. */
@@ -72,6 +81,49 @@ export class PlatformTenantsService {
    * запросами. platform_admin НЕ клонируется: платформенная роль существует только
    * у владельца платформы, иначе каждый арендатор получал бы админку всех остальных.
    */
+  /**
+   * Путь подключения центра (ТЗ 13.1).
+   *
+   * Готовность первой настройки берётся у САМОГО мастера (`TenantOnboardingService`), а не
+   * пересчитывается здесь запросом по таблицам: второй подсчёт «настроен ли центр» разъехался
+   * бы с мастером при первой же правке списка обязательных шагов — центр видел бы «осталось
+   * два шага», а платформа «всё готово» (журнал 557).
+   *
+   * Мастер недоступен (внутренние прогоны, память) — настройка считается незакрытой: сказать
+   * «ещё не настроен» безопаснее, чем ошибочно объявить центр готовым.
+   */
+  async onboardingPathOf(tenantId: string): Promise<OnboardingPath> {
+    const rows = await this.requireDb().query<{ status: string; planName: string | null }>(
+      `select t.status, p.name as "planName"
+         from core.tenants t
+         left join core.tenant_subscriptions s
+           on s.tenant_id = t.id and s.status = 'active'
+         left join core.plans p on p.id = s.plan_id
+        where t.id = $1`,
+      [tenantId]
+    );
+    const row = rows[0];
+    if (!row) {
+      throw new NotFoundException({ code: 'tenant_not_found', message: 'Tenant not found' });
+    }
+
+    let setupReady = false;
+    if (this.onboarding) {
+      try {
+        setupReady = (await this.onboarding.getStatus(tenantId)).ready;
+      } catch {
+        /* Мастер недоступен — считаем настройку незакрытой: это безопаснее ложной готовности. */
+        setupReady = false;
+      }
+    }
+
+    return onboardingPath({
+      tenantStatus: row.status,
+      setupReady,
+      hasPlan: Boolean(row.planName)
+    });
+  }
+
   /**
    * ФТ-D3.2: публичный резолв по коду из поддомена — нужен ДО входа, на странице логина.
    * Отдаёт только то, что и так видно на странице входа. Архивный НЕ отдаётся вовсе:

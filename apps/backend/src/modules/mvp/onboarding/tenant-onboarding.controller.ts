@@ -29,4 +29,18 @@ export class TenantOnboardingController {
   getStatus(@CurrentContext() c: RequestContext) {
     return this.onboarding.getStatus(c.tenantId!);
   }
+
+  /**
+   * ТЗ 13.1: путь подключения глазами САМОГО центра.
+   *
+   * Тот же расчёт, что видит администратор платформы (`platform/tenants/:id/onboarding-path`),
+   * — одна функция на обе стороны. Центр отвечает на вопрос «чего от меня ждут», платформа —
+   * «чего ждут от нас»; ответ обязан быть одинаковым (журнал 557).
+   */
+  @Get('onboarding/path')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('tenant.settings.write')
+  async getPath(@CurrentContext() c: RequestContext) {
+    return this.onboarding.getPath(c.tenantId!);
+  }
 }
