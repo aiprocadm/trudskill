@@ -6,6 +6,7 @@ import {
   Get,
   Headers,
   Inject,
+  Optional,
   Param,
   Post,
   Put,
@@ -48,6 +49,7 @@ import { MagicLinkInvalidError, MagicLinkService } from './services/magic-link.s
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { TenantStaffLimitService } from '../../infrastructure/tenant/tenant-staff-limit.service.js';
+import { TenantService } from '../tenant/tenant.service.js';
 
 import type { RequestContext } from '../../common/context/request-context.js';
 import type { Request, Response } from 'express';
@@ -66,7 +68,16 @@ export class AuthController {
     private readonly magicLinkEmailSender: MagicLinkEmailSender,
     /* Лимит сотрудников — последним аргументом (журнал 306). */
     @Inject(TenantStaffLimitService)
-    private readonly staffLimit: TenantStaffLimitService
+    private readonly staffLimit: TenantStaffLimitService,
+    /*
+     * ТЗ 13.5: полоса «вы работаете от имени» обязана назвать центр СЛОВАМИ. Без названия она
+     * показывала бы код вроде `tenant_demo` — а сырой идентификатор человеку запрещён правилом
+     * продукта, и сторож оболочки это поймал (журнал 551). Зависимость необязательная и
+     * ПОСЛЕДНЯЯ: вход работает и там, где справочник центров не поднят (журнал 526).
+     */
+    @Optional()
+    @Inject(TenantService)
+    private readonly tenants?: TenantService
   ) {}
 
   @Post('auth/login')
@@ -313,7 +324,37 @@ export class AuthController {
       context.tenantId!,
       context.userId!
     );
-    return { ...this.iamService.toPublicUser(user), permissions };
+    /*
+     * ТЗ 13.5: признак «вошли от имени» доезжает до экрана.
+     *
+     * Он и так живёт в сессии и попадает в журнал на каждом действии (порция 33, журнал 270),
+     * но интерфейс о нём не знал вовсе — поэтому режим был невидим: человек работал в чужом
+     * кабинете и ничем не отличал это от собственного (журнал 551). Поле добавлено, а не
+     * заменено: старые потребители ответа его просто не читают.
+     */
+    /*
+     * Название центра спрашивается ТОЛЬКО в режиме «от имени»: обычной работе оно ни к чему,
+     * а лишний запрос к справочнику на каждом обновлении сессии — плата без пользы.
+     * Не удалось получить — возвращаем без названия: полоса покажется и так, а вход из-за
+     * недоступного справочника падать не должен.
+     */
+    let tenantName: string | undefined;
+    if (context.impersonatedBy && this.tenants) {
+      try {
+        tenantName = (await this.tenants.getTenantById(context.tenantId!)).name;
+      } catch {
+        /* Справочник центров недоступен — полоса покажется без названия, но вход из-за этого
+           падать не должен: режим важнее подписи, а подпись важнее молчания. */
+        tenantName = undefined;
+      }
+    }
+
+    return {
+      ...this.iamService.toPublicUser(user),
+      permissions,
+      ...(context.impersonatedBy ? { impersonatedBy: context.impersonatedBy } : {}),
+      ...(tenantName ? { tenantName } : {})
+    };
   }
 
   @Get('auth/sessions')
