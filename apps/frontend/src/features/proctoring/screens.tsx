@@ -29,6 +29,7 @@ import {
 } from '../../components/state-wrappers';
 import { ATTEMPT_STATUS_LABELS, statusLabel } from '../assessment/labels';
 import { useAuth } from '../auth/context';
+import { PRIVACY_POLICY_HREF, PRIVACY_POLICY_LABEL } from '../legal/privacy-link';
 import { useObjectCrumb } from '../navigation/use-object-crumb';
 
 import type { MediaRecorderLike, MediaStreamLike } from './recorder';
@@ -155,7 +156,17 @@ export function ProctoringStartPanel({
           disabled={isStarting}
           onChange={(e) => setConsent(e.target.checked)}
         />
-        <span>Даю согласие на видеозапись экзамена и обработку персональных данных (152-ФЗ)</span>
+        {/*
+          ТЗ 17.3: рядом с галочкой — ссылка на текст. Согласие по закону должно быть
+          ИНФОРМИРОВАННЫМ: галочка без доступного текста юридически стоит столько же, сколько
+          подпись под пустым листом (журнал 579).
+        */}
+        <span>
+          Даю согласие на видеозапись экзамена и обработку персональных данных (152-ФЗ).{' '}
+          <a href={PRIVACY_POLICY_HREF} target="_blank" rel="noreferrer">
+            {PRIVACY_POLICY_LABEL}
+          </a>
+        </span>
       </label>
       {error ? <SectionError message={error} /> : null}
       <button

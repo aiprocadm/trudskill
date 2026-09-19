@@ -45,6 +45,7 @@ import { PASSPORT_ACCEPT, SELFIE_ACCEPT, UPLOAD_MAX_SIZE_MB } from '../../lib/fi
 import { usePreviewUrl } from '../../lib/files/use-preview-url';
 import { useAuth } from '../auth/context';
 import { useConsentDocuments, useConsentToggle, useMyConsents } from '../consents/hooks';
+import { PRIVACY_POLICY_HREF, PRIVACY_POLICY_LABEL } from '../legal/privacy-link';
 import { useObjectCrumb } from '../navigation/use-object-crumb';
 
 import type { IdentityVerificationStatus } from './types';
@@ -234,7 +235,13 @@ export function LearnerIdentityScreen(): ReactElement {
                 disabled={submission.isPending || consentToggle.pendingKind !== null}
                 onChange={(e) => void onToggleConsent('personal_data', e.target.checked)}
               />
-              <span>Даю согласие на обработку персональных данных (152-ФЗ)</span>
+              {/* ТЗ 17.3: текст согласия обязан быть доступен до того, как его дают. */}
+              <span>
+                Даю согласие на обработку персональных данных (152-ФЗ).{' '}
+                <a href={PRIVACY_POLICY_HREF} target="_blank" rel="noreferrer">
+                  {PRIVACY_POLICY_LABEL}
+                </a>
+              </span>
             </label>
             {consentDocuments.data?.personal_data ? (
               <details className="ui-text-muted">
