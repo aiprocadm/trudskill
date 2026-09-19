@@ -179,7 +179,12 @@ describe('оболочка приложения', () => {
     expect(shellSource, 'переключатель обязан быть доступен из шапки').toContain(
       '<ThemeSwitcher />'
     );
-    const menuStart = shellSource.indexOf('ui-header-menu__list');
+    /*
+     * Меню ищем по компоненту `HeaderMenu`, а не по классу его внутреннего списка: с ТЗ 14.1
+     * список рисует сам компонент, потому что родной раскрывающийся тег не закрывался по Esc
+     * (журнал 570). Утверждение прежнее — переключатель живёт внутри меню человека.
+     */
+    const menuStart = shellSource.indexOf('<HeaderMenu');
     expect(menuStart, 'меню человека должно существовать').toBeGreaterThan(-1);
     expect(
       shellSource.slice(menuStart).includes('<ThemeSwitcher />'),

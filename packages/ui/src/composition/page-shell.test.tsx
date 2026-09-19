@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { PageHeader, SectionCard } from './page-shell.js';
 import { Button } from '../components/button/index.js';
+import { HeaderMenu } from '../components/header-menu/index.js';
 
 import type { ReactElement } from 'react';
 
@@ -22,6 +23,17 @@ const flatten = (node: unknown): unknown[] => {
   const el = node as { props?: { children?: unknown } };
   return [node, ...(el.props ? flatten(el.props.children) : [])];
 };
+
+/**
+ * Найти меню «Ещё» в дереве заголовка.
+ *
+ * Раньше искали родной раскрывающийся тег. С ТЗ 14.1 меню собирается общим компонентом
+ * `HeaderMenu`: он добавил закрытие по Esc и возврат фокуса на заголовок, чего родной тег не
+ * умеет (журнал 570). Утверждение сторожа не изменилось — «вторичные действия живут в меню, а
+ * не рядом с первичной кнопкой», — изменился только способ найти это меню в дереве.
+ */
+const findMenu = (tree: unknown): unknown =>
+  flatten(tree).find((node) => (node as { type?: unknown }).type === HeaderMenu);
 
 describe('CMP-015 · PageHeader', () => {
   it('первичное действие — ровно одна коралловая кнопка с подписью результата', () => {
@@ -52,7 +64,7 @@ describe('CMP-015 · PageHeader', () => {
       ]
     });
 
-    const menu = flatten(el).find((node) => (node as { type?: unknown }).type === 'details');
+    const menu = findMenu(el);
     expect(menu, 'меню «Ещё» не найдено').toBeTruthy();
     const items = flatten(menu).filter((node) =>
       String(propsOf(node)?.className ?? '').includes('ui-header-menu__item')
@@ -79,7 +91,7 @@ describe('CMP-015 · PageHeader', () => {
       ]
     });
 
-    const menu = flatten(el).find((node) => (node as { type?: unknown }).type === 'details');
+    const menu = findMenu(el);
     const items = flatten(menu).filter((node) =>
       String(propsOf(node)?.className ?? '').includes('ui-header-menu__item')
     );
@@ -114,7 +126,7 @@ describe('CMP-015 · PageHeader', () => {
       secondaryActions: [{ label: 'Скачать таблицей', onSelect: () => undefined }]
     });
 
-    const menu = flatten(el).find((node) => (node as { type?: unknown }).type === 'details');
+    const menu = findMenu(el);
     expect(menu, 'меню «Ещё» не должно появляться ради одного пункта').toBeFalsy();
     const buttons = flatten(el).filter((node) => propsOf(node)?.variant === 'secondary');
     expect(buttons).toHaveLength(1);
