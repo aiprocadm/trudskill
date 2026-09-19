@@ -52,6 +52,7 @@ import {
 } from './pre-exam-token.js';
 import { isAbandonedRecording } from './proctoring/abandoned-recording.js';
 import { resolveProctoringRequirement } from './proctoring/proctoring-requirement.js';
+import { ProgramOrderError, applyOrder } from './program-order.js';
 import { REGULATORY_ACTS_SEED } from './regulatory-acts.seed.js';
 import { buildReport } from './report-builder/build-report.js';
 import { getEntity, listReportEntityMeta } from './report-builder/report-entities.js';
@@ -1400,6 +1401,100 @@ export class MvpService {
     );
     return entity;
   }
+  /**
+   * Порядок модулей внутри версии программы (ТЗ 8.4).
+   *
+   * Список приходит ЦЕЛИКОМ, поэтому запрос идемпотентен: повторили после обрыва связи —
+   * результат тот же. Неполный список отклоняется: программа это порядок, и «половина
+   * порядка» смысла не имеет.
+   */
+  reorderModules(
+    tenantId: string,
+    actorId: string | undefined,
+    courseVersionId: string,
+    ids: string[],
+    context: RequestContext
+  ): CourseModuleEntity[] {
+    /* Версия проверяется отдельно: иначе «нет модулей» и «нет такой версии» слились бы в
+       один ответ, и человек не понял бы, по какому адресу он вообще стучится. */
+    this.getById(this.state.courseVersions, tenantId, courseVersionId);
+    const current = this.state.modules.filter(
+      (item) => item.tenantId === tenantId && item.courseVersionId === courseVersionId
+    );
+
+    let outcome;
+    try {
+      outcome = applyOrder(current, ids);
+    } catch (error) {
+      if (error instanceof ProgramOrderError) {
+        throw new BadRequestException({ code: 'validation_error', message: error.reason });
+      }
+      throw error;
+    }
+
+    const oldValues = current.map((item) => ({ id: item.id, sortOrder: item.sortOrder }));
+    for (const next of outcome.items) {
+      const item = this.state.modules.find((row) => row.id === next.id)!;
+      item.sortOrder = next.sortOrder;
+      item.updatedAt = this.now();
+    }
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.modules_reordered',
+      'learning.course_version',
+      courseVersionId,
+      oldValues,
+      outcome.items.map((item) => ({ id: item.id, sortOrder: item.sortOrder })),
+      context,
+      { moved: outcome.moved }
+    );
+    return outcome.items;
+  }
+
+  /** Порядок материалов внутри модуля (ТЗ 8.4). Правило то же, что у модулей. */
+  reorderMaterials(
+    tenantId: string,
+    actorId: string | undefined,
+    moduleId: string,
+    ids: string[],
+    context: RequestContext
+  ): Material[] {
+    this.getById(this.state.modules, tenantId, moduleId);
+    const current = this.state.materials.filter(
+      (item) => item.tenantId === tenantId && item.moduleId === moduleId
+    );
+
+    let outcome;
+    try {
+      outcome = applyOrder(current, ids);
+    } catch (error) {
+      if (error instanceof ProgramOrderError) {
+        throw new BadRequestException({ code: 'validation_error', message: error.reason });
+      }
+      throw error;
+    }
+
+    const oldValues = current.map((item) => ({ id: item.id, sortOrder: item.sortOrder }));
+    for (const next of outcome.items) {
+      const item = this.state.materials.find((row) => row.id === next.id)!;
+      item.sortOrder = next.sortOrder;
+      item.updatedAt = this.now();
+    }
+    this.audit(
+      tenantId,
+      actorId,
+      'learning.materials_reordered',
+      'learning.module',
+      moduleId,
+      oldValues,
+      outcome.items.map((item) => ({ id: item.id, sortOrder: item.sortOrder })),
+      context,
+      { moved: outcome.moved }
+    );
+    return outcome.items;
+  }
+
   updateModule(
     tenantId: string,
     actorId: string | undefined,

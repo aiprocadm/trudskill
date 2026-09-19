@@ -51,3 +51,33 @@ export const previewNote = (materialType: string): string => {
       return 'Текст показан ровно так, как его увидит слушатель.';
   }
 };
+
+/**
+ * Какую версию программы показывать в предпросмотре и что сказать про выбор.
+ *
+ * Слушатель видит ОПУБЛИКОВАННУЮ версию — её и показываем, когда она есть. Но методист
+ * приходит сюда проверять то, что только что собрал, а собирает он ЧЕРНОВИК. Показать ему
+ * пустоту со словами «в программе нет материалов», пока версия не опубликована, значило бы
+ * соврать про его же работу: материалы есть, просто в другой редакции (журнал 539).
+ */
+export interface PreviewVersionChoice {
+  versionId: string | null;
+  /** Пусто — оговорка не нужна: показывается ровно то, что видит слушатель. */
+  note: string;
+}
+
+export const choosePreviewVersion = (
+  versions: Array<{ id: string; status: string; versionNo: number }>
+): PreviewVersionChoice => {
+  const published = versions
+    .filter((item) => item.status === 'published')
+    .sort((a, b) => b.versionNo - a.versionNo)[0];
+  if (published) return { versionId: published.id, note: '' };
+
+  const latest = [...versions].sort((a, b) => b.versionNo - a.versionNo)[0];
+  if (!latest) return { versionId: null, note: '' };
+  return {
+    versionId: latest.id,
+    note: `Опубликованной версии пока нет — показана черновая, редакция ${latest.versionNo}. Слушателям она ещё не выдаётся.`
+  };
+};

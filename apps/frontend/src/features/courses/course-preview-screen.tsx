@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { previewNote, previewOutline } from './course-preview';
+import { choosePreviewVersion, previewNote, previewOutline } from './course-preview';
+import { useProgramTree } from './use-program-tree';
 import {
   PageContainer,
   PageHeader,
@@ -12,9 +13,8 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
-import { useCourseTree } from '../course-viewer/hooks';
 import { MaterialPlayer } from '../course-viewer/material-player';
-import { useCourse } from '../mvp/hooks';
+import { useCourse, useCourseVersions } from '../mvp/hooks';
 import { useObjectCrumb } from '../navigation/use-object-crumb';
 
 /**
@@ -37,7 +37,9 @@ import { useObjectCrumb } from '../navigation/use-object-crumb';
 export const CoursePreviewScreen = ({ id }: { id: string }) => {
   const { data: course, notFound, error: courseError } = useCourse(id);
   useObjectCrumb(course?.title, { notFound, failed: Boolean(courseError) });
-  const { tree, loading, error } = useCourseTree(id);
+  const { data: versions } = useCourseVersions(id);
+  const choice = choosePreviewVersion(versions?.items ?? []);
+  const program = useProgramTree(choice.versionId ?? undefined);
   const [currentId, setCurrentId] = useState<string | null>(null);
 
   /*
@@ -48,7 +50,11 @@ export const CoursePreviewScreen = ({ id }: { id: string }) => {
     return <RecordNotFound what="Курс" backHref="/courses" backLabel="К списку курсов" />;
   }
 
-  const outline = previewOutline(tree ?? []);
+  const outline = previewOutline(
+    program.nodes.map((node) => ({ module: node.module, materials: node.materials }))
+  );
+  const loading = program.loading;
+  const error = program.error;
   const current =
     outline.flatMap((node) => node.materials).find((item) => item.id === currentId) ??
     outline[0]?.materials[0] ??
@@ -66,6 +72,7 @@ export const CoursePreviewScreen = ({ id }: { id: string }) => {
           Отметки о прохождении здесь не сохраняются, порядок изучения не проверяется. Видео и файлы
           выдаются слушателю по зачислению, поэтому в предпросмотре не открываются.
         </p>
+        {choice.note ? <p className="ui-hint">{choice.note}</p> : null}
         <p className="ui-inline">
           <Link className="ui-button-secondary" href={`/courses/${id}?tab=program`}>
             Вернуться к программе

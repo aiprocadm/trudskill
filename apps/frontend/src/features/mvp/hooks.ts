@@ -182,6 +182,15 @@ export const useDomainMutations = () => {
         isRequired?: boolean;
       }
     ) => wrap((authSession) => mvpApi.saveModule(authSession, id, payload)),
+    /*
+     * ТЗ 8.4: перестановка идёт БЕЗ всплывающего «Готово». Человек двигает пункты подряд, и
+     * оповещение на каждый шаг превратилось бы в мигание. Результат он видит сразу — список
+     * перестроился.
+     */
+    reorderModules: (courseVersionId: string, ids: string[]) =>
+      wrap((authSession) => mvpApi.reorderModules(authSession, courseVersionId, ids), true),
+    reorderMaterials: (moduleId: string, ids: string[]) =>
+      wrap((authSession) => mvpApi.reorderMaterials(authSession, moduleId, ids), true),
     saveMaterial: (
       id: string | null,
       payload: {
