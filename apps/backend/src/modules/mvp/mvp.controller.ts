@@ -22,6 +22,7 @@ import { IsString, ValidateIf } from 'class-validator';
 import { AddTestQuestionRequest, ReorderTestQuestionRequest } from './add-test-question.dto.js';
 import { ConsentService } from './consents/consent.service.js';
 import { CreateCounterpartyExtendedRequest } from './create-counterparty-extended.dto.js';
+import { ManagerDashboardService } from './dashboards/manager-dashboard.service.js';
 import { MethodistDashboardService } from './dashboards/methodist-dashboard.service.js';
 import { backendEnv } from '../../env.js';
 import { SimpleSignatureService } from './esignature/simple-signature.service.js';
@@ -154,7 +155,11 @@ export class MvpController {
     // ФТ-C1 уровень 1: состояние соглашения об электронном взаимодействии и подпись действий.
     @Inject(SimpleSignatureService) private readonly simpleSignature: SimpleSignatureService,
     @Inject(UserDisplayNamesService)
-    private readonly userNames: UserDisplayNamesService
+    private readonly userNames: UserDisplayNamesService,
+    /* ТЗ 8.3: панель руководителя. Параметр ПОСЛЕДНИЙ — новая зависимость в середине сдвигает
+       позиционные вызовы в тестах, которые собирают контроллер руками (журнал 526). */
+    @Inject(ManagerDashboardService)
+    private readonly managerDashboardService: ManagerDashboardService
   ) {}
 
   @Get('counterparties')
@@ -371,6 +376,22 @@ export class MvpController {
    * честно работает и для методиста, и для менеджера, и для администратора, не
    * показывая никому лишнего.
    */
+  /**
+   * ТЗ 8.3 — панель руководителя: «как идёт обучение по моим компаниям», «кто не успевает»,
+   * «что горит по срокам», «сколько выдано документов».
+   *
+   * Право — И `groups.read`, И `counterparties.read`. По живой `iam.role_permissions` такая
+   * пара есть ровно у тех, кто ведёт компании и группы: руководитель, администратор центра,
+   * администратор платформы. Преподавателю выдан `groups.read`, но не компании — панель про
+   * заказчиков ему бы и нечего было показать; методисту наоборот не выдан `groups.read`.
+   */
+  @Get('dashboards/manager')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('groups.read', 'counterparties.read')
+  getManagerDashboard(@CurrentContext() c: RequestContext) {
+    return this.managerDashboardService.compose(c.tenantId!);
+  }
+
   @Get('dashboards/methodist')
   @UseGuards(PermissionGuard)
   @RequirePermissions('courses.read')

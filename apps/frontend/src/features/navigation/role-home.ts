@@ -41,10 +41,11 @@ export const ROLE_HOME_ROUTES: ReadonlyArray<{ role: string; href: string }> = [
   { role: 'counterparty_rep', href: '/counterparty-portal' },
   { role: 'tenant_admin', href: '/workspace' },
   { role: 'platform_admin', href: '/workspace' },
-  // Фаза 5 Task 2: у методиста появилась своя сводка — ведём на неё, а не на список
-  // курсов. У менеджера дашборда нет, поэтому он идёт в основной рабочий раздел.
+  // Фаза 5 Task 2: у методиста появилась своя сводка — ведём на неё, а не на список курсов.
   { role: 'methodist', href: '/methodist' },
-  { role: 'manager', href: '/groups' }
+  // ТЗ 8.3: у руководителя появилась своя панель. Раньше вход приводил его сразу в «Группы» —
+  // в середину работы, без ответа на вопрос «что у меня вообще происходит».
+  { role: 'manager', href: '/manager' }
 ];
 
 /**

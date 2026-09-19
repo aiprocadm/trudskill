@@ -31,6 +31,13 @@ const SRC = resolve(HERE, '..', '..');
  * законно там, где строки не независимы: одна настройка, один документ, одна проверка.
  */
 const DECIDED: Record<string, string> = {
+  'modules/mvp/dashboards/manager-dashboard.util.ts for (const row of input.courseProgress)':
+    'всё или ничего не грозит: панель руководителя (ТЗ 8.3) только СЧИТАЕТ по снимку ' +
+    'состояния — ни одной записи она не делает и ничего не бросает',
+  'modules/mvp/dashboards/manager-dashboard.util.ts for (const document of input.documents)':
+    'всё или ничего не грозит: тот же подсчёт — сколько документов выдано по зачислению',
+  'modules/mvp/dashboards/manager-dashboard.util.ts for (const enrollment of input.enrollments)':
+    'всё или ничего не грозит: тот же подсчёт — кто не успевает и что горит по срокам',
   'modules/mvp/mvp.service.ts for (const learnerId of uniqueLearnerIds)':
     'частичный успех: отказ домена по строке уходит в `errors` со своим кодом, поломка ' +
     'поднимается наверх (тесты «одна строка с отказом третьего вида не отменяет всю пачку» ' +
