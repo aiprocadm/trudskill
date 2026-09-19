@@ -5,6 +5,14 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { canArchiveCourse, courseHeaderAction } from './course-actions';
+import {
+  COURSE_TABS,
+  assessmentSummary,
+  coursePreviewHref,
+  finalExamOf,
+  moduleTestsOf,
+  resolveCourseTab
+} from './course-card';
 import { materialTypeLabel, publishBlockers, viewTimeLabel } from './labels';
 import {
   FINAL_ASSESSMENT_OPTIONS,
@@ -37,7 +45,8 @@ import {
   useDomainMutations,
   useMaterials,
   useModules,
-  useRegulatoryActs
+  useRegulatoryActs,
+  useTests
 } from '../mvp/hooks';
 import { buildProgramMetaPatch } from '../mvp/payloads';
 import { MutationError, formatDate, readApiMessage } from '../mvp/screen-helpers';
@@ -238,13 +247,6 @@ export const CoursesPageScreen = () => {
  *
  * «Состав» первым: добавление модулей и материалов — самая частая работа с курсом.
  */
-const COURSE_TABS = [
-  { id: 'content', label: 'Состав программы' },
-  { id: 'params', label: 'Нормативные параметры' },
-  { id: 'documents', label: 'Документы по окончании' },
-  { id: 'versions', label: 'Версии' }
-];
-
 const ProgramMetaSection = ({
   courseVersion,
   onUpdated,
@@ -759,7 +761,17 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
   const { data: materials, refetch: refetchMaterials } = useMaterials(selectedModuleId);
   const { publishCourse, archiveCourse, createCourseVersion, saveModule, saveMaterial } =
     useDomainMutations();
-  const [tab, setTab] = useTabParam(COURSE_TABS.map((item) => item.id));
+  /*
+   * ТЗ 8.4: состав вкладок приведён к названному в ТЗ (Параметры · Программа · Аттестация ·
+   * Документы). Прежние имена `content` и `versions` остаются рабочими в адресе — такие
+   * ссылки люди кладут в переписку, и молча сломать их нельзя (`resolveCourseTab`).
+   */
+  const [rawTab, setTab] = useTabParam([
+    ...COURSE_TABS.map((item) => item.id),
+    'content',
+    'versions'
+  ]);
+  const tab = resolveCourseTab(rawTab);
   const [moduleTitle, setModuleTitle] = useState('');
   const [materialTitle, setMaterialTitle] = useState('');
   /* Сброс формы одной строкой: так обработка отказа остаётся рядом с вызовом и на виду. */
@@ -787,6 +799,17 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
     setMaterialTextBody('');
     setMaterialExternalUrl('');
   };
+
+  /*
+   * Тесты берутся списком и отбираются по курсу здесь: ручка `/tests` отбора по курсу не
+   * знает, а заводить его ради одной вкладки — менять контракт ради вида. Страница берётся
+   * с запасом; если у центра тестов больше, это видно по подсказке «показаны первые».
+   */
+  const { data: allTests } = useTests({ page: 1, page_size: 200 });
+  const courseTests = allTests?.items ?? [];
+  const finalExam = finalExamOf(courseTests, id);
+  const moduleTests = moduleTestsOf(courseTests, id);
+  const examState = assessmentSummary(finalExam);
 
   const canPublish = hasPermission(session?.permissions ?? [], 'courses.publish');
   const canArchive = hasPermission(session?.permissions ?? [], 'courses.archive');
@@ -900,7 +923,12 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
         label="Разделы карточки курса"
       />
 
-      <TabPanel id="versions" activeId={tab}>
+      <TabPanel id="params" activeId={tab}>
+        {/*
+          ТЗ 8.4: «Версии» больше не отдельная вкладка. Версия программы и ЕСТЬ набор
+          нормативных параметров на дату — разносить их по разным вкладкам значило бы
+          заставлять методиста ходить туда-сюда, чтобы понять, что он правит.
+        */}
         <SectionCard title="Версии программы">
           <p className="ui-hint">
             Новая версия нужна, когда программа меняется, а прежние выпуски документов должны
@@ -944,9 +972,6 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
             </button>
           )}
         </SectionCard>
-      </TabPanel>
-
-      <TabPanel id="params" activeId={tab}>
         {latestVersion ? (
           <ProgramMetaSection
             courseVersion={latestVersion}
@@ -967,6 +992,44 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
         )}
       </TabPanel>
 
+      <TabPanel id="assessment" activeId={tab}>
+        {/*
+          ТЗ 8.4: чем обучение заканчивается — часть карточки курса, а не отдельный раздел.
+          Раньше методист собирал программу здесь, а проверял наличие экзамена в «Оценивании».
+        */}
+        <SectionCard title={examState.title}>
+          <p className="ui-hint">{examState.hint}</p>
+          {finalExam ? (
+            <p>
+              <Link href={`/admin/tests/${finalExam.id}`}>{finalExam.title}</Link>
+            </p>
+          ) : (
+            <p>
+              <Link className="ui-button-secondary" href="/admin/tests">
+                Перейти к тестам
+              </Link>
+            </p>
+          )}
+        </SectionCard>
+        <SectionCard title={`Проверки внутри программы (${moduleTests.length})`}>
+          {moduleTests.length === 0 ? (
+            <SectionEmpty
+              message="Промежуточных проверок нет"
+              hint="Тест внутри модуля помогает слушателю закрепить материал по ходу обучения. Итоговый экзамен он не заменяет."
+            />
+          ) : (
+            <ul className="ui-stack">
+              {moduleTests.map((test) => (
+                <li key={test.id}>
+                  <Link href={`/admin/tests/${test.id}`}>{test.title}</Link>
+                  {test.publishedAt ? '' : ' — черновик, слушателю не выдаётся'}
+                </li>
+              ))}
+            </ul>
+          )}
+        </SectionCard>
+      </TabPanel>
+
       <TabPanel id="documents" activeId={tab}>
         {latestVersion ? (
           <DocumentSetSection
@@ -983,7 +1046,17 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
         )}
       </TabPanel>
 
-      <TabPanel id="content" activeId={tab}>
+      <TabPanel id="program" activeId={tab}>
+        {/*
+          ТЗ 8.4: «Посмотреть глазами слушателя». Без этого методист собирает программу
+          вслепую — проверить свою работу он мог, только заведя себе учебную запись.
+          Действие ВТОРИЧНОЕ: первичное на экране одно, и это «Опубликовать» (`UI-007`).
+        */}
+        <p className="ui-inline">
+          <Link className="ui-button-secondary" href={coursePreviewHref(id)}>
+            Посмотреть глазами слушателя
+          </Link>
+        </p>
         <SectionCard title="Модули">
           <form
             onSubmit={(event) => {
