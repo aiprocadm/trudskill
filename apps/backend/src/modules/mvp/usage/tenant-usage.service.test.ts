@@ -86,13 +86,28 @@ describe('TenantUsageService (ФТ-D4)', () => {
     });
   });
 
-  it('формула активных слушателей: незавершённые + завершившие в текущем месяце', async () => {
+  it('формула активных слушателей по решению Р12: начал обучение ИЛИ получил документ', async () => {
+    /*
+     * **Инвариант изменён осознанно (ТЗ 13.2, журнал 553).** Здесь стояла прежняя формула —
+     * «все с незакрытым зачислением плюс завершившие в этом месяце». Она считала человека,
+     * записанного в январе и учащегося полгода, КАЖДЫЙ месяц: то есть работала как «оплата за
+     * место в системе». Решение владельца Р12 эту модель прямо отвергает («штрафует за архив»)
+     * и определяет активного слушателя иначе: уникальный человек, который в расчётном месяце
+     * НАЧАЛ обучение или ПОЛУЧИЛ документ. Тест догоняет решение, а не наоборот.
+     */
     const { service, db } = make({ plan: makePlan(), learners: 1 });
     await service.assertCanAddLearners('t1');
     const sql = db.query.mock.calls[0]![0] as string;
-    expect(sql).toContain("e.status in ('pending', 'active')");
-    expect(sql).toContain(
-      "e.status = 'completed' and e.completed_at >= date_trunc('month', now())"
+
+    expect(sql, 'начало обучения ограничено расчётным месяцем').toContain(
+      "e.enrolled_at >= date_trunc('month', now())"
+    );
+    expect(sql, 'вторая половина Р12 — завершившие обучение в расчётном месяце').toContain(
+      "e.completed_at >= date_trunc('month', now())"
+    );
+    expect(sql, 'человек считается один раз').toContain('count(distinct learner_id)');
+    expect(sql, 'прежней формулы «все незакрытые» быть не должно').not.toContain(
+      "e.status in ('pending', 'active')"
     );
   });
 

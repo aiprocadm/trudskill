@@ -322,7 +322,12 @@ describe('MVP HTTP integration (domain invariants)', () => {
         // здесь проверяются доменные инварианты, лимиты тарифа покрыты юнитами гейта.
         {
           provide: TenantUsageService,
-          useValue: { assertCanAddLearners: async () => undefined, getUsage: async () => null }
+          /* ТЗ 13.2 (Р13): запуск новых групп тоже спрашивает лимит — заглушка пропускает. */
+          useValue: {
+            assertCanAddLearners: async () => undefined,
+            assertCanStartGroup: async () => undefined,
+            getUsage: async () => null
+          }
         },
         {
           provide: MvpRequestPersistenceInterceptor,
