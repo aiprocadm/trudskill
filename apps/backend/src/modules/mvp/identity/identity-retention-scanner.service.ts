@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { selectIdentityImagesToPurge } from './identity-image-retention.js';
+import { collectFingerprints, fingerprintStream } from './image-fingerprint.js';
 import { AuditService } from '../../audit/audit.service.js';
 import { FilesService } from '../../files/files.service.js';
 import {
@@ -27,6 +28,24 @@ export class IdentityRetentionScanner {
     @Inject(TenantService) private readonly tenantService: TenantService
   ) {}
 
+  /**
+   * Отпечаток одного снимка; `null`, если снять не удалось.
+   *
+   * Отдельным методом, потому что путь к неудаче тут длинный — файла может не быть, хранилище
+   * может не ответить, поток может оборваться, — и ни одна из этих причин не должна всплыть
+   * наружу исключением: удаление персональных данных важнее отпечатка.
+   */
+  private async fingerprintOf(tenantId: string, fileId?: string): Promise<string | null> {
+    if (!fileId) return null;
+    try {
+      const stream = await this.filesService.openFileStream(tenantId, fileId);
+      return await fingerprintStream(stream);
+    } catch {
+      // Молчим намеренно: причина в комментарии выше — отпечаток не важнее удаления данных.
+      return null;
+    }
+  }
+
   /** Returns the number of records whose images were purged. */
   async scanTenant(tenantId: string, asOf: string, state: InMemoryMvpState): Promise<number> {
     // ФТ-C3.1 (Фаза 3 Task 7): срок хранения задаёт сам учебный центр. Центру с
@@ -47,11 +66,27 @@ export class IdentityRetentionScanner {
     let purged = 0;
     for (const record of due) {
       try {
+        /*
+         * ТЗ 17.2 (Р17): перед удалением снимаем ОТПЕЧАТОК — снимки уйдут, а протокол
+         * верификации останется, и он обязан быть доказуемым. Через год, когда файлов давно
+         * нет, отпечаток — единственное, чем можно подтвердить, что модератор смотрел именно
+         * тот документ (журнал 578).
+         *
+         * Отпечаток снимается ДО удаления, потому что после него читать уже нечего, и его
+         * неудача не останавливает удаление: лучше протокол без отпечатка, чем паспортный
+         * скан, который остался лежать, потому что хранилище моргнуло.
+         */
+        const fingerprints = collectFingerprints({
+          selfie: await this.fingerprintOf(tenantId, record.selfieFileId),
+          passport: await this.fingerprintOf(tenantId, record.passportFileId)
+        });
+
         if (record.selfieFileId) await this.filesService.deleteFile(tenantId, record.selfieFileId);
         if (record.passportFileId)
           await this.filesService.deleteFile(tenantId, record.passportFileId);
         const now = new Date().toISOString();
         record.imagesPurgedAt = now;
+        if (fingerprints) record.imageHashes = fingerprints;
         record.updatedAt = now;
         purged += 1;
         this.auditService.write({
@@ -61,7 +96,11 @@ export class IdentityRetentionScanner {
           entityType: 'learning.identity_verification',
           entityId: record.id,
           oldValues: { selfieFileId: record.selfieFileId, passportFileId: record.passportFileId },
-          newValues: { imagesPurgedAt: now }
+          /*
+           * Отпечатки попадают и в журнал: запись о самой записи может быть изменена, а
+           * журнал аудита дополняется только вперёд — там отпечаток переживёт что угодно.
+           */
+          newValues: { imagesPurgedAt: now, ...(fingerprints ? { imageHashes: fingerprints } : {}) }
         });
       } catch (err) {
         // imagesPurgedAt is intentionally not stamped on error; idempotent deleteFile means a retry next run re-attempts only surviving file ids.
