@@ -15,6 +15,7 @@ export * from './components/filters/index.js';
 export * from './components/forms/index.js';
 export * from './components/badges/index.js';
 export * from './components/boot-splash/index.js';
+export * from './components/header-menu/index.js';
 export * from './components/dialogs/index.js';
 export * from './components/dialogs/use-confirm.js';
 export * from './components/pagination/index.js';

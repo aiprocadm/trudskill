@@ -1,6 +1,12 @@
 'use client';
 
-import { ErrorBoundary, Icon, ImpersonationProvider, VISUALLY_HIDDEN_CLASS } from '@trudskill/ui';
+import {
+  ErrorBoundary,
+  HeaderMenu,
+  Icon,
+  ImpersonationProvider,
+  VISUALLY_HIDDEN_CLASS
+} from '@trudskill/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -483,59 +489,63 @@ export const AppShell = ({ children }: PropsWithChildren) => {
                 уйти. Теперь выход живёт в меню человека, а переключатель темы уехал в профиль:
                 тему меняют раз в жизни, а место на экране она занимала всегда (журнал 558).
               */}
-              <details className="ui-header-menu app-shell__user">
-                <summary className="app-shell__user-summary">
-                  {initials ? (
-                    <span className="app-shell__avatar" aria-hidden>
-                      {initials}
-                    </span>
-                  ) : null}
-                  <span className="app-shell__user-name">{session?.user.displayName}</span>
-                </summary>
-                <div className="ui-header-menu__list" role="menu">
-                  {userMenuItems(session).map((item) =>
-                    item.href ? (
-                      <Link
-                        key={item.id}
-                        role="menuitem"
-                        className="ui-header-menu__item"
-                        href={item.href}
-                      >
-                        {item.label}
-                      </Link>
-                    ) : item.id === 'appearance' ? (
-                      /*
-                       * Тема меняется ПРЯМО ЗДЕСЬ, а не ссылкой в настройки. Так выполняются оба
-                       * требования сразу: ТЗ 7.1 убирает переключатель из шапки («занимает место
-                       * на каждой странице»), а `UI-026` требует менять тему по ходу работы, не
-                       * вспоминая про существование настроек (журнал 559).
-                       */
-                      <div key={item.id} className="ui-header-menu__item" role="none">
-                        <ThemeSwitcher />
-                      </div>
-                    ) : (
-                      <button
-                        key={item.id}
-                        type="button"
-                        role="menuitem"
-                        className="ui-header-menu__item ui-header-menu__item--danger"
-                        onClick={() => {
-                          setLogoutWarning(null);
-                          void logout().catch((error: unknown) => {
-                            setLogoutWarning(
-                              error instanceof Error
-                                ? error.message
-                                : 'Выход выполнен на этом устройстве, но сервер не подтвердил завершение сеанса.'
-                            );
-                          });
-                        }}
-                      >
-                        {item.label}
-                      </button>
-                    )
-                  )}
-                </div>
-              </details>
+              <HeaderMenu
+                className="app-shell__user"
+                summaryClassName="app-shell__user-summary"
+                summaryLabel={`Меню: ${session?.user.displayName ?? 'вошедший человек'}`}
+                summary={
+                  <>
+                    {initials ? (
+                      <span className="app-shell__avatar" aria-hidden>
+                        {initials}
+                      </span>
+                    ) : null}
+                    <span className="app-shell__user-name">{session?.user.displayName}</span>
+                  </>
+                }
+              >
+                {userMenuItems(session).map((item) =>
+                  item.href ? (
+                    <Link
+                      key={item.id}
+                      role="menuitem"
+                      className="ui-header-menu__item"
+                      href={item.href}
+                    >
+                      {item.label}
+                    </Link>
+                  ) : item.id === 'appearance' ? (
+                    /*
+                     * Тема меняется ПРЯМО ЗДЕСЬ, а не ссылкой в настройки. Так выполняются оба
+                     * требования сразу: ТЗ 7.1 убирает переключатель из шапки («занимает место
+                     * на каждой странице»), а `UI-026` требует менять тему по ходу работы, не
+                     * вспоминая про существование настроек (журнал 559).
+                     */
+                    <div key={item.id} className="ui-header-menu__item" role="none">
+                      <ThemeSwitcher />
+                    </div>
+                  ) : (
+                    <button
+                      key={item.id}
+                      type="button"
+                      role="menuitem"
+                      className="ui-header-menu__item ui-header-menu__item--danger"
+                      onClick={() => {
+                        setLogoutWarning(null);
+                        void logout().catch((error: unknown) => {
+                          setLogoutWarning(
+                            error instanceof Error
+                              ? error.message
+                              : 'Выход выполнен на этом устройстве, но сервер не подтвердил завершение сеанса.'
+                          );
+                        });
+                      }}
+                    >
+                      {item.label}
+                    </button>
+                  )
+                )}
+              </HeaderMenu>
             </div>
           </header>
           {logoutWarning ? (

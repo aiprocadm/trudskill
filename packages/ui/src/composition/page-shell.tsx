@@ -1,4 +1,5 @@
 import { Button } from '../components/button/index.js';
+import { HeaderMenu } from '../components/header-menu/index.js';
 import { EmptyState, ErrorState, LoadingState } from '../components/states/index.js';
 
 import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
@@ -301,14 +302,9 @@ export const PageHeader = (props: PageHeaderProps): ReactElement => {
           {inlineSecondary ? renderSecondary(inlineSecondary) : null}
           {primaryAction ? renderPrimary(primaryAction) : null}
           {menuActions ? (
-            <details className="ui-header-menu">
-              <summary className="ui-button" aria-label="Ещё действия">
-                Ещё
-              </summary>
-              <div className="ui-header-menu__list" role="menu">
-                {menuActions.map((action) => renderMenuItem(action))}
-              </div>
-            </details>
+            <HeaderMenu summary="Ещё" summaryClassName="ui-button" summaryLabel="Ещё действия">
+              {menuActions.map((action) => renderMenuItem(action))}
+            </HeaderMenu>
           ) : null}
         </div>
       ) : null}
