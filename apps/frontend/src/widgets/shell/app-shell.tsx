@@ -462,7 +462,9 @@ export const AppShell = ({ children }: PropsWithChildren) => {
                   aria-live="polite"
                   aria-label={unreadTitle(unread.data?.total)}
                   className={
-                    badge ? 'ui-badge ui-badge--brand app-shell__bell-count' : VISUALLY_HIDDEN_CLASS
+                    badge
+                      ? 'ui-badge ui-badge--neutral app-shell__bell-count'
+                      : VISUALLY_HIDDEN_CLASS
                   }
                 >
                   {badge ?? ''}
