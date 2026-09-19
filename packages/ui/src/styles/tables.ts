@@ -108,7 +108,7 @@ export const tableStyles = `
   padding: 0 6px;
   border-radius: var(--ui-radius-pill);
   background: var(--ui-brand-600);
-  color: var(--ui-on-accent, #fff);
+  color: var(--ui-on-brand);
   font-size: var(--ui-font-size-xs);
   line-height: 20px;
   display: inline-block;

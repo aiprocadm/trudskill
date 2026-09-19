@@ -71,13 +71,24 @@ button:disabled:hover,
   background: var(--ui-surface-muted);
   transform: none;
 }
-/* Главная кнопка-действие — коралл с тёмным текстом (AA 6.4:1; белый текст на коралле = 2.6:1, провал) */
-.ui-button--primary,.ui-button-primary { background: var(--ui-accent-600); border-color: var(--ui-accent-600); color: var(--ui-on-accent); box-shadow: 0 8px 18px -10px rgba(234, 99, 38, 0.55); }
-.ui-button--primary:hover,.ui-button-primary:hover { background: var(--ui-accent-700); border-color: var(--ui-accent-700); transform: translateY(-1px); }
+/*
+ * ТЗ 7.4: ИНДИГО — доминанта, коралл — редкий акцент.
+ *
+ * Было наоборот: кораллом красилась КАЖДАЯ первичная кнопка на каждом экране — в формах, в
+ * диалогах, в пустых состояниях. Акцент, который стоит везде, акцентом быть перестаёт: глаз
+ * к нему привыкает и больше не отличает главное от обычного. Теперь первичная кнопка —
+ * фирменный индиго, а коралл остался ровно за одним местом: призывом к действию в блоке
+ * «Следующий шаг», то есть за главным делом дня (журнал 566).
+ *
+ * Текст берётся из токена «на фирменном цвете», потому что фон — фирменный цвет: у центра он
+ * свой, и подходящий текст к нему считается, а не назначается.
+ */
+.ui-button--primary,.ui-button-primary { background: var(--ui-brand-600); border-color: var(--ui-brand-600); color: var(--ui-on-brand); }
+.ui-button--primary:hover,.ui-button-primary:hover { background: var(--ui-brand-700); border-color: var(--ui-brand-700); transform: translateY(-1px); }
 .ui-button--secondary,.ui-button-secondary { background: var(--ui-surface-accent); border-color: var(--ui-border-strong); color: var(--ui-text); }
 .ui-button--ghost,.ui-button-ghost { background: transparent; border-color: transparent; color: var(--ui-brand-700); }
 .ui-button--ghost:hover,.ui-button-ghost:hover { background: var(--ui-surface-muted); }
-.ui-button--danger,.ui-button-danger { background: var(--ui-danger-600); border-color: var(--ui-danger-600); color: #fff; }
+.ui-button--danger,.ui-button-danger { background: var(--ui-danger-600); border-color: var(--ui-danger-600); color: var(--ui-on-color); }
 /*
  * UI-029/UI-030 — «занято» показывается по-разному, смотря разрешено ли движение.
  *

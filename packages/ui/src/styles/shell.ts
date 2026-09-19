@@ -27,7 +27,7 @@ export const shellStyles = `
    а серое имя мелким шрифтом человек не замечает вовсе. */
 .app-shell__user > summary { display: inline-flex; align-items: center; gap: var(--ui-space-xs); padding: var(--ui-space-xs) var(--ui-space-sm); border-radius: var(--ui-radius-pill); min-height: 44px; }
 .app-shell__user > summary:hover { background: var(--ui-surface-muted); }
-.app-shell__avatar { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--ui-radius-pill); background: var(--ui-brand-700); color: var(--ui-on-accent); font-size: var(--ui-font-size-sm); font-weight: var(--ui-font-weight-bold); }
+.app-shell__avatar { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--ui-radius-pill); background: var(--ui-brand-700); color: var(--ui-on-brand); font-size: var(--ui-font-size-sm); font-weight: var(--ui-font-weight-bold); }
 .app-shell__user-name { color: var(--ui-text); font-size: var(--ui-font-size-sm); }
 /* Колокольчик: значок с числом, а не ссылка-подпись. Тач-зона 44px — правило ФТ-H4. */
 .app-shell__bell { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; border-radius: var(--ui-radius-pill); color: var(--ui-text); }

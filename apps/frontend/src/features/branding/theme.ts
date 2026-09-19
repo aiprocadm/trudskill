@@ -59,6 +59,13 @@ export const brandingToThemeVars = (
     const brand = branding.brandColor.toLowerCase();
     vars['--ui-brand-600'] = brand;
     vars['--ui-brand-700'] = darkenHexColor(brand);
+    /*
+     * ТЗ 7.4: текст на фирменном цвете считается, а не берётся наугад. Центр с жёлтым или
+     * светло-зелёным фирменным цветом получал белое по светлому и не мог прочитать ни шаг
+     * мастера, ни кружок профиля (журнал 565). Затемнённая ступень (`-700`) берёт тот же
+     * текст: затемнение не переворачивает выбор со светлого на тёмный.
+     */
+    vars['--ui-on-brand'] = readableTextOn(brand);
     // Приглушённая заливка «фирменных» поверхностей: 12% цвета поверх прозрачного.
     vars['--ui-surface-accent'] = `color-mix(in srgb, ${brand} 12%, transparent)`;
   }
@@ -71,10 +78,12 @@ export const brandingToThemeVars = (
      * Наведение (`-700`) — затемнение того же цвета, поэтому подходящий текст у них общий:
      * затемнение не может перевернуть выбор со светлого на тёмный.
      */
+    /*
+     * Один цвет — одно место. Прежде рядом жили `--ui-hero-cta-*` с теми же значениями: кнопка
+     * в блоке «Следующий шаг» красилась через них, а первичная кнопка — через акцент. Две
+     * дороги к одному цвету однажды разошлись бы (журнал 566). Теперь и то и другое — акцент.
+     */
     vars['--ui-on-accent'] = readableTextOn(accent);
-    vars['--ui-hero-cta-bg'] = accent;
-    vars['--ui-hero-cta-bg-hover'] = darkenHexColor(accent);
-    vars['--ui-hero-cta-text'] = readableTextOn(accent);
   }
   return vars;
 };
