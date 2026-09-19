@@ -20,6 +20,21 @@ export interface NavigationItem {
    * возвращение — это переключатель, а не восстановление удалённого кода по истории.
    */
   featureFlag?: 'chat';
+  /**
+   * Чья это работа (ТЗ 3.2, пункт 2: «маршрут → название → группа → СПИСОК РОЛЕЙ»).
+   *
+   * Права отвечают на вопрос «можно ли сюда войти», а этот список — на вопрос «нужно ли это
+   * показывать в меню». Вопросы разные, и подменять один другим — как раз то, из-за чего
+   * методист видел в меню «Заявки на НЭП», «Подписание документов», «Переаттестацию» и
+   * «Госвыгрузки»: права на чтение у него есть, а работа это не его (ТЗ 8.4, журнал 534).
+   *
+   * Поле НЕ трогает доступ: по прямой ссылке раздел откроется, как и раньше, если права
+   * позволяют. Скрыть из меню и отобрать право — разные действия, и второе делается
+   * миграцией, а не разметкой.
+   *
+   * Не задано — раздел показывается всем, кого пускают права (так у подавляющего большинства).
+   */
+  audience?: string[];
 }
 
 /** Более специфичные пути должны идти раньше (первое совпадение в evaluateRouteAccess). */
@@ -264,6 +279,24 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['counterparties.read'] }
   },
   { pattern: '/directions', meta: { public: false, requiredPermissions: ['directions.read'] } },
+  /*
+   * ТЗ 8.4: предпросмотр программы глазами слушателя.
+   *
+   * Право АВТОРСКОЕ (`materials.write`), а не читательское. Сначала здесь стояло
+   * `courses.read` + `materials.read` — и сторож изоляции показал, почему так нельзя: оба
+   * этих права есть у СЛУШАТЕЛЯ (живая `iam.role_permissions`). По прямой ссылке он открыл
+   * бы предпросмотр ЛЮБОГО курса центра и увидел его материалы, не будучи зачисленным, —
+   * обход того самого правила, ради которого материалы и выдаются по зачислению
+   * (журнал 538). `materials.write` выдан методисту и администрации — тем, кто программу
+   * и составляет.
+   *
+   * Стоит ПЕРЕД '/courses': совпадение ищется первым подходящим, и общий префикс иначе
+   * поглотил бы этот адрес вместе с его правами.
+   */
+  {
+    pattern: '/courses/[id]/preview',
+    meta: { public: false, requiredPermissions: ['courses.read', 'materials.write'] }
+  },
   { pattern: '/courses', meta: { public: false, requiredPermissions: ['courses.read'] } },
   { pattern: '/groups', meta: { public: false, requiredPermissions: ['groups.read'] } },
   {
@@ -544,17 +577,23 @@ export const navigationModel: NavigationItem[] = [
     requiredPermissions: ['documents.read'],
     navSlot: 'more'
   },
+  /*
+   * ТЗ 3.2 называет НЭП и подписание «работой юриста и делопроизводителя», а ТЗ 8.4 — прямо
+   * не работой методиста. Права на чтение у него есть, поэтому убирается ИМЕННО из меню.
+   */
   {
     href: '/esign/applications',
     label: 'Заявки на НЭП',
     requiredPermissions: ['esign.applications.read'],
-    navSlot: 'more'
+    navSlot: 'more',
+    audience: ['platform_admin', 'tenant_admin', 'manager']
   },
   {
     href: '/esign/processes',
     label: 'Подписание документов',
     requiredPermissions: ['esign.processes.read'],
-    navSlot: 'more'
+    navSlot: 'more',
+    audience: ['platform_admin', 'tenant_admin', 'manager']
   },
   {
     href: '/esign/legal-log',
@@ -601,11 +640,13 @@ export const navigationModel: NavigationItem[] = [
     navSlot: 'more',
     featureFlag: 'chat'
   },
+  /* ТЗ 8.4: отчётность в надзор ведёт администрация центра, а не автор программ. */
   {
     href: '/gov-export',
     label: 'Госвыгрузки',
     requiredPermissions: ['regulatory.export.read'],
-    navSlot: 'more'
+    navSlot: 'more',
+    audience: ['platform_admin', 'tenant_admin', 'manager']
   },
   {
     href: '/integrations',
@@ -694,11 +735,13 @@ export const navigationModel: NavigationItem[] = [
     requiredPermissions: ['counterparties.read'],
     navSlot: 'more'
   },
+  /* ТЗ 8.4: кого и когда переаттестовать — работа администрации, а не автора программ. */
   {
     href: '/admin/recertification',
     label: 'Переаттестация',
     requiredPermissions: ['recertification.read'],
-    navSlot: 'more'
+    navSlot: 'more',
+    audience: ['platform_admin', 'tenant_admin']
   },
   {
     href: '/admin/orders',

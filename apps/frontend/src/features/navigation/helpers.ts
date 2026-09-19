@@ -90,8 +90,18 @@ const forAudience = (
   if (!blueprints.length) return items;
   const asLearner = blueprints.some((item) => item.role === 'learner');
   const asStaff = blueprints.some((item) => item.role !== 'learner');
+  const roles = new Set(blueprints.map((item) => item.role));
+  /*
+   * ТЗ 3.2 (пункт 2) и 8.4: у раздела может быть назван адресат — «чья это работа». Тогда в
+   * меню он виден только тем ролям. Права это не трогает: по прямой ссылке раздел откроется,
+   * если права позволяют, — скрыть из меню и отобрать право разные действия (журнал 534).
+   */
+  const namedForRole = (item: { audience?: string[] }) =>
+    !item.audience || item.audience.some((role) => roles.has(role));
   return items.filter(
-    (item) => SHARED_NAV.has(item.href) || (isLearnerCabinet(item.href) ? asLearner : asStaff)
+    (item) =>
+      namedForRole(item) &&
+      (SHARED_NAV.has(item.href) || (isLearnerCabinet(item.href) ? asLearner : asStaff))
   );
 };
 
