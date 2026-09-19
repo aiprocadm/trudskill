@@ -22,7 +22,11 @@ const ctx = {
   userId: 'u_platform_admin'
 } as RequestContext;
 
-function makeHarness(rowsBySqlFragment: Record<string, unknown[] | (() => unknown[])>) {
+function makeHarness(
+  rowsBySqlFragment: Record<string, unknown[] | (() => unknown[])>,
+  /* ТЗ 13.1: мастер первого запуска — источник правды о готовности настройки. */
+  onboarding?: { getStatus: (tenantId: string) => Promise<{ ready: boolean }> }
+) {
   const query = vi.fn(async (sql: string) => {
     const hit = Object.entries(rowsBySqlFragment).find(([fragment]) => sql.includes(fragment));
     if (!hit) return [];
@@ -32,7 +36,8 @@ function makeHarness(rowsBySqlFragment: Record<string, unknown[] | (() => unknow
   const service = new PlatformTenantsService(
     { query } as unknown as DatabaseService,
     { writeCritical } as unknown as AuditService,
-    authStub
+    authStub,
+    onboarding as never
   );
   return { service, query, writeCritical };
 }
@@ -117,5 +122,66 @@ describe('PlatformTenantsService.changeStatus', () => {
     await expect(
       service.changeStatus('u_platform_admin', 'missing', 'suspended', ctx)
     ).rejects.toThrow(NotFoundException);
+  });
+});
+
+describe('PlatformTenantsService.onboardingPathOf (ТЗ 13.1)', () => {
+  const tenantRow = (status: string, planName: string | null) => ({
+    'from core.tenants': [{ status, planName }]
+  });
+
+  it('готовность настройки берётся У МАСТЕРА, а не считается заново', () => {
+    /*
+     * Второй подсчёт «настроен ли центр» разъехался бы с мастером при первой правке списка
+     * обязательных шагов: центр видел бы «осталось два шага», платформа — «всё готово»
+     * (журнал 557).
+     */
+    const getStatus = vi.fn(async () => ({ ready: false }));
+    const { service } = makeHarness(tenantRow('trial', null), { getStatus });
+
+    return service.onboardingPathOf('t1').then((path) => {
+      expect(getStatus).toHaveBeenCalledWith('t1');
+      expect(path.currentStepId).toBe('setup');
+      expect(path.waitingFor).toBe('tenant');
+    });
+  });
+
+  it('настроенный центр на пробном периоде ждёт решения центра', () => {
+    const { service } = makeHarness(tenantRow('trial', null), {
+      getStatus: async () => ({ ready: true })
+    });
+
+    return service.onboardingPathOf('t1').then((path) => {
+      expect(path.currentStepId).toBe('trial');
+    });
+  });
+
+  it('настроенный центр без тарифа ждёт платформу', () => {
+    const { service } = makeHarness(tenantRow('active', null), {
+      getStatus: async () => ({ ready: true })
+    });
+
+    return service.onboardingPathOf('t1').then((path) => {
+      expect(path.currentStepId).toBe('paid');
+      expect(path.waitingFor).toBe('platform');
+    });
+  });
+
+  it('мастер недоступен — настройка считается незакрытой, а не готовой', () => {
+    /* Сказать «ещё не настроен» безопаснее, чем ошибочно объявить центр готовым к работе. */
+    const { service } = makeHarness(tenantRow('active', 'Базовый'), {
+      getStatus: async () => {
+        throw new Error('мастер недоступен');
+      }
+    });
+
+    return service.onboardingPathOf('t1').then((path) => {
+      expect(path.currentStepId).toBe('setup');
+    });
+  });
+
+  it('несуществующий центр — «не найдено», а не выдуманный путь', () => {
+    const { service } = makeHarness({ 'from core.tenants': [] });
+    return expect(service.onboardingPathOf('нет-такого')).rejects.toThrow(NotFoundException);
   });
 });

@@ -26,6 +26,20 @@ import type { Response } from 'express';
 export class PlatformTenantsController {
   constructor(@Inject(PlatformTenantsService) private readonly service: PlatformTenantsService) {}
 
+  /**
+   * ТЗ 13.1: путь подключения центра — один и тот же для обеих сторон.
+   *
+   * Отдаётся по одному центру, а не списком: шаг «первая настройка» считается по данным центра,
+   * и для списка это был бы запрос на каждую строку. Администратор платформы смотрит путь того
+   * центра, о котором спрашивает, — а не всех сразу (журнал 557).
+   */
+  @Get(':id/onboarding-path')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('platform.tenants.read')
+  onboardingPathOf(@Param('id') id: string) {
+    return this.service.onboardingPathOf(id);
+  }
+
   @Get()
   @UseGuards(PermissionGuard)
   @RequirePermissions('platform.tenants.read')
