@@ -20,6 +20,7 @@ import { MvpModule } from './modules/mvp/mvp.module.js';
 import { OrgModule } from './modules/org/org.module.js';
 import { PaymentsModule } from './modules/payments/payments.module.js';
 import { PlatformModule } from './modules/platform/platform.module.js';
+import { SupportModule } from './modules/support/support.module.js';
 import { TenantModule } from './modules/tenant/tenant.module.js';
 import { WorkspaceModule } from './modules/workspace/workspace.module.js';
 
@@ -50,7 +51,9 @@ const domainModules = [
   MigrationModule,
   OrgModule,
   PaymentsModule,
-  PlatformModule
+  PlatformModule,
+  /* ТЗ 15.5: приём обращений «Сообщить о проблеме» — один контроллер без своего хранилища. */
+  SupportModule
 ];
 
 @Module({

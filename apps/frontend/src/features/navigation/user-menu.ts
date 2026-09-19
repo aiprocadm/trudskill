@@ -1,4 +1,5 @@
 import { getSessionRoleBlueprints } from './role-blueprints';
+import { PROBLEM_REPORT_LABEL } from '../support/problem-report';
 
 import type { UserSession } from '../../entities/session/model';
 
@@ -46,7 +47,7 @@ export const profileHref = (session: UserSession | null): string => {
 };
 
 export interface UserMenuItem {
-  id: 'profile' | 'appearance' | 'logout';
+  id: 'profile' | 'appearance' | 'problem' | 'logout';
   label: string;
   /** Пункт-ссылка; у «Оформления» и «Выйти» адреса нет — они делают что-то на месте. */
   href?: string;
@@ -63,6 +64,15 @@ export interface UserMenuItem {
 export const userMenuItems = (session: UserSession | null): UserMenuItem[] => [
   { id: 'profile', label: 'Профиль', href: profileHref(session) },
   { id: 'appearance', label: 'Оформление' },
+  /*
+   * ТЗ 15.5: «Сообщить о проблеме» живёт именно здесь, в меню человека.
+   *
+   * Почему не отдельным разделом меню: раздел — это место, куда ходят работать, а сюда
+   * приходят один раз и в плохую минуту. Почему не внизу страницы: страница может не
+   * открыться — а сообщить о проблеме нужно как раз тогда. Меню человека есть на каждом
+   * экране и не зависит от содержимого страницы (журнал 583).
+   */
+  { id: 'problem', label: PROBLEM_REPORT_LABEL, href: '/support/problem' },
   { id: 'logout', label: 'Выйти', danger: true }
 ];
 

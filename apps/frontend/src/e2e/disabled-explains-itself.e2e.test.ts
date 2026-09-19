@@ -45,9 +45,13 @@ const NAMED: Record<string, string> = {
 /**
  * «Занято» — операция идёт: объяснять нечего, об этом говорит крутилка. Всё остальное —
  * условие, и его человеку нужно назвать.
+ *
+ * `sending` добавлено с ТЗ 15.5: отправка обращения — тот же класс, что сохранение и отправка
+ * формы, просто названный другим словом. Список не ослаблен: он по-прежнему перечисляет
+ * состояния «идёт операция» поимённо, а не пропускает всё подряд (журнал 583).
  */
 const BUSY =
-  /\b(busy|isRunning|running|pending|saving|submitting|loading|isLoading|isPending|isSubmitting|busyId|payPending|frdoBusy|uploading|Pending|Busy)\b/g;
+  /\b(busy|isRunning|running|pending|saving|sending|submitting|loading|isLoading|isPending|isSending|isSubmitting|busyId|payPending|frdoBusy|uploading|Pending|Busy|Sending)\b/g;
 
 /**
  * Кнопки, выключенные по условию и пока молчащие. Список сверяется на РАВЕНСТВО: новая
