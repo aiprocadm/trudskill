@@ -446,6 +446,17 @@ export class AuthController {
     return sessions.map((session) => toSessionResponse(session));
   }
 
+  /**
+   * Журнал входов в свою учётную запись (ТЗ 17.1).
+   *
+   * Без права: человек смотрит СВОИ входы, а не чужие. Ограничение по праву здесь означало бы,
+   * что заметить чужое проникновение в собственную запись может только администратор.
+   */
+  @Get('auth/login-history')
+  async loginHistory(@CurrentContext() context: RequestContext) {
+    return this.authService.getLoginHistory(context.tenantId!, context.userId!);
+  }
+
   @Delete('auth/sessions/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('auth.manage_sessions')

@@ -10,13 +10,16 @@ import {
   UnauthorizedException
 } from '@nestjs/common';
 
+import { IamService } from './iam.service.js';
 import { MetricsService } from '../../../common/metrics/metrics.service.js';
 import { ensureInMemoryModeAllowed } from '../../../common/runtime/in-memory-mode.guard.js';
 import { backendEnv } from '../../../env.js';
+import { RedisService } from '../../../infrastructure/cache/redis.service.js';
 import { DatabaseService } from '../../../infrastructure/database/database.service.js';
 import { SecretsService } from '../../../infrastructure/secrets/secrets.service.js';
 import { TenantAccessService } from '../../../infrastructure/tenant/tenant-access.service.js';
 import { AuditService } from '../../audit/audit.service.js';
+import { IntegrationCryptoService } from '../../integrations/services/integration-crypto.service.js';
 import {
   hashPassword,
   hashRefreshToken,
@@ -25,8 +28,14 @@ import {
   issueToken,
   verifyPassword
 } from '../crypto.util.js';
-import { IamService } from './iam.service.js';
-import { IntegrationCryptoService } from '../../integrations/services/integration-crypto.service.js';
+import { LOGIN_HISTORY_ACTIONS, toLoginHistoryEntry } from '../login-history.js';
+import {
+  DEFAULT_LOGIN_PROTECTION,
+  lockedMessage,
+  loginFailureKey,
+  loginLockKey,
+  shouldLock
+} from '../login-protection.js';
 import {
   buildOtpauthUrl,
   generateTotpSecret,
@@ -37,6 +46,7 @@ import {
 
 import type { RequestContext } from '../../../common/context/request-context.js';
 import type { AuthEvent, Session, User } from '../iam.types.js';
+import type { LoginHistoryEntry } from '../login-history.js';
 
 /**
  * 2FA-роли (ФТ-G3): включать TOTP могут админские роли. Не HttpException —
@@ -96,7 +106,15 @@ export class AuthService {
      */
     @Inject(TenantAccessService)
     @Optional()
-    private readonly tenantAccess?: TenantAccessService
+    private readonly tenantAccess?: TenantAccessService,
+    /*
+     * ТЗ 17.1: счётчик неудачных попыток входа. Необязательная и ПОСЛЕДНЯЯ зависимость
+     * (журнал 526): без общего хранилища вход обязан работать — просто без защиты от подбора,
+     * и это честнее, чем не пускать вообще никого.
+     */
+    @Inject(RedisService)
+    @Optional()
+    private readonly redis?: RedisService
   ) {
     if (!this.databaseService) {
       ensureInMemoryModeAllowed('AuthService');
@@ -109,10 +127,155 @@ export class AuthService {
     }
   }
 
+  /**
+   * Журнал входов владельца учётной записи (ТЗ 17.1).
+   *
+   * Показывает СВОИ входы и свои неудачные попытки: это единственное место, где человек может
+   * заметить, что в его запись заходил кто-то ещё. Права здесь не нужны и не нужны намеренно —
+   * речь о собственной записи, а не о чужой; чужие входы видны в общем журнале аудита, куда
+   * пускают по праву.
+   *
+   * Технические значения переводятся в слова НА СЕРВЕРЕ: `wrong_password` и строка браузера
+   * администратору учебного центра не говорят ничего, а правило продукта запрещает сырые коды
+   * как значения.
+   */
+  async getLoginHistory(
+    tenantId: string,
+    userId: string,
+    limit = 20
+  ): Promise<LoginHistoryEntry[]> {
+    const collected = [];
+    for (const action of LOGIN_HISTORY_ACTIONS) {
+      /*
+       * Запрашиваем по одному действию: отбор аудита принимает ровно одно, а склеивать их
+       * строкой значило бы полагаться на то, как он разбирает параметр.
+       */
+      const page = await this.auditService.list(tenantId, {
+        actor: userId,
+        action,
+        limit
+      });
+      collected.push(...page);
+    }
+    return collected
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, limit)
+      .map((entry) => toLoginHistoryEntry(entry));
+  }
+
+  /**
+   * Не закрыт ли вход в эту запись прямо сейчас (ТЗ 17.1).
+   *
+   * Без общего хранилища проверка молчит: вход обязан работать и там, где хранилище не поднято.
+   * Это осознанный размен — лучше вход без защиты от подбора, чем система, которая не пускает
+   * никого из-за упавшего вспомогательного сервиса.
+   */
+  private async assertLoginNotLocked(tenantId: string, login: string): Promise<void> {
+    if (!this.redis) return;
+    let secondsLeft: number;
+    try {
+      secondsLeft = await this.redis.secondsToLive(loginLockKey(tenantId, login));
+    } catch {
+      // Хранилище недоступно — не мешаем входить. Причина та же, что выше.
+      return;
+    }
+    if (secondsLeft <= 0) return;
+    this.metrics?.incrementAuthFailure({ reason: 'login_locked', phase: 'login_lock' });
+    throw new UnauthorizedException({
+      code: 'login_locked',
+      message: lockedMessage(secondsLeft / 60)
+    });
+  }
+
+  /**
+   * Учесть неудачную попытку и, если их набралось слишком много, закрыть вход (ТЗ 17.1).
+   *
+   * Каждая неудача пишется в журнал независимо от счётчика: «журнал входов — когда, откуда,
+   * успешно или нет» и есть то, что спрашивают при проверке. Раньше в журнал попадали только
+   * УСПЕШНЫЕ входы, то есть по нему нельзя было увидеть ни подбора, ни того, что человек не
+   * может войти (журнал 573).
+   */
+  private async registerLoginFailure(
+    tenantId: string,
+    login: string,
+    reason: 'unknown_login' | 'wrong_password' | 'user_blocked',
+    context: RequestContext,
+    userId?: string
+  ): Promise<void> {
+    const settings = DEFAULT_LOGIN_PROTECTION;
+    let failures = 0;
+    if (this.redis) {
+      try {
+        failures = await this.redis.incrementWithWindow(
+          loginFailureKey(tenantId, login),
+          settings.windowMinutes * 60
+        );
+        if (shouldLock(failures, settings)) {
+          await this.redis.setWithTtl(
+            loginLockKey(tenantId, login),
+            String(Date.now()),
+            settings.lockMinutes * 60
+          );
+          await this.redis.remove(loginFailureKey(tenantId, login));
+        }
+      } catch {
+        // Хранилище недоступно: защита от подбора не сработает, но запись в журнал — да.
+        failures = 0;
+      }
+    }
+
+    await this.auditService.writeCritical(
+      {
+        tenantId,
+        /*
+         * Актор неизвестен, когда такого логина нет. Ставим служебное значение, а не логин:
+         * логин — это то, что ввёл посторонний, и в поле «кто сделал» ему не место.
+         */
+        actorId: userId ?? 'anonymous',
+        action: 'auth.login_failed',
+        entityType: 'iam.user',
+        entityId: userId ?? 'unknown',
+        metadata: {
+          reason,
+          failures,
+          /* Логин в метаданных нужен для разбора: по нему видно, чью запись перебирают. */
+          login,
+          locked: shouldLock(failures, settings)
+        },
+        requestId: context.requestId,
+        correlationId: context.correlationId,
+        ip: context.ip,
+        userAgent: context.userAgent
+      },
+      { skipDatabase: !this.databaseService }
+    );
+  }
+
+  /** Успешный вход обнуляет серию: считать неудачи «через успех» бессмысленно. */
+  private async clearLoginFailures(tenantId: string, login: string): Promise<void> {
+    if (!this.redis) return;
+    try {
+      await this.redis.remove(loginFailureKey(tenantId, login));
+    } catch {
+      // Не удалось убрать счётчик — не повод отказывать во входе, который уже состоялся.
+    }
+  }
+
   async login(tenantId: string, payload: LoginPayload, context: RequestContext) {
+    /*
+     * ТЗ 17.1: вход, закрытый после серии неудач, проверяется ПЕРВЫМ — до поиска пользователя.
+     * Иначе по времени ответа можно было бы отличить существующий логин от несуществующего.
+     */
+    await this.assertLoginNotLocked(tenantId, payload.login);
+
     const resolved = await this.iamService.findUserByLogin(tenantId, payload.login);
     if (!resolved) {
       this.metrics?.incrementAuthFailure({ reason: 'invalid_credentials', phase: 'login_lookup' });
+      /*
+       * Неудача считается и для НЕСУЩЕСТВУЮЩЕГО логина. Иначе перебор чужих логинов ничем не
+       * ограничен, а сам факт «этот логин не считается» выдаёт, что такого человека нет.
+       */
+      await this.registerLoginFailure(tenantId, payload.login, 'unknown_login', context);
       throw new UnauthorizedException({
         code: 'invalid_credentials',
         message: 'Invalid credentials'
@@ -123,6 +286,7 @@ export class AuthService {
 
     if (user.status === 'blocked') {
       this.metrics?.incrementAuthFailure({ reason: 'user_blocked', phase: 'login_status' });
+      await this.registerLoginFailure(tenantId, payload.login, 'user_blocked', context, user.id);
       throw new UnauthorizedException({ code: 'user_blocked', message: 'User is blocked' });
     }
 
@@ -131,11 +295,15 @@ export class AuthService {
         reason: 'invalid_credentials',
         phase: 'login_password'
       });
+      await this.registerLoginFailure(tenantId, payload.login, 'wrong_password', context, user.id);
       throw new UnauthorizedException({
         code: 'invalid_credentials',
         message: 'Invalid credentials'
       });
     }
+
+    /* Пароль сошёлся — счётчик обнуляется: серия прервана. */
+    await this.clearLoginFailures(tenantId, payload.login);
 
     const persistRelational = !this.databaseService || databaseBacked;
 
