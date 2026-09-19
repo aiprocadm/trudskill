@@ -28,6 +28,7 @@ import {
   DOCUMENT_SIGNATURE_PROVIDER,
   NoopDocumentSignatureProvider
 } from '../../infrastructure/document-signature/document-signature.provider.js';
+import { BackgroundTasksModule } from '../background-tasks/background-tasks.module.js';
 import { FilesModule } from '../files/files.module.js';
 import { IamModule } from '../iam/iam.module.js';
 import { MvpPersistenceRepositoryAdapter } from '../mvp/infrastructure/mvp-persistence.repository.adapter.js';
@@ -43,7 +44,16 @@ const persistenceBackendClass =
     : MemoryDocumentsPersistenceBackend;
 
 @Module({
-  imports: [AuditModule, InfrastructureModule, IamModule, FilesModule, TenantModule, OrgModule],
+  imports: [
+    /* ТЗ 12.2: выдача документов попадает в общий реестр фоновых задач. */
+    BackgroundTasksModule,
+    AuditModule,
+    InfrastructureModule,
+    IamModule,
+    FilesModule,
+    TenantModule,
+    OrgModule
+  ],
   controllers: [DocumentsController, PublicVerifyController, DocumentsInternalWorkerController],
   providers: [
     PostgresDocumentsPersistenceBackend,

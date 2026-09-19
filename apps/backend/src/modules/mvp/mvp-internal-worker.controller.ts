@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
-import { Body, Controller, Inject, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Inject, Optional, Post, UseGuards } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import { IsArray, IsOptional, IsString, MinLength, ValidateNested } from 'class-validator';
 
 import { WorkerCallbackGuard } from './infrastructure/worker-callback.guard.js';
 import { MvpEnrollmentService } from './mvp-enrollment.service.js';
 import { assertValidDto } from '../../common/app-validation.pipe.js';
+import { BackgroundTasksService } from '../background-tasks/background-tasks.service.js';
 
 import type { RequestContext } from '../../common/context/request-context.js';
 
@@ -38,6 +39,14 @@ class WorkerBulkEnrollmentBodyDto {
   @MinLength(1)
   tenantId!: string;
 
+  /*
+   * Ключ сообщения очереди. Воркер его присылает с самого начала, но в описании тела он не был
+   * объявлен — и потому не доходил до кода. ТЗ 12.2: по нему закрывается задача в реестре.
+   */
+  @IsOptional()
+  @IsString()
+  messageId?: string;
+
   @IsOptional()
   @IsString()
   requestId?: string;
@@ -64,10 +73,19 @@ class WorkerBulkEnrollmentBodyDto {
 @Controller('internal/worker')
 @UseGuards(WorkerCallbackGuard)
 export class MvpInternalWorkerController {
-  constructor(@Inject(MvpEnrollmentService) private readonly enrollment: MvpEnrollmentService) {}
+  constructor(
+    @Inject(MvpEnrollmentService) private readonly enrollment: MvpEnrollmentService,
+    /*
+     * ТЗ 12.2 (срез 2): круг замыкается здесь. Пока задача только СТАВИЛАСЬ в реестр, человек
+     * видел вечное «В очереди»: закрыть её было некому (журнал 521).
+     */
+    @Optional()
+    @Inject(BackgroundTasksService)
+    private readonly tasks?: BackgroundTasksService
+  ) {}
 
   @Post('mvp/bulk-enrollments')
-  processBulkEnrollment(@Body() raw: unknown) {
+  async processBulkEnrollment(@Body() raw: unknown) {
     const body = assertValidDto(WorkerBulkEnrollmentBodyDto, raw);
     const p = body.payload;
     const ctx: RequestContext = {
@@ -76,17 +94,39 @@ export class MvpInternalWorkerController {
       tenantId: body.tenantId,
       userId: p.actorId
     };
-    return this.enrollment.enrollIntoGroup(
-      body.tenantId,
-      p.actorId,
-      {
-        idempotencyKey: p.idempotencyKey,
-        groupId: p.groupId,
-        learnerIds: p.learnerIds ?? [],
-        organizationUnitId: p.organizationUnitId,
-        deliveryMode: 'immediate'
-      },
-      ctx
-    );
+    /*
+     * Отказ обработки не проглатывается: сообщение обязано вернуться в очередь и попасть в
+     * карантин, иначе зачисление потеряется навсегда (об этом предупреждает комментарий выше).
+     * Поэтому задача помечается неудачной И ошибка бросается дальше.
+     */
+    try {
+      const outcome = await this.enrollment.enrollIntoGroup(
+        body.tenantId,
+        p.actorId,
+        {
+          idempotencyKey: p.idempotencyKey,
+          groupId: p.groupId,
+          learnerIds: p.learnerIds ?? [],
+          organizationUnitId: p.organizationUnitId,
+          deliveryMode: 'immediate'
+        },
+        ctx
+      );
+      await this.tasks?.finishByMessage(body.tenantId, body.messageId ?? '', {
+        status: 'succeeded',
+        doneCount: p.learnerIds?.length ?? 0,
+        resultHref: `/groups/${p.groupId}`
+      });
+      return outcome;
+    } catch (error) {
+      await this.tasks?.finishByMessage(body.tenantId, body.messageId ?? '', {
+        status: 'failed',
+        errorText:
+          error instanceof Error
+            ? error.message
+            : 'Зачисление не выполнено. Обратитесь в учебный центр.'
+      });
+      throw error;
+    }
   }
 }

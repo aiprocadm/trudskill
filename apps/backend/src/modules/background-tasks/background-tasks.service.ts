@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
+import { NotificationsService } from '../communication/notifications.service.js';
 
 import type {
   BackgroundTask,
@@ -38,7 +39,13 @@ export class BackgroundTasksService {
   /** Память используется, когда базы нет. Ключ — арендатор, чтобы изоляция была видна глазом. */
   private readonly memory = new Map<string, BackgroundTask[]>();
 
-  constructor(@Optional() @Inject(DatabaseService) private readonly database?: DatabaseService) {}
+  constructor(
+    @Optional() @Inject(DatabaseService) private readonly database?: DatabaseService,
+    /* ТЗ 12.2: уведомление при завершении — колокольчик, наполненный в 11.1. */
+    @Optional()
+    @Inject(NotificationsService)
+    private readonly notifications?: NotificationsService
+  ) {}
 
   /** Поставить задачу в очередь: человек сразу видит её в разделе «Фоновые задачи». */
   async start(input: StartTaskInput): Promise<BackgroundTask> {
@@ -130,6 +137,56 @@ export class BackgroundTasksService {
     if (outcome.resultHref !== undefined) task.resultHref = outcome.resultHref;
     task.updatedAt = now;
     task.finishedAt = now;
+  }
+
+  /**
+   * Закрыть задачу по ключу сообщения очереди (ТЗ 12.2, срез 2).
+   *
+   * Воркер знает ключ сообщения, а не наш внутренний номер задачи, — поэтому закрытие ищет
+   * запись именно по нему. Если записи нет (задача поставлена до появления реестра), молчим:
+   * отсутствие записи не повод ронять обработку сообщения.
+   */
+  async finishByMessage(
+    tenantId: string,
+    messageId: string,
+    outcome: {
+      status: Extract<BackgroundTaskStatus, 'succeeded' | 'failed'>;
+      doneCount?: number;
+      errorText?: string;
+      resultHref?: string;
+    }
+  ): Promise<void> {
+    const found = (await this.list(tenantId, 200)).find((task) => task.messageId === messageId);
+    if (!found) return;
+    await this.finish(tenantId, found.id, outcome);
+    await this.announce(tenantId, found.title, outcome);
+  }
+
+  /**
+   * Сказать человеку, что задача закончилась.
+   *
+   * Колокольчик наполнен в 11.1, и ТЗ 12.2 прямо требует «уведомление при завершении»: иначе
+   * человек, которому сказали «можно закрыть страницу», узнает об итоге, только вернувшись.
+   * Отказ уведомления не роняет закрытие задачи: сама задача уже закрыта, и повторять нечего.
+   */
+  private async announce(
+    tenantId: string,
+    title: string,
+    outcome: { status: BackgroundTaskStatus; errorText?: string }
+  ): Promise<void> {
+    if (!this.notifications) return;
+    try {
+      await this.notifications.create({
+        tenantId,
+        channelCode: 'in_app',
+        subjectText:
+          outcome.status === 'succeeded' ? `Готово: ${title}` : `Не выполнена задача: ${title}`,
+        bodyText: outcome.errorText ?? 'Подробности — в разделе «Фоновые задачи».',
+        relatedEntityType: 'background_task'
+      });
+    } catch {
+      /* Второстепенный канал: задача уже закрыта, повторять её нельзя. */
+    }
   }
 
   /** Задачи центра, свежие сверху. */
