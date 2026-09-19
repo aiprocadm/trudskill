@@ -17,6 +17,7 @@ import type {
   AntivirusVerdict
 } from '../../infrastructure/antivirus/antivirus.scanner.js';
 import type { MultipartPart } from '../../infrastructure/storage/storage.client.js';
+import type { Readable } from 'node:stream';
 import type { PoolClient } from 'pg';
 
 export interface FileMetadata {
@@ -305,6 +306,21 @@ export class FilesService {
   ): Promise<{ storageKey: string; sizeBytes: number }> {
     const row = await this.ensureCleanFile(tenantId, fileId);
     return { storageKey: row.storageKey, sizeBytes: row.sizeBytes };
+  }
+
+  /**
+   * Открыть содержимое файла на чтение (ТЗ 17.2, решение Р17).
+   *
+   * Нужен ровно одному потребителю: очистке снимков проверки личности, которая перед удалением
+   * снимает отпечаток — снимки уйдут, а протокол верификации останется и обязан быть
+   * доказуемым (журнал 578).
+   *
+   * Проверка на чистоту файла та же, что у скачивания: читать непроверенный антивирусом файл
+   * нельзя даже ради отпечатка.
+   */
+  async openFileStream(tenantId: string, fileId: string): Promise<Readable> {
+    const row = await this.ensureCleanFile(tenantId, fileId);
+    return this.storage.getObjectStream({ key: row.storageKey });
   }
 
   private async ensureCleanFile(
