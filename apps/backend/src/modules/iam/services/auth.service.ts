@@ -43,16 +43,27 @@ import {
   verifyTotpChallenge,
   verifyTotpCode
 } from '../totp.util.js';
+import { DEFAULT_TWO_FACTOR_STAGE, twoFactorPrompt } from '../two-factor-policy.js';
 
 import type { RequestContext } from '../../../common/context/request-context.js';
 import type { AuthEvent, Session, User } from '../iam.types.js';
 import type { LoginHistoryEntry } from '../login-history.js';
+import type { TwoFactorPrompt } from '../two-factor-policy.js';
 
 /**
  * 2FA-роли (ФТ-G3): включать TOTP могут админские роли. Не HttpException —
  * internal control-flow, контроллеры превращают в ответ «нужен код».
  */
 export const TOTP_ELIGIBLE_ROLES = ['tenant_admin', 'platform_admin'] as const;
+
+/** Состояние двухфакторной защиты вместе с приглашением её включить (ТЗ 9.2). */
+export interface TotpStatusWithPrompt {
+  enabled: boolean;
+  pending: boolean;
+  eligible: boolean;
+  /** Что показать человеку; `null` — показывать нечего. */
+  prompt: TwoFactorPrompt | null;
+}
 
 /** Выбрасывается вместо выдачи сессии, когда у пользователя включена 2FA. */
 export class TotpChallengeRequired extends Error {
@@ -599,19 +610,25 @@ export class AuthService {
     return { enabled: false };
   }
 
-  async getTotpStatus(
-    tenantId: string,
-    userId: string
-  ): Promise<{ enabled: boolean; pending: boolean; eligible: boolean }> {
+  async getTotpStatus(tenantId: string, userId: string): Promise<TotpStatusWithPrompt> {
     const [user, roles] = await Promise.all([
       this.iamService.getUser(tenantId, userId),
       this.iamService.getUserRoles(tenantId, userId)
     ]);
-    return {
+    const status = {
       enabled: user.totpEnabled === true,
       pending: user.totpEnabled !== true && Boolean(user.totpSecretEncrypted),
       eligible: roles.some((role) => (TOTP_ELIGIBLE_ROLES as readonly string[]).includes(role.code))
     };
+    /*
+     * ТЗ 9.2 (решение Р7, шаг 1): защита не просто доступна — она ПРЕДЛАГАЕТСЯ. Раньше
+     * администратор должен был сам догадаться зайти в «Настройки → Профиль → Безопасность»;
+     * неудивительно, что в ревью двухфакторная защита оказалась выключенной (журнал 575).
+     *
+     * Текст приглашения считает сервер, а не экран: он один на все места, где приглашение
+     * показывается, и меняется вместе с шагом ввода — без правки разметки.
+     */
+    return { ...status, prompt: twoFactorPrompt(status, DEFAULT_TWO_FACTOR_STAGE) };
   }
 
   /** Расшифровать секрет и проверить код с окном ±1 и anti-replay по последнему шагу. */

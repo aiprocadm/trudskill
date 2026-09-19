@@ -53,6 +53,16 @@ export const TwoFactorCard = () => {
     );
   }
 
+  /*
+   * ТЗ 9.2 (решение Р7, шаг 1): защита не просто доступна, а ПРЕДЛАГАЕТСЯ. Раньше карточка
+   * молча показывала переключатель, и администратор должен был сам понять, зачем ему это.
+   * Неудивительно, что в ревью двухфакторная защита оказалась выключенной (журнал 575).
+   *
+   * Текст берётся с сервера: он один на все места, где приглашение показывается, и меняется
+   * вместе с шагом ввода обязательной защиты — без правки этого экрана.
+   */
+  const prompt = status.prompt ?? null;
+
   const run = async (action: () => Promise<void>) => {
     setSaving(true);
     setError(null);
@@ -108,6 +118,24 @@ export const TwoFactorCard = () => {
 
   return (
     <div data-testid="totp-card">
+      {/*
+        ТЗ 9.2: приглашение стоит ПЕРВЫМ — до переключателей и полей. Человек сначала узнаёт,
+        зачем это ему, и только потом видит, что нажимать. Обратный порядок оставлял его
+        наедине с настройкой, смысла которой он не знает.
+      */}
+      {prompt ? (
+        <p
+          className={`ui-callout ui-callout--${prompt.tone}`}
+          data-testid="totp-prompt"
+          role={prompt.tone === 'warning' ? 'alert' : 'status'}
+        >
+          <span>
+            <strong>{prompt.title}</strong>
+            <br />
+            {prompt.text}
+          </span>
+        </p>
+      ) : null}
       {status.enabled ? (
         <>
           <p>

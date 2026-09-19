@@ -31,10 +31,25 @@ export const isTotpChallenge = (
   value: LoginResponse | TotpChallengeResponse
 ): value is TotpChallengeResponse => 'totpRequired' in value && value.totpRequired === true;
 
+/**
+ * Приглашение подключить двухфакторную защиту (ТЗ 9.2, решение Р7).
+ *
+ * Текст считает СЕРВЕР, а не экран: приглашение одно на все места, где показывается, и
+ * меняется вместе с шагом ввода обязательной защиты — без правки разметки.
+ */
+export interface TwoFactorPromptResponse {
+  tone: 'info' | 'warning';
+  title: string;
+  text: string;
+  actionLabel: string;
+}
+
 export interface TotpStatusResponse {
   enabled: boolean;
   pending: boolean;
   eligible: boolean;
+  /** Что показать человеку; `null` — показывать нечего. */
+  prompt?: TwoFactorPromptResponse | null;
 }
 
 export interface TotpSetupResponse {
