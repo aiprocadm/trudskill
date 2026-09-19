@@ -1,5 +1,7 @@
 import { createTransport as realCreateTransport } from 'nodemailer';
 
+import { senderFrom } from './sender-name.js';
+
 import type { EmailMessage, MailerService, SendResult } from './mailer.service.js';
 
 export interface SmtpMailerConfig {
@@ -54,7 +56,12 @@ export class SmtpMailer implements MailerService {
   async send(message: EmailMessage): Promise<SendResult> {
     try {
       const info = await this.transport.sendMail({
-        from: this.config.from,
+        /*
+         * ТЗ 13.3 (Р14): слушатель видит письмо от СВОЕГО учебного центра, а не от платформы.
+         * Меняется только видимое имя — адрес остаётся платформенным, иначе письмо уходит в
+         * спам: подписи SPF/DKIM принадлежат платформе (журнал 556).
+         */
+        from: senderFrom(this.config.from, message.tenantName),
         to: message.to,
         subject: message.subject,
         text: message.body

@@ -33,6 +33,40 @@ describe('SmtpMailer', () => {
     });
   });
 
+  it('письмо уходит от имени учебного центра, а адрес остаётся платформенным (ТЗ 13.3)', async () => {
+    /*
+     * Решение Р14 базово всем: название центра в имени отправителя. Слушатель получал письмо от
+     * незнакомого сервиса вместо своего центра — для письма со ссылкой на вход это прямо мешает
+     * работе (журнал 556). Адрес при этом не меняется: свой домен и SMTP — старший тариф, а
+     * письмо с чужого домена уходит в спам.
+     */
+    const sendMail = vi.fn().mockResolvedValue({ messageId: 'id' });
+    const mailer = new SmtpMailer(config, vi.fn().mockReturnValue({ sendMail }) as never);
+
+    await mailer.send({
+      to: 'learner@example.com',
+      subject: 'S',
+      body: 'B',
+      templateKey: 'magic_link',
+      tenantName: 'УЦ «Мост»'
+    });
+
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({ from: 'УЦ «Мост» <no-reply@trudskill.local>' })
+    );
+  });
+
+  it('без названия центра адрес отправителя остаётся прежним', async () => {
+    const sendMail = vi.fn().mockResolvedValue({ messageId: 'id' });
+    const mailer = new SmtpMailer(config, vi.fn().mockReturnValue({ sendMail }) as never);
+
+    await mailer.send({ to: 'a@b.c', subject: 'S', body: 'B', templateKey: 'magic_link' });
+
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({ from: 'no-reply@trudskill.local' })
+    );
+  });
+
   it('reports failed and the error message when the transport throws', async () => {
     const sendMail = vi.fn().mockRejectedValue(new Error('connection refused'));
     const createTransport = vi.fn().mockReturnValue({ sendMail });
