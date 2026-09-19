@@ -18,9 +18,11 @@ import {
   type RealtimeEventEnvelope,
   type RealtimePubSub,
   RedisRealtimeEventStore,
+  RedisRealtimeTicketStore,
   RedisStreamsRealtimePubSub
 } from './realtime-backend.js';
 import { canAccessRoom } from './room-access.js';
+import { parseRealtimeTicket, realtimeTicketKey, ticketMatchesRoom } from './ticket.js';
 
 const roomSchema = z
   .string()
@@ -36,7 +38,11 @@ function extractBearerToken(header?: string): string | undefined {
 
 @Controller()
 class RealtimeController {
-  constructor(@Inject('RealtimePubSub') private readonly realtimePubSub: RealtimePubSub) {}
+  constructor(
+    @Inject('RealtimePubSub') private readonly realtimePubSub: RealtimePubSub,
+    /* ТЗ 9.1: одноразовые тикеты подключения — забираются ровно один раз (журнал 571). */
+    @Inject(RedisRealtimeTicketStore) private readonly tickets: RedisRealtimeTicketStore
+  ) {}
 
   @Get('health')
   health() {
@@ -63,7 +69,7 @@ class RealtimeController {
   async stream(
     @Param('room') room: string,
     @Headers('authorization') auth: string | undefined,
-    @Query('access_token') accessTokenQuery: string | undefined,
+    @Query('ticket') ticketQuery: string | undefined,
     @Query('since') since: string | undefined,
     @Query('cursor') cursor: string | undefined,
     @Res()
@@ -75,26 +81,61 @@ class RealtimeController {
     }
   ) {
     const parsedRoom = roomSchema.parse(room);
-    const rawToken = extractBearerToken(auth) ?? accessTokenQuery?.trim();
-    if (!rawToken) {
+
+    /*
+     * ТЗ 9.1: в АДРЕСЕ допустим только одноразовый тикет, но не токен доступа.
+     *
+     * Адрес запроса не секрет — он оседает в журналах веб-сервера, в истории браузера и в
+     * заголовке `Referer`, который уходит на чужие сайты. Полный токен оттуда можно взять и
+     * работать от имени человека. Тикет живёт секунды и сгорает при первом использовании
+     * (журнал 571).
+     *
+     * Заголовок `Authorization` остаётся: он в адрес не попадает, и служебные клиенты
+     * подключаются им. Браузер к потоку событий заголовки приложить не умеет — для него и
+     * заведён тикет.
+     */
+    const headerToken = extractBearerToken(auth);
+    const ticket = ticketQuery?.trim();
+    if (!headerToken && !ticket) {
       res.status(401).json({ code: 'auth_required', message: 'Access token is required' });
       return;
     }
 
     let session: Session;
-    try {
-      const claims = verifySignedAccessToken(rawToken, realtimeEnv.AUTH_JWT_SECRET);
+    if (headerToken) {
+      try {
+        const claims = verifySignedAccessToken(headerToken, realtimeEnv.AUTH_JWT_SECRET);
+        session = {
+          tenantId: claims.tenant_id,
+          userId: claims.sub,
+          roles: claims.roles,
+          sessionId: claims.session_id
+        };
+      } catch {
+        res
+          .status(401)
+          .json({ code: 'invalid_token', message: 'Access token is invalid or expired' });
+        return;
+      }
+    } else {
+      const payload = parseRealtimeTicket(await this.tickets.take(realtimeTicketKey(ticket!)));
+      /*
+       * Тикет и комната проверяются вместе: тикет, выданный на свой канал, не должен открывать
+       * чужой. Права на саму комнату проверяются ниже — это другой вопрос.
+       */
+      if (!payload || !ticketMatchesRoom(payload, parsedRoom)) {
+        res.status(401).json({
+          code: 'invalid_ticket',
+          message: 'Ticket is invalid, expired or already used'
+        });
+        return;
+      }
       session = {
-        tenantId: claims.tenant_id,
-        userId: claims.sub,
-        roles: claims.roles,
-        sessionId: claims.session_id
+        tenantId: payload.tenantId,
+        userId: payload.userId,
+        roles: payload.roles,
+        sessionId: payload.sessionId
       };
-    } catch {
-      res
-        .status(401)
-        .json({ code: 'invalid_token', message: 'Access token is invalid or expired' });
-      return;
     }
 
     if (!this.canAccess(session, parsedRoom)) {
@@ -142,6 +183,7 @@ class RealtimeController {
   controllers: [RealtimeController],
   providers: [
     RedisRealtimeEventStore,
+    RedisRealtimeTicketStore,
     RedisStreamsRealtimePubSub,
     { provide: 'RealtimePubSub', useExisting: RedisStreamsRealtimePubSub }
   ]

@@ -13,6 +13,7 @@ import {
   Query,
   Req,
   Res,
+  ServiceUnavailableException,
   UnauthorizedException,
   UseGuards
 } from '@nestjs/common';
@@ -35,10 +36,16 @@ import {
   UpdateUserDto
 } from './dto/login.dto.js';
 import { MagicLinkRedeemDto, MagicLinkRequestDto } from './dto/magic-link.dto.js';
+import { RealtimeTicketRequestDto } from './dto/realtime-ticket.dto.js';
 import { TotpCodeDto, TotpVerifyDto } from './dto/totp.dto.js';
 import { toSessionResponse } from './iam-response.mapper.js';
 import { RequirePermissions } from './permission.decorator.js';
 import { PermissionGuard } from './permission.guard.js';
+import {
+  REALTIME_TICKET_TTL_SECONDS,
+  newRealtimeTicket,
+  realtimeTicketKey
+} from './realtime-ticket.js';
 import { AuthService, TotpChallengeRequired } from './services/auth.service.js';
 import { IamService } from './services/iam.service.js';
 import {
@@ -46,11 +53,14 @@ import {
   type MagicLinkEmailSender
 } from './services/magic-link-email-sender.js';
 import { MagicLinkInvalidError, MagicLinkService } from './services/magic-link.service.js';
+import { assertValidDto } from '../../common/app-validation.pipe.js';
 import { CurrentContext } from '../../common/decorators/current-context.decorator.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
+import { RedisService } from '../../infrastructure/cache/redis.service.js';
 import { TenantStaffLimitService } from '../../infrastructure/tenant/tenant-staff-limit.service.js';
 import { TenantService } from '../tenant/tenant.service.js';
 
+import type { RealtimeTicketPayload } from './realtime-ticket.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 import type { Request, Response } from 'express';
 
@@ -77,7 +87,15 @@ export class AuthController {
      */
     @Optional()
     @Inject(TenantService)
-    private readonly tenants?: TenantService
+    private readonly tenants?: TenantService,
+    /*
+     * ТЗ 9.1: общее хранилище для одноразовых тикетов трансляции. Необязательная и ПОСЛЕДНЯЯ
+     * зависимость (журнал 526): вход обязан работать и там, где хранилище не поднято, — просто
+     * живых обновлений тогда не будет.
+     */
+    @Optional()
+    @Inject(RedisService)
+    private readonly redis?: RedisService
   ) {}
 
   @Post('auth/login')
@@ -133,6 +151,53 @@ export class AuthController {
     );
     authCookie.attachRefreshAndCsrfCookies(response, tokens.refreshToken, tokens.csrfToken);
     return authCookie.toPublicTokens(tokens);
+  }
+
+  /**
+   * Тикет на подключение к живой трансляции (ТЗ 9.1).
+   *
+   * Зачем он нужен вместо токена доступа: браузер умеет слушать поток событий только по
+   * адресу, заголовки к такому запросу не приложить. А адрес — не секрет: он попадает в журналы
+   * веб-сервера, в историю браузера и в заголовок `Referer`, который уходит на чужие сайты.
+   * Полный токен доступа оттуда можно взять и работать от имени человека. Тикет живёт тридцать
+   * секунд и сгорает при первом использовании (журнал 571).
+   *
+   * Частота ограничена: тикет берут раз на подключение, а не в цикле. Двадцать в минуту — это
+   * с запасом на переподключения при плохой связи.
+   */
+  @Post('auth/realtime-ticket')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  async realtimeTicket(
+    @CurrentContext() context: RequestContext,
+    @Body() payload: RealtimeTicketRequestDto
+  ) {
+    const { room } = assertValidDto(RealtimeTicketRequestDto, payload);
+    if (!this.redis) {
+      throw new ServiceUnavailableException({
+        code: 'realtime_unavailable',
+        message: 'Живые обновления сейчас недоступны. Данные на странице обновятся при переходе.'
+      });
+    }
+    const ticket = newRealtimeTicket();
+    /*
+     * В тикете лежит всё, что нужно службе трансляций, чтобы решить о доступе, — и ничего
+     * сверх. Она не ходит в базу и не разбирает токен: ей достаточно того, что мы уже
+     * проверили здесь.
+     */
+    const body: RealtimeTicketPayload = {
+      tenantId: context.tenantId!,
+      userId: context.userId!,
+      sessionId: context.sessionId ?? '',
+      roles: context.roles ?? [],
+      room
+    };
+    await this.redis.setWithTtl(
+      realtimeTicketKey(ticket),
+      JSON.stringify(body),
+      REALTIME_TICKET_TTL_SECONDS
+    );
+    return { ticket, expiresInSeconds: REALTIME_TICKET_TTL_SECONDS };
   }
 
   /** Самообслуживание 2FA (авторизованный пользователь; роли — внутри сервиса). */

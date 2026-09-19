@@ -1,5 +1,6 @@
 'use client';
 
+import { apiRequest } from '../api/client';
 import { frontendEnv } from '../config/env';
 
 import type { RealtimeEventEnvelope } from '@trudskill/api-contracts';
@@ -31,6 +32,15 @@ interface Channel {
   reconnectTimer: ReturnType<typeof setTimeout> | null;
   idleTimer: ReturnType<typeof setTimeout> | null;
   attempt: number;
+  /**
+   * Подключение уже начато и ждёт тикет (ТЗ 9.1).
+   *
+   * Пока подключение было мгновенным, хватало проверки «соединения нет». Теперь между
+   * подпиской и открытием потока есть пауза — поход за тикетом, — и за эту паузу успевает
+   * прийти второй подписчик. Без этого признака он видел бы «соединения нет» и открывал бы
+   * ВТОРОЕ соединение на ту же комнату: ровно тот шторм, от которого лечились в фазе 6.
+   */
+  connecting: boolean;
   /** SSE-идентификатор последнего доставленного события — точка возобновления. */
   cursor: string | null;
   since: string;
@@ -59,6 +69,7 @@ export class RealtimeClient {
         reconnectTimer: null,
         idleTimer: null,
         attempt: 0,
+        connecting: false,
         cursor: null,
         since: new Date(Date.now() - INITIAL_REPLAY_WINDOW_MS).toISOString()
       };
@@ -70,7 +81,7 @@ export class RealtimeClient {
       clearTimeout(target.idleTimer);
       target.idleTimer = null;
     }
-    if (!target.source && !target.reconnectTimer) this.open(key, target);
+    if (!target.source && !target.reconnectTimer && !target.connecting) this.open(key, target);
 
     let released = false;
     return () => {
@@ -91,8 +102,39 @@ export class RealtimeClient {
   }
 
   private open(key: string, channel: Channel) {
-    // EventSource не поддерживает Authorization; тот же access JWT передаётся в query (как договорено с realtime).
-    const source = new EventSource(this.buildUrl(channel), { withCredentials: false });
+    /*
+     * ТЗ 9.1: сперва берём ОДНОРАЗОВЫЙ ТИКЕТ, и только он уходит в адрес.
+     *
+     * Браузер умеет слушать поток событий только по адресу — заголовки к такому запросу не
+     * приложить. Раньше туда клали полный токен доступа, а адрес не секрет: он оседает в
+     * журналах веб-сервера, в истории браузера и в заголовке `Referer`, который уходит на
+     * чужие сайты. Тикет живёт секунды и сгорает при первом использовании (журнал 571).
+     *
+     * Тикет берётся на КАЖДОЕ подключение, включая переподключения: прежний уже сгорел.
+     */
+    void this.openWithTicket(key, channel);
+  }
+
+  private async openWithTicket(key: string, channel: Channel) {
+    channel.connecting = true;
+    let ticket: string;
+    try {
+      ticket = await this.requestTicket(channel);
+    } catch {
+      channel.connecting = false;
+      /*
+       * Тикет не выдали — ведём себя как при обрыве связи: ждём и пробуем снова. Ронять экран
+       * нельзя: живые обновления — удобство, а не условие работы; без них страница обновится
+       * при переходе.
+       */
+      this.scheduleReconnect(key, channel);
+      return;
+    }
+    channel.connecting = false;
+    // Пока ходили за тикетом, подписчики могли уйти, а канал — закрыться.
+    if (this.channels.get(key) !== channel || channel.handlers.size === 0) return;
+
+    const source = new EventSource(this.buildUrl(channel, ticket), { withCredentials: false });
     channel.source = source;
     source.onopen = () => {
       channel.attempt = 0;
@@ -113,18 +155,38 @@ export class RealtimeClient {
       source.close();
       if (channel.source !== source) return;
       channel.source = null;
-      if (this.channels.get(key) !== channel || channel.handlers.size === 0) return;
-      const delay = Math.min(RECONNECT_BASE_MS * 2 ** channel.attempt, RECONNECT_MAX_MS);
-      channel.attempt += 1;
-      channel.reconnectTimer = setTimeout(() => {
-        channel.reconnectTimer = null;
-        if (this.channels.get(key) !== channel || channel.handlers.size === 0) return;
-        this.open(key, channel);
-      }, delay);
+      this.scheduleReconnect(key, channel);
     };
   }
 
-  private buildUrl(channel: Channel) {
+  /**
+   * Повторить попытку позже, с нарастающей паузой.
+   *
+   * Вынесено из обработчика ошибки: теперь подключение может не состояться и раньше — на шаге
+   * получения тикета, — и ждать в обоих случаях надо одинаково.
+   */
+  private scheduleReconnect(key: string, channel: Channel) {
+    if (this.channels.get(key) !== channel || channel.handlers.size === 0) return;
+    if (channel.reconnectTimer) return;
+    const delay = Math.min(RECONNECT_BASE_MS * 2 ** channel.attempt, RECONNECT_MAX_MS);
+    channel.attempt += 1;
+    channel.reconnectTimer = setTimeout(() => {
+      channel.reconnectTimer = null;
+      if (this.channels.get(key) !== channel || channel.handlers.size === 0) return;
+      this.open(key, channel);
+    }, delay);
+  }
+
+  /** Запросить тикет у сервера. Токен доступа при этом идёт заголовком, а не в адресе. */
+  private async requestTicket(channel: Channel): Promise<string> {
+    const { ticket } = await apiRequest<{ ticket: string; expiresInSeconds: number }>(
+      'auth/realtime-ticket',
+      { method: 'POST', body: JSON.stringify({ room: channel.room }) }
+    );
+    return ticket;
+  }
+
+  private buildUrl(channel: Channel, ticket: string) {
     const base = frontendEnv.NEXT_PUBLIC_REALTIME_URL.replace(/^ws:/i, 'http:').replace(
       /^wss:/i,
       'https:'
@@ -135,7 +197,8 @@ export class RealtimeClient {
     // приносило бы те же события заново.
     if (channel.cursor) url.searchParams.set('cursor', channel.cursor);
     else url.searchParams.set('since', channel.since);
-    if (channel.token) url.searchParams.set('access_token', channel.token);
+    /* В адрес уходит ТОЛЬКО одноразовый тикет. Токена доступа здесь быть не должно (ТЗ 9.1). */
+    url.searchParams.set('ticket', ticket);
     return url.toString();
   }
 
@@ -145,6 +208,7 @@ export class RealtimeClient {
     if (channel.idleTimer) clearTimeout(channel.idleTimer);
     channel.reconnectTimer = null;
     channel.idleTimer = null;
+    channel.connecting = false;
     channel.source?.close();
     channel.source = null;
     this.channels.delete(key);
