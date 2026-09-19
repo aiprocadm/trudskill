@@ -1,6 +1,6 @@
 'use client';
 
-import { LoadingState } from '@trudskill/ui';
+import { BootSplash } from '@trudskill/ui';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 
@@ -30,9 +30,18 @@ export const ProtectedRoute = ({ children }: PropsWithChildren) => {
     if (bootstrap.shouldRedirectToNotFound) router.replace('/not-found');
   }, [loading, pathname, router, searchParams, session]);
 
-  if (loading) return <LoadingState message="Проверяем сессию..." />;
+  /*
+   * ТЗ 7.3: пока едет сессия, человек видит КАРКАС будущей страницы, а не серую надпись в
+   * углу пустого листа. Он уже здесь, просто страница ещё не наполнилась (журнал 564).
+   */
+  if (loading) return <BootSplash />;
   const bootstrap = getRouteBootstrapState(pathname, session);
-  if (bootstrap.access.kind !== 'ok') return <LoadingState message="Перенаправление..." />;
+  /*
+   * Уводим на другой адрес: каркас рисовать нечестно — этой страницы человек не увидит.
+   * Сообщение говорит, что происходит, а не «Перенаправление...» техническим словом.
+   */
+  if (bootstrap.access.kind !== 'ok')
+    return <BootSplash frame="plain" message="Открываем нужный раздел" />;
   return <>{children}</>;
 };
 
@@ -58,6 +67,7 @@ export const AuthPageGuard = ({ children }: PropsWithChildren) => {
     router.replace(resolveNextTarget(next, DEFAULT_LANDING));
   }, [loading, next, router, session]);
 
-  if (loading) return <LoadingState message="Проверяем сессию..." />;
+  /* Страница входа: каркаса приложения здесь не будет, поэтому только знак и подпись. */
+  if (loading) return <BootSplash frame="plain" message="Проверяем, вошли ли вы" />;
   return <>{children}</>;
 };
