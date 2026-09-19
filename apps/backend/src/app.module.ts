@@ -6,6 +6,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { RequestObservabilityInterceptor } from './common/interceptors/request-observability.interceptor.js';
 import { InfrastructureModule } from './infrastructure/infrastructure.module.js';
 import { AuditModule } from './modules/audit/audit.module.js';
+import { BackgroundTasksModule } from './modules/background-tasks/background-tasks.module.js';
 import { CommunicationModule } from './modules/communication/communication.module.js';
 import { CoreModule } from './modules/core/core.module.js';
 import { DocumentsModule } from './modules/documents/documents.module.js';
@@ -35,6 +36,7 @@ const baseModules = [
   AuditModule,
   FilesModule,
   HealthModule,
+  BackgroundTasksModule,
   CommunicationModule,
   EsignModule,
   WorkspaceModule

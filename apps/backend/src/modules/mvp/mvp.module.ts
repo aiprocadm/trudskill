@@ -1,8 +1,7 @@
 import { Module, Scope } from '@nestjs/common';
 
-import { DocumentRevokedEmailListener } from './reminders/document-revoked-email.listener.js';
-import { LicenseExpiryScanner } from './reminders/license-expiry-scanner.service.js';
-import { UserDisplayNamesService } from '../../common/iam/user-display-names.service.js';
+import { MvpEnrollmentService } from './mvp-enrollment.service.js';
+import { MvpInternalWorkerController } from './mvp-internal-worker.controller.js';
 import { backendEnv } from '../../env.js';
 import { ExpiredAttemptsScanner } from './assessment/expired-attempts.scanner.service.js';
 import { ExpiredAttemptsSchedulerService } from './assessment/expired-attempts.scheduler.service.js';
@@ -49,8 +48,6 @@ import { LearnersBulkImportService } from './learners-bulk-import.service.js';
 import { PlatformLibraryController } from './library/platform-library.controller.js';
 import { PlatformLibraryService } from './library/platform-library.service.js';
 import { MvpBulkEnqueueService } from './mvp-bulk-enqueue.service.js';
-import { MvpEnrollmentService } from './mvp-enrollment.service.js';
-import { MvpInternalWorkerController } from './mvp-internal-worker.controller.js';
 import { MvpController } from './mvp.controller.js';
 import { MvpService } from './mvp.service.js';
 import { NmoRegistryController } from './nmo-registry/nmo-registry.controller.js';
@@ -73,6 +70,8 @@ import { RecertificationScanner } from './recertification/recertification-scanne
 import { RecertificationController } from './recertification/recertification.controller.js';
 import { RecertificationService } from './recertification/recertification.service.js';
 import { CourseDeadlineScanner } from './reminders/course-deadline-scanner.service.js';
+import { DocumentRevokedEmailListener } from './reminders/document-revoked-email.listener.js';
+import { LicenseExpiryScanner } from './reminders/license-expiry-scanner.service.js';
 import { ReminderSettingsService } from './reminders/reminder-settings.service.js';
 import { RemindersSchedulerService } from './reminders/reminders-scheduler.service.js';
 import { RostechnadzorRegistryController } from './rostechnadzor-registry/rostechnadzor-registry.controller.js';
@@ -86,6 +85,7 @@ import { TelegramLinkController } from './telegram-link.controller.js';
 import { TenantUsageController } from './usage/tenant-usage.controller.js';
 import { TenantUsageService } from './usage/tenant-usage.service.js';
 import { VideoProviderSettingsController } from './video/video-provider-settings.controller.js';
+import { UserDisplayNamesService } from '../../common/iam/user-display-names.service.js';
 import {
   ESIA_IDENTITY_PROVIDER,
   NoopEsiaProvider
@@ -139,10 +139,13 @@ import {
   type VideoProviderCode,
   type VideoProviderRegistry
 } from '../../infrastructure/video-provider/video.provider.js';
+import { BackgroundTasksModule } from '../background-tasks/background-tasks.module.js';
 
 @Module({
   imports: [
     InfrastructureModule,
+    /* ТЗ 12.2: постановка в очередь заводит запись в реестре фоновых задач. */
+    BackgroundTasksModule,
     FilesModule,
     IamModule,
     DocumentsModule,

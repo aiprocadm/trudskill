@@ -205,6 +205,21 @@ export const routeMeta: RouteMetaEntry[] = [
     meta: { public: false, requiredPermissions: ['documents.read'] }
   },
   {
+    /*
+     * ТЗ 12.2: раздел «Фоновые задачи».
+     *
+     * Своего права у раздела нет: он показывает СВОИ задачи, и право «смотреть свои задачи»
+     * означало бы, что кто-то отправит задачу и не узнает её судьбы. Но и показывать раздел
+     * всем нельзя — представитель заказчика фоновых задач не ставит, и пустой пункт меню у
+     * него был бы мусором. Поэтому берётся право того, кто эти задачи СОЗДАЁТ.
+     *
+     * Когда в реестр подключатся выдача документов и госвыгрузки (срез 2 плана фазы 12),
+     * условие расширится их правами.
+     */
+    pattern: '/admin/background-tasks',
+    meta: { public: false, requiredPermissions: ['enrollments.write'] }
+  },
+  {
     // Экран «Эксплуатация» (Фаза 6 Task 8). Право то же, что у карантина на бэкенде:
     // разбирать застрявшие выпуски и письма — работа администрации, не методиста.
     pattern: '/admin/operations',
@@ -689,6 +704,13 @@ export const navigationModel: NavigationItem[] = [
     href: '/admin/issuance-journal',
     label: 'Книга выдачи документов',
     requiredPermissions: ['documents.read'],
+    navSlot: 'more'
+  },
+  {
+    href: '/admin/background-tasks',
+    label: 'Фоновые задачи',
+    /* Право того, кто ставит задачи: см. пояснение у записи карты доступа. */
+    requiredPermissions: ['enrollments.write'],
     navSlot: 'more'
   },
   {
