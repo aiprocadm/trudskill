@@ -1,4 +1,4 @@
-import { Inter } from 'next/font/google';
+import { Inter, Onest } from 'next/font/google';
 import { connection } from 'next/server';
 
 import { AppProviders } from '../src/app/providers';
@@ -30,13 +30,41 @@ export const viewport: Viewport = {
   viewportFit: 'cover'
 };
 
-// Inter — единый современный гротеск для всего интерфейса и для вордмарка.
+// Inter — гротеск для ТЕКСТА: таблицы, поля, подписи. Читаемость длинных списков не меняется.
 // Кириллица + латиница. next/font self-hosts шрифт в бандл (end-user не ходит в Google → 152-ФЗ).
 const inter = Inter({
   subsets: ['latin', 'cyrillic'],
   weight: ['400', '500', '600', '700', '800'],
   display: 'swap',
   variable: '--font-sans',
+  fallback: ['Segoe UI', 'system-ui', 'Arial', 'sans-serif']
+});
+
+/**
+ * Onest — шрифт ЗАГОЛОВКОВ (ТЗ 7.4 пункт 1, решение владельца Р5).
+ *
+ * Зачем второй шрифт. Интерфейс был опрятным, но обезличенным — его не отличить от десятка
+ * других админок. Продукт сдаётся в аренду учебным центрам, а центр выбирает в том числе
+ * глазами. Пара «характерные заголовки + спокойный текст» — самый дешёвый способ дать лицо,
+ * не трогая читаемость там, где человек работает часами.
+ *
+ * Почему Onest, а не что-то ещё: свободная лицензия SIL OFL, полноценная кириллица,
+ * современный характер без вычурности. Запасной вариант, если не подойдёт визуально, — Golos
+ * Text (тоже OFL с кириллицей), он есть в том же наборе.
+ *
+ * Почему только три начертания. Заголовкам нужны полужирный и жирный, и ничего больше. Каждое
+ * лишнее начертание — это лишние килобайты, которые едут к человеку на телефоне по мобильной
+ * сети перед первым экраном.
+ *
+ * Почему не CDN. `next/font` кладёт файлы шрифта В СБОРКУ: браузер человека берёт их с нашего
+ * адреса и никуда больше не ходит. Это требование и скорости, и независимости от иностранных
+ * сервисов — ровно то же основание, по которому так подключён Inter.
+ */
+const onest = Onest({
+  subsets: ['latin', 'cyrillic'],
+  weight: ['500', '600', '700'],
+  display: 'swap',
+  variable: '--font-display',
   fallback: ['Segoe UI', 'system-ui', 'Arial', 'sans-serif']
 });
 
@@ -57,7 +85,7 @@ const inter = Inter({
 export default async function RootLayout({ children }: { children: ReactNode }) {
   await connection();
   return (
-    <html lang="ru" className={inter.variable}>
+    <html lang="ru" className={`${inter.variable} ${onest.variable}`}>
       <body style={{ margin: 0, fontFamily: 'var(--font-sans), Segoe UI, system-ui, sans-serif' }}>
         <AppProviders>{children}</AppProviders>
       </body>
