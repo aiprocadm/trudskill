@@ -30,6 +30,31 @@ export class RedisService {
     await client.set(key, value, { EX: ttlSeconds });
   }
 
+  /**
+   * Увеличить счётчик и вернуть новое значение; срок ставится при первом увеличении.
+   *
+   * Используется защитой входа (ТЗ 17.1). Срок ставится только на первом шаге намеренно: иначе
+   * каждая новая неудачная попытка продлевала бы окно, и счётчик не сбрасывался бы никогда —
+   * человек, ошибившийся девять раз за год, однажды получил бы блокировку на десятой.
+   */
+  async incrementWithWindow(key: string, ttlSeconds: number): Promise<number> {
+    const client = await this.getClient();
+    const value = await client.incr(key);
+    if (value === 1) await client.expire(key, ttlSeconds);
+    return value;
+  }
+
+  /** Сколько секунд осталось жить записи. Отрицательное значение означает «записи нет». */
+  async secondsToLive(key: string): Promise<number> {
+    const client = await this.getClient();
+    return client.ttl(key);
+  }
+
+  async remove(key: string): Promise<void> {
+    const client = await this.getClient();
+    await client.del(key);
+  }
+
   private async getClient(): Promise<RedisClientType> {
     if (!this.client) {
       this.client = createClient({ url: backendEnv.REDIS_URL });
