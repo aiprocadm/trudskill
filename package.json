@@ -24,6 +24,7 @@
     "audit:deps": "pnpm audit --audit-level high --prod",
     "audit:deps:report": "pnpm audit --json --prod > .turbo/audit-deps.json || true",
     "seed:staging": "pnpm --filter @trudskill/backend seed:staging",
+    "seed:demo": "pnpm --filter @trudskill/backend seed:demo",
     "contracts:lint": "pnpm --filter @trudskill/api-contracts contracts:lint",
     "contracts:build": "pnpm --filter @trudskill/api-contracts build",
     "contracts:typecheck": "pnpm --filter @trudskill/api-contracts typecheck",
