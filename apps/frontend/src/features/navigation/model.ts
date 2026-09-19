@@ -433,6 +433,12 @@ export const routeMeta: RouteMetaEntry[] = [
    * и именно он не дозвонится в центр вечером (журнал 583).
    */
   { pattern: '/support/problem', meta: { public: false } },
+  /*
+   * ТЗ 18.3: состояние системы. Публично, потому что смотреть сюда приходят именно тогда, когда
+   * войти не получается: страница состояния, требующая входа, бесполезна ровно в тот момент,
+   * ради которого заведена (журнал 586).
+   */
+  { pattern: '/status', meta: { public: true } },
   { pattern: '/legal/privacy', meta: { public: true } },
   { pattern: '/exam-auth', meta: { public: true } },
   { pattern: '/tenant-not-found', meta: { public: true } }
