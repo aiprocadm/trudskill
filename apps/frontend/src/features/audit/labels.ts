@@ -27,6 +27,8 @@ const DOMAIN_LABELS: Record<string, string> = {
    * фильтре журнала позволяет ответить одним запросом, а не вычитывать его из общего потока.
    */
   learners: 'Персональные данные',
+  /* ТЗ 15.5: обращения в поддержку — свой раздел, чтобы их можно было отобрать отдельно. */
+  support: 'Поддержка',
   assessment: 'Оценивание',
   documents: 'Документы',
   iam: 'Доступ',
@@ -198,6 +200,8 @@ const PHRASES: Record<string, string> = {
    * «слушатель раскрыт» — формально по-русски, по смыслу мимо (журнал 577).
    */
   'learners.pii_revealed': 'Персональные данные показаны полностью',
+  /* ТЗ 15.5: обращение из кнопки «Сообщить о проблеме». */
+  'support.problem_reported': 'Сообщение о проблеме',
   'auth.esia_login': 'Вход через Госуслуги',
   'auth.magic_link_login': 'Вход по ссылке из письма',
   'auth.logout': 'Выход из системы',
@@ -267,6 +271,8 @@ const PHRASES: Record<string, string> = {
  * значит другое (`reports.template`), и служебные типы обёрток без префикса (`document_task`).
  */
 const ENTITY_LABELS: Record<string, string> = {
+  /* ТЗ 15.5: обращение из кнопки «Сообщить о проблеме». */
+  'support.problem_report': 'Обращение в поддержку',
   'reports.template': 'Шаблон отчёта',
   'documents.generated': 'Выпущенный документ',
   'documents.generated_document': 'Выпущенный документ',

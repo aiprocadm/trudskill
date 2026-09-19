@@ -102,6 +102,18 @@ const reachableSources = (file: string, depth = 3, seen = new Set<string>()): st
 
 const CYRILLIC = /[а-яё]/i;
 
+/**
+ * Значение общей строковой константы по её имени.
+ *
+ * Читается из исходника, а не импортируется: сторож разбирает файлы как текст и остаётся
+ * независимым от того, что и куда переэкспортировано.
+ */
+const sharedLabelValue = (name: string): string | null => {
+  const label = read(fromApp('src', 'features', 'support', 'problem-report.ts'));
+  const match = new RegExp(`export const ${name} = '([^']+)'`).exec(label);
+  return match?.[1] ?? null;
+};
+
 describe('хлебные крошки называют объект (ТЗ 3.5)', () => {
   it('у каждой страницы оболочки есть своя последняя крошка — по реальному дереву app/', () => {
     const missing: string[] = [];
@@ -181,9 +193,23 @@ describe('хлебные крошки называют объект (ТЗ 3.5)',
         mismatched.push(`${route}: страницы в оболочке нет — подпись мертва`);
         continue;
       }
-      const titled = reachableSources(page.file).some((file) =>
-        read(file).includes(`title="${label}"`)
-      );
+      /*
+       * Заголовок совпадает с крошкой либо буквально, либо ЧЕРЕЗ ОБЩУЮ КОНСТАНТУ.
+       *
+       * Второй случай появился с ТЗ 15.5: имя страницы «Сообщить о проблеме» живёт в одном
+       * месте и используется и в меню человека, и в крошке, и в заголовке. Требовать здесь
+       * именно литерал значило бы заставить вписать это имя третий раз — то есть завести
+       * ровно то расхождение, от которого сторож и защищает (журнал 583).
+       *
+       * Инвариант не ослаблен: имя по-прежнему обязано быть одним. Изменилось только то, что
+       * «одно имя» теперь может быть общей константой, а не тремя одинаковыми строками.
+       */
+      const titled = reachableSources(page.file).some((file) => {
+        const source = read(file);
+        if (source.includes(`title="${label}"`)) return true;
+        const viaConstant = /title={([A-Z_][A-Z0-9_]*)}/.exec(source)?.[1];
+        return Boolean(viaConstant && sharedLabelValue(viaConstant) === label);
+      });
       if (!titled) mismatched.push(`${route}: заголовок страницы ≠ «${label}»`);
     }
     expect(mismatched, 'одно имя у раздела: в крошке то же, что в заголовке (ТЗ 3.4)').toEqual([]);

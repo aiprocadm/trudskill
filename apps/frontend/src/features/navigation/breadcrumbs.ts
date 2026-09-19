@@ -1,6 +1,7 @@
 import { navigationModel } from './model';
 import { resolveGroupForPath } from './nav-groups';
 import { type ObjectCrumb } from './object-crumb';
+import { PROBLEM_REPORT_LABEL } from '../support/problem-report';
 
 const hrefToLabel = new Map(navigationModel.map((item) => [item.href, item.label]));
 
@@ -21,7 +22,13 @@ export const pageLabels: Record<string, string> = {
   '/forms': 'Системные формы',
   '/mailings': 'Рассылки и уведомления',
   '/module-empty': 'Раздел в разработке',
-  '/admin/ui-kit': 'Витрина шаблонов (UI Kit)'
+  '/admin/ui-kit': 'Витрина шаблонов (UI Kit)',
+  /*
+   * ТЗ 15.5: страница есть, а пункта меню у неё нет — она живёт в меню человека, а не в
+   * разделах. Без подписи здесь крошка была бы пустой, и человек не понимал бы, куда попал
+   * (журнал 583).
+   */
+  '/support/problem': PROBLEM_REPORT_LABEL
 };
 
 /** Корень кабинета слушателя: под ним своя иерархия, блоки администратора не показываются. */
