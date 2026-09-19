@@ -46,7 +46,9 @@ export const foundationStyles = `
 .ui-overflow-menu__item--danger { color: var(--ui-danger-600); }
 .ui-overflow-menu__divider { height: 1px; background: var(--ui-border); margin: var(--ui-space-xs) 0; }
 .ui-page-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
-.ui-page-title { margin:0; font-size: clamp(var(--ui-font-size-xl), 1.2rem + 1vw, var(--ui-font-size-2xl)); font-weight: var(--ui-font-weight-bold); letter-spacing: -0.025em; line-height: var(--ui-line-height-tight); color: var(--ui-text); }
+/* ТЗ 7.4 (Р5): ЗАГОЛОВКИ набраны Onest — он и даёт интерфейсу лицо. Текст остаётся Inter:
+   читаемость таблиц и полей, где человек проводит часы, менять нельзя. */
+.ui-page-title { font-family: var(--font-display), var(--font-sans), 'Segoe UI', system-ui, sans-serif; margin:0; font-size: clamp(var(--ui-font-size-xl), 1.2rem + 1vw, var(--ui-font-size-2xl)); font-weight: var(--ui-font-weight-bold); letter-spacing: -0.025em; line-height: var(--ui-line-height-tight); color: var(--ui-text); }
 /*
  * UI-012 — ширина строки у сплошного текста. Строка во всю ширину широкого экрана читается
  * плохо: дочитав до края, глаз теряет начало следующей. Ограничение ставится только там, где
@@ -73,7 +75,7 @@ export const foundationStyles = `
  */
 .ui-page,.ui-page-container,.ui-section-card,.ui-card { min-width: 0; }
 .ui-page > *,.ui-page-container > *,.ui-section-card > *,.ui-card > *,.ui-stack > * { min-width: 0; }
-.ui-section-title { margin:0; font-size: var(--ui-font-size-lg); font-weight: var(--ui-font-weight-bold); letter-spacing: -0.01em; color: var(--ui-text); display:flex; align-items:center; gap:9px; }
+.ui-section-title { font-family: var(--font-display), var(--font-sans), 'Segoe UI', system-ui, sans-serif; margin:0; font-size: var(--ui-font-size-lg); font-weight: var(--ui-font-weight-bold); letter-spacing: -0.01em; color: var(--ui-text); display:flex; align-items:center; gap:9px; }
 .ui-section-title::before { content:''; width:4px; height:1.05em; border-radius:var(--ui-radius-pill); background: var(--ui-brand-600); flex:none; }
 .ui-section-head { display:flex; justify-content:space-between; align-items:flex-start; gap: var(--ui-space-md); }
 .ui-empty,.ui-error,.ui-loading { border: 1px dashed var(--ui-border); border-radius: var(--ui-radius-md); background: var(--ui-surface-muted); padding: 16px; color: var(--ui-text-muted); }
@@ -186,7 +188,7 @@ legend { font-size: var(--ui-font-size-sm); font-weight: var(--ui-font-weight-se
 .ui-callout__title { margin: 0 0 4px; font-weight: var(--ui-font-weight-semibold); font-size: var(--ui-font-size-sm); }
 
 /* Вордмарк trudskill (фирменная подпись) — плотный гротеск, тесный трекинг */
-.ui-wordmark { font-family: var(--font-sans), 'Segoe UI', system-ui, sans-serif; font-weight: var(--ui-font-weight-bold); font-size: var(--ui-font-size-xl); letter-spacing: -0.02em; line-height: 1; display: inline-flex; align-items: baseline; }
+.ui-wordmark { font-family: var(--font-display), var(--font-sans), 'Segoe UI', system-ui, sans-serif; font-weight: var(--ui-font-weight-bold); font-size: var(--ui-font-size-xl); letter-spacing: -0.02em; line-height: 1; display: inline-flex; align-items: baseline; }
 
 /* Прогресс-бары курсов — «золото зачёта» вместо дефолтного браузерного вида */
 /* Дорожка — токен ПОВЕРХНОСТИ, не нейтральной шкалы: в тёмной теме neutral-100 остаётся
@@ -215,7 +217,7 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 /* UI-009/UI-010: герой — плоская карточка без декора (печать и eyebrow удалены),
    бренд-акцент несёт заголовок, тень обычная. */
 .ui-hero { border-radius: var(--ui-radius-lg); padding: clamp(22px, 3vw, 32px); background: var(--ui-hero-bg); color: var(--ui-hero-text); display: grid; gap: 14px; }
-.ui-hero__title { font-family: var(--font-sans), 'Segoe UI', system-ui, sans-serif; font-size: clamp(var(--ui-font-size-xl), 1.05rem + 1.8vw, var(--ui-font-size-3xl)); line-height: var(--ui-line-height-tight); font-weight: var(--ui-font-weight-bold); margin: 0; color: var(--ui-brand-700); letter-spacing: -0.02em; max-width: 30ch; }
+.ui-hero__title { font-family: var(--font-display), var(--font-sans), 'Segoe UI', system-ui, sans-serif; font-size: clamp(var(--ui-font-size-xl), 1.05rem + 1.8vw, var(--ui-font-size-3xl)); line-height: var(--ui-line-height-tight); font-weight: var(--ui-font-weight-bold); margin: 0; color: var(--ui-brand-700); letter-spacing: -0.02em; max-width: 30ch; }
 .ui-hero__desc { margin: 0; color: var(--ui-hero-muted); font-size: var(--ui-font-size-md); line-height: var(--ui-line-height-normal); max-width: 56ch; }
 .ui-hero__cta { justify-self: start; display: inline-flex; align-items: center; gap: 10px; height: 48px; padding: 0 24px; border-radius: var(--ui-radius-md); background: var(--ui-accent-600); color: var(--ui-on-accent); border: none; font-family: inherit; font-weight: var(--ui-font-weight-bold); font-size: var(--ui-font-size-md); text-decoration: none; cursor: pointer; box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.55); transition: transform var(--ui-duration-fast) var(--ui-ease), background var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
 .ui-hero__cta::after { content: '\\2192'; font-size: 1.15em; line-height: 1; transition: transform var(--ui-duration-fast) var(--ui-ease); }
