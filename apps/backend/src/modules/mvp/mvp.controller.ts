@@ -90,9 +90,11 @@ import {
 } from './mvp.dto.js';
 import { MvpService } from './mvp.service.js';
 import { LearnerPiiService } from './pii/learner-pii.service.js';
+import { maskLearnerRow } from './pii-masking.js';
 import { toPortalLearnerView } from './portal/portal-learner-view.js';
 import { PRE_EXAM_REQUEST_RATE_LIMIT, PRE_EXAM_VERIFY_RATE_LIMIT } from './pre-exam-rate-limit.js';
 import { BuildReportRequestDto, SaveReportTemplateDto } from './report-builder.dto.js';
+import { RevealPiiRequestDto } from './reveal-pii.dto.js';
 import { UpdateCounterpartyExtendedRequest } from './update-counterparty-extended.dto.js';
 import { UpdateLearnerExtendedRequest } from './update-learner-extended.dto.js';
 import { UpdateTestRuleRequest } from './update-test-rule.dto.js';
@@ -291,7 +293,21 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('learners.read')
   listLearners(@CurrentContext() c: RequestContext, @Query() q: BaseFilterQuery) {
-    return this.mvpService.listLearners(c.tenantId!, q, { counterpartyId: c.counterpartyId });
+    const page = this.mvpService.listLearners(c.tenantId!, q, {
+      counterpartyId: c.counterpartyId
+    });
+    /*
+     * ТЗ 17.2: в СПИСКЕ персональные номера показаны частично — всегда, независимо от прав.
+     *
+     * Список открыт менеджеру, который ведёт клиентов, и преподавателю, который ведёт группу.
+     * Им нужно узнать человека в строке, а не его номер в пенсионном фонде. Полный номер можно
+     * получить отдельным действием, и оно попадает в журнал доступа (журнал 577).
+     *
+     * Маска стоит и для тех, у кого право на полные данные есть: иначе просмотр списка
+     * становился бы неотличим от обращения к конкретной карточке, и в журнале не осталось бы
+     * ответа на вопрос «кто видел эти данные».
+     */
+    return { ...page, items: page.items.map((item) => maskLearnerRow(item)) };
   }
   @Get('learners/lookup')
   @UseGuards(PermissionGuard)
@@ -303,7 +319,27 @@ export class MvpController {
   @UseGuards(PermissionGuard)
   @RequirePermissions('learners.read')
   getLearner(@CurrentContext() c: RequestContext, @Param('id') id: string) {
-    return this.mvpService.getLearner(c.tenantId!, id);
+    /* ТЗ 17.2: карточка тоже отдаёт номера частично — полностью только по явному действию. */
+    return maskLearnerRow(this.mvpService.getLearner(c.tenantId!, id));
+  }
+
+  /**
+   * Показать персональные данные слушателя целиком (ТЗ 17.2).
+   *
+   * Отдельное действие с отдельным правом и записью в журнал. Частота ограничена: раскрытие
+   * делают поштучно, по конкретному обращению, а не пробегают им весь список.
+   */
+  @Post('learners/:id/pii/reveal')
+  @UseGuards(PermissionGuard, ThrottlerGuard)
+  @RequirePermissions('learners.pii.manage')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  revealLearnerPii(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const { reason } = assertValidDto(RevealPiiRequestDto, raw ?? {});
+    return this.learnerPiiService.revealPersonalData(c.tenantId!, c.userId, id, reason, c);
   }
   /**
    * Pillar A Plan C §5.11 — JSON-агрегат для PDF-карточки ученика.
