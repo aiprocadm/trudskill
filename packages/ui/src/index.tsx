@@ -27,6 +27,7 @@ export * from './components/saved-views/index.js';
 export * from './components/icon/index.js';
 export * from './components/button/index.js';
 export * from './components/copy-button/index.js';
+export * from './providers/impersonation-context.js';
 export * from './components/overflow-menu/index.js';
 export * from './components/page-tabs/index.js';
 export * from './components/blocked-action/index.js';

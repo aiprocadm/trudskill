@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 
 import { Modal } from './index.js';
+import { useImpersonationNote } from '../../providers/impersonation-context.js';
 
 import type { ReactElement } from 'react';
 
@@ -68,6 +69,13 @@ export const useConfirmDialog = (): {
   ask: (request: ConfirmRequest, action: (inputValue?: string) => void) => void;
   dialog: ReactElement | null;
 } => {
+  /*
+   * ТЗ 13.5: работа «от имени» помечается в КАЖДОМ подтверждении, а не в тех, где о ней
+   * вспомнили. Признак приходит контекстом от оболочки приложения: свойство пришлось бы
+   * передавать в десяток вызовов, и первый же новый экран забыл бы про него молча —
+   * подтверждение выглядело бы обычным, а действие ушло бы от чужого имени (журнал 551).
+   */
+  const impersonationNote = useImpersonationNote();
   const [pending, setPending] = useState<{
     request: ConfirmRequest;
     action: (inputValue?: string) => void;
@@ -88,6 +96,11 @@ export const useConfirmDialog = (): {
       {pending.request.message ? (
         <p className="ui-system-text" style={{ textAlign: 'left', marginBottom: 0 }}>
           {pending.request.message}
+        </p>
+      ) : null}
+      {impersonationNote ? (
+        <p className="ui-hint ui-hint--blocked" role="note">
+          {impersonationNote}
         </p>
       ) : null}
       {pending.request.requireTyping ? (

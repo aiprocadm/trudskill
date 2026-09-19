@@ -18,6 +18,10 @@ export const shellStyles = `
 .app-shell { --ui-shell-nav: 260px; min-height: 100dvh; display: grid; grid-template-columns: var(--ui-shell-nav) 1fr; position: relative; }
 .app-shell__menu-toggle { display: none; }
 .app-shell__skip-link {
+/* ТЗ 13.5: полоса «вы работаете от имени» — над всем кабинетом, заметная, но не пугающая.
+   Текст на приглушённой поверхности — пара измерена в обеих темах (UI-001); внимание держит
+   полоса предупреждающего цвета снизу, а не цветной текст, который пришлось бы мерить заново. */
+.app-shell__impersonation { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--ui-space-sm); padding: var(--ui-space-sm) var(--ui-space-md); background: var(--ui-surface-muted); color: var(--ui-text); border-bottom: 2px solid var(--ui-warning-600); font-size: var(--ui-font-size-sm); }
   position: absolute;
   top: -40px;
   left: 12px;
