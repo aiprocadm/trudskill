@@ -36,11 +36,21 @@ describe('отправка сообщения', () => {
     );
   });
 
-  it('пустое сообщение отклоняется', () => {
-    expect(() => assertValidDto(PostMessageDto, { textBody: '' })).toThrow();
+  it('пустое сообщение отклоняется, и отказ объясняет что делать', () => {
+    /*
+     * ТЗ 16.3: здесь стояло «textBody: сообщение не может быть пустым» — человек читал имя
+     * поля из кода вместо объяснения (журнал 544).
+     */
+    expect(() => assertValidDto(PostMessageDto, { textBody: '' })).toThrow(
+      /Сообщение пустое — напишите текст/
+    );
+    expect(() => assertValidDto(PostMessageDto, { textBody: '' })).not.toThrow(/textBody/);
   });
 
   it('простыня в мегабайт отклоняется — это вставленный по ошибке файл', () => {
-    expect(() => assertValidDto(PostMessageDto, { textBody: 'а'.repeat(10_001) })).toThrow();
+    /* Отказ называет предел числом: «слишком длинное» не говорит, сколько лишнего убрать. */
+    expect(() => assertValidDto(PostMessageDto, { textBody: 'а'.repeat(10_001) })).toThrow(
+      /10 000 знаков/
+    );
   });
 });
