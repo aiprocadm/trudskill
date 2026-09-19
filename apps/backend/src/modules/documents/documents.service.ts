@@ -1819,6 +1819,28 @@ export class DocumentsService {
     );
   }
 
+  /**
+   * Выданные документы центра в том объёме, в каком их считает панель руководителя (ТЗ 8.3).
+   *
+   * Отдаётся срез, а не сами документы: панели нужно «сколько и по какому зачислению», а в
+   * документе лежит словарь подстановок с ПДн. Отдавать его наружу ради счётчика незачем.
+   */
+  issuedDocumentRefs(tenantId: string): Array<{
+    sourceEntityType: string;
+    sourceEntityId: string;
+    isFinal: boolean;
+    status: string;
+  }> {
+    return this.state.generatedDocuments
+      .filter((d) => d.tenantId === tenantId)
+      .map((d) => ({
+        sourceEntityType: d.sourceEntityType,
+        sourceEntityId: d.sourceEntityId,
+        isFinal: d.isFinal,
+        status: d.status
+      }));
+  }
+
   private assertTemplateOfType(tenantId: string, templateId: string, expected: TemplateType) {
     const tpl = this.state.templates.find((t) => t.tenantId === tenantId && t.id === templateId);
     if (!tpl)

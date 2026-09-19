@@ -184,6 +184,7 @@ describe('MVP HTTP integration (domain invariants)', () => {
       { LegalLogReader },
       { TenantUsageService },
       { LearnerPiiService },
+      { ManagerDashboardService },
       { MethodistDashboardService },
       { DOCUMENTS_STATE },
       { InMemoryDocumentsState },
@@ -226,6 +227,7 @@ describe('MVP HTTP integration (domain invariants)', () => {
       import('./esignature/legal-log.reader.js'),
       import('./usage/tenant-usage.service.js'),
       import('./pii/learner-pii.service.js'),
+      import('./dashboards/manager-dashboard.service.js'),
       import('./dashboards/methodist-dashboard.service.js'),
       import('../documents/documents-state.token.js'),
       import('../documents/in-memory-documents.state.js'),
@@ -302,6 +304,13 @@ describe('MVP HTTP integration (domain invariants)', () => {
         // ФТ-G6 (Фаза 4 Task 12): контроллер отдаёт выгрузку и обезличивание ПДн.
         // Сервис настоящий — зависимости у него те же, что у «личного дела».
         { provide: LearnerPiiService, scope: Scope.REQUEST, useClass: LearnerPiiService },
+        // ТЗ 8.3: контроллер отдаёт панель руководителя. Настройки центра ей не обязательны —
+        // без базы настроек она берёт умолчания (горизонт 14 дней, допуск 10 п.п.).
+        {
+          provide: ManagerDashboardService,
+          scope: Scope.REQUEST,
+          useClass: ManagerDashboardService
+        },
         // ФТ-H2 (Фаза 5 Task 2): контроллер отдаёт дашборд методиста; сервису нужно
         // только состояние тенанта, которое здесь уже поднято.
         {

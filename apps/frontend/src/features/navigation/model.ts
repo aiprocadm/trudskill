@@ -333,6 +333,14 @@ export const routeMeta: RouteMetaEntry[] = [
   // тех, что нужны хотя бы одному разделу; окончательное решение принимает сервер,
   // который гейтит разделы по правам актора и отвечает отказом, если не положен ни один
   // (у слушателя `courses.read` есть, но экран персонала ему не открывается).
+  /*
+   * ТЗ 8.3: панель руководителя. Право — И группы, И компании: по живой
+   * `iam.role_permissions` такая пара есть ровно у тех, кто ведёт заказчиков и группы.
+   */
+  {
+    pattern: '/manager',
+    meta: { public: false, requiredPermissions: ['groups.read', 'counterparties.read'] }
+  },
   { pattern: '/methodist', meta: { public: false, requiredPermissions: ['courses.read'] } },
   // Журнал 343: как у ручек GET /templates, GET /document-tasks.
   { pattern: '/documents', meta: { public: false, requiredPermissions: ['documents.read'] } },
@@ -628,6 +636,19 @@ export const navigationModel: NavigationItem[] = [
     label: 'Оперативная панель',
     requiredPermissions: ['workspace.read'],
     navSlot: 'more'
+  },
+  /*
+   * ТЗ 8.3: панель руководителя — его стартовая страница и первый пункт меню.
+   *
+   * Подпись не «Панель», как в перечне ТЗ, а «Панель руководителя»: права на неё есть и у
+   * администратора центра, а у него в меню уже стоит «Оперативная панель». Два пункта с
+   * одним смыслом в одном меню — ровно то, что запрещает правило «одна вещь — одно имя».
+   */
+  {
+    href: '/manager',
+    label: 'Панель руководителя',
+    requiredPermissions: ['groups.read', 'counterparties.read'],
+    navSlot: 'main'
   },
   // ФТ-H2 (Фаза 5 Task 2): сводка методиста. Пункт нужен и в навигации, а не только
   // как точка приземления: методист уходит с неё в группы и возвращается обратно.

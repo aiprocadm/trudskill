@@ -11,6 +11,7 @@ import { AuditService } from '../audit/audit.service.js';
 import { REQUIRED_PERMISSIONS } from '../iam/permission.decorator.js';
 
 import type { ConsentService } from './consents/consent.service.js';
+import type { ManagerDashboardService } from './dashboards/manager-dashboard.service.js';
 import type { MethodistDashboardService } from './dashboards/methodist-dashboard.service.js';
 import type { SimpleSignatureService } from './esignature/simple-signature.service.js';
 import type { IdentityPolicyService } from './identity/identity-policy.service.js';
@@ -138,7 +139,7 @@ function makeController(documents: GeneratedDocumentEntity[]) {
     new EventEmitter2()
   );
 
-  // Контроллеру нужны четырнадцать зависимостей; маршруты документов слушателя работают
+  // Контроллеру нужны пятнадцать зависимостей; маршруты документов слушателя работают
   // только через MvpService. Остальные — громкие заглушки: обращение к неподставленной
   // зависимости бросает с её именем, а не оседает молчаливым undefined.
   const controller = new MvpController(
@@ -157,7 +158,9 @@ function makeController(documents: GeneratedDocumentEntity[]) {
     unusedDependency<SimpleSignatureService>('SimpleSignatureService'),
     // §5.432: контроллер спрашивает имена авторов для списка шаблонов отчётов; маршрутам
     // документов слушателя эта зависимость не нужна — заглушка громкая, как и остальные.
-    unusedDependency<UserDisplayNamesService>('UserDisplayNamesService')
+    unusedDependency<UserDisplayNamesService>('UserDisplayNamesService'),
+    // ТЗ 8.3: панель руководителя. Маршрутам документов слушателя не нужна — заглушка громкая.
+    unusedDependency<ManagerDashboardService>('ManagerDashboardService')
   );
 
   return { controller, service, state };

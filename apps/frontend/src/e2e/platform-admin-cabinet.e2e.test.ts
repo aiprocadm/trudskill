@@ -99,10 +99,10 @@ describe('кабинет администратора платформы (ТЗ 8
 
   it('признак «меню ровно по чертежу» стоит там, где ТЗ описал кабинет поимённо', () => {
     const exact = roleBlueprints.filter((one) => one.exactNav).map((one) => one.role);
-    expect(exact.sort(), 'слушатель (6.1) и администратор платформы (8.1)').toEqual([
-      'learner',
-      'platform_admin'
-    ]);
+    expect(
+      exact.sort(),
+      'слушатель (6.1), администратор платформы (8.1) и руководитель (8.3)'
+    ).toEqual(['learner', 'manager', 'platform_admin']);
   });
 
   it('у человека с двумя ролями меню не обрезается', () => {

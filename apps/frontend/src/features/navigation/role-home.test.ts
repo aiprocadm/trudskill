@@ -30,7 +30,8 @@ describe('resolveRoleHome (ФТ-H2, Фаза 5 Task 1)', () => {
       tenant_admin: '/workspace',
       platform_admin: '/workspace',
       methodist: '/methodist',
-      manager: '/groups'
+      // ТЗ 8.3: у руководителя появилась своя панель; раньше вход вёл прямо в «Группы».
+      manager: '/manager'
     };
 
     for (const [role, href] of Object.entries(expected)) {
@@ -63,13 +64,17 @@ describe('resolveRoleHome (ФТ-H2, Фаза 5 Task 1)', () => {
     const denyWorkspace = (href: string) => href !== '/workspace';
     expect(resolveRoleHome(session(['tenant_admin']), denyWorkspace)).toBeNull();
     // При наличии второй роли берётся её маршрут, а не отказ.
-    expect(resolveRoleHome(session(['tenant_admin', 'manager']), denyWorkspace)).toBe('/groups');
+    expect(resolveRoleHome(session(['tenant_admin', 'manager']), denyWorkspace)).toBe('/manager');
   });
 
   it('проверка прав по умолчанию настоящая: без прав маршрут не выбирается', () => {
     // Резолвер вызывается БЕЗ подмены `canAccess` — работает реальный evaluateRouteAccess.
     expect(resolveRoleHome(session(['manager'], []))).toBeNull();
-    expect(resolveRoleHome(session(['manager'], ['groups.read']))).toBe('/groups');
+    /* Панель требует ОБА права: она про обучение по компаниям, а не только про группы. */
+    expect(resolveRoleHome(session(['manager'], ['groups.read']))).toBeNull();
+    expect(resolveRoleHome(session(['manager'], ['groups.read', 'counterparties.read']))).toBe(
+      '/manager'
+    );
   });
 
   it('слушатель доходит до кабинета — маршрут `/learner` есть в карте доступа', () => {
@@ -99,7 +104,7 @@ describe('resolveRoleHome (ФТ-H2, Фаза 5 Task 1)', () => {
       ['platform_admin', ['workspace.read'], '/workspace'],
       // У методиста нет прав на группы и зачисления — сводка открывается `courses.read`.
       ['methodist', ['courses.read'], '/methodist'],
-      ['manager', ['groups.read'], '/groups']
+      ['manager', ['groups.read', 'counterparties.read'], '/manager']
     ];
     for (const [role, permissions, href] of byRole) {
       expect(resolveRoleHome(session([role], permissions))).toBe(href);

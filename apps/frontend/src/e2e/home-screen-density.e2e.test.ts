@@ -34,7 +34,8 @@ const HOME_SOURCES: Record<string, string> = {
   '/learner': 'src/features/learner-home/learner-home-screen.tsx',
   '/workspace': 'app/workspace/page.tsx',
   '/methodist': 'app/methodist/page.tsx',
-  '/groups': 'src/features/groups/groups-list-screen.tsx',
+  // ТЗ 8.3: у руководителя появилась своя панель, и он больше не приземляется в «Группы».
+  '/manager': 'src/features/manager-home/manager-home-screen.tsx',
   '/counterparty-portal': 'app/counterparty-portal/page.tsx'
 };
 
