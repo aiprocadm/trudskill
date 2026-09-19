@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { toneOf } from './index.js';
 import { statusAccessibleLabel } from './status-label.js';
-import { semanticStatusMap } from '../../tokens/index.js';
+import { semanticStatusTone } from '../../tokens/index.js';
 
 /**
  * `UI-023`: каждый статус читается БЕЗ цвета.
  *
- * `semanticStatusMap` раскрашивает 13 состояний пятью цветами. Цвет — единственный
+ * `semanticStatusTone` раскрашивает 13 состояний пятью тонами. Цвет — единственный
  * носитель смысла для того, кто его не различает, для чёрно-белой печати и для
  * экранной читалки. Поэтому у каждого цветного состояния обязана быть русская
  * подпись: она и есть не-цветовой дубль (WCAG 1.4.1 «Использование цвета»).
@@ -16,7 +17,7 @@ import { semanticStatusMap } from '../../tokens/index.js';
  * а подпись возвращалась ключом as is, то есть латиницей («queued», «suspended»).
  */
 describe('UI-023 · каждый цветной статус имеет русскую подпись', () => {
-  const statuses = Object.keys(semanticStatusMap);
+  const statuses = Object.keys(semanticStatusTone);
 
   it.each(statuses)('«%s» подписан кириллицей', (status) => {
     const label = statusAccessibleLabel(status);
@@ -24,6 +25,16 @@ describe('UI-023 · каждый цветной статус имеет русс
     // Ключ вернулся как есть — значит подписи нет и в чипе окажется латиница.
     expect(label, `статус «${status}» не имеет русской подписи`).not.toBe(status);
     expect(label, `подпись статуса «${status}» не на русском: «${label}»`).toMatch(/[А-Яа-яЁё]/);
+  });
+
+  it('незнакомое состояние не пугает красным (ТЗ 7.2)', () => {
+    /*
+     * Система не знает, что это за состояние. Красить его ошибкой значит пугать человека
+     * собственным незнанием: он пойдёт разбираться с «проблемой», которой нет. Запасной тон —
+     * «выключено»: он ничего не утверждает.
+     */
+    expect(toneOf('нечто-невиданное')).toBe('off');
+    expect(toneOf('blocked'), 'известное состояние по-прежнему красится по смыслу').toBe('danger');
   });
 
   it('неизвестный статус не остаётся без текста', () => {

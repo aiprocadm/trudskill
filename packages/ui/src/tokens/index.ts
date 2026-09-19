@@ -6,30 +6,47 @@ export const shadows = {
   lg: '0 28px 64px -20px rgba(8, 15, 30, 0.42)'
 } as const;
 
-export const semanticStatusMap = {
-  active: 'var(--ui-success-600)',
-  inactive: 'var(--ui-neutral-500)',
-  archived: 'var(--ui-warning-700)',
-  pending: 'var(--ui-warning-600)',
-  failed: 'var(--ui-danger-600)',
-  running: 'var(--ui-brand-600)',
-  queued: 'var(--ui-warning-600)',
-  completed: 'var(--ui-success-600)',
-  draft: 'var(--ui-neutral-500)',
-  published: 'var(--ui-success-600)',
-  blocked: 'var(--ui-danger-600)',
-  suspended: 'var(--ui-danger-600)',
-  cancelled: 'var(--ui-danger-600)'
-} as const;
+/**
+ * Тон плашки статуса (ТЗ «Стабилизация, UX и развитие», 7.2 / В2).
+ *
+ * Ровно пять значений, и других не будет. Каждое — пара «приглушённый фон + насыщенный
+ * текст», а не один цвет: плашка со СВЕТЛЫМ фоном и тёмным текстом читается и не кричит,
+ * тогда как прежняя — насыщенный фон и белый текст — в тёмной теме не читалась вовсе.
+ *
+ * Измерено до правки: белым по `--ui-success-600` в тёмной теме выходило **1.97:1** при
+ * пороге 4.5:1, и так все шесть цветов (худший 1.97, лучший 3.67). То есть в тёмной теме
+ * НИ ОДНА плашка статуса не проходила AA. Сторож туда не смотрел: пары «текст плашки на
+ * фоне плашки» в списке `contrast-audit` не было (журнал 561).
+ */
+export type StatusTone = 'neutral' | 'success' | 'warning' | 'danger' | 'off';
 
 /**
- * Ключ карты цветов — то, что уходит в проп `status` компонента `StatusChip` (`UI-023`).
+ * Какому тону принадлежит состояние.
  *
- * Доменных статусов в продукте больше, чем цветов: «истекла», «отозвана», «одобрен»,
- * «на проверке». Экран сам сопоставляет свой статус одному из этих ключей — тип не даёт
- * ошибиться в написании, а `semanticStatusMap` остаётся прежним (13 состояний, 5 цветов).
+ * Тринадцать состояний на пять тонов. Ключ — то, что уходит в проп `status` компонента
+ * `StatusChip` (`UI-023`); доменных статусов в продукте больше («истекла», «отозвана»,
+ * «одобрен», «на проверке»), и экран сам сопоставляет свой статус одному из этих ключей.
+ *
+ * `archived` переехал из «внимания» в «выключено»: «В архиве» — это выведено из работы, а
+ * не повод насторожиться. Оранжевая плашка архива заставляла искать проблему там, где её нет.
  */
-export type SemanticStatus = keyof typeof semanticStatusMap;
+export const semanticStatusTone = {
+  active: 'success',
+  inactive: 'off',
+  archived: 'off',
+  pending: 'warning',
+  failed: 'danger',
+  running: 'neutral',
+  queued: 'warning',
+  completed: 'success',
+  draft: 'off',
+  published: 'success',
+  blocked: 'danger',
+  suspended: 'danger',
+  cancelled: 'danger'
+} as const satisfies Record<string, StatusTone>;
+
+export type SemanticStatus = keyof typeof semanticStatusTone;
 
 // trudskill — бренд-палитра: индиго (#3B4FE4, структура) + коралл (#FF7A45, действие).
 // Нейтрали — холодная slate-шкала, почти чёрный текст. Все цвета проверены на WCAG AA
@@ -77,8 +94,22 @@ export const lightThemeVars = {
   '--ui-warning-600': '#b45309',
   '--ui-warning-700': '#92400e',
   '--ui-danger-600': '#dc2626',
-  /* Цвет нейтрального статуса: «неактивен», «черновик» в semanticStatusMap, чип-запас. */
+  /* Нейтральная серая ступень: подписи и разделители. Плашки статусов с 7.2 берут тона. */
   '--ui-neutral-500': '#64748b',
+  /*
+   * ТЗ 7.2: плашки статусов. Пять тонов, у каждого пара «фон + текст». Числа измерены
+   * сторожем `contrast-audit`, а не подобраны на глаз: 6.84–8.40:1 при пороге 4.5:1.
+   */
+  '--ui-tone-neutral-bg': '#e3e7fd',
+  '--ui-tone-neutral-text': '#2c3ac0',
+  '--ui-tone-success-bg': '#dcf5e4',
+  '--ui-tone-success-text': '#14532d',
+  '--ui-tone-warning-bg': '#fdeecd',
+  '--ui-tone-warning-text': '#78350f',
+  '--ui-tone-danger-bg': '#fde3e3',
+  '--ui-tone-danger-text': '#991b1b',
+  '--ui-tone-off-bg': '#e2e8f0',
+  '--ui-tone-off-text': '#334155',
   '--ui-focus': '#3b4fe4',
   '--ui-shadow': shadows.sm,
   '--ui-shadow-strong': shadows.md,
@@ -127,6 +158,21 @@ export const darkThemeVars = {
   '--ui-warning-700': '#d9942e',
   '--ui-danger-600': '#f0795f',
   '--ui-neutral-500': '#aab6cb',
+  /*
+   * ТЗ 7.2: в тёмной теме «приглушённый фон» означает ТЁМНЫЙ фон и светлый текст — тот же
+   * приём, вывернутый наизнанку. Раньше здесь белый текст лежал на светло-зелёном и
+   * светло-оранжевом: 1.97:1 и 2.01:1, то есть надпись читалась с трудом. Стало 7.34–8.24:1.
+   */
+  '--ui-tone-neutral-bg': '#232c57',
+  '--ui-tone-neutral-text': '#b4bffa',
+  '--ui-tone-success-bg': '#123a28',
+  '--ui-tone-success-text': '#6fe3a4',
+  '--ui-tone-warning-bg': '#3f2c0d',
+  '--ui-tone-warning-text': '#f5c46e',
+  '--ui-tone-danger-bg': '#45201c',
+  '--ui-tone-danger-text': '#f7a693',
+  '--ui-tone-off-bg': '#27314a',
+  '--ui-tone-off-text': '#c5cee0',
   '--ui-focus': '#6b7bf0',
   '--ui-shadow': '0 1px 2px rgba(0, 0, 0, 0.34)',
   '--ui-shadow-strong': '0 18px 44px -16px rgba(0, 0, 0, 0.64)',

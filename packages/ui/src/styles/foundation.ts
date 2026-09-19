@@ -122,8 +122,16 @@ a:not([class]):hover { color: var(--ui-brand-600); }
 .ui-link-button:hover, .ui-button-link:hover { color: var(--ui-brand-600); background: none; }
 fieldset { border: 1px solid var(--ui-border); border-radius: var(--ui-radius-md); padding: 12px 14px; margin: 0; }
 legend { font-size: var(--ui-font-size-sm); font-weight: var(--ui-font-weight-semibold); color: var(--ui-text-muted); padding: 0 6px; }
-.ui-badge { color: #fff; border-radius: var(--ui-radius-pill); padding: 3px 11px; font-size: var(--ui-font-size-xs); font-weight: var(--ui-font-weight-semibold); letter-spacing: 0.01em; }
-.ui-badge--brand { background: var(--ui-brand-600); }
+/* ТЗ 7.2: плашка статуса — приглушённый фон и насыщенный текст ОДНОГО тона, а не белым по
+   цвету. Цвет текста задаёт класс тона, поэтому в общем правиле его больше нет: белый
+   хардкодом и был причиной, по которой в тёмной теме плашки не читались. Тонкая рамка
+   выводится из тех же двух токенов, третьего заводить не нужно. */
+.ui-badge { border-radius: var(--ui-radius-pill); padding: 3px 11px; font-size: var(--ui-font-size-xs); font-weight: var(--ui-font-weight-semibold); letter-spacing: 0.01em; border: 1px solid transparent; }
+.ui-badge--neutral { background: var(--ui-tone-neutral-bg); color: var(--ui-tone-neutral-text); border-color: color-mix(in srgb, var(--ui-tone-neutral-text) 22%, var(--ui-tone-neutral-bg)); }
+.ui-badge--success { background: var(--ui-tone-success-bg); color: var(--ui-tone-success-text); border-color: color-mix(in srgb, var(--ui-tone-success-text) 22%, var(--ui-tone-success-bg)); }
+.ui-badge--warning { background: var(--ui-tone-warning-bg); color: var(--ui-tone-warning-text); border-color: color-mix(in srgb, var(--ui-tone-warning-text) 22%, var(--ui-tone-warning-bg)); }
+.ui-badge--danger { background: var(--ui-tone-danger-bg); color: var(--ui-tone-danger-text); border-color: color-mix(in srgb, var(--ui-tone-danger-text) 22%, var(--ui-tone-danger-bg)); }
+.ui-badge--off { background: var(--ui-tone-off-bg); color: var(--ui-tone-off-text); border-color: color-mix(in srgb, var(--ui-tone-off-text) 22%, var(--ui-tone-off-bg)); }
 .ui-text-muted { color: var(--ui-text-muted); }
 /* ТЗ 5.8 (Э8): строка «чего не хватает» рядом с выключенной кнопкой. */
 .ui-hint--blocked { margin-top: var(--ui-space-xs); }

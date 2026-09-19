@@ -8,7 +8,7 @@ import { APP_ROOT, fromApp } from './app-root';
 /**
  * `UI-023`: цвет статуса и подпись статуса — РАЗНЫЕ входы `StatusChip`.
  *
- * У чипа два пропа: `status` — ключ карты цветов (`semanticStatusMap`), `label` — русская
+ * У чипа два пропа: `status` — ключ карты тонов (`semanticStatusTone`), `label` — русская
  * подпись. Ключ и подпись легко перепутать местами, потому что оба строки, и TypeScript
  * молчит: `status` объявлен как `EntityStatus | string`.
  *
