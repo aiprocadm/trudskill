@@ -69,6 +69,22 @@ export class RedisRealtimeEventStore implements RealtimeEventStore {
   }
 }
 
+/**
+ * Забрать тикет подключения — ОДИН раз (ТЗ 9.1).
+ *
+ * `getDel` читает и удаляет запись одним действием хранилища. Это и делает тикет одноразовым:
+ * два браузера, пришедшие с одной строкой, не смогут подключиться оба — второй получит пусто.
+ * Разделить это на «прочитать» и «удалить» нельзя: между двумя запросами успевает вклиниться
+ * второй желающий, и одноразовость превращается в обещание.
+ */
+@Injectable()
+export class RedisRealtimeTicketStore {
+  async take(key: string): Promise<string | null> {
+    const client = await redisClientProvider.getClient();
+    return (await client.getDel(key)) as string | null;
+  }
+}
+
 @Injectable()
 export class RedisStreamsRealtimePubSub implements RealtimePubSub {
   private readonly logger = new Logger(RedisStreamsRealtimePubSub.name);

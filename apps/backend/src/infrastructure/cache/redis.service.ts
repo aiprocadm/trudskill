@@ -18,6 +18,18 @@ export class RedisService {
     }
   }
 
+  /**
+   * Положить значение на ограниченный срок.
+   *
+   * Используется одноразовыми тикетами подключения к трансляции (ТЗ 9.1). Срок задаётся
+   * хранилищем, а не проверяется нами при чтении: так запись исчезает сама, даже если её никто
+   * не забрал, и хранилище не превращается в свалку просроченных тикетов.
+   */
+  async setWithTtl(key: string, value: string, ttlSeconds: number): Promise<void> {
+    const client = await this.getClient();
+    await client.set(key, value, { EX: ttlSeconds });
+  }
+
   private async getClient(): Promise<RedisClientType> {
     if (!this.client) {
       this.client = createClient({ url: backendEnv.REDIS_URL });

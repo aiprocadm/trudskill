@@ -2,6 +2,15 @@ import { readFileSync } from 'node:fs';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+/*
+ * ТЗ 9.1: подменяем ТОЛЬКО выдачу тикета. Полная подмена модуля унесла бы и остальные его
+ * функции, которыми пользуются соседние модули, — проверено на себе.
+ */
+vi.mock('../../lib/api/client', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  apiRequest: vi.fn(async () => ({ ticket: 'ticket-1', expiresInSeconds: 30 }))
+}));
+
 import { openRealtimeSubscription } from './hooks';
 
 import type { RealtimeEventEnvelope } from '@trudskill/api-contracts';
@@ -73,12 +82,17 @@ describe('живые подписки коммуникаций (Фаза 6, де
     expect(FakeEventSource.instances).toHaveLength(0);
   });
 
-  it('смена колбэка не требует переподписки: событие уходит в последнюю версию', () => {
+  it('смена колбэка не требует переподписки: событие уходит в последнюю версию', async () => {
     const first = vi.fn();
     const second = vi.fn();
     const callbackRef = { current: first };
 
     const off = openRealtimeSubscription('user:u1', 'token-1', callbackRef);
+    /*
+     * ТЗ 9.1: между подпиской и открытием потока появился шаг — поход за одноразовым тикетом.
+     * Утверждение теста прежнее, ждать приходится на одну микрозадачу дольше (журнал 571).
+     */
+    for (let i = 0; i < 4; i += 1) await Promise.resolve();
     expect(FakeEventSource.instances).toHaveLength(1);
 
     FakeEventSource.instances[0]!.emit(event());
@@ -94,6 +108,7 @@ describe('живые подписки коммуникаций (Фаза 6, де
 
     off?.();
     vi.advanceTimersByTime(30_000);
+    for (let i = 0; i < 4; i += 1) await Promise.resolve();
     expect(FakeEventSource.instances[0]!.closed).toBe(true);
   });
 
