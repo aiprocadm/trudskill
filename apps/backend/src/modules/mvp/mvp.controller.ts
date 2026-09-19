@@ -744,10 +744,16 @@ export class MvpController {
   getGroup(@CurrentContext() c: RequestContext, @Param('id') id: string) {
     return this.mvpService.getGroup(c.tenantId!, id);
   }
+  /**
+   * ТЗ 13.2, решение Р13: при превышении тарифа прекращается добавление новых слушателей
+   * И ЗАПУСК НОВЫХ ГРУПП. Второе не было закрыто ничем: центр с исчерпанным тарифом не мог
+   * добавить человека, но мог завести сколько угодно групп (журнал 553).
+   */
   @Post('groups')
   @UseGuards(PermissionGuard)
   @RequirePermissions('groups.write')
-  createGroup(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+  async createGroup(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
+    await this.tenantUsage.assertCanStartGroup(c.tenantId!);
     const b = assertValidDto(CreateSimpleRegistryRequest, raw);
     return this.mvpService.createGroup(c.tenantId!, c.userId, b, c);
   }

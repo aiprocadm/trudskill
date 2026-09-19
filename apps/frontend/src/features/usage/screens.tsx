@@ -124,6 +124,19 @@ export function TenantUsageScreen() {
         ) : null}
       </SectionCard>
 
+      {/*
+        ТЗ 13.2 просит показать «текстом — что произойдёт при превышении». Фраза приходит с
+        сервера готовой: она же объясняет главное решение Р13 — что именно ПРОДОЛЖАЕТСЯ.
+        Без этой половины центр при первом предупреждении решит, что у него сейчас встанет всё.
+      */}
+      {data?.limit && data.limit.tone !== 'none' ? (
+        <SectionCard title="Что происходит с тарифом">
+          <p className={data.limit.tone === 'danger' ? 'ui-hint ui-hint--blocked' : 'ui-hint'}>
+            {data.limit.notice}
+          </p>
+        </SectionCard>
+      ) : null}
+
       {data ? (
         <SectionCard title="Использование">
           <div className="ui-stack">
