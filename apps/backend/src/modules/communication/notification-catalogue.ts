@@ -148,9 +148,10 @@ export const NOTIFICATION_CATALOGUE: NotificationEvent[] = [
     key: 'gov_export_failed',
     title: 'Госвыгрузка завершилась с ошибкой',
     audience: ['admin'],
-    channels: [],
-    status: 'planned',
-    gap: 'Экран выгрузок показывает отказ (журнал 387), но письма и уведомления в системе нет — администратор обязан сам зайти и посмотреть.'
+    /* ТЗ 12.3: долг закрыт — отказ выгрузки кладётся в колокольчик администратора центра. */
+    channels: ['in_app'],
+    sender: 'modules/integrations/services/integration-orchestrator.service.ts',
+    status: 'live'
   },
   {
     key: 'deadline_for_employer',

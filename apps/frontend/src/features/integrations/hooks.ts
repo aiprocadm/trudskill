@@ -23,6 +23,14 @@ export interface ExportTaskDto {
   providerCode: string;
   exportType: string;
   status: string;
+  /*
+   * ТЗ 12.3: сервер отдаёт время и ответ реестра с самого начала, но описание их не
+   * перечисляло — и до человека они не доходили (журнал 523). «Статус: не выполнена» без
+   * причины и без времени — это звонок разработчику.
+   */
+  requestedAt?: string;
+  finishedAt?: string;
+  responsePayloadJsonb?: Record<string, unknown>;
 }
 export interface SyncLogDto {
   id: string;
