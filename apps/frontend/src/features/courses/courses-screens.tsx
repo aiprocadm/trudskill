@@ -21,6 +21,8 @@ import {
   TRAINING_TYPE_OPTIONS,
   programMetaView
 } from './program-meta-view';
+import { canMove, moduleSummary, movedByOne } from './program-tree';
+import { useProgramTree } from './use-program-tree';
 import { FieldError } from '../../components/form-feedback';
 import {
   PageContainer,
@@ -43,8 +45,6 @@ import {
   useDirectionsList,
   useDocumentTemplates,
   useDomainMutations,
-  useMaterials,
-  useModules,
   useRegulatoryActs,
   useTests
 } from '../mvp/hooks';
@@ -756,11 +756,23 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
   const { data: versions, refetch: refetchVersions } = useCourseVersions(id);
   const latestVersionId = versions?.items[versions.items.length - 1]?.id;
   const latestVersion = versions?.items[versions.items.length - 1];
-  const { data: modules, refetch: refetchModules } = useModules(latestVersionId);
+  /*
+   * ТЗ 8.4: программа грузится ДЕРЕВОМ целиком. Раньше материалы брались по одному модулю
+   * (`useMaterials(selectedModuleId)`), и увидеть программу целиком было негде.
+   * `selectedModuleId` остался, но теперь означает не «какие материалы показать», а «в какой
+   * модуль сейчас добавляют материал».
+   */
+  const program = useProgramTree(latestVersionId);
   const [selectedModuleId, setSelectedModuleId] = useState<string>('');
-  const { data: materials, refetch: refetchMaterials } = useMaterials(selectedModuleId);
-  const { publishCourse, archiveCourse, createCourseVersion, saveModule, saveMaterial } =
-    useDomainMutations();
+  const {
+    publishCourse,
+    archiveCourse,
+    createCourseVersion,
+    saveModule,
+    saveMaterial,
+    reorderModules,
+    reorderMaterials
+  } = useDomainMutations();
   /*
    * ТЗ 8.4: состав вкладок приведён к названному в ТЗ (Параметры · Программа · Аттестация ·
    * Документы). Прежние имена `content` и `versions` остаются рабочими в адресе — такие
@@ -811,16 +823,38 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
   const moduleTests = moduleTestsOf(courseTests, id);
   const examState = assessmentSummary(finalExam);
 
+  /*
+   * Порядок уходит на сервер СПИСКОМ ЦЕЛИКОМ: повтор запроса после обрыва связи тогда ничего
+   * не ломает. Отказ обязан быть виден — иначе человек двигает пункт, ничего не происходит,
+   * и он двигает снова.
+   */
+  const moduleIds = program.nodes.map((node) => node.module.id);
+  const materialIdsOf = (node: (typeof program.nodes)[number]) =>
+    node.materials.map((item) => item.id);
+
+  const moveModule = (moduleId: string, direction: 'up' | 'down') => {
+    if (!latestVersionId) return;
+    const next = movedByOne(moduleIds, moduleId, direction);
+    void reorderModules(latestVersionId, next)
+      .then(() => program.refetch())
+      .catch((orderError) => setSaveError(readApiMessage(orderError)));
+  };
+
+  const moveMaterial = (
+    node: (typeof program.nodes)[number],
+    materialId: string,
+    direction: 'up' | 'down'
+  ) => {
+    const next = movedByOne(materialIdsOf(node), materialId, direction);
+    void reorderMaterials(node.module.id, next)
+      .then(() => program.refetch())
+      .catch((orderError) => setSaveError(readApiMessage(orderError)));
+  };
+
   const canPublish = hasPermission(session?.permissions ?? [], 'courses.publish');
   const canArchive = hasPermission(session?.permissions ?? [], 'courses.archive');
   /* Новая версия — то же право, что у ручки `course-versions/:courseId` (`courses.write`). */
   const canCreateVersion = hasPermission(session?.permissions ?? [], 'courses.write');
-
-  useEffect(() => {
-    if (modules?.items?.length && !selectedModuleId) {
-      setSelectedModuleId(modules.items[0]?.id ?? '');
-    }
-  }, [modules, selectedModuleId]);
 
   // Lazy-load ready SCORM packages when the scorm material type is first selected
   useEffect(() => {
@@ -840,8 +874,13 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
 
   const blockers = publishBlockers({
     hasVersion: Boolean(latestVersionId),
-    hasModule: Boolean(modules?.items?.length),
-    hasMaterial: Boolean(materials?.items?.length)
+    hasModule: program.nodes.length > 0,
+    /*
+     * Раньше «есть ли материалы» считалось по ОДНОМУ выбранному модулю: курс с полным вторым
+     * модулем и пустым первым выглядел неготовым, а пустой курс с открытым непустым модулем —
+     * готовым. Теперь по всему дереву (журнал 540).
+     */
+    hasMaterial: program.nodes.some((node) => node.materials.length > 0)
   });
   const readyToPublish = blockers.length === 0;
   const headerAction = courseHeaderAction({
@@ -1057,7 +1096,17 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
             Посмотреть глазами слушателя
           </Link>
         </p>
-        <SectionCard title="Модули">
+        <SectionCard title="Программа">
+          {/*
+            ТЗ 8.4: дерево «модуль → материалы» вместо двух независимых блоков. Раньше модуль
+            приходилось ВЫБИРАТЬ ЗАНОВО в выпадающем списке, а материалы показывались только у
+            одного модуля: программу целиком не было видно нигде, и методист держал её в голове.
+          */}
+          <p className="ui-hint">
+            Модуль — раздел программы; внутри него материалы, которые изучает слушатель. Порядок в
+            дереве — это порядок обучения.
+          </p>
+
           <form
             onSubmit={(event) => {
               event.preventDefault();
@@ -1070,7 +1119,7 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
               })
                 .then(() => {
                   setModuleTitle('');
-                  return refetchModules();
+                  return program.refetch();
                 })
                 .catch((moduleError) => setSaveError(readApiMessage(moduleError)));
             }}
@@ -1081,175 +1130,238 @@ export const CourseDetailsScreen = ({ id }: { id: string }) => {
               value={moduleTitle}
               onChange={(event) => setModuleTitle(event.target.value)}
               placeholder="Название модуля"
+              aria-label="Название нового модуля"
             />
             <button type="submit" disabled={!latestVersionId}>
               Добавить модуль
             </button>
           </form>
-          {modules?.items.length ? (
-            <DataTable
-              columns={[
-                { key: 'orderView', title: '№' },
-                { key: 'title', title: 'Модуль' },
-                { key: 'viewTimeView', title: 'Минимум просмотра' }
-              ]}
-              rows={modules.items.map((item) => ({
-                id: item.id,
-                orderView: item.sortOrder + 1,
-                title: item.title,
-                viewTimeView: viewTimeLabel(item.minViewSeconds)
-              }))}
-              rowKey={(row) => String(row.id)}
-            />
-          ) : (
+
+          {program.error ? <SectionError message={program.error} /> : null}
+
+          {program.nodes.length === 0 ? (
             <SectionEmpty
               message="Модулей пока нет"
-              hint="Модуль — раздел программы; внутри него лежат материалы, которые изучает слушатель."
-            />
-          )}
-        </SectionCard>
-        <SectionCard title="Материалы модуля">
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!selectedModuleId || !materialTitle.trim()) return;
-              /*
-               * Содержимое уходит только тому виду материала, которому принадлежит, — сервер так
-               * же его и хранит. Собрано ОТДЕЛЬНОЙ переменной, а не прямо в вызове: сторож
-               * `mutation-failure-is-visible` ищет обработку отказа рядом с вызовом, и длинный
-               * список полей отодвинул бы её за пределы видимости сторожа.
-               */
-              const content =
-                materialType === 'text'
-                  ? { textBody: materialTextBody }
-                  : materialType === 'external_url'
-                    ? { externalUrl: materialExternalUrl.trim() }
-                    : materialType === 'scorm' && scormPackageId
-                      ? { scormPackageId }
-                      : {};
-              void saveMaterial(null, {
-                moduleId: selectedModuleId,
-                title: materialTitle.trim(),
-                materialType,
-                minViewSeconds: materialType === 'scorm' ? 0 : 60,
-                isRequired: true,
-                ...content
-              })
-                .then(() => {
-                  resetMaterialForm();
-                  return refetchMaterials();
-                })
-                .catch((materialError) => setSaveError(readApiMessage(materialError)));
-            }}
-            className="ui-inline"
-            style={{ marginBottom: 8 }}
-          >
-            <select
-              value={selectedModuleId}
-              onChange={(event) => setSelectedModuleId(event.target.value)}
-            >
-              <option value="">Выберите модуль</option>
-              {modules?.items.map((module) => (
-                <option key={module.id} value={module.id}>
-                  {module.title}
-                </option>
-              ))}
-            </select>
-            <input
-              value={materialTitle}
-              onChange={(event) => setMaterialTitle(event.target.value)}
-              placeholder="Название материала"
-            />
-            <select
-              value={materialType}
-              onChange={(event) => {
-                setMaterialType(event.target.value as typeof materialType);
-                setScormPackageId('');
-              }}
-            >
-              <option value="text">Текст</option>
-              <option value="video">Видео</option>
-              <option value="file">Файл</option>
-              <option value="external_url">Внешняя ссылка</option>
-              <option value="scorm">SCORM</option>
-            </select>
-            {materialType === 'scorm' ? (
-              <>
-                {scormPackagesError ? (
-                  <SectionError message={scormPackagesError} />
-                ) : (
-                  <select
-                    value={scormPackageId}
-                    onChange={(event) => setScormPackageId(event.target.value)}
-                  >
-                    <option value="">— выберите SCORM-пакет —</option>
-                    {scormPackages.map((pkg) => (
-                      <option key={pkg.id} value={pkg.id}>
-                        {pkg.title}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </>
-            ) : null}
-            {materialType === 'text' ? (
-              /*
-               * Простой редактор из ТЗ 2.5.a — обычное многострочное поле. Разметки нет намеренно:
-               * она потребовала бы очистки от опасного содержимого, а это отдельная работа вне
-               * объёма решения Р8. Абзацы разделяются пустой строкой и так же показываются.
-               */
-              <textarea
-                value={materialTextBody}
-                onChange={(event) => setMaterialTextBody(event.target.value)}
-                placeholder="Текст материала: то, что прочитает слушатель"
-                rows={4}
-                aria-label="Текст материала"
-              />
-            ) : null}
-            {materialType === 'external_url' ? (
-              <input
-                value={materialExternalUrl}
-                onChange={(event) => setMaterialExternalUrl(event.target.value)}
-                placeholder="Адрес страницы — скопируйте из адресной строки браузера"
-                aria-label="Адрес внешнего материала"
-              />
-            ) : null}
-            <button
-              type="submit"
-              disabled={
-                !selectedModuleId ||
-                (materialType === 'scorm' && !scormPackageId) ||
-                /* Пустой текст или пустая ссылка — это материал, который нечем открыть. */
-                (materialType === 'text' && !materialTextBody.trim()) ||
-                (materialType === 'external_url' && !materialExternalUrl.trim())
-              }
-            >
-              Добавить материал
-            </button>
-          </form>
-          {materials?.items.length ? (
-            <DataTable
-              columns={[
-                { key: 'orderView', title: '№' },
-                { key: 'title', title: 'Материал' },
-                { key: 'typeView', title: 'Вид' },
-                { key: 'viewTimeView', title: 'Минимум просмотра' }
-              ]}
-              rows={materials.items.map((item) => ({
-                id: item.id,
-                orderView: item.sortOrder + 1,
-                title: item.title,
-                typeView: materialTypeLabel(item.materialType),
-                viewTimeView: viewTimeLabel(item.minViewSeconds)
-              }))}
-              rowKey={(row) => String(row.id)}
+              hint="Модуль — раздел программы; внутри него лежат материалы, которые изучает слушатель. Начните с первого модуля."
             />
           ) : (
-            <SectionEmpty
-              message="Материалов пока нет"
-              hint="Материал — то, что слушатель читает или смотрит: текст, видео, файл или учебный пакет."
-            />
+            <ol className="ui-stack ui-program-tree">
+              {program.nodes.map((node, index) => (
+                <li key={node.module.id} className="ui-program-tree__module">
+                  <div className="ui-inline">
+                    <strong>
+                      {index + 1}. {node.module.title}
+                    </strong>
+                    <span className="ui-text-muted">{moduleSummary(node)}</span>
+                    {/*
+                      Кнопки «вверх»/«вниз» — обязательный запасной способ: перетаскивание мышью
+                      на телефоне ненадёжно, а с клавиатуры недоступно вовсе. Порядок уходит на
+                      сервер СПИСКОМ ЦЕЛИКОМ, поэтому повтор запроса ничего не ломает.
+                    */}
+                    {canMove(moduleIds, node.module.id, 'up') ? (
+                      <button
+                        type="button"
+                        className="ui-button-secondary"
+                        aria-label={`Поднять модуль «${node.module.title}»`}
+                        onClick={() => moveModule(node.module.id, 'up')}
+                      >
+                        ↑
+                      </button>
+                    ) : null}
+                    {canMove(moduleIds, node.module.id, 'down') ? (
+                      <button
+                        type="button"
+                        className="ui-button-secondary"
+                        aria-label={`Опустить модуль «${node.module.title}»`}
+                        onClick={() => moveModule(node.module.id, 'down')}
+                      >
+                        ↓
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {node.materials.length > 0 ? (
+                    <ul className="ui-bare-list ui-program-tree__materials">
+                      {node.materials.map((item) => (
+                        <li key={item.id} className="ui-program-tree__material">
+                          <div className="ui-inline">
+                            <span>{item.title}</span>
+                            <span className="ui-text-muted">
+                              {materialTypeLabel(item.materialType)} ·{' '}
+                              {viewTimeLabel(item.minViewSeconds)}
+                            </span>
+                            {/*
+                              Кнопка показывается, только когда двигать ЕСТЬ КУДА. Выключенная
+                              стрелка у первого пункта — молчащая кнопка: человек жмёт, ничего
+                              не происходит, причина неизвестна (ТЗ 5.8). Здесь причина —
+                              «дальше некуда», и объяснять её отдельной строкой у каждого пункта
+                              значило бы засыпать дерево подписями.
+                            */}
+                            {canMove(materialIdsOf(node), item.id, 'up') ? (
+                              <button
+                                type="button"
+                                className="ui-button-secondary"
+                                aria-label={`Поднять материал «${item.title}»`}
+                                onClick={() => moveMaterial(node, item.id, 'up')}
+                              >
+                                ↑
+                              </button>
+                            ) : null}
+                            {canMove(materialIdsOf(node), item.id, 'down') ? (
+                              <button
+                                type="button"
+                                className="ui-button-secondary"
+                                aria-label={`Опустить материал «${item.title}»`}
+                                onClick={() => moveMaterial(node, item.id, 'down')}
+                              >
+                                ↓
+                              </button>
+                            ) : null}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+
+                  {selectedModuleId === node.module.id ? (
+                    <form
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        if (!selectedModuleId || !materialTitle.trim()) return;
+                        /*
+                         * Содержимое уходит только тому виду материала, которому принадлежит, —
+                         * сервер так же его и хранит. Собрано ОТДЕЛЬНОЙ переменной, а не прямо
+                         * в вызове: сторож `mutation-failure-is-visible` ищет обработку отказа
+                         * рядом с вызовом, и длинный список полей отодвинул бы её.
+                         */
+                        const content =
+                          materialType === 'text'
+                            ? { textBody: materialTextBody }
+                            : materialType === 'external_url'
+                              ? { externalUrl: materialExternalUrl.trim() }
+                              : materialType === 'scorm' && scormPackageId
+                                ? { scormPackageId }
+                                : {};
+                        void saveMaterial(null, {
+                          moduleId: selectedModuleId,
+                          title: materialTitle.trim(),
+                          materialType,
+                          minViewSeconds: materialType === 'scorm' ? 0 : 60,
+                          isRequired: true,
+                          ...content
+                        })
+                          .then(() => {
+                            resetMaterialForm();
+                            return program.refetch();
+                          })
+                          .catch((materialError) => setSaveError(readApiMessage(materialError)));
+                      }}
+                      className="ui-inline"
+                    >
+                      <input
+                        value={materialTitle}
+                        onChange={(event) => setMaterialTitle(event.target.value)}
+                        placeholder="Название материала"
+                        aria-label="Название нового материала"
+                      />
+                      <select
+                        value={materialType}
+                        onChange={(event) => {
+                          setMaterialType(event.target.value as typeof materialType);
+                          setScormPackageId('');
+                        }}
+                        aria-label="Вид материала"
+                      >
+                        <option value="text">Текст</option>
+                        <option value="video">Видео</option>
+                        <option value="file">Файл</option>
+                        <option value="external_url">Внешняя ссылка</option>
+                        <option value="scorm">SCORM</option>
+                      </select>
+                      {materialType === 'scorm' ? (
+                        <>
+                          {scormPackagesError ? (
+                            <SectionError message={scormPackagesError} />
+                          ) : (
+                            <select
+                              value={scormPackageId}
+                              onChange={(event) => setScormPackageId(event.target.value)}
+                              aria-label="Учебный пакет"
+                            >
+                              <option value="">— выберите SCORM-пакет —</option>
+                              {scormPackages.map((pkg) => (
+                                <option key={pkg.id} value={pkg.id}>
+                                  {pkg.title}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </>
+                      ) : null}
+                      {materialType === 'text' ? (
+                        /*
+                         * Простой редактор из ТЗ 2.5.a — обычное многострочное поле. Разметки нет
+                         * намеренно: она потребовала бы очистки от опасного содержимого, а это
+                         * отдельная работа вне объёма решения Р8.
+                         */
+                        <textarea
+                          value={materialTextBody}
+                          onChange={(event) => setMaterialTextBody(event.target.value)}
+                          placeholder="Текст материала: то, что прочитает слушатель"
+                          rows={4}
+                          aria-label="Текст материала"
+                        />
+                      ) : null}
+                      {materialType === 'external_url' ? (
+                        <input
+                          value={materialExternalUrl}
+                          onChange={(event) => setMaterialExternalUrl(event.target.value)}
+                          placeholder="Адрес страницы — скопируйте из адресной строки браузера"
+                          aria-label="Адрес внешнего материала"
+                        />
+                      ) : null}
+                      <button
+                        type="submit"
+                        disabled={
+                          (materialType === 'scorm' && !scormPackageId) ||
+                          /* Пустой текст или пустая ссылка — это материал, который нечем открыть. */
+                          (materialType === 'text' && !materialTextBody.trim()) ||
+                          (materialType === 'external_url' && !materialExternalUrl.trim())
+                        }
+                      >
+                        Добавить материал
+                      </button>
+                      <button
+                        type="button"
+                        className="ui-button-secondary"
+                        onClick={() => setSelectedModuleId('')}
+                      >
+                        Отмена
+                      </button>
+                    </form>
+                  ) : (
+                    <button
+                      type="button"
+                      className="ui-button-secondary"
+                      onClick={() => setSelectedModuleId(node.module.id)}
+                    >
+                      Добавить материал в «{node.module.title}»
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ol>
           )}
+
+          {program.orphans.length > 0 ? (
+            /*
+             * Материал, чей модуль пропал: молча не показывать нельзя — методист увидел бы в
+             * сумме меньше, чем завёл, и не понял бы почему.
+             */
+            <SectionError
+              message={`Материалов вне модулей: ${program.orphans.length}. Их модуль удалён или принадлежит другой версии программы.`}
+            />
+          ) : null}
         </SectionCard>
       </TabPanel>
     </PageContainer>

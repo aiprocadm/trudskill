@@ -61,6 +61,7 @@ import {
   ImportQuestionsRequest,
   PatchTestRulesRequest,
   PutCourseDocumentSetRequest,
+  ReorderProgramRequest,
   RequestPreExamTokenRequest,
   ReturnSubmissionRequest,
   ReviewIdentityVerificationRequest,
@@ -660,6 +661,38 @@ export class MvpController {
   updateModule(@CurrentContext() c: RequestContext, @Param('id') id: string, @Body() raw: unknown) {
     const b = assertValidDto(UpdateModuleRequest, raw);
     return this.mvpService.updateModule(c.tenantId!, c.userId, id, b, c);
+  }
+
+  /**
+   * ТЗ 8.4 — порядок модулей внутри версии программы.
+   *
+   * Список приходит ЦЕЛИКОМ (`ReorderProgramRequest`), а не сдвигом по одному: сдвиг не
+   * идемпотентен, и повтор запроса после обрыва связи сдвинул бы ещё раз. Право —
+   * `materials.write`: тем же правом заводятся и правятся сами модули.
+   */
+  @Put('course-versions/:id/modules/order')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('materials.write')
+  reorderModules(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(ReorderProgramRequest, raw);
+    return this.mvpService.reorderModules(c.tenantId!, c.userId, id, b.ids, c);
+  }
+
+  /** ТЗ 8.4 — порядок материалов внутри модуля. Правило то же, что у модулей. */
+  @Put('modules/:id/materials/order')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('materials.write')
+  reorderMaterials(
+    @CurrentContext() c: RequestContext,
+    @Param('id') id: string,
+    @Body() raw: unknown
+  ) {
+    const b = assertValidDto(ReorderProgramRequest, raw);
+    return this.mvpService.reorderMaterials(c.tenantId!, c.userId, id, b.ids, c);
   }
 
   @Get('materials')

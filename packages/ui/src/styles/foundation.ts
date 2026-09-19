@@ -105,6 +105,12 @@ export const foundationStyles = `
 .ui-hint { margin: 0; font-size: var(--ui-font-size-sm); color: var(--ui-text-muted); line-height: var(--ui-line-height-normal); max-width: var(--ui-measure-narrow); }
 .ui-subheading { margin: 0; font-size: var(--ui-font-size-md); font-weight: var(--ui-font-weight-bold); color: var(--ui-text); }
 .ui-bare-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+/* Дерево программы курса (ТЗ 8.4): модуль → материалы. Отступ показывает вложенность,
+   а не украшает: без него список материалов сливается со списком модулей. */
+.ui-program-tree { display: grid; gap: var(--ui-space-md); }
+.ui-program-tree__module { display: grid; gap: var(--ui-space-xs); }
+.ui-program-tree__materials { padding-left: var(--ui-space-lg); }
+.ui-program-tree__material { display: grid; }
 .ui-link { color: var(--ui-brand-700); font-weight: var(--ui-font-weight-semibold); text-decoration: underline; text-underline-offset: 2px; }
 .ui-link:hover { color: var(--ui-brand-600); }
 /* Ссылка без класса иначе остаётся браузерным синим #0000EE: на тёмных поверхностях это ~1.1:1,

@@ -192,6 +192,23 @@ export const mvpApi = {
       body: payload,
       ...withAuth(session)
     }),
+  /**
+   * ТЗ 8.4: порядок модулей версии. Список приходит ЦЕЛИКОМ, а не сдвигом по одному —
+   * повтор запроса после обрыва связи тогда ничего не ломает.
+   */
+  reorderModules: (session: UserSession, courseVersionId: string, ids: string[]) =>
+    apiRequest<CourseModule[]>(`/course-versions/${courseVersionId}/modules/order`, {
+      method: 'PUT',
+      body: { ids },
+      ...withAuth(session)
+    }),
+  /** ТЗ 8.4: порядок материалов внутри модуля. Правило то же. */
+  reorderMaterials: (session: UserSession, moduleId: string, ids: string[]) =>
+    apiRequest<Material[]>(`/modules/${moduleId}/materials/order`, {
+      method: 'PUT',
+      body: { ids },
+      ...withAuth(session)
+    }),
   listMaterials: (session: UserSession, moduleId?: string) =>
     apiRequest<ListResponse<Material>>(
       `/materials${queryString({ module_id: moduleId })}`,

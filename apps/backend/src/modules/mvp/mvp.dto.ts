@@ -172,6 +172,25 @@ export class CreateModuleRequest {
   isRequired?: boolean;
 }
 
+/**
+ * Порядок пунктов программы задаётся СПИСКОМ ЦЕЛИКОМ (ТЗ 8.4).
+ *
+ * Не «подними этот на одну позицию»: сдвиг не идемпотентен, и повторный запрос после обрыва
+ * связи сдвинул бы ещё раз. Список целиком — заявление «вот как должно быть».
+ *
+ * Потолок в тысячу пунктов — защита от запроса, который присылают не глазами, а скриптом:
+ * программ такого размера не бывает, а разбор списка на сто тысяч строк занял бы процесс.
+ */
+export class ReorderProgramRequest {
+  @IsDefined()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(1000)
+  @IsString({ each: true })
+  @MinLength(1, { each: true })
+  ids!: string[];
+}
+
 export class UpdateModuleRequest {
   @IsOptional()
   @IsString()

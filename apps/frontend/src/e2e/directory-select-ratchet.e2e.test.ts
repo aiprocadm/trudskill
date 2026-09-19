@@ -45,7 +45,9 @@ const NOT_YET: Record<string, number> = {
   'assessment/assessment-dashboard-screen.tsx': 3,
   'assessment-admin/test-question-picker.tsx': 1,
   'bulk-enrollments/bulk-import-screen.tsx': 1,
-  'courses/courses-screens.tsx': 6,
+  // ТЗ 8.4: выпадающий выбор модуля ушёл — материал добавляется прямо в дереве, в тот
+  // модуль, у которого нажали «Добавить материал» (журнал 539).
+  'courses/courses-screens.tsx': 5,
   'groups/group-details-screen.tsx': 1,
   'recertification/approve-recert-modal.tsx': 1
 };
