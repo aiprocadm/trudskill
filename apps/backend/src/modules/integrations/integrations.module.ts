@@ -1,6 +1,7 @@
 import { Inject, Injectable, Module, type OnModuleInit } from '@nestjs/common';
 
 import { AuditModule } from '../audit/audit.module.js';
+import { CommunicationModule } from '../communication/communication.module.js';
 import { CoreModule } from '../core/core.module.js';
 import { IamModule } from '../iam/iam.module.js';
 import { EisotAdapter } from './adapters/eisot.adapter.js';
@@ -51,6 +52,8 @@ class IntegrationsProviderRegistryBootstrap implements OnModuleInit {
 @Module({
   imports: [
     AuditModule,
+    /* ТЗ 12.3: отказ выгрузки сообщает о себе в колокольчик администратора центра. */
+    CommunicationModule,
     CoreModule,
     IamModule,
     ProvidersModule,

@@ -15,6 +15,7 @@ import {
   useRostechnadzorBatches
 } from './hooks';
 import { ReadinessNotice } from './readiness';
+import { canRetry, failureReason, whenText } from './task-view';
 import {
   PageContainer,
   PageHeader,
@@ -26,6 +27,7 @@ import { apiRequest } from '../../lib/api/client';
 import { useAuth } from '../auth/context';
 import { ClientSelect, GroupSelect } from '../groups/group-picker';
 import { useExportTasks, useSyncLogs } from '../integrations/hooks';
+import { formatDateTime } from '../mvp/screen-helpers';
 
 import type {
   EisotTestingExportOutcome,
@@ -275,6 +277,29 @@ export const GovExportScreen = () => {
     window.open(url, '_blank');
   };
 
+  /*
+   * ТЗ 12.3: «кнопка "Повторить" для отклонённых». Ручка повтора существует на сервере с самого
+   * начала — не было кнопки (журнал 524). Повторяем ИМЕННО ту задачу, а не создаём новую: у неё
+   * свой отбор записей, и пересобирать его руками человек не обязан.
+   */
+  const onRetryTask = async (taskId: string): Promise<void> => {
+    if (!session) return;
+    setCreateError(null);
+    try {
+      await apiRequest(`/exports/tasks/${taskId}/retry`, {
+        method: 'POST',
+        auth: {
+          accessToken: session.tokens.accessToken,
+          tenantId: session.user.tenantId,
+          userId: session.user.id
+        }
+      });
+      await tasks.refetch();
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : 'Не удалось повторить выгрузку');
+    }
+  };
+
   const onCreateTask = async () => {
     if (!session) return;
     setCreating(true);
@@ -366,13 +391,37 @@ export const GovExportScreen = () => {
             columns={[
               { key: 'providerView', title: 'Реестр' },
               { key: 'typeView', title: 'Что выгружали' },
-              { key: 'statusView', title: 'Статус' }
+              { key: 'statusView', title: 'Статус' },
+              /* ТЗ 12.3: «видно, что и КОГДА выгружено, что отклонено и ПО КАКОЙ ПРИЧИНЕ». */
+              { key: 'whenView', title: 'Когда' },
+              { key: 'reasonView', title: 'Почему отклонена' },
+              {
+                key: 'id',
+                title: 'Действие',
+                render: (task) =>
+                  canRetry(task) ? (
+                    <button
+                      type="button"
+                      className="ui-button"
+                      onClick={() => void onRetryTask(task.id)}
+                    >
+                      Повторить выгрузку
+                    </button>
+                  ) : (
+                    ''
+                  )
+              }
             ]}
             rows={tasks.data.map((task) => ({
               ...task,
               providerView: PROVIDER_LABELS[task.providerCode] ?? task.providerCode,
               typeView: EXPORT_TYPE_LABELS[task.exportType] ?? task.exportType,
-              statusView: TASK_STATUS_LABELS[task.status] ?? task.status
+              statusView: TASK_STATUS_LABELS[task.status] ?? task.status,
+              whenView: formatDateTime(whenText(task)),
+              reasonView: failureReason({
+                ...task,
+                ...(task.responsePayloadJsonb ? { responsePayload: task.responsePayloadJsonb } : {})
+              })
             }))}
           />
         ) : null}

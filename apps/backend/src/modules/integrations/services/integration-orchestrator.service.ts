@@ -11,6 +11,7 @@ import { IdempotencyService } from './idempotency.service.js';
 import { IntegrationCryptoService } from './integration-crypto.service.js';
 import { MetricsService } from '../../../common/metrics/metrics.service.js';
 import { AuditService } from '../../audit/audit.service.js';
+import { NotificationsService } from '../../communication/notifications.service.js';
 import { RealtimeEventsService } from '../../core/realtime-events.service.js';
 import { IntegrationExportRealtimeEvents } from '../domain/integration-realtime-events.js';
 import { InMemoryIntegrationOrchestratorState } from '../infrastructure/in-memory-integration-orchestrator.state.js';
@@ -62,7 +63,18 @@ export class IntegrationOrchestratorService {
     @Inject(AdapterResolver) private readonly adapterResolver: AdapterResolver,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(RealtimeEventsService) private readonly realtime: RealtimeEventsService,
-    @Inject(MetricsService) @Optional() private readonly metrics?: MetricsService
+    @Inject(MetricsService) @Optional() private readonly metrics?: MetricsService,
+    /*
+     * ТЗ 12.3: «статус вместо тишины» — неудачная выгрузка кладётся в колокольчик администратора
+     * центра (журнал 525).
+     *
+     * Параметр стоит ПОСЛЕДНИМ сознательно: новая необязательная зависимость, вставленная в
+     * середину, сдвигает все позиционные вызовы — объект собирают руками в пяти тестах, и туда
+     * молча попал бы не тот аргумент (журнал 526).
+     */
+    @Optional()
+    @Inject(NotificationsService)
+    private readonly notifications?: NotificationsService
   ) {}
 
   listProviders(query?: ListQuery) {
@@ -312,6 +324,21 @@ export class IntegrationOrchestratorService {
         task.status = 'failed';
         task.finishedAt = new Date().toISOString();
         const reason = error instanceof Error ? error.message : 'Unknown export error';
+        /*
+         * Тишина при отказе — худший исход: центр узнаёт о непопавших в реестр людях при
+         * проверке. Уведомление второстепенно по отношению к самой обработке отказа, поэтому
+         * его собственный сбой ничего не отменяет.
+         */
+        void this.notifications
+          ?.create({
+            tenantId,
+            channelCode: 'in_app',
+            subjectText: 'Выгрузка в госреестр не выполнена',
+            bodyText: `${dto.providerCode}: ${reason}. Повторить можно в разделе «Госвыгрузки».`,
+            relatedEntityType: 'export_task',
+            relatedEntityId: task.id
+          })
+          .catch(() => undefined);
         const deadLetter: DeadLetterEntry = {
           id: this.id('dlq'),
           tenantId,
