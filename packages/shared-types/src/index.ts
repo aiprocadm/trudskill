@@ -14,3 +14,6 @@ export * from './helpers/index.js';
 export * from './assessment/index.js';
 
 export * from './esign/index.js';
+
+/* ТЗ 15.3 (Р16): бюджеты производительности — одно число на фронт и бэкенд. */
+export * from './performance-budgets.js';

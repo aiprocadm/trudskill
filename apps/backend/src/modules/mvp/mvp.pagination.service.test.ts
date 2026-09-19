@@ -90,16 +90,24 @@ describe('пагинация списков MVP — потолок и число
       const result = service.listLearners(T, q);
       expect(result.page).toBeGreaterThanOrEqual(1);
       expect(result.items.length).toBeGreaterThan(0);
-      expect(result.items.length).toBeLessThanOrEqual(20);
+      expect(result.items.length).toBeLessThanOrEqual(50);
     }
   });
 
-  it('умолчания прежние: страница 1 по 20 строк, total честный', () => {
+  /*
+   * ТЗ 15.3 (решение владельца Р16): размер страницы по умолчанию — 50, а не 20.
+   *
+   * Изменение осознанное, а не подгонка теста: двадцать строк означали постоянное
+   * пролистывание там, где у центра сотни слушателей. Утверждение теста прежнее — «умолчание
+   * применяется и total честный», — изменилось само число, и оно теперь сверяется с бюджетом
+   * (журнал 585).
+   */
+  it('умолчание — страница 1 по 50 строк, total честный', () => {
     const service = makeService(250);
     const result = service.listLearners(T, {});
-    expect(result.items).toHaveLength(20);
+    expect(result.items).toHaveLength(50);
     expect(result.total).toBe(250);
     expect(result.page).toBe(1);
-    expect(result.pageSize).toBe(20);
+    expect(result.pageSize).toBe(50);
   });
 });
