@@ -160,8 +160,8 @@ legend { font-size: var(--ui-font-size-sm); font-weight: var(--ui-font-weight-se
 .ui-chip--active { border-color: var(--ui-brand-600); color: var(--ui-brand-600); font-weight: var(--ui-font-weight-semibold); }
 .ui-saved-views__remove { border: none; background: none; color: var(--ui-text-muted); cursor: pointer; font-size: var(--ui-font-size-md); line-height: 1; padding: 4px 6px; border-radius: var(--ui-radius-sm); }
 .ui-saved-views__remove:hover { color: var(--ui-danger-600); background: var(--ui-surface-muted); }
-.ui-step--active { color: #fff; border-color: var(--ui-brand-600); background: var(--ui-brand-600); }
-.ui-step--done { color: #fff; border-color: var(--ui-success-600); background: var(--ui-success-600); }
+.ui-step--active { color: var(--ui-on-brand); border-color: var(--ui-brand-600); background: var(--ui-brand-600); }
+.ui-step--done { color: var(--ui-on-color); border-color: var(--ui-success-600); background: var(--ui-success-600); }
 /* TPL-004: шаг — кнопка (доступен с клавиатуры), но выглядит как текст внутри пилюли. */
 .ui-step__button { background: none; border: none; padding: 0; height: auto; font: inherit; color: inherit; cursor: pointer; }
 .ui-step__button:disabled { cursor: default; opacity: 1; }
@@ -217,7 +217,7 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 .ui-hero { border-radius: var(--ui-radius-lg); padding: clamp(22px, 3vw, 32px); background: var(--ui-hero-bg); color: var(--ui-hero-text); display: grid; gap: 14px; }
 .ui-hero__title { font-family: var(--font-sans), 'Segoe UI', system-ui, sans-serif; font-size: clamp(var(--ui-font-size-xl), 1.05rem + 1.8vw, var(--ui-font-size-3xl)); line-height: var(--ui-line-height-tight); font-weight: var(--ui-font-weight-bold); margin: 0; color: var(--ui-brand-700); letter-spacing: -0.02em; max-width: 30ch; }
 .ui-hero__desc { margin: 0; color: var(--ui-hero-muted); font-size: var(--ui-font-size-md); line-height: var(--ui-line-height-normal); max-width: 56ch; }
-.ui-hero__cta { justify-self: start; display: inline-flex; align-items: center; gap: 10px; height: 48px; padding: 0 24px; border-radius: var(--ui-radius-md); background: var(--ui-hero-cta-bg); color: var(--ui-hero-cta-text); border: none; font-family: inherit; font-weight: var(--ui-font-weight-bold); font-size: var(--ui-font-size-md); text-decoration: none; cursor: pointer; box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.55); transition: transform var(--ui-duration-fast) var(--ui-ease), background var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
+.ui-hero__cta { justify-self: start; display: inline-flex; align-items: center; gap: 10px; height: 48px; padding: 0 24px; border-radius: var(--ui-radius-md); background: var(--ui-accent-600); color: var(--ui-on-accent); border: none; font-family: inherit; font-weight: var(--ui-font-weight-bold); font-size: var(--ui-font-size-md); text-decoration: none; cursor: pointer; box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.55); transition: transform var(--ui-duration-fast) var(--ui-ease), background var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
 .ui-hero__cta::after { content: '\\2192'; font-size: 1.15em; line-height: 1; transition: transform var(--ui-duration-fast) var(--ui-ease); }
 .ui-hero__cta:hover { background: var(--ui-accent-700); transform: translateY(-1px); box-shadow: 0 16px 30px -12px rgba(0, 0, 0, 0.6); }
 .ui-hero__cta:hover::after { transform: translateX(3px); }
@@ -311,7 +311,7 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 
 /* Карточка профиля (настройки) */
 .profile-head { display: flex; align-items: center; gap: 14px; }
-.profile-avatar { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; flex: none; font-weight: var(--ui-font-weight-bold); font-size: var(--ui-font-size-lg); color: #fff; background: var(--ui-brand-600); }
+.profile-avatar { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; flex: none; font-weight: var(--ui-font-weight-bold); font-size: var(--ui-font-size-lg); color: var(--ui-on-brand); background: var(--ui-brand-600); }
 .profile-name { margin: 0; font-weight: var(--ui-font-weight-bold); font-size: var(--ui-font-size-lg); color: var(--ui-text); }
 .profile-role { margin: 2px 0 0; font-size: var(--ui-font-size-sm); color: var(--ui-text-muted); }
 /* Переиспользуемый key/value список (профиль, карточки сущностей) */
@@ -376,7 +376,7 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
    а не мерцает. */
 .ui-boot { min-height: 100dvh; display: grid; grid-template-rows: auto 1fr; gap: var(--ui-space-xl); padding: var(--ui-space-xl); background: var(--ui-bg); }
 .ui-boot__mark { display: grid; justify-items: center; align-content: end; gap: var(--ui-space-xs); padding-top: var(--ui-space-xxl); }
-.ui-boot__logo { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: var(--ui-radius-lg); background: var(--ui-brand-600); color: var(--ui-on-accent); font-size: var(--ui-font-size-2xl); font-weight: var(--ui-font-weight-bold); }
+.ui-boot__logo { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: var(--ui-radius-lg); background: var(--ui-brand-600); color: var(--ui-on-brand); font-size: var(--ui-font-size-2xl); font-weight: var(--ui-font-weight-bold); }
 .ui-boot__title { font-size: var(--ui-font-size-lg); font-weight: var(--ui-font-weight-semibold); color: var(--ui-text); }
 .ui-boot__message { font-size: var(--ui-font-size-sm); color: var(--ui-text-muted); }
 .ui-boot__frame { display: grid; grid-template-columns: 220px 1fr; gap: var(--ui-space-xl); max-width: 1100px; width: 100%; margin: 0 auto; }
