@@ -69,14 +69,14 @@ describe('onboarding meta (ФТ-D2.3)', () => {
     const ordered = orderStepsForDisplay([
       step('requisites', true),
       step('license', false),
-      step('branding', true),
+      step('numbering', true),
       step('commission', false)
     ]);
     expect(ordered.map((item) => item.id)).toEqual([
       'license',
       'commission',
       'requisites',
-      'branding'
+      'numbering'
     ]);
   });
 });

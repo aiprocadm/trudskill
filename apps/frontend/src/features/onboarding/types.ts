@@ -6,14 +6,38 @@
  * первый незакрытый шаг: терять нечего, всё уже сохранено там, где ему место.
  */
 
+/*
+ * ТЗ 8.2, решение владельца Р6: СЕМЬ шагов, из них пять обязательных. Раньше их было шесть, и
+ * список не совпадал с решением: не хватало нумератора документов (обязательный!) и подписи с
+ * печатью, зато был шаг «Логотип и цвета», которого Р6 не называет (журнал 528).
+ *
+ * Оформление убрано из мастера сознательно: это предмет задачи 13.3 «фирменный вид центра», а
+ * не условие начала работы. Экран оформления остаётся доступен из настроек — из мастера ушёл
+ * только пункт чек-листа, иначе индикатор «5 из 7» врал бы про восемь.
+ */
 export const ONBOARDING_STEP_IDS = [
   'requisites',
   'license',
-  'branding',
   'commission',
   'template',
+  'numbering',
+  'signature',
   'course'
 ] as const;
+
+/**
+ * Обязательные шаги Р6: без них документы выдавать нельзя, и сервер это запрещает.
+ *
+ * Необязательные — подпись с печатью (документ выпускается без них в черновике), первый курс
+ * (часто берётся из общей библиотеки) и оформление (предмет 13.3, а не условие работы).
+ */
+export const REQUIRED_STEP_IDS: readonly OnboardingStepId[] = [
+  'requisites',
+  'license',
+  'commission',
+  'template',
+  'numbering'
+];
 
 export type OnboardingStepId = (typeof ONBOARDING_STEP_IDS)[number];
 
@@ -62,13 +86,6 @@ export const ONBOARDING_STEP_META: Record<OnboardingStepId, OnboardingStepMeta> 
     requiredPermission: 'org.licenses.write',
     accessLabel: 'к лицензиям и аккредитациям'
   },
-  branding: {
-    title: 'Логотип и цвета',
-    hint: 'Название, логотип и фирменные цвета — в кабинете, письмах и проверке документов.',
-    href: '/settings',
-    requiredPermission: 'tenant.branding.configure',
-    accessLabel: 'к оформлению центра'
-  },
   commission: {
     title: 'Аттестационная комиссия',
     hint: 'Председатель и члены комиссии подписывают протоколы.',
@@ -86,6 +103,20 @@ export const ONBOARDING_STEP_META: Record<OnboardingStepId, OnboardingStepMeta> 
     requiredPermission: 'documents.write',
     accessLabel: 'к шаблонам документов'
   },
+  numbering: {
+    title: 'Нумератор документов',
+    hint: 'Правило, по которому документу присваивается номер: по нему документ находят в реестре.',
+    href: '/documents',
+    requiredPermission: 'documents.write',
+    accessLabel: 'к нумерации документов'
+  },
+  signature: {
+    title: 'Подпись и печать',
+    hint: 'Изображения подписи руководителя и печати — подставляются в бланк. Без них документ выпускается в черновике.',
+    href: '/academy/requisites',
+    requiredPermission: 'tenant.settings.write',
+    accessLabel: 'к реквизитам центра'
+  },
   course: {
     title: 'Первый курс',
     hint: 'Создайте курс мастером — с программой, часами и правилами прохождения.',
@@ -93,6 +124,24 @@ export const ONBOARDING_STEP_META: Record<OnboardingStepId, OnboardingStepMeta> 
     requiredPermission: 'courses.write',
     accessLabel: 'к созданию курсов'
   }
+};
+
+/**
+ * Сколько обязательных шагов закрыто — то, от чего зависит выдача документов (Р6).
+ *
+ * Общий счётчик «5 из 7» отвечает на вопрос «сколько осталось настроить», а этот — на вопрос
+ * «можно ли уже работать». Смешивать их нельзя: центр с семью шагами из семи и центр с пятью
+ * обязательными из пяти одинаково могут выдавать документы.
+ */
+export const requiredDone = (status: OnboardingStatusDto): { done: number; total: number } => {
+  const required = status.steps.filter((step) => REQUIRED_STEP_IDS.includes(step.id));
+  return { done: required.filter((step) => step.done).length, total: REQUIRED_STEP_IDS.length };
+};
+
+/** Можно ли выдавать документы: все обязательные шаги закрыты. */
+export const canIssueDocuments = (status: OnboardingStatusDto): boolean => {
+  const { done, total } = requiredDone(status);
+  return done === total;
 };
 
 /** Процент готовности для полосы прогресса. */

@@ -10,6 +10,7 @@ import {
 import { DocumentsService } from './documents.service.js';
 import { type GroupPackageService } from './group-package.service.js';
 import { InMemoryDocumentsState } from './in-memory-documents.state.js';
+import { type IssuanceReadinessService } from './issuance-readiness.service.js';
 import { type JobQuarantineService } from './job-quarantine.service.js';
 import { type TemplateInspectionService } from './template-inspection.service.js';
 import { unusedDependency } from '../../common/testing/unused-dependency.test-util.js';
@@ -22,8 +23,8 @@ import type { GeneratedDocumentEntity } from './documents.types.js';
 import type { RequestContext } from '../../common/context/request-context.js';
 
 /**
- * Контроллеру документов нужны семь зависимостей, а журналу выдачи из них работает
- * ровно одна — `DocumentsService`. Остальные шесть подставлены громкими заглушками:
+ * Контроллеру документов нужны восемь зависимостей, а журналу выдачи из них работает
+ * ровно одна — `DocumentsService`. Остальные семь подставлены громкими заглушками:
  * молчаливый `undefined` (как было, пока тесты не проверялись типами) прячет промах
  * до первого обращения, и падает он уже вне теста.
  */
@@ -35,7 +36,8 @@ function makeJournalController(service: DocumentsService): DocumentsController {
     unusedDependency<GroupPackageService>('GroupPackageService'),
     unusedDependency<FilesService>('FilesService'),
     unusedDependency<TenantService>('TenantService'),
-    unusedDependency<JobQuarantineService>('JobQuarantineService')
+    unusedDependency<JobQuarantineService>('JobQuarantineService'),
+    unusedDependency<IssuanceReadinessService>('IssuanceReadinessService')
   );
 }
 

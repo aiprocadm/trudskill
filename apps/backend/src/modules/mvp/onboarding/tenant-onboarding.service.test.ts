@@ -6,6 +6,8 @@ import { ONBOARDING_STEPS, TenantOnboardingService } from './tenant-onboarding.s
 interface Fixture {
   requisites?: { legalName: string; taxNumber: string } | null;
   branding?: Record<string, unknown>;
+  /** ТЗ 8.2 (Р6): правила нумерации — обязательный шаг мастера. */
+  numberingRules?: number;
   licenses?: number;
   courses?: number;
   commissions?: number;
@@ -31,11 +33,17 @@ function make(data: Fixture = {}) {
     )
   };
   const documents = {
-    loadIntoState: vi.fn(async (_tenantId: string, state: { templates: unknown[] }) => {
-      state.templates.push(
-        ...Array.from({ length: data.templates ?? 0 }, (_, i) => ({ id: `t${i}` }))
-      );
-    })
+    loadIntoState: vi.fn(
+      async (_tenantId: string, state: { templates: unknown[]; numberingRules: unknown[] }) => {
+        state.templates.push(
+          ...Array.from({ length: data.templates ?? 0 }, (_, i) => ({ id: `t${i}` }))
+        );
+        /* ТЗ 8.2 (Р6): правила нумерации читаются из того же снимка, что и шаблоны. */
+        state.numberingRules.push(
+          ...Array.from({ length: data.numberingRules ?? 0 }, (_, i) => ({ id: `n${i}` }))
+        );
+      }
+    )
   };
   const db = {
     query: vi.fn(async (_sql: string, _params?: unknown[]) => [{ count: data.licenses ?? 0 }])
@@ -96,21 +104,23 @@ describe('TenantOnboardingService (ФТ-D2.3)', () => {
     expect(status.steps.find((step) => step.id === 'template')?.detail).toBe(
       'Шаблонов документов: 3'
     );
-    expect(documents.loadIntoState).toHaveBeenCalledTimes(1);
+    /* Снимок читают два счётчика — шаблоны и нумератор; сохранение по-прежнему запрещено. */
+    expect(documents.loadIntoState).toHaveBeenCalledTimes(2);
     expect((documents as unknown as { saveFromState?: unknown }).saveFromState).toBeUndefined();
   });
 
-  it('бренд: достаточно любого осмысленного элемента, мусор не считается', async () => {
-    const named = make({ branding: { displayName: 'УЦ «Пример»' } });
-    const namedStatus = await named.service.getStatus('t1');
-    expect(namedStatus.steps.find((step) => step.id === 'branding')?.done).toBe(true);
-    expect(namedStatus.steps.find((step) => step.id === 'branding')?.detail).toBe('УЦ «Пример»');
+  it('нумератор: обязательный шаг Р6, без правила номера у документа нет', async () => {
+    /*
+     * Шаг «Логотип и цвета» из мастера убран: решение Р6 его не называет, а оформление — предмет
+     * задачи 13.3, а не условие начала работы (журнал 528). Его место занял нумератор.
+     */
+    const withRule = make({ numberingRules: 1 });
+    const withRuleStatus = await withRule.service.getStatus('t1');
+    expect(withRuleStatus.steps.find((step) => step.id === 'numbering')?.done).toBe(true);
 
-    // В сервис приходит УЖЕ отфильтрованный бренд (readTenantBranding отбрасывает мусор),
-    // поэтому пустой объект — это «мусор не прошёл».
-    const garbage = make({ branding: {} });
-    const garbageStatus = await garbage.service.getStatus('t1');
-    expect(garbageStatus.steps.find((step) => step.id === 'branding')?.done).toBe(false);
+    const withoutRule = make();
+    const withoutRuleStatus = await withoutRule.service.getStatus('t1');
+    expect(withoutRuleStatus.steps.find((step) => step.id === 'numbering')?.done).toBe(false);
   });
 
   it('шаги идут в порядке онбординга и не теряются', async () => {
@@ -119,19 +129,37 @@ describe('TenantOnboardingService (ФТ-D2.3)', () => {
     expect(status.steps.map((step) => step.id)).toEqual([...ONBOARDING_STEPS]);
   });
 
-  it('все шесть шагов закрыты — центр готов к работе', async () => {
+  it('готовность считается по ОБЯЗАТЕЛЬНЫМ шагам, а не по всем семи (Р6)', async () => {
+    /*
+     * ТЗ 8.2: центр без первого курса и без подписи документы выдавать может, центр без
+     * нумератора — нет. Поэтому «готов» это про пять обязательных шагов, а не про семь.
+     */
     const { service } = make({
       requisites: { legalName: 'ООО «Пример»', taxNumber: '7700000000' },
-      branding: { displayName: 'УЦ' },
+      licenses: 1,
+      commissions: 1,
+      templates: 2,
+      numberingRules: 1
+    });
+    const status = await service.getStatus('t1');
+    expect(status.ready, 'все пять обязательных закрыты').toBe(true);
+    expect(status.missingRequired).toEqual([]);
+    expect(status.doneCount, 'курс и подпись остались незакрытыми — это не мешает работать').toBe(
+      5
+    );
+  });
+
+  it('незакрытый обязательный шаг держит центр ненастроенным', async () => {
+    const { service } = make({
+      requisites: { legalName: 'ООО «Пример»', taxNumber: '7700000000' },
       licenses: 1,
       commissions: 1,
       templates: 2,
       courses: 3
     });
     const status = await service.getStatus('t1');
-    expect(status.doneCount).toBe(6);
-    expect(status.ready).toBe(true);
-    expect(status.nextStepId).toBeNull();
+    expect(status.ready, 'нет правила нумерации — документ выпускать нельзя').toBe(false);
+    expect(status.missingRequired).toEqual(['numbering']);
   });
 
   it('сбой любого источника не валит экран — шаг просто считается незакрытым', async () => {

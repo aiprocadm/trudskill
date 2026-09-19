@@ -24,6 +24,7 @@ import { FakeDocumentSignatureProvider } from '../../infrastructure/document-sig
 import { InfrastructureModule } from '../../infrastructure/infrastructure.module.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { PostgresDocumentsPersistenceBackend } from './infrastructure/postgres-documents-persistence.backend.js';
+import { IssuanceReadinessService } from './issuance-readiness.service.js';
 import {
   DOCUMENT_SIGNATURE_PROVIDER,
   NoopDocumentSignatureProvider
@@ -56,6 +57,8 @@ const persistenceBackendClass =
   ],
   controllers: [DocumentsController, PublicVerifyController, DocumentsInternalWorkerController],
   providers: [
+    /* ТЗ 8.2 (Р6): проверка готовности центра перед выдачей документов. */
+    IssuanceReadinessService,
     PostgresDocumentsPersistenceBackend,
     { provide: DOCUMENTS_PERSISTENCE_BACKEND, useClass: persistenceBackendClass },
     { provide: DOCUMENTS_STATE, scope: Scope.REQUEST, useClass: InMemoryDocumentsState },

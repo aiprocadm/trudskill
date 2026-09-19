@@ -42,6 +42,7 @@ import { DocumentsService, type IssuedDocumentFilter } from './documents.service
 import { GroupPackageService } from './group-package.service.js';
 import { capHttpPageSize } from './http-page-cap.js';
 import { DocumentsRequestPersistenceInterceptor } from './infrastructure/documents-request-persistence.interceptor.js';
+import { IssuanceReadinessService } from './issuance-readiness.service.js';
 import { JobQuarantineService } from './job-quarantine.service.js';
 import { validateProtocolTemplate } from './protocol-compliance.js';
 import { TemplateInspectionService } from './template-inspection.service.js';
@@ -88,7 +89,13 @@ export class DocumentsController {
     @Inject(GroupPackageService) private readonly groupPackages: GroupPackageService,
     @Inject(FilesService) private readonly files: FilesService,
     @Inject(TenantService) private readonly tenants: TenantService,
-    @Inject(JobQuarantineService) private readonly quarantine: JobQuarantineService
+    @Inject(JobQuarantineService) private readonly quarantine: JobQuarantineService,
+    /*
+     * ТЗ 8.2 (Р6): запрет выдачи, пока центр настроен не до конца. Параметр ПОСЛЕДНИЙ —
+     * новая зависимость в середине сдвигает позиционные вызовы (журнал 526).
+     */
+    @Inject(IssuanceReadinessService)
+    private readonly issuanceReadiness: IssuanceReadinessService
   ) {}
 
   /**
@@ -445,6 +452,11 @@ export class DocumentsController {
      * документ с юридической силой, поэтому вход проверяется явно.
      */
     const b = assertValidDto(GenerateDocumentDto, raw);
+    /*
+     * ТЗ 8.2 (Р6): недонастроенный центр выпускает бумагу, а не документ — без реквизитов,
+     * лицензии, комиссии, бланка или номера он недействителен при проверке (журнал 528).
+     */
+    await this.issuanceReadiness.assertCanIssue(c.tenantId!);
     const task = this.documentsService.generateDocument(c.tenantId!, c.userId, b, c);
     // ФТ-A1.1: job в очередь. Race «сообщение обогнало сохранение состояния» разруливает
     // worker (retry c backoff), повторная публикация того же taskId безопасна (claim в start).
@@ -459,6 +471,8 @@ export class DocumentsController {
   @RequirePermissions('documents.generate')
   async generateDocumentsBatch(@CurrentContext() c: RequestContext, @Body() raw: unknown) {
     const b = assertValidDto(GenerateDocumentsBatchDto, raw);
+    /* Тот же запрет: массовый выпуск отличается от одиночного только количеством бумаги. */
+    await this.issuanceReadiness.assertCanIssue(c.tenantId!);
     const result = this.documentsService.generateDocumentsBatch(c.tenantId!, c.userId, b, c);
     await this.enqueue.publishQueuedTasks(c.tenantId!, result.items, {
       requestId: c.requestId,
