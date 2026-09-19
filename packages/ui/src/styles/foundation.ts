@@ -369,6 +369,29 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
   border: 1px solid var(--ui-border);
 }
 .ui-skeleton-block { display: grid; gap: 10px; padding: 4px 0; }
+/* ТЗ 7.3: экран загрузки занимает страницу ЦЕЛИКОМ. Прежний серый прямоугольник в углу
+   пустой белой страницы выглядел не как загрузка, а как поломка — и на медленной сети
+   висел секундами, за которые человек успевал решить, что система не работает.
+   Движения здесь нет намеренно (UI-029): скелетон показывает форму будущего содержимого,
+   а не мерцает. */
+.ui-boot { min-height: 100dvh; display: grid; grid-template-rows: auto 1fr; gap: var(--ui-space-xl); padding: var(--ui-space-xl); background: var(--ui-bg); }
+.ui-boot__mark { display: grid; justify-items: center; align-content: end; gap: var(--ui-space-xs); padding-top: var(--ui-space-xxl); }
+.ui-boot__logo { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: var(--ui-radius-lg); background: var(--ui-brand-600); color: var(--ui-on-accent); font-size: var(--ui-font-size-2xl); font-weight: var(--ui-font-weight-bold); }
+.ui-boot__title { font-size: var(--ui-font-size-lg); font-weight: var(--ui-font-weight-semibold); color: var(--ui-text); }
+.ui-boot__message { font-size: var(--ui-font-size-sm); color: var(--ui-text-muted); }
+.ui-boot__frame { display: grid; grid-template-columns: 220px 1fr; gap: var(--ui-space-xl); max-width: 1100px; width: 100%; margin: 0 auto; }
+.ui-boot__sidebar { display: grid; gap: var(--ui-space-md); align-content: start; }
+.ui-boot__main { display: grid; gap: var(--ui-space-xl); align-content: start; }
+.ui-boot__topbar { display: grid; gap: var(--ui-space-sm); }
+.ui-boot__table { display: grid; gap: var(--ui-space-md); }
+.ui-boot__line--wide { height: 28px; }
+.ui-boot__line--short { max-width: 240px; }
+@media (max-width: 480px) {
+  /* Телефон: бокового меню там не будет, и рисовать его значило бы обещать несуществующее. */
+  .ui-boot { padding: var(--ui-space-md); }
+  .ui-boot__frame { grid-template-columns: 1fr; }
+  .ui-boot__sidebar { display: none; }
+}
 @keyframes ui-spin { to { transform: rotate(360deg); } }
 @keyframes ui-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 .ui-ordered-list { margin: 0; padding-left: 20px; color: var(--ui-text-muted); line-height: var(--ui-line-height-normal); }

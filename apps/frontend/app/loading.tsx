@@ -1,5 +1,12 @@
-import { GlobalLoading } from '../src/components/state-wrappers';
+import { BootSplash } from '@trudskill/ui';
 
+/**
+ * Загрузка страницы приложения (ТЗ 7.3).
+ *
+ * Next.js показывает это, пока страница едет с сервера. Раньше здесь был серый прямоугольник
+ * «Загрузка приложения...» в углу пустого белого листа — выглядело как поломка. Теперь виден
+ * каркас будущей страницы: человек уже здесь, страница просто ещё не наполнилась.
+ */
 export default function Loading() {
-  return <GlobalLoading />;
+  return <BootSplash />;
 }
