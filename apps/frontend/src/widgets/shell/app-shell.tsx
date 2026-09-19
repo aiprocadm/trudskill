@@ -32,6 +32,7 @@ import {
   groupItemsByNavGroup
 } from '../../features/navigation/nav-groups';
 import {
+  BellIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -57,14 +58,13 @@ import {
   writeSidebarCollapsed
 } from '../../features/navigation/sidebar-state';
 import { tabTitle } from '../../features/navigation/tab-title';
+import {
+  initialsOf,
+  unreadBadge,
+  unreadLabel as unreadTitle,
+  userMenuItems
+} from '../../features/navigation/user-menu';
 import { roleNamesRu } from '../../features/texts/roles.ru';
-
-const formatUnreadBadge = (total: number | undefined) => {
-  const n = total ?? 0;
-  if (n <= 0) return null;
-  if (n > 9) return '9+';
-  return String(n);
-};
 
 export const AppShell = ({ children }: PropsWithChildren) => {
   const pathname = usePathname();
@@ -229,7 +229,9 @@ export const AppShell = ({ children }: PropsWithChildren) => {
     writeOpenGroups(window.localStorage, next);
   };
 
-  const unreadLabel = formatUnreadBadge(unread.data?.total);
+  /* ТЗ 7.1 (В1): значок и полная подпись считаются правилом, а не собираются в разметке. */
+  const badge = unreadBadge(unread.data?.total);
+  const initials = initialsOf(session?.user.displayName);
 
   return (
     /*
@@ -427,26 +429,43 @@ export const AppShell = ({ children }: PropsWithChildren) => {
               })}
             </nav>
             <div className="app-shell__userbar ui-inline">
+              {/*
+                ТЗ 7.1 (В1): поиск — ГЛАВНЫЙ инструмент шапки, поэтому он широкий и читается как
+                поле, а не как мелкая кнопка рядом со значками. На телефоне слово и подсказка
+                клавиш прячутся (клавиатуры там нет), остаётся значок 44×44 — иначе шапка
+                переполняется и появляется горизонтальная прокрутка (ФТ-H4).
+              */}
               <button
                 type="button"
                 className="app-shell__search"
                 onClick={openPalette}
                 aria-keyshortcuts="Control+K Meta+K"
+                aria-label="Поиск по системе"
               >
                 <Icon icon={SearchIcon} size={16} />
-                <span>Поиск</span>
+                <span className="app-shell__search-label">Поиск по системе</span>
                 <kbd className="app-shell__kbd">Ctrl K</kbd>
               </button>
-              <Link href="/notifications" className="app-shell__notif-link">
-                Уведомления
-                {/* Постоянная live-region: смена счётчика непрочитанных озвучивается скринридером. */}
+              {/*
+                ТЗ 7.1 (В1): уведомления — КОЛОКОЛЬЧИК со счётчиком, а не ссылка, неотличимая от
+                подписи. Подпись для читалки экрана полная: число рядом со значком само по себе
+                не отвечает на вопрос «три чего» (журнал 558).
+              */}
+              <Link
+                href="/notifications"
+                className="app-shell__bell"
+                aria-label={unreadTitle(unread.data?.total)}
+              >
+                <Icon icon={BellIcon} size={20} />
                 <span
                   role="status"
                   aria-live="polite"
-                  aria-label={`Непрочитано: ${unread.data?.total ?? 0}`}
-                  className={unreadLabel ? 'ui-badge ui-badge--brand' : VISUALLY_HIDDEN_CLASS}
+                  aria-label={unreadTitle(unread.data?.total)}
+                  className={
+                    badge ? 'ui-badge ui-badge--brand app-shell__bell-count' : VISUALLY_HIDDEN_CLASS
+                  }
                 >
-                  {unreadLabel ?? ''}
+                  {badge ?? ''}
                 </span>
               </Link>
               {/*
@@ -456,24 +475,65 @@ export const AppShell = ({ children }: PropsWithChildren) => {
               место (`resolveWordmark`). Правило продукта: ни одного идентификатора как
               значения.
             */}
-              <ThemeSwitcher />
-              <span className="app-shell__meta">{session?.user.displayName}</span>
-              <button
-                type="button"
-                className="ui-button"
-                onClick={() => {
-                  setLogoutWarning(null);
-                  void logout().catch((error: unknown) => {
-                    setLogoutWarning(
-                      error instanceof Error
-                        ? error.message
-                        : 'Выход выполнен на этом устройстве, но сервер не подтвердил завершение сеанса.'
-                    );
-                  });
-                }}
-              >
-                Выйти
-              </button>
+              {/*
+                ТЗ 7.1 (В1): справа человек, а не кнопка «Выйти». Прежде «Выйти» была
+                ЕДИНСТВЕННОЙ обведённой кнопкой на странице — интерфейс каждым экраном предлагал
+                уйти. Теперь выход живёт в меню человека, а переключатель темы уехал в профиль:
+                тему меняют раз в жизни, а место на экране она занимала всегда (журнал 558).
+              */}
+              <details className="ui-header-menu app-shell__user">
+                <summary className="app-shell__user-summary">
+                  {initials ? (
+                    <span className="app-shell__avatar" aria-hidden>
+                      {initials}
+                    </span>
+                  ) : null}
+                  <span className="app-shell__user-name">{session?.user.displayName}</span>
+                </summary>
+                <div className="ui-header-menu__list" role="menu">
+                  {userMenuItems(session).map((item) =>
+                    item.href ? (
+                      <Link
+                        key={item.id}
+                        role="menuitem"
+                        className="ui-header-menu__item"
+                        href={item.href}
+                      >
+                        {item.label}
+                      </Link>
+                    ) : item.id === 'appearance' ? (
+                      /*
+                       * Тема меняется ПРЯМО ЗДЕСЬ, а не ссылкой в настройки. Так выполняются оба
+                       * требования сразу: ТЗ 7.1 убирает переключатель из шапки («занимает место
+                       * на каждой странице»), а `UI-026` требует менять тему по ходу работы, не
+                       * вспоминая про существование настроек (журнал 559).
+                       */
+                      <div key={item.id} className="ui-header-menu__item" role="none">
+                        <ThemeSwitcher />
+                      </div>
+                    ) : (
+                      <button
+                        key={item.id}
+                        type="button"
+                        role="menuitem"
+                        className="ui-header-menu__item ui-header-menu__item--danger"
+                        onClick={() => {
+                          setLogoutWarning(null);
+                          void logout().catch((error: unknown) => {
+                            setLogoutWarning(
+                              error instanceof Error
+                                ? error.message
+                                : 'Выход выполнен на этом устройстве, но сервер не подтвердил завершение сеанса.'
+                            );
+                          });
+                        }}
+                      >
+                        {item.label}
+                      </button>
+                    )
+                  )}
+                </div>
+              </details>
             </div>
           </header>
           {logoutWarning ? (

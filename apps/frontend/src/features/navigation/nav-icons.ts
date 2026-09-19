@@ -5,6 +5,7 @@ import {
   ArrowDown,
   ArrowRight,
   ArrowUp,
+  Bell,
   BookOpen,
   Building2,
   ChartColumn,
@@ -49,6 +50,8 @@ export const SettingsIcon: LucideIcon = Settings;
 // Служебные иконки оболочки.
 export const ChevronDownIcon: LucideIcon = ChevronDown;
 export const SearchIcon: LucideIcon = Search;
+/* ТЗ 7.1 (В1): уведомления — колокольчик со счётчиком, а не ссылка-подпись. */
+export const BellIcon: LucideIcon = Bell;
 
 /*
  * Значки состояний (`UI-024`). Раньше эти места рисовали символами прямо в разметке —

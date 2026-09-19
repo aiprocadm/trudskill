@@ -22,6 +22,17 @@ export const shellStyles = `
    Текст на приглушённой поверхности — пара измерена в обеих темах (UI-001); внимание держит
    полоса предупреждающего цвета снизу, а не цветной текст, который пришлось бы мерить заново. */
 .app-shell__impersonation { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--ui-space-sm); padding: var(--ui-space-sm) var(--ui-space-md); background: var(--ui-surface-muted); color: var(--ui-text); border-bottom: 2px solid var(--ui-warning-600); font-size: var(--ui-font-size-sm); }
+/* ТЗ 7.1 (В1): справа человек, а не кнопка «Выйти».
+   Кружок с инициалами — самый дешёвый способ показать «это вы»: аватаров в продукте нет,
+   а серое имя мелким шрифтом человек не замечает вовсе. */
+.app-shell__user > summary { display: inline-flex; align-items: center; gap: var(--ui-space-xs); padding: var(--ui-space-xs) var(--ui-space-sm); border-radius: var(--ui-radius-pill); min-height: 44px; }
+.app-shell__user > summary:hover { background: var(--ui-surface-muted); }
+.app-shell__avatar { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--ui-radius-pill); background: var(--ui-brand-700); color: var(--ui-on-accent); font-size: var(--ui-font-size-sm); font-weight: var(--ui-font-weight-bold); }
+.app-shell__user-name { color: var(--ui-text); font-size: var(--ui-font-size-sm); }
+/* Колокольчик: значок с числом, а не ссылка-подпись. Тач-зона 44px — правило ФТ-H4. */
+.app-shell__bell { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; border-radius: var(--ui-radius-pill); color: var(--ui-text); }
+.app-shell__bell:hover { background: var(--ui-surface-muted); }
+.app-shell__bell-count { position: absolute; top: 4px; right: 4px; }
   position: absolute;
   top: -40px;
   left: 12px;
@@ -205,13 +216,19 @@ export const shellStyles = `
 /* ТЗ 3.5: имя объекта ещё едет с сервера — на его месте полоса-скелетон той же высоты,
    что строка текста (цвет и скругление — от .ui-skeleton-line; без анимации, UI-029). */
 .app-shell__crumb-skeleton { display: inline-block; width: 120px; vertical-align: middle; }
-.app-shell__userbar { flex: 0 1 auto; justify-content: flex-end; gap: 12px; }
+.app-shell__userbar { flex: 1 1 auto; min-width: 0; justify-content: flex-end; gap: 12px; }
+/* ТЗ 7.1: поиск — главный инструмент шапки, а был мелкой кнопкой в 36px высотой у самого
+   края. Теперь он тянется до 360px и выглядит полем: доля свободного места внутри правой
+   группы отдана ему, а верхняя граница ширины не даёт растечься на широком мониторе. */
 .app-shell__search {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 36px;
-  padding: 0 10px;
+  gap: var(--ui-space-xs);
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 360px;
+  height: 40px;
+  padding: 0 var(--ui-space-sm);
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-md);
   background: var(--ui-surface);
@@ -219,7 +236,9 @@ export const shellStyles = `
   cursor: pointer;
   font-size: var(--ui-font-size-sm);
 }
-.app-shell__search:hover { color: var(--ui-text); }
+.app-shell__search-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.app-shell__search:hover { color: var(--ui-text); border-color: var(--ui-brand-700); }
+.app-shell__search:hover .app-shell__search-label { color: var(--ui-text); }
 .app-shell__kbd {
   font-size: var(--ui-font-size-xs);
   border: 1px solid var(--ui-border);
@@ -319,7 +338,12 @@ export const shellStyles = `
   .app-shell__group-header { min-height: 44px; display: flex; align-items: center; }
   .app-shell__link,
   .app-shell__notif-link { min-height: 44px; display: flex; align-items: center; }
-  .app-shell__search { height: 44px; }
+  /* Телефон: слово и подсказка клавиш прячутся — клавиатуры здесь нет, а место есть только
+     под значок. Остаётся тач-зона 44×44 (решение владельца №C). */
+  .app-shell__search { height: 44px; width: 44px; min-width: 44px; max-width: 44px; padding: 0; justify-content: center; }
+  .app-shell__search-label,
+  .app-shell__kbd { display: none; }
+  .app-shell__user-name { display: none; }
 }
 
 /* Палитра команд (UI-021). Приехала сюда же: это часть каркаса, а её 76 строк
