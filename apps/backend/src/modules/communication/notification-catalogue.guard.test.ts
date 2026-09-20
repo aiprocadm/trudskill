@@ -43,6 +43,22 @@ describe('матрица уведомлений (ТЗ 11.1)', () => {
       }
       if (!existsSync(join(BACKEND_SRC, event.sender))) {
         broken.push(`${event.key}: файл ${event.sender} не существует`);
+        continue;
+      }
+      /*
+       * Файл существует — этого мало. Слепая зона, найденная задачей 11.3 (журнал 596): у
+       * повторной проверки знаний пороги «за 14, 7 и 3 дня» лежали в настройках, тест их
+       * проверял, а СЛАТЬ их было некому — сканера не существовало. Проверка «файл на месте»
+       * такую дыру не видит: она видна только если спросить, шлёт ли названный отправитель
+       * именно этот шаблон.
+       */
+      if (event.templateKey) {
+        const sender = readFileSync(join(BACKEND_SRC, event.sender), 'utf8');
+        if (!sender.includes(`'${event.templateKey}'`)) {
+          broken.push(
+            `${event.key}: отправитель ${event.sender} не шлёт шаблон ${event.templateKey}`
+          );
+        }
       }
     }
     expect(

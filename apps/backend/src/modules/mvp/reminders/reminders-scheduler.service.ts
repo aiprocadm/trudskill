@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
 import { CourseDeadlineScanner } from './course-deadline-scanner.service.js';
+import { KnowledgeRetestScanner } from './knowledge-retest-scanner.service.js';
 import { LicenseExpiryScanner } from './license-expiry-scanner.service.js';
 import {
   declareScheduler,
@@ -39,6 +40,7 @@ export class RemindersSchedulerService implements OnModuleInit {
     @Inject(RecertificationScanner) private readonly recertScanner: RecertificationScanner,
     @Inject(CourseDeadlineScanner) private readonly deadlineScanner: CourseDeadlineScanner,
     @Inject(LicenseExpiryScanner) private readonly licenseScanner: LicenseExpiryScanner,
+    @Inject(KnowledgeRetestScanner) private readonly retestScanner: KnowledgeRetestScanner,
     @Inject(DatabaseService) private readonly db: DatabaseService
   ) {}
 
@@ -97,6 +99,8 @@ export class RemindersSchedulerService implements OnModuleInit {
             await this.recertScanner.scanTenant(tenantId, tenantAsOf, state);
             await this.deadlineScanner.scanTenant(tenantId, tenantAsOf, state);
             await this.licenseScanner.scanTenant(tenantId, tenantAsOf, state);
+            /* ТЗ 11.3 + 10.4: повторная проверка знаний — за 14, 7 и 3 дня до срока. */
+            await this.retestScanner.scanTenant(tenantId, tenantAsOf, state);
           });
         } catch (err) {
           this.logger.error(
