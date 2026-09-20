@@ -58,6 +58,7 @@ import { buildReport } from './report-builder/build-report.js';
 import { getEntity, listReportEntityMeta } from './report-builder/report-entities.js';
 import { ReportXlsxWriter } from './report-builder/report-xlsx.writer.js';
 import { aggregateReviewerQueue } from './reviewer-queue.service.js';
+import { type SearchSource, search } from './search/global-search.js';
 import { isValidSnilsChecksum, normalizeSnils } from './snils.util.js';
 import { todayIn } from '../../common/utils/tenant-calendar.js';
 import { backendEnv } from '../../env.js';
@@ -609,6 +610,50 @@ export class MvpService {
       context
     );
     return current;
+  }
+
+  /**
+   * Поиск по данным для строки поиска в шапке (ТЗ 3.6 / Н6).
+   *
+   * **Что было.** Поиск искал только по названиям пунктов меню: «серт» давало «Ничего не
+   * найдено», хотя в системе есть и удостоверения, и документы. Человек ищет не раздел — он
+   * ищет своё: фамилию, номер документа, название группы (журнал 590).
+   *
+   * **Область считается по ПРАВАМ, на сервере.** Строка поиска есть у всех, и она соблазняет
+   * ввести фамилию знакомого. Скрыть лишнее на экране недостаточно: данные к тому моменту уже
+   * ушли из системы.
+   */
+  globalSearch(tenantId: string, query: string, permissions: readonly string[] | undefined) {
+    const source: SearchSource = {
+      learners: this.state.learners
+        .filter((item) => item.tenantId === tenantId)
+        .map((item) => ({
+          id: item.id,
+          lastName: item.lastName ?? '',
+          firstName: item.firstName ?? '',
+          ...(item.snils ? { snils: item.snils } : {})
+        })),
+      groups: this.state.groups
+        .filter((item) => item.tenantId === tenantId)
+        .map((item) => ({ id: item.id, name: item.name ?? '' })),
+      courses: this.state.courses
+        .filter((item) => item.tenantId === tenantId)
+        .map((item) => ({ id: item.id, title: item.title ?? '' })),
+      counterparties: this.state.counterparties
+        .filter((item) => item.tenantId === tenantId)
+        .map((item) => ({ id: item.id, name: item.name ?? '' })),
+      /*
+       * Документы живут в своём модуле и приходят страницей: тянуть их все ради поиска значило
+       * бы на каждом нажатии клавиши читать всю выдачу центра.
+       */
+      documents: this.documentsService
+        .listDocuments(tenantId, { page: 1, pageSize: 200 })
+        .items.map((doc) => ({
+          id: doc.id,
+          number: doc.documentNumber ?? ''
+        }))
+    };
+    return search(query, permissions, source);
   }
 
   listLearners(

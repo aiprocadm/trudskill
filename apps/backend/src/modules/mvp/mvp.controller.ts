@@ -309,6 +309,23 @@ export class MvpController {
      */
     return { ...page, items: page.items.map((item) => maskLearnerRow(item)) };
   }
+  /**
+   * Поиск по данным для строки поиска в шапке (ТЗ 3.6 / Н6).
+   *
+   * **Без собственного права, и это намеренно.** Право здесь ничего не решало бы: область
+   * поиска и так считается по правам человека внутри — что ему можно видеть, то и ищется.
+   * Отдельное «право на поиск» означало бы, что у части людей строка поиска есть, но молчит,
+   * — а это хуже, чем её отсутствие (журнал 590).
+   *
+   * Частота ограничена: поиск зовут на каждое нажатие клавиши.
+   */
+  @Get('search')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
+  globalSearch(@CurrentContext() c: RequestContext, @Query('q') q = '') {
+    return { items: this.mvpService.globalSearch(c.tenantId!, q, c.permissions) };
+  }
+
   @Get('learners/lookup')
   @UseGuards(PermissionGuard)
   @RequirePermissions('learners.read')
