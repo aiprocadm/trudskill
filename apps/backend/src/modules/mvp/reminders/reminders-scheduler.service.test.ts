@@ -16,6 +16,8 @@ function make(opts: { locked?: boolean; tenantIds?: string[] } = {}) {
   };
   const deadlineScanner = { scanTenant: vi.fn().mockResolvedValue({ remindersDispatched: 0 }) };
   const licenseScanner = { scanTenant: vi.fn().mockResolvedValue({ remindersDispatched: 0 }) };
+  /* ТЗ 11.3 + 10.4: сканер повторной проверки знаний — четвёртый в ночном обходе. */
+  const retestScanner = { scanTenant: vi.fn().mockResolvedValue({ remindersDispatched: 0 }) };
   const mvpRunner = {
     runWithTenantState: async (_t: string, fn: (state: unknown) => Promise<unknown>) => fn({})
   };
@@ -29,19 +31,27 @@ function make(opts: { locked?: boolean; tenantIds?: string[] } = {}) {
     recertScanner as never,
     deadlineScanner as never,
     licenseScanner as never,
+    retestScanner as never,
     db as never
   );
-  return { service, recertScanner, deadlineScanner, licenseScanner, tenants, db };
+  return { service, recertScanner, deadlineScanner, licenseScanner, retestScanner, tenants, db };
 }
 
 describe('RemindersSchedulerService.runScanAllTenants', () => {
   it('runs all scanners once per active tenant when the lock is acquired', async () => {
-    const { service, recertScanner, deadlineScanner, licenseScanner, tenants } = make();
+    const { service, recertScanner, deadlineScanner, licenseScanner, retestScanner, tenants } =
+      make();
     await service.runScanAllTenants('2026-06-05');
     expect(tenants.listActiveTenantIds).toHaveBeenCalledTimes(1);
     expect(recertScanner.scanTenant).toHaveBeenCalledTimes(2);
     expect(deadlineScanner.scanTenant).toHaveBeenCalledTimes(2);
     expect(licenseScanner.scanTenant).toHaveBeenCalledTimes(2);
+    /*
+     * ТЗ 11.3 + 10.4: сканер повторной проверки обязан ходить в том же ночном обходе.
+     * Без этой строки он мог бы быть объявлен, зарегистрирован — и не вызван ни разу: ровно
+     * так и вышло с самими порогами, которые лежали в настройках, пока сканера не было.
+     */
+    expect(retestScanner.scanTenant).toHaveBeenCalledTimes(2);
   });
 
   it('skips scanning entirely when the advisory lock is held by another instance', async () => {

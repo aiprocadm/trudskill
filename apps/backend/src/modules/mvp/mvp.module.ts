@@ -73,6 +73,7 @@ import { RecertificationController } from './recertification/recertification.con
 import { RecertificationService } from './recertification/recertification.service.js';
 import { CourseDeadlineScanner } from './reminders/course-deadline-scanner.service.js';
 import { DocumentRevokedEmailListener } from './reminders/document-revoked-email.listener.js';
+import { KnowledgeRetestScanner } from './reminders/knowledge-retest-scanner.service.js';
 import { LicenseExpiryScanner } from './reminders/license-expiry-scanner.service.js';
 import { ReminderSettingsService } from './reminders/reminder-settings.service.js';
 import { RemindersSchedulerService } from './reminders/reminders-scheduler.service.js';
@@ -264,6 +265,7 @@ import { BackgroundTasksModule } from '../background-tasks/background-tasks.modu
     /* ТЗ 11.3: пороги напоминаний — настройка центра с умолчаниями Р11. */
     ReminderSettingsService,
     LicenseExpiryScanner,
+    KnowledgeRetestScanner,
     RemindersSchedulerService,
     DocumentRevokedEmailListener,
     IdentityRetentionScanner,

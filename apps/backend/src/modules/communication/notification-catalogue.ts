@@ -69,6 +69,20 @@ export const NOTIFICATION_CATALOGUE: NotificationEvent[] = [
     status: 'live'
   },
   {
+    /*
+     * ТЗ 11.3 + 10.4 (Р9). Получатели — слушатель И сотрудники центра: по пункту 79 Порядка
+     * № 2464 повторную проверку организует центр, а не слушатель, и узнать о ней из письма
+     * одному слушателю недостаточно.
+     */
+    key: 'knowledge_retest',
+    title: 'Требуется повторная проверка знаний',
+    audience: ['learner', 'employer', 'curator', 'admin'],
+    channels: ['email', 'in_app', 'push'],
+    templateKey: 'knowledge_retest',
+    sender: 'modules/mvp/reminders/knowledge-retest-scanner.service.ts',
+    status: 'live'
+  },
+  {
     key: 'recertification_due',
     title: 'Истекает срок действия удостоверения',
     audience: ['learner'],
