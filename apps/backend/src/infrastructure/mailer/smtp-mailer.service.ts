@@ -62,6 +62,12 @@ export class SmtpMailer implements MailerService {
          * спам: подписи SPF/DKIM принадлежат платформе (журнал 556).
          */
         from: senderFrom(this.config.from, message.tenantName),
+        /*
+         * Оформленная часть уходит рядом с текстовой, а не вместо неё (ТЗ 11.2 пункт 2).
+         * Почтовая программа сама выбирает, что показать; та, что не умеет разметку, и та,
+         * что читает письмо голосом, возьмут текст.
+         */
+        ...(message.html ? { html: message.html } : {}),
         to: message.to,
         subject: message.subject,
         text: message.body
