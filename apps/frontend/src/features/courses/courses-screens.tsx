@@ -32,6 +32,7 @@ import {
   SectionEmpty,
   SectionError
 } from '../../components/state-wrappers';
+import { useUnsavedForm } from '../../components/use-unsaved-form';
 import { ApiClientError } from '../../lib/api/client';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { useAuth } from '../auth/context';
@@ -270,58 +271,83 @@ const ProgramMetaSection = ({
     commissions: new Map((commissions?.items ?? []).map((c) => [c.id, `${c.code} — ${c.name}`]))
   };
 
-  const [academicHours, setAcademicHours] = useState<string>(
-    courseVersion.academicHours != null ? String(courseVersion.academicHours) : ''
-  );
-  const [trainingType, setTrainingType] = useState<TrainingType | ''>(
-    courseVersion.trainingType ?? ''
-  );
+  /*
+   * Что должно лежать в форме: значения сохранённой версии курса. Вынесено функцией, потому
+   * что это знание нужно в ТРЁХ местах — при первой отрисовке, при обновлении версии и при
+   * сравнении «что человек изменил» (защита от потери правок, ТЗ 10.3). Три копии одного
+   * списка разъехались бы при первом же новом поле.
+   */
+  const savedForm = {
+    academicHours: courseVersion.academicHours != null ? String(courseVersion.academicHours) : '',
+    trainingType: (courseVersion.trainingType ?? '') as TrainingType | '',
+    learnerCategory: (courseVersion.learnerCategory ?? '') as LearnerCategory | '',
+    studyForm: (courseVersion.studyForm ?? '') as StudyForm | '',
+    finalAssessmentForm: (courseVersion.finalAssessmentForm ?? '') as FinalAssessmentForm | '',
+    regulatoryBasisCodes: courseVersion.regulatoryBasisCodes ?? [],
+    commissionId: courseVersion.commissionId ?? '',
+    otProgramCodes: courseVersion.otProgramCodes ?? [],
+    // Фаза 2 Tasks 6/7 — правила видео-уроков курса (ФТ-B3.1/B3.2).
+    videoCompletionPercent:
+      courseVersion.videoCompletionPercent != null
+        ? String(courseVersion.videoCompletionPercent)
+        : '',
+    noSeekOnFirstView: Boolean(courseVersion.noSeekOnFirstView),
+    sequentialModules: Boolean(courseVersion.sequentialModules)
+  };
+
+  const [academicHours, setAcademicHours] = useState<string>(savedForm.academicHours);
+  const [trainingType, setTrainingType] = useState<TrainingType | ''>(savedForm.trainingType);
   const [learnerCategory, setLearnerCategory] = useState<LearnerCategory | ''>(
-    courseVersion.learnerCategory ?? ''
+    savedForm.learnerCategory
   );
-  const [studyForm, setStudyForm] = useState<StudyForm | ''>(courseVersion.studyForm ?? '');
+  const [studyForm, setStudyForm] = useState<StudyForm | ''>(savedForm.studyForm);
   const [finalAssessmentForm, setFinalAssessmentForm] = useState<FinalAssessmentForm | ''>(
-    courseVersion.finalAssessmentForm ?? ''
+    savedForm.finalAssessmentForm
   );
   const [regulatoryBasisCodes, setRegulatoryBasisCodes] = useState<string[]>(
-    courseVersion.regulatoryBasisCodes ?? []
+    savedForm.regulatoryBasisCodes
   );
-  const [commissionId, setCommissionId] = useState<string>(courseVersion.commissionId ?? '');
-  const [otProgramCodes, setOtProgramCodes] = useState<string[]>(
-    courseVersion.otProgramCodes ?? []
-  );
-  // Фаза 2 Tasks 6/7 — правила видео-уроков курса (ФТ-B3.1/B3.2).
+  const [commissionId, setCommissionId] = useState<string>(savedForm.commissionId);
+  const [otProgramCodes, setOtProgramCodes] = useState<string[]>(savedForm.otProgramCodes);
   const [videoCompletionPercent, setVideoCompletionPercent] = useState<string>(
-    courseVersion.videoCompletionPercent != null ? String(courseVersion.videoCompletionPercent) : ''
+    savedForm.videoCompletionPercent
   );
-  const [noSeekOnFirstView, setNoSeekOnFirstView] = useState<boolean>(
-    Boolean(courseVersion.noSeekOnFirstView)
-  );
-  const [sequentialModules, setSequentialModules] = useState<boolean>(
-    Boolean(courseVersion.sequentialModules)
-  );
+  const [noSeekOnFirstView, setNoSeekOnFirstView] = useState<boolean>(savedForm.noSeekOnFirstView);
+  const [sequentialModules, setSequentialModules] = useState<boolean>(savedForm.sequentialModules);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    setAcademicHours(
-      courseVersion.academicHours != null ? String(courseVersion.academicHours) : ''
-    );
-    setTrainingType(courseVersion.trainingType ?? '');
-    setLearnerCategory(courseVersion.learnerCategory ?? '');
-    setStudyForm(courseVersion.studyForm ?? '');
-    setFinalAssessmentForm(courseVersion.finalAssessmentForm ?? '');
-    setRegulatoryBasisCodes(courseVersion.regulatoryBasisCodes ?? []);
-    setCommissionId(courseVersion.commissionId ?? '');
-    setOtProgramCodes(courseVersion.otProgramCodes ?? []);
-    setVideoCompletionPercent(
-      courseVersion.videoCompletionPercent != null
-        ? String(courseVersion.videoCompletionPercent)
-        : ''
-    );
-    setNoSeekOnFirstView(Boolean(courseVersion.noSeekOnFirstView));
-    setSequentialModules(Boolean(courseVersion.sequentialModules));
+    setAcademicHours(savedForm.academicHours);
+    setTrainingType(savedForm.trainingType);
+    setLearnerCategory(savedForm.learnerCategory);
+    setStudyForm(savedForm.studyForm);
+    setFinalAssessmentForm(savedForm.finalAssessmentForm);
+    setRegulatoryBasisCodes(savedForm.regulatoryBasisCodes);
+    setCommissionId(savedForm.commissionId);
+    setOtProgramCodes(savedForm.otProgramCodes);
+    setVideoCompletionPercent(savedForm.videoCompletionPercent);
+    setNoSeekOnFirstView(savedForm.noSeekOnFirstView);
+    setSequentialModules(savedForm.sequentialModules);
   }, [courseVersion]);
+
+  /* Защита от потери правок (ТЗ 10.3): исходное — сохранённая версия курса. */
+  const unsavedGuard = useUnsavedForm(
+    {
+      academicHours,
+      trainingType,
+      learnerCategory,
+      studyForm,
+      finalAssessmentForm,
+      regulatoryBasisCodes,
+      commissionId,
+      otProgramCodes,
+      videoCompletionPercent,
+      noSeekOnFirstView,
+      sequentialModules
+    },
+    { saving: busy, initial: savedForm }
+  );
 
   // EDIT form pre-populates current values, so we always send every field: a real value
   // updates, an explicit clearing value (null / []) unsets it. See payloads.ts.
@@ -392,6 +418,7 @@ const ProgramMetaSection = ({
 
   return (
     <SectionCard title="Нормативные параметры программы">
+      {unsavedGuard}
       <div className="ui-stack" style={{ gap: 12 }}>
         <label>
           Часы (академические)

@@ -8,6 +8,7 @@ import prettier from 'eslint-config-prettier';
 // import-x — поддерживаемый форк с заявленной поддержкой ESLint 10.
 import eslintPluginImport from 'eslint-plugin-import-x';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
+import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 
 export default [
@@ -70,7 +71,8 @@ export default [
   {
     files: ['apps/frontend/**/*.{ts,tsx,js,jsx}'],
     plugins: {
-      '@next/next': nextPlugin
+      '@next/next': nextPlugin,
+      'react-hooks': reactHooksPlugin
     },
     rules: {
       // Правила Next.js перенесены сюда из apps/frontend/.eslintrc.json вместе с уходом
@@ -78,6 +80,16 @@ export default [
       // набор `core-web-vitals`, иначе переезд молча потерял бы 20 из 21 правила.
       ...nextPlugin.configs.recommended.rules,
       ...nextPlugin.configs['core-web-vitals'].rules,
+      /*
+       * Порядок хуков (ТЗ 10.3, журнал 592). Правило числилось в наборе `core-web-vitals`, но
+       * сам плагин подключён не был — ESLint молча пропускал его («Definition for rule … was
+       * not found» видно только при явном отключении правила в коде). Слепая зона стоила
+       * падения экрана сдачи практической работы: `useState` стоял после раннего возврата, и
+       * в переходе «грузится → загрузилось» число хуков менялось.
+       *
+       * Правило класса «приложение падает», поэтому `error`, а не предупреждение.
+       */
+      'react-hooks/rules-of-hooks': 'error',
       '@next/next/no-img-element': 'warn',
       // Иконки только через <Icon icon={...} /> из @trudskill/ui.
       // no-restricted-imports НЕ мёржится между блоками — дублируем глобальный patterns.
@@ -162,6 +174,23 @@ export default [
     },
     rules: {
       '@typescript-eslint/no-explicit-any': 'off'
+    }
+  },
+  {
+    /*
+     * Тесты подмены react-query зовут `useQuery` внутри вспомогательной `render()` — это и есть
+     * предмет проверки: сколько раз подмена дёрнет запрос за отрисовку. Правило порядка хуков
+     * здесь говорит о настоящем устройстве кода верно, но требование «только в компоненте»
+     * относится к экранам, а не к стенду, который компонент изображает.
+     *
+     * Исключение точечное, по двум файлам: правило остаётся `error` для всего остального.
+     */
+    files: [
+      'apps/frontend/src/lib/query/react-query-shim.loop-guard.test.ts',
+      'apps/frontend/src/lib/query/react-query-shim.retry-ceiling.test.ts'
+    ],
+    rules: {
+      'react-hooks/rules-of-hooks': 'off'
     }
   },
   prettier

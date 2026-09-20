@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   COURSE_WIZARD_DRAFT_KEY,
   clearDraft,
-  loadDraft,
   parseDraft,
+  peekDraft,
   saveDraft
 } from './draft-storage';
 import { emptyDraft } from './wizard-state';
@@ -63,15 +63,46 @@ describe('parseDraft', () => {
   });
 });
 
-describe('saveDraft / loadDraft / clearDraft', () => {
-  it('сохранённый черновик читается обратно', () => {
+describe('saveDraft / peekDraft / clearDraft', () => {
+  it('сохранённый черновик читается обратно вместе со временем записи', () => {
     const storage = memoryStorage();
     const draft = { ...emptyDraft(), code: 'OT-40', title: 'Курс' };
+    const now = new Date(2026, 8, 20, 14, 20);
 
-    saveDraft(draft, storage);
+    saveDraft(draft, storage, now);
 
-    expect(loadDraft(storage)).toMatchObject({ code: 'OT-40', title: 'Курс' });
+    const found = peekDraft(storage, now);
+    expect(found?.draft).toMatchObject({ code: 'OT-40', title: 'Курс' });
+    expect(found?.savedAt.getTime()).toBe(now.getTime());
     expect(storage.getItem(COURSE_WIZARD_DRAFT_KEY)).toBeTruthy();
+  });
+
+  it('черновик не подставляется молча — его именно ПРЕДЛАГАЮТ (ТЗ 10.3, журнал 591)', () => {
+    /*
+     * Смысл `peekDraft` в том, что она НЕ трогает форму: решение «восстановить или начать
+     * заново» принимает человек. Раньше мастер подставлял черновик сам, и человек видел
+     * наполовину заполненную форму, не понимая, его это работа или чужая.
+     */
+    const storage = memoryStorage();
+    const now = new Date(2026, 8, 20, 14, 20);
+    saveDraft({ ...emptyDraft(), title: 'Недособранный' }, storage, now);
+
+    const found = peekDraft(storage, now);
+    expect(found).not.toBeNull();
+    expect(found?.savedAt).toBeInstanceOf(Date);
+  });
+
+  it('просроченный черновик не предлагается и стирается', () => {
+    /* Работу недельной давности человек не помнит: чистая форма честнее чужого текста. */
+    const storage = memoryStorage();
+    saveDraft({ ...emptyDraft(), title: 'Давний' }, storage, new Date(2026, 8, 1, 10, 0));
+
+    expect(peekDraft(storage, new Date(2026, 8, 20, 10, 0))).toBeNull();
+    expect(storage.getItem(COURSE_WIZARD_DRAFT_KEY)).toBeNull();
+  });
+
+  it('пустое хранилище — предлагать нечего', () => {
+    expect(peekDraft(memoryStorage(), new Date())).toBeNull();
   });
 
   it('очистка убирает черновик', () => {
@@ -96,7 +127,7 @@ describe('saveDraft / loadDraft / clearDraft', () => {
 
     expect(() => saveDraft(emptyDraft(), broken)).not.toThrow();
     expect(() => clearDraft(broken)).not.toThrow();
-    expect(loadDraft(broken)).toEqual(emptyDraft());
+    expect(peekDraft(broken)).toBeNull();
   });
 
   it('ключ версионированный — старый черновик другой формы не подхватывается', () => {
