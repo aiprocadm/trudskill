@@ -168,6 +168,13 @@ export const LoginForm = () => {
           className="ui-input"
           name="login"
           required
+          /*
+           * Автозаполнение (ТЗ 14.2, пункт 5). Без него хранитель паролей не понимает, что
+           * это форма входа: он не предложит подставить логин и не предложит сохранить пару.
+           * На телефоне это значит набор пароля руками при каждом входе — и, как следствие,
+           * пароль покороче и попроще.
+           */
+          autoComplete="username"
           value={loginValue}
           onChange={(event) => setLoginValue(event.target.value)}
           aria-invalid={Boolean(fieldErrors.login)}
@@ -188,6 +195,8 @@ export const LoginForm = () => {
           name="password"
           type="password"
           required
+          /* Пара к `username` выше: именно она делает форму «формой входа» для браузера. */
+          autoComplete="current-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           aria-invalid={Boolean(fieldErrors.password)}
