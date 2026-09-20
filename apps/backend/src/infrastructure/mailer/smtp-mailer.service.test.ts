@@ -33,6 +33,30 @@ describe('SmtpMailer', () => {
     });
   });
 
+  it('оформленная часть уходит РЯДОМ с текстовой, а не вместо неё (ТЗ 11.2, пункт 2)', async () => {
+    /*
+     * Часть почтовых программ и программы чтения с экрана показывают именно текстовую часть,
+     * а картинки у большинства получателей заблокированы. Оформление — добавка, а не замена:
+     * письмо без текстовой части придёт пустым у части людей.
+     */
+    const sendMail = vi.fn().mockResolvedValue({ messageId: 'id' });
+    const mailer = new SmtpMailer(config, vi.fn().mockReturnValue({ sendMail }) as never);
+
+    await mailer.send({
+      to: 'learner@example.com',
+      subject: 'S',
+      body: 'Простой текст',
+      html: '<table>оформление</table>',
+      templateKey: 'enrollment_invite'
+    });
+
+    const message = sendMail.mock.calls[0]![0] as { text?: string; html?: string };
+    expect(message.html, 'оформленная часть не дошла до транспорта').toBe(
+      '<table>оформление</table>'
+    );
+    expect(message.text, 'текстовая часть обязана остаться').toBe('Простой текст');
+  });
+
   it('письмо уходит от имени учебного центра, а адрес остаётся платформенным (ТЗ 13.3)', async () => {
     /*
      * Решение Р14 базово всем: название центра в имени отправителя. Слушатель получал письмо от

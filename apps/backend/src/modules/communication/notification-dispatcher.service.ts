@@ -1,5 +1,6 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 
+import { brandedLetter } from './email-branding.js';
 import { EMAIL_DELIVERIES_REPOSITORY, type RecipientKind } from './email-deliveries.repository.js';
 import {
   EMAIL_TEMPLATE_DEFAULTS,
@@ -12,7 +13,7 @@ import { TelegramChannelService } from './telegram/telegram-channel.service.js';
 import { toPushNotification } from './web-push/template-push-mapping.js';
 import { WEB_PUSH_SENDER } from './web-push/web-push-sender.js';
 import { MAILER } from '../../infrastructure/mailer/mailer.service.js';
-import { resolveTenantDisplayName } from '../tenant/tenant-branding.js';
+import { type TenantBranding, resolveTenantDisplayName } from '../tenant/tenant-branding.js';
 import { TenantService } from '../tenant/tenant.service.js';
 
 import type { EmailDeliveriesRepository } from './email-deliveries.repository.js';
@@ -91,12 +92,37 @@ export class NotificationDispatcher {
    * («С уважением, .»), поэтому значение подставляется ВСЕГДА.
    */
   private async resolveTenantSignature(tenantId: string): Promise<string> {
-    if (!this.tenantService) return 'учебный центр';
-    const [tenant, branding] = await Promise.all([
-      this.tenantService.getTenantById(tenantId).catch(() => null),
-      this.tenantService.getBranding(tenantId).catch(() => ({}))
-    ]);
-    return resolveTenantDisplayName(branding, tenant?.name ?? null);
+    return (await this.resolveTenantIdentity(tenantId)).name;
+  }
+
+  /**
+   * Имя центра И его бренд одним чтением (ТЗ 11.2 пункт 2, 13.3 / Р14).
+   *
+   * Раньше бренд читался и ВЫБРАСЫВАЛСЯ: из него брали только название для подписи. Между
+   * тем в нём лежат логотип и фирменный цвет, ради которых центр и платит за аренду. Читать
+   * его второй раз ради оформления значило бы ходить в настройки дважды на каждое письмо.
+   */
+  private async resolveTenantIdentity(
+    tenantId: string
+  ): Promise<{ name: string; branding: TenantBranding }> {
+    if (!this.tenantService) return { name: 'учебный центр', branding: {} };
+    /*
+     * ПИСЬМО ВАЖНЕЕ ВИТРИНЫ. Любая беда с чтением бренда — нейтральная подпись и оформление
+     * по умолчанию, но письмо уходит. Обёрнут весь вызов целиком, а не только его отказ:
+     * служба настроек может быть не поднята вовсе (внутренние прогоны, память), и тогда
+     * падает само обращение к методу, а не возвращаемое им обещание.
+     */
+    try {
+      const [tenant, branding] = await Promise.all([
+        Promise.resolve(this.tenantService.getTenantById(tenantId)).catch(() => null),
+        Promise.resolve(this.tenantService.getBranding(tenantId)).catch(
+          () => ({}) as TenantBranding
+        )
+      ]);
+      return { name: resolveTenantDisplayName(branding, tenant?.name ?? null), branding };
+    } catch {
+      return { name: 'учебный центр', branding: {} };
+    }
   }
 
   /**
@@ -124,12 +150,24 @@ export class NotificationDispatcher {
 
     const override = await this.templates.getOverride(input.tenantId, input.templateKey);
     const base = override ?? EMAIL_TEMPLATE_DEFAULTS[input.templateKey];
+    const identity = await this.resolveTenantIdentity(input.tenantId);
     // Явно переданный tenantName уважается — диспетчер лишь гарантирует дефолт.
     const variables =
       'tenantName' in input.variables
         ? input.variables
-        : { ...input.variables, tenantName: await this.resolveTenantSignature(input.tenantId) };
+        : { ...input.variables, tenantName: identity.name };
     const rendered = renderTemplate(base, variables);
+    /*
+     * Оформленная часть (ТЗ 11.2 пункт 2): логотип и цвет центра. Собирается из того же
+     * текста, что и простая часть, — держать шаблоны в двух видах нельзя, они разойдутся при
+     * первой же правке.
+     */
+    const html = brandedLetter({
+      subject: rendered.subject,
+      body: rendered.body,
+      branding: identity.branding,
+      tenantName: identity.name
+    });
 
     const sent: DispatchRecipient[] = [];
     let skipped = 0;
@@ -154,6 +192,14 @@ export class NotificationDispatcher {
           to: recipient.email,
           subject: rendered.subject,
           body: rendered.body,
+          html,
+          /*
+           * ТЗ 13.3 (Р14): имя отправителя — название центра. Раньше оно сюда НЕ доезжало:
+           * рассыльщик знал название (подставлял его в подпись письма), но почтовику не
+           * передавал — и все письма-уведомления уходили от имени платформы. Работало только
+           * письмо со ссылкой для входа, где название передают вручную (журнал 598).
+           */
+          tenantName: identity.name,
           templateKey: input.templateKey
         });
       } catch (error) {

@@ -306,10 +306,57 @@ describe('NotificationDispatcher tenant signature', () => {
     );
   });
 
-  it('явно переданный tenantName уважается — диспетчер не перекрывает его', async () => {
+  it('имя центра доезжает до ПОЧТОВИКА, а не только до подписи письма (ТЗ 13.3)', async () => {
+    /*
+     * Найденный дефект (журнал 598): рассыльщик ЗНАЛ название центра — подставлял его в
+     * подпись внутри письма, — но почтовику не передавал. Из-за этого ВСЕ письма-уведомления
+     * уходили от имени платформы, хотя решение Р14 требует имени центра. Работало только
+     * письмо со ссылкой для входа, где название передают вручную.
+     *
+     * Проверка поведенческая, а не по тексту исходника: строка `tenantName: identity.name`
+     * встречается в рассыльщике ДВАЖДЫ — для подписи и для отправителя, — и проверка по
+     * тексту не замечала удаления второй.
+     */
     const tenantService = {
-      getTenantById: vi.fn(),
-      getBranding: vi.fn()
+      getTenantById: vi.fn().mockResolvedValue({ name: 'Учебный центр «Альфа»' }),
+      getBranding: vi.fn().mockResolvedValue({})
+    };
+    const { dispatcher, mailer } = make(tenantService);
+    await dispatcher.dispatch(baseInput);
+    expect(
+      requireAt(mailer.send.mock.calls, 0, 'письмо')[0].tenantName,
+      'письма уходят от имени платформы, а не центра'
+    ).toBe('Учебный центр «Альфа»');
+  });
+
+  it('оформленная часть письма доезжает до почтовика (ТЗ 11.2, пункт 2)', async () => {
+    /* Собрать оформление и не передать его — то же, что не собирать вовсе. */
+    const tenantService = {
+      getTenantById: vi.fn().mockResolvedValue({ name: 'Альфа' }),
+      getBranding: vi.fn().mockResolvedValue({ displayName: 'Альфа', brandColor: '#a21caf' })
+    };
+    const { dispatcher, mailer } = make(tenantService);
+    await dispatcher.dispatch(baseInput);
+    const sent = requireAt(mailer.send.mock.calls, 0, 'письмо')[0];
+    expect(sent.html, 'оформление собрано, но в письмо не попало').toContain('<table');
+    expect(sent.html, 'фирменный цвет центра не доехал').toContain('#a21caf');
+    expect(sent.body, 'простая часть обязана остаться: её показывают часть клиентов').toBeTruthy();
+  });
+
+  it('явно переданный tenantName уважается — диспетчер не перекрывает его', async () => {
+    /*
+     * ИНВАРИАНТ ИЗМЕНЁН ОСОЗНАННО (ТЗ 11.2 пункт 2, журнал 597). Раньше здесь проверялось
+     * ещё и то, что при явном имени служба настроек НЕ опрашивается вовсе. Это была
+     * подробность устройства, а не требование: теперь бренд нужен для оформления письма —
+     * логотипа и фирменного цвета, — и читать его приходится всегда.
+     *
+     * Сама проверяемая суть не ослаблена, а УСИЛЕНА: служба возвращает СВОЁ название, и
+     * явно переданное всё равно побеждает. Прежняя формулировка («не вызывали») этого не
+     * доказывала — она доказывала лишь, что вызова не было.
+     */
+    const tenantService = {
+      getTenantById: vi.fn().mockResolvedValue({ name: 'Название из базы' }),
+      getBranding: vi.fn().mockResolvedValue({ displayName: 'Название из бренда' })
     };
     const { dispatcher, mailer } = make(tenantService);
     await dispatcher.dispatch({
@@ -319,6 +366,8 @@ describe('NotificationDispatcher tenant signature', () => {
     expect(requireAt(mailer.send.mock.calls, 0, 'письмо')[0].body).toContain(
       'С уважением, Особый центр.'
     );
-    expect(tenantService.getTenantById).not.toHaveBeenCalled();
+    expect(requireAt(mailer.send.mock.calls, 0, 'письмо')[0].body).not.toContain(
+      'Название из базы'
+    );
   });
 });
