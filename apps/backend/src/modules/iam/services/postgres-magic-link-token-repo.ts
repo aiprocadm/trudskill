@@ -42,6 +42,22 @@ export class PostgresMagicLinkTokenRepo implements MagicLinkTokenRepo {
     );
   }
 
+  /**
+   * Сколько ссылок запрошено на этот адрес за окно (ТЗ 17.1).
+   *
+   * Адрес приводится к нижнему регистру ЗДЕСЬ же, как и при записи: иначе `Ivanov@x` и
+   * `ivanov@x` считались бы разными людьми, и предел обходился бы сменой регистра.
+   */
+  async countRequestsSince(tenantId: string, email: string, since: Date): Promise<number> {
+    const rows = await this.db.query<{ count: string }>(
+      `select count(*)::text as count
+         from iam.magic_link_tokens
+        where tenant_id = $1 and lower(email) = lower($2) and created_at >= $3::timestamptz`,
+      [tenantId, email, since.toISOString()]
+    );
+    return Number.parseInt(rows[0]?.count ?? '0', 10);
+  }
+
   async findByHash(tenantId: string, tokenHash: string): Promise<PersistedMagicLinkToken | null> {
     const rows = await this.db.query<MagicLinkTokenRow>(
       `select id, tenant_id, email, token_hash,

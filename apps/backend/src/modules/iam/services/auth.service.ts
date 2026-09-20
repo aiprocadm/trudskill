@@ -20,6 +20,7 @@ import { SecretsService } from '../../../infrastructure/secrets/secrets.service.
 import { TenantAccessService } from '../../../infrastructure/tenant/tenant-access.service.js';
 import { AuditService } from '../../audit/audit.service.js';
 import { IntegrationCryptoService } from '../../integrations/services/integration-crypto.service.js';
+import { TenantService } from '../../tenant/tenant.service.js';
 import {
   hashPassword,
   hashRefreshToken,
@@ -31,9 +32,11 @@ import {
 import { LOGIN_HISTORY_ACTIONS, toLoginHistoryEntry } from '../login-history.js';
 import {
   DEFAULT_LOGIN_PROTECTION,
+  LOGIN_PROTECTION_SETTINGS_KEY,
   lockedMessage,
   loginFailureKey,
   loginLockKey,
+  resolveLoginProtection,
   shouldLock
 } from '../login-protection.js';
 import {
@@ -125,7 +128,19 @@ export class AuthService {
      */
     @Inject(RedisService)
     @Optional()
-    private readonly redis?: RedisService
+    private readonly redis?: RedisService,
+    /*
+     * ТЗ 17.1: пороги защиты входа — настройка ЦЕНТРА, а не числа в коде. До этой правки
+     * `resolveLoginProtection` не звал никто: функция была написана, покрыта тестом и
+     * числилась в трекере как «пороги — настройка центра», а служба входа всегда брала
+     * умолчания (журнал 600).
+     *
+     * Необязательная и ПОСЛЕДНЯЯ зависимость: без базы настроек вход обязан работать — просто
+     * с умолчаниями, как и раньше. Та же причина, что у хранилища счётчика выше.
+     */
+    @Inject(TenantService)
+    @Optional()
+    private readonly tenantSettings?: TenantService
   ) {
     if (!this.databaseService) {
       ensureInMemoryModeAllowed('AuthService');
@@ -206,6 +221,29 @@ export class AuthService {
    * УСПЕШНЫЕ входы, то есть по нему нельзя было увидеть ни подбора, ни того, что человек не
    * может войти (журнал 573).
    */
+  /**
+   * Пороги защиты входа для этого центра (ТЗ 17.1).
+   *
+   * Любая беда с чтением настроек — умолчания, а не отказ во входе. Настройки это подробность
+   * защиты, а вход — сама работа: сломать вход из-за недоступной таблицы настроек значит
+   * превратить мелкую неполадку в полную остановку центра.
+   */
+  private async loginProtectionFor(tenantId: string) {
+    if (!this.tenantSettings) return DEFAULT_LOGIN_PROTECTION;
+    try {
+      const stored = await this.tenantSettings.getSettings(tenantId);
+      const payload = stored.payload as Record<string, unknown> | undefined;
+      return resolveLoginProtection(payload?.[LOGIN_PROTECTION_SETTINGS_KEY]);
+    } catch {
+      /*
+       * Настроек у центра может не быть вовсе, а таблица — оказаться недоступной. И то и
+       * другое означает умолчания, а не отказ во входе: настройки это подробность защиты, а
+       * вход — сама работа центра.
+       */
+      return DEFAULT_LOGIN_PROTECTION;
+    }
+  }
+
   private async registerLoginFailure(
     tenantId: string,
     login: string,
@@ -213,7 +251,7 @@ export class AuthService {
     context: RequestContext,
     userId?: string
   ): Promise<void> {
-    const settings = DEFAULT_LOGIN_PROTECTION;
+    const settings = await this.loginProtectionFor(tenantId);
     let failures = 0;
     if (this.redis) {
       try {

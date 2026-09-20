@@ -2,6 +2,13 @@ import { createHash, randomBytes } from 'node:crypto';
 
 import { Inject, Injectable } from '@nestjs/common';
 
+import {
+  DEFAULT_RECOVERY_THROTTLE,
+  type RecoveryThrottlePolicy,
+  recoveryAllowed,
+  recoveryWindowStart
+} from '../recovery-throttle.js';
+
 export interface MagicLinkTokenRecord {
   tenantId: string;
   email: string;
@@ -18,6 +25,13 @@ export interface PersistedMagicLinkToken extends MagicLinkTokenRecord {
 
 export interface MagicLinkTokenRepo {
   save(record: MagicLinkTokenRecord): Promise<void>;
+  /**
+   * Сколько ссылок запрошено на ЭТОТ адрес начиная с момента `since` (ТЗ 17.1).
+   *
+   * Считаются именно запросы, а не выданные сессии: смысл предела — защитить почтовый ящик
+   * человека от заваливания, а заваливают его запросами.
+   */
+  countRequestsSince(tenantId: string, email: string, since: Date): Promise<number>;
   findByHash(tenantId: string, tokenHash: string): Promise<PersistedMagicLinkToken | null>;
   /**
    * Atomically consume the token. Returns `true` only if THIS call flipped
@@ -39,6 +53,11 @@ export interface MagicLinkServiceConfig {
 }
 
 export interface RequestLinkInput {
+  /**
+   * Предел восстановления центра (ТЗ 17.1). Разрешается снаружи: настройки лежат в отдельной
+   * таблице. Не передан — действуют умолчания.
+   */
+  throttle?: RecoveryThrottlePolicy;
   tenantId: string;
   email: string;
   ip?: string;
@@ -77,13 +96,35 @@ export class MagicLinkService {
     private readonly config: MagicLinkServiceConfig
   ) {}
 
-  async requestLink(input: RequestLinkInput): Promise<{ rawToken: string }> {
+  /**
+   * Запросить ссылку для входа.
+   *
+   * `rawToken` может вернуться пустым: значит предел восстановления сработал и письмо слать
+   * НЕ нужно (ТЗ 17.1). Наружу при этом уходит тот же ответ, что и при успехе — иначе форма
+   * превращается в способ проверять, есть ли такой человек в системе.
+   */
+  async requestLink(input: RequestLinkInput): Promise<{ rawToken: string | null }> {
+    const policy = input.throttle ?? DEFAULT_RECOVERY_THROTTLE;
+    const email = input.email.toLowerCase().trim();
+    const recent = await this.repo.countRequestsSince(
+      input.tenantId,
+      email,
+      recoveryWindowStart(new Date(), policy)
+    );
+    if (!recoveryAllowed(recent, policy)) {
+      /*
+       * Ни письма, ни записи токена. Записать токен и не отправить письмо было бы хуже
+       * бесполезного: предел перестал бы считаться правильно — каждая попытка добавляла бы
+       * запись и продлевала бы наказание.
+       */
+      return { rawToken: null };
+    }
     const rawToken = randomBytes(32).toString('base64url');
     const tokenHash = this.hashToken(rawToken);
     const now = new Date();
     await this.repo.save({
       tenantId: input.tenantId,
-      email: input.email.toLowerCase().trim(),
+      email,
       tokenHash,
       expiresAt: new Date(now.getTime() + this.config.ttlMs),
       requestIp: input.ip,

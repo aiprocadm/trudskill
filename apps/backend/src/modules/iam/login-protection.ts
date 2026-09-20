@@ -49,6 +49,14 @@ export const DEFAULT_LOGIN_PROTECTION: LoginProtectionSettings = {
 };
 
 /** Ключ счётчика: центр + логин. Логин приводится к нижнему регистру — это один и тот же человек. */
+/**
+ * Ключ настройки в свободном наборе настроек центра.
+ *
+ * До этой правки ключа не было вовсе: `resolveLoginProtection` умела разбирать настройку, но
+ * прочитать её было неоткуда — служба входа всегда брала умолчания (журнал 600).
+ */
+export const LOGIN_PROTECTION_SETTINGS_KEY = 'loginProtection';
+
 export const loginFailureKey = (tenantId: string, login: string): string =>
   `iam:login-failures:${tenantId}:${login.trim().toLowerCase()}`;
 

@@ -23,6 +23,16 @@ function createInMemoryRepo(): InMemoryMagicLinkTokenRepo {
         consumedAt: null
       });
     },
+    /*
+     * ТЗ 17.1: подсчёт недавних запросов по адресу. Времени запроса у записи нет, поэтому
+     * здесь считаются ВСЕ запросы на адрес — для проверок предела этого достаточно: они
+     * делают запросы подряд, внутри любого разумного окна.
+     */
+    async countRequestsSince(tenantId: string, email: string): Promise<number> {
+      const needle = email.toLowerCase().trim();
+      return saved.filter((r) => r.tenantId === tenantId && r.email.toLowerCase() === needle)
+        .length;
+    },
     async findByHash(tenantId: string, tokenHash: string): Promise<PersistedMagicLinkToken | null> {
       return saved.find((r) => r.tenantId === tenantId && r.tokenHash === tokenHash) ?? null;
     },
@@ -40,6 +50,20 @@ function createInMemoryRepo(): InMemoryMagicLinkTokenRepo {
   };
 }
 
+/**
+ * Токен, который обязан быть.
+ *
+ * С задачей 17.1 `requestLink` может вернуть пустой токен: значит сработал предел
+ * восстановления и письмо слать не нужно. В проверках ниже предел не достигается, поэтому
+ * пустой токен здесь — регресс, и сказать об этом надо прямо, а не заглушать тип.
+ */
+function requireToken(result: { rawToken: string | null }): string {
+  if (!result.rawToken) {
+    throw new Error('ссылка не выдана: сработал предел восстановления там, где его не ждали');
+  }
+  return result.rawToken;
+}
+
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
 describe('MagicLinkService.requestLink', () => {
@@ -52,10 +76,11 @@ describe('MagicLinkService.requestLink', () => {
   });
 
   it('returns an opaque base64url token and stores only its sha256 hash', async () => {
-    const { rawToken } = await service.requestLink({
+    const issued = await service.requestLink({
       tenantId: 't1',
       email: 'user@example.ru'
     });
+    const rawToken = requireToken(issued);
 
     expect(rawToken).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(rawToken.length).toBeGreaterThanOrEqual(40);
@@ -106,10 +131,11 @@ describe('MagicLinkService.redeemLink', () => {
   });
 
   it('returns the original email for a valid token and marks it consumed', async () => {
-    const { rawToken } = await service.requestLink({
+    const issued = await service.requestLink({
       tenantId: 't1',
       email: 'user@example.ru'
     });
+    const rawToken = requireToken(issued);
 
     const result = await service.redeemLink({
       tenantId: 't1',
@@ -137,10 +163,11 @@ describe('MagicLinkService.redeemLink', () => {
   });
 
   it('rejects an already-consumed token with reason="consumed"', async () => {
-    const { rawToken } = await service.requestLink({
+    const issued = await service.requestLink({
       tenantId: 't1',
       email: 'a@b.ru'
     });
+    const rawToken = requireToken(issued);
     await service.redeemLink({ tenantId: 't1', rawToken, userId: 'u1' });
 
     await expect(
@@ -156,6 +183,9 @@ describe('MagicLinkService.redeemLink', () => {
     // stale read), but the atomic conditional UPDATE consumed 0 rows because a
     // concurrent redeem already won. The service must NOT mint a session in that case.
     const racingRepo: MagicLinkTokenRepo = {
+      async countRequestsSince(): Promise<number> {
+        return 0;
+      },
       async save(): Promise<void> {},
       async findByHash(): Promise<PersistedMagicLinkToken> {
         return {
@@ -183,10 +213,11 @@ describe('MagicLinkService.redeemLink', () => {
 
   it('rejects an expired token with reason="expired"', async () => {
     const expiredService = new MagicLinkService(repo, { ttlMs: -1 });
-    const { rawToken } = await expiredService.requestLink({
+    const issued = await expiredService.requestLink({
       tenantId: 't1',
       email: 'a@b.ru'
     });
+    const rawToken = requireToken(issued);
 
     await expect(
       expiredService.redeemLink({ tenantId: 't1', rawToken, userId: 'u1' })
@@ -197,10 +228,11 @@ describe('MagicLinkService.redeemLink', () => {
   });
 
   it('is tenant-scoped: a token from one tenant cannot be redeemed in another', async () => {
-    const { rawToken } = await service.requestLink({
+    const issued = await service.requestLink({
       tenantId: 'tenant-a',
       email: 'a@b.ru'
     });
+    const rawToken = requireToken(issued);
 
     await expect(
       service.redeemLink({
@@ -225,10 +257,11 @@ describe('MagicLinkService.peekEmail', () => {
   });
 
   it('returns the email for a valid token without consuming it', async () => {
-    const { rawToken } = await service.requestLink({
+    const issued = await service.requestLink({
       tenantId: 't1',
       email: 'peek@example.ru'
     });
+    const rawToken = requireToken(issued);
 
     const result = await service.peekEmail({ tenantId: 't1', rawToken });
 

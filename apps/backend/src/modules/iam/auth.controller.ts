@@ -46,6 +46,11 @@ import {
   newRealtimeTicket,
   realtimeTicketKey
 } from './realtime-ticket.js';
+import {
+  DEFAULT_RECOVERY_THROTTLE,
+  RECOVERY_THROTTLE_SETTINGS_KEY,
+  resolveRecoveryThrottle
+} from './recovery-throttle.js';
 import { AuthService, TotpChallengeRequired } from './services/auth.service.js';
 import { IamService } from './services/iam.service.js';
 import {
@@ -245,11 +250,28 @@ export class AuthController {
       throw new UnauthorizedException({ code: 'no_tenant', message: 'Tenant not resolved' });
     }
 
+    /*
+     * ТЗ 17.1: предел восстановления — настройка ЦЕНТРА. Разрешается здесь, потому что
+     * настройки лежат в отдельной таблице; беда с их чтением означает умолчания, а не отказ
+     * во входе.
+     */
+    let throttle = DEFAULT_RECOVERY_THROTTLE;
+    if (this.tenants) {
+      try {
+        const stored = await this.tenants.getSettings(context.tenantId);
+        const settingsPayload = stored.payload as Record<string, unknown> | undefined;
+        throttle = resolveRecoveryThrottle(settingsPayload?.[RECOVERY_THROTTLE_SETTINGS_KEY]);
+      } catch {
+        /* Настроек у центра может не быть вовсе — действуют умолчания. */
+      }
+    }
+
     const { rawToken } = await this.magicLinkService.requestLink({
       tenantId: context.tenantId,
       email: payload.email,
       ip: context.ip,
-      userAgent: context.userAgent
+      userAgent: context.userAgent,
+      throttle
     });
     /*
      * ТЗ 13.3 (Р14): письмо приходит от имени учебного центра, а не от платформы. Название
@@ -265,11 +287,18 @@ export class AuthController {
         tenantName = undefined;
       }
     }
-    await this.magicLinkEmailSender.sendMagicLink({
-      email: payload.email,
-      rawToken,
-      ...(tenantName ? { tenantName } : {})
-    });
+    /*
+     * ТЗ 17.1: предел восстановления сработал — письма нет, но ОТВЕТ ТОТ ЖЕ. Отличающийся
+     * ответ превратил бы форму в способ проверять, есть ли такой человек в системе и не
+     * заваливают ли уже его почту.
+     */
+    if (rawToken) {
+      await this.magicLinkEmailSender.sendMagicLink({
+        email: payload.email,
+        rawToken,
+        ...(tenantName ? { tenantName } : {})
+      });
+    }
 
     return { status: 'sent' };
   }
