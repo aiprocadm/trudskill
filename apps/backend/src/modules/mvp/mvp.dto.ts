@@ -683,6 +683,15 @@ export class CreateTestRequest {
   @MinLength(1)
   moduleId?: string;
 
+  /**
+   * Назначение проверки (ТЗ 10.4, решение Р9). Не задано — выводится из привязки к модулю.
+   * Отмечать явно нужно только тренировочное тестирование: вывести его не из чего, а правила
+   * у него другие — попытки не ограничены и в протокол оно не идёт.
+   */
+  @IsOptional()
+  @IsIn(['final', 'module', 'practice'])
+  purpose?: 'final' | 'module' | 'practice';
+
   @IsString()
   @MinLength(1)
   title!: string;

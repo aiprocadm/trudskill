@@ -42,6 +42,16 @@ export function useAttemptQuestions(attemptId: string | null) {
   });
 }
 
+/** Итог проверки для экрана слушателя (ТЗ 10.4): проценты, сроки, «что дальше». */
+export function useAttemptResultView(attemptId: string | null) {
+  const { session } = useAuth();
+  return useQuery({
+    queryKey: ['test-player', 'attempt-result-view', attemptId],
+    enabled: Boolean(session) && Boolean(attemptId),
+    queryFn: () => testPlayerApi.getAttemptResultView(session!, attemptId!)
+  });
+}
+
 export function useAttemptResult(attemptId: string | null) {
   const { session } = useAuth();
   return useQuery({

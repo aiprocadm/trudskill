@@ -1,3 +1,4 @@
+import type { ExamPurpose } from './exam/retake-policy.js';
 import type { RegistryReadinessReport } from './registry-readiness.js';
 import type { ExportSignatureStatus } from '../../infrastructure/export-signature/export-signature.provider.js';
 
@@ -487,6 +488,13 @@ export interface TestEntity extends BaseEntity {
   courseId: string;
   /** Wave 1: when set, this test is the intermediate (gating) test of the module. Null ⇒ final/course exam. */
   moduleId?: string;
+  /**
+   * Назначение проверки (ТЗ 10.4, решение Р9). Не задано — выводится из `moduleId`:
+   * привязан к модулю ⇒ тест модуля, не привязан ⇒ итоговая проверка знаний. Тренировочное
+   * тестирование отмечается явно: вывести его не из чего, а правила у него другие —
+   * попытки не ограничены и в протокол оно не идёт.
+   */
+  purpose?: ExamPurpose;
   title: string;
   description?: string;
   questionBankId?: string;

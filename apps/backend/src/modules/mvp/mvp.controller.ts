@@ -24,6 +24,7 @@ import { ConsentService } from './consents/consent.service.js';
 import { CreateCounterpartyExtendedRequest } from './create-counterparty-extended.dto.js';
 import { ManagerDashboardService } from './dashboards/manager-dashboard.service.js';
 import { MethodistDashboardService } from './dashboards/methodist-dashboard.service.js';
+import { ExamOutcomeService } from './exam/exam-outcome.service.js';
 import { backendEnv } from '../../env.js';
 import { SimpleSignatureService } from './esignature/simple-signature.service.js';
 import { IdentityPolicyService } from './identity/identity-policy.service.js';
@@ -162,7 +163,10 @@ export class MvpController {
     /* ТЗ 8.3: панель руководителя. Параметр ПОСЛЕДНИЙ — новая зависимость в середине сдвигает
        позиционные вызовы в тестах, которые собирают контроллер руками (журнал 526). */
     @Inject(ManagerDashboardService)
-    private readonly managerDashboardService: ManagerDashboardService
+    private readonly managerDashboardService: ManagerDashboardService,
+    /* ТЗ 10.4 (Р9): итог проверки знаний и список повторных проверок. */
+    @Inject(ExamOutcomeService)
+    private readonly examOutcomes: ExamOutcomeService
   ) {}
 
   @Get('counterparties')
@@ -1388,9 +1392,20 @@ export class MvpController {
     // только когда принята ДЕЙСТВУЮЩАЯ редакция текста: переписали соглашение — нужна новая
     // подпись, иначе центр опирался бы на согласие с текстом, которого уже нет.
     const signature = await this.simpleSignature.getStatus(c.tenantId!, c.userId ?? '');
-    return this.mvpService.startAttempt(c.tenantId!, c.userId, b, c, identityPolicy, {
-      signedAt: signature.acceptedAt
-    });
+    /*
+     * ТЗ 10.4 (Р9): сколько попыток у итоговой проверки — настройка центра, и лежит она в
+     * отдельной таблице. Разрешается здесь по той же причине, что и две политики выше.
+     */
+    const retakePolicy = await this.examOutcomes.policyFor(c.tenantId!);
+    return this.mvpService.startAttempt(
+      c.tenantId!,
+      c.userId,
+      b,
+      c,
+      identityPolicy,
+      { signedAt: signature.acceptedAt },
+      retakePolicy
+    );
   }
 
   /*
@@ -1696,6 +1711,37 @@ export class MvpController {
       permissions: c.permissions
     });
   }
+  /**
+   * Что слушатель видит на экране результата (ТЗ 10.4, пункт 5).
+   *
+   * Отдельная ручка, а не поля в `exam-results/:id`: там лежит ЗАПИСЬ результата, которой
+   * пользуются протокол, реестр и отчёты, и дописывать в неё тексты для экрана значило бы
+   * смешать документ с его показом. Здесь же — представление: проценты, сроки и объяснение
+   * «что дальше».
+   */
+  @Get('attempts/:id/result-view')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('assessment.results.read')
+  async getAttemptResultView(@CurrentContext() c: RequestContext, @Param('id') id: string) {
+    return this.examOutcomes.viewForAttempt(c.tenantId!, id, {
+      actorId: c.userId,
+      permissions: c.permissions
+    });
+  }
+
+  /**
+   * Кому нужна повторная проверка знаний и до какого числа (ТЗ 10.4, пункт 2).
+   *
+   * Список считается на лету из попыток: пересдал — строка исчезла сама. Отдельной таблицы
+   * задач нет намеренно, см. `exam-result-view.ts`.
+   */
+  @Get('exam-retakes')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions('assessment.results.read')
+  async listExamRetakes(@CurrentContext() c: RequestContext) {
+    return { items: await this.examOutcomes.retakes(c.tenantId!) };
+  }
+
   @Get('exam-results/:id')
   @UseGuards(PermissionGuard)
   @RequirePermissions('assessment.results.read')

@@ -26,6 +26,7 @@ import { PostgresSimpleSignatureRepository } from './esignature/postgres-simple-
 import { SimpleSignatureController } from './esignature/simple-signature.controller.js';
 import { SIMPLE_SIGNATURE_REPOSITORY } from './esignature/simple-signature.repository.js';
 import { SimpleSignatureService } from './esignature/simple-signature.service.js';
+import { ExamOutcomeService } from './exam/exam-outcome.service.js';
 import { FrdoRegistryXlsxWriter } from './frdo-registry/frdo-registry-xlsx.writer.js';
 import { FrdoRegistryController } from './frdo-registry/frdo-registry.controller.js';
 import { FrdoRegistryService } from './frdo-registry/frdo-registry.service.js';
@@ -282,6 +283,16 @@ import { BackgroundTasksModule } from '../background-tasks/background-tasks.modu
     LearnerDossierService,
     // ФТ-G6 (Фаза 4 Task 12) — права субъекта ПДн: выгрузка и обезличивание.
     LearnerPiiService,
+    /*
+     * ТЗ 10.4 (Р9) — итог проверки знаний и повторные проверки. Как и панели, считается из
+     * состояния на лету: отдельная таблица задач разошлась бы с действительностью при первом
+     * же пропущенном событии.
+     */
+    {
+      provide: ExamOutcomeService,
+      scope: Scope.REQUEST,
+      useClass: ExamOutcomeService
+    },
     // ТЗ 8.3 — панель руководителя: считается из состояния центра на лету.
     {
       provide: ManagerDashboardService,
