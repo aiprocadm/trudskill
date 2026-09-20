@@ -5,9 +5,9 @@ import {
   type RecertificationDraftsRepository
 } from './recertification-drafts.repository.js';
 import { addDays } from '../../../common/utils/date-math.util.js';
-import { NotificationDispatcher } from '../../communication/notification-dispatcher.service.js';
 import { DocumentsTenantRunner } from '../../documents/documents-tenant-runner.service.js';
 import { pickMilestone } from '../reminders/milestone.util.js';
+import { ReminderOutbox } from '../reminders/reminder-outbox.service.js';
 import {
   buildLearnerEmployerRecipients,
   buildStaffRecipients,
@@ -87,8 +87,9 @@ export class RecertificationScanner {
   constructor(
     @Inject(RECERTIFICATION_DRAFTS_REPOSITORY)
     private readonly drafts: RecertificationDraftsRepository,
-    @Inject(NotificationDispatcher)
-    private readonly dispatcher: NotificationDispatcher,
+    /* ТЗ 11.3: копилка вместо прямой отправки — одно письмо в день на человека. */
+    @Inject(ReminderOutbox)
+    private readonly outbox: ReminderOutbox,
     @Inject(DocumentsTenantRunner)
     private readonly documentsRunner: DocumentsTenantRunner,
     /* ТЗ 11.3: за сколько дней предупреждать о переаттестации, решает центр. */
@@ -148,20 +149,34 @@ export class RecertificationScanner {
       if (recipients.length === 0) continue;
 
       try {
-        const summary = await this.dispatcher.dispatch({
-          tenantId,
-          templateKey: 'recertification_due',
-          recipients,
-          variables: {
-            learnerName: resolveLearnerDisplay(state, tenantId, enrollment.learnerId).name,
-            courseTitle: resolveCourseTitleByVersion(state, tenantId, courseVersionId) ?? '',
-            validUntil: candidate.validUntil
-          },
-          relatedEntityType: 'recertification_draft',
-          relatedEntityId: row.id,
-          dedupKey: `recert:${row.id}:${milestone}`
-        });
-        emailsDispatched += summary.sent;
+        const learnerName = resolveLearnerDisplay(state, tenantId, enrollment.learnerId).name;
+        const courseTitle = resolveCourseTitleByVersion(state, tenantId, courseVersionId) ?? '';
+        const dedupKey = `recert:${row.id}:${milestone}`;
+        for (const recipient of recipients) {
+          /* ТЗ 11.3: копилка вместо прямой отправки — одно письмо в день на человека. */
+          this.outbox.queue(tenantId, {
+            templateKey: 'recertification_due',
+            variables: {
+              learnerName,
+              courseTitle,
+              validUntil: candidate.validUntil
+            },
+            relatedEntityType: 'recertification_draft',
+            relatedEntityId: row.id,
+            ...('userId' in recipient && recipient.userId ? { userId: recipient.userId } : {}),
+            digest: {
+              email: recipient.email,
+              recipientKind: recipient.kind,
+              ...(recipient.name ? { recipientName: recipient.name } : {}),
+              subjectName: learnerName,
+              reasonTitle: 'Переаттестация',
+              about: courseTitle,
+              dueDate: candidate.validUntil.slice(0, 10),
+              dedupKey
+            }
+          });
+          emailsDispatched += 1;
+        }
       } catch (err) {
         this.logger.error(
           `Failed to dispatch recertification_due for draft ${row.id}: ${err instanceof Error ? err.message : String(err)}`

@@ -227,7 +227,12 @@ import { TenantModule } from '../tenant/tenant.module.js';
     ChatService,
     WebinarsService,
     WebinarProviderSettingsService,
-    NotificationDispatcher
+    NotificationDispatcher,
+    /*
+     * ТЗ 11.3: копилка напоминаний отмечает каждый повод доставленным, даже когда письмо ушло
+     * одно. Без журнала отправок это невозможно: подавление повторов работает именно по нему.
+     */
+    EMAIL_DELIVERIES_REPOSITORY
   ]
 })
 export class CommunicationModule {}

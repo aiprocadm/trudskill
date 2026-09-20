@@ -83,6 +83,19 @@ export const NOTIFICATION_CATALOGUE: NotificationEvent[] = [
     status: 'live'
   },
   {
+    /*
+     * ТЗ 11.3: объединённое напоминание. Получатели те же, что у собранных в него поводов —
+     * оно не новое событие, а способ доставки нескольких сразу.
+     */
+    key: 'reminder_digest',
+    title: 'Несколько сроков в одном письме',
+    audience: ['learner', 'employer', 'curator', 'admin'],
+    channels: ['email', 'in_app', 'push'],
+    templateKey: 'reminder_digest',
+    sender: 'modules/mvp/reminders/reminder-outbox.service.ts',
+    status: 'live'
+  },
+  {
     key: 'recertification_due',
     title: 'Истекает срок действия удостоверения',
     audience: ['learner'],

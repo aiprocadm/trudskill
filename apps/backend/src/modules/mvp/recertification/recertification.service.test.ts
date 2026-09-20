@@ -1,4 +1,3 @@
-import { Logger } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import { InMemoryRecertificationDraftsState } from './in-memory-recertification-drafts.state.js';
@@ -22,18 +21,10 @@ function doc(over: Record<string, unknown> = {}) {
 
 function make(
   overrides: {
-    dispatch?: ReturnType<typeof vi.fn>;
     createBulkEnrollments?: ReturnType<typeof vi.fn>;
   } = {}
 ) {
   const drafts = new InMemoryRecertificationDraftsState();
-  const dispatch =
-    overrides.dispatch ??
-    vi
-      .fn()
-      .mockImplementation((input) =>
-        Promise.resolve({ sent: input.recipients.length, skipped: 0, failed: 0 })
-      );
   const state = {
     enrollments: [
       { id: 'enr1', tenantId: 't1', learnerId: 'l1', groupId: 'g1', status: 'completed' }
@@ -60,9 +51,18 @@ function make(
       overrides.createBulkEnrollments ??
       vi.fn().mockReturnValue({ created: [{ id: 'enr_new' }], skippedExisting: [], errors: [] })
   };
+  /*
+   * ТЗ 11.3: сканер кладёт поводы в копилку, а письма уходят одним на человека в конце
+   * обхода. Заглушка копилки заменила заглушку рассыльщика; проверяемое осталось прежним —
+   * черновик создан, повод адресован тому, кому надо.
+   */
+  const queued: Array<Record<string, unknown>> = [];
+  const queue = vi.fn((_tenantId: string, item: Record<string, unknown>) => {
+    queued.push(item);
+  });
   const scanner = new RecertificationScanner(
     drafts,
-    { dispatch } as never,
+    { queue } as never,
     documents as never,
     new ReminderSettingsService()
   );
@@ -82,22 +82,27 @@ function make(
     undefined as never,
     audit as never
   );
-  return { service, drafts, dispatch, mvp, auditRecords };
+  return { service, drafts, queue, queued, mvp, auditRecords };
 }
 
 describe('RecertificationService.runScan', () => {
   it('creates a draft and dispatches one recertification_due email to the learner', async () => {
-    const { service, drafts, dispatch } = make();
+    const { service, drafts, queue, queued } = make();
     const summary = await service.runScan('t1', ASOF, {
       tenantId: 't1',
       userId: 'admin1'
     } as never);
     expect(summary.draftsCreated).toBe(1);
     expect((await drafts.list('t1', {})).length).toBe(1);
-    expect(dispatch).toHaveBeenCalledTimes(1);
-    expect(dispatch.mock.calls[0]![0].templateKey).toBe('recertification_due');
-    expect(dispatch.mock.calls[0]![0].recipients[0].email).toBe('ivan@example.com');
-    expect(dispatch.mock.calls[0]![0].variables.courseTitle).toBe('Охрана труда');
+    expect(queue).toHaveBeenCalledTimes(1);
+    const arg = queued[0]! as {
+      templateKey: string;
+      variables: { courseTitle: string };
+      digest: { email: string };
+    };
+    expect(arg.templateKey).toBe('recertification_due');
+    expect(arg.digest.email).toBe('ivan@example.com');
+    expect(arg.variables.courseTitle).toBe('Охрана труда');
   });
 
   it('is idempotent on drafts — a second scan creates no new draft', async () => {
@@ -111,19 +116,21 @@ describe('RecertificationService.runScan', () => {
     expect((await drafts.list('t1', {})).length).toBe(1);
   });
 
-  it('tolerates a dispatch failure — draft is still created, no email counted, scan does not throw', async () => {
-    const dispatch = vi.fn().mockRejectedValue(new Error('smtp down'));
-    const errorSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
-    const { service, drafts } = make({ dispatch });
+  it('черновик создаётся независимо от судьбы письма (ТЗ 11.3)', async () => {
+    /*
+     * Прежде здесь проверялось, что отказ почтовика не мешает создать черновик. С переходом
+     * на копилку сканер не отправляет вовсе — устойчивость отправки переехала в копилку и
+     * проверяется её тестом. Главное здесь осталось: ЧЕРНОВИК — рабочая запись центра, и он
+     * не зависит от письма, которое всего лишь извещение.
+     */
+    const { service, drafts, queued } = make();
     const summary = await service.runScan('t1', ASOF, {
       tenantId: 't1',
       userId: 'admin1'
     } as never);
     expect(summary.draftsCreated).toBe(1);
-    expect(summary.emailsDispatched).toBe(0);
     expect((await drafts.list('t1', {})).length).toBe(1);
-    expect(dispatch).toHaveBeenCalledTimes(1);
-    errorSpy.mockRestore();
+    expect(summary.emailsDispatched).toBe(queued.length);
   });
 });
 

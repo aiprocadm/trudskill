@@ -1,16 +1,17 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { pickMilestone } from './milestone.util.js';
+import { ReminderOutbox } from './reminder-outbox.service.js';
 import { buildStaffRecipients } from './reminder-recipients.js';
 import { ReminderSettingsService } from './reminder-settings.service.js';
-import { NotificationDispatcher } from '../../communication/notification-dispatcher.service.js';
 import { learnerRecipient } from '../enrollment-recipient.js';
 import { ExamOutcomeService } from '../exam/exam-outcome.service.js';
 
 import type { InMemoryMvpState } from '../infrastructure/in-memory-mvp.state.js';
 
 export interface KnowledgeRetestScanSummary {
-  remindersDispatched: number;
+  /** Сколько поводов положено в копилку (ТЗ 11.3): отправка — в конце обхода. */
+  remindersQueued: number;
 }
 
 /**
@@ -37,7 +38,8 @@ export class KnowledgeRetestScanner {
   private readonly logger = new Logger(KnowledgeRetestScanner.name);
 
   constructor(
-    @Inject(NotificationDispatcher) private readonly dispatcher: NotificationDispatcher,
+    /* ТЗ 11.3: копилка вместо прямой отправки — одно письмо в день на человека. */
+    @Inject(ReminderOutbox) private readonly outbox: ReminderOutbox,
     /* ТЗ 11.3: пороги задаёт центр; умолчания Р11 живут в `reminder-settings.ts`. */
     @Inject(ReminderSettingsService) private readonly settings: ReminderSettingsService,
     /* ТЗ 10.4: сроки повторной проверки считает служба итогов — здесь их не пересчитывают. */
@@ -49,10 +51,10 @@ export class KnowledgeRetestScanner {
     asOf: string,
     state: InMemoryMvpState
   ): Promise<KnowledgeRetestScanSummary> {
-    let remindersDispatched = 0;
+    let remindersQueued = 0;
     const milestones = await this.settings.milestones(tenantId, 'knowledgeRetest');
     const tasks = await this.outcomes.retakes(tenantId);
-    if (tasks.length === 0) return { remindersDispatched };
+    if (tasks.length === 0) return { remindersQueued };
 
     /* Копия сотрудникам одна на центр — считаем её один раз, как в соседних сканерах. */
     const staffRecipients = buildStaffRecipients(state, tenantId);
@@ -85,11 +87,20 @@ export class KnowledgeRetestScanner {
       ];
       if (recipients.length === 0) continue;
 
-      try {
-        const summary = await this.dispatcher.dispatch({
-          tenantId,
+      /*
+       * В ключ входит сама дата срока. Если центр перенесёт проверку или слушатель пересдаст
+       * и снова не сдаст, срок станет другим — и напоминание сработает заново. Без даты в
+       * ключе порог, отработавший по старому сроку, был бы подавлен навсегда: та же грабля,
+       * что чинили у сроков обучения и лицензий (§5.150).
+       */
+      const dedupKey = `retest:${task.learnerId}:${task.testId}:${task.dueAt.slice(0, 10)}:${milestone}`;
+      for (const recipient of recipients) {
+        /*
+         * ТЗ 11.3: письмо не отправляется здесь, а КЛАДЁТСЯ в копилку. В конце обхода центра
+         * человек получит одно письмо на все поводы, а не по письму на каждый.
+         */
+        this.outbox.queue(tenantId, {
           templateKey: 'knowledge_retest',
-          recipients,
           variables: {
             learnerName: resolved?.name ?? task.learnerName,
             courseTitle: task.testTitle,
@@ -98,25 +109,23 @@ export class KnowledgeRetestScanner {
           },
           relatedEntityType: 'assessment.retake',
           relatedEntityId: `${task.learnerId}:${task.testId}`,
-          /*
-           * В ключ входит сама дата срока. Если центр перенесёт проверку или слушатель
-           * пересдаст и снова не сдаст, срок станет другим — и напоминание сработает
-           * заново. Без даты в ключе порог, отработавший по старому сроку, был бы подавлен
-           * навсегда: та же грабля, что чинили у сроков обучения и лицензий (§5.150).
-           */
-          dedupKey: `retest:${task.learnerId}:${task.testId}:${task.dueAt.slice(0, 10)}:${milestone}`
+          ...('userId' in recipient && recipient.userId ? { userId: recipient.userId } : {}),
+          digest: {
+            email: recipient.email,
+            recipientKind: recipient.kind,
+            ...(recipient.name ? { recipientName: recipient.name } : {}),
+            subjectName: resolved?.name ?? task.learnerName,
+            reasonTitle: 'Повторная проверка знаний',
+            about: task.testTitle,
+            dueDate: task.dueAt.slice(0, 10),
+            dedupKey
+          }
         });
-        remindersDispatched += summary.sent;
-      } catch (err) {
-        this.logger.error(
-          `Failed to dispatch knowledge_retest for learner ${task.learnerId}: ${
-            err instanceof Error ? err.message : String(err)
-          }`
-        );
+        remindersQueued += 1;
       }
     }
 
-    return { remindersDispatched };
+    return { remindersQueued };
   }
 }
 

@@ -4,6 +4,7 @@ import { Cron } from '@nestjs/schedule';
 import { CourseDeadlineScanner } from './course-deadline-scanner.service.js';
 import { KnowledgeRetestScanner } from './knowledge-retest-scanner.service.js';
 import { LicenseExpiryScanner } from './license-expiry-scanner.service.js';
+import { ReminderOutbox } from './reminder-outbox.service.js';
 import {
   declareScheduler,
   recordSchedulerRun
@@ -41,6 +42,7 @@ export class RemindersSchedulerService implements OnModuleInit {
     @Inject(CourseDeadlineScanner) private readonly deadlineScanner: CourseDeadlineScanner,
     @Inject(LicenseExpiryScanner) private readonly licenseScanner: LicenseExpiryScanner,
     @Inject(KnowledgeRetestScanner) private readonly retestScanner: KnowledgeRetestScanner,
+    @Inject(ReminderOutbox) private readonly outbox: ReminderOutbox,
     @Inject(DatabaseService) private readonly db: DatabaseService
   ) {}
 
@@ -101,6 +103,17 @@ export class RemindersSchedulerService implements OnModuleInit {
             await this.licenseScanner.scanTenant(tenantId, tenantAsOf, state);
             /* ТЗ 11.3 + 10.4: повторная проверка знаний — за 14, 7 и 3 дня до срока. */
             await this.retestScanner.scanTenant(tenantId, tenantAsOf, state);
+            /*
+             * ТЗ 11.3: письма уходят ЗДЕСЬ, после всех сканеров, — по одному на человека.
+             * Пока сканеры только складывали поводы; отправить их по ходу значило бы вернуть
+             * ровно то, от чего задача и избавляет: по письму на каждый повод.
+             */
+            const sent = await this.outbox.flush(tenantId, tenantAsOf);
+            if (sent.lettersSent > 0) {
+              this.logger.log(
+                `Reminders for tenant ${tenantId}: ${sent.lettersSent} letter(s), ${sent.reasonsCovered} reason(s)`
+              );
+            }
           });
         } catch (err) {
           this.logger.error(
