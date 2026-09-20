@@ -25,6 +25,12 @@ import { ENROLLMENT_COMPLETED_EVENT } from './enrollment-completed.event.js';
 import { buildEnrollmentCompletedPayload } from './enrollment-completed.payload.js';
 import { ENROLLMENT_INVITED_EVENT } from './enrollment-invited.event.js';
 import { learnerRecipient } from './enrollment-recipient.js';
+import {
+  DEFAULT_EXAM_RETAKE_POLICY,
+  type ExamRetakePolicy,
+  attemptLimitFor,
+  purposeOfTest
+} from './exam/retake-policy.js';
 import { type ExamReadinessReport, buildExamReadiness } from './exam-readiness.js';
 import { parseFullName } from './fio.js';
 import {
@@ -3462,6 +3468,8 @@ export class MvpService {
       tenantId,
       courseId: request.courseId,
       moduleId: request.moduleId,
+      /* ТЗ 10.4 (Р9): назначение проверки; не задано — выводится из привязки к модулю. */
+      purpose: request.purpose,
       title: request.title,
       description: request.description,
       questionBankId: request.questionBankId,
@@ -4032,7 +4040,16 @@ export class MvpService {
      * Разрешается снаружи (контроллером), потому что метод синхронный, а соглашение живёт
      * в отдельной таблице — тот же приём, что у согласия на фото (`PhotoConsentGate`).
      */
-    electronicAgreement?: { signedAt?: string | undefined }
+    electronicAgreement?: { signedAt?: string | undefined },
+    /**
+     * ТЗ 10.4 (Р9): политика попыток и пересдач центра. Разрешается снаружи по той же
+     * причине, что и соглашение выше: метод синхронный, а настройки лежат в отдельной
+     * таблице. Не передана — действуют умолчания Порядка № 2464.
+     *
+     * Параметр стоит ПОСЛЕДНИМ намеренно: необязательный параметр в середине списка молча
+     * сдвигает все вызовы, и соглашение уехало бы в политику (грабля проекта).
+     */
+    retakePolicy?: ExamRetakePolicy
   ): TestAttempt {
     const test = this.getById(this.state.tests, tenantId, request.testId);
     const enrollment = this.getById(this.state.enrollments, tenantId, request.enrollmentId);
@@ -4095,7 +4112,21 @@ export class MvpService {
     const bounded = test.rules.dailyResetEnabled
       ? attempts.filter((item) => todayIn(timezone, new Date(item.startedAt)) === dayKey)
       : attempts;
-    if (bounded.length >= test.rules.attemptLimit)
+    /*
+     * Сколько попыток положено — решает НАЗНАЧЕНИЕ проверки, а не правило теста (ТЗ 10.4,
+     * решение Р9). У итоговой проверки знаний попытка одна: это пункт 79 Порядка № 2464, а не
+     * настройка методиста. Оставить число в карточке теста значило бы, что «одна попытка»
+     * держится на том, что все методисты помнят про Порядок.
+     *
+     * Политика центра приходит извне: сам метод синхронный, а настройки лежат в отдельной
+     * таблице. Не передана — действуют умолчания Порядка.
+     */
+    const attemptLimit = attemptLimitFor(
+      purposeOfTest(test),
+      retakePolicy ?? DEFAULT_EXAM_RETAKE_POLICY,
+      test.rules.attemptLimit
+    );
+    if (attemptLimit !== null && bounded.length >= attemptLimit)
       throw new PreconditionFailedException({
         code: 'attempt_limit_reached',
         message: 'Attempt limit reached'
@@ -6442,6 +6473,12 @@ export class MvpService {
     };
     return transitions[from].includes(to);
   }
+
+  /**
+   * Назначение проверки (ТЗ 10.4). Не задано — выводится из привязки к модулю: привязан ⇒
+   * тест модуля, не привязан ⇒ итоговая проверка знаний. Так старые тесты, заведённые до
+   * появления признака, получают верное правило без правки данных.
+   */
 
   private normalizeTestRules(rules?: Partial<TestRulesDto>) {
     const attemptLimit = Math.max(1, rules?.attemptLimit ?? 1);

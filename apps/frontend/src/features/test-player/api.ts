@@ -1,5 +1,6 @@
 import { apiRequest } from '../../lib/api/client';
 
+import type { ExamResultView } from './result-view';
 import type {
   AttemptDto,
   AttemptQuestion,
@@ -58,6 +59,17 @@ export const testPlayerApi = {
     }),
   getAttemptResult: (session: UserSession, attemptId: string): Promise<ExamResultDto> =>
     apiRequest<ExamResultDto>(`/attempts/${attemptId}/result`, {
+      method: 'GET',
+      ...withAuth(session)
+    }),
+  /**
+   * Итог проверки для экрана слушателя (ТЗ 10.4).
+   *
+   * Отдельно от записи результата выше: там лежит документ, которым пользуются протокол и
+   * реестр, здесь — его показ человеку (проценты, сроки, «что дальше»).
+   */
+  getAttemptResultView: (session: UserSession, attemptId: string): Promise<ExamResultView> =>
+    apiRequest<ExamResultView>(`/attempts/${attemptId}/result-view`, {
       method: 'GET',
       ...withAuth(session)
     }),

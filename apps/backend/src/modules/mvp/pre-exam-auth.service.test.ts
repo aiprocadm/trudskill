@@ -83,7 +83,19 @@ function seedFinalExam(service: MvpService, requiresPreExamAuth: boolean) {
   const test = service.createTest(
     T,
     ADMIN,
-    { courseId: course.id, questionBankId: bank.id, title: 'Final', rules: { attemptLimit: 5 } },
+    {
+      courseId: course.id,
+      questionBankId: bank.id,
+      title: 'Final',
+      /*
+       * ТЗ 10.4 (Р9): у ИТОГОВОЙ проверки знаний заход один — пункт 79 Порядка № 2464. Этот
+       * набор проверяет допуск к экзамену по личности, а не число попыток, и ему нужен
+       * повторный заход. Поэтому проверка помечена тестом модуля: там число попыток и задаёт
+       * методист. Правило «одна попытка у итоговой» проверяется своим набором и по HTTP.
+       */
+      purpose: 'module' as const,
+      rules: { attemptLimit: 5 }
+    },
     ctx
   );
   service.addTestQuestions(T, test.id, [q.id]);

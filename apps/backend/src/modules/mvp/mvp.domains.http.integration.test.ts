@@ -185,6 +185,7 @@ describe('MVP HTTP integration (domain invariants)', () => {
       { TenantUsageService },
       { LearnerPiiService },
       { ManagerDashboardService },
+      { ExamOutcomeService },
       { MethodistDashboardService },
       { DOCUMENTS_STATE },
       { InMemoryDocumentsState },
@@ -228,6 +229,7 @@ describe('MVP HTTP integration (domain invariants)', () => {
       import('./usage/tenant-usage.service.js'),
       import('./pii/learner-pii.service.js'),
       import('./dashboards/manager-dashboard.service.js'),
+      import('./exam/exam-outcome.service.js'),
       import('./dashboards/methodist-dashboard.service.js'),
       import('../documents/documents-state.token.js'),
       import('../documents/in-memory-documents.state.js'),
@@ -310,6 +312,16 @@ describe('MVP HTTP integration (domain invariants)', () => {
           provide: ManagerDashboardService,
           scope: Scope.REQUEST,
           useClass: ManagerDashboardService
+        },
+        /*
+         * ТЗ 10.4 (Р9): контроллер отдаёт итог проверки знаний и список повторных проверок.
+         * Настройки центра службе не обязательны — без базы настроек она берёт умолчания
+         * Порядка № 2464 (одна попытка, тридцать дней).
+         */
+        {
+          provide: ExamOutcomeService,
+          scope: Scope.REQUEST,
+          useClass: ExamOutcomeService
         },
         // ФТ-H2 (Фаза 5 Task 2): контроллер отдаёт дашборд методиста; сервису нужно
         // только состояние тенанта, которое здесь уже поднято.
@@ -813,6 +825,16 @@ describe('MVP HTTP integration (domain invariants)', () => {
       })
     ).json()) as { data: { id: string } };
 
+    /*
+     * ТЗ 10.4 (решение Р9): проверка помечена ТЕСТОМ МОДУЛЯ.
+     *
+     * До этой задачи тест был обычным курсовым, и два разрешённых захода закрепляли старое
+     * поведение — «сколько попыток, решает методист». По пункту 79 Порядка № 2464 у ИТОГОВОЙ
+     * проверки знаний попытка одна, и правило теста её больше не переопределяет. Инвариант
+     * «предел попыток действует по HTTP» никуда не делся — он проверяется здесь же, только
+     * на том виде проверки, где предел и назначает методист. Отдельной проверкой ниже
+     * закреплено новое правило: у итоговой заход ровно один.
+     */
     const test = (await (
       await fetch(`${apiBaseUrl}/tests`, {
         method: 'POST',
@@ -821,6 +843,7 @@ describe('MVP HTTP integration (domain invariants)', () => {
           title: `ExamLIM_${ts}`,
           courseId: course.data.id,
           questionBankId: bank.data.id,
+          purpose: 'module',
           rules: { attemptLimit: 2, dailyResetEnabled: false }
         })
       })
@@ -891,6 +914,58 @@ describe('MVP HTTP integration (domain invariants)', () => {
     expect(((await blocked.json()) as { error: { code: string } }).error.code).toBe(
       'attempt_limit_reached'
     );
+
+    /*
+     * ТЗ 10.4 (решение Р9, пункт 79 Порядка № 2464): у ИТОГОВОЙ проверки знаний заход один —
+     * и правило теста этого не меняет.
+     *
+     * Проверка идёт по HTTP, а не только на чистой функции, потому что обойти правило можно
+     * ровно здесь: достаточно, чтобы контроллер не передал политику центра внутрь — и предел
+     * молча вернулся бы к числу из карточки теста. Такое уже случалось с ограничением частоты
+     * на публичной проверке документа (§5.169).
+     */
+    const finalExam = (await (
+      await fetch(`${apiBaseUrl}/tests`, {
+        method: 'POST',
+        headers: hdr(admin),
+        body: JSON.stringify({
+          title: `ExamFINAL_${ts}`,
+          courseId: course.data.id,
+          questionBankId: bank.data.id,
+          /* Назначение не указано: курсовой тест без модуля и есть итоговая проверка. */
+          rules: { attemptLimit: 5, dailyResetEnabled: false }
+        })
+      })
+    ).json()) as { data: { id: string } };
+
+    await fetch(`${apiBaseUrl}/tests/${finalExam.data.id}/questions`, {
+      method: 'POST',
+      headers: hdr(admin),
+      body: JSON.stringify({ questionIds: [q.data.id] })
+    });
+
+    const finalPayload = JSON.stringify({
+      testId: finalExam.data.id,
+      enrollmentId: enrollment.data.id,
+      learnerId: learner.data.id
+    });
+
+    const firstFinal = await fetch(`${apiBaseUrl}/attempts/start`, {
+      method: 'POST',
+      headers: hdr(learnerToken),
+      body: finalPayload
+    });
+    expect(firstFinal.status, 'первый заход на итоговую обязан пускать').toBe(201);
+
+    const secondFinal = await fetch(`${apiBaseUrl}/attempts/start`, {
+      method: 'POST',
+      headers: hdr(learnerToken),
+      body: finalPayload
+    });
+    expect(
+      secondFinal.status,
+      'у итоговой проверки заход один, даже если в карточке теста стоит пять'
+    ).toBe(412);
   });
 
   it('HTTP: rejects assignment review on draft submission and score above maxScore', async () => {

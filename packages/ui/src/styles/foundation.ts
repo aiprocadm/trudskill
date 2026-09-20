@@ -302,11 +302,30 @@ progress::-moz-progress-bar { background: var(--ui-brand-600); border-radius: va
 
 /* Результат теста — заметный баннер успеха/провала */
 .test-result__banner { display: flex; align-items: center; gap: 16px; padding: 20px; border-radius: var(--ui-radius-lg); border: 1px solid var(--ui-border); }
-.test-result__banner--pass { background: color-mix(in srgb, var(--ui-success-600) 12%, var(--ui-surface)); border-color: var(--ui-success-600); }
-.test-result__banner--fail { background: color-mix(in srgb, var(--ui-danger-600) 10%, var(--ui-surface)); border-color: var(--ui-danger-600); }
-.test-result__icon { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: var(--ui-font-size-2xl); line-height: 1; flex: none; color: #fff; }
-.test-result__banner--pass .test-result__icon { background: var(--ui-success-600); }
-.test-result__banner--fail .test-result__icon { background: var(--ui-danger-600); }
+/*
+ * ТЗ 10.4 (Р9): три исхода вместо двух. «Требуется повторная проверка знаний» — это ВНИМАНИЕ,
+ * а не ошибка: красный означает «что-то сломалось», а здесь ничего не сломалось — человеку
+ * назначена повторная проверка, и это предусмотренный Порядком № 2464 ход событий. Красная
+ * плашка читается как приговор, а по Р9 неуд приговором не является.
+ */
+.test-result__banner--success { background: color-mix(in srgb, var(--ui-success-600) 12%, var(--ui-surface)); border-color: var(--ui-success-600); }
+.test-result__banner--warning { background: color-mix(in srgb, var(--ui-warning-600) 12%, var(--ui-surface)); border-color: var(--ui-warning-600); }
+.test-result__banner--info { background: color-mix(in srgb, var(--ui-info-600) 10%, var(--ui-surface)); border-color: var(--ui-info-600); }
+.test-result__icon { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: var(--ui-font-size-2xl); line-height: 1; flex: none; color: var(--ui-on-color); }
+.test-result__banner--success .test-result__icon { background: var(--ui-success-600); }
+.test-result__banner--warning .test-result__icon { background: var(--ui-warning-600); }
+.test-result__banner--info .test-result__icon { background: var(--ui-info-600); }
+
+/*
+ * Пары «что — сколько» на карточке итога. Список определений, а не таблица: это не данные
+ * для сравнения строк между собой, а подписи к одному объекту, и на телефоне такой список
+ * переносится сам, без карточного режима.
+ */
+.ui-kv { display: grid; gap: var(--ui-space-sm); margin: 0; }
+.ui-kv > div { display: flex; justify-content: space-between; gap: var(--ui-space-md); align-items: baseline; border-bottom: 1px solid var(--ui-border); padding-bottom: var(--ui-space-xs); }
+.ui-kv > div:last-child { border-bottom: none; padding-bottom: 0; }
+.ui-kv dt { color: var(--ui-text-muted); font-size: var(--ui-font-size-sm); }
+.ui-kv dd { margin: 0; font-weight: var(--ui-font-weight-semibold); font-variant-numeric: tabular-nums; text-align: right; }
 .test-result__headline { margin: 0; font-size: var(--ui-font-size-lg); font-weight: var(--ui-font-weight-bold); color: var(--ui-text); }
 .test-result__score { margin: 3px 0 0; font-size: var(--ui-font-size-md); color: var(--ui-text-muted); }
 .test-result__score strong { color: var(--ui-text); font-size: var(--ui-font-size-lg); font-variant-numeric: tabular-nums; }

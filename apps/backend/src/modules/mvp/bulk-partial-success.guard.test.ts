@@ -31,6 +31,10 @@ const SRC = resolve(HERE, '..', '..');
  * законно там, где строки не независимы: одна настройка, один документ, одна проверка.
  */
 const DECIDED: Record<string, string> = {
+  'modules/mvp/exam/exam-outcome.service.ts for (const questionId of wrongQuestionIds)':
+    'всё или ничего не грозит: цикл только СОБИРАЕТ темы, в которых слушатель ошибся ' +
+    '(ТЗ 10.4, Р9 пункт 4) — ни одной записи он не делает, а вопрос без темы просто не ' +
+    'добавляет в список, вместо того чтобы прервать сбор',
   'modules/mvp/dashboards/manager-dashboard.util.ts for (const row of input.courseProgress)':
     'всё или ничего не грозит: панель руководителя (ТЗ 8.3) только СЧИТАЕТ по снимку ' +
     'состояния — ни одной записи она не делает и ничего не бросает',
